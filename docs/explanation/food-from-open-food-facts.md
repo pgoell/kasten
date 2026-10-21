@@ -1,7 +1,7 @@
 ---
 type: Explanation
 title: Food from Open Food Facts
-description: Why the food data comes from Open Food Facts, why the backend asks for it and not the browser, what leaves the server, why kasten counts its own calls, why the cache lives in memory, why search goes to Search-a-licious, and what the route answers when Open Food Facts refuses.
+description: Why the food data comes from Open Food Facts, why the backend asks for it and not the browser, what leaves the server, why kasten counts its own calls, why the cache lives in memory, why search goes to Search-a-licious, what the route answers when Open Food Facts refuses, and why foods of your own live in a vault note.
 tags: [food, open-food-facts, backend, privacy, rate-limits]
 status: stable
 ---
@@ -102,6 +102,16 @@ and, where it can, the wait:
   not read: `502`, `Open Food Facts did not answer`.
 * A barcode with no product: `404`, `No food with barcode <code> on Open Food
   Facts`. A search with no match is an empty list, not an error.
+
+## Foods of your own
+
+Open Food Facts lacks some products, so a food of your own is a line in
+`foods.md`, a note in the vault ([the foods note](/reference/log-format.md#the-foods-note)).
+Unlike the cache, these are records: you typed them off a pack, and nobody else
+keeps them. So they live where the notes live, with their history in jj, and
+they can be read and fixed by hand. The figures are per 100 g because that is
+the column every pack prints. The note never leaves the server, and a search
+for your own food makes no call to Open Food Facts.
 
 ## Related
 

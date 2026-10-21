@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { type Food, fetchLog, type LogDay, readBarcode, searchFood } from "@/lib/food-api";
 import { logCard } from "@/lib/log-card";
 import { drinkTotals } from "@/lib/log-lines";
+import { addMyFood, fetchMyFoods } from "@/lib/my-foods";
 import { notePath } from "@/lib/todo-commands";
 import { vimKeys, vimModeField, vimModeState } from "@/lib/vim-mode";
 
@@ -14,6 +15,11 @@ vi.mock("@/lib/food-api", () => ({
   searchFood: vi.fn(),
   readBarcode: vi.fn(),
   fetchLog: vi.fn(),
+}));
+vi.mock("@/lib/my-foods", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/my-foods")>()),
+  fetchMyFoods: vi.fn(),
+  addMyFood: vi.fn(),
 }));
 
 const DAILY = "01 Periodic/00 Daily/2026-10-20.md";
@@ -136,6 +142,8 @@ describe("the food search", () => {
     vi.mocked(searchFood).mockReset().mockResolvedValue([HIT]);
     vi.mocked(readBarcode).mockReset().mockResolvedValue(SNICKERS);
     vi.mocked(fetchLog).mockReset().mockResolvedValue([]);
+    vi.mocked(fetchMyFoods).mockReset().mockResolvedValue({ foods: [], broken: [] });
+    vi.mocked(addMyFood).mockReset().mockResolvedValue(undefined);
   });
 
   afterEach(() => {

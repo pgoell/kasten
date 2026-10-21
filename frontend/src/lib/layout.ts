@@ -44,6 +44,9 @@ export let DECKS_NOTE = "99 Misc/01 Config/decks.md";
 /** The note naming the log's kinds and daily goals, which the card reads. */
 export let LOG_NOTE = "99 Misc/01 Config/log.md";
 
+/** The note holding foods of your own, which the food search lists before Open Food Facts. */
+export let FOODS_NOTE = "99 Misc/01 Config/foods.md";
+
 /** Take the folders the backend named, from here on. */
 export function applyLayout(layout: Layout): void {
   INBOX = layout.inbox;
@@ -55,4 +58,5 @@ export function applyLayout(layout: Layout): void {
   READING_NOTE = `${layout.config}/reading-now.md`;
   DECKS_NOTE = `${layout.config}/decks.md`;
   LOG_NOTE = `${layout.config}/log.md`;
+  FOODS_NOTE = `${layout.config}/foods.md`;
 }

@@ -55,10 +55,14 @@ convert it yourself.
 ## An unknown barcode
 
 If Open Food Facts has no product for the code, kasten says `No food with
-barcode N on Open Food Facts; search by name instead`, with the code in place
-of `N`. Nothing is logged. Type the food's name in the search field to find it.
+barcode N on Open Food Facts; search by name or add it as your own`, with the
+code in place of `N`. Nothing is logged. Type the food's name in the search
+field to find it, or tap `Add food` to save it with that barcode: see
+[Add a food of your own](/how-to/add-a-food-of-your-own.md). A barcode you saved
+as your own opens without asking Open Food Facts.
 
 ## Related
 
+* [Add a food of your own](/how-to/add-a-food-of-your-own.md): save a food Open Food Facts lacks
 * [Food from Open Food Facts](/explanation/food-from-open-food-facts.md): where the barcode goes, and what leaves the server
 * [The log format](/reference/log-format.md): the line a logged food leaves in the daily note

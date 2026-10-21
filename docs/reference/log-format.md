@@ -122,8 +122,9 @@ opens the rear camera (the front one where there is none) and reads EAN-13,
 EAN-8, UPC-A and UPC-E codes; a UPC-E code is looked up as its twelve-digit
 UPC-A. `Stop` ends the scan, and the camera also stops on a read, on the panel's
 close, and when the tab or app goes to the background. A read opens the product
-as a typed barcode does. Foods that the last 30 days
-logged come first, marked `recent`, and need no search. A pick shows its
+as a typed barcode does. [Foods of your own](#the-foods-note) come first, marked
+`mine`, then foods that the last 30 days logged, marked `recent`; neither needs
+a search. A pick shows its
 serving: grams, servings (1 at first), and a meal. The meal is breakfast from
 5 to 10, lunch from 11 to 14, dinner from 17 to 21, and a snack at other hours.
 `Log this food` writes the food line at the end of `## Log`, with the kcal and
@@ -201,6 +202,50 @@ a bar of its progress.
 
 An edit to `log.md` reaches the next daily note opened, not one already open.
 A tap in the moment before the note answers writes the default kinds' line.
+
+## The foods note
+
+Foods of your own, the ones Open Food Facts lacks, are lines in
+`99 Misc/01 Config/foods.md`, in the config folder. The food search reads the
+note each time it opens. [Add a food of your own](/how-to/add-a-food-of-your-own.md)
+shows how to add one.
+
+```markdown
+- ja! Choco Chips: 30 g, 🏷 4337185123456, 🔥 486 🥩 6.4 🍞 61 🧈 23
+- Skyr: 🔥 62 🥩 11
+```
+
+Only lines that start with `- ` at column 0 are read, past the frontmatter. A
+line is, in order:
+
+1. the name, then `:` and a space. A name may hold a colon: the line splits at
+   the first colon after which the rest reads;
+2. optionally the serving, a number and `g`, then `,`. Without it the serving
+   is 100 g;
+3. optionally `🏷`, a barcode of 8 to 14 digits, then `,`;
+4. the fields, as a [food line](#the-food-line) writes them: `🔥` kcal, `🥩`
+   protein, `🍞` carbs and `🧈` fat, each at most once, in any order, at least
+   one. The figures are per 100 g, as a pack's nutrition table prints them.
+
+A `- ` line that breaks a rule is named in the search as
+`Skipped line N of foods.md: <text>`, and the other lines still list.
+
+The search lists your own foods first, marked `mine`, where the name holds the
+typed words or the typed text is the barcode. A recent food with the same name
+as one of yours is listed once, as yours. A scanned barcode is looked up in the
+note before Open Food Facts is asked. A pick opens the serving form at the
+food's serving, with the figures scaled from 100 g.
+
+`Add food` in the search opens a form for the name, the serving, the four
+figures per 100 g, and the barcode. It takes the typed query as the name, and a
+barcode Open Food Facts did not know as the barcode. `Save` adds one line at the
+end of the note, making the note where there is none, then opens the food in the
+serving form. It writes the name without field markers, `🏷` and line breaks,
+the serving and figures to a tenth. Two foods with the same name both list.
+Nothing edits or removes a line but you, in the note.
+
+`frontend/src/lib/my-foods.ts` reads and writes the note, and `food-add.ts` holds the add form. The backend does not
+read it.
 
 ## Two parsers
 

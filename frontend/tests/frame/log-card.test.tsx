@@ -239,6 +239,25 @@ it("#621 the food search and the serving choice are finger-sized and do not scro
   }
 });
 
+it("#799 the add form is finger-sized and does not scroll sideways at 414", async () => {
+  try {
+    const { host, view } = await mount(414, 896);
+    openFood(view);
+    const add = view.dom.querySelector<HTMLButtonElement>(".cm-log-food-new");
+    expect(add).not.toBeNull();
+    add?.click();
+    await expect
+      .poll(() => view.dom.querySelector<HTMLElement>(".cm-log-food-add")?.hidden)
+      .toBe(false);
+    expectFingerSized(view);
+    expect(await shot(host, "food-add-414")).toBe(414);
+    view.destroy();
+    host.remove();
+  } finally {
+    await page.viewport(414, 896);
+  }
+});
+
 it("#621 the food search and the serving choice lay out on a desktop", async () => {
   try {
     const { host, view } = await mount(1200, 900);

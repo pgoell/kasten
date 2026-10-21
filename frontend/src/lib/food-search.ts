@@ -8,8 +8,10 @@
 
 import { NO_CAMERA, startCamera } from "@/lib/barcode-camera";
 import { shiftDay } from "@/lib/clock";
+import { addForm } from "@/lib/food-add";
 import { type Food, fetchLog, type LogDay, readBarcode, searchFood } from "@/lib/food-api";
 import { foodLine, tenth } from "@/lib/log-lines";
+import { fetchMyFoods, type MyFood, myChoice } from "@/lib/my-foods";
 
 const MEALS = ["breakfast", "lunch", "dinner", "snack"] as const;
 
@@ -18,7 +20,7 @@ export type Meal = (typeof MEALS)[number];
 /** The nutrients of a serving or of a logged amount, null where none is known. */
 export type Nutrients = Food["per_serving"];
 
-/** A food the form takes: one Open Food Facts gave, or one the log already holds. */
+/** A food the form takes: one Open Food Facts gave, one of your own, or one the log already holds. */
 export interface Choice {
   name: string;
   brand: string | null;
@@ -143,8 +145,12 @@ function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : "The food search failed";
 }
 
-/** A result row: the name, the brand, the kcal per serving, and `recent` for a logged food. */
-function pickButton(choice: Choice, recent: boolean, onPick: () => void): HTMLButtonElement {
+/** A result row: the name, the brand, the kcal per serving, and `mine` or `recent` where it is one. */
+function pickButton(
+  choice: Choice,
+  tag: "mine" | "recent" | null,
+  onPick: () => void,
+): HTMLButtonElement {
   const made = make("button", "cm-log-food-pick");
   made.type = "button";
   made.append(make("span", "cm-log-food-name", choice.name));
@@ -155,7 +161,7 @@ function pickButton(choice: Choice, recent: boolean, onPick: () => void): HTMLBu
   made.append(
     make("span", "cm-log-food-kcal", kcal === null ? "no kcal" : `${Math.round(kcal)} kcal ${per}`),
   );
-  if (recent) made.append(make("span", "cm-log-food-recent", "recent"));
+  if (tag !== null) made.append(make("span", `cm-log-food-${tag}`, tag));
   made.addEventListener("click", onPick);
   return made;
 }
@@ -230,24 +236,55 @@ export function foodPanel(day: string | null, hooks: PanelHooks): HTMLElement {
   video.muted = true;
   video.autoplay = true;
   video.hidden = true;
-  root.append(bar, video, why, results, serving, close);
 
+  const add = make("button", "cm-log-food-new", "Add food");
+  add.type = "button";
+  add.setAttribute("aria-label", "Add a food of your own");
+  const adding = addForm({
+    say: (text) => {
+      why.textContent = text;
+    },
+    saved: (food) => {
+      mine = [...mine, food];
+      unknownCode = null;
+      show(myChoice(food));
+    },
+    back: () => showSearch(),
+  });
+
+  root.append(bar, video, why, results, add, adding.root, serving, close);
+
+  let mine: MyFood[] = [];
   let recents: Choice[] = [];
   let offHits: Food[] = [];
   let current: Choice | null = null;
   let latest = 0;
   /** Counts the picks, so a barcode read answered after a later pick is dropped. */
   let pickTurn = 0;
+  /** The last barcode Open Food Facts did not know, which the add form takes. */
+  let unknownCode: string | null = null;
   let pause: ReturnType<typeof setTimeout> | undefined;
   /** Stops the camera of the scan running, or null while none runs. */
   let stopCamera: (() => void) | null = null;
 
   function render(): void {
     const typed = query.value.trim().toLowerCase();
-    const matches = recents.filter((choice) => choice.name.toLowerCase().includes(typed));
+    const ours = mine.filter(
+      (food) => food.name.toLowerCase().includes(typed) || food.code === typed,
+    );
+    // A food of your own logged lately is the same food, so it is listed once, as yours.
+    const names = new Set(mine.map((food) => food.name.toLowerCase()));
+    const matches = recents.filter(
+      (choice) =>
+        choice.name.toLowerCase().includes(typed) && !names.has(choice.name.toLowerCase()),
+    );
     results.replaceChildren(
-      ...matches.map((choice) => pickButton(choice, true, () => pickRecent(choice))),
-      ...offHits.map((food) => pickButton(food, false, () => readPick(food))),
+      ...ours.map((food) => {
+        const choice = myChoice(food);
+        return pickButton(choice, "mine", () => pickRecent(choice));
+      }),
+      ...matches.map((choice) => pickButton(choice, "recent", () => pickRecent(choice))),
+      ...offHits.map((food) => pickButton(food, null, () => readPick(food))),
     );
   }
 
@@ -271,8 +308,20 @@ export function foodPanel(day: string | null, hooks: PanelHooks): HTMLElement {
     servings.value = "1";
     meal.value = mealByHour(new Date().getHours());
     results.hidden = true;
+    add.hidden = true;
+    adding.root.hidden = true;
     serving.hidden = false;
     updatePreview();
+  }
+
+  /** The add form, filled from the query and the last barcode Open Food Facts did not know. */
+  function showAdd(): void {
+    pickTurn += 1;
+    current = null;
+    results.hidden = true;
+    add.hidden = true;
+    serving.hidden = true;
+    adding.open(query.value, unknownCode);
   }
 
   function search(text: string): void {
@@ -324,13 +373,21 @@ export function foodPanel(day: string | null, hooks: PanelHooks): HTMLElement {
     pickTurn += 1;
     current = null;
     serving.hidden = true;
+    adding.root.hidden = true;
     results.hidden = false;
+    add.hidden = false;
     render();
   }
 
   function readCode(code: string): void {
     pickTurn += 1;
     const turn = pickTurn;
+    // A food of your own answers its barcode before Open Food Facts is asked.
+    const ours = mine.find((food) => food.code === code);
+    if (ours !== undefined) {
+      show(myChoice(ours));
+      return;
+    }
     readBarcode(code).then(
       (full) => {
         if (turn !== pickTurn || !root.isConnected) return;
@@ -340,7 +397,8 @@ export function foodPanel(day: string | null, hooks: PanelHooks): HTMLElement {
         if (turn !== pickTurn || !root.isConnected) return;
         // A form an earlier pick left up would take the name search's Log, so the search comes back first.
         showSearch();
-        why.textContent = `${messageOf(error)}; search by name instead`;
+        why.textContent = `${messageOf(error)}; search by name or add it as your own`;
+        unknownCode = code;
         query.focus();
       },
     );
@@ -448,6 +506,7 @@ export function foodPanel(day: string | null, hooks: PanelHooks): HTMLElement {
   });
 
   back.addEventListener("click", showSearch);
+  add.addEventListener("click", showAdd);
 
   // A key typed in a field is the field's own. The editor's keymap, vim's included,
   // sits above these fields, so the key must not reach it.
@@ -465,8 +524,21 @@ export function foodPanel(day: string | null, hooks: PanelHooks): HTMLElement {
   grams.addEventListener("keydown", keys);
   servings.addEventListener("keydown", keys);
   meal.addEventListener("keydown", keys);
+  for (const input of adding.root.querySelectorAll("input"))
+    input.addEventListener("keydown", keys);
   scan.addEventListener("click", startScan);
   close.addEventListener("click", () => shut());
+
+  fetchMyFoods().then((found) => {
+    if (!root.isConnected) return;
+    mine = found.foods;
+    if (found.broken.length > 0) {
+      why.textContent = found.broken
+        .map(({ line, text }) => `Skipped line ${line} of foods.md: ${text}`)
+        .join("; ");
+    }
+    render();
+  });
 
   if (day !== null) {
     fetchLog(shiftDay(day, -RECENT_DAYS), day).then(

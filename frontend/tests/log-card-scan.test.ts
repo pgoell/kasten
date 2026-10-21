@@ -5,6 +5,7 @@ import { fireEvent } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { type Food, fetchLog, readBarcode, searchFood } from "@/lib/food-api";
 import { logCard } from "@/lib/log-card";
+import { addMyFood, fetchMyFoods } from "@/lib/my-foods";
 import { notePath } from "@/lib/todo-commands";
 import { vimModeField, vimModeState } from "@/lib/vim-mode";
 
@@ -12,6 +13,11 @@ vi.mock("@/lib/food-api", () => ({
   searchFood: vi.fn(),
   readBarcode: vi.fn(),
   fetchLog: vi.fn(),
+}));
+vi.mock("@/lib/my-foods", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/my-foods")>()),
+  fetchMyFoods: vi.fn(),
+  addMyFood: vi.fn(),
 }));
 
 const DAILY = "01 Periodic/00 Daily/2026-10-20.md";
@@ -167,6 +173,8 @@ describe("the barcode scan", () => {
     vi.mocked(searchFood).mockReset().mockResolvedValue([HIT]);
     vi.mocked(readBarcode).mockReset().mockResolvedValue(SNICKERS);
     vi.mocked(fetchLog).mockReset().mockResolvedValue([]);
+    vi.mocked(fetchMyFoods).mockReset().mockResolvedValue({ foods: [], broken: [] });
+    vi.mocked(addMyFood).mockReset().mockResolvedValue(undefined);
     tracks = [{ stop: vi.fn() }, { stop: vi.fn() }];
     stream = { getTracks: () => tracks } as unknown as MediaStream;
     getUserMedia = vi.fn().mockResolvedValue(stream);
@@ -351,7 +359,7 @@ describe("the barcode scan", () => {
     openFood(view);
     await startScan(view);
     expect(foodWhy(view)).toBe(
-      "No food with barcode 4006381333931 on Open Food Facts; search by name instead",
+      "No food with barcode 4006381333931 on Open Food Facts; search by name or add it as your own",
     );
     expect(servingOf(view)?.hidden).toBe(true);
     expect(resultsOf(view)?.hidden).toBe(false);

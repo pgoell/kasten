@@ -141,6 +141,7 @@
 
 .cm-log-food-query,
 .cm-log-food-grams,
+.cm-log-food-add-input,
 .cm-log-food-servings,
 .cm-log-food-meal {
   min-width: 0;
@@ -186,10 +187,13 @@
 
 .cm-log-food-brand,
 .cm-log-food-recent,
+.cm-log-food-mine,
 .cm-log-food-kcal {
   color: var(--color-one-muted);
 }
 
+/* The add form wraps its fields as the serving form does. */
+.cm-log-food-add,
 .cm-log-food-serving {
   display: flex;
   flex-wrap: wrap;
@@ -228,6 +232,21 @@
   flex: 1 1 7rem;
 }
 
+/* The name takes a row of its own, and the heading opens the row of figures it names. */
+.cm-log-food-add-wide,
+.cm-log-food-add-heading {
+  flex-basis: 100%;
+}
+
+.cm-log-food-add-heading {
+  color: var(--color-one-muted);
+}
+
+.cm-log-food-add-buttons {
+  display: flex;
+  gap: 8px;
+}
+
 .cm-log-food-preview {
   flex: 1 1 100%;
   color: var(--color-one-fg);
@@ -236,6 +255,8 @@
 }
 
 .cm-log-food-log,
+.cm-log-food-save,
+.cm-log-food-new,
 .cm-log-food-back,
 .cm-log-food-close,
 .cm-log-food-scan {
@@ -257,6 +278,8 @@
 }
 
 .cm-log-food-log:hover,
+.cm-log-food-save:hover,
+.cm-log-food-new:hover,
 .cm-log-food-back:hover,
 .cm-log-food-close:hover,
 .cm-log-food-scan:hover {
@@ -289,6 +312,9 @@
 .cm-log-food-meal:focus-visible,
 .cm-log-food-pick:focus-visible,
 .cm-log-food-log:focus-visible,
+.cm-log-food-save:focus-visible,
+.cm-log-food-new:focus-visible,
+.cm-log-food-add-input:focus-visible,
 .cm-log-food-back:focus-visible,
 .cm-log-food-close:focus-visible,
 .cm-log-food-scan:focus-visible {
