@@ -353,12 +353,13 @@ export function foodPanel(view: EditorView, hooks: PanelHooks): HTMLElement {
       why.textContent = "servings must be a number above zero";
       return;
     }
-    // Past these, a line's kcal runs to more digits than the log's parser reads.
+    // Past these, a line's kcal runs to more digits than the log's parser reads. A food
+    // with a serving size is held by the grams it writes; one without has only the count.
     if (typedGrams !== null && typedGrams > MAX_GRAMS) {
       why.textContent = `grams must be at most ${MAX_GRAMS}`;
       return;
     }
-    if (count > MAX_SERVINGS) {
+    if (choice.serving_g === null && count > MAX_SERVINGS) {
       why.textContent = `servings must be at most ${MAX_SERVINGS}`;
       return;
     }
@@ -376,6 +377,8 @@ export function foodPanel(view: EditorView, hooks: PanelHooks): HTMLElement {
   });
 
   back.addEventListener("click", () => {
+    // A barcode read still in the air is for a form that is no longer shown, so it is dropped.
+    pickTurn += 1;
     current = null;
     serving.hidden = true;
     results.hidden = false;

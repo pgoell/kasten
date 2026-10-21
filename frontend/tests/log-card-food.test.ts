@@ -383,6 +383,7 @@ describe("the food search", () => {
     press(view, "Log water");
     expect(text(view)).toContain("- 💧 250 ml");
     expect(view.dom.querySelector(".cm-log-food")).toBe(panel);
+    expect(document.activeElement).toBe(foodQuery(view));
     expect(foodQuery(view)?.value).toBe("snickers");
     expect(formField(view, ".cm-log-food-grams").value).toBe("100");
     expect(formField(view, ".cm-log-food-servings").value).toBe("2");
@@ -401,5 +402,44 @@ describe("the food search", () => {
     expect(text(view)).toContain(
       "- 🍽 lunch: Snickers (Mars Wrigley Confectionery UK Limited) 50 g 🔥 240 kcal 🍞 30.2 g 🧈 11.2 g\n",
     );
+  });
+
+  it("#621 500 g of a food with a 4 g serving logs", async () => {
+    vi.mocked(readBarcode).mockResolvedValueOnce({
+      ...SNICKERS,
+      serving_g: 4,
+      per_serving: { kcal: 8, protein: 0.1, carbs: 0.8, fat: 0.4 },
+    });
+    const view = mount(NOTE);
+    openFood(view);
+    await typeQuery(view, "snickers");
+    await pickFirst(view);
+    fireEvent.input(formField(view, ".cm-log-food-grams"), { target: { value: "500" } });
+    expect(formField(view, ".cm-log-food-servings").value).toBe("125");
+    logFood(view);
+    expect(text(view)).toContain(
+      "- 🍽 lunch: Snickers (Mars Wrigley Confectionery UK Limited) 500 g 🔥 1000 kcal 🥩 12.5 g 🍞 100 g 🧈 50 g\n",
+    );
+  });
+
+  it("#621 Back drops a barcode read still in the air", async () => {
+    let answerFirst: (food: Food) => void = () => {};
+    vi.mocked(readBarcode).mockReturnValueOnce(
+      new Promise<Food>((resolve) => {
+        answerFirst = resolve;
+      }),
+    );
+    const view = mount(NOTE);
+    openFood(view);
+    await typeQuery(view, "snickers");
+    await pickFirst(view);
+    // The form is hidden until the read answers, so Back is pressed by script here.
+    const back = view.dom.querySelector<HTMLButtonElement>(".cm-log-food-back");
+    expect(back).not.toBeNull();
+    back?.click();
+    answerFirst(SNICKERS);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(view.dom.querySelector<HTMLElement>(".cm-log-food-serving")?.hidden).toBe(true);
+    expect(view.dom.querySelector<HTMLElement>(".cm-log-food-results")?.hidden).toBe(false);
   });
 });

@@ -105,15 +105,31 @@ function button(
  */
 function writeLogLine(view: EditorView, line: string, effects: StateEffect<unknown>[] = []): void {
   const edit = appendUnderEdit(view.state.doc.toString(), LOG_HEADING, line);
-  view.dispatch({
-    changes: edit,
-    // The edit starts where the inserted text does, and a new section's heading comes before the line.
-    effects: [tapped.of({ from: edit.from + edit.insert.indexOf(line), text: line }), ...effects],
-    userEvent: "input.log",
-    // History joins quick adjacent input into one step, so two fast taps, or a
-    // tap just after typing, would come back as one `u`.
-    annotations: isolateHistory.of("full"),
-  });
+  keepPanelFocus(view, () =>
+    view.dispatch({
+      changes: edit,
+      // The edit starts where the inserted text does, and a new section's heading comes before the line.
+      effects: [tapped.of({ from: edit.from + edit.insert.indexOf(line), text: line }), ...effects],
+      userEvent: "input.log",
+      // History joins quick adjacent input into one step, so two fast taps, or a
+      // tap just after typing, would come back as one `u`.
+      annotations: isolateHistory.of("full"),
+    }),
+  );
+}
+
+/**
+ * Runs `change`, then gives the focus back to the open panel's element that held it.
+ * A card drawn anew moves the panel into itself, and a move drops the focus, so a
+ * tap would blur the query. Once `change` returns, the card is in the page.
+ */
+function keepPanelFocus(view: EditorView, change: () => void): void {
+  const held = document.activeElement;
+  const panel = openPanels.get(view);
+  const kept =
+    panel !== undefined && held instanceof HTMLElement && panel.contains(held) ? held : null;
+  change();
+  kept?.focus();
 }
 
 /** Writes the line `amount` makes for `kind` at the end of `## Log`, or says why it cannot. */
