@@ -190,6 +190,7 @@ describe("the barcode scan", () => {
     Reflect.deleteProperty(navigator, "mediaDevices");
     Reflect.deleteProperty(globalThis, "BarcodeDetector");
     Reflect.deleteProperty(document, "hidden");
+    Reflect.deleteProperty(navigator, "sendBeacon");
     if (playOriginal) Object.defineProperty(HTMLMediaElement.prototype, "play", playOriginal);
     if (pausedOriginal) Object.defineProperty(HTMLMediaElement.prototype, "paused", pausedOriginal);
   });
@@ -413,6 +414,54 @@ describe("the barcode scan", () => {
     expect(foodWhy(view)).toBe("The barcode reader failed; type the barcode instead");
   });
 
+  it("#622 a camera that fails to start for another reason says so and the scan button reads Scan again", async () => {
+    getUserMedia.mockRejectedValueOnce(
+      new DOMException("Timeout starting video source", "AbortError"),
+    );
+    const view = mount(NOTE);
+    openFood(view);
+    await startScan(view);
+    expect(foodWhy(view)).toBe("The camera did not start; type the barcode instead");
+    expect(scanOf(view).textContent).toBe("Scan");
+  });
+
+  it("#622 an unknown barcode after a found one goes back to the name search and logs nothing", async () => {
+    detectFrame.mockResolvedValueOnce([{ rawValue: SNICKERS.code, format: "ean_13" }]);
+    const view = mount(NOTE);
+    openFood(view);
+    await startScan(view);
+    expect(servingOf(view)?.hidden).toBe(false);
+    detectFrame.mockResolvedValueOnce([{ rawValue: "4006381333931", format: "ean_13" }]);
+    vi.mocked(readBarcode).mockRejectedValueOnce(
+      new Error("No food with barcode 4006381333931 on Open Food Facts"),
+    );
+    await startScan(view);
+    expect(servingOf(view)?.hidden).toBe(true);
+    expect(resultsOf(view)?.hidden).toBe(false);
+    expect(foodWhy(view)).toContain("No food with barcode 4006381333931");
+    logFood(view);
+    expect(text(view)).toBe(NOTE);
+  });
+
+  it("#622 a scan hit answered after a later pick draws nothing", async () => {
+    let answer: (food: Food) => void = () => {};
+    vi.mocked(readBarcode).mockReturnValueOnce(
+      new Promise<Food>((resolve) => {
+        answer = resolve;
+      }),
+    );
+    detectFrame.mockResolvedValueOnce([{ rawValue: SNICKERS.code, format: "ean_13" }]);
+    const view = mount(NOTE);
+    openFood(view);
+    await startScan(view);
+    await typeQuery(view, "snickers");
+    await pickFirst(view);
+    expect(view.dom.querySelector(".cm-log-food-heading")?.textContent).toBe("Snickers");
+    answer({ ...SNICKERS, code: "3017620422003", name: "Skyr", brand: null });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(view.dom.querySelector(".cm-log-food-heading")?.textContent).toBe("Snickers");
+  });
+
   it("#622 a drink tap while scanning keeps the camera playing", async () => {
     const view = mount(NOTE);
     openFood(view);
@@ -440,12 +489,16 @@ describe("the barcode scan", () => {
 
   it("#622 the only request a scan makes is the barcode read", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response());
+    const beacon = vi.fn(() => true);
+    Object.defineProperty(navigator, "sendBeacon", { configurable: true, value: beacon });
     detectFrame.mockResolvedValueOnce([{ rawValue: SNICKERS.code, format: "ean_13" }]);
     const view = mount(NOTE);
     openFood(view);
     await startScan(view);
+    expect(readBarcode).toHaveBeenCalledTimes(1);
     expect(readBarcode).toHaveBeenCalledWith(SNICKERS.code);
     expect(fetchSpy).not.toHaveBeenCalled();
+    expect(beacon).not.toHaveBeenCalled();
     fetchSpy.mockRestore();
   });
 });

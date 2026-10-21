@@ -195,8 +195,8 @@ one.
 A service worker, `/sw.js`, keeps a copy of the app on the phone. When a
 release installs it, it stores the shell, `index.html`, every hashed file
 under `/assets/`, and the small public files the first start needs:
-`viewport-fit.js`, the manifest, the favicon and the icons. pdf.js and the zxing
-barcode reader are too large for that, so each keeps a copy when it is first asked for. It never touches `/api/`, the
+`viewport-fit.js`, the manifest, the favicon and the icons. pdf.js is too large
+for that, so it keeps a copy when a PDF first asks for it. It never touches `/api/`, the
 sign-in under `/oauth2/`, the chat, the terminal or the agent door: those reach
 the server or fail.
 
@@ -248,8 +248,10 @@ says where they go.
 The browser's `BarcodeDetector` decodes where it exists and reads the formats
 kasten needs: Android Chrome. Where it is missing, or does not read them, which
 is every iOS browser today, kasten loads the zxing reader (`@zxing/library`).
-The reader is large, so it is not in the first load of the app. It loads on the
-first scan, and an installed app's offline worker keeps it with the rest.
+The reader is large, so it is not in the first load of the page. A page in a
+browser tab loads it on the first scan. The installed app's worker differs: it
+precaches every `assets/` chunk, so it fetches the zxing chunk in the background
+with each release, before any scan.
 
 The camera stops when the tab or the app goes to the background, and it does
 not start again by itself. A camera stream runs until it is stopped, and the

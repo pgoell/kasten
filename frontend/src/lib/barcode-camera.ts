@@ -16,7 +16,9 @@ const SCAN_MS = 150;
 /** How a scan ended on its own: a code was read, or the camera or the reader did not run. */
 export type ScanEnd = { code: string } | { why: string };
 
-/** Why the camera would not open, in the panel's words. Any other error is not this panel's to read. */
+const DID_NOT_START = "The camera did not start; type the barcode instead";
+
+/** Why the camera would not open, in the panel's words. An error not listed still ends the scan, with its own words. */
 function cameraWords(error: unknown): string {
   if (error instanceof DOMException) {
     if (error.name === "NotAllowedError" || error.name === "SecurityError") {
@@ -26,22 +28,11 @@ function cameraWords(error: unknown): string {
       return NO_CAMERA;
     }
   }
-  throw error;
+  return DID_NOT_START;
 }
 
 function stopTracks(stream: MediaStream): void {
   for (const track of stream.getTracks()) track.stop();
-}
-
-/** play() rejects when a newer load or a pause cut it short, which is no failure of the scan. */
-function playVideo(video: HTMLVideoElement): void {
-  video.play().catch((error: unknown) => {
-    if (
-      !(error instanceof DOMException && ["AbortError", "NotAllowedError"].includes(error.name))
-    ) {
-      throw error;
-    }
-  });
 }
 
 /**
@@ -73,6 +64,16 @@ export function startCamera(
     ended(outcome);
   }
 
+  /** play() rejects when a newer load or a pause cut it short, which is no failure of the scan. */
+  function playVideo(): void {
+    video.play().catch((error: unknown) => {
+      if (error instanceof DOMException && ["AbortError", "NotAllowedError"].includes(error.name)) {
+        return;
+      }
+      if (live) finish({ why: DID_NOT_START });
+    });
+  }
+
   // A tab shown again does not restart the camera: the user presses Scan for that.
   function onVisibility(): void {
     if (document.hidden) finish();
@@ -86,7 +87,7 @@ export function startCamera(
       return;
     }
     // A card rebuild moves the panel, and the browser pauses a video it moves.
-    if (video.paused) playVideo(video);
+    if (video.paused) playVideo();
     decode(video).then(
       (code) => {
         if (!live) return;
@@ -112,7 +113,7 @@ export function startCamera(
     stream = granted;
     video.srcObject = granted;
     video.hidden = false;
-    playVideo(video);
+    playVideo();
     decoderFor().then(
       (decode) => {
         if (live) tick(decode);

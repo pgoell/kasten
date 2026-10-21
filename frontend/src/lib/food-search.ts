@@ -322,6 +322,15 @@ export function foodPanel(view: EditorView, hooks: PanelHooks): HTMLElement {
   }
 
   /** A code the camera read is looked up as a pick is, so a late answer draws nothing. */
+  /** The name search on screen, with no form: a read still in the air is for a form no longer shown, so it is dropped. */
+  function showSearch(): void {
+    pickTurn += 1;
+    current = null;
+    serving.hidden = true;
+    results.hidden = false;
+    render();
+  }
+
   function readCode(code: string): void {
     pickTurn += 1;
     const turn = pickTurn;
@@ -332,6 +341,8 @@ export function foodPanel(view: EditorView, hooks: PanelHooks): HTMLElement {
       },
       (error: unknown) => {
         if (turn !== pickTurn || !root.isConnected) return;
+        // A form an earlier pick left up would take the name search's Log, so the search comes back first.
+        showSearch();
         why.textContent = `${messageOf(error)}; search by name instead`;
         query.focus();
       },
@@ -439,14 +450,7 @@ export function foodPanel(view: EditorView, hooks: PanelHooks): HTMLElement {
     );
   });
 
-  back.addEventListener("click", () => {
-    // A barcode read still in the air is for a form that is no longer shown, so it is dropped.
-    pickTurn += 1;
-    current = null;
-    serving.hidden = true;
-    results.hidden = false;
-    render();
-  });
+  back.addEventListener("click", showSearch);
 
   // A key typed in a field is the field's own. The editor's keymap, vim's included,
   // sits above these fields, so the key must not reach it.
