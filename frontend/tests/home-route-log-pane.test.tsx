@@ -330,6 +330,25 @@ describe("the log pane, on the route", () => {
     expect(fetchLog).toHaveBeenCalledTimes(asked);
   });
 
+  it("#774 a written event for a dated note outside the daily folder does not ask the log again", async () => {
+    todayText = LOGGED_TEXT;
+    fetchLog.mockResolvedValue([DAY]);
+    const app = await renderApp(`/?note=${encodeURIComponent(TODAY)}`);
+    await settle();
+    app.leader("g", "f");
+    await settle();
+    const asked = fetchLog.mock.calls.length;
+
+    // A date for a file name, in a folder that is not the daily one: a pattern
+    // on the name alone would ask the log about a note that holds no day.
+    act(() =>
+      stream().send({ path: "00 Inbox/2026-10-20.md", change: "written", digest: "a".repeat(64) }),
+    );
+    await settle();
+
+    expect(fetchLog).toHaveBeenCalledTimes(asked);
+  });
+
   it("#774 a removed event for today's daily note asks the log again and the pane drops the entry", async () => {
     todayText = LOGGED_TEXT;
     fetchLog.mockResolvedValue([DAY]);
