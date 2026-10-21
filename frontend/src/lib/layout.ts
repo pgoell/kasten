@@ -41,6 +41,9 @@ export let READING_NOTE = "99 Misc/01 Config/reading-now.md";
 /** The note naming each deck's daily limits on new cards and reviews. */
 export let DECKS_NOTE = "99 Misc/01 Config/decks.md";
 
+/** The note naming the log's kinds and daily goals, which the card reads. */
+export let LOG_NOTE = "99 Misc/01 Config/log.md";
+
 /** Take the folders the backend named, from here on. */
 export function applyLayout(layout: Layout): void {
   INBOX = layout.inbox;
@@ -51,4 +54,5 @@ export function applyLayout(layout: Layout): void {
   VIEWS_NOTE = `${layout.config}/todo-views.md`;
   READING_NOTE = `${layout.config}/reading-now.md`;
   DECKS_NOTE = `${layout.config}/decks.md`;
+  LOG_NOTE = `${layout.config}/log.md`;
 }

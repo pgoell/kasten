@@ -1,0 +1,194 @@
+{
+  "config": [
+    {
+      "id": "c01-water-default",
+      "line": "- 💧 water: 250 ml",
+      "kind": { "mark": "💧", "name": "water", "tap": 250, "unit": "ml", "builtin": "water" }
+    },
+    {
+      "id": "c02-water-litres-goal",
+      "line": "- 💧 water: 0.25 l, min 2",
+      "kind": {
+        "mark": "💧",
+        "name": "water",
+        "tap": 0.25,
+        "unit": "l",
+        "goal": { "type": "floor", "value": 2000 },
+        "builtin": "water"
+      }
+    },
+    {
+      "id": "c03-water-wrong-unit",
+      "line": "- 💧 water: 250 g",
+      "kind": null
+    },
+    {
+      "id": "c04-coffee-max",
+      "line": "- ☕ coffee: 1, max 4",
+      "kind": {
+        "mark": "☕",
+        "name": "coffee",
+        "tap": 1,
+        "unit": "",
+        "goal": { "type": "ceiling", "value": 4 },
+        "builtin": "coffee"
+      }
+    },
+    {
+      "id": "c05-coffee-with-unit",
+      "line": "- ☕ coffee: 1 cup",
+      "kind": null
+    },
+    {
+      "id": "c06-alcohol-max",
+      "line": "- 🍺 alcohol: 1, max 2",
+      "kind": {
+        "mark": "🍺",
+        "name": "alcohol",
+        "tap": 1,
+        "unit": "",
+        "goal": { "type": "ceiling", "value": 2 },
+        "builtin": "alcohol"
+      }
+    },
+    {
+      "id": "c07-tea-min",
+      "line": "- 🍵 tea: 1 cup, min 3",
+      "kind": {
+        "mark": "🍵",
+        "name": "tea",
+        "tap": 1,
+        "unit": "cup",
+        "goal": { "type": "floor", "value": 3 }
+      }
+    },
+    {
+      "id": "c08-tea-variation-selector",
+      "line": "- 🍵️ tea: 1 cup",
+      "kind": { "mark": "🍵", "name": "tea", "tap": 1, "unit": "cup" }
+    },
+    {
+      "id": "c09-kind-without-unit",
+      "line": "- 🫖 pot: 2",
+      "kind": { "mark": "🫖", "name": "pot", "tap": 2, "unit": "" }
+    },
+    {
+      "id": "c10-tap-zero",
+      "line": "- 🍵 tea: 0 cup",
+      "kind": null
+    },
+    {
+      "id": "c11-goal-zero",
+      "line": "- 🍵 tea: 1 cup, min 0",
+      "kind": null
+    },
+    {
+      "id": "c12-only-emoji",
+      "line": "- 🍵",
+      "kind": null
+    },
+    {
+      "id": "c13-field-marker-as-mark",
+      "line": "- 🔥 kcal: 1 cup",
+      "kind": null
+    },
+    {
+      "id": "c14-meal-mark-with-kind-grammar",
+      "line": "- 🍽 tea: 1 cup",
+      "kind": null
+    },
+    {
+      "id": "c15-food-four-goals",
+      "line": "- 🍽 food: kcal min 2000, protein min 150, carbs max 250, fat max 70",
+      "kind": null,
+      "food": {
+        "kcal": { "type": "floor", "value": 2000 },
+        "protein": { "type": "floor", "value": 150 },
+        "carbs": { "type": "ceiling", "value": 250 },
+        "fat": { "type": "ceiling", "value": 70 }
+      }
+    },
+    {
+      "id": "c16-food-unknown-field",
+      "line": "- 🍽 food: fiber min 30",
+      "kind": null
+    },
+    {
+      "id": "c17-food-repeated-field",
+      "line": "- 🍽 food: kcal min 2000, kcal max 2500",
+      "kind": null
+    },
+    {
+      "id": "c18-no-colon",
+      "line": "- 🍵 tea 1 cup",
+      "kind": null
+    },
+    {
+      "id": "c19-min-and-max",
+      "line": "- 🍵 tea: 1 cup, min 2, max 4",
+      "kind": null
+    }
+  ],
+  "lines": [
+    {
+      "id": "l01-tea-cup",
+      "kind": "- 🍵 tea: 1 cup, min 3",
+      "line": "- 🍵 1 cup",
+      "amount": 1
+    },
+    {
+      "id": "l02-tea-variation-selector",
+      "kind": "- 🍵 tea: 1 cup, min 3",
+      "line": "- 🍵️ 2 cup",
+      "amount": 2
+    },
+    {
+      "id": "l03-tea-comma-decimal",
+      "kind": "- 🍵 tea: 1 cup, min 3",
+      "line": "- 🍵 1,5 cup",
+      "amount": 1.5
+    },
+    {
+      "id": "l04-tea-wrong-unit",
+      "kind": "- 🍵 tea: 1 cup, min 3",
+      "line": "- 🍵 1 ml",
+      "amount": null
+    },
+    {
+      "id": "l05-tea-no-unit",
+      "kind": "- 🍵 tea: 1 cup, min 3",
+      "line": "- 🍵 1",
+      "amount": null
+    },
+    {
+      "id": "l06-tea-zero",
+      "kind": "- 🍵 tea: 1 cup, min 3",
+      "line": "- 🍵 0 cup",
+      "amount": null
+    },
+    {
+      "id": "l07-tea-trailing-words",
+      "kind": "- 🍵 tea: 1 cup, min 3",
+      "line": "- 🍵 1 cup green",
+      "amount": null
+    },
+    {
+      "id": "l08-tea-unit-upper-case",
+      "kind": "- 🍵 tea: 1 cup, min 3",
+      "line": "- 🍵 1 CUP",
+      "amount": 1
+    },
+    {
+      "id": "l09-pot-bare-number",
+      "kind": "- 🫖 pot: 2",
+      "line": "- 🫖 2",
+      "amount": 2
+    },
+    {
+      "id": "l10-pot-with-unit",
+      "kind": "- 🫖 pot: 2",
+      "line": "- 🫖 2 cup",
+      "amount": null
+    }
+  ]
+}

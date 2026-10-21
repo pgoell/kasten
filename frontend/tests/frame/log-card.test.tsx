@@ -6,10 +6,21 @@
 import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { page } from "vitest/browser";
+import { fetchNote, NoteMissing } from "@/lib/api";
 import { logCard } from "@/lib/log-card";
 import { notePath } from "@/lib/todo-commands";
 import { shot } from "./shots";
 import "@/styles/app.css";
+
+vi.mock("@/lib/api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/api")>()),
+  fetchNote: vi.fn(),
+}));
+
+// A vault with no config note: the card draws the three default kinds.
+beforeEach(() => {
+  vi.mocked(fetchNote).mockRejectedValue(new NoteMissing("99 Misc/01 Config/log.md"));
+});
 
 vi.mock("@/lib/food-api", () => ({
   searchFood: async () => [
@@ -50,13 +61,13 @@ const NOTE = [
 ].join("\n");
 
 /** The note on a page of this size, with the card as the note draws it. */
-async function mount(width: number, height: number) {
+async function mount(width: number, height: number, doc = NOTE) {
   await page.viewport(width, height);
   const host = document.body.appendChild(document.createElement("div"));
   host.style.cssText = `width: 100%; height: ${height}px; background: #282c34;`;
   const view = new EditorView({
     state: EditorState.create({
-      doc: NOTE,
+      doc,
       // As the app mounts it: a long wikilink line wraps, rather than widening the card.
       extensions: [notePath.of(DAILY), logCard, EditorView.lineWrapping],
     }),
@@ -250,4 +261,80 @@ it("#621 the food search and the serving choice lay out on a desktop", async () 
   } finally {
     await page.viewport(414, 896);
   }
+});
+
+const GOALS_CONFIG = [
+  "---",
+  "type: Config",
+  "---",
+  "- 💧 water: 250 ml, min 500",
+  "- 🍵 tea: 1 cup, min 3",
+  "- ☕ coffee: 1",
+  "- 🍺 alcohol: 1, max 1",
+  "- 🧃 juice: lots",
+  "- 🍽 food: kcal max 2200, protein min 120",
+].join("\n");
+
+const GOALS_NOTE = [
+  "# 2026-10-20 Tuesday",
+  "",
+  "## Log",
+  "- 💧 500 ml",
+  "- 🍵 1 cup",
+  "- ☕ 1",
+  "- 🍺 1 0.5 l 5%",
+  "- 🍺 1",
+  "- 🍽 lunch: Skyr 🔥 160 kcal 🥩 27 g",
+  "",
+  "## Done",
+].join("\n");
+
+/**
+ * The card with goals and a broken config line at a page of this size: its buttons
+ * are finger-sized and inside the card, the broken line too, and a tea tap by touch
+ * writes the tea line. The card is shot before the tap, so the shot shows the goals.
+ */
+async function checkGoalsCard(width: number, height: number, name: string): Promise<void> {
+  try {
+    vi.mocked(fetchNote).mockResolvedValue(GOALS_CONFIG);
+    const { host, view } = await mount(width, height, GOALS_NOTE);
+    await expect
+      .poll(() => view.dom.querySelector(".cm-log button[aria-label='Log tea']"))
+      .not.toBeNull();
+
+    for (const button of view.dom.querySelectorAll<HTMLElement>(".cm-log button")) {
+      expect(
+        button.getBoundingClientRect().height,
+        button.textContent ?? "",
+      ).toBeGreaterThanOrEqual(44);
+    }
+    expectInsideCard(view);
+    const edge = view.dom.getBoundingClientRect().right;
+    const named = view.dom.querySelectorAll<HTMLElement>(".cm-log-broken > div");
+    expect(named).toHaveLength(1);
+    for (const line of named) {
+      expect(line.getBoundingClientRect().right, line.textContent ?? "").toBeLessThanOrEqual(edge);
+    }
+    expect(await shot(host, name)).toBe(width);
+
+    const tea = view.dom.querySelector<HTMLButtonElement>(".cm-log button[aria-label='Log tea']");
+    expect(tea).not.toBeNull();
+    // A touch presses through the pointer and mouse events before the click.
+    tea?.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+    tea?.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true }));
+    tea?.click();
+    expect(view.state.doc.toString()).toContain("- 🍵 1 cup");
+    view.destroy();
+    host.remove();
+  } finally {
+    await page.viewport(414, 896);
+  }
+}
+
+it("#623 the card with goals at 414 by touch", async () => {
+  await checkGoalsCard(414, 896, "log-goals-414");
+});
+
+it("#623 the card with goals on a desktop", async () => {
+  await checkGoalsCard(1200, 900, "log-goals-1200");
 });

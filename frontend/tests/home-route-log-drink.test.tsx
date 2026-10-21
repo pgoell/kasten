@@ -1,5 +1,6 @@
 import { EditorView } from "@codemirror/view";
 import { cleanup, fireEvent, screen } from "@testing-library/react";
+import { NoteMissing } from "@/lib/api";
 import { holdText } from "@/lib/held-text";
 import { noteBase } from "@/lib/note-base";
 import { periodicNote } from "@/lib/periodic";
@@ -123,9 +124,11 @@ describe("the palette's drink rows, on the route", () => {
     vi.stubGlobal("scrollTo", () => {});
     FakeEventSource.last = undefined;
     fetchFiles.mockResolvedValue([...Object.keys(VAULT), TODAY]);
-    fetchNote.mockImplementation(async (path: string) =>
-      path === TODAY ? TODAY_TEXT : VAULT[path],
-    );
+    fetchNote.mockImplementation(async (path: string) => {
+      // The log config note is missing here, as in a vault without it, so the card draws its defaults.
+      if (path === "99 Misc/01 Config/log.md") throw new NoteMissing(path);
+      return path === TODAY ? TODAY_TEXT : VAULT[path];
+    });
     saveNote.mockImplementation(async (path: string, content: string) => ({ path, content }));
     fetchTodos.mockResolvedValue([]);
     fetchTags.mockResolvedValue([]);

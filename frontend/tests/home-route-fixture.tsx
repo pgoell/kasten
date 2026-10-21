@@ -10,6 +10,7 @@ import {
   fetchImages,
   fetchNote,
   fetchTodos,
+  NoteMissing,
   saveNote,
 } from "@/lib/api";
 import { resetHeld, unstamped } from "@/lib/held-text";
@@ -382,7 +383,10 @@ export function theRoute() {
     vi.stubGlobal("scrollTo", () => {});
     FakeEventSource.last = undefined;
     vi.mocked(fetchFiles).mockResolvedValue(Object.keys(VAULT));
-    vi.mocked(fetchNote).mockImplementation(async (path: string) => VAULT[path] as string);
+    vi.mocked(fetchNote).mockImplementation(async (path) => {
+      if (path.endsWith("/log.md")) throw new NoteMissing(path);
+      return VAULT[path] as string;
+    });
     vi.mocked(saveNote).mockImplementation(
       async (path: string, content: string, _keepalive?: boolean, base?: string) => {
         const disk = outside.get(path);

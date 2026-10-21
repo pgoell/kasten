@@ -91,6 +91,40 @@
   display: none;
 }
 
+/* A goal's total. A floor fills its span with the share reached, a bar behind the
+   words, and turns green once met. A ceiling is only coloured, red once passed. */
+.cm-log-short,
+.cm-log-met {
+  border-radius: 4px;
+  background: linear-gradient(
+    to right,
+    color-mix(in srgb, var(--color-one-accent) 28%, transparent) var(--log-progress),
+    transparent var(--log-progress)
+  );
+}
+
+.cm-log-met {
+  color: var(--color-one-green);
+  background: linear-gradient(
+    to right,
+    color-mix(in srgb, var(--color-one-green) 30%, transparent) var(--log-progress),
+    transparent var(--log-progress)
+  );
+}
+
+.cm-log-over {
+  color: var(--color-one-warn);
+}
+
+/* The lines the config could not read, small and muted, and never wider than the card. */
+.cm-log-broken {
+  min-width: 0;
+  max-width: 100%;
+  color: var(--color-one-warn);
+  font-size: 0.8em;
+  overflow-wrap: anywhere;
+}
+
 /* The food search. Its fields and rows are 44px and 16px like the card's own, and
    wrap rather than run wide, so the panel never scrolls a 414px screen sideways. */
 .cm-log-food {

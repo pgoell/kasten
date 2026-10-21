@@ -1,7 +1,7 @@
 ---
 type: Reference
 title: Log format
-description: How a daily note logs water, coffee, alcohol and food as lines under ## Log, every kind and its fields, what does not parse, how a day adds up, and the table of cases the parser is tested against.
+description: How a daily note logs water, coffee, alcohol and food as lines under ## Log, every kind and its fields, the config note that sets the card's kinds and daily goals, what does not parse, how a day adds up, and the table of cases the parser is tested against.
 resource: frontend/src/lib/log-cases.json
 tags: [vault, log, format, backend]
 status: stable
@@ -131,6 +131,75 @@ macros for the amount chosen. `Escape` and `Close` write nothing. The card's
 totals show the food's kcal, protein, carbs and fat once a food line is there.
 The palette's `Log food` opens the same search on a daily note.
 
+## The config note
+
+The card's kinds and goals come from `99 Misc/01 Config/log.md`, in the config
+folder ([`KASTEN_CONFIG_PATH`](/reference/configuration.md#the-vaults-folders)).
+The frontend reads it the first time a daily note's card is drawn in a pane,
+as it reads `decks.md`. The backend does not read it, so `GET /api/log` still
+answers water, coffee, alcohol and food only.
+
+```markdown
+- 💧 water: 250 ml, min 2000
+- ☕ coffee: 1
+- 🍺 alcohol: 1, max 2
+- 🍵 tea: 1 cup, min 3
+- 🍽 food: kcal max 2200, protein min 120, carbs max 250, fat max 70
+```
+
+Only lines that start with `- ` at column 0 are read. The frontmatter and every
+other line are ignored. Each `- ` line is a kind or broken.
+
+A kind line is `- <emoji> <name>: <tap>[ <unit>][, min <n> | , max <n>]`. The
+emoji is one emoji, and U+FE0F may follow it. The tap is the amount one tap
+writes: a number, written as the log format writes numbers, above zero. `min N`
+is a floor, met at or above N. `max N` is a ceiling, passed only above N. N is
+above zero.
+
+- 💧 is water. Its unit is `ml` or `l`. The goal is in that unit, and the card
+  compares it with the day's total in ml.
+- ☕ coffee and 🍺 alcohol take no unit and a whole-number tap. Their goal is
+  compared with the count. A different unit on either is broken.
+- Any other emoji is a kind of your own. Its tap writes `- <emoji> <tap>[ <unit>]`.
+  So `- 🍵 tea: 1 cup, min 3` puts `+ 🍵 1 cup` on the card, and a tap writes
+  `- 🍵 1 cup` at the end of `## Log`.
+- A log line of that kind is `- <emoji> <number>[ <unit>]`, the whole line. The
+  unit is required, in any case, when the kind has one. The day's total is the
+  sum, rounded to a tenth once.
+- In the card's amount field, a bare number takes the kind's unit, so `2` on
+  tea writes `- 🍵 2 cup`. Text that is no amount writes nothing, and the card
+  says why.
+
+A food line is `- 🍽 food: kcal max 2200, protein min 120, carbs max 250, fat max 70`.
+Its fields are kcal, protein, carbs and fat, each `min` or `max`, each at most
+once. It adds no button. It sets the food goals, and a food goal shows on the
+card before the first food.
+
+These lines are broken, and the card skips them:
+
+- a line that does not match the forms above
+- 🍽 on a kind line
+- 🔥 🥩 🍞 🧈 as a kind's emoji
+- an emoji that an earlier line already took, since the first keeps it
+- a zero tap or goal
+- an unknown or repeated food field
+- a second food line
+
+The card names each broken line as `Skipped line N of log.md: <text>`. The
+other lines still work.
+
+With no note, or a note that cannot be read, the card shows the three kinds of
+[the card](#the-card) as before (water 250 ml, coffee 1, alcohol 1) and no
+goals. A note that is there lists exactly its kinds. One without a `☕` line
+shows no coffee button. The food button always shows.
+
+A kind's total shows its goal beside it, as `💧 1500 / 2000 ml`. A met floor
+adds ` ✓`, a passed ceiling adds ` ⚠` in the warning colour, and a floor shows
+a bar of its progress.
+
+An edit to `log.md` reaches the next daily note opened, not one already open.
+A tap in the moment before the note answers writes the default kinds' line.
+
 ## Two parsers
 
 The backend reads the lines and parses them, in `backend/src/kasten_backend/log.py`,
@@ -139,6 +208,9 @@ food lines of the open buffer with `frontend/src/lib/log-lines.ts`, so a tap
 counts at once rather than after the save. Both read every row of the table
 below, food included, and the card shows the food totals too. Nothing is stored
 in Postgres: every answer is read from the notes.
+
+The config note has one reader, `frontend/src/lib/log-kinds.ts`, and a table of
+its own, `frontend/src/lib/log-config-cases.json`. `log-cases.json` is unchanged.
 
 `foodLine` in that module writes the line the card's food search logs. It
 rounds kcal to a whole number and the grams to one decimal. It cleans the words
