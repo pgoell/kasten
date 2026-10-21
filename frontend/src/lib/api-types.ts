@@ -1725,7 +1725,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "water" | "coffee" | "alcohol" | "food";
+            kind: "water" | "coffee" | "alcohol" | "food" | "mine";
             /** Ml */
             ml?: number | null;
             /** Count */
@@ -1746,6 +1746,14 @@ export interface components {
             carbs?: number | null;
             /** Fat */
             fat?: number | null;
+            /** Mark */
+            mark?: string | null;
+            /** Name */
+            name?: string | null;
+            /** Amount */
+            amount?: number | null;
+            /** Unit */
+            unit?: string | null;
         };
         /**
          * Fetch
@@ -1962,6 +1970,20 @@ export interface components {
             name: string;
         };
         /**
+         * MineTotal
+         * @description What one kind of your own adds up to on a day, rounded to a tenth.
+         */
+        MineTotal: {
+            /** Mark */
+            mark: string;
+            /** Name */
+            name: string;
+            /** Unit */
+            unit: string;
+            /** Total */
+            total: number;
+        };
+        /**
          * Minted
          * @description One token as its owner sees it, once.
          */
@@ -2159,6 +2181,8 @@ export interface components {
             coffee: components["schemas"]["Coffee"];
             alcohol: components["schemas"]["Alcohol"];
             food: components["schemas"]["kasten_backend__log__Food"];
+            /** Mine */
+            mine?: components["schemas"]["MineTotal"][] | null;
         };
         /**
          * Transcript

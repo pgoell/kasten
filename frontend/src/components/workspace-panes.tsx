@@ -6,6 +6,7 @@ import { GraphPane } from "@/components/graph-pane";
 import { HistoryPane } from "@/components/history-pane";
 import { HtmlPane } from "@/components/html-pane";
 import { ImagePane } from "@/components/image-pane";
+import { LogPane } from "@/components/log-pane";
 import { NotePane } from "@/components/note-pane";
 import { PaneLayout, TabStrip } from "@/components/pane-layout";
 import { PdfPane } from "@/components/pdf-pane";
@@ -23,6 +24,7 @@ import type { useAutosave } from "@/lib/use-autosave";
 import type { BufferSync } from "@/lib/use-buffer-sync";
 import type { GuardedWrites } from "@/lib/use-guarded-writes";
 import type { Listings } from "@/lib/use-listings";
+import type { LogActions } from "@/lib/use-log-actions";
 import type { NoteOpening } from "@/lib/use-note-opening";
 import type { TodoActions } from "@/lib/use-todo-actions";
 
@@ -46,6 +48,7 @@ export function WorkspacePanes({
   opening,
   writes,
   todos,
+  logActions,
   onTodoPrompt,
   todoRow,
   onDeleteImage,
@@ -78,6 +81,7 @@ export function WorkspacePanes({
     | "refileTodo"
     | "logCycledTodo"
   >;
+  logActions: LogActions;
   onTodoPrompt: (parent?: SearchHit) => void;
   todoRow: RefObject<AgentRow | null>;
   onDeleteImage: (path: string) => void;
@@ -135,7 +139,19 @@ export function WorkspacePanes({
             // Bound out of the pane for the reason `book` is: TypeScript
             // stops narrowing a property inside the callback below.
             const image = shown.image;
-            return shown.todos === true ? (
+            return shown.log === true ? (
+              <LogPane
+                commands={commands}
+                onOpen={(path, hitLine) => void openInPane(path, hitLine)}
+                focusSignal={focused ? focusSignal : 0}
+                // The same clock the todo pane reads, for the same reason:
+                // a tab left open across midnight shows yesterday until
+                // something renders it.
+                today={readClock(new Date()).date}
+                actions={logActions}
+                onNotice={onNotice}
+              />
+            ) : shown.todos === true ? (
               <TodoPane
                 commands={commands}
                 onOpen={(path, hitLine) => void openInPane(path, hitLine)}

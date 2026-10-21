@@ -77,6 +77,7 @@ function OpenNote({ path }: { path: string }) {
       closeNote: () => {},
       showHelp: () => {},
       openPalette: () => {},
+      openLog: () => {},
       createNote: () => {},
       renameNote: () => {},
       deleteNote: () => {},

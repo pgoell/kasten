@@ -138,6 +138,15 @@ describe("the palette", () => {
     expect(commands.openReadingBook).toHaveBeenCalledTimes(1);
   });
 
+  it("#624 the palette's Open the log runs openLog", () => {
+    const commands = stubCommands();
+    render(<CommandPalette entries={paletteEntries(commands, null)} onClose={() => {}} />);
+
+    fireEvent.click(screen.getByRole("option", { name: /^Open the log/ }));
+
+    expect(commands.openLog).toHaveBeenCalledTimes(1);
+  });
+
   it("sets a todo to waiting for review from a tapped row, no vim in the editor", () => {
     // A bare view: no vim, so the row is the whole way in, as on a phone.
     const view = viewOf("- [ ] wire up the pane", 0);

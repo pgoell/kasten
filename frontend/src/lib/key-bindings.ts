@@ -51,6 +51,8 @@ export interface EditorCommands {
   findBook(): void;
   /** Put the todo list in the focused pane, replacing whatever was there. */
   openTodos(): void;
+  /** Put the log pane in the focused pane, replacing whatever was there. */
+  openLog(): void;
   /** Show what links to the open note. Needs one open, as its opposite does. */
   showBacklinks(): void;
   /** Show what the open note links to, which is that pair read the other way. */
@@ -344,4 +346,26 @@ export const TODO_PANE: readonly { key: string; label: string }[] = [
   { key: "/", label: "Narrow the list" },
   { key: "q", label: "Close the pane" },
   { key: "Escape", label: "Back to the editor" },
+];
+
+/** What the keys do inside the log pane. Display only, the way `TODO_PANE` is. */
+export const LOG_PANE: readonly { key: string; label: string }[] = [
+  { key: "j", label: "Move to the next entry" },
+  { key: "k", label: "Move to the previous entry" },
+  { key: "h", label: "Show the day before" },
+  { key: "l", label: "Show the day after" },
+  { key: "t", label: "Show today" },
+  { key: "e", label: "Edit the entry under the cursor" },
+  { key: "Enter", label: "Edit the entry under the cursor" },
+  { key: "d", label: "Delete the entry under the cursor" },
+  { key: "u", label: "Put back the entry last deleted" },
+  { key: "o", label: "Open the note at the entry's line" },
+  { key: "a", label: "Focus the amount field to log" },
+  { key: "f", label: "Open the food search" },
+  { key: "7", label: "Show trends over 7 days" },
+  { key: "3", label: "Show trends over 30 days" },
+  { key: "9", label: "Show trends over 90 days" },
+  { key: "?", label: "Show the keys" },
+  { key: "q", label: "Close the pane" },
+  { key: "Escape", label: "Leave the edit without writing" },
 ];

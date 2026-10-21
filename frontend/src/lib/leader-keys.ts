@@ -127,6 +127,8 @@ export const LEADER: readonly LeaderBinding[] = [
   // `g` for go, and the pane it goes to holds the todos. `ct` is spent on a
   // tab, which is why this is not under `c`.
   { key: "gt", label: "Open the todo pane", command: "openTodos" },
+  // `g` for go and `f` for food, the pane holding the day's food log.
+  { key: "gf", label: "Open the log", command: "openLog" },
   // `g` for go and `v` for video. It sits with `gr` for the same reason: both
   // put the thing the note is about in a pane beside the note about it.
   { key: "gv", label: "Watch this note's video beside it", command: "openVideo" },

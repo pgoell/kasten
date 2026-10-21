@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { FOLLOW, FORMAT, INDENT, LEADER_EDITS, readable } from "@/lib/buffer-keys";
-import { SCREENS, TERMINAL, TERMINAL_CHORD, TODO_PANE, TREE } from "@/lib/key-bindings";
+import { LOG_PANE, SCREENS, TERMINAL, TERMINAL_CHORD, TODO_PANE, TREE } from "@/lib/key-bindings";
 import { LEADER, spelled, TAB_KEYS } from "@/lib/leader-keys";
 import { closeOnBackdrop, HEADER_ROW, LABEL, PANEL, STATUS } from "@/lib/overlay-styles";
 import { useVim } from "@/lib/vim-setting";
@@ -57,7 +57,7 @@ const LEADER_GROUPS: readonly { title: string; keys: readonly string[] }[] = [
   { title: "Periodic notes", keys: ["gd", "gw", "gm", "gq", "gy"] },
   {
     title: "Panes to open",
-    keys: ["gb", "go", "gr", "gc", "gp", "gh", "gl", "gv", "ge", "gs", "gt", "gg"],
+    keys: ["gb", "go", "gr", "gc", "gp", "gh", "gl", "gv", "ge", "gs", "gt", "gf", "gg"],
   },
   { title: "Todos", keys: ["x", "i", "@", "so", "sp", "sx", "sb", "sw", "sv", "sr"] },
   { title: "Toggles", keys: ["a", "b", "p", "e", "E", "v"] },
@@ -177,6 +177,7 @@ export function KeyHelp({ onClose }: { onClose: () => void }) {
     },
     { title: "File tree", keys: TREE },
     { title: "Todo pane", keys: TODO_PANE },
+    { title: "Log pane", keys: LOG_PANE },
     // Last, because it is the one group whose left column is an address rather
     // than something to press.
     { title: "Screens you type", keys: SCREENS },

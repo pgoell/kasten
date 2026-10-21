@@ -9,6 +9,7 @@
 @import "./live-preview-media.css";
 @import "./weather-card.css";
 @import "./log-card.css";
+@import "./log-pane.css";
 @import "./live-preview-blocks.css";
 
 /* The One Dark palette CodeMirror's `oneDark` theme paints the editor with.

@@ -14,21 +14,28 @@ held to the same cases, so a tap counts before the save.
 import re
 from datetime import date
 from decimal import Decimal
-from typing import Annotated, Literal
+from typing import TYPE_CHECKING, Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from kasten_backend import vault
 from kasten_backend.code_spans import code_spans, inside
 from kasten_backend.config import Settings, get_settings
 from kasten_backend.frontmatter import body_start
+from kasten_backend.log_config import Kind, parse_config, parse_kind_line
 from kasten_backend.periodic import DAILY, SECTION_END, daily_path
 from kasten_backend.todos import mask
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 router = APIRouter()
 
 LOG = "## Log"
+
+CONFIG_NOTE = "log.md"
+"""The config note's name, in the config folder, which names the kinds of your own."""
 
 DAY_NOTE = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}\.md")
 """A daily note's name. A pattern, since `date.fromisoformat` also takes `20261020`."""
@@ -56,6 +63,15 @@ MAX_STRENGTH = 100
 """Per cent alcohol by volume, the most an alcohol line may give: pure ethanol."""
 
 
+def _unset(value: object) -> bool:
+    """Whether a field is left out of the JSON. Only the fields a config note adds use it.
+
+    They are absent with no config note rather than null, so the answer for a
+    vault without one is the answer the route gave before the note existed.
+    """
+    return value is None
+
+
 class Entry(BaseModel):
     """One log line that parsed: its kind, and the fields the line gives and no others."""
 
@@ -65,7 +81,7 @@ class Entry(BaseModel):
     text: str
     """The whole line, as the note holds it."""
 
-    kind: Literal["water", "coffee", "alcohol", "food"]
+    kind: Literal["water", "coffee", "alcohol", "food", "mine"]
     ml: float | None = None
     """Water's amount, or an alcohol line's count times its volume per drink."""
 
@@ -80,6 +96,11 @@ class Entry(BaseModel):
     protein: float | None = None
     carbs: float | None = None
     fat: float | None = None
+    mark: str | None = Field(default=None, exclude_if=_unset)
+    """A kind of your own's mark, and its name, amount and unit as the config names them."""
+    name: str | None = Field(default=None, exclude_if=_unset)
+    amount: float | None = Field(default=None, exclude_if=_unset)
+    unit: str | None = Field(default=None, exclude_if=_unset)
 
 
 class Water(BaseModel):
@@ -111,6 +132,15 @@ class Food(BaseModel):
     fat: float
 
 
+class MineTotal(BaseModel):
+    """What one kind of your own adds up to on a day, rounded to a tenth."""
+
+    mark: str
+    name: str
+    unit: str
+    total: float
+
+
 class Totals(BaseModel):
     """What a day adds up to. Every kind is always present, zero where nothing was logged."""
 
@@ -118,6 +148,8 @@ class Totals(BaseModel):
     coffee: Coffee
     alcohol: Alcohol
     food: Food
+    mine: list[MineTotal] | None = Field(default=None, exclude_if=_unset)
+    """One per kind of your own the config names, in config order. Absent with no config note."""
 
 
 class Day(BaseModel):
@@ -202,11 +234,49 @@ def _food(text: str, line: int) -> Entry | None:
     if not words and not values:
         return None
     meal_name = meal[1].lower() if meal else None
-    return Entry(line=line, text=text, kind="food", meal=meal_name, words=words, **values)
+    return Entry(
+        line=line,
+        text=text,
+        kind="food",
+        meal=meal_name,
+        words=words,
+        kcal=values.get("kcal"),
+        protein=values.get("protein"),
+        carbs=values.get("carbs"),
+        fat=values.get("fat"),
+    )
 
 
-def parse_line(text: str, line: int) -> Entry | None:
-    """The entry the line `line` of a note holds, or None for a line that parses to none."""
+def _mine(text: str, line: int, kinds: Sequence[Kind]) -> Entry | None:
+    """The entry a line of a kind of your own holds, or None when no kind of the config reads it."""
+    for kind in kinds:
+        amount = parse_kind_line(kind, text)
+        if amount is not None:
+            return Entry(
+                line=line,
+                text=text,
+                kind="mine",
+                mark=kind.mark,
+                name=kind.name,
+                amount=amount,
+                unit=kind.unit,
+            )
+    return None
+
+
+def parse_line(text: str, line: int, kinds: Sequence[Kind] = ()) -> Entry | None:
+    """The entry the line `line` of a note holds, or None for a line that parses to none.
+
+    A kind of your own is tried only after the built-in parsers all fail, so a line
+    keeps the meaning it has always had.
+    """
+    if (entry := _builtin_line(text, line)) is not None:
+        return entry
+    return _mine(text, line, kinds)
+
+
+def _builtin_line(text: str, line: int) -> Entry | None:
+    """The entry a line holds as one of the built-in kinds, or None."""
     if found := WATER.fullmatch(text):
         ml = float(_decimal(found[1]) * _factor(found[2]))
         return Entry(line=line, text=text, kind="water", ml=ml) if ml > 0 else None
@@ -252,14 +322,33 @@ def _grams_of(entry: Entry) -> float:
     return _grams(entry.ml, entry.abv)
 
 
-def _totals(entries: list[Entry]) -> Totals:
-    """Each kind's sums over `entries`, taken unrounded and rounded once at the end."""
+def _totals(entries: list[Entry], kinds: list[Kind] | None) -> Totals:
+    """Each kind's sums over `entries`, taken unrounded and rounded once at the end.
+
+    `kinds` is the config's kinds of your own, or None with no config note, which
+    leaves `mine` out of the answer.
+    """
 
     def total(kind: str, name: str) -> float:
         return round(sum(getattr(e, name) or 0 for e in entries if e.kind == kind), 1)
 
     alcohol = [e for e in entries if e.kind == "alcohol"]
+    mine = None
+    if kinds is not None:
+        mine = [
+            MineTotal(
+                mark=kind.mark,
+                name=kind.name,
+                unit=kind.unit,
+                total=round(
+                    sum(e.amount or 0 for e in entries if e.kind == "mine" and e.mark == kind.mark),
+                    1,
+                ),
+            )
+            for kind in kinds
+        ]
     return Totals(
+        mine=mine,
         water=Water(ml=total("water", "ml")),
         coffee=Coffee(count=sum(e.count or 0 for e in entries if e.kind == "coffee")),
         alcohol=Alcohol(
@@ -316,6 +405,18 @@ def read_log(
         if first <= day <= last:
             found.append(day)
 
+    # Read once for the whole range. A note that is not there, or not UTF-8, leaves
+    # `mine` out of every day, as a missing note does.
+    try:
+        config_text = vault.read_note(settings.vault_path, f"{settings.config_path}/{CONFIG_NOTE}")
+    except UnicodeDecodeError, OSError:
+        config_text = None
+    kinds = (
+        None
+        if config_text is None
+        else [kind for kind in parse_config(config_text).kinds if kind.builtin is None]
+    )
+
     days: list[Day] = []
     for day in found:
         path = daily_path(day, settings.periodic_path)
@@ -329,7 +430,16 @@ def read_log(
         if lines is None:
             continue
         entries = [
-            parsed for number, line in lines if (parsed := parse_line(line, number)) is not None
+            parsed
+            for number, line in lines
+            if (parsed := parse_line(line, number, kinds or ())) is not None
         ]
-        days.append(Day(date=day.isoformat(), path=path, entries=entries, totals=_totals(entries)))
+        days.append(
+            Day(
+                date=day.isoformat(),
+                path=path,
+                entries=entries,
+                totals=_totals(entries, kinds),
+            )
+        )
     return days

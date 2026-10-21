@@ -136,8 +136,9 @@ The palette's `Log food` opens the same search on a daily note.
 The card's kinds and goals come from `99 Misc/01 Config/log.md`, in the config
 folder ([`KASTEN_CONFIG_PATH`](/reference/configuration.md#the-vaults-folders)).
 The frontend reads it the first time a daily note's card is drawn in a pane,
-as it reads `decks.md`. The backend does not read it, so `GET /api/log` still
-answers water, coffee, alcohol and food only.
+as it reads `decks.md`. The backend reads it once per request, for the kinds of
+your own: `GET /api/log` counts each one in `totals.mine`. With no note, that
+field is left out of the answer.
 
 ```markdown
 - 💧 water: 250 ml, min 2000
@@ -151,7 +152,8 @@ Only lines that start with `- ` at column 0 are read. The frontmatter and every
 other line are ignored. Each `- ` line is a kind or broken.
 
 A kind line is `- <emoji> <name>: <tap>[ <unit>][, min <n> | , max <n>]`. The
-emoji is one emoji, and U+FE0F may follow it. The tap is the amount one tap
+mark is one symbol, a character whose Unicode category is `So` (an emoji is
+one), and U+FE0F may follow it. A letter or a digit is no mark, so `- x tea: 1 cup` and `- 7 tea: 1 cup` are broken. The tap is the amount one tap
 writes: a number, written as the log format writes numbers, above zero. `min N`
 is a floor, met at or above N. `max N` is a ceiling, passed only above N. N is
 above zero.
@@ -209,8 +211,10 @@ counts at once rather than after the save. Both read every row of the table
 below, food included, and the card shows the food totals too. Nothing is stored
 in Postgres: every answer is read from the notes.
 
-The config note has one reader, `frontend/src/lib/log-kinds.ts`, and a table of
-its own, `frontend/src/lib/log-config-cases.json`. `log-cases.json` is unchanged.
+The config note has two readers: `frontend/src/lib/log-kinds.ts` for the card,
+and `backend/src/kasten_backend/log_config.py` for `GET /api/log`. Both run the
+same table, `frontend/src/lib/log-config-cases.json`, so they cannot part ways
+unnoticed. `log-cases.json` is unchanged.
 
 `foodLine` in that module writes the line the card's food search logs. It
 rounds kcal to a whole number and the grams to one decimal. It cleans the words

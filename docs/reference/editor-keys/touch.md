@@ -43,7 +43,9 @@ a touch screen.
 
 ### The toolbar
 
-A row along the bottom edge, under the status bar.
+A row along the bottom edge, under the status bar. When the buttons do not all
+fit, the row scrolls sideways, which happens on a 360px phone once the tab
+holds a split.
 
 | Button | Does | Command | Key |
 | --- | --- | --- | --- |
@@ -53,6 +55,7 @@ A row along the bottom edge, under the status bar.
 | `run` | Open the command palette | `openPalette` | `<leader>:` |
 | `today` | Open today's note | `openDaily` | `<leader>gd` |
 | `todos` | Open the todo pane | `openTodos` | `<leader>gt` |
+| `log` | Open the log | `openLog` | `<leader>gf` |
 | `chat` | Open the chat with Claude Code | `openChat` | `<leader>cc` |
 | `pane` | Move to the next pane. Drawn only while the tab holds more than one | `nextPane` | `<leader>o` |
 

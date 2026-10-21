@@ -343,7 +343,8 @@ class LogCard extends WidgetType {
     if (this.food) {
       let panel = openPanels.get(view);
       if (panel === undefined) {
-        panel = foodPanel(view, {
+        const path = view.state.facet(notePath);
+        panel = foodPanel(path === undefined ? null : dailyDate(path), {
           log: (line) => writeLogLine(view, line, [foodOpen.of(false)]),
           close: () => view.dispatch({ effects: foodOpen.of(false) }),
         });

@@ -46,6 +46,14 @@ export interface Pane {
    */
   todos?: boolean;
   /**
+   * Set on a pane holding the log, absent on every other.
+   *
+   * A fifteenth optional field for the reason `todos` is the second, written out
+   * above. A boolean because the log opens on today and moves by day from there,
+   * so the pane holds no note to name.
+   */
+  log?: boolean;
+  /**
    * The literature note whose book this pane is reading, absent otherwise.
    *
    * The note's path, not the book's: the note is the handle, and the reader

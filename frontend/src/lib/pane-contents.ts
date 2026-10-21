@@ -64,6 +64,16 @@ export function openTodosInFocused(layout: Layout): Layout {
 }
 
 /**
+ * Put the log in the focused pane, replacing whatever was there.
+ *
+ * Over the pane, following `openTodosInFocused`: the log is the day's entries,
+ * not a thing read beside a note.
+ */
+export function openLogInFocused(layout: Layout): Layout {
+  return fillFocused(layout, { log: true });
+}
+
+/**
  * Put the review in the focused pane, replacing whatever was there.
  *
  * Over the pane rather than beside it, following `openTodosInFocused`: this is

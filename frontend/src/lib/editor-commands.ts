@@ -41,6 +41,7 @@ export function forwardCommands(get: () => EditorCommands | undefined): Extensio
     findTodos: () => get()?.findTodos(),
     findBook: () => get()?.findBook(),
     openTodos: () => get()?.openTodos(),
+    openLog: () => get()?.openLog(),
     showBacklinks: () => get()?.showBacklinks(),
     showLinksOut: () => get()?.showLinksOut(),
     openDaily: () => get()?.openDaily(),

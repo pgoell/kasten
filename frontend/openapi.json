@@ -2900,7 +2900,8 @@
               "water",
               "coffee",
               "alcohol",
-              "food"
+              "food",
+              "mine"
             ],
             "title": "Kind"
           },
@@ -3013,6 +3014,50 @@
               }
             ],
             "title": "Fat"
+          },
+          "mark": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mark"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "amount": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amount"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
           }
         },
         "type": "object",
@@ -3479,6 +3524,35 @@
         "title": "Mention",
         "description": "One place another note names this one in plain text, without linking to it."
       },
+      "MineTotal": {
+        "properties": {
+          "mark": {
+            "type": "string",
+            "title": "Mark"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "unit": {
+            "type": "string",
+            "title": "Unit"
+          },
+          "total": {
+            "type": "number",
+            "title": "Total"
+          }
+        },
+        "type": "object",
+        "required": [
+          "mark",
+          "name",
+          "unit",
+          "total"
+        ],
+        "title": "MineTotal",
+        "description": "What one kind of your own adds up to on a day, rounded to a tenth."
+      },
       "Minted": {
         "properties": {
           "name": {
@@ -3919,6 +3993,20 @@
           },
           "food": {
             "$ref": "#/components/schemas/kasten_backend__log__Food"
+          },
+          "mine": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/MineTotal"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mine"
           }
         },
         "type": "object",

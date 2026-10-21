@@ -42,6 +42,33 @@ command the app does not provide.
 * [The todo list, key by key](/reference/editor-keys/todo-pane-keys.md): edit, timers, blockers, moves, the add prompt and saved views.
 * [The todo board](/reference/editor-keys/todo-board.md): the board's columns, lanes, keys and drag.
 
+## The log pane
+
+`<leader>gf` puts the food log in the focused pane, in place of whatever it
+held. The pane opens on today, and the keys below move it from day to day. The
+toolbar's `log` button does the same.
+
+| Key | Does |
+| --- | --- |
+| `j` | Move to the next entry |
+| `k` | Move to the previous entry |
+| `h` | Show the day before |
+| `l` | Show the day after |
+| `t` | Show today |
+| `e` | Edit the entry under the cursor |
+| `Enter` | Edit the entry under the cursor |
+| `d` | Delete the entry under the cursor |
+| `u` | Put back the entry last deleted |
+| `o` | Open the note at the entry's line |
+| `a` | Focus the amount field to log |
+| `f` | Open the food search |
+| `7` | Show trends over 7 days |
+| `3` | Show trends over 30 days |
+| `9` | Show trends over 90 days |
+| `?` | Show the keys |
+| `q` | Close the pane |
+| `Escape` | Leave the edit without writing |
+
 ## Vim on or off
 
 Where the primary pointer is a finger, the editor starts without vim. Where it

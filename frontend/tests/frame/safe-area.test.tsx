@@ -118,7 +118,7 @@ describe("the safe area on a phone", () => {
     await device(PORTRAIT.width, PORTRAIT.height, PORTRAIT.insets);
     await mount(<Frame phone={true} />);
 
-    expect(document.querySelectorAll('[role="toolbar"] button').length).toBe(8);
+    expect(document.querySelectorAll('[role="toolbar"] button').length).toBe(9);
     expect(outside(bars(), PORTRAIT.insets)).toEqual([]);
     const toolbar = document.querySelector('[role="toolbar"]') as HTMLElement;
     expect(getComputedStyle(toolbar).paddingBottom).toBe("34px");

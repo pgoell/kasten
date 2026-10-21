@@ -25,6 +25,7 @@ export function stubCommands() {
     findTodos: vi.fn(),
     findBook: vi.fn(),
     openTodos: vi.fn(),
+    openLog: vi.fn(),
     showBacklinks: vi.fn(),
     showLinksOut: vi.fn(),
     openDaily: vi.fn(),

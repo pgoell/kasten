@@ -70,7 +70,7 @@ const FIELD_MARKS = new Set(["🔥", "🥩", "🍞", "🧈"]);
  * an optional unit and an optional goal. The mark is astral, so the `u` flag.
  */
 const KIND_LINE = new RegExp(
-  `^- (\\p{Extended_Pictographic})️?[ \\t]+([^:]+):[ \\t]*(${NUMBER})(?:[ \\t]+([A-Za-z]+))?(?:[ \\t]*,[ \\t]*(min|max)[ \\t]+(${NUMBER}))?[ \\t]*$`,
+  `^- (\\p{So})️?[ \\t]+([^:]+):[ \\t]*(${NUMBER})(?:[ \\t]+([A-Za-z]+))?(?:[ \\t]*,[ \\t]*(min|max)[ \\t]+(${NUMBER}))?[ \\t]*$`,
   "iu",
 );
 

@@ -24,6 +24,7 @@ import { useFileTransfer } from "@/lib/use-file-transfer";
 import { useGuardedWrites } from "@/lib/use-guarded-writes";
 import { useKeyboardInset } from "@/lib/use-keyboard-inset";
 import { useListings } from "@/lib/use-listings";
+import { useLogActions } from "@/lib/use-log-actions";
 import { useNoteOpening } from "@/lib/use-note-opening";
 import { usePaneCommands } from "@/lib/use-pane-commands";
 import { useTodoActions } from "@/lib/use-todo-actions";
@@ -221,6 +222,7 @@ function Home() {
   const trash = useTrash({ panePath: pane.path, setLayout, saveFirst, refuse, openInPane });
   const { discardImage } = trash;
   const todos = useTodoActions({ data, archive, write: guarded.write, focusedNote, setNotice });
+  const logActions = useLogActions({ data, write: guarded.write, focusedNote, setNotice });
   const { todosWritten, agentTodo } = todos;
   const prompts = usePrompts({
     data,
@@ -348,6 +350,7 @@ function Home() {
           opening={opening}
           writes={guarded}
           todos={todos}
+          logActions={logActions}
           onTodoPrompt={openTodoPrompt}
           todoRow={todoRow}
           onDeleteImage={discardImage}

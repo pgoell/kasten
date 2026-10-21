@@ -116,7 +116,21 @@ describe("KeyHelp", () => {
       "Create and capture": ["cf", "cd", "cw", "cm", "cb", "ci", "cv", "cc", "cs"],
       "This note": ["rf", "df", "du", "w", "="],
       "Periodic notes": ["gd", "gw", "gm", "gq", "gy"],
-      "Panes to open": ["gb", "go", "gr", "gc", "gp", "gh", "gl", "gv", "ge", "gs", "gt", "gg"],
+      "Panes to open": [
+        "gb",
+        "go",
+        "gr",
+        "gc",
+        "gp",
+        "gh",
+        "gl",
+        "gv",
+        "ge",
+        "gs",
+        "gt",
+        "gf",
+        "gg",
+      ],
       Todos: ["x", "i", "@", "so", "sp", "sx", "sb", "sw", "sv", "sr"],
       Toggles: ["a", "b", "p", "e", "E", "v"],
       Help: ["?", ":"],
@@ -146,7 +160,7 @@ describe("KeyHelp", () => {
       "Toggles",
       "Help",
     ];
-    const other = ["Editor", "Terminal", "File tree", "Todo pane", "Screens you type"];
+    const other = ["Editor", "Terminal", "File tree", "Todo pane", "Log pane", "Screens you type"];
     const titles = (block: string) =>
       group(block)
         .getAllByRole("heading", { level: 3 })
@@ -245,6 +259,17 @@ describe("KeyHelp", () => {
     for (const { key, label } of TODO_PANE) {
       expect(group("Todo pane").getByText(key).nextElementSibling).toHaveTextContent(label);
     }
+  });
+
+  it("#624 <leader>? lists the log pane's keys and <leader>gf", () => {
+    render(<KeyHelp onClose={() => {}} />);
+
+    expect(group("Panes to open").getByText(leaderKey("gf")).nextElementSibling).toHaveTextContent(
+      "Open the log",
+    );
+    expect(group("Log pane").getByText("3").nextElementSibling).toHaveTextContent(
+      "Show trends over 30 days",
+    );
   });
 
   it("#419 names c, the key that turns the todo list into the board", () => {
@@ -348,6 +373,7 @@ describe("the key tables", () => {
       findTodos: () => {},
       findBook: () => {},
       openTodos: () => {},
+      openLog: () => {},
       showBacklinks: () => {},
       showLinksOut: () => {},
       openDaily: () => {},
@@ -418,6 +444,7 @@ describe("the key tables", () => {
       findTodos: () => {},
       findBook: () => {},
       openTodos: () => {},
+      openLog: () => {},
       showBacklinks: () => {},
       showLinksOut: () => {},
       openDaily: () => {},

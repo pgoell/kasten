@@ -6,13 +6,10 @@
  * way. `foodPanel` builds the panel the card draws while its search is open.
  */
 
-import type { EditorView } from "@codemirror/view";
 import { NO_CAMERA, startCamera } from "@/lib/barcode-camera";
 import { shiftDay } from "@/lib/clock";
 import { type Food, fetchLog, type LogDay, readBarcode, searchFood } from "@/lib/food-api";
 import { foodLine, tenth } from "@/lib/log-lines";
-import { dailyDate } from "@/lib/periodic";
-import { notePath } from "@/lib/todo-commands";
 
 const MEALS = ["breakfast", "lunch", "dinner", "snack"] as const;
 
@@ -42,7 +39,7 @@ const RECENT_DAYS = 30;
 /** A number as typed: digits, then an optional point or comma and more digits. */
 const NUMBER = /^[0-9]+(?:[.,][0-9]+)?$/;
 /** Words that end in a weight, as a line logged from this search writes it. */
-const GRAMS_END = /^(.*\S)[ \t]+([0-9]+(?:[.,][0-9]+)?)[ \t]*g$/i;
+export const GRAMS_END = /^(.*\S)[ \t]+([0-9]+(?:[.,][0-9]+)?)[ \t]*g$/i;
 
 /** The meal a food is logged under at this hour: breakfast, lunch, dinner, or a snack otherwise. */
 export function mealByHour(hour: number): Meal {
@@ -178,7 +175,7 @@ function previewWords(values: Nutrients): string {
  * dropped when its element is no longer in the page: a search or read that comes
  * back after the panel closed, or after a later search, draws nothing.
  */
-export function foodPanel(view: EditorView, hooks: PanelHooks): HTMLElement {
+export function foodPanel(day: string | null, hooks: PanelHooks): HTMLElement {
   const root = make("div", "cm-log-food");
   const query = make("input", "cm-log-food-query");
   query.type = "text";
@@ -471,8 +468,6 @@ export function foodPanel(view: EditorView, hooks: PanelHooks): HTMLElement {
   scan.addEventListener("click", startScan);
   close.addEventListener("click", () => shut());
 
-  const path = view.state.facet(notePath);
-  const day = path === undefined ? null : dailyDate(path);
   if (day !== null) {
     fetchLog(shiftDay(day, -RECENT_DAYS), day).then(
       (days) => {

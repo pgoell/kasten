@@ -17,8 +17,11 @@ const BUTTONS: readonly { command: LeaderCommand; label: string; name: string }[
   // The pane and not the overlay `findTodos` opens: the pane is the one with
   // buttons a finger can cycle and add with. The overlay is a palette row.
   { command: "openTodos", label: "todos", name: "Open the todo pane" },
+  // Logging a meal is a thumb job, the same as the todos.
+  { command: "openLog", label: "log", name: "Open the log" },
   // The reason the chat exists: a skill started with a thumb. Eight across a
-  // 360px phone is 45px each, one over the 44 a button has to be.
+  // 360px phone is 45px each, one over the 44 a button has to be. The split's
+  // pane makes nine, which is 40px each, so the row scrolls sideways instead.
   { command: "openChat", label: "chat", name: "Open the chat with Claude Code" },
 ];
 
@@ -50,7 +53,7 @@ export function Toolbar({ commands, split, inert }: ToolbarProps) {
       inert={inert}
       // Always the foot of the page where it is drawn, so it takes the home
       // indicator's inset.
-      className={`safe-foot flex shrink-0 gap-px border-one-line border-t bg-one-panel ${LABEL}`}
+      className={`safe-foot flex shrink-0 gap-px overflow-x-auto border-one-line border-t bg-one-panel ${LABEL}`}
     >
       {buttons.map(({ command, label, name }) => (
         <button

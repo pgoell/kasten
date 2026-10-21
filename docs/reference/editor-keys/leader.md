@@ -109,6 +109,7 @@ The file pickers that `<leader>cm` and `<leader>cb` open wait until you let go o
 | `<leader>ge` | Sit the open note as a practice exam |
 | `<leader>gs` | Put the review in the focused pane |
 | `<leader>gt` | Put the todo list in the focused pane |
+| `<leader>gf` | Put the food log in the focused pane |
 | `<leader>gg` | Put the graph of the whole vault in the focused pane |
 
 **Todos**

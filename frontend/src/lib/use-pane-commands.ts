@@ -25,6 +25,7 @@ import {
   openGraphBeside,
   openGraphInFocused,
   openHistoryBeside,
+  openLogInFocused,
   openPersonBeside,
   openReviewInFocused,
   openTodosInFocused,
@@ -69,6 +70,7 @@ export function usePaneCommands({
     | "term"
     | "chat"
     | "todos"
+    | "log"
     | "book"
     | "exam"
     | "review"
@@ -166,6 +168,7 @@ export function usePaneCommands({
       TreeCommands,
       | "closeNote"
       | "openTodos"
+      | "openLog"
       | "openGraph"
       | "openLocalGraph"
       | "openDaily"
@@ -225,6 +228,7 @@ export function usePaneCommands({
           pane.term !== undefined ||
           pane.chat === true ||
           pane.todos === true ||
+          pane.log === true ||
           pane.book !== undefined ||
           pane.exam !== undefined ||
           pane.review === true ||
@@ -247,6 +251,10 @@ export function usePaneCommands({
       // with it. The same rule `closeNote` follows.
       openTodos: async () => {
         if (await saveFirst()) moveTo(openTodosInFocused);
+      },
+      // Saved first for the reason `openTodos` is: the log replaces the pane.
+      openLog: async () => {
+        if (await saveFirst()) moveTo(openLogInFocused);
       },
       // Saved first for the reason `openTodos` is: the graph replaces what the
       // pane holds.
@@ -423,6 +431,7 @@ export function usePaneCommands({
       pane.term,
       pane.chat,
       pane.todos,
+      pane.log,
       pane.book,
       pane.exam,
       pane.review,

@@ -127,6 +127,16 @@
       "id": "c19-min-and-max",
       "line": "- 🍵 tea: 1 cup, min 2, max 4",
       "kind": null
+    },
+    {
+      "id": "c20-ascii-mark",
+      "line": "- x tea: 1 cup",
+      "kind": null
+    },
+    {
+      "id": "c21-digit-mark",
+      "line": "- 7 tea: 1 cup",
+      "kind": null
     }
   ],
   "lines": [
