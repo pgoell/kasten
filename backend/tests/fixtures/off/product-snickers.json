@@ -1,0 +1,39 @@
+{
+  "code": "5000159461122",
+  "product": {
+    "brands": "Mars Wrigley Confectionery UK Limited, Snickers",
+    "code": "5000159461122",
+    "nutriments": {
+      "carbohydrates": 60.5,
+      "carbohydrates_100g": 60.5,
+      "carbohydrates_serving": 30.2,
+      "carbohydrates_unit": "g",
+      "energy-kcal": 481,
+      "energy-kcal_100g": 481,
+      "energy-kcal_serving": 240,
+      "energy-kcal_unit": "kcal",
+      "energy-kj_100g": 2018,
+      "energy-kj_serving": 1010,
+      "fat": 22.5,
+      "fat_100g": 22.5,
+      "fat_serving": 11.2,
+      "fat_unit": "g",
+      "proteins": 8.6,
+      "proteins_100g": 8.6,
+      "proteins_serving": 4.3,
+      "proteins_unit": "g",
+      "salt_100g": 0.62875,
+      "salt_serving": 0.314,
+      "sugars_100g": 51.8,
+      "sugars_serving": 25.9
+    },
+    "nutrition_data": "on",
+    "nutrition_data_per": "100g",
+    "nutrition_data_prepared_per": "100g",
+    "product_name": "Snickers",
+    "serving_quantity": 50,
+    "serving_size": "50 g"
+  },
+  "status": 1,
+  "status_verbose": "product found"
+}

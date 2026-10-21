@@ -1,0 +1,47 @@
+{
+  "hits": [
+    {
+      "code": "5000159484480",
+      "brands": ["Mars Snickers", " Snickers"],
+      "nutriments": {
+        "fat_100g": 28,
+        "saturated-fat_100g": 9.7,
+        "salt_100g": 0.44,
+        "energy-kj_100g": 2133,
+        "sodium_100g": 0.176,
+        "energy-kcal_100g": 510,
+        "proteins_100g": 9.5,
+        "sugars_100g": 45,
+        "carbohydrates_100g": 54
+      },
+      "product_name": "Snickers"
+    },
+    {
+      "code": "2000000119775",
+      "brands": ["SNICKERS"],
+      "nutriments": {
+        "carbohydrates_100g": 31.3,
+        "energy-kcal_100g": 250,
+        "fat_100g": 12,
+        "fiber_100g": 0,
+        "proteins_100g": 5,
+        "salt_100g": 0.0375,
+        "saturated-fat_100g": 4.5,
+        "sodium_100g": 0.015,
+        "sugars_100g": 27
+      },
+      "product_name": "SNICKERS 52,7G"
+    }
+  ],
+  "aggregations": null,
+  "facets": {},
+  "charts": {},
+  "page": 1,
+  "page_size": 2,
+  "page_count": 328,
+  "took": 5,
+  "timed_out": false,
+  "count": 655,
+  "is_count_exact": true,
+  "warnings": null
+}
