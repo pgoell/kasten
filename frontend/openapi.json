@@ -1307,6 +1307,91 @@
         }
       }
     },
+    "/api/food/search": {
+      "get": {
+        "summary": "Search Food",
+        "description": "The foods whose name matches `q` on Open Food Facts.\n\nA `q` of only 8 to 14 digits is a barcode, and answers the one food it names,\nor none.",
+        "operationId": "search_food_api_food_search_get",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Q"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/kasten_backend__food__Food"
+                  },
+                  "title": "Response Search Food Api Food Search Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/food/barcode/{code}": {
+      "get": {
+        "summary": "Read Barcode",
+        "description": "The food with barcode `code`, as Open Food Facts has it.",
+        "operationId": "read_barcode_api_food_barcode__code__get",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]{8,14}$",
+              "title": "Code"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/kasten_backend__food__Food"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/anki": {
       "post": {
         "summary": "Import Anki",
@@ -2995,35 +3080,6 @@
         "title": "FolderMove",
         "description": "Where a folder should live from now on, and every note under it with it."
       },
-      "Food": {
-        "properties": {
-          "kcal": {
-            "type": "number",
-            "title": "Kcal"
-          },
-          "protein": {
-            "type": "number",
-            "title": "Protein"
-          },
-          "carbs": {
-            "type": "number",
-            "title": "Carbs"
-          },
-          "fat": {
-            "type": "number",
-            "title": "Fat"
-          }
-        },
-        "type": "object",
-        "required": [
-          "kcal",
-          "protein",
-          "carbs",
-          "fat"
-        ],
-        "title": "Food",
-        "description": "What the food lines add up to: kcal, and grams of protein, carbs and fat."
-      },
       "Forecast": {
         "properties": {
           "place": {
@@ -3584,6 +3640,63 @@
         "title": "NoteSave",
         "description": "A save's body, which may say the text is a restore from the history pane."
       },
+      "Nutrients": {
+        "properties": {
+          "kcal": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kcal"
+          },
+          "protein": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Protein"
+          },
+          "carbs": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Carbs"
+          },
+          "fat": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fat"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kcal",
+          "protein",
+          "carbs",
+          "fat"
+        ],
+        "title": "Nutrients",
+        "description": "What a serving or 100 grams holds: kilocalories, and grams of protein, carbs and fat."
+      },
       "Page": {
         "properties": {
           "url": {
@@ -3805,7 +3918,7 @@
             "$ref": "#/components/schemas/Alcohol"
           },
           "food": {
-            "$ref": "#/components/schemas/Food"
+            "$ref": "#/components/schemas/kasten_backend__log__Food"
           }
         },
         "type": "object",
@@ -3965,6 +4078,89 @@
         ],
         "title": "Water",
         "description": "What the water lines add up to, in millilitres."
+      },
+      "kasten_backend__food__Food": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "brand": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Brand"
+          },
+          "serving_g": {
+            "type": "number",
+            "title": "Serving G"
+          },
+          "serving_from": {
+            "type": "string",
+            "enum": [
+              "serving_quantity",
+              "serving_size",
+              "default"
+            ],
+            "title": "Serving From"
+          },
+          "per_100g": {
+            "$ref": "#/components/schemas/Nutrients"
+          },
+          "per_serving": {
+            "$ref": "#/components/schemas/Nutrients"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "name",
+          "brand",
+          "serving_g",
+          "serving_from",
+          "per_100g",
+          "per_serving"
+        ],
+        "title": "Food",
+        "description": "One food: its name, one serving, and its nutrients per 100 g and per serving."
+      },
+      "kasten_backend__log__Food": {
+        "properties": {
+          "kcal": {
+            "type": "number",
+            "title": "Kcal"
+          },
+          "protein": {
+            "type": "number",
+            "title": "Protein"
+          },
+          "carbs": {
+            "type": "number",
+            "title": "Carbs"
+          },
+          "fat": {
+            "type": "number",
+            "title": "Fat"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kcal",
+          "protein",
+          "carbs",
+          "fat"
+        ],
+        "title": "Food",
+        "description": "What the food lines add up to: kcal, and grams of protein, carbs and fat."
       }
     }
   }

@@ -17,6 +17,7 @@ import {
   type Text,
 } from "@codemirror/state";
 import { Decoration, type DecorationSet, EditorView, WidgetType } from "@codemirror/view";
+import { foodPanel } from "@/lib/food-search";
 import {
   amountLine,
   DEFAULT_LINE,
@@ -40,9 +41,16 @@ interface LastTap {
 /** The last tap, or null once it is undone. */
 const tapped = StateEffect.define<LastTap | null>();
 
+/** Opens or closes the food search panel. */
+const foodOpen = StateEffect.define<boolean>();
+
 interface Card {
   totals: DrinkTotals;
   lastTap: LastTap | null;
+  /** Whether the food search panel is open. */
+  food: boolean;
+  /** Whether this note has a card at all, which the palette asks before it offers the search. */
+  shown: boolean;
   decorations: DecorationSet;
 }
 
@@ -55,12 +63,17 @@ function stillThere(doc: Text, tap: LastTap): boolean {
 
 /** The totals as the card words them. The grams show only once there are some. */
 function totalWords(totals: DrinkTotals): string[] {
-  const { water, coffee, alcohol } = totals;
-  return [
+  const { water, coffee, alcohol, food } = totals;
+  const words = [
     `💧 ${water.ml} ml`,
     `☕ ${coffee.count}`,
     `🍺 ${alcohol.count}${alcohol.grams > 0 ? `, ${alcohol.grams} g` : ""}`,
   ];
+  // The food words wait for the first food, as the grams of alcohol wait for a strength.
+  if (food.kcal > 0 || food.protein > 0 || food.carbs > 0 || food.fat > 0) {
+    words.push(`🔥 ${food.kcal} kcal 🥩 ${food.protein} g 🍞 ${food.carbs} g 🧈 ${food.fat} g`);
+  }
+  return words;
 }
 
 /**
@@ -83,6 +96,23 @@ function button(
   return made;
 }
 
+/**
+ * Writes `line` at the end of `## Log` as one tap: the card's Undo can take it back,
+ * and `effects` go in the same change.
+ */
+function writeLogLine(view: EditorView, line: string, effects: StateEffect<unknown>[] = []): void {
+  const edit = appendUnderEdit(view.state.doc.toString(), LOG_HEADING, line);
+  view.dispatch({
+    changes: edit,
+    // The edit starts where the inserted text does, and a new section's heading comes before the line.
+    effects: [tapped.of({ from: edit.from + edit.insert.indexOf(line), text: line }), ...effects],
+    userEvent: "input.log",
+    // History joins quick adjacent input into one step, so two fast taps, or a
+    // tap just after typing, would come back as one `u`.
+    annotations: isolateHistory.of("full"),
+  });
+}
+
 /** Writes the line `amount` makes for `kind` at the end of `## Log`, or says why it cannot. */
 function tap(view: EditorView, kind: DrinkKind, amount: HTMLInputElement, why: HTMLElement): void {
   const line = amountLine(kind, amount.value);
@@ -92,16 +122,7 @@ function tap(view: EditorView, kind: DrinkKind, amount: HTMLInputElement, why: H
   }
   why.textContent = "";
   amount.value = "";
-  const edit = appendUnderEdit(view.state.doc.toString(), LOG_HEADING, line);
-  view.dispatch({
-    changes: edit,
-    // The edit starts where the inserted text does, and a new section's heading comes before the line.
-    effects: tapped.of({ from: edit.from + edit.insert.indexOf(line), text: line }),
-    userEvent: "input.log",
-    // History joins quick adjacent input into one step, so two fast taps, or a
-    // tap just after typing, would come back as one `u`.
-    annotations: isolateHistory.of("full"),
-  });
+  writeLogLine(view, line);
 }
 
 /**
@@ -134,19 +155,22 @@ class LogCard extends WidgetType {
   private readonly totals: DrinkTotals;
   /** The text of the tap Undo takes back, or null where there is none to offer. */
   private readonly undoText: string | null;
+  /** Whether the food search panel is drawn under the row. */
+  private readonly food: boolean;
 
-  constructor(totals: DrinkTotals, undoText: string | null) {
+  constructor(totals: DrinkTotals, undoText: string | null, food: boolean) {
     super();
     this.totals = totals;
     this.undoText = undoText;
+    this.food = food;
   }
 
   // Only what is drawn is compared. An Undo's position moves with every edit above
   // it, and a rebuild for that would empty the amount field.
   override eq(other: LogCard): boolean {
     return (
-      JSON.stringify([this.totals, this.undoText]) ===
-      JSON.stringify([other.totals, other.undoText])
+      JSON.stringify([this.totals, this.undoText, this.food]) ===
+      JSON.stringify([other.totals, other.undoText, other.food])
     );
   }
 
@@ -182,12 +206,21 @@ class LogCard extends WidgetType {
       const press = () => tap(view, kind, amount, why);
       row.appendChild(button(words, `Log ${kind}`, "cm-log-button", press));
     }
+    row.appendChild(button("+ 🍽 food", "Log food", "cm-log-button", () => openFoodSearch(view)));
     row.appendChild(amount);
     if (this.undoText !== null) {
       const words = `Undo ${this.undoText.slice(2)}`;
       row.appendChild(button(words, words, "cm-log-undo", () => undoLastTap(view)));
     }
     card.append(totals, row, why);
+    if (this.food) {
+      card.append(
+        foodPanel(view, {
+          log: (line) => writeLogLine(view, line, [foodOpen.of(false)]),
+          close: () => view.dispatch({ effects: foodOpen.of(false) }),
+        }),
+      );
+    }
     return card;
   }
 }
@@ -196,17 +229,21 @@ class LogCard extends WidgetType {
 const NO_TOTALS = drinkTotals("");
 
 /** The card for a note: its totals and widget only on a daily note. */
-function build(state: EditorState, lastTap: LastTap | null): Card {
+function build(state: EditorState, lastTap: LastTap | null, food: boolean): Card {
   const path = state.facet(notePath);
   const line = path !== undefined && dailyDate(path) !== null ? cardLine(state.doc) : null;
-  if (line === null) return { totals: NO_TOTALS, lastTap, decorations: Decoration.none };
+  if (line === null) {
+    return { totals: NO_TOTALS, lastTap, food: false, shown: false, decorations: Decoration.none };
+  }
   const totals = drinkTotals(state.doc.toString());
   // Only a tap still on the page can be undone, so an edited one is offered nothing.
   const undo = lastTap !== null && stillThere(state.doc, lastTap) ? lastTap.text : null;
-  const widget = new LogCard(totals, undo);
+  const widget = new LogCard(totals, undo, food);
   return {
     totals,
     lastTap,
+    food,
+    shown: true,
     decorations: Decoration.set([
       Decoration.widget({ widget, block: true, side: 2 }).range(state.doc.line(line).to),
     ]),
@@ -219,9 +256,10 @@ function build(state: EditorState, lastTap: LastTap | null): Card {
  * takes only from state.
  */
 const cardField = StateField.define<Card>({
-  create: (state) => build(state, null),
+  create: (state) => build(state, null, false),
   update(value, tr) {
     let lastTap = value.lastTap;
+    let food = value.food;
     if (tr.docChanged && lastTap !== null) {
       lastTap = { from: tr.changes.mapPos(lastTap.from), text: lastTap.text };
     }
@@ -231,10 +269,30 @@ const cardField = StateField.define<Card>({
         lastTap = effect.value;
         changed = true;
       }
+      if (effect.is(foodOpen)) {
+        food = effect.value;
+        changed = true;
+      }
     }
-    return changed ? build(tr.state, lastTap) : value;
+    return changed ? build(tr.state, lastTap, food) : value;
   },
   provide: (field) => EditorView.decorations.from(field, (value) => value.decorations),
 });
 
 export const logCard: Extension = cardField;
+
+/** Whether the view shows a card, which only a daily note with one does. */
+export function cardShown(view: EditorView): boolean {
+  return view.state.field(cardField, false)?.shown === true;
+}
+
+/**
+ * Opens the food search on the card, and puts the cursor in its query. False,
+ * with nothing changed, where the view shows no card.
+ */
+export function openFoodSearch(view: EditorView): boolean {
+  if (!cardShown(view)) return false;
+  view.dispatch({ effects: foodOpen.of(true) });
+  view.dom.querySelector<HTMLInputElement>(".cm-log-food-query")?.focus();
+  return true;
+}

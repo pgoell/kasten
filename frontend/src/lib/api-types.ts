@@ -783,6 +783,49 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/food/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Search Food
+         * @description The foods whose name matches `q` on Open Food Facts.
+         *
+         *     A `q` of only 8 to 14 digits is a barcode, and answers the one food it names,
+         *     or none.
+         */
+        get: operations["search_food_api_food_search_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/food/barcode/{code}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Barcode
+         * @description The food with barcode `code`, as Open Food Facts has it.
+         */
+        get: operations["read_barcode_api_food_barcode__code__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/anki": {
         parameters: {
             query?: never;
@@ -1740,20 +1783,6 @@ export interface components {
             path: string;
         };
         /**
-         * Food
-         * @description What the food lines add up to: kcal, and grams of protein, carbs and fat.
-         */
-        Food: {
-            /** Kcal */
-            kcal: number;
-            /** Protein */
-            protein: number;
-            /** Carbs */
-            carbs: number;
-            /** Fat */
-            fat: number;
-        };
-        /**
          * Forecast
          * @description One place's day.
          */
@@ -2011,6 +2040,20 @@ export interface components {
             restored_from?: string | null;
         };
         /**
+         * Nutrients
+         * @description What a serving or 100 grams holds: kilocalories, and grams of protein, carbs and fat.
+         */
+        Nutrients: {
+            /** Kcal */
+            kcal: number | null;
+            /** Protein */
+            protein: number | null;
+            /** Carbs */
+            carbs: number | null;
+            /** Fat */
+            fat: number | null;
+        };
+        /**
          * Page
          * @description One web page as it arrived, for the client to make a note out of.
          */
@@ -2115,7 +2158,7 @@ export interface components {
             water: components["schemas"]["Water"];
             coffee: components["schemas"]["Coffee"];
             alcohol: components["schemas"]["Alcohol"];
-            food: components["schemas"]["Food"];
+            food: components["schemas"]["kasten_backend__log__Food"];
         };
         /**
          * Transcript
@@ -2188,6 +2231,41 @@ export interface components {
         Water: {
             /** Ml */
             ml: number;
+        };
+        /**
+         * Food
+         * @description One food: its name, one serving, and its nutrients per 100 g and per serving.
+         */
+        kasten_backend__food__Food: {
+            /** Code */
+            code: string;
+            /** Name */
+            name: string;
+            /** Brand */
+            brand: string | null;
+            /** Serving G */
+            serving_g: number;
+            /**
+             * Serving From
+             * @enum {string}
+             */
+            serving_from: "serving_quantity" | "serving_size" | "default";
+            per_100g: components["schemas"]["Nutrients"];
+            per_serving: components["schemas"]["Nutrients"];
+        };
+        /**
+         * Food
+         * @description What the food lines add up to: kcal, and grams of protein, carbs and fat.
+         */
+        kasten_backend__log__Food: {
+            /** Kcal */
+            kcal: number;
+            /** Protein */
+            protein: number;
+            /** Carbs */
+            carbs: number;
+            /** Fat */
+            fat: number;
         };
     };
     responses: never;
@@ -3085,6 +3163,68 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Day"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    search_food_api_food_search_get: {
+        parameters: {
+            query: {
+                q: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["kasten_backend__food__Food"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_barcode_api_food_barcode__code__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                code: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["kasten_backend__food__Food"];
                 };
             };
             /** @description Validation Error */

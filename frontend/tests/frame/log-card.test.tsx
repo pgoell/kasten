@@ -11,6 +11,30 @@ import { notePath } from "@/lib/todo-commands";
 import { shot } from "./shots";
 import "@/styles/app.css";
 
+vi.mock("@/lib/food-api", () => ({
+  searchFood: async () => [
+    {
+      code: "5000159461122",
+      name: "Snickers",
+      brand: "Mars Wrigley Confectionery UK Limited",
+      serving_g: 100,
+      serving_from: "default",
+      per_100g: { kcal: 481, protein: 8.6, carbs: 60.5, fat: 22.5 },
+      per_serving: { kcal: 481, protein: 8.6, carbs: 60.5, fat: 22.5 },
+    },
+  ],
+  readBarcode: async () => ({
+    code: "5000159461122",
+    name: "Snickers",
+    brand: "Mars Wrigley Confectionery UK Limited",
+    serving_g: 50,
+    serving_from: "serving_quantity",
+    per_100g: { kcal: 481, protein: 8.6, carbs: 60.5, fat: 22.5 },
+    per_serving: { kcal: 240, protein: 4.3, carbs: 30.2, fat: 11.2 },
+  }),
+  fetchLog: async () => [],
+}));
+
 const DAILY = "01 Periodic/00 Daily/2026-10-20.md";
 const NOTE = [
   "# 2026-10-20 Tuesday",
@@ -95,6 +119,107 @@ it("#620 the card lays out on a desktop without scrolling sideways", async () =>
       document.documentElement.clientWidth,
     );
     expect(await shot(host, "log-card-1200")).toBe(1200);
+    view.destroy();
+    host.remove();
+  } finally {
+    await page.viewport(414, 896);
+  }
+});
+
+/** Presses the card's 🍽 button, or fails the test where there is none. */
+function openFood(view: EditorView): void {
+  const button = view.dom.querySelector<HTMLButtonElement>(".cm-log button[aria-label='Log food']");
+  expect(button).not.toBeNull();
+  button?.click();
+}
+
+/** Types into the panel's query the way a keyboard does, so its pause starts. */
+function typeFood(view: EditorView, text: string): void {
+  const query = view.dom.querySelector<HTMLInputElement>(".cm-log-food-query");
+  expect(query).not.toBeNull();
+  if (query) {
+    query.value = text;
+    query.dispatchEvent(new Event("input", { bubbles: true }));
+  }
+}
+
+/** Presses the Snickers row of the results. */
+function pickSnickers(view: EditorView): void {
+  const rows = [...view.dom.querySelectorAll<HTMLButtonElement>(".cm-log-food-results button")];
+  const pick = rows.find((button) => (button.textContent ?? "").includes("Snickers"));
+  expect(pick, "a Snickers result").toBeDefined();
+  pick?.click();
+}
+
+/**
+ * Every control the panel shows is 44px tall, and the text fields and the meal
+ * list are 16px, so a phone's browser does not zoom into them. The card's edge is
+ * not passed, and the page does not scroll sideways.
+ */
+function expectFingerSized(view: EditorView): void {
+  const shown = [
+    ...view.dom.querySelectorAll<HTMLElement>(
+      ".cm-log-food button, .cm-log-food input, .cm-log-food select",
+    ),
+  ].filter((control) => control.getClientRects().length > 0);
+  expect(shown.length).toBeGreaterThan(0);
+  for (const control of shown) {
+    expect(control.getBoundingClientRect().height, control.className).toBeGreaterThanOrEqual(44);
+    if (control.tagName !== "BUTTON") {
+      expect(getComputedStyle(control).fontSize, control.className).toBe("16px");
+    }
+  }
+  const edge = view.dom.getBoundingClientRect().right;
+  const past = shown
+    .filter((control) => control.getBoundingClientRect().right > edge)
+    .map((control) => control.className);
+  expect(past, "controls past the card's right edge").toEqual([]);
+  expect(document.documentElement.scrollWidth, "page scrolls sideways").toBeLessThanOrEqual(
+    document.documentElement.clientWidth,
+  );
+}
+
+it("#621 the food search and the serving choice are finger-sized and do not scroll sideways at 414", async () => {
+  try {
+    const { host, view } = await mount(414, 896);
+    openFood(view);
+    typeFood(view, "snickers");
+    await expect
+      .poll(() => view.dom.querySelector(".cm-log-food-results")?.textContent ?? "")
+      .toContain("Snickers");
+    expectFingerSized(view);
+    expect(await shot(host, "food-search-414")).toBe(414);
+
+    pickSnickers(view);
+    await expect
+      .poll(() => view.dom.querySelector(".cm-log-food-preview")?.textContent ?? "")
+      .toContain("kcal");
+    expectFingerSized(view);
+    expect(await shot(host, "food-serving-414")).toBe(414);
+    view.destroy();
+    host.remove();
+  } finally {
+    await page.viewport(414, 896);
+  }
+});
+
+it("#621 the food search and the serving choice lay out on a desktop", async () => {
+  try {
+    const { host, view } = await mount(1200, 900);
+    openFood(view);
+    typeFood(view, "snickers");
+    await expect
+      .poll(() => view.dom.querySelector(".cm-log-food-results")?.textContent ?? "")
+      .toContain("Snickers");
+    expectFingerSized(view);
+    expect(await shot(host, "food-search-1200")).toBe(1200);
+
+    pickSnickers(view);
+    await expect
+      .poll(() => view.dom.querySelector(".cm-log-food-preview")?.textContent ?? "")
+      .toContain("kcal");
+    expectFingerSized(view);
+    expect(await shot(host, "food-serving-1200")).toBe(1200);
     view.destroy();
     host.remove();
   } finally {

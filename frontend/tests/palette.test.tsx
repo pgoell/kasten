@@ -7,10 +7,17 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { CommandPalette } from "@/components/command-palette";
 import { readClock } from "@/lib/clock";
 import { editorCommands } from "@/lib/editor-commands";
+import { logCard } from "@/lib/log-card";
 import { INSERTS, paletteEntries, slashCompletions, writeInsert } from "@/lib/palette";
 import { periodicNote } from "@/lib/periodic";
 import { notePath, todoCycled } from "@/lib/todo-commands";
 import { stubCommands } from "./stub-commands";
+
+vi.mock("@/lib/food-api", () => ({
+  searchFood: vi.fn(),
+  readBarcode: vi.fn(),
+  fetchLog: vi.fn(async () => []),
+}));
 
 function viewOf(doc: string, cursor = doc.length) {
   return new EditorView({ state: EditorState.create({ doc, selection: { anchor: cursor } }) });
@@ -254,4 +261,17 @@ describe("the drink entries", () => {
     expect(commands.logDrink).toHaveBeenCalledWith("coffee");
     expect(view.state.doc.toString()).toBe("x");
   });
+});
+
+it("#621 the palette's Log food opens the food search on a daily note", () => {
+  const view = new EditorView({
+    state: EditorState.create({
+      doc: "# 2026-10-20 Tuesday\n\n## Log\n- 💧 500 ml",
+      extensions: [notePath.of(periodicNote("daily", new Date()).path), logCard],
+    }),
+  });
+  const entry = paletteEntries(stubCommands(), view).find((row) => row.label === "Log food");
+  expect(entry).not.toBeUndefined();
+  entry?.run();
+  expect(view.dom.querySelector(".cm-log-food-query")).not.toBeNull();
 });

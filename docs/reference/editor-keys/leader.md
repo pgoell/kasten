@@ -231,7 +231,8 @@ the four formatting marks, the inserts below, and the commands vim spells at
 its prompt: the write, the two rereads, the three copies and `gf`. Opened over
 a pane with no note, it lists the leader commands only, as the rest act on a
 note. Both lists end with `Go to tab 1` to `Go to tab 10`, `Toggle vim keys`,
-and `Log water`, `Log coffee` and `Log alcohol`, none of which has a key.
+and `Log water`, `Log coffee` and `Log alcohol`, none of which has a key. Over a
+daily note's card the list also has `Log food`, which opens the card's food search.
 
 `Log water`, `Log coffee` and `Log alcohol` write `- 💧 250 ml`, `- ☕ 1` or
 `- 🍺 1` at the end of `## Log` in today's daily note, making the section, and

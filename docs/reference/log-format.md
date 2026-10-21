@@ -115,15 +115,25 @@ The totals are the open note's lines, so yesterday's note shows yesterday.
 The palette's `Log water`, `Log coffee` and `Log alcohol` write into today's
 note from anywhere; see [the command palette](/reference/editor-keys/leader.md#the-command-palette).
 
+The card's `+ 🍽 food` button opens a food search. Type two characters or
+more and the search runs once the typing pauses, on Open Food Facts. A barcode
+of eight to fourteen digits reads that one food. Foods that the last 30 days
+logged come first, marked `recent`, and need no search. A pick shows its
+serving: grams, servings (1 at first), and a meal. The meal is breakfast from
+5 to 10, lunch from 11 to 14, dinner from 17 to 21, and a snack at other hours.
+`Log this food` writes the food line at the end of `## Log`, with the kcal and
+macros for the amount chosen. `Escape` and `Close` write nothing. The card's
+totals show the food's kcal, protein, carbs and fat once a food line is there.
+The palette's `Log food` opens the same search on a daily note.
+
 ## Two parsers
 
 The backend reads the lines and parses them, in `backend/src/kasten_backend/log.py`,
 and `GET /api/log` answers with totals from it. The card reads the drink and
 food lines of the open buffer with `frontend/src/lib/log-lines.ts`, so a tap
 counts at once rather than after the save. Both read every row of the table
-below, food included. The totals the card reads include food, though the card
-does not show it yet. Nothing is stored in Postgres: every answer is read from
-the notes.
+below, food included, and the card shows the food totals too. Nothing is stored
+in Postgres: every answer is read from the notes.
 
 `foodLine` in that module writes the line the card's food search logs. It
 rounds kcal to a whole number and the grams to one decimal. It cleans the words

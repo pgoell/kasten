@@ -81,3 +81,162 @@
 .cm-log-why:empty {
   display: none;
 }
+
+/* The food search. Its fields and rows are 44px and 16px like the card's own, and
+   wrap rather than run wide, so the panel never scrolls a 414px screen sideways. */
+.cm-log-food {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* `hidden` must win over the grid and flex rules below. */
+.cm-log-food [hidden] {
+  display: none;
+}
+
+.cm-log-food-query,
+.cm-log-food-grams,
+.cm-log-food-servings,
+.cm-log-food-meal {
+  min-width: 0;
+  max-width: 100%;
+  min-height: 44px;
+  padding: 0 10px;
+  border: 1px solid var(--color-one-selection);
+  border-radius: 6px;
+  background: var(--color-one-well);
+  color: var(--color-one-fg);
+  font-family: var(--font-sans);
+  font-size: 16px;
+}
+
+.cm-log-food-results {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.cm-log-food-pick {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 10px;
+  min-width: 0;
+  min-height: 44px;
+  padding: 6px 10px;
+  border: 1px solid var(--color-one-selection);
+  border-radius: 6px;
+  background: var(--color-one-panel);
+  color: var(--color-one-fg);
+  font: inherit;
+  font-size: 14px;
+  text-align: left;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.cm-log-food-pick:hover {
+  background: var(--color-one-hover);
+}
+
+.cm-log-food-brand,
+.cm-log-food-recent,
+.cm-log-food-kcal {
+  color: var(--color-one-muted);
+}
+
+.cm-log-food-serving {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+}
+
+.cm-log-food-heading {
+  flex: 1 1 100%;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.cm-log-food-field {
+  display: flex;
+  flex: 1 1 8rem;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  color: var(--color-one-muted);
+  font-size: 14px;
+}
+
+.cm-log-food-field > input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* The unit word keeps one line, so the input is the part that gives way. */
+.cm-log-food-field > span {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.cm-log-food-meal {
+  flex: 1 1 7rem;
+}
+
+.cm-log-food-preview {
+  flex: 1 1 100%;
+  color: var(--color-one-fg);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.cm-log-food-log,
+.cm-log-food-back,
+.cm-log-food-close {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--color-one-selection);
+  border-radius: 6px;
+  background: var(--color-one-panel);
+  color: var(--color-one-fg);
+  font: inherit;
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.cm-log-food-close,
+.cm-log-food-back {
+  color: var(--color-one-muted);
+}
+
+.cm-log-food-log:hover,
+.cm-log-food-back:hover,
+.cm-log-food-close:hover {
+  background: var(--color-one-hover);
+}
+
+.cm-log-food-query:focus-visible,
+.cm-log-food-grams:focus-visible,
+.cm-log-food-servings:focus-visible,
+.cm-log-food-meal:focus-visible,
+.cm-log-food-pick:focus-visible,
+.cm-log-food-log:focus-visible,
+.cm-log-food-back:focus-visible,
+.cm-log-food-close:focus-visible {
+  outline: 2px solid var(--color-one-accent);
+  outline-offset: 1px;
+}
+
+/* The search's refusal and the serving's refusal, in the warn colour. */
+.cm-log-food-why {
+  color: var(--color-one-warn);
+  font-size: 0.8em;
+  overflow-wrap: anywhere;
+}
+
+.cm-log-food-why:empty {
+  display: none;
+}

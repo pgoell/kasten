@@ -8,6 +8,7 @@ import { editorCommands } from "@/lib/editor-commands";
 import { toggleMark } from "@/lib/format-commands";
 import type { EditorCommands } from "@/lib/key-bindings";
 import { LEADER, spelled, TAB_KEYS } from "@/lib/leader-keys";
+import { cardShown, openFoodSearch } from "@/lib/log-card";
 import { DRINKS } from "@/lib/log-lines";
 import { logDrinkInView } from "@/lib/log-write";
 import { toggleVim } from "@/lib/vim-setting";
@@ -193,6 +194,8 @@ export function paletteEntries(commands: EditorCommands, view: EditorView | null
     ...(onView === undefined
       ? []
       : EX.map(({ keys, label, run }) => ({ label, keys, run: () => run(onView, view) }))),
+    // Listed only over a daily note's card, the one place the search has a line to log into.
+    ...(cardShown(view) ? [{ label: "Log food", run: () => openFoodSearch(view) }] : []),
     ...routed,
   ];
 }
