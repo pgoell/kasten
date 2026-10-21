@@ -46,6 +46,9 @@ Two things leave the server, and no others:
   Its default is the kasten repository URL, so no personal address leaves the
   server until the operator sets one.
 
+A scanned barcode goes the same way as a typed one. The phone reads the code
+itself, and no picture leaves the phone.
+
 Nothing about notes, the vault or the user leaves. No login, cookie or token
 goes with the call. [The security model](/explanation/security-model.md) covers
 the outside calls that take an address from the user, such as page fetching,

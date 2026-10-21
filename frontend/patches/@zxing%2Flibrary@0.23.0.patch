@@ -1,0 +1,301 @@
+diff --git a/node_modules/@zxing/library/.bun-tag-3dd1c143331c0a50 b/.bun-tag-3dd1c143331c0a50
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/node_modules/@zxing/library/.bun-tag-89de36c7bfeec6ef b/.bun-tag-89de36c7bfeec6ef
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/node_modules/@zxing/library/.bun-tag-c3d23455e4edd252 b/.bun-tag-c3d23455e4edd252
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/cjs/core/oned/UPCEANReader.js b/cjs/core/oned/UPCEANReader.js
+index 62b33e7964a58723090a64abe5fde803e2d288a6..b7ffc32e04450de6b85906efb3ccbf5081502d8b 100644
+--- a/cjs/core/oned/UPCEANReader.js
++++ b/cjs/core/oned/UPCEANReader.js
+@@ -67,6 +67,18 @@ var UPCEANReader = /** @class */ (function (_super) {
+         }
+         return _this;
+     }
++    // Patched: Java's decodeRow calls checkChecksum virtually, so UPCEReader's override (which
++    // expands UPC-E to UPC-A first) runs. This build called the static one, so every UPC-E
++    // failed its checksum (upstream zxing-js/library issue 573).
++    UPCEANReader.prototype.checkChecksum = function (s) {
++        return UPCEANReader.checkChecksum(s);
++    };
++    // Patched: as checkChecksum above, Java's decodeRow calls decodeEnd virtually. This build
++    // called the static one, so UPC-E looked for the 3-module EAN end guard, not its own
++    // 6-module one (upstream zxing-js/library issue 573).
++    UPCEANReader.prototype.decodeEnd = function (row, endStart) {
++        return UPCEANReader.decodeEnd(row, endStart);
++    };
+     UPCEANReader.prototype.decodeRow = function (rowNumber, row, hints) {
+         var startGuardRange = UPCEANReader.findStartGuardPattern(row);
+         var resultPointCallback = hints == null ? null : hints.get(DecodeHintType_1.default.NEED_RESULT_POINT_CALLBACK);
+@@ -81,7 +93,7 @@ var UPCEANReader = /** @class */ (function (_super) {
+             var resultPoint_2 = new ResultPoint_1.default(endStart, rowNumber);
+             resultPointCallback.foundPossibleResultPoint(resultPoint_2);
+         }
+-        var endRange = UPCEANReader.decodeEnd(row, endStart);
++        var endRange = this.decodeEnd(row, endStart);
+         if (resultPointCallback != null) {
+             var resultPoint_3 = new ResultPoint_1.default((endRange[0] + endRange[1]) / 2.0, rowNumber);
+             resultPointCallback.foundPossibleResultPoint(resultPoint_3);
+@@ -98,7 +110,7 @@ var UPCEANReader = /** @class */ (function (_super) {
+         if (resultString.length < 8) {
+             throw new FormatException_1.default();
+         }
+-        if (!UPCEANReader.checkChecksum(resultString)) {
++        if (!this.checkChecksum(resultString)) {
+             throw new ChecksumException_1.default();
+         }
+         var left = (startGuardRange[1] + startGuardRange[0]) / 2.0;
+diff --git a/cjs/core/oned/UPCEReader.js b/cjs/core/oned/UPCEReader.js
+index 05f1d032a39f569d7b6a7b901d42677c15e2c7a3..3e5b428fd9efdad2e3971998b061c24b2f8e680c 100644
+--- a/cjs/core/oned/UPCEReader.js
++++ b/cjs/core/oned/UPCEReader.js
+@@ -85,9 +85,14 @@ var UPCEReader = /** @class */ (function (_super) {
+         var end = row.getSize();
+         var rowOffset = startRange[1];
+         var lgPatternFound = 0;
++        // Patched: the six digits were added to the caller's string and lost, and the number
++        // system and check digit went into a copy nobody read, so decodeRow saw no result
++        // (upstream zxing-js/library issue 573). Build the 8-digit result here and return it
++        // as EAN8Reader does.
++        var digits = "";
+         for (var x = 0; x < 6 && rowOffset < end; x++) {
+             var bestMatch = UPCEReader.decodeDigit(row, counters, rowOffset, UPCEReader.L_AND_G_PATTERNS);
+-            result += String.fromCharCode(('0'.charCodeAt(0) + bestMatch % 10));
++            digits += String.fromCharCode(('0'.charCodeAt(0) + bestMatch % 10));
+             try {
+                 for (var counters_1 = (e_1 = void 0, __values(counters)), counters_1_1 = counters_1.next(); !counters_1_1.done; counters_1_1 = counters_1.next()) {
+                     var counter = counters_1_1.value;
+@@ -105,8 +110,8 @@ var UPCEReader = /** @class */ (function (_super) {
+                 lgPatternFound |= 1 << (5 - x);
+             }
+         }
+-        UPCEReader.determineNumSysAndCheckDigit(new StringBuilder_1.default(result), lgPatternFound);
+-        return rowOffset;
++        var resultString = UPCEReader.determineNumSysAndCheckDigit(new StringBuilder_1.default(digits), lgPatternFound).toString();
++        return { rowOffset: rowOffset, resultString: resultString };
+     };
+     /**
+      * @throws NotFoundException
+@@ -129,9 +134,10 @@ var UPCEReader = /** @class */ (function (_super) {
+         for (var numSys = 0; numSys <= 1; numSys++) {
+             for (var d = 0; d < 10; d++) {
+                 if (lgPatternFound === this.NUMSYS_AND_CHECK_DIGIT_PATTERNS[numSys][d]) {
+-                    resultString.insert(0, /*(char)*/ ('0' + numSys));
+-                    resultString.append(/*(char)*/ ('0' + d));
+-                    return;
++                    // Patched: '0' + n is string concatenation in JS ("00", "05"), not a digit.
++                    resultString.insert(0, String(numSys));
++                    resultString.append(String(d));
++                    return resultString;
+                 }
+             }
+         }
+@@ -148,32 +154,34 @@ var UPCEReader = /** @class */ (function (_super) {
+      * @return equivalent UPC-A code as string of digits
+      */
+     UPCEReader.convertUPCEtoUPCA = function (upce) {
+-        // the following line is equivalent to upce.getChars(1, 7, upceChars, 0);
+-        var upceChars = upce.slice(1, 7).split('').map(function (x) { return x.charCodeAt(0); });
++        // Patched: the digits were char codes, so the switch below always took `default` and the
++        // checksum failed (upstream zxing-js/library issue 573). Compare the characters, and take
++        // substrings, which also avoids StringBuilder.appendChars.
++        var middle = upce.slice(1, 7);
+         var result = new StringBuilder_1.default( /*12*/);
+         result.append(upce.charAt(0));
+-        var lastChar = upceChars[5];
++        var lastChar = middle.charAt(5);
+         switch (lastChar) {
+-            case 0:
+-            case 1:
+-            case 2:
+-                result.appendChars(upceChars, 0, 2);
++            case '0':
++            case '1':
++            case '2':
++                result.append(middle.substring(0, 2));
+                 result.append(lastChar);
+                 result.append('0000');
+-                result.appendChars(upceChars, 2, 3);
++                result.append(middle.substring(2, 5));
+                 break;
+-            case 3:
+-                result.appendChars(upceChars, 0, 3);
++            case '3':
++                result.append(middle.substring(0, 3));
+                 result.append('00000');
+-                result.appendChars(upceChars, 3, 2);
++                result.append(middle.substring(3, 5));
+                 break;
+-            case 4:
+-                result.appendChars(upceChars, 0, 4);
++            case '4':
++                result.append(middle.substring(0, 4));
+                 result.append('00000');
+-                result.append(upceChars[4]);
++                result.append(middle.charAt(4));
+                 break;
+             default:
+-                result.appendChars(upceChars, 0, 5);
++                result.append(middle.substring(0, 5));
+                 result.append('0000');
+                 result.append(lastChar);
+                 break;
+@@ -219,7 +227,8 @@ var UPCEReader = /** @class */ (function (_super) {
+      */
+     UPCEReader.NUMSYS_AND_CHECK_DIGIT_PATTERNS = [
+         Int32Array.from([0x38, 0x34, 0x32, 0x31, 0x2C, 0x26, 0x23, 0x2A, 0x29, 0x25]),
+-        Int32Array.from([0x07, 0x0B, 0x0D, 0x0E, 0x13, 0x19, 0x1C, 0x15, 0x16, 0x1]),
++        // Patched: the last entry was 0x1, and Java's table has 0x1A (number system 1, digit 9).
++        Int32Array.from([0x07, 0x0B, 0x0D, 0x0E, 0x13, 0x19, 0x1C, 0x15, 0x16, 0x1A]),
+     ];
+     return UPCEReader;
+ }(UPCEANReader_1.default));
+diff --git a/esm/core/oned/UPCEANReader.js b/esm/core/oned/UPCEANReader.js
+index a3cb94d04cf2c82acb1d61f3783eed70dc9775f0..520bc3085038326cd5fdfbe63082654e59c30586 100644
+--- a/esm/core/oned/UPCEANReader.js
++++ b/esm/core/oned/UPCEANReader.js
+@@ -62,6 +62,18 @@ var UPCEANReader = /** @class */ (function (_super) {
+         }
+         return _this;
+     }
++    // Patched: Java's decodeRow calls checkChecksum virtually, so UPCEReader's override (which
++    // expands UPC-E to UPC-A first) runs. This build called the static one, so every UPC-E
++    // failed its checksum (upstream zxing-js/library issue 573).
++    UPCEANReader.prototype.checkChecksum = function (s) {
++        return UPCEANReader.checkChecksum(s);
++    };
++    // Patched: as checkChecksum above, Java's decodeRow calls decodeEnd virtually. This build
++    // called the static one, so UPC-E looked for the 3-module EAN end guard, not its own
++    // 6-module one (upstream zxing-js/library issue 573).
++    UPCEANReader.prototype.decodeEnd = function (row, endStart) {
++        return UPCEANReader.decodeEnd(row, endStart);
++    };
+     UPCEANReader.prototype.decodeRow = function (rowNumber, row, hints) {
+         var startGuardRange = UPCEANReader.findStartGuardPattern(row);
+         var resultPointCallback = hints == null ? null : hints.get(DecodeHintType.NEED_RESULT_POINT_CALLBACK);
+@@ -76,7 +88,7 @@ var UPCEANReader = /** @class */ (function (_super) {
+             var resultPoint_2 = new ResultPoint(endStart, rowNumber);
+             resultPointCallback.foundPossibleResultPoint(resultPoint_2);
+         }
+-        var endRange = UPCEANReader.decodeEnd(row, endStart);
++        var endRange = this.decodeEnd(row, endStart);
+         if (resultPointCallback != null) {
+             var resultPoint_3 = new ResultPoint((endRange[0] + endRange[1]) / 2.0, rowNumber);
+             resultPointCallback.foundPossibleResultPoint(resultPoint_3);
+@@ -93,7 +105,7 @@ var UPCEANReader = /** @class */ (function (_super) {
+         if (resultString.length < 8) {
+             throw new FormatException();
+         }
+-        if (!UPCEANReader.checkChecksum(resultString)) {
++        if (!this.checkChecksum(resultString)) {
+             throw new ChecksumException();
+         }
+         var left = (startGuardRange[1] + startGuardRange[0]) / 2.0;
+diff --git a/esm/core/oned/UPCEReader.js b/esm/core/oned/UPCEReader.js
+index bbfca57222f3e07ed3e048ca6f1d651498048f4e..d80f827d3264e93e7b5d312c389dfbd8ab191fb2 100644
+--- a/esm/core/oned/UPCEReader.js
++++ b/esm/core/oned/UPCEReader.js
+@@ -80,9 +80,14 @@ var UPCEReader = /** @class */ (function (_super) {
+         var end = row.getSize();
+         var rowOffset = startRange[1];
+         var lgPatternFound = 0;
++        // Patched: the six digits were added to the caller's string and lost, and the number
++        // system and check digit went into a copy nobody read, so decodeRow saw no result
++        // (upstream zxing-js/library issue 573). Build the 8-digit result here and return it
++        // as EAN8Reader does.
++        var digits = "";
+         for (var x = 0; x < 6 && rowOffset < end; x++) {
+             var bestMatch = UPCEReader.decodeDigit(row, counters, rowOffset, UPCEReader.L_AND_G_PATTERNS);
+-            result += String.fromCharCode(('0'.charCodeAt(0) + bestMatch % 10));
++            digits += String.fromCharCode(('0'.charCodeAt(0) + bestMatch % 10));
+             try {
+                 for (var counters_1 = (e_1 = void 0, __values(counters)), counters_1_1 = counters_1.next(); !counters_1_1.done; counters_1_1 = counters_1.next()) {
+                     var counter = counters_1_1.value;
+@@ -100,8 +105,8 @@ var UPCEReader = /** @class */ (function (_super) {
+                 lgPatternFound |= 1 << (5 - x);
+             }
+         }
+-        UPCEReader.determineNumSysAndCheckDigit(new StringBuilder(result), lgPatternFound);
+-        return rowOffset;
++        var resultString = UPCEReader.determineNumSysAndCheckDigit(new StringBuilder(digits), lgPatternFound).toString();
++        return { rowOffset: rowOffset, resultString: resultString };
+     };
+     /**
+      * @throws NotFoundException
+@@ -124,9 +129,10 @@ var UPCEReader = /** @class */ (function (_super) {
+         for (var numSys = 0; numSys <= 1; numSys++) {
+             for (var d = 0; d < 10; d++) {
+                 if (lgPatternFound === this.NUMSYS_AND_CHECK_DIGIT_PATTERNS[numSys][d]) {
+-                    resultString.insert(0, /*(char)*/ ('0' + numSys));
+-                    resultString.append(/*(char)*/ ('0' + d));
+-                    return;
++                    // Patched: '0' + n is string concatenation in JS ("00", "05"), not a digit.
++                    resultString.insert(0, String(numSys));
++                    resultString.append(String(d));
++                    return resultString;
+                 }
+             }
+         }
+@@ -143,32 +149,34 @@ var UPCEReader = /** @class */ (function (_super) {
+      * @return equivalent UPC-A code as string of digits
+      */
+     UPCEReader.convertUPCEtoUPCA = function (upce) {
+-        // the following line is equivalent to upce.getChars(1, 7, upceChars, 0);
+-        var upceChars = upce.slice(1, 7).split('').map(function (x) { return x.charCodeAt(0); });
++        // Patched: the digits were char codes, so the switch below always took `default` and the
++        // checksum failed (upstream zxing-js/library issue 573). Compare the characters, and take
++        // substrings, which also avoids StringBuilder.appendChars.
++        var middle = upce.slice(1, 7);
+         var result = new StringBuilder( /*12*/);
+         result.append(upce.charAt(0));
+-        var lastChar = upceChars[5];
++        var lastChar = middle.charAt(5);
+         switch (lastChar) {
+-            case 0:
+-            case 1:
+-            case 2:
+-                result.appendChars(upceChars, 0, 2);
++            case '0':
++            case '1':
++            case '2':
++                result.append(middle.substring(0, 2));
+                 result.append(lastChar);
+                 result.append('0000');
+-                result.appendChars(upceChars, 2, 3);
++                result.append(middle.substring(2, 5));
+                 break;
+-            case 3:
+-                result.appendChars(upceChars, 0, 3);
++            case '3':
++                result.append(middle.substring(0, 3));
+                 result.append('00000');
+-                result.appendChars(upceChars, 3, 2);
++                result.append(middle.substring(3, 5));
+                 break;
+-            case 4:
+-                result.appendChars(upceChars, 0, 4);
++            case '4':
++                result.append(middle.substring(0, 4));
+                 result.append('00000');
+-                result.append(upceChars[4]);
++                result.append(middle.charAt(4));
+                 break;
+             default:
+-                result.appendChars(upceChars, 0, 5);
++                result.append(middle.substring(0, 5));
+                 result.append('0000');
+                 result.append(lastChar);
+                 break;
+@@ -214,7 +222,8 @@ var UPCEReader = /** @class */ (function (_super) {
+      */
+     UPCEReader.NUMSYS_AND_CHECK_DIGIT_PATTERNS = [
+         Int32Array.from([0x38, 0x34, 0x32, 0x31, 0x2C, 0x26, 0x23, 0x2A, 0x29, 0x25]),
+-        Int32Array.from([0x07, 0x0B, 0x0D, 0x0E, 0x13, 0x19, 0x1C, 0x15, 0x16, 0x1]),
++        // Patched: the last entry was 0x1, and Java's table has 0x1A (number system 1, digit 9).
++        Int32Array.from([0x07, 0x0B, 0x0D, 0x0E, 0x13, 0x19, 0x1C, 0x15, 0x16, 0x1A]),
+     ];
+     return UPCEReader;
+ }(UPCEANReader));

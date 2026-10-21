@@ -1,0 +1,13 @@
+Barcode test pictures
+
+The four pictures and their code files come from zxing's blackbox test images,
+at commit cc70a9d0b7aa04fc8b387a5eb84884946d0591cc of https://github.com/zxing/zxing.
+
+- ean13.png, ean13.txt: core/src/test/resources/blackbox/ean13-1/1.png and 1.txt
+- ean8.png, ean8.txt: core/src/test/resources/blackbox/ean8-1/1.png and 1.txt
+- upca.png, upca.txt: core/src/test/resources/blackbox/upca-1/2.png and 2.txt
+- upce.png, upce.txt: core/src/test/resources/blackbox/upce-1/1.png and 1.txt
+
+The license is the Apache License 2.0, in the LICENSE file beside this notice.
+That file is zxing's root LICENSE. It holds the Apache License 2.0 text first,
+then a notice for a third-party library (jai-imageio) that zxing ships with it.

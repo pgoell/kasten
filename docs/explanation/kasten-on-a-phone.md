@@ -1,7 +1,7 @@
 ---
 type: Explanation
 title: kasten on a phone
-description: Why vim is off under a finger, why a split draws one pane, why a tap raises no keyboard, why the toolbar stays above the keyboard, why a todo takes two taps and has no Undo, why kasten installs as one app, why it opens with no signal, what an open tab does across a release, and what no real phone has confirmed.
+description: Why vim is off under a finger, why a split draws one pane, why a tap raises no keyboard, why the toolbar stays above the keyboard, why a todo takes two taps and has no Undo, why kasten installs as one app, why it opens with no signal, why the camera reads barcodes on the phone and stops when the app hides, what an open tab does across a release, and what no real phone has confirmed.
 tags: [design, phone, touch, vim, keyboard, frontend]
 status: stable
 ---
@@ -195,8 +195,8 @@ one.
 A service worker, `/sw.js`, keeps a copy of the app on the phone. When a
 release installs it, it stores the shell, `index.html`, every hashed file
 under `/assets/`, and the small public files the first start needs:
-`viewport-fit.js`, the manifest, the favicon and the icons. pdf.js is too large
-for that, so it keeps a copy when a PDF first asks for it. It never touches `/api/`, the
+`viewport-fit.js`, the manifest, the favicon and the icons. pdf.js and the zxing
+barcode reader are too large for that, so each keeps a copy when it is first asked for. It never touches `/api/`, the
 sign-in under `/oauth2/`, the chat, the terminal or the agent door: those reach
 the server or fail.
 
@@ -236,6 +236,30 @@ gives the reloads back, which Safari needs, since its message names no chunk
 
 [Deploy to the VPS](/how-to/deploy-to-the-vps.md#remove-the-service-worker)
 shows how to remove the worker.
+
+## The camera decodes on the phone
+
+The food search reads a barcode through the phone's rear camera. The picture
+never leaves the phone, so the decoding runs there too. A server would need the
+frames, and a frame shows whatever the camera sees. The phone sends only the
+digits, the same as a typed search; [Food from Open Food Facts](/explanation/food-from-open-food-facts.md)
+says where they go.
+
+The browser's `BarcodeDetector` decodes where it exists and reads the formats
+kasten needs: Android Chrome. Where it is missing, or does not read them, which
+is every iOS browser today, kasten loads the zxing reader (`@zxing/library`).
+The reader is large, so it is not in the first load of the app. It loads on the
+first scan, and an installed app's offline worker keeps it with the rest.
+
+The camera stops when the tab or the app goes to the background, and it does
+not start again by itself. A camera stream runs until it is stopped, and the
+phone shows the camera is in use, so kasten ends the stream when the page
+hides and waits for a tap to start it again.
+
+iOS asks for the camera again each time an app installed to the home screen
+starts. WebKit keeps no camera permission for those apps, so the phone asks
+again. Safari in a tab may remember the answer for the site. Android Chrome
+remembers the answer for each site.
 
 ## What no real phone has confirmed
 

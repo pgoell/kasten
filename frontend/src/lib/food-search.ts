@@ -7,6 +7,7 @@
  */
 
 import type { EditorView } from "@codemirror/view";
+import { NO_CAMERA, startCamera } from "@/lib/barcode-camera";
 import { shiftDay } from "@/lib/clock";
 import { type Food, fetchLog, type LogDay, readBarcode, searchFood } from "@/lib/food-api";
 import { foodLine, tenth } from "@/lib/log-lines";
@@ -222,7 +223,17 @@ export function foodPanel(view: EditorView, hooks: PanelHooks): HTMLElement {
 
   const close = make("button", "cm-log-food-close", "Close");
   close.type = "button";
-  root.append(query, why, results, serving, close);
+  const bar = make("div", "cm-log-food-bar");
+  const scan = make("button", "cm-log-food-scan", "Scan");
+  scan.type = "button";
+  scan.setAttribute("aria-label", "Scan a barcode");
+  bar.append(query, scan);
+  const video = make("video", "cm-log-food-camera");
+  video.playsInline = true;
+  video.muted = true;
+  video.autoplay = true;
+  video.hidden = true;
+  root.append(bar, video, why, results, serving, close);
 
   let recents: Choice[] = [];
   let offHits: Food[] = [];
@@ -231,6 +242,8 @@ export function foodPanel(view: EditorView, hooks: PanelHooks): HTMLElement {
   /** Counts the picks, so a barcode read answered after a later pick is dropped. */
   let pickTurn = 0;
   let pause: ReturnType<typeof setTimeout> | undefined;
+  /** Stops the camera of the scan running, or null while none runs. */
+  let stopCamera: (() => void) | null = null;
 
   function render(): void {
     const typed = query.value.trim().toLowerCase();
@@ -308,6 +321,55 @@ export function foodPanel(view: EditorView, hooks: PanelHooks): HTMLElement {
     );
   }
 
+  /** A code the camera read is looked up as a pick is, so a late answer draws nothing. */
+  function readCode(code: string): void {
+    pickTurn += 1;
+    const turn = pickTurn;
+    readBarcode(code).then(
+      (full) => {
+        if (turn !== pickTurn || !root.isConnected) return;
+        show(full);
+      },
+      (error: unknown) => {
+        if (turn !== pickTurn || !root.isConnected) return;
+        why.textContent = `${messageOf(error)}; search by name instead`;
+        query.focus();
+      },
+    );
+  }
+
+  /** Starts a scan, or stops the one running: the button toggles. */
+  function startScan(): void {
+    if (stopCamera !== null) {
+      stopScan();
+      return;
+    }
+    if (!navigator.mediaDevices?.getUserMedia) {
+      why.textContent = NO_CAMERA;
+      return;
+    }
+    why.textContent = "";
+    scan.textContent = "Stop";
+    stopCamera = startCamera(video, root, (outcome) => {
+      // The camera has stopped itself: a code was read, it did not run, or the page hid.
+      stopCamera = null;
+      scan.textContent = "Scan";
+      if (outcome === undefined) return;
+      if ("code" in outcome) {
+        readCode(outcome.code);
+        return;
+      }
+      why.textContent = outcome.why;
+      query.focus();
+    });
+  }
+
+  function stopScan(): void {
+    stopCamera?.();
+    stopCamera = null;
+    scan.textContent = "Scan";
+  }
+
   query.addEventListener("input", () => {
     if (pause !== undefined) clearTimeout(pause);
     render();
@@ -364,6 +426,7 @@ export function foodPanel(view: EditorView, hooks: PanelHooks): HTMLElement {
       return;
     }
     const values = servingValues(choice, typedGrams ?? count);
+    stopScan();
     hooks.log(
       foodLine({
         meal: meal.value,
@@ -387,15 +450,22 @@ export function foodPanel(view: EditorView, hooks: PanelHooks): HTMLElement {
 
   // A key typed in a field is the field's own. The editor's keymap, vim's included,
   // sits above these fields, so the key must not reach it.
+  // The camera stops with the panel, however the panel closes.
+  const shut = () => {
+    stopScan();
+    hooks.close();
+  };
   const keys = (event: KeyboardEvent) => {
     event.stopPropagation();
-    if (event.key === "Escape") hooks.close();
+    if (event.key === "Escape") shut();
   };
   query.addEventListener("keydown", keys);
+  scan.addEventListener("keydown", keys);
   grams.addEventListener("keydown", keys);
   servings.addEventListener("keydown", keys);
   meal.addEventListener("keydown", keys);
-  close.addEventListener("click", () => hooks.close());
+  scan.addEventListener("click", startScan);
+  close.addEventListener("click", () => shut());
 
   const path = view.state.facet(notePath);
   const day = path === undefined ? null : dailyDate(path);

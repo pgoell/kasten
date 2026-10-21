@@ -203,7 +203,8 @@
 
 .cm-log-food-log,
 .cm-log-food-back,
-.cm-log-food-close {
+.cm-log-food-close,
+.cm-log-food-scan {
   min-height: 44px;
   min-width: 44px;
   padding: 0 14px;
@@ -223,8 +224,29 @@
 
 .cm-log-food-log:hover,
 .cm-log-food-back:hover,
-.cm-log-food-close:hover {
+.cm-log-food-close:hover,
+.cm-log-food-scan:hover {
   background: var(--color-one-hover);
+}
+
+/* The query and the scan button share one row, and the query takes the room. */
+.cm-log-food-bar {
+  display: flex;
+  gap: 8px;
+  min-width: 0;
+}
+
+.cm-log-food-bar > .cm-log-food-query {
+  flex: 1 1 auto;
+}
+
+/* The camera view sits inside the panel at the width of the panel, and no taller than 40% of the screen. */
+.cm-log-food-camera {
+  display: block;
+  width: 100%;
+  max-height: 40vh;
+  object-fit: cover;
+  border-radius: 6px;
 }
 
 .cm-log-food-query:focus-visible,
@@ -234,7 +256,8 @@
 .cm-log-food-pick:focus-visible,
 .cm-log-food-log:focus-visible,
 .cm-log-food-back:focus-visible,
-.cm-log-food-close:focus-visible {
+.cm-log-food-close:focus-visible,
+.cm-log-food-scan:focus-visible {
   outline: 2px solid var(--color-one-accent);
   outline-offset: 1px;
 }

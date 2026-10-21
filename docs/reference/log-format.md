@@ -117,7 +117,12 @@ note from anywhere; see [the command palette](/reference/editor-keys/leader.md#t
 
 The card's `+ 🍽 food` button opens a food search. Type two characters or
 more and the search runs once the typing pauses, on Open Food Facts. A barcode
-of eight to fourteen digits reads that one food. Foods that the last 30 days
+of eight to fourteen digits reads that one food. `Scan`, beside the field,
+opens the rear camera (the front one where there is none) and reads EAN-13,
+EAN-8, UPC-A and UPC-E codes; a UPC-E code is looked up as its twelve-digit
+UPC-A. `Stop` ends the scan, and the camera also stops on a read, on the panel's
+close, and when the tab or app goes to the background. A read opens the product
+as a typed barcode does. Foods that the last 30 days
 logged come first, marked `recent`, and need no search. A pick shows its
 serving: grams, servings (1 at first), and a meal. The meal is breakfast from
 5 to 10, lunch from 11 to 14, dinner from 17 to 21, and a snack at other hours.
