@@ -44,8 +44,8 @@ a touch screen.
 ### The toolbar
 
 A row along the bottom edge, under the status bar. When the buttons do not all
-fit, the row scrolls sideways, which happens on a 360px phone once the tab
-holds a split.
+fit on one line, the row wraps and the rest go to a second line, which happens
+on a 360px or 390px phone once the tab holds a split.
 
 | Button | Does | Command | Key |
 | --- | --- | --- | --- |

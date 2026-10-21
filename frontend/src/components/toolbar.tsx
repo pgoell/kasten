@@ -20,8 +20,9 @@ const BUTTONS: readonly { command: LeaderCommand; label: string; name: string }[
   // Logging a meal is a thumb job, the same as the todos.
   { command: "openLog", label: "log", name: "Open the log" },
   // The reason the chat exists: a skill started with a thumb. Eight across a
-  // 360px phone is 45px each, one over the 44 a button has to be. The split's
-  // pane makes nine, which is 40px each, so the row scrolls sideways instead.
+  // 360px phone is 45px each, one over the 44 a button has to be. Nine at 44px
+  // fit neither 360 nor 390, so the row wraps and the ninth goes to a second
+  // row rather than off the screen.
   { command: "openChat", label: "chat", name: "Open the chat with Claude Code" },
 ];
 
@@ -53,7 +54,7 @@ export function Toolbar({ commands, split, inert }: ToolbarProps) {
       inert={inert}
       // Always the foot of the page where it is drawn, so it takes the home
       // indicator's inset.
-      className={`safe-foot flex shrink-0 gap-px overflow-x-auto border-one-line border-t bg-one-panel ${LABEL}`}
+      className={`safe-foot flex shrink-0 flex-wrap gap-px border-one-line border-t bg-one-panel ${LABEL}`}
     >
       {buttons.map(({ command, label, name }) => (
         <button

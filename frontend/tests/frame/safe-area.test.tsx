@@ -124,6 +124,21 @@ describe("the safe area on a phone", () => {
     expect(getComputedStyle(toolbar).paddingBottom).toBe("34px");
   });
 
+  it("#624 with a split at 360 every toolbar button is on screen and 44px", async () => {
+    await device(360, 800, NONE);
+    await mount(<Frame phone={true} />);
+
+    const buttons = [...document.querySelectorAll<HTMLElement>('[role="toolbar"] button')];
+    expect(buttons).toHaveLength(9);
+    expect(outside(buttons, NONE)).toEqual([]);
+    for (const button of buttons) {
+      const rect = button.getBoundingClientRect();
+      const name = button.getAttribute("aria-label") ?? undefined;
+      expect(rect.width, name).toBeGreaterThanOrEqual(44);
+      expect(rect.height, name).toBeGreaterThanOrEqual(44);
+    }
+  });
+
   it("landscape: the frame pads by the side insets and the bar at the foot by the bottom one", async () => {
     // Above 768px the status bar is the foot of the page.
     await device(LANDSCAPE.width, LANDSCAPE.height, LANDSCAPE.insets);
