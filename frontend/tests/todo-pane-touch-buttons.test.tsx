@@ -1,7 +1,7 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { DEFAULT_VIEWS, VIEWS_NOTE } from "@/lib/todo-view";
 import { COARSE, NARROW, stubMatchMedia } from "./match-media";
-import { paneHooks, renderPane, TWINS } from "./todo-pane-fixture";
+import { paneHooks, pressFocused, renderPane, TWINS } from "./todo-pane-fixture";
 
 // The doubles, the same in every todo-pane file: see todo-pane-fixture.tsx.
 const { fetchTodos, fetchNote, fetchFiles, createNote } = vi.hoisted(() => ({
@@ -140,5 +140,18 @@ describe("the todo pane by touch", () => {
 
     await waitFor(() => expect(pane.view()).toBe("today"));
     expect(createNote).toHaveBeenCalledExactlyOnceWith(VIEWS_NOTE, DEFAULT_VIEWS);
+  });
+
+  it("#773 A1 enter on a focused phone state button arms it, not the cursor row's open", async () => {
+    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+    const pane = renderPane();
+    await waitFor(() => expect(row("buy milk")).toBeDefined());
+    const cycle = screen.getByLabelText("cycle buy milk");
+    cycle.focus();
+
+    pressFocused("Enter");
+
+    expect(cycle).toHaveAttribute("aria-pressed", "true");
+    expect(pane.onOpen).not.toHaveBeenCalled();
   });
 });

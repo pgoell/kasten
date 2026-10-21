@@ -2,6 +2,7 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { toggleVim } from "@/lib/vim-setting";
 import { COARSE, NARROW, stubMatchMedia } from "./match-media";
 import { boardHooks, boardPane, CHART, DAILY, renderPane } from "./todo-board-pane-fixture";
+import { pressFocused } from "./todo-pane-fixture";
 
 // The module rather than `fetch`, as the list's own tests stand it in.
 const { fetchTodos, fetchNote, fetchFiles, createNote } = vi.hoisted(() => ({
@@ -93,6 +94,41 @@ describe("the todo board", () => {
     const pane = await boardPane();
 
     expect(pane.card("fix the tap").className).toContain("min-h-11");
+  });
+
+  it("#773 A3 enter on a focused more button opens its strip and does not open the cursor card", async () => {
+    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+    const pane = await boardPane();
+    expect(pane.cursor()).toContain("send the invoice");
+    screen.getByLabelText("more for fix the tap").focus();
+
+    pressFocused("Enter");
+
+    expect(pane.onOpen).not.toHaveBeenCalled();
+    expect(screen.getByLabelText("done fix the tap")).toBeDefined();
+  });
+
+  it("#773 A3 space on a focused column tab shows that column", async () => {
+    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+    const pane = await boardPane();
+    screen.getByRole("tab", { name: "Doing 1" }).focus();
+
+    pressFocused(" ");
+
+    expect(pane.texts()).toEqual([expect.stringContaining("draw the chart")]);
+  });
+
+  it("#773 A3 enter on a focused strip button runs it, not the cursor card's open", async () => {
+    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+    const pane = await boardPane();
+    fireEvent.click(screen.getByRole("tab", { name: "Doing 1" }));
+    fireEvent.click(screen.getByLabelText("more for draw the chart"));
+    screen.getByLabelText("done draw the chart").focus();
+
+    pressFocused("Enter");
+
+    expect(pane.onOpen).not.toHaveBeenCalled();
+    expect(pane.onCycle).toHaveBeenCalledExactlyOnceWith(CHART, "done");
   });
 
   it("#488 the board footer on a phone drops its key hints", async () => {

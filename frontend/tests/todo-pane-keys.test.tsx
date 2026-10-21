@@ -1,5 +1,5 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react";
-import { paneHooks, renderPane, TODOS } from "./todo-pane-fixture";
+import { paneHooks, pressFocused, renderPane, TODOS } from "./todo-pane-fixture";
 
 // The doubles, the same in every todo-pane file: see todo-pane-fixture.tsx.
 const { fetchTodos, fetchNote, fetchFiles, createNote } = vi.hoisted(() => ({
@@ -11,6 +11,11 @@ const { fetchTodos, fetchNote, fetchFiles, createNote } = vi.hoisted(() => ({
 vi.mock("@/lib/api", () => ({ fetchTodos, fetchNote, fetchFiles, createNote }));
 
 paneHooks();
+
+/** The list row whose line says `words`. */
+function rowOf(pane: ReturnType<typeof renderPane>, words: string) {
+  return pane.rows().find((row) => row.textContent?.includes(words)) as HTMLElement;
+}
 
 describe("the todo pane", () => {
   it("moves the cursor down on j and up on k", async () => {
@@ -151,5 +156,52 @@ describe("the todo pane", () => {
     pane.press("t");
 
     expect(pane.reached).toEqual(["createTab"]);
+  });
+
+  it("#773 A1 enter on a focused row that is not the cursor opens that row", async () => {
+    const pane = renderPane();
+    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+    rowOf(pane, "buy milk").focus();
+
+    pressFocused("Enter");
+
+    expect(pane.onOpen).toHaveBeenCalledExactlyOnceWith("projects/kasten.md", 20);
+  });
+
+  it("#773 A1 enter on a focused header button presses it, not the cursor row's open", async () => {
+    const pane = renderPane();
+    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+    screen.getByRole("button", { name: "d done" }).focus();
+
+    pressFocused("Enter");
+
+    expect(screen.getByRole("button", { name: "d done" })).toHaveAttribute("aria-pressed", "true");
+    expect(pane.onOpen).not.toHaveBeenCalled();
+  });
+
+  it("#773 A2 space on a focused row that is not the cursor opens that row and starts no leader", async () => {
+    const pane = renderPane();
+    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+    rowOf(pane, "buy milk").focus();
+
+    pressFocused(" ");
+    pane.press("3");
+
+    expect(pane.onOpen).toHaveBeenCalledExactlyOnceWith("projects/kasten.md", 20);
+    expect(pane.reached).toEqual([]);
+  });
+
+  it("#773 I1 enter on the cursor row opens its note, and space on it still starts the leader", async () => {
+    const pane = renderPane();
+    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+    const cursor = pane.cursor() as HTMLElement;
+    cursor.focus();
+
+    pressFocused("Enter");
+    expect(pane.onOpen).toHaveBeenCalledExactlyOnceWith("projects/kasten.md", 3);
+
+    fireEvent.keyDown(cursor, { key: " " });
+    pane.press("3");
+    expect(pane.reached).toEqual(["goToTab:2"]);
   });
 });

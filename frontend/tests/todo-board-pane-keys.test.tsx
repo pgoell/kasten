@@ -11,6 +11,7 @@ import {
   renderPane,
   TAP,
 } from "./todo-board-pane-fixture";
+import { pressFocused } from "./todo-pane-fixture";
 
 // The module rather than `fetch`, as the list's own tests stand it in.
 const { fetchTodos, fetchNote, fetchFiles, createNote } = vi.hoisted(() => ({
@@ -190,5 +191,27 @@ describe("the todo board", () => {
     pane.press("p");
     pane.press("Enter");
     expect(pane.onEdit.mock.calls[0]?.[0]).toBe(TAP);
+  });
+
+  it("#773 I2 enter on the focused cursor card picks in the open project picker", async () => {
+    const pane = await boardPane();
+    pane.press("j");
+    pane.press("j");
+    pane.press("p");
+    pane.press("j");
+    // The cursor's card, found by the tab stop: `pane.card` would take the first
+    // card whose blocker names this one, which is `ship it`.
+    const cursor = pane.cards().find((card) => card.tabIndex === 0) as HTMLElement;
+    cursor.focus();
+    expect(pane.cursor()).toContain("fix the tap");
+    expect(screen.queryByTestId("todo-project-pick")).not.toBeNull();
+
+    pressFocused("Enter");
+
+    expect(pane.onEdit).toHaveBeenCalledWith(
+      TAP,
+      expect.stringContaining("fix the tap [[02 Projects/Kasten/index|Kasten]]"),
+    );
+    expect(pane.onOpen).not.toHaveBeenCalled();
   });
 });

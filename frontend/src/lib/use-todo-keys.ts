@@ -64,7 +64,16 @@ export function useTodoKeys(o: {
     // third. Nor are the keys pressed on a hint under that row, which tab
     // reaches and which is still an edit rather than a walk down the list.
     if (event.target instanceof HTMLInputElement || editing) return;
-    const { key } = event;
+    const { key, target } = event;
+
+    // The cursor's row and card are the tab stop and keep the pane's keys. Any
+    // other button's Enter and Space are its own press, left for the browser.
+    if ((key === "Enter" || key === " ") && target instanceof HTMLButtonElement) {
+      const cursor =
+        target.tabIndex === 0 &&
+        (target.dataset.row !== undefined || target.dataset.card !== undefined);
+      if (!cursor) return;
+    }
 
     if (leader.feed(event)) return;
 

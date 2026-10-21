@@ -8,6 +8,7 @@ import { hashed } from "./digests";
 import { defineFoliateFake } from "./foliate-fake";
 import { act, pageHooks, renderApp, settle, stream, theRoute, VAULT } from "./home-route-fixture";
 import { COARSE, NARROW, stubMatchMedia } from "./match-media";
+import { pressFocused } from "./todo-pane-fixture";
 
 defineFoliateFake();
 
@@ -160,6 +161,8 @@ vi.mock("@/components/file-explorer", async (importOriginal) => {
 
 pageHooks();
 
+afterEach(() => localStorage.removeItem("kasten.vim"));
+
 describe("the route", () => {
   theRoute();
 
@@ -182,6 +185,35 @@ describe("the route", () => {
     expect(app.todoPane()).toBeNull();
     expect(app.panes()).toBe(1);
   });
+
+  // Vim is on until a choice turns it off, so the first run is the default.
+  for (const vim of ["on", "off"]) {
+    it(`#773 A4 with vim ${vim}, enter on a focused header button presses it and opens no note`, async () => {
+      if (vim === "off") localStorage.setItem("kasten.vim", "off");
+      fetchFiles.mockResolvedValue([...Object.keys(VAULT), "projects/kasten.md"]);
+      fetchNote.mockImplementation(async (path: string) => VAULT[path] ?? "");
+      fetchTodos.mockResolvedValue([
+        { path: "projects/kasten.md", line: 3, text: "- [ ] call the dentist 🆔 kt-3f9a2c" },
+      ]);
+      const app = await renderApp();
+      await settle();
+      app.click("index.md");
+      await settle();
+      // The palette, since a plain editor takes no leader sequence.
+      app.press("P", { keyCode: 80, ctrlKey: true, shiftKey: true });
+      await settle();
+      fireEvent.click(screen.getByRole("option", { name: /^Open the todo pane/ }));
+      await settle();
+      const done = screen.getByRole("button", { name: "d done" });
+      done.focus();
+
+      pressFocused("Enter");
+      await settle();
+
+      expect(done).toHaveAttribute("aria-pressed", "true");
+      expect(fetchNote).not.toHaveBeenCalledWith("projects/kasten.md");
+    });
+  }
 
   it("edits a todo from the pane, and leaves the keys where the cursor is", async () => {
     const note = ["# Kasten", "", "- [ ] call the dentist 🆔 kt-3f9a2c"].join("\n");

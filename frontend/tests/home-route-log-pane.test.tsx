@@ -1,11 +1,20 @@
 import { cleanup, fireEvent, screen, within } from "@testing-library/react";
 import { NoteMissing } from "@/lib/api";
 import type { LogDay } from "@/lib/food-api";
+import { ARCHIVE, applyLayout, IMAGE_FOLDER, INBOX, type Layout, PERIODIC } from "@/lib/layout";
 import { noteBase } from "@/lib/note-base";
 import { periodicNote } from "@/lib/periodic";
 import { hashed } from "./digests";
 import { defineFoliateFake } from "./foliate-fake";
-import { FakeEventSource, pageHooks, renderApp, settle, VAULT } from "./home-route-fixture";
+import {
+  act,
+  FakeEventSource,
+  pageHooks,
+  renderApp,
+  settle,
+  stream,
+  VAULT,
+} from "./home-route-fixture";
 import { COARSE, NARROW, stubMatchMedia } from "./match-media";
 
 defineFoliateFake();
@@ -140,6 +149,26 @@ const DAY: LogDay = {
   },
 };
 
+/** The same day after one more 250 ml, as `GET /api/log` answers once the vault has it. */
+const DAY_750: LogDay = {
+  ...DAY,
+  entries: [{ line: 8, text: "- 💧 750 ml", kind: "water", ml: 750 }],
+  totals: { ...DAY.totals, water: { ml: 750 } },
+};
+
+/** The first day of the trend the pane asks for, thirty days back from today. */
+const DATE = "2026-10-20";
+const TREND_FROM = "2026-09-21";
+
+/** The layout the defaults make, read before any test moves it. */
+const DEFAULT_LAYOUT: Layout = {
+  inbox: INBOX,
+  periodic: PERIODIC,
+  archive: ARCHIVE,
+  images: IMAGE_FOLDER,
+  config: "99 Misc/01 Config",
+};
+
 /** The text of today's note, which the fake vault reads back. */
 let todayText = EMPTY_TEXT;
 
@@ -169,6 +198,7 @@ describe("the log pane, on the route", () => {
     cleanup();
     await hashed();
     localStorage.removeItem("kasten.vim");
+    applyLayout(DEFAULT_LAYOUT);
     vi.useRealTimers();
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
@@ -252,5 +282,91 @@ describe("the log pane, on the route", () => {
     expect(savedToday()).not.toContain("- 💧 500 ml");
     expect(savedToday()).toContain("## Log");
     expect(app.notice()).toBeNull();
+  });
+
+  it("#774 a written event for today's daily note asks the log again for the day and the trend, and the pane redraws", async () => {
+    todayText = LOGGED_TEXT;
+    fetchLog.mockResolvedValue([DAY]);
+    const app = await renderApp(`/?note=${encodeURIComponent(TODAY)}`);
+    await settle();
+    app.leader("g", "f");
+    await settle();
+    expect(
+      within(logPane() as HTMLElement).getByRole("button", { name: "💧 500 ml" }),
+    ).not.toBeNull();
+
+    fetchLog.mockClear();
+    fetchLog.mockResolvedValue([DAY_750]);
+    act(() => stream().send({ path: TODAY, change: "written", digest: "a".repeat(64) }));
+    await settle();
+
+    expect(fetchLog).toHaveBeenCalledWith(DATE, DATE);
+    expect(fetchLog).toHaveBeenCalledWith(TREND_FROM, DATE);
+    expect(
+      within(logPane() as HTMLElement).getByRole("button", { name: "💧 750 ml" }),
+    ).not.toBeNull();
+  });
+
+  it("#774 a written event for a note that is not a daily note does not ask the log again", async () => {
+    todayText = LOGGED_TEXT;
+    fetchLog.mockResolvedValue([DAY]);
+    const app = await renderApp(`/?note=${encodeURIComponent(TODAY)}`);
+    await settle();
+    app.leader("g", "f");
+    await settle();
+    const asked = fetchLog.mock.calls.length;
+
+    // A weekly note sits in the same periodic folder, so this is the one a
+    // match on the folder rather than on the day would wrongly ask about.
+    act(() =>
+      stream().send({
+        path: "01 Periodic/01 Weekly/2026-W43.md",
+        change: "written",
+        digest: "a".repeat(64),
+      }),
+    );
+    await settle();
+
+    expect(fetchLog).toHaveBeenCalledTimes(asked);
+  });
+
+  it("#774 a removed event for today's daily note asks the log again and the pane drops the entry", async () => {
+    todayText = LOGGED_TEXT;
+    fetchLog.mockResolvedValue([DAY]);
+    const app = await renderApp(`/?note=${encodeURIComponent(TODAY)}`);
+    await settle();
+    app.leader("g", "f");
+    await settle();
+
+    fetchLog.mockClear();
+    fetchLog.mockResolvedValue([]);
+    act(() => stream().send({ path: TODAY, change: "removed", digest: null }));
+    await settle();
+
+    expect(fetchLog).toHaveBeenCalledWith(DATE, DATE);
+    expect(
+      within(logPane() as HTMLElement).queryByRole("button", { name: "💧 500 ml" }),
+    ).toBeNull();
+  });
+
+  it("#774 a daily note under a periodic folder other than the default asks the log again", async () => {
+    applyLayout({ ...DEFAULT_LAYOUT, periodic: "Journal" });
+    const note = periodicNote("daily", new Date(2026, 9, 20, 9, 0)).path;
+    expect(note).toBe("Journal/00 Daily/2026-10-20.md");
+    fetchLog.mockResolvedValue([DAY]);
+    const app = await renderApp("/");
+    await settle();
+    app.leader("g", "f");
+    await settle();
+
+    fetchLog.mockClear();
+    fetchLog.mockResolvedValue([DAY_750]);
+    act(() => stream().send({ path: note, change: "written", digest: "a".repeat(64) }));
+    await settle();
+
+    expect(fetchLog).toHaveBeenCalledWith(DATE, DATE);
+    expect(
+      within(logPane() as HTMLElement).getByRole("button", { name: "💧 750 ml" }),
+    ).not.toBeNull();
   });
 });

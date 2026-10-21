@@ -154,6 +154,18 @@ export function renderPane(hits = TODOS, focusSignal = 0) {
   };
 }
 
+/**
+ * A key pressed on the focused element, with the press a browser makes when the
+ * key is not taken: Enter clicks a button on the key down, Space on the key up.
+ * jsdom makes neither press, so a test of a button's own press needs them here.
+ */
+export function pressFocused(key: string) {
+  const target = document.activeElement as HTMLElement;
+  if (!fireEvent.keyDown(target, { key })) return;
+  if (key === " " && !fireEvent.keyUp(target, { key })) return;
+  fireEvent.click(target);
+}
+
 export function paneHooks() {
   // A vault that already holds the views note, which is what every test below
   // but the ones about `v` reads.

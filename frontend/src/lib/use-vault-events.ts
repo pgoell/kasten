@@ -1,5 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { type RefObject, useEffect } from "react";
+import { dailyDate } from "@/lib/periodic";
 import type { useAutosave } from "@/lib/use-autosave";
 import { parseVaultEvent } from "@/lib/vault-events";
 
@@ -134,6 +135,17 @@ export function useVaultEvents(
       // already runs per rating, and a completion that cannot offer the tag you
       // invented an hour ago would not be worth having.
       queryClient.invalidateQueries({ queryKey: ["tags"] }, { cancelRefetch: false });
+
+      // The log pane's totals are read off the daily notes, so a write to one, or
+      // its removal, asks the log again. Keyed on the path because the log is not
+      // only read while its pane is up, and every autosave of another note sends
+      // an event that must not walk the whole log.
+      if (
+        (event.change === "written" || event.change === "removed") &&
+        dailyDate(event.path) !== null
+      ) {
+        queryClient.invalidateQueries({ queryKey: ["log"] }, { cancelRefetch: false });
+      }
 
       const paths = queryClient.getQueryData<string[]>(["files"]);
       if (event.change === "written" && paths?.includes(event.path)) return;
