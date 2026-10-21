@@ -9,7 +9,7 @@ import {
   share,
   totalOf,
 } from "@/components/log-trends";
-import { fetchNote, NoteMissing } from "@/lib/api";
+import { fetchNote } from "@/lib/api";
 import { shiftDay } from "@/lib/clock";
 import { fetchLog } from "@/lib/food-api";
 import { foodPanel } from "@/lib/food-search";
@@ -219,16 +219,12 @@ export function LogPane({ commands, onOpen, focusSignal, today, actions, onNotic
   const writer = useRef(actions);
   const leader = useLeader(commands);
 
+  // The raw note under the key every reader of log.md shares, parsed on the way out, so the
+  // cache holds text. A missing note has no data, and the defaults are drawn.
   const { data: config = DEFAULT_CONFIG } = useQuery({
     queryKey: ["note", LOG_NOTE],
-    // A missing note is the default config. Any other failure is named and the default drawn too.
-    queryFn: () =>
-      fetchNote(LOG_NOTE).then(parseConfig, (error: unknown) => {
-        if (error instanceof NoteMissing) return parseConfig(null);
-        if (!(error instanceof Error)) throw error;
-        console.warn(error.message);
-        return parseConfig(null);
-      }),
+    queryFn: () => fetchNote(LOG_NOTE),
+    select: parseConfig,
   });
 
   const { data: days, error: dayError } = useQuery({
@@ -277,7 +273,10 @@ export function LogPane({ commands, onOpen, focusSignal, today, actions, onNotic
     if (!foodOpen || host === null) return;
     const root = foodPanel(day, {
       log: (line) => {
-        void writer.current.addLine(day, line).then(() => setFoodOpen(false));
+        // A refused write keeps the search open, so the line can be tried again.
+        void writer.current.addLine(day, line).then((ok) => {
+          if (ok) setFoodOpen(false);
+        });
       },
       close: () => setFoodOpen(false),
     });
@@ -359,6 +358,8 @@ export function LogPane({ commands, onOpen, focusSignal, today, actions, onNotic
     const { target, key } = event;
     // Typing is the field's own: `j` in an amount is a letter, and so is any key in the food search.
     if (target instanceof HTMLInputElement || target instanceof HTMLSelectElement) return;
+    // Enter or Space on a focused button is that button's own press, not the cursor row's.
+    if (target instanceof HTMLButtonElement && (key === "Enter" || key === " ")) return;
     if (editing !== null) return;
     if (target instanceof Node && foodHost.current?.contains(target)) return;
     if (leader.feed(event)) return;

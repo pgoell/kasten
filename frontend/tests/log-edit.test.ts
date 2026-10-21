@@ -36,6 +36,45 @@ it("#624 editedLine rewrites water, alcohol, tea and a food's meal and servings"
   ).toBe("- 🍽 dinner: Oats 80 g 🔥 300 kcal 🥩 10 g");
 });
 
+it("#624 a food row's meal change keeps its numbers as written", () => {
+  expect(
+    editedLine(
+      { text: "- 🍽 lunch: soup 🔥 480.5 kcal 🥩 12.34 g", kind: "food" },
+      { meal: "dinner" },
+    ),
+  ).toBe("- 🍽 dinner: soup 🔥 480.5 kcal 🥩 12.34 g");
+  expect(
+    editedLine(
+      { text: "- 🍽 lunch: soup 🔥 480.5 kcal 🥩 12.34 g", kind: "food" },
+      { meal: "dinner", servings: "1" },
+    ),
+  ).toBe("- 🍽 dinner: soup 🔥 480.5 kcal 🥩 12.34 g");
+  expect(editedLine({ text: "- 🍽 soup 🔥 480.5 kcal", kind: "food" }, { meal: "snack" })).toBe(
+    "- 🍽 snack: soup 🔥 480.5 kcal",
+  );
+});
+
+it("#624 an alcohol row saved with its prefilled amount keeps its volume and strength", () => {
+  expect(
+    editedLine({ text: "- 🍺 2 500 ml 5%", kind: "alcohol" }, { amount: "2 500 ml 5 %" }),
+  ).toBe("- 🍺 2 500 ml 5 %");
+  expect(editedLine({ text: "- 🍺 1 0.5 l 5%", kind: "alcohol" }, { amount: "1 0.5 l 5%" })).toBe(
+    "- 🍺 1 0.5 l 5%",
+  );
+});
+
+it("#624 an empty amount on a drink row writes nothing and says why", () => {
+  expect(editedLine({ text: "- 💧 250 ml", kind: "water" }, { amount: "" })).toEqual({
+    why: "type an amount",
+  });
+  expect(editedLine({ text: "- ☕ 1", kind: "coffee" }, { amount: "  " })).toEqual({
+    why: "type an amount",
+  });
+  expect(editedLine({ text: "- 🍺 2", kind: "alcohol" }, { amount: "" })).toEqual({
+    why: "type an amount",
+  });
+});
+
 it("#624 an edit typed as no amount writes nothing and says why", () => {
   expect(editedLine({ text: "- 💧 250 ml", kind: "water" }, { amount: "two cups" })).toEqual({
     why: expect.any(String),

@@ -96,8 +96,9 @@ export function makeActions(canUndo = false): LogActions {
 }
 
 /** The pane with its query client, the commands and the actions it is given, all recorded. */
-export function renderPane(options: { actions?: LogActions } = {}) {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+export function renderPane(options: { actions?: LogActions; client?: QueryClient } = {}) {
+  const client =
+    options.client ?? new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const commands = stubCommands();
   const actions = options.actions ?? makeActions();
   const onOpen = vi.fn();

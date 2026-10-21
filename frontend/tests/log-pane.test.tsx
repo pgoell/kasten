@@ -1,4 +1,6 @@
-import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { QueryClient } from "@tanstack/react-query";
+import { act, cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { LOG_NOTE } from "@/lib/layout";
 import {
   CONFIG_NOTE,
   logDays,
@@ -291,4 +293,48 @@ it("#624 the food search opens from the pane and logs into the day shown", async
     "- 🍽 lunch: oats 🔥 300 kcal 🥩 10 g 🍞 50 g 🧈 5 g",
   );
   await waitFor(() => expect(screen.queryByLabelText("Food")).toBeNull());
+});
+
+it("#624 the pane and an editor share log.md's query as text", async () => {
+  // The raw note is what an editor of log.md caches under this key, so the pane must read the same text.
+  const TEA_NOTE = `${CONFIG_NOTE}- 🍵 tea: 150 ml\n`;
+  fetchNote.mockResolvedValue(TEA_NOTE);
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false, staleTime: Number.POSITIVE_INFINITY } },
+  });
+  client.setQueryData(["note", LOG_NOTE], TEA_NOTE);
+
+  renderPane({ client });
+
+  expect(await screen.findByRole("button", { name: "Log tea" })).toBeInTheDocument();
+  expect(client.getQueryData(["note", LOG_NOTE])).toBe(TEA_NOTE);
+});
+
+it("#624 Enter on a focused row button edits that row, not the cursor row", async () => {
+  renderPane();
+  await screen.findByText("💧 500 / 2000 ml");
+
+  press("j");
+  const juice = screen.getByRole("button", { name: "🥤 200 ml" });
+  juice.focus();
+  // The key press alone must not open the cursor's row. The browser's Enter on a button is then its click.
+  fireEvent.keyDown(juice, { key: "Enter" });
+  expect(editForm()).toBeNull();
+  fireEvent.click(juice);
+
+  expect(within(editForm() as HTMLElement).getByLabelText("Amount")).toHaveValue("200 ml");
+});
+
+it("#624 a refused food log keeps the food search open", async () => {
+  const { actions } = renderPane();
+  actions.addLine = vi.fn(async () => false);
+  await screen.findByText("💧 500 / 2000 ml");
+
+  press("f");
+  fireEvent.click(await screen.findByRole("button", { name: /oats.*recent/ }));
+  fireEvent.click(screen.getByRole("button", { name: "Log this food" }));
+  await act(async () => {});
+
+  expect(actions.addLine).toHaveBeenCalled();
+  expect(screen.getByLabelText("Food")).toBeInTheDocument();
 });

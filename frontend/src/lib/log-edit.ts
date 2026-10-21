@@ -64,11 +64,14 @@ export function restoreLine(
 /** The count of an alcohol line changed, with its volume and strength left as they are. */
 function alcoholLine(text: string, typed: string): string | { why: string } {
   const count = typed.trim();
-  if (!/^[0-9]{1,9}$/.test(count) || Number(count) < 1) {
-    return { why: `not an alcohol amount: ${typed}` };
+  // A bare count changes the count and keeps the volume and strength after it.
+  if (/^[0-9]{1,9}$/.test(count) && Number(count) >= 1) {
+    if (!ALCOHOL_COUNT.test(text)) return { why: "that line is no alcohol line" };
+    return text.replace(ALCOHOL_COUNT, `$1${count}`);
   }
-  if (!ALCOHOL_COUNT.test(text)) return { why: "that line is no alcohol line" };
-  return text.replace(ALCOHOL_COUNT, `$1${count}`);
+  // Anything else is a whole amount as a tap writes it, so the pane's prefilled text
+  // (the line minus its marker) is taken as it stands.
+  return amountLine("alcohol", typed);
 }
 
 /**
@@ -81,7 +84,17 @@ function foodEdit(
 ): string | { why: string } {
   const food = parseFood(text);
   if (food === null) return { why: "that line is no food line" };
-  const typed = (edit.servings ?? "1").trim();
+  const typed = (edit.servings ?? "").trim();
+  // No change of servings: only the meal word moves, and every number stays as written.
+  if (typed === "" || typed === "1") {
+    const head = /^(- 🍽️?[ \t]+)((?:breakfast|lunch|dinner|snack):)?/i.exec(text);
+    if (head === null) return { why: "that line is no food line" };
+    const rest = text.slice(head[0].length);
+    if (edit.meal === undefined) return text;
+    return head[2] === undefined
+      ? `${head[1]}${edit.meal}: ${rest}`
+      : `${head[1]}${edit.meal}:${rest}`;
+  }
   const scale = Number(typed.replace(",", "."));
   if (!NUMBER.test(typed) || scale <= 0) {
     return { why: "servings must be a number above zero" };
@@ -116,9 +129,10 @@ export function editedLine(
   switch (entry.kind) {
     case "water":
     case "coffee":
-      return amountLine(entry.kind, typed);
+      // The tap line is what a new row gets; an edit with nothing typed is no change to make.
+      return typed.trim() === "" ? { why: "type an amount" } : amountLine(entry.kind, typed);
     case "alcohol":
-      return alcoholLine(entry.text, typed);
+      return typed.trim() === "" ? { why: "type an amount" } : alcoholLine(entry.text, typed);
     case "mine":
       if (kind === undefined) return { why: "that kind is not in the log config" };
       // The tap is what an empty amount means for the built-in kinds. Here it would
