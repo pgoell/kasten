@@ -1,0 +1,234 @@
+/**
+ * The kinds the log config note names, and what a tap on each one writes.
+ *
+ * The note is `99 Misc/01 Config/log.md`. Each `- ` line at column 0 names a kind
+ * by its mark, and says what one tap logs and whether it has a goal. 💧, ☕ and 🍺
+ * are the built-in kinds the card has always had; any other mark is a kind of the
+ * user's own, counted by `parseKindLine`. The grammar is in
+ * `docs/reference/log-format.md`, and `log-config-cases.json` holds its cases.
+ */
+
+import { amountLine, type DrinkKind, type DrinkTotals, logLines, tenth } from "@/lib/log-lines";
+
+export interface Goal {
+  type: "floor" | "ceiling";
+  value: number;
+}
+
+export interface LogKind {
+  mark: string;
+  name: string;
+  tap: number;
+  /** `""` for none. */
+  unit: string;
+  goal?: Goal;
+  /** Set on the three built-in kinds, whose lines the totals already read. */
+  builtin?: DrinkKind;
+}
+
+export type FoodField = "kcal" | "protein" | "carbs" | "fat";
+
+export type FoodGoals = Partial<Record<FoodField, Goal>>;
+
+export interface BrokenLine {
+  line: number;
+  text: string;
+}
+
+export interface LogConfig {
+  kinds: LogKind[];
+  food: FoodGoals;
+  broken: BrokenLine[];
+}
+
+/** What a missing note gives: the three kinds the card had before the note existed. */
+export const DEFAULT_CONFIG: LogConfig = {
+  kinds: [
+    { mark: "💧", name: "water", tap: 250, unit: "ml", builtin: "water" },
+    { mark: "☕", name: "coffee", tap: 1, unit: "", builtin: "coffee" },
+    { mark: "🍺", name: "alcohol", tap: 1, unit: "", builtin: "alcohol" },
+  ],
+  food: {},
+  broken: [],
+};
+
+/** One to nine digits, then an optional point or comma and one to nine more, as the log format reads a number. */
+const NUMBER = "[0-9]{1,9}(?:[.,][0-9]{1,9})?";
+
+/** The marks of the built-in kinds, each with the kind it stands for. */
+const BUILTINS = new Map<string, DrinkKind>([
+  ["💧", "water"],
+  ["☕", "coffee"],
+  ["🍺", "alcohol"],
+]);
+
+/** The food line's field markers. A kind on one would read as a field inside a food line. */
+const FIELD_MARKS = new Set(["🔥", "🥩", "🍞", "🧈"]);
+
+/**
+ * A kind line: the mark with its U+FE0F dropped, the name up to the colon, the tap,
+ * an optional unit and an optional goal. The mark is astral, so the `u` flag.
+ */
+const KIND_LINE = new RegExp(
+  `^- (\\p{Extended_Pictographic})️?[ \\t]+([^:]+):[ \\t]*(${NUMBER})(?:[ \\t]+([A-Za-z]+))?(?:[ \\t]*,[ \\t]*(min|max)[ \\t]+(${NUMBER}))?[ \\t]*$`,
+  "iu",
+);
+
+/** A food line: its marker, its name up to the colon, then the goals. */
+const FOOD_LINE = /^- 🍽️?[ \t]+([^:]+):(.*)$/u;
+
+/** One goal of a food line: a field, `min` or `max`, and its number. */
+const FOOD_GOAL = new RegExp(
+  `^[ \\t]*(kcal|protein|carbs|fat)[ \\t]+(min|max)[ \\t]+(${NUMBER})[ \\t]*$`,
+  "iu",
+);
+
+/** A written number as a float, a comma read as the point. */
+const amount = (text: string): number => Number(text.replace(",", "."));
+
+/** A product with the float noise cut: 1.1 litres is 1100 millilitres, not 1100.0000000000002. */
+const clean = (value: number): number => Number(value.toPrecision(15));
+
+/** A food line's goals, or null where it names no field, repeats one or gives a value no parser reads. */
+function parseFoodLine(text: string): FoodGoals | null {
+  const head = FOOD_LINE.exec(text);
+  if (head === null || (head[1] ?? "").trim() === "") return null;
+  const goals: FoodGoals = {};
+  for (const piece of (head[2] ?? "").split(",")) {
+    const goal = FOOD_GOAL.exec(piece);
+    if (goal === null) return null;
+    const field = (goal[1] ?? "").toLowerCase() as FoodField;
+    const value = amount(goal[3] ?? "");
+    if (field in goals || value <= 0) return null;
+    goals[field] = {
+      type: (goal[2] ?? "").toLowerCase() === "min" ? "floor" : "ceiling",
+      value,
+    };
+  }
+  return goals;
+}
+
+/** A kind line as its kind, or null where the line is broken. The caller checks the mark is free. */
+function parseKindConfig(text: string): LogKind | null {
+  const found = KIND_LINE.exec(text);
+  if (found === null) return null;
+  const [, mark = "", name = "", tapText = "", written, sense, goalText = ""] = found;
+  const label = name.trim();
+  const tap = amount(tapText);
+  const unit = written ?? "";
+  const builtin = BUILTINS.get(mark);
+  if (label === "" || tap <= 0 || FIELD_MARKS.has(mark)) return null;
+  if (builtin === "water" && !/^(ml|l)$/i.test(unit)) return null;
+  // Coffee and alcohol are counted, so a tap is a whole number with no unit.
+  if (
+    (builtin === "coffee" || builtin === "alcohol") &&
+    (unit !== "" || !/^[0-9]+$/.test(tapText))
+  ) {
+    return null;
+  }
+  const goalValue = amount(goalText);
+  if (sense !== undefined && goalValue <= 0) return null;
+  // The day's water is counted in millilitres, so a goal in litres is scaled to match.
+  const scale = builtin === "water" && unit.toLowerCase() === "l" ? 1000 : 1;
+  const kind: LogKind = {
+    mark,
+    name: label,
+    tap,
+    unit,
+    ...(sense === undefined
+      ? {}
+      : {
+          goal: {
+            type: sense.toLowerCase() === "min" ? "floor" : "ceiling",
+            value: clean(goalValue * scale),
+          },
+        }),
+    ...(builtin === undefined ? {} : { builtin }),
+  };
+  return kind;
+}
+
+/**
+ * The config a note gives. A null note (missing or unreadable) gives the defaults;
+ * any other note gives exactly the kinds its valid lines name, and lists the rest as broken.
+ */
+export function parseConfig(note: string | null): LogConfig {
+  if (note === null) return DEFAULT_CONFIG;
+  const lines = note.split("\n");
+  // The frontmatter runs from a first `---` to the next one, as in logLines, and holds no config.
+  const close = lines[0] === "---" ? lines.indexOf("---", 1) : -1;
+  const kinds: LogKind[] = [];
+  const broken: BrokenLine[] = [];
+  const marks = new Set<string>();
+  let food: FoodGoals | null = null;
+  for (const [index, text] of lines.entries()) {
+    if (index <= close || !text.startsWith("- ")) continue;
+    const line = index + 1;
+    // Only the first food line that reads counts, so a second one is broken.
+    if (text.startsWith("- 🍽")) {
+      const goals = parseFoodLine(text);
+      if (goals === null || food !== null) broken.push({ line, text });
+      else food = goals;
+      continue;
+    }
+    const kind = parseKindConfig(text);
+    // The first line keeps a mark, so a later line with the same mark is broken.
+    if (kind === null || marks.has(kind.mark)) {
+      broken.push({ line, text });
+      continue;
+    }
+    marks.add(kind.mark);
+    kinds.push(kind);
+  }
+  return { kinds, food: food ?? {}, broken };
+}
+
+/** The line one tap writes for `kind` with nothing typed. */
+export function tapLine(kind: LogKind): string {
+  // A String of a tiny number is an exponent, `1e-7`, which no log parser reads.
+  const tap = kind.tap.toFixed(9).replace(/\.?0+$/, "");
+  return `- ${kind.mark} ${tap}${kind.unit === "" ? "" : ` ${kind.unit}`}`;
+}
+
+/**
+ * The line a tap writes for `typed` under `kind`, or why `typed` is no amount of
+ * that kind. The empty amount is the default line; a kind of your own takes a bare
+ * number with its unit added, or a number with its own unit.
+ */
+export function kindLine(kind: LogKind, typed: string): string | { why: string } {
+  const text = typed.trim();
+  if (text === "") return tapLine(kind);
+  if (kind.builtin !== undefined) return amountLine(kind.builtin, typed);
+  const bare = new RegExp(`^${NUMBER}$`).test(text);
+  const line = `- ${kind.mark} ${bare && kind.unit !== "" ? `${text} ${kind.unit}` : text}`;
+  return parseKindLine(kind, line) === null ? { why: `not a ${kind.name} amount: ${typed}` } : line;
+}
+
+/**
+ * The amount a log line holds for a kind of your own, or null: `- <mark> <NUMBER>[ <unit>]`
+ * as the whole line, with the unit required and matched case-insensitively iff the kind has one.
+ */
+export function parseKindLine(kind: LogKind, line: string): number | null {
+  const found = new RegExp(
+    `^- ${kind.mark}️?[ \\t]+(${NUMBER})(?:[ \\t]+([A-Za-z]+))?[ \\t]*$`,
+    "u",
+  ).exec(line);
+  if (found === null) return null;
+  const [, count = "", written = ""] = found;
+  if (written.toLowerCase() !== kind.unit.toLowerCase()) return null;
+  const value = amount(count);
+  return value > 0 ? value : null;
+}
+
+/**
+ * The day's total for `kind`. The built-in kinds read their totals; a kind of your
+ * own sums its lines under `## Log`, rounded once as the other totals are.
+ */
+export function kindTotal(kind: LogKind, text: string, totals: DrinkTotals): number {
+  if (kind.builtin === "water") return totals.water.ml;
+  if (kind.builtin === "coffee") return totals.coffee.count;
+  if (kind.builtin === "alcohol") return totals.alcohol.count;
+  let sum = 0;
+  for (const line of logLines(text)) sum += parseKindLine(kind, line) ?? 0;
+  return tenth(sum);
+}

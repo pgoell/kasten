@@ -194,7 +194,7 @@ export function amountLine(kind: DrinkKind, typed: string): string | { why: stri
 }
 
 /** The lines under each `## Log` of `text`, without fenced code or the frontmatter. */
-function logLines(text: string): string[] {
+export function logLines(text: string): string[] {
   const lines = text.split("\n");
   // The frontmatter runs from a first `---` to the next one, and holds no section.
   const close = lines[0] === "---" ? lines.indexOf("---", 1) : -1;

@@ -17,16 +17,21 @@ import {
   type Text,
 } from "@codemirror/state";
 import { Decoration, type DecorationSet, EditorView, WidgetType } from "@codemirror/view";
+import { fetchNote, NoteMissing } from "@/lib/api";
 import { foodPanel } from "@/lib/food-search";
+import { LOG_NOTE } from "@/lib/layout";
 import {
-  amountLine,
-  DEFAULT_LINE,
-  DRINKS,
-  type DrinkKind,
-  type DrinkTotals,
-  drinkTotals,
-  LOG_HEADING,
-} from "@/lib/log-lines";
+  DEFAULT_CONFIG,
+  type FoodField,
+  type Goal,
+  kindLine,
+  kindTotal,
+  type LogConfig,
+  type LogKind,
+  parseConfig,
+  tapLine,
+} from "@/lib/log-kinds";
+import { type DrinkTotals, drinkTotals, LOG_HEADING } from "@/lib/log-lines";
 import { appendUnderEdit } from "@/lib/note-section";
 import { dailyDate } from "@/lib/periodic";
 import { notePath } from "@/lib/todo-commands";
@@ -44,6 +49,30 @@ const tapped = StateEffect.define<LastTap | null>();
 /** Opens or closes the food search panel. */
 const foodOpen = StateEffect.define<boolean>();
 
+/** The note's config arriving, which replaces the default kinds the card drew until then. */
+const configArrived = StateEffect.define<LogConfig>();
+
+/** Each view's config, fetched once, so a card drawn again does not ask the note again. */
+const configs = new WeakMap<EditorView, Promise<LogConfig>>();
+
+/**
+ * The view's config from the log note. A note that is not there is the default
+ * config, and one that fails to load is named in the console and the default too.
+ */
+function configFor(view: EditorView): Promise<LogConfig> {
+  let config = configs.get(view);
+  if (config === undefined) {
+    config = fetchNote(LOG_NOTE).then(parseConfig, (error: unknown) => {
+      if (error instanceof NoteMissing) return parseConfig(null);
+      if (!(error instanceof Error)) throw error;
+      console.warn(error.message);
+      return parseConfig(null);
+    });
+    configs.set(view, config);
+  }
+  return config;
+}
+
 /** The food search panel of each view while it is open, reused by every card drawn meanwhile. */
 const openPanels = new WeakMap<EditorView, HTMLElement>();
 
@@ -52,6 +81,8 @@ interface Card {
   lastTap: LastTap | null;
   /** Whether the food search panel is open. */
   food: boolean;
+  /** The note's config, or null while it is on its way and the defaults are drawn. */
+  config: LogConfig | null;
   /** Whether this note has a card at all, which the palette asks before it offers the search. */
   shown: boolean;
   decorations: DecorationSet;
@@ -64,20 +95,45 @@ function stillThere(doc: Text, tap: LastTap): boolean {
   return line.from === tap.from && line.text === tap.text;
 }
 
-/** The totals as the card words them. The grams show only once there are some. */
-function totalWords(totals: DrinkTotals): string[] {
-  const { water, coffee, alcohol, food } = totals;
-  const words = [
-    `💧 ${water.ml} ml`,
-    `☕ ${coffee.count}`,
-    `🍺 ${alcohol.count}${alcohol.grams > 0 ? `, ${alcohol.grams} g` : ""}`,
-  ];
-  // The food words wait for the first food, as the grams of alcohol wait for a strength.
-  if (food.kcal > 0 || food.protein > 0 || food.carbs > 0 || food.fat > 0) {
-    words.push(`🔥 ${food.kcal} kcal 🥩 ${food.protein} g 🍞 ${food.carbs} g 🧈 ${food.fat} g`);
+/**
+ * A total as its span. A goal goes after the total, and a floor's span carries the
+ * share of the goal reached as the bar the CSS draws; the words say whether it is
+ * met or passed, so the colour is not the only sign.
+ */
+function totalSpan(
+  head: string,
+  tail: string,
+  total: number,
+  goal: Goal | undefined,
+): HTMLSpanElement {
+  const span = document.createElement("span");
+  if (goal === undefined) {
+    span.textContent = `${head}${tail}`;
+    return span;
   }
-  return words;
+  span.classList.add("cm-log-goal");
+  const words = `${head} / ${goal.value}${tail}`;
+  if (goal.type === "floor") {
+    const met = total >= goal.value;
+    span.classList.add(met ? "cm-log-met" : "cm-log-short");
+    const progress = Math.min(100, Math.round((total / goal.value) * 100));
+    span.setAttribute("style", `--log-progress: ${progress}%`);
+    span.textContent = met ? `${words} ✓` : words;
+  } else {
+    const over = total > goal.value;
+    span.classList.add(over ? "cm-log-over" : "cm-log-under");
+    span.textContent = over ? `${words} ⚠` : words;
+  }
+  return span;
 }
+
+/** The food fields in the order the card shows them, each with its marker and unit. */
+const FOOD_WORDS: { field: FoodField; mark: string; unit: string }[] = [
+  { field: "kcal", mark: "🔥", unit: "kcal" },
+  { field: "protein", mark: "🥩", unit: "g" },
+  { field: "carbs", mark: "🍞", unit: "g" },
+  { field: "fat", mark: "🧈", unit: "g" },
+];
 
 /**
  * A button that keeps the editor's focus and cursor. A press on the card is
@@ -133,8 +189,8 @@ function keepPanelFocus(view: EditorView, change: () => void): void {
 }
 
 /** Writes the line `amount` makes for `kind` at the end of `## Log`, or says why it cannot. */
-function tap(view: EditorView, kind: DrinkKind, amount: HTMLInputElement, why: HTMLElement): void {
-  const line = amountLine(kind, amount.value);
+function tap(view: EditorView, kind: LogKind, amount: HTMLInputElement, why: HTMLElement): void {
+  const line = kindLine(kind, amount.value);
   if (typeof line !== "string") {
     why.textContent = line.why;
     return;
@@ -172,25 +228,42 @@ function undoLastTap(view: EditorView): void {
  */
 class LogCard extends WidgetType {
   private readonly totals: DrinkTotals;
+  /** What each kind of the config adds up to, in the config's order. */
+  private readonly sums: number[];
   /** The text of the tap Undo takes back, or null where there is none to offer. */
   private readonly undoText: string | null;
   /** Whether the food search panel is drawn under the row. */
   private readonly food: boolean;
+  /** The note's config, or null while it is being fetched. */
+  private readonly config: LogConfig | null;
 
-  constructor(totals: DrinkTotals, undoText: string | null, food: boolean) {
+  constructor(
+    totals: DrinkTotals,
+    sums: number[],
+    undoText: string | null,
+    food: boolean,
+    config: LogConfig | null,
+  ) {
     super();
     this.totals = totals;
+    this.sums = sums;
     this.undoText = undoText;
     this.food = food;
+    this.config = config;
   }
 
   // Only what is drawn is compared. An Undo's position moves with every edit above
-  // it, and a rebuild for that would empty the amount field.
+  // it, and a rebuild for that would empty the amount field. The config is compared as
+  // drawn: a null one draws the defaults, so an arrival of the defaults redraws nothing.
   override eq(other: LogCard): boolean {
     return (
-      JSON.stringify([this.totals, this.undoText, this.food]) ===
-      JSON.stringify([other.totals, other.undoText, other.food])
+      JSON.stringify([this.totals, this.sums, this.undoText, this.food, this.drawnConfig()]) ===
+      JSON.stringify([other.totals, other.sums, other.undoText, other.food, other.drawnConfig()])
     );
+  }
+
+  private drawnConfig(): LogConfig {
+    return this.config ?? DEFAULT_CONFIG;
   }
 
   override ignoreEvent(): boolean {
@@ -201,12 +274,34 @@ class LogCard extends WidgetType {
     const card = document.createElement("div");
     card.className = "cm-log";
     card.setAttribute("contenteditable", "false");
+    const config = this.config ?? DEFAULT_CONFIG;
 
     const totals = document.createElement("div");
     totals.className = "cm-log-totals";
-    for (const words of totalWords(this.totals)) {
+    config.kinds.forEach((kind, index) => {
+      const total = this.sums[index] ?? 0;
+      // Alcohol's grams follow its count, once there are some.
+      const grams =
+        kind.builtin === "alcohol" && this.totals.alcohol.grams > 0
+          ? `, ${this.totals.alcohol.grams} g`
+          : "";
+      // The water total is millilitres whatever unit its config line writes.
+      const unit = kind.builtin === "water" ? "ml" : kind.unit;
+      const tail = `${unit ? ` ${unit}` : ""}${grams}`;
+      totals.appendChild(totalSpan(`${kind.mark} ${total}`, tail, total, kind.goal));
+    });
+    // Food with a goal shows each field, and the food words wait for the first food otherwise.
+    const food = this.totals.food;
+    const foodGoal = config.food;
+    if (FOOD_WORDS.some(({ field }) => foodGoal[field] !== undefined)) {
+      for (const { field, mark, unit } of FOOD_WORDS) {
+        totals.appendChild(
+          totalSpan(`${mark} ${food[field]}`, ` ${unit}`, food[field], foodGoal[field]),
+        );
+      }
+    } else if (food.kcal > 0 || food.protein > 0 || food.carbs > 0 || food.fat > 0) {
       const span = document.createElement("span");
-      span.textContent = words;
+      span.textContent = `🔥 ${food.kcal} kcal 🥩 ${food.protein} g 🍞 ${food.carbs} g 🧈 ${food.fat} g`;
       totals.appendChild(span);
     }
 
@@ -220,10 +315,10 @@ class LogCard extends WidgetType {
     const why = document.createElement("div");
     why.className = "cm-log-why";
 
-    for (const kind of DRINKS) {
-      const words = `+ ${DEFAULT_LINE[kind].slice(2)}`;
+    for (const kind of config.kinds) {
+      const words = `+ ${tapLine(kind).slice(2)}`;
       const press = () => tap(view, kind, amount, why);
-      row.appendChild(button(words, `Log ${kind}`, "cm-log-button", press));
+      row.appendChild(button(words, `Log ${kind.name}`, "cm-log-button", press));
     }
     row.appendChild(button("+ 🍽 food", "Log food", "cm-log-button", () => openFoodSearch(view)));
     row.appendChild(amount);
@@ -232,6 +327,17 @@ class LogCard extends WidgetType {
       row.appendChild(button(words, words, "cm-log-undo", () => undoLastTap(view)));
     }
     card.append(totals, row, why);
+    // A line the config could not read is named, so its kind is not missing for no reason.
+    if (config.broken.length > 0) {
+      const broken = document.createElement("div");
+      broken.className = "cm-log-broken";
+      for (const { line, text } of config.broken) {
+        const named = document.createElement("div");
+        named.textContent = `Skipped line ${line} of log.md: ${text}`;
+        broken.appendChild(named);
+      }
+      card.appendChild(broken);
+    }
     // The open panel is kept per view: a rebuild of the card for a tap or a reload
     // would otherwise empty its query, its chosen serving and its focus.
     if (this.food) {
@@ -247,6 +353,15 @@ class LogCard extends WidgetType {
     } else {
       openPanels.delete(view);
     }
+    if (this.config === null) {
+      // Gone from the page means the note was closed while the fetch was out, and there is nothing to draw into.
+      // A drawn card moves the open food panel, so the focus in it is given back as for a tap.
+      configFor(view).then((arrived) => {
+        if (card.isConnected) {
+          keepPanelFocus(view, () => view.dispatch({ effects: configArrived.of(arrived) }));
+        }
+      });
+    }
     return card;
   }
 }
@@ -255,20 +370,35 @@ class LogCard extends WidgetType {
 const NO_TOTALS = drinkTotals("");
 
 /** The card for a note: its totals and widget only on a daily note. */
-function build(state: EditorState, lastTap: LastTap | null, food: boolean): Card {
+function build(
+  state: EditorState,
+  lastTap: LastTap | null,
+  food: boolean,
+  config: LogConfig | null,
+): Card {
   const path = state.facet(notePath);
   const line = path !== undefined && dailyDate(path) !== null ? cardLine(state.doc) : null;
   if (line === null) {
-    return { totals: NO_TOTALS, lastTap, food: false, shown: false, decorations: Decoration.none };
+    return {
+      totals: NO_TOTALS,
+      lastTap,
+      food: false,
+      config,
+      shown: false,
+      decorations: Decoration.none,
+    };
   }
-  const totals = drinkTotals(state.doc.toString());
+  const text = state.doc.toString();
+  const totals = drinkTotals(text);
+  const sums = (config ?? DEFAULT_CONFIG).kinds.map((kind) => kindTotal(kind, text, totals));
   // Only a tap still on the page can be undone, so an edited one is offered nothing.
   const undo = lastTap !== null && stillThere(state.doc, lastTap) ? lastTap.text : null;
-  const widget = new LogCard(totals, undo, food);
+  const widget = new LogCard(totals, sums, undo, food, config);
   return {
     totals,
     lastTap,
     food,
+    config,
     shown: true,
     decorations: Decoration.set([
       Decoration.widget({ widget, block: true, side: 2 }).range(state.doc.line(line).to),
@@ -282,10 +412,11 @@ function build(state: EditorState, lastTap: LastTap | null, food: boolean): Card
  * takes only from state.
  */
 const cardField = StateField.define<Card>({
-  create: (state) => build(state, null, false),
+  create: (state) => build(state, null, false, null),
   update(value, tr) {
     let lastTap = value.lastTap;
     let food = value.food;
+    let config = value.config;
     if (tr.docChanged && lastTap !== null) {
       lastTap = { from: tr.changes.mapPos(lastTap.from), text: lastTap.text };
     }
@@ -299,8 +430,12 @@ const cardField = StateField.define<Card>({
         food = effect.value;
         changed = true;
       }
+      if (effect.is(configArrived)) {
+        config = effect.value;
+        changed = true;
+      }
     }
-    return changed ? build(tr.state, lastTap, food) : value;
+    return changed ? build(tr.state, lastTap, food, config) : value;
   },
   provide: (field) => EditorView.decorations.from(field, (value) => value.decorations),
 });
