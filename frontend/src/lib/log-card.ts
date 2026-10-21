@@ -357,8 +357,16 @@ class LogCard extends WidgetType {
       // Gone from the page means the note was closed while the fetch was out, and there is nothing to draw into.
       // A drawn card moves the open food panel, so the focus in it is given back as for a tap.
       configFor(view).then((arrived) => {
-        if (card.isConnected) {
-          keepPanelFocus(view, () => view.dispatch({ effects: configArrived.of(arrived) }));
+        if (!card.isConnected) return;
+        // A redraw makes a new amount field, so the typed text and the focus are carried over.
+        const field = view.dom.querySelector<HTMLInputElement>(".cm-log-amount");
+        const typed = field?.value ?? "";
+        const focused = field !== null && document.activeElement === field;
+        keepPanelFocus(view, () => view.dispatch({ effects: configArrived.of(arrived) }));
+        const next = view.dom.querySelector<HTMLInputElement>(".cm-log-amount");
+        if (next !== null) {
+          next.value = typed;
+          if (focused) next.focus();
         }
       });
     }

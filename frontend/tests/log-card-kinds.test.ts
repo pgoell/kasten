@@ -280,4 +280,21 @@ describe("the log card's kinds", () => {
     expect(document.activeElement).toBe(view.dom.querySelector(".cm-log-food-query"));
     expect(view.dom.querySelector(".cm-log-food-query")).not.toBeNull();
   });
+
+  it("#623 a config arriving keeps the amount typed and its focus", async () => {
+    let answer: (note: string) => void = () => undefined;
+    vi.mocked(fetchNote).mockReturnValue(
+      new Promise<string>((resolve) => {
+        answer = resolve;
+      }),
+    );
+    const view = mount(NOTE);
+    amount(view).value = "2";
+    amount(view).focus();
+
+    answer(`${DEFAULTS}\n- 🍵 tea: 1 cup, min 3`);
+    await arrived(view, "Log tea");
+    expect(amount(view).value).toBe("2");
+    expect(document.activeElement).toBe(amount(view));
+  });
 });
