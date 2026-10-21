@@ -177,6 +177,13 @@ class Settings(BaseSettings):
     leaves every host the same, which is what dev and the test client need.
     """
 
+    food_contact: str = "https://github.com/pgoell/kasten"
+    """How Open Food Facts can reach whoever is asking, sent in every request's `User-Agent`.
+
+    Open Food Facts asks every client to name a way to reach it in its
+    `User-Agent`. The default is this project's page.
+    """
+
     weather_places: list[Place] = [
         Place(name="Gelnhausen", latitude=50.2017, longitude=9.1886),
         Place(name="Frankfurt", latitude=50.1109, longitude=8.6821),

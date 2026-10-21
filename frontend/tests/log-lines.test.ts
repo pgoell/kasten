@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import cases from "@/lib/log-cases.json";
-import { amountLine, drinkTotals, parseDrink } from "@/lib/log-lines";
+import { amountLine, drinkTotals, foodLine, parseDrink, parseFood } from "@/lib/log-lines";
 
 interface Row {
   id: string;
@@ -38,6 +38,22 @@ describe("parseDrink, food", () => {
   });
 });
 
+const foodRows = (cases as Row[]).filter((row) => row.line.startsWith(FOOD));
+
+describe("food lines, against the shared cases", () => {
+  it.each(foodRows.map((row) => [row.id, row] as const))("%s", (_id, row) => {
+    const field = (name: string) => (row.entry?.[name] as number | undefined) ?? 0;
+    const totals = {
+      kcal: field("kcal"),
+      protein: field("protein"),
+      carbs: field("carbs"),
+      fat: field("fat"),
+    };
+    expect(drinkTotals(`## Log\n${row.line}`).food).toEqual(totals);
+    expect(parseFood(row.line)).toEqual(row.entry);
+  });
+});
+
 describe("drinkTotals", () => {
   const day = (...lines: string[]) => ["# 2026-10-20 Tuesday", "", "## Log", ...lines].join("\n");
 
@@ -47,6 +63,7 @@ describe("drinkTotals", () => {
       water: { ml: 500 },
       coffee: { count: 2 },
       alcohol: { count: 1, ml: 500, grams: 19.7 },
+      food: { kcal: 0, protein: 0, carbs: 0, fat: 0 },
     });
   });
 
@@ -55,6 +72,7 @@ describe("drinkTotals", () => {
       water: { ml: 0 },
       coffee: { count: 0 },
       alcohol: { count: 0, ml: 0, grams: 0 },
+      food: { kcal: 0, protein: 0, carbs: 0, fat: 0 },
     });
   });
 
@@ -92,6 +110,7 @@ describe("drinkTotals", () => {
       water: { ml: 0 },
       coffee: { count: 0 },
       alcohol: { count: 0, ml: 0, grams: 0 },
+      food: { kcal: 0, protein: 0, carbs: 0, fat: 0 },
     });
   });
 
@@ -111,6 +130,18 @@ describe("drinkTotals", () => {
 
   it("rounds the sum once, not each line", () => {
     expect(drinkTotals(day("- 💧 0.04 ml", "- 💧 0.04 ml", "- 💧 0.04 ml")).water.ml).toBe(0.1);
+  });
+
+  it("#621 sums food kcal and macros under ## Log, rounded once", () => {
+    const text = day(
+      "- 🍽 a 🥩 0.04 g",
+      "- 🍽 b 🥩 0.04 g",
+      "- 🍽 c 🥩 0.04 g",
+      "- 🍽 d 🔥 100",
+      "- 🍽 e 🔥 52.5",
+      "- 🍽 f 🍞 0.25 g",
+    );
+    expect(drinkTotals(text).food).toEqual({ kcal: 152.5, protein: 0.1, carbs: 0.2, fat: 0 });
   });
 });
 
@@ -136,5 +167,61 @@ describe("amountLine", () => {
 
   it("refuses a zero amount", () => {
     expect(amountLine("water", "0")).toEqual({ why: "not a water amount: 0" });
+  });
+});
+
+describe("foodLine", () => {
+  it("#621 a food line written by foodLine parses back to the same fields", () => {
+    const line = "- 🍽 lunch: Skyr 🔥 93 kcal 🥩 16.5 g 🍞 6 g 🧈 0.2 g";
+    expect(drinkTotals(`## Log\n${line}`).food).toEqual({
+      kcal: 93,
+      protein: 16.5,
+      carbs: 6,
+      fat: 0.2,
+    });
+    const written = foodLine({
+      meal: "lunch",
+      words: "Skyr",
+      kcal: 92.6,
+      protein: 16.5,
+      carbs: 6,
+      fat: 0.200000002,
+    });
+    expect(written).toBe(line);
+    expect(parseFood(written)).toEqual({
+      kind: "food",
+      meal: "lunch",
+      words: "Skyr",
+      kcal: 93,
+      protein: 16.5,
+      carbs: 6,
+      fat: 0.2,
+    });
+
+    const bare = "- 🍽 Apple 🔥 52 kcal";
+    expect(foodLine({ words: "Apple", kcal: 52 })).toBe(bare);
+    expect(parseFood(bare)).toEqual({ kind: "food", words: "Apple", kcal: 52 });
+  });
+
+  it("#621 foodLine cleans words that would break the line", () => {
+    const line = "- 🍽 lunch Soup with jam ref and cream 🔥 300 kcal 🥩 12 g";
+    expect(drinkTotals(`## Log\n${line}`).food).toEqual({
+      kcal: 300,
+      protein: 12,
+      carbs: 0,
+      fat: 0,
+    });
+    const written = foodLine({
+      words: "lunch: Soup 🔥 with `jam` [[ref]]\nand\tcream",
+      kcal: 300,
+      protein: 12,
+    });
+    expect(written).toBe(line);
+    expect(parseFood(written)).toEqual({
+      kind: "food",
+      words: "lunch Soup with jam ref and cream",
+      kcal: 300,
+      protein: 12,
+    });
   });
 });

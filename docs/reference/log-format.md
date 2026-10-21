@@ -118,11 +118,17 @@ note from anywhere; see [the command palette](/reference/editor-keys/leader.md#t
 ## Two parsers
 
 The backend reads the lines and parses them, in `backend/src/kasten_backend/log.py`,
-and `GET /api/log` answers with totals from it. The card reads the drink lines
-of the open buffer with `frontend/src/lib/log-lines.ts`, so a tap counts at
-once rather than after the save. Both run the rows of the table below, the
-frontend the water, coffee and alcohol rows. Nothing is stored in Postgres:
-every answer is read from the notes.
+and `GET /api/log` answers with totals from it. The card reads the drink and
+food lines of the open buffer with `frontend/src/lib/log-lines.ts`, so a tap
+counts at once rather than after the save. Both read every row of the table
+below, food included. The totals the card reads include food, though the card
+does not show it yet. Nothing is stored in Postgres: every answer is read from
+the notes.
+
+`foodLine` in that module writes the line the card's food search logs. It
+rounds kcal to a whole number and the grams to one decimal. It cleans the words
+of field markers, backticks, `[[ ]]`, line breaks and a meal word's colon, so
+the line parses back to the same words and fields.
 
 ## The cases
 

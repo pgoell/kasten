@@ -1,12 +1,14 @@
 /**
- * The drink lines of a daily note's `## Log`: what a tap writes, and what the
- * lines already there add up to.
+ * The drink and food lines of a daily note's `## Log`: what a tap writes, what
+ * the card's food search logs, and what the lines already there add up to.
  *
  * The format is `docs/reference/log-format.md`, and the backend's parser in
  * `log.py` is the one `GET /api/log` answers from. This reads the same lines
  * off the open buffer, so a tap shows in the totals at once rather than after
  * the save and the index; `log-cases.json` holds both to the same rows.
  */
+
+import { masked } from "@/lib/tag-rule";
 
 export type DrinkKind = "water" | "coffee" | "alcohol";
 
@@ -37,6 +39,29 @@ const ALCOHOL = new RegExp(
   `^- 🍺${VS}[ \\t]+([0-9]{1,9})(?:[ \\t]+(${NUMBER})[ \\t]*(ml|l))?(?:[ \\t]+(${NUMBER})[ \\t]*%)?[ \\t]*$`,
   "i",
 );
+
+/** A food line's marker that opens a field: the four the format names. */
+type FoodMark = "🔥" | "🥩" | "🍞" | "🧈";
+
+/** The entry field a food line's field sets. */
+type FoodField = "kcal" | "protein" | "carbs" | "fat";
+
+/** Each marker's field and the unit its value may carry, as `log.py` reads them. */
+const FOOD_FIELDS: Record<FoodMark, { name: FoodField; unit: string }> = {
+  "🔥": { name: "kcal", unit: "kcal" },
+  "🥩": { name: "protein", unit: "g" },
+  "🍞": { name: "carbs", unit: "g" },
+  "🧈": { name: "fat", unit: "g" },
+};
+
+/** A food line's opening: the marker, then an optional meal with its colon. */
+const FOOD_HEAD = new RegExp(`^- 🍽${VS}[ \\t]+(?:(breakfast|lunch|dinner|snack):)?`, "i");
+
+/** A field: its marker, its number and the unit it may carry. The markers are astral, so the `u` flag. */
+const FIELD = `([🔥🥩🍞🧈])${VS}[ \\t]+(${NUMBER})(?:[ \\t]*(kcal|g))?`;
+const FIELD_START = /[🔥🥩🍞🧈]/u;
+const FIELD_EACH = new RegExp(FIELD, "giu");
+const FIELD_RUN = new RegExp(`^${FIELD}(?:[ \\t]+${FIELD})*[ \\t]*$`, "iu");
 
 /** Grams of ethanol per millilitre, the density the format names. */
 const ETHANOL = 0.789;
@@ -106,6 +131,47 @@ function parse(line: string): Drink | null {
   return { kind: "alcohol", count, ml, strength, grams };
 }
 
+/** A food line's words and the fields it gives: each field is set only where the line gives it. */
+export interface FoodFields {
+  meal?: string;
+  words: string;
+  kcal?: number;
+  protein?: number;
+  carbs?: number;
+  fat?: number;
+}
+
+export type Food = FoodFields & { kind: "food" };
+
+/**
+ * The food a line holds, read as `_food` in `log.py` reads it, or null for a line
+ * that holds none. A marker in a code span or a link is words, so the search for
+ * the first field runs on the masked line.
+ */
+export function parseFood(line: string): Food | null {
+  const head = FOOD_HEAD.exec(line);
+  if (head === null) return null;
+  const begin = head[0].length;
+  const at = masked(line).slice(begin).search(FIELD_START);
+  const field = at === -1 ? line.length : begin + at;
+  const words = line.slice(begin, field).replace(/^[ \t]+|[ \t]+$/g, "");
+
+  const values: Partial<Record<FoodField, number>> = {};
+  if (at !== -1) {
+    // Only fields may follow the first one, and each field may come once.
+    const tail = line.slice(field);
+    if (!FIELD_RUN.test(tail)) return null;
+    for (const [, mark, number, unit] of tail.matchAll(FIELD_EACH)) {
+      const { name, unit: expected } = FOOD_FIELDS[mark as FoodMark];
+      if (name in values || (unit !== undefined && unit.toLowerCase() !== expected)) return null;
+      values[name] = amount(number ?? "");
+    }
+  }
+  if (words === "" && Object.keys(values).length === 0) return null;
+  const meal = head[1]?.toLowerCase();
+  return { kind: "food", ...(meal === undefined ? {} : { meal }), words, ...values };
+}
+
 /** The drink a log line holds, or null for a line that holds none, food included. */
 export function parseDrink(line: string): Drink | null {
   const drink = parse(line);
@@ -168,11 +234,12 @@ export interface DrinkTotals {
   water: { ml: number };
   coffee: { count: number };
   alcohol: { count: number; ml: number; grams: number };
+  food: { kcal: number; protein: number; carbs: number; fat: number };
 }
 
 /**
- * The totals of the drink lines under `## Log` in `text`. Each sum is taken whole
- * and rounded to a tenth once, as `GET /api/log` does.
+ * The totals of the drink and food lines under `## Log` in `text`. Each sum is
+ * taken whole and rounded to a tenth once, as `GET /api/log` does.
  */
 export function drinkTotals(text: string): DrinkTotals {
   let water = 0;
@@ -180,7 +247,19 @@ export function drinkTotals(text: string): DrinkTotals {
   let drinks = 0;
   let alcoholMl = 0;
   let grams = 0;
+  let kcal = 0;
+  let protein = 0;
+  let carbs = 0;
+  let fat = 0;
   for (const line of logLines(text)) {
+    const food = parseFood(line);
+    if (food !== null) {
+      kcal += food.kcal ?? 0;
+      protein += food.protein ?? 0;
+      carbs += food.carbs ?? 0;
+      fat += food.fat ?? 0;
+      continue;
+    }
     const drink = parse(line);
     if (drink === null) continue;
     if (drink.kind === "water") water += drink.ml;
@@ -195,5 +274,48 @@ export function drinkTotals(text: string): DrinkTotals {
     water: { ml: tenth(water) },
     coffee: { count: coffee },
     alcohol: { count: drinks, ml: tenth(alcoholMl), grams: tenth(grams) },
+    food: { kcal: tenth(kcal), protein: tenth(protein), carbs: tenth(carbs), fat: tenth(fat) },
   };
+}
+
+/** The words cleaned so a line written with them parses back to them, as `foodLine` needs. */
+const FIELD_MARK = /[🔥🥩🍞🧈]️?/gu;
+
+/**
+ * Words with nothing a food line would read as syntax left in: no field marker,
+ * backtick, wikilink bracket or line break, single spaces, and no colon after a
+ * leading meal word, which would name a meal the words do not.
+ */
+function cleanWords(words: string): string {
+  return words
+    .replace(/[\r\n\t]/g, " ")
+    .replace(FIELD_MARK, "")
+    .replace(/`|\[\[|\]\]/g, "")
+    .replace(/ {2,}/g, " ")
+    .trim()
+    .replace(/^(breakfast|lunch|dinner|snack):/i, "$1");
+}
+
+/** Whether a food field's value is a number the line can write. */
+const finite = (value: number | undefined): value is number =>
+  value !== undefined && Number.isFinite(value);
+
+/**
+ * The food line the card's search logs, which `parseFood` reads back to the same
+ * fields. Kcal is written whole and the grams to a tenth, and a field the values
+ * leave out is left out of the line.
+ */
+export function foodLine(food: FoodFields): string {
+  const kcal = finite(food.kcal) ? `🔥 ${Math.round(food.kcal)} kcal` : "";
+  const grams = (value: number | undefined, mark: string) =>
+    finite(value) ? `${mark} ${tenth(value)} g` : "";
+  const parts = [
+    food.meal ? `${food.meal}:` : "",
+    cleanWords(food.words),
+    kcal,
+    grams(food.protein, "🥩"),
+    grams(food.carbs, "🍞"),
+    grams(food.fat, "🧈"),
+  ];
+  return `- 🍽 ${parts.filter((part) => part !== "").join(" ")}`;
 }

@@ -91,6 +91,35 @@
     "line": "- 🍽 nuts 🥩 2,5 g",
     "entry": { "kind": "food", "words": "nuts", "protein": 2.5 }
   },
+  {
+    "id": "food-written-full",
+    "line": "- 🍽 lunch: Skyr naturel (Skyr) 150 g 🔥 93 kcal 🥩 16.5 g 🍞 6 g 🧈 0.3 g",
+    "entry": {
+      "kind": "food",
+      "meal": "lunch",
+      "words": "Skyr naturel (Skyr) 150 g",
+      "kcal": 93,
+      "protein": 16.5,
+      "carbs": 6,
+      "fat": 0.3
+    }
+  },
+  {
+    "id": "food-written-no-macros",
+    "line": "- 🍽 snack: Apple 100 g 🔥 52 kcal",
+    "entry": { "kind": "food", "meal": "snack", "words": "Apple 100 g", "kcal": 52 }
+  },
+  {
+    "id": "food-written-decimal-words",
+    "line": "- 🍽 dinner: SNICKERS 52,7G 52.7 g 🔥 132 kcal 🥩 2.6 g",
+    "entry": {
+      "kind": "food",
+      "meal": "dinner",
+      "words": "SNICKERS 52,7G 52.7 g",
+      "kcal": 132,
+      "protein": 2.6
+    }
+  },
   { "id": "food-bare", "line": "- 🍽", "entry": null },
   { "id": "food-field-twice", "line": "- 🍽 toast 🔥 120 🔥 130", "entry": null },
   { "id": "food-words-after-field", "line": "- 🍽 toast 🔥 120 kcal with jam", "entry": null },

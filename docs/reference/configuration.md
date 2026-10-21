@@ -311,6 +311,13 @@ KASTEN_WEATHER_PLACES='[{"name": "Gelnhausen", "latitude": 50.2017, "longitude":
 `[]` turns the card off. The coordinates go to Open-Meteo every time a daily
 note opens a day the backend has not asked about in the last 30 minutes.
 
+## KASTEN_FOOD_CONTACT
+
+| | |
+| --- | --- |
+| Default | `https://github.com/pgoell/kasten` |
+| Read by | food routes |
+
 ## KASTEN_VAULT_PATH
 
 The directory of markdown files that is the source of truth.

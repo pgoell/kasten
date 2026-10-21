@@ -10,7 +10,7 @@ from fastapi import Depends, FastAPI
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from kasten_backend import agent_mcp, log, uploads
+from kasten_backend import agent_mcp, food, log, uploads
 from kasten_backend.agent import ConflictError, EmptyCaptureError, TooLargeError
 from kasten_backend.agent_oauth import router as oauth_router
 from kasten_backend.agent_routes import note_changed, nothing_to_capture, refused, too_large
@@ -170,6 +170,7 @@ app.include_router(listing.router)
 app.include_router(web.router)
 app.include_router(queries.router)
 app.include_router(log.router)
+app.include_router(food.router)
 app.include_router(anki.router)
 app.include_router(tokens.router)
 app.include_router(share.router)

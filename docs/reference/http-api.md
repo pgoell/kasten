@@ -9,7 +9,7 @@ status: stable
 
 # HTTP API
 
-The backend serves forty-five endpoints under `/api/`. Twenty-eight read,
+The backend serves forty-seven endpoints under `/api/`. Thirty read,
 sixteen write, and one streams. The interactive schema is at `/docs` while the backend
 runs, and the machine-readable one at `/openapi.json`.
 
@@ -32,6 +32,7 @@ including the check that refuses a cross-site `POST` with a `403`.
 * [Finding](/reference/http-api/finding.md): search, tags, mentions, the link graph and the folder layout
 * [Todos](/reference/http-api/todos.md): the route that lists every todo and its project
 * [Log](/reference/http-api/log.md): the day's water, coffee, alcohol and food, and their totals
+* [Food](/reference/http-api/food.md): search Open Food Facts for a food, or read one by its barcode
 * [Cards](/reference/http-api/cards.md): flashcard lines, review limits and Anki imports
 * [Capture](/reference/http-api/capture.md): the dump, web pages, YouTube transcripts, HTML pages and weather
 * [System](/reference/http-api/system.md): health, version, the change stream, terminals and agent tokens
