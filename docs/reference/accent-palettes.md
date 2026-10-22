@@ -66,7 +66,7 @@ The issue's values are kept where a bar misses, and the tests name each miss:
 - Poel, light: the lowest tag is 4.09 on the background. This is the value 0.83.0 already paints.
 - Poel, dark: muted text on the highlight is 3.98. This is the #777 exception.
 - Russet, peach and pansy, dark: muted text on the highlight misses. Peach and pansy also miss with link text on the highlight. The dark highlights are the issue's values, so the fix is a choice for the issue, not a change made here.
-- Russet, peach and pansy: the rule that keeps status off the accent's hue leaves no red or amber in the pool. Danger is olive and warn is blue on these palettes. They are distinct from the accent, but they do not read as danger or warn. Check them by eye.
+- Russet, peach and pansy: a few slots take the nearest hue the pool leaves, so they sit off poel's hue for that slot. The widest gaps are pansy's `--tg-9` (poel 155, pick 210), pansy's `--tg-2` (131 against 96) and russet's `--tg-1` (18 against 348). The hue columns of the picks table show every gap.
 
 <!-- palettes:begin -->
 | Measure | poel light | poel dark | russet light | russet dark | peach light | peach dark | pansy light | pansy dark |
@@ -78,54 +78,54 @@ The issue's values are kept where a bar misses, and the tests name each miss:
 | Ink on highlight | 14.04 | 9.19 | 13.53 | 8.53 | 13.98 | 8.20 | 14.64 | 7.70 |
 | Link on highlight | 4.54 | 5.35 | 4.59 | 4.76 | 4.91 | 4.48 (under 4.5) | 5.10 | 4.17 (under 4.5) |
 | Muted on highlight | 4.74 | 3.98 (under 4.5) | 4.57 | 3.70 (under 4.5) | 4.72 | 3.56 (under 4.5) | 4.94 | 3.34 (under 4.5) |
-| Lowest status on paper | 5.06 | 8.37 | 5.00 | 8.01 | 5.00 | 8.01 | 5.01 | 8.01 |
-| Lowest tag on bg | 4.09 (under 4.5) | 8.23 | 4.50 | 8.00 | 4.50 | 8.00 | 4.50 | 8.00 |
-| Highest chroma of status and tags | 0.120 | 0.126 | 0.120 | 0.100 | 0.120 | 0.100 | 0.120 | 0.100 |
+| Lowest status on paper | 5.06 | 8.37 | 5.03 | 8.01 | 5.00 | 8.00 | 5.01 | 8.00 |
+| Lowest tag on bg | 4.09 (under 4.5) | 8.23 | 4.50 | 8.00 | 4.50 | 8.00 | 4.50 | 8.01 |
+| Highest chroma of status and tags | 0.120 | 0.126 | 0.119 | 0.100 | 0.120 | 0.100 | 0.119 | 0.100 |
 
-| Palette | Slot | Wada colour | Light | Dark |
-|---|---|---|---|---|
-| russet | --k-danger | Blackish Olive | #7a6b53 | #beae94 |
-| russet | --k-warn | Cream Yellow | #0075a0 | #68bae3 |
-| russet | --k-ok | Blue Violet | #2e7b3f | #81be89 |
-| russet | --k-info | Citron Yellow | #a4517a | #e59abc |
-| russet | --tg-1 | Light Brown Drab | #836d59 | #bfa791 |
-| russet | --tg-2 | Deep Lyons Blue | #ab5c2d | #e19b75 |
-| russet | --tg-3 | Olive Buff | #90647b | #cd9eb5 |
-| russet | --tg-4 | Pale King's Blue | #6f6e90 | #a8a8cc |
-| russet | --tg-5 | Lemon Yellow | #9d5995 | #d498cb |
-| russet | --tg-6 | Green Blue | #007c94 | #55b8d1 |
-| russet | --tg-7 | Light Mauve | #187b96 | #5fb7d3 |
-| russet | --tg-8 | Golden Yellow | #007e7d | #4dbbb9 |
-| russet | --tg-9 | Dull Violet Black | #487c51 | #81b889 |
-| russet | --tg-10 | Dull Viridian Green | #308045 | #7aba86 |
-| peach | --k-danger | Cossack Green | #826a1b | #c7ae63 |
-| peach | --k-warn | Cream Yellow | #0075a0 | #68bae3 |
-| peach | --k-ok | Burnt Sienna | #407933 | #8cbd81 |
-| peach | --k-info | Helvetia Blue | #a15478 | #e69abb |
-| peach | --tg-1 | Pompeian Red | #a75f1f | #dd9d6e |
-| peach | --tg-2 | Night Green | #aa5d29 | #e09c72 |
-| peach | --tg-3 | Citron Yellow | #a8557e | #e095b7 |
-| peach | --tg-4 | Cotinga Purple | #6d69b1 | #a6a5e9 |
-| peach | --tg-5 | Olive | #965e8f | #d498cb |
-| peach | --tg-6 | Green Blue | #007c94 | #55b8d1 |
-| peach | --tg-7 | Light Mauve | #187b96 | #5fb7d3 |
-| peach | --tg-8 | Golden Yellow | #007e7d | #4dbbb9 |
-| peach | --tg-9 | Brown | #4e7c4b | #87b782 |
-| peach | --tg-10 | Blue Violet | #337f43 | #7cb984 |
-| pansy | --k-danger | Peach Red | #6c7200 | #afb66a |
-| pansy | --k-warn | Cinnamon Buff | #007698 | #61bbde |
-| pansy | --k-ok | Sudan Brown | #5f743c | #a1b87d |
-| pansy | --k-info | Pale Lemon Yellow | #786399 | #bca6e0 |
-| pansy | --tg-1 | Pompeian Red | #a75f1f | #dd9d6e |
-| pansy | --tg-2 | Deep Indigo | #8f694e | #cca387 |
-| pansy | --tg-3 | Naples Yellow | #7668a4 | #afa3e2 |
-| pansy | --tg-4 | Olive Ocher | #7466b4 | #ada3e8 |
-| pansy | --tg-5 | Ivory Buff | #5f709a | #97abd8 |
-| pansy | --tg-6 | Light Mauve | #187b96 | #5fb7d3 |
-| pansy | --tg-7 | Calamine BLue | #257b8c | #66b7c7 |
-| pansy | --tg-8 | Golden Yellow | #007e7d | #4dbbb9 |
-| pansy | --tg-9 | Dark Soft Violet | #61793d | #99b475 |
-| pansy | --tg-10 | Violet | #457e3f | #83b87e |
+| Palette | Slot | Poel hue | Wada colour | Wada hue | Light | Light hue | Dark | Dark hue |
+|---|---|---:|---|---:|---|---:|---|---:|
+| russet | --k-danger | 32 | Eosine Pink | 10 | #aa5062 | 9 | #eb9aa6 | 10 |
+| russet | --k-warn | 74 | Cream Yellow | 74 | #956200 | 74 | #d7a867 | 74 |
+| russet | --k-ok | 155 | Dull Viridian Green | 162 | #007c54 | 162 | #6ec099 | 162 |
+| russet | --k-info | 243 | Blue | 248 | #2970ad | 248 | #7cb5eb | 248 |
+| russet | --tg-1 | 18 | Eupatorium Purple | 348 | #a75683 | 347 | #de95bb | 347 |
+| russet | --tg-2 | 131 | Blackish Olive | 140 | #647660 | 140 | #9db199 | 140 |
+| russet | --tg-3 | 243 | Olympic Blue | 254 | #4c73a4 | 255 | #84aee1 | 254 |
+| russet | --tg-4 | 336 | Dusky Madder Violet | 329 | #955e91 | 329 | #d298ce | 329 |
+| russet | --tg-5 | 106 | Lemon Yellow | 106 | #7a7300 | 105 | #b2ae61 | 106 |
+| russet | --tg-6 | 201 | Green Blue | 200 | #007e83 | 200 | #4dbbc0 | 199 |
+| russet | --tg-7 | 316 | Light Mauve | 316 | #8a6299 | 317 | #c69cd6 | 317 |
+| russet | --tg-8 | 62 | Golden Yellow | 62 | #a46116 | 62 | #db9f6a | 62 |
+| russet | --tg-9 | 155 | Chromium Green | 144 | #587957 | 144 | #90b58f | 144 |
+| russet | --tg-10 | 291 | Blue Violet | 293 | #7765b3 | 293 | #afa2e7 | 292 |
+| peach | --k-danger | 32 | Corinthian Pink | 15 | #975d61 | 15 | #e09fa3 | 15 |
+| peach | --k-warn | 74 | Cream Yellow | 74 | #956200 | 74 | #d7a867 | 74 |
+| peach | --k-ok | 155 | Cobalt Green | 155 | #407856 | 156 | #82bd96 | 155 |
+| peach | --k-info | 243 | Helvetia Blue | 243 | #2672a6 | 243 | #74b7e9 | 242 |
+| peach | --tg-1 | 18 | Eosine Pink | 10 | #af5465 | 10 | #e695a1 | 10 |
+| peach | --tg-2 | 131 | Night Green | 131 | #557c2a | 131 | #93b673 | 131 |
+| peach | --tg-3 | 243 | Vandar Poel's Blue | 234 | #397798 | 234 | #74b3d6 | 234 |
+| peach | --tg-4 | 336 | Cotinga Purple | 336 | #9d5a8d | 336 | #d797c7 | 336 |
+| peach | --tg-5 | 106 | Olive | 106 | #797325 | 105 | #b2ae61 | 106 |
+| peach | --tg-6 | 201 | Green Blue | 200 | #007e83 | 200 | #4dbbc0 | 199 |
+| peach | --tg-7 | 316 | Light Mauve | 316 | #8a6299 | 317 | #c69cd6 | 317 |
+| peach | --tg-8 | 62 | Golden Yellow | 62 | #a46116 | 62 | #db9f6a | 62 |
+| peach | --tg-9 | 155 | Cossack Green | 144 | #497d48 | 144 | #82b980 | 144 |
+| peach | --tg-10 | 291 | Blue Violet | 293 | #7765b3 | 293 | #afa2e7 | 292 |
+| pansy | --k-danger | 32 | Peach Red | 36 | #aa543c | 37 | #eb9d87 | 36 |
+| pansy | --k-warn | 74 | Cinnamon Buff | 72 | #956212 | 72 | #d9a769 | 71 |
+| pansy | --k-ok | 155 | Sea Green | 178 | #007b6a | 179 | #5dc1ac | 178 |
+| pansy | --k-info | 243 | Olympic Blue | 254 | #486f9f | 254 | #89b3e6 | 254 |
+| pansy | --tg-1 | 18 | Sudan Brown | 40 | #9e624e | 39 | #dc9c85 | 41 |
+| pansy | --tg-2 | 131 | Pale Lemon Yellow | 96 | #7f7132 | 97 | #baab6c | 96 |
+| pansy | --tg-3 | 243 | Salvia Blue | 256 | #5f728c | 256 | #97adc9 | 255 |
+| pansy | --tg-4 | 336 | Aconite Violet | 326 | #955d98 | 325 | #d099d1 | 326 |
+| pansy | --tg-5 | 106 | Naples Yellow | 93 | #836f2a | 93 | #beaa65 | 94 |
+| pansy | --tg-6 | 201 | Calamine BLue | 199 | #207d81 | 199 | #63b9bc | 198 |
+| pansy | --tg-7 | 316 | Light Mauve | 316 | #8a6299 | 317 | #c69cd6 | 317 |
+| pansy | --tg-8 | 62 | Golden Yellow | 62 | #a46116 | 62 | #db9f6a | 62 |
+| pansy | --tg-9 | 155 | Cerulian Blue | 210 | #007d8c | 209 | #50b9ca | 210 |
+| pansy | --tg-10 | 291 | Violet | 291 | #7467b0 | 290 | #ada3e8 | 290 |
 <!-- palettes:end -->
 
 ## Credit

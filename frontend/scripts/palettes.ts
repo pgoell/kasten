@@ -140,7 +140,7 @@ function rgbToLch(rgb: RGB): LCH {
   const L = 0.2104542553 * l + 0.793617785 * m - 0.0040720468 * s;
   const A = 1.9779984951 * l - 2.428592205 * m + 0.4505937099 * s;
   const B = 0.0259040371 * l + 0.7827717662 * m - 0.808675766 * s;
-  return { l: L, c: Math.hypot(A, B), h: (Math.atan2(B, A) * 180 + 360 * 2) % 360 };
+  return { l: L, c: Math.hypot(A, B), h: ((Math.atan2(B, A) * 180) / Math.PI + 360) % 360 };
 }
 
 /** Linear sRGB of a lightness, chroma and hue. Outside the gamut, the channels fall outside 0 to 1. */
@@ -455,20 +455,23 @@ export function table(): string {
         .map((c) => cell(c.id, c.theme, key, measured[c.id][c.theme][key]))
         .join(" | ")} |`,
   );
+  // Hues are in degrees, so a reader can see each pick keep the hue of its slot.
+  const hue = (hex: string) => Math.round(rgbToLch(hexRgb(hex)).h);
   const picks = (["russet", "peach", "pansy"] as const).flatMap((id) => {
     const set = tokenSet(id, base);
-    return set.picks.map(
-      (p) =>
-        `| ${id} | ${p.slot} | ${p.name} | ${at(set.light, p.slot)} | ${at(set.dark, p.slot)} |`,
-    );
+    return set.picks.map((p) => {
+      const light = at(set.light, p.slot);
+      const dark = at(set.dark, p.slot);
+      return `| ${id} | ${p.slot} | ${hue(at(base.light, p.slot))} | ${p.name} | ${hue(p.seed)} | ${light} | ${hue(light)} | ${dark} | ${hue(dark)} |`;
+    });
   });
   return [
     head,
     rule,
     ...measures,
     "",
-    "| Palette | Slot | Wada colour | Light | Dark |",
-    "|---|---|---|---|---|",
+    "| Palette | Slot | Poel hue | Wada colour | Wada hue | Light | Light hue | Dark | Dark hue |",
+    "|---|---|---:|---|---:|---|---:|---|---:|",
     ...picks,
   ].join("\n");
 }
