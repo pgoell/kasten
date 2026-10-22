@@ -1,7 +1,14 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { paletteEntries } from "@/lib/palette";
-import { applyTheme, onThemeChange, startTheme, THEME_KEY, toggleTheme } from "@/lib/theme";
+import {
+  applyTheme,
+  onThemeChange,
+  PALETTES,
+  startTheme,
+  THEME_KEY,
+  toggleTheme,
+} from "@/lib/theme";
 import { stubMatchMedia } from "./match-media";
 import { stubCommands } from "./stub-commands";
 
@@ -251,12 +258,17 @@ describe("the theme", () => {
       return palette();
     };
 
-    localStorage.setItem(PALETTE, "russet");
-    const russet = run();
+    // The literal list, not PALETTES alone: a palette added to theme.ts but not to
+    // theme.js would then pass here, so the early script must match the same four.
+    const ids = ["poel", "russet", "peach", "pansy"];
+    const early = ids.map((id) => {
+      localStorage.setItem(PALETTE, id);
+      return run();
+    });
     localStorage.setItem(PALETTE, "neon");
-    const neon = run();
+    const stray = run();
 
-    expect({ russet, neon }).toEqual({ russet: "russet", neon: "poel" });
+    expect({ ids: PALETTES, early, stray }).toEqual({ ids, early: ids, stray: "poel" });
   });
 
   it("a theme toggle keeps the palette and a pick keeps the theme", () => {
