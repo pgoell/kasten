@@ -6,7 +6,7 @@
  * way. `foodPanel` builds the panel the card draws while its search is open.
  */
 
-import { NO_CAMERA, startCamera } from "@/lib/barcode-camera";
+import { NO_CAMERA, startCamera, torchButton } from "@/lib/barcode-camera";
 import { shiftDay } from "@/lib/clock";
 import { addForm } from "@/lib/food-add";
 import { type Food, fetchLog, type LogDay, readBarcode, searchFood } from "@/lib/food-api";
@@ -230,7 +230,8 @@ export function foodPanel(day: string | null, hooks: PanelHooks): HTMLElement {
   const scan = make("button", "cm-log-food-scan", "Scan");
   scan.type = "button";
   scan.setAttribute("aria-label", "Scan a barcode");
-  bar.append(query, scan);
+  const torch = torchButton();
+  bar.append(query, scan, torch);
   const video = make("video", "cm-log-food-camera");
   video.playsInline = true;
   video.muted = true;
@@ -416,7 +417,7 @@ export function foodPanel(day: string | null, hooks: PanelHooks): HTMLElement {
     }
     why.textContent = "";
     scan.textContent = "Stop";
-    stopCamera = startCamera(video, root, (outcome) => {
+    stopCamera = startCamera(video, root, torch, (outcome) => {
       // The camera has stopped itself: a code was read, it did not run, or the page hid.
       stopCamera = null;
       scan.textContent = "Scan";
@@ -521,6 +522,7 @@ export function foodPanel(day: string | null, hooks: PanelHooks): HTMLElement {
   };
   query.addEventListener("keydown", keys);
   scan.addEventListener("keydown", keys);
+  torch.addEventListener("keydown", keys);
   grams.addEventListener("keydown", keys);
   servings.addEventListener("keydown", keys);
   meal.addEventListener("keydown", keys);

@@ -35,28 +35,76 @@ function stopTracks(stream: MediaStream): void {
   for (const track of stream.getTracks()) track.stop();
 }
 
+/** The torch button the panel holds. It starts hidden, so a scan never shows a button its track cannot use. */
+export function torchButton(): HTMLButtonElement {
+  const made = document.createElement("button");
+  made.className = "cm-log-food-torch";
+  made.type = "button";
+  made.textContent = "Torch";
+  made.setAttribute("aria-label", "Torch");
+  made.setAttribute("aria-pressed", "false");
+  made.hidden = true;
+  return made;
+}
+
+/** The setting that turns the torch. The DOM types know no torch, so the name is added here. */
+function torchConstraints(on: boolean): MediaTrackConstraints {
+  const setting: MediaTrackConstraintSet & { torch: boolean } = { torch: on };
+  return { advanced: [setting] };
+}
+
 /**
  * Opens the rear camera on `video` and reads its frames until one holds a barcode.
- * `ended` runs when the scan ends by itself, with the outcome, or with none when the
- * page hid or the panel left. The returned function stops the scan and does not call `ended`.
+ * `torch` is shown when the camera's track has a torch, and drives it. `ended` runs when
+ * the scan ends by itself, with the outcome, or with none when the page hid or the panel
+ * left. The returned function stops the scan and does not call `ended`.
  */
 export function startCamera(
   video: HTMLVideoElement,
   root: Element,
+  torch: HTMLButtonElement,
   ended: (outcome?: ScanEnd) => void,
 ): () => void {
   let live = true;
   let stream: MediaStream | null = null;
   let timer: ReturnType<typeof setTimeout> | undefined;
+  /** The track of the stream when it has a torch, or null, and whether the torch is on. */
+  let track: MediaStreamTrack | null = null;
+  let on = false;
 
   function release(): void {
     live = false;
+    if (on && track !== null) {
+      // A track that is already stopping may refuse this, and the stop must go on regardless.
+      track.applyConstraints(torchConstraints(false)).catch(() => {});
+    }
+    track = null;
+    on = false;
+    torch.hidden = true;
+    torch.setAttribute("aria-pressed", "false");
+    torch.removeEventListener("click", toggle);
     if (stream !== null) stopTracks(stream);
     stream = null;
     video.srcObject = null;
     video.hidden = true;
     clearTimeout(timer);
     document.removeEventListener("visibilitychange", onVisibility);
+  }
+
+  /** The button turns the torch the other way. It reads the change only once the track takes it. */
+  function toggle(): void {
+    const current = track;
+    if (current === null) return;
+    const want = !on;
+    current.applyConstraints(torchConstraints(want)).then(
+      () => {
+        if (!live || track !== current) return;
+        on = want;
+        torch.setAttribute("aria-pressed", String(want));
+      },
+      // A refused torch is no failure of the scan: the scan runs on and the button stays as it was.
+      (_error: unknown) => {},
+    );
   }
 
   function finish(outcome?: ScanEnd): void {
@@ -95,6 +143,8 @@ export function startCamera(
           timer = setTimeout(() => tick(decode), SCAN_MS);
           return;
         }
+        // The buzz is for the hit alone; a phone that cannot buzz still reads the code.
+        if ("vibrate" in navigator) navigator.vibrate(50);
         finish({ code });
       },
       // A decoder that fails must not leave the camera running, so the scan ends and says so.
@@ -113,6 +163,17 @@ export function startCamera(
     stream = granted;
     video.srcObject = granted;
     video.hidden = false;
+    const found = granted.getVideoTracks()[0];
+    // Only a track that names a torch in its capabilities gets the button; others never see it.
+    if (found !== undefined && typeof found.getCapabilities === "function") {
+      const capabilities: MediaTrackCapabilities & { torch?: boolean } = found.getCapabilities();
+      if (capabilities.torch) {
+        track = found;
+        torch.hidden = false;
+        torch.setAttribute("aria-pressed", "false");
+        torch.addEventListener("click", toggle);
+      }
+    }
     playVideo();
     decoderFor().then(
       (decode) => {

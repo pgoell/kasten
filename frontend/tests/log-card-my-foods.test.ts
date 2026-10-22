@@ -92,7 +92,11 @@ function fill(view: EditorView, label: string, value: string): void {
 
 /** A camera whose first frame reads `code`, as the scan tests stub it. */
 function stubCamera(code: string): void {
-  const stream = { getTracks: () => [{ stop: vi.fn() }] } as unknown as MediaStream;
+  const tracks = [{ stop: vi.fn() }];
+  const stream = {
+    getTracks: () => tracks,
+    getVideoTracks: () => tracks,
+  } as unknown as MediaStream;
   Object.defineProperty(navigator, "mediaDevices", {
     configurable: true,
     value: { getUserMedia: vi.fn().mockResolvedValue(stream) },

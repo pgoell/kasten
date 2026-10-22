@@ -176,7 +176,7 @@ describe("the barcode scan", () => {
     vi.mocked(fetchMyFoods).mockReset().mockResolvedValue({ foods: [], broken: [] });
     vi.mocked(addMyFood).mockReset().mockResolvedValue(undefined);
     tracks = [{ stop: vi.fn() }, { stop: vi.fn() }];
-    stream = { getTracks: () => tracks } as unknown as MediaStream;
+    stream = { getTracks: () => tracks, getVideoTracks: () => tracks } as unknown as MediaStream;
     getUserMedia = vi.fn().mockResolvedValue(stream);
     Object.defineProperty(navigator, "mediaDevices", {
       configurable: true,

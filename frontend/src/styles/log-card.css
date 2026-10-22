@@ -259,7 +259,8 @@
 .cm-log-food-new,
 .cm-log-food-back,
 .cm-log-food-close,
-.cm-log-food-scan {
+.cm-log-food-scan,
+.cm-log-food-torch {
   min-height: 44px;
   min-width: 44px;
   padding: 0 14px;
@@ -282,8 +283,13 @@
 .cm-log-food-new:hover,
 .cm-log-food-back:hover,
 .cm-log-food-close:hover,
-.cm-log-food-scan:hover {
+.cm-log-food-scan:hover,
+.cm-log-food-torch:hover {
   background: var(--color-one-hover);
+}
+
+.cm-log-food-torch[aria-pressed="true"] {
+  background: var(--color-one-selection);
 }
 
 /* The query and the scan button share one row, and the query takes the room. */
@@ -317,7 +323,8 @@
 .cm-log-food-add-input:focus-visible,
 .cm-log-food-back:focus-visible,
 .cm-log-food-close:focus-visible,
-.cm-log-food-scan:focus-visible {
+.cm-log-food-scan:focus-visible,
+.cm-log-food-torch:focus-visible {
   outline: 2px solid var(--color-one-accent);
   outline-offset: 1px;
 }
