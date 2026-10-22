@@ -236,14 +236,15 @@ function useSlideIn(element: RefObject<HTMLDivElement | null>, fresh: boolean, e
       el.getBoundingClientRect();
       el.style.transition = "opacity var(--k-hover) var(--k-ease-out)";
       el.style.opacity = "1";
-      el.addEventListener(
-        "transitionend",
-        () => {
-          el.style.transition = "";
-          el.style.opacity = "";
-        },
-        { once: true },
-      );
+      // transitionend bubbles, so a transition inside the pane comes here too:
+      // only the pane's own opacity ending is the fade ending.
+      const done = (event: TransitionEvent) => {
+        if (event.target !== el || event.propertyName !== "opacity") return;
+        el.removeEventListener("transitionend", done);
+        el.style.transition = "";
+        el.style.opacity = "";
+      };
+      el.addEventListener("transitionend", done);
       return;
     }
     const spring = new Spring(SLIDE, (offset) => {

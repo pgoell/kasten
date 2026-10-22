@@ -224,7 +224,7 @@ describe("the consumers of the motion", () => {
     expect(added.closest("[data-row]")).not.toHaveClass("k-enter");
   });
 
-  it("under reduced motion the underline and a new pane land at once", async () => {
+  it("under reduced motion the underline lands at once and a new pane fades in", async () => {
     laidOut();
     stubMatchMedia({ "(prefers-reduced-motion: reduce)": true });
     const { rerender } = render(<TabStrip layout={goToTab(threeTabs, 0)} onSelect={() => {}} />);
@@ -303,6 +303,25 @@ describe("the consumers of the motion", () => {
 
     expect(element?.style.transform).toBe("");
     expect(element?.style.transition).toContain("opacity");
+  });
+
+  it("a child's transition ending does not end a new pane's fade", () => {
+    stubMatchMedia({ "(prefers-reduced-motion: reduce)": true });
+    const before = emptyLayout("a.md");
+    const after = splitFocused(before, "row");
+    const { container, rerender } = render(tabView(before));
+
+    rerender(tabView(after));
+    const element = container.querySelector<HTMLElement>(
+      `[data-pane="${madeBy(before, after)?.id}"]`,
+    );
+    // A transition inside the pane, such as a pressed button, bubbles up to it.
+    const child = document.createElement("button");
+    element?.append(child);
+    child.dispatchEvent(new Event("transitionend", { bubbles: true }));
+
+    expect(element?.style.transition).toContain("opacity");
+    expect(element?.style.opacity).toBe("1");
   });
 
   it("a split made outside an event shows its pane at 36 px in the commit that adds it", async () => {

@@ -118,8 +118,8 @@ Each size also has a class, `text-k-12` to `text-k-64`, which carries its own
 leading and tracking, so a component names one class. The 46 and 64 px sizes
 take the display pair, the 36 and 27 px sizes the title pair, the 23 px size the
 heading pair, the 19 px size the reading leading, the 15 px size the UI leading
-and body tracking, and the 12 and 13 px sizes the UI leading and label tracking. `tracking-k-kbd` and `tracking-k-label` set
-the tracking alone.
+and body tracking, and the 12 and 13 px sizes the UI leading and label
+tracking. `tracking-k-kbd` and `tracking-k-label` set the tracking alone.
 
 ## Motion
 
@@ -149,8 +149,19 @@ by their `--i` index, and stops the delay at the sixth row.
 `--k-bg` over an 18 px blur, with one `k-hairline` under it. Sheets, panels and
 cards stay solid.
 
+One spring, `lib/spring.ts`, moves the sheet, the tab underline and a new
+split pane. It takes a response in seconds and a damping, with the angular
+frequency 2π over the response, as Apple's `Spring(response:dampingRatio:)`
+states one. A new target starts from where the spring is and how fast it moves,
+so a finger can catch anything mid-flight, and nothing waits for a spring to
+settle. It moves only `transform` and `opacity`. `lib/sheet-math.ts` holds the
+sheet's rules: 10 px before a drag starts, speed over the last 100 ms (0 after
+a 90 ms stop), a close on a flick over 400 px/s or a coast past half the
+height, and the rubber band above the top.
+
 Three media queries take the extras away. `prefers-reduced-motion` drops the
-press scale and the entrance. `prefers-reduced-transparency` makes the glass
+press scale and the entrance, lands every spring at once, fades the sheet and
+a new pane instead of sliding them. `prefers-reduced-transparency` makes the glass
 solid and drops its blur. `prefers-contrast: more` does both, and draws the
 hairline in `--k-ink`.
 

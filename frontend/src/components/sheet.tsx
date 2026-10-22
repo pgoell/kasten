@@ -217,6 +217,8 @@ export function Sheet({ open, onClose, label, header, children }: SheetProps) {
     if (held.axis === "pending") held.axis = axis(dx, dy);
     // Sideways gives the gesture up for good, so a later vertical move does not move the sheet.
     if (held.axis !== "drag") return;
+    // A drag has taken the sheet over, so a close it was making is no longer the sheet's own.
+    dismissing.current = false;
     // Held so the finger keeps the sheet even when it leaves the grabber.
     if (!held.captured) {
       held.hold.setPointerCapture(held.pointer);
@@ -243,6 +245,7 @@ export function Sheet({ open, onClose, label, header, children }: SheetProps) {
 
     swallow.current = true;
     if (cancelled) {
+      dismissing.current = false;
       void spring.to(0, SPRINGS.sheetClose);
       return;
     }
@@ -250,6 +253,7 @@ export function Sheet({ open, onClose, label, header, children }: SheetProps) {
     if (closes(spring.value, v, height.current)) {
       dismiss(afterRelease(SPRINGS.sheetClose, v), v);
     } else {
+      dismissing.current = false;
       void spring.to(0, afterRelease(SPRINGS.sheetClose, v), v);
     }
   }
