@@ -24,7 +24,7 @@ function Spinner({ spinning }: { spinning: boolean }) {
       {...STROKE}
       data-testid="save-spinner"
       aria-hidden="true"
-      className={`${ICON} ${spinning ? "animate-spin text-white" : "text-k-ok"}`}
+      className={`${ICON} ${spinning ? "animate-spin text-k-ink" : "text-k-ok"}`}
     >
       <path d="M4.8 10.1A7.5 7.5 0 0 1 18.8 8.8" />
       <path d="M19.2 4.9 18.8 8.8 15.5 6.5" />

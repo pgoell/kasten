@@ -7,6 +7,7 @@ import { fetchNote } from "@/lib/api";
 import { findQuotes } from "@/lib/find-quote";
 import { type FoliateOverlayer, type FoliateView, pdfLayer } from "@/lib/foliate-view";
 import { type HighlightBlock, highlightBlocks } from "@/lib/highlight";
+import { onThemeChange } from "@/lib/theme";
 
 /**
  * Throw away every text layer on a pdf page but the newest.
@@ -228,6 +229,9 @@ export function useBookHighlights(
   }, [blocks, redraw]);
 
   const repaint = useCallback(() => redraw(blocksRef.current), [redraw]);
+
+  // A highlight takes the accent when it is drawn, so a switch draws them again.
+  useEffect(() => onThemeChange(repaint), [repaint]);
 
   /**
    * Watch a pdf page's text layer, which is the only word anyone gets that it

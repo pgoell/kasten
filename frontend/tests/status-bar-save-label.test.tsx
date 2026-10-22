@@ -70,6 +70,14 @@ describe("StatusBar", () => {
     expect(title).toContain(":e!");
   });
 
+  it("draws the spinning sign in ink, which reads on the paper bar, and not in white", () => {
+    const { container } = render(<StatusBar status="saving" />);
+
+    const spinner = container.querySelector("[data-testid='save-spinner']");
+    expect(spinner?.classList).toContain("text-k-ink");
+    expect(spinner?.classList).not.toContain("text-white");
+  });
+
   it("shows the warning sign rather than the ring when the note changed on disk", () => {
     // A spinning ring reads as a write on its way out, and while the note
     // stands conflicted nothing is on its way anywhere until `:w`.

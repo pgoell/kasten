@@ -170,4 +170,28 @@ describe("the theme", () => {
       key: "kasten.theme",
     });
   });
+
+  it("the early script sets the browser bar to each theme's page colour", () => {
+    const script = readFileSync(path.resolve(import.meta.dirname, "../public/theme.js"), "utf8");
+    const css = readFileSync(
+      path.resolve(import.meta.dirname, "../src/styles/kasten-theme.css"),
+      "utf8",
+    );
+    const light = /:root\s*\{[^}]*--k-bg:\s*(#\w+)/.exec(css)?.[1];
+    const dark = /\[data-theme="dark"\]\s*\{[^}]*--k-bg:\s*(#\w+)/.exec(css)?.[1];
+    const early = /const pages = \{ light: "(#\w+)", dark: "(#\w+)" \}/.exec(script);
+
+    expect({ light: early?.[1], dark: early?.[2] }).toEqual({ light, dark });
+  });
+
+  it("the browser bar's meta comes before the early script", () => {
+    const html = readFileSync(path.resolve(import.meta.dirname, "../index.html"), "utf8");
+
+    // The script runs as it parses, so a meta after it is not there to find.
+    expect({
+      metaFirst: html.indexOf('name="theme-color"') < html.indexOf('src="/theme.js"'),
+    }).toEqual({
+      metaFirst: true,
+    });
+  });
 });

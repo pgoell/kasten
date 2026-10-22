@@ -150,7 +150,9 @@ test("every dark pair of #777 clears its bar, muted on the highlight excepted", 
     // The one exception the issue names: muted on the dark highlight stays
     // under 4.5, so it is reported as a number and flagged, not graded "ok".
     // The number is 3.98 here; the issue rounds it as 4.01.
-    mutedOnHighlightUnder45: text.mutedOnHighlight < 4.5,
+    // Held in a band, not just under 4.5: the issue keeps it at 4.01, so a
+    // drift below 3.9 or up to the bar is a change to look at.
+    mutedOnHighlightBand: text.mutedOnHighlight >= 3.9 && text.mutedOnHighlight < 4.5,
     lowestStatus: round(Math.min(...Object.values(status))),
     lowestTag: round(Math.min(...Object.values(tags))),
   }).toEqual({
@@ -162,7 +164,7 @@ test("every dark pair of #777 clears its bar, muted on the highlight excepted", 
     inkOnHighlight: "ok",
     linkOnHighlight: "ok",
     mutedOnHighlight: expect.any(Number),
-    mutedOnHighlightUnder45: true,
+    mutedOnHighlightBand: true,
     statusOk: "ok",
     statusWarn: "ok",
     statusInfo: "ok",

@@ -425,8 +425,7 @@ export default defineConfig({
           // screenshot comes out at the shrunk size (#472). Off the CI, vitest
           // reads `headless` off `browser`, not the instance, and turns its UI
           // on, which leaves the frame a sliver of an 800 by 600 window. No UI,
-          // and a window that holds the default 414 by 896 and a 1200 wide
-          // desktop, keep the scale at 1. With the UI off vitest would also
+          // and a window that holds 414 by 896 and 1440 by 900, keep the scale at 1. With the UI off vitest would also
           // screenshot every failure into folders git does not ignore, which
           // nothing reads.
           browser: {
@@ -434,7 +433,7 @@ export default defineConfig({
             headless: true,
             ui: false,
             screenshotFailures: false,
-            provider: playwright({ contextOptions: { viewport: { width: 1280, height: 900 } } }),
+            provider: playwright({ contextOptions: { viewport: { width: 1440, height: 900 } } }),
             instances: [{ browser: "chromium" }],
           },
         },

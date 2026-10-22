@@ -107,6 +107,8 @@ export function TerminalPane({
       fontFamily: getComputedStyle(document.documentElement).getPropertyValue("--font-mono").trim(),
       // The size the app sets everything monospaced in.
       fontSize: 13,
+      // xterm's ANSI defaults are pale for a dark ground, so 4.5:1 darkens them on a light one.
+      minimumContrastRatio: 4.5,
     });
     termRef.current = term;
     term.open(element);

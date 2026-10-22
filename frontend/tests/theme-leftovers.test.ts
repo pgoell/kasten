@@ -69,3 +69,27 @@ it("no hex colour is left outside the token file", () => {
     .flatMap((file) => [...code(file).matchAll(hex)].map((m) => `${rel(file)}: ${m[0]}`));
   expect(hits).toEqual([]);
 });
+
+it("no fixed white or black colour utility is left in a component", () => {
+  // A fixed white or black utility does not follow the theme: `text-white` on a
+  // light page is invisible. The one allowed form is `bg-black/<n>`, a translucent
+  // scrim behind a drawer or dialog, right in both themes. The first pattern
+  // catches every fixed form, with or without an opacity, and the filter keeps the scrim.
+  const fixed = /\b(text|bg|border|fill|stroke)-(white|black)(\/\d+)?\b/g;
+  const scrim = /^bg-black\/\d+$/;
+  // Exact "file: utility" hits kept on purpose, each with the reason beside it.
+  const exempt = new Set([
+    // The white behind an HTML page from the vault, shown as written: pages are
+    // themed only on opt-in (#776, #786).
+    "components/html-pane.tsx: bg-white",
+  ]);
+  const hits = files
+    .filter((file) => /\.tsx?$/.test(file))
+    .flatMap((file) =>
+      [...code(file).matchAll(fixed)]
+        .filter((m) => !scrim.test(m[0]))
+        .map((m) => `${rel(file)}: ${m[0]}`),
+    )
+    .filter((hit) => !exempt.has(hit));
+  expect(hits).toEqual([]);
+});

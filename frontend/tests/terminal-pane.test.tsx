@@ -13,7 +13,7 @@ import { stubCommands } from "./stub-commands";
 const { written, term, terminals, listeners } = vi.hoisted(() => ({
   written: [] as unknown[],
   /** Every terminal made, with the options it was given: the theme is read off them. */
-  terminals: [] as Array<{ options: { theme: unknown } }>,
+  terminals: [] as Array<{ options: { theme: unknown; minimumContrastRatio?: number } }>,
   listeners: [] as Array<() => void>,
   /**
    * What the keyboard under the row would do: type, and switch DECCKM. `keys`
@@ -36,8 +36,8 @@ vi.mock("@xterm/xterm", () => ({
     cols = 80;
     rows = 24;
     modes = term.modes;
-    options: { theme: unknown };
-    constructor(options: { theme: unknown }) {
+    options: { theme: unknown; minimumContrastRatio?: number };
+    constructor(options: { theme: unknown; minimumContrastRatio?: number }) {
       this.options = options;
       terminals.push(this);
     }
@@ -149,6 +149,12 @@ describe("TerminalPane", () => {
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
     document.documentElement.removeAttribute("style");
+  });
+
+  it("builds the terminal with a contrast floor of 4.5", () => {
+    render(<TerminalPane session="notes" commands={stubCommands()} />);
+
+    expect(terminals.at(-1)?.options.minimumContrastRatio).toBe(4.5);
   });
 
   it("the terminal takes the new colours after a theme switch", () => {

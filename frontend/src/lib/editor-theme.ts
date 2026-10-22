@@ -40,6 +40,24 @@ const theme = EditorView.theme({
   },
   ".cm-panels.cm-panels-top": { borderBottom: "1px solid var(--k-rule)" },
   ".cm-panels.cm-panels-bottom": { borderTop: "1px solid var(--k-rule)" },
+  // The base theme paints these in its light rules unless the editor is built
+  // dark, and its `&light` selectors outrank a plain one, so the panel's own
+  // selector is named here. The `:active` rule is the base's gradient on press.
+  ".cm-panel.cm-search .cm-textfield": {
+    backgroundColor: "var(--k-surface)",
+    color: "var(--k-ink)",
+    border: "1px solid var(--k-rule)",
+  },
+  ".cm-panel.cm-search .cm-button": {
+    backgroundImage: "none",
+    backgroundColor: "var(--k-surface)",
+    color: "var(--k-ink)",
+    border: "1px solid var(--k-rule)",
+  },
+  ".cm-panel.cm-search .cm-button:active": { backgroundImage: "none" },
+  ".cm-panel.cm-search label, .cm-panel.cm-search [name=close]": {
+    color: "var(--k-muted)",
+  },
   ".cm-searchMatch": {
     backgroundColor: "var(--k-mark)",
     outline: "1px solid var(--k-rule-strong)",

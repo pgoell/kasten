@@ -9,6 +9,15 @@ const { fetchBook, fetchNote, uploadAsset } = vi.hoisted(() => ({
 }));
 vi.mock("@/lib/api", () => ({ fetchBook, fetchNote, uploadAsset }));
 
+const { listeners } = vi.hoisted(() => ({ listeners: [] as Array<() => void> }));
+vi.mock("@/lib/theme", () => ({
+  currentTheme: () => "light",
+  onThemeChange: (listener: () => void) => {
+    listeners.push(listener);
+    return () => {};
+  },
+}));
+
 // The factory is not optional. A bare `vi.mock(path)` automocks, and vitest's
 // automock keeps the module body and replaces only its exports, so the real
 // `customElements.define("foliate-view", View)` would run and the fake's own
@@ -26,6 +35,7 @@ describe("BookPane", () => {
     // error panel over every case in this file.
     fetchNote.mockResolvedValue("");
     document.documentElement.style.setProperty("--k-bg", BACKGROUND);
+    listeners.length = 0;
   });
 
   afterEach(() => {
@@ -189,6 +199,16 @@ describe("BookPane", () => {
     draw();
 
     await waitFor(() => expect(lastView().styles).toContain(BACKGROUND));
+  });
+
+  it("re-applies the page's styles when the theme switches", async () => {
+    draw();
+    await waitFor(() => expect(lastView().started).toBe(true));
+
+    document.documentElement.style.setProperty("--k-bg", "#f6f6f4");
+    for (const listener of listeners) listener();
+
+    expect(lastView().styles).toContain("#f6f6f4");
   });
 
   it("still draws a book whose renderer cannot be styled", async () => {

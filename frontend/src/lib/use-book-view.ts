@@ -4,6 +4,7 @@ import { pageStyles } from "@/lib/book-backing";
 import { trackPages } from "@/lib/book-pages";
 import { closeView, type FoliateView, isError, pdfLayer } from "@/lib/foliate-view";
 import { readField } from "@/lib/note-frontmatter";
+import { onThemeChange } from "@/lib/theme";
 import type { BookHighlights } from "@/lib/use-book-highlights";
 import type { BookTake } from "@/lib/use-book-take";
 import type { BookTurns } from "@/lib/use-book-turns";
@@ -268,10 +269,15 @@ export function useBookView(o: {
         if (!cancelled) setBroken(true);
       }
     }
+    // The page's colours are read when they are set, so a switch sets them
+    // again. Before the renderer exists the `?.` skips, and `draw` reads the
+    // theme as it sets the first ones.
+    const retheme = onThemeChange(() => view.renderer?.setStyles?.(pageStyles()));
     void draw();
 
     return () => {
       cancelled = true;
+      retheme();
       view.removeEventListener("create-overlay", onOverlay);
       renderer?.removeEventListener("relocate", onRelocate);
       pages.dispose();

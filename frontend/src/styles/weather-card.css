@@ -55,7 +55,7 @@
 .cm-weather .wx-start { text-anchor: start; }
 .cm-weather .wx-end { text-anchor: end; }
 .cm-weather .wx-value { fill: var(--k-ink); }
-.cm-weather .wx-night { fill: rgb(0 0 0 / 22%); }
+.cm-weather .wx-night { fill: color-mix(in srgb, var(--k-ink) 22%, transparent); }
 .cm-weather .wx-temp { fill: none; stroke: var(--tg-8); stroke-width: 2; stroke-linejoin: round; }
 .cm-weather .wx-temp-area { fill: var(--tg-8); fill-opacity: 0.12; }
 .cm-weather .wx-rain { fill: var(--tg-6); }
@@ -67,10 +67,10 @@
 .cm-weather .wx-sun { fill: var(--k-warn); }
 .cm-weather .wx-rays { fill: none; stroke: var(--k-warn); stroke-width: 1.6; stroke-linecap: round; }
 .cm-weather .wx-moon { fill: var(--k-muted); }
-.cm-weather .wx-cloud { fill: var(--k-muted); }
-.cm-weather .wx-cloud-light { fill: var(--k-ink); }
+.cm-weather .wx-cloud { fill: var(--k-ink-soft); }
+.cm-weather .wx-cloud-light { fill: var(--k-muted); fill-opacity: 0.6; }
 .cm-weather .wx-drops { fill: none; stroke: var(--tg-6); stroke-width: 1.8; stroke-linecap: round; }
-.cm-weather .wx-flake { fill: var(--k-ink); }
+.cm-weather .wx-flake { fill: var(--k-muted); }
 .cm-weather .wx-bolt { fill: none; stroke: var(--k-warn); stroke-width: 1.8; stroke-linejoin: round; }
 
 .cm-weather-tip {

@@ -1,4 +1,7 @@
-import { BACKING, backImages, INK, treatmentFor } from "@/lib/book-backing";
+import { BACKING, backImages, INK, pageStyles, treatmentFor } from "@/lib/book-backing";
+
+const { theme } = vi.hoisted(() => ({ theme: { current: "light" as "light" | "dark" } }));
+vi.mock("@/lib/theme", () => ({ currentTheme: () => theme.current }));
 
 interface Shape {
   /** The computed `object-fit`. jsdom's cssstyle does not know the property. */
@@ -350,5 +353,19 @@ describe("an image decided again as it changes", () => {
     const observed = FakeObserver.made.flatMap((observer) => observer.observed);
     expect(observed.filter((target) => target === img)).toHaveLength(1);
     expect(observed.filter((target) => target === img.parentElement)).toHaveLength(1);
+  });
+});
+
+describe("pageStyles' ink rule", () => {
+  it("does not invert an ink glyph on the light page", () => {
+    theme.current = "light";
+
+    expect(pageStyles()).not.toContain("invert(1)");
+  });
+
+  it("inverts an ink glyph on the dark page", () => {
+    theme.current = "dark";
+
+    expect(pageStyles()).toContain("invert(1)");
   });
 });

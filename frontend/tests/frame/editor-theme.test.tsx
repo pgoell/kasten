@@ -4,7 +4,8 @@
  * the cascade in a real browser, with the vim block cursor on and off.
  */
 
-import { EditorState } from "@codemirror/state";
+import { openSearchPanel, search } from "@codemirror/search";
+import { EditorState, type Extension } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { vim } from "@replit/codemirror-vim";
 import { basicSetup } from "codemirror";
@@ -21,14 +22,14 @@ afterEach(() => {
   document.documentElement.removeAttribute("data-theme");
 });
 
-function mount(vimOn: boolean): EditorView {
+function mount(vimOn: boolean, extra: Extension = []): EditorView {
   const parent = document.body.appendChild(document.createElement("div"));
   view = new EditorView({
     state: EditorState.create({
       doc: "one two three",
       selection: { anchor: 0, head: 3 },
       // As the note editor mounts them: vim ahead of basicSetup, which draws the cursor and selection.
-      extensions: [vimOn ? [vim(), vimModeState()] : [], basicSetup, kastenTheme],
+      extensions: [vimOn ? [vim(), vimModeState()] : [], basicSetup, kastenTheme, extra],
     }),
     parent,
   });
@@ -73,5 +74,24 @@ it("the cursor and the selection read the tokens in light and dark, vim on and o
       selection: "rgba(167, 212, 228, 0.18)",
       fatCursor: "rgb(130, 185, 217)",
     },
+  });
+});
+
+it("the search panel reads the tokens in dark", async () => {
+  document.documentElement.setAttribute("data-theme", "dark");
+  const editor = mount(false, search());
+  openSearchPanel(editor);
+  const field = getComputedStyle(await drawn(editor, ".cm-panel.cm-search .cm-textfield"));
+  const button = getComputedStyle(await drawn(editor, ".cm-panel.cm-search .cm-button"));
+  expect({
+    textfield: { background: field.backgroundColor, color: field.color },
+    button: {
+      background: button.backgroundColor,
+      color: button.color,
+      image: button.backgroundImage,
+    },
+  }).toEqual({
+    textfield: { background: "rgb(35, 35, 35)", color: "rgb(232, 231, 228)" },
+    button: { background: "rgb(35, 35, 35)", color: "rgb(232, 231, 228)", image: "none" },
   });
 });

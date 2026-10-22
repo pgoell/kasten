@@ -16,6 +16,8 @@
  * small svg drawing such a glyph through an `<image>` is judged the same (#483).
  */
 
+import { currentTheme } from "@/lib/theme";
+
 /** The attribute the page's stylesheet reads to draw white behind an image. */
 export const BACKING = "data-kasten-backing";
 
@@ -318,13 +320,18 @@ export function pageStyles(): string {
   const read = (name: string) => style.getPropertyValue(name).trim();
   const fg = read("--k-ink");
 
-  return [
+  const rules = [
     `html:not(#\\#), html:not(#\\#) body { background: ${read("--k-bg")} !important; color: ${fg} !important; }`,
     `body:not(#\\#) :not(mark, mark *) { color: ${fg} !important; background-color: transparent !important; }`,
     `body:not(#\\#) :is(a:any-link, a:any-link *) { color: ${read("--k-link")} !important; }`,
     `body:not(#\\#) :is(img, picture, svg:not(:has(image)), object):not(#\\#) { color: #000 !important; }`,
     `body:not(#\\#) :is(img[${BACKING}], picture:has(> img[${BACKING}]), svg:not(:has(image)), object):not(#\\#) { background-color: #fff !important; }`,
     `body:not(#\\#) :is(svg, svg *):not(#\\#) { color: #000 !important; }`,
-    `body:not(#\\#) :is(img, svg)[${INK}]:not(#\\#) { filter: invert(1) !important; }`,
-  ].join("\n");
+  ];
+  // Only on the dark page: an ink glyph is black already, and inverting it there
+  // would turn the one dark mark on a light page white.
+  if (currentTheme() === "dark") {
+    rules.push(`body:not(#\\#) :is(img, svg)[${INK}]:not(#\\#) { filter: invert(1) !important; }`);
+  }
+  return rules.join("\n");
 }

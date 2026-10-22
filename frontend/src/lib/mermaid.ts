@@ -9,6 +9,7 @@
 
 import type { Mermaid } from "mermaid";
 import { loadOnce } from "@/lib/load-once";
+import { currentTheme } from "@/lib/theme";
 
 /** A diagram as svg markup, or why it could not be drawn. */
 export type Drawing = { svg: string } | { error: string };
@@ -26,8 +27,9 @@ const loadMermaid = loadOnce(async (): Promise<Mermaid> => {
     // Thrown rather than drawn: mermaid's own error is a bomb picture left
     // in `document.body`, and the widget shows the message beside the source.
     suppressErrorRendering: true,
-    // Mermaid keeps its dark theme in both kasten themes for now, see #835.
-    theme: "dark",
+    // Read once, when mermaid loads: a switch after that redraws nothing until
+    // #835, so a diagram keeps the theme it was first drawn in.
+    theme: currentTheme() === "dark" ? "dark" : "default",
   });
   return mermaid;
 });

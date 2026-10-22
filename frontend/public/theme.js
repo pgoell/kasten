@@ -13,4 +13,12 @@ try {
   if (!(error instanceof DOMException)) throw error;
 }
 const system = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-document.documentElement.dataset.theme = stored === "light" || stored === "dark" ? stored : system;
+const theme = stored === "light" || stored === "dark" ? stored : system;
+document.documentElement.dataset.theme = theme;
+
+// The --k-bg of each theme in src/styles/kasten-theme.css, so the browser bar
+// is right before that stylesheet's tokens are read. theme.ts takes over from
+// the computed token once the app runs.
+const pages = { light: "#f6f6f4", dark: "#141414" };
+const bar = document.querySelector('meta[name="theme-color"]');
+if (bar) bar.content = pages[theme];
