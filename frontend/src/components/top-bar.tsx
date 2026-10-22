@@ -23,6 +23,9 @@ export function TopBar({
     ["Search", () => commands.searchNotes()],
   ];
 
+  // Until the listing arrives the count is 0, which would read as an empty vault.
+  const label = count === 0 ? "Search notes" : `Search ${count.toLocaleString("en-GB")} notes`;
+
   return (
     <header
       data-top-bar
@@ -46,11 +49,11 @@ export function TopBar({
       {/* Drawn as a button, not an input: the field opens the finder, and typing starts there. */}
       <button
         type="button"
-        aria-label={`Search ${count.toLocaleString("en-GB")} notes`}
+        aria-label={label}
         onClick={() => commands.findNote()}
         className="min-w-0 max-w-[420px] flex-1 rounded-[var(--k-radius-6)] bg-k-surface px-3 py-1.5 text-left font-sans text-k-13 text-k-muted transition-[color,background-color,transform] duration-(--k-hover) hover:text-k-ink"
       >
-        {`Search ${count.toLocaleString("en-GB")} notes`}
+        {label}
       </button>
       <button
         type="button"

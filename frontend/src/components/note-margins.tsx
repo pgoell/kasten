@@ -3,6 +3,14 @@ import { fetchGraph } from "@/lib/graph-api";
 import type { Outline as OutlineState } from "@/lib/note-head";
 
 /**
+ * The start inset of a margin's text: the outline row's base padding plus its 2 px
+ * rule. Labels and the link rows take it too, so every text in the margin starts
+ * on one line.
+ */
+const INSET = "pl-[calc(var(--k-space-8)+2px)]";
+const LABEL = `${INSET} text-k-13 text-k-muted`;
+
+/**
  * The note's headings, the current one marked, a click puts the cursor there.
  *
  * Indented by level from the shallowest heading, so a note that starts at
@@ -15,7 +23,7 @@ export function Outline({ outline }: { outline?: OutlineState }) {
 
   return (
     <nav aria-label="Outline" className="flex flex-col gap-1">
-      <p className="text-[13px] tracking-[var(--k-track-label)] text-k-muted">On this page</p>
+      <p className={LABEL}>On this page</p>
       {outline.headings.map((heading, index) => {
         const current = index === outline.current;
         return (
@@ -30,7 +38,7 @@ export function Outline({ outline }: { outline?: OutlineState }) {
             }}
             // The 2 px rule is there for every row, so the current one
             // turns on its colour and nothing else moves.
-            className={`k-margin-row border-l-2 py-1 pr-2 text-left text-[13px] ${
+            className={`k-margin-row border-l-2 py-1 pr-2 text-left text-k-13 ${
               current ? "border-k-accent text-k-accent" : "border-transparent text-k-muted"
             }`}
           >
@@ -87,28 +95,30 @@ export function Links({
   return (
     <div className="flex flex-col gap-4">
       <section className="flex flex-col gap-1">
-        <p className="text-[13px] tracking-[var(--k-track-label)] text-k-muted">Links</p>
-        {links.length === 0 && <p className="text-[13px] text-k-muted">No links.</p>}
+        <p className={LABEL}>Links</p>
+        {links.length === 0 && <p className={`${INSET} text-k-13 text-k-muted`}>No links.</p>}
         {links.map((target) => (
           <button
             key={target}
             type="button"
             onClick={() => onOpen(target)}
-            className="k-margin-note truncate text-left text-[15px] text-k-ink"
+            className={`k-margin-note ${INSET} truncate text-left text-k-15 text-k-ink`}
           >
             {names.get(target) ?? target}
           </button>
         ))}
       </section>
       <section className="flex flex-col gap-1">
-        <p className="text-[13px] tracking-[var(--k-track-label)] text-k-muted">Backlinks</p>
-        {backlinks.length === 0 && <p className="text-[13px] text-k-muted">No backlinks.</p>}
+        <p className={LABEL}>Backlinks</p>
+        {backlinks.length === 0 && (
+          <p className={`${INSET} text-k-13 text-k-muted`}>No backlinks.</p>
+        )}
         {backlinks.map((each) => (
           <button
             key={each.path}
             type="button"
             onClick={() => onOpen(each.path, each.line)}
-            className="k-margin-note truncate text-left text-[15px] text-k-ink"
+            className={`k-margin-note ${INSET} truncate text-left text-k-15 text-k-ink`}
           >
             {names.get(each.path) ?? each.path}
           </button>

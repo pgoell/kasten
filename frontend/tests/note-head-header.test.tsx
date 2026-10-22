@@ -1,3 +1,4 @@
+import { undo } from "@codemirror/commands";
 import { EditorView } from "@codemirror/view";
 import { act, fireEvent, render } from "@testing-library/react";
 import { Editor } from "@/components/editor";
@@ -146,27 +147,35 @@ it("with vim off, a typed word edits the note under the header", () => {
   expect(container.querySelector(".cm-note-head")).not.toBeNull();
 });
 
-it("with vim off, Backspace at the start of the first body line in Read leaves the note as it was", () => {
+it("with vim off, Backspace at the start of the first body line in Read shows the YAML", () => {
   localStorage.setItem("kasten.vim", "off");
   const { container } = render(<Editor initialDoc={DOC} path={PATH} commands={stubCommands()} />);
   const view = viewIn(container);
   act(() => view.dispatch({ selection: { anchor: DOC.indexOf("# Reader") } }));
 
+  // The Backspace joins the closing fence to the heading, so the block no longer closes.
   fireEvent.keyDown(container.querySelector(".cm-content") as HTMLElement, { key: "Backspace" });
+  expect(text(container, ".cm-content")).toContain("type: Concept");
+
+  act(() => undo(view));
   expect(view.state.doc.toString()).toBe(DOC);
 });
 
-it("with vim on, dk at the start of the first body line in Read leaves the note as it was", () => {
+it("with vim on, dd on the closing fence line in Read shows the YAML it broke, and u puts it back", () => {
   localStorage.setItem("kasten.vim", "on");
   const { container } = render(<Editor initialDoc={DOC} path={PATH} commands={stubCommands()} />);
-  // A new note opens on the first body line. X at its start deletes nothing, as vim's X
-  // never crosses a line, so the join vim can make is dk: the lines above, the fence too.
   const view = viewIn(container);
-  expect(view.state.selection.main.head).toBe(DOC.indexOf("# Reader"));
+  // The cursor goes onto the fence by dispatch: vim's own motions need a layout jsdom lacks.
+  act(() => view.dispatch({ selection: { anchor: DOC.indexOf("---\n# Reader") } }));
 
+  // Without the fence the YAML above it is unclosed, so it shows as text.
   const content = container.querySelector(".cm-content") as HTMLElement;
   fireEvent.keyDown(content, { key: "d" });
-  fireEvent.keyDown(content, { key: "k" });
+  fireEvent.keyDown(content, { key: "d" });
+  expect(view.state.doc.toString()).toBe(DOC.replace("---\n# Reader", "# Reader"));
+  expect(text(container, ".cm-content")).toContain("type: Concept");
+
+  fireEvent.keyDown(content, { key: "u" });
   expect(view.state.doc.toString()).toBe(DOC);
 });
 
@@ -188,6 +197,48 @@ it("a write with no user event still reaches the hidden frontmatter", () => {
 
   act(() => view.dispatch({ changes: { from: 0, insert: "x" } }));
   expect(view.state.doc.toString().startsWith("x---")).toBe(true);
+});
+
+it("undo of a frontmatter edit works from the body in Read", () => {
+  localStorage.setItem("kasten.vim", "off");
+  const { container } = render(<Editor initialDoc={DOC} path={PATH} commands={stubCommands()} />);
+  const view = viewIn(container);
+  // The edit is made with the cursor in the block, where the YAML shows.
+  act(() => view.dispatch({ selection: { anchor: 0 } }));
+  const at = DOC.indexOf("Concept") + "Concept".length;
+  act(() => view.dispatch({ changes: { from: at, insert: " extra" }, userEvent: "input.type" }));
+  // Then the cursor goes into the body, where the block hides again.
+  act(() => view.dispatch({ selection: { anchor: DOC.indexOf("# Reader") } }));
+
+  act(() => undo(view));
+  expect(view.state.doc.toString()).toBe(DOC);
+});
+
+it("a log line written into an empty body in Read is kept", () => {
+  localStorage.setItem("kasten.vim", "off");
+  const note = "---\ntype: X\n---\n";
+  const { container } = render(<Editor initialDoc={note} path={PATH} commands={stubCommands()} />);
+  const view = viewIn(container);
+  // The line break that closes the block: the closing fence ends at 15.
+  const frontEnd = 15;
+
+  act(() =>
+    view.dispatch({ changes: { from: frontEnd, insert: "\nlog" }, userEvent: "input.log" }),
+  );
+  expect(view.state.doc.toString()).toContain("log");
+});
+
+it("dd on the only body line in Read deletes it", () => {
+  localStorage.setItem("kasten.vim", "on");
+  const note = "---\ntype: X\n---\nonly line";
+  const { container } = render(<Editor initialDoc={note} path={PATH} commands={stubCommands()} />);
+  const view = viewIn(container);
+  expect(view.state.selection.main.head).toBe(note.indexOf("only line"));
+
+  const content = container.querySelector(".cm-content") as HTMLElement;
+  fireEvent.keyDown(content, { key: "d" });
+  fireEvent.keyDown(content, { key: "d" });
+  expect(view.state.doc.toString()).toBe("---\ntype: X\n---");
 });
 
 it("with vim on, a line selection from the top keeps the frontmatter shown", () => {

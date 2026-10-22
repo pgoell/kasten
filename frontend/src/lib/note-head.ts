@@ -1,11 +1,10 @@
 import {
-  EditorState,
+  type EditorState,
   type Extension,
   Facet,
   StateEffect,
   StateField,
   type Text,
-  Transaction,
 } from "@codemirror/state";
 import {
   Decoration,
@@ -415,7 +414,7 @@ const headTheme = EditorView.theme({
     background: "var(--k-accent-wash)",
     color: "var(--k-accent)",
     borderRadius: "999px",
-    padding: "0 8px",
+    padding: "0 var(--k-space-8)",
   },
   ".cm-note-link": {
     font: "inherit",
@@ -455,53 +454,22 @@ export function noteHead(o: {
     },
     provide: (field) => EditorView.decorations.from(field, (value) => value.decorations),
   });
-  // Keyed on the user event, which a keystroke and a vim command carry and a vault reload,
-  // a position written into the frontmatter and a todo write do not: those are the code
-  // changing the note on purpose, and they must reach the block even while it is hidden.
-  // vim's own edits carry one too (`dispatchChange` in @replit/codemirror-vim sets
-  // `userEvent` on every change), so its `dk` is refused the same way a Backspace is.
-  const guard = EditorState.transactionFilter.of((tr) => {
-    if (!tr.docChanged || tr.annotation(Transaction.userEvent) === undefined) return tr;
-    const { frontEnd } = tr.startState.field(frontmatter);
-    // Judged by the cursor and not by the selection's start: vim's operator widens the
-    // selection to the block's start before it deletes, so only the cursor tells its `dk`
-    // from a reader's own selection. Select-all is the one selection from the top a
-    // reader makes on purpose, so it passes, and its delete shows the YAML it removes.
-    const { main } = tr.startState.selection;
-    const selectAll = main.from === 0 && main.to === tr.startState.doc.length;
-    const inBody =
-      tr.startState.facet(notePath) !== undefined &&
-      tr.startState.facet(readMode) &&
-      frontEnd > 0 &&
-      main.head > frontEnd &&
-      !selectAll;
-    if (!inBody) return tr;
-    // A change from the closing fence or above, or from the line break after it, would
-    // join text nobody sees to the body. One from the body's first character is body.
-    let reaches = false;
-    tr.changes.iterChangedRanges((fromA) => {
-      if (fromA < frontEnd + 1) reaches = true;
-    });
-    return reaches ? [] : tr;
-  });
   const head = ViewPlugin.define((view) => new HeadPlugin(view, o.toggle));
-  return [
-    propertiesOpen,
-    frontmatter,
-    guard,
-    headTheme,
-    head,
-    outlinePlugin(o.outline, bodyLineOf),
-  ];
+  return [propertiesOpen, frontmatter, headTheme, head, outlinePlugin(o.outline, bodyLineOf)];
 }
 
 /** The hiding for one frontmatter, in the read or edit state the view is in now. */
 function hiding(state: EditorState, frontEnd: number): Hiding {
+  if (!hidesBlock(state, frontEnd)) return { frontEnd, decorations: Decoration.none };
+  // The closing fence stays a line of its own, so a vim motion or a delete counts it as
+  // one. Its text is hidden inline, and the lines above it are hidden as one block.
+  const fence = state.doc.lineAt(frontEnd);
   return {
     frontEnd,
-    decorations: hidesBlock(state, frontEnd)
-      ? Decoration.set([Decoration.replace({ block: true }).range(0, frontEnd)])
-      : Decoration.none,
+    decorations: Decoration.set([
+      Decoration.replace({ block: true }).range(0, fence.from - 1),
+      Decoration.replace({}).range(fence.from, fence.to),
+    ]),
   };
 }
 

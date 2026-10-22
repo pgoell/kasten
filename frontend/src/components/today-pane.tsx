@@ -113,7 +113,7 @@ export function TodayPane({
           {recent.map(({ path, stamp }) => (
             <Row key={path} between onClick={() => onOpen(path)}>
               <span className="min-w-0 truncate">{noteName(path)}</span>
-              <span className="shrink-0 font-mono text-k-12 text-k-muted">{dayOf(stamp)}</span>
+              <span className="shrink-0 font-sans text-k-13 text-k-muted">{dayOf(stamp)}</span>
             </Row>
           ))}
         </div>

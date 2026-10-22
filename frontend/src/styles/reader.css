@@ -25,7 +25,9 @@
   align-self: start;
   max-height: 100%;
   overflow-y: auto;
-  padding-top: var(--k-space-48);
+  /* The header's own top padding, so "On this page" and "Links" sit level with the
+     breadcrumb. */
+  padding-top: var(--k-space-24);
 }
 
 /* The body is the middle column. Its margins are the rest of the scroller's width
@@ -92,17 +94,23 @@
   .k-reader .cm-note-head {
     left: max(var(--k-space-48), (100% - 680px) / 2) !important;
     width: min(680px, 100% - 2 * var(--k-space-48)) !important;
-    /* CodeMirror pads every line 6 px at its start and 2 px at its end, so the
-       header's words line up with the body's. */
-    padding-inline: 6px 2px;
   }
 }
 
+/* CodeMirror pads every line 6 px at its start and 2 px at its end, so the
+   header's words line up with the body's at every width, not only the three-column
+   one. */
+.k-reader .cm-note-head {
+  padding-inline: 6px 2px;
+}
+
 /* The numbers are set at the small size, so a note of a thousand lines fits the
-   gap. They would inherit the reading size otherwise, and CodeMirror sizes each
-   number's row to its line, so they stay level with the text. */
+   gap. Their line height is the reading line in pixels, not the unitless 1.6 they
+   would inherit at 13 px, which would sit them about 5 px high against the 19 px
+   lines. CodeMirror sizes each number's row to its line, so they stay level. */
 .k-reader .cm-editor .cm-gutters {
   font-size: var(--k-text-13);
+  line-height: calc(var(--k-text-read) * var(--k-leading-reading));
 }
 
 /* Below 776 px there is no room for a column beside the body, so the body takes
