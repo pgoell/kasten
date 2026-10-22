@@ -25,7 +25,17 @@ import "@/styles/app.css";
 const VIM_KEY = "kasten.vim";
 const PALETTE_KEY = "kasten.palette";
 
-const PALETTES = ["poel", "russet", "peach", "pansy"];
+/**
+ * The accent each palette paints in each theme, as `getComputedStyle` answers
+ * it. The rgb form is what the browser gives back for a colour, so the
+ * expectations are written the same way the paint is read.
+ */
+const PALETTES: Record<string, { light: string; dark: string }> = {
+  poel: { light: "rgb(49, 111, 144)", dark: "rgb(130, 185, 217)" },
+  russet: { light: "rgb(154, 81, 67)", dark: "rgb(229, 156, 141)" },
+  peach: { light: "rgb(185, 49, 0)", dark: "rgb(253, 142, 112)" },
+  pansy: { light: "rgb(168, 63, 93)", dark: "rgb(244, 141, 165)" },
+};
 
 // The mocks read these lazily, inside their functions, because `vi.mock` is
 // hoisted above the constants and a factory that reads one at load meets its
@@ -114,14 +124,45 @@ const SIZES = [
 
 type Size = (typeof SIZES)[number];
 
-/** The width of every picture, in the order they are taken: light first, then dark. */
-const EXPECTED = [1440, 390, 1440, 390];
+/** What one picture answers: its width, and the colours painted in it. */
+type Picture = { width: number; accent: string; link: string };
+
+/**
+ * The four pictures of a palette, in the order they are taken: light at
+ * desktop then phone width, then dark at the same two widths. The link is the
+ * wikilink in the note, which should paint in the accent.
+ */
+function expected(accent: { light: string; dark: string }): Picture[] {
+  const light = { accent: accent.light, link: accent.light };
+  const dark = { accent: accent.dark, link: accent.dark };
+  return [
+    { width: 1440, ...light },
+    { width: 390, ...light },
+    { width: 1440, ...dark },
+    { width: 390, ...dark },
+  ];
+}
 
 /** Ten seconds, well past the one-second default, for a route that has to load its chunks. */
 const PATIENCE = { timeout: 10_000 };
 
+/**
+ * The colours painted on the page now: the accent the `--k-accent` token
+ * resolves to, and the colour of a wikilink in the note. A probe span takes the
+ * token the way a rule would, so the answer comes back in rgb.
+ */
+function paint(host: Element): { accent: string; link: string } {
+  const probe = document.body.appendChild(document.createElement("span"));
+  probe.style.color = "var(--k-accent)";
+  const accent = getComputedStyle(probe).color;
+  probe.remove();
+  const link = host.querySelector(".cm-wikilink");
+  if (link === null) throw new Error("the note draws no wikilink");
+  return { accent, link: getComputedStyle(link).color };
+}
+
 /** Mount the note at one size in the current palette and theme, picture it, and take it down. */
-async function draw(name: string, size: Size, palette: string): Promise<number> {
+async function draw(name: string, size: Size, palette: string): Promise<Picture> {
   await page.viewport(size.width, size.height);
   stubMatchMedia({ [NARROW]: size.width < 768, [COARSE]: size.coarse });
   // Each picture is a device of its own, or the layout the last one left
@@ -158,24 +199,25 @@ async function draw(name: string, size: Size, palette: string): Promise<number> 
     );
     // Each face is read in once it loads, so a picture never shows the fallback.
     await document.fonts.ready;
-    return await shot(host, name);
+    const width = await shot(host, name);
+    return { width, ...paint(host) };
   } finally {
     await act(async () => root.unmount());
     host.remove();
   }
 }
 
-/** Four pictures of one palette: each theme at each size, each answering its width. */
-async function pictures(palette: string): Promise<number[]> {
-  const widths: number[] = [];
+/** Four pictures of one palette: each theme at each size, each answering what it paints. */
+async function pictures(palette: string): Promise<Picture[]> {
+  const taken: Picture[] = [];
   for (const theme of THEMES) {
     document.documentElement.dataset.theme = theme;
     document.documentElement.dataset.palette = palette;
     for (const size of SIZES) {
-      widths.push(await draw(`palette-${palette}-${size.name}-${theme}`, size, palette));
+      taken.push(await draw(`palette-${palette}-${size.name}-${theme}`, size, palette));
     }
   }
-  return widths;
+  return taken;
 }
 
 beforeEach(() => {
@@ -190,9 +232,8 @@ afterEach(async () => {
   await page.viewport(1280, 900);
 });
 
-for (const palette of PALETTES) {
+for (const [palette, accent] of Object.entries(PALETTES)) {
   it(`pictures a note in the ${palette} palette`, async () => {
-    const widths = await pictures(palette);
-    expect(widths).toEqual(EXPECTED);
+    expect(await pictures(palette)).toEqual(expected(accent));
   }, 120_000);
 }
