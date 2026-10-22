@@ -84,6 +84,7 @@ export function Harness({
         showLinksOut: () => {},
         openDaily: () => {},
         logDrink: () => {},
+        logFood: () => {},
         openWeekly: () => {},
         openMonthly: () => {},
         openQuarterly: () => {},

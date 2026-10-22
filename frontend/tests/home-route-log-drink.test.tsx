@@ -169,6 +169,9 @@ describe("the palette's drink rows, on the route", () => {
     screen
       .queryAllByRole("option", { name: /^Log (?!food$)/ })
       .map((row) => row.textContent?.trim());
+  /** The card's button called `name`, by its label, or null where the card draws none. */
+  const cardButton = (name: string) =>
+    document.querySelector(`.cm-log button[aria-label='${name}']`);
   /** Taps the palette row called `name`. A missing row is a failed assertion, not a throw. */
   function tapRow(name: RegExp) {
     const row = option(name);
@@ -396,5 +399,85 @@ describe("the palette's drink rows, on the route", () => {
     await settle();
 
     expect(option(/^Log tea/)).not.toBeNull();
+  });
+
+  it("#818 a kind added to log.md while the stream was down shows in the palette and on the card once the stream opens again", async () => {
+    withLog("- 💧 water: 250 ml\n");
+    const app = await renderApp(`/?note=${encodeURIComponent(TODAY)}`);
+    await settle();
+    // The first open is the stream coming up, before anything was missed.
+    act(() => stream().onopen?.());
+    await settle();
+
+    // The stream is down while log.md gains tea, and the reopen is what asks again.
+    withLog("- 💧 water: 250 ml\n- 🍵 tea: 1 cup\n");
+    act(() => stream().onopen?.());
+    await settle();
+
+    expect.soft(cardButton("Log tea")).not.toBeNull();
+    app.leader(":");
+    await settle();
+    expect.soft(option(/^Log tea/)).not.toBeNull();
+  });
+
+  it("#818 a log.md written while the stream is up puts its new kind on the card", async () => {
+    withLog("- 💧 water: 250 ml\n");
+    await renderApp(`/?note=${encodeURIComponent(TODAY)}`);
+    await settle();
+    expect.soft(cardButton("Log tea")).toBeNull();
+
+    withLog("- 💧 water: 250 ml\n- 🍵 tea: 1 cup\n");
+    act(() => stream().send({ path: LOG_CONFIG, change: "written", digest: "a".repeat(64) }));
+    await settle();
+
+    expect(cardButton("Log tea")).not.toBeNull();
+  });
+
+  it("#818 the first open of the stream asks log.md no more often than the mount did", async () => {
+    withLog("- 💧 water: 250 ml\n");
+    await renderApp(`/?note=${encodeURIComponent(TODAY)}`);
+    // Opened while the mount's own fetches are still in the air, as the first open is.
+    act(() => stream().onopen?.());
+    await settle();
+
+    expect(fetchNote.mock.calls.filter(([path]) => path === LOG_CONFIG)).toHaveLength(2);
+  });
+
+  it("#818 a log.md removed while the stream was down puts the palette and the card back on the default kinds at reopen", async () => {
+    withLog("- 🍵 tea: 1 cup\n");
+    const app = await renderApp(`/?note=${encodeURIComponent(TODAY)}`);
+    await settle();
+    expect.soft(cardButton("Log tea")).not.toBeNull();
+
+    withLog(new NoteMissing(LOG_CONFIG));
+    act(() => stream().onopen?.());
+    await settle();
+
+    expect.soft(cardButton("Log tea")).toBeNull();
+    app.leader(":");
+    await settle();
+    expect(logRows()).toEqual(["Log water", "Log coffee", "Log alcohol"]);
+  });
+
+  it("#818 a config arriving at reopen keeps the open food search's query text and focus", async () => {
+    withLog("- 💧 water: 250 ml\n");
+    await renderApp(`/?note=${encodeURIComponent(TODAY)}`);
+    await settle();
+    const food = cardButton("Log food");
+    expect(food).not.toBeNull();
+    if (food) fireEvent.click(food);
+    await settle();
+    const query = document.querySelector<HTMLInputElement>(".cm-log-food-query");
+    expect(query).not.toBeNull();
+    if (query) fireEvent.input(query, { target: { value: "apple" } });
+    query?.focus();
+
+    withLog("- 💧 water: 250 ml\n- 🍵 tea: 1 cup\n");
+    act(() => stream().onopen?.());
+    await settle();
+
+    expect.soft(query?.value).toBe("apple");
+    expect.soft(document.activeElement).toBe(query);
+    expect(cardButton("Log tea")).not.toBeNull();
   });
 });

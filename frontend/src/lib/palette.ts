@@ -8,7 +8,7 @@ import { editorCommands } from "@/lib/editor-commands";
 import { toggleMark } from "@/lib/format-commands";
 import type { EditorCommands } from "@/lib/key-bindings";
 import { LEADER, spelled, TAB_KEYS } from "@/lib/leader-keys";
-import { cardShown, openFoodSearch } from "@/lib/log-card";
+import { openFoodSearch } from "@/lib/log-card";
 import { DEFAULT_CONFIG, type LogKind, tapLine } from "@/lib/log-kinds";
 import { logDrinkInView } from "@/lib/log-write";
 import { toggleVim } from "@/lib/vim-setting";
@@ -174,6 +174,15 @@ export function paletteEntries(
         },
       };
     }),
+    // Over a daily note's card the search opens there. Anywhere else the command
+    // opens today's note first, the way the drinks reach it from any pane.
+    {
+      label: "Log food",
+      run: () => {
+        if (view !== null && openFoodSearch(view)) return;
+        commands.logFood();
+      },
+    },
     { label: "Toggle vim keys", run: toggleVim },
   ];
   if (view === null) return routed;
@@ -205,8 +214,6 @@ export function paletteEntries(
     ...(onView === undefined
       ? []
       : EX.map(({ keys, label, run }) => ({ label, keys, run: () => run(onView, view) }))),
-    // Listed only over a daily note's card, the one place the search has a line to log into.
-    ...(cardShown(view) ? [{ label: "Log food", run: () => openFoodSearch(view) }] : []),
     ...routed,
   ];
 }

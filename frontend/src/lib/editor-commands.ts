@@ -46,6 +46,7 @@ export function forwardCommands(get: () => EditorCommands | undefined): Extensio
     showLinksOut: () => get()?.showLinksOut(),
     openDaily: () => get()?.openDaily(),
     logDrink: (line) => get()?.logDrink(line),
+    logFood: () => get()?.logFood(),
     openWeekly: () => get()?.openWeekly(),
     openMonthly: () => get()?.openMonthly(),
     openQuarterly: () => get()?.openQuarterly(),

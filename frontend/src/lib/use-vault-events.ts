@@ -1,6 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { type RefObject, useEffect } from "react";
 import { LOG_NOTE } from "@/lib/layout";
+import { reloadLogConfig } from "@/lib/log-card";
 import { dailyDate } from "@/lib/periodic";
 import type { useAutosave } from "@/lib/use-autosave";
 import { parseVaultEvent } from "@/lib/vault-events";
@@ -73,10 +74,13 @@ export function useVaultEvents(
     // `cancelRefetch` off it joins that fetch rather than replacing it, so the
     // redundant open costs nothing and the first paint waits on one walk of
     // the vault rather than two. The log's first open joins its own first fetch
-    // the same way.
+    // the same way. log.md is missed the same way, so the palette's kinds and each
+    // card's config are asked on the open too.
     stream.onopen = () => {
       queryClient.invalidateQueries({ queryKey: ["files"] }, { cancelRefetch: false });
       queryClient.invalidateQueries({ queryKey: ["log"] }, { cancelRefetch: false });
+      queryClient.invalidateQueries({ queryKey: ["log-config"] }, { cancelRefetch: false });
+      reloadLogConfig();
     };
     stream.onmessage = (message) => {
       const event = parseVaultEvent(message.data);
@@ -190,6 +194,7 @@ export function useVaultEvents(
       // feed, so a write or removal asks that key too.
       if ((event.change === "written" || event.change === "removed") && event.path === LOG_NOTE) {
         queryClient.invalidateQueries({ queryKey: ["log-config"] }, { cancelRefetch: false });
+        reloadLogConfig();
       }
 
       const paths = queryClient.getQueryData<string[]>(["files"]);

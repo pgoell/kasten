@@ -131,7 +131,8 @@ serving: grams, servings (1 at first), and a meal. The meal is breakfast from
 `Log this food` writes the food line at the end of `## Log`, with the kcal and
 macros for the amount chosen. `Escape` and `Close` write nothing. The card's
 totals show the food's kcal, protein, carbs and fat once a food line is there.
-The palette's `Log food` opens the same search on a daily note.
+The palette's `Log food` opens the same search on a daily note, and from any
+other pane opens today's note first, making it when there is none.
 
 ## The config note
 
@@ -201,10 +202,11 @@ A kind's total shows its goal beside it, as `💧 1500 / 2000 ml`. A met floor
 adds ` ✓`, a passed ceiling adds ` ⚠` in the warning colour, and a floor shows
 a bar of its progress.
 
-An edit to `log.md` reaches the next daily note opened, not one already open.
 A tap in the moment before the note answers writes the default kinds' line.
-The palette's `Log <name>` entries and the log pane follow an edit to `log.md`
-without a reload, and go back to the three default kinds when it is deleted.
+The card, the palette's `Log <name>` entries and the log pane follow an edit to
+`log.md` without a reload, and go back to the three default kinds when it is
+deleted. An edit made while the page's event stream was down reaches them when
+the stream opens again.
 
 ## The foods note
 

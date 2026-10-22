@@ -5,7 +5,9 @@ import {
   type RefObject,
   type SetStateAction,
   useCallback,
+  useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import type { PaneMoves } from "@/components/use-pane-moves";
@@ -13,6 +15,7 @@ import { fetchAssets, fetchFiles, fetchNote, NoteMissing } from "@/lib/api";
 import { heldText } from "@/lib/held-text";
 import type { TreeCommands } from "@/lib/key-bindings";
 import { READING_NOTE } from "@/lib/layout";
+import { openFoodSearch } from "@/lib/log-card";
 import { drinkTarget, logDrinkInVault, logDrinkInView } from "@/lib/log-write";
 import { noteName } from "@/lib/note-path";
 import {
@@ -46,6 +49,15 @@ import { isPerson } from "@/lib/person";
 import { splitTarget, wikiLinkPath, wikiLinkTargets } from "@/lib/wikilink";
 
 export type PaneCommands = ReturnType<typeof usePaneCommands>;
+
+/**
+ * The editor the pane holds, found by the pane and not the focus: the palette's
+ * lookup finds no view while the focus sits off the editor, as `logDrink` notes.
+ */
+function paneView(id: string): EditorView | null {
+  const editor = document.querySelector<HTMLElement>(`[data-pane="${id}"] .cm-editor`);
+  return editor ? EditorView.findFromDOM(editor) : null;
+}
 
 /**
  * The commands that rearrange the window: what each pane holds, the splits,
@@ -162,6 +174,27 @@ export function usePaneCommands({
     moveTo((previous) => openBookInFocused(previous, note));
   }, [queryClient, saveFirst, moveTo, setNotice]);
 
+  /** Today's note path while `logFood` waits for it; cleared on any pane or path change. */
+  const foodPending = useRef<string | null>(null);
+  useEffect(() => {
+    const target = foodPending.current;
+    foodPending.current = null;
+    if (target === null || pane.path !== target) return;
+    const showFood = () => {
+      const view = paneView(pane.id);
+      return view !== null && openFoodSearch(view);
+    };
+    if (showFood()) return;
+    // The editor mounts after the path is taken, so wait for it to draw the card.
+    const element = document.querySelector<HTMLElement>(`[data-pane="${pane.id}"]`);
+    if (element === null) return;
+    const observer = new MutationObserver(() => {
+      if (showFood()) observer.disconnect();
+    });
+    observer.observe(element, { childList: true, subtree: true });
+    return () => observer.disconnect();
+  }, [pane.id, pane.path]);
+
   const commands = useMemo<
     Pick<
       TreeCommands,
@@ -172,6 +205,7 @@ export function usePaneCommands({
       | "openLocalGraph"
       | "openDaily"
       | "logDrink"
+      | "logFood"
       | "openWeekly"
       | "openMonthly"
       | "openQuarterly"
@@ -316,6 +350,21 @@ export function usePaneCommands({
           (error: unknown) =>
             setNotice(error instanceof Error ? error.message : "The drink was not logged"),
         );
+      },
+      // Today's note in the focused pane is searched in place. Any other note is
+      // left for `openPeriodic`, which makes today's note when there is none, and
+      // the effect above searches it once it is on screen.
+      logFood: async () => {
+        const today = periodicNote("daily", new Date()).path;
+        if (pane.path === today) {
+          const view = paneView(pane.id);
+          if (view !== null) openFoodSearch(view);
+          return;
+        }
+        // Saved first: a refused save leaves nothing waiting.
+        if (!(await saveFirst())) return;
+        foodPending.current = today;
+        openPeriodic("daily");
       },
       openWeekly: () => openPeriodic("weekly"),
       openMonthly: () => openPeriodic("monthly"),

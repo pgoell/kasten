@@ -71,6 +71,12 @@ export interface EditorCommands {
    * it in the buffer when the note is open, so no key is bound to it.
    */
   logDrink(line: string): void;
+  /**
+   * Open the food search on today's card, opening today's note in the focused
+   * pane first when it is not there. Reached by name from the palette only, the
+   * way `logDrink` is.
+   */
+  logFood(): void;
   openWeekly(): void;
   openMonthly(): void;
   openQuarterly(): void;
@@ -203,7 +209,7 @@ export interface TreeCommands extends EditorCommands {
  * so here is what lets the file tree run any binding it resolves by calling it
  * with nothing.
  */
-export type LeaderCommand = Exclude<keyof EditorCommands, "goToTab" | "logDrink">;
+export type LeaderCommand = Exclude<keyof EditorCommands, "goToTab" | "logDrink" | "logFood">;
 
 /**
  * The modifiers a terminal chord is held with, in one place so retuning the

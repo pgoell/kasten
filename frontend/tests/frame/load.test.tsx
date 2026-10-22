@@ -71,6 +71,7 @@ const INERT: TreeCommands = {
   showLinksOut: vi.fn(),
   openDaily: vi.fn(),
   logDrink: vi.fn(),
+  logFood: vi.fn(),
   openWeekly: vi.fn(),
   openMonthly: vi.fn(),
   openQuarterly: vi.fn(),
