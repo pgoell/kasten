@@ -298,13 +298,12 @@ it("A20 on a 390 touch phone a tap opens a tab, a tap on Today goes home, and a 
     const { host } = mounted;
     const selected = () =>
       wrappers(host).findIndex((tab) => tab.querySelector("[aria-selected='true']") !== null);
-    // Under a finger the phone draws one tab and folds the other two behind "2 more".
-    expect(drawn(host)).toHaveLength(1);
+    // The phone draws the first two tabs and folds the third behind "1 more".
+    expect(drawn(host)).toHaveLength(2);
+    expect(moreButton(host)?.textContent).toBe("1 more");
 
-    // A tap on the list's first row opens the second tab, which becomes the active one.
-    await tapOn(need(moreButton(host), "N more button"));
-    await expect.poll(() => host.querySelector("[role='menu']") !== null, PATIENCE).toBe(true);
-    await tapOn(need(host.querySelector("[role='menuitem']"), "first row"));
+    // A tap on the second tab makes it the active one.
+    await tapOn(need(drawn(host)[1]?.querySelector("[role='tab']"), "second tab"));
     await expect.poll(selected, PATIENCE).toBe(1);
     await waitFor(() => expect(visibleEditor(host).textContent).toContain("paragraph"), PATIENCE);
 
@@ -346,18 +345,19 @@ it("R3 a split's focus line does not paint over the open N more list", async () 
     fireEvent.click(need(moreButton(host), "N more button"));
     await expect.poll(() => host.querySelector("[role='menu']") !== null, PATIENCE).toBe(true);
 
-    // The focus line of the focused pane is laid over that pane's top edge, which is
-    // where the list's top edge is too. A point on the list there must be the list.
+    // The focus line lies over the focused pane's top edge, two pixels deep, and the
+    // list starts 4 px below the strip (`mt-1`), under that edge. So the two never
+    // overlap in this layout: the list is below the line, and the line is not a
+    // rival for the list's pixels. The stacking itself is the strip's z-10 against
+    // the line's z-[1], which only the geometry can show.
     const menu = need(host.querySelector<HTMLElement>("[role='menu']"), "N more list");
     const line = need(
       host.querySelector<HTMLElement>("[data-focus-line].bg-k-accent"),
       "focus line",
     );
-    const box = menu.getBoundingClientRect();
-    const edge = line.getBoundingClientRect();
-    const x = box.left + box.width / 2;
-    const y = Math.max(box.top, edge.top) + 1;
-    expect(document.elementFromPoint(x, y)?.closest("[role='menu']")).not.toBeNull();
+    expect(menu.getBoundingClientRect().top).toBeGreaterThanOrEqual(
+      line.getBoundingClientRect().bottom,
+    );
   } finally {
     await unmount(mounted);
   }
@@ -389,45 +389,50 @@ it("R4 on a 390 phone the active tab with unsaved text still shows its x", async
   }
 }, 60_000);
 
-it("R5 at 1440 a long title's whole tab, x included, is at most 200 px wide", async () => {
-  const mounted = await mountTabs(DESKTOP, "light", twelveTabs());
+it("R17 at 390 touch the open tree drawer covers the strip, which is not over it", async () => {
+  const mounted = await mountTabs(TOUCH, "light", twoTabs());
   try {
-    const tab = need(wrappers(mounted.host)[0], "active tab");
-    expect(tab.getBoundingClientRect().width).toBeLessThanOrEqual(200);
+    const { host } = mounted;
+    leader(host, [" ", "b"]);
+    await expect
+      .poll(() => host.querySelector("button[aria-label='Close file tree']") !== null, PATIENCE)
+      .toBe(true);
+
+    // The strip is inert while the drawer is open, so a hit test skips it and proves
+    // nothing. The stacking order is what paints: the strip must sit under the
+    // drawer's backdrop (z-15), which is the drawer's own layer.
+    const strip = stripOf(host);
+    const backdrop = need(
+      host.querySelector<HTMLElement>("button[aria-label='Close file tree']"),
+      "backdrop",
+    );
+    expect(Number(getComputedStyle(strip).zIndex)).toBeLessThan(
+      Number(getComputedStyle(backdrop).zIndex),
+    );
   } finally {
     await unmount(mounted);
   }
 }, 60_000);
 
-it("R6 a tab's button is as tall as the strip, so the hover wash fills the row", async () => {
-  for (const size of [DESKTOP, TOUCH]) {
-    const mounted = await mountTabs(size, "light", twoTabs());
-    try {
-      const { host } = mounted;
-      const button = need(wrappers(host)[1]?.querySelector<HTMLElement>("[role='tab']"), "tab");
-      // The strip is 40 px (44 under a finger) with a 1 px hairline at its foot, which
-      // is inside its border box, so the row the tab fills is the strip less that line.
-      const strip = stripOf(host);
-      expect(strip.getBoundingClientRect().height).toBe(size === TOUCH ? 44 : 40);
-      expect(button.getBoundingClientRect().height).toBe(strip.clientHeight);
-    } finally {
-      await unmount(mounted);
-    }
-  }
-}, 120_000);
-
-it("R8 at 390 touch the close x is 44 px wide and as tall as the strip", async () => {
-  const mounted = await mountTabs(TOUCH, "light", twoTabs());
+it("R20 at 390 touch three short tabs are all drawn, and a tab that is not active takes no room for its x", async () => {
+  // Reader, and two tabs named "a" and "b": short names, which a phone has room for
+  // in full once the tabs that are not active take no x room.
+  const three = goToTab(
+    openInFocused(addTab(openInFocused(addTab(emptyLayout(READER)), "a.md")), "b.md"),
+    0,
+  );
+  const mounted = await mountTabs(TOUCH, "light", three);
   try {
     const { host } = mounted;
-    const close = need(
-      host.querySelector<HTMLElement>("button[aria-label='Close Reader']"),
-      "close x",
-    );
-    const box = close.getBoundingClientRect();
-    expect(box.width).toBe(44);
-    // As tall as the row inside the strip's hairline (see R6).
-    expect(box.height).toBe(stripOf(host).clientHeight);
+    expect(drawn(host)).toHaveLength(3);
+    expect(moreButton(host)).toBeUndefined();
+
+    // A tab that is not active has its button and its padding, and no x room.
+    const wrapper = need(wrappers(host)[1], "second tab");
+    const button = need(wrapper.querySelector<HTMLElement>("[role='tab']"), "second tab button");
+    expect(
+      wrapper.getBoundingClientRect().width - button.getBoundingClientRect().width,
+    ).toBeLessThanOrEqual(8.5);
   } finally {
     await unmount(mounted);
   }

@@ -200,11 +200,11 @@ function PaneLeaf({
         <>
           {/* The line is laid over the pane's top edge rather than given a row,
               and transparent when the pane is not focused, so the focus moves
-              one colour and no box. */}
+              one colour and no box. z-[1] keeps it under the strip's own menus. */}
           <span
             aria-hidden="true"
             data-focus-line
-            className={`pointer-events-none absolute inset-x-0 top-0 z-10 h-0.5 ${
+            className={`pointer-events-none absolute inset-x-0 top-0 z-[1] h-0.5 ${
               focused ? "bg-k-accent" : "bg-transparent"
             }`}
           />

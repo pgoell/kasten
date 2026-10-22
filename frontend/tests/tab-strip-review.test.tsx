@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import type { ComponentProps } from "react";
 import { TabStrip } from "@/components/tab-strip";
 import { openInFocused } from "@/lib/pane-contents";
@@ -113,5 +113,62 @@ describe("the review fixes", () => {
     render(strip(tabsOf("a.md", "b.md")));
 
     expect(screen.getByRole("button", { name: "Today" })).toHaveClass("text-k-15");
+  });
+
+  it("R18 the cap does not feed back: a second measure of the same row folds the same tabs at the same cap", () => {
+    // Widths here follow the cap the way a browser does: a tab cannot be wider than
+    // its max-width. The first tab is 76 px, the active tab 200 px, in a 250 px row.
+    vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockImplementation(function (
+      this: HTMLElement,
+    ) {
+      const natural = [76, 200][Number(this.dataset.tab)] ?? 0;
+      const cap = Number.parseFloat(this.style.maxWidth);
+      return Number.isNaN(cap) ? natural : Math.min(natural, cap);
+    });
+    vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockImplementation(function (
+      this: HTMLElement,
+    ) {
+      return this.getAttribute("role") === "tablist" ? 250 : 0;
+    });
+    const measures: (() => void)[] = [];
+    class FakeObserver {
+      constructor(callback: () => void) {
+        measures.push(callback);
+      }
+      observe() {}
+      disconnect() {}
+    }
+    vi.stubGlobal("ResizeObserver", FakeObserver);
+    try {
+      render(strip(tabsOf("a.md", "b.md")));
+      const active = () => screen.getByRole("tab", { selected: true }).parentElement;
+      const folded = () => screen.queryByRole("button", { name: /more$/ })?.textContent ?? "none";
+      expect(folded()).toBe("1 more");
+      const cap = active()?.style.maxWidth;
+
+      // The observer hears the cap it was given, and measures the row again.
+      act(() => {
+        for (const measure of measures) measure();
+      });
+
+      expect(folded()).toBe("1 more");
+      expect(active()?.style.maxWidth).toBe(cap);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("R19 the cap is never negative: a row narrower than the button takes none", () => {
+    vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockReturnValue(50);
+    vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockImplementation(function (
+      this: HTMLElement,
+    ) {
+      return this.getAttribute("role") === "tablist" ? 60 : 0;
+    });
+    render(strip(tabsOf("a.md", "b.md")));
+
+    const active = screen.getByRole("tab", { selected: true }).parentElement;
+    // A cap of zero, which the browser reads as a number; a negative one is refused.
+    expect(Number.parseFloat(active?.style.maxWidth ?? "")).toBe(0);
   });
 });
