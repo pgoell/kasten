@@ -144,6 +144,184 @@
   --tg-none: #878783;
 }
 
+/* palettes:begin: written by scripts/palettes.ts, do not edit by hand */
+[data-palette="poel"] {
+  --k-accent: #316f90;
+  --k-link: #316f90;
+  --k-accent-wash: rgba(49,111,144,.11);
+  --k-highlight: rgba(249,157,27,.22);
+  --k-mark: rgba(249,157,27,.22);
+  --k-ok: #247b4b;
+  --k-warn: #8d5e09;
+  --k-info: #4a6d89;
+  --k-danger: #9a5143;
+  --tg-1: #b05459;
+  --tg-2: #5b8230;
+  --tg-3: #307baf;
+  --tg-4: #9c5a8d;
+  --tg-5: #7f7800;
+  --tg-6: #0f848a;
+  --tg-7: #8a639a;
+  --tg-8: #a66218;
+  --tg-9: #338756;
+  --tg-10: #7567b1;
+}
+
+[data-palette="poel"][data-theme="dark"] {
+  --k-accent: #82b9d9;
+  --k-link: #82b9d9;
+  --k-accent-wash: rgba(130,185,217,.14);
+  --k-highlight: rgba(167,212,228,.18);
+  --k-mark: rgba(167,212,228,.18);
+  --k-ok: #7acd97;
+  --k-warn: #e7aa53;
+  --k-info: #97bddb;
+  --k-danger: #f19f8f;
+  --tg-1: #ea9799;
+  --tg-2: #9bbe7b;
+  --tg-3: #76b9ec;
+  --tg-4: #da99c9;
+  --tg-5: #bab567;
+  --tg-6: #56c4ca;
+  --tg-7: #c99fda;
+  --tg-8: #dfa26d;
+  --tg-9: #7cc495;
+  --tg-10: #b1a6ec;
+}
+
+[data-palette="russet"] {
+  --k-accent: #9a5143;
+  --k-link: #9a5143;
+  --k-accent-wash: rgba(154,81,67,.11);
+  --k-highlight: rgba(98,198,191,.30);
+  --k-mark: rgba(98,198,191,.30);
+  --k-ok: #2e7b3f;
+  --k-warn: #0075a0;
+  --k-info: #a4517a;
+  --k-danger: #7a6b53;
+  --tg-1: #836d59;
+  --tg-2: #ab5c2d;
+  --tg-3: #90647b;
+  --tg-4: #6f6e90;
+  --tg-5: #9d5995;
+  --tg-6: #007c94;
+  --tg-7: #187b96;
+  --tg-8: #007e7d;
+  --tg-9: #487c51;
+  --tg-10: #308045;
+}
+
+[data-palette="russet"][data-theme="dark"] {
+  --k-accent: #e59c8d;
+  --k-link: #e59c8d;
+  --k-accent-wash: rgba(229,156,141,.14);
+  --k-highlight: rgba(98,198,191,.24);
+  --k-mark: rgba(98,198,191,.24);
+  --k-ok: #81be89;
+  --k-warn: #68bae3;
+  --k-info: #e59abc;
+  --k-danger: #beae94;
+  --tg-1: #bfa791;
+  --tg-2: #e19b75;
+  --tg-3: #cd9eb5;
+  --tg-4: #a8a8cc;
+  --tg-5: #d498cb;
+  --tg-6: #55b8d1;
+  --tg-7: #5fb7d3;
+  --tg-8: #4dbbb9;
+  --tg-9: #81b889;
+  --tg-10: #7aba86;
+}
+
+[data-palette="peach"] {
+  --k-accent: #b93100;
+  --k-link: #b93100;
+  --k-accent-wash: rgba(185,49,0,.11);
+  --k-highlight: rgba(238,180,128,.30);
+  --k-mark: rgba(238,180,128,.30);
+  --k-ok: #407933;
+  --k-warn: #0075a0;
+  --k-info: #a15478;
+  --k-danger: #826a1b;
+  --tg-1: #a75f1f;
+  --tg-2: #aa5d29;
+  --tg-3: #a8557e;
+  --tg-4: #6d69b1;
+  --tg-5: #965e8f;
+  --tg-6: #007c94;
+  --tg-7: #187b96;
+  --tg-8: #007e7d;
+  --tg-9: #4e7c4b;
+  --tg-10: #337f43;
+}
+
+[data-palette="peach"][data-theme="dark"] {
+  --k-accent: #fd8e70;
+  --k-link: #fd8e70;
+  --k-accent-wash: rgba(253,142,112,.14);
+  --k-highlight: rgba(238,180,128,.24);
+  --k-mark: rgba(238,180,128,.24);
+  --k-ok: #8cbd81;
+  --k-warn: #68bae3;
+  --k-info: #e69abb;
+  --k-danger: #c7ae63;
+  --tg-1: #dd9d6e;
+  --tg-2: #e09c72;
+  --tg-3: #e095b7;
+  --tg-4: #a6a5e9;
+  --tg-5: #d498cb;
+  --tg-6: #55b8d1;
+  --tg-7: #5fb7d3;
+  --tg-8: #4dbbb9;
+  --tg-9: #87b782;
+  --tg-10: #7cb984;
+}
+
+[data-palette="pansy"] {
+  --k-accent: #a83f5d;
+  --k-link: #a83f5d;
+  --k-accent-wash: rgba(168,63,93,.11);
+  --k-highlight: rgba(249,193,206,.30);
+  --k-mark: rgba(249,193,206,.30);
+  --k-ok: #5f743c;
+  --k-warn: #007698;
+  --k-info: #786399;
+  --k-danger: #6c7200;
+  --tg-1: #a75f1f;
+  --tg-2: #8f694e;
+  --tg-3: #7668a4;
+  --tg-4: #7466b4;
+  --tg-5: #5f709a;
+  --tg-6: #187b96;
+  --tg-7: #257b8c;
+  --tg-8: #007e7d;
+  --tg-9: #61793d;
+  --tg-10: #457e3f;
+}
+
+[data-palette="pansy"][data-theme="dark"] {
+  --k-accent: #f48da5;
+  --k-link: #f48da5;
+  --k-accent-wash: rgba(244,141,165,.14);
+  --k-highlight: rgba(249,193,206,.24);
+  --k-mark: rgba(249,193,206,.24);
+  --k-ok: #a1b87d;
+  --k-warn: #61bbde;
+  --k-info: #bca6e0;
+  --k-danger: #afb66a;
+  --tg-1: #dd9d6e;
+  --tg-2: #cca387;
+  --tg-3: #afa3e2;
+  --tg-4: #ada3e8;
+  --tg-5: #97abd8;
+  --tg-6: #5fb7d3;
+  --tg-7: #66b7c7;
+  --tg-8: #4dbbb9;
+  --tg-9: #99b475;
+  --tg-10: #83b87e;
+}
+/* palettes:end */
+
 /* The cross-fade between the two themes. The reduced-motion reader gets the
    switch with no fade at all. */
 ::view-transition-old(root),
