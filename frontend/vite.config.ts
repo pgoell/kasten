@@ -16,8 +16,10 @@ import react from "@vitejs/plugin-react";
 import { playwright } from "@vitest/browser-playwright";
 import type { Plugin } from "vite";
 import { defineConfig } from "vitest/config";
+import { buildId } from "./build-id.ts";
 import { devPolicy } from "./src/lib/csp.ts";
 import { serviceWorker } from "./sw/plugin.ts";
+import { emulateMedia } from "./tests/frame/emulate-media.ts";
 
 const BACKEND = process.env.KASTEN_DEV_BACKEND ?? "http://localhost:8000";
 // The chat runner, which in production Caddy reaches in the shell container.
@@ -31,30 +33,6 @@ const PROXY = {
   "/share": { target: BACKEND, changeOrigin: true },
   "/chat": { target: CHAT },
 };
-
-/**
- * The commit the tree is on, in seven characters, or nothing without one.
- *
- * Read here and stamped into the bundle, because the browser has no repo to
- * ask. Read out of `.git` rather than run through `git`, which the build image
- * has not got. Production copies only `frontend/` into that image, so there is
- * nothing to read there and the status bar shows the backend's release alone.
- */
-function buildId(): string {
-  const git = path.resolve(import.meta.dirname, "..", ".git");
-  const head = path.join(git, "HEAD");
-  if (!existsSync(head)) return "";
-
-  const named = readFileSync(head, "utf8").trim();
-  // A detached HEAD holds the commit itself, which is what a checkout of a tag
-  // leaves behind.
-  if (!named.startsWith("ref: ")) return named.slice(0, 7);
-
-  // A ref `git gc` has packed away has no loose file. Rare on a working tree,
-  // and saying nothing beats parsing `packed-refs` for it.
-  const loose = path.join(git, named.slice("ref: ".length));
-  return existsSync(loose) ? readFileSync(loose, "utf8").trim().slice(0, 7) : "";
-}
 
 // Set by compose.dev.yml when this dev server sits behind Caddy. Unset means
 // plain localhost work, so the default stays untouched.
@@ -435,6 +413,7 @@ export default defineConfig({
             screenshotFailures: false,
             provider: playwright({ contextOptions: { viewport: { width: 1440, height: 900 } } }),
             instances: [{ browser: "chromium" }],
+            commands: { emulateMedia },
           },
         },
       },

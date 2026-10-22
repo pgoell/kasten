@@ -63,6 +63,7 @@ export function usePaneCommands({
   setNotice,
   paths,
   focusedNote,
+  sheetGraph,
 }: {
   pane: Pick<
     PaneOf,
@@ -89,6 +90,8 @@ export function usePaneCommands({
   paths: string[] | undefined;
   /** The note the focused pane holds, and whether a save of one is in the air. */
   focusedNote: RefObject<{ path: string | undefined; isWriting: (note: string) => boolean }>;
+  /** On a phone the local graph is a sheet over the window, not a pane beside the note. */
+  sheetGraph?: (note: string) => void;
 }) {
   const { moveTo, focusToward, swapToward } = moves;
   const queryClient = useQueryClient();
@@ -268,9 +271,14 @@ export function usePaneCommands({
       // Beside the note, so nothing is unmounted and nothing needs saving
       // first, the way `openBook` needs none. A link typed and not yet saved is
       // drawn once the autosave lands.
+      // On a phone there is no room beside the note, so the same graph comes up as a sheet.
       openLocalGraph: () => {
         if (pane.path === undefined) return;
         const note = pane.path;
+        if (sheetGraph) {
+          sheetGraph(note);
+          return;
+        }
         moveTo((previous) => openGraphBeside(previous, note));
       },
       // Five rows for one helper, because a leader binding names a command that
@@ -462,6 +470,7 @@ export function usePaneCommands({
       queryClient,
       setNotice,
       food,
+      sheetGraph,
     ],
   );
 

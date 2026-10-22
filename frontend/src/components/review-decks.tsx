@@ -4,6 +4,7 @@ import { type AnkiImport, fetchCards, fetchNote, importAnki, importAnkiLink } fr
 import { readClock } from "@/lib/clock";
 import { whenKeysUp } from "@/lib/last-input";
 import { type Deck, deckNotes, decksFrom } from "@/lib/review";
+import { useEntrance } from "@/lib/stagger";
 import { useReviewLimits } from "@/lib/use-review-limits";
 
 /**
@@ -173,6 +174,11 @@ export function ReviewDecks({ onPick, onParked, archive = false }: ReviewDecksPr
       deck.whole ||
       ancestorsOf(deck.name).every((above) => !parents.has(above) || unfolded.has(above)),
   );
+  // A deck's row is keyed by its note when the deck is one whole note, and by its
+  // name otherwise, which is what each is unique by. Nothing staggers in while the
+  // notes are still arriving, so the first list to be complete is the one that does.
+  const keyOf = (deck: Deck) => (deck.whole ? (deck.notes[0] ?? deck.name) : deck.name);
+  const entering = useEntrance(isPending ? [] : shown.map(keyOf));
 
   return (
     <div className="flex h-full flex-col bg-k-bg font-mono text-k-ink">
@@ -314,8 +320,12 @@ export function ReviewDecks({ onPick, onParked, archive = false }: ReviewDecksPr
             which is what each of the two is unique by: one tag is one deck
             however many notes carry it. */}
         <ul className="space-y-2">
-          {shown.map((deck) => (
-            <li key={deck.whole ? deck.notes[0] : deck.name} className="flex items-center gap-1">
+          {shown.map((deck, index) => (
+            <li
+              key={keyOf(deck)}
+              className={`flex items-center gap-1 ${entering(keyOf(deck)) ? "k-enter" : ""}`}
+              style={entering(keyOf(deck)) ? ({ "--i": index } as React.CSSProperties) : undefined}
+            >
               {/* Beside the row and not inside it: a button in a button is no
                   valid page, and a parent with nothing to offer is a disabled
                   row that still has to fold. */}

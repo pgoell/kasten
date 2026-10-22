@@ -3,6 +3,7 @@ import { TodoHints } from "@/components/todo-hints";
 import { TodoMore } from "@/components/todo-more";
 import { TodoRow } from "@/components/todo-row";
 import type { SearchHit, TodoHit } from "@/lib/api";
+import { useEntrance } from "@/lib/stagger";
 import { cycleLine, parseTodo, STATE_SYMBOL } from "@/lib/todo";
 import { lineSuggestions } from "@/lib/todo-suggest";
 import { type Row, type RowFacts, rowKey } from "@/lib/use-todo-rows";
@@ -61,6 +62,11 @@ export function TodoList(p: {
    * one tap, and must not write to a todo that has since taken the line.
    */
   const [more, setMore] = useState<string | null>(null);
+  // The rows of the first list to arrive stagger in, and a row added later
+  // appears at once. `place` is each row's index down the whole list.
+  const keys = groups.flatMap((group) => group.rows.map((row) => rowKey(row.hit)));
+  const entering = useEntrance(keys);
+  const place = new Map(keys.map((key, index) => [key, index]));
 
   return (
     /* A list that moves under the finger has moved the armed row with it. */
@@ -142,6 +148,7 @@ export function TodoList(p: {
                     coarse={coarse}
                     indent={indent}
                     onClick={() => onRow(hit)}
+                    enter={entering(key) ? place.get(key) : undefined}
                   />
                 );
               }
@@ -174,6 +181,7 @@ export function TodoList(p: {
                     setMore(opened ? null : arming);
                   }}
                   actions={actions(hit)}
+                  enter={entering(key) ? place.get(key) : undefined}
                 >
                   <button
                     type="button"

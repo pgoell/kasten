@@ -8,6 +8,7 @@ import { createRoot } from "react-dom/client";
 import { forgetSpentReloads, RouteError } from "./lib/chunk-reload";
 import { start as startOutbox } from "./lib/outbox";
 import "./lib/service-worker";
+import { startPress } from "@/lib/press";
 import { startTheme } from "@/lib/theme";
 import { routeTree } from "./routeTree.gen";
 import "./styles/app.css";
@@ -51,6 +52,9 @@ startOutbox();
 // The early script in public/theme.js has set data-theme already. This adds the
 // browser bar's colour and the listeners for the system and other tabs.
 startTheme();
+
+// Press feedback is one listener on the document, so it starts once, here.
+startPress();
 
 createRoot(rootElement).render(
   <StrictMode>

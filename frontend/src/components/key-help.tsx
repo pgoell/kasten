@@ -118,10 +118,10 @@ function Table({ title, keys }: Group) {
   return (
     <section className="min-w-0">
       <h3 className={`${LABEL} mb-1`}>{title}</h3>
-      <dl className="grid grid-cols-[auto_1fr] gap-x-3 text-[13px] leading-snug">
+      <dl className="grid grid-cols-[auto_1fr] gap-x-3 text-k-13">
         {keys.map(({ key, label }) => (
           <div key={key} className="contents">
-            <dt className="whitespace-nowrap text-k-accent">{key}</dt>
+            <dt className="whitespace-nowrap tracking-k-kbd text-k-accent">{key}</dt>
             <dd className="text-k-muted">{label}</dd>
           </div>
         ))}

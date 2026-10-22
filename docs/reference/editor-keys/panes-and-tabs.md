@@ -113,7 +113,11 @@ reads `Ada Lovelace`. The graph of the whole vault reads `graph view`, the
 graph around a note reads `graph of` and the note's name, a note's history
 reads `history of` and the note's name, and the review reads
 `review`. More tabs than the window is wide scroll
-sideways, and the strip keeps the tab on screen in view.
+sideways, and the strip keeps the tab on screen in view. A 2 px accent line
+under the active tab glides to the next one on a switch. The strip stays at the
+top, see-through over the page, with one hairline under it. A pane split off
+slides in from its side and fades in, from below when the panes are stacked or
+on a phone.
 
 `<leader>q` walks back out of all of this, one press at a time. On a pane
 holding a note it writes the note and empties the pane, and it takes a terminal
@@ -157,7 +161,10 @@ it. How a restore goes, and when kasten refuses one, is in
 was there, the way `<leader>gt` puts the todo list there. `<leader>gl` draws the
 graph around the open note in a pane beside it, one edge out; a second press
 moves to that pane rather than drawing a second one. Pressed with no note open,
-`<leader>gl` does nothing.
+`<leader>gl` does nothing. On a phone (a narrow screen and a finger) it opens
+the same graph in a sheet from the foot of the screen instead of a pane: drag
+the grabber or the header down, tap outside it or press `Escape` to close it.
+Picking a note in it closes the sheet and opens the note.
 
 Each note is a dot, larger the more edges it has, coloured by its `type` from
 the graph's tag slots in [the design tokens](/reference/design-tokens.md):

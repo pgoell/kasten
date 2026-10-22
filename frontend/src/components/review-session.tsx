@@ -283,7 +283,8 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
           here: a card taller than the pane would be pushed past the top of the
           scroll, where nothing can reach it. */}
       <div
-        className={`min-h-0 flex-1 overflow-auto px-4 py-6 text-[15px] ${center ? "flex flex-col" : ""}`}
+        // A phone reads the question as a title, so it is set at 28 px there.
+        className={`min-h-0 flex-1 overflow-auto px-4 py-6 text-[15px] max-md:text-[28px] max-md:leading-[1.15] max-md:tracking-[var(--k-track-title)] ${center ? "flex flex-col" : ""}`}
       >
         {texts === null && failed === null && <p className="text-k-muted">Reading the deck…</p>}
 

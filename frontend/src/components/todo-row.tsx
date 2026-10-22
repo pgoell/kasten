@@ -44,6 +44,7 @@ export function TodoRow({
   coarse,
   indent,
   onClick,
+  enter,
 }: {
   row: Row;
   facts: RowFacts;
@@ -53,6 +54,8 @@ export function TodoRow({
   coarse: boolean;
   indent: React.CSSProperties;
   onClick(): void;
+  /** Set on a row of the first load, the place it staggers in at. */
+  enter?: number;
 }) {
   const { hit, todo, under } = row;
   const key = rowKey(hit);
@@ -72,12 +75,15 @@ export function TodoRow({
       onClick={onClick}
       title={key}
       // The state button in front carries the indent on touch.
-      style={coarse ? { paddingLeft: 0 } : indent}
+      style={{
+        ...(coarse ? { paddingLeft: 0 } : indent),
+        ...(enter === undefined ? {} : ({ "--i": enter } as React.CSSProperties)),
+      }}
       // A blocked row is drawn muted rather than gathered under a
       // heading of its own: its state is written on the line, and
       // the date group is still where the work belongs. A waiting
       // row is held the same way, by a person rather than a todo.
-      className={`${ROW} flex gap-2 ${muted ? "text-k-muted" : "text-k-ink"} ${cursor ? CURSOR : ""} ${coarse ? "min-h-11 min-w-0 items-center" : ""}`}
+      className={`${ROW} flex gap-2 ${muted ? "text-k-muted" : "text-k-ink"} ${cursor ? CURSOR : ""} ${coarse ? "min-h-11 min-w-0 items-center" : ""} ${enter === undefined ? "" : "k-enter"}`}
     >
       {!coarse && <span className="shrink-0">{STATE_SYMBOL[todo.state]}</span>}
       {/* Leftmost of what a row carries beyond its state, so

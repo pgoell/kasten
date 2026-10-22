@@ -1,7 +1,15 @@
-import { type ReactNode, useEffect, useRef } from "react";
+import {
+  type ReactNode,
+  type RefObject,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { noteName } from "@/lib/note-path";
 import type { PaneRect } from "@/lib/pane-direction";
 import { isSplit, type Layout, type Pane, type PaneNode, panesOf, type Tab } from "@/lib/panes";
+import { SPRINGS, Spring } from "@/lib/spring";
 
 interface PaneLayoutProps {
   node: PaneNode;
@@ -20,7 +28,31 @@ interface PaneLayoutProps {
    * socket, and a video keeps playing where it was.
    */
   zoomed?: string | null;
+  /**
+   * The tab these panes belong to, so a tab drawn before is not taken for a new
+   * one when it comes back on screen.
+   */
+  tabId?: string;
+  /** Whether the window is narrow, when the panes are stacked and a new one comes in from below. */
+  narrow?: boolean;
 }
+
+interface LayoutNodeProps {
+  node: PaneNode;
+  focus: string;
+  onFocus: (id: string) => void;
+  children: PaneLayoutProps["children"];
+  divided: boolean;
+  zoomed: string | null;
+  /** The ids of the panes that arrived since this tab was last drawn. */
+  fresh: ReadonlySet<string>;
+  narrow: boolean;
+  /** The axis a leaf slides in along: the one its parent split divides by. */
+  enter: "x" | "y";
+}
+
+/** How far a new pane starts off its place, in px. */
+const SLIDE = 36;
 
 /**
  * One tab's panes, drawn from the tree that arranges them.
@@ -43,35 +75,66 @@ export function PaneLayout({
   children,
   divided,
   zoomed = null,
+  tabId = "",
+  narrow = false,
 }: PaneLayoutProps) {
+  // The ids each tab's panes had the last time that tab was drawn. A tab switch
+  // brings in panes that are all new to the screen, so this is kept per tab: a
+  // pane is new only when its tab has been drawn before and it was not there.
+  // Written after the commit, so a render React throws away changes nothing.
+  const drawn = useRef(new Map<string, ReadonlySet<string>>());
+  const ids = panesOf(node).map((pane) => pane.id);
+  const before = drawn.current.get(tabId);
+  const fresh = new Set(before === undefined ? [] : ids.filter((id) => !before.has(id)));
+  useLayoutEffect(() => {
+    drawn.current.set(tabId, new Set([...(drawn.current.get(tabId) ?? []), ...ids]));
+  });
+
+  return (
+    <LayoutNode
+      node={node}
+      focus={focus}
+      onFocus={onFocus}
+      divided={divided}
+      zoomed={zoomed}
+      fresh={fresh}
+      narrow={narrow}
+      enter={narrow ? "y" : "x"}
+    >
+      {children}
+    </LayoutNode>
+  );
+}
+
+function LayoutNode({
+  node,
+  focus,
+  onFocus,
+  children,
+  divided,
+  zoomed,
+  fresh,
+  narrow,
+  enter,
+}: LayoutNodeProps) {
   // `display: none` takes the box out of the layout altogether, so what is
   // left shares the whole window. A split holding none of the zoomed pane goes
   // with them, or its share of the room would be held open around nothing.
   const hidden = zoomed !== null && !panesOf(node).some((pane) => pane.id === zoomed);
 
   if (!isSplit(node)) {
-    const focused = node.id === focus;
     return (
-      // `onFocusCapture` rather than a click handler: clicking into a pane is
-      // one way to reach it, and `gf` following a link into another one is not
-      // a click at all. Both end with something inside the pane focused.
-      <div
-        data-pane={node.id}
-        onFocusCapture={() => onFocus(node.id)}
-        className={`min-h-0 min-w-0 flex-1 overflow-hidden bg-k-bg ${hidden ? "hidden" : ""} ${
-          // Only worth drawing once there is another pane it could have been.
-          // An undivided window has one pane and the border says nothing.
-          //
-          // A border rather than a ring or an outline: the editor fills the pane
-          // and paints its own background over both of those. The border is the
-          // one edge the children cannot reach, because they are laid out
-          // inside it. Every pane carries one, so taking the focus changes its
-          // colour and moves nothing.
-          divided ? (focused ? "border border-k-accent" : "border border-k-rule") : ""
-        }`}
+      <PaneLeaf
+        pane={node}
+        focused={node.id === focus}
+        hidden={hidden}
+        divided={divided}
+        onFocus={onFocus}
+        fresh={fresh.has(node.id)}
+        enter={enter}
       >
-        {children(node, focused)}
-      </div>
+        {children}
+      </PaneLeaf>
     );
   }
 
@@ -82,19 +145,99 @@ export function PaneLayout({
       }`}
     >
       {node.children.map((child) => (
-        <PaneLayout
+        <LayoutNode
           key={child.id}
           node={child}
           focus={focus}
           onFocus={onFocus}
           divided={divided}
           zoomed={zoomed}
+          fresh={fresh}
+          narrow={narrow}
+          enter={narrow || node.dir === "col" ? "y" : "x"}
         >
           {children}
-        </PaneLayout>
+        </LayoutNode>
       ))}
     </div>
   );
+}
+
+interface PaneLeafProps {
+  pane: Pane;
+  focused: boolean;
+  hidden: boolean;
+  divided: boolean;
+  onFocus: (id: string) => void;
+  children: PaneLayoutProps["children"];
+  fresh: boolean;
+  enter: "x" | "y";
+}
+
+function PaneLeaf({
+  pane,
+  focused,
+  hidden,
+  divided,
+  onFocus,
+  children,
+  fresh,
+  enter,
+}: PaneLeafProps) {
+  const element = useRef<HTMLDivElement>(null);
+  useSlideIn(element, fresh, enter);
+
+  return (
+    // `onFocusCapture` rather than a click handler: clicking into a pane is
+    // one way to reach it, and `gf` following a link into another one is not
+    // a click at all. Both end with something inside the pane focused.
+    <div
+      ref={element}
+      data-pane={pane.id}
+      onFocusCapture={() => onFocus(pane.id)}
+      className={`min-h-0 min-w-0 flex-1 overflow-hidden bg-k-bg ${hidden ? "hidden" : ""} ${
+        // Only worth drawing once there is another pane it could have been.
+        // An undivided window has one pane and the border says nothing.
+        //
+        // A border rather than a ring or an outline: the editor fills the pane
+        // and paints its own background over both of those. The border is the
+        // one edge the children cannot reach, because they are laid out
+        // inside it. Every pane carries one, so taking the focus changes its
+        // colour and moves nothing.
+        divided ? (focused ? "border border-k-accent" : "border border-k-rule") : ""
+      }`}
+    >
+      {children(pane, focused)}
+    </div>
+  );
+}
+
+/**
+ * A pane made after the layout first drew slides in from its side and fades in as it comes.
+ *
+ * Once, on mount, and only for a pane `PaneLayout` calls fresh: a pane that is
+ * merely moved or redrawn is not new. Transform and opacity alone, so the
+ * browser does the work and nothing is laid out again for each frame.
+ */
+function useSlideIn(element: RefObject<HTMLDivElement | null>, fresh: boolean, enter: "x" | "y") {
+  // biome-ignore lint/correctness/useExhaustiveDependencies: a pane slides in on mount only, so a later change to these is not a new pane.
+  useEffect(() => {
+    const el = element.current;
+    if (!fresh || el === null) return;
+    const spring = new Spring(SLIDE, (offset) => {
+      el.style.transform = enter === "x" ? `translateX(${offset}px)` : `translateY(${offset}px)`;
+      el.style.opacity = `${1 - offset / SLIDE}`;
+    });
+    // Set at the start before the spring runs, so the first frame is not the pane in its place.
+    spring.set(SLIDE);
+    void spring.to(0, SPRINGS.split).then((done) => {
+      // Cleared rather than left at zero, so the pane is back to no transform at all.
+      if (!done) return;
+      el.style.transform = "";
+      el.style.opacity = "";
+    });
+    return () => spring.stop();
+  }, []);
 }
 
 /**
@@ -169,8 +312,41 @@ interface TabStripProps {
  */
 export function TabStrip({ layout, onSelect }: TabStripProps) {
   const strip = useRef<HTMLDivElement>(null);
+  const bar = useRef<HTMLSpanElement>(null);
   const { active } = layout;
   const count = layout.tabs.length;
+
+  // The bar's left edge and width are springs, so it glides from one tab to the
+  // next. Painted as a transform, because left and width would lay the strip out
+  // on every frame of the glide.
+  const [motion] = useState(() => {
+    const paint = () => {
+      if (bar.current === null) return;
+      bar.current.style.transform = `translateX(${motion.x.value}px) scaleX(${motion.width.value})`;
+    };
+    return { x: new Spring(0, paint), width: new Spring(0, paint) };
+  });
+  // Whether the bar has been drawn since it last appeared, so its first place is
+  // a jump and not a glide in from the left edge.
+  const placed = useRef(false);
+
+  // Follows the active tab and the count, for the reason the scroll below does.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: both are the trigger, and neither is read.
+  useLayoutEffect(() => {
+    const tab = strip.current?.querySelectorAll<HTMLElement>('[role="tab"]')[active];
+    if (tab === undefined) {
+      placed.current = false;
+      return;
+    }
+    if (placed.current) {
+      void motion.x.to(tab.offsetLeft, SPRINGS.tab);
+      void motion.width.to(tab.offsetWidth, SPRINGS.tab);
+    } else {
+      motion.x.set(tab.offsetLeft);
+      motion.width.set(tab.offsetWidth);
+    }
+    placed.current = true;
+  }, [active, count]);
 
   // The count as well as the index: closing a tab to the left of the active one
   // moves it without changing which tab it is.
@@ -188,8 +364,10 @@ export function TabStrip({ layout, onSelect }: TabStripProps) {
       ref={strip}
       role="tablist"
       // The scrollbar is left out: it would take a row of its own on a desktop
-      // to say what the cut-off tab at the edge already says.
-      className="flex shrink-0 gap-px overflow-x-auto bg-k-rule font-mono text-[11px] [scrollbar-width:none]"
+      // to say what the cut-off tab at the edge already says. The strip is glass
+      // and stays put, so the page scrolls under it, and the one hairline is
+      // the only rule it draws.
+      className="k-glass k-hairline sticky top-0 z-10 flex shrink-0 overflow-x-auto font-mono text-[11px] [scrollbar-width:none]"
     >
       {layout.tabs.map((tab, index) => {
         const selected = index === active;
@@ -203,13 +381,20 @@ export function TabStrip({ layout, onSelect }: TabStripProps) {
             // position: the tenth tab is reached with `0`.
             onClick={() => onSelect(index)}
             className={`shrink-0 px-3 py-1 whitespace-nowrap pointer-coarse:min-h-11 ${
-              selected ? "bg-k-bg text-k-ink" : "bg-k-paper text-k-muted hover:bg-k-surface"
+              selected ? "text-k-ink" : "text-k-muted hover:bg-k-surface"
             }`}
           >
             <span className="text-k-accent">{(index + 1) % 10}</span> {tabLabel(tab)}
           </button>
         );
       })}
+      {/* Inside the strip so it scrolls with the tabs. The strip is already
+          positioned (it is sticky), which is what an absolute child needs. */}
+      <span
+        ref={bar}
+        aria-hidden="true"
+        className="pointer-events-none absolute bottom-0 left-0 h-0.5 w-px origin-left bg-k-accent"
+      />
     </div>
   );
 }

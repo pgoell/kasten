@@ -58,6 +58,8 @@
   --k-leading-title: 1.1;
   --k-leading-heading: 1.1;
   --k-leading-ui: 1.5;
+  /* The 46 and 64 px sizes sit tighter than the titles under them. */
+  --k-leading-display: 1.04;
   --k-leading-reading: 1.6;
 
   --k-space-4: 4px;
@@ -95,6 +97,7 @@
 
   /* Large serif titles sit tighter than the text they head, small labels
      open a little, and a kbd glyph opens more than either. */
+  --k-track-display: -0.018em;
   --k-track-title: -0.017em;
   --k-track-heading: -0.016em;
   --k-track-body: 0em;

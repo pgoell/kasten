@@ -10,7 +10,7 @@ function indent(depth: number) {
 
 // 44px under a finger, which is the folder toggle as well: the row is the toggle.
 const ROW =
-  "flex w-full items-center gap-1 rounded-sm py-[3px] pr-2 text-left text-[13px] pointer-coarse:min-h-11";
+  "k-row flex w-full items-center gap-1 rounded-sm py-[3px] pr-2 text-left text-[13px] pointer-coarse:min-h-11";
 
 /**
  * The keyboard cursor, drawn the way vim draws its own.

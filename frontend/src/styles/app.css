@@ -49,6 +49,39 @@
   --color-tg-9: var(--tg-9);
   --color-tg-10: var(--tg-10);
   --color-tg-none: var(--tg-none);
+
+  /* Each size carries the leading and tracking it is set with, so a component
+     names one class and gets the whole face. The 13 px and 15 px sizes sit on
+     the UI leading; the larger ones take their own. */
+  --text-k-12: var(--k-text-12);
+  --text-k-12--line-height: var(--k-leading-ui);
+  --text-k-12--letter-spacing: var(--k-track-label);
+  --text-k-13: var(--k-text-13);
+  --text-k-13--line-height: var(--k-leading-ui);
+  --text-k-13--letter-spacing: var(--k-track-label);
+  --text-k-15: var(--k-text-15);
+  --text-k-15--line-height: var(--k-leading-ui);
+  --text-k-15--letter-spacing: var(--k-track-label);
+  --text-k-19: var(--k-text-19);
+  --text-k-19--line-height: var(--k-leading-reading);
+  --text-k-19--letter-spacing: var(--k-track-body);
+  --text-k-23: var(--k-text-23);
+  --text-k-23--line-height: var(--k-leading-heading);
+  --text-k-23--letter-spacing: var(--k-track-heading);
+  --text-k-27: var(--k-text-27);
+  --text-k-27--line-height: var(--k-leading-title);
+  --text-k-27--letter-spacing: var(--k-track-title);
+  --text-k-36: var(--k-text-36);
+  --text-k-36--line-height: var(--k-leading-title);
+  --text-k-36--letter-spacing: var(--k-track-title);
+  --text-k-46: var(--k-text-46);
+  --text-k-46--line-height: var(--k-leading-display);
+  --text-k-46--letter-spacing: var(--k-track-display);
+  --text-k-64: var(--k-text-64);
+  --text-k-64--line-height: var(--k-leading-display);
+  --text-k-64--letter-spacing: var(--k-track-display);
+  --tracking-k-kbd: var(--k-track-kbd);
+  --tracking-k-label: var(--k-track-label);
 }
 
 @theme {
@@ -359,4 +392,116 @@ body {
    a block, which `text-align` cannot centre. */
 .review-center .cm-audio {
   margin-inline: auto;
+}
+
+/* A control gives under the finger and comes back on the same curve it is
+   drawn with. The transition is set here, on every control, so a press has its
+   own timing whatever component draws the control. In the base layer, since an
+   unlayered rule outranks every Tailwind utility whatever its specificity, and
+   a transition a component writes itself has to win. */
+@layer base {
+  :where(button, [role=button], [role=tab], a[href], summary) {
+    transition: transform var(--k-press-out) var(--k-ease-out);
+  }
+}
+
+/* The give itself. It goes in quickly (100 ms) and comes back more slowly
+   (160 ms), since a press should answer at once and let go gently. */
+[data-pressed]:not(.k-row) {
+  transform: scale(var(--k-press-scale));
+  transition-duration: var(--k-press-in);
+}
+
+/* A full-width row scaled down pulls its edges in and looks broken, so a row
+   answers with a tint instead. */
+.k-row[data-pressed] {
+  background-color: var(--k-surface);
+}
+
+/* A touch on a control is not held back while the browser rules out a double
+   tap, the wait that makes a phone's tap feel late. The sheet's drag handle
+   names `touch-action: none` itself, and the unlayered rule below outranks this
+   base one, so a drag on the handle is still a drag. */
+@layer base {
+  button,
+  [role=button],
+  [role=tab],
+  a[href],
+  summary,
+  label,
+  input,
+  select,
+  textarea {
+    touch-action: manipulation;
+  }
+}
+
+[data-sheet-drag] {
+  touch-action: none;
+}
+
+/* Glass floats over the page and lets the page show through, blurred, so what
+   it covers still reads as there. It is kept to the tab strip: sheets, panels
+   and cards stay solid, as a glass card would be hard to read on. */
+@utility k-glass {
+  background-color: color-mix(in srgb, var(--k-bg) 84%, transparent);
+  backdrop-filter: blur(18px) saturate(1.4);
+  -webkit-backdrop-filter: blur(18px) saturate(1.4);
+}
+
+/* The one rule the strip draws. A utility rather than `border-b`, so the
+   contrast query below can redraw it without fighting a border class. */
+@utility k-hairline {
+  border-bottom: 1px solid var(--k-rule);
+}
+
+/* Someone who asked for less transparency gets the solid colour the glass was
+   standing in for, and no blur. */
+@media (prefers-reduced-transparency: reduce) {
+  .k-glass {
+    background-color: var(--k-bg);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+
+/* High contrast takes the glass away as well, and draws the strip's edge in ink
+   rather than the faint rule colour, so the edge is still there to see. */
+@media (prefers-contrast: more) {
+  .k-glass {
+    background-color: var(--k-bg);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .k-hairline {
+    border-bottom-color: var(--k-ink);
+  }
+}
+
+/* A list's rows arrive one after another. `--i` is the row's index, set inline,
+   and the delay stops at the sixth so a long list does not keep its foot
+   waiting. Only opacity and transform move, so nothing reflows as a row lands. */
+.k-enter {
+  animation: k-enter 240ms var(--k-ease-out) both;
+  animation-delay: calc(min(var(--i, 0), var(--k-stagger-cap)) * var(--k-stagger));
+}
+
+@keyframes k-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+/* Motion that is only decoration goes: the press gives no scale, and a list
+   simply appears rather than arriving in turn. */
+@media (prefers-reduced-motion: reduce) {
+  [data-pressed]:not(.k-row) {
+    transform: none;
+  }
+
+  .k-enter {
+    animation: none;
+  }
 }

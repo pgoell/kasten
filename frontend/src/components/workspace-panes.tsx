@@ -111,6 +111,8 @@ export function WorkspacePanes({
         <PaneLayout
           node={tab.root}
           focus={tab.focus}
+          tabId={tab.id}
+          narrow={narrow}
           divided={tabPanes(layout).length > 1}
           // The focused pane is the one drawn alone, always: every key
           // that moves the focus turns the zoom off on its way past.

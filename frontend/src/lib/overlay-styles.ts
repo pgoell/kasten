@@ -137,7 +137,8 @@ export const PANE = "min-w-0 flex-1 border-l border-k-rule text-[12px]";
 export const PANE_MESSAGE = "px-3 py-2 text-k-muted";
 
 /** One row of a list, bar the colours that say whether it is highlighted. */
-export const ROW = "w-full cursor-pointer px-3 py-[3px] text-left text-[13px]";
+// `k-row` takes a press as a tint rather than a shrink; see `app.css`.
+export const ROW = "k-row w-full cursor-pointer px-3 py-[3px] text-left text-[13px]";
 
 /**
  * The height a finger needs, for a row or a button that is pressed.

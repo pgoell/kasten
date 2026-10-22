@@ -12,6 +12,7 @@ export function TodoMore({
   onClose,
   actions,
   children,
+  enter,
 }: {
   name: string;
   opened: boolean;
@@ -19,9 +20,14 @@ export function TodoMore({
   onClose: () => void;
   actions: [string, () => void][];
   children: ReactNode;
+  /** Set on a row of the first load, the place it staggers in at. */
+  enter?: number;
 }) {
   return (
-    <div>
+    <div
+      className={enter === undefined ? undefined : "k-enter"}
+      style={enter === undefined ? undefined : ({ "--i": enter } as React.CSSProperties)}
+    >
       <div className="flex">
         {children}
         <button
