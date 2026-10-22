@@ -1,7 +1,14 @@
-/** The light and dark theme, set on `<html>` as `data-theme`. */
+/**
+ * The light and dark theme, set on `<html>` as `data-theme`, and the accent
+ * palette, set as `data-palette`.
+ */
 
 export const THEME_KEY = "kasten.theme";
 export type Theme = "light" | "dark";
+
+export const PALETTE_KEY = "kasten.palette";
+export const PALETTES = ["poel", "russet", "peach", "pansy"] as const;
+export type Palette = (typeof PALETTES)[number];
 
 const DARK = "(prefers-color-scheme: dark)";
 const REDUCED = "(prefers-reduced-motion: reduce)";
@@ -14,26 +21,51 @@ const REDUCED = "(prefers-reduced-motion: reduce)";
  */
 const listeners = new Set<() => void>();
 
-/** A choice the browser refused to store, which holds until the page goes. */
-let unstored: string | null = null;
+/** Choices the browser refused to store, by key, which hold until the page goes. */
+const unstored = new Map<string, string>();
 
 /**
  * A browser with site data blocked throws a `SecurityError` on any touch of
  * `localStorage`. That reads as no choice made, so the system decides.
  */
-function stored(): string | null {
-  if (unstored !== null) return unstored;
+function stored(key: string): string | null {
+  const held = unstored.get(key);
+  if (held !== undefined) return held;
   try {
-    return localStorage.getItem(THEME_KEY);
+    return localStorage.getItem(key);
   } catch (error) {
     if (error instanceof DOMException) return null;
     throw error;
   }
 }
 
+/** Keeps a choice, or holds it for the page when the browser refuses to store it. */
+function keep(key: string, value: string): void {
+  try {
+    localStorage.setItem(key, value);
+    unstored.delete(key);
+  } catch (error) {
+    // Blocked, or full. The choice still has to do what it was asked for.
+    if (!(error instanceof DOMException)) throw error;
+    unstored.set(key, value);
+  }
+}
+
+/**
+ * Runs `update` as a cross-fade where the browser can, and at once for a reader
+ * who asked for no motion.
+ */
+function show(update: () => void): void {
+  if (document.startViewTransition && !matchMedia(REDUCED).matches) {
+    document.startViewTransition(update);
+  } else {
+    update();
+  }
+}
+
 /** The choice made by hand, or null when none was (a stray value counts as none). */
 function chosen(): Theme | null {
-  const value = stored();
+  const value = stored(THEME_KEY);
   return value === "light" || value === "dark" ? value : null;
 }
 
@@ -42,13 +74,20 @@ export function currentTheme(): Theme {
   return chosen() ?? (matchMedia(DARK).matches ? "dark" : "light");
 }
 
+/** The palette on screen: the one picked, or poel. A stray stored id counts as none. */
+export function currentPalette(): Palette {
+  const value = stored(PALETTE_KEY);
+  return PALETTES.find((id) => id === value) ?? "poel";
+}
+
 /**
- * Sets `data-theme`, then the browser bar's colour to the page colour, so the
- * bar matches whichever theme is showing.
+ * Sets `data-theme` and `data-palette`, then the browser bar's colour to the
+ * page colour, so the bar matches whichever theme is showing.
  */
 export function applyTheme(): void {
   const root = document.documentElement;
   root.dataset.theme = currentTheme();
+  root.dataset.palette = currentPalette();
   const page = getComputedStyle(root).getPropertyValue("--k-bg").trim();
   const bar = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
   if (bar && page) bar.content = page;
@@ -60,20 +99,14 @@ export function applyTheme(): void {
  * where the browser can, and is instant for a reader who asked for no motion.
  */
 export function toggleTheme(): void {
-  const next: Theme = currentTheme() === "dark" ? "light" : "dark";
-  try {
-    localStorage.setItem(THEME_KEY, next);
-    unstored = null;
-  } catch (error) {
-    // Blocked, or full. The toggle still has to do what it was asked for.
-    if (!(error instanceof DOMException)) throw error;
-    unstored = next;
-  }
-  if (document.startViewTransition && !matchMedia(REDUCED).matches) {
-    document.startViewTransition(applyTheme);
-  } else {
-    applyTheme();
-  }
+  keep(THEME_KEY, currentTheme() === "dark" ? "light" : "dark");
+  show(applyTheme);
+}
+
+/** Picks an accent palette and keeps it across a reload, cross-fading as the toggle does. */
+export function pickPalette(id: Palette): void {
+  keep(PALETTE_KEY, id);
+  show(applyTheme);
 }
 
 /** Calls `listener` on every switch, from this tab or another. */
@@ -94,6 +127,6 @@ export function startTheme(): void {
     if (chosen() === null) applyTheme();
   });
   window.addEventListener("storage", (event) => {
-    if (event.key === THEME_KEY) applyTheme();
+    if (event.key === THEME_KEY || event.key === PALETTE_KEY) applyTheme();
   });
 }

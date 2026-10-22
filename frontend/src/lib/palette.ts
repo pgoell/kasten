@@ -11,7 +11,7 @@ import { LEADER, spelled, TAB_KEYS } from "@/lib/leader-keys";
 import { openFoodSearch } from "@/lib/log-card";
 import { DEFAULT_CONFIG, type LogKind, tapLine } from "@/lib/log-kinds";
 import { logDrinkInView } from "@/lib/log-write";
-import { toggleTheme } from "@/lib/theme";
+import { pickPalette, toggleTheme } from "@/lib/theme";
 import { toggleVim } from "@/lib/vim-setting";
 
 /**
@@ -186,6 +186,10 @@ export function paletteEntries(
     },
     { label: "Toggle vim keys", run: toggleVim },
     { label: "Toggle light and dark mode", run: toggleTheme },
+    { label: "Accent palette: Vandar Poel's blue", run: () => pickPalette("poel") },
+    { label: "Accent palette: Hay's russet", run: () => pickPalette("russet") },
+    { label: "Accent palette: Peach red", run: () => pickPalette("peach") },
+    { label: "Accent palette: Pansy purple", run: () => pickPalette("pansy") },
   ];
   if (view === null) return routed;
 

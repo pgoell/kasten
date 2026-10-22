@@ -2,6 +2,16 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { EditorCommands } from "@/lib/key-bindings";
 import { heldModifier, leaderAction, leaderPrefix } from "@/lib/leader-keys";
 import { encodePath } from "@/lib/note-path";
+import { currentPalette, onThemeChange } from "@/lib/theme";
+
+/**
+ * Tells the page which accent palette is on, so a pick reaches it with no
+ * reload. The target is `*` because the frame's origin is opaque (it has no
+ * `allow-same-origin`), so no origin would match.
+ */
+function postPalette(frame: HTMLIFrameElement | null) {
+  frame?.contentWindow?.postMessage({ kasten: "palette", palette: currentPalette() }, "*");
+}
 
 interface HtmlPaneProps {
   /** Vault-relative path of the page to show. */
@@ -46,6 +56,8 @@ export function HtmlPane({ path, commands, focusSignal, onFocus }: HtmlPaneProps
   useEffect(() => {
     if (focusSignal) panel.current?.focus();
   }, [focusSignal]);
+
+  useEffect(() => onThemeChange(() => postPalette(frame.current)), []);
 
   // A click into a frame moves the focus out of this document, which tells the
   // window it lost it and tells no element anything. By the time `blur` fires
@@ -106,6 +118,8 @@ export function HtmlPane({ path, commands, focusSignal, onFocus }: HtmlPaneProps
         // Encoded for the reason the image pane gives.
         src={`/api/html/${encodePath(path)}`}
         title={path}
+        // A page reads its palette once, as it loads, and a pick after that is posted.
+        onLoad={() => postPalette(frame.current)}
         // No `allow-same-origin`: with it and `allow-scripts` together a page
         // could lift its own sandbox off and run as kasten.
         sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox"
