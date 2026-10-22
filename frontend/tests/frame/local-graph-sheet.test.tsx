@@ -1,78 +1,32 @@
 /**
- * `Space g l` on a note opens its local graph. On a phone the graph is the
- * bottom sheet over the window (#798, S11); on a desktop it is a pane beside the
- * note when the pane is wide (I7), and the 540 px side sheet over the note when
- * the margin is not there (A9).
- *
- * The route is mounted over a router the way `theme-shots.test.tsx` mounts it,
- * with the api answered from a small vault here.
+ * `Space g l` on a desktop: the pane beside the note when the pane is wide (I2), and
+ * the 540 px side sheet over the note when the margin is not there (A9), with the
+ * sheet's own behaviour: its labels, focus, Esc, scrim and lists. The phone's graph
+ * is in `local-graph-phone.test.tsx`.
  */
 
-import "@fontsource-variable/newsreader/opsz.css";
-import "@fontsource-variable/instrument-sans/index.css";
-import "@fontsource-variable/jetbrains-mono/index.css";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { createMemoryHistory, createRouter, RouterProvider } from "@tanstack/react-router";
-import { fireEvent, waitFor } from "@testing-library/react";
+import { waitFor } from "@testing-library/react";
 import { act } from "react";
-import { createRoot } from "react-dom/client";
 import { page, userEvent } from "vitest/browser";
 import { fetchMentions } from "@/lib/api";
 import { fetchGraph } from "@/lib/graph-api";
-import { routeTree } from "@/routeTree.gen";
-import { COARSE, NARROW, stubMatchMedia } from "../match-media";
+import { stubMatchMedia } from "../match-media";
+import {
+  graphButton,
+  mountLesson,
+  pressSpaceGL,
+  readerOf,
+  registerLessonFixture,
+  sheet,
+} from "./local-graph-fixture";
 import { closeTree, leader, need, nextFrame, PATIENCE, visibleEditor } from "./reader-fixture";
-import "@/styles/app.css";
-
-const VIM_KEY = "kasten.vim";
-const FILES = ["Lesson.md", "Design Notes.md"];
-const LESSON = ["# Lesson", "", "A paragraph of the lesson.", "", "- [ ] write the tests"].join(
-  "\n",
-);
-
-/** The note, three notes it links to (two with tags), one backlink and one unwritten link. */
-const GRAPH = {
-  nodes: [
-    { path: "Lesson.md", name: "Lesson", type: "Concept", tags: ["reading"], missing: false },
-    {
-      path: "Design Notes.md",
-      name: "Design Notes",
-      type: "Concept",
-      tags: ["design"],
-      missing: false,
-    },
-    { path: "Tokens.md", name: "Tokens", type: "Reference", tags: ["tokens"], missing: false },
-    { path: "Redesign.md", name: "Redesign", type: "Project", tags: ["design"], missing: false },
-    { path: "Ghost.md", name: "Ghost", type: null, tags: [], missing: true },
-    { path: "Today.md", name: "Today", type: null, tags: [], missing: false },
-  ],
-  edges: [
-    { source: "Lesson.md", target: "Design Notes.md", relation: null, line: 5 },
-    { source: "Lesson.md", target: "Tokens.md", relation: null, line: 6 },
-    { source: "Lesson.md", target: "Redesign.md", relation: null, line: 7 },
-    { source: "Lesson.md", target: "Ghost.md", relation: null, line: 8 },
-    { source: "Today.md", target: "Lesson.md", relation: null, line: 3 },
-  ],
-  columns: [],
-  rows: [],
-  truncated: false,
-};
-
-/** One unlinked mention of the note, in another note. */
-const MENTIONS = [
-  { path: "Design Notes.md", line: 3, text: "about lesson", start: 6, end: 12, name: "Lesson" },
-];
 
 vi.mock("@/lib/api", async (importOriginal) => {
   const real = await importOriginal<typeof import("@/lib/api")>();
   return {
     ...real,
-    fetchFiles: async () => FILES,
-    fetchNote: async (path: string) => {
-      if (path === "Lesson.md") return LESSON;
-      if (path === "Design Notes.md") return "# Design Notes\n";
-      throw new real.NoteMissing(path);
-    },
+    fetchFiles: vi.fn(),
+    fetchNote: vi.fn(),
     saveNote: async (path: string, content: string) => ({ path, content }),
     fetchImages: async () => [],
     fetchHtml: async () => [],
@@ -82,7 +36,7 @@ vi.mock("@/lib/api", async (importOriginal) => {
     fetchTerminals: async () => [],
     fetchVersion: async () => "0.8.0",
     fetchWeather: async () => [],
-    fetchMentions: vi.fn(async () => MENTIONS),
+    fetchMentions: vi.fn(),
   };
 });
 
@@ -93,123 +47,10 @@ vi.mock("@/lib/trash-api", async (original) => ({
 
 vi.mock("@/lib/graph-api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/graph-api")>()),
-  fetchGraph: vi.fn(async () => GRAPH),
+  fetchGraph: vi.fn(),
 }));
 
-/** A stream that never says anything, so the route opens no connection. */
-class SilentEventSource {
-  onopen: (() => void) | null = null;
-  onmessage: ((message: { data: string }) => void) | null = null;
-  close() {}
-}
-
-/** Mounts the route on Lesson.md with vim as asked, and waits for its text. */
-async function mountLesson(host: HTMLElement, vim: "on" | "off" = "on") {
-  localStorage.setItem(VIM_KEY, vim);
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  const router = createRouter({
-    routeTree,
-    context: { queryClient },
-    history: createMemoryHistory({ initialEntries: ["/?note=Lesson.md"] }),
-  });
-  await act(async () => {
-    await router.load();
-  });
-  const root = createRoot(host);
-  await act(async () => {
-    root.render(
-      <QueryClientProvider client={queryClient}>
-        <RouterProvider router={router} />
-      </QueryClientProvider>,
-    );
-  });
-  await waitFor(
-    () => expect(host.querySelector(".cm-content")?.textContent).toContain("paragraph"),
-    { timeout: 10_000 },
-  );
-  return root;
-}
-
-/** The leader sequence `Space g l`, pressed on the editor as a reader presses it. */
-function pressSpaceGL(host: HTMLElement) {
-  const editor = host.querySelector(".cm-content") as HTMLElement;
-  editor.focus();
-  for (const key of [" ", "g", "l"]) {
-    fireEvent.keyDown(editor, { key });
-    fireEvent.keyUp(editor, { key });
-  }
-}
-
-const sheet = () =>
-  document.querySelector<HTMLElement>("[role='dialog'][aria-label='Local graph']");
-
-/** The Graph button in the note's head, which the margin's width hides. */
-const graphButton = (host: HTMLElement) =>
-  need(host.querySelector<HTMLElement>("[data-head='graph']"), "graph button");
-
-/** The reader of the pane on screen, which the side sheet sits in. */
-const readerOf = (host: HTMLElement) =>
-  need(host.querySelector<HTMLElement>("[data-reader]"), "reader");
-
-beforeEach(() => {
-  vi.stubGlobal("EventSource", SilentEventSource);
-  vi.mocked(fetchGraph).mockClear();
-  vi.mocked(fetchMentions).mockClear();
-});
-
-afterEach(() => {
-  localStorage.clear();
-  vi.unstubAllGlobals();
-});
-
-it("on a phone, Space g l opens the local graph as a sheet and no pane", async () => {
-  await page.viewport(390, 844);
-  stubMatchMedia({ [NARROW]: true, [COARSE]: true });
-  const host = document.body.appendChild(document.createElement("div"));
-  host.className = "h-dvh bg-k-bg";
-  const root = await mountLesson(host);
-  try {
-    const tabsBefore = host.querySelectorAll("[role='tab']").length;
-
-    pressSpaceGL(host);
-
-    await waitFor(() => expect(sheet()).not.toBeNull(), { timeout: 5000 });
-    expect(host.querySelectorAll("[role='tab']").length).toBe(tabsBefore);
-    expect(host.textContent).not.toContain("graph of Lesson");
-  } finally {
-    await act(async () => root.unmount());
-    host.remove();
-  }
-});
-
-it("A12 on a phone a tap outside the graph sheet closes it, the sheet leaving downwards, and the focus is back on the note", async () => {
-  await page.viewport(390, 844);
-  stubMatchMedia({ [NARROW]: true, [COARSE]: true });
-  const host = document.body.appendChild(document.createElement("div"));
-  host.className = "h-dvh bg-k-bg";
-  const root = await mountLesson(host);
-  try {
-    pressSpaceGL(host);
-    await waitFor(() => expect(sheet()).not.toBeNull(), { timeout: 5000 });
-    const panel = sheet() as HTMLElement;
-
-    // Every transform the panel is given while it leaves, read as the spring writes them.
-    const offsets: string[] = [];
-    const watch = new MutationObserver(() => offsets.push(panel.style.transform));
-    watch.observe(panel, { attributes: true, attributeFilter: ["style"] });
-    (panel.previousElementSibling as HTMLElement).click();
-
-    await waitFor(() => expect(sheet()).toBeNull(), { timeout: 5000 });
-    watch.disconnect();
-    // The browser writes the value back as `translate3d(0px, Npx, 0px)`.
-    const moved = offsets.map((each) => /translate3d\(0px, ([0-9.]+)px, 0px\)/.exec(each)?.[1]);
-    expect(moved.some((px) => px !== undefined && Number(px) > 0)).toBe(true);
-    expect(document.activeElement).toBe(host.querySelector(".cm-content"));
-  } finally {
-    await act(async () => root.unmount());
-    host.remove();
-  }
-});
+registerLessonFixture();
 
 it("I2 in a wide pane Space g l opens the graph as a pane beside the note and no sheet", async () => {
   await page.viewport(1440, 900);
@@ -456,26 +297,6 @@ it("A5 in a split of two wide panes each margin draws its own note", async () =>
   }
 });
 
-it("A12 on a phone the Graph button opens the bottom sheet from the foot of the screen", async () => {
-  await page.viewport(390, 844);
-  stubMatchMedia({ [NARROW]: true, [COARSE]: true });
-  const host = document.body.appendChild(document.createElement("div"));
-  host.className = "h-dvh bg-k-bg";
-  const root = await mountLesson(host);
-  try {
-    visibleEditor(host).focus();
-    graphButton(host).click();
-    await waitFor(() => expect(sheet()).not.toBeNull(), PATIENCE);
-    const panel = sheet() as HTMLElement;
-
-    await expect.poll(() => Math.round(panel.getBoundingClientRect().bottom)).toBe(844);
-    expect(Math.round(panel.getBoundingClientRect().width)).toBe(390);
-  } finally {
-    await act(async () => root.unmount());
-    host.remove();
-  }
-});
-
 it("I8 a pane that grows past 1320 px with the side sheet open closes the sheet", async () => {
   await page.viewport(1440, 900);
   stubMatchMedia({});
@@ -492,6 +313,51 @@ it("I8 a pane that grows past 1320 px with the side sheet open closes the sheet"
     await waitFor(() => expect(sheet()).toBeNull(), PATIENCE);
     const margin = need(host.querySelector<HTMLElement>("[data-margin='links']"), "margin");
     expect(getComputedStyle(margin).display).not.toBe("none");
+  } finally {
+    await act(async () => root.unmount());
+    host.remove();
+  }
+});
+
+it("I7 the side sheet is a labelled dialog, Tab reaches the depth switch and the rows, and a letter typed in it never reaches the note", async () => {
+  await page.viewport(1440, 900);
+  stubMatchMedia({});
+  const host = document.body.appendChild(document.createElement("div"));
+  host.className = "h-dvh bg-k-bg";
+  const root = await mountLesson(host, "on");
+  try {
+    pressSpaceGL(host);
+    await waitFor(() => expect(sheet()).not.toBeNull(), PATIENCE);
+    const panel = sheet() as HTMLElement;
+    expect(panel.getAttribute("aria-label")).toBe("Local graph");
+    expect(panel.getAttribute("aria-modal")).toBe("true");
+    expect(document.activeElement).toBe(panel);
+
+    // The depth switch's first button, then its second, then the first row of Links.
+    const buttonNamed = (text: string) =>
+      need(
+        [...panel.querySelectorAll<HTMLElement>("button")].find(
+          (each) => each.textContent === text,
+        ),
+        `${text} button`,
+      );
+    await userEvent.tab();
+    expect(document.activeElement).toBe(buttonNamed("Direct"));
+    await userEvent.tab();
+    expect(document.activeElement).toBe(buttonNamed("Two steps"));
+    await userEvent.tab();
+    expect(document.activeElement).toBe(buttonNamed("Design Notes"));
+
+    // Letters typed on a button do nothing to the note under the sheet. In normal mode `x`
+    // would delete a character and `d` would start an operator, so the text would change.
+    const editor = need(host.querySelector<HTMLElement>(".cm-content"), "note editor");
+    const before = editor.textContent ?? "";
+    await userEvent.keyboard("x");
+    await userEvent.keyboard("d");
+    expect(editor.textContent).toBe(before);
+
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() => expect(sheet()).toBeNull(), PATIENCE);
   } finally {
     await act(async () => root.unmount());
     host.remove();
