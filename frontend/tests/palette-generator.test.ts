@@ -1,7 +1,12 @@
 /// <reference types="node" />
 
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { checks, css, type Measures, type Theme, table } from "../scripts/palettes";
+
+/** A file that is not there reads as empty, so a missing page fails its comparison and does not throw. */
+function read(file: string): string {
+  return existsSync(file) ? readFileSync(file, "utf8") : "";
+}
 
 const CSS_PATH = "src/styles/kasten-theme.css";
 const DOCS_PATH = "../docs/reference/accent-palettes.md";
@@ -63,11 +68,11 @@ const OK = {
 };
 
 test("the generator's css is the palette blocks in kasten-theme.css", () => {
-  expect(between(readFileSync(CSS_PATH, "utf8"), CSS_BEGIN, CSS_END)).toEqual(css());
+  expect(between(read(CSS_PATH), CSS_BEGIN, CSS_END)).toEqual(css());
 });
 
 test("the generator's table is the one in the docs", () => {
-  expect(between(readFileSync(DOCS_PATH, "utf8"), DOCS_BEGIN, DOCS_END)).toEqual(table());
+  expect(between(read(DOCS_PATH), DOCS_BEGIN, DOCS_END)).toEqual(table());
 });
 
 test("every palette meets the issue's bars, the issue's own misses named", () => {
