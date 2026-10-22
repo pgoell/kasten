@@ -119,6 +119,41 @@ describe("radialLayout", () => {
     expect(d?.y).toBeCloseTo(2 * (b?.y ?? NaN));
   });
 
+  it("A1 radialLayout puts a second step beside the note it hangs from", () => {
+    // Two ring-one notes, each with two notes of its own: a ring-one sector is half the circle.
+    const nodes = ["a.md", "p.md", "q.md", "p1.md", "p2.md", "q1.md", "q2.md"].map((path) =>
+      note(path),
+    );
+    const layout = radialLayout(
+      nodes,
+      [
+        edge("a.md", "p.md"),
+        edge("a.md", "q.md"),
+        edge("p.md", "p1.md"),
+        edge("p.md", "p2.md"),
+        edge("q.md", "q1.md"),
+        edge("q.md", "q2.md"),
+      ],
+      "a.md",
+    );
+    const angle = (path: string) => {
+      const point = layout.get(path);
+      return Math.atan2(point?.y ?? NaN, point?.x ?? NaN);
+    };
+    const sector = Math.PI;
+
+    for (const [parent, first, second] of [
+      ["p.md", "p1.md", "p2.md"],
+      ["q.md", "q1.md", "q2.md"],
+    ] as const) {
+      expect(Math.abs(angle(first) - angle(parent))).toBeLessThanOrEqual(sector / 2);
+      expect(Math.abs(angle(second) - angle(parent))).toBeLessThanOrEqual(sector / 2);
+      // Path order: one child on each side of the parent.
+      expect(angle(first)).toBeLessThan(angle(parent));
+      expect(angle(second)).toBeGreaterThan(angle(parent));
+    }
+  });
+
   it("A1 radialLayout spaces a ring evenly from the top", () => {
     const nodes = ["a.md", "b.md", "c.md", "d.md", "e.md"].map((path) => note(path));
     const layout = radialLayout(

@@ -5,9 +5,10 @@
  * rig is in `sheet-fixture.tsx`, which this file takes its shared pieces from.
  */
 
+import { useState } from "react";
 import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
-import { commands, page } from "vitest/browser";
+import { commands, page, userEvent } from "vitest/browser";
 import { Sheet } from "@/components/sheet";
 import { before, onClose, pointer, wait } from "./sheet-fixture";
 
@@ -16,6 +17,34 @@ const LABEL = "Side sheet";
 let host: HTMLDivElement;
 let box: HTMLDivElement;
 let root: Root;
+// An element outside the box, pressed in the focus-return tests. Removed after each test.
+let elsewhere: HTMLButtonElement | null = null;
+
+// Two side sheets, each in its own box, opened by a button in that box.
+function Pair() {
+  const [a, setA] = useState(false);
+  const [b, setB] = useState(false);
+  return (
+    <>
+      <div style={{ position: "absolute", left: 0, top: 0, width: 480, height: 700 }}>
+        <button type="button" onClick={() => setA(true)}>
+          Open A
+        </button>
+        <Sheet open={a} onClose={() => setA(false)} label="Sheet A" side>
+          <button type="button">In A</button>
+        </Sheet>
+      </div>
+      <div style={{ position: "absolute", left: 500, top: 0, width: 480, height: 700 }}>
+        <button type="button" onClick={() => setB(true)}>
+          Open B
+        </button>
+        <Sheet open={b} onClose={() => setB(false)} label="Sheet B" side>
+          <button type="button">In B</button>
+        </Sheet>
+      </div>
+    </>
+  );
+}
 
 function show(open: boolean) {
   flushSync(() =>
@@ -35,8 +64,18 @@ function show(open: boolean) {
   );
 }
 
+function sideNamed(label: string): HTMLElement | null {
+  return document.querySelector<HTMLElement>(`[role='dialog'][aria-label='${label}']`);
+}
+
 function sideOf(): HTMLElement | null {
-  return document.querySelector<HTMLElement>(`[role='dialog'][aria-label='${LABEL}']`);
+  return sideNamed(LABEL);
+}
+
+function buttonNamed(text: string): HTMLButtonElement {
+  return [...document.querySelectorAll("button")].find(
+    (one) => one.textContent === text,
+  ) as HTMLButtonElement;
 }
 
 beforeEach(async () => {
@@ -56,6 +95,8 @@ afterEach(async () => {
   flushSync(() => root.unmount());
   host.remove();
   before.remove();
+  elsewhere?.remove();
+  elsewhere = null;
   await commands.emulateMedia({});
 });
 
@@ -120,10 +161,13 @@ it("A10 a click on the scrim closes a side sheet", async () => {
   expect(panel.getBoundingClientRect().width).toBe(540);
   const scrim = panel.previousElementSibling as HTMLElement;
 
-  scrim.click();
+  // A real press on the part of the scrim the panel does not cover.
+  await userEvent.click(scrim, { position: { x: 20, y: 20 } });
 
   await expect.poll(() => onClose.mock.calls.length, { timeout: 3000 }).toBe(1);
   await expect.poll(() => sideOf(), { timeout: 3000 }).toBeNull();
+  await wait(300);
+  expect(onClose).toHaveBeenCalledTimes(1);
 });
 
 it("A8 under reduced motion a side sheet fades and does not slide", async () => {
@@ -170,6 +214,43 @@ it("A10 focus leaving a side sheet for an element outside closes it", async () =
 
   await expect.poll(() => onClose.mock.calls.length, { timeout: 3000 }).toBe(1);
   await expect.poll(() => sideOf(), { timeout: 3000 }).toBeNull();
+});
+
+it("B3 a press in another element closes a side sheet and leaves the focus where the press put it", async () => {
+  elsewhere = document.body.appendChild(document.createElement("button"));
+  elsewhere.type = "button";
+  elsewhere.textContent = "Elsewhere";
+  // Fixed in the corner, above the scrim, so a real press lands on it.
+  elsewhere.style.position = "fixed";
+  elsewhere.style.left = "10px";
+  elsewhere.style.top = "10px";
+  elsewhere.style.zIndex = "60";
+  // The opener: an Esc close would put the focus here, so a wrong return shows.
+  before.focus();
+  show(true);
+  await wait(400);
+
+  await userEvent.click(elsewhere);
+
+  await expect.poll(() => sideOf(), { timeout: 3000 }).toBeNull();
+  expect(onClose).toHaveBeenCalledTimes(1);
+  expect(document.activeElement).toBe(elsewhere);
+});
+
+it("B3 two side sheets: opening the second by its button closes the first and the second stays open with the focus", async () => {
+  flushSync(() => root.render(<Pair />));
+  await userEvent.click(buttonNamed("Open A"));
+  await wait(400);
+  expect(sideNamed("Sheet A")).not.toBeNull();
+
+  await userEvent.click(buttonNamed("Open B"));
+  await expect.poll(() => sideNamed("Sheet A"), { timeout: 3000 }).toBeNull();
+  // Past the first sheet's slide, where a focus return to its opener would land.
+  await wait(400);
+
+  const second = sideNamed("Sheet B") as HTMLElement;
+  expect(second).not.toBeNull();
+  expect(second.contains(document.activeElement)).toBe(true);
 });
 
 it("A10 a side sheet asked shut during its open slide leaves the DOM", async () => {

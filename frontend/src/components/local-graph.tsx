@@ -31,7 +31,7 @@ const DEPTHS = [
  * A list's row: a full-width button that takes the row press, a tint instead of the
  * button's scale (`k-row`), and a 44 px target under a finger.
  */
-const ROW = `k-margin-note k-row flex items-center ${INSET} truncate rounded-[var(--k-radius-4)] pointer-coarse:min-h-11 text-left text-k-15 text-k-ink`;
+const ROW = `k-margin-note k-row flex items-center ${INSET} rounded-[var(--k-radius-4)] pointer-coarse:min-h-11 text-left text-k-15 text-k-ink`;
 
 /**
  * The note's local graph and the three lists under it, for the right margin and
@@ -217,7 +217,7 @@ export function LocalGraph({ path, archive, onOpen, onFollow }: LocalGraphProps)
         )}
         {links.map((target) => (
           <button key={target} type="button" onClick={() => onOpen(target)} className={ROW}>
-            {names.get(target) ?? target}
+            <span className="min-w-0 truncate">{names.get(target) ?? target}</span>
           </button>
         ))}
       </section>
@@ -236,7 +236,7 @@ export function LocalGraph({ path, archive, onOpen, onFollow }: LocalGraphProps)
             onClick={() => onOpen(each.path, each.line)}
             className={ROW}
           >
-            {names.get(each.path) ?? each.path}
+            <span className="min-w-0 truncate">{names.get(each.path) ?? each.path}</span>
           </button>
         ))}
       </section>
@@ -256,7 +256,7 @@ export function LocalGraph({ path, archive, onOpen, onFollow }: LocalGraphProps)
             onClick={() => onOpen(mention.path, mention.line)}
             className={ROW}
           >
-            {noteName(mention.path)}
+            <span className="min-w-0 truncate">{noteName(mention.path)}</span>
           </button>
         ))}
       </section>

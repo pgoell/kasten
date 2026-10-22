@@ -238,6 +238,7 @@ export function NotePane({
                 a graph nobody can see is a query nobody needs. */}
             {wide && (
               <LocalGraph
+                key={shown.path}
                 path={shown.path}
                 archive={archive}
                 onOpen={(path, line) => void openInPane(path, line)}
@@ -255,6 +256,7 @@ export function NotePane({
           {/* The margin's own top padding, so the switch sits level with the breadcrumb. */}
           <div className="px-4 pt-6 pb-6">
             <LocalGraph
+              key={shown.path}
               path={shown.path}
               archive={archive}
               onOpen={(path, line) => {

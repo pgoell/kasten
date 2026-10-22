@@ -427,6 +427,7 @@ function Home() {
         {/* The sheet's paper runs to the screen's edges, so the graph and lists keep off them. */}
         <div className="px-4 pb-6">
           <LocalGraph
+            key={graphSheet.note}
             path={graphSheet.note}
             archive={archive}
             onOpen={(path, line) => {

@@ -248,7 +248,10 @@ export function Sheet({ open, onClose, label, side = false, header, children }: 
 
   useEffect(() => {
     closeFromOutside.current = () => {
-      if (!closing.current) dismiss(SPRINGS.sheetClose);
+      if (closing.current) return;
+      // The user has put the focus where they want it, so the close must not move it back.
+      returnTo.current = null;
+      dismiss(SPRINGS.sheetClose);
     };
   });
 
@@ -258,7 +261,9 @@ export function Sheet({ open, onClose, label, side = false, header, children }: 
   useEffect(() => {
     if (!side || !open) return;
     const press = (event: PointerEvent) => {
+      // The scrim is outside the panel but closes the sheet itself, with the focus returned.
       if (event.target instanceof Node && panel.current?.contains(event.target)) return;
+      if (event.target instanceof Node && scrim.current?.contains(event.target)) return;
       closeFromOutside.current();
     };
     document.addEventListener("pointerdown", press, true);

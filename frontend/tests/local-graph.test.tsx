@@ -52,7 +52,8 @@ function handlers(): GraphCanvasHandlers {
 }
 
 function tree(path: string, onOpen = vi.fn(), onFollow = vi.fn()): ReactElement {
-  return <LocalGraph path={path} archive={false} onOpen={onOpen} onFollow={onFollow} />;
+  // Keyed by the note, as the pane keys it, so another note starts on a fresh canvas.
+  return <LocalGraph key={path} path={path} archive={false} onOpen={onOpen} onFollow={onFollow} />;
 }
 
 function renderGraph(path = NOTE, onOpen = vi.fn(), onFollow = vi.fn()) {
@@ -139,12 +140,13 @@ describe("the local graph in the margin", () => {
     expect(onOpen).toHaveBeenCalledWith("borges.md");
   });
 
-  it("A5 another note redraws the same canvas around it", async () => {
+  it("A5 another note is drawn on a fresh canvas around itself", async () => {
     const { move } = renderGraph();
     await drawn();
 
     move("borges.md");
 
+    // The last note's canvas is destroyed and a new one is made for the new note.
     await waitFor(() =>
       expect(canvas.update).toHaveBeenLastCalledWith(
         BORGES_GRAPH.nodes,
@@ -152,9 +154,10 @@ describe("the local graph in the margin", () => {
         "borges.md",
       ),
     );
+    expect(drawGraph).toHaveBeenCalledTimes(2);
+    expect(canvas.destroy).toHaveBeenCalledTimes(1);
     // The last note's drawing is never redrawn around the new one.
     expect(canvas.update).not.toHaveBeenCalledWith(GRAPH.nodes, GRAPH.edges, "borges.md");
-    expect(drawGraph).toHaveBeenCalledTimes(1);
   });
 
   it("B2 another note never draws the last note's answer around it", async () => {
@@ -246,6 +249,18 @@ describe("the local graph in the margin", () => {
     for (const name of ["Other note", "Borges", "ref"]) {
       expect(screen.getByRole("button", { name }).classList.contains("k-row")).toBe(true);
     }
+  });
+
+  // jsdom has no layout, so the ellipsis is the `truncate` class's, read off the name's span.
+  it("B4 a long name in the lists ends in an ellipsis", async () => {
+    renderGraph();
+    await drawn();
+
+    const name = screen.getByRole("button", { name: "Other note" }).querySelector("span");
+    expect(name).not.toBeNull();
+    expect(name?.textContent).toBe("Other note");
+    expect(name?.className).toContain("min-w-0");
+    expect(name?.className).toContain("truncate");
   });
 
   it("L5 under a finger the depth buttons, the rows and the Graph button are 44 px targets", async () => {

@@ -320,8 +320,13 @@ describe("the reader layout of a note", () => {
     const start = css.indexOf("@media (pointer: coarse) {");
     expect(start).toBeGreaterThanOrEqual(0);
 
+    // The button keeps its size, so the row does not grow; its hit area is an ::after.
     const block = css.slice(start, css.indexOf("\n}", start));
-    expect(block).toMatch(/\.k-reader \.cm-note-graph\s*{\s*min-height:\s*44px;/);
+    expect(block).toMatch(/\.k-reader \.cm-note-graph\s*{\s*position:\s*relative;/);
+    expect(block).toMatch(
+      /\.k-reader \.cm-note-graph::after\s*{\s*content:\s*"";\s*position:\s*absolute;\s*inset:\s*-13px -8px;/,
+    );
+    expect(block).not.toContain("min-height");
   });
 
   it("every hover rule of the reader sits inside @media (hover: hover)", () => {

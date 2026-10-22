@@ -179,11 +179,18 @@
   }
 }
 
-/* A finger's target is 44 px, as the rows and the depth buttons are under
-   `pointer-coarse`. The Graph button is a text button, so it is the one that grows. */
+/* A finger's target is 44 px tall, as the rows and the depth buttons are under
+   `pointer-coarse`. The button keeps its size, so the breadcrumb row does not grow:
+   an `::after` reaches 13 px past it top and bottom, which is the 44 px target. */
 @media (pointer: coarse) {
   .k-reader .cm-note-graph {
-    min-height: 44px;
+    position: relative;
+  }
+
+  .k-reader .cm-note-graph::after {
+    content: "";
+    position: absolute;
+    inset: -13px -8px;
   }
 }
 
