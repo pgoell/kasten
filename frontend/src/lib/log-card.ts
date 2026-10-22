@@ -175,6 +175,17 @@ function writeLogLine(view: EditorView, line: string, effects: StateEffect<unkno
 }
 
 /**
+ * Focuses `element` and shows it the least way. The browser's own scroll on a focus
+ * differs by browser (Firefox jumped the note on a tap, #814), so the focus does not
+ * scroll, and `nearest` moves the note only when the element is out of view, and only
+ * as far as it takes to show it, the same in every browser.
+ */
+function focusInPlace(element: HTMLElement): void {
+  element.focus({ preventScroll: true });
+  element.scrollIntoView({ block: "nearest", inline: "nearest" });
+}
+
+/**
  * Runs `change`, then gives the focus back to the open panel's element that held it.
  * A card drawn anew moves the panel into itself, and a move drops the focus, so a
  * tap would blur the query. Once `change` returns, the card is in the page.
@@ -185,10 +196,7 @@ function keepPanelFocus(view: EditorView, change: () => void): void {
   const kept =
     panel !== undefined && held instanceof HTMLElement && panel.contains(held) ? held : null;
   change();
-  // A focus scrolls the note to show what it lands on. A tap keeps the note where it
-  // was (#814): the card is where the user is looking, and Firefox scrolls on these
-  // focuses where Chrome does not.
-  kept?.focus({ preventScroll: true });
+  if (kept !== null) focusInPlace(kept);
 }
 
 /** Writes the line `amount` makes for `kind` at the end of `## Log`, or says why it cannot. */
@@ -466,8 +474,10 @@ export function cardShown(view: EditorView): boolean {
 export function openFoodSearch(view: EditorView): boolean {
   if (!cardShown(view)) return false;
   view.dispatch({ effects: foodOpen.of(true) });
-  const focusQuery = () =>
-    view.dom.querySelector<HTMLInputElement>(".cm-log-food-query")?.focus({ preventScroll: true });
+  const focusQuery = () => {
+    const query = view.dom.querySelector<HTMLInputElement>(".cm-log-food-query");
+    if (query !== null) focusInPlace(query);
+  };
   focusQuery();
   // The palette hands its focus back to the editor when it closes, and it closes
   // after this call returns. A microtask runs after that close, so the query keeps it.

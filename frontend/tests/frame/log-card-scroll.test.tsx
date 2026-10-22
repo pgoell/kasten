@@ -1,8 +1,8 @@
 /**
- * The food search opened from the card keeps the note where it was (#814). A focus
- * scrolls the note to show what it lands on, and Firefox does that on a tap where
- * Chrome does not. So each case scrolls the card's row to the pane's bottom edge,
- * which puts the food panel below the fold, then checks the note did not move.
+ * The food search opened from the card keeps the note where it was (#814). With the
+ * card and the panel's query in view, a tap moves nothing. With the card at the
+ * pane's bottom edge, the query is revealed by the least scroll that shows it, and
+ * nothing is centred or pushed past the edge.
  */
 
 import { EditorState, type Extension } from "@codemirror/state";
@@ -49,8 +49,6 @@ const NOTE = [
   "",
   "## Done",
 ];
-/** The line of the card's row: the title, a blank line, then the links. */
-const ROW_LINE = ABOVE.length + 3;
 
 let live: { host: HTMLElement; view: EditorView } | undefined;
 
@@ -79,10 +77,11 @@ function scrollRowToFold(view: EditorView): void {
   view.scrollDOM.scrollTop += (row?.getBoundingClientRect().bottom ?? 0) - pane.bottom;
 }
 
-/** The note in a pane of this size, its card drawn and its row on the pane's bottom edge. */
-async function mountAtFold(
+/** The note in a pane of this size, below `above` lines, with its card drawn. */
+async function mountNote(
   width: number,
   height: number,
+  above: string[],
   keys: Extension[] = [],
 ): Promise<EditorView> {
   await page.viewport(width, height);
@@ -90,17 +89,18 @@ async function mountAtFold(
   host.style.cssText = `width: 100%; height: ${height}px; background: #282c34;`;
   const view = new EditorView({
     state: EditorState.create({
-      doc: [...ABOVE, ...NOTE].join("\n"),
+      doc: [...above, ...NOTE].join("\n"),
       // As the app mounts it: a long wikilink line wraps, rather than widening the card.
       extensions: [notePath.of(DAILY), logCard, EditorView.lineWrapping, ...keys],
     }),
     parent: host,
   });
   live = { host, view };
-  // The card is below the first screen, so CodeMirror draws it once the note scrolls there.
-  view.scrollDOM.scrollTop = view.lineBlockAt(view.state.doc.line(ROW_LINE).from).top;
+  // The card's row is the title's line plus two, and a card below the first screen is
+  // drawn only once the note scrolls to it.
+  const row = above.length + 3;
+  view.scrollDOM.scrollTop = view.lineBlockAt(view.state.doc.line(row).from).top;
   await expect.poll(() => view.dom.querySelector(".cm-log-row")).not.toBeNull();
-  scrollRowToFold(view);
   return view;
 }
 
@@ -112,8 +112,8 @@ function pressFood(view: EditorView): void {
 }
 
 /**
- * The food query has the focus, and the note and the page are where they were before
- * the tap. The query sits below the pane's bottom edge, so the note had to move for it.
+ * The food query has the focus and sits in the pane, and the note and the page are
+ * where they were before the tap.
  */
 async function expectKept(view: EditorView, before: Position): Promise<void> {
   const query = view.dom.querySelector<HTMLInputElement>(".cm-log-food-query");
@@ -121,28 +121,28 @@ async function expectKept(view: EditorView, before: Position): Promise<void> {
   await expect.poll(() => document.activeElement).toBe(query);
   expect(view.scrollDOM.scrollTop, "the note's scrollTop").toBe(before.note);
   expect(window.scrollY, "the page's scrollY").toBe(before.page);
-  expect(
-    query?.getBoundingClientRect().top,
-    "the query's top, below the pane's bottom edge",
-  ).toBeGreaterThanOrEqual(view.scrollDOM.getBoundingClientRect().bottom);
+  const pane = view.scrollDOM.getBoundingClientRect();
+  const box = query?.getBoundingClientRect();
+  expect(box?.top, "the query's top in the pane").toBeGreaterThanOrEqual(pane.top);
+  expect(box?.bottom, "the query's bottom in the pane").toBeLessThanOrEqual(pane.bottom);
 }
 
 it("#814 tapping + food keeps the note's scroll position on a desktop", async () => {
-  const view = await mountAtFold(1200, 480);
+  const view = await mountNote(1200, 900, []);
   const before = positions(view);
   pressFood(view);
   await expectKept(view, before);
 });
 
 it("#814 tapping + food keeps the note's scroll position with vim mode on", async () => {
-  const view = await mountAtFold(1200, 480, [vim()]);
+  const view = await mountNote(1200, 900, [], [vim()]);
   const before = positions(view);
   pressFood(view);
   await expectKept(view, before);
 });
 
 it("#814 tapping + food keeps the note's scroll position at 414 by touch", async () => {
-  const view = await mountAtFold(414, 480);
+  const view = await mountNote(414, 896, []);
   const before = positions(view);
   const button = view.dom.querySelector<HTMLButtonElement>(".cm-log button[aria-label='Log food']");
   expect(button).not.toBeNull();
@@ -154,7 +154,7 @@ it("#814 tapping + food keeps the note's scroll position at 414 by touch", async
 });
 
 it("#814 opening the food search from the palette keeps the note's scroll position", async () => {
-  const view = await mountAtFold(1200, 480);
+  const view = await mountNote(1200, 900, []);
   const before = positions(view);
   const food = paletteEntries(stubCommands(), view).find((entry) => entry.label === "Log food");
   expect(food, "the palette's Log food").toBeDefined();
@@ -163,10 +163,8 @@ it("#814 opening the food search from the palette keeps the note's scroll positi
 });
 
 it("#814 a kind tap while the food search is open keeps the note's scroll position", async () => {
-  const view = await mountAtFold(1200, 480);
+  const view = await mountNote(1200, 900, []);
   pressFood(view);
-  // Opening the panel moves the note on main, so the row goes back to the fold, the query below it.
-  scrollRowToFold(view);
   expect(document.activeElement).toBe(view.dom.querySelector(".cm-log-food-query"));
   const before = positions(view);
   const amount = view.dom.querySelector<HTMLInputElement>(".cm-log-amount");
@@ -174,4 +172,20 @@ it("#814 a kind tap while the food search is open keeps the note's scroll positi
   if (amount) amount.value = "250";
   view.dom.querySelector<HTMLButtonElement>(".cm-log button[aria-label='Log water']")?.click();
   await expectKept(view, before);
+});
+
+it("#814 tapping + food with the card at the pane's bottom edge scrolls only so far as to show the query", async () => {
+  const view = await mountNote(1200, 480, ABOVE);
+  scrollRowToFold(view);
+  const before = positions(view);
+  pressFood(view);
+  const query = view.dom.querySelector<HTMLInputElement>(".cm-log-food-query");
+  expect(query).not.toBeNull();
+  await expect.poll(() => document.activeElement).toBe(query);
+  expect(view.scrollDOM.scrollTop, "the note moved to show the query").toBeGreaterThan(before.note);
+  const pane = view.scrollDOM.getBoundingClientRect();
+  const bottom = query?.getBoundingClientRect().bottom ?? 0;
+  expect(bottom, "the query's bottom in the pane").toBeLessThanOrEqual(pane.bottom + 1);
+  // Its bottom sits on the pane's edge, a pixel or two off, not centred and not past it.
+  expect(pane.bottom - bottom, "the gap under the query").toBeLessThanOrEqual(2);
 });
