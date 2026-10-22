@@ -66,6 +66,7 @@ function paintNode(node: DrawnNode): string[] {
     arc() {},
     stroke() {},
     fillText() {},
+    strokeText() {},
     fill: () => fills.push(ctx.fillStyle),
   };
   const paint = graphs.at(-1)?.seen.nodeCanvasObject?.[0] as (
@@ -75,6 +76,50 @@ function paintNode(node: DrawnNode): string[] {
   ) => void;
   paint(node, ctx, 1);
   return fills;
+}
+
+/** What a label was drawn with: the text, the colour, the face and the stroke, at the moment it was drawn. */
+interface Ink {
+  op: "fill" | "stroke";
+  text: string;
+  style: string;
+  font: string;
+  width: number;
+  join: string;
+}
+
+/** The text a note's canvas drew, filled or stroked, in the state each mark was drawn in. */
+function inkOf(node: DrawnNode): Ink[] {
+  const marks: Ink[] = [];
+  const mark = (op: Ink["op"], text: string) =>
+    marks.push({
+      op,
+      text,
+      style: op === "fill" ? ctx.fillStyle : ctx.strokeStyle,
+      font: ctx.font,
+      width: ctx.lineWidth,
+      join: ctx.lineJoin,
+    });
+  const ctx = {
+    fillStyle: "",
+    strokeStyle: "",
+    font: "",
+    lineWidth: 1,
+    lineJoin: "miter",
+    beginPath() {},
+    arc() {},
+    stroke() {},
+    fill() {},
+    fillText: (text: string) => mark("fill", text),
+    strokeText: (text: string) => mark("stroke", text),
+  };
+  const paint = graphs.at(-1)?.seen.nodeCanvasObject?.[0] as (
+    node: DrawnNode,
+    ctx: unknown,
+    scale: number,
+  ) => void;
+  paint(node, ctx, 1);
+  return marks;
 }
 
 beforeEach(() => {
@@ -125,5 +170,36 @@ describe("drawGraph colours", () => {
       background: graphs.at(-1)?.seen.backgroundColor?.[0],
       fill: paintNode(concept)[0],
     }).toEqual({ background: "#1d2026", fill: "#c79ad0" });
+  });
+
+  it("draws a plain link in the muted colour, half strength", () => {
+    document.documentElement.style.setProperty("--k-muted", "#ff0000");
+    drawGraph(document.createElement("div"), handlers);
+    const linkColor = graphs.at(-1)?.seen.linkColor?.[0] as (link: unknown) => string;
+
+    expect(linkColor({ source: "a.md", target: "b.md", relation: null })).toBe(
+      "rgba(255, 0, 0, 0.5)",
+    );
+  });
+
+  it("rings each name in the page colour so it reads over dots and lines", () => {
+    document.documentElement.style.setProperty("--k-bg", "#ffffff");
+    drawGraph(document.createElement("div"), handlers);
+
+    expect(
+      inkOf(concept)
+        .filter((mark) => mark.op === "stroke")
+        .map(({ text, style, width, join }) => ({ text, style, width, join })),
+    ).toEqual([{ text: "a", style: "#ffffff", width: 3, join: "round" }]);
+  });
+
+  it("names notes in the mono token's face", () => {
+    document.documentElement.style.setProperty("--k-mono", "Test Mono, monospace");
+    drawGraph(document.createElement("div"), handlers);
+
+    expect(inkOf(concept).map((mark) => mark.font)).toEqual([
+      "12px Test Mono, monospace",
+      "12px Test Mono, monospace",
+    ]);
   });
 });

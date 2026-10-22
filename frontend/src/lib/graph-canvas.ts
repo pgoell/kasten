@@ -54,6 +54,12 @@ const NAMES_FULL = 1.8;
 const DIMMED = 0.15;
 
 /**
+ * How much of its colour a plain link keeps. `--k-rule` sits about 1.2:1 on the
+ * page and vanishes, so a plain link is the muted grey at half strength.
+ */
+const PLAIN_LINK = 0.5;
+
+/**
  * The least a note's hit area measures across on a touch screen, in CSS pixels.
  *
  * The smallest target WCAG 2.2 allows, and no more: a touch that lands in a
@@ -89,6 +95,25 @@ function themed(variable: string): string {
 function faded(hex: string, alpha: number): string {
   const n = Number.parseInt(hex.slice(1), 16);
   return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
+}
+
+/**
+ * A label in the fill the caller set, with the page colour stroked round its
+ * letters first, so a dot or a line behind it does not run into the letters.
+ */
+function ringed(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  x: number,
+  y: number,
+  page: string,
+  scale: number,
+): void {
+  ctx.strokeStyle = page;
+  ctx.lineWidth = 3 / scale;
+  ctx.lineJoin = "round";
+  ctx.strokeText(text, x, y);
+  ctx.fillText(text, x, y);
 }
 
 export function drawGraph(element: HTMLElement, handlers: GraphCanvasHandlers): GraphCanvas {
@@ -149,11 +174,11 @@ export function drawGraph(element: HTMLElement, handlers: GraphCanvasHandlers): 
       const alpha = always ? 1 : fade;
       if (alpha > 0 && shown(node.path)) {
         ctx.globalAlpha = alpha;
-        ctx.font = `${12 / scale}px ui-monospace, monospace`;
+        ctx.font = `${12 / scale}px ${colour("--k-mono")}`;
         ctx.textAlign = "center";
         ctx.textBaseline = "top";
         ctx.fillStyle = colour("--k-ink-soft");
-        ctx.fillText(node.name, x, y + radius + 2 / scale);
+        ringed(ctx, node.name, x, y + radius + 2 / scale, colour("--k-bg"), scale);
       }
       ctx.globalAlpha = 1;
     })
@@ -171,11 +196,13 @@ export function drawGraph(element: HTMLElement, handlers: GraphCanvasHandlers): 
     })
     .linkColor((link) => {
       const on = lit === null || (lit.has(endOf(link.source)) && lit.has(endOf(link.target)));
-      const base = link.relation === null ? "--k-rule" : "--tg-7";
+      const plain = link.relation === null;
+      const base = plain ? "--k-muted" : "--tg-7";
       const touching =
         hovered !== null && [endOf(link.source), endOf(link.target)].includes(hovered);
       if (touching) return colour("--k-accent");
-      return on ? colour(base) : faded(colour(base), DIMMED);
+      if (!on) return faded(colour(base), DIMMED);
+      return plain ? faded(colour(base), PLAIN_LINK) : colour(base);
     })
     .linkWidth((link) => (link.relation === null ? 0.6 : 1.2))
     .linkDirectionalArrowLength((link) => (link.relation === null ? 0 : 4))
@@ -188,14 +215,17 @@ export function drawGraph(element: HTMLElement, handlers: GraphCanvasHandlers): 
       const source = link.source as DrawnNode;
       const target = link.target as DrawnNode;
       if (source.path !== hovered && target.path !== hovered) return;
-      ctx.font = `${10 / scale}px ui-monospace, monospace`;
+      ctx.font = `${10 / scale}px ${colour("--k-mono")}`;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.fillStyle = colour("--tg-7");
-      ctx.fillText(
+      ringed(
+        ctx,
         link.relation,
         ((source.x ?? 0) + (target.x ?? 0)) / 2,
         ((source.y ?? 0) + (target.y ?? 0)) / 2,
+        colour("--k-bg"),
+        scale,
       );
     })
     .onNodeHover((node) => {
