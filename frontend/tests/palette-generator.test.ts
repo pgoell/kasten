@@ -1,7 +1,7 @@
 /// <reference types="node" />
 
 import { existsSync, readFileSync } from "node:fs";
-import { checks, css, type Measures, shippedHues, type Theme, table } from "../scripts/palettes";
+import { checks, closePairs, css, type Measures, type Theme, table } from "../scripts/palettes";
 
 /** A file that is not there reads as empty, so a missing page fails its comparison and does not throw. */
 function read(file: string): string {
@@ -67,34 +67,40 @@ const OK = {
   lowestTag: "ok",
 };
 
-/** The pair of slots with the least hue gap between them, and that gap in degrees. */
-function closestPair(hues: Record<string, number>): { pair: [string, string]; gap: number } {
-  const slots = Object.entries(hues);
-  let best = { pair: ["", ""] as [string, string], gap: Number.POSITIVE_INFINITY };
-  for (let i = 0; i < slots.length; i++) {
-    for (let j = i + 1; j < slots.length; j++) {
-      const [a, ha] = slots[i] ?? ["", 0];
-      const [b, hb] = slots[j] ?? ["", 0];
-      const apart = Math.abs(ha - hb) % 360;
-      const gap = Math.min(apart, 360 - apart);
-      if (gap < best.gap) best = { pair: [a, b], gap };
-    }
-  }
-  return best;
-}
-
 test("every palette's status and tag hues sit at least 20 degrees apart", () => {
-  const closest = Object.fromEntries(
-    Object.entries(shippedHues()).map(([id, hues]) => {
-      const { pair, gap } = closestPair(hues);
-      return [id, gap >= 20 ? "ok" : { pair, gap: Math.round(gap) }];
-    }),
-  );
-  expect(closest).toEqual({
-    // The pool runs out for these slots, so the pair is as far apart as it gets.
-    russet: { pair: ["--k-info", "--tg-10"], gap: 13 },
-    peach: { pair: ["--k-warn", "--tg-10"], gap: 16 },
-    pansy: { pair: ["--tg-1", "--tg-10"], gap: 9 },
+  // Every pair under 20 degrees, in light hue. Each one is there because the
+  // pool had no colour left that sat farther from the slots picked before it.
+  expect(closePairs()).toEqual({
+    russet: [
+      // The pool could not separate this pair.
+      { pair: ["--k-warn", "--tg-8"], gap: 15.9 },
+      // The pool could not separate this pair.
+      { pair: ["--k-ok", "--tg-9"], gap: 15.3 },
+      // The pool could not separate this pair.
+      { pair: ["--k-info", "--tg-10"], gap: 13 },
+    ],
+    peach: [
+      // The pool could not separate this pair.
+      { pair: ["--k-warn", "--tg-10"], gap: 15.9 },
+    ],
+    pansy: [
+      // The pool could not separate this pair.
+      { pair: ["--k-danger", "--tg-5"], gap: 13.7 },
+      // The pool could not separate this pair.
+      { pair: ["--k-warn", "--tg-6"], gap: 12.5 },
+      // The pool could not separate this pair.
+      { pair: ["--k-warn", "--tg-9"], gap: 9.5 },
+      // The pool could not separate this pair.
+      { pair: ["--k-info", "--tg-8"], gap: 9.5 },
+      // The pool could not separate this pair.
+      { pair: ["--tg-1", "--tg-10"], gap: 8.6 },
+      // The pool could not separate this pair.
+      { pair: ["--tg-2", "--tg-6"], gap: 12.7 },
+      // The pool could not separate this pair.
+      { pair: ["--tg-3", "--tg-7"], gap: 10.1 },
+      // The pool could not separate this pair.
+      { pair: ["--tg-5", "--tg-9"], gap: 11.9 },
+    ],
   });
 });
 

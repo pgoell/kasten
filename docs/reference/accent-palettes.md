@@ -66,7 +66,7 @@ The issue's values are kept where a bar misses, and the tests name each miss:
 - Poel, light: the lowest tag is 4.09 on the background. This is the value 0.83.0 already paints.
 - Poel, dark: muted text on the highlight is 3.98. This is the #777 exception.
 - Russet, peach and pansy, dark: muted text on the highlight misses. Peach and pansy also miss with link text on the highlight. The dark highlights are the issue's values, so the fix is a choice for the issue, not a change made here.
-- Russet, peach and pansy: the pool runs out for some slots, which take the fallback. The fallback slots are russet's `--tg-8`, `--tg-9` and `--tg-10`, peach's `--tg-10`, and pansy's `--tg-5` to `--tg-10`. Three pairs stay under 20 degrees apart: russet's `--k-info` and `--tg-10` (13), peach's `--k-warn` and `--tg-10` (16), and pansy's `--tg-1` and `--tg-10` (8). The hue columns of the picks table show every hue.
+- Russet, peach and pansy: the pool runs out for some slots, which take the fallback. The fallback slots are russet's `--tg-8`, `--tg-9` and `--tg-10`, peach's `--tg-10`, and pansy's `--tg-5` to `--tg-10`. The hue columns of the picks table show every hue. The last table lists every pair of picks under 20 degrees apart in light hue, with the gap.
 
 <!-- palettes:begin -->
 | Measure | poel light | poel dark | russet light | russet dark | peach light | peach dark | pansy light | pansy dark |
@@ -126,6 +126,21 @@ The issue's values are kept where a bar misses, and the tests name each miss:
 | pansy | --tg-8 (fallback) | 62 | Deep Indigo | 263 | #5e7197 | 264 | #96acd4 | 262 |
 | pansy | --tg-9 (fallback) | 155 | Golden Yellow | 62 | #a46116 | 62 | #db9f6a | 62 |
 | pansy | --tg-10 (fallback) | 291 | Light Mauve | 316 | #8a6299 | 317 | #c69cd6 | 317 |
+
+| Palette | Pair under 20 degrees | Gap |
+|---|---|---:|
+| russet | --k-warn and --tg-8 | 15.9 |
+| russet | --k-ok and --tg-9 | 15.3 |
+| russet | --k-info and --tg-10 | 13.0 |
+| peach | --k-warn and --tg-10 | 15.9 |
+| pansy | --k-danger and --tg-5 | 13.7 |
+| pansy | --k-warn and --tg-6 | 12.5 |
+| pansy | --k-warn and --tg-9 | 9.5 |
+| pansy | --k-info and --tg-8 | 9.5 |
+| pansy | --tg-1 and --tg-10 | 8.6 |
+| pansy | --tg-2 and --tg-6 | 12.7 |
+| pansy | --tg-3 and --tg-7 | 10.1 |
+| pansy | --tg-5 and --tg-9 | 11.9 |
 <!-- palettes:end -->
 
 ## Credit

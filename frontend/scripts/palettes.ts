@@ -13,6 +13,7 @@
  */
 import { readFileSync } from "node:fs";
 import path from "node:path";
+import { colour, gamutHex, hexRgb, hueGap, type LCH, type RGB, ratio, rgbToLch } from "./colour";
 import { WADA, type WadaColour } from "./wada";
 
 const THEME_CSS = path.join(import.meta.dirname, "..", "src", "styles", "kasten-theme.css");
@@ -23,13 +24,7 @@ type GeneratedId = Exclude<PaletteId, "poel">;
 export const THEMES = ["light", "dark"] as const;
 export type Theme = (typeof THEMES)[number];
 
-type RGB = [number, number, number];
 type Tokens = Record<string, string>;
-interface LCH {
-  l: number;
-  c: number;
-  h: number;
-}
 
 const TAGS = Array.from({ length: 10 }, (_, i) => `--tg-${i + 1}`);
 const STATUS = ["--k-ok", "--k-warn", "--k-info", "--k-danger"];
@@ -103,90 +98,6 @@ function at(tokens: Tokens, name: string): string {
   return tokens[name] ?? "";
 }
 
-function hexRgb(hex: string): RGB {
-  return [0, 2, 4].map((i) => Number.parseInt(hex.slice(1 + i, 3 + i), 16)) as RGB;
-}
-
-/** A colour as WCAG sees it: an alpha colour is blended over the backdrop it sits on. */
-function colour(value: string, backdrop: RGB): RGB {
-  if (/^#[0-9a-f]{6}$/i.test(value)) return hexRgb(value);
-  const m = /^rgba\((\d+),(\d+),(\d+),([\d.]+)\)$/.exec(value);
-  if (!m) throw new Error(`unreadable colour ${value}`);
-  const alpha = Number(m[4]);
-  const top = [m[1], m[2], m[3]].map(Number);
-  return top.map((c, i) => alpha * c + (1 - alpha) * (backdrop[i] ?? 0)) as RGB;
-}
-
-function linear(c: number): number {
-  const s = c / 255;
-  return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
-}
-
-function luminance(rgb: RGB): number {
-  const [r, g, b] = [linear(rgb[0]), linear(rgb[1]), linear(rgb[2])];
-  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
-}
-
-function ratio(a: RGB, b: RGB): number {
-  const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
-  return ((hi ?? 0) + 0.05) / ((lo ?? 0) + 0.05);
-}
-
-function rgbToLch(rgb: RGB): LCH {
-  const [r, g, b] = [linear(rgb[0]), linear(rgb[1]), linear(rgb[2])];
-  const l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b);
-  const m = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b);
-  const s = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b);
-  const L = 0.2104542553 * l + 0.793617785 * m - 0.0040720468 * s;
-  const A = 1.9779984951 * l - 2.428592205 * m + 0.4505937099 * s;
-  const B = 0.0259040371 * l + 0.7827717662 * m - 0.808675766 * s;
-  return { l: L, c: Math.hypot(A, B), h: ((Math.atan2(B, A) * 180) / Math.PI + 360) % 360 };
-}
-
-/** Linear sRGB of a lightness, chroma and hue. Outside the gamut, the channels fall outside 0 to 1. */
-function lchToLinear({ l, c, h }: LCH): RGB {
-  const a = c * Math.cos((h * Math.PI) / 180);
-  const b = c * Math.sin((h * Math.PI) / 180);
-  const lp = (l + 0.3963377774 * a + 0.2158037573 * b) ** 3;
-  const mp = (l - 0.1055613458 * a - 0.0638541728 * b) ** 3;
-  const sp = (l - 0.0894841775 * a - 1.291485548 * b) ** 3;
-  return [
-    4.0767416621 * lp - 3.3077115913 * mp + 0.2309699292 * sp,
-    -1.2684380046 * lp + 2.6097574011 * mp - 0.3413193965 * sp,
-    -0.0041960863 * lp - 0.7034186147 * mp + 1.707614701 * sp,
-  ];
-}
-
-const inGamut = (lch: LCH): boolean => lchToLinear(lch).every((x) => x >= -1e-6 && x <= 1 + 1e-6);
-
-function encode(x: number): number {
-  const v = Math.min(1, Math.max(0, x));
-  return v <= 0.0031308 ? 12.92 * v : 1.055 * v ** (1 / 2.4) - 0.055;
-}
-
-function lchHex(lch: LCH): string {
-  const channels = lchToLinear(lch).map((x) => Math.round(encode(x) * 255));
-  return `#${channels.map((n) => n.toString(16).padStart(2, "0")).join("")}`;
-}
-
-/** The colour at a lightness and hue, with its chroma lowered until it is inside sRGB. */
-function gamutHex(lch: LCH): string {
-  if (inGamut(lch)) return lchHex(lch);
-  let lo = 0;
-  let hi = lch.c;
-  for (let i = 0; i < 40; i++) {
-    const mid = (lo + hi) / 2;
-    if (inGamut({ ...lch, c: mid })) lo = mid;
-    else hi = mid;
-  }
-  return lchHex({ ...lch, c: lo });
-}
-
-function hueGap(a: number, b: number): number {
-  const d = Math.abs(a - b) % 360;
-  return Math.min(d, 360 - d);
-}
-
 function alphaOf(percent: number): string {
   return (percent / 100).toFixed(2).slice(1);
 }
@@ -225,6 +136,35 @@ export function shippedHues(): Record<GeneratedId, Record<string, number>> {
       ];
     }),
   ) as Record<GeneratedId, Record<string, number>>;
+}
+
+/** Two slots of one palette whose light hues sit under MIN_APART degrees apart. */
+export interface ClosePair {
+  pair: [string, string];
+  gap: number;
+}
+
+/** Every pair of a palette's slots under MIN_APART, in slot order, with the gap to a tenth of a degree. */
+function pairsUnder(hues: Record<string, number>): ClosePair[] {
+  const slots = Object.entries(hues);
+  const out: ClosePair[] = [];
+  for (let i = 0; i < slots.length; i++) {
+    for (let j = i + 1; j < slots.length; j++) {
+      const [a, ha] = slots[i] ?? ["", 0];
+      const [b, hb] = slots[j] ?? ["", 0];
+      const apart = Math.abs(ha - hb) % 360;
+      const gap = Math.min(apart, 360 - apart);
+      if (gap < MIN_APART) out.push({ pair: [a, b], gap: Math.round(gap * 10) / 10 });
+    }
+  }
+  return out;
+}
+
+/** The close pairs of each generated palette, read off the file, so the docs and the test share them. */
+export function closePairs(): Record<GeneratedId, ClosePair[]> {
+  return Object.fromEntries(
+    Object.entries(shippedHues()).map(([id, hues]) => [id, pairsUnder(hues)]),
+  ) as Record<GeneratedId, ClosePair[]>;
 }
 
 /** What a palette block in the file sets for one theme; a missing block sets nothing. */
@@ -507,6 +447,10 @@ export function table(): string {
       return `| ${id} | ${slot} | ${hue(at(base.light, p.slot))} | ${p.name} | ${hue(p.seed)} | ${light} | ${hue(light)} | ${dark} | ${hue(dark)} |`;
     });
   });
+  const close = closePairs();
+  const closeRows = (Object.keys(close) as GeneratedId[]).flatMap((id) =>
+    close[id].map((c) => `| ${id} | ${c.pair[0]} and ${c.pair[1]} | ${c.gap.toFixed(1)} |`),
+  );
   return [
     head,
     rule,
@@ -515,6 +459,10 @@ export function table(): string {
     "| Palette | Slot | Poel hue | Wada colour | Wada hue | Light | Light hue | Dark | Dark hue |",
     "|---|---|---:|---|---:|---|---:|---|---:|",
     ...picks,
+    "",
+    "| Palette | Pair under 20 degrees | Gap |",
+    "|---|---|---:|",
+    ...closeRows,
   ].join("\n");
 }
 
