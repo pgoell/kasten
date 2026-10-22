@@ -198,5 +198,7 @@ one, and minting a second id would leave the note nameable two ways.
 field name or a date matches the block in every note that has one. Searching for
 `created` finds the whole vault.
 
-The editor draws the block as YAML and opens the cursor on the first line below
-it, so a new note is typed into rather than into its own dates.
+In Edit the editor draws the block as YAML. In Read it is folded behind
+Properties until the cursor goes into it, as [Reading a note](/reference/reading-a-note.md)
+says. A new note still opens its cursor on the first line below the block, so
+it is typed into rather than into its own dates.

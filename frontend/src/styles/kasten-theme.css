@@ -54,6 +54,8 @@
   --k-text-36: 36px;
   --k-text-46: 46px;
   --k-text-64: 64px;
+  /* The size a note is read at: a name for the 19 px step, not a new size. */
+  --k-text-read: var(--k-text-19);
 
   --k-leading-title: 1.1;
   --k-leading-heading: 1.1;

@@ -10,6 +10,7 @@ import { Sheet } from "@/components/sheet";
 import { StatusBar } from "@/components/status-bar";
 import type { AgentRow } from "@/components/todo-pane";
 import { Toolbar } from "@/components/toolbar";
+import { TopBar } from "@/components/top-bar";
 import { useFinders } from "@/components/use-finders";
 import { usePaneMoves } from "@/components/use-pane-moves";
 import { usePrompts } from "@/components/use-prompts";
@@ -348,6 +349,7 @@ function Home() {
   // of its own, and the tab strip's sticky top would then scroll away with it.
   return (
     <main ref={frame} className="safe-frame flex h-dvh flex-col overflow-x-clip bg-k-bg">
+      <TopBar commands={commands} count={data?.length ?? 0} inert={narrow && treeOpen} />
       {/* min-h-0 lets the editor scroll instead of pushing the bar off-screen. */}
       <div className="flex min-h-0 flex-1">
         <FileExplorer

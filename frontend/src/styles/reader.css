@@ -1,0 +1,102 @@
+/* The reader. A note's editor fills its pane, and the margins are drawn over it.
+   The container is the pane, not the window, so a split pane sizes its own
+   margins: a query on the window would give a half-width pane the full-width
+   layout. */
+.k-reader {
+  container-type: inline-size;
+  container-name: k-reader;
+}
+
+/* The overlay has an empty middle column, so the editor shows through it, and no
+   pointer events, so the text under it still takes clicks. Only the margins take
+   them back. The overlay does not scroll, which keeps the margins in view while
+   the note scrolls under them. */
+.k-reader-grid {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: 1fr minmax(0, 680px) 1fr;
+  column-gap: var(--k-space-48);
+  pointer-events: none;
+}
+
+.k-margin {
+  pointer-events: auto;
+  align-self: start;
+  max-height: 100%;
+  overflow-y: auto;
+  padding-top: var(--k-space-48);
+}
+
+/* The body is the middle column. Its margins are the rest of the scroller's width
+   less the column, halved, so the text lands on the column exactly. Percentages
+   here are against the scroller, which has no padding, so none is added to it. */
+.k-reader .cm-content {
+  margin-inline: max(var(--k-space-48), calc((100% - 680px) / 2));
+  max-width: 680px;
+}
+
+[data-margin="outline"] {
+  justify-self: end;
+  width: 190px;
+}
+
+[data-margin="links"] {
+  justify-self: start;
+  width: 256px;
+}
+
+/* A note is read in the serif at reading size. The rule is one level deeper than
+   the sans rule above it, so it wins without relying on the order of the file. */
+.k-reader .cm-editor .cm-scroller {
+  font-family: var(--k-serif);
+  font-size: var(--k-text-read);
+  line-height: var(--k-leading-reading);
+}
+
+/* The right margin goes below 1320 px of pane width, and the left below 1156 px,
+   where the body would be squeezed to make room for it. */
+@container k-reader (width < 1320px) {
+  [data-margin="links"] {
+    display: none;
+  }
+}
+
+@container k-reader (width < 1156px) {
+  [data-margin="outline"] {
+    display: none;
+  }
+}
+
+/* Below 776 px there is no room for a column beside the body, so it takes the
+   pane's width less a gutter on each side. */
+@container k-reader (width < 776px) {
+  .k-reader .cm-content {
+    margin-inline: var(--k-space-16);
+  }
+}
+
+/* The colour changes at the same speed as the press, and the transform stays in
+   the list, so a press still gives under the finger. Nothing here moves on scroll. */
+.k-margin-row,
+.k-margin-note,
+.cm-note-mode-button {
+  transition:
+    color var(--k-hover) var(--k-ease-out),
+    background-color var(--k-hover) var(--k-ease-out),
+    transform var(--k-press-out) var(--k-ease-out);
+}
+
+/* Hover is for a pointer. A touch screen would otherwise keep the hover colour
+   after a tap, as if the row were still under a finger. */
+@media (hover: hover) {
+  .k-margin-row:hover,
+  .k-margin-note:hover {
+    color: var(--k-accent);
+  }
+
+  .k-reader .cm-note-mode-button:hover {
+    color: var(--k-ink);
+  }
+}
+

@@ -4,6 +4,7 @@ import { Editor } from "@/components/editor";
 import { fetchNote, type TodoHit } from "@/lib/api";
 import type { EmbedSource } from "@/lib/embed";
 import type { EditorCommands } from "@/lib/key-bindings";
+import type { Outline } from "@/lib/note-head";
 import { parseTodo } from "@/lib/todo";
 import type { TodoCycle } from "@/lib/todo-commands";
 
@@ -62,6 +63,8 @@ interface NoteEditorProps {
    * where the autosave takes the held text as its own.
    */
   held?: string;
+  /** Called with the note's headings and the one being read. See `Editor`. */
+  onOutline?: (outline: Outline) => void;
 }
 
 const MESSAGE = "flex h-full items-center justify-center px-4 text-sm text-k-muted";
@@ -101,6 +104,7 @@ export const NoteEditor = memo(function NoteEditor({
   onReload,
   embeds,
   held,
+  onOutline,
 }: NoteEditorProps) {
   const { data, error, isPending } = useQuery({
     queryKey: ["note", path],
@@ -155,6 +159,7 @@ export const NoteEditor = memo(function NoteEditor({
       onNotice={onNotice}
       path={path}
       embeds={embeds}
+      onOutline={onOutline}
     />
   );
 });

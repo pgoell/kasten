@@ -128,7 +128,8 @@ worth reaching.
 
 An empty pane is an editor on an empty document, which is what the window has
 always shown with no note open. Text typed into one goes nowhere and closing
-the pane discards it.
+the pane discards it. Above that editor the pane shows Today, as [Reading a
+note](/reference/reading-a-note.md#today-in-an-empty-pane) says.
 
 The arrangement is not in the URL. `?note=` names the note in the focused pane
 and follows it from pane to pane, so a reload comes back to what you were

@@ -19,6 +19,7 @@ import type { EditorCommands } from "@/lib/key-bindings";
 import { keyboardUnasked } from "@/lib/last-input";
 import { livePreview } from "@/lib/live-preview";
 import { logCard } from "@/lib/log-card";
+import { noteHead, type Outline, readMode } from "@/lib/note-head";
 import { noteLanguage } from "@/lib/note-language";
 import { relationCompletions, vaultRelations } from "@/lib/ontology";
 import { slashCompletions } from "@/lib/palette";
@@ -47,6 +48,7 @@ export interface NoteViewLatest {
   onReload?: (force: boolean) => Promise<string | null>;
   embeds?: EmbedSource;
   allowReload?: (text: string) => boolean;
+  onOutline?: (outline: Outline) => void;
 }
 
 /** The four listings the vault carries. Any of them absent means told nothing. */
@@ -266,7 +268,11 @@ export function createNoteView(o: {
         vault.of(
           listings(o.listings.paths, o.listings.images, o.listings.tags, o.listings.relations),
         ),
-        preview.of(o.preview ? [livePreview(), weatherCard, logCard] : []),
+        noteHead({
+          toggle: () => latest.current.commands?.togglePreview(),
+          outline: (outline) => latest.current.onOutline?.(outline),
+        }),
+        preview.of(o.preview ? [livePreview(), weatherCard, logCard, readMode.of(true)] : []),
         kastenTheme,
         EditorView.lineWrapping,
         EditorView.updateListener.of((update) => {
@@ -290,7 +296,11 @@ export function setVim(view: EditorView, on: boolean): void {
 }
 
 export function setPreview(view: EditorView, on: boolean): void {
-  view.dispatch({ effects: preview.reconfigure(on ? [livePreview(), weatherCard, logCard] : []) });
+  view.dispatch({
+    effects: preview.reconfigure(
+      on ? [livePreview(), weatherCard, logCard, readMode.of(true)] : [],
+    ),
+  });
 }
 
 export function setListings(view: EditorView, l: NoteListings): void {

@@ -111,6 +111,7 @@ where grey meta text sits inside a mark; the test names it as the exception.
 | `--k-sans` | Instrument Sans, then system-ui |
 | `--k-mono` | JetBrains Mono, then ui-monospace |
 | `--k-text-12` … `--k-text-64` | 12, 13, 15, 19 (reading), 23, 27, 36, 46, 64 px |
+| `--k-text-read` | An alias of `--k-text-19`, the size a note is read at (19 px) |
 | `--k-leading-heading`, `--k-leading-ui`, `--k-leading-reading` | 1.1, 1.5, 1.6 |
 | `--k-leading-display`, `--k-track-display` | 1.04, -0.018 em (the 46 and 64 px sizes) |
 | `--k-track-title`, `--k-track-heading`, `--k-track-body`, `--k-track-label`, `--k-track-kbd` | -0.017, -0.016, 0, +0.006, +0.02 em |

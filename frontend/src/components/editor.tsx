@@ -6,6 +6,7 @@ import { notePosition } from "@/lib/editor-position";
 import type { EmbedSource } from "@/lib/embed";
 import type { EditorCommands } from "@/lib/key-bindings";
 import { keyboardUnasked } from "@/lib/last-input";
+import type { Outline } from "@/lib/note-head";
 import {
   createNoteView,
   type NoteViewLatest,
@@ -161,6 +162,12 @@ interface EditorProps {
    * been pressed, and the paste is silent without it.
    */
   onNotice?: (message: string) => void;
+  /**
+   * Called with the note's headings and the one being read, on each change of either.
+   *
+   * Absent means the outline is not shown anywhere, which costs the view nothing.
+   */
+  onOutline?: (outline: Outline) => void;
 }
 
 /**
@@ -195,6 +202,7 @@ export function Editor({
   path,
   onNotice,
   embeds,
+  onOutline,
 }: EditorProps) {
   const host = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
@@ -227,6 +235,7 @@ export function Editor({
     allowReload,
     onReload,
     embeds,
+    onOutline,
   });
 
   useEffect(() => {
@@ -242,6 +251,7 @@ export function Editor({
       allowReload,
       onReload,
       embeds,
+      onOutline,
     };
   }, [
     commands,
@@ -255,6 +265,7 @@ export function Editor({
     allowReload,
     onReload,
     embeds,
+    onOutline,
   ]);
 
   useEffect(() => {

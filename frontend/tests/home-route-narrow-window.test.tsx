@@ -1,5 +1,5 @@
 import { EditorView } from "@codemirror/view";
-import { fireEvent, screen } from "@testing-library/react";
+import { fireEvent, screen, within } from "@testing-library/react";
 import { useMemo } from "react";
 import type { TodoHit } from "@/lib/api";
 import { noteBase } from "@/lib/note-base";
@@ -267,7 +267,12 @@ describe("the route", () => {
       await settle();
 
       openDrawer();
-      fireEvent.click(screen.getByRole("button", { name: "New note" }));
+      // The top bar has a New note button too, so the drawer's own is found inside its aside.
+      fireEvent.click(
+        within(document.querySelector("aside") as HTMLElement).getByRole("button", {
+          name: "New note",
+        }),
+      );
       await settle();
       app.fill("fresh");
       await settle();

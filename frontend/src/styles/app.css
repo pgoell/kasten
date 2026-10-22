@@ -4,13 +4,15 @@
 /* The rules for the live preview's parts and the weather card live in their
    own files. Tailwind inlines each import where it stands, so their rules still
    compile into this stylesheet, and the frame tests that import only this file
-   still get them. */
+   still get them. The reader's margins, reading face and hover rules live in
+   reader.css for the same reason: this file is over its size limit. */
 @import "./live-preview-inline.css";
 @import "./live-preview-lists.css";
 @import "./live-preview-media.css";
 @import "./weather-card.css";
 @import "./log-card.css";
 @import "./log-pane.css";
+@import "./reader.css";
 @import "./live-preview-blocks.css";
 
 /* Tailwind's names for the tokens in kasten-theme.css, so `bg-k-bg` and
@@ -505,3 +507,4 @@ body {
     animation: none;
   }
 }
+
