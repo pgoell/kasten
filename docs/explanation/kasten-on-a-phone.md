@@ -258,6 +258,14 @@ not start again by itself. A camera stream runs until it is stopped, and the
 phone shows the camera is in use, so kasten ends the stream when the page
 hides and waits for a tap to start it again.
 
+The torch and the buzz follow what the browser offers, so kasten never asks for
+either. A `Torch` button shows only when the camera's track lists `torch` among
+its capabilities, which Android Chrome does and iOS Safari does not; the torch
+goes off before the camera stops, so the light never stays on after a scan. A
+read buzzes the phone through `navigator.vibrate` where it exists, so a person
+looking at the package knows the code read; iOS has no such call, so a scan
+there stays silent.
+
 iOS asks for the camera again each time an app installed to the home screen
 starts. WebKit keeps no camera permission for those apps, so the phone asks
 again. Safari in a tab may remember the answer for the site. Android Chrome
@@ -287,6 +295,8 @@ tests with a stubbed viewport, and not seen:
   and so whether it then starts with vim.
 * That a tap on `Write my text` or `Take the vault's` settles a note that
   changed on disk. The check was a unit test, with clicks.
+* That the `Torch` button lights an Android phone's torch and that a read
+  buzzes it. The tests stub the camera's track and `navigator.vibrate`.
 * Firefox and Safari, on any device.
 * The install. That Chrome refuses nested scopes as described is read from
   Chromium's source, not tried. Unseen too: that an old capture app stays as it

@@ -44,6 +44,8 @@ const NOTE = [
 type Camera = {
   /** Every stream the page was handed, so a test can see whether its tracks stopped. */
   streams: MediaStream[];
+  /** What the page asked the torch to be set to, in order. */
+  constraints: MediaTrackConstraints[];
   restore: () => void;
 };
 
@@ -57,19 +59,27 @@ beforeEach(() => {
  * frames the way a live camera delivers them. The fallback stands in for
  * BarcodeDetector with a build that lists no formats, so zxing does the reading.
  */
-async function stubCamera(picture: URL | null): Promise<Camera> {
+async function stubCamera(picture: URL | "grey" | null, torch = false): Promise<Camera> {
   const streams: MediaStream[] = [];
+  const constraints: MediaTrackConstraints[] = [];
   const canvas = document.createElement("canvas");
   let frame = 0;
   if (picture) {
-    const bitmap = await createImageBitmap(await (await fetch(picture)).blob());
+    // A grey frame is a live camera with nothing in view, so the decoder runs and finds no code.
+    const bitmap =
+      picture === "grey" ? null : await createImageBitmap(await (await fetch(picture)).blob());
     // The canvas takes the picture's own size, so the decoder reads its pixels unscaled.
-    canvas.width = bitmap.width;
-    canvas.height = bitmap.height;
+    canvas.width = bitmap?.width ?? 640;
+    canvas.height = bitmap?.height ?? 480;
     const ctx = canvas.getContext("2d");
     if (!ctx) throw new Error("no 2d canvas to draw the picture on");
     const draw = () => {
-      ctx.drawImage(bitmap, 0, 0);
+      if (bitmap) {
+        ctx.drawImage(bitmap, 0, 0);
+      } else {
+        ctx.fillStyle = "#333";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+      }
       frame = requestAnimationFrame(draw);
     };
     draw();
@@ -78,6 +88,22 @@ async function stubCamera(picture: URL | null): Promise<Camera> {
   const getUserMedia = async (): Promise<MediaStream> => {
     if (!picture) throw new DOMException("", "NotAllowedError");
     const stream = canvas.captureStream(10);
+    if (torch) {
+      for (const track of stream.getVideoTracks()) {
+        // A canvas track has no torch, so the stub adds one the page can read and set.
+        const realCapabilities = track.getCapabilities();
+        Object.defineProperty(track, "getCapabilities", {
+          configurable: true,
+          value: () => ({ ...realCapabilities, torch: true }),
+        });
+        Object.defineProperty(track, "applyConstraints", {
+          configurable: true,
+          value: async (set: MediaTrackConstraints) => {
+            constraints.push(set);
+          },
+        });
+      }
+    }
     streams.push(stream);
     return stream;
   };
@@ -103,6 +129,7 @@ async function stubCamera(picture: URL | null): Promise<Camera> {
 
   return {
     streams,
+    constraints,
     restore() {
       cancelAnimationFrame(frame);
       Reflect.deleteProperty(navigator.mediaDevices, "getUserMedia");
@@ -138,6 +165,10 @@ function openFood(view: EditorView): void {
 
 function scanButton(view: EditorView): HTMLElement | null {
   return view.dom.querySelector<HTMLElement>(".cm-log-food-scan");
+}
+
+function torchButton(view: EditorView): HTMLElement | null {
+  return view.dom.querySelector<HTMLElement>(".cm-log-food-torch");
 }
 
 function pressScan(view: EditorView): void {
@@ -244,3 +275,54 @@ it("#622 the scan button and a refused camera at 414 are finger-sized and do not
 
 it("#622 the scan button and a refused camera lay out on a desktop", () =>
   refusesCamera(1200, "1200"));
+
+// The torch sits in the scan row. At 414 it must be as tall as a finger target and level
+// with Scan, or it wraps under Scan and the card widens past the screen.
+it("#765 the torch button at 414 sits beside Scan finger-sized and the card does not scroll sideways", async () => {
+  const camera = await stubCamera("grey", true);
+  let mounted: Awaited<ReturnType<typeof mount>> | null = null;
+  try {
+    mounted = await mount(414, 896);
+    const { host, view } = mounted;
+    openFood(view);
+    pressScan(view);
+    await expect
+      .poll(() => (torchButton(view)?.getClientRects().length ?? 0) > 0, { timeout: 10000 })
+      .toBe(true);
+
+    const torch = torchButton(view);
+    const scan = scanButton(view);
+    expect(
+      torch?.getBoundingClientRect().height ?? 0,
+      "the torch button's height",
+    ).toBeGreaterThanOrEqual(44);
+    expect(
+      Math.abs(
+        (torch?.getBoundingClientRect().top ?? 0) - (scan?.getBoundingClientRect().top ?? 0),
+      ),
+      "the torch is off the scan row",
+    ).toBeLessThanOrEqual(2);
+    const card = view.dom.querySelector<HTMLElement>(".cm-log");
+    expect(card, "the log card").not.toBeNull();
+    expect(card?.scrollWidth ?? 0, "the card scrolls sideways").toBeLessThanOrEqual(
+      card?.clientWidth ?? 0,
+    );
+    expect(document.documentElement.scrollWidth, "page scrolls sideways").toBeLessThanOrEqual(
+      document.documentElement.clientWidth,
+    );
+
+    // Shot after the press, so the picture shows the torch held on.
+    torch?.click();
+    await expect.poll(() => torchButton(view)?.getAttribute("aria-pressed")).toBe("true");
+    expect(camera.constraints).toEqual([{ advanced: [{ torch: true }] }]);
+    expect(await shot(host, "scan-torch-414")).toBe(414);
+
+    view.dom.querySelector<HTMLElement>(".cm-log-food-close")?.click();
+    await expect.poll(() => tracksEnded(camera)).toBe(true);
+  } finally {
+    mounted?.view.destroy();
+    mounted?.host.remove();
+    camera.restore();
+    await page.viewport(414, 896);
+  }
+});
