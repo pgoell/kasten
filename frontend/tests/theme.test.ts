@@ -1,13 +1,30 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
+import { paletteEntries } from "@/lib/palette";
 import { applyTheme, onThemeChange, startTheme, THEME_KEY, toggleTheme } from "@/lib/theme";
 import { stubMatchMedia } from "./match-media";
+import { stubCommands } from "./stub-commands";
 
 const DARK = "(prefers-color-scheme: dark)";
 const REDUCED = "(prefers-reduced-motion: reduce)";
+const PALETTE = "kasten.palette";
+const POEL = "Accent palette: Vandar Poel's blue";
+const RUSSET = "Accent palette: Hay's russet";
+const PEACH = "Accent palette: Peach red";
 
 function theme() {
   return document.documentElement.dataset.theme;
+}
+
+function palette() {
+  return document.documentElement.dataset.palette;
+}
+
+/** Runs the palette row called `label`, which does nothing where no such row exists. */
+function pickRow(label: string) {
+  paletteEntries(stubCommands(), null)
+    .find((entry) => entry.label === label)
+    ?.run();
 }
 
 /** Every read and write of `localStorage` throws, as in a browser with site data blocked. */
@@ -192,6 +209,108 @@ describe("the theme", () => {
       metaFirst: html.indexOf('name="theme-color"') < html.indexOf('src="/theme.js"'),
     }).toEqual({
       metaFirst: true,
+    });
+  });
+
+  it("sets data-palette poel on html with nothing chosen", () => {
+    stubMatchMedia({});
+    applyTheme();
+
+    expect(palette()).toBe("poel");
+  });
+
+  it("a stray stored palette reads as poel", () => {
+    stubMatchMedia({});
+    localStorage.setItem(PALETTE, "neon");
+
+    applyTheme();
+
+    expect(palette()).toBe("poel");
+  });
+
+  it("a pick still applies with storage blocked", () => {
+    stubMatchMedia({});
+    blockStorage();
+
+    pickRow(RUSSET);
+    const shown = palette();
+
+    // A write that lands puts the store back in charge, as the toggle test does.
+    vi.restoreAllMocks();
+    pickRow(POEL);
+
+    expect(shown).toBe("russet");
+  });
+
+  it("the early script sets the stored palette, and poel for a stray one", () => {
+    stubMatchMedia({});
+    const script = readFileSync(path.resolve(import.meta.dirname, "../public/theme.js"), "utf8");
+    const run = () => {
+      delete document.documentElement.dataset.palette;
+      new Function(script)();
+      return palette();
+    };
+
+    localStorage.setItem(PALETTE, "russet");
+    const russet = run();
+    localStorage.setItem(PALETTE, "neon");
+    const neon = run();
+
+    expect({ russet, neon }).toEqual({ russet: "russet", neon: "poel" });
+  });
+
+  it("a theme toggle keeps the palette and a pick keeps the theme", () => {
+    stubMatchMedia({});
+
+    pickRow(PEACH);
+    toggleTheme();
+    const afterToggle = { theme: theme(), palette: palette() };
+    pickRow(RUSSET);
+    const afterPick = { theme: theme(), palette: palette() };
+
+    expect({ afterToggle, afterPick }).toEqual({
+      afterToggle: { theme: "dark", palette: "peach" },
+      afterPick: { theme: "dark", palette: "russet" },
+    });
+  });
+
+  it("a palette picked in another tab applies here", () => {
+    stubMatchMedia({});
+    startTheme();
+
+    // What the browser does in every tab but the one that wrote.
+    localStorage.setItem(PALETTE, "pansy");
+    window.dispatchEvent(new StorageEvent("storage", { key: PALETTE }));
+
+    expect(palette()).toBe("pansy");
+  });
+
+  it("a listener hears a palette pick", () => {
+    stubMatchMedia({});
+    const seen: (string | undefined)[] = [];
+    const unsubscribe = onThemeChange(() => seen.push(palette()));
+
+    pickRow(RUSSET);
+    unsubscribe();
+
+    expect(seen).toEqual(["russet"]);
+  });
+
+  it("a pick cross-fades, and not under reduced motion", () => {
+    stubMatchMedia({});
+    const transition = stubViewTransition();
+
+    pickRow(RUSSET);
+    const fade = transition.mock.calls.length;
+    const shown = palette();
+    stubMatchMedia({ [REDUCED]: true });
+    pickRow(PEACH);
+
+    expect({ fade, shown, reduced: transition.mock.calls.length, after: palette() }).toEqual({
+      fade: 1,
+      shown: "russet",
+      reduced: 1,
+      after: "peach",
     });
   });
 });

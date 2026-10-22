@@ -105,6 +105,29 @@ describe("the palette", () => {
     expect(labels).toContain("Toggle light and dark mode");
   });
 
+  it("the four accent rows pick and store the palette", () => {
+    const rows = [
+      ["Accent palette: Vandar Poel's blue", "poel"],
+      ["Accent palette: Hay's russet", "russet"],
+      ["Accent palette: Peach red", "peach"],
+      ["Accent palette: Pansy purple", "pansy"],
+    ] as const;
+
+    const picked = rows.map(([label, id]) => {
+      paletteEntries(stubCommands(), null)
+        .find((entry) => entry.label === label)
+        ?.run();
+      return {
+        id,
+        shown: document.documentElement.dataset.palette,
+        stored: localStorage.getItem("kasten.palette"),
+      };
+    });
+    localStorage.removeItem("kasten.palette");
+
+    expect(picked).toEqual(rows.map(([, id]) => ({ id, shown: id, stored: id })));
+  });
+
   it("narrows by fuzzy match, and Enter runs the highlighted row", () => {
     const commands = stubCommands();
     const onClose = vi.fn();

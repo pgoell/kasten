@@ -1,6 +1,8 @@
-import { render } from "@testing-library/react";
+import { fireEvent, render } from "@testing-library/react";
 import { useLayoutEffect } from "react";
 import { HtmlPane } from "@/components/html-pane";
+import { applyTheme } from "@/lib/theme";
+import { stubMatchMedia } from "./match-media";
 import { stubCommands } from "./stub-commands";
 
 const PATH = "30 Research/report.html";
@@ -33,5 +35,30 @@ describe("the html pane", () => {
     rerender(<ClickOnCommit onFocus={fresh} click />);
 
     expect([old.mock.calls.length, fresh.mock.calls.length]).toEqual([0, 1]);
+  });
+
+  it("posts the palette to the page on load and on a switch, without a reload", () => {
+    stubMatchMedia({});
+    localStorage.clear();
+    const { container } = render(
+      <HtmlPane path={PATH} commands={stubCommands()} onFocus={() => {}} />,
+    );
+    const frame = container.querySelector("iframe") as HTMLIFrameElement;
+    const sent = vi
+      .spyOn(frame.contentWindow as Window, "postMessage")
+      .mockImplementation(() => {});
+    const src = frame.getAttribute("src");
+
+    fireEvent.load(frame);
+    localStorage.setItem("kasten.palette", "russet");
+    applyTheme();
+
+    expect({ posts: sent.mock.calls, src: frame.getAttribute("src") }).toEqual({
+      posts: [
+        [{ kasten: "palette", palette: "poel" }, "*"],
+        [{ kasten: "palette", palette: "russet" }, "*"],
+      ],
+      src,
+    });
   });
 });

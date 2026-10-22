@@ -192,6 +192,8 @@ describe("the palette keeps its rows", () => {
 
   afterEach(async () => {
     cleanup();
+    localStorage.removeItem("kasten.palette");
+    delete document.documentElement.dataset.palette;
     await hashed();
     vi.useRealTimers();
     vi.unstubAllGlobals();
@@ -357,5 +359,36 @@ describe("the palette keeps its rows", () => {
     clickInto(OTHER_PAGE);
     await settle();
     expect(app.focusedPane()).toBe(0);
+  });
+
+  it("the accent rows are listed and run with vim on", async () => {
+    const app = await noteOpen();
+    app.leader(":");
+    await settle();
+
+    const row = option("Accent palette: Hay's russet");
+    expect.soft(row).not.toBeNull();
+    if (row) fireEvent.click(row);
+    await settle();
+
+    expect(document.documentElement.dataset.palette).toBe("russet");
+  });
+
+  it("the accent rows are listed and run with vim off", async () => {
+    localStorage.setItem("kasten.vim", "off");
+    try {
+      const app = await noteOpen();
+      app.press("P", { keyCode: 80, ctrlKey: true, shiftKey: true });
+      await settle();
+
+      const row = option("Accent palette: Hay's russet");
+      expect.soft(row).not.toBeNull();
+      if (row) fireEvent.click(row);
+      await settle();
+
+      expect(document.documentElement.dataset.palette).toBe("russet");
+    } finally {
+      localStorage.removeItem("kasten.vim");
+    }
   });
 });

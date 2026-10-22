@@ -380,6 +380,22 @@ describe("the route", () => {
       expect(screen.queryByRole("dialog")).toBeNull();
     });
 
+    it("on a touch phone the accent rows are listed and run", async () => {
+      stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+      await renderApp();
+      await settle();
+
+      fireEvent.click(screen.getByRole("button", { name: "Run a command by name" }));
+      const row = screen.queryByRole("option", { name: "Accent palette: Hay's russet" });
+      expect.soft(row).not.toBeNull();
+      if (row) fireEvent.click(row);
+
+      const shown = document.documentElement.dataset.palette;
+      localStorage.removeItem("kasten.palette");
+      delete document.documentElement.dataset.palette;
+      expect(shown).toBe("russet");
+    });
+
     it("makes room in the frame for a keyboard that covers the page", async () => {
       const listeners = new Map<string, () => void>();
       const viewport = {
