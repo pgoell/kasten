@@ -508,7 +508,7 @@ it("contrast-more-desktop-1440-light", async () => {
   const mounted = await mount(DESKTOP, "light", { contrast: "more" });
   try {
     await twoTabs(mounted.host);
-    const strip = mounted.host.querySelector<HTMLElement>("[role='tablist']") as HTMLElement;
+    const strip = mounted.host.querySelector("[role='tablist']")?.parentElement as HTMLElement;
     const style = getComputedStyle(strip);
     expect(style.backdropFilter).toBe("none");
     // `rgb(` rather than `rgba(`: the background is solid, with no alpha at all.
@@ -538,7 +538,7 @@ it("contrast-more-desktop-1440-dark", async () => {
   const mounted = await mount(DESKTOP, "dark", { contrast: "more" });
   try {
     await twoTabs(mounted.host);
-    const strip = mounted.host.querySelector<HTMLElement>("[role='tablist']") as HTMLElement;
+    const strip = mounted.host.querySelector("[role='tablist']")?.parentElement as HTMLElement;
     const style = getComputedStyle(strip);
     expect(style.backdropFilter).toBe("none");
     expect(style.backgroundColor).toMatch(/^rgb\(/);
@@ -553,7 +553,7 @@ it("reduced-transparency-desktop-1440-light", async () => {
   const mounted = await mount(DESKTOP, "light", { reducedTransparency: "reduce" });
   try {
     await twoTabs(mounted.host);
-    const strip = mounted.host.querySelector<HTMLElement>("[role='tablist']") as HTMLElement;
+    const strip = mounted.host.querySelector("[role='tablist']")?.parentElement as HTMLElement;
     const style = getComputedStyle(strip);
     expect(style.backdropFilter).toBe("none");
     expect(style.backgroundColor).toMatch(/^rgb\(/);
