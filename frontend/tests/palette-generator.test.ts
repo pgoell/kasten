@@ -1,7 +1,7 @@
 /// <reference types="node" />
 
 import { existsSync, readFileSync } from "node:fs";
-import { checks, css, type Measures, type Theme, table } from "../scripts/palettes";
+import { checks, css, type Measures, shippedHues, type Theme, table } from "../scripts/palettes";
 
 /** A file that is not there reads as empty, so a missing page fails its comparison and does not throw. */
 function read(file: string): string {
@@ -66,6 +66,37 @@ const OK = {
   lowestStatus: "ok",
   lowestTag: "ok",
 };
+
+/** The pair of slots with the least hue gap between them, and that gap in degrees. */
+function closestPair(hues: Record<string, number>): { pair: [string, string]; gap: number } {
+  const slots = Object.entries(hues);
+  let best = { pair: ["", ""] as [string, string], gap: Number.POSITIVE_INFINITY };
+  for (let i = 0; i < slots.length; i++) {
+    for (let j = i + 1; j < slots.length; j++) {
+      const [a, ha] = slots[i] ?? ["", 0];
+      const [b, hb] = slots[j] ?? ["", 0];
+      const apart = Math.abs(ha - hb) % 360;
+      const gap = Math.min(apart, 360 - apart);
+      if (gap < best.gap) best = { pair: [a, b], gap };
+    }
+  }
+  return best;
+}
+
+test("every palette's status and tag hues sit at least 20 degrees apart", () => {
+  const closest = Object.fromEntries(
+    Object.entries(shippedHues()).map(([id, hues]) => {
+      const { pair, gap } = closestPair(hues);
+      return [id, gap >= 20 ? "ok" : { pair, gap: Math.round(gap) }];
+    }),
+  );
+  expect(closest).toEqual({
+    // The pool runs out for these slots, so the pair is as far apart as it gets.
+    russet: { pair: ["--k-info", "--tg-10"], gap: 13 },
+    peach: { pair: ["--k-warn", "--tg-10"], gap: 16 },
+    pansy: { pair: ["--tg-1", "--tg-10"], gap: 9 },
+  });
+});
 
 test("the generator's css is the palette blocks in kasten-theme.css", () => {
   expect(between(read(CSS_PATH), CSS_BEGIN, CSS_END)).toEqual(css());

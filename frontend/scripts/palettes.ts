@@ -208,6 +208,25 @@ function themeBlocks(css: string): Record<Theme, Tokens> {
   return { light: declarations(root?.[1] ?? ""), dark: declarations(dark?.[1] ?? "") };
 }
 
+/**
+ * The light hue of each slot of a generated palette, as the file paints it. A
+ * missing block falls back to poel, so a test reads a wrong hue, not a throw.
+ */
+export function shippedHues(): Record<GeneratedId, Record<string, number>> {
+  const css = readFileSync(THEME_CSS, "utf8");
+  const base = themeBlocks(css);
+  const ids = Object.keys(GENERATED) as GeneratedId[];
+  return Object.fromEntries(
+    ids.map((id) => {
+      const light = { ...base.light, ...paletteBlock(css, id, "light") };
+      return [
+        id,
+        Object.fromEntries(SLOTS.map((slot) => [slot, rgbToLch(hexRgb(at(light, slot))).h])),
+      ];
+    }),
+  ) as Record<GeneratedId, Record<string, number>>;
+}
+
 /** What a palette block in the file sets for one theme; a missing block sets nothing. */
 function paletteBlock(css: string, id: PaletteId, theme: Theme): Tokens {
   const blocks = css.matchAll(
@@ -276,7 +295,14 @@ interface Pick {
   slot: string;
   name: string;
   seed: string;
+  /** The light hue of the fitted colour, which is what the file paints. */
+  hue: number;
+  /** True when no colour left in the pool sat this far from the earlier picks. */
+  fallback: boolean;
 }
+
+/** The least hue gap between any two colours of one palette's statuses and tags. */
+const MIN_APART = 20;
 
 interface TokenSet {
   light: Tokens;
@@ -304,7 +330,11 @@ function tokensFor(spec: Generated, picks: Pick[], base: Record<Theme, Tokens>, 
   return tokens;
 }
 
-/** Picks one Wada colour per slot, nearest in hue to poel's value of that slot. */
+/**
+ * Picks one Wada colour per slot. A pick sits at least MIN_APART from every
+ * earlier pick of the palette, and among those is nearest in hue to poel's value
+ * of the slot. Only when none is left at MIN_APART does the farthest one go in.
+ */
 function generated(id: GeneratedId, base: Record<Theme, Tokens>): TokenSet {
   const spec = GENERATED[id];
   const pool = poolFor(spec, rgbToLch(hexRgb(spec.accent.light)).h);
@@ -312,18 +342,29 @@ function generated(id: GeneratedId, base: Record<Theme, Tokens>): TokenSet {
   const picks: Pick[] = [];
   for (const slot of SLOTS) {
     const target = rgbToLch(hexRgb(at(base.light, slot))).h;
-    const ranked = pool
+    const tag = slot.startsWith("--tg-");
+    const ground = colour(at(base.light, tag ? "--k-bg" : "--k-paper"), BLACK);
+    const bar = TARGET.light[tag ? "tag" : "status"];
+    const free = pool
       .filter((p) => !taken.has(p.wada.name))
-      .sort(
-        (a, b) =>
-          hueGap(a.lch.h, target) - hueGap(b.lch.h, target) ||
-          b.lch.c - a.lch.c ||
-          (a.wada.name < b.wada.name ? -1 : 1),
-      );
+      .map((p) => ({
+        ...p,
+        hue: rgbToLch(hexRgb(fitSeed(p.wada.hex, ground, bar, "light"))).h,
+      }));
+    const apart = (hue: number) => Math.min(360, ...picks.map((q) => hueGap(hue, q.hue)));
+    const nearest = (a: (typeof free)[number], b: (typeof free)[number]) =>
+      hueGap(a.lch.h, target) - hueGap(b.lch.h, target) ||
+      b.lch.c - a.lch.c ||
+      (a.wada.name < b.wada.name ? -1 : 1);
+    const spaced = free.filter((p) => apart(p.hue) >= MIN_APART).sort(nearest);
+    const fallback = spaced.length === 0;
+    const ranked = fallback
+      ? free.sort((a, b) => apart(b.hue) - apart(a.hue) || nearest(a, b))
+      : spaced;
     const best = ranked[0];
     if (!best) throw new Error(`no Wada colour left for ${slot} in ${id}`);
     taken.add(best.wada.name);
-    picks.push({ slot, name: best.wada.name, seed: best.wada.hex });
+    picks.push({ slot, name: best.wada.name, seed: best.wada.hex, hue: best.hue, fallback });
   }
   return {
     light: tokensFor(spec, picks, base, "light"),
@@ -462,7 +503,8 @@ export function table(): string {
     return set.picks.map((p) => {
       const light = at(set.light, p.slot);
       const dark = at(set.dark, p.slot);
-      return `| ${id} | ${p.slot} | ${hue(at(base.light, p.slot))} | ${p.name} | ${hue(p.seed)} | ${light} | ${hue(light)} | ${dark} | ${hue(dark)} |`;
+      const slot = p.fallback ? `${p.slot} (fallback)` : p.slot;
+      return `| ${id} | ${slot} | ${hue(at(base.light, p.slot))} | ${p.name} | ${hue(p.seed)} | ${light} | ${hue(light)} | ${dark} | ${hue(dark)} |`;
     });
   });
   return [
