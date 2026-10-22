@@ -71,9 +71,12 @@ class MermaidBlock extends WidgetType {
     return false;
   }
 
-  // Keeps the old drawing on screen while the new one is drawn. Without this,
-  // CodeMirror would build a new block, empty until the svg lands, which flashes.
-  override updateDOM(dom: HTMLElement, view: EditorView): boolean {
+  // CodeMirror hands this widget the DOM of any old block of its class, not only
+  // the same diagram's, so another diagram's drawing must not be kept. Only a
+  // switch of theme for the same source keeps the old drawing on screen while
+  // the new one is drawn; anything else builds a fresh block, as it did before.
+  override updateDOM(dom: HTMLElement, view: EditorView, from: MermaidBlock): boolean {
+    if (from.source !== this.source) return false;
     draw(dom, this.source, this.theme, view);
     view.requestMeasure();
     return true;

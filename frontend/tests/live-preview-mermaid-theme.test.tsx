@@ -267,3 +267,51 @@ it("#835 I6 the editor measures again when the new drawing lands", async () => {
     measured: true,
   });
 });
+
+it("#835 B1 a diagram never shows another diagram's drawing", async () => {
+  stubMatchMedia({ [DARK]: false });
+  const doc = [
+    "before",
+    "",
+    "```mermaid",
+    "graph LR\n  B1b --> Y",
+    "```",
+    "",
+    "```mermaid",
+    "graph LR\n  B1a --> X",
+    "```",
+    "",
+    "after",
+  ].join("\n");
+  const at = mount(doc, false);
+  // The block of diagram A, the second one. B comes first, so that A's new
+  // widget is built after B's old one, which is the order CodeMirror reuses
+  // a widget's DOM in.
+  const shownInA = () =>
+    at.dom.querySelector(".cm-mermaid-block svg")?.getAttribute("aria-label") ?? null;
+  await vi.waitFor(() => expect(at.dom.querySelectorAll(".cm-mermaid-block svg")).toHaveLength(2));
+
+  // The cursor in A, so A shows its source and B is still drawn.
+  at.dispatch({ selection: { anchor: doc.indexOf("B1a") } });
+  let release: () => void = () => {};
+  hold.theme = "default";
+  hold.until = new Promise((done) => {
+    release = done;
+  });
+  // Edit A's source, so its new drawing is held back.
+  const from = doc.indexOf("B1a");
+  at.dispatch({ changes: { from, to: from + 3, insert: "B1c" } });
+  // The cursor into B: A becomes a block again, and B shows its source.
+  at.dispatch({ selection: { anchor: doc.indexOf("B1b") } });
+  const during = {
+    blocks: at.dom.querySelectorAll(".cm-mermaid-block").length,
+    shownInA: shownInA(),
+  };
+
+  release();
+  await vi.waitFor(() => expect(shownInA()).toBe("graph LR\n  B1c --> X"));
+  expect({ during, after: shownInA() }).toEqual({
+    during: { blocks: 1, shownInA: null },
+    after: "graph LR\n  B1c --> X",
+  });
+});

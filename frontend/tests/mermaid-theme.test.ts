@@ -1,5 +1,6 @@
 /**
- * The theme mermaid is initialised with, read once when it loads (#835).
+ * The theme mermaid is initialised with for each draw, read when the draw starts
+ * (#835).
  *
  * The package is mocked as in `mermaid-load.test.tsx`. Each case gets a module
  * of its own, since the load is kept for the life of the module and would hand
