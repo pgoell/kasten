@@ -1,7 +1,7 @@
 ---
 type: Reference
 title: Design tokens
-description: The token file the app is painted from, every colour of the light and the dark set, the graph's tag slots, type, space and motion, the contrast each pair holds, how light and dark are chosen and kept, and the fonts and their licenses.
+description: The token file the app is painted from, every colour of the light and the dark set, the graph's tag slots, the accent palettes, type, space and motion, the contrast each pair holds, how light and dark are chosen and kept, and the fonts and their licenses.
 resource: frontend/src/styles/kasten-theme.css
 tags: [frontend, design]
 status: stable
@@ -52,9 +52,11 @@ highlights, tags and the graph.
 | `--k-danger` | `#9a5143` | `#f19f8f` | Broken, removed |
 | `--k-shadow` | `0 1px 2px rgba(0,0,0,.05),0 12px 32px rgba(0,0,0,.09)` | `0 1px 2px rgba(0,0,0,.3),0 16px 40px rgba(0,0,0,.45)` | Floating things only |
 
-The accent is Vandar Poel's blue (Sanzo Wada, *A Dictionary of Color
-Combinations*, No. 296 and No. 151). The light highlight is Yellow Orange
-`#f99d1b` at 22 %, the dark one Pale King's Blue `#a7d4e4` at 18 % (No. 167).
+The values in this section are those of the default palette, `poel`. Its accent
+is Vandar Poel's blue (Sanzo Wada, *A Dictionary of Color Combinations*, No. 296
+and No. 151), and its light highlight is Yellow Orange `#f99d1b` at 22 %, dark
+Pale King's Blue `#a7d4e4` at 18 % (No. 167). The other palettes change some of
+these values; [Accent palettes](/reference/accent-palettes.md) lists them.
 
 ## Graph tag slots
 
@@ -81,7 +83,8 @@ takes which slot.
 
 WCAG 2 ratios, alpha colours blended over paper. `tests/theme-contrast.test.ts`
 computes every pair from the token file and holds text at 4.5 or over and tag
-dots at 3 or over.
+dots at 3 or over. It reads the default palette only, `poel`, so the ratios
+below are `poel`'s; the test does not check the other three.
 
 | Pair | Light | Dark |
 |---|---|---|
@@ -175,9 +178,42 @@ one tab reaches every other open tab. A browser that refuses storage still
 switches, for as long as the page is open.
 
 The switch cross-fades through a view transition, and lands at once under
-`prefers-reduced-motion`. `public/theme.js` sets `data-theme` on `<html>`
+`prefers-reduced-motion`. `public/theme.js` sets `data-theme` and `data-palette` on `<html>`
 before the first paint, so a page never flashes the other theme while it loads,
 and the browser bar's `theme-color` follows `--k-bg` on every switch.
+
+## Accent palettes
+
+Four palettes set the accent colours. Each comes from Sanzo Wada's *A Dictionary
+of Color Combinations*:
+
+* `poel`: Vandar Poel's blue, No. 296 and No. 151. The default.
+* `russet`: Hay's russet, No. 345.
+* `peach`: Peach red, No. 303 and No. 310.
+* `pansy`: Pansy purple, No. 273.
+
+A palette changes the accent, the link, the accent wash, the highlight, the
+mark, the four status colours and the ten graph tag slots, `--tg-1` to
+`--tg-10`. Grounds, ink, type and space never change, and nor does `--tg-none`.
+[Accent palettes](/reference/accent-palettes.md) gives the colours of each
+palette in light and dark.
+
+Each `<html>` carries a `data-palette` beside `data-theme`, and `poel` when
+nothing is chosen. Each palette is two blocks in `kasten-theme.css`,
+`[data-palette="id"]` and `[data-palette="id"][data-theme="dark"]`, which
+`frontend/scripts/palettes.ts` writes.
+
+Pick a palette in [the command palette](/reference/editor-keys/leader.md#the-command-palette),
+opened with `<leader>:`, Ctrl+Shift+P with vim off, or `run` on the toolbar on a
+phone. The four rows are `Accent palette: Vandar Poel's blue`,
+`Accent palette: Hay's russet`, `Accent palette: Peach red` and
+`Accent palette: Pansy purple`. They work the same with vim on or off. The choice is kept per device in
+`localStorage` as `kasten.palette`, and an id that is not one of the four reads
+as `poel`. A pick cross-fades like the theme switch, at once under
+`prefers-reduced-motion`, and other open tabs follow.
+
+An HTML page in the HTML pane is sent `{kasten: 'palette', palette}` by
+postMessage when it loads and on every switch. It does not reload.
 
 ## Fonts
 

@@ -49,7 +49,7 @@ and the rest are told apart by weight, slope, face and ground:
 | highlight | the mark wash under the ink colour |
 | strikethrough | struck through, in the muted colour |
 
-A link and a tag are the two that take the accent's blue: both lead somewhere
+A link and a tag are the two that take the accent colour: both lead somewhere
 else, a link to its note and a tag to the notes that share it.
 
 ## An embed is a note, read only
