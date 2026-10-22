@@ -73,9 +73,8 @@ export function nextSchedule(held: Schedule | null, rating: Rating, today: strin
  * today from a review done today.
  *
  * Read off the vault, so a reload or a second device counts the same. The cost
- * is two mistakes, both rare: a new card asked a second time in its first
- * sitting, after an again, reads as a review, and a review that lands back on
- * the starting ease with a gap of 1 or 4 reads as new.
+ * is one mistake, and a rare one: a review that lands back on the starting ease
+ * with a gap of 1 or 4 reads as new.
  */
 export function answeredToday(held: Schedule | null, today: string): "new" | "review" | null {
   if (held === null || held.due !== shiftDay(today, held.interval)) return null;

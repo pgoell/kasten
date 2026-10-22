@@ -10,6 +10,15 @@ export interface Seat {
   note: string;
   /** Its ordinal among the cards of that note, counting the ones other decks ask. */
   at: number;
+  /**
+   * Whether the card had no schedule when the sitting began, so its first answer
+   * is still to come.
+   *
+   * The sitting's own memory: `again` and undo carry the same seat objects, so
+   * the flag survives both. The vault cannot hold it, because
+   * obsidian-spaced-repetition reads only the three numbers.
+   */
+  fresh?: boolean;
 }
 
 /** Whether the card is one today's sitting should ask. */
@@ -50,9 +59,11 @@ export function seatsFor(
         limits,
       ).find((each) => !each.whole && each.name === deck.name);
   return [
-    ...due.slice(0, row?.due ?? due.length),
-    ...fresh.slice(0, row?.fresh ?? fresh.length),
-  ].map(({ note, at }) => ({ note, at }));
+    ...due.slice(0, row?.due ?? due.length).map(({ note, at }) => ({ note, at })),
+    ...fresh
+      .slice(0, row?.fresh ?? fresh.length)
+      .map(({ note, at }) => ({ note, at, fresh: true })),
+  ];
 }
 
 /**

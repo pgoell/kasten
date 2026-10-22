@@ -65,14 +65,19 @@ export function useVaultEvents(
     // which a sleeping laptop or a backend restart guarantees. Asking for the
     // listing on each open closes that hole by construction. Do not trim it
     // back to the reconnects, because there is no way to tell them apart here
-    // and the gap comes back with the optimisation.
+    // and the gap comes back with the optimisation. The log is the same: it adds
+    // up daily notes the stream may have missed being written, and a listing that
+    // keeps the same daily notes (#796) does not ask it again, so the open asks it.
     //
     // At mount this usually beats the query's own first fetch, and with
     // `cancelRefetch` off it joins that fetch rather than replacing it, so the
     // redundant open costs nothing and the first paint waits on one walk of
-    // the vault rather than two.
-    stream.onopen = () =>
+    // the vault rather than two. The log's first open joins its own first fetch
+    // the same way.
+    stream.onopen = () => {
       queryClient.invalidateQueries({ queryKey: ["files"] }, { cancelRefetch: false });
+      queryClient.invalidateQueries({ queryKey: ["log"] }, { cancelRefetch: false });
+    };
     stream.onmessage = (message) => {
       const event = parseVaultEvent(message.data);
       if (event === null) return;

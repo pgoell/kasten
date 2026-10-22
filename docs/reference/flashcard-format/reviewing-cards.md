@@ -239,9 +239,11 @@ today count against the deck you sit, across every card under it.
 The count of what was answered today comes off the schedule in the note, so a
 reload and a second device read the same number. A card whose due date is today
 plus its interval was answered today, and one that also sits on ease 250 with an
-interval of 1 or 4 was new. Two cases read wrong: a new card asked a second time
-in its first sitting, after an `Again`, counts as a review, and a review that
-lands back on ease 250 with an interval of 1 or 4 counts as new.
+interval of 1 or 4 was new. A card new when the sitting starts and answered
+`Again` comes round again in that sitting, and each answer it gets there is
+scheduled as a first answer, so the last one sets its first gap, the way Anki's
+learning steps do, and it still counts as new. One case reads wrong: a review
+that lands back on ease 250 with an interval of 1 or 4 counts as new.
 
 The overview shows what today's sitting will ask, its limit less what was
 answered today, and the sitting asks exactly that. A deck with nothing left

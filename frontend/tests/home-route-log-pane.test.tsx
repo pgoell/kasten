@@ -511,4 +511,54 @@ describe("the log pane, on the route", () => {
 
     expect(fetchLog).toHaveBeenCalledTimes(asked);
   });
+
+  it("#813 a stream that opens again asks the log again and the pane shows the totals written while it was down", async () => {
+    todayText = LOGGED_TEXT;
+    fetchLog.mockResolvedValue([DAY]);
+    const app = await renderApp(`/?note=${encodeURIComponent(TODAY)}`);
+    await settle();
+    app.leader("g", "f");
+    await settle();
+    // The first open is the stream coming up, before anything was missed.
+    act(() => stream().onopen?.());
+    await settle();
+
+    // The backend was down, and the vault took 250 ml while it was.
+    fetchLog.mockClear();
+    fetchLog.mockResolvedValue([DAY_750]);
+    act(() => stream().onopen?.());
+    await settle();
+
+    expect
+      .soft(fetchLog.mock.calls.filter(([from, to]) => from === DATE && to === DATE))
+      .toHaveLength(1);
+    expect(
+      within(logPane() as HTMLElement).getByRole("button", { name: "💧 750 ml" }),
+    ).not.toBeNull();
+  });
+
+  it("#813 the first open of the stream asks the log once, not twice", async () => {
+    todayText = LOGGED_TEXT;
+    // Held back, so the first open lands while the pane's own first fetch is still in the air.
+    let release: () => void = () => {};
+    const answer = new Promise<LogDay[]>((resolve) => {
+      release = () => resolve([DAY]);
+    });
+    fetchLog.mockReturnValue(answer);
+    const app = await renderApp(`/?note=${encodeURIComponent(TODAY)}`);
+    await settle();
+    app.leader("g", "f");
+    await settle();
+    act(() => stream().onopen?.());
+    await settle();
+    release();
+    await settle();
+
+    expect(fetchLog.mock.calls.filter(([from, to]) => from === DATE && to === DATE)).toHaveLength(
+      1,
+    );
+    expect(
+      within(logPane() as HTMLElement).getByRole("button", { name: "💧 500 ml" }),
+    ).not.toBeNull();
+  });
 });

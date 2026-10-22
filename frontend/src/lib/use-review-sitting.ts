@@ -122,7 +122,10 @@ export function useReviewSitting(deck: Deck, play: (sources: string[]) => void) 
       const held = cards.get(seat.note)?.[seat.at];
       if (text === undefined || held === undefined) return;
 
-      const moved = nextSchedule(held.held, rating, today);
+      // A card new at the start keeps answering as a first answer until it leaves
+      // the queue. Anki's learning steps do the same, setting the first gap from
+      // the last answer, and `answeredToday` then still reads the card as new.
+      const moved = nextSchedule(seat.fresh ? null : held.held, rating, today);
       const next = deck.whole ? writeNoteSchedule(text, moved) : writeSchedule(text, held, moved);
       setTexts((was) => new Map(was).set(seat.note, next));
       setRevealed(false);

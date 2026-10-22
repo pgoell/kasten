@@ -185,7 +185,10 @@ function keepPanelFocus(view: EditorView, change: () => void): void {
   const kept =
     panel !== undefined && held instanceof HTMLElement && panel.contains(held) ? held : null;
   change();
-  kept?.focus();
+  // A focus scrolls the note to show what it lands on. A tap keeps the note where it
+  // was (#814): the card is where the user is looking, and Firefox scrolls on these
+  // focuses where Chrome does not.
+  kept?.focus({ preventScroll: true });
 }
 
 /** Writes the line `amount` makes for `kind` at the end of `## Log`, or says why it cannot. */
@@ -367,7 +370,7 @@ class LogCard extends WidgetType {
         const next = view.dom.querySelector<HTMLInputElement>(".cm-log-amount");
         if (next !== null) {
           next.value = typed;
-          if (focused) next.focus();
+          if (focused) next.focus({ preventScroll: true });
         }
       });
     }
@@ -463,7 +466,8 @@ export function cardShown(view: EditorView): boolean {
 export function openFoodSearch(view: EditorView): boolean {
   if (!cardShown(view)) return false;
   view.dispatch({ effects: foodOpen.of(true) });
-  const focusQuery = () => view.dom.querySelector<HTMLInputElement>(".cm-log-food-query")?.focus();
+  const focusQuery = () =>
+    view.dom.querySelector<HTMLInputElement>(".cm-log-food-query")?.focus({ preventScroll: true });
   focusQuery();
   // The palette hands its focus back to the editor when it closes, and it closes
   // after this call returns. A microtask runs after that close, so the query keeps it.
