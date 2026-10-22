@@ -88,9 +88,13 @@ button under it, which does what `:w` does, and `Drop my text`, which does what
 `:e!` does. A note that changed on disk has `Write my text` and
 `Take the vault's`, which is `:e!` again.
 
-Every pane in a divided window is drawn inside a border, and the border of the
-focused one is blue. A window holding a single pane has no border, having
-nothing to tell it apart from.
+Every pane of a split on screen has a header row of its own, with the kind of
+thing it holds (Note, PDF, Book, Review, Graph or Video, each with its icon)
+and the path, and the focused pane has a 2 px accent line at its top. Nothing
+else changes colour when the focus moves, and a hairline divides the panes. A
+single pane, a zoomed one and a phone's pane have no header and no line,
+having nothing to tell them apart from. Each pane scrolls on its own and keeps
+its place when the focus moves.
 
 No pane or tab key on this page moves while the note in the focused pane reads
 `Changed on disk`. Leaving the pane would leave that note unsettled, so the key flashes
@@ -102,8 +106,22 @@ moves the focus nowhere, so a conflicted note is no reason to refuse it.
 `<leader>ct` starts a tab. `<leader>tl` and `<leader>th` walk them, and
 `<leader>1` through `<leader>9` go straight to one, with `<leader>0` for the
 tenth, which is where those keys sit on the row rather than what the character
-means. An eleventh tab is reached by walking. The strip naming the tabs appears
-once there is more than one, and each tab is named for the note in the pane it
+means. An eleventh tab is reached by walking.
+
+The tab strip sits under the top bar, 40 px tall (44 px under a finger), and is
+always drawn. It opens on `Today` in italic serif, the home tab: it goes to the
+first tab holding one empty pane, which shows Today, or starts one. A thin
+divider follows, then every open tab, each with the icon of what its focused
+pane holds (page, PDF, book, review, graph or video), its name cut with an
+ellipsis, and a close x, drawn on the active tab and on hover. A tab whose note
+has text not yet written shows a dot in place of the x, and the x on hover.
+Closing the active tab writes its note first, as moving away does; closing the
+last tab leaves one empty tab. `Space 1` and the other digits name the tab in
+its tooltip. Tabs that do not fit go behind `N more` at the right, which opens
+a list of them; the active tab is always among the tabs drawn. In the strip the
+arrow keys move between tabs, `Home` and `End` go to the ends, `Enter` opens
+one and `Delete` closes it. An empty tab reads `New tab`, and each tab is named
+for the note in the pane it
 left focused, for the herdr session when that pane holds a terminal, and
 `todos` when it holds the todo list. A pane holding a pdf, an image or an HTML
 page names its tab for the file, without the folder or the suffix, so
@@ -112,10 +130,10 @@ their note, again without the folder or `.md`, so `people/Ada Lovelace.md`
 reads `Ada Lovelace`. The graph of the whole vault reads `graph view`, the
 graph around a note reads `graph of` and the note's name, a note's history
 reads `history of` and the note's name, and the review reads
-`review`. More tabs than the window is wide scroll
-sideways, and the strip keeps the tab on screen in view. A 2 px accent line
-under the active tab glides to the next one on a switch. The strip stays at the
-top, see-through over the page, with one hairline under it. A pane split off
+`review`. A 2 px accent line under the active tab glides to the next one on a
+switch, and hover fills a tab with the accent wash. The strip arrives once, on
+the first load of the page, and stays at the top, see-through over the page,
+with one hairline under it. A pane split off
 slides in from its side and fades in, from below when the panes are stacked or
 on a phone.
 

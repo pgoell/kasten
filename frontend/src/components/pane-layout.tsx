@@ -1,14 +1,7 @@
-import {
-  type ReactNode,
-  type RefObject,
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-} from "react";
-import { noteName } from "@/lib/note-path";
+import { type ReactNode, type RefObject, useLayoutEffect, useRef } from "react";
+import { KindIcon, kindLabel, paneKind, panePath } from "@/components/kind-icons";
 import type { PaneRect } from "@/lib/pane-direction";
-import { isSplit, type Layout, type Pane, type PaneNode, panesOf, type Tab } from "@/lib/panes";
+import { isSplit, type Pane, type PaneNode, panesOf } from "@/lib/panes";
 import { SPRINGS, Spring } from "@/lib/spring";
 
 interface PaneLayoutProps {
@@ -67,8 +60,8 @@ const REDUCED = "(prefers-reduced-motion: reduce)";
  *
  * The rules between panes are the container's own background showing through a
  * two pixel gap, so dividing the window costs no elements to draw lines with.
- * Each pane draws its own border on top of that, blue on the focused one, so
- * where a pane ends and which one is listening are both on screen.
+ * The rules are neutral, so the accent is left for the focus: a shown pane
+ * names itself in a header row and marks the focused one with a line at its top.
  */
 export function PaneLayout({
   node,
@@ -130,7 +123,7 @@ function LayoutNode({
         pane={node}
         focused={node.id === focus}
         hidden={hidden}
-        divided={divided}
+        shown={divided && zoomed === null}
         onFocus={onFocus}
         fresh={fresh.has(node.id)}
         enter={enter}
@@ -142,7 +135,7 @@ function LayoutNode({
 
   return (
     <div
-      className={`flex min-h-0 min-w-0 flex-1 gap-0.5 bg-k-accent-wash ${hidden ? "hidden" : ""} ${
+      className={`flex min-h-0 min-w-0 flex-1 gap-0.5 bg-k-rule ${hidden ? "hidden" : ""} ${
         node.dir === "row" ? "flex-row" : "flex-col"
       }`}
     >
@@ -169,7 +162,8 @@ interface PaneLeafProps {
   pane: Pane;
   focused: boolean;
   hidden: boolean;
-  divided: boolean;
+  /** Whether the pane has a header row and a focus line, which is only when others are drawn beside it. */
+  shown: boolean;
   onFocus: (id: string) => void;
   children: PaneLayoutProps["children"];
   fresh: boolean;
@@ -180,7 +174,7 @@ function PaneLeaf({
   pane,
   focused,
   hidden,
-  divided,
+  shown,
   onFocus,
   children,
   fresh,
@@ -188,6 +182,9 @@ function PaneLeaf({
 }: PaneLeafProps) {
   const element = useRef<HTMLDivElement>(null);
   useSlideIn(element, fresh, enter);
+
+  const kind = paneKind(pane);
+  const path = panePath(pane);
 
   return (
     // `onFocusCapture` rather than a click handler: clicking into a pane is
@@ -197,19 +194,35 @@ function PaneLeaf({
       ref={element}
       data-pane={pane.id}
       onFocusCapture={() => onFocus(pane.id)}
-      className={`min-h-0 min-w-0 flex-1 overflow-hidden bg-k-bg ${hidden ? "hidden" : ""} ${
-        // Only worth drawing once there is another pane it could have been.
-        // An undivided window has one pane and the border says nothing.
-        //
-        // A border rather than a ring or an outline: the editor fills the pane
-        // and paints its own background over both of those. The border is the
-        // one edge the children cannot reach, because they are laid out
-        // inside it. Every pane carries one, so taking the focus changes its
-        // colour and moves nothing.
-        divided ? (focused ? "border border-k-accent" : "border border-k-rule") : ""
-      }`}
+      className={`relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-k-bg ${hidden ? "hidden" : ""}`}
     >
-      {children(pane, focused)}
+      {shown && (
+        <>
+          {/* The line is laid over the pane's top edge rather than given a row,
+              and transparent when the pane is not focused, so the focus moves
+              one colour and no box. */}
+          <span
+            aria-hidden="true"
+            data-focus-line
+            className={`pointer-events-none absolute inset-x-0 top-0 z-10 h-0.5 ${
+              focused ? "bg-k-accent" : "bg-transparent"
+            }`}
+          />
+          <div
+            data-pane-header
+            className="flex h-7 shrink-0 items-center gap-2 border-b border-k-rule bg-k-bg px-3 text-k-muted"
+          >
+            <KindIcon kind={kind} />
+            <span className="font-sans text-k-12">{kindLabel(kind)}</span>
+            {path !== undefined && (
+              <span title={path} className="min-w-0 truncate font-mono text-k-12">
+                {path}
+              </span>
+            )}
+          </div>
+        </>
+      )}
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">{children(pane, focused)}</div>
     </div>
   );
 }
@@ -276,164 +289,4 @@ export function paneRects(): PaneRect[] {
     const { left, top, right, bottom } = element.getBoundingClientRect();
     return { id: element.dataset.pane ?? "", left, top, right, bottom };
   });
-}
-
-/** What one tab is called: its number, and what is in the pane it left focused. */
-function tabLabel(tab: Tab): string {
-  const focused = panesOf(tab.root).find((pane) => pane.id === tab.focus);
-  // A terminal pane names its herdr session, which is the thing you named it.
-  if (focused?.term !== undefined) return focused.term;
-  if (focused?.todos === true) return "todos";
-  if (focused?.log === true) return "log";
-  if (focused?.chat === true) return "chat";
-  // A reader names the note it reads beside, which is the only name it has.
-  if (focused?.book !== undefined) return noteName(focused.book);
-  // A player names the note it plays beside, which is the only name it has.
-  if (focused?.video !== undefined) return noteName(focused.video);
-  // A pdf, an image and a page are files and not notes, so they are named the
-  // way Obsidian names a tab holding one: by the file, less its suffix (#361).
-  if (focused?.pdf !== undefined) return baseName(focused.pdf.path);
-  if (focused?.image !== undefined) return baseName(focused.image);
-  if (focused?.html !== undefined) return baseName(focused.html);
-  // An exam and a card are each about one note, and are named by it (#363).
-  if (focused?.exam !== undefined) return noteName(focused.exam);
-  if (focused?.person !== undefined) return noteName(focused.person);
-  // Not the note's name alone, which the note's own tab already carries.
-  if (focused?.history !== undefined) return `history of ${noteName(focused.history)}`;
-  if (focused?.graph !== undefined) {
-    const { around } = focused.graph;
-    return around === undefined ? "graph view" : `graph of ${noteName(around)}`;
-  }
-  if (focused?.review === true) return "review";
-  return focused?.path === undefined ? "empty" : noteName(focused.path);
-}
-
-/**
- * A file's name without its folder or its suffix: `x/my plan.pdf` is `my plan`.
- *
- * The last suffix only, where `noteName` takes off `.md` alone: these files
- * come in a dozen suffixes, and `report.v2.pdf` is `report.v2` and not `report`.
- */
-function baseName(path: string): string {
-  return path.slice(path.lastIndexOf("/") + 1).replace(/\.[^.]+$/, "");
-}
-
-interface TabStripProps {
-  layout: Layout;
-  onSelect: (index: number) => void;
-}
-
-/**
- * The strip naming the open tabs, drawn only once there is more than one.
- *
- * One tab is the ordinary way to work, and a bar that spends a row of the
- * window saying "1" is chrome that earns nothing. It appears when it starts
- * carrying something worth reading and not before.
- *
- * More tabs than the window is wide scroll sideways rather than squeeze, which
- * on a phone is the third tab, and the active one is kept on screen.
- */
-export function TabStrip({ layout, onSelect }: TabStripProps) {
-  const strip = useRef<HTMLDivElement>(null);
-  const bar = useRef<HTMLSpanElement>(null);
-  const { active } = layout;
-  const count = layout.tabs.length;
-
-  // The bar's left edge and width are springs, so it glides from one tab to the
-  // next. Painted as a transform, because left and width would lay the strip out
-  // on every frame of the glide.
-  const [motion] = useState(() => {
-    const paint = () => {
-      if (bar.current === null) return;
-      bar.current.style.transform = `translateX(${motion.x.value}px) scaleX(${motion.width.value})`;
-    };
-    return { x: new Spring(0, paint), width: new Spring(0, paint) };
-  });
-  // Whether the bar has been drawn since it last appeared, so its first place is
-  // a jump and not a glide in from the left edge.
-  const placed = useRef(false);
-
-  // The labels too: a label that grows, or a web font that arrives, widens a tab
-  // without changing the count, and the bar has to follow it.
-  const labels = layout.tabs.map(tabLabel).join("\n");
-  // Follows the active tab, the count and the labels. None of the three is read
-  // here: the tab is found from the active index and the rest only triggers it.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: all three are the trigger, and none of them is read.
-  useLayoutEffect(() => {
-    const tab = strip.current?.querySelectorAll<HTMLElement>('[role="tab"]')[active];
-    if (tab === undefined) {
-      placed.current = false;
-      return;
-    }
-    const place = () => {
-      if (placed.current) {
-        void motion.x.to(tab.offsetLeft, SPRINGS.tab);
-        void motion.width.to(tab.offsetWidth, SPRINGS.tab);
-      } else {
-        motion.x.set(tab.offsetLeft);
-        motion.width.set(tab.offsetWidth);
-      }
-      placed.current = true;
-    };
-    place();
-    // A tab that changes width moves the bar's far edge, and a font changes
-    // every tab at once, so each tab is watched. jsdom has no observer, where
-    // the labels are the only trigger.
-    if (typeof ResizeObserver === "undefined") return;
-    const observer = new ResizeObserver(place);
-    for (const element of strip.current?.querySelectorAll<HTMLElement>('[role="tab"]') ?? []) {
-      observer.observe(element);
-    }
-    return () => observer.disconnect();
-  }, [active, count, labels]);
-
-  // The count as well as the index: closing a tab to the left of the active one
-  // moves it without changing which tab it is.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: both are the trigger, and neither is read.
-  useEffect(() => {
-    strip.current
-      ?.querySelector('[aria-selected="true"]')
-      ?.scrollIntoView({ block: "nearest", inline: "nearest" });
-  }, [active, count]);
-
-  if (count < 2) return null;
-
-  return (
-    <div
-      ref={strip}
-      role="tablist"
-      // The scrollbar is left out: it would take a row of its own on a desktop
-      // to say what the cut-off tab at the edge already says. The strip is glass
-      // and stays put, so the page scrolls under it, and the one hairline is
-      // the only rule it draws.
-      className="k-glass k-hairline sticky top-0 z-10 flex shrink-0 overflow-x-auto font-mono text-[11px] [scrollbar-width:none]"
-    >
-      {layout.tabs.map((tab, index) => {
-        const selected = index === active;
-        return (
-          <button
-            key={tab.id}
-            type="button"
-            role="tab"
-            aria-selected={selected}
-            // The digit that jumps here, which is the key rather than the
-            // position: the tenth tab is reached with `0`.
-            onClick={() => onSelect(index)}
-            className={`shrink-0 px-3 py-1 whitespace-nowrap pointer-coarse:min-h-11 ${
-              selected ? "text-k-ink" : "text-k-muted hover:bg-k-surface"
-            }`}
-          >
-            <span className="text-k-accent">{(index + 1) % 10}</span> {tabLabel(tab)}
-          </button>
-        );
-      })}
-      {/* Inside the strip so it scrolls with the tabs. The strip is already
-          positioned (it is sticky), which is what an absolute child needs. */}
-      <span
-        ref={bar}
-        aria-hidden="true"
-        className="pointer-events-none absolute bottom-0 left-0 h-0.5 w-px origin-left bg-k-accent"
-      />
-    </div>
-  );
 }

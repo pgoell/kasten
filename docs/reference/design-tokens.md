@@ -36,7 +36,7 @@ highlights, tags and the graph.
 |---|---|---|---|
 | `--k-bg` | `#f6f6f4` | `#141414` | Page background |
 | `--k-paper` | `#fbfbfa` | `#1a1a1a` | Cards, boxes, panels |
-| `--k-surface` | `#ebebe8` | `#232323` | Chips, inputs, tab hover |
+| `--k-surface` | `#ebebe8` | `#232323` | Chips, inputs |
 | `--k-ink` | `#1c1c1b` | `#e8e7e4` | Body text, headings |
 | `--k-ink-soft` | `#3b3b39` | `#c6c5c1` | Secondary running text |
 | `--k-muted` | `#666663` | `#9a9995` | Meta lines, captions, labels |
@@ -44,7 +44,7 @@ highlights, tags and the graph.
 | `--k-rule-strong` | `#1c1c1b` | `#e8e7e4` | Rule under a section head, top of a table |
 | `--k-inset` | `rgba(28,28,27,.06)` | `rgba(232,231,228,.08)` | Code blocks, placeholders |
 | `--k-accent`, `--k-link` | `#316f90` | `#82b9d9` | Links, kickers, active markers |
-| `--k-accent-wash` | `rgba(49,111,144,.11)` | `rgba(130,185,217,.14)` | Accent tint behind a chip or box |
+| `--k-accent-wash` | `rgba(49,111,144,.11)` | `rgba(130,185,217,.14)` | Accent tint behind a chip or box, tab hover |
 | `--k-highlight`, `--k-mark` | `rgba(249,157,27,.22)` | `rgba(167,212,228,.18)` | Selection, marked and taken passages |
 | `--k-ok` | `#247b4b` | `#7acd97` | Fine, added |
 | `--k-warn` | `#8d5e09` | `#e7aa53` | Needs a look |

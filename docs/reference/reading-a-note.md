@@ -87,9 +87,10 @@ The container query on the pane, by its width and not the window's:
 A split pane narrows on its own, so each pane drops its margins as its width
 asks.
 
-Later issues fill three slots and change nothing above:
+The tab strip under the top bar is in
+[Panes and tabs](/reference/editor-keys/panes-and-tabs.md) (#780). Later issues
+fill two slots and change nothing above:
 
-- a tab strip under the top bar, #780;
 - the local graph at the top of the right margin, and a narrow Graph button
   beside the breadcrumb, #781;
 - the phone layout, which replaces the one-column stopgap below 776 px, #793.

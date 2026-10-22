@@ -1,3 +1,4 @@
+import { fireEvent, screen } from "@testing-library/react";
 import { useMemo } from "react";
 import { ChangedOnDisk, type TodoHit } from "@/lib/api";
 import { heldText } from "@/lib/held-text";
@@ -282,12 +283,36 @@ describe("the route", () => {
     // A new tab moves the focus to the empty pane in it, which moves the note
     // the autosave follows, and the flush that follows would write the buffer
     // over the vault with nobody asked. Every key that moves the focus is the
-    // same key from here.
-    expect(app.tabs()).toBe(0);
+    // same key from here. The strip is always drawn now, so the one tab counts
+    // as one: the point is that the count did not grow.
+    expect(app.tabs()).toBe(1);
     expect(saveNote).not.toHaveBeenCalled();
     expect(app.status()).toBe("Changed on disk");
     // With a dozen keys declining, a key that does nothing and says nothing
     // reads as a key that is broken.
+    expect(app.flashing()).toBe(true);
+  });
+
+  it("I1 the x on the active tab is refused while its note stands changed on disk, and the tab stays", async () => {
+    // Two tabs before the other write, so the close has a tab to be refused over.
+    const app = await editing();
+    app.leader("c", "t");
+    await settle();
+    app.leader("t", "h");
+    await settle();
+    // The tab switch flushed the buffer, so it is typed into again to stand dirty.
+    app.press("x");
+    somebodyElseWrote();
+    await settle();
+    expect(app.status()).toBe("Changed on disk");
+    const kept = app.text();
+
+    fireEvent.click(screen.getByRole("button", { name: "Close index" }));
+    await settle();
+
+    expect(app.tabs()).toBe(2);
+    expect(app.text()).toBe(kept);
+    expect(saveNote).not.toHaveBeenCalled();
     expect(app.flashing()).toBe(true);
   });
 

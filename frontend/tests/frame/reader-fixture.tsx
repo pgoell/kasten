@@ -153,6 +153,7 @@ export async function mount(
   theme: Theme,
   route: string,
   ready: string,
+  storage: Record<string, string> = {},
 ): Promise<Mounted> {
   await page.viewport(size.width, size.height);
   await commands.emulateMedia({
@@ -170,6 +171,8 @@ export async function mount(
   });
   localStorage.clear();
   localStorage.setItem(VIM_KEY, "on");
+  // A saved workspace for the route to restore, read when the route first renders.
+  for (const [key, value] of Object.entries(storage)) localStorage.setItem(key, value);
   document.documentElement.dataset.theme = theme;
 
   const host = document.body.appendChild(document.createElement("div"));

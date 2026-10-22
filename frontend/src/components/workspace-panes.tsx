@@ -8,10 +8,11 @@ import { HtmlPane } from "@/components/html-pane";
 import { ImagePane } from "@/components/image-pane";
 import { LogPane } from "@/components/log-pane";
 import { NotePane } from "@/components/note-pane";
-import { PaneLayout, TabStrip } from "@/components/pane-layout";
+import { PaneLayout } from "@/components/pane-layout";
 import { PdfPane } from "@/components/pdf-pane";
 import { PersonPane } from "@/components/person-pane";
 import { ReviewPane } from "@/components/review-pane";
+import { isUnsaved, TabStrip } from "@/components/tab-strip";
 import { TerminalPane } from "@/components/terminal-pane";
 import { type AgentRow, TodoPane } from "@/components/todo-pane";
 import type { PaneMoves } from "@/components/use-pane-moves";
@@ -19,8 +20,17 @@ import { VideoPane } from "@/components/video-pane";
 import type { SearchHit } from "@/lib/api";
 import { readClock } from "@/lib/clock";
 import type { TreeCommands } from "@/lib/key-bindings";
-import { activeTab, focusedPane, focusPane, goToTab, type Layout, tabPanes } from "@/lib/panes";
-import type { useAutosave } from "@/lib/use-autosave";
+import {
+  activeTab,
+  closeTab,
+  focusedPane,
+  focusPane,
+  goToTab,
+  homeTab,
+  type Layout,
+  tabPanes,
+} from "@/lib/panes";
+import type { SaveStatus, useAutosave } from "@/lib/use-autosave";
 import type { BufferSync } from "@/lib/use-buffer-sync";
 import type { GuardedWrites } from "@/lib/use-guarded-writes";
 import type { Listings } from "@/lib/use-listings";
@@ -54,6 +64,7 @@ export function WorkspacePanes({
   onDeleteImage,
   buffer,
   autosave,
+  status,
   onNotice,
 }: {
   layout: Layout;
@@ -87,6 +98,7 @@ export function WorkspacePanes({
   onDeleteImage: (path: string) => void;
   buffer: Pick<BufferSync, "held" | "standbyReload" | "typed" | "reload">;
   autosave: Pick<Autosave, "allowReload" | "save">;
+  status: SaveStatus;
   onNotice: Dispatch<SetStateAction<string | undefined>>;
 }) {
   const tab = activeTab(layout);
@@ -103,9 +115,15 @@ export function WorkspacePanes({
       inert={inert}
       className="flex min-w-0 flex-1 flex-col"
     >
+      {/* Every change here goes through `moveTo`, the same guard a move takes:
+          closing the note's tab flushes its text first, and is refused while
+          the note stands conflicted. */}
       <TabStrip
         layout={layout}
         onSelect={(index) => moveTo((previous) => goToTab(previous, index))}
+        onClose={(index) => moveTo((previous) => closeTab(previous, index))}
+        onHome={() => moveTo((previous) => homeTab(previous))}
+        unsaved={(each) => isUnsaved(each, each.id === tab.id, buffer.held, status)}
       />
       <div className="flex min-h-0 flex-1">
         <PaneLayout

@@ -20,6 +20,9 @@ import { digestOf, type VaultEvent } from "@/lib/vault-events";
 import { routeTree } from "@/routeTree.gen";
 import { hashed } from "./digests";
 import { resetFoliateFake } from "./foliate-fake";
+import { focusedPaneOf } from "./home-route-panes";
+
+export { focusedPaneOf } from "./home-route-panes";
 
 /**
  * The route itself, mounted, because its own lines are what nothing else pins.
@@ -216,7 +219,7 @@ export async function renderApp(entry = "/") {
     text: () => editor().textContent,
     status: () =>
       container.querySelector("[data-testid='save-status']")?.getAttribute("aria-label"),
-    /** How many tabs the strip draws, which is none until there are two. */
+    /** How many tabs the strip lists: Today is the home button beside them, not one of them. */
     tabs: () => container.querySelectorAll("[role='tab']").length,
     /** Click into another pane, which is a focus and not a click event. */
     focusPane: (index: number) =>
@@ -261,11 +264,7 @@ export async function renderApp(entry = "/") {
       fireEvent.change(input, { target: { value } });
       fireEvent.keyDown(input, { key: "Enter" });
     },
-    /** Which pane the route is drawing as the focused one, by position. */
-    focusedPane: () =>
-      [...container.querySelectorAll("[data-pane]")].findIndex((pane) =>
-        pane.className.includes("border-k-accent"),
-      ),
+    focusedPane: () => focusedPaneOf(container),
     /** The row being edited in the pane, as the input it turns into. */
     editedLine: () => container.querySelector("[aria-label='edit line']"),
     /** How many panes the active tab draws. */

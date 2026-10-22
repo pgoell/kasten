@@ -399,6 +399,7 @@ function Home() {
           onDeleteImage={discardImage}
           buffer={buffer}
           autosave={{ allowReload, save }}
+          status={status}
           onNotice={setNotice}
         />
       </div>

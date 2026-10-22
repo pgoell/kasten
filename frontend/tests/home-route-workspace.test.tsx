@@ -583,4 +583,28 @@ describe("the workspace across a reload", () => {
     expect(app.text()).toBe("the index note");
     expect(tried).toContain(FINE);
   });
+
+  it("I1 I2 the x on the active tab closes it, and Today goes to the empty tab", async () => {
+    const app = await renderApp();
+    await settle();
+    app.click("index.md");
+    await settle();
+    app.leader("c", "t");
+    await settle();
+    expect(app.tabs()).toBe(2);
+
+    fireEvent.click(screen.getByRole("button", { name: "Close New tab" }));
+    await settle();
+    expect(app.tabs()).toBe(1);
+    expect(app.text()).toBe("the index note");
+
+    app.leader("c", "t");
+    await settle();
+    fireEvent.click(screen.getByRole("tab", { name: "index" }));
+    await settle();
+    fireEvent.click(screen.getByRole("button", { name: "Today" }));
+    await settle();
+    expect(selectedTab()).toContain("New tab");
+    expect(app.tabs()).toBe(2);
+  });
 });

@@ -273,7 +273,7 @@ describe("a pdf as a row of the tree", () => {
     await settle();
 
     expect(pdfPane()?.getAttribute("data-pdf-pane")).toBe(PLAN);
-    expect(screen.getByRole("tab", { name: "2 my plan" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "my plan" })).toBeInTheDocument();
 
     // A tap on a row shuts the drawer; opened again it marks the pdf.
     fireEvent.click(screen.getByRole("button", { name: "File tree" }));

@@ -147,10 +147,12 @@ it("a desktop reopens a row of two notes side by side", async () => {
   expect(a.top).toBe(b.top);
   expect(Math.abs(a.width - b.width)).toBeLessThanOrEqual(1);
   // The split moved the focus to Right, and the reload keeps it there: its
-  // pane wears the focused border and its editor holds the browser's focus.
-  const pane = (note: Element) => note.closest("[data-pane]") as Element;
-  expect(pane(right as Element).className).toContain("border-k-accent");
-  expect(pane(left as Element).className).not.toContain("border-k-accent");
+  // pane wears the focus line (A10, a bar over the top edge), and its editor
+  // holds the browser's focus.
+  const line = (note: Element) =>
+    (note.closest("[data-pane]") as Element).querySelector("[data-focus-line]") as Element;
+  expect(line(right as Element).className).toContain("bg-k-accent");
+  expect(line(left as Element).className).not.toContain("bg-k-accent");
   await expect.poll(() => (right as Element).contains(document.activeElement)).toBe(true);
   expect(await shot(host as Element, "workspace-desktop")).toBe(1280);
 });

@@ -1,8 +1,9 @@
 import { QueryClientProvider } from "@tanstack/react-query";
 import { act, render, screen, waitFor } from "@testing-library/react";
 import { createRoot } from "react-dom/client";
-import { PaneLayout, TabStrip } from "@/components/pane-layout";
+import { PaneLayout } from "@/components/pane-layout";
 import { ReviewDecks } from "@/components/review-decks";
+import { TabStrip } from "@/components/tab-strip";
 import * as api from "@/lib/api";
 import {
   activeTab,
@@ -85,7 +86,15 @@ describe("the consumers of the motion", () => {
   it("the underline jumps under the active tab on first draw", () => {
     laidOut();
 
-    render(<TabStrip layout={goToTab(threeTabs, 1)} onSelect={() => {}} />);
+    render(
+      <TabStrip
+        layout={goToTab(threeTabs, 1)}
+        onSelect={() => {}}
+        onClose={() => {}}
+        onHome={() => {}}
+        unsaved={() => false}
+      />,
+    );
 
     expect(bar()?.style.transform).toBe("translateX(100px) scaleX(70)");
   });
@@ -95,9 +104,25 @@ describe("the consumers of the motion", () => {
     vi.useFakeTimers({
       toFake: ["requestAnimationFrame", "cancelAnimationFrame", "performance", "setTimeout"],
     });
-    const { rerender } = render(<TabStrip layout={goToTab(threeTabs, 0)} onSelect={() => {}} />);
+    const { rerender } = render(
+      <TabStrip
+        layout={goToTab(threeTabs, 0)}
+        onSelect={() => {}}
+        onClose={() => {}}
+        onHome={() => {}}
+        unsaved={() => false}
+      />,
+    );
 
-    rerender(<TabStrip layout={goToTab(threeTabs, 1)} onSelect={() => {}} />);
+    rerender(
+      <TabStrip
+        layout={goToTab(threeTabs, 1)}
+        onSelect={() => {}}
+        onClose={() => {}}
+        onHome={() => {}}
+        unsaved={() => false}
+      />,
+    );
     vi.advanceTimersByTime(100);
 
     const x = Number(/translateX\((-?[\d.]+)px\)/.exec(bar()?.style.transform ?? "")?.[1]);
@@ -112,10 +137,26 @@ describe("the consumers of the motion", () => {
     vi.useFakeTimers({
       toFake: ["requestAnimationFrame", "cancelAnimationFrame", "performance", "setTimeout"],
     });
-    const { rerender } = render(<TabStrip layout={goToTab(threeTabs, 2)} onSelect={() => {}} />);
+    const { rerender } = render(
+      <TabStrip
+        layout={goToTab(threeTabs, 2)}
+        onSelect={() => {}}
+        onClose={() => {}}
+        onHome={() => {}}
+        unsaved={() => false}
+      />,
+    );
 
     const closed: Layout = { ...threeTabs, tabs: threeTabs.tabs.slice(1), active: 1 };
-    rerender(<TabStrip layout={closed} onSelect={() => {}} />);
+    rerender(
+      <TabStrip
+        layout={closed}
+        onSelect={() => {}}
+        onClose={() => {}}
+        onHome={() => {}}
+        unsaved={() => false}
+      />,
+    );
     vi.advanceTimersByTime(1000);
 
     expect(bar()?.style.transform).toBe("translateX(100px) scaleX(70)");
@@ -227,9 +268,25 @@ describe("the consumers of the motion", () => {
   it("under reduced motion the underline lands at once and a new pane fades in", async () => {
     laidOut();
     stubMatchMedia({ "(prefers-reduced-motion: reduce)": true });
-    const { rerender } = render(<TabStrip layout={goToTab(threeTabs, 0)} onSelect={() => {}} />);
+    const { rerender } = render(
+      <TabStrip
+        layout={goToTab(threeTabs, 0)}
+        onSelect={() => {}}
+        onClose={() => {}}
+        onHome={() => {}}
+        unsaved={() => false}
+      />,
+    );
 
-    rerender(<TabStrip layout={goToTab(threeTabs, 1)} onSelect={() => {}} />);
+    rerender(
+      <TabStrip
+        layout={goToTab(threeTabs, 1)}
+        onSelect={() => {}}
+        onClose={() => {}}
+        onHome={() => {}}
+        unsaved={() => false}
+      />,
+    );
     expect(bar()?.style.transform).toBe("translateX(100px) scaleX(70)");
 
     const before = emptyLayout("a.md");
@@ -280,9 +337,25 @@ describe("the consumers of the motion", () => {
         index === 0 ? { ...tab, root: { ...tab.root, path: "a-much-longer-name.md" } } : tab,
       ),
     };
-    const { rerender } = render(<TabStrip layout={layout} onSelect={() => {}} />);
+    const { rerender } = render(
+      <TabStrip
+        layout={layout}
+        onSelect={() => {}}
+        onClose={() => {}}
+        onHome={() => {}}
+        unsaved={() => false}
+      />,
+    );
 
-    rerender(<TabStrip layout={longer} onSelect={() => {}} />);
+    rerender(
+      <TabStrip
+        layout={longer}
+        onSelect={() => {}}
+        onClose={() => {}}
+        onHome={() => {}}
+        unsaved={() => false}
+      />,
+    );
     vi.advanceTimersByTime(1000);
 
     const width = (screen.getAllByRole("tab")[0]?.textContent ?? "").length * 8;

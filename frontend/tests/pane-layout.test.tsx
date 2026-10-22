@@ -1,23 +1,10 @@
 import { render, screen } from "@testing-library/react";
-import { PaneLayout, TabStrip } from "@/components/pane-layout";
-import {
-  openBookBeside,
-  openExamInFocused,
-  openGraphBeside,
-  openGraphInFocused,
-  openHtmlInFocused,
-  openImageInFocused,
-  openInFocused,
-  openPdfBeside,
-  openPersonBeside,
-  openReviewInFocused,
-} from "@/lib/pane-contents";
+import { PaneLayout } from "@/components/pane-layout";
+import { openInFocused } from "@/lib/pane-contents";
 import {
   activeTab,
-  addTab,
   emptyLayout,
   focusPane,
-  goToTab,
   type Layout,
   splitFocused,
   tabPanes,
@@ -63,7 +50,8 @@ describe("PaneLayout", () => {
     const { container } = draw(splitFocused(emptyLayout("a.md"), "row"));
 
     expect(panes(container)).toHaveLength(2);
-    expect(screen.getByText("a.md")).toBeInTheDocument();
+    // The header row names the path too, so the pane's own button is the match.
+    expect(screen.getByText("a.md", { selector: "button" })).toBeInTheDocument();
     expect(screen.getByText("empty")).toBeInTheDocument();
   });
 
@@ -105,16 +93,19 @@ describe("PaneLayout", () => {
     const layout = splitFocused(emptyLayout("a.md"), "row");
     const { container } = draw(layout);
 
-    const focused = panes(container).filter((pane) => pane.className.includes("border-k-accent"));
+    const focused = panes(container).filter((pane) =>
+      pane.querySelector("[data-focus-line]")?.classList.contains("bg-k-accent"),
+    );
     expect(focused).toHaveLength(1);
     // The split focused the pane it made, which is the empty one.
     expect(focused[0]).toHaveTextContent("empty");
   });
 
-  it("draws no border on a single pane, having nothing to tell it from", () => {
+  it("draws no header row or focus line on a single pane, having nothing to tell it from", () => {
     const { container } = draw(emptyLayout("a.md"));
 
-    expect(container.querySelector(".border-k-rule")).toBeNull();
+    expect(container.querySelector("[data-pane-header]")).toBeNull();
+    expect(container.querySelector("[data-focus-line]")).toBeNull();
   });
 
   it("reports the pane the focus moved into", () => {
@@ -128,169 +119,5 @@ describe("PaneLayout", () => {
     screen.getByTestId(first.id).focus();
 
     expect(onFocus).toHaveBeenCalledWith(first.id);
-  });
-});
-
-describe("TabStrip", () => {
-  it("stays out of the way while there is only one tab", () => {
-    const { container } = render(<TabStrip layout={emptyLayout()} onSelect={() => {}} />);
-
-    expect(container).toBeEmptyDOMElement();
-  });
-
-  it("names each tab by the note in the pane it left focused", () => {
-    const layout = addTab(emptyLayout("ideas/borges.md"));
-
-    render(<TabStrip layout={layout} onSelect={() => {}} />);
-
-    expect(screen.getByRole("tab", { name: /borges/ })).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: /empty/ })).toBeInTheDocument();
-  });
-
-  it("names a tab sitting an exam by the exam's note", () => {
-    render(
-      <TabStrip
-        layout={openExamInFocused(addTab(emptyLayout()), "borges.md")}
-        onSelect={() => {}}
-      />,
-    );
-
-    expect(screen.getAllByRole("tab")[1]).toHaveTextContent("2 borges");
-  });
-
-  it("names a tab showing a person card by the person", () => {
-    render(
-      <TabStrip layout={openPersonBeside(addTab(emptyLayout()), "ada.md")} onSelect={() => {}} />,
-    );
-
-    expect(screen.getAllByRole("tab")[1]).toHaveTextContent("2 ada");
-  });
-
-  it("names a tab drawing the whole vault graph view", () => {
-    render(<TabStrip layout={openGraphInFocused(addTab(emptyLayout()))} onSelect={() => {}} />);
-
-    expect(screen.getAllByRole("tab")[1]).toHaveTextContent("2 graph view");
-  });
-
-  it("names a tab holding the review review", () => {
-    render(<TabStrip layout={openReviewInFocused(addTab(emptyLayout()))} onSelect={() => {}} />);
-
-    expect(screen.getAllByRole("tab")[1]).toHaveTextContent("2 review");
-  });
-
-  it("names a tab drawing the graph around a note by that note", () => {
-    render(
-      <TabStrip
-        layout={openGraphBeside(addTab(emptyLayout()), "ideas/borges.md")}
-        onSelect={() => {}}
-      />,
-    );
-
-    expect(screen.getAllByRole("tab")[1]).toHaveTextContent("2 graph of borges");
-  });
-
-  it("names a person or exam tab without the folder or the suffix", () => {
-    const person = openPersonBeside(addTab(emptyLayout()), "people/Ada Lovelace.md");
-    const exam = openExamInFocused(addTab(person), "notes/Borges.md");
-
-    render(<TabStrip layout={exam} onSelect={() => {}} />);
-
-    const tabs = screen.getAllByRole("tab");
-    expect(tabs[1]).toHaveTextContent("2 Ada Lovelace");
-    expect(tabs[2]).toHaveTextContent("3 Borges");
-  });
-
-  // jsdom applies no media query, so this reads the class that carries one.
-  it("makes a tab 44px tall under a finger", () => {
-    render(<TabStrip layout={addTab(emptyLayout())} onSelect={() => {}} />);
-
-    for (const tab of screen.getAllByRole("tab")) {
-      expect(tab).toHaveClass("pointer-coarse:min-h-11");
-    }
-  });
-
-  it("marks the tab on screen and no other", () => {
-    render(<TabStrip layout={addTab(emptyLayout("a.md"))} onSelect={() => {}} />);
-
-    const selected = screen.getAllByRole("tab").filter((tab) => tab.ariaSelected === "true");
-    expect(selected).toHaveLength(1);
-    expect(selected[0]).toHaveTextContent("empty");
-  });
-
-  it("numbers the tenth tab 0, which is the key that reaches it", () => {
-    let layout = emptyLayout();
-    for (let index = 0; index < 9; index += 1) layout = addTab(layout);
-
-    render(<TabStrip layout={layout} onSelect={() => {}} />);
-
-    const tabs = screen.getAllByRole("tab");
-    expect(tabs).toHaveLength(10);
-    expect(tabs[9]).toHaveTextContent("0 empty");
-  });
-
-  it("goes to the tab that was clicked", () => {
-    const onSelect = vi.fn();
-    render(<TabStrip layout={addTab(emptyLayout("a.md"))} onSelect={onSelect} />);
-
-    screen.getByRole("tab", { name: /a$/ }).click();
-
-    expect(onSelect).toHaveBeenCalledWith(0);
-  });
-
-  it("names a tab whose focused pane holds a book after the note", () => {
-    // Without this, `tabLabel` reads `term`, `todos` then `path` and calls a
-    // reader `empty`, and every other test in this branch still passes.
-    const layout = addTab(openBookBeside(emptyLayout("lit/DDIA.md"), "lit/DDIA.md"));
-
-    render(<TabStrip layout={layout} onSelect={() => {}} />);
-
-    expect(screen.getByRole("tab", { name: /DDIA/ })).toBeInTheDocument();
-  });
-
-  // Obsidian names a tab by the file's base name, and so does this: the suffix
-  // goes, the folder goes, and the space inside the name stays.
-  it("A1 names a tab whose focused pane holds a pdf after the pdf, not empty", () => {
-    const layout = addTab(openPdfBeside(emptyLayout(), "x/my plan.pdf", 3));
-
-    render(<TabStrip layout={layout} onSelect={() => {}} />);
-
-    expect(screen.getByRole("tab", { name: "1 my plan" })).toBeInTheDocument();
-  });
-
-  it("A2 names a tab whose focused pane holds an image after the image, not empty", () => {
-    const layout = addTab(openImageInFocused(emptyLayout(), "media/diagram.png"));
-
-    render(<TabStrip layout={layout} onSelect={() => {}} />);
-
-    expect(screen.getByRole("tab", { name: "1 diagram" })).toBeInTheDocument();
-  });
-
-  it("I7 names a tab whose focused pane holds an HTML page after the page, not empty", () => {
-    const layout = addTab(openHtmlInFocused(emptyLayout(), "research/report.html"));
-
-    render(<TabStrip layout={layout} onSelect={() => {}} />);
-
-    expect(screen.getByRole("tab", { name: "1 report" })).toBeInTheDocument();
-  });
-
-  it("scrolls the tab on screen into view, and again when another is chosen", () => {
-    const scrolled = vi.spyOn(Element.prototype, "scrollIntoView");
-    const layout = addTab(addTab(emptyLayout("a.md")));
-
-    const { rerender } = render(<TabStrip layout={layout} onSelect={() => {}} />);
-
-    expect(scrolled.mock.contexts.at(-1)).toHaveTextContent("3 empty");
-
-    rerender(<TabStrip layout={goToTab(layout, 0)} onSelect={() => {}} />);
-
-    expect(scrolled.mock.contexts.at(-1)).toHaveTextContent("1 a");
-    scrolled.mockRestore();
-  });
-
-  it("lets the tabs run off the edge rather than squeeze", () => {
-    render(<TabStrip layout={addTab(emptyLayout("a.md"))} onSelect={() => {}} />);
-
-    expect(screen.getByRole("tablist")).toHaveClass("overflow-x-auto");
-    for (const tab of screen.getAllByRole("tab")) expect(tab).toHaveClass("shrink-0");
   });
 });

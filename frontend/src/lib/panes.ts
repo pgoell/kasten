@@ -442,6 +442,57 @@ export function goToTab(layout: Layout, index: number): Layout {
   return index < layout.tabs.length ? { ...layout, active: index } : layout;
 }
 
+/** What a pane can hold. A pane holding none of these is empty, and the Today screen shows in it. */
+const HOLDS = [
+  "path",
+  "term",
+  "todos",
+  "log",
+  "book",
+  "exam",
+  "review",
+  "image",
+  "pdf",
+  "html",
+  "video",
+  "person",
+  "history",
+  "graph",
+  "chat",
+] as const;
+
+/**
+ * Whether a tab is one pane holding nothing: the tab Today goes to.
+ *
+ * The same rule `NotePane` draws Today by, a pane with no note and none of the
+ * other kinds, so the button and the screen agree on what an empty tab is.
+ */
+export function isEmptyTab(tab: Tab): boolean {
+  const root = tab.root;
+  return !isSplit(root) && HOLDS.every((key) => root[key] === undefined || root[key] === false);
+}
+
+/**
+ * Close one tab, the active index following the tab that was active.
+ *
+ * When the active tab is the one closed, the tab sliding into its place takes
+ * the index, or the last tab when the closed one was at the end. Closing the
+ * last tab leaves an empty one, the same as a window that never had a note.
+ */
+export function closeTab(layout: Layout, index: number): Layout {
+  if (layout.tabs.length === 1) return emptyLayout();
+  const tabs = layout.tabs.filter((_, at) => at !== index);
+  const active =
+    index < layout.active ? layout.active - 1 : Math.min(layout.active, tabs.length - 1);
+  return { tabs, active };
+}
+
+/** Go to the first tab that is one empty pane, or start a new tab when there is none. */
+export function homeTab(layout: Layout): Layout {
+  const at = layout.tabs.findIndex(isEmptyTab);
+  return at === -1 ? addTab(layout) : goToTab(layout, at);
+}
+
 /**
  * The same layout under ids made on this page, the focus of each tab following
  * its pane.
