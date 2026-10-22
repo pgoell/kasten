@@ -60,7 +60,10 @@ these values; [Accent palettes](/reference/accent-palettes.md) lists them.
 
 ## Graph tag slots
 
-Ten slots and `--tg-none`, which the graph colours a note's type with.
+Ten slots and `--tg-none`. The graph pane colours a note's type with them, and
+the local graph in a note's margin colours a note by its first tag: the tag's
+name, hashed, picks one of the ten slots, and a note with no tag takes
+`--tg-none`.
 
 | Slot | Light | Dark |
 |---|---|---|
@@ -143,6 +146,7 @@ sheet on them.
 | `--k-spring-tab`, `--k-spring-split`, `--k-spring-card` | 0.32 s, 0.34 s, 0.26 s | Tab underline, split pane enter, card fly-off |
 | `--k-stagger`, `--k-stagger-cap` | 22 ms, 6 | List entrance, never past the sixth item |
 | `--k-theme-fade` | 240 ms | The cross-fade between light and dark |
+| `--k-slide` | 240 ms | The side sheet's slide, on `--k-ease-out`: nobody drags it, so it needs no spring |
 
 A press marks the control under the pointer with `data-pressed`, which
 `lib/press.ts` sets and clears, and `app.css` gives a marked control the press

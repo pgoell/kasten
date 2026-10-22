@@ -21,6 +21,9 @@ vi.mock("force-graph", () => ({
       {
         get(_, name: string) {
           if (name === "seen") return seen;
+          // The one answer a test needs back: a screen place, offset from the graph place.
+          if (name === "graph2ScreenCoords")
+            return (x: number, y: number) => ({ x: x + 10, y: y + 20 });
           return (...args: unknown[]) => {
             seen[name] = args;
             return graph;
@@ -201,5 +204,132 @@ describe("drawGraph colours", () => {
       "12px Test Mono, monospace",
       "12px Test Mono, monospace",
     ]);
+  });
+});
+
+/** A note as the margin hands it over: a graph note, with no place yet. */
+function graphNote(path: string, tags: string[] = [], type: string | null = "Concept") {
+  return { path, name: path.replace(/\.md$/, ""), type, tags, missing: false };
+}
+
+function link(source: string, target: string) {
+  return { source, target, relation: null, line: 1 };
+}
+
+/** The node the canvas holds for a path, as the last redraw left it. */
+function drawnOf(path: string): DrawnNode {
+  const drawing = graphs.at(-1)?.seen.graphData?.[0] as { nodes: DrawnNode[] };
+  return drawing.nodes.find((node) => node.path === path) as DrawnNode;
+}
+
+/**
+ * Each tag slot set to a colour of its own, made from `shade` so a second call
+ * gives different colours. A fill that is one of them came from a tag slot.
+ */
+function tagSlots(shade: string): string[] {
+  const colours: string[] = [];
+  for (let slot = 1; slot <= 10; slot++) {
+    const colour = `#${shade}${slot.toString(16).padStart(2, "0")}00`;
+    document.documentElement.style.setProperty(`--tg-${slot}`, colour);
+    colours.push(colour);
+  }
+  return colours;
+}
+
+describe("drawGraph radial", () => {
+  it("A1 a radial drawing turns off zoom, pan and drag and fixes each note on its ring", () => {
+    const canvas = drawGraph(document.createElement("div"), handlers, { radial: true });
+    canvas.resize(200, 200);
+    canvas.update(
+      [graphNote("a.md"), graphNote("b.md"), graphNote("c.md"), graphNote("d.md")],
+      [link("a.md", "b.md"), link("a.md", "c.md"), link("b.md", "d.md")],
+      "a.md",
+    );
+    const seen = graphs.at(-1)?.seen;
+
+    expect({
+      zoom: seen?.enableZoomInteraction,
+      pan: seen?.enablePanInteraction,
+      drag: seen?.enableNodeDrag,
+      settle: seen?.cooldownTicks,
+      centre: seen?.centerAt,
+      scale: seen?.zoom,
+    }).toEqual({
+      zoom: [false],
+      pan: [false],
+      drag: [false],
+      settle: [0],
+      centre: [0, 0],
+      scale: [1],
+    });
+    // Two rings, so the unit is (200 / 2 - 16) / 2 = 42: ring 1 at 42, ring 2 at 84.
+    expect(drawnOf("a.md")).toMatchObject({ fx: 0, fy: 0 });
+    expect(drawnOf("b.md").fy).toBeCloseTo(-42);
+    expect(drawnOf("c.md").fy).toBeCloseTo(42);
+    expect(drawnOf("d.md").fy).toBeCloseTo(-84);
+    expect(drawnOf("d.md").fx).toBeCloseTo(0);
+    expect(drawnOf("d.md").y).toBe(drawnOf("d.md").fy);
+  });
+
+  it("A1 a still radial drawing pauses its redraw, and a hover asks one repaint", () => {
+    const canvas = drawGraph(document.createElement("div"), handlers, { radial: true });
+    canvas.update([graphNote("a.md")], [], "a.md");
+    const graph = graphs.at(-1);
+    const seen = graph?.seen;
+    expect(seen?.autoPauseRedraw).toEqual([true]);
+
+    // Another zoom stands in for a zoom left behind, so a hover that resets it shows.
+    (graph as unknown as { zoom: (k: number) => unknown }).zoom(2);
+    const hover = seen?.onNodeHover?.[0] as (node: DrawnNode) => void;
+    hover({ path: "a.md", x: 0, y: 0 } as DrawnNode);
+
+    expect(seen?.zoom).toEqual([1]);
+  });
+
+  it("A3 a radial drawing fills a note with its first tag's colour", () => {
+    const slots = tagSlots("00");
+    document.documentElement.style.setProperty("--tg-none", "#ff00ff");
+    const canvas = drawGraph(document.createElement("div"), handlers, { radial: true });
+    canvas.update([graphNote("a.md", ["Rust"], null)], [], "a.md");
+
+    expect(slots).toContain(paintNode(drawnOf("a.md"))[0]);
+  });
+
+  it("A4 a radial drawing reports the hovered note and its place on screen", () => {
+    const onHover = vi.fn();
+    const canvas = drawGraph(
+      document.createElement("div"),
+      { ...handlers, onHover },
+      { radial: true },
+    );
+    canvas.update([graphNote("a.md")], [], "a.md");
+    const hover = graphs.at(-1)?.seen.onNodeHover?.[0] as (node: DrawnNode | null) => void;
+    const hovered = { path: "a.md", x: 5, y: 6 } as DrawnNode;
+
+    hover(hovered);
+    expect(onHover).toHaveBeenLastCalledWith({ node: hovered, x: 15, y: 26 });
+    hover(null);
+    expect(onHover).toHaveBeenLastCalledWith(null);
+  });
+
+  it("A4 a radial drawing writes no names on the canvas", () => {
+    const canvas = drawGraph(document.createElement("div"), handlers, { radial: true });
+    canvas.update([graphNote("a.md")], [], "a.md");
+
+    expect(inkOf(drawnOf("a.md"))).toEqual([]);
+  });
+
+  it("I6 a theme or palette switch makes a radial drawing read the tag colours again", () => {
+    document.documentElement.style.setProperty("--tg-none", "#ff00ff");
+    const before = tagSlots("10");
+    const canvas = drawGraph(document.createElement("div"), handlers, { radial: true });
+    canvas.update([graphNote("a.md", ["Rust"], null)], [], "a.md");
+    const node = drawnOf("a.md");
+    expect(before).toContain(paintNode(node)[0]);
+
+    const after = tagSlots("ff");
+    listeners[0]?.();
+
+    expect(after).toContain(paintNode(node)[0]);
   });
 });

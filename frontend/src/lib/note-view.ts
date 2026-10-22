@@ -19,7 +19,7 @@ import type { EditorCommands } from "@/lib/key-bindings";
 import { keyboardUnasked } from "@/lib/last-input";
 import { livePreview } from "@/lib/live-preview";
 import { logCard } from "@/lib/log-card";
-import { noteHead, type Outline, readMode } from "@/lib/note-head";
+import { graphHandler, noteHead, type Outline, readMode } from "@/lib/note-head";
 import { noteLanguage } from "@/lib/note-language";
 import { relationCompletions, vaultRelations } from "@/lib/ontology";
 import { slashCompletions } from "@/lib/palette";
@@ -49,6 +49,7 @@ export interface NoteViewLatest {
   embeds?: EmbedSource;
   allowReload?: (text: string) => boolean;
   onOutline?: (outline: Outline) => void;
+  onGraph?: () => void;
 }
 
 /** The four listings the vault carries. Any of them absent means told nothing. */
@@ -217,6 +218,11 @@ export function createNoteView(o: {
         backticks(),
         saveHandler.of((doc) => latest.current.onSave?.(doc)),
         followHandler.of((target) => latest.current.onFollow?.(target)),
+        // Only a view told about a graph draws the Graph button, so an editor with
+        // no graph to open (the todo pane's, say) keeps the header it had.
+        ...(latest.current.onGraph === undefined
+          ? []
+          : [graphHandler.of(() => latest.current.onGraph?.())]),
         highlightHandler.of((quote) => latest.current.onOpenHighlight?.(quote)),
         todoCycled.of((cycle) => latest.current.onCycleTodo?.(cycle)),
         idElsewhere.of((id) => latest.current.elsewhere?.(id) === true),

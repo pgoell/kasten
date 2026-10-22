@@ -64,6 +64,7 @@ export function usePaneCommands({
   paths,
   focusedNote,
   sheetGraph,
+  sideGraph,
 }: {
   pane: Pick<
     PaneOf,
@@ -92,6 +93,11 @@ export function usePaneCommands({
   focusedNote: RefObject<{ path: string | undefined; isWriting: (note: string) => boolean }>;
   /** On a phone the local graph is a sheet over the window, not a pane beside the note. */
   sheetGraph?: (note: string) => void;
+  /**
+   * On a desktop the local graph opens over the note in its pane, or beside it
+   * when the margin shows. The pane decides, so this only names the pane asked.
+   */
+  sideGraph?: (pane: string) => void;
 }) {
   const { moveTo, focusToward, swapToward } = moves;
   const queryClient = useQueryClient();
@@ -268,15 +274,19 @@ export function usePaneCommands({
       openGraph: async () => {
         if (await saveFirst()) moveTo(openGraphInFocused);
       },
-      // Beside the note, so nothing is unmounted and nothing needs saving
-      // first, the way `openBook` needs none. A link typed and not yet saved is
-      // drawn once the autosave lands.
-      // On a phone there is no room beside the note, so the same graph comes up as a sheet.
+      // Nothing is unmounted and nothing needs saving first, the way `openBook`
+      // needs none. A link typed and not yet saved is drawn once the autosave
+      // lands. A phone has no room beside the note, so the graph is a sheet there.
+      // On a desktop the pane asked draws it, over itself or beside itself.
       openLocalGraph: () => {
         if (pane.path === undefined) return;
         const note = pane.path;
         if (sheetGraph) {
           sheetGraph(note);
+          return;
+        }
+        if (sideGraph) {
+          sideGraph(pane.id);
           return;
         }
         moveTo((previous) => openGraphBeside(previous, note));
@@ -471,6 +481,7 @@ export function usePaneCommands({
       setNotice,
       food,
       sheetGraph,
+      sideGraph,
     ],
   );
 

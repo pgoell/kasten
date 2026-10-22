@@ -74,6 +74,30 @@ export function colourOf(node: Pick<GraphNode, "type">): string {
 }
 
 /**
+ * The colour of a note's first tag, as one of the ten tag slots.
+ *
+ * The palettes of #778 set `--tg-1` to `--tg-10`, so a tag takes a slot by its
+ * hash rather than by its place in a list: the same tag keeps its colour across
+ * notes and across palettes. Only the first tag counts, so a note's colour does
+ * not change when a second tag is added. Lowercased, so `Rust` and `rust` match.
+ */
+export function tagColourOf(node: Pick<GraphNode, "tags">): string {
+  const first = node.tags[0];
+  if (first === undefined) return PLAIN;
+  return `--tg-${1 + (fnv1a(first.toLowerCase()) % 10)}`;
+}
+
+/** A 32-bit FNV-1a hash, unsigned, so the same text hashes the same in every run. */
+function fnv1a(text: string): number {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < text.length; i++) {
+    hash ^= text.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return hash >>> 0;
+}
+
+/**
  * How big a note is drawn: a little bigger for every link, and less so the
  * more it has, so a daily note linking forty things is large without covering
  * the forty.
@@ -133,4 +157,101 @@ export function neighbourhood(links: DrawnLink[], path: string): Set<string> {
  */
 export function isNotePath(value: string): boolean {
   return value.endsWith(".md");
+}
+
+/** Where a note sits in a radial drawing: its ring, and its place in unit radii. */
+export interface RadialPoint {
+  x: number;
+  y: number;
+  ring: number;
+}
+
+/** Codepoint order, so the layout is the same in every locale. */
+function byPath(a: string, b: string): number {
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+
+/**
+ * Each note's place in a radial drawing, in unit radii: the centre at the
+ * origin and each ring one unit further out.
+ *
+ * A note's ring is its distance from the centre, edges counted either way
+ * round. A ring's notes are spread evenly from the top and run clockwise on
+ * screen, since y grows downwards. Ring 1 is ordered by path. A note further
+ * out is ordered by the first note it links to on the ring in, so a second step
+ * sits beside its parent. A note no edge reaches goes on the outermost ring.
+ */
+export function radialLayout(
+  nodes: GraphNode[],
+  edges: GraphEdge[],
+  center: string,
+): Map<string, RadialPoint> {
+  const known = new Set(nodes.map((node) => node.path));
+  const adjacent = new Map<string, string[]>();
+  for (const path of known) adjacent.set(path, []);
+  for (const edge of edges) {
+    if (edge.source === edge.target || !known.has(edge.source) || !known.has(edge.target)) continue;
+    adjacent.get(edge.source)?.push(edge.target);
+    adjacent.get(edge.target)?.push(edge.source);
+  }
+
+  const distance = new Map<string, number>();
+  if (known.has(center)) {
+    distance.set(center, 0);
+    let frontier = [center];
+    for (let step = 1; frontier.length > 0; step++) {
+      const next: string[] = [];
+      for (const path of frontier) {
+        for (const other of adjacent.get(path) ?? []) {
+          if (distance.has(other)) continue;
+          distance.set(other, step);
+          next.push(other);
+        }
+      }
+      frontier = next;
+    }
+  }
+
+  const rings: string[][] = [];
+  for (const [path, step] of distance) {
+    const ring = rings[step] ?? [];
+    ring.push(path);
+    rings[step] = ring;
+  }
+
+  // Each ring is ordered by the slot of its first neighbour on the ring in. The
+  // ring in is already ordered, so its slots are set before this ring's are read.
+  const slot = new Map<string, number>();
+  rings.forEach((ring, step) => {
+    if (step > 0) {
+      const lead = (path: string) =>
+        Math.min(
+          ...(adjacent.get(path) ?? [])
+            .filter((other) => distance.get(other) === step - 1)
+            .map((other) => slot.get(other) ?? 0),
+        );
+      ring.sort((a, b) => lead(a) - lead(b) || byPath(a, b));
+    }
+    for (const [i, path] of ring.entries()) slot.set(path, i);
+  });
+
+  const unreached = nodes
+    .map((node) => node.path)
+    .filter((path) => !distance.has(path))
+    .sort(byPath);
+  const outer = Math.max(1, rings.length - 1);
+  rings[outer] = [...(rings[outer] ?? []), ...unreached];
+
+  const layout = new Map<string, RadialPoint>();
+  rings.forEach((ring, step) => {
+    ring.forEach((path, i) => {
+      if (step === 0) {
+        layout.set(path, { x: 0, y: 0, ring: 0 });
+        return;
+      }
+      const angle = -Math.PI / 2 + (2 * Math.PI * i) / ring.length;
+      layout.set(path, { x: step * Math.cos(angle), y: step * Math.sin(angle), ring: step });
+    });
+  });
+  return layout;
 }

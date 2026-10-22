@@ -111,7 +111,7 @@ export const LEADER: readonly LeaderBinding[] = [
   // something about the note in a pane beside it, here its older versions.
   { key: "gh", label: "Show this note's history beside it", command: "openHistory" },
   // `g` for go and `l` for local, Obsidian's word for the graph around a note.
-  { key: "gl", label: "Show the graph around this note beside it", command: "openLocalGraph" },
+  { key: "gl", label: "Show the graph around this note", command: "openLocalGraph" },
   { key: "gm", label: "Open this month's note", command: "openMonthly" },
   { key: "go", label: "Show what this note links to", command: "showLinksOut" },
   // `g` for go and `p` for person. It sits with `gr` and `gv`: all three put

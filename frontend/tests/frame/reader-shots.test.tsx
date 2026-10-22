@@ -167,6 +167,15 @@ it("reader margins stay in view while the note scrolls", async () => {
         "current outline row",
       );
 
+    // The margin's graph and lists are asked only once the closed tree makes the
+    // pane wide (#781), so they arrive after it; measured before, the margin grows.
+    // Settled once two frames in a row leave its height alone.
+    let settled = -1;
+    while (links.getBoundingClientRect().height !== settled) {
+      settled = links.getBoundingClientRect().height;
+      await nextFrame();
+      await nextFrame();
+    }
     const before = boxes();
     const firstRow = current().textContent;
 

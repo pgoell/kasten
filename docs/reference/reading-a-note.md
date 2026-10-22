@@ -1,7 +1,7 @@
 ---
 type: Reference
 title: Reading a note
-description: What the top bar holds, the three-column grid the note pane lays out with its numbers, the header block at the top of a note, Read and Edit, the frontmatter behind Properties, the outline, the container query's breaks, and the Today screen an empty pane shows.
+description: What the top bar holds, the three-column grid the note pane lays out with its numbers, the header block at the top of a note, Read and Edit, the frontmatter behind Properties, the outline, the container query's breaks, the local graph in the right margin and its sheet, and the Today screen an empty pane shows.
 resource: frontend/src/components/note-pane.tsx
 tags: [frontend, design, reader]
 status: stable
@@ -31,7 +31,7 @@ columns sit over it:
 | --- | --- | --- |
 | Left margin | 190 px | The outline: the note's headings, with the one in view marked |
 | Middle | 680 px at most | The header, then the text |
-| Right margin | 256 px | Links and backlinks |
+| Right margin | 256 px | The local graph, then Links, Backlinks and Unlinked mentions |
 
 The grid is `1fr minmax(0,680px) 1fr` with a 48 px gap (`--k-space-48`). The
 text is in the middle column, so its left edge and its width do not move when
@@ -45,7 +45,8 @@ leading, which is 30.4 px a line.
 
 The block at the top of the text, which scrolls with the note:
 
-- the path, in mono;
+- the path, in mono, and after it a Graph button while the right margin is
+  hidden (see [the local graph](#the-graph-button-and-the-sheet));
 - the title, in serif at 36 px;
 - a meta line in sans at 13 px: the type, the edited date, the word count, and
   the tags as pills in the accent wash;
@@ -88,12 +89,60 @@ A split pane narrows on its own, so each pane drops its margins as its width
 asks.
 
 The tab strip under the top bar is in
-[Panes and tabs](/reference/editor-keys/panes-and-tabs.md) (#780). Later issues
-fill two slots and change nothing above:
+[Panes and tabs](/reference/editor-keys/panes-and-tabs.md) (#780). The phone
+layout, which replaces the one-column stopgap below 776 px, is #793.
 
-- the local graph at the top of the right margin, and a narrow Graph button
-  beside the breadcrumb, #781;
-- the phone layout, which replaces the one-column stopgap below 776 px, #793.
+## The local graph
+
+The right margin opens with a small graph of the note's neighbourhood. The
+note sits in the middle and the notes it links to or that link to it sit on a
+ring around it. The switch above the graph reads Direct or Two steps; Two steps
+adds a second ring of the notes one link further out, each near the note it
+hangs from.
+
+Each dot takes the colour of its note's first tag, from the ten tag colours
+`--tg-1` to `--tg-10` the accent palette sets, so a tag keeps its colour on
+every note and in every palette. A note with no tag is grey (`--tg-none`), and a
+note a link names that nobody has written is a hollow ring. The note in the
+middle wears a ring in the accent colour.
+
+A hover over a dot names its note. A click opens the note in the pane. A click
+on a hollow ring makes the note the way following its link would; a tap asks
+first. The graph does not zoom, pan or drag: it is a picture of where the note
+stands, and the graph pane is the one to explore in.
+
+Under the graph three lists, each with its count:
+
+- Links: the notes this one links to.
+- Backlinks: the notes that link to this one. A click opens the note at the
+  line that links here.
+- Unlinked mentions: lines in other notes that name this note in plain text,
+  the same list the backlinks panel shows. A click opens the note at that line.
+
+A list with nothing in it says "No links.", "No backlinks." or "No unlinked
+mentions.", and so does a list whose read fails.
+
+### The Graph button and the sheet
+
+Below 1320 px of pane width the margin goes, and a Graph button sits after the
+path at the top of the note. It opens the same graph and lists in a sheet 540
+px wide over the right side of the note, which slides in from the right.
+`<leader>gl` opens it too. `Escape` or a click outside it closes it, and the
+cursor goes back to the note in the mode it was in. A click on a note in the
+sheet closes it and opens that note. A pane that grows past 1320 px with the
+sheet open closes the sheet, since the margin shows the same.
+
+On a phone the Graph button and `<leader>gl` open the graph and lists in the
+bottom sheet, which comes up from the foot of the screen and goes back down it.
+
+Nothing of the graph is asked or drawn while it is off screen: a pane whose
+margin is hidden and whose sheet is closed asks no graph and no mentions, and
+draws no canvas, even after a save. The margin's graph is asked again after a
+save while it shows, so a new link appears.
+
+In a pane where the margin shows, `<leader>gl` opens the graph pane beside the
+note, the larger graph to zoom and drag
+([the graph pane](/reference/editor-keys/panes-and-tabs.md#the-graph-pane)).
 
 ## Today in an empty pane
 

@@ -229,7 +229,6 @@ describe("the reader layout of a note", () => {
     expect(reader.querySelector(".cm-editor")).not.toBeNull();
     expect(reader.querySelector("[data-margin='outline']")).not.toBeNull();
     expect(reader.querySelector("[data-margin='links']")).not.toBeNull();
-    expect(reader.querySelector("[data-margin='links'] [data-slot='local-graph']")).not.toBeNull();
   });
 
   it("the outline lists the note's headings and marks the current one", async () => {
@@ -301,6 +300,18 @@ describe("the reader layout of a note", () => {
         each.slice(0, each.indexOf("{")).includes("width") && each.includes('data-margin="links"'),
     );
     expect(byWidth).toEqual([]);
+  });
+
+  it("A7 reader.css hides the Graph button from 1320 px of pane width, the number use-pane-wide reads", () => {
+    const start = css.indexOf("@container k-reader (width >= 1320px) {");
+    expect(start).toBeGreaterThanOrEqual(0);
+
+    const block = css.slice(start, css.indexOf("\n}", start));
+    expect(block).toMatch(/\.k-reader \.cm-note-graph\s*{\s*display:\s*none;/);
+
+    // The same number on both sides: the margin and the button change at one width.
+    const hook = readFileSync("src/lib/use-pane-wide.ts", "utf8");
+    expect(hook).toContain("RIGHT_MARGIN_FROM = 1320;");
   });
 
   it("every hover rule of the reader sits inside @media (hover: hover)", () => {

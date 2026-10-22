@@ -56,10 +56,33 @@
   line-height: var(--k-leading-reading);
 }
 
+/* A quiet text button beside the path: the Graph button, which opens the local
+   graph where the right margin is not drawn. */
+.k-reader .cm-note-graph {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--k-space-4);
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: var(--k-text-13);
+  color: var(--k-muted);
+  cursor: pointer;
+}
+
 /* The right margin goes below 1320 px of pane width, and the left below 1156 px,
    where the body would be squeezed to make room for it. */
 @container k-reader (width < 1320px) {
   [data-margin="links"] {
+    display: none;
+  }
+}
+
+/* From 1320 px the margin is drawn and the Graph button is not needed. The number
+   is what use-pane-wide.ts reads, so the two change together. */
+@container k-reader (width >= 1320px) {
+  .k-reader .cm-note-graph {
     display: none;
   }
 }
@@ -125,7 +148,8 @@
    the list, so a press still gives under the finger. Nothing here moves on scroll. */
 .k-margin-row,
 .k-margin-note,
-.cm-note-mode-button {
+.cm-note-mode-button,
+.cm-note-graph {
   transition:
     color var(--k-hover) var(--k-ease-out),
     background-color var(--k-hover) var(--k-ease-out),
@@ -142,6 +166,10 @@
 
   .k-reader .cm-note-mode-button:hover {
     color: var(--k-ink);
+  }
+
+  .k-reader .cm-note-graph:hover {
+    color: var(--k-accent);
   }
 }
 

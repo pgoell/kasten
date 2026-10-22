@@ -13,7 +13,9 @@ import {
   mergeDrawing,
   neighbourhood,
   PLAIN,
+  radialLayout,
   radiusOf,
+  tagColourOf,
 } from "@/lib/graph";
 
 function note(path: string, type: string | null = "Note") {
@@ -79,5 +81,64 @@ describe("isNotePath", () => {
   it("tells a note from a relation's name", () => {
     expect(isNotePath("ideas/rag.md")).toBe(true);
     expect(isNotePath("depends-on")).toBe(false);
+  });
+});
+
+describe("tagColourOf", () => {
+  it("A3 tagColourOf gives --tg-none to a note with no tag and one of --tg-1 to --tg-10 by the first tag", () => {
+    expect(tagColourOf({ tags: [] })).toBe("--tg-none");
+    expect(tagColourOf({ tags: ["rust"] })).toMatch(/^--tg-([1-9]|10)$/);
+  });
+
+  it("A3 tagColourOf gives one tag the same colour every time and reads only the first tag", () => {
+    const first = tagColourOf({ tags: ["Rust"] });
+
+    expect(tagColourOf({ tags: ["Rust"] })).toBe(first);
+    expect(tagColourOf({ tags: ["rust"] })).toBe(first);
+    expect(tagColourOf({ tags: ["Rust", "Go"] })).toBe(first);
+  });
+});
+
+describe("radialLayout", () => {
+  it("A1 radialLayout puts the note in the middle, its direct links on ring 1 and the second step on ring 2", () => {
+    const nodes = ["a.md", "b.md", "c.md", "d.md"].map((path) => note(path));
+    const layout = radialLayout(
+      nodes,
+      [edge("a.md", "b.md"), edge("a.md", "c.md"), edge("b.md", "d.md")],
+      "a.md",
+    );
+    const b = layout.get("b.md");
+    const d = layout.get("d.md");
+
+    expect(layout.get("a.md")).toEqual({ x: 0, y: 0, ring: 0 });
+    expect(layout.get("c.md")?.ring).toBe(1);
+    expect(b).toMatchObject({ ring: 1 });
+    expect(d).toMatchObject({ ring: 2 });
+    // The second step sits straight out from its parent, on the same spoke.
+    expect(d?.x).toBeCloseTo(2 * (b?.x ?? NaN));
+    expect(d?.y).toBeCloseTo(2 * (b?.y ?? NaN));
+  });
+
+  it("A1 radialLayout spaces a ring evenly from the top", () => {
+    const nodes = ["a.md", "b.md", "c.md", "d.md", "e.md"].map((path) => note(path));
+    const layout = radialLayout(
+      nodes,
+      [edge("a.md", "b.md"), edge("a.md", "c.md"), edge("a.md", "d.md"), edge("a.md", "e.md")],
+      "a.md",
+    );
+
+    // Clockwise on screen from the top: b, c, d, e by path.
+    const spots = ["b.md", "c.md", "d.md", "e.md"].map((path) => {
+      const point = layout.get(path);
+      return [point?.x ?? NaN, point?.y ?? NaN];
+    });
+    expect(spots[0]?.[0]).toBeCloseTo(0);
+    expect(spots[0]?.[1]).toBeCloseTo(-1);
+    expect(spots[1]?.[0]).toBeCloseTo(1);
+    expect(spots[1]?.[1]).toBeCloseTo(0);
+    expect(spots[2]?.[0]).toBeCloseTo(0);
+    expect(spots[2]?.[1]).toBeCloseTo(1);
+    expect(spots[3]?.[0]).toBeCloseTo(-1);
+    expect(spots[3]?.[1]).toBeCloseTo(0);
   });
 });

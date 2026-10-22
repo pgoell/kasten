@@ -168,6 +168,8 @@ interface EditorProps {
    * Absent means the outline is not shown anywhere, which costs the view nothing.
    */
   onOutline?: (outline: Outline) => void;
+  /** Called when the header's Graph button is pressed. See `NoteEditor`. */
+  onGraph?: () => void;
 }
 
 /**
@@ -203,6 +205,7 @@ export function Editor({
   onNotice,
   embeds,
   onOutline,
+  onGraph,
 }: EditorProps) {
   const host = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
@@ -236,6 +239,7 @@ export function Editor({
     onReload,
     embeds,
     onOutline,
+    onGraph,
   });
 
   useEffect(() => {
@@ -252,6 +256,7 @@ export function Editor({
       onReload,
       embeds,
       onOutline,
+      onGraph,
     };
   }, [
     commands,
@@ -266,6 +271,7 @@ export function Editor({
     onReload,
     embeds,
     onOutline,
+    onGraph,
   ]);
 
   useEffect(() => {

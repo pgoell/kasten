@@ -104,7 +104,7 @@ The file pickers that `<leader>cm` and `<leader>cb` open wait until you let go o
 | `<leader>gc` | Read the current book |
 | `<leader>gp` | Show this person's card in a pane beside their note |
 | `<leader>gh` | Show this note's history in a pane beside it |
-| `<leader>gl` | Show the graph around this note in a pane beside it, in a sheet on a phone |
+| `<leader>gl` | Show the graph around this note: a sheet over the note when its margin is hidden, a pane beside it when the margin shows, the bottom sheet on a phone |
 | `<leader>gv` | Watch this note's video in a pane beside it |
 | `<leader>ge` | Sit the open note as a practice exam |
 | `<leader>gs` | Put the review in the focused pane |

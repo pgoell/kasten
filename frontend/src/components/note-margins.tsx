@@ -1,5 +1,3 @@
-import { useQuery } from "@tanstack/react-query";
-import { fetchGraph } from "@/lib/graph-api";
 import type { Outline as OutlineState } from "@/lib/note-head";
 
 /**
@@ -7,8 +5,8 @@ import type { Outline as OutlineState } from "@/lib/note-head";
  * rule. Labels and the link rows take it too, so every text in the margin starts
  * on one line.
  */
-const INSET = "pl-[calc(var(--k-space-8)+2px)]";
-const LABEL = `${INSET} text-k-13 text-k-muted`;
+export const INSET = "pl-[calc(var(--k-space-8)+2px)]";
+export const LABEL = `${INSET} text-k-13 text-k-muted`;
 
 /**
  * The note's headings, the current one marked, a click puts the cursor there.
@@ -47,83 +45,5 @@ export function Outline({ outline }: { outline?: OutlineState }) {
         );
       })}
     </nav>
-  );
-}
-
-/**
- * The notes this one links to and the notes that link to it, read from the
- * local graph.
- *
- * A failed read shows the same plain lines as an empty one: the margin is
- * beside the note, and a graph that will not load should not put an error in
- * the reader's way.
- */
-export function Links({
-  path,
-  archive,
-  onOpen,
-}: {
-  path: string;
-  archive: boolean;
-  onOpen: (path: string, line?: number) => void;
-}) {
-  const answer = useQuery({
-    queryKey: ["graph", "margin", path, archive],
-    queryFn: () => fetchGraph({ query: "", around: path, depth: 1, archive }),
-    retry: false,
-  });
-
-  const graph = answer.data;
-  const names = new Map(graph?.nodes.map((node) => [node.path, node.name]));
-  const edges = graph?.edges.filter((edge) => edge.source !== edge.target) ?? [];
-
-  // One row per note, however many times the two write their link. The
-  // backlink keeps the line it is written on in the note that links here.
-  const links = [
-    ...new Map(
-      edges.filter((edge) => edge.source === path).map((edge) => [edge.target, edge.target]),
-    ).values(),
-  ];
-  const backlinks = [
-    ...new Map(
-      edges
-        .filter((edge) => edge.target === path)
-        .map((edge) => [edge.source, { path: edge.source, line: edge.line }]),
-    ).values(),
-  ];
-
-  return (
-    <div className="flex flex-col gap-4">
-      <section className="flex flex-col gap-1">
-        <p className={LABEL}>Links</p>
-        {links.length === 0 && <p className={`${INSET} text-k-13 text-k-muted`}>No links.</p>}
-        {links.map((target) => (
-          <button
-            key={target}
-            type="button"
-            onClick={() => onOpen(target)}
-            className={`k-margin-note ${INSET} truncate text-left text-k-15 text-k-ink`}
-          >
-            {names.get(target) ?? target}
-          </button>
-        ))}
-      </section>
-      <section className="flex flex-col gap-1">
-        <p className={LABEL}>Backlinks</p>
-        {backlinks.length === 0 && (
-          <p className={`${INSET} text-k-13 text-k-muted`}>No backlinks.</p>
-        )}
-        {backlinks.map((each) => (
-          <button
-            key={each.path}
-            type="button"
-            onClick={() => onOpen(each.path, each.line)}
-            className={`k-margin-note ${INSET} truncate text-left text-k-15 text-k-ink`}
-          >
-            {names.get(each.path) ?? each.path}
-          </button>
-        ))}
-      </section>
-    </div>
   );
 }

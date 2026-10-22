@@ -1,0 +1,252 @@
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { useEffect, useRef, useState } from "react";
+import { INSET, LABEL } from "@/components/note-margins";
+import { fetchMentions } from "@/lib/api";
+import type { DrawnNode } from "@/lib/graph";
+import { fetchGraph } from "@/lib/graph-api";
+import { drawGraph, type GraphCanvas } from "@/lib/graph-canvas";
+import { noteName } from "@/lib/note-path";
+import { useViewport } from "@/lib/use-viewport";
+
+interface LocalGraphProps {
+  /** The note in the middle of the drawing, and the one the lists are about. */
+  path: string;
+  archive: boolean;
+  /** A node, a link, a backlink or a mention row: opens its note, at a line when it names one. */
+  onOpen: (path: string, line?: number) => void;
+  /** An unwritten node, by its name without `.md`, which following its link makes. */
+  onFollow: (target: string) => void;
+}
+
+/**
+ * How far the graph reaches: the note's own links, or the links of those too.
+ * The lists below stay the note's own links and backlinks at either depth.
+ */
+const DEPTHS = [
+  { depth: 1, label: "Direct" },
+  { depth: 2, label: "Two steps" },
+] as const;
+
+/**
+ * The note's local graph and the three lists under it, for the right margin and
+ * the side sheet alike.
+ *
+ * Nothing is asked until this is drawn, which is why the margin renders it only
+ * once the pane is wide, and the sheet only once it is open.
+ *
+ * A failed read shows the same plain lines as an empty one: the margin is beside
+ * the note, and a graph that will not load should not put an error in the reader's way.
+ */
+export function LocalGraph({ path, archive, onOpen, onFollow }: LocalGraphProps) {
+  const [depth, setDepth] = useState<1 | 2>(1);
+  /** The unwritten note a finger tapped, waiting to hear whether it is wanted. */
+  const [asked, setAsked] = useState<string | null>(null);
+  /** The node under the pointer, and where it is in the canvas box. */
+  const [tip, setTip] = useState<{ name: string; x: number; y: number } | null>(null);
+  const box = useRef<HTMLDivElement>(null);
+  const canvas = useRef<GraphCanvas | null>(null);
+
+  // Read through a ref so the canvas, made once, calls what this render was given.
+  const { coarse } = useViewport();
+  const opening = useRef({ onOpen, onFollow, coarse });
+  opening.current = { onOpen, onFollow, coarse };
+
+  const answer = useQuery({
+    queryKey: ["graph", "margin", path, depth, archive],
+    queryFn: () => fetchGraph({ query: "", around: path, depth, archive }),
+    // The last drawing stays up while the next depth is asked, so the switch moves
+    // dots rather than blanking the margin.
+    placeholderData: keepPreviousData,
+    retry: false,
+  });
+
+  // The key is the one `use-search-hits.ts` uses, so a save that refreshes that
+  // search refreshes this list too.
+  const mentions = useQuery({
+    queryKey: ["mentions", path, archive],
+    queryFn: () => fetchMentions(path, archive),
+    retry: false,
+  });
+
+  useEffect(() => {
+    const element = box.current;
+    if (!element) return;
+
+    const made = drawGraph(
+      element,
+      {
+        onOpen: (node: DrawnNode) => {
+          const name = node.path.replace(/\.md$/, "");
+          // A finger's hit area is wider than the ring, so a tap meant for the
+          // background can land on one, and what it would write has no undo.
+          // The tap asks, and a mouse, which has to be on the ring, does not.
+          const ask = node.missing && opening.current.coarse;
+          setAsked(ask ? name : null);
+          if (ask) return;
+          if (node.missing) opening.current.onFollow(name);
+          else opening.current.onOpen(node.path);
+        },
+        onBlank: () => setAsked(null),
+        coarse: () => opening.current.coarse,
+        onHover: (hovered) =>
+          setTip(hovered === null ? null : { name: hovered.node.name, x: hovered.x, y: hovered.y }),
+      },
+      { radial: true },
+    );
+    canvas.current = made;
+
+    const watch = new ResizeObserver(([entry]) => {
+      if (entry) made.resize(entry.contentRect.width, entry.contentRect.height);
+    });
+    watch.observe(element);
+
+    return () => {
+      watch.disconnect();
+      made.destroy();
+      canvas.current = null;
+    };
+  }, []);
+
+  const data = answer.data;
+  // The same canvas redraws around the note it is given, so moving to another note
+  // moves the drawing rather than making a second one.
+  useEffect(() => {
+    if (data) canvas.current?.update(data.nodes, data.edges, path);
+  }, [data, path]);
+
+  const names = new Map(data?.nodes.map((node) => [node.path, node.name]));
+  const edges = data?.edges.filter((edge) => edge.source !== edge.target) ?? [];
+
+  // One row per note, however many times the two write their link. The
+  // backlink keeps the line it is written on in the note that links here.
+  const links = [
+    ...new Map(
+      edges.filter((edge) => edge.source === path).map((edge) => [edge.target, edge.target]),
+    ).values(),
+  ];
+  const backlinks = [
+    ...new Map(
+      edges
+        .filter((edge) => edge.target === path)
+        .map((edge) => [edge.source, { path: edge.source, line: edge.line }]),
+    ).values(),
+  ];
+  const mentioned = mentions.data ?? [];
+
+  return (
+    <div className="flex flex-col gap-4">
+      <fieldset
+        aria-label="Depth"
+        // A margin, not the rows' padding: padding would sit inside the border.
+        className={`ml-[calc(var(--k-space-8)+2px)] flex self-start overflow-hidden rounded-[var(--k-radius-6)] border border-k-rule text-k-13`}
+      >
+        {DEPTHS.map(({ depth: value, label }) => (
+          <button
+            key={value}
+            type="button"
+            aria-pressed={depth === value}
+            onClick={() => setDepth(value)}
+            className={`px-2 py-0.5 ${depth === value ? "bg-k-surface text-k-ink" : "text-k-muted"}`}
+          >
+            {label}
+          </button>
+        ))}
+      </fieldset>
+
+      <div
+        ref={box}
+        data-testid="local-graph-canvas"
+        // The canvas takes every gesture, the way the graph pane's does.
+        className="relative aspect-square max-h-80 w-full touch-none"
+      >
+        {tip !== null && (
+          <span
+            role="tooltip"
+            style={{ left: tip.x, top: tip.y + 10 }}
+            className="pointer-events-none absolute -translate-x-1/2 whitespace-nowrap rounded-[var(--k-radius-6)] border border-k-rule bg-k-paper px-1.5 text-k-13 text-k-ink"
+          >
+            {tip.name}
+          </span>
+        )}
+      </div>
+
+      {asked !== null && (
+        <p className={`${INSET} flex items-center gap-3 text-k-13 text-k-ink`}>
+          <span className="min-w-0 flex-1 truncate">Create {asked}?</span>
+          <button
+            type="button"
+            onClick={() => {
+              setAsked(null);
+              onFollow(asked);
+            }}
+            className="min-h-11 shrink-0 px-2 text-k-accent"
+          >
+            Create
+          </button>
+          <button
+            type="button"
+            onClick={() => setAsked(null)}
+            className="min-h-11 shrink-0 px-2 text-k-muted"
+          >
+            Cancel
+          </button>
+        </p>
+      )}
+
+      <section className="flex flex-col gap-1">
+        <p className={LABEL}>
+          Links <span className="tabular-nums">{links.length}</span>
+        </p>
+        {links.length === 0 && <p className={`${INSET} text-k-13 text-k-muted`}>No links.</p>}
+        {links.map((target) => (
+          <button
+            key={target}
+            type="button"
+            onClick={() => onOpen(target)}
+            className={`k-margin-note ${INSET} truncate text-left text-k-15 text-k-ink`}
+          >
+            {names.get(target) ?? target}
+          </button>
+        ))}
+      </section>
+
+      <section className="flex flex-col gap-1">
+        <p className={LABEL}>
+          Backlinks <span className="tabular-nums">{backlinks.length}</span>
+        </p>
+        {backlinks.length === 0 && (
+          <p className={`${INSET} text-k-13 text-k-muted`}>No backlinks.</p>
+        )}
+        {backlinks.map((each) => (
+          <button
+            key={each.path}
+            type="button"
+            onClick={() => onOpen(each.path, each.line)}
+            className={`k-margin-note ${INSET} truncate text-left text-k-15 text-k-ink`}
+          >
+            {names.get(each.path) ?? each.path}
+          </button>
+        ))}
+      </section>
+
+      <section className="flex flex-col gap-1">
+        <p className={LABEL}>
+          Unlinked mentions <span className="tabular-nums">{mentioned.length}</span>
+        </p>
+        {mentioned.length === 0 && (
+          <p className={`${INSET} text-k-13 text-k-muted`}>No unlinked mentions.</p>
+        )}
+        {mentioned.map((mention) => (
+          <button
+            key={`${mention.path}:${mention.line}`}
+            type="button"
+            onClick={() => onOpen(mention.path, mention.line)}
+            className={`k-margin-note ${INSET} truncate text-left text-k-15 text-k-ink`}
+          >
+            {noteName(mention.path)}
+          </button>
+        ))}
+      </section>
+    </div>
+  );
+}

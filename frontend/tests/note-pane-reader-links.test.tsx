@@ -1,7 +1,8 @@
 import { EditorView } from "@codemirror/view";
-import { cleanup, fireEvent } from "@testing-library/react";
+import { act, cleanup, fireEvent, screen, within } from "@testing-library/react";
 import { useMemo } from "react";
 import type { TodoHit } from "@/lib/api";
+import { drawGraph } from "@/lib/graph-canvas";
 import { noteBase } from "@/lib/note-base";
 import type { PdfRenderer } from "@/lib/pdf-view";
 import type { TodoState } from "@/lib/todo";
@@ -104,6 +105,14 @@ vi.mock("@/lib/api", () => ({
   NoteMissing: class NoteMissing extends Error {},
 }));
 vi.mock("@/lib/graph-api", () => ({ fetchGraph }));
+// jsdom has no canvas, so the drawing is a double, and a test counts the drawings.
+const canvas = vi.hoisted(() => ({
+  update: vi.fn(),
+  resize: vi.fn(),
+  fit: vi.fn(),
+  destroy: vi.fn(),
+}));
+vi.mock("@/lib/graph-canvas", () => ({ drawGraph: vi.fn() }));
 vi.mock("@/lib/move-api", () => ({ renameNote, moveFolder }));
 vi.mock("@/lib/trash-api", () => ({ deleteNote, fetchTrash, restoreEntry, deleteImage }));
 vi.mock("@/lib/history-api", () => ({ fetchHistory, fetchHistoryText }));
@@ -195,9 +204,33 @@ function marginText(): string {
   return document.querySelector("[data-margin='links']")?.textContent ?? "";
 }
 
-/** The margin's buttons, read again each time since a click can redraw them. */
+/** The margin's note rows, read again each time since a click can redraw them. The depth switch is not one. */
 function marginRows() {
-  return [...document.querySelectorAll<HTMLButtonElement>("[data-margin='links'] button")];
+  return [...document.querySelectorAll<HTMLButtonElement>("[data-margin='links'] .k-margin-note")];
+}
+
+/**
+ * A ResizeObserver that reports the reader as this wide, and nothing else. The
+ * margin's graph is asked for only while the pane is wide, so a test that reads it
+ * stubs the width first.
+ */
+function paneWidth(width: number) {
+  vi.stubGlobal(
+    "ResizeObserver",
+    class {
+      private readonly report: ResizeObserverCallback;
+      constructor(report: ResizeObserverCallback) {
+        this.report = report;
+      }
+      observe(element: Element) {
+        if (!element.hasAttribute("data-reader")) return;
+        const entry = { target: element, contentRect: { width } };
+        this.report([entry as unknown as ResizeObserverEntry], this as unknown as ResizeObserver);
+      }
+      unobserve() {}
+      disconnect() {}
+    },
+  );
 }
 
 /** The line the editor's cursor is on, in the one pane open. */
@@ -226,6 +259,8 @@ describe("the right margin of a note", () => {
     fetchHtml.mockResolvedValue([]);
     fetchAssets.mockResolvedValue([]);
     fetchGraph.mockResolvedValue(GRAPH);
+    fetchMentions.mockResolvedValue([]);
+    vi.mocked(drawGraph).mockImplementation(() => canvas);
   });
 
   afterEach(async () => {
@@ -248,6 +283,8 @@ describe("the right margin of a note", () => {
   }
 
   it("the right margin lists links and backlinks from the local graph", async () => {
+    // The margin draws only in a wide pane, so the graph it reads is asked for only then.
+    paneWidth(1440);
     await open();
 
     expect(fetchGraph).toHaveBeenCalledWith({ query: "", around: NOTE, depth: 1, archive: false });
@@ -258,6 +295,8 @@ describe("the right margin of a note", () => {
   });
 
   it("a click on a backlink opens its note at the line that links here", async () => {
+    // The margin draws only in a wide pane, so the graph it reads is asked for only then.
+    paneWidth(1440);
     await open();
     expect(marginRows()[1]?.textContent).toBe("Borges");
 
@@ -269,11 +308,65 @@ describe("the right margin of a note", () => {
   });
 
   it("a failed graph read leaves the plain lines", async () => {
+    // The margin draws only in a wide pane, so the graph it reads is asked for only then.
+    paneWidth(1440);
     fetchGraph.mockRejectedValue(new Error("The graph is down"));
     await open();
 
     expect(marginText()).toContain("No links.");
     expect(marginText()).toContain("No backlinks.");
     expect(marginRows()).toHaveLength(0);
+  });
+
+  it("A7 a wide pane draws the margin graph and its lists", async () => {
+    paneWidth(1440);
+    await open();
+
+    const margin = document.querySelector("[data-margin='links']") as HTMLElement;
+    expect(within(margin).getByTestId("local-graph-canvas")).toBeTruthy();
+    expect(drawGraph).toHaveBeenCalledWith(expect.any(HTMLElement), expect.any(Object), {
+      radial: true,
+    });
+    expect(canvas.update).toHaveBeenLastCalledWith(GRAPH.nodes, GRAPH.edges, NOTE);
+    expect(marginRows().map((row) => row.textContent)).toEqual(["Other note", "Borges", "Ref"]);
+  });
+
+  it("A8 the Graph button opens the graph and lists in a side sheet over the note", async () => {
+    paneWidth(900);
+    await open();
+    expect(
+      document.querySelector("[data-margin='links'] [data-testid='local-graph-canvas']"),
+    ).toBeNull();
+
+    const graph = document.querySelector<HTMLElement>("[data-head='graph']");
+    expect(graph).not.toBeNull();
+    fireEvent.click(graph as HTMLElement);
+    await settle();
+
+    const sheet = screen.getByRole("dialog", { name: "Local graph" });
+    expect(within(sheet).getByTestId("local-graph-canvas")).toBeTruthy();
+    expect(within(sheet).getByText(/^Backlinks/).textContent).toBe("Backlinks 2");
+    expect(within(sheet).getByRole("button", { name: "Borges" })).toBeTruthy();
+  });
+
+  it("A11 while the pane is narrow and the sheet closed no graph is asked, no mentions read and no canvas made, even after a save", async () => {
+    paneWidth(900);
+    const app = await open();
+
+    expect(fetchGraph).toHaveBeenCalledTimes(0);
+    expect(fetchMentions).toHaveBeenCalledTimes(0);
+    expect(drawGraph).toHaveBeenCalledTimes(0);
+
+    // A save of the open note, the same typing the other tests use.
+    app.press("x");
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2000);
+    });
+    await settle();
+    expect(saveNote).toHaveBeenCalled();
+
+    expect(fetchGraph).toHaveBeenCalledTimes(0);
+    expect(fetchMentions).toHaveBeenCalledTimes(0);
+    expect(drawGraph).toHaveBeenCalledTimes(0);
   });
 });

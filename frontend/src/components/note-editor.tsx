@@ -65,6 +65,8 @@ interface NoteEditorProps {
   held?: string;
   /** Called with the note's headings and the one being read. See `Editor`. */
   onOutline?: (outline: Outline) => void;
+  /** Called when the header's Graph button is pressed, which opens the graph around this note. */
+  onGraph?: () => void;
 }
 
 const MESSAGE = "flex h-full items-center justify-center px-4 text-sm text-k-muted";
@@ -105,6 +107,7 @@ export const NoteEditor = memo(function NoteEditor({
   embeds,
   held,
   onOutline,
+  onGraph,
 }: NoteEditorProps) {
   const { data, error, isPending } = useQuery({
     queryKey: ["note", path],
@@ -160,6 +163,7 @@ export const NoteEditor = memo(function NoteEditor({
       path={path}
       embeds={embeds}
       onOutline={onOutline}
+      onGraph={onGraph}
     />
   );
 });

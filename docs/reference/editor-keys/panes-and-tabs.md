@@ -177,13 +177,16 @@ it. How a restore goes, and when kasten refuses one, is in
 ## The graph pane
 
 `<leader>gg` puts the graph of the whole vault in the focused pane, over what
-was there, the way `<leader>gt` puts the todo list there. `<leader>gl` draws the
-graph around the open note in a pane beside it, one edge out; a second press
-moves to that pane rather than drawing a second one. Pressed with no note open,
-`<leader>gl` does nothing. On a phone (a narrow screen and a finger) it opens
-the same graph in a sheet from the foot of the screen instead of a pane: drag
-the grabber or the header down, tap outside it or press `Escape` to close it.
-Picking a note in it closes the sheet and opens the note.
+was there, the way `<leader>gt` puts the todo list there. In a note pane wide
+enough for its right margin, which already shows the small graph around the
+note ([the local graph](/reference/reading-a-note.md#the-local-graph)),
+`<leader>gl` draws the graph around the open note in a pane beside it, one edge
+out; a second press moves to that pane rather than drawing a second one. In a
+narrower pane it opens the margin's graph and lists in a sheet over the note
+instead, and on a phone (a narrow screen and a finger) in a sheet from the foot
+of the screen: drag the grabber or the header down, tap outside it or press
+`Escape` to close it. Picking a note in either sheet closes it and opens the
+note. Pressed with no note open, `<leader>gl` does nothing.
 
 Each note is a dot, larger the more edges it has, coloured by its `type` from
 the graph's tag slots in [the design tokens](/reference/design-tokens.md):

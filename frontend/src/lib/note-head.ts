@@ -33,6 +33,16 @@ export const readMode = Facet.define<boolean, boolean>({
   combine: (values) => values[0] ?? false,
 });
 
+/**
+ * Carries the Graph button's press, for the reason `followHandler` carries the follow.
+ *
+ * Absent, the header draws no Graph button: a view that was not told how to open
+ * a graph has none to offer.
+ */
+export const graphHandler = Facet.define<() => void, (() => void) | undefined>({
+  combine: (handlers) => handlers[0],
+});
+
 /** Opens or closes the list of properties. */
 const setProperties = StateEffect.define<boolean>();
 
@@ -196,9 +206,52 @@ function button(
   return made;
 }
 
-/** The breadcrumb's row: the folders on the left, the Read and Edit switch on the right. */
-function rowOf(d: Drawn, toggle: () => void): HTMLElement {
+const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
+
+/** The graph kind's shape from `kind-icons.tsx`, at 14 px in the colour of the text around it. */
+function graphIcon(): SVGSVGElement {
+  const icon = document.createElementNS(SVG_NAMESPACE, "svg");
+  const attrs = {
+    viewBox: "0 0 24 24",
+    width: "14",
+    height: "14",
+    fill: "none",
+    stroke: "currentColor",
+    "stroke-width": "2",
+    "stroke-linecap": "round",
+    "stroke-linejoin": "round",
+    "aria-hidden": "true",
+  };
+  for (const [name, value] of Object.entries(attrs)) icon.setAttribute(name, value);
+  icon.innerHTML =
+    '<circle cx="6" cy="6" r="3" /><circle cx="18" cy="7" r="3" /><circle cx="12" cy="18" r="3" /><path d="M10.2 6.35 13.8 6.65M7.9 9.8 10.1 14.2M16 10.7 14 14.3" />';
+  return icon;
+}
+
+/** The Graph button beside the path, which opens the graph around this note. */
+function graphButton(press: () => void): HTMLButtonElement {
+  const made = button(
+    "Graph",
+    {
+      class: "cm-note-graph",
+      "data-head": "graph",
+      "aria-label": "Show the graph around this note",
+    },
+    press,
+  );
+  made.prepend(graphIcon());
+  return made;
+}
+
+/**
+ * The breadcrumb's row: the folders and the Graph button on the left, the Read and
+ * Edit switch on the right.
+ */
+function rowOf(d: Drawn, toggle: () => void, graph: (() => void) | undefined): HTMLElement {
   const row = make("div", { class: "cm-note-row" });
+  const start = make("div", { class: "cm-note-start" });
+  start.append(make("span", { class: "cm-note-path", "data-head": "path" }, d.folders));
+  if (graph !== undefined) start.append(graphButton(graph));
   const group = make("div", { class: "cm-note-mode", "data-head": "mode" });
   for (const [label, reading] of [
     ["Read", true],
@@ -212,7 +265,7 @@ function rowOf(d: Drawn, toggle: () => void): HTMLElement {
       }),
     );
   }
-  row.append(make("span", { class: "cm-note-path", "data-head": "path" }, d.folders), group);
+  row.append(start, group);
   return row;
 }
 
@@ -261,7 +314,7 @@ function relationsOf(view: EditorView, relations: Relation[]): HTMLElement {
 /** The elements the header is made of, in the order it shows them. */
 function partsOf(view: EditorView, d: Drawn, toggle: () => void): HTMLElement[] {
   const parts: HTMLElement[] = [
-    rowOf(d, toggle),
+    rowOf(d, toggle, view.state.facet(graphHandler)),
     make("h1", { class: "cm-note-title", "data-head": "title" }, d.title),
     metaOf(d),
   ];
@@ -376,6 +429,13 @@ const headTheme = EditorView.theme({
     alignItems: "center",
     justifyContent: "space-between",
     gap: "var(--k-space-12)",
+  },
+  // The path and the Graph button share a line, with the same gap as the row.
+  ".cm-note-start": {
+    display: "flex",
+    alignItems: "center",
+    gap: "var(--k-space-12)",
+    minWidth: "0",
   },
   ".cm-note-path": { fontFamily: "var(--k-mono)", color: "var(--k-muted)" },
   ".cm-note-mode": {

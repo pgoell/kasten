@@ -20,6 +20,7 @@ import { VideoPane } from "@/components/video-pane";
 import type { SearchHit } from "@/lib/api";
 import { readClock } from "@/lib/clock";
 import type { TreeCommands } from "@/lib/key-bindings";
+import { openGraphBeside } from "@/lib/pane-contents";
 import {
   activeTab,
   closeTab,
@@ -53,6 +54,8 @@ export function WorkspacePanes({
   commands,
   focusSignal,
   playSignal,
+  graphAsk,
+  graphSheet,
   preview,
   listings,
   opening,
@@ -75,6 +78,10 @@ export function WorkspacePanes({
   commands: TreeCommands;
   focusSignal: number;
   playSignal: number;
+  /** The pane `<leader>gl` was pressed in, and how many presses there have been. */
+  graphAsk: { pane: string; signal: number };
+  /** On a phone, the route's bottom sheet; undefined on a desktop. */
+  graphSheet?: (note: string) => void;
   preview: boolean;
   listings: Pick<Listings, "data" | "archive" | "linkable" | "images" | "tags" | "relations">;
   opening: Pick<NoteOpening, "seek" | "openInPane" | "follow" | "embeds" | "openPassage">;
@@ -159,6 +166,7 @@ export function WorkspacePanes({
             // Bound out of the pane for the reason `book` is: TypeScript
             // stops narrowing a property inside the callback below.
             const image = shown.image;
+            const note = shown.path;
             return shown.log === true ? (
               <LogPane
                 commands={commands}
@@ -327,6 +335,11 @@ export function WorkspacePanes({
                 onSave={autosave.save}
                 onCycleTodo={todos.logCycledTodo}
                 onNotice={onNotice}
+                graphSignal={graphAsk.pane === shown.id ? graphAsk.signal : 0}
+                onGraphPane={() => {
+                  if (note !== undefined) moveTo((previous) => openGraphBeside(previous, note));
+                }}
+                onGraphSheet={graphSheet}
               />
             );
           }}

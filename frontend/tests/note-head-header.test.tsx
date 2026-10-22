@@ -48,6 +48,29 @@ it("the header shows the path, the title and the meta line of the note", () => {
   expect(container.querySelectorAll(".cm-note-tag")).toHaveLength(2);
 });
 
+it("A7 the header draws a Graph button after the path, and a press calls onGraph without moving the editor's selection", () => {
+  const onGraph = vi.fn();
+  const { container } = render(
+    <Editor initialDoc={DOC} path={PATH} commands={stubCommands()} onGraph={onGraph} />,
+  );
+  const graph = container.querySelector<HTMLButtonElement>("[data-head='graph']");
+  expect(graph).not.toBeNull();
+  expect(graph?.textContent).toBe("Graph");
+  if (graph === null) return;
+  expect(container.querySelector("[data-head='path']")?.nextElementSibling).toBe(graph);
+
+  const view = viewIn(container);
+  act(() => view.dispatch({ selection: { anchor: DOC.indexOf("Some") } }));
+  const at = view.state.selection.main.head;
+
+  // The press keeps the editor's focus, as the header's other buttons do.
+  expect(fireEvent.mouseDown(graph)).toBe(false);
+  fireEvent.click(graph);
+
+  expect(onGraph).toHaveBeenCalledTimes(1);
+  expect(view.state.selection.main.head).toBe(at);
+});
+
 it("a relation line shows as a plain line in the header", () => {
   const { container } = render(
     <Editor initialDoc={`${DOC}part-of:: [[Kasten]]\n`} path={PATH} commands={stubCommands()} />,
