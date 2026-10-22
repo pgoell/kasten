@@ -5,7 +5,7 @@ import { embedSource } from "@/lib/embed";
 import { imagePaths } from "@/lib/image";
 import { Callouts, foldClicks, folds, toggleFold } from "@/lib/live-preview-callouts";
 import { drawEmbed } from "@/lib/live-preview-embeds";
-import { drawFence } from "@/lib/live-preview-fences";
+import { drawFence, retheme, rethemes } from "@/lib/live-preview-fences";
 import { isLineRevealed, isNodeRevealed, nudgeOutOfHidden, Walk } from "@/lib/live-preview-hidden";
 import { drawImage } from "@/lib/live-preview-images";
 import { drawInline, drawLink, drawRuby, INLINE, markRelation } from "@/lib/live-preview-inline";
@@ -220,7 +220,17 @@ const live = StateField.define<Live>({
     // the text past the first slice stays raw until the cursor moves.
     const parsed = syntaxTree(tr.startState) !== syntaxTree(tr.state);
     const flipped = tr.effects.some((effect) => effect.is(toggleFold));
-    if (!tr.docChanged && !tr.selection && !modeChanged && !vaultChanged && !parsed && !flipped) {
+    // A diagram is drawn in the theme it was built in, so a switch builds it again.
+    const rethemed = tr.effects.some((effect) => effect.is(retheme));
+    if (
+      !tr.docChanged &&
+      !tr.selection &&
+      !modeChanged &&
+      !vaultChanged &&
+      !parsed &&
+      !flipped &&
+      !rethemed
+    ) {
       return value;
     }
     return build(tr.state);
@@ -247,7 +257,7 @@ export function livePreview(): Extension {
   // The picture's and the table's follows read the presses too, and a view
   // may be mounted without the editor that would watch them.
   watchPresses();
-  return [vimModeState(), folds, live, foldClicks, nudgeSelection];
+  return [vimModeState(), folds, live, foldClicks, nudgeSelection, rethemes];
 }
 
 /**
@@ -264,5 +274,5 @@ export function livePreview(): Extension {
 export function renderedMarkdown(): Extension {
   // For the reason `livePreview` watches them: a preview may be the only view.
   watchPresses();
-  return [vimModeField, folds, live, foldClicks];
+  return [vimModeField, folds, live, foldClicks, rethemes];
 }

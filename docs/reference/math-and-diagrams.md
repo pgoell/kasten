@@ -127,5 +127,8 @@ nothing new.
 Agents write diagrams into notes, so kasten treats a diagram as text it did not
 write. Mermaid runs at its strict security level: it drops `click` handlers
 and passes every label through DOMPurify. A diagram takes mermaid's default
-theme in light and its dark theme in dark, chosen when mermaid first loads. A
-switch redraws nothing until #835.
+theme in light and its dark theme in dark. A switch of theme, from the palette
+or from the system while no choice is stored, redraws every diagram on screen;
+the old drawing stays until the new one is ready, and a diagram mermaid cannot
+read keeps its error in both themes. Each theme's drawing is kept, so a switch
+back shows it at once.

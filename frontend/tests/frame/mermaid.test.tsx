@@ -18,6 +18,7 @@ import { imagePaths } from "@/lib/image";
 import { livePreview, renderedMarkdown } from "@/lib/live-preview";
 import { drawMermaid } from "@/lib/mermaid";
 import { noteLanguage } from "@/lib/note-language";
+import { applyTheme, THEME_KEY, toggleTheme } from "@/lib/theme";
 import { vimKeys } from "@/lib/vim-mode";
 import { vaultPaths } from "@/lib/wikilink";
 import "@/styles/app.css";
@@ -231,6 +232,41 @@ it("I7 measures the note again when the svg lands, so no line sits under it", as
     .toBeLessThan(2);
 });
 
+it("#835 A1 redraws in the new theme in a real browser", async () => {
+  localStorage.removeItem(THEME_KEY);
+  const at = mount(NOTE, false);
+  await expect.poll(() => diagram(at)).not.toBeNull();
+  const fillOf = (): string | null => {
+    const svg = diagram(at);
+    if (svg === null) return null;
+    return getComputedStyle(svg.querySelector(".node rect, .node polygon") as SVGElement).fill;
+  };
+  const before = fillOf();
+
+  // Whether the svg was ever gone between two looks, which a redraw that
+  // blanked the block first would show.
+  const gone: boolean[] = [];
+  let after: string | null = null;
+  try {
+    toggleTheme();
+    gone.push(diagram(at) === null);
+    await expect
+      .poll(() => {
+        gone.push(diagram(at) === null);
+        return fillOf();
+      })
+      .not.toBe(before);
+    after = fillOf();
+  } finally {
+    localStorage.removeItem(THEME_KEY);
+    applyTheme();
+  }
+  expect({ gone: gone.includes(true), changed: after !== before }).toEqual({
+    gone: false,
+    changed: true,
+  });
+});
+
 it("S1 a screenshot comes out as wide as the viewport asks, at desktop and at phone width", async () => {
   host = document.body.appendChild(document.createElement("div"));
   host.style.cssText = "width: 100%; height: 40px; background: #282c34;";
@@ -246,6 +282,32 @@ it("S1 a screenshot comes out as wide as the viewport asks, at desktop and at ph
   }
   expect(widths).toEqual([1200, 390]);
 });
+
+it.runIf(import.meta.env.VITE_KASTEN_SHOTS)(
+  "#835 A8 takes pictures of one diagram in light and dark at 414 and 1440",
+  async () => {
+    try {
+      for (const width of [1440, 414]) {
+        await page.viewport(width, 900);
+        for (const theme of ["light", "dark"] as const) {
+          localStorage.setItem(THEME_KEY, theme);
+          applyTheme();
+          const at = mount(NOTE, false, 0, [EditorView.lineWrapping]);
+          at.dom.style.background = "var(--k-bg)";
+          await expect.poll(() => diagram(at)).not.toBeNull();
+          expect(await shot(at.dom, `mermaid-theme-${theme}-${width}`)).toBe(width);
+          at.dom.parentElement?.remove();
+          at.destroy();
+          view = undefined;
+        }
+      }
+    } finally {
+      localStorage.removeItem(THEME_KEY);
+      applyTheme();
+      await page.viewport(414, 896);
+    }
+  },
+);
 
 it.runIf(import.meta.env.VITE_KASTEN_SHOTS)("takes screenshots of diagrams and math", async () => {
   const doc = [

@@ -1,7 +1,49 @@
-import { Decoration, type EditorView, WidgetType } from "@codemirror/view";
+import { StateEffect } from "@codemirror/state";
+import { Decoration, type EditorView, ViewPlugin, WidgetType } from "@codemirror/view";
 import type { SyntaxNode } from "@lezer/common";
 import { isBlockRevealed, isNodeRevealed, type Walk } from "@/lib/live-preview-hidden";
 import { type Drawing, drawMermaid, drawnMermaid } from "@/lib/mermaid";
+import { currentTheme, onThemeChange, type Theme } from "@/lib/theme";
+
+/** Sent on a switch of theme, so a diagram on screen is built again in the new one. */
+export const retheme = StateEffect.define<null>();
+
+/**
+ * Tells the view of a switch. A widget is asked for only when the decorations
+ * are built, so a diagram already on screen would not hear of it otherwise.
+ */
+export const rethemes = ViewPlugin.define((view) => {
+  const stop = onThemeChange(() => view.dispatch({ effects: retheme.of(null) }));
+  return { destroy: stop };
+});
+
+/**
+ * The drawing each block on screen wants now, as `${theme}\n${source}`. A draw
+ * that lands after a newer switch, or a newer source, finds its key stale and
+ * leaves the block alone.
+ */
+const wanted = new WeakMap<HTMLElement, string>();
+
+/**
+ * Fills `block` with the diagram of `source` in `theme`, at once if it has been
+ * drawn and else when it lands. Until then the block keeps what it shows.
+ */
+function draw(block: HTMLElement, source: string, theme: Theme, view: EditorView): void {
+  const key = `${theme}\n${source}`;
+  wanted.set(block, key);
+  const known = drawnMermaid(source, theme);
+  if (known !== undefined) {
+    fillDiagram(block, known, source);
+    return;
+  }
+  // The svg lands after CodeMirror has measured the box, so the measurement is
+  // asked for again, as a picture's load does.
+  void drawMermaid(source, theme).then((drawing) => {
+    if (wanted.get(block) !== key) return;
+    fillDiagram(block, drawing, source);
+    view.requestMeasure();
+  });
+}
 
 /**
  * A ```` ```mermaid ```` block, drawn as its diagram.
@@ -13,18 +55,28 @@ import { type Drawing, drawMermaid, drawnMermaid } from "@/lib/mermaid";
  */
 class MermaidBlock extends WidgetType {
   private readonly source: string;
+  private readonly theme: Theme;
 
-  constructor(source: string) {
+  constructor(source: string, theme: Theme) {
     super();
     this.source = source;
+    this.theme = theme;
   }
 
   override eq(other: MermaidBlock): boolean {
-    return other.source === this.source;
+    return other.source === this.source && other.theme === this.theme;
   }
 
   override ignoreEvent(): boolean {
     return false;
+  }
+
+  // Keeps the old drawing on screen while the new one is drawn. Without this,
+  // CodeMirror would build a new block, empty until the svg lands, which flashes.
+  override updateDOM(dom: HTMLElement, view: EditorView): boolean {
+    draw(dom, this.source, this.theme, view);
+    view.requestMeasure();
+    return true;
   }
 
   toDOM(view: EditorView): HTMLElement {
@@ -32,22 +84,15 @@ class MermaidBlock extends WidgetType {
     // gives.
     const block = document.createElement("div");
     block.className = "cm-mermaid-block";
-    const known = drawnMermaid(this.source);
-    if (known !== undefined) {
-      fillDiagram(block, known, this.source);
-      return block;
-    }
-    // The svg lands after CodeMirror has measured the empty box, so the
-    // measurement is asked for again, as a picture's load does.
-    void drawMermaid(this.source).then((drawing) => {
-      fillDiagram(block, drawing, this.source);
-      view.requestMeasure();
-    });
+    draw(block, this.source, this.theme, view);
     return block;
   }
 }
 
 function fillDiagram(block: HTMLElement, drawing: Drawing, source: string): void {
+  // The block may hold the drawing of another theme, or an error, so it is
+  // emptied rather than added to.
+  block.replaceChildren();
   if ("svg" in drawing) {
     // Sanitised by mermaid at its strict level, see `mermaid.ts`.
     block.innerHTML = drawing.svg;
@@ -83,7 +128,7 @@ export function drawFence(walk: Walk, node: SyntaxNode): false | undefined {
     const whole =
       node.from === state.doc.lineAt(node.from).from && node.to === state.doc.lineAt(node.to).to;
     if (!inside && whole) {
-      const widget = new MermaidBlock(state.doc.sliceString(code.from, code.to));
+      const widget = new MermaidBlock(state.doc.sliceString(code.from, code.to), currentTheme());
       decorations.push(Decoration.replace({ widget, block: true }).range(node.from, node.to));
       walk.drawn = node.to;
       return false;
