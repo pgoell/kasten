@@ -5,9 +5,7 @@ import {
   type RefObject,
   type SetStateAction,
   useCallback,
-  useEffect,
   useMemo,
-  useRef,
   useState,
 } from "react";
 import type { PaneMoves } from "@/components/use-pane-moves";
@@ -46,18 +44,10 @@ import {
 } from "@/lib/panes";
 import { type Period, periodicNote } from "@/lib/periodic";
 import { isPerson } from "@/lib/person";
+import { paneView, useFoodWait } from "@/lib/use-food-wait";
 import { splitTarget, wikiLinkPath, wikiLinkTargets } from "@/lib/wikilink";
 
 export type PaneCommands = ReturnType<typeof usePaneCommands>;
-
-/**
- * The editor the pane holds, found by the pane and not the focus: the palette's
- * lookup finds no view while the focus sits off the editor, as `logDrink` notes.
- */
-function paneView(id: string): EditorView | null {
-  const editor = document.querySelector<HTMLElement>(`[data-pane="${id}"] .cm-editor`);
-  return editor ? EditorView.findFromDOM(editor) : null;
-}
 
 /**
  * The commands that rearrange the window: what each pane holds, the splits,
@@ -174,29 +164,7 @@ export function usePaneCommands({
     moveTo((previous) => openBookInFocused(previous, note));
   }, [queryClient, saveFirst, moveTo, setNotice]);
 
-  /** Today's note path while `logFood` waits for it; cleared on any pane or path change. */
-  const foodPending = useRef<string | null>(null);
-  useEffect(() => {
-    const target = foodPending.current;
-    foodPending.current = null;
-    if (target === null || pane.path !== target) return;
-    // Tried once, when the editor is in the pane, and then the watch ends whether
-    // or not the card showed, so typing into the note later never opens it.
-    const attach = () => {
-      const view = paneView(pane.id);
-      if (view !== null) openFoodSearch(view);
-      return view !== null;
-    };
-    if (attach()) return;
-    // The editor mounts after the path is taken, so wait for it to appear.
-    const element = document.querySelector<HTMLElement>(`[data-pane="${pane.id}"]`);
-    if (element === null) return;
-    const observer = new MutationObserver(() => {
-      if (attach()) observer.disconnect();
-    });
-    observer.observe(element, { childList: true, subtree: true });
-    return () => observer.disconnect();
-  }, [pane.id, pane.path]);
+  const food = useFoodWait(pane.id, pane.path);
 
   const commands = useMemo<
     Pick<
@@ -356,7 +324,7 @@ export function usePaneCommands({
       },
       // Today's note in the focused pane is searched in place. Any other note is
       // left for `openPeriodic`, which makes today's note when there is none, and
-      // the effect above searches it once it is on screen.
+      // the wait `useFoodWait` holds searches it once it is on screen.
       logFood: async () => {
         const today = periodicNote("daily", new Date()).path;
         if (pane.path === today) {
@@ -366,9 +334,9 @@ export function usePaneCommands({
         }
         // Saved first: a refused save leaves nothing waiting.
         if (!(await saveFirst())) return;
-        foodPending.current = today;
+        food.arm(today);
         // A failed create or open leaves nothing waiting, so a later `<leader>gd` is not searched.
-        if (!(await openPeriodic("daily"))) foodPending.current = null;
+        if (!(await openPeriodic("daily"))) food.cancel();
       },
       openWeekly: () => openPeriodic("weekly"),
       openMonthly: () => openPeriodic("monthly"),
@@ -493,6 +461,7 @@ export function usePaneCommands({
       pane.video,
       queryClient,
       setNotice,
+      food,
     ],
   );
 

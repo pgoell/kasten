@@ -58,8 +58,12 @@ const foodOpen = StateEffect.define<boolean>();
 /** The note's config arriving, which replaces the default kinds the card drew until then. */
 const configArrived = StateEffect.define<LogConfig>();
 
-/** Each view's config, fetched once, so a card drawn again does not ask the note again. */
+/** Each view's config, fetched once per generation. */
 const configs = new WeakMap<EditorView, Promise<LogConfig>>();
+
+/** Bumped on each reload; a view the reload misses checks it when drawn. */
+let generation = 0;
+const stamped = new WeakMap<EditorView, number>();
 
 /** The config in log.md. A note that is not there is the default config; any other failure rejects. */
 function readConfig(): Promise<LogConfig> {
@@ -71,17 +75,18 @@ function readConfig(): Promise<LogConfig> {
 
 /**
  * The view's config from the log note. One that fails to load is named in the
- * console and the default config is the answer.
+ * console and the default config is the answer. A read from before a reload is asked again.
  */
 function configFor(view: EditorView): Promise<LogConfig> {
   let config = configs.get(view);
-  if (config === undefined) {
+  if (config === undefined || stamped.get(view) !== generation) {
     config = readConfig().catch((error: unknown) => {
       if (!(error instanceof Error)) throw error;
       console.warn(error.message);
       return parseConfig(null);
     });
     configs.set(view, config);
+    stamped.set(view, generation);
   }
   return config;
 }
@@ -500,11 +505,13 @@ export const logCard: Extension = [cardField, registry];
  * fetch asked the log when the card was drawn, and asking again would cost a second.
  */
 export function reloadLogConfig(): void {
+  generation += 1;
   for (const view of views) {
     if (view.state.field(cardField).config === null) continue;
     const reading = readConfig();
     // The newest read holds the view's slot, so an older answer that lands last is dropped.
     configs.set(view, reading);
+    stamped.set(view, generation);
     reading.then(
       (arrived) => {
         if (views.has(view) && configs.get(view) === reading) applyConfig(view, arrived);

@@ -30,7 +30,7 @@ export function useFinders({
   panePath: string | undefined;
   saveFirst: () => Promise<boolean>;
   moves: Pick<PaneMoves, "moveTo" | "refocusPane">;
-  openInPane: (path: string, line?: number) => Promise<void>;
+  openInPane: (path: string, line?: number) => Promise<boolean>;
   linkMentionOf: GuardedWrites["linkMentionOf"];
 }) {
   const { data, shown, assets, archive } = listings;

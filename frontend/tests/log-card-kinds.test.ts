@@ -1,11 +1,11 @@
 import { history, undo } from "@codemirror/commands";
-import { EditorState, type Extension } from "@codemirror/state";
+import { Compartment, EditorState, type Extension } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { vim } from "@replit/codemirror-vim";
 import { fireEvent } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fetchNote, NoteMissing } from "@/lib/api";
-import { logCard } from "@/lib/log-card";
+import { logCard, reloadLogConfig } from "@/lib/log-card";
 import { notePath } from "@/lib/todo-commands";
 import { vimKeys, vimModeField, vimModeState } from "@/lib/vim-mode";
 
@@ -296,5 +296,40 @@ describe("the log card's kinds", () => {
     await arrived(view, "Log tea");
     expect(amount(view).value).toBe("2");
     expect(document.activeElement).toBe(amount(view));
+  });
+
+  it("#821 a card drawn again after live preview comes back reads the log.md written while it was off", async () => {
+    vi.mocked(fetchNote).mockResolvedValue(DEFAULTS);
+    // The card sits in a compartment, as it does under live preview, so it can be taken out and put back.
+    const compartment = new Compartment();
+    const parent = document.body.appendChild(document.createElement("div"));
+    const view = new EditorView({
+      state: EditorState.create({
+        doc: NOTE,
+        extensions: [notePath.of(DAILY), history(), compartment.of(logCard)],
+      }),
+      parent,
+    });
+    mounted.push(view);
+    await arrived(view, "Log water");
+    expect.soft(view.dom.querySelector(".cm-log button[aria-label='Log tea']")).toBeNull();
+
+    view.dispatch({ effects: compartment.reconfigure([]) });
+    vi.mocked(fetchNote).mockResolvedValue(`${DEFAULTS}\n- 🍵 tea: 1 cup`);
+    reloadLogConfig();
+    view.dispatch({ effects: compartment.reconfigure(logCard) });
+    await vi.mocked(fetchNote).mock.results.at(-1)?.value;
+    await Promise.resolve();
+    await Promise.resolve();
+    expect.soft(view.dom.querySelector(".cm-log button[aria-label='Log tea']")).not.toBeNull();
+
+    // With log.md unchanged, a card drawn again takes the config it has and does not ask again.
+    const asked = vi.mocked(fetchNote).mock.calls.length;
+    view.dispatch({ effects: compartment.reconfigure([]) });
+    view.dispatch({ effects: compartment.reconfigure(logCard) });
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(view.dom.querySelector(".cm-log button[aria-label='Log tea']")).not.toBeNull();
+    expect(vi.mocked(fetchNote).mock.calls.length).toBe(asked);
   });
 });

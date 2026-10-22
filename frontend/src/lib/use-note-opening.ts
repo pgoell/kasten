@@ -74,13 +74,16 @@ export function useNoteOpening({
    * click into a row lands here too and raises it just the same, which is what
    * you want from a click on a note: you asked to read it, not to go on
    * walking the tree.
+   *
+   * Resolves to whether the note opened: a refused save leaves the pane as it was.
    */
   const openInPane = useCallback(
-    async (path: string, line?: number) => {
-      if (!(await saveFirst())) return;
+    async (path: string, line?: number): Promise<boolean> => {
+      if (!(await saveFirst())) return false;
 
       setLayout((previous) => openInFocused(previous, path, line));
       setFocusSignal((previous) => previous + 1);
+      return true;
     },
     [saveFirst, setLayout, setFocusSignal],
   );
@@ -208,8 +211,7 @@ export function useNoteOpening({
         return;
       }
       if (paths.includes(path)) {
-        void openInPane(path);
-        return true;
+        return openInPane(path);
       }
       // The vault has no write for a page or an asset, so a link to one nobody
       // made stays a dead link rather than turning into a note named `.pdf.md`.
@@ -235,8 +237,7 @@ export function useNoteOpening({
           // reading back a file it just made.
           queryClient.setQueryData(["note", made.path], made.content);
           queryClient.invalidateQueries({ queryKey: ["files"] });
-          void openInPane(made.path);
-          return true;
+          return openInPane(made.path);
         },
         () => {
           // The vault refused the path: a hidden name, or a note standing

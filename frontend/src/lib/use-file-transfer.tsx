@@ -72,7 +72,7 @@ export function useFileTransfer({
   data: string[] | undefined;
   pane: Pick<Pane, "path" | "image" | "book" | "exam">;
   saveFirst: () => Promise<boolean>;
-  openInPane: (path: string, line?: number) => Promise<void>;
+  openInPane: (path: string, line?: number) => Promise<boolean>;
   setNotice: Dispatch<SetStateAction<string | undefined>>;
 }) {
   const queryClient = useQueryClient();

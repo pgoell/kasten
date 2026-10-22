@@ -22,7 +22,7 @@ export function useTrash({
   setLayout: Dispatch<SetStateAction<Layout>>;
   saveFirst: () => Promise<boolean>;
   refuse: () => null;
-  openInPane: (path: string, line?: number) => Promise<void>;
+  openInPane: (path: string, line?: number) => Promise<boolean>;
 }) {
   const queryClient = useQueryClient();
   /**

@@ -48,7 +48,7 @@ export function usePrompts({
   setLayout: Dispatch<SetStateAction<Layout>>;
   saveFirst: () => Promise<boolean>;
   moves: Pick<PaneMoves, "moveTo" | "refocusPane">;
-  openInPane: (path: string, line?: number) => Promise<void>;
+  openInPane: (path: string, line?: number) => Promise<boolean>;
   todosWritten: () => void;
   setNotice: Dispatch<SetStateAction<string | undefined>>;
 }) {

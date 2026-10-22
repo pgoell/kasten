@@ -6,11 +6,13 @@ import { periodicNote } from "@/lib/periodic";
 import { hashed } from "./digests";
 import { defineFoliateFake } from "./foliate-fake";
 import {
+  act,
   editing,
   FakeEventSource,
   pageHooks,
   renderApp,
   settle,
+  stream,
   VAULT,
 } from "./home-route-fixture";
 import { COARSE, NARROW, stubMatchMedia } from "./match-media";
@@ -423,5 +425,109 @@ describe("the palette's Log food, on the route", () => {
     expect(document.activeElement).toBe(foodQuery());
     expect(saveNote).not.toHaveBeenCalled();
     expect(createNote).not.toHaveBeenCalled();
+  });
+
+  it("#822 a note that fails to load ends the wait, and the written event that loads it opens no food search", async () => {
+    // Today's note fails to read once, then reads back when the vault says it was written.
+    let failing = true;
+    fetchNote.mockImplementation(async (path: string) => {
+      if (path === LOG_CONFIG) throw new NoteMissing(path);
+      if (path === TODAY && failing) {
+        failing = false;
+        throw new Error("GET failed with 500");
+      }
+      if (path === TODAY) return TODAY_TEXT;
+      return VAULT[path];
+    });
+    const app = await renderApp();
+    await settle();
+    app.click("index.md");
+    await settle();
+
+    app.leader(":");
+    await settle();
+    tapRow(/^Log food/);
+    await settle();
+    expect.soft(document.body.textContent).toContain("Could not open");
+
+    act(() => stream().send({ path: TODAY, change: "written", digest: "a".repeat(64) }));
+    await settle();
+
+    expect.soft(editorText()).toContain("# 2026-10-20 Tuesday");
+    expect(foodQuery()).toBeNull();
+  });
+
+  it("#822 a refused save when today's note opens leaves no search for a later <leader>gd", async () => {
+    // The first save lands with a character typed in while it is out, so the save
+    // `openInPane` makes once today's note is found has text to write, and it is refused.
+    const app = await editing();
+    let saves = 0;
+    saveNote.mockImplementation(async (path: string, content: string) => {
+      saves += 1;
+      if (saves === 1) {
+        EditorView.findFromDOM(document.querySelector(".cm-editor") as HTMLElement)?.dispatch({
+          changes: { from: 0, insert: "z" },
+        });
+      }
+      if (saves === 2) throw new Error("PUT failed with 500");
+      return { path, content };
+    });
+
+    app.leader(":");
+    await settle();
+    tapRow(/^Log food/);
+    await settle();
+    expect(saveNote.mock.calls.length).toBeGreaterThanOrEqual(2);
+    expect(foodQuery()).toBeNull();
+
+    app.leader("g", "d");
+    await settle();
+
+    expect(editorText()).toContain("# 2026-10-20 Tuesday");
+    expect(foodQuery()).toBeNull();
+  });
+
+  it("#822 a refused save after today's note is made leaves no search for a later <leader>gd", async () => {
+    // Today's note is made while the reader types into index.md, so the save that
+    // opens it is the first one, and it is refused.
+    let made = false;
+    fetchFiles.mockImplementation(async () =>
+      made ? [...Object.keys(VAULT), TODAY] : Object.keys(VAULT),
+    );
+    fetchNote.mockImplementation(async (path: string) => {
+      if (path === LOG_CONFIG || (path === TODAY && !made)) throw new NoteMissing(path);
+      if (path === TODAY) return TODAY_TEXT;
+      return VAULT[path];
+    });
+    createNote.mockImplementation(async (path: string, body: string) => {
+      EditorView.findFromDOM(document.querySelector(".cm-editor") as HTMLElement)?.dispatch({
+        changes: { from: 0, insert: "z" },
+      });
+      made = true;
+      return { path, content: body };
+    });
+    let saves = 0;
+    saveNote.mockImplementation(async (path: string, content: string) => {
+      saves += 1;
+      if (saves === 1) throw new Error("PUT failed with 500");
+      return { path, content };
+    });
+    const app = await renderApp();
+    await settle();
+    app.click("index.md");
+    await settle();
+
+    app.leader(":");
+    await settle();
+    tapRow(/^Log food/);
+    await settle();
+    expect(editorText()).toBe("zthe index note");
+    expect(foodQuery()).toBeNull();
+
+    app.leader("g", "d");
+    await settle();
+
+    expect(editorText()).toContain("# 2026-10-20 Tuesday");
+    expect(foodQuery()).toBeNull();
   });
 });
