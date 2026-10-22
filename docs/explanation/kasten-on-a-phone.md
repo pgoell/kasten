@@ -261,7 +261,7 @@ hides and waits for a tap to start it again.
 The torch and the buzz follow what the browser offers, so kasten never asks for
 either. A `Torch` button shows only when the camera's track lists `torch` among
 its capabilities, which Android Chrome does and iOS Safari does not; the torch
-goes off before the camera stops, so the light never stays on after a scan. A
+goes off with the camera, so the light never stays on after a scan. A
 read buzzes the phone through `navigator.vibrate` where it exists, so a person
 looking at the package knows the code read; iOS has no such call, so a scan
 there stays silent.
