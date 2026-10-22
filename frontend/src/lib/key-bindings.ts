@@ -1,4 +1,3 @@
-import type { DrinkKind } from "@/lib/log-lines";
 import type { MoveMode } from "@/lib/move";
 
 /**
@@ -67,11 +66,11 @@ export interface EditorCommands {
    */
   openDaily(): void;
   /**
-   * Log one drink into today's note: the default line under `## Log`, made there
-   * if the note has none. Reached by name from the palette only, which takes it
-   * in the buffer when the note is open, so no key is bound to it.
+   * Log one line, such as `- 💧 250 ml`, into today's note under `## Log`, made
+   * there if the note has none. Reached by name from the palette only, which takes
+   * it in the buffer when the note is open, so no key is bound to it.
    */
-  logDrink(kind: DrinkKind): void;
+  logDrink(line: string): void;
   openWeekly(): void;
   openMonthly(): void;
   openQuarterly(): void;

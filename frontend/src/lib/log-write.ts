@@ -10,7 +10,7 @@
 import { isolateHistory } from "@codemirror/commands";
 import type { EditorView } from "@codemirror/view";
 import { createNote, NoteExists, updateNote } from "@/lib/api";
-import { DEFAULT_LINE, type DrinkKind, LOG_HEADING } from "@/lib/log-lines";
+import { LOG_HEADING } from "@/lib/log-lines";
 import { appendUnder, appendUnderEdit } from "@/lib/note-section";
 import { periodicNote } from "@/lib/periodic";
 import { notePath } from "@/lib/todo-commands";
@@ -22,10 +22,10 @@ import { notePath } from "@/lib/todo-commands";
  * One change, so one undo takes the line back. Nothing is asked first: undo is
  * the way out.
  */
-export function logDrinkInView(view: EditorView, kind: DrinkKind): boolean {
+export function logDrinkInView(view: EditorView, line: string): boolean {
   if (view.state.facet(notePath) !== periodicNote("daily", new Date()).path) return false;
   view.dispatch({
-    changes: appendUnderEdit(view.state.doc.toString(), LOG_HEADING, DEFAULT_LINE[kind]),
+    changes: appendUnderEdit(view.state.doc.toString(), LOG_HEADING, line),
     userEvent: "input.log",
     // History joins quick adjacent input into one step; a drink is a step of its own.
     annotations: isolateHistory.of("full"),
@@ -85,7 +85,7 @@ const TAP_WAIT_MS = 10_000;
  * nothing.
  */
 export function logDrinkInVault(
-  kind: DrinkKind,
+  line: string,
   paths: string[],
   stillOk?: () => { why: string } | null,
 ): Promise<void> {
@@ -95,7 +95,7 @@ export function logDrinkInVault(
   });
   const turn = Promise.race([drinkTurns, bound])
     .finally(() => clearTimeout(timer))
-    .then(() => writeDrink(kind, paths, stillOk));
+    .then(() => writeDrink(line, paths, stillOk));
   // Settled either way, so the next tap waits on this one and never on why it
   // failed.
   drinkTurns = Promise.allSettled([turn]);
@@ -103,7 +103,7 @@ export function logDrinkInVault(
 }
 
 async function writeDrink(
-  kind: DrinkKind,
+  line: string,
   paths: string[],
   stillOk?: () => { why: string } | null,
 ): Promise<void> {
@@ -115,7 +115,7 @@ async function writeDrink(
   // a save, and the note may have been opened or edited meanwhile.
   const change = (text: string) => {
     refusal.why = stillOk?.()?.why;
-    return refusal.why === undefined ? appendUnder(text, LOG_HEADING, DEFAULT_LINE[kind]) : null;
+    return refusal.why === undefined ? appendUnder(text, LOG_HEADING, line) : null;
   };
 
   // A note the listing leaves out may have been made by a tap just before this

@@ -12,8 +12,6 @@ import { masked } from "@/lib/tag-rule";
 
 export type DrinkKind = "water" | "coffee" | "alcohol";
 
-export const DRINKS: DrinkKind[] = ["water", "coffee", "alcohol"];
-
 /** The heading every entry sits under, made by the first write as `## Done` is. */
 export const LOG_HEADING = "## Log";
 

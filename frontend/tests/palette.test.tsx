@@ -2,13 +2,14 @@ import { CompletionContext } from "@codemirror/autocomplete";
 import { history, undo } from "@codemirror/commands";
 import { EditorState, type Extension } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
-import { vim } from "@replit/codemirror-vim";
+import { getCM, vim } from "@replit/codemirror-vim";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { useState } from "react";
 import { CommandPalette } from "@/components/command-palette";
 import { readClock } from "@/lib/clock";
 import { editorCommands } from "@/lib/editor-commands";
 import { logCard } from "@/lib/log-card";
+import { parseConfig } from "@/lib/log-kinds";
 import { INSERTS, paletteEntries, slashCompletions, writeInsert } from "@/lib/palette";
 import { periodicNote } from "@/lib/periodic";
 import { notePath, todoCycled } from "@/lib/todo-commands";
@@ -268,8 +269,39 @@ describe("the drink entries", () => {
 
     runDrink("Log coffee", commands, view);
 
-    expect(commands.logDrink).toHaveBeenCalledWith("coffee");
+    expect(commands.logDrink).toHaveBeenCalledWith("- ☕ 1");
     expect(view.state.doc.toString()).toBe("x");
+  });
+
+  it("#770 with vim on, the palette's Log tea over today's note leaves normal mode and u takes it back", () => {
+    const view = noteView(today, "## TODOs\n", [history(), vim()]);
+    document.body.appendChild(view.dom);
+    const tea = parseConfig("- 🍵 tea: 1 cup\n").kinds;
+
+    const entry = paletteEntries(stubCommands(), view, tea).find((row) => row.label === "Log tea");
+    expect(entry).toBeDefined();
+    entry?.run();
+
+    expect(getCM(view)?.state.vim?.insertMode).toBeFalsy();
+    expect(view.state.doc.toString()).toBe("## TODOs\n\n## Log\n- 🍵 1 cup\n");
+    fireEvent.keyDown(view.contentDOM, { key: "u" });
+
+    expect(view.state.doc.toString()).toBe("## TODOs\n");
+    view.destroy();
+  });
+
+  it("#770 with vim off, undo takes the palette's Log tea back", () => {
+    const view = noteView(today, "## TODOs\n", [history()]);
+    const tea = parseConfig("- 🍵 tea: 1 cup\n").kinds;
+
+    const entry = paletteEntries(stubCommands(), view, tea).find((row) => row.label === "Log tea");
+    expect(entry).toBeDefined();
+    entry?.run();
+
+    expect(view.state.doc.toString()).toBe("## TODOs\n\n## Log\n- 🍵 1 cup\n");
+    undo(view);
+
+    expect(view.state.doc.toString()).toBe("## TODOs\n");
   });
 });
 

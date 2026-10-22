@@ -220,12 +220,14 @@ export function LogPane({ commands, onOpen, focusSignal, today, actions, onNotic
   const leader = useLeader(commands);
 
   // The raw note under the key every reader of log.md shares, parsed on the way out, so the
-  // cache holds text. A missing note has no data, and the defaults are drawn.
-  const { data: config = DEFAULT_CONFIG } = useQuery({
+  // cache holds text. A missing note has no data, and the defaults are drawn. So is a note
+  // in error: react-query keeps the last good data through a failed refetch.
+  const logConfig = useQuery({
     queryKey: ["note", LOG_NOTE],
     queryFn: () => fetchNote(LOG_NOTE),
     select: parseConfig,
   });
+  const config = logConfig.isError ? DEFAULT_CONFIG : (logConfig.data ?? DEFAULT_CONFIG);
 
   const { data: days, error: dayError } = useQuery({
     queryKey: ["log", day, day],

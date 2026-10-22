@@ -13,7 +13,6 @@ import { fetchAssets, fetchFiles, fetchNote, NoteMissing } from "@/lib/api";
 import { heldText } from "@/lib/held-text";
 import type { TreeCommands } from "@/lib/key-bindings";
 import { READING_NOTE } from "@/lib/layout";
-import { DEFAULT_LINE } from "@/lib/log-lines";
 import { drinkTarget, logDrinkInVault, logDrinkInView } from "@/lib/log-write";
 import { noteName } from "@/lib/note-path";
 import {
@@ -273,8 +272,8 @@ export function usePaneCommands({
       // takes nothing. What they have in common is in `periodic.ts`.
       openDaily: () => openPeriodic("daily"),
       // The notice says what landed, or why the vault refused. The line in the
-      // notice is the default line without its list dash.
-      logDrink: (kind) => {
+      // notice is the line without its list dash.
+      logDrink: (line) => {
         setNotice(undefined);
         const today = periodicNote("daily", new Date()).path;
         const target = drinkTarget({
@@ -290,7 +289,7 @@ export function usePaneCommands({
         if (target === "buffer") {
           const editor = document.querySelector<HTMLElement>(`[data-pane="${pane.id}"] .cm-editor`);
           const view = editor ? EditorView.findFromDOM(editor) : null;
-          if (view === null || !logDrinkInView(view, kind)) {
+          if (view === null || !logDrinkInView(view, line)) {
             setNotice(`Nothing logged: ${today} is not open to type in`);
           }
           return;
@@ -312,8 +311,8 @@ export function usePaneCommands({
           if (now === "vault") return null;
           return { why: typeof now === "object" ? now.why : `${today} is open to type in` };
         };
-        void logDrinkInVault(kind, paths ?? [], stillOk).then(
-          () => setNotice(`Logged ${DEFAULT_LINE[kind].slice(2)} into today's note`),
+        void logDrinkInVault(line, paths ?? [], stillOk).then(
+          () => setNotice(`Logged ${line.slice(2)} into today's note`),
           (error: unknown) =>
             setNotice(error instanceof Error ? error.message : "The drink was not logged"),
         );

@@ -66,7 +66,7 @@ describe("a drink logged into the vault", () => {
   it("writes the default line under an existing ## Log", async () => {
     vault.notes[daily] = "## Log\n- ☕ 1\n\n## Done\n";
 
-    await logDrinkInVault("water", [daily]);
+    await logDrinkInVault("- 💧 250 ml", [daily]);
 
     expect(vault.notes[daily]).toBe("## Log\n- ☕ 1\n- 💧 250 ml\n\n## Done\n");
   });
@@ -74,13 +74,13 @@ describe("a drink logged into the vault", () => {
   it("makes ## Log at the end when the note has none", async () => {
     vault.notes[daily] = "## TODOs\n- [ ] x\n";
 
-    await logDrinkInVault("alcohol", [daily]);
+    await logDrinkInVault("- 🍺 1", [daily]);
 
     expect(vault.notes[daily]).toBe("## TODOs\n- [ ] x\n\n## Log\n- 🍺 1\n");
   });
 
   it("creates today's note with the template and ## Log when the listing lacks it", async () => {
-    await logDrinkInVault("water", []);
+    await logDrinkInVault("- 💧 250 ml", []);
 
     expect(vault.notes[daily]).toBe(`${body.replace(/\n+$/, "")}\n\n## Log\n- 💧 250 ml\n`);
   });
@@ -88,7 +88,7 @@ describe("a drink logged into the vault", () => {
   it("updates the note that is there when the create finds it already made", async () => {
     vault.notes[daily] = "## TODOs\n- [ ] x\n\n## Log\n- ☕ 1\n";
 
-    await logDrinkInVault("water", []);
+    await logDrinkInVault("- 💧 250 ml", []);
 
     expect(vault.notes[daily]).toBe("## TODOs\n- [ ] x\n\n## Log\n- ☕ 1\n- 💧 250 ml\n");
   });
@@ -101,7 +101,7 @@ describe("a drink logged into the vault", () => {
       vault.notes[path] = "## Log\n- ☕ 1\n- 🍺 1\n";
     };
 
-    await logDrinkInVault("water", [daily]);
+    await logDrinkInVault("- 💧 250 ml", [daily]);
 
     expect(vault.notes[daily]).toBe("## Log\n- ☕ 1\n- 🍺 1\n- 💧 250 ml\n");
   });
@@ -119,8 +119,8 @@ describe("a drink logged into the vault", () => {
       await gate;
     };
 
-    const first = logDrinkInVault("water", [daily]);
-    const second = logDrinkInVault("coffee", [daily]);
+    const first = logDrinkInVault("- 💧 250 ml", [daily]);
+    const second = logDrinkInVault("- ☕ 1", [daily]);
     release();
     await Promise.all([first, second]);
 
@@ -134,8 +134,8 @@ describe("a drink logged into the vault", () => {
       throw new Error("the vault is down");
     };
 
-    await expect(logDrinkInVault("water", [daily])).rejects.toThrow("the vault is down");
-    await logDrinkInVault("coffee", [daily]);
+    await expect(logDrinkInVault("- 💧 250 ml", [daily])).rejects.toThrow("the vault is down");
+    await logDrinkInVault("- ☕ 1", [daily]);
 
     expect(vault.notes[daily]).toBe("## TODOs\n\n## Log\n- ☕ 1\n");
   });
@@ -161,8 +161,8 @@ it("a queued drink writes nothing when today's note became unsaved while it wait
   let unsaved = false;
   const stillOk = () => (unsaved ? { why: `${daily} holds text not yet saved` } : null);
 
-  const first = logDrinkInVault("water", [daily]);
-  const second = logDrinkInVault("coffee", [daily], stillOk);
+  const first = logDrinkInVault("- 💧 250 ml", [daily]);
+  const second = logDrinkInVault("- ☕ 1", [daily], stillOk);
   const refused = expect(second).rejects.toThrow(
     `Nothing logged: ${daily} holds text not yet saved`,
   );
@@ -173,4 +173,32 @@ it("a queued drink writes nothing when today's note became unsaved while it wait
   await refused;
 
   expect(vault.notes[daily]).toBe("## TODOs\n\n## Log\n- 💧 250 ml\n");
+});
+
+it("#770 a tea tap through the vault waits its turn and a refusal writes nothing", async () => {
+  vault.notes[daily] = "## TODOs\n";
+  let release = () => {};
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  // Only the first save waits, so the tea tap sits in the queue behind the water one.
+  vault.beforePut = async () => {
+    vault.beforePut = undefined;
+    await gate;
+  };
+
+  const water = logDrinkInVault("- 💧 250 ml", [daily]);
+  const tea = logDrinkInVault("- 🍵 1 cup", [daily]);
+  release();
+  await Promise.all([water, tea]);
+
+  expect(vault.notes[daily]).toBe("## TODOs\n\n## Log\n- 💧 250 ml\n- 🍵 1 cup\n");
+
+  // A refused tea tap rejects the way a refused drink does, and writes nothing.
+  const refused = logDrinkInVault("- 🍵 1 cup", [daily], () => ({
+    why: `${daily} holds text not yet saved`,
+  }));
+  await expect(refused).rejects.toThrow(`Nothing logged: ${daily} holds text not yet saved`);
+
+  expect(vault.notes[daily]).toBe("## TODOs\n\n## Log\n- 💧 250 ml\n- 🍵 1 cup\n");
 });

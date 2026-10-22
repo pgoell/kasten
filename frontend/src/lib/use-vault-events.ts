@@ -1,10 +1,22 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { type RefObject, useEffect } from "react";
+import { LOG_NOTE } from "@/lib/layout";
 import { dailyDate } from "@/lib/periodic";
 import type { useAutosave } from "@/lib/use-autosave";
 import { parseVaultEvent } from "@/lib/vault-events";
 
 type Autosave = ReturnType<typeof useAutosave>;
+
+/**
+ * The daily notes in a listing, sorted and joined, so two answers compare with
+ * `!==`. Undefined where there is no listing to read.
+ */
+function dailySet(paths: string[] | undefined): string | undefined {
+  return paths
+    ?.filter((path) => dailyDate(path) !== null)
+    .sort()
+    .join("\n");
+}
 
 /**
  * Keep the caches the route reads in step with the vault, by the event stream
@@ -30,6 +42,23 @@ export function useVaultEvents(
   // life of the page rather than one per note you read.
   useEffect(() => {
     const stream = new EventSource("/api/events");
+    // A move of the daily folder sends a `listing`, which names no path, so the
+    // event cannot say the log is stale. The answer can: when `/api/files` comes
+    // back with other daily notes than the last answer did, the log asks again.
+    // Asked of the cache, not by awaiting the listing's own invalidation, because
+    // that refetch joins one already in the air (`cancelRefetch` off), and that
+    // one may have walked the vault before the move. The answer that carries the
+    // move can then come from a later fetch than the one being awaited.
+    let dailies = dailySet(queryClient.getQueryData<string[]>(["files"]));
+    const unsubscribe = queryClient.getQueryCache().subscribe((cacheEvent) => {
+      if (cacheEvent.type !== "updated" || cacheEvent.action.type !== "success") return;
+      if (cacheEvent.query.queryKey[0] !== "files") return;
+      const next = dailySet(cacheEvent.query.state.data as string[] | undefined);
+      if (dailies !== undefined && next !== dailies) {
+        queryClient.invalidateQueries({ queryKey: ["log"] }, { cancelRefetch: false });
+      }
+      dailies = next;
+    });
     // Every open, the first one included. A stream that went down and came
     // back missed whatever the vault did in between: the backend replays
     // nothing and `EventSource` reconnects without saying it ever stopped,
@@ -136,21 +165,30 @@ export function useVaultEvents(
       // invented an hour ago would not be worth having.
       queryClient.invalidateQueries({ queryKey: ["tags"] }, { cancelRefetch: false });
 
-      // The log pane's totals are read off the daily notes, so a write to one, or
-      // its removal, asks the log again. Keyed on the path because the log is not
-      // only read while its pane is up, and every autosave of another note sends
-      // an event that must not walk the whole log.
+      // The log pane's totals are read off the daily notes, and its kinds and goals
+      // off log.md, so a write to one of those, or its removal, asks the log again.
+      // Keyed on the path because the log is not only read while its pane is up,
+      // and every autosave of another note sends an event that must not walk the
+      // whole log.
       if (
         (event.change === "written" || event.change === "removed") &&
-        dailyDate(event.path) !== null
+        (dailyDate(event.path) !== null || event.path === LOG_NOTE)
       ) {
         queryClient.invalidateQueries({ queryKey: ["log"] }, { cancelRefetch: false });
+      }
+      // A removal refetches no note, so the readers of log.md would keep the text
+      // it had. A write does reach its note query above.
+      if (event.change === "removed" && event.path === LOG_NOTE) {
+        queryClient.invalidateQueries({ queryKey: ["note", LOG_NOTE] }, { cancelRefetch: false });
       }
 
       const paths = queryClient.getQueryData<string[]>(["files"]);
       if (event.change === "written" && paths?.includes(event.path)) return;
       queryClient.invalidateQueries({ queryKey: ["files"] }, { cancelRefetch: false });
     };
-    return () => stream.close();
+    return () => {
+      stream.close();
+      unsubscribe();
+    };
   }, [queryClient, focusedNote, onDeclined]);
 }

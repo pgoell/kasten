@@ -193,7 +193,8 @@ describe("the route", () => {
     // The note's query is not read again: that is what puts the vault's text in
     // front of the editor, and the buffer is holding words that are nowhere
     // else. The one read since is the bar's, for the diff, outside the cache.
-    expect(fetchNote).toHaveBeenCalledTimes(2);
+    // Counted for index.md alone: the route's log.md query reads its own note too.
+    expect(fetchNote.mock.calls.filter(([path]) => path === "index.md")).toHaveLength(2);
     expect(app.cached("index.md")).toBe("the index note");
     expect(app.text()).toBe("he index note");
     expect(app.status()).toBe("Changed on disk");

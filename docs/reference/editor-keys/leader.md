@@ -232,11 +232,17 @@ the four formatting marks, the inserts below, and the commands vim spells at
 its prompt: the write, the two rereads, the three copies and `gf`. Opened over
 a pane with no note, it lists the leader commands only, as the rest act on a
 note. Both lists end with `Go to tab 1` to `Go to tab 10`, `Toggle vim keys`,
-and `Log water`, `Log coffee` and `Log alcohol`, none of which has a key. Over a
-daily note's card the list also has `Log food`, which opens the card's food search.
+and one `Log <name>` per kind of the log config note, none of which has a key.
+Over a daily note's card the list also has `Log food`, which opens the card's
+food search.
 
-`Log water`, `Log coffee` and `Log alcohol` write `- 💧 250 ml`, `- ☕ 1` or
-`- 🍺 1` at the end of `## Log` in today's daily note, making the section, and
+With no config note the kinds are `Log water`, `Log coffee` and `Log alcohol`,
+writing `- 💧 250 ml`, `- ☕ 1` or `- 🍺 1`. With
+[`log.md`](/reference/log-format.md#the-config-note) they are exactly the kinds
+it names, each writing its tap line, so `- 🍵 tea: 1 cup` adds `Log tea`, which
+writes `- 🍵 1 cup`, and a note without a `☕` line offers no `Log coffee`. The
+list follows an edit to the note without a reload. Each writes its line
+at the end of `## Log` in today's daily note, making the section, and
 the note as `<leader>gd` would, where there is none. With today's note in the
 focused pane the line goes into its buffer, so `u` takes it back; otherwise it
 is written to the vault and the status bar says so, or says `Nothing logged:`

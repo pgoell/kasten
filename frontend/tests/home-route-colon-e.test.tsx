@@ -181,7 +181,8 @@ describe("the route", () => {
 
     somebodyElseWrote();
     await settle();
-    expect(fetchNote).toHaveBeenCalledTimes(2);
+    // Counted for index.md alone: the route's log.md query reads its own note too.
+    expect(fetchNote.mock.calls.filter(([path]) => path === "index.md")).toHaveLength(2);
 
     // Typed while that read was in flight, which is the only way a buffer that
     // was clean when the decision was made is dirty when it lands.
@@ -325,7 +326,8 @@ describe("the route", () => {
     // open note would be the wrong note answering to the right command.
     app.ex("e other.md");
     await settle();
-    expect(fetchNote).toHaveBeenCalledTimes(1);
+    // Counted for index.md alone: the route's log.md query reads its own note too.
+    expect(fetchNote.mock.calls.filter(([path]) => path === "index.md")).toHaveLength(1);
     expect(app.text()).toBe("he index note");
 
     // The bang survives a trailing space. Losing it there turns the command

@@ -6,7 +6,16 @@ import { noteBase } from "@/lib/note-base";
 import { periodicNote } from "@/lib/periodic";
 import { hashed } from "./digests";
 import { defineFoliateFake } from "./foliate-fake";
-import { FakeEventSource, pageHooks, renderApp, settle, VAULT } from "./home-route-fixture";
+import {
+  act,
+  FakeEventSource,
+  pageHooks,
+  renderApp,
+  settle,
+  stream,
+  VAULT,
+} from "./home-route-fixture";
+import { COARSE, NARROW, stubMatchMedia } from "./match-media";
 
 defineFoliateFake();
 
@@ -115,6 +124,7 @@ pageHooks();
 // Pinned to a day, since the drink lands in the note the clock names.
 const TODAY = periodicNote("daily", new Date(2026, 9, 20, 9, 0)).path;
 const TODAY_TEXT = "---\ntype: Periodic Note\n---\n\n# 2026-10-20 Tuesday\n\n## TODOs\n";
+const LOG_CONFIG = "99 Misc/01 Config/log.md";
 
 describe("the palette's drink rows, on the route", () => {
   beforeEach(() => {
@@ -151,6 +161,31 @@ describe("the palette's drink rows, on the route", () => {
     EditorView.findFromDOM(
       document.querySelector(".cm-editor") as HTMLElement,
     )?.state.doc.toString();
+  /**
+   * The palette's drink rows, in the order it lists them. `Log food` is the card's
+   * own row, listed over a daily note, and is not a drink.
+   */
+  const logRows = () =>
+    screen
+      .queryAllByRole("option", { name: /^Log (?!food$)/ })
+      .map((row) => row.textContent?.trim());
+  /** Taps the palette row called `name`. A missing row is a failed assertion, not a throw. */
+  function tapRow(name: RegExp) {
+    const row = option(name);
+    expect.soft(row).not.toBeNull();
+    if (row) fireEvent.click(row);
+  }
+
+  /** Answers for log.md with `answer`: its text, or the error it fails with. */
+  function withLog(answer: string | Error) {
+    fetchNote.mockImplementation(async (path: string) => {
+      if (path === LOG_CONFIG) {
+        if (answer instanceof Error) throw answer;
+        return answer;
+      }
+      return path === TODAY ? TODAY_TEXT : VAULT[path];
+    });
+  }
 
   it("the palette logs into today's focused pane when the focus is off its editor", async () => {
     const app = await renderApp(`/?note=${encodeURIComponent(TODAY)}`);
@@ -185,5 +220,143 @@ describe("the palette's drink rows, on the route", () => {
 
     expect(app.notice()).toBe(`Nothing logged: ${TODAY} holds text not yet saved`);
     expect(saveNote).not.toHaveBeenCalled();
+  });
+
+  it("#770 without log.md the palette offers Log water, coffee and alcohol and Log water writes - 💧 250 ml", async () => {
+    withLog(new NoteMissing(LOG_CONFIG));
+    const app = await renderApp(`/?note=${encodeURIComponent(TODAY)}`);
+    await settle();
+
+    app.leader(":");
+    await settle();
+    expect(logRows()).toEqual(["Log water", "Log coffee", "Log alcohol"]);
+    tapRow(/^Log water/);
+    await settle();
+
+    expect(editorText()).toContain("## Log\n- 💧 250 ml");
+  });
+
+  it("#770 with log.md the palette offers exactly its kinds and Log tea writes - 🍵 1 cup into today's focused note", async () => {
+    withLog("- 💧 water: 250 ml\n- 🍵 tea: 1 cup\n");
+    const app = await renderApp(`/?note=${encodeURIComponent(TODAY)}`);
+    await settle();
+
+    app.leader(":");
+    await settle();
+    expect(logRows()).toEqual(["Log water", "Log tea"]);
+    tapRow(/^Log tea/);
+    await settle();
+
+    expect(editorText()).toContain("## Log\n- 🍵 1 cup");
+    expect(saveNote).not.toHaveBeenCalled();
+  });
+
+  it("#770 Log tea from another note writes - 🍵 1 cup into today's note through the vault", async () => {
+    withLog("- 💧 water: 250 ml\n- 🍵 tea: 1 cup\n");
+    const app = await renderApp();
+    await settle();
+    app.click("index.md");
+    await settle();
+
+    app.leader(":");
+    await settle();
+    tapRow(/^Log tea/);
+    await settle();
+
+    expect(saveNote).toHaveBeenCalledWith(
+      TODAY,
+      expect.stringContaining("## Log\n- 🍵 1 cup"),
+      false,
+      expect.anything(),
+    );
+    expect(app.notice()).toBe("Logged 🍵 1 cup into today's note");
+  });
+
+  it("#770 a configured water tap of 500 ml writes - 💧 500 ml from the palette and the notice names it", async () => {
+    withLog("- 💧 water: 500 ml\n");
+    const app = await renderApp();
+    await settle();
+    app.click("index.md");
+    await settle();
+
+    app.leader(":");
+    await settle();
+    tapRow(/^Log water/);
+    await settle();
+
+    expect(saveNote).toHaveBeenCalledWith(
+      TODAY,
+      expect.stringContaining("## Log\n- 💧 500 ml"),
+      false,
+      expect.anything(),
+    );
+    expect(app.notice()).toBe("Logged 💧 500 ml into today's note");
+  });
+
+  it("#770 the palette's entries follow a write to log.md without a reload", async () => {
+    withLog(new NoteMissing(LOG_CONFIG));
+    const app = await renderApp(`/?note=${encodeURIComponent(TODAY)}`);
+    await settle();
+    app.leader(":");
+    await settle();
+    expect.soft(option(/^Log tea/)).toBeNull();
+
+    // The palette stays open across the event, so its rows are the ones the event redraws.
+    withLog("- 🍵 tea: 1 cup\n");
+    act(() => stream().send({ path: LOG_CONFIG, change: "written", digest: "a".repeat(64) }));
+    await settle();
+
+    expect(option(/^Log tea/)).not.toBeNull();
+  });
+
+  it("#770 a removed log.md puts the palette back on the default kinds", async () => {
+    withLog("- 🍵 tea: 1 cup\n");
+    const app = await renderApp(`/?note=${encodeURIComponent(TODAY)}`);
+    await settle();
+    app.leader(":");
+    await settle();
+    expect.soft(option(/^Log tea/)).not.toBeNull();
+
+    withLog(new NoteMissing(LOG_CONFIG));
+    act(() => stream().send({ path: LOG_CONFIG, change: "removed", digest: null }));
+    await settle();
+
+    expect(logRows()).toEqual(["Log water", "Log coffee", "Log alcohol"]);
+  });
+
+  it("#770 a log.md that fails to load gives the default palette", async () => {
+    withLog(new Error("the vault is down"));
+    const app = await renderApp(`/?note=${encodeURIComponent(TODAY)}`);
+    await settle();
+
+    app.leader(":");
+    await settle();
+
+    expect(logRows()).toEqual(["Log water", "Log coffee", "Log alcohol"]);
+  });
+
+  it("#770 a broken line in log.md gives no palette entry and the other kinds still do", async () => {
+    withLog("- 🧃 juice: lots\n- 🍵 tea: 1 cup\n");
+    const app = await renderApp(`/?note=${encodeURIComponent(TODAY)}`);
+    await settle();
+
+    app.leader(":");
+    await settle();
+
+    expect(logRows()).toEqual(["Log tea"]);
+  });
+
+  it("#770 on a phone, the toolbar's run button opens the palette and Log tea writes into today's note", async () => {
+    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+    withLog("- 🍵 tea: 1 cup\n");
+    await renderApp(`/?note=${encodeURIComponent(TODAY)}`);
+    await settle();
+
+    fireEvent.click(screen.getByRole("button", { name: "Run a command by name" }));
+    await settle();
+    tapRow(/^Log tea/);
+    await settle();
+
+    expect(editorText()).toContain("## Log\n- 🍵 1 cup");
   });
 });

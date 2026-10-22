@@ -9,7 +9,7 @@ import { toggleMark } from "@/lib/format-commands";
 import type { EditorCommands } from "@/lib/key-bindings";
 import { LEADER, spelled, TAB_KEYS } from "@/lib/leader-keys";
 import { cardShown, openFoodSearch } from "@/lib/log-card";
-import { DRINKS } from "@/lib/log-lines";
+import { DEFAULT_CONFIG, type LogKind, tapLine } from "@/lib/log-kinds";
 import { logDrinkInView } from "@/lib/log-write";
 import { toggleVim } from "@/lib/vim-setting";
 
@@ -140,8 +140,14 @@ export interface PaletteEntry {
  * `view` is the editor the palette opened over, or null when it opened over a
  * pane holding no buffer. Without one, only the route's commands are listed:
  * the rest write into a note and there is none to write into.
+ *
+ * `kinds` is what the log config note names, one `Log <name>` row each.
  */
-export function paletteEntries(commands: EditorCommands, view: EditorView | null): PaletteEntry[] {
+export function paletteEntries(
+  commands: EditorCommands,
+  view: EditorView | null,
+  kinds: readonly LogKind[] = DEFAULT_CONFIG.kinds,
+): PaletteEntry[] {
   const routed: PaletteEntry[] = [
     ...LEADER.filter(({ command }) => command !== "openPalette").map(({ key, label, command }) => ({
       label,
@@ -156,13 +162,18 @@ export function paletteEntries(commands: EditorCommands, view: EditorView | null
     // No key: a leader sequence is a vim mapping, and one that turned vim off
     // could not turn it back on. The drinks run with or without an editor: over
     // today's own note they land in its buffer, anywhere else in the vault.
-    ...DRINKS.map((kind) => ({
-      label: `Log ${kind}`,
-      run: () => {
-        if (view !== null && logDrinkInView(view, kind)) return;
-        commands.logDrink(kind);
-      },
-    })),
+    // Each writes the line its kind taps as, so a kind's own amount reaches the
+    // note the way the config note sets it.
+    ...kinds.map((kind) => {
+      const line = tapLine(kind);
+      return {
+        label: `Log ${kind.name}`,
+        run: () => {
+          if (view !== null && logDrinkInView(view, line)) return;
+          commands.logDrink(line);
+        },
+      };
+    }),
     { label: "Toggle vim keys", run: toggleVim },
   ];
   if (view === null) return routed;

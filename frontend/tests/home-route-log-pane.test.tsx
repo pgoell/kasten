@@ -388,4 +388,95 @@ describe("the log pane, on the route", () => {
       within(logPane() as HTMLElement).getByRole("button", { name: "💧 750 ml" }),
     ).not.toBeNull();
   });
+
+  it("#796 a listing event after the daily folder moved asks the log again and the pane redraws", async () => {
+    todayText = LOGGED_TEXT;
+    fetchLog.mockResolvedValue([DAY]);
+    const app = await renderApp(`/?note=${encodeURIComponent(TODAY)}`);
+    await settle();
+    app.leader("g", "f");
+    await settle();
+    expect(
+      within(logPane() as HTMLElement).getByRole("button", { name: "💧 500 ml" }),
+    ).not.toBeNull();
+
+    // The daily folder moved out of the periodic folder. The listing names no
+    // note, so the log can only tell from the daily notes the listing now holds.
+    fetchFiles.mockResolvedValue([...Object.keys(VAULT), `${ARCHIVE}/00 Daily/2026-10-20.md`]);
+    fetchLog.mockClear();
+    fetchLog.mockResolvedValue([]);
+    act(() => stream().send({ path: "", change: "listing", digest: null }));
+    await settle();
+
+    expect.soft(fetchLog).toHaveBeenCalledWith(DATE, DATE);
+    expect
+      .soft(within(logPane() as HTMLElement).queryByRole("button", { name: "💧 500 ml" }))
+      .toBeNull();
+  });
+
+  it("#796 a listing event that leaves the daily notes as they were does not ask the log again", async () => {
+    todayText = LOGGED_TEXT;
+    fetchLog.mockResolvedValue([DAY]);
+    const app = await renderApp(`/?note=${encodeURIComponent(TODAY)}`);
+    await settle();
+    app.leader("g", "f");
+    await settle();
+    const asked = fetchLog.mock.calls.length;
+
+    // A new note outside the daily folder changes the listing, not the daily notes.
+    fetchFiles.mockResolvedValue([...Object.keys(VAULT), TODAY, `${INBOX}/new idea.md`]);
+    act(() => stream().send({ path: "", change: "listing", digest: null }));
+    await settle();
+
+    expect(fetchLog).toHaveBeenCalledTimes(asked);
+  });
+
+  it("#795 a written event for the log config note asks the log again for the day and the trend", async () => {
+    todayText = LOGGED_TEXT;
+    fetchLog.mockResolvedValue([DAY]);
+    const app = await renderApp(`/?note=${encodeURIComponent(TODAY)}`);
+    await settle();
+    app.leader("g", "f");
+    await settle();
+
+    fetchLog.mockClear();
+    fetchLog.mockResolvedValue([DAY_750]);
+    act(() => stream().send({ path: LOG_CONFIG, change: "written", digest: "a".repeat(64) }));
+    await settle();
+
+    expect.soft(fetchLog).toHaveBeenCalledWith(DATE, DATE);
+    expect.soft(fetchLog).toHaveBeenCalledWith(TREND_FROM, DATE);
+    expect(
+      within(logPane() as HTMLElement).getByRole("button", { name: "💧 750 ml" }),
+    ).not.toBeNull();
+  });
+
+  it("#795 a removed event for the log config note asks the log again", async () => {
+    todayText = LOGGED_TEXT;
+    fetchLog.mockResolvedValue([DAY]);
+    const app = await renderApp(`/?note=${encodeURIComponent(TODAY)}`);
+    await settle();
+    app.leader("g", "f");
+    await settle();
+
+    fetchLog.mockClear();
+    fetchNote.mockClear();
+    act(() => stream().send({ path: LOG_CONFIG, change: "removed", digest: null }));
+    await settle();
+
+    expect.soft(fetchLog).toHaveBeenCalledWith(DATE, DATE);
+    expect.soft(fetchNote).toHaveBeenCalledWith(LOG_CONFIG);
+  });
+
+  it("#796 a listing before the file listing first answered asks no log and throws nothing", async () => {
+    // Nothing is cached yet, so there is no earlier answer to compare the listing with.
+    fetchFiles.mockReturnValue(new Promise(() => {}));
+    await renderApp("/");
+    await settle();
+
+    act(() => stream().send({ path: "", change: "listing", digest: null }));
+    await settle();
+
+    expect(fetchLog).not.toHaveBeenCalled();
+  });
 });

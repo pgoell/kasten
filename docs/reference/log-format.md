@@ -112,7 +112,8 @@ The tap is an edit of the note's buffer, which autosave writes as it writes
 typing, so `u` or Ctrl+Z takes it back as well as the card's `Undo`. `Undo`
 takes out the last tap's line while that line is still as the tap wrote it.
 The totals are the open note's lines, so yesterday's note shows yesterday.
-The palette's `Log water`, `Log coffee` and `Log alcohol` write into today's
+The palette has one `Log <name>` per kind, `Log water`, `Log coffee` and
+`Log alcohol` with no config note, which writes the kind's tap line into today's
 note from anywhere; see [the command palette](/reference/editor-keys/leader.md#the-command-palette).
 
 The card's `+ 🍽 food` button opens a food search. Type two characters or
@@ -202,6 +203,8 @@ a bar of its progress.
 
 An edit to `log.md` reaches the next daily note opened, not one already open.
 A tap in the moment before the note answers writes the default kinds' line.
+The palette's `Log <name>` entries and the log pane follow an edit to `log.md`
+without a reload, and go back to the three default kinds when it is deleted.
 
 ## The foods note
 
