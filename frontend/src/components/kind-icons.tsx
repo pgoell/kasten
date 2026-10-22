@@ -62,7 +62,7 @@ const SHAPES: Record<PaneKind, ReactNode> = {
     <>
       <path d="M6 3h8l4 4v14H6z" />
       <path d="M14 3v4h4" />
-      <path d="M8.5 17.5h7" />
+      <rect x="8" y="14.5" width="8" height="4" rx="0.5" fill="currentColor" stroke="none" />
     </>
   ),
   book: (
@@ -79,10 +79,10 @@ const SHAPES: Record<PaneKind, ReactNode> = {
   ),
   graph: (
     <>
-      <circle cx="6" cy="6" r="2.5" />
-      <circle cx="18" cy="7" r="2.5" />
-      <circle cx="12" cy="18" r="2.5" />
-      <path d="M8.2 7.2 15.8 7.6M7.4 8.2l3.9 7.8M16.6 9.2l-3.2 6.6" />
+      <circle cx="6" cy="6" r="3" />
+      <circle cx="18" cy="7" r="3" />
+      <circle cx="12" cy="18" r="3" />
+      <path d="M10.2 6.35 13.8 6.65M7.9 9.8 10.1 14.2M16 10.7 14 14.3" />
     </>
   ),
   video: (

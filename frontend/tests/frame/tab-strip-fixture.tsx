@@ -31,7 +31,7 @@ export const LONG = Array.from(
 
 const REDUCED = "(prefers-reduced-motion: reduce)";
 const FINE_KEY = "kasten.workspace.1";
-const COARSE_KEY = "kasten.workspace.coarse.1";
+export const COARSE_KEY = "kasten.workspace.coarse.1";
 
 /**
  * The long notes and the design notes answer their text, after the reader

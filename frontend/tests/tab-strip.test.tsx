@@ -251,7 +251,8 @@ describe("TabStrip", () => {
     draw(emptyLayout("a-very-long-name-of-a-note-that-runs-on-and-on.md"));
 
     const tab = screen.getByRole("tab");
-    expect(tab).toHaveClass("max-w-[200px]");
+    // The cap is on the whole tab, the x included, which is the tab's wrapper.
+    expect(tab.parentElement).toHaveClass("max-w-[200px]");
     expect(tab.querySelector("span")).toHaveClass("truncate");
   });
 
@@ -275,7 +276,8 @@ describe("TabStrip", () => {
 
     const [first, second] = screen.getAllByRole("tab");
     expect(second).toHaveClass("text-k-ink");
-    expect(first).toHaveClass("hover:bg-k-accent-wash");
+    // The wash is on the tab's wrapper, so the close x is washed with the tab (R7).
+    expect(first?.parentElement).toHaveClass("hover:bg-k-accent-wash");
     const bar = screen.getByRole("tablist").querySelector('span[aria-hidden="true"]');
     expect(bar).toHaveClass("h-0.5", "bg-k-accent");
   });

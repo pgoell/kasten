@@ -12,12 +12,14 @@ import { fireEvent, waitFor } from "@testing-library/react";
 import type {} from "@vitest/browser-playwright";
 import { cdp } from "vitest/browser";
 import { resetStripEntrance } from "@/components/tab-strip";
+import { resetHeld } from "@/lib/held-text";
 import { noteName } from "@/lib/note-path";
 import { openInFocused } from "@/lib/pane-contents";
-import { addTab, emptyLayout, goToTab } from "@/lib/panes";
+import { addTab, emptyLayout, goToTab, type Layout, splitFocused } from "@/lib/panes";
 import {
   DESKTOP,
   leader,
+  mount,
   need,
   nextFrame,
   PATIENCE,
@@ -30,6 +32,8 @@ import {
 } from "./reader-fixture";
 import {
   barOf,
+  COARSE_KEY,
+  DESIGN,
   drawn,
   LONG,
   moreButton,
@@ -294,10 +298,13 @@ it("A20 on a 390 touch phone a tap opens a tab, a tap on Today goes home, and a 
     const { host } = mounted;
     const selected = () =>
       wrappers(host).findIndex((tab) => tab.querySelector("[aria-selected='true']") !== null);
-    expect(drawn(host)).toHaveLength(3);
+    // Under a finger the phone draws one tab and folds the other two behind "2 more".
+    expect(drawn(host)).toHaveLength(1);
 
-    // A tap on the second tab makes it the active one, and its note is drawn.
-    await tapOn(need(drawn(host)[1]?.querySelector("[role='tab']"), "second tab"));
+    // A tap on the list's first row opens the second tab, which becomes the active one.
+    await tapOn(need(moreButton(host), "N more button"));
+    await expect.poll(() => host.querySelector("[role='menu']") !== null, PATIENCE).toBe(true);
+    await tapOn(need(host.querySelector("[role='menuitem']"), "first row"));
     await expect.poll(selected, PATIENCE).toBe(1);
     await waitFor(() => expect(visibleEditor(host).textContent).toContain("paragraph"), PATIENCE);
 
@@ -321,6 +328,110 @@ it("A20 on a 390 touch phone a tap opens a tab, a tap on Today goes home, and a 
     await unmount(mounted);
   }
 }, 120_000);
+
+/** Twelve tabs, the first one split side by side, the right half focused. */
+function splitThenTabs(): Layout {
+  const first = openInFocused(splitFocused(emptyLayout(READER), "row"), DESIGN);
+  return goToTab(
+    LONG.slice(1).reduce((layout, path) => openInFocused(addTab(layout), path), first),
+    0,
+  );
+}
+
+it("R3 a split's focus line does not paint over the open N more list", async () => {
+  const mounted = await mountTabs(DESKTOP, "light", splitThenTabs());
+  try {
+    const { host } = mounted;
+    await expect.poll(() => moreButton(host)?.textContent ?? "", PATIENCE).toMatch(/^\d+ more$/);
+    fireEvent.click(need(moreButton(host), "N more button"));
+    await expect.poll(() => host.querySelector("[role='menu']") !== null, PATIENCE).toBe(true);
+
+    // The focus line of the focused pane is laid over that pane's top edge, which is
+    // where the list's top edge is too. A point on the list there must be the list.
+    const menu = need(host.querySelector<HTMLElement>("[role='menu']"), "N more list");
+    const line = need(
+      host.querySelector<HTMLElement>("[data-focus-line].bg-k-accent"),
+      "focus line",
+    );
+    const box = menu.getBoundingClientRect();
+    const edge = line.getBoundingClientRect();
+    const x = box.left + box.width / 2;
+    const y = Math.max(box.top, edge.top) + 1;
+    expect(document.elementFromPoint(x, y)?.closest("[role='menu']")).not.toBeNull();
+  } finally {
+    await unmount(mounted);
+  }
+}, 120_000);
+
+it("R4 on a 390 phone the active tab with unsaved text still shows its x", async () => {
+  // The note of the first tab, which is the active one, holds text the vault has not
+  // got. Held before the mount, in the storage the page reads when it first draws.
+  resetHeld();
+  const held = JSON.stringify({
+    [READER]: [{ content: "typed and not yet saved", reason: "held", conflicted: false }],
+  });
+  const mounted = await mount(TOUCH, "light", "/", "[role='tablist']", {
+    [COARSE_KEY]: JSON.stringify({ layout: twoTabs(), treeOpen: false }),
+    "kasten.held.2": held,
+  });
+  try {
+    const { host } = mounted;
+    const close = need(
+      host.querySelector<HTMLElement>("button[aria-label='Close Reader']"),
+      "close x",
+    );
+    const dot = need(close.parentElement?.querySelector<HTMLElement>(".rounded-full"), "dot");
+    await expect.poll(() => getComputedStyle(close).visibility, PATIENCE).toBe("visible");
+    expect(getComputedStyle(dot).display).toBe("none");
+  } finally {
+    resetHeld();
+    await unmount(mounted);
+  }
+}, 60_000);
+
+it("R5 at 1440 a long title's whole tab, x included, is at most 200 px wide", async () => {
+  const mounted = await mountTabs(DESKTOP, "light", twelveTabs());
+  try {
+    const tab = need(wrappers(mounted.host)[0], "active tab");
+    expect(tab.getBoundingClientRect().width).toBeLessThanOrEqual(200);
+  } finally {
+    await unmount(mounted);
+  }
+}, 60_000);
+
+it("R6 a tab's button is as tall as the strip, so the hover wash fills the row", async () => {
+  for (const size of [DESKTOP, TOUCH]) {
+    const mounted = await mountTabs(size, "light", twoTabs());
+    try {
+      const { host } = mounted;
+      const button = need(wrappers(host)[1]?.querySelector<HTMLElement>("[role='tab']"), "tab");
+      // The strip is 40 px (44 under a finger) with a 1 px hairline at its foot, which
+      // is inside its border box, so the row the tab fills is the strip less that line.
+      const strip = stripOf(host);
+      expect(strip.getBoundingClientRect().height).toBe(size === TOUCH ? 44 : 40);
+      expect(button.getBoundingClientRect().height).toBe(strip.clientHeight);
+    } finally {
+      await unmount(mounted);
+    }
+  }
+}, 120_000);
+
+it("R8 at 390 touch the close x is 44 px wide and as tall as the strip", async () => {
+  const mounted = await mountTabs(TOUCH, "light", twoTabs());
+  try {
+    const { host } = mounted;
+    const close = need(
+      host.querySelector<HTMLElement>("button[aria-label='Close Reader']"),
+      "close x",
+    );
+    const box = close.getBoundingClientRect();
+    expect(box.width).toBe(44);
+    // As tall as the row inside the strip's hairline (see R6).
+    expect(box.height).toBe(stripOf(host).clientHeight);
+  } finally {
+    await unmount(mounted);
+  }
+}, 60_000);
 
 it("A14 the strip's entrance plays once", async () => {
   // The page is the same one the earlier tests mounted, so the entrance is spent

@@ -10,5 +10,9 @@ export function focusedPaneOf(container: HTMLElement): number {
   const marked = panes.findIndex(
     (pane) => pane.querySelector("[data-focus-line].bg-k-accent") !== null,
   );
-  return marked !== -1 ? marked : panes.findIndex((pane) => !pane.classList.contains("hidden"));
+  if (marked !== -1) return marked;
+  // With no line, the pane drawn alone is the focused one; two drawn panes and no line name none.
+  const shown = panes.filter((pane) => !pane.classList.contains("hidden"));
+  const [only] = shown;
+  return shown.length === 1 && only !== undefined ? panes.indexOf(only) : -1;
 }

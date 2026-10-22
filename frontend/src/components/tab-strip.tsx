@@ -110,6 +110,7 @@ export function TabStrip({ layout, onSelect, onClose, onHome, unsaved }: TabStri
   // Which tabs are behind "N more". Measured in the layout effect below, so the
   // first paint already has the right set.
   const [hidden, setHidden] = useState<readonly number[]>([]);
+  const [cap, setCap] = useState<number>();
 
   // The labels too: a label that grows, or a web font that arrives, widens a tab
   // without changing the count, and the fold has to follow it.
@@ -130,6 +131,12 @@ export function TabStrip({ layout, onSelect, onClose, onHome, unsaved }: TabStri
       const next =
         row.clientWidth === 0 ? [] : foldTabs(widths, row.clientWidth, active, MORE).hidden;
       setHidden((previous) => (same(previous, next) ? previous : next));
+      // The room a tab shown beside the button may take, so a folded-in active tab
+      // is cut by its own ellipsis rather than running under the button.
+      setCap(row.clientWidth - MORE);
+      // With nothing folded there is no list to open, and one that was open must
+      // not come back by itself when the window narrows again.
+      if (next.length === 0) setOpen(false);
     };
     measure();
     // jsdom has no observer, where every width is 0 and every tab is drawn.
@@ -238,14 +245,14 @@ export function TabStrip({ layout, onSelect, onClose, onHome, unsaved }: TabStri
 
   return (
     <div
-      className={`k-glass k-hairline sticky top-0 z-10 flex h-10 shrink-0 items-stretch font-sans text-k-13 pointer-coarse:h-11 ${
+      className={`k-glass k-hairline sticky top-0 z-20 flex h-10 shrink-0 items-stretch font-sans text-k-13 pointer-coarse:h-11 ${
         entering ? "k-enter" : ""
       }`}
     >
       <button
         type="button"
         onClick={onHome}
-        className={`shrink-0 px-3 font-serif italic hover:bg-k-accent-wash ${
+        className={`shrink-0 px-3 font-serif text-k-15 italic hover:bg-k-accent-wash ${
           home ? "text-k-ink" : "text-k-muted"
         }`}
       >
@@ -275,9 +282,16 @@ export function TabStrip({ layout, onSelect, onClose, onHome, unsaved }: TabStri
               aria-hidden={folded || undefined}
               // Not allowed to shrink: a flex item that does would squeeze every
               // tab to the room, so nothing would ever be measured wider than it fits.
-              className={`group flex shrink-0 items-center ${
-                folded ? "invisible pointer-events-none absolute" : ""
-              }`}
+              // The cap is on the whole tab, close x included. Its wash is on the tab,
+              // so the x is washed with it.
+              className={`group flex shrink-0 items-stretch max-w-[200px] pr-2 ${
+                selected ? "" : "hover:bg-k-accent-wash"
+              } ${folded ? "invisible pointer-events-none absolute" : ""}`}
+              style={
+                hidden.length > 0 && selected && cap !== undefined
+                  ? { maxWidth: Math.min(200, cap) }
+                  : undefined
+              }
             >
               <button
                 type="button"
@@ -287,8 +301,8 @@ export function TabStrip({ layout, onSelect, onClose, onHome, unsaved }: TabStri
                 aria-keyshortcuts={keyFor(index)}
                 title={keyFor(index)}
                 onClick={() => onSelect(index)}
-                className={`flex max-w-[200px] min-w-0 items-center gap-1.5 px-3 whitespace-nowrap ${
-                  selected ? "text-k-ink" : "text-k-muted hover:bg-k-accent-wash"
+                className={`flex min-w-0 items-center gap-1.5 px-3 whitespace-nowrap ${
+                  selected ? "text-k-ink" : "text-k-muted"
                 }`}
               >
                 {focused !== undefined && <KindIcon kind={paneKind(focused)} />}
@@ -303,11 +317,16 @@ export function TabStrip({ layout, onSelect, onClose, onHome, unsaved }: TabStri
               {/* The close x is a sibling of the tab, not a button inside it, so a
                   click on it closes this tab and selects nothing first. The dot
                   sits in the same room, so an unsaved mark moves nothing. */}
-              <span className="relative size-4 shrink-0">
+              {/* Under a finger the slot is 44 px wide and the strip's height, and the
+                  x fills it, so the target is the size of a finger. The active tab's x
+                  shows under a finger even when unsaved, since hover never comes. */}
+              <span className="relative size-4 shrink-0 self-center pointer-coarse:h-auto pointer-coarse:w-11 pointer-coarse:self-stretch">
                 {dirty && (
                   <span
                     aria-hidden="true"
-                    className="absolute top-1/2 left-1/2 size-2 -translate-1/2 rounded-full bg-k-muted group-hover:hidden"
+                    className={`absolute top-1/2 left-1/2 size-2 -translate-1/2 rounded-full bg-k-muted group-hover:hidden ${
+                      selected ? "pointer-coarse:hidden" : ""
+                    }`}
                   />
                 )}
                 <button
@@ -315,9 +334,9 @@ export function TabStrip({ layout, onSelect, onClose, onHome, unsaved }: TabStri
                   tabIndex={-1}
                   aria-label={`Close ${title}`}
                   onClick={() => onClose(index)}
-                  className={`flex size-4 items-center justify-center text-k-muted hover:text-k-ink ${
-                    selected && !dirty ? "" : "invisible group-hover:visible"
-                  }`}
+                  className={`flex size-4 items-center justify-center text-k-muted hover:text-k-ink pointer-coarse:size-full ${
+                    selected ? "pointer-coarse:visible" : ""
+                  } ${selected && !dirty ? "" : "invisible group-hover:visible"}`}
                 >
                   <svg
                     viewBox="0 0 12 12"
@@ -361,7 +380,7 @@ export function TabStrip({ layout, onSelect, onClose, onHome, unsaved }: TabStri
               role="menu"
               aria-label="Tabs behind more"
               onKeyDown={onMoreKey}
-              className="absolute top-full right-0 z-20 flex min-w-56 flex-col border border-k-rule bg-k-paper py-1 shadow-[var(--k-shadow)]"
+              className="absolute top-full right-2 z-20 mt-1 flex min-w-56 flex-col border border-k-rule bg-k-paper py-1 shadow-[var(--k-shadow)]"
             >
               {layout.tabs.map((tab, index) => {
                 if (!hidden.includes(index)) return null;
@@ -371,7 +390,7 @@ export function TabStrip({ layout, onSelect, onClose, onHome, unsaved }: TabStri
                     key={tab.id}
                     type="button"
                     role="menuitem"
-                    className="k-row flex min-w-0 items-center gap-2 px-3 py-1.5 text-left text-k-ink hover:bg-k-accent-wash"
+                    className="k-row flex min-w-0 items-center gap-2 px-3 py-1.5 text-left text-k-ink outline-none hover:bg-k-accent-wash focus-visible:bg-k-accent-wash"
                     onClick={() => {
                       onSelect(index);
                       setOpen(false);

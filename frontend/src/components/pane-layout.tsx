@@ -213,7 +213,7 @@ function PaneLeaf({
             className="flex h-7 shrink-0 items-center gap-2 border-b border-k-rule bg-k-bg px-3 text-k-muted"
           >
             <KindIcon kind={kind} />
-            <span className="font-sans text-k-12">{kindLabel(kind)}</span>
+            <span className="font-sans text-k-12 text-k-ink-soft">{kindLabel(kind)}</span>
             {path !== undefined && (
               <span title={path} className="min-w-0 truncate font-mono text-k-12">
                 {path}
