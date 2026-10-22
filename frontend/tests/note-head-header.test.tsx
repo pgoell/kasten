@@ -71,6 +71,18 @@ it("A7 the header draws a Graph button after the path, and a press calls onGraph
   expect(view.state.selection.main.head).toBe(at);
 });
 
+it("L3 at the vault root the Graph button starts the row, with no empty path before it", () => {
+  const { container } = render(
+    <Editor initialDoc={DOC} path="Reader.md" commands={stubCommands()} onGraph={vi.fn()} />,
+  );
+  const graph = container.querySelector<HTMLButtonElement>("[data-head='graph']");
+  expect(graph).not.toBeNull();
+  if (graph === null) return;
+
+  expect(container.querySelector("[data-head='path']")).toBeNull();
+  expect(graph.parentElement?.firstElementChild).toBe(graph);
+});
+
 it("a relation line shows as a plain line in the header", () => {
   const { container } = render(
     <Editor initialDoc={`${DOC}part-of:: [[Kasten]]\n`} path={PATH} commands={stubCommands()} />,

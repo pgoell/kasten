@@ -314,6 +314,16 @@ describe("the reader layout of a note", () => {
     expect(hook).toContain("RIGHT_MARGIN_FROM = 1320;");
   });
 
+  it("L5 under a finger the depth buttons, the rows and the Graph button are 44 px targets", () => {
+    // The depth buttons and the rows carry `pointer-coarse:min-h-11` in their classes
+    // (checked in local-graph.test.tsx); the Graph button is a rule of its own here.
+    const start = css.indexOf("@media (pointer: coarse) {");
+    expect(start).toBeGreaterThanOrEqual(0);
+
+    const block = css.slice(start, css.indexOf("\n}", start));
+    expect(block).toMatch(/\.k-reader \.cm-note-graph\s*{\s*min-height:\s*44px;/);
+  });
+
   it("every hover rule of the reader sits inside @media (hover: hover)", () => {
     expect(css).toContain(".k-margin-row:hover");
 

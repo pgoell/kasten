@@ -79,6 +79,10 @@ it("A12 on a phone a tap outside the graph sheet closes it, the sheet leaving do
     await waitFor(() => expect(sheet()).not.toBeNull(), { timeout: 5000 });
     const panel = sheet() as HTMLElement;
 
+    // The open slide comes to rest first: a tap during it closes from where it stands, which
+    // is the top, so the panel would not move on the way down.
+    await expect.poll(() => panel.style.transform, PATIENCE).toBe("translate3d(0px, 0px, 0px)");
+
     // Every transform the panel is given while it leaves, read as the spring writes them.
     const offsets: string[] = [];
     const watch = new MutationObserver(() => offsets.push(panel.style.transform));

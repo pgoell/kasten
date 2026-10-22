@@ -250,7 +250,10 @@ function graphButton(press: () => void): HTMLButtonElement {
 function rowOf(d: Drawn, toggle: () => void, graph: (() => void) | undefined): HTMLElement {
   const row = make("div", { class: "cm-note-row" });
   const start = make("div", { class: "cm-note-start" });
-  start.append(make("span", { class: "cm-note-path", "data-head": "path" }, d.folders));
+  // A note at the vault root has no folders, and an empty span would still take its gap.
+  if (d.folders !== "") {
+    start.append(make("span", { class: "cm-note-path", "data-head": "path" }, d.folders));
+  }
   if (graph !== undefined) start.append(graphButton(graph));
   const group = make("div", { class: "cm-note-mode", "data-head": "mode" });
   for (const [label, reading] of [

@@ -14,6 +14,7 @@
  */
 
 import {
+  type FocusEvent as ReactFocusEvent,
   type ReactNode,
   type PointerEvent as ReactPointerEvent,
   useEffect,
@@ -102,6 +103,11 @@ export function Sheet({ open, onClose, label, side = false, header, children }: 
   // tap that interrupts that close resumes it rather than reopening the sheet.
   const dismissing = useRef(false);
   const fading = useRef<((done: boolean) => void) | null>(null);
+  // Set from the first moment the sheet is leaving until it is opened again, so a
+  // side sheet's outside press or focus loss does not ask for a second close.
+  const closing = useRef(false);
+  // The latest close, for the outside listeners, which are set up once per open.
+  const closeFromOutside = useRef<() => void>(() => {});
 
   const paint = (offset: number) => {
     if (panel.current) panel.current.style.transform = `translate3d(0, ${offset}px, 0)`;
@@ -158,6 +164,7 @@ export function Sheet({ open, onClose, label, side = false, header, children }: 
   // Down to the bottom, by spring or by fade. Resolves true only if nothing
   // interrupted it, which is when the sheet may be taken out of the DOM.
   function leave(config: SpringConfig, velocity?: number): Promise<boolean> {
+    closing.current = true;
     measure();
     if (reducedMotion()) return fadeTo(0);
     if (side) return slideTo(false);
@@ -205,6 +212,7 @@ export function Sheet({ open, onClose, label, side = false, header, children }: 
 
     if (resting.current) returnTo.current = document.activeElement;
     dismissing.current = false;
+    closing.current = false;
     height.current = el.offsetHeight;
     el.focus({ preventScroll: true });
     if (reducedMotion()) {
@@ -237,6 +245,25 @@ export function Sheet({ open, onClose, label, side = false, header, children }: 
     resting.current = false;
     void spring.to(0, SPRINGS.sheetOpen);
   }, [open]);
+
+  useEffect(() => {
+    closeFromOutside.current = () => {
+      if (!closing.current) dismiss(SPRINGS.sheetClose);
+    };
+  });
+
+  // A side sheet sits over one pane, so a press in another pane or the tab strip
+  // must close it too, as the scrim does. The listener is capture-phase and does
+  // not stop the press, so what was pressed still gets it.
+  useEffect(() => {
+    if (!side || !open) return;
+    const press = (event: PointerEvent) => {
+      if (event.target instanceof Node && panel.current?.contains(event.target)) return;
+      closeFromOutside.current();
+    };
+    document.addEventListener("pointerdown", press, true);
+    return () => document.removeEventListener("pointerdown", press, true);
+  }, [side, open]);
 
   // A press catches the sheet where it is, so a finger lands mid-flight. The
   // drag is decided later, once the finger has moved far enough to be one.
@@ -332,6 +359,12 @@ export function Sheet({ open, onClose, label, side = false, header, children }: 
         aria-label={label}
         tabIndex={-1}
         onPointerDown={onPointerDown}
+        onBlur={(event: ReactFocusEvent<HTMLDivElement>) => {
+          // Focus going to nothing (relatedTarget null) is not a move to another element, so it stays.
+          const to = event.relatedTarget;
+          if (side && to instanceof Node && !event.currentTarget.contains(to))
+            closeFromOutside.current();
+        }}
         onPointerMove={onPointerMove}
         onPointerUp={(event) => onPointerEnd(event, false)}
         onPointerCancel={(event) => onPointerEnd(event, true)}

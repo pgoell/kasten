@@ -36,6 +36,14 @@ const GRAPH = {
   rows: [],
   truncated: false,
 };
+/** The graph around Borges, which links to index: its own nodes, so a test can tell the two apart. */
+const BORGES_GRAPH = {
+  nodes: [node("borges.md", "Borges"), node(NOTE, "index")],
+  edges: [{ source: "borges.md", target: NOTE, relation: null, line: 5 }],
+  columns: [],
+  rows: [],
+  truncated: false,
+};
 const MENTION = { path: "ref.md", line: 7, text: "Ref says", start: 0, end: 3, name: "Ref" };
 
 /** The handlers the canvas was drawn with, from the first drawing. */
@@ -70,7 +78,10 @@ async function drawn() {
 describe("the local graph in the margin", () => {
   beforeEach(() => {
     vi.mocked(drawGraph).mockImplementation(() => canvas);
-    vi.mocked(fetchGraph).mockResolvedValue(GRAPH);
+    // Each note has its own answer, so a test can see which one a drawing was given.
+    vi.mocked(fetchGraph).mockImplementation((ask) =>
+      Promise.resolve(ask.around === "borges.md" ? BORGES_GRAPH : GRAPH),
+    );
     vi.mocked(fetchMentions).mockResolvedValue([MENTION]);
   });
 
@@ -135,9 +146,34 @@ describe("the local graph in the margin", () => {
     move("borges.md");
 
     await waitFor(() =>
-      expect(canvas.update).toHaveBeenLastCalledWith(GRAPH.nodes, GRAPH.edges, "borges.md"),
+      expect(canvas.update).toHaveBeenLastCalledWith(
+        BORGES_GRAPH.nodes,
+        BORGES_GRAPH.edges,
+        "borges.md",
+      ),
     );
+    // The last note's drawing is never redrawn around the new one.
+    expect(canvas.update).not.toHaveBeenCalledWith(GRAPH.nodes, GRAPH.edges, "borges.md");
     expect(drawGraph).toHaveBeenCalledTimes(1);
+  });
+
+  it("B2 another note never draws the last note's answer around it", async () => {
+    // The new note's answer has not arrived: nothing of the last note may stand in for it.
+    vi.mocked(fetchGraph).mockImplementation((ask) =>
+      ask.around === "borges.md" ? new Promise<never>(() => {}) : Promise.resolve(GRAPH),
+    );
+    const { move } = renderGraph();
+    await drawn();
+
+    move("borges.md");
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(canvas.update).not.toHaveBeenCalledWith(GRAPH.nodes, GRAPH.edges, "borges.md");
+    // The last note's counts are not shown, and neither is a zero standing in for them.
+    expect(screen.getByText(/^Links/).textContent).toBe("Links");
+    expect(screen.getByText(/^Backlinks/).textContent).toBe("Backlinks");
   });
 
   it("A6 the depth switch asks for two steps and back", async () => {
@@ -168,6 +204,62 @@ describe("the local graph in the margin", () => {
     );
   });
 
+  // jsdom has no layout, so the box's clipping and its square are read off its classes
+  // here; the square itself is checked by eye in a browser.
+  it("L1 the canvas box clips the drawing to its square", () => {
+    renderGraph();
+
+    const box = screen.getByTestId("local-graph-canvas");
+    expect(box.className).toContain("aspect-square");
+    expect(box.className).toContain("min-h-0");
+    expect(box.className).toContain("overflow-hidden");
+    expect(box.className).toContain("touch-pan-y");
+  });
+
+  it("L2 the lists draw no count and no empty line while their answer is on its way", async () => {
+    // Neither answer lands until the test says so.
+    let land: () => void = () => {};
+    vi.mocked(fetchGraph).mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          land = () => resolve(GRAPH);
+        }),
+    );
+    vi.mocked(fetchMentions).mockImplementation(() => new Promise(() => {}));
+    renderGraph();
+
+    expect(screen.getByText(/^Links/).textContent).toBe("Links");
+    expect(screen.queryByText("No links.")).toBeNull();
+    expect(screen.queryByText("No unlinked mentions.")).toBeNull();
+
+    await act(async () => {
+      land();
+    });
+
+    await waitFor(() => expect(screen.getByText(/^Links/).textContent).toBe("Links 1"));
+  });
+
+  it("L4 the list rows take the row press (k-row), not the button scale", async () => {
+    renderGraph();
+    await drawn();
+
+    for (const name of ["Other note", "Borges", "ref"]) {
+      expect(screen.getByRole("button", { name }).classList.contains("k-row")).toBe(true);
+    }
+  });
+
+  it("L5 under a finger the depth buttons, the rows and the Graph button are 44 px targets", async () => {
+    renderGraph();
+    await drawn();
+
+    for (const button of screen.getAllByRole("button", { name: /Direct|Two steps/ })) {
+      expect(button.className).toContain("pointer-coarse:min-h-11");
+    }
+    const row = screen.getByRole("button", { name: "Other note" });
+    expect(row.className).toContain("pointer-coarse:min-h-11");
+    expect(row.className).toContain("flex items-center");
+  });
+
   it("I3 a failed graph and mentions read leave the plain lines", async () => {
     vi.mocked(fetchGraph).mockRejectedValue(new Error("The graph is down"));
     vi.mocked(fetchMentions).mockRejectedValue(new Error("The search is down"));
@@ -177,7 +269,8 @@ describe("the local graph in the margin", () => {
       await Promise.resolve();
     });
 
-    expect(screen.getByText("No links.")).toBeTruthy();
+    // The failed reads settle into the plain lines, once they are no longer pending.
+    await waitFor(() => expect(screen.getByText("No links.")).toBeTruthy());
     expect(screen.getByText("No backlinks.")).toBeTruthy();
     expect(screen.getByText("No unlinked mentions.")).toBeTruthy();
     expect(screen.queryByRole("alert")).toBeNull();

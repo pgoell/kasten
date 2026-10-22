@@ -104,9 +104,10 @@ export function NotePane({
   const seenSignal = useRef(graphSignal);
   // biome-ignore lint/correctness/useExhaustiveDependencies: openGraph is read at the change only, and the signal is the trigger
   useEffect(() => {
-    if (graphSignal === seenSignal.current) return;
+    // 0 is what a pane holds when another pane was asked: it is not a request here.
+    const asked = graphSignal !== 0 && graphSignal !== seenSignal.current;
     seenSignal.current = graphSignal;
-    openGraph();
+    if (asked) openGraph();
   }, [graphSignal]);
   // The outline the editor reports, kept with the path it was reported for.
   // A note that fails to open or is still loading has no editor reporting,

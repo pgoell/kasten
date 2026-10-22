@@ -13,6 +13,7 @@ import "@fontsource-variable/instrument-sans/index.css";
 import "@fontsource-variable/jetbrains-mono/index.css";
 import { waitFor } from "@testing-library/react";
 import { commands, page, userEvent } from "vitest/browser";
+import { fetchGraph } from "@/lib/graph-api";
 import {
   closeTree,
   DESKTOP,
@@ -96,6 +97,38 @@ const GRAPH = {
   truncated: false,
 };
 
+/** Alpha and Beta each link to two notes of their own: the second ring of Two steps. */
+const SECOND_STEP = [
+  ["Alpha one", "Alpha", "design"],
+  ["Alpha two", "Alpha", "people"],
+  ["Beta one", "Beta", "reading"],
+  ["Beta two", "Beta", "log"],
+] as const;
+
+/** The same drawing one step further out, which Two steps asks for. */
+const TWO_STEPS = {
+  ...GRAPH,
+  nodes: [
+    ...GRAPH.nodes,
+    ...SECOND_STEP.map(([name, , tag]) => ({
+      path: `${name}.md`,
+      name,
+      type: "Concept",
+      tags: [tag],
+      missing: false,
+    })),
+  ],
+  edges: [
+    ...GRAPH.edges,
+    ...SECOND_STEP.map(([name, from]) => ({
+      source: `${from}.md`,
+      target: `${name}.md`,
+      relation: null,
+      line: 4,
+    })),
+  ],
+};
+
 /** Two unlinked mentions of the hub, in two other notes. */
 const MENTIONS = [
   { path: "Inbox One.md", line: 4, text: "about the hub", start: 6, end: 9, name: "Hub" },
@@ -132,7 +165,7 @@ vi.mock("@/lib/trash-api", async (original) => ({
 
 vi.mock("@/lib/graph-api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/graph-api")>()),
-  fetchGraph: async () => GRAPH,
+  fetchGraph: vi.fn(async (ask: { depth?: number }) => (ask.depth === 2 ? TWO_STEPS : GRAPH)),
 }));
 
 /** A stream that never says anything, so the route opens no connection. */
@@ -286,5 +319,33 @@ it("graph-margin-palettes-1440 one picture per palette, in light", async () => {
       await unmount(mounted);
       document.documentElement.removeAttribute("data-palette");
     }
+  }
+}, 120_000);
+
+it("graph-margin-two-steps-1440 in light", async () => {
+  const mounted = await mountHub(DESKTOP, "light");
+  try {
+    const { host } = mounted;
+    await closeTree(host);
+    await drawn(host);
+
+    // Two steps is the margin's second depth button: asked for, the drawing grows a ring.
+    const twoSteps = need(
+      [...host.querySelectorAll<HTMLElement>("[data-margin='links'] button")].find(
+        (each) => each.textContent === "Two steps",
+      ),
+      "Two steps button",
+    );
+    await userEvent.click(twoSteps);
+    await waitFor(
+      () => expect(vi.mocked(fetchGraph).mock.calls.some(([ask]) => ask.depth === 2)).toBe(true),
+      PATIENCE,
+    );
+    await nextFrame();
+    await nextFrame();
+
+    await picture(host, "graph-margin-two-steps-1440-light", DESKTOP);
+  } finally {
+    await unmount(mounted);
   }
 }, 120_000);

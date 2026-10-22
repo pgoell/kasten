@@ -25,6 +25,7 @@
   align-self: start;
   max-height: 100%;
   overflow-y: auto;
+  overflow-x: clip;
   /* The header's own top padding, so "On this page" and "Links" sit level with the
      breadcrumb. */
   padding-top: var(--k-space-24);
@@ -170,6 +171,19 @@
 
   .k-reader .cm-note-graph:hover {
     color: var(--k-accent);
+  }
+
+  /* The depth switch's unpressed button brightens, as the Read and Edit switch's does. */
+  .k-reader .k-depth[aria-pressed="false"]:hover {
+    color: var(--k-ink);
+  }
+}
+
+/* A finger's target is 44 px, as the rows and the depth buttons are under
+   `pointer-coarse`. The Graph button is a text button, so it is the one that grows. */
+@media (pointer: coarse) {
+  .k-reader .cm-note-graph {
+    min-height: 44px;
   }
 }
 

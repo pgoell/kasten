@@ -9,7 +9,7 @@ import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
 import { commands, page } from "vitest/browser";
 import { Sheet } from "@/components/sheet";
-import { before, onClose, wait } from "./sheet-fixture";
+import { before, onClose, pointer, wait } from "./sheet-fixture";
 
 const LABEL = "Side sheet";
 
@@ -144,6 +144,29 @@ it("A10 Esc right after a side sheet opens still closes it", async () => {
   (sideOf() as HTMLElement).dispatchEvent(
     new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }),
   );
+
+  await expect.poll(() => onClose.mock.calls.length, { timeout: 3000 }).toBe(1);
+  await expect.poll(() => sideOf(), { timeout: 3000 }).toBeNull();
+});
+
+it("A10 a press outside the box a side sheet sits in closes it, and the press still reaches what it pressed", async () => {
+  show(true);
+  await wait(400);
+  const reached = vi.fn();
+  before.addEventListener("pointerdown", reached);
+
+  pointer(before, "pointerdown", 5, 5);
+
+  expect(reached).toHaveBeenCalledTimes(1);
+  await expect.poll(() => onClose.mock.calls.length, { timeout: 3000 }).toBe(1);
+  await expect.poll(() => sideOf(), { timeout: 3000 }).toBeNull();
+  before.removeEventListener("pointerdown", reached);
+});
+
+it("A10 focus leaving a side sheet for an element outside closes it", async () => {
+  show(true);
+  await wait(400);
+  before.focus();
 
   await expect.poll(() => onClose.mock.calls.length, { timeout: 3000 }).toBe(1);
   await expect.poll(() => sideOf(), { timeout: 3000 }).toBeNull();

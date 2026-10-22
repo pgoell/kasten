@@ -349,6 +349,26 @@ describe("the right margin of a note", () => {
     expect(within(sheet).getByRole("button", { name: "Borges" })).toBeTruthy();
   });
 
+  it("I1 a click on a row in the side sheet opens that note and closes the sheet", async () => {
+    paneWidth(900);
+    await open();
+    const graph = document.querySelector<HTMLElement>("[data-head='graph']");
+    expect(graph).not.toBeNull();
+    fireEvent.click(graph as HTMLElement);
+    await settle();
+
+    const sheet = screen.getByRole("dialog", { name: "Local graph" });
+    fireEvent.click(within(sheet).getByRole("button", { name: "Other note" }));
+    // The sheet goes down on its own spring, so the clock runs until it is gone.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2000);
+    });
+    await settle();
+
+    expect(fetchNote).toHaveBeenCalledWith("other.md");
+    expect(screen.queryByRole("dialog", { name: "Local graph" })).toBeNull();
+  });
+
   it("A11 while the pane is narrow and the sheet closed no graph is asked, no mentions read and no canvas made, even after a save", async () => {
     paneWidth(900);
     const app = await open();

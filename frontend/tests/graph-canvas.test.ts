@@ -222,6 +222,32 @@ function drawnOf(path: string): DrawnNode {
   return drawing.nodes.find((node) => node.path === path) as DrawnNode;
 }
 
+/** Each stroke a note's canvas drew: the radius of its arc, and the line's width and colour. */
+function strokesOf(node: DrawnNode): Array<{ radius: number; width: number; style: string }> {
+  const drawn: Array<{ radius: number; width: number; style: string }> = [];
+  let radius = 0;
+  const ctx = {
+    fillStyle: "",
+    strokeStyle: "",
+    lineWidth: 1,
+    beginPath() {},
+    arc: (_x: number, _y: number, r: number) => {
+      radius = r;
+    },
+    fill() {},
+    fillText() {},
+    strokeText() {},
+    stroke: () => drawn.push({ radius, width: ctx.lineWidth, style: ctx.strokeStyle }),
+  };
+  const paint = graphs.at(-1)?.seen.nodeCanvasObject?.[0] as (
+    node: DrawnNode,
+    ctx: unknown,
+    scale: number,
+  ) => void;
+  paint(node, ctx, 1);
+  return drawn;
+}
+
 /**
  * Each tag slot set to a colour of its own, made from `shade` so a second call
  * gives different colours. A fill that is one of them came from a tag slot.
@@ -284,6 +310,26 @@ describe("drawGraph radial", () => {
     hover({ path: "a.md", x: 0, y: 0 } as DrawnNode);
 
     expect(seen?.zoom).toEqual([1]);
+  });
+
+  it("L9 a radial drawing rings the centre with a gap", () => {
+    document.documentElement.style.setProperty("--k-accent", "#123456");
+    const canvas = drawGraph(document.createElement("div"), handlers, { radial: true });
+    canvas.update([graphNote("a.md"), graphNote("b.md")], [link("a.md", "b.md")], "a.md");
+
+    // The centre's dot is 7 px, so its ring is 2.5 px out, and the hovered note's
+    // ring is 2.5 px out of its own dot, here 5 px.
+    expect(strokesOf(drawnOf("a.md"))).toEqual([{ radius: 9.5, width: 1.5, style: "#123456" }]);
+    const hover = graphs.at(-1)?.seen.onNodeHover?.[0] as (node: DrawnNode) => void;
+    hover(drawnOf("b.md"));
+    expect(strokesOf(drawnOf("b.md"))).toEqual([{ radius: 7.5, width: 1.5, style: "#123456" }]);
+  });
+
+  it("L9 a radial drawing draws its links 1 px wide", () => {
+    drawGraph(document.createElement("div"), handlers, { radial: true });
+    const linkWidth = graphs.at(-1)?.seen.linkWidth?.[0] as (link: unknown) => number;
+
+    expect(linkWidth(link("a.md", "b.md"))).toBe(1);
   });
 
   it("A3 a radial drawing fills a note with its first tag's colour", () => {

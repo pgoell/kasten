@@ -1,4 +1,4 @@
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { INSET, LABEL } from "@/components/note-margins";
 import { fetchMentions } from "@/lib/api";
@@ -28,6 +28,12 @@ const DEPTHS = [
 ] as const;
 
 /**
+ * A list's row: a full-width button that takes the row press, a tint instead of the
+ * button's scale (`k-row`), and a 44 px target under a finger.
+ */
+const ROW = `k-margin-note k-row flex items-center ${INSET} truncate rounded-[var(--k-radius-4)] pointer-coarse:min-h-11 text-left text-k-15 text-k-ink`;
+
+/**
  * The note's local graph and the three lists under it, for the right margin and
  * the side sheet alike.
  *
@@ -54,9 +60,11 @@ export function LocalGraph({ path, archive, onOpen, onFollow }: LocalGraphProps)
   const answer = useQuery({
     queryKey: ["graph", "margin", path, depth, archive],
     queryFn: () => fetchGraph({ query: "", around: path, depth, archive }),
-    // The last drawing stays up while the next depth is asked, so the switch moves
-    // dots rather than blanking the margin.
-    placeholderData: keepPreviousData,
+    // The last drawing stays up while the next depth of the same note is asked, so
+    // the switch moves dots rather than blanking the margin. Another note's answer
+    // is never kept: it would be drawn around this note and counted in its lists.
+    placeholderData: (previous, previousQuery) =>
+      previousQuery?.queryKey[2] === path ? previous : undefined,
     retry: false,
   });
 
@@ -132,6 +140,8 @@ export function LocalGraph({ path, archive, onOpen, onFollow }: LocalGraphProps)
     ).values(),
   ];
   const mentioned = mentions.data ?? [];
+  const graphReady = !answer.isPending;
+  const mentionsReady = !mentions.isPending;
 
   return (
     <div className="flex flex-col gap-4">
@@ -146,7 +156,7 @@ export function LocalGraph({ path, archive, onOpen, onFollow }: LocalGraphProps)
             type="button"
             aria-pressed={depth === value}
             onClick={() => setDepth(value)}
-            className={`px-2 py-0.5 ${depth === value ? "bg-k-surface text-k-ink" : "text-k-muted"}`}
+            className={`k-depth px-3 py-1 pointer-coarse:min-h-11 ${depth === value ? "bg-k-surface text-k-ink" : "text-k-muted"}`}
           >
             {label}
           </button>
@@ -156,14 +166,16 @@ export function LocalGraph({ path, archive, onOpen, onFollow }: LocalGraphProps)
       <div
         ref={box}
         data-testid="local-graph-canvas"
-        // The canvas takes every gesture, the way the graph pane's does.
-        className="relative aspect-square max-h-80 w-full touch-none"
+        // force-graph sizes its own canvas past the box's square, so the box clips
+        // it. Its radial layout has no pan, zoom or drag, so a finger scrolls the
+        // sheet over it and only the vertical pan is given to the browser.
+        className="relative aspect-square max-h-80 w-full min-h-0 touch-pan-y overflow-hidden"
       >
         {tip !== null && (
           <span
             role="tooltip"
             style={{ left: tip.x, top: tip.y + 10 }}
-            className="pointer-events-none absolute -translate-x-1/2 whitespace-nowrap rounded-[var(--k-radius-6)] border border-k-rule bg-k-paper px-1.5 text-k-13 text-k-ink"
+            className="pointer-events-none absolute -translate-x-1/2 max-w-[240px] truncate rounded-[var(--k-radius-6)] border border-k-rule bg-k-paper px-1.5 text-k-13 text-k-ink"
           >
             {tip.name}
           </span>
@@ -193,18 +205,18 @@ export function LocalGraph({ path, archive, onOpen, onFollow }: LocalGraphProps)
         </p>
       )}
 
+      {/* A count and an empty line are drawn only once the answer is in: until then
+          the list is nothing, not a zero that the answer then corrects. A failed read
+          is in, so its plain lines show. */}
       <section className="flex flex-col gap-1">
         <p className={LABEL}>
-          Links <span className="tabular-nums">{links.length}</span>
+          Links{graphReady && <span className="tabular-nums"> {links.length}</span>}
         </p>
-        {links.length === 0 && <p className={`${INSET} text-k-13 text-k-muted`}>No links.</p>}
+        {graphReady && links.length === 0 && (
+          <p className={`${INSET} text-k-13 text-k-muted`}>No links.</p>
+        )}
         {links.map((target) => (
-          <button
-            key={target}
-            type="button"
-            onClick={() => onOpen(target)}
-            className={`k-margin-note ${INSET} truncate text-left text-k-15 text-k-ink`}
-          >
+          <button key={target} type="button" onClick={() => onOpen(target)} className={ROW}>
             {names.get(target) ?? target}
           </button>
         ))}
@@ -212,9 +224,9 @@ export function LocalGraph({ path, archive, onOpen, onFollow }: LocalGraphProps)
 
       <section className="flex flex-col gap-1">
         <p className={LABEL}>
-          Backlinks <span className="tabular-nums">{backlinks.length}</span>
+          Backlinks{graphReady && <span className="tabular-nums"> {backlinks.length}</span>}
         </p>
-        {backlinks.length === 0 && (
+        {graphReady && backlinks.length === 0 && (
           <p className={`${INSET} text-k-13 text-k-muted`}>No backlinks.</p>
         )}
         {backlinks.map((each) => (
@@ -222,7 +234,7 @@ export function LocalGraph({ path, archive, onOpen, onFollow }: LocalGraphProps)
             key={each.path}
             type="button"
             onClick={() => onOpen(each.path, each.line)}
-            className={`k-margin-note ${INSET} truncate text-left text-k-15 text-k-ink`}
+            className={ROW}
           >
             {names.get(each.path) ?? each.path}
           </button>
@@ -231,9 +243,10 @@ export function LocalGraph({ path, archive, onOpen, onFollow }: LocalGraphProps)
 
       <section className="flex flex-col gap-1">
         <p className={LABEL}>
-          Unlinked mentions <span className="tabular-nums">{mentioned.length}</span>
+          Unlinked mentions
+          {mentionsReady && <span className="tabular-nums"> {mentioned.length}</span>}
         </p>
-        {mentioned.length === 0 && (
+        {mentionsReady && mentioned.length === 0 && (
           <p className={`${INSET} text-k-13 text-k-muted`}>No unlinked mentions.</p>
         )}
         {mentioned.map((mention) => (
@@ -241,7 +254,7 @@ export function LocalGraph({ path, archive, onOpen, onFollow }: LocalGraphProps)
             key={`${mention.path}:${mention.line}`}
             type="button"
             onClick={() => onOpen(mention.path, mention.line)}
-            className={`k-margin-note ${INSET} truncate text-left text-k-15 text-k-ink`}
+            className={ROW}
           >
             {noteName(mention.path)}
           </button>

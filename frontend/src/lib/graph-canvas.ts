@@ -93,6 +93,13 @@ const CENTRE_DOT = 7;
 const RING_ONE_DOT = 5;
 const OUTER_DOT = 3.5;
 
+/**
+ * The accent ring of a radial drawing: a gap of 2.5 CSS px outside the dot and
+ * 1.5 px wide, so the dot's own colour shows between it and the ring.
+ */
+const RING_GAP = 2.5;
+const RING_WIDTH = 1.5;
+
 /** The hit area of a radial note: the dot plus 2, and half a finger on a touch screen. */
 function radialHitRadius(dot: number, coarse: boolean): number {
   const drawn = dot + 2;
@@ -241,7 +248,15 @@ export function drawGraph(
         ctx.fill();
       }
       if (node.path === center || node.path === hovered) {
-        ctx.lineWidth = 2 / scale;
+        if (radial) {
+          // A ring with a gap from the dot: on its edge it reads as a dark rim
+          // on the light sheet, and the dot's own colour is what should show.
+          ctx.beginPath();
+          ctx.arc(x, y, radius + RING_GAP, 0, 2 * Math.PI);
+          ctx.lineWidth = RING_WIDTH;
+        } else {
+          ctx.lineWidth = 2 / scale;
+        }
         ctx.strokeStyle = colour("--k-accent");
         ctx.stroke();
       }
@@ -285,7 +300,12 @@ export function drawGraph(
       if (!on) return faded(colour(base), DIMMED);
       return plain ? faded(colour(base), PLAIN_LINK) : colour(base);
     })
-    .linkWidth((link) => (link.relation === null ? 0.6 : 1.2))
+    .linkWidth((link) => {
+      if (link.relation !== null) return 1.2;
+      // A plain link at 0.6 px vanishes on the light sheet, so a radial drawing
+      // draws it at a full pixel.
+      return radial ? 1 : 0.6;
+    })
     .linkDirectionalArrowLength((link) => (link.relation === null ? 0 : 4))
     .linkDirectionalArrowRelPos(1)
     // A typed relation says what it is when its neighbourhood is lit. On every
