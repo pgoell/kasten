@@ -181,6 +181,11 @@ export function useVaultEvents(
       if (event.change === "removed" && event.path === LOG_NOTE) {
         queryClient.invalidateQueries({ queryKey: ["note", LOG_NOTE] }, { cancelRefetch: false });
       }
+      // The route reads log.md under its own key, which the note's query does not
+      // feed, so a write or removal asks that key too.
+      if ((event.change === "written" || event.change === "removed") && event.path === LOG_NOTE) {
+        queryClient.invalidateQueries({ queryKey: ["log-config"] }, { cancelRefetch: false });
+      }
 
       const paths = queryClient.getQueryData<string[]>(["files"]);
       if (event.change === "written" && paths?.includes(event.path)) return;

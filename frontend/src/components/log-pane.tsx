@@ -9,7 +9,7 @@ import {
   share,
   totalOf,
 } from "@/components/log-trends";
-import { fetchNote } from "@/lib/api";
+import { fetchNote, NoteMissing } from "@/lib/api";
 import { shiftDay } from "@/lib/clock";
 import { fetchLog } from "@/lib/food-api";
 import { foodPanel } from "@/lib/food-search";
@@ -220,14 +220,16 @@ export function LogPane({ commands, onOpen, focusSignal, today, actions, onNotic
   const leader = useLeader(commands);
 
   // The raw note under the key every reader of log.md shares, parsed on the way out, so the
-  // cache holds text. A missing note has no data, and the defaults are drawn. So is a note
-  // in error: react-query keeps the last good data through a failed refetch.
+  // cache holds text. A missing note has no data, and the defaults are drawn. So does a note
+  // gone missing since: a failed refetch of any other kind keeps the last good data, which
+  // react-query holds through the error.
   const logConfig = useQuery({
     queryKey: ["note", LOG_NOTE],
     queryFn: () => fetchNote(LOG_NOTE),
     select: parseConfig,
   });
-  const config = logConfig.isError ? DEFAULT_CONFIG : (logConfig.data ?? DEFAULT_CONFIG);
+  const config =
+    logConfig.error instanceof NoteMissing ? DEFAULT_CONFIG : (logConfig.data ?? DEFAULT_CONFIG);
 
   const { data: days, error: dayError } = useQuery({
     queryKey: ["log", day, day],

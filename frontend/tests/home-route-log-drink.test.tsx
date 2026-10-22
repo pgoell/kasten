@@ -359,4 +359,42 @@ describe("the palette's drink rows, on the route", () => {
 
     expect(editorText()).toContain("## Log\n- 🍵 1 cup");
   });
+
+  it("#770 a conflicted log.md kept and closed is read off the vault again when opened", async () => {
+    // The vault lists log.md, so the route can open it as it opens any note.
+    fetchFiles.mockResolvedValue([...Object.keys(VAULT), TODAY, LOG_CONFIG]);
+    withLog("- 🍵 tea: 1 cup\n");
+    const app = await renderApp(`/?note=${encodeURIComponent(LOG_CONFIG)}`);
+    await settle();
+    // Closed with the route still mounted, so the route's own query stays observed.
+    app.leader("q");
+    await settle();
+
+    // Kept while closed, as the reader's own write left it standing conflicted.
+    holdText(LOG_CONFIG, {
+      content: "typed",
+      reason: "PUT failed with 409",
+      conflicted: true,
+    });
+    await settle();
+
+    // The cached text is let go, so opening the note reads the vault again.
+    expect(app.cached(LOG_CONFIG)).toBeUndefined();
+  });
+
+  it("#770 a failed refetch of log.md keeps its kinds in the palette", async () => {
+    withLog("- 🍵 tea: 1 cup\n");
+    const app = await renderApp(`/?note=${encodeURIComponent(TODAY)}`);
+    await settle();
+    app.leader(":");
+    await settle();
+    expect.soft(option(/^Log tea/)).not.toBeNull();
+
+    // The vault fails the reread of log.md, and the palette keeps the kinds it had.
+    withLog(new Error("the vault is down"));
+    act(() => stream().send({ path: LOG_CONFIG, change: "written", digest: "a".repeat(64) }));
+    await settle();
+
+    expect(option(/^Log tea/)).not.toBeNull();
+  });
 });

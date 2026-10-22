@@ -453,12 +453,24 @@ describe("the log pane, on the route", () => {
 
   it("#795 a removed event for the log config note asks the log again", async () => {
     todayText = LOGGED_TEXT;
+    fetchNote.mockImplementation(async (path: string) => {
+      if (path === LOG_CONFIG) return "- 🍵 tea: 1 cup\n";
+      return path === TODAY ? todayText : VAULT[path];
+    });
     fetchLog.mockResolvedValue([DAY]);
     const app = await renderApp(`/?note=${encodeURIComponent(TODAY)}`);
     await settle();
     app.leader("g", "f");
     await settle();
+    expect(
+      within(logPane() as HTMLElement).getByRole("button", { name: "Log tea" }),
+    ).not.toBeNull();
 
+    // The note is gone from the vault, so the pane goes back to the three default kinds.
+    fetchNote.mockImplementation(async (path: string) => {
+      if (path === LOG_CONFIG) throw new NoteMissing(path);
+      return path === TODAY ? todayText : VAULT[path];
+    });
     fetchLog.mockClear();
     fetchNote.mockClear();
     act(() => stream().send({ path: LOG_CONFIG, change: "removed", digest: null }));
@@ -466,17 +478,37 @@ describe("the log pane, on the route", () => {
 
     expect.soft(fetchLog).toHaveBeenCalledWith(DATE, DATE);
     expect.soft(fetchNote).toHaveBeenCalledWith(LOG_CONFIG);
+    expect
+      .soft(within(logPane() as HTMLElement).queryByRole("button", { name: "Log tea" }))
+      .toBeNull();
+    expect(
+      within(logPane() as HTMLElement).getByRole("button", { name: "Log water" }),
+    ).not.toBeNull();
   });
 
   it("#796 a listing before the file listing first answered asks no log and throws nothing", async () => {
-    // Nothing is cached yet, so there is no earlier answer to compare the listing with.
-    fetchFiles.mockReturnValue(new Promise(() => {}));
-    await renderApp("/");
+    // The listing is held back, so the cache has no answer to compare with while
+    // the pane is open and the listing event comes in.
+    let answer: (paths: string[]) => void = () => {};
+    fetchFiles.mockReturnValue(
+      new Promise<string[]>((resolve) => {
+        answer = resolve;
+      }),
+    );
+    const app = await renderApp(`/?note=${encodeURIComponent(TODAY)}`);
     await settle();
+    app.leader("g", "f");
+    await settle();
+    const asked = fetchLog.mock.calls.length;
 
     act(() => stream().send({ path: "", change: "listing", digest: null }));
     await settle();
+    expect(fetchLog).toHaveBeenCalledTimes(asked);
 
-    expect(fetchLog).not.toHaveBeenCalled();
+    // The first answer is the first one there is, so it has nothing to differ from.
+    answer([...Object.keys(VAULT), TODAY]);
+    await settle();
+
+    expect(fetchLog).toHaveBeenCalledTimes(asked);
   });
 });
