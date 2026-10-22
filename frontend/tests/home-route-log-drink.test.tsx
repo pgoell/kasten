@@ -480,4 +480,49 @@ describe("the palette's drink rows, on the route", () => {
     expect.soft(document.activeElement).toBe(query);
     expect(cardButton("Log tea")).not.toBeNull();
   });
+
+  it("#818 two reloads of log.md that answer out of order leave the card on the newer kinds", async () => {
+    withLog("- 💧 water: 250 ml\n");
+    await renderApp(`/?note=${encodeURIComponent(TODAY)}`);
+    await settle();
+
+    // Every read of log.md from here waits until the test answers it.
+    const held: ((text: string) => void)[] = [];
+    fetchNote.mockImplementation(async (path: string) => {
+      if (path === LOG_CONFIG) {
+        return new Promise<string>((resolve) => {
+          held.push(resolve);
+        });
+      }
+      return path === TODAY ? TODAY_TEXT : VAULT[path];
+    });
+    act(() => stream().send({ path: LOG_CONFIG, change: "written", digest: "a".repeat(64) }));
+    act(() => stream().send({ path: LOG_CONFIG, change: "written", digest: "b".repeat(64) }));
+    await settle();
+
+    // The newest read answers first with tea, and the older one lands after it with the old kinds.
+    const newest = held[held.length - 1];
+    act(() => newest?.("- 🍵 tea: 1 cup\n"));
+    await settle();
+    act(() => {
+      for (const answer of held.slice(0, -1)) answer("- 💧 water: 250 ml\n");
+    });
+    await settle();
+
+    expect(cardButton("Log tea")).not.toBeNull();
+  });
+
+  it("#818 a reopen that cannot read log.md keeps the kinds the card has", async () => {
+    withLog("- 🍵 tea: 1 cup\n");
+    await renderApp(`/?note=${encodeURIComponent(TODAY)}`);
+    await settle();
+    expect.soft(cardButton("Log tea")).not.toBeNull();
+
+    // The vault is down for the read, as it is while the backend restarts.
+    withLog(new Error("the vault is down"));
+    act(() => stream().onopen?.());
+    await settle();
+
+    expect(cardButton("Log tea")).not.toBeNull();
+  });
 });

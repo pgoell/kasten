@@ -209,7 +209,7 @@ export function useNoteOpening({
       }
       if (paths.includes(path)) {
         void openInPane(path);
-        return;
+        return true;
       }
       // The vault has no write for a page or an asset, so a link to one nobody
       // made stays a dead link rather than turning into a note named `.pdf.md`.
@@ -226,7 +226,9 @@ export function useNoteOpening({
       // One write, and the body goes over as it stands. `periodic.ts` owns the
       // block and the blank line after it, because the fence has to be the
       // file's first line for the backend to read it as frontmatter at all.
-      void createNote(path, body).then(
+      // Resolves whether the note was made and opened, which `openPeriodic`
+      // passes on so a caller waiting for that note knows it is not coming.
+      return createNote(path, body).then(
         (made) => {
           // The vault's spelling and the vault's text, the way the prompt
           // seeds them, so the editor opens what was written rather than
@@ -234,11 +236,13 @@ export function useNoteOpening({
           queryClient.setQueryData(["note", made.path], made.content);
           queryClient.invalidateQueries({ queryKey: ["files"] });
           void openInPane(made.path);
+          return true;
         },
         () => {
           // The vault refused the path: a hidden name, or a note standing
           // where the link wanted a folder. The note on screen stays open
           // with the link still in it, which is the only place to fix either.
+          return false;
         },
       );
     },
@@ -293,7 +297,7 @@ export function useNoteOpening({
   const openPeriodic = useCallback(
     (period: Period) => {
       const { path, body } = periodicNote(period, new Date());
-      follow(path, body);
+      return follow(path, body);
     },
     [follow],
   );

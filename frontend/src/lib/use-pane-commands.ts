@@ -93,7 +93,7 @@ export function usePaneCommands({
   setLayout: Dispatch<SetStateAction<Layout>>;
   saveFirst: () => Promise<boolean>;
   moves: Pick<PaneMoves, "moveTo" | "focusToward" | "swapToward">;
-  openPeriodic: (period: Period) => void;
+  openPeriodic: (period: Period) => boolean | Promise<boolean> | undefined;
   setNotice: Dispatch<SetStateAction<string | undefined>>;
   /** The vault's note paths, as the listing holds them; undefined until it loads. */
   paths: string[] | undefined;
@@ -180,16 +180,19 @@ export function usePaneCommands({
     const target = foodPending.current;
     foodPending.current = null;
     if (target === null || pane.path !== target) return;
-    const showFood = () => {
+    // Tried once, when the editor is in the pane, and then the watch ends whether
+    // or not the card showed, so typing into the note later never opens it.
+    const attach = () => {
       const view = paneView(pane.id);
-      return view !== null && openFoodSearch(view);
+      if (view !== null) openFoodSearch(view);
+      return view !== null;
     };
-    if (showFood()) return;
-    // The editor mounts after the path is taken, so wait for it to draw the card.
+    if (attach()) return;
+    // The editor mounts after the path is taken, so wait for it to appear.
     const element = document.querySelector<HTMLElement>(`[data-pane="${pane.id}"]`);
     if (element === null) return;
     const observer = new MutationObserver(() => {
-      if (showFood()) observer.disconnect();
+      if (attach()) observer.disconnect();
     });
     observer.observe(element, { childList: true, subtree: true });
     return () => observer.disconnect();
@@ -364,7 +367,8 @@ export function usePaneCommands({
         // Saved first: a refused save leaves nothing waiting.
         if (!(await saveFirst())) return;
         foodPending.current = today;
-        openPeriodic("daily");
+        // A failed create or open leaves nothing waiting, so a later `<leader>gd` is not searched.
+        if (!(await openPeriodic("daily"))) foodPending.current = null;
       },
       openWeekly: () => openPeriodic("weekly"),
       openMonthly: () => openPeriodic("monthly"),

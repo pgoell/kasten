@@ -344,6 +344,69 @@ describe("the palette's Log food, on the route", () => {
     expect(foodQuery()).toBeNull();
   });
 
+  it("#762 I5 today's note with no card gets no search when a heading is typed into it later", async () => {
+    // No `# ` heading, so the note draws no card: the search has nothing to open on.
+    fetchNote.mockImplementation(async (path: string) => {
+      if (path === LOG_CONFIG) throw new NoteMissing(path);
+      if (path === TODAY) return "---\ntype: Periodic Note\n---\n\n## TODOs\n";
+      return VAULT[path];
+    });
+    const app = await renderApp();
+    await settle();
+    app.click("index.md");
+    await settle();
+
+    app.leader(":");
+    await settle();
+    tapRow(/^Log food/);
+    await settle();
+    expect.soft(editorText()).toContain("## TODOs");
+    expect(foodQuery()).toBeNull();
+
+    const view = EditorView.findFromDOM(document.querySelector(".cm-editor") as HTMLElement);
+    expect(view).not.toBeNull();
+    view?.dispatch({ changes: { from: view.state.doc.length, insert: "\n# Today\n" } });
+    await settle();
+
+    expect(foodQuery()).toBeNull();
+  });
+
+  it("#762 I5 a failed create of today's note leaves no search for a later <leader>gd", async () => {
+    let made = false;
+    let refusing = true;
+    fetchFiles.mockImplementation(async () =>
+      made ? [...Object.keys(VAULT), TODAY] : Object.keys(VAULT),
+    );
+    fetchNote.mockImplementation(async (path: string) => {
+      if (path === LOG_CONFIG || (path === TODAY && !made)) throw new NoteMissing(path);
+      if (path === TODAY) return TODAY_TEXT;
+      return VAULT[path];
+    });
+    createNote.mockImplementation(async (path: string, body: string) => {
+      if (refusing) throw new Error("PUT failed with 500");
+      made = true;
+      return { path, content: body };
+    });
+    const app = await renderApp();
+    await settle();
+    app.click("index.md");
+    await settle();
+
+    app.leader(":");
+    await settle();
+    tapRow(/^Log food/);
+    await settle();
+    expect(editorText()).toBe("the index note");
+    expect(foodQuery()).toBeNull();
+
+    refusing = false;
+    app.leader("g", "d");
+    await settle();
+
+    expect(editorText()).toContain("# 2026-10-20 Tuesday");
+    expect(foodQuery()).toBeNull();
+  });
+
   it("#762 I6 with the focus off today's editor, Log food opens its food search and writes nothing", async () => {
     const app = await renderApp(`/?note=${encodeURIComponent(TODAY)}`);
     await settle();

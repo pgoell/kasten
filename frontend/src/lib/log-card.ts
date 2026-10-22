@@ -61,15 +61,22 @@ const configArrived = StateEffect.define<LogConfig>();
 /** Each view's config, fetched once, so a card drawn again does not ask the note again. */
 const configs = new WeakMap<EditorView, Promise<LogConfig>>();
 
+/** The config in log.md. A note that is not there is the default config; any other failure rejects. */
+function readConfig(): Promise<LogConfig> {
+  return fetchNote(LOG_NOTE).then(parseConfig, (error: unknown) => {
+    if (error instanceof NoteMissing) return parseConfig(null);
+    throw error;
+  });
+}
+
 /**
- * The view's config from the log note. A note that is not there is the default
- * config, and one that fails to load is named in the console and the default too.
+ * The view's config from the log note. One that fails to load is named in the
+ * console and the default config is the answer.
  */
 function configFor(view: EditorView): Promise<LogConfig> {
   let config = configs.get(view);
   if (config === undefined) {
-    config = fetchNote(LOG_NOTE).then(parseConfig, (error: unknown) => {
-      if (error instanceof NoteMissing) return parseConfig(null);
+    config = readConfig().catch((error: unknown) => {
       if (!(error instanceof Error)) throw error;
       console.warn(error.message);
       return parseConfig(null);
@@ -495,10 +502,19 @@ export const logCard: Extension = [cardField, registry];
 export function reloadLogConfig(): void {
   for (const view of views) {
     if (view.state.field(cardField).config === null) continue;
-    configs.delete(view);
-    configFor(view).then((arrived) => {
-      if (views.has(view)) applyConfig(view, arrived);
-    });
+    const reading = readConfig();
+    // The newest read holds the view's slot, so an older answer that lands last is dropped.
+    configs.set(view, reading);
+    reading.then(
+      (arrived) => {
+        if (views.has(view) && configs.get(view) === reading) applyConfig(view, arrived);
+      },
+      (error: unknown) => {
+        // A failed read keeps the kinds the card has. Its slot is dropped, so the next draw asks again.
+        if (configs.get(view) === reading) configs.delete(view);
+        if (error instanceof Error) console.warn(error.message);
+      },
+    );
   }
 }
 
