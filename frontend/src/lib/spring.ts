@@ -173,7 +173,10 @@ export class Spring {
     const run = this.run;
     if (!run) return;
     this.handle = null;
-    const at = springAt(run.from, run.velocity, run.target, run.config, (now - run.at) / 1000);
+    // A frame can be stamped before `to` read the clock, so a negative elapsed
+    // time would run the spring backwards: it starts where it began instead.
+    const elapsed = Math.max(0, (now - run.at) / 1000);
+    const at = springAt(run.from, run.velocity, run.target, run.config, elapsed);
     // Close enough to stop: snap to the target so it rests exactly on it.
     if (Math.abs(at.value - run.target) < 0.5 && Math.abs(at.velocity) < 5) {
       this.put(run.target, 0);

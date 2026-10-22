@@ -134,6 +134,30 @@ it("on a phone, Space g l opens the local graph as a sheet and no pane", async (
   }
 });
 
+it("q in the graph sheet closes the sheet and leaves the note pane open", async () => {
+  await page.viewport(390, 844);
+  stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+  const host = document.body.appendChild(document.createElement("div"));
+  host.className = "h-dvh bg-k-bg";
+  const root = await mountLesson(host);
+  try {
+    pressSpaceGL(host);
+    await waitFor(() => expect(sheet()).not.toBeNull(), { timeout: 5000 });
+
+    // `q` is the graph's own key for closing a note, pressed on the graph.
+    const graph = document.querySelector<HTMLElement>("[data-graph-pane]") as HTMLElement;
+    graph.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "q", bubbles: true, cancelable: true }),
+    );
+
+    await waitFor(() => expect(sheet()).toBeNull(), { timeout: 5000 });
+    expect(host.querySelector(".cm-content")?.textContent).toContain("paragraph");
+  } finally {
+    await act(async () => root.unmount());
+    host.remove();
+  }
+});
+
 it("on a desktop, Space g l opens the graph as a pane beside the note and no sheet", async () => {
   await page.viewport(1440, 900);
   stubMatchMedia({});

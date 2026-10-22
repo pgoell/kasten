@@ -15,7 +15,7 @@ import { usePaneMoves } from "@/components/use-pane-moves";
 import { usePrompts } from "@/components/use-prompts";
 import { WorkspacePanes } from "@/components/workspace-panes";
 import { heldText } from "@/lib/held-text";
-import type { TreeCommands } from "@/lib/key-bindings";
+import type { EditorCommands, TreeCommands } from "@/lib/key-bindings";
 import { askLogConfig, logConfig, subscribeLogConfig } from "@/lib/log-config";
 import { DEFAULT_CONFIG } from "@/lib/log-kinds";
 import { paletteEntries } from "@/lib/palette";
@@ -322,6 +322,28 @@ function Home() {
     ];
   }, [commands, palette, agentTodo, kinds]);
 
+  const closeGraphSheet = useCallback(
+    () => setGraphSheet((previous) => ({ ...previous, open: false })),
+    [],
+  );
+  // The graph in the sheet is drawn over the window, so each command it runs first
+  // puts the sheet away: `q` closes the sheet, and every other command acts on what
+  // the reader can see rather than on a pane beneath it.
+  const sheetCommands = useMemo<EditorCommands>(() => {
+    const wrapped: Record<string, unknown> = { closeNote: closeGraphSheet };
+    for (const [name, run] of Object.entries(commands)) {
+      if (name === "closeNote") continue;
+      wrapped[name] =
+        typeof run === "function"
+          ? (...args: unknown[]) => {
+              closeGraphSheet();
+              return (run as (...rest: unknown[]) => unknown)(...args);
+            }
+          : run;
+    }
+    return wrapped as unknown as EditorCommands;
+  }, [commands, closeGraphSheet]);
+
   // `overflow-x: clip`, not `hidden`: a hidden overflow makes this a scroll box
   // of its own, and the tab strip's sticky top would then scroll away with it.
   return (
@@ -405,14 +427,10 @@ function Home() {
       />
       {phone && <Toolbar commands={commands} split={panes.length > 1} inert={narrow && treeOpen} />}
       {helpOpen && <KeyHelp onClose={() => setHelpOpen(false)} />}
-      <Sheet
-        open={graphSheet.open}
-        onClose={() => setGraphSheet((previous) => ({ ...previous, open: false }))}
-        label="Local graph"
-      >
+      <Sheet open={graphSheet.open} onClose={closeGraphSheet} label="Local graph">
         <GraphPane
           around={graphSheet.note}
-          commands={commands}
+          commands={sheetCommands}
           archive={archive}
           onOpen={(path, line) => {
             setGraphSheet((previous) => ({ ...previous, open: false }));

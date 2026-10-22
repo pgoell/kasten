@@ -54,6 +54,8 @@ interface LayoutNodeProps {
 /** How far a new pane starts off its place, in px. */
 const SLIDE = 36;
 
+const REDUCED = "(prefers-reduced-motion: reduce)";
+
 /**
  * One tab's panes, drawn from the tree that arranges them.
  *
@@ -220,10 +222,30 @@ function PaneLeaf({
  * browser does the work and nothing is laid out again for each frame.
  */
 function useSlideIn(element: RefObject<HTMLDivElement | null>, fresh: boolean, enter: "x" | "y") {
+  // A layout effect, so the pane is already at its start when the browser paints.
+  // A passive effect can let one frame show the pane in its place first.
   // biome-ignore lint/correctness/useExhaustiveDependencies: a pane slides in on mount only, so a later change to these is not a new pane.
-  useEffect(() => {
+  useLayoutEffect(() => {
     const el = element.current;
     if (!fresh || el === null) return;
+    // Reduced motion keeps the fade and loses the slide. The pane starts
+    // transparent, the browser is made to paint that, and then the opacity
+    // transitions up. The inline style goes once the transition has ended.
+    if (matchMedia(REDUCED).matches) {
+      el.style.opacity = "0";
+      el.getBoundingClientRect();
+      el.style.transition = "opacity var(--k-hover) var(--k-ease-out)";
+      el.style.opacity = "1";
+      el.addEventListener(
+        "transitionend",
+        () => {
+          el.style.transition = "";
+          el.style.opacity = "";
+        },
+        { once: true },
+      );
+      return;
+    }
     const spring = new Spring(SLIDE, (offset) => {
       el.style.transform = enter === "x" ? `translateX(${offset}px)` : `translateY(${offset}px)`;
       el.style.opacity = `${1 - offset / SLIDE}`;
@@ -330,23 +352,39 @@ export function TabStrip({ layout, onSelect }: TabStripProps) {
   // a jump and not a glide in from the left edge.
   const placed = useRef(false);
 
-  // Follows the active tab and the count, for the reason the scroll below does.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: both are the trigger, and neither is read.
+  // The labels too: a label that grows, or a web font that arrives, widens a tab
+  // without changing the count, and the bar has to follow it.
+  const labels = layout.tabs.map(tabLabel).join("\n");
+  // Follows the active tab, the count and the labels. None of the three is read
+  // here: the tab is found from the active index and the rest only triggers it.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: all three are the trigger, and none of them is read.
   useLayoutEffect(() => {
     const tab = strip.current?.querySelectorAll<HTMLElement>('[role="tab"]')[active];
     if (tab === undefined) {
       placed.current = false;
       return;
     }
-    if (placed.current) {
-      void motion.x.to(tab.offsetLeft, SPRINGS.tab);
-      void motion.width.to(tab.offsetWidth, SPRINGS.tab);
-    } else {
-      motion.x.set(tab.offsetLeft);
-      motion.width.set(tab.offsetWidth);
+    const place = () => {
+      if (placed.current) {
+        void motion.x.to(tab.offsetLeft, SPRINGS.tab);
+        void motion.width.to(tab.offsetWidth, SPRINGS.tab);
+      } else {
+        motion.x.set(tab.offsetLeft);
+        motion.width.set(tab.offsetWidth);
+      }
+      placed.current = true;
+    };
+    place();
+    // A tab that changes width moves the bar's far edge, and a font changes
+    // every tab at once, so each tab is watched. jsdom has no observer, where
+    // the labels are the only trigger.
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(place);
+    for (const element of strip.current?.querySelectorAll<HTMLElement>('[role="tab"]') ?? []) {
+      observer.observe(element);
     }
-    placed.current = true;
-  }, [active, count]);
+    return () => observer.disconnect();
+  }, [active, count, labels]);
 
   // The count as well as the index: closing a tab to the left of the active one
   // moves it without changing which tab it is.

@@ -110,6 +110,18 @@ it("Spring to moves toward the target and resolves true when it settles", async 
   await expect(done).resolves.toBe(true);
 });
 
+it("a frame stamped before the run began reads as its start", () => {
+  const clock = fakeClock();
+  const spring = new Spring(100, () => {}, clock.options);
+
+  // The run is stamped at 0. A frame whose timestamp comes 5 ms earlier, which
+  // the browser can do, must read as the start of the run, not a step back in time.
+  spring.to(0, SPRINGS.default);
+  clock.run(-5);
+
+  expect(spring.value).toBe(100);
+});
+
 it("a second to mid-flight starts from the current value and velocity", async () => {
   const clock = fakeClock();
   const spring = new Spring(100, () => {}, clock.options);

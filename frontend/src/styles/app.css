@@ -61,7 +61,7 @@
   --text-k-13--letter-spacing: var(--k-track-label);
   --text-k-15: var(--k-text-15);
   --text-k-15--line-height: var(--k-leading-ui);
-  --text-k-15--letter-spacing: var(--k-track-label);
+  --text-k-15--letter-spacing: var(--k-track-body);
   --text-k-19: var(--k-text-19);
   --text-k-19--line-height: var(--k-leading-reading);
   --text-k-19--letter-spacing: var(--k-track-body);

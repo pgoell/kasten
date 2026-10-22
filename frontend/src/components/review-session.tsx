@@ -283,8 +283,7 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
           here: a card taller than the pane would be pushed past the top of the
           scroll, where nothing can reach it. */}
       <div
-        // A phone reads the question as a title, so it is set at 28 px there.
-        className={`min-h-0 flex-1 overflow-auto px-4 py-6 text-[15px] max-md:text-[28px] max-md:leading-[1.15] max-md:tracking-[var(--k-track-title)] ${center ? "flex flex-col" : ""}`}
+        className={`min-h-0 flex-1 overflow-auto px-4 py-6 text-[15px] ${center ? "flex flex-col" : ""}`}
       >
         {texts === null && failed === null && <p className="text-k-muted">Reading the deck…</p>}
 
@@ -303,7 +302,15 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
             {/* Rendered the way the editor renders it, so a card holding a
                 table is asked as a table and not as a row of pipes. Keyed on
                 the text because the preview reads it once, on mount. */}
-            <NotePreview key={`front:${card.front}`} text={card.front} />
+            {/* A phone reads the question as a title, so only the question is
+                set at 28 px. The answer and the lines around the card keep
+                the body size. */}
+            <div
+              data-testid="review-question"
+              className="max-md:text-[28px] max-md:leading-[1.15] max-md:tracking-[var(--k-track-title)]"
+            >
+              <NotePreview key={`front:${card.front}`} text={card.front} />
+            </div>
             {shown && typing && (
               <p data-testid="review-verdict" className="mt-6 text-[13px] text-k-muted">
                 {/* A cloze's back is the whole line, its target the hidden text.

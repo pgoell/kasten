@@ -22,7 +22,7 @@ function block(header: string): string {
 const SIZES: [size: number, leading: string, track: string][] = [
   [12, "ui", "label"],
   [13, "ui", "label"],
-  [15, "ui", "label"],
+  [15, "ui", "body"],
   [19, "reading", "body"],
   [23, "heading", "heading"],
   [27, "title", "title"],

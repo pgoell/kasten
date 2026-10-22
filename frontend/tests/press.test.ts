@@ -2,11 +2,11 @@ import { startPress } from "@/lib/press";
 
 const at = (id: string) => document.getElementById(id) as HTMLElement;
 
-// The events are plain ones, so the capture listeners see them the way they see
-// a real pointer. `lostpointercapture` does not bubble, which the capture phase
-// on the document does not need.
+// A MouseEvent carries `button`, which the listener reads: it is 0 for the
+// primary button, as a real pointer's is. `lostpointercapture` does not bubble,
+// which the capture phase on the document does not need.
 const fire = (target: Element, type: string) =>
-  target.dispatchEvent(new Event(type, { bubbles: true, cancelable: true }));
+  target.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, button: 0 }));
 
 let stop: () => void;
 
@@ -29,6 +29,23 @@ describe("startPress", () => {
     fire(at("go"), "pointerdown");
 
     expect(at("go")).toHaveAttribute("data-pressed");
+  });
+
+  it("a right-button press does not mark the control", () => {
+    // Chrome opens the context menu on the mousedown and never sends the
+    // pointerup, so a marked control would stay at its pressed scale.
+    at("go").dispatchEvent(
+      new MouseEvent("pointerdown", { button: 2, bubbles: true, cancelable: true }),
+    );
+
+    expect(at("go")).not.toHaveAttribute("data-pressed");
+  });
+
+  it("a context menu lifts the mark", () => {
+    fire(at("go"), "pointerdown");
+    fire(at("go"), "contextmenu");
+
+    expect(at("go")).not.toHaveAttribute("data-pressed");
   });
 
   it("a pointerup lifts the mark", () => {

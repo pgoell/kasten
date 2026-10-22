@@ -77,6 +77,9 @@ export function Sheet({ open, onClose, label, header, children }: SheetProps) {
   // by any key, and by the next press, so a later activation is never eaten.
   const swallow = useRef(false);
   const returnTo = useRef<Element | null>(null);
+  // Set while the sheet is closing by its own hand (Esc, the scrim, a flick), so a
+  // tap that interrupts that close resumes it rather than reopening the sheet.
+  const dismissing = useRef(false);
   const fading = useRef<((done: boolean) => void) | null>(null);
 
   const paint = (offset: number) => {
@@ -114,12 +117,20 @@ export function Sheet({ open, onClose, label, header, children }: SheetProps) {
   // Down to the bottom, by spring or by fade. Resolves true only if nothing
   // interrupted it, which is when the sheet may be taken out of the DOM.
   function leave(config: SpringConfig, velocity?: number): Promise<boolean> {
+    measure();
     if (reducedMotion()) return fadeTo(0);
     return spring.to(height.current, config, velocity);
   }
 
+  // Read again whenever the sheet is about to move, since content such as the
+  // graph arrives after the sheet has opened and changes how far down it goes.
+  function measure() {
+    if (panel.current) height.current = panel.current.offsetHeight;
+  }
+
   function finish() {
     resting.current = true;
+    dismissing.current = false;
     setMounted(false);
     const back = returnTo.current;
     returnTo.current = null;
@@ -128,6 +139,7 @@ export function Sheet({ open, onClose, label, header, children }: SheetProps) {
 
   // A close the sheet makes itself, so it tells the parent once it is gone.
   function dismiss(config: SpringConfig, velocity?: number) {
+    dismissing.current = true;
     void leave(config, velocity).then((done) => {
       if (!done) return;
       finish();
@@ -150,6 +162,7 @@ export function Sheet({ open, onClose, label, header, children }: SheetProps) {
     }
 
     if (resting.current) returnTo.current = document.activeElement;
+    dismissing.current = false;
     height.current = el.offsetHeight;
     el.focus({ preventScroll: true });
     if (reducedMotion()) {
@@ -174,10 +187,13 @@ export function Sheet({ open, onClose, label, header, children }: SheetProps) {
   // A press catches the sheet where it is, so a finger lands mid-flight. The
   // drag is decided later, once the finger has moved far enough to be one.
   function onPointerDown(event: ReactPointerEvent<HTMLDivElement>) {
+    // Cleared for every press, the grabber or the content, so a release that sent no
+    // click cannot eat the next tap wherever it lands.
+    swallow.current = false;
     if (!(event.target instanceof Element)) return;
     const hold = event.target.closest("[data-sheet-drag]");
     if (!hold) return;
-    swallow.current = false;
+    measure();
     const interrupted = spring.moving;
     spring.stop();
     gesture.current = {
@@ -219,7 +235,7 @@ export function Sheet({ open, onClose, label, header, children }: SheetProps) {
       // A tap that landed on a sheet still coming to rest is a tap on the sheet, so
       // the sheet goes on to where it was heading.
       if (held.interrupted) {
-        if (open) void spring.to(0, SPRINGS.sheetOpen);
+        if (open && !dismissing.current) void spring.to(0, SPRINGS.sheetOpen);
         else dismiss(SPRINGS.sheetClose);
       }
       return;
@@ -256,11 +272,11 @@ export function Sheet({ open, onClose, label, header, children }: SheetProps) {
         onPointerMove={onPointerMove}
         onPointerUp={(event) => onPointerEnd(event, false)}
         onPointerCancel={(event) => onPointerEnd(event, true)}
-        // Capture, so the keys never reach the editor under the sheet, vim's Esc among them.
-        onKeyDownCapture={(event) => {
+        onKeyDown={(event) => {
           // A key is a choice made after the drag, so the click it leads to is not the drag's.
           swallow.current = false;
-          if (event.key !== "Escape") return;
+          if (event.key !== "Escape" || event.defaultPrevented) return;
+          // Stopped here so the keys never reach the editor under the sheet, vim's Esc among them.
           event.stopPropagation();
           dismiss(SPRINGS.sheetClose);
         }}
@@ -288,6 +304,13 @@ export function Sheet({ open, onClose, label, header, children }: SheetProps) {
           </div>
         )}
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">{children}</div>
+        {/* Paper below the foot. A spring that overshoots the rest point lifts the foot
+            clear of the screen's edge, and the note must not show through that gap. */}
+        <div
+          data-sheet-skirt
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 top-full h-[50dvh] bg-k-paper"
+        />
       </div>
     </>
   ) : null;

@@ -149,13 +149,14 @@ let emulated = false;
 async function mount(
   size: Size,
   theme: Theme,
-  options: { reduced?: boolean; contrast?: "more" } = {},
+  options: { reduced?: boolean; contrast?: "more"; reducedTransparency?: "reduce" } = {},
 ): Promise<Mounted> {
   await page.viewport(size.width, size.height);
   await commands.emulateMedia({
     touch: size.coarse,
     reducedMotion: options.reduced ? "reduce" : "no-preference",
     contrast: options.contrast ?? "no-preference",
+    reducedTransparency: options.reducedTransparency ?? "no-preference",
   });
   emulated = true;
   // The stub answers every query it is not given with no, so the reduced query is
@@ -241,6 +242,30 @@ async function twoTabs(host: HTMLElement) {
   await waitFor(() => expect(host.querySelectorAll("[role='tab']").length).toBe(2), PATIENCE);
   leader(host, [" ", "t", "h"]);
   await waitFor(() => expect(visibleEditor(host).textContent).toContain("paragraph"), PATIENCE);
+}
+
+/**
+ * Whether the graph canvas has drawn anything past its one background fill.
+ *
+ * Read off the pixels, so the wait ends when the simulation has put nodes on
+ * the page and not at a fixed time.
+ */
+function paints(host: Element): boolean {
+  const canvas = host.querySelector("canvas");
+  const context = canvas?.getContext("2d");
+  if (!canvas || !context || canvas.width === 0) return false;
+  const { data } = context.getImageData(0, 0, canvas.width, canvas.height);
+  for (let i = 4; i < data.length; i += 4) {
+    if (
+      data[i] !== data[0] ||
+      data[i + 1] !== data[1] ||
+      data[i + 2] !== data[2] ||
+      data[i + 3] !== data[3]
+    ) {
+      return true;
+    }
+  }
+  return false;
 }
 
 /** Two animation frames: the first lays out the last change, the second paints it. */
@@ -363,12 +388,19 @@ it("sheet-half-touch-390 in light and dark", async () => {
       await expect
         .poll(() => getComputedStyle(panel).transform, PATIENCE)
         .toBe("matrix(1, 0, 0, 1, 0, 0)");
+      // The graph is drawn before the picture, so the sheet is not shot blank.
+      await waitFor(() => expect(paints(panel)).toBe(true), PATIENCE);
       const grab = panel.querySelector<HTMLElement>("[data-sheet-drag]") as HTMLElement;
       const start = centreOf(grab);
       pointer(grab, "pointerdown", start.x, start.y);
       pointer(grab, "pointermove", start.x, start.y + panel.offsetHeight / 2);
       await nextFrame();
       await nextFrame();
+      // Half way down, the scrim is half its colour: the note above is dimmed by half.
+      const scrim = panel.previousElementSibling as HTMLElement;
+      const dim = Number(getComputedStyle(scrim).opacity);
+      expect(dim).toBeGreaterThan(0.4);
+      expect(dim).toBeLessThan(0.6);
       await picture(mounted.host, `sheet-half-touch-390-${theme}`, TOUCH);
     } finally {
       await unmount(mounted);
@@ -488,41 +520,45 @@ it("contrast-more-desktop-1440-light", async () => {
   }
 }, 60_000);
 
-// The type scale, on rendered text. Each span is a probe, measured in px.
+it("reduced-motion-touch-390-dark", async () => {
+  const mounted = await mount(TOUCH, "dark", { reduced: true });
+  try {
+    expect(matchMedia(REDUCED).matches).toBe(true);
+    leader(mounted.host, [" ", "g", "l"]);
+    const panel = await sheetPanel(mounted.host);
+    await expect.poll(() => Number(getComputedStyle(panel).opacity), PATIENCE).toBe(1);
+    expect(getComputedStyle(panel).transform).toBe("matrix(1, 0, 0, 1, 0, 0)");
+    await picture(mounted.host, "reduced-motion-touch-390-dark", TOUCH);
+  } finally {
+    await unmount(mounted);
+  }
+}, 60_000);
 
-/**
- * The computed type of a probe span with the given classes. Copied out before
- * the span goes, since a live style declaration reads empty once its element is gone.
- */
-function probe(classes: string, text: string) {
-  const span = document.body.appendChild(document.createElement("span"));
-  span.className = classes;
-  span.textContent = text;
-  const style = getComputedStyle(span);
-  const values = {
-    fontSize: style.fontSize,
-    letterSpacing: style.letterSpacing,
-    lineHeight: style.lineHeight,
-  };
-  span.remove();
-  return values;
-}
+it("contrast-more-desktop-1440-dark", async () => {
+  const mounted = await mount(DESKTOP, "dark", { contrast: "more" });
+  try {
+    await twoTabs(mounted.host);
+    const strip = mounted.host.querySelector<HTMLElement>("[role='tablist']") as HTMLElement;
+    const style = getComputedStyle(strip);
+    expect(style.backdropFilter).toBe("none");
+    expect(style.backgroundColor).toMatch(/^rgb\(/);
+    expect(style.borderBottomColor).toBe(resolved("color", "var(--k-ink)"));
+    await picture(mounted.host, "contrast-more-desktop-1440-dark", DESKTOP);
+  } finally {
+    await unmount(mounted);
+  }
+}, 60_000);
 
-it("text-k-64 tracks -0.018em and leads at 1.04", () => {
-  const style = probe("text-k-64", "Ag");
-  expect(parseFloat(style.letterSpacing)).toBeCloseTo(-1.152, 3);
-  expect(parseFloat(style.lineHeight)).toBeCloseTo(66.56, 2);
-  expect(parseFloat(style.fontSize)).toBeCloseTo(64, 3);
-});
-
-it("text-k-13 tracks 0.006em", () => {
-  const style = probe("text-k-13", "Ag");
-  expect(parseFloat(style.letterSpacing)).toBeCloseTo(0.078, 3);
-  expect(parseFloat(style.fontSize)).toBeCloseTo(13, 3);
-});
-
-it("tracking-k-kbd on 13 px text is 0.02em", () => {
-  const style = probe("text-k-13 tracking-k-kbd", "Ag");
-  expect(parseFloat(style.letterSpacing)).toBeCloseTo(0.26, 3);
-  expect(parseFloat(style.fontSize)).toBeCloseTo(13, 3);
-});
+it("reduced-transparency-desktop-1440-light", async () => {
+  const mounted = await mount(DESKTOP, "light", { reducedTransparency: "reduce" });
+  try {
+    await twoTabs(mounted.host);
+    const strip = mounted.host.querySelector<HTMLElement>("[role='tablist']") as HTMLElement;
+    const style = getComputedStyle(strip);
+    expect(style.backdropFilter).toBe("none");
+    expect(style.backgroundColor).toMatch(/^rgb\(/);
+    await picture(mounted.host, "reduced-transparency-desktop-1440-light", DESKTOP);
+  } finally {
+    await unmount(mounted);
+  }
+}, 60_000);

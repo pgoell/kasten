@@ -1,5 +1,6 @@
 import { QueryClientProvider } from "@tanstack/react-query";
 import { act, render, screen, waitFor } from "@testing-library/react";
+import { createRoot } from "react-dom/client";
 import { PaneLayout, TabStrip } from "@/components/pane-layout";
 import { ReviewDecks } from "@/components/review-decks";
 import * as api from "@/lib/api";
@@ -239,6 +240,112 @@ describe("the consumers of the motion", () => {
       `[data-pane="${madeBy(before, after)?.id}"]`,
     );
     await waitFor(() => expect(element?.style.transform).toBe(""));
-    expect(element?.style.opacity).toBe("");
+    // Fading in, not slid: the opacity is at its end and transitions there.
+    expect(element?.style.opacity).toBe("1");
+  });
+
+  it("a todo row edited and back does not enter again", async () => {
+    // The clock moves with real time, so waitFor still works, and then jumps past
+    // the entrance (240 ms plus the 6 step cap of 22 ms, 372 ms in all).
+    vi.useFakeTimers({ toFake: ["setTimeout"], shouldAdvanceTime: true });
+    const pane = renderTodos(TODOS);
+    const rows = () => [...document.querySelectorAll<HTMLElement>("[data-row]")];
+    await waitFor(() => expect(rows().length).toBeGreaterThan(0));
+    const key = (pane.cursor() as HTMLElement).dataset.row;
+    expect(rows().find((row) => row.dataset.row === key)).toHaveClass("k-enter");
+    vi.advanceTimersByTime(372);
+
+    pane.press("i");
+    expect(pane.draft()).not.toBeNull();
+    pane.send("Escape");
+
+    expect(rows().find((row) => row.dataset.row === key)).not.toHaveClass("k-enter");
+  });
+
+  it("the underline follows a label that grows in the active tab", () => {
+    // Each character is 8 px wide, so a longer label is a wider tab.
+    vi.spyOn(HTMLElement.prototype, "offsetLeft", "get").mockReturnValue(0);
+    vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockImplementation(function (
+      this: HTMLElement,
+    ) {
+      return (this.textContent ?? "").length * 8;
+    });
+    vi.useFakeTimers({
+      toFake: ["requestAnimationFrame", "cancelAnimationFrame", "performance", "setTimeout"],
+    });
+    const layout = goToTab(addTab(emptyLayout("a.md")), 0);
+    const longer: Layout = {
+      ...layout,
+      tabs: layout.tabs.map((tab, index) =>
+        index === 0 ? { ...tab, root: { ...tab.root, path: "a-much-longer-name.md" } } : tab,
+      ),
+    };
+    const { rerender } = render(<TabStrip layout={layout} onSelect={() => {}} />);
+
+    rerender(<TabStrip layout={longer} onSelect={() => {}} />);
+    vi.advanceTimersByTime(1000);
+
+    const width = (screen.getAllByRole("tab")[0]?.textContent ?? "").length * 8;
+    expect(width).toBeGreaterThan(24);
+    expect(bar()?.style.transform).toBe(`translateX(0px) scaleX(${width})`);
+  });
+
+  it("under reduced motion a new pane fades in without sliding", () => {
+    stubMatchMedia({ "(prefers-reduced-motion: reduce)": true });
+    const before = emptyLayout("a.md");
+    const after = splitFocused(before, "row");
+    const { container, rerender } = render(tabView(before));
+
+    rerender(tabView(after));
+    const element = container.querySelector<HTMLElement>(
+      `[data-pane="${madeBy(before, after)?.id}"]`,
+    );
+
+    expect(element?.style.transform).toBe("");
+    expect(element?.style.transition).toContain("opacity");
+  });
+
+  it("a split made outside an event shows its pane at 36 px in the commit that adds it", async () => {
+    // Outside act, so React commits on its own schedule. The observer then
+    // runs after the commit's layout effects and before its passive ones.
+    Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: false });
+    const host = document.body.appendChild(document.createElement("div"));
+    const root = createRoot(host);
+    try {
+      const before = emptyLayout("a.md");
+      const after = splitFocused(before, "row");
+      const id = madeBy(before, after)?.id;
+      root.render(tabView(before));
+      await waitFor(() => expect(host.querySelector("[data-pane]")).not.toBeNull());
+
+      root.render(tabView(after));
+      const transform = await new Promise<string | undefined>((resolve) => {
+        const observer = new MutationObserver(() => {
+          const element = host.querySelector<HTMLElement>(`[data-pane="${id}"]`);
+          if (element === null) return;
+          observer.disconnect();
+          resolve(element.style.transform);
+        });
+        observer.observe(host, { childList: true, subtree: true });
+      });
+
+      expect(transform).toBe("translateX(36px)");
+    } finally {
+      root.unmount();
+      host.remove();
+      Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
+    }
+  });
+
+  it("a deck row carries k-row, so the press tints it rather than scales it", async () => {
+    vi.spyOn(api, "fetchCards").mockResolvedValue(HITS);
+    serveNotes(HITS);
+    render(
+      <QueryClientProvider client={seededClient(HITS)}>
+        <ReviewDecks onPick={vi.fn()} onParked={vi.fn()} />
+      </QueryClientProvider>,
+    );
+
+    expect(await screen.findByRole("button", { name: /alpha/ })).toHaveClass("k-row");
   });
 });

@@ -4,7 +4,9 @@ const PRESSABLE = "button, [role=button], [role=tab], a[href], summary";
 /** A control that cannot be pressed gives nothing back, so it is not marked. */
 const DISABLED = ":disabled, [aria-disabled='true']";
 
-const ENDS = ["pointerup", "pointercancel", "lostpointercapture"] as const;
+// A context menu ends a press too: Chrome opens it on the mousedown and never
+// sends the pointerup that would lift the mark.
+const ENDS = ["pointerup", "pointercancel", "lostpointercapture", "contextmenu"] as const;
 
 /**
  * Marks the control under a press with `data-pressed`, which `app.css` turns
@@ -18,7 +20,8 @@ const ENDS = ["pointerup", "pointercancel", "lostpointercapture"] as const;
  */
 export function startPress(root: Document = document): () => void {
   const down = (event: PointerEvent) => {
-    if (!(event.target instanceof Element)) return;
+    // Only the primary button presses: a right or middle click is not a press.
+    if (event.button !== 0 || !(event.target instanceof Element)) return;
     const control = event.target.closest(PRESSABLE);
     if (!control || control.matches(DISABLED)) return;
     control.setAttribute("data-pressed", "");

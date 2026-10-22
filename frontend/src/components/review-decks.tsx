@@ -355,7 +355,7 @@ export function ReviewDecks({ onPick, onParked, archive = false }: ReviewDecksPr
                 // deck above one it finds, so the row it belongs under is
                 // always there and the full path would only repeat it.
                 style={{ paddingLeft: `${0.75 + depthOf(deck.name) * 0.75}rem` }}
-                className="flex min-h-11 min-w-0 flex-1 items-center gap-3 rounded border border-k-rule px-3 py-2 text-left hover:border-k-accent disabled:opacity-50"
+                className="k-row flex min-h-11 min-w-0 flex-1 items-center gap-3 rounded border border-k-rule px-3 py-2 text-left hover:border-k-accent disabled:opacity-50"
               >
                 <span className="min-w-0 flex-1 truncate text-[13px]">{leafOf(deck.name)}</span>
                 <span className="text-[12px] text-k-accent">{deck.due} due</span>

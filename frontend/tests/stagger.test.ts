@@ -2,8 +2,13 @@
 
 import { readFileSync } from "node:fs";
 import { renderHook } from "@testing-library/react";
-import { expect, it } from "vitest";
-import { STAGGER_CAP, STAGGER_MS, staggerDelay, useEntrance } from "@/lib/stagger";
+import { afterEach, expect, it, vi } from "vitest";
+import { ENTRANCE_MS, STAGGER_CAP, STAGGER_MS, staggerDelay, useEntrance } from "@/lib/stagger";
+
+// A fake clock must not outlive its test, or the next test's timers never fire.
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 const css = readFileSync("src/styles/kasten-theme.css", "utf8");
 
@@ -30,6 +35,37 @@ it("useEntrance admits the keys of the first non-empty list, and no later key", 
   rerender({ keys: ["a", "b", "c"] });
   expect(result.current("c")).toBe(false);
   expect(result.current("a")).toBe(true);
+});
+
+/** A row rendered with its key, `key` null being the row unmounted. */
+function mountRow() {
+  return renderHook(
+    ({ keys, key }: { keys: string[]; key: string | null }) => {
+      const admit = useEntrance(keys);
+      return key === null ? null : admit(key);
+    },
+    { initialProps: { keys: ["a", "b"], key: "a" as string | null } },
+  );
+}
+
+it("a first-load key that mounts again later does not enter again", () => {
+  vi.useFakeTimers({ toFake: ["setTimeout"] });
+  const { result, rerender } = mountRow();
+  expect(result.current).toBe(true);
+
+  rerender({ keys: ["a", "b"], key: null });
+  vi.advanceTimersByTime(ENTRANCE_MS + STAGGER_CAP * STAGGER_MS);
+  rerender({ keys: ["a", "b"], key: "a" });
+  expect(result.current).toBe(false);
+});
+
+it("a rerender during the entrance keeps the entrance", () => {
+  vi.useFakeTimers({ toFake: ["setTimeout"] });
+  const { result, rerender } = mountRow();
+
+  vi.advanceTimersByTime(100);
+  rerender({ keys: ["a", "b"], key: "a" });
+  expect(result.current).toBe(true);
 });
 
 it("useEntrance admits nothing while the list is empty, then the first non-empty list", () => {

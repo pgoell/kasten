@@ -117,8 +117,8 @@ where grey meta text sits inside a mark; the test names it as the exception.
 Each size also has a class, `text-k-12` to `text-k-64`, which carries its own
 leading and tracking, so a component names one class. The 46 and 64 px sizes
 take the display pair, the 36 and 27 px sizes the title pair, the 23 px size the
-heading pair, the 19 px size the reading leading, and the 12, 13 and 15 px sizes
-the UI leading and label tracking. `tracking-k-kbd` and `tracking-k-label` set
+heading pair, the 19 px size the reading leading, the 15 px size the UI leading
+and body tracking, and the 12 and 13 px sizes the UI leading and label tracking. `tracking-k-kbd` and `tracking-k-label` set
 the tracking alone.
 
 ## Motion
