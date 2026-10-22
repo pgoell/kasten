@@ -186,7 +186,7 @@ export function TerminalPrompt({ sessions, onOpen, onClose }: TerminalPromptProp
                   onOpen(name);
                 }}
                 className={`${ROW} ${TAP} ${
-                  index === cursor ? "bg-one-hover text-one-accent" : "text-one-fg"
+                  index === cursor ? "bg-k-surface text-k-accent" : "text-k-ink"
                 }`}
               >
                 {name}

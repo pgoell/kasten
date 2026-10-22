@@ -16,7 +16,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 2px 14px;
-  color: var(--color-one-fg);
+  color: var(--k-ink);
   font-variant-numeric: tabular-nums;
 }
 
@@ -33,10 +33,10 @@
   min-height: 44px;
   min-width: 44px;
   padding: 0 14px;
-  border: 1px solid var(--color-one-selection);
+  border: 1px solid var(--k-rule);
   border-radius: 6px;
-  background: var(--color-one-panel);
-  color: var(--color-one-fg);
+  background: var(--k-paper);
+  color: var(--k-ink);
   font: inherit;
   font-size: 14px;
   white-space: nowrap;
@@ -44,11 +44,11 @@
 
 .cm-log-button:hover,
 .cm-log-undo:hover {
-  background: var(--color-one-hover);
+  background: var(--k-surface);
 }
 
 .cm-log-undo {
-  color: var(--color-one-muted);
+  color: var(--k-muted);
 }
 
 /* Undo names its whole line, which a food line can make long. The words are cut to
@@ -66,10 +66,10 @@
   max-width: 12rem;
   min-height: 44px;
   padding: 0 10px;
-  border: 1px solid var(--color-one-selection);
+  border: 1px solid var(--k-rule);
   border-radius: 6px;
-  background: var(--color-one-well);
-  color: var(--color-one-fg);
+  background: var(--k-inset);
+  color: var(--k-ink);
   font-family: var(--font-sans);
   font-size: 16px;
 }
@@ -77,13 +77,13 @@
 .cm-log-button:focus-visible,
 .cm-log-undo:focus-visible,
 .cm-log-amount:focus-visible {
-  outline: 2px solid var(--color-one-accent);
+  outline: 2px solid var(--k-accent);
   outline-offset: 1px;
 }
 
 /* A refusal of the amount, in the warn colour. Nothing while there is none. */
 .cm-log-why {
-  color: var(--color-one-warn);
+  color: var(--k-danger);
   font-size: 0.8em;
 }
 
@@ -98,29 +98,29 @@
   border-radius: 4px;
   background: linear-gradient(
     to right,
-    color-mix(in srgb, var(--color-one-accent) 28%, transparent) var(--log-progress),
+    color-mix(in srgb, var(--k-accent) 28%, transparent) var(--log-progress),
     transparent var(--log-progress)
   );
 }
 
 .cm-log-met {
-  color: var(--color-one-green);
+  color: var(--k-ok);
   background: linear-gradient(
     to right,
-    color-mix(in srgb, var(--color-one-green) 30%, transparent) var(--log-progress),
+    color-mix(in srgb, var(--k-ok) 30%, transparent) var(--log-progress),
     transparent var(--log-progress)
   );
 }
 
 .cm-log-over {
-  color: var(--color-one-warn);
+  color: var(--k-danger);
 }
 
 /* The lines the config could not read, small and muted, and never wider than the card. */
 .cm-log-broken {
   min-width: 0;
   max-width: 100%;
-  color: var(--color-one-warn);
+  color: var(--k-danger);
   font-size: 0.8em;
   overflow-wrap: anywhere;
 }
@@ -148,10 +148,10 @@
   max-width: 100%;
   min-height: 44px;
   padding: 0 10px;
-  border: 1px solid var(--color-one-selection);
+  border: 1px solid var(--k-rule);
   border-radius: 6px;
-  background: var(--color-one-well);
-  color: var(--color-one-fg);
+  background: var(--k-inset);
+  color: var(--k-ink);
   font-family: var(--font-sans);
   font-size: 16px;
 }
@@ -170,10 +170,10 @@
   min-width: 0;
   min-height: 44px;
   padding: 6px 10px;
-  border: 1px solid var(--color-one-selection);
+  border: 1px solid var(--k-rule);
   border-radius: 6px;
-  background: var(--color-one-panel);
-  color: var(--color-one-fg);
+  background: var(--k-paper);
+  color: var(--k-ink);
   font: inherit;
   font-size: 14px;
   text-align: left;
@@ -182,14 +182,14 @@
 }
 
 .cm-log-food-pick:hover {
-  background: var(--color-one-hover);
+  background: var(--k-surface);
 }
 
 .cm-log-food-brand,
 .cm-log-food-recent,
 .cm-log-food-mine,
 .cm-log-food-kcal {
-  color: var(--color-one-muted);
+  color: var(--k-muted);
 }
 
 /* The add form wraps its fields as the serving form does. */
@@ -213,7 +213,7 @@
   align-items: center;
   gap: 6px;
   min-width: 0;
-  color: var(--color-one-muted);
+  color: var(--k-muted);
   font-size: 14px;
 }
 
@@ -239,7 +239,7 @@
 }
 
 .cm-log-food-add-heading {
-  color: var(--color-one-muted);
+  color: var(--k-muted);
 }
 
 .cm-log-food-add-buttons {
@@ -249,7 +249,7 @@
 
 .cm-log-food-preview {
   flex: 1 1 100%;
-  color: var(--color-one-fg);
+  color: var(--k-ink);
   font-variant-numeric: tabular-nums;
   overflow-wrap: anywhere;
 }
@@ -264,10 +264,10 @@
   min-height: 44px;
   min-width: 44px;
   padding: 0 14px;
-  border: 1px solid var(--color-one-selection);
+  border: 1px solid var(--k-rule);
   border-radius: 6px;
-  background: var(--color-one-panel);
-  color: var(--color-one-fg);
+  background: var(--k-paper);
+  color: var(--k-ink);
   font: inherit;
   font-size: 14px;
   white-space: nowrap;
@@ -275,7 +275,7 @@
 
 .cm-log-food-close,
 .cm-log-food-back {
-  color: var(--color-one-muted);
+  color: var(--k-muted);
 }
 
 .cm-log-food-log:hover,
@@ -285,11 +285,11 @@
 .cm-log-food-close:hover,
 .cm-log-food-scan:hover,
 .cm-log-food-torch:hover {
-  background: var(--color-one-hover);
+  background: var(--k-surface);
 }
 
 .cm-log-food-torch[aria-pressed="true"] {
-  background: var(--color-one-selection);
+  background: var(--k-rule);
 }
 
 /* The query and the scan button share one row, and the query takes the room. */
@@ -325,13 +325,13 @@
 .cm-log-food-close:focus-visible,
 .cm-log-food-scan:focus-visible,
 .cm-log-food-torch:focus-visible {
-  outline: 2px solid var(--color-one-accent);
+  outline: 2px solid var(--k-accent);
   outline-offset: 1px;
 }
 
 /* The search's refusal and the serving's refusal, in the warn colour. */
 .cm-log-food-why {
-  color: var(--color-one-warn);
+  color: var(--k-danger);
   font-size: 0.8em;
   overflow-wrap: anywhere;
 }

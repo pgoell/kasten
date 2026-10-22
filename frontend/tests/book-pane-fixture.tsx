@@ -10,8 +10,12 @@ export const NOTE = "20 Literature/DDIA.md";
 /** The file the vault answers sits beside it, which the pane works out none of. */
 export const BOOK = "20 Literature/DDIA.epub";
 
-/** What the One background reads as, so the styling case has a value to find. */
-export const BACKGROUND = "#282c34";
+/**
+ * The dark `--k-bg`, set on the page by the styling case so it has a value to find.
+ * It is the same hex as the token in `kasten-theme.css`, so the case does not
+ * depend on the stylesheet being loaded.
+ */
+export const BACKGROUND = "#141414";
 
 /** A place in a book, as the note's block holds it. */
 export const CFI = "epubcfi(/6/14!/4/2/2/1:0)";

@@ -179,8 +179,8 @@ describe("the contents over a book", () => {
     contents.press("j");
 
     const [first, second] = contents.options();
-    expect(first).not.toHaveClass("bg-one-hover");
-    expect(second).toHaveClass("bg-one-hover");
+    expect(first).not.toHaveClass("bg-k-surface");
+    expect(second).toHaveClass("bg-k-surface");
   });
 
   it("stops at both ends rather than wrapping", () => {

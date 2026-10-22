@@ -20,7 +20,7 @@ interface ImagePaneProps {
   onDelete: () => void;
 }
 
-const LABEL = "shrink-0 text-[11px] tracking-wide text-one-muted uppercase";
+const LABEL = "shrink-0 text-[11px] tracking-wide text-k-muted uppercase";
 
 /** How long `delete?` waits for its second tap. */
 const ARMED_MS = 5000;
@@ -248,11 +248,11 @@ export function ImagePane({ path, commands, focusSignal, onDelete }: ImagePanePr
       tabIndex={-1}
       onKeyDown={onKeyDown}
       aria-label="image"
-      className="flex h-full flex-col bg-one-bg font-mono outline-none"
+      className="flex h-full flex-col bg-k-bg font-mono outline-none"
     >
-      <header className="flex items-center gap-3 border-b border-one-line px-3 py-1">
+      <header className="flex items-center gap-3 border-b border-k-rule px-3 py-1">
         <span className={LABEL}>image</span>
-        <span className="min-w-0 flex-1 truncate text-[13px] text-one-fg" title={path}>
+        <span className="min-w-0 flex-1 truncate text-[13px] text-k-ink" title={path}>
           {path}
         </span>
         {/* `d` for a finger. It asks once, a thumb landing wide of where it
@@ -266,7 +266,7 @@ export function ImagePane({ path, commands, focusSignal, onDelete }: ImagePanePr
           aria-pressed={armed === path}
           onClick={() => (armed === path ? onDelete() : setArmed(path))}
           className={`hidden min-h-11 shrink-0 px-2 text-[11px] tracking-wide uppercase pointer-coarse:block ${
-            armed === path ? "text-one-warn" : "text-one-muted"
+            armed === path ? "text-k-danger" : "text-k-muted"
           }`}
         >
           {armed === path ? "delete?" : "delete"}
@@ -284,8 +284,8 @@ export function ImagePane({ path, commands, focusSignal, onDelete }: ImagePanePr
         className="flex min-h-0 flex-1 touch-none items-center justify-center overflow-hidden p-4"
       >
         {failed === path ? (
-          <p role="alert" className="text-[13px] text-one-muted">
-            No image at <span className="text-one-fg">{path}</span>
+          <p role="alert" className="text-[13px] text-k-muted">
+            No image at <span className="text-k-ink">{path}</span>
           </p>
         ) : (
           <img

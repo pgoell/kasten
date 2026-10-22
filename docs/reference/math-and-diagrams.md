@@ -126,5 +126,5 @@ nothing new.
 
 Agents write diagrams into notes, so kasten treats a diagram as text it did not
 write. Mermaid runs at its strict security level: it drops `click` handlers
-and passes every label through DOMPurify. Diagrams use mermaid's dark theme,
-the one nearest One Dark.
+and passes every label through DOMPurify. Diagrams use mermaid's dark theme in
+both of kasten's themes, light and dark, until #835 lets them follow the switch.

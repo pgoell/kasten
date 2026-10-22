@@ -33,13 +33,13 @@
 
 /* `![[note]]`, another note drawn in this one. The bar and the well make it read
    as quoted rather than as more of this note, the bar matching the blockquote's.
-   The nested editor's own background goes, or oneDark would paint a second
-   panel over the well. */
+   The nested editor's own background goes, or the editor theme in
+   lib/editor-theme.ts would paint a second panel over the well. */
 .cm-embed {
   display: block;
   max-width: 100%;
-  border-left: 3px solid var(--color-one-muted);
-  background: var(--color-one-well);
+  border-left: 3px solid var(--k-muted);
+  background: var(--k-inset);
   border-radius: 3px;
   padding: 0.25em 0.75em;
 }
@@ -62,12 +62,12 @@
    a name in a box, muted, the box saying where the note would have been. */
 .cm-embed-missing,
 .cm-embed-stub {
-  color: var(--color-one-muted);
+  color: var(--k-muted);
   font-style: italic;
 }
 
 .cm-embed-stub {
   display: block;
-  border-left: 3px dashed var(--color-one-muted);
+  border-left: 3px dashed var(--k-muted);
   padding: 0.25em 0.75em;
 }

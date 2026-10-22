@@ -293,13 +293,29 @@ describe("a callout", () => {
     expect(rule).not.toMatch(/\b(width|white-space|min-width)\s*:/);
   });
 
-  it("gives every kind a colour from the palette", () => {
+  it("gives every kind a colour token", () => {
     const css = readFileSync("src/styles/app.css", "utf8");
     const kinds = new Set(NAMES.map(([, kind]) => kind));
+    // The token each kind reads, as app.css sets it.
+    const token: Record<string, string> = {
+      note: "--k-accent",
+      abstract: "--k-info",
+      info: "--k-accent",
+      todo: "--k-accent",
+      tip: "--k-info",
+      success: "--k-ok",
+      question: "--k-warn",
+      warning: "--k-warn",
+      failure: "--k-danger",
+      danger: "--k-danger",
+      bug: "--k-danger",
+      example: "--tg-4",
+      quote: "--k-muted",
+    };
 
     expect(kinds.size).toBe(13);
     for (const kind of kinds) {
-      expect(css).toMatch(new RegExp(`--callout-${kind}:\\s*var\\(--color-one-[a-z]+\\)`));
+      expect(css).toContain(`--callout-${kind}: var(${token[kind]});`);
       expect(css).toMatch(
         new RegExp(`\\.cm-callout-${kind}\\s*{[^}]*--callout-color:\\s*var\\(--callout-${kind}\\)`),
       );

@@ -10,8 +10,11 @@ import { stubCommands } from "./stub-commands";
 // xterm draws into a canvas and measures fonts, neither of which jsdom has.
 // What the pane does with a socket is the question here, and the only part of
 // the terminal that answers it is what got written.
-const { written, term } = vi.hoisted(() => ({
+const { written, term, terminals, listeners } = vi.hoisted(() => ({
   written: [] as unknown[],
+  /** Every terminal made, with the options it was given: the theme is read off them. */
+  terminals: [] as Array<{ options: { theme: unknown } }>,
+  listeners: [] as Array<() => void>,
   /**
    * What the keyboard under the row would do: type, and switch DECCKM. `keys`
    * is the pane's own key handler, which a hardware key reaches first.
@@ -22,11 +25,22 @@ const { written, term } = vi.hoisted(() => ({
     modes: { applicationCursorKeysMode: false },
   },
 }));
+vi.mock("@/lib/theme", () => ({
+  onThemeChange: (listener: () => void) => {
+    listeners.push(listener);
+    return () => {};
+  },
+}));
 vi.mock("@xterm/xterm", () => ({
   Terminal: class {
     cols = 80;
     rows = 24;
     modes = term.modes;
+    options: { theme: unknown };
+    constructor(options: { theme: unknown }) {
+      this.options = options;
+      terminals.push(this);
+    }
     open() {}
     attachCustomKeyEventHandler(handler: (event: KeyboardEvent) => boolean) {
       term.keys = handler;
@@ -116,6 +130,8 @@ function screenText(): string {
 describe("TerminalPane", () => {
   beforeEach(() => {
     written.length = 0;
+    terminals.length = 0;
+    listeners.length = 0;
     term.modes.applicationCursorKeysMode = false;
     FakeSocket.last = null;
     vi.stubGlobal("WebSocket", FakeSocket);
@@ -132,6 +148,22 @@ describe("TerminalPane", () => {
     cleanup();
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
+    document.documentElement.removeAttribute("style");
+  });
+
+  it("the terminal takes the new colours after a theme switch", () => {
+    document.documentElement.style.setProperty("--k-bg", "#ffffff");
+    document.documentElement.style.setProperty("--k-ink", "#000000");
+    render(<TerminalPane session="notes" commands={stubCommands()} />);
+
+    document.documentElement.style.setProperty("--k-bg", "#1d2026");
+    document.documentElement.style.setProperty("--k-ink", "#d7dae0");
+    act(() => listeners[0]?.());
+
+    expect(terminals.at(-1)?.options.theme).toMatchObject({
+      background: "#1d2026",
+      foreground: "#d7dae0",
+    });
   });
 
   it("says the shell could not be reached when the socket never opens", () => {

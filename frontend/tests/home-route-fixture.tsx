@@ -264,7 +264,7 @@ export async function renderApp(entry = "/") {
     /** Which pane the route is drawing as the focused one, by position. */
     focusedPane: () =>
       [...container.querySelectorAll("[data-pane]")].findIndex((pane) =>
-        pane.className.includes("border-one-accent"),
+        pane.className.includes("border-k-accent"),
       ),
     /** The row being edited in the pane, as the input it turns into. */
     editedLine: () => container.querySelector("[aria-label='edit line']"),

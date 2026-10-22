@@ -24,7 +24,7 @@ import { useViewport } from "@/lib/use-viewport";
  * `INSET` in `use-book-take.ts` is measured against.
  */
 const TAKE =
-  "absolute flex h-6 -translate-x-1/2 -translate-y-full items-center rounded border border-one-muted bg-one-bg px-2 font-mono text-one-fg text-xs";
+  "absolute flex h-6 -translate-x-1/2 -translate-y-full items-center rounded border border-k-muted bg-k-bg px-2 font-mono text-k-ink text-xs";
 
 /**
  * A button in the footer, which is where a finger finds what a key does.
@@ -33,7 +33,7 @@ const TAKE =
  * `Take` as well: the phone draws its own copy menu over a selection and its
  * handles under it, which is where the mouse's button floats.
  */
-const TOUCH = "min-h-11 rounded border border-one-muted px-3 font-mono text-one-fg text-xs";
+const TOUCH = "min-h-11 rounded border border-k-muted px-3 font-mono text-k-ink text-xs";
 
 interface BookPaneProps {
   /** The note this reads beside. The vault answers which file sits with it. */
@@ -294,10 +294,10 @@ export function BookPane({
       {failed && (
         <div
           role="alert"
-          className="absolute inset-0 flex items-center justify-center bg-one-bg p-6 text-center font-mono text-one-muted text-sm"
+          className="absolute inset-0 flex items-center justify-center bg-k-bg p-6 text-center font-mono text-k-muted text-sm"
         >
           <p>
-            Nothing to read beside <span className="text-one-fg">{note}</span>
+            Nothing to read beside <span className="text-k-ink">{note}</span>
             <br />
             {BOOK_SUFFIXES.join(" or ")} of the same name goes here
           </p>

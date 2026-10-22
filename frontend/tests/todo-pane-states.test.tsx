@@ -20,7 +20,7 @@ describe("the todo pane", () => {
     // Third row: overdue holds one, and today holds the doing one before it.
     const blocked = pane.rows()[2] as HTMLElement;
     expect(blocked.textContent).toContain("ship it");
-    expect(blocked.className).toContain("text-one-muted");
+    expect(blocked.className).toContain("text-k-muted");
   });
 
   it("draws a waiting todo muted, with who it is on and for how long", async () => {
@@ -33,7 +33,7 @@ describe("the todo pane", () => {
     const waiting = pane.rows().find((row) => row.textContent?.includes("decision record"));
     expect(waiting?.textContent).toContain("◷");
     expect(waiting?.textContent).toContain("👤 7d Ada");
-    expect(waiting?.className).toContain("text-one-muted");
+    expect(waiting?.className).toContain("text-k-muted");
     expect(pane.footer()).toContain("1 open, 0 blocked, 1 waiting");
   });
 
@@ -81,8 +81,8 @@ describe("the todo pane", () => {
     expect(review?.textContent).toContain("◎");
     // Not held as blocked and waiting are: what it waits for is the owner's
     // eye, so it has to stand out rather than fade.
-    expect(review?.className).toContain("text-one-fg");
-    expect(review?.className).not.toContain("text-one-muted");
+    expect(review?.className).toContain("text-k-ink");
+    expect(review?.className).not.toContain("text-k-muted");
   });
 
   it("counts the rows waiting for review in the footer", async () => {

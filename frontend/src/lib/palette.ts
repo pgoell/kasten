@@ -11,6 +11,7 @@ import { LEADER, spelled, TAB_KEYS } from "@/lib/leader-keys";
 import { openFoodSearch } from "@/lib/log-card";
 import { DEFAULT_CONFIG, type LogKind, tapLine } from "@/lib/log-kinds";
 import { logDrinkInView } from "@/lib/log-write";
+import { toggleTheme } from "@/lib/theme";
 import { toggleVim } from "@/lib/vim-setting";
 
 /**
@@ -184,6 +185,7 @@ export function paletteEntries(
       },
     },
     { label: "Toggle vim keys", run: toggleVim },
+    { label: "Toggle light and dark mode", run: toggleTheme },
   ];
   if (view === null) return routed;
 

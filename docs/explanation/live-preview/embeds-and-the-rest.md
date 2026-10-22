@@ -35,21 +35,22 @@ lining the columns up rather than the spaces.
 
 Once the marks are hidden, the only thing left saying that a word is bold is
 that it is bold, and on a screen of prose weight and slope are easy to miss and
-easy to confuse with each other. So each inline construct takes a colour of the
-One Dark palette, and no two share one:
+easy to confuse with each other. The [design tokens](/reference/design-tokens.md)
+keep colour for accents, links, highlights and tags, so only those take a hue
+and the rest are told apart by weight, slope, face and ground:
 
 | construct | how it reads |
 | --- | --- |
-| bold | heavier, and lifted off the body colour |
-| italic | slanted, in orange |
-| tag | purple, on a wash of itself |
-| link and wikilink | blue, underlined |
-| inline code | green, monospaced, on the panel colour |
-| highlight | a yellow wash under the body colour |
+| bold | heavier, in the ink colour |
+| italic | slanted, in the ink colour |
+| tag | the accent, on the accent's wash |
+| link and wikilink | the link colour, underlined |
+| inline code | monospaced, a softer ink on the inset ground |
+| highlight | the mark wash under the ink colour |
 | strikethrough | struck through, in the muted colour |
 
-Bold is the one that takes no hue. It is the same words said louder rather than
-a different kind of word, so it brightens instead.
+A link and a tag are the two that take the accent's blue: both lead somewhere
+else, a link to its note and a tag to the notes that share it.
 
 ## An embed is a note, read only
 

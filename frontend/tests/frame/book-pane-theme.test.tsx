@@ -67,9 +67,9 @@ const ALT = ["#art", "#linkpic", "#obj"];
 
 /** What every chapter of `dark-text.epub` should look like on the dark page. */
 function expectThemed(doc: Document): void {
-  const fg = themeColour("--color-one-fg");
-  const accent = themeColour("--color-one-accent");
-  const bg = themeColour("--color-one-bg");
+  const fg = themeColour("--k-ink");
+  const accent = themeColour("--k-link");
+  const bg = themeColour("--k-bg");
   for (const selector of TEXT) expect(computed(doc, selector, "color"), selector).toBe(fg);
   for (const selector of LINKS) expect(computed(doc, selector, "color"), selector).toBe(accent);
   for (const selector of WHITE)
@@ -107,12 +107,12 @@ describe("the reader over a real book", () => {
   it("paints a paragraph the book colours black in the theme's text", async () => {
     const { doc } = await drawDark();
 
-    expect(computed(doc, "#plain", "color")).toBe(themeColour("--color-one-fg"));
+    expect(computed(doc, "#plain", "color")).toBe(themeColour("--k-ink"));
   }, 30_000);
 
   it("paints a span, a list item and a table cell under the book's classes in the theme's text", async () => {
     const { doc } = await drawDark();
-    const fg = themeColour("--color-one-fg");
+    const fg = themeColour("--k-ink");
 
     for (const selector of ["#ink", "#item", "#cell"])
       expect(computed(doc, selector, "color"), selector).toBe(fg);
@@ -121,12 +121,12 @@ describe("the reader over a real book", () => {
   it("paints a link the book gives a class colour in the theme's accent", async () => {
     const { doc } = await drawDark();
 
-    expect(computed(doc, "#link", "color")).toBe(themeColour("--color-one-accent"));
+    expect(computed(doc, "#link", "color")).toBe(themeColour("--k-link"));
   }, 30_000);
 
   it("drops the light background the book sets on a block, and keeps the page and the image", async () => {
     const { doc } = await drawDark();
-    const bg = themeColour("--color-one-bg");
+    const bg = themeColour("--k-bg");
 
     expect(computed(doc, "#box", "backgroundColor")).toBe("rgba(0, 0, 0, 0)");
     expect(computed(doc, "#cell", "backgroundColor")).toBe("rgba(0, 0, 0, 0)");
@@ -143,19 +143,19 @@ describe("the reader over a real book", () => {
   it("paints a heading the book colours red in the theme's text", async () => {
     const { doc } = await drawDark();
 
-    expect(computed(doc, "#heading", "color")).toBe(themeColour("--color-one-fg"));
+    expect(computed(doc, "#heading", "color")).toBe(themeColour("--k-ink"));
   }, 30_000);
 
   it("beats a colour the book marks important on a class", async () => {
     const { doc } = await drawDark();
 
-    expect(computed(doc, "#strong", "color")).toBe(themeColour("--color-one-fg"));
+    expect(computed(doc, "#strong", "color")).toBe(themeColour("--k-ink"));
   }, 30_000);
 
   it("paints a dark span inside a link in the theme's accent", async () => {
     const { doc } = await drawDark();
 
-    expect(computed(doc, "#deep", "color")).toBe(themeColour("--color-one-accent"));
+    expect(computed(doc, "#deep", "color")).toBe(themeColour("--k-link"));
   }, 30_000);
 
   it("keeps the yellow the browser gives a mark", async () => {
@@ -169,7 +169,7 @@ describe("the reader over a real book", () => {
 
   it("drops the white the book puts behind a figure, and keeps the text around it in the theme's", async () => {
     const { doc } = await drawDark();
-    const fg = themeColour("--color-one-fg");
+    const fg = themeColour("--k-ink");
 
     expect(computed(doc, "#figure", "backgroundColor")).toBe("rgba(0, 0, 0, 0)");
     expect(computed(doc, "#caption", "color")).toBe(fg);
@@ -179,7 +179,7 @@ describe("the reader over a real book", () => {
   it("paints a heading inside an anchor with no href in the theme's text", async () => {
     // An `<a id>` is a place to jump to and not a link, so it takes no accent (#470).
     const { doc } = await drawDark();
-    const fg = themeColour("--color-one-fg");
+    const fg = themeColour("--k-ink");
 
     for (const selector of ["#anchored", "#chap1"])
       expect(computed(doc, selector, "color"), selector).toBe(fg);
@@ -188,7 +188,7 @@ describe("the reader over a real book", () => {
   it("paints a span inside an anchor with no href in the theme's text", async () => {
     const { doc } = await drawDark();
 
-    expect(computed(doc, "#anchorspan", "color")).toBe(themeColour("--color-one-fg"));
+    expect(computed(doc, "#anchorspan", "color")).toBe(themeColour("--k-ink"));
   }, 30_000);
 
   it("keeps the theme's colours in the next chapter, after a turn", async () => {

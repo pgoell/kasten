@@ -316,12 +316,12 @@ export function backImages(doc: Document): ResizeObserver | undefined {
 export function pageStyles(): string {
   const style = getComputedStyle(document.documentElement);
   const read = (name: string) => style.getPropertyValue(name).trim();
-  const fg = read("--color-one-fg");
+  const fg = read("--k-ink");
 
   return [
-    `html:not(#\\#), html:not(#\\#) body { background: ${read("--color-one-bg")} !important; color: ${fg} !important; }`,
+    `html:not(#\\#), html:not(#\\#) body { background: ${read("--k-bg")} !important; color: ${fg} !important; }`,
     `body:not(#\\#) :not(mark, mark *) { color: ${fg} !important; background-color: transparent !important; }`,
-    `body:not(#\\#) :is(a:any-link, a:any-link *) { color: ${read("--color-one-accent")} !important; }`,
+    `body:not(#\\#) :is(a:any-link, a:any-link *) { color: ${read("--k-link")} !important; }`,
     `body:not(#\\#) :is(img, picture, svg:not(:has(image)), object):not(#\\#) { color: #000 !important; }`,
     `body:not(#\\#) :is(img[${BACKING}], picture:has(> img[${BACKING}]), svg:not(:has(image)), object):not(#\\#) { background-color: #fff !important; }`,
     `body:not(#\\#) :is(svg, svg *):not(#\\#) { color: #000 !important; }`,

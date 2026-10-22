@@ -25,7 +25,7 @@ export function TodoFooter(p: {
         hints a phone squeezed it to a word per line (#488). */
     <footer
       data-testid="todo-footer"
-      className="flex justify-between gap-3 border-t border-one-line px-3 py-1 text-[11px] text-one-muted"
+      className="flex justify-between gap-3 border-t border-k-rule px-3 py-1 text-[11px] text-k-muted"
     >
       <span>
         {board ? (

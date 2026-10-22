@@ -68,17 +68,17 @@ function Tokens() {
   }
 
   return (
-    <main className="min-h-dvh bg-one-bg font-mono text-one-fg">
+    <main className="min-h-dvh bg-k-bg font-mono text-k-ink">
       <div className="mx-auto flex max-w-3xl flex-col gap-6 p-6">
         <header className="flex items-baseline gap-3">
           <h1 className="text-[15px]">agent tokens</h1>
-          <span className="text-[11px] text-one-muted uppercase tracking-wider">
+          <span className="text-[11px] text-k-muted uppercase tracking-wider">
             {tokens?.length ?? 0} in the vault
           </span>
         </header>
 
-        <p className="text-[13px] text-one-muted">
-          A token reaches <span className="text-one-fg">/agent/</span> and nothing else: list, read,
+        <p className="text-[13px] text-k-muted">
+          A token reaches <span className="text-k-ink">/agent/</span> and nothing else: list, read,
           search, query the graph, save, append and dump. It cannot delete, move or rename anything.
           The secret is shown once, here, and is never recoverable afterwards.
         </p>
@@ -91,30 +91,28 @@ function Tokens() {
           }}
         >
           <label className="flex min-w-0 flex-1 items-center gap-3" htmlFor="token-name">
-            <span className="text-[12px] text-one-muted">Name</span>
+            <span className="text-[12px] text-k-muted">Name</span>
             <input
               id="token-name"
               value={name}
               onChange={(event) => setName(event.target.value)}
               placeholder="laptop"
-              className="min-h-11 min-w-0 flex-1 rounded border border-one-line bg-transparent px-3 text-[13px] outline-none focus:border-one-accent pointer-coarse:text-base"
+              className="min-h-11 min-w-0 flex-1 rounded border border-k-rule bg-transparent px-3 text-[13px] outline-none focus:border-k-accent pointer-coarse:text-base"
             />
           </label>
           <button
             type="submit"
-            className="min-h-11 rounded border border-one-line px-4 text-[12px] text-one-muted hover:border-one-accent hover:text-one-accent"
+            className="min-h-11 rounded border border-k-rule px-4 text-[12px] text-k-muted hover:border-k-accent hover:text-k-accent"
           >
             Mint
           </button>
         </form>
 
         {minted !== null && (
-          <section className="flex flex-col gap-3 rounded border border-one-accent p-4">
+          <section className="flex flex-col gap-3 rounded border border-k-accent p-4">
             <div className="flex items-baseline gap-3">
               <span className="text-[13px]">{minted.name}</span>
-              <span className="text-[11px] text-one-muted uppercase tracking-wider">
-                shown once
-              </span>
+              <span className="text-[11px] text-k-muted uppercase tracking-wider">shown once</span>
             </div>
             <div className="flex items-center gap-2">
               <code className="min-w-0 flex-1 break-all text-[13px]">{minted.secret}</code>
@@ -125,14 +123,12 @@ function Tokens() {
                     setCopied(true);
                   });
                 }}
-                className="min-h-11 shrink-0 rounded border border-one-line px-3 text-[12px] text-one-muted hover:border-one-accent hover:text-one-accent"
+                className="min-h-11 shrink-0 rounded border border-k-rule px-3 text-[12px] text-k-muted hover:border-k-accent hover:text-k-accent"
               >
                 {copied ? "Copied" : "Copy"}
               </button>
             </div>
-            <code className="break-all text-[12px] text-one-muted">
-              {connectLine(minted.secret)}
-            </code>
+            <code className="break-all text-[12px] text-k-muted">{connectLine(minted.secret)}</code>
           </section>
         )}
 
@@ -140,7 +136,7 @@ function Tokens() {
           {tokens?.map((token) => (
             <li key={token.name} className="flex items-center gap-3">
               <span className="min-w-0 flex-1 truncate text-[13px]">{token.name}</span>
-              <span className="text-[12px] text-one-muted">
+              <span className="text-[12px] text-k-muted">
                 {new Date(token.created).toISOString().slice(0, 10)}
               </span>
               <button
@@ -154,7 +150,7 @@ function Tokens() {
                   if (window.confirm(`Revoke ${token.name}? Any agent using it stops working.`))
                     drop.mutate(token.name);
                 }}
-                className="min-h-11 rounded border border-one-line px-3 text-[12px] text-one-muted hover:border-one-accent hover:text-one-accent"
+                className="min-h-11 rounded border border-k-rule px-3 text-[12px] text-k-muted hover:border-k-accent hover:text-k-accent"
               >
                 Revoke
               </button>
@@ -163,13 +159,13 @@ function Tokens() {
         </ul>
 
         {tokens?.length === 0 && (
-          <p className="text-[13px] text-one-muted">
+          <p className="text-[13px] text-k-muted">
             No tokens yet. Nothing outside this box can reach the vault until there is one.
           </p>
         )}
 
         {failed !== null && (
-          <p role="alert" className="text-one-muted">
+          <p role="alert" className="text-k-muted">
             {failed}
           </p>
         )}

@@ -94,30 +94,26 @@ export function ReviewParked({ onLeave, onOpen, archive = false }: ReviewParkedP
   }
 
   return (
-    <div className="flex h-full flex-col bg-one-bg font-mono text-one-fg">
-      <header className="flex items-center gap-3 border-one-line border-b px-3 py-2">
-        <button
-          type="button"
-          onClick={onLeave}
-          className="min-h-11 px-1 text-[13px] text-one-muted"
-        >
+    <div className="flex h-full flex-col bg-k-bg font-mono text-k-ink">
+      <header className="flex items-center gap-3 border-k-rule border-b px-3 py-2">
+        <button type="button" onClick={onLeave} className="min-h-11 px-1 text-[13px] text-k-muted">
           ← Decks
         </button>
         <span className="min-w-0 flex-1 truncate text-[13px]">parked</span>
-        <span className="text-[11px] text-one-muted uppercase tracking-wider">
+        <span className="text-[11px] text-k-muted uppercase tracking-wider">
           {rows.length} parked
         </span>
       </header>
 
       <div className="min-h-0 flex-1 overflow-auto p-3">
         {texts === null && failed === null && (
-          <p className="text-one-muted text-[13px]">Reading the notes…</p>
+          <p className="text-k-muted text-[13px]">Reading the notes…</p>
         )}
 
         {texts !== null && rows.length === 0 && (
-          <p className="text-one-muted text-[13px]">
+          <p className="text-k-muted text-[13px]">
             Nothing parked. A card leaves the review when you write{" "}
-            <span className="text-one-fg">!suspended</span> beside it, or when its answer is not
+            <span className="text-k-ink">!suspended</span> beside it, or when its answer is not
             written yet.
           </p>
         )}
@@ -131,16 +127,16 @@ export function ReviewParked({ onLeave, onOpen, archive = false }: ReviewParkedP
                 // Deliberately not `data-deck`, which is the selector the pane's
                 // deck keys query.
                 data-parked={`${row.note}:${row.at}`}
-                className="flex min-h-11 min-w-0 flex-1 items-center gap-3 rounded border border-one-line px-3 py-2 text-left hover:border-one-accent"
+                className="flex min-h-11 min-w-0 flex-1 items-center gap-3 rounded border border-k-rule px-3 py-2 text-left hover:border-k-accent"
               >
                 <span className="min-w-0 flex-1 truncate text-[13px]">{row.front}</span>
                 {/* A deck under two others is a name longer than a phone has
                     room for beside the question, and it would push through
                     the side of the row rather than shrink. */}
-                <span className="text-[12px] text-one-muted max-md:max-w-[40%] max-md:truncate">
+                <span className="text-[12px] text-k-muted max-md:max-w-[40%] max-md:truncate">
                   {row.deck}
                 </span>
-                <span className="text-[12px] text-one-muted opacity-60">{row.reason}</span>
+                <span className="text-[12px] text-k-muted opacity-60">{row.reason}</span>
               </button>
               {/* Only where there is a token to take off. A question with no
                   answer has none, and its answer is written in the editor,
@@ -150,7 +146,7 @@ export function ReviewParked({ onLeave, onOpen, archive = false }: ReviewParkedP
                   type="button"
                   onClick={() => putBack(row)}
                   data-unpark={`${row.note}:${row.at}`}
-                  className="min-h-11 rounded border border-one-line px-3 text-[12px] text-one-muted hover:border-one-accent hover:text-one-accent"
+                  className="min-h-11 rounded border border-k-rule px-3 text-[12px] text-k-muted hover:border-k-accent hover:text-k-accent"
                 >
                   Put back
                 </button>
@@ -160,7 +156,7 @@ export function ReviewParked({ onLeave, onOpen, archive = false }: ReviewParkedP
         </ul>
 
         {failed !== null && (
-          <p role="alert" className="mt-6 text-one-muted">
+          <p role="alert" className="mt-6 text-k-muted">
             The note could not be read: {failed}
           </p>
         )}

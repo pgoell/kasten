@@ -6,7 +6,7 @@
 
 .cm-bullet::before {
   content: "• ";
-  color: var(--color-one-accent);
+  color: var(--k-accent);
 }
 
 /* A todo is a bullet whose dot says what state it is in. The box is hidden
@@ -18,31 +18,31 @@
 
 .cm-todo-open::before {
   content: "☐ ";
-  color: var(--color-one-muted);
+  color: var(--k-muted);
 }
 
 .cm-todo-doing::before {
   content: "◐ ";
-  color: var(--color-one-accent);
+  color: var(--k-accent);
 }
 
 .cm-todo-done::before {
   content: "☑ ";
-  color: var(--color-one-green);
+  color: var(--k-ok);
 }
 
 /* Yellow, the colour this palette waits in. Blocked is not a failure and not a
    finish: it is a todo somebody else is holding. */
 .cm-todo-blocked::before {
   content: "⊘ ";
-  color: var(--color-one-yellow);
+  color: var(--k-warn);
 }
 
 /* Yellow as blocked is, for the same reason: somebody else is holding it. The
    clock says it is a person the todo waits on and not another todo. */
 .cm-todo-waiting::before {
   content: "◷ ";
-  color: var(--color-one-yellow);
+  color: var(--k-warn);
 }
 
 /* Purple, a colour no other state wears: the work is done and the owner's
@@ -50,33 +50,33 @@
    Not muted or struck either, being still open. */
 .cm-todo-review::before {
   content: "◎ ";
-  color: var(--color-one-purple);
+  color: var(--tg-4);
 }
 
 /* Red, so a dropped todo is not read as an open one: muted is what an empty box
    wears, and the two boxes differ by one stroke. */
 .cm-todo-rejected::before {
   content: "☒ ";
-  color: var(--color-one-warn);
+  color: var(--k-danger);
 }
 
 /* Off the list either way, whether it was finished or dropped, so the words
    step back the way a struck-through span does. */
 .cm-todo-done,
 .cm-todo-rejected {
-  color: var(--color-one-muted);
+  color: var(--k-muted);
   text-decoration: line-through;
 }
 
 /* A date that has passed. Red on the text rather than on the row: the row is
    still a todo like any other, and one word of it is the news. */
 .cm-todo-overdue {
-  color: var(--color-one-warn);
+  color: var(--k-danger);
 }
 
 /* How many of a parent's parts are closed, drawn after its words. Muted: it is
    a reading of the lines below rather than anything somebody typed. */
 .cm-todo-progress {
   margin-left: 0.6em;
-  color: var(--color-one-muted);
+  color: var(--k-muted);
 }

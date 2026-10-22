@@ -69,7 +69,7 @@ async function mount(): Promise<void> {
     await router.load();
   });
   host = document.body.appendChild(document.createElement("div"));
-  host.className = "h-dvh bg-one-bg";
+  host.className = "h-dvh bg-k-bg";
   root = createRoot(host);
   await act(async () => {
     root?.render(

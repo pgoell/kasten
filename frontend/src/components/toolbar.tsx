@@ -54,7 +54,7 @@ export function Toolbar({ commands, split, inert }: ToolbarProps) {
       inert={inert}
       // Always the foot of the page where it is drawn, so it takes the home
       // indicator's inset.
-      className={`safe-foot flex shrink-0 flex-wrap gap-px border-one-line border-t bg-one-panel ${LABEL}`}
+      className={`safe-foot flex shrink-0 flex-wrap gap-px border-k-rule border-t bg-k-paper ${LABEL}`}
     >
       {buttons.map(({ command, label, name }) => (
         <button
@@ -69,7 +69,7 @@ export function Toolbar({ commands, split, inert }: ToolbarProps) {
           onPointerDown={(event) => event.preventDefault()}
           onMouseDown={(event) => event.preventDefault()}
           onClick={() => commands[command]()}
-          className="min-h-11 min-w-11 flex-1 uppercase active:bg-one-hover active:text-one-accent"
+          className="min-h-11 min-w-11 flex-1 uppercase active:bg-k-surface active:text-k-accent"
         >
           {label}
         </button>

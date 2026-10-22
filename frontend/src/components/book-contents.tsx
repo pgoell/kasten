@@ -194,7 +194,7 @@ export function BookContents({ rows, start, onGo, onClose }: BookContentsProps) 
               style={{ paddingLeft: `${0.75 + row.depth * 0.75}rem` }}
               // 44px under a finger. A mouse keeps the row it had.
               className={`${ROW} truncate pointer-coarse:min-h-11 ${
-                index === cursor ? "bg-one-hover text-one-accent" : "text-one-fg"
+                index === cursor ? "bg-k-surface text-k-accent" : "text-k-ink"
               }`}
             >
               {row.label}

@@ -1,0 +1,156 @@
+/* kasten's design tokens: light on :root, dark on [data-theme="dark"]. Plain
+   CSS with no Tailwind in it, so a page outside the app can read the file as it
+   stands; `app.css` maps the names onto Tailwind in its own `@theme inline`. */
+
+:root {
+  color-scheme: light;
+
+  --k-bg: #f6f6f4;
+  --k-paper: #fbfbfa;
+  --k-surface: #ebebe8;
+  --k-ink: #1c1c1b;
+  --k-ink-soft: #3b3b39;
+  --k-muted: #666663;
+  --k-rule: #e1e1de;
+  --k-rule-strong: #1c1c1b;
+  --k-inset: rgba(28,28,27,.06);
+  /* Vandar Poel's blue for the accent. Link and accent are two names for
+     one value, as the issue gives them. */
+  --k-accent: #316f90;
+  --k-link: #316f90;
+  --k-accent-wash: rgba(49,111,144,.11);
+  /* Yellow Orange #f99d1b at 22 %. Highlight and mark are two names for one
+     value, as the issue gives them. */
+  --k-highlight: rgba(249,157,27,.22);
+  --k-mark: rgba(249,157,27,.22);
+  --k-ok: #247b4b;
+  --k-warn: #8d5e09;
+  --k-info: #4a6d89;
+  --k-danger: #9a5143;
+  --k-shadow: 0 1px 2px rgba(0,0,0,.05),0 12px 32px rgba(0,0,0,.09);
+
+  --tg-1: #b05459;
+  --tg-2: #5b8230;
+  --tg-3: #307baf;
+  --tg-4: #9c5a8d;
+  --tg-5: #7f7800;
+  --tg-6: #0f848a;
+  --tg-7: #8a639a;
+  --tg-8: #a66218;
+  --tg-9: #338756;
+  --tg-10: #7567b1;
+  --tg-none: #9b9b99;
+
+  --k-serif: "Newsreader Variable", Georgia, serif;
+  --k-sans: "Instrument Sans Variable", system-ui, sans-serif;
+  --k-mono: "JetBrains Mono Variable", ui-monospace, monospace;
+
+  --k-text-12: 12px;
+  --k-text-13: 13px;
+  --k-text-15: 15px;
+  --k-text-19: 19px;
+  --k-text-23: 23px;
+  --k-text-27: 27px;
+  --k-text-36: 36px;
+  --k-text-46: 46px;
+  --k-text-64: 64px;
+
+  --k-leading-title: 1.1;
+  --k-leading-heading: 1.1;
+  --k-leading-ui: 1.5;
+  --k-leading-reading: 1.6;
+
+  --k-space-4: 4px;
+  --k-space-8: 8px;
+  --k-space-12: 12px;
+  --k-space-16: 16px;
+  --k-space-24: 24px;
+  --k-space-32: 32px;
+  --k-space-48: 48px;
+  --k-space-64: 64px;
+
+  --k-radius-4: 4px;
+  --k-radius-6: 6px;
+  --k-radius-8: 8px;
+  --k-measure: 680px;
+
+  /* Springs are a response time and a damping. Damping 1 settles without
+     overshoot; 0.8 is for a flick only. */
+  --k-press-scale: 0.97;
+  --k-press-in: 100ms;
+  --k-press-out: 160ms;
+  --k-hover: 150ms;
+  --k-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --k-spring-response: 0.32s;
+  --k-spring-damping: 1;
+  --k-spring-flick-damping: 0.8;
+  --k-spring-sheet-open: 0.35s;
+  --k-spring-sheet-close: 0.3s;
+  --k-spring-tab: 0.32s;
+  --k-spring-split: 0.34s;
+  --k-spring-card: 0.26s;
+  --k-stagger: 22ms;
+  --k-stagger-cap: 6;
+  --k-theme-fade: 240ms;
+
+  /* Large serif titles sit tighter than the text they head, small labels
+     open a little, and a kbd glyph opens more than either. */
+  --k-track-title: -0.017em;
+  --k-track-heading: -0.016em;
+  --k-track-body: 0em;
+  --k-track-label: 0.006em;
+  --k-track-kbd: 0.02em;
+}
+
+/* Only the colours change in dark. */
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --k-bg: #141414;
+  --k-paper: #1a1a1a;
+  --k-surface: #232323;
+  --k-ink: #e8e7e4;
+  --k-ink-soft: #c6c5c1;
+  --k-muted: #9a9995;
+  --k-rule: #2c2c2c;
+  --k-rule-strong: #e8e7e4;
+  --k-inset: rgba(232,231,228,.08);
+  --k-accent: #82b9d9;
+  --k-link: #82b9d9;
+  --k-accent-wash: rgba(130,185,217,.14);
+  /* Pale King's Blue #a7d4e4 at 18 %: the yellow orange of light read brown
+     on a dark ground. */
+  --k-highlight: rgba(167,212,228,.18);
+  --k-mark: rgba(167,212,228,.18);
+  --k-ok: #7acd97;
+  --k-warn: #e7aa53;
+  --k-info: #97bddb;
+  --k-danger: #f19f8f;
+  --k-shadow: 0 1px 2px rgba(0,0,0,.3),0 16px 40px rgba(0,0,0,.45);
+
+  --tg-1: #ea9799;
+  --tg-2: #9bbe7b;
+  --tg-3: #76b9ec;
+  --tg-4: #da99c9;
+  --tg-5: #bab567;
+  --tg-6: #56c4ca;
+  --tg-7: #c99fda;
+  --tg-8: #dfa26d;
+  --tg-9: #7cc495;
+  --tg-10: #b1a6ec;
+  --tg-none: #878783;
+}
+
+/* The cross-fade between the two themes. The reduced-motion reader gets the
+   switch with no fade at all. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: var(--k-theme-fade);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none;
+  }
+}

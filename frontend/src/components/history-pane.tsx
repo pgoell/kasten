@@ -24,7 +24,7 @@ interface HistoryPaneProps {
   onRestore: (text: string, against: string, from: string) => Promise<string | null>;
 }
 
-const LABEL = "shrink-0 text-[11px] tracking-wide text-one-muted uppercase";
+const LABEL = "shrink-0 text-[11px] tracking-wide text-k-muted uppercase";
 
 /** A change's time in the reader's own zone and words. */
 function when(time: string): string {
@@ -180,23 +180,23 @@ export function HistoryPane({ note, commands, focusSignal, onRestore }: HistoryP
       tabIndex={-1}
       onKeyDown={onKeyDown}
       aria-label="history"
-      className="flex h-full flex-col bg-one-bg font-mono outline-none"
+      className="flex h-full flex-col bg-k-bg font-mono outline-none"
     >
-      <header className="flex items-center gap-3 border-b border-one-line px-3 py-1">
+      <header className="flex items-center gap-3 border-b border-k-rule px-3 py-1">
         <span className={LABEL}>history</span>
-        <span className="min-w-0 flex-1 truncate text-[13px] text-one-fg" title={note}>
+        <span className="min-w-0 flex-1 truncate text-[13px] text-k-ink" title={note}>
           {noteName(note)}
         </span>
       </header>
 
       {empty !== null ? (
-        <p className="px-3 py-2 text-[13px] text-one-muted">{empty}</p>
+        <p className="px-3 py-2 text-[13px] text-k-muted">{empty}</p>
       ) : (
         <>
           <div
             role="listbox"
             aria-label="changes"
-            className="max-h-[40%] shrink-0 overflow-y-auto border-b border-one-line"
+            className="max-h-[40%] shrink-0 overflow-y-auto border-b border-k-rule"
           >
             {changes.map((each, at) => (
               <button
@@ -208,15 +208,15 @@ export function HistoryPane({ note, commands, focusSignal, onRestore }: HistoryP
                 tabIndex={-1}
                 onClick={() => pick(at)}
                 className={`flex w-full flex-col px-3 py-1 text-left text-[13px] pointer-coarse:min-h-11 ${
-                  at === cursor ? "bg-one-selection" : ""
-                } ${at === picked ? "text-one-accent" : "text-one-fg"}`}
+                  at === cursor ? "bg-k-accent-wash" : ""
+                } ${at === picked ? "text-k-accent" : "text-k-ink"}`}
               >
                 <span>
-                  <span className="text-one-muted">{when(each.time)}</span>{" "}
+                  <span className="text-k-muted">{when(each.time)}</span>{" "}
                   {each.description || each.change}
                 </span>
                 {each.path !== note && (
-                  <span className="text-[11px] text-one-muted">was {each.path}</span>
+                  <span className="text-[11px] text-k-muted">was {each.path}</span>
                 )}
               </button>
             ))}
@@ -233,11 +233,7 @@ export function HistoryPane({ note, commands, focusSignal, onRestore }: HistoryP
                   // biome-ignore lint/suspicious/noArrayIndexKey: lines repeat, and the list is redrawn whole.
                   key={at}
                   className={
-                    row.op === " "
-                      ? "text-one-muted"
-                      : row.op === "-"
-                        ? "text-one-warn"
-                        : "text-one-green"
+                    row.op === " " ? "text-k-muted" : row.op === "-" ? "text-k-danger" : "text-k-ok"
                   }
                 >
                   <span className="select-none">{row.op}</span>
@@ -246,13 +242,13 @@ export function HistoryPane({ note, commands, focusSignal, onRestore }: HistoryP
               ))}
           </div>
 
-          <footer className="flex items-center gap-3 border-t border-one-line px-3 py-1">
-            <output className="min-w-0 flex-1 truncate text-[12px] text-one-muted">{line}</output>
+          <footer className="flex items-center gap-3 border-t border-k-rule px-3 py-1">
+            <output className="min-w-0 flex-1 truncate text-[12px] text-k-muted">{line}</output>
             <button
               type="button"
               disabled={!ready}
               onClick={() => void restore()}
-              className="shrink-0 px-2 text-[12px] text-one-accent disabled:text-one-muted pointer-coarse:min-h-11"
+              className="shrink-0 px-2 text-[12px] text-k-accent disabled:text-k-muted pointer-coarse:min-h-11"
             >
               Restore
             </button>

@@ -316,7 +316,7 @@ function Home() {
   }, [commands, palette, agentTodo, kinds]);
 
   return (
-    <main ref={frame} className="safe-frame flex h-dvh flex-col bg-one-bg">
+    <main ref={frame} className="safe-frame flex h-dvh flex-col bg-k-bg">
       {/* min-h-0 lets the editor scroll instead of pushing the bar off-screen. */}
       <div className="flex min-h-0 flex-1">
         <FileExplorer

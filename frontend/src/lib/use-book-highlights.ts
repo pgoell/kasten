@@ -190,9 +190,9 @@ export function useBookHighlights(
       drawn.current = [];
 
       // Read the way `pageStyles` reads the palette, so the book, the app and the
-      // highlight stay one set of colours in `app.css`.
+      // highlight stay one set of colours in `kasten-theme.css`.
       const colour = getComputedStyle(document.documentElement)
-        .getPropertyValue("--color-one-accent")
+        .getPropertyValue("--k-accent")
         .trim();
 
       for (const entry of shown) {

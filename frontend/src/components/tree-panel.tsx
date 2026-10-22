@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useViewport } from "@/lib/use-viewport";
 
 const ICON_BUTTON =
-  "cursor-pointer rounded-sm p-1 text-one-muted hover:bg-one-hover hover:text-one-accent pointer-coarse:p-3.5";
+  "cursor-pointer rounded-sm p-1 text-k-muted hover:bg-k-surface hover:text-k-accent pointer-coarse:p-3.5";
 
 /** Panel widths, in pixels. The default is the `w-64` the panel used to be. */
 const DEFAULT_WIDTH = 256;
@@ -51,7 +51,7 @@ function Grip({ width, dragging, onResizeStart, onResizeBy, onReset }: GripProps
       onDoubleClick={onReset}
       onKeyDown={onKeyDown}
       className={`absolute inset-y-0 -right-0.5 z-10 w-1 cursor-col-resize touch-none focus-visible:outline-none ${
-        dragging ? "bg-one-accent" : "hover:bg-one-accent focus-visible:bg-one-accent"
+        dragging ? "bg-k-accent" : "hover:bg-k-accent focus-visible:bg-k-accent"
       }`}
     />
   );
@@ -144,7 +144,7 @@ export function TreePanel({ open, onOpenChange, onNewNote, children }: TreePanel
       // file tree" that Tab reaches behind the backdrop.
       <div
         inert={open}
-        className="flex shrink-0 flex-col items-center border-r border-one-line bg-one-panel p-1 pointer-coarse:p-0"
+        className="flex shrink-0 flex-col items-center border-r border-k-rule bg-k-paper p-1 pointer-coarse:p-0"
       >
         {toggle}
       </div>
@@ -159,7 +159,7 @@ export function TreePanel({ open, onOpenChange, onNewNote, children }: TreePanel
       style={narrow ? undefined : { width }}
       // z-15 puts the drawer over what a pane draws at z-10 and under the
       // prompts at z-20, so a prompt opened from the tree is not behind it.
-      className={`flex flex-col border-r border-one-line bg-one-panel font-mono ${
+      className={`flex flex-col border-r border-k-rule bg-k-paper font-mono ${
         // A drawer is `fixed` over the frame and gets none of its padding, so
         // it keeps its rows out from under the notch and the home indicator
         // itself (#355). It never reaches the right edge.
@@ -168,8 +168,8 @@ export function TreePanel({ open, onOpenChange, onNewNote, children }: TreePanel
           : "relative shrink-0"
       }`}
     >
-      <header className="flex items-center justify-between border-b border-one-line py-1 pr-1 pl-3 pointer-coarse:py-0 pointer-coarse:pr-0">
-        <span className="text-[11px] tracking-wider text-one-muted uppercase">Vault</span>
+      <header className="flex items-center justify-between border-b border-k-rule py-1 pr-1 pl-3 pointer-coarse:py-0 pointer-coarse:pr-0">
+        <span className="text-[11px] tracking-wider text-k-muted uppercase">Vault</span>
         <div className="flex items-center">
           <button
             type="button"

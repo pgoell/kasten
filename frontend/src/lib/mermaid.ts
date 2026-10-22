@@ -26,7 +26,7 @@ const loadMermaid = loadOnce(async (): Promise<Mermaid> => {
     // Thrown rather than drawn: mermaid's own error is a bomb picture left
     // in `document.body`, and the widget shows the message beside the source.
     suppressErrorRendering: true,
-    // The palette nearest One Dark, the only theme kasten has.
+    // Mermaid keeps its dark theme in both kasten themes for now, see #835.
     theme: "dark",
   });
   return mermaid;

@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "./kasten-theme.css";
 
 /* The rules for the live preview's parts and the weather card live in their
    own files. Tailwind inlines each import where it stands, so their rules still
@@ -12,37 +13,45 @@
 @import "./log-pane.css";
 @import "./live-preview-blocks.css";
 
-/* The One Dark palette CodeMirror's `oneDark` theme paints the editor with.
-   Repeated here so the chrome around the editor matches it exactly rather
-   than approximately. Values copied from @codemirror/theme-one-dark. */
-@theme {
-  --font-sans: "pgoell Sans Web", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "pgoell Mono Web", ui-monospace, monospace;
-  --color-one-bg: #282c34;
-  --color-one-panel: #21252b;
-  --color-one-hover: #2c313a;
-  --color-one-selection: #3e4451;
-  --color-one-fg: #abb2bf;
-  --color-one-muted: #7d8799;
-  --color-one-accent: #61afef;
-  --color-one-green: #98c379;
-  --color-one-warn: #e06c75;
-  --color-one-yellow: #e5c07b;
-  /* The rest of the One Dark palette, unused by the chrome and used below to
-     tell one inline construct from another. */
-  --color-one-orange: #d19a66;
-  --color-one-purple: #c678dd;
-  --color-one-cyan: #56b6c2;
-  /* The red the vim block cursor is painted in, borrowed from
-     @replit/codemirror-vim so the file tree's cursor reads as the same idea. */
-  --color-one-cursor: #ff9696;
-  --color-one-line: #181a1f;
-  /* The panel colour as a shade rather than a paint, for surfaces inside the
-     editor. CodeMirror draws the selection in a layer behind the text, so an
-     opaque background on a line or a mark hides the selection over it. Black
-     at this strength over the editor's background lands on the panel colour. */
-  --color-one-well: rgb(0 0 0 / 18%);
+/* Tailwind's names for the tokens in kasten-theme.css, so `bg-k-bg` and
+   `text-k-ink` exist. Inline, so each utility keeps its `var()` and follows
+   the theme switch instead of freezing the value at build time. */
+@theme inline {
+  --font-sans: var(--k-sans);
+  --font-serif: var(--k-serif);
+  --font-mono: var(--k-mono);
+  --color-k-bg: var(--k-bg);
+  --color-k-paper: var(--k-paper);
+  --color-k-surface: var(--k-surface);
+  --color-k-ink: var(--k-ink);
+  --color-k-ink-soft: var(--k-ink-soft);
+  --color-k-muted: var(--k-muted);
+  --color-k-rule: var(--k-rule);
+  --color-k-rule-strong: var(--k-rule-strong);
+  --color-k-inset: var(--k-inset);
+  --color-k-accent: var(--k-accent);
+  --color-k-link: var(--k-link);
+  --color-k-accent-wash: var(--k-accent-wash);
+  --color-k-highlight: var(--k-highlight);
+  --color-k-mark: var(--k-mark);
+  --color-k-ok: var(--k-ok);
+  --color-k-warn: var(--k-warn);
+  --color-k-info: var(--k-info);
+  --color-k-danger: var(--k-danger);
+  --color-tg-1: var(--tg-1);
+  --color-tg-2: var(--tg-2);
+  --color-tg-3: var(--tg-3);
+  --color-tg-4: var(--tg-4);
+  --color-tg-5: var(--tg-5);
+  --color-tg-6: var(--tg-6);
+  --color-tg-7: var(--tg-7);
+  --color-tg-8: var(--tg-8);
+  --color-tg-9: var(--tg-9);
+  --color-tg-10: var(--tg-10);
+  --color-tg-none: var(--tg-none);
+}
 
+@theme {
   /* What a refused key does to the one reading in the status bar. Long enough
      to be seen without watching for it, and over before a hand that noticed can
      press the key again, so the second press starts a flash of its own rather
@@ -53,7 +62,7 @@
   @keyframes flash {
     from {
       transform: scale(1.6);
-      color: var(--color-one-yellow);
+      color: var(--k-warn);
     }
     to {
       transform: scale(1);
@@ -86,7 +95,8 @@ body,
 }
 
 body {
-  background: var(--color-one-bg);
+  background: var(--k-bg);
+  color: var(--k-ink);
   font-family: var(--font-sans);
 }
 
@@ -118,7 +128,7 @@ body {
    `terminal-pane.tsx` rather than here, so which one lands last is a question
    about module order. Outranking it settles that without an `!important`. */
 .xterm .xterm-viewport.xterm-viewport {
-  background-color: var(--color-one-bg);
+  background-color: var(--k-bg);
 }
 
 /* A note is prose, so it is set in the proportional face. Monospace is kept for
@@ -143,23 +153,22 @@ body {
   padding-bottom: 0.4em;
 }
 
-/* Obsidian's callouts, a colour per kind as Obsidian gives them, taken from the
-   One Dark palette so each reads on the editor's background. An alias wears
+/* Obsidian's callouts, a colour per kind as Obsidian gives them. An alias wears
    the colour of the type it stands for, the editor naming the line by that. */
 :root {
-  --callout-note: var(--color-one-accent);
-  --callout-abstract: var(--color-one-cyan);
-  --callout-info: var(--color-one-accent);
-  --callout-todo: var(--color-one-accent);
-  --callout-tip: var(--color-one-cyan);
-  --callout-success: var(--color-one-green);
-  --callout-question: var(--color-one-yellow);
-  --callout-warning: var(--color-one-orange);
-  --callout-failure: var(--color-one-warn);
-  --callout-danger: var(--color-one-warn);
-  --callout-bug: var(--color-one-warn);
-  --callout-example: var(--color-one-purple);
-  --callout-quote: var(--color-one-muted);
+  --callout-note: var(--k-accent);
+  --callout-abstract: var(--k-info);
+  --callout-info: var(--k-accent);
+  --callout-todo: var(--k-accent);
+  --callout-tip: var(--k-info);
+  --callout-success: var(--k-ok);
+  --callout-question: var(--k-warn);
+  --callout-warning: var(--k-warn);
+  --callout-failure: var(--k-danger);
+  --callout-danger: var(--k-danger);
+  --callout-bug: var(--k-danger);
+  --callout-example: var(--tg-4);
+  --callout-quote: var(--k-muted);
 }
 
 /* The icon is a glyph rather than a drawing: the todos draw their boxes the
@@ -244,7 +253,7 @@ body {
    other the words someone wrote over a URL. */
 .cm-link,
 .cm-wikilink {
-  color: var(--color-one-accent);
+  color: var(--k-link);
   text-decoration: underline;
 }
 
@@ -261,7 +270,7 @@ body {
 }
 
 .cm-plain-brackets-heading {
-  color: var(--color-one-warn);
+  color: var(--k-ink);
 }
 
 /* `![[plan.pdf]]`: a box of fixed height that scrolls through the pages, the
@@ -278,7 +287,7 @@ body {
    crossed out or coloured like a warning: it is an invitation, not a mistake,
    and following it is what writes the note. */
 .cm-wikilink-dead {
-  color: var(--color-one-muted);
+  color: var(--k-muted);
   text-decoration-style: dotted;
 }
 
@@ -286,7 +295,7 @@ body {
    background: a one pixel band held at the middle. A border would sit at the
    foot of the row instead, leaving the gap above it and below it uneven. */
 .cm-line.cm-rule {
-  background-image: linear-gradient(var(--color-one-selection), var(--color-one-selection));
+  background-image: linear-gradient(var(--k-rule), var(--k-rule));
   background-size: 100% 1px;
   background-position: 0 50%;
   background-repeat: no-repeat;
@@ -298,8 +307,8 @@ body {
 .cm-inline-code {
   font-family: var(--font-mono);
   font-size: 0.9em;
-  background: var(--color-one-well);
-  color: var(--color-one-green);
+  background: var(--k-inset);
+  color: var(--k-ink-soft);
   border-radius: 3px;
   padding: 0.1em 0.3em;
 }
@@ -310,7 +319,7 @@ body {
 .cm-line.cm-code-block {
   font-family: var(--font-mono);
   font-size: 0.9em;
-  background: var(--color-one-well);
+  background: var(--k-inset);
   padding-left: 0.75em;
   padding-right: 0.75em;
 }
@@ -330,20 +339,20 @@ body {
 /* A fence that is on the screen, which is one the cursor is in or one with no
    code under it. Readable, and standing back from the code. */
 .cm-code-fence {
-  color: var(--color-one-muted);
+  color: var(--k-muted);
 }
 
 /* The line a search hit sits on, in the finder's preview pane. Painted rather
    than outlined, so it reads as the same highlight the list row carries. */
 .cm-searchHit {
-  background: var(--color-one-hover);
+  background: var(--k-highlight);
 }
 
 /* The answer side of a flashcard, which the accent colour is what tells apart
    from the question above it. The rendering under it paints its own text, so
    the colour has to reach past the wrapper to the lines themselves. */
 .review-back .cm-content {
-  color: var(--color-one-accent);
+  color: var(--k-accent);
 }
 
 /* A centred card's sound player. Tailwind's preflight makes an audio element

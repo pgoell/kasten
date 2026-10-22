@@ -198,11 +198,11 @@ function Capture() {
 
   return (
     // All four insets: nothing here writes the frame's bottom padding.
-    <main className="safe-frame safe-foot min-h-dvh bg-one-bg font-mono text-one-fg">
+    <main className="safe-frame safe-foot min-h-dvh bg-k-bg font-mono text-k-ink">
       <div className="mx-auto flex max-w-xl flex-col gap-4 p-4">
         <header className="flex items-baseline gap-3">
           <h1 className="text-[15px]">dump</h1>
-          <span className="text-[12px] text-one-muted">
+          <span className="text-[12px] text-k-muted">
             {today.date} {today.weekday}
           </span>
         </header>
@@ -217,7 +217,7 @@ function Capture() {
           aria-label="What is on your mind"
           rows={6}
           // 16px, because iOS zooms the page into any field set smaller.
-          className="min-h-40 w-full resize-y rounded border border-one-line bg-one-panel p-3 text-[16px] outline-none focus:border-one-accent"
+          className="min-h-40 w-full resize-y rounded border border-k-rule bg-k-paper p-3 text-[16px] outline-none focus:border-k-accent"
         />
 
         <div className="flex flex-wrap gap-2">
@@ -225,7 +225,7 @@ function Capture() {
             type="button"
             disabled={sending || typed === ""}
             onClick={sendDump}
-            className="min-h-11 flex-1 rounded border border-one-accent px-4 text-[14px] text-one-accent disabled:border-one-line disabled:text-one-muted"
+            className="min-h-11 flex-1 rounded border border-k-accent px-4 text-[14px] text-k-accent disabled:border-k-rule disabled:text-k-muted"
           >
             Send
           </button>
@@ -241,7 +241,7 @@ function Capture() {
                   return `clipped to ${path}`;
                 })
               }
-              className="min-h-11 flex-1 rounded border border-one-line px-4 text-[14px] text-one-muted disabled:text-one-line"
+              className="min-h-11 flex-1 rounded border border-k-rule px-4 text-[14px] text-k-muted disabled:text-k-rule"
             >
               Clip to inbox
             </button>
@@ -249,7 +249,7 @@ function Capture() {
         </div>
 
         {alert !== null && (
-          <p role="alert" className="text-[13px] text-one-warn">
+          <p role="alert" className="text-[13px] text-k-danger">
             {alert}
           </p>
         )}
@@ -257,7 +257,7 @@ function Capture() {
         {outbox.failure?.kind === "sign-in" && (
           // A plain link and not the router's: oauth2-proxy has to see a whole
           // page load to send it to the login, which a client-side move is not.
-          <p role="status" className="text-[13px] text-one-warn">
+          <p role="status" className="text-[13px] text-k-danger">
             Waiting:{" "}
             <a href="/" className="underline">
               sign in again
@@ -269,9 +269,9 @@ function Capture() {
           <ul aria-label="Waiting" className="flex flex-col gap-2">
             {outbox.waiting.map((dump) => (
               <li key={dump.id} className="flex gap-3 text-[13px]">
-                <span className="shrink-0 text-one-muted">{dump.date}</span>
+                <span className="shrink-0 text-k-muted">{dump.date}</span>
                 <span className="min-w-0 flex-1 whitespace-pre-wrap break-words">{dump.text}</span>
-                <span className="shrink-0 text-one-muted">waiting</span>
+                <span className="shrink-0 text-k-muted">waiting</span>
               </li>
             ))}
           </ul>
@@ -281,7 +281,7 @@ function Capture() {
           <ul aria-label="Sent" className="flex flex-col gap-2">
             {sent.map((row) => (
               <li key={row.key} className="flex gap-3 text-[13px]">
-                <span className="shrink-0 text-one-muted">{row.at}</span>
+                <span className="shrink-0 text-k-muted">{row.at}</span>
                 <span className="min-w-0 whitespace-pre-wrap break-words">{row.what}</span>
               </li>
             ))}

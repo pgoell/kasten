@@ -66,11 +66,11 @@ export function TodoList(p: {
     /* A list that moves under the finger has moved the armed row with it. */
     <div className="flex-1 overflow-auto py-1" onScroll={() => onArm(null)}>
       {empty !== null ? (
-        <p className="px-3 py-1 text-[13px] text-one-muted">{empty}</p>
+        <p className="px-3 py-1 text-[13px] text-k-muted">{empty}</p>
       ) : (
         groups.map(({ heading, rows: group }) => (
           <div key={heading}>
-            <h3 className="px-3 pt-2 pb-1 text-[11px] tracking-wider text-one-muted uppercase">
+            <h3 className="px-3 pt-2 pb-1 text-[11px] tracking-wider text-k-muted uppercase">
               {heading}
             </h3>
             {group.map((row) => {
@@ -114,7 +114,7 @@ export function TodoList(p: {
                       // row of the list, at the list's size, wearing the
                       // keyboard cursor's own outline, because this row is
                       // where the keys are going.
-                      className="w-full bg-one-cursor/15 px-3 py-[3px] text-[13px] text-one-fg outline-2 -outline-offset-1 outline-one-cursor pointer-coarse:text-base"
+                      className="w-full bg-k-accent/15 px-3 py-[3px] text-[13px] text-k-ink outline-2 -outline-offset-1 outline-k-accent pointer-coarse:text-base"
                     />
                     <TodoHints
                       found={lineSuggestions(editing.line, today, true)}
@@ -193,7 +193,7 @@ export function TodoList(p: {
                     data-armed={asking ? "" : undefined}
                     style={indent}
                     className={`min-h-11 min-w-11 shrink-0 pr-2 text-left text-[13px] ${
-                      asking ? "text-one-accent" : held ? "text-one-muted" : "text-one-fg"
+                      asking ? "text-k-accent" : held ? "text-k-muted" : "text-k-ink"
                     }`}
                   >
                     {asking

@@ -24,7 +24,7 @@ function Spinner({ spinning }: { spinning: boolean }) {
       {...STROKE}
       data-testid="save-spinner"
       aria-hidden="true"
-      className={`${ICON} ${spinning ? "animate-spin text-white" : "text-one-green"}`}
+      className={`${ICON} ${spinning ? "animate-spin text-white" : "text-k-ok"}`}
     >
       <path d="M4.8 10.1A7.5 7.5 0 0 1 18.8 8.8" />
       <path d="M19.2 4.9 18.8 8.8 15.5 6.5" />
@@ -41,7 +41,7 @@ function Warning() {
       {...STROKE}
       data-testid="save-error"
       aria-hidden="true"
-      className={`${ICON} text-one-warn`}
+      className={`${ICON} text-k-danger`}
     >
       <path d="M12 3.5 21.5 20.5H2.5Z" />
       <path d="M12 10.5v4" />
@@ -89,7 +89,7 @@ export function SaveSign({ status, label, warn, title, flashing }: SaveSignProps
           easy to type straight past, and typing past this one loses the
           text. `aria-hidden`, the label above already saying it. */}
       {warn && (
-        <span aria-hidden="true" className="text-[11px] text-one-warn">
+        <span aria-hidden="true" className="text-[11px] text-k-danger">
           {label}
         </span>
       )}

@@ -97,7 +97,7 @@ function outside(elements: Iterable<Element>, insets: Insets): string[] {
 /** The home route's frame and the bars along its foot, as `index.tsx` draws them. */
 function Frame({ phone, children }: { phone: boolean; children?: ReactNode }) {
   return (
-    <main className="safe-frame flex h-dvh flex-col bg-one-bg">
+    <main className="safe-frame flex h-dvh flex-col bg-k-bg">
       <div className="flex min-h-0 flex-1">{children}</div>
       <StatusBar version="0.0.0" foot={!phone} />
       {phone && <Toolbar commands={INERT} split={true} />}

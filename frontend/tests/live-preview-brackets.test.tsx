@@ -2,9 +2,9 @@
 
 import { readFileSync } from "node:fs";
 import type { Extension } from "@codemirror/state";
-import { oneDark } from "@codemirror/theme-one-dark";
 import type { EditorView } from "@codemirror/view";
 import { vim } from "@replit/codemirror-vim";
+import { kastenTheme } from "@/lib/editor-theme";
 import { imagePaths } from "@/lib/image";
 import { livePreview } from "@/lib/live-preview";
 import { vaultPaths } from "@/lib/wikilink";
@@ -21,7 +21,7 @@ describe("a [text] with no (url) (#441)", () => {
   /** With the app's highlighter, which is what gave the brackets a link's look. */
   function lit(vimOn: boolean): Extension[] {
     return [
-      oneDark,
+      kastenTheme,
       ...(vimOn ? [vim(), livePreview(), vaultPaths.of([]), imagePaths.of([])] : plain(null)),
     ];
   }
@@ -32,7 +32,7 @@ describe("a [text] with no (url) (#441)", () => {
    * generated.
    */
   function linkLook(): string[] {
-    const view = mount("[a][r]", [oneDark]);
+    const view = mount("[a][r]", [kastenTheme]);
     const spans = [...view.contentDOM.querySelectorAll("span")];
     return [...new Set(spans.flatMap((span) => [...span.classList]))];
   }
@@ -74,7 +74,7 @@ describe("a [text] with no (url) (#441)", () => {
     const heading = lineOf(view, 4);
     // The heading's colour is a highlight class on the same spans, read off a
     // bare heading the way the link's look is.
-    const spans = mount("# h", [oneDark]).contentDOM.querySelectorAll("span");
+    const spans = mount("# h", [kastenTheme]).contentDOM.querySelectorAll("span");
     const headingClass = spans[spans.length - 1]?.className;
 
     expect(bold.textContent).toBe("x [b] y");

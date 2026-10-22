@@ -156,7 +156,7 @@ describe(`opening the app over ${NOTES} notes`, () => {
     const started = performance.now();
     root.render(
       <QueryClientProvider client={new QueryClient()}>
-        <main className="flex h-dvh flex-col bg-one-bg">
+        <main className="flex h-dvh flex-col bg-k-bg">
           <div className="flex min-h-0 flex-1">
             <FileExplorer
               paths={paths}

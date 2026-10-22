@@ -160,21 +160,17 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
   }, [capture, card, onControls, rate, replay, reveal, step, suspend, undo]);
 
   return (
-    <div className="flex h-full flex-col bg-one-bg font-mono text-one-fg">
+    <div className="flex h-full flex-col bg-k-bg font-mono text-k-ink">
       {/* Nine things share this row, and at a phone's width the gaps between
           them are what the deck's name is squeezed out by. A card with a sound
           puts Replay beside Undo, which is more than a phone holds, so there
           the row wraps rather than pushing Center off the screen. */}
-      <header className="flex items-center gap-3 border-one-line border-b px-3 py-2 max-md:flex-wrap max-md:justify-end max-md:gap-1">
-        <button
-          type="button"
-          onClick={onLeave}
-          className="min-h-11 px-1 text-[13px] text-one-muted"
-        >
+      <header className="flex items-center gap-3 border-k-rule border-b px-3 py-2 max-md:flex-wrap max-md:justify-end max-md:gap-1">
+        <button type="button" onClick={onLeave} className="min-h-11 px-1 text-[13px] text-k-muted">
           ← Decks
         </button>
         <span className="min-w-0 flex-1 truncate text-[13px]">{deck.name}</span>
-        <span className="text-[11px] text-one-muted uppercase tracking-wider">
+        <span className="text-[11px] text-k-muted uppercase tracking-wider">
           {queue.length} left
         </span>
         {/* The phone's `r`, and the only way to hear a first card a phone
@@ -183,7 +179,7 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
           <button
             type="button"
             onClick={replay}
-            className="min-h-11 px-2 text-[11px] max-md:px-1 text-one-muted uppercase tracking-wider hover:text-one-accent pointer-coarse:min-w-11"
+            className="min-h-11 px-2 text-[11px] max-md:px-1 text-k-muted uppercase tracking-wider hover:text-k-accent pointer-coarse:min-w-11"
           >
             Replay
           </button>
@@ -199,7 +195,7 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
             type="button"
             onClick={undo}
             aria-disabled={undoing}
-            className="min-h-11 px-2 text-[11px] max-md:px-1 text-one-muted uppercase tracking-wider hover:text-one-accent aria-disabled:opacity-50 pointer-coarse:min-w-11"
+            className="min-h-11 px-2 text-[11px] max-md:px-1 text-k-muted uppercase tracking-wider hover:text-k-accent aria-disabled:opacity-50 pointer-coarse:min-w-11"
           >
             Undo
           </button>
@@ -211,7 +207,7 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
             type="button"
             onClick={suspend}
             aria-disabled={undoing}
-            className="min-h-11 px-2 text-[11px] max-md:px-1 text-one-muted uppercase tracking-wider hover:text-one-accent aria-disabled:opacity-50"
+            className="min-h-11 px-2 text-[11px] max-md:px-1 text-k-muted uppercase tracking-wider hover:text-k-accent aria-disabled:opacity-50"
           >
             Suspend
           </button>
@@ -224,7 +220,7 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
             aria-expanded={jotOpen}
             // Three letters are narrower than a thumb, which the height alone
             // does not make up for.
-            className="min-h-11 px-2 text-[11px] max-md:px-1 text-one-muted uppercase tracking-wider hover:text-one-accent aria-disabled:opacity-50 pointer-coarse:min-w-11"
+            className="min-h-11 px-2 text-[11px] max-md:px-1 text-k-muted uppercase tracking-wider hover:text-k-accent aria-disabled:opacity-50 pointer-coarse:min-w-11"
           >
             Jot
           </button>
@@ -234,7 +230,7 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
           onClick={toggleTyping}
           aria-pressed={typing}
           className={`min-h-11 px-2 text-[11px] max-md:px-1 uppercase tracking-wider pointer-coarse:min-w-11 ${
-            typing ? "text-one-accent" : "text-one-muted"
+            typing ? "text-k-accent" : "text-k-muted"
           }`}
         >
           Type
@@ -244,7 +240,7 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
           onClick={toggleCenter}
           aria-pressed={center}
           className={`min-h-11 px-2 text-[11px] max-md:px-1 uppercase tracking-wider ${
-            center ? "text-one-accent" : "text-one-muted"
+            center ? "text-k-accent" : "text-k-muted"
           }`}
         >
           Center
@@ -261,7 +257,7 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
             event.preventDefault();
             jot(jotting);
           }}
-          className="flex gap-2 border-one-line border-b px-3 py-2"
+          className="flex gap-2 border-k-rule border-b px-3 py-2"
         >
           <input
             // Off, both of them, for the reason the typing field has them off:
@@ -273,7 +269,7 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
             value={jotting}
             onChange={(event) => setJotting(event.target.value)}
             placeholder="A question to answer later"
-            className="min-h-11 min-w-0 flex-1 rounded border border-one-line bg-transparent px-3 text-[13px] text-one-fg outline-none focus:border-one-accent pointer-coarse:text-base"
+            className="min-h-11 min-w-0 flex-1 rounded border border-k-rule bg-transparent px-3 text-[13px] text-k-ink outline-none focus:border-k-accent pointer-coarse:text-base"
           />
           {/* Disabled while an undo is out, the question kept in the field
               for the next submit. */}
@@ -289,12 +285,12 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
       <div
         className={`min-h-0 flex-1 overflow-auto px-4 py-6 text-[15px] ${center ? "flex flex-col" : ""}`}
       >
-        {texts === null && failed === null && <p className="text-one-muted">Reading the deck…</p>}
+        {texts === null && failed === null && <p className="text-k-muted">Reading the deck…</p>}
 
         {card === undefined && texts !== null && (
           <div data-testid="review-done">
             <p>Nothing left in {deck.name}.</p>
-            <p className="mt-2 text-one-muted">{done} answered.</p>
+            <p className="mt-2 text-k-muted">{done} answered.</p>
           </div>
         )}
 
@@ -308,14 +304,14 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
                 the text because the preview reads it once, on mount. */}
             <NotePreview key={`front:${card.front}`} text={card.front} />
             {shown && typing && (
-              <p data-testid="review-verdict" className="mt-6 text-[13px] text-one-muted">
+              <p data-testid="review-verdict" className="mt-6 text-[13px] text-k-muted">
                 {/* A cloze's back is the whole line, its target the hidden text.
                     A basic back is markdown, its escapes no part of the answer. */}
                 {sameAnswer(typed, card.target ?? unescaped(card.back)) ? (
                   "Matched"
                 ) : (
                   <>
-                    You typed <span className="text-one-fg">{typed || "nothing"}</span>
+                    You typed <span className="text-k-ink">{typed || "nothing"}</span>
                   </>
                 )}
               </p>
@@ -323,7 +319,7 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
             {shown && (
               <div
                 data-testid="review-back"
-                className="review-back mt-6 border-one-line border-t pt-6"
+                className="review-back mt-6 border-k-rule border-t pt-6"
               >
                 <NotePreview key={`back:${card.back}`} text={card.back} />
               </div>
@@ -332,7 +328,7 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
         )}
 
         {failed !== null && (
-          <p role="alert" className="mt-6 text-one-muted">
+          <p role="alert" className="mt-6 text-k-muted">
             {failed}
           </p>
         )}

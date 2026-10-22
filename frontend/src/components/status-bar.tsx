@@ -94,7 +94,7 @@ function Version({ backend }: { backend: string }) {
     // of a phone, and of everything in the bar this is the last thing wanted there.
     <span
       data-testid="version"
-      className="shrink-0 text-[11px] text-one-muted tabular-nums max-md:hidden"
+      className="shrink-0 text-[11px] text-k-muted tabular-nums max-md:hidden"
     >
       {BUILD === "" ? backend : `be ${backend} fe ${BUILD}`}
     </span>
@@ -304,7 +304,7 @@ export function StatusBar({
     // would push the bar wider than a phone instead of being cut short.
     <footer
       inert={inert}
-      className={`relative grid h-6 shrink-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center bg-one-panel px-3 pointer-coarse:h-11 ${
+      className={`relative grid h-6 shrink-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center bg-k-paper px-3 pointer-coarse:h-11 ${
         // With the clock gone the notice takes what the save sign leaves,
         // rather than the half of the bar an even split would give it.
         notice !== undefined ? "max-md:grid-cols-[minmax(0,1fr)_auto_auto]" : ""
@@ -333,25 +333,25 @@ export function StatusBar({
             // on hover under a mouse, and opened out above the bar on a tap.
             title={notice}
             onClick={() => open("notice")}
-            className="min-w-0 truncate text-[11px] text-one-warn pointer-coarse:h-11"
+            className="min-w-0 truncate text-[11px] text-k-danger pointer-coarse:h-11"
           >
             {notice}
           </button>
         )}
         {archive === true && (
-          <span data-testid="archive-shown" className="text-[11px] text-one-muted">
+          <span data-testid="archive-shown" className="text-[11px] text-k-muted">
             archive
           </span>
         )}
         {zoom === true && (
           // Gone below `md`, where every tab is drawn as one pane, zoomed or
           // not, and the count beside it is what says so.
-          <span data-testid="zoom-shown" className="text-[11px] text-one-muted max-md:hidden">
+          <span data-testid="zoom-shown" className="text-[11px] text-k-muted max-md:hidden">
             zoom
           </span>
         )}
         {pane !== undefined && (
-          <span data-testid="pane-shown" className="text-[11px] text-one-muted tabular-nums">
+          <span data-testid="pane-shown" className="text-[11px] text-k-muted tabular-nums">
             pane {pane}
           </span>
         )}
@@ -369,7 +369,7 @@ export function StatusBar({
             // opened out above the bar on a tap, the way a notice is.
             title={heldDetail}
             onClick={() => open("held")}
-            className="min-w-0 truncate text-[11px] text-one-warn pointer-coarse:h-11"
+            className="min-w-0 truncate text-[11px] text-k-danger pointer-coarse:h-11"
           >
             {heldLabel("Not saved", failed)}
           </button>
@@ -381,7 +381,7 @@ export function StatusBar({
             data-testid="held-conflict"
             title={conflictDetail}
             onClick={() => open("conflicts")}
-            className="min-w-0 truncate text-[11px] text-one-warn pointer-coarse:h-11"
+            className="min-w-0 truncate text-[11px] text-k-danger pointer-coarse:h-11"
           >
             {heldLabel("Changed on disk", conflicts)}
           </button>

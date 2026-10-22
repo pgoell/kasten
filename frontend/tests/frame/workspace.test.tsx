@@ -47,7 +47,7 @@ function Shell({ start }: { start: () => Layout }) {
   useEffect(() => saveWorkspace(coarse, layout, false), [coarse, layout]);
   const tab = activeTab(layout);
   return (
-    <main className="flex h-dvh flex-col bg-one-bg">
+    <main className="flex h-dvh flex-col bg-k-bg">
       <div className="flex min-h-0 flex-1">
         <PaneLayout
           node={tab.root}
@@ -149,8 +149,8 @@ it("a desktop reopens a row of two notes side by side", async () => {
   // The split moved the focus to Right, and the reload keeps it there: its
   // pane wears the focused border and its editor holds the browser's focus.
   const pane = (note: Element) => note.closest("[data-pane]") as Element;
-  expect(pane(right as Element).className).toContain("border-one-accent");
-  expect(pane(left as Element).className).not.toContain("border-one-accent");
+  expect(pane(right as Element).className).toContain("border-k-accent");
+  expect(pane(left as Element).className).not.toContain("border-k-accent");
   await expect.poll(() => (right as Element).contains(document.activeElement)).toBe(true);
   expect(await shot(host as Element, "workspace-desktop")).toBe(1280);
 });

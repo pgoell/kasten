@@ -384,7 +384,7 @@ export function NotePrompt({ mode, paths, startPath, openNote, onOpen, onClose }
                 tabIndex={-1}
                 onClick={() => pick(folder)}
                 className={`${ROW} ${TAP} ${
-                  index === cursor ? "bg-one-hover text-one-accent" : "text-one-fg"
+                  index === cursor ? "bg-k-surface text-k-accent" : "text-k-ink"
                 }`}
               >
                 {folder}

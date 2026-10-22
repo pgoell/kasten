@@ -21,8 +21,8 @@ const ROW =
  * type at should not look like one you left behind.
  */
 const CURSOR = [
-  "outline-1 -outline-offset-1 outline-one-cursor/45",
-  "focus:outline-2 focus:outline-one-cursor focus:bg-one-cursor/15",
+  "outline-1 -outline-offset-1 outline-k-accent/45",
+  "focus:outline-2 focus:outline-k-accent focus:bg-k-accent/15",
 ].join(" ");
 
 function Chevron({ open }: { open: boolean }) {
@@ -73,7 +73,7 @@ function parentOf(path: string): string {
 }
 
 /** How a row draws the folder it would drop into. */
-export const DROP = "bg-one-accent/20 outline-1 -outline-offset-1 outline-one-accent";
+export const DROP = "bg-k-accent/20 outline-1 -outline-offset-1 outline-k-accent";
 
 export function NodeList({
   nodes,
@@ -119,8 +119,8 @@ export function NodeList({
                 // something else.
                 className={`${ROW} cursor-pointer ${
                   current
-                    ? "bg-one-hover text-one-accent"
-                    : `${node.shows !== undefined ? "text-one-muted" : "text-one-fg"} hover:bg-one-hover`
+                    ? "bg-k-surface text-k-accent"
+                    : `${node.shows !== undefined ? "text-k-muted" : "text-k-ink"} hover:bg-k-surface`
                 } ${tabIndex === 0 ? CURSOR : ""}`}
               >
                 {/* Holds the chevron's column so note names line up with folder names. */}
@@ -147,7 +147,7 @@ export function NodeList({
               onDrop={(event) => drag.drop(event, node.path)}
               onDragEnd={drag.end}
               style={indent(depth)}
-              className={`${ROW} cursor-pointer text-one-muted hover:bg-one-hover hover:text-one-fg ${
+              className={`${ROW} cursor-pointer text-k-muted hover:bg-k-surface hover:text-k-ink ${
                 tabIndex === 0 ? CURSOR : ""
               } ${drag.target === node.path ? DROP : ""}`}
             >

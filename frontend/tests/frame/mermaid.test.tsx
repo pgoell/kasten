@@ -8,12 +8,12 @@
 
 import { history, undo } from "@codemirror/commands";
 import { EditorState, type Extension } from "@codemirror/state";
-import { oneDark } from "@codemirror/theme-one-dark";
 import { EditorView } from "@codemirror/view";
 import { vim } from "@replit/codemirror-vim";
 import { createRoot, type Root } from "react-dom/client";
 import { page, userEvent } from "vitest/browser";
 import { NotePreview } from "@/components/note-preview";
+import { kastenTheme } from "@/lib/editor-theme";
 import { imagePaths } from "@/lib/image";
 import { livePreview, renderedMarkdown } from "@/lib/live-preview";
 import { drawMermaid } from "@/lib/mermaid";
@@ -57,7 +57,7 @@ function mount(doc: string, vimOn: boolean, anchor = 0, extra: Extension[] = [])
       selection: { anchor },
       extensions: [
         noteLanguage(),
-        oneDark,
+        kastenTheme,
         vimOn ? vim() : vimKeys.of(false),
         livePreview(),
         vaultPaths.of([]),

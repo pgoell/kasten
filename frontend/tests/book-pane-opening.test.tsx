@@ -25,7 +25,7 @@ describe("BookPane", () => {
     // and `mockResolvedValue(undefined)` is a default too, one that draws the
     // error panel over every case in this file.
     fetchNote.mockResolvedValue("");
-    document.documentElement.style.setProperty("--color-one-bg", BACKGROUND);
+    document.documentElement.style.setProperty("--k-bg", BACKGROUND);
   });
 
   afterEach(() => {

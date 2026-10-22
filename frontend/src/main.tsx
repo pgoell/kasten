@@ -1,3 +1,6 @@
+import "@fontsource-variable/newsreader/opsz.css";
+import "@fontsource-variable/instrument-sans/index.css";
+import "@fontsource-variable/jetbrains-mono/index.css";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createRouter, RouterProvider } from "@tanstack/react-router";
 import { StrictMode } from "react";
@@ -5,6 +8,7 @@ import { createRoot } from "react-dom/client";
 import { forgetSpentReloads, RouteError } from "./lib/chunk-reload";
 import { start as startOutbox } from "./lib/outbox";
 import "./lib/service-worker";
+import { startTheme } from "@/lib/theme";
 import { routeTree } from "./routeTree.gen";
 import "./styles/app.css";
 
@@ -43,6 +47,10 @@ if (!rootElement) {
 
 // Dumps kept while offline go now, and whenever the signal returns, on any page.
 startOutbox();
+
+// The early script in public/theme.js has set data-theme already. This adds the
+// browser bar's colour and the listeners for the system and other tabs.
+startTheme();
 
 createRoot(rootElement).render(
   <StrictMode>

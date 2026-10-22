@@ -19,7 +19,7 @@ export function ExamScore({
         </strong>{" "}
         ({graded.asked === 0 ? 0 : Math.round((100 * graded.right) / graded.asked)}%)
       </p>
-      <ul className="mt-3 space-y-[2px] text-one-muted">
+      <ul className="mt-3 space-y-[2px] text-k-muted">
         {graded.sections.map((score) => (
           <li key={score.section}>
             {score.section}: {score.right}/{score.asked}
@@ -27,12 +27,12 @@ export function ExamScore({
         ))}
       </ul>
       {wrote !== null && failed === null && (
-        <p className="mt-4 text-one-muted">
-          Written to <span className="text-one-fg">{wrote}</span>. Enter opens it.
+        <p className="mt-4 text-k-muted">
+          Written to <span className="text-k-ink">{wrote}</span>. Enter opens it.
         </p>
       )}
       {failed !== null && (
-        <p role="alert" className="mt-4 text-one-muted">
+        <p role="alert" className="mt-4 text-k-muted">
           The result note could not be written: {failed}
         </p>
       )}
@@ -68,7 +68,7 @@ export function ExamQuestion({
             <li
               key={option.letter}
               data-picked={held || undefined}
-              className={held ? "text-one-fg" : "text-one-muted"}
+              className={held ? "text-k-ink" : "text-k-muted"}
             >
               <button
                 type="button"
@@ -77,20 +77,20 @@ export function ExamQuestion({
                 onClick={() => onPick(option.letter)}
                 className="block w-full text-left pointer-coarse:min-h-11"
               >
-                <span className={held ? "text-one-accent" : ""}>
+                <span className={held ? "text-k-accent" : ""}>
                   {held ? "●" : "○"} {option.letter}.
                 </span>{" "}
                 {option.text}
-                {shown && right && <span className="text-one-accent"> ✓</span>}
+                {shown && right && <span className="text-k-accent"> ✓</span>}
               </button>
             </li>
           );
         })}
       </ul>
       {shown && (
-        <div data-testid="exam-rationale" className="mt-4 border-one-line border-t pt-3">
+        <div data-testid="exam-rationale" className="mt-4 border-k-rule border-t pt-3">
           <p className={LABEL}>Correct: {question.correct.join(", ") || "the note does not say"}</p>
-          <p className="mt-2 whitespace-pre-wrap text-one-muted">{question.rationale}</p>
+          <p className="mt-2 whitespace-pre-wrap text-k-muted">{question.rationale}</p>
         </div>
       )}
     </div>

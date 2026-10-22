@@ -175,20 +175,20 @@ export function ReviewDecks({ onPick, onParked, archive = false }: ReviewDecksPr
   );
 
   return (
-    <div className="flex h-full flex-col bg-one-bg font-mono text-one-fg">
-      <header className="flex items-center gap-3 border-one-line border-b px-3 py-2">
-        <span className="text-[11px] text-one-muted uppercase tracking-wider">review</span>
+    <div className="flex h-full flex-col bg-k-bg font-mono text-k-ink">
+      <header className="flex items-center gap-3 border-k-rule border-b px-3 py-2">
+        <span className="text-[11px] text-k-muted uppercase tracking-wider">review</span>
         <span className="min-w-0 flex-1 truncate text-[13px]">
           {decks.length} deck{decks.length === 1 ? "" : "s"}
         </span>
-        <span className="text-[11px] text-one-muted uppercase tracking-wider">{waiting} to go</span>
+        <span className="text-[11px] text-k-muted uppercase tracking-wider">{waiting} to go</span>
         {/* A button and not only `p`, because `/review` is the phone's way in
             and a phone has no keyboard to press it on. */}
         {parked > 0 && (
           <button
             type="button"
             onClick={onParked}
-            className="min-h-11 px-1 text-[11px] text-one-muted uppercase tracking-wider hover:text-one-accent"
+            className="min-h-11 px-1 text-[11px] text-k-muted uppercase tracking-wider hover:text-k-accent"
           >
             {parked} parked
           </button>
@@ -198,11 +198,11 @@ export function ReviewDecks({ onPick, onParked, archive = false }: ReviewDecksPr
       {/* Closed until asked for, since an import is rare beside a sitting.
           `details` hides what it holds rather than unmounting it, so closing
           it keeps the summary line, the tick and a half-typed link. */}
-      <details className="border-one-line border-b px-3 text-[13px] text-one-muted">
+      <details className="border-k-rule border-b px-3 text-[13px] text-k-muted">
         {/* Not `flex`: the browser draws the open and closed triangle only on
             a summary left as a list item, and that triangle is what says this
             line opens. */}
-        <summary className="min-h-11 cursor-pointer content-center hover:text-one-accent">
+        <summary className="min-h-11 cursor-pointer content-center hover:text-k-accent">
           Import
         </summary>
         <div className="flex flex-wrap items-center gap-x-6">
@@ -239,18 +239,18 @@ export function ReviewDecks({ onPick, onParked, archive = false }: ReviewDecksPr
           <button
             type="button"
             onClick={() => whenKeysUp(() => picker.current?.click())}
-            className="my-1 min-h-11 rounded border border-one-line px-3 text-one-fg hover:border-one-accent hover:text-one-accent"
+            className="my-1 min-h-11 rounded border border-k-rule px-3 text-k-ink hover:border-k-accent hover:text-k-accent"
           >
             Import an Anki deck
           </button>
           {/* Off by default: a re-import keeps the schedule kasten has been
               building unless you say Anki's is the one to trust. */}
-          <label className="flex min-h-11 cursor-pointer items-center gap-2 hover:text-one-accent">
+          <label className="flex min-h-11 cursor-pointer items-center gap-2 hover:text-k-accent">
             <input
               type="checkbox"
               checked={carry}
               onChange={(event) => setCarry(event.target.checked)}
-              className="size-4 accent-one-accent"
+              className="size-4 accent-k-accent"
             />
             <span>Carry Anki's schedule</span>
           </label>
@@ -285,28 +285,28 @@ export function ReviewDecks({ onPick, onParked, archive = false }: ReviewDecksPr
               placeholder="or paste a link to a deck"
               value={link}
               onChange={(event) => setLink(event.target.value)}
-              className="my-1 min-h-11 min-w-0 flex-1 rounded border border-one-line bg-transparent px-2 text-one-fg outline-none placeholder:text-one-muted focus:border-one-accent"
+              className="my-1 min-h-11 min-w-0 flex-1 rounded border border-k-rule bg-transparent px-2 text-k-ink outline-none placeholder:text-k-muted focus:border-k-accent"
             />
             <button
               type="submit"
               disabled={linking}
-              className="min-h-11 px-1 hover:text-one-accent disabled:opacity-50"
+              className="min-h-11 px-1 hover:text-k-accent disabled:opacity-50"
             >
               Import link
             </button>
           </form>
         </div>
-        {imported !== null && <p className="truncate pb-2 text-one-fg">{imported}</p>}
+        {imported !== null && <p className="truncate pb-2 text-k-ink">{imported}</p>}
       </details>
 
       <div className="min-h-0 flex-1 overflow-auto p-3">
-        {isPending && <p className="text-one-muted text-[13px]">Reading the vault…</p>}
+        {isPending && <p className="text-k-muted text-[13px]">Reading the vault…</p>}
 
         {!isPending && decks.length === 0 && (
-          <p className="text-one-muted text-[13px]">
-            No decks. A deck is a note tagged <span className="text-one-fg">#flashcards</span>, or{" "}
-            <span className="text-one-fg">#flashcards/aws</span> to name it, holding lines written{" "}
-            <span className="text-one-fg">front::back</span>.
+          <p className="text-k-muted text-[13px]">
+            No decks. A deck is a note tagged <span className="text-k-ink">#flashcards</span>, or{" "}
+            <span className="text-k-ink">#flashcards/aws</span> to name it, holding lines written{" "}
+            <span className="text-k-ink">front::back</span>.
           </p>
         )}
 
@@ -326,7 +326,7 @@ export function ReviewDecks({ onPick, onParked, archive = false }: ReviewDecksPr
                   aria-expanded={unfolded.has(deck.name)}
                   aria-label={`${unfolded.has(deck.name) ? "fold" : "unfold"} ${deck.name}`}
                   onClick={() => toggleFold(deck.name)}
-                  className="flex min-h-11 min-w-11 shrink-0 items-center justify-center text-one-muted hover:text-one-accent"
+                  className="flex min-h-11 min-w-11 shrink-0 items-center justify-center text-k-muted hover:text-k-accent"
                 >
                   {unfolded.has(deck.name) ? "▾" : "▸"}
                 </button>
@@ -345,18 +345,16 @@ export function ReviewDecks({ onPick, onParked, archive = false }: ReviewDecksPr
                 // deck above one it finds, so the row it belongs under is
                 // always there and the full path would only repeat it.
                 style={{ paddingLeft: `${0.75 + depthOf(deck.name) * 0.75}rem` }}
-                className="flex min-h-11 min-w-0 flex-1 items-center gap-3 rounded border border-one-line px-3 py-2 text-left hover:border-one-accent disabled:opacity-50"
+                className="flex min-h-11 min-w-0 flex-1 items-center gap-3 rounded border border-k-rule px-3 py-2 text-left hover:border-k-accent disabled:opacity-50"
               >
                 <span className="min-w-0 flex-1 truncate text-[13px]">{leafOf(deck.name)}</span>
-                <span className="text-[12px] text-one-accent">{deck.due} due</span>
-                <span className="text-[12px] text-one-muted">{deck.fresh} new</span>
+                <span className="text-[12px] text-k-accent">{deck.due} due</span>
+                <span className="text-[12px] text-k-muted">{deck.fresh} new</span>
                 {/* Only where there are any. A deck of nothing but parked cards
                     lands disabled on the rule above, and a bare `0 new` would
                     leave no way to find out why. */}
                 {deck.parked > 0 && (
-                  <span className="text-[12px] text-one-muted opacity-60">
-                    {deck.parked} parked
-                  </span>
+                  <span className="text-[12px] text-k-muted opacity-60">{deck.parked} parked</span>
                 )}
               </button>
             </li>

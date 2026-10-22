@@ -7,13 +7,13 @@
  */
 
 import { EditorState, type Extension } from "@codemirror/state";
-import { oneDark } from "@codemirror/theme-one-dark";
 import { EditorView } from "@codemirror/view";
 import { vim } from "@replit/codemirror-vim";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createRoot } from "react-dom/client";
 import { page } from "vitest/browser";
 import { TodoPane } from "@/components/todo-pane";
+import { kastenTheme } from "@/lib/editor-theme";
 import { imagePaths } from "@/lib/image";
 import { livePreview } from "@/lib/live-preview";
 import { noteLanguage } from "@/lib/note-language";
@@ -52,7 +52,7 @@ function mount(doc: string, keys: Extension, extra: Extension = []): Element[] {
       selection: { anchor: 0 },
       extensions: [
         noteLanguage(),
-        oneDark,
+        kastenTheme,
         keys,
         livePreview(),
         vaultPaths.of([]),

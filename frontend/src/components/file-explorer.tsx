@@ -434,7 +434,7 @@ export function FileExplorer({
         className={`flex-1 overflow-auto p-1 ${rowDrag.target === "" ? DROP : ""}`}
       >
         {tree.length === 0 ? (
-          <p className="px-2 py-1 text-[13px] text-one-muted">No notes yet</p>
+          <p className="px-2 py-1 text-[13px] text-k-muted">No notes yet</p>
         ) : (
           <NodeList
             nodes={tree}

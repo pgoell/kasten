@@ -14,7 +14,7 @@ interface HtmlPaneProps {
   onFocus: () => void;
 }
 
-const LABEL = "shrink-0 text-[11px] tracking-wide text-one-muted uppercase";
+const LABEL = "shrink-0 text-[11px] tracking-wide text-k-muted uppercase";
 
 /**
  * One HTML page out of the vault, drawn the way it draws itself.
@@ -92,11 +92,11 @@ export function HtmlPane({ path, commands, focusSignal, onFocus }: HtmlPaneProps
       tabIndex={-1}
       onKeyDown={onKeyDown}
       aria-label="page"
-      className="flex h-full flex-col bg-one-bg font-mono outline-none"
+      className="flex h-full flex-col bg-k-bg font-mono outline-none"
     >
-      <header className="flex items-center gap-3 border-b border-one-line px-3 py-1">
+      <header className="flex items-center gap-3 border-b border-k-rule px-3 py-1">
         <span className={LABEL}>html</span>
-        <span className="min-w-0 flex-1 truncate text-[13px] text-one-fg" title={path}>
+        <span className="min-w-0 flex-1 truncate text-[13px] text-k-ink" title={path}>
           {path}
         </span>
       </header>

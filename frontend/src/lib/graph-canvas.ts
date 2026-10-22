@@ -25,6 +25,7 @@ import {
   neighbourhood,
   radiusOf,
 } from "@/lib/graph";
+import { onThemeChange } from "@/lib/theme";
 
 export interface GraphCanvasHandlers {
   /** A note was clicked, or tapped. */
@@ -73,9 +74,21 @@ export function hitRadius(degree: number, scale: number, coarse: boolean): numbe
   return coarse ? Math.max(drawn, FINGER / 2 / scale) : drawn;
 }
 
-/** A theme variable's value, read once when the canvas is made. */
+/** A theme variable's value, read until the theme changes. */
 function themed(variable: string): string {
-  return getComputedStyle(document.documentElement).getPropertyValue(variable).trim() || "#abb2bf";
+  return getComputedStyle(document.documentElement).getPropertyValue(variable).trim();
+}
+
+/**
+ * A hex colour at a fraction of its strength, for the links a dimmed note keeps.
+ *
+ * Canvas takes a colour as a string, and force-graph hands one back to it as
+ * the link colour, so the alpha has to be written into the string. The tokens
+ * are hex, so this reads the digits and leaves the rest to the browser.
+ */
+function faded(hex: string, alpha: number): string {
+  const n = Number.parseInt(hex.slice(1), 16);
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
 }
 
 export function drawGraph(element: HTMLElement, handlers: GraphCanvasHandlers): GraphCanvas {
@@ -97,7 +110,7 @@ export function drawGraph(element: HTMLElement, handlers: GraphCanvasHandlers): 
   const shown = (path: string) => lit === null || lit.has(path);
 
   const graph = new ForceGraph<DrawnNode, DrawnLink>(element)
-    .backgroundColor(colour("--color-one-bg"))
+    .backgroundColor(colour("--k-bg"))
     .nodeId("path")
     .nodeLabel(() => "")
     // Redrawn on every frame rather than only while the simulation runs, so a
@@ -117,7 +130,7 @@ export function drawGraph(element: HTMLElement, handlers: GraphCanvasHandlers): 
       if (node.missing) {
         // Hollow: a link has promised the note and nobody has written it.
         ctx.lineWidth = 1 / scale;
-        ctx.strokeStyle = colour("--color-one-muted");
+        ctx.strokeStyle = colour("--k-muted");
         ctx.stroke();
       } else {
         ctx.fillStyle = colour(colourOf(node));
@@ -125,7 +138,7 @@ export function drawGraph(element: HTMLElement, handlers: GraphCanvasHandlers): 
       }
       if (node.path === center || node.path === hovered) {
         ctx.lineWidth = 2 / scale;
-        ctx.strokeStyle = colour("--color-one-accent");
+        ctx.strokeStyle = colour("--k-accent");
         ctx.stroke();
       }
 
@@ -139,7 +152,7 @@ export function drawGraph(element: HTMLElement, handlers: GraphCanvasHandlers): 
         ctx.font = `${12 / scale}px ui-monospace, monospace`;
         ctx.textAlign = "center";
         ctx.textBaseline = "top";
-        ctx.fillStyle = colour("--color-one-fg");
+        ctx.fillStyle = colour("--k-ink-soft");
         ctx.fillText(node.name, x, y + radius + 2 / scale);
       }
       ctx.globalAlpha = 1;
@@ -158,11 +171,11 @@ export function drawGraph(element: HTMLElement, handlers: GraphCanvasHandlers): 
     })
     .linkColor((link) => {
       const on = lit === null || (lit.has(endOf(link.source)) && lit.has(endOf(link.target)));
-      const base = link.relation === null ? "--color-one-selection" : "--color-one-purple";
+      const base = link.relation === null ? "--k-rule" : "--tg-7";
       const touching =
         hovered !== null && [endOf(link.source), endOf(link.target)].includes(hovered);
-      if (touching) return colour("--color-one-accent");
-      return on ? colour(base) : `${colour(base)}26`;
+      if (touching) return colour("--k-accent");
+      return on ? colour(base) : faded(colour(base), DIMMED);
     })
     .linkWidth((link) => (link.relation === null ? 0.6 : 1.2))
     .linkDirectionalArrowLength((link) => (link.relation === null ? 0 : 4))
@@ -178,7 +191,7 @@ export function drawGraph(element: HTMLElement, handlers: GraphCanvasHandlers): 
       ctx.font = `${10 / scale}px ui-monospace, monospace`;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.fillStyle = colour("--color-one-purple");
+      ctx.fillStyle = colour("--tg-7");
       ctx.fillText(
         link.relation,
         ((source.x ?? 0) + (target.x ?? 0)) / 2,
@@ -193,6 +206,14 @@ export function drawGraph(element: HTMLElement, handlers: GraphCanvasHandlers): 
     .onNodeClick((node) => handlers.onOpen(node))
     .onBackgroundClick(() => handlers.onBlank());
 
+  // A theme switch changes no node, so the canvas repaints on the next frame
+  // (`autoPauseRedraw` is off) and only the cached values and the background
+  // need new reads.
+  const unlisten = onThemeChange(() => {
+    colours.clear();
+    graph.backgroundColor(colour("--k-bg"));
+  });
+
   return {
     update(nodes, edges, around) {
       drawing = mergeDrawing(drawing, nodes, edges);
@@ -206,6 +227,7 @@ export function drawGraph(element: HTMLElement, handlers: GraphCanvasHandlers): 
       graph.zoomToFit(300, 40);
     },
     destroy() {
+      unlisten();
       graph._destructor();
     },
   };

@@ -91,7 +91,7 @@ export function TerminalKeys({ ctrl, onKey }: TerminalKeysProps) {
     <div
       role="toolbar"
       aria-label="Terminal keys"
-      className="flex shrink-0 gap-px bg-one-selection"
+      className="flex shrink-0 gap-px bg-k-accent-wash"
     >
       {KEYS.map(({ key, label, name }) => (
         <button
@@ -107,7 +107,7 @@ export function TerminalKeys({ ctrl, onKey }: TerminalKeysProps) {
           onMouseDown={(event) => event.preventDefault()}
           onClick={() => onKey(key)}
           className={`h-11 min-w-0 flex-1 font-mono text-sm ${
-            key === "Ctrl" && ctrl ? "bg-one-accent text-one-bg" : "bg-one-bg text-one-fg"
+            key === "Ctrl" && ctrl ? "bg-k-accent text-k-paper" : "bg-k-bg text-k-ink"
           }`}
         >
           {label}

@@ -100,6 +100,11 @@ describe("the palette", () => {
     expect(labels).toContain("Bold");
   });
 
+  it("offers a light and dark toggle", () => {
+    const labels = paletteEntries(stubCommands(), null).map((entry) => entry.label);
+    expect(labels).toContain("Toggle light and dark mode");
+  });
+
   it("narrows by fuzzy match, and Enter runs the highlighted row", () => {
     const commands = stubCommands();
     const onClose = vi.fn();

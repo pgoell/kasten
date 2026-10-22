@@ -120,12 +120,12 @@ export function CommandPalette({ entries, onClose }: CommandPaletteProps) {
               tabIndex={-1}
               onClick={() => accept(entry)}
               className={`${ROW} ${TAP} flex justify-between gap-3 ${
-                index === cursor ? "bg-one-hover text-one-accent" : "text-one-fg"
+                index === cursor ? "bg-k-surface text-k-accent" : "text-k-ink"
               }`}
             >
               <span className="truncate">{entry.label}</span>
               {entry.keys !== undefined && (
-                <span className="shrink-0 text-one-muted">{entry.keys}</span>
+                <span className="shrink-0 text-k-muted">{entry.keys}</span>
               )}
             </button>
           ))}

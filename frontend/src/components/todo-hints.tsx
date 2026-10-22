@@ -31,7 +31,7 @@ export function TodoHints({ found, line, onTake }: TodoHintsProps) {
           type="button"
           data-testid="todo-hint"
           onClick={() => onTake(line.slice(0, found.from) + text)}
-          className="rounded-sm bg-one-line/60 px-1.5 py-[1px] text-[12px] text-one-muted hover:text-one-fg focus:outline-1 focus:outline-one-cursor"
+          className="rounded-sm bg-k-rule/60 px-1.5 py-[1px] text-[12px] text-k-muted hover:text-k-ink focus:outline-1 focus:outline-k-accent"
         >
           {hint} {name}
         </button>

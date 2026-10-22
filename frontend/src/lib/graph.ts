@@ -49,22 +49,24 @@ export interface Drawing {
 /**
  * The colour of each type the ontology names, as a theme variable.
  *
- * The types in `99 Misc/01 Config/01 Agents/Ontology.md`, each on a colour of
- * the One Dark palette the rest of the app is drawn in. A type the ontology
- * does not name is drawn like a plain note: the list is what somebody decided
- * the vocabulary is, and inventing a colour for a typo would dress it up.
+ * The types in `99 Misc/01 Config/01 Agents/Ontology.md`, each on a tag slot of
+ * the theme. Each slot takes the hue the type had under One Dark, so the graph
+ * reads as it did; which tag gets which slot will come from config (#782), and
+ * until then the type names the slot. A type the ontology does not name is
+ * drawn like a plain note: the list is what somebody decided the vocabulary
+ * is, and inventing a colour for a typo would dress it up.
  */
 export const TYPE_COLOURS: Record<string, string> = {
-  Concept: "--color-one-purple",
-  Source: "--color-one-orange",
-  Person: "--color-one-green",
-  Book: "--color-one-yellow",
-  Reference: "--color-one-accent",
-  "Periodic Note": "--color-one-muted",
+  Concept: "--tg-4",
+  Source: "--tg-8",
+  Person: "--tg-2",
+  Book: "--tg-5",
+  Reference: "--tg-3",
+  "Periodic Note": "--tg-none",
 };
 
 /** The variable a note is drawn in when its type has no colour of its own. */
-export const PLAIN = "--color-one-fg";
+export const PLAIN = "--tg-none";
 
 /** The variable of the note's colour. */
 export function colourOf(node: Pick<GraphNode, "type">): string {

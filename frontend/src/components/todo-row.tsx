@@ -30,8 +30,8 @@ function clocks(todo: Todo): string | null {
 
 /** The keyboard cursor, drawn the way the file tree draws its own. */
 const CURSOR = [
-  "outline-1 -outline-offset-1 outline-one-cursor/45",
-  "focus:outline-2 focus:outline-one-cursor focus:bg-one-cursor/15",
+  "outline-1 -outline-offset-1 outline-k-accent/45",
+  "focus:outline-2 focus:outline-k-accent focus:bg-k-accent/15",
 ].join(" ");
 
 /** One row of the list: the line as a button that opens its note. */
@@ -77,12 +77,12 @@ export function TodoRow({
       // heading of its own: its state is written on the line, and
       // the date group is still where the work belongs. A waiting
       // row is held the same way, by a person rather than a todo.
-      className={`${ROW} flex gap-2 ${muted ? "text-one-muted" : "text-one-fg"} ${cursor ? CURSOR : ""} ${coarse ? "min-h-11 min-w-0 items-center" : ""}`}
+      className={`${ROW} flex gap-2 ${muted ? "text-k-muted" : "text-k-ink"} ${cursor ? CURSOR : ""} ${coarse ? "min-h-11 min-w-0 items-center" : ""}`}
     >
       {!coarse && <span className="shrink-0">{STATE_SYMBOL[todo.state]}</span>}
       {/* Leftmost of what a row carries beyond its state, so
         scanning the list finds what is going. */}
-      {mark !== null && <span className="shrink-0 text-one-green">{mark}</span>}
+      {mark !== null && <span className="shrink-0 text-k-ok">{mark}</span>}
       {/* Between the state and the words, where the spec's mock
         puts it, and absent rather than blank on a row that
         carries none. */}
@@ -92,7 +92,7 @@ export function TodoRow({
       {/* Drawn as well as left in the words, because a part takes
         the mark off its parent and has no tag to show. */}
       {isClient(todo) && (
-        <span title="client work" className="shrink-0 text-one-accent">
+        <span title="client work" className="shrink-0 text-k-accent">
           {CLIENT_MARK}
         </span>
       )}
@@ -100,14 +100,14 @@ export function TodoRow({
         a next action reads as work on something. Muted: the row
         is about the action, and this says where it sits. */}
       {under !== undefined && (
-        <span className="max-w-[40%] shrink-0 truncate text-one-muted">{under}</span>
+        <span className="max-w-[40%] shrink-0 truncate text-k-muted">{under}</span>
       )}
       <span className="min-w-0 flex-1 truncate">{todo.text}</span>
       {/* Between the words and the date, where the spec's mock
         puts it, and out of the truncation for the reason the
         date is: it is the shortest thing on the row. */}
       {facts.progress.has(key) && (
-        <span className="shrink-0 text-one-muted">{facts.progress.get(key)}</span>
+        <span className="shrink-0 text-k-muted">{facts.progress.get(key)}</span>
       )}
       {/* What the row waits for: the blocker's words where there
         is one, a count where there are more, and every one of
@@ -115,7 +115,7 @@ export function TodoRow({
       {blockers.length > 0 && (
         <span
           title={`waits for:\n${blockers.join("\n")}`}
-          className="max-w-[40%] shrink-0 truncate text-one-muted"
+          className="max-w-[40%] shrink-0 truncate text-k-muted"
         >
           ⛔ {blockers.length === 1 ? blockers[0] : blockers.length}
         </span>
@@ -125,20 +125,18 @@ export function TodoRow({
       {dependents !== undefined && (
         <span
           title={`blocks:\n${dependents.map((one) => one.text).join("\n")}`}
-          className="shrink-0 text-one-muted"
+          className="shrink-0 text-k-muted"
         >
           → {dependents.length}
         </span>
       )}
       {/* Who a waiting row is on and for how many days, taken off
         the line's `👤`. */}
-      {wait !== null && (
-        <span className="max-w-[40%] shrink-0 truncate text-one-muted">{wait}</span>
-      )}
+      {wait !== null && <span className="max-w-[40%] shrink-0 truncate text-k-muted">{wait}</span>}
       {/* Out of the truncation for the reason the date is. What
         is on the line, not a sum: a running session lands here
         when it is stopped. */}
-      {time !== null && <span className="shrink-0 text-one-muted">{time}</span>}
+      {time !== null && <span className="shrink-0 text-k-muted">{time}</span>}
       {/* Out of the truncation, so a long todo loses its words
         rather than the date they are due on. The year is cut
         from a date inside this one, where every row shares it,
@@ -146,7 +144,7 @@ export function TodoRow({
         two rows reading `01-01` say nothing about which is
         sooner. */}
       {todo.due !== undefined && (
-        <span className="shrink-0 text-one-muted">
+        <span className="shrink-0 text-k-muted">
           {todo.due.startsWith(today.slice(0, 4)) ? todo.due.slice(5) : todo.due}
         </span>
       )}

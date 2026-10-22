@@ -47,7 +47,7 @@
 
 .cm-table-grid th,
 .cm-table-grid td {
-  border: 1px solid var(--color-one-selection);
+  border: 1px solid var(--k-rule);
   padding: 0.2em 0.6em;
   text-align: left;
   /* An empty cell has nothing to give it a height, and a row of them would
@@ -56,13 +56,13 @@
 }
 
 .cm-table-grid th {
-  background: var(--color-one-panel);
+  background: var(--k-paper);
   font-weight: 700;
 }
 
 /* Every other body row, so the eye can follow one across a wide table. */
 .cm-table-grid tbody tr:nth-child(even) {
-  background: var(--color-one-hover);
+  background: var(--k-surface);
 }
 
 /* A ```mermaid block, drawn. Centred as a figure is, and held to the note's
@@ -94,9 +94,9 @@
 }
 
 .cm-mermaid-error {
-  color: var(--color-one-warn);
+  color: var(--k-danger);
 }
 
 .cm-mermaid-source {
-  background: var(--color-one-well);
+  background: var(--k-inset);
 }

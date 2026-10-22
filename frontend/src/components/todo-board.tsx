@@ -42,8 +42,8 @@ const SET: Record<string, TodoState> = {
 
 /** The keyboard cursor, the list's own. */
 const CURSOR = [
-  "outline-1 -outline-offset-1 outline-one-cursor/45",
-  "focus:outline-2 focus:outline-one-cursor focus:bg-one-cursor/15",
+  "outline-1 -outline-offset-1 outline-k-accent/45",
+  "focus:outline-2 focus:outline-k-accent focus:bg-k-accent/15",
 ].join(" ");
 
 interface TodoBoardProps {
@@ -272,10 +272,10 @@ export function TodoBoard({
           onOpen(hit.path, hit.line);
         }}
         title={key}
-        className={`${ROW} flex min-w-0 flex-col gap-0.5 text-one-fg ${focused ? CURSOR : ""} ${coarse ? "min-h-11 justify-center" : ""} ${lifted === key ? "opacity-40" : ""}`}
+        className={`${ROW} flex min-w-0 flex-col gap-0.5 text-k-ink ${focused ? CURSOR : ""} ${coarse ? "min-h-11 justify-center" : ""} ${lifted === key ? "opacity-40" : ""}`}
       >
         {parent !== undefined && (
-          <span className="w-full truncate text-[11px] text-one-muted">↳ {parent.todo.text}</span>
+          <span className="w-full truncate text-[11px] text-k-muted">↳ {parent.todo.text}</span>
         )}
         <span className="flex w-full gap-2">
           {todo.priority !== undefined && (
@@ -284,7 +284,7 @@ export function TodoBoard({
           <span className="min-w-0 flex-1 truncate">{todo.text}</span>
         </span>
         {(progress.has(key) || blockers.length > 0 || todo.due !== undefined) && (
-          <span className="flex w-full gap-2 text-[11px] text-one-muted">
+          <span className="flex w-full gap-2 text-[11px] text-k-muted">
             {progress.has(key) && <span className="shrink-0">{progress.get(key)}</span>}
             {blockers.length > 0 && (
               <span title={`waits for:\n${blockers.join("\n")}`} className="min-w-0 truncate">
@@ -324,13 +324,13 @@ export function TodoBoard({
             onClick={() => setMore(opened ? null : opening)}
             aria-label={`more for ${todo.text}`}
             aria-expanded={opened}
-            className="min-h-11 min-w-11 shrink-0 text-one-muted"
+            className="min-h-11 min-w-11 shrink-0 text-k-muted"
           >
             ⋯
           </button>
         </div>
         {opened && (
-          <div className="flex flex-wrap px-1 text-[11px] text-one-muted">
+          <div className="flex flex-wrap px-1 text-[11px] text-k-muted">
             {actions.map(([label, run]) => (
               <button
                 key={label}
@@ -352,11 +352,11 @@ export function TodoBoard({
     );
   }
 
-  const heading = "px-3 pt-2 pb-1 text-[11px] tracking-wider text-one-muted uppercase";
+  const heading = "px-3 pt-2 pb-1 text-[11px] tracking-wider text-k-muted uppercase";
 
   /** The mark a drop zone carries while the pointer brings a card over it. */
   const marked = (name: string) => (overZone === name ? "" : undefined);
-  const lit = (name: string) => (overZone === name ? "bg-one-cursor/15" : "");
+  const lit = (name: string) => (overZone === name ? "bg-k-accent/15" : "");
 
   return (
     <div ref={root} className="flex-1 overflow-auto py-1">
@@ -373,7 +373,7 @@ export function TodoBoard({
 
       {/* A phone has room for one column, so the tabs pick which. */}
       {coarse && (
-        <div className="flex border-b border-one-line text-[11px]">
+        <div className="flex border-b border-k-rule text-[11px]">
           {/* A lifted card holds the page still, so a tab scrolled out of the
               strip could not be reached: while one is up, the tabs wrap. */}
           <div
@@ -396,7 +396,7 @@ export function TodoBoard({
                 data-over={marked(`tab:${name}`)}
                 onPointerOver={(event) => hover(event, `tab:${name}`, name)}
                 onPointerLeave={unhover}
-                className={`min-h-11 shrink-0 px-3 ${index === col ? "text-one-fg" : "text-one-muted"} ${lit(`tab:${name}`)}`}
+                className={`min-h-11 shrink-0 px-3 ${index === col ? "text-k-ink" : "text-k-muted"} ${lit(`tab:${name}`)}`}
               >
                 {COLUMN_HEADING[name]} {columns[index]?.length ?? 0}
               </button>
@@ -408,7 +408,7 @@ export function TodoBoard({
             tabIndex={-1}
             onClick={switchLanes}
             aria-pressed={byProject}
-            className="min-h-11 shrink-0 px-3 text-one-muted"
+            className="min-h-11 shrink-0 px-3 text-k-muted"
           >
             lanes
           </button>
@@ -416,7 +416,7 @@ export function TodoBoard({
       )}
 
       {cards.length === 0 ? (
-        <p className="px-3 py-1 text-[13px] text-one-muted">nothing on the board</p>
+        <p className="px-3 py-1 text-[13px] text-k-muted">nothing on the board</p>
       ) : coarse ? (
         lanes
           .filter((lane) => (lane.cells[col]?.length ?? 0) > 0)
@@ -444,14 +444,14 @@ export function TodoBoard({
             <div
               key={name}
               data-testid="todo-column"
-              className={`${heading} ${index === col ? "text-one-fg" : ""}`}
+              className={`${heading} ${index === col ? "text-k-ink" : ""}`}
             >
               {COLUMN_HEADING[name]} {columns[index]?.length ?? 0}
             </div>
           ))}
           {lanes.map((lane) => (
             <div key={lane.id} className="col-span-7 grid grid-cols-subgrid">
-              <h3 className={`${heading} col-span-7 border-t border-one-line`}>{lane.name}</h3>
+              <h3 className={`${heading} col-span-7 border-t border-k-rule`}>{lane.name}</h3>
               {COLUMNS.map((column, index) => {
                 const name = `cell:${lane.id}:${column}`;
                 return (

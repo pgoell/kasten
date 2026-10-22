@@ -1,7 +1,7 @@
 import { EditorState, Text } from "@codemirror/state";
-import { oneDark } from "@codemirror/theme-one-dark";
 import { Decoration, EditorView, lineNumbers } from "@codemirror/view";
 import { useEffect, useRef } from "react";
+import { kastenTheme } from "@/lib/editor-theme";
 import { renderedMarkdown } from "@/lib/live-preview";
 import { opensFor } from "@/lib/live-preview-callouts";
 import { noteLanguage } from "@/lib/note-language";
@@ -71,7 +71,7 @@ export function NotePreview({ text, firstLine, markLine }: NotePreviewProps) {
           // reaches here, so every link renders as one that lands.
           noteLanguage(),
           renderedMarkdown(),
-          oneDark,
+          kastenTheme,
           EditorView.lineWrapping,
           // A static set rather than a state field: the document never
           // changes here, so neither can the mark on it.

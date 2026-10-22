@@ -16,8 +16,8 @@ const RATINGS: { rating: Rating; label: string }[] = [
  * carries it, including the ones a desktop would be happy to draw smaller.
  */
 export const BUTTON =
-  "min-h-11 rounded border border-one-line px-4 py-2 text-[13px] text-one-fg " +
-  "hover:border-one-accent hover:text-one-accent active:bg-one-panel disabled:opacity-50 aria-disabled:opacity-50";
+  "min-h-11 rounded border border-k-rule px-4 py-2 text-[13px] text-k-ink " +
+  "hover:border-k-accent hover:text-k-accent active:bg-k-paper disabled:opacity-50 aria-disabled:opacity-50";
 
 /** The footer under a card: the reveal, the typed answer, or the four ratings. */
 export function ReviewAnswer({
@@ -38,7 +38,7 @@ export function ReviewAnswer({
   onRate(r: Rating): void;
 }) {
   return (
-    <footer className="border-one-line border-t p-3">
+    <footer className="border-k-rule border-t p-3">
       {shown ? (
         <div className="grid grid-cols-4 gap-2">
           {RATINGS.map(({ rating, label }) => (
@@ -72,7 +72,7 @@ export function ReviewAnswer({
             aria-label="your answer"
             value={typed}
             onChange={(event) => onTyped(event.target.value)}
-            className="min-h-11 min-w-0 flex-1 rounded border border-one-line bg-transparent px-3 text-[15px] text-one-fg outline-none focus:border-one-accent pointer-coarse:text-base"
+            className="min-h-11 min-w-0 flex-1 rounded border border-k-rule bg-transparent px-3 text-[15px] text-k-ink outline-none focus:border-k-accent pointer-coarse:text-base"
           />
           {/* Submitting the form is what the phone keyboard's Go key does. */}
           <button type="submit" disabled={undoing} className={BUTTON}>

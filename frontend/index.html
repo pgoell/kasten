@@ -10,9 +10,12 @@
     <!-- Right after the meta and not deferred: it takes cover back off on
          Android before the first layout (#364). -->
     <script src="/viewport-fit.js"></script>
+    <!-- Beside the viewport script, for the same reason: data-theme has to be
+         set before the first paint, or a dark reader sees a light flash (I2). -->
+    <script src="/theme.js"></script>
     <title>kasten</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-    <meta name="theme-color" content="#282c34" />
+    <meta name="theme-color" content="#f6f6f4" />
     <!-- use-credentials, because the whole site sits behind oauth2-proxy and a
          manifest is fetched without cookies by default: it would get the
          sign-in redirect instead of the JSON. -->

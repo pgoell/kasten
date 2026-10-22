@@ -1,7 +1,7 @@
 import { EditorState, type Extension } from "@codemirror/state";
-import { oneDark } from "@codemirror/theme-one-dark";
 import { Decoration, EditorView, WidgetType } from "@codemirror/view";
 import type { SyntaxNode } from "@lezer/common";
+import { kastenTheme } from "@/lib/editor-theme";
 import { EMBED_DEPTH, type EmbedSource, embedDepth, embedSource } from "@/lib/embed";
 import { imagePaths } from "@/lib/image";
 import { HIDDEN, type Walk } from "@/lib/live-preview-hidden";
@@ -55,7 +55,7 @@ function nestedView(
         EditorState.readOnly.of(true),
         noteLanguage(),
         rendering(),
-        oneDark,
+        kastenTheme,
         EditorView.lineWrapping,
         embedDepth.of(state.facet(embedDepth) + 1),
         paths === null ? [] : vaultPaths.of(paths),

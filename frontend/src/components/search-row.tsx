@@ -35,23 +35,23 @@ export function SearchRow({
       onClick={onOpen}
       // `min-w-0` lets the row shrink below its path beside a mention's
       // `link` button, which a long path would otherwise push off a phone.
-      className={`${ROW} ${TAP} flex min-w-0 gap-3 ${selected ? "bg-one-hover" : ""}`}
+      className={`${ROW} ${TAP} flex min-w-0 gap-3 ${selected ? "bg-k-surface" : ""}`}
     >
       <span
         // Capped below `md`, where a long path alone is wider than the list
         // and would push the line it found off the side.
-        className={`shrink-0 truncate max-md:max-w-[45%] ${selected ? "text-one-accent" : "text-one-muted"}`}
+        className={`shrink-0 truncate max-md:max-w-[45%] ${selected ? "text-k-accent" : "text-k-muted"}`}
       >
         {hit.path}:{hit.line}
       </span>
       {/* The line itself never wraps: one row per hit is what makes the list
           countable at a glance. */}
-      <span className="min-w-0 flex-1 truncate text-one-fg">
+      <span className="min-w-0 flex-1 truncate text-k-ink">
         {todo === null ? hit.text : `${STATE_SYMBOL[todo.state]} ${todo.text}`}
       </span>
       {/* Out of the truncation, so a long todo loses its words rather than
           the date they are due on. */}
-      {todo?.due !== undefined && <span className="shrink-0 text-one-muted">📅 {todo.due}</span>}
+      {todo?.due !== undefined && <span className="shrink-0 text-k-muted">📅 {todo.due}</span>}
     </button>
   );
   if (!isMention(hit)) return option;
@@ -68,7 +68,7 @@ export function SearchRow({
         // input: Tab and Ctrl+Enter have to go on working after a tap.
         onMouseDown={(event) => event.preventDefault()}
         onClick={onLink}
-        className={`${TAP} flex shrink-0 cursor-pointer px-3 text-[11px] text-one-accent hover:bg-one-hover`}
+        className={`${TAP} flex shrink-0 cursor-pointer px-3 text-[11px] text-k-accent hover:bg-k-surface`}
       >
         link
       </button>

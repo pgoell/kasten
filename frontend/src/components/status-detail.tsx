@@ -42,7 +42,7 @@ export function StatusDetail({ detail, diff, actions, onClose }: StatusDetailPro
   return (
     // Over the page and not inside the bar, whose height is fixed. Out of
     // the tab order like the two that open it: a keyboard has the `title`.
-    <div className="absolute inset-x-0 bottom-full z-10 border-t border-one-line bg-one-panel text-[11px]">
+    <div className="absolute inset-x-0 bottom-full z-10 border-t border-k-rule bg-k-paper text-[11px]">
       {/* Only the words scroll, and the buttons sit under them: a long
           diff on a phone would otherwise push the way out off the top. */}
       <div className="max-h-[50dvh] overflow-y-auto">
@@ -51,7 +51,7 @@ export function StatusDetail({ detail, diff, actions, onClose }: StatusDetailPro
           tabIndex={-1}
           data-testid="status-detail"
           onClick={onClose}
-          className="block w-full px-3 py-2 text-left whitespace-pre-line text-one-warn"
+          className="block w-full px-3 py-2 text-left whitespace-pre-line text-k-danger"
         >
           {detail}
         </button>
@@ -60,7 +60,7 @@ export function StatusDetail({ detail, diff, actions, onClose }: StatusDetailPro
           // read a line does not shut the panel.
           <div
             data-testid="conflict-diff"
-            className="border-t border-one-line px-3 py-2 font-mono whitespace-pre-wrap"
+            className="border-t border-k-rule px-3 py-2 font-mono whitespace-pre-wrap"
           >
             {folded(diff).map((row, at) => (
               <div
@@ -68,10 +68,10 @@ export function StatusDetail({ detail, diff, actions, onClose }: StatusDetailPro
                 key={at}
                 className={
                   "skip" in row || row.op === " "
-                    ? "text-one-muted"
+                    ? "text-k-muted"
                     : row.op === "-"
-                      ? "text-one-warn"
-                      : "text-one-green"
+                      ? "text-k-danger"
+                      : "text-k-ok"
                 }
               >
                 {"skip" in row ? `⋯ ${row.skip} lines` : `${row.op} ${row.text}`}
@@ -81,7 +81,7 @@ export function StatusDetail({ detail, diff, actions, onClose }: StatusDetailPro
         )}
       </div>
       {actions.length > 0 && (
-        <div className="flex gap-px border-t border-one-line">
+        <div className="flex gap-px border-t border-k-rule">
           {actions.map(({ action, label, call }) => (
             <button
               key={action}
@@ -91,7 +91,7 @@ export function StatusDetail({ detail, diff, actions, onClose }: StatusDetailPro
                 onClose();
                 call();
               }}
-              className="min-h-6 flex-1 px-3 text-one-muted active:bg-one-hover active:text-one-accent pointer-coarse:min-h-11"
+              className="min-h-6 flex-1 px-3 text-k-muted active:bg-k-surface active:text-k-accent pointer-coarse:min-h-11"
             >
               {label}
             </button>

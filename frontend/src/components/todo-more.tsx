@@ -30,7 +30,7 @@ export function TodoMore({
           onClick={onToggle}
           aria-label={`more for ${name}`}
           aria-expanded={opened}
-          className="min-h-11 min-w-11 shrink-0 text-one-muted"
+          className="min-h-11 min-w-11 shrink-0 text-k-muted"
         >
           ⋯
         </button>
@@ -40,7 +40,7 @@ export function TodoMore({
         `done` above the list are two different buttons to a
         screen reader. */}
       {opened && (
-        <div className="flex flex-wrap px-1 text-[11px] text-one-muted">
+        <div className="flex flex-wrap px-1 text-[11px] text-k-muted">
           {actions.map(([label, run]) => (
             <button
               key={label}

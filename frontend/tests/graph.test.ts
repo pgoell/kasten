@@ -26,7 +26,7 @@ function edge(source: string, target: string, relation: string | null = null) {
 
 describe("colourOf", () => {
   it("colours a type the ontology names", () => {
-    expect(colourOf({ type: "Concept" })).toBe("--color-one-purple");
+    expect(colourOf({ type: "Concept" })).toBe("--tg-4");
   });
 
   it("draws an unknown type and no type as a plain note", () => {

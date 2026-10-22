@@ -159,21 +159,23 @@ graph around the open note in a pane beside it, one edge out; a second press
 moves to that pane rather than drawing a second one. Pressed with no note open,
 `<leader>gl` does nothing.
 
-Each note is a dot, larger the more edges it has, coloured by its `type`:
+Each note is a dot, larger the more edges it has, coloured by its `type` from
+the graph's tag slots in [the design tokens](/reference/design-tokens.md):
 
-| Type | Colour |
-| --- | --- |
-| `Concept` | purple |
-| `Source` | orange |
-| `Person` | green |
-| `Book` | yellow |
-| `Reference` | blue |
-| `Periodic Note` | grey |
-| anything else | the text colour |
+| Type | Slot | Colour |
+| --- | --- | --- |
+| `Concept` | `--tg-4` | purple |
+| `Source` | `--tg-8` | orange |
+| `Person` | `--tg-2` | green |
+| `Book` | `--tg-5` | olive |
+| `Reference` | `--tg-3` | blue |
+| `Periodic Note` | `--tg-none` | grey |
+| anything else | `--tg-none` | grey |
 
 A note a link names and nobody has written is a hollow ring. A typed relation
-is a purple line with an arrow at the note it points to; a plain link is a
-faint line with none. The centre of a local graph wears a blue ring.
+is a violet line (`--tg-7`) with an arrow at the note it points to; a plain
+link is a faint line with none. The centre of a local graph wears a ring in the
+accent colour. The graph repaints when the theme switches.
 
 Names fade in as you zoom. Hovering a note lights it and its neighbours and
 dims the rest, and names the relations on its edges. Drag a note to move it,

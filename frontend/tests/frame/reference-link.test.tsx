@@ -3,14 +3,14 @@
  * with none as the words around it, at a phone's width and a desktop's.
  *
  * jsdom computes no colours, so this runs in a real browser, mounted bare with
- * what the editor draws a note with: the note language, oneDark and live
+ * what the editor draws a note with: the note language, kastenTheme and live
  * preview.
  */
 
 import { EditorState } from "@codemirror/state";
-import { oneDark } from "@codemirror/theme-one-dark";
 import { EditorView } from "@codemirror/view";
 import { page } from "vitest/browser";
+import { kastenTheme } from "@/lib/editor-theme";
 import { imagePaths } from "@/lib/image";
 import { livePreview } from "@/lib/live-preview";
 import { noteLanguage } from "@/lib/note-language";
@@ -66,7 +66,7 @@ it.each([
         selection: { anchor: DOC.slice(0, 3).join("\n").length + 1 },
         extensions: [
           noteLanguage(),
-          oneDark,
+          kastenTheme,
           vimKeys.of(false),
           livePreview(),
           vaultPaths.of([]),

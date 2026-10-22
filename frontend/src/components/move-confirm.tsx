@@ -104,7 +104,7 @@ export function MoveConfirm({ mode, startPath, target, onMoved, onClose }: MoveC
       <div className={`${PANEL} ${PANEL_NARROW}`}>
         <div className={HEADER_ROW}>
           <span className={LABEL}>{mode === "folder" ? "move folder" : "move note"}</span>
-          <span className="min-w-0 flex-1 truncate text-[13px] text-one-fg" title={target}>
+          <span className="min-w-0 flex-1 truncate text-[13px] text-k-ink" title={target}>
             {startPath} → {target}
           </span>
         </div>
@@ -112,21 +112,21 @@ export function MoveConfirm({ mode, startPath, target, onMoved, onClose }: MoveC
         {preview.data !== undefined && preview.data.length > 0 && (
           <ul aria-label="Files to update" className="overflow-auto py-1">
             {preview.data.map((path) => (
-              <li key={path} className="truncate px-3 py-[3px] text-[13px] text-one-muted">
+              <li key={path} className="truncate px-3 py-[3px] text-[13px] text-k-muted">
                 {path}
               </li>
             ))}
           </ul>
         )}
 
-        <div className="flex items-center gap-2 border-t border-one-line px-3 py-2">
+        <div className="flex items-center gap-2 border-t border-k-rule px-3 py-2">
           <output className={`${STATUS} flex-1 border-none p-0`}>
             {summary(preview.data, blocked)}
           </output>
           <button
             type="button"
             onClick={onClose}
-            className={`${TAP} cursor-pointer rounded-sm px-2 py-1 text-[12px] text-one-muted hover:bg-one-hover pointer-coarse:px-4`}
+            className={`${TAP} cursor-pointer rounded-sm px-2 py-1 text-[12px] text-k-muted hover:bg-k-surface pointer-coarse:px-4`}
           >
             Cancel
           </button>
@@ -134,7 +134,7 @@ export function MoveConfirm({ mode, startPath, target, onMoved, onClose }: MoveC
             type="button"
             onClick={accept}
             disabled={blocked}
-            className={`${TAP} cursor-pointer rounded-sm px-2 py-1 text-[12px] text-one-accent hover:bg-one-hover disabled:cursor-default disabled:opacity-50 pointer-coarse:px-4`}
+            className={`${TAP} cursor-pointer rounded-sm px-2 py-1 text-[12px] text-k-accent hover:bg-k-surface disabled:cursor-default disabled:opacity-50 pointer-coarse:px-4`}
           >
             Move
           </button>

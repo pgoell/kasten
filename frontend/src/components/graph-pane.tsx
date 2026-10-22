@@ -199,13 +199,13 @@ export function GraphPane({
       tabIndex={-1}
       onKeyDown={onKeyDown}
       aria-label="graph"
-      className="flex h-full flex-col bg-one-bg font-mono outline-none"
+      className="flex h-full flex-col bg-k-bg font-mono outline-none"
     >
-      <header className="flex items-center gap-3 border-b border-one-line px-3 py-1">
+      <header className="flex items-center gap-3 border-b border-k-rule px-3 py-1">
         <span className={LABEL}>graph</span>
         {around !== undefined && (
-          <span className="shrink-0 text-[13px] text-one-fg" title={around}>
-            {noteName(around)} <span className="text-one-muted">depth {depth}</span>
+          <span className="shrink-0 text-[13px] text-k-ink" title={around}>
+            {noteName(around)} <span className="text-k-muted">depth {depth}</span>
           </span>
         )}
         <input
@@ -239,7 +239,7 @@ export function GraphPane({
 
       {/* The three keys that are not the filter, for a screen with no keys. */}
       {coarse && (
-        <nav aria-label="graph moves" className={`flex border-b border-one-line px-1 ${LABEL}`}>
+        <nav aria-label="graph moves" className={`flex border-b border-k-rule px-1 ${LABEL}`}>
           <button
             type="button"
             tabIndex={-1}
@@ -275,13 +275,13 @@ export function GraphPane({
       )}
 
       {error !== null && (
-        <p role="alert" className="border-b border-one-line px-3 py-1 text-[12px] text-one-warn">
+        <p role="alert" className="border-b border-k-rule px-3 py-1 text-[12px] text-k-danger">
           {error}
         </p>
       )}
 
       {asked !== null && (
-        <p className="flex items-center gap-3 border-b border-one-line px-3 text-[12px] text-one-fg">
+        <p className="flex items-center gap-3 border-b border-k-rule px-3 text-[12px] text-k-ink">
           <span className="min-w-0 flex-1 truncate">Create {asked}?</span>
           <button
             type="button"
@@ -289,14 +289,14 @@ export function GraphPane({
               setAsked(null);
               onFollow(asked);
             }}
-            className="min-h-11 shrink-0 px-2 text-one-accent"
+            className="min-h-11 shrink-0 px-2 text-k-accent"
           >
             Create
           </button>
           <button
             type="button"
             onClick={() => setAsked(null)}
-            className="min-h-11 shrink-0 px-2 text-one-muted"
+            className="min-h-11 shrink-0 px-2 text-k-muted"
           >
             Cancel
           </button>
@@ -313,9 +313,9 @@ export function GraphPane({
       />
 
       {columns.length > 0 && (
-        <div className="max-h-[40%] overflow-auto border-t border-one-line">
+        <div className="max-h-[40%] overflow-auto border-t border-k-rule">
           <table className="w-full text-left text-[12px]">
-            <thead className="sticky top-0 bg-one-panel text-one-muted">
+            <thead className="sticky top-0 bg-k-paper text-k-muted">
               <tr>
                 {columns.map((column) => (
                   <th key={column} className="px-3 py-1 font-normal">
@@ -339,12 +339,12 @@ export function GraphPane({
                               onOpen(value);
                             }}
                             title={value}
-                            className="text-one-accent hover:underline"
+                            className="text-k-accent hover:underline"
                           >
                             {noteName(value)}
                           </button>
                         ) : (
-                          <span className="text-one-purple">{value}</span>
+                          <span className="text-tg-4">{value}</span>
                         )}
                       </td>
                     );
@@ -353,7 +353,7 @@ export function GraphPane({
               ))}
             </tbody>
           </table>
-          <p className="px-3 py-1 text-[11px] text-one-muted">
+          <p className="px-3 py-1 text-[11px] text-k-muted">
             {rows.length === 0
               ? "nothing matches"
               : `${rows.length} ${rows.length === 1 ? "row" : "rows"}${data?.truncated ? ", more not shown" : ""}`}
@@ -361,7 +361,7 @@ export function GraphPane({
         </div>
       )}
 
-      <footer className="flex flex-wrap items-center gap-x-3 border-t border-one-line px-3 py-1 text-[11px] text-one-muted">
+      <footer className="flex flex-wrap items-center gap-x-3 border-t border-k-rule px-3 py-1 text-[11px] text-k-muted">
         {[...Object.entries(TYPE_COLOURS), ["Note", PLAIN] as const].map(([type, variable]) => (
           <span key={type} className="flex items-center gap-1">
             <span

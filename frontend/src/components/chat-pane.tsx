@@ -22,7 +22,7 @@ const RETRY_MS = 3000;
 
 // `min-h-11` under a finger, which is the 44px the phone's toolbar holds to.
 const BUTTON =
-  "shrink-0 rounded border border-one-line px-2 py-0.5 text-[12px] text-one-fg hover:bg-one-hover disabled:opacity-40 pointer-coarse:min-h-11 pointer-coarse:px-3 pointer-coarse:text-sm";
+  "shrink-0 rounded border border-k-rule px-2 py-0.5 text-[12px] text-k-ink hover:bg-k-surface disabled:opacity-40 pointer-coarse:min-h-11 pointer-coarse:px-3 pointer-coarse:text-sm";
 
 interface ChatPaneProps {
   /** What a leader sequence reaches. The same object every other pane is given. */
@@ -176,9 +176,9 @@ export function ChatPane({ commands, focusSignal }: ChatPaneProps) {
       tabIndex={-1}
       onKeyDown={onKeyDown}
       aria-label="chat"
-      className="flex h-full flex-col bg-one-bg font-mono outline-none"
+      className="flex h-full flex-col bg-k-bg font-mono outline-none"
     >
-      <header className="flex flex-wrap items-center gap-2 border-b border-one-line px-3 py-1">
+      <header className="flex flex-wrap items-center gap-2 border-b border-k-rule px-3 py-1">
         <span className={`${LABEL} shrink-0`}>chat</span>
         {SKILLS.map((skill) => (
           <button key={skill} type="button" className={BUTTON} onClick={() => void send(skill)}>
@@ -189,7 +189,7 @@ export function ChatPane({ commands, focusSignal }: ChatPaneProps) {
         {running && (
           <button
             type="button"
-            className={`${BUTTON} text-one-warn`}
+            className={`${BUTTON} text-k-danger`}
             onClick={() => void tell("stop")}
           >
             Stop
@@ -206,14 +206,14 @@ export function ChatPane({ commands, focusSignal }: ChatPaneProps) {
       </header>
 
       {reached === false && (
-        <p role="status" className="border-b border-one-line px-3 py-1 text-[12px] text-one-warn">
+        <p role="status" className="border-b border-k-rule px-3 py-1 text-[12px] text-k-danger">
           Could not reach the chat runner at /chat/events. Check that the shell container is
           running, that the /chat route is in place, and that you are logged in.
         </p>
       )}
 
       {refused !== null && reached !== false && (
-        <p role="alert" className="border-b border-one-line px-3 py-1 text-[12px] text-one-warn">
+        <p role="alert" className="border-b border-k-rule px-3 py-1 text-[12px] text-k-danger">
           The chat runner did not take that ({refused}). Try again, or reload if your login ran out.
         </p>
       )}
@@ -226,10 +226,10 @@ export function ChatPane({ commands, focusSignal }: ChatPaneProps) {
           const { scrollHeight, scrollTop, clientHeight } = event.currentTarget;
           following.current = scrollHeight - scrollTop - clientHeight < 40;
         }}
-        className="min-h-0 flex-1 space-y-3 overflow-y-auto px-3 py-3 text-[13px] text-one-fg pointer-coarse:text-base"
+        className="min-h-0 flex-1 space-y-3 overflow-y-auto px-3 py-3 text-[13px] text-k-ink pointer-coarse:text-base"
       >
         {state.items.length === 0 && state.streaming === "" && (
-          <p className="text-one-muted">
+          <p className="text-k-muted">
             Claude Code, in the vault. Start a skill above, or write a message below.
           </p>
         )}
@@ -240,11 +240,11 @@ export function ChatPane({ commands, focusSignal }: ChatPaneProps) {
           <Item key={at} item={item} onAnswer={(body) => void tell("answer", body)} />
         ))}
         {state.streaming !== "" && <p className="whitespace-pre-wrap">{state.streaming}</p>}
-        {running && state.streaming === "" && !asking && <p className="text-one-muted">Working…</p>}
+        {running && state.streaming === "" && !asking && <p className="text-k-muted">Working…</p>}
       </div>
 
       <form
-        className="flex items-end gap-2 border-t border-one-line px-3 py-2"
+        className="flex items-end gap-2 border-t border-k-rule px-3 py-2"
         onSubmit={(event) => {
           event.preventDefault();
           void send(draft);
@@ -269,7 +269,7 @@ export function ChatPane({ commands, focusSignal }: ChatPaneProps) {
           placeholder="Message, or /skill"
           autoComplete="off"
           // 16px under a finger: Safari zooms the page on the focus of anything smaller.
-          className="min-w-0 flex-1 resize-none bg-transparent text-[13px] text-one-fg outline-none placeholder:text-one-muted pointer-coarse:text-base"
+          className="min-w-0 flex-1 resize-none bg-transparent text-[13px] text-k-ink outline-none placeholder:text-k-muted pointer-coarse:text-base"
         />
         <button type="submit" className={BUTTON} disabled={draft.trim() === ""}>
           Send
@@ -283,14 +283,14 @@ function Item({ item, onAnswer }: { item: ChatItem; onAnswer: (body: object) => 
   switch (item.kind) {
     case "user":
       return (
-        <p className="whitespace-pre-wrap border-one-accent border-l-2 pl-2 text-one-accent">
+        <p className="whitespace-pre-wrap border-k-accent border-l-2 pl-2 text-k-accent">
           {item.text}
         </p>
       );
     case "text":
       return <p className="whitespace-pre-wrap">{item.text}</p>;
     case "error":
-      return <p className="whitespace-pre-wrap text-one-warn">{item.text}</p>;
+      return <p className="whitespace-pre-wrap text-k-danger">{item.text}</p>;
     case "tool":
       return <Tool item={item} />;
     case "ask":
@@ -303,18 +303,18 @@ function Tool({ item }: { item: Extract<ChatItem, { kind: "tool" }> }) {
   const mark = item.result === undefined ? "…" : item.result.error ? "✗" : "✓";
 
   return (
-    <details className="rounded border border-one-line bg-one-panel">
+    <details className="rounded border border-k-rule bg-k-paper">
       <summary className="flex cursor-pointer items-center gap-2 px-2 py-1 pointer-coarse:min-h-11">
-        <span className={item.result?.error ? "text-one-warn" : "text-one-green"}>{mark}</span>
-        <span className="shrink-0 text-one-yellow">{item.name}</span>
-        <span className="min-w-0 flex-1 truncate text-one-muted">{toolLine(item.input)}</span>
+        <span className={item.result?.error ? "text-k-danger" : "text-k-ok"}>{mark}</span>
+        <span className="shrink-0 text-k-warn">{item.name}</span>
+        <span className="min-w-0 flex-1 truncate text-k-muted">{toolLine(item.input)}</span>
       </summary>
-      <pre className="overflow-x-auto border-one-line border-t px-2 py-1 text-[12px] text-one-muted">
+      <pre className="overflow-x-auto border-k-rule border-t px-2 py-1 text-[12px] text-k-muted">
         {JSON.stringify(item.input, null, 2)}
       </pre>
       {item.result !== undefined && (
         <pre
-          className={`max-h-64 overflow-auto whitespace-pre-wrap border-one-line border-t px-2 py-1 text-[12px] ${item.result.error ? "text-one-warn" : ""}`}
+          className={`max-h-64 overflow-auto whitespace-pre-wrap border-k-rule border-t px-2 py-1 text-[12px] ${item.result.error ? "text-k-danger" : ""}`}
         >
           {item.result.text}
         </pre>
@@ -343,7 +343,7 @@ function Ask({
 
   return (
     <form
-      className="space-y-3 rounded border border-one-accent bg-one-panel p-3"
+      className="space-y-3 rounded border border-k-accent bg-k-paper p-3"
       onSubmit={(event) => {
         event.preventDefault();
         if (answers !== undefined) onAnswer({ id: item.id, answers });
@@ -360,7 +360,7 @@ function Ask({
             {options.map(({ label, description }) => (
               <label
                 key={label}
-                className="flex cursor-pointer items-start gap-2 rounded px-1 py-0.5 hover:bg-one-hover pointer-coarse:min-h-11 pointer-coarse:items-center"
+                className="flex cursor-pointer items-start gap-2 rounded px-1 py-0.5 hover:bg-k-surface pointer-coarse:min-h-11 pointer-coarse:items-center"
               >
                 <input
                   type={multiSelect ? "checkbox" : "radio"}
@@ -385,7 +385,7 @@ function Ask({
                 />
                 <span>
                   {label}
-                  {description !== "" && <span className="text-one-muted"> {description}</span>}
+                  {description !== "" && <span className="text-k-muted"> {description}</span>}
                 </span>
               </label>
             ))}
@@ -401,7 +401,7 @@ function Ask({
               aria-label={`Other answer to: ${question}`}
               placeholder="Other"
               autoComplete="off"
-              className="w-full border-one-line border-b bg-transparent px-1 py-0.5 text-one-fg outline-none placeholder:text-one-muted pointer-coarse:min-h-11 pointer-coarse:text-base"
+              className="w-full border-k-rule border-b bg-transparent px-1 py-0.5 text-k-ink outline-none placeholder:text-k-muted pointer-coarse:min-h-11 pointer-coarse:text-base"
             />
           </fieldset>
         );
@@ -416,11 +416,11 @@ function Ask({
 /** A question that is over: what was asked and what was said. */
 function Answered({ item }: { item: Extract<ChatItem, { kind: "ask" }> }) {
   return (
-    <dl className="rounded border border-one-line bg-one-panel px-3 py-2">
+    <dl className="rounded border border-k-rule bg-k-paper px-3 py-2">
       {item.questions.map(({ question }) => (
         <div key={question}>
-          <dt className="text-one-muted">{question}</dt>
-          <dd className="text-one-accent">{item.answers?.[question] ?? "Not answered"}</dd>
+          <dt className="text-k-muted">{question}</dt>
+          <dd className="text-k-accent">{item.answers?.[question] ?? "Not answered"}</dd>
         </div>
       ))}
     </dl>

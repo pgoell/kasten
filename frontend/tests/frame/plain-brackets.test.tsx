@@ -3,12 +3,12 @@
  *
  * jsdom computes no colours, so the cascade between the highlighter's classes
  * and app.css is only answered in a real browser. Mounted bare with what the
- * editor draws a note with: the note language, oneDark and live preview.
+ * editor draws a note with: the note language, kastenTheme and live preview.
  */
 
 import { EditorState } from "@codemirror/state";
-import { oneDark } from "@codemirror/theme-one-dark";
 import { EditorView } from "@codemirror/view";
+import { kastenTheme } from "@/lib/editor-theme";
 import { imagePaths } from "@/lib/image";
 import { livePreview } from "@/lib/live-preview";
 import { noteLanguage } from "@/lib/note-language";
@@ -57,7 +57,7 @@ it("paints a [text] as the words around it, a real link as a link", () => {
       selection: { anchor: 0 },
       extensions: [
         noteLanguage(),
-        oneDark,
+        kastenTheme,
         vimKeys.of(false),
         livePreview(),
         vaultPaths.of([]),

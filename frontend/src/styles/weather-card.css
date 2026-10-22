@@ -25,18 +25,18 @@
 }
 
 .cm-weather-place {
-  color: var(--color-one-fg);
+  color: var(--k-ink);
   font-family: var(--font-sans);
   font-weight: 600;
   font-size: 1.1em;
 }
 
 .cm-weather-range {
-  color: var(--color-one-fg);
+  color: var(--k-ink);
 }
 
 .cm-weather-meta {
-  color: var(--color-one-muted);
+  color: var(--k-muted);
 }
 
 .cm-weather svg {
@@ -48,40 +48,40 @@
 
 .cm-weather text {
   font-size: 10px;
-  fill: var(--color-one-muted);
+  fill: var(--k-muted);
   text-anchor: middle;
 }
 
 .cm-weather .wx-start { text-anchor: start; }
 .cm-weather .wx-end { text-anchor: end; }
-.cm-weather .wx-value { fill: var(--color-one-fg); }
+.cm-weather .wx-value { fill: var(--k-ink); }
 .cm-weather .wx-night { fill: rgb(0 0 0 / 22%); }
-.cm-weather .wx-temp { fill: none; stroke: var(--color-one-orange); stroke-width: 2; stroke-linejoin: round; }
-.cm-weather .wx-temp-area { fill: var(--color-one-orange); fill-opacity: 0.12; }
-.cm-weather .wx-rain { fill: var(--color-one-cyan); }
-.cm-weather .wx-rule { stroke: var(--color-one-selection); }
-.cm-weather .wx-now { stroke: var(--color-one-yellow); stroke-width: 1.5; }
-.cm-weather .wx-now-label { fill: var(--color-one-yellow); text-anchor: start; }
-.cm-weather .wx-cross { stroke: var(--color-one-muted); stroke-dasharray: 2 2; }
+.cm-weather .wx-temp { fill: none; stroke: var(--tg-8); stroke-width: 2; stroke-linejoin: round; }
+.cm-weather .wx-temp-area { fill: var(--tg-8); fill-opacity: 0.12; }
+.cm-weather .wx-rain { fill: var(--tg-6); }
+.cm-weather .wx-rule { stroke: var(--k-rule); }
+.cm-weather .wx-now { stroke: var(--k-warn); stroke-width: 1.5; }
+.cm-weather .wx-now-label { fill: var(--k-warn); text-anchor: start; }
+.cm-weather .wx-cross { stroke: var(--k-muted); stroke-dasharray: 2 2; }
 .cm-weather .wx-hit { fill: transparent; }
-.cm-weather .wx-sun { fill: var(--color-one-yellow); }
-.cm-weather .wx-rays { fill: none; stroke: var(--color-one-yellow); stroke-width: 1.6; stroke-linecap: round; }
-.cm-weather .wx-moon { fill: var(--color-one-muted); }
-.cm-weather .wx-cloud { fill: var(--color-one-muted); }
-.cm-weather .wx-cloud-light { fill: var(--color-one-fg); }
-.cm-weather .wx-drops { fill: none; stroke: var(--color-one-cyan); stroke-width: 1.8; stroke-linecap: round; }
-.cm-weather .wx-flake { fill: var(--color-one-fg); }
-.cm-weather .wx-bolt { fill: none; stroke: var(--color-one-yellow); stroke-width: 1.8; stroke-linejoin: round; }
+.cm-weather .wx-sun { fill: var(--k-warn); }
+.cm-weather .wx-rays { fill: none; stroke: var(--k-warn); stroke-width: 1.6; stroke-linecap: round; }
+.cm-weather .wx-moon { fill: var(--k-muted); }
+.cm-weather .wx-cloud { fill: var(--k-muted); }
+.cm-weather .wx-cloud-light { fill: var(--k-ink); }
+.cm-weather .wx-drops { fill: none; stroke: var(--tg-6); stroke-width: 1.8; stroke-linecap: round; }
+.cm-weather .wx-flake { fill: var(--k-ink); }
+.cm-weather .wx-bolt { fill: none; stroke: var(--k-warn); stroke-width: 1.8; stroke-linejoin: round; }
 
 .cm-weather-tip {
   position: absolute;
   z-index: 2;
   pointer-events: none;
   padding: 6px 8px;
-  border: 1px solid var(--color-one-selection);
+  border: 1px solid var(--k-rule);
   border-radius: 4px;
-  background: var(--color-one-panel);
-  color: var(--color-one-fg);
+  background: var(--k-paper);
+  color: var(--k-ink);
   font-size: 12px;
   line-height: 1.4;
   white-space: nowrap;

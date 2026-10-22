@@ -9,12 +9,12 @@
  */
 
 import { EditorState } from "@codemirror/state";
-import { oneDark } from "@codemirror/theme-one-dark";
 import { EditorView } from "@codemirror/view";
 import { getCM, vim } from "@replit/codemirror-vim";
 // For its types alone: the provider is what gives `cdp()` a typed `send`.
 import type {} from "@vitest/browser-playwright";
 import { cdp, page } from "vitest/browser";
+import { kastenTheme } from "@/lib/editor-theme";
 import { imagePaths } from "@/lib/image";
 import { livePreview } from "@/lib/live-preview";
 import { noteLanguage } from "@/lib/note-language";
@@ -46,7 +46,7 @@ function picture(colour: string): string {
   return canvas.toDataURL("image/png");
 }
 
-/** The editor with oneDark and vim on, filling a pane of the given height, the cursor on the first line. */
+/** The editor with kastenTheme and vim on, filling a pane of the given height, the cursor on the first line. */
 function mount(height: number): EditorView {
   const parent = document.body.appendChild(document.createElement("div"));
   parent.style.cssText = `width: 100%; height: ${height}px; background: #282c34;`;
@@ -58,7 +58,7 @@ function mount(height: number): EditorView {
         // `vimKeys`, whose absence means yes.
         vim(),
         noteLanguage(),
-        oneDark,
+        kastenTheme,
         livePreview(),
         vaultPaths.of([]),
         imagePaths.of([]),

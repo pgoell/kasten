@@ -22,9 +22,9 @@ export function BoardPicker({
     // opens a picker that is in sight.
     <div
       data-testid="todo-project-pick"
-      className="sticky top-0 z-10 border-b border-one-line bg-one-bg pb-1"
+      className="sticky top-0 z-10 border-b border-k-rule bg-k-bg pb-1"
     >
-      <div className="flex items-center gap-3 px-3 text-[11px] text-one-accent">
+      <div className="flex items-center gap-3 px-3 text-[11px] text-k-accent">
         <span className="min-w-0 flex-1 truncate py-1">project for: {title}</span>
         {/* Escape by finger, as the list's blocker picker has it. */}
         {coarse && (
@@ -32,14 +32,14 @@ export function BoardPicker({
             type="button"
             tabIndex={-1}
             onClick={onCancel}
-            className="min-h-11 shrink-0 px-3 text-one-muted"
+            className="min-h-11 shrink-0 px-3 text-k-muted"
           >
             cancel
           </button>
         )}
       </div>
       {choices.length === 0 && (
-        <p className="px-3 py-1 text-[13px] text-one-muted">no folder under 02 Projects</p>
+        <p className="px-3 py-1 text-[13px] text-k-muted">no folder under 02 Projects</p>
       )}
       {choices.map((choice, index) => (
         <button
@@ -48,7 +48,7 @@ export function BoardPicker({
           tabIndex={-1}
           onClick={() => onPick(choice)}
           aria-current={index === at}
-          className={`${ROW} block ${index === at ? "bg-one-cursor/15 text-one-fg" : "text-one-muted"} ${coarse ? "min-h-11" : ""}`}
+          className={`${ROW} block ${index === at ? "bg-k-accent/15 text-k-ink" : "text-k-muted"} ${coarse ? "min-h-11" : ""}`}
         >
           {choice.name}
         </button>

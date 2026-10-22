@@ -58,7 +58,7 @@ export function PaneLayout({
       <div
         data-pane={node.id}
         onFocusCapture={() => onFocus(node.id)}
-        className={`min-h-0 min-w-0 flex-1 overflow-hidden bg-one-bg ${hidden ? "hidden" : ""} ${
+        className={`min-h-0 min-w-0 flex-1 overflow-hidden bg-k-bg ${hidden ? "hidden" : ""} ${
           // Only worth drawing once there is another pane it could have been.
           // An undivided window has one pane and the border says nothing.
           //
@@ -67,7 +67,7 @@ export function PaneLayout({
           // one edge the children cannot reach, because they are laid out
           // inside it. Every pane carries one, so taking the focus changes its
           // colour and moves nothing.
-          divided ? (focused ? "border border-one-accent" : "border border-one-line") : ""
+          divided ? (focused ? "border border-k-accent" : "border border-k-rule") : ""
         }`}
       >
         {children(node, focused)}
@@ -77,7 +77,7 @@ export function PaneLayout({
 
   return (
     <div
-      className={`flex min-h-0 min-w-0 flex-1 gap-0.5 bg-one-selection ${hidden ? "hidden" : ""} ${
+      className={`flex min-h-0 min-w-0 flex-1 gap-0.5 bg-k-accent-wash ${hidden ? "hidden" : ""} ${
         node.dir === "row" ? "flex-row" : "flex-col"
       }`}
     >
@@ -189,7 +189,7 @@ export function TabStrip({ layout, onSelect }: TabStripProps) {
       role="tablist"
       // The scrollbar is left out: it would take a row of its own on a desktop
       // to say what the cut-off tab at the edge already says.
-      className="flex shrink-0 gap-px overflow-x-auto bg-one-line font-mono text-[11px] [scrollbar-width:none]"
+      className="flex shrink-0 gap-px overflow-x-auto bg-k-rule font-mono text-[11px] [scrollbar-width:none]"
     >
       {layout.tabs.map((tab, index) => {
         const selected = index === active;
@@ -203,10 +203,10 @@ export function TabStrip({ layout, onSelect }: TabStripProps) {
             // position: the tenth tab is reached with `0`.
             onClick={() => onSelect(index)}
             className={`shrink-0 px-3 py-1 whitespace-nowrap pointer-coarse:min-h-11 ${
-              selected ? "bg-one-bg text-one-fg" : "bg-one-panel text-one-muted hover:bg-one-hover"
+              selected ? "bg-k-bg text-k-ink" : "bg-k-paper text-k-muted hover:bg-k-surface"
             }`}
           >
-            <span className="text-one-accent">{(index + 1) % 10}</span> {tabLabel(tab)}
+            <span className="text-k-accent">{(index + 1) % 10}</span> {tabLabel(tab)}
           </button>
         );
       })}

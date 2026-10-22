@@ -73,8 +73,7 @@ export function closeOnBackdrop(onClose: () => void, holding = false) {
 }
 
 /** The panel itself, bar its width. Pair with one of the two below. */
-export const PANEL =
-  "flex flex-col rounded-md border border-one-line bg-one-panel font-mono shadow-xl";
+export const PANEL = "flex flex-col rounded-md border border-k-rule bg-k-paper font-mono shadow-xl";
 
 /**
  * The prompt's width: one column, so it needs room for a path and no more.
@@ -95,10 +94,10 @@ export const PANEL_WIDE = "max-h-full w-[min(72rem,94vw)]";
 
 /** The row holding the label and the input, 44px under a finger like any other target. */
 export const HEADER_ROW =
-  "flex items-center gap-3 border-b border-one-line px-3 py-2 pointer-coarse:min-h-11";
+  "flex items-center gap-3 border-b border-k-rule px-3 py-2 pointer-coarse:min-h-11";
 
 /** The word in the corner saying which overlay this is. */
-export const LABEL = "text-[11px] tracking-wider text-one-muted uppercase";
+export const LABEL = "text-[11px] tracking-wider text-k-muted uppercase";
 
 /**
  * The input, which carries no border of its own: the header's is the line.
@@ -107,7 +106,7 @@ export const LABEL = "text-[11px] tracking-wider text-one-muted uppercase";
  * drawn any smaller takes the focus, and does not zoom back out.
  */
 export const INPUT =
-  "min-w-0 flex-1 bg-transparent text-[13px] text-one-fg outline-none pointer-coarse:text-base";
+  "min-w-0 flex-1 bg-transparent text-[13px] text-k-ink outline-none pointer-coarse:text-base";
 
 /**
  * The body of a two-column overlay.
@@ -132,10 +131,10 @@ export const LIST = "w-full shrink-0 overflow-auto py-1 md:w-1/2";
  * Not drawn below `md`, and by its two readers rather than by a class here: a
  * hidden pane would still mount an editor for every row the highlight stops on.
  */
-export const PANE = "min-w-0 flex-1 border-l border-one-line text-[12px]";
+export const PANE = "min-w-0 flex-1 border-l border-k-rule text-[12px]";
 
 /** What the pane says when it has no note to show, only a reason. */
-export const PANE_MESSAGE = "px-3 py-2 text-one-muted";
+export const PANE_MESSAGE = "px-3 py-2 text-k-muted";
 
 /** One row of a list, bar the colours that say whether it is highlighted. */
 export const ROW = "w-full cursor-pointer px-3 py-[3px] text-left text-[13px]";
@@ -151,4 +150,4 @@ export const ROW = "w-full cursor-pointer px-3 py-[3px] text-left text-[13px]";
 export const TAP = "pointer-coarse:min-h-11 pointer-coarse:items-center";
 
 /** The line under the list, which is empty whenever the list speaks for itself. */
-export const STATUS = "border-t border-one-line px-3 py-1 text-[11px] text-one-muted";
+export const STATUS = "border-t border-k-rule px-3 py-1 text-[11px] text-k-muted";

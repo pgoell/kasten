@@ -37,7 +37,7 @@ const HEADING = `${LABEL} px-3 pt-2 pb-1`;
 
 /** A row of the card. A finger needs 44px to land on, and a row that tall
  * centres its one line rather than hanging it from the top. */
-const CARD_ROW = `${ROW} flex items-center gap-3 hover:bg-one-hover pointer-coarse:min-h-11`;
+const CARD_ROW = `${ROW} flex items-center gap-3 hover:bg-k-surface pointer-coarse:min-h-11`;
 
 /**
  * What the vault knows about one person, gathered onto a card.
@@ -95,14 +95,14 @@ export function PersonCard({ person, paths, archive = false, onOpen }: PersonCar
         onClick={() => onOpen(hit.path, hit.line)}
         className={CARD_ROW}
       >
-        <span className="shrink-0 text-one-muted">{STATE_SYMBOL[todo.state]}</span>
-        <span className="min-w-0 flex-1 truncate text-one-fg">{plainLinks(todo.text)}</span>
+        <span className="shrink-0 text-k-muted">{STATE_SYMBOL[todo.state]}</span>
+        <span className="min-w-0 flex-1 truncate text-k-ink">{plainLinks(todo.text)}</span>
         {/* Out of the truncation, so a long todo loses its words rather than
             the date they are due on. */}
         {todo.priority !== undefined && (
           <span className="shrink-0">{PRIORITY_SYMBOL[todo.priority]}</span>
         )}
-        {todo.due !== undefined && <span className="shrink-0 text-one-muted">📅 {todo.due}</span>}
+        {todo.due !== undefined && <span className="shrink-0 text-k-muted">📅 {todo.due}</span>}
       </button>
     );
   }
@@ -115,8 +115,8 @@ export function PersonCard({ person, paths, archive = false, onOpen }: PersonCar
         onClick={() => onOpen(meeting.path, meeting.line)}
         className={CARD_ROW}
       >
-        <span className="shrink-0 text-one-muted">{meeting.date}</span>
-        <span className="min-w-0 flex-1 truncate text-one-fg">
+        <span className="shrink-0 text-k-muted">{meeting.date}</span>
+        <span className="min-w-0 flex-1 truncate text-k-ink">
           {/* The date opens the filename and the row already carries it. */}
           {noteName(meeting.path).slice(meeting.date.length + 1)}
         </span>
@@ -132,8 +132,8 @@ export function PersonCard({ person, paths, archive = false, onOpen }: PersonCar
         onClick={() => onOpen(hit.path, hit.line)}
         className={CARD_ROW}
       >
-        <span className="shrink-0 text-one-muted">{date}</span>
-        <span className="min-w-0 flex-1 truncate text-one-fg">{plainLinks(text)}</span>
+        <span className="shrink-0 text-k-muted">{date}</span>
+        <span className="min-w-0 flex-1 truncate text-k-ink">{plainLinks(text)}</span>
       </button>
     );
   }
@@ -166,7 +166,7 @@ export function PersonCard({ person, paths, archive = false, onOpen }: PersonCar
           todo yet, and saying how the card fills is more use than saying it is
           empty. */}
       {empty && (
-        <p className="px-3 py-2 text-one-muted">
+        <p className="px-3 py-2 text-k-muted">
           {reading
             ? "reading the vault"
             : `nothing links [[${name}]] yet. Write the link into a todo and it shows here.`}
@@ -201,7 +201,7 @@ export function PersonFooter({ path, paths, archive, onOpen }: PersonFooterProps
   return (
     // A share of the pane rather than the content's own height: a person with
     // eleven open todos should not push the note they are about off the screen.
-    <div className="h-[min(14rem,40%)] shrink-0 border-t border-one-line">
+    <div className="h-[min(14rem,40%)] shrink-0 border-t border-k-rule">
       <PersonCard person={path} paths={paths} archive={archive} onOpen={onOpen} />
     </div>
   );

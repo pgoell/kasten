@@ -45,7 +45,7 @@ class Formula extends WidgetType {
         katex.render(this.source, box, {
           displayMode: this.display,
           throwOnError: false,
-          errorColor: "var(--color-one-warn)",
+          errorColor: "var(--k-danger)",
         });
         view.requestMeasure();
       },

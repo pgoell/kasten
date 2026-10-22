@@ -117,13 +117,11 @@ export function TodoPrompt({ onAdd, onClose, today, under }: TodoPromptProps) {
 
         {/* Which todo the part is going under, so the two presses that open
             this prompt cannot be told apart by the label alone. */}
-        {under !== undefined && (
-          <p className={`${STATUS} truncate text-one-muted`}>under {under}</p>
-        )}
+        {under !== undefined && <p className={`${STATUS} truncate text-k-muted`}>under {under}</p>}
 
         {/* An <output> rather than a <p role="status">: same announcement, and
             the element carries it without the attribute. */}
-        <output className={`${STATUS} truncate text-one-fg`}>{preview}</output>
+        <output className={`${STATUS} truncate text-k-ink`}>{preview}</output>
 
         {/* Below the preview, so the line the vault is about to get stays under
             the input as it is typed and the buttons come after both. Tab from

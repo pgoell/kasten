@@ -4,11 +4,11 @@ import { readFileSync } from "node:fs";
 import { undo } from "@codemirror/commands";
 import { forceParsing } from "@codemirror/language";
 import { EditorSelection, EditorState } from "@codemirror/state";
-import { oneDark } from "@codemirror/theme-one-dark";
 import { EditorView } from "@codemirror/view";
 import { act, fireEvent, type RenderResult, render, waitFor } from "@testing-library/react";
 import { Editor } from "@/components/editor";
 import { NotePreview } from "@/components/note-preview";
+import { kastenTheme } from "@/lib/editor-theme";
 import { renderedMarkdown } from "@/lib/live-preview";
 import { loadKatex } from "@/lib/math";
 import { noteLanguage } from "@/lib/note-language";
@@ -227,7 +227,7 @@ describe("block math", () => {
           EditorState.readOnly.of(true),
           noteLanguage(),
           renderedMarkdown(),
-          oneDark,
+          kastenTheme,
         ],
       }),
       parent,
@@ -309,7 +309,7 @@ describe("a bad formula", () => {
     expect(inline?.closest(".cm-math")).not.toBeNull();
     expect(inline?.textContent).toBe("\\frac{");
     expect(inline?.title).toContain("ParseError");
-    expect(inline?.style.color).toBe("var(--color-one-warn)");
+    expect(inline?.style.color).toBe("var(--k-danger)");
     expect(block?.closest(".cm-math-block")).not.toBeNull();
     expect(block?.textContent).toBe("\\left(");
     expect(block?.title).toContain("ParseError");
@@ -334,7 +334,7 @@ describe("loading KaTeX", () => {
 });
 
 describe("colour", () => {
-  it("A10 KaTeX sets no colour of its own, so math wears oneDark's text colour", async () => {
+  it("A10 KaTeX sets no colour of its own, so math wears the editor's text colour", async () => {
     const css = readFileSync("node_modules/katex/dist/katex.min.css", "utf8");
     const colours = [...css.matchAll(/(?:^|[;{\s])color:([^;}]+)/g)].map((found) => found[1]);
     expect(colours.every((value) => value === "currentColor" || value === "inherit")).toBe(true);

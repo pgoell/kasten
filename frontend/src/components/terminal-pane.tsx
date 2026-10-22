@@ -3,6 +3,7 @@ import { type ITheme, Terminal } from "@xterm/xterm";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { keyBytes, type TerminalKey, TerminalKeys, withCtrl } from "@/components/terminal-keys";
 import { type EditorCommands, TERMINAL, TERMINAL_CHORD } from "@/lib/key-bindings";
+import { onThemeChange } from "@/lib/theme";
 import "@xterm/xterm/css/xterm.css";
 import {
   closedMessage,
@@ -16,30 +17,34 @@ import {
 import { useViewport } from "@/lib/use-viewport";
 
 /**
- * The One colours, read off the same CSS variables the editor is painted from.
+ * The theme's colours, read off the same tokens the editor is painted from.
  *
- * Read rather than repeated, so the palette stays in `app.css` and a terminal
- * pane cannot drift from the note pane beside it. `getPropertyValue` keeps the
- * leading space a declaration is written with, hence the trim.
+ * Read rather than repeated, so the palette stays in `kasten-theme.css` and a
+ * terminal pane cannot drift from the note pane beside it. `getPropertyValue`
+ * keeps the leading space a declaration is written with, hence the trim.
  *
- * The bright eight and the rest of the ANSI set are left to xterm's defaults:
- * `app.css` has no values for them, and inventing eight is a design decision
- * nobody asked for.
+ * The ANSI slots the tokens name are the ones they stand for, and the rest are
+ * left to xterm's defaults: the token file has no values for them, and inventing
+ * them is a design decision nobody asked for. `brightBlack` is the one bright
+ * slot named: shells draw dimmed text in it, and the muted token is that grey.
  */
-function oneTheme(): ITheme {
+function kastenTheme(): ITheme {
   const style = getComputedStyle(document.documentElement);
   const read = (name: string) => style.getPropertyValue(name).trim();
 
   return {
-    background: read("--color-one-bg"),
-    foreground: read("--color-one-fg"),
-    cursor: read("--color-one-cursor"),
-    selectionBackground: read("--color-one-selection"),
-    // The four named hues are already the ANSI slots they stand for.
-    red: read("--color-one-warn"),
-    green: read("--color-one-green"),
-    yellow: read("--color-one-yellow"),
-    blue: read("--color-one-accent"),
+    background: read("--k-bg"),
+    foreground: read("--k-ink"),
+    cursor: read("--k-accent"),
+    cursorAccent: read("--k-bg"),
+    selectionBackground: read("--k-highlight"),
+    red: read("--k-danger"),
+    green: read("--k-ok"),
+    yellow: read("--k-warn"),
+    blue: read("--k-accent"),
+    cyan: read("--tg-6"),
+    magenta: read("--tg-4"),
+    brightBlack: read("--k-muted"),
   };
 }
 
@@ -98,7 +103,7 @@ export function TerminalPane({
 
     const term = new Terminal({
       cursorBlink: true,
-      theme: oneTheme(),
+      theme: kastenTheme(),
       fontFamily: getComputedStyle(document.documentElement).getPropertyValue("--font-mono").trim(),
       // The size the app sets everything monospaced in.
       fontSize: 13,
@@ -180,9 +185,15 @@ export function TerminalPane({
     const resizing = term.onResize(({ cols, rows }) => {
       if (socket.readyState === WebSocket.OPEN) socket.send(encodeResize(cols, rows));
     });
+    // xterm takes a new theme on its options while the session runs, so the
+    // shell repaints in place rather than when the pane is next opened.
+    const retheming = onThemeChange(() => {
+      term.options.theme = kastenTheme();
+    });
 
     return () => {
       cancelAnimationFrame(painted);
+      retheming();
       watching.disconnect();
       resizing.dispose();
       typing.dispose();

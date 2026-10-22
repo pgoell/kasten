@@ -232,6 +232,7 @@ the four formatting marks, the inserts below, and the commands vim spells at
 its prompt: the write, the two rereads, the three copies and `gf`. Opened over
 a pane with no note, it lists the leader commands only, as the rest act on a
 note. Both lists end with `Go to tab 1` to `Go to tab 10`, `Toggle vim keys`,
+`Toggle light and dark mode` (see [the design tokens](/reference/design-tokens.md#light-and-dark)),
 one `Log <name>` per kind of the log config note, and `Log food`, none of
 which has a key. Over a daily note's card `Log food` opens that card's food
 search. Anywhere else it opens today's daily note in the focused pane, as

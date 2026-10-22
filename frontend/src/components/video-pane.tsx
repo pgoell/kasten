@@ -255,11 +255,11 @@ export function VideoPane({ note, commands, focusSignal, playSignal, onWatched }
       tabIndex={-1}
       onKeyDown={onKeyDown}
       aria-label="video"
-      className="flex h-full flex-col bg-one-bg font-mono outline-none"
+      className="flex h-full flex-col bg-k-bg font-mono outline-none"
     >
-      <header className="flex items-center gap-3 border-b border-one-line px-3 py-1">
+      <header className="flex items-center gap-3 border-b border-k-rule px-3 py-1">
         <span className={`shrink-0 ${LABEL}`}>video</span>
-        <span className="min-w-0 flex-1 truncate text-[13px] text-one-fg" title={note}>
+        <span className="min-w-0 flex-1 truncate text-[13px] text-k-ink" title={note}>
           {noteName(note)}
         </span>
         {videos.length > 1 && (
@@ -286,7 +286,7 @@ export function VideoPane({ note, commands, focusSignal, playSignal, onWatched }
 
       <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden p-2">
         {source === null ? (
-          <p role="status" className="text-[13px] text-one-muted">
+          <p role="status" className="text-[13px] text-k-muted">
             {isPending ? "Reading the note" : "No video linked in this note"}
           </p>
         ) : (

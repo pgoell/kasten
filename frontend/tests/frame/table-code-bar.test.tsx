@@ -6,12 +6,12 @@
  */
 
 import { EditorState } from "@codemirror/state";
-import { oneDark } from "@codemirror/theme-one-dark";
 import { EditorView } from "@codemirror/view";
 import { vim } from "@replit/codemirror-vim";
 // For its types alone: the provider is what gives `cdp()` a typed `send`.
 import type {} from "@vitest/browser-playwright";
 import { cdp, page } from "vitest/browser";
+import { kastenTheme } from "@/lib/editor-theme";
 import { imagePaths } from "@/lib/image";
 import { livePreview } from "@/lib/live-preview";
 import { noteLanguage } from "@/lib/note-language";
@@ -35,7 +35,7 @@ afterEach(async () => {
 });
 
 /**
- * The editor with oneDark and vim on, as `editor.tsx` mounts it, filling a
+ * The editor with kastenTheme and vim on, as `editor.tsx` mounts it, filling a
  * pane of the given height, the cursor on the first line.
  */
 function mount(height: number): EditorView {
@@ -46,7 +46,7 @@ function mount(height: number): EditorView {
       doc: NOTE,
       extensions: [
         noteLanguage(),
-        oneDark,
+        kastenTheme,
         vim(),
         vimKeys.of(true),
         livePreview(),

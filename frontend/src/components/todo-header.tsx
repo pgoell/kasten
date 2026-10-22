@@ -41,7 +41,7 @@ export function TodoHeader(p: {
 
   return (
     <>
-      <header className="flex items-center gap-3 border-b border-one-line px-3 py-1">
+      <header className="flex items-center gap-3 border-b border-k-rule px-3 py-1">
         <span className={LABEL}>todos</span>
         <input
           ref={filter}
@@ -71,7 +71,7 @@ export function TodoHeader(p: {
             type="button"
             onClick={onAdd}
             aria-label="add todo"
-            className="min-h-11 min-w-11 shrink-0 text-one-muted"
+            className="min-h-11 min-w-11 shrink-0 text-k-muted"
           >
             +
           </button>
@@ -83,7 +83,7 @@ export function TodoHeader(p: {
       {picking !== null && (
         <div
           data-testid="todo-pick"
-          className="flex items-center gap-3 border-b border-one-line px-3 text-[11px] text-one-accent"
+          className="flex items-center gap-3 border-b border-k-rule px-3 text-[11px] text-k-accent"
         >
           <span className="min-w-0 flex-1 truncate py-1">
             ⛔ pick what blocks: {parseTodo(picking.text)?.text}
@@ -93,7 +93,7 @@ export function TodoHeader(p: {
               type="button"
               tabIndex={-1}
               onClick={onCancelPick}
-              className="min-h-11 shrink-0 px-3 text-one-muted"
+              className="min-h-11 shrink-0 px-3 text-k-muted"
             >
               cancel
             </button>
@@ -106,13 +106,13 @@ export function TodoHeader(p: {
           bare words at a tap's height; a mouse gets the footer's key-then-word,
           so the strip teaches the key. Outside the list, so they stay put while
           it scrolls, and out of the tab order like every button but the row. */}
-      <div className="flex border-b border-one-line px-1 text-[11px] text-one-muted">
+      <div className="flex border-b border-k-rule px-1 text-[11px] text-k-muted">
         <button
           type="button"
           tabIndex={-1}
           onClick={() => strip.done()}
           aria-pressed={mode === "done"}
-          className={`${pad} ${mode === "done" ? "text-one-fg" : ""}`}
+          className={`${pad} ${mode === "done" ? "text-k-ink" : ""}`}
         >
           {coarse ? "done" : "d done"}
         </button>
@@ -121,7 +121,7 @@ export function TodoHeader(p: {
           tabIndex={-1}
           onClick={() => strip.next()}
           aria-pressed={mode === "next"}
-          className={`${pad} ${mode === "next" ? "text-one-fg" : ""}`}
+          className={`${pad} ${mode === "next" ? "text-k-ink" : ""}`}
         >
           {coarse ? "next" : "n next"}
         </button>
@@ -133,7 +133,7 @@ export function TodoHeader(p: {
           tabIndex={-1}
           onClick={() => strip.board()}
           aria-pressed={board}
-          className={`${pad} ${board ? "text-one-fg" : ""}`}
+          className={`${pad} ${board ? "text-k-ink" : ""}`}
         >
           {coarse ? "board" : "c board"}
         </button>

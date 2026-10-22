@@ -36,7 +36,7 @@ export function Clock({ crowded }: { crowded: boolean }) {
     <div
       // Gone below `md` while there is a notice: a phone's bar holds one
       // sentence or the time, and the sentence is the one that will not keep.
-      className={`flex items-center gap-3 text-[11px] whitespace-nowrap text-one-muted tabular-nums ${
+      className={`flex items-center gap-3 text-[11px] whitespace-nowrap text-k-muted tabular-nums ${
         crowded ? "max-md:hidden" : ""
       }`}
     >

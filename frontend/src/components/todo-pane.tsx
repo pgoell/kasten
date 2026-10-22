@@ -341,7 +341,7 @@ export function TodoPane({
       tabIndex={-1}
       onKeyDown={onKeyDown}
       onPointerDown={armed.disarmElsewhere}
-      className="flex h-full flex-col bg-one-bg font-mono"
+      className="flex h-full flex-col bg-k-bg font-mono"
     >
       <TodoHeader
         filter={filter}

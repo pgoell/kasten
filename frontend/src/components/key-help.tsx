@@ -101,10 +101,10 @@ function Block({
 }) {
   return (
     <section className={className}>
-      <h2 className="mb-1 text-[12px] font-semibold tracking-wider text-one-fg uppercase">
+      <h2 className="mb-1 text-[12px] font-semibold tracking-wider text-k-ink uppercase">
         {title}
       </h2>
-      {intro && <p className="mb-2 text-[12px] text-one-muted">{intro}</p>}
+      {intro && <p className="mb-2 text-[12px] text-k-muted">{intro}</p>}
       <div className="grid grid-cols-1 items-start gap-x-8 gap-y-4 md:grid-cols-2 xl:grid-cols-3">
         {groups.map((group) => (
           <Table key={group.title} {...group} />
@@ -121,8 +121,8 @@ function Table({ title, keys }: Group) {
       <dl className="grid grid-cols-[auto_1fr] gap-x-3 text-[13px] leading-snug">
         {keys.map(({ key, label }) => (
           <div key={key} className="contents">
-            <dt className="whitespace-nowrap text-one-accent">{key}</dt>
-            <dd className="text-one-muted">{label}</dd>
+            <dt className="whitespace-nowrap text-k-accent">{key}</dt>
+            <dd className="text-k-muted">{label}</dd>
           </div>
         ))}
       </dl>
@@ -219,11 +219,7 @@ export function KeyHelp({ onClose }: { onClose: () => void }) {
             }
             groups={leaderGroups()}
           />
-          <Block
-            title="Other keys"
-            groups={others}
-            className="mt-4 border-t border-one-selection pt-4"
-          />
+          <Block title="Other keys" groups={others} className="mt-4 border-t border-k-rule pt-4" />
         </div>
         <p className={STATUS}>Escape or q to close, or a tap outside</p>
       </div>

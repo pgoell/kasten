@@ -1,5 +1,4 @@
 import { EditorState } from "@codemirror/state";
-import { oneDark } from "@codemirror/theme-one-dark";
 import { EditorView } from "@codemirror/view";
 import { vim as vimKeymap } from "@replit/codemirror-vim";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -8,6 +7,7 @@ import type {} from "@vitest/browser-playwright";
 import { createRoot, type Root } from "react-dom/client";
 import { cdp, page } from "vitest/browser";
 import { Editor } from "@/components/editor";
+import { kastenTheme } from "@/lib/editor-theme";
 import { imagePaths } from "@/lib/image";
 import { livePreview } from "@/lib/live-preview";
 import { noteLanguage } from "@/lib/note-language";
@@ -70,7 +70,7 @@ export function mount(doc: string, vim: boolean, height: number): EditorView {
       doc,
       extensions: [
         noteLanguage(),
-        oneDark,
+        kastenTheme,
         // As the app has it: vim's keys, or the facet saying there are none.
         vim ? vimKeymap() : vimKeys.of(false),
         livePreview(),

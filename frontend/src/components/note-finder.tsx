@@ -325,7 +325,7 @@ export function NoteFinder({ paths, onOpen, onClose, outgoing = false, books }: 
                   tabIndex={-1}
                   onClick={() => accept(path)}
                   className={`${ROW} ${TAP} ${book ? "flex gap-3" : "truncate"} ${
-                    index === cursor ? "bg-one-hover text-one-accent" : "text-one-fg"
+                    index === cursor ? "bg-k-surface text-k-accent" : "text-k-ink"
                   }`}
                 >
                   {book ? (
@@ -336,7 +336,7 @@ export function NoteFinder({ paths, onOpen, onClose, outgoing = false, books }: 
                     // four-letter name to two on a phone.
                     <>
                       <span className="max-w-full shrink-0 truncate">{noteName(path)}</span>
-                      <span className="ml-auto min-w-0 truncate text-one-muted">
+                      <span className="ml-auto min-w-0 truncate text-k-muted">
                         {folderOf(path)}
                       </span>
                     </>

@@ -289,17 +289,17 @@ export function ExamPane({ note, commands, onOpen, focusSignal }: ExamPaneProps)
       // other way for one to hold the focus while a key is pressed.
       onClick={() => panel.current?.focus()}
       aria-label="practice exam"
-      className="flex h-full flex-col bg-one-bg font-mono outline-none"
+      className="flex h-full flex-col bg-k-bg font-mono outline-none"
     >
-      <header className="flex items-center gap-3 border-b border-one-line px-3 py-1">
+      <header className="flex items-center gap-3 border-b border-k-rule px-3 py-1">
         <span className={LABEL}>exam</span>
-        <span className="min-w-0 flex-1 truncate text-[13px] text-one-fg">
+        <span className="min-w-0 flex-1 truncate text-[13px] text-k-ink">
           {exam?.title ?? note}
         </span>
         {running && (
           <span
             data-testid="exam-timer"
-            className={`text-[13px] tabular-nums ${out ? "text-one-accent" : "text-one-muted"}`}
+            className={`text-[13px] tabular-nums ${out ? "text-k-accent" : "text-k-muted"}`}
           >
             {label}
           </span>
@@ -311,14 +311,14 @@ export function ExamPane({ note, commands, onOpen, focusSignal }: ExamPaneProps)
         )}
       </header>
 
-      <div className="min-h-0 flex-1 overflow-auto px-4 py-3 text-[13px] text-one-fg">
-        {isPending && <p className="text-one-muted">Reading the note…</p>}
+      <div className="min-h-0 flex-1 overflow-auto px-4 py-3 text-[13px] text-k-ink">
+        {isPending && <p className="text-k-muted">Reading the note…</p>}
 
         {!isPending && exam === null && (
-          <p role="alert" className="text-one-muted">
-            No exam in <span className="text-one-fg">{note}</span>. A question is a{" "}
-            <span className="text-one-fg">### Question 1.1</span> heading with lettered options
-            under it. See <span className="text-one-fg">How-To-Exam</span> in the vault.
+          <p role="alert" className="text-k-muted">
+            No exam in <span className="text-k-ink">{note}</span>. A question is a{" "}
+            <span className="text-k-ink">### Question 1.1</span> heading with lettered options under
+            it. See <span className="text-k-ink">How-To-Exam</span> in the vault.
           </p>
         )}
 
@@ -333,7 +333,7 @@ export function ExamPane({ note, commands, onOpen, focusSignal }: ExamPaneProps)
           mouse has the keys, so this stays out of the way of one. */}
       <nav
         aria-label="exam moves"
-        className={`hidden border-one-line border-t px-1 pointer-coarse:flex ${LABEL}`}
+        className={`hidden border-k-rule border-t px-1 pointer-coarse:flex ${LABEL}`}
       >
         {graded === null && exam !== null && lengths && (
           <>
@@ -391,13 +391,13 @@ export function ExamPane({ note, commands, onOpen, focusSignal }: ExamPaneProps)
             </button>
             {/* The two that cannot be taken back sit behind a line, apart from
                 the four a thumb reaches for on every question. */}
-            <span aria-hidden="true" className="mx-1 my-2 border-one-line border-l" />
+            <span aria-hidden="true" className="mx-1 my-2 border-k-rule border-l" />
             <button
               type="button"
               tabIndex={-1}
               aria-pressed={armed === "finish"}
               onClick={() => (armed === "finish" ? void finish(exam) : setArmed("finish"))}
-              className={`${TAP} ${armed === "finish" ? "text-one-accent" : ""}`}
+              className={`${TAP} ${armed === "finish" ? "text-k-accent" : ""}`}
             >
               {armed === "finish" ? "finish?" : "finish"}
             </button>
@@ -419,7 +419,7 @@ export function ExamPane({ note, commands, onOpen, focusSignal }: ExamPaneProps)
               ? commands.closeNote()
               : setArmed("close")
           }
-          className={`${TAP} ${armed === "close" ? "text-one-accent" : ""}`}
+          className={`${TAP} ${armed === "close" ? "text-k-accent" : ""}`}
         >
           {armed === "close" ? "close?" : "close"}
         </button>

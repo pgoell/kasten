@@ -64,7 +64,7 @@ interface NoteEditorProps {
   held?: string;
 }
 
-const MESSAGE = "flex h-full items-center justify-center px-4 text-sm text-one-muted";
+const MESSAGE = "flex h-full items-center justify-center px-4 text-sm text-k-muted";
 
 /**
  * One note from the vault, open in the editor.

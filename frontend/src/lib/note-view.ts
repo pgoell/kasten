@@ -2,7 +2,6 @@ import { acceptCompletion } from "@codemirror/autocomplete";
 import { indentWithTab } from "@codemirror/commands";
 import { markdownLanguage } from "@codemirror/lang-markdown";
 import { Compartment, EditorState, type Extension, type Text } from "@codemirror/state";
-import { oneDark } from "@codemirror/theme-one-dark";
 import { EditorView, keymap, lineNumbers } from "@codemirror/view";
 import { vim } from "@replit/codemirror-vim";
 import { basicSetup } from "codemirror";
@@ -12,6 +11,7 @@ import { fromVault } from "@/lib/buffer-writes";
 import { editorCommands, forwardCommands } from "@/lib/editor-commands";
 import { byName, reloadHandler, save, saveHandler } from "@/lib/editor-ex";
 import { followHandler, followOnClick, followOnTap, highlightHandler } from "@/lib/editor-follow";
+import { kastenTheme } from "@/lib/editor-theme";
 import { type EmbedSource, embedSource } from "@/lib/embed";
 import { toggleMark } from "@/lib/format-commands";
 import { imageCompletions, imagePaste, imagePaths, noticeHandler } from "@/lib/image";
@@ -267,7 +267,7 @@ export function createNoteView(o: {
           listings(o.listings.paths, o.listings.images, o.listings.tags, o.listings.relations),
         ),
         preview.of(o.preview ? [livePreview(), weatherCard, logCard] : []),
-        oneDark,
+        kastenTheme,
         EditorView.lineWrapping,
         EditorView.updateListener.of((update) => {
           // `every` and not `some`: an update carrying the reload alongside
