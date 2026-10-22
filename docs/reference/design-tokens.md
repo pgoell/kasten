@@ -83,8 +83,9 @@ takes which slot.
 
 WCAG 2 ratios, alpha colours blended over paper. `tests/theme-contrast.test.ts`
 computes every pair from the token file and holds text at 4.5 or over and tag
-dots at 3 or over. It reads the default palette only, `poel`, so the ratios
-below are `poel`'s; the test does not check the other three.
+dots at 3 or over. The ratios below are `poel`'s. Every palette in both themes
+is checked by `frontend/tests/palette-generator.test.ts`, and
+[Accent palettes](/reference/accent-palettes.md) holds the measured table.
 
 | Pair | Light | Dark |
 |---|---|---|
