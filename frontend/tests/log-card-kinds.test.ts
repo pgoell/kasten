@@ -332,4 +332,39 @@ describe("the log card's kinds", () => {
     expect(view.dom.querySelector(".cm-log button[aria-label='Log tea']")).not.toBeNull();
     expect(vi.mocked(fetchNote).mock.calls.length).toBe(asked);
   });
+
+  it("#825 a card drawn again while a reload of log.md fails keeps the kinds it had", async () => {
+    vi.mocked(fetchNote).mockResolvedValue(`${DEFAULTS}\n- 🍵 tea: 1 cup`);
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const compartment = new Compartment();
+    const parent = document.body.appendChild(document.createElement("div"));
+    const view = new EditorView({
+      state: EditorState.create({
+        doc: NOTE,
+        extensions: [notePath.of(DAILY), history(), compartment.of(logCard)],
+      }),
+      parent,
+    });
+    mounted.push(view);
+    await arrived(view, "Log tea");
+
+    // The next read of log.md is held, so the reload is still out when the card is drawn again.
+    let fail: (error: Error) => void = () => undefined;
+    vi.mocked(fetchNote).mockReturnValue(
+      new Promise<string>((_, reject) => {
+        fail = reject;
+      }),
+    );
+    reloadLogConfig();
+    view.dispatch({ effects: compartment.reconfigure([]) });
+    view.dispatch({ effects: compartment.reconfigure(logCard) });
+    // Vitest fails the run on an unhandled rejection, which is the other half of #825.
+    fail(new Error("the vault is down"));
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(view.dom.querySelector(".cm-log button[aria-label='Log tea']")).not.toBeNull();
+    warn.mockRestore();
+  });
 });

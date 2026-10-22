@@ -74,12 +74,11 @@ export function useVaultEvents(
     // `cancelRefetch` off it joins that fetch rather than replacing it, so the
     // redundant open costs nothing and the first paint waits on one walk of
     // the vault rather than two. The log's first open joins its own first fetch
-    // the same way. log.md is missed the same way, so the palette's kinds and each
-    // card's config are asked on the open too.
+    // the same way. log.md is missed the same way, so the store the palette and the
+    // cards read is asked again on the open too.
     stream.onopen = () => {
       queryClient.invalidateQueries({ queryKey: ["files"] }, { cancelRefetch: false });
       queryClient.invalidateQueries({ queryKey: ["log"] }, { cancelRefetch: false });
-      queryClient.invalidateQueries({ queryKey: ["log-config"] }, { cancelRefetch: false });
       reloadLogConfig();
     };
     stream.onmessage = (message) => {
@@ -190,10 +189,9 @@ export function useVaultEvents(
       if (event.change === "removed" && event.path === LOG_NOTE) {
         queryClient.invalidateQueries({ queryKey: ["note", LOG_NOTE] }, { cancelRefetch: false });
       }
-      // The route reads log.md under its own key, which the note's query does not
-      // feed, so a write or removal asks that key too.
+      // The palette and the cards read log.md through their own store, which the
+      // note's query does not feed, so a write or removal asks that store again.
       if ((event.change === "written" || event.change === "removed") && event.path === LOG_NOTE) {
-        queryClient.invalidateQueries({ queryKey: ["log-config"] }, { cancelRefetch: false });
         reloadLogConfig();
       }
 

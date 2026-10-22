@@ -1,7 +1,7 @@
 import { EditorView } from "@codemirror/view";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { CommandPalette } from "@/components/command-palette";
 import { FileExplorer } from "@/components/file-explorer";
 import { KeyHelp } from "@/components/key-help";
@@ -12,11 +12,10 @@ import { useFinders } from "@/components/use-finders";
 import { usePaneMoves } from "@/components/use-pane-moves";
 import { usePrompts } from "@/components/use-prompts";
 import { WorkspacePanes } from "@/components/workspace-panes";
-import { fetchNote, NoteMissing } from "@/lib/api";
 import { heldText } from "@/lib/held-text";
 import type { TreeCommands } from "@/lib/key-bindings";
-import { LOG_NOTE } from "@/lib/layout";
-import { DEFAULT_CONFIG, parseConfig } from "@/lib/log-kinds";
+import { askLogConfig, logConfig, subscribeLogConfig } from "@/lib/log-config";
+import { DEFAULT_CONFIG } from "@/lib/log-kinds";
 import { paletteEntries } from "@/lib/palette";
 import { openOnTop } from "@/lib/pane-contents";
 import { docIn } from "@/lib/pane-doc";
@@ -287,21 +286,13 @@ function Home() {
       files.commands,
     ],
   );
-  // The kinds the config note names, read here as well as in the log pane, so
-  // the palette's `Log` rows follow the note. The query is always mounted, so a
-  // write to the note reaches the rows without a reload. It has its own key: an
-  // observer on the note's own query would keep a conflicted log.md from being
-  // read off the vault again when it is opened. Only a missing note gives the
-  // defaults. Any other failed refetch keeps the last good kinds, which
-  // react-query holds as the data.
-  const config = useQuery({
-    queryKey: ["log-config"],
-    queryFn: () => fetchNote(LOG_NOTE),
-    select: parseConfig,
-  });
-  const kinds = (
-    config.error instanceof NoteMissing ? DEFAULT_CONFIG : (config.data ?? DEFAULT_CONFIG)
-  ).kinds;
+  // The palette reads the same store as the cards, so its `Log` rows and each
+  // card's kinds follow log.md together. The palette asks on mount, since it draws
+  // the config with no card to ask for it. A failed read keeps the last kinds, and
+  // a missing note gives the defaults.
+  const config = useSyncExternalStore(subscribeLogConfig, logConfig);
+  useEffect(askLogConfig, []);
+  const kinds = (config ?? DEFAULT_CONFIG).kinds;
 
   // The palette's rows, built only while it is open. One array per open,
   // because the palette ranks its rows again whenever `entries` arrives new and

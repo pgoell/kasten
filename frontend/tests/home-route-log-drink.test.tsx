@@ -525,4 +525,40 @@ describe("the palette's drink rows, on the route", () => {
 
     expect(cardButton("Log tea")).not.toBeNull();
   });
+
+  it("#826 a log.md written while the card's first read is out leaves the card and the palette on the new kinds", async () => {
+    withLog("- 💧 water: 250 ml\n");
+    // Every read of log.md waits until the test answers it, the mount's own first read included.
+    const held: ((text: string) => void)[] = [];
+    fetchNote.mockImplementation(async (path: string) => {
+      if (path === LOG_CONFIG) {
+        return new Promise<string>((resolve) => {
+          held.push(resolve);
+        });
+      }
+      return path === TODAY ? TODAY_TEXT : VAULT[path];
+    });
+    const app = await renderApp(`/?note=${encodeURIComponent(TODAY)}`);
+    await settle();
+    const first = held.length;
+    expect.soft(first).toBeGreaterThan(0);
+
+    act(() => stream().send({ path: LOG_CONFIG, change: "written", digest: "a".repeat(64) }));
+    await settle();
+
+    // The reads after the event know tea, and the mount's older reads land after them with the old kinds.
+    act(() => {
+      for (const answer of held.slice(first)) answer("- 💧 water: 250 ml\n- 🍵 tea: 1 cup\n");
+    });
+    await settle();
+    act(() => {
+      for (const answer of held.slice(0, first)) answer("- 💧 water: 250 ml\n");
+    });
+    await settle();
+
+    expect.soft(cardButton("Log tea")).not.toBeNull();
+    app.leader(":");
+    await settle();
+    expect(option(/^Log tea/)).not.toBeNull();
+  });
 });

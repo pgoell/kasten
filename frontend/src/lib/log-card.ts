@@ -23,9 +23,8 @@ import {
   ViewPlugin,
   WidgetType,
 } from "@codemirror/view";
-import { fetchNote, NoteMissing } from "@/lib/api";
 import { foodPanel } from "@/lib/food-search";
-import { LOG_NOTE } from "@/lib/layout";
+import { askLogConfig, logConfig, subscribeLogConfig } from "@/lib/log-config";
 import {
   DEFAULT_CONFIG,
   type FoodField,
@@ -34,7 +33,6 @@ import {
   kindTotal,
   type LogConfig,
   type LogKind,
-  parseConfig,
   tapLine,
 } from "@/lib/log-kinds";
 import { type DrinkTotals, drinkTotals, LOG_HEADING } from "@/lib/log-lines";
@@ -55,41 +53,8 @@ const tapped = StateEffect.define<LastTap | null>();
 /** Opens or closes the food search panel. */
 const foodOpen = StateEffect.define<boolean>();
 
-/** The note's config arriving, which replaces the default kinds the card drew until then. */
+/** The store's config, pushed to each card when the store draws an answer that replaces the defaults. */
 const configArrived = StateEffect.define<LogConfig>();
-
-/** Each view's config, fetched once per generation. */
-const configs = new WeakMap<EditorView, Promise<LogConfig>>();
-
-/** Bumped on each reload; a view the reload misses checks it when drawn. */
-let generation = 0;
-const stamped = new WeakMap<EditorView, number>();
-
-/** The config in log.md. A note that is not there is the default config; any other failure rejects. */
-function readConfig(): Promise<LogConfig> {
-  return fetchNote(LOG_NOTE).then(parseConfig, (error: unknown) => {
-    if (error instanceof NoteMissing) return parseConfig(null);
-    throw error;
-  });
-}
-
-/**
- * The view's config from the log note. One that fails to load is named in the
- * console and the default config is the answer. A read from before a reload is asked again.
- */
-function configFor(view: EditorView): Promise<LogConfig> {
-  let config = configs.get(view);
-  if (config === undefined || stamped.get(view) !== generation) {
-    config = readConfig().catch((error: unknown) => {
-      if (!(error instanceof Error)) throw error;
-      console.warn(error.message);
-      return parseConfig(null);
-    });
-    configs.set(view, config);
-    stamped.set(view, generation);
-  }
-  return config;
-}
 
 /** The food search panel of each view while it is open, reused by every card drawn meanwhile. */
 const openPanels = new WeakMap<EditorView, HTMLElement>();
@@ -99,7 +64,7 @@ interface Card {
   lastTap: LastTap | null;
   /** Whether the food search panel is open. */
   food: boolean;
-  /** The note's config, or null while it is on its way and the defaults are drawn. */
+  /** The store's config when this was drawn, or null before its first answer, when the defaults are drawn. */
   config: LogConfig | null;
   /** Whether this note has a card at all, which the palette asks before it offers the search. */
   shown: boolean;
@@ -263,7 +228,7 @@ class LogCard extends WidgetType {
   private readonly undoText: string | null;
   /** Whether the food search panel is drawn under the row. */
   private readonly food: boolean;
-  /** The note's config, or null while it is being fetched. */
+  /** The store's config when this was drawn, or null before its first answer. */
   private readonly config: LogConfig | null;
 
   constructor(
@@ -383,13 +348,8 @@ class LogCard extends WidgetType {
     } else {
       openPanels.delete(view);
     }
-    if (this.config === null) {
-      // Gone from the page means the note was closed while the fetch was out, and there is nothing to draw into.
-      // A drawn card moves the open food panel, so the focus in it is given back as for a tap.
-      configFor(view).then((arrived) => {
-        if (card.isConnected) applyConfig(view, arrived);
-      });
-    }
+    // Only a drawn card asks for the config, so a note with no card reads log.md for nothing.
+    if (this.config === null) askLogConfig();
     return card;
   }
 }
@@ -456,7 +416,7 @@ function build(
  * takes only from state.
  */
 const cardField = StateField.define<Card>({
-  create: (state) => build(state, null, false, null),
+  create: (state) => build(state, null, false, logConfig()),
   update(value, tr) {
     let lastTap = value.lastTap;
     let food = value.food;
@@ -484,46 +444,18 @@ const cardField = StateField.define<Card>({
   provide: (field) => EditorView.decorations.from(field, (value) => value.decorations),
 });
 
-/** The views showing a card. A WeakMap cannot be walked, and a change to log.md has to reach each one. */
-const views = new Set<EditorView>();
-
+/** Each card is drawn again whenever the store draws an answer, so it shows log.md as it is now. */
 const registry = ViewPlugin.define((view) => {
-  views.add(view);
-  return {
-    destroy: () => {
-      views.delete(view);
-    },
-  };
+  const unsubscribe = subscribeLogConfig(() => {
+    const current = logConfig();
+    if (current !== null) applyConfig(view, current);
+  });
+  return { destroy: unsubscribe };
 });
 
 export const logCard: Extension = [cardField, registry];
 
-/**
- * Asks log.md again for each card whose config has arrived, and draws what it holds
- * now. A stream that was down misses a write or removal of log.md, and a card would
- * keep the kinds it had. A card whose config is still on its way is left alone: its
- * fetch asked the log when the card was drawn, and asking again would cost a second.
- */
-export function reloadLogConfig(): void {
-  generation += 1;
-  for (const view of views) {
-    if (view.state.field(cardField).config === null) continue;
-    const reading = readConfig();
-    // The newest read holds the view's slot, so an older answer that lands last is dropped.
-    configs.set(view, reading);
-    stamped.set(view, generation);
-    reading.then(
-      (arrived) => {
-        if (views.has(view) && configs.get(view) === reading) applyConfig(view, arrived);
-      },
-      (error: unknown) => {
-        // A failed read keeps the kinds the card has. Its slot is dropped, so the next draw asks again.
-        if (configs.get(view) === reading) configs.delete(view);
-        if (error instanceof Error) console.warn(error.message);
-      },
-    );
-  }
-}
+export { reloadLogConfig } from "@/lib/log-config";
 
 /** Whether the view shows a card, which only a daily note with one does. */
 export function cardShown(view: EditorView): boolean {
