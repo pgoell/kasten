@@ -132,3 +132,8 @@ or from the system while no choice is stored, redraws every diagram on screen;
 the old drawing stays until the new one is ready, and a diagram mermaid cannot
 read keeps its error in both themes. Each theme's drawing is kept, so a switch
 back shows it at once.
+
+The drawings of every diagram on screen stay in memory, and so do the 32 most
+recent others, counting a drawing that just left the screen as recent. That
+covers an undo right after an edit, a switch back of theme and the last few
+notes opened; an older drawing is drawn again when it comes back on screen.

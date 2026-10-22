@@ -2,7 +2,7 @@ import { StateEffect } from "@codemirror/state";
 import { Decoration, type EditorView, ViewPlugin, WidgetType } from "@codemirror/view";
 import type { SyntaxNode } from "@lezer/common";
 import { isBlockRevealed, isNodeRevealed, type Walk } from "@/lib/live-preview-hidden";
-import { type Drawing, drawMermaid, drawnMermaid } from "@/lib/mermaid";
+import { type Drawing, drawMermaid, drawnMermaid, holdMermaid } from "@/lib/mermaid";
 import { currentTheme, onThemeChange, type Theme } from "@/lib/theme";
 
 /** Sent on a switch of theme, so a diagram on screen is built again in the new one. */
@@ -25,12 +25,26 @@ export const rethemes = ViewPlugin.define((view) => {
 const wanted = new WeakMap<HTMLElement, string>();
 
 /**
+ * The drawing each block holds, so the cache keeps it while the block is on
+ * screen. Keyed by the block's DOM: CodeMirror moves a DOM to a new widget
+ * without calling `destroy` on the old one.
+ */
+const holds = new WeakMap<HTMLElement, { key: string; release: () => void }>();
+
+/**
  * Fills `block` with the diagram of `source` in `theme`, at once if it has been
  * drawn and else when it lands. Until then the block keeps what it shows.
  */
 function draw(block: HTMLElement, source: string, theme: Theme, view: EditorView): void {
   const key = `${theme}\n${source}`;
   wanted.set(block, key);
+  // Held on the cache-hit path too: a block shown from the cache is still on
+  // screen, and a drawing nobody holds can be let go.
+  const held = holds.get(block);
+  if (held?.key !== key) {
+    held?.release();
+    holds.set(block, { key, release: holdMermaid(source, theme) });
+  }
   const known = drawnMermaid(source, theme);
   if (known !== undefined) {
     fillDiagram(block, known, source);
@@ -80,6 +94,13 @@ class MermaidBlock extends WidgetType {
     draw(dom, this.source, this.theme, view);
     view.requestMeasure();
     return true;
+  }
+
+  // A block that leaves the screen lets go of its drawing, so the cache can
+  // drop it once nothing else on screen holds it.
+  override destroy(dom: HTMLElement): void {
+    holds.get(dom)?.release();
+    holds.delete(dom);
   }
 
   toDOM(view: EditorView): HTMLElement {
