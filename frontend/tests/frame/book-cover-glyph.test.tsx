@@ -14,7 +14,9 @@ import { backImages } from "@/lib/book-backing";
 import {
   additions,
   chapterOne,
+  clearPage,
   computed,
+  darkPage,
   keepMounted,
   loaded,
   type Mounted,
@@ -48,9 +50,11 @@ keepMounted({
 describe("the white page under a book's images", () => {
   beforeEach(() => {
     sections.length = 0;
+    darkPage();
   });
 
   afterEach(() => {
+    clearPage();
     mounted?.root.unmount();
     mounted?.container.remove();
     mounted = null;

@@ -4,6 +4,7 @@ import { page } from "vitest/browser";
 import { BookPane } from "@/components/book-pane";
 import { fetchBook, fetchNote } from "@/lib/api";
 import { backImages, treatmentFor } from "@/lib/book-backing";
+import { THEME_KEY } from "@/lib/theme";
 // A book written for a white page, `body { color: #000; background: #fff }`,
 // with a cover page first and two chapters after it. The cover page holds only
 // `#cover`, `cover.png`, an opaque 300x450 portrait gradient fitted to the page
@@ -27,6 +28,20 @@ export const CHAPTER_ONE = "epubcfi(/6/4!/4/2/1:0)";
 
 export const TRANSPARENT = "rgba(0, 0, 0, 0)";
 export const WHITE = "rgb(255, 255, 255)";
+
+/**
+ * Turns the dark page on before the book opens. The ink inversion is the dark
+ * page's, and the page is only written with it there. The choice is stored,
+ * because `currentTheme` reads storage and not `data-theme`.
+ */
+export function darkPage(): void {
+  localStorage.setItem(THEME_KEY, "dark");
+}
+
+/** Takes the stored choice back, so the next case starts from the system's theme. */
+export function clearPage(): void {
+  localStorage.removeItem(THEME_KEY);
+}
 
 /** Every section document foliate reported, which is the only way inside. */
 export const sections: Document[] = [];
