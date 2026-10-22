@@ -258,6 +258,23 @@ describe("the reader layout of a note", () => {
     expect(cursorLine()).toBe(9);
   });
 
+  it("the outline of the last note goes when the next note fails to open", async () => {
+    const GONE = "gone.md";
+    fetchFiles.mockResolvedValue([NOTE, "other.md", GONE]);
+    fetchNote.mockImplementation(async (path: string) => {
+      if (path === GONE) throw new Error("No such note");
+      return path === NOTE ? TEXT : "other\n";
+    });
+    const app = await open();
+    expect(outlineRows()).toHaveLength(3);
+
+    app.click(GONE);
+    await settle();
+
+    expect(document.body.textContent).toContain("Could not open gone.md");
+    expect(outlineRows()).toHaveLength(0);
+  });
+
   it("an empty pane shows Today above an editor that still takes keys", async () => {
     const app = await renderApp("/");
     await settle();

@@ -145,3 +145,60 @@ it("with vim off, a typed word edits the note under the header", () => {
   expect(view.state.doc.toString()).toContain("fresh Some words here.");
   expect(container.querySelector(".cm-note-head")).not.toBeNull();
 });
+
+it("with vim off, Backspace at the start of the first body line in Read leaves the note as it was", () => {
+  localStorage.setItem("kasten.vim", "off");
+  const { container } = render(<Editor initialDoc={DOC} path={PATH} commands={stubCommands()} />);
+  const view = viewIn(container);
+  act(() => view.dispatch({ selection: { anchor: DOC.indexOf("# Reader") } }));
+
+  fireEvent.keyDown(container.querySelector(".cm-content") as HTMLElement, { key: "Backspace" });
+  expect(view.state.doc.toString()).toBe(DOC);
+});
+
+it("with vim on, dk at the start of the first body line in Read leaves the note as it was", () => {
+  localStorage.setItem("kasten.vim", "on");
+  const { container } = render(<Editor initialDoc={DOC} path={PATH} commands={stubCommands()} />);
+  // A new note opens on the first body line. X at its start deletes nothing, as vim's X
+  // never crosses a line, so the join vim can make is dk: the lines above, the fence too.
+  const view = viewIn(container);
+  expect(view.state.selection.main.head).toBe(DOC.indexOf("# Reader"));
+
+  const content = container.querySelector(".cm-content") as HTMLElement;
+  fireEvent.keyDown(content, { key: "d" });
+  fireEvent.keyDown(content, { key: "k" });
+  expect(view.state.doc.toString()).toBe(DOC);
+});
+
+it("a select-all and delete in Read empties the note", () => {
+  localStorage.setItem("kasten.vim", "off");
+  const { container } = render(<Editor initialDoc={DOC} path={PATH} commands={stubCommands()} />);
+  const view = viewIn(container);
+  act(() => view.dispatch({ selection: { anchor: 0, head: DOC.length } }));
+
+  fireEvent.keyDown(container.querySelector(".cm-content") as HTMLElement, { key: "Backspace" });
+  expect(view.state.doc.toString()).toBe("");
+});
+
+it("a write with no user event still reaches the hidden frontmatter", () => {
+  localStorage.setItem("kasten.vim", "off");
+  const { container } = render(<Editor initialDoc={DOC} path={PATH} commands={stubCommands()} />);
+  const view = viewIn(container);
+  act(() => view.dispatch({ selection: { anchor: DOC.indexOf("# Reader") } }));
+
+  act(() => view.dispatch({ changes: { from: 0, insert: "x" } }));
+  expect(view.state.doc.toString().startsWith("x---")).toBe(true);
+});
+
+it("with vim on, a line selection from the top keeps the frontmatter shown", () => {
+  localStorage.setItem("kasten.vim", "on");
+  const { container } = render(<Editor initialDoc={DOC} path={PATH} commands={stubCommands()} />);
+  const content = container.querySelector(".cm-content") as HTMLElement;
+  // gg, V, then j down past the closing fence.
+  fireEvent.keyDown(content, { key: "g" });
+  fireEvent.keyDown(content, { key: "g" });
+  fireEvent.keyDown(content, { key: "V" });
+  for (let i = 0; i < 5; i += 1) fireEvent.keyDown(content, { key: "j" });
+
+  expect(text(container, ".cm-content")).toContain("type: Concept");
+});

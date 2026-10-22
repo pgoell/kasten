@@ -98,6 +98,13 @@
   }
 }
 
+/* The numbers are set at the small size, so a note of a thousand lines fits the
+   gap. They would inherit the reading size otherwise, and CodeMirror sizes each
+   number's row to its line, so they stay level with the text. */
+.k-reader .cm-editor .cm-gutters {
+  font-size: var(--k-text-13);
+}
+
 /* Below 776 px there is no room for a column beside the body, so the body takes
    the pane less the line numbers and 16 px on its right. */
 @container k-reader (width < 776px) {

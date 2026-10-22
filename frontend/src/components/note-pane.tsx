@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { type Dispatch, type SetStateAction, useState } from "react";
+import { type Dispatch, type SetStateAction, useCallback, useState } from "react";
 import { Editor } from "@/components/editor";
 import { NoteEditor } from "@/components/note-editor";
 import { Links, Outline } from "@/components/note-margins";
@@ -57,9 +57,19 @@ export function NotePane({
   const { held, standbyReload, typed, reload } = buffer;
   const { follow, embeds, openPassage, openInPane } = opening;
   const { linkable, images, tags, relations, data } = listings;
-  // The outline the editor reports for the note in this pane, which the
-  // left margin draws. Absent until the editor has read the note.
-  const [outline, setOutline] = useState<OutlineState>();
+  // The outline the editor reports, kept with the path it was reported for.
+  // A note that fails to open or is still loading has no editor reporting,
+  // so the last note's outline would otherwise stay in the margin, and a
+  // click on it would reach a view that is gone.
+  const [reported, setReported] = useState<{ path: string; outline: OutlineState }>();
+  const outline =
+    reported !== undefined && reported.path === shown.path ? reported.outline : undefined;
+  // One callback per note, so a render hands the editor nothing new to take in.
+  const shownPath = shown.path;
+  const onOutline = useCallback(
+    (reading: OutlineState) => setReported({ path: shownPath ?? "", outline: reading }),
+    [shownPath],
+  );
 
   return shown.path === undefined ? (
     // An empty pane is an editor on an empty document, which is
@@ -159,7 +169,7 @@ export function NotePane({
             onOpenHighlight={openPassage}
             onNotice={onNotice}
             embeds={embeds}
-            onOutline={setOutline}
+            onOutline={onOutline}
           />
         </div>
         <div data-reader-grid className="k-reader-grid">
