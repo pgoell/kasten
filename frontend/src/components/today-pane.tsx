@@ -111,7 +111,7 @@ export function TodayPane({
           <h2 className="font-sans text-k-13 text-k-muted tracking-k-label">Recent</h2>
           {recent.length === 0 && <Plain>Nothing written lately.</Plain>}
           {recent.map(({ path, stamp }) => (
-            <Row key={path} onClick={() => onOpen(path)}>
+            <Row key={path} between onClick={() => onOpen(path)}>
               <span className="min-w-0 truncate">{noteName(path)}</span>
               <span className="shrink-0 font-mono text-k-12 text-k-muted">{dayOf(stamp)}</span>
             </Row>
@@ -176,17 +176,26 @@ function TodoRow({
       <span role="img" aria-label={todo.state} className="shrink-0">
         {STATE_SYMBOL[todo.state]}
       </span>
-      <span className="min-w-0 truncate">{todo.text}</span>
+      <span className="min-w-0">{todo.text}</span>
     </Row>
   );
 }
 
-function Row({ onClick, children }: { onClick: () => void; children: ReactNode }) {
+/** A full-width row. `between` pushes its last child to the far end, which only the Recent rows' dates want. */
+function Row({
+  onClick,
+  between,
+  children,
+}: {
+  onClick: () => void;
+  between?: boolean;
+  children: ReactNode;
+}) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="k-row flex w-full items-baseline justify-between gap-3 rounded-[var(--k-radius-6)] px-2 py-1 text-left font-sans text-k-15 text-k-ink transition-[color,background-color,transform] duration-(--k-hover) hover:text-k-accent"
+      className={`k-row flex w-full items-baseline gap-2 rounded-[var(--k-radius-6)] ${between ? "justify-between" : ""} px-2 py-1 text-left font-sans text-k-15 text-k-ink transition-[color,background-color,transform] duration-(--k-hover) hover:text-k-accent`}
     >
       {children}
     </button>

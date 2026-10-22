@@ -423,7 +423,9 @@ const headTheme = EditorView.theme({
     padding: "0",
     color: "var(--k-link)",
     cursor: "pointer",
-    justifySelf: "start",
+    // Shrinks to its words and sits on the header's left edge, not in the middle of the column.
+    alignSelf: "flex-start",
+    textAlign: "left",
   },
   ".cm-note-property": { display: "flex", gap: "var(--k-space-12)" },
   ".cm-note-key": { color: "var(--k-muted)" },

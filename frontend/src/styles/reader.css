@@ -68,11 +68,41 @@
   }
 }
 
-/* Below 776 px there is no room for a column beside the body, so it takes the
-   pane's width less a gutter on each side. */
+/* At 776 px and up the line numbers hang in the left gap, out of the flow, so the
+   body starts at its column and not 44 px right of it. Their height is their own,
+   set by the lines they number, so `top` alone keeps them level with the text.
+   Below 776 px there is no gap to hang them in, so they stay in the flow and the
+   body gives them room. */
+@container k-reader (width >= 776px) {
+  /* `!important` because CodeMirror writes `position: sticky` on the element
+     itself (gutterView in @codemirror/view), which no selector outranks. */
+  .k-reader .cm-editor .cm-gutters {
+    position: absolute !important;
+    /* The base theme pins the gutter's start edge at 0, which with `right` set
+       would stretch it across the left gap and over the header. */
+    inset-inline-start: auto;
+    top: 0;
+    right: calc(100% - max(var(--k-space-48), (100% - 680px) / 2));
+    height: auto;
+  }
+
+  /* The header takes the body's column by the body's own formula, so the two
+     cannot drift apart. `!important` over the place note-head.ts measures for
+     it, which is only right while the gutter is in the flow (below 776 px). */
+  .k-reader .cm-note-head {
+    left: max(var(--k-space-48), (100% - 680px) / 2) !important;
+    width: min(680px, 100% - 2 * var(--k-space-48)) !important;
+    /* CodeMirror pads every line 6 px at its start and 2 px at its end, so the
+       header's words line up with the body's. */
+    padding-inline: 6px 2px;
+  }
+}
+
+/* Below 776 px there is no room for a column beside the body, so the body takes
+   the pane less the line numbers and 16 px on its right. */
 @container k-reader (width < 776px) {
   .k-reader .cm-content {
-    margin-inline: var(--k-space-16);
+    margin-inline: 0 var(--k-space-16);
   }
 }
 
