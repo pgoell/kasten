@@ -19,7 +19,8 @@ explains the row of buttons along the bottom edge.
 2. Tap `+ 🍽 food` on the log card. Or tap `run`, then `Log food`.
 3. Tap `Scan`, beside the search field. The camera opens inside the panel.
 4. Hold the barcode in the frame. kasten reads EAN-13, EAN-8, UPC-A and UPC-E
-   codes. The camera stops when it has a code.
+   codes. The camera stops when it has a code, and the phone buzzes once where
+   the browser can (Android Chrome; iOS Safari does not).
 5. The product opens with its serving form. Pick the grams and the meal.
 6. Tap `Log this food`. One food line goes to the end of `## Log`.
 
@@ -29,6 +30,10 @@ camera is off.
 The camera stops by itself when the panel closes, when the note closes, and
 when you switch to another app or tab. It does not start again on its own:
 tap `Scan` to read another code.
+
+In a dark room, tap `Torch` beside `Scan` to light the barcode, and tap it again
+to turn the light off. The button shows only where the camera has a torch
+(Android Chrome; iOS Safari has none). The torch goes off with the camera.
 
 ## When the camera is refused
 
