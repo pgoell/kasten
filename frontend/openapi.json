@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "kasten",
-    "version": "0.91.0"
+    "version": "0.92.0"
   },
   "paths": {
     "/agent/notes/{path}": {
@@ -664,7 +664,7 @@
     "/api/html/{path}": {
       "get": {
         "summary": "Read Html",
-        "description": "Read one HTML page out of the vault, to be drawn in a frame and not trusted.\n\nThe page is whatever a research run or a terminal left there, script\nincluded, and this is kasten's origin. `HTML_POLICY` is what keeps the two\napart.",
+        "description": "Read one HTML page out of the vault, to be drawn in a frame and not trusted.\n\nThe page is whatever a research run or a terminal left there, script\nincluded, and this is kasten's origin. `HTML_POLICY` is what keeps the two\napart. `theme` and `palette` are the frame's colours for a page that opts in\nwith the kasten-theme meta; `serve_page` says what they do.",
         "operationId": "read_html_api_html__path__get",
         "parameters": [
           {
@@ -674,6 +674,38 @@
             "schema": {
               "type": "string",
               "title": "Path"
+            }
+          },
+          {
+            "name": "theme",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Theme"
+            }
+          },
+          {
+            "name": "palette",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Palette"
             }
           }
         ],
@@ -690,6 +722,18 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/api/kasten-theme.css": {
+      "get": {
+        "summary": "Read Kasten Theme",
+        "description": "Serve the design tokens a page that opts in is given, as a stylesheet.\n\nThe path is stable on purpose: a plugin copies the file at build time, and\n`test_page_theme.py` keeps the copy the same as the frontend's own file.",
+        "operationId": "read_kasten_theme_api_kasten_theme_css_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response"
           }
         }
       }

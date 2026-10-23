@@ -376,9 +376,33 @@ export interface paths {
          *
          *     The page is whatever a research run or a terminal left there, script
          *     included, and this is kasten's origin. `HTML_POLICY` is what keeps the two
-         *     apart.
+         *     apart. `theme` and `palette` are the frame's colours for a page that opts in
+         *     with the kasten-theme meta; `serve_page` says what they do.
          */
         get: operations["read_html_api_html__path__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/kasten-theme.css": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Kasten Theme
+         * @description Serve the design tokens a page that opts in is given, as a stylesheet.
+         *
+         *     The path is stable on purpose: a plugin copies the file at build time, and
+         *     `test_page_theme.py` keeps the copy the same as the frontend's own file.
+         */
+        get: operations["read_kasten_theme_api_kasten_theme_css_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2781,7 +2805,10 @@ export interface operations {
     };
     read_html_api_html__path__get: {
         parameters: {
-            query?: never;
+            query?: {
+                theme?: string | null;
+                palette?: string | null;
+            };
             header?: never;
             path: {
                 path: string;
@@ -2805,6 +2832,24 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
                 };
+            };
+        };
+    };
+    read_kasten_theme_api_kasten_theme_css_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
