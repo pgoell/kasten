@@ -218,6 +218,15 @@ describe("following a link to a page of HTML", () => {
     expect(document.querySelector("[data-html-pane] iframe")?.getAttribute("title")).toBe(PAGE);
   });
 
+  it("opens the page at the heading the link names", async () => {
+    await follow("2026-10-07.html#the paper");
+
+    // The frame's address also carries the look (#786), so the fragment is checked alone.
+    expect(
+      document.querySelector("[data-html-pane] iframe")?.getAttribute("src")?.split("#")[1],
+    ).toBe("the%20paper");
+  });
+
   it("opens a page named in capitals", async () => {
     await follow("2026-10-07.HTML");
 

@@ -101,6 +101,19 @@ header takes them back too. A frame inside the page has no kasten script, so
 after a click into one only a click on the header takes the keys back. A link
 to another site opens in a new tab.
 
+With text selected in a page, `y` is a fourth key the page does not get. It
+takes the selected passage into today's dump, as `<leader>cd` puts a thought
+there, and a Take button over the selection does the same on a click. The
+passage goes in as a quote with a link back to its place on the page, under the
+page's nearest heading. A note at the foot of the pane says what was taken and
+offers two things. Undo takes the line back out of the daily note, as long as
+the note has not changed since. Put it in a note writes the passage under
+`## Highlights` in a note you pick. The note fades after five seconds. A take
+still waiting to be sent has no Undo, and the note says so. The passage's
+marks stay on the page while it is open. The
+[capture reference](/reference/http-api/capture.md#get-apihtmlpath) has the
+messages behind it.
+
 The pane is an image and the path above it, and nothing else: no next image,
 and nothing to type into. It opens fitted to the pane. Two fingers pinch it
 larger, up to eight times, and one finger moves it while it is

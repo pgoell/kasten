@@ -115,10 +115,10 @@ export function useNoteOpening({
 
   /** Show an HTML page in the focused pane, the way `openImageInPane` shows an image. */
   const openHtmlInPane = useCallback(
-    async (path: string) => {
+    async (path: string, anchor?: string) => {
       if (!(await saveFirst())) return;
 
-      setLayout((previous) => openHtmlInFocused(previous, path));
+      setLayout((previous) => openHtmlInFocused(previous, path, anchor));
       setFocusSignal((previous) => previous + 1);
     },
     [saveFirst, setLayout, setFocusSignal],
@@ -183,7 +183,7 @@ export function useNoteOpening({
       if (name === "") return;
       const path = wikiLinkPath(target, linkable ?? []);
       if (html?.includes(path)) {
-        void openHtmlInPane(path);
+        void openHtmlInPane(path, heading ?? undefined);
         return;
       }
       if (paths.includes(path) && heading !== null) {

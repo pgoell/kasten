@@ -196,10 +196,25 @@ The frame never gets `allow-same-origin`. With it beside `allow-scripts`, a
 page could reach into its own frame and lift the sandbox off.
 
 The page talks to kasten by postMessage, and kasten acts on a message only when
-it comes from its own frame. Only Space, `?` and Escape count, and a key counts
-only while the frame holds the focus. A page can still post Space while you
-type into it, and then your next keys reach the leader panel; that is the most
-a page can do with these messages. "Open in a browser tab" shows the page in a
+it comes from its own frame. Only Space, `?`, Escape and `y` count, and a key
+counts only while the frame holds the focus. A page can still post Space while
+you type into it, and then your next keys reach the leader panel.
+
+A page can also send its text selection, and a `y` while it holds one, so a
+passage can be taken into today's dump. kasten checks the selection field by
+field and drops a message of the wrong shape. It shows a button only while the
+frame holds the focus, and it takes a passage on `y` only while one is held.
+Before the text reaches the dump, control characters go, every markup character
+is escaped, and every line starts with `> `, so no line the page sends can
+stand as a heading, a fence or a todo. The text is capped at 2000 characters,
+and the heading and the anchor of the link are cut to what a wikilink can hold.
+
+The limit that remains: a hostile page that has the focus can forge a selection
+and a `y`. It then writes a quoted paragraph into today's dump, escaped and
+capped as above, under a link to a heading the page names. The toast shows it
+with Undo, so the reader sees it and can take it back. The write is the one a
+reader makes with `<leader>cd`, through the same outbox and `POST /api/dump`,
+and the page cannot read the dump or the daily note from there. "Open in a browser tab" shows the page in a
 tab of its own under kasten's address, held by the same sandbox header, so a
 page there can draw a fake login form; it reads nothing of kasten's.
 

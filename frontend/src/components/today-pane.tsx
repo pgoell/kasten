@@ -1,22 +1,15 @@
 import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
-import { fetchTodos, type SearchHit, searchNotes, type TodoHit } from "@/lib/api";
-import { readClock, shiftDay } from "@/lib/clock";
+import { fetchTodos, type TodoHit } from "@/lib/api";
+import { readClock } from "@/lib/clock";
 import { noteName } from "@/lib/note-path";
 import { isOpen, parseTodo, STATE_SYMBOL, type Todo, type TodoState } from "@/lib/todo";
 import { sectionOf } from "@/lib/todo-view";
+import { useRecentNotes } from "@/lib/use-recent-notes";
 import { useReviewWaiting } from "@/lib/use-review-waiting";
 
 /** The states that are work somebody has started and not finished, and not due today. */
 const LOOP_STATES: ReadonlySet<TodoState> = new Set(["doing", "waiting", "blocked"]);
-
-/** How many notes the middle column lists. */
-const RECENT = 8;
-
-/** The frontmatter's own lines: a `modified:` further down is someone's text. */
-const FRONTMATTER_LINES = 20;
-
-const STAMP = "modified: ";
 
 /** The date the page is about, as the heading shows it: `Thursday, 22 October 2026`. */
 function headingOf(now: Date, weekday: string): string {
@@ -30,21 +23,6 @@ function dayOf(stamp: string): string {
     day: "numeric",
     month: "short",
   });
-}
-
-/** The newest `modified:` stamp of each note, newest first, at most `RECENT`. */
-function recentOf(hits: SearchHit[]): { path: string; stamp: string }[] {
-  const newest = new Map<string, string>();
-  for (const hit of hits) {
-    const line = hit.text.trim();
-    if (hit.line > FRONTMATTER_LINES || !line.startsWith(STAMP)) continue;
-    const stamp = line.slice(STAMP.length);
-    if (stamp > (newest.get(hit.path) ?? "")) newest.set(hit.path, stamp);
-  }
-  return [...newest]
-    .map(([path, stamp]) => ({ path, stamp }))
-    .sort((a, b) => b.stamp.localeCompare(a.stamp))
-    .slice(0, RECENT);
 }
 
 /**
@@ -64,18 +42,9 @@ export function TodayPane({
   const now = new Date();
   const clock = readClock(now);
   const today = clock.date;
-  const month = today.slice(0, 7);
-  const lastMonth = shiftDay(`${month}-01`, -1).slice(0, 7);
 
   const todos = useQuery({ queryKey: ["todos", archive], queryFn: () => fetchTodos(archive) });
-  const thisMonth = useQuery({
-    queryKey: ["search", `${STAMP}${month}`, archive],
-    queryFn: () => searchNotes(`${STAMP}${month}`, archive),
-  });
-  const priorMonth = useQuery({
-    queryKey: ["search", `${STAMP}${lastMonth}`, archive],
-    queryFn: () => searchNotes(`${STAMP}${lastMonth}`, archive),
-  });
+  const recent = useRecentNotes(archive);
   const review = useReviewWaiting(archive);
 
   const parsed = (todos.data ?? []).flatMap((hit) => {
@@ -87,7 +56,6 @@ export function TodayPane({
   const loops = parsed.filter(
     ({ todo }) => LOOP_STATES.has(todo.state) && sectionOf(todo, today) !== "today",
   );
-  const recent = recentOf([...(thisMonth.data ?? []), ...(priorMonth.data ?? [])]);
   const reviewing = review !== undefined && review > 0;
   const nothingDue = !reviewing && overdue.length === 0 && loops.length === 0;
 

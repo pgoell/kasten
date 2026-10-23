@@ -55,6 +55,19 @@ Space, and any of the three with Ctrl, Alt or Meta stay the page's. `j` and `k`
 scroll the page. Opened in a tab of its own, with no parent to post to, it does
 nothing.
 
+The script also reports the page's text selection. It posts
+`{kasten: 'selection', text, heading, anchor, rect}` after a mouse up, after
+Shift with an arrow, Home or End, while a touch selection moves, and on a
+scroll. `text` is cut to 10000 characters. `heading` is the nearest `h1` to
+`h6` above the selection's start, in the same article, section or card, cut to
+300. `anchor` is the story id the page prints as `a.sid` in that article, or
+else the nearest `id`, cut to 200. A selection that goes posts `text` as `''`.
+With text selected, `y` posts `{kasten: 'key', key: 'y'}`. With none, `y` is
+not sent and stays the page's letter. Kasten sends the page `{kasten: 'take'}`
+after a take, which marks the selection with the highlight `kasten-taken`, and
+`{kasten: 'untake'}` after an undo, which removes that mark. The messages are in
+[the theme contract](/reference/html-theme-contract.md#messages).
+
 The link script goes after the page. It sends a link to another site to a new
 tab: the app's own `frame-src` keeps the frame on kasten. It sits after the
 page so the doctype stays first and the page keeps its standards mode.
