@@ -151,7 +151,7 @@ describe("WhichKey", () => {
   });
 
   it("while open y reaches nothing behind the panel", () => {
-    const { note } = mount();
+    const { note, commands } = mount();
     const onNote = vi.fn();
     const onDocument = vi.fn();
     note.addEventListener("keydown", onNote);
@@ -160,9 +160,14 @@ describe("WhichKey", () => {
     try {
       fireEvent.keyDown(note, { key: "y" });
 
-      expect(screen.getByRole("dialog")).toBeInTheDocument();
+      // `y` matches nothing, so the panel closes. Whether it is already gone or still
+      // leaving is a matter of a microtask, so the check is the same for both: no open dialog.
+      expect(screen.queryByRole("dialog")).toBeNull();
       expect(onNote).not.toHaveBeenCalled();
       expect(onDocument).not.toHaveBeenCalled();
+      for (const command of Object.values(commands)) {
+        expect(command).not.toHaveBeenCalled();
+      }
     } finally {
       note.removeEventListener("keydown", onNote);
       document.removeEventListener("keydown", onDocument);
