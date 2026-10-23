@@ -226,6 +226,18 @@ describe("drawGraph cluster mode", () => {
     });
   });
 
+  it("D5 a tag written twice in two cases gets no second ring", () => {
+    tagSlots("20");
+    const canvas = drawGraph(document.createElement("div"), handlers);
+    canvas.cluster("tags");
+    canvas.update([graphNote("a.md", ["Rust", "rust", "ai"], null)], [], undefined);
+
+    // Only "ai" is a further tag: "rust" is the first tag again, in another case.
+    expect(paintOf(drawnOf("a.md")).strokes).toEqual([
+      { radius: 5, width: 1.25, style: themeValue(tagVariable("ai")) },
+    ]);
+  });
+
   it("A3 a note with no tag is filled with --tg-none in cluster mode", () => {
     document.documentElement.style.setProperty("--tg-none", "#ff00ff");
     document.documentElement.style.setProperty("--tg-4", "#9c5a8d");

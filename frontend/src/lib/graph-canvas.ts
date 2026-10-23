@@ -318,7 +318,10 @@ export function drawGraph(
         ctx.fill();
         // Each tag past the first is a thin ring outside the dot, each further out.
         if (mode !== null) {
-          node.tags.slice(1).forEach((tag, i) => {
+          // Tags are counted by their lowercased key, so a tag written again in another
+          // case is the first tag, not a further one, and gets no ring of its own.
+          const further = [...new Set(node.tags.map((tag) => tag.toLowerCase()))].slice(1);
+          further.forEach((tag, i) => {
             ctx.beginPath();
             ctx.arc(x, y, radius + (2 + i * 2.5) / scale, 0, 2 * Math.PI);
             ctx.lineWidth = 1.25 / scale;

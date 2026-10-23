@@ -374,4 +374,56 @@ describe("GraphPane side panel", () => {
       "@[640px]:flex-row",
     );
   });
+
+  it("B1 Space on a focused mode button or tag row presses it and starts no leader sequence", async () => {
+    vi.spyOn(api, "fetchGraph").mockResolvedValue(ANSWER);
+    renderPane();
+    await waitFor(() => expect(canvas.update).toHaveBeenCalled());
+
+    // A press the pane does not prevent is one the browser turns into a click.
+    expect(fireEvent.keyDown(drawnButton("Tags"), { key: " " })).toBe(true);
+    expect(fireEvent.keyDown(drawnButton("Rust 1"), { key: " " })).toBe(true);
+  });
+
+  it("B2 a picked note that leaves the drawing leaves the card, and the next tap on it picks again", async () => {
+    stubMatchMedia({ [COARSE]: true });
+    vi.spyOn(api, "fetchGraph").mockResolvedValue(ANSWER);
+    const { onOpen } = renderPane();
+    await waitFor(() => expect(canvas.handlers?.coarse()).toBe(true));
+
+    act(() => canvas.handlers?.onOpen({ ...LOG, degree: 1 }));
+    expect(screen.queryByText("log")).not.toBeNull();
+
+    // The note's only tag goes, so it leaves the drawing and the card with it.
+    fireEvent.click(drawnButton("async 2"));
+    expect(screen.queryByText("Hover or tap a note.")).not.toBeNull();
+    expect(screen.queryByRole("button", { name: "Open" })).toBeNull();
+
+    // Shown again, the note is picked by the next tap, not opened.
+    fireEvent.click(drawnButton("async 2"));
+    act(() => canvas.handlers?.onOpen({ ...LOG, degree: 1 }));
+    expect(onOpen).not.toHaveBeenCalled();
+    expect(screen.queryByText("log")).not.toBeNull();
+  });
+
+  it("D a click on the background clears a hovered card", async () => {
+    vi.spyOn(api, "fetchGraph").mockResolvedValue(ANSWER);
+    renderPane();
+    await waitFor(() => expect(canvas.handlers).not.toBeNull());
+
+    act(() => canvas.handlers?.onHover?.({ node: { ...RUST, degree: 1 }, x: 10, y: 20 }));
+    expect(screen.queryByText("rust")).not.toBeNull();
+
+    act(() => canvas.handlers?.onBlank());
+    expect(screen.queryByText("Hover or tap a note.")).not.toBeNull();
+  });
+
+  it("D the header counts the notes and links drawn, after hidden tags", async () => {
+    vi.spyOn(api, "fetchGraph").mockResolvedValue(ANSWER);
+    renderPane();
+    await waitFor(() => expect(canvas.update).toHaveBeenCalled());
+
+    fireEvent.click(drawnButton("async 2"));
+    expect(screen.queryByText("2 notes, 0 links")).not.toBeNull();
+  });
 });

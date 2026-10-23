@@ -129,6 +129,7 @@ export function GraphPane({
       },
       onBlank: () => {
         setAsked(null);
+        setHovered(null);
         pick.current = null;
         setPicked(null);
       },
@@ -156,7 +157,14 @@ export function GraphPane({
   // and not on every render.
   const drawn = useMemo(() => data && withoutTags(data.nodes, data.edges, hidden), [data, hidden]);
   useEffect(() => {
-    if (drawn) canvas.current?.update(drawn.nodes, drawn.edges, around);
+    if (!drawn) return;
+    canvas.current?.update(drawn.nodes, drawn.edges, around);
+    // A picked note the drawing has lost is not picked any more, so the next
+    // tap on it picks it again rather than opening it.
+    if (pick.current !== null && !drawn.nodes.some((node) => node.path === pick.current)) {
+      pick.current = null;
+      setPicked(null);
+    }
   }, [drawn, around]);
 
   // The same canvas changes its grouping, so the notes move to their new spots
@@ -179,9 +187,11 @@ export function GraphPane({
     });
   }
 
-  const cardNode = vault
-    ? data?.nodes.find((node) => node.path === (hovered ?? picked))
-    : undefined;
+  // The card reads the drawing, so a note the drawing has lost leaves the card.
+  // Its tags are the answer's, hidden ones included, so the card shows what it has.
+  const cardPath = vault ? (hovered ?? picked) : null;
+  const drawnNow = drawn?.nodes.some((node) => node.path === cardPath) ?? false;
+  const cardNode = drawnNow ? data?.nodes.find((node) => node.path === cardPath) : undefined;
   const card: PanelCard | null =
     cardNode && drawn
       ? {
@@ -216,6 +226,11 @@ export function GraphPane({
     // Typing into the filter is not the pane's keys: `q` in it is a letter.
     if (event.target instanceof HTMLInputElement) return;
     const { key } = event;
+    // A button in the panel takes its own Space and Enter, so the press clicks it
+    // rather than starting a leader sequence.
+    const onPanelButton =
+      event.target instanceof HTMLButtonElement && event.target.closest("aside");
+    if (onPanelButton && (key === " " || key === "Enter")) return;
 
     if (heldModifier(key)) return;
 
@@ -311,9 +326,9 @@ export function GraphPane({
           spellCheck={false}
           className={INPUT}
         />
-        {data && (
+        {drawn && (
           <span className={LABEL}>
-            {data.nodes.length} notes, {data.edges.length} links
+            {drawn.nodes.length} notes, {drawn.edges.length} links
           </span>
         )}
       </header>
