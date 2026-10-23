@@ -35,7 +35,9 @@ page script below fills more than that, so the header has to carry it. A meta
 in a comment, a script, a `<template>` or a `<noscript>` does not count, a
 label that is not a known charset name is passed over for the next meta, and
 `utf-16` counts as `utf-8`, as it does to a browser. Everything kasten puts into a page is ASCII,
-so it reads the same in any of those charsets.
+so it reads the same in any of those charsets. A UTF-16 page, which a browser
+knows by its byte order mark alone, gets the two scripts in UTF-16 of its own
+byte order, and the header stays `utf-8`, since the byte order mark wins.
 
 The page goes out with a policy of its own in `Content-Security-Policy`:
 
@@ -49,8 +51,10 @@ The page goes out with a policy of its own in `Content-Security-Policy`:
 
 For a page without the meta, two scripts go into the page and nothing else
 changes. An opted-in page also gets the `<html>` element and the styles below.
-A UTF-16 page (marked by its byte order mark) gets the two scripts at its end
-and no theme, since anything put in front of its bytes would break them.
+A UTF-16 page (marked by its byte order mark) gets the two scripts at its end,
+in its own byte order, and no theme, since anything put in front of its bytes
+would break them. A page cut off mid code unit gets a zero byte first, so the
+scripts start on a whole unit.
 
 The page script (`page_script.js` in the backend) goes first: right after the
 doctype, or at the very start of a page with none, after a byte order mark if
