@@ -181,6 +181,9 @@ export function HtmlPane({ path, commands, focusSignal, onFocus }: HtmlPaneProps
         ref={frame}
         src={url}
         title={path}
+        // The page's script asks as it parses, which a listener set late in the page
+        // can miss, so the load posts the look too. Both are idempotent.
+        onLoad={() => postLook(frame.current)}
         // No `allow-same-origin`: with it and `allow-scripts` together a page
         // could lift its own sandbox off and run as kasten.
         sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox"

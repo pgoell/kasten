@@ -46,7 +46,8 @@ standards mode. The file itself is not changed.
 A second script follows it, the page script (`page_script.js` in the backend).
 In a frame it posts `{kasten: 'hello'}` as it loads, and posts Space, `?` and
 Escape pressed outside a text field to kasten as `{kasten: 'key', key}`, after
-it stops their default. `j` and `k` scroll the page. Opened in a tab of its own,
+it stops their default. Space on a focused button, Shift Space, and any of the
+three with Ctrl, Alt or Meta stay the page's. `j` and `k` scroll the page. Opened in a tab of its own,
 with no parent to post to, it does nothing.
 
 Anything that is not a readable `.html` file inside the vault is a `404`, on

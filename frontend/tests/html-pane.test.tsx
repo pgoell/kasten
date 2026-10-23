@@ -110,6 +110,23 @@ describe("the html pane", () => {
     ]);
   });
 
+  it("the frame's load posts the theme and the palette too", () => {
+    stubMatchMedia({});
+    localStorage.clear();
+    localStorage.setItem("kasten.palette", "russet");
+    const { frame } = renderPane();
+    const sent = vi
+      .spyOn(frame.contentWindow as Window, "postMessage")
+      .mockImplementation(() => {});
+
+    fireEvent.load(frame);
+
+    expect(sent.mock.calls).toEqual([
+      [{ kasten: "theme", theme: "light" }, "*"],
+      [{ kasten: "palette", palette: "russet" }, "*"],
+    ]);
+  });
+
   it("a Space from the page opens the which-key panel and Space f f runs findNote", () => {
     const spy = vi.fn();
     const off = hostLeader(spy);

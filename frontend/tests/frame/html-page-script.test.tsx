@@ -73,6 +73,27 @@ addEventListener("load", () => {
 const FIELD_STYLE =
   "position:fixed;inset:0;width:100%;height:100%;box-sizing:border-box;margin:0;font:32px sans-serif";
 
+/** A page whose own top-level names shadow `parent` and `Element`, which the script must not read through. */
+const SHADOWED = `<!doctype html><title>shadowed</title><body><div style="height:3000px"></div><script>const parent = document.body; const Element = null;</script></body>`;
+
+/** A button the page presses, and reports the press. */
+const BUTTON = `<!doctype html><title>button</title><body><button id="press" style="margin:200px">press</button><script>
+document.getElementById("press").addEventListener("click", () => parent.postMessage({ fixture: "pressed" }, "*"));
+</script>${REPORT}</body>`;
+
+/** A field inside a shadow root, where a window listener sees the host as the target. */
+const SHADOW_FIELD = `<!doctype html><title>shadow</title><body><div id="host"></div><div style="height:3000px"></div>${REPORT}<script>
+const root = document.getElementById("host").attachShadow({ mode: "open" });
+root.innerHTML = '<input id="field" style="${FIELD_STYLE}">';
+const field = root.getElementById("field");
+field.addEventListener("input", () => parent.postMessage({ fixture: "value", value: field.value }, "*"));
+</script></body>`;
+
+/** A page that catches Space on the document in the capture phase, which runs after the window's. */
+const DOC_CAPTURE = `<!doctype html><title>doc</title><body><div style="height:3000px"></div><script>
+document.addEventListener("keydown", (event) => { if (event.key === " ") parent.postMessage({ fixture: "caught" }, "*"); }, true);
+</script>${REPORT}</body>`;
+
 /**
  * A page whose one control fills the frame, so a click at its centre lands in it.
  * Tall as well, so a `j` or `k` that reached the page would move its scroll.
@@ -246,4 +267,53 @@ it("in a tab of its own, the script stops no default and posts nothing", async (
     window.removeEventListener("message", hear);
     popup?.close();
   }
+});
+
+it("a page that declares its own parent still sends hello and Space", async () => {
+  const element = await mount(SHADOWED);
+  await expect.poll(() => messages).toContainEqual({ kasten: "hello" });
+
+  await userEvent.click(element);
+  await userEvent.keyboard(" ");
+
+  await expect.poll(keysSent).toEqual([" "]);
+});
+
+it("Space on a button of the page presses it and kasten is not sent it", async () => {
+  const element = await mount(BUTTON);
+  await userEvent.click(element);
+  await userEvent.keyboard("{Tab}");
+  await userEvent.keyboard(" ");
+
+  await expect.poll(() => messages.some((m) => m.fixture === "pressed")).toBe(true);
+  expect(keysSent()).toEqual([]);
+
+  await userEvent.keyboard("?");
+  await expect.poll(keysSent).toEqual(["?"]);
+});
+
+it("in a field inside a shadow root, Space, ? and j stay the page's", async () => {
+  const element = await mount(SHADOW_FIELD);
+  await userEvent.click(element);
+  await userEvent.keyboard(" ");
+  await userEvent.keyboard("?");
+  await userEvent.keyboard("j");
+  await userEvent.keyboard("a");
+
+  await expect.poll(() => reported("a")).toBe(true);
+  const lastValue = () => messages.filter((m) => m.fixture === "value").at(-1)?.value;
+  await expect.poll(lastValue).toBe(" ?ja");
+  expect(keysSent()).toEqual([]);
+  expect(await scrollY()).toBe(0);
+});
+
+it("a page that catches Space on the document in the capture phase does not see it, and kasten still gets it", async () => {
+  const element = await mount(DOC_CAPTURE);
+  await userEvent.click(element);
+  await userEvent.keyboard(" ");
+  await userEvent.keyboard("a");
+
+  await expect.poll(() => reported("a")).toBe(true);
+  expect(keysSent()).toEqual([" "]);
+  expect(messages.some((m) => m.fixture === "caught")).toBe(false);
 });
