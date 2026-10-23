@@ -248,10 +248,14 @@ def serve_page(raw: bytes, theme: str | None, palette: str | None) -> tuple[byte
     """
     if raw.startswith((b"\xff\xfe", b"\xfe\xff")):
         # UTF-16 is not the UTF-8 read below, so nothing can go in front of its
-        # bytes without breaking them. It goes out as it did before, with no theme.
-        # A browser reads the byte order mark ahead of the header, so the header
-        # keeps utf-8.
-        return raw + LINKS_OUT + PAGE_SCRIPT, "utf-8"
+        # bytes without breaking them. The scripts go at the end in the page's own
+        # byte order, since the browser reads the whole page that way. A page read
+        # mid-write can end mid unit, so an odd byte gets a zero byte first. The
+        # byte order mark decides the encoding, so the header keeps utf-8.
+        encoding = "utf-16-le" if raw.startswith(b"\xff\xfe") else "utf-16-be"
+        if len(raw) % 2:
+            raw += b"\x00"
+        return raw + (LINKS_OUT + PAGE_SCRIPT).decode("ascii").encode(encoding), "utf-8"
 
     page = raw.decode("utf-8", "surrogateescape")
     tokens = _Tokens(page)

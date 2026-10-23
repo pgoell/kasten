@@ -283,8 +283,9 @@ async def test_serves_a_doctype_cut_off_before_its_end_as_it_was(
 async def test_serves_a_utf16_page_with_its_byte_order_mark_first(
     client: AsyncClient, vault: Path, bom: bytes, encoding: str
 ) -> None:
-    # Nothing goes in front of a UTF-16 page, since that would break its bytes. It
-    # is served as before: the scripts at the end, and no theme.
+    # Nothing goes in front of a UTF-16 page, since that would break its bytes. The
+    # scripts go at the end in the page's own byte order, so a browser reads them
+    # as text, and the page gets no theme.
     page = bom + "<!doctype html><p>findings</p>".encode(encoding)
     (vault / "report.html").write_bytes(page)
 
@@ -292,7 +293,35 @@ async def test_serves_a_utf16_page_with_its_byte_order_mark_first(
         "/api/html/report.html", params={"theme": "dark", "palette": "poel"}
     )
 
-    assert response.content == page + LINKS_OUT + BLOCK
+    assert response.headers["content-type"] == "text/html; charset=utf-8"
+    assert response.headers["content-security-policy"] == HTML_POLICY
+    text = response.content[2:].decode(encoding, errors="replace")
+    # The script's own `setAttribute("data-theme", ...)` is in every page, so the
+    # check is for the attribute on `<html>`.
+    assert 'data-theme="' not in text
+    assert STYLES not in text
+    assert response.content == page + (LINKS_OUT + BLOCK).decode("ascii").encode(encoding)
+    assert text.endswith((LINKS_OUT + BLOCK).decode("ascii"))
+
+
+@pytest.mark.parametrize(
+    ("bom", "encoding"),
+    [(b"\xff\xfe", "utf-16-le"), (b"\xfe\xff", "utf-16-be")],
+    ids=["utf-16 little endian", "utf-16 big endian"],
+)
+async def test_a_utf16_page_cut_mid_unit_still_gets_its_scripts_whole(
+    client: AsyncClient, vault: Path, bom: bytes, encoding: str
+) -> None:
+    # A page read while it is still being written can end mid code unit. The stray
+    # byte gets a zero byte after it, so the scripts start on a unit boundary.
+    page = bom + "<!doctype html><p>findings</p>".encode(encoding) + b"<"
+    (vault / "report.html").write_bytes(page)
+
+    response = await client.get("/api/html/report.html")
+
+    assert response.content == page + b"\x00" + (LINKS_OUT + BLOCK).decode("ascii").encode(encoding)
+    text = response.content[2:].decode(encoding, errors="replace")
+    assert text.endswith((LINKS_OUT + BLOCK).decode("ascii"))
 
 
 @pytest.mark.parametrize(
