@@ -22,6 +22,8 @@ EXCLUDE = [
     "frontend/src/lib/api-types.ts",
     "frontend/openapi.json",
     "frontend/src/routeTree.gen.ts",
+    # The dev vault's `/api/graph` answer, saved by curl for the graph frames.
+    "frontend/tests/frame/vault-graph-dev.json",
     "*.png",
     "*.jpg",
     "*.jpeg",

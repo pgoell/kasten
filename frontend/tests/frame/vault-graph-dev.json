@@ -1,0 +1,848 @@
+{
+  "nodes": [
+    {
+      "path": "00 Inbox/02 Books/Talk Like TED.md",
+      "name": "Talk Like TED",
+      "type": "Note",
+      "tags": [],
+      "missing": false
+    },
+    {
+      "path": "00 Inbox/graph-demo/Embeddings.md",
+      "name": "Embeddings",
+      "type": "Concept",
+      "tags": [],
+      "missing": false
+    },
+    {
+      "path": "00 Inbox/graph-demo/GraphRAG paper.md",
+      "name": "GraphRAG paper",
+      "type": "Source",
+      "tags": [],
+      "missing": false
+    },
+    {
+      "path": "00 Inbox/graph-demo/RAG.md",
+      "name": "RAG",
+      "type": "Concept",
+      "tags": ["#ai"],
+      "missing": false
+    },
+    {
+      "path": "00 Inbox/pr341-pdf-page.md",
+      "name": "pr341-pdf-page",
+      "type": "Note",
+      "tags": [],
+      "missing": false
+    },
+    {
+      "path": "01 Periodic/00 Daily/2026-08-04.md",
+      "name": "2026-08-04",
+      "type": "Note",
+      "tags": [],
+      "missing": false
+    },
+    {
+      "path": "01 Periodic/00 Daily/2026-08-05.md",
+      "name": "2026-08-05",
+      "type": "Note",
+      "tags": [],
+      "missing": false
+    },
+    {
+      "path": "01 Periodic/00 Daily/2026-08-06.md",
+      "name": "2026-08-06",
+      "type": "Note",
+      "tags": [],
+      "missing": false
+    },
+    {
+      "path": "01 Periodic/00 Daily/2026-08-08.md",
+      "name": "2026-08-08",
+      "type": "Note",
+      "tags": [],
+      "missing": false
+    },
+    {
+      "path": "01 Periodic/00 Daily/2026-08-09.md",
+      "name": "2026-08-09",
+      "type": "Note",
+      "tags": [],
+      "missing": false
+    },
+    {
+      "path": "01 Periodic/00 Daily/2026-08-10.md",
+      "name": "2026-08-10",
+      "type": "Note",
+      "tags": [],
+      "missing": false
+    },
+    {
+      "path": "01 Periodic/00 Daily/2026-08-11.md",
+      "name": "2026-08-11",
+      "type": "Note",
+      "tags": [],
+      "missing": false
+    },
+    {
+      "path": "01 Periodic/00 Daily/2026-09-30.md",
+      "name": "2026-09-30",
+      "type": "Periodic Note",
+      "tags": [],
+      "missing": false
+    },
+    {
+      "path": "01 Periodic/00 Daily/2026-10-02.md",
+      "name": "2026-10-02",
+      "type": "Periodic Note",
+      "tags": [],
+      "missing": false
+    },
+    {
+      "path": "01 Periodic/00 Daily/2026-10-07.md",
+      "name": "2026-10-07",
+      "type": "Periodic Note",
+      "tags": [],
+      "missing": false
+    },
+    {
+      "path": "01 Periodic/01 Weekly/2026-W32.md",
+      "name": "2026-W32",
+      "type": "Note",
+      "tags": [],
+      "missing": false
+    },
+    {
+      "path": "01 Periodic/02 Monthly/2026-08.md",
+      "name": "2026-08",
+      "type": "Note",
+      "tags": [],
+      "missing": false
+    },
+    {
+      "path": "01 Periodic/03 Quarterly/2026-Q3.md",
+      "name": "2026-Q3",
+      "type": "Note",
+      "tags": [],
+      "missing": false
+    },
+    {
+      "path": "01 Periodic/04 Yearly/2026.md",
+      "name": "2026",
+      "type": "Note",
+      "tags": [],
+      "missing": false
+    },
+    {
+      "path": "01 Periodic/05 Newspaper/feedback.md",
+      "name": "feedback",
+      "type": "Note",
+      "tags": ["#2026-10-07-allianz-03", "#2026-10-07-evals-02"],
+      "missing": false
+    },
+    {
+      "path": "01 Periodic/05 Newspaper/memory/changelog.md",
+      "name": "changelog",
+      "type": "Note",
+      "tags": [],
+      "missing": false
+    },
+    {
+      "path": "02 Projects/2026-09-18 Enablement.md",
+      "name": "2026-09-18 Enablement",
+      "type": "Note",
+      "tags": [],
+      "missing": false
+    },
+    {
+      "path": "02 Projects/2026-09-28 FDE Check-in.md",
+      "name": "2026-09-28 FDE Check-in",
+      "type": "Note",
+      "tags": [],
+      "missing": false
+    },
+    {
+      "path": "02 Projects/Anthropic Certifications/ccar-p-practice-exam.md",
+      "name": "ccar-p-practice-exam",
+      "type": "Note",
+      "tags": [],
+      "missing": false
+    },
+    {
+      "path": "02 Projects/Anthropic Certifications/ccdv-f-practice-exam.md",
+      "name": "ccdv-f-practice-exam",
+      "type": "Note",
+      "tags": [],
+      "missing": false
+    },
+    {
+      "path": "02 Projects/Anthropic Certifications/the_claude_certification_exams_an_honest_review.md",
+      "name": "the_claude_certification_exams_an_honest_review",
+      "type": "Note",
+      "tags": [],
+      "missing": false
+    },
+    {
+      "path": "02 Projects/Terraform/terraform-drills.md",
+      "name": "terraform-drills",
+      "type": "Note",
+      "tags": [],
+      "missing": false
+    },
+    {
+      "path": "03 Areas/08 People/Max Bosch.md",
+      "name": "Max Bosch",
+      "type": "Person",
+      "tags": [],
+      "missing": false
+    },
+    {
+      "path": "03 Flashcards/Shot Japanese.md",
+      "name": "Shot Japanese",
+      "type": "Note",
+      "tags": ["#flashcards/Shot-Japanese"],
+      "missing": false
+    },
+    {
+      "path": "99 Misc/01 Config/01 Agents/How-To-Exam.md",
+      "name": "How-To-Exam",
+      "type": "Note",
+      "tags": [],
+      "missing": false
+    },
+    {
+      "path": "99 Misc/01 Config/01 Agents/How-To-Inbox.md",
+      "name": "How-To-Inbox",
+      "type": "Note",
+      "tags": [],
+      "missing": false
+    },
+    {
+      "path": "99 Misc/01 Config/01 Agents/How-To-Index.md",
+      "name": "How-To-Index",
+      "type": "Reference",
+      "tags": [],
+      "missing": false
+    },
+    {
+      "path": "99 Misc/01 Config/01 Agents/How-To-TODO.md",
+      "name": "How-To-TODO",
+      "type": "Note",
+      "tags": [],
+      "missing": false
+    },
+    {
+      "path": "99 Misc/01 Config/01 Agents/Ontology.md",
+      "name": "Ontology",
+      "type": "Reference",
+      "tags": [],
+      "missing": false
+    },
+    {
+      "path": "99 Misc/01 Config/reading-this-vault.md",
+      "name": "reading-this-vault",
+      "type": "Reference",
+      "tags": [],
+      "missing": false
+    },
+    {
+      "path": "99 Misc/01 Config/todo-views.md",
+      "name": "todo-views",
+      "type": "Note",
+      "tags": [],
+      "missing": false
+    },
+    {
+      "path": "Callout sample.md",
+      "name": "Callout sample",
+      "type": "Note",
+      "tags": [],
+      "missing": false
+    },
+    { "path": "index.md", "name": "index", "type": null, "tags": [], "missing": false },
+    {
+      "path": "projects/kasten.md",
+      "name": "kasten",
+      "type": "Note",
+      "tags": [],
+      "missing": false
+    },
+    {
+      "path": "projects/kasten/api-design.md",
+      "name": "api-design",
+      "type": "Note",
+      "tags": [],
+      "missing": false
+    },
+    {
+      "path": "projects/kasten/open-questions.md",
+      "name": "open-questions",
+      "type": "Note",
+      "tags": [],
+      "missing": false
+    },
+    {
+      "path": "projects/kasten/planned-features.md",
+      "name": "planned-features",
+      "type": "Note",
+      "tags": [],
+      "missing": false
+    },
+    {
+      "path": "reference/codemirror.md",
+      "name": "codemirror",
+      "type": "Note",
+      "tags": [],
+      "missing": false
+    },
+    {
+      "path": "reference/markdown.md",
+      "name": "markdown",
+      "type": "Note",
+      "tags": [],
+      "missing": false
+    },
+    { "path": "wikilinks.md", "name": "wikilinks", "type": null, "tags": [], "missing": true },
+    { "path": "borges.md", "name": "borges", "type": null, "tags": [], "missing": true },
+    { "path": "target.md", "name": "target", "type": null, "tags": [], "missing": true },
+    { "path": "Borges.MD.md", "name": "Borges.MD", "type": null, "tags": [], "missing": true },
+    { "path": "BORGES.md", "name": "BORGES", "type": null, "tags": [], "missing": true },
+    {
+      "path": "01 Periodic/01 Weekly/2026-W31.md",
+      "name": "2026-W31",
+      "type": null,
+      "tags": [],
+      "missing": true
+    },
+    {
+      "path": "01 Periodic/01 Weekly/2026-W33.md",
+      "name": "2026-W33",
+      "type": null,
+      "tags": [],
+      "missing": true
+    },
+    { "path": "wikilink.md", "name": "wikilink", "type": null, "tags": [], "missing": true },
+    {
+      "path": "01 Periodic/03 Quarterly/2026-Q2.md",
+      "name": "2026-Q2",
+      "type": null,
+      "tags": [],
+      "missing": true
+    },
+    {
+      "path": "01 Periodic/03 Quarterly/2026-Q4.md",
+      "name": "2026-Q4",
+      "type": null,
+      "tags": [],
+      "missing": true
+    },
+    {
+      "path": "01 Periodic/04 Yearly/2025.md",
+      "name": "2025",
+      "type": null,
+      "tags": [],
+      "missing": true
+    },
+    {
+      "path": "01 Periodic/04 Yearly/2027.md",
+      "name": "2027",
+      "type": null,
+      "tags": [],
+      "missing": true
+    },
+    {
+      "path": "01 Periodic/02 Monthly/2026-07.md",
+      "name": "2026-07",
+      "type": null,
+      "tags": [],
+      "missing": true
+    },
+    {
+      "path": "01 Periodic/02 Monthly/2026-09.md",
+      "name": "2026-09",
+      "type": null,
+      "tags": [],
+      "missing": true
+    },
+    {
+      "path": "Ridgeline Migration.md",
+      "name": "Ridgeline Migration",
+      "type": null,
+      "tags": [],
+      "missing": true
+    },
+    { "path": "note.md", "name": "note", "type": null, "tags": [], "missing": true },
+    { "path": "link.md", "name": "link", "type": null, "tags": [], "missing": true },
+    { "path": "name.md", "name": "name", "type": null, "tags": [], "missing": true },
+    { "path": "links.md", "name": "links", "type": null, "tags": [], "missing": true },
+    {
+      "path": "<target name>.md",
+      "name": "<target name>",
+      "type": null,
+      "tags": [],
+      "missing": true
+    },
+    {
+      "path": "Tobias Herrmann.md",
+      "name": "Tobias Herrmann",
+      "type": null,
+      "tags": [],
+      "missing": true
+    },
+    { "path": "Yannik Voss.md", "name": "Yannik Voss", "type": null, "tags": [], "missing": true },
+    {
+      "path": "01 Periodic/00 Daily/2026-10-01.md",
+      "name": "2026-10-01",
+      "type": null,
+      "tags": [],
+      "missing": true
+    },
+    {
+      "path": "01 Periodic/01 Weekly/2026-W40.md",
+      "name": "2026-W40",
+      "type": null,
+      "tags": [],
+      "missing": true
+    },
+    {
+      "path": "01 Periodic/00 Daily/2026-10-03.md",
+      "name": "2026-10-03",
+      "type": null,
+      "tags": [],
+      "missing": true
+    },
+    {
+      "path": "01 Periodic/00 Daily/2026-08-12.md",
+      "name": "2026-08-12",
+      "type": null,
+      "tags": [],
+      "missing": true
+    },
+    {
+      "path": "01 Periodic/00 Daily/2026-08-07.md",
+      "name": "2026-08-07",
+      "type": null,
+      "tags": [],
+      "missing": true
+    },
+    {
+      "path": "01 Periodic/00 Daily/2026-10-06.md",
+      "name": "2026-10-06",
+      "type": null,
+      "tags": [],
+      "missing": true
+    },
+    {
+      "path": "01 Periodic/01 Weekly/2026-W41.md",
+      "name": "2026-W41",
+      "type": null,
+      "tags": [],
+      "missing": true
+    },
+    {
+      "path": "01 Periodic/00 Daily/2026-10-08.md",
+      "name": "2026-10-08",
+      "type": null,
+      "tags": [],
+      "missing": true
+    },
+    { "path": "Naive RAG.md", "name": "Naive RAG", "type": null, "tags": [], "missing": true }
+  ],
+  "edges": [
+    {
+      "source": "02 Projects/2026-09-28 FDE Check-in.md",
+      "target": "03 Areas/08 People/Max Bosch.md",
+      "relation": null,
+      "line": 6
+    },
+    {
+      "source": "02 Projects/2026-09-18 Enablement.md",
+      "target": "03 Areas/08 People/Max Bosch.md",
+      "relation": null,
+      "line": 6
+    },
+    {
+      "source": "projects/kasten/planned-features.md",
+      "target": "projects/kasten.md",
+      "relation": null,
+      "line": 53
+    },
+    {
+      "source": "projects/kasten/planned-features.md",
+      "target": "projects/kasten/open-questions.md",
+      "relation": null,
+      "line": 53
+    },
+    {
+      "source": "99 Misc/01 Config/reading-this-vault.md",
+      "target": "wikilinks.md",
+      "relation": null,
+      "line": 14
+    },
+    {
+      "source": "99 Misc/01 Config/reading-this-vault.md",
+      "target": "borges.md",
+      "relation": null,
+      "line": 17
+    },
+    {
+      "source": "99 Misc/01 Config/reading-this-vault.md",
+      "target": "target.md",
+      "relation": null,
+      "line": 21
+    },
+    {
+      "source": "99 Misc/01 Config/reading-this-vault.md",
+      "target": "Borges.MD.md",
+      "relation": null,
+      "line": 24
+    },
+    {
+      "source": "99 Misc/01 Config/reading-this-vault.md",
+      "target": "BORGES.md",
+      "relation": null,
+      "line": 37
+    },
+    { "source": "index.md", "target": "projects/kasten.md", "relation": null, "line": 5 },
+    {
+      "source": "index.md",
+      "target": "01 Periodic/00 Daily/2026-08-05.md",
+      "relation": null,
+      "line": 6
+    },
+    { "source": "reference/markdown.md", "target": "target.md", "relation": null, "line": 6 },
+    {
+      "source": "projects/kasten.md",
+      "target": "projects/kasten/api-design.md",
+      "relation": null,
+      "line": 9
+    },
+    {
+      "source": "projects/kasten.md",
+      "target": "projects/kasten/planned-features.md",
+      "relation": null,
+      "line": 9
+    },
+    {
+      "source": "01 Periodic/01 Weekly/2026-W32.md",
+      "target": "01 Periodic/01 Weekly/2026-W31.md",
+      "relation": null,
+      "line": 10
+    },
+    {
+      "source": "01 Periodic/01 Weekly/2026-W32.md",
+      "target": "01 Periodic/02 Monthly/2026-08.md",
+      "relation": null,
+      "line": 10
+    },
+    {
+      "source": "01 Periodic/01 Weekly/2026-W32.md",
+      "target": "01 Periodic/01 Weekly/2026-W33.md",
+      "relation": null,
+      "line": 10
+    },
+    {
+      "source": "99 Misc/01 Config/01 Agents/How-To-Index.md",
+      "target": "wikilinks.md",
+      "relation": null,
+      "line": 53
+    },
+    {
+      "source": "99 Misc/01 Config/01 Agents/How-To-Index.md",
+      "target": "wikilink.md",
+      "relation": null,
+      "line": 108
+    },
+    {
+      "source": "01 Periodic/03 Quarterly/2026-Q3.md",
+      "target": "01 Periodic/03 Quarterly/2026-Q2.md",
+      "relation": null,
+      "line": 10
+    },
+    {
+      "source": "01 Periodic/03 Quarterly/2026-Q3.md",
+      "target": "01 Periodic/04 Yearly/2026.md",
+      "relation": null,
+      "line": 10
+    },
+    {
+      "source": "01 Periodic/03 Quarterly/2026-Q3.md",
+      "target": "01 Periodic/03 Quarterly/2026-Q4.md",
+      "relation": null,
+      "line": 10
+    },
+    {
+      "source": "01 Periodic/04 Yearly/2026.md",
+      "target": "01 Periodic/04 Yearly/2025.md",
+      "relation": null,
+      "line": 10
+    },
+    {
+      "source": "01 Periodic/04 Yearly/2026.md",
+      "target": "01 Periodic/04 Yearly/2027.md",
+      "relation": null,
+      "line": 10
+    },
+    {
+      "source": "01 Periodic/02 Monthly/2026-08.md",
+      "target": "01 Periodic/02 Monthly/2026-07.md",
+      "relation": null,
+      "line": 10
+    },
+    {
+      "source": "01 Periodic/02 Monthly/2026-08.md",
+      "target": "01 Periodic/03 Quarterly/2026-Q3.md",
+      "relation": null,
+      "line": 10
+    },
+    {
+      "source": "01 Periodic/02 Monthly/2026-08.md",
+      "target": "01 Periodic/02 Monthly/2026-09.md",
+      "relation": null,
+      "line": 10
+    },
+    {
+      "source": "99 Misc/01 Config/01 Agents/How-To-Inbox.md",
+      "target": "wikilink.md",
+      "relation": null,
+      "line": 11
+    },
+    {
+      "source": "99 Misc/01 Config/01 Agents/How-To-Inbox.md",
+      "target": "wikilinks.md",
+      "relation": null,
+      "line": 34
+    },
+    {
+      "source": "99 Misc/01 Config/01 Agents/How-To-Inbox.md",
+      "target": "Ridgeline Migration.md",
+      "relation": null,
+      "line": 38
+    },
+    {
+      "source": "99 Misc/01 Config/01 Agents/How-To-Inbox.md",
+      "target": "note.md",
+      "relation": null,
+      "line": 51
+    },
+    {
+      "source": "99 Misc/01 Config/01 Agents/How-To-Inbox.md",
+      "target": "99 Misc/01 Config/01 Agents/Ontology.md",
+      "relation": null,
+      "line": 60
+    },
+    {
+      "source": "99 Misc/01 Config/01 Agents/How-To-Inbox.md",
+      "target": "99 Misc/01 Config/01 Agents/How-To-TODO.md",
+      "relation": null,
+      "line": 62
+    },
+    {
+      "source": "99 Misc/01 Config/01 Agents/How-To-Inbox.md",
+      "target": "link.md",
+      "relation": null,
+      "line": 190
+    },
+    {
+      "source": "99 Misc/01 Config/01 Agents/How-To-Inbox.md",
+      "target": "name.md",
+      "relation": null,
+      "line": 194
+    },
+    {
+      "source": "99 Misc/01 Config/01 Agents/How-To-Inbox.md",
+      "target": "links.md",
+      "relation": null,
+      "line": 200
+    },
+    {
+      "source": "99 Misc/01 Config/01 Agents/How-To-Inbox.md",
+      "target": "<target name>.md",
+      "relation": null,
+      "line": 209
+    },
+    {
+      "source": "99 Misc/01 Config/01 Agents/How-To-Inbox.md",
+      "target": "99 Misc/01 Config/01 Agents/How-To-Index.md",
+      "relation": null,
+      "line": 222
+    },
+    {
+      "source": "99 Misc/01 Config/01 Agents/How-To-TODO.md",
+      "target": "projects/kasten.md",
+      "relation": null,
+      "line": 97
+    },
+    {
+      "source": "99 Misc/01 Config/01 Agents/How-To-TODO.md",
+      "target": "borges.md",
+      "relation": null,
+      "line": 196
+    },
+    {
+      "source": "01 Periodic/00 Daily/2026-08-06.md",
+      "target": "01 Periodic/00 Daily/2026-08-05.md",
+      "relation": null,
+      "line": 19
+    },
+    {
+      "source": "01 Periodic/00 Daily/2026-08-10.md",
+      "target": "01 Periodic/00 Daily/2026-08-09.md",
+      "relation": null,
+      "line": 10
+    },
+    {
+      "source": "01 Periodic/00 Daily/2026-08-10.md",
+      "target": "01 Periodic/01 Weekly/2026-W33.md",
+      "relation": null,
+      "line": 10
+    },
+    {
+      "source": "01 Periodic/00 Daily/2026-08-10.md",
+      "target": "01 Periodic/00 Daily/2026-08-11.md",
+      "relation": null,
+      "line": 10
+    },
+    {
+      "source": "01 Periodic/00 Daily/2026-08-10.md",
+      "target": "Tobias Herrmann.md",
+      "relation": null,
+      "line": 16
+    },
+    {
+      "source": "01 Periodic/00 Daily/2026-08-10.md",
+      "target": "Yannik Voss.md",
+      "relation": null,
+      "line": 16
+    },
+    {
+      "source": "01 Periodic/00 Daily/2026-08-04.md",
+      "target": "01 Periodic/00 Daily/2026-08-05.md",
+      "relation": null,
+      "line": 7
+    },
+    {
+      "source": "01 Periodic/00 Daily/2026-10-02.md",
+      "target": "01 Periodic/00 Daily/2026-10-01.md",
+      "relation": null,
+      "line": 10
+    },
+    {
+      "source": "01 Periodic/00 Daily/2026-10-02.md",
+      "target": "01 Periodic/01 Weekly/2026-W40.md",
+      "relation": null,
+      "line": 10
+    },
+    {
+      "source": "01 Periodic/00 Daily/2026-10-02.md",
+      "target": "01 Periodic/00 Daily/2026-10-03.md",
+      "relation": null,
+      "line": 10
+    },
+    {
+      "source": "01 Periodic/00 Daily/2026-08-11.md",
+      "target": "01 Periodic/00 Daily/2026-08-10.md",
+      "relation": null,
+      "line": 10
+    },
+    {
+      "source": "01 Periodic/00 Daily/2026-08-11.md",
+      "target": "01 Periodic/01 Weekly/2026-W33.md",
+      "relation": null,
+      "line": 10
+    },
+    {
+      "source": "01 Periodic/00 Daily/2026-08-11.md",
+      "target": "01 Periodic/00 Daily/2026-08-12.md",
+      "relation": null,
+      "line": 10
+    },
+    {
+      "source": "01 Periodic/00 Daily/2026-08-08.md",
+      "target": "01 Periodic/00 Daily/2026-08-07.md",
+      "relation": null,
+      "line": 10
+    },
+    {
+      "source": "01 Periodic/00 Daily/2026-08-08.md",
+      "target": "01 Periodic/01 Weekly/2026-W32.md",
+      "relation": null,
+      "line": 10
+    },
+    {
+      "source": "01 Periodic/00 Daily/2026-08-08.md",
+      "target": "01 Periodic/00 Daily/2026-08-09.md",
+      "relation": null,
+      "line": 10
+    },
+    {
+      "source": "00 Inbox/graph-demo/RAG.md",
+      "target": "00 Inbox/graph-demo/Embeddings.md",
+      "relation": "depends-on",
+      "line": 7
+    },
+    {
+      "source": "01 Periodic/00 Daily/2026-08-09.md",
+      "target": "01 Periodic/00 Daily/2026-08-08.md",
+      "relation": null,
+      "line": 10
+    },
+    {
+      "source": "01 Periodic/00 Daily/2026-08-09.md",
+      "target": "01 Periodic/01 Weekly/2026-W32.md",
+      "relation": null,
+      "line": 10
+    },
+    {
+      "source": "01 Periodic/00 Daily/2026-08-09.md",
+      "target": "01 Periodic/00 Daily/2026-08-10.md",
+      "relation": null,
+      "line": 10
+    },
+    {
+      "source": "01 Periodic/00 Daily/2026-10-07.md",
+      "target": "01 Periodic/00 Daily/2026-10-06.md",
+      "relation": null,
+      "line": 7
+    },
+    {
+      "source": "01 Periodic/00 Daily/2026-10-07.md",
+      "target": "01 Periodic/01 Weekly/2026-W41.md",
+      "relation": null,
+      "line": 7
+    },
+    {
+      "source": "01 Periodic/00 Daily/2026-10-07.md",
+      "target": "01 Periodic/00 Daily/2026-10-08.md",
+      "relation": null,
+      "line": 7
+    },
+    {
+      "source": "00 Inbox/graph-demo/GraphRAG paper.md",
+      "target": "00 Inbox/graph-demo/RAG.md",
+      "relation": "supports",
+      "line": 5
+    },
+    {
+      "source": "00 Inbox/graph-demo/GraphRAG paper.md",
+      "target": "Naive RAG.md",
+      "relation": "contradicts",
+      "line": 6
+    },
+    {
+      "source": "01 Periodic/00 Daily/2026-09-30.md",
+      "target": "03 Areas/08 People/Max Bosch.md",
+      "relation": null,
+      "line": 8
+    },
+    {
+      "source": "01 Periodic/00 Daily/2026-09-30.md",
+      "target": "02 Projects/2026-09-28 FDE Check-in.md",
+      "relation": null,
+      "line": 8
+    }
+  ],
+  "columns": [],
+  "rows": [],
+  "truncated": false
+}
