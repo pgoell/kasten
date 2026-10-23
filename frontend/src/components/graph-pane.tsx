@@ -1,8 +1,11 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { GraphPanel, type PanelCard } from "@/components/graph-panel";
 import { isNotePath, PLAIN, TYPE_COLOURS } from "@/lib/graph";
 import { fetchGraph } from "@/lib/graph-api";
 import { drawGraph, type GraphCanvas } from "@/lib/graph-canvas";
+import { type GraphMode, readGraphMode, writeGraphMode } from "@/lib/graph-mode";
+import { tagCounts, withoutTags } from "@/lib/graph-tags";
 import type { EditorCommands } from "@/lib/key-bindings";
 import { heldModifier, leaderAction, leaderPrefix } from "@/lib/leader-keys";
 import { noteName } from "@/lib/note-path";
@@ -64,12 +67,23 @@ export function GraphPane({
   const [pending, setPending] = useState("");
   /** The unwritten note a finger tapped, waiting to hear whether it is wanted. */
   const [asked, setAsked] = useState<string | null>(null);
+  /** The vault graph's grouping, kept per device. Only the vault graph has one. */
+  const [mode, setMode] = useState<GraphMode>(readGraphMode);
+  /** The tags a reader hid from the drawing, by their lowercased keys. */
+  const [hidden, setHidden] = useState<Set<string>>(() => new Set());
+  /** The note the pointer is over, and the one a finger picked, for the card. */
+  const [hovered, setHovered] = useState<string | null>(null);
+  const [picked, setPicked] = useState<string | null>(null);
+  // The canvas reads the pick through this ref, so a second tap sees the first
+  // at once, before the render that the state change asks for.
+  const pick = useRef<string | null>(null);
+  const vault = around === undefined;
 
   // The handlers the canvas calls, read through a ref so the canvas is made
   // once and still calls what this render was handed.
   const { coarse } = useViewport();
-  const opening = useRef({ onOpen, onFollow, coarse });
-  opening.current = { onOpen, onFollow, coarse };
+  const opening = useRef({ onOpen, onFollow, coarse, vault });
+  opening.current = { onOpen, onFollow, coarse, vault };
 
   useEffect(() => {
     const wait = setTimeout(() => setQuery(typed), SETTLE);
@@ -99,13 +113,29 @@ export function GraphPane({
         const ask = node.missing && opening.current.coarse;
         setAsked(ask ? name : null);
         if (ask) return;
+        // In the vault graph a finger's tap picks a written note into the card,
+        // and a second tap on it opens it. A mouse click still opens at once.
+        if (opening.current.vault && opening.current.coarse && !node.missing) {
+          if (pick.current !== node.path) {
+            pick.current = node.path;
+            setPicked(node.path);
+            return;
+          }
+        }
         // A note nobody has written is made the way following its link makes
         // it, which is what clicking a link to it in a note would do.
         if (node.missing) opening.current.onFollow(name);
         else opening.current.onOpen(node.path);
       },
-      onBlank: () => setAsked(null),
+      onBlank: () => {
+        setAsked(null);
+        pick.current = null;
+        setPicked(null);
+      },
       coarse: () => opening.current.coarse,
+      onHover: (hover) => {
+        if (opening.current.vault) setHovered(hover?.node.path ?? null);
+      },
     });
     canvas.current = made;
 
@@ -122,9 +152,56 @@ export function GraphPane({
   }, []);
 
   const data = answer.data;
+  // Memoised, so the canvas is updated when the answer or the hidden tags move,
+  // and not on every render.
+  const drawn = useMemo(() => data && withoutTags(data.nodes, data.edges, hidden), [data, hidden]);
   useEffect(() => {
-    if (data) canvas.current?.update(data.nodes, data.edges, around);
-  }, [data, around]);
+    if (drawn) canvas.current?.update(drawn.nodes, drawn.edges, around);
+  }, [drawn, around]);
+
+  // The same canvas changes its grouping, so the notes move to their new spots
+  // without a second drawing. Only the vault graph is grouped.
+  useEffect(() => {
+    if (vault) canvas.current?.cluster(mode);
+  }, [mode, vault]);
+
+  function switchMode(next: GraphMode) {
+    setMode(next);
+    writeGraphMode(next);
+  }
+
+  function toggleTag(key: string) {
+    setHidden((previous) => {
+      const next = new Set(previous);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
+
+  const cardNode = vault
+    ? data?.nodes.find((node) => node.path === (hovered ?? picked))
+    : undefined;
+  const card: PanelCard | null =
+    cardNode && drawn
+      ? {
+          path: cardNode.path,
+          name: cardNode.name,
+          missing: cardNode.missing,
+          tags: cardNode.tags,
+          links: drawn.edges.filter(
+            (edge) => edge.source === cardNode.path || edge.target === cardNode.path,
+          ).length,
+        }
+      : null;
+
+  function openCard() {
+    if (card === null) return;
+    // Same as a tap on the canvas: a note nobody wrote is made, a written one opens.
+    const name = card.path.replace(/\.md$/, "");
+    if (card.missing) onFollow(name);
+    else onOpen(card.path);
+  }
 
   // A freshly focused pane takes the cursor, the way the person pane does.
   useEffect(() => {
@@ -177,6 +254,10 @@ export function GraphPane({
       case "f":
         canvas.current?.fit();
         break;
+      case "m":
+        if (!vault) return;
+        switchMode(mode === "folders" ? "tags" : "folders");
+        break;
       case "q":
         commands.closeNote();
         break;
@@ -199,7 +280,7 @@ export function GraphPane({
       tabIndex={-1}
       onKeyDown={onKeyDown}
       aria-label="graph"
-      className="flex h-full flex-col bg-k-bg font-mono outline-none"
+      className="@container flex h-full flex-col bg-k-bg font-mono outline-none"
     >
       <header className="flex items-center gap-3 border-b border-k-rule px-3 py-1">
         <span className={LABEL}>graph</span>
@@ -303,77 +384,99 @@ export function GraphPane({
         </p>
       )}
 
-      <div
-        ref={box}
-        data-testid="graph-canvas"
-        // The canvas takes every gesture. force-graph sets this on the canvas
-        // itself, but only where the browser reported a touch screen when the
-        // pane was made.
-        className="relative min-h-0 flex-1 touch-none"
-      />
+      {/* In the vault graph the panel sits beside the canvas, and under it in a
+          pane narrower than 640 px. Around a note there is no panel, one column. */}
+      <div className={`flex min-h-0 flex-1 flex-col ${vault ? "@[640px]:flex-row" : ""}`}>
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+          <div
+            ref={box}
+            data-testid="graph-canvas"
+            // The canvas takes every gesture. force-graph sets this on the canvas
+            // itself, but only where the browser reported a touch screen when the
+            // pane was made.
+            className="relative min-h-0 flex-1 touch-none"
+          />
 
-      {columns.length > 0 && (
-        <div className="max-h-[40%] overflow-auto border-t border-k-rule">
-          <table className="w-full text-left text-[12px]">
-            <thead className="sticky top-0 bg-k-paper text-k-muted">
-              <tr>
-                {columns.map((column) => (
-                  <th key={column} className="px-3 py-1 font-normal">
-                    {column}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row) => (
-                <tr key={columns.map((column) => row[column]).join("\0")}>
-                  {columns.map((column) => {
-                    const value = row[column] ?? "";
-                    return (
-                      <td key={column} className="px-3 py-0.5">
-                        {isNotePath(value) ? (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setAsked(null);
-                              onOpen(value);
-                            }}
-                            title={value}
-                            className="text-k-accent hover:underline"
-                          >
-                            {noteName(value)}
-                          </button>
-                        ) : (
-                          <span className="text-tg-4">{value}</span>
-                        )}
-                      </td>
-                    );
-                  })}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <p className="px-3 py-1 text-[11px] text-k-muted">
-            {rows.length === 0
-              ? "nothing matches"
-              : `${rows.length} ${rows.length === 1 ? "row" : "rows"}${data?.truncated ? ", more not shown" : ""}`}
-          </p>
+          {columns.length > 0 && (
+            <div className="max-h-[40%] overflow-auto border-t border-k-rule">
+              <table className="w-full text-left text-[12px]">
+                <thead className="sticky top-0 bg-k-paper text-k-muted">
+                  <tr>
+                    {columns.map((column) => (
+                      <th key={column} className="px-3 py-1 font-normal">
+                        {column}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((row) => (
+                    <tr key={columns.map((column) => row[column]).join("\0")}>
+                      {columns.map((column) => {
+                        const value = row[column] ?? "";
+                        return (
+                          <td key={column} className="px-3 py-0.5">
+                            {isNotePath(value) ? (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setAsked(null);
+                                  onOpen(value);
+                                }}
+                                title={value}
+                                className="text-k-accent hover:underline"
+                              >
+                                {noteName(value)}
+                              </button>
+                            ) : (
+                              <span className="text-tg-4">{value}</span>
+                            )}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <p className="px-3 py-1 text-[11px] text-k-muted">
+                {rows.length === 0
+                  ? "nothing matches"
+                  : `${rows.length} ${rows.length === 1 ? "row" : "rows"}${data?.truncated ? ", more not shown" : ""}`}
+              </p>
+            </div>
+          )}
         </div>
-      )}
+
+        {vault && (
+          <GraphPanel
+            notes={drawn?.nodes.length ?? 0}
+            links={drawn?.edges.length ?? 0}
+            archive={archive}
+            mode={mode}
+            onMode={switchMode}
+            tags={data ? tagCounts(data.nodes) : []}
+            hidden={hidden}
+            onToggleTag={toggleTag}
+            card={card}
+            onOpen={openCard}
+          />
+        )}
+      </div>
 
       <footer className="flex flex-wrap items-center gap-x-3 border-t border-k-rule px-3 py-1 text-[11px] text-k-muted">
-        {[...Object.entries(TYPE_COLOURS), ["Note", PLAIN] as const].map(([type, variable]) => (
-          <span key={type} className="flex items-center gap-1">
-            <span
-              aria-hidden
-              className="inline-block h-2 w-2 rounded-full"
-              style={{ background: `var(${variable})` }}
-            />
-            {type}
-          </span>
-        ))}
+        {!vault &&
+          [...Object.entries(TYPE_COLOURS), ["Note", PLAIN] as const].map(([type, variable]) => (
+            <span key={type} className="flex items-center gap-1">
+              <span
+                aria-hidden
+                className="inline-block h-2 w-2 rounded-full"
+                style={{ background: `var(${variable})` }}
+              />
+              {type}
+            </span>
+          ))}
         <span className="ml-auto">
-          / filter&ensp;{around !== undefined && "+ - depth "}f fit&ensp;q close
+          / filter&ensp;{vault ? "m mode " : "+ - depth "}f fit&ensp;q close
         </span>
       </footer>
     </section>

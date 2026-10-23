@@ -26,7 +26,21 @@ import {
   radialLayout,
   radiusOf,
   tagColourOf,
+  tagVariable,
 } from "@/lib/graph";
+import {
+  areaOf,
+  CHARGE,
+  CHARGE_REACH,
+  type ClusterForces,
+  clusterForces,
+  gapOf,
+  groupsOf,
+  type Spot,
+  seedPositions,
+  spotsOf,
+} from "@/lib/graph-clusters";
+import type { GraphMode } from "@/lib/graph-mode";
 import { onThemeChange } from "@/lib/theme";
 
 export interface GraphCanvasHandlers {
@@ -38,6 +52,8 @@ export interface GraphCanvasHandlers {
   coarse: () => boolean;
   /** A note was hovered, or the pointer left one: where it is, in CSS px inside the canvas box. */
   onHover?: (hovered: { node: DrawnNode; x: number; y: number } | null) => void;
+  /** The engine stopped: the drawn notes, where they settled, in every mode. */
+  onSettle?: (nodes: readonly DrawnNode[]) => void;
 }
 
 export interface GraphCanvas {
@@ -47,6 +63,11 @@ export interface GraphCanvas {
   resize(width: number, height: number): void;
   /** Zoom and pan until every note is on screen. */
   fit(): void;
+  /**
+   * Group the notes by folder or by tag, or back to the type colours with null.
+   * The drawing keeps its canvas: the notes move from where they are to their spots.
+   */
+  cluster(mode: GraphMode | null): void;
   destroy(): void;
 }
 
@@ -174,6 +195,15 @@ export function drawGraph(
 
   const shown = (path: string) => lit === null || lit.has(path);
 
+  // Cluster mode's state. Null is the drawing the canvas always was. The spots and
+  // their members are worked out again for each answer, since a filter can take
+  // a place away, and the fit waits for the first settle of each mode switch.
+  let mode: GraphMode | null = null;
+  let spotList: Spot[] = [];
+  let groups = new Map<string, { name: string; members: DrawnNode[] }>();
+  let fitPending = false;
+  const tagged = () => radial || mode !== null;
+
   // A radial drawing's layout is kept with the box it was laid out in, so a
   // resize can lay it out again: the rings scale to the box.
   let boxWidth = element.clientWidth;
@@ -219,6 +249,46 @@ export function drawGraph(
     graph.zoom(1);
   };
 
+  // The spots, their members and the forces, from the drawing as it is now. The
+  // forces are made again for each answer, and a note that has no position yet
+  // is seeded round its spot first, so the simulation starts from there.
+  const clusterUp = (active: GraphMode) => {
+    spotList = spotsOf(drawing.nodes, active);
+    const spotMap = new Map(spotList.map((spot) => [spot.key, spot]));
+    groups = groupsOf(drawing.nodes, active);
+    seedPositions(drawing.nodes, active, spotMap);
+    const forces: ClusterForces = clusterForces(active, spotMap);
+    forces.attract.links(drawing.links);
+    graph
+      .d3Force("attract", forces.attract)
+      .d3Force("anchor", forces.anchor)
+      .d3Force("gravity", forces.gravity);
+  };
+
+  // Each area is a soft disc round its members, its centroid and the farthest
+  // member plus a margin, with the name above it. Drawn before the notes, so the
+  // dots and names sit on top of the wash.
+  const paintAreas = (ctx: CanvasRenderingContext2D, scale: number) => {
+    if (mode === null) return;
+    const gap = gapOf(spotList);
+    for (const spot of spotList) {
+      const { x: cx, y: cy, radius } = areaOf(groups.get(spot.key)?.members ?? [], gap);
+
+      ctx.globalAlpha = Number(colour("--k-area"));
+      ctx.fillStyle = colour(spot.variable);
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius, 0, 2 * Math.PI);
+      ctx.fill();
+
+      ctx.globalAlpha = 1;
+      ctx.font = `italic ${12 / scale}px ${colour("--k-serif")}`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "bottom";
+      ctx.fillStyle = colour("--k-muted");
+      ringed(ctx, spot.name, cx, cy - radius, colour("--k-bg"), scale);
+    }
+  };
+
   const graph = new ForceGraph<DrawnNode, DrawnLink>(element)
     .backgroundColor(background())
     .nodeId("path")
@@ -244,8 +314,18 @@ export function drawGraph(
         ctx.strokeStyle = colour("--k-muted");
         ctx.stroke();
       } else {
-        ctx.fillStyle = colour(radial ? tagColourOf(node) : colourOf(node));
+        ctx.fillStyle = colour(tagged() ? tagColourOf(node) : colourOf(node));
         ctx.fill();
+        // Each tag past the first is a thin ring outside the dot, each further out.
+        if (mode !== null) {
+          node.tags.slice(1).forEach((tag, i) => {
+            ctx.beginPath();
+            ctx.arc(x, y, radius + (2 + i * 2.5) / scale, 0, 2 * Math.PI);
+            ctx.lineWidth = 1.25 / scale;
+            ctx.strokeStyle = colour(tagVariable(tag));
+            ctx.stroke();
+          });
+        }
       }
       if (node.path === center || node.path === hovered) {
         if (radial) {
@@ -341,7 +421,25 @@ export function drawGraph(
       );
     })
     .onNodeClick((node) => handlers.onOpen(node))
-    .onBackgroundClick(() => handlers.onBlank());
+    .onBackgroundClick(() => handlers.onBlank())
+    .onRenderFramePre(paintAreas)
+    // Fitted once the cluster has settled, so the areas fill the pane. A plain
+    // answer is left where the user has put it.
+    .onEngineStop(() => {
+      if (fitPending) {
+        fitPending = false;
+        graph.zoomToFit(400, 40);
+      }
+      handlers.onSettle?.(drawing.nodes);
+    });
+
+  // What force-graph sets by default, kept so cluster(null) can put it back.
+  const defaults = {
+    link: graph.d3Force("link")?.strength(),
+    charge: graph.d3Force("charge")?.strength(),
+    reach: graph.d3Force("charge")?.distanceMax(),
+    centre: graph.d3Force("center"),
+  };
 
   if (radial) {
     // Nothing moves in a radial drawing: the notes sit where the layout put
@@ -370,10 +468,17 @@ export function drawGraph(
 
   return {
     update(nodes, edges, around) {
+      const first = drawing.nodes.length === 0;
       drawing = mergeDrawing(drawing, nodes, edges);
       center = around;
       laid = { nodes, edges, center: around ?? "" };
       placeRadially();
+      if (mode !== null) {
+        // A mode set before the answer arrives settles on an empty drawing, so the
+        // first answer that has notes is fitted when it settles, not the empty one.
+        if (first && drawing.nodes.length > 0) fitPending = true;
+        clusterUp(mode);
+      }
       graph.graphData(drawing);
       recentre();
     },
@@ -386,6 +491,33 @@ export function drawGraph(
     },
     fit() {
       graph.zoomToFit(300, 40);
+    },
+    cluster(next) {
+      // A radial drawing is fixed on its rings, so it never takes a cluster mode.
+      if (radial) return;
+      mode = next;
+      if (next === null) {
+        fitPending = false;
+        graph
+          .d3Force("attract", null)
+          .d3Force("anchor", null)
+          .d3Force("gravity", null)
+          .d3Force("center", defaults.centre ?? null);
+        graph.d3Force("link")?.strength(defaults.link);
+        graph.d3Force("charge")?.strength(defaults.charge).distanceMax(defaults.reach);
+        graph.cooldownTicks(200).cooldownTime(15000);
+      } else {
+        // The link force stays, at no strength, since force-graph resolves each
+        // link's ends with it. The centre would pull the clusters back to one point.
+        graph.d3Force("link")?.strength(0);
+        graph.d3Force("center", null);
+        graph.d3Force("charge")?.strength(CHARGE).distanceMax(CHARGE_REACH);
+        // The wall clock never cuts a run, so the layout is the same on every open.
+        graph.cooldownTicks(300).cooldownTime(Number.POSITIVE_INFINITY).warmupTicks(0);
+        fitPending = true;
+        clusterUp(next);
+      }
+      graph.d3ReheatSimulation();
     },
     destroy() {
       unlisten();

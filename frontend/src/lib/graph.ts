@@ -84,7 +84,15 @@ export function colourOf(node: Pick<GraphNode, "type">): string {
 export function tagColourOf(node: Pick<GraphNode, "tags">): string {
   const first = node.tags[0];
   if (first === undefined) return PLAIN;
-  return `--tg-${1 + (fnv1a(first.toLowerCase()) % 10)}`;
+  return tagVariable(first);
+}
+
+/**
+ * The tag slot a tag is drawn in, the one hash `tagColourOf` uses. Cluster mode
+ * paints each tag's area and ring with it too, so a tag reads the same everywhere.
+ */
+export function tagVariable(tag: string): string {
+  return `--tg-${1 + (fnv1a(tag.toLowerCase()) % 10)}`;
 }
 
 /** A 32-bit FNV-1a hash, unsigned, so the same text hashes the same in every run. */

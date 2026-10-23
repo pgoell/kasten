@@ -23,7 +23,13 @@ const canvas = vi.hoisted(() => ({
 vi.mock("@/lib/graph-canvas", () => ({
   drawGraph: (_element: HTMLElement, handlers: GraphCanvasHandlers) => {
     canvas.handlers = handlers;
-    return { update: canvas.update, resize: vi.fn(), fit: canvas.fit, destroy: vi.fn() };
+    return {
+      update: canvas.update,
+      resize: vi.fn(),
+      fit: canvas.fit,
+      cluster: vi.fn(),
+      destroy: vi.fn(),
+    };
   },
 }));
 
@@ -169,10 +175,12 @@ describe("GraphPane", () => {
     });
     expect(screen.queryByText("Create Ghost?")).toBeNull();
 
-    // A note that is there opens at once, question or no question.
+    // A note that is there is picked into the vault graph's card by a finger,
+    // question or no question, and is not opened by the first tap.
     tapGhost();
     act(() => canvas.handlers?.onOpen({ ...RAG, degree: 1 }));
-    expect(onOpen).toHaveBeenCalledWith("rag.md");
+    expect(onOpen).not.toHaveBeenCalled();
+    expect(screen.queryByText("rag")).not.toBeNull();
     expect(screen.queryByText("Create Ghost?")).toBeNull();
     expect(onFollow).not.toHaveBeenCalled();
   });

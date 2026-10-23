@@ -12,6 +12,7 @@ const canvas = vi.hoisted(() => ({
   update: vi.fn(),
   resize: vi.fn(),
   fit: vi.fn(),
+  cluster: vi.fn(),
   destroy: vi.fn(),
 }));
 vi.mock("@/lib/graph-canvas", () => ({ drawGraph: vi.fn() }));

@@ -19,6 +19,9 @@
   --k-accent: #316f90;
   --k-link: #316f90;
   --k-accent-wash: rgba(49,111,144,.11);
+  /* The cluster areas of the vault graph: the accent or a tag colour at this
+     strength, as a plain number for the canvas's globalAlpha. */
+  --k-area: .08;
   /* Yellow Orange #f99d1b at 22 %. Highlight and mark are two names for one
      value, as the issue gives them. */
   --k-highlight: rgba(249,157,27,.22);
@@ -125,6 +128,8 @@
   --k-accent: #82b9d9;
   --k-link: #82b9d9;
   --k-accent-wash: rgba(130,185,217,.14);
+  /* Heavier on dark, where the same wash of colour would sink into the ground. */
+  --k-area: .11;
   /* Pale King's Blue #a7d4e4 at 18 %: the yellow orange of light read brown
      on a dark ground. */
   --k-highlight: rgba(167,212,228,.18);
