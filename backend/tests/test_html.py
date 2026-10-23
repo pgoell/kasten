@@ -455,3 +455,28 @@ async def test_a_utf16_charset_meta_counts_as_utf8(client: AsyncClient, vault: P
 
     assert b'<meta charset="utf-16">' in response.content
     assert response.headers["content-type"] == "text/html; charset=utf-8"
+
+
+async def test_a_label_only_python_knows_never_reaches_the_header(
+    client: AsyncClient, vault: Path
+) -> None:
+    page = (
+        DOCTYPE
+        + b'<html><head><meta charset="rot13"><meta charset="utf-7"><meta charset="base64">'
+        + b'<meta charset="iso-8859-1"><title>x</title></head><body>caf\xe9</body></html>'
+    )
+    (vault / "report.html").write_bytes(page)
+
+    response = await client.get("/api/html/report.html")
+
+    assert b"caf\xe9" in response.content
+    assert response.headers["content-type"] == "text/html; charset=iso-8859-1"
+
+
+async def test_a_python_alias_of_utf8_goes_out_as_utf8(client: AsyncClient, vault: Path) -> None:
+    (vault / "report.html").write_bytes('<!doctype html><meta charset="u8"><p>café</p>'.encode())
+
+    response = await client.get("/api/html/report.html")
+
+    assert "café".encode() in response.content
+    assert response.headers["content-type"] == "text/html; charset=utf-8"

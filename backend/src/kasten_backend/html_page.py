@@ -109,7 +109,37 @@ _CONTENT_CHARSET = re.compile(r"charset\s*=\s*[\"']?([^\"'\s;]*)")
 """The label in a `content` attribute such as `text/html; charset=ISO-8859-1`."""
 
 _LABEL = re.compile(r"[A-Za-z0-9._:-]{1,40}")
-"""What a charset label may hold. It goes into the header as it is, so nothing else may."""
+"""What a charset label may hold before Python's codec lookup is asked about it."""
+
+# Python's codec names mapped to the charset a browser knows them by. The header
+# must name one a browser knows, or the browser falls back to windows-1252.
+_WHATWG = {
+    # The WHATWG prescan reads a UTF-16 label as UTF-8: a UTF-16 page starts with a
+    # byte order mark, and this one has none.
+    "utf-8": "utf-8",
+    "utf-16": "utf-8",
+    "utf-16-le": "utf-8",
+    "utf-16-be": "utf-8",
+    **{f"iso8859-{n}": f"iso-8859-{n}" for n in (*range(1, 12), *range(13, 17))},
+    **{f"cp125{n}": f"windows-125{n}" for n in range(9)},
+    "cp874": "windows-874",
+    "cp866": "ibm866",
+    "koi8-r": "koi8-r",
+    "koi8-u": "koi8-u",
+    "mac-roman": "macintosh",
+    "mac-cyrillic": "x-mac-cyrillic",
+    "shift_jis": "shift_jis",
+    "cp932": "shift_jis",
+    "euc_jp": "euc-jp",
+    "iso2022_jp": "iso-2022-jp",
+    "gbk": "gbk",
+    "gb2312": "gb2312",
+    "gb18030": "gb18030",
+    "big5": "big5",
+    "big5hkscs": "big5",
+    "euc_kr": "euc-kr",
+    "cp949": "euc-kr",
+}
 
 
 def _encoding(label: str | None) -> str | None:
@@ -120,9 +150,7 @@ def _encoding(label: str | None) -> str | None:
         name = codecs.lookup(label).name
     except LookupError:
         return None
-    # The WHATWG prescan reads a UTF-16 label as UTF-8: a UTF-16 page starts with a
-    # byte order mark, and this one has none.
-    return "utf-8" if name.startswith("utf-16") else label
+    return _WHATWG.get(name)
 
 
 class _Tokens(HTMLParser):
