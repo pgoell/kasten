@@ -53,9 +53,32 @@ describe("the book's type in its own page", () => {
     const css = pageStyles();
 
     const monoRule = `body:not(#\\#) :is(code, pre, kbd, samp):not(#\\#) { font-family: ${MONO} !important; }`;
-    const serifRule = `body:not(#\\#) :not(code, pre, kbd, samp):not(#\\#) { font-family: ${SERIF} !important; }`;
+    const serifRule = `body:not(#\\#) :not(code, pre, kbd, samp, code *, pre *, kbd *, samp *):not(#\\#) { font-family: ${SERIF} !important; }`;
     expect.soft(css).toContain(monoRule);
     expect.soft(css).toContain(serifRule);
+  });
+
+  it("keeps the serif off a span inside code, which keeps the mono it inherits", () => {
+    tokens("#1c1c1b", "#f6f6f4", "rgba(249,157,27,.22)");
+    // The serif rule's own exclusion, read back out of the stylesheet the page gets:
+    // the `:not(...)` on the line that sets the serif on the body's text.
+    const line = pageStyles()
+      .split("\n")
+      .find((rule) => rule.includes(`{ font-family: ${SERIF} `) && rule.includes(":not(code"));
+    const exclusion = /:not\(code, pre, kbd, samp[^)]*\)/.exec(line ?? "")?.[0];
+    const block = document.createElement("pre");
+    const span = document.createElement("span");
+    const paragraph = document.createElement("p");
+    block.append(span);
+    document.body.append(block, paragraph);
+
+    expect(exclusion).toBeDefined();
+    // Matched by the page's own selector: the span in a block of code is not one
+    // the serif reaches, and a paragraph is.
+    expect(span.matches(exclusion ?? "")).toBe(false);
+    expect(paragraph.matches(exclusion ?? "")).toBe(true);
+    block.remove();
+    paragraph.remove();
   });
 
   it("paints a selection in the highlight token", () => {

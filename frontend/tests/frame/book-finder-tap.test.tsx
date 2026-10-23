@@ -24,7 +24,8 @@ const { fetchNote } = vi.hoisted(() => ({ fetchNote: vi.fn(() => Promise.resolve
 // A preview would read the note, so a read at all is a preview drawn. Named in
 // full because the module is replaced whole and the editor behind the preview
 // imports the rest.
-vi.mock("@/lib/api", () => ({
+vi.mock("@/lib/api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/api")>()),
   fetchNote,
   fetchImages: () => Promise.resolve([]),
   uploadAsset: () => Promise.resolve(),

@@ -7,7 +7,8 @@ const { fetchBook, fetchNote } = vi.hoisted(() => ({ fetchBook: vi.fn(), fetchNo
 // `fetchImages`, `fetchHtml`, `fetchAssets`, `uploadAsset` and `fetchTranscript` are here because the module is replaced whole:
 // the route and the editor import them, and a factory short of a name breaks the
 // import rather than the call.
-vi.mock("@/lib/api", () => ({
+vi.mock("@/lib/api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/api")>()),
   fetchBook,
   fetchNote,
   fetchImages: () => Promise.resolve([]),

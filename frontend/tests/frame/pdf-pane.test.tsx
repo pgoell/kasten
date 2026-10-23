@@ -37,7 +37,8 @@ const { fetchBook, fetchNote } = vi.hoisted(() => ({ fetchBook: vi.fn(), fetchNo
 // job runs no backend and vite proxies `/api` to a dead port, and seeded query
 // data is stale at once, so mounting would refetch against that dead port and
 // swap the failure panel in over a page that had already drawn.
-vi.mock("@/lib/api", () => ({
+vi.mock("@/lib/api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/api")>()),
   fetchBook,
   fetchNote,
   fetchImages: () => Promise.resolve([]),

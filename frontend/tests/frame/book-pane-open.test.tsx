@@ -44,7 +44,8 @@ const { fetchBook, fetchNote } = vi.hoisted(() => ({ fetchBook: vi.fn(), fetchNo
 // `fetchImages`, `fetchHtml`, `fetchAssets`, `uploadAsset` and `fetchTranscript` are here because the module is replaced whole:
 // the route and the editor import them, and a factory short of a name breaks the
 // import rather than the call.
-vi.mock("@/lib/api", () => ({
+vi.mock("@/lib/api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/api")>()),
   fetchBook,
   fetchNote,
   fetchImages: () => Promise.resolve([]),
@@ -186,38 +187,41 @@ describe("the reader over a real book", () => {
     // reported (`paginator.js:1060-1071`). A key in that window was dropped
     // without a word (#370). Pressed inside that first `relocate` so the press
     // lands in the window on every run rather than on a slow one.
-    // The renderer's reasons and not the view's count: the resize renders that
-    // follow a load report again as `anchor`, and those are no turn.
-    const reasons: string[] = [];
+    // Measured by where the text is, not by the reason: a flowing book's turn is
+    // a scroll step, which foliate reports with no reason at all, so no
+    // `page` ever arrives. The renderer's `start` is the offset it scrolled to.
+    const scrolled = { at: -1, renderer: undefined as { start: number } | undefined };
     const press = (event: Event) => {
       // The load-time expand reports before the section's `load` has gone out,
       // and so before the pane listens on its document.
       if (sections.length === 0) return;
       document.removeEventListener("relocate", press, true);
-      const { renderer } = event.target as unknown as { renderer: EventTarget };
-      renderer.addEventListener("relocate", (moved) =>
-        reasons.push((moved as CustomEvent<{ reason: string }>).detail.reason),
-      );
+      const { renderer } = event.target as unknown as { renderer: { start: number } };
+      scrolled.renderer = renderer;
+      scrolled.at = renderer.start;
       sections[0]?.dispatchEvent(new KeyboardEvent("keydown", { key: "l", bubbles: true }));
     };
     document.addEventListener("relocate", press, true);
     await drawBook();
 
-    await vi.waitFor(() => expect(reasons).toContain("page"), { timeout: 10_000 });
+    await vi.waitFor(() => expect(scrolled.renderer?.start).toBeGreaterThan(scrolled.at), {
+      timeout: 10_000,
+    });
   }, 30_000);
 
   it("turns the page on a tap near the right edge while the book is still opening", async () => {
     // The same window as the case above, under a finger (#372). The pane only
     // listens for taps where the pointer is coarse.
     stubMatchMedia({ [COARSE]: true });
-    const reasons: string[] = [];
+    // The text's place, not the reason: a flowing book's edge tap is a scroll
+    // step, which foliate reports with no reason (see the case above).
+    const scrolled = { at: -1, renderer: undefined as { start: number } | undefined };
     const tap = (event: Event) => {
       if (sections.length === 0) return;
       document.removeEventListener("relocate", tap, true);
-      const { renderer } = event.target as unknown as { renderer: EventTarget };
-      renderer.addEventListener("relocate", (moved) =>
-        reasons.push((moved as CustomEvent<{ reason: string }>).detail.reason),
-      );
+      const { renderer } = event.target as unknown as { renderer: { start: number } };
+      scrolled.renderer = renderer;
+      scrolled.at = renderer.start;
       const doc = sections[0] as Document;
       const frame = doc.defaultView?.frameElement as HTMLElement;
       const pane = (document.querySelector("[data-book-pane]") as Element).getBoundingClientRect();
@@ -232,7 +236,9 @@ describe("the reader over a real book", () => {
     document.addEventListener("relocate", tap, true);
     await drawBook();
 
-    await vi.waitFor(() => expect(reasons).toContain("page"), { timeout: 10_000 });
+    await vi.waitFor(() => expect(scrolled.renderer?.start).toBeGreaterThan(scrolled.at), {
+      timeout: 10_000,
+    });
   }, 30_000);
 
   it("opens the contents on t, from inside the iframe", async () => {

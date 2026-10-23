@@ -29,7 +29,8 @@ import {
 const { fetchBook, fetchNote } = vi.hoisted(() => ({ fetchBook: vi.fn(), fetchNote: vi.fn() }));
 // The module is replaced whole, so every name the route and the editor import
 // from it has to be here or the import breaks.
-vi.mock("@/lib/api", () => ({
+vi.mock("@/lib/api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/api")>()),
   fetchBook,
   fetchNote,
   fetchImages: () => Promise.resolve([]),

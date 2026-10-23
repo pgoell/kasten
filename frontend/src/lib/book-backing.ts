@@ -335,7 +335,8 @@ export function pageStyles(): string {
     `body:not(#\\#) :is(img[${BACKING}], picture:has(> img[${BACKING}]), svg:not(:has(image)), object):not(#\\#) { background-color: #fff !important; }`,
     `body:not(#\\#) :is(svg, svg *):not(#\\#) { color: #000 !important; }`,
     `body:not(#\\#) { font-family: ${serif} !important; font-size: ${read("--k-text-read")} !important; line-height: ${leading} !important; }`,
-    `body:not(#\\#) :not(code, pre, kbd, samp):not(#\\#) { font-family: ${serif} !important; }`,
+    // Descendants of code too, so a span coloured inside a block of code keeps the mono it inherits.
+    `body:not(#\\#) :not(code, pre, kbd, samp, code *, pre *, kbd *, samp *):not(#\\#) { font-family: ${serif} !important; }`,
     `body:not(#\\#) :is(code, pre, kbd, samp):not(#\\#) { font-family: ${mono} !important; }`,
     `body:not(#\\#) :is(p, li, blockquote, dd, dt, td, th, figcaption, div, h1, h2, h3, h4, h5, h6):not(#\\#) { line-height: ${leading} !important; }`,
     `body:not(#\\#) ::selection { background: ${read("--k-highlight")} !important; }`,
