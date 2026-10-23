@@ -265,5 +265,7 @@ backend cannot read leaves the last drawing up and says why under the line.
 | `q` | Close the pane |
 
 The leader keys work here as in every pane. `<leader>a` puts the archive in the
-drawing too. A note written anywhere, by you or by an agent, redraws a graph on
+drawing too. A focused button (a note in the pattern's table, the panel's mode
+and tag buttons, `fit`, `depth`, Create and Cancel) takes its own `Space` and
+`Enter`, which press it; `Space` on the pane or the canvas starts the leader. A note written anywhere, by you or by an agent, redraws a graph on
 screen.

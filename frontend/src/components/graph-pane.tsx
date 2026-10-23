@@ -226,11 +226,11 @@ export function GraphPane({
     // Typing into the filter is not the pane's keys: `q` in it is a letter.
     if (event.target instanceof HTMLInputElement) return;
     const { key } = event;
-    // A button in the panel takes its own Space and Enter, so the press clicks it
-    // rather than starting a leader sequence.
-    const onPanelButton =
-      event.target instanceof HTMLButtonElement && event.target.closest("aside");
-    if (onPanelButton && (key === " " || key === "Enter")) return;
+    // Any focused button in the pane (the panel's, the rows table's, the touch row's,
+    // the Create question's) takes its own Space and Enter, so the browser presses
+    // it rather than a leader sequence starting.
+    const onButton = event.target instanceof HTMLButtonElement;
+    if (onButton && (key === " " || key === "Enter")) return;
 
     if (heldModifier(key)) return;
 
