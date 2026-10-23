@@ -7,12 +7,13 @@
   // A text field keeps its keys, so typing a space or a question mark in a
   // page's own form stays typing.
   const TYPING = "input, textarea, select, [contenteditable]:not([contenteditable='false'])";
-  // A button or a control the page presses with a space keeps that space, so
-  // Space on it is the page's. `?` and Escape stay kasten's there.
+  // A control the page presses with a space keeps that space, so Space on it
+  // is the page's. `?` and Escape stay kasten's there.
   const PRESSABLE =
-    "button, summary, [role='button'], [role='checkbox'], [role='switch'], [role='tab'], [role='menuitem'], [role='option'], video, audio";
+    "button, summary, [role='button'], [role='checkbox'], [role='radio'], [role='switch'], [role='tab'], [role='menuitem'], [role='menuitemcheckbox'], [role='menuitemradio'], [role='option'], [role='treeitem'], video, audio";
   // The element the key went to, read off the path: at a window listener, a
-  // field inside a shadow root is reported as its host.
+  // field inside an open shadow root is reported as its host. A closed root
+  // still shows its host, which is as far as this can see.
   const targetOf = (event) => event.composedPath()[0];
   // Not `instanceof Element`, which reads the global `Element`: a page can
   // declare its own, and `closest` is the part this needs anyway.
@@ -20,10 +21,11 @@
     typeof target?.closest === "function" && target.closest(selector) !== null;
 
   // Runs in the capture phase on the window, which is the first place a key
-  // reaches. So it wins against every listener on the document and on the
-  // elements, in both phases, and against window listeners in the bubble
-  // phase or added after it. It cannot win against a window capture listener
-  // the page added before this one: that runs first and may stop the key.
+  // reaches, so it wins against listeners on the document and on the elements
+  // in both phases, and against window listeners in the bubble phase or added
+  // after it. This script comes last, so every window capture keydown listener
+  // the page adds while it loads runs before this one, and can stop the key
+  // first. Nothing in this script can get ahead of those.
   window.addEventListener(
     "keydown",
     (event) => {

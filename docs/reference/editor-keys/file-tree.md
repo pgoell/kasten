@@ -92,7 +92,8 @@ Keys typed inside a page are the page's, so a deck's arrows turn its slides,
 with three exceptions kasten adds to every page: Space opens [the which-key
 panel](/reference/editor-keys/leader.md), `?` opens key help, and Escape gives
 the keys back to kasten. In a text field of the page all three stay the page's,
-and Space on a focused button of the page presses it. With Shift (Space only),
+and Space on a focused button, `summary`, button-like control or video player of
+the page presses it. With Shift (Space only),
 Ctrl, Alt or Meta held they stay the page's too. `j` and `k` scroll the page by
 64 px, unless the page's own handler calls `preventDefault` on them. When the
 panel or key help closes, the keys go back to the page. A click on the pane's
