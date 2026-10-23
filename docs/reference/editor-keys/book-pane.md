@@ -177,11 +177,35 @@ keeps the app's mono, and a selection takes the highlight colour. These win
 over the book's own colours and fonts, so a book written for a white page reads
 on the dark one. A switch of theme or palette restyles the text where you
 are and keeps your place. A flowing epub reads in one column at the reading
-measure, 680 px, so a wide pane keeps the rest empty.
+measure, 680 px.
 
-The line at the bottom of the pane says how far through the whole book you are,
-to the nearest percent. It counts every chapter rather than the one you are in,
-and it says nothing at all where the book gives no honest number to count.
+A wide pane uses the room either side of the text. From 960 px of pane width
+the book's contents sit in a 224 px column on the left, the chapter you are in
+marked in the accent with a bar beside it, and a click on a chapter goes there.
+From 1280 px the passages taken so far sit in a 288 px column on the right,
+under `Taken`, in the note's order, and a click on one goes to it in the book.
+Each pane measures itself, so the two halves of a split decide alone, and a
+phone shows the text alone. The header row reads `BOOK`, the note's name in
+mono, the chapter and the percent, and `The book's note` on the right, which
+opens the note in a pane beside the book, as the pdf pane's Note beside does.
+
+A take shows a note at the foot of the text: `Taken into the book's note`, the
+passage, the chapter and the note's name, with Undo and Put it in a note. Undo
+takes the block back out of the note, the mark with it, while the note is as
+the take left it; if anything wrote the note since, Undo says `The book's note
+changed since, so Undo left it as it is` and writes nothing. Put it in a note
+writes the passage under `## Highlights` of a note you pick, linked back to the
+block in the book's note, `[[<note>#^hl-xxxxxx|<chapter>]]`, or by a markdown
+link with the path encoded where the note's name holds `[`, `]`, `|` or `#`. A
+take that lands after the pane opened another book shows nothing. The book's
+words and chapter are written through the same escape as a page's passage, so
+a passage holding `## Dump`, a fence, a todo or a link stays inside its quote,
+and the reader takes the escape off again when it looks for the passage.
+
+The line at the bottom of the pane names the chapter you are in and says how
+far through the whole book you are, `N% of the book`, to the nearest percent. It
+counts every chapter rather than the one you are in, and it says nothing at all
+where the book gives no honest number to count.
 
 A click inside the book also tells the route that this pane has the focus.
 Nothing else would: a paragraph cannot hold focus, so a click in there fires no
