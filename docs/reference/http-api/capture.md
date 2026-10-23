@@ -28,6 +28,15 @@ Reads one HTML page out of the vault, as `text/html`, for the frame the HTML
 pane draws it in and for the tab its header's link opens. `path` is a
 vault-relative POSIX path ending in `.html`.
 
+The `Content-Type` names the charset the page's own head declares, with
+`<meta charset>` or `<meta http-equiv="Content-Type">`, and `utf-8` when it
+declares none. A browser reads only the first 1024 bytes for that meta, and the
+page script below fills more than that, so the header has to carry it. A meta
+in a comment, a script, a `<template>` or a `<noscript>` does not count, a
+label that is not a plain charset name counts as none, and `utf-16` counts as
+`utf-8`, as it does to a browser. Everything kasten puts into a page is ASCII,
+so it reads the same in any of those charsets.
+
 The page goes out with a policy of its own in `Content-Security-Policy`:
 
 | Directive | Why |
