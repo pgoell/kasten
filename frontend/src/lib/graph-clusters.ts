@@ -195,7 +195,8 @@ export function seedPositions(nodes: DrawnNode[], mode: GraphMode, spots: Map<st
  * A cluster's area on the canvas: the middle of its members and a radius that
  * holds most of them. The radius is the 75th percentile of the members' distances
  * from the middle, plus a margin, so one stray note does not swell the area over
- * the others, and it is never past 0.6 of the gap to a neighbouring spot.
+ * the others, and it is never past 0.45 of the gap to a neighbouring spot, so two
+ * neighbours' areas do not cover each other's names.
  */
 export function areaOf(
   members: readonly { x?: number; y?: number }[],
@@ -207,7 +208,45 @@ export function areaOf(
     .map((member) => Math.hypot((member.x ?? 0) - x, (member.y ?? 0) - y))
     .sort((a, b) => a - b);
   const reach = distances[Math.ceil(0.75 * distances.length) - 1] ?? 0;
-  return { x, y, radius: Math.min(Math.max(24, reach + 18), 0.6 * gap) };
+  return { x, y, radius: Math.min(Math.max(24, reach + 18), 0.45 * gap) };
+}
+
+/**
+ * Where each area's name sits, as the baseline of its text, in the order given.
+ * A name sits just above its area; when its box would print on a name already
+ * placed, it moves up one `line` at a time until it is clear. A box is `half` wide
+ * either side of the name's centre and `height` tall above its baseline.
+ */
+export function nameBaselines(
+  names: readonly { x: number; y: number; half: number }[],
+  line: number,
+  height: number,
+): number[] {
+  const placed: Array<{ left: number; right: number; top: number; bottom: number }> = [];
+  return names.map(({ x, y, half }) => {
+    const boxAt = (baseline: number) => ({
+      left: x - half,
+      right: x + half,
+      top: baseline - height,
+      bottom: baseline,
+    });
+    let baseline = y;
+    let box = boxAt(baseline);
+    while (
+      placed.some(
+        (other) =>
+          other.left < box.right &&
+          box.left < other.right &&
+          other.top < box.bottom &&
+          box.top < other.bottom,
+      )
+    ) {
+      baseline -= line;
+      box = boxAt(baseline);
+    }
+    placed.push(box);
+    return baseline;
+  });
 }
 
 /**

@@ -29,18 +29,17 @@ import {
   tagVariable,
 } from "@/lib/graph";
 import {
-  areaOf,
   CHARGE,
   CHARGE_REACH,
   type ClusterForces,
   clusterForces,
-  gapOf,
   groupsOf,
   type Spot,
   seedPositions,
   spotsOf,
 } from "@/lib/graph-clusters";
 import type { GraphMode } from "@/lib/graph-mode";
+import { areasOf, paintDiscs, paintNames, ringed } from "@/lib/graph-paint";
 import { onThemeChange } from "@/lib/theme";
 
 export interface GraphCanvasHandlers {
@@ -145,25 +144,6 @@ function faded(hex: string, alpha: number): string {
 }
 
 /**
- * A label in the fill the caller set, with the page colour stroked round its
- * letters first, so a dot or a line behind it does not run into the letters.
- */
-function ringed(
-  ctx: CanvasRenderingContext2D,
-  text: string,
-  x: number,
-  y: number,
-  page: string,
-  scale: number,
-): void {
-  ctx.strokeStyle = page;
-  ctx.lineWidth = 3 / scale;
-  ctx.lineJoin = "round";
-  ctx.strokeText(text, x, y);
-  ctx.fillText(text, x, y);
-}
-
-/**
  * A radial drawing is the margin's: the note in the middle, its links on rings
  * around it, filled by first tag, and no names on the canvas. The lists beside
  * the canvas name the notes, so the canvas only shows where they are.
@@ -265,28 +245,15 @@ export function drawGraph(
       .d3Force("gravity", forces.gravity);
   };
 
-  // Each area is a soft disc round its members, its centroid and the farthest
-  // member plus a margin, with the name above it. Drawn before the notes, so the
-  // dots and names sit on top of the wash.
-  const paintAreas = (ctx: CanvasRenderingContext2D, scale: number) => {
+  // The areas are worked out again each frame, as the notes move. The discs go
+  // under the notes, so the dots sit on the wash; the names go over them.
+  const underNotes = (ctx: CanvasRenderingContext2D) => {
     if (mode === null) return;
-    const gap = gapOf(spotList);
-    for (const spot of spotList) {
-      const { x: cx, y: cy, radius } = areaOf(groups.get(spot.key)?.members ?? [], gap);
-
-      ctx.globalAlpha = Number(colour("--k-area"));
-      ctx.fillStyle = colour(spot.variable);
-      ctx.beginPath();
-      ctx.arc(cx, cy, radius, 0, 2 * Math.PI);
-      ctx.fill();
-
-      ctx.globalAlpha = 1;
-      ctx.font = `italic ${12 / scale}px ${colour("--k-serif")}`;
-      ctx.textAlign = "center";
-      ctx.textBaseline = "bottom";
-      ctx.fillStyle = colour("--k-muted");
-      ringed(ctx, spot.name, cx, cy - radius, colour("--k-bg"), scale);
-    }
+    paintDiscs(ctx, areasOf(spotList, groups), colour);
+  };
+  const overNotes = (ctx: CanvasRenderingContext2D, scale: number) => {
+    if (mode === null) return;
+    paintNames(ctx, areasOf(spotList, groups), scale, colour);
   };
 
   const graph = new ForceGraph<DrawnNode, DrawnLink>(element)
@@ -425,7 +392,8 @@ export function drawGraph(
     })
     .onNodeClick((node) => handlers.onOpen(node))
     .onBackgroundClick(() => handlers.onBlank())
-    .onRenderFramePre(paintAreas)
+    .onRenderFramePre(underNotes)
+    .onRenderFramePost(overNotes)
     // Fitted once the cluster has settled, so the areas fill the pane. A plain
     // answer is left where the user has put it.
     .onEngineStop(() => {

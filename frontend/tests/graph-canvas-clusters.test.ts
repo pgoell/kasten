@@ -170,10 +170,15 @@ interface Mark {
   alpha: number;
   text?: string;
   font?: string;
+  y?: number;
 }
 
-/** Every mark the areas pass draws in one frame, in the order it draws them. */
-function frameMarks(): Mark[] {
+/**
+ * Every mark one frame hook draws, in the order it draws them. The areas are
+ * painted before the notes, so their discs come from the pre hook and the names
+ * from the post hook; `hook` picks which.
+ */
+function frameMarks(hook: "onRenderFramePre" | "onRenderFramePost" = "onRenderFramePre"): Mark[] {
   const marks: Mark[] = [];
   const ctx = {
     fillStyle: "",
@@ -186,25 +191,28 @@ function frameMarks(): Mark[] {
     lineJoin: "",
     beginPath() {},
     arc() {},
+    measureText: (text: string) => ({ width: text.length * 6 }),
     fill: () => marks.push({ op: "fill", style: ctx.fillStyle, alpha: ctx.globalAlpha }),
-    fillText: (text: string) =>
+    fillText: (text: string, _x: number, y: number) =>
       marks.push({
         op: "fillText",
         text,
         style: ctx.fillStyle,
         alpha: ctx.globalAlpha,
         font: ctx.font,
+        y,
       }),
-    strokeText: (text: string) =>
+    strokeText: (text: string, _x: number, y: number) =>
       marks.push({
         op: "strokeText",
         text,
         style: ctx.strokeStyle,
         alpha: ctx.globalAlpha,
         font: ctx.font,
+        y,
       }),
   };
-  const frame = graphs.at(-1)?.seen.onRenderFramePre?.[0] as (ctx: unknown, scale: number) => void;
+  const frame = graphs.at(-1)?.seen[hook]?.[0] as (ctx: unknown, scale: number) => void;
   frame(ctx, 1);
   return marks;
 }
@@ -262,7 +270,8 @@ describe("drawGraph cluster mode", () => {
       undefined,
     );
 
-    expect(frameMarks()).toEqual([
+    const marks = [...frameMarks(), ...frameMarks("onRenderFramePost")];
+    expect(marks.map(({ y: _y, ...mark }) => mark)).toEqual([
       { op: "fill", style: "#123456", alpha: 0.08 },
       {
         op: "strokeText",
@@ -353,6 +362,31 @@ describe("drawGraph cluster mode", () => {
       "a.md",
       "b.md",
     ]);
+  });
+
+  it("L1 the area names are painted after the notes", () => {
+    document.documentElement.style.setProperty("--k-area", "0.08");
+    const canvas = drawGraph(document.createElement("div"), handlers);
+    canvas.cluster("folders");
+    canvas.update([graphNote("03 Areas/a.md"), graphNote("03 Areas/b.md")], [], undefined);
+
+    // Before the notes only the disc is drawn; the name comes from the post hook.
+    expect(frameMarks().map((mark) => mark.op)).toEqual(["fill"]);
+    expect(frameMarks("onRenderFramePost").map((mark) => mark.op)).toEqual([
+      "strokeText",
+      "fillText",
+    ]);
+  });
+
+  it("L2 two areas with one centre print their names on separate lines", () => {
+    const canvas = drawGraph(document.createElement("div"), handlers);
+    canvas.cluster("tags");
+    // One note with two tags: both areas have its one place as their middle.
+    canvas.update([graphNote("a.md", ["#ai", "#ml"], null)], [], undefined);
+
+    const names = frameMarks("onRenderFramePost").filter((mark) => mark.op === "fillText");
+    expect(names.map((mark) => mark.text)).toEqual(["#ai", "#ml"]);
+    expect(Math.abs((names[0]?.y ?? 0) - (names[1]?.y ?? 0))).toBeCloseTo(14);
   });
 
   it("I5 a theme switch makes the cluster areas, rings and --k-area read again", () => {

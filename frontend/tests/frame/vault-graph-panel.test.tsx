@@ -89,6 +89,22 @@ describe("vault graph panel", () => {
     expect(panel?.height).toBeLessThanOrEqual(TOUCH.height * 0.45 + 1);
   });
 
+  it("L3 on a phone the mode toggle keeps its full height in the panel", async () => {
+    await setUp(TOUCH, "light");
+    serveGraph(DEV_ANSWER);
+    const host = boxOf(TOUCH.width, TOUCH.height);
+    await mountPane(host);
+    await untilCounted(host);
+
+    // The toggle's own box is what squeezes when the panel is full, so it is read
+    // with its buttons, which must each be a finger's height.
+    const toggle = need(host.querySelector<HTMLElement>("[aria-label='mode']"), "mode toggle");
+    expect(toggle.getBoundingClientRect().height).toBeGreaterThanOrEqual(40);
+    for (const button of toggle.querySelectorAll("button")) {
+      expect(button.getBoundingClientRect().height).toBeGreaterThanOrEqual(40);
+    }
+  });
+
   it("A9 in a split of two panes each draws its own panel, and a pane under 640 px stacks it", async () => {
     await setUp(DESKTOP, "light");
     serveGraph(DEV_ANSWER);

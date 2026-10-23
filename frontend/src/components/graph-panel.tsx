@@ -67,17 +67,17 @@ export function GraphPanel({
   return (
     <aside
       aria-label="graph panel"
-      className="flex min-h-0 shrink-0 flex-col gap-4 overflow-y-auto border-l border-k-rule px-3 py-3 w-[300px] @max-[640px]:w-full @max-[640px]:max-h-[45%] @max-[640px]:border-l-0 @max-[640px]:border-t"
+      className="flex min-h-0 shrink-0 flex-col gap-4 overflow-y-auto font-sans border-l border-k-rule px-3 py-3 w-[300px] @max-[640px]:w-full @max-[640px]:max-h-[45%] @max-[640px]:border-l-0 @max-[640px]:border-t"
     >
-      <h2 className="font-serif text-[17px] text-k-ink">Vault graph</h2>
-      <p className="text-[12px] text-k-ink">
+      <h2 className="shrink-0 font-serif text-[17px] text-k-ink">Vault graph</h2>
+      <p className="shrink-0 text-[12px] text-k-ink">
         {`${notes} notes and ${links} links. ${archive ? "The archive is in." : "The archive is left out."}`}
       </p>
-      <p className="text-[12px] text-k-muted">{READING[mode]}</p>
+      <p className="shrink-0 text-[12px] text-k-muted">{READING[mode]}</p>
 
       <fieldset
         aria-label="mode"
-        className="flex self-start overflow-hidden rounded-[var(--k-radius-6)] border border-k-rule text-k-13"
+        className="shrink-0 flex self-start overflow-hidden rounded-[var(--k-radius-6)] border border-k-rule text-k-13"
       >
         {MODES.map((option) => (
           <button
@@ -92,7 +92,7 @@ export function GraphPanel({
         ))}
       </fieldset>
 
-      <section className="flex flex-col gap-1">
+      <section className="shrink-0 flex flex-col gap-1">
         <p className={LABEL}>Tags</p>
         <ul aria-label="tags" className="flex flex-col">
           {tags.map(({ tag, key, count }) => {
@@ -119,7 +119,7 @@ export function GraphPanel({
         </ul>
       </section>
 
-      <div className="flex flex-col gap-1 border-t border-k-rule pt-3">
+      <div className="shrink-0 flex flex-col gap-1 border-t border-k-rule pt-3">
         {card === null ? (
           <p className="text-[12px] text-k-muted">Hover or tap a note.</p>
         ) : (
