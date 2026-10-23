@@ -338,10 +338,24 @@ it.each([["on"], ["off"]])(
     await openList(frame);
 
     const pane = mounted.host.querySelector("[data-pane]") as HTMLElement;
+    const toast = pane.querySelector("[role='status']") as HTMLElement;
+    const ul = toast.querySelector("ul") as HTMLUListElement;
     const last = listRows()[7] as HTMLButtonElement;
     // From the Put button, past Undo, down the list: the eighth row is the last stop.
     for (let i = 0; i < 12 && document.activeElement !== last; i++) await userEvent.tab();
-    expect(inside(last, pane)).toBe(true);
+    // A scrolled list rounds to whole pixels, so the last row can sit half a pixel past its bottom.
+    const rowBox = last.getBoundingClientRect();
+    const listBox = ul.getBoundingClientRect();
+    expect({
+      toast: inside(toast, pane),
+      focused: document.activeElement === last,
+      scrolled: ul.scrollTop > 0,
+      last:
+        rowBox.top >= listBox.top - 1 &&
+        rowBox.bottom <= listBox.bottom + 1 &&
+        rowBox.left >= listBox.left &&
+        rowBox.right <= listBox.right,
+    }).toEqual({ toast: true, focused: true, scrolled: true, last: true });
 
     await userEvent.keyboard("{Enter}");
     await expect.poll(() => api.notes[RECENT[7] as string] ?? "").toContain("## Highlights");
