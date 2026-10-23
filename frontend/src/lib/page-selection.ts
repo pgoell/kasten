@@ -65,16 +65,19 @@ export interface Anchor {
   x: number;
   y: number;
   above: boolean;
+  /** The passage's middle, which is where the words sit whatever the button's edge. */
+  middle: number;
   /** The wrapper's own size, which is what the button must stay inside. */
   box: { width: number; height: number };
 }
 
 /**
- * Whether the button sits in the lower half of the frame, where a toast at the
- * foot would cover the passage (#885). A take with no place keeps the foot.
+ * Whether the passage's middle sits in the lower half of the frame, where a toast
+ * at the foot would cover the words just taken (#885). A take with no place keeps
+ * the foot.
  */
 export function low(at: Anchor | null): boolean {
-  return at !== null && at.y > at.box.height / 2;
+  return at !== null && at.middle > at.box.height / 2;
 }
 
 /**
@@ -91,11 +94,13 @@ export function placeFor(
   const outer = frame.getBoundingClientRect();
   const box = wrapper.getBoundingClientRect();
   const x = outer.left + rect.left + (rect.right - rect.left) / 2 - box.left;
+  const middle = outer.top + (rect.top + rect.bottom) / 2 - box.top;
   const size = { width: box.width, height: box.height };
   if (coarse) {
-    return { x, y: outer.top + rect.bottom + BELOW_GAP - box.top, above: false, box: size };
+    const y = outer.top + rect.bottom + BELOW_GAP - box.top;
+    return { x, y, above: false, middle, box: size };
   }
-  return { x, y: outer.top + rect.top - box.top, above: true, box: size };
+  return { x, y: outer.top + rect.top - box.top, above: true, middle, box: size };
 }
 
 /**

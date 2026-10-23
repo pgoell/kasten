@@ -32,6 +32,16 @@ const PATH = "take-hostile.html";
 const FIRST = `[[${PATH}#2026-10-07-evals-01|First story]]`;
 const LOW_TEXT =
   "Replicas in Frankfurt and Virginia stay within one second of the primary at the 99th percentile.";
+/** A paragraph of about 13 lines from near 100 px, so on a phone it ends just past the frame's middle. */
+const TALL_TEXT =
+  "Replicas in Frankfurt and Virginia stay within one second of the primary at the 99th percentile. "
+    .repeat(5)
+    .trimEnd();
+const TALL = htmlPage(
+  "Tall",
+  `<main style="font:16px/1.6 Georgia,serif;padding:24px 32px"><div style="height:60px"></div><p id="p1">${TALL_TEXT}</p><div style="height:1600px"></div></main>`,
+);
+
 /** A paragraph under a 560 px spacer, so on a phone its words lie in the frame's lower half. */
 const LOW = htmlPage(
   "Low",
@@ -232,4 +242,32 @@ it("at 390 with touch, a high passage keeps the toast at the foot", async () => 
     high: rect.bottom < frame.clientHeight / 2,
     foot: Math.abs(toast.getBoundingClientRect().bottom - box.bottom) <= 16,
   }).toEqual({ high: true, foot: true });
+});
+
+it("at 390 with touch, a tall passage that ends just past the middle keeps the toast clear of it", async () => {
+  await page.viewport(390, 844);
+  await browser.emulateMedia({ touch: true });
+  await browser.servePage(PATH, TALL);
+  render(mounted, [PATH], true);
+  const frame = frameOf(mounted, 0);
+  await ready(frame);
+  await userEvent.click(frame);
+
+  await ask(frame, { probe: "touchSelect", range: ["p1", 0, "p1", TALL_TEXT.length] }, "selected");
+  const { rect } = (await ask(frame, { probe: "selection" }, "selection")) as {
+    rect: { top: number; bottom: number };
+  };
+  await expect.poll(() => takeButton(mounted) !== null).toBe(true);
+  await userEvent.click(takeButton(mounted) as HTMLElement);
+  await expect.poll(() => mounted.host.querySelector("[role='status']") !== null).toBe(true);
+
+  const box = frame.getBoundingClientRect();
+  const h = frame.clientHeight;
+  const words = { top: box.top + rect.top, bottom: box.top + rect.bottom };
+  const toast = mounted.host.querySelector("[role='status']") as HTMLElement;
+  const at = toast.getBoundingClientRect();
+  expect({
+    spans: rect.top < h / 2 && rect.bottom > h / 2,
+    clear: at.bottom <= words.top || at.top >= words.bottom,
+  }).toEqual({ spans: true, clear: true });
 });
