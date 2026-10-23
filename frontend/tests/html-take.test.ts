@@ -123,6 +123,29 @@ it("the heading is capped at 120 characters", () => {
   );
 });
 
+it("a heading cannot open an html comment", () => {
+  expect(pageLink(PATH, { text: "x", heading: "<!--", anchor: "" })).toBe(
+    "[[01 Periodic/05 Newspaper/2026-10-07.html|--]]",
+  );
+  expect(pageLink(PATH, { text: "x", heading: "x <!-- y -->", anchor: "" })).toBe(
+    "[[01 Periodic/05 Newspaper/2026-10-07.html|x -- y --]]",
+  );
+});
+
+it("the passage is capped at 50 paragraphs", () => {
+  const text = Array.from({ length: 60 }, (_, index) => `p${index}`).join("\n");
+  const kept = Array.from({ length: 49 }, (_, index) => `p${index}`);
+
+  expect(quoteParagraphs(text)).toEqual([...kept, "p49…"]);
+});
+
+it("a lone surrogate is removed", () => {
+  const lone = String.fromCharCode(0xd83d);
+
+  expect(quoteParagraphs(`a${lone}b`)).toEqual(["ab"]);
+  expect(pageLink(PATH, { text: "x", heading: `x${lone}y`, anchor: "" })).toBe(`[[${PATH}|xy]]`);
+});
+
 it("control characters are removed", () => {
   expect(quoteParagraphs("a\u0000b\u0007c\u007f d")).toEqual(["abc d"]);
 });

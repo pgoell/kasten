@@ -1,4 +1,4 @@
-import { act, cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, render, screen, within } from "@testing-library/react";
 import { HtmlPane } from "@/components/html-pane";
 import { COARSE, stubMatchMedia } from "./match-media";
 import { stubCommands } from "./stub-commands";
@@ -146,5 +146,103 @@ describe("placing the take button", () => {
     const { frame } = renderPane(PATH, { anchor: "the paper" });
 
     expect(frame.getAttribute("src")?.endsWith("#the%20paper")).toBe(true);
+  });
+});
+
+describe("reading the page's selection", () => {
+  it("a selection from the focused frame shows the button with the heading and the y hint", () => {
+    const { frame } = renderPane();
+
+    frame.focus();
+    fromPage(frame.contentWindow, selection());
+
+    const button = takeButton();
+    expect({
+      present: button !== null,
+      heading: button !== null && within(button).getByText("Results").textContent,
+      hint: button !== null && within(button).getByText("y").textContent,
+    }).toEqual({ present: true, heading: "Results", hint: "y" });
+  });
+
+  it("a selection while the frame is not focused shows nothing", () => {
+    const { frame } = renderPane();
+
+    fromPage(frame.contentWindow, selection());
+    expect(takeButton()).toBeNull();
+
+    // The same selection once the frame holds the focus is shown, so the nothing
+    // above was the focus and not the message.
+    frame.focus();
+    fromPage(frame.contentWindow, selection());
+    expect(takeButton()).not.toBeNull();
+  });
+
+  it("an empty selection takes the button away", () => {
+    const { frame } = renderPane();
+
+    frame.focus();
+    fromPage(frame.contentWindow, selection());
+    expect(takeButton()).not.toBeNull();
+
+    fromPage(frame.contentWindow, selection({ text: "", heading: "", rect: null }));
+    expect(takeButton()).toBeNull();
+  });
+
+  it("a selection from another window shows nothing", () => {
+    const { frame } = renderPane();
+    // A frame nested in the page would be another window, as would one the page opened.
+    const nested = document.createElement("iframe");
+    document.body.appendChild(nested);
+
+    frame.focus();
+    for (const source of [nested.contentWindow, window, null]) {
+      fromPage(source, selection());
+    }
+    expect(takeButton()).toBeNull();
+
+    // The same message from the frame itself is heard.
+    fromPage(frame.contentWindow, selection());
+    expect(takeButton()).not.toBeNull();
+    nested.remove();
+  });
+
+  it("malformed selection messages throw nothing and show nothing", () => {
+    const { frame } = renderPane();
+    const errors = vi.fn();
+    window.addEventListener("error", errors);
+
+    frame.focus();
+    for (const data of [
+      { kasten: "selection" },
+      selection({ text: 5 }),
+      selection({ heading: undefined }),
+      selection({ rect: 5 }),
+      selection({ rect: { left: "1", top: 0, right: 1, bottom: 1 } }),
+      selection({ rect: { left: Number.NaN, top: 0, right: 1, bottom: 1 } }),
+      null,
+      "selection",
+    ]) {
+      fromPage(frame.contentWindow, data);
+    }
+
+    expect({ button: takeButton() !== null, errors: errors.mock.calls.length }).toEqual({
+      button: false,
+      errors: 0,
+    });
+
+    // A well-formed selection after them is shown, so the nothing above was the malformed.
+    fromPage(frame.contentWindow, selection());
+    expect(takeButton()).not.toBeNull();
+    window.removeEventListener("error", errors);
+  });
+
+  it("a forged selection with a huge heading is clipped", () => {
+    const { frame } = renderPane();
+
+    frame.focus();
+    fromPage(frame.contentWindow, selection({ heading: "h".repeat(400) }));
+
+    const heading = takeButton()?.querySelector(".max-w-64");
+    expect(Array.from(heading?.textContent ?? "").length).toBe(300);
   });
 });

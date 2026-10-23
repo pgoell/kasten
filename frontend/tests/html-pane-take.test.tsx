@@ -134,92 +134,6 @@ afterEach(() => {
 });
 
 describe("taking a passage out of an html page", () => {
-  it("a selection from the focused frame shows the button with the heading and the y hint", () => {
-    const { frame } = renderPane();
-
-    frame.focus();
-    fromPage(frame.contentWindow, selection());
-
-    const button = takeButton();
-    expect({
-      present: button !== null,
-      heading: button !== null && within(button).getByText("Results").textContent,
-      hint: button !== null && within(button).getByText("y").textContent,
-    }).toEqual({ present: true, heading: "Results", hint: "y" });
-  });
-
-  it("a selection while the frame is not focused shows nothing", () => {
-    const { frame } = renderPane();
-
-    fromPage(frame.contentWindow, selection());
-    expect(takeButton()).toBeNull();
-
-    // The same selection once the frame holds the focus is shown, so the nothing
-    // above was the focus and not the message.
-    frame.focus();
-    fromPage(frame.contentWindow, selection());
-    expect(takeButton()).not.toBeNull();
-  });
-
-  it("an empty selection takes the button away", () => {
-    const { frame } = renderPane();
-
-    frame.focus();
-    fromPage(frame.contentWindow, selection());
-    expect(takeButton()).not.toBeNull();
-
-    fromPage(frame.contentWindow, selection({ text: "", heading: "", rect: null }));
-    expect(takeButton()).toBeNull();
-  });
-
-  it("a selection from another window shows nothing", () => {
-    const { frame } = renderPane();
-    // A frame nested in the page would be another window, as would one the page opened.
-    const nested = document.createElement("iframe");
-    document.body.appendChild(nested);
-
-    frame.focus();
-    for (const source of [nested.contentWindow, window, null]) {
-      fromPage(source, selection());
-    }
-    expect(takeButton()).toBeNull();
-
-    // The same message from the frame itself is heard.
-    fromPage(frame.contentWindow, selection());
-    expect(takeButton()).not.toBeNull();
-    nested.remove();
-  });
-
-  it("malformed selection messages throw nothing and show nothing", () => {
-    const { frame } = renderPane();
-    const errors = vi.fn();
-    window.addEventListener("error", errors);
-
-    frame.focus();
-    for (const data of [
-      { kasten: "selection" },
-      selection({ text: 5 }),
-      selection({ heading: undefined }),
-      selection({ rect: 5 }),
-      selection({ rect: { left: "1", top: 0, right: 1, bottom: 1 } }),
-      selection({ rect: { left: Number.NaN, top: 0, right: 1, bottom: 1 } }),
-      null,
-      "selection",
-    ]) {
-      fromPage(frame.contentWindow, data);
-    }
-
-    expect({ button: takeButton() !== null, errors: errors.mock.calls.length }).toEqual({
-      button: false,
-      errors: 0,
-    });
-
-    // A well-formed selection after them is shown, so the nothing above was the malformed.
-    fromPage(frame.contentWindow, selection());
-    expect(takeButton()).not.toBeNull();
-    window.removeEventListener("error", errors);
-  });
-
   it("a click on the button keeps the passage through the press and takes it into the dump", async () => {
     const sent = answering();
     const { frame } = renderPane();
@@ -494,8 +408,10 @@ describe("taking a passage out of an html page", () => {
     fromPage(frame.contentWindow, selection());
     yFromPage(frame);
     await screen.findByRole("button", { name: "Undo" });
+    // The reader's own press takes the second passage, since the page's `y` already
+    // took once in this visit.
     fromPage(frame.contentWindow, selection({ text: "Another passage." }));
-    yFromPage(frame);
+    fireEvent.click(takeButton() as HTMLElement);
     await screen.findByText("Another passage.");
     fireEvent.click(await screen.findByRole("button", { name: "Undo" }));
 
@@ -529,6 +445,68 @@ describe("taking a passage out of an html page", () => {
     fireEvent.pointerUp(second as HTMLElement, { clientX: 900, clientY: 900 });
 
     expect(takeButton()).not.toBeNull();
+  });
+
+  it("a page that relays y twice in one visit takes only once", async () => {
+    const sent = answering();
+    const { frame } = renderPane();
+
+    frame.focus();
+    fromPage(frame.contentWindow, selection());
+    yFromPage(frame);
+    await screen.findByRole("status");
+    fromPage(frame.contentWindow, selection({ text: "A second, forged passage." }));
+    yFromPage(frame);
+    await settled(() => dumpsSent(sent).length >= 2);
+
+    expect(dumpsSent(sent)).toHaveLength(1);
+  });
+
+  it("a new visit to the page lets a relayed y take again", async () => {
+    const sent = answering();
+    const { frame } = renderPane();
+
+    frame.focus();
+    fromPage(frame.contentWindow, selection());
+    yFromPage(frame);
+    await screen.findByRole("status");
+    fromPage(frame.contentWindow, selection({ text: "A second, forged passage." }));
+    yFromPage(frame);
+    await settled(() => dumpsSent(sent).length >= 2);
+    expect(dumpsSent(sent)).toHaveLength(1);
+
+    // The reader leaves the frame and comes back into it, which is a new visit.
+    frame.focus();
+    window.dispatchEvent(new Event("blur"));
+    fromPage(frame.contentWindow, selection({ text: "A third passage." }));
+    yFromPage(frame);
+    await settled(() => dumpsSent(sent).length >= 2);
+
+    expect(dumpsSent(sent)).toHaveLength(2);
+    await screen.findByText("A third passage.");
+  });
+
+  it("the take button still takes after a relayed take", async () => {
+    const sent = answering();
+    const { frame } = renderPane();
+
+    frame.focus();
+    fromPage(frame.contentWindow, selection());
+    yFromPage(frame);
+    await screen.findByRole("status");
+    fromPage(frame.contentWindow, selection({ text: "A second, forged passage." }));
+    yFromPage(frame);
+    await settled(() => dumpsSent(sent).length >= 2);
+    expect(dumpsSent(sent)).toHaveLength(1);
+
+    // The reader's own press takes what is held, whatever the page relayed.
+    const button = takeButton();
+    expect(button).not.toBeNull();
+    fireEvent.click(button as HTMLElement);
+    await settled(() => dumpsSent(sent).length >= 2);
+
+    expect(dumpsSent(sent)).toHaveLength(2);
+    await screen.findByText("A second, forged passage.");
   });
 
   it("Undo with no network says so in the toast", async () => {

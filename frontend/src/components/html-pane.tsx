@@ -1,21 +1,19 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { TakeToast } from "@/components/take-toast";
-import { updateNote } from "@/lib/api";
 import { readClock } from "@/lib/clock";
-import { addHighlight } from "@/lib/highlight";
-import { type PagePassage, pageLink, quoteParagraphs, takenQuote } from "@/lib/html-take";
+import { type PagePassage, takenQuote } from "@/lib/html-take";
 import type { EditorCommands } from "@/lib/key-bindings";
 import { heldModifier, leaderAction, leaderPrefix } from "@/lib/leader-keys";
 import { encodePath, noteName } from "@/lib/note-path";
 // Renamed for the reason `use-prompts.tsx` renames it: the take is a dump, and
 // the page has no other `flush` to confuse it with.
 import { flush as flushOutbox, keep } from "@/lib/outbox";
+import { writePassage } from "@/lib/page-highlight";
 import { type Anchor, fitButton, placeFor, selectionOf } from "@/lib/page-selection";
 import { REFUSED, type Undo, undoFor, undoPassage } from "@/lib/page-undo";
 import { periodicNote } from "@/lib/periodic";
 import { usePressGuard } from "@/lib/take-button";
 import { currentPalette, currentTheme, onThemeChange } from "@/lib/theme";
-import { newId } from "@/lib/todo";
 import { useViewport } from "@/lib/use-viewport";
 import { beginLeader, paneOpener } from "@/lib/which-key";
 
@@ -138,6 +136,8 @@ export function HtmlPane({
    * button, the way the book answers its own (`use-book-take.ts`).
    */
   const lost = useRef(false);
+  /** Whether the page's relayed `y` has taken in this visit: one per visit, see `takeAsReader`. */
+  const relayedTaken = useRef(false);
   const { pressing, press } = usePressGuard(() => {
     if (lost.current) {
       lost.current = false;
@@ -256,6 +256,12 @@ export function HtmlPane({
       },
     );
   }
+  /** The reader's own take, which starts a new visit for the page's `y` (`relayedTaken`). */
+  function takeAsReader() {
+    relayedTaken.current = false;
+    return take();
+  }
+
   // The listener is added once, so it reaches the take as it is now through this.
   const takeRef = useRef(take);
   useLayoutEffect(() => {
@@ -284,11 +290,7 @@ export function HtmlPane({
    * book's own format. The dump line stays where it is.
    */
   function putInto(id: number, notePath: string, passage: PagePassage) {
-    const highlight = {
-      text: quoteParagraphs(passage.text).join("\n"),
-      chapter: pageLink(path, passage),
-    };
-    void updateNote(notePath, (text) => addHighlight(text, highlight, newId("hl-"))).then(
+    void writePassage(notePath, path, passage).then(
       () =>
         setToast((current) =>
           current?.id === id ? { ...current, title: `Put into ${noteName(notePath)}` } : current,
@@ -346,10 +348,15 @@ export function HtmlPane({
       // A key counts only while the frame holds the focus, so a page in the
       // background cannot open the panel or take the focus from the pane.
       if (kasten !== "key" || document.activeElement !== frame.current) return;
-      // A `y` takes what is held. A browser with a user activation to read says
-      // whether this key came from the reader, and one without it is not asked.
+      // A page's `y` takes once per visit. The user activation only narrows it:
+      // a click in the page gives the window one too, so it proves no keypress.
       if (key === "y") {
-        if (heldRef.current !== null && navigator.userActivation?.isActive !== false) {
+        if (
+          heldRef.current !== null &&
+          !relayedTaken.current &&
+          navigator.userActivation?.isActive !== false
+        ) {
+          relayedTaken.current = true;
           void takeRef.current();
         }
         return;
@@ -369,7 +376,9 @@ export function HtmlPane({
   // the frame is the active element, so that is how the click is seen.
   useEffect(() => {
     function onBlur() {
-      if (document.activeElement === frame.current) onFocusRef.current();
+      if (document.activeElement !== frame.current) return;
+      onFocusRef.current();
+      relayedTaken.current = false;
     }
     window.addEventListener("blur", onBlur);
     return () => window.removeEventListener("blur", onBlur);
@@ -401,7 +410,7 @@ export function HtmlPane({
       startLeader();
     } else if (key === "y" && heldRef.current !== null) {
       event.preventDefault();
-      void take();
+      void takeAsReader();
     }
   }
 
@@ -471,7 +480,7 @@ export function HtmlPane({
             aria-label="Take the passage"
             data-take
             {...press}
-            onClick={() => void take()}
+            onClick={() => void takeAsReader()}
             style={fitButton(held.at, size)}
             className={held.at.above ? `${TAKE} -translate-y-full` : TAKE}
           >

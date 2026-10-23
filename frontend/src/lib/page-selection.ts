@@ -31,12 +31,29 @@ export function selectionOf(data: Record<string, unknown>): Selection | null {
   if (typeof text !== "string" || typeof heading !== "string" || typeof anchor !== "string") {
     return null;
   }
-  if (rect === null) return { text, heading, anchor, rect: null };
+  // The page's script keeps to these lengths, but a forged message skips the
+  // script, so the pane holds them too.
+  const words = {
+    text: clip(text, TEXT_MAX),
+    heading: clip(heading, HEADING_MAX),
+    anchor: clip(anchor, ANCHOR_MAX),
+  };
+  if (rect === null) return { ...words, rect: null };
   if (typeof rect !== "object" || rect === null) return null;
 
   const { left, top, right, bottom } = rect as Record<string, unknown>;
   if (!finite(left) || !finite(top) || !finite(right) || !finite(bottom)) return null;
-  return { text, heading, anchor, rect: { left, top, right, bottom } };
+  return { ...words, rect: { left, top, right, bottom } };
+}
+
+/** The script's limits on what it sends, in code points. */
+const TEXT_MAX = 10000;
+const HEADING_MAX = 300;
+const ANCHOR_MAX = 200;
+
+/** `value` cut to `max` code points, which is how the script counts them too. */
+function clip(value: string, max: number): string {
+  return Array.from(value).slice(0, max).join("");
 }
 
 function finite(value: unknown): value is number {

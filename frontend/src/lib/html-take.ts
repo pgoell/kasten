@@ -24,17 +24,21 @@ export const PASSAGE_CAP = 2000;
 /** Characters of heading kept in the link's alias, the ellipsis included. */
 export const HEADING_CAP = 120;
 
+/** Paragraphs of passage kept, the rest dropped. */
+const PARAGRAPH_CAP = 50;
+
 /** Characters of anchor kept. */
 const ANCHOR_CAP = 100;
 
 /**
  * Control characters, removed so a page cannot put a NUL or a bell in the note.
  *
- * The Unicode category rather than a range of code points, since biome refuses
- * a control character written into a regex. The category also takes the C1
- * block, which a page has no business sending either.
+ * The Unicode categories rather than a range of code points, since biome refuses
+ * a control character written into a regex. The control category also takes the
+ * C1 block, which a page has no business sending either. The surrogate category
+ * takes a lone half of a pair, which the backend's text reader refuses.
  */
-const CONTROL = /\p{Cc}/gu;
+const CONTROL = /[\p{Cc}\p{Cs}]/gu;
 
 /**
  * Line breaks, which split a passage into paragraphs.
@@ -52,8 +56,11 @@ const BREAK = /[\r\n]+/;
  */
 const SPECIAL = /[\\`[\]<>!|~$%^]/g;
 
-/** Characters the alias cannot hold, since kasten's wikilink parser reads it up to `]]`. */
-const ALIAS_BAD = /[[\]|#^\\]/g;
+/**
+ * Characters the alias cannot hold: the wikilink's own, and the ones that open an
+ * html comment, code, math, emphasis or a `%%` comment in the reader's view.
+ */
+const ALIAS_BAD = /[[\]|#^\\<>!`$~*_%=]/g;
 
 /** `text` cut to `cap` characters at most, the ellipsis counted among them. */
 function capped(text: string, cap: number): string {
@@ -93,9 +100,19 @@ export function quoteParagraphs(text: string): string[] {
     .map((line) => collapse(line.replace(CONTROL, "")))
     .filter((paragraph) => paragraph !== "");
 
+  // A page can send thousands of lines, and each becomes a line of the note, so
+  // the paragraph count is capped as well as the characters. The last one kept
+  // says it was cut short.
+  const truncated = paragraphs.length > PARAGRAPH_CAP;
+  const shown = paragraphs
+    .slice(0, PARAGRAPH_CAP)
+    .map((paragraph, index, all) =>
+      truncated && index === all.length - 1 ? `${paragraph}…` : paragraph,
+    );
+
   const kept: string[] = [];
   let room = PASSAGE_CAP;
-  for (const paragraph of paragraphs) {
+  for (const paragraph of shown) {
     if (room <= 0) break;
     const cut = capped(paragraph, room);
     kept.push(escapeParagraph(cut));

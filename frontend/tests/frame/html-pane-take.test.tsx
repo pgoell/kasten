@@ -124,7 +124,8 @@ it("two takes stay marked after a theme switch and a scroll", async () => {
   await expect.poll(() => api.dumps.length).toBe(1);
   await select(frame, ["p2", 0, "p2", 6]);
   await expect.poll(() => takeButton(mounted) !== null).toBe(true);
-  await userEvent.keyboard("y");
+  // The button, not a second `y`: a `y` the page relays takes once per visit (security review).
+  await userEvent.click(takeButton(mounted) as HTMLButtonElement);
   await expect.poll(() => api.dumps.length).toBe(2);
 
   toggleTheme();

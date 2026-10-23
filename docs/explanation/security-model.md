@@ -206,13 +206,19 @@ field and drops a message of the wrong shape. It shows a button only while the
 frame holds the focus, and it takes a passage on `y` only while one is held.
 Before the text reaches the dump, control characters go, every markup character
 is escaped, and every line starts with `> `, so no line the page sends can
-stand as a heading, a fence or a todo. The text is capped at 2000 characters,
-and the heading and the anchor of the link are cut to what a wikilink can hold.
+stand as a heading, a fence, a tag or a todo. The text is capped at 2000
+characters and 50 paragraphs, and the heading and the anchor of the link are
+cut to what a wikilink can hold, with nothing that opens markup or a comment.
 
-The limit that remains: a hostile page that has the focus can forge a selection
-and a `y`. It then writes a quoted paragraph into today's dump, escaped and
-capped as above, under a link to a heading the page names. The toast shows it
-with Undo, so the reader sees it and can take it back. The write is the one a
+The limit that remains: a click into the page gives it the focus, and a page
+with the focus can forge a selection and a `y`. A `y` the page sends takes once
+per visit: after it, only the Take button or a `y` typed in kasten takes again,
+until the focus has left the page and come back. So one click lets a hostile
+page write at most one quoted paragraph into today's dump, escaped and capped as
+above, under a link to a heading the page names. The toast shows it with Undo,
+so the reader sees it and can take it back. The page learns that a take
+happened, which it could send out, and nothing of the vault. Text in the dump
+is still read as prose by whoever plans from it, an agent included. The write is the one a
 reader makes with `<leader>cd`, through the same outbox and `POST /api/dump`,
 and the page cannot read the dump or the daily note from there. "Open in a browser tab" shows the page in a
 tab of its own under kasten's address, held by the same sandbox header, so a
