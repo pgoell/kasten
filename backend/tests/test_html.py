@@ -22,6 +22,10 @@ LINKS_OUT = b"""
 document.addEventListener("click", (event) => {
   const link = event.target instanceof Element ? event.target.closest("a[href]") : null;
   if (link !== null && link.host !== location.host) link.target = "_blank";
+  // A link to another page of the vault would load it with no query and so with
+  // no theme, so it keeps the frame's query, which holds only theme and palette.
+  else if (link !== null && link.pathname.startsWith("/api/html/") && link.search === "")
+    link.search = location.search;
 }, true);
 </script>
 """
@@ -235,3 +239,93 @@ async def test_serves_the_theme_stylesheet_the_frontend_reads(client: AsyncClien
     assert response.status_code == 200
     assert response.headers["content-type"].startswith("text/css")
     assert response.content == FRONTEND_THEME.read_bytes()
+
+
+async def test_puts_the_script_after_a_doctype_that_follows_an_xml_declaration(
+    client: AsyncClient, vault: Path
+) -> None:
+    # A processing instruction is a comment to a browser, so the doctype is still the
+    # first token of the page proper and the page keeps its standards mode.
+    prolog = (
+        b'<?xml version="1.0" encoding="utf-8"?>\n'
+        b'<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" '
+        b'"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">'
+    )
+    page = prolog + b"\n<html><head><title>x</title></head><body>x</body></html>"
+    (vault / "report.html").write_bytes(page)
+
+    response = await client.get("/api/html/report.html")
+
+    assert response.content == prolog + BLOCK + page[len(prolog) :] + LINKS_OUT
+
+
+async def test_serves_a_doctype_cut_off_before_its_end_as_it_was(
+    client: AsyncClient, vault: Path
+) -> None:
+    # A page read while it is still being written can end inside its doctype.
+    (vault / "report.html").write_bytes(b"<!DOCTYPE html")
+
+    response = await client.get("/api/html/report.html")
+
+    assert response.status_code == 200
+    assert response.content == BLOCK + b"<!DOCTYPE html" + LINKS_OUT
+
+
+@pytest.mark.parametrize(
+    ("bom", "encoding"),
+    [(b"\xff\xfe", "utf-16-le"), (b"\xfe\xff", "utf-16-be")],
+    ids=["utf-16 little endian", "utf-16 big endian"],
+)
+async def test_serves_a_utf16_page_with_its_byte_order_mark_first(
+    client: AsyncClient, vault: Path, bom: bytes, encoding: str
+) -> None:
+    # Nothing goes in front of a UTF-16 page, since that would break its bytes. It
+    # is served as before: the scripts at the end, and no theme.
+    page = bom + "<!doctype html><p>findings</p>".encode(encoding)
+    (vault / "report.html").write_bytes(page)
+
+    response = await client.get(
+        "/api/html/report.html", params={"theme": "dark", "palette": "poel"}
+    )
+
+    assert response.content == page + LINKS_OUT + BLOCK
+
+
+@pytest.mark.parametrize(
+    "inert",
+    [b"<template>" + META + b"</template>", b"<noscript>" + META + b"</noscript>"],
+    ids=["meta in a template", "meta in a noscript"],
+)
+async def test_a_meta_in_a_template_or_a_noscript_does_not_opt_a_page_in(
+    client: AsyncClient, vault: Path, inert: bytes
+) -> None:
+    page = DOCTYPE + b"<html><head>" + inert + b"<title>x</title></head><body>x</body></html>"
+    (vault / "report.html").write_bytes(page)
+
+    response = await client.get(
+        "/api/html/report.html", params={"theme": "dark", "palette": "russet"}
+    )
+
+    assert response.content == DOCTYPE + BLOCK + page[len(DOCTYPE) :] + LINKS_OUT
+
+
+async def test_a_head_end_inside_a_template_is_not_where_the_styles_go(
+    client: AsyncClient, vault: Path
+) -> None:
+    page = (
+        DOCTYPE
+        + b"<html><head><template></head></template>"
+        + META
+        + b"<title>x</title></head><body>x</body></html>"
+    )
+    (vault / "report.html").write_bytes(page)
+
+    response = await client.get(
+        "/api/html/report.html", params={"theme": "dark", "palette": "poel"}
+    )
+
+    assert response.content.startswith(
+        DOCTYPE + b'<html data-theme="dark" data-palette="poel">' + BLOCK
+    )
+    assert b"<title>x</title><style data-kasten-fonts>" in response.content
+    assert b"</style></head><body>x</body>" in response.content

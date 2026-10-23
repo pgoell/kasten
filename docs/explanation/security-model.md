@@ -207,7 +207,7 @@ The theme adds little to that. An opted-in page is sent two names in its
 address, a theme and a palette, each from a short fixed list. kasten puts its
 token file and three font files into the page itself, and all of it is public.
 The page script acts on a theme message only when the message comes from its
-parent. Nothing is fetched from inside the frame, and the frame still has no
+parent. The frame fetches nothing for the theme, and the frame still has no
 `allow-same-origin`.
 
 ## What none of this covers

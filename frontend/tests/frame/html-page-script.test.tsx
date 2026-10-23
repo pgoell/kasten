@@ -28,6 +28,7 @@ interface Message {
   palette?: string;
   open?: boolean;
   marker?: string;
+  search?: string;
 }
 
 /**
@@ -142,6 +143,15 @@ addEventListener("message", (event) => {
 /** A page that opts in to the tokens, so kasten's theme and palette reach it. */
 const OPTED_IN = `<meta name="kasten-theme" content="tokens">${STATE}`;
 
+/** The page a link inside the frame goes to, and what it reports on arriving. */
+const OTHER = "other.html";
+const ARRIVED = `${OPTED_IN}<script>parent.postMessage({ fixture: "arrived", search: location.search, theme: document.documentElement.dataset.theme }, "*");</script>`;
+
+/** A page with a link to `OTHER`, which its own script clicks when the test says "click". */
+const LINKING = `<a id="go" href="${OTHER}">go</a>${OPTED_IN}<script>
+addEventListener("message", (event) => { if (event.data === "click") document.getElementById("go").click(); });
+</script>`;
+
 let frame: HTMLIFrameElement | undefined;
 const messages: Message[] = [];
 
@@ -156,8 +166,11 @@ afterEach(async () => {
   await commands.unservePages();
 });
 
-/** Serve `html` as the page, and draw it in a frame sandboxed the way the pane sandboxes one. */
-async function mount(html: string): Promise<HTMLIFrameElement> {
+/**
+ * Serve `html` as the page, and draw it in a frame sandboxed the way the pane sandboxes one.
+ * `query` is the request's query, which the backend reads for the theme and palette.
+ */
+async function mount(html: string, query = ""): Promise<HTMLIFrameElement> {
   await commands.servePage(PAGE, html);
   const element = document.createElement("iframe");
   element.setAttribute("sandbox", "allow-scripts allow-popups allow-popups-to-escape-sandbox");
@@ -165,7 +178,7 @@ async function mount(html: string): Promise<HTMLIFrameElement> {
   const loaded = new Promise((resolve) =>
     element.addEventListener("load", resolve, { once: true }),
   );
-  element.src = `/api/html/${PAGE}`;
+  element.src = `/api/html/${PAGE}${query}`;
   frame = element;
   document.body.append(element);
   await loaded;
@@ -439,4 +452,28 @@ it("an unknown theme value is ignored", async () => {
 
   sendToPage({ kasten: "theme", theme: "light" });
   expect((await pageState())?.theme).toBe("light");
+});
+
+it("an opted-in page whose meta has spaces round its value still follows a switch", async () => {
+  await mount(
+    atStart(`<meta name="kasten-theme" content=" tokens ">${STATE}`),
+    "?theme=light&palette=poel",
+  );
+  // The backend opted the page in, so the theme it was served with is on `<html>`.
+  expect((await pageState())?.theme).toBe("light");
+
+  sendToPage({ kasten: "theme", theme: "dark" });
+  expect((await pageState())?.theme).toBe("dark");
+});
+
+it("a link to another vault page inside the frame keeps the theme query", async () => {
+  await commands.servePage(OTHER, atStart(ARRIVED));
+  await mount(atStart(LINKING), "?theme=dark&palette=pansy");
+
+  sendToPage("click");
+
+  await expect.poll(() => messages.some((m) => m.fixture === "arrived")).toBe(true);
+  const arrived = messages.find((m) => m.fixture === "arrived");
+  expect(arrived?.search).toBe("?theme=dark&palette=pansy");
+  expect(arrived?.theme).toBe("dark");
 });

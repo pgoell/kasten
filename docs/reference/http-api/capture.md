@@ -38,7 +38,10 @@ The page goes out with a policy of its own in `Content-Security-Policy`:
 | `img-src 'self' data: blob: https:` | Pictures, inline or linked |
 | `connect-src 'none'`, `form-action 'none'` | The page cannot send a request to kasten, a write included |
 
-Two scripts go into the page, and the page's own bytes are otherwise unchanged.
+For a page without the meta, two scripts go into the page and nothing else
+changes. An opted-in page also gets the `<html>` element and the styles below.
+A UTF-16 page (marked by its byte order mark) gets the two scripts at its end
+and no theme, since anything put in front of its bytes would break them.
 
 The page script (`page_script.js` in the backend) goes first: right after the
 doctype, or at the very start of a page with none, after a byte order mark if
@@ -74,7 +77,8 @@ given:
 * `<html data-theme="…" data-palette="…">` ahead of the page script. The browser
   keeps the first value of each attribute, so the page cannot set its own
   `data-theme`.
-* At the end of its head, the fonts (Newsreader, Instrument Sans and JetBrains
+* At the end of its head, or straight after the meta when there is no `</head>`,
+  the fonts (Newsreader, Instrument Sans and JetBrains
   Mono, the latin subsets inlined as data URIs) and the design tokens, as a
   stylesheet with no layer. The tokens are the same as
   [`GET /api/kasten-theme.css`](#get-apikasten-themecss) serves.

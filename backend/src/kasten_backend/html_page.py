@@ -18,6 +18,10 @@ LINKS_OUT = b"""
 document.addEventListener("click", (event) => {
   const link = event.target instanceof Element ? event.target.closest("a[href]") : null;
   if (link !== null && link.host !== location.host) link.target = "_blank";
+  // A link to another page of the vault would load it with no query and so with
+  // no theme, so it keeps the frame's query, which holds only theme and palette.
+  else if (link !== null && link.pathname.startsWith("/api/html/") && link.search === "")
+    link.search = location.search;
 }, true);
 </script>
 """
@@ -97,6 +101,9 @@ Built once at import, as `PAGE_SCRIPT` is. They go last in the head, so a
 _BLANK = " \t\n\r\f﻿"
 """What a page may hold before its first real token: whitespace and a byte order mark."""
 
+_INERT = ("noscript", "template")
+"""Elements whose contents are not the page's head or body, to a browser."""
+
 
 class _Tokens(HTMLParser):
     """The few tokens of a page that decide where the pieces go, as string offsets.
@@ -115,6 +122,9 @@ class _Tokens(HTMLParser):
         self.first_is_doctype = False
         self.head_at: int | None = None
         self.meta_end: int | None = None
+        # Open `<template>` or `<noscript>` elements. A browser does not treat a
+        # meta or a `</head>` inside one as the page's head, so neither counts.
+        self.inert = 0
         self.feed(page)
         self.close()
 
@@ -123,7 +133,13 @@ class _Tokens(HTMLParser):
         return self.line_starts[line - 1] + column
 
     def _significant(self, doctype: bool = False) -> None:
-        """Note the first token that is neither blank nor a comment."""
+        """Note the first token that is neither blank, a comment nor a processing instruction.
+
+        A processing instruction (`<?xml ...?>`) and a bogus declaration are
+        comments to a browser, so a doctype may come after them and still be
+        the first thing the parser makes a token of. They have no handler here,
+        so HTMLParser's empty default leaves them out.
+        """
         if self.first is None:
             self.first = self._offset()
             self.first_is_doctype = doctype
@@ -131,26 +147,24 @@ class _Tokens(HTMLParser):
     def handle_decl(self, decl: str) -> None:
         self._significant(decl.lower().startswith("doctype"))
 
-    def handle_pi(self, data: str) -> None:
-        self._significant()
-
-    def handle_unknown_decl(self, data: str) -> None:
-        self._significant()
-
     def handle_data(self, data: str) -> None:
         if data.strip(_BLANK):
             self._significant()
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         self._significant()
-        if self.meta_end is None and tag == "meta":
+        if tag in _INERT:
+            self.inert += 1
+        elif self.inert == 0 and self.meta_end is None and tag == "meta":
             values = {name: (value or "").strip().lower() for name, value in attrs}
             if values.get("name") == "kasten-theme" and values.get("content") == "tokens":
                 self.meta_end = self._offset() + len(self.get_starttag_text() or "")
 
     def handle_endtag(self, tag: str) -> None:
         self._significant()
-        if tag == "head" and self.head_at is None:
+        if tag in _INERT:
+            self.inert = max(self.inert - 1, 0)
+        elif self.inert == 0 and tag == "head" and self.head_at is None:
             self.head_at = self._offset()
 
 
@@ -168,12 +182,17 @@ def serve_page(raw: bytes, theme: str | None, palette: str | None) -> bytes:
     `<html>` element and the styles before `</head>`. Any other theme or palette
     means no theme at all, and the page keeps its own fallback.
     """
+    if raw.startswith((b"\xff\xfe", b"\xfe\xff")):
+        # UTF-16 is not the UTF-8 read below, so nothing can go in front of its
+        # bytes without breaking them. It goes out as it did before, with no theme.
+        return raw + LINKS_OUT + PAGE_SCRIPT
+
     page = raw.decode("utf-8", "surrogateescape")
     tokens = _Tokens(page)
-    if tokens.first_is_doctype:
-        script_at = page.index(">", tokens.first) + 1
-    else:
-        script_at = 1 if page.startswith("﻿") else 0
+    # A doctype cut off before its `>` (a page read mid-write) is no doctype here.
+    doctype_end = page.find(">", tokens.first or 0) if tokens.first_is_doctype else -1
+    bom = 1 if page.startswith("﻿") else 0
+    script_at = doctype_end + 1 if doctype_end != -1 else bom
 
     if tokens.meta_end is None or theme not in THEMES or palette not in PALETTES:
         return _bytes(page[:script_at]) + PAGE_SCRIPT + _bytes(page[script_at:]) + LINKS_OUT

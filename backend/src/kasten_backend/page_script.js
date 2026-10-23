@@ -67,10 +67,19 @@
   // load, so nothing is lost.
   const THEMES = ["light", "dark"];
   const PALETTES = ["poel", "russet", "peach", "pansy"];
+  // The backend's test for the opt-in, so both agree: name and content trimmed
+  // and lowercased, and a meta inside a noscript does not count.
+  const optedIn = () =>
+    [...document.querySelectorAll("meta")].some(
+      (meta) =>
+        meta.closest("noscript") === null &&
+        (meta.getAttribute("name") ?? "").trim().toLowerCase() === "kasten-theme" &&
+        (meta.getAttribute("content") ?? "").trim().toLowerCase() === "tokens",
+    );
   window.addEventListener("message", (event) => {
     const data = event.data;
     if (event.source !== up || typeof data !== "object" || data === null) return;
-    if (!document.querySelector('meta[name="kasten-theme" i][content="tokens" i]')) return;
+    if (!optedIn()) return;
     if (data.kasten === "theme" && THEMES.includes(data.theme)) {
       document.documentElement.setAttribute("data-theme", data.theme);
     } else if (data.kasten === "palette" && PALETTES.includes(data.palette)) {
