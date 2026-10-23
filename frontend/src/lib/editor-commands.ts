@@ -104,6 +104,9 @@ export const leaderPanel = ViewPlugin.define((view) => {
     if (event.key !== " " || event.ctrlKey || event.altKey || event.metaKey || event.shiftKey) {
       return;
     }
+    // Vim's `:` and `/` prompts are panels inside `view.dom`, with their own input,
+    // and a space typed into one is the prompt's text, not the leader.
+    if (!view.contentDOM.contains(event.target as Node)) return;
     const vim = getCM(view)?.state.vim;
     if (!vim || vim.insertMode || vim.visualMode) return;
     const input = vim.inputState;

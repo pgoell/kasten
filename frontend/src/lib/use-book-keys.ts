@@ -63,13 +63,26 @@ export function useBookKeys(o: {
         return;
       }
 
+      // `?` is shift and `/`, so it is read ahead of the modifier check. This
+      // handler is the only one a section frame's keys reach, the window's
+      // listener never sees them.
+      if (event.key === "?" && !event.ctrlKey && !event.altKey && !event.metaKey) {
+        event.preventDefault();
+        commandsRef.current.showHelp();
+        return;
+      }
+
       if (event.ctrlKey || event.shiftKey || event.altKey || event.metaKey) return;
 
       // The book has a leader now because the redesign's epic (#776) wants one in
       // every page, PDF, book and video alike. Space turns no page here: the
       // turns are `l` and `h`, so Space is free to open the panel.
+      // The wrapper and not the focused element: that is the foliate host, which
+      // takes no focus, so the panel would hand back a focus nothing can hold.
       if (event.key === " ") {
-        if (beginLeader(paneOpener(commandsRef.current))) event.preventDefault();
+        if (beginLeader(paneOpener(commandsRef.current, wrapper.current))) {
+          event.preventDefault();
+        }
         return;
       }
       if (event.key === "l" || event.key === "h") turn(event.key === "l" ? "next" : "prev");
@@ -89,7 +102,7 @@ export function useBookKeys(o: {
       // handler's identity is still fixed for the life of the pane and the view
       // effect naming it rebuilds nothing.
     },
-    [contentsOpen, take, openContents, turn],
+    [contentsOpen, take, openContents, turn, wrapper],
   );
 
   // On the wrapper as well as on every section, and in an effect of its own so

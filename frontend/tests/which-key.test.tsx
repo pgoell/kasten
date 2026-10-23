@@ -204,6 +204,62 @@ describe("WhichKey", () => {
     expect(commands.toggleTree).not.toHaveBeenCalled();
   });
 
+  it("after c the tab row sits under Tabs", () => {
+    mount();
+
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "c" });
+
+    const tabs = screen.getByRole("heading", { name: "Tabs" }).closest("section") as HTMLElement;
+    expect(within(tabs).getByRole("button", { name: /Create a tab/ })).toBeInTheDocument();
+  });
+
+  it("on a phone Enter on a focused row runs it", () => {
+    const commands = stubCommands();
+    render(
+      <>
+        <button type="button">Note</button>
+        <WhichKey phone />
+      </>,
+    );
+    const note = screen.getByRole("button", { name: "Note" });
+    note.focus();
+    act(() => {
+      beginLeader(paneOpener(commands));
+    });
+    const dialog = screen.getByRole("dialog", { name: "Leader keys" });
+    const row = within(dialog).getByText("Toggle the file tree", { selector: "span" });
+    const button = row.closest("button") as HTMLElement;
+    button.focus();
+
+    // The browser turns Enter on a focused button into its click. The panel must not take
+    // the key first, so it is not prevented and the sheet stays up until the click.
+    expect(fireEvent.keyDown(button, { key: "Enter" })).toBe(true);
+    expect(screen.getByRole("dialog", { name: "Leader keys" })).toBe(dialog);
+    fireEvent.click(button);
+    expect(commands.toggleTree).toHaveBeenCalledTimes(1);
+  });
+
+  it("a press outside the panel closes it and the next key goes where the press put the focus", () => {
+    const { commands } = mount();
+    const other = document.createElement("button");
+    other.type = "button";
+    document.body.append(other);
+    const seen = vi.fn();
+    other.addEventListener("keydown", seen);
+
+    try {
+      fireEvent.pointerDown(other);
+      other.focus();
+      fireEvent.keyDown(other, { key: "f" });
+
+      expect(seen).toHaveBeenCalledTimes(1);
+      expect(commands.findNote).not.toHaveBeenCalled();
+      expect(screen.queryByRole("dialog")).toBeNull();
+    } finally {
+      other.remove();
+    }
+  });
+
   it("keys sent in the same task as Space still go to the panel", () => {
     render(
       <>

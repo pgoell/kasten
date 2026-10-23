@@ -71,6 +71,16 @@ function placeFor(from: Element | null): CSSProperties {
  * Hands the focus back to what held it when Space was pressed. Synchronous and
  * without a scroll, so the panel's leave never moves the page.
  */
+const PANEL = '[role="dialog"][aria-label="Leader keys"]';
+
+/**
+ * Whether a target sits in the panel. The desktop panel and the phone sheet are
+ * both that dialog, and the sheet never hands over a ref, so this asks the DOM.
+ */
+function insidePanel(target: EventTarget | null): boolean {
+  return target instanceof Element && target.closest(PANEL) !== null;
+}
+
 function focusBack(opener: LeaderOpener) {
   const from = opener.from;
   if (from instanceof HTMLElement && from.isConnected) from.focus({ preventScroll: true });
@@ -168,27 +178,30 @@ function Body({
     );
   }
 
-  const matches = columns.flatMap((column) =>
-    column.rows
-      .filter(
-        (row) =>
-          row.key !== TAB_DIGITS && row.key.startsWith(typed) && row.key.length > typed.length,
-      )
-      .map((row) => ({ ...row, title: column.title })),
-  );
+  // One group per column the matches sit in, in column order, so `ct` sits under Tabs.
+  const groups = columns.flatMap((column) => {
+    const rows = column.rows.filter(
+      (row) => row.key !== TAB_DIGITS && row.key.startsWith(typed) && row.key.length > typed.length,
+    );
+    return rows.length > 0 ? [{ title: column.title, rows }] : [];
+  });
   return (
-    <section className="px-2 pb-3">
-      <h3 className={`${LABEL} mb-1 px-3`}>{matches[0]?.title}</h3>
-      {matches.map((row) => (
-        <Entry
-          key={row.key}
-          rowKey={row.key}
-          shown={row.key.slice(typed.length)}
-          label={row.label}
-          onRun={onRun}
-        />
+    <div className="px-2 pb-3">
+      {groups.map((group) => (
+        <section key={group.title} className="mb-2">
+          <h3 className={`${LABEL} mb-1 px-3`}>{group.title}</h3>
+          {group.rows.map((row) => (
+            <Entry
+              key={row.key}
+              rowKey={row.key}
+              shown={row.key.slice(typed.length)}
+              label={row.label}
+              onRun={onRun}
+            />
+          ))}
+        </section>
       ))}
-    </section>
+    </div>
   );
 }
 
@@ -280,11 +293,7 @@ export function WhichKey({ phone }: { phone: boolean }) {
       // for: `Space E` is Shift then E, so the panel keeps waiting.
       if (heldModifier(key)) return;
       // Enter on a focused row is that row's click, so the button gets it.
-      if (
-        key === "Enter" &&
-        event.target instanceof HTMLButtonElement &&
-        panel.current?.contains(event.target)
-      )
+      if (key === "Enter" && event.target instanceof HTMLButtonElement && insidePanel(event.target))
         return;
       event.stopPropagation();
 
@@ -320,6 +329,22 @@ export function WhichKey({ phone }: { phone: boolean }) {
     document.addEventListener("keydown", onKey, true);
     return () => document.removeEventListener("keydown", onKey, true);
   }, [leave, fire]);
+
+  // A press or a focus outside the panel is the reader going elsewhere: the panel
+  // gives way at once, so the next key goes where that put the focus. Nothing is
+  // stopped here, so the press and the focus still reach their targets.
+  useEffect(() => {
+    const away = (event: Event) => {
+      if (live.current.phase !== "open" || insidePanel(event.target)) return;
+      leave();
+    };
+    document.addEventListener("pointerdown", away, true);
+    document.addEventListener("focusin", away, true);
+    return () => {
+      document.removeEventListener("pointerdown", away, true);
+      document.removeEventListener("focusin", away, true);
+    };
+  }, [leave]);
 
   // Taken when the panel opens, not on each narrowing, so a key does not pull the focus.
   useEffect(() => {

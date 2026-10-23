@@ -46,9 +46,9 @@ export function beginLeader(opener: LeaderOpener): boolean {
 }
 
 /** The opener of a pane holding no buffer. */
-export function paneOpener(commands: EditorCommands): LeaderOpener {
+export function paneOpener(commands: EditorCommands, from?: Element | null): LeaderOpener {
   return {
-    from: document.activeElement,
+    from: from ?? document.activeElement,
     resolve: (typed) => leaderAction(typed, commands),
     prefix: leaderPrefix,
   };

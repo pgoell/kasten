@@ -299,6 +299,33 @@ describe("the which-key panel", () => {
     off();
   });
 
+  it("? in the book opens key help", () => {
+    const view = draw();
+
+    // `?` is shift and `/`, so the reader's modifier check would drop it.
+    fireEvent.keyDown(view.wrapper() as HTMLElement, { key: "?", shiftKey: true });
+
+    expect(view.commands.showHelp).toHaveBeenCalledTimes(1);
+  });
+
+  it("after the panel closes in the book, the focus is back on the reader", () => {
+    const spy = vi.fn();
+    const off = hostLeader(spy);
+    const view = draw();
+    const wrapper = view.wrapper() as HTMLElement;
+
+    fireEvent.keyDown(wrapper, { key: " " });
+
+    // The reader's own wrapper, not the foliate host the focus was on, which
+    // takes no focus and would strand the keys on the body after Esc.
+    const opener = openerOf(spy);
+    expect(opener.from).toBe(wrapper);
+    expect(wrapper.tabIndex).toBe(-1);
+    (opener.from as HTMLElement).focus();
+    expect(document.activeElement).toBe(wrapper);
+    off();
+  });
+
   it("Space in the html pane hands the leader to the panel", () => {
     const spy = vi.fn();
     const off = hostLeader(spy);
@@ -443,6 +470,24 @@ describe("the which-key panel", () => {
     fireEvent.keyDown(container.querySelector("[data-history-pane]") as HTMLElement, { key: " " });
 
     expect(spy).toHaveBeenCalledTimes(1);
+    off();
+  });
+
+  it("Space in vim's / prompt types a space and opens no panel", () => {
+    const spy = vi.fn();
+    const off = hostLeader(spy);
+    const { container, editor } = open("plain");
+
+    // `/` opens vim's own prompt, a panel inside the editor with its own input.
+    fireEvent.keyDown(editor, { key: "/" });
+    const input = container.querySelector(".cm-vim-panel input") as HTMLInputElement;
+    input.value = "foo";
+    fireEvent.keyDown(input, { key: " " });
+    // The browser types the space into the input, as it would in any field.
+    input.value = "foo bar";
+
+    expect(spy).not.toHaveBeenCalled();
+    expect(input.value).toBe("foo bar");
     off();
   });
 
