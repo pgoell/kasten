@@ -51,10 +51,12 @@ it("a nested frame posting a selection and y takes nothing", async () => {
 
   frame.contentWindow?.postMessage({ probe: "nest" }, "*");
   await expect.poll(() => heardFrom("nested")).toBe(true);
+  // The nested frame also forged a take with id 1, which the page refuses by its source.
   expect({ dumps: api.dumps.length, parts: buttonParts(mounted)[2] }).toEqual({
     dumps: 0,
     parts: "First story",
   });
+  expect((await ask(frame, { probe: "marks" }, "marks")).texts).toEqual([]);
 
   // The page itself, focused, takes the passage it selected: the refusal above is not a page that never answered.
   await userEvent.keyboard("y");

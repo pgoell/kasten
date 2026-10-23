@@ -88,7 +88,7 @@ target?.parent.postMessage({ fixture: "popup" }, "*");
 export const HOSTILE = page(
   "Hostile",
   `<main style="font:16px/1.6 Georgia,serif;padding:24px 32px">${STORIES}</main>
-<iframe id="nested" style="position:absolute;left:0;top:0;width:10px;height:10px;border:0" srcdoc="<script>addEventListener('message', () => { parent.parent.postMessage({ kasten: 'selection', text: 'Nested words', heading: 'Nested', anchor: 'nested', rect: { left: 100, top: 100, right: 200, bottom: 120 } }, '*'); parent.parent.postMessage({ kasten: 'key', key: 'y' }, '*'); parent.parent.postMessage({ fixture: 'nested' }, '*'); });</script>"></iframe>
+<iframe id="nested" style="position:absolute;left:0;top:0;width:10px;height:10px;border:0" srcdoc="<script>addEventListener('message', () => { parent.parent.postMessage({ kasten: 'selection', text: 'Nested words', heading: 'Nested', anchor: 'nested', rect: { left: 100, top: 100, right: 200, bottom: 120 } }, '*'); parent.postMessage({ kasten: 'take', id: 1 }, '*'); parent.parent.postMessage({ kasten: 'key', key: 'y' }, '*'); parent.parent.postMessage({ fixture: 'nested' }, '*'); });</script>"></iframe>
 <button type="button" onclick="window.open('take-popup.html')" style="position:fixed;left:0;top:0;width:180px;height:44px">Open a window</button>
 <script>
 addEventListener("message", (event) => {

@@ -8,7 +8,7 @@ import { noteBase } from "@/lib/note-base";
 import { reset } from "@/lib/outbox";
 import { periodicNote } from "@/lib/periodic";
 import { hostLeader } from "@/lib/which-key";
-import { COARSE, stubMatchMedia } from "./match-media";
+import { stubMatchMedia } from "./match-media";
 import { stubCommands } from "./stub-commands";
 
 const { fetchNote, saveNote, updateNote, searchNotes } = vi.hoisted(() => ({
@@ -64,21 +64,6 @@ function selection(over: Record<string, unknown> = {}) {
   };
 }
 
-/** The DOMRect a measured element answers with, which jsdom leaves as zeros. */
-function boxAt(left: number, top: number, width: number, height: number): DOMRect {
-  return {
-    x: left,
-    y: top,
-    left,
-    top,
-    width,
-    height,
-    right: left + width,
-    bottom: top + height,
-    toJSON: () => ({}),
-  } as DOMRect;
-}
-
 /** A fetch that answers every call with a sent dump, and records what it was asked. */
 function answering() {
   const sent = vi.fn(async (_url: string, _init?: RequestInit) => {
@@ -96,11 +81,11 @@ function dumpsSent(sent: ReturnType<typeof answering>) {
 }
 
 /** The pane, wrapped for the queries the toast's note list makes. */
-function renderPane(path = PATH, props: { archive?: boolean; anchor?: string } = {}) {
+function renderPane(path = PATH) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const view = render(
     <QueryClientProvider client={queryClient}>
-      <HtmlPane path={path} {...props} commands={stubCommands()} onFocus={() => {}} />
+      <HtmlPane path={path} commands={stubCommands()} onFocus={() => {}} />
     </QueryClientProvider>,
   );
   const frame = view.container.querySelector("iframe") as HTMLIFrameElement;
@@ -292,7 +277,7 @@ describe("taking a passage out of an html page", () => {
     fromPage(frame.contentWindow, selection());
     yFromPage(frame);
 
-    await waitFor(() => expect(posted).toHaveBeenCalledWith({ kasten: "take" }, "*"));
+    await waitFor(() => expect(posted).toHaveBeenCalledWith({ kasten: "take", id: 1 }, "*"));
     expect(takeButton()).toBeNull();
     // The toast is the last thing a take does, so it is awaited before the test ends.
     await screen.findByRole("status");
@@ -343,7 +328,7 @@ describe("taking a passage out of an html page", () => {
       false,
       noteBase(NOTE),
     );
-    await waitFor(() => expect(posted).toHaveBeenCalledWith({ kasten: "untake" }, "*"));
+    await waitFor(() => expect(posted).toHaveBeenCalledWith({ kasten: "untake", id: 1 }, "*"));
   });
 
   it("Undo refuses when the daily note changed since the take and writes nothing", async () => {
@@ -458,82 +443,105 @@ describe("taking a passage out of an html page", () => {
     }).toEqual({ inA: false, inB: true });
   });
 
-  it("the button sits above the words on a fine pointer", () => {
-    const { frame } = renderPane();
-    const wrapper = frame.parentElement as HTMLElement;
-    vi.spyOn(frame, "getBoundingClientRect").mockReturnValue(boxAt(0, 50, 600, 400));
-    vi.spyOn(wrapper, "getBoundingClientRect").mockReturnValue(boxAt(0, 50, 600, 400));
-
-    frame.focus();
-    fromPage(frame.contentWindow, selection());
-
-    const button = takeButton();
-    expect({
-      left: button?.style.left,
-      top: button?.style.top,
-      above: button?.classList.contains("-translate-y-full"),
-    }).toEqual({ left: "130px", top: "100px", above: true });
-  });
-
-  it("the button sits below the words on a touch screen, clear of the phone's menu", () => {
-    stubMatchMedia({ [COARSE]: true });
-    const { frame } = renderPane();
-    const wrapper = frame.parentElement as HTMLElement;
-    vi.spyOn(frame, "getBoundingClientRect").mockReturnValue(boxAt(0, 50, 600, 400));
-    vi.spyOn(wrapper, "getBoundingClientRect").mockReturnValue(boxAt(0, 50, 600, 400));
-
-    frame.focus();
-    fromPage(frame.contentWindow, selection());
-
-    const button = takeButton();
-    expect({
-      left: button?.style.left,
-      top: button?.style.top,
-      above: button?.classList.contains("-translate-y-full"),
-    }).toEqual({ left: "130px", top: "152px", above: false });
-  });
-
-  it("the button is kept inside the frame when the words sit at its top left corner", () => {
-    vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockReturnValue(157);
-    vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(24);
-    const { frame } = renderPane();
-    const wrapper = frame.parentElement as HTMLElement;
-    vi.spyOn(frame, "getBoundingClientRect").mockReturnValue(boxAt(0, 50, 600, 400));
-    vi.spyOn(wrapper, "getBoundingClientRect").mockReturnValue(boxAt(0, 50, 600, 400));
-
-    frame.focus();
-    fromPage(frame.contentWindow, selection({ rect: { left: 0, top: 0, right: 10, bottom: 10 } }));
-
-    // Half its width in from the left, and its full height down from the top.
-    const button = takeButton();
-    expect({ left: button?.style.left, top: button?.style.top }).toEqual({
-      left: "78.5px",
-      top: "24px",
-    });
-  });
-
-  it("a wide button near the left edge stays inside the frame", () => {
-    // A 157px button, as the heading makes it, centred on a selection 66px from the left.
-    vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockReturnValue(157);
-    vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(24);
-    const { frame } = renderPane();
-    const wrapper = frame.parentElement as HTMLElement;
-    vi.spyOn(frame, "getBoundingClientRect").mockReturnValue(boxAt(0, 50, 600, 400));
-    vi.spyOn(wrapper, "getBoundingClientRect").mockReturnValue(boxAt(0, 50, 600, 400));
-
-    frame.focus();
-    fromPage(
-      frame.contentWindow,
-      selection({ rect: { left: 46, top: 100, right: 86, bottom: 120 } }),
+  it("a new page in the pane drops the held passage and the toast", async () => {
+    const sent = answering();
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const view = render(
+      <QueryClientProvider client={client}>
+        <HtmlPane path={PATH} commands={stubCommands()} onFocus={() => {}} />
+      </QueryClientProvider>,
     );
+    const frame = view.container.querySelector("iframe") as HTMLIFrameElement;
 
-    const button = takeButton();
-    expect(Number.parseFloat(button?.style.left ?? "") - 157 / 2).toBeGreaterThanOrEqual(0);
+    frame.focus();
+    fromPage(frame.contentWindow, selection());
+    yFromPage(frame);
+    await screen.findByRole("status");
+    fromPage(frame.contentWindow, selection());
+    expect(takeButton()).not.toBeNull();
+
+    // The same pane now shows another page, whose words the held passage is not.
+    view.rerender(
+      <QueryClientProvider client={client}>
+        <HtmlPane path="31 Research/other.html" commands={stubCommands()} onFocus={() => {}} />
+      </QueryClientProvider>,
+    );
+    yFromPage(frame);
+    expect({
+      button: takeButton() !== null,
+      toast: screen.queryByRole("status") !== null,
+      dumps: dumpsSent(sent).length,
+    }).toEqual({ button: false, toast: false, dumps: 1 });
+
+    // A reload of the frame drops a selection taken before it.
+    fromPage(frame.contentWindow, selection());
+    expect(takeButton()).not.toBeNull();
+    fireEvent.load(frame);
+    expect(takeButton()).toBeNull();
   });
 
-  it("opens the frame at the heading a link named, in the pane's own anchor", () => {
-    const { frame } = renderPane(PATH, { anchor: "the paper" });
+  it("Undo of an earlier take asks the page to unmark that take's id", async () => {
+    answering();
+    const second = takenQuote(PATH, { ...PASSAGE, text: "Another passage." });
+    fetchNote.mockResolvedValue(`## Dump\n\n${QUOTE}\n\n${second}\n`);
+    saveNote.mockResolvedValue({ path: DAILY, content: "" });
+    const { frame } = renderPane();
+    const posted = vi
+      .spyOn(frame.contentWindow as Window, "postMessage")
+      .mockImplementation(() => {});
 
-    expect(frame.getAttribute("src")?.endsWith("#the%20paper")).toBe(true);
+    frame.focus();
+    fromPage(frame.contentWindow, selection());
+    yFromPage(frame);
+    await screen.findByRole("button", { name: "Undo" });
+    fromPage(frame.contentWindow, selection({ text: "Another passage." }));
+    yFromPage(frame);
+    await screen.findByText("Another passage.");
+    fireEvent.click(await screen.findByRole("button", { name: "Undo" }));
+
+    await waitFor(() => expect(saveNote).toHaveBeenCalledTimes(1));
+    expect(posted.mock.calls.map(([message]) => message)).toEqual([
+      { kasten: "take", id: 1 },
+      { kasten: "take", id: 2 },
+      { kasten: "untake", id: 2 },
+    ]);
+  });
+
+  it("after a take, a later press slid off the button keeps the new passage", async () => {
+    answering();
+    const { frame } = renderPane();
+
+    // A press that the page's collapse reached, and that then took the passage.
+    frame.focus();
+    fromPage(frame.contentWindow, selection());
+    const first = takeButton();
+    expect(first).not.toBeNull();
+    fireEvent.pointerDown(first as HTMLElement);
+    fromPage(frame.contentWindow, selection({ text: "", rect: null }));
+    fireEvent.click(first as HTMLElement);
+    await screen.findByRole("status");
+
+    // A new passage, and a press on it that slides off before it is lifted.
+    fromPage(frame.contentWindow, selection({ text: "Another passage." }));
+    const second = takeButton();
+    expect(second).not.toBeNull();
+    fireEvent.pointerDown(second as HTMLElement);
+    fireEvent.pointerUp(second as HTMLElement, { clientX: 900, clientY: 900 });
+
+    expect(takeButton()).not.toBeNull();
+  });
+
+  it("Undo with no network says so in the toast", async () => {
+    answering();
+    fetchNote.mockResolvedValueOnce(NOTE).mockRejectedValueOnce(new TypeError("Failed to fetch"));
+    const { frame } = renderPane();
+
+    frame.focus();
+    fromPage(frame.contentWindow, selection());
+    yFromPage(frame);
+    fireEvent.click(await screen.findByRole("button", { name: "Undo" }));
+
+    await screen.findByText("No connection, so Undo left the note as it is");
+    expect(saveNote).not.toHaveBeenCalled();
   });
 });

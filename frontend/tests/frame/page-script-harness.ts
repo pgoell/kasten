@@ -87,8 +87,10 @@ addEventListener("message", (event) => {
   if (data.range) {
     const [from, fromAt, to, toAt] = data.range;
     const range = document.createRange();
-    range.setStart(document.getElementById(from).firstChild, fromAt);
-    range.setEnd(document.getElementById(to).firstChild, toAt);
+    // "document" starts the range at the document itself, which has no parent element.
+    const at = (id) => (id === "document" ? document : document.getElementById(id).firstChild);
+    range.setStart(at(from), fromAt);
+    range.setEnd(at(to), toAt);
     selection.removeAllRanges();
     selection.addRange(range);
     if (data.mouseup) document.body.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
@@ -130,7 +132,7 @@ export function marksPage(head = "", extra = ""): string {
 }
 
 /** A frame that takes the passage when the page tells it to go, as a window other than kasten would. */
-export const NESTED = `<iframe srcdoc="<script>addEventListener('message', () => parent.postMessage({kasten: 'take'}, '*'));</script>"></iframe>`;
+export const NESTED = `<iframe srcdoc="<script>addEventListener('message', () => parent.postMessage({kasten: 'take', id: 1}, '*'));</script>"></iframe>`;
 
 let frame: HTMLIFrameElement | undefined;
 export const messages: Message[] = [];

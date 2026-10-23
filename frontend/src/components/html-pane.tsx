@@ -1,23 +1,17 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { TakeToast } from "@/components/take-toast";
-import { ChangedOnDisk, fetchNote, saveNote, updateNote } from "@/lib/api";
+import { updateNote } from "@/lib/api";
 import { readClock } from "@/lib/clock";
 import { addHighlight } from "@/lib/highlight";
-import {
-  type PagePassage,
-  pageLink,
-  quoteParagraphs,
-  takenQuote,
-  withoutTaken,
-} from "@/lib/html-take";
+import { type PagePassage, pageLink, quoteParagraphs, takenQuote } from "@/lib/html-take";
 import type { EditorCommands } from "@/lib/key-bindings";
 import { heldModifier, leaderAction, leaderPrefix } from "@/lib/leader-keys";
-import { noteBase } from "@/lib/note-base";
 import { encodePath, noteName } from "@/lib/note-path";
 // Renamed for the reason `use-prompts.tsx` renames it: the take is a dump, and
 // the page has no other `flush` to confuse it with.
 import { flush as flushOutbox, keep } from "@/lib/outbox";
 import { type Anchor, fitButton, placeFor, selectionOf } from "@/lib/page-selection";
+import { REFUSED, type Undo, undoFor, undoPassage } from "@/lib/page-undo";
 import { periodicNote } from "@/lib/periodic";
 import { usePressGuard } from "@/lib/take-button";
 import { currentPalette, currentTheme, onThemeChange } from "@/lib/theme";
@@ -42,14 +36,6 @@ interface Held {
   at: Anchor | null;
 }
 
-/** What a take left in the daily note, which is what its Undo needs to take it back. */
-interface Undo {
-  path: string;
-  quote: string;
-  /** The base the note had when the take was read, so a write since is refused. */
-  base: string;
-}
-
 /** The toast on screen: what it says, and the take it can undo, if it can. */
 interface Toast {
   id: number;
@@ -64,20 +50,6 @@ function fileOf(path: string): string {
   return path.slice(path.lastIndexOf("/") + 1);
 }
 
-/**
- * The daily note's text and the take's undo, or nothing where the take is no
- * longer in the note. Read after the dump has landed, so a note the send has
- * not written yet is not offered an Undo it cannot make.
- */
-async function undoFor(path: string, quote: string): Promise<Undo | undefined> {
-  const text = await fetchNote(path).then(
-    (read) => read,
-    () => null,
-  );
-  if (text === null || withoutTaken(text, quote) === null) return undefined;
-  return { path, quote, base: noteBase(text) };
-}
-
 const LABEL = "shrink-0 text-[11px] tracking-wide text-k-muted uppercase";
 
 /**
@@ -86,9 +58,6 @@ const LABEL = "shrink-0 text-[11px] tracking-wide text-k-muted uppercase";
  */
 const TAKE =
   "absolute flex h-6 -translate-x-1/2 items-center gap-2 rounded border border-k-muted bg-k-bg px-2 font-mono text-k-ink text-xs pointer-coarse:min-h-11";
-
-/** The toast's words for a take that is not in the vault yet, or was refused. */
-const REFUSED = "The daily note changed since, so Undo left it as it is";
 
 interface HtmlPaneProps {
   /** Vault-relative path of the page to show. */
@@ -179,6 +148,27 @@ export function HtmlPane({
   const [toast, setToast] = useState<Toast | null>(null);
   const toastId = useRef(0);
   const dismiss = useCallback(() => setToast(null), []);
+  // The take's mark on the page, counted per pane so each take has its own id.
+  const marks = useRef(0);
+
+  /**
+   * What a page change or a reload leaves behind: the selection taken from the
+   * old words, the press over them and the toast about them.
+   */
+  const forget = useCallback(() => {
+    lost.current = false;
+    hold(null);
+    setToast(null);
+  }, [hold]);
+  // Read against the path last shown, so a pane that starts on the same page
+  // keeps what it holds. A new page is a new document, which `onLoad` hears of
+  // as well where a browser loads it.
+  const shown = useRef(path);
+  useEffect(() => {
+    if (shown.current === path) return;
+    shown.current = path;
+    forget();
+  }, [forget, path]);
   // Off a ref, because the route hands a new `onFocus` on every render and the
   // listener below would come off the window and go back on with each (#592).
   // Written in a layout effect, which runs in the commit's own task, so a click
@@ -229,6 +219,7 @@ export function HtmlPane({
     // Taken off the ref at once, and the press over with it, so a second `y`
     // finds nothing to take and a collapse after this is answered.
     pressing.current = false;
+    lost.current = false;
     const taken = heldRef.current;
     if (taken === null) return;
     heldRef.current = null;
@@ -236,19 +227,21 @@ export function HtmlPane({
     const now = new Date();
     const quote = takenQuote(path, taken.passage);
     const daily = periodicNote("daily", now).path;
+    marks.current += 1;
+    const id = marks.current;
 
     await keep(quote, readClock(now).date).then(
       async (dump) => {
         hold(null);
         // Marked once the words are safe on the device, which is the only point
         // at which the page's selection may be called taken.
-        frame.current?.contentWindow?.postMessage({ kasten: "take" }, "*");
+        frame.current?.contentWindow?.postMessage({ kasten: "take", id }, "*");
 
         // The same answers `capture` gives, in the take's words.
         const { waiting, failure } = await flushOutbox();
         const mine = waiting.find((each) => each.id === dump.id);
         if (mine === undefined) {
-          show("Taken into today's dump", taken.passage, await undoFor(daily, quote));
+          show("Taken into today's dump", taken.passage, await undoFor(daily, quote, id));
         } else if (mine.refused !== undefined) {
           show(mine.refused, taken.passage);
         } else if (failure?.kind === "sign-in") {
@@ -275,22 +268,15 @@ export function HtmlPane({
    * read with, so a write that landed in between is refused, not overwritten.
    */
   async function undoTake(undo: Undo) {
-    const fresh = await fetchNote(undo.path);
-    const next = noteBase(fresh) === undo.base ? withoutTaken(fresh, undo.quote) : null;
-    if (next === null) return refuse();
-    try {
-      await saveNote(undo.path, next, false, undo.base);
-    } catch (error) {
-      if (!(error instanceof ChangedOnDisk)) throw error;
-      return refuse();
+    const outcome = await undoPassage(undo);
+    if (outcome.state === "undone") {
+      frame.current?.contentWindow?.postMessage({ kasten: "untake", id: undo.id }, "*");
+      setToast(null);
+      return;
     }
-    frame.current?.contentWindow?.postMessage({ kasten: "untake" }, "*");
-    setToast(null);
-  }
-
-  /** The toast says why Undo did nothing, and loses the Undo it can no longer make. */
-  function refuse() {
-    setToast((current) => current && { ...current, title: REFUSED, undo: undefined });
+    // The toast says why Undo did nothing, and loses the Undo it can no longer make.
+    const title = outcome.state === "refused" ? REFUSED : outcome.message;
+    setToast((current) => current && { ...current, title, undo: undefined });
   }
 
   /**
@@ -346,6 +332,8 @@ export function HtmlPane({
         // A selection counts only while the page holds the focus, so a page in
         // the background cannot put a button on the reader's pane.
         if (document.activeElement !== frame.current) return;
+        // A new selection is a new press's own business, not the last one's collapse.
+        lost.current = false;
         const { text, heading, anchor, rect } = selection;
         const at =
           rect === null || frame.current === null || wrapper.current === null
@@ -465,7 +453,10 @@ export function HtmlPane({
           title={path}
           // The page's script asks as it parses, which a listener set late in the page
           // can miss, so the load posts the look too. Both are idempotent.
-          onLoad={() => postLook(frame.current)}
+          onLoad={() => {
+            forget();
+            postLook(frame.current);
+          }}
           // No `allow-same-origin`: with it and `allow-scripts` together a page
           // could lift its own sandbox off and run as kasten.
           sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox"

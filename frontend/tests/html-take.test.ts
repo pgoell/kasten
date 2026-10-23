@@ -16,6 +16,7 @@ import {
   takenQuote,
   withoutTaken,
 } from "@/lib/html-take";
+import { tagsOf } from "@/lib/tag-rule";
 
 const PATH = "01 Periodic/05 Newspaper/2026-10-07.html";
 
@@ -58,7 +59,7 @@ it("a wikilink and an embed in the passage are escaped", () => {
 
 it("a fake heading and a fake ## Dump stay inside the quote", () => {
   expect(takenQuote(PATH, { text: "## Dump\n# Title", heading: "", anchor: "" })).toBe(
-    "> \\#\\# Dump\n>\n> \\# Title\n>\n> [[01 Periodic/05 Newspaper/2026-10-07.html|2026-10-07.html]]",
+    "> &#35;&#35; Dump\n>\n> &#35; Title\n>\n> [[01 Periodic/05 Newspaper/2026-10-07.html|2026-10-07.html]]",
   );
 });
 
@@ -86,7 +87,11 @@ it("html and an image in the passage are escaped", () => {
 });
 
 it("a tag in the passage is escaped", () => {
-  expect(quoteParagraphs("#tag and x#y")).toEqual(["\\#tag and x\\#y"]);
+  expect(quoteParagraphs("#tag and x#y")).toEqual(["&#35;tag and x&#35;y"]);
+  // Kasten's own tag reader, not a count of hashes: a backslash before the hash
+  // would still read as a tag there, so the quote must hold no tag at all.
+  const quote = takenQuote(PATH, { text: "#tag and x#y #urgent", heading: "Evals", anchor: "" });
+  expect(quote.split("\n").flatMap((line) => tagsOf(line))).toEqual([]);
 });
 
 it("the heading cannot close the link", () => {
@@ -103,6 +108,13 @@ it("the anchor keeps only safe characters", () => {
 
 it("the passage is capped at 2000 characters", () => {
   expect(quoteParagraphs("a".repeat(2500))).toEqual([`${"a".repeat(PASSAGE_CAP - 1)}…`]);
+});
+
+it("the cap does not cut a character in half", () => {
+  // An astral character is two UTF-16 units, so a cap counted in units would end
+  // on half of one. The kept text must hold 1999 whole characters and the ellipsis.
+  const smile = String.fromCodePoint(0x1f600);
+  expect(quoteParagraphs(smile.repeat(2500))).toEqual([`${smile.repeat(PASSAGE_CAP - 1)}…`]);
 });
 
 it("the heading is capped at 120 characters", () => {

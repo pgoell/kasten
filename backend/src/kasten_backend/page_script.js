@@ -87,12 +87,16 @@
   const above = (node, start) =>
     node.contains(start) || (node.compareDocumentPosition(start) & FOLLOWING) !== 0;
   const squash = (text) => text.replace(/\s+/g, " ").trim();
+  // Cut by characters, not UTF-16 units, so a surrogate pair is never split.
+  const clip = (text, length) => Array.from(text).slice(0, length).join("");
 
   // A selection takes its heading and story id from where it starts, so one
   // that runs across two articles reads as the first of them.
   const describe = (range, text) => {
     const node = range.startContainer;
-    const start = node.nodeType === ELEMENT ? node : node.parentElement;
+    // A range can start at the document itself, which has no parent element.
+    const start =
+      (node.nodeType === ELEMENT ? node : node.parentElement) ?? document.documentElement;
     const root = start.closest(CONTAINER) ?? document;
     const heading = [...root.querySelectorAll(HEADINGS)].filter((h) => above(h, start)).at(-1);
     // The newspaper prints each story's id as a link, which the page itself
@@ -109,9 +113,9 @@
       "";
     const box = range.getBoundingClientRect();
     return {
-      text: text.slice(0, 10000),
-      heading: squash(heading?.textContent ?? "").slice(0, 300),
-      anchor: anchor.slice(0, 200),
+      text: clip(text, 10000),
+      heading: clip(squash(heading?.textContent ?? ""), 300),
+      anchor: clip(anchor, 200),
       rect: { left: box.left, top: box.top, right: box.right, bottom: box.bottom },
     };
   };
@@ -172,13 +176,14 @@
   );
 
   // Marks go into one Highlight and their style into a constructed sheet, so the
-  // page's markup is never touched. `taken` is the stack untake pops.
+  // page's markup is never touched. `taken` maps each take's id to its range, so
+  // an untake removes its own mark and not the newest one.
   const MARK = "kasten-taken";
   const MARK_STYLE = `::highlight(${MARK}) { background-color: var(--k-mark, rgba(249,157,27,.22)); text-decoration: underline; text-decoration-thickness: 1px; text-decoration-color: var(--k-accent, currentColor); }`;
   let highlight = null;
-  const taken = [];
-  const take = () => {
-    if (held === null || registry === null) return;
+  const taken = new Map();
+  const take = (id) => {
+    if (typeof id !== "number" || held === null || registry === null || taken.has(id)) return;
     if (highlight === null) {
       highlight = new window.Highlight();
       registry.set(MARK, highlight);
@@ -190,14 +195,16 @@
     // untake removes one of them.
     const mark = held.cloneRange();
     highlight.add(mark);
-    taken.push(mark);
+    taken.set(id, mark);
     // The selection painted over the new mark until a click elsewhere, so it is
     // cleared as the book clears its own. The empty selection it causes posts the pane's clear.
     getSelection().removeAllRanges();
   };
-  const untake = () => {
-    const mark = taken.pop();
-    if (mark !== undefined) highlight.delete(mark);
+  const untake = (id) => {
+    const mark = taken.get(id);
+    if (mark === undefined) return;
+    highlight.delete(mark);
+    taken.delete(id);
   };
 
   // A page that opts in takes the theme and the palette from kasten. An answer
@@ -219,8 +226,8 @@
     const data = event.data;
     if (event.source !== up || typeof data !== "object" || data === null) return;
     // Marks are for every page, so they are answered before the opt-in check.
-    if (data.kasten === "take") return take();
-    if (data.kasten === "untake") return untake();
+    if (data.kasten === "take") return take(data.id);
+    if (data.kasten === "untake") return untake(data.id);
     if (!optedIn()) return;
     if (data.kasten === "theme" && THEMES.includes(data.theme)) {
       document.documentElement.setAttribute("data-theme", data.theme);

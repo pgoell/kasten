@@ -44,15 +44,25 @@ const CONTROL = /\p{Cc}/gu;
  */
 const BREAK = /[\r\n]+/;
 
-/** Characters that open markdown, wikilink or html syntax, each escaped with a backslash. */
-const SPECIAL = /[\\`[\]<>#!|~$%^]/g;
+/**
+ * Characters that open markdown, wikilink or html syntax, each escaped with a backslash.
+ *
+ * The hash is not here: kasten's tag reader takes `\#x` for the tag `#x`, so a
+ * hash becomes the entity `&#35;` instead (see `escapeParagraph`).
+ */
+const SPECIAL = /[\\`[\]<>!|~$%^]/g;
 
 /** Characters the alias cannot hold, since kasten's wikilink parser reads it up to `]]`. */
 const ALIAS_BAD = /[[\]|#^\\]/g;
 
 /** `text` cut to `cap` characters at most, the ellipsis counted among them. */
 function capped(text: string, cap: number): string {
-  return text.length <= cap ? text : `${text.slice(0, cap - 1).trimEnd()}…`;
+  // Counted in code points, since a cut through a surrogate pair leaves a lone
+  // half that the backend's text reader refuses.
+  const chars = Array.from(text);
+  if (chars.length <= cap) return text;
+  const kept = chars.slice(0, cap - 1).join("");
+  return `${kept.trimEnd()}…`;
 }
 
 /**
@@ -66,6 +76,7 @@ function capped(text: string, cap: number): string {
 function escapeParagraph(paragraph: string): string {
   return paragraph
     .replace(SPECIAL, "\\$&")
+    .replace(/#/g, "&#35;")
     .replace(/^[-+*=]/, "\\$&")
     .replace(/^(\d+)([.)])/, "$1\\$2");
 }
@@ -88,7 +99,7 @@ export function quoteParagraphs(text: string): string[] {
     if (room <= 0) break;
     const cut = capped(paragraph, room);
     kept.push(escapeParagraph(cut));
-    room -= cut.length;
+    room -= Array.from(cut).length;
   }
   return kept;
 }

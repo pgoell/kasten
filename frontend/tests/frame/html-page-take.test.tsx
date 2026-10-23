@@ -6,6 +6,7 @@
 
 import { userEvent } from "vitest/browser";
 import {
+  atStart,
   cleanup,
   FIELD_STYLE,
   field,
@@ -19,6 +20,7 @@ import {
   NEWSPAPER,
   PLAIN,
   reported,
+  SELECTING,
   selectMouse,
   sendToPage,
 } from "./page-script-harness";
@@ -153,7 +155,7 @@ it("a take marks the passage with the kasten-taken highlight and leaves the mark
   const before = await marks();
 
   selectMouse(["a", 6, "a", 11]);
-  sendToPage({ kasten: "take" });
+  sendToPage({ kasten: "take", id: 1 });
 
   const after = await marks();
   expect(before?.texts).toEqual([]);
@@ -165,12 +167,12 @@ it("a take marks the passage with the kasten-taken highlight and leaves the mark
 it("two takes stay marked, and untake removes only the last", async () => {
   await mount(marksPage());
   selectMouse(["a", 6, "a", 11]);
-  sendToPage({ kasten: "take" });
+  sendToPage({ kasten: "take", id: 1 });
   selectMouse(["b", 6, "b", 10]);
-  sendToPage({ kasten: "take" });
+  sendToPage({ kasten: "take", id: 2 });
   expect((await marks())?.texts).toEqual(["bravo", "echo"]);
 
-  sendToPage({ kasten: "untake" });
+  sendToPage({ kasten: "untake", id: 2 });
 
   expect((await marks())?.texts).toEqual(["bravo"]);
 });
@@ -179,7 +181,7 @@ it("a take on a plain page marks it too", async () => {
   await mount(marksPage());
   selectMouse(["a", 6, "a", 11]);
 
-  sendToPage({ kasten: "take" });
+  sendToPage({ kasten: "take", id: 1 });
 
   expect((await marks())?.texts).toEqual(["bravo"]);
 });
@@ -192,17 +194,17 @@ it("a take message from another window is ignored", async () => {
   await expect.poll(() => messages.some((m) => m.fixture === "heard")).toBe(true);
   expect((await marks())?.texts).toEqual([]);
 
-  sendToPage({ kasten: "take" });
+  sendToPage({ kasten: "take", id: 2 });
   expect((await marks())?.texts).toEqual(["bravo"]);
 });
 
 it("a take with nothing selected before marks nothing", async () => {
   await mount(marksPage());
-  sendToPage({ kasten: "take" });
+  sendToPage({ kasten: "take", id: 1 });
   expect((await marks())?.texts).toEqual([]);
 
   selectMouse(["a", 6, "a", 11]);
-  sendToPage({ kasten: "take" });
+  sendToPage({ kasten: "take", id: 1 });
 
   expect((await marks())?.texts).toEqual(["bravo"]);
 });
@@ -212,9 +214,39 @@ it("a take clears the page's selection so the mark shows", async () => {
   selectMouse(["a", 6, "a", 11]);
   expect((await marks())?.selection).toBe("bravo");
 
-  sendToPage({ kasten: "take" });
+  sendToPage({ kasten: "take", id: 1 });
 
   const after = await marks();
   expect(after?.texts).toEqual(["bravo"]);
   expect(after?.selection).toBe("");
+});
+
+it("untake removes the mark of its own take, not the last", async () => {
+  await mount(marksPage());
+  selectMouse(["a", 6, "a", 11]);
+  sendToPage({ kasten: "take", id: 1 });
+  selectMouse(["b", 6, "b", 10]);
+  sendToPage({ kasten: "take", id: 2 });
+
+  sendToPage({ kasten: "untake", id: 1 });
+
+  expect((await marks())?.texts).toEqual(["echo"]);
+});
+
+it("a selection that starts at the document itself still posts", async () => {
+  await mount(NEWSPAPER);
+  selectMouse(["document", 0, "b", 5]);
+
+  await expect.poll(() => lastSelection()?.text).toContain("Delta");
+});
+
+it("a long selection is cut on a whole character, not in the middle of a pair", async () => {
+  // The charset is set, or the emoji reach the page as Latin-1 and no pair is ever made.
+  await mount(
+    atStart(`<meta charset="utf-8"><p id="e">a${"\u{1F600}".repeat(10000)}</p>${SELECTING}`),
+  );
+  selectMouse(["e", 0, "e", 20001]);
+
+  await expect.poll(() => lastSelection()?.text?.endsWith("\u{1F600}")).toBe(true);
+  expect(Array.from(lastSelection()?.text ?? "")).toHaveLength(10000);
 });
