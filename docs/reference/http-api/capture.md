@@ -35,7 +35,7 @@ page script below fills more than that, so the header has to carry it. A meta
 in a comment, a script, a `<template>` or a `<noscript>` does not count, a
 label that is not a known charset name is passed over for the next meta, and
 `utf-16` counts as `utf-8`, as it does to a browser. Everything kasten puts into a page is ASCII,
-so it reads the same in any of those charsets. A UTF-16 page, which a browser
+so it reads the same in any of those charsets but UTF-16. A UTF-16 page, which a browser
 knows by its byte order mark alone, gets the two scripts in UTF-16 of its own
 byte order, and the header stays `utf-8`, since the byte order mark wins.
 
@@ -59,7 +59,8 @@ scripts start on a whole unit.
 The page script (`page_script.js` in the backend) goes first: right after the
 doctype, or at the very start of a page with none, after a byte order mark if
 there is one. It runs before any of the page's own code, so it takes
-`window.parent` and its key listener before the page can change them. In a
+`window.parent` and its key listener before the page can change them. A UTF-16
+page is the exception: its script sits at its end, after the page's code. In a
 frame it posts `{kasten: 'hello'}` as it loads, and posts Space, `?` and
 Escape pressed outside a text field to kasten as `{kasten: 'key', key}`, after
 it stops their default. Space on a focused control that Space presses (a

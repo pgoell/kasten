@@ -108,6 +108,8 @@ Two holes that #785 left in the page script are closed.
 - A page could cut the script off. The script used to sit at the end of `<body>`, and a page's own top-level `var parent = …` cut it off from its parent. The script now runs first and takes its reference to `window.parent` before any page code.
 - A page could keep Space, `?` and Escape from kasten. The script's capture listener on `window` now comes before any the page adds, so it sees each key first.
 
+A UTF-16 page is the exception to both: nothing can go in front of its bytes, so its script still sits at its end, and the page's own code runs first.
+
 ## The token table
 
 The values are those of the default palette, `poel`. [Accent palettes](/reference/accent-palettes.md) gives the values of the other three, and [Design tokens](/reference/design-tokens.md) gives the contrast each pair holds.

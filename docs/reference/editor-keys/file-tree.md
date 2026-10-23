@@ -105,7 +105,7 @@ With text selected in a page, `y` is a fourth key the page does not get. It
 takes the selected passage into today's dump, as `<leader>cd` puts a thought
 there, and a Take button over the selection does the same on a click. The
 passage goes in as a quote with a link back to its place on the page, under the
-page's nearest heading. A note at the foot of the pane says what was taken and
+page's nearest heading. A note at the foot of the pane (at most 448 px wide) says what was taken and
 offers two things. Undo takes the line back out of the daily note, as long as
 the note has not changed since. Put it in a note writes the passage under
 `## Highlights` in a note you pick. The note fades after five seconds. A take
