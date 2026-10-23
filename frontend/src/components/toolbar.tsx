@@ -1,5 +1,6 @@
 import type { EditorCommands, LeaderCommand } from "@/lib/key-bindings";
 import { LABEL } from "@/lib/overlay-styles";
+import { leaderFromFocus } from "@/lib/use-key-help-key";
 
 /**
  * The commands a thumb reaches for, in the order they are drawn.
@@ -25,6 +26,9 @@ const BUTTONS: readonly { command: LeaderCommand; label: string; name: string }[
   // row rather than off the screen.
   { command: "openChat", label: "chat", name: "Open the chat with Claude Code" },
 ];
+
+/** The look every button of the row shares, a finger's 44px square among them. */
+const KEY = "min-h-11 min-w-11 flex-1 uppercase active:bg-k-surface active:text-k-accent";
 
 interface ToolbarProps {
   commands: EditorCommands;
@@ -56,6 +60,19 @@ export function Toolbar({ commands, split, inert }: ToolbarProps) {
       // indicator's inset.
       className={`safe-foot flex shrink-0 flex-wrap gap-px border-k-rule border-t bg-k-paper ${LABEL}`}
     >
+      <button
+        type="button"
+        aria-label="Show the leader keys"
+        // The same press handling as the rest: out of the tab order and deaf to
+        // the press that would focus it, so the panel opens over the editor.
+        tabIndex={-1}
+        onPointerDown={(event) => event.preventDefault()}
+        onMouseDown={(event) => event.preventDefault()}
+        onClick={() => leaderFromFocus(commands)}
+        className={KEY}
+      >
+        space
+      </button>
       {buttons.map(({ command, label, name }) => (
         <button
           key={command}
@@ -69,7 +86,7 @@ export function Toolbar({ commands, split, inert }: ToolbarProps) {
           onPointerDown={(event) => event.preventDefault()}
           onMouseDown={(event) => event.preventDefault()}
           onClick={() => commands[command]()}
-          className="min-h-11 min-w-11 flex-1 uppercase active:bg-k-surface active:text-k-accent"
+          className={KEY}
         >
           {label}
         </button>

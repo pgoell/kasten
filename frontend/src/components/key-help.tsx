@@ -1,26 +1,21 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { FOLLOW, FORMAT, INDENT, LEADER_EDITS, readable } from "@/lib/buffer-keys";
-import { LOG_PANE, SCREENS, TERMINAL, TERMINAL_CHORD, TODO_PANE, TREE } from "@/lib/key-bindings";
-import { LEADER, spelled, TAB_KEYS } from "@/lib/leader-keys";
-import { closeOnBackdrop, HEADER_ROW, LABEL, PANEL, STATUS } from "@/lib/overlay-styles";
+import { trapTab } from "@/lib/focus-trap";
+import {
+  ANYWHERE,
+  chordLabel,
+  LOG_PANE,
+  READER,
+  REVIEW_PANE,
+  SCREENS,
+  TERMINAL,
+  TODO_PANE,
+  TREE,
+  VIDEO_PANE,
+} from "@/lib/key-bindings";
+import { LEADER, LEADER_COLUMNS, spelled, TAB_DIGITS, TAB_KEYS } from "@/lib/leader-keys";
+import { closeOnBackdrop, HEADER_ROW, INPUT, LABEL, PANEL, STATUS } from "@/lib/overlay-styles";
 import { useVim } from "@/lib/vim-setting";
-
-/**
- * `Ctrl Shift H`, built from `TERMINAL_CHORD` so the panel follows a retune.
- *
- * `readable` above rewrites vim's spellings and does nothing to a bare `"H"`,
- * which is what a terminal chord is written as, so this is the second one.
- */
-function chordLabel(key: string): string {
-  const held = [
-    TERMINAL_CHORD.ctrlKey && "Ctrl",
-    TERMINAL_CHORD.altKey && "Alt",
-    TERMINAL_CHORD.shiftKey && "Shift",
-    TERMINAL_CHORD.metaKey && "Meta",
-  ].filter((word) => word !== false);
-
-  return [...held, key].join(" ");
-}
 
 interface Group {
   title: string;
@@ -28,43 +23,11 @@ interface Group {
 }
 
 /**
- * The ten tab digits, under a name no sequence of leader keys can spell.
+ * The leader's six columns, filled from the two tables the keys live in.
  *
- * One row rather than ten, because ten rows carrying the same sentence would
- * bury every other key on the panel. It is looked up by name below like a
- * binding, and the space in the name is what keeps it out of the way of one.
+ * The grouping is `LEADER_COLUMNS`, shared with the which-key panel, so the two
+ * cannot disagree about where a key sits. A key named nowhere there is not drawn.
  */
-const TAB_DIGITS = "tab digits";
-
-/**
- * The leader's keys, cut into the groups they were designed in.
- *
- * `LEADER` is alphabetical, which is the order for a table nobody reads and
- * the wrong one for a panel somebody scans: `cf`, `df` and `rf` are one job in
- * three places. The order inside a group is this list's. A key named nowhere
- * here is not drawn, so a new binding needs an entry here, and a test fails
- * until it has one.
- */
-const LEADER_GROUPS: readonly { title: string; keys: readonly string[] }[] = [
-  {
-    title: "Panes",
-    keys: ["%", '"', "h", "j", "k", "l", "H", "J", "K", "L", "o", "z", "q"],
-  },
-  { title: "Tabs", keys: ["ct", "tl", "th", TAB_DIGITS] },
-  { title: "Find", keys: ["fb", "ff", "fg", "ft"] },
-  { title: "Create and capture", keys: ["cf", "cd", "cw", "cm", "cb", "ci", "cv", "cc", "cs"] },
-  { title: "This note", keys: ["rf", "df", "du", "w", "="] },
-  { title: "Periodic notes", keys: ["gd", "gw", "gm", "gq", "gy"] },
-  {
-    title: "Panes to open",
-    keys: ["gb", "go", "gr", "gc", "gp", "gh", "gl", "gv", "ge", "gs", "gt", "gf", "gg"],
-  },
-  { title: "Todos", keys: ["x", "i", "@", "so", "sp", "sx", "sb", "sw", "sv", "sr"] },
-  { title: "Toggles", keys: ["a", "b", "p", "e", "E", "v"] },
-  { title: "Help", keys: ["?", ":"] },
-];
-
-/** The leader groups above, filled from the two tables the keys live in. */
 function leaderGroups(): Group[] {
   const rows = new Map(
     [...LEADER, ...LEADER_EDITS].map(({ key, label }) => [key, { key: spelled(key), label }]),
@@ -74,7 +37,7 @@ function leaderGroups(): Group[] {
     label: "Go to a tab by number",
   });
 
-  return LEADER_GROUPS.map(({ title, keys }) => ({
+  return LEADER_COLUMNS.map(({ title, keys }) => ({
     title,
     keys: keys.flatMap((key) => {
       const row = rows.get(key);
@@ -84,11 +47,30 @@ function leaderGroups(): Group[] {
 }
 
 /**
- * One block of groups, in a grid rather than CSS columns: columns place a
- * group by the heights before it, so where one lands moved with the window.
- * A grid keeps reading order, left to right and row by row.
+ * The groups that match the filter, with the rows that match inside them.
+ *
+ * A group whose title matches keeps every row, so `tab` shows the Tabs group
+ * whole. A group left with no rows is dropped, and the column holding it can
+ * then say that nothing matches.
  */
-function Block({
+function narrow(groups: Group[], query: string): Group[] {
+  const wanted = query.toLowerCase();
+  return groups.flatMap((group) => {
+    const inTitle = group.title.toLowerCase().includes(wanted);
+    const keys = group.keys.filter(
+      ({ key, label }) =>
+        inTitle || key.toLowerCase().includes(wanted) || label.toLowerCase().includes(wanted),
+    );
+    return keys.length > 0 ? [{ ...group, keys }] : [];
+  });
+}
+
+/**
+ * One of the two columns: its title, an optional line under it, and its groups
+ * stacked as one list. Stacked rather than in a grid, so a column reads down the
+ * way the filter narrows it.
+ */
+function Column({
   title,
   intro,
   groups,
@@ -105,11 +87,15 @@ function Block({
         {title}
       </h2>
       {intro && <p className="mb-2 text-[12px] text-k-muted">{intro}</p>}
-      <div className="grid grid-cols-1 items-start gap-x-8 gap-y-4 md:grid-cols-2 xl:grid-cols-3">
-        {groups.map((group) => (
-          <Table key={group.title} {...group} />
-        ))}
-      </div>
+      {groups.length === 0 ? (
+        <p className="text-[13px] text-k-muted">Nothing matches</p>
+      ) : (
+        <div className="flex flex-col gap-4">
+          {groups.map((group) => (
+            <Table key={group.title} {...group} />
+          ))}
+        </div>
+      )}
     </section>
   );
 }
@@ -121,7 +107,7 @@ function Table({ title, keys }: Group) {
       <dl className="grid grid-cols-[auto_1fr] gap-x-3 text-k-13">
         {keys.map(({ key, label }) => (
           <div key={key} className="contents">
-            <dt className="whitespace-nowrap tracking-k-kbd text-k-accent">{key}</dt>
+            <dt className="whitespace-nowrap font-mono tracking-k-kbd text-k-accent">{key}</dt>
             <dd className="text-k-muted">{label}</dd>
           </div>
         ))}
@@ -133,26 +119,28 @@ function Table({ title, keys }: Group) {
 /**
  * The whole key map, on one panel behind `<leader>?`.
  *
- * Everything on it is read from `key-bindings.ts`, the same table the vim
- * registrations are built from, so a key cannot appear here and be missing
- * from the editor.
+ * Everything on it is read from `key-bindings.ts` and `leader-keys.ts`, the same
+ * tables the registrations are built from, so a key cannot appear here and be
+ * missing from the editor.
  *
- * Two blocks, the leader keys and the rest, each a grid of up to three
- * columns rather than one long list: the map is a hundred-odd keys, a single
- * column is pages of scrolling, and the point of the panel is answering a
- * question at a glance. A phone gets the one column.
+ * Two columns from the `md` breakpoint, the leader keys and the rest, each one
+ * a stack of groups: the map is a hundred-odd keys and the point of the panel is
+ * answering a question at a glance. The filter field narrows both at once, so a
+ * reader typing `tab` sees every key that has one wherever it lives.
  */
 export function KeyHelp({ onClose }: { onClose: () => void }) {
   const panel = useRef<HTMLDivElement>(null);
+  const field = useRef<HTMLInputElement>(null);
   const vimOn = useVim();
+  const [query, setQuery] = useState("");
 
-  // The panel takes the focus so its own keys reach it, rather than reaching
-  // whatever was focused when it opened, and hands it back on the way out.
-  // Restoring what held it beats naming the editor: the same key opens this
+  // The filter takes the focus so the panel's own keys reach it, rather than
+  // whatever was focused when it opened, and hands the focus back on the way
+  // out. Restoring what held it beats naming the editor: the same key opens this
   // from the file tree, and closing there belongs back in the tree.
   useEffect(() => {
     const opener = document.activeElement;
-    panel.current?.focus();
+    field.current?.focus();
     return () => {
       if (opener instanceof HTMLElement) opener.focus();
     };
@@ -160,7 +148,7 @@ export function KeyHelp({ onClose }: { onClose: () => void }) {
 
   const others: Group[] = [
     {
-      title: "Editor",
+      title: "In a note",
       keys: [
         ...FORMAT.map(({ key, label }) => ({ key: readable(key), label })),
         ...INDENT,
@@ -169,15 +157,19 @@ export function KeyHelp({ onClose }: { onClose: () => void }) {
         ...(vimOn ? FOLLOW : []),
       ],
     },
+    { title: "In a page, PDF or book", keys: READER },
+    { title: "Over a video", keys: VIDEO_PANE },
+    { title: "In review", keys: REVIEW_PANE },
+    { title: "Anywhere", keys: ANYWHERE },
+    { title: "File tree", keys: TREE },
+    { title: "Todo pane", keys: TODO_PANE },
+    { title: "Log pane", keys: LOG_PANE },
     // Its own group because these are not leader keys and cannot be: the leader
     // is the space bar and a shell must receive the space bar.
     {
       title: "Terminal",
       keys: TERMINAL.map(({ key, label }) => ({ key: chordLabel(key), label })),
     },
-    { title: "File tree", keys: TREE },
-    { title: "Todo pane", keys: TODO_PANE },
-    { title: "Log pane", keys: LOG_PANE },
     // Last, because it is the one group whose left column is an address rather
     // than something to press.
     { title: "Screens you type", keys: SCREENS },
@@ -191,7 +183,12 @@ export function KeyHelp({ onClose }: { onClose: () => void }) {
       aria-label="Keyboard shortcuts"
       tabIndex={-1}
       onKeyDown={(event) => {
-        if (event.key !== "Escape" && event.key !== "q") return;
+        // The filter is the only stop inside the panel, so Tab would otherwise
+        // carry the focus out to the page behind it.
+        if (panel.current && trapTab(event, panel.current)) return;
+        // A q typed in the filter is a letter. Escape closes from the filter too.
+        const typing = event.target === field.current;
+        if (event.key !== "Escape" && (event.key !== "q" || typing)) return;
         event.preventDefault();
         onClose();
       }}
@@ -206,20 +203,35 @@ export function KeyHelp({ onClose }: { onClose: () => void }) {
       <div className={`${PANEL} max-h-[88vh] w-[min(84rem,95vw)]`}>
         <div className={HEADER_ROW}>
           <span className={LABEL}>Keys</span>
+          <input
+            ref={field}
+            type="search"
+            aria-label="Filter keys"
+            placeholder="Filter, e.g. graph or tab"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            className={`${INPUT} font-mono`}
+          />
         </div>
         <div className="min-h-0 overflow-auto px-4 py-3">
-          <Block
-            title="Leader keys"
-            // With vim off there is no normal mode and so no leader, but every
-            // one of these is a palette command under the same label.
-            intro={
-              vimOn
-                ? "These start with Space, in normal mode."
-                : `Vim is off, so run these from the command palette (${chordLabel("P")}), each by the same label.`
-            }
-            groups={leaderGroups()}
-          />
-          <Block title="Other keys" groups={others} className="mt-4 border-t border-k-rule pt-4" />
+          <div className="grid grid-cols-1 items-start gap-x-8 gap-y-4 md:grid-cols-2">
+            <Column
+              title="After Space"
+              // With vim off there is no normal mode and so no leader, but every
+              // one of these is a palette command under the same label.
+              intro={
+                vimOn
+                  ? "These start with Space, in normal mode."
+                  : `Vim is off, so run these from the command palette (${chordLabel("P")}), each by the same label.`
+              }
+              groups={narrow(leaderGroups(), query)}
+            />
+            <Column
+              title="Vim and the rest"
+              groups={narrow(others, query)}
+              className="mt-4 border-t border-k-rule pt-4 md:mt-0 md:border-t-0 md:pt-0"
+            />
+          </div>
         </div>
         <p className={STATUS}>Escape or q to close, or a tap outside</p>
       </div>

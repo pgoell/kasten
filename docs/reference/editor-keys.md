@@ -17,13 +17,13 @@ the editor does without it.
 Three files in `frontend/src/lib` hold these bindings as tables: the leader in
 `leader-keys.ts`, the keys that act inside the buffer in `buffer-keys.ts`, and
 the terminal, tree and pane keys in `key-bindings.ts`. Both the registrations
-and the `<leader>?` panel are built from them. A test fails if a table names a
+and the which-key panel and key help are built from them. A test fails if a table names a
 command the app does not provide.
 
 ## Pages
 
 * [Touch screens](/reference/editor-keys/touch.md): what a finger draws and reaches, the toolbar, focus, closing panels and each pane's touch answers.
-* [The leader key](/reference/editor-keys/leader.md): every leader key by group, the command palette, the `/` menu and the screens you type into.
+* [The leader key](/reference/editor-keys/leader.md): every leader key by column, the command palette, the `/` menu and the screens you type into.
 * [Panes, tabs and views](/reference/editor-keys/panes-and-tabs.md): splits, tabs, zoom, the history pane and the graph pane.
 * [The vault in the tree](/reference/editor-keys/file-tree.md): the file tree's keys, its drawer on a phone, and moving rows by drag.
 * [Terminals and chat](/reference/editor-keys/terminal.md): the terminal pane and its keys, and the chat pane with Claude Code.

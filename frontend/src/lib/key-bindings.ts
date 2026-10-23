@@ -374,3 +374,62 @@ export const LOG_PANE: readonly { key: string; label: string }[] = [
   { key: "q", label: "Close the pane" },
   { key: "Escape", label: "Leave the edit without writing" },
 ];
+
+/**
+ * How a terminal chord reads on screen, `Ctrl Shift H`, built from `TERMINAL_CHORD`
+ * so a retune moves every label that spells one.
+ *
+ * `readable` in `buffer-keys.ts` rewrites vim's spellings and leaves a bare `"H"`
+ * alone, which is what a terminal chord is written as, so this is the second one.
+ */
+export function chordLabel(key: string): string {
+  const held = [
+    TERMINAL_CHORD.ctrlKey && "Ctrl",
+    TERMINAL_CHORD.altKey && "Alt",
+    TERMINAL_CHORD.shiftKey && "Shift",
+    TERMINAL_CHORD.metaKey && "Meta",
+  ].filter((word) => word !== false);
+
+  return [...held, key].join(" ");
+}
+
+/** What the reader pane answers, in a page, a PDF or a book. Display only, the way `TREE` is. */
+export const READER: readonly { key: string; label: string }[] = [
+  { key: "l", label: "Turn to the next page" },
+  { key: "h", label: "Turn back to the page before" },
+  { key: "t", label: "Show the contents" },
+  { key: "y", label: "Take the selection" },
+  { key: "w", label: "Download what this pane holds as a file" },
+  { key: "q", label: "Close the book" },
+  { key: "Space", label: "Show the leader keys" },
+];
+
+/** What the video pane answers, beside a note that links a video. Display only. */
+export const VIDEO_PANE: readonly { key: string; label: string }[] = [
+  { key: "n", label: "Play the note's next video" },
+  { key: "p", label: "Play the note's previous video" },
+];
+
+/** What the review pane answers, on the decks, a sitting and the parked cards. Display only. */
+export const REVIEW_PANE: readonly { key: string; label: string }[] = [
+  { key: "j / k", label: "Move down or up the decks, or the parked cards" },
+  { key: "l", label: "Start the sitting on the deck under the cursor" },
+  { key: "z a", label: "Fold or unfold the deck under the cursor" },
+  { key: "h", label: "Back to the decks" },
+  { key: "p", label: "Show the parked cards" },
+  { key: "1 … 4", label: "Rate the card: again, hard, good, easy" },
+  { key: "Space or Enter", label: "Show the answer" },
+  { key: "s", label: "Suspend the card" },
+  { key: "n", label: "Jot a new question" },
+  { key: "r", label: "Play the card's sound again" },
+  { key: "u", label: "Undo the last answer, or put a parked card back" },
+  { key: "o", label: "Open the parked card's note" },
+  { key: "q", label: "Close the review" },
+];
+
+/** The keys that answer anywhere in the app, whatever pane holds the focus. Display only. */
+export const ANYWHERE: readonly { key: string; label: string }[] = [
+  { key: "?", label: "Show the keys (outside a text field)" },
+  { key: "Space", label: "Show the leader keys, in normal mode" },
+  { key: chordLabel("P"), label: "Run a command by name" },
+];

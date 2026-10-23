@@ -1,7 +1,7 @@
 ---
 type: Reference
 title: Editor keys, the leader
-description: Every leader key grouped as the leader panel groups them, the command palette and the pages you type into.
+description: Every leader key in the six columns of the which-key panel, the command palette and the pages you type into.
 resource: frontend/src/lib/leader-keys.ts
 tags: [editor, keyboard, vim, leader, frontend]
 status: stable
@@ -15,12 +15,87 @@ The leader is the space bar, in normal mode. Vim ships `<Space>` bound to `l`,
 and kasten unmaps it so a sequence can begin there. Visual mode keeps
 move-right, because the leader is registered in normal mode only.
 
-The tables follow the groups of the `<leader>?` panel, in the same order. The
-panel shows the leader keys apart from every other key, and with vim off it
-says that the command palette runs them by name. With vim off its Editor group
-also leaves out `gf` and Enter, the keys there that only vim resolves. Every
-group lines its keys up on the left, so the presses after `Space` read down one
-column.
+Press Space and the which-key panel opens at once, at the foot of the focused
+pane. Its top line shows the presses so far, and below it the leader keys stand
+in six columns: Find, Create, Go to, Tabs, Panes and This note. The tables below
+follow those columns in that order. The next key narrows the panel to the keys
+that begin with it, so after `g` only the `g` keys stay. A click or tap on a row
+runs it. Esc, Space again or a key that matches nothing closes the panel, and the
+focus goes back where it was. A command that moves the focus, such as a finder,
+keeps it. While the panel is open every key goes to it, so `y` takes nothing.
+On a desktop the panel fades out when it closes, and Space pressed during the
+fade brings it back. On a phone it is a bottom sheet with a grabber, and a flick
+down closes it.
+
+`?` outside a text field opens key help, a larger panel with a filter field.
+Its two columns are **After Space**, which holds the six columns above, and
+**Vim and the rest**, which holds every other key. Typing in the filter narrows
+both columns. Esc closes it. `Space ?` opens it too.
+
+With vim off, Space in a note types a space, so a note has no leader. The panel
+still opens from the other panes and from the toolbar.
+
+**Find**
+
+| Key | Does |
+| --- | --- |
+| `<leader>ff` | Open the note finder |
+| `<leader>fg` | Open search over note content |
+| `<leader>fb` | Open the book finder |
+| `<leader>ft` | Open the todo overlay |
+| `<leader>a` | Show or hide the archive in the tree, the finder, search and the todos |
+| `<leader>:` | Run a command by name, in [the command palette](#the-command-palette) |
+| `<leader>?` | Show every binding in the app |
+
+**Create**
+
+| Key | Does |
+| --- | --- |
+| `<leader>cf` | Open the new note prompt |
+| `<leader>cd` | Capture a thought into the `## Dump` of today's note |
+| `<leader>cw` | Import a web page into the inbox |
+| `<leader>cm` | Import markdown files from your disk into the inbox |
+| `<leader>cb` | Add an epub or a pdf to the inbox, with a note beside it |
+| `<leader>ci` | Make an image of the link at the cursor, or write an empty one |
+| `<leader>cv` | Write the transcript of this note's video into the note |
+| `<leader>cc` | Open the chat with Claude Code in the focused pane |
+| `<leader>cs` | Open a terminal, on a herdr session you name |
+
+The file pickers that `<leader>cm` and `<leader>cb` open wait until you let go of the last key, so the picker opens once the key is up.
+
+**Go to**
+
+| Key | Does |
+| --- | --- |
+| `<leader>gd` | Open today's note |
+| `<leader>gw` | Open this week's note |
+| `<leader>gm` | Open this month's note |
+| `<leader>gq` | Open this quarter's note |
+| `<leader>gy` | Open this year's note |
+| `<leader>gg` | Put the graph of the whole vault in the focused pane |
+| `<leader>gl` | Show the graph around this note: a sheet over the note when its margin is hidden, a pane beside it when the margin shows, the bottom sheet on a phone |
+| `<leader>gb` | Show what links to the open note |
+| `<leader>go` | Show what the open note links to |
+| `<leader>gh` | Show this note's history in a pane beside it |
+| `<leader>gr` | Read this note's book in a pane beside it |
+| `<leader>gc` | Read the current book |
+| `<leader>gp` | Show this person's card in a pane beside their note |
+| `<leader>gv` | Watch this note's video in a pane beside it |
+| `<leader>ge` | Sit the open note as a practice exam |
+| `<leader>gs` | Put the review in the focused pane |
+| `<leader>gt` | Put the todo list in the focused pane |
+| `<leader>gf` | Put the food log in the focused pane |
+| `<leader>e` | Move the focus to the file tree |
+| `<leader>E` | Unfold the tree down to the open note and put its cursor there |
+
+**Tabs**
+
+| Key | Does |
+| --- | --- |
+| `<leader>ct` | Start a tab, on one empty pane |
+| `<leader>tl` | Go to the next tab |
+| `<leader>th` | Go to the previous tab |
+| `<leader>1` to `<leader>0` | Go to a tab by number |
 
 **Panes**
 
@@ -39,40 +114,7 @@ column.
 | `<leader>o` | Move to the next pane |
 | `<leader>z` | Draw this pane on its own, or put the tab back |
 | `<leader>q` | Close the note, then the pane, then the tab |
-
-**Tabs**
-
-| Key | Does |
-| --- | --- |
-| `<leader>ct` | Start a tab, on one empty pane |
-| `<leader>tl` | Go to the next tab |
-| `<leader>th` | Go to the previous tab |
-| `<leader>1` to `<leader>0` | Go to a tab by number |
-
-**Find**
-
-| Key | Does |
-| --- | --- |
-| `<leader>fb` | Open the book finder |
-| `<leader>ff` | Open the note finder |
-| `<leader>fg` | Open search over note content |
-| `<leader>ft` | Open the todo overlay |
-
-**Create and capture**
-
-| Key | Does |
-| --- | --- |
-| `<leader>cf` | Open the new note prompt |
-| `<leader>cd` | Capture a thought into the `## Dump` of today's note |
-| `<leader>cw` | Import a web page into the inbox |
-| `<leader>cm` | Import markdown files from your disk into the inbox |
-| `<leader>cb` | Add an epub or a pdf to the inbox, with a note beside it |
-| `<leader>ci` | Make an image of the link at the cursor, or write an empty one |
-| `<leader>cv` | Write the transcript of this note's video into the note |
-| `<leader>cc` | Open the chat with Claude Code in the focused pane |
-| `<leader>cs` | Open a terminal, on a herdr session you name |
-
-The file pickers that `<leader>cm` and `<leader>cb` open wait until you let go of the last key, so the picker opens once the key is up.
+| `<leader>b` | Fold the file tree away, or bring it back |
 
 **This note**
 
@@ -82,40 +124,9 @@ The file pickers that `<leader>cm` and `<leader>cb` open wait until you let go o
 | `<leader>df` | Move the open note into the trash |
 | `<leader>du` | Put the last deleted note or folder back |
 | `<leader>w` | Download what this pane holds as a file |
+| `<leader>p` | Turn live preview off, or back on |
+| `<leader>v` | Play or pause this note's video |
 | `<leader>=` | Tidy the markdown in this note |
-
-**Periodic notes**
-
-| Key | Does |
-| --- | --- |
-| `<leader>gd` | Open today's note |
-| `<leader>gw` | Open this week's note |
-| `<leader>gm` | Open this month's note |
-| `<leader>gq` | Open this quarter's note |
-| `<leader>gy` | Open this year's note |
-
-**Panes to open**
-
-| Key | Does |
-| --- | --- |
-| `<leader>gb` | Show what links to the open note |
-| `<leader>go` | Show what the open note links to |
-| `<leader>gr` | Read this note's book in a pane beside it |
-| `<leader>gc` | Read the current book |
-| `<leader>gp` | Show this person's card in a pane beside their note |
-| `<leader>gh` | Show this note's history in a pane beside it |
-| `<leader>gl` | Show the graph around this note: a sheet over the note when its margin is hidden, a pane beside it when the margin shows, the bottom sheet on a phone |
-| `<leader>gv` | Watch this note's video in a pane beside it |
-| `<leader>ge` | Sit the open note as a practice exam |
-| `<leader>gs` | Put the review in the focused pane |
-| `<leader>gt` | Put the todo list in the focused pane |
-| `<leader>gf` | Put the food log in the focused pane |
-| `<leader>gg` | Put the graph of the whole vault in the focused pane |
-
-**Todos**
-
-| Key | Does |
-| --- | --- |
 | `<leader>x` | Cycle the todo on this line |
 | `<leader>i` | Stamp an id on the todo on this line |
 | `<leader>@` | Send this todo to the agent, or take it back |
@@ -127,26 +138,8 @@ The file pickers that `<leader>cm` and `<leader>cb` open wait until you let go o
 | `<leader>sv` | Set this todo to waiting for review |
 | `<leader>sr` | Set this todo to rejected |
 
-**Toggles**
-
-| Key | Does |
-| --- | --- |
-| `<leader>a` | Show or hide the archive in the tree, the finder, search and the todos |
-| `<leader>b` | Fold the file tree away, or bring it back |
-| `<leader>p` | Turn live preview off, or back on |
-| `<leader>e` | Move the focus to the file tree |
-| `<leader>E` | Unfold the tree down to the open note and put its cursor there |
-| `<leader>v` | Play or pause this note's video |
-
-**Help**
-
-| Key | Does |
-| --- | --- |
-| `<leader>?` | Show every binding in the app |
-| `<leader>:` | Run a command by name, in [the command palette](#the-command-palette) |
-
 `<leader>cf` takes two keys after the leader, `c` then `f`, and is the first
-binding here to take more than one. The `<leader>?` panel spells it
+binding here to take more than one. The which-key panel spells it
 `Space c f`, one letter per press. From the editor it opens an empty prompt.
 From the file tree it opens one already holding the folder the tree cursor sits
 in, or the folder holding the note it sits on. The `＋` in the panel header
@@ -289,8 +282,8 @@ puts vim in insert mode first.
 ## Screens you type
 
 Three screens have a URL and nothing else: no link and no row in the tree. The
-keys panel lists them under **Screens you type**, which is the only place in the
-app that says they exist.
+key help (`?`) lists them under **Screens you type**, which is the only place in
+the app that says they exist.
 
 | Address | What it is |
 | --- | --- |

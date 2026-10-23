@@ -84,21 +84,57 @@ describe("the todo pane on the reference page", () => {
 });
 
 /**
- * The groups of the `<leader>?` panel, written out here so the page is held to
+ * The six columns of the which-key panel, `LEADER_COLUMNS` in
+ * `frontend/src/lib/leader-keys.ts`, written out here so the page is held to
  * them (#516). The tab row names `<leader>1` to `<leader>0`, so Tabs ends in
  * those two.
  */
 const LEADER_GROUPS: Record<string, string[]> = {
-  Panes: ["%", '"', "h", "j", "k", "l", "H", "J", "K", "L", "o", "z", "q"],
+  Find: ["ff", "fg", "fb", "ft", "a", ":", "?"],
+  Create: ["cf", "cd", "cw", "cm", "cb", "ci", "cv", "cc", "cs"],
+  "Go to": [
+    "gd",
+    "gw",
+    "gm",
+    "gq",
+    "gy",
+    "gg",
+    "gl",
+    "gb",
+    "go",
+    "gh",
+    "gr",
+    "gc",
+    "gp",
+    "gv",
+    "ge",
+    "gs",
+    "gt",
+    "gf",
+    "e",
+    "E",
+  ],
   Tabs: ["ct", "tl", "th", "1", "0"],
-  Find: ["fb", "ff", "fg", "ft"],
-  "Create and capture": ["cf", "cd", "cw", "cm", "cb", "ci", "cv", "cc", "cs"],
-  "This note": ["rf", "df", "du", "w", "="],
-  "Periodic notes": ["gd", "gw", "gm", "gq", "gy"],
-  "Panes to open": ["gb", "go", "gr", "gc", "gp", "gh", "gl", "gv", "ge", "gs", "gt", "gf", "gg"],
-  Todos: ["x", "i", "@", "so", "sp", "sx", "sb", "sw", "sv", "sr"],
-  Toggles: ["a", "b", "p", "e", "E", "v"],
-  Help: ["?", ":"],
+  Panes: ["%", '"', "h", "j", "k", "l", "H", "J", "K", "L", "o", "z", "q", "b"],
+  "This note": [
+    "rf",
+    "df",
+    "du",
+    "w",
+    "p",
+    "v",
+    "=",
+    "x",
+    "i",
+    "@",
+    "so",
+    "sp",
+    "sx",
+    "sb",
+    "sw",
+    "sv",
+    "sr",
+  ],
 };
 
 describe("the deck folds on the reference pages (#517)", () => {

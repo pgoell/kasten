@@ -1,9 +1,11 @@
 import { type Extension, Facet } from "@codemirror/state";
-import { type CodeMirrorV, Vim } from "@replit/codemirror-vim";
+import { ViewPlugin } from "@codemirror/view";
+import { type CodeMirrorV, getCM, Vim } from "@replit/codemirror-vim";
 import { FORMAT, LEADER_EDITS } from "@/lib/buffer-keys";
 import { toggleMark } from "@/lib/format-commands";
 import type { EditorCommands } from "@/lib/key-bindings";
 import { LEADER, TAB_KEYS } from "@/lib/leader-keys";
+import { beginLeader, editorOpener } from "@/lib/which-key";
 
 /**
  * Carries the app's commands on the editor state.
@@ -86,6 +88,44 @@ export function forwardCommands(get: () => EditorCommands | undefined): Extensio
     goToTab: (index) => get()?.goToTab(index),
   });
 }
+
+/**
+ * Space opens the which-key panel from a note, ahead of vim reading it.
+ *
+ * Vim reads its keys in a plugin's keydown, and a plugin's handlers run before
+ * any `domEventHandlers` facet, so a `Prec.highest` one would hear the space
+ * only after vim had started `<Space>…` with it. A capture listener on the
+ * editor's own element is the one place that comes first. It stands down while
+ * vim is partway through a command, so `f<Space>`, `r<Space>`, `d<Space>`,
+ * `3<Space>` and `"a<Space>` are still vim's, and in insert and visual mode.
+ */
+export const leaderPanel = ViewPlugin.define((view) => {
+  function onKeyDown(event: KeyboardEvent) {
+    if (event.key !== " " || event.ctrlKey || event.altKey || event.metaKey || event.shiftKey) {
+      return;
+    }
+    const vim = getCM(view)?.state.vim;
+    if (!vim || vim.insertMode || vim.visualMode) return;
+    const input = vim.inputState;
+    if (
+      input.keyBuffer.length > 0 ||
+      input.operator ||
+      input.prefixRepeat.length > 0 ||
+      input.motionRepeat.length > 0 ||
+      input.registerName
+    ) {
+      return;
+    }
+    const commands = view.state.facet(editorCommands);
+    if (commands === undefined || !beginLeader(editorOpener(view, commands))) return;
+    // Stopped here, so neither vim nor anything above the editor takes the space.
+    event.preventDefault();
+    event.stopPropagation();
+  }
+
+  view.dom.addEventListener("keydown", onKeyDown, true);
+  return { destroy: () => view.dom.removeEventListener("keydown", onKeyDown, true) };
+});
 
 // Vim ships `<Space>` bound to `l`, and its dispatcher takes a full match over
 // a partial one, so `<Space>b` can never begin a sequence while the built-in

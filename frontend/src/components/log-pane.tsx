@@ -370,7 +370,7 @@ export function LogPane({ commands, onOpen, focusSignal, today, actions, onNotic
 
     switch (key) {
       case " ":
-        leader.start();
+        leader.start(event);
         break;
       case "j":
         setCursor(Math.min(at + 1, rows.length - 1));

@@ -7,6 +7,7 @@ import { fetchHistory, fetchHistoryText, type HistoryChange } from "@/lib/histor
 import type { EditorCommands } from "@/lib/key-bindings";
 import { heldModifier, leaderAction, leaderPrefix } from "@/lib/leader-keys";
 import { noteName } from "@/lib/note-path";
+import { beginLeader, paneOpener } from "@/lib/which-key";
 
 interface HistoryPaneProps {
   /** Vault path of the note whose changes this lists. */
@@ -132,6 +133,10 @@ export function HistoryPane({ note, commands, focusSignal, onRestore }: HistoryP
 
     switch (key) {
       case " ":
+        if (beginLeader(paneOpener(commands))) {
+          event.preventDefault();
+          return;
+        }
         setPending(key);
         break;
       case "j":

@@ -11,8 +11,8 @@ status: stable
 You have kasten open in a phone's browser, or installed from
 [Install kasten on your phone](/how-to/install-on-your-phone.md), and you want
 to do by touch what the keys do at a desk. A row of buttons runs along the
-bottom edge: `files`, `find`, `search`, `run`, `today`, `todos` and `chat`. Every
-recipe below starts there.
+bottom edge: `files`, `find`, `search`, `run`, `today`, `todos`, `chat` and
+`space`. Every recipe below starts there.
 
 [Editor keys](/reference/editor-keys/touch.md#what-counts-as-a-phone) says which
 devices draw the row. Where there is none, use `Ctrl+Shift+P` on a keyboard, or
@@ -54,6 +54,14 @@ Commands worth knowing by name:
 | Split the window | `Split the pane left and right` |
 | Close what is on screen | `Close the note, then the pane, then the tab` |
 | See every key and command | `Show the keys` |
+
+## See the keys after Space
+
+1. Tap `space`. The which-key panel rises from the foot of the screen, with the
+   leader keys in six columns: Find, Create, Go to, Tabs, Panes and This note.
+2. Tap a row to run it.
+
+To close the panel, flick its grabber down.
 
 ## Turn vim on
 
@@ -137,7 +145,7 @@ again to let go without sending anything.
 ## Close a panel
 
 Tap the dimmed page outside it. That closes the palette, the finder, the
-search, the keys panel and a prompt you have not typed into.
+search, key help, the which-key panel and a prompt you have not typed into.
 
 A prompt you have typed into stays open on a tap outside. Send it with the
 keyboard's Enter, or clear the input and then tap outside.

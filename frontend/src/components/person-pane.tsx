@@ -3,6 +3,7 @@ import { PersonCard } from "@/components/person-card";
 import type { EditorCommands } from "@/lib/key-bindings";
 import { heldModifier, leaderAction, leaderPrefix } from "@/lib/leader-keys";
 import { noteName } from "@/lib/note-path";
+import { beginLeader, paneOpener } from "@/lib/which-key";
 
 interface PersonPaneProps {
   /** Vault path of the person note this pane is about. */
@@ -73,6 +74,10 @@ export function PersonPane({
     if (event.ctrlKey || event.altKey || event.metaKey) return;
 
     if (key === " ") {
+      if (beginLeader(paneOpener(commands))) {
+        event.preventDefault();
+        return;
+      }
       setPending(key);
       event.preventDefault();
     }

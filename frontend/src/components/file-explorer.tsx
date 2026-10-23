@@ -14,6 +14,7 @@ import {
 import type { TreeCommands } from "@/lib/key-bindings";
 import { heldModifier, leaderAction, leaderPrefix } from "@/lib/leader-keys";
 import { useViewport } from "@/lib/use-viewport";
+import { beginLeader, paneOpener } from "@/lib/which-key";
 
 interface FileExplorerProps {
   /** Vault-relative paths of every note, as served by `GET /api/files`. */
@@ -354,7 +355,15 @@ export function FileExplorer({
         setActive(rows.length - 1);
         break;
       case "g":
+        setPending(key);
+        break;
       case " ":
+        // The tree's own create and rename, so the panel's `cf` seeds a note
+        // with the cursor's folder the way the tree's leader does.
+        if (beginLeader(paneOpener({ ...commands, createNote: newNote, renameNote }))) {
+          event.preventDefault();
+          return;
+        }
         setPending(key);
         break;
       case "c":

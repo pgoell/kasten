@@ -20,7 +20,8 @@ of each is waiting. Picking one starts a sitting, one card at a time.
 | `za` | Fold or unfold the deck under the cursor |
 | `p` | Open [the parked list](/reference/flashcard-format/reviewing-cards.md#parking-a-card) |
 | `h` | Leave the sitting or the parked list, back to the decks |
-| `Space`, `Enter` | Show the answer |
+| `Enter` | Show the answer |
+| `Space` | Open [the which-key panel](/reference/editor-keys/leader.md) while the card is hidden |
 | `1` `2` `3` `4` | Rate the card Again, Hard, Good, Easy |
 | `s` | Park the card on screen, before or after the answer |
 | `n` | Jot a new question into the note the card came from, or put the open jot line away unwritten |

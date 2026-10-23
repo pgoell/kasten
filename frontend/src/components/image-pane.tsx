@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { EditorCommands } from "@/lib/key-bindings";
 import { heldModifier, leaderAction, leaderPrefix } from "@/lib/leader-keys";
 import { encodePath } from "@/lib/note-path";
+import { beginLeader, paneOpener } from "@/lib/which-key";
 
 interface ImagePaneProps {
   /** Vault-relative path of the image to show. */
@@ -192,6 +193,10 @@ export function ImagePane({ path, commands, focusSignal, onDelete }: ImagePanePr
     if (event.ctrlKey || event.altKey || event.metaKey) return;
 
     if (key === " ") {
+      if (beginLeader(paneOpener(commands))) {
+        event.preventDefault();
+        return;
+      }
       setPending(key);
       event.preventDefault();
       return;

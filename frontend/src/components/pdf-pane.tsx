@@ -3,6 +3,7 @@ import type { EditorCommands } from "@/lib/key-bindings";
 import { heldModifier, leaderAction, leaderPrefix } from "@/lib/leader-keys";
 import { encodePath } from "@/lib/note-path";
 import { pdfjsRenderer, showPdf } from "@/lib/pdf-view";
+import { beginLeader, paneOpener } from "@/lib/which-key";
 
 interface PdfPaneProps {
   /** Vault-relative path of the pdf to show. */
@@ -71,6 +72,10 @@ export function PdfPane({ path, page, opened, commands, focusSignal }: PdfPanePr
     if (event.ctrlKey || event.altKey || event.metaKey) return;
 
     if (key === " ") {
+      if (beginLeader(paneOpener(commands))) {
+        event.preventDefault();
+        return;
+      }
       setPending(key);
       event.preventDefault();
     }

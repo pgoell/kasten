@@ -14,6 +14,7 @@ import { TopBar } from "@/components/top-bar";
 import { useFinders } from "@/components/use-finders";
 import { usePaneMoves } from "@/components/use-pane-moves";
 import { usePrompts } from "@/components/use-prompts";
+import { WhichKey } from "@/components/which-key";
 import { WorkspacePanes } from "@/components/workspace-panes";
 import { heldText } from "@/lib/held-text";
 import type { TreeCommands } from "@/lib/key-bindings";
@@ -28,6 +29,7 @@ import { useAutosave } from "@/lib/use-autosave";
 import { useBufferSync } from "@/lib/use-buffer-sync";
 import { useFileTransfer } from "@/lib/use-file-transfer";
 import { useGuardedWrites } from "@/lib/use-guarded-writes";
+import { useKeyHelp } from "@/lib/use-key-help-key";
 import { useKeyboardInset } from "@/lib/use-keyboard-inset";
 import { useListings } from "@/lib/use-listings";
 import { useLogActions } from "@/lib/use-log-actions";
@@ -178,10 +180,9 @@ function Home() {
   useKeyboardInset(frame, coarse);
   const drawer = useTreeDrawer({ narrow, saved, savedAs, layout, focusSignal });
   const { treeOpen, setTreeOpen, treeFocus, treeReveal } = drawer;
-  // Above the remount that opening another note causes, so turning the
-  // rendering off stays off until you turn it back on.
+  // Above the remount another note causes, so preview off stays off.
   const [preview, setPreview] = useState(true);
-  const [helpOpen, setHelpOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useKeyHelp();
   // On a phone the local graph is a sheet over the window: the note it is drawn
   // around, and whether the sheet is up. The sheet keeps the note while it goes down.
   const [graphSheet, setGraphSheet] = useState({ note: "", open: false });
@@ -194,9 +195,8 @@ function Home() {
     [],
   );
   // The editor the palette opened over, held so its edits and inserts have a
-  // buffer to write into. null inside means it opened over a pane with none.
-  // `row` is the todo pane's cursor row where it opened over that pane, taken
-  // then, so the entry acts on the row the reader was looking at.
+  // buffer to write into, or null over a pane with none. `row` is the todo
+  // pane's cursor row, taken at the open, so the entry acts on the row shown.
   const [palette, setPalette] = useState<{
     view: EditorView | null;
     row: AgentRow | null;
@@ -312,6 +312,7 @@ function Home() {
       prompts.commands,
       finders.commands,
       files.commands,
+      setHelpOpen,
     ],
   );
   // The palette reads the same store as the cards, so its `Log` rows and each
@@ -348,8 +349,7 @@ function Home() {
     [],
   );
 
-  // `overflow-x: clip`, not `hidden`: a hidden overflow makes this a scroll box
-  // of its own, and the tab strip's sticky top would then scroll away with it.
+  // `clip`, not `hidden`: `hidden` makes a scroll box, and the sticky tabs would scroll away.
   return (
     <main ref={frame} className="safe-frame flex h-dvh flex-col overflow-x-clip bg-k-bg">
       <TopBar commands={commands} count={data?.length ?? 0} inert={narrow && treeOpen} />
@@ -435,6 +435,7 @@ function Home() {
       />
       {phone && <Toolbar commands={commands} split={panes.length > 1} inert={narrow && treeOpen} />}
       {helpOpen && <KeyHelp onClose={() => setHelpOpen(false)} />}
+      <WhichKey phone={phone} />
       <Sheet open={graphSheet.open} onClose={closeGraphSheet} label="Local graph">
         {/* The sheet's paper runs to the screen's edges, so the graph and lists keep off them. */}
         <div className="px-4 pb-6">

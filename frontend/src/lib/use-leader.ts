@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { EditorCommands } from "@/lib/key-bindings";
 import { heldModifier, leaderAction, leaderPrefix } from "@/lib/leader-keys";
+import { beginLeader, paneOpener } from "@/lib/which-key";
 
 /**
  * The leader sequence a pane reads off its own keys, the way the editor reads
@@ -33,7 +34,11 @@ export function useLeader(commands: EditorCommands) {
       }
       return true;
     },
-    start() {
+    start(event: React.KeyboardEvent) {
+      if (beginLeader(paneOpener(commands))) {
+        event.preventDefault();
+        return;
+      }
       setPending(" ");
     },
   };

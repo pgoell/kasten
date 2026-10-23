@@ -22,6 +22,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { trapTab } from "@/lib/focus-trap";
 import { axis, backdrop, closes, follow, type Sample, speed } from "@/lib/sheet-math";
 import { afterRelease, SPRINGS, Spring, type SpringConfig } from "@/lib/spring";
 
@@ -35,6 +36,8 @@ interface SheetProps {
   header?: ReactNode;
   /** The desktop side sheet: a 540 px panel at the right edge, a plain slide, no drag. */
   side?: boolean;
+  /** Whether the focus goes back to what held it when the sheet leaves. False where a command took the focus. */
+  restoreFocus?: boolean;
   children: ReactNode;
 }
 
@@ -76,7 +79,15 @@ function sideAt(el: HTMLElement, shown: boolean): boolean {
   return Math.abs(edge - box.right) < 0.5;
 }
 
-export function Sheet({ open, onClose, label, side = false, header, children }: SheetProps) {
+export function Sheet({
+  open,
+  onClose,
+  label,
+  side = false,
+  restoreFocus = true,
+  header,
+  children,
+}: SheetProps) {
   // Rendered from the moment it is wanted until its leave has run. The change
   // is made during render, the way React documents for a prop that changes
   // what is shown. `seen` is its own flag, because a sheet that closed itself
@@ -99,6 +110,9 @@ export function Sheet({ open, onClose, label, side = false, header, children }: 
   // by any key, and by the next press, so a later activation is never eaten.
   const swallow = useRef(false);
   const returnTo = useRef<Element | null>(null);
+  // Read at the leave's end, not the open's, so a caller can decide after the sheet is up.
+  const restore = useRef(restoreFocus);
+  restore.current = restoreFocus;
   // Set while the sheet is closing by its own hand (Esc, the scrim, a flick), so a
   // tap that interrupts that close resumes it rather than reopening the sheet.
   const dismissing = useRef(false);
@@ -183,7 +197,8 @@ export function Sheet({ open, onClose, label, side = false, header, children }: 
     setMounted(false);
     const back = returnTo.current;
     returnTo.current = null;
-    if (back instanceof HTMLElement && back.isConnected) back.focus({ preventScroll: true });
+    if (restore.current && back instanceof HTMLElement && back.isConnected)
+      back.focus({ preventScroll: true });
   }
 
   // A close the sheet makes itself, so it tells the parent once it is gone.
@@ -376,6 +391,8 @@ export function Sheet({ open, onClose, label, side = false, header, children }: 
         onKeyDown={(event) => {
           // A key is a choice made after the drag, so the click it leads to is not the drag's.
           swallow.current = false;
+          // Tab stays in the sheet: the last stop wraps to the first, and the reverse.
+          if (panel.current) trapTab(event, panel.current);
           if (event.key !== "Escape" || event.defaultPrevented) return;
           // Stopped here so the keys never reach the editor under the sheet, vim's Esc among them.
           event.stopPropagation();

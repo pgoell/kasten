@@ -87,7 +87,8 @@ nothing on a pdf's row, which goes out through a terminal pane as a page does.
 
 Keys typed inside a page are the page's, so a deck's arrows turn its slides and
 a leader sequence does nothing there. Click the pane's header to take the keys
-back. A link to another site opens in a new tab.
+back, and Space on the header opens [the which-key panel](/reference/editor-keys/leader.md).
+A link to another site opens in a new tab.
 
 The pane is an image and the path above it, and nothing else: no next image,
 and nothing to type into. It opens fitted to the pane. Two fingers pinch it

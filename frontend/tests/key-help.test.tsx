@@ -1,14 +1,7 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { KeyHelp } from "@/components/key-help";
 import { FOLLOW, FORMAT, INDENT, LEADER_EDITS } from "@/lib/buffer-keys";
-import {
-  type EditorCommands,
-  SCREENS,
-  TERMINAL,
-  TERMINAL_CHORD,
-  TODO_PANE,
-  TREE,
-} from "@/lib/key-bindings";
+import { SCREENS, TERMINAL, TERMINAL_CHORD, TODO_PANE, TREE } from "@/lib/key-bindings";
 import { LEADER } from "@/lib/leader-keys";
 
 /**
@@ -44,6 +37,13 @@ function chord(key: string): string {
 /** The panel spaces the letters of a key, so each one reads as a press. */
 function leaderKey(key: string) {
   return `Space ${[...key].join(" ")}`;
+}
+
+/** The filter field, found by its name. Its absence is the failure, said as one. */
+function filterField(): HTMLElement {
+  const field = screen.queryByRole("searchbox", { name: "Filter keys" });
+  expect(field, "the filter field").toBeInTheDocument();
+  return field as HTMLElement;
 }
 
 describe("KeyHelp", () => {
@@ -86,18 +86,7 @@ describe("KeyHelp", () => {
 
     // Written out rather than read off the panel, so a catchall group added
     // back under any name fails here.
-    const titles = [
-      "Panes",
-      "Tabs",
-      "Find",
-      "Create and capture",
-      "This note",
-      "Periodic notes",
-      "Panes to open",
-      "Todos",
-      "Toggles",
-      "Help",
-    ];
+    const titles = ["Find", "Create", "Go to", "Tabs", "Panes", "This note"];
     for (const { key } of [...LEADER, ...LEADER_EDITS]) {
       const title = screen.getByText(leaderKey(key)).closest("section")?.querySelector("h3");
       expect(titles, key).toContain(title?.textContent);
@@ -107,33 +96,54 @@ describe("KeyHelp", () => {
   it("groups the leader keys as the issue names them", () => {
     render(<KeyHelp onClose={() => {}} />);
 
-    // #516's table, written out: a key moved to another group fails here even
-    // though it still has a name above it.
+    // The six columns, written out: a key moved to another column fails here
+    // even though it still has a name above it.
     const groups: Record<string, string[]> = {
-      Panes: ["%", '"', "h", "j", "k", "l", "H", "J", "K", "L", "o", "z", "q"],
-      Tabs: ["ct", "tl", "th"],
-      Find: ["fb", "ff", "fg", "ft"],
-      "Create and capture": ["cf", "cd", "cw", "cm", "cb", "ci", "cv", "cc", "cs"],
-      "This note": ["rf", "df", "du", "w", "="],
-      "Periodic notes": ["gd", "gw", "gm", "gq", "gy"],
-      "Panes to open": [
+      Find: ["ff", "fg", "fb", "ft", "a", ":", "?"],
+      Create: ["cf", "cd", "cw", "cm", "cb", "ci", "cv", "cc", "cs"],
+      "Go to": [
+        "gd",
+        "gw",
+        "gm",
+        "gq",
+        "gy",
+        "gg",
+        "gl",
         "gb",
         "go",
+        "gh",
         "gr",
         "gc",
         "gp",
-        "gh",
-        "gl",
         "gv",
         "ge",
         "gs",
         "gt",
         "gf",
-        "gg",
+        "e",
+        "E",
       ],
-      Todos: ["x", "i", "@", "so", "sp", "sx", "sb", "sw", "sv", "sr"],
-      Toggles: ["a", "b", "p", "e", "E", "v"],
-      Help: ["?", ":"],
+      Tabs: ["ct", "tl", "th"],
+      Panes: ["%", '"', "h", "j", "k", "l", "H", "J", "K", "L", "o", "z", "q", "b"],
+      "This note": [
+        "rf",
+        "df",
+        "du",
+        "w",
+        "p",
+        "v",
+        "=",
+        "x",
+        "i",
+        "@",
+        "so",
+        "sp",
+        "sx",
+        "sb",
+        "sw",
+        "sv",
+        "sr",
+      ],
     };
     for (const [title, keys] of Object.entries(groups)) {
       for (const key of keys) {
@@ -148,26 +158,26 @@ describe("KeyHelp", () => {
   it("sets the leader keys apart from the other keys", () => {
     render(<KeyHelp onClose={() => {}} />);
 
-    const leader = [
-      "Panes",
-      "Tabs",
-      "Find",
-      "Create and capture",
-      "This note",
-      "Periodic notes",
-      "Panes to open",
-      "Todos",
-      "Toggles",
-      "Help",
+    const leader = ["Find", "Create", "Go to", "Tabs", "Panes", "This note"];
+    const other = [
+      "In a note",
+      "In a page, PDF or book",
+      "Over a video",
+      "In review",
+      "Anywhere",
+      "File tree",
+      "Todo pane",
+      "Log pane",
+      "Terminal",
+      "Screens you type",
     ];
-    const other = ["Editor", "Terminal", "File tree", "Todo pane", "Log pane", "Screens you type"];
     const titles = (block: string) =>
       group(block)
         .getAllByRole("heading", { level: 3 })
         .map((heading) => heading.textContent);
 
-    expect(titles("Leader keys")).toEqual(leader);
-    expect(titles("Other keys")).toEqual(other);
+    expect(titles("After Space")).toEqual(leader);
+    expect(titles("Vim and the rest")).toEqual(other);
   });
 
   it("says how to reach the leader keys, with vim on and off", () => {
@@ -219,15 +229,15 @@ describe("KeyHelp", () => {
     try {
       localStorage.setItem("kasten.vim", "on");
       const { unmount } = render(<KeyHelp onClose={() => {}} />);
-      expect.soft(group("Editor").queryByText("gf / Enter")).toBeInTheDocument();
+      expect.soft(group("In a note").queryByText("gf / Enter")).toBeInTheDocument();
       unmount();
 
       localStorage.setItem("kasten.vim", "off");
       render(<KeyHelp onClose={() => {}} />);
       for (const { label } of [...FORMAT, ...INDENT]) {
-        expect.soft(group("Editor").queryByText(label), label).toBeInTheDocument();
+        expect.soft(group("In a note").queryByText(label), label).toBeInTheDocument();
       }
-      expect(group("Editor").queryByText("gf / Enter")).not.toBeInTheDocument();
+      expect(group("In a note").queryByText("gf / Enter")).not.toBeInTheDocument();
     } finally {
       localStorage.removeItem("kasten.vim");
     }
@@ -264,7 +274,7 @@ describe("KeyHelp", () => {
   it("#624 <leader>? lists the log pane's keys and <leader>gf", () => {
     render(<KeyHelp onClose={() => {}} />);
 
-    expect(group("Panes to open").getByText(leaderKey("gf")).nextElementSibling).toHaveTextContent(
+    expect(group("Go to").getByText(leaderKey("gf")).nextElementSibling).toHaveTextContent(
       "Open the log",
     );
     expect(group("Log pane").getByText("3").nextElementSibling).toHaveTextContent(
@@ -281,13 +291,13 @@ describe("KeyHelp", () => {
     expect(group("Todo pane").getByText("c").nextElementSibling).toHaveTextContent(/board/);
   });
 
-  it("#523 A10 lists Space @ in the Todos group", () => {
+  it("#523 A10 lists Space @ in the This note group", () => {
     render(<KeyHelp onClose={() => {}} />);
 
     // Written out, as `c` above is: the loops pass over a table without the row.
     // The label read as text, empty where the row is missing, so a missing row
     // fails the comparison rather than the matcher.
-    const label = group("Todos").queryByText("Space @")?.nextElementSibling?.textContent ?? "";
+    const label = group("This note").queryByText("Space @")?.nextElementSibling?.textContent ?? "";
     expect(label).toContain("Send this todo to the agent, or take it back");
   });
 
@@ -337,201 +347,87 @@ describe("KeyHelp", () => {
     opener.focus();
 
     const { unmount } = render(<KeyHelp onClose={() => {}} />);
-    expect(screen.getByRole("dialog")).toHaveFocus();
+    expect(filterField()).toHaveFocus();
 
     unmount();
 
     expect(opener).toHaveFocus();
     opener.remove();
   });
-});
 
-describe("the key tables", () => {
-  it("names a command for every leader key that the editor can run", () => {
-    // The panel and the docs both read these tables. A leader entry naming a
-    // command nothing provides would show a key that does nothing.
-    //
-    // The names are read off a stub rather than listed here, so the two ways
-    // this can rot are both caught: `satisfies` fails to compile when the
-    // interface gains a command the stub has not got, and the loop below fails
-    // when `LEADER` names one that does not exist.
-    const stub = {
-      toggleTree: () => {},
-      toggleArchive: () => {},
-      togglePreview: () => {},
-      closeNote: () => {},
-      showHelp: () => {},
-      openPalette: () => {},
-      focusTree: () => {},
-      revealTree: () => {},
-      createNote: () => {},
-      renameNote: () => {},
-      deleteNote: () => {},
-      restoreDeleted: () => {},
-      findNote: () => {},
-      searchNotes: () => {},
-      findTodos: () => {},
-      findBook: () => {},
-      openTodos: () => {},
-      openLog: () => {},
-      showBacklinks: () => {},
-      showLinksOut: () => {},
-      openDaily: () => {},
-      logDrink: () => {},
-      logFood: () => {},
-      openWeekly: () => {},
-      openMonthly: () => {},
-      openQuarterly: () => {},
-      openYearly: () => {},
-      openBook: () => {},
-      openReadingBook: () => {},
-      openPerson: () => {},
-      openHistory: () => {},
-      openGraph: () => {},
-      openLocalGraph: () => {},
-      openVideo: () => {},
-      toggleVideo: () => {},
-      uploadBook: () => {},
-      importNotes: () => {},
-      exportNote: () => {},
-      openExam: () => {},
-      openReview: () => {},
-      createTab: () => {},
-      openTerminal: () => {},
-      openChat: () => {},
-      importPage: () => {},
-      captureDump: () => {},
-      splitRight: () => {},
-      splitDown: () => {},
-      nextPane: () => {},
-      paneLeft: () => {},
-      paneDown: () => {},
-      paneUp: () => {},
-      paneRight: () => {},
-      nextTab: () => {},
-      prevTab: () => {},
-      goToTab: () => {},
-      movePaneLeft: () => {},
-      movePaneDown: () => {},
-      movePaneUp: () => {},
-      movePaneRight: () => {},
-      zoomPane: () => {},
-    } satisfies EditorCommands;
-    const commands = new Set(Object.keys(stub));
+  it("the filter field is focused when key help opens", () => {
+    render(<KeyHelp onClose={() => {}} />);
 
-    for (const { command } of LEADER) {
-      expect(commands).toContain(command);
+    expect(filterField()).toHaveFocus();
+  });
+
+  it("the two columns are After Space and Vim and the rest", () => {
+    render(<KeyHelp onClose={() => {}} />);
+
+    const columns = screen
+      .getAllByRole("heading", { level: 2 })
+      .map((heading) => heading.textContent);
+    expect(columns).toEqual(["After Space", "Vim and the rest"]);
+  });
+
+  it("typing in the filter narrows both columns live", () => {
+    render(<KeyHelp onClose={() => {}} />);
+
+    fireEvent.change(filterField(), { target: { value: "tab" } });
+    // A Tabs row in After Space and a row with tab in it in Vim and the rest
+    // stay. A row with neither goes.
+    expect(screen.getByText(leaderKey("ct"))).toBeInTheDocument();
+    expect(screen.getByText("Tab")).toBeInTheDocument();
+    expect(screen.queryByText(leaderKey("gg"))).not.toBeInTheDocument();
+    expect(screen.queryByText("Bold")).not.toBeInTheDocument();
+
+    fireEvent.change(filterField(), { target: { value: "graph" } });
+    expect(screen.getByText(leaderKey("gg"))).toBeInTheDocument();
+    expect(screen.queryByText("Tab")).not.toBeInTheDocument();
+  });
+
+  it("a filter that matches nothing says so", () => {
+    render(<KeyHelp onClose={() => {}} />);
+
+    fireEvent.change(filterField(), { target: { value: "zzz" } });
+
+    // One line per column, each drawn in the muted colour.
+    const nothing = screen.getAllByText("Nothing matches");
+    expect(nothing).toHaveLength(2);
+    for (const line of nothing) {
+      expect(line).toHaveClass("text-k-muted");
     }
   });
 
-  it("names a command for every terminal chord that the editor can run", () => {
-    // The same guarantee as above, one table over. A chord naming a command
-    // nothing provides would eat a key inside a terminal and do nothing with it.
-    const stub = {
-      toggleTree: () => {},
-      toggleArchive: () => {},
-      togglePreview: () => {},
-      closeNote: () => {},
-      showHelp: () => {},
-      openPalette: () => {},
-      focusTree: () => {},
-      revealTree: () => {},
-      createNote: () => {},
-      renameNote: () => {},
-      deleteNote: () => {},
-      restoreDeleted: () => {},
-      findNote: () => {},
-      searchNotes: () => {},
-      findTodos: () => {},
-      findBook: () => {},
-      openTodos: () => {},
-      openLog: () => {},
-      showBacklinks: () => {},
-      showLinksOut: () => {},
-      openDaily: () => {},
-      logDrink: () => {},
-      logFood: () => {},
-      openWeekly: () => {},
-      openMonthly: () => {},
-      openQuarterly: () => {},
-      openYearly: () => {},
-      openBook: () => {},
-      openReadingBook: () => {},
-      openPerson: () => {},
-      openHistory: () => {},
-      openGraph: () => {},
-      openLocalGraph: () => {},
-      openVideo: () => {},
-      toggleVideo: () => {},
-      uploadBook: () => {},
-      importNotes: () => {},
-      exportNote: () => {},
-      openExam: () => {},
-      openReview: () => {},
-      createTab: () => {},
-      openTerminal: () => {},
-      openChat: () => {},
-      importPage: () => {},
-      captureDump: () => {},
-      splitRight: () => {},
-      splitDown: () => {},
-      nextPane: () => {},
-      paneLeft: () => {},
-      paneDown: () => {},
-      paneUp: () => {},
-      paneRight: () => {},
-      nextTab: () => {},
-      prevTab: () => {},
-      goToTab: () => {},
-      movePaneLeft: () => {},
-      movePaneDown: () => {},
-      movePaneUp: () => {},
-      movePaneRight: () => {},
-      zoomPane: () => {},
-    } satisfies EditorCommands;
-    const commands = new Set(Object.keys(stub));
+  it("Esc in the filter closes key help", () => {
+    const onClose = vi.fn();
+    render(<KeyHelp onClose={onClose} />);
 
-    for (const { command } of TERMINAL) {
-      expect(commands).toContain(command);
-    }
+    fireEvent.keyDown(filterField(), { key: "Escape" });
+
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it("gives every terminal chord its own key", () => {
-    // Two rows on one key means the second is unreachable, silently.
-    expect(new Set(TERMINAL.map(({ key }) => key)).size).toBe(TERMINAL.length);
+  it("q typed in the filter stays a letter", () => {
+    const onClose = vi.fn();
+    render(<KeyHelp onClose={onClose} />);
+
+    const field = filterField();
+    fireEvent.change(field, { target: { value: "q" } });
+    fireEvent.keyDown(field, { key: "q" });
+
+    expect(onClose).not.toHaveBeenCalled();
+    expect(field).toHaveValue("q");
   });
 
-  it("gives every leader binding its own key, across both tables", () => {
-    // The panel builds its rows into a Map keyed by this, so a key spelled
-    // twice loses a row rather than showing two, and nothing says which.
-    const all = [...LEADER, ...LEADER_EDITS];
-    expect(new Set(all.map(({ key }) => key)).size).toBe(all.length);
-  });
+  it("Tab stays inside key help", () => {
+    render(<KeyHelp onClose={() => {}} />);
 
-  it("lets no leader binding shadow a longer one", () => {
-    // Vim fires a complete match the moment it is typed, so a `d` of its own
-    // would run before `df` or `du` could be finished, and neither would ever
-    // be reached again.
-    const keys = [...LEADER, ...LEADER_EDITS].map(({ key }) => key);
-    for (const short of keys) {
-      expect(keys.filter((key) => key !== short && key.startsWith(short))).toEqual([]);
-    }
-  });
-
-  it("spells a terminal chord with the letter shift actually produces", () => {
-    // The trap `FORMAT` carries below: `KeyboardEvent.key` is the uppercase
-    // letter while shift is down, so a row spelled "h" can never fire.
-    for (const { key } of TERMINAL) {
-      expect(key).toMatch(/^[A-Z]$/);
-    }
-  });
-
-  it("spells a shifted formatting key with the letter shift actually produces", () => {
-    // Vim names a key from `KeyboardEvent.key`, which is the uppercase letter
-    // while shift is held. A lowercase letter after `S-` is a binding no
-    // keyboard can reach, and it fails silently rather than loudly.
-    for (const { key } of FORMAT.filter((entry) => entry.key.includes("S-"))) {
-      expect(key).toMatch(/^<C-S-[A-Z]>$/);
-    }
+    const field = filterField();
+    // A Tab the panel takes is one it has prevented, so fireEvent reports false,
+    // and the browser never moves the focus out past the panel.
+    expect(fireEvent.keyDown(field, { key: "Tab" })).toBe(false);
+    expect(fireEvent.keyDown(field, { key: "Tab", shiftKey: true })).toBe(false);
+    expect(field).toHaveFocus();
   });
 });

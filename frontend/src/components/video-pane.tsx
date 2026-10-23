@@ -6,6 +6,7 @@ import { heldModifier, leaderAction, leaderPrefix } from "@/lib/leader-keys";
 import { noteName } from "@/lib/note-path";
 import { LABEL } from "@/lib/overlay-styles";
 import { noteVideos, PLAYER, playerUrl, watchedAt } from "@/lib/video";
+import { beginLeader, paneOpener } from "@/lib/which-key";
 
 interface VideoPaneProps {
   /** The note holding the link. The pane reads it and never writes to it. */
@@ -232,6 +233,10 @@ export function VideoPane({ note, commands, focusSignal, playSignal, onWatched }
     if (event.ctrlKey || event.altKey || event.metaKey) return;
 
     if (key === " ") {
+      if (beginLeader(paneOpener(commands))) {
+        event.preventDefault();
+        return;
+      }
       setPending(key);
       event.preventDefault();
       return;

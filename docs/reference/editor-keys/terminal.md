@@ -115,8 +115,8 @@ They are `Ctrl+Shift` because a terminal cannot transmit most of those chords,
 so claiming them costs the shell nothing. That is a reason to expect them to
 work, not evidence that they are comfortable, and they are expected to change.
 `TERMINAL` and `TERMINAL_CHORD` in `frontend/src/lib/key-bindings.ts` are the one
-place to change them; the component, the `<leader>?` panel and its test all
-derive from those two. This table does not, and has to be edited by hand.
+place to change them; the component, key help and its test all derive from
+those two. This table does not, and has to be edited by hand.
 
 On a touch screen, which is a coarse primary pointer, a row of keys sits under
 the terminal, for what an on-screen keyboard lacks. A mouse never sees it.

@@ -217,6 +217,82 @@ export function spelled(key: string): string {
 export const TAB_KEYS: readonly string[] = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"];
 
 /**
+ * The ten tab digits, under a name no sequence of leader keys can spell.
+ *
+ * One row rather than ten, because ten rows carrying the same sentence would
+ * bury every other key. It is looked up by name in `LEADER_COLUMNS` like a
+ * binding, and the space in the name keeps it out of the way of one.
+ */
+export const TAB_DIGITS = "tab digits";
+
+/**
+ * The leader cut into the six columns the which-key panel and the help panel
+ * draw, in the order a column lists them.
+ *
+ * `LEADER` is alphabetical, the order for a table nobody reads and the wrong
+ * one for a panel somebody scans: `cf`, `df` and `rf` are one job in three
+ * places. Keys of `LEADER_EDITS` sit here too, drawn only where an editor
+ * opened the panel. A key named nowhere here is not drawn, so a new binding
+ * needs an entry, and a test fails until it has one.
+ */
+export const LEADER_COLUMNS: readonly { title: string; keys: readonly string[] }[] = [
+  { title: "Find", keys: ["ff", "fg", "fb", "ft", "a", ":", "?"] },
+  { title: "Create", keys: ["cf", "cd", "cw", "cm", "cb", "ci", "cv", "cc", "cs"] },
+  {
+    title: "Go to",
+    keys: [
+      "gd",
+      "gw",
+      "gm",
+      "gq",
+      "gy",
+      "gg",
+      "gl",
+      "gb",
+      "go",
+      "gh",
+      "gr",
+      "gc",
+      "gp",
+      "gv",
+      "ge",
+      "gs",
+      "gt",
+      "gf",
+      "e",
+      "E",
+    ],
+  },
+  { title: "Tabs", keys: ["ct", "tl", "th", TAB_DIGITS] },
+  {
+    title: "Panes",
+    keys: ["%", '"', "h", "j", "k", "l", "H", "J", "K", "L", "o", "z", "q", "b"],
+  },
+  {
+    title: "This note",
+    keys: [
+      "rf",
+      "df",
+      "du",
+      "w",
+      "p",
+      "v",
+      "=",
+      "x",
+      "i",
+      "@",
+      "so",
+      "sp",
+      "sx",
+      "sb",
+      "sw",
+      "sv",
+      "sr",
+    ],
+  },
+];
+
+/**
  * What a leader sequence reaches, or null while it reaches nothing.
  *
  * The editor resolves the leader through vim, which registers `LEADER`,

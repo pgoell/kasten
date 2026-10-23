@@ -29,7 +29,8 @@ describe("Toolbar", () => {
   it("offers the next pane only where the tab holds one", () => {
     render(<Toolbar commands={stubCommands()} split={false} />);
 
-    expect(screen.getAllByRole("button")).toHaveLength(8);
+    // Eight commands and the space button, which opens the leader on every phone.
+    expect(screen.getAllByRole("button")).toHaveLength(9);
     expect(screen.queryByRole("button", { name: "Move to the next pane" })).toBeNull();
   });
 

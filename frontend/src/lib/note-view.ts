@@ -8,7 +8,7 @@ import { basicSetup } from "codemirror";
 import { backticks } from "@/lib/backticks";
 import { FORMAT } from "@/lib/buffer-keys";
 import { fromVault } from "@/lib/buffer-writes";
-import { editorCommands, forwardCommands } from "@/lib/editor-commands";
+import { editorCommands, forwardCommands, leaderPanel } from "@/lib/editor-commands";
 import { byName, reloadHandler, save, saveHandler } from "@/lib/editor-ex";
 import { followHandler, followOnClick, followOnTap, highlightHandler } from "@/lib/editor-follow";
 import { kastenTheme } from "@/lib/editor-theme";
@@ -254,6 +254,7 @@ export function createNoteView(o: {
         // throws.
         reloadHandler.of((force) => latest.current.onReload?.(force) ?? Promise.resolve(null)),
         forwardCommands(() => latest.current.commands),
+        leaderPanel,
         basicSetup,
         noteLanguage(),
         markdownLanguage.data.of({ autocomplete: wikiLinkCompletions }),

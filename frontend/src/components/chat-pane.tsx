@@ -13,6 +13,7 @@ import type { EditorCommands } from "@/lib/key-bindings";
 import { heldModifier, leaderAction, leaderPrefix } from "@/lib/leader-keys";
 import { LABEL } from "@/lib/overlay-styles";
 import { useViewport } from "@/lib/use-viewport";
+import { beginLeader, paneOpener } from "@/lib/which-key";
 
 /** The two skills this pane exists to start, each one press away. */
 const SKILLS = ["/close-day", "/process-meeting"];
@@ -156,6 +157,10 @@ export function ChatPane({ commands, focusSignal }: ChatPaneProps) {
     if (event.ctrlKey || event.altKey || event.metaKey) return;
 
     if (key === " ") {
+      if (beginLeader(paneOpener(commands))) {
+        event.preventDefault();
+        return;
+      }
       setPending(key);
       event.preventDefault();
     }

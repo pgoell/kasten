@@ -102,7 +102,7 @@ export function useTodoKeys(o: {
         act.up();
         break;
       case " ":
-        leader.start();
+        leader.start(event);
         break;
       case "Enter":
         act.enter();

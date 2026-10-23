@@ -16,6 +16,7 @@ import type { EditorCommands } from "@/lib/key-bindings";
 import { heldModifier, leaderAction, leaderPrefix } from "@/lib/leader-keys";
 import { LABEL, STATUS } from "@/lib/overlay-styles";
 import { LENGTHS, useExamTimer } from "@/lib/use-exam-timer";
+import { beginLeader, paneOpener } from "@/lib/which-key";
 
 /** One button of the touch row: a thumb high, and as wide as its share of the row. */
 const TAP = "min-h-11 min-w-0 flex-1 uppercase";
@@ -190,6 +191,10 @@ export function ExamPane({ note, commands, onOpen, focusSignal }: ExamPaneProps)
     if (event.ctrlKey || event.altKey || event.metaKey) return;
 
     if (key === " ") {
+      if (beginLeader(paneOpener(commands))) {
+        event.preventDefault();
+        return;
+      }
       setPending(key);
       event.preventDefault();
       return;

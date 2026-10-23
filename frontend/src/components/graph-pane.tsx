@@ -11,6 +11,7 @@ import { heldModifier, leaderAction, leaderPrefix } from "@/lib/leader-keys";
 import { noteName } from "@/lib/note-path";
 import { INPUT, LABEL } from "@/lib/overlay-styles";
 import { useViewport } from "@/lib/use-viewport";
+import { beginLeader, paneOpener } from "@/lib/which-key";
 
 interface GraphPaneProps {
   /** The note a local graph is drawn around, absent for the whole vault. */
@@ -251,6 +252,10 @@ export function GraphPane({
 
     switch (key) {
       case " ":
+        if (beginLeader(paneOpener(commands))) {
+          event.preventDefault();
+          return;
+        }
         setPending(key);
         break;
       // What vim spells a narrowing, as it is in the todo pane.

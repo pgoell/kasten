@@ -58,8 +58,10 @@ on a 360px or 390px phone once the tab holds a split.
 | `log` | Open the log | `openLog` | `<leader>gf` |
 | `chat` | Open the chat with Claude Code | `openChat` | `<leader>cc` |
 | `pane` | Move to the next pane. Drawn only while the tab holds more than one | `nextPane` | `<leader>o` |
+| `space` | Open the which-key panel, as Space does | none | `Space` |
 
-Each button runs the command its key runs and nothing more. Every other leader
+Each button runs the command its key runs and nothing more, and `space` opens
+the which-key panel and runs nothing. Every other leader
 command is a row of [the command palette](/reference/editor-keys/leader.md#the-command-palette), which `run`
 opens.
 
@@ -101,7 +103,7 @@ terminal pane takes the focus at any width.
 ### Closing a panel
 
 Every panel over the page closes on a tap or a click outside it: the palette,
-the finder, the search, the prompts and the keys panel. It closes on the
+the finder, the search, the prompts, key help and the which-key panel. It closes on the
 release. A press inside the panel closes nothing, and neither does a press that
 starts on one side of the panel's edge and ends on the other, a selection
 dragged out of the input being the usual one.

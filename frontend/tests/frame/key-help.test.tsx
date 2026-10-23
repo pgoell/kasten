@@ -22,7 +22,18 @@ afterEach(() => {
 });
 
 /** The groups that are not leader keys, written out rather than read off the panel. */
-const OTHER = ["Editor", "Terminal", "File tree", "Todo pane", "Screens you type"];
+const OTHER = [
+  "In a note",
+  "In a page, PDF or book",
+  "Over a video",
+  "In review",
+  "Anywhere",
+  "File tree",
+  "Todo pane",
+  "Log pane",
+  "Terminal",
+  "Screens you type",
+];
 
 /** Every group card on the panel, in the order the page holds them. */
 function cards(at: HTMLElement): { title: string; card: HTMLElement }[] {
@@ -95,17 +106,21 @@ it("key help lays its groups out in reading order, at desktop and at phone width
     await expect.poll(() => cards(at).length).toBeGreaterThan(0);
     const panel = at.querySelector('[role="dialog"]')?.firstElementChild as HTMLElement;
 
-    // Picked by title and not by block, so the same cards are measured
+    // Picked by title and not by column, so the same cards are measured
     // whatever the panel wraps them in.
     const leader = cards(at)
       .filter(({ title }) => !OTHER.includes(title))
       .map(({ card }) => card.getBoundingClientRect());
+    const other = cards(at)
+      .filter(({ title }) => OTHER.includes(title))
+      .map(({ card }) => card.getBoundingClientRect());
     expect(leader.length).toBeGreaterThan(3);
-    const [first, second, , fourth] = leader as [DOMRect, DOMRect, DOMRect, DOMRect];
-    // Soft, so a failed width still measures the other.
-    expect.soft(second.left).toBeGreaterThan(first.right);
-    expect.soft(second.top).toBe(first.top);
-    expect.soft(fourth.left).toBe(first.left);
+    // The After Space groups stack down one column, and Vim and the rest sits
+    // beside that column. Soft, so a failed width still measures the other.
+    const [first, second] = leader as [DOMRect, DOMRect];
+    expect.soft(second.left).toBe(first.left);
+    expect.soft(second.top).toBeGreaterThan(first.top);
+    expect.soft(other[0]?.left).toBeGreaterThan(first.right);
     await shot(panel, "key-help-1280");
 
     await page.viewport(414, 896);

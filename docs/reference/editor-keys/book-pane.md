@@ -67,9 +67,10 @@ turn and whenever you close the reader.
 [How it keeps your place](/explanation/books-in-the-vault/highlights-and-place.md#how-it-keeps-your-place)
 says what that line costs.
 
-The keys below are the only ones the pane answers. They are not leader keys:
-the pane holds a document you page with the space bar in every other reader, so
-the leader would cost you the space bar for nothing.
+The keys below are the only ones the pane answers, apart from Space. Space
+opens [the which-key panel](/reference/editor-keys/leader.md) at the foot of the
+pane, so it does not turn the page, and the leader works here as it does in the
+other panes.
 
 | Key | Does |
 | --- | --- |

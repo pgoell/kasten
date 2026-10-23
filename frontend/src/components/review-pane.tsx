@@ -6,6 +6,7 @@ import type { EditorCommands } from "@/lib/key-bindings";
 import { heldModifier, leaderAction, leaderPrefix } from "@/lib/leader-keys";
 import type { Deck } from "@/lib/review";
 import type { Rating } from "@/lib/srs";
+import { beginLeader, paneOpener } from "@/lib/which-key";
 
 interface ReviewPaneProps {
   /** What a leader sequence reaches. The same object every other pane is given. */
@@ -179,6 +180,10 @@ export function ReviewPane({ commands, onClose, onOpen, focusSignal }: ReviewPan
 
     // The leader wherever no card is on screen, the done screen holding Undo too.
     if (key === " " && !controls.current?.showing) {
+      if (beginLeader(paneOpener(commands))) {
+        event.preventDefault();
+        return;
+      }
       setPending(key);
       event.preventDefault();
       return;
