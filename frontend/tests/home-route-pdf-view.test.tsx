@@ -510,4 +510,21 @@ describe("a pdf in kasten's own view", () => {
 
     expect(pdfPane()?.getAttribute("data-pdf-pane")).toBe("B/r.pdf");
   });
+
+  it("a link with a leading slash opens nothing, as the backend reads it", async () => {
+    fetchAssets.mockResolvedValue(["r.pdf", "B/r.pdf"]);
+    fetchFiles.mockResolvedValue(["B/index.md"]);
+    fetchNote.mockResolvedValue("[r.pdf](/r.pdf)\n");
+    const app = await renderApp();
+    await settle();
+    app.expand("B");
+    app.click("B/index.md");
+    await settle();
+
+    app.press("g");
+    app.press("f");
+    await settle();
+
+    expect(pdfPane()).toBeNull();
+  });
 });

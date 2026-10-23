@@ -170,7 +170,8 @@ export function relativePath(from: string, to: string): string {
  * hash, so such a path is linked the way Obsidian links it: a markdown link whose
  * address is percent-encoded. A plain markdown link is read from the note's own
  * folder, so the address is relative to `from`, not to the vault root. The alias
- * is the link's text and comes in already safe (see `needsMarkdown`).
+ * is the link's text, so the caller has already run it through `aliasOf`, which
+ * keeps a bracket from closing the text.
  */
 export function fileLink(path: string, fragment: string, alias: string, from: string): string {
   const hash = fragment === "" ? "" : `#${fragment}`;

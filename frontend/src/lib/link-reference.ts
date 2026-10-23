@@ -156,6 +156,8 @@ export function fileLinkAt(node: SyntaxNode | null, doc: Source): FileLink | nul
  * their `.` and `..` segments taken off, which is where a climb is caught.
  */
 export function resolveFrom(note: string, relative: string): string | null {
+  // A leading slash is refused, as the backend refuses it, rather than read from the root.
+  if (relative.startsWith("/")) return null;
   const folders = note.split("/").slice(0, -1);
   for (const segment of relative.split("/")) {
     if (segment === "" || segment === ".") continue;
