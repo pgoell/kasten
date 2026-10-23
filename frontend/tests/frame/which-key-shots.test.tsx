@@ -14,6 +14,7 @@ import "@fontsource-variable/jetbrains-mono/index.css";
 import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
 import { commands, page } from "vitest/browser";
+import { KeyHelp } from "@/components/key-help";
 import { WhichKey } from "@/components/which-key";
 import { applyTheme, PALETTE_KEY, THEME_KEY, type Theme } from "@/lib/theme";
 import { beginLeader, paneOpener } from "@/lib/which-key";
@@ -36,7 +37,7 @@ const NOTE = [
   "The first thing to check after a failover is which replica holds the last acknowledged write.",
 ];
 
-function Page({ phone }: { phone: boolean }) {
+function Page({ phone, help = false }: { phone: boolean; help?: boolean }) {
   return (
     <main className="flex h-dvh bg-k-bg text-k-ink">
       <div data-pane tabIndex={-1} className="min-w-0 flex-1 overflow-hidden px-8 pt-10">
@@ -47,7 +48,7 @@ function Page({ phone }: { phone: boolean }) {
           </p>
         ))}
       </div>
-      <WhichKey phone={phone} />
+      {help ? <KeyHelp onClose={() => {}} /> : <WhichKey phone={phone} />}
     </main>
   );
 }
@@ -112,9 +113,63 @@ async function shootPanel(
   }
 }
 
+/**
+ * Key help open with the filter typed in, shot as the whole page.
+ *
+ * The filter takes its text through the element's own value setter and an input
+ * event, which is the one way React sees a typed change in a field it controls.
+ */
+async function shootKeyHelp(name: string, size: Size, theme: Theme, query: string) {
+  await page.viewport(size.width, size.height);
+  await commands.emulateMedia({
+    touch: size.touch,
+    reducedMotion: "no-preference",
+    contrast: "no-preference",
+    reducedTransparency: "no-preference",
+  });
+  localStorage.clear();
+  localStorage.setItem(THEME_KEY, theme);
+  localStorage.setItem(PALETTE_KEY, "poel");
+  applyTheme();
+
+  const host = document.body.appendChild(document.createElement("div"));
+  const root: Root = createRoot(host);
+  try {
+    flushSync(() => root.render(<Page phone={size.touch} help />));
+    await nextFrame();
+    const field = host.querySelector<HTMLInputElement>("input[aria-label='Filter keys']");
+    const setValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+    flushSync(() => {
+      setValue?.call(field, query);
+      field?.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    await nextFrame();
+
+    const width = await shot(document.body, name);
+    expect(width).toBe(size.width);
+  } finally {
+    flushSync(() => root.unmount());
+    host.remove();
+    await commands.emulateMedia({});
+  }
+}
+
 function shotTest(name: string, run: () => Promise<void>) {
   it.skipIf(!SHOTS)(name, run, 300_000);
 }
+
+shotTest("key-help-filter-desktop-1440-light", () =>
+  shootKeyHelp("key-help-filter-desktop-1440-light", DESKTOP, "light", "graph"),
+);
+shotTest("key-help-filter-desktop-1440-dark", () =>
+  shootKeyHelp("key-help-filter-desktop-1440-dark", DESKTOP, "dark", "graph"),
+);
+shotTest("key-help-touch-390-light", () =>
+  shootKeyHelp("key-help-touch-390-light", TOUCH, "light", "tab"),
+);
+shotTest("key-help-touch-390-dark", () =>
+  shootKeyHelp("key-help-touch-390-dark", TOUCH, "dark", "tab"),
+);
 
 shotTest("which-key-desktop-1440-light", () =>
   shootPanel("which-key-desktop-1440-light", DESKTOP, "light"),

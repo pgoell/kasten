@@ -200,7 +200,10 @@ export function KeyHelp({ onClose }: { onClose: () => void }) {
       {/* The finder's panel, wider: this is the fourth thing the app draws over
           the editor and reads as the same object, but it holds a map rather
           than a list, and the width is what keeps the map off a scrollbar. */}
-      <div className={`${PANEL} max-h-[88vh] w-[min(84rem,95vw)]`}>
+      {/* `PANEL` is mono for the overlays that are all lists of paths. Here the
+          words are the UI and only the keys are code, so the sans goes on top,
+          with `!` because both classes set the same font family. */}
+      <div className={`${PANEL} !font-sans max-h-[88vh] w-[min(84rem,95vw)]`}>
         <div className={HEADER_ROW}>
           <span className={LABEL}>Keys</span>
           <input
@@ -210,7 +213,7 @@ export function KeyHelp({ onClose }: { onClose: () => void }) {
             placeholder="Filter, e.g. graph or tab"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            className={`${INPUT} font-mono`}
+            className={`${INPUT} font-mono [&::-webkit-search-cancel-button]:appearance-none`}
           />
         </div>
         <div className="min-h-0 overflow-auto px-4 py-3">

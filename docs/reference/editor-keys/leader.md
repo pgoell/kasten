@@ -20,9 +20,9 @@ pane. Its top line shows the presses so far, and below it the leader keys stand
 in six columns: Find, Create, Go to, Tabs, Panes and This note. The tables below
 follow those columns in that order. The next key narrows the panel to the keys
 that begin with it, so after `g` only the `g` keys stay. A click or tap on a row
-runs it. Esc, Space again or a key that matches nothing closes the panel, and the
-focus goes back where it was. A command that moves the focus, such as a finder,
-keeps it. While the panel is open every key goes to it, so `y` takes nothing.
+runs it. Esc, Space again, a press or a focus move outside the panel, or a key
+that matches nothing closes the panel, and the focus goes back where it was. A
+command run from the panel keeps the focus where it put it, such as a finder. While the panel is open every key goes to it, so `y` takes nothing.
 On a desktop the panel fades out when it closes, and Space pressed during the
 fade brings it back. On a phone it is a bottom sheet with a grabber, and a flick
 down closes it.

@@ -67,10 +67,10 @@ turn and whenever you close the reader.
 [How it keeps your place](/explanation/books-in-the-vault/highlights-and-place.md#how-it-keeps-your-place)
 says what that line costs.
 
-The keys below are the only ones the pane answers, apart from Space. Space
-opens [the which-key panel](/reference/editor-keys/leader.md) at the foot of the
-pane, so it does not turn the page, and the leader works here as it does in the
-other panes.
+The keys below are the only ones the pane answers, apart from Space and `?`.
+Space opens [the which-key panel](/reference/editor-keys/leader.md) at the foot of
+the pane, so it does not turn the page, and the leader works here as it does in
+the other panes. `?` opens key help.
 
 | Key | Does |
 | --- | --- |

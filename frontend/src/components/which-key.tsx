@@ -2,7 +2,7 @@ import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState }
 import { Sheet } from "@/components/sheet";
 import { trapTab } from "@/lib/focus-trap";
 import { heldModifier, LEADER, LEADER_COLUMNS, TAB_DIGITS, TAB_KEYS } from "@/lib/leader-keys";
-import { LABEL, ROW, TAP } from "@/lib/overlay-styles";
+import { LABEL } from "@/lib/overlay-styles";
 import { SPRINGS, Spring } from "@/lib/spring";
 import { hostLeader, type LeaderOpener } from "@/lib/which-key";
 
@@ -34,6 +34,11 @@ interface Live {
 }
 
 const KEY = "font-mono tracking-k-kbd";
+const CHIP = `${KEY} rounded-[var(--k-radius-4)] bg-k-surface px-1.5 py-0.5`;
+// A row's key sits in a fixed track, so every label starts at the same x. The tab row
+// prints `1 … 0`, the widest key, so its track is wider than a two-key row needs.
+const ENTRY_TRACK = "grid grid-cols-[2.25rem_1fr] items-baseline gap-x-2";
+const TAB_TRACK = "grid grid-cols-[3rem_1fr] items-baseline gap-x-2";
 const TAB_LABEL = "Go to a tab by number";
 
 /** The keys as the panel prints them: `cf` reads as two presses, `c f`. */
@@ -67,10 +72,6 @@ function placeFor(from: Element | null): CSSProperties {
   return { left: rect.left, width: rect.width, bottom: window.innerHeight - rect.bottom };
 }
 
-/**
- * Hands the focus back to what held it when Space was pressed. Synchronous and
- * without a scroll, so the panel's leave never moves the page.
- */
 const PANEL = '[role="dialog"][aria-label="Leader keys"]';
 
 /**
@@ -81,21 +82,26 @@ function insidePanel(target: EventTarget | null): boolean {
   return target instanceof Element && target.closest(PANEL) !== null;
 }
 
+/**
+ * Hands the focus back to what held it when Space was pressed. Synchronous and
+ * without a scroll, so the panel's leave never moves the page.
+ */
 function focusBack(opener: LeaderOpener) {
   const from = opener.from;
   if (from instanceof HTMLElement && from.isConnected) from.focus({ preventScroll: true });
 }
 
-function Pressed({ typed }: { typed: string }) {
+/** Each press as a chip. The sheet's header already insets its row, so there it takes no side padding. */
+function Pressed({ typed, sheet = false }: { typed: string; sheet?: boolean }) {
   return (
     <section
       aria-label="Keys pressed"
-      className="flex flex-wrap items-center gap-1.5 px-4 pt-3 pb-2 text-[13px] text-k-ink"
+      className={`flex flex-wrap items-center gap-1.5 pt-3 pb-2 text-[13px] text-k-ink ${sheet ? "" : "px-4"}`}
     >
-      <kbd className={KEY}>Space</kbd>
+      <kbd className={CHIP}>Space</kbd>
       {/* Keyed by the prefix typed so far, which is unique for each press. */}
       {[...typed].map((key, index) => (
-        <kbd key={typed.slice(0, index + 1)} className={KEY}>
+        <kbd key={typed.slice(0, index + 1)} className={CHIP}>
           {key}
         </kbd>
       ))}
@@ -118,10 +124,10 @@ function Entry({
     <button
       type="button"
       onClick={() => onRun(rowKey)}
-      className={`group ${ROW} ${TAP} flex items-baseline gap-3`}
+      className={`group k-row w-full cursor-pointer px-3 py-[2px] text-left text-[13px] pointer-coarse:min-h-11 ${ENTRY_TRACK}`}
     >
       <kbd className={`${KEY} whitespace-nowrap text-k-accent`}>{spaced(shown)}</kbd>
-      <span className="text-k-muted group-hover:text-k-ink group-focus-visible:text-k-ink">
+      <span className="leading-[1.3] text-k-muted group-hover:text-k-ink group-focus-visible:text-k-ink">
         {label}
       </span>
     </button>
@@ -131,7 +137,7 @@ function Entry({
 /** The ten tab digits in one row: a number is typed, not clicked. */
 function TabRow() {
   return (
-    <div className="flex items-baseline gap-3 px-3 py-[3px] text-[13px]">
+    <div className={`px-3 py-[3px] text-[13px] ${TAB_TRACK}`}>
       <kbd className={`${KEY} whitespace-nowrap text-k-accent`}>
         {`${TAB_KEYS[0]} … ${TAB_KEYS[TAB_KEYS.length - 1]}`}
       </kbd>
@@ -142,7 +148,7 @@ function TabRow() {
 
 /**
  * The six columns before any key, and once a key is typed the rows it begins,
- * shown under the title of the column the first of them sits in.
+ * shown in one group per column the matches sit in, each under its own title.
  */
 function Body({
   columns,
@@ -155,7 +161,7 @@ function Body({
 }) {
   if (typed === "") {
     return (
-      <div className="grid grid-cols-[repeat(auto-fill,minmax(10.5rem,1fr))] gap-x-6 gap-y-4 px-2 pb-3">
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(10.5rem,1fr))] gap-x-4 gap-y-4 px-2 pb-3">
         {columns.map((column) => (
           <section key={column.title} className="min-w-0">
             <h3 className={`${LABEL} mb-1 px-3`}>{column.title}</h3>
@@ -249,6 +255,9 @@ export function WhichKey({ phone }: { phone: boolean }) {
   useEffect(() => hostLeader(open), [open]);
 
   const leave = useCallback(() => {
+    // Already on its way out, so a second close (the focus moving, then the key that
+    // moved it) changes nothing and starts no second fade.
+    if (live.current.phase !== "open") return;
     live.current = { ...live.current, phase: "leaving" };
     setPhase("leaving");
     // The phone sheet leaves by itself once `open` turns false. The desktop panel
@@ -360,7 +369,7 @@ export function WhichKey({ phone }: { phone: boolean }) {
           setPhase("gone");
         }}
         label="Leader keys"
-        header={<Pressed typed={typed} />}
+        header={<Pressed typed={typed} sheet />}
         restoreFocus={!ran}
       >
         <Body columns={columns} typed={typed} onRun={runRow} />
@@ -382,7 +391,7 @@ export function WhichKey({ phone }: { phone: boolean }) {
       inert={phase === "leaving" || undefined}
       aria-hidden={phase === "leaving" ? "true" : undefined}
       style={place}
-      className="fixed z-30 flex max-h-[60vh] flex-col border-t border-k-rule bg-k-paper shadow-[var(--k-shadow)] outline-none"
+      className="fixed z-30 flex max-h-[85vh] flex-col border-t border-k-rule bg-k-paper shadow-[var(--k-shadow)] outline-none"
     >
       <Pressed typed={typed} />
       <div className="min-h-0 overflow-y-auto overscroll-contain">
