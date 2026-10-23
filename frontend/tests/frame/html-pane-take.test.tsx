@@ -166,6 +166,24 @@ it("a page with no heading takes the file name as its source", async () => {
   expect(sources[2]?.textContent).toBe(PLAIN_PATH);
 });
 
+it("the take toast stays small on a wide pane", async () => {
+  await browser.servePage(PLAIN_PATH, PLAIN);
+  render(mounted, [PLAIN_PATH]);
+  const frame = frameOf(mounted, 0);
+  await ready(frame);
+  await select(frame, ["line", 0, "line", 5]);
+  await expect.poll(() => takeButton(mounted) !== null).toBe(true);
+
+  await userEvent.keyboard("y");
+
+  await expect.poll(() => mounted.host.querySelector("[role='status']") !== null).toBe(true);
+  const toast = mounted.host.querySelector("[role='status']") as HTMLElement;
+  expect(toast.getBoundingClientRect().width).toBeLessThanOrEqual(448);
+  expect(
+    Math.abs(toast.getBoundingClientRect().left - mounted.host.getBoundingClientRect().left),
+  ).toBeLessThanOrEqual(16);
+});
+
 it("a selection across two articles links to the first", async () => {
   await browser.servePage(NEWS_PATH, NEWS);
   render(mounted, [NEWS_PATH]);

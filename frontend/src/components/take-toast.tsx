@@ -67,7 +67,7 @@ export function TakeToast({
       role="status"
       onPointerEnter={() => setHovered(true)}
       onPointerLeave={() => setHovered(false)}
-      className={`absolute inset-x-3 bottom-3 z-10 flex flex-col gap-1 rounded-[var(--k-radius-6)] border border-k-rule bg-k-paper p-3 shadow-[var(--k-shadow)] transition-opacity duration-(--k-hover) ease-(--k-ease-out) motion-reduce:transition-none ${leaving ? "opacity-0" : "opacity-100"}`}
+      className={`absolute inset-x-3 bottom-3 z-10 sm:max-w-md flex flex-col gap-1 rounded-[var(--k-radius-6)] border border-k-rule bg-k-paper p-3 shadow-[var(--k-shadow)] transition-opacity duration-(--k-hover) ease-(--k-ease-out) motion-reduce:transition-none ${leaving ? "opacity-0" : "opacity-100"}`}
     >
       <p className="font-sans text-k-13 text-k-muted">{title}</p>
       <p className="line-clamp-2 font-serif text-k-15 text-k-ink">{passage.slice(0, WORDS)}</p>
