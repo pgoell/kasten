@@ -179,10 +179,10 @@ on the dark one. A switch of theme or palette restyles the text where you
 are and keeps your place. A flowing epub reads in one column at the reading
 measure, 680 px.
 
-A wide pane uses the room either side of the text. From 960 px of pane width
+A wide pane uses the room either side of the text. From 1015 px of pane width
 the book's contents sit in a 224 px column on the left, the chapter you are in
 marked in the accent with a bar beside it, and a click on a chapter goes there.
-From 1280 px the passages taken so far sit in a 288 px column on the right,
+From 1303 px the passages taken so far sit in a 288 px column on the right,
 under `Taken`, in the note's order, and a click on one goes to it in the book.
 Each pane measures itself, so the two halves of a split decide alone, and a
 phone shows the text alone. The header row reads `BOOK`, the note's name in
