@@ -6,8 +6,24 @@ import { readClock } from "@/lib/clock";
 import { pageLink, takenQuote } from "@/lib/html-take";
 import { noteBase } from "@/lib/note-base";
 import { reset } from "@/lib/outbox";
-import { periodicNote } from "@/lib/periodic";
 import { hostLeader } from "@/lib/which-key";
+import {
+  answering,
+  DAILY,
+  dropped,
+  dumpsSent,
+  fromPage,
+  NOTE,
+  PASSAGE,
+  PATH,
+  QUOTE,
+  READING,
+  renderPane,
+  selection,
+  settled,
+  takeButton,
+  yFromPage,
+} from "./html-pane-fixture";
 import { stubMatchMedia } from "./match-media";
 import { stubCommands } from "./stub-commands";
 
@@ -25,93 +41,6 @@ vi.mock("@/lib/api", () => {
 
 // The take goes through the real outbox, which keeps the dump in IndexedDB.
 // Its stand-in is the one the capture route's tests use.
-
-const PATH = "30 Research/report.html";
-const PASSAGE = { text: "A passage of the report.", heading: "Results", anchor: "results" };
-const RECT = { left: 100, top: 100, right: 160, bottom: 120 };
-const READING = "00 Notes/Reading.md";
-
-/** The dump the take writes, and the daily note's text with it in its `## Dump`. */
-const QUOTE = takenQuote(PATH, PASSAGE);
-const DAILY = periodicNote("daily", new Date()).path;
-const NOTE = `## Dump\n\n${QUOTE}\n`;
-
-/** Drop the outbox's database, which only goes once the outbox has let go of it. */
-function dropped(): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.deleteDatabase("kasten-outbox");
-    request.onsuccess = () => resolve();
-    request.onerror = () => reject(request.error);
-  });
-}
-
-/** A message as the window hears it, from `source`, the way a page's script posts one. */
-function fromPage(source: Window | null, data: unknown) {
-  act(() => {
-    window.dispatchEvent(new MessageEvent("message", { data, source }));
-  });
-}
-
-/** What the page sends for a selection, with the fields the test does not name. */
-function selection(over: Record<string, unknown> = {}) {
-  return {
-    kasten: "selection",
-    text: PASSAGE.text,
-    heading: PASSAGE.heading,
-    anchor: PASSAGE.anchor,
-    rect: RECT,
-    ...over,
-  };
-}
-
-/** A fetch that answers every call with a sent dump, and records what it was asked. */
-function answering() {
-  const sent = vi.fn(async (_url: string, _init?: RequestInit) => {
-    return new Response(JSON.stringify({}), { status: 200 });
-  });
-  vi.stubGlobal("fetch", sent);
-  return sent;
-}
-
-/** The bodies of the dumps that were posted, in the order they were sent. */
-function dumpsSent(sent: ReturnType<typeof answering>) {
-  return sent.mock.calls
-    .filter(([url]) => url === "/api/dump")
-    .map(([, init]) => JSON.parse(String(init?.body)) as { text: string; date: string });
-}
-
-/** The pane, wrapped for the queries the toast's note list makes. */
-function renderPane(path = PATH) {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  const view = render(
-    <QueryClientProvider client={queryClient}>
-      <HtmlPane path={path} commands={stubCommands()} onFocus={() => {}} />
-    </QueryClientProvider>,
-  );
-  const frame = view.container.querySelector("iframe") as HTMLIFrameElement;
-  const section = view.container.querySelector("[data-html-pane]") as HTMLElement;
-  return { frame, section };
-}
-
-/** The take button, as a reader finds it. */
-function takeButton() {
-  return screen.queryByRole("button", { name: "Take the passage" });
-}
-
-/** Presses `y` from the page, the frame having the focus. */
-function yFromPage(frame: HTMLIFrameElement) {
-  fromPage(frame.contentWindow, { kasten: "key", key: "y" });
-}
-
-/**
- * Lets the take finish, which runs through IndexedDB: the answer comes on the
- * next macrotask, so the test waits for a macrotask at a time, a bounded number.
- */
-async function settled(done: () => boolean) {
-  for (let turn = 0; turn < 200 && !done(); turn++) {
-    await act(() => new Promise<void>((resolve) => setImmediate(resolve)));
-  }
-}
 
 beforeEach(async () => {
   localStorage.clear();

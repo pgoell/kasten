@@ -3,7 +3,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testi
 import { useRef } from "react";
 import { usePdfTake } from "@/components/pdf-take";
 import { noteBase } from "@/lib/note-base";
-import { reset } from "@/lib/outbox";
+import { reset, waiting } from "@/lib/outbox";
 import { pdfQuote } from "@/lib/pdf-take";
 import { periodicNote } from "@/lib/periodic";
 import { stubMatchMedia } from "./match-media";
@@ -127,6 +127,28 @@ function dumpsSent(sent: ReturnType<typeof answering>) {
   return sent.mock.calls
     .filter(([url]) => url === "/api/dump")
     .map(([, init]) => JSON.parse(String(init?.body)) as { text: string; date: string });
+}
+
+/** A fetch whose dump send waits until the test lets it land, and records what it was asked. */
+function answeringLate() {
+  let land = () => {};
+  const landed = new Promise<void>((resolve) => {
+    land = resolve;
+  });
+  const sent = vi.fn(async (url: string, _init?: RequestInit) => {
+    if (url === "/api/dump") await landed;
+    return new Response(JSON.stringify({}), { status: 200 });
+  });
+  vi.stubGlobal("fetch", sent);
+  return { sent, land };
+}
+
+/** Lets the outbox send what it holds, and the take that sent it, run to its end. */
+async function drained() {
+  for (let turn = 0; turn < 200 && (await waiting()).length > 0; turn++) {
+    await act(() => new Promise<void>((resolve) => setImmediate(resolve)));
+  }
+  await act(() => new Promise<void>((resolve) => setImmediate(resolve)));
 }
 
 /** Drop the outbox's database, which only goes once the outbox has let go of it. */
@@ -342,7 +364,7 @@ describe("taking a passage out of a pdf", () => {
     const registry = new Map<string, unknown>();
     vi.stubGlobal("CSS", { highlights: registry });
     vi.stubGlobal("Highlight", Set);
-    answering();
+    const sent = answering();
     let release = () => {};
     gate.hold = new Promise<void>((resolve) => {
       release = resolve;
@@ -355,7 +377,8 @@ describe("taking a passage out of a pdf", () => {
     act(() => pdf?.forget());
     release();
 
-    await screen.findByRole("status");
+    // A stale take shows no toast, so its send is what the test waits for.
+    await waitFor(() => expect(dumpsSent(sent)).toHaveLength(1));
     expect(marked(registry).size).toBe(0);
     // Nothing was recorded, so a page of the new pdf drawn now gets no mark either.
     const fresh = document.createElement("div");
@@ -397,5 +420,42 @@ describe("taking a passage out of a pdf", () => {
     await waitFor(() => expect(saveNote).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(marked(registry).size).toBe(1));
     expect([...marked(registry)].map((range) => range.toString())).toEqual([WORDS]);
+  });
+
+  it("a take whose send lands after a new pdf opened shows no toast and no Undo over it", async () => {
+    const { sent, land } = answeringLate();
+    render(<Pdf />);
+    select(pageTwo());
+    fireEvent.keyDown(pageTwo(), { key: "y" });
+    await waitFor(() => expect(dumpsSent(sent)).toHaveLength(1));
+
+    act(() => pdf?.forget());
+    land();
+    await drained();
+
+    expect({
+      sent: dumpsSent(sent).length,
+      toast: screen.queryByRole("status") !== null,
+      undo: screen.queryByRole("button", { name: "Undo" }) !== null,
+    }).toEqual({ sent: 1, toast: false, undo: false });
+  });
+
+  it("a selection made after y is still held and selected when the take is kept", async () => {
+    answering();
+    let release = () => {};
+    gate.hold = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    render(<Pdf />);
+    select(pageTwo());
+    fireEvent.keyDown(pageTwo(), { key: "y" });
+    select(screen.getByText("Three."));
+
+    release();
+    await screen.findByRole("status");
+    expect({
+      button: screen.queryByRole("button", { name: "Take the passage" }) !== null,
+      selected: document.getSelection()?.toString(),
+    }).toEqual({ button: true, selected: "Three." });
   });
 });

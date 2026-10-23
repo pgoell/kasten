@@ -233,6 +233,23 @@ describe("following a link to a page of HTML", () => {
     expect(document.querySelector("[data-html-pane] iframe")?.getAttribute("title")).toBe(PAGE);
   });
 
+  it("opens a page a markdown link names at its anchor, a ] in its name and all (A3)", async () => {
+    // The take writes this shape for a path a wikilink cannot hold.
+    fetchHtml.mockResolvedValue(["x/a]]b.html"]);
+    fetchNote.mockResolvedValue("[Heading](x/a%5D%5Db.html#s1)\n");
+    const app = await renderApp();
+    await settle();
+    app.click(NOTE);
+    await settle();
+    app.press("g");
+    app.press("f");
+    await settle();
+
+    const iframe = document.querySelector("[data-html-pane] iframe");
+    expect(iframe?.getAttribute("title")).toBe("x/a]]b.html");
+    expect(iframe?.getAttribute("src")?.split("#")[1]).toBe("s1");
+  });
+
   it("loads a page whose name holds # from the tree", async () => {
     // From the tree and not a link, `[[plan #2.html]]` naming the heading `2.html`.
     const odd = "plan #2.html";

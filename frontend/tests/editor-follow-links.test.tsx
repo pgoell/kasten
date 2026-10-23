@@ -1,9 +1,14 @@
-import { fireEvent, render } from "@testing-library/react";
+import { EditorView } from "@codemirror/view";
+import { act, fireEvent, render } from "@testing-library/react";
 import { Editor } from "@/components/editor";
+import { toggleVim } from "@/lib/vim-setting";
 import { deleteCurrentLine, HIGHLIGHT, PASSAGE } from "./editor-fixture";
 import { finishParsing, renderStarved } from "./parsing";
 
 describe("Editor", () => {
+  // Vim is kept in local storage, and a test that turns it off must not leave it so.
+  afterEach(() => localStorage.clear());
+
   it("follows the wikilink under the cursor on gf", () => {
     const onFollow = vi.fn();
     const { container } = render(<Editor initialDoc="see [[borges]] now" onFollow={onFollow} />);
@@ -150,6 +155,140 @@ describe("Editor", () => {
 
     fireEvent.mouseDown(container.querySelector(".cm-link") as HTMLElement, { ctrlKey: true });
 
+    expect(open).not.toHaveBeenCalled();
+    open.mockRestore();
+  });
+
+  it("opens the page a markdown link names on gf, at the heading it names (A3)", () => {
+    // The address the take writes for a path a wikilink cannot hold.
+    const onFollow = vi.fn();
+    const { container } = render(
+      <Editor initialDoc="[Heading](x/a%5D%5Db.html#s1) now" onFollow={onFollow} />,
+    );
+    finishParsing(container);
+    const content = container.querySelector(".cm-content") as HTMLElement;
+
+    fireEvent.keyDown(content, { key: "g" });
+    fireEvent.keyDown(content, { key: "f" });
+
+    expect(onFollow).toHaveBeenCalledWith("x/a]]b.html", { path: "x/a]]b.html", heading: "s1" });
+  });
+
+  it("opens the page a markdown link names on Enter, vim on (A3)", () => {
+    const onFollow = vi.fn();
+    const { container } = render(
+      <Editor initialDoc="[Heading](x/a%5D%5Db.html#s1) now" onFollow={onFollow} />,
+    );
+    finishParsing(container);
+    const content = container.querySelector(".cm-content") as HTMLElement;
+
+    fireEvent.keyDown(content, { key: "Enter", keyCode: 13 });
+
+    expect(onFollow).toHaveBeenCalledWith("x/a]]b.html", { path: "x/a]]b.html", heading: "s1" });
+  });
+
+  it("opens the page a markdown link names on ctrl+click, vim off (A3)", () => {
+    const onFollow = vi.fn();
+    const open = vi.spyOn(window, "open").mockReturnValue(null);
+    const { container } = render(
+      <Editor initialDoc="see [Heading](x/a%5D%5Db.html#s1) now" onFollow={onFollow} />,
+    );
+    act(() => toggleVim());
+
+    fireEvent.mouseDown(container.querySelector(".cm-link") as HTMLElement, { ctrlKey: true });
+
+    expect(onFollow).toHaveBeenCalledWith("x/a]]b.html", { path: "x/a]]b.html", heading: "s1" });
+    expect(open).not.toHaveBeenCalled();
+    open.mockRestore();
+  });
+
+  it("opens the page a markdown link names on a tap, in kasten and not a new tab (A3)", () => {
+    const onFollow = vi.fn();
+    const open = vi.spyOn(window, "open").mockReturnValue(null);
+    const { container } = render(
+      <Editor initialDoc="see [Heading](x/a%5D%5Db.html#s1) now" onFollow={onFollow} />,
+    );
+    finishParsing(container);
+    const link = container.querySelector(".cm-link") as HTMLElement;
+
+    fireEvent.pointerDown(link, { pointerType: "touch" });
+    fireEvent.click(link);
+
+    expect(onFollow).toHaveBeenCalledWith("x/a]]b.html", { path: "x/a]]b.html", heading: "s1" });
+    expect(open).not.toHaveBeenCalled();
+    open.mockRestore();
+  });
+
+  it("opens the file a highlight's chapter line links to on gf, not the highlight (I7)", () => {
+    const onFollow = vi.fn();
+    const onOpenHighlight = vi.fn();
+    const { container } = render(
+      <Editor
+        initialDoc={`> ${PASSAGE}\n\n[Storage](x/a%5D%5Db.html#s1) ^hl-abc123`}
+        onFollow={onFollow}
+        onOpenHighlight={onOpenHighlight}
+      />,
+    );
+    finishParsing(container);
+    const content = container.querySelector(".cm-content") as HTMLElement;
+
+    // The cursor goes to the chapter line's start directly, as the motions
+    // that would find it are what this test is not about.
+    const view = EditorView.findFromDOM(content) as EditorView;
+    view.dispatch({ selection: { anchor: view.state.doc.line(3).from } });
+    fireEvent.keyDown(content, { key: "g" });
+    fireEvent.keyDown(content, { key: "f" });
+
+    expect(onFollow).toHaveBeenCalledWith("x/a]]b.html", { path: "x/a]]b.html", heading: "s1" });
+    expect(onOpenHighlight).not.toHaveBeenCalled();
+  });
+
+  it("does not follow a markdown link to a web address on gf (I6)", () => {
+    const onFollow = vi.fn();
+    const { container } = render(
+      <Editor initialDoc="[mail](https://example.com/a) now" onFollow={onFollow} />,
+    );
+    finishParsing(container);
+    const content = container.querySelector(".cm-content") as HTMLElement;
+
+    fireEvent.keyDown(content, { key: "g" });
+    fireEvent.keyDown(content, { key: "f" });
+
+    expect(onFollow).not.toHaveBeenCalled();
+  });
+
+  it("opens a web address in a new tab on a tap, not in kasten (I6)", () => {
+    const onFollow = vi.fn();
+    const open = vi.spyOn(window, "open").mockReturnValue(null);
+    const { container } = render(
+      <Editor initialDoc="see [mail](https://example.com/a) now" onFollow={onFollow} />,
+    );
+    finishParsing(container);
+    const link = container.querySelector(".cm-link") as HTMLElement;
+
+    fireEvent.pointerDown(link, { pointerType: "touch" });
+    fireEvent.click(link);
+
+    expect(open).toHaveBeenCalledWith("https://example.com/a", "_blank", "noopener");
+    expect(onFollow).not.toHaveBeenCalled();
+    open.mockRestore();
+  });
+
+  it("does not follow a schemeless link that names no file, on gf, ctrl+click or a tap (I6)", () => {
+    const onFollow = vi.fn();
+    const open = vi.spyOn(window, "open").mockReturnValue(null);
+    const { container } = render(<Editor initialDoc="[x](notes/plan) now" onFollow={onFollow} />);
+    finishParsing(container);
+    const content = container.querySelector(".cm-content") as HTMLElement;
+    const link = container.querySelector(".cm-link") as HTMLElement;
+
+    fireEvent.keyDown(content, { key: "g" });
+    fireEvent.keyDown(content, { key: "f" });
+    fireEvent.mouseDown(link, { ctrlKey: true });
+    fireEvent.pointerDown(link, { pointerType: "touch" });
+    fireEvent.click(link);
+
+    expect(onFollow).not.toHaveBeenCalled();
     expect(open).not.toHaveBeenCalled();
     open.mockRestore();
   });

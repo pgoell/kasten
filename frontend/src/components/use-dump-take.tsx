@@ -50,7 +50,13 @@ export function useDumpTake(o: {
   onMarked: (id: number) => void;
   onUnmarked: (id: number) => void;
 }): {
-  /** Keep it on the device, mark it (onMarked) once kept, send it, show the toast. False when it was not kept; the toast says why. */
+  /**
+   * Keep it on the device, mark it (onMarked) once kept, send it, show the toast.
+   * A take the pane forgot (a new document came meanwhile) is still kept and sent,
+   * but it is not marked and gets no toast. A failure to keep still shows its
+   * error, and then returns true, so the pane does not hold the old passage over
+   * the new document. Otherwise false when it was not kept; the toast says why.
+   */
   take(taking: Taking): Promise<boolean>;
   /** Drop the toast (a new document in the pane). */
   forget(): void;
@@ -71,7 +77,12 @@ export function useDumpTake(o: {
     unmarkedRef.current = onUnmarked;
   });
 
-  const forget = useCallback(() => setToast(null), []);
+  // Bumped by a new document, so a take still in flight can tell the pane moved on.
+  const generation = useRef(0);
+  const forget = useCallback(() => {
+    generation.current += 1;
+    setToast(null);
+  }, []);
 
   function show(title: string, taking: Taking, undo?: Undo) {
     toastId.current += 1;
@@ -84,6 +95,9 @@ export function useDumpTake(o: {
     const daily = periodicNote("daily", now).path;
     marks.current += 1;
     const id = marks.current;
+    // Read before the first await, so a forget() during the keep or the send shows.
+    const started = generation.current;
+    const moved = () => started !== generation.current;
 
     const dump = await keep(taking.quote, readClock(now).date).then(
       (kept) => kept,
@@ -92,15 +106,24 @@ export function useDumpTake(o: {
         return null;
       },
     );
-    if (dump === null) return false;
+    // The error is shown even over a new document, since the words are saved nowhere else.
+    if (dump === null) return moved();
 
-    markedRef.current(id);
-    taking.onKept?.(id);
+    // Kept on a document the pane has left: the mark and the passage's onKept belong to
+    // the old one, so they are skipped. The line is still sent.
+    if (!moved()) {
+      markedRef.current(id);
+      taking.onKept?.(id);
+    }
     // The same answers `capture` gives, in the take's words.
     const { waiting, failure } = await flushOutbox();
+    if (moved()) return true;
     const mine = waiting.find((each) => each.id === dump.id);
     if (mine === undefined) {
-      show("Taken into today's dump", taking, await undoFor(daily, taking.quote, id));
+      // The daily note is read over the network, so the pane may move on while it is.
+      const undo = await undoFor(daily, taking.quote, id);
+      if (moved()) return true;
+      show("Taken into today's dump", taking, undo);
     } else if (mine.refused !== undefined) {
       show(mine.refused, taking);
     } else if (failure?.kind === "sign-in") {

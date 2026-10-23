@@ -7,19 +7,20 @@
  * `Range` back from those offsets.
  */
 
-import { aliasOf, fileOf, quoteBlock } from "@/lib/html-take";
+import { aliasOf, fileLink, fileOf, quoteBlock } from "@/lib/html-take";
 
 /** The highlight's name in the document, which the stylesheet paints with `::highlight`. */
 const TAKEN = "kasten-taken";
 
 /**
- * `[[<path>#page=<page>|<file>, page <page>]]`, the link back to the page.
+ * `[[<path>#page=<page>|<file>, page <page>]]`, the link back to the page, or the
+ * markdown form `fileLink` picks for a path with a bracket, bar or hash in it.
  *
  * The file name goes through the same alias escape a heading does, so a name
  * with a bracket or a bar in it cannot close the link. The path is Kasten's own.
  */
 export function pdfLink(path: string, page: number): string {
-  return `[[${path}#page=${page}|${aliasOf(fileOf(path))}, page ${page}]]`;
+  return fileLink(path, `page=${page}`, `${aliasOf(fileOf(path))}, page ${page}`);
 }
 
 /** The dump paragraph for a PDF passage: the text quoted, then the link to its page. */

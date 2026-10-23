@@ -116,7 +116,11 @@ note included. A double tap or a double Ctrl+click follows once.
 
 Ctrl+click or a tap on a markdown link, `[mail](https://mail.google.com/...)`,
 opens its address in a new tab. Only an address with a scheme opens; a
-relative one such as `[notes](notes.md)` does nothing. A tap on the markdown
+relative one such as `[notes](notes.md)` does nothing, except one naming a vault
+page, pdf or other file by its percent-encoded path, `[a](a%5D%5Db.html#s1)`,
+which opens the file as `[[a]]b.html#s1]]` would if a wikilink could hold it.
+That is the link a take writes for such a name, and `gf`, Enter, Ctrl+click and
+a tap all follow it. A tap on the markdown
 link the cursor is in moves the cursor, as on a wikilink. A double tap or a
 double Ctrl+click opens one tab. A picture inside such
 a link, `[![a](cat.png)](https://example.com)`, opens it on any click or a tap,

@@ -104,7 +104,9 @@ export function HtmlPane({
   const dump = useDumpTake({
     archive,
     onMarked: (id) => {
-      hold(null);
+      // A selection made after `y` is the reader's next one, so only a hold that is still
+      // the take's own is cleared (the page's selection message lands while the keep runs).
+      if (heldRef.current === null) hold(null);
       frame.current?.contentWindow?.postMessage({ kasten: "take", id }, "*");
     },
     onUnmarked: (id) => frame.current?.contentWindow?.postMessage({ kasten: "untake", id }, "*"),

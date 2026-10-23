@@ -4,12 +4,24 @@ import { EditorView } from "@codemirror/view";
 import type { SyntaxNode } from "@lezer/common";
 import { type CM5EditorInterface, Vim } from "@replit/codemirror-vim";
 import { highlightAt, mayBeHighlightLine } from "@/lib/highlight";
-import { type UrlLink, urlLinkAt } from "@/lib/link-reference";
+import { type FileLink, fileLinkAt, type UrlLink, urlLinkAt } from "@/lib/link-reference";
 import { noteSectionOf } from "@/lib/note-section";
 import { NOTE, repeats, watchPresses } from "@/lib/presses";
 import { splitTarget, wikiLinkAt } from "@/lib/wikilink";
 
-type FollowHandler = (target: string) => void;
+/**
+ * A file a markdown link names, its path decoded and its `#` part as written.
+ *
+ * Passed beside the target so the route opens a page or pdf the way a
+ * wikilink to it does, at the anchor or page, without parsing the name again.
+ */
+export interface FileTarget {
+  path: string;
+  heading: string | null;
+}
+
+/** The target is the note's name, or the file's path when `file` is given. */
+type FollowHandler = (target: string, file?: FileTarget) => void;
 type HighlightHandler = (quote: string[]) => void;
 
 /**
@@ -57,6 +69,11 @@ function followLink(view: EditorView, target: string) {
   });
 }
 
+/** Open the file a markdown link names, the way a wikilink to it opens. */
+function followFile(view: EditorView, file: FileLink): void {
+  view.state.facet(followHandler)?.(file.path, { path: file.path, heading: file.heading });
+}
+
 /**
  * The quote of the highlight block line `at` sits in, or null outside one.
  *
@@ -83,13 +100,24 @@ function highlightNear(doc: Text, at: number): string[] | null {
  * keeps `<CR>` moving down.
  */
 export function follow(view: EditorView): boolean {
-  const target = wikiLinkAt(view.state, view.state.selection.main.head);
+  const { doc, selection } = view.state;
+  const target = wikiLinkAt(view.state, selection.main.head);
   if (target !== null) {
     followLink(view, target);
     return true;
   }
 
-  const { doc } = view.state;
+  // A file link is read before the highlight, which a `[H](x/a%5D%5Db.html#s1)`
+  // chapter line sits in too: gf on it opens the file, not the passage.
+  const tree = syntaxTree(view.state);
+  const file =
+    fileLinkAt(tree.resolveInner(selection.main.head, 1), doc) ??
+    fileLinkAt(tree.resolveInner(selection.main.head, -1), doc);
+  if (file !== null) {
+    followFile(view, file);
+    return true;
+  }
+
   const quote = highlightNear(doc, doc.lineAt(view.state.selection.main.head).number);
   if (quote === null) return false;
   // True whether or not a handler is installed, which is what the wikilink
@@ -152,6 +180,14 @@ export function followOnClick(): Extension {
         }
         return true;
       }
+      const file = fileUnder(event, view);
+      if (file !== null) {
+        if (!repeats(event, NOTE)) {
+          view.focus();
+          followFile(view, file);
+        }
+        return true;
+      }
       const link = urlUnder(event, view);
       if (link === null) return false;
       if (!repeats(event, link.address)) window.open(link.address, "_blank", "noopener");
@@ -174,10 +210,21 @@ function wikiLinkNode(state: EditorState, pos: number, side: -1 | 1): SyntaxNode
  * another cell's link (#565), and the block opens a cell's address itself.
  */
 function urlUnder(event: Event, view: EditorView): UrlLink | null {
+  const node = linkNodeUnder(event, view);
+  return node === null ? null : urlLinkAt(node, view.state.doc);
+}
+
+/** The markdown link under the pointer that names a vault file, if it does. */
+function fileUnder(event: Event, view: EditorView): FileLink | null {
+  const node = linkNodeUnder(event, view);
+  return node === null ? null : fileLinkAt(node, view.state.doc);
+}
+
+/** The node of the rendered `[text](url)` under the pointer, or null off a drawn link. */
+function linkNodeUnder(event: Event, view: EditorView): SyntaxNode | null {
   const element = event.target instanceof HTMLElement ? event.target.closest(".cm-link") : null;
   if (element === null || element.closest(".cm-table-block") !== null) return null;
-  const node = syntaxTree(view.state).resolveInner(view.posAtDOM(element), 1);
-  return urlLinkAt(node, view.state.doc);
+  return syntaxTree(view.state).resolveInner(view.posAtDOM(element), 1);
 }
 
 /**
@@ -224,6 +271,7 @@ function wikiLinkRangeUnder(event: Event, view: EditorView): SyntaxNode | null {
 export function followOnTap(): Extension {
   let landed: string | null = null;
   let landedUrl: string | null = null;
+  let landedFile: FileLink | null = null;
   watchPresses();
   return EditorView.domEventHandlers({
     pointerdown(event, view) {
@@ -245,6 +293,10 @@ export function followOnTap(): Extension {
       landed = editing ? null : target;
       const link = touch ? urlUnder(event, view) : null;
       landedUrl = link !== null && (head < link.from || head > link.to) ? link.address : null;
+      // A file link is one the tap opens in kasten, so it is not the address a
+      // tap would window.open, and it reads the same way the link does.
+      const file = touch ? fileUnder(event, view) : null;
+      landedFile = file !== null && (head < file.from || head > file.to) ? file : null;
       return false;
     },
     // The browser takes the finger for a scroll. No click follows one, but
@@ -252,13 +304,17 @@ export function followOnTap(): Extension {
     pointercancel() {
       landed = null;
       landedUrl = null;
+      landedFile = null;
       return false;
     },
     click(event, view) {
       const note = landed;
-      const key = landed !== null ? NOTE : landedUrl;
+      const file = landedFile;
+      const url = landedUrl;
       landed = null;
       landedUrl = null;
+      landedFile = null;
+      const key = note !== null || file !== null ? NOTE : url;
       if (key === null) return false;
       // A double tap's second click is kept and does nothing (#569). Off a
       // table the first tap has put the cursor in the link, which turns the
@@ -267,7 +323,8 @@ export function followOnTap(): Extension {
       // a repeat only when the tap before it followed the same (#572).
       if (repeats(event, key)) return true;
       if (note !== null) followLink(view, note);
-      else window.open(key, "_blank", "noopener");
+      else if (file !== null) followFile(view, file);
+      else if (url !== null) window.open(url, "_blank", "noopener");
       return true;
     },
   });

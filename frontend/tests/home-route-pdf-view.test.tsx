@@ -473,4 +473,18 @@ describe("a pdf in kasten's own view", () => {
 
     await showsPage(3);
   });
+
+  it("A3 a markdown link to a pdf whose name holds a | opens the view at page 3", async () => {
+    // The take writes this shape for a path a wikilink cannot hold.
+    const odd = "rehearse/a|b.pdf";
+    fetchAssets.mockResolvedValue([PLAN, odd]);
+    const app = await openNote("[ab.pdf, page 3](rehearse/a%7Cb.pdf#page=3)\n");
+
+    app.press("g");
+    app.press("f");
+    await settle();
+
+    expect(pdfPane()?.getAttribute("data-pdf-pane")).toBe(odd);
+    expect(pdfPane()?.querySelector<HTMLElement>("[data-pdf-box]")?.scrollTop).toBe(2 * PAGE);
+  });
 });

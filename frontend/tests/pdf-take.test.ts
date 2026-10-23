@@ -5,7 +5,7 @@
  */
 
 import { afterEach, expect, it } from "vitest";
-import { quoteBlock } from "@/lib/html-take";
+import { pageLink, quoteBlock } from "@/lib/html-take";
 import { offsetsIn, pdfLink, pdfQuote, rangeIn } from "@/lib/pdf-take";
 import { tagsOf } from "@/lib/tag-rule";
 
@@ -30,6 +30,37 @@ it("a file name with signs in it keeps them out of the alias", () => {
   // character, so the alias drops them the way a heading's alias drops them.
   expect(pdfLink("30 Research/Q1 = 2*3_$.pdf", 4)).toBe(
     "[[30 Research/Q1 = 2*3_$.pdf#page=4|Q1 23.pdf, page 4]]",
+  );
+});
+
+it("a path with no bracket, bar or hash writes the same wikilink as before", () => {
+  expect(pageLink(PATH, { text: "x", heading: "Evals", anchor: "s1" })).toBe(
+    "[[30 Research/report.pdf#s1|Evals]]",
+  );
+  expect(pdfLink(PATH, 2)).toBe("[[30 Research/report.pdf#page=2|report.pdf, page 2]]");
+});
+
+it("a pdf path with ]] in its name links with an encoded address", () => {
+  expect(pdfLink("30 Research/a]]b.pdf", 3)).toBe(
+    "[ab.pdf, page 3](30%20Research/a%5D%5Db.pdf#page=3)",
+  );
+});
+
+it("a pdf path with a bar in its name links with an encoded address", () => {
+  expect(pdfLink("30 Research/a|b.pdf", 3)).toBe(
+    "[ab.pdf, page 3](30%20Research/a%7Cb.pdf#page=3)",
+  );
+});
+
+it("a pdf path with a hash in its name links with an encoded address", () => {
+  expect(pdfLink("30 Research/a#b.pdf", 3)).toBe(
+    "[ab.pdf, page 3](30%20Research/a%23b.pdf#page=3)",
+  );
+});
+
+it("a pdf path with a bracket in its name links with an encoded address", () => {
+  expect(pdfLink("30 Research/a[b.pdf", 3)).toBe(
+    "[ab.pdf, page 3](30%20Research/a%5Bb.pdf#page=3)",
   );
 });
 

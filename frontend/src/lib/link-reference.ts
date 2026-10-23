@@ -9,6 +9,7 @@
  */
 
 import type { SyntaxNode, Tree } from "@lezer/common";
+import { namesAFile } from "@/lib/wikilink";
 
 /** The text a tree was parsed from: a CodeMirror `Text`, or `sourceOf` a string. */
 export interface Source {
@@ -103,6 +104,45 @@ export function urlLinkAt(node: SyntaxNode | null, doc: Source): UrlLink | null 
     const address = linkAddress(up, doc) ?? "";
     const opens = /^[a-z][a-z0-9+.-]*:/i.test(address) && !isScript(address);
     return opens ? { address, from: up.from, to: up.to } : null;
+  }
+  return null;
+}
+
+/** A markdown link to a file in the vault, and where its source sits in the note. */
+export interface FileLink {
+  path: string;
+  heading: string | null;
+  from: number;
+  to: number;
+}
+
+/**
+ * The `Link` at or above `node` when it names a page or an asset in the vault, else null.
+ *
+ * Where a path holds `[`, `]`, `|` or `#`, which a `[[link]]` cannot hold, the
+ * take writes this shape instead: a relative address with each segment
+ * percent-encoded. It is a separate reader, not a case of `urlLinkAt`, because
+ * the live preview asks that one too and must not start following files.
+ */
+export function fileLinkAt(node: SyntaxNode | null, doc: Source): FileLink | null {
+  for (let up = node; up !== null; up = up.parent) {
+    if (up.name !== "Link") continue;
+    const address = linkAddress(up, doc) ?? "";
+    if (address === "" || /^[a-z][a-z0-9+.-]*:/i.test(address)) return null;
+    // The fragment is not encoded, so `#page=3` and `#s1` come through as written.
+    const hash = address.indexOf("#");
+    const encoded = hash === -1 ? address : address.slice(0, hash);
+    const heading = hash === -1 ? "" : address.slice(hash + 1);
+    let path: string;
+    try {
+      path = decodeURIComponent(encoded);
+    } catch (error) {
+      // A stray `%` is a link that names nothing, not a note to fail on.
+      if (error instanceof URIError) return null;
+      throw error;
+    }
+    if (!namesAFile(path)) return null;
+    return { path, heading: heading === "" ? null : heading, from: up.from, to: up.to };
   }
   return null;
 }

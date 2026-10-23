@@ -2,6 +2,7 @@ import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { useEffect, useRef } from "react";
 import { takeVaultText, writeWatched } from "@/lib/buffer-writes";
+import type { FileTarget } from "@/lib/editor-follow";
 import { notePosition } from "@/lib/editor-position";
 import type { EmbedSource } from "@/lib/embed";
 import type { EditorCommands } from "@/lib/key-bindings";
@@ -138,7 +139,7 @@ interface EditorProps {
   /** Called with the whole document on `:w` or ctrl+s. */
   onSave?: (doc: string) => void;
   /** Called with the note a `[[link]]` names when `gf` follows it. */
-  onFollow?: (target: string) => void;
+  onFollow?: (target: string, file?: FileTarget) => void;
   /** Called with a highlight block's paragraphs when `gf` lands on one. */
   onOpenHighlight?: (quote: string[]) => void;
   /** Called with the line `<leader>x` cycled, which the done log follows. */

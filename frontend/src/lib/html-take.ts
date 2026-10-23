@@ -137,6 +137,39 @@ export function fileOf(path: string): string {
 }
 
 /**
+ * `[[<path>#<fragment>|<alias>]]`, or `[<alias>](<address>#<fragment>)` when the
+ * path holds a character a wikilink cannot carry. `fragment` is given without its
+ * `#`, and "" means none.
+ *
+ * A wikilink cannot hold a bracket in its name and has no escape for a bar or a
+ * hash, so such a path is linked the way Obsidian links it: a markdown link whose
+ * address is percent-encoded. The alias is the link's text, so it goes through
+ * `aliasOf` as well, or a bracket in a file name would close the text.
+ */
+export function fileLink(path: string, fragment: string, alias: string): string {
+  const hash = fragment === "" ? "" : `#${fragment}`;
+  if (!/[[\]|#]/.test(path)) return `[[${path}${hash}|${alias}]]`;
+  return `[${aliasOf(alias)}](${encodeLinkPath(path)}${hash})`;
+}
+
+/**
+ * A vault path as a markdown link's address: each segment percent-encoded, the
+ * slashes kept. `encodeURIComponent` leaves `!'()*` alone, and a `(` or a `)` in
+ * an address ends the link early, so those are encoded by hand.
+ */
+export function encodeLinkPath(path: string): string {
+  return path
+    .split("/")
+    .map((segment) =>
+      encodeURIComponent(segment).replace(
+        /[!'()*]/g,
+        (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`,
+      ),
+    )
+    .join("/");
+}
+
+/**
  * `[[<path>#<anchor>|<heading>]]`, the link back to the passage's place on the page.
  *
  * The path is Kasten's own and taken as it is. The anchor is what the page
@@ -145,7 +178,7 @@ export function fileOf(path: string): string {
 export function pageLink(path: string, passage: PagePassage): string {
   const anchor = passage.anchor.replace(/[^A-Za-z0-9_.:-]/g, "").slice(0, ANCHOR_CAP);
   const alias = aliasOf(passage.heading) || fileOf(path);
-  return `[[${path}${anchor === "" ? "" : `#${anchor}`}|${alias}]]`;
+  return fileLink(path, anchor, alias);
 }
 
 /**

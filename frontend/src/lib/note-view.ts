@@ -10,7 +10,13 @@ import { FORMAT } from "@/lib/buffer-keys";
 import { fromVault } from "@/lib/buffer-writes";
 import { editorCommands, forwardCommands, leaderPanel } from "@/lib/editor-commands";
 import { byName, reloadHandler, save, saveHandler } from "@/lib/editor-ex";
-import { followHandler, followOnClick, followOnTap, highlightHandler } from "@/lib/editor-follow";
+import {
+  type FileTarget,
+  followHandler,
+  followOnClick,
+  followOnTap,
+  highlightHandler,
+} from "@/lib/editor-follow";
 import { kastenTheme } from "@/lib/editor-theme";
 import { type EmbedSource, embedSource } from "@/lib/embed";
 import { toggleMark } from "@/lib/format-commands";
@@ -40,7 +46,7 @@ export interface NoteViewLatest {
   commands?: EditorCommands;
   onChange?: (doc: string) => void;
   onSave?: (doc: string) => void;
-  onFollow?: (target: string) => void;
+  onFollow?: (target: string, file?: FileTarget) => void;
   onOpenHighlight?: (quote: string[]) => void;
   onCycleTodo?: CycleHandler;
   elsewhere?: (id: string) => boolean;
@@ -217,7 +223,8 @@ export function createNoteView(o: {
         // third backtick with a pair before the fence handler sees it.
         backticks(),
         saveHandler.of((doc) => latest.current.onSave?.(doc)),
-        followHandler.of((target) => latest.current.onFollow?.(target)),
+        // Forwarded as the editor called it: a wikilink passes its name alone.
+        followHandler.of((...args) => latest.current.onFollow?.(...args)),
         // Only a view told about a graph draws the Graph button, so an editor with
         // no graph to open (the todo pane's, say) keeps the header it had.
         ...(latest.current.onGraph === undefined

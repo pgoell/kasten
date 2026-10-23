@@ -3,7 +3,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-libra
 import { type Taking, useDumpTake } from "@/components/use-dump-take";
 import { readClock } from "@/lib/clock";
 import { noteBase } from "@/lib/note-base";
-import { reset } from "@/lib/outbox";
+import { reset, waiting } from "@/lib/outbox";
 import { pdfLink, pdfQuote } from "@/lib/pdf-take";
 import { periodicNote } from "@/lib/periodic";
 
@@ -69,6 +69,14 @@ async function settled(done: () => boolean) {
   for (let turn = 0; turn < 200 && !done(); turn++) {
     await act(() => new Promise<void>((resolve) => setImmediate(resolve)));
   }
+}
+
+/** Lets the outbox send what it holds, and the take that sent it, run to its end. */
+async function drained() {
+  for (let turn = 0; turn < 200 && (await waiting()).length > 0; turn++) {
+    await act(() => new Promise<void>((resolve) => setImmediate(resolve)));
+  }
+  await act(() => new Promise<void>((resolve) => setImmediate(resolve)));
 }
 
 /** The hook's answer for the test's component, read at the moment it is needed. */
@@ -160,5 +168,43 @@ describe("the dump take a pane shares", () => {
       saved: 0,
       unmarked: 0,
     });
+  });
+
+  it("a take the pane forgot before its keep landed is still sent, but is not marked and gets no toast", async () => {
+    const sent = answering();
+    const onMarked = vi.fn();
+    render(<Taker onMarked={onMarked} onUnmarked={() => {}} />);
+
+    act(() => void takeIt());
+    act(() => dump?.forget());
+    await settled(() => dumpsSent(sent).length > 0);
+    await drained();
+
+    expect({
+      sent: dumpsSent(sent).map((dump) => dump.text),
+      marked: onMarked.mock.calls.length,
+      toast: screen.queryByRole("status") !== null,
+    }).toEqual({ sent: [QUOTE], marked: 0, toast: false });
+  });
+
+  it("a take the pane forgot while its Undo was being read shows no toast over the new document", async () => {
+    answering();
+    let release = () => {};
+    const read = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    fetchNote.mockImplementation(async () => {
+      await read;
+      return NOTE;
+    });
+    render(<Taker onMarked={() => {}} onUnmarked={() => {}} />);
+
+    act(() => void takeIt());
+    await settled(() => fetchNote.mock.calls.length > 0);
+    act(() => dump?.forget());
+    release();
+    await drained();
+
+    expect({ toast: screen.queryByRole("status") !== null }).toEqual({ toast: false });
   });
 });

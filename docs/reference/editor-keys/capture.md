@@ -90,6 +90,16 @@ on. `y`, or the Take button over the selection, takes it in the pdf pane, and
 the note at the foot offers the same Undo and Put it in a note as a page does.
 [The pdf pane](/reference/editor-keys/panes-and-tabs.md#the-pdf-pane) says how.
 
+A wikilink cannot hold `[`, `]`, `|` or `#` in a name, so for a page or pdf
+whose path holds one the link is a markdown link with the path percent-encoded,
+as Obsidian links such a file: `[<heading>](a%5D%5Db.html#<anchor>)`,
+`[<file name>, page N](a%7Cb.pdf#page=N)`. It opens the file in kasten as the
+wikilink would.
+
+A take whose send lands after its pane has moved to another page or pdf still
+lands in the dump, but shows no note over the new document, and so no Undo;
+the line is edited in the daily note. A selection made after `y` stays.
+
 ## Importing markdown, and taking a note out
 
 `<leader>cm` puts markdown files from your disk into the vault. It opens the

@@ -9,6 +9,7 @@ import {
   useState,
 } from "react";
 import { createNote, fetchNote, NoteExists } from "@/lib/api";
+import type { FileTarget } from "@/lib/editor-follow";
 import { queryEmbedSource } from "@/lib/embed";
 import { encodePath } from "@/lib/note-path";
 import { noteSectionOf } from "@/lib/note-section";
@@ -23,7 +24,7 @@ import {
 import { type Layout, tabPanes } from "@/lib/panes";
 import { type Period, periodicNote } from "@/lib/periodic";
 import type { Listings } from "@/lib/use-listings";
-import { namesAFile, pdfPage, splitTarget, wikiLinkPath } from "@/lib/wikilink";
+import { namesAFile, pdfPage, resolveIn, splitTarget, wikiLinkPath } from "@/lib/wikilink";
 
 export type NoteOpening = ReturnType<typeof useNoteOpening>;
 
@@ -211,13 +212,35 @@ export function useNoteOpening({
    * `[[#heading]]` names no note, and the editor jumps within its own.
    */
   const follow = useCallback(
-    (target: string, body = "") => {
+    (target: string, file?: FileTarget, body = "") => {
       const paths = data ?? [];
+      // The one tail a page or an asset takes, from a wikilink or a markdown
+      // link alike. The vault has no write for either, so a link to one nobody
+      // made stays a dead link rather than turning into a note named `.pdf.md`.
+      // One the vault holds opens in a tab of its own, the browser being what
+      // reads a picture. A pdf opens in kasten's own view at the page
+      // `#page=3` names, a phone's viewer ignoring `#page` (#353).
+      const openFile = (path: string, heading: string | null) => {
+        if (html?.includes(path)) {
+          void openHtmlInPane(path, heading ?? undefined);
+          return;
+        }
+        if (!assets?.includes(path)) return;
+        if (path.toLowerCase().endsWith(".pdf")) openPdfInPane(path, pdfPage(heading));
+        else window.open(`/api/assets/${encodePath(path)}`, "_blank");
+      };
+      // A markdown link has split its path and heading already, so there is no
+      // `splitTarget` to do. The path is resolved as a wikilink's name is, so a
+      // bare file name finds the vault's file of that name.
+      if (file !== undefined) {
+        openFile(resolveIn(file.path, linkable ?? []) ?? file.path, file.heading);
+        return;
+      }
       const { name, heading } = splitTarget(target);
       if (name === "") return;
       const path = wikiLinkPath(target, linkable ?? []);
       if (html?.includes(path)) {
-        void openHtmlInPane(path, heading ?? undefined);
+        openFile(path, heading);
         return;
       }
       if (paths.includes(path) && heading !== null) {
@@ -247,15 +270,8 @@ export function useNoteOpening({
       if (paths.includes(path)) {
         return openInPane(path);
       }
-      // The vault has no write for a page or an asset, so a link to one nobody
-      // made stays a dead link rather than turning into a note named `.pdf.md`.
-      // One the vault holds opens in a tab of its own, the browser being what
-      // reads a picture. A pdf opens in kasten's own view at the page
-      // `#page=3` names, a phone's viewer ignoring `#page` (#353).
       if (namesAFile(name)) {
-        if (!assets?.includes(path)) return;
-        if (path.toLowerCase().endsWith(".pdf")) openPdfInPane(path, pdfPage(heading));
-        else window.open(`/api/assets/${encodePath(path)}`, "_blank");
+        openFile(path, heading);
         return;
       }
 
@@ -323,7 +339,7 @@ export function useNoteOpening({
   const openPeriodic = useCallback(
     (period: Period) => {
       const { path, body } = periodicNote(period, new Date());
-      return follow(path, body);
+      return follow(path, undefined, body);
     },
     [follow],
   );

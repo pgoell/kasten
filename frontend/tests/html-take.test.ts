@@ -106,6 +106,56 @@ it("the anchor keeps only safe characters", () => {
   );
 });
 
+it("a page path with ]] in its name links with an encoded address", () => {
+  expect(pageLink("x/a]]b.html", { text: "t", heading: "H", anchor: "s1" })).toBe(
+    "[H](x/a%5D%5Db.html#s1)",
+  );
+});
+
+it("a taken quote from a page path with ]] ends with the encoded link, quoted", () => {
+  expect(takenQuote("x/a]]b.html", { text: "t", heading: "H", anchor: "s1" })).toBe(
+    "> t\n>\n> [H](x/a%5D%5Db.html#s1)",
+  );
+});
+
+it("a page path with a bar in its name links with an encoded address", () => {
+  expect(pageLink("x/a|b.html", { text: "t", heading: "H", anchor: "s1" })).toBe(
+    "[H](x/a%7Cb.html#s1)",
+  );
+});
+
+it("a page path with a hash in its name links with an encoded address", () => {
+  expect(pageLink("x/a#b.html", { text: "t", heading: "H", anchor: "s1" })).toBe(
+    "[H](x/a%23b.html#s1)",
+  );
+});
+
+it("a page path with a bracket in its name links with an encoded address", () => {
+  expect(pageLink("x/a[b.html", { text: "t", heading: "H", anchor: "s1" })).toBe(
+    "[H](x/a%5Bb.html#s1)",
+  );
+});
+
+it("a page with no heading and ]] in its file name gets an alias with no bracket", () => {
+  expect(pageLink("x/a]]b.html", { text: "t", heading: "", anchor: "s1" })).toBe(
+    "[ab.html](x/a%5D%5Db.html#s1)",
+  );
+});
+
+it("a fallback path's space, parentheses and percent are encoded, and decode back", () => {
+  const path = "x/a (b) 50%|c.html";
+  const link = pageLink(path, { text: "t", heading: "", anchor: "s1" });
+  expect(link).toBe("[a (b) 50c.html](x/a%20%28b%29%2050%25%7Cc.html#s1)");
+
+  const address = link.slice(link.indexOf("](") + 2, link.indexOf("#"));
+  expect(
+    address
+      .split("/")
+      .map((segment) => decodeURIComponent(segment))
+      .join("/"),
+  ).toBe(path);
+});
+
 it("the passage is capped at 2000 characters", () => {
   expect(quoteParagraphs("a".repeat(2500))).toEqual([`${"a".repeat(PASSAGE_CAP - 1)}…`]);
 });

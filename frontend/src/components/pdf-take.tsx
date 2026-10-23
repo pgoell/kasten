@@ -168,6 +168,9 @@ export function usePdfTake(o: {
   const dump = useDumpTake({
     archive,
     onMarked: () => {
+      // A selection made after `y` (set while the keep runs) is the reader's next take,
+      // so it is left alone; only the take's own selection is cleared.
+      if (heldRef.current !== null) return;
       hold(null);
       // Taken, so the words are no longer a selection the reader is making.
       document.getSelection()?.removeAllRanges();
