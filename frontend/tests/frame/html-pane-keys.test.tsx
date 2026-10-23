@@ -329,6 +329,7 @@ it("at 390x844 with touch, the header shows and the toolbar's space button opens
 
   await expect.poll(panelOf).not.toBeNull();
   expect(panelOf()?.querySelector("[data-sheet-drag]")).not.toBeNull();
-  const link = host.querySelector("[data-html-pane] a") as HTMLElement;
-  expect(link.getBoundingClientRect().height).toBeGreaterThanOrEqual(44);
+  const link = host.querySelector("[data-html-pane] a");
+  expect(link).not.toBeNull();
+  expect((link as HTMLElement).getBoundingClientRect().height).toBeGreaterThanOrEqual(44);
 });

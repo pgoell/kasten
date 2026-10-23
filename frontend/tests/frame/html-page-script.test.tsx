@@ -73,9 +73,12 @@ addEventListener("load", () => {
 const FIELD_STYLE =
   "position:fixed;inset:0;width:100%;height:100%;box-sizing:border-box;margin:0;font:32px sans-serif";
 
-/** A page whose one control fills the frame, so a click at its centre lands in it. */
+/**
+ * A page whose one control fills the frame, so a click at its centre lands in it.
+ * Tall as well, so a `j` or `k` that reached the page would move its scroll.
+ */
 function field(control: string): string {
-  return `<!doctype html><title>field</title><body>${control}${REPORT}<script>
+  return `<!doctype html><title>field</title><body>${control}<div style="height:3000px"></div>${REPORT}<script>
 const field = document.querySelector("#field");
 field.addEventListener("input", () => parent.postMessage({ fixture: "value", value: field.value }, "*"));
 </script></body>`;
@@ -129,18 +132,25 @@ async function scrollY(): Promise<number | undefined> {
   return messages.slice(before).find((m) => m.fixture === "scroll")?.y;
 }
 
-/** Type Space, `?` and Escape into a field, and check the page kept them and kasten got none. */
+/**
+ * Type Space, `?`, `j` and `k` into a field, and check the page kept them as
+ * letters and kasten got none, and that the page did not scroll. Escape comes
+ * last, and it is the barrier: it is the last key the page reports.
+ */
 async function typeInField(control: string) {
   const element = await mount(field(control));
   await userEvent.click(element);
   await userEvent.keyboard(" ");
   await userEvent.keyboard("?");
+  await userEvent.keyboard("j");
+  await userEvent.keyboard("k");
   await userEvent.keyboard("{Escape}");
 
   await expect.poll(() => reported("Escape")).toBe(true);
   const values = messages.filter((m) => m.fixture === "value");
-  expect(values.at(-1)?.value).toBe(" ?");
+  expect(values.at(-1)?.value).toBe(" ?jk");
   expect(keysSent()).toEqual([]);
+  expect(await scrollY()).toBe(0);
 }
 
 it("posts hello once the page has loaded", async () => {
