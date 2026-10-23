@@ -70,6 +70,14 @@ export interface Anchor {
 }
 
 /**
+ * Whether the button sits in the lower half of the frame, where a toast at the
+ * foot would cover the passage (#885). A take with no place keeps the foot.
+ */
+export function low(at: Anchor | null): boolean {
+  return at !== null && at.y > at.box.height / 2;
+}
+
+/**
  * Where the button goes for a selection, in the wrapper's own px, before it is
  * fitted to the wrapper. Above the words with a fine pointer, where the mouse
  * is; below them on a touch screen, clear of the phone's own menu.

@@ -9,24 +9,14 @@ import { encodePath, noteName } from "@/lib/note-path";
 // the page has no other `flush` to confuse it with.
 import { flush as flushOutbox, keep } from "@/lib/outbox";
 import { writePassage } from "@/lib/page-highlight";
-import { type Anchor, fitButton, placeFor, selectionOf } from "@/lib/page-selection";
+import { postLook } from "@/lib/page-look";
+import { type Anchor, fitButton, low, placeFor, selectionOf } from "@/lib/page-selection";
 import { REFUSED, type Undo, undoFor, undoPassage } from "@/lib/page-undo";
 import { periodicNote } from "@/lib/periodic";
 import { usePressGuard } from "@/lib/take-button";
 import { currentPalette, currentTheme, onThemeChange } from "@/lib/theme";
 import { useViewport } from "@/lib/use-viewport";
 import { beginLeader, paneOpener } from "@/lib/which-key";
-
-/**
- * Tells the page the theme and the palette on screen, so a switch reaches it
- * with no reload. The target is `*` because the frame's origin is opaque (it has
- * no `allow-same-origin`), so no origin would match.
- */
-function postLook(frame: HTMLIFrameElement | null) {
-  const page = frame?.contentWindow;
-  page?.postMessage({ kasten: "theme", theme: currentTheme() }, "*");
-  page?.postMessage({ kasten: "palette", palette: currentPalette() }, "*");
-}
 
 /** The passage held, and where its button goes, or null where it has no place. */
 interface Held {
@@ -40,6 +30,8 @@ interface Toast {
   title: string;
   passage: PagePassage;
   source: string;
+  /** The passage sat in the lower half of the frame, so the toast goes to the top (#885). */
+  top: boolean;
   undo?: Undo;
 }
 
@@ -202,11 +194,12 @@ export function HtmlPane({
   }, []);
 
   /** A line in the toast's source: the heading the words sit under, then the file's name. */
-  function show(title: string, passage: PagePassage, undo?: Undo) {
+  function show(title: string, taken: Held, undo?: Undo) {
     toastId.current += 1;
     const name = fileOf(path);
+    const { passage } = taken;
     const source = passage.heading === "" ? name : `${passage.heading}, ${name}`;
-    setToast({ id: toastId.current, title, passage, source, undo });
+    setToast({ id: toastId.current, title, passage, source, top: low(taken.at), undo });
   }
 
   /**
@@ -241,18 +234,18 @@ export function HtmlPane({
         const { waiting, failure } = await flushOutbox();
         const mine = waiting.find((each) => each.id === dump.id);
         if (mine === undefined) {
-          show("Taken into today's dump", taken.passage, await undoFor(daily, quote, id));
+          show("Taken into today's dump", taken, await undoFor(daily, quote, id));
         } else if (mine.refused !== undefined) {
-          show(mine.refused, taken.passage);
+          show(mine.refused, taken);
         } else if (failure?.kind === "sign-in") {
-          show("Taken, waiting to send: sign in again", taken.passage);
+          show("Taken, waiting to send: sign in again", taken);
         } else {
-          show(`Taken, waiting to send (${waiting.length} waiting)`, taken.passage);
+          show(`Taken, waiting to send (${waiting.length} waiting)`, taken);
         }
       },
       (error: unknown) => {
         hold(taken);
-        show(error instanceof Error ? error.message : "The take was not kept", taken.passage);
+        show(error instanceof Error ? error.message : "The take was not kept", taken);
       },
     );
   }
@@ -491,20 +484,21 @@ export function HtmlPane({
             )}
           </button>
         )}
+        {/* In the wrapper, so `top` sits under the header and the frame bounds the toast. */}
+        {toast && (
+          <TakeToast
+            key={toast.id}
+            top={toast.top}
+            title={toast.title}
+            passage={toast.passage.text}
+            source={toast.source}
+            archive={archive}
+            onUndo={undo === undefined ? undefined : () => void undoTake(undo)}
+            onPut={(notePath) => putInto(toast.id, notePath, toast.passage)}
+            onDone={dismiss}
+          />
+        )}
       </div>
-
-      {toast && (
-        <TakeToast
-          key={toast.id}
-          title={toast.title}
-          passage={toast.passage.text}
-          source={toast.source}
-          archive={archive}
-          onUndo={undo === undefined ? undefined : () => void undoTake(undo)}
-          onPut={(notePath) => putInto(toast.id, notePath, toast.passage)}
-          onDone={dismiss}
-        />
-      )}
     </section>
   );
 }

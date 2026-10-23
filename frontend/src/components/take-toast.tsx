@@ -26,6 +26,8 @@ interface TakeToastProps {
   onPut: (path: string) => void;
   /** Called once the toast has faded, so the owner can drop it. Keep it stable. */
   onDone: () => void;
+  /** Set when the passage sits low in the frame, so the toast goes to the top and leaves it in sight (#885). */
+  top?: boolean;
 }
 
 /**
@@ -44,6 +46,7 @@ export function TakeToast({
   onUndo,
   onPut,
   onDone,
+  top,
 }: TakeToastProps) {
   const [hovered, setHovered] = useState(false);
   const [listing, setListing] = useState(false);
@@ -62,18 +65,22 @@ export function TakeToast({
     return () => clearTimeout(timer);
   }, [leaving, onDone]);
 
+  // The frame less its two margins, so a short pane keeps the toast inside it and
+  // the list scrolls instead of growing past the top (#887).
   return (
     <div
       role="status"
       onPointerEnter={() => setHovered(true)}
       onPointerLeave={() => setHovered(false)}
-      className={`absolute inset-x-3 bottom-3 z-10 sm:max-w-md flex flex-col gap-1 rounded-[var(--k-radius-6)] border border-k-rule bg-k-paper p-3 shadow-[var(--k-shadow)] transition-opacity duration-(--k-hover) ease-(--k-ease-out) motion-reduce:transition-none ${leaving ? "opacity-0" : "opacity-100"}`}
+      className={`absolute inset-x-3 ${top ? "top-3" : "bottom-3"} z-10 sm:max-w-md max-h-[calc(100%-1.5rem)] flex flex-col gap-1 rounded-[var(--k-radius-6)] border border-k-rule bg-k-paper p-3 shadow-[var(--k-shadow)] transition-opacity duration-(--k-hover) ease-(--k-ease-out) motion-reduce:transition-none ${leaving ? "opacity-0" : "opacity-100"}`}
     >
-      <p className="font-sans text-k-13 text-k-muted">{title}</p>
-      <p className="line-clamp-2 font-serif text-k-15 text-k-ink">{passage.slice(0, WORDS)}</p>
-      <p className="truncate font-sans text-k-13 text-k-muted">{source}</p>
+      <p className="shrink-0 font-sans text-k-13 text-k-muted">{title}</p>
+      <p className="line-clamp-2 shrink-0 font-serif text-k-15 text-k-ink">
+        {passage.slice(0, WORDS)}
+      </p>
+      <p className="shrink-0 truncate font-sans text-k-13 text-k-muted">{source}</p>
 
-      <div className="mt-1 flex gap-4 font-sans text-k-13">
+      <div className="mt-1 flex shrink-0 gap-4 font-sans text-k-13">
         <button
           type="button"
           aria-expanded={listing}
@@ -116,13 +123,14 @@ function RecentNotes({ archive, onPick }: { archive: boolean; onPick: (path: str
     return <p className="font-sans text-k-13 text-k-muted">Nothing written lately.</p>;
   }
   return (
-    <ul className="mt-1 flex flex-col">
+    <ul className="mt-1 flex min-h-0 flex-col overflow-y-auto">
       {recent.map(({ path }) => (
         <li key={path}>
           <button
             type="button"
+            title={noteName(path)}
             onClick={() => onPick(path)}
-            className="k-row w-full rounded-[var(--k-radius-6)] px-2 py-1 text-left font-sans text-k-15 text-k-ink hover:text-k-accent"
+            className="k-row w-full truncate rounded-[var(--k-radius-6)] px-2 py-1 text-left font-sans text-k-15 text-k-ink hover:text-k-accent"
           >
             {noteName(path)}
           </button>

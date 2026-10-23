@@ -16,6 +16,8 @@ import "@fontsource-variable/jetbrains-mono/index.css";
 import { page as browserPage, commands, userEvent } from "vitest/browser";
 import { applyTheme, PALETTE_KEY, THEME_KEY, type Theme } from "@/lib/theme";
 import {
+  api,
+  buttonNamed,
   frameOf,
   type Mounted,
   ready,
@@ -30,7 +32,7 @@ import { shot } from "./shots";
 
 const SHOTS = import.meta.env.VITE_KASTEN_SHOTS === "1";
 const DESKTOP = { width: 1440, height: 900, touch: false };
-const TOUCH = { width: 390, height: 844, touch: true };
+const TOUCH = { width: 414, height: 896, touch: true };
 type Size = typeof DESKTOP;
 
 /** A newspaper that opts in and writes its look in tokens only, with two stories. */
@@ -61,7 +63,7 @@ const PLAIN = htmlPage(
 
 const nextFrame = () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
 
-type Step = "selection" | "toast" | "marked";
+type Step = "selection" | "toast" | "marked" | "listing";
 type Range = [string, number, string, number];
 
 /**
@@ -90,6 +92,14 @@ async function shootTake(
     localStorage.setItem(THEME_KEY, theme);
     localStorage.setItem(PALETTE_KEY, palette);
     applyTheme();
+    // Long names, so the list in the toast shows what a narrow phone must fit.
+    if (step === "listing") {
+      api.recent = Array.from(
+        { length: 8 },
+        (_, i) =>
+          `Notes/A note with a very long name about replication lag across three regions ${i}.md`,
+      );
+    }
     await commands.servePage(source.path, source.html);
     render(mounted, [source.path]);
     const frame = frameOf(mounted, 0);
@@ -106,6 +116,10 @@ async function shootTake(
         .poll(() => mounted.host.querySelector("[role='status']") === null, { timeout: 10_000 })
         .toBe(true);
     }
+    if (step === "listing") {
+      await userEvent.click(buttonNamed("Put it in a note") as HTMLButtonElement);
+      await expect.poll(() => mounted.host.querySelector("li") !== null).toBe(true);
+    }
     await document.fonts.ready;
     await nextFrame();
 
@@ -120,20 +134,35 @@ function shotTest(name: string, run: () => Promise<void>) {
   it.skipIf(!SHOTS)(name, run, 300_000);
 }
 
+/** A paragraph under a 560 px spacer, so at 414 its words lie in the frame's lower half. */
+const LOW = htmlPage(
+  "Low",
+  `<main style="font:17px/1.6 Georgia,serif;padding:24px 32px"><div style="height:560px"></div><p id="p1" data-testid="p1">Replicas in Frankfurt and Virginia stay within one second of the primary.</p><div style="height:1200px"></div></main>`,
+);
+
 const NEWS_PATH = "take-shot-news.html";
 const PLAIN_PATH = "take-shot-plain.html";
+const LOW_PATH = "take-shot-low.html";
 const NEWS_RANGE: Range = ["p2", 0, "p2", 40];
 const PLAIN_RANGE: Range = ["p1", 0, "p1", 60];
+const LOW_RANGE: Range = ["p1", 0, "p1", 40];
 
 for (const size of [DESKTOP, TOUCH]) {
   for (const theme of ["light", "dark"] as const) {
-    for (const step of ["selection", "toast", "marked"] as const) {
+    for (const step of ["selection", "toast", "marked", "listing"] as const) {
       const name = `html-take-${step}-${size.width}-${theme}`;
       shotTest(name, () =>
         shootTake(name, size, theme, { path: NEWS_PATH, html: NEWS }, NEWS_RANGE, step),
       );
     }
   }
+}
+
+for (const theme of ["light", "dark"] as const) {
+  const name = `html-take-toast-low-414-${theme}`;
+  shotTest(name, () =>
+    shootTake(name, TOUCH, theme, { path: LOW_PATH, html: LOW }, LOW_RANGE, "toast"),
+  );
 }
 
 for (const theme of ["light", "dark"] as const) {

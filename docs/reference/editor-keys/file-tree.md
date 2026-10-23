@@ -106,9 +106,13 @@ takes the selected passage into today's dump, as `<leader>cd` puts a thought
 there, and a Take button over the selection does the same on a click. The
 passage goes in as a quote with a link back to its place on the page, under the
 page's nearest heading. A note at the foot of the pane (at most 448 px wide) says what was taken and
-offers two things. Undo takes the line back out of the daily note, as long as
-the note has not changed since. Put it in a note writes the passage under
-`## Highlights` in a note you pick. The note fades after five seconds. A take
+offers two things; it goes to the top of the pane instead when the passage sits
+in the lower half, so the passage stays in sight. Undo takes the line back out
+of the daily note, as long as the note has not changed since. Put it in a note
+writes the passage under `## Highlights` in a note you pick from the eight
+written last, one line each with the whole name on hover; in a short pane the
+list scrolls and the note stays inside the pane. The note fades after five
+seconds. A take
 still waiting to be sent has no Undo, and the note says so. The passage's
 marks stay on the page while it is open. The
 [capture reference](/reference/http-api/capture.md#get-apihtmlpath) has the

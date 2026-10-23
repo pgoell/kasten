@@ -10,6 +10,7 @@ import { commands as browser, page, userEvent } from "vitest/browser";
 import {
   api,
   ask,
+  buttonNamed,
   buttonParts,
   frameOf,
   heardFrom,
@@ -25,10 +26,17 @@ import {
   takeButton,
   tearDown,
 } from "./html-take-fixture";
-import { HOSTILE, NEWS, POPUP } from "./html-take-pages";
+import { HOSTILE, page as htmlPage, NEWS, POPUP } from "./html-take-pages";
 
 const PATH = "take-hostile.html";
 const FIRST = `[[${PATH}#2026-10-07-evals-01|First story]]`;
+const LOW_TEXT =
+  "Replicas in Frankfurt and Virginia stay within one second of the primary at the 99th percentile.";
+/** A paragraph under a 560 px spacer, so on a phone its words lie in the frame's lower half. */
+const LOW = htmlPage(
+  "Low",
+  `<main style="font:16px/1.6 Georgia,serif;padding:24px 32px"><div style="height:560px"></div><p id="p1">${LOW_TEXT}</p><div style="height:1600px"></div></main>`,
+);
 
 let mounted: Mounted;
 
@@ -164,4 +172,64 @@ it("at 390x844 with touch, the button sits below the selection and a tap takes i
 
   await expect.poll(() => api.dumps.length).toBe(1);
   expect(api.dumps[0]).toContain(`[[${PATH}#2026-10-07-evals-02|Second story]]`);
+});
+
+it("at 390 with touch, the toast goes to the top clear of a low passage", async () => {
+  await page.viewport(390, 844);
+  await browser.emulateMedia({ touch: true });
+  await browser.servePage(PATH, LOW);
+  render(mounted, [PATH], true);
+  const frame = frameOf(mounted, 0);
+  await ready(frame);
+  await userEvent.click(frame);
+
+  await ask(frame, { probe: "touchSelect", range: ["p1", 0, "p1", LOW_TEXT.length] }, "selected");
+  const { rect } = (await ask(frame, { probe: "selection" }, "selection")) as {
+    rect: { top: number; bottom: number };
+  };
+  await expect.poll(() => takeButton(mounted) !== null).toBe(true);
+  await userEvent.click(takeButton(mounted) as HTMLElement);
+  await expect.poll(() => mounted.host.querySelector("[role='status']") !== null).toBe(true);
+
+  // The passage in the frame's own px, read against the frame on the page.
+  const box = frame.getBoundingClientRect();
+  const words = { top: box.top + rect.top, bottom: box.top + rect.bottom };
+  const toast = mounted.host.querySelector("[role='status']") as HTMLElement;
+  const at = toast.getBoundingClientRect();
+  expect({
+    low: rect.top > frame.clientHeight / 2,
+    clear: at.bottom <= words.top || at.top >= words.bottom,
+    top: Math.abs(at.top - box.top) <= 16,
+    inside: inside(toast, frame),
+  }).toEqual({ low: true, clear: true, top: true, inside: true });
+
+  await expect.poll(() => buttonNamed("Undo") !== undefined).toBe(true);
+  await userEvent.click(buttonNamed("Undo") as HTMLButtonElement);
+  await expect.poll(() => api.puts.length).toBe(1);
+  await expect.poll(async () => (await ask(frame, { probe: "marks" }, "marks")).texts).toEqual([]);
+});
+
+it("at 390 with touch, a high passage keeps the toast at the foot", async () => {
+  await page.viewport(390, 844);
+  await browser.emulateMedia({ touch: true });
+  await browser.servePage(PATH, NEWS);
+  render(mounted, [PATH], true);
+  const frame = frameOf(mounted, 0);
+  await ready(frame);
+  await userEvent.click(frame);
+
+  await ask(frame, { probe: "touchSelect", range: ["p1", 0, "p1", 6] }, "selected");
+  const { rect } = (await ask(frame, { probe: "selection" }, "selection")) as {
+    rect: { bottom: number };
+  };
+  await expect.poll(() => takeButton(mounted) !== null).toBe(true);
+  await userEvent.click(takeButton(mounted) as HTMLElement);
+  await expect.poll(() => mounted.host.querySelector("[role='status']") !== null).toBe(true);
+
+  const box = frame.getBoundingClientRect();
+  const toast = mounted.host.querySelector("[role='status']") as HTMLElement;
+  expect({
+    high: rect.bottom < frame.clientHeight / 2,
+    foot: Math.abs(toast.getBoundingClientRect().bottom - box.bottom) <= 16,
+  }).toEqual({ high: true, foot: true });
 });

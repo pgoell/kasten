@@ -5,6 +5,7 @@
  * installed before the client is made.
  */
 
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
 import { commands as browser, page, userEvent } from "vitest/browser";
@@ -91,7 +92,16 @@ function Layout({ paths, spy, phone }: { paths: string[]; spy: Spy; phone: boole
 
 /** Mounts one pane per path, the phone's toolbar when asked. */
 export function render(mounted: Mounted, paths: string[], phone = false) {
-  flushSync(() => mounted.root.render(<Layout paths={paths} spy={mounted.spy} phone={phone} />));
+  // The take's recent-notes list asks through React Query. A client per render keeps
+  // one test's cache from answering the next.
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  flushSync(() =>
+    mounted.root.render(
+      <QueryClientProvider client={client}>
+        <Layout paths={paths} spy={mounted.spy} phone={phone} />
+      </QueryClientProvider>,
+    ),
+  );
 }
 
 /** The iframe of the pane at `index`. */

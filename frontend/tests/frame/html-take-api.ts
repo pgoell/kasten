@@ -19,6 +19,10 @@ export const api = {
   note: "",
   /** Each write to the daily note, with the base it named. */
   puts: [] as { content: string; base?: string }[],
+  /** Paths the recent-notes search answers with, newest first. */
+  recent: [] as string[],
+  /** The other notes as the vault holds them, by path, for Put it in a note. */
+  notes: {} as Record<string, string>,
 };
 
 function json(body: unknown): Response {
@@ -43,6 +47,16 @@ const stub = async (input: RequestInfo | URL, init?: RequestInit): Promise<Respo
   const url = new URL(request?.url ?? String(input), window.location.href);
   const method = (request?.method ?? init?.method ?? "GET").toUpperCase();
 
+  if (url.pathname === "/api/search" && method === "GET") {
+    // The stamps fall as the paths go, so the first path is the newest.
+    return json(
+      api.recent.map((path, i) => ({
+        path,
+        line: 3,
+        text: `modified: 2026-10-23T12:00:0${api.recent.length - i}`,
+      })),
+    );
+  }
   if (url.pathname === "/api/dump" && method === "POST") {
     const { text } = JSON.parse(String(init?.body)) as { text: string };
     api.dumps.push(text);
@@ -56,6 +70,15 @@ const stub = async (input: RequestInfo | URL, init?: RequestInit): Promise<Respo
     api.note = body.content;
     return json({ path: api.daily, content: api.note });
   }
+  // Any other note the put reads first, then writes; a path not yet written reads empty.
+  const other = url.pathname.startsWith("/api/files/");
+  const path = decodeURIComponent(url.pathname.slice("/api/files/".length));
+  if (other && method === "GET") return json({ path, content: api.notes[path] ?? "" });
+  if (other && method === "PUT" && request) {
+    const body = JSON.parse(await request.text()) as { content: string };
+    api.notes[path] = body.content;
+    return json({ path, content: body.content });
+  }
   return real(input, init);
 };
 
@@ -67,4 +90,6 @@ export function resetApi(daily: string) {
   api.dumps = [];
   api.note = "## Dump\n";
   api.puts = [];
+  api.recent = [];
+  api.notes = {};
 }
