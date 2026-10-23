@@ -89,6 +89,33 @@ The pane draws with [force-graph](https://github.com/vasturiano/force-graph)
 (MIT), a canvas over d3's force simulation, which is what gives it Obsidian's
 look without writing a layout engine: dots that repel, links that pull, and
 zoom and drag for free. What kasten adds is the look: size by edge count,
-colour by the ontology's types, arrows only on typed relations, names that fade
-in with the zoom. A new answer reuses the objects of notes already drawn, so a
-filter taking notes away moves nothing that stays.
+colour by the ontology's types around a note, arrows only on typed relations,
+names that fade in with the zoom. A new answer reuses the objects of notes
+already drawn, so a filter taking notes away moves nothing that stays.
+
+## Places and tags
+
+A whole vault drawn by springs alone is a hairball: every note pulls on every
+other, and the folders you filed things in leave no trace. So the vault graph
+(`Space gg`) gives the notes places, like towns on a map. In Folders mode each
+top folder gets a spot, and a project gets its own spot under a folder whose
+name ends in "Projects". In Tags mode each tag gets one, and a note with two
+tags is pulled to the point between them. Links between places then read as
+roads.
+
+The layout is Fruchterman-Reingold, built from d3's forces inside the same
+simulation: the many-body force pushes every pair apart by `k²/d`, a link pulls
+its ends together by `d²/k`, a spring pulls each note to its spot, and a weak
+gravity pulls everything to the middle, so a note with no place rings the
+clusters instead of drifting to the edge. The spots sit on a golden-angle
+spiral, biggest place first, and the simulation runs a fixed number of ticks
+with d3's seeded random source and no wall-clock cut, so the same vault comes
+out the same on every open. It runs one tick per frame, so typing in another
+pane never waits on it.
+
+Colour is the first tag, by the same hash as the margin graph, and each further
+tag adds a thin ring in its own colour. A soft round area at 8 % (11 % in dark)
+shows each place. The 300 px panel beside the canvas counts what is drawn,
+switches the mode, hides tags, and shows the note under the pointer. The mode
+is kept per device; [the editor keys](/reference/editor-keys/panes-and-tabs.md)
+name the key that switches it.

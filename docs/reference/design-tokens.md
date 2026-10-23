@@ -60,10 +60,16 @@ these values; [Accent palettes](/reference/accent-palettes.md) lists them.
 
 ## Graph tag slots
 
-Ten slots and `--tg-none`. The graph pane colours a note's type with them, and
-the local graph in a note's margin colours a note by its first tag: the tag's
-name, hashed, picks one of the ten slots, and a note with no tag takes
-`--tg-none`.
+Ten slots and `--tg-none`. The graph around a note colours a note's type with
+them, and the local graph in a note's margin and the vault graph colour a note
+by its first tag: the tag's name, hashed, picks one of the ten slots, and a
+note with no tag takes `--tg-none`. The vault graph rings a dot once for each
+further tag, in that tag's slot, and paints each tag's area in its slot at
+`--k-area`.
+
+`--k-area` is a number, not a colour: the strength of the vault graph's cluster
+areas, `.08` in light and `.11` in dark. The canvas paints the accent (Folders)
+or the tag's slot (Tags) at that alpha. No palette changes it.
 
 | Slot | Light | Dark |
 |---|---|---|

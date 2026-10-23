@@ -188,8 +188,36 @@ of the screen: drag the grabber or the header down, tap outside it or press
 `Escape` to close it. Picking a note in either sheet closes it and opens the
 note. Pressed with no note open, `<leader>gl` does nothing.
 
-Each note is a dot, larger the more edges it has, coloured by its `type` from
-the graph's tag slots in [the design tokens](/reference/design-tokens.md):
+### The vault graph
+
+The graph of the whole vault groups its notes. In Folders mode each top folder
+has a spot on the canvas, and so does each project under a folder whose name
+ends in "Projects"; a note is pulled to its spot, and a soft round area in the
+accent, named in small italic serif, marks the place. In Tags mode each tag has
+an area in its tag colour; a note counts towards every tag it carries and sits
+between their areas. A note at the vault root, or one nobody has written, has
+no spot and sits loose around the places. The same vault lays out the same way
+on every open. The areas are the accent or the tag colour at 8 % in light and
+11 % in dark (`--k-area`).
+
+Each dot is filled with the colour of the note's first tag (`--tg-none` for a
+note with none), the same colour the margin graph gives it, and each further
+tag adds a thin ring in that tag's colour.
+
+A 300 px panel at the right holds the title, how many notes and links are drawn
+and whether the archive is in, how to read the colours, the Folders / Tags
+switch, the tags with their colour and count, and a card for the note under the
+pointer, with its folder, tags, links and an Open button. A click on a tag
+hides its area and ring, and every note that has no other tag; a second click
+shows it again. The mode is kept per device (`kasten.graph.mode`). In a pane
+under 640 px wide, and on a phone, the panel sits under the canvas. On a touch
+screen a tap on a note picks it into the card, and Open or a second tap opens
+it.
+
+### Around a note
+
+Around a note each dot is larger the more edges it has, coloured by its `type`
+from the graph's tag slots in [the design tokens](/reference/design-tokens.md):
 
 | Type | Slot | Colour |
 | --- | --- | --- |
@@ -233,6 +261,7 @@ backend cannot read leaves the last drawing up and says why under the line.
 | `+` or `=` | Around a note: reach one edge further out, up to 5 |
 | `-` | Around a note: pull one edge back in, down to 0 |
 | `f` | Zoom until every note is on screen |
+| `m` | The vault graph: switch between Folders and Tags |
 | `q` | Close the pane |
 
 The leader keys work here as in every pane. `<leader>a` puts the archive in the
