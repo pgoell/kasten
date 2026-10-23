@@ -1,0 +1,87 @@
+/* The pdf pane's pages and text layer. Every rule is under `[data-pdf-box]`, the
+   pane's box, so the embed in a note keeps the look `live-preview-media.css`
+   gives it. */
+
+[data-pdf-box] {
+  overflow-x: auto;
+  background: var(--k-bg);
+}
+
+/* The canvas carries the page's own ground. Until it lands the slot shows its
+   paper, since `.cm-pdf-page` gives every slot a white that flashes on the dark. */
+[data-pdf-box] [data-pdf-page] {
+  position: relative;
+  margin-bottom: var(--k-space-16);
+  background: var(--k-paper);
+  box-shadow: var(--k-shadow);
+}
+
+/* On the dark ground a shadow sinks into the box, so the page's edge is a rule. */
+:root[data-theme="dark"] [data-pdf-box] [data-pdf-page] {
+  box-shadow: none;
+  outline: 1px solid var(--k-rule);
+}
+
+/* pdf.js's text layer, as its own `text_layer_builder.css` sets it, with the rules
+   for the highlight classes and the marked-content wrappers left out. The vendored
+   file is not imported, since its package exports nothing but `.js` files. */
+[data-pdf-box] .textLayer {
+  position: absolute;
+  inset: 0;
+  overflow: clip;
+  color-scheme: only light;
+  text-align: initial;
+  text-size-adjust: none;
+  forced-color-adjust: none;
+  transform-origin: 0 0;
+  line-height: 1;
+  caret-color: CanvasText;
+  --min-font-size: 1;
+  --text-scale-factor: calc(var(--total-scale-factor) * var(--min-font-size));
+  --min-font-size-inv: calc(1 / var(--min-font-size));
+}
+
+[data-pdf-box] .textLayer :is(span, br) {
+  position: absolute;
+  color: transparent;
+  white-space: pre;
+  cursor: text;
+  transform-origin: 0% 0%;
+}
+
+[data-pdf-box] .textLayer > :not(.markedContent),
+[data-pdf-box] .textLayer .markedContent span:not(.markedContent) {
+  z-index: 1;
+  --font-height: 0;
+  --scale-x: 1;
+  --rotate: 0deg;
+  font-size: calc(var(--text-scale-factor) * var(--font-height));
+  transform: rotate(var(--rotate)) scaleX(var(--scale-x)) scale(var(--min-font-size-inv));
+}
+
+[data-pdf-box] .textLayer .markedContent {
+  display: contents;
+}
+
+[data-pdf-box] .textLayer ::selection {
+  background: color-mix(in srgb, AccentColor, transparent 75%);
+}
+
+[data-pdf-box] .textLayer .endOfContent {
+  display: block;
+  position: absolute;
+  inset: 100% 0 0;
+  z-index: 0;
+  cursor: default;
+  user-select: none;
+}
+
+[data-pdf-box] .textLayer.selecting .endOfContent {
+  top: 0;
+}
+
+/* A take in the pdf, drawn as the html page draws its own (`page_script.js`). */
+::highlight(kasten-taken) {
+  background-color: var(--k-mark);
+  text-decoration: underline 1px var(--k-accent);
+}

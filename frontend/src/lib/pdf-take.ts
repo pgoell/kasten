@@ -1,0 +1,96 @@
+/**
+ * The PDF take's link, quote and the marks a page's text layer keeps.
+ *
+ * A PDF page is drawn again when it scrolls away and back, so a mark held as a
+ * `Range` would point into a text layer that is gone. The mark is kept as
+ * character offsets into the layer's text instead, and a new layer gets its
+ * `Range` back from those offsets.
+ */
+
+import { aliasOf, fileOf, quoteBlock } from "@/lib/html-take";
+
+/** The highlight's name in the document, which the stylesheet paints with `::highlight`. */
+const TAKEN = "kasten-taken";
+
+/**
+ * `[[<path>#page=<page>|<file>, page <page>]]`, the link back to the page.
+ *
+ * The file name goes through the same alias escape a heading does, so a name
+ * with a bracket or a bar in it cannot close the link. The path is Kasten's own.
+ */
+export function pdfLink(path: string, page: number): string {
+  return `[[${path}#page=${page}|${aliasOf(fileOf(path))}, page ${page}]]`;
+}
+
+/** The dump paragraph for a PDF passage: the text quoted, then the link to its page. */
+export function pdfQuote(path: string, page: number, text: string): string {
+  return quoteBlock(text, pdfLink(path, page));
+}
+
+/**
+ * Where `range` sits in the text of `layer`, as character offsets, or null when
+ * the two do not meet. Only the text the range covers counts, so a range that
+ * runs past the layer is clipped to it.
+ *
+ * The walk is over the layer's text nodes in order, which is the order the text
+ * reads in. Offsets are UTF-16 units, the unit a `Range` counts in.
+ */
+export function offsetsIn(layer: Element, range: Range): { start: number; end: number } | null {
+  const walker = document.createTreeWalker(layer, NodeFilter.SHOW_TEXT);
+  let total = 0;
+  let start = -1;
+  let end = -1;
+  for (let node = walker.nextNode(); node !== null; node = walker.nextNode()) {
+    const text = node as Text;
+    const length = text.data.length;
+    if (range.intersectsNode(text)) {
+      const from = text === range.startContainer ? range.startOffset : 0;
+      const to = text === range.endContainer ? range.endOffset : length;
+      if (to > from) {
+        if (start === -1) start = total + from;
+        end = total + to;
+      }
+    }
+    total += length;
+  }
+  return start === -1 ? null : { start, end };
+}
+
+/**
+ * The `Range` over offsets `start` to `end` of `layer`'s text, the inverse of
+ * `offsetsIn`, or null when the layer holds no text there.
+ */
+export function rangeIn(layer: Element, start: number, end: number): Range | null {
+  const walker = document.createTreeWalker(layer, NodeFilter.SHOW_TEXT);
+  let total = 0;
+  let from: { text: Text; offset: number } | null = null;
+  for (let node = walker.nextNode(); node !== null; node = walker.nextNode()) {
+    const text = node as Text;
+    const length = text.data.length;
+    if (from === null && start <= total + length) {
+      from = { text, offset: Math.max(0, start - total) };
+    }
+    if (from !== null && end <= total + length) {
+      const range = document.createRange();
+      range.setStart(from.text, from.offset);
+      range.setEnd(text, end - total);
+      return range;
+    }
+    total += length;
+  }
+  return null;
+}
+
+/**
+ * The one highlight every PDF pane in the document adds its ranges to. The
+ * document keeps it under `TAKEN`, so a pane reads it back by the name and not
+ * from a module of its own. Null where the browser has no CSS highlights.
+ */
+export function takenHighlight(): Highlight | null {
+  if (typeof CSS === "undefined" || !("highlights" in CSS)) return null;
+  const registered = CSS.highlights.get(TAKEN);
+  if (registered !== undefined) return registered;
+  const made = new Highlight();
+  CSS.highlights.set(TAKEN, made);
+  return made;
+}

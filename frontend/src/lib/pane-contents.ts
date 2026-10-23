@@ -200,6 +200,21 @@ export function openPdfBeside(layout: Layout, path: string, page?: number): Layo
 }
 
 /**
+ * Put a note beside this pane, or go to the pane in this tab already holding it.
+ *
+ * Beside and not over, following `openBookBeside` down to the reuse: a pdf is
+ * read against the note it belongs to, and that note stays on screen. The reuse
+ * is per tab, a note open in another tab being no pane of this one.
+ */
+export function openNoteBeside(layout: Layout, path: string): Layout {
+  const holding = tabPanes(layout).find((pane) => pane.path === path);
+  if (holding) return focusPane(layout, holding.id);
+
+  const split = splitFocused(layout, "row");
+  return fillFocused(split, { path });
+}
+
+/**
  * Put one person's card in a pane beside this one, or go to the one showing it.
  *
  * Beside and not over, following `openBookBeside` down to the reuse: the card

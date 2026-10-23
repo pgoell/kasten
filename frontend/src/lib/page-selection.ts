@@ -86,7 +86,7 @@ export function low(at: Anchor | null): boolean {
  * is; below them on a touch screen, clear of the phone's own menu.
  */
 export function placeFor(
-  frame: HTMLIFrameElement,
+  frame: Element,
   wrapper: HTMLDivElement,
   rect: Rect,
   coarse: boolean,

@@ -121,10 +121,19 @@ export function quoteParagraphs(text: string): string[] {
   return kept;
 }
 
-/** The heading as an alias: no control characters, no wikilink syntax, capped. */
-function aliasOf(heading: string): string {
+/**
+ * The heading, or a file name, as an alias: no control characters, no wikilink
+ * syntax, capped. The one escape for any text a link carries, so a file name
+ * cannot close a link any more than a heading can.
+ */
+export function aliasOf(heading: string): string {
   const clean = collapse(heading.replace(CONTROL, "").replace(ALIAS_BAD, ""));
   return capped(clean, HEADING_CAP);
+}
+
+/** The file's own name, which is what a passage with no heading says it came from. */
+export function fileOf(path: string): string {
+  return path.slice(path.lastIndexOf("/") + 1);
 }
 
 /**
@@ -135,22 +144,29 @@ function aliasOf(heading: string): string {
  */
 export function pageLink(path: string, passage: PagePassage): string {
   const anchor = passage.anchor.replace(/[^A-Za-z0-9_.:-]/g, "").slice(0, ANCHOR_CAP);
-  const alias = aliasOf(passage.heading) || path.slice(path.lastIndexOf("/") + 1);
+  const alias = aliasOf(passage.heading) || fileOf(path);
   return `[[${path}${anchor === "" ? "" : `#${anchor}`}|${alias}]]`;
 }
 
 /**
- * The dump paragraph: the passage as a blockquote, then the link to it.
+ * The dump paragraph for a passage and the link it is quoted from: the passage
+ * as a blockquote, then the link to it.
  *
  * A lone `>` between paragraphs and not a blank line, since a blank line ends
- * the blockquote. The link is the last paragraph, under the same quote.
+ * the blockquote. The link is the last paragraph, under the same quote. Shared
+ * by the HTML and the PDF takes, so the escape of a page's text is one function.
  */
-export function takenQuote(path: string, passage: PagePassage): string {
-  const quoted = quoteParagraphs(passage.text)
+export function quoteBlock(text: string, link: string): string {
+  const quoted = quoteParagraphs(text)
     .map((paragraph) => `> ${paragraph}`)
     .join("\n>\n");
-  const link = `> ${pageLink(path, passage)}`;
-  return quoted === "" ? link : `${quoted}\n>\n${link}`;
+  const quotedLink = `> ${link}`;
+  return quoted === "" ? quotedLink : `${quoted}\n>\n${quotedLink}`;
+}
+
+/** The dump paragraph for an HTML page's passage, linked to its place on the page. */
+export function takenQuote(path: string, passage: PagePassage): string {
+  return quoteBlock(passage.text, pageLink(path, passage));
 }
 
 /**

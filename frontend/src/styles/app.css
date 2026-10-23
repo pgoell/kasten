@@ -14,6 +14,7 @@
 @import "./log-pane.css";
 @import "./reader.css";
 @import "./live-preview-blocks.css";
+@import "./pdf-pane.css";
 
 /* Tailwind's names for the tokens in kasten-theme.css, so `bg-k-bg` and
    `text-k-ink` exist. Inline, so each utility keeps its `var()` and follows

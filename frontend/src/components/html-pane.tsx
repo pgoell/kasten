@@ -1,18 +1,12 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { TakeToast } from "@/components/take-toast";
-import { readClock } from "@/lib/clock";
-import { type PagePassage, takenQuote } from "@/lib/html-take";
+import { TakeButton } from "@/components/take-button-view";
+import { useDumpTake } from "@/components/use-dump-take";
+import { fileOf, type PagePassage, pageLink, takenQuote } from "@/lib/html-take";
 import type { EditorCommands } from "@/lib/key-bindings";
 import { heldModifier, leaderAction, leaderPrefix } from "@/lib/leader-keys";
-import { encodePath, noteName } from "@/lib/note-path";
-// Renamed for the reason `use-prompts.tsx` renames it: the take is a dump, and
-// the page has no other `flush` to confuse it with.
-import { flush as flushOutbox, keep } from "@/lib/outbox";
-import { writePassage } from "@/lib/page-highlight";
+import { encodePath } from "@/lib/note-path";
 import { postLook } from "@/lib/page-look";
-import { type Anchor, fitButton, low, placeFor, selectionOf } from "@/lib/page-selection";
-import { REFUSED, type Undo, undoFor, undoPassage } from "@/lib/page-undo";
-import { periodicNote } from "@/lib/periodic";
+import { type Anchor, low, placeFor, selectionOf } from "@/lib/page-selection";
 import { usePressGuard } from "@/lib/take-button";
 import { currentPalette, currentTheme, onThemeChange } from "@/lib/theme";
 import { useViewport } from "@/lib/use-viewport";
@@ -24,30 +18,7 @@ interface Held {
   at: Anchor | null;
 }
 
-/** The toast on screen: what it says, and the take it can undo, if it can. */
-interface Toast {
-  id: number;
-  title: string;
-  passage: PagePassage;
-  source: string;
-  /** The passage sat in the lower half of the frame, so the toast goes to the top (#885). */
-  top: boolean;
-  undo?: Undo;
-}
-
-/** The file's own name, which is what a passage with no heading says it came from. */
-function fileOf(path: string): string {
-  return path.slice(path.lastIndexOf("/") + 1);
-}
-
 const LABEL = "shrink-0 text-[11px] tracking-wide text-k-muted uppercase";
-
-/**
- * The button's look. The book's `TAKE` in `book-pane.tsx`, with the coarse
- * pointer's height from the footer's button. The placement is added per take.
- */
-const TAKE =
-  "absolute flex h-6 -translate-x-1/2 items-center gap-2 rounded border border-k-muted bg-k-bg px-2 font-mono text-k-ink text-xs pointer-coarse:min-h-11";
 
 interface HtmlPaneProps {
   /** Vault-relative path of the page to show. */
@@ -111,17 +82,6 @@ export function HtmlPane({
     setHeld(next);
   }, []);
 
-  // The drawn size keeps the button inside the frame, and only the DOM knows it.
-  const button = useRef<HTMLButtonElement>(null);
-  const [size, setSize] = useState({ width: 0, height: 0 });
-  useLayoutEffect(() => {
-    const drawn = button.current;
-    if (drawn === null) return;
-    if (drawn.offsetWidth !== size.width || drawn.offsetHeight !== size.height) {
-      setSize({ width: drawn.offsetWidth, height: drawn.offsetHeight });
-    }
-  });
-
   /**
    * A collapse the page sent while a press on the button was under way, which
    * the press guard holds back. It is answered when the press lands outside the
@@ -137,11 +97,19 @@ export function HtmlPane({
     }
   });
 
-  const [toast, setToast] = useState<Toast | null>(null);
-  const toastId = useRef(0);
-  const dismiss = useCallback(() => setToast(null), []);
-  // The take's mark on the page, counted per pane so each take has its own id.
-  const marks = useRef(0);
+  /**
+   * The take into today's dump, the toast about it and the Undo. The page is
+   * told of the take through `onMarked` and of its Undo through `onUnmarked`.
+   */
+  const dump = useDumpTake({
+    archive,
+    onMarked: (id) => {
+      hold(null);
+      frame.current?.contentWindow?.postMessage({ kasten: "take", id }, "*");
+    },
+    onUnmarked: (id) => frame.current?.contentWindow?.postMessage({ kasten: "untake", id }, "*"),
+  });
+  const dumpForget = dump.forget;
 
   /**
    * What a page change or a reload leaves behind: the selection taken from the
@@ -150,8 +118,8 @@ export function HtmlPane({
   const forget = useCallback(() => {
     lost.current = false;
     hold(null);
-    setToast(null);
-  }, [hold]);
+    dumpForget();
+  }, [hold, dumpForget]);
   // Read against the path last shown, so a pane that starts on the same page
   // keeps what it holds. A new page is a new document, which `onLoad` hears of
   // as well where a browser loads it.
@@ -193,20 +161,10 @@ export function HtmlPane({
     setPending(" ");
   }, []);
 
-  /** A line in the toast's source: the heading the words sit under, then the file's name. */
-  function show(title: string, taken: Held, undo?: Undo) {
-    toastId.current += 1;
-    const name = fileOf(path);
-    const { passage } = taken;
-    const source = passage.heading === "" ? name : `${passage.heading}, ${name}`;
-    setToast({ id: toastId.current, title, passage, source, top: low(taken.at), undo });
-  }
-
   /**
-   * Put the held passage into today's dump, the way `Space cd` puts a thought
-   * in: kept on the device first, sent by the outbox, and undone out of the
-   * daily note if it landed. Taken off the ref at once, so a second `y` finds
-   * nothing to take.
+   * Put the held passage into today's dump, through the dump path the take
+   * shares with the PDF pane. Taken off the ref at once, so a second `y` finds
+   * nothing to take. A passage the dump did not keep goes back on hold.
    */
   async function take() {
     // Taken off the ref at once, and the press over with it, so a second `y`
@@ -217,37 +175,15 @@ export function HtmlPane({
     if (taken === null) return;
     heldRef.current = null;
 
-    const now = new Date();
-    const quote = takenQuote(path, taken.passage);
-    const daily = periodicNote("daily", now).path;
-    marks.current += 1;
-    const id = marks.current;
-
-    await keep(quote, readClock(now).date).then(
-      async (dump) => {
-        hold(null);
-        // Marked once the words are safe on the device, which is the only point
-        // at which the page's selection may be called taken.
-        frame.current?.contentWindow?.postMessage({ kasten: "take", id }, "*");
-
-        // The same answers `capture` gives, in the take's words.
-        const { waiting, failure } = await flushOutbox();
-        const mine = waiting.find((each) => each.id === dump.id);
-        if (mine === undefined) {
-          show("Taken into today's dump", taken, await undoFor(daily, quote, id));
-        } else if (mine.refused !== undefined) {
-          show(mine.refused, taken);
-        } else if (failure?.kind === "sign-in") {
-          show("Taken, waiting to send: sign in again", taken);
-        } else {
-          show(`Taken, waiting to send (${waiting.length} waiting)`, taken);
-        }
-      },
-      (error: unknown) => {
-        hold(taken);
-        show(error instanceof Error ? error.message : "The take was not kept", taken);
-      },
-    );
+    const { passage } = taken;
+    const kept = await dump.take({
+      quote: takenQuote(path, passage),
+      text: passage.text,
+      link: pageLink(path, passage),
+      source: passage.heading === "" ? fileOf(path) : `${passage.heading}, ${fileOf(path)}`,
+      top: low(taken.at),
+    });
+    if (!kept) hold(taken);
   }
   /** The reader's own take, which starts a new visit for the page's `y` (`relayedTaken`). */
   function takeAsReader() {
@@ -260,42 +196,6 @@ export function HtmlPane({
   useLayoutEffect(() => {
     takeRef.current = take;
   });
-
-  /**
-   * Take the dump line back out of the daily note, if the note has not changed
-   * since the take. It is read again first and written under the base it was
-   * read with, so a write that landed in between is refused, not overwritten.
-   */
-  async function undoTake(undo: Undo) {
-    const outcome = await undoPassage(undo);
-    if (outcome.state === "undone") {
-      frame.current?.contentWindow?.postMessage({ kasten: "untake", id: undo.id }, "*");
-      setToast(null);
-      return;
-    }
-    // The toast says why Undo did nothing, and loses the Undo it can no longer make.
-    const title = outcome.state === "refused" ? REFUSED : outcome.message;
-    setToast((current) => current && { ...current, title, undo: undefined });
-  }
-
-  /**
-   * Write the passage under `## Highlights` in a note the reader picked, in the
-   * book's own format. The dump line stays where it is.
-   */
-  function putInto(id: number, notePath: string, passage: PagePassage) {
-    void writePassage(notePath, path, passage).then(
-      () =>
-        setToast((current) =>
-          current?.id === id ? { ...current, title: `Put into ${noteName(notePath)}` } : current,
-        ),
-      (error: unknown) =>
-        setToast((current) =>
-          current?.id === id
-            ? { ...current, title: error instanceof Error ? error.message : "Not written" }
-            : current,
-        ),
-    );
-  }
 
   // The page's script posts its keys here. Only a message from this pane's own
   // frame counts: a nested frame in the page, a window it opened and another
@@ -419,8 +319,6 @@ export function HtmlPane({
     return anchor === undefined ? look : `${look}#${encodeURIComponent(anchor)}`;
   }, [url, anchor]);
 
-  const undo = toast?.undo;
-
   return (
     <section
       ref={panel}
@@ -467,37 +365,15 @@ export function HtmlPane({
           className="min-h-0 flex-1 border-0 bg-white"
         />
         {held?.at && (
-          <button
-            ref={button}
-            type="button"
-            aria-label="Take the passage"
-            data-take
-            {...press}
-            onClick={() => void takeAsReader()}
-            style={fitButton(held.at, size)}
-            className={held.at.above ? `${TAKE} -translate-y-full` : TAKE}
-          >
-            <span>Take</span>
-            <span className="text-k-muted">y</span>
-            {held.passage.heading !== "" && (
-              <span className="min-w-0 max-w-64 truncate text-k-muted">{held.passage.heading}</span>
-            )}
-          </button>
-        )}
-        {/* In the wrapper, so `top` sits under the header and the frame bounds the toast. */}
-        {toast && (
-          <TakeToast
-            key={toast.id}
-            top={toast.top}
-            title={toast.title}
-            passage={toast.passage.text}
-            source={toast.source}
-            archive={archive}
-            onUndo={undo === undefined ? undefined : () => void undoTake(undo)}
-            onPut={(notePath) => putInto(toast.id, notePath, toast.passage)}
-            onDone={dismiss}
+          <TakeButton
+            at={held.at}
+            label={held.passage.heading}
+            press={press}
+            onTake={() => void takeAsReader()}
           />
         )}
+        {/* In the wrapper, so `top` sits under the header and the frame bounds the toast. */}
+        {dump.toast}
       </div>
     </section>
   );

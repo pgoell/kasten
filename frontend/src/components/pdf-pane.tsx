@@ -1,8 +1,11 @@
 import { useEffect, useRef, useState } from "react";
+import { usePdfTake } from "@/components/pdf-take";
+import { PdfThumbs, THUMBS_FROM, type ThumbsHandle } from "@/components/pdf-thumbs";
 import type { EditorCommands } from "@/lib/key-bindings";
 import { heldModifier, leaderAction, leaderPrefix } from "@/lib/leader-keys";
 import { encodePath } from "@/lib/note-path";
-import { pdfjsRenderer, showPdf } from "@/lib/pdf-view";
+import { type PdfFile, type PdfView, pageColors, pdfjsRenderer, showPdf } from "@/lib/pdf-view";
+import { onThemeChange } from "@/lib/theme";
 import { beginLeader, paneOpener } from "@/lib/which-key";
 
 interface PdfPaneProps {
@@ -16,9 +19,19 @@ interface PdfPaneProps {
   commands: EditorCommands;
   /** Raised when the pane this sits in has been moved to. See `Editor`. */
   focusSignal?: number;
+  /** Whether the archive is listed, which the take's note follows. */
+  archive?: boolean;
+  /** Opens the note of this pdf beside it. */
+  onNoteBeside: () => void;
 }
 
 const LABEL = "shrink-0 text-[11px] tracking-wide text-k-muted uppercase";
+
+/** The zoom the buttons and the `+` and `-` keys walk through, in percent. */
+const ZOOMS = [50, 75, 100, 125, 150, 200, 300];
+
+const BUTTON =
+  "shrink-0 px-1 text-[13px] text-k-link hover:text-k-accent focus-visible:text-k-accent active:text-k-accent disabled:text-k-muted pointer-coarse:min-h-11";
 
 /**
  * One pdf out of the vault, drawn with pdf.js and opened at a page.
@@ -28,23 +41,84 @@ const LABEL = "shrink-0 text-[11px] tracking-wide text-k-muted uppercase";
  * viewer ignores `#page`: the tap opened page 1. This draws the pages the way
  * the embed in the note does, with `showPdf`, in a box as tall as the pane.
  */
-export function PdfPane({ path, page, opened, commands, focusSignal }: PdfPaneProps) {
+export function PdfPane({
+  path,
+  page,
+  opened,
+  commands,
+  focusSignal,
+  archive = false,
+  onNoteBeside,
+}: PdfPaneProps) {
   const panel = useRef<HTMLElement>(null);
   const box = useRef<HTMLDivElement>(null);
+  const wrapper = useRef<HTMLDivElement>(null);
+  /** The open pdf, which the zoom and the thumbnails are asked of. */
+  const view = useRef<PdfView | undefined>(undefined);
+  const thumbs = useRef<ThumbsHandle>(null);
   /** The keys of an unfinished leader sequence, starting with the space. */
   const [pending, setPending] = useState("");
+  const [file, setFile] = useState<PdfFile>();
+  const [current, setCurrent] = useState(page ?? 1);
+  const [zoom, setZoom] = useState(100);
+  /** Whether the pane is wide enough for the thumbnail column, measured on the pane itself. */
+  const [wide, setWide] = useState(false);
+  const take = usePdfTake({ path, box, wrapper, archive });
 
   // Every open opens the pdf again rather than scrolling the one open, a
   // repeat of the same page too, the reader having maybe scrolled off it: the
   // box is keyed on the count, so `showPdf` gets a fresh one and no listener
-  // of the last open is left on it.
+  // of the last open is left on it. The take forgets what it held of the last
+  // pdf, and the thumbnails wait for this one's file.
   // biome-ignore lint/correctness/useExhaustiveDependencies: `opened` is the reopen signal.
   useEffect(() => {
     const target = box.current;
     if (target === null) return;
     const name = path.slice(path.lastIndexOf("/") + 1);
-    return showPdf(target, pdfjsRenderer, `/api/assets/${encodePath(path)}`, name, () => {}, page);
+    take.forget();
+    setFile(undefined);
+    const next = showPdf(
+      target,
+      pdfjsRenderer,
+      `/api/assets/${encodePath(path)}`,
+      name,
+      () => {},
+      page,
+      {
+        colors: pageColors,
+        textLayer: true,
+        zoom: zoom / 100,
+        onFile: setFile,
+        onPage: setCurrent,
+        onText: take.onText,
+      },
+    );
+    view.current = next;
+    return next;
   }, [path, page, opened]);
+
+  // A theme or palette switch repaints the pages on screen in the new colours,
+  // keeping the page and the scroll: the view remembers both itself.
+  useEffect(
+    () =>
+      onThemeChange(() => {
+        view.current?.redraw();
+        thumbs.current?.redraw();
+      }),
+    [],
+  );
+
+  // The pane's own width decides whether the thumbnail column is drawn. Measured
+  // here and not by `usePaneWide`, whose number is the margin's.
+  useEffect(() => {
+    const element = panel.current;
+    if (element === null) return;
+    const watch = new ResizeObserver(([entry]) => {
+      if (entry) setWide(entry.contentRect.width >= THUMBS_FROM);
+    });
+    watch.observe(element);
+    return () => watch.disconnect();
+  }, []);
 
   // A freshly focused pane takes the cursor, the way the image pane does: it
   // holds no CodeMirror, so without this the keys stay in the note.
@@ -52,10 +126,24 @@ export function PdfPane({ path, page, opened, commands, focusSignal }: PdfPanePr
     if (focusSignal) panel.current?.focus();
   }, [focusSignal]);
 
+  /** The zoom a button or a key moves to, or undefined at the end it is already at. */
+  const below = ZOOMS.filter((step) => step < zoom);
+  const lower = below[below.length - 1];
+  const higher = ZOOMS.find((step) => step > zoom);
+
+  function zoomTo(next: number) {
+    setZoom(next);
+    view.current?.setZoom(next / 100);
+  }
+
   // The image pane's leader block, there being nothing else to press in a pdf.
   function onKeyDown(event: React.KeyboardEvent) {
     const { key } = event;
     if (heldModifier(key)) return;
+
+    // The take first, but not in the middle of a leader sequence, where its keys
+    // are the sequence's.
+    if (!pending && take.onKeyDown(event)) return;
 
     if (pending) {
       const sequence = pending + key;
@@ -70,6 +158,19 @@ export function PdfPane({ path, page, opened, commands, focusSignal }: PdfPanePr
     }
 
     if (event.ctrlKey || event.altKey || event.metaKey) return;
+
+    // `=` is the `+` key without shift, so the key that zooms in on a US layout
+    // and the one a reader presses to zoom in either way are both taken.
+    if (key === "+" || key === "=") {
+      event.preventDefault();
+      if (higher !== undefined) zoomTo(higher);
+      return;
+    }
+    if (key === "-") {
+      event.preventDefault();
+      if (lower !== undefined) zoomTo(lower);
+      return;
+    }
 
     if (key === " ") {
       if (beginLeader(paneOpener(commands))) {
@@ -92,17 +193,63 @@ export function PdfPane({ path, page, opened, commands, focusSignal }: PdfPanePr
       className="flex h-full flex-col bg-k-bg font-mono outline-none"
     >
       <header className="flex items-center gap-3 border-b border-k-rule px-3 py-1">
-        <span className={LABEL}>pdf</span>
+        <span className={LABEL}>PDF</span>
         <span className="min-w-0 flex-1 truncate text-[13px] text-k-ink" title={path}>
           {path}
         </span>
+        <button
+          type="button"
+          aria-label="Zoom out"
+          disabled={lower === undefined}
+          onClick={() => {
+            if (lower !== undefined) zoomTo(lower);
+          }}
+          className={BUTTON}
+        >
+          {"−"}
+        </button>
+        <span aria-live="polite" className="shrink-0 text-[13px] text-k-muted tabular-nums">
+          {`${zoom}%`}
+        </span>
+        <button
+          type="button"
+          aria-label="Zoom in"
+          disabled={higher === undefined}
+          onClick={() => {
+            if (higher !== undefined) zoomTo(higher);
+          }}
+          className={BUTTON}
+        >
+          +
+        </button>
+        <button
+          type="button"
+          onClick={onNoteBeside}
+          // The same look as the HTML pane's link to its browser tab, the one
+          // other way out of a pane being a link of the same kind.
+          className="inline-flex shrink-0 items-center text-[11px] text-k-link hover:text-k-accent focus-visible:text-k-accent active:text-k-accent pointer-coarse:min-h-11"
+        >
+          Note beside
+        </button>
       </header>
-      <div
-        key={`${path}#${page}#${opened}`}
-        ref={box}
-        data-pdf-box
-        className="min-h-0 flex-1 overflow-y-auto p-1"
-      />
+      {/* The wrapper the take's button is placed in, so its place is the pane's own. */}
+      <div ref={wrapper} className="relative flex min-h-0 flex-1">
+        {wide && file !== undefined ? (
+          <PdfThumbs
+            ref={thumbs}
+            file={file}
+            current={current}
+            onGoTo={(number) => view.current?.goTo(number)}
+          />
+        ) : null}
+        <div
+          key={`${path}#${page}#${opened}`}
+          ref={box}
+          data-pdf-box
+          className="min-h-0 flex-1 overflow-y-auto p-1"
+        />
+        {take.overlay}
+      </div>
     </section>
   );
 }

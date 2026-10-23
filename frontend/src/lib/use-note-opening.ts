@@ -1,4 +1,4 @@
-import { useQueryClient } from "@tanstack/react-query";
+import { type QueryClient, useQueryClient } from "@tanstack/react-query";
 import {
   type Dispatch,
   type RefObject,
@@ -26,6 +26,29 @@ import type { Listings } from "@/lib/use-listings";
 import { namesAFile, pdfPage, splitTarget, wikiLinkPath } from "@/lib/wikilink";
 
 export type NoteOpening = ReturnType<typeof useNoteOpening>;
+
+/**
+ * Make the note at `path`, with `body` as its text, and cache what was written.
+ *
+ * The one place a note is made for a link or a pdf's note: the text is cached for
+ * the pane that opens it, and the file list is read again. Resolves to the path
+ * the vault made, or undefined when the vault refused it: a hidden name, or a
+ * note standing where the path wanted a folder.
+ */
+export function makeNote(
+  queryClient: QueryClient,
+  path: string,
+  body = "",
+): Promise<string | undefined> {
+  return createNote(path, body).then(
+    (made) => {
+      queryClient.setQueryData(["note", made.path], made.content);
+      queryClient.invalidateQueries({ queryKey: ["files"] });
+      return made.path;
+    },
+    () => undefined,
+  );
+}
 
 /**
  * Every way a note, page, image or pdf is opened into a pane: from the tree,
@@ -230,21 +253,12 @@ export function useNoteOpening({
       // file's first line for the backend to read it as frontmatter at all.
       // Resolves whether the note was made and opened, which `openPeriodic`
       // passes on so a caller waiting for that note knows it is not coming.
-      return createNote(path, body).then(
-        (made) => {
-          // The vault's spelling and the vault's text, the way the prompt
-          // seeds them, so the editor opens what was written rather than
-          // reading back a file it just made.
-          queryClient.setQueryData(["note", made.path], made.content);
-          queryClient.invalidateQueries({ queryKey: ["files"] });
-          return openInPane(made.path);
-        },
-        () => {
-          // The vault refused the path: a hidden name, or a note standing
-          // where the link wanted a folder. The note on screen stays open
-          // with the link still in it, which is the only place to fix either.
-          return false;
-        },
+      // The vault's spelling and the vault's text, the way the prompt seeds
+      // them, so the editor opens what was written rather than reading back a
+      // file it just made. A refused path leaves the note on screen open with
+      // the link still in it, which is the only place to fix either.
+      return makeNote(queryClient, path, body).then((made) =>
+        made === undefined ? false : openInPane(made),
       );
     },
     [

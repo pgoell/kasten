@@ -232,7 +232,9 @@ describe("the which-key panel", () => {
   it("Space in the pdf pane hands the leader to the panel", () => {
     const spy = vi.fn();
     const off = hostLeader(spy);
-    const { container } = render(<PdfPane path="plan.pdf" opened={1} commands={stubCommands()} />);
+    const { container } = render(
+      <PdfPane path="plan.pdf" opened={1} commands={stubCommands()} onNoteBeside={() => {}} />,
+    );
 
     fireEvent.keyDown(container.querySelector("[data-pdf-pane]") as HTMLElement, { key: " " });
 

@@ -1,3 +1,4 @@
+import { useQueryClient } from "@tanstack/react-query";
 import type { Dispatch, RefObject, SetStateAction } from "react";
 import { BookPane } from "@/components/book-pane";
 import { ChatPane } from "@/components/chat-pane";
@@ -20,7 +21,7 @@ import { VideoPane } from "@/components/video-pane";
 import type { SearchHit } from "@/lib/api";
 import { readClock } from "@/lib/clock";
 import type { TreeCommands } from "@/lib/key-bindings";
-import { openGraphBeside } from "@/lib/pane-contents";
+import { openGraphBeside, openNoteBeside } from "@/lib/pane-contents";
 import {
   activeTab,
   closeTab,
@@ -36,7 +37,7 @@ import type { BufferSync } from "@/lib/use-buffer-sync";
 import type { GuardedWrites } from "@/lib/use-guarded-writes";
 import type { Listings } from "@/lib/use-listings";
 import type { LogActions } from "@/lib/use-log-actions";
-import type { NoteOpening } from "@/lib/use-note-opening";
+import { makeNote, type NoteOpening } from "@/lib/use-note-opening";
 import type { TodoActions } from "@/lib/use-todo-actions";
 
 type Autosave = ReturnType<typeof useAutosave>;
@@ -112,6 +113,27 @@ export function WorkspacePanes({
   const pane = focusedPane(layout);
   const { data, archive } = listings;
   const { seek, openInPane } = opening;
+  const queryClient = useQueryClient();
+
+  /**
+   * Open a note beside the pdf it belongs to, making the note first if the vault
+   * has none.
+   *
+   * The making is `makeNote`, the step `follow` takes for a `[[link]]` to a
+   * missing note. A refused path says so in the bar and leaves the pdf alone.
+   */
+  async function noteBeside(path: string) {
+    let note = path;
+    if (!data?.includes(path)) {
+      const made = await makeNote(queryClient, path);
+      if (made === undefined) {
+        onNotice(`The vault refused ${path}`);
+        return;
+      }
+      note = made;
+    }
+    moveTo((previous) => openNoteBeside(previous, note));
+  }
   return (
     /* min-w-0 lets the panes shrink instead of pushing the tree off-screen.
         The strip sits inside this column rather than over the whole window,
@@ -166,6 +188,8 @@ export function WorkspacePanes({
             // Bound out of the pane for the reason `book` is: TypeScript
             // stops narrowing a property inside the callback below.
             const image = shown.image;
+            // Bound out of the pane for the same reason as `book`.
+            const pdf = shown.pdf;
             const note = shown.path;
             return shown.log === true ? (
               <LogPane
@@ -247,13 +271,17 @@ export function WorkspacePanes({
                 // path of its own.
                 onDelete={() => void onDeleteImage(image)}
               />
-            ) : shown.pdf !== undefined ? (
+            ) : pdf !== undefined ? (
               <PdfPane
-                path={shown.pdf.path}
-                page={shown.pdf.page}
-                opened={shown.pdf.opened}
+                path={pdf.path}
+                page={pdf.page}
+                opened={pdf.opened}
                 commands={commands}
                 focusSignal={focused ? focusSignal : 0}
+                archive={archive}
+                // The note's name is the pdf's with `.md` for `.pdf`, so a
+                // `plan.pdf` in `x/` opens `x/plan.md`.
+                onNoteBeside={() => void noteBeside(`${pdf.path.replace(/\.pdf$/i, "")}.md`)}
               />
             ) : shown.html !== undefined ? (
               <HtmlPane
