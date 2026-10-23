@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { EditorCommands } from "@/lib/key-bindings";
 import { heldModifier, leaderAction, leaderPrefix } from "@/lib/leader-keys";
 import { encodePath } from "@/lib/note-path";
@@ -147,9 +147,13 @@ export function HtmlPane({ path, commands, focusSignal, onFocus }: HtmlPaneProps
     }
   }
 
-  // Encoded for the reason the image pane gives. The header's link and the frame
-  // read the same address, so the page opens in a tab as it is drawn here.
+  // Encoded for the reason the image pane gives. The header's link is the bare
+  // address, so a tab opened from it shows the page's own fallback.
   const url = `/api/html/${encodePath(path)}`;
+  // The frame's address carries the look it opens in, which a page that opts in
+  // needs before its first paint. Read once per path: a new address reloads the
+  // page and loses its scroll, so a switch reaches it by `postLook` instead.
+  const framed = useMemo(() => `${url}?theme=${currentTheme()}&palette=${currentPalette()}`, [url]);
 
   return (
     <section
@@ -179,7 +183,7 @@ export function HtmlPane({ path, commands, focusSignal, onFocus }: HtmlPaneProps
 
       <iframe
         ref={frame}
-        src={url}
+        src={framed}
         title={path}
         // The page's script asks as it parses, which a listener set late in the page
         // can miss, so the load posts the look too. Both are idempotent.

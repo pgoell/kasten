@@ -8,7 +8,6 @@
  */
 
 import { commands, userEvent } from "vitest/browser";
-import KASTEN from "../../../backend/src/kasten_backend/page_script.js?raw";
 
 /** The path `servePage` answers for, and the frame loads. */
 const PAGE = "fixture.html";
@@ -53,6 +52,7 @@ addEventListener("keydown", (event) => {
   if (event.key === "j") {
     event.preventDefault();
     parent.postMessage({ fixture: "own-j" }, "*");
+    setTimeout(() => parent.postMessage({ fixture: "after-j", y: scrollY }, "*"), 0);
   }
 });
 </script></body>`;
@@ -114,12 +114,11 @@ field.addEventListener("input", () => parent.postMessage({ fixture: "value", val
 }
 
 /**
- * Kasten's script at the start of the page, as the backend places it. The copy
- * `servePage` appends goes into a `<template>` that never closes, where a script
- * does not run, so the page runs the script once.
+ * The page as `servePage` serves it now: the backend puts Kasten's script at the
+ * start of every page, so the body is all this adds.
  */
 function atStart(body: string): string {
-  return `<!doctype html><title>start</title><script>${KASTEN}</script>${body}<template>`;
+  return `<!doctype html><title>start</title>${body}`;
 }
 
 /**
@@ -288,8 +287,9 @@ it("a j the page handles itself is not scrolled a second time", async () => {
 
   await userEvent.keyboard("j");
 
-  await expect.poll(() => messages.some((m) => m.fixture === "own-j")).toBe(true);
-  expect(await scrollY()).toBe(0);
+  // The page's timeout is queued after kasten's, so its answer comes after kasten's scroll would.
+  await expect.poll(() => messages.some((m) => m.fixture === "after-j")).toBe(true);
+  expect(messages.find((m) => m.fixture === "after-j")?.y).toBe(0);
 });
 
 it("in a text input, Space, ? and Escape stay the page's", async () => {

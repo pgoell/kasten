@@ -47,14 +47,18 @@
     true,
   );
 
-  // Bubble phase, so a page that handles `j` or `k` and calls preventDefault
-  // keeps it and is not scrolled a second time.
+  // Bubble phase, and decided in a task after the dispatch, so a page that
+  // handles `j` or `k` and calls preventDefault keeps it and is not scrolled a
+  // second time. The script runs before the page's code, so a handler the page
+  // adds later runs after this one; the task sees what every handler decided,
+  // whatever order they were added in.
   window.addEventListener("keydown", (event) => {
-    if (event.defaultPrevented || event.shiftKey || event.ctrlKey || event.altKey) return;
+    if (event.shiftKey || event.ctrlKey || event.altKey) return;
     if (event.metaKey || (event.key !== "j" && event.key !== "k")) return;
     if (within(targetOf(event), TYPING)) return;
-    event.preventDefault();
-    window.scrollBy({ top: event.key === "j" ? 64 : -64 });
+    window.setTimeout(() => {
+      if (!event.defaultPrevented) window.scrollBy({ top: event.key === "j" ? 64 : -64 });
+    }, 0);
   });
 
   // A page that opts in takes the theme and the palette from kasten. An answer

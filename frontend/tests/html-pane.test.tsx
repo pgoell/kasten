@@ -93,6 +93,26 @@ describe("the html pane", () => {
     });
   });
 
+  it("the frame loads the page with the theme and the palette, and a switch keeps its address", () => {
+    stubMatchMedia({});
+    localStorage.clear();
+    localStorage.setItem("kasten.palette", "russet");
+    const { frame, section } = renderPane();
+    const loaded = frame.getAttribute("src");
+    const href = within(section)
+      .getByRole("link", { name: "Open in a browser tab" })
+      .getAttribute("href");
+
+    localStorage.setItem("kasten.theme", "dark");
+    applyTheme();
+
+    expect({ src: frame.getAttribute("src"), href }).toEqual({
+      src: loaded,
+      href: `/api/html/${encodePath(PATH)}`,
+    });
+    expect(loaded).toBe(`/api/html/${encodePath(PATH)}?theme=light&palette=russet`);
+  });
+
   it("hello is answered with the theme and the palette", () => {
     stubMatchMedia({});
     localStorage.clear();
@@ -316,7 +336,8 @@ describe("the html pane", () => {
       path: screen.getByText(PATH).classList.contains("font-mono"),
       sectionMono: section.classList.contains("font-mono"),
       href: link.getAttribute("href"),
-      sameAsFrame: link.getAttribute("href") === frame.getAttribute("src"),
+      // The frame's address also carries the look, which the link leaves out (#786).
+      sameAsFrame: link.getAttribute("href") === frame.getAttribute("src")?.split("?")[0],
       target: link.getAttribute("target"),
       rel: link.getAttribute("rel"),
     }).toEqual({

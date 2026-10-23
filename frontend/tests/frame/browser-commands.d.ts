@@ -12,6 +12,7 @@ declare module "vitest/browser" {
       touch?: boolean;
     }) => Promise<void>;
     servePage: (path: string, html: string) => Promise<void>;
+    serveFile: (path: string, file: string) => Promise<void>;
     unservePages: () => Promise<void>;
   }
 }
