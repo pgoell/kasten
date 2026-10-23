@@ -16,6 +16,7 @@ import {
   type Mounted,
   mount,
   need,
+  nextFrame,
   PATIENCE,
   READER,
   type Size,
@@ -30,7 +31,7 @@ export const LONG = Array.from(
 );
 
 const REDUCED = "(prefers-reduced-motion: reduce)";
-const FINE_KEY = "kasten.workspace.1";
+export const FINE_KEY = "kasten.workspace.1";
 export const COARSE_KEY = "kasten.workspace.coarse.1";
 
 /**
@@ -65,7 +66,9 @@ export function twoTabs(): Layout {
 
 /**
  * Mounts the route with `layout` saved as this device's workspace, the
- * phone's under the coarse key and the desktop's under the fine one.
+ * phone's under the coarse key and the desktop's under the fine one. It waits
+ * for the web font, the frame after, and the strip's entrance, since the tabs
+ * and the fold re-measure when the font lands.
  */
 export async function mountTabs(
   size: Size,
@@ -82,6 +85,28 @@ export async function mountTabs(
     () => expect(visibleEditor(mounted.host).textContent).toContain("paragraph"),
     PATIENCE,
   );
+  // The tabs change width when the web font swaps in for the fallback, and the
+  // fold and underline re-measure through a ResizeObserver the frame after. A
+  // caller that reads the strip's geometry at once would read it before that
+  // settles, so the wait covers both (#865). On a first load the strip's entrance
+  // also slides it 6 px for 240 ms, and a rect read during that carries a fraction,
+  // so the wait runs until no entrance animation is left on the strip.
+  await document.fonts.ready;
+  await nextFrame();
+  await nextFrame();
+  await expect
+    .poll(
+      () =>
+        stripOf(mounted.host)
+          .getAnimations({ subtree: true })
+          .filter(
+            (animation) =>
+              animation.playState === "running" &&
+              (animation as CSSAnimation).animationName === "k-enter",
+          ).length,
+      PATIENCE,
+    )
+    .toBe(0);
   return mounted;
 }
 

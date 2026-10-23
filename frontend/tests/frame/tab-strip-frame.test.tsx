@@ -35,6 +35,7 @@ import {
   COARSE_KEY,
   DESIGN,
   drawn,
+  FINE_KEY,
   LONG,
   moreButton,
   mountTabs,
@@ -444,9 +445,13 @@ it("A14 the strip's entrance plays once", async () => {
   // The page is the same one the earlier tests mounted, so the entrance is spent
   // unless this test asks for a first load again.
   resetStripEntrance();
-  const mounted = await mountTabs(DESKTOP, "light", twoTabs());
+  // Not mountTabs: its font wait could outlast the 240 ms entrance on a cold page.
+  const mounted = await mount(DESKTOP, "light", "/", "[role='tablist']", {
+    [FINE_KEY]: JSON.stringify({ layout: twoTabs(), treeOpen: false }),
+  });
   try {
     const { host } = mounted;
+    await waitFor(() => expect(visibleEditor(host).textContent).toContain("paragraph"), PATIENCE);
     const strip = stripOf(host);
     // The entrance runs on the first load: the k-enter animation is on the strip now.
     const running = () =>
