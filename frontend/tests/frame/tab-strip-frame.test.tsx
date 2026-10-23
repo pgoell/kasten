@@ -298,8 +298,10 @@ it("A20 on a 390 touch phone a tap opens a tab, a tap on Today goes home, and a 
     const { host } = mounted;
     const selected = () =>
       wrappers(host).findIndex((tab) => tab.querySelector("[aria-selected='true']") !== null);
-    // The phone draws the first two tabs and folds the third behind "1 more".
-    expect(drawn(host)).toHaveLength(2);
+    // The phone draws the first two tabs and folds the third behind "1 more". Polled:
+    // the mount does not wait for the web font, and the tabs change width when it
+    // swaps in for the fallback, so the strip folds again once it lands (#862).
+    await expect.poll(() => drawn(host).length, PATIENCE).toBe(2);
     expect(moreButton(host)?.textContent).toBe("1 more");
 
     // A tap on the second tab makes it the active one.
