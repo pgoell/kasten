@@ -228,7 +228,9 @@ An HTML page in the HTML pane says `{kasten: 'hello'}` by postMessage as its
 script runs. Kasten answers with `{kasten: 'theme', theme}` and
 `{kasten: 'palette', palette}`, and posts both again when the frame loads, so a
 page whose listener came late still gets them. Every switch posts both again.
-The page does not reload.
+The page does not reload. For a page that opts in with the theme's meta tag,
+the [HTML theme contract](/reference/html-theme-contract.md) says what else
+kasten adds to it.
 
 ## Fonts
 
@@ -242,3 +244,8 @@ host learns when a note is opened.
 | Newsreader | `@fontsource-variable/newsreader` | SIL Open Font License 1.1 |
 | Instrument Sans | `@fontsource-variable/instrument-sans` | SIL Open Font License 1.1 |
 | JetBrains Mono | `@fontsource-variable/jetbrains-mono` | SIL Open Font License 1.1 |
+
+An HTML page that opts in to the theme gets the same three faces, inlined as
+`data:` URLs in its own `<head>`, because a font request from its frame does not
+carry the login cookie. The backend carries copies of the latin woff2 files in
+`backend/src/kasten_backend/fonts/`, with their OFL licenses.

@@ -8,11 +8,15 @@
  */
 
 import { commands, userEvent } from "vitest/browser";
+import KASTEN from "../../../backend/src/kasten_backend/page_script.js?raw";
 
 /** The path `servePage` answers for, and the frame loads. */
 const PAGE = "fixture.html";
 
-/** What a fixture posts back. `y` is set on the scroll answer, `value` on a field's input. */
+/**
+ * What a fixture posts back. `y` is set on the scroll answer, `value` on a field's input,
+ * and the theme, palette, open, marker fields on the state answer.
+ */
 interface Message {
   kasten?: string;
   key?: string;
@@ -21,6 +25,10 @@ interface Message {
   value?: string;
   prevented?: boolean;
   atWindow?: boolean;
+  theme?: string;
+  palette?: string;
+  open?: boolean;
+  marker?: string;
 }
 
 /**
@@ -105,6 +113,36 @@ field.addEventListener("input", () => parent.postMessage({ fixture: "value", val
 </script></body>`;
 }
 
+/**
+ * Kasten's script at the start of the page, as the backend places it. The copy
+ * `servePage` appends goes into a `<template>` that never closes, where a script
+ * does not run, so the page runs the script once.
+ */
+function atStart(body: string): string {
+  return `<!doctype html><title>start</title><script>${KASTEN}</script>${body}<template>`;
+}
+
+/**
+ * A page that answers `state` with its theme, palette, open details, scroll and a
+ * value its own script set, so a test can see which of them a message changed. It
+ * reports a message that did not come from its parent, which is how a test knows a
+ * nested frame's message arrived.
+ */
+const STATE = `<div style="height:3000px"></div><details open><summary>more</summary>text</details><script>
+window.marker = "set";
+addEventListener("message", (event) => {
+  if (event.data === "half") scrollTo(0, 1000);
+  if (event.data === "state") {
+    const html = document.documentElement;
+    parent.postMessage({ fixture: "state", theme: html.dataset.theme, palette: html.dataset.palette, open: document.querySelector("details").open, marker: window.marker, y: scrollY }, "*");
+  }
+  if (event.source !== parent) parent.postMessage({ fixture: "heard" }, "*");
+});
+</script>`;
+
+/** A page that opts in to the tokens, so kasten's theme and palette reach it. */
+const OPTED_IN = `<meta name="kasten-theme" content="tokens">${STATE}`;
+
 let frame: HTMLIFrameElement | undefined;
 const messages: Message[] = [];
 
@@ -151,6 +189,19 @@ async function scrollY(): Promise<number | undefined> {
   frame?.contentWindow?.postMessage("read", "*");
   await expect.poll(() => messages.slice(before).some((m) => m.fixture === "scroll")).toBe(true);
   return messages.slice(before).find((m) => m.fixture === "scroll")?.y;
+}
+
+/** Post `data` to the frame from this window, which is the frame's parent, as kasten is. */
+function sendToPage(data: unknown) {
+  frame?.contentWindow?.postMessage(data, "*");
+}
+
+/** The page's state, asked for and waited on, since a frame's DOM is out of reach. */
+async function pageState(): Promise<Message | undefined> {
+  const before = messages.length;
+  frame?.contentWindow?.postMessage("state", "*");
+  await expect.poll(() => messages.slice(before).some((m) => m.fixture === "state")).toBe(true);
+  return messages.slice(before).find((m) => m.fixture === "state");
 }
 
 /**
@@ -316,4 +367,76 @@ it("a page that catches Space on the document in the capture phase does not see 
   await expect.poll(() => reported("a")).toBe(true);
   expect(keysSent()).toEqual([" "]);
   expect(messages.some((m) => m.fixture === "caught")).toBe(false);
+});
+
+it("a page with its own var parent still sends hello and Space", async () => {
+  const element = await mount(
+    atStart(`<div style="height:3000px"></div><script>var parent = { postMessage() {} };</script>`),
+  );
+  await expect.poll(() => messages).toContainEqual({ kasten: "hello" });
+
+  await userEvent.click(element);
+  await userEvent.keyboard(" ");
+
+  await expect.poll(keysSent).toEqual([" "]);
+});
+
+it("a page's own window capture listener for Space does not keep it from kasten", async () => {
+  const element = await mount(
+    atStart(`<div style="height:3000px"></div>${REPORT}<script>
+addEventListener("keydown", (event) => { if (event.key === " ") event.stopImmediatePropagation(); }, true);
+</script>`),
+  );
+  await userEvent.click(element);
+  await userEvent.keyboard(" ");
+  await userEvent.keyboard("a");
+
+  await expect.poll(() => reported("a")).toBe(true);
+  expect(keysSent()).toEqual([" "]);
+});
+
+it("an opted-in page takes the theme and the palette from kasten by message, and keeps its scroll and open details", async () => {
+  await mount(atStart(OPTED_IN));
+  sendToPage("half");
+  const before = await pageState();
+
+  sendToPage({ kasten: "theme", theme: "dark" });
+  sendToPage({ kasten: "palette", palette: "pansy" });
+  const after = await pageState();
+
+  expect(after?.theme).toBe("dark");
+  expect(after?.palette).toBe("pansy");
+  expect(before?.y).toBeGreaterThan(0);
+  expect(after?.y).toBe(before?.y);
+  expect(after?.open).toBe(true);
+  expect(after?.marker).toBe("set");
+});
+
+it("a plain page ignores a theme message", async () => {
+  await mount(atStart(STATE));
+  sendToPage({ kasten: "theme", theme: "dark" });
+
+  expect((await pageState())?.theme).toBeUndefined();
+});
+
+it("a theme message from another window is ignored", async () => {
+  await mount(
+    atStart(
+      `${OPTED_IN}<iframe srcdoc="<script>parent.postMessage({kasten:'theme',theme:'dark'},'*')</script>"></iframe>`,
+    ),
+  );
+  await expect.poll(() => messages.some((m) => m.fixture === "heard")).toBe(true);
+
+  sendToPage({ kasten: "theme", theme: "light" });
+
+  expect((await pageState())?.theme).toBe("light");
+});
+
+it("an unknown theme value is ignored", async () => {
+  await mount(atStart(OPTED_IN));
+  sendToPage({ kasten: "theme", theme: "sepia" });
+  expect((await pageState())?.theme).toBeUndefined();
+
+  sendToPage({ kasten: "theme", theme: "light" });
+  expect((await pageState())?.theme).toBe("light");
 });

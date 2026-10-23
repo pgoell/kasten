@@ -1,12 +1,12 @@
 """Routes that list what the vault holds, and the folders and pages it keeps."""
 
-from pathlib import Path
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel
 
 from kasten_backend.config import Settings, get_settings
+from kasten_backend.html_page import KASTEN_THEME, serve_page
 from kasten_backend.vault import (
     list_assets,
     list_html,
@@ -112,52 +112,40 @@ HTML_POLICY = "; ".join(
 )
 """What one page of HTML out of the vault may do, which is draw itself."""
 
-LINKS_OUT = b"""
-<script>
-document.addEventListener("click", (event) => {
-  const link = event.target instanceof Element ? event.target.closest("a[href]") : null;
-  if (link !== null && link.host !== location.host) link.target = "_blank";
-}, true);
-</script>
-"""
-"""Sends a link to another site into a tab of its own.
-
-The app's `frame-src` holds the frame to kasten's own pages, so a link that
-leaves would load nothing. A `<base target>` would do the same with no script,
-and would also send every `#section` of a page's contents to a new tab.
-Appended rather than put in the head, because anything ahead of the doctype
-drops the page into quirks mode.
-"""
-
-PAGE_SCRIPT = (
-    b"\n<script>\n" + (Path(__file__).parents[1] / "page_script.js").read_bytes() + b"\n</script>\n"
-)
-"""Hands the keys a page takes to kasten, and is appended after the page.
-
-Read once at import, as `mcp-instructions.md` is. A file beside the package
-rather than a string here, so the script can be read and linted as JavaScript.
-Appended after the page so it lands at the end of `<body>`, and the parser
-puts it there even when the page has no `<body>` tag.
-"""
-
 
 @router.get("/api/html/{path:path}", response_class=Response)
-async def read_html(path: str, settings: Annotated[Settings, Depends(get_settings)]) -> Response:
+async def read_html(
+    path: str,
+    settings: Annotated[Settings, Depends(get_settings)],
+    theme: str | None = None,
+    palette: str | None = None,
+) -> Response:
     """Read one HTML page out of the vault, to be drawn in a frame and not trusted.
 
     The page is whatever a research run or a terminal left there, script
     included, and this is kasten's origin. `HTML_POLICY` is what keeps the two
-    apart.
+    apart. `theme` and `palette` are the frame's colours for a page that opts in
+    with the kasten-theme meta; `serve_page` says what they do.
     """
     page = resolve_html(settings.vault_path, path)
     if page is None:
         raise HTTPException(status_code=404, detail="No such page")
 
     return Response(
-        page.read_bytes() + LINKS_OUT + PAGE_SCRIPT,
+        serve_page(page.read_bytes(), theme, palette),
         media_type="text/html",
         headers={"Content-Security-Policy": HTML_POLICY},
     )
+
+
+@router.get("/api/kasten-theme.css", response_class=Response)
+async def read_kasten_theme() -> Response:
+    """Serve the design tokens a page that opts in is given, as a stylesheet.
+
+    The path is stable on purpose: a plugin copies the file at build time, and
+    `test_page_theme.py` keeps the copy the same as the frontend's own file.
+    """
+    return Response(KASTEN_THEME, media_type="text/css")
 
 
 @router.get("/api/terminals")

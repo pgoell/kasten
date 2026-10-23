@@ -9,7 +9,7 @@ status: stable
 
 # HTTP API
 
-The backend serves forty-seven endpoints under `/api/`. Thirty read,
+The backend serves forty-eight endpoints under `/api/`. Thirty-one read,
 sixteen write, and one streams. The interactive schema is at `/docs` while the backend
 runs, and the machine-readable one at `/openapi.json`.
 

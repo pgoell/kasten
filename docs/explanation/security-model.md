@@ -203,6 +203,13 @@ a page can do with these messages. "Open in a browser tab" shows the page in a
 tab of its own under kasten's address, held by the same sandbox header, so a
 page there can draw a fake login form; it reads nothing of kasten's.
 
+The theme adds little to that. An opted-in page is sent two names in its
+address, a theme and a palette, each from a short fixed list. kasten puts its
+token file and three font files into the page itself, and all of it is public.
+The page script acts on a theme message only when the message comes from its
+parent. Nothing is fetched from inside the frame, and the frame still has no
+`allow-same-origin`.
+
 ## What none of this covers
 
 A leaked token reads the whole vault, and no revoke takes back a copy. The

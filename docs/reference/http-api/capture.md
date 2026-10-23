@@ -38,13 +38,13 @@ The page goes out with a policy of its own in `Content-Security-Policy`:
 | `img-src 'self' data: blob: https:` | Pictures, inline or linked |
 | `connect-src 'none'`, `form-action 'none'` | The page cannot send a request to kasten, a write included |
 
-A short script is added after the page, which sends a link to another site to
-a new tab: the app's own `frame-src` keeps the frame on kasten. Added after
-rather than before, so the doctype stays first and the page keeps its
-standards mode. The file itself is not changed.
+Two scripts go into the page, and the page's own bytes are otherwise unchanged.
 
-A second script follows it, the page script (`page_script.js` in the backend).
-In a frame it posts `{kasten: 'hello'}` as it loads, and posts Space, `?` and
+The page script (`page_script.js` in the backend) goes first: right after the
+doctype, or at the very start of a page with none, after a byte order mark if
+there is one. It runs before any of the page's own code, so it takes
+`window.parent` and its key listener before the page can change them. In a
+frame it posts `{kasten: 'hello'}` as it loads, and posts Space, `?` and
 Escape pressed outside a text field to kasten as `{kasten: 'key', key}`, after
 it stops their default. Space on a focused control that Space presses (a
 button, a `summary`, a button-like ARIA role, a video or audio player), Shift
@@ -52,9 +52,48 @@ Space, and any of the three with Ctrl, Alt or Meta stay the page's. `j` and `k`
 scroll the page. Opened in a tab of its own, with no parent to post to, it does
 nothing.
 
+The link script goes after the page. It sends a link to another site to a new
+tab: the app's own `frame-src` keeps the frame on kasten. It sits after the
+page so the doctype stays first and the page keeps its standards mode.
+
+### The theme and the palette
+
+`?theme=` takes `light` or `dark`, and `?palette=` takes `poel`, `russet`,
+`peach` or `pansy`. They only matter to a page that opts in, with a meta in its
+head:
+
+```html
+<meta name="kasten-theme" content="tokens">
+```
+
+The name and the content are compared trimmed and case-insensitively, in either
+order. A meta inside a comment, or in the text of a script or a style, does not
+count. A page that opts in with both a theme and a palette from those lists is
+given:
+
+* `<html data-theme="…" data-palette="…">` ahead of the page script. The browser
+  keeps the first value of each attribute, so the page cannot set its own
+  `data-theme`.
+* At the end of its head, the fonts (Newsreader, Instrument Sans and JetBrains
+  Mono, the latin subsets inlined as data URIs) and the design tokens, as a
+  stylesheet with no layer. The tokens are the same as
+  [`GET /api/kasten-theme.css`](#get-apikasten-themecss) serves.
+
+A page that does not opt in, or a theme or palette that is not in those lists,
+or none at all, gets the scripts and nothing about colour or fonts. It shows its
+own fallback, which follows the system.
+
 Anything that is not a readable `.html` file inside the vault is a `404`, on
 the rules the note read follows. There is no write: a page gets into the vault
 from a terminal or an agent with a shell.
+
+## GET /api/kasten-theme.css
+
+The design tokens of kasten's theme, as `text/css`: the same bytes as
+`frontend/src/styles/kasten-theme.css`. A plugin copies this file at build time
+to style a page of its own, so the path does not change. The backend's copy is
+held to the frontend's file by a test, which fails when the frontend file
+changes and the copy has not been renewed.
 
 ## GET /api/fetch
 

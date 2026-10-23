@@ -1,0 +1,346 @@
+/* kasten's design tokens: light on :root, dark on [data-theme="dark"]. Plain
+   CSS with no Tailwind in it, so a page outside the app can read the file as it
+   stands; `app.css` maps the names onto Tailwind in its own `@theme inline`. */
+
+:root {
+  color-scheme: light;
+
+  --k-bg: #f6f6f4;
+  --k-paper: #fbfbfa;
+  --k-surface: #ebebe8;
+  --k-ink: #1c1c1b;
+  --k-ink-soft: #3b3b39;
+  --k-muted: #666663;
+  --k-rule: #e1e1de;
+  --k-rule-strong: #1c1c1b;
+  --k-inset: rgba(28,28,27,.06);
+  /* Vandar Poel's blue for the accent. Link and accent are two names for
+     one value, as the issue gives them. */
+  --k-accent: #316f90;
+  --k-link: #316f90;
+  --k-accent-wash: rgba(49,111,144,.11);
+  /* The cluster areas of the vault graph: the accent or a tag colour at this
+     strength, as a plain number for the canvas's globalAlpha. */
+  --k-area: .08;
+  /* Yellow Orange #f99d1b at 22 %. Highlight and mark are two names for one
+     value, as the issue gives them. */
+  --k-highlight: rgba(249,157,27,.22);
+  --k-mark: rgba(249,157,27,.22);
+  --k-ok: #247b4b;
+  --k-warn: #8d5e09;
+  --k-info: #4a6d89;
+  --k-danger: #9a5143;
+  --k-shadow: 0 1px 2px rgba(0,0,0,.05),0 12px 32px rgba(0,0,0,.09);
+
+  --tg-1: #b05459;
+  --tg-2: #5b8230;
+  --tg-3: #307baf;
+  --tg-4: #9c5a8d;
+  --tg-5: #7f7800;
+  --tg-6: #0f848a;
+  --tg-7: #8a639a;
+  --tg-8: #a66218;
+  --tg-9: #338756;
+  --tg-10: #7567b1;
+  --tg-none: #9b9b99;
+
+  --k-serif: "Newsreader Variable", Georgia, serif;
+  --k-sans: "Instrument Sans Variable", system-ui, sans-serif;
+  --k-mono: "JetBrains Mono Variable", ui-monospace, monospace;
+
+  --k-text-12: 12px;
+  --k-text-13: 13px;
+  --k-text-15: 15px;
+  --k-text-19: 19px;
+  --k-text-23: 23px;
+  --k-text-27: 27px;
+  --k-text-36: 36px;
+  --k-text-46: 46px;
+  --k-text-64: 64px;
+  /* The size a note is read at: a name for the 19 px step, not a new size. */
+  --k-text-read: var(--k-text-19);
+
+  --k-leading-title: 1.1;
+  --k-leading-heading: 1.1;
+  --k-leading-ui: 1.5;
+  /* The 46 and 64 px sizes sit tighter than the titles under them. */
+  --k-leading-display: 1.04;
+  --k-leading-reading: 1.6;
+
+  --k-space-4: 4px;
+  --k-space-8: 8px;
+  --k-space-12: 12px;
+  --k-space-16: 16px;
+  --k-space-24: 24px;
+  --k-space-32: 32px;
+  --k-space-48: 48px;
+  --k-space-64: 64px;
+
+  --k-radius-4: 4px;
+  --k-radius-6: 6px;
+  --k-radius-8: 8px;
+  --k-measure: 680px;
+
+  /* Springs are a response time and a damping. Damping 1 settles without
+     overshoot; 0.8 is for a flick only. */
+  --k-press-scale: 0.97;
+  --k-press-in: 100ms;
+  --k-press-out: 160ms;
+  --k-hover: 150ms;
+  /* The desktop side sheet's slide: the same 240 ms as k-enter in app.css. */
+  --k-slide: 240ms;
+  --k-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --k-spring-response: 0.32s;
+  --k-spring-damping: 1;
+  --k-spring-flick-damping: 0.8;
+  --k-spring-sheet-open: 0.35s;
+  --k-spring-sheet-close: 0.3s;
+  --k-spring-tab: 0.32s;
+  --k-spring-split: 0.34s;
+  --k-spring-card: 0.26s;
+  --k-stagger: 22ms;
+  --k-stagger-cap: 6;
+  --k-theme-fade: 240ms;
+
+  /* Large serif titles sit tighter than the text they head, small labels
+     open a little, and a kbd glyph opens more than either. */
+  --k-track-display: -0.018em;
+  --k-track-title: -0.017em;
+  --k-track-heading: -0.016em;
+  --k-track-body: 0em;
+  --k-track-label: 0.006em;
+  --k-track-kbd: 0.02em;
+}
+
+/* Only the colours change in dark. */
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --k-bg: #141414;
+  --k-paper: #1a1a1a;
+  --k-surface: #232323;
+  --k-ink: #e8e7e4;
+  --k-ink-soft: #c6c5c1;
+  --k-muted: #9a9995;
+  --k-rule: #2c2c2c;
+  --k-rule-strong: #e8e7e4;
+  --k-inset: rgba(232,231,228,.08);
+  --k-accent: #82b9d9;
+  --k-link: #82b9d9;
+  --k-accent-wash: rgba(130,185,217,.14);
+  /* Heavier on dark, where the same wash of colour would sink into the ground. */
+  --k-area: .11;
+  /* Pale King's Blue #a7d4e4 at 18 %: the yellow orange of light read brown
+     on a dark ground. */
+  --k-highlight: rgba(167,212,228,.18);
+  --k-mark: rgba(167,212,228,.18);
+  --k-ok: #7acd97;
+  --k-warn: #e7aa53;
+  --k-info: #97bddb;
+  --k-danger: #f19f8f;
+  --k-shadow: 0 1px 2px rgba(0,0,0,.3),0 16px 40px rgba(0,0,0,.45);
+
+  --tg-1: #ea9799;
+  --tg-2: #9bbe7b;
+  --tg-3: #76b9ec;
+  --tg-4: #da99c9;
+  --tg-5: #bab567;
+  --tg-6: #56c4ca;
+  --tg-7: #c99fda;
+  --tg-8: #dfa26d;
+  --tg-9: #7cc495;
+  --tg-10: #b1a6ec;
+  --tg-none: #878783;
+}
+
+/* palettes:begin: written by scripts/palettes.ts, do not edit by hand */
+[data-palette="poel"] {
+  --k-accent: #316f90;
+  --k-link: #316f90;
+  --k-accent-wash: rgba(49,111,144,.11);
+  --k-highlight: rgba(249,157,27,.22);
+  --k-mark: rgba(249,157,27,.22);
+  --k-ok: #247b4b;
+  --k-warn: #8d5e09;
+  --k-info: #4a6d89;
+  --k-danger: #9a5143;
+  --tg-1: #b05459;
+  --tg-2: #5b8230;
+  --tg-3: #307baf;
+  --tg-4: #9c5a8d;
+  --tg-5: #7f7800;
+  --tg-6: #0f848a;
+  --tg-7: #8a639a;
+  --tg-8: #a66218;
+  --tg-9: #338756;
+  --tg-10: #7567b1;
+}
+
+[data-palette="poel"][data-theme="dark"] {
+  --k-accent: #82b9d9;
+  --k-link: #82b9d9;
+  --k-accent-wash: rgba(130,185,217,.14);
+  --k-highlight: rgba(167,212,228,.18);
+  --k-mark: rgba(167,212,228,.18);
+  --k-ok: #7acd97;
+  --k-warn: #e7aa53;
+  --k-info: #97bddb;
+  --k-danger: #f19f8f;
+  --tg-1: #ea9799;
+  --tg-2: #9bbe7b;
+  --tg-3: #76b9ec;
+  --tg-4: #da99c9;
+  --tg-5: #bab567;
+  --tg-6: #56c4ca;
+  --tg-7: #c99fda;
+  --tg-8: #dfa26d;
+  --tg-9: #7cc495;
+  --tg-10: #b1a6ec;
+}
+
+[data-palette="russet"] {
+  --k-accent: #9a5143;
+  --k-link: #9a5143;
+  --k-accent-wash: rgba(154,81,67,.11);
+  --k-highlight: rgba(98,198,191,.30);
+  --k-mark: rgba(98,198,191,.30);
+  --k-ok: #007c54;
+  --k-warn: #956200;
+  --k-info: #2970ad;
+  --k-danger: #aa5062;
+  --tg-1: #a75683;
+  --tg-2: #647660;
+  --tg-3: #177a9a;
+  --tg-4: #8a6299;
+  --tg-5: #7a7300;
+  --tg-6: #007e83;
+  --tg-7: #7569a3;
+  --tg-8: #976640;
+  --tg-9: #00806d;
+  --tg-10: #4970b6;
+}
+
+[data-palette="russet"][data-theme="dark"] {
+  --k-accent: #e59c8d;
+  --k-link: #e59c8d;
+  --k-accent-wash: rgba(229,156,141,.14);
+  --k-highlight: rgba(98,198,191,.24);
+  --k-mark: rgba(98,198,191,.24);
+  --k-ok: #6ec099;
+  --k-warn: #d7a867;
+  --k-info: #7cb5eb;
+  --k-danger: #eb9aa6;
+  --tg-1: #de95bb;
+  --tg-2: #9db199;
+  --tg-3: #5eb6d7;
+  --tg-4: #c69cd6;
+  --tg-5: #b2ae61;
+  --tg-6: #4dbbc0;
+  --tg-7: #afa3e0;
+  --tg-8: #d5a078;
+  --tg-9: #58bca7;
+  --tg-10: #87acea;
+}
+
+[data-palette="peach"] {
+  --k-accent: #b93100;
+  --k-link: #b93100;
+  --k-accent-wash: rgba(185,49,0,.11);
+  --k-highlight: rgba(238,180,128,.30);
+  --k-mark: rgba(238,180,128,.30);
+  --k-ok: #407856;
+  --k-warn: #956200;
+  --k-info: #2672a6;
+  --k-danger: #975d61;
+  --tg-1: #966277;
+  --tg-2: #557c2a;
+  --tg-3: #5e7197;
+  --tg-4: #955d98;
+  --tg-5: #797325;
+  --tg-6: #007e83;
+  --tg-7: #7569a3;
+  --tg-8: #00806d;
+  --tg-9: #4d7786;
+  --tg-10: #976640;
+}
+
+[data-palette="peach"][data-theme="dark"] {
+  --k-accent: #fd8e70;
+  --k-link: #fd8e70;
+  --k-accent-wash: rgba(253,142,112,.14);
+  --k-highlight: rgba(238,180,128,.24);
+  --k-mark: rgba(238,180,128,.24);
+  --k-ok: #82bd96;
+  --k-warn: #d7a867;
+  --k-info: #74b7e9;
+  --k-danger: #e09fa3;
+  --tg-1: #d49bb1;
+  --tg-2: #93b673;
+  --tg-3: #96acd4;
+  --tg-4: #d099d1;
+  --tg-5: #b2ae61;
+  --tg-6: #4dbbc0;
+  --tg-7: #afa3e0;
+  --tg-8: #58bca7;
+  --tg-9: #86b2c1;
+  --tg-10: #d5a078;
+}
+
+[data-palette="pansy"] {
+  --k-accent: #a83f5d;
+  --k-link: #a83f5d;
+  --k-accent-wash: rgba(168,63,93,.11);
+  --k-highlight: rgba(249,193,206,.30);
+  --k-mark: rgba(249,193,206,.30);
+  --k-ok: #007b6a;
+  --k-warn: #956212;
+  --k-info: #486f9f;
+  --k-danger: #aa543c;
+  --tg-1: #955d98;
+  --tg-2: #7f7132;
+  --tg-3: #007d8c;
+  --tg-4: #7467b0;
+  --tg-5: #8d6955;
+  --tg-6: #846e41;
+  --tg-7: #207d81;
+  --tg-8: #5e7197;
+  --tg-9: #a46116;
+  --tg-10: #8a6299;
+}
+
+[data-palette="pansy"][data-theme="dark"] {
+  --k-accent: #f48da5;
+  --k-link: #f48da5;
+  --k-accent-wash: rgba(244,141,165,.14);
+  --k-highlight: rgba(249,193,206,.24);
+  --k-mark: rgba(249,193,206,.24);
+  --k-ok: #5dc1ac;
+  --k-warn: #d9a769;
+  --k-info: #89b3e6;
+  --k-danger: #eb9d87;
+  --tg-1: #d099d1;
+  --tg-2: #baab6c;
+  --tg-3: #50b9ca;
+  --tg-4: #ada3e8;
+  --tg-5: #caa38d;
+  --tg-6: #c0a979;
+  --tg-7: #63b9bc;
+  --tg-8: #96acd4;
+  --tg-9: #db9f6a;
+  --tg-10: #c69cd6;
+}
+/* palettes:end */
+
+/* The cross-fade between the two themes. The reduced-motion reader gets the
+   switch with no fade at all. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: var(--k-theme-fade);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none;
+  }
+}
