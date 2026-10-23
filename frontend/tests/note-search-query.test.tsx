@@ -27,9 +27,10 @@ it("asks nothing of the vault until the typing settles", async () => {
   search.type("pos");
 
   // One query for the word, not one per letter. Every keystroke firing its own
-  // scan is the thing the delay exists to stop.
+  // scan is the thing the delay exists to stop. The page also asks once with the
+  // archive in, for the archive's count, so only the archive-out asks are counted.
   await waitFor(() => expect(searchNotes).toHaveBeenCalledWith("pos", false));
-  expect(searchNotes).toHaveBeenCalledTimes(1);
+  expect(searchNotes.mock.calls.filter(([, archive]) => archive === false)).toHaveLength(1);
 });
 
 it("ranks the lines it was handed rather than showing them in the order they came", async () => {
@@ -43,7 +44,9 @@ it("ranks the lines it was handed rather than showing them in the order they cam
   searchNotes.mockResolvedValue(HITS);
   search.type("runs");
 
-  await waitFor(() => expect(search.rows()[0]).toContain("reference/deploy.md"));
+  // The line that matches is the first row, which is what the ranking has to
+  // say; the note it sits in is the heading over it, not part of the row.
+  await waitFor(() => expect(search.rows()[0]).toContain("runs in its own container"));
 });
 
 it("narrows what it already has while the next answer is on its way", async () => {
@@ -59,5 +62,5 @@ it("narrows what it already has while the next answer is on its way", async () =
   search.type("postgres container");
 
   await waitFor(() => expect(search.rows()).toHaveLength(1));
-  expect(search.rows()[0]).toContain("reference/deploy.md");
+  expect(search.rows()[0]).toContain("in its own container");
 });

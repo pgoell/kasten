@@ -25,6 +25,9 @@ export function useFinders({
   moves,
   openInPane,
   linkMentionOf,
+  week,
+  onWeek,
+  toggleArchive,
 }: {
   listings: Pick<Listings, "data" | "shown" | "assets" | "archive">;
   panePath: string | undefined;
@@ -32,6 +35,10 @@ export function useFinders({
   moves: Pick<PaneMoves, "moveTo" | "refocusPane">;
   openInPane: (path: string, line?: number) => Promise<boolean>;
   linkMentionOf: GuardedWrites["linkMentionOf"];
+  /** The week the search narrows to, from the URL. */
+  week: string | undefined;
+  onWeek: (week: string | undefined) => void;
+  toggleArchive: () => void;
 }) {
   const { data, shown, assets, archive } = listings;
   const { moveTo, refocusPane } = moves;
@@ -41,8 +48,15 @@ export function useFinders({
   const [finderOpen, setFinderOpen] = useState(false);
   // Its own flag rather than a mode of the finder's: that one ranks a vault
   // already in hand, this one asks the backend on a delay, and the two share
-  // no state worth folding together.
-  const [searchOpen, setSearchOpen] = useState(false);
+  // no state worth folding together. Open on a cold load of a URL that names a
+  // week, since that week is what the search page is showing.
+  const [searchOpen, setSearchOpen] = useState(week !== undefined);
+  // The search's week goes with the search: closing it clears the week, so the
+  // URL never names a week over nothing on screen.
+  const closeSearch = () => {
+    setSearchOpen(false);
+    if (week !== undefined) onWeek(undefined);
+  };
   // A flag like the search's: the vault holds one set of todos and the panel
   // asks for all of them, so there is nothing here to start from.
   const [todosOpen, setTodosOpen] = useState(false);
@@ -151,17 +165,20 @@ export function useFinders({
           todos={todosOpen}
           archive={archive}
           paths={data}
+          week={week}
+          onWeek={onWeek}
+          onToggleArchive={toggleArchive}
           onLink={
             backlinksOf === undefined ? undefined : (mention) => linkMentionOf(backlinksOf, mention)
           }
           onOpen={(path, hitLine) => {
-            setSearchOpen(false);
+            closeSearch();
             setBacklinksOf(undefined);
             setTodosOpen(false);
             void openInPane(path, hitLine);
           }}
           onClose={() => {
-            setSearchOpen(false);
+            closeSearch();
             setBacklinksOf(undefined);
             setTodosOpen(false);
           }}
@@ -170,5 +187,5 @@ export function useFinders({
     </>
   );
 
-  return { commands, element };
+  return { commands, element, searchOpen };
 }

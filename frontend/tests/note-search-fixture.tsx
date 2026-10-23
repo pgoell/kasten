@@ -99,3 +99,38 @@ export function renderBacklinks(
     selected: () => screen.queryAllByRole("option").findIndex((row) => row.ariaSelected === "true"),
   };
 }
+
+/**
+ * A line that links to `reading/borges.md`, which is what the backlinks list
+ * keeps. The preview tests read the pane beside that list, so their hits carry one.
+ */
+export const linked = (text: string) => `see [[reading/borges]] ${text}`;
+
+/**
+ * The pane beside the backlinks of `reading/borges.md`, which is where the
+ * preview pane is drawn now that the search page no longer draws one.
+ */
+export function renderPreview() {
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <NoteSearch
+        backlinksOf="reading/borges.md"
+        paths={["a.md", "reading/borges.md"]}
+        onOpen={vi.fn()}
+        onClose={vi.fn()}
+      />
+    </QueryClientProvider>,
+  );
+
+  const input = screen.getByLabelText("backlinks") as HTMLInputElement;
+
+  return {
+    type: (value: string) => fireEvent.change(input, { target: { value } }),
+    press: (key: string) => fireEvent.keyDown(input, { key }),
+    rows: () => screen.queryAllByRole("option").map((row) => row.textContent),
+    preview: () => screen.queryByTestId("preview")?.textContent ?? "",
+    markedLine: () => document.querySelector(".cm-searchHit")?.textContent ?? "",
+    lineNumbers: () =>
+      [...document.querySelectorAll(".cm-gutterElement")].map((n) => n.textContent ?? ""),
+  };
+}

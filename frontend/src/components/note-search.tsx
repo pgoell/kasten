@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useId, useRef, useState } from "react";
+import { ContentSearch } from "@/components/content-search";
 import { SearchPreview } from "@/components/search-preview";
 import { SearchRow } from "@/components/search-row";
 import type { Mention } from "@/lib/api";
@@ -45,6 +46,14 @@ interface NoteSearchProps {
    * that knows which note somebody is typing in.
    */
   onLink?: (mention: Mention) => Promise<string | null>;
+  /** Search only: flip the archive in or out, the same switch as `<leader>a`. */
+  onToggleArchive?: () => void;
+  /** Search only: the ISO week the histogram narrows the lines to, from the URL. */
+  week?: string;
+  /** Search only: set or clear that week. */
+  onWeek?: (week: string | undefined) => void;
+  /** Search only: today, for tests. Read once on mount when absent. */
+  now?: Date;
 }
 
 /** The word over the input, and the name a screen reader reads the dialog by. */
@@ -67,12 +76,11 @@ const UNTYPED_KEY = "\u0000";
  * Backlinks and todos skip the first of those: neither query was ever waiting to
  * be typed, so there is no state where nothing has been asked.
  */
-function hint(typed: string, pending: boolean, matches: number, mode: SearchMode): string {
+function hint(pending: boolean, matches: number, mode: SearchMode): string {
   if (pending) return "reading the vault";
   if (mode === "todos") return matches === 0 ? "no open todos" : "";
   if (mode === "backlinks") return matches === 0 ? "nothing links here" : "";
-  if (!typed) return "type to search every note";
-  return matches === 0 ? "no notes match" : "";
+  return "";
 }
 
 /**
@@ -98,8 +106,30 @@ function hint(typed: string, pending: boolean, matches: number, mode: SearchMode
  * `todos` is that mode read once more, off `/api/todos`. What the vault holds
  * to do is a fixed set for the same reason, so there is no debounce here and no
  * scan per keystroke.
+ *
+ * The search itself is a page of its own, `ContentSearch`, with a histogram and
+ * a column of filters beside the lines. It asks the same question and ranks the
+ * same way, so only what it draws differs from the two lists below.
  */
-export function NoteSearch({
+export function NoteSearch(props: NoteSearchProps) {
+  if (props.todos !== true && props.backlinksOf === undefined) {
+    return (
+      <ContentSearch
+        onOpen={props.onOpen}
+        onClose={props.onClose}
+        archive={props.archive ?? false}
+        onToggleArchive={props.onToggleArchive}
+        week={props.week}
+        onWeek={props.onWeek}
+        now={props.now}
+      />
+    );
+  }
+  return <LineSearch {...props} />;
+}
+
+/** The lines of a backlinks or todos list: the ranked panel the search page does not use. */
+function LineSearch({
   onOpen,
   onClose,
   backlinksOf,
@@ -325,7 +355,6 @@ export function NoteSearch({
         <output className={STATUS}>
           {refused ??
             hint(
-              typed,
               pending,
               ordered.filter((index) => {
                 const hit = found[index];

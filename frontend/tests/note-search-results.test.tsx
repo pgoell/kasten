@@ -17,7 +17,8 @@ it("shows the note, the line number and the line", async () => {
   search.type("postgres");
 
   await waitFor(() => expect(search.rows()).toHaveLength(2));
-  expect(search.rows()[0]).toContain("projects/kasten.md");
+  // The page groups by note, so the path is the heading over the row, not in it.
+  expect(screen.getByRole("group", { name: "projects/kasten.md" })).toBeTruthy();
   expect(search.rows()[0]).toContain("12");
   expect(search.rows()[0]).toContain("Postgres holds a derived index.");
 });

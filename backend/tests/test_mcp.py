@@ -80,6 +80,23 @@ async def test_tools_call_queries_the_graph(
     assert rows == [{"?how": "depends-on", "?what": "embeddings.md"}]
 
 
+async def test_tools_call_searches_and_answers_path_line_and_text_only(
+    client: AsyncClient, agent_vault: Path, bearer: dict[str, str]
+) -> None:
+    # A dated note with a tag, so the date and tags the HTTP search adds would
+    # show here if the tool took the same path.
+    (agent_vault / "2026-10-07.md").write_text("The garden of forking paths #borges\n")
+
+    response = await client.post(
+        ENDPOINT, json=call("search_notes", {"query": "forking"}), headers={**bearer, **RPC}
+    )
+
+    hits = payload(response.text)["result"]["structuredContent"]["result"]
+    assert hits == [
+        {"path": "2026-10-07.md", "line": 1, "text": "The garden of forking paths #borges"}
+    ]
+
+
 async def test_no_bearer_is_refused(client: AsyncClient, agent_vault: Path) -> None:
     (agent_vault / "borges.md").write_text("# borges\n")
 

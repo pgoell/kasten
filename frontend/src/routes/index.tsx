@@ -23,6 +23,7 @@ import { paletteEntries } from "@/lib/palette";
 import { openOnTop } from "@/lib/pane-contents";
 import { docIn } from "@/lib/pane-doc";
 import { activeTab, emptyLayout, focusedPane, type Layout, panesOf, tabPanes } from "@/lib/panes";
+import { parseWeek } from "@/lib/search-weeks";
 import { useAutosave } from "@/lib/use-autosave";
 import { useBufferSync } from "@/lib/use-buffer-sync";
 import { useFileTransfer } from "@/lib/use-file-transfer";
@@ -49,6 +50,7 @@ interface HomeSearch {
    * at the top of the note, the way `note` itself survives one.
    */
   line?: number;
+  week?: string;
 }
 
 function Home() {
@@ -68,7 +70,7 @@ function Home() {
     shownHtml,
     shownPdfs,
   } = listings;
-  const { note, line } = Route.useSearch();
+  const { note, line, week } = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
   const queryClient = useQueryClient();
 
@@ -216,10 +218,6 @@ function Home() {
   // the cursor has moved on since. Written down, a reload would read it as a
   // link asking for that line (`openOnTop`) and jump the cursor back over the
   // spot the editor saved.
-  useEffect(() => {
-    navigate({ search: pane.path === undefined ? {} : { note: pane.path }, replace: true });
-  }, [pane.path, navigate]);
-
   useVaultEvents(focusedNote, decline);
 
   const guarded = useGuardedWrites({ focusedNote, panePath: pane.path, setNotice });
@@ -273,7 +271,21 @@ function Home() {
     moves: { moveTo, refocusPane },
     openInPane,
     linkMentionOf: guarded.linkMentionOf,
+    week,
+    onWeek: (next) =>
+      navigate({ search: (previous) => ({ ...previous, week: next }), replace: true }),
+    toggleArchive: listings.commands.toggleArchive,
   });
+
+  useEffect(() => {
+    navigate({
+      search: {
+        ...(pane.path === undefined ? {} : { note: pane.path }),
+        ...(finders.searchOpen && week !== undefined ? { week } : {}),
+      },
+      replace: true,
+    });
+  }, [pane.path, navigate, week, finders.searchOpen]);
 
   const commands = useMemo<TreeCommands>(
     () => ({
@@ -456,6 +468,7 @@ export const Route = createFileRoute("/")({
   // Anything that is not a string reads as no note open.
   validateSearch: (search: Record<string, unknown>): HomeSearch => ({
     note: typeof search.note === "string" ? search.note : undefined,
+    week: parseWeek(search.week),
     // Anything that is not a line number reads as no line, which covers a
     // hand-typed URL as well as the absence of one.
     line:

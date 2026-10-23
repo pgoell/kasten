@@ -115,6 +115,21 @@ def tags(content: str) -> list[str]:
     return _list(content, "tags")
 
 
+def created(content: str) -> str | None:
+    """The block's `created` field as it is written, or None when the block has none.
+
+    A single value rather than a list, so it is read off the line as written.
+    Quotes are stripped because a writer may quote a timestamp, and nothing else
+    is, so the caller decides what the text means.
+    """
+    block, _ = _split(content)
+    line = _line("created", block)
+    if line is None:
+        return None
+
+    return line.partition(":")[2].strip().strip("\"'") or None
+
+
 def _list(content: str, name: str) -> list[str]:
     """The values the block's field `name` holds, in the order it holds them.
 

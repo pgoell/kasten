@@ -6,13 +6,18 @@ the listing shows and the search cannot find is the bug this file exists to
 catch.
 """
 
+import os
+from collections import Counter
+from datetime import date, datetime
+from pathlib import Path
 from typing import TYPE_CHECKING
 
+import pytest
+
+from kasten_backend.config import get_settings
 from kasten_backend.search import MOST_HITS
 
 if TYPE_CHECKING:
-    from pathlib import Path
-
     from httpx import AsyncClient
 
 
@@ -23,13 +28,20 @@ def write(vault: Path, path: str, text: str) -> None:
 
 
 async def test_finds_the_line_a_word_is_on(client: AsyncClient, vault: Path) -> None:
-    write(vault, "projects/kasten.md", "# kasten\n\nPostgres holds a derived index.\n")
+    # A dated name, so the date the hit carries is fixed rather than the file's.
+    write(vault, "projects/2026-10-07 kasten.md", "# kasten\n\nPostgres holds a derived index.\n")
 
     response = await client.get("/api/search", params={"q": "derived"})
 
     assert response.status_code == 200
     assert response.json() == [
-        {"path": "projects/kasten.md", "line": 3, "text": "Postgres holds a derived index."}
+        {
+            "path": "projects/2026-10-07 kasten.md",
+            "line": 3,
+            "text": "Postgres holds a derived index.",
+            "date": "2026-10-07",
+            "tags": [],
+        }
     ]
 
 
@@ -139,3 +151,136 @@ async def test_answers_with_nothing_for_a_vault_that_is_not_there(
 
     assert response.status_code == 200
     assert response.json() == []
+
+
+async def test_a_hit_in_a_daily_note_carries_the_date_in_its_name(
+    client: AsyncClient, vault: Path
+) -> None:
+    write(vault, "01 Periodic/00 Daily/2026-10-07.md", "Ship the histogram.\n")
+
+    response = await client.get("/api/search", params={"q": "histogram"})
+
+    assert [hit.get("date") for hit in response.json()] == ["2026-10-07"]
+
+
+async def test_a_hit_in_a_dated_note_carries_the_date_in_its_name(
+    client: AsyncClient, vault: Path
+) -> None:
+    write(vault, "02 Projects/2026-09-18 Enablement.md", "Enablement kicks off.\n")
+
+    response = await client.get("/api/search", params={"q": "enablement"})
+
+    assert [hit.get("date") for hit in response.json()] == ["2026-09-18"]
+
+
+async def test_a_hit_in_a_note_with_no_dated_name_carries_its_created_date(
+    client: AsyncClient, vault: Path
+) -> None:
+    write(
+        vault,
+        "projects/kasten.md",
+        "---\ncreated: 2026-08-02T09:00:00+02:00\n---\n\nderived index\n",
+    )
+
+    response = await client.get("/api/search", params={"q": "derived"})
+
+    assert [hit.get("date") for hit in response.json()] == ["2026-08-02"]
+
+
+async def test_a_hit_in_a_note_with_no_date_carries_the_file_modification_date(
+    client: AsyncClient, vault: Path
+) -> None:
+    # Set rather than left to the checkout, which stamps every file with the day
+    # it was cloned and would pass this test on any day at all.
+    write(vault, "projects/undated.md", "derived index\n")
+    moment = datetime(2026, 7, 15, 12).timestamp()
+    os.utime(vault / "projects/undated.md", (moment, moment))
+
+    response = await client.get("/api/search", params={"q": "derived"})
+
+    assert [hit.get("date") for hit in response.json()] == ["2026-07-15"]
+
+
+async def test_a_hit_carries_its_notes_tags_with_their_hashes_sorted(
+    client: AsyncClient, vault: Path
+) -> None:
+    # The frontmatter's `tags` field and an inline hash both count, and a tag
+    # named both ways comes back once.
+    write(vault, "kasten.md", "---\ntags: [zeta, alpha]\n---\n\nDerived index #beta and #alpha.\n")
+
+    response = await client.get("/api/search", params={"q": "derived"})
+
+    assert [hit.get("tags") for hit in response.json()] == [["#alpha", "#beta", "#zeta"]]
+
+
+async def test_two_hits_in_one_note_share_its_date_and_tags(
+    client: AsyncClient, vault: Path
+) -> None:
+    write(vault, "01 Periodic/00 Daily/2026-10-07.md", "derived index #kasten\nderived again\n")
+
+    response = await client.get("/api/search", params={"q": "derived"})
+
+    assert [(hit.get("date"), hit.get("tags")) for hit in response.json()] == [
+        ("2026-10-07", ["#kasten"]),
+        ("2026-10-07", ["#kasten"]),
+    ]
+
+
+DEV_VAULT = Path("/home/pascal/Code/kasten/vault")
+"""The author's own notes, read and never written, for the one test that needs real ones."""
+
+
+def name_date(path: str) -> date | None:
+    """The date a note's file name starts with, or None when it starts with none."""
+    try:
+        return date.fromisoformat(Path(path).name[:10])
+    except ValueError:
+        return None
+
+
+def walk_counts(word: str, archive: str) -> Counter[tuple[int, int]]:
+    """Lines holding `word` per ISO week, counted without the route's code.
+
+    Every dated note outside the archive and outside hidden folders, each line
+    that holds the word, by the week of the day its name carries.
+    """
+    expected: Counter[tuple[int, int]] = Counter()
+    for note in sorted(DEV_VAULT.rglob("*.md")):
+        parts = note.relative_to(DEV_VAULT).parts
+        day = name_date(note.name)
+        if day is None or any(part.startswith(".") or part == archive for part in parts):
+            continue
+        for line in note.read_bytes().decode("utf-8", "replace").split("\n"):
+            if word in line.lower():
+                expected[day.isocalendar()[:2]] += 1
+    return expected
+
+
+@pytest.mark.skipif(not DEV_VAULT.exists(), reason="needs the dev vault, which CI does not have")
+async def test_the_weekly_counts_match_a_walk_of_the_dev_vault(
+    client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # `the` is common enough to make the histogram worth looking at, and rare
+    # enough that the answer is under the cap, which would otherwise cut it short.
+    word = "the"
+    monkeypatch.setenv("KASTEN_VAULT_PATH", str(DEV_VAULT))
+    get_settings.cache_clear()
+    archive = get_settings().archive_path
+
+    response = await client.get("/api/search", params={"q": word})
+
+    assert response.status_code == 200
+    assert len(response.json()) < MOST_HITS
+
+    found: Counter[tuple[int, int]] = Counter()
+    for hit in response.json():
+        day = name_date(hit["path"])
+        if day is None:
+            continue
+        assert hit["date"] == day.isoformat()
+        found[day.isocalendar()[:2]] += 1
+
+    expected = walk_counts(word, archive)
+
+    assert expected
+    assert found == expected

@@ -1,7 +1,7 @@
 import { forceParsing } from "@codemirror/language";
 import { EditorView } from "@codemirror/view";
 import { act, screen, waitFor } from "@testing-library/react";
-import { renderSearch, searchHooks } from "./note-search-fixture";
+import { linked, renderPreview, searchHooks } from "./note-search-fixture";
 
 const { searchNotes, fetchNote, fetchTodos, fetchMentions } = vi.hoisted(() => ({
   searchNotes: vi.fn(),
@@ -30,8 +30,8 @@ function parsePreview(): void {
 
 it("renders the markdown in the preview rather than showing its syntax", async () => {
   fetchNote.mockResolvedValue("line 1\n## a heading\nwith **bold** in it\nline 4");
-  searchNotes.mockResolvedValue([{ path: "a.md", line: 3, text: "with **bold** in it" }]);
-  const search = renderSearch();
+  searchNotes.mockResolvedValue([{ path: "a.md", line: 3, text: linked("with **bold** in it") }]);
+  const search = renderPreview();
   // A clock that leaps a second each read spends the first parse's 20ms after
   // one step, the way a starved machine does.
   let now = 0;
@@ -49,8 +49,8 @@ it("renders the markdown in the preview rather than showing its syntax", async (
 
 it("still numbers the lines and marks the hit once the markdown is rendered", async () => {
   fetchNote.mockResolvedValue("line 1\n## a heading\nwith bold in it\nline 4");
-  searchNotes.mockResolvedValue([{ path: "a.md", line: 3, text: "with bold in it" }]);
-  const search = renderSearch();
+  searchNotes.mockResolvedValue([{ path: "a.md", line: 3, text: linked("with bold in it") }]);
+  const search = renderPreview();
 
   search.type("bold");
 

@@ -281,6 +281,7 @@ export async function renderApp(entry = "/") {
       container.querySelector("[data-testid='held-conflict']")?.textContent ?? null,
     /** The line diff the save detail opens on while the note stands conflicted. */
     diff: () => container.querySelector("[data-testid='conflict-diff']")?.textContent ?? null,
+    href: () => router.state.location.href,
     /** Leave for another route or come back, the way a link does. */
     navigate: (to: "/" | "/capture", note?: string) =>
       act(async () => {

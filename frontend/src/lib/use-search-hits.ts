@@ -1,6 +1,7 @@
 import { keepPreviousData, skipToken, useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { fetchMentions, fetchTodos, type Mention, type SearchHit, searchNotes } from "@/lib/api";
+import { inArchive } from "@/lib/archive";
 import { lineCandidates, rankIndexes } from "@/lib/fuzzy";
 import { noteName } from "@/lib/note-path";
 import { readRelation } from "@/lib/relation";
@@ -12,6 +13,12 @@ export type SearchMode = "search" | "backlinks" | "todos";
 
 /** Rows the list will mount. Beyond this, another letter narrows faster than a scroll. */
 const VISIBLE_HITS = 20;
+
+/**
+ * The most lines the backend answers with, `MOST_HITS` in `search.py`. An
+ * answer this long is cut, so its counts are of the first lines only.
+ */
+const MOST_HITS = 2000;
 
 /**
  * How long typing holds still before the vault is read.
@@ -47,6 +54,22 @@ export function isMention(hit: SearchHit | Mention): hit is Mention {
 export interface Group {
   name: string | null;
   rows: number[];
+}
+
+/**
+ * The search page's groups: one per note, in the order each note's best-ranked
+ * line came in, so the first row of the first group is the best line of all.
+ */
+function groupByPath(rows: number[], found: (SearchHit | Mention)[]): Group[] {
+  const byPath = new Map<string, number[]>();
+  for (const row of rows) {
+    const hit = found[row];
+    if (hit === undefined) continue;
+    const under = byPath.get(hit.path);
+    if (under === undefined) byPath.set(hit.path, [row]);
+    else under.push(row);
+  }
+  return [...byPath].map(([name, under]) => ({ name, rows: under }));
 }
 
 /**
@@ -97,13 +120,28 @@ export function useSearchHits({
   backlinksOf,
   paths,
   archive,
+  keep,
+  visible = VISIBLE_HITS,
 }: {
   mode: SearchMode;
   typed: string;
   backlinksOf?: string;
   paths?: string[];
   archive: boolean;
-}): { found: (SearchHit | Mention)[]; groups: Group[]; ordered: number[]; pending: boolean } {
+  /** Search only: the lines allowed into the ranking. Callers pass a memoised one. */
+  keep?: (hit: SearchHit) => boolean;
+  /** Search only: how many rows the list keeps. */
+  visible?: number;
+}): {
+  found: (SearchHit | Mention)[];
+  groups: Group[];
+  ordered: number[];
+  pending: boolean;
+  /** Search only: the lines the query has in the archive, counted whether the archive is in or out. */
+  archived: number | undefined;
+  /** Search only: whether the answer hit the backend's cap. */
+  capped: boolean;
+} {
   /** What a typed query settled on, which trails what has been typed. */
   const [settled, setSettled] = useState("");
 
@@ -121,7 +159,9 @@ export function useSearchHits({
     return () => clearTimeout(timer);
   }, [typed, mode]);
 
-  const search = useQuery({
+  // Typed as the search's answer: a todo is a search hit with no date or tags,
+  // so the one query can answer either without the union confusing the types.
+  const search = useQuery<SearchHit[]>({
     // The todo list shares its key with the pane, so the two read one answer.
     ...(mode === "todos"
       ? { queryKey: ["todos", archive], queryFn: () => fetchTodos(archive) }
@@ -133,6 +173,17 @@ export function useSearchHits({
     // so what there is to narrow in the meantime.
     placeholderData: keepPreviousData,
     // A scan nobody asked to repeat is not worth three attempts and a backoff.
+    retry: false,
+  });
+
+  // Search only: the same question with the archive in. With the archive in
+  // this is the answer above under the same key, so it costs nothing; with it
+  // out, it is the one extra ask that lets the filter column count the archive
+  // before anyone turns it on.
+  const withArchive = useQuery<SearchHit[]>({
+    queryKey: ["search", asked, true],
+    queryFn: mode !== "search" || asked === "" ? skipToken : () => searchNotes(asked, true),
+    placeholderData: keepPreviousData,
     retry: false,
   });
 
@@ -184,6 +235,15 @@ export function useSearchHits({
   // holds still shows the best of its mentions rather than none of them.
   const hits = useMemo(() => {
     const ranked = rankIndexes(candidates, typed);
+    // Search keeps the lines its filters allow before the cut, so the rows are
+    // the best of what is shown and not the best of everything then filtered.
+    if (mode === "search") {
+      const allowed = ranked.filter((index) => {
+        const hit = found[index];
+        return hit !== undefined && !isMention(hit) && (keep?.(hit) ?? true);
+      });
+      return allowed.slice(0, visible);
+    }
     const linked: number[] = [];
     const unlinked: number[] = [];
     for (const index of ranked) {
@@ -191,26 +251,35 @@ export function useSearchHits({
       (hit !== undefined && isMention(hit) ? unlinked : linked).push(index);
     }
     return [...linked.slice(0, VISIBLE_HITS), ...unlinked.slice(0, VISIBLE_HITS)];
-  }, [candidates, typed, found]);
-  // Backlinks gather under the relation name pointing here; the other two lists
-  // are one group with no name, so their rows come out in the order they were
-  // ranked in and nothing on screen moves.
-  const groups = useMemo(
-    () =>
-      mode === "backlinks" && backlinksOf !== undefined
-        ? groupHits(hits, found, backlinksOf, paths ?? [])
-        : [{ name: null, rows: hits }],
-    [mode, backlinksOf, hits, found, paths],
-  );
+  }, [candidates, typed, found, mode, keep, visible]);
+  // Backlinks gather under the relation name pointing here; search gathers
+  // under the note; the todo list is one group with no name, so its rows come
+  // out in the order they were ranked in and nothing on screen moves.
+  const groups = useMemo(() => {
+    if (mode === "search") return groupByPath(hits, found);
+    return mode === "backlinks" && backlinksOf !== undefined
+      ? groupHits(hits, found, backlinksOf, paths ?? [])
+      : [{ name: null, rows: hits }];
+  }, [mode, backlinksOf, hits, found, paths]);
   // The order the rows are drawn in, which is the order everything downstream
   // counts in. The highlight, the preview and Enter all index this one array,
   // so grouping at render alone would point all three at another line.
   const ordered = useMemo(() => groups.flatMap((group) => group.rows), [groups]);
+
+  const archived = useMemo(
+    () =>
+      mode === "search" && withArchive.data !== undefined
+        ? withArchive.data.filter((hit) => inArchive(hit.path)).length
+        : undefined,
+    [mode, withArchive.data],
+  );
 
   return {
     found,
     groups,
     ordered,
     pending: search.isFetching || mentions.isFetching,
+    archived,
+    capped: mode === "search" && (search.data?.length ?? 0) >= MOST_HITS,
   };
 }

@@ -1,6 +1,6 @@
 import { screen, waitFor } from "@testing-library/react";
 import { NARROW, stubMatchMedia } from "./match-media";
-import { renderSearch, searchHooks } from "./note-search-fixture";
+import { linked, renderPreview, searchHooks } from "./note-search-fixture";
 
 const { searchNotes, fetchNote, fetchTodos, fetchMentions } = vi.hoisted(() => ({
   searchNotes: vi.fn(),
@@ -14,7 +14,11 @@ searchHooks();
 
 it("reads and draws no preview in a narrow window", async () => {
   stubMatchMedia({ [NARROW]: true });
-  const search = renderSearch();
+  searchNotes.mockResolvedValue([
+    { path: "a.md", line: 3, text: linked("postgres") },
+    { path: "b.md", line: 4, text: linked("postgres again") },
+  ]);
+  const search = renderPreview();
 
   search.type("postgres");
   await waitFor(() => expect(search.rows()).toHaveLength(2));
@@ -29,8 +33,8 @@ it("reads and draws no preview in a narrow window", async () => {
 describe("the preview pane", () => {
   it("shows the note around the highlighted hit, with the matching line marked", async () => {
     fetchNote.mockResolvedValue("one\ntwo\nthree\nfour\nfive");
-    searchNotes.mockResolvedValue([{ path: "a.md", line: 3, text: "three" }]);
-    const search = renderSearch();
+    searchNotes.mockResolvedValue([{ path: "a.md", line: 3, text: linked("three") }]);
+    const search = renderPreview();
 
     search.type("three");
 
@@ -42,8 +46,8 @@ describe("the preview pane", () => {
   });
 
   it("leaves out the parts of the note too far from the hit", async () => {
-    searchNotes.mockResolvedValue([{ path: "a.md", line: 100, text: "line 100" }]);
-    const search = renderSearch();
+    searchNotes.mockResolvedValue([{ path: "a.md", line: 100, text: linked("line 100") }]);
+    const search = renderPreview();
 
     search.type("line 100");
 
@@ -56,8 +60,8 @@ describe("the preview pane", () => {
   });
 
   it("holds at the start of the note when the hit is near the top", async () => {
-    searchNotes.mockResolvedValue([{ path: "a.md", line: 2, text: "line 2" }]);
-    const search = renderSearch();
+    searchNotes.mockResolvedValue([{ path: "a.md", line: 2, text: linked("line 2") }]);
+    const search = renderPreview();
 
     search.type("line 2");
 
@@ -69,10 +73,10 @@ describe("the preview pane", () => {
     // Walking between two hits of one note re-centres the pane on the second
     // without asking the vault for the note again.
     searchNotes.mockResolvedValue([
-      { path: "a.md", line: 10, text: "line 10" },
-      { path: "a.md", line: 90, text: "line 90" },
+      { path: "a.md", line: 10, text: linked("line 10") },
+      { path: "a.md", line: 90, text: linked("line 90") },
     ]);
-    const search = renderSearch();
+    const search = renderPreview();
 
     search.type("line");
     await waitFor(() => expect(search.markedLine()).toContain("line 10"));
@@ -85,7 +89,8 @@ describe("the preview pane", () => {
 
   it("says so when the note behind a hit cannot be read", async () => {
     fetchNote.mockRejectedValue(new Error("gone"));
-    const search = renderSearch();
+    searchNotes.mockResolvedValue([{ path: "a.md", line: 3, text: linked("postgres") }]);
+    const search = renderPreview();
 
     search.type("postgres");
 

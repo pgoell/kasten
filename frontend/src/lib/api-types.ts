@@ -1952,6 +1952,18 @@ export interface components {
             config: string;
         };
         /**
+         * LineHit
+         * @description One line in the vault, and enough to open the note on it.
+         */
+        LineHit: {
+            /** Path */
+            path: string;
+            /** Line */
+            line: number;
+            /** Text */
+            text: string;
+        };
+        /**
          * Mention
          * @description One place another note names this one in plain text, without linking to it.
          */
@@ -2115,7 +2127,7 @@ export interface components {
         };
         /**
          * SearchHit
-         * @description One line in the vault that matched, and enough to open the note on it.
+         * @description One line that matched a search, with the date and tags of the note it is in.
          */
         SearchHit: {
             /** Path */
@@ -2124,6 +2136,10 @@ export interface components {
             line: number;
             /** Text */
             text: string;
+            /** Date */
+            date?: string | null;
+            /** Tags */
+            tags?: string[] | null;
         };
         /**
          * Tick
@@ -3080,7 +3096,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["SearchHit"][];
+                    "application/json": components["schemas"]["LineHit"][];
                 };
             };
             /** @description Validation Error */

@@ -6,7 +6,10 @@ import { noteBase } from "@/lib/note-base";
 /** One note as the vault holds it: where it lives, and what is in it. */
 export type Note = components["schemas"]["Note"];
 
-/** One line of one note that matched a search, and where to find it. */
+/** One line of one note, and where to find it. */
+export type LineHit = components["schemas"]["LineHit"];
+
+/** One line of one note that matched a search, with the date and tags of that note. */
 export type SearchHit = components["schemas"]["SearchHit"];
 
 /** One todo or session line, and the project folder the backend files it under. */
@@ -146,7 +149,7 @@ export async function importAnkiLink(url: string, carry: boolean): Promise<AnkiI
  * off them and `srs.ts` parses those notes, so nothing about the format is
  * known on this side of the wire.
  */
-export async function fetchCards(archive = false): Promise<SearchHit[]> {
+export async function fetchCards(archive = false): Promise<LineHit[]> {
   const { data, response } = await client.GET("/api/cards", {
     params: { query: { archive } },
   });

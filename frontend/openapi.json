@@ -1111,7 +1111,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/SearchHit"
+                    "$ref": "#/components/schemas/LineHit"
                   },
                   "title": "Response List Cards Api Cards Get"
                 }
@@ -3485,6 +3485,30 @@
         "title": "Layout",
         "description": "The folders the editor files into or looks in, each a path from the vault root."
       },
+      "LineHit": {
+        "properties": {
+          "path": {
+            "type": "string",
+            "title": "Path"
+          },
+          "line": {
+            "type": "integer",
+            "title": "Line"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          }
+        },
+        "type": "object",
+        "required": [
+          "path",
+          "line",
+          "text"
+        ],
+        "title": "LineHit",
+        "description": "One line in the vault, and enough to open the note on it."
+      },
       "Mention": {
         "properties": {
           "path": {
@@ -3875,6 +3899,31 @@
           "text": {
             "type": "string",
             "title": "Text"
+          },
+          "date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Date"
+          },
+          "tags": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tags"
           }
         },
         "type": "object",
@@ -3884,7 +3933,7 @@
           "text"
         ],
         "title": "SearchHit",
-        "description": "One line in the vault that matched, and enough to open the note on it."
+        "description": "One line that matched a search, with the date and tags of the note it is in."
       },
       "Tick": {
         "properties": {

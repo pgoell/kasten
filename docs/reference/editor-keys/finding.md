@@ -204,28 +204,40 @@ to name a path, and search never writes.
 | Up / Ctrl+p / Shift+Tab | Move the highlight up one row |
 | Enter | Open the note on the line the match is on |
 | Escape | Close, and hand the focus back |
+| Click a bar | Narrow the results to that week, or clear it |
+| Click a folder or a tag | Narrow to it, or clear it |
+| Click Include the archive | Turn the archive in or out, as `<leader>a` does |
 
-One row per matching line, showing the note, the line number and the line
-itself. Enter opens the note with the cursor on that line, centred rather than
-scrolled just barely into view, and the line lands in the URL as `?line=`, so a
-reload comes back to the match instead of the top of the note.
+The page is one panel, wide and tall on a desktop and the whole screen on a
+phone. A large serif field holds the query. Beside the lines, a column 220
+pixels wide lists the folders and the tags the answer holds, each with its
+count, and the archive with its own count. One folder and one tag can be
+chosen at a time, and a second press on the chosen one clears it. The counts
+are of the whole answer, so a choice narrows the lines and leaves the numbers
+beside the other choices alone. On a phone the column folds into a `Filters`
+button above the histogram.
 
-The panel is the finder's, at the same size and split the same way down the
-middle. Beside the list sits the note around the highlighted hit, rendered the
-same way the finder's pane renders it: numbered lines, the matching one marked, centred
-in the pane and scrollable either side of it. The numbers are the note's own,
-so a hit deep in a note still says where it is. The
-pane shows thirty lines each way rather than the whole note, so a long note
-costs what a short one does. The text arrives a moment after the highlight
-stops moving, which is what keeps a held Ctrl+n from reading every note it
-passes, and walking between two hits of one note re-centres the pane without
-reading the note again. A note that cannot be read says `could not read this
-note`, and Enter still opens it.
+Above the results is a histogram: one bar for each of the last fourteen ISO
+weeks, the current week last, scaled to the busiest of them. Each bar carries
+its week, such as `W38`, and the current week is marked. Hovering a bar shows
+its count. Clicking a bar narrows the results to the lines written that week,
+and the line above the results says how many lines and notes that is. `All
+weeks` clears the choice, and a second click on the chosen bar does too. A line
+with no date counts in no week, and a line older than fourteen weeks is listed
+under `All weeks` only.
 
-One thing the window costs: it slices the note at a fixed distance from the
-hit, so a fenced code block that opens above the window and closes inside it
-leaves the pane rendering a closing fence it never saw open. The note itself is
-one Enter away and renders correctly there.
+The chosen week sits in the URL as `?week=2026-W38`, so a reload keeps it and a
+link can name one. Closing the page clears it, and a week that is not a real
+ISO week opens nothing.
+
+The list shows the best sixty lines the choices leave, grouped by note under
+the note's title and path, in the order of each note's best line. Each line
+shows its number and its text, with every place the query occurs in the accent.
+Enter opens the note with the cursor on the highlighted line, centred rather
+than scrolled just barely into view.
+
+The vault answers with at most 2,000 lines. When a query reaches that, the
+status line says the counts are of the first 2,000 lines.
 
 The work is split in two, and the split is the whole design. The backend finds
 the lines holding the query literally, which is the part a browser cannot do
