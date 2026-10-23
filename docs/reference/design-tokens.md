@@ -52,6 +52,11 @@ highlights, tags and the graph.
 | `--k-danger` | `#9a5143` | `#f19f8f` | Broken, removed |
 | `--k-shadow` | `0 1px 2px rgba(0,0,0,.05),0 12px 32px rgba(0,0,0,.09)` | `0 1px 2px rgba(0,0,0,.3),0 16px 40px rgba(0,0,0,.45)` | Floating things only |
 
+The pdf pane uses three of these. It draws each page on `--k-paper` until the
+page's canvas lands, rules a page's edge in `--k-rule` on the dark theme in
+place of a shadow, and marks a taken passage with `--k-mark` under the
+`kasten-taken` highlight.
+
 The values in this section are those of the default palette, `poel`. Its accent
 is Vandar Poel's blue (Sanzo Wada, *A Dictionary of Color Combinations*, No. 296
 and No. 151), and its light highlight is Yellow Orange `#f99d1b` at 22 %, dark

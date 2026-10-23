@@ -7,13 +7,17 @@
  * that looks at the pixels.
  */
 
+import "./pdf-take-api";
 import { type PdfView, pageColors, pdfjsRenderer, type ShowOptions, showPdf } from "@/lib/pdf-view";
 import "@/styles/app.css";
-import { IMAGE_BOX, PAGE_HEIGHT, PAGE_ONE, PAGE_WIDTH, textAndImagePdf } from "./pdf-fixture";
+import { IMAGE_BOX, PAGE_HEIGHT, PAGE_ONE, PAGE_WIDTH } from "./pdf-fixture";
 
 type Rgb = [number, number, number];
 
-let mounted: { view: PdfView; host: HTMLElement; url: string } | null = null;
+/** The fixture as the stub serves it. A `blob:` URL is refused by the page's `connect-src`. */
+const URL_OF_FIXTURE = "/api/assets/fixture.pdf";
+
+let mounted: { view: PdfView; host: HTMLElement } | null = null;
 
 /** The three channels of a css colour, as the browser computes it. */
 function rgbOf(colour: string): Rgb {
@@ -48,6 +52,13 @@ function colourAt(canvas: HTMLCanvasElement, x: number, y: number): Rgb {
   return [r, g, b];
 }
 
+/** The colour of the canvas pixel at `x`, `y`, counted in whole pixels. */
+function pixelAt(canvas: HTMLCanvasElement, x: number, y: number): Rgb {
+  const context = canvas.getContext("2d") as CanvasRenderingContext2D;
+  const [r = 0, g = 0, b = 0] = context.getImageData(x, y, 1, 1).data;
+  return [r, g, b];
+}
+
 /** The brightest pixel in the band of the first line of page one, where its text sits. */
 function brightestTextPixel(canvas: HTMLCanvasElement): Rgb {
   const [left, top] = pixelOf(canvas, 50, 738);
@@ -75,15 +86,21 @@ function brightestTextPixel(canvas: HTMLCanvasElement): Rgb {
 async function drawPage(options: ShowOptions): Promise<HTMLElement> {
   mounted?.view();
   mounted?.host.remove();
-  if (mounted) URL.revokeObjectURL(mounted.url);
-  const url = URL.createObjectURL(textAndImagePdf());
   const host = document.createElement("div");
   // The attribute the pane's box carries, which the pane's page and text-layer rules are scoped to.
   host.dataset.pdfBox = "";
   host.style.cssText = "width: 600px; height: 800px;";
   document.body.append(host);
-  const view = showPdf(host, pdfjsRenderer, url, "fixture.pdf", () => {}, undefined, options);
-  mounted = { view, host, url };
+  const view = showPdf(
+    host,
+    pdfjsRenderer,
+    URL_OF_FIXTURE,
+    "fixture.pdf",
+    () => {},
+    undefined,
+    options,
+  );
+  mounted = { view, host };
   // A slot gets its canvas once the page is drawn, so the canvas is the signal.
   await vi.waitFor(() => expect(host.querySelector('[data-pdf-page="1"] canvas')).not.toBeNull(), {
     timeout: 20_000,
@@ -99,7 +116,6 @@ function canvasOf(host: HTMLElement): HTMLCanvasElement {
 afterEach(() => {
   mounted?.view();
   mounted?.host.remove();
-  if (mounted) URL.revokeObjectURL(mounted.url);
   mounted = null;
   delete document.documentElement.dataset.theme;
 });
@@ -141,6 +157,23 @@ describe("the pdf pane draws its pages in the theme's colours", () => {
     expect(
       maxDifference(colourAt(light, blueAt[0] ?? 0, blueAt[1] ?? 0), [0, 0, 255]),
     ).toBeLessThanOrEqual(2);
+  }, 40_000);
+
+  it("leaves the paper just outside the picture's sides, with no white ring", async () => {
+    // At this width the picture's left and right edges fall part way through a
+    // pixel, and a box rounded outward copies that pixel from the plain draw,
+    // which is white. The margin allows for the part of the pixel the picture covers.
+    document.documentElement.dataset.theme = "dark";
+    const canvas = canvasOf(await drawPage({ colors: pageColors }));
+    const scale = canvas.width / PAGE_WIDTH;
+    const left = Math.floor(IMAGE_BOX.x * scale);
+    const right = Math.floor((IMAGE_BOX.x + IMAGE_BOX.width) * scale);
+    const middle = Math.floor(
+      ((PAGE_HEIGHT - IMAGE_BOX.y - IMAGE_BOX.height / 2) * canvas.height) / PAGE_HEIGHT,
+    );
+    const paper = rgbOf(token("--k-paper"));
+    expect(maxDifference(pixelAt(canvas, left, middle), paper)).toBeLessThanOrEqual(8);
+    expect(maxDifference(pixelAt(canvas, right, middle), paper)).toBeLessThanOrEqual(8);
   }, 40_000);
 
   it("draws the ground white, as printed, in the light", async () => {

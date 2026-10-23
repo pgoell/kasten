@@ -28,6 +28,15 @@ export function pdfQuote(path: string, page: number, text: string): string {
 }
 
 /**
+ * The selection's text with each line break, and the white space round it, made
+ * one space. pdf.js ends each printed line with a break, so the text would quote
+ * as one paragraph per line, and a passage is one paragraph.
+ */
+export function oneLine(text: string): string {
+  return text.replace(/\s*[\n\r]\s*/g, " ");
+}
+
+/**
  * Where `range` sits in the text of `layer`, as character offsets, or null when
  * the two do not meet. Only the text the range covers counts, so a range that
  * runs past the layer is clipped to it.

@@ -83,6 +83,13 @@ every markup character escaped, then a link back to its place on the page,
 `[[<page>#<anchor>|<heading>]]`. [The file tree](/reference/editor-keys/file-tree.md#the-file-tree)
 says how a page is taken.
 
+A passage taken from a vault PDF goes into the same dump by the same route, with
+the same escape, the same 2000-character cap and the same outbox. Its link reads
+`[[<pdf>#page=N|<file name>, page N]]`, which points at the page the words sit
+on. `y`, or the Take button over the selection, takes it in the pdf pane, and
+the note at the foot offers the same Undo and Put it in a note as a page does.
+[The pdf pane](/reference/editor-keys/panes-and-tabs.md#the-pdf-pane) says how.
+
 ## Importing markdown, and taking a note out
 
 `<leader>cm` puts markdown files from your disk into the vault. It opens the

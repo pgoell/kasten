@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, screen } from "@testing-library/react";
+import { NoteExists } from "@/lib/api";
 import type { PdfRenderer } from "@/lib/pdf-view";
 import { hashed } from "./digests";
 import { defineFoliateFake } from "./foliate-fake";
@@ -152,6 +153,18 @@ describe("the note of an open pdf, beside it", () => {
     expect(createNote).toHaveBeenCalledWith(NOTE, "");
     expect(app.panes()).toBe(2);
     expect(app.cached(NOTE)).toBe("");
+  });
+
+  it("Note beside opens a note the file list lacks, with no refusal in the bar", async () => {
+    createNote.mockRejectedValue(new NoteExists(NOTE));
+    const app = await openPlan(["index.md"]);
+
+    fireEvent.click(screen.getByRole("button", { name: "Note beside" }));
+    await settle();
+
+    expect(app.notice()).toBeNull();
+    expect(app.panes()).toBe(2);
+    expect(app.text()).toBe("the plan");
   });
 
   it("Note beside says so in the bar when the vault refuses the note's path", async () => {

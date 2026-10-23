@@ -21,6 +21,8 @@ export interface Taking {
   source: string;
   /** The passage sat in the lower half of its frame, so the toast goes to the top (#885). */
   top: boolean;
+  /** Called with this take's id once it is kept, for what this take alone holds. */
+  onKept?: (id: number) => void;
 }
 
 /** The toast on screen: what it says, and the take it can undo, if it can. */
@@ -93,6 +95,7 @@ export function useDumpTake(o: {
     if (dump === null) return false;
 
     markedRef.current(id);
+    taking.onKept?.(id);
     // The same answers `capture` gives, in the take's words.
     const { waiting, failure } = await flushOutbox();
     const mine = waiting.find((each) => each.id === dump.id);

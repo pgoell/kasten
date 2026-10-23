@@ -66,9 +66,13 @@ export function imageBoxes(
       matrix[3] + matrix[5],
       matrix[1] + matrix[3] + matrix[5],
     ];
-    const left = Math.floor(Math.min(...xs));
-    const top = Math.floor(Math.min(...ys));
-    boxes.push([left, top, Math.ceil(Math.max(...xs)) - left, Math.ceil(Math.max(...ys)) - top]);
+    // Rounded inward, so the box holds only pixels wholly inside the picture: a
+    // pixel the picture part covers is copied from the plain draw, and that is white.
+    const left = Math.ceil(Math.min(...xs));
+    const top = Math.ceil(Math.min(...ys));
+    const right = Math.floor(Math.max(...xs));
+    const bottom = Math.floor(Math.max(...ys));
+    if (right > left && bottom > top) boxes.push([left, top, right - left, bottom - top]);
   };
   for (let i = 0; i < fnArray.length; i += 1) {
     const args = argsArray[i] ?? [];
@@ -90,6 +94,30 @@ export function imageBoxes(
       case ops.paintFormXObjectEnd:
         ctm = saved.pop() ?? ctm;
         break;
+      // A transparency group is moved by its own matrix, as a form is, and its
+      // `beginGroup` argument is that group (`pdf.mjs:12074`).
+      case ops.beginGroup: {
+        saved.push(ctm);
+        const matrix = (args[0] as { matrix?: Matrix | null } | undefined)?.matrix;
+        if (matrix) ctm = multiply(ctm, matrix);
+        break;
+      }
+      case ops.endGroup:
+        ctm = saved.pop() ?? ctm;
+        break;
+      // An annotation is painted from the page's base matrix, not from the one
+      // before it, with its own transform and then its matrix (`pdf.mjs:12159`).
+      // Its clip is not followed, and nor is the own canvas it may paint on, since
+      // the page's canvas is drawn without the annotation canvases.
+      case ops.beginAnnotation: {
+        saved.push(ctm);
+        const [, , transform, matrix] = args as [unknown, unknown, Matrix, Matrix];
+        ctm = multiply(multiply(base, transform), matrix);
+        break;
+      }
+      case ops.endAnnotation:
+        ctm = saved.pop() ?? ctm;
+        break;
       case ops.paintImageXObject:
       case ops.paintInlineImageXObject:
         boxAt(ctm);
@@ -109,6 +137,13 @@ export function imageBoxes(
             ]),
           );
         }
+        break;
+      }
+      // A group of inline images: `[imgData, map]`, one entry per image, each drawn
+      // under its own transform, as a tile is.
+      case ops.paintInlineImageXObjectGroup: {
+        const [, map] = args as [unknown, { transform: Matrix }[]];
+        for (const entry of map) boxAt(multiply(ctm, entry.transform));
         break;
       }
     }

@@ -8,7 +8,7 @@ import {
   useMemo,
   useState,
 } from "react";
-import { createNote, fetchNote } from "@/lib/api";
+import { createNote, fetchNote, NoteExists } from "@/lib/api";
 import { queryEmbedSource } from "@/lib/embed";
 import { encodePath } from "@/lib/note-path";
 import { noteSectionOf } from "@/lib/note-section";
@@ -34,11 +34,16 @@ export type NoteOpening = ReturnType<typeof useNoteOpening>;
  * the pane that opens it, and the file list is read again. Resolves to the path
  * the vault made, or undefined when the vault refused it: a hidden name, or a
  * note standing where the path wanted a folder.
+ *
+ * `reuse` answers the path when the vault says the note is there already (a 409),
+ * which is what a caller that wants the note open gets when the file list was
+ * stale. Off, that answer is a refusal, as it is for a link.
  */
 export function makeNote(
   queryClient: QueryClient,
   path: string,
   body = "",
+  reuse = false,
 ): Promise<string | undefined> {
   return createNote(path, body).then(
     (made) => {
@@ -46,7 +51,13 @@ export function makeNote(
       queryClient.invalidateQueries({ queryKey: ["files"] });
       return made.path;
     },
-    () => undefined,
+    (error: unknown) => {
+      if (reuse && error instanceof NoteExists) {
+        queryClient.invalidateQueries({ queryKey: ["files"] });
+        return path;
+      }
+      return undefined;
+    },
   );
 }
 

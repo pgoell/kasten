@@ -210,6 +210,14 @@ stand as a heading, a fence, a tag or a todo. The text is capped at 2000
 characters and 50 paragraphs, and the heading and the anchor of the link are
 cut to what a wikilink can hold, with nothing that opens markup or a comment.
 
+A PDF in the pdf pane sends nothing. pdf.js draws it into the pane itself, not
+into a frame, so no script can post a selection or a `y` for it. A passage is taken
+from the PDF only when the reader selects words in its text layer and then
+presses `y` or the Take button. The PDF's text is as untrusted as a page's. It
+goes through the same `quoteParagraphs` escape and the same caps, so no line of
+it can stand as a heading, a fence, a tag or a todo, and the link names the file
+and the page only. The forged-focus limit below does not reach the pdf pane.
+
 The limit that remains: a click into the page gives it the focus, and a page
 with the focus can forge a selection and a `y`. A `y` the page sends takes once
 per visit: after it, only the Take button or a `y` typed in kasten takes again,

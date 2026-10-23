@@ -12,7 +12,7 @@ import { TakeButton } from "@/components/take-button-view";
 import { useDumpTake } from "@/components/use-dump-take";
 import { fileOf } from "@/lib/html-take";
 import { type Anchor, low, placeFor } from "@/lib/page-selection";
-import { offsetsIn, pdfLink, pdfQuote, rangeIn, takenHighlight } from "@/lib/pdf-take";
+import { offsetsIn, oneLine, pdfLink, pdfQuote, rangeIn, takenHighlight } from "@/lib/pdf-take";
 import { usePressGuard } from "@/lib/take-button";
 import { useViewport } from "@/lib/use-viewport";
 
@@ -162,20 +162,13 @@ export function usePdfTake(o: {
 
   /** This pane's marks, by take id: the parts each take painted. */
   const marks = useRef(new Map<number, Part[]>());
-  /** The parts of the take in flight, which `onMarked` records under its id. */
-  const pending = useRef<Part[]>([]);
 
   const dump = useDumpTake({
     archive,
-    onMarked: (id) => {
+    onMarked: () => {
       hold(null);
       // Taken, so the words are no longer a selection the reader is making.
       document.getSelection()?.removeAllRanges();
-      const parts = pending.current;
-      pending.current = [];
-      marks.current.set(id, parts);
-      const frame = box.current;
-      for (const part of parts) paint(part, frame === null ? null : layerOf(frame, part.page));
     },
     onUnmarked: (id) => {
       const parts = marks.current.get(id);
@@ -187,7 +180,6 @@ export function usePdfTake(o: {
 
   const forget = useCallback(() => {
     lost.current = false;
-    pending.current = [];
     hold(null);
     for (const parts of marks.current.values()) unpaint(parts);
     marks.current.clear();
@@ -198,7 +190,7 @@ export function usePdfTake(o: {
     function onSelectionChange() {
       const selection = document.getSelection();
       const range = selection !== null && selection.rangeCount > 0 ? selection.getRangeAt(0) : null;
-      const text = selection === null ? "" : selection.toString();
+      const text = selection === null ? "" : oneLine(selection.toString());
       const frame = box.current;
       // A selection counts only where its range lies in the pages, so one in the
       // rest of the document cannot put a button on the reader's pane.
@@ -240,18 +232,23 @@ export function usePdfTake(o: {
     heldRef.current = null;
 
     const frame = box.current;
-    pending.current = frame === null ? [] : partsOf(frame, taken.range);
+    const parts = frame === null ? [] : partsOf(frame, taken.range);
     const kept = await dump.take({
       quote: pdfQuote(path, taken.page, taken.text),
       text: taken.text,
       link: pdfLink(path, taken.page),
       source: `page ${taken.page}, ${fileOf(path)}`,
       top: low(taken.at),
+      // Each take carries its own parts, so takes in flight cannot mix them.
+      onKept: (id) => {
+        marks.current.set(id, parts);
+        const pages = box.current;
+        for (const part of parts) {
+          paint(part, pages === null ? null : layerOf(pages, part.page));
+        }
+      },
     });
-    if (!kept) {
-      pending.current = [];
-      hold(taken);
-    }
+    if (!kept) hold(taken);
   }
 
   function onKeyDown(event: ReactKeyboardEvent): boolean {

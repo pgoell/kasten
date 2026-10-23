@@ -232,8 +232,7 @@ export function PdfPane({
           Note beside
         </button>
       </header>
-      {/* The wrapper the take's button is placed in, so its place is the pane's own. */}
-      <div ref={wrapper} className="relative flex min-h-0 flex-1">
+      <div className="flex min-h-0 flex-1">
         {wide && file !== undefined ? (
           <PdfThumbs
             ref={thumbs}
@@ -242,13 +241,17 @@ export function PdfPane({
             onGoTo={(number) => view.current?.goTo(number)}
           />
         ) : null}
-        <div
-          key={`${path}#${page}#${opened}`}
-          ref={box}
-          data-pdf-box
-          className="min-h-0 flex-1 overflow-y-auto p-1"
-        />
-        {take.overlay}
+        {/* The wrapper the take's button is placed in: the pages only, so the
+            button and the toast sit over the page area and not the thumbnails. */}
+        <div ref={wrapper} className="relative flex min-h-0 min-w-0 flex-1 flex-col">
+          <div
+            key={`${path}#${page}#${opened}`}
+            ref={box}
+            data-pdf-box
+            className="min-h-0 flex-1 overflow-y-auto p-1"
+          />
+          {take.overlay}
+        </div>
       </div>
     </section>
   );

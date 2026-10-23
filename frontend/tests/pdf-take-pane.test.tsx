@@ -20,6 +20,19 @@ vi.mock("@/lib/api", () => {
   return { fetchNote, saveNote, updateNote, searchNotes, ChangedOnDisk };
 });
 
+/** Holds each take's keep until the test lets it go, so two takes can be in flight at once. */
+const { gate } = vi.hoisted(() => ({ gate: { hold: null as Promise<void> | null } }));
+vi.mock("@/lib/outbox", async (importOriginal) => {
+  const real = await importOriginal<typeof import("@/lib/outbox")>();
+  return {
+    ...real,
+    keep: async (text: string, date: string) => {
+      if (gate.hold !== null) await gate.hold;
+      return real.keep(text, date);
+    },
+  };
+});
+
 // The take goes through the real outbox, which keeps the dump in IndexedDB.
 
 const PATH = "30 Research/report.pdf";
@@ -46,6 +59,11 @@ function Pdf() {
       <section aria-label="pdf" tabIndex={-1} onKeyDown={(event) => void take.onKeyDown(event)}>
         <div ref={wrapper} className="relative">
           <div ref={box}>
+            <div data-pdf-page="1">
+              <div className="textLayer">
+                <span>First page words. </span>
+              </div>
+            </div>
             <div data-pdf-page="2">
               <div className="textLayer">
                 <span>{WORDS}</span>
@@ -72,6 +90,14 @@ function select(node: Node) {
   const selection = window.getSelection();
   selection?.removeAllRanges();
   selection?.addRange(range);
+  act(() => {
+    document.dispatchEvent(new Event("selectionchange"));
+  });
+}
+
+/** Collapses the selection and tells the document, as a tap outside the words does. */
+function collapse() {
+  window.getSelection()?.removeAllRanges();
   act(() => {
     document.dispatchEvent(new Event("selectionchange"));
   });
@@ -123,6 +149,7 @@ beforeEach(async () => {
   saveNote.mockImplementation(async (path: string, content: string) => ({ path, content }));
   searchNotes.mockResolvedValue([]);
   updateNote.mockResolvedValue(null);
+  gate.hold = null;
   savedRects = Object.getOwnPropertyDescriptor(Range.prototype, "getClientRects");
   Object.defineProperty(Range.prototype, "getClientRects", {
     configurable: true,
@@ -243,5 +270,103 @@ describe("taking a passage out of a pdf", () => {
       toast: screen.queryByRole("status") !== null,
       marks: marked(registry).size,
     }).toEqual({ button: false, toast: false, marks: 0 });
+  });
+
+  it("a passage over many printed lines is one paragraph in the dump", async () => {
+    const sent = answering();
+    render(<Pdf />);
+    // pdf.js puts a line break at each printed line end, so the selection's text has one per line.
+    const lines = Array.from({ length: 60 }, (_, index) => `line ${index}`);
+    pageTwo().textContent = lines.join("\n");
+    select(pageTwo());
+
+    fireEvent.keyDown(pageTwo(), { key: "y" });
+
+    await screen.findByRole("status");
+    expect(dumpsSent(sent).map((dump) => dump.text)).toEqual([
+      `> ${lines.join(" ")}\n>\n> [[30 Research/report.pdf#page=2|report.pdf, page 2]]`,
+    ]);
+  });
+
+  it("a selection from page 1 into page 2 links to page 1 and quotes the words of both", async () => {
+    const sent = answering();
+    render(<Pdf />);
+    const first = document.querySelector('[data-pdf-page="1"] .textLayer span')?.firstChild as Text;
+    const second = pageTwo().firstChild as Text;
+    const range = document.createRange();
+    range.setStart(first, 0);
+    range.setEnd(second, 3);
+    window.getSelection()?.removeAllRanges();
+    window.getSelection()?.addRange(range);
+    act(() => {
+      document.dispatchEvent(new Event("selectionchange"));
+    });
+
+    fireEvent.keyDown(pageTwo(), { key: "y" });
+
+    await screen.findByRole("status");
+    expect(dumpsSent(sent).map((dump) => dump.text)).toEqual([
+      "> First page words. Two\n>\n> [[30 Research/report.pdf#page=1|report.pdf, page 1]]",
+    ]);
+  });
+
+  it("a press on the take button keeps the passage through the selection's collapse", async () => {
+    const sent = answering();
+    render(<Pdf />);
+    select(pageTwo());
+    const button = screen.getByRole("button", { name: "Take the passage" });
+
+    fireEvent.pointerDown(button);
+    collapse();
+    expect(screen.queryByRole("button", { name: "Take the passage" })).not.toBeNull();
+    fireEvent.click(button);
+
+    await screen.findByRole("status");
+    expect(dumpsSent(sent).map((dump) => dump.text)).toEqual([QUOTE]);
+  });
+
+  it("a press slid off the take button forgets the passage and the button goes", () => {
+    answering();
+    render(<Pdf />);
+    select(pageTwo());
+    const button = screen.getByRole("button", { name: "Take the passage" });
+
+    fireEvent.pointerDown(button);
+    collapse();
+    fireEvent.pointerUp(button, { clientX: 900, clientY: 900 });
+
+    expect(screen.queryByRole("button", { name: "Take the passage" })).toBeNull();
+  });
+
+  it("two takes in flight each mark their own words, and Undo of the second takes off only its own", async () => {
+    const registry = new Map<string, unknown>();
+    vi.stubGlobal("CSS", { highlights: registry });
+    vi.stubGlobal("Highlight", Set);
+    answering();
+    let release = () => {};
+    gate.hold = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    fetchNote.mockResolvedValue(`## Dump\n\n${pdfQuote(PATH, 3, "Three.")}\n`);
+    saveNote.mockResolvedValue({ path: DAILY, content: "" });
+    render(<Pdf />);
+
+    // Both takes start before either keep has resolved.
+    select(pageTwo());
+    fireEvent.keyDown(pageTwo(), { key: "y" });
+    select(screen.getByText("Three."));
+    fireEvent.keyDown(screen.getByText("Three."), { key: "y" });
+    release();
+
+    const undo = await screen.findByRole("button", { name: "Undo" });
+    await waitFor(() => expect(marked(registry).size).toBe(2));
+    expect([...marked(registry)].map((range) => range.toString()).sort()).toEqual(
+      [WORDS, "Three."].sort(),
+    );
+    fireEvent.click(undo);
+
+    await waitFor(() => expect(saveNote).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(marked(registry).size).toBe(1));
+    expect([...marked(registry)].map((range) => range.toString())).toEqual([WORDS]);
   });
 });

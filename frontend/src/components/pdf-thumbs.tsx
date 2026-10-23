@@ -26,31 +26,55 @@ interface PdfThumbsProps {
   ref?: Ref<ThumbsHandle>;
 }
 
-/** The canvas of one page's button, or null when the column does not hold that page. */
-function canvasOf(root: HTMLElement, number: number): HTMLCanvasElement | null {
-  return root.querySelector<HTMLCanvasElement>(`[data-thumb='${number}'] canvas`);
-}
-
-/**
- * Draws one page onto its canvas, unless the page left view while it was loading.
- *
- * A page that will not draw leaves its thumbnail blank. The pane above reports a
- * failed pdf already, so nothing is lost by not reporting it twice.
- */
-function paint(file: PdfFile, number: number, canvas: HTMLCanvasElement, wanted: () => boolean) {
-  void file.page(number).then(
-    (page) => {
-      if (!wanted()) return;
-      return page.draw(canvas, (THUMB_WIDTH * window.devicePixelRatio) / page.width, pageColors());
-    },
-    () => undefined,
-  );
+/** The button of one page in the column, or null when the column does not hold that page. */
+function slotOf(root: HTMLElement, number: number): HTMLElement | null {
+  return root.querySelector<HTMLElement>(`[data-thumb='${number}']`);
 }
 
 /** Gives a canvas's bitmap back at once, the way the pages in the box are freed. */
 function free(canvas: HTMLCanvasElement) {
   canvas.width = 0;
   canvas.height = 0;
+}
+
+/**
+ * Draws page `number` into a canvas of its own, and shows it in `slot` once drawn.
+ *
+ * pdf.js refuses a second render onto a canvas that is still rendering, so each
+ * draw takes a new one. A draw started while another is in flight makes that one
+ * unwanted, and it is freed when it lands. The slot keeps the canvas it shows
+ * until the new one is ready, so a redraw never blanks the thumbnail.
+ */
+function paint(
+  file: PdfFile,
+  number: number,
+  slot: HTMLElement,
+  drawing: Map<number, HTMLCanvasElement>,
+) {
+  const canvas = document.createElement("canvas");
+  canvas.style.width = "100%";
+  drawing.set(number, canvas);
+  const wanted = () => drawing.get(number) === canvas;
+  void file
+    .page(number)
+    .then(async (page) => {
+      if (!wanted()) return;
+      await page.draw(canvas, (THUMB_WIDTH * window.devicePixelRatio) / page.width, pageColors());
+      if (!wanted()) {
+        free(canvas);
+        return;
+      }
+      drawing.delete(number);
+      const shown = slot.querySelector("canvas");
+      if (shown !== null) free(shown);
+      slot.replaceChildren(canvas);
+    })
+    // A page that will not draw leaves its thumbnail as it was: the pane above
+    // reports a failed pdf already, so nothing is lost by not reporting it twice.
+    .then(undefined, () => {
+      if (wanted()) drawing.delete(number);
+      free(canvas);
+    });
 }
 
 /**
@@ -63,6 +87,8 @@ export function PdfThumbs({ file, current, onGoTo, ref }: PdfThumbsProps) {
   const column = useRef<HTMLDivElement>(null);
   /** The pages in view now, which are the only ones a redraw has to paint. */
   const shown = useRef(new Set<number>());
+  /** The canvas of each page's latest draw, which is the one that may still land. */
+  const drawing = useRef(new Map<number, HTMLCanvasElement>());
 
   useEffect(() => {
     const root = column.current;
@@ -71,14 +97,17 @@ export function PdfThumbs({ file, current, onGoTo, ref }: PdfThumbsProps) {
       (entries) => {
         for (const entry of entries) {
           const number = Number((entry.target as HTMLElement).dataset.thumb);
-          const canvas = canvasOf(root, number);
-          if (canvas === null) continue;
+          const slot = slotOf(root, number);
+          if (slot === null) continue;
           if (entry.isIntersecting) {
             shown.current.add(number);
-            paint(file, number, canvas, () => shown.current.has(number));
+            paint(file, number, slot, drawing.current);
           } else {
             shown.current.delete(number);
-            free(canvas);
+            drawing.current.delete(number);
+            const canvas = slot.querySelector("canvas");
+            if (canvas !== null) free(canvas);
+            slot.replaceChildren();
           }
         }
       },
@@ -88,10 +117,13 @@ export function PdfThumbs({ file, current, onGoTo, ref }: PdfThumbsProps) {
     return () => {
       observer.disconnect();
       for (const number of shown.current) {
-        const canvas = canvasOf(root, number);
-        if (canvas !== null) free(canvas);
+        const slot = slotOf(root, number);
+        const canvas = slot?.querySelector("canvas");
+        if (canvas) free(canvas);
+        slot?.replaceChildren();
       }
       shown.current.clear();
+      drawing.current.clear();
     };
   }, [file]);
 
@@ -102,8 +134,8 @@ export function PdfThumbs({ file, current, onGoTo, ref }: PdfThumbsProps) {
         const root = column.current;
         if (root === null) return;
         for (const number of shown.current) {
-          const canvas = canvasOf(root, number);
-          if (canvas !== null) paint(file, number, canvas, () => shown.current.has(number));
+          const slot = slotOf(root, number);
+          if (slot !== null) paint(file, number, slot, drawing.current);
         }
       },
     }),
@@ -129,10 +161,10 @@ export function PdfThumbs({ file, current, onGoTo, ref }: PdfThumbsProps) {
             onClick={() => onGoTo(number)}
             // The accent ring is the mark of the page on screen, drawn inside the
             // button so the column's own scroll does not clip it.
-            className={`block w-full shrink-0 outline-k-accent -outline-offset-2 pointer-coarse:min-h-11 ${here ? "outline-2" : "outline-0"}`}
-          >
-            <canvas className="block aspect-[1/1.414] w-full" />
-          </button>
+            // The shape of an A4 page holds the button's height until its page is
+            // drawn into it, the canvas that draws it being swapped in by `paint`.
+            className={`block aspect-[1/1.414] w-full shrink-0 outline-k-accent -outline-offset-2 pointer-coarse:min-h-11 ${here ? "outline-2" : "outline-0"}`}
+          />
         );
       })}
     </nav>

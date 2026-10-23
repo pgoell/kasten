@@ -125,7 +125,9 @@ export function WorkspacePanes({
   async function noteBeside(path: string) {
     let note = path;
     if (!data?.includes(path)) {
-      const made = await makeNote(queryClient, path);
+      // The list can be behind the vault: a note made since it was read answers
+      // 409, and that note is the one wanted, not a refusal.
+      const made = await makeNote(queryClient, path, "", true);
       if (made === undefined) {
         onNotice(`The vault refused ${path}`);
         return;

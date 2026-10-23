@@ -6,9 +6,14 @@ const ops = {
   restore: 11,
   transform: 12,
   paintFormXObjectBegin: 74,
+  beginGroup: 76,
+  endGroup: 77,
   paintFormXObjectEnd: 75,
+  beginAnnotation: 80,
+  endAnnotation: 81,
   paintImageMaskXObject: 83,
   paintImageXObject: 85,
+  paintInlineImageXObjectGroup: 87,
   paintImageXObjectRepeat: 88,
 };
 
@@ -78,5 +83,59 @@ describe("the pictures a page paints", () => {
     ]);
     const masked = imageBoxes(ops, [ops.paintImageMaskXObject], [[1]], IDENTITY);
     expect(masked).toEqual([]);
+  });
+
+  it("moves a group by its own matrix, and puts the matrix back at its end", () => {
+    // A transparency group is drawn under its matrix, as a form is (`pdf.mjs:12074`).
+    const group = { matrix: [1, 0, 0, 1, 30, 40], bbox: [0, 0, 1, 1], isolated: true };
+    const boxes = imageBoxes(
+      ops,
+      [ops.beginGroup, ops.paintImageXObject, ops.endGroup, ops.paintImageXObject],
+      [[group], [1], [group], [2]],
+      IDENTITY,
+    );
+    expect(boxes).toEqual([
+      [30, 40, 1, 1],
+      [0, 0, 1, 1],
+    ]);
+  });
+
+  it("paints an annotation from the page's base matrix, and puts back the one before it at its end", () => {
+    // An annotation starts again from the base matrix and not from the one before (`pdf.mjs:12159`).
+    const boxes = imageBoxes(
+      ops,
+      [
+        ops.transform,
+        ops.beginAnnotation,
+        ops.paintImageXObject,
+        ops.endAnnotation,
+        ops.paintImageXObject,
+      ],
+      [
+        [2, 0, 0, 2, 0, 0],
+        [7, null, [1, 0, 0, 1, 10, 10], [1, 0, 0, 1, 5, 0], false],
+        [1],
+        [],
+        [2],
+      ],
+      IDENTITY,
+    );
+    expect(boxes).toEqual([
+      [15, 10, 1, 1],
+      [0, 0, 2, 2],
+    ]);
+  });
+
+  it("boxes each image of an inline image group under that image's own transform", () => {
+    const boxes = imageBoxes(
+      ops,
+      [ops.paintInlineImageXObjectGroup],
+      [[{}, [{ transform: [10, 0, 0, 10, 0, 0] }, { transform: [1, 0, 0, 1, 50, 0] }]]],
+      IDENTITY,
+    );
+    expect(boxes).toEqual([
+      [0, 0, 10, 10],
+      [50, 0, 1, 1],
+    ]);
   });
 });

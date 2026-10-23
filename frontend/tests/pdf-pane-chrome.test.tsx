@@ -1,7 +1,7 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { PdfPane } from "@/components/pdf-pane";
 import type { PdfFile, ShowOptions } from "@/lib/pdf-view";
-import { toggleTheme } from "@/lib/theme";
+import { pickPalette, toggleTheme } from "@/lib/theme";
 import { stubCommands } from "./keybindings-fixture";
 
 // What the pane asks of the pdf viewer and of the take: the view it is handed
@@ -26,14 +26,21 @@ vi.mock("@/lib/pdf-view", async (importOriginal) => ({
   },
 }));
 
-const take = vi.hoisted(() => ({ onKeyDown: vi.fn((_event: unknown) => false) }));
+// The wrapper the take is placed in is kept too, so a test can see what the toast is bounded by.
+const take = vi.hoisted(() => ({
+  onKeyDown: vi.fn((_event: unknown) => false),
+  wrapper: undefined as undefined | { current: HTMLElement | null },
+}));
 vi.mock("@/components/pdf-take", () => ({
-  usePdfTake: () => ({
-    overlay: null,
-    onKeyDown: take.onKeyDown,
-    onText: () => {},
-    forget: () => {},
-  }),
+  usePdfTake: (o: { wrapper: { current: HTMLElement | null } }) => {
+    take.wrapper = o.wrapper;
+    return {
+      overlay: null,
+      onKeyDown: take.onKeyDown,
+      onText: () => {},
+      forget: () => {},
+    };
+  },
 }));
 
 const FILE: PdfFile = {
@@ -167,6 +174,15 @@ describe("the pdf pane's header and zoom", () => {
     expect(pdf.view.redraw).toHaveBeenCalledTimes(1);
     toggleTheme();
   });
+
+  it("a palette switch redraws the pdf on screen", () => {
+    renderPane();
+
+    pickPalette("russet");
+
+    expect(pdf.view.redraw).toHaveBeenCalledTimes(1);
+    pickPalette("poel");
+  });
 });
 
 describe("the pdf pane's thumbnail column", () => {
@@ -204,5 +220,62 @@ describe("the pdf pane's thumbnail column", () => {
     act(() => pdf.options?.onPage?.(2));
     expect(screen.getByRole("button", { name: "Page 2" })).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("button", { name: "Page 1" })).not.toHaveAttribute("aria-current");
+  });
+
+  it("a theme switch redraws the thumbnails on screen", async () => {
+    // A page the column shows is drawn once, and drawn again by a switch.
+    const drawn: number[] = [];
+    const file: PdfFile = {
+      pages: 2,
+      page: async (number) => ({
+        width: 600,
+        height: 800,
+        draw: async () => {
+          drawn.push(number);
+        },
+      }),
+    };
+    let seen: IntersectionObserverCallback | undefined;
+    class Capturing {
+      constructor(callback: IntersectionObserverCallback) {
+        seen = callback;
+      }
+      observe() {}
+      disconnect() {}
+    }
+    vi.stubGlobal("IntersectionObserver", Capturing);
+    renderPane();
+    act(() => pdf.options?.onFile?.(file));
+    widen(900);
+    const first = screen.getByRole("button", { name: "Page 1" });
+    act(() => {
+      seen?.([{ isIntersecting: true, target: first } as unknown as IntersectionObserverEntry], {
+        disconnect() {},
+      } as unknown as IntersectionObserver);
+    });
+    await act(async () => {
+      for (let round = 0; round < 10; round += 1) await Promise.resolve();
+    });
+    expect(drawn).toEqual([1]);
+
+    act(() => toggleTheme());
+    await act(async () => {
+      for (let round = 0; round < 10; round += 1) await Promise.resolve();
+    });
+
+    expect(drawn).toEqual([1, 1]);
+    toggleTheme();
+  });
+
+  it("the take's wrapper is the page area, so its toast is not placed over the thumbnails", () => {
+    renderPane();
+    act(() => pdf.options?.onFile?.(FILE));
+    widen(900);
+
+    const wrapper = take.wrapper?.current;
+    expect(screen.getByLabelText("Pages")).toBeInTheDocument();
+    expect(wrapper).not.toBeNull();
+    expect(wrapper?.querySelector("nav")).toBeNull();
+    expect(wrapper?.querySelector("[data-pdf-box]")).not.toBeNull();
   });
 });

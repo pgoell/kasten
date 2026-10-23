@@ -1,7 +1,7 @@
 ---
 type: Reference
 title: Editor keys, panes and tabs
-description: How panes, splits, tabs, the history pane and the graph pane answer the keys.
+description: How panes, splits, tabs, the history pane, the graph pane and the pdf pane answer the keys.
 tags: [editor, keyboard, panes, tabs, frontend]
 status: stable
 ---
@@ -270,3 +270,38 @@ and tag buttons, `fit`, `depth`, Create and Cancel) takes its own `Space` and
 `Enter`, which press it; `Space` on the pane or the canvas opens the which-key
 panel. A note written anywhere, by you or by an agent, redraws a graph on
 screen.
+
+## The pdf pane
+
+A pdf opened from the tree, or followed from `![[plan.pdf]]`, is drawn in the
+pdf pane. Its header reads `PDF`, the path, the minus and plus buttons with the
+zoom between them in percent, and `Note beside`, which opens the pdf's note
+beside it.
+
+| Key | Does |
+| --- | --- |
+| `+` or `=` | Zoom in one step |
+| `-` | Zoom out one step |
+| `y` | Take the selected passage into today's dump, when one is held |
+| `Space` | Open the which-key panel, as in every pane |
+
+The zoom steps are 50, 75, 100, 125, 150, 200 and 300 percent. A button greys
+out at the end it cannot pass.
+
+From 900 px of pane width a column of page thumbnails sits on the left, drawn
+as the pages come into view. The page on screen has an accent ring, and a click
+on a thumbnail goes to that page. The width is the pane's own, so a split
+narrows its own column, and a narrower pane gives the whole width to the pages.
+
+On the dark theme the pages are drawn in the dark colours rather than as
+printed, and a page's edge is a hairline instead of a shadow. A switch of theme
+redraws the pages on screen and keeps the page and the scroll.
+
+Select text in a page to get a Take button over the selection. With a mouse it
+sits above the words, and on a touch screen below them, clear of the phone's own
+menu. The button and `y` take the passage into today's dump by the route
+[`<leader>cd`](/reference/editor-keys/capture.md#capturing-into-todays-dump)
+uses. The note at the foot of the pane offers Undo and Put it in a note, as a
+page's take does, and it moves to the top when the passage sits low on the page.
+A word taken stays marked on the page until its Undo, or until the pane shows
+another pdf. A selection in another part of the document takes nothing.
