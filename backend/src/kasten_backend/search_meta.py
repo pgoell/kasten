@@ -5,11 +5,16 @@ day its note counts on. A line's own date would take a `jj annotate` of every
 note on every query, so the note's date stands for its lines instead. It comes
 from the name when the name is dated, then from the block's `created`, which is
 when the note was written, then from the file's modification time.
+
+A dated name gives its calendar day, which needs no zone. The other two give an
+instant with its offset, because `created` is written in UTC and the day it
+falls on depends on whose clock reads it: a note written at 00:30 in Berlin is
+the day before in UTC. The client reads the instant in the reader's own zone.
 """
 
 import asyncio
 import re
-from datetime import date
+from datetime import UTC, date, datetime
 from typing import TYPE_CHECKING
 
 from kasten_backend import frontmatter, todos
@@ -38,18 +43,39 @@ def _as_date(text: str) -> date | None:
         return None
 
 
-def _day(root: Path, path: str, text: str | None) -> date | None:
-    """The day a note counts on: its name, else its `created`, else its modification time."""
-    day = _as_date(path.rsplit("/", 1)[-1][:10])
-    if day is None and text is not None:
-        day = _as_date((frontmatter.created(text) or "")[:10])
-    if day is None:
-        try:
-            return date.fromtimestamp((root / path).stat().st_mtime)
-        except OSError:
-            # The note went between the search and this, so no date is the answer.
-            return None
-    return day
+def _created(text: str) -> str | None:
+    """The block's `created` as written, when it is a day or an instant with an offset.
+
+    A naive timestamp has no zone to read it in, so it counts for nothing and the
+    file's own time stands in for it.
+    """
+    value = frontmatter.created(text)
+    if value is None:
+        return None
+    if _as_date(value) is not None:
+        return value
+    try:
+        moment = datetime.fromisoformat(value)
+    except ValueError:
+        return None
+    return value if moment.tzinfo is not None else None
+
+
+def _day(root: Path, path: str, text: str | None) -> str | None:
+    """The date a note counts on, as ISO 8601: its name's day, else `created`, else mtime."""
+    named = _as_date(path.rsplit("/", 1)[-1][:10])
+    if named is not None:
+        return named.isoformat()
+    if text is not None:
+        created = _created(text)
+        if created is not None:
+            return created
+    try:
+        moment = (root / path).stat().st_mtime
+    except OSError:
+        # The note went between the search and this, so no date is the answer.
+        return None
+    return datetime.fromtimestamp(moment, UTC).isoformat(timespec="seconds")
 
 
 def _tags(text: str) -> list[str]:
@@ -67,7 +93,7 @@ def _read_all(root: Path, paths: list[str]) -> dict[str, tuple[str | None, list[
             # A note the client cannot open is still dated by its name and its file.
             text = None
         day = _day(root, path, text)
-        meta[path] = (day.isoformat() if day else None, None if text is None else _tags(text))
+        meta[path] = (day, None if text is None else _tags(text))
     return meta
 
 

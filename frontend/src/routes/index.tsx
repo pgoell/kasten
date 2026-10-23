@@ -209,15 +209,6 @@ function Home() {
   // information rather than litter.
   const [notice, setNotice] = useState<string>();
 
-  // The URL names the note in the focused pane, so a reload comes back to what
-  // you were reading. `replace` rather than a push: moving between panes is not
-  // navigation, and one history entry per pane would bury the back button under
-  // a walk across the window.
-  //
-  // The note and not its line: the line belongs to the open that set it, and
-  // the cursor has moved on since. Written down, a reload would read it as a
-  // link asking for that line (`openOnTop`) and jump the cursor back over the
-  // spot the editor saved.
   useVaultEvents(focusedNote, decline);
 
   const guarded = useGuardedWrites({ focusedNote, panePath: pane.path, setNotice });
@@ -277,6 +268,15 @@ function Home() {
     toggleArchive: listings.commands.toggleArchive,
   });
 
+  // The URL names the note in the focused pane, so a reload comes back to what
+  // you were reading. `replace` rather than a push: moving between panes is not
+  // navigation, and one history entry per pane would bury the back button under
+  // a walk across the window.
+  //
+  // The note and not its line: the line belongs to the open that set it, and
+  // the cursor has moved on since. Written down, a reload would read it as a
+  // link asking for that line (`openOnTop`) and jump the cursor back over the
+  // spot the editor saved.
   useEffect(() => {
     navigate({
       search: {

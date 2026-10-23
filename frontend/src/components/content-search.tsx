@@ -162,6 +162,12 @@ export function ContentSearch({
   // leave it past the end.
   const cursor = Math.min(active, Math.max(ordered.length - 1, 0));
 
+  // The list scrolls its highlight into view, as the book contents do. Without it
+  // a highlight walked past the bottom of the list is one the reader cannot see.
+  useEffect(() => {
+    document.getElementById(`${listId}-${cursor}`)?.scrollIntoView({ block: "nearest" });
+  }, [cursor, listId]);
+
   // The answer without the mentions it cannot have, which the counts read.
   const answer = useMemo(() => found.filter((hit): hit is SearchHit => !isMention(hit)), [found]);
   const inFolder = useMemo(() => filterHits(answer, filters), [answer, filters]);
@@ -214,6 +220,16 @@ export function ContentSearch({
   }
 
   function onKeyDown(event: KeyboardEvent) {
+    // Enter on a focused bar, filter or All weeks button is that button's to
+    // press. Left unprevented, the browser clicks it; a result row is the one
+    // button Enter should open.
+    if (
+      event.key === "Enter" &&
+      event.target instanceof HTMLButtonElement &&
+      event.target.getAttribute("role") !== "option"
+    ) {
+      return;
+    }
     // Tab walks the list rather than completing anything, as it does in the
     // lists beside this one, and Enter opens the row under the highlight.
     const tab = event.key === "Tab";
@@ -282,7 +298,7 @@ export function ContentSearch({
       // padding would only push it off the bottom.
       className={`${BACKDROP} max-md:pt-0`}
     >
-      <div className="flex max-h-full min-h-0 w-[min(80rem,96vw)] h-[min(56rem,90dvh)] flex-col overflow-hidden rounded-md border border-k-rule bg-k-paper font-sans shadow-xl max-md:h-dvh max-md:w-full max-md:rounded-none">
+      <div className="flex max-h-full min-h-0 w-[min(80rem,96vw)] h-[min(56rem,80dvh)] flex-col overflow-hidden rounded-md border border-k-rule bg-k-paper font-sans shadow-xl max-md:h-dvh max-md:w-full max-md:rounded-none">
         <div className="border-b border-k-rule px-6 pt-5 pb-3">
           <label htmlFor={`${listId}-query`} className="sr-only">
             search notes

@@ -1,5 +1,4 @@
 import { type MouseEvent, useState } from "react";
-import { TAP } from "@/lib/overlay-styles";
 import { type WeekKey, weekNumber } from "@/lib/search-weeks";
 
 interface SearchHistogramProps {
@@ -48,7 +47,8 @@ export function SearchHistogram({ weeks, counts, week, onPick }: SearchHistogram
             onClick={() => onPick(key)}
             onMouseEnter={() => setHovered(key)}
             onMouseLeave={() => setHovered(undefined)}
-            className={`group ${TAP} relative flex min-w-0 flex-1 cursor-pointer flex-col`}
+            // Not TAP: its items-center under a finger shrinks the bar area to nothing.
+            className="group pointer-coarse:min-h-11 relative flex min-w-0 flex-1 cursor-pointer flex-col"
           >
             {/* The bar's own area, with the baseline under it. The area is the
                 height the bars are scaled against, so it has to be fixed. */}
@@ -70,7 +70,9 @@ export function SearchHistogram({ weeks, counts, week, onPick }: SearchHistogram
             <span
               className={`pt-1 text-center text-k-12 ${key === current ? "font-bold text-k-accent" : "text-k-muted"}`}
             >
-              W{String(weekNumber(key)).padStart(2, "0")}
+              {/* Below md the fourteen labels would run together, so the W goes. */}
+              <span className="max-md:hidden">W</span>
+              {String(weekNumber(key)).padStart(2, "0")}
             </span>
             {/* The current week is marked twice, by its label and by a dot, so the
                 mark does not rest on colour alone. */}

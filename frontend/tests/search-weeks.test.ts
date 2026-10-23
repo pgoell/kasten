@@ -28,6 +28,34 @@ describe("weekOf", () => {
     expect(weekOf("2026-02-30")).toBeUndefined();
     expect(weekOf("yesterday")).toBeUndefined();
   });
+
+  it("reads an instant as the reader's day in Berlin", () => {
+    // The repo pins no zone for its tests, so this one sets it and puts it back.
+    // 22:30 UTC on the Sunday is already Monday in Berlin, so it counts in W43.
+    const before = process.env.TZ;
+    process.env.TZ = "Europe/Berlin";
+    try {
+      expect(weekOf("2026-10-18T22:30:00+00:00")).toBe("2026-W43");
+    } finally {
+      if (before === undefined) delete process.env.TZ;
+      else process.env.TZ = before;
+    }
+  });
+
+  it("reads an instant as the reader's day in UTC", () => {
+    const before = process.env.TZ;
+    process.env.TZ = "UTC";
+    try {
+      expect(weekOf("2026-10-18T22:30:00+00:00")).toBe("2026-W42");
+    } finally {
+      if (before === undefined) delete process.env.TZ;
+      else process.env.TZ = before;
+    }
+  });
+
+  it("answers nothing for an instant that is not a date", () => {
+    expect(weekOf("2026-10-18T25:99:00+00:00")).toBeUndefined();
+  });
 });
 
 describe("lastWeeks", () => {

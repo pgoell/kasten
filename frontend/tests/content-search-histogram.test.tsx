@@ -1,5 +1,6 @@
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { HITS, lines, renderContent, searchHooks } from "./content-search-fixture";
+import { COARSE, stubMatchMedia } from "./match-media";
 
 const { searchNotes, fetchNote, fetchTodos, fetchMentions } = vi.hoisted(() => ({
   searchNotes: vi.fn(),
@@ -10,6 +11,10 @@ const { searchNotes, fetchNote, fetchTodos, fetchMentions } = vi.hoisted(() => (
 vi.mock("@/lib/api", () => ({ searchNotes, fetchNote, fetchTodos, fetchMentions }));
 
 searchHooks();
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 /** The four notes a busy week is spread over: 8, 8, 7 and 7 lines. */
 const BUSY_WEEK = [
@@ -60,10 +65,11 @@ it("labels each bar with its ISO week", () => {
 it("marks the current week in the accent and bold", () => {
   const search = renderContent();
 
-  const current = within(search.bar(43)).getByText("W43");
-  expect(current.className).toContain("font-bold");
+  // The label is split: a W that hides below md, then the number. The bold label is the one to read.
+  const current = search.bar(43).querySelector<HTMLElement>(".font-bold") as HTMLElement;
+  expect(current.textContent).toBe("W43");
   expect(current.className).toContain("text-k-accent");
-  expect(within(search.bar(42)).getByText("W42").className).not.toContain("font-bold");
+  expect(search.bar(42).querySelector(".font-bold")).toBeNull();
 });
 
 it("shows a bar's count on hover", async () => {
@@ -208,4 +214,31 @@ it("counts an archived line in the week it was written", async () => {
 
   await waitFor(() => expect(search.rows()).toHaveLength(3));
   expect(search.bar(40).getAttribute("aria-label")).toBe("Week 40, 1 line");
+});
+
+it("keeps each bar as wide as its area under a finger", () => {
+  // jsdom applies no media query, so the coarse pointer is stubbed and the bar's
+  // classes are read: a centred column shrinks the area holding the bar to nothing.
+  stubMatchMedia({ [COARSE]: true });
+  const search = renderContent();
+
+  expect(search.bar(38).className).not.toContain("pointer-coarse:items-center");
+  expect(search.bar(38).className).toContain("pointer-coarse:min-h-11");
+});
+
+it("shows no rows, empty bars and no counts once the query is cleared", async () => {
+  const search = renderContent();
+
+  search.type("postgres");
+  await waitFor(() => expect(search.rows()).toHaveLength(2));
+  search.type("");
+
+  await waitFor(() => expect(search.rows()).toHaveLength(0));
+  expect(search.bars().map((bar) => bar.getAttribute("aria-label"))).toEqual(
+    Array.from({ length: 14 }, (_, at) => `Week ${30 + at}, 0 lines`),
+  );
+  expect(screen.queryByRole("button", { name: /^projects/ })).toBeNull();
+  expect(screen.getByRole("button", { name: /^Include the archive/ }).textContent).toBe(
+    "Include the archive",
+  );
 });

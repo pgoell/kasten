@@ -8,7 +8,7 @@ catch.
 
 import os
 from collections import Counter
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -173,32 +173,34 @@ async def test_a_hit_in_a_dated_note_carries_the_date_in_its_name(
     assert [hit.get("date") for hit in response.json()] == ["2026-09-18"]
 
 
-async def test_a_hit_in_a_note_with_no_dated_name_carries_its_created_date(
+async def test_a_hit_in_a_note_with_no_dated_name_carries_its_created_instant(
     client: AsyncClient, vault: Path
 ) -> None:
+    # `stamp` writes `created` in UTC. The instant comes back whole, because cut
+    # to its day a note written at 00:30 in Berlin would land the day before.
     write(
         vault,
         "projects/kasten.md",
-        "---\ncreated: 2026-08-02T09:00:00+02:00\n---\n\nderived index\n",
+        "---\ncreated: 2026-10-18T22:30:00+00:00\n---\n\nderived index\n",
     )
 
     response = await client.get("/api/search", params={"q": "derived"})
 
-    assert [hit.get("date") for hit in response.json()] == ["2026-08-02"]
+    assert [hit.get("date") for hit in response.json()] == ["2026-10-18T22:30:00+00:00"]
 
 
-async def test_a_hit_in_a_note_with_no_date_carries_the_file_modification_date(
+async def test_a_hit_in_a_note_with_no_date_carries_the_file_modification_instant(
     client: AsyncClient, vault: Path
 ) -> None:
     # Set rather than left to the checkout, which stamps every file with the day
     # it was cloned and would pass this test on any day at all.
     write(vault, "projects/undated.md", "derived index\n")
-    moment = datetime(2026, 7, 15, 12).timestamp()
+    moment = datetime(2026, 7, 15, 12, tzinfo=UTC).timestamp()
     os.utime(vault / "projects/undated.md", (moment, moment))
 
     response = await client.get("/api/search", params={"q": "derived"})
 
-    assert [hit.get("date") for hit in response.json()] == ["2026-07-15"]
+    assert [hit.get("date") for hit in response.json()] == ["2026-07-15T12:00:00+00:00"]
 
 
 async def test_a_hit_carries_its_notes_tags_with_their_hashes_sorted(

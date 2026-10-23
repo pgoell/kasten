@@ -40,10 +40,19 @@ function keyOf(day: Date): WeekKey {
   return `${year}-W${pad(week)}`;
 }
 
-/** The ISO week of a `YYYY-MM-DD`, or nothing where the string is not a real day. */
+/**
+ * The ISO week of a date, or nothing where the string is neither.
+ *
+ * A `YYYY-MM-DD` is the day it names, whatever the zone. An instant with an
+ * offset is read as the reader's own day: the server cannot know the zone, so a
+ * late Sunday in UTC is Monday in Berlin, and the bar it counts in is the Berlin one.
+ */
 export function weekOf(date: string): WeekKey | undefined {
   const found = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
-  if (!found) return undefined;
+  if (!found) {
+    const at = new Date(date);
+    return Number.isNaN(at.getTime()) ? undefined : keyOf(at);
+  }
   const [year, month, day] = found.slice(1).map(Number) as [number, number, number];
   // Built from local parts, the way `isoWeek` reads its date. Reading back the
   // parts catches the days a calendar does not have, such as February the 30th,

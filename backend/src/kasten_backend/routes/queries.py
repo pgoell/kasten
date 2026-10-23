@@ -45,10 +45,16 @@ class SearchHit(LineHit):
     """One line that matched a search, with the date and tags of the note it is in."""
 
     date: str | None = None
-    """The ISO date (`YYYY-MM-DD`) the note counts on, which the search histogram counts by.
+    """The date the note counts on, as ISO 8601: a calendar day or an instant.
 
-    Read off the note's name, else its `created`, else its modification time, by
-    `search_meta.notes_meta`. None when the note could not be read.
+    A calendar day (`YYYY-MM-DD`) when the note's name starts with one, which needs
+    no zone. Otherwise an instant with its offset, from the note's `created` as
+    written or its file's modification time in UTC. The instant is not cut to a
+    day here because the day depends on the reader's zone: `created` is written
+    in UTC, so a note written at 00:30 in Berlin is the day before in UTC. The
+    client reads the instant in its own zone.
+
+    Read by `search_meta.notes_meta`. None when the note could not be read.
     """
 
     tags: list[str] | None = None

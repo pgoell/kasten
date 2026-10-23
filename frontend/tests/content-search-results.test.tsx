@@ -112,3 +112,20 @@ it("says the counts are of the first 2,000 lines when the answer is cut there", 
 
   await waitFor(() => expect(search.hint()).toBe("Counts are of the first 2,000 lines."));
 });
+
+it("keeps the highlighted row in view when the highlight moves past the end and back", async () => {
+  const scrollIntoView = vi.spyOn(Element.prototype, "scrollIntoView");
+  const search = renderContent();
+
+  search.type("postgres");
+  await waitFor(() => expect(search.rows()).toHaveLength(2));
+  scrollIntoView.mockClear();
+  search.press("ArrowDown");
+  search.press("ArrowDown");
+  search.press("ArrowDown");
+  search.press("ArrowUp");
+
+  expect(scrollIntoView).toHaveBeenLastCalledWith({ block: "nearest" });
+  expect(scrollIntoView.mock.contexts.at(-1)).toBe(search.row(0));
+  scrollIntoView.mockRestore();
+});

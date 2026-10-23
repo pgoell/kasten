@@ -170,8 +170,9 @@ export function useSearchHits({
           queryFn: asked === "" ? skipToken : () => searchNotes(asked, archive),
         }),
     // What keeps the last answer on screen while the next one is fetched, and
-    // so what there is to narrow in the meantime.
-    placeholderData: keepPreviousData,
+    // so what there is to narrow in the meantime. A cleared query keeps nothing:
+    // the last answer would otherwise stay under an empty field.
+    placeholderData: mode === "search" && asked === "" ? undefined : keepPreviousData,
     // A scan nobody asked to repeat is not worth three attempts and a backoff.
     retry: false,
   });
@@ -183,7 +184,7 @@ export function useSearchHits({
   const withArchive = useQuery<SearchHit[]>({
     queryKey: ["search", asked, true],
     queryFn: mode !== "search" || asked === "" ? skipToken : () => searchNotes(asked, true),
-    placeholderData: keepPreviousData,
+    placeholderData: asked === "" ? undefined : keepPreviousData,
     retry: false,
   });
 
