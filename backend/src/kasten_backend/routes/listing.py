@@ -131,9 +131,10 @@ async def read_html(
     if page is None:
         raise HTTPException(status_code=404, detail="No such page")
 
+    content, charset = serve_page(page.read_bytes(), theme, palette)
     return Response(
-        serve_page(page.read_bytes(), theme, palette),
-        media_type="text/html",
+        content,
+        media_type=f"text/html; charset={charset}",
         headers={"Content-Security-Policy": HTML_POLICY},
     )
 

@@ -33,8 +33,8 @@ The `Content-Type` names the charset the page's own head declares, with
 declares none. A browser reads only the first 1024 bytes for that meta, and the
 page script below fills more than that, so the header has to carry it. A meta
 in a comment, a script, a `<template>` or a `<noscript>` does not count, a
-label that is not a plain charset name counts as none, and `utf-16` counts as
-`utf-8`, as it does to a browser. Everything kasten puts into a page is ASCII,
+label that is not a known charset name is passed over for the next meta, and
+`utf-16` counts as `utf-8`, as it does to a browser. Everything kasten puts into a page is ASCII,
 so it reads the same in any of those charsets.
 
 The page goes out with a policy of its own in `Content-Security-Policy`:

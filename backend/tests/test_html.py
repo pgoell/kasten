@@ -3,6 +3,10 @@ from typing import TYPE_CHECKING
 
 import pytest
 
+from kasten_backend.html_page import LINKS_OUT as PAGE_LINKS_OUT
+from kasten_backend.html_page import PAGE_SCRIPT, STYLES
+from kasten_backend.routes.listing import HTML_POLICY
+
 if TYPE_CHECKING:
     from httpx import AsyncClient
 
@@ -329,3 +333,125 @@ async def test_a_head_end_inside_a_template_is_not_where_the_styles_go(
     )
     assert b"<title>x</title><style data-kasten-fonts>" in response.content
     assert b"</style></head><body>x</body>" in response.content
+
+
+async def test_serves_a_latin1_page_in_the_charset_its_meta_names(
+    client: AsyncClient, vault: Path
+) -> None:
+    page = (
+        DOCTYPE
+        + b'<html><head><meta charset="iso-8859-1"><title>x</title></head>'
+        + b"<body><p>caf\xe9</p></body></html>"
+    )
+    (vault / "report.html").write_bytes(page)
+
+    response = await client.get("/api/html/report.html")
+
+    assert b"caf\xe9" in response.content
+    assert response.headers["content-security-policy"] == HTML_POLICY
+    assert response.headers["content-type"] == "text/html; charset=iso-8859-1"
+
+
+async def test_serves_a_utf8_page_with_no_charset_meta_as_utf8(
+    client: AsyncClient, vault: Path
+) -> None:
+    (vault / "report.html").write_bytes("<!doctype html><p>café</p>".encode())
+
+    response = await client.get("/api/html/report.html")
+
+    assert "café".encode() in response.content
+    assert response.headers["content-type"] == "text/html; charset=utf-8"
+
+
+async def test_puts_the_theme_into_a_latin1_page_and_keeps_its_bytes(
+    client: AsyncClient, vault: Path
+) -> None:
+    page = (
+        DOCTYPE
+        + b'<html><head><meta charset="iso-8859-1">'
+        + META
+        + b"<title>x</title></head><body>caf\xe9</body>"
+    )
+    (vault / "report.html").write_bytes(page)
+
+    response = await client.get(
+        "/api/html/report.html", params={"theme": "dark", "palette": "russet"}
+    )
+
+    content = response.content
+    assert content.index(b"<style data-kasten-theme>") < content.index(b"</head>")
+    assert b"caf\xe9" in content
+    assert response.headers["content-type"] == "text/html; charset=iso-8859-1"
+
+
+def test_everything_kasten_puts_into_a_page_is_ascii() -> None:
+    # A page may be in any charset, so what kasten adds reads the same in each only if it is ASCII.
+    assert STYLES.isascii()
+    assert PAGE_LINKS_OUT.isascii()
+    assert PAGE_SCRIPT.isascii()
+
+
+async def test_serves_the_charset_an_http_equiv_meta_names(
+    client: AsyncClient, vault: Path
+) -> None:
+    page = (
+        DOCTYPE
+        + b'<html><head><meta http-equiv="Content-Type" '
+        + b'content="text/html; charset=ISO-8859-1"><title>x</title></head>'
+        + b"<body><p>caf\xe9</p></body></html>"
+    )
+    (vault / "report.html").write_bytes(page)
+
+    response = await client.get("/api/html/report.html")
+
+    assert b"caf\xe9" in response.content
+    assert response.headers["content-type"] == "text/html; charset=iso-8859-1"
+
+
+async def test_a_charset_meta_in_a_comment_a_script_or_a_template_does_not_count(
+    client: AsyncClient, vault: Path
+) -> None:
+    page = (
+        DOCTYPE
+        + b'<html><head><!-- <meta charset="koi8-r"> -->'
+        + b"<script>\"<meta charset='koi8-r'>\"</script>"
+        + b'<template><meta charset="koi8-r"></template>'
+        + b'<noscript><meta charset="koi8-r"></noscript><meta charset="iso-8859-1">'
+        + b"<title>x</title></head><body>caf\xe9</body></html>"
+    )
+    (vault / "report.html").write_bytes(page)
+
+    response = await client.get("/api/html/report.html")
+
+    assert b"caf\xe9" in response.content
+    assert response.headers["content-type"] == "text/html; charset=iso-8859-1"
+
+
+async def test_a_charset_label_no_browser_knows_is_passed_over(
+    client: AsyncClient, vault: Path
+) -> None:
+    page = (
+        DOCTYPE
+        + b'<html><head><meta charset="x; y"><meta charset="nonsense">'
+        + b'<meta charset="iso-8859-1"><title>x</title></head><body>caf\xe9</body></html>'
+    )
+    (vault / "report.html").write_bytes(page)
+
+    response = await client.get("/api/html/report.html")
+
+    assert b"caf\xe9" in response.content
+    assert response.headers["content-type"] == "text/html; charset=iso-8859-1"
+
+
+async def test_a_utf16_charset_meta_counts_as_utf8(client: AsyncClient, vault: Path) -> None:
+    page = (
+        DOCTYPE
+        + b'<html><head><meta charset="utf-16"><meta charset="iso-8859-1">'
+        + b"<title>x</title></head><body>x</body></html>"
+    )
+    (vault / "report.html").write_bytes(page)
+
+    response = await client.get("/api/html/report.html")
+
+    assert b'<meta charset="utf-16">' in response.content
+    assert response.headers["content-type"] == "text/html; charset=utf-8"

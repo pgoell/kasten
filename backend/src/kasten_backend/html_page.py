@@ -8,6 +8,7 @@ a tag: a `<meta>` inside a comment does not opt a page in.
 
 import argparse
 import base64
+import codecs
 import re
 import sys
 from html.parser import HTMLParser
@@ -104,6 +105,25 @@ _BLANK = " \t\n\r\f﻿"
 _INERT = ("noscript", "template")
 """Elements whose contents are not the page's head or body, to a browser."""
 
+_CONTENT_CHARSET = re.compile(r"charset\s*=\s*[\"']?([^\"'\s;]*)")
+"""The label in a `content` attribute such as `text/html; charset=ISO-8859-1`."""
+
+_LABEL = re.compile(r"[A-Za-z0-9._:-]{1,40}")
+"""What a charset label may hold. It goes into the header as it is, so nothing else may."""
+
+
+def _encoding(label: str | None) -> str | None:
+    """The charset a label names to a browser, or None when no browser knows it."""
+    if label is None or _LABEL.fullmatch(label) is None:
+        return None
+    try:
+        name = codecs.lookup(label).name
+    except LookupError:
+        return None
+    # The WHATWG prescan reads a UTF-16 label as UTF-8: a UTF-16 page starts with a
+    # byte order mark, and this one has none.
+    return "utf-8" if name.startswith("utf-16") else label
+
 
 class _Tokens(HTMLParser):
     """The few tokens of a page that decide where the pieces go, as string offsets.
@@ -125,6 +145,9 @@ class _Tokens(HTMLParser):
         # Open `<template>` or `<noscript>` elements. A browser does not treat a
         # meta or a `</head>` inside one as the page's head, so neither counts.
         self.inert = 0
+        # The page's own charset, which the header has to name: a browser reads the
+        # page's bytes with it, and a header that says otherwise garbles them.
+        self.charset: str | None = None
         self.feed(page)
         self.close()
 
@@ -155,10 +178,22 @@ class _Tokens(HTMLParser):
         self._significant()
         if tag in _INERT:
             self.inert += 1
-        elif self.inert == 0 and self.meta_end is None and tag == "meta":
+        elif self.inert == 0 and tag == "meta":
             values = {name: (value or "").strip().lower() for name, value in attrs}
-            if values.get("name") == "kasten-theme" and values.get("content") == "tokens":
+            if (
+                self.meta_end is None
+                and values.get("name") == "kasten-theme"
+                and values.get("content") == "tokens"
+            ):
                 self.meta_end = self._offset() + len(self.get_starttag_text() or "")
+            # The first label a browser can read is the page's charset. Once one is
+            # found, later metas are not read.
+            if self.charset is None:
+                label = values.get("charset")
+                if label is None and values.get("http-equiv") == "content-type":
+                    found = _CONTENT_CHARSET.search(values.get("content", ""))
+                    label = found.group(1) if found else None
+                self.charset = _encoding(label)
 
     def handle_endtag(self, tag: str) -> None:
         self._significant()
@@ -173,29 +208,36 @@ def _bytes(text: str) -> bytes:
     return text.encode("utf-8", "surrogateescape")
 
 
-def serve_page(raw: bytes, theme: str | None, palette: str | None) -> bytes:
+def serve_page(raw: bytes, theme: str | None, palette: str | None) -> tuple[bytes, str]:
     """Hand back one page the way the frame gets it: script first, theme if it opted in.
 
     The script goes right after the doctype, or at the very start when there is
     none (after a byte order mark, which stays first). A page opts in with the
     `kasten-theme` meta, and only then does it get the theme and palette on its
     `<html>` element and the styles before `</head>`. Any other theme or palette
-    means no theme at all, and the page keeps its own fallback.
+    means no theme at all, and the page keeps its own fallback. The charset comes
+    back with the bytes, for the header: the page's own meta, or utf-8 without one.
     """
     if raw.startswith((b"\xff\xfe", b"\xfe\xff")):
         # UTF-16 is not the UTF-8 read below, so nothing can go in front of its
         # bytes without breaking them. It goes out as it did before, with no theme.
-        return raw + LINKS_OUT + PAGE_SCRIPT
+        # A browser reads the byte order mark ahead of the header, so the header
+        # keeps utf-8.
+        return raw + LINKS_OUT + PAGE_SCRIPT, "utf-8"
 
     page = raw.decode("utf-8", "surrogateescape")
     tokens = _Tokens(page)
+    charset = tokens.charset or "utf-8"
     # A doctype cut off before its `>` (a page read mid-write) is no doctype here.
     doctype_end = page.find(">", tokens.first or 0) if tokens.first_is_doctype else -1
     bom = 1 if page.startswith("﻿") else 0
     script_at = doctype_end + 1 if doctype_end != -1 else bom
 
     if tokens.meta_end is None or theme not in THEMES or palette not in PALETTES:
-        return _bytes(page[:script_at]) + PAGE_SCRIPT + _bytes(page[script_at:]) + LINKS_OUT
+        return (
+            _bytes(page[:script_at]) + PAGE_SCRIPT + _bytes(page[script_at:]) + LINKS_OUT,
+            charset,
+        )
 
     # The browser keeps the first value of each attribute it meets, so this
     # `<html>` is the one that counts: the page's own `<html lang>` joins it, and
@@ -208,7 +250,8 @@ def serve_page(raw: bytes, theme: str | None, palette: str | None) -> bytes:
         + _bytes(page[script_at:head_at])
         + _bytes(STYLES)
         + _bytes(page[head_at:])
-        + LINKS_OUT
+        + LINKS_OUT,
+        charset,
     )
 
 
@@ -218,4 +261,4 @@ if __name__ == "__main__":
     parser.add_argument("--theme")
     parser.add_argument("--palette")
     args = parser.parse_args()
-    sys.stdout.buffer.write(serve_page(args.file.read_bytes(), args.theme, args.palette))
+    sys.stdout.buffer.write(serve_page(args.file.read_bytes(), args.theme, args.palette)[0])

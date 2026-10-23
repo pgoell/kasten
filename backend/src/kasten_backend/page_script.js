@@ -3,7 +3,7 @@
 // nothing unless kasten is the parent: a page opened in a tab of its own keeps
 // every key.
 (() => {
-  // Read before any page code runs: a page's own `var parent = …` replaces
+  // Read before any page code runs: a page's own `var parent = ...` replaces
   // `window.parent`, a replaceable attribute, and would cut this script off.
   const up = window.parent;
   if (up === window) return;
