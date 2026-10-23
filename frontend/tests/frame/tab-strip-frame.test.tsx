@@ -460,23 +460,27 @@ it("A14 the strip's entrance plays once", async () => {
       [FINE_KEY]: JSON.stringify({ layout: twoTabs(), treeOpen: false }),
     });
     const { host } = mounted;
-    // Only events on the strip count: the todo, search and review rows play k-enter too.
+    // Todo, search and review rows play k-enter too.
     const on = (type: string) =>
       entrance.filter((event) => event.type === type && stripOf(host).contains(event.target));
+    // A replay's start event fires a frame late.
+    const once = async () => {
+      await nextFrame();
+      await nextFrame();
+      expect(on("animationstart")).toHaveLength(1);
+    };
     await expect.poll(() => on("animationend").length, PATIENCE).toBe(1);
-    expect(on("animationstart")).toHaveLength(1);
+    await once();
 
     await waitFor(() => expect(visibleEditor(host).textContent).toContain("paragraph"), PATIENCE);
     // A tab switch and a new tab do not play it again.
     fireEvent.click(need(wrappers(host)[1]?.querySelector("[role='tab']"), "second tab"));
-    await nextFrame();
-    expect(on("animationstart")).toHaveLength(1);
+    await once();
     await waitFor(() => expect(visibleEditor(host).textContent).toContain("paragraph"), PATIENCE);
 
     leader(host, [" ", "c", "t"]);
     await waitFor(() => expect(wrappers(host)).toHaveLength(3), PATIENCE);
-    await nextFrame();
-    expect(on("animationstart")).toHaveLength(1);
+    await once();
   } finally {
     document.removeEventListener("animationstart", record, true);
     document.removeEventListener("animationend", record, true);

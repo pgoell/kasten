@@ -207,9 +207,11 @@ export async function mount(
 /**
  * The fontsource faces swap in after the first layout, and text that wraps or
  * measures by width re-lays the frame after (#866). A face loads only once text
- * asks for it, so a caller whose text arrives later waits again after it.
+ * asks for it, so a caller whose text arrives later waits again after it, and
+ * only a layout asks: the frame first, so `ready` is not read before the request.
  */
 export async function fontsIn() {
+  await nextFrame();
   await document.fonts.ready;
   await nextFrame();
   await nextFrame();

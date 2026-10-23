@@ -15,6 +15,9 @@ const DIR = "../../node_modules/.cache/kasten-shots";
 /** Screenshot `element` as `name`.png and answer the picture's width in pixels. */
 export async function shot(element: Element, name: string): Promise<number> {
   // A picture taken before the web font swaps in shows the fallback face (#866).
+  // A face is requested only when layout asks for it, so the read below forces
+  // that layout first; then ready waits for the face the layout asked for.
+  element.getBoundingClientRect();
   await document.fonts.ready;
   const png = import.meta.env.VITE_KASTEN_SHOTS
     ? (await page.screenshot({ element, path: `${DIR}/${name}.png`, base64: true })).base64
