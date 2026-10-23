@@ -169,15 +169,23 @@ shotTest("book-414-light", () =>
   picture("book-414-light", PHONE, "light", "poel", ONE, heldOnPhone),
 );
 shotTest("book-414-dark", () => picture("book-414-dark", PHONE, "dark", "poel", ONE, heldOnPhone));
-shotTest("book-cover-1440-dark", () =>
-  picture("book-cover-1440-dark", DESKTOP, "dark", "poel", noteWith("", []), async (doc) => {
-    // The cover is the picture of the page, so the page waits until its image has loaded.
+/** A cover-only book, drawn once its image has loaded and been fitted to the pane's height (#902). */
+function coverPicture(name: string, size: Size, theme: Theme): Promise<void> {
+  return picture(name, size, theme, "poel", noteWith("", []), async (doc) => {
+    // The cover is the picture of the page, so the page waits until its image is in and fitted.
     await vi.waitFor(
-      () => expect((doc.querySelector("#cover") as HTMLImageElement).complete).toBe(true),
+      () => {
+        const cover = doc.querySelector("#cover") as HTMLImageElement;
+        expect(cover.complete).toBe(true);
+        expect(cover.style.maxHeight).not.toBe("");
+      },
       { timeout: 20_000 },
     );
-  }),
-);
+  });
+}
+shotTest("book-cover-1440-dark", () => coverPicture("book-cover-1440-dark", DESKTOP, "dark"));
+shotTest("book-cover-414-light", () => coverPicture("book-cover-414-light", PHONE, "light"));
+shotTest("book-cover-414-dark", () => coverPicture("book-cover-414-dark", PHONE, "dark"));
 for (const palette of ["russet", "peach", "pansy"] as const) {
   shotTest(`book-1440-${palette}`, () =>
     picture(`book-1440-${palette}`, DESKTOP, "light", palette, TWO, desktopWith),

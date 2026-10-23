@@ -39,6 +39,10 @@ interface FakeRenderer extends EventTarget {
   /** What the pane set on the renderer, by name: `flow` and `max-inline-size` for a flowing book. */
   attributes: Map<string, string>;
   setAttribute(name: string, value: string): void;
+  /** Read back off `attributes`, as the pane asks the flow before it fits a cover. */
+  getAttribute(name: string): string | null;
+  /** The box the pane fits a cover page to. */
+  getBoundingClientRect(): DOMRect;
   /** Every step of the renderer's own, `distance` as it was given, so a case can tell a scroll from a turn. */
   steps: { side: "next" | "prev"; distance?: number }[];
   next(distance?: number): void;
@@ -225,6 +229,9 @@ export class FakeView extends HTMLElement {
     renderer.setAttribute = (name, value) => {
       renderer.attributes.set(name, value);
     };
+    renderer.getAttribute = (name) => renderer.attributes.get(name) ?? null;
+    // No layout here, so the pane measures nothing, as jsdom's own boxes are.
+    renderer.getBoundingClientRect = () => new DOMRect();
     renderer.next = (distance) => {
       renderer.steps.push({ side: "next", distance });
     };

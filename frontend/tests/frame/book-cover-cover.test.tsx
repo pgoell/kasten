@@ -64,12 +64,6 @@ describe("the white page under a book's images", () => {
       await drawBook("", 1200);
       const doc = await section("Cover");
       const cover = await loaded(doc, "#cover");
-      // In scrolled flow the page has no height of its own, so the cover's
-      // `height: 100%` falls back to its natural height and the box matches the
-      // picture: nothing to letterbox, and the product draws it right. The box a
-      // paginated page gave it was the pane's height, so that is set here, and the
-      // backing re-decides on the box change as it does on a resize.
-      cover.style.height = "700px";
       // No transparent image on this page to signal that it was looked at, so
       // the backing gets a moment to land after the pixels have.
       await drawn();

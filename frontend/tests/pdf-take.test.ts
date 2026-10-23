@@ -74,6 +74,12 @@ it("a long pdf name with a bar keeps its page in the alias", () => {
   );
 });
 
+it("a tab between two table cells in a pdf passage reads as a space", () => {
+  expect(pdfQuote(PATH, 2, "cell one\tcell two", "00 Daily/2026-10-23.md")).toBe(
+    "> cell one cell two\n>\n> [[30 Research/report.pdf#page=2|report.pdf, page 2]]",
+  );
+});
+
 it("a pdf passage with markup, a fake heading and a fake todo stays quoted", () => {
   const quote = pdfQuote(
     PATH,

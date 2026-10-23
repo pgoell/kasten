@@ -248,6 +248,10 @@ it("control characters are removed", () => {
   expect(quoteParagraphs("a\u0000b\u0007c\u007f d")).toEqual(["abc d"]);
 });
 
+it("a tab between two table cells reads as a space", () => {
+  expect(quoteParagraphs("cell one\tcell two")).toEqual(["cell one cell two"]);
+});
+
 it("withoutTaken takes the block out of a dump with earlier lines", () => {
   const head =
     "---\ntype: Periodic Note\nid: kept\n---\n\n# 2026-10-23 Friday\n\n## TODOs\n- [ ] a\n\n## Dump\nan earlier paragraph\n";

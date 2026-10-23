@@ -1,4 +1,4 @@
-import { backImages } from "@/lib/book-backing";
+import { backImages, fitCover } from "@/lib/book-backing";
 import { type FoliateView, pdfLayer } from "@/lib/foliate-view";
 
 /**
@@ -43,6 +43,7 @@ export function trackPages(
     index: number;
     watcher?: MutationObserver;
     images?: ResizeObserver;
+    fit?: ResizeObserver;
   }[] = [];
 
   function onLoad(event: Event) {
@@ -58,8 +59,11 @@ export function trackPages(
     doc.addEventListener("click", listeners.click);
     hooks.arrived(doc);
     forgetPagesThatLeft();
+    // Only a flowing book is fitted: a fixed-layout page keeps its own renderer, and a pdf has none to fit to.
+    const renderer = view.renderer;
+    const fit = renderer?.getAttribute("flow") === "scrolled" ? fitCover(doc, renderer) : undefined;
     // A pdf page holds a canvas and no img, so `backImages` finds nothing there.
-    sections.push({ doc, index, watcher: hooks.watch(doc), images: backImages(doc) });
+    sections.push({ doc, index, watcher: hooks.watch(doc), fit, images: backImages(doc) });
   }
   view.addEventListener("load", onLoad);
 
@@ -82,6 +86,7 @@ export function trackPages(
       const page = sections[at];
       if (page === undefined || page.doc.defaultView !== null) continue;
       page.watcher?.disconnect();
+      page.fit?.disconnect();
       page.images?.disconnect();
       sections.splice(at, 1);
     }
@@ -123,8 +128,9 @@ export function trackPages(
     chapterOf,
     dispose() {
       view.removeEventListener("load", onLoad);
-      for (const { doc, watcher, images } of sections) {
+      for (const { doc, watcher, fit, images } of sections) {
         watcher?.disconnect();
+        fit?.disconnect();
         images?.disconnect();
         doc.removeEventListener("keydown", listeners.keydown);
         doc.removeEventListener("pointerdown", listeners.report);

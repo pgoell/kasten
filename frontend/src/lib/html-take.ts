@@ -104,12 +104,16 @@ export function unescapeParagraph(paragraph: string): string {
 }
 
 /**
- * The text as its paragraphs: split on line breaks, control characters gone,
- * each paragraph collapsed, the empty ones dropped. Shared by the capped and the
- * uncapped escape, so the two cannot disagree on where a paragraph is.
+ * The text as its paragraphs: each tab a space, split on line breaks, control
+ * characters gone, each paragraph collapsed, the empty ones dropped. Shared by the
+ * capped and the uncapped escape, so the two cannot disagree on where a paragraph is.
+ *
+ * A tab is a space before the control characters go, since Chrome puts one between
+ * a table's cells in the selection and removing it would run two words into one.
  */
 function paragraphsOf(text: string): string[] {
   return text
+    .replace(/\t/g, " ")
     .split(BREAK)
     .map((line) => collapse(line.replace(CONTROL, "")))
     .filter((paragraph) => paragraph !== "");
@@ -119,11 +123,10 @@ function paragraphsOf(text: string): string[] {
  * The passage as escaped paragraphs, one line each, no `> `, and no cap.
  *
  * For the book's note, which keeps a passage whole: a quote cut short is never
- * found in the book again. A tab is a space here, since Chrome puts one between
- * a table's cells in the selection and removing it would run two words into one.
+ * found in the book again.
  */
 export function escapedParagraphs(text: string): string[] {
-  return paragraphsOf(text.replace(/\t/g, " ")).map(escapeParagraph);
+  return paragraphsOf(text).map(escapeParagraph);
 }
 
 /**

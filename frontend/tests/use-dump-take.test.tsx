@@ -170,6 +170,20 @@ describe("the dump take a pane shares", () => {
     });
   });
 
+  it("a tab between two table cells reads as a space in the dump", async () => {
+    const sent = answering();
+    const onMarked = vi.fn();
+    render(<Taker onMarked={onMarked} onUnmarked={() => {}} />);
+
+    act(() => void dump?.take({ ...TAKING, text: "cell one\tcell two" }));
+    await settled(() => onMarked.mock.calls.length > 0 && dumpsSent(sent).length > 0);
+
+    await screen.findByRole("status");
+    expect(dumpsSent(sent).map((dump) => dump.text)).toEqual([
+      `> cell one cell two\n>\n> ${TAKING.linkIn(DAILY)}`,
+    ]);
+  });
+
   it("a take the pane forgot before its keep landed is still sent, but is not marked and gets no toast", async () => {
     const sent = answering();
     const onMarked = vi.fn();

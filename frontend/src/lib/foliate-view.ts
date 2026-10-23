@@ -40,7 +40,7 @@ export interface FoliateView extends HTMLElement {
    * the list rather than taking its head, and builds the overlay foliate did
    * not for every page that turns out to be a pdf.
    */
-  renderer?: EventTarget & {
+  renderer?: HTMLElement & {
     setStyles?: (css: string) => void;
     getContents?: () => { index?: number; doc: Document; overlayer?: FoliateOverlayer }[];
     /**

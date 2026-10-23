@@ -268,6 +268,40 @@ export function backImages(doc: Document): ResizeObserver | undefined {
 }
 
 /**
+ * Fit a section that is only a picture to the pane's height (#902).
+ *
+ * In a scrolled flow foliate gives an image no height to clamp to, so it writes
+ * `max-height: NaNpx` (`paginator.js:341-361`) and the browser drops it: a cover
+ * drawn at its own shape runs off the foot of the pane. The section cannot reach
+ * the pane's height itself. Its iframe is sized to its content and padded by the
+ * margin each side (`paginator.js:389-398`), so the height is the renderer's less
+ * that margin, read from the attribute the paginator takes, 48px by default.
+ *
+ * Only `max-height`, so a cover with `width: 100%` keeps a box wider than its
+ * picture and the bars keep the dark page (#475). Only on a page with no text, as
+ * `letterboxed` is: a tall picture in a chapter stays as the book drew it.
+ *
+ * Answers the observer to disconnect when the section leaves, or nothing for a
+ * section with text.
+ */
+export function fitCover(doc: Document, renderer: HTMLElement): ResizeObserver | undefined {
+  const body = doc.body;
+  if (body?.textContent?.trim() !== "") return undefined;
+  // The attribute is a length such as `48px`, as foliate takes it.
+  const margin = Number.parseFloat(renderer.getAttribute("margin") ?? "48");
+  const sizeToPane = () => {
+    const height = `${renderer.getBoundingClientRect().height - margin * 2}px`;
+    for (const element of body.querySelectorAll<HTMLElement | SVGElement>("img, svg"))
+      element.style.setProperty("max-height", height, "important");
+  };
+  sizeToPane();
+  // Foliate's own `NaNpx` is dropped on every render, so this value stands.
+  const observer = new ResizeObserver(sizeToPane);
+  observer.observe(renderer);
+  return observer;
+}
+
+/**
  * The book's page in the app's own colours.
  *
  * The same CSS variables `oneTheme()` in `terminal-pane.tsx` reads, so the page
