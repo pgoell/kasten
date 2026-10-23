@@ -80,7 +80,7 @@ Losing it costs a page. Losing a passage costs the passage.
 ## How a highlight is drawn again
 
 Open a file and the passages you took are drawn on the page, in the app's
-accent colour. Nothing was stored to make that work: the pane reads the note's
+mark colour. Nothing was stored to make that work: the pane reads the note's
 blocks, searches what is on screen for each quote's words, and draws what
 it finds. The words are the anchor here as everywhere else, so a highlight you
 edited by hand is still found and a highlight you deleted stops being drawn the

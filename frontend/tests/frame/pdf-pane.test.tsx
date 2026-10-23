@@ -121,6 +121,8 @@ async function drawPdf(note = "", seek?: { quote: string[] }) {
         onMoved={() => {}}
         onLeaving={() => {}}
         onTake={onTake}
+        archive={false}
+        onNoteBeside={() => {}}
         onNotice={onNotice}
         seek={seek}
       />
@@ -403,7 +405,9 @@ describe("the reader over a real pdf", () => {
           onFocus={() => {}}
           onMoved={() => {}}
           onLeaving={() => {}}
-          onTake={() => {}}
+          onTake={async () => null}
+          archive={false}
+          onNoteBeside={() => {}}
           onNotice={() => {}}
         />
       </QueryClientProvider>,

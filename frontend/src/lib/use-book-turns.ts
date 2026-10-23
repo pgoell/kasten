@@ -9,10 +9,31 @@ import type { FoliateView } from "@/lib/foliate-view";
  */
 const EDGE = 0.25;
 
+/**
+ * How far `j` and `k` move a flowing book, in pixels.
+ *
+ * The 19 px text at 1.6 leading is about 30 px a line, so three lines is 91. A
+ * screen would lose the line the reader was on, and one line is too slow to read by.
+ */
+const SCROLL_STEP = 91;
+
+/** A key or tap asked for before the book was ready, kept until it is: a page turn by side, or a scroll step. */
+type Parked =
+  | { kind: "turn"; side: "next" | "prev" | "goLeft" | "goRight" }
+  | { kind: "scroll"; direction: "next" | "prev" };
+
+/** One step forward or back: a scroll step on a flowing book, a page on a fixed layout. */
+function stepOf(view: FoliateView, direction: "next" | "prev"): void {
+  if (view.isFixedLayout) view[direction]();
+  else view.renderer?.[direction](SCROLL_STEP);
+}
+
 /** What the turn hook hands the pane: the ways a page turns, and the ends of a turn parked before the book was ready. */
 export interface BookTurns {
   /** Turn one page, or park the turn until the book is ready. */
   turn(direction: "next" | "prev"): void;
+  /** Move a flowing book down or up a few lines, or turn a fixed-layout page. Parked like `turn`. */
+  scroll(direction: "down" | "up"): void;
   /** A click on the book, which turns the page when it lands near an edge on a touch screen. */
   tap(event: MouseEvent): void;
   /** Once the book is ready: make the turn that was parked while it opened, unless a passage took its place. */
@@ -43,7 +64,7 @@ export function useBookTurns(o: {
    * same lock is what keeps a held key from turning a page per repeat. A tap
    * parks its side and not a direction, for the reason `tap` turns by side.
    */
-  const parkedTurn = useRef<"next" | "prev" | "goLeft" | "goRight" | null>(null);
+  const parkedTurn = useRef<Parked | null>(null);
   // Read through a ref so `tap` keeps one identity for the life of the pane.
   const coarseRef = useRef(coarse);
   useLayoutEffect(() => {
@@ -53,7 +74,28 @@ export function useBookTurns(o: {
   const turn = useCallback(
     (direction: "next" | "prev") => {
       if (ready.current) viewRef.current?.[direction]();
-      else parkedTurn.current = direction;
+      else parkedTurn.current = { kind: "turn", side: direction };
+    },
+    [ready, viewRef],
+  );
+
+  /**
+   * `j` and `k`. A flowing book scrolls by `SCROLL_STEP` on its renderer, and a
+   * pdf or a pre-paginated epub turns its page, as `h` and `l` do there.
+   *
+   * A parked scroll stays a scroll, so it lands as one step on a flowing book
+   * and not as a page: `release` decides by the book, as this does.
+   */
+  const scroll = useCallback(
+    (direction: "down" | "up") => {
+      const side = direction === "down" ? "next" : "prev";
+      if (!ready.current) {
+        parkedTurn.current = { kind: "scroll", direction: side };
+        return;
+      }
+      const view = viewRef.current;
+      if (view === null) return;
+      stepOf(view, side);
     },
     [ready, viewRef],
   );
@@ -97,7 +139,7 @@ export function useBookTurns(o: {
       const side = x < box.width * EDGE ? "goLeft" : x > box.width * (1 - EDGE) ? "goRight" : null;
       if (side === null) return;
       if (ready.current) void viewRef.current?.[side]();
-      else parkedTurn.current = side;
+      else parkedTurn.current = { kind: "turn", side };
     },
     [holding, ready, viewRef, wrapper],
   );
@@ -106,14 +148,16 @@ export function useBookTurns(o: {
     // `init` has let go of the lock by now, its `next()` having waited the
     // 100ms out. A parked passage wins over a parked turn: it is where the
     // reader asked to be taken, and the turn's lock would drop its `goTo`.
-    const parkedSide = parkedTurn.current;
+    const parked = parkedTurn.current;
     parkedTurn.current = null;
-    if (parkedSide !== null && !seekParked) void view[parkedSide]();
+    if (parked === null || seekParked) return;
+    if (parked.kind === "scroll") stepOf(view, parked.direction);
+    else void view[parked.side]();
   }, []);
 
   const forget = useCallback(() => {
     parkedTurn.current = null;
   }, []);
 
-  return { turn, tap, release, forget };
+  return { turn, scroll, tap, release, forget };
 }

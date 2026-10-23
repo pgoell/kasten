@@ -43,6 +43,17 @@ export interface FoliateView extends HTMLElement {
   renderer?: EventTarget & {
     setStyles?: (css: string) => void;
     getContents?: () => { index?: number; doc: Document; overlayer?: FoliateOverlayer }[];
+    /**
+     * The paginator's own switches, `flow` and `max-inline-size` among them. A flowing
+     * book reads its column width from `max-inline-size` (`paginator.js:716-728`).
+     */
+    setAttribute(name: string, value: string): void;
+    /**
+     * In a scrolled flow `distance` is how far the text moves, and with none it moves a
+     * screen (`paginator.js:1040-1048`). A paged flow ignores it.
+     */
+    next(distance?: number): void;
+    prev(distance?: number): void;
   };
   /**
    * Assigned by `open` after it awaits `makeBook`, so absent while one opens.
@@ -90,6 +101,8 @@ export interface FoliateView extends HTMLElement {
    * (`view.js:240-247`, `epub.js:1056`).
    */
   lastLocation?: {
+    /** The place the reader is at, as the cfi the note's `reading:` holds. */
+    cfi?: string;
     tocItem?: TocItem;
     fraction?: number;
     section?: { current: number; total: number };

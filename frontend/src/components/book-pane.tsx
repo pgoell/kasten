@@ -1,11 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { ContentsColumn, NoteColumn } from "@/components/book-columns";
 import { BookContents, type TocRow, tocRows } from "@/components/book-contents";
+import { useBookNoteTake } from "@/components/use-book-note-take";
 import { fetchBook } from "@/lib/api";
 import type { FoliateView } from "@/lib/foliate-view";
 import type { Passage } from "@/lib/highlight";
 import type { EditorCommands } from "@/lib/key-bindings";
-import { BOOK_SUFFIXES } from "@/lib/note-path";
+import { BOOK_SUFFIXES, noteName } from "@/lib/note-path";
 import { STATUS } from "@/lib/overlay-styles";
 import { useBookHighlights } from "@/lib/use-book-highlights";
 import { useBookKeys } from "@/lib/use-book-keys";
@@ -14,6 +16,17 @@ import { useBookTake } from "@/lib/use-book-take";
 import { useBookTurns } from "@/lib/use-book-turns";
 import { useBookView } from "@/lib/use-book-view";
 import { useViewport } from "@/lib/use-viewport";
+
+/**
+ * The widths at which the side columns appear, measured on the pane.
+ *
+ * Each is the 680 px reading measure plus what the columns take with their
+ * gutters: the contents need 224 px and 56 px of gutter, so 960; the note needs
+ * 288 px more and 88 px of gutter, so 1280. Below the first the text has the
+ * whole pane, which is the phone's layout too.
+ */
+const CONTENTS_FROM = 960;
+const NOTE_FROM = 1280;
 
 /**
  * The button drawn over a selection, which is the mouse's half of `y`.
@@ -54,8 +67,15 @@ interface BookPaneProps {
   onMoved: (cfi: string) => void;
   /** The pane is going away, so whatever it last reported should be written now. */
   onLeaving: () => void;
-  /** A passage the reader took, by the button or by `y`. */
-  onTake: (passage: Passage) => void;
+  /**
+   * Writes a passage the reader took, by the button or by `y`, into the book's
+   * note. Resolves to what the take says, which the toast shows.
+   */
+  onTake: (passage: Passage) => Promise<string | null>;
+  /** Whether the archive is listed, which the take's note follows. */
+  archive: boolean;
+  /** Opens the book's note beside it, as the pdf pane's Note beside does. */
+  onNoteBeside: () => void;
   /**
    * A passage `gf` asked for. A new object on every press, and cleared once taken.
    *
@@ -83,6 +103,8 @@ export function BookPane({
   onMoved,
   onLeaving,
   onTake,
+  archive,
+  onNoteBeside,
   seek,
   onNotice,
 }: BookPaneProps) {
@@ -92,6 +114,10 @@ export function BookPane({
   // as something to tap. A mouse gets none of it.
   const { coarse } = useViewport();
   const viewRef = useRef<FoliateView | null>(null);
+  /** The pane's own width, which decides the columns. Zero until measured, so the text has the pane. */
+  const [width, setWidth] = useState(0);
+  /** A passage the note column asked to seek, which the route's `seek` yields to once it is newer. */
+  const [picked, setPicked] = useState<{ quote: string[] } | undefined>(undefined);
   /**
    * Whether the book has been navigated, which `view.book` does not say.
    *
@@ -114,12 +140,28 @@ export function BookPane({
     onLeavingRef.current = onLeaving;
   });
 
+  const noteTake = useBookNoteTake({ note, archive, onTake });
+  /**
+   * The place the button last stood at. A take clears the button before the
+   * passage reaches the note, so the place it was taken from is read from here.
+   */
+  const lastAt = useRef<{ x: number; y: number } | null>(null);
+
   const { take, at, holding, forgetUnless, select, follow, press } = useBookTake({
     wrapper,
-    onTake,
+    onTake: (passage) => {
+      // The toast goes to the top when the words sat in the lower half of the
+      // pane, so it does not cover them.
+      const spot = lastAt.current;
+      const height = wrapper.current?.getBoundingClientRect().height ?? 0;
+      void noteTake.take(passage, spot !== null && spot.y > height / 2);
+    },
     onNotice,
   });
-  const { turn, tap, release, forget } = useBookTurns({
+  useLayoutEffect(() => {
+    if (at !== null) lastAt.current = at;
+  });
+  const { turn, tap, release, forget, scroll } = useBookTurns({
     wrapper,
     viewRef,
     ready,
@@ -149,7 +191,16 @@ export function BookPane({
     setContents({ rows, start: rows.findIndex((row) => row.id === current) });
   }, []);
 
-  const onKeyDown = useBookKeys({ wrapper, commands, contentsOpen, turn, take, openContents });
+  const onKeyDown = useBookKeys({
+    wrapper,
+    viewRef,
+    commands,
+    contentsOpen,
+    turn,
+    scroll,
+    take,
+    openContents,
+  });
 
   /**
    * Put the contents away, and the cursor back on the pane.
@@ -184,11 +235,27 @@ export function BookPane({
     queryFn: () => fetchBook(note),
   });
 
-  const { repaint, watchPage } = useBookHighlights(note, viewRef);
+  // A take forgets the last book's toast and passage when the note or the book
+  // bytes change, so a new book in the pane shows no old toast over it.
+  const forgetTake = noteTake.forget;
+  // biome-ignore lint/correctness/useExhaustiveDependencies: a new note or book bytes is what drops the take, and the body does not name either.
+  useEffect(() => {
+    forgetTake();
+  }, [note, beside, forgetTake]);
 
-  const resumeSeek = useBookSeek({ seek, beside, onNotice, viewRef, ready });
+  // The route's seek until the note column asks for a passage, and the column's
+  // until the route asks for another. The route's is new whenever its identity
+  // changes, which drops the column's.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `seek` is the trigger; a new route seek is what drops the column's passage, and the body does not read it.
+  useEffect(() => {
+    setPicked(undefined);
+  }, [seek]);
 
-  const { broken, progress } = useBookView({
+  const { repaint, watchPage, blocks } = useBookHighlights(note, viewRef);
+
+  const resumeSeek = useBookSeek({ seek: picked ?? seek, beside, onNotice, viewRef, ready });
+
+  const { broken, progress, chapter, rows } = useBookView({
     host,
     viewRef,
     ready,
@@ -220,6 +287,18 @@ export function BookPane({
     if (focusSignal) wrapper.current?.focus();
   }, [focusSignal]);
 
+  // The pane's own width, read here and not off the window, so each half of a
+  // split decides its columns alone.
+  useEffect(() => {
+    const element = wrapper.current;
+    if (element === null) return;
+    const watch = new ResizeObserver(([entry]) => {
+      if (entry) setWidth(entry.contentRect.width);
+    });
+    watch.observe(element);
+    return () => watch.disconnect();
+  }, []);
+
   // One effect whose only job is its cleanup. Not folded into the view's, which
   // tears down whenever the file or the note changes and would then say this on
   // a rebuild rather than on the way out. The cleanup belongs to the mount
@@ -234,6 +313,8 @@ export function BookPane({
   const failed =
     broken || error !== null || orphaned || (beside !== undefined && beside.blob.size === 0);
 
+  const percent = progress === null ? null : Math.round(progress * 100);
+
   return (
     // `tabIndex={-1}` so the wrapper can hold the cursor without joining the
     // tab order, the way `todo-pane.tsx` takes it.
@@ -243,15 +324,42 @@ export function BookPane({
       tabIndex={-1}
       className="relative flex h-full w-full flex-col outline-none"
     >
-      {/* `min-h-0` so the host takes the room the footer leaves rather than the
-          room its own content wants: a paginator columnises to the box it is
-          in, and a flex child that will not shrink draws its page off the
-          bottom of the pane. */}
-      <div ref={host} className="min-h-0 w-full flex-1" />
-      <footer className={coarse ? `${STATUS} flex items-center` : STATUS}>
-        {progress === null ? "" : `${Math.round(progress * 100)}%`}
+      <header className="flex shrink-0 items-center gap-3 border-b border-k-rule px-3 py-1 font-sans text-k-13">
+        <span className="shrink-0 text-k-12 tracking-wide text-k-muted uppercase">BOOK</span>
+        <span className="min-w-0 flex-1 truncate font-mono text-k-ink" title={note}>
+          {noteName(note)}
+        </span>
+        {chapter !== null && <span className="min-w-0 truncate text-k-muted">{chapter.label}</span>}
+        <span className="shrink-0 text-k-muted tabular-nums">
+          {percent === null ? "" : `${percent}%`}
+        </span>
+        {/* The same look as the pdf pane's Note beside, the one other way out of a pane. */}
+        <button
+          type="button"
+          onClick={onNoteBeside}
+          className="shrink-0 text-k-12 text-k-link hover:text-k-accent focus-visible:text-k-accent active:text-k-accent pointer-coarse:min-h-11"
+        >
+          {"The book's note"}
+        </button>
+      </header>
+      <div className="flex min-h-0 flex-1">
+        {width >= CONTENTS_FROM && (
+          <ContentsColumn rows={rows} current={chapter?.id} onGo={goToChapter} />
+        )}
+        {/* `min-h-0` so the host takes the room the footer leaves rather than the
+            room its own content wants: a paginator columnises to the box it is
+            in, and a flex child that will not shrink draws its page off the
+            bottom of the pane. */}
+        <div ref={host} className="min-h-0 min-w-0 flex-1" />
+        {width >= NOTE_FROM && (
+          <NoteColumn blocks={blocks} onSeek={(quote) => setPicked({ quote })} />
+        )}
+      </div>
+      <footer className={`${STATUS} flex items-center gap-3`}>
+        <span className="min-w-0 flex-1 truncate">{chapter?.label ?? ""}</span>
+        <span className="shrink-0">{percent === null ? "" : `${percent}% of the book`}</span>
         {coarse && (
-          <span className="ml-auto flex gap-2">
+          <span className="flex shrink-0 gap-2">
             {at && (
               <button
                 type="button"
@@ -283,6 +391,7 @@ export function BookPane({
           Take
         </button>
       )}
+      {noteTake.toast}
       {contents && (
         <BookContents
           rows={contents.rows}

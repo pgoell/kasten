@@ -151,7 +151,7 @@ describe("where the reader got to", () => {
 
     relocate({ reason: "page", fraction: 0.2 }, 0.42);
 
-    expect(progress()).toBe("42%");
+    expect(progress()).toBe("42% of the book");
   });
 
   it("follows the page rather than reading the fraction once", async () => {
@@ -160,7 +160,7 @@ describe("where the reader got to", () => {
     relocate({ reason: "page" }, 0.42);
     relocate({ reason: "page" }, 0.6);
 
-    expect(progress()).toBe("60%");
+    expect(progress()).toBe("60% of the book");
   });
 
   it("says nothing at all where the fraction is not a number", async () => {
@@ -172,7 +172,7 @@ describe("where the reader got to", () => {
     relocate({ reason: "page" }, 0.42);
     // Asserted on the way, or the two below pass over a footer that never drew
     // a percentage at all.
-    expect(progress()).toBe("42%");
+    expect(progress()).toBe("42% of the book");
 
     relocate({ reason: "page" }, Number.NaN);
     expect(progress()).toBe("");
@@ -189,7 +189,7 @@ describe("where the reader got to", () => {
 
     relocate({ reason: "anchor" }, 0.42);
 
-    expect(progress()).toBe("42%");
+    expect(progress()).toBe("42% of the book");
     expect(pane.onMoved).not.toHaveBeenCalled();
   });
 
@@ -242,6 +242,8 @@ describe("where the reader got to", () => {
           onMoved={onMoved}
           onLeaving={vi.fn()}
           onTake={vi.fn()}
+          archive={false}
+          onNoteBeside={vi.fn()}
           onNotice={vi.fn()}
         />
       </QueryClientProvider>

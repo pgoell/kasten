@@ -10,6 +10,7 @@ import {
 import { type BookBeside, ChangedOnDisk, type Mention, saveNote, updateNote } from "@/lib/api";
 import { heldText } from "@/lib/held-text";
 import { addHighlight, type Passage } from "@/lib/highlight";
+import { quoteParagraphs } from "@/lib/html-take";
 import { linkMention, mentionLinkText } from "@/lib/mention-link";
 import { noteBase } from "@/lib/note-base";
 import { readField, setField } from "@/lib/note-frontmatter";
@@ -194,7 +195,7 @@ export function useGuardedWrites({
    * one raises the conflict it should. No `adopt` either.
    */
   const takeHighlight = useCallback(
-    (note: string, passage: Passage): Promise<void> =>
+    (note: string, passage: Passage): Promise<string | null> =>
       write(note, async () => {
         // The press clears the bar, which is the rule the upload settled.
         setNotice(undefined);
@@ -203,25 +204,37 @@ export function useGuardedWrites({
         // key rather than the only word about it.
         if (!queryClient.getQueryData<string[]>(["files"])?.includes(note)) {
           setNotice("That note has left the vault");
-          return;
+          return null;
         }
 
+        // Minted here and not in the change, so a retried change writes the same
+        // id and the caller gets the one that landed.
+        const id = newId("hl-");
+        // The book's title and chapter are the book's words, so they go through
+        // the same escape as a page's text: a chapter named `## Dump` must not
+        // stand as a heading on the anchor line.
+        const escaped: Passage = {
+          ...passage,
+          text: quoteParagraphs(passage.text).join("\n"),
+          chapter: quoteParagraphs(passage.chapter).join(" "),
+        };
         // Whether a read got as far as the change, which is what tells the two
         // failures apart: `updateNote` rejects for either.
         let read = false;
         const written = await updateNote(note, (text) => {
           read = true;
-          return addHighlight(text, passage, newId("hl-"));
+          return addHighlight(text, escaped, id);
         }).then(
           (landed) => landed,
           () => null,
         );
         if (written === null) {
           setNotice(read ? "The highlight was not written" : "The note could not be read");
-          return;
+          return null;
         }
 
         void queryClient.invalidateQueries({ queryKey: ["note", note] });
+        return id;
       }),
     [queryClient, write, setNotice],
   );

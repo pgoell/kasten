@@ -154,7 +154,9 @@ export async function drawBook(reading = "", width = 600): Promise<HTMLElement> 
         onFocus={() => {}}
         onMoved={() => {}}
         onLeaving={() => {}}
-        onTake={() => {}}
+        onTake={async () => null}
+        archive={false}
+        onNoteBeside={() => {}}
         onNotice={() => {}}
       />
     </QueryClientProvider>,

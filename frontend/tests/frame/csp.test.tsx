@@ -140,7 +140,9 @@ describe("a script inside a real book", () => {
           onFocus={() => {}}
           onMoved={() => {}}
           onLeaving={() => {}}
-          onTake={() => {}}
+          onTake={async () => null}
+          archive={false}
+          onNoteBeside={() => {}}
           onNotice={() => {}}
         />
       </QueryClientProvider>,

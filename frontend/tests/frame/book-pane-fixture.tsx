@@ -3,6 +3,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { userEvent } from "vitest/browser";
 import { BookPane } from "@/components/book-pane";
 import { fetchBook, fetchNote } from "@/lib/api";
+import { applyTheme, PALETTE_KEY, type Palette, THEME_KEY, type Theme } from "@/lib/theme";
 // A book written for a white page (#467). Two chapters, `One` and `Two`, with
 // the same markup and one stylesheet: `body { color: #000; background: #fff }`,
 // `p { color: #000 }`, `h1 { color: #c00 }`, `.box { color: #222; background:
@@ -132,6 +133,18 @@ export function computed(
   return (doc.defaultView as Window).getComputedStyle(element)[property];
 }
 
+/** A token of the app's own root, as the root computes it now, with its spacing trimmed. */
+export function rootToken(name: string): string {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+}
+
+/** Choose the theme and the palette the way the app stores them, then apply them to the page. */
+export function chooseTheme(theme: Theme, palette: Palette): void {
+  localStorage.setItem(THEME_KEY, theme);
+  localStorage.setItem(PALETTE_KEY, palette);
+  applyTheme();
+}
+
 /** The dark-text fixture's first chapter, drawn. */
 export async function drawDark(): Promise<{ doc: Document; container: HTMLElement }> {
   const { container } = await drawBook("", darkUrl);
@@ -147,7 +160,11 @@ export async function drawDark(): Promise<{ doc: Document; container: HTMLElemen
  * and so where the restore cases put the cfi they are about. `book` is the
  * fixture to read, which is `plain.epub` for every case that wants no contents.
  */
-export async function drawBook(note = "", book = plainUrl) {
+export async function drawBook(
+  note = "",
+  book = plainUrl,
+  onMoved: (cfi: string) => void = () => {},
+) {
   // The Perf job runs no backend and vite proxies `/api` to a dead port, so the
   // pane must not fetch here. Seeding the query instead is a trap: seeded data is
   // stale at once under the default staleTime, so mounting refetches against the
@@ -184,9 +201,11 @@ export async function drawBook(note = "", book = plainUrl) {
         commands={commands}
         focusSignal={0}
         onFocus={onFocus}
-        onMoved={() => {}}
+        onMoved={onMoved}
         onLeaving={() => {}}
         onTake={onTake}
+        archive={false}
+        onNoteBeside={() => {}}
         onNotice={() => {}}
       />
     </QueryClientProvider>,

@@ -36,6 +36,13 @@ export function deferred(): Deferred {
 interface FakeRenderer extends EventTarget {
   setStyles?: (css: string) => void;
   getContents?: () => { index?: number; doc: Document; overlayer?: FakeOverlayer }[];
+  /** What the pane set on the renderer, by name: `flow` and `max-inline-size` for a flowing book. */
+  attributes: Map<string, string>;
+  setAttribute(name: string, value: string): void;
+  /** Every step of the renderer's own, `distance` as it was given, so a case can tell a scroll from a turn. */
+  steps: { side: "next" | "prev"; distance?: number }[];
+  next(distance?: number): void;
+  prev(distance?: number): void;
 }
 
 /** foliate's overlay, as far as the pane is concerned: two calls and a record of them. */
@@ -212,7 +219,19 @@ export class FakeView extends HTMLElement {
   constructor() {
     super();
     FakeView.made.push(this);
-    this.renderer = new EventTarget();
+    const renderer = new EventTarget() as FakeRenderer;
+    renderer.attributes = new Map();
+    renderer.steps = [];
+    renderer.setAttribute = (name, value) => {
+      renderer.attributes.set(name, value);
+    };
+    renderer.next = (distance) => {
+      renderer.steps.push({ side: "next", distance });
+    };
+    renderer.prev = (distance) => {
+      renderer.steps.push({ side: "prev", distance });
+    };
+    this.renderer = renderer;
     // Empty until a section has loaded, the way the real one is: the paginator
     // answers off a view it only builds on the first `goTo`
     // (`paginator.js:667-676, 1092-1099`).

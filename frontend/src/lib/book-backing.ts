@@ -16,6 +16,7 @@
  * small svg drawing such a glyph through an `<image>` is judged the same (#483).
  */
 
+import { fontFaces } from "@/lib/book-fonts";
 import { currentTheme } from "@/lib/theme";
 
 /** The attribute the page's stylesheet reads to draw white behind an image. */
@@ -272,8 +273,11 @@ export function backImages(doc: Document): ResizeObserver | undefined {
  * The same CSS variables `oneTheme()` in `terminal-pane.tsx` reads, so the page
  * matches the editor beside it and the palette stays in `app.css`. That
  * function is private to its file, hence the second reader rather than an
- * export. Nothing sets a font, a size or a column count: the book's own
- * typography is the book's, and fitting is foliate's job.
+ * export. The type is set here too: the book is the page a reader reads, so it
+ * reads in the app's serif at the reading size and leading, and the mono for
+ * code, whatever the book's own stylesheet asks for. The faces come across with
+ * it (`book-fonts.ts`), since the book's frame loads none of the app's. Columns
+ * and fitting stay foliate's job.
  *
  * The colours, though, are taken from the book whole. A book's stylesheet is
  * written for a white page, so its `p { color: #000 }` or a pale box behind a
@@ -319,6 +323,9 @@ export function pageStyles(): string {
   const style = getComputedStyle(document.documentElement);
   const read = (name: string) => style.getPropertyValue(name).trim();
   const fg = read("--k-ink");
+  const serif = read("--k-serif");
+  const mono = read("--k-mono");
+  const leading = read("--k-leading-reading");
 
   const rules = [
     `html:not(#\\#), html:not(#\\#) body { background: ${read("--k-bg")} !important; color: ${fg} !important; }`,
@@ -327,11 +334,16 @@ export function pageStyles(): string {
     `body:not(#\\#) :is(img, picture, svg:not(:has(image)), object):not(#\\#) { color: #000 !important; }`,
     `body:not(#\\#) :is(img[${BACKING}], picture:has(> img[${BACKING}]), svg:not(:has(image)), object):not(#\\#) { background-color: #fff !important; }`,
     `body:not(#\\#) :is(svg, svg *):not(#\\#) { color: #000 !important; }`,
+    `body:not(#\\#) { font-family: ${serif} !important; font-size: ${read("--k-text-read")} !important; line-height: ${leading} !important; }`,
+    `body:not(#\\#) :not(code, pre, kbd, samp):not(#\\#) { font-family: ${serif} !important; }`,
+    `body:not(#\\#) :is(code, pre, kbd, samp):not(#\\#) { font-family: ${mono} !important; }`,
+    `body:not(#\\#) :is(p, li, blockquote, dd, dt, td, th, figcaption, div, h1, h2, h3, h4, h5, h6):not(#\\#) { line-height: ${leading} !important; }`,
+    `body:not(#\\#) ::selection { background: ${read("--k-highlight")} !important; }`,
   ];
   // Only on the dark page: an ink glyph is black already, and inverting it there
   // would turn the one dark mark on a light page white.
   if (currentTheme() === "dark") {
     rules.push(`body:not(#\\#) :is(img, svg)[${INK}]:not(#\\#) { filter: invert(1) !important; }`);
   }
-  return rules.join("\n");
+  return [fontFaces([serif, mono]), ...rules].join("\n");
 }

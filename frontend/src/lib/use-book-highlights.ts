@@ -73,6 +73,9 @@ function pruneLayer(layer: HTMLElement): void {
 function hangOverlay(layer: HTMLElement): FoliateOverlayer {
   const overlayer = new Overlayer() as unknown as FoliateOverlayer;
   overlayer.element.style.transformOrigin = "top left";
+  // The mark at the token's own alpha, as the view sets it for a flowing book. The
+  // page is a document of its own, so the view's property does not reach here.
+  overlayer.element.style.setProperty("--overlayer-highlight-opacity", "1");
   layer.append(overlayer.element);
   return overlayer;
 }
@@ -115,6 +118,8 @@ export interface BookHighlights {
   repaint: () => void;
   /** Watch a pdf page's text layer, answering the observer to disconnect when the page leaves. */
   watchPage: (doc: Document, view: FoliateView) => MutationObserver | undefined;
+  /** Every highlight the note holds, in the order it holds them, for the note column. */
+  blocks: HighlightBlock[];
 }
 
 /**
@@ -191,10 +196,10 @@ export function useBookHighlights(
       drawn.current = [];
 
       // Read the way `pageStyles` reads the palette, so the book, the app and the
-      // highlight stay one set of colours in `kasten-theme.css`.
-      const colour = getComputedStyle(document.documentElement)
-        .getPropertyValue("--k-accent")
-        .trim();
+      // highlight stay one set of colours in `kasten-theme.css`. The mark's own
+      // token, not the accent: a mark is the colour of a taken passage, and the
+      // accent is the link colour.
+      const colour = getComputedStyle(document.documentElement).getPropertyValue("--k-mark").trim();
 
       for (const entry of shown) {
         const overlayer = entry.overlayer ?? pdfOverlay(entry.doc);
@@ -230,7 +235,7 @@ export function useBookHighlights(
 
   const repaint = useCallback(() => redraw(blocksRef.current), [redraw]);
 
-  // A highlight takes the accent when it is drawn, so a switch draws them again.
+  // A highlight takes the mark's colour when it is drawn, so a switch draws them again.
   useEffect(() => onThemeChange(repaint), [repaint]);
 
   /**
@@ -260,5 +265,5 @@ export function useBookHighlights(
     [redraw, viewRef],
   );
 
-  return { repaint, watchPage };
+  return { repaint, watchPage, blocks };
 }

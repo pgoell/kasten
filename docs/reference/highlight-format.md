@@ -67,6 +67,13 @@ book again.
 A paragraph that itself opens with `>` is written `> > x`. Nothing strips a
 caret the book's own words carried.
 
+Then each paragraph is escaped, as a passage a web page sends is (#787), so the
+book's own markup reads as the words it is. A backslash goes before each
+character that opens markup, such as `[`, `]`, `<`, `` ` ``, `$`, `%` and `^`. A
+hash becomes `&#35;`. A line that would open a list, a rule or a digit list has
+its first character escaped, so `- [ ] x` is written `\- \[ \] x` and `1. x` is
+written `1\. x`.
+
 ## The figure
 
 A selection holding a picture writes one more line, above the quote, and the
@@ -162,10 +169,18 @@ highlight and nothing pretends otherwise.
 Strip a leading `>`, and one space after it where there is one, from each line
 of the run, and trim what is left. A line left empty is the break between two
 paragraphs. Because the quote rule left every paragraph on one line with single
-spaces in it, the strings this recovers are the strings that were written,
+spaces in it, the strings this recovers are the strings that were escaped,
 character for character. There is no case to guess at: a paragraph holds no
 newline, so no quoted line begins with `>` by accident, and no paragraph is
 empty.
+
+Then each paragraph is unescaped, which is the escape above run backwards. A
+backslash before one of the characters the escape writes is taken off, and
+`&#35;` becomes `#`, so the quote is the book's own words again. That is what
+the mark and `gf` search the book for. A backslash before any other character
+stays as it is, so a highlight written before the escape existed reads back as
+it was written, unless its own words hold a backslash before one of those
+characters.
 
 Two of the reader's steps are more than that inverse, and both exist because
 the format promises a hand edit survives. A quote somebody wrapped onto two

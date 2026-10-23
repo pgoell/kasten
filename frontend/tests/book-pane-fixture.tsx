@@ -68,6 +68,7 @@ export function draw(props: { note?: string; paths?: string[]; seed?: Blob; held
   const onMoved = vi.fn();
   const onLeaving = vi.fn();
   const onTake = vi.fn();
+  const onNoteBeside = vi.fn();
   const onNotice = vi.fn();
   const client = new QueryClient({
     // Never stale, so nothing refetches behind a test that already has its blob.
@@ -99,6 +100,8 @@ export function draw(props: { note?: string; paths?: string[]; seed?: Blob; held
           onMoved={onMoved}
           onLeaving={onLeaving}
           onTake={onTake}
+          archive={false}
+          onNoteBeside={onNoteBeside}
           onNotice={onNotice}
         />
       </QueryClientProvider>
@@ -116,6 +119,7 @@ export function draw(props: { note?: string; paths?: string[]; seed?: Blob; held
     onMoved,
     onLeaving,
     onTake,
+    onNoteBeside,
     onNotice,
     /** Hand the pane another focus signal, the way the route does. */
     signal: (focusSignal: number) => view.rerender(tree(focusSignal)),

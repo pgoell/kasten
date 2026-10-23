@@ -1,4 +1,5 @@
 import { type RefObject, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { type TocRow, tocRows } from "@/components/book-contents";
 import { type BookBeside, fetchNote } from "@/lib/api";
 import { pageStyles } from "@/lib/book-backing";
 import { trackPages } from "@/lib/book-pages";
@@ -34,7 +35,14 @@ export function useBookView(o: {
   release: BookTurns["release"];
   forget: BookTurns["forget"];
   resumeSeek: () => boolean;
-}): { broken: boolean; progress: number | null } {
+}): {
+  broken: boolean;
+  progress: number | null;
+  /** The contents entry the reader is inside, or null where the book names none. */
+  chapter: { id: number | undefined; label: string } | null;
+  /** The book's contents, flattened, once the book has opened. */
+  rows: TocRow[];
+} {
   const {
     host,
     viewRef,
@@ -58,6 +66,8 @@ export function useBookView(o: {
   const [broken, setBroken] = useState(false);
   /** How far through the book the page is, or null while there is no honest number. */
   const [progress, setProgress] = useState<number | null>(null);
+  const [chapter, setChapter] = useState<{ id: number | undefined; label: string } | null>(null);
+  const [rows, setRows] = useState<TocRow[]>([]);
 
   // Read through refs, so the view is not rebuilt when the route's callbacks
   // take new identities. Written in a layout effect, which runs in the commit's
@@ -81,8 +91,14 @@ export function useBookView(o: {
     if (element === null || beside === undefined || beside.blob.size === 0) return;
 
     setBroken(false);
+    setChapter(null);
+    setRows([]);
     let cancelled = false;
     const view = document.createElement("foliate-view") as FoliateView;
+    // The mark is drawn at the token's own alpha, not at foliate's .3 of it. The
+    // overlay sits in the paginator's shadow root, and a custom property crosses
+    // that boundary, so setting it on the view reaches the overlay.
+    view.style.setProperty("--overlayer-highlight-opacity", "1");
     viewRef.current = view;
     element.append(view);
 
@@ -150,6 +166,11 @@ export function useBookView(o: {
       // The `typeof` is not decoration: `Number.isFinite` takes `unknown` and
       // narrows nothing, so the multiply below would not compile without it.
       setProgress(typeof fraction === "number" && Number.isFinite(fraction) ? fraction : null);
+      // Set ahead of the returns below for the same reason as the progress: a
+      // page that moved to another chapter is a page that moved, whatever the
+      // reason the renderer gave.
+      const item = view.lastLocation?.tocItem;
+      setChapter(item ? { id: item.id, label: (item.label ?? "").trim() } : null);
 
       follow();
 
@@ -216,6 +237,18 @@ export function useBookView(o: {
         // window would write a bookmark with nobody having moved.
         renderer = view.renderer;
         renderer?.addEventListener("relocate", onRelocate);
+        // A flowing book is one column of scrolled text at the reading measure,
+        // so `j` and `k` move it a few lines at a time. A pdf and a pre-paginated
+        // epub keep the page they were drawn on: a scroll there has no text to
+        // move in one piece.
+        if (!view.isFixedLayout) {
+          const measure = getComputedStyle(document.documentElement)
+            .getPropertyValue("--k-measure")
+            .trim();
+          view.renderer?.setAttribute("flow", "scrolled");
+          view.renderer?.setAttribute("max-inline-size", measure);
+        }
+        setRows(tocRows(view.book?.toc));
         // The `?.` is load-bearing. foliate swaps in `fixed-layout.js` for a
         // pre-paginated book and that renderer has no `setStyles`, so a plain
         // call throws on a valid epub.
@@ -310,5 +343,5 @@ export function useBookView(o: {
     watchPage,
   ]);
 
-  return { broken, progress };
+  return { broken, progress, chapter, rows };
 }

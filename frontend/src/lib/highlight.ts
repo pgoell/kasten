@@ -7,6 +7,7 @@
  * cannot be tested against exact text.
  */
 
+import { unescapeParagraph } from "@/lib/html-take";
 import { encodePath } from "@/lib/note-path";
 import { appendUnder } from "@/lib/note-section";
 
@@ -97,6 +98,11 @@ const ANCHOR = /\^(hl-[0-9a-f]{6})\s*$/;
  * somebody hand wrapped reads as markdown reads it, one paragraph, and a hand
  * doubled space would otherwise never match the book. Both are the identity on
  * anything the writer wrote.
+ *
+ * The unescape is what the take's escape needs back: the quote is what the book
+ * says, and the book holds `## Dump` where the note holds `&#35;# Dump`. It is
+ * the identity on a quote with no escape in it, so a highlight written before
+ * the escape existed still reads as it was written.
  */
 function paragraphs(run: string[]): string[] {
   const groups: string[][] = [[]];
@@ -108,7 +114,9 @@ function paragraphs(run: string[]): string[] {
     else groups[groups.length - 1]?.push(stripped);
   }
 
-  return groups.map((group) => collapse(group.join(" "))).filter((quote) => quote !== "");
+  return groups
+    .map((group) => unescapeParagraph(collapse(group.join(" "))))
+    .filter((quote) => quote !== "");
 }
 
 /** One highlight as the note carries it, and where its lines are. */

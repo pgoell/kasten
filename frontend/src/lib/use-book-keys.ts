@@ -1,4 +1,5 @@
 import { type RefObject, useCallback, useEffect, useLayoutEffect, useRef } from "react";
+import type { FoliateView } from "@/lib/foliate-view";
 import { type EditorCommands, TERMINAL, TERMINAL_CHORD } from "@/lib/key-bindings";
 import type { BookTake } from "@/lib/use-book-take";
 import type { BookTurns } from "@/lib/use-book-turns";
@@ -12,13 +13,15 @@ import { beginLeader, paneOpener } from "@/lib/which-key";
  */
 export function useBookKeys(o: {
   wrapper: RefObject<HTMLDivElement | null>;
+  viewRef: RefObject<FoliateView | null>;
   commands: EditorCommands;
   contentsOpen: RefObject<boolean>;
   turn: BookTurns["turn"];
+  scroll: BookTurns["scroll"];
   take: BookTake["take"];
   openContents: () => void;
 }): (event: KeyboardEvent) => void {
-  const { wrapper, commands, contentsOpen, turn, take, openContents } = o;
+  const { wrapper, viewRef, commands, contentsOpen, turn, scroll, take, openContents } = o;
   // Read through a ref, the way `terminal-pane.tsx` reads the same prop. The
   // view is built in one effect keyed on the bytes, and naming these in its
   // dependencies would rebuild it every time the route's memo took a new
@@ -86,7 +89,15 @@ export function useBookKeys(o: {
         return;
       }
       if (event.key === "l" || event.key === "h") turn(event.key === "l" ? "next" : "prev");
-      else if (event.key === "q") commandsRef.current.closeNote();
+      else if (event.key === "j" || event.key === "k") scroll(event.key === "j" ? "down" : "up");
+      // Put the selection away in every document on screen, and give the keys
+      // back to Kasten. The focus is in the book's own frame, which the app's
+      // keys do not reach, so it moves to the wrapper, where they do.
+      else if (event.key === "Escape") {
+        for (const { doc } of viewRef.current?.renderer?.getContents?.() ?? [])
+          doc.getSelection()?.removeAllRanges();
+        wrapper.current?.focus();
+      } else if (event.key === "q") commandsRef.current.closeNote();
       // vim's own key for writing what you are looking at out to a file, said
       // bare the way `q` is, so the reader does it in one press.
       else if (event.key === "w") commandsRef.current.exportNote();
@@ -102,7 +113,7 @@ export function useBookKeys(o: {
       // handler's identity is still fixed for the life of the pane and the view
       // effect naming it rebuilds nothing.
     },
-    [contentsOpen, take, openContents, turn, wrapper],
+    [contentsOpen, take, openContents, turn, scroll, viewRef, wrapper],
   );
 
   // On the wrapper as well as on every section, and in an effect of its own so

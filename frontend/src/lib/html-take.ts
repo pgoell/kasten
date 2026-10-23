@@ -89,6 +89,21 @@ function escapeParagraph(paragraph: string): string {
 }
 
 /**
+ * `escapeParagraph` read back, for a highlight's quote as the note holds it.
+ *
+ * One pass from the left, so each backslash is read with the character after
+ * it and a `\\` is never read twice. Every backslash the writer leaves is an
+ * escape, which is why a lone one before a character that is not escaped (the
+ * `a\b` of a note written before the escape existed) stays as it is.
+ */
+export function unescapeParagraph(paragraph: string): string {
+  return paragraph.replace(
+    /\\([\\`[\]<>!|~$%^\-+*=.)])|&#35;/g,
+    (_, escaped?: string) => escaped ?? "#",
+  );
+}
+
+/**
  * The passage as escaped, collapsed, capped paragraphs, one line each, no `> `.
  *
  * The cap is taken before the escapes, so it counts the characters the reader

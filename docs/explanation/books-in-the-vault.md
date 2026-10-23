@@ -10,7 +10,7 @@ status: stable
 
 You can read something and you can write a note about it. Doing both in one
 window is what the reader is for: `<leader>gr` opens the file beside the note,
-and `h` and `l` turn the page.
+and `h` and `l` turn the page, while `j` and `k` scroll the text.
 
 The whole arrangement rests on one rule, and the rest falls out of it.
 

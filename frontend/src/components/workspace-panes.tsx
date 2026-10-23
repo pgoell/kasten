@@ -258,7 +258,11 @@ export function WorkspacePanes({
                 // move that rewrites `book` moves both callbacks with it.
                 onMoved={(cfi) => writes.moved(book, cfi)}
                 onLeaving={() => writes.flush(book)}
-                onTake={(passage) => void writes.takeHighlight(book, passage)}
+                onTake={(passage) => writes.takeHighlight(book, passage)}
+                archive={archive}
+                // The split view of #780, as the pdf pane's Note beside: the
+                // book's note opens beside the book.
+                onNoteBeside={() => void noteBeside(book)}
                 onNotice={onNotice}
                 // One pane, the one reading the note the press came from.
                 seek={seek?.note === book ? seek : undefined}
