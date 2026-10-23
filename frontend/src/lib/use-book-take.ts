@@ -1,15 +1,8 @@
-import {
-  type PointerEvent as ReactPointerEvent,
-  type RefObject,
-  useCallback,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { type RefObject, useCallback, useLayoutEffect, useRef, useState } from "react";
 import { uploadAsset } from "@/lib/api";
 import type { Passage } from "@/lib/highlight";
 import { filedName, IMAGE_FOLDER } from "@/lib/image";
+import { clampInside, type PressHandlers, usePressGuard } from "@/lib/take-button";
 
 /**
  * Whether the selection runs backwards, which says which end the hand is at.
@@ -45,18 +38,6 @@ function figureIn(range: Range): string | null {
   return range.cloneContents().querySelector("img")?.src ?? null;
 }
 
-/**
- * How far from the pane's edges the button's own point is kept.
- *
- * It has to cover **half the button's width and the whole of its height**,
- * because the transform on `TAKE` in `book-pane.tsx` moves the box by both.
- * Measured against that class list: 24px tall and about 40px wide, so this is
- * comfortably over the larger of 24 and 20. A selection off the drawn page maps
- * well outside the pane, the paginator having expanded the iframe to the whole
- * columnised chapter, and the wrapper hides no overflow of its own.
- */
-const INSET = 32;
-
 /** What the take hook hands the pane: the button's place, and the calls it makes. */
 export interface BookTake {
   /** Where to draw the button, or null to draw none. */
@@ -72,11 +53,7 @@ export interface BookTake {
   /** Move the button to where the held words are now. */
   follow: () => void;
   /** The footer's `Take` button, which finds its own press and lift in these. */
-  press: {
-    onPointerDown(event: ReactPointerEvent): void;
-    onPointerCancel(): void;
-    onPointerUp(event: ReactPointerEvent<HTMLButtonElement>): void;
-  };
+  press: PressHandlers;
 }
 
 /**
@@ -115,22 +92,14 @@ export function useBookTake(o: {
     backward: boolean;
   } | null>(null);
   /**
-   * Whether a finger is down on the footer's `Take`, between its press and its click.
-   *
-   * The book's words live in foliate's iframe and the button does not, so a
-   * phone may put the selection away for a tap that lands outside the frame.
-   * That `selectionchange` arrives before the `click`, and answering it would
-   * forget the passage and take the button out from under the finger, the
-   * click then landing on `Contents`, which slides into its place. So a
-   * collapse during a press is not answered at all.
-   *
-   * A ref because `onSelectionChange` is built once with the view.
-   *
-   * A finger slid off the button ends in no click and no `pointercancel`, so
-   * the button's `pointerup` clears this when it lands outside the button, and
-   * lets go of a passage the press had already put away.
+   * The press on the footer's `Take`, which holds the passage through the
+   * collapse a tap outside the frame causes. The book's words live in foliate's
+   * iframe and the button does not, so the `selectionchange` that collapse sends
+   * arrives before the `click`; the guard answers it once the press is over.
    */
-  const pressing = useRef(false);
+  const { pressing, press } = usePressGuard(() =>
+    taking.current?.range.startContainer.ownerDocument?.dispatchEvent(new Event("selectionchange")),
+  );
 
   // Read through refs, so the callbacks below keep one identity for the life of
   // the pane, the way `terminal-pane.tsx` reads the same props. Written in a
@@ -192,7 +161,7 @@ export function useBookTake(o: {
     }
 
     onTakeRef.current({ ...held.passage, image });
-  }, []);
+  }, [pressing]);
 
   const holding = useCallback(() => taking.current !== null, []);
 
@@ -227,10 +196,7 @@ export function useBookTake(o: {
       const box = pane.getBoundingClientRect();
       const x = outer.left + rect.left + rect.width / 2 - box.left;
       const y = outer.top + rect.top - box.top;
-      return {
-        x: Math.min(Math.max(x, INSET), box.width - INSET),
-        y: Math.min(Math.max(y, INSET), box.height),
-      };
+      return clampInside(x, y, box);
     },
     [wrapper],
   );
@@ -267,7 +233,7 @@ export function useBookTake(o: {
       taking.current = { passage: { text, chapter }, figure, range, backward };
       setAt(place(range, backward));
     },
-    [place],
+    [place, pressing],
   );
 
   const follow = useCallback(() => {
@@ -281,42 +247,6 @@ export function useBookTake(o: {
     const held = taking.current;
     setAt(held === null ? null : place(held.range, held.backward));
   }, [place]);
-
-  const press = useMemo(
-    () => ({
-      // Refused so the press moves neither the focus nor the
-      // selection, where the browser asks. Where it does not ask,
-      // `pressing` holds the passage through the collapse.
-      onPointerDown(event: ReactPointerEvent) {
-        event.preventDefault();
-        pressing.current = true;
-      },
-      onPointerCancel() {
-        pressing.current = false;
-      },
-      // The pointer is the button's for the whole press, so a lift
-      // anywhere arrives here, and one outside is a press taken
-      // back. Left set, the flag would hold a passage nothing
-      // selects and keep the edges of the page from turning it.
-      onPointerUp(event: ReactPointerEvent<HTMLButtonElement>) {
-        const box = event.currentTarget.getBoundingClientRect();
-        const inside =
-          event.clientX >= box.left &&
-          event.clientX <= box.right &&
-          event.clientY >= box.top &&
-          event.clientY <= box.bottom;
-        if (inside) return;
-        pressing.current = false;
-        // Asked again of the document the words are in, now that the
-        // flag no longer answers for it: what `onSelectionChange`
-        // skipped under the press it reads here.
-        taking.current?.range.startContainer.ownerDocument?.dispatchEvent(
-          new Event("selectionchange"),
-        );
-      },
-    }),
-    [],
-  );
 
   return { at, take, holding, forgetUnless, select, follow, press };
 }

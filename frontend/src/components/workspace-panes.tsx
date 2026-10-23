@@ -258,6 +258,8 @@ export function WorkspacePanes({
             ) : shown.html !== undefined ? (
               <HtmlPane
                 path={shown.html}
+                anchor={shown.anchor}
+                archive={archive}
                 commands={commands}
                 focusSignal={focused ? focusSignal : 0}
                 // A click inside the frame reaches no ancestor, the way a

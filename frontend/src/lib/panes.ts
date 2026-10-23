@@ -107,6 +107,8 @@ export interface Pane {
    * is the fourth, written out above.
    */
   html?: string;
+  /** The heading a followed link named, where the page opens. Absent otherwise. */
+  anchor?: string;
   /**
    * The note whose video this pane is playing, absent otherwise.
    *

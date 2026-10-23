@@ -8,41 +8,24 @@
  */
 
 import { commands, userEvent } from "vitest/browser";
+import {
+  atStart,
+  cleanup,
+  FIELD_STYLE,
+  field,
+  keysSent,
+  type Message,
+  messages,
+  mount,
+  PAGE,
+  pageState,
+  REPORT,
+  reported,
+  scrollY,
+  sendToPage,
+} from "./page-script-harness";
 
-/** The path `servePage` answers for, and the frame loads. */
-const PAGE = "fixture.html";
-
-/**
- * What a fixture posts back. `y` is set on the scroll answer, `value` on a field's input,
- * and the theme, palette, open, marker fields on the state answer.
- */
-interface Message {
-  kasten?: string;
-  key?: string;
-  fixture?: string;
-  y?: number;
-  value?: string;
-  prevented?: boolean;
-  atWindow?: boolean;
-  theme?: string;
-  palette?: string;
-  open?: boolean;
-  marker?: string;
-  search?: string;
-}
-
-/**
- * Every fixture carries this, so a test can see what reached the page.
- *
- * `keydown` is reported in the bubble phase, so a key kasten stopped never
- * shows up in it. That is how a test knows kasten took the key. The frame posts
- * in order, so a letter pressed last is a barrier: once it has been reported,
- * everything pressed before it has been posted.
- */
-const REPORT = `<script>
-addEventListener("keydown", (event) => parent.postMessage({ fixture: "keydown", key: event.key }, "*"));
-addEventListener("message", () => parent.postMessage({ fixture: "scroll", y: scrollY }, "*"));
-</script>`;
+afterEach(cleanup);
 
 /** Tall enough to scroll, and nothing else, so a key that scrolls moves `scrollY`. */
 const TALL = `<!doctype html><title>tall</title><body><div style="height:3000px"></div>${REPORT}</body>`;
@@ -79,9 +62,6 @@ addEventListener("load", () => {
 });
 </script></body>`;
 
-const FIELD_STYLE =
-  "position:fixed;inset:0;width:100%;height:100%;box-sizing:border-box;margin:0;font:32px sans-serif";
-
 /** A page whose own top-level names shadow `parent` and `Element`, which the script must not read through. */
 const SHADOWED = `<!doctype html><title>shadowed</title><body><div style="height:3000px"></div><script>const parent = document.body; const Element = null;</script></body>`;
 
@@ -102,25 +82,6 @@ field.addEventListener("input", () => parent.postMessage({ fixture: "value", val
 const DOC_CAPTURE = `<!doctype html><title>doc</title><body><div style="height:3000px"></div><script>
 document.addEventListener("keydown", (event) => { if (event.key === " ") parent.postMessage({ fixture: "caught" }, "*"); }, true);
 </script>${REPORT}</body>`;
-
-/**
- * A page whose one control fills the frame, so a click at its centre lands in it.
- * Tall as well, so a `j` or `k` that reached the page would move its scroll.
- */
-function field(control: string): string {
-  return `<!doctype html><title>field</title><body>${control}<div style="height:3000px"></div>${REPORT}<script>
-const field = document.querySelector("#field");
-field.addEventListener("input", () => parent.postMessage({ fixture: "value", value: field.value }, "*"));
-</script></body>`;
-}
-
-/**
- * The page as `servePage` serves it now: the backend puts Kasten's script at the
- * start of every page, so the body is all this adds.
- */
-function atStart(body: string): string {
-  return `<!doctype html><title>start</title>${body}`;
-}
 
 /**
  * A page that answers `state` with its theme, palette, open details, scroll and a
@@ -151,70 +112,6 @@ const ARRIVED = `${OPTED_IN}<script>parent.postMessage({ fixture: "arrived", sea
 const LINKING = `<a id="go" href="${OTHER}">go</a>${OPTED_IN}<script>
 addEventListener("message", (event) => { if (event.data === "click") document.getElementById("go").click(); });
 </script>`;
-
-let frame: HTMLIFrameElement | undefined;
-const messages: Message[] = [];
-
-window.addEventListener("message", (event: MessageEvent<Message>) => {
-  if (frame && event.source === frame.contentWindow) messages.push(event.data);
-});
-
-afterEach(async () => {
-  frame?.remove();
-  frame = undefined;
-  messages.length = 0;
-  await commands.unservePages();
-});
-
-/**
- * Serve `html` as the page, and draw it in a frame sandboxed the way the pane sandboxes one.
- * `query` is the request's query, which the backend reads for the theme and palette.
- */
-async function mount(html: string, query = ""): Promise<HTMLIFrameElement> {
-  await commands.servePage(PAGE, html);
-  const element = document.createElement("iframe");
-  element.setAttribute("sandbox", "allow-scripts allow-popups allow-popups-to-escape-sandbox");
-  element.style.cssText = "position:fixed;top:0;left:0;width:800px;height:400px;border:0";
-  const loaded = new Promise((resolve) =>
-    element.addEventListener("load", resolve, { once: true }),
-  );
-  element.src = `/api/html/${PAGE}${query}`;
-  frame = element;
-  document.body.append(element);
-  await loaded;
-  return element;
-}
-
-/** The keys kasten was sent, in the order the frame posted them. */
-function keysSent(): (string | undefined)[] {
-  return messages.filter((m) => m.kasten === "key").map((m) => m.key);
-}
-
-/** Whether the page saw `key` reach its own window. */
-function reported(key: string): boolean {
-  return messages.some((m) => m.fixture === "keydown" && m.key === key);
-}
-
-/** The page's scroll position, asked for and waited on, since a frame's DOM is out of reach. */
-async function scrollY(): Promise<number | undefined> {
-  const before = messages.length;
-  frame?.contentWindow?.postMessage("read", "*");
-  await expect.poll(() => messages.slice(before).some((m) => m.fixture === "scroll")).toBe(true);
-  return messages.slice(before).find((m) => m.fixture === "scroll")?.y;
-}
-
-/** Post `data` to the frame from this window, which is the frame's parent, as kasten is. */
-function sendToPage(data: unknown) {
-  frame?.contentWindow?.postMessage(data, "*");
-}
-
-/** The page's state, asked for and waited on, since a frame's DOM is out of reach. */
-async function pageState(): Promise<Message | undefined> {
-  const before = messages.length;
-  frame?.contentWindow?.postMessage("state", "*");
-  await expect.poll(() => messages.slice(before).some((m) => m.fixture === "state")).toBe(true);
-  return messages.slice(before).find((m) => m.fixture === "state");
-}
 
 /**
  * Type Space, `?`, `j` and `k` into a field, and check the page kept them as

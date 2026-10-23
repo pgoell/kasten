@@ -124,9 +124,12 @@ export function openPdfInFocused(layout: Layout, path: string): Layout {
   return fillFocused(layout, { pdf: { path, page: undefined, opened } });
 }
 
-/** Show an HTML page in the focused pane, the way `openImageInFocused` shows an image. */
-export function openHtmlInFocused(layout: Layout, path: string): Layout {
-  return fillFocused(layout, { html: path });
+/**
+ * Show an HTML page in the focused pane, the way `openImageInFocused` shows an
+ * image. `anchor` is the heading a followed link named, where the page opens.
+ */
+export function openHtmlInFocused(layout: Layout, path: string, anchor?: string): Layout {
+  return fillFocused(layout, { html: path, anchor });
 }
 
 /**

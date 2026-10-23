@@ -152,7 +152,8 @@ What the target names is decided against the vault's own listing:
   the same two rules: `[[2026-10-07.html]]` finds the page in any folder, and
   `[[news/2026-10-07.html]]` is a path. Following one draws the page in the
   focused pane, the way a click on its row in the tree does. `[[report]]` and
-  `[[report.html]]` are two files.
+  `[[report.html]]` are two files. `[[report.html#anchor]]` opens the page at
+  the element with that id, so a link taken from a page reaches its passage.
 * A target nothing answers to is a note that is not there yet. Following it
   makes an empty note there, folders on the way included, and opens it. A name
   says which note and never where it belongs, so a bare one lands in

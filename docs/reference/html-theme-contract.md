@@ -28,6 +28,8 @@ For a page that opts in, kasten also does the following.
 - The styles go inline, not linked, because the frame has an opaque origin. Its requests reach the login gate as cross-site, so the `SameSite=Lax` login cookie is not sent, and a font request goes out with `Origin: null` and no credentials. A link would work in dev and fail behind oauth2-proxy. The page policy allows this with `font-src data:` and `style-src 'unsafe-inline'`.
 - Nothing is injected when the theme or palette is missing or not a known value. "Open in a browser tab" sends no query, so the page shows with its own fallback layer, as a file opened outside kasten does.
 
+Every page, opted in or not, gets a mark when a passage is taken from it. The page script adds a highlight named `kasten-taken` and a constructed stylesheet that styles it: the `--k-mark` background and a 1 px underline in `--k-accent`. A page that does not opt in has no `--k-mark`, so the mark takes the light value. The page's markup is not touched. The marks stay while the page is open, and Undo takes the last one away.
+
 ## Messages
 
 The pane loads the page at `/api/html/<path>?theme=<light|dark>&palette=<poel|russet|peach|pansy>`. It takes both values when it opens the page. A switch does not change the address, so the page does not reload, and its scroll and open details stay.
@@ -35,6 +37,15 @@ The pane loads the page at `/api/html/<path>?theme=<light|dark>&palette=<poel|ru
 - The page script posts `{kasten: 'hello'}` to its parent on start.
 - The pane answers with `{kasten: 'theme', theme}` and `{kasten: 'palette', palette}`. It posts both again when the frame loads and on every switch.
 - The page script sets `data-theme` or `data-palette` on `<html>` only when the message comes from its parent, the value is one of the known ones, and the page carries the meta tag.
+
+Selecting and taking use four more messages:
+
+- The page script posts `{kasten: 'selection', text, heading, anchor, rect}` when the selection changes: after a mouse up, after Shift with an arrow, Home or End, while a touch selection moves, and on a scroll. `heading` is the nearest `h1` to `h6` above the selection's start, in the same article, section or card. `anchor` is the story id the page prints as `a.sid` in that article, or else the nearest `id`. `rect` is the selection's box in the frame's own pixels. A cleared selection posts `text: ''` and `rect: null`.
+- The page script posts `{kasten: 'key', key: 'y'}` only while text is selected. With no selection, `y` is the page's own letter.
+- The pane posts `{kasten: 'take'}` once the passage is safe in today's dump. The page script marks the selection with `kasten-taken`.
+- The pane posts `{kasten: 'untake'}` when Undo takes the dump line out of the daily note. The page script removes the last mark.
+
+The pane acts on a selection only while the frame holds the focus, and on a `y` only while a passage is held. The page script answers `take` and `untake` on every page, opted in or not.
 
 ## Fallback layer
 
@@ -87,7 +98,7 @@ The backend serves its copy at `GET /api/kasten-theme.css`, and a test holds tha
 ## The rules
 
 - May: any layout, any token anywhere, `color-mix(in srgb, var(--k-warn) 14%, transparent)` for tints, SVG with `currentColor` or `var(--k-*)`, page-local variables that point to tokens, `prefers-reduced-motion`.
-- May not: hex, rgb or named colours outside the fallback layer. Loading fonts or naming font families. Setting `data-theme` or reading the system theme inside Kasten. Redefining `--k-*` outside the fallback layer. Fixing the page height or catching Space, `?` or Escape. Fixed bars over the top of the page. Styling `::highlight(kasten-taken)` or `::selection`, or stopping `mouseup` and `selectionchange`. Using `y` as a shortcut while text is selected. `localStorage`, cookies or calls to the vault.
+- May not: hex, rgb or named colours outside the fallback layer. Loading fonts or naming font families. Setting `data-theme` or reading the system theme inside Kasten. Redefining `--k-*` outside the fallback layer. Fixing the page height or catching Space, `?` or Escape. Fixed bars over the top of the page. Styling `::highlight(kasten-taken)` or `::selection`, or stopping `mouseup`, `selectionchange`, `keyup` (Shift with arrows), `pointerdown` and `scroll`, which the page script listens to. Using `y` as a shortcut while text is selected. `localStorage`, cookies or calls to the vault.
 - How to check a page: switch the theme half way down, scroll stays. Open the file directly in light and dark system mode. Grep the CSS for `#`, `rgb(` and quoted `font-family` outside the layer.
 
 ## What kasten closes for you

@@ -77,6 +77,12 @@ runs a complete match the moment it is typed, so it would fire before `df` or
 The same capture has a page of its own for a phone, `/capture`, which
 [Capture from your phone](/how-to/capture-from-your-phone.md) covers.
 
+A passage taken from a vault HTML page goes into the same dump by the same
+route, as a blockquote. It holds the passage, cut to 2000 characters and with
+every markup character escaped, then a link back to its place on the page,
+`[[<page>#<anchor>|<heading>]]`. [The file tree](/reference/editor-keys/file-tree.md#the-file-tree)
+says how a page is taken.
+
 ## Importing markdown, and taking a note out
 
 `<leader>cm` puts markdown files from your disk into the vault. It opens the
