@@ -118,6 +118,7 @@ afterEach(() => {
   mounted?.host.remove();
   mounted = null;
   delete document.documentElement.dataset.theme;
+  delete document.documentElement.dataset.palette;
 });
 
 describe("the pdf pane draws its pages in the theme's colours", () => {
@@ -180,6 +181,31 @@ describe("the pdf pane draws its pages in the theme's colours", () => {
     // No theme attribute, so `pageColors` answers nothing and the page is drawn as printed.
     const canvas = canvasOf(await drawPage({ colors: pageColors }));
     expect(colourAt(canvas, 580, 40)).toEqual([255, 255, 255]);
+  }, 40_000);
+
+  it("paints the text layer's selection in the editor's highlight, in the pansy palette", async () => {
+    // A palette sets its own highlight, so the selection has to read that token and not a
+    // system colour that stays the same in every palette.
+    document.documentElement.dataset.theme = "dark";
+    document.documentElement.dataset.palette = "pansy";
+    const host = await drawPage({ colors: pageColors, textLayer: true });
+    const span = await vi.waitFor(
+      () => {
+        const found = [...host.querySelectorAll('[data-pdf-page="1"] .textLayer span')].find(
+          (one) => (one.textContent ?? "").includes(PAGE_ONE[0] ?? ""),
+        );
+        expect(found).toBeDefined();
+        return found as HTMLElement;
+      },
+      { timeout: 20_000 },
+    );
+
+    const probe = document.createElement("div");
+    probe.style.backgroundColor = token("--k-highlight");
+    document.body.append(probe);
+    const expected = getComputedStyle(probe).backgroundColor;
+    probe.remove();
+    expect(getComputedStyle(span, "::selection").backgroundColor).toBe(expected);
   }, 40_000);
 
   it("lays a selectable text layer over the page, in the page's own words", async () => {

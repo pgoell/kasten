@@ -53,12 +53,18 @@ function paint(
 ) {
   const canvas = document.createElement("canvas");
   canvas.style.width = "100%";
+  // A block, not an inline box: an inline canvas sits on the text baseline and
+  // leaves a gap under the thumbnail.
+  canvas.style.display = "block";
   drawing.set(number, canvas);
   const wanted = () => drawing.get(number) === canvas;
   void file
     .page(number)
     .then(async (page) => {
       if (!wanted()) return;
+      // The button takes its own page's shape, so a page taller or wider than A4
+      // does not change the column's height when drawn or freed.
+      slot.style.aspectRatio = `${page.width} / ${page.height}`;
       await page.draw(canvas, (THUMB_WIDTH * window.devicePixelRatio) / page.width, pageColors());
       if (!wanted()) {
         free(canvas);
@@ -163,7 +169,7 @@ export function PdfThumbs({ file, current, onGoTo, ref }: PdfThumbsProps) {
             // button so the column's own scroll does not clip it.
             // The shape of an A4 page holds the button's height until its page is
             // drawn into it, the canvas that draws it being swapped in by `paint`.
-            className={`block aspect-[1/1.414] w-full shrink-0 outline-k-accent -outline-offset-2 pointer-coarse:min-h-11 ${here ? "outline-2" : "outline-0"}`}
+            className={`block aspect-[1/1.414] w-full shrink-0 outline-k-accent -outline-offset-2 pointer-coarse:min-h-11 ${here ? "outline-2" : "outline-0"} focus-visible:outline-2`}
           />
         );
       })}

@@ -162,6 +162,8 @@ export function usePdfTake(o: {
 
   /** This pane's marks, by take id: the parts each take painted. */
   const marks = useRef(new Map<number, Part[]>());
+  /** Bumped by a new pdf, so a take kept under the pdf before records and paints nothing. */
+  const generation = useRef(0);
 
   const dump = useDumpTake({
     archive,
@@ -180,6 +182,7 @@ export function usePdfTake(o: {
 
   const forget = useCallback(() => {
     lost.current = false;
+    generation.current += 1;
     hold(null);
     for (const parts of marks.current.values()) unpaint(parts);
     marks.current.clear();
@@ -233,6 +236,7 @@ export function usePdfTake(o: {
 
     const frame = box.current;
     const parts = frame === null ? [] : partsOf(frame, taken.range);
+    const started = generation.current;
     const kept = await dump.take({
       quote: pdfQuote(path, taken.page, taken.text),
       text: taken.text,
@@ -241,6 +245,8 @@ export function usePdfTake(o: {
       top: low(taken.at),
       // Each take carries its own parts, so takes in flight cannot mix them.
       onKept: (id) => {
+        // A take kept after a new pdf opened belongs to the pdf before, and marks nothing.
+        if (started !== generation.current) return;
         marks.current.set(id, parts);
         const pages = box.current;
         for (const part of parts) {

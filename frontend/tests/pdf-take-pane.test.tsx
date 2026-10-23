@@ -338,6 +338,35 @@ describe("taking a passage out of a pdf", () => {
     expect(screen.queryByRole("button", { name: "Take the passage" })).toBeNull();
   });
 
+  it("a take still in flight when a new pdf opens paints and records nothing on it", async () => {
+    const registry = new Map<string, unknown>();
+    vi.stubGlobal("CSS", { highlights: registry });
+    vi.stubGlobal("Highlight", Set);
+    answering();
+    let release = () => {};
+    gate.hold = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    render(<Pdf />);
+    select(pageTwo());
+    fireEvent.keyDown(pageTwo(), { key: "y" });
+
+    // The reader opens another pdf while the take is still being kept.
+    act(() => pdf?.forget());
+    release();
+
+    await screen.findByRole("status");
+    expect(marked(registry).size).toBe(0);
+    // Nothing was recorded, so a page of the new pdf drawn now gets no mark either.
+    const fresh = document.createElement("div");
+    fresh.className = "textLayer";
+    const span = document.createElement("span");
+    span.textContent = WORDS;
+    fresh.append(span);
+    act(() => pdf?.onText(2, fresh));
+    expect(marked(registry).size).toBe(0);
+  });
+
   it("two takes in flight each mark their own words, and Undo of the second takes off only its own", async () => {
     const registry = new Map<string, unknown>();
     vi.stubGlobal("CSS", { highlights: registry });

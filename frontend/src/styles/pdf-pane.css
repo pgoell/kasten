@@ -1,6 +1,6 @@
-/* The pdf pane's pages and text layer. Every rule is under `[data-pdf-box]`, the
+/* The pdf pane's pages and text layer. The rules are under `[data-pdf-box]`, the
    pane's box, so the embed in a note keeps the look `live-preview-media.css`
-   gives it. */
+   gives it, except the thumbnails' edge, which sits in the column beside the box. */
 
 [data-pdf-box] {
   overflow-x: auto;
@@ -19,6 +19,12 @@
 /* On the dark ground a shadow sinks into the box, so the page's edge is a rule. */
 :root[data-theme="dark"] [data-pdf-box] [data-pdf-page] {
   box-shadow: none;
+  outline: 1px solid var(--k-rule);
+}
+
+/* The column's thumbnails sit outside the box, so they get the same edge in the dark:
+   a paper page on the dark ground has no edge otherwise. */
+:root[data-theme="dark"] [data-thumb] canvas {
   outline: 1px solid var(--k-rule);
 }
 
@@ -63,8 +69,9 @@
   display: contents;
 }
 
+/* The editor's own selection token, so every palette's selection is its highlight. */
 [data-pdf-box] .textLayer ::selection {
-  background: color-mix(in srgb, AccentColor, transparent 75%);
+  background: var(--k-highlight);
 }
 
 [data-pdf-box] .textLayer .endOfContent {

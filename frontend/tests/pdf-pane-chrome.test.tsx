@@ -183,6 +183,26 @@ describe("the pdf pane's header and zoom", () => {
     expect(pdf.view.redraw).toHaveBeenCalledTimes(1);
     pickPalette("poel");
   });
+
+  it("the path is the only mono text in the header, not the pane", () => {
+    const { container } = renderPane();
+
+    expect(container.querySelector("[data-pdf-pane]")).not.toHaveClass("font-mono");
+    expect(screen.getByTitle("docs/plan.pdf")).toHaveClass("font-mono");
+    expect(screen.getByRole("button", { name: "Note beside" })).not.toHaveClass("font-mono");
+    expect(screen.getByText(/%$/)).not.toHaveClass("font-mono");
+  });
+
+  it("both zoom buttons are as wide as they are tall on a touch screen, with the glyph centred", () => {
+    renderPane();
+
+    for (const name of ["Zoom out", "Zoom in"]) {
+      expect(screen.getByRole("button", { name })).toHaveClass(
+        "pointer-coarse:min-w-11",
+        "justify-center",
+      );
+    }
+  });
 });
 
 describe("the pdf pane's thumbnail column", () => {

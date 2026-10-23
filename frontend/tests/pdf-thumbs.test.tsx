@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { act, cleanup, render, screen } from "@testing-library/react";
 import { createRef } from "react";
 import { PdfThumbs, type ThumbsHandle } from "@/components/pdf-thumbs";
@@ -43,7 +44,7 @@ class FakeObserver {
  * A pdf whose draws stay in flight until a test finishes them, and which refuses a
  * draw onto a canvas that is still rendering, as pdf.js does.
  */
-function fakeFile() {
+function fakeFile(height = 800) {
   const canvases: HTMLCanvasElement[] = [];
   const live = new Set<HTMLCanvasElement>();
   const finishers: Array<() => void> = [];
@@ -52,7 +53,7 @@ function fakeFile() {
     pages: 2,
     page: async () => ({
       width: 600,
-      height: 800,
+      height,
       draw: async (canvas: HTMLCanvasElement) => {
         if (live.has(canvas)) {
           rejected += 1;
@@ -88,6 +89,49 @@ describe("the pdf pane's thumbnails", () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
+  });
+
+  it("a thumbnail that is not the current page shows a focus ring when the keyboard reaches it", () => {
+    render(<PdfThumbs file={fakeFile().file} current={1} onGoTo={() => {}} />);
+
+    expect(screen.getByRole("button", { name: "Page 2" })).toHaveClass("focus-visible:outline-2");
+  });
+
+  it("a thumbnail takes its own page's shape, so drawing and freeing it does not move the column", async () => {
+    const fake = fakeFile(1000);
+    render(<PdfThumbs file={fake.file} current={1} onGoTo={() => {}} />);
+    const first = screen.getByRole("button", { name: "Page 1" });
+
+    act(() => FakeObserver.reveal(first));
+    await flush();
+    act(() => {
+      for (const finish of fake.finishers) finish();
+    });
+    await flush();
+    expect(first.style.aspectRatio).toBe("600 / 1000");
+
+    act(() => FakeObserver.leave(first));
+    expect(first.style.aspectRatio).toBe("600 / 1000");
+  });
+
+  it("a thumbnail's canvas is laid out as a block, so no line gap sits under it", async () => {
+    const fake = fakeFile();
+    render(<PdfThumbs file={fake.file} current={1} onGoTo={() => {}} />);
+    const first = screen.getByRole("button", { name: "Page 1" });
+
+    act(() => FakeObserver.reveal(first));
+    await flush();
+    act(() => {
+      for (const finish of fake.finishers) finish();
+    });
+    await flush();
+
+    expect(first.querySelector("canvas")?.style.display).toBe("block");
+  });
+
+  it("the dark theme outlines each thumbnail's page, as it outlines the pages", () => {
+    const paneCss = readFileSync("src/styles/pdf-pane.css", "utf8");
+    expect(paneCss).toMatch(/\[data-thumb\] canvas\s*\{[^}]*outline: 1px solid var\(--k-rule\)/);
   });
 
   it("a thumbnail is drawn only while in view, and freed when it leaves", async () => {

@@ -30,8 +30,9 @@ const LABEL = "shrink-0 text-[11px] tracking-wide text-k-muted uppercase";
 /** The zoom the buttons and the `+` and `-` keys walk through, in percent. */
 const ZOOMS = [50, 75, 100, 125, 150, 200, 300];
 
+// A square on a touch screen, so the glyph has a 44 px target to sit in, centred.
 const BUTTON =
-  "shrink-0 px-1 text-[13px] text-k-link hover:text-k-accent focus-visible:text-k-accent active:text-k-accent disabled:text-k-muted pointer-coarse:min-h-11";
+  "inline-flex shrink-0 items-center justify-center px-1 text-[13px] text-k-link hover:text-k-accent focus-visible:text-k-accent active:text-k-accent disabled:text-k-muted pointer-coarse:min-h-11 pointer-coarse:min-w-11";
 
 /**
  * One pdf out of the vault, drawn with pdf.js and opened at a page.
@@ -190,11 +191,11 @@ export function PdfPane({
       tabIndex={-1}
       onKeyDown={onKeyDown}
       aria-label="pdf"
-      className="flex h-full flex-col bg-k-bg font-mono outline-none"
+      className="flex h-full flex-col bg-k-bg outline-none"
     >
       <header className="flex items-center gap-3 border-b border-k-rule px-3 py-1">
         <span className={LABEL}>PDF</span>
-        <span className="min-w-0 flex-1 truncate text-[13px] text-k-ink" title={path}>
+        <span className="min-w-0 flex-1 truncate font-mono text-[13px] text-k-ink" title={path}>
           {path}
         </span>
         <button
