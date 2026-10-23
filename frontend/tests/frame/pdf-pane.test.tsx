@@ -182,9 +182,11 @@ describe("the reader over a real pdf", () => {
     // is the only place the reader is told, and a fixed-layout renderer reports
     // `fraction: 0` on its own event, the whole-book number being worked out a
     // layer up.
-    await vi.waitFor(() => expect(container.querySelector("footer")?.textContent).toBe("67%"), {
-      timeout: 20_000,
-    });
+    // The footer names the chapter before the share since #789, so only the share is read.
+    await vi.waitFor(
+      () => expect(container.querySelector("footer")?.textContent).toContain("67% of the book"),
+      { timeout: 20_000 },
+    );
   }, 40_000);
 
   it("offers the take button over a selection, which a fixed-layout book refuses", async () => {
