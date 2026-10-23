@@ -23,6 +23,16 @@ interface Column {
   rows: Row[];
 }
 
+/**
+ * What the key listener reads. Written in the same task as each change of state,
+ * since React only commits later, and a key sent in that gap must already see it.
+ */
+interface Live {
+  opener: LeaderOpener | null;
+  typed: string;
+  phase: Phase;
+}
+
 const KEY = "font-mono tracking-k-kbd";
 const TAB_LABEL = "Go to a tab by number";
 
@@ -190,6 +200,10 @@ export function WhichKey({ phone }: { phone: boolean }) {
   // Set by a row that ran, so the sheet does not give the focus back over the command's.
   const [ran, setRan] = useState(false);
   const panel = useRef<HTMLDivElement>(null);
+  const live = useRef<Live>({ opener: null, typed: "", phase: "gone" });
+  // Read by the one key listener, which outlives every render, so it never sees a stale phone.
+  const phoneRef = useRef(phone);
+  phoneRef.current = phone;
 
   // The desktop fade. Its frames write the opacity straight to the element, so
   // a narrowing key never re-renders the fade and the panel is never remounted.
@@ -205,6 +219,7 @@ export function WhichKey({ phone }: { phone: boolean }) {
 
   const open = useCallback(
     (next: LeaderOpener) => {
+      live.current = { opener: next, typed: "", phase: "open" };
       setOpener(next);
       setTyped("");
       setRan(false);
@@ -221,15 +236,18 @@ export function WhichKey({ phone }: { phone: boolean }) {
   useEffect(() => hostLeader(open), [open]);
 
   const leave = useCallback(() => {
+    live.current = { ...live.current, phase: "leaving" };
     setPhase("leaving");
     // The phone sheet leaves by itself once `open` turns false. The desktop panel
     // fades here, and is gone once the fade has landed.
-    if (!phone) {
+    if (!phoneRef.current) {
       void spring.to(0, SPRINGS.sheetClose).then((done) => {
-        if (done) setPhase("gone");
+        if (!done) return;
+        live.current = { ...live.current, phase: "gone" };
+        setPhase("gone");
       });
     }
-  }, [phone, spring]);
+  }, [spring]);
 
   // The focus goes back first, so a command that moves it (a finder's input)
   // keeps it: the command runs after the focus is back, not before.
@@ -244,7 +262,8 @@ export function WhichKey({ phone }: { phone: boolean }) {
   );
 
   const runRow = (key: string) => {
-    if (opener === null) return;
+    // A panel on its way out takes no click: its rows are still drawn for the fade.
+    if (live.current.phase !== "open" || opener === null) return;
     const run = opener.resolve(key);
     if (run) fire(opener, run);
   };
@@ -252,8 +271,10 @@ export function WhichKey({ phone }: { phone: boolean }) {
   // Capture on the document, so the panel sees each key before anything behind
   // it. Stopping it here is what keeps vim's `y` from yanking under the panel.
   useEffect(() => {
-    if (phase !== "open" || opener === null) return;
     const onKey = (event: KeyboardEvent) => {
+      const current = live.current;
+      const opener = current.opener;
+      if (current.phase !== "open" || opener === null) return;
       const { key } = event;
       // Shift and the rest are presses on their way to the key they are held
       // for: `Space E` is Shift then E, so the panel keeps waiting.
@@ -285,18 +306,20 @@ export function WhichKey({ phone }: { phone: boolean }) {
         return;
       }
 
-      const next = typed + key;
+      const next = current.typed + key;
       const run = opener.resolve(next);
       if (run) fire(opener, run);
-      else if (opener.prefix(next)) setTyped(next);
-      else {
+      else if (opener.prefix(next)) {
+        live.current = { ...current, typed: next };
+        setTyped(next);
+      } else {
         focusBack(opener);
         leave();
       }
     };
     document.addEventListener("keydown", onKey, true);
     return () => document.removeEventListener("keydown", onKey, true);
-  }, [phase, opener, typed, leave, fire]);
+  }, [leave, fire]);
 
   // Taken when the panel opens, not on each narrowing, so a key does not pull the focus.
   useEffect(() => {
@@ -307,7 +330,10 @@ export function WhichKey({ phone }: { phone: boolean }) {
     return (
       <Sheet
         open={phase === "open"}
-        onClose={() => setPhase("gone")}
+        onClose={() => {
+          live.current = { ...live.current, phase: "gone" };
+          setPhase("gone");
+        }}
         label="Leader keys"
         header={<Pressed typed={typed} />}
         restoreFocus={!ran}
@@ -326,6 +352,10 @@ export function WhichKey({ phone }: { phone: boolean }) {
       aria-modal="true"
       aria-label="Leader keys"
       tabIndex={-1}
+      // Out of the accessibility tree and off the pointer while it fades, so a
+      // row the fade still draws is not a target any more.
+      inert={phase === "leaving" || undefined}
+      aria-hidden={phase === "leaving" ? "true" : undefined}
       style={place}
       className="fixed z-30 flex max-h-[60vh] flex-col border-t border-k-rule bg-k-paper shadow-[var(--k-shadow)] outline-none"
     >

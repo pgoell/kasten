@@ -6,6 +6,7 @@ import type { EditorCommands } from "@/lib/key-bindings";
 import { LEADER } from "@/lib/leader-keys";
 import { beginLeader, editorOpener, type LeaderOpener, paneOpener } from "@/lib/which-key";
 import { stubCommands } from "./keybindings-fixture";
+import { stubMatchMedia } from "./match-media";
 
 /** A key as the panel prints it: `cf` reads as two presses. */
 function spaced(key: string): string {
@@ -36,6 +37,17 @@ function mount(
 }
 
 describe("WhichKey", () => {
+  // The spring jumps to its end under reduced motion, so a close finishes on the
+  // first frame and no assertion waits on animation frames, which run late under
+  // load. The fade itself is in the frame tests (`tests/frame/which-key.test.tsx`).
+  beforeEach(() => {
+    stubMatchMedia({ "(prefers-reduced-motion: reduce)": true });
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it("the panel shows at once with the six columns", () => {
     mount();
 
@@ -169,6 +181,51 @@ describe("WhichKey", () => {
 
     fireEvent.keyDown(first, { key: "Tab", shiftKey: true });
     expect(last).toHaveFocus();
+  });
+
+  it("a fading panel takes no click and is hidden from the accessibility tree", () => {
+    // Not reduced: the close is still running when the panel is read, so it is fading.
+    stubMatchMedia({});
+    const { commands } = mount();
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
+
+    const panel = document.querySelector<HTMLElement>("[role='dialog'][aria-label='Leader keys']");
+    expect(panel).toHaveAttribute("inert");
+    expect(panel).toHaveAttribute("aria-hidden", "true");
+    expect(screen.queryByRole("button", { name: /Toggle the file tree/ })).toBeNull();
+
+    const row = screen.getByText("Toggle the file tree", { selector: "span" }).closest("button");
+    fireEvent.click(row as HTMLElement);
+    expect(commands.toggleTree).not.toHaveBeenCalled();
+  });
+
+  it("keys sent in the same task as Space still go to the panel", () => {
+    render(
+      <>
+        <button type="button">Note</button>
+        <WhichKey phone={false} />
+      </>,
+    );
+    const note = screen.getByRole("button", { name: "Note" });
+    note.focus();
+    const commands = stubCommands();
+    const bubbled = vi.fn();
+    note.addEventListener("keydown", bubbled);
+
+    try {
+      // No act in between: React has not committed the panel when the keys land.
+      beginLeader(paneOpener(commands));
+      for (let press = 0; press < 2; press += 1) {
+        note.dispatchEvent(
+          new KeyboardEvent("keydown", { key: "f", bubbles: true, cancelable: true }),
+        );
+      }
+
+      expect(commands.findNote).toHaveBeenCalledTimes(1);
+      expect(bubbled).not.toHaveBeenCalled();
+    } finally {
+      note.removeEventListener("keydown", bubbled);
+    }
   });
 
   it("a command that moves the focus keeps it there", () => {
