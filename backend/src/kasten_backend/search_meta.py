@@ -43,22 +43,37 @@ def _as_date(text: str) -> date | None:
         return None
 
 
-def _created(text: str) -> str | None:
-    """The block's `created` as written, when it is a day or an instant with an offset.
+_INSTANT = re.compile(
+    r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}"
+    r"(:[0-9]{2}(\.[0-9]{3})?)?"
+    r"(Z|[+-][0-9]{2}:[0-9]{2})?"
+)
+"""The instants a browser's `new Date` reads, which are the ones `created` may pass through as.
 
-    A naive timestamp has no zone to read it in, so it counts for nothing and the
-    file's own time stands in for it.
+A week date such as `2026-W43-1T10:00:00+00:00` parses in Python and reads as
+nothing in a browser, so the shape is what decides, and `fromisoformat` only
+checks the numbers are a real time.
+"""
+
+
+def _created(text: str) -> str | None:
+    """The block's `created` as written, when a browser can read it as a day or a time.
+
+    With no offset it is the reader's own local time, which is what an imported
+    note means by it. Anything else falls through to the file's own time.
     """
     value = frontmatter.created(text)
     if value is None:
         return None
     if _as_date(value) is not None:
         return value
+    if not _INSTANT.fullmatch(value):
+        return None
     try:
-        moment = datetime.fromisoformat(value)
+        datetime.fromisoformat(value)
     except ValueError:
         return None
-    return value if moment.tzinfo is not None else None
+    return value
 
 
 def _day(root: Path, path: str, text: str | None) -> str | None:

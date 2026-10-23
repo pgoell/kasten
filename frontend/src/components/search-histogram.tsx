@@ -29,13 +29,16 @@ export function SearchHistogram({ weeks, counts, week, onPick }: SearchHistogram
         // An empty week has no height at all, and the busiest is the full bar.
         const height = busiest === 0 ? 0 : (count / busiest) * 100;
         const chosen = key === week;
-        const fill = chosen
+        // The accent marks the chosen week, or the current week while none is chosen.
+        // Those keep the accent on hover; every other bar rests in muted, which
+        // clears the 3:1 the bars need on paper, and darkens to ink-soft under a mouse.
+        // While a week is chosen the rest sit at 60% muted, so the chosen one reads.
+        const marked = chosen || (week === undefined && key === current);
+        const fill = marked
           ? "bg-k-accent"
-          : week !== undefined
-            ? "bg-k-ink/10 group-hover:bg-k-ink/35"
-            : key === current
-              ? "bg-k-accent/50 group-hover:bg-k-ink/35"
-              : "bg-k-ink/20 group-hover:bg-k-ink/35";
+          : week === undefined
+            ? "bg-k-muted group-hover:bg-k-ink-soft"
+            : "bg-k-muted/60 group-hover:bg-k-ink-soft";
         const label = `Week ${weekNumber(key)}, ${count} ${count === 1 ? "line" : "lines"}`;
         return (
           <button
@@ -45,27 +48,35 @@ export function SearchHistogram({ weeks, counts, week, onPick }: SearchHistogram
             aria-pressed={chosen}
             onMouseDown={keepFocus}
             onClick={() => onPick(key)}
-            onMouseEnter={() => setHovered(key)}
-            onMouseLeave={() => setHovered(undefined)}
+            // Only a mouse hovers: a finger's press would otherwise leave a count up
+            // on a bar nobody is pointing at.
+            onPointerEnter={(event) => {
+              if (event.pointerType === "mouse") setHovered(key);
+            }}
+            onPointerLeave={() => setHovered(undefined)}
             // Not TAP: its items-center under a finger shrinks the bar area to nothing.
             className="group pointer-coarse:min-h-11 relative flex min-w-0 flex-1 cursor-pointer flex-col"
           >
             {/* The bar's own area, with the baseline under it. The area is the
                 height the bars are scaled against, so it has to be fixed. */}
             <span className="relative mx-0.5 block h-16 border-b border-k-rule md:h-24">
-              {hovered === key && (
+              {/* The bars stand in the area less its top 16 px, so the count of the
+                  busiest week sits in that headroom and not on the header rule. */}
+              <span className="absolute inset-x-0 top-4 bottom-0">
+                {hovered === key && (
+                  <span
+                    className="pointer-events-none absolute inset-x-0 text-center text-k-12 text-k-ink"
+                    style={{ bottom: `${height}%` }}
+                  >
+                    {count}
+                  </span>
+                )}
                 <span
-                  className="pointer-events-none absolute inset-x-0 text-center text-k-12 text-k-ink"
-                  style={{ bottom: `calc(${height}% + 2px)` }}
-                >
-                  {count}
-                </span>
-              )}
-              <span
-                aria-hidden="true"
-                className={`absolute inset-x-0 bottom-0 rounded-t-sm ${fill}`}
-                style={{ height: `${height}%` }}
-              />
+                  aria-hidden="true"
+                  className={`absolute inset-x-0 bottom-0 min-h-0.5 rounded-t-sm ${fill}`}
+                  style={{ height: `${height}%` }}
+                />
+              </span>
             </span>
             <span
               className={`pt-1 text-center text-k-12 ${key === current ? "font-bold text-k-accent" : "text-k-muted"}`}

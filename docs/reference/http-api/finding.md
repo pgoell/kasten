@@ -92,11 +92,13 @@ day the note counts on, taken from the first of these that holds:
 2. the note's `created` field in its frontmatter, as written. kasten writes it
    in UTC with its offset, so the value is an instant such as
    `2026-10-18T22:30:00+00:00`. A bare `YYYY-MM-DD` is a calendar day and comes
-   back as it is. A `created` with no offset is skipped;
+   back as it is. A time with no offset comes back as written, and a browser
+   reads it in the reader's own zone. Any other form, such as a week date, is
+   skipped;
 3. the file's modification time, as an instant in UTC with its offset.
 
-So `date` is a calendar day or an instant, and the client tells them apart by
-their length. The instant is not cut to a day here because the day depends on
+So `date` is a calendar day or an instant. The client reads a plain day by its
+shape and every other value as an instant. The instant is not cut to a day here because the day depends on
 whose clock reads it. A note written at 00:30 in Berlin is stamped on the day
 before in UTC, and the server cannot know the reader's zone. The client
 converts the instant to the reader's zone and takes the day there.

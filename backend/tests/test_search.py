@@ -203,6 +203,38 @@ async def test_a_hit_in_a_note_with_no_date_carries_the_file_modification_instan
     assert [hit.get("date") for hit in response.json()] == ["2026-07-15T12:00:00+00:00"]
 
 
+async def test_a_hit_in_a_note_whose_created_has_no_offset_carries_it_as_written(
+    client: AsyncClient, vault: Path
+) -> None:
+    # Imported notes write `created` without an offset. A browser reads that as
+    # the reader's own local time, so the value goes out as it is written.
+    write(
+        vault, "projects/imported.md", "---\ncreated: 2026-08-02T09:00:00\n---\n\nderived index\n"
+    )
+
+    response = await client.get("/api/search", params={"q": "derived"})
+
+    assert [hit.get("date") for hit in response.json()] == ["2026-08-02T09:00:00"]
+
+
+async def test_a_hit_in_a_note_whose_created_is_a_week_date_falls_to_the_file_instant(
+    client: AsyncClient, vault: Path
+) -> None:
+    # `new Date` does not read a week date, so `created` in that form is no use
+    # to the client and the file's own time stands in for it.
+    write(
+        vault,
+        "projects/weekly.md",
+        "---\ncreated: 2026-W43-1T10:00:00+00:00\n---\n\nderived index\n",
+    )
+    moment = datetime(2026, 7, 15, 12, tzinfo=UTC).timestamp()
+    os.utime(vault / "projects/weekly.md", (moment, moment))
+
+    response = await client.get("/api/search", params={"q": "derived"})
+
+    assert [hit.get("date") for hit in response.json()] == ["2026-07-15T12:00:00+00:00"]
+
+
 async def test_a_hit_carries_its_notes_tags_with_their_hashes_sorted(
     client: AsyncClient, vault: Path
 ) -> None:

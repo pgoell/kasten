@@ -35,7 +35,7 @@ function FilterRow({
       aria-pressed={pressed}
       onMouseDown={keepFocus}
       onClick={onPress}
-      className={`${TAP} flex w-full min-w-0 cursor-pointer items-center justify-between gap-2 rounded-sm px-2 py-1 text-left text-[13px] ${pressed ? "bg-k-surface text-k-accent" : "text-k-ink"}`}
+      className={`${TAP} -ml-2 flex w-[calc(100%+0.5rem)] min-w-0 cursor-pointer items-center justify-between gap-2 rounded-sm px-2 py-1 text-left text-k-13 ${pressed ? "bg-k-surface text-k-accent" : "text-k-ink"}`}
     >
       <span className="min-w-0 truncate">{label}</span>
       <span className="shrink-0 font-mono text-k-12 text-k-muted">{count}</span>
@@ -59,7 +59,7 @@ export function SearchFilters({
   return (
     <div className="flex flex-col gap-5 font-sans">
       <fieldset className="flex flex-col gap-0.5">
-        <legend className={`${LABEL} px-2`}>Folders</legend>
+        <legend className={LABEL}>Folders</legend>
         {facets.folders.map((folder) => (
           <FilterRow
             key={folder.name}
@@ -72,7 +72,7 @@ export function SearchFilters({
         ))}
       </fieldset>
       <fieldset className="flex flex-col gap-0.5">
-        <legend className={`${LABEL} px-2`}>Tags</legend>
+        <legend className={LABEL}>Tags</legend>
         {facets.tags.map((tag) => (
           <FilterRow
             key={tag.name}

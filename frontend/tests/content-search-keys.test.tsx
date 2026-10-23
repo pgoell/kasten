@@ -118,3 +118,26 @@ it("presses a focused bar on Enter rather than opening the highlighted line", as
   expect(search.onOpen).not.toHaveBeenCalled();
   expect(bar.getAttribute("aria-pressed")).toBe("true");
 });
+
+it("names the chosen folder on the Filters button while the column is shut", async () => {
+  stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+  const search = renderContent();
+
+  search.type("postgres");
+  await waitFor(() => expect(search.rows()).toHaveLength(2));
+  fireEvent.click(screen.getByRole("button", { name: "Filters" }));
+  fireEvent.click(screen.getByRole("button", { name: /^projects/ }));
+  fireEvent.click(screen.getByRole("button", { name: /^Filters/ }));
+
+  expect(screen.getByRole("button", { name: "Filters, projects" })).toBeTruthy();
+});
+
+it("draws no rule under the page when the status line says nothing", async () => {
+  const search = renderContent();
+
+  search.type("postgres");
+  await waitFor(() => expect(search.rows()).toHaveLength(2));
+
+  expect(search.hint()).toBe("");
+  expect(screen.getByRole("status").className).not.toContain("border-t");
+});

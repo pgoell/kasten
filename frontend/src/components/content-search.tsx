@@ -14,7 +14,7 @@ import { SearchFilters } from "@/components/search-filters";
 import { SearchHistogram } from "@/components/search-histogram";
 import type { SearchHit } from "@/lib/api";
 import { noteName } from "@/lib/note-path";
-import { BACKDROP, closeOnBackdrop, ROW, STATUS, TAP } from "@/lib/overlay-styles";
+import { BACKDROP, closeOnBackdrop, TAP } from "@/lib/overlay-styles";
 import { type Filters, facets, filterHits, termRuns } from "@/lib/search-facets";
 import { lastWeeks, linesPerWeek, type WeekKey, weekOf, weekRange } from "@/lib/search-weeks";
 import { useEntrance } from "@/lib/stagger";
@@ -53,6 +53,14 @@ function runsAt(
   });
 }
 
+/** The folder and tag chosen, as the Filters button names them: a root folder reads as its slash. */
+function chosenNames(filters: Filters): string[] {
+  const names: string[] = [];
+  if (filters.folder !== null) names.push(filters.folder === "" ? "/" : filters.folder);
+  if (filters.tag !== null) names.push(filters.tag);
+  return names;
+}
+
 function plural(count: number, word: string): string {
   return `${count} ${word}${count === 1 ? "" : "s"}`;
 }
@@ -83,11 +91,11 @@ function LineRow({
       tabIndex={-1}
       onMouseDown={keepFocus}
       onClick={onOpen}
-      className={`${ROW} ${TAP} flex gap-3 ${selected ? "bg-k-surface" : ""}`}
+      // Starts 12 px into the gutter, so the tint bleeds there while the text
+      // (the 12 px of padding) lines up with the gutter's edge.
+      className={`k-row -ml-3 w-[calc(100%+0.75rem)] cursor-pointer px-3 py-[3px] text-left text-k-13 ${TAP} flex gap-3 ${selected ? "bg-k-surface" : ""}`}
     >
-      <span className="w-10 shrink-0 pt-px text-right font-mono text-k-12 text-k-muted">
-        {line}
-      </span>
+      <span className="w-10 shrink-0 pt-px text-left font-mono text-k-12 text-k-muted">{line}</span>
       <span className="min-w-0 flex-1 break-words font-sans text-k-ink">
         {runsAt(text, term).map((run) => (
           <Fragment key={run.start}>
@@ -299,7 +307,7 @@ export function ContentSearch({
       className={`${BACKDROP} max-md:pt-0`}
     >
       <div className="flex max-h-full min-h-0 w-[min(80rem,96vw)] h-[min(56rem,80dvh)] flex-col overflow-hidden rounded-md border border-k-rule bg-k-paper font-sans shadow-xl max-md:h-dvh max-md:w-full max-md:rounded-none">
-        <div className="border-b border-k-rule px-6 pt-5 pb-3">
+        <div className="border-b border-k-rule px-4 pt-5 pb-3 md:px-6">
           <label htmlFor={`${listId}-query`} className="sr-only">
             search notes
           </label>
@@ -326,7 +334,7 @@ export function ContentSearch({
           {!narrow && (
             <aside
               aria-label="Filters"
-              className="w-[220px] shrink-0 overflow-auto border-r border-k-rule px-3 py-4"
+              className="w-[220px] shrink-0 overflow-auto border-r border-k-rule px-6 py-4"
             >
               {column}
             </aside>
@@ -340,20 +348,25 @@ export function ContentSearch({
                   aria-expanded={filtersOpen}
                   onMouseDown={keepFocus}
                   onClick={() => setFiltersOpen((open) => !open)}
-                  className={`${TAP} cursor-pointer text-[13px] text-k-accent`}
+                  className={`${TAP} flex cursor-pointer items-center gap-2 text-k-13 text-k-accent`}
                 >
-                  Filters
+                  {/* The chosen folder and tag name the button, so a narrowed list says so while shut. */}
+                  <span>{["Filters", ...chosenNames(filters)].join(", ")}</span>
+                  <span
+                    aria-hidden="true"
+                    className={`size-0 border-x-[4px] border-t-[5px] border-x-transparent border-t-current transition-transform ${filtersOpen ? "rotate-180" : ""}`}
+                  />
                 </button>
                 {filtersOpen && <div className="pt-2">{column}</div>}
               </div>
             )}
 
-            <div className="px-4 pt-4">
+            <div className="px-4 pt-4 md:px-6">
               <SearchHistogram weeks={weeks} counts={counts} week={week} onPick={pickWeek} />
             </div>
 
             {(typed !== "" || week !== undefined) && (
-              <p className="flex flex-wrap items-baseline gap-x-3 px-4 pt-3 font-sans text-[13px] text-k-ink">
+              <p className="flex flex-wrap items-baseline gap-x-3 px-4 pt-3 font-sans md:px-6 text-k-13 text-k-ink">
                 <span>
                   {summary}
                   {week === undefined ? "." : ` written ${weekRange(week)}.`}
@@ -363,7 +376,7 @@ export function ContentSearch({
                     type="button"
                     onMouseDown={keepFocus}
                     onClick={() => onWeek?.(undefined)}
-                    className={`${TAP} cursor-pointer text-[13px] text-k-accent underline`}
+                    className={`${TAP} cursor-pointer text-k-13 text-k-accent underline`}
                   >
                     All weeks
                   </button>
@@ -383,10 +396,10 @@ export function ContentSearch({
                         key={note}
                         role="group"
                         aria-label={note}
-                        className={`px-4 pb-2 ${entering(note) ? "k-enter" : ""}`}
+                        className={`px-4 pb-2 md:px-6 ${entering(note) ? "k-enter" : ""}`}
                         style={{ "--i": at } as CSSProperties}
                       >
-                        <div className="px-2 pt-3">
+                        <div className="pt-3">
                           <div className="font-serif text-k-19 text-k-ink">{noteName(note)}</div>
                           <div className="font-mono text-k-12 text-k-muted">{note}</div>
                         </div>
@@ -415,7 +428,11 @@ export function ContentSearch({
 
             {/* An <output> rather than a <p role="status">: same announcement, and
                 the element carries it without the attribute. */}
-            <output className={STATUS}>
+            {/* The rule is drawn only while there is something to say: an empty line
+                would otherwise run a rule across the last note for nothing. */}
+            <output
+              className={`px-4 py-1 text-[11px] text-k-muted md:px-6 ${hint || cap ? "border-t border-k-rule" : ""}`}
+            >
               {[hint, cap].filter((text) => text !== "").join(" ")}
             </output>
           </div>

@@ -48,8 +48,8 @@ class SearchHit(LineHit):
     """The date the note counts on, as ISO 8601: a calendar day or an instant.
 
     A calendar day (`YYYY-MM-DD`) when the note's name starts with one, which needs
-    no zone. Otherwise an instant with its offset, from the note's `created` as
-    written or its file's modification time in UTC. The instant is not cut to a
+    no zone. Otherwise an instant, from the note's `created` as written or its
+    file's modification time in UTC with its offset. The instant is not cut to a
     day here because the day depends on the reader's zone: `created` is written
     in UTC, so a note written at 00:30 in Berlin is the day before in UTC. The
     client reads the instant in its own zone.

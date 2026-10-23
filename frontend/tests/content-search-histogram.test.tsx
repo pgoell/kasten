@@ -80,7 +80,7 @@ it("shows a bar's count on hover", async () => {
   await waitFor(() => expect(search.bar(38).getAttribute("aria-label")).toBe("Week 38, 30 lines"));
   expect(within(search.bar(38)).queryByText("30")).toBeNull();
 
-  fireEvent.mouseEnter(search.bar(38));
+  fireEvent.pointerEnter(search.bar(38), { pointerType: "mouse" });
 
   expect(within(search.bar(38)).getByText("30")).toBeTruthy();
 });
@@ -224,6 +224,39 @@ it("keeps each bar as wide as its area under a finger", () => {
 
   expect(search.bar(38).className).not.toContain("pointer-coarse:items-center");
   expect(search.bar(38).className).toContain("pointer-coarse:min-h-11");
+});
+
+it("draws resting bars in muted, the current week in the accent, and keeps the accent on hover", () => {
+  const search = renderContent();
+
+  const resting = search.fill(40).className.split(" ");
+  expect(resting).toContain("bg-k-muted");
+  expect(resting).toContain("group-hover:bg-k-ink-soft");
+  const current = search.fill(43).className.split(" ");
+  expect(current).toContain("bg-k-accent");
+  // Hovering the current week keeps the accent: no ink class waits on hover there.
+  expect(current.some((name) => name.startsWith("group-hover:"))).toBe(false);
+});
+
+it("draws an empty week as a 2 px stub in the resting colour", () => {
+  const search = renderContent();
+
+  const empty = search.fill(30).className.split(" ");
+  expect(empty).toContain("min-h-0.5");
+  expect(empty).toContain("bg-k-muted");
+});
+
+it("shows a bar's count under a mouse pointer and not under a finger", async () => {
+  searchNotes.mockResolvedValue(lines("a/one.md", 30, "2026-09-16"));
+  const search = renderContent();
+
+  search.type("postgres");
+  await waitFor(() => expect(search.bar(38).getAttribute("aria-label")).toBe("Week 38, 30 lines"));
+  fireEvent.pointerEnter(search.bar(38), { pointerType: "touch" });
+  expect(within(search.bar(38)).queryByText("30")).toBeNull();
+
+  fireEvent.pointerEnter(search.bar(38), { pointerType: "mouse" });
+  expect(within(search.bar(38)).getByText("30")).toBeTruthy();
 });
 
 it("shows no rows, empty bars and no counts once the query is cleared", async () => {
