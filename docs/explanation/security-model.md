@@ -197,7 +197,11 @@ page could reach into its own frame and lift the sandbox off.
 
 The page talks to kasten by postMessage, and kasten acts on a message only when
 it comes from its own frame. Only Space, `?` and Escape count, and a key counts
-only while the frame holds the focus.
+only while the frame holds the focus. A page can still post Space while you
+type into it, and then your next keys reach the leader panel; that is the most
+a page can do with these messages. "Open in a browser tab" shows the page in a
+tab of its own under kasten's address, held by the same sandbox header, so a
+page there can draw a fake login form; it reads nothing of kasten's.
 
 ## What none of this covers
 

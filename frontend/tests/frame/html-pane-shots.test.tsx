@@ -27,6 +27,8 @@ const TOUCH = { width: 390, height: 844, touch: true };
 type Size = typeof DESKTOP;
 
 const PATH = "replication.html";
+/** A nested path with spaces, long enough that the header has to cut it on a phone. */
+const LONG_PATH = "30 Research/2026 Replication study/regional lag across three regions.html";
 
 /**
  * A short research report with its own plain styles, the kind a research run
@@ -76,12 +78,12 @@ const REPORT = `<!doctype html>
 </html>`;
 
 /** The pane filling the viewport, with the which-key panel beside it, as the editor mounts them. */
-function Fixture({ phone }: { phone: boolean }) {
+function Fixture({ phone, path }: { phone: boolean; path: string }) {
   return (
     <div className="flex h-dvh flex-col bg-k-bg">
       <div className="flex min-h-0 flex-1">
         <div className="min-w-0 flex-1">
-          <HtmlPane path={PATH} commands={stubCommands()} onFocus={() => {}} />
+          <HtmlPane path={path} commands={stubCommands()} onFocus={() => {}} />
         </div>
       </div>
       <WhichKey phone={phone} />
@@ -115,8 +117,9 @@ async function shootPane(
   name: string,
   size: Size,
   theme: Theme,
-  options: { palette?: string; which?: boolean; header?: boolean } = {},
+  options: { palette?: string; which?: boolean; header?: boolean; path?: string } = {},
 ) {
+  const path = options.path ?? PATH;
   await page.viewport(size.width, size.height);
   await commands.emulateMedia({
     touch: size.touch,
@@ -128,13 +131,13 @@ async function shootPane(
   localStorage.setItem(THEME_KEY, theme);
   localStorage.setItem(PALETTE_KEY, options.palette ?? "poel");
   applyTheme();
-  await commands.servePage(PATH, REPORT);
+  await commands.servePage(path, REPORT);
 
   const host = document.body.appendChild(document.createElement("div"));
   const root: Root = createRoot(host);
   try {
     const hello = helloed();
-    flushSync(() => root.render(<Fixture phone={size.touch} />));
+    flushSync(() => root.render(<Fixture phone={size.touch} path={path} />));
     await hello;
     await document.fonts.ready;
     await nextFrame();
@@ -173,7 +176,7 @@ for (const theme of ["light", "dark"] as const) {
     shootPane(`html-pane-which-key-1440-${theme}`, DESKTOP, theme, { which: true }),
   );
   shotTest(`html-pane-touch-390-${theme}`, () =>
-    shootPane(`html-pane-touch-390-${theme}`, TOUCH, theme),
+    shootPane(`html-pane-touch-390-${theme}`, TOUCH, theme, { path: LONG_PATH }),
   );
   for (const palette of ["russet", "peach", "pansy"]) {
     const name = `html-pane-palette-${palette}-1440-${theme}`;

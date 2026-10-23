@@ -171,7 +171,7 @@ export function HtmlPane({ path, commands, focusSignal, onFocus }: HtmlPaneProps
           rel="noopener"
           // In the words the issue gives, not the label's capitals, so it reads
           // as a link and not as a second name for the pane.
-          className="inline-flex shrink-0 items-center text-[12px] text-k-muted hover:text-k-accent focus-visible:text-k-accent pointer-coarse:min-h-11"
+          className="inline-flex shrink-0 items-center text-[11px] text-k-link hover:text-k-accent focus-visible:text-k-accent active:text-k-accent pointer-coarse:min-h-11"
         >
           Open in a browser tab
         </a>
