@@ -234,9 +234,10 @@ describe("following a link to a page of HTML", () => {
     app.click(odd);
     await settle();
 
-    expect(document.querySelector("[data-html-pane] iframe")?.getAttribute("src")).toBe(
-      "/api/html/plan%20%232.html",
-    );
+    // The frame's address also carries the look (#786), so the path is checked alone.
+    expect(
+      document.querySelector("[data-html-pane] iframe")?.getAttribute("src")?.split("?")[0],
+    ).toBe("/api/html/plan%20%232.html");
   });
 });
 
