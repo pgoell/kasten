@@ -86,24 +86,24 @@ describe("the book pane's columns", () => {
     return pane;
   }
 
-  it("draws the contents column from 960 px and not at 959", async () => {
+  it("draws the contents column from 1015 px and not at 1014", async () => {
     const pane = await opened();
 
-    widen(pane.wrapper(), 959);
+    widen(pane.wrapper(), 1014);
     expect(contentsOf(pane.container)).toBeNull();
 
-    widen(pane.wrapper(), 960);
+    widen(pane.wrapper(), 1015);
     expect(contentsOf(pane.container)).not.toBeNull();
   });
 
-  it("draws the note column from 1280 px and not at 1279", async () => {
+  it("draws the note column from 1303 px and not at 1302", async () => {
     const pane = await opened();
 
-    widen(pane.wrapper(), 1279);
+    widen(pane.wrapper(), 1302);
     expect(takenOf(pane.container)).toBeNull();
     expect(contentsOf(pane.container)).not.toBeNull();
 
-    widen(pane.wrapper(), 1280);
+    widen(pane.wrapper(), 1303);
     expect(takenOf(pane.container)).not.toBeNull();
   });
 
@@ -111,8 +111,8 @@ describe("the book pane's columns", () => {
     const left = await opened();
     const right = await opened();
 
-    widen(left.wrapper(), 1280);
-    widen(right.wrapper(), 1000);
+    widen(left.wrapper(), 1400);
+    widen(right.wrapper(), 1100);
 
     expect(takenOf(left.container)).not.toBeNull();
     expect(contentsOf(left.container)).not.toBeNull();
@@ -122,7 +122,7 @@ describe("the book pane's columns", () => {
 
   it("marks the current chapter and moves the mark when the chapter changes", async () => {
     const pane = await opened();
-    widen(pane.wrapper(), 960);
+    widen(pane.wrapper(), 1015);
 
     act(() => {
       lastView().lastLocation = { cfi: CFI, tocItem: CHAPTERS[0] };
@@ -144,7 +144,7 @@ describe("the book pane's columns", () => {
 
   it("goes to a chapter when its row is clicked", async () => {
     const pane = await opened();
-    widen(pane.wrapper(), 960);
+    widen(pane.wrapper(), 1015);
 
     const row = within(pane.container).queryByRole("button", { name: "Two" });
     expect(row).not.toBeNull();
@@ -155,7 +155,7 @@ describe("the book pane's columns", () => {
 
   it("lists the passages taken so far and follows the note's text", async () => {
     const pane = await opened({ held: noteHolding(PASSAGE) });
-    widen(pane.wrapper(), 1280);
+    widen(pane.wrapper(), 1303);
     expect(within(pane.container).queryByRole("button", { name: PASSAGE })).not.toBeNull();
 
     act(() => pane.client.setQueryData(["note", NOTE], noteHolding(PASSAGE, OTHER)));
@@ -171,7 +171,7 @@ describe("the book pane's columns", () => {
   it("seeks a passage when its row in the note column is clicked", async () => {
     FakeView.sections = sectionsOf([PASSAGE]);
     const pane = await opened({ held: noteHolding(PASSAGE) });
-    widen(pane.wrapper(), 1280);
+    widen(pane.wrapper(), 1303);
     const row = within(pane.container).queryByRole("button", { name: PASSAGE });
     expect(row).not.toBeNull();
 

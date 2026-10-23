@@ -8,7 +8,6 @@ import type { FoliateView } from "@/lib/foliate-view";
 import type { Passage } from "@/lib/highlight";
 import type { EditorCommands } from "@/lib/key-bindings";
 import { BOOK_SUFFIXES, noteName } from "@/lib/note-path";
-import { STATUS } from "@/lib/overlay-styles";
 import { useBookHighlights } from "@/lib/use-book-highlights";
 import { useBookKeys } from "@/lib/use-book-keys";
 import { useBookSeek } from "@/lib/use-book-seek";
@@ -17,16 +16,27 @@ import { useBookTurns } from "@/lib/use-book-turns";
 import { useBookView } from "@/lib/use-book-view";
 import { useViewport } from "@/lib/use-viewport";
 
+/** The reading measure the text is set at, in px (`--k-measure`). */
+const MEASURE = 680;
 /**
- * The widths at which the side columns appear, measured on the pane.
- *
- * Each is the 680 px reading measure plus what the columns take with their
- * gutters: the contents need 224 px and 56 px of gutter, so 960; the note needs
- * 288 px more and 88 px of gutter, so 1280. Below the first the text has the
- * whole pane, which is the phone's layout too.
+ * The gap foliate pads each side of the scrolled flow by, as a share of the
+ * host's width (`paginator.js:292` and `:718`, 7/93 on each side). So the text
+ * column is the host less 14% of it, and the host must be `MEASURE / 0.86` wide
+ * before the text reaches the measure.
  */
-const CONTENTS_FROM = 960;
-const NOTE_FROM = 1280;
+const FLOW_GAP = 0.07;
+/** The side columns' widths in px, which are `w-56` and `w-72`. */
+const CONTENTS_WIDTH = 224;
+const NOTE_WIDTH = 288;
+/** The narrowest host the text reaches the measure in, rounded up to a whole px. */
+const HOST_FOR_MEASURE = Math.ceil(MEASURE / (1 - 2 * FLOW_GAP));
+/**
+ * The pane widths at which each column appears: the host the measure needs,
+ * plus the columns beside it. Below the first the text has the whole pane,
+ * which is the phone's layout too.
+ */
+const CONTENTS_FROM = HOST_FOR_MEASURE + CONTENTS_WIDTH;
+const NOTE_FROM = CONTENTS_FROM + NOTE_WIDTH;
 
 /**
  * The button drawn over a selection, which is the mouse's half of `y`.
@@ -37,7 +47,7 @@ const NOTE_FROM = 1280;
  * `INSET` in `use-book-take.ts` is measured against.
  */
 const TAKE =
-  "absolute flex h-6 -translate-x-1/2 -translate-y-full items-center rounded border border-k-muted bg-k-bg px-2 font-mono text-k-ink text-xs";
+  "absolute flex h-6 -translate-x-1/2 -translate-y-full items-center rounded border border-k-rule bg-k-paper px-2 font-sans text-k-ink text-xs";
 
 /**
  * A button in the footer, which is where a finger finds what a key does.
@@ -46,7 +56,7 @@ const TAKE =
  * `Take` as well: the phone draws its own copy menu over a selection and its
  * handles under it, which is where the mouse's button floats.
  */
-const TOUCH = "min-h-11 rounded border border-k-muted px-3 font-mono text-k-ink text-xs";
+const TOUCH = "min-h-11 rounded border border-k-muted px-3 font-sans text-k-ink text-xs";
 
 interface BookPaneProps {
   /** The note this reads beside. The vault answers which file sits with it. */
@@ -360,7 +370,8 @@ export function BookPane({
           <NoteColumn blocks={blocks} onSeek={(quote) => setPicked({ quote })} />
         )}
       </div>
-      <footer className={`${STATUS} flex items-center gap-3`}>
+      {/* Not `STATUS`: its 11 px is the overlays' size, and the book's labels are 12. */}
+      <footer className="flex items-center gap-3 border-t border-k-rule px-3 py-1 font-sans text-k-12 text-k-muted">
         <span className="min-w-0 flex-1 truncate">{chapter?.label ?? ""}</span>
         <span className="shrink-0">{percent === null ? "" : `${percent}% of the book`}</span>
         {coarse && (

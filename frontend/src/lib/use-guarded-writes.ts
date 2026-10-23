@@ -10,7 +10,7 @@ import {
 import { type BookBeside, ChangedOnDisk, type Mention, saveNote, updateNote } from "@/lib/api";
 import { heldText } from "@/lib/held-text";
 import { addHighlight, type Passage } from "@/lib/highlight";
-import { quoteParagraphs } from "@/lib/html-take";
+import { escapedParagraphs } from "@/lib/html-take";
 import { linkMention, mentionLinkText } from "@/lib/mention-link";
 import { noteBase } from "@/lib/note-base";
 import { readField, setField } from "@/lib/note-frontmatter";
@@ -215,8 +215,8 @@ export function useGuardedWrites({
         // stand as a heading on the anchor line.
         const escaped: Passage = {
           ...passage,
-          text: quoteParagraphs(passage.text).join("\n"),
-          chapter: quoteParagraphs(passage.chapter).join(" "),
+          text: escapedParagraphs(passage.text).join("\n"),
+          chapter: escapedParagraphs(passage.chapter).join(" "),
         };
         // Whether a read got as far as the change, which is what tells the two
         // failures apart: `updateNote` rejects for either.

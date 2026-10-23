@@ -1,6 +1,6 @@
 import { type RefObject, useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import type { BookBeside } from "@/lib/api";
-import { findQuotes, holdsQuote } from "@/lib/find-quote";
+import { findWritten, holdsWritten } from "@/lib/find-quote";
 import { type FoliateView, pdfLayer } from "@/lib/foliate-view";
 import { PDFJS_BASE } from "@/lib/pdf-view";
 
@@ -90,7 +90,7 @@ async function pdfPageHolding(
       if (!keep()) return -1;
       const content = await (await opened.getPage(page)).getTextContent();
       const text = content.items.map((item) => item.str ?? "").join("");
-      if (holdsQuote(text, quote)) return page - 1;
+      if (holdsWritten(text, quote)) return page - 1;
     }
     return -1;
   } finally {
@@ -192,7 +192,7 @@ export function useBookSeek(o: {
           // document was being built. What this does not buy is an order on two
           // `goTo` calls already in flight, which the spec names and refuses.
           if (!mine()) return;
-          const [range] = findQuotes(doc, [quote]);
+          const [range] = findWritten(doc, [quote]);
           if (range) {
             wanted.current = null;
             void view.goTo(view.getCFI(index, range));

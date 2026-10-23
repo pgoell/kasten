@@ -107,4 +107,23 @@ describe("a book's highlight, written", () => {
       notice: ["The highlight was not written"],
     });
   });
+
+  it("writes a passage over the page cap whole", async () => {
+    const written = writing(BASE);
+    const { take } = setup();
+    const long = "x".repeat(2100);
+
+    await take(NOTE, { text: long, chapter: "One" });
+
+    expect(written[0]?.split("\n")[4]).toBe(`> ${long}`);
+  });
+
+  it("writes a tab between two table cells as a space", async () => {
+    const written = writing(BASE);
+    const { take } = setup();
+
+    await take(NOTE, { text: "cell one\tcell two", chapter: "One" });
+
+    expect(written[0]?.split("\n")[4]).toBe("> cell one cell two");
+  });
 });

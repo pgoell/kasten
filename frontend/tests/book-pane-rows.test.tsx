@@ -69,7 +69,7 @@ describe("the book pane's column rows", () => {
     FakeView.sections = sectionsOf([PASSAGE]);
     const pane = draw({ held: noteHolding(PASSAGE) });
     await waitFor(() => expect(lastView().started).toBe(true));
-    widen(pane.wrapper(), 1280);
+    widen(pane.wrapper(), 1303);
 
     const contents = within(pane.container).queryByRole("navigation", { name: "Book contents" });
     const taken = within(pane.container).queryByRole("region", { name: "Taken" });

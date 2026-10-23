@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Overlayer } from "foliate-js/overlayer.js";
 import { type RefObject, useCallback, useEffect, useMemo, useRef } from "react";
 import { fetchNote } from "@/lib/api";
-import { findQuotes } from "@/lib/find-quote";
+import { findWritten } from "@/lib/find-quote";
 import { type FoliateOverlayer, type FoliateView, pdfLayer } from "@/lib/foliate-view";
 import { type HighlightBlock, highlightBlocks } from "@/lib/highlight";
 import { onThemeChange } from "@/lib/theme";
@@ -208,9 +208,9 @@ export function useBookHighlights(
         // this pane's to point at the page.
         if (overlayer !== entry.overlayer) aimOverlay(overlayer, entry.doc);
 
-        const found = findQuotes(
+        const found = findWritten(
           entry.doc,
-          blocks.map((block) => block.quote),
+          blocks.map((block) => block.raw),
         );
         for (const [at, range] of found.entries()) {
           const block = blocks[at];

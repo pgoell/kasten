@@ -97,11 +97,13 @@ export function NoteColumn({ blocks, onSeek }: NoteColumnProps) {
         {blocks.length === 0 ? (
           <p className="px-3 py-2 font-sans text-k-13 text-k-muted">Nothing taken yet</p>
         ) : (
-          blocks.map((block) => (
+          blocks.map((block, index) => (
             <button
-              key={block.id}
+              // The id alone repeats when a block is copied by hand in the note, so the place is in the key too.
+              // biome-ignore lint/suspicious/noArrayIndexKey: the place in the note is what tells two copies of one id apart; the list is rebuilt from the note whenever it changes.
+              key={`${index}-${block.id}`}
               type="button"
-              onClick={() => onSeek(block.quote)}
+              onClick={() => onSeek(block.raw)}
               className={`${ROW} px-3 py-2`}
             >
               <span className="line-clamp-3 font-serif text-k-15 text-k-ink">
