@@ -320,7 +320,6 @@ async function sheetPanel(host: HTMLElement): Promise<HTMLElement> {
 
 /** Takes the picture, and asks the width back so a run proves its size. */
 async function picture(host: HTMLElement, name: string, size: Size): Promise<void> {
-  await document.fonts.ready;
   expect(await shot(host, name)).toBe(size.width);
 }
 

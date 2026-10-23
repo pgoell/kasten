@@ -182,10 +182,37 @@ function beside(
   return { first: framed(first), second: framed(second) };
 }
 
-/** A finger put down at `x`, `y` in the page and lifted again. */
-async function tapAt([x, y]: [number, number]): Promise<void> {
-  await cdp().send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x, y }] });
-  await cdp().send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+/**
+ * The times for the taps of one gesture, in seconds since the epoch as the
+ * protocol takes them, 150 milliseconds apart.
+ */
+function stamps(): () => number {
+  let next = Date.now() / 1000;
+  return () => {
+    const stamp = next;
+    next += 0.15;
+    return stamp;
+  };
+}
+
+/**
+ * A finger put down at `x`, `y` in the page and lifted again, both events
+ * stamped by the browser's clock. Chrome counts a tap as a repeat within about
+ * 300 milliseconds of the one before by the events' own times. The round trips
+ * between taps on a loaded CI runner passed that, so the stamps carry the gap
+ * instead (#879).
+ */
+async function tapAt([x, y]: [number, number], stamp: number): Promise<void> {
+  await cdp().send("Input.dispatchTouchEvent", {
+    type: "touchStart",
+    touchPoints: [{ x, y }],
+    timestamp: stamp,
+  });
+  await cdp().send("Input.dispatchTouchEvent", {
+    type: "touchEnd",
+    touchPoints: [],
+    timestamp: stamp + 0.05,
+  });
 }
 
 /** A left button pressed and let go at `x`, `y`, with ctrl as 2, as click `count`. */
@@ -256,9 +283,10 @@ describe("a tap or a press on a link right after one beside it (#572)", () => {
       const details = clicks(at);
       const { first, second } = beside(at, image);
 
-      await tapAt(first);
+      const next = stamps();
+      await tapAt(first, next());
       await firstLanded(at, details, image, PICTURE.indexOf(LINKED));
-      await tapAt(second);
+      await tapAt(second, next());
       await allLanded(details, [1, 2]);
       expect(open).toHaveBeenCalledExactlyOnceWith(SITE, "_blank", "noopener");
     },
@@ -273,9 +301,10 @@ describe("a tap or a press on a link right after one beside it (#572)", () => {
       const details = clicks(at);
       const { first, second } = beside(at, link);
 
-      await tapAt(first);
+      const next = stamps();
+      await tapAt(first, next());
       await firstLanded(at, details, block, CELLS[part].indexOf("|"));
-      await tapAt(second);
+      await tapAt(second, next());
       await allLanded(details, [1, 2]);
       expect.soft(block.isConnected, "the table stays drawn").toBe(true);
       expect(open).toHaveBeenCalledExactlyOnceWith(SITE, "_blank", "noopener");
@@ -336,8 +365,9 @@ describe("a tap or a press on a link right after one beside it (#572)", () => {
       const details = clicks(at);
 
       const point = on(image);
-      await tapAt(point);
-      await tapAt(point);
+      const next = stamps();
+      await tapAt(point, next());
+      await tapAt(point, next());
       await allLanded(details, [1, 2]);
       expect(open).toHaveBeenCalledExactlyOnceWith(SITE, "_blank", "noopener");
     },
@@ -352,7 +382,8 @@ describe("a tap or a press on a link right after one beside it (#572)", () => {
       const details = clicks(at);
 
       const point = on(at.dom.querySelector("img.cm-image") as Element);
-      for (let tap = 0; tap < 3; tap++) await tapAt(point);
+      const next = stamps();
+      for (let tap = 0; tap < 3; tap++) await tapAt(point, next());
       await allLanded(details, [1, 2, 3]);
       expect(open).toHaveBeenCalledExactlyOnceWith(SITE, "_blank", "noopener");
     },
@@ -367,7 +398,8 @@ describe("a tap or a press on a link right after one beside it (#572)", () => {
       const details = clicks(at);
 
       const point = on(link);
-      for (let tap = 0; tap < 3; tap++) await tapAt(point);
+      const next = stamps();
+      for (let tap = 0; tap < 3; tap++) await tapAt(point, next());
       await allLanded(details, [1, 2, 3]);
       expect.soft(block.isConnected, "the table stays drawn").toBe(true);
       expect(open).toHaveBeenCalledExactlyOnceWith(SITE, "_blank", "noopener");
@@ -396,7 +428,8 @@ describe("a tap or a press on a link right after one beside it (#572)", () => {
         "the first point on the link",
       ).toBe(true);
 
-      await tapAt(framed(first));
+      const next = stamps();
+      await tapAt(framed(first), next());
       await expect.poll(() => details.length, { message: "the first click handled" }).toBe(1);
       expect(open, "the first link followed").toHaveBeenCalledExactlyOnceWith(
         other,
@@ -409,7 +442,7 @@ describe("a tap or a press on a link right after one beside it (#572)", () => {
       );
       const second: [number, number] = [x, image.getBoundingClientRect().top + 1];
       expect(document.elementFromPoint(...second), "the second point on the picture").toBe(image);
-      await tapAt(framed(second));
+      await tapAt(framed(second), next());
       await allLanded(details, [1, 2]);
       expect(open.mock.calls).toEqual([
         [other, "_blank", "noopener"],

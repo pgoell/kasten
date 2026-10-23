@@ -19,6 +19,7 @@ import { addTab, emptyLayout, goToTab, type Layout, splitFocused } from "@/lib/p
 import {
   DESKTOP,
   leader,
+  type Mounted,
   mount,
   need,
   nextFrame,
@@ -442,40 +443,43 @@ it("R20 at 390 touch three short tabs are all drawn, and a tab that is not activ
 }, 60_000);
 
 it("A14 the strip's entrance plays once", async () => {
-  // The page is the same one the earlier tests mounted, so the entrance is spent
-  // unless this test asks for a first load again.
+  // The earlier tests spent the entrance on this page.
   resetStripEntrance();
-  // Not mountTabs: its font wait could outlast the 240 ms entrance on a cold page.
-  const mounted = await mount(DESKTOP, "light", "/", "[role='tablist']", {
-    [FINE_KEY]: JSON.stringify({ layout: twoTabs(), treeOpen: false }),
-  });
+  // Not mountTabs: it waits for the entrance to end. Counting the strip's own k-enter events
+  // from before the mount means no wait (font, note text) can let it end unseen (#868).
+  const entrance: { type: string; target: Element }[] = [];
+  const record = (event: Event) => {
+    if ((event as AnimationEvent).animationName !== "k-enter") return;
+    entrance.push({ type: event.type, target: event.target as Element });
+  };
+  document.addEventListener("animationstart", record, true);
+  document.addEventListener("animationend", record, true);
+  let mounted: Mounted | undefined;
   try {
+    mounted = await mount(DESKTOP, "light", "/", "[role='tablist']", {
+      [FINE_KEY]: JSON.stringify({ layout: twoTabs(), treeOpen: false }),
+    });
     const { host } = mounted;
-    await waitFor(() => expect(visibleEditor(host).textContent).toContain("paragraph"), PATIENCE);
-    const strip = stripOf(host);
-    // The entrance runs on the first load: the k-enter animation is on the strip now.
-    const running = () =>
-      strip
-        .getAnimations({ subtree: true })
-        .filter(
-          (animation) =>
-            animation.playState === "running" &&
-            (animation as CSSAnimation).animationName === "k-enter",
-        );
-    expect(running().length).toBeGreaterThan(0);
-    await expect.poll(() => running().length, PATIENCE).toBe(0);
+    // Only events on the strip count: the todo, search and review rows play k-enter too.
+    const on = (type: string) =>
+      entrance.filter((event) => event.type === type && stripOf(host).contains(event.target));
+    await expect.poll(() => on("animationend").length, PATIENCE).toBe(1);
+    expect(on("animationstart")).toHaveLength(1);
 
+    await waitFor(() => expect(visibleEditor(host).textContent).toContain("paragraph"), PATIENCE);
     // A tab switch and a new tab do not play it again.
     fireEvent.click(need(wrappers(host)[1]?.querySelector("[role='tab']"), "second tab"));
     await nextFrame();
-    expect(running()).toHaveLength(0);
+    expect(on("animationstart")).toHaveLength(1);
     await waitFor(() => expect(visibleEditor(host).textContent).toContain("paragraph"), PATIENCE);
 
     leader(host, [" ", "c", "t"]);
     await waitFor(() => expect(wrappers(host)).toHaveLength(3), PATIENCE);
     await nextFrame();
-    expect(running()).toHaveLength(0);
+    expect(on("animationstart")).toHaveLength(1);
   } finally {
-    await unmount(mounted);
+    document.removeEventListener("animationstart", record, true);
+    document.removeEventListener("animationend", record, true);
+    if (mounted) await unmount(mounted);
   }
 }, 60_000);

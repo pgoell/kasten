@@ -223,8 +223,6 @@ async function draw(
       );
     });
     await ready(host, size);
-    // Each face is read in once it loads, so a picture never shows the fallback.
-    await document.fonts.ready;
     return await shot(host, name);
   } finally {
     await act(async () => root.unmount());

@@ -144,9 +144,14 @@ export interface Mounted {
 /** Whether this test changed the emulated media, so the afterEach knows to put it back. */
 let emulated = false;
 
+/** Two animation frames: the first lays out the last change, the second paints it. */
+export const nextFrame = () =>
+  new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+
 /**
  * Mounts the route at one size, in one theme, with vim on, and waits for the
- * `ready` selector. The note is opened by `?note=` and the empty pane by `/`.
+ * `ready` selector, then for the web font. The note is opened by `?note=` and
+ * the empty pane by `/`.
  */
 export async function mount(
   size: Size,
@@ -195,7 +200,19 @@ export async function mount(
     );
   });
   await waitFor(() => expect(host.querySelector(ready)).not.toBeNull(), PATIENCE);
+  await fontsIn();
   return { host, root, stop: startPress() };
+}
+
+/**
+ * The fontsource faces swap in after the first layout, and text that wraps or
+ * measures by width re-lays the frame after (#866). A face loads only once text
+ * asks for it, so a caller whose text arrives later waits again after it.
+ */
+export async function fontsIn() {
+  await document.fonts.ready;
+  await nextFrame();
+  await nextFrame();
 }
 
 /** The reader on Reader.md, with its text in the editor. */
@@ -210,6 +227,7 @@ export async function mountNote(size: Size, theme: Theme): Promise<Mounted> {
     () => expect(visibleEditor(mounted.host).textContent).toContain("paragraph"),
     PATIENCE,
   );
+  await fontsIn();
   return mounted;
 }
 
@@ -288,10 +306,6 @@ export async function closeTree(host: HTMLElement) {
   );
 }
 
-/** Two animation frames: the first lays out the last change, the second paints it. */
-export const nextFrame = () =>
-  new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-
 /** A CSS value as the browser resolves it, read off a probe element, so a token compares as a colour. */
 export function resolved(property: "backgroundColor" | "color", value: string): string {
   const probe = document.body.appendChild(document.createElement("div"));
@@ -303,7 +317,6 @@ export function resolved(property: "backgroundColor" | "color", value: string): 
 
 /** Takes the picture, and asks the width back so a run proves its size. */
 export async function picture(host: HTMLElement, name: string, size: Size): Promise<void> {
-  await document.fonts.ready;
   expect(await shot(host, name)).toBe(size.width);
 }
 

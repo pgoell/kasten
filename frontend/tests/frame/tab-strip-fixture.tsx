@@ -13,10 +13,10 @@ import { openInFocused } from "@/lib/pane-contents";
 import { addTab, emptyLayout, goToTab, type Layout } from "@/lib/panes";
 import { COARSE, NARROW, stubMatchMedia } from "../match-media";
 import {
+  fontsIn,
   type Mounted,
   mount,
   need,
-  nextFrame,
   PATIENCE,
   READER,
   type Size,
@@ -85,15 +85,10 @@ export async function mountTabs(
     () => expect(visibleEditor(mounted.host).textContent).toContain("paragraph"),
     PATIENCE,
   );
-  // The tabs change width when the web font swaps in for the fallback, and the
-  // fold and underline re-measure through a ResizeObserver the frame after. A
-  // caller that reads the strip's geometry at once would read it before that
-  // settles, so the wait covers both (#865). On a first load the strip's entrance
-  // also slides it 6 px for 240 ms, and a rect read during that carries a fraction,
-  // so the wait runs until no entrance animation is left on the strip.
-  await document.fonts.ready;
-  await nextFrame();
-  await nextFrame();
+  // The note's text asks for its own face, so the font wait runs again (#866). On
+  // a first load the strip's entrance slides it 6 px for 240 ms, and a rect read
+  // during that carries a fraction, so this waits until no entrance is left.
+  await fontsIn();
   await expect
     .poll(
       () =>

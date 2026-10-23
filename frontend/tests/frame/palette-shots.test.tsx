@@ -197,8 +197,6 @@ async function draw(name: string, size: Size, palette: string): Promise<Picture>
       () => expect(host.querySelector(".cm-content")?.textContent).toContain("highlight"),
       PATIENCE,
     );
-    // Each face is read in once it loads, so a picture never shows the fallback.
-    await document.fonts.ready;
     const width = await shot(host, name);
     return { width, ...paint(host) };
   } finally {

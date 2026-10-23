@@ -13,6 +13,7 @@ import { userEvent } from "vitest/browser";
 import {
   closeTree,
   DESKTOP,
+  fontsIn,
   leader,
   mountNote,
   need,
@@ -169,6 +170,13 @@ it("reader margins stay in view while the note scrolls", async () => {
 
     // The margin's graph and lists are asked only once the closed tree makes the
     // pane wide (#781), so they arrive after it; measured before, the margin grows.
+    // The graph's answer can land after two quiet frames under load, so wait for
+    // its rows first: the loop would otherwise settle on the margin before them.
+    await waitFor(() => {
+      expect(links.textContent).toContain("Tokens");
+      expect(links.textContent).toContain("Redesign");
+    }, PATIENCE);
+    await fontsIn();
     // Settled once two frames in a row leave its height alone.
     let settled = -1;
     while (links.getBoundingClientRect().height !== settled) {
