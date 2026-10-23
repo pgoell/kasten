@@ -1,4 +1,4 @@
-import { findWritten } from "@/lib/find-quote";
+import { findWritten, holdsWritten } from "@/lib/find-quote";
 import { highlightBlocks } from "@/lib/highlight";
 import { quoteParagraphs } from "@/lib/html-take";
 import { documentOf } from "./foliate-fake";
@@ -12,9 +12,10 @@ function blockOf(note: string) {
 
 describe("a highlight whose quote the book holds as written", () => {
   it("is still found when it was written raw, before the escape existed", () => {
-    // The book reads `match a\.b`, and the note holds the same words, unescaped.
-    const note = "## Highlights\n\n> match a\\.b\n\nChapter ^hl-abcdef\n";
-    const doc = documentOf("match a\\.b");
+    // The book holds `\[x\]` literally. The note holds the same words raw, which
+    // read back become `[x]`, a form the book does not hold: only the raw form matches.
+    const note = "## Highlights\n\n> see \\[x\\] here\n\nChapter ^hl-abcdef\n";
+    const doc = documentOf("see \\[x\\] here");
 
     expect(findWritten(doc, [blockOf(note).raw])[0]).not.toBeNull();
   });
@@ -25,5 +26,9 @@ describe("a highlight whose quote the book holds as written", () => {
     const doc = documentOf("match a\\.b");
 
     expect(findWritten(doc, [blockOf(note).raw])[0]).not.toBeNull();
+  });
+
+  it("is still held on a pdf page as written, which the seek asks", () => {
+    expect(holdsWritten("see \\[x\\] here", ["see \\[x\\] here"])).toBe(true);
   });
 });
