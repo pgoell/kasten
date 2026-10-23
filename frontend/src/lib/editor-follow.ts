@@ -4,9 +4,16 @@ import { EditorView } from "@codemirror/view";
 import type { SyntaxNode } from "@lezer/common";
 import { type CM5EditorInterface, Vim } from "@replit/codemirror-vim";
 import { highlightAt, mayBeHighlightLine } from "@/lib/highlight";
-import { type FileLink, fileLinkAt, type UrlLink, urlLinkAt } from "@/lib/link-reference";
+import {
+  type FileLink,
+  fileLinkAt,
+  resolveFrom,
+  type UrlLink,
+  urlLinkAt,
+} from "@/lib/link-reference";
 import { noteSectionOf } from "@/lib/note-section";
 import { NOTE, repeats, watchPresses } from "@/lib/presses";
+import { notePath } from "@/lib/todo-commands";
 import { splitTarget, wikiLinkAt } from "@/lib/wikilink";
 
 /**
@@ -69,9 +76,17 @@ function followLink(view: EditorView, target: string) {
   });
 }
 
-/** Open the file a markdown link names, the way a wikilink to it opens. */
+/**
+ * Open the file a markdown link names, the way a wikilink to it opens.
+ *
+ * The address is read from the folder of this note, so a note with no path
+ * (the empty pane's) and an address that climbs above the vault follow nothing.
+ */
 function followFile(view: EditorView, file: FileLink): void {
-  view.state.facet(followHandler)?.(file.path, { path: file.path, heading: file.heading });
+  const note = view.state.facet(notePath);
+  const path = note === undefined ? null : resolveFrom(note, file.path);
+  if (path === null) return;
+  view.state.facet(followHandler)?.(path, { path, heading: file.heading });
 }
 
 /**

@@ -19,13 +19,13 @@ const TAKEN = "kasten-taken";
  * The file name goes through the same alias escape a heading does, so a name
  * with a bracket or a bar in it cannot close the link. The path is Kasten's own.
  */
-export function pdfLink(path: string, page: number): string {
-  return fileLink(path, `page=${page}`, `${aliasOf(fileOf(path))}, page ${page}`);
+export function pdfLink(path: string, page: number, from: string): string {
+  return fileLink(path, `page=${page}`, `${aliasOf(fileOf(path))}, page ${page}`, from);
 }
 
 /** The dump paragraph for a PDF passage: the text quoted, then the link to its page. */
-export function pdfQuote(path: string, page: number, text: string): string {
-  return quoteBlock(text, pdfLink(path, page));
+export function pdfQuote(path: string, page: number, text: string, from: string): string {
+  return quoteBlock(text, pdfLink(path, page, from));
 }
 
 /**

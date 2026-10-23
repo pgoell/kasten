@@ -24,7 +24,7 @@ import {
 import { type Layout, tabPanes } from "@/lib/panes";
 import { type Period, periodicNote } from "@/lib/periodic";
 import type { Listings } from "@/lib/use-listings";
-import { namesAFile, pdfPage, resolveIn, splitTarget, wikiLinkPath } from "@/lib/wikilink";
+import { namesAFile, pdfPage, splitTarget, wikiLinkPath } from "@/lib/wikilink";
 
 export type NoteOpening = ReturnType<typeof useNoteOpening>;
 
@@ -229,11 +229,11 @@ export function useNoteOpening({
         if (path.toLowerCase().endsWith(".pdf")) openPdfInPane(path, pdfPage(heading));
         else window.open(`/api/assets/${encodePath(path)}`, "_blank");
       };
-      // A markdown link has split its path and heading already, so there is no
-      // `splitTarget` to do. The path is resolved as a wikilink's name is, so a
-      // bare file name finds the vault's file of that name.
+      // A markdown link has split its path and resolved it from its note's folder
+      // already, so the path opens as it is: no `splitTarget`, and no lookup of a
+      // bare name anywhere in the vault.
       if (file !== undefined) {
-        openFile(resolveIn(file.path, linkable ?? []) ?? file.path, file.heading);
+        openFile(file.path, file.heading);
         return;
       }
       const { name, heading } = splitTarget(target);

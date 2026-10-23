@@ -37,8 +37,8 @@ vi.mock("@/lib/outbox", async (importOriginal) => {
 
 const PATH = "30 Research/report.pdf";
 const WORDS = "Two words here.";
-const QUOTE = pdfQuote(PATH, 2, WORDS);
 const DAILY = periodicNote("daily", new Date()).path;
+const QUOTE = pdfQuote(PATH, 2, WORDS, DAILY);
 const NOTE = `## Dump\n\n${QUOTE}\n`;
 /** Where the viewer's highlight keeps the take's ranges, by the name the stylesheet paints. */
 const TAKEN = "kasten-taken";
@@ -399,7 +399,7 @@ describe("taking a passage out of a pdf", () => {
     gate.hold = new Promise<void>((resolve) => {
       release = resolve;
     });
-    fetchNote.mockResolvedValue(`## Dump\n\n${pdfQuote(PATH, 3, "Three.")}\n`);
+    fetchNote.mockResolvedValue(`## Dump\n\n${pdfQuote(PATH, 3, "Three.", DAILY)}\n`);
     saveNote.mockResolvedValue({ path: DAILY, content: "" });
     render(<Pdf />);
 

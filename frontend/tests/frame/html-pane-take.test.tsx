@@ -10,6 +10,7 @@ import "./html-take-api";
 import { commands as browser, page, userEvent } from "vitest/browser";
 import { takenQuote } from "@/lib/html-take";
 import { noteName } from "@/lib/note-path";
+import { periodicNote } from "@/lib/periodic";
 import { toggleTheme } from "@/lib/theme";
 import {
   api,
@@ -85,7 +86,7 @@ it("y in the page takes the passage into today's dump with a link to the story",
 
   await expect.poll(() => api.dumps.length).toBe(1);
   const passage = { text: text as string, heading: "Second story", anchor: "2026-10-07-evals-02" };
-  expect(api.dumps[0]).toBe(takenQuote(NEWS_PATH, passage));
+  expect(api.dumps[0]).toBe(takenQuote(NEWS_PATH, passage, periodicNote("daily", new Date()).path));
   expect(api.dumps[0]).toContain(`[[${NEWS_PATH}#2026-10-07-evals-02|Second story]]`);
 });
 
@@ -157,7 +158,13 @@ it("a plain page with only element ids takes its anchor from the nearest id", as
   await userEvent.keyboard("y");
 
   await expect.poll(() => api.dumps.length).toBe(1);
-  expect(api.dumps[0]).toBe(takenQuote(PLAIN_PATH, { text: "Alpha", heading: "", anchor: "line" }));
+  expect(api.dumps[0]).toBe(
+    takenQuote(
+      PLAIN_PATH,
+      { text: "Alpha", heading: "", anchor: "line" },
+      periodicNote("daily", new Date()).path,
+    ),
+  );
   expect(api.dumps[0]).toContain(`[[${PLAIN_PATH}#line|${PLAIN_PATH}]]`);
 });
 

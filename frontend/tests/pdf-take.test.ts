@@ -22,50 +22,65 @@ it("a block of two paragraphs quotes them with a lone > between, and the link la
 });
 
 it("a pdf link names the page and the file", () => {
-  expect(pdfLink(PATH, 2)).toBe("[[30 Research/report.pdf#page=2|report.pdf, page 2]]");
+  expect(pdfLink(PATH, 2, "00 Daily/2026-10-23.md")).toBe(
+    "[[30 Research/report.pdf#page=2|report.pdf, page 2]]",
+  );
 });
 
 it("a file name with signs in it keeps them out of the alias", () => {
   // A name with `=`, `*`, `_` and `$` is legal in a vault and is not a link
   // character, so the alias drops them the way a heading's alias drops them.
-  expect(pdfLink("30 Research/Q1 = 2*3_$.pdf", 4)).toBe(
+  expect(pdfLink("30 Research/Q1 = 2*3_$.pdf", 4, "00 Daily/2026-10-23.md")).toBe(
     "[[30 Research/Q1 = 2*3_$.pdf#page=4|Q1 23.pdf, page 4]]",
   );
 });
 
 it("a path with no bracket, bar or hash writes the same wikilink as before", () => {
-  expect(pageLink(PATH, { text: "x", heading: "Evals", anchor: "s1" })).toBe(
+  const from = "00 Daily/2026-10-23.md";
+  expect(pageLink(PATH, { text: "x", heading: "Evals", anchor: "s1" }, from)).toBe(
     "[[30 Research/report.pdf#s1|Evals]]",
   );
-  expect(pdfLink(PATH, 2)).toBe("[[30 Research/report.pdf#page=2|report.pdf, page 2]]");
+  expect(pdfLink(PATH, 2, from)).toBe("[[30 Research/report.pdf#page=2|report.pdf, page 2]]");
 });
 
 it("a pdf path with ]] in its name links with an encoded address", () => {
-  expect(pdfLink("30 Research/a]]b.pdf", 3)).toBe(
-    "[ab.pdf, page 3](30%20Research/a%5D%5Db.pdf#page=3)",
+  expect(pdfLink("30 Research/a]]b.pdf", 3, "00 Daily/2026-10-23.md")).toBe(
+    "[ab.pdf, page 3](../30%20Research/a%5D%5Db.pdf#page=3)",
   );
 });
 
 it("a pdf path with a bar in its name links with an encoded address", () => {
-  expect(pdfLink("30 Research/a|b.pdf", 3)).toBe(
-    "[ab.pdf, page 3](30%20Research/a%7Cb.pdf#page=3)",
+  expect(pdfLink("30 Research/a|b.pdf", 3, "00 Daily/2026-10-23.md")).toBe(
+    "[ab.pdf, page 3](../30%20Research/a%7Cb.pdf#page=3)",
   );
 });
 
 it("a pdf path with a hash in its name links with an encoded address", () => {
-  expect(pdfLink("30 Research/a#b.pdf", 3)).toBe(
-    "[ab.pdf, page 3](30%20Research/a%23b.pdf#page=3)",
+  expect(pdfLink("30 Research/a#b.pdf", 3, "00 Daily/2026-10-23.md")).toBe(
+    "[ab.pdf, page 3](../30%20Research/a%23b.pdf#page=3)",
   );
 });
 
 it("a pdf path with a bracket in its name links with an encoded address", () => {
-  expect(pdfLink("30 Research/a[b.pdf", 3)).toBe(
-    "[ab.pdf, page 3](30%20Research/a%5Bb.pdf#page=3)",
+  expect(pdfLink("30 Research/a[b.pdf", 3, "00 Daily/2026-10-23.md")).toBe(
+    "[ab.pdf, page 3](../30%20Research/a%5Bb.pdf#page=3)",
+  );
+});
+
+it("a long pdf name with a bar keeps its page in the alias", () => {
+  const name = `${"a".repeat(119)}|b.pdf`;
+  expect(pdfLink(`30 Research/${name}`, 3, "00 Daily/2026-10-23.md")).toBe(
+    `[${"a".repeat(119)}…, page 3](../30%20Research/${"a".repeat(119)}%7Cb.pdf#page=3)`,
   );
 });
 
 it("a pdf passage with markup, a fake heading and a fake todo stays quoted", () => {
-  const quote = pdfQuote(PATH, 2, "## Dump\n- [ ] x\n[[x]]\n![[x]]\n#tag\n---");
+  const quote = pdfQuote(
+    PATH,
+    2,
+    "## Dump\n- [ ] x\n[[x]]\n![[x]]\n#tag\n---",
+    "00 Daily/2026-10-23.md",
+  );
 
   expect(quote).toBe(
     [

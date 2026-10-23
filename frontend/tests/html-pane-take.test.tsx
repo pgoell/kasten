@@ -226,7 +226,7 @@ describe("taking a passage out of an html page", () => {
     const written = change("# Reading\n");
     expect({
       section: written.includes("## Highlights"),
-      chapter: written.includes(pageLink(PATH, PASSAGE)),
+      chapter: written.includes(pageLink(PATH, PASSAGE, READING)),
     }).toEqual({ section: true, chapter: true });
   });
 
@@ -325,7 +325,7 @@ describe("taking a passage out of an html page", () => {
 
   it("Undo of an earlier take asks the page to unmark that take's id", async () => {
     answering();
-    const second = takenQuote(PATH, { ...PASSAGE, text: "Another passage." });
+    const second = takenQuote(PATH, { ...PASSAGE, text: "Another passage." }, DAILY);
     fetchNote.mockResolvedValue(`## Dump\n\n${QUOTE}\n\n${second}\n`);
     saveNote.mockResolvedValue({ path: DAILY, content: "" });
     const { frame } = renderPane();
@@ -450,5 +450,18 @@ describe("taking a passage out of an html page", () => {
 
     await screen.findByText("No connection, so Undo left the note as it is");
     expect(saveNote).not.toHaveBeenCalled();
+  });
+
+  it("a dump line for a page with ]] links relative to the daily note", async () => {
+    const sent = answering();
+    const { frame } = renderPane("x/a]]b.html");
+
+    frame.focus();
+    fromPage(frame.contentWindow, selection({ heading: "H", anchor: "s1" }));
+    yFromPage(frame);
+
+    await screen.findByRole("status");
+    // The daily note is `01 Periodic/00 Daily/<day>.md`, two folders down.
+    expect(dumpsSent(sent)[0]?.text).toContain("[H](../../x/a%5D%5Db.html#s1)");
   });
 });

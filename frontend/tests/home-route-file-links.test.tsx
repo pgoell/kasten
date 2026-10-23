@@ -235,11 +235,14 @@ describe("following a link to a page of HTML", () => {
 
   it("opens a page a markdown link names at its anchor, a ] in its name and all (A3)", async () => {
     // The take writes this shape for a path a wikilink cannot hold.
+    // The note sits in a folder, so the address is read from there.
     fetchHtml.mockResolvedValue(["x/a]]b.html"]);
-    fetchNote.mockResolvedValue("[Heading](x/a%5D%5Db.html#s1)\n");
+    fetchFiles.mockResolvedValue(["00 Daily/d.md"]);
+    fetchNote.mockResolvedValue("[Heading](../x/a%5D%5Db.html#s1)\n");
     const app = await renderApp();
     await settle();
-    app.click(NOTE);
+    app.expand("00 Daily");
+    app.click("00 Daily/d.md");
     await settle();
     app.press("g");
     app.press("f");

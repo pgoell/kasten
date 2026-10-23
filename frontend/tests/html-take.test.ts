@@ -21,34 +21,46 @@ import { tagsOf } from "@/lib/tag-rule";
 const PATH = "01 Periodic/05 Newspaper/2026-10-07.html";
 
 /** A quote as the dump holds it, taken from a passage with two paragraphs. */
-const QUOTE = takenQuote(PATH, {
-  text: "A passage.\n\nSecond passage.",
-  heading: "Evals",
-  anchor: "2026-10-07-evals-02",
-});
+const QUOTE = takenQuote(
+  PATH,
+  {
+    text: "A passage.\n\nSecond passage.",
+    heading: "Evals",
+    anchor: "2026-10-07-evals-02",
+  },
+  "00 Daily/2026-10-23.md",
+);
 
 it("a passage writes its paragraphs and a link to the page", () => {
   expect(
-    takenQuote("01 Periodic/05 Newspaper/2026-10-07.html", {
-      text: "First para.\n\nSecond   para.",
-      heading: "Evals",
-      anchor: "2026-10-07-evals-02",
-    }),
+    takenQuote(
+      "01 Periodic/05 Newspaper/2026-10-07.html",
+      {
+        text: "First para.\n\nSecond   para.",
+        heading: "Evals",
+        anchor: "2026-10-07-evals-02",
+      },
+      "00 Daily/2026-10-23.md",
+    ),
   ).toBe(
     "> First para.\n>\n> Second para.\n>\n> [[01 Periodic/05 Newspaper/2026-10-07.html#2026-10-07-evals-02|Evals]]",
   );
 });
 
 it("a passage with no heading links with the file name", () => {
-  expect(pageLink(PATH, { text: "x", heading: "", anchor: "2026-10-07-evals-02" })).toBe(
-    "[[01 Periodic/05 Newspaper/2026-10-07.html#2026-10-07-evals-02|2026-10-07.html]]",
-  );
+  expect(
+    pageLink(
+      PATH,
+      { text: "x", heading: "", anchor: "2026-10-07-evals-02" },
+      "00 Daily/2026-10-23.md",
+    ),
+  ).toBe("[[01 Periodic/05 Newspaper/2026-10-07.html#2026-10-07-evals-02|2026-10-07.html]]");
 });
 
 it("a passage with no anchor links to the page alone", () => {
-  expect(pageLink(PATH, { text: "x", heading: "Evals", anchor: "" })).toBe(
-    "[[01 Periodic/05 Newspaper/2026-10-07.html|Evals]]",
-  );
+  expect(
+    pageLink(PATH, { text: "x", heading: "Evals", anchor: "" }, "00 Daily/2026-10-23.md"),
+  ).toBe("[[01 Periodic/05 Newspaper/2026-10-07.html|Evals]]");
 });
 
 it("a wikilink and an embed in the passage are escaped", () => {
@@ -58,7 +70,13 @@ it("a wikilink and an embed in the passage are escaped", () => {
 });
 
 it("a fake heading and a fake ## Dump stay inside the quote", () => {
-  expect(takenQuote(PATH, { text: "## Dump\n# Title", heading: "", anchor: "" })).toBe(
+  expect(
+    takenQuote(
+      PATH,
+      { text: "## Dump\n# Title", heading: "", anchor: "" },
+      "00 Daily/2026-10-23.md",
+    ),
+  ).toBe(
     "> &#35;&#35; Dump\n>\n> &#35; Title\n>\n> [[01 Periodic/05 Newspaper/2026-10-07.html|2026-10-07.html]]",
   );
 });
@@ -75,7 +93,13 @@ it("a todo line in the passage is not a todo", () => {
 });
 
 it("a frontmatter fence in the passage stays quoted", () => {
-  expect(takenQuote(PATH, { text: "---\ntitle: x\n---", heading: "Evals", anchor: "" })).toBe(
+  expect(
+    takenQuote(
+      PATH,
+      { text: "---\ntitle: x\n---", heading: "Evals", anchor: "" },
+      "00 Daily/2026-10-23.md",
+    ),
+  ).toBe(
     "> \\---\n>\n> title: x\n>\n> \\---\n>\n> [[01 Periodic/05 Newspaper/2026-10-07.html|Evals]]",
   );
 });
@@ -90,62 +114,77 @@ it("a tag in the passage is escaped", () => {
   expect(quoteParagraphs("#tag and x#y")).toEqual(["&#35;tag and x&#35;y"]);
   // Kasten's own tag reader, not a count of hashes: a backslash before the hash
   // would still read as a tag there, so the quote must hold no tag at all.
-  const quote = takenQuote(PATH, { text: "#tag and x#y #urgent", heading: "Evals", anchor: "" });
+  const quote = takenQuote(
+    PATH,
+    { text: "#tag and x#y #urgent", heading: "Evals", anchor: "" },
+    "00 Daily/2026-10-23.md",
+  );
   expect(quote.split("\n").flatMap((line) => tagsOf(line))).toEqual([]);
 });
 
 it("the heading cannot close the link", () => {
-  expect(pageLink(PATH, { text: "x", heading: "x]] [[evil|y", anchor: "a" })).toBe(
-    "[[01 Periodic/05 Newspaper/2026-10-07.html#a|x evily]]",
-  );
+  expect(
+    pageLink(PATH, { text: "x", heading: "x]] [[evil|y", anchor: "a" }, "00 Daily/2026-10-23.md"),
+  ).toBe("[[01 Periodic/05 Newspaper/2026-10-07.html#a|x evily]]");
 });
 
 it("the anchor keeps only safe characters", () => {
-  expect(pageLink(PATH, { text: "x", heading: "h", anchor: "a b#c]d-e_f.g:h" })).toBe(
-    "[[01 Periodic/05 Newspaper/2026-10-07.html#abcd-e_f.g:h|h]]",
-  );
+  expect(
+    pageLink(
+      PATH,
+      { text: "x", heading: "h", anchor: "a b#c]d-e_f.g:h" },
+      "00 Daily/2026-10-23.md",
+    ),
+  ).toBe("[[01 Periodic/05 Newspaper/2026-10-07.html#abcd-e_f.g:h|h]]");
 });
 
 it("a page path with ]] in its name links with an encoded address", () => {
-  expect(pageLink("x/a]]b.html", { text: "t", heading: "H", anchor: "s1" })).toBe(
-    "[H](x/a%5D%5Db.html#s1)",
+  const from = "00 Daily/2026-10-23.md";
+  expect(pageLink("x/a]]b.html", { text: "t", heading: "H", anchor: "s1" }, from)).toBe(
+    "[H](../x/a%5D%5Db.html#s1)",
   );
 });
 
 it("a taken quote from a page path with ]] ends with the encoded link, quoted", () => {
-  expect(takenQuote("x/a]]b.html", { text: "t", heading: "H", anchor: "s1" })).toBe(
-    "> t\n>\n> [H](x/a%5D%5Db.html#s1)",
+  const from = "00 Daily/2026-10-23.md";
+  expect(takenQuote("x/a]]b.html", { text: "t", heading: "H", anchor: "s1" }, from)).toBe(
+    "> t\n>\n> [H](../x/a%5D%5Db.html#s1)",
   );
 });
 
 it("a page path with a bar in its name links with an encoded address", () => {
-  expect(pageLink("x/a|b.html", { text: "t", heading: "H", anchor: "s1" })).toBe(
-    "[H](x/a%7Cb.html#s1)",
+  const from = "00 Daily/2026-10-23.md";
+  expect(pageLink("x/a|b.html", { text: "t", heading: "H", anchor: "s1" }, from)).toBe(
+    "[H](../x/a%7Cb.html#s1)",
   );
 });
 
 it("a page path with a hash in its name links with an encoded address", () => {
-  expect(pageLink("x/a#b.html", { text: "t", heading: "H", anchor: "s1" })).toBe(
-    "[H](x/a%23b.html#s1)",
+  const from = "00 Daily/2026-10-23.md";
+  expect(pageLink("x/a#b.html", { text: "t", heading: "H", anchor: "s1" }, from)).toBe(
+    "[H](../x/a%23b.html#s1)",
   );
 });
 
 it("a page path with a bracket in its name links with an encoded address", () => {
-  expect(pageLink("x/a[b.html", { text: "t", heading: "H", anchor: "s1" })).toBe(
-    "[H](x/a%5Bb.html#s1)",
+  const from = "00 Daily/2026-10-23.md";
+  expect(pageLink("x/a[b.html", { text: "t", heading: "H", anchor: "s1" }, from)).toBe(
+    "[H](../x/a%5Bb.html#s1)",
   );
 });
 
 it("a page with no heading and ]] in its file name gets an alias with no bracket", () => {
-  expect(pageLink("x/a]]b.html", { text: "t", heading: "", anchor: "s1" })).toBe(
-    "[ab.html](x/a%5D%5Db.html#s1)",
+  const from = "00 Daily/2026-10-23.md";
+  expect(pageLink("x/a]]b.html", { text: "t", heading: "", anchor: "s1" }, from)).toBe(
+    "[ab.html](../x/a%5D%5Db.html#s1)",
   );
 });
 
 it("a fallback path's space, parentheses and percent are encoded, and decode back", () => {
   const path = "x/a (b) 50%|c.html";
-  const link = pageLink(path, { text: "t", heading: "", anchor: "s1" });
-  expect(link).toBe("[a (b) 50c.html](x/a%20%28b%29%2050%25%7Cc.html#s1)");
+  const from = "00 Daily/2026-10-23.md";
+  const link = pageLink(path, { text: "t", heading: "", anchor: "s1" }, from);
+  expect(link).toBe("[a (b) 50c.html](../x/a%20%28b%29%2050%25%7Cc.html#s1)");
 
   const address = link.slice(link.indexOf("](") + 2, link.indexOf("#"));
   expect(
@@ -153,7 +192,14 @@ it("a fallback path's space, parentheses and percent are encoded, and decode bac
       .split("/")
       .map((segment) => decodeURIComponent(segment))
       .join("/"),
-  ).toBe(path);
+  ).toBe("../x/a (b) 50%|c.html");
+});
+
+it("a fallback link is written relative to the note it lands in", () => {
+  const passage = { text: "t", heading: "H", anchor: "s1" };
+  expect(pageLink("x/a]]b.html", passage, "x/n.md")).toBe("[H](a%5D%5Db.html#s1)");
+  expect(pageLink("x/a]]b.html", passage, "a/b/n.md")).toBe("[H](../../x/a%5D%5Db.html#s1)");
+  expect(pageLink("x/a]]b.html", passage, "d.md")).toBe("[H](x/a%5D%5Db.html#s1)");
 });
 
 it("the passage is capped at 2000 characters", () => {
@@ -168,18 +214,18 @@ it("the cap does not cut a character in half", () => {
 });
 
 it("the heading is capped at 120 characters", () => {
-  expect(pageLink(PATH, { text: "x", heading: "h".repeat(200), anchor: "" })).toBe(
-    `[[${PATH}|${"h".repeat(HEADING_CAP - 1)}…]]`,
-  );
+  expect(
+    pageLink(PATH, { text: "x", heading: "h".repeat(200), anchor: "" }, "00 Daily/2026-10-23.md"),
+  ).toBe(`[[${PATH}|${"h".repeat(HEADING_CAP - 1)}…]]`);
 });
 
 it("a heading cannot open an html comment", () => {
-  expect(pageLink(PATH, { text: "x", heading: "<!--", anchor: "" })).toBe(
+  expect(pageLink(PATH, { text: "x", heading: "<!--", anchor: "" }, "00 Daily/2026-10-23.md")).toBe(
     "[[01 Periodic/05 Newspaper/2026-10-07.html|--]]",
   );
-  expect(pageLink(PATH, { text: "x", heading: "x <!-- y -->", anchor: "" })).toBe(
-    "[[01 Periodic/05 Newspaper/2026-10-07.html|x -- y --]]",
-  );
+  expect(
+    pageLink(PATH, { text: "x", heading: "x <!-- y -->", anchor: "" }, "00 Daily/2026-10-23.md"),
+  ).toBe("[[01 Periodic/05 Newspaper/2026-10-07.html|x -- y --]]");
 });
 
 it("the passage is capped at 50 paragraphs", () => {
@@ -193,7 +239,9 @@ it("a lone surrogate is removed", () => {
   const lone = String.fromCharCode(0xd83d);
 
   expect(quoteParagraphs(`a${lone}b`)).toEqual(["ab"]);
-  expect(pageLink(PATH, { text: "x", heading: `x${lone}y`, anchor: "" })).toBe(`[[${PATH}|xy]]`);
+  expect(
+    pageLink(PATH, { text: "x", heading: `x${lone}y`, anchor: "" }, "00 Daily/2026-10-23.md"),
+  ).toBe(`[[${PATH}|xy]]`);
 });
 
 it("control characters are removed", () => {

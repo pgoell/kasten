@@ -147,6 +147,29 @@ export function fileLinkAt(node: SyntaxNode | null, doc: Source): FileLink | nul
   return null;
 }
 
+/**
+ * The vault path `relative` names from the folder of `note`, or null where it climbs above the root.
+ *
+ * A plain `[text](path)` is read from the folder the note sits in, as Obsidian
+ * and a folder's index read one, so `B/index.md` holding `[r.pdf](r.pdf)` means
+ * `B/r.pdf` and not a file of that name elsewhere. Both halves are joined and
+ * their `.` and `..` segments taken off, which is where a climb is caught.
+ */
+export function resolveFrom(note: string, relative: string): string | null {
+  const folders = note.split("/").slice(0, -1);
+  for (const segment of relative.split("/")) {
+    if (segment === "" || segment === ".") continue;
+    if (segment !== "..") {
+      folders.push(segment);
+    } else if (folders.length > 0) {
+      folders.pop();
+    } else {
+      return null;
+    }
+  }
+  return folders.join("/");
+}
+
 /** The definitions of the note `top` heads, read once per parse. */
 function definitions(top: SyntaxNode, doc: Source): Map<string, string> {
   const tree = top.tree;

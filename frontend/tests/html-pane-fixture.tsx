@@ -15,8 +15,8 @@ export const RECT = { left: 100, top: 100, right: 160, bottom: 120 };
 export const READING = "00 Notes/Reading.md";
 
 /** The dump the take writes, and the daily note's text with it in its `## Dump`. */
-export const QUOTE = takenQuote(PATH, PASSAGE);
 export const DAILY = periodicNote("daily", new Date()).path;
+export const QUOTE = takenQuote(PATH, PASSAGE, DAILY);
 export const NOTE = `## Dump\n\n${QUOTE}\n`;
 
 /** Drop the outbox's database, which only goes once the outbox has let go of it. */

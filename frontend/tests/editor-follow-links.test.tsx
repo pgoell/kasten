@@ -163,7 +163,11 @@ describe("Editor", () => {
     // The address the take writes for a path a wikilink cannot hold.
     const onFollow = vi.fn();
     const { container } = render(
-      <Editor initialDoc="[Heading](x/a%5D%5Db.html#s1) now" onFollow={onFollow} />,
+      <Editor
+        path="00 Daily/d.md"
+        initialDoc="[Heading](../x/a%5D%5Db.html#s1) now"
+        onFollow={onFollow}
+      />,
     );
     finishParsing(container);
     const content = container.querySelector(".cm-content") as HTMLElement;
@@ -177,7 +181,11 @@ describe("Editor", () => {
   it("opens the page a markdown link names on Enter, vim on (A3)", () => {
     const onFollow = vi.fn();
     const { container } = render(
-      <Editor initialDoc="[Heading](x/a%5D%5Db.html#s1) now" onFollow={onFollow} />,
+      <Editor
+        path="00 Daily/d.md"
+        initialDoc="[Heading](../x/a%5D%5Db.html#s1) now"
+        onFollow={onFollow}
+      />,
     );
     finishParsing(container);
     const content = container.querySelector(".cm-content") as HTMLElement;
@@ -191,7 +199,11 @@ describe("Editor", () => {
     const onFollow = vi.fn();
     const open = vi.spyOn(window, "open").mockReturnValue(null);
     const { container } = render(
-      <Editor initialDoc="see [Heading](x/a%5D%5Db.html#s1) now" onFollow={onFollow} />,
+      <Editor
+        path="00 Daily/d.md"
+        initialDoc="see [Heading](../x/a%5D%5Db.html#s1) now"
+        onFollow={onFollow}
+      />,
     );
     act(() => toggleVim());
 
@@ -206,7 +218,11 @@ describe("Editor", () => {
     const onFollow = vi.fn();
     const open = vi.spyOn(window, "open").mockReturnValue(null);
     const { container } = render(
-      <Editor initialDoc="see [Heading](x/a%5D%5Db.html#s1) now" onFollow={onFollow} />,
+      <Editor
+        path="00 Daily/d.md"
+        initialDoc="see [Heading](../x/a%5D%5Db.html#s1) now"
+        onFollow={onFollow}
+      />,
     );
     finishParsing(container);
     const link = container.querySelector(".cm-link") as HTMLElement;
@@ -224,7 +240,8 @@ describe("Editor", () => {
     const onOpenHighlight = vi.fn();
     const { container } = render(
       <Editor
-        initialDoc={`> ${PASSAGE}\n\n[Storage](x/a%5D%5Db.html#s1) ^hl-abc123`}
+        path="00 Daily/d.md"
+        initialDoc={`> ${PASSAGE}\n\n[Storage](../x/a%5D%5Db.html#s1) ^hl-abc123`}
         onFollow={onFollow}
         onOpenHighlight={onOpenHighlight}
       />,
@@ -241,6 +258,20 @@ describe("Editor", () => {
 
     expect(onFollow).toHaveBeenCalledWith("x/a]]b.html", { path: "x/a]]b.html", heading: "s1" });
     expect(onOpenHighlight).not.toHaveBeenCalled();
+  });
+
+  it("a link that climbs above the vault opens nothing", () => {
+    const onFollow = vi.fn();
+    const { container } = render(
+      <Editor path="d.md" initialDoc="[Heading](../x/a%5D%5Db.html#s1) now" onFollow={onFollow} />,
+    );
+    finishParsing(container);
+    const content = container.querySelector(".cm-content") as HTMLElement;
+
+    fireEvent.keyDown(content, { key: "g" });
+    fireEvent.keyDown(content, { key: "f" });
+
+    expect(onFollow).not.toHaveBeenCalled();
   });
 
   it("does not follow a markdown link to a web address on gf (I6)", () => {

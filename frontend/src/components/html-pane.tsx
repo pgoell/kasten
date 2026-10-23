@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { TakeButton } from "@/components/take-button-view";
 import { useDumpTake } from "@/components/use-dump-take";
-import { fileOf, type PagePassage, pageLink, takenQuote } from "@/lib/html-take";
+import { fileOf, type PagePassage, pageLink } from "@/lib/html-take";
 import type { EditorCommands } from "@/lib/key-bindings";
 import { heldModifier, leaderAction, leaderPrefix } from "@/lib/leader-keys";
 import { encodePath } from "@/lib/note-path";
@@ -179,9 +179,8 @@ export function HtmlPane({
 
     const { passage } = taken;
     const kept = await dump.take({
-      quote: takenQuote(path, passage),
       text: passage.text,
-      link: pageLink(path, passage),
+      linkIn: (note) => pageLink(path, passage, note),
       source: passage.heading === "" ? fileOf(path) : `${passage.heading}, ${fileOf(path)}`,
       top: low(taken.at),
     });

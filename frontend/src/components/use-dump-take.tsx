@@ -1,6 +1,7 @@
 import { type ReactNode, useCallback, useLayoutEffect, useRef, useState } from "react";
 import { TakeToast } from "@/components/take-toast";
 import { readClock } from "@/lib/clock";
+import { quoteBlock } from "@/lib/html-take";
 import { noteName } from "@/lib/note-path";
 // Renamed for the reason `use-prompts.tsx` renames it: the take is a dump, and
 // the page has no other `flush` to confuse it with.
@@ -11,12 +12,13 @@ import { periodicNote } from "@/lib/periodic";
 
 /** A passage held for a take, as the pane names it: the dump's text and where it came from. */
 export interface Taking {
-  /** The dump paragraph, escaped and linked, as `quoteBlock` writes it. */
-  quote: string;
-  /** What the reader selected, unformatted, for the toast and for a note's highlight. */
+  /** What the reader selected, unformatted: the dump's quote, the toast and a note's highlight. */
   text: string;
-  /** The link back to the passage's place, the chapter line of a highlight. */
-  link: string;
+  /**
+   * The link back to the passage's place, written relative to the note it lands in:
+   * the daily note for the dump, the chosen note for Put it in a note.
+   */
+  linkIn: (note: string) => string;
   /** The toast's source line: a heading, or the page's own name. */
   source: string;
   /** The passage sat in the lower half of its frame, so the toast goes to the top (#885). */
@@ -30,7 +32,7 @@ interface Toast {
   id: number;
   title: string;
   text: string;
-  link: string;
+  linkIn: (note: string) => string;
   source: string;
   top: boolean;
   undo?: Undo;
@@ -86,20 +88,21 @@ export function useDumpTake(o: {
 
   function show(title: string, taking: Taking, undo?: Undo) {
     toastId.current += 1;
-    const { text, link, source, top } = taking;
-    setToast({ id: toastId.current, title, text, link, source, top, undo });
+    const { text, linkIn, source, top } = taking;
+    setToast({ id: toastId.current, title, text, linkIn, source, top, undo });
   }
 
   async function take(taking: Taking): Promise<boolean> {
     const now = new Date();
     const daily = periodicNote("daily", now).path;
+    const quote = quoteBlock(taking.text, taking.linkIn(daily));
     marks.current += 1;
     const id = marks.current;
     // Read before the first await, so a forget() during the keep or the send shows.
     const started = generation.current;
     const moved = () => started !== generation.current;
 
-    const dump = await keep(taking.quote, readClock(now).date).then(
+    const dump = await keep(quote, readClock(now).date).then(
       (kept) => kept,
       (error: unknown) => {
         show(error instanceof Error ? error.message : "The take was not kept", taking);
@@ -121,7 +124,7 @@ export function useDumpTake(o: {
     const mine = waiting.find((each) => each.id === dump.id);
     if (mine === undefined) {
       // The daily note is read over the network, so the pane may move on while it is.
-      const undo = await undoFor(daily, taking.quote, id);
+      const undo = await undoFor(daily, quote, id);
       if (moved()) return true;
       show("Taken into today's dump", taking, undo);
     } else if (mine.refused !== undefined) {
@@ -153,7 +156,7 @@ export function useDumpTake(o: {
 
   /** Write the passage under `## Highlights` in a note the reader picked. The dump line stays where it is. */
   function putInto(id: number, notePath: string, taken: Toast) {
-    void writePassage(notePath, taken.text, taken.link).then(
+    void writePassage(notePath, taken.text, taken.linkIn(notePath)).then(
       () =>
         setToast((current) =>
           current?.id === id ? { ...current, title: `Put into ${noteName(notePath)}` } : current,

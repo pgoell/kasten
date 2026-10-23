@@ -12,7 +12,7 @@ import { TakeButton } from "@/components/take-button-view";
 import { useDumpTake } from "@/components/use-dump-take";
 import { fileOf } from "@/lib/html-take";
 import { type Anchor, low, placeFor } from "@/lib/page-selection";
-import { offsetsIn, oneLine, pdfLink, pdfQuote, rangeIn, takenHighlight } from "@/lib/pdf-take";
+import { offsetsIn, oneLine, pdfLink, rangeIn, takenHighlight } from "@/lib/pdf-take";
 import { usePressGuard } from "@/lib/take-button";
 import { useViewport } from "@/lib/use-viewport";
 
@@ -241,9 +241,8 @@ export function usePdfTake(o: {
     const parts = frame === null ? [] : partsOf(frame, taken.range);
     const started = generation.current;
     const kept = await dump.take({
-      quote: pdfQuote(path, taken.page, taken.text),
       text: taken.text,
-      link: pdfLink(path, taken.page),
+      linkIn: (note) => pdfLink(path, taken.page, note),
       source: `page ${taken.page}, ${fileOf(path)}`,
       top: low(taken.at),
       // Each take carries its own parts, so takes in flight cannot mix them.

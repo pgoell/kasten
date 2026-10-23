@@ -11,7 +11,6 @@ import {
   dumpsSent,
   fromPage,
   PATH,
-  READING,
   renderPane,
   selection,
   settled,
@@ -198,18 +197,21 @@ describe("a take out of an html page that moved on before it landed", () => {
 
   it("Put it in a note links a page whose path holds brackets with the brackets escaped", async () => {
     answering();
-    searchNotes.mockResolvedValue([{ path: READING, line: 1, text: "modified: 2026-10-20T10:00" }]);
-    updateNote.mockResolvedValue({ path: READING, content: "" });
+    // A note in another folder, so the link is written relative to it.
+    searchNotes.mockResolvedValue([
+      { path: "y/n.md", line: 1, text: "modified: 2026-10-20T10:00" },
+    ]);
+    updateNote.mockResolvedValue({ path: "y/n.md", content: "" });
     const { frame } = renderPane("x/a]]b.html");
 
     frame.focus();
     fromPage(frame.contentWindow, selection({ heading: "H", anchor: "s1" }));
     yFromPage(frame);
     fireEvent.click(await screen.findByRole("button", { name: "Put it in a note" }));
-    fireEvent.click(await screen.findByRole("button", { name: "Reading" }));
+    fireEvent.click(await screen.findByRole("button", { name: "n" }));
 
-    await screen.findByText("Put into Reading");
+    await screen.findByText("Put into n");
     const change = updateNote.mock.calls[0]?.[1] as (text: string) => string;
-    expect(change("# Reading\n")).toContain("[H](x/a%5D%5Db.html#s1)");
+    expect(change("# n\n")).toContain("[H](../x/a%5D%5Db.html#s1)");
   });
 });

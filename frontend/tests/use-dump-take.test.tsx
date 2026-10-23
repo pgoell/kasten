@@ -2,9 +2,10 @@ import "fake-indexeddb/auto";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type Taking, useDumpTake } from "@/components/use-dump-take";
 import { readClock } from "@/lib/clock";
+import { quoteBlock } from "@/lib/html-take";
 import { noteBase } from "@/lib/note-base";
 import { reset, waiting } from "@/lib/outbox";
-import { pdfLink, pdfQuote } from "@/lib/pdf-take";
+import { pdfLink } from "@/lib/pdf-take";
 import { periodicNote } from "@/lib/periodic";
 
 const { fetchNote, saveNote, updateNote, searchNotes } = vi.hoisted(() => ({
@@ -23,16 +24,15 @@ vi.mock("@/lib/api", () => {
 
 const PATH = "30 Research/report.pdf";
 const TAKING: Taking = {
-  quote: pdfQuote(PATH, 2, "A passage of the report."),
   text: "A passage of the report.",
-  link: pdfLink(PATH, 2),
+  linkIn: (note) => pdfLink(PATH, 2, note),
   source: "page 2, report.pdf",
   top: false,
 };
 
 /** The dump the take writes, and the daily note's text with it in its `## Dump`. */
-const QUOTE = TAKING.quote;
 const DAILY = periodicNote("daily", new Date()).path;
+const QUOTE = quoteBlock(TAKING.text, TAKING.linkIn(DAILY));
 const NOTE = `## Dump\n\n${QUOTE}\n`;
 const REFUSED = "The daily note changed since, so Undo left it as it is";
 
