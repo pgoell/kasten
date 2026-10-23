@@ -85,10 +85,16 @@ click on the row takes the pane back to page 1. The row of the pdf the focused
 pane shows is marked as a note's is, and `<leader>E` reaches it. `r` and `d` do
 nothing on a pdf's row, which goes out through a terminal pane as a page does.
 
-Keys typed inside a page are the page's, so a deck's arrows turn its slides and
-a leader sequence does nothing there. Click the pane's header to take the keys
-back, and Space on the header opens [the which-key panel](/reference/editor-keys/leader.md).
-A link to another site opens in a new tab.
+The pane's header reads `PAGE`, the page's path in mono, and `Open in a browser
+tab` at the right, which opens the same page in a tab of its own.
+
+Keys typed inside a page are the page's, so a deck's arrows turn its slides,
+with three exceptions kasten adds to every page: Space opens [the which-key
+panel](/reference/editor-keys/leader.md), `?` opens key help, and Escape gives
+the keys back to kasten. In a text field of the page all three stay the page's.
+`j` and `k` scroll the page by 64 px, unless the page uses them itself. When the
+panel or key help closes, the keys go back to the page. A click on the pane's
+header takes them back too. A link to another site opens in a new tab.
 
 The pane is an image and the path above it, and nothing else: no next image,
 and nothing to type into. It opens fitted to the pane. Two fingers pinch it

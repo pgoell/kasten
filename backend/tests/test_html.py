@@ -1,11 +1,12 @@
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from pathlib import Path
-
     from httpx import AsyncClient
 
 PAGE = b"<!doctype html><title>report</title><p>findings</p>"
+SCRIPT = (Path(__file__).parents[1] / "src" / "kasten_backend" / "page_script.js").read_bytes()
+BLOCK = b"\n<script>\n" + SCRIPT + b"\n</script>\n"
 
 
 async def test_lists_the_html_in_the_vault(client: AsyncClient, vault: Path) -> None:
@@ -41,6 +42,29 @@ async def test_reads_a_page_with_the_doctype_first(client: AsyncClient, vault: P
     assert response.status_code == 200
     assert response.content.startswith(PAGE)
     assert response.headers["content-type"].startswith("text/html")
+
+
+async def test_ends_a_page_with_no_body_tag_with_the_kasten_script(
+    client: AsyncClient, vault: Path
+) -> None:
+    # PAGE has no `<body>`, and the script still goes last: the parser makes an
+    # implicit body for it, which is where the script has to land.
+    (vault / "report.html").write_bytes(PAGE)
+
+    response = await client.get("/api/html/report.html")
+
+    assert response.content.startswith(PAGE)
+    assert response.content.endswith(BLOCK)
+
+
+async def test_ends_a_page_with_a_body_with_the_kasten_script(
+    client: AsyncClient, vault: Path
+) -> None:
+    (vault / "report.html").write_bytes(b"<!doctype html><body><p>findings</p></body>")
+
+    response = await client.get("/api/html/report.html")
+
+    assert response.content.endswith(BLOCK)
 
 
 async def test_holds_a_page_in_a_sandbox_of_its_own(client: AsyncClient, vault: Path) -> None:

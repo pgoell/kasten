@@ -11,5 +11,7 @@ declare module "vitest/browser" {
       reducedTransparency?: "reduce" | "no-preference";
       touch?: boolean;
     }) => Promise<void>;
+    servePage: (path: string, html: string) => Promise<void>;
+    unservePages: () => Promise<void>;
   }
 }

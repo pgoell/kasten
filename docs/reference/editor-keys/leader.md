@@ -33,7 +33,8 @@ Its two columns are **After Space**, which holds the six columns above, and
 both columns. Esc closes it. `Space ?` opens it too.
 
 With vim off, Space in a note types a space, so a note has no leader. The panel
-still opens from the other panes and from the toolbar.
+still opens from the other panes, from the toolbar, and from an HTML page, where
+the page's script passes Space on.
 
 **Find**
 

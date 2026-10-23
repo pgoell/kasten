@@ -25,7 +25,8 @@ listed. The file tree reads this to draw a page as a row beside the notes.
 ## GET /api/html/{path}
 
 Reads one HTML page out of the vault, as `text/html`, for the frame the HTML
-pane draws it in. `path` is a vault-relative POSIX path ending in `.html`.
+pane draws it in and for the tab its header's link opens. `path` is a
+vault-relative POSIX path ending in `.html`.
 
 The page goes out with a policy of its own in `Content-Security-Policy`:
 
@@ -41,6 +42,12 @@ A short script is added after the page, which sends a link to another site to
 a new tab: the app's own `frame-src` keeps the frame on kasten. Added after
 rather than before, so the doctype stays first and the page keeps its
 standards mode. The file itself is not changed.
+
+A second script follows it, the page script (`page_script.js` in the backend).
+In a frame it posts `{kasten: 'hello'}` as it loads, and posts Space, `?` and
+Escape pressed outside a text field to kasten as `{kasten: 'key', key}`, after
+it stops their default. `j` and `k` scroll the page. Opened in a tab of its own,
+with no parent to post to, it does nothing.
 
 Anything that is not a readable `.html` file inside the vault is a `404`, on
 the rules the note read follows. There is no write: a page gets into the vault

@@ -131,7 +131,7 @@ dimmed page around them.
 | The review | Every move is a button | [The review pane](/reference/editor-keys/review-pane.md#the-review-pane) |
 | A practice exam | An option is a button. A row of moves: `prev`, `next`, `reveal`, `timer`, `finish`, `close`. `finish` acts on the second tap, and so does `close` while a sitting is under way | [Sit it by touch](/how-to/write-a-practice-exam.md#sit-it-by-touch) |
 | A terminal | A tap focuses it. A row of keys: `Esc`, `Tab`, `Ctrl`, the arrows, `\|`, `/`, `-` | [Terminal](/reference/editor-keys/terminal.md#terminal) |
-| An HTML page | The page's own links and buttons | [The file tree](/reference/editor-keys/file-tree.md#the-file-tree) |
+| An HTML page | The page's own links and buttons. `Open in a browser tab` in the header | [The file tree](/reference/editor-keys/file-tree.md#the-file-tree) |
 | The status bar | A tap on a notice, or on the save sign of a failed write, opens it out in full. Under a failed write are `Write my text` and `Drop my text`, and under `Changed on disk` `Write my text` and `Take the vault's`. `Not saved: <note>`, a failed write of a note already left, names the notes whose text kasten holds; opening one puts the text back. `Changed on disk: <note>` names a note left while it stood conflicted; opening it shows what differs | [Panes and tabs](/reference/editor-keys/panes-and-tabs.md#panes-and-tabs) |
 | The palette, the finder, the search, a prompt | A tap on a row does what Enter on it does | [The command palette](/reference/editor-keys/leader.md#the-command-palette) |
 

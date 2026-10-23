@@ -1,5 +1,6 @@
 """Routes that list what the vault holds, and the folders and pages it keeps."""
 
+from pathlib import Path
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Response
@@ -128,6 +129,17 @@ Appended rather than put in the head, because anything ahead of the doctype
 drops the page into quirks mode.
 """
 
+PAGE_SCRIPT = (
+    b"\n<script>\n" + (Path(__file__).parents[1] / "page_script.js").read_bytes() + b"\n</script>\n"
+)
+"""Hands the keys a page takes to kasten, and is appended after the page.
+
+Read once at import, as `mcp-instructions.md` is. A file beside the package
+rather than a string here, so the script can be read and linted as JavaScript.
+Appended after the page so it lands at the end of `<body>`, and the parser
+puts it there even when the page has no `<body>` tag.
+"""
+
 
 @router.get("/api/html/{path:path}", response_class=Response)
 async def read_html(path: str, settings: Annotated[Settings, Depends(get_settings)]) -> Response:
@@ -142,7 +154,7 @@ async def read_html(path: str, settings: Annotated[Settings, Depends(get_setting
         raise HTTPException(status_code=404, detail="No such page")
 
     return Response(
-        page.read_bytes() + LINKS_OUT,
+        page.read_bytes() + LINKS_OUT + PAGE_SCRIPT,
         media_type="text/html",
         headers={"Content-Security-Policy": HTML_POLICY},
     )
