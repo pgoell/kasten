@@ -64,7 +64,7 @@ with exit 1 and prints the page's text and the requests it made.
 ## What the report counts
 
 `frontend/e2e/phone-trace-report.ts` reads the renderer's main thread between
-each step's marks.
+each step's marks. `frontend/e2e/phone-trace-work.ts` reads what runs inside the long tasks of the `tab` and `open` steps; see [After #972 and #974](#after-972-and-974).
 
 | Row | How it is counted |
 | --- | --- |
@@ -123,7 +123,8 @@ Ranked by ms:
 
 1. A tab switch and a note open hold the main thread for 0.8 to 1 s on both
    releases, about 450 ms of it style. The redesign did not bring it in
-   (#972).
+   (#972). The branch cuts its script time by about half; see
+   [After #972 and #974](#after-972-and-974).
 2. 0.98.5 costs more than 0.85.0: style +49 ms on a tab switch and +30 ms on a
    note open, scripting +41 ms over ten keystrokes, first-load JS +36.9 KB
    gzip. The forced layout callers do not name a cause (#973).
@@ -131,6 +132,56 @@ Ranked by ms:
    its fold reading `offsetWidth` of every tab in a layout effect: 5.5 ms on a
    tab switch, 3.5 ms on an open. The strip before it forced one too (4.3 and
    3.6 ms), so the change is about +1 ms. Both of its layout effects keep a
-   `ResizeObserver` on every tab (#974).
+   `ResizeObserver` on every tab (#974). The branch removes both; see
+   [After #972 and #974](#after-972-and-974).
 
 No spring runs at rest: `rest` holds no `FireAnimationFrame` on either release.
+
+## After #972 and #974
+
+The report now also prints, for the `tab` and `open` steps, what runs inside
+each long task: the style passes with their callers and element counts, the
+style invalidations by reason, the CPU self time mapped through the source map,
+and the top `FunctionCall` events. The code is in
+`frontend/e2e/phone-trace-work.ts`.
+
+On 0.98.5 the long tasks held four things:
+
+- The CodeMirror `EditorView` built for the note that comes on screen. Its
+  constructor reads `document.fonts.ready`, which makes Chromium update style
+  and layout at once, over a tree it was still building. That is 4 forced style
+  passes, about 400 ms a step.
+- The note head read the content's padding in its constructor: one more pass,
+  about 50 ms.
+- The editor reconfigured its listings right after mount: one more full pass.
+- The tab strip read every tab's width in a layout effect: 5 ms (#974).
+
+The fix:
+
+- The view is built off the page and joins it once built.
+- The note head reads no padding: its height takes the place of the content's
+  top padding, which the constructor's read always found at 0, the theme's
+  classes not being on the editor yet.
+- The editor skips the listings on mount.
+- The tab strip keeps one `ResizeObserver` and works out the fold and the bar
+  from the widths it stored, so a switch reads no geometry.
+
+Recorded on 2026-10-24 on the VPS, under the load it had, three runs each,
+alternating main (the 0.98.5 code) and the branch. Means, in ms:
+
+| Step | Metric | main | branch |
+| --- | --- | ---: | ---: |
+| tab | long tasks (count, ms) | 3, 995.0 | 4, 486.7 |
+| tab | slowest frame gap | 640.5 | 350.4 |
+| tab | scripting, layout, style | 1081.9, 23.8, 515.9 | 556.1, 13.2, 50.9 |
+| tab | forced layouts (count, ms) | 12, 23.3 | 7, 8.3 |
+| open | long tasks (count, ms) | 2, 836.9 | 2, 334.7 |
+| open | slowest frame gap | 581.8 | 336.9 |
+| open | scripting, layout, style | 928.0, 24.2, 480.1 | 434.6, 13.6, 53.0 |
+| open | forced layouts (count, ms) | 12, 20.5 | 7, 5.6 |
+
+The longest single task is still over 200 ms on both steps (tab 269 to 320,
+open 253 to 304). About 150 to 180 ms of it is the browser removing the old
+note's editor from the page (`removeChild`). #983 tracks that. No
+forced layout comes from `tab-strip.tsx` any more. The second branch run met
+more load than the others (5 long tasks on tab).

@@ -339,8 +339,6 @@ class HeadPlugin {
   private readonly view: EditorView;
   private readonly toggle: () => void;
   private readonly head: HTMLElement | null;
-  /** The content's own top padding, which the header's height is added to. */
-  private basePadding: number | null = null;
   private observer: ResizeObserver | null = null;
   private data: Head | null;
   private shown = "";
@@ -398,22 +396,16 @@ class HeadPlugin {
     const { head, view } = this;
     if (head === null) return;
     view.requestMeasure({
-      read: () => {
-        // Once: the first write puts the header's height into the padding.
-        if (this.basePadding === null) {
-          this.basePadding = parseFloat(getComputedStyle(view.contentDOM).paddingTop) || 0;
-        }
-        return {
-          left: view.contentDOM.offsetLeft,
-          width: view.contentDOM.clientWidth,
-          height: head.offsetHeight,
-          base: this.basePadding,
-        };
-      },
-      write: ({ left, width, height, base }) => {
+      read: () => ({
+        left: view.contentDOM.offsetLeft,
+        width: view.contentDOM.clientWidth,
+        height: head.offsetHeight,
+      }),
+      write: ({ left, width, height }) => {
         head.style.left = `${left}px`;
         head.style.width = `${width}px`;
-        view.contentDOM.style.paddingTop = `${base + height}px`;
+        // The header's height takes the place of the content's own top padding, as it always did.
+        view.contentDOM.style.paddingTop = `${height}px`;
       },
     });
   }
