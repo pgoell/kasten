@@ -202,6 +202,9 @@ async function clickTodo(host: HTMLElement) {
       ),
     PATIENCE,
   );
+  // A press focuses the row first, as a click in a browser does, so the pane
+  // holding the list is the focused one the note opens into.
+  row.focus();
   fireEvent.click(row);
 }
 
