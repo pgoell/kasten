@@ -63,13 +63,18 @@ const edited = StateField.define<number[]>({
  * held note put back and the watched stamp all say they stay off the undo stack,
  * which is also how none of them is ever typing. The line-up's own edit is
  * named by its user event.
+ *
+ * An undo or a redo is not typing either. Undoing the line-up puts the ragged
+ * text back, and that text must stay ragged, or `u` could never keep it.
  */
 function isTyping(tr: Transaction): boolean {
   return (
     tr.docChanged &&
     !tr.annotation(fromVault) &&
     tr.annotation(Transaction.addToHistory) !== false &&
-    tr.annotation(Transaction.userEvent) !== LINE_UP
+    tr.annotation(Transaction.userEvent) !== LINE_UP &&
+    !tr.isUserEvent("undo") &&
+    !tr.isUserEvent("redo")
   );
 }
 

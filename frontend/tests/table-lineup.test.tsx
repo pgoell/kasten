@@ -238,6 +238,25 @@ describe("the table line-up's undo", () => {
     expect(view.state.doc.toString()).toBe(LINED);
   });
 
+  it("#792 I2 after u puts the ragged table back, leaving the table keeps it ragged", () => {
+    localStorage.setItem("kasten.vim", "on");
+    const { container } = render(<Editor initialDoc={DOC} preview={false} />);
+    const view = viewIn(container);
+
+    typeAt(view, DOC.indexOf("b |") + 1, "c");
+    cursorTo(view, DOC.length);
+    expect(view.state.doc.toString()).toBe(LINED);
+
+    fireEvent.keyDown(content(container), { key: "u" });
+    expect(view.state.doc.toString()).toBe(TYPED);
+
+    // Moving through the table and out of it again must not line it up: the undo
+    // is not typing, so the table was never marked as edited again.
+    cursorTo(view, DOC.indexOf("xx"));
+    cursorTo(view, DOC.length);
+    expect(view.state.doc.toString()).toBe(TYPED);
+  });
+
   it("#792 I2 the line-up is its own undo step, with vim off", () => {
     localStorage.setItem("kasten.vim", "off");
     const { container } = render(<Editor initialDoc={DOC} preview={false} />);
@@ -276,7 +295,7 @@ describe("the table line-up keeps the cursor and skips what is square", () => {
     const line = view.state.doc.lineAt(head);
     // The cursor is still right after the typed `q`, in the cell it was typed into.
     expect(line.text.slice(0, head - line.from)).toBe("| aq");
-    expect(onSave).toHaveBeenCalledWith(expect.stringContaining("| aq"));
+    expect(onSave).toHaveBeenCalledWith(expect.stringContaining("| aq   | longer |"));
   });
 
   it("#792 I3 a table already square is not rewritten when the cursor leaves it or on save", () => {
