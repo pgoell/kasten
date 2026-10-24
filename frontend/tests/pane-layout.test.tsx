@@ -6,15 +6,16 @@ import {
   emptyLayout,
   focusPane,
   type Layout,
+  removeFocused,
   splitFocused,
   tabPanes,
   toggleZoom,
 } from "@/lib/panes";
 
-/** Draw one tab's panes the way the route does, with a button to focus in each. */
-function draw(layout: Layout, onFocus = vi.fn()) {
+/** One tab's panes the way the route draws them, with a button to focus in each. */
+function tree(layout: Layout, onFocus = vi.fn()) {
   const tab = activeTab(layout);
-  const view = render(
+  return (
     <PaneLayout
       node={tab.root}
       focus={tab.focus}
@@ -27,8 +28,13 @@ function draw(layout: Layout, onFocus = vi.fn()) {
           {pane.path ?? "empty"}
         </button>
       )}
-    </PaneLayout>,
+    </PaneLayout>
   );
+}
+
+/** Draw one tab's panes the way the route does. */
+function draw(layout: Layout, onFocus = vi.fn()) {
+  const view = render(tree(layout, onFocus));
 
   return { ...view, onFocus };
 }
@@ -119,5 +125,39 @@ describe("PaneLayout", () => {
     screen.getByTestId(first.id).focus();
 
     expect(onFocus).toHaveBeenCalledWith(first.id);
+  });
+
+  it("#932 A3 a lone pane keeps its node when a second pane opens beside it", () => {
+    const lone = emptyLayout("a.md");
+    const [first] = tabPanes(lone);
+    if (first === undefined) throw new Error("a tab has one pane");
+    const { container, rerender } = draw(lone);
+    const leaf = container.querySelector(`[data-pane="${first.id}"]`);
+    const button = screen.getByTestId(first.id);
+
+    const split = splitFocused(lone, "row");
+    rerender(tree(split));
+
+    // The lone pane is the split's first child, so it keeps its place and its node.
+    expect(tabPanes(split)[0]?.id).toBe(first.id);
+    expect(container.querySelector(`[data-pane="${first.id}"]`)).toBe(leaf);
+    expect(screen.getByTestId(first.id)).toBe(button);
+  });
+
+  it("#932 A4 the pane left when its neighbour closes keeps its node", () => {
+    const split = splitFocused(emptyLayout("a.md"), "row");
+    const [first] = tabPanes(split);
+    if (first === undefined) throw new Error("the split should have made two panes");
+    const { container, rerender } = draw(split);
+    const leaf = container.querySelector(`[data-pane="${first.id}"]`);
+    const button = screen.getByTestId(first.id);
+
+    // The focus is on the pane the split made, so closing it leaves the first one.
+    const closed = removeFocused(split);
+    rerender(tree(closed));
+
+    expect(tabPanes(closed).map((pane) => pane.id)).toEqual([first.id]);
+    expect(container.querySelector(`[data-pane="${first.id}"]`)).toBe(leaf);
+    expect(screen.getByTestId(first.id)).toBe(button);
   });
 });

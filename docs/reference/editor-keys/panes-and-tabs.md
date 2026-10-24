@@ -49,6 +49,11 @@ move: after the swap you are in the same pane, further left. The divisions
 themselves do not change, only which pane sits in which of them, and at the
 edge of the window nothing happens.
 
+Splitting a tab's only pane, and closing back to one pane, keeps the pane that
+was there as it is: its cursor, its undo history and text not yet written.
+Dividing a pane that already sits in a split the other way still builds it
+again (#935).
+
 A swap between two panes of one split keeps what each pane holds as it is. A
 swap that crosses two splits builds the pane again where it lands, which is the
 browser's rule about moving part of a page rather than a choice, and what that
