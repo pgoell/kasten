@@ -406,13 +406,15 @@ export function GraphPane({
 
       {/* In the vault graph the panel sits beside the canvas, and under it in a
           pane narrower than 640 px. Around a note there is no panel, one column.
-          Under 640 px the canvas keeps a fixed height and the column scrolls as one,
-          since a canvas that shares the height with the panel is squeezed to nothing. */}
+          On a touch screen under 640 px the canvas keeps a fixed height and the column
+          scrolls as one, since a canvas that shares the height with the panel is squeezed
+          to nothing. A mouse pane of that width keeps the panel capped beside the canvas,
+          so the pointer, not the width alone, picks the layout. */}
       <div
-        className={`flex min-h-0 flex-1 flex-col ${vault ? "@[640px]:flex-row @max-[640px]:overflow-y-auto" : ""}`}
+        className={`flex min-h-0 flex-1 flex-col ${vault ? "@[640px]:flex-row pointer-coarse:@max-[640px]:overflow-y-auto" : ""}`}
       >
         <div
-          className={`flex min-h-0 min-w-0 flex-1 flex-col ${vault ? "@max-[640px]:flex-none" : ""}`}
+          className={`flex min-h-0 min-w-0 flex-1 flex-col ${vault ? "pointer-coarse:@max-[640px]:flex-none" : ""}`}
         >
           <div
             ref={box}
@@ -420,7 +422,7 @@ export function GraphPane({
             // The canvas takes every gesture. force-graph sets this on the canvas
             // itself, but only where the browser reported a touch screen when the
             // pane was made.
-            className={`relative min-h-0 flex-1 touch-none ${vault ? "@max-[640px]:h-[min(118vw,70dvh)] @max-[640px]:flex-none" : ""}`}
+            className={`relative min-h-0 flex-1 touch-none ${vault ? "pointer-coarse:@max-[640px]:h-[min(118vw,70dvh)] pointer-coarse:@max-[640px]:flex-none" : ""}`}
           />
 
           {columns.length > 0 && (

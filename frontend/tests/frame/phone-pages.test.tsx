@@ -21,7 +21,7 @@ import {
   setUp as setUpHtml,
   tearDown,
 } from "./html-take-fixture";
-import { need, TOUCH } from "./reader-fixture";
+import { DESKTOP, need, TOUCH } from "./reader-fixture";
 import {
   boxOf,
   DEV_ANSWER,
@@ -67,6 +67,34 @@ describe("vault graph on a phone (#793 A6, I8)", () => {
       "graph panel",
     );
     expect(element.scrollHeight).toBeLessThanOrEqual(element.clientHeight + 1);
+  });
+
+  it("#793 R1 at 1440 with a mouse a vault graph pane under 640 px keeps the panel capped and the canvas filling the pane", async () => {
+    // A split's narrow pane with a mouse: 590 px wide, so the container query
+    // matches, but the pointer is fine, so the desktop layout must hold.
+    await setUpVault(DESKTOP, "light");
+    serveGraph(DEV_ANSWER);
+    const host = boxOf(590, DESKTOP.height);
+    await mountPane(host);
+    await untilCounted(host);
+
+    const canvas = need(
+      host.querySelector<HTMLElement>("[data-testid='graph-canvas']"),
+      "graph canvas",
+    ).getBoundingClientRect();
+    const panel = need(
+      host.querySelector<HTMLElement>("aside[aria-label='graph panel']"),
+      "graph panel",
+    ).getBoundingClientRect();
+    const footer = need(
+      host.querySelector<HTMLElement>("footer"),
+      "pane footer",
+    ).getBoundingClientRect();
+    // The panel holds to 45 % of the pane, and stops above the pane's footer.
+    expect(panel.height).toBeLessThanOrEqual(host.getBoundingClientRect().height * 0.45 + 1);
+    expect(panel.bottom).toBeLessThanOrEqual(footer.top + 1);
+    // The canvas takes what the panel leaves: the two fill the space above the footer.
+    expect(Math.abs(canvas.height + panel.height - (footer.top - canvas.top))).toBeLessThan(2);
   });
 
   it("#793 I8 on a phone the canvas keeps touch-action none, so a drag and a pinch move the graph", async () => {

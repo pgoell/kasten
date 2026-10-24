@@ -6,6 +6,7 @@ import { activeTab, isEmptyTab, type Layout, panesOf, type Tab } from "@/lib/pan
 import { Spring } from "@/lib/spring";
 import type { SaveStatus } from "@/lib/use-autosave";
 import { TAB_MAX_WIDTH, useTabGeometry } from "@/lib/use-tab-geometry";
+import { useViewport } from "@/lib/use-viewport";
 
 interface TabStripProps {
   layout: Layout;
@@ -15,8 +16,9 @@ interface TabStripProps {
   /** Whether a tab has text that is not in the vault yet, which the dot says. */
   unsaved: (tab: Tab) => boolean;
   /**
-   * A window under 768 px: every tab is drawn and the row scrolls sideways, where a
-   * wide window folds the tabs that do not fit behind "N more".
+   * A window under 768 px. With a finger too, every tab is drawn and the row scrolls
+   * sideways; with a mouse the tabs that do not fit fold behind "N more", as in a
+   * wide window, since a wheel does not scroll the row sideways.
    */
   narrow?: boolean;
 }
@@ -80,6 +82,9 @@ export function TabStrip({
 }: TabStripProps) {
   const list = useRef<HTMLDivElement>(null);
   const bar = useRef<HTMLSpanElement>(null);
+  // The phone's strip: a narrow window under a finger. The scroll is no use with a mouse.
+  const { coarse } = useViewport();
+  const scrolls = narrow && coarse;
   const moreBox = useRef<HTMLDivElement>(null);
   const moreButton = useRef<HTMLButtonElement>(null);
   const { active } = layout;
@@ -115,22 +120,22 @@ export function TabStrip({
     active,
     tabIds,
     labels,
-    !narrow,
+    !scrolls,
   );
   const menuOpen = open && hidden.length > 0;
 
-  // On a narrow window nothing folds, so the row scrolls and the active tab is
+  // On a phone nothing folds, so the row scrolls and the active tab is
   // brought into it when it changes. Only the row is moved: the page stays put, so
   // the sticky strip does not jump with a tap.
   useLayoutEffect(() => {
     const row = list.current;
     const tab = row?.querySelector<HTMLElement>(`[data-tab="${active}"]`);
-    if (!narrow || !row || !tab) return;
+    if (!scrolls || !row || !tab) return;
     const left = tab.offsetLeft;
     const right = left + tab.offsetWidth;
     if (left < row.scrollLeft) row.scrollLeft = left;
     else if (right > row.scrollLeft + row.clientWidth) row.scrollLeft = right - row.clientWidth;
-  }, [active, narrow]);
+  }, [active, scrolls]);
 
   // Opening the list puts the focus on its first row, which is where the keys go.
   useEffect(() => {
@@ -219,7 +224,7 @@ export function TabStrip({
         // narrow window the row is the scroller instead, with its bar hidden and
         // no pull past the end onto the page.
         className={`relative flex min-w-0 flex-1 items-stretch ${
-          narrow
+          scrolls
             ? "overflow-x-auto overflow-y-hidden overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
             : "overflow-hidden"
         }`}

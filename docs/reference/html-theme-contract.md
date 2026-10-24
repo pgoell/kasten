@@ -112,7 +112,9 @@ with the page's own gap kept:
 - `k-briefs`
 
 The class `k-lead` shows as a block. Above 640 px, and on a page that does not
-opt in, nothing changes. A page that stacks nothing is still free under "May:
+opt in, nothing changes. The rule is `!important`, so below 640 px it wins over
+the page's own `display` and child widths on these four blocks, a `display: none`
+included: hide such a block from a child of it, not from the block. A page that stacks nothing is still free under "May:
 any layout" above.
 
 ## What kasten closes for you

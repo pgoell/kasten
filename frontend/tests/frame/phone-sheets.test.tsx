@@ -126,15 +126,13 @@ function key(target: Element, key: string) {
 
 /**
  * Space opens the leader the way a reader does it: on a vim note the key itself,
- * and with vim off, where Space is a letter, the toolbar's space button.
+ * and with vim off, where Space is a letter, the toolbar's space button. The
+ * button is tapped with nothing focused, the state a phone is in after a load:
+ * the editor is not focused first, which hid the sheet closing (#993).
  */
 function openLeader(host: HTMLElement, vim: (typeof VIM)[number]) {
   if (vim === "on") leader(host, [" "]);
-  else {
-    // The reader was typing in the note, so the editor holds the focus when the button is tapped.
-    visibleEditor(host).focus();
-    tapSpace();
-  }
+  else tapSpace();
 }
 
 /** The toolbar's space button, pressed as a tap: down, up, then the click. */
@@ -188,6 +186,26 @@ describe("phone key sheets", () => {
   );
 
   it.each(VIM)(
+    "#793 R3 a tap on the toolbar's space with nothing focused keeps the sheet open, vim %s",
+    async (vim) => {
+      const mounted = await mountPhone(vim);
+      try {
+        // Nothing holds the focus, as after a load on a phone.
+        (document.activeElement as HTMLElement | null)?.blur();
+        tapSpace();
+
+        const panel = await sheetOf(LEADER);
+        await atRest(panel);
+        // Ten frames after it came to rest: a sheet taken down by a focus move is gone by now.
+        for (let frame = 0; frame < 10; frame += 1) await nextFrame();
+        expect(document.querySelector(LEADER)).toBe(panel);
+      } finally {
+        await unmount(mounted);
+      }
+    },
+  );
+
+  it.each(VIM)(
     "#793 A9 key help is a full-height sheet in one column with the filter focused, vim %s",
     async (vim) => {
       const mounted = await mountPhone(vim);
@@ -217,6 +235,15 @@ describe("phone key sheets", () => {
 
         const filter = need(help.querySelector<HTMLInputElement>("input"), "filter field");
         expect(document.activeElement).toBe(filter);
+
+        // The footer sits at the foot of the sheet, not halfway down it.
+        const line = need(
+          [...help.querySelectorAll("p")].find((each) => each.textContent?.includes("tap outside")),
+          "footer line",
+        );
+        const gap = box.bottom - line.getBoundingClientRect().bottom;
+        expect(gap).toBeGreaterThanOrEqual(0);
+        expect(gap).toBeLessThanOrEqual(24);
       } finally {
         await unmount(mounted);
       }

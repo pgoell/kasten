@@ -80,6 +80,52 @@ describe("phone sheets", () => {
     const columns = screen.getByRole("heading", { name: "After Space", level: 2 }).parentElement
       ?.parentElement;
     expect(columns).toHaveClass("grid-cols-1");
+    // A finger's word for the close, pinned under the list.
+    expect(screen.getByText("Drag down or tap outside to close")).toBeInTheDocument();
+  });
+
+  it("#793 R3 a focus move the reader did not make keeps the phone sheet open", async () => {
+    phone();
+    render(
+      <>
+        <button type="button">Note</button>
+        <WhichKey phone />
+      </>,
+    );
+    const note = screen.getByRole("button", { name: "Note" });
+    note.focus();
+    act(() => {
+      beginLeader(paneOpener(stubCommands()));
+    });
+
+    // Nothing pressed: the focus lands on the note the way a pane's own focus does.
+    note.focus();
+    // The sheet's fade would end on this event if it had begun to leave.
+    fireEvent.transitionEnd(screen.getByRole("dialog", { name: "Leader keys" }), {
+      propertyName: "opacity",
+    });
+    // Lets a close that finished on that event take the sheet out of the DOM.
+    await act(async () => {});
+
+    expect(screen.getByRole("dialog", { name: "Leader keys" })).toBeInTheDocument();
+  });
+
+  it("#793 R4 on a phone when the parent takes key help down, the focus goes back to the opener", () => {
+    phone();
+    const opener = document.createElement("button");
+    document.body.append(opener);
+    opener.focus();
+
+    try {
+      const { unmount } = render(<KeyHelp onClose={() => {}} />);
+      expect(screen.getByRole("searchbox", { name: "Filter keys" })).toHaveFocus();
+
+      unmount();
+
+      expect(opener).toHaveFocus();
+    } finally {
+      opener.remove();
+    }
   });
 
   it("#793 I4 Esc closes the key help sheet and gives the focus back", async () => {

@@ -145,13 +145,15 @@ export function KeyHelp({ onClose }: { onClose: () => void }) {
   // whatever was focused when it opened, and hands the focus back on the way
   // out. Restoring what held it beats naming the editor: the same key opens this
   // from the file tree, and closing there belongs back in the tree.
+  // Read on the first render, before the phone sheet takes the focus for its panel:
+  // in an effect the sheet's panel would already be the element that held it.
+  const [opener] = useState<Element | null>(() => document.activeElement);
   useEffect(() => {
-    const opener = document.activeElement;
     field.current?.focus();
     return () => {
       if (opener instanceof HTMLElement) opener.focus();
     };
-  }, []);
+  }, [opener]);
 
   const others: Group[] = [
     {
@@ -223,11 +225,23 @@ export function KeyHelp({ onClose }: { onClose: () => void }) {
   // A phone has no room for a centred panel, and the one column of `columns` is
   // all it needs. The sheet owns the Escape, the drag and the Tab stop, which the
   // panel below does for the desktop.
+  // The footer is pinned under the list, at the sheet's own 16 px gutter, so the list scrolls
+  // above it and the line is always at the foot.
   if (phone) {
     return (
-      <Sheet open onClose={onClose} label="Keyboard shortcuts" full header={header}>
+      <Sheet
+        open
+        onClose={onClose}
+        label="Keyboard shortcuts"
+        full
+        header={header}
+        footer={
+          <p className="border-t border-k-rule px-4 py-2 text-[11px] text-k-muted">
+            Drag down or tap outside to close
+          </p>
+        }
+      >
         {columns}
-        <p className={STATUS}>Escape or a drag down to close, or a tap outside</p>
       </Sheet>
     );
   }

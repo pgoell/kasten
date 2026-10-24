@@ -76,14 +76,35 @@ afterEach(() => {
   Reflect.deleteProperty(HTMLElement.prototype, "scrollLeft");
 });
 
+/** A window under 768 px with a finger: the phone, which is the one the strip scrolls for. */
+function phone() {
+  stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+}
+
 describe("#793 phone chrome: the tab strip", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it("#793 A2 in a narrow window the strip draws every tab and no N more", () => {
+    phone();
     laidOut(EIGHT, 300);
 
     render(strip(eight(), { narrow: true }));
 
     expect(screen.getAllByRole("tab")).toHaveLength(8);
     expect(screen.queryByRole("button", { name: /\d+ more/ })).toBeNull();
+  });
+
+  it("#793 R2 a narrow window with a mouse still folds the tabs behind N more", () => {
+    // A mouse has no finger to drag the row with, and a wheel does not scroll it sideways.
+    stubMatchMedia({ [NARROW]: true });
+    laidOut(EIGHT, 300);
+
+    render(strip(eight(), { narrow: true }));
+
+    expect(screen.queryByRole("button", { name: /\d+ more/ })).not.toBeNull();
+    expect(screen.getAllByRole("tab").length).toBeLessThan(8);
   });
 
   it("#793 A2 in a wide window the strip still folds behind N more", () => {
@@ -95,6 +116,7 @@ describe("#793 phone chrome: the tab strip", () => {
   });
 
   it("#793 A2 in a narrow window the active tab is brought into the row", () => {
+    phone();
     laidOut(EIGHT, 300);
     scrollable();
 
@@ -105,6 +127,7 @@ describe("#793 phone chrome: the tab strip", () => {
   });
 
   it("#793 A2 in a narrow window the row goes back to a tab picked at its start", () => {
+    phone();
     laidOut(EIGHT, 300);
     scrollable();
     const layout = eight();
@@ -118,6 +141,7 @@ describe("#793 phone chrome: the tab strip", () => {
   });
 
   it("#793 I3 a narrow strip turned wide folds again, and narrow again draws every tab", () => {
+    phone();
     laidOut(EIGHT, 300);
     const layout = eight();
     const { rerender } = render(strip(layout, { narrow: true }));
@@ -131,6 +155,7 @@ describe("#793 phone chrome: the tab strip", () => {
   });
 
   it("#793 A3 the strip's text is 15 px under a finger on a phone", () => {
+    phone();
     render(strip(eight(), { narrow: true }));
 
     expect(screen.getByRole("tablist").parentElement).toHaveClass(

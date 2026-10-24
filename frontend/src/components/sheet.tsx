@@ -34,6 +34,8 @@ interface SheetProps {
   label: string;
   /** Drawn under the grabber. Dragging it drags the sheet, as the grabber does. */
   header?: ReactNode;
+  /** Pinned at the foot, under the scrolling content, so it is always in sight. */
+  footer?: ReactNode;
   /** The desktop side sheet: a 540 px panel at the right edge, a plain slide, no drag. */
   side?: boolean;
   /** A bottom sheet that is the whole screen, up to the top safe area, not capped at 88dvh. */
@@ -92,6 +94,7 @@ export function Sheet({
   full = false,
   restoreFocus = true,
   header,
+  footer,
   children,
 }: SheetProps) {
   // Rendered from the moment it is wanted until its leave has run. The change
@@ -433,6 +436,7 @@ export function Sheet({
           </div>
         )}
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">{children}</div>
+        {footer !== undefined && <div className="shrink-0">{footer}</div>}
         {/* Paper below the foot. A spring that overshoots the rest point lifts the foot
             clear of the screen's edge, and the note must not show through that gap. */}
         {!side && (

@@ -366,7 +366,9 @@ describe("GraphPane side panel", () => {
     // jsdom lays nothing out, so this asserts the container classes that do it.
     const panel = screen.queryByRole("complementary", { name: "graph panel" });
     expect(panel).not.toBeNull();
-    expect(panel).toHaveClass("@max-[640px]:w-full", "@max-[640px]:max-h-none");
+    // A mouse pane keeps the 45 % cap; only a touch screen lifts it (#793 R1).
+    expect(panel).toHaveClass("@max-[640px]:w-full", "@max-[640px]:max-h-[45%]");
+    expect(panel).toHaveClass("pointer-coarse:@max-[640px]:max-h-none");
     // The canvas sits in its column, and the column and the panel share a row
     // from 640 px only.
     expect(screen.getByTestId("graph-canvas").parentElement?.parentElement).toHaveClass(

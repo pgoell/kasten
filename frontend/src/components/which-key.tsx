@@ -229,6 +229,10 @@ export function WhichKey({ phone }: { phone: boolean }) {
   // Read by the one key listener, which outlives every render, so it never sees a stale phone.
   const phoneRef = useRef(phone);
   phoneRef.current = phone;
+  // Whether the reader has pressed a key or the pointer since the panel opened. On a
+  // phone a focus that moves without one (the editor taking it back, say) is not the
+  // reader going elsewhere, and must not take the sheet down with it.
+  const gestured = useRef(false);
 
   // The desktop fade. Its frames write the opacity straight to the element, so
   // a narrowing key never re-renders the fade and the panel is never remounted.
@@ -245,6 +249,7 @@ export function WhichKey({ phone }: { phone: boolean }) {
   const open = useCallback(
     (next: LeaderOpener) => {
       live.current = { opener: next, typed: "", phase: "open" };
+      gestured.current = false;
       setOpener(next);
       setTyped("");
       setRan(false);
@@ -303,6 +308,7 @@ export function WhichKey({ phone }: { phone: boolean }) {
       const current = live.current;
       const opener = current.opener;
       if (current.phase !== "open" || opener === null) return;
+      gestured.current = true;
       const { key } = event;
       // Shift and the rest are presses on their way to the key they are held
       // for: `Space E` is Shift then E, so the panel keeps waiting.
@@ -350,7 +356,11 @@ export function WhichKey({ phone }: { phone: boolean }) {
   // stopped here, so the press and the focus still reach their targets.
   useEffect(() => {
     const away = (event: Event) => {
+      if (event.type === "pointerdown") gestured.current = true;
       if (live.current.phase !== "open" || insidePanel(event.target)) return;
+      // A focus move the reader did not make leaves a phone's sheet up. The desktop
+      // panel keeps closing on any focus outside it, as it always has.
+      if (event.type === "focusin" && phoneRef.current && !gestured.current) return;
       leave();
     };
     document.addEventListener("pointerdown", away, true);

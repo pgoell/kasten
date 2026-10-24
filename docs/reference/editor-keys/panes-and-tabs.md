@@ -117,8 +117,8 @@ has text not yet written shows a dot in place of the x, and the x on hover.
 Closing the active tab writes its note first, as moving away does; closing the
 last tab leaves one empty tab. `Space 1` and the other digits name the tab in
 its tooltip. Tabs that do not fit go behind `N more` at the right, which opens
-a list of them; the active tab is always among the tabs drawn. In a window
-under 768px every tab is drawn instead, the strip scrolls sideways, the active
+a list of them; the active tab is always among the tabs drawn. On a phone (a
+window under 768px with a touch screen) every tab is drawn instead, the strip scrolls sideways, the active
 tab is brought into view, and there is no `N more`. In the strip the
 arrow keys move between tabs, `Home` and `End` go to the ends, `Enter` opens
 one and `Delete` closes it. An empty tab reads `New tab`, and each tab is named
