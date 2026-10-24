@@ -261,7 +261,7 @@ it("#624 the log pane at 414 by touch", async () => {
   expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(414);
   expect(await shot(pane() as HTMLElement, "log-pane-today-414")).toBe(414);
 
-  await tap(button("+ 💧 250 ml"));
+  await tap(pane()?.querySelector<HTMLButtonElement>("button[aria-label='Log water']") ?? null);
   await expect.poll(savedToday).toContain("- 💧 250 ml");
 
   await tap(pane()?.querySelector<HTMLElement>(".log-pane-line") ?? null);
