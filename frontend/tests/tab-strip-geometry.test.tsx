@@ -76,11 +76,11 @@ const connected = (element: Element) => element.isConnected;
  * A ResizeObserver that reports only when the test fires it, as a browser does
  * after a layout. A fire reports an observer's newly observed elements once, and
  * `fire(true)` also reports every watched element, as a browser does when sizes
- * change. A disconnected observer never fires. `made` lists the observers built.
+ * change. A disconnected observer watches nothing, so it never fires. `made` lists
+ * the observers built.
  */
 function fakeObserver() {
-  const made: object[] = [];
-  const live = new Set<FakeWatcher>();
+  const made: FakeWatcher[] = [];
   vi.stubGlobal(
     "ResizeObserver",
     class implements FakeWatcher {
@@ -91,19 +91,15 @@ function fakeObserver() {
       constructor(callback: () => void) {
         this.callback = callback;
         made.push(this);
-        live.add(this);
       }
 
       observe(element: Element) {
         this.watched.push(element);
         this.fresh.push(element);
       }
-      unobserve(element: Element) {
-        this.watched = this.watched.filter((watched) => watched !== element);
-        this.fresh = this.fresh.filter((fresh) => fresh !== element);
-      }
       disconnect() {
-        live.delete(this);
+        this.watched = [];
+        this.fresh = [];
       }
     },
   );
@@ -111,11 +107,11 @@ function fakeObserver() {
     made,
     /** Whether a live observer watches the element. */
     observes(element: Element | null) {
-      return [...live].some((observer) => observer.watched.includes(element as Element));
+      return made.some((observer) => observer.watched.includes(element as Element));
     },
     fire(resized = false) {
       act(() => {
-        for (const observer of live) {
+        for (const observer of made) {
           const report =
             observer.fresh.some(connected) || (resized && observer.watched.some(connected));
           observer.fresh = [];

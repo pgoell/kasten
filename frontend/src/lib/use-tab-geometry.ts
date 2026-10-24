@@ -174,11 +174,16 @@ export function useTabGeometry(
     if (!reported.current) measure(row);
     apply(foldOf(row, active));
     // A capped tab's box does not change when its label grows, so the observer would
-    // not hear of it. Observing the active tab again makes it report at once.
-    const tab = row.querySelectorAll<HTMLElement>("[data-tab]")[active];
-    if (tab !== undefined && observerRef.current !== null) {
-      observerRef.current.unobserve(tab);
-      observerRef.current.observe(tab);
+    // not hear of it. Disconnecting and observing every element again makes each one
+    // report afresh, the active tab included. unobserve is left out: the stubs of other
+    // test files have only observe and disconnect.
+    const observer = observerRef.current;
+    if (observer !== null) {
+      observer.disconnect();
+      observer.observe(row);
+      for (const element of row.querySelectorAll<HTMLElement>("[data-tab]")) {
+        observer.observe(element);
+      }
     }
   }, [active, tabIds, labels]);
 
