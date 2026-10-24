@@ -1,0 +1,198 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.5.7/schema.json",
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
+  "files": {
+    "ignoreUnknown": true,
+    "includes": [
+      "**",
+      "!dist",
+      "!node_modules",
+      "!public/pdfjs",
+      "!src/routeTree.gen.ts",
+      "!src/lib/api-types.ts",
+      "!openapi.json"
+    ]
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 100
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "preset": "recommended",
+      "correctness": {
+        "useExhaustiveDependencies": "error",
+        "noUnusedImports": "error",
+        "noUnusedVariables": "error"
+      },
+      "complexity": {
+        "noExcessiveCognitiveComplexity": {
+          "level": "error",
+          "options": { "maxAllowedComplexity": 15 }
+        }
+      },
+      "style": {
+        "noDefaultExport": "off",
+        "useImportType": "error"
+      }
+    }
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "double",
+      "semicolons": "always",
+      "trailingCommas": "all"
+    }
+  },
+  "css": {
+    "parser": {
+      "cssModules": true,
+      "tailwindDirectives": true
+    },
+    "formatter": { "enabled": false }
+  },
+  "overrides": [
+    {
+      "includes": ["**/*.css"],
+      "linter": { "enabled": false }
+    },
+    // The files over the cognitive-complexity limit when the rule came in (#939).
+    // This list may only shrink: a file comes off when it passes, never by
+    // raising the limit, and nothing goes on. The shell/chat paths are relative
+    // to the repo root, where `shell:lint` runs. The count is guarded by
+    // backend/tests/test_complexity_baseline.py.
+    {
+      "includes": [
+        "src/components/book-pane.tsx",
+        "src/components/chat-pane.tsx",
+        "src/components/command-palette.tsx",
+        "src/components/content-search.tsx",
+        "src/components/exam-pane.tsx",
+        "src/components/file-explorer.tsx",
+        "src/components/graph-pane.tsx",
+        "src/components/history-pane.tsx",
+        "src/components/html-pane.tsx",
+        "src/components/image-pane.tsx",
+        "src/components/log-pane.tsx",
+        "src/components/note-finder.tsx",
+        "src/components/note-pane.tsx",
+        "src/components/note-preview.tsx",
+        "src/components/note-prompt.tsx",
+        "src/components/note-search.tsx",
+        "src/components/pdf-pane.tsx",
+        "src/components/pdf-take.tsx",
+        "src/components/pdf-thumbs.tsx",
+        "src/components/person-pane.tsx",
+        "src/components/review-decks.tsx",
+        "src/components/review-pane.tsx",
+        "src/components/review-session.tsx",
+        "src/components/review-swipe.tsx",
+        "src/components/search-histogram.tsx",
+        "src/components/sheet.tsx",
+        "src/components/status-bar.tsx",
+        "src/components/tab-label.ts",
+        "src/components/tab-strip.tsx",
+        "src/components/terminal-prompt.tsx",
+        "src/components/todo-board.tsx",
+        "src/components/todo-list.tsx",
+        "src/components/todo-row.tsx",
+        "src/components/tree-rows.tsx",
+        "src/components/use-dump-take.tsx",
+        "src/components/video-pane.tsx",
+        "src/components/which-key.tsx",
+        "src/components/workspace-panes.tsx",
+        "src/lib/book-backing.ts",
+        "src/lib/book-fonts.ts",
+        "src/lib/copy-as.ts",
+        "src/lib/diff.ts",
+        "src/lib/editor-follow.ts",
+        "src/lib/exam.ts",
+        "src/lib/food-search.ts",
+        "src/lib/format-commands.ts",
+        "src/lib/fuzzy.ts",
+        "src/lib/graph-canvas.ts",
+        "src/lib/graph.ts",
+        "src/lib/held-buffer.ts",
+        "src/lib/held-text.ts",
+        "src/lib/link-reference.ts",
+        "src/lib/live-preview-callouts.ts",
+        "src/lib/live-preview-embeds.ts",
+        "src/lib/live-preview-fences.ts",
+        "src/lib/live-preview-hidden.ts",
+        "src/lib/live-preview-inline.ts",
+        "src/lib/live-preview-table-cells.ts",
+        "src/lib/live-preview-tables.ts",
+        "src/lib/live-preview-times.ts",
+        "src/lib/live-preview.ts",
+        "src/lib/log-card.ts",
+        "src/lib/log-kinds.ts",
+        "src/lib/log-lines.ts",
+        "src/lib/math.ts",
+        "src/lib/pdf-images.ts",
+        "src/lib/pdf-take.ts",
+        "src/lib/pdf-view.ts",
+        "src/lib/review.ts",
+        "src/lib/save-queue.ts",
+        "src/lib/srs.ts",
+        "src/lib/table-lineup.ts",
+        "src/lib/todo-api.ts",
+        "src/lib/todo-fields.ts",
+        "src/lib/todo-hold.ts",
+        "src/lib/todo-shorthand.ts",
+        "src/lib/todo-suggest.ts",
+        "src/lib/todo.ts",
+        "src/lib/todo-write.ts",
+        "src/lib/use-book-highlights.ts",
+        "src/lib/use-book-keys.ts",
+        "src/lib/use-book-seek.ts",
+        "src/lib/use-book-turns.ts",
+        "src/lib/use-book-view.ts",
+        "src/lib/use-buffer-sync.ts",
+        "src/lib/use-buffer-write.ts",
+        "src/lib/use-file-transfer.tsx",
+        "src/lib/use-guarded-writes.ts",
+        "src/lib/use-log-actions.ts",
+        "src/lib/use-note-opening.ts",
+        "src/lib/use-pane-commands.ts",
+        "src/lib/use-todo-actions.ts",
+        "src/lib/use-todo-keys.ts",
+        "src/lib/use-todo-rows.ts",
+        "src/lib/use-vault-events.ts",
+        "src/lib/use-video-player.ts",
+        "src/lib/vault-reads.ts",
+        "src/lib/weather-card.ts",
+        "src/lib/write-answer.ts",
+        "src/lists/lists-store.ts",
+        "src/routes/index.tsx",
+        "tests/frame/html-take-api.ts",
+        "tests/frame/vault-graph-fixture.tsx",
+        "tests/home-route-mentions.test.tsx",
+        "tests/home-route-twin-ids.test.tsx",
+        "tests/lists-fixture.ts",
+        "tests/todo-api-done-log.test.ts",
+        "vite.config.ts",
+        "shell/chat/runner.mjs",
+        "shell/chat/runner.test.mjs",
+        "shell/chat/stub.mjs"
+      ],
+      "linter": {
+        "rules": { "complexity": { "noExcessiveCognitiveComplexity": "off" } }
+      }
+    }
+  ],
+  "assist": {
+    "enabled": true,
+    "actions": {
+      "source": {
+        "organizeImports": "on"
+      }
+    }
+  }
+}
