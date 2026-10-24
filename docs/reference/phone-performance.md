@@ -72,20 +72,22 @@ each step's marks.
 | slowest frame gap | the longest gap between two `DrawFrame` events of the renderer |
 | scripting | the union of `FunctionCall`, `EvaluateScript`, `FireAnimationFrame`, `TimerFire`, `EventDispatch` and compile events, nested ones counted once |
 | layout | summed `Layout` time |
-| style | summed `UpdateLayoutTree` time |
+| style | summed `UpdateLayoutTree` and `RecalculateStyles` time |
 | forced layouts | `Layout` events that carry a JavaScript stack: count, time, and the first frame in `src/`, mapped through the build's source map |
 | `FireAnimationFrame` | counted in `rest` only; above 0 means something animates while nothing moves |
 | first-load JS | every script the first load fetched, gzipped and summed |
 
-The slowest frame gap in `rest` is the idle gap between frames, not a slow
-frame. Minified names show where the source map holds none, and a mapped line
+The slowest frame gap counts idle time too: `rest` reads about 495 ms with no
+work at all, so a step's gap is not all jank. Scripting is the time inside
+script events, and a style recalculation or layout run from script falls inside
+it as well, so scripting and style overlap and do not add up. Minified names show where the source map holds none, and a mapped line
 is the nearest one the map gives.
 
 ## The numbers, 0.98.5 against 0.85.0
 
 Recorded on 2026-10-24 on the VPS, under the load it had, three runs each in
 the order old, new, old, new, old, new. Means; the runs of one release sit
-within about 5% of each other.
+within about 9% of each other.
 
 | Step | Metric | 0.85.0 | 0.98.5 |
 | --- | --- | ---: | ---: |
@@ -106,11 +108,13 @@ within about 5% of each other.
 
 Times in ms. The forced layouts per run, by caller:
 
-- 0.85.0, tab and open: CodeMirror's measure (`@codemirror/view`, 3 or 4 a
-  step), `src/lib/todo-refile.ts:59` (1, about 4 ms) and `src/lib/note-view.ts:307`
-  (1, about 2 ms).
-- 0.98.5, tab and open: `src/components/tab-strip.tsx` (4, about 10 ms), then
-  CodeMirror's measure and `src/lib/note-view.ts:300`.
+- Both, tab and open: the editor being built, `src/lib/note-view.ts` (4, about
+  10 ms), CodeMirror's own measure (2 or 3) and the note head,
+  `src/lib/note-head.ts` (1, about 2 ms).
+- 0.85.0, tab and open: its tab strip, `src/components/pane-layout.tsx:370`
+  (1, 4.3 ms on tab, 3.6 ms on open).
+- 0.98.5, tab and open: its tab strip's fold, `src/components/tab-strip.tsx:134`
+  (1, 5.5 ms on tab, 3.5 ms on open).
 - Both, type: CodeMirror's `coordsIn`, 11 a run, one per keystroke and one more.
 
 ## What it found
@@ -123,8 +127,10 @@ Ranked by ms:
 2. 0.98.5 costs more than 0.85.0: style +49 ms on a tab switch and +30 ms on a
    note open, scripting +41 ms over ten keystrokes, first-load JS +36.9 KB
    gzip. The forced layout callers do not name a cause (#973).
-3. The tab strip of #849 forces four layouts per tab switch and per note open,
-   about 10 ms each step: two layout effects that read `offsetWidth` and
-   `offsetLeft`, each with a `ResizeObserver` on every tab (#974).
+3. The tab strip of #849 forces one layout per tab switch and per note open,
+   its fold reading `offsetWidth` of every tab in a layout effect: 5.5 ms on a
+   tab switch, 3.5 ms on an open. The strip before it forced one too (4.3 and
+   3.6 ms), so the change is about +1 ms. Both of its layout effects keep a
+   `ResizeObserver` on every tab (#974).
 
 No spring runs at rest: `rest` holds no `FireAnimationFrame` on either release.

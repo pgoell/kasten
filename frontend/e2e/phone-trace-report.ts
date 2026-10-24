@@ -96,7 +96,10 @@ interface Place {
 /** Where a stack frame sits in the source, through the build's map for its file. */
 function locate(frame: Frame, dist: string, maps: Map<string, TraceMap | null>): Place {
   const url = frame.url ?? "";
-  const line = (frame.lineNumber ?? 0) + 1;
+  // Trace stacks count lines and columns from 1, unlike CDP's Runtime.CallFrame,
+  // which counts from 0. So the line is used as it comes and the column is
+  // shifted to the 0-based one trace-mapping takes.
+  const line = frame.lineNumber ?? 1;
   const raw = {
     text: `${url || "(native)"}:${line} ${frame.functionName ?? ""}`.trim(),
     inSrc: false,
@@ -106,7 +109,7 @@ function locate(frame: Frame, dist: string, maps: Map<string, TraceMap | null>):
   const file = path.join(dist, "assets", `${path.basename(new URL(url).pathname)}.map`);
   const map = mapFor(file, maps);
   if (map === null) return raw;
-  const at = originalPositionFor(map, { line, column: frame.columnNumber ?? 0 });
+  const at = originalPositionFor(map, { line, column: (frame.columnNumber ?? 1) - 1 });
   if (at.source === null) return raw;
 
   const source = at.source.replace(/^(\.\.\/)+/, "");
@@ -330,7 +333,7 @@ function printCallers(runs: Run[]): void {
       }
     }
     console.log(`- ${step}:`);
-    const top = [...total].sort((a, b) => b[1].count - a[1].count).slice(0, 5);
+    const top = [...total].sort((a, b) => b[1].ms - a[1].ms);
     if (top.length === 0) console.log("  - none");
     for (const [key, value] of top) {
       console.log(`  - ${value.count}x, ${value.ms.toFixed(1)} ms: ${key}`);
