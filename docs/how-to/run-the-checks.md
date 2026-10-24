@@ -168,3 +168,4 @@ hundred megabytes that nothing reads any more. Delete it whenever you notice.
 ## Related
 
 * [mise tasks](/reference/mise-tasks.md): every command, including the narrower ones
+* [Code quality checks](/explanation/code-quality-checks.md): why the complexity rules and the copy check exist, and why their limits sit where they do

@@ -66,5 +66,6 @@ A trim that leaves the file over the limit fails too.
 
 ## Related
 
+* [Code quality checks](/explanation/code-quality-checks.md): the checks that look at the code inside a file, which the cap does not
 * [Run the checks](/how-to/run-the-checks.md): the hooks, and how to list the files over the limit
 * [mise tasks](/reference/mise-tasks.md): what `lint` runs
