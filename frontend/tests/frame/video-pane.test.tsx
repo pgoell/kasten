@@ -34,15 +34,14 @@ import {
 } from "./video-pane-fixture";
 
 /**
- * The 00:31 button of the editor `Space g v` mounted again, once that editor has
- * parsed the whole note. Opening the pane turns the one pane into a split, which
- * remounts the note's editor, and the new editor parses the note in slices: a slice
- * landing redraws lines, and CodeMirror keeps only a few widget nodes to reuse, so
- * a button grabbed before the parse ends can be replaced under the click (#929).
+ * The 00:31 button once the split from `Space g v` has landed and the editor there
+ * has parsed the whole note. The split remounts the note's editor today (#932), so
+ * the wait is for the split and the parse, and holds whether or not it remounts.
  */
-function settledTime(host: HTMLElement, before: Element | null): HTMLElement | null {
+function settledTime(host: HTMLElement): HTMLElement | null {
+  if (host.querySelectorAll("[data-pane]").length !== 2) return null;
   const content = host.querySelector<HTMLElement>(".cm-content");
-  if (content === null || content === before) return null;
+  if (content === null) return null;
   const view = EditorView.findFromDOM(content);
   if (view === null || !syntaxTreeAvailable(view.state, view.state.doc.length)) return null;
   return content.querySelector<HTMLElement>('.cm-time[data-seconds="31"]');
@@ -270,15 +269,19 @@ describe("a time in a note reaches the video pane of that note", () => {
 
   it("#791 A11 I6 with a video pane for that note, a click on its time seeks that pane's player to 31", async () => {
     await expect.poll(() => route.host.querySelector(".cm-time")).not.toBeNull();
-    const before = route.host.querySelector(".cm-content");
     leader(route.host, [" ", "g", "v"]);
     await expect.poll(() => route.host.querySelector("[data-video-pane] iframe")).not.toBeNull();
     const frame = route.host.querySelector<HTMLIFrameElement>("[data-video-pane] iframe");
     if (!frame) throw new Error("no video frame");
     const sent = spyFrame(frame);
 
-    await expect.poll(() => settledTime(route.host, before)).not.toBeNull();
-    const time = settledTime(route.host, before);
+    let time: HTMLElement | null = null;
+    await expect
+      .poll(() => {
+        time = settledTime(route.host);
+        return time;
+      })
+      .not.toBeNull();
     if (!time) throw new Error("no 00:31 time button");
     await userEvent.click(time);
 
