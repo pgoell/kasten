@@ -142,6 +142,36 @@ it("#790 R8 Space after an undo on a whole note writes nothing", async () => {
   expect(saved).toHaveBeenCalledTimes(2);
 });
 
+it("#927 a grade key pressed the moment a whole note's card shows grades it", async () => {
+  vi.spyOn(api, "fetchCards").mockResolvedValue(WHOLE);
+  serveNotes(WHOLE);
+  render(
+    <QueryClientProvider client={seededClient(WHOLE)}>
+      <ReviewPane commands={stubCommands()} onClose={vi.fn()} onOpen={vi.fn()} />
+    </QueryClientProvider>,
+  );
+  const pane = screen.getByLabelText("review");
+  await waitFor(() =>
+    expect(within(pane).getByRole("button", { name: /^tls/ })).toBeInTheDocument(),
+  );
+  const saved = vi
+    .spyOn(api, "saveNote")
+    .mockImplementation(async (path, content) => ({ path, content }));
+
+  // Pressed from the observer, which runs as the card commits and before React
+  // flushes passive effects, so the key meets the pane at the moment it shows (#927).
+  const observer = new MutationObserver(() => {
+    if (pane.querySelector('[data-testid="review-card"]') === null) return;
+    observer.disconnect();
+    fireEvent.keyDown(pane, { key: "3" });
+  });
+  observer.observe(pane, { subtree: true, childList: true });
+  fireEvent.keyDown(pane, { key: "j" });
+  fireEvent.keyDown(pane, { key: "l" });
+
+  await waitFor(() => expect(saved).toHaveBeenCalledOnce());
+});
+
 it("#790 B5 one space does not grade a whole note, which is shown from the start", async () => {
   vi.spyOn(api, "fetchCards").mockResolvedValue(WHOLE);
   serveNotes(WHOLE);
