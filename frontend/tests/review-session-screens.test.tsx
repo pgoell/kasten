@@ -163,7 +163,7 @@ it("#790 A3 Again is in the danger colour and Good is the outlined default", asy
   expect(screen.getByRole("button", { name: "Again" })).toHaveClass("text-k-danger");
 });
 
-it("#790 A8 the done screen says what was done and when the next cards are due", async () => {
+it("#790 A4 the done screen says what was done and when the next cards are due", async () => {
   renderSitting(FRESH);
   await shownCard();
   reveal();
@@ -171,11 +171,11 @@ it("#790 A8 the done screen says what was done and when the next cards are due",
   fireEvent.click(screen.getByRole("button", { name: "Good" }));
 
   expect(await screen.findByRole("heading", { name: "Done for today" })).toBeInTheDocument();
-  expect(screen.getByTestId("review-done")).toHaveTextContent("1 answered in aws.");
+  expect(screen.getByTestId("review-done")).toHaveTextContent("1 answered today in aws.");
   expect(screen.getByTestId("review-done")).toHaveTextContent("The next cards are due tomorrow.");
 });
 
-it("#790 A8 the done screen says when nothing in the deck is scheduled", async () => {
+it("#790 A4 the done screen says when nothing in the deck is scheduled", async () => {
   renderSitting("#flashcards/aws\n\nWhat does S3 stand for?::Simple Storage Service !suspended\n");
 
   expect(await screen.findByText("Nothing in aws is scheduled yet.")).toBeInTheDocument();

@@ -43,6 +43,8 @@ interface ReviewSessionProps {
       showing: boolean;
       /** Whether the answer is up, which is what makes `space` grade Good rather than reveal. */
       shown: boolean;
+      /** Whether the answer was turned over, as against shown from the start (a whole note). */
+      revealed: boolean;
       reveal: () => void;
       rate: (rating: Rating) => void;
       suspend: () => void;
@@ -76,6 +78,14 @@ export function ReviewSession({ deck, onLeave, onControls, onOpen }: ReviewSessi
   const field = useRef<HTMLInputElement>(null);
   const [center, setCenter] = useState(() => localStorage.getItem(CENTER_KEY) === "on");
   const { play, playFirst } = useCardSounds();
+  // A swiped card in flight: the ref refuses presses at once, and the state greys
+  // the grade buttons while the flight is out, the way an undo does.
+  const flying = useRef(false);
+  const [landing, setLanding] = useState(false);
+  const onFlight = useCallback((on: boolean) => {
+    flying.current = on;
+    setLanding(on);
+  }, []);
   const {
     texts,
     queue,
@@ -85,6 +95,8 @@ export function ReviewSession({ deck, onLeave, onControls, onOpen }: ReviewSessi
     shown,
     next,
     nextDue,
+    doneToday,
+    newCards,
     today,
     typed,
     setTyped,
@@ -97,14 +109,17 @@ export function ReviewSession({ deck, onLeave, onControls, onOpen }: ReviewSessi
     suspend,
     undo,
     jot: writeJot,
-  } = useReviewSitting(deck, play);
+  } = useReviewSitting(deck, play, flying);
 
   // How long ago the card was last answered: its due day less its interval is the
   // day it was answered, which the rating wrote. Null for a card nobody has answered.
-  const daysAgo =
+  const since =
     card?.held === null || card === undefined
       ? null
       : daysBetween(shiftDay(card.held.due, -card.held.interval), today);
+  // A day count that reads backwards is a schedule nobody could have answered on,
+  // so the clause is dropped rather than printed as a negative.
+  const daysAgo = since === null || since < 0 ? null : since;
 
   // The card the sitting opens on is already there when the page is, so it does
   // not come in. Every card after it does, once, when its remount plays the entrance.
@@ -136,7 +151,7 @@ export function ReviewSession({ deck, onLeave, onControls, onOpen }: ReviewSessi
   // Nothing on the done screen, where the controls stay up for Undo alone and a
   // jot would have no note to go into, nor while an undo is out.
   const capture = useCallback(() => {
-    if (seat === undefined || card === undefined || undoing) return;
+    if (seat === undefined || card === undefined || undoing || flying.current) return;
     if (jotting !== null) {
       setJotting(null);
       return;
@@ -185,10 +200,10 @@ export function ReviewSession({ deck, onLeave, onControls, onOpen }: ReviewSessi
     onControls?.(
       !showing && step === null
         ? null
-        : { showing, shown, reveal, rate, suspend, capture, replay, undo },
+        : { showing, shown, revealed, reveal, rate, suspend, capture, replay, undo },
     );
     return () => onControls?.(null);
-  }, [capture, card, onControls, rate, replay, reveal, shown, step, suspend, undo]);
+  }, [capture, card, onControls, rate, replay, reveal, revealed, shown, step, suspend, undo]);
 
   return (
     <div className="flex h-full flex-col bg-k-bg font-sans text-k-ink">
@@ -299,12 +314,14 @@ export function ReviewSession({ deck, onLeave, onControls, onOpen }: ReviewSessi
           <div data-testid="review-done" className="mx-auto w-full max-w-[var(--k-measure)]">
             <h2 className="font-serif text-k-27">Done for today</h2>
             <p className="mt-4 text-k-muted">
-              {done} answered in {deck.name}.
+              {doneToday} answered today in {deck.name}.
             </p>
             <p className="mt-2 text-k-muted">
-              {nextDue === null
-                ? `Nothing in ${deck.name} is scheduled yet.`
-                : `The next cards are due ${dayWords(nextDue, today)}.`}
+              {nextDue !== null
+                ? `The next cards are due ${dayWords(nextDue, today)}.`
+                : newCards
+                  ? "New cards come tomorrow."
+                  : `Nothing in ${deck.name} is scheduled yet.`}
             </p>
           </div>
         )}
@@ -313,6 +330,7 @@ export function ReviewSession({ deck, onLeave, onControls, onOpen }: ReviewSessi
           <SwipeCard
             swipe={shown && !undoing}
             onGrade={rate}
+            onFlight={onFlight}
             onTap={shown ? undefined : reveal}
             className={`mx-auto w-full max-w-[var(--k-measure)]${center ? " review-center my-auto text-center" : ""}`}
           >
@@ -381,7 +399,7 @@ export function ReviewSession({ deck, onLeave, onControls, onOpen }: ReviewSessi
           typing={typing}
           typed={typed}
           onTyped={setTyped}
-          undoing={undoing}
+          undoing={undoing || landing}
           jotOpen={jotOpen}
           next={next}
           onReveal={reveal}

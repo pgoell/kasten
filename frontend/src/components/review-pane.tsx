@@ -55,6 +55,7 @@ export function ReviewPane({ commands, onClose, onOpen, focusSignal }: ReviewPan
   const controls = useRef<{
     showing: boolean;
     shown: boolean;
+    revealed: boolean;
     reveal: () => void;
     rate: (rating: Rating) => void;
     suspend: () => void;
@@ -108,6 +109,17 @@ export function ReviewPane({ commands, onClose, onOpen, focusSignal }: ReviewPan
     // The leader above still runs, which is the one thing that has to.
     const target = event.target as HTMLElement;
     if (target.tagName === "INPUT" || target.tagName === "TEXTAREA") return;
+
+    // A button or link with the focus takes its own Space and Enter, so the
+    // browser's click runs. Answering the key here as well would act twice, once
+    // from the key and once from the button.
+    const focused = document.activeElement;
+    if (
+      (key === " " || key === "Enter") &&
+      (focused instanceof HTMLButtonElement || focused instanceof HTMLAnchorElement) &&
+      panel.current?.contains(focused)
+    )
+      return;
 
     // `za` folds, the way it folds in vim. A `z` followed by anything else is
     // dropped and the key after it runs as itself, so a stray `z` costs no `j`.
@@ -190,13 +202,22 @@ export function ReviewPane({ commands, onClose, onOpen, focusSignal }: ReviewPan
       return;
     }
 
+    // A held key repeats, and each repeat would answer the card again. The first
+    // press did the work, so the repeats of the answering keys do nothing.
+    if (event.repeat && (key === " " || key === "Enter" || KEYED[key] !== undefined)) {
+      event.preventDefault();
+      return;
+    }
+
     const rating = KEYED[key];
     if (rating !== undefined) controls.current?.rate(rating);
-    // Once the answer is up, the same key grades it Good: the default button, so
-    // a reader who knows the answer goes through the card in two presses.
+    // Once the answer is revealed, the same key grades it Good: the default
+    // button, so a reader who knows the answer goes through the card in two
+    // presses. A whole note is shown from the start with nothing to reveal, so
+    // its Space does nothing rather than grading a card nobody has looked at.
     else if (key === " " || key === "Enter") {
-      if (controls.current?.shown) controls.current.rate("good");
-      else controls.current?.reveal();
+      if (controls.current?.revealed) controls.current.rate("good");
+      else if (!controls.current?.shown) controls.current?.reveal();
     }
     // Before the reveal as well as after it, because a card you want out of the
     // deck is one you have recognised from its question alone.

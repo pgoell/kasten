@@ -26,6 +26,8 @@ interface SwipeCardProps {
   onGrade: (rating: "good" | "again") => void;
   /** Called for a touch tap that is not on a control inside the card. */
   onTap?: () => void;
+  /** Called true when a grade sends the card off, and false once it has landed, before `onGrade`, or on unmount. */
+  onFlight?: (flying: boolean) => void;
   children: ReactNode;
   className?: string;
 }
@@ -51,13 +53,21 @@ interface Gesture {
  * Where a press is not a tap on the card, since the control inside answers it. A read-only
  * CodeMirror view marks its text contenteditable="false", so only the editable ones count.
  */
-const CONTROL = 'a, button, input, textarea, [contenteditable]:not([contenteditable="false"])';
+const CONTROL =
+  'a, audio, button, input, select, summary, textarea, video, [role="slider"], [contenteditable]:not([contenteditable="false"])';
 
 /** Right is Good, left is Again. The stamps sit at the top corners on the side they name. */
 const STAMP =
   "pointer-events-none absolute top-4 z-10 rounded border-2 bg-k-paper px-2 py-0.5 font-sans text-k-13 uppercase";
 
-export function SwipeCard({ swipe, onGrade, onTap, children, className }: SwipeCardProps) {
+export function SwipeCard({
+  swipe,
+  onGrade,
+  onTap,
+  onFlight,
+  children,
+  className,
+}: SwipeCardProps) {
   const root = useRef<HTMLDivElement>(null);
   const good = useRef<HTMLSpanElement>(null);
   const again = useRef<HTMLSpanElement>(null);
@@ -71,8 +81,8 @@ export function SwipeCard({ swipe, onGrade, onTap, children, className }: SwipeC
   // The width the stamps are measured against, set when the card is grabbed or released.
   const width = useRef(0);
   // Read on each event, so a change of `swipe` mid-drag is honoured at once.
-  const latest = useRef({ swipe, onGrade, onTap });
-  latest.current = { swipe, onGrade, onTap };
+  const latest = useRef({ swipe, onGrade, onTap, onFlight });
+  latest.current = { swipe, onGrade, onTap, onFlight };
 
   const paint = (offset: number) => {
     if (root.current)
@@ -90,6 +100,11 @@ export function SwipeCard({ swipe, onGrade, onTap, children, className }: SwipeC
     return () => {
       alive.current = false;
       spring.stop();
+      // A flight cut short by unmounting never lands, so the parent is told it is over with no grade.
+      if (flying.current) {
+        flying.current = false;
+        latest.current.onFlight?.(false);
+      }
     };
   }, [spring]);
 
@@ -164,6 +179,11 @@ export function SwipeCard({ swipe, onGrade, onTap, children, className }: SwipeC
       return;
     }
     if (!held.decided) {
+      // A press on a control is the control's: its own sideways drag, a seek bar say, is not a swipe.
+      if (held.onControl) {
+        held.dead = true;
+        return;
+      }
       // axis() calls a vertical win "scroll", so the arguments are swapped to make its "drag" the sideways one.
       const verdict = axis(dy, dx);
       if (verdict === "pending") return;
@@ -203,12 +223,14 @@ export function SwipeCard({ swipe, onGrade, onTap, children, className }: SwipeC
 
     gradeTick();
     flying.current = true;
+    latest.current.onFlight?.(true);
     const sign = rating === "good" ? 1 : -1;
     void spring.to(sign * w * 1.5, SPRINGS.card, v).then(() => {
       flying.current = false;
       // Unmounted mid-flight: the spring was stopped, and the parent no longer wants the grade.
       if (!alive.current) return;
       spring.set(0);
+      latest.current.onFlight?.(false);
       latest.current.onGrade(rating);
     });
   }

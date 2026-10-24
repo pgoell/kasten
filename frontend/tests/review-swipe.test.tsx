@@ -64,15 +64,16 @@ function renderCard({
 } = {}) {
   const onGrade = vi.fn();
   const onTap = vi.fn();
+  const onFlight = vi.fn();
   const view = render(
-    <SwipeCard swipe={swipe} onGrade={onGrade} onTap={onTap}>
+    <SwipeCard swipe={swipe} onGrade={onGrade} onTap={onTap} onFlight={onFlight}>
       {children}
     </SwipeCard>,
   );
   const root = view.getByTestId("review-swipe");
   const good = root.querySelector('[data-stamp="good"]') as HTMLElement;
   const again = root.querySelector('[data-stamp="again"]') as HTMLElement;
-  return { root, good, again, onGrade, onTap };
+  return { root, good, again, onGrade, onTap, onFlight };
 }
 
 it("a swipe right past 38 percent grades good once and buzzes once", async () => {
@@ -256,6 +257,58 @@ it("a tap on text in a non-editable child calls onTap", () => {
   pointer(text, "pointerup", 100, 300);
 
   expect(onTap).toHaveBeenCalledTimes(1);
+});
+
+it("the flight is reported to onFlight before the grade lands", async () => {
+  const { root, onGrade, onFlight } = renderCard();
+  pointer(root, "pointerdown", 100, 300);
+  at(16);
+  pointer(root, "pointermove", 250, 300);
+  at(32);
+  pointer(root, "pointerup", 250, 300);
+
+  await waitFor(() => expect(onGrade).toHaveBeenCalledTimes(1));
+  expect(onFlight.mock.calls).toEqual([[true], [false]]);
+  // A missing call reads as Infinity, so it fails the order rather than passing it.
+  expect(onFlight.mock.invocationCallOrder[1] ?? Number.POSITIVE_INFINITY).toBeLessThan(
+    onGrade.mock.invocationCallOrder[0] ?? 0,
+  );
+});
+
+it("a tap on an audio control inside the card does not call onTap", () => {
+  const { root, onTap } = renderCard({
+    children: (
+      <audio controls>
+        <track kind="captions" />
+      </audio>
+    ),
+  });
+  const audio = root.querySelector("audio") as HTMLElement;
+  pointer(audio, "pointerdown", 100, 300);
+  at(50);
+  pointer(audio, "pointerup", 100, 300);
+
+  expect(onTap).not.toHaveBeenCalled();
+});
+
+it("a sideways drag that starts on an audio control does not move the card or grade", async () => {
+  const { root, onGrade } = renderCard({
+    children: (
+      <audio controls>
+        <track kind="captions" />
+      </audio>
+    ),
+  });
+  const audio = root.querySelector("audio") as HTMLElement;
+  pointer(audio, "pointerdown", 100, 300);
+  at(16);
+  pointer(audio, "pointermove", 250, 300);
+  at(32);
+  pointer(audio, "pointerup", 250, 300);
+
+  await act(async () => {});
+  expect(root.style.transform).toBe("");
+  expect(onGrade).not.toHaveBeenCalled();
 });
 
 it("a horizontal touch move after the drag is decided is default prevented", () => {

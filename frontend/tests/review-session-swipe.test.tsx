@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { ReviewSession } from "@/components/review-session";
 import * as api from "@/lib/api";
+import { readClock } from "@/lib/clock";
 import type { Deck } from "@/lib/review";
 import { stubMatchMedia } from "./match-media";
 import { shownCard } from "./review-card";
@@ -93,7 +94,7 @@ function drag(from: number, to: number) {
   pointer(card, "pointerup", to, 300);
 }
 
-it("#790 A6 a swipe right past 38 percent writes exactly what a click on Good writes", async () => {
+it("#790 A15 a swipe right past 38 percent writes exactly what a click on Good writes", async () => {
   const swiped = renderSitting(ONE);
   await shownCard();
   reveal();
@@ -112,7 +113,7 @@ it("#790 A6 a swipe right past 38 percent writes exactly what a click on Good wr
   expect(bySwipe).toBe(clicked.saved.mock.calls[0]?.[1]);
 });
 
-it("#790 A6 a swipe left past 38 percent writes exactly what a click on Again writes", async () => {
+it("#790 A15 a swipe left past 38 percent writes exactly what a click on Again writes", async () => {
   const swiped = renderSitting(ONE);
   await shownCard();
   reveal();
@@ -131,7 +132,7 @@ it("#790 A6 a swipe left past 38 percent writes exactly what a click on Again wr
   expect(bySwipe).toBe(clicked.saved.mock.calls[0]?.[1]);
 });
 
-it("#790 A6 a touch tap on the question reveals the answer", async () => {
+it("#790 A9 a touch tap on the question reveals the answer", async () => {
   const { saved } = renderSitting(ONE);
   await shownCard();
 
@@ -144,7 +145,7 @@ it("#790 A6 a touch tap on the question reveals the answer", async () => {
   expect(saved).not.toHaveBeenCalled();
 });
 
-it("#790 A6 a swipe on the question side writes nothing", async () => {
+it("#790 I1 a swipe on the question side writes nothing", async () => {
   const { saved } = renderSitting(ONE);
   await shownCard();
 
@@ -155,7 +156,7 @@ it("#790 A6 a swipe on the question side writes nothing", async () => {
   expect(screen.queryByTestId("review-back")).not.toBeInTheDocument();
 });
 
-it("#790 A6 a short swipe on the answer springs back and writes nothing", async () => {
+it("#790 A11 a short swipe on the answer springs back and writes nothing", async () => {
   const { saved } = renderSitting(ONE);
   await shownCard();
   reveal();
@@ -173,7 +174,7 @@ it("#790 A6 a short swipe on the answer springs back and writes nothing", async 
   expect(vibrate).not.toHaveBeenCalled();
 });
 
-it("#790 A6 a button grade does not buzz, and a swipe grade buzzes once with 8", async () => {
+it("#790 A13 a button grade does not buzz, and a swipe grade buzzes once with 8", async () => {
   const { saved } = renderSitting(TWO);
   await shownCard();
   reveal();
@@ -190,7 +191,7 @@ it("#790 A6 a button grade does not buzz, and a swipe grade buzzes once with 8",
   expect(vibrate).toHaveBeenCalledWith(8);
 });
 
-it("#790 A6 a swipe while an undo is out writes nothing more", async () => {
+it("#790 I1 a swipe while an undo is out writes nothing more", async () => {
   // The first write lands, and the undo that follows is held, so it stays out.
   let writes = 0;
   const { saved } = renderSitting(TWO);
@@ -211,4 +212,43 @@ it("#790 A6 a swipe while an undo is out writes nothing more", async () => {
   await act(async () => {});
 
   expect(saved).toHaveBeenCalledTimes(2);
+});
+
+it("#790 B3 a press mid-flight writes nothing, and the landing writes the swiped card's Good once", async () => {
+  // No reduced motion, so the flight lasts, and frames are held until the test steps them.
+  stubMatchMedia();
+  let queued: FrameRequestCallback[] = [];
+  vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => {
+    queued.push(cb);
+    return queued.length;
+  });
+  vi.stubGlobal("cancelAnimationFrame", () => {});
+  const frame = () => {
+    at(clock + 16);
+    const due = queued;
+    queued = [];
+    act(() => {
+      for (const cb of due) cb(clock);
+    });
+  };
+  // The first card is scheduled for today at an interval of ten, so Good writes a gap
+  // of twenty-five days and Again a gap of five: the two grades write different text.
+  const today = readClock(new Date()).date;
+  const { saved } = renderSitting(
+    `#flashcards/aws\n\nWhat does S3 stand for?::Simple Storage Service <!--SR:!${today},10,250-->\n\nWhat is a VPC?::A private cloud\n`,
+  );
+  await shownCard();
+  reveal();
+  drag(100, 250);
+  for (let i = 0; i < 3; i++) frame();
+
+  fireEvent.click(screen.getByRole("button", { name: "Again" }));
+  await act(async () => {});
+  expect(saved).not.toHaveBeenCalled();
+
+  for (let i = 0; i < 400 && saved.mock.calls.length === 0; i++) frame();
+  await waitFor(() => expect(saved).toHaveBeenCalledOnce());
+  expect(saved.mock.calls[0]?.[1]).toMatch(
+    /What does S3 stand for\?::Simple Storage Service <!--SR:!\d{4}-\d{2}-\d{2},25,250-->/,
+  );
 });
