@@ -85,6 +85,8 @@ describe("the video pane", () => {
 
   afterEach(async () => {
     await tearDown(mounted);
+    // The vim tests set it, and tearDown does not: the next file in the run would start with vim forced.
+    localStorage.removeItem("kasten.vim");
   });
 
   /** A press on the shield while the player runs, then Space: the leader opens. */
