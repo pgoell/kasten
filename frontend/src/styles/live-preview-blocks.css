@@ -109,6 +109,10 @@
      breaks at a space only, and a table too wide for the pane scrolls instead. */
   overflow-wrap: normal;
   word-break: normal;
+  /* Top, not the browser's middle: a row's cells differ in height when a picture
+     in one scales to its own column's width, and middle would drop the shorter
+     cell's text and picture below the other's top. */
+  vertical-align: top;
   /* An empty cell has nothing to give it a height, and a row of them would
      draw as a line. */
   min-width: 1em;
