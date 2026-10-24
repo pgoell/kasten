@@ -1,7 +1,7 @@
-import { type ReactNode, type RefObject, useLayoutEffect, useRef } from "react";
+import { type CSSProperties, type ReactNode, type RefObject, useLayoutEffect, useRef } from "react";
 import { KindIcon, kindLabel, paneKind, panePath } from "@/components/kind-icons";
 import type { PaneRect } from "@/lib/pane-direction";
-import { isSplit, type Pane, type PaneNode, panesOf } from "@/lib/panes";
+import { isSplit, type Pane, type PaneNode, panesOf, type Split } from "@/lib/panes";
 import { SPRINGS, Spring } from "@/lib/spring";
 
 interface PaneLayoutProps {
@@ -30,17 +30,20 @@ interface PaneLayoutProps {
   narrow?: boolean;
 }
 
-interface LayoutNodeProps {
-  node: PaneNode;
-  focus: string;
-  onFocus: (id: string) => void;
-  children: PaneLayoutProps["children"];
-  divided: boolean;
-  zoomed: string | null;
-  /** The ids of the panes that arrived since this tab was last drawn. */
-  fresh: ReadonlySet<string>;
-  narrow: boolean;
-  /** The axis a leaf slides in along: the one its parent split divides by. */
+/** A pane's place in the window, in percent of the window from each edge. */
+interface Box {
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+}
+
+const WINDOW: Box = { left: 0, top: 0, right: 100, bottom: 100 };
+
+interface Placed {
+  pane: Pane;
+  box: Box;
+  /** The axis the pane slides in along: the one its parent split divides by. */
   enter: "x" | "y";
 }
 
@@ -50,13 +53,18 @@ const SLIDE = 36;
 const REDUCED = "(prefers-reduced-motion: reduce)";
 
 /**
- * One tab's panes, drawn from the tree that arranges them.
+ * One tab's panes, drawn flat from the tree that arranges them.
  *
- * Flex the whole way down, so the browser divides the room and nothing here
- * measures anything: each child takes an equal share of its split, and a split
- * nested inside one takes a single share as a whole. That is what makes the
- * flattening in `panes.ts` visible, three panes in a row being thirds rather
- * than a half and two quarters.
+ * Every pane is a direct child of one container, keyed by its id, in a box worked
+ * out from the tree: each split gives its children equal shares of its own box
+ * along its direction, which is what flex gave, three panes in a row being thirds
+ * rather than a half and two quarters. Nothing here measures anything.
+ *
+ * The tree is never drawn, so it can change around a pane without remounting it
+ * (#935). React keeps an editor only while its element and key stay the same, and
+ * a nested split is a container that would be taken down and built again when a
+ * pane moved into it. A split, a fold or a swap moves a pane's box and leaves its
+ * node where it is.
  *
  * The rules between panes are the container's own background showing through a
  * two pixel gap, so dividing the window costs no elements to draw lines with.
@@ -85,96 +93,77 @@ export function PaneLayout({
     drawn.current.set(tabId, new Set([...(drawn.current.get(tabId) ?? []), ...ids]));
   });
 
-  // The root is always a container, even around one pane: React keeps a pane's
-  // editor only while its element type and key stay the same, so a lone pane
-  // that becomes a split must not be swapped for a container of its own.
-  const column = isSplit(node) && node.dir === "col";
-  const parts = isSplit(node) ? node.children : [node];
+  // The window is the root for a lone pane too, which is a leaf placed as a row would place it.
+  const placed: Placed[] = [];
+  place(node, WINDOW, "row", narrow, placed);
 
   return (
-    <div
-      className={`flex min-h-0 min-w-0 flex-1 gap-0.5 bg-k-rule ${column ? "flex-col" : "flex-row"}`}
-    >
-      {parts.map((part) => (
-        <LayoutNode
-          key={part.id}
-          node={part}
-          focus={focus}
+    <div className="relative min-h-0 min-w-0 flex-1 bg-k-rule">
+      {placed.map(({ pane, box, enter }) => (
+        <PaneLeaf
+          key={pane.id}
+          pane={pane}
+          focused={pane.id === focus}
+          // A zoomed pane takes the whole window, and the rest stay mounted behind it.
+          hidden={zoomed !== null && pane.id !== zoomed}
+          box={pane.id === zoomed ? WINDOW : box}
+          shown={divided && zoomed === null}
           onFocus={onFocus}
-          divided={divided}
-          zoomed={zoomed}
-          fresh={fresh}
-          narrow={narrow}
-          enter={narrow || column ? "y" : "x"}
+          fresh={fresh.has(pane.id)}
+          enter={enter}
         >
           {children}
-        </LayoutNode>
+        </PaneLeaf>
       ))}
     </div>
   );
 }
 
-function LayoutNode({
-  node,
-  focus,
-  onFocus,
-  children,
-  divided,
-  zoomed,
-  fresh,
-  narrow,
-  enter,
-}: LayoutNodeProps) {
-  // `display: none` takes the box out of the layout altogether, so what is
-  // left shares the whole window. A split holding none of the zoomed pane goes
-  // with them, or its share of the room would be held open around nothing.
-  const hidden = zoomed !== null && !panesOf(node).some((pane) => pane.id === zoomed);
-
+/**
+ * Give every pane under this node its box, each split dividing its own box among
+ * its children along its direction. The list comes out in `panesOf` order.
+ */
+function place(node: PaneNode, box: Box, dir: Split["dir"], narrow: boolean, out: Placed[]) {
   if (!isSplit(node)) {
-    return (
-      <PaneLeaf
-        pane={node}
-        focused={node.id === focus}
-        hidden={hidden}
-        shown={divided && zoomed === null}
-        onFocus={onFocus}
-        fresh={fresh.has(node.id)}
-        enter={enter}
-      >
-        {children}
-      </PaneLeaf>
-    );
+    out.push({ pane: node, box, enter: narrow || dir === "col" ? "y" : "x" });
+    return;
   }
 
-  return (
-    <div
-      className={`flex min-h-0 min-w-0 flex-1 gap-0.5 bg-k-rule ${hidden ? "hidden" : ""} ${
-        node.dir === "row" ? "flex-row" : "flex-col"
-      }`}
-    >
-      {node.children.map((child) => (
-        <LayoutNode
-          key={child.id}
-          node={child}
-          focus={focus}
-          onFocus={onFocus}
-          divided={divided}
-          zoomed={zoomed}
-          fresh={fresh}
-          narrow={narrow}
-          enter={narrow || node.dir === "col" ? "y" : "x"}
-        >
-          {children}
-        </LayoutNode>
-      ))}
-    </div>
-  );
+  const row = node.dir === "row";
+  const count = node.children.length;
+  const start = row ? box.left : box.top;
+  const end = row ? box.right : box.bottom;
+  // The outer edges are taken as they are, so a last pane ends exactly at the box's
+  // edge and not at a rounding of it, which would draw a sliver of gap there.
+  const edge = (at: number) =>
+    at === 0 ? start : at === count ? end : start + ((end - start) * at) / count;
+
+  node.children.forEach((child, at) => {
+    const next = row
+      ? { ...box, left: edge(at), right: edge(at + 1) }
+      : { ...box, top: edge(at), bottom: edge(at + 1) };
+    place(child, next, node.dir, narrow, out);
+  });
+}
+
+/**
+ * A box as CSS, inset a pixel from each edge that is not the window's own. Two
+ * neighbours then leave the two pixels between them that the rules show through.
+ */
+function insetOf(box: Box): CSSProperties {
+  return {
+    left: box.left > 0 ? `calc(${box.left}% + 1px)` : "0",
+    top: box.top > 0 ? `calc(${box.top}% + 1px)` : "0",
+    right: box.right < 100 ? `calc(${100 - box.right}% + 1px)` : "0",
+    bottom: box.bottom < 100 ? `calc(${100 - box.bottom}% + 1px)` : "0",
+  };
 }
 
 interface PaneLeafProps {
   pane: Pane;
   focused: boolean;
   hidden: boolean;
+  box: Box;
   /** Whether the pane has a header row and a focus line, which is only when others are drawn beside it. */
   shown: boolean;
   onFocus: (id: string) => void;
@@ -187,6 +176,7 @@ function PaneLeaf({
   pane,
   focused,
   hidden,
+  box,
   shown,
   onFocus,
   children,
@@ -207,7 +197,8 @@ function PaneLeaf({
       ref={element}
       data-pane={pane.id}
       onFocusCapture={() => onFocus(pane.id)}
-      className={`relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-k-bg ${hidden ? "hidden" : ""}`}
+      style={insetOf(box)}
+      className={`absolute flex min-h-0 min-w-0 flex-col overflow-hidden bg-k-bg ${hidden ? "hidden" : ""}`}
     >
       {shown && (
         <>

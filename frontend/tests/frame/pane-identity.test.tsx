@@ -13,6 +13,7 @@ import { getCM } from "@replit/codemirror-vim";
 import { waitFor } from "@testing-library/react";
 import { act } from "react";
 import { userEvent } from "vitest/browser";
+import { fetchNote } from "@/lib/api";
 import {
   DESKTOP,
   leader,
@@ -28,13 +29,21 @@ import {
 } from "./reader-fixture";
 import { registerNotes, TALK, talkNote, VIDEO } from "./video-pane-fixture";
 
+/** What the saves wrote, by path, so a note written and opened again reads back what was typed. */
+const { saved } = vi.hoisted(() => ({ saved: new Map<string, string>() }));
+
 vi.mock("@/lib/api", async (importOriginal) => {
   const real = await importOriginal<typeof import("@/lib/api")>();
   return {
     ...real,
     fetchFiles: vi.fn(),
     fetchNote: vi.fn(),
-    saveNote: async (path: string, content: string) => ({ path, content }),
+    // Never answers: the pdf beside a note only has to be a pane, not a page drawn.
+    fetchBook: () => new Promise<never>(() => {}),
+    saveNote: async (path: string, content: string) => {
+      saved.set(path, content);
+      return { path, content };
+    },
     searchNotes: vi.fn(),
     fetchTodos: vi.fn(),
     fetchImages: async () => [],
@@ -65,9 +74,47 @@ vi.mock("@/lib/video", async (importOriginal) => ({
 registerReaderFixture();
 registerNotes({ [TALK]: talkNote(VIDEO) });
 
+// Opening a note that was just written reads the write back, as the vault does.
+// A split beside a note writes it first, so the editor opened again must hold
+// what was typed.
+beforeEach(() => {
+  const previous = vi.mocked(fetchNote).getMockImplementation();
+  vi.mocked(fetchNote).mockImplementation(async (path: string) => {
+    const text = saved.get(path);
+    if (text !== undefined) return text;
+    if (previous === undefined) throw new Error(`no note ${path}`);
+    return previous(path);
+  });
+});
+
+afterEach(() => saved.clear());
+
 const PHONE: Size = { name: "phone-414", width: 414, height: 896, coarse: true };
 const READ = `/?note=${encodeURIComponent(READER)}`;
 const VIDEO_NOTE = `/?note=${encodeURIComponent(TALK)}`;
+const PDF = "00 Inbox/02 Documents/Fixture.pdf";
+
+/** A saved desktop workspace: the note in a row beside a pdf, so the route restores both. */
+function noteBesidePdf(note: string): Record<string, string> {
+  const layout = {
+    tabs: [
+      {
+        id: "tab-a",
+        focus: "pane-note",
+        root: {
+          id: "split-a",
+          dir: "row",
+          children: [
+            { id: "pane-note", path: note },
+            { id: "pane-pdf", pdf: { path: PDF } },
+          ],
+        },
+      },
+    ],
+    active: 0,
+  };
+  return { "kasten.workspace.1": JSON.stringify({ layout, treeOpen: false }) };
+}
 
 /** The note open at one size, with vim as the storage says (on when none is given). */
 async function open(
@@ -231,5 +278,140 @@ describe("a pane keeps its editor when the layout changes around it", () => {
     await userEvent.keyboard("q");
     await waitForPanes(host, 1);
     expect(editorIn(host, id)).toBe(editor);
+  });
+
+  it("#935 A5 a pane in a row divided the other way keeps its editor: the cursor stays and u undoes the word", async () => {
+    mounted = await open(READ);
+    const { host } = mounted;
+    const id = firstId(host);
+    const editor = editorIn(host, id);
+
+    leader(host, [" ", "%"]);
+    await waitForPanes(host, 2);
+    await typeWithVim(editorIn(host, id));
+    const head = need(EditorView.findFromDOM(editorIn(host, id)), "editor view").state.selection
+      .main.head;
+
+    // The word is typed and left in normal mode, so the focus is in the note: Space " divides it.
+    await userEvent.keyboard(" ");
+    await userEvent.keyboard('"');
+    await waitForPanes(host, 3);
+
+    expect.soft(editorIn(host, id)).toBe(editor);
+    expect
+      .soft(
+        need(EditorView.findFromDOM(editorIn(host, id)), "editor view").state.selection.main.head,
+      )
+      .toBe(head);
+    await userEvent.click(editorIn(host, id));
+    await userEvent.keyboard("u");
+    expect(editorIn(host, id).textContent).not.toContain("zebra");
+  });
+
+  it("#935 A6 Space g v on a note beside a pdf keeps the note's editor: u undoes the word", async () => {
+    mounted = await open("/", noteBesidePdf(TALK));
+    const { host } = mounted;
+    const id = firstId(host);
+    const editor = editorIn(host, id);
+    await typeWithVim(editor);
+
+    leader(host, [" ", "g", "v"]);
+    await waitForPanes(host, 3);
+
+    expect.soft(editorIn(host, id)).toBe(editor);
+    expect.soft(editorIn(host, id).textContent).toContain("zebra");
+    await userEvent.click(editorIn(host, id));
+    await userEvent.keyboard("u");
+    expect(editorIn(host, id).textContent).not.toContain("zebra");
+  });
+
+  it("#935 A7 closing the other pane of a column folds it back into the row and keeps the editor", async () => {
+    mounted = await open(READ);
+    const { host } = mounted;
+    const id = firstId(host);
+    const editor = editorIn(host, id);
+    await typeWithVim(editor);
+
+    // The note's row, then a column dividing the note itself: closing the pane
+    // the column made folds the note back into the row, and the note is moved.
+    leader(host, [" ", "%"]);
+    await waitForPanes(host, 2);
+    await userEvent.click(editorIn(host, id));
+    await userEvent.keyboard(" ");
+    await userEvent.keyboard('"');
+    await waitForPanes(host, 3);
+    await userEvent.keyboard(" ");
+    await userEvent.keyboard("q");
+    await waitForPanes(host, 2);
+
+    expect.soft(editorIn(host, id)).toBe(editor);
+    await userEvent.click(editorIn(host, id));
+    await userEvent.keyboard("u");
+    expect(editorIn(host, id).textContent).not.toContain("zebra");
+  });
+
+  it("#935 I4 vim off: a nested split keeps the editor, and Ctrl+Z undoes the word", async () => {
+    mounted = await open(READ, { "kasten.vim": "off" });
+    const { host } = mounted;
+    const id = firstId(host);
+    const editor = editorIn(host, id);
+    await userEvent.click(editor);
+    await userEvent.keyboard("zebra");
+    await expect.poll(() => editor.textContent).toContain("zebra");
+
+    await runFromPalette("Split the pane left and right");
+    await waitForPanes(host, 2);
+    await userEvent.click(editorIn(host, id));
+    await runFromPalette("Split the pane top and bottom");
+    await waitForPanes(host, 3);
+    expect.soft(editorIn(host, id)).toBe(editor);
+
+    await userEvent.click(editorIn(host, id));
+    await userEvent.keyboard("{Control>}z{/Control}");
+    expect(editorIn(host, id).textContent).not.toContain("zebra");
+  });
+
+  it("#935 I5 a phone at 414 keeps the editor across a nested split and back", async () => {
+    mounted = await open(READ, {}, PHONE);
+    const { host } = mounted;
+    const id = firstId(host);
+    const editor = editorIn(host, id);
+
+    leader(host, [" ", "%"]);
+    await waitForPanes(host, 2);
+    // A phone draws only the focused pane, so the note comes back by Space o, not a click.
+    await userEvent.keyboard(" ");
+    await userEvent.keyboard("o");
+    await userEvent.keyboard(" ");
+    await userEvent.keyboard('"');
+    await waitForPanes(host, 3);
+    expect.soft(editorIn(host, id)).toBe(editor);
+
+    // The focus is on the empty pane the column made, and each Space q closes the empty pane in focus.
+    await userEvent.keyboard(" ");
+    await userEvent.keyboard("q");
+    await waitForPanes(host, 2);
+    await userEvent.keyboard(" ");
+    await userEvent.keyboard("q");
+    await waitForPanes(host, 1);
+    expect(editorIn(host, id)).toBe(editor);
+  });
+
+  it("#935 I6 a word typed right before a nested split and not saved is still there", async () => {
+    mounted = await open(READ);
+    const { host } = mounted;
+    const id = firstId(host);
+    const editor = editorIn(host, id);
+
+    leader(host, [" ", "%"]);
+    await waitForPanes(host, 2);
+    await typeWithVim(editorIn(host, id));
+    await userEvent.keyboard(" ");
+    await userEvent.keyboard('"');
+    await waitForPanes(host, 3);
+
+    // A remounted editor reads the note back, which is how a word typed and not yet written would go.
+    expect.soft(editorIn(host, id)).toBe(editor);
+    expect(editorIn(host, id).textContent).toContain("zebra");
   });
 });
