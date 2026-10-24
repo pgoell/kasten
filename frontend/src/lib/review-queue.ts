@@ -3,7 +3,7 @@ import { noteBody } from "@/lib/note-frontmatter";
 import { noteName } from "@/lib/note-path";
 import { type Deck, decksFrom, type Limits } from "@/lib/review";
 import { type Card, parseCards } from "@/lib/srs";
-import { readNoteSchedule, readNoteSuspended } from "@/lib/srs-schedule";
+import { learning, readNoteSchedule, readNoteSuspended } from "@/lib/srs-schedule";
 
 /** One card in the sitting: which note holds it, and which of that note's cards. */
 export interface Seat {
@@ -46,7 +46,11 @@ export function seatsFor(
   // has to keep them: the queue addresses a card by its ordinal, so a
   // card taken out of the array renumbers the ones behind it.
   const asked = seats.filter(({ card }) => card.parked === null);
-  const due = asked.filter(({ card }) => isDue(card, today));
+  // A card in learning first, because the row counts it outside the limit and
+  // the slice below must not cut it for a review the limit let in.
+  const due = asked
+    .filter(({ card }) => isDue(card, today))
+    .sort((one, two) => Number(learning(two.card.held)) - Number(learning(one.card.held)));
   const fresh = asked.filter(({ card }) => card.held === null);
   // The deck's row as the overview counts it, off the same notes and the
   // same limits, so the sitting asks exactly what the row promised. A

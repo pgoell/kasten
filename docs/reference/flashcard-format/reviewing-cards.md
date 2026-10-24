@@ -250,11 +250,16 @@ today count against the deck you sit, across every card under it.
 The count of what was answered today comes off the schedule in the note, so a
 reload and a second device read the same number. A card whose due date is today
 plus its interval was answered today, and one that also sits on ease 250 with an
-interval of 1 or 4 was new. A card new when the sitting starts and answered
-`Again` comes round again in that sitting, and each answer it gets there is
-scheduled as a first answer, so the last one sets its first gap, the way Anki's
-learning steps do, and it still counts as new. One case reads wrong: a review
-that lands back on ease 250 with an interval of 1 or 4 counts as new.
+interval of 0, 1 or 4 was new.
+
+A new card answered `Again` goes into learning: it is written due today with an
+interval of 0, `<!--SR:!2026-10-24,0,250-->`, and comes round again in that
+sitting. A reload or a later sitting the same day asks it again too, first and
+past the review limit, because its new slot was spent on its first answer. Each
+answer it gets in learning is scheduled as a first answer, so the one that
+passes it sets its first gap, the way Anki's learning steps do. Two cases read
+wrong: a review that lands back on ease 250 with an interval of 1 or 4 counts as
+new, and so does a card left in learning yesterday and passed today.
 
 The overview shows what today's sitting will ask, its limit less what was
 answered today, and the sitting asks exactly that. A deck with nothing left

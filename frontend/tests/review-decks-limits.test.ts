@@ -1,4 +1,5 @@
 import { type Deck, decksFrom } from "@/lib/review";
+import { seatsFor } from "@/lib/review-queue";
 import { note, TODAY } from "./review-fixture";
 
 describe("decksFrom with daily limits", () => {
@@ -126,5 +127,22 @@ describe("decksFrom with daily limits", () => {
     );
     expect(named(decks, "trivia")).toMatchObject({ due: 0, fresh: 0 });
     expect(named(decks, "tls")).toMatchObject({ fresh: 1 });
+  });
+
+  /** Answered Again on its first answer today: due today, a gap of 0. */
+  const LEARNING = "<!--SR:!2026-08-13,0,250-->";
+
+  it("a card in learning spends its new slot once and is asked past the review limit", () => {
+    const notes = deck("t.md", "trivia", 2, 2, [`learn::a ${LEARNING}`]);
+    const limits = { note: "trivia: 2 new, 1 reviews\n", defaults: NO_DEFAULT };
+
+    // One review and the card in learning; one new card, the other slot taken.
+    expect(named(decksFrom(notes, TODAY, limits), "trivia")).toMatchObject({ due: 2, fresh: 1 });
+
+    const texts = new Map(notes.map(({ path, text }) => [path, text]));
+    const trivia = named(decksFrom(notes, TODAY, limits), "trivia");
+    if (trivia === undefined) throw new Error("no trivia deck");
+    // The card in learning comes first, so the review limit cannot cut it.
+    expect(seatsFor(trivia, texts, TODAY, limits).map(({ at }) => at)).toEqual([4, 0, 2]);
   });
 });

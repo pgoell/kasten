@@ -44,6 +44,8 @@ export function dayWords(due: string, today: string): string {
  * to take in at a glance.
  */
 export function intervalWords(days: number): string {
+  // Again on a card in learning, which comes back in this sitting.
+  if (days === 0) return "today";
   if (days < 14) return `${days}d`;
   if (days < 60) return `${Math.round(days / 7)}w`;
   if (days < 365) return `${Math.round(days / 30)}mo`;

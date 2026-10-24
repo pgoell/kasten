@@ -20,7 +20,7 @@ describe("nextSchedule", () => {
     });
     expect(nextSchedule(null, "easy", TODAY).interval).toBe(4);
     expect(nextSchedule(null, "hard", TODAY).interval).toBe(1);
-    expect(nextSchedule(null, "again", TODAY).interval).toBe(1);
+    expect(nextSchedule(null, "again", TODAY)).toEqual({ due: TODAY, interval: 0, ease: 250 });
     for (const rating of ["again", "hard", "good", "easy"] as const) {
       expect(nextSchedule(null, rating, TODAY).ease).toBe(250);
     }

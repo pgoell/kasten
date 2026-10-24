@@ -53,7 +53,7 @@ it.each(["on", "off"])(
     const { pane, saved } = await sitBeta();
 
     fireEvent.keyDown(pane, { key: "Enter" });
-    expect(screen.getByRole("button", { name: "Again" })).toHaveAccessibleDescription("1d");
+    expect(screen.getByRole("button", { name: "Again" })).toHaveAccessibleDescription("today");
 
     // Again sends the card to the back of the sitting, so the next one is `e`.
     fireEvent.keyDown(pane, { key: "1" });

@@ -144,7 +144,7 @@ describe("ReviewSession rating a new card again (#816)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Again" }));
     await act(async () => {});
 
-    expect(vault.disk).toContain(`What is a VPC?::A private cloud <!--SR:!${TOMORROW},1,250-->`);
+    expect(vault.disk).toContain(`What is a VPC?::A private cloud <!--SR:!${TODAY},0,250-->`);
   });
 
   it("#816 a whole note marked #review, new at start, rated again then good reads new from its frontmatter", async () => {
