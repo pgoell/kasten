@@ -209,6 +209,9 @@ export function LogPane({ commands, onOpen, focusSignal, today, actions, onNotic
     sheetPanel.current = made;
     showFoodSheet(owner.current, made, () => {
       sheetPanel.current = null;
+      // The sheet closed by its own hand and still reads as open to its host, so it is drawn
+      // shut here, or the next show would mount nothing. The focus is already where it belongs.
+      hideFoodSheet(owner.current);
     });
   }
 
@@ -391,7 +394,7 @@ export function LogPane({ commands, onOpen, focusSignal, today, actions, onNotic
       <header className="log-pane-head">
         <button
           type="button"
-          className="log-pane-button"
+          className="log-pane-button log-pane-step"
           aria-label="Day before"
           onClick={() => shift(-1)}
         >
@@ -408,7 +411,7 @@ export function LogPane({ commands, onOpen, focusSignal, today, actions, onNotic
         />
         <button
           type="button"
-          className="log-pane-button"
+          className="log-pane-button log-pane-step"
           aria-label="Day after"
           onClick={() => shift(1)}
         >
@@ -446,7 +449,10 @@ export function LogPane({ commands, onOpen, focusSignal, today, actions, onNotic
             className="log-pane-col"
             hidden={narrow && tab !== "today"}
           >
-            <h2>{day === today ? "Today" : day}</h2>
+            {/* On a phone the tab already says Today, so the heading is for a reader only. */}
+            <h2 className={narrow && day === today ? "sr-only" : undefined}>
+              {day === today ? "Today" : day}
+            </h2>
             {dayError ? <p role="alert">{messageOf(dayError)}</p> : null}
             <ul className="log-pane-readings">
               {totals.map(({ kind, total, tail }) => (
@@ -523,7 +529,7 @@ export function LogPane({ commands, onOpen, focusSignal, today, actions, onNotic
             className="log-pane-col"
             hidden={narrow && tab !== "trends"}
           >
-            <h2>Trends</h2>
+            <h2 className={narrow ? "sr-only" : undefined}>Trends</h2>
             <fieldset className="log-pane-row log-pane-range">
               <legend className="sr-only">Range</legend>
               {RANGES.map((span) => (

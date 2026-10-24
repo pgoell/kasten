@@ -216,6 +216,16 @@ it("#804 A9 a bar over a max goal is marked over, a floor never is", async () =>
   expect(protein.querySelectorAll("rect.log-chart-over")).toHaveLength(0);
 });
 
+it("#804 A9 a logged zero draws a stub bar and a day with no log draws none", async () => {
+  // Today logs no coffee, the day before has no log, and two days back logs two.
+  fetchLog.mockImplementation(logDays([back(0, { coffee: 0 }), back(2, { coffee: 2 })]));
+  renderPane();
+  const coffee = await screen.findByRole("img", { name: "coffee over 30 days" });
+  await waitFor(() => expect(coffee.querySelectorAll("rect.log-chart-bar")).toHaveLength(2));
+
+  expect(coffee.querySelector("rect.log-chart-zero")?.getAttribute("height")).toBe("1");
+});
+
 it("#804 A10 the weight chart is an empty slot with no fake points", async () => {
   fetchLog.mockImplementation(logDays(thirtyDays()));
   renderPane();

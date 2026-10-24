@@ -125,9 +125,11 @@ function Chart({ name, unit, goal, logged, range, value }: ChartProps) {
   const passes = (amount: number) => goal !== undefined && overMax(amount, goal);
   const over = points.filter((point) => passes(point.amount)).length;
   const overWords = over === 0 ? "" : `, ${daysOf(over)} over the goal`;
+  const title = name.charAt(0).toUpperCase() + name.slice(1);
 
   return (
     <figure className="log-chart">
+      <h3 className="log-chart-title">{title}</h3>
       <svg
         viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
         width="100%"
@@ -135,11 +137,17 @@ function Chart({ name, unit, goal, logged, range, value }: ChartProps) {
         aria-label={`${name} over ${range} days${overWords}`}
       >
         {points.map(({ index, amount }) => {
-          const barHeight = height(amount);
+          // A logged zero gets a stub one unit high, so it is not drawn like a day with no log.
+          const barHeight = amount === 0 ? 1 : height(amount);
+          const className = passes(amount)
+            ? "log-chart-bar log-chart-over"
+            : amount === 0
+              ? "log-chart-bar log-chart-zero"
+              : "log-chart-bar";
           return (
             <rect
               key={index}
-              className={passes(amount) ? "log-chart-bar log-chart-over" : "log-chart-bar"}
+              className={className}
               x={index * slot + (slot - bar) / 2}
               y={HEIGHT - barHeight}
               width={bar}

@@ -291,6 +291,28 @@ it("#804 I1 a quick button pressed by keyboard keeps the focus and the pane keys
   expect(selectedRow()).toHaveTextContent("☕ 2");
 });
 
+it("#804 I1 Esc then f opens the sheet again, and so does + Food after a scrim tap", async () => {
+  renderPane();
+  await dayLoaded();
+
+  press("f");
+  const first = await screen.findByRole("dialog", { name: "Food search" });
+  // Esc on the sheet itself closes it by the sheet's own hand. Esc in the search field is the
+  // pane's close, which already redraws the sheet shut.
+  fireEvent.keyDown(first, { key: "Escape" });
+  await waitFor(() => expect(sheetOf()).toBeNull());
+
+  press("f");
+  expect(await screen.findByRole("dialog", { name: "Food search" })).toBeInTheDocument();
+
+  // The scrim is the sheet's previous sibling on a desktop.
+  fireEvent.click(sheetOf()?.previousElementSibling as HTMLElement);
+  await waitFor(() => expect(sheetOf()).toBeNull());
+
+  fireEvent.click(screen.getByRole("button", { name: "Log food" }));
+  expect(await screen.findByRole("dialog", { name: "Food search" })).toBeInTheDocument();
+});
+
 it("#804 I1 a refused food log keeps the sheet open and a logged one closes it, written to the day shown", async () => {
   const refused = makeActions();
   refused.addLine = vi.fn(async () => false);

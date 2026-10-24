@@ -168,6 +168,16 @@
   font-size: 16px;
 }
 
+/* The date field sits on the paper, with the rule border the buttons have. */
+.log-pane-date {
+  background: var(--k-paper);
+}
+
+/* The day steps' glyphs are larger than the words beside them. */
+.log-pane-step {
+  font-size: var(--k-text-19);
+}
+
 /* The add row: the card's quick buttons, drawn into the box, then its amount field. */
 .log-pane-add {
   min-width: 0;
@@ -175,6 +185,30 @@
 
 .log-pane-quick {
   display: contents;
+}
+
+/* On a phone the quick buttons are two columns, and + Food and the amount field take both. */
+@media (width < 48rem) {
+  .log-pane-add {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .log-pane-add .cm-log-button {
+    width: 100%;
+    min-width: 0;
+    white-space: normal;
+    font-size: var(--k-text-15);
+  }
+
+  .log-pane-add .cm-log-button-main,
+  .log-pane-add .cm-log-amount {
+    grid-column: 1 / -1;
+  }
+
+  .log-pane-add .cm-log-amount {
+    max-width: none;
+  }
 }
 
 .log-pane-readings {
