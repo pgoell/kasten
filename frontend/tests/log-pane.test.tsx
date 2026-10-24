@@ -56,20 +56,31 @@ function editForm(): HTMLElement | null {
 it("#624 Today shows each kind against its goal and the food day grouped by meal", async () => {
   renderPane();
 
-  expect(await screen.findByText("💧 500 / 2000 ml")).toBeInTheDocument();
-  expect(screen.getByText("☕ 2 / 3")).toBeInTheDocument();
-  expect(screen.getByText("🥤 200 / 500 ml")).toBeInTheDocument();
-  expect(screen.getByText("🔥 380 / 2000 kcal")).toBeInTheDocument();
-  expect(screen.getByText("🥩 10 / 100 g")).toBeInTheDocument();
-  expect(screen.getByRole("meter", { name: "water" })).toHaveAttribute("aria-valuenow", "500");
-  expect(screen.getByRole("meter", { name: "water" })).toHaveAttribute("aria-valuemax", "2000");
-  expect(screen.getByRole("heading", { level: 3, name: "breakfast" })).toBeInTheDocument();
-  expect(screen.getByRole("heading", { level: 3, name: "no meal" })).toBeInTheDocument();
+  expect(await screen.findByText("500 ml")).toBeInTheDocument();
+  expect(screen.getByText("at least 2,000")).toBeInTheDocument();
+  expect(screen.getByText("at most 3, within")).toBeInTheDocument();
+  expect(screen.getByText("200 ml")).toBeInTheDocument();
+  expect(screen.getByText("at most 500, within")).toBeInTheDocument();
+  expect(screen.getByText("380 kcal")).toBeInTheDocument();
+  expect(screen.getByText("at most 2,000, within")).toBeInTheDocument();
+  expect(screen.getByText("10 g")).toBeInTheDocument();
+  expect(screen.getByText("at least 100")).toBeInTheDocument();
+  // The card's quick button carries a meter of its own, so the Today row's is the first.
+  expect(screen.getAllByRole("meter", { name: "water" })[0]).toHaveAttribute(
+    "aria-valuenow",
+    "500",
+  );
+  expect(screen.getAllByRole("meter", { name: "water" })[0]).toHaveAttribute(
+    "aria-valuemax",
+    "2000",
+  );
+  expect(screen.getByRole("heading", { level: 3, name: "Breakfast" })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { level: 3, name: "No meal" })).toBeInTheDocument();
 });
 
 it("#624 a kind button and the amount field add through addLine on the day shown", async () => {
   const { actions } = renderPane();
-  await screen.findByText("💧 500 / 2000 ml");
+  await screen.findByText("500 ml");
 
   fireEvent.click(screen.getByRole("button", { name: "Log water" }));
   expect(actions.addLine).toHaveBeenLastCalledWith(TODAY, "- 💧 250 ml");
@@ -85,7 +96,7 @@ it("#624 a kind button and the amount field add through addLine on the day shown
 
 it("#624 h and l and the day buttons move the day, and logging on a past day writes that day", async () => {
   const { actions } = renderPane();
-  await screen.findByText("💧 500 / 2000 ml");
+  await screen.findByText("500 ml");
 
   press("h");
   expect(await screen.findByRole("heading", { level: 2, name: PAST })).toBeInTheDocument();
@@ -106,7 +117,7 @@ it("#624 h and l and the day buttons move the day, and logging on a past day wri
 
 it("#624 e or a tap edits the row's amount and Save calls editLine with the line and its text", async () => {
   const { actions } = renderPane();
-  await screen.findByText("💧 500 / 2000 ml");
+  await screen.findByText("500 ml");
 
   fireEvent.click(screen.getByRole("button", { name: "💧 500 ml" }));
   fireEvent.change(within(editForm() as HTMLElement).getByLabelText("Amount"), {
@@ -140,7 +151,7 @@ it("#624 e or a tap edits the row's amount and Save calls editLine with the line
 
 it("#624 a food row's edit sets meal and servings", async () => {
   const { actions } = renderPane();
-  await screen.findByText("💧 500 / 2000 ml");
+  await screen.findByText("500 ml");
 
   press("j");
   press("j");
@@ -167,21 +178,21 @@ it("#624 a food row's edit sets meal and servings", async () => {
 
 it("#624 d deletes the row under the cursor and Undo puts it back", async () => {
   const { actions } = renderPane();
-  await screen.findByText("💧 500 / 2000 ml");
+  await screen.findByText("500 ml");
 
   press("d");
   expect(actions.deleteLine).toHaveBeenCalledWith(TODAY, { line: 3, text: "- 💧 500 ml" });
   cleanup();
 
   const undone = renderPane({ actions: makeActions(true) });
-  await screen.findByText("💧 500 / 2000 ml");
+  await screen.findByText("500 ml");
   fireEvent.click(screen.getByRole("button", { name: "Undo" }));
   expect(undone.actions.undoDelete).toHaveBeenCalledTimes(1);
 });
 
 it("#624 o opens the note at the entry's line", async () => {
   const { onOpen } = renderPane();
-  await screen.findByText("💧 500 / 2000 ml");
+  await screen.findByText("500 ml");
 
   press("j");
   press("o");
@@ -191,7 +202,7 @@ it("#624 o opens the note at the entry's line", async () => {
 
 it("#624 j and k move the cursor and keys typed in the amount field are not pane keys", async () => {
   const { actions } = renderPane();
-  await screen.findByText("💧 500 / 2000 ml");
+  await screen.findByText("500 ml");
 
   press("j");
   expect(selectedRow()).toHaveTextContent("☕ 2");
@@ -208,7 +219,7 @@ it("#624 j and k move the cursor and keys typed in the amount field are not pane
 
 it("#624 Escape leaves the edit without writing", async () => {
   const { actions } = renderPane();
-  await screen.findByText("💧 500 / 2000 ml");
+  await screen.findByText("500 ml");
 
   fireEvent.click(screen.getByRole("button", { name: "💧 500 ml" }));
   const amount = within(editForm() as HTMLElement).getByLabelText("Amount");
@@ -221,7 +232,7 @@ it("#624 Escape leaves the edit without writing", async () => {
 
 it("#624 Trends draws a bar per logged day and the goal as a line over 7, 30 and 90 days", async () => {
   renderPane();
-  await screen.findByText("💧 500 / 2000 ml");
+  await screen.findByText("500 ml");
 
   const month = await screen.findByRole("img", { name: "water over 30 days" });
   await waitFor(() => expect(month.querySelectorAll("rect.log-chart-bar")).toHaveLength(2));
@@ -238,7 +249,7 @@ it("#624 Trends draws a bar per logged day and the goal as a line over 7, 30 and
 
 it("#624 a day with no log draws no bar and is left out of the average", async () => {
   renderPane();
-  await screen.findByText("💧 500 / 2000 ml");
+  await screen.findByText("500 ml");
 
   press("7");
   const week = await screen.findByRole("img", { name: "water over 7 days" });
@@ -260,9 +271,12 @@ it("#624 a failed log read shows its message and adding still works", async () =
 
 it("#624 a kind of your own shows in Today and Trends and its row edits", async () => {
   const { actions } = renderPane();
-  await screen.findByText("💧 500 / 2000 ml");
+  await screen.findByText("500 ml");
 
-  expect(screen.getByRole("meter", { name: "juice" })).toHaveAttribute("aria-valuenow", "200");
+  expect(screen.getAllByRole("meter", { name: "juice" })[0]).toHaveAttribute(
+    "aria-valuenow",
+    "200",
+  );
   expect(await screen.findByRole("img", { name: "juice over 30 days" })).toBeInTheDocument();
 
   fireEvent.click(screen.getByRole("button", { name: "🥤 200 ml" }));
@@ -282,11 +296,14 @@ it("#624 a kind of your own shows in Today and Trends and its row edits", async 
 
 it("#624 the food search opens from the pane and logs into the day shown", async () => {
   const { actions } = renderPane();
-  await screen.findByText("💧 500 / 2000 ml");
+  await screen.findByText("500 ml");
 
   press("f");
   const query = await screen.findByLabelText("Food");
-  expect(query).toHaveFocus();
+  // The search is the shared sheet, which takes the focus on its dialog, as the card's does.
+  expect(query.closest("[role='dialog']")).toBe(
+    screen.getByRole("dialog", { name: "Food search" }),
+  );
 
   // The entry row reads `oats` too, so the pick is the one the search lists as recent.
   fireEvent.click(await screen.findByRole("button", { name: /oats.*recent/ }));
@@ -317,7 +334,7 @@ it("#624 the pane and an editor share log.md's query as text", async () => {
 
 it("#624 Enter on a focused row button edits that row, not the cursor row", async () => {
   renderPane();
-  await screen.findByText("💧 500 / 2000 ml");
+  await screen.findByText("500 ml");
 
   press("j");
   const juice = screen.getByRole("button", { name: "🥤 200 ml" });
@@ -333,7 +350,7 @@ it("#624 Enter on a focused row button edits that row, not the cursor row", asyn
 it("#624 a refused food log keeps the food search open", async () => {
   const { actions } = renderPane();
   actions.addLine = vi.fn(async () => false);
-  await screen.findByText("💧 500 / 2000 ml");
+  await screen.findByText("500 ml");
 
   press("f");
   fireEvent.click(await screen.findByRole("button", { name: /oats.*recent/ }));

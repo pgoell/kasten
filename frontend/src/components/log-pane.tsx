@@ -1,56 +1,52 @@
 import { useQuery } from "@tanstack/react-query";
-import { Fragment, type KeyboardEvent, type RefObject, useEffect, useRef, useState } from "react";
+import { type KeyboardEvent, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import {
-  type Day,
-  foodTotal,
-  goalWords,
-  type Line,
-  LogTrends,
-  share,
-  totalOf,
-} from "@/components/log-trends";
+  dropFoodSheet,
+  hideFoodSheet,
+  type SheetOwner,
+  showFoodSheet,
+} from "@/components/food-sheet";
+import { type Editing, EntryList, MEALS, Reading } from "@/components/log-pane-rows";
+import { type Day, foodTotal, type Line, LogTrends, totalOf } from "@/components/log-trends";
 import { fetchNote, NoteMissing } from "@/lib/api";
 import { shiftDay } from "@/lib/clock";
 import { fetchLog } from "@/lib/food-api";
-import { foodPanel } from "@/lib/food-search";
+import { type FoodPanel, foodPanel } from "@/lib/food-search";
 import type { EditorCommands } from "@/lib/key-bindings";
 import { LOG_NOTE } from "@/lib/layout";
+import { foodButton, quickButton } from "@/lib/log-card-view";
 import { editedLine } from "@/lib/log-edit";
 import {
   DEFAULT_CONFIG,
   type FoodField,
   type FoodGoals,
-  type Goal,
   kindLine,
   type LogKind,
   parseConfig,
-  tapLine,
 } from "@/lib/log-kinds";
 import type { DrinkTotals } from "@/lib/log-lines";
 import { useLeader } from "@/lib/use-leader";
 import type { LogActions } from "@/lib/use-log-actions";
+import { useViewport } from "@/lib/use-viewport";
 
 type Range = 7 | 30 | 90;
 
 const RANGES: Range[] = [7, 30, 90];
 
-/** The meals a food line names, in the order the pane groups them. `""` is no meal. */
-const MEALS = ["breakfast", "lunch", "dinner", "snack", ""] as const;
+/** The two tabs a phone shows in place of the two columns. */
+const TABS = ["today", "trends"] as const;
+type Tab = (typeof TABS)[number];
 
-const FOOD: { field: FoodField; mark: string; unit: string }[] = [
-  { field: "kcal", mark: "🔥", unit: "kcal" },
-  { field: "protein", mark: "🥩", unit: "g" },
-  { field: "carbs", mark: "🍞", unit: "g" },
-  { field: "fat", mark: "🧈", unit: "g" },
+const FOOD: { field: FoodField; unit: string }[] = [
+  { field: "kcal", unit: "kcal" },
+  { field: "protein", unit: "g" },
+  { field: "carbs", unit: "g" },
+  { field: "fat", unit: "g" },
 ];
 
-/** The row being edited, what its form holds, and why the last save was refused. */
-interface Editing {
-  line: number;
-  amount: string;
-  meal: string;
-  servings: string;
-  why: string | null;
+/** A word with its first letter capitalised, as the pane writes its names and meal heads. */
+function capital(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
 export interface LogPaneProps {
@@ -79,128 +75,6 @@ function byLine(a: Line, b: Line): number {
   return a.line - b.line;
 }
 
-/** One kind's total against its goal, or the plain total where it has none. */
-function Reading({
-  name,
-  head,
-  tail,
-  total,
-  goal,
-}: {
-  name: string;
-  head: string;
-  tail: string;
-  total: number;
-  goal: Goal | undefined;
-}) {
-  if (goal === undefined) return <li className="log-pane-reading">{`${head}${tail}`}</li>;
-  const words = goalWords(head, tail, total, goal);
-  return (
-    <li className={`log-pane-reading log-pane-${words.state}`}>
-      <span>{words.text}</span>
-      {/* biome-ignore lint/a11y/useSemanticElements: the bar is a styled div, and role meter carries its values for a reader. */}
-      <div
-        role="meter"
-        aria-label={name}
-        aria-valuemin={0}
-        aria-valuemax={goal.value}
-        aria-valuenow={total}
-        className="log-pane-meter"
-      >
-        <div className="log-pane-meter-fill" style={{ width: `${share(total, goal)}%` }} />
-      </div>
-    </li>
-  );
-}
-
-function EditForm({
-  line,
-  edit,
-  formRef,
-  onChange,
-  onSave,
-  onCancel,
-  onDelete,
-}: {
-  line: Line;
-  edit: Editing;
-  formRef: RefObject<HTMLFormElement | null>;
-  onChange: (next: Partial<Editing>) => void;
-  onSave: () => void;
-  onCancel: () => void;
-  onDelete: () => void;
-}) {
-  return (
-    <form
-      ref={formRef}
-      className="log-pane-edit"
-      onSubmit={(event) => {
-        event.preventDefault();
-        onSave();
-      }}
-      // Escape leaves the form here, and stops there, so the pane does not also act on it.
-      onKeyDown={(event) => {
-        if (event.key !== "Escape") return;
-        event.stopPropagation();
-        onCancel();
-      }}
-    >
-      {line.kind === "food" ? (
-        <>
-          <label className="log-pane-field">
-            <span>Meal</span>
-            <select
-              aria-label="Meal"
-              value={edit.meal}
-              onChange={(event) => onChange({ meal: event.target.value })}
-            >
-              {MEALS.map((meal) => (
-                <option key={meal} value={meal}>
-                  {meal === "" ? "no meal" : meal}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="log-pane-field">
-            <span>Servings</span>
-            <input
-              aria-label="Servings"
-              inputMode="decimal"
-              value={edit.servings}
-              onChange={(event) => onChange({ servings: event.target.value })}
-            />
-          </label>
-        </>
-      ) : (
-        <label className="log-pane-field">
-          <span>Amount</span>
-          <input
-            aria-label="Amount"
-            value={edit.amount}
-            onChange={(event) => onChange({ amount: event.target.value })}
-          />
-        </label>
-      )}
-      {edit.why === null ? null : (
-        <p role="alert" className="log-pane-why">
-          {edit.why}
-        </p>
-      )}
-      <div className="log-pane-row">
-        <button type="submit" className="log-pane-button">
-          Save
-        </button>
-        <button type="button" className="log-pane-button" onClick={onCancel}>
-          Cancel
-        </button>
-        <button type="button" className="log-pane-button" onClick={onDelete}>
-          Delete
-        </button>
-      </div>
-    </form>
-  );
-}
-
 /**
  * The log of one day, and its trends. The day's drinks and kinds of your own
  * come first, then its food by meal. Keys act on the cursor's row, and keys typed
@@ -212,13 +86,27 @@ export function LogPane({ commands, onOpen, focusSignal, today, actions, onNotic
   const [editing, setEditing] = useState<Editing | null>(null);
   const [range, setRange] = useState<Range>(30);
   const [amount, setAmount] = useState("");
-  const [foodOpen, setFoodOpen] = useState(false);
+  const [tab, setTab] = useState<Tab>("today");
+  const { narrow } = useViewport();
+  const id = useId();
   const panel = useRef<HTMLElement>(null);
   const form = useRef<HTMLFormElement>(null);
   const amountField = useRef<HTMLInputElement>(null);
-  const foodHost = useRef<HTMLDivElement>(null);
+  const quickBox = useRef<HTMLDivElement>(null);
+  // The sheet's host sits in this pane's root. Made once, so the sheet keeps the same owner.
+  const owner = useRef<SheetOwner>({
+    get dom() {
+      return panel.current as HTMLElement;
+    },
+    focus: () => panel.current?.focus(),
+  });
+  // The food search the sheet shows, while one is up.
+  const sheetPanel = useRef<FoodPanel | null>(null);
   // The food panel outlives the render that opened it, so it writes through the latest actions.
   const writer = useRef(actions);
+  // The card's buttons call through these, so a press is handled by the render that drew it.
+  const tapKindRef = useRef<(kind: LogKind) => void>(() => {});
+  const openFoodRef = useRef<() => void>(() => {});
   // Read by the food panel each time it draws a figure, so it sees the day as it is now.
   const todayFood = useRef<{ eaten: DrinkTotals["food"]; goals: FoodGoals }>({
     eaten: { kcal: 0, protein: 0, carbs: 0, fat: 0 },
@@ -256,7 +144,7 @@ export function LogPane({ commands, onOpen, focusSignal, today, actions, onNotic
       lines: entries.filter((line) => line.kind !== "food").sort(byLine),
     },
     ...MEALS.map((meal) => ({
-      title: meal === "" ? "no meal" : meal,
+      title: meal === "" ? "No meal" : capital(meal),
       lines: entries
         .filter((line) => line.kind === "food" && (line.meal ?? "") === meal)
         .sort(byLine),
@@ -282,38 +170,54 @@ export function LogPane({ commands, onOpen, focusSignal, today, actions, onNotic
     };
   });
 
-  // The food search is a panel of this pane, opened for the day shown and dropped when the day moves.
+  // Taken down with the pane, so no sheet is left over whatever pane comes next.
   useEffect(() => {
-    const host = foodHost.current;
-    if (!foodOpen || host === null) return;
-    const panel = foodPanel(day, {
-      log: (line) => {
-        // A refused write keeps the search open, so the line can be tried again.
-        void writer.current.addLine(day, line).then((ok) => {
-          if (ok) setFoodOpen(false);
-        });
-      },
-      close: () => setFoodOpen(false),
-      today: () => todayFood.current,
-    });
-    host.append(panel.root);
-    panel.root.querySelector<HTMLInputElement>('input[aria-label="Food"]')?.focus();
+    const self = owner.current;
     return () => {
-      panel.stop();
-      panel.root.remove();
+      sheetPanel.current?.stop();
+      sheetPanel.current = null;
+      dropFoodSheet(self);
     };
-  }, [foodOpen, day]);
+  }, []);
 
   useEffect(() => {
     if (focusSignal) panel.current?.focus();
   }, [focusSignal]);
+
+  /** Takes the food search down, when `made` (or the one up) is still the one shown. */
+  function closeFood(made: FoodPanel | null = sheetPanel.current) {
+    if (made === null || sheetPanel.current !== made) return;
+    sheetPanel.current = null;
+    made.stop();
+    hideFoodSheet(owner.current);
+  }
+
+  /** The food search, in the shared sheet, for the day shown. */
+  function openFood() {
+    if (sheetPanel.current !== null) return;
+    const shown = day;
+    const made = foodPanel(shown, {
+      // A refused write keeps the search open, so the line can be tried again.
+      log: (line) => {
+        void writer.current.addLine(shown, line).then((ok) => {
+          if (ok) closeFood(made);
+        });
+      },
+      close: () => closeFood(made),
+      today: () => todayFood.current,
+    });
+    sheetPanel.current = made;
+    showFoodSheet(owner.current, made, () => {
+      sheetPanel.current = null;
+    });
+  }
 
   /** The day moves, and what was open on the old one closes with it. */
   function moveTo(next: string) {
     setDay(next);
     setCursor(0);
     setEditing(null);
-    setFoodOpen(false);
+    closeFood();
   }
 
   function shift(by: number) {
@@ -380,7 +284,8 @@ export function LogPane({ commands, onOpen, focusSignal, today, actions, onNotic
     // Enter or Space on a focused button is that button's own press, not the cursor row's.
     if (target instanceof HTMLButtonElement && (key === "Enter" || key === " ")) return;
     if (editing !== null) return;
-    if (target instanceof Node && foodHost.current?.contains(target)) return;
+    // The food search's sheet is a dialog, and the keys typed in it are its own.
+    if (target instanceof Element && target.closest('[role="dialog"]') !== null) return;
     if (leader.feed(event)) return;
 
     switch (key) {
@@ -419,7 +324,7 @@ export function LogPane({ commands, onOpen, focusSignal, today, actions, onNotic
         amountField.current?.focus();
         break;
       case "f":
-        setFoodOpen(true);
+        openFood();
         break;
       case "7":
         setRange(7);
@@ -452,16 +357,37 @@ export function LogPane({ commands, onOpen, focusSignal, today, actions, onNotic
         ? `, ${entryDay?.totals.alcohol.grams} g`
         : "";
     const unit = kind.builtin === "water" ? "ml" : kind.unit;
-    return {
-      kind,
-      total,
-      head: `${kind.mark} ${total}`,
-      tail: `${unit === "" ? "" : ` ${unit}`}${grams}`,
-    };
+    return { kind, total, tail: `${unit === "" ? "" : ` ${unit}`}${grams}` };
+  });
+
+  // The card's builders draw the buttons, mounted here by hand. It runs on every render, so the
+  // buttons show the day as it is now, and the presses reach the latest render through the refs.
+  useLayoutEffect(() => {
+    tapKindRef.current = tapKind;
+    openFoodRef.current = openFood;
+    const box = quickBox.current;
+    if (box === null) return;
+    // The buttons are drawn again, so a button that had the focus gets it back by its place,
+    // or a keyboard press on it would leave the pane's keys with nothing to reach them.
+    const focused = Array.from(box.children).indexOf(document.activeElement as Element);
+    box.replaceChildren(
+      ...totals.map(({ kind, total, tail }) =>
+        quickButton(kind, total, tail, () => tapKindRef.current(kind)),
+      ),
+      foodButton(() => openFoodRef.current()),
+    );
+    const kept = box.children[focused];
+    if (kept instanceof HTMLElement) kept.focus({ preventScroll: true });
   });
 
   return (
-    <section ref={panel} tabIndex={-1} aria-label="Log" onKeyDown={onKeyDown} className="log-pane">
+    <section
+      ref={panel}
+      tabIndex={-1}
+      aria-label="Log"
+      onKeyDown={onKeyDown}
+      className="log-pane-frame"
+    >
       <header className="log-pane-head">
         <button
           type="button"
@@ -493,143 +419,130 @@ export function LogPane({ commands, onOpen, focusSignal, today, actions, onNotic
         </button>
       </header>
 
-      <section aria-label="Today" className="log-pane-section">
-        <h2>{day === today ? "Today" : day}</h2>
-        {dayError ? <p role="alert">{messageOf(dayError)}</p> : null}
-        <ul className="log-pane-readings">
-          {totals.map(({ kind, total, head, tail }) => (
-            <Reading
-              key={kind.mark}
-              name={kind.name}
-              head={head}
-              tail={tail}
-              total={total}
-              goal={kind.goal}
-            />
-          ))}
-          {FOOD.map(({ field, mark, unit }) => (
-            <Reading
-              key={field}
-              name={field}
-              head={`${mark} ${foodTotal(entryDay, field)}`}
-              tail={` ${unit}`}
-              total={foodTotal(entryDay, field)}
-              goal={config.food[field]}
-            />
-          ))}
-        </ul>
-      </section>
-
-      <section aria-label="Add" className="log-pane-section">
-        <div className="log-pane-row">
-          {config.kinds.map((kind) => (
+      {narrow ? (
+        <div role="tablist" aria-label="Log view" className="log-pane-tabs">
+          {TABS.map((name) => (
             <button
-              key={kind.mark}
+              key={name}
               type="button"
-              className="log-pane-button"
-              aria-label={`Log ${kind.name}`}
-              onClick={() => tapKind(kind)}
+              role="tab"
+              id={`${id}-tab-${name}`}
+              aria-controls={`${id}-${name}`}
+              aria-selected={tab === name}
+              className="log-pane-tab"
+              onClick={() => setTab(name)}
             >
-              {`+ ${tapLine(kind).slice(2)}`}
+              {capital(name)}
             </button>
           ))}
-          <input
-            ref={amountField}
-            className="log-pane-amount"
-            aria-label="Amount"
-            placeholder="amount"
-            value={amount}
-            onChange={(event) => setAmount(event.target.value)}
-          />
-          <button type="button" className="log-pane-button" onClick={() => setFoodOpen(true)}>
-            + 🍽 food
-          </button>
         </div>
-        <div ref={foodHost} />
-      </section>
+      ) : null}
 
-      <section aria-label="Entries" className="log-pane-section">
-        <div className="log-pane-row">
-          <h2>Entries</h2>
-          {actions.canUndo ? (
-            <button
-              type="button"
-              className="log-pane-button"
-              onClick={() => void actions.undoDelete()}
-            >
-              Undo
-            </button>
-          ) : null}
-        </div>
-        {rows.length === 0 && days !== undefined ? <p>{`Nothing logged on ${day}`}</p> : null}
-        <ul className="log-pane-list">
-          {groups.map((group) => (
-            <Fragment key={group.title ?? "drinks"}>
-              {group.title === null ? null : (
-                <li className="log-pane-group">
-                  <h3>{group.title}</h3>
-                </li>
-              )}
-              {group.lines.map((line) => {
-                const selected = rows.indexOf(line) === at;
-                return (
-                  // The cursor's row is marked with aria-selected, which a list item does not take by role.
-                  // biome-ignore lint/a11y/useAriaPropsSupportedByRole: the cursor row is the one marked, as the spec names.
-                  <li
-                    key={line.line}
-                    aria-selected={selected}
-                    className={
-                      selected ? "log-pane-row-item log-pane-selected" : "log-pane-row-item"
-                    }
+      <div className="log-pane">
+        <div className="log-pane-cols">
+          <section
+            id={`${id}-today`}
+            aria-label="Today"
+            className="log-pane-col"
+            hidden={narrow && tab !== "today"}
+          >
+            <h2>{day === today ? "Today" : day}</h2>
+            {dayError ? <p role="alert">{messageOf(dayError)}</p> : null}
+            <ul className="log-pane-readings">
+              {totals.map(({ kind, total, tail }) => (
+                <Reading
+                  key={kind.mark}
+                  name={capital(kind.name)}
+                  meter={kind.name}
+                  total={total}
+                  tail={tail}
+                  goal={kind.goal}
+                />
+              ))}
+              {FOOD.map(({ field, unit }) => (
+                <Reading
+                  key={field}
+                  name={capital(field)}
+                  meter={field}
+                  total={foodTotal(entryDay, field)}
+                  tail={` ${unit}`}
+                  goal={config.food[field]}
+                />
+              ))}
+              <li className="log-pane-reading log-pane-slot" data-slot="weight">
+                <span className="log-pane-name">Weight</span>
+                <span className="log-pane-total">—</span>
+                <span className="log-pane-goal">no weigh-ins yet</span>
+              </li>
+            </ul>
+
+            <section aria-label="Add" className="log-pane-add cm-log-row">
+              <div ref={quickBox} className="log-pane-quick" />
+              <input
+                ref={amountField}
+                className="cm-log-amount"
+                aria-label="Amount"
+                placeholder="amount"
+                value={amount}
+                onChange={(event) => setAmount(event.target.value)}
+              />
+            </section>
+
+            <section aria-label="Entries" className="log-pane-section">
+              <div className="log-pane-row">
+                <h2>Entries</h2>
+                {actions.canUndo ? (
+                  <button
+                    type="button"
+                    className="log-pane-button"
+                    onClick={() => void actions.undoDelete()}
                   >
-                    {editing !== null && editing.line === line.line ? (
-                      <EditForm
-                        line={line}
-                        edit={editing}
-                        formRef={form}
-                        onChange={(next) =>
-                          setEditing((previous) => previous && { ...previous, ...next })
-                        }
-                        onSave={() => save(line, editing)}
-                        onCancel={leave}
-                        onDelete={() => remove(line)}
-                      />
-                    ) : (
-                      <button
-                        type="button"
-                        className="log-pane-line"
-                        onClick={() => openEdit(line)}
-                      >
-                        {line.text.replace(/^- /, "")}
-                      </button>
-                    )}
-                  </li>
-                );
-              })}
-            </Fragment>
-          ))}
-        </ul>
-      </section>
+                    Undo
+                  </button>
+                ) : null}
+              </div>
+              {rows.length === 0 && days !== undefined ? <p>{`Nothing logged on ${day}`}</p> : null}
+              <EntryList
+                groups={groups}
+                rows={rows}
+                at={at}
+                editing={editing}
+                formRef={form}
+                onOpen={openEdit}
+                onChange={(next) => setEditing((previous) => previous && { ...previous, ...next })}
+                onSave={save}
+                onCancel={leave}
+                onDelete={remove}
+              />
+            </section>
+          </section>
 
-      <section aria-label="Trends" className="log-pane-section">
-        <h2>Trends</h2>
-        <fieldset className="log-pane-row log-pane-range">
-          <legend className="sr-only">Range</legend>
-          {RANGES.map((span) => (
-            <button
-              key={span}
-              type="button"
-              className="log-pane-button"
-              aria-pressed={range === span}
-              onClick={() => setRange(span)}
-            >
-              {`${span}d`}
-            </button>
-          ))}
-        </fieldset>
-        {trendError ? <p role="alert">{messageOf(trendError)}</p> : null}
-        <LogTrends days={trend ?? []} config={config} from={from} range={range} />
-      </section>
+          <section
+            id={`${id}-trends`}
+            aria-label="Trends"
+            className="log-pane-col"
+            hidden={narrow && tab !== "trends"}
+          >
+            <h2>Trends</h2>
+            <fieldset className="log-pane-row log-pane-range">
+              <legend className="sr-only">Range</legend>
+              {RANGES.map((span) => (
+                <button
+                  key={span}
+                  type="button"
+                  className="log-pane-button"
+                  aria-pressed={range === span}
+                  onClick={() => setRange(span)}
+                >
+                  {`${span}d`}
+                </button>
+              ))}
+            </fieldset>
+            {trendError ? <p role="alert">{messageOf(trendError)}</p> : null}
+            <LogTrends days={trend ?? []} config={config} from={from} range={range} today={today} />
+          </section>
+        </div>
+      </div>
     </section>
   );
 }

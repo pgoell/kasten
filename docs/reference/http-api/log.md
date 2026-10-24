@@ -80,3 +80,8 @@ fall in the range, so a wide range costs no more than the notes it holds. A
 note it cannot read, gone or not UTF-8, is left out. The config note is read
 once per request. It runs no search over the vault, and it keeps nothing in
 Postgres or in an index. The archive is not read.
+
+The route only reads. The log pane asks it twice: for the day shown, and for
+the 7, 30 or 90 days that end on that day, from which the pane's Trends works
+out its summary, charts, macro split and week table in the browser. Every line
+the pane writes goes through the note's own save, never through this route.

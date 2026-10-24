@@ -23,22 +23,36 @@ The pane opens in the focused pane, as the todo pane does. Split first to keep
 the note you were in beside it. The keys it takes are in
 [The log pane](/reference/editor-keys.md#the-log-pane).
 
+On a desktop the pane shows **Today** and **Trends** side by side. On a phone,
+or in a pane too narrow for two columns, they stack, and on a phone two tabs at
+the top, `Today` and `Trends`, switch between them. The day, the range and the
+cursor stay as they were when you switch, and the keys work on either tab.
+
 ## Read a day
 
-**Today** shows a bar for each kind against its goal from the config note
-`99 Misc/01 Config/log.md`: a ✓ once a floor is met, a red ⚠ past a ceiling,
-and a plain total for a kind with no goal. Below it are the day's kcal,
-protein, carbs and fat, then the entries, the food grouped by meal.
+**Today** has a row for the day's kcal, protein, carbs and fat, then one for
+each kind of the config note `99 Misc/01 Config/log.md`. A row gives the name,
+the total, and where there is a goal, a meter and the goal in words: `at most
+2,200, within` or `at most 2,200, over` for a ceiling, `at least 120` or `at
+least 120, met` for a floor. A passed ceiling turns the warning colour; a floor
+not met is just a shorter bar. A kind with no goal shows its total alone. The
+last row, weight, stays empty until weight gets its own kind (#805). Below the
+rows are the day's entries, the food grouped by meal.
 
 To see another day, press `h` or `l`, tap `‹` or `›`, or pick the date. `t`
 or `Today` comes back.
 
 ## Log on any day
 
-Tap a kind's button, or type an amount first and then tap the button. `+ 🍽 food`
-opens the same food search and barcode scan as the card. The line goes into
-the note of the day shown. A day with no note gets one, made the way
-`<leader>gd` makes a daily note.
+The buttons are the ones on the daily note's log card: a quick button per kind
+with its total and meter, and `+ Food`. Tap a kind's button, or type an amount
+first and then tap the button. `+ Food`, or `f`, opens the same food search and
+barcode scan as the card, in the same sheet: a sheet from the bottom on a phone,
+a panel at the pane's right edge over a dimmed pane on a desktop. `Escape`, a
+tap on the dimmed part or a drag down closes it and gives the pane the keys
+back. The line goes into the note of the day shown, and the sheet closes once
+it is written; a refused write keeps it open. A day with no note gets one, made
+the way `<leader>gd` makes a daily note.
 
 ## Fix or delete an entry
 
@@ -56,8 +70,22 @@ pane writes nothing and says why. Read the note again and retry.
 
 ## Read the trends
 
-**Trends** draws each kind over the last 30 days, a bar per day that has a
-`## Log` and the goal as a dashed line. Press `7`, `3` or `9`, or tap `7d`,
-`30d` or `90d`, to change the range. Food gets its kcal per day and the average
-split of protein, carbs and fat. A day with no log draws no bar and does not
-count toward an average.
+**Trends** covers the 30 days that end on the day shown. Press `7`, `3` or
+`9`, or tap `7d`, `30d` or `90d`, to change the range. A day counts as logged
+when its note has a `## Log`.
+
+* The summary row comes first: the average kcal over the logged days; the days
+  within the kcal goal, as `21 of 27` logged days; the streak, the logged days
+  within the kcal goal in a row up to the day shown (a day with no log ends it;
+  today with nothing logged yet does not); and the weight change, empty until
+  weight has its own kind (#805).
+* A small chart for each kind and for kcal, protein, carbs and fat, all the
+  same size: a bar per logged day, the goal as a dashed line. A bar past a
+  ceiling takes the warning colour, and the chart says in words how many days
+  went over. A day with no log has no bar and does not count toward an average.
+* The weight chart, empty until #805.
+* The macro split: one bar of the average protein, carbs and fat as shares of
+  their kcal, with the percentages under it.
+* A table by week, newest first: average kcal, protein and water over the
+  week's logged days, weight (empty until #805), and the days logged, as
+  `5 of 7`.

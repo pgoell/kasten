@@ -1,0 +1,207 @@
+/* The log pane's trends: the summary row, one chart per kind and food field, the
+   weight slot, the macro split and the week table. Every chart is one size, so the
+   grid packs 90 thin bars at 390px without a sideways scroll. Colours are the app's
+   tokens, so light and dark both read. On a phone the text is 15px and no smaller;
+   the week table is the same size there. */
+.log-trends {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.log-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 8rem), 1fr));
+  gap: 16px;
+  margin: 0;
+  min-width: 0;
+}
+
+.log-summary dd {
+  margin: 0;
+}
+
+.log-summary-tile {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  align-content: start;
+}
+
+.log-summary-tile dt {
+  color: var(--k-muted);
+  font-size: var(--k-text-13);
+  letter-spacing: var(--k-track-label);
+}
+
+.log-summary-figure {
+  font-size: var(--k-text-23);
+  line-height: var(--k-leading-heading);
+  overflow-wrap: anywhere;
+}
+
+.log-summary-words {
+  color: var(--k-muted);
+  font-size: var(--k-text-13);
+  overflow-wrap: anywhere;
+}
+
+.log-multiples {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr));
+  gap: 16px;
+  min-width: 0;
+}
+
+.log-chart {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  margin: 0;
+}
+
+.log-chart svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.log-chart figcaption {
+  color: var(--k-muted);
+  font-size: var(--k-text-13);
+  letter-spacing: var(--k-track-label);
+  overflow-wrap: anywhere;
+}
+
+.log-chart-bar {
+  fill: var(--k-accent);
+}
+
+.log-chart-over {
+  fill: var(--k-warn);
+}
+
+/* The goal is a dashed line in the muted ink, never the warning colour: the
+   warning is for a bar that passed its ceiling. */
+.log-chart-goal {
+  fill: none;
+  stroke: var(--k-muted);
+  stroke-width: 1.5;
+  stroke-dasharray: 4 3;
+}
+
+.log-chart-slot {
+  padding: 12px;
+  border: 1px dashed var(--k-rule);
+  border-radius: var(--k-radius-6);
+}
+
+.log-chart-empty {
+  margin: 0;
+  color: var(--k-muted);
+  font-size: var(--k-text-13);
+}
+
+.log-macros {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  margin: 0;
+}
+
+.log-macros svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.log-macros figcaption {
+  color: var(--k-muted);
+  font-size: var(--k-text-13);
+  letter-spacing: var(--k-track-label);
+}
+
+.log-macro-labels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--k-text-13);
+}
+
+.log-macro-swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 6px;
+  border-radius: 2px;
+  background: currentColor;
+}
+
+.log-macro-protein {
+  fill: var(--tg-3);
+  background: var(--tg-3);
+}
+
+.log-macro-carbs {
+  fill: var(--tg-6);
+  background: var(--tg-6);
+}
+
+.log-macro-fat {
+  fill: var(--tg-8);
+  background: var(--tg-8);
+}
+
+.log-weeks {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--k-text-13);
+}
+
+.log-weeks caption {
+  caption-side: top;
+  padding-bottom: 6px;
+  color: var(--k-muted);
+  text-align: left;
+}
+
+.log-weeks th,
+.log-weeks td {
+  padding: 6px 4px;
+  border-bottom: 1px solid var(--k-rule);
+  text-align: right;
+}
+
+.log-weeks th {
+  color: var(--k-muted);
+  font-weight: 500;
+}
+
+.log-weeks th:first-child,
+.log-weeks td:first-child {
+  text-align: left;
+}
+
+.log-weeks-empty {
+  margin: 0;
+  color: var(--k-muted);
+  font-size: var(--k-text-13);
+}
+
+@media (width < 48rem) {
+  .log-summary-tile dt,
+  .log-summary-words,
+  .log-chart figcaption,
+  .log-chart-empty,
+  .log-macros figcaption,
+  .log-macro-labels,
+  .log-weeks,
+  .log-weeks-empty {
+    font-size: var(--k-text-15);
+  }
+}

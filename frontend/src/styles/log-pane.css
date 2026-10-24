@@ -1,34 +1,71 @@
-/* The log pane: the day's readings, the add row, the entries and the trends. Buttons
-   and rows are 44px, and the amount and date fields 16px so a phone does not zoom
-   into them. Everything wraps or takes the column's width, so a 414px screen never
-   scrolls sideways. Colours are the app's tokens, so light and dark both read. */
-.log-pane {
-  display: grid;
-  gap: 6px;
+/* The log pane: the day's readings, the add row, the entries and the trends. Buttons, tabs and
+   rows are 44px, and the date and edit fields 16px so a phone does not zoom into them. The
+   scroller is the size container: two columns from 720px of its own width, and one column at a
+   time under the tabs below that. The frame takes no containment, so a phone's bottom sheet,
+   which is fixed, sits on the screen and not in the pane. Everything wraps or takes the
+   column's width, so a 390px screen never scrolls sideways. Colours, type and motion are the
+   app's tokens. */
+.log-pane-frame {
+  position: relative;
+  display: flex;
+  flex-direction: column;
   height: 100%;
   min-width: 0;
-  overflow-y: auto;
-  padding: 12px 16px 24px;
+  overflow: hidden;
   background: var(--k-bg);
   color: var(--k-ink);
-  font-family: var(--font-sans);
+  font-family: var(--k-sans);
+  font-size: var(--k-text-15);
   font-variant-numeric: tabular-nums;
 }
 
-.log-pane:focus {
+.log-pane-frame:focus {
   outline: none;
+}
+
+/* The scroller takes the height the header and the tabs leave, and is the size container. */
+.log-pane {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 16px;
+  container-type: inline-size;
+}
+
+.log-pane-cols {
+  display: grid;
+  gap: 16px 32px;
+  min-width: 0;
+}
+
+@container (width >= 720px) {
+  .log-pane-cols {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: start;
+  }
+}
+
+.log-pane-col {
+  display: grid;
+  gap: 16px;
+  align-content: start;
+  min-width: 0;
+}
+
+.log-pane-col[hidden] {
+  display: none;
 }
 
 .log-pane h2 {
   margin: 0;
-  font-size: 15px;
+  font-size: var(--k-text-19);
   font-weight: 600;
 }
 
 .log-pane h3 {
-  margin: 8px 0 2px;
-  color: var(--k-muted);
-  font-size: 12px;
+  margin: 0;
+  font-size: var(--k-text-15);
   font-weight: 600;
 }
 
@@ -39,6 +76,36 @@
   align-items: center;
   gap: 8px;
   min-width: 0;
+}
+
+.log-pane-head {
+  padding: 12px 16px 0;
+}
+
+/* The two tabs of a phone, each half the width and 44px tall. */
+.log-pane-tabs {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  margin: 8px 16px 0;
+  border-bottom: 1px solid var(--k-rule);
+}
+
+.log-pane-tab {
+  min-height: 44px;
+  min-width: 0;
+  padding: 0 12px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--k-muted);
+  font: inherit;
+  font-size: var(--k-text-15);
+  font-weight: 600;
+}
+
+.log-pane-tab[aria-selected="true"] {
+  border-bottom-color: var(--k-accent);
+  color: var(--k-ink);
 }
 
 /* The range is a fieldset for its role, so the browser's own frame and padding come off. */
@@ -53,7 +120,6 @@
   display: grid;
   gap: 8px;
   min-width: 0;
-  margin-top: 14px;
 }
 
 .log-pane-button {
@@ -61,11 +127,11 @@
   min-width: 44px;
   padding: 0 14px;
   border: 1px solid var(--k-rule);
-  border-radius: 6px;
+  border-radius: var(--k-radius-6);
   background: var(--k-paper);
   color: var(--k-ink);
   font: inherit;
-  font-size: 14px;
+  font-size: var(--k-text-15);
   white-space: nowrap;
 }
 
@@ -79,8 +145,8 @@
 }
 
 .log-pane-button:focus-visible,
+.log-pane-tab:focus-visible,
 .log-pane-date:focus-visible,
-.log-pane-amount:focus-visible,
 .log-pane-line:focus-visible,
 .log-pane-edit input:focus-visible,
 .log-pane-edit select:focus-visible {
@@ -89,46 +155,61 @@
 }
 
 .log-pane-date,
-.log-pane-amount,
 .log-pane-edit input,
 .log-pane-edit select {
   min-width: 0;
   min-height: 44px;
   padding: 0 10px;
   border: 1px solid var(--k-rule);
-  border-radius: 6px;
+  border-radius: var(--k-radius-6);
   background: var(--k-inset);
   color: var(--k-ink);
-  font-family: var(--font-sans);
+  font-family: var(--k-sans);
   font-size: 16px;
 }
 
-.log-pane-amount {
-  flex: 1 1 6rem;
-  max-width: 12rem;
+/* The add row: the card's quick buttons, drawn into the box, then its amount field. */
+.log-pane-add {
+  min-width: 0;
+}
+
+.log-pane-quick {
+  display: contents;
 }
 
 .log-pane-readings {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px 18px;
+  display: grid;
+  gap: 8px;
   margin: 0;
   padding: 0;
   list-style: none;
   min-width: 0;
 }
 
+/* A row is its name and total on one line, then its meter and goal in words under them. */
 .log-pane-reading {
   display: grid;
-  gap: 4px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 4px 12px;
   min-width: 0;
-  max-width: 100%;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--k-rule);
   overflow-wrap: anywhere;
 }
 
+.log-pane-name {
+  min-width: 0;
+}
+
+.log-pane-total {
+  font-weight: 600;
+  text-align: right;
+}
+
 .log-pane-meter {
+  grid-column: 1 / -1;
   height: 6px;
-  min-width: 10rem;
   overflow: hidden;
   border-radius: 3px;
   background: var(--k-rule);
@@ -139,7 +220,28 @@
   background: var(--k-accent);
 }
 
-.log-pane-met span {
+.log-pane-goal {
+  grid-column: 1 / -1;
+  color: var(--k-muted);
+  font-size: var(--k-text-13);
+  overflow-wrap: anywhere;
+}
+
+.log-pane-slot .log-pane-total {
+  color: var(--k-muted);
+  font-weight: 400;
+}
+
+.log-pane-over .log-pane-total,
+.log-pane-over .log-pane-goal {
+  color: var(--k-warn);
+}
+
+.log-pane-over .log-pane-meter-fill {
+  background: var(--k-warn);
+}
+
+.log-pane-met .log-pane-goal {
   color: var(--k-ok);
 }
 
@@ -147,44 +249,58 @@
   background: var(--k-ok);
 }
 
-.log-pane-over span {
-  color: var(--k-danger);
-}
-
-.log-pane-over .log-pane-meter-fill {
-  background: var(--k-danger);
-}
-
 .log-pane-list {
   display: grid;
-  gap: 6px;
+  gap: 8px;
   margin: 0;
   padding: 0;
   list-style: none;
   min-width: 0;
 }
 
+/* A meal's heading, with its kcal on the right of it. */
+.log-pane-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 2px 12px;
+  margin-top: 8px;
+  min-width: 0;
+}
+
+.log-pane-meal-kcal {
+  color: var(--k-muted);
+  font-size: var(--k-text-13);
+}
+
+/* The cursor's row has the accent on its left edge, and the row button fills the width. */
+.log-pane-row-item {
+  min-width: 0;
+  border-left: 2px solid transparent;
+}
+
+.log-pane-selected {
+  border-left-color: var(--k-accent);
+}
+
 .log-pane-line {
   display: block;
   width: 100%;
   min-height: 44px;
-  padding: 6px 10px;
-  border: 1px solid transparent;
-  border-radius: 6px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: var(--k-radius-6);
   background: var(--k-paper);
   color: var(--k-ink);
   font: inherit;
-  font-size: 14px;
+  font-size: var(--k-text-15);
   text-align: left;
   overflow-wrap: anywhere;
 }
 
 .log-pane-line:hover {
   background: var(--k-surface);
-}
-
-.log-pane-selected .log-pane-line {
-  border-color: var(--k-accent);
 }
 
 .log-pane-edit {
@@ -200,7 +316,7 @@
   gap: 8px;
   min-width: 0;
   color: var(--k-muted);
-  font-size: 14px;
+  font-size: var(--k-text-15);
 }
 
 .log-pane-field > :is(input, select) {
@@ -211,55 +327,16 @@
 .log-pane-why {
   margin: 0;
   color: var(--k-danger);
-  font-size: 0.8em;
+  font-size: var(--k-text-13);
   overflow-wrap: anywhere;
 }
 
-.log-trends {
-  display: grid;
-  gap: 14px;
-  min-width: 0;
-}
-
-.log-chart {
-  display: grid;
-  gap: 4px;
-  min-width: 0;
-  margin: 0;
-}
-
-.log-chart svg {
-  display: block;
-  width: 100%;
-  height: auto;
-  overflow: visible;
-}
-
-.log-chart figcaption {
-  color: var(--k-muted);
-  font-size: 12px;
-  overflow-wrap: anywhere;
-}
-
-.log-chart-bar {
-  fill: var(--k-accent);
-}
-
-.log-chart-goal {
-  fill: none;
-  stroke: var(--k-warn);
-  stroke-width: 1.5;
-  stroke-dasharray: 4 3;
-}
-
-.log-macro-protein {
-  fill: var(--k-ok);
-}
-
-.log-macro-carbs {
-  fill: var(--k-warn);
-}
-
-.log-macro-fat {
-  fill: var(--tg-8);
+/* A phone's text is 15px at least, the small words included. */
+@media (width < 48rem) {
+  .log-pane-goal,
+  .log-pane-meal-kcal,
+  .log-pane-why,
+  .log-pane-field {
+    font-size: var(--k-text-15);
+  }
 }

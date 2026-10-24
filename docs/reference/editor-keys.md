@@ -61,7 +61,7 @@ toolbar's `log` button does the same.
 | `u` | Put back the entry last deleted |
 | `o` | Open the note at the entry's line |
 | `a` | Focus the amount field to log |
-| `f` | Open the food search |
+| `f` | Open the food search in the sheet; `Escape` closes it and gives the pane the keys back |
 | `7` | Show trends over 7 days |
 | `3` | Show trends over 30 days |
 | `9` | Show trends over 90 days |
