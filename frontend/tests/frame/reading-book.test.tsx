@@ -96,6 +96,7 @@ afterEach(async () => {
   vi.unstubAllGlobals();
   localStorage.removeItem("kasten.workspace.1");
   localStorage.removeItem("kasten.workspace.coarse.1");
+  localStorage.removeItem("kasten.vim");
   await cdp().send("Emulation.setTouchEmulationEnabled", { enabled: false });
   await page.viewport(414, 896);
 });
@@ -131,15 +132,18 @@ const notice = () => document.querySelector<HTMLElement>("[data-testid='notice']
 async function opened(width: number, height: number, touch: boolean): Promise<void> {
   await page.viewport(width, height);
   await cdp().send("Emulation.setTouchEmulationEnabled", { enabled: touch, maxTouchPoints: 5 });
+  // Said outright at a desk, where the leader is typed: with no choice stored,
+  // vim mode follows `(pointer: coarse)`, which another frame file's touch
+  // emulation or a `kasten.vim` it left can answer, and with vim off the Space
+  // is typed into the note instead (#909).
+  if (!touch) localStorage.setItem("kasten.vim", "on");
   await mount();
   await expect.poll(() => document.querySelector(".cm-content")).not.toBeNull();
 }
 
 /** The refusal on screen and at the foot, then its picture as `name`. */
 async function refusalAtFoot(name: string): Promise<void> {
-  // Five seconds, not the default one: the whole frame project in CI mounts the
-  // route under load, and the notice came late there (#909).
-  await expect.poll(() => notice()?.textContent, { timeout: 5000 }).toBe(`${READING} is not there`);
+  await expect.poll(() => notice()?.textContent).toBe(`${READING} is not there`);
   const box = notice()?.getBoundingClientRect();
   // Inside the window on every side, with some width to read, and in the lower
   // part of it rather than over the note.
