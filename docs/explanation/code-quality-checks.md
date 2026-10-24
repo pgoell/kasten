@@ -69,7 +69,7 @@ off.
 
 A lint measures one thing it can count. Whether a module is deep, in John
 Ousterhout's sense of a small interface over a lot of work, depends on what the
-code is for. A file of one-line wrappers passes every check; so do six files
+code is for. A file of one-line wrappers passes every check; so do seven files
 that each hold a list of the kinds of pane, which must be kept the same by
 hand. Only someone reading the area whole sees that one task touches all of
 them.
