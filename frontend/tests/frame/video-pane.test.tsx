@@ -85,7 +85,7 @@ describe("the video pane", () => {
 
   afterEach(async () => {
     await tearDown(mounted);
-    // The vim tests set it, and tearDown does not: the next file in the run would start with vim forced.
+    // This file's own vim cases set it, and the next file in the browser page would read it, so it goes after each case.
     localStorage.removeItem("kasten.vim");
   });
 

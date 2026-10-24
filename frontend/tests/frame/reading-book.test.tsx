@@ -134,16 +134,16 @@ async function opened(width: number, height: number, touch: boolean): Promise<vo
   await page.viewport(width, height);
   await cdp().send("Emulation.setTouchEmulationEnabled", { enabled: touch, maxTouchPoints: 5 });
   // Said outright at a desk, where the leader is typed: with no choice stored,
-  // vim mode follows `(pointer: coarse)`, which another frame file's touch
-  // emulation or a `kasten.vim` it left can answer, and with vim off the Space
+  // vim mode follows `(pointer: coarse)`, which touch emulation or a `kasten.vim`
+  // value an earlier file left in this browser page can answer, and with vim off the Space
   // is typed into the note instead (#909).
   if (!touch) localStorage.setItem("kasten.vim", "on");
   await mount();
   await expect.poll(() => document.querySelector(".cm-content")).not.toBeNull();
   // The Space is the leader only while vim runs in normal mode, which is what
-  // `leaderPanel` checks. The stored setting can be wiped by another frame file
-  // running beside this one, so the keys wait on the class vim sets, not on the
-  // editor alone (#909).
+  // `leaderPanel` checks. A file run earlier in the same browser page can leave
+  // touch emulation or a `kasten.vim` value behind, so this stores "on" before
+  // mount and waits for the class vim sets, not for the editor alone (#909).
   if (!touch) {
     await expect
       .poll(() => document.querySelector(".cm-scroller.cm-vimMode .cm-content"))
