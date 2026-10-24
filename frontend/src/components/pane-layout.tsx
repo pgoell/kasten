@@ -1,5 +1,6 @@
 import { type CSSProperties, type ReactNode, type RefObject, useLayoutEffect, useRef } from "react";
 import { KindIcon, kindLabel, paneKind, panePath } from "@/components/kind-icons";
+import { Leaving, useBlurWhenLeaving, useLeaving } from "@/lib/leaving";
 import type { PaneRect } from "@/lib/pane-direction";
 import { isSplit, type Pane, type PaneNode, panesOf, type Split } from "@/lib/panes";
 import { SPRINGS, Spring } from "@/lib/spring";
@@ -97,20 +98,34 @@ export function PaneLayout({
   const placed: Placed[] = [];
   place(node, WINDOW, "row", narrow, placed);
 
+  // The panes of the tab that was drawn before and is not on screen now. They
+  // stay where they were, hidden, until the next task (`useLeaving`). A pane
+  // that is current again is not drawn twice.
+  const gone = useLeaving(tabId, placed);
+  const departed = gone.flatMap((each) => each.value).filter((each) => !ids.includes(each.pane.id));
+
+  // One list for both, so a pane that goes and comes back keeps its key and its
+  // node: React matches children across renders only within the same list.
+  const leaves = [
+    ...placed.map((each) => ({ ...each, leaving: false })),
+    ...departed.map((each) => ({ ...each, leaving: true })),
+  ];
+
   return (
     <div className="relative min-h-0 min-w-0 flex-1 bg-k-rule">
-      {placed.map(({ pane, box, enter }) => (
+      {leaves.map(({ pane, box, enter, leaving }) => (
         <PaneLeaf
           key={pane.id}
           pane={pane}
-          focused={pane.id === focus}
+          focused={!leaving && pane.id === focus}
           // A zoomed pane takes the whole window, and the rest stay mounted behind it.
-          hidden={zoomed !== null && pane.id !== zoomed}
+          hidden={!leaving && zoomed !== null && pane.id !== zoomed}
           box={pane.id === zoomed ? WINDOW : box}
-          shown={divided && zoomed === null}
+          shown={divided && zoomed === null && !leaving}
           onFocus={onFocus}
-          fresh={fresh.has(pane.id)}
+          fresh={!leaving && fresh.has(pane.id)}
           enter={enter}
+          leaving={leaving}
         >
           {children}
         </PaneLeaf>
@@ -170,6 +185,11 @@ interface PaneLeafProps {
   children: PaneLayoutProps["children"];
   fresh: boolean;
   enter: "x" | "y";
+  /**
+   * Whether the pane is on its way out: hidden and inert, and no longer a pane
+   * to the layout, so the keys and the rects ignore it. See `useLeaving`.
+   */
+  leaving?: boolean;
 }
 
 function PaneLeaf({
@@ -182,9 +202,11 @@ function PaneLeaf({
   children,
   fresh,
   enter,
+  leaving = false,
 }: PaneLeafProps) {
   const element = useRef<HTMLDivElement>(null);
   useSlideIn(element, fresh, enter);
+  useBlurWhenLeaving(element, leaving);
 
   const kind = paneKind(pane);
   const path = panePath(pane);
@@ -195,10 +217,12 @@ function PaneLeaf({
     // a click at all. Both end with something inside the pane focused.
     <div
       ref={element}
-      data-pane={pane.id}
-      onFocusCapture={() => onFocus(pane.id)}
+      data-pane={leaving ? undefined : pane.id}
+      aria-hidden={leaving || undefined}
+      inert={leaving || undefined}
+      onFocusCapture={leaving ? undefined : () => onFocus(pane.id)}
       style={insetOf(box)}
-      className={`absolute flex min-h-0 min-w-0 flex-col overflow-hidden bg-k-bg ${hidden ? "hidden" : ""}`}
+      className={`absolute flex min-h-0 min-w-0 flex-col overflow-hidden bg-k-bg ${hidden || leaving ? "hidden" : ""}`}
     >
       {shown && (
         <>
@@ -226,7 +250,9 @@ function PaneLeaf({
           </div>
         </>
       )}
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col">{children(pane, focused)}</div>
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        <Leaving.Provider value={leaving}>{children(pane, focused)}</Leaving.Provider>
+      </div>
     </div>
   );
 }

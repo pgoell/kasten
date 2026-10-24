@@ -31,6 +31,7 @@ import {
   openTodosInFocused,
   openVideoBeside,
 } from "@/lib/pane-contents";
+import { paneEditor } from "@/lib/pane-doc";
 import {
   addTab,
   goToTab,
@@ -316,7 +317,7 @@ export function usePaneCommands({
         // focus sits on the body, the toolbar or a card's field, and the vault
         // write would then land under a note open on screen.
         if (target === "buffer") {
-          const editor = document.querySelector<HTMLElement>(`[data-pane="${pane.id}"] .cm-editor`);
+          const editor = paneEditor(pane.id);
           const view = editor ? EditorView.findFromDOM(editor) : null;
           if (view === null || !logDrinkInView(view, line)) {
             setNotice(`Nothing logged: ${today} is not open to type in`);

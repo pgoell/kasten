@@ -5,7 +5,7 @@ import { type RefObject, useCallback, useEffect, useRef, useState } from "react"
 import { fetchNote } from "@/lib/api";
 import { heldText, sameText, useHeld } from "@/lib/held-text";
 import { viewCommands } from "@/lib/palette";
-import { docIn } from "@/lib/pane-doc";
+import { docIn, paneEditor } from "@/lib/pane-doc";
 import { type Layout, tabPanes } from "@/lib/panes";
 import type { useAutosave } from "@/lib/use-autosave";
 
@@ -89,7 +89,7 @@ export function useBufferSync({
       if (now.has(each) || vault === undefined) continue;
       for (const shown of tabPanes(layoutNow.current)) {
         if (shown.id === paneId || shown.path !== each) continue;
-        const editor = document.querySelector<HTMLElement>(`[data-pane="${shown.id}"] .cm-editor`);
+        const editor = paneEditor(shown.id);
         const view = editor && EditorView.findFromDOM(editor);
         if (!view || view.state.doc.toString() === vault) continue;
         view.dispatch({
@@ -198,7 +198,7 @@ export function useBufferSync({
    * was raised by a reload the editor refused.
    */
   const takeVault = useCallback(() => {
-    const editor = document.querySelector<HTMLElement>(`[data-pane="${paneId}"] .cm-editor`);
+    const editor = paneEditor(paneId);
     const view = editor && EditorView.findFromDOM(editor);
     if (view) view.state.facet(viewCommands)?.reload(view, true);
   }, [paneId]);

@@ -196,3 +196,34 @@ layout event sits under it: the browser tears the CodeMirror subtree down
 inside the call. On a tab switch the same task builds the new editor; on a
 note open it holds the removal alone, the new note being fetched first and
 built in a later task.
+
+The fix keeps what leaves on the page for one frame, hidden with
+`display: none`, and removes it in a task of its own after the new one has
+painted (`frontend/src/lib/leaving.ts`, used by `pane-layout.tsx` for a tab's
+panes and by `note-editor.tsx` for a note's editor). The frame's style pass
+takes the hidden subtree's boxes down cheaply, and the removal that follows
+costs 4 to 46 ms where it cost 140 to 180. While it waits, the part that
+leaves is `inert`, carries no `data-pane`, has given up the focus and calls no
+callback, and its editor has written its cursor and scroll.
+
+Recorded on 2026-10-24 on the VPS, under the load it had, three runs each,
+alternating main (0.98.7) and the branch. The longest single task, in ms:
+
+| Step | main | branch |
+| --- | ---: | ---: |
+| tab | 265.8, 276.6, 261.4 | 97.1, 96.6, 101.7 |
+| open | 289.7, 252.8, 255.2 | 103.6, 103.9, 101.2 |
+
+Means, in ms:
+
+| Step | Metric | main | branch |
+| --- | --- | ---: | ---: |
+| tab | long tasks (count, ms) | 2, 351.9 | 3, 214.3 |
+| tab | slowest frame gap | 172.9 | 157.2 |
+| tab | scripting, layout, style | 440.4, 10.1, 36.6 | 324.5, 12.7, 73.2 |
+| open | long tasks (count, ms) | 2, 300.7 | 2, 157.4 |
+| open | slowest frame gap | 331.7 | 168.0 |
+| open | scripting, layout, style | 413.3, 13.8, 50.8 | 255.3, 14.3, 53.1 |
+
+Style on a tab switch rises by about 37 ms: that is the hidden pane's boxes
+coming down in the frame, work the removal did before.

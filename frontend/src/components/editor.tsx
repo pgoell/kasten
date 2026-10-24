@@ -1,12 +1,13 @@
 import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
-import { useEffect, useRef } from "react";
+import { useContext, useEffect, useLayoutEffect, useRef } from "react";
 import { takeVaultText, writeWatched } from "@/lib/buffer-writes";
 import type { FileTarget } from "@/lib/editor-follow";
 import { notePosition } from "@/lib/editor-position";
 import type { EmbedSource } from "@/lib/embed";
 import type { EditorCommands } from "@/lib/key-bindings";
 import { keyboardUnasked } from "@/lib/last-input";
+import { Leaving } from "@/lib/leaving";
 import type { Outline } from "@/lib/note-head";
 import {
   createNoteView,
@@ -213,6 +214,11 @@ export function Editor({
 }: EditorProps) {
   const host = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
+  const leaving = useContext(Leaving);
+  // The position's writer, kept so a view that was taken off the page can be
+  // watched again when it comes back before it is taken down.
+  const positionRef = useRef<ReturnType<typeof notePosition> | null>(null);
+  const detachRef = useRef<(() => void) | null>(null);
   const vimOn = useVim();
   // What the view was last configured with, which the mount reads and the
   // toggle below compares against.
@@ -247,7 +253,11 @@ export function Editor({
     onSeek,
   });
 
+  // Skipped while leaving, so the view on its way out calls nothing: the
+  // callbacks it would reach are the new note's. Back on screen, the deps
+  // include `leaving`, so they are put back in.
   useEffect(() => {
+    if (leaving) return;
     latest.current = {
       commands,
       onChange,
@@ -265,6 +275,7 @@ export function Editor({
       onSeek,
     };
   }, [
+    leaving,
     commands,
     onChange,
     onSave,
@@ -319,9 +330,11 @@ export function Editor({
     // which the route follows to that pane and which turns its zoom off.
     if (focusedRef.current && !keyboardUnasked() && nothingFocused()) view.focus();
 
-    const detach = position.attach(view);
+    positionRef.current = position;
+    detachRef.current = position.attach(view);
     return () => {
-      detach();
+      detachRef.current?.();
+      detachRef.current = null;
       viewRef.current = null;
       view.destroy();
     };
@@ -329,6 +342,28 @@ export function Editor({
     // this is the one that carries one. It never fires twice: `note-editor.tsx`
     // keys this component on the path, so a second note is a second view.
   }, [path]);
+
+  // Leaving is kept on the page for a task after the next frame, and the view
+  // in it must not touch the note the new tab shows. So its callbacks go, and
+  // its cursor and scroll are written now: a new editor of the same note, in
+  // the tab that just opened, reads them in its mount effect.
+  //
+  // The focus goes too, so the new editor can take it (`nothingFocused` in
+  // editor.tsx). A view that comes back before it is taken down watches its
+  // position again.
+  useLayoutEffect(() => {
+    const view = viewRef.current;
+    if (!leaving) {
+      if (view && positionRef.current && detachRef.current === null) {
+        detachRef.current = positionRef.current.attach(view);
+      }
+      return;
+    }
+    latest.current = {};
+    detachRef.current?.();
+    detachRef.current = null;
+    if (view?.hasFocus) view.contentDOM.blur();
+  }, [leaving]);
 
   // The setting moved, in this pane or another. The cursor, the text and the
   // undo history all stay.
@@ -371,12 +406,16 @@ export function Editor({
   // reader can type into a buffer that was clean when it went out. It is handed
   // the text, so the answer to a write of our own can be told from somebody
   // else's and only one of the two is worth reporting.
+  // Not while leaving: the view on its way out has no `allowReload` to ask, and a
+  // missing one counts as allowed, which would put the vault's text over the held
+  // text it still shows. Back on screen it takes the vault's text then, asking
+  // the refreshed callbacks (the refresh effect above runs first).
   useEffect(() => {
     const view = viewRef.current;
-    if (!view || reloadDoc === undefined) return;
+    if (!view || reloadDoc === undefined || leaving) return;
 
     takeVaultText(view, reloadDoc, latest.current.allowReload);
-  }, [reloadDoc]);
+  }, [reloadDoc, leaving]);
 
   // Runs on mount as well as on every raise, which is what a freshly split pane
   // needs: it is created focused, and its first render is the only chance it

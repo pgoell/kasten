@@ -1,10 +1,11 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { memo } from "react";
+import { memo, type ReactNode, useContext, useRef } from "react";
 import { Editor } from "@/components/editor";
 import { fetchNote, type TodoHit } from "@/lib/api";
 import type { FileTarget } from "@/lib/editor-follow";
 import type { EmbedSource } from "@/lib/embed";
 import type { EditorCommands } from "@/lib/key-bindings";
+import { Leaving, useBlurWhenLeaving, useLeaving } from "@/lib/leaving";
 import type { Outline } from "@/lib/note-head";
 import { parseTodo } from "@/lib/todo";
 import type { TodoCycle } from "@/lib/todo-commands";
@@ -125,50 +126,96 @@ export const NoteEditor = memo(function NoteEditor({
       (hit) => hit.path !== path && parseTodo(hit.text)?.id === id,
     );
 
-  if (isPending) return <p className={MESSAGE}>Opening {path}</p>;
+  let content: ReactNode;
+  if (isPending) content = <p className={MESSAGE}>Opening {path}</p>;
   // Only while there is nothing to show. Every write to the vault reads this
   // note again, and a read that failed with the note already open is a blip on
   // one of those: what is on screen, edits included, is the only copy of it
   // there is, and swapping it for a message throws that away.
-  if (error && data === undefined) return <p className={MESSAGE}>Could not open {path}</p>;
+  else if (error && data === undefined) content = <p className={MESSAGE}>Could not open {path}</p>;
+  else
+    content = (
+      <Editor
+        key={path}
+        // Read once, on mount, so held text let go later changes nothing here.
+        initialDoc={held ?? data}
+        // The same text, read a second time: `initialDoc` opens the note and
+        // this one keeps it up to date. Two things move that cache: the autosave,
+        // which puts the note the vault answered its write with straight into it,
+        // and a refetch, which the route asks for when the vault reports a write
+        // this editor did not make. The memo above is untouched by either, the
+        // query living inside this component rather than in its props.
+        reloadDoc={data}
+        commands={commands}
+        preview={preview}
+        paths={paths}
+        images={images}
+        tags={tags}
+        relations={relations}
+        startLine={startLine}
+        jump={jump}
+        focusSignal={focusSignal}
+        mark={mark}
+        focused={focused}
+        allowReload={allowReload}
+        onReload={onReload}
+        onChange={onChange}
+        onSave={onSave}
+        onFollow={onFollow}
+        onOpenHighlight={(quote) => onOpenHighlight?.(path, quote)}
+        onCycleTodo={(cycle) => onCycleTodo?.(path, cycle)}
+        idElsewhere={idElsewhere}
+        onNotice={onNotice}
+        path={path}
+        embeds={embeds}
+        onOutline={onOutline}
+        onGraph={onGraph}
+        onSeek={(seconds, id) => onSeek?.(path, seconds, id)}
+      />
+    );
 
-  return (
-    <Editor
-      key={path}
-      // Read once, on mount, so held text let go later changes nothing here.
-      initialDoc={held ?? data}
-      // The same text, read a second time: `initialDoc` opens the note and
-      // this one keeps it up to date. Two things move that cache: the autosave,
-      // which puts the note the vault answered its write with straight into it,
-      // and a refetch, which the route asks for when the vault reports a write
-      // this editor did not make. The memo above is untouched by either, the
-      // query living inside this component rather than in its props.
-      reloadDoc={data}
-      commands={commands}
-      preview={preview}
-      paths={paths}
-      images={images}
-      tags={tags}
-      relations={relations}
-      startLine={startLine}
-      jump={jump}
-      focusSignal={focusSignal}
-      mark={mark}
-      focused={focused}
-      allowReload={allowReload}
-      onReload={onReload}
-      onChange={onChange}
-      onSave={onSave}
-      onFollow={onFollow}
-      onOpenHighlight={(quote) => onOpenHighlight?.(path, quote)}
-      onCycleTodo={(cycle) => onCycleTodo?.(path, cycle)}
-      idElsewhere={idElsewhere}
-      onNotice={onNotice}
-      path={path}
-      embeds={embeds}
-      onOutline={onOutline}
-      onGraph={onGraph}
-      onSeek={(seconds, id) => onSeek?.(path, seconds, id)}
-    />
-  );
+  // The note that was open and is going out stays on the page for a task
+  // (`useLeaving`), with the editor it last rendered. Its element is the one from
+  // that commit, so the editor keeps the props it had and never gets the new
+  // note's text.
+  const gone = useLeaving(path, content);
+  return [
+    <Held key={path} leaving={false}>
+      {content}
+    </Held>,
+    ...gone.map((each) => (
+      <Held key={each.key} leaving>
+        {each.value}
+      </Held>
+    )),
+  ];
 });
+
+/**
+ * One note's place in the pane, current or on its way out. Both states render
+ * the same element, so a note that goes out and comes back in the same task
+ * keeps its editor.
+ */
+function Held({ leaving, children }: { leaving: boolean; children: ReactNode }) {
+  const element = useRef<HTMLDivElement>(null);
+  // A pane that is leaving takes its note with it, so this one is leaving too,
+  // even while the note itself is current. Without this the editor would stay
+  // unaware and keep its view until the pane is taken down.
+  const inPane = useContext(Leaving);
+  useBlurWhenLeaving(element, leaving);
+  // `contents` keeps the editor's own box where it was: its `h-full` still
+  // resolves against the pane.
+  return (
+    <div
+      ref={element}
+      className={leaving ? "hidden" : "contents"}
+      // Marks the editor on its way out, for `paneEditor` in pane-doc.ts, which
+      // must not find the old note's editor while the new one is loading.
+      data-leaving={leaving || undefined}
+      aria-hidden={leaving || undefined}
+      inert={leaving || undefined}
+    >
+      <Leaving.Provider value={leaving || inPane}>{children}</Leaving.Provider>
+    </div>
+  );
+}

@@ -1,10 +1,12 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { PaneLayout } from "@/components/pane-layout";
 import { openInFocused } from "@/lib/pane-contents";
 import {
   activeTab,
+  addTab,
   emptyLayout,
   focusPane,
+  goToTab,
   type Layout,
   removeFocused,
   splitFocused,
@@ -228,5 +230,72 @@ describe("PaneLayout", () => {
     rerender(tree(removeFocused(back)));
     expect(panes(container)).toHaveLength(2);
     expectKept();
+  });
+
+  // The tab drawn before stays on the page for a while, so the test has to pass
+  // the tab's id the way the route does.
+  function tabTree(layout: Layout) {
+    const tab = activeTab(layout);
+    return (
+      <PaneLayout
+        node={tab.root}
+        focus={tab.focus}
+        tabId={tab.id}
+        divided={tabPanes(layout).length > 1}
+        onFocus={vi.fn()}
+      >
+        {(pane, focused) => (
+          <button type="button" data-testid={pane.id} data-focused={focused}>
+            {pane.path ?? "empty"}
+          </button>
+        )}
+      </PaneLayout>
+    );
+  }
+
+  it("#983 a tab switch keeps the old tab's pane hidden until a task after the next frame, then takes it down", async () => {
+    const first = emptyLayout("a.md");
+    const [pane] = tabPanes(first);
+    if (pane === undefined) throw new Error("a tab has one pane");
+    const { container, rerender } = render(tabTree(first));
+    const old = container.querySelector<HTMLElement>(`[data-pane="${pane.id}"]`);
+
+    rerender(tabTree(addTab(first)));
+
+    expect(old?.isConnected).toBe(true);
+    expect(old).toHaveClass("hidden");
+    expect(old).not.toHaveAttribute("data-pane");
+    expect(old).toHaveAttribute("aria-hidden", "true");
+    await waitFor(() => expect(old?.isConnected).toBe(false));
+  });
+
+  it("#983 switching back before the old pane is taken down keeps its node", () => {
+    const first = emptyLayout("a.md");
+    const second = addTab(first);
+    const [pane] = tabPanes(first);
+    if (pane === undefined) throw new Error("a tab has one pane");
+    const { container, rerender } = render(tabTree(first));
+    const node = container.querySelector(`[data-pane="${pane.id}"]`);
+
+    rerender(tabTree(second));
+    rerender(tabTree(goToTab(second, 0)));
+
+    expect(container.querySelector(`[data-pane="${pane.id}"]`)).toBe(node);
+  });
+
+  it("#983 a quick A to B to C leaves no stray pane", async () => {
+    const first = emptyLayout("a.md");
+    const second = addTab(first);
+    const third = addTab(second);
+    const { container, rerender } = render(tabTree(first));
+
+    rerender(tabTree(second));
+    rerender(tabTree(third));
+
+    // A and B are on their way out, hidden beside C.
+    expect(container.querySelectorAll("[data-pane]")).toHaveLength(1);
+    expect(container.querySelectorAll(".hidden")).toHaveLength(2);
+    await waitFor(() => expect(container.querySelectorAll(".hidden")).toHaveLength(0));
+    expect(container.querySelectorAll("[data-pane]")).toHaveLength(1);
   });
 });

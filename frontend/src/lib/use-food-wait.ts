@@ -2,13 +2,14 @@ import { EditorView } from "@codemirror/view";
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef } from "react";
 import { openFoodSearch } from "@/lib/log-card";
+import { paneEditor } from "@/lib/pane-doc";
 
 /**
  * The editor the pane holds, found by the pane and not the focus: the palette's
  * lookup finds no view while the focus sits off the editor, as `logDrink` notes.
  */
 export function paneView(id: string): EditorView | null {
-  const editor = document.querySelector<HTMLElement>(`[data-pane="${id}"] .cm-editor`);
+  const editor = paneEditor(id);
   return editor ? EditorView.findFromDOM(editor) : null;
 }
 
