@@ -216,7 +216,7 @@ export function VideoPane({
       tabIndex={-1}
       onKeyDown={onKeyDown}
       aria-label="video"
-      className="@container flex h-full flex-col bg-k-bg font-sans outline-none"
+      className="@container/pane flex h-full flex-col bg-k-bg font-sans outline-none"
     >
       <header className="flex items-center gap-3 border-b border-k-rule px-3 py-1">
         <span className={`shrink-0 ${LABEL}`}>VIDEO</span>
@@ -255,7 +255,7 @@ export function VideoPane({
                 setView((was) => !was);
                 panel.current?.focus();
               }}
-              className="shrink-0 cursor-pointer font-sans text-k-12 text-k-link hover:text-k-accent pointer-coarse:min-h-11"
+              className="ml-auto shrink-0 cursor-pointer whitespace-nowrap font-sans text-k-12 text-k-link hover:text-k-accent pointer-coarse:min-h-11"
             >
               Video view
             </button>
@@ -263,7 +263,7 @@ export function VideoPane({
               href={watchUrl(id, at)}
               target="_blank"
               rel="noreferrer"
-              className="shrink-0 font-sans text-k-12 text-k-link hover:text-k-accent pointer-coarse:min-h-11"
+              className="inline-flex shrink-0 items-center whitespace-nowrap font-sans text-k-12 text-k-link hover:text-k-accent pointer-coarse:min-h-11"
             >
               Open on YouTube
             </a>
@@ -279,14 +279,14 @@ export function VideoPane({
       <div
         className={
           view
-            ? "flex min-h-0 flex-1 flex-col overflow-y-auto @3xl:flex-row @3xl:overflow-hidden"
-            : "flex min-h-0 flex-1 flex-col overflow-y-auto"
+            ? "flex min-h-0 flex-1 flex-col overflow-y-auto [container-type:size] @3xl/pane:flex-row @3xl/pane:overflow-hidden"
+            : "flex min-h-0 flex-1 flex-col overflow-y-auto [container-type:size]"
         }
       >
         <div
           className={
             view
-              ? "flex flex-col gap-3 p-3 @3xl:w-3/5 @3xl:overflow-y-auto"
+              ? "flex flex-col gap-3 p-3 @3xl/pane:w-3/5 @3xl/pane:overflow-y-auto"
               : "flex flex-col gap-3 p-2"
           }
         >
@@ -295,7 +295,10 @@ export function VideoPane({
               {isPending ? "Reading the note" : "No video linked in this note"}
             </p>
           ) : (
-            <div className="relative aspect-video w-full">
+            // Capped to the pane's height as well as its width: the body is a size
+            // container, so 70% of its height is the most a player may take, and
+            // the rest is left for the title, the chapters and the line under them.
+            <div className="relative mx-auto aspect-video w-[min(100%,calc(70cqh*16/9))] shrink-0">
               <iframe
                 ref={frame}
                 // Keyed on the URL so a note that changes which video it links gets
@@ -359,7 +362,7 @@ export function VideoPane({
           )}
         </div>
         {view && id !== undefined && text !== undefined && (
-          <div className="flex min-h-0 flex-col border-t border-k-rule @3xl:w-2/5 @3xl:border-t-0 @3xl:border-l">
+          <div className="flex min-h-0 flex-col border-t border-k-rule @3xl/pane:w-2/5 @3xl/pane:border-t-0 @3xl/pane:border-l">
             <VideoTranscript
               key={`${note}:${id}`}
               note={note}

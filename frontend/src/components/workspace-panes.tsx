@@ -49,15 +49,16 @@ import type { TodoActions } from "@/lib/use-todo-actions";
 
 type Autosave = ReturnType<typeof useAutosave>;
 
+/** Whether a pane of the active tab plays `note`'s video, so a time in that note can seek it. */
+export function seekTarget(layout: Layout, note: string): boolean {
+  return tabPanes(layout).some((each) => each.video === note);
+}
+
 /**
  * The video pane `Space v` plays in: the focused one, else the one playing the
  * focused note's video, else the first of the tab. Undefined when the tab holds
  * no video pane, so the key has nothing to play.
  */
-export function seekTarget(layout: Layout, note: string): boolean {
-  return tabPanes(layout).some((each) => each.video === note);
-}
-
 export function videoTarget(layout: Layout): string | undefined {
   const focused = focusedPane(layout);
   if (focused.video !== undefined) return focused.id;

@@ -156,4 +156,15 @@ describe("the video pane chrome", () => {
       "Your place is kept in the note's watching field when you pause.",
     );
   });
+
+  it("#791 A15 the player box is capped to the pane's height, not only its width", async () => {
+    renderPane();
+
+    const frame = await screen.findByTitle("video");
+    const box = frame.parentElement as HTMLElement;
+    // The cap is a share of the body's height, which only reads as one when the
+    // body is a size container: the class names the capped width and the size.
+    expect(box).toHaveClass("w-[min(100%,calc(70cqh*16/9))]", "mx-auto", "shrink-0");
+    expect(box.parentElement?.parentElement).toHaveClass("[container-type:size]");
+  });
 });

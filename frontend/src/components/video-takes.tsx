@@ -19,7 +19,7 @@ export function VideoTakes({
   }
 
   return (
-    <ul aria-label="Taken from this video">
+    <ul aria-label="Taken from this video" className="px-3">
       {takes.map((take) => (
         <li key={take.id} className="flex items-start">
           <button
