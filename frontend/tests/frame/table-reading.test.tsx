@@ -208,4 +208,50 @@ describe("table reading", () => {
     const again = scrollerOf(at.dom.querySelector(".cm-table-block") as HTMLElement);
     await expect.poll(() => again.scrollLeft).toBe(150);
   });
+
+  it("#792 A2 at 1440 a wide table keeps its words whole and scrolls", async () => {
+    // Words with no space in them: a cell may break between words, never inside one.
+    await page.viewport(1440, 900);
+    const columns = 12;
+    const header = `|${Array.from({ length: columns }, (_, c) => ` headerword${c} |`).join("")}`;
+    const divider = `|${" --- |".repeat(columns)}`;
+    const body = Array.from(
+      { length: 3 },
+      (_, r) =>
+        `|${Array.from({ length: columns }, (_, c) => ` longwordnumber${r}${c} |`).join("")}`,
+    );
+    const { scroller } = await drawn(["before", "", header, divider, ...body].join("\n"));
+
+    expect(scroller.scrollWidth).toBeGreaterThan(scroller.clientWidth);
+    // A one-word cell is one line: its text's rectangles share a top.
+    const cell = scroller.querySelectorAll("tbody td")[1] as HTMLElement;
+    const range = document.createRange();
+    range.selectNodeContents(cell);
+    const tops = new Set([...range.getClientRects()].map((rect) => Math.round(rect.top)));
+    expect(tops.size).toBe(1);
+  });
+
+  it("#792 I5 a first column wider than half the box scrolls with the rest", async () => {
+    // A long first cell in a narrow pane is wider than half the box, so it is
+    // not held: the sticky column would take the whole scroll for itself.
+    const long = "a first cell with far too much text to fit a phone pane at all";
+    const doc = [
+      "before",
+      "",
+      `| ${long} | b | c | d | e | f |`,
+      "| - | - | - | - | - | - |",
+      "| x | y | z | w | v | u |",
+    ].join("\n");
+    const { host } = await drawn(doc);
+    host.classList.add("k-reader");
+    host.style.width = "300px";
+    const fresh = () => host.querySelector(".cm-table-block") as HTMLElement;
+    await expect.poll(() => fresh().hasAttribute("data-first-wide")).toBe(true);
+
+    const scroller = scrollerOf(fresh());
+    scroller.scrollLeft = 60;
+    await expect.poll(() => scroller.scrollLeft).toBe(60);
+    const first = scroller.querySelector("tbody td") as HTMLElement;
+    expect(first.getBoundingClientRect().left).toBeLessThan(scroller.getBoundingClientRect().left);
+  });
 });

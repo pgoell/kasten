@@ -103,6 +103,11 @@
   border-bottom: 1px solid var(--k-rule);
   padding: 0.2em 0.6em;
   text-align: left;
+  /* The editor breaks a long word anywhere so a line never runs off it, which in
+     a cell squeezes the table to the note's width and cuts words in two. A cell
+     breaks at a space only, and a table too wide for the pane scrolls instead. */
+  overflow-wrap: normal;
+  word-break: normal;
   /* An empty cell has nothing to give it a height, and a row of them would
      draw as a line. */
   min-width: 1em;
@@ -115,17 +120,19 @@
   top: 0;
   z-index: 1;
   border-top: 1px solid var(--k-rule-strong);
-  background: var(--k-paper);
+  background: var(--k-bg);
   font-weight: 700;
 }
 
 /* The first column held at the left of a table that scrolls sideways. Its
-   background is opaque so the cells scrolling under it do not show through. */
+   background is opaque so the cells scrolling under it do not show through, and
+   it is the editor's own ground (`--k-bg`, on `.cm-editor`), so it reads as the
+   page and not a panel. */
 .cm-table-grid :is(th, td):first-child {
   position: sticky;
   left: 0;
   z-index: 1;
-  background: var(--k-paper);
+  background: var(--k-bg);
 }
 
 /* The corner, held at the top and the left both, so it sits above each. */
