@@ -309,8 +309,19 @@ it("A4 a todo click on a note open in another tab shows the line, in Edit mode",
 it("A5 a todo click on a note open in another pane shows the line", async () => {
   const mounted = await mountWith(TODO_BESIDE_NOTE);
   try {
-    await clickTodo(mounted.host);
-    await expectLineShown(mounted.host, { pane: "p1", read: true });
+    const { host } = mounted;
+    // The layout is read again on mount and its pane ids are not the seeded ones,
+    // so the pane is found by the list it holds, before the click replaces it.
+    const todoPane = await waitFor(
+      () =>
+        need(host.querySelector<HTMLElement>("[data-pane]:has([data-row])"), "pane of the todos"),
+      PATIENCE,
+    );
+    await clickTodo(host);
+    await expectLineShown(host, {
+      pane: need(todoPane.dataset.pane, "id of the todo pane"),
+      read: true,
+    });
   } finally {
     await unmount(mounted);
   }
