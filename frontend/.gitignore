@@ -3,6 +3,8 @@ dist/
 # The two releases `fe:e2e:release` builds and serves in turn. Here and not at
 # the root, because biome reads this file and not that one.
 dist-e2e-*/
+# The Chrome traces `fe:trace:phone` records, tens of megabytes each (#934).
+traces/
 coverage/
 
 # tsconfig.node.json outDir (composite project build info).
