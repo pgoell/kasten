@@ -85,19 +85,32 @@ export function PaneLayout({
     drawn.current.set(tabId, new Set([...(drawn.current.get(tabId) ?? []), ...ids]));
   });
 
+  // The root is always a container, even around one pane: React keeps a pane's
+  // editor only while its element type and key stay the same, so a lone pane
+  // that becomes a split must not be swapped for a container of its own.
+  const column = isSplit(node) && node.dir === "col";
+  const parts = isSplit(node) ? node.children : [node];
+
   return (
-    <LayoutNode
-      node={node}
-      focus={focus}
-      onFocus={onFocus}
-      divided={divided}
-      zoomed={zoomed}
-      fresh={fresh}
-      narrow={narrow}
-      enter={narrow ? "y" : "x"}
+    <div
+      className={`flex min-h-0 min-w-0 flex-1 gap-0.5 bg-k-rule ${column ? "flex-col" : "flex-row"}`}
     >
-      {children}
-    </LayoutNode>
+      {parts.map((part) => (
+        <LayoutNode
+          key={part.id}
+          node={part}
+          focus={focus}
+          onFocus={onFocus}
+          divided={divided}
+          zoomed={zoomed}
+          fresh={fresh}
+          narrow={narrow}
+          enter={narrow || column ? "y" : "x"}
+        >
+          {children}
+        </LayoutNode>
+      ))}
+    </div>
   );
 }
 
