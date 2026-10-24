@@ -340,7 +340,7 @@ class HeadPlugin {
   private readonly toggle: () => void;
   private readonly head: HTMLElement | null;
   /** The content's own top padding, which the header's height is added to. */
-  private readonly basePadding: number;
+  private basePadding: number | null = null;
   private observer: ResizeObserver | null = null;
   private data: Head | null;
   private shown = "";
@@ -351,7 +351,6 @@ class HeadPlugin {
     this.data = read(view.state).head;
     this.head =
       view.state.facet(notePath) === undefined ? null : make("div", { class: "cm-note-head" });
-    this.basePadding = parseFloat(getComputedStyle(view.contentDOM).paddingTop) || 0;
     if (this.head) {
       view.scrollDOM.insertBefore(this.head, view.contentDOM);
       // jsdom has no ResizeObserver, and a browser without one is measured on each change.
@@ -399,15 +398,22 @@ class HeadPlugin {
     const { head, view } = this;
     if (head === null) return;
     view.requestMeasure({
-      read: () => ({
-        left: view.contentDOM.offsetLeft,
-        width: view.contentDOM.clientWidth,
-        height: head.offsetHeight,
-      }),
-      write: ({ left, width, height }) => {
+      read: () => {
+        // Once: the first write puts the header's height into the padding.
+        if (this.basePadding === null) {
+          this.basePadding = parseFloat(getComputedStyle(view.contentDOM).paddingTop) || 0;
+        }
+        return {
+          left: view.contentDOM.offsetLeft,
+          width: view.contentDOM.clientWidth,
+          height: head.offsetHeight,
+          base: this.basePadding,
+        };
+      },
+      write: ({ left, width, height, base }) => {
         head.style.left = `${left}px`;
         head.style.width = `${width}px`;
-        view.contentDOM.style.paddingTop = `${this.basePadding + height}px`;
+        view.contentDOM.style.paddingTop = `${base + height}px`;
       },
     });
   }

@@ -309,8 +309,12 @@ export function createNoteView(o: {
         o.position,
       ],
     }),
-    parent: o.parent,
   });
+  // Joined to the page after the constructor, not through `parent`: the constructor
+  // reads fonts and styles, which forces a style pass over the tree it is still
+  // building. Detached, that pass covers nothing, and the tree takes one pass when
+  // it joins.
+  o.parent.append(view.dom);
   return view;
 }
 

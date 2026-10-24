@@ -3,9 +3,9 @@ import { KindIcon, paneKind } from "@/components/kind-icons";
 import { focusedOf, tabLabel } from "@/components/tab-label";
 import type { HeldRow } from "@/lib/held-text";
 import { activeTab, isEmptyTab, type Layout, panesOf, type Tab } from "@/lib/panes";
-import { SPRINGS, Spring } from "@/lib/spring";
-import { foldTabs } from "@/lib/tab-fold";
+import { Spring } from "@/lib/spring";
 import type { SaveStatus } from "@/lib/use-autosave";
+import { useTabGeometry } from "@/lib/use-tab-geometry";
 
 interface TabStripProps {
   layout: Layout;
@@ -46,13 +46,6 @@ function keyFor(index: number): string {
 }
 
 /**
- * The room the "N more" button keeps at the right of the tabs, in px.
- *
- * Kept in step with the button's own `w-[88px]`, so a tab is never drawn under it.
- */
-const MORE = 88;
-
-/**
  * Set once the strip has been drawn, so the entrance plays once per page.
  *
  * Module-level and not in state: the route can unmount and remount the strip,
@@ -63,10 +56,6 @@ let drawn = false;
 /** Let the next mount play the entrance again. For tests, which share one page. */
 export function resetStripEntrance(): void {
   drawn = false;
-}
-
-function same(a: readonly number[], b: readonly number[]): boolean {
-  return a.length === b.length && a.every((value, index) => value === b[index]);
 }
 
 /**
@@ -103,90 +92,11 @@ export function TabStrip({ layout, onSelect, onClose, onHome, unsaved }: TabStri
     };
     return { x: new Spring(0, paint), width: new Spring(0, paint) };
   });
-  // Whether the bar has been drawn since it last appeared, so its first place is
-  // a jump and not a glide in from the left edge.
-  const placed = useRef(false);
-
-  // Which tabs are behind "N more". Measured in the layout effect below, so the
-  // first paint already has the right set.
-  const [hidden, setHidden] = useState<readonly number[]>([]);
-  const [cap, setCap] = useState<number>();
-
   // The labels too: a label that grows, or a web font that arrives, widens a tab
   // without changing the count, and the fold has to follow it.
   const labels = layout.tabs.map(tabLabel).join("\n");
 
-  // The fold follows the width of the tabs and of the row they sit in. Measured
-  // here, before paint, so a tab switch never shows a strip that has not folded.
-  // A tab that is folded keeps its width, being hidden rather than removed.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: all three are the trigger, and count and labels are not read.
-  useLayoutEffect(() => {
-    const row = list.current;
-    if (row === null) return;
-    const measure = () => {
-      const tabs = [...row.querySelectorAll<HTMLElement>("[data-tab]")];
-      // The active tab may carry the cap a past fold gave it. Its width is taken
-      // without that cap, or the cap would shape the fold that set it, and the two
-      // would take turns every frame. The cap is put back before anything paints.
-      const capped = tabs[active];
-      const kept = capped?.style.maxWidth ?? "";
-      if (capped) capped.style.maxWidth = "";
-      const widths = tabs.map((tab) => tab.offsetWidth);
-      if (capped) capped.style.maxWidth = kept;
-      // No room at all is a strip not laid out (hidden, or no layout as in
-      // jsdom), where folding would hide every tab but the active one for nothing.
-      const next =
-        row.clientWidth === 0 ? [] : foldTabs(widths, row.clientWidth, active, MORE).hidden;
-      setHidden((previous) => (same(previous, next) ? previous : next));
-      // The room a tab shown beside the button may take, so a folded-in active tab
-      // is cut by its own ellipsis rather than running under the button.
-      setCap(Math.max(0, row.clientWidth - MORE));
-      // With nothing folded there is no list to open, and one that was open must
-      // not come back by itself when the window narrows again.
-      if (next.length === 0) setOpen(false);
-    };
-    measure();
-    // jsdom has no observer, where every width is 0 and every tab is drawn.
-    if (typeof ResizeObserver === "undefined") return;
-    const observer = new ResizeObserver(measure);
-    observer.observe(row);
-    for (const tab of row.querySelectorAll<HTMLElement>("[data-tab]")) observer.observe(tab);
-    return () => observer.disconnect();
-  }, [active, count, labels]);
-
-  // The bar follows the active tab once the fold has been applied, so it is
-  // placed after the render that folds, and not in the effect above where the
-  // tabs before the active one could still be in the old places.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: all four are the trigger, and none of them is read.
-  useLayoutEffect(() => {
-    const row = list.current;
-    const tab = row?.querySelectorAll<HTMLElement>("[data-tab]")[active];
-    if (row === null || row === undefined || tab === undefined) {
-      placed.current = false;
-      return;
-    }
-    const place = () => {
-      if (placed.current) {
-        void motion.x.to(tab.offsetLeft, SPRINGS.tab);
-        void motion.width.to(tab.offsetWidth, SPRINGS.tab);
-      } else {
-        motion.x.set(tab.offsetLeft);
-        motion.width.set(tab.offsetWidth);
-      }
-      placed.current = true;
-    };
-    place();
-    // A tab that changes width moves the bar's far edge, and a font changes
-    // every tab at once, so each tab is watched.
-    if (typeof ResizeObserver === "undefined") return;
-    const observer = new ResizeObserver(place);
-    for (const element of row.querySelectorAll<HTMLElement>("[data-tab]")) {
-      observer.observe(element);
-    }
-    return () => observer.disconnect();
-  }, [active, count, labels, hidden]);
-
-  const [open, setOpen] = useState(false);
+  const { hidden, cap, open, setOpen } = useTabGeometry(list, motion, active, count, labels);
   const menuOpen = open && hidden.length > 0;
 
   // Opening the list puts the focus on its first row, which is where the keys go.
@@ -205,7 +115,7 @@ export function TabStrip({ layout, onSelect, onClose, onHome, unsaved }: TabStri
     };
     document.addEventListener("pointerdown", outside);
     return () => document.removeEventListener("pointerdown", outside);
-  }, [menuOpen]);
+  }, [menuOpen, setOpen]);
 
   // Arrow keys walk the rows, and Escape closes the list and gives the focus
   // back to the button that opened it.

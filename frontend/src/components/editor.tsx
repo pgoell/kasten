@@ -434,7 +434,21 @@ export function Editor({
   // so the listing goes in whenever the route hands over a new one. The images,
   // the tags and the relation names ride along in the same compartment: all four
   // are the vault saying what it holds.
+  //
+  // The view is built with the listings of its first render, so the mount skips
+  // them: a reconfigure there costs a phone a full style pass over the new note (#972).
+  const listedRef = useRef({ paths, images, tags, relations });
   useEffect(() => {
+    const listed = listedRef.current;
+    if (
+      listed.paths === paths &&
+      listed.images === images &&
+      listed.tags === tags &&
+      listed.relations === relations
+    ) {
+      return;
+    }
+    listedRef.current = { paths, images, tags, relations };
     const view = viewRef.current;
     if (view) setListings(view, { paths, images, tags, relations });
   }, [paths, images, tags, relations]);
