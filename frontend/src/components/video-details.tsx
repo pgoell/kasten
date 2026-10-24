@@ -37,8 +37,8 @@ export function VideoDetails({ title, speaker, chapters, at, onSeek }: VideoDeta
                   type="button"
                   aria-current={current ? "true" : undefined}
                   onClick={() => onSeek(chapter.seconds)}
-                  className={`k-row flex w-full gap-3 border-l-2 px-3 py-1 text-left font-sans text-k-13 pointer-coarse:min-h-11 ${
-                    current ? "border-k-accent text-k-accent" : "border-transparent text-k-ink"
+                  className={`k-row flex w-full gap-3 px-3 py-1 text-left font-sans text-k-13 pointer-coarse:min-h-11 ${
+                    current ? "text-k-accent shadow-[inset_2px_0_0_var(--k-accent)]" : "text-k-ink"
                   }`}
                 >
                   <span className="font-mono text-k-muted tabular-nums">

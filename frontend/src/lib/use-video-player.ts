@@ -38,6 +38,11 @@ export interface VideoPlayerOptions {
    * is for that video, and a player on another video leaves it alone.
    */
   seekSignal?: { seconds: number; signal: number; id?: string };
+  /**
+   * Called for a raise that names another video, which the pane may switch to
+   * (it is the pane that knows what the note links).
+   */
+  onOtherVideo?: (id: string, seconds: number) => void;
 }
 
 export interface VideoPlayer {
@@ -82,6 +87,7 @@ export function useVideoPlayer({
   onWatched,
   playSignal,
   seekSignal,
+  onOtherVideo,
 }: VideoPlayerOptions): VideoPlayer {
   /**
    * Whether the player is running, as the player last reported it, for the key.
@@ -206,14 +212,18 @@ export function useVideoPlayer({
   const seekId = seekSignal?.id;
   // The signal the pane was mounted with is not a request. The route keeps the
   // last one, so a pane opened again on the same note would otherwise seek at
-  // once to a second that is old. A raise for another video is used up here too.
+  // once to a second that is old.
   const seekSeen = useRef(seekCount);
   useEffect(() => {
     if (seekCount === seekSeen.current) return;
     seekSeen.current = seekCount;
-    if (seekId !== undefined && seekId !== id) return;
-    if (seekCount && seekTo !== undefined) seek(seekTo);
-  }, [seekCount, seekTo, seekId, id, seek]);
+    if (!seekCount || seekTo === undefined) return;
+    if (seekId !== undefined && seekId !== id) {
+      onOtherVideo?.(seekId, seekTo);
+      return;
+    }
+    seek(seekTo);
+  }, [seekCount, seekTo, seekId, id, seek, onOtherVideo]);
 
   return {
     at,

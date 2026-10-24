@@ -11,7 +11,6 @@ import {
 import { TakeButton } from "@/components/take-button-view";
 import { useBookNoteTake } from "@/components/use-book-note-take";
 import type { Passage } from "@/lib/highlight";
-import { LABEL } from "@/lib/overlay-styles";
 import { type Anchor, low, placeFor } from "@/lib/page-selection";
 import { VIDEO_REFUSED } from "@/lib/page-undo";
 import { usePressGuard } from "@/lib/take-button";
@@ -31,7 +30,7 @@ export function clockOf(seconds: number): string {
  * not carry it in as text.
  */
 export const CLOCK =
-  "select-none font-mono text-k-12 text-k-link hover:text-k-accent tabular-nums mr-2 pointer-coarse:min-h-11";
+  "select-none font-mono text-k-12 text-k-link hover:text-k-accent tabular-nums mr-2 relative pointer-coarse:min-h-0 before:absolute before:-inset-y-3 before:inset-x-0 before:content-['']";
 
 /** The take's one handle: the pane's `y` takes the held selection through it. */
 export interface TranscriptHandle {
@@ -228,7 +227,7 @@ export function VideoTranscript({
   return (
     <div ref={wrapper} className="relative flex min-h-0 flex-1 flex-col">
       <div className="flex items-center gap-3 px-3 py-2">
-        <span className={LABEL}>TRANSCRIPT</span>
+        <span className="text-k-12 uppercase text-k-muted">TRANSCRIPT</span>
         <button
           type="button"
           aria-pressed={follow}
@@ -251,7 +250,7 @@ export function VideoTranscript({
           aria-label="Transcript"
           ref={list}
           onPointerUp={() => reading.current()}
-          className="min-h-0 flex-1 overflow-y-auto px-3 pb-3"
+          className="min-h-0 flex-1 overflow-y-auto px-3 pb-3 selection:bg-k-highlight selection:text-k-ink"
         >
           {paragraphs.map((paragraph, index) => {
             const marked = index === current;
@@ -260,7 +259,7 @@ export function VideoTranscript({
               <li key={`${index}:${paragraph.seconds}`} data-at={paragraph.seconds}>
                 <p
                   aria-current={marked ? "true" : undefined}
-                  className={`font-serif text-k-15 leading-(--k-leading-reading) text-k-ink rounded-[var(--k-radius-4)] px-2 py-1${marked ? " bg-k-accent-wash" : ""}`}
+                  className={`-mx-2 font-serif text-k-15 leading-(--k-leading-reading) text-k-ink rounded-[var(--k-radius-4)] px-2 py-1${marked ? " bg-k-accent-wash" : ""}`}
                 >
                   <button
                     type="button"

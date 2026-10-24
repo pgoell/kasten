@@ -15,7 +15,9 @@ export function VideoTakes({
 }) {
   const takes = videoTakes(text, id);
   if (takes.length === 0) {
-    return <p className="font-sans text-k-13 text-k-muted">Nothing taken from this video yet.</p>;
+    return (
+      <p className="px-3 font-sans text-k-13 text-k-muted">Nothing taken from this video yet.</p>
+    );
   }
 
   return (

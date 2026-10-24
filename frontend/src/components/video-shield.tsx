@@ -37,7 +37,7 @@ export function VideoShield({ running, onPress }: VideoShieldProps) {
           <path d="M8 5v14l11-7z" fill="currentColor" />
         </svg>
       </span>
-      <span className="pointer-events-none absolute inset-x-0 bottom-2 mx-auto w-max rounded-[var(--k-radius-4)] bg-k-ink/70 px-2 py-1 font-sans text-k-12 text-k-paper opacity-0 transition-opacity duration-(--k-hover) group-hover:opacity-100 group-hover:delay-500 motion-reduce:transition-none pointer-coarse:hidden">
+      <span className="pointer-events-none absolute inset-x-0 bottom-2 mx-auto w-max rounded-[var(--k-radius-4)] bg-k-ink/70 px-2 py-1 font-sans text-k-12 text-k-paper opacity-0 transition-opacity duration-(--k-hover) group-hover:opacity-100 group-hover:delay-500 pointer-coarse:hidden">
         Click to play or pause, or press k
       </span>
     </button>

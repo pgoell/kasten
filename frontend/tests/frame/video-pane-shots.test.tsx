@@ -13,6 +13,7 @@ import { DESKTOP, leader, mount, registerReaderFixture, unmount } from "./reader
 import { shot } from "./shots";
 import {
   deliver,
+  manyChapters,
   paneButton,
   paneOf,
   registerNotes,
@@ -60,9 +61,15 @@ vi.mock("@/lib/video", async (importOriginal) => ({
   playerUrl: () => "about:blank",
 }));
 
+/** The same talk with twenty chapters, for the picture of the transcript's height. */
+const MANY = "Talks/Many chapters.md";
+
 registerReaderFixture();
 // The talk the pictures show has one take already, under `## Highlights`.
-registerNotes({ [TALK]: talkNote(VIDEO, TAKE) });
+registerNotes({
+  [TALK]: talkNote(VIDEO, TAKE),
+  [MANY]: talkNote(VIDEO, TAKE, manyChapters()),
+});
 
 const SHOTS = import.meta.env.VITE_KASTEN_SHOTS === "1";
 const DESK = { width: 1440, height: 900, touch: false };
@@ -92,6 +99,14 @@ async function look(size: Size, theme: "light" | "dark", palette = "poel") {
   applyTheme();
 }
 
+/**
+ * Brings the transcript up on a phone, where it sits under the player and the
+ * pane scrolls to it. The picture and the selection are of what is on screen.
+ */
+function showTranscript(host: HTMLElement) {
+  host.querySelector("[aria-label='Transcript']")?.scrollIntoView({ block: "start" });
+}
+
 /** Selects the third paragraph's words, the way a reader's drag over them does. */
 function selectThird(host: HTMLElement) {
   const paragraph = host.querySelectorAll("[aria-label='Transcript'] li p")[2];
@@ -117,9 +132,9 @@ describe("the video pane pictures, alone", () => {
   });
 
   /** The pane with its player, opened on the video view and with the transcript following the player. */
-  async function viewOpen(size: Size, theme: "light" | "dark", palette = "poel") {
+  async function viewOpen(size: Size, theme: "light" | "dark", palette = "poel", note = TALK) {
     await look(size, theme, palette);
-    renderPanes(mounted, [{ note: TALK, onTake: async () => "hl-7f3a2c" }]);
+    renderPanes(mounted, [{ note, onTake: async () => "hl-7f3a2c" }]);
     const pane = paneOf(mounted.host);
     await expect.poll(() => paneButton(pane, "Video view")).toBeDefined();
     await userEvent.click(paneButton(pane, "Video view") as HTMLButtonElement);
@@ -162,14 +177,25 @@ describe("the video pane pictures, alone", () => {
 
   shotTest("video-view-414-light", async () => {
     const pane = await viewOpen(PHONE, "light");
+    showTranscript(mounted.host);
     selectThird(mounted.host);
     await expect.poll(() => pane.querySelector("[data-take]")).not.toBeNull();
     await document.fonts.ready;
     await picture(pane, "video-view-414-light");
   });
 
+  shotTest("video-view-414-dark-many", async () => {
+    const pane = await viewOpen(PHONE, "dark", "poel", MANY);
+    showTranscript(mounted.host);
+    selectThird(mounted.host);
+    await expect.poll(() => pane.querySelector("[data-take]")).not.toBeNull();
+    await document.fonts.ready;
+    await picture(pane, "video-view-414-dark-many");
+  });
+
   shotTest("video-view-414-dark", async () => {
     const pane = await viewOpen(PHONE, "dark");
+    showTranscript(mounted.host);
     selectThird(mounted.host);
     await expect.poll(() => pane.querySelector("[data-take]")).not.toBeNull();
     await document.fonts.ready;

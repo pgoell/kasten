@@ -44,8 +44,24 @@ const WORDS = [
 export const TAKE =
   "\n## Highlights\n\n> Consider the question everyone asks first: can the engine think?\n\n[00:31](https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=31s) ^hl-7f3a2c\n";
 
+/** The four chapters a talk's note lists by default. */
+const CHAPTERS = [
+  "- [00:00] Opening",
+  "- [01:10] The loom",
+  "- [02:40] Engine parts",
+  "- [04:05] Questions",
+];
+
+/** Twenty chapters, a minute apart, for a note long enough to test the transcript's height. */
+export function manyChapters(): string[] {
+  return Array.from(
+    { length: 20 },
+    (_, index) => `- [${String(index).padStart(2, "0")}:00] Part ${index + 1}, on the mill`,
+  );
+}
+
 /** A talk's note: the video it links, its chapters, its transcript, and the takes given. */
-export function talkNote(id: string, takes = ""): string {
+export function talkNote(id: string, takes = "", chapters = CHAPTERS): string {
   const paragraphs = WORDS.flatMap((text, index) => [`[${STAMPS[index]}] ${text}`, ""]);
   return (
     [
@@ -58,10 +74,7 @@ export function talkNote(id: string, takes = ""): string {
       "",
       "## Chapters",
       "",
-      "- [00:00] Opening",
-      "- [01:10] The loom",
-      "- [02:40] Engine parts",
-      "- [04:05] Questions",
+      ...chapters,
       "",
       "## Transcript",
       "",

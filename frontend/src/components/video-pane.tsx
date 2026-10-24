@@ -10,7 +10,6 @@ import type { EditorCommands } from "@/lib/key-bindings";
 import { heldModifier, leaderAction, leaderPrefix } from "@/lib/leader-keys";
 import { readField } from "@/lib/note-frontmatter";
 import { noteName } from "@/lib/note-path";
-import { LABEL } from "@/lib/overlay-styles";
 import { useVideoPlayer } from "@/lib/use-video-player";
 import { noteVideos, PLAYER, playerUrl, watchedAt } from "@/lib/video";
 import { noteChapters, watchUrl } from "@/lib/video-notes";
@@ -103,6 +102,15 @@ export function VideoPane({
     onWatched,
     playSignal,
     seekSignal,
+    // A time for another of the note's videos switches to it, at that second. A
+    // video the note does not link is none of this pane's business.
+    onOtherVideo: (other, seconds) => {
+      const at = videos.indexOf(other);
+      if (at === -1) return;
+      report();
+      askedStart.current = { id: other, seconds };
+      setIndex(at);
+    },
   });
 
   /**
@@ -115,8 +123,13 @@ export function VideoPane({
    * after that.
    */
   const opened = useRef<{ id: string; url: string }>(null);
+  /** A second asked for by a switch to this video, which its next open takes in place of the remembered one. */
+  const askedStart = useRef<{ id: string; seconds: number }>(null);
   if (id !== undefined && text !== undefined && opened.current?.id !== id) {
-    opened.current = { id, url: playerUrl(id, watchedAt(text, id)) };
+    const asked = askedStart.current;
+    const start = asked?.id === id ? asked.seconds : watchedAt(text, id);
+    askedStart.current = null;
+    opened.current = { id, url: playerUrl(id, start) };
   }
   const source = id === undefined ? null : (opened.current?.url ?? null);
 
@@ -219,7 +232,7 @@ export function VideoPane({
       className="@container/pane flex h-full flex-col bg-k-bg font-sans outline-none"
     >
       <header className="flex items-center gap-3 border-b border-k-rule px-3 py-1">
-        <span className={`shrink-0 ${LABEL}`}>VIDEO</span>
+        <span className="shrink-0 text-k-12 uppercase text-k-muted">VIDEO</span>
         <span
           className="min-w-0 flex-1 truncate font-mono text-k-13 text-k-ink"
           title={id === undefined ? undefined : `${PLAYER}/watch?v=${id}`}
@@ -241,7 +254,7 @@ export function VideoPane({
               step(1);
               panel.current?.focus();
             }}
-            className={`shrink-0 cursor-pointer pointer-coarse:min-h-11 pointer-coarse:min-w-11 ${LABEL}`}
+            className="shrink-0 cursor-pointer text-k-12 uppercase text-k-muted pointer-coarse:min-h-11 pointer-coarse:min-w-11"
           >
             {Math.min(index, videos.length - 1) + 1}/{videos.length}
           </button>
@@ -255,7 +268,11 @@ export function VideoPane({
                 setView((was) => !was);
                 panel.current?.focus();
               }}
-              className="ml-auto shrink-0 cursor-pointer whitespace-nowrap font-sans text-k-12 text-k-link hover:text-k-accent pointer-coarse:min-h-11"
+              className={`ml-auto shrink-0 cursor-pointer whitespace-nowrap font-sans text-k-12 pointer-coarse:min-h-11 ${
+                view
+                  ? "rounded-[var(--k-radius-4)] bg-k-accent-wash px-2 text-k-ink"
+                  : "text-k-link hover:text-k-accent"
+              }`}
             >
               Video view
             </button>
@@ -355,8 +372,8 @@ export function VideoPane({
             </>
           )}
           {view && id !== undefined && text !== undefined && (
-            <div className="flex flex-col gap-1">
-              <h3 className={`px-3 ${LABEL}`}>Taken from this video</h3>
+            <div className="mt-3 flex flex-col gap-1">
+              <h3 className="px-3 text-k-12 uppercase text-k-muted">Taken from this video</h3>
               <VideoTakes text={text} id={id} onSeek={seekAndFocus} />
             </div>
           )}

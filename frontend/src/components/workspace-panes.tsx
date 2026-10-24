@@ -54,11 +54,6 @@ export function seekTarget(layout: Layout, note: string): boolean {
   return tabPanes(layout).some((each) => each.video === note);
 }
 
-/**
- * The video pane `Space v` plays in: the focused one, else the one playing the
- * focused note's video, else the first of the tab. Undefined when the tab holds
- * no video pane, so the key has nothing to play.
- */
 /** The seek a time asked for, counted so the same time asked twice seeks twice. */
 interface SeekAsk {
   note: string;
@@ -87,6 +82,11 @@ export function pressTarget(
   return { signal: playSignal, target: videoTarget(layout) };
 }
 
+/**
+ * The video pane `Space v` plays in: the focused one, else the one playing the
+ * focused note's video, else the first of the tab. Undefined when the tab holds
+ * no video pane, so the key has nothing to play.
+ */
 export function videoTarget(layout: Layout): string | undefined {
   const focused = focusedPane(layout);
   if (focused.video !== undefined) return focused.id;

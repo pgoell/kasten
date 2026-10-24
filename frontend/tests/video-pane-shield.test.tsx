@@ -12,6 +12,7 @@ vi.mock("@/lib/api", () => ({ fetchNote }));
 
 const NOTE = "lit/attention is all you need.md";
 const TEXT = "# The talk\n\n[the recording](https://youtu.be/dQw4w9WgXcQ)\n\nNotes below.\n";
+const TWO_VIDEOS = "[one](https://youtu.be/dQw4w9WgXcQ)\n[two](https://youtu.be/iDulhoQ2pro)\n";
 
 beforeEach(() => {
   fetchNote.mockReset();
@@ -29,9 +30,9 @@ type Props = Partial<ComponentProps<typeof VideoPane>>;
  * frame is in the first commit: how a pane reopened on a note already read
  * comes up.
  */
-function renderPane(props: Props = {}, cached = false) {
+function renderPane(props: Props = {}, cached = false, text = TEXT) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  if (cached) client.setQueryData(["note", NOTE], TEXT);
+  if (cached) client.setQueryData(["note", NOTE], text);
   const onWatched = vi.fn();
   const view = (next: Props) => (
     <QueryClientProvider client={client}>
@@ -254,22 +255,40 @@ describe("the video pane shield and keys", () => {
     frameWindow.mockRestore();
   });
 
-  it("#791 R7 a seek for another of the note's videos leaves this player alone", async () => {
-    const sent = vi.fn();
+  it("#791 R8 a seek for another of the note's videos switches to it and opens it at that second", async () => {
     const frameWindow = vi
       .spyOn(HTMLIFrameElement.prototype, "contentWindow", "get")
-      .mockReturnValue({ postMessage: sent } as unknown as Window);
-    const seeks = () => commandsOf(sent).filter((command) => command.func === "seekTo");
+      .mockReturnValue({ postMessage: vi.fn() } as unknown as Window);
 
-    const { rerenderWith } = renderPane(
+    const { onWatched, rerenderWith } = renderPane(
+      { seekSignal: { seconds: 90, signal: 0, id: "iDulhoQ2pro" } },
+      true,
+      TWO_VIDEOS,
+    );
+    act(() => reports(1, 12));
+    rerenderWith({ seekSignal: { seconds: 90, signal: 1, id: "iDulhoQ2pro" } });
+
+    expect(screen.getByTitle("video")).toHaveAttribute(
+      "src",
+      "https://www.youtube.com/embed/iDulhoQ2pro?enablejsapi=1&start=90",
+    );
+    expect(onWatched.mock.calls).toEqual([["dQw4w9WgXcQ", 12]]);
+    frameWindow.mockRestore();
+  });
+
+  it("#791 R8 an id the note does not link leaves the player alone", async () => {
+    const { onWatched, rerenderWith } = renderPane(
       { seekSignal: { seconds: 90, signal: 0, id: "other0000xx" } },
       true,
+      TWO_VIDEOS,
     );
+    act(() => reports(1, 12));
     rerenderWith({ seekSignal: { seconds: 90, signal: 1, id: "other0000xx" } });
-    expect(seeks()).toEqual([]);
 
-    rerenderWith({ seekSignal: { seconds: 90, signal: 2, id: "dQw4w9WgXcQ" } });
-    expect(seeks()).toEqual([{ func: "seekTo", args: [90, true] }]);
-    frameWindow.mockRestore();
+    expect(screen.getByTitle("video")).toHaveAttribute(
+      "src",
+      "https://www.youtube.com/embed/dQw4w9WgXcQ?enablejsapi=1",
+    );
+    expect(onWatched).not.toHaveBeenCalled();
   });
 });

@@ -151,6 +151,10 @@ describe("the video pane", () => {
       frame.getBoundingClientRect().bottom,
     );
 
+    // Stacked, the transcript starts below the player and the pane scrolls to it. The
+    // button is checked against the pane on screen, so the words are brought up first.
+    list.scrollIntoView({ block: "start" });
+
     // A selection made by script, as a touch drag over the words makes one.
     const range = document.createRange();
     const words = thirdParagraphText(mounted.host);
