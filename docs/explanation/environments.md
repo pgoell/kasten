@@ -179,9 +179,14 @@ vault mounted, which is a root-less but fully live shell. Nothing else in this
 system fails as quietly, because a shell that is reachable looks exactly like a
 shell that is not until somebody finds it. It mounts the same host vault
 directory the backend does, the two environments not sharing it, and it does
-not get the docker socket. It carries `KASTEN_API`, the backend's address on
-the `web` network, `http://backend-dev:8000` in dev and
-`http://kasten-backend-prod:8000` in prod. The vault's own
+not get the docker socket. It is not on the `web` network either. From there an
+agent could reach every app on the box by its internal port and skip
+oauth2-proxy, so the shell sits on a network of its own, `kasten-shell` in prod
+and `kasten-shell-dev` in dev, holding only Caddy, the backend and, in dev, the
+frontend that proxies `/chat` to it. Server-infra declares both, because Caddy
+joins them. The shell carries `KASTEN_API`, the backend's address on that
+network, `http://backend-dev:8000` in dev and `http://kasten-backend-prod:8000`
+in prod. The vault's own
 `01 Agents/How-To-TODO.md`, in the config folder, tells an agent in there to tick a
 todo through `PUT /api/files/{path}`, and that is where it sends it. Nothing is
 published to the host for it, and `curl` and `jq` are in the image for the same

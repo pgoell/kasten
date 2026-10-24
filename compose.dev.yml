@@ -73,6 +73,8 @@ services:
     networks:
       - default
       - web
+      # Where shell-dev reaches the API.
+      - kasten-shell-dev
 
   # The one dev service with a `build` section, and the only one that needs it:
   # there is no reload loop to bind-mount a tree into, so a Dockerfile change
@@ -88,8 +90,8 @@ services:
     user: "${DEV_UID:-1000}:${DEV_GID:-1000}"
     environment:
       # Where an agent in here reaches the backend, which is what the vault's
-      # agent note tells it to use to tick a todo. By name on the `web`
-      # network, so nothing has to be published to the host.
+      # agent note tells it to use to tick a todo. By name on the
+      # `kasten-shell-dev` network, so nothing has to be published to the host.
       KASTEN_API: http://backend-dev:8000
     volumes:
       - ./vault:/vault
@@ -105,11 +107,15 @@ services:
       # container, and handing one out is handing out root on the box.
       - kasten-shell-home:/home/kasten
     restart: unless-stopped
-    # No `ports`. The only route in is Caddy on the `web` network, behind
-    # `import oauth2_auth`: `/term/*` to ttyd on 7681 and `/chat/*` to the chat
+    # No `ports`. The only route in is Caddy, behind `import oauth2_auth`:
+    # `/term/*` to ttyd on 7681, and `/chat/*` through frontend-dev to the chat
     # runner on 7682. Publishing one would put a shell on the internet.
+    #
+    # Not `web` and not `default`: from there an agent could reach every app on
+    # the box past oauth2-proxy, and the dev database. `kasten-shell-dev` holds
+    # only Caddy, backend-dev, frontend-dev and this.
     networks:
-      - web
+      - kasten-shell-dev
 
   frontend-dev:
     image: oven/bun:1.3.8-alpine
@@ -132,7 +138,7 @@ services:
       # the HMR websocket at wss://<host>:443 so hot reload survives Caddy.
       KASTEN_DEV_PUBLIC_HOST: ${KASTEN_DEV_PUBLIC_HOST:-kasten-dev.pgoell.com}
       KASTEN_DEV_BACKEND: http://backend-dev:8000
-      # The chat runner in shell-dev, by name on the `web` network. Vite
+      # The chat runner in shell-dev, by name on the `kasten-shell-dev` network. Vite
       # proxies `/chat` there, so hosted dev needs no Caddy route for it: the
       # request comes in through the frontend's own.
       KASTEN_DEV_CHAT: http://shell-dev:7682
@@ -151,6 +157,8 @@ services:
     networks:
       - default
       - web
+      # Where it proxies `/chat` to shell-dev.
+      - kasten-shell-dev
 
 volumes:
   # Whatever the agents write about themselves: a login, a history, settings
@@ -161,3 +169,6 @@ networks:
   web:
     external: true
     name: ${KASTEN_NETWORK:-web}
+  kasten-shell-dev:
+    external: true
+    name: ${KASTEN_SHELL_NETWORK:-kasten-shell-dev}
