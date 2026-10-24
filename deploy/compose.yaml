@@ -4,7 +4,8 @@
 # server-infra (deploy/kasten/compose.yaml) and copied over by hand, so a
 # release cannot change what the containers mount. A change here reaches
 # production only after that copy. It runs against the external `web` network
-# declared by /home/pascal/Code/server-infra/docker-compose.yml.
+# declared by /home/pascal/Code/server-infra/docker-compose.yml, and the shell
+# on the external `kasten-shell` network declared there too.
 # Caddy and the shared Postgres live in that compose file, not this one.
 #
 # Nothing here is ever built on the server. Images come from GHCR, built by
@@ -58,6 +59,8 @@ services:
     restart: unless-stopped
     networks:
       - web
+      # The shell reaches the API here, and nothing else of the box.
+      - kasten-shell
     healthcheck:
       test:
         - "CMD-SHELL"
@@ -82,8 +85,8 @@ services:
     user: "${KASTEN_UID:-1000}:${KASTEN_GID:-1000}"
     environment:
       # Where an agent in here reaches the backend, which is what the vault's
-      # agent note tells it to use to tick a todo. By name on the `web`
-      # network, the same route Caddy takes.
+      # agent note tells it to use to tick a todo. By name on the
+      # `kasten-shell` network, which holds only Caddy, the backend and this.
       KASTEN_API: http://kasten-backend-prod:8000
       # Who a commit made in here is by. The entrypoint seeds jj's and git's
       # config from these once, and only where nothing is set yet. Named
@@ -101,8 +104,10 @@ services:
       # socket: handing one out is handing out root on the box.
       - kasten-shell-home:/home/kasten
     restart: unless-stopped
+    # Not `web`: from there an agent could reach every app on the box past
+    # oauth2-proxy. `kasten-shell` holds only Caddy, the backend and this.
     networks:
-      - web
+      - kasten-shell
 
   kasten-frontend-prod:
     image: ${KASTEN_IMAGE_REPO:-ghcr.io/pgoell}/kasten-frontend:${KASTEN_IMAGE_TAG:-latest}
@@ -126,3 +131,6 @@ networks:
   web:
     external: true
     name: ${KASTEN_NETWORK:-web}
+  kasten-shell:
+    external: true
+    name: ${KASTEN_SHELL_NETWORK:-kasten-shell}
