@@ -17,10 +17,16 @@ export function useBookNoteTake({
   note,
   archive,
   onTake,
+  title = "Taken into the book's note",
+  refused = BOOK_REFUSED,
 }: {
   note: string;
   archive: boolean;
   onTake: (passage: Passage) => Promise<string | null>;
+  /** The toast's line once the take has landed. The book's when left out. */
+  title?: string;
+  /** The toast's line when an Undo leaves the note as it was. The book's when left out. */
+  refused?: string;
 }): {
   /** Take the passage, and show the toast when the write landed on the book the pane still shows. */
   take(passage: Passage, top: boolean): Promise<void>;
@@ -32,7 +38,7 @@ export function useBookNoteTake({
   const queryClient = useQueryClient();
   const toast = useTakeToast({
     archive,
-    refused: BOOK_REFUSED,
+    refused,
     without: withoutHighlight,
     // The mark and the note column follow the Undo at once, not on the next read.
     onUnmarked: () => void queryClient.invalidateQueries({ queryKey: ["note", note] }),
@@ -52,7 +58,7 @@ export function useBookNoteTake({
 
     const chapter = collapse(passage.chapter);
     toast.show(
-      "Taken into the book's note",
+      title,
       {
         text: passage.text,
         // The link back to the highlight's block in the book's note, written from

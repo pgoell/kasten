@@ -24,6 +24,7 @@ import { imageCompletions, imagePaste, imagePaths, noticeHandler } from "@/lib/i
 import type { EditorCommands } from "@/lib/key-bindings";
 import { keyboardUnasked } from "@/lib/last-input";
 import { livePreview } from "@/lib/live-preview";
+import { timeSeek } from "@/lib/live-preview-times";
 import { logCard } from "@/lib/log-card";
 import { graphHandler, noteHead, type Outline, readMode } from "@/lib/note-head";
 import { noteLanguage } from "@/lib/note-language";
@@ -56,6 +57,7 @@ export interface NoteViewLatest {
   allowReload?: (text: string) => boolean;
   onOutline?: (outline: Outline) => void;
   onGraph?: () => void;
+  onSeek?: (seconds: number) => void;
 }
 
 /** The four listings the vault carries. Any of them absent means told nothing. */
@@ -225,6 +227,7 @@ export function createNoteView(o: {
         saveHandler.of((doc) => latest.current.onSave?.(doc)),
         // Forwarded as the editor called it: a wikilink passes its name alone.
         followHandler.of((...args) => latest.current.onFollow?.(...args)),
+        timeSeek.of((seconds) => latest.current.onSeek?.(seconds)),
         // Only a view told about a graph draws the Graph button, so an editor with
         // no graph to open (the todo pane's, say) keeps the header it had.
         ...(latest.current.onGraph === undefined

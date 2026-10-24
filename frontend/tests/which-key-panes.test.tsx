@@ -427,6 +427,8 @@ describe("the which-key panel", () => {
           commands={stubCommands()}
           focusSignal={0}
           playSignal={0}
+          archive={false}
+          onTake={async () => null}
           onWatched={vi.fn()}
         />
       </QueryClientProvider>,

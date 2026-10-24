@@ -50,6 +50,7 @@ export function NotePane({
   graphSignal,
   onGraphPane,
   onGraphSheet,
+  onSeek,
 }: {
   shown: Pane;
   focused: boolean;
@@ -71,6 +72,8 @@ export function NotePane({
   onGraphPane: () => void;
   /** On a phone: the route's bottom sheet, which holds the graph. */
   onGraphSheet?: (note: string) => void;
+  /** A time in the note asks the video playing that note to seek. See `NoteEditor`. */
+  onSeek: (note: string, seconds: number) => void;
 }) {
   const queryClient = useQueryClient();
   const { held, standbyReload, typed, reload } = buffer;
@@ -224,6 +227,7 @@ export function NotePane({
             onCycleTodo={onCycleTodo}
             onOpenHighlight={openPassage}
             onNotice={onNotice}
+            onSeek={onSeek}
             embeds={embeds}
             onOutline={onOutline}
           />

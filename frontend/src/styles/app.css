@@ -294,6 +294,26 @@ body {
   text-decoration: underline;
 }
 
+/* A time in the note that seeks the video: the transcript's `[mm:ss]` and a
+   take's link. Drawn in the mono the times are written in, and the browser's
+   button reset is taken off so it reads as the text it stands for. No minimum
+   height on a coarse pointer: the button sits inline, and a taller one would
+   push its line apart from the lines around it. */
+.cm-time {
+  font-family: var(--k-mono);
+  font-size: var(--k-text-13);
+  color: var(--k-link);
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.cm-time:hover {
+  color: var(--k-accent);
+}
+
 /* A `[text]` with no `(url)` is text, but the parser reads it as a link and the
    highlighter colours its spans as one (#441). Inheriting hands the colour back
    to whatever holds it, bold or italic. A heading's colour sits on those same

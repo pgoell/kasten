@@ -1,11 +1,19 @@
 import { useQuery } from "@tanstack/react-query";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { VideoDetails } from "@/components/video-details";
+import { VideoShield } from "@/components/video-shield";
+import { VideoTakes } from "@/components/video-takes";
+import { type TranscriptHandle, VideoTranscript } from "@/components/video-transcript";
 import { fetchNote } from "@/lib/api";
+import type { Passage } from "@/lib/highlight";
 import type { EditorCommands } from "@/lib/key-bindings";
 import { heldModifier, leaderAction, leaderPrefix } from "@/lib/leader-keys";
+import { readField } from "@/lib/note-frontmatter";
 import { noteName } from "@/lib/note-path";
 import { LABEL } from "@/lib/overlay-styles";
+import { useVideoPlayer } from "@/lib/use-video-player";
 import { noteVideos, PLAYER, playerUrl, watchedAt } from "@/lib/video";
+import { noteChapters, watchUrl } from "@/lib/video-notes";
 import { beginLeader, paneOpener } from "@/lib/which-key";
 
 interface VideoPaneProps {
@@ -30,16 +38,20 @@ interface VideoPaneProps {
    * that is open can take it without losing what you have typed.
    */
   onWatched: (id: string, seconds: number) => void;
+  /** Whether the recent notes list of the take toast includes archived notes. */
+  archive: boolean;
+  /** Write a take from the transcript into this note (the route's guarded `takeHighlight`). Answers the anchor id, or null. */
+  onTake: (passage: Passage) => Promise<string | null>;
+  /** Raised by a time button in the note: seek to `seconds`. A counter in `signal`, as `playSignal` is. */
+  seekSignal?: { seconds: number; signal: number };
+  /** A click or tap on the shield: tell the layout this pane has the focus (the frame's own click never reaches it). */
+  onFocus?: () => void;
 }
 
-/**
- * What the player reports while it is playing or about to be.
- *
- * YouTube's own numbering: 1 is playing and 3 is buffering, which is a video on
- * its way to playing and has to read as playing or the next press starts it
- * again instead of stopping it.
- */
-const RUNNING = new Set([1, 3]);
+/** A frontmatter value read as a name: the link brackets and quotes it may carry come off. */
+function plain(value: string | undefined): string | undefined {
+  return value?.replace(/\[\[|\]\]|["']/g, "").trim() || undefined;
+}
 
 /**
  * The video a note is about, playing beside the note.
@@ -52,30 +64,25 @@ const RUNNING = new Set([1, 3]);
  * The note is the source of truth and this never writes to it, the way the exam
  * pane reads its note. The read shares the editor's own query, so opening the
  * player beside a note already on screen fetches nothing.
- *
- * ponytail: a click into the player takes the browser's focus without the
- * layout hearing about it, so the blue border stays on the note and keys go to
- * YouTube until you click back. A cross-origin frame tells its parent nothing,
- * and the window-blur trick that guesses it is more machinery than a wrong
- * border is worth. `<leader>h` still works because the pane's own focus signal
- * puts the cursor on this element rather than in the frame.
  */
-export function VideoPane({ note, commands, focusSignal, playSignal, onWatched }: VideoPaneProps) {
+export function VideoPane({
+  note,
+  commands,
+  focusSignal,
+  playSignal,
+  onWatched,
+  archive,
+  onTake,
+  seekSignal,
+  onFocus,
+}: VideoPaneProps) {
   const panel = useRef<HTMLElement>(null);
   const frame = useRef<HTMLIFrameElement>(null);
-  /**
-   * Whether the player is running, as the player last reported it.
-   *
-   * A ref and not state: nothing on the screen shows it, and the only reader is
-   * the key, which wants the value at the moment it is pressed rather than a
-   * render behind. It is also what keeps the toggle honest when the player is
-   * driven by a click instead, the report arriving either way.
-   */
-  const running = useRef(false);
-  /** Where the player last said it had got to, in seconds. */
-  const second = useRef(0);
+  const transcript = useRef<TranscriptHandle>(null);
   /** Which of the note's videos is in the frame, by position in the note. */
-  const [at, setAt] = useState(0);
+  const [index, setIndex] = useState(0);
+  /** Whether the pane shows the video view: the big player beside the transcript. */
+  const [view, setView] = useState(false);
   /** The keys of an unfinished leader sequence, starting with the space. */
   const [pending, setPending] = useState("");
 
@@ -85,10 +92,18 @@ export function VideoPane({ note, commands, focusSignal, playSignal, onWatched }
   });
 
   const videos = useMemo(() => (text === undefined ? [] : noteVideos(text)), [text]);
+  const chapters = useMemo(() => (text === undefined ? [] : noteChapters(text)), [text]);
   // Clamped rather than reset: a note edited while you watch can lose the link
   // you are three videos past, and landing on the last one beats landing on
-  // nothing. `at` is only ever moved by `n` and `p`.
-  const id = videos[Math.min(at, videos.length - 1)];
+  // nothing. `index` is only ever moved by `n` and `p`.
+  const id = videos[Math.min(index, videos.length - 1)];
+  const { at, running, second, detail, report, seek, togglePlayer } = useVideoPlayer({
+    id,
+    frame,
+    onWatched,
+    playSignal,
+    seekSignal,
+  });
 
   /**
    * The URL the frame was given, held rather than recomputed.
@@ -102,31 +117,8 @@ export function VideoPane({ note, commands, focusSignal, playSignal, onWatched }
   const opened = useRef<{ id: string; url: string }>(null);
   if (id !== undefined && text !== undefined && opened.current?.id !== id) {
     opened.current = { id, url: playerUrl(id, watchedAt(text, id)) };
-    // The new frame has played none of it yet, and reporting the old video's
-    // second against the new video's id is the one way this could write a
-    // position into the wrong entry.
-    second.current = 0;
-    running.current = false;
   }
   const source = id === undefined ? null : (opened.current?.url ?? null);
-
-  // Read through a ref, the way `use-book-view.ts` reads its callbacks. The route
-  // builds `onWatched` fresh on every render, and a `report` keyed on it would
-  // hand the effect below a new cleanup each time, which reports, which writes
-  // the note, which renders the route again.
-  //
-  // Written in a layout effect, which runs in the commit's own task: a stop
-  // heard between the commit and the passive effects would otherwise report
-  // through the callback before, which holds the note's old path.
-  const onWatchedRef = useRef(onWatched);
-  useLayoutEffect(() => {
-    onWatchedRef.current = onWatched;
-  });
-
-  /** Say where the player got to, which is the note's to keep. */
-  const report = useCallback(() => {
-    if (id !== undefined && second.current > 0) onWatchedRef.current(id, second.current);
-  }, [id]);
 
   // On the way out as well as on every stop: closing the pane is the other way
   // a session ends, and the position would otherwise be the one from the last
@@ -141,68 +133,16 @@ export function VideoPane({ note, commands, focusSignal, playSignal, onWatched }
     if (focusSignal) panel.current?.focus();
   }, [focusSignal]);
 
-  /**
-   * Listen to the player, which is the only way to know what it is doing.
-   *
-   * A cross-origin frame answers no question asked of it directly, so the
-   * arrangement is the other way round: `postMessage` a subscription once the
-   * frame is up and it streams its state back. Without this the toggle would
-   * have to guess, and a video paused by a click would then need two presses.
-   */
-  useEffect(() => {
-    function heard(event: MessageEvent) {
-      if (event.origin !== PLAYER || typeof event.data !== "string") return;
-
-      let message: unknown;
-      try {
-        message = JSON.parse(event.data);
-      } catch (_malformed: unknown) {
-        // Named and typed rather than a bare `catch`, which this repo does not
-        // take: the error handled here is a string from the player's origin
-        // that is not JSON, and ignoring the message is the whole handling.
-        return;
-      }
-
-      const info = (message as { info?: { playerState?: unknown; currentTime?: unknown } }).info;
-      // Every delivery carries the time and only some carry the state, so the
-      // two are read apart. The time is what a stop is reported with, so it has
-      // to be the one from before the stop rather than a zero the player sends
-      // on its way somewhere else.
-      if (typeof info?.currentTime === "number" && info.currentTime > 0) {
-        second.current = info.currentTime;
-      }
-      if (typeof info?.playerState !== "number") return;
-
-      const was = running.current;
-      running.current = RUNNING.has(info.playerState);
-      // The edge and not the state: a player streams its state while it plays,
-      // and reporting on each one would restart the wait forever and never
-      // write. Stopping is the moment worth writing, and it happens once.
-      if (was && !running.current) report();
-    }
-
-    window.addEventListener("message", heard);
-    return () => window.removeEventListener("message", heard);
-  }, [report]);
-
-  // The key, sent as the command the player answers to. Nothing happens before
-  // the frame is up, which is the render where `source` is still null.
-  useEffect(() => {
-    if (!playSignal) return;
-    frame.current?.contentWindow?.postMessage(
-      JSON.stringify({
-        event: "command",
-        func: running.current ? "pauseVideo" : "playVideo",
-        args: [],
-      }),
-      PLAYER,
-    );
-  }, [playSignal]);
+  /** A seek from a control in the pane. The cursor goes back to the pane, as a tap on the count does. */
+  function seekAndFocus(seconds: number) {
+    seek(seconds);
+    panel.current?.focus();
+  }
 
   /** Move to another of the note's videos, wrapping at either end. */
   function step(by: number) {
     report();
-    setAt((was) => (was + by) % Math.max(videos.length, 1));
+    setIndex((was) => (was + by) % Math.max(videos.length, 1));
   }
 
   // The leader block the image pane, the exam pane and the todo pane each carry
@@ -242,6 +182,22 @@ export function VideoPane({ note, commands, focusSignal, playSignal, onWatched }
       return;
     }
 
+    // The video's own keys, bare letters for the same reason `n` and `p` are.
+    // `j` and `l` seek from the second the pane holds, not from the player,
+    // which would answer a little late. `y` is only the view's, and a Take
+    // answering no (no selection) leaves the key to the browser.
+    if (key === "k" && source !== null) {
+      event.preventDefault();
+      togglePlayer();
+      return;
+    }
+    if ((key === "j" || key === "l") && source !== null) {
+      event.preventDefault();
+      seek(second.current + (key === "l" ? 10 : -10));
+      return;
+    }
+    if (key === "y" && view && transcript.current?.take()) event.preventDefault();
+
     // The note's other videos, a lecture at a time. Bare letters because there
     // is nothing else in this pane to type, and the same pair the todo pane
     // steps its list with.
@@ -260,12 +216,15 @@ export function VideoPane({ note, commands, focusSignal, playSignal, onWatched }
       tabIndex={-1}
       onKeyDown={onKeyDown}
       aria-label="video"
-      className="flex h-full flex-col bg-k-bg font-mono outline-none"
+      className="@container flex h-full flex-col bg-k-bg font-sans outline-none"
     >
       <header className="flex items-center gap-3 border-b border-k-rule px-3 py-1">
-        <span className={`shrink-0 ${LABEL}`}>video</span>
-        <span className="min-w-0 flex-1 truncate text-[13px] text-k-ink" title={note}>
-          {noteName(note)}
+        <span className={`shrink-0 ${LABEL}`}>VIDEO</span>
+        <span
+          className="min-w-0 flex-1 truncate font-mono text-k-13 text-k-ink"
+          title={id === undefined ? undefined : `${PLAYER}/watch?v=${id}`}
+        >
+          {id === undefined ? "" : `youtube.com/watch?v=${id}`}
         </span>
         {videos.length > 1 && (
           // Only once there is something to step through. A note with one video
@@ -284,43 +243,135 @@ export function VideoPane({ note, commands, focusSignal, playSignal, onWatched }
             }}
             className={`shrink-0 cursor-pointer pointer-coarse:min-h-11 pointer-coarse:min-w-11 ${LABEL}`}
           >
-            {Math.min(at, videos.length - 1) + 1}/{videos.length}
+            {Math.min(index, videos.length - 1) + 1}/{videos.length}
           </button>
+        )}
+        {id !== undefined && (
+          <>
+            <button
+              type="button"
+              aria-pressed={view}
+              onClick={() => {
+                setView((was) => !was);
+                panel.current?.focus();
+              }}
+              className="shrink-0 cursor-pointer font-sans text-k-12 text-k-link hover:text-k-accent pointer-coarse:min-h-11"
+            >
+              Video view
+            </button>
+            <a
+              href={watchUrl(id, at)}
+              target="_blank"
+              rel="noreferrer"
+              className="shrink-0 font-sans text-k-12 text-k-link hover:text-k-accent pointer-coarse:min-h-11"
+            >
+              Open on YouTube
+            </a>
+          </>
         )}
       </header>
 
-      <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden p-2">
-        {source === null ? (
-          <p role="status" className="text-[13px] text-k-muted">
-            {isPending ? "Reading the note" : "No video linked in this note"}
-          </p>
-        ) : (
-          <iframe
-            ref={frame}
-            // Keyed on the URL so a note that changes which video it links gets
-            // a new frame rather than a stale player told to load another one.
-            key={source}
-            src={source}
-            title="video"
-            // The subscription the effect above listens for. It goes on load
-            // rather than on mount: a frame that has not finished loading has a
-            // `contentWindow` that drops what it is sent.
-            onLoad={() =>
-              frame.current?.contentWindow?.postMessage(
-                JSON.stringify({ event: "listening", channel: "widget" }),
-                PLAYER,
-              )
-            }
-            // Fullscreen is the one thing worth handing over: a talk followed
-            // properly is watched full width and paused back to the notes.
-            // Nothing else is granted, so the frame gets no camera, no clipboard
-            // and no autoplay it did not have to be told to start.
-            allow="fullscreen; picture-in-picture"
-            allowFullScreen
-            // 16:9, which is what the player wants and what stops the frame
-            // stretching to the pane's height on a wide split.
-            className="aspect-video max-h-full w-full border-0"
-          />
+      {/*
+        The same path to the frame in both modes, so the view only changes classes
+        and the frame keeps its place: the transcript is a sibling after the player
+        column, not a wrapper around it.
+      */}
+      <div
+        className={
+          view
+            ? "flex min-h-0 flex-1 flex-col overflow-y-auto @3xl:flex-row @3xl:overflow-hidden"
+            : "flex min-h-0 flex-1 flex-col overflow-y-auto"
+        }
+      >
+        <div
+          className={
+            view
+              ? "flex flex-col gap-3 p-3 @3xl:w-3/5 @3xl:overflow-y-auto"
+              : "flex flex-col gap-3 p-2"
+          }
+        >
+          {source === null ? (
+            <p role="status" className="px-1 py-2 text-k-13 text-k-muted">
+              {isPending ? "Reading the note" : "No video linked in this note"}
+            </p>
+          ) : (
+            <div className="relative aspect-video w-full">
+              <iframe
+                ref={frame}
+                // Keyed on the URL so a note that changes which video it links gets
+                // a new frame rather than a stale player told to load another one.
+                key={source}
+                src={source}
+                title="video"
+                // The subscription the effect above listens for. It goes on load
+                // rather than on mount: a frame that has not finished loading has a
+                // `contentWindow` that drops what it is sent.
+                onLoad={() =>
+                  frame.current?.contentWindow?.postMessage(
+                    JSON.stringify({ event: "listening", channel: "widget" }),
+                    PLAYER,
+                  )
+                }
+                // Fullscreen is the one thing worth handing over: a talk followed
+                // properly is watched full width and paused back to the notes.
+                // Autoplay is handed over for the shield: a tap on it is a script
+                // call into a cross-origin frame, which the frame honours only when
+                // it is delegated autoplay. The URL carries no `autoplay=1`, so
+                // nothing starts on its own. Nothing else is granted: no camera, no
+                // clipboard.
+                allow="autoplay; fullscreen; picture-in-picture"
+                allowFullScreen
+                className="absolute inset-0 h-full w-full border-0"
+              />
+              <VideoShield
+                running={running}
+                onPress={() => {
+                  togglePlayer();
+                  panel.current?.focus();
+                  onFocus?.();
+                }}
+              />
+            </div>
+          )}
+          {source !== null && id !== undefined && (
+            <>
+              <VideoDetails
+                title={detail?.title ?? noteName(note)}
+                speaker={
+                  plain(text === undefined ? undefined : readField(text, "speaker")) ??
+                  detail?.author
+                }
+                chapters={chapters}
+                at={at}
+                onSeek={seekAndFocus}
+              />
+              <p className="px-3 font-sans text-k-12 text-k-muted">
+                Your place is kept in the note's <code className="font-mono">watching</code> field
+                when you pause.
+              </p>
+            </>
+          )}
+          {view && id !== undefined && text !== undefined && (
+            <div className="flex flex-col gap-1">
+              <h3 className={`px-3 ${LABEL}`}>Taken from this video</h3>
+              <VideoTakes text={text} id={id} onSeek={seekAndFocus} />
+            </div>
+          )}
+        </div>
+        {view && id !== undefined && text !== undefined && (
+          <div className="flex min-h-0 flex-col border-t border-k-rule @3xl:w-2/5 @3xl:border-t-0 @3xl:border-l">
+            <VideoTranscript
+              key={`${note}:${id}`}
+              note={note}
+              id={id}
+              text={text}
+              second={at}
+              archive={archive}
+              onTake={onTake}
+              onSeek={seekAndFocus}
+              handle={transcript}
+            />
+          </div>
         )}
       </div>
     </section>

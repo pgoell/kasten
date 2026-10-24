@@ -118,7 +118,8 @@ nothing. The formats the vault takes are png, jpeg, gif and webp, listed in
 
 ## The chapter line
 
-`{chapter} ^{id}`, one space between them.
+`{chapter} ^{id}`, one space between them. A take from a video puts its time link
+in place of the chapter, [below](#a-take-from-a-video).
 
 The chapter is the label of the contents entry the selection was made in, with
 its whitespace collapsed and its ends trimmed the way the quote's is. Where the
@@ -131,6 +132,30 @@ same wrong words on every highlight in the book, and nothing could tell that
 apart from a book whose chapters really are named that.
 
 Nothing reads the chapter back. It is there for the person reading the note.
+
+## A take from a video
+
+A passage taken from a video's transcript is written the same way, with two
+differences. The line before the anchor is a time link, and it has no chapter
+words, because a transcript has no chapters to name:
+
+```markdown
+## Highlights
+
+> We're no strangers to love.
+
+[00:31](https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=31s) ^hl-a3f9c1
+```
+
+The link is `[mm:ss]` for the time as the transcript shows it, then the address
+of the video at that second. Below a second the address has no `&t=`. The
+quote is escaped and read back as a book's is, and a take has no figure. The
+note the take goes into is the video's own, not a book's.
+
+A video take is still a highlight: the anchor line is the whole test. What tells
+a video take from a book's is the link at the head of that line, which the
+video pane reads back to list the takes of its video. See
+[Videos in the player](/reference/editor-keys/video-pane.md#take).
 
 ## The anchor
 

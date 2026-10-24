@@ -404,12 +404,6 @@ export const READER: readonly { key: string; label: string }[] = [
   { key: "Space", label: "Show the leader keys" },
 ];
 
-/** What the video pane answers, beside a note that links a video. Display only. */
-export const VIDEO_PANE: readonly { key: string; label: string }[] = [
-  { key: "n", label: "Play the note's next video" },
-  { key: "p", label: "Play the note's previous video" },
-];
-
 /** What the review pane answers, on the decks, a sitting and the parked cards. Display only. */
 export const REVIEW_PANE: readonly { key: string; label: string }[] = [
   { key: "j / k", label: "Move down or up the decks, or the parked cards" },

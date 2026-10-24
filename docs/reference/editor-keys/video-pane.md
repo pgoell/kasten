@@ -1,7 +1,7 @@
 ---
 type: Reference
 title: Editor keys, the video pane
-description: The video pane and the note's transcript, with the keys that play the player and the captions it writes.
+description: The video pane, its header and chapters, the shield over the player, the video view with the transcript, the takes written from it, the keys that play the player, and the captions it writes.
 tags: [editor, keyboard, video, transcript, frontend]
 status: stable
 ---
@@ -81,6 +81,9 @@ guarded write the reader's `reading:` uses, whose whole rule is that it will not
 touch the focused pane's note. Neither route can put an unsaved paragraph on the
 floor.
 
+A click on the shield moves the focus to the pane before the player reports its
+stop, so that stop takes the second route, straight to the vault.
+
 A note nobody has open anywhere takes neither. Close the note, leave the player
 running, and the position it reaches is lost.
 
@@ -94,6 +97,11 @@ second one, so it is its own way back. `<leader>q` closes the player, and
 rhythm the pane exists for: a sentence goes by, you stop it, you write it down,
 you start it again, and the cursor never leaves the note.
 
+It works from any pane, not only the note's. The player it means is the focused
+video pane, if you are in one. Failing that, it is the pane playing the focused
+note's video, and failing that, the first video pane in the tab. With no video
+pane in the tab, it does nothing.
+
 The key works because the player is asked rather than clicked. The frame carries
 `enablejsapi=1`, which is what makes it answer a `postMessage`, and the pane
 sends it `playVideo` or `pauseVideo` across the origin. Nothing about that moves
@@ -106,10 +114,9 @@ video you paused with a click is still known to be paused, and the next
 
 Pressed with no player open, the key does nothing at all.
 
-A click into the player still hands the keys to YouTube until you click back
-into the note, and the blue border stays on the note while it does. A
-cross-origin frame tells the page around it nothing, so kasten does not hear the
-click. With `<leader>v` there is much less reason to click at all, and reaching
+A click on the player does not reach it. The shield covers the frame and takes
+the click, so the keys stay with the pane and `<leader>q` works after a click
+there. With `<leader>v` there is much less reason to click at all, and reaching
 the pane by key rather than by click puts the cursor on the pane itself, which
 is why `<leader>q` works there.
 
@@ -159,3 +166,139 @@ all of it goes. The whole write is one change, so one `u` takes it back out.
 It reads the first video the note links, even when the pane is showing another.
 A note linking no video, a video with no captions, and YouTube refusing the
 request each say so in the status bar, and leave the note as it was.
+
+## The header
+
+The header reads, left to right: `VIDEO`, the video's address in mono, then the
+count, `2/5`, when the note links more than one video. A click or a tap on the
+count goes to the next one and wraps, as `n` does. The count is not there for a
+note with one video. Then `Video view` and `Open on YouTube`.
+
+`Open on YouTube` opens the watch address at the second the player is at, in a
+new tab.
+
+## Title, speaker and chapters
+
+Under the player are the video's title and its speaker.
+
+The title is the one the player reports for the video. Until the player has
+reported one, the title is the note's name.
+
+The speaker is the note's `speaker:` field, with link brackets and quotes taken
+off it. A note without one shows the channel the player names.
+
+The chapters come from the note's `## Chapters` section, which runs to the next
+heading at its level or above. A line is a chapter when it starts with a time
+and has a title after it. The time may be `[mm:ss]`, `mm:ss`, `0:00` or `h:mm:ss`. A list marker in front is allowed, and so is a colon,
+a dash with spaces, or spaces between the time and the title. So a description
+pasted from YouTube works as it is. A line with no title is skipped.
+
+```markdown
+## Chapters
+
+- 0:00 Intro
+- 2:14 The first problem
+[10:05] Wrap-up
+```
+
+The chapter the player is in has an accent bar and `aria-current`. A click on a
+chapter seeks to it, and the cursor goes back to the pane.
+
+One line under the details says where your place is kept: the note's `watching`
+field, written when you pause.
+
+## The shield
+
+A transparent button covers the player. A click or a tap on it plays or pauses
+the video, through the player's own API, the way `k` does. The press takes the
+focus to the pane, so Space and the leader keep working after it.
+
+While the video is paused, a play circle shows in the middle of the player. After
+a short hover, a hint reads `Click to play or pause, or press k`. Touch screens
+do not get the hint.
+
+The shield covers YouTube's own controls as well, so the progress bar and the
+full-screen button under it are out of reach. The pane has no full-screen button
+of its own.
+
+Nothing starts the video on its own. The frame is given `autoplay` so that a tap
+on the shield can start it, and the address carries no `autoplay=1`.
+
+## The video view
+
+`Video view` in the header switches the pane's layout. The player is the same
+frame in both layouts, so it keeps its place when the view changes.
+
+On the left are the player, the title, the speaker and the chapters, then
+`Taken from this video`: the takes of this video in the note, each with its time
+as a button and its quote, two lines at most. Takes of other videos in the note
+are left out.
+
+On the right is the transcript, the `## Transcript` paragraphs. On a narrow pane
+the two stack, the player and its column above the transcript. The width of the
+pane decides, not the width of the window.
+
+The transcript marks the paragraph the video is in and scrolls it to a third of
+the way down its list. Only the transcript moves, never the page. `Follows the
+video` turns that off, and on again. Each paragraph opens with its time as a
+button, and a press seeks the video there. A note with no transcript says so,
+and says that `Space c v` writes one.
+
+## Take
+
+Select words in the transcript. A `Take` button appears at the selection and
+reads `at mm:ss`, the time of the paragraph the selection starts in. A selection
+made backwards starts at its other end. On a touch screen the button sits under
+the words. A click on it, or `y` in the video view, writes the take.
+
+The take goes into the video's note, under `## Highlights`, in the book's
+highlight format. It has no chapter words. Its anchor line is a time link to that
+second in the video, then the anchor:
+
+```markdown
+## Highlights
+
+> We're no strangers to love.
+
+[00:31](https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=31s) ^hl-a3f9c1
+```
+
+The quote is escaped the way a book's passage is. The highlight format page has
+the whole rule: [Highlight format](/reference/highlight-format.md#a-take-from-a-video).
+
+The toast reads `Taken into the video's note` and shows for five seconds, with
+`Undo` and `Put it in a note`. Undo takes the take out of the note. If the note
+has changed since the take, Undo writes nothing and the toast says so:
+`The video's note changed since, so Undo left it as it is`.
+
+## Keys over the pane
+
+With the leader closed, the pane answers these keys. They are bare letters, the
+way `n` and `p` are, because the pane has nothing else to type into:
+
+* `k` plays or pauses.
+* `j` and `l` seek ten seconds back and on, from the second the pane holds.
+* `y` takes the selected transcript into the note. It works only in the video
+  view and only with words selected. With no selection, the key goes to the
+  browser.
+* `n` and `p` play the note's next and previous video, and wrap at either end.
+
+`k`, `j` and `l` do nothing until a video is in the frame. The key help lists
+these under `Over a video`.
+
+## Time buttons in a note
+
+In a note that links a video, a time in the text is a button, off the cursor's
+line. These are the times it draws:
+
+* A transcript's `[mm:ss]` or `[h:mm:ss]` at the start of a paragraph.
+* A take's time link, `[mm:ss](https://www.youtube.com/watch?v=ID&t=754s)`,
+  when its video is one the note links. A take at the first second has no
+  `&t=`, so its link stays a link.
+
+A press seeks the player that is playing this note's video. If no player is
+open for the note in the tab on screen, the status bar says
+`No player is open for this note: Space g v opens it`.
+
+The cursor on the line shows the source, as it does for any link. The button
+stands in for the source everywhere else.

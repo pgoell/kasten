@@ -28,7 +28,7 @@ command the app does not provide.
 * [The vault in the tree](/reference/editor-keys/file-tree.md): the file tree's keys, its drawer on a phone, and moving rows by drag.
 * [Terminals and chat](/reference/editor-keys/terminal.md): the terminal pane and its keys, and the chat pane with Claude Code.
 * [Books in the reader](/reference/editor-keys/book-pane.md): the book pane, its contents list and the highlights taken into a note.
-* [Videos in the player](/reference/editor-keys/video-pane.md): the video pane, its player keys and the transcript written into a note.
+* [Videos in the player](/reference/editor-keys/video-pane.md): the video pane, its chapters, the video view and its takes, its player keys, and the transcript written into a note.
 * [Links and people](/reference/editor-keys/links.md): the person card, wikilinks and the link panels.
 * [Completion lists](/reference/editor-keys/completing.md): the lists offered for a link, a tag and a todo field.
 * [Editing text](/reference/editor-keys/editing.md): formatting, copying, tables, backticks and indenting.

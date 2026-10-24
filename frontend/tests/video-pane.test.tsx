@@ -28,6 +28,8 @@ function open(commands = stubCommands(), onWatched = vi.fn()) {
         focusSignal={1}
         playSignal={playSignal}
         onWatched={watched}
+        archive={false}
+        onTake={async () => null}
       />
     </QueryClientProvider>
   );
@@ -60,6 +62,8 @@ function Route({ onWatched }: { onWatched: Mock<(id: string, seconds: number) =>
       <VideoPane
         note={NOTE}
         commands={stubCommands()}
+        archive={false}
+        onTake={async () => null}
         onWatched={(id, seconds) => {
           onWatched(id, seconds);
           if (onWatched.mock.calls.length < 5) setMark((was) => was + 1);
@@ -91,7 +95,13 @@ function StopOnCommit({
   }, [stop]);
   return (
     <QueryClientProvider client={client}>
-      <VideoPane note={NOTE} commands={stubCommands()} onWatched={onWatched} />
+      <VideoPane
+        note={NOTE}
+        commands={stubCommands()}
+        archive={false}
+        onTake={async () => null}
+        onWatched={onWatched}
+      />
     </QueryClientProvider>
   );
 }

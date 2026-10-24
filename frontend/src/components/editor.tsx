@@ -171,6 +171,8 @@ interface EditorProps {
   onOutline?: (outline: Outline) => void;
   /** Called when the header's Graph button is pressed. See `NoteEditor`. */
   onGraph?: () => void;
+  /** Called with the seconds a time in the note asks the video to seek to. See `NoteEditor`. */
+  onSeek?: (seconds: number) => void;
 }
 
 /**
@@ -207,6 +209,7 @@ export function Editor({
   embeds,
   onOutline,
   onGraph,
+  onSeek,
 }: EditorProps) {
   const host = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
@@ -241,6 +244,7 @@ export function Editor({
     embeds,
     onOutline,
     onGraph,
+    onSeek,
   });
 
   useEffect(() => {
@@ -258,6 +262,7 @@ export function Editor({
       embeds,
       onOutline,
       onGraph,
+      onSeek,
     };
   }, [
     commands,
@@ -273,6 +278,7 @@ export function Editor({
     embeds,
     onOutline,
     onGraph,
+    onSeek,
   ]);
 
   useEffect(() => {

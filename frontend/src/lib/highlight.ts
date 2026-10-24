@@ -47,6 +47,12 @@ export interface Passage {
    * this is written the note can point at something that outlives the reader.
    */
   image?: string;
+  /**
+   * Kasten's own link for the anchor line, written as it is before the chapter
+   * words: a video take's time link. Never text from the page or the book, which
+   * goes in `chapter` and through the escape.
+   */
+  link?: string;
 }
 
 /**
@@ -76,7 +82,14 @@ export function addHighlight(note: string, passage: Passage, id: string): string
   // what lets a figure taken with no words be the whole block, and a quote
   // taken with no figure stay the three lines it always was.
   const body = [picture, quote].filter((part) => part !== "").join("\n\n");
-  const block = `\n${body}\n\n${collapse(passage.chapter)} ^${id}`;
+  // Without a link the anchor is the chapter alone, leading space and all, as it
+  // always was: the old notes are read back by the same reader and must match.
+  const chapter = collapse(passage.chapter);
+  const anchor =
+    passage.link === undefined
+      ? chapter
+      : [passage.link, chapter].filter((part) => part !== "").join(" ");
+  const block = `\n${body}\n\n${anchor} ^${id}`;
   return appendUnder(note, HIGHLIGHTS, block);
 }
 

@@ -293,6 +293,9 @@ tests with a stubbed viewport, and not seen:
   keyboard.
 * What a tablet answers for the pointer with a trackpad or a mouse attached,
   and so whether it then starts with vim.
+* In a video: that a tap on the shield starts the player on a phone, the frame
+  taking the autoplay it is given, and that a transcript selection shows `Take`
+  under the words. The check was emulated touch.
 * That a tap on `Write my text` or `Take the vault's` settles a note that
   changed on disk. The check was a unit test, with clicks.
 * That the `Torch` button lights an Android phone's torch and that a read

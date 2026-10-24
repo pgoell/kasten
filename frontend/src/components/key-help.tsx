@@ -11,10 +11,10 @@ import {
   TERMINAL,
   TODO_PANE,
   TREE,
-  VIDEO_PANE,
 } from "@/lib/key-bindings";
 import { LEADER, LEADER_COLUMNS, spelled, TAB_DIGITS, TAB_KEYS } from "@/lib/leader-keys";
 import { closeOnBackdrop, HEADER_ROW, INPUT, LABEL, PANEL, STATUS } from "@/lib/overlay-styles";
+import { VIDEO_PANE } from "@/lib/video-keys";
 import { useVim } from "@/lib/vim-setting";
 
 interface Group {

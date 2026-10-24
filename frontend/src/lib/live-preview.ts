@@ -12,6 +12,7 @@ import { drawInline, drawLink, drawRuby, INLINE, markRelation } from "@/lib/live
 import { Lists } from "@/lib/live-preview-lists";
 import { drawBlockMath, drawInlineMath } from "@/lib/live-preview-math";
 import { drawTable } from "@/lib/live-preview-tables";
+import { drawTime } from "@/lib/live-preview-times";
 import { watchPresses } from "@/lib/presses";
 import { setVimMode, vimKeys, vimModeField, vimModeState } from "@/lib/vim-mode";
 import { vaultPaths } from "@/lib/wikilink";
@@ -179,6 +180,9 @@ function build(state: EditorState): Live {
       }
 
       if (isLink) {
+        // Ahead of the link, which would otherwise colour and hide the time
+        // and leave a take's address a link to open.
+        if (drawTime(walk, node.node, revealed)) return;
         drawLink(walk, node.node, line, inlineRevealed);
         return;
       }

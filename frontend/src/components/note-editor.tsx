@@ -68,6 +68,8 @@ interface NoteEditorProps {
   onOutline?: (outline: Outline) => void;
   /** Called when the header's Graph button is pressed, which opens the graph around this note. */
   onGraph?: () => void;
+  /** Called with a time in this note and the seconds it names, which seeks the note's video. */
+  onSeek?: (note: string, seconds: number) => void;
 }
 
 const MESSAGE = "flex h-full items-center justify-center px-4 text-sm text-k-muted";
@@ -109,6 +111,7 @@ export const NoteEditor = memo(function NoteEditor({
   held,
   onOutline,
   onGraph,
+  onSeek,
 }: NoteEditorProps) {
   const { data, error, isPending } = useQuery({
     queryKey: ["note", path],
@@ -165,6 +168,7 @@ export const NoteEditor = memo(function NoteEditor({
       embeds={embeds}
       onOutline={onOutline}
       onGraph={onGraph}
+      onSeek={(seconds) => onSeek?.(path, seconds)}
     />
   );
 });

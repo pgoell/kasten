@@ -1,5 +1,12 @@
 import { useQueryClient } from "@tanstack/react-query";
-import type { Dispatch, RefObject, SetStateAction } from "react";
+import {
+  type Dispatch,
+  type RefObject,
+  type SetStateAction,
+  useCallback,
+  useRef,
+  useState,
+} from "react";
 import { BookPane } from "@/components/book-pane";
 import { ChatPane } from "@/components/chat-pane";
 import { ExamPane } from "@/components/exam-pane";
@@ -41,6 +48,22 @@ import { makeNote, type NoteOpening } from "@/lib/use-note-opening";
 import type { TodoActions } from "@/lib/use-todo-actions";
 
 type Autosave = ReturnType<typeof useAutosave>;
+
+/**
+ * The video pane `Space v` plays in: the focused one, else the one playing the
+ * focused note's video, else the first of the tab. Undefined when the tab holds
+ * no video pane, so the key has nothing to play.
+ */
+export function seekTarget(layout: Layout, note: string): boolean {
+  return tabPanes(layout).some((each) => each.video === note);
+}
+
+export function videoTarget(layout: Layout): string | undefined {
+  const focused = focusedPane(layout);
+  if (focused.video !== undefined) return focused.id;
+  const videos = tabPanes(layout).filter((each) => each.video !== undefined);
+  return (videos.find((each) => each.video === focused.path) ?? videos[0])?.id;
+}
 
 /**
  * The panes of the active tab: the tab strip over the split panes, and the
@@ -110,10 +133,27 @@ export function WorkspacePanes({
   onNotice: Dispatch<SetStateAction<string | undefined>>;
 }) {
   const tab = activeTab(layout);
-  const pane = focusedPane(layout);
   const { data, archive } = listings;
   const { seek, openInPane } = opening;
   const queryClient = useQueryClient();
+  // The one video pane `Space v` plays in, found once here rather than per pane.
+  const playing = videoTarget(layout);
+  // A time in a note asks the video pane of that note to seek. Counted, so the
+  // same time asked twice seeks twice; the layout is read through a ref so the
+  // callback the notes hold stays the same across renders.
+  const [seekAsk, setSeekAsk] = useState({ note: "", seconds: 0, signal: 0 });
+  const layoutNow = useRef(layout);
+  layoutNow.current = layout;
+  const seekVideo = useCallback(
+    (note: string, seconds: number) => {
+      if (!seekTarget(layoutNow.current, note)) {
+        onNotice("No player is open for this note: Space g v opens it");
+        return;
+      }
+      setSeekAsk((previous) => ({ note, seconds, signal: previous.signal + 1 }));
+    },
+    [onNotice],
+  );
 
   /**
    * Open a note beside the pdf it belongs to, making the note first if the vault
@@ -192,6 +232,7 @@ export function WorkspacePanes({
             const image = shown.image;
             // Bound out of the pane for the same reason as `book`.
             const pdf = shown.pdf;
+            const video = shown.video;
             const note = shown.path;
             return shown.log === true ? (
               <LogPane
@@ -300,22 +341,32 @@ export function WorkspacePanes({
                 // click inside a book does not.
                 onFocus={() => setLayout((previous) => focusPane(previous, shown.id))}
               />
-            ) : shown.video !== undefined ? (
+            ) : video !== undefined ? (
               <VideoPane
-                note={shown.video}
+                note={video}
                 commands={commands}
                 focusSignal={focused ? focusSignal : 0}
-                // The one player the key means: the one playing for the
-                // note the press came from, or this pane itself when the
-                // press came from inside it. `pane.path` is undefined in a
-                // pane holding no note and `shown.video` is always a path,
-                // so the two never meet by accident.
-                playSignal={shown.video === (pane.video ?? pane.path) ? playSignal : 0}
+                archive={archive}
+                // The one player the key means: see `videoTarget`. A press
+                // with no video pane on screen raises a number nothing reads.
+                playSignal={shown.id === playing ? playSignal : 0}
+                // The time link is the anchor line, the chapter words are only
+                // the toast's, so the take is written with none.
+                onTake={(passage) => writes.takeHighlight(video, { ...passage, chapter: "" })}
+                // A click inside the iframe reaches no ancestor, so the pane
+                // says so itself, the way the html pane does.
+                onFocus={() => setLayout((previous) => focusPane(previous, shown.id))}
+                // Only the pane playing the note's video is asked to seek.
+                seekSignal={
+                  seekAsk.note === video
+                    ? { seconds: seekAsk.seconds, signal: seekAsk.signal }
+                    : undefined
+                }
                 // Bound here rather than passed back up by the pane, the
                 // way the reader's callbacks are: the pane holds no path of
                 // its own, so a folder move that rewrites `video` moves
                 // this with it.
-                onWatched={(id, seconds) => writes.keepPosition(shown.video ?? "", id, seconds)}
+                onWatched={(id, seconds) => writes.keepPosition(video, id, seconds)}
               />
             ) : shown.person !== undefined ? (
               <PersonPane
@@ -376,6 +427,7 @@ export function WorkspacePanes({
                   if (note !== undefined) moveTo((previous) => openGraphBeside(previous, note));
                 }}
                 onGraphSheet={graphSheet}
+                onSeek={seekVideo}
               />
             );
           }}

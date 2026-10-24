@@ -18,6 +18,9 @@ export const REFUSED = "The daily note changed since, so Undo left it as it is";
 /** The same for a book's note, whose take is a highlight block and not a dump line. */
 export const BOOK_REFUSED = "The book's note changed since, so Undo left it as it is";
 
+/** The same for a video's note, whose take is a highlight block of the video's own. */
+export const VIDEO_REFUSED = "The video's note changed since, so Undo left it as it is";
+
 /** `note` without the take's text, or null when the take is not in it exactly as it was written. */
 type Without = (note: string, quote: string) => string | null;
 
