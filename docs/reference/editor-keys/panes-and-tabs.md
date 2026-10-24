@@ -135,10 +135,10 @@ slides in from its side and fades in, from below when the panes are stacked or
 on a phone.
 
 `<leader>q` walks back out of all of this, one press at a time. On a pane
-holding a note it writes the note and empties the pane, and it takes a terminal,
-the todo list, the graph, a note's history or a person card out of a pane the
-same way, so `q` in a lone graph pane leaves Today. On an empty pane it closes the
-pane. On the last pane of a tab it closes the tab. On the last pane of the last
+holding a note it writes the note and empties the pane, and it takes a
+terminal, the todo list, the graph, a note's history or a person card out of a
+pane the same way, so `q` in a lone graph pane leaves Today. On an empty pane
+it closes the pane. On the last pane of a tab it closes the tab. On the last pane of the last
 tab it does nothing, because a window with nothing on screen is not a state
 worth reaching.
 
@@ -166,7 +166,7 @@ the same with vim on or off.
 | `j` `k` `ArrowDown` `ArrowUp` | Move the cursor down or up the list |
 | `Enter` | Show the diff of the change under the cursor |
 | `Ctrl+Enter` | Restore the change whose diff is shown |
-| `Escape` `q` | Close the pane |
+| `Escape` `q` | Empty the pane, leaving Today in it |
 
 A click or a tap on a change shows its diff, and a tap on **Restore** restores
 it. How a restore goes, and when kasten refuses one, is in
@@ -260,7 +260,7 @@ backend cannot read leaves the last drawing up and says why under the line.
 | `-` | Around a note: pull one edge back in, down to 0 |
 | `f` | Zoom until every note is on screen |
 | `m` | The vault graph: switch between Folders and Tags |
-| `q` | Close the pane |
+| `q` | Empty the pane, leaving Today in it |
 
 The leader keys work here as in every pane. `<leader>a` puts the archive in the
 drawing too. A focused button (a note in the pattern's table, the panel's mode
