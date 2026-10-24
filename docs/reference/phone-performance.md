@@ -185,3 +185,14 @@ open 253 to 304). About 150 to 180 ms of it is the browser removing the old
 note's editor from the page (`removeChild`). #983 tracks that. No
 forced layout comes from `tab-strip.tsx` any more. The second branch run met
 more load than the others (5 long tasks on tab).
+
+## The old editor's removal (#983)
+
+On 0.98.7 the longest task of each step is React's commit taking the old
+note's pane off the page. Its CPU self time is `removeChild`, native: 140 ms
+of a 265 ms task on a tab switch and 180 ms of a 257 ms task on a note open,
+with React's own deletion walk (`pl`, 24 to 35 ms) beside it. No style or
+layout event sits under it: the browser tears the CodeMirror subtree down
+inside the call. On a tab switch the same task builds the new editor; on a
+note open it holds the removal alone, the new note being fetched first and
+built in a later task.
