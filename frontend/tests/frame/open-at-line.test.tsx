@@ -66,6 +66,7 @@ registerReaderFixture();
 // The keys the fixture's helpers use, which the fixture does not export.
 const VIM_KEY = "kasten.vim";
 const WORKSPACE_KEY = "kasten.workspace.1";
+const WORKSPACE_KEY_COARSE = "kasten.workspace.coarse.1";
 
 const LONG = "Long.md";
 const START = "Start.md";
@@ -184,8 +185,10 @@ beforeEach(() => {
 
 /** Mounts the workspace at one size, with vim on unless `vim` says otherwise. */
 function mountWith(workspace: object, size = DESKTOP, vim = "on"): Promise<Mounted> {
+  // A touch screen keeps its own workspace, so the layout is seeded under its key.
+  const key = size.coarse ? WORKSPACE_KEY_COARSE : WORKSPACE_KEY;
   return mount(size, "light", "/", "[data-pane]", {
-    [WORKSPACE_KEY]: JSON.stringify(workspace),
+    [key]: JSON.stringify(workspace),
     [VIM_KEY]: vim,
   });
 }
