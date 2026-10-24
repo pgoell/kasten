@@ -95,7 +95,7 @@ describe("ReviewPane undoing the last step (#600)", () => {
       localStorage.setItem("kasten.vim", vim);
       const { pane, saved } = await sitBeta(TWO);
 
-      fireEvent.keyDown(pane, { key: " " });
+      fireEvent.keyDown(pane, { key: "Enter" });
       fireEvent.keyDown(pane, { key: "3" });
       expect(screen.getByTestId("review-card")).toHaveTextContent("e");
       await waitFor(() => expect(saved).toHaveBeenCalledOnce());
@@ -115,7 +115,7 @@ describe("ReviewPane undoing the last step (#600)", () => {
       localStorage.setItem("kasten.vim", vim);
       const { pane, late } = await sitBeta(TWO, stubCommands(), "beta: 1 new\n");
 
-      fireEvent.keyDown(pane, { key: " " });
+      fireEvent.keyDown(pane, { key: "Enter" });
       fireEvent.keyDown(pane, { key: "3" });
       await waitFor(() => expect(late.reads).toBeGreaterThan(0));
       await act(async () => {});
@@ -128,7 +128,7 @@ describe("ReviewPane undoing the last step (#600)", () => {
   it("#600 I1 u on the done screen brings back the last card rated", async () => {
     const { pane, saved } = await sitBeta("#flashcards/beta\n\nc::d\n");
 
-    fireEvent.keyDown(pane, { key: " " });
+    fireEvent.keyDown(pane, { key: "Enter" });
     fireEvent.keyDown(pane, { key: "3" });
     expect(screen.getByTestId("review-done")).toBeInTheDocument();
     await waitFor(() => expect(saved).toHaveBeenCalledOnce());
@@ -144,7 +144,7 @@ describe("ReviewPane undoing the last step (#600)", () => {
   it("#600 B3 space on the done screen holding Undo starts the leader, and reveals nothing", async () => {
     const commands = stubCommands();
     const { pane } = await sitBeta("#flashcards/beta\n\nc::d\n", commands);
-    fireEvent.keyDown(pane, { key: " " });
+    fireEvent.keyDown(pane, { key: "Enter" });
     fireEvent.keyDown(pane, { key: "3" });
     expect(screen.getByTestId("review-done")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Undo" })).not.toBeNull();
@@ -221,7 +221,7 @@ describe("ReviewPane replaying a card's sound", () => {
     fireEvent.keyDown(pane, { key: "r" });
     expect(played().at(-1)).toMatch(/\/api\/assets\/beta%20media\/c\.mp3$/);
 
-    fireEvent.keyDown(pane, { key: " " });
+    fireEvent.keyDown(pane, { key: "Enter" });
     fireEvent.keyDown(pane, { key: "r" });
     expect(played().at(-1)).toMatch(/\/api\/assets\/beta%20media\/d\.mp3$/);
     expect(played().filter((src) => src.endsWith("d.mp3"))).toHaveLength(2);
@@ -299,7 +299,7 @@ describe("ReviewPane on a nested cloze", () => {
 
     // c1 hides the whole span, the inner mark with it.
     expect(await shownCard()).toHaveTextContent(/^\[\.\.\.\]$/);
-    fireEvent.keyDown(pane, { key: " " });
+    fireEvent.keyDown(pane, { key: "Enter" });
     expect(screen.getByTestId("review-back")).toHaveTextContent("Canberra was founded in 1913");
     fireEvent.keyDown(pane, { key: "3" });
 
@@ -313,7 +313,7 @@ describe("ReviewPane on a nested cloze", () => {
         /^Canberra was \[\.\.\.\] in 1913$/,
       ),
     );
-    fireEvent.keyDown(pane, { key: " " });
+    fireEvent.keyDown(pane, { key: "Enter" });
     fireEvent.keyDown(pane, { key: "3" });
 
     expect(saved.mock.calls[1]?.[1]).toMatch(

@@ -46,8 +46,8 @@ it("#790 A16 a key grades the card of the focused pane and leaves the pane besid
   await waitFor(() => expect(within(one).getByTestId("review-card")).toHaveTextContent("c"));
   await waitFor(() => expect(within(two).getByTestId("review-card")).toHaveTextContent("c"));
 
-  // The focused pane gets the keys: Space shows its answer, and 3 grades it.
-  fireEvent.keyDown(one, { key: " " });
+  // The focused pane gets the keys: Enter shows its answer, and 3 grades it.
+  fireEvent.keyDown(one, { key: "Enter" });
   expect(within(one).getByTestId("review-back")).toHaveTextContent("d");
   fireEvent.keyDown(one, { key: "3" });
 
