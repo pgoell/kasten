@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { NotePreview } from "@/components/note-preview";
 import { BUTTON, ReviewAnswer, ReviewSource } from "@/components/review-answer";
 import { SwipeCard } from "@/components/review-swipe";
@@ -199,7 +199,9 @@ export function ReviewSession({ deck, onLeave, onControls, onOpen }: ReviewSessi
   // Held on the done screen too while a step is, so `u` can bring back the
   // last card of the deck. `showing` tells the pane there is no card there, so
   // its `space` is the leader again rather than a reveal of nothing.
-  useEffect(() => {
+  // A layout effect so a key pressed the moment the card shows reaches it: a
+  // passive effect ran a tick later and left a window where the key graded nothing (#927).
+  useLayoutEffect(() => {
     const showing = card !== undefined;
     const turned = card !== undefined && revealed && card.back !== "";
     onControls?.(
