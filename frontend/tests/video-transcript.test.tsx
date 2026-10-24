@@ -126,6 +126,29 @@ describe("the transcript list", () => {
     }).toEqual({ images: 0, headings: 0, shown: true });
   });
 
+  it("#791 R7 two paragraphs at the same second both render", () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const sameSecond = [
+      "## Transcript",
+      "",
+      "[00:31] First same-second words.",
+      "",
+      "[00:31] Second same-second words.",
+      "",
+    ].join("\n");
+    renderPane(sameSecond, 31);
+
+    const duplicateKeys = error.mock.calls.filter((call) =>
+      String(call[0]).includes("same key"),
+    ).length;
+    error.mockRestore();
+    expect({
+      first: screen.queryByText("First same-second words.") !== null,
+      second: screen.queryByText("Second same-second words.") !== null,
+      duplicateKeys,
+    }).toEqual({ first: true, second: true, duplicateKeys: 0 });
+  });
+
   it("#791 I3 a note with no transcript says Space c v writes it and draws no list", () => {
     const { container } = renderPane("# Talk\n\nNo transcript here.\n", 10);
 

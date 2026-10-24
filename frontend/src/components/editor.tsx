@@ -171,8 +171,8 @@ interface EditorProps {
   onOutline?: (outline: Outline) => void;
   /** Called when the header's Graph button is pressed. See `NoteEditor`. */
   onGraph?: () => void;
-  /** Called with the seconds a time in the note asks the video to seek to. See `NoteEditor`. */
-  onSeek?: (seconds: number) => void;
+  /** Called with the seconds a time in the note asks the video to seek to, and its video's id when it names one. See `NoteEditor`. */
+  onSeek?: (seconds: number, id?: string) => void;
 }
 
 /**

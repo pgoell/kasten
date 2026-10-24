@@ -1,14 +1,21 @@
 import type { Extension } from "@codemirror/state";
 import type { EditorView } from "@codemirror/view";
 import { vim } from "@replit/codemirror-vim";
-import { fireEvent, waitFor } from "@testing-library/react";
+import { act, fireEvent, waitFor } from "@testing-library/react";
 import { vi } from "vitest";
 import { followOnClick, followOnTap } from "@/lib/editor-follow";
 import { livePreview } from "@/lib/live-preview";
 import { timeSeek } from "@/lib/live-preview-times";
+import { noteVideos } from "@/lib/video";
 import { vimKeys } from "@/lib/vim-mode";
 import { vaultPaths } from "@/lib/wikilink";
-import { liveHooks, mount, plain } from "./live-preview-fixture";
+import { liveHooks, mount, parsed, plain } from "./live-preview-fixture";
+
+// The real reader, counted, so a test can say how often a rebuild reads the note.
+vi.mock("@/lib/video", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/video")>();
+  return { ...actual, noteVideos: vi.fn(actual.noteVideos) };
+});
 
 liveHooks();
 
@@ -51,7 +58,8 @@ describe("times in a note are seek buttons (#791 A11)", () => {
       expect(button?.textContent).toBe("00:31");
       expect(button?.getAttribute("aria-label")).toBe("Seek to 00:31");
       button?.click();
-      expect(seek).toHaveBeenCalledWith(31);
+      // A bare time names no video, so the seek carries none.
+      expect(seek).toHaveBeenCalledWith(31, undefined);
     },
   );
 
@@ -101,7 +109,36 @@ describe("times in a note are seek buttons (#791 A11)", () => {
     fireEvent.mouseDown(button as HTMLElement, { ctrlKey: true });
     fireEvent.click(button as HTMLElement);
 
-    expect(seek).toHaveBeenCalledWith(754);
+    // The take names its video, so the seek carries the id as well.
+    expect(seek).toHaveBeenCalledWith(754, "iDulhoQ2pro");
     expect(open).not.toHaveBeenCalled();
+  });
+
+  it("#791 R7 a take link at second 0 is a seek button", () => {
+    const seek = vi.fn();
+    const take = "intro\n\n[00:00](https://www.youtube.com/watch?v=iDulhoQ2pro) ^hl-abc123\n";
+    const view = mount(take, lit(false, seek));
+
+    const [button] = buttons(view);
+    expect(button?.textContent).toBe("00:00");
+    button?.click();
+    expect(seek).toHaveBeenCalledWith(0, "iDulhoQ2pro");
+  });
+
+  it("#791 R7 the note's videos are read once per rebuild, not once per time", () => {
+    const stamps = Array.from(
+      { length: 50 },
+      (_, n) => `[00:${String(n).padStart(2, "0")}] words ${n}`,
+    ).join("\n\n");
+    const doc = `${stamps}\n\n[the talk](https://youtu.be/iDulhoQ2pro)\n`;
+    const view = mount(doc, lit(false, vi.fn()), doc.length);
+    // The whole tree is read, not the lines on screen, which a view of no height shows few of.
+    parsed(view);
+
+    // One rebuild, which reads the note once for all fifty stamps.
+    const reads = vi.mocked(noteVideos);
+    reads.mockClear();
+    act(() => view.dispatch({ changes: { from: doc.length, insert: "more" } }));
+    expect(reads.mock.calls.length).toBeLessThanOrEqual(2);
   });
 });

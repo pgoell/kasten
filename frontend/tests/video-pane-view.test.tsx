@@ -5,18 +5,29 @@ import { stubCommands } from "./stub-commands";
 
 // Standing in for the module rather than for `fetch`, the way the exam pane's
 // tests do: what the pane owns is what it asks the vault for.
-const { fetchNote } = vi.hoisted(() => ({ fetchNote: vi.fn() }));
-vi.mock("@/lib/api", () => ({ fetchNote }));
+const { fetchNote, saveNote, updateNote, searchNotes } = vi.hoisted(() => ({
+  fetchNote: vi.fn(),
+  saveNote: vi.fn(),
+  updateNote: vi.fn(),
+  searchNotes: vi.fn(),
+}));
+vi.mock("@/lib/api", () => {
+  class ChangedOnDisk extends Error {}
+  return { fetchNote, saveNote, updateNote, searchNotes, ChangedOnDisk };
+});
 
-// The transcript is drawn by its own component, tested on its own. Here it is
-// a stand-in that hands the pane a `take` spy through the handle, which is the
-// one thing this file needs from it.
-const { take } = vi.hoisted(() => ({ take: vi.fn(() => true) }));
-vi.mock("@/components/video-transcript", async () => {
+// The transcript is a stand-in that hands the pane a `take` spy through the
+// handle, which is what most tests here need from it. A test that needs the
+// real transcript sets `real.on`, and the real one is drawn instead.
+const { take, real } = vi.hoisted(() => ({ take: vi.fn(() => true), real: { on: false } }));
+vi.mock("@/components/video-transcript", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/components/video-transcript")>();
   const { createElement } = await import("react");
   return {
-    VideoTranscript: ({ handle }: { handle: { current: unknown } }) => {
-      handle.current = { take };
+    ...actual,
+    VideoTranscript: (props: Parameters<typeof actual.VideoTranscript>[0]) => {
+      if (real.on) return createElement(actual.VideoTranscript, props);
+      props.handle.current = { take };
       return createElement(
         "div",
         { "data-testid": "transcript" },
@@ -37,9 +48,10 @@ beforeEach(() => {
   fetchNote.mockReset();
   fetchNote.mockResolvedValue(TEXT);
   take.mockClear();
+  real.on = false;
 });
 
-function renderPane() {
+function renderPane(onTake: () => Promise<string | null> = async () => null) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const onWatched = vi.fn();
   const { container } = render(
@@ -51,7 +63,7 @@ function renderPane() {
         playSignal={0}
         onWatched={onWatched}
         archive={false}
-        onTake={async () => null}
+        onTake={onTake}
       />
     </QueryClientProvider>,
   );
@@ -143,5 +155,57 @@ describe("the video pane view", () => {
     act(() => reports(2, 30));
 
     expect(onWatched.mock.calls).toEqual([["dQw4w9WgXcQ", 30]]);
+  });
+
+  it("#791 I2 a take still in flight when n moves to the next video shows no toast there", async () => {
+    real.on = true;
+    fetchNote.mockResolvedValue(
+      "[one](https://youtu.be/dQw4w9WgXcQ)\n[two](https://youtu.be/iDulhoQ2pro)\n\n" +
+        "## Transcript\n\n[00:05] First paragraph words.\n\n[00:31] Second paragraph words.\n",
+    );
+    let answer: (id: string | null) => void = () => {};
+    const onTake = vi.fn(() => new Promise<string | null>((resolve) => (answer = resolve)));
+    const { pane } = renderPane(onTake);
+
+    await screen.findByTitle("video");
+    fireEvent.click(viewButton());
+    await screen.findByRole("list", { name: "Transcript" });
+    const words = document.querySelector('li[data-at="31"] p')?.lastChild as Text;
+    document.getSelection()?.setBaseAndExtent(words, 0, words, words.length);
+    act(() => {
+      document.dispatchEvent(new Event("selectionchange"));
+    });
+
+    fireEvent.keyDown(pane, { key: "y" });
+    expect(onTake).toHaveBeenCalledTimes(1);
+    fireEvent.keyDown(pane, { key: "n" });
+
+    // Enough turns of the queue for the take to land and show its toast, were
+    // it still on screen: the take is answered after the video has moved on.
+    await act(async () => {
+      answer("hl-abcdef");
+      for (let turn = 0; turn < 50; turn += 1) await Promise.resolve();
+    });
+    expect(screen.queryByText("Taken into the video's note")).toBeNull();
+  });
+
+  it("#791 I3 a note with no ## Chapters shows no chapter list", async () => {
+    renderPane();
+
+    await screen.findByTitle("video");
+    expect(screen.queryByRole("list", { name: "Chapters" })).toBeNull();
+  });
+
+  it("#791 R7 the stacked transcript column does not shrink", async () => {
+    real.on = false;
+    renderPane();
+
+    await screen.findByTitle("video");
+    fireEvent.click(viewButton());
+
+    // Stacked under the player, the column is given its own height and kept at it,
+    // so a long list of chapters or takes above it cannot squeeze it to nothing.
+    const column = screen.getByTestId("transcript").parentElement as HTMLElement;
+    expect(column).toHaveClass("shrink-0", "h-[85cqh]", "@3xl/pane:h-auto");
   });
 });

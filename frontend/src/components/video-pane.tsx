@@ -43,7 +43,7 @@ interface VideoPaneProps {
   /** Write a take from the transcript into this note (the route's guarded `takeHighlight`). Answers the anchor id, or null. */
   onTake: (passage: Passage) => Promise<string | null>;
   /** Raised by a time button in the note: seek to `seconds`. A counter in `signal`, as `playSignal` is. */
-  seekSignal?: { seconds: number; signal: number };
+  seekSignal?: { seconds: number; signal: number; id?: string };
   /** A click or tap on the shield: tell the layout this pane has the focus (the frame's own click never reaches it). */
   onFocus?: () => void;
 }
@@ -286,7 +286,7 @@ export function VideoPane({
         <div
           className={
             view
-              ? "flex flex-col gap-3 p-3 @3xl/pane:w-3/5 @3xl/pane:overflow-y-auto"
+              ? "flex shrink-0 flex-col gap-3 p-3 @3xl/pane:w-3/5 @3xl/pane:overflow-y-auto"
               : "flex flex-col gap-3 p-2"
           }
         >
@@ -362,7 +362,10 @@ export function VideoPane({
           )}
         </div>
         {view && id !== undefined && text !== undefined && (
-          <div className="flex min-h-0 flex-col border-t border-k-rule @3xl/pane:w-2/5 @3xl/pane:border-t-0 @3xl/pane:border-l">
+          // Stacked, the column keeps its own height (85% of the body, which is a
+          // size container) and its list scrolls inside it; beside the player it
+          // is the row's height and may shrink with it.
+          <div className="flex min-h-0 shrink-0 h-[85cqh] flex-col border-t border-k-rule @3xl/pane:h-auto @3xl/pane:w-2/5 @3xl/pane:shrink @3xl/pane:border-t-0 @3xl/pane:border-l">
             <VideoTranscript
               key={`${note}:${id}`}
               note={note}

@@ -33,8 +33,11 @@ export interface VideoPlayerOptions {
   onWatched: (id: string, seconds: number) => void;
   /** A counter: each raise plays or pauses the player. */
   playSignal?: number;
-  /** A counter: each raise seeks the player to `seconds`. */
-  seekSignal?: { seconds: number; signal: number };
+  /**
+   * A counter: each raise seeks the player to `seconds`. With an `id`, the seek
+   * is for that video, and a player on another video leaves it alone.
+   */
+  seekSignal?: { seconds: number; signal: number; id?: string };
 }
 
 export interface VideoPlayer {
@@ -200,15 +203,17 @@ export function useVideoPlayer({
 
   const seekTo = seekSignal?.seconds;
   const seekCount = seekSignal?.signal;
+  const seekId = seekSignal?.id;
   // The signal the pane was mounted with is not a request. The route keeps the
   // last one, so a pane opened again on the same note would otherwise seek at
-  // once to a second that is old.
+  // once to a second that is old. A raise for another video is used up here too.
   const seekSeen = useRef(seekCount);
   useEffect(() => {
     if (seekCount === seekSeen.current) return;
     seekSeen.current = seekCount;
+    if (seekId !== undefined && seekId !== id) return;
     if (seekCount && seekTo !== undefined) seek(seekTo);
-  }, [seekCount, seekTo, seek]);
+  }, [seekCount, seekTo, seekId, id, seek]);
 
   return {
     at,

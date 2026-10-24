@@ -59,6 +59,34 @@ export function seekTarget(layout: Layout, note: string): boolean {
  * focused note's video, else the first of the tab. Undefined when the tab holds
  * no video pane, so the key has nothing to play.
  */
+/** The seek a time asked for, counted so the same time asked twice seeks twice. */
+interface SeekAsk {
+  note: string;
+  seconds: number;
+  id?: string;
+  signal: number;
+}
+
+/** The next ask after `previous`, one count on. */
+export function nextSeek(previous: SeekAsk, note: string, seconds: number, id?: string): SeekAsk {
+  return { note, seconds, id, signal: previous.signal + 1 };
+}
+
+/**
+ * The video pane a `Space v` press plays in, fixed at the press.
+ *
+ * Read on every render, a pane that became the target after the press would play
+ * on the old count, so the target is taken when the count moves and kept.
+ */
+export function pressTarget(
+  previous: { signal: number; target: string | undefined },
+  playSignal: number,
+  layout: Layout,
+): { signal: number; target: string | undefined } {
+  if (playSignal === previous.signal) return previous;
+  return { signal: playSignal, target: videoTarget(layout) };
+}
+
 export function videoTarget(layout: Layout): string | undefined {
   const focused = focusedPane(layout);
   if (focused.video !== undefined) return focused.id;
@@ -137,21 +165,23 @@ export function WorkspacePanes({
   const { data, archive } = listings;
   const { seek, openInPane } = opening;
   const queryClient = useQueryClient();
-  // The one video pane `Space v` plays in, found once here rather than per pane.
-  const playing = videoTarget(layout);
-  // A time in a note asks the video pane of that note to seek. Counted, so the
-  // same time asked twice seeks twice; the layout is read through a ref so the
-  // callback the notes hold stays the same across renders.
-  const [seekAsk, setSeekAsk] = useState({ note: "", seconds: 0, signal: 0 });
+  // The target of the press, held from the press on: see `pressTarget`.
+  const pressed = useRef<{ signal: number; target: string | undefined }>({
+    signal: 0,
+    target: undefined,
+  });
+  pressed.current = pressTarget(pressed.current, playSignal, layout);
+  // The layout is read through a ref so the callback the notes hold stays put.
+  const [seekAsk, setSeekAsk] = useState<SeekAsk>({ note: "", seconds: 0, signal: 0 });
   const layoutNow = useRef(layout);
   layoutNow.current = layout;
   const seekVideo = useCallback(
-    (note: string, seconds: number) => {
+    (note: string, seconds: number, id?: string) => {
       if (!seekTarget(layoutNow.current, note)) {
         onNotice("No player is open for this note: Space g v opens it");
         return;
       }
-      setSeekAsk((previous) => ({ note, seconds, signal: previous.signal + 1 }));
+      setSeekAsk((previous) => nextSeek(previous, note, seconds, id));
     },
     [onNotice],
   );
@@ -350,7 +380,7 @@ export function WorkspacePanes({
                 archive={archive}
                 // The one player the key means: see `videoTarget`. A press
                 // with no video pane on screen raises a number nothing reads.
-                playSignal={shown.id === playing ? playSignal : 0}
+                playSignal={shown.id === pressed.current.target ? playSignal : 0}
                 // The time link is the anchor line, the chapter words are only
                 // the toast's, so the take is written with none.
                 onTake={(passage) => writes.takeHighlight(video, { ...passage, chapter: "" })}
@@ -360,7 +390,7 @@ export function WorkspacePanes({
                 // Only the pane playing the note's video is asked to seek.
                 seekSignal={
                   seekAsk.note === video
-                    ? { seconds: seekAsk.seconds, signal: seekAsk.signal }
+                    ? { seconds: seekAsk.seconds, signal: seekAsk.signal, id: seekAsk.id }
                     : undefined
                 }
                 // Bound here rather than passed back up by the pane, the

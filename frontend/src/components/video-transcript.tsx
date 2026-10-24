@@ -256,7 +256,8 @@ export function VideoTranscript({
           {paragraphs.map((paragraph, index) => {
             const marked = index === current;
             return (
-              <li key={paragraph.seconds} data-at={paragraph.seconds}>
+              // biome-ignore lint/suspicious/noArrayIndexKey: the transcript is read-only and never reorders, and a hand edit can repeat a second, so the place in the list is the identity.
+              <li key={`${index}:${paragraph.seconds}`} data-at={paragraph.seconds}>
                 <p
                   aria-current={marked ? "true" : undefined}
                   className={`font-serif text-k-15 leading-(--k-leading-reading) text-k-ink rounded-[var(--k-radius-4)] px-2 py-1${marked ? " bg-k-accent-wash" : ""}`}

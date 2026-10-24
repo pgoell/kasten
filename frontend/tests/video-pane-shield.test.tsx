@@ -253,4 +253,23 @@ describe("the video pane shield and keys", () => {
     expect(seeks()).toEqual([{ func: "seekTo", args: [90, true] }]);
     frameWindow.mockRestore();
   });
+
+  it("#791 R7 a seek for another of the note's videos leaves this player alone", async () => {
+    const sent = vi.fn();
+    const frameWindow = vi
+      .spyOn(HTMLIFrameElement.prototype, "contentWindow", "get")
+      .mockReturnValue({ postMessage: sent } as unknown as Window);
+    const seeks = () => commandsOf(sent).filter((command) => command.func === "seekTo");
+
+    const { rerenderWith } = renderPane(
+      { seekSignal: { seconds: 90, signal: 0, id: "other0000xx" } },
+      true,
+    );
+    rerenderWith({ seekSignal: { seconds: 90, signal: 1, id: "other0000xx" } });
+    expect(seeks()).toEqual([]);
+
+    rerenderWith({ seekSignal: { seconds: 90, signal: 2, id: "dQw4w9WgXcQ" } });
+    expect(seeks()).toEqual([{ func: "seekTo", args: [90, true] }]);
+    frameWindow.mockRestore();
+  });
 });

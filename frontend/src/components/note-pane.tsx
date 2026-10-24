@@ -73,7 +73,7 @@ export function NotePane({
   /** On a phone: the route's bottom sheet, which holds the graph. */
   onGraphSheet?: (note: string) => void;
   /** A time in the note asks the video playing that note to seek. See `NoteEditor`. */
-  onSeek: (note: string, seconds: number) => void;
+  onSeek: (note: string, seconds: number, id?: string) => void;
 }) {
   const queryClient = useQueryClient();
   const { held, standbyReload, typed, reload } = buffer;
