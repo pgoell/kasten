@@ -47,6 +47,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.7",
+    "@jridgewell/trace-mapping": "0.3.31",
     "@tailwindcss/vite": "^4.3.3",
     "@tanstack/router-plugin": "^1.168.23",
     "@testing-library/jest-dom": "^7.0.0",

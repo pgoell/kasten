@@ -269,6 +269,17 @@ run = [
   "bun e2e/release.ts",
 ]
 
+[tasks."fe:trace:phone"]
+description = "Trace a phone session on a release build at 390 px with a 4x CPU throttle, in Chromium: mise run fe:trace:phone -- <dist> <label> (needs a browser install)"
+# Run from `frontend/`, where the script writes `traces/` beside itself.
+dir = "{{config_root}}/frontend"
+run = "bun e2e/phone-trace.ts"
+
+[tasks."fe:trace:report"]
+description = "Print the phone trace tables for label prefixes: mise run fe:trace:report -- new old"
+dir = "{{config_root}}/frontend"
+run = "bun e2e/phone-trace-report.ts"
+
 [tasks."fe:types"]
 description = "Regenerate the OpenAPI-derived types for the frontend"
 run = "bash scripts/gen_frontend_types.sh"
