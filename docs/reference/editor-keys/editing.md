@@ -131,8 +131,33 @@ outside a table. Each press lines the table up first, so a cell you have just
 typed into is squared before you leave it. A table already square is a move and
 not an edit: no undo step and nothing written to disk.
 
-On screen a table is drawn as a table, a real grid with a head row, borders and
-each column's text on the side its dashes ask for. The cursor in it is what
+A table you type into is lined up for you as well, once you are done with it:
+when the cursor leaves the table, and when the note is saved (`:w`, ctrl+s).
+Only a table you edited since the note opened is touched. A ragged table you
+only read, or one in a note you open and save, is written back as it was, and
+so is a table in a fence, a quote or a list item. The line-up changes padding
+and nothing else: the text of each cell, a `\|`, the colons in the dashes and
+every character stay as written. Width counts one per character (one code
+point), so a CJK character or an emoji counts one, though it draws two wide. The
+line-up is an undo step of its own: `u` or ctrl+z puts the ragged text back and
+keeps what you typed, and it stays ragged until you edit the table again.
+
+On screen a table is drawn as a table: sans at 13 px, a strong rule above the
+head row and hairlines between the rows, and each column's text on the side its
+dashes ask for. A column whose filled cells are all numbers sits on the right in
+figures of one width; an empty cell shows a dash, which is drawn and never
+written; a cell that reads as an id or a code name (`WH-07`, `us-east-1`) is set
+in mono. A line that starts `Table: ` straight under the last row is the table's
+caption, drawn small and muted under it with the `Table: ` hidden. A table wider
+than the pane scrolls sideways in its own box, with the first column held at
+the left and a soft shadow at the edge that has more to show; a table taller than
+70 % of the window scrolls down in its box under its head row. On a pane under
+776 px wide, a phone, the cells do not wrap and the table scrolls instead. In
+Edit a table shows as its source in the monospaced face, with the cursor's row
+marked, and going back to Read keeps the line at the top of the pane where it
+was.
+
+The cursor in a drawn table is what
 shows the source, in any mode, and the whole block comes back at once, in the
 monospaced face, because columns lined up by counting characters only stay lined
 up where every character is one width. In that source a table keeps all of its

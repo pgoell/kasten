@@ -76,8 +76,8 @@ third backtick writes, so it is the state you are looking at while you type the
 first line of code into it.
 
 A table is drawn as a table. One widget stands in for every line of it, a real
-`<table>` with a head row, borders and each column's text on the side its dashes
-ask for, and the pipes are off the screen entirely. An `![](path)` in a cell
+`<table>` with a head row, rules between the rows and each column's text on the
+side its dashes ask for, and the pipes are off the screen entirely. An `![](path)` in a cell
 draws as its picture, so two images in one row stand side by side, and so does
 an `![[x.png]]` the vault holds, at the width its alias asks for. The cell asks
 the same helper the line does for that picture, so `![[x.png\|200]]` in a cell
@@ -94,7 +94,9 @@ vault lacks, and an embedded note or pdf, which would be a page inside a table.
 A `\|` in a code span in a cell reads `|`, as GFM says, though a code span keeps
 every other escape as written. A
 table wider than the pane scrolls sideways inside its own block, and the note
-stays as wide as the pane. Put the cursor in it and the
+stays as wide as the pane. The scroll sits on a box inside the block, so the
+block can hold the edge shadows still while the cells move under them, and the
+first column and head row stick inside that box rather than to the note. Put the cursor in it and the
 whole block comes back as source, in the monospaced face, with every mark in the
 cells on screen.
 

@@ -29,13 +29,22 @@ function wideNote(rows: number, columns = 30): string {
   return ["before", "", header, divider, ...body].join("\n");
 }
 
+/**
+ * The box a table scrolls in. Before the inner box existed the block scrolled
+ * itself, so a missing inner box falls back to the block, and a test then fails
+ * on the behaviour it checks rather than on the lookup.
+ */
+function scrollerOf(block: Element): HTMLElement {
+  return (block.querySelector(".cm-table-scroll") ?? block) as HTMLElement;
+}
+
 /** The editor on `doc`, with the table's own box and its scroll, once drawn. */
 async function drawn(doc: string, height = 600) {
   const host = mountApp(doc, height, { vim: "off" });
-  await expect.poll(() => host.querySelector(".cm-table-scroll")).not.toBeNull();
+  await expect.poll(() => host.querySelector(".cm-table-block")).not.toBeNull();
   const at = EditorView.findFromDOM(host.querySelector(".cm-editor") as HTMLElement) as EditorView;
   const block = host.querySelector(".cm-table-block") as HTMLElement;
-  const scroller = block.querySelector(".cm-table-scroll") as HTMLElement;
+  const scroller = scrollerOf(block);
   return { host, at, block, scroller, table: scroller.querySelector("table") as HTMLTableElement };
 }
 
@@ -155,11 +164,11 @@ describe("table reading", () => {
     const doc = wideNote(3).replace("cell 0 2", `[cell 0 2](${SITE})`);
     const host = mountApp(doc, 700, { vim: "off" });
     host.classList.add("k-reader");
-    await expect.poll(() => host.querySelector(".cm-table-scroll")).not.toBeNull();
+    await expect.poll(() => host.querySelector(".cm-table-block")).not.toBeNull();
     await expect.poll(() => host.querySelector(".cm-table-block .cm-link")).not.toBeNull();
 
     const block = host.querySelector(".cm-table-block") as HTMLElement;
-    const scroller = block.querySelector(".cm-table-scroll") as HTMLElement;
+    const scroller = scrollerOf(block);
     const cell = scroller.querySelector("tbody td") as HTMLElement;
     expect(getComputedStyle(cell).whiteSpace).toBe("nowrap");
     expect(scroller.scrollWidth).toBeGreaterThan(scroller.clientWidth);
@@ -192,11 +201,11 @@ describe("table reading", () => {
     // In, which takes the widget off the page for its source, and out again,
     // which draws a new one.
     at.dispatch({ selection: { anchor: doc.indexOf("| column 0") } });
-    await expect.poll(() => at.dom.querySelector(".cm-table-scroll")).toBeNull();
+    await expect.poll(() => at.dom.querySelector(".cm-table-block")).toBeNull();
     at.dispatch({ selection: { anchor: 0 } });
-    await expect.poll(() => at.dom.querySelector(".cm-table-scroll")).not.toBeNull();
+    await expect.poll(() => at.dom.querySelector(".cm-table-block")).not.toBeNull();
 
-    const again = at.dom.querySelector(".cm-table-scroll") as HTMLElement;
+    const again = scrollerOf(at.dom.querySelector(".cm-table-block") as HTMLElement);
     await expect.poll(() => again.scrollLeft).toBe(150);
   });
 });
