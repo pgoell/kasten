@@ -44,6 +44,11 @@ function panes(container: HTMLElement): HTMLElement[] {
   return [...container.querySelectorAll<HTMLElement>("[data-pane]")];
 }
 
+/** Every pane's node by id, as drawn now. */
+function nodesById(container: HTMLElement): Map<string, HTMLElement> {
+  return new Map(panes(container).map((pane) => [pane.dataset.pane ?? "", pane]));
+}
+
 describe("PaneLayout", () => {
   it("draws one pane when nothing is divided", () => {
     const { container } = draw(emptyLayout("a.md"));
@@ -75,24 +80,33 @@ describe("PaneLayout", () => {
   });
 
   it("hides a whole split holding none of the zoomed pane", () => {
-    // a / (b | c), zoomed on a, so the row the other two share goes with them:
-    // a split still taking its share of the room would hold it open around
-    // nothing.
+    // a / (b | c), zoomed on a: b and c go with the row they share, and a takes
+    // the whole window rather than its share of it.
     const column = openInFocused(splitFocused(emptyLayout("a.md"), "col"), "b.md");
     const three = openInFocused(splitFocused(column, "row"), "c.md");
     const layout = toggleZoom(focusPane(three, tabPanes(three)[0]?.id ?? ""));
     const { container } = draw(layout);
 
-    expect(container.querySelector(".flex-row")).toHaveClass("hidden");
-    expect(container.querySelector(".flex-col")).not.toHaveClass("hidden");
+    const [a, b, c] = panes(container);
+    expect(a).not.toHaveClass("hidden");
+    expect(b).toHaveClass("hidden");
+    expect(c).toHaveClass("hidden");
+    expect(a?.style.left).toBe("0px");
+    expect(a?.style.right).toBe("0px");
   });
 
   it("lays a row out along the row and a column down it", () => {
     const { container: row } = draw(splitFocused(emptyLayout("a.md"), "row"));
     const { container: column } = draw(splitFocused(emptyLayout("a.md"), "col"));
 
-    expect(row.querySelector(".flex-row")).toBeInTheDocument();
-    expect(column.querySelector(".flex-col")).toBeInTheDocument();
+    // Side by side in a row: the second pane starts half way across, and the
+    // first ends there. Stacked in a column, the same along the top and bottom.
+    const [rowFirst, rowSecond] = panes(row);
+    expect(rowFirst?.style.right).toBe("calc(50% + 1px)");
+    expect(rowSecond?.style.left).toBe("calc(50% + 1px)");
+    const [columnFirst, columnSecond] = panes(column);
+    expect(columnFirst?.style.bottom).toBe("calc(50% + 1px)");
+    expect(columnSecond?.style.top).toBe("calc(50% + 1px)");
   });
 
   it("tells the focused pane apart once there is another one", () => {
@@ -159,5 +173,60 @@ describe("PaneLayout", () => {
     expect(tabPanes(closed).map((pane) => pane.id)).toEqual([first.id]);
     expect(container.querySelector(`[data-pane="${first.id}"]`)).toBe(leaf);
     expect(screen.getByTestId(first.id)).toBe(button);
+  });
+
+  it("#935 A8 a pane in a row divided into a column keeps every pane's node", () => {
+    const row = splitFocused(emptyLayout("a.md"), "row");
+    const { container, rerender } = draw(row);
+    const before = nodesById(container);
+
+    // The focus is on the second pane, which the split divides into a column.
+    rerender(tree(splitFocused(row, "col")));
+
+    expect(panes(container)).toHaveLength(3);
+    for (const [id, node] of before) expect(nodesById(container).get(id)).toBe(node);
+  });
+
+  it("#935 A8 a pane in a column divided into a row keeps every pane's node", () => {
+    const column = splitFocused(emptyLayout("a.md"), "col");
+    const { container, rerender } = draw(column);
+    const before = nodesById(container);
+
+    rerender(tree(splitFocused(column, "row")));
+
+    expect(panes(container)).toHaveLength(3);
+    for (const [id, node] of before) expect(nodesById(container).get(id)).toBe(node);
+  });
+
+  it("#935 A8 closing the other pane of a column folds it back into the row and keeps every node", () => {
+    const column = splitFocused(splitFocused(emptyLayout("a.md"), "row"), "col");
+    const { container, rerender } = draw(column);
+    const before = nodesById(container);
+
+    // The focus is on the pane the column made, so closing it leaves the row.
+    rerender(tree(removeFocused(column)));
+
+    expect(panes(container)).toHaveLength(2);
+    for (const [id, node] of nodesById(container)) expect(before.get(id)).toBe(node);
+  });
+
+  it("#935 A8 three splits deep, and back out again, keeps every pane's node", () => {
+    const row = splitFocused(emptyLayout("a.md"), "row");
+    const column = splitFocused(row, "col");
+    const deep = splitFocused(column, "row");
+    const { container, rerender } = draw(deep);
+    const before = nodesById(container);
+    const expectKept = () => {
+      for (const [id, node] of nodesById(container)) expect(before.get(id)).toBe(node);
+    };
+
+    const back = removeFocused(deep);
+    rerender(tree(back));
+    expect(panes(container)).toHaveLength(3);
+    expectKept();
+
+    rerender(tree(removeFocused(back)));
+    expect(panes(container)).toHaveLength(2);
+    expectKept();
   });
 });

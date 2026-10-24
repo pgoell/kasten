@@ -7,6 +7,7 @@ import type { TodoState } from "@/lib/todo";
 import { agentTodoIn, cycleTodoAside, cycleTodoInVault, toggleTimerInVault } from "@/lib/todo-api";
 import type { TodoCycle } from "@/lib/todo-commands";
 import { blockTodoInVault, editTodoInVault } from "@/lib/todo-line-edits";
+import { beginPress, endPress } from "@/lib/todo-press-echo";
 import { fileUnderTodos, lineOf, projectNote, refileOf } from "@/lib/todo-refile";
 import type { GuardedWrites } from "@/lib/use-guarded-writes";
 
@@ -49,6 +50,18 @@ export function useTodoActions({
   }, [queryClient]);
 
   /**
+   * A pane press has settled, its writes all landed or not.
+   *
+   * The list is asked once here, even when a write failed after an earlier one
+   * landed: the echoes of the landed writes are muted by `endPress`, so nothing
+   * else would redraw the row they changed.
+   */
+  const settled = useCallback(() => {
+    todosWritten();
+    endPress();
+  }, [todosWritten]);
+
+  /**
    * Follow a `<leader>x` into the vault, from the editor.
    *
    * The buffer already carries every line of this note the press moved and
@@ -80,12 +93,12 @@ export function useTodoActions({
   const cycleTodo = useCallback(
     (hit: SearchHit, state?: TodoState, twins?: number[]) => {
       setNotice(undefined);
-      void cycleTodoInVault(hit, readClock(new Date()).date, data ?? [], state, twins).then(
-        todosWritten,
-        (error: unknown) => setNotice(nothingMoved(error)),
-      );
+      beginPress();
+      void cycleTodoInVault(hit, readClock(new Date()).date, data ?? [], state, twins)
+        .catch((error: unknown) => setNotice(nothingMoved(error)))
+        .finally(settled);
     },
-    [data, todosWritten, setNotice],
+    [data, settled, setNotice],
   );
 
   /**
@@ -99,12 +112,12 @@ export function useTodoActions({
   const toggleTimer = useCallback(
     (hit: SearchHit, twins?: number[]) => {
       setNotice(undefined);
-      void toggleTimerInVault(hit, readClock(new Date()), data ?? [], twins).then(
-        todosWritten,
-        (error: unknown) => setNotice(nothingMoved(error)),
-      );
+      beginPress();
+      void toggleTimerInVault(hit, readClock(new Date()), data ?? [], twins)
+        .catch((error: unknown) => setNotice(nothingMoved(error)))
+        .finally(settled);
     },
-    [data, todosWritten, setNotice],
+    [data, settled, setNotice],
   );
 
   /**
@@ -119,7 +132,7 @@ export function useTodoActions({
    * words from before.
    */
   const agentLines = useRef(new Map<string, { listing: number; line: string }>());
-  const agentTodo = useCallback(
+  const tagTodo = useCallback(
     async (hit: SearchHit, twins?: number[]) => {
       setNotice(undefined);
       const note = hit.path;
@@ -197,9 +210,15 @@ export function useTodoActions({
         setNotice(why);
         return;
       }
-      todosWritten();
     },
-    [queryClient, write, todosWritten, archive, focusedNote, setNotice],
+    [queryClient, write, archive, focusedNote, setNotice],
+  );
+  const agentTodo = useCallback(
+    (hit: SearchHit, twins?: number[]) => {
+      beginPress();
+      return tagTodo(hit, twins).finally(settled);
+    },
+    [tagTodo, settled],
   );
 
   /**
@@ -211,12 +230,14 @@ export function useTodoActions({
    */
   const editTodo = useCallback(
     (hit: SearchHit, line: string) => {
-      void editTodoInVault(hit, line).then(todosWritten, () => {
-        // The vault refused the write, or the note moved out from under the
-        // row. The list stays as it is, and the next event redraws it.
-      });
+      beginPress();
+      // The vault refused the write, or the note moved out from under the row.
+      // The list stays as it is, and the settle below asks for it anyway.
+      void editTodoInVault(hit, line)
+        .catch(() => {})
+        .finally(settled);
     },
-    [todosWritten],
+    [settled],
   );
 
   /**
@@ -227,11 +248,12 @@ export function useTodoActions({
    */
   const blockTodo = useCallback(
     (hit: SearchHit, blocker: SearchHit) => {
-      void blockTodoInVault(hit, blocker).then(todosWritten, (error: unknown) =>
-        setNotice(nothingMoved(error)),
-      );
+      beginPress();
+      void blockTodoInVault(hit, blocker)
+        .catch((error: unknown) => setNotice(nothingMoved(error)))
+        .finally(settled);
     },
-    [todosWritten, setNotice],
+    [settled, setNotice],
   );
 
   /**
@@ -246,7 +268,7 @@ export function useTodoActions({
    * lane the board draws it in. A drop names the lane's instead, which is how
    * a card in "No project" gets one: the same path, so a drop is no second move.
    */
-  const refileTodo = useCallback(
+  const moveTodo = useCallback(
     async (hit: TodoHit, lane?: string) => {
       setNotice(undefined);
       const project = lane ?? hit.project;
@@ -371,7 +393,6 @@ export function useTodoActions({
         return written !== null;
       });
 
-      todosWritten();
       // The move went through the vault and not a buffer, so `u` cannot reach it.
       setNotice(
         taken
@@ -379,7 +400,14 @@ export function useTodoActions({
           : left,
       );
     },
-    [queryClient, write, todosWritten, focusedNote, setNotice],
+    [queryClient, write, focusedNote, setNotice],
+  );
+  const refileTodo = useCallback(
+    (hit: TodoHit, lane?: string) => {
+      beginPress();
+      return moveTodo(hit, lane).finally(settled);
+    },
+    [moveTodo, settled],
   );
 
   return {

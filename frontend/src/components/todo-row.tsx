@@ -57,7 +57,7 @@ export function TodoRow({
   /** Set on a row of the first load, the place it staggers in at. */
   enter?: number;
 }) {
-  const { hit, todo, under } = row;
+  const { hit, todo, under, struck } = row;
   const key = rowKey(hit);
   const mark = timerMark(todo.id === undefined ? undefined : facts.running.get(todo.id), today);
   const time = clocks(todo);
@@ -108,7 +108,11 @@ export function TodoRow({
       {under !== undefined && (
         <span className="max-w-[40%] shrink-0 truncate text-k-muted">{under}</span>
       )}
-      <span className="min-w-0 flex-1 truncate">{todo.text}</span>
+      {/* Struck while it stays in the list it was checked off in, so the
+        words say what was done without the row moving under the finger. */}
+      <span className={`min-w-0 flex-1 truncate ${struck ? "text-k-muted line-through" : ""}`}>
+        {todo.text}
+      </span>
       {/* Between the words and the date, where the spec's mock
         puts it, and out of the truncation for the reason the
         date is: it is the shortest thing on the row. */}

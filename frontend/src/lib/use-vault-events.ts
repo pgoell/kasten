@@ -3,6 +3,7 @@ import { type RefObject, useEffect } from "react";
 import { LOG_NOTE } from "@/lib/layout";
 import { reloadLogConfig } from "@/lib/log-card";
 import { dailyDate } from "@/lib/periodic";
+import { pressEcho } from "@/lib/todo-press-echo";
 import type { useAutosave } from "@/lib/use-autosave";
 import { parseVaultEvent } from "@/lib/vault-events";
 
@@ -115,7 +116,15 @@ export function useVaultEvents(
         // reload. Ahead of the early return below, which fires for a write to
         // a note the tree already draws, and that is most writes. `cancelRefetch`
         // off for the reason the two invalidations beside it have it off.
-        queryClient.invalidateQueries({ queryKey: ["todos"] }, { cancelRefetch: false });
+        // Not for the echo of a press in the pane: the press asks once after its
+        // last write, and its own echoes would ask again for every row it moved.
+        // The echo is told by the digest, so a text typed into the same note by
+        // somebody else still asks. The answer comes a turn later, which is why
+        // the check is a promise and not a branch.
+        void pressEcho(event.path, event.digest).then((echo) => {
+          if (echo) return;
+          queryClient.invalidateQueries({ queryKey: ["todos"] }, { cancelRefetch: false });
+        });
         // A link or a relation is a line of a note, so any write can move an
         // edge. Only a graph on screen is asked again, the rest marked stale.
         queryClient.invalidateQueries({ queryKey: ["graph"] }, { cancelRefetch: false });

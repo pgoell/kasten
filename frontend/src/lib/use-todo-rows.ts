@@ -43,6 +43,8 @@ export interface Row {
   parent?: Placed;
   /** How many steps in the row is drawn, counted inside its own group. */
   depth?: number;
+  /** Done since the list was drawn, and held where it was until the list is asked again. */
+  struck?: boolean;
 }
 
 /**

@@ -2,6 +2,7 @@ import { client, postFile, reason, refused } from "@/lib/api-client";
 import type { components } from "@/lib/api-types";
 import { applyLayout, type Layout } from "@/lib/layout";
 import { noteBase } from "@/lib/note-base";
+import { pressWrote } from "@/lib/todo-press-echo";
 
 /** One note as the vault holds it: where it lives, and what is in it. */
 export type Note = components["schemas"]["Note"];
@@ -284,6 +285,7 @@ export async function createNote(path: string, content = ""): Promise<Note> {
   // that moves seed their cache from the same answer. The path in it is the
   // vault's spelling, not the one that was typed: `daily/./note.md` comes back
   // as `daily/note.md`, and that is what belongs in `?note=`.
+  pressWrote(data.path, data.content);
   return data;
 }
 
@@ -341,6 +343,7 @@ export async function saveNote(
     throw new Error(`PUT /api/files/${path} failed with ${response.status}`);
   }
 
+  pressWrote(data.path, data.content);
   return data;
 }
 
