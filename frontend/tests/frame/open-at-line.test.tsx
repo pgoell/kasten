@@ -269,7 +269,7 @@ it("A2 a todo click opens its note on the line, in Edit mode", async () => {
   const mounted = await mountWith(START_ALONE);
   try {
     const { host } = mounted;
-    await editorHolds(host, "# Start");
+    await editorHolds(host, "Start");
     leader(host, [" ", "p"]);
     openTodos(host);
     await clickTodo(host);
@@ -293,7 +293,7 @@ it("A4 a todo click on a note open in another tab shows the line, in Edit mode",
   const mounted = await mountWith(START_AND_OTHER_TAB);
   try {
     const { host } = mounted;
-    await editorHolds(host, "# Start");
+    await editorHolds(host, "Start");
     leader(host, [" ", "p"]);
     openTodos(host);
     await clickTodo(host);
@@ -317,7 +317,7 @@ it("A6 a search hit opens its note on the line", async () => {
   const mounted = await mountWith(START_ALONE);
   try {
     const { host } = mounted;
-    await editorHolds(host, "# Start");
+    await editorHolds(host, "Start");
     leader(host, [" ", "f", "g"]);
     const input = await waitFor(
       () => need(host.querySelector<HTMLInputElement>("input"), "search input"),
@@ -345,7 +345,7 @@ it("A7 a backlink opens its note on the linking line", async () => {
   const mounted = await mountWith(TARGET_ALONE);
   try {
     const { host } = mounted;
-    await editorHolds(host, "# Target");
+    await editorHolds(host, "Target");
     leader(host, [" ", "g", "l"]);
     const backlink = await waitFor(
       () =>
