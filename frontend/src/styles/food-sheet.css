@@ -403,6 +403,12 @@
 @media (pointer: coarse) {
   .cm-log-food-section-title,
   .cm-log-food-kcal,
+  .cm-log-food-brand,
+  .cm-log-food-why,
+  .cm-log-food-macro-text,
+  .cm-log-food-left,
+  .cm-log-food-field,
+  .cm-log-food-add-heading,
   .cm-log-food-quick-label,
   .cm-log-food-chip,
   .cm-log-food-scan,

@@ -194,21 +194,21 @@ it("#803 A16 the preview says over in words when a serving passes a max goal", a
     "# 2026-10-20 Tuesday\n\n## Log\n- 🍽 breakfast: Butter 🔥 500 kcal 🧈 65 g\n\n## Done\n- [ ] write";
   vi.mocked(fetchNote).mockResolvedValue("- 🍽 food: fat max 70\n");
   reloadLogConfig();
-  // A cheese of 10 g of fat takes the day to 75 g: five grams over.
+  // A cheese of 8 g of fat takes the day to 73 g: three grams over.
   const CHEESE = {
     date: "2026-10-19",
     path: "01 Periodic/00 Daily/2026-10-19.md",
     entries: [
       {
         line: 5,
-        text: "- 🍽 lunch: Cheese 100 g 🔥 300 kcal 🥩 25 g 🍞 1 g 🧈 10 g",
+        text: "- 🍽 lunch: Cheese 100 g 🔥 300 kcal 🥩 25 g 🍞 1 g 🧈 8 g",
         kind: "food",
         meal: "lunch",
         words: "Cheese 100 g",
         kcal: 300,
         protein: 25,
         carbs: 1,
-        fat: 10,
+        fat: 8,
       },
     ],
   } as unknown as LogDay;
@@ -217,7 +217,9 @@ it("#803 A16 the preview says over in words when a serving passes a max goal", a
   await openFood(view);
   await vi.advanceTimersByTimeAsync(0);
   await pickFirst(view);
-  expect(need(view, ".cm-log-food-preview").textContent).toContain("Fat 5 g over, at most 70 g");
+  expect(need(view, ".cm-log-food-preview").textContent).toContain(
+    "Fat 8 g, 3 g over, at most 70 g",
+  );
 });
 
 it("#803 I6 quick add of 999999999.5 writes nothing and says why", async () => {

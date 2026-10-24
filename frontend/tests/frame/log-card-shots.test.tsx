@@ -148,6 +148,28 @@ const FULL_DAY = note([
 
 const EMPTY_DAY = note([]);
 
+// Past the kcal max (2200) and the fat max (70): 575 kcal and 6 g fat eaten before the pizza.
+const OVER_DAY = note([
+  "- 💧 500 ml",
+  "- ☕ 1",
+  "- 🍵 1 cup",
+  "- 🍽 breakfast: Oats 🔥 320 kcal 🥩 12 g 🍞 54 g 🧈 6 g",
+  "- 🍽 lunch: Skyr 🔥 160 kcal 🥩 27 g",
+  "- 🍽 snack: Apple 🔥 95 kcal",
+  "- 🍽 dinner: Pizza 🔥 2000 kcal 🥩 40 g 🍞 120 g 🧈 80 g",
+]);
+
+// Fat at exactly 70 once the cheese is in, so the serving step's Oat flakes takes it past the max.
+const FAT_DAY = note([
+  "- 💧 500 ml",
+  "- ☕ 1",
+  "- 🍵 1 cup",
+  "- 🍽 breakfast: Oats 🔥 320 kcal 🥩 12 g 🍞 54 g 🧈 6 g",
+  "- 🍽 lunch: Skyr 🔥 160 kcal 🥩 27 g",
+  "- 🍽 snack: Apple 🔥 95 kcal",
+  "- 🍽 dinner: Cheese 🔥 400 kcal 🥩 25 g 🧈 64 g",
+]);
+
 interface Mounted {
   host: HTMLElement;
   view: EditorView;
@@ -288,6 +310,19 @@ it("shot phone-serving", async () => {
   await search(view, host, "oat");
   await pickRow(view, "Oat flakes");
   expect(await shot(host, "phone-serving")).toBe(390);
+});
+
+it("shot phone-over-goal", async () => {
+  const { host } = await phone(OVER_DAY);
+  expect(await shot(cardOf(host), "phone-over-goal")).toBeGreaterThan(0);
+});
+
+it("shot phone-serving-over", async () => {
+  const { host, view } = await phone(FAT_DAY);
+  await openFood(view);
+  await search(view, host, "oat");
+  await pickRow(view, "Oat flakes");
+  expect(await shot(host, "phone-serving-over")).toBe(390);
 });
 
 it("shot phone-quick-add", async () => {

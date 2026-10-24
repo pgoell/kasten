@@ -193,9 +193,10 @@ export function servingForm(hooks: ServingHooks): ServingForm {
     const total = eaten[part.field] + (value ?? 0);
     const over = goal.type === "ceiling" && total > goal.value;
     // A ceiling passed is said in words as well as by the warning colour of the bar.
+    const amount = value === null ? "none given" : `${tenth(value)} g`;
     part.text.textContent = over
-      ? `${part.name} ${tenth(total - goal.value)} g over, at most ${goal.value} g`
-      : `${part.name} ${value === null ? "none given" : `${tenth(value)} g`} of ${goal.value} g, ${goal.type === "floor" ? "at least" : "at most"}`;
+      ? `${part.name} ${amount}, ${tenth(total - goal.value)} g over, at most ${goal.value} g`
+      : `${part.name} ${amount} of ${goal.value} g, ${goal.type === "floor" ? "at least" : "at most"}`;
     part.fill.style.width = `${Math.min(100, (total / goal.value) * 100)}%`;
     part.meter.classList.toggle("cm-log-food-meter-over", over);
   }

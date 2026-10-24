@@ -119,6 +119,12 @@
 @media (pointer: coarse) {
   .cm-weather-more > summary {
     min-height: 44px;
+    font-size: var(--k-text-15);
+  }
+
+  .cm-weather-head,
+  .cm-weather-tip {
+    font-size: var(--k-text-15);
   }
 }
 

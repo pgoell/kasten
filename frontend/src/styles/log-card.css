@@ -384,7 +384,9 @@
   .cm-log-raw > summary,
   .cm-log-ring-item,
   .cm-log-big-goal,
-  .cm-log-entry {
+  .cm-log-entry,
+  .cm-log-why,
+  .cm-log-broken {
     font-size: var(--k-text-15);
   }
 
