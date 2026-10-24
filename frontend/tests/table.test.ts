@@ -124,6 +124,33 @@ describe("moveCell", () => {
     expect(view.state.selection.main.head).toBe(8);
   });
 
+  it.each([
+    ["| 😀 | tail |\n| --- | --- |\n| next | end |", "tail", 1, "next"],
+    ["| head | last |\n| --- | --- |\n| 😀 | next |", "😀", 1, "next"],
+    ["| head | last |\n| --- | --- |\n| 😀 | next |\n| end | stop |", "end", -1, "next"],
+    ["  | 😀 \\| 🚀 | next |\n  | --- | --- |", "😀", 1, "next"],
+  ] as const)("lands at the cell after formatting %s", (source, start, step, target) => {
+    const view = open(source, source.indexOf(start));
+
+    expect(moveCell(view, step)).toBe(true);
+
+    const formatted = view.state.doc.toString();
+    expect(view.state.selection.main.head).toBe(formatted.indexOf(target));
+    view.destroy();
+  });
+
+  it("lands in a new row after a row containing an emoji", () => {
+    const source = "| head | last |\n| --- | --- |\n| 😀 | end |";
+    const view = open(source, source.indexOf("end"));
+
+    expect(moveCell(view, 1)).toBe(true);
+
+    const last = view.state.doc.line(view.state.doc.lines);
+    expect(last.text).toBe("|      |      |");
+    expect(view.state.selection.main.head).toBe(last.from + 2);
+    view.destroy();
+  });
+
   it("declines outside a table, and in the first cell going back", () => {
     expect(moveCell(open("plain text", 3), 1)).toBe(false);
     expect(moveCell(open(table, 2), -1)).toBe(false);

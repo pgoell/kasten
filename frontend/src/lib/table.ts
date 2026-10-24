@@ -158,12 +158,7 @@ function dashes(width: number, align: Align): string {
   return "-".repeat(width);
 }
 
-/**
- * Every row drawn to the same widths, so each line comes out the same length.
- *
- * That is what lets `moveCell` find a cell by arithmetic instead of by
- * searching the text it just wrote.
- */
+/** Every row drawn to the same code-point widths. */
 function draw(grid: Grid, widths: number[]): string {
   return grid.rows
     .map((row, index) => {
@@ -229,21 +224,23 @@ export function moveCell(view: EditorView, step: 1 | -1): boolean {
   if (row >= grid.rows.length) grid.rows.push(new Array<string>(columns).fill(""));
 
   const widths = columnWidths(grid);
-  const stride = (column: number) =>
-    widths.slice(0, column).reduce((sum, width) => sum + width + 3, 0);
   const from = state.doc.line(run.first).from;
-  // Every drawn line is `indent | cells... |`, one character for the opening
-  // wall and one for the newline.
-  const lineWidth = grid.indent.length + 1 + stride(columns);
-  const at = row * (lineWidth + 1) + grid.indent.length + 2 + stride(column);
-
   const to = state.doc.line(run.last).to;
   const drawn = draw(grid, widths);
+  // CodeMirror counts UTF-16 units, while padding counts code points. Read
+  // offsets from the drawn source so a surrogate pair cannot shift the cursor.
+  const lines = drawn.split("\n");
+  const rowOffset = lines.slice(0, row).reduce((offset, text) => offset + text.length + 1, 0);
+  const cellOffset =
+    (lines[row] ?? "")
+      .split(WALLS)
+      .slice(0, column + 1)
+      .join("|").length + 2;
   view.dispatch({
     // A table already square is left alone, so walking one is a move and not
     // an edit: no undo step per press, and no write of a file nothing changed.
     changes: drawn === state.doc.sliceString(from, to) ? undefined : { from, to, insert: drawn },
-    selection: { anchor: from + at },
+    selection: { anchor: from + rowOffset + cellOffset },
   });
   return true;
 }
