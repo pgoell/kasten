@@ -74,6 +74,8 @@ const TARGET = "Target.md";
 /** The line the far todo sits on, well past the first screen of the note. */
 const LINE = 150;
 const TODO_TEXT = "- [ ] the far todo";
+/** The far line also links to Target, which makes it a backlink of Target. */
+const LINKED_LINE = `${TODO_TEXT} [[Target]]`;
 
 /** Lines one to three are a frontmatter block, so the reader head draws. */
 const FRONT = ["---", "id: long-note", "---"];
@@ -81,7 +83,7 @@ const FRONT = ["---", "id: long-note", "---"];
 const LONG_TEXT = Array.from({ length: 200 }, (_, index) => {
   const line = index + 1;
   if (line <= FRONT.length) return FRONT[index];
-  if (line === LINE) return TODO_TEXT;
+  if (line === LINE) return LINKED_LINE;
   return `Long line ${line}, a line of text.`;
 }).join("\n");
 
@@ -94,6 +96,7 @@ const NOTES: Record<string, string> = {
 const TODOS = [{ path: LONG, line: LINE, text: TODO_TEXT, project: null }];
 
 const HIT = { path: LONG, line: LINE, text: TODO_TEXT };
+const BACKLINK = { path: LONG, line: LINE, text: LINKED_LINE };
 
 // Target is linked from Long, on the far line: the backlink is that line.
 const GRAPH = {
@@ -171,9 +174,11 @@ beforeEach(() => {
     return text;
   });
   vi.mocked(fetchTodos).mockImplementation(async () => TODOS);
-  vi.mocked(searchNotes).mockImplementation(async (query: string) =>
-    query === "far todo" ? [HIT] : [],
-  );
+  vi.mocked(searchNotes).mockImplementation(async (query: string) => {
+    if (query === "far todo") return [HIT];
+    if (query.toLowerCase() === "target") return [BACKLINK];
+    return [];
+  });
   vi.mocked(fetchGraph).mockImplementation(async () => GRAPH);
 });
 
@@ -361,26 +366,20 @@ it("A7 a backlink opens its note on the linking line", async () => {
   try {
     const { host } = mounted;
     await editorHolds(host, "Target");
-    leader(host, [" ", "g", "l"]);
+    // `Space g b` lists the lines that link here, and a line opens its note at the line.
+    leader(host, [" ", "g", "b"]);
     const backlink = await waitFor(
       () =>
         need(
-          [...host.querySelectorAll<HTMLElement>("button")].find(
-            (each) => each.getAttribute("role") !== "tab" && each.textContent?.trim() === "Long",
+          [...host.querySelectorAll<HTMLElement>('[role="option"]')].find((each) =>
+            each.textContent?.includes("far todo"),
           ),
-          "backlink to Long",
+          "backlink from the far line",
         ),
       PATIENCE,
     );
-    // At this width the graph opens in a pane of its own beside the note, and a
-    // backlink opens its note in the pane it is listed in.
-    const graphPane = need(
-      backlink.closest<HTMLElement>("[data-pane]")?.dataset.pane,
-      "id of the graph pane",
-    );
-    backlink.focus();
     fireEvent.click(backlink);
-    await expectLineShown(host, { pane: graphPane, read: true });
+    await expectLineShown(host, { read: true });
   } finally {
     await unmount(mounted);
   }
