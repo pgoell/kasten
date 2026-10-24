@@ -229,6 +229,8 @@ async function shootSearch(
   } finally {
     root.unmount();
     host.remove();
+    // The next file vitest runs in this browser page would still read touch and motion set here.
+    await commands.emulateMedia({});
   }
 }
 

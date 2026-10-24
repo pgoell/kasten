@@ -6,7 +6,9 @@
  */
 
 import "./html-take-api";
+import { renderHook } from "@testing-library/react";
 import { commands as browser, page, userEvent } from "vitest/browser";
+import { useVim } from "@/lib/vim-setting";
 import plainUrl from "../fixtures/plain.epub?url";
 import { located, rootToken, sections } from "./book-pane-fixture";
 import {
@@ -55,13 +57,13 @@ afterEach(async () => {
 });
 
 describe("the take out of a book pane", () => {
-  it.each([
-    ["on", "true"],
-    ["off", "false"],
-  ])(
+  it.each(["on", "off"])(
     "takes with y in vim mode %s, marks the words in the mark colour and shows the toast",
-    async (_mode, value) => {
-      localStorage.setItem("kasten.vim", value);
+    async (mode) => {
+      localStorage.setItem("kasten.vim", mode);
+      const vim = renderHook(() => useVim());
+      expect(vim.result.current, "the vim setting this case names").toBe(mode === "on");
+      vim.unmount();
       api.notes[NOTE] = PLAIN;
       mountBooks(mounted, [NOTE]);
       const doc = await sectionOf(NOTE);

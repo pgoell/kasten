@@ -9,10 +9,12 @@
 
 import "./pdf-take-api";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { renderHook } from "@testing-library/react";
 import { flushSync } from "react-dom";
 import { commands as browser, page, userEvent } from "vitest/browser";
 import { PdfPane } from "@/components/pdf-pane";
 import { applyTheme, THEME_KEY, toggleTheme } from "@/lib/theme";
+import { useVim } from "@/lib/vim-setting";
 import "@/styles/app.css";
 import { api, inside, type Mounted, setUp, takeButton, tearDown } from "./html-take-fixture";
 import { PAGE_ONE } from "./pdf-fixture";
@@ -173,11 +175,11 @@ describe("the pdf pane takes a passage from its text layer", () => {
     expect(paneOf(LEFT).querySelector("[data-take]")).toBeNull();
   });
 
-  it.each([
-    ["on", "true"],
-    ["off", "false"],
-  ])("takes with y in vim mode %s", async (_mode, value) => {
-    localStorage.setItem("kasten.vim", value);
+  it.each(["on", "off"])("takes with y in vim mode %s", async (mode) => {
+    localStorage.setItem("kasten.vim", mode);
+    const vim = renderHook(() => useVim());
+    expect(vim.result.current, "the vim setting this case names").toBe(mode === "on");
+    vim.unmount();
     mount([PATH]);
     selectSpan(await drawn(PATH));
     await buttonOver();

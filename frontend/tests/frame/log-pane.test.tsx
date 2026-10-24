@@ -275,8 +275,14 @@ it("#624 the log pane at 414 by touch", async () => {
 });
 
 it("#624 the log pane on a desktop", async () => {
+  // Pinned on, so the test does not depend on the browser's pointer, which picks vim by default.
+  localStorage.setItem("kasten.vim", "on");
   await mount(1200, 900);
-  const editor = document.querySelector(".cm-content") as HTMLElement;
+  // Only vim reads Space as the leader, and it marks the editor once it is up.
+  await expect
+    .poll(() => document.querySelector(".cm-scroller.cm-vimMode .cm-content"))
+    .not.toBeNull();
+  const editor = document.querySelector(".cm-scroller.cm-vimMode .cm-content") as HTMLElement;
   // The leader is space and then the keys after it, each released before the next.
   for (const key of [" ", "g", "f"]) {
     await press(editor, key);

@@ -62,12 +62,17 @@ export async function setUp(): Promise<Mounted> {
   return { host, root: createRoot(host), spy: stubCommands() };
 }
 
-/** Unmounts, and gives back the viewport, the emulated media and the served pages. */
+/**
+ * Unmounts, and gives back the viewport, the emulated media, the served pages and
+ * the vim choice. The next file vitest runs in this browser page would read a choice
+ * left here.
+ */
 export async function tearDown({ host, root }: Mounted) {
   flushSync(() => root.unmount());
   host.remove();
   localStorage.removeItem(THEME_KEY);
   localStorage.removeItem(PALETTE_KEY);
+  localStorage.removeItem("kasten.vim");
   await browser.unservePages();
   await page.viewport(1440, 900);
   await browser.emulateMedia({});
