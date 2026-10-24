@@ -71,7 +71,8 @@ export function TabStrip({ layout, onSelect, onClose, onHome, unsaved }: TabStri
   const moreBox = useRef<HTMLDivElement>(null);
   const moreButton = useRef<HTMLButtonElement>(null);
   const { active } = layout;
-  const count = layout.tabs.length;
+  // The ids, not the count: a new tab with the same count is a new element to observe.
+  const tabIds = layout.tabs.map((tab) => tab.id).join("\n");
   const home = isEmptyTab(activeTab(layout));
 
   // The entrance is decided on the first render and then kept, so a later
@@ -96,7 +97,7 @@ export function TabStrip({ layout, onSelect, onClose, onHome, unsaved }: TabStri
   // without changing the count, and the fold has to follow it.
   const labels = layout.tabs.map(tabLabel).join("\n");
 
-  const { hidden, cap, open, setOpen } = useTabGeometry(list, motion, active, count, labels);
+  const { hidden, cap, open, setOpen } = useTabGeometry(list, motion, active, tabIds, labels);
   const menuOpen = open && hidden.length > 0;
 
   // Opening the list puts the focus on its first row, which is where the keys go.
