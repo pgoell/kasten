@@ -127,7 +127,8 @@ const notice = () => document.querySelector<HTMLElement>("[data-testid='notice']
 
 /**
  * The route at `width` by `height`, with a finger for a pointer when `touch`,
- * and the editor of its empty pane on screen.
+ * and the editor of its empty pane on screen. At a desk it also waits for vim
+ * to be on, so the Space that follows is the leader and not typed text.
  */
 async function opened(width: number, height: number, touch: boolean): Promise<void> {
   await page.viewport(width, height);
@@ -139,6 +140,15 @@ async function opened(width: number, height: number, touch: boolean): Promise<vo
   if (!touch) localStorage.setItem("kasten.vim", "on");
   await mount();
   await expect.poll(() => document.querySelector(".cm-content")).not.toBeNull();
+  // The Space is the leader only while vim runs in normal mode, which is what
+  // `leaderPanel` checks. The stored setting can be wiped by another frame file
+  // running beside this one, so the keys wait on the class vim sets, not on the
+  // editor alone (#909).
+  if (!touch) {
+    await expect
+      .poll(() => document.querySelector(".cm-scroller.cm-vimMode .cm-content"))
+      .not.toBeNull();
+  }
 }
 
 /** The refusal on screen and at the foot, then its picture as `name`. */
