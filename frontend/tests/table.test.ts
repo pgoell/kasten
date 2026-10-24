@@ -228,6 +228,111 @@ describe("moveCell", () => {
     expect(line.number).toBe(doc.lines);
     expect(view.state.selection.main.head).toBe(line.from + 2);
   });
+
+  it("#925 A1 Tab in a right-aligned column lands on the next cell's text", () => {
+    const view = open("| a | b |\n|--:|--:|\n| xyz | q |", 2);
+
+    expect(moveCell(view, 1)).toBe(true);
+    expect(charAtCursor(view)).toBe("b");
+  });
+
+  it("#925 A2 Tab in a centered column lands on the next cell's text", () => {
+    const view = open("| a | b |\n|:-:|:-:|\n| xyz | q |", 2);
+
+    expect(moveCell(view, 1)).toBe(true);
+    expect(charAtCursor(view)).toBe("b");
+  });
+
+  it("#925 A3 Shift-Tab into a right-aligned cell lands on its text", () => {
+    const source = "| a | b |\n|--:|--:|\n| xyz | q |";
+    const view = open(source, source.indexOf("b"));
+
+    expect(moveCell(view, -1)).toBe(true);
+    expect(charAtCursor(view)).toBe("a");
+  });
+
+  it("#925 A3 Shift-Tab into a centered cell lands on its text", () => {
+    const source = "| a | b |\n|:-:|:-:|\n| xyz | q |";
+    const view = open(source, source.indexOf("b"));
+
+    expect(moveCell(view, -1)).toBe(true);
+    expect(charAtCursor(view)).toBe("a");
+  });
+
+  it("#925 A4 Tab into an empty right-aligned cell lands at its start", () => {
+    const view = open("| a | b |\n|--:|--:|\n|  | q |", 6);
+
+    expect(moveCell(view, 1)).toBe(true);
+    // The cell is all padding once drawn, so counting its spaces would land past it.
+    expect(view.state.selection.main.head).toBe(view.state.doc.line(3).from + 2);
+  });
+
+  it("#925 A4 Tab into an empty centered cell lands at its start", () => {
+    const view = open("| a | b |\n|:-:|:-:|\n|  | q |", 6);
+
+    expect(moveCell(view, 1)).toBe(true);
+    expect(view.state.selection.main.head).toBe(view.state.doc.line(3).from + 2);
+  });
+
+  it("#925 A5 an emoji above the target in a right-aligned column, Tab lands on the text", () => {
+    const view = open("| a | b |\n|--:|--:|\n| 😀 | x |\n| yz | q |", 2);
+
+    // From a: b, then the emoji cell, then x, then the cell under it.
+    for (let step = 0; step < 4; step++) expect(moveCell(view, 1)).toBe(true);
+    expect(charAtCursor(view)).toBe("y");
+  });
+
+  it("#925 A5 an emoji above the target in a centered column, Tab lands on the text", () => {
+    const view = open("| a | b |\n|:-:|:-:|\n| 😀 | x |\n| y | q |", 2);
+
+    for (let step = 0; step < 4; step++) expect(moveCell(view, 1)).toBe(true);
+    expect(charAtCursor(view)).toBe("y");
+  });
+
+  it("#925 A5 an emoji target in a right-aligned column, Tab lands on the emoji", () => {
+    const view = open("| a | b |\n|--:|--:|\n| x | 😀 |", 2);
+
+    for (let step = 0; step < 3; step++) expect(moveCell(view, 1)).toBe(true);
+    const { head } = view.state.selection.main;
+    expect(view.state.doc.sliceString(head, head + 2)).toBe("😀");
+  });
+
+  it("#925 A5 an emoji target in a centered column, Tab lands on the emoji", () => {
+    const view = open("| a | b |\n|:-:|:-:|\n| x | 😀 |", 2);
+
+    for (let step = 0; step < 3; step++) expect(moveCell(view, 1)).toBe(true);
+    const { head } = view.state.selection.main;
+    expect(view.state.doc.sliceString(head, head + 2)).toBe("😀");
+  });
+
+  it("#925 I1 Tab in a left-aligned or unaligned column lands on the text as before", () => {
+    const view = open("| a | b |\n|:--|---|\n| xyz | q |", 2);
+
+    expect(moveCell(view, 1)).toBe(true);
+    expect(charAtCursor(view)).toBe("b");
+    expect(moveCell(view, 1)).toBe(true);
+    expect(charAtCursor(view)).toBe("x");
+    expect(moveCell(view, 1)).toBe(true);
+    expect(charAtCursor(view)).toBe("q");
+  });
+
+  it("#925 I2 Tab past the last row of a right-aligned table writes a row and lands at its first cell", () => {
+    const source = "| a | b |\n|--:|--:|\n| xyz | q |";
+    const view = open(source, source.indexOf("q"));
+
+    expect(moveCell(view, 1)).toBe(true);
+    const doc = view.state.doc;
+    expect(doc.line(4).text).toBe("|     |     |");
+    expect(view.state.selection.main.head).toBe(doc.line(4).from + 2);
+  });
+
+  it("#925 I3 Tab into a right-aligned cell that starts with a no-break space lands on that space", () => {
+    const view = open("| a | b |\n|--:|--:|\n|  x | q |", 2);
+
+    expect(moveCell(view, 1)).toBe(true);
+    expect(moveCell(view, 1)).toBe(true);
+    expect(charAtCursor(view)).toBe(" ");
+  });
 });
 
 describe("formatDocument", () => {

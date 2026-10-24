@@ -5,6 +5,9 @@ import { content, cursorTo, viewIn } from "./table-lineup-fixture";
 /** A table with an emoji outside the BMP in its second row, so every row after it is one unit off in code points. */
 const SOURCE = "| a | b |\n|---|---|\n| 😀 | x |\n| c | d |";
 
+/** A right-aligned table: its cells' text sits after their padding, so a walk must land past the spaces. */
+const RIGHT_ALIGNED = "| a | b |\n|--:|--:|\n| xyz | q |";
+
 beforeEach(() => localStorage.clear());
 afterEach(() => localStorage.clear());
 
@@ -44,5 +47,28 @@ describe("Tab through a table with an emoji row", () => {
     press(container, true);
     const back = view.state.selection.main.head;
     expect(view.state.doc.sliceString(back, back + 1)).toBe("x");
+  });
+
+  it("#925 I4 vim off, Tab in a right-aligned column lands on the text", () => {
+    localStorage.setItem("kasten.vim", "off");
+    const { container } = render(<Editor initialDoc={RIGHT_ALIGNED} preview={false} />);
+    const view = viewIn(container);
+    cursorTo(view, 2);
+
+    press(container);
+    const { head } = view.state.selection.main;
+    expect(view.state.doc.sliceString(head, head + 1)).toBe("b");
+  });
+
+  it("#925 I4 vim on, Tab in a right-aligned column lands on the text", () => {
+    localStorage.setItem("kasten.vim", "on");
+    const { container } = render(<Editor initialDoc={RIGHT_ALIGNED} preview={false} />);
+    const view = viewIn(container);
+    cursorTo(view, 2);
+    fireEvent.keyDown(content(container), { key: "i" });
+
+    press(container);
+    const { head } = view.state.selection.main;
+    expect(view.state.doc.sliceString(head, head + 1)).toBe("b");
   });
 });
