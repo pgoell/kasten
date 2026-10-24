@@ -42,6 +42,8 @@ interface SheetProps {
   full?: boolean;
   /** Whether the focus goes back to what held it when the sheet leaves. False where a command took the focus. */
   restoreFocus?: boolean;
+  /** A bottom sheet that rides on the on-screen keyboard, so what is pinned in it stays in sight. */
+  lift?: boolean;
   children: ReactNode;
 }
 
@@ -93,6 +95,7 @@ export function Sheet({
   side = false,
   full = false,
   restoreFocus = true,
+  lift = false,
   header,
   footer,
   children,
@@ -214,7 +217,7 @@ export function Sheet({
   function dismiss(config: SpringConfig, velocity?: number) {
     dismissing.current = true;
     void leave(config, velocity).then((done) => {
-      if (!done) return;
+      if (!done || !closing.current) return;
       finish();
       onClose();
     });
@@ -229,7 +232,8 @@ export function Sheet({
     if (!el) return;
     if (!open) {
       void leave(SPRINGS.sheetClose).then((done) => {
-        if (done) finish();
+        // A leave that resolves after a reopen must not unmount the sheet the reopen showed.
+        if (done && closing.current) finish();
       });
       return;
     }
@@ -420,6 +424,8 @@ export function Sheet({
           fading.current?.(true);
           fading.current = null;
         }}
+        // The keyboard's height is a custom property the page sets, read here so the foot clears it.
+        style={!side && lift ? { bottom: "var(--keyboard, 0px)" } : undefined}
         className={side ? SIDE_PANEL : `${BOTTOM_PANEL} ${full ? WHOLE : CAPPED}`}
       >
         {!side && (

@@ -104,10 +104,12 @@ function clickOn(view: EditorView, selector: string): void {
 }
 
 /** Presses the card's 🍽 button, or fails the test where there is none. */
-function openFood(view: EditorView): void {
+async function openFood(view: EditorView): Promise<void> {
   const button = view.dom.querySelector<HTMLButtonElement>(".cm-log button[aria-label='Log food']");
   expect(button).not.toBeNull();
   button?.click();
+  // The sheet is drawn in a microtask after the press, so the call waits for that one turn.
+  await Promise.resolve();
 }
 
 /** Types `text` into the open panel, and lets the pause pass so the search is sent. */
@@ -237,7 +239,7 @@ describe("the torch and the buzz on the barcode scan", () => {
   it("#765 a track with torch in its capabilities shows the torch button while scanning", async () => {
     torchTrack();
     const view = mount(NOTE);
-    openFood(view);
+    await openFood(view);
     await startScan(view);
     expect(torchOf(view).hidden).toBe(false);
   });
@@ -245,14 +247,14 @@ describe("the torch and the buzz on the barcode scan", () => {
   it("#765 a track with no torch capability keeps the torch button hidden", async () => {
     tracks[0] = { stop: vi.fn(), getCapabilities: () => ({}) };
     const view = mount(NOTE);
-    openFood(view);
+    await openFood(view);
     await startScan(view);
     expect(torchOf(view).hidden).toBe(true);
   });
 
   it("#765 a track with no getCapabilities keeps the torch button hidden", async () => {
     const view = mount(NOTE);
-    openFood(view);
+    await openFood(view);
     await startScan(view);
     expect(torchOf(view).hidden).toBe(true);
   });
@@ -260,7 +262,7 @@ describe("the torch and the buzz on the barcode scan", () => {
   it("#765 the torch button turns the torch on and then off", async () => {
     const track = torchTrack();
     const view = mount(NOTE);
-    openFood(view);
+    await openFood(view);
     await startScan(view);
     await pressTorch(view);
     expect(track.applyConstraints).toHaveBeenNthCalledWith(1, { advanced: [{ torch: true }] });
@@ -271,7 +273,7 @@ describe("the torch and the buzz on the barcode scan", () => {
   it("#765 the torch button says its state with aria-pressed and the label Torch", async () => {
     torchTrack();
     const view = mount(NOTE);
-    openFood(view);
+    await openFood(view);
     await startScan(view);
     expect(torchOf(view).getAttribute("aria-label")).toBe("Torch");
     expect(torchOf(view).getAttribute("aria-pressed")).toBe("false");
@@ -284,7 +286,7 @@ describe("the torch and the buzz on the barcode scan", () => {
   it("#765 Stop turns the torch off", async () => {
     const track = torchTrack();
     const view = mount(NOTE);
-    openFood(view);
+    await openFood(view);
     await startScan(view);
     await pressTorch(view);
     expect(torchOf(view).getAttribute("aria-pressed")).toBe("true");
@@ -296,7 +298,7 @@ describe("the torch and the buzz on the barcode scan", () => {
   it("#765 a hit turns the torch off", async () => {
     const track = torchTrack();
     const view = mount(NOTE);
-    openFood(view);
+    await openFood(view);
     await startScan(view);
     await pressTorch(view);
     expect(torchOf(view).getAttribute("aria-pressed")).toBe("true");
@@ -309,7 +311,7 @@ describe("the torch and the buzz on the barcode scan", () => {
   it("#765 Close turns the torch off", async () => {
     const track = torchTrack();
     const view = mount(NOTE);
-    openFood(view);
+    await openFood(view);
     await startScan(view);
     await pressTorch(view);
     expect(torchOf(view).getAttribute("aria-pressed")).toBe("true");
@@ -321,19 +323,21 @@ describe("the torch and the buzz on the barcode scan", () => {
   it("#765 Escape turns the torch off", async () => {
     const track = torchTrack();
     const view = mount(NOTE);
-    openFood(view);
+    await openFood(view);
     await startScan(view);
     await pressTorch(view);
     expect(torchOf(view).getAttribute("aria-pressed")).toBe("true");
     fireEvent.keyDown(queryOf(view), { key: "Escape" });
     expect(track.applyConstraints).toHaveBeenLastCalledWith({ advanced: [{ torch: false }] });
+    // The sheet leaves by its own close, which takes a turn of the timers to unmount.
+    await vi.advanceTimersByTimeAsync(1000);
     expect(foodQuery(view)).toBeNull();
   });
 
   it("#765 a log turns the torch off", async () => {
     const track = torchTrack();
     const view = mount(NOTE);
-    openFood(view);
+    await openFood(view);
     await startScan(view);
     await pressTorch(view);
     expect(torchOf(view).getAttribute("aria-pressed")).toBe("true");
@@ -347,7 +351,7 @@ describe("the torch and the buzz on the barcode scan", () => {
   it("#765 the editor view going turns the torch off", async () => {
     const track = torchTrack();
     const view = mount(NOTE);
-    openFood(view);
+    await openFood(view);
     await startScan(view);
     await pressTorch(view);
     expect(torchOf(view).getAttribute("aria-pressed")).toBe("true");
@@ -361,7 +365,7 @@ describe("the torch and the buzz on the barcode scan", () => {
   it("#765 the tab hiding turns the torch off", async () => {
     const track = torchTrack();
     const view = mount(NOTE);
-    openFood(view);
+    await openFood(view);
     await startScan(view);
     await pressTorch(view);
     expect(torchOf(view).getAttribute("aria-pressed")).toBe("true");
@@ -374,7 +378,7 @@ describe("the torch and the buzz on the barcode scan", () => {
     const track = torchTrack();
     track.applyConstraints.mockRejectedValueOnce(new DOMException("Refused", "OperationError"));
     const view = mount(NOTE);
-    openFood(view);
+    await openFood(view);
     await startScan(view);
     await pressTorch(view);
     expect(track.stop).not.toHaveBeenCalled();
@@ -387,7 +391,7 @@ describe("the torch and the buzz on the barcode scan", () => {
   it("#765 the torch button hides when the scan ends and the next scan starts with the torch off", async () => {
     const track = torchTrack();
     const view = mount(NOTE);
-    openFood(view);
+    await openFood(view);
     await startScan(view);
     await pressTorch(view);
     scanOf(view).click();
@@ -402,13 +406,15 @@ describe("the torch and the buzz on the barcode scan", () => {
   it("#765 with vim on keys on the torch button never reach vim and Escape closes the scanner", async () => {
     torchTrack();
     const view = mount(NOTE, DAILY, [vim(), vimModeState()]);
-    openFood(view);
+    await openFood(view);
     await startScan(view);
     fireEvent.keyDown(torchOf(view), { key: "i" });
     fireEvent.keyDown(torchOf(view), { key: "u" });
     expect(view.state.field(vimModeField)).toBe("normal");
     expect(text(view)).toBe(NOTE);
     fireEvent.keyDown(torchOf(view), { key: "Escape" });
+    // The sheet leaves by its own close, which takes a turn of the timers to unmount.
+    await vi.advanceTimersByTimeAsync(1000);
     expect(foodQuery(view)).toBeNull();
     expectStopped();
   });
@@ -417,7 +423,7 @@ describe("the torch and the buzz on the barcode scan", () => {
     const vibrate = withVibrate();
     detectFrame.mockResolvedValueOnce([{ rawValue: SNICKERS.code, format: "ean_13" }]);
     const view = mount(NOTE);
-    openFood(view);
+    await openFood(view);
     await startScan(view);
     expect(vibrate).toHaveBeenCalledTimes(1);
     expect(vibrate).toHaveBeenCalledWith(50);
@@ -427,7 +433,7 @@ describe("the torch and the buzz on the barcode scan", () => {
     const vibrate = withVibrate();
     detectFrame.mockResolvedValue([{ rawValue: SNICKERS.code, format: "ean_13" }]);
     const view = mount(NOTE);
-    openFood(view);
+    await openFood(view);
     await startScan(view);
     await vi.advanceTimersByTimeAsync(1000);
     expect(vibrate).toHaveBeenCalledTimes(1);
@@ -436,7 +442,7 @@ describe("the torch and the buzz on the barcode scan", () => {
   it("#766 a stop after frames with no code never buzzes and the next hit buzzes once", async () => {
     const vibrate = withVibrate();
     const view = mount(NOTE);
-    openFood(view);
+    await openFood(view);
     await startScan(view);
     await vi.advanceTimersByTimeAsync(450);
     scanOf(view).click();
@@ -453,7 +459,7 @@ describe("the torch and the buzz on the barcode scan", () => {
       new DOMException("Timeout starting video source", "AbortError"),
     );
     const view = mount(NOTE);
-    openFood(view);
+    await openFood(view);
     await startScan(view);
     expect(vibrate).not.toHaveBeenCalled();
     detectFrame.mockResolvedValueOnce([{ rawValue: SNICKERS.code, format: "ean_13" }]);
@@ -465,7 +471,7 @@ describe("the torch and the buzz on the barcode scan", () => {
   it("#766 a hit with no navigator.vibrate reads the code with no error", async () => {
     detectFrame.mockResolvedValueOnce([{ rawValue: SNICKERS.code, format: "ean_13" }]);
     const view = mount(NOTE);
-    openFood(view);
+    await openFood(view);
     await startScan(view);
     expect(readBarcode).toHaveBeenCalledWith(SNICKERS.code);
     expect(servingOf(view)?.hidden).toBe(false);

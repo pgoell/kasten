@@ -53,7 +53,12 @@ function mount(doc: string, path = DAILY, extra: Extension[] = [], anchor = 0): 
 const amount = (view: EditorView) => view.dom.querySelector(".cm-log-amount") as HTMLInputElement;
 const why = (view: EditorView) => view.dom.querySelector(".cm-log-why")?.textContent;
 const text = (view: EditorView) => view.state.doc.toString();
-const totals = (view: EditorView) => view.dom.querySelector(".cm-log-totals")?.textContent ?? "";
+// The kinds' totals sit in their quick buttons, and the food's in the rings and the big figure (#803).
+const totals = (view: EditorView) =>
+  [...view.dom.querySelectorAll(".cm-log-button-total")].map((node) => node.textContent).join("");
+/** A quick button's words, without its total, which the button now also shows. */
+const tapWords = (button: HTMLButtonElement) =>
+  button.querySelector(".cm-log-button-tap")?.textContent ?? button.textContent;
 const broken = (view: EditorView) => view.dom.querySelector(".cm-log-broken")?.textContent ?? "";
 
 /** Presses the card's button with this aria-label, or fails the test where there is none. */
@@ -78,10 +83,10 @@ describe("the log card's kinds", () => {
     await expect(vi.mocked(fetchNote).mock.results[0]?.value).rejects.toBeInstanceOf(NoteMissing);
     await Promise.resolve();
     expect(totals(view)).toBe("💧 500 ml☕ 0🍺 0");
-    const labels = [...view.dom.querySelectorAll<HTMLButtonElement>(".cm-log-button")].map(
-      (button) => button.textContent,
+    const labels = [...view.dom.querySelectorAll<HTMLButtonElement>(".cm-log button")].map(
+      tapWords,
     );
-    expect(labels).toEqual(["+ 💧 250 ml", "+ ☕ 1", "+ 🍺 1", "+ 🍽 food"]);
+    expect(labels).toEqual(["+ 💧 250 ml", "+ ☕ 1", "+ 🍺 1", "+ Food"]);
   });
 
   it("#623 a tea line in the config note puts a tea button on the card and its tap writes - 🍵 1 cup", async () => {
@@ -106,10 +111,19 @@ describe("the log card's kinds", () => {
       `${DEFAULTS}\n- 🍽 food: kcal max 2200, protein min 120, carbs max 250, fat max 80`,
     );
     const view = mount(`${NOTE}\n\n## Log\n- 🍽 lunch: Skyr 🔥 160 kcal 🥩 27 g 🍞 10 g 🧈 2 g`);
-    await vi.waitFor(() => expect(totals(view)).toContain("🔥 160 / 2200 kcal"));
-    expect(totals(view)).toContain("🥩 27 / 120 g");
-    expect(totals(view)).toContain("🍞 10 / 250 g");
-    expect(totals(view)).toContain("🧈 2 / 80 g");
+    await vi.waitFor(() =>
+      expect(view.dom.querySelector(".cm-log-big-goal")?.textContent).toContain(
+        "160 of 2200 kcal, at most",
+      ),
+    );
+    const rings = [...view.dom.querySelectorAll(".cm-log-ring-words")].map(
+      (node) => node.textContent,
+    );
+    expect(rings).toEqual([
+      "27 g of 120 g, at least",
+      "10 g of 250 g, at most",
+      "2 g of 80 g, at most",
+    ]);
   });
 
   it("#623 a floor short of its goal shows progress and a met floor says so", async () => {
@@ -120,9 +134,13 @@ describe("the log card's kinds", () => {
     await vi.waitFor(() => expect(view.dom.querySelector(".cm-log-short")).not.toBeNull());
     const short = view.dom.querySelector<HTMLElement>(".cm-log-short");
     expect(short?.textContent).toBe("💧 500 / 2000 ml");
-    expect(short?.getAttribute("style")).toContain("--log-progress: 25%");
-    const met = view.dom.querySelector<HTMLElement>(".cm-log-met");
-    expect(met?.textContent).toBe("🥩 27 / 20 g ✓");
+    // The bar of the short total is the meter in its button (#803).
+    const meter = short?.closest("button")?.querySelector("[role='meter']");
+    expect(meter?.getAttribute("style")).toContain("--log-progress: 25%");
+    // The macros are rings now, and a met floor says so in its words (#803).
+    expect(view.dom.querySelector(".cm-log-ring-words")?.textContent).toBe(
+      "27 g of 20 g, at least",
+    );
   });
 
   it("#623 a ceiling passed warns", async () => {
@@ -134,10 +152,12 @@ describe("the log card's kinds", () => {
     const over = [...view.dom.querySelectorAll<HTMLElement>(".cm-log-over")].map(
       (span) => span.textContent,
     );
-    expect(over).toHaveLength(2);
+    expect(over).toHaveLength(1);
     expect(over[0]).toContain("🍺 2 / 1");
     expect(over[0]?.endsWith("⚠")).toBe(true);
-    expect(over[1]).toBe("🔥 2300 / 2200 kcal ⚠");
+    // The kcal ceiling is the big figure now, and says it is passed in words (#803).
+    expect(view.dom.querySelector(".cm-log-big-figure")?.textContent).toBe("100");
+    expect(view.dom.querySelector(".cm-log-big-words")?.textContent).toBe("kcal over");
   });
 
   it("#623 a broken config line is named on the card and the other kinds still work", async () => {
@@ -173,10 +193,10 @@ describe("the log card's kinds", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     const view = mount(NOTE);
     await vi.waitFor(() => expect(warn).toHaveBeenCalledWith(message));
-    const labels = [...view.dom.querySelectorAll<HTMLButtonElement>(".cm-log-button")].map(
-      (button) => button.textContent,
+    const labels = [...view.dom.querySelectorAll<HTMLButtonElement>(".cm-log button")].map(
+      tapWords,
     );
-    expect(labels).toEqual(["+ 💧 250 ml", "+ ☕ 1", "+ 🍺 1", "+ 🍽 food"]);
+    expect(labels).toEqual(["+ 💧 250 ml", "+ ☕ 1", "+ 🍺 1", "+ Food"]);
     expect(broken(view)).toBe("");
     warn.mockRestore();
   });
@@ -184,11 +204,12 @@ describe("the log card's kinds", () => {
   it("#623 a config line can change water's tap to 500 ml", async () => {
     vi.mocked(fetchNote).mockResolvedValue("- 💧 water: 500 ml\n- ☕ coffee: 1\n- 🍺 alcohol: 1");
     const view = mount(NOTE);
-    await vi.waitFor(() =>
-      expect(view.dom.querySelector(".cm-log button[aria-label='Log water']")?.textContent).toBe(
-        "+ 💧 500 ml",
-      ),
-    );
+    await vi.waitFor(() => {
+      const water = view.dom.querySelector<HTMLButtonElement>(
+        ".cm-log button[aria-label='Log water']",
+      );
+      expect(water === null ? null : tapWords(water)).toBe("+ 💧 500 ml");
+    });
     press(view, "Log water");
     expect(text(view)).toContain("- 💧 500 ml\n- 💧 500 ml\n\n## Done");
   });
@@ -257,8 +278,11 @@ describe("the log card's kinds", () => {
   it("#623 a food floor reads as short before the first food", async () => {
     vi.mocked(fetchNote).mockResolvedValue(`${DEFAULTS}\n- 🍽 food: protein min 120`);
     const view = mount(NOTE);
-    await vi.waitFor(() => expect(totals(view)).toContain("🥩 0 / 120 g"));
-    expect(view.dom.querySelector(".cm-log-short")?.textContent).toBe("🥩 0 / 120 g");
+    await vi.waitFor(() =>
+      expect(view.dom.querySelector(".cm-log-ring-words")?.textContent).toBe(
+        "0 g of 120 g, at least",
+      ),
+    );
   });
 
   it("#623 a config arriving while the food search is open keeps the query's focus", async () => {
@@ -271,6 +295,8 @@ describe("the log card's kinds", () => {
     );
     const view = mount(NOTE);
     press(view, "Log food");
+    // The sheet is shown after the update that opens it, so the query is there a turn later (#803).
+    await vi.waitFor(() => expect(view.dom.querySelector(".cm-log-food-query")).not.toBeNull());
     const query = view.dom.querySelector<HTMLInputElement>(".cm-log-food-query");
     query?.focus();
     expect(document.activeElement).toBe(query);

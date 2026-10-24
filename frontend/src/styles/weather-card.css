@@ -73,6 +73,55 @@
 .cm-weather .wx-flake { fill: var(--k-muted); }
 .cm-weather .wx-bolt { fill: none; stroke: var(--k-warn); stroke-width: 1.8; stroke-linejoin: round; }
 
+/* The one-line row: the place, the sky at noon and the range, at the size of the
+   card's text. Its fold's marker is hidden, since the row is the thing to tap. A
+   coarse pointer gets a 44px row to hit. */
+.cm-weather-more > summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 10px;
+  min-width: 0;
+  font-family: var(--k-sans);
+  font-size: var(--k-text-13);
+  color: var(--k-muted);
+  cursor: pointer;
+  list-style: none;
+  touch-action: manipulation;
+}
+
+.cm-weather-more > summary::-webkit-details-marker {
+  display: none;
+}
+
+.cm-weather-more > summary:focus-visible {
+  outline: 2px solid var(--k-accent);
+  outline-offset: 1px;
+}
+
+.cm-weather .cm-weather-icon {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  fill: none;
+}
+
+.cm-weather-line .cm-weather-place {
+  color: var(--k-ink);
+  font-weight: 600;
+}
+
+.cm-weather-line .cm-weather-range {
+  color: var(--k-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (pointer: coarse) {
+  .cm-weather-more > summary {
+    min-height: 44px;
+  }
+}
+
 .cm-weather-tip {
   position: absolute;
   z-index: 2;

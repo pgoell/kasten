@@ -41,7 +41,9 @@ const card = (view: EditorView) => view.dom.querySelector<HTMLElement>(".cm-log"
 const amount = (view: EditorView) => view.dom.querySelector(".cm-log-amount") as HTMLInputElement;
 const why = (view: EditorView) => view.dom.querySelector(".cm-log-why")?.textContent;
 const text = (view: EditorView) => view.state.doc.toString();
-const totals = (view: EditorView) => view.dom.querySelector(".cm-log-totals")?.textContent ?? "";
+// The kinds' totals sit in their quick buttons, beside the words of their taps (#803).
+const totals = (view: EditorView) =>
+  [...view.dom.querySelectorAll(".cm-log-button-total")].map((node) => node.textContent).join("");
 
 /** Presses the card's button with this aria-label, or fails the test where there is none. */
 function press(view: EditorView, label: string): void {

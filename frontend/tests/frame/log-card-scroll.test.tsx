@@ -122,9 +122,18 @@ async function expectKept(view: EditorView, before: Position): Promise<void> {
   expect(view.scrollDOM.scrollTop, "the note's scrollTop").toBe(before.note);
   expect(window.scrollY, "the page's scrollY").toBe(before.page);
   const pane = view.scrollDOM.getBoundingClientRect();
-  const box = query?.getBoundingClientRect();
-  expect(box?.top, "the query's top in the pane").toBeGreaterThanOrEqual(pane.top);
-  expect(box?.bottom, "the query's bottom in the pane").toBeLessThanOrEqual(pane.bottom);
+  // Polled: on a phone the search is a sheet that springs up from the foot, so
+  // the query reaches the pane only once the spring has come to rest.
+  await expect
+    .poll(() => query?.getBoundingClientRect().top ?? -1, {
+      message: "the query's top in the pane",
+    })
+    .toBeGreaterThanOrEqual(pane.top);
+  await expect
+    .poll(() => query?.getBoundingClientRect().bottom ?? Infinity, {
+      message: "the query's bottom in the pane",
+    })
+    .toBeLessThanOrEqual(pane.bottom);
 }
 
 it("#814 tapping + food keeps the note's scroll position on a desktop", async () => {
@@ -174,18 +183,11 @@ it("#814 a kind tap while the food search is open keeps the note's scroll positi
   await expectKept(view, before);
 });
 
-it("#814 tapping + food with the card at the pane's bottom edge scrolls only so far as to show the query", async () => {
+// The search is a panel over the note since #803, so the note need not move to show it.
+it("#814 tapping + food with the card at the pane's bottom edge leaves the note where it is", async () => {
   const view = await mountNote(1200, 480, ABOVE);
   scrollRowToFold(view);
   const before = positions(view);
   pressFood(view);
-  const query = view.dom.querySelector<HTMLInputElement>(".cm-log-food-query");
-  expect(query).not.toBeNull();
-  await expect.poll(() => document.activeElement).toBe(query);
-  expect(view.scrollDOM.scrollTop, "the note moved to show the query").toBeGreaterThan(before.note);
-  const pane = view.scrollDOM.getBoundingClientRect();
-  const bottom = query?.getBoundingClientRect().bottom ?? 0;
-  expect(bottom, "the query's bottom in the pane").toBeLessThanOrEqual(pane.bottom + 1);
-  // Its bottom sits on the pane's edge, a pixel or two off, not centred and not past it.
-  expect(pane.bottom - bottom, "the gap under the query").toBeLessThanOrEqual(2);
+  await expectKept(view, before);
 });

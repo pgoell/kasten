@@ -138,10 +138,12 @@ it("#620 the card lays out on a desktop without scrolling sideways", async () =>
 });
 
 /** Presses the card's 🍽 button, or fails the test where there is none. */
-function openFood(view: EditorView): void {
+async function openFood(view: EditorView): Promise<void> {
   const button = view.dom.querySelector<HTMLButtonElement>(".cm-log button[aria-label='Log food']");
   expect(button).not.toBeNull();
   button?.click();
+  // The sheet is drawn in a microtask after the press, so the call waits for that one turn.
+  await Promise.resolve();
 }
 
 /** Types into the panel's query the way a keyboard does, so its pause starts. */
@@ -211,7 +213,7 @@ function expectFingerSized(view: EditorView): void {
 it("#621 the food search and the serving choice are finger-sized and do not scroll sideways at 414", async () => {
   try {
     const { host, view } = await mount(414, 896);
-    openFood(view);
+    await openFood(view);
     typeFood(view, "snickers");
     await expect
       .poll(() => view.dom.querySelector(".cm-log-food-results")?.textContent ?? "")
@@ -242,7 +244,7 @@ it("#621 the food search and the serving choice are finger-sized and do not scro
 it("#799 the add form is finger-sized and does not scroll sideways at 414", async () => {
   try {
     const { host, view } = await mount(414, 896);
-    openFood(view);
+    await openFood(view);
     const add = view.dom.querySelector<HTMLButtonElement>(".cm-log-food-new");
     expect(add).not.toBeNull();
     add?.click();
@@ -261,7 +263,7 @@ it("#799 the add form is finger-sized and does not scroll sideways at 414", asyn
 it("#621 the food search and the serving choice lay out on a desktop", async () => {
   try {
     const { host, view } = await mount(1200, 900);
-    openFood(view);
+    await openFood(view);
     typeFood(view, "snickers");
     await expect
       .poll(() => view.dom.querySelector(".cm-log-food-results")?.textContent ?? "")

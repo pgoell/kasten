@@ -106,10 +106,12 @@ function clickOn(view: EditorView, selector: string): void {
 }
 
 /** Presses the card's 🍽 button, or fails the test where there is none. */
-function openFood(view: EditorView): void {
+async function openFood(view: EditorView): Promise<void> {
   const button = view.dom.querySelector<HTMLButtonElement>(".cm-log button[aria-label='Log food']");
   expect(button).not.toBeNull();
   button?.click();
+  // The sheet is drawn in a microtask after the press, so the call waits for that one turn.
+  await Promise.resolve();
 }
 
 /** Types `text` into the open panel, and lets the pause pass so the search is sent. */
@@ -205,7 +207,7 @@ describe("the barcode scan", () => {
 
   it("#622 the scan button asks for the rear camera at ideal environment with no audio", async () => {
     const view = mount(NOTE);
-    openFood(view);
+    await openFood(view);
     await startScan(view);
     expect(getUserMedia).toHaveBeenCalledWith({
       video: { facingMode: { ideal: "environment" } },
@@ -216,7 +218,7 @@ describe("the barcode scan", () => {
   it("#622 a hit stops every track hides the camera and opens the product in the serving form", async () => {
     detectFrame.mockResolvedValueOnce([{ rawValue: SNICKERS.code, format: "ean_13" }]);
     const view = mount(NOTE);
-    openFood(view);
+    await openFood(view);
     await startScan(view);
     expectStopped();
     expect(cameraOf(view)?.hidden).toBe(true);
@@ -228,7 +230,7 @@ describe("the barcode scan", () => {
   it("#622 BarcodeDetector with all four formats is used for the hit", async () => {
     detectFrame.mockResolvedValueOnce([{ rawValue: SNICKERS.code, format: "ean_13" }]);
     const view = mount(NOTE);
-    openFood(view);
+    await openFood(view);
     await startScan(view);
     expect(detectFrame).toHaveBeenCalled();
     expect(readBarcode).toHaveBeenCalledWith(SNICKERS.code);
@@ -237,7 +239,7 @@ describe("the barcode scan", () => {
   it("#622 BarcodeDetector without the four formats is never asked to detect", async () => {
     stubDetector(["qr_code"]);
     const view = mount(NOTE);
-    openFood(view);
+    await openFood(view);
     await startScan(view);
     await vi.advanceTimersByTimeAsync(150);
     expect(detectFrame).not.toHaveBeenCalled();
@@ -246,7 +248,7 @@ describe("the barcode scan", () => {
   it("#622 no BarcodeDetector at all never throws and a close stops every track", async () => {
     Reflect.deleteProperty(globalThis, "BarcodeDetector");
     const view = mount(NOTE);
-    openFood(view);
+    await openFood(view);
     await startScan(view);
     clickOn(view, ".cm-log-food-close");
     expectStopped();
@@ -255,17 +257,17 @@ describe("the barcode scan", () => {
   it("#622 a refused camera says so and the typed field still searches", async () => {
     getUserMedia.mockRejectedValueOnce(new DOMException("Permission denied", "NotAllowedError"));
     const view = mount(NOTE);
-    openFood(view);
+    await openFood(view);
     await startScan(view);
     expect(foodWhy(view)).toBe("The camera is not allowed; type the barcode instead");
     await typeQuery(view, "snickers");
     expect(searchFood).toHaveBeenCalledWith("snickers");
   });
 
-  it("#622 no camera says so", () => {
+  it("#622 no camera says so", async () => {
     Object.defineProperty(navigator, "mediaDevices", { configurable: true, value: undefined });
     const view = mount(NOTE);
-    openFood(view);
+    await openFood(view);
     scanOf(view).click();
     expect(foodWhy(view)).toBe("No camera here; type the barcode instead");
     expect(getUserMedia).not.toHaveBeenCalled();
@@ -273,7 +275,7 @@ describe("the barcode scan", () => {
 
   it("#622 Close stops every track", async () => {
     const view = mount(NOTE);
-    openFood(view);
+    await openFood(view);
     await startScan(view);
     clickOn(view, ".cm-log-food-close");
     expectStopped();
@@ -281,16 +283,18 @@ describe("the barcode scan", () => {
 
   it("#622 Escape stops every track", async () => {
     const view = mount(NOTE);
-    openFood(view);
+    await openFood(view);
     await startScan(view);
     fireEvent.keyDown(queryOf(view), { key: "Escape" });
     expectStopped();
+    // The sheet leaves by its own close, which takes a turn of the timers to unmount.
+    await vi.advanceTimersByTimeAsync(1000);
     expect(foodQuery(view)).toBeNull();
   });
 
   it("#622 a log stops every track", async () => {
     const view = mount(NOTE);
-    openFood(view);
+    await openFood(view);
     await startScan(view);
     await typeQuery(view, "snickers");
     await pickFirst(view);
@@ -301,7 +305,7 @@ describe("the barcode scan", () => {
 
   it("#622 the editor view going stops every track", async () => {
     const view = mount(NOTE);
-    openFood(view);
+    await openFood(view);
     await startScan(view);
     const parent = view.dom.parentElement;
     view.destroy();
@@ -312,7 +316,7 @@ describe("the barcode scan", () => {
 
   it("#622 the tab hiding stops every track and showing it again does not restart", async () => {
     const view = mount(NOTE);
-    openFood(view);
+    await openFood(view);
     await startScan(view);
     Object.defineProperty(document, "hidden", { configurable: true, get: () => true });
     document.dispatchEvent(new Event("visibilitychange"));
@@ -332,7 +336,7 @@ describe("the barcode scan", () => {
       }),
     );
     const view = mount(NOTE);
-    openFood(view);
+    await openFood(view);
     scanOf(view).click();
     clickOn(view, ".cm-log-food-close");
     grant(stream);
@@ -342,7 +346,7 @@ describe("the barcode scan", () => {
 
   it("#622 a second press while scanning opens no second stream", async () => {
     const view = mount(NOTE);
-    openFood(view);
+    await openFood(view);
     await startScan(view);
     scanOf(view).click();
     await vi.advanceTimersByTimeAsync(0);
@@ -356,7 +360,7 @@ describe("the barcode scan", () => {
       new Error("No food with barcode 4006381333931 on Open Food Facts"),
     );
     const view = mount(NOTE);
-    openFood(view);
+    await openFood(view);
     await startScan(view);
     expect(foodWhy(view)).toBe(
       "No food with barcode 4006381333931 on Open Food Facts; search by name or add it as your own",
@@ -370,7 +374,7 @@ describe("the barcode scan", () => {
   it("#622 a UPC-E hit reads its UPC-A", async () => {
     detectFrame.mockResolvedValueOnce([{ rawValue: "01234565", format: "upc_e" }]);
     const view = mount(NOTE);
-    openFood(view);
+    await openFood(view);
     await startScan(view);
     expect(readBarcode).toHaveBeenCalledWith("012345000065");
   });
@@ -378,7 +382,7 @@ describe("the barcode scan", () => {
   it("#622 one code seen over many frames reads once", async () => {
     detectFrame.mockResolvedValue([{ rawValue: SNICKERS.code, format: "ean_13" }]);
     const view = mount(NOTE);
-    openFood(view);
+    await openFood(view);
     await startScan(view);
     await vi.advanceTimersByTimeAsync(1000);
     expect(readBarcode).toHaveBeenCalledTimes(1);
@@ -393,7 +397,7 @@ describe("the barcode scan", () => {
     );
     detectFrame.mockResolvedValueOnce([{ rawValue: SNICKERS.code, format: "ean_13" }]);
     const view = mount(NOTE);
-    openFood(view);
+    await openFood(view);
     await startScan(view);
     expect(readBarcode).toHaveBeenCalledWith(SNICKERS.code);
     clickOn(view, ".cm-log-food-close");
@@ -405,7 +409,7 @@ describe("the barcode scan", () => {
 
   it("#622 no decode runs after a stop", async () => {
     const view = mount(NOTE);
-    openFood(view);
+    await openFood(view);
     await startScan(view);
     clickOn(view, ".cm-log-food-close");
     const looks = detectFrame.mock.calls.length;
@@ -416,7 +420,7 @@ describe("the barcode scan", () => {
   it("#622 a decoder that fails stops every track and says so", async () => {
     detectFrame.mockRejectedValueOnce(new Error("x"));
     const view = mount(NOTE);
-    openFood(view);
+    await openFood(view);
     await startScan(view);
     expectStopped();
     expect(foodWhy(view)).toBe("The barcode reader failed; type the barcode instead");
@@ -427,7 +431,7 @@ describe("the barcode scan", () => {
       new DOMException("Timeout starting video source", "AbortError"),
     );
     const view = mount(NOTE);
-    openFood(view);
+    await openFood(view);
     await startScan(view);
     expect(foodWhy(view)).toBe("The camera did not start; type the barcode instead");
     expect(scanOf(view).textContent).toBe("Scan");
@@ -436,7 +440,7 @@ describe("the barcode scan", () => {
   it("#622 an unknown barcode after a found one goes back to the name search and logs nothing", async () => {
     detectFrame.mockResolvedValueOnce([{ rawValue: SNICKERS.code, format: "ean_13" }]);
     const view = mount(NOTE);
-    openFood(view);
+    await openFood(view);
     await startScan(view);
     expect(servingOf(view)?.hidden).toBe(false);
     detectFrame.mockResolvedValueOnce([{ rawValue: "4006381333931", format: "ean_13" }]);
@@ -460,7 +464,7 @@ describe("the barcode scan", () => {
     );
     detectFrame.mockResolvedValueOnce([{ rawValue: SNICKERS.code, format: "ean_13" }]);
     const view = mount(NOTE);
-    openFood(view);
+    await openFood(view);
     await startScan(view);
     await typeQuery(view, "snickers");
     await pickFirst(view);
@@ -472,7 +476,7 @@ describe("the barcode scan", () => {
 
   it("#622 a drink tap while scanning keeps the camera playing", async () => {
     const view = mount(NOTE);
-    openFood(view);
+    await openFood(view);
     await startScan(view);
     paused = true;
     const before = play.mock.calls.length;
@@ -484,13 +488,14 @@ describe("the barcode scan", () => {
 
   it("#622 with vim on keys on the scan button never reach vim and Escape closes the scanner", async () => {
     const view = mount(NOTE, DAILY, [vim(), vimModeState()]);
-    openFood(view);
+    await openFood(view);
     await startScan(view);
     fireEvent.keyDown(scanOf(view), { key: "i" });
     fireEvent.keyDown(scanOf(view), { key: "u" });
     expect(view.state.field(vimModeField)).toBe("normal");
     expect(text(view)).toBe(NOTE);
     fireEvent.keyDown(scanOf(view), { key: "Escape" });
+    await vi.advanceTimersByTimeAsync(1000);
     expect(foodQuery(view)).toBeNull();
     expectStopped();
   });
@@ -501,7 +506,7 @@ describe("the barcode scan", () => {
     Object.defineProperty(navigator, "sendBeacon", { configurable: true, value: beacon });
     detectFrame.mockResolvedValueOnce([{ rawValue: SNICKERS.code, format: "ean_13" }]);
     const view = mount(NOTE);
-    openFood(view);
+    await openFood(view);
     await startScan(view);
     expect(readBarcode).toHaveBeenCalledTimes(1);
     expect(readBarcode).toHaveBeenCalledWith(SNICKERS.code);

@@ -72,8 +72,11 @@ const formField = (view: EditorView, selector: string) => find<HTMLInputElement>
 const addOf = (view: EditorView) => find<HTMLButtonElement>(view, ".cm-log-food-new");
 const saveOf = (view: EditorView) =>
   find<HTMLButtonElement>(view, "button[aria-label='Save this food']");
-const openFood = (view: EditorView) =>
+// The sheet is drawn in a microtask after the press, so the call waits for that one turn.
+const openFood = async (view: EditorView) => {
   find<HTMLButtonElement>(view, ".cm-log button[aria-label='Log food']").click();
+  await Promise.resolve();
+};
 const logFood = (view: EditorView) =>
   find<HTMLButtonElement>(view, "button[aria-label='Log this food']").click();
 
@@ -143,7 +146,7 @@ describe("foods of your own", () => {
   it("#799 foods of your own show first, marked mine, and log scaled to their serving", async () => {
     vi.mocked(fetchMyFoods).mockResolvedValue({ foods: [CHIPS], broken: [] });
     const view = mount(NOTE);
-    openFood(view);
+    await openFood(view);
     await vi.advanceTimersByTimeAsync(0);
     const first = view.dom.querySelector<HTMLButtonElement>(".cm-log-food-results button");
     expect(first?.textContent).toContain("ja! Choco Chips");
@@ -179,7 +182,7 @@ describe("foods of your own", () => {
     ];
     vi.mocked(fetchLog).mockResolvedValue(days as unknown as LogDay[]);
     const view = mount(NOTE);
-    openFood(view);
+    await openFood(view);
     await vi.advanceTimersByTimeAsync(0);
     const rows = view.dom.querySelectorAll(".cm-log-food-results button");
     expect(rows).toHaveLength(1);
@@ -190,7 +193,7 @@ describe("foods of your own", () => {
     vi.mocked(fetchMyFoods).mockResolvedValue({ foods: [CHIPS], broken: [] });
     vi.mocked(searchFood).mockResolvedValue([]);
     const view = mount(NOTE);
-    openFood(view);
+    await openFood(view);
     await typeQuery(view, "4337185123456");
     expect(foodResults(view)).toContain("ja! Choco Chips");
   });
@@ -201,7 +204,7 @@ describe("foods of your own", () => {
       broken: [{ line: 3, text: "- toast" }],
     });
     const view = mount(NOTE);
-    openFood(view);
+    await openFood(view);
     await vi.advanceTimersByTimeAsync(0);
     expect(foodWhy(view)).toBe("Skipped line 3 of foods.md: - toast");
     expect(foodResults(view)).toContain("ja! Choco Chips");
@@ -210,7 +213,7 @@ describe("foods of your own", () => {
   it("#799 Add food saves the food with the query as its name and opens it in the serving form", async () => {
     vi.mocked(searchFood).mockResolvedValue([]);
     const view = mount(NOTE);
-    openFood(view);
+    await openFood(view);
     await typeQuery(view, "ja! Choco Chips");
     addOf(view).click();
     expect(formField(view, "input[aria-label='Name']").value).toBe("ja! Choco Chips");
@@ -232,7 +235,7 @@ describe("foods of your own", () => {
 
   it("#799 Add food with no kcal, a bad barcode or no name saves nothing and says why", async () => {
     const view = mount(NOTE);
-    openFood(view);
+    await openFood(view);
     addOf(view).click();
     fill(view, "kcal", "486");
     saveOf(view).click();
@@ -257,7 +260,7 @@ describe("foods of your own", () => {
   it("#799 a failed save says why and keeps the form", async () => {
     vi.mocked(addMyFood).mockRejectedValue(new Error("PUT /api/files/foods.md failed with 500"));
     const view = mount(NOTE);
-    openFood(view);
+    await openFood(view);
     addOf(view).click();
     fill(view, "Name", "Toast");
     fill(view, "kcal", "250");
@@ -267,9 +270,9 @@ describe("foods of your own", () => {
     expect(view.dom.querySelector<HTMLElement>(".cm-log-food-add")?.hidden).toBe(false);
   });
 
-  it("#799 with vim on, keys typed in the add form never reach vim", () => {
+  it("#799 with vim on, keys typed in the add form never reach vim", async () => {
     const view = mount(NOTE, DAILY, [vim(), vimModeState()]);
-    openFood(view);
+    await openFood(view);
     addOf(view).click();
     for (const label of ["Name", "Serving", "kcal", "Protein", "Carbs", "Fat", "Barcode"]) {
       const input = formField(view, `.cm-log-food-add input[aria-label='${label}']`);
@@ -283,7 +286,7 @@ describe("foods of your own", () => {
     vi.mocked(fetchMyFoods).mockResolvedValue({ foods: [CHIPS], broken: [] });
     stubCamera("4337185123456");
     const view = mount(NOTE);
-    openFood(view);
+    await openFood(view);
     await vi.advanceTimersByTimeAsync(0);
     await scan(view);
     expect(readBarcode).not.toHaveBeenCalled();
@@ -298,7 +301,7 @@ describe("foods of your own", () => {
       new Error("No food with barcode 4006381333931 on Open Food Facts"),
     );
     const view = mount(NOTE);
-    openFood(view);
+    await openFood(view);
     await scan(view);
     view.dom.querySelector<HTMLButtonElement>(".cm-log-food-new")?.click();
     const code = view.dom.querySelector<HTMLInputElement>(

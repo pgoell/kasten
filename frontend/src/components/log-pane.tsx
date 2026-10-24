@@ -19,12 +19,14 @@ import { editedLine } from "@/lib/log-edit";
 import {
   DEFAULT_CONFIG,
   type FoodField,
+  type FoodGoals,
   type Goal,
   kindLine,
   type LogKind,
   parseConfig,
   tapLine,
 } from "@/lib/log-kinds";
+import type { DrinkTotals } from "@/lib/log-lines";
 import { useLeader } from "@/lib/use-leader";
 import type { LogActions } from "@/lib/use-log-actions";
 
@@ -217,6 +219,11 @@ export function LogPane({ commands, onOpen, focusSignal, today, actions, onNotic
   const foodHost = useRef<HTMLDivElement>(null);
   // The food panel outlives the render that opened it, so it writes through the latest actions.
   const writer = useRef(actions);
+  // Read by the food panel each time it draws a figure, so it sees the day as it is now.
+  const todayFood = useRef<{ eaten: DrinkTotals["food"]; goals: FoodGoals }>({
+    eaten: { kcal: 0, protein: 0, carbs: 0, fat: 0 },
+    goals: {},
+  });
   const leader = useLeader(commands);
 
   // The raw note under the key every reader of log.md shares, parsed on the way out, so the
@@ -269,13 +276,17 @@ export function LogPane({ commands, onOpen, focusSignal, today, actions, onNotic
 
   useEffect(() => {
     writer.current = actions;
+    todayFood.current = {
+      eaten: entryDay?.totals.food ?? { kcal: 0, protein: 0, carbs: 0, fat: 0 },
+      goals: config.food,
+    };
   });
 
   // The food search is a panel of this pane, opened for the day shown and dropped when the day moves.
   useEffect(() => {
     const host = foodHost.current;
     if (!foodOpen || host === null) return;
-    const root = foodPanel(day, {
+    const panel = foodPanel(day, {
       log: (line) => {
         // A refused write keeps the search open, so the line can be tried again.
         void writer.current.addLine(day, line).then((ok) => {
@@ -283,10 +294,14 @@ export function LogPane({ commands, onOpen, focusSignal, today, actions, onNotic
         });
       },
       close: () => setFoodOpen(false),
+      today: () => todayFood.current,
     });
-    host.append(root);
-    root.querySelector<HTMLInputElement>('input[aria-label="Food"]')?.focus();
-    return () => root.remove();
+    host.append(panel.root);
+    panel.root.querySelector<HTMLInputElement>('input[aria-label="Food"]')?.focus();
+    return () => {
+      panel.stop();
+      panel.root.remove();
+    };
   }, [foodOpen, day]);
 
   useEffect(() => {

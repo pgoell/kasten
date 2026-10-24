@@ -100,8 +100,18 @@ decimal once, after the sum, half to even as Python's `round` does: 0.25 g is
 
 ## The card
 
-A daily note in live preview shows a card under the weather card: the note's
-own water, coffee and alcohol totals, and a button per kind. A tap writes
+A daily note in live preview shows a card under the title and a one-line weather row. From the top, the card holds:
+
+* The big number: kcal left for the day, with `eaten of goal, at most` under it and one bar. With no kcal goal it shows kcal eaten, with no `left` and no bar. Past the goal it reads `N kcal over`, with the bar full and the warning colour beside the words.
+* Rings for protein, carbs and fat. Each has a text label and its goal written out, as `of 120 g, at least`. A macro with no goal shows its grams and no `of`.
+* A quick button per kind in the config note, each with its total and a goal meter.
+* `+ Food`, the main button.
+* The day's entries under breakfast, lunch, dinner and snack, with kcal for each meal and protein, carbs and fat for each entry. A food line with no meal sits under `No meal`. An empty meal offers `Copy yesterday's <meal> (<n> lines)`, shown only when yesterday's note has lines for that meal.
+* A fold at the bottom with the raw `## Log` lines.
+
+A tap on `Copy yesterday's <meal>` writes each of yesterday's lines for that meal into today's note, as yesterday holds them, never rebuilt. The copy is one change at the end of `## Log`, so `u`, undo and the card's `Undo` take every copied line back at once. Yesterday's note does not change. The offer waits for yesterday's read and shows only once it answers with lines.
+
+A tap writes
 `- 💧 250 ml`, `- ☕ 1` or `- 🍺 1` at the end of `## Log`, making the section
 at the end of the note where there is none. The field beside the buttons takes
 another amount for the next tap: `500` on water writes `- 💧 500 ml`, and
@@ -110,27 +120,43 @@ parse as that kind writes nothing, and the card says why.
 
 The tap is an edit of the note's buffer, which autosave writes as it writes
 typing, so `u` or Ctrl+Z takes it back as well as the card's `Undo`. `Undo`
-takes out the last tap's line while that line is still as the tap wrote it.
+takes out the last tap's line while that line is still as the tap wrote it. A quick add is one change like a tap, and a copy of yesterday's meal is one change with all its lines.
 The totals are the open note's lines, so yesterday's note shows yesterday.
 The palette has one `Log <name>` per kind, `Log water`, `Log coffee` and
 `Log alcohol` with no config note, which writes the kind's tap line into today's
 note from anywhere; see [the command palette](/reference/editor-keys/leader.md#the-command-palette).
 
-The card's `+ 🍽 food` button opens a food search. Type two characters or
-more and the search runs once the typing pauses, on Open Food Facts. A barcode
+The card's `+ Food` button opens the food search: a bottom sheet on a phone, and
+a panel on the right with a scrim on a desktop. Its sections come in this order:
+`Mine`, your own [foods](#the-foods-note); `Recent`, the foods the last 30 days
+logged; and `Open Food Facts`. The first two need no search. Type two characters
+or more and the search runs once the typing pauses, on Open Food Facts. A barcode
 of eight to fourteen digits reads that one food. `Scan`, beside the field,
 opens the rear camera (the front one where there is none) and reads EAN-13,
 EAN-8, UPC-A and UPC-E codes; a UPC-E code is looked up as its twelve-digit
-UPC-A. `Stop` ends the scan, and the camera also stops on a read, on the panel's
-close, and when the tab or app goes to the background. A read opens the product
-as a typed barcode does. [Foods of your own](#the-foods-note) come first, marked
-`mine`, then foods that the last 30 days logged, marked `recent`; neither needs
-a search. A pick shows its
-serving: grams, servings (1 at first), and a meal. The meal is breakfast from
-5 to 10, lunch from 11 to 14, dinner from 17 to 21, and a snack at other hours.
-`Log this food` writes the food line at the end of `## Log`, with the kcal and
-macros for the amount chosen. `Escape` and `Close` write nothing. The card's
-totals show the food's kcal, protein, carbs and fat once a food line is there.
+UPC-A. `Stop` ends the scan. The camera also stops on a read, when the sheet
+closes, and when the tab or app goes to the background. A read opens the product
+as a typed barcode does.
+
+A pick opens the serving step. It has the chips `100 g`, `150 g`, `1 serving`
+and `250 g`, the amount in grams or servings, and a meal. The meal starts from
+the hour: breakfast from 5 to 10, lunch from 11 to 14, dinner from 17 to 21, and
+a snack at other hours. A live preview shows the kcal for the amount, the kcal
+left after it, and protein, carbs and fat, each with a meter against today's
+goal. The exact line it writes sits under the preview, in mono. `Log this food`
+writes that line at the end of `## Log`. On a phone the preview and the button
+stay pinned at the foot of the sheet.
+
+`Escape`, also from inside the search field, a tap on the scrim, a drag of the
+sheet down and `Log this food` close the sheet. Only `Log this food` writes, and
+a close stops the camera and gives the focus back to the note. The card's totals
+show the food's kcal, protein, carbs and fat once a food line is there.
+
+Quick add takes a number of kcal. Type it in the quick add field and tap `Add`.
+The line `- 🍽 <meal>: 🔥 250 kcal` goes to the end of `## Log`, under the meal of
+the hour, and a picker beside it changes the meal. The line has no words, which a
+food line may have. Zero, a negative number, text and a number of ten digits or
+more write nothing, and the card says why.
 The palette's `Log food` opens the same search on a daily note, and from any
 other pane opens today's note first, making it when there is none.
 
@@ -196,7 +222,7 @@ other lines still work.
 With no note, or a note that cannot be read, the card shows the three kinds of
 [the card](#the-card) as before (water 250 ml, coffee 1, alcohol 1) and no
 goals. A note that is there lists exactly its kinds. One without a `☕` line
-shows no coffee button. The food button always shows.
+shows no coffee button. The `+ Food` button always shows.
 
 A kind's total shows its goal beside it, as `💧 1500 / 2000 ml`. A met floor
 adds ` ✓`, a passed ceiling adds ` ⚠` in the warning colour, and a floor shows
@@ -235,17 +261,17 @@ line is, in order:
 A `- ` line that breaks a rule is named in the search as
 `Skipped line N of foods.md: <text>`, and the other lines still list.
 
-The search lists your own foods first, marked `mine`, where the name holds the
+The search lists your own foods first, in the `Mine` section, where the name holds the
 typed words or the typed text is the barcode. A recent food with the same name
 as one of yours is listed once, as yours. A scanned barcode is looked up in the
-note before Open Food Facts is asked. A pick opens the serving form at the
+note before Open Food Facts is asked. A pick opens the serving step at the
 food's serving, with the figures scaled from 100 g.
 
 `Add food` in the search opens a form for the name, the serving, the four
 figures per 100 g, and the barcode. It takes the typed query as the name, and a
 barcode Open Food Facts did not know as the barcode. `Save` adds one line at the
-end of the note, making the note where there is none, then opens the food in the
-serving form. It writes the name without field markers, `🏷` and line breaks,
+end of the note, making the note where there is none, then opens the food at the
+serving step. It writes the name without field markers, `🏷` and line breaks,
 the serving and figures to a tenth. Two foods with the same name both list.
 Nothing edits or removes a line but you, in the note.
 

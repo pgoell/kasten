@@ -1,0 +1,384 @@
+/* The food search in its sheet. Every colour, size and space is a `--k-*` token, so
+   the search takes the theme as the rest of the app does. Fields are 16px, since a
+   phone zooms in on a smaller field. Every target is 44px, the finger's size, on a
+   mouse too, which is how the card's own buttons are drawn. */
+.cm-log-food {
+  --food-target: 44px;
+  display: grid;
+  gap: var(--k-space-12);
+  min-width: 0;
+  max-width: 100%;
+  padding: var(--k-space-8) var(--k-space-16) 0;
+}
+
+/* `hidden` must win over the grid and flex rules below. */
+.cm-log-food [hidden] {
+  display: none;
+}
+
+.cm-log-food-bar {
+  display: flex;
+  gap: var(--k-space-8);
+  min-width: 0;
+}
+
+.cm-log-food-query,
+.cm-log-food-grams,
+.cm-log-food-servings,
+.cm-log-food-meal,
+.cm-log-food-quick-kcal,
+.cm-log-food-quick-meal,
+.cm-log-food-add-input {
+  min-width: 0;
+  max-width: 100%;
+  min-height: var(--food-target);
+  padding: 0 var(--k-space-12);
+  border: 1px solid var(--k-rule);
+  border-radius: var(--k-radius-6);
+  background: var(--k-inset);
+  color: var(--k-ink);
+  font-family: var(--k-sans);
+  font-size: 16px;
+}
+
+.cm-log-food-query {
+  flex: 1 1 auto;
+}
+
+.cm-log-food-why {
+  color: var(--k-ink-soft);
+  font-size: var(--k-text-13);
+  overflow-wrap: anywhere;
+}
+
+.cm-log-food-why:empty {
+  display: none;
+}
+
+/* The results are three sections, each with a small heading and full-width rows. */
+.cm-log-food-results {
+  display: grid;
+  gap: var(--k-space-12);
+  min-width: 0;
+}
+
+.cm-log-food-section {
+  display: grid;
+  gap: 0;
+  min-width: 0;
+}
+
+.cm-log-food-section-title {
+  padding-bottom: var(--k-space-4);
+  color: var(--k-muted);
+  font-size: var(--k-text-12);
+  letter-spacing: var(--k-track-label);
+}
+
+.cm-log-food-pick {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px var(--k-space-8);
+  width: 100%;
+  min-width: 0;
+  min-height: var(--food-target);
+  padding: var(--k-space-8) var(--k-space-4);
+  border: 0;
+  border-top: 1px solid var(--k-rule);
+  border-radius: 0;
+  background: transparent;
+  color: var(--k-ink);
+  font: inherit;
+  font-size: var(--k-text-15);
+  text-align: left;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.cm-log-food-pick:hover {
+  background: var(--k-surface);
+}
+
+.cm-log-food-brand,
+.cm-log-food-recent,
+.cm-log-food-mine,
+.cm-log-food-kcal {
+  color: var(--k-muted);
+  font-size: var(--k-text-13);
+}
+
+.cm-log-food-quick {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--k-space-8);
+  min-width: 0;
+}
+
+.cm-log-food-quick-label {
+  flex: 0 0 100%;
+  color: var(--k-muted);
+  font-size: var(--k-text-13);
+}
+
+.cm-log-food-quick-kcal {
+  flex: 1 1 6rem;
+}
+
+.cm-log-food-quick-meal {
+  flex: 1 1 7rem;
+}
+
+/* The serving step: the name, the amount chips, the two amounts and the meal. */
+.cm-log-food-serving {
+  display: grid;
+  gap: var(--k-space-12);
+  min-width: 0;
+}
+
+.cm-log-food-heading {
+  color: var(--k-ink);
+  font-size: var(--k-text-19);
+  line-height: var(--k-leading-heading);
+  overflow-wrap: anywhere;
+}
+
+.cm-log-food-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--k-space-8);
+}
+
+.cm-log-food-chip {
+  min-height: var(--food-target);
+  padding: 0 var(--k-space-12);
+  border: 1px solid var(--k-rule);
+  border-radius: var(--k-radius-6);
+  background: var(--k-paper);
+  color: var(--k-ink);
+  font: inherit;
+  font-size: var(--k-text-13);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.cm-log-food-chip:hover {
+  background: var(--k-surface);
+}
+
+.cm-log-food-chip:disabled {
+  color: var(--k-muted);
+  opacity: 0.5;
+}
+
+.cm-log-food-field {
+  display: flex;
+  align-items: center;
+  gap: var(--k-space-8);
+  min-width: 0;
+  color: var(--k-muted);
+  font-size: var(--k-text-13);
+}
+
+.cm-log-food-field > input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.cm-log-food-field > span {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.cm-log-food-meal {
+  width: 100%;
+}
+
+/* The foot holds the preview and the Log button, and stays at the bottom of the
+   sheet while the rest scrolls. Its paper is solid, so the text above does not show
+   through it. The negative margins take it across the panel's gutter. */
+.cm-log-food-foot {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  display: grid;
+  gap: var(--k-space-8);
+  margin: 0 calc(-1 * var(--k-space-16));
+  padding: var(--k-space-12) var(--k-space-16) var(--k-space-16);
+  border-top: 1px solid var(--k-rule);
+  background: var(--k-paper);
+}
+
+.cm-log-food-preview {
+  display: grid;
+  gap: var(--k-space-4);
+  min-width: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.cm-log-food-kcal-big {
+  color: var(--k-ink);
+  font-size: var(--k-text-27);
+  line-height: var(--k-leading-display);
+  letter-spacing: var(--k-track-display);
+}
+
+.cm-log-food-left {
+  color: var(--k-muted);
+  font-size: var(--k-text-13);
+}
+
+.cm-log-food-macro {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.cm-log-food-macro-text {
+  color: var(--k-ink-soft);
+  font-size: var(--k-text-13);
+  overflow-wrap: anywhere;
+}
+
+.cm-log-food-meter {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--k-surface);
+  overflow: hidden;
+}
+
+.cm-log-food-meter > span {
+  display: block;
+  height: 100%;
+  background: var(--k-accent);
+}
+
+/* Over a ceiling the bar turns to the warning colour, and the words say "at most" beside it. */
+.cm-log-food-meter-over > span {
+  background: var(--k-warn);
+}
+
+.cm-log-food-line {
+  color: var(--k-muted);
+  font-family: var(--k-mono);
+  font-size: var(--k-text-12);
+  overflow-wrap: anywhere;
+}
+
+.cm-log-food-line:empty {
+  display: none;
+}
+
+.cm-log-food-actions {
+  display: flex;
+  gap: var(--k-space-8);
+}
+
+.cm-log-food-log {
+  flex: 1 1 auto;
+  min-height: var(--food-target);
+  padding: 0 var(--k-space-16);
+  border: 1px solid var(--k-ink);
+  border-radius: var(--k-radius-6);
+  background: var(--k-ink);
+  color: var(--k-paper);
+  font: inherit;
+  font-size: var(--k-text-15);
+  white-space: nowrap;
+}
+
+/* The add form of a food of your own: its fields wrap as the serving step's do, and its
+   buttons stand in a row. */
+.cm-log-food-add {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--k-space-8);
+  min-width: 0;
+}
+
+.cm-log-food-add-wide,
+.cm-log-food-add-heading {
+  flex-basis: 100%;
+}
+
+.cm-log-food-add-heading {
+  color: var(--k-muted);
+  font-size: var(--k-text-13);
+}
+
+.cm-log-food-add-buttons {
+  display: flex;
+  gap: var(--k-space-8);
+}
+
+.cm-log-food-add-input {
+  flex: 1 1 6rem;
+}
+
+.cm-log-food-camera {
+  display: block;
+  width: 100%;
+  max-height: 40vh;
+  object-fit: cover;
+  border-radius: var(--k-radius-6);
+}
+
+.cm-log-food-query:focus-visible,
+.cm-log-food-grams:focus-visible,
+.cm-log-food-servings:focus-visible,
+.cm-log-food-meal:focus-visible,
+.cm-log-food-quick-kcal:focus-visible,
+.cm-log-food-quick-meal:focus-visible,
+.cm-log-food-add-input:focus-visible,
+.cm-log-food-pick:focus-visible,
+.cm-log-food-chip:focus-visible,
+.cm-log-food-log:focus-visible,
+.cm-log-food-save:focus-visible,
+.cm-log-food-new:focus-visible,
+.cm-log-food-quick-add:focus-visible,
+.cm-log-food-back:focus-visible,
+.cm-log-food-close:focus-visible,
+.cm-log-food-scan:focus-visible,
+.cm-log-food-torch:focus-visible {
+  outline: 2px solid var(--k-accent);
+  outline-offset: 1px;
+}
+
+.cm-log-food-scan,
+.cm-log-food-torch,
+.cm-log-food-new,
+.cm-log-food-save,
+.cm-log-food-quick-add,
+.cm-log-food-back,
+.cm-log-food-close {
+  min-height: var(--food-target);
+  min-width: var(--food-target);
+  padding: 0 var(--k-space-12);
+  border: 1px solid var(--k-rule);
+  border-radius: var(--k-radius-6);
+  background: var(--k-paper);
+  color: var(--k-ink);
+  font: inherit;
+  font-size: var(--k-text-13);
+  white-space: nowrap;
+}
+
+.cm-log-food-back,
+.cm-log-food-close {
+  color: var(--k-muted);
+}
+
+.cm-log-food-scan:hover,
+.cm-log-food-torch:hover,
+.cm-log-food-new:hover,
+.cm-log-food-save:hover,
+.cm-log-food-quick-add:hover,
+.cm-log-food-back:hover,
+.cm-log-food-close:hover {
+  background: var(--k-surface);
+}
+
+.cm-log-food-torch[aria-pressed="true"] {
+  background: var(--k-rule);
+}

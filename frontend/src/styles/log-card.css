@@ -1,4 +1,4 @@
-/* The drink card under a daily note's title, drawn under the weather. Buttons
+/* The Log card under a daily note's title, drawn under the weather row. Buttons
    are 44px, the least a thumb hits reliably. The amount field is 16px, since a
    phone's Safari zooms into any smaller field and does not zoom back out. Rows
    wrap rather than run wide, so a 414px screen never scrolls sideways. */
@@ -12,12 +12,143 @@
   cursor: default;
 }
 
+/* The top of the card: the kcal figure, and the macro rings beside it when there is
+   the room, under it when there is not. */
+.cm-log-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 16px 24px;
+  min-width: 0;
+}
+
+.cm-log-big {
+  display: grid;
+  flex: 1 1 12rem;
+  gap: 2px;
+  min-width: 0;
+  color: var(--k-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.cm-log-big-figure {
+  font-family: var(--k-sans);
+  font-size: var(--k-text-46);
+  font-weight: 600;
+  line-height: var(--k-leading-display);
+  letter-spacing: var(--k-track-display);
+}
+
+.cm-log-big-words {
+  font-size: var(--k-text-15);
+}
+
+.cm-log-big-goal {
+  color: var(--k-muted);
+  font-size: var(--k-text-13);
+  overflow-wrap: anywhere;
+}
+
+/* The bar is a track with a fill that is --log-progress wide: a percent, never more than full. */
+.cm-log-bar {
+  display: block;
+  position: relative;
+  height: 6px;
+  margin-top: 4px;
+  border-radius: 3px;
+  background: var(--k-rule);
+  overflow: hidden;
+}
+
+.cm-log-bar::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: var(--log-progress, 0%);
+  border-radius: 3px;
+  background: var(--k-accent);
+}
+
+/* The rings are conic gradients: the filled part runs round to --log-progress
+   (a percent, read as a number here), the rest is the track. */
+.cm-log-rings {
+  display: flex;
+  flex: 1 1 14rem;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  min-width: 0;
+}
+
+.cm-log-ring-item {
+  display: flex;
+  flex: 1 1 6.5rem;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-size: var(--k-text-13);
+}
+
+.cm-log-ring {
+  --ring-fill: var(--k-accent);
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: conic-gradient(
+    var(--ring-fill) calc(var(--log-progress, 0) * 1%),
+    var(--k-rule) 0
+  );
+  /* A ring's hole is the card's paper, so the ring reads as a ring. */
+  -webkit-mask: radial-gradient(circle, transparent 13px, black 14px);
+  mask: radial-gradient(circle, transparent 13px, black 14px);
+}
+
+.cm-log-ring-text {
+  display: grid;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.cm-log-ring-name {
+  color: var(--k-ink);
+  font-weight: 600;
+}
+
+.cm-log-ring-words {
+  color: var(--k-muted);
+}
+
 .cm-log-totals {
   display: flex;
   flex-wrap: wrap;
-  gap: 2px 14px;
+  gap: 8px;
+  min-width: 0;
   color: var(--k-ink);
   font-variant-numeric: tabular-nums;
+}
+
+/* A quick button's words, its total with the goal, and its meter under them. */
+.cm-log-button {
+  display: grid;
+  justify-items: start;
+  gap: 2px;
+  text-align: left;
+}
+
+.cm-log-button-tap {
+  font-weight: 600;
+}
+
+.cm-log-button-main {
+  border-color: var(--k-accent);
+  background: var(--k-accent);
+  color: var(--k-paper);
+  font-weight: 600;
+}
+
+.cm-log-button .cm-log-bar {
+  width: 100%;
+  min-width: 4rem;
 }
 
 .cm-log-row {
@@ -91,29 +222,113 @@
   display: none;
 }
 
-/* A goal's total. A floor fills its span with the share reached, a bar behind the
-   words, and turns green once met. A ceiling is only coloured, red once passed. */
-.cm-log-short,
-.cm-log-met {
-  border-radius: 4px;
-  background: linear-gradient(
-    to right,
-    color-mix(in srgb, var(--k-accent) 28%, transparent) var(--log-progress),
-    transparent var(--log-progress)
-  );
-}
-
+/* A goal's total in words. A met floor is green with a tick. A passed max is the
+   warn colour and says so with a mark, so the colour is never the only sign. A min
+   not met is only a shorter bar, with no colour of its own. */
 .cm-log-met {
   color: var(--k-ok);
-  background: linear-gradient(
-    to right,
-    color-mix(in srgb, var(--k-ok) 30%, transparent) var(--log-progress),
-    transparent var(--log-progress)
-  );
 }
 
-.cm-log-over {
-  color: var(--k-danger);
+.cm-log-warn {
+  color: var(--k-warn);
+}
+
+.cm-log-ring.cm-log-warn {
+  --ring-fill: var(--k-warn);
+}
+
+/* The day's food by meal: a heading with the meal's kcal, then each line's words
+   and its figures in a row that wraps, so a 390px screen never runs wide. */
+.cm-log-meals {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.cm-log-meal {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.cm-log-meal-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 10px;
+  color: var(--k-ink);
+  font-weight: 600;
+}
+
+.cm-log-meal-kcal {
+  color: var(--k-muted);
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+
+.cm-log-entry {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 10px;
+  min-width: 0;
+  padding-left: 10px;
+  border-left: 2px solid var(--k-rule);
+  font-size: var(--k-text-13);
+  font-variant-numeric: tabular-nums;
+}
+
+.cm-log-entry-words {
+  min-width: 0;
+  color: var(--k-ink);
+  overflow-wrap: anywhere;
+}
+
+.cm-log-entry-kcal,
+.cm-log-entry-macro {
+  color: var(--k-muted);
+  white-space: nowrap;
+}
+
+/* The offer to copy a meal from yesterday, a button that names how many lines it writes. */
+.cm-log-copy {
+  justify-self: start;
+  min-height: 44px;
+  max-width: 100%;
+  padding: 0 14px;
+  border: 1px dashed var(--k-rule);
+  border-radius: 6px;
+  background: var(--k-paper);
+  color: var(--k-accent);
+  font: inherit;
+  font-size: var(--k-text-13);
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+
+.cm-log-copy:hover {
+  background: var(--k-surface);
+}
+
+/* The raw fold: the doc's lines as they are, in mono, and a scroll rather than a wide page. */
+.cm-log-raw > summary {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  color: var(--k-muted);
+  font-size: var(--k-text-13);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.cm-log-raw-lines {
+  margin: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  color: var(--k-ink-soft);
+  font-family: var(--k-mono);
+  font-size: var(--k-text-12);
+  white-space: pre;
 }
 
 /* The lines the config could not read, small and muted, and never wider than the card. */
@@ -125,217 +340,25 @@
   overflow-wrap: anywhere;
 }
 
-/* The food search. Its fields and rows are 44px and 16px like the card's own, and
-   wrap rather than run wide, so the panel never scrolls a 414px screen sideways. */
-.cm-log-food {
-  display: grid;
-  gap: 8px;
-  min-width: 0;
-  max-width: 100%;
+/* A press on a control is not held back for a double tap, and a coarse pointer
+   gets its targets at 44px and its field at 16px, which a phone's Safari needs. */
+.cm-log-button,
+.cm-log-undo,
+.cm-log-copy,
+.cm-log-amount {
+  touch-action: manipulation;
 }
 
-/* `hidden` must win over the grid and flex rules below. */
-.cm-log-food [hidden] {
-  display: none;
+@media (pointer: coarse) {
+  .cm-log-button,
+  .cm-log-undo,
+  .cm-log-copy,
+  .cm-log-raw > summary {
+    min-height: 44px;
+  }
+
+  .cm-log-amount {
+    font-size: 16px;
+  }
 }
 
-.cm-log-food-query,
-.cm-log-food-grams,
-.cm-log-food-add-input,
-.cm-log-food-servings,
-.cm-log-food-meal {
-  min-width: 0;
-  max-width: 100%;
-  min-height: 44px;
-  padding: 0 10px;
-  border: 1px solid var(--k-rule);
-  border-radius: 6px;
-  background: var(--k-inset);
-  color: var(--k-ink);
-  font-family: var(--font-sans);
-  font-size: 16px;
-}
-
-.cm-log-food-results {
-  display: grid;
-  gap: 6px;
-  min-width: 0;
-}
-
-.cm-log-food-pick {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 2px 10px;
-  min-width: 0;
-  min-height: 44px;
-  padding: 6px 10px;
-  border: 1px solid var(--k-rule);
-  border-radius: 6px;
-  background: var(--k-paper);
-  color: var(--k-ink);
-  font: inherit;
-  font-size: 14px;
-  text-align: left;
-  white-space: normal;
-  overflow-wrap: anywhere;
-}
-
-.cm-log-food-pick:hover {
-  background: var(--k-surface);
-}
-
-.cm-log-food-brand,
-.cm-log-food-recent,
-.cm-log-food-mine,
-.cm-log-food-kcal {
-  color: var(--k-muted);
-}
-
-/* The add form wraps its fields as the serving form does. */
-.cm-log-food-add,
-.cm-log-food-serving {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  min-width: 0;
-}
-
-.cm-log-food-heading {
-  flex: 1 1 100%;
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-
-.cm-log-food-field {
-  display: flex;
-  flex: 1 1 8rem;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-  color: var(--k-muted);
-  font-size: 14px;
-}
-
-.cm-log-food-field > input {
-  flex: 1 1 auto;
-  min-width: 0;
-}
-
-/* The unit word keeps one line, so the input is the part that gives way. */
-.cm-log-food-field > span {
-  flex: 0 0 auto;
-  white-space: nowrap;
-}
-
-.cm-log-food-meal {
-  flex: 1 1 7rem;
-}
-
-/* The name takes a row of its own, and the heading opens the row of figures it names. */
-.cm-log-food-add-wide,
-.cm-log-food-add-heading {
-  flex-basis: 100%;
-}
-
-.cm-log-food-add-heading {
-  color: var(--k-muted);
-}
-
-.cm-log-food-add-buttons {
-  display: flex;
-  gap: 8px;
-}
-
-.cm-log-food-preview {
-  flex: 1 1 100%;
-  color: var(--k-ink);
-  font-variant-numeric: tabular-nums;
-  overflow-wrap: anywhere;
-}
-
-.cm-log-food-log,
-.cm-log-food-save,
-.cm-log-food-new,
-.cm-log-food-back,
-.cm-log-food-close,
-.cm-log-food-scan,
-.cm-log-food-torch {
-  min-height: 44px;
-  min-width: 44px;
-  padding: 0 14px;
-  border: 1px solid var(--k-rule);
-  border-radius: 6px;
-  background: var(--k-paper);
-  color: var(--k-ink);
-  font: inherit;
-  font-size: 14px;
-  white-space: nowrap;
-}
-
-.cm-log-food-close,
-.cm-log-food-back {
-  color: var(--k-muted);
-}
-
-.cm-log-food-log:hover,
-.cm-log-food-save:hover,
-.cm-log-food-new:hover,
-.cm-log-food-back:hover,
-.cm-log-food-close:hover,
-.cm-log-food-scan:hover,
-.cm-log-food-torch:hover {
-  background: var(--k-surface);
-}
-
-.cm-log-food-torch[aria-pressed="true"] {
-  background: var(--k-rule);
-}
-
-/* The query and the scan button share one row, and the query takes the room. */
-.cm-log-food-bar {
-  display: flex;
-  gap: 8px;
-  min-width: 0;
-}
-
-.cm-log-food-bar > .cm-log-food-query {
-  flex: 1 1 auto;
-}
-
-/* The camera view sits inside the panel at the width of the panel, and no taller than 40% of the screen. */
-.cm-log-food-camera {
-  display: block;
-  width: 100%;
-  max-height: 40vh;
-  object-fit: cover;
-  border-radius: 6px;
-}
-
-.cm-log-food-query:focus-visible,
-.cm-log-food-grams:focus-visible,
-.cm-log-food-servings:focus-visible,
-.cm-log-food-meal:focus-visible,
-.cm-log-food-pick:focus-visible,
-.cm-log-food-log:focus-visible,
-.cm-log-food-save:focus-visible,
-.cm-log-food-new:focus-visible,
-.cm-log-food-add-input:focus-visible,
-.cm-log-food-back:focus-visible,
-.cm-log-food-close:focus-visible,
-.cm-log-food-scan:focus-visible,
-.cm-log-food-torch:focus-visible {
-  outline: 2px solid var(--k-accent);
-  outline-offset: 1px;
-}
-
-/* The search's refusal and the serving's refusal, in the warn colour. */
-.cm-log-food-why {
-  color: var(--k-danger);
-  font-size: 0.8em;
-  overflow-wrap: anywhere;
-}
-
-.cm-log-food-why:empty {
-  display: none;
-}

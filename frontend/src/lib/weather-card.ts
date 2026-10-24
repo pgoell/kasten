@@ -284,6 +284,42 @@ export function drawTown(forecast: Forecast, now: number | null): HTMLElement {
   return town;
 }
 
+/**
+ * One town as a single line, the place, the sky at noon and the range, with the
+ * strip under it in a fold that starts closed. The card takes one line, and the
+ * day's hours are a tap away.
+ */
+export function townRow(forecast: Forecast, now: number | null): HTMLElement {
+  const fold = document.createElement("details");
+  fold.className = "cm-weather-more";
+  const summary = document.createElement("summary");
+  summary.className = "cm-weather-line";
+  const place = document.createElement("span");
+  place.className = "cm-weather-place";
+  place.textContent = forecast.place;
+  summary.append(place);
+  const noon = forecast.hours.find((hour) => hoursOf(hour.time) === 12) ?? forecast.hours[0];
+  if (noon !== undefined) {
+    const { icon, word } = sky(noon.code, daylit(forecast, hoursOf(noon.time)));
+    const mark = document.createElementNS(SVG, "svg");
+    mark.setAttribute("class", "cm-weather-icon");
+    mark.setAttribute("viewBox", "0 0 24 24");
+    mark.setAttribute("aria-hidden", "true");
+    mark.innerHTML = ICONS[icon] ?? "";
+    const wordSpan = document.createElement("span");
+    wordSpan.className = "cm-weather-word";
+    wordSpan.textContent = word;
+    summary.append(mark, wordSpan);
+  }
+  const temperatures = forecast.hours.map((hour) => hour.temperature);
+  const range = document.createElement("span");
+  range.className = "cm-weather-range";
+  range.textContent = `${degrees(Math.min(...temperatures))} to ${degrees(Math.max(...temperatures))}C`;
+  summary.append(range);
+  fold.append(summary, drawTown(forecast, now));
+  return fold;
+}
+
 /** A day's forecast arriving, to be drawn into the note it was asked for. */
 const arrived = StateEffect.define<{ date: string; forecasts: Forecast[] }>();
 
@@ -317,7 +353,7 @@ class WeatherCard extends WidgetType {
     if (this.forecasts !== null) {
       const today = readClock(new Date());
       const now = today.date === this.date ? hoursOf(today.time) : null;
-      card.replaceChildren(...this.forecasts.map((forecast) => drawTown(forecast, now)));
+      card.replaceChildren(...this.forecasts.map((forecast) => townRow(forecast, now)));
       return card;
     }
     const date = this.date;

@@ -16,24 +16,43 @@ explains the row of buttons along the bottom edge.
 ## Scan a barcode and log the food
 
 1. Tap `today`. The daily note opens.
-2. Tap `+ 🍽 food` on the log card. Or tap `run`, then `Log food`.
-3. Tap `Scan`, beside the search field. The camera opens inside the panel.
+2. Tap `+ Food` on the log card. The food sheet rises from the foot of the screen. Or tap `run`, then `Log food`.
+3. Tap `Scan`, beside the search field. The camera opens inside the sheet.
 4. Hold the barcode in the frame. kasten reads EAN-13, EAN-8, UPC-A and UPC-E
    codes. The camera stops when it has a code, and the phone buzzes once where
    the browser can (Android Chrome; iOS Safari does not).
-5. The product opens with its serving form. Pick the grams and the meal.
-6. Tap `Log this food`. One food line goes to the end of `## Log`.
+5. The product opens at the serving step. Tap a chip (`100 g`, `150 g`, `1 serving` or `250 g`) or type the grams, then pick the meal. The preview shows the kcal and the kcal left today.
+6. Tap `Log this food`, pinned at the foot of the sheet above the keyboard. One food line goes to the end of `## Log`, and the sheet closes.
 
 To stop the camera without a read, tap `Stop`. It reads `Scan` again once the
 camera is off.
 
-The camera stops by itself when the panel closes, when the note closes, and
+The camera stops by itself when the sheet closes, when the note closes, and
 when you switch to another app or tab. It does not start again on its own:
 tap `Scan` to read another code.
 
 In a dark room, tap `Torch` beside `Scan` to light the barcode, and tap it again
 to turn the light off. The button shows only where the camera has a torch
 (Android Chrome; iOS Safari has none). The torch goes off with the camera.
+
+## Find a food by name
+
+Type two letters or more in the search field. The results come in three sections, in this order: `Mine` (your own foods), `Recent` (foods the last 30 days logged) and `Open Food Facts`. The first two need no search. Tap a food to open the serving step, then tap `Log this food`.
+
+## Log kcal without a food
+
+1. Tap `+ Food`.
+2. Type the kcal in the quick add field, and tap `Add`.
+
+The line `- 🍽 <meal>: 🔥 250 kcal` goes to the end of `## Log`, under the meal of the hour: breakfast from 5 to 10, lunch from 11 to 14, dinner from 17 to 21, and a snack at other hours. Tap the meal picker to change it. Zero, a negative number, text and a number of ten digits or more write nothing, and the sheet says why.
+
+## Copy yesterday's meal
+
+An empty meal on the card offers `Copy yesterday's <meal> (<n> lines)` when yesterday's note has lines for that meal. Tap it. Each of yesterday's lines for that meal goes into today's note as yesterday holds it. Yesterday's note does not change. The copy is one change, so `u` (vim on), undo (vim off) or the card's `Undo` takes every copied line back at once.
+
+## Close the sheet
+
+Press `Escape`, drag the grabber at the top of the sheet down, or, on a desktop, click the dimmed scrim beside the panel. Nothing is logged. The camera stops, and the editor takes the focus back.
 
 ## When the camera is refused
 

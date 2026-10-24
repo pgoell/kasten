@@ -157,10 +157,12 @@ async function mount(width: number, height: number) {
 }
 
 /** Presses the card's 🍽 button, or fails the test where there is none. */
-function openFood(view: EditorView): void {
+async function openFood(view: EditorView): Promise<void> {
   const button = view.dom.querySelector<HTMLButtonElement>(".cm-log button[aria-label='Log food']");
   expect(button, "the Log food button").not.toBeNull();
   button?.click();
+  // The sheet is drawn in a microtask after the press, so the call waits for that one turn.
+  await Promise.resolve();
 }
 
 function scanButton(view: EditorView): HTMLElement | null {
@@ -194,7 +196,7 @@ async function readsPicture(picture: URL, code: string): Promise<void> {
   const camera = await stubCamera(picture);
   try {
     const { host, view } = await mount(414, 896);
-    openFood(view);
+    await openFood(view);
     pressScan(view);
     await expect.poll(() => cameraShown(view)).toBe(true);
     await expect
@@ -224,7 +226,7 @@ async function refusesCamera(width: number, label: string): Promise<void> {
   const camera = await stubCamera(null);
   try {
     const { host, view } = await mount(width, 896);
-    openFood(view);
+    await openFood(view);
     expect(scanButton(view), "the scan button").not.toBeNull();
     expect(await shot(host, `scan-button-${label}`)).toBe(width);
 
@@ -284,7 +286,7 @@ it("#765 the torch button at 414 sits beside Scan finger-sized and the card does
   try {
     mounted = await mount(414, 896);
     const { host, view } = mounted;
-    openFood(view);
+    await openFood(view);
     pressScan(view);
     await expect
       .poll(() => (torchButton(view)?.getClientRects().length ?? 0) > 0, { timeout: 10000 })

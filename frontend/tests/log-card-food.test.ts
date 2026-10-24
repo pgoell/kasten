@@ -50,7 +50,6 @@ function mount(doc: string, path = DAILY, extra: Extension[] = [], anchor = 0): 
 }
 
 const text = (view: EditorView) => view.state.doc.toString();
-const totals = (view: EditorView) => view.dom.querySelector(".cm-log-totals")?.textContent ?? "";
 
 /** Presses the card's button with this aria-label, or fails the test where there is none. */
 function press(view: EditorView, label: string): void {
@@ -107,11 +106,15 @@ function formLabel(view: EditorView, selector: string): string {
   return label?.textContent?.trim() ?? "";
 }
 
-/** Presses the card's 🍽 button, or fails the test where there is none. */
-function openFood(view: EditorView): void {
+/**
+ * Presses the card's 🍽 button, or fails the test where there is none. The sheet
+ * is drawn in a microtask after the press, so the call waits for that one turn.
+ */
+async function openFood(view: EditorView): Promise<void> {
   const button = view.dom.querySelector<HTMLButtonElement>(".cm-log button[aria-label='Log food']");
   expect(button).not.toBeNull();
   button?.click();
+  await Promise.resolve();
 }
 
 /** Types `text` into the open panel, and lets the pause pass so the search is sent. */
@@ -150,15 +153,15 @@ describe("the food search", () => {
     vi.useRealTimers();
   });
 
-  it("#621 the 🍽 button opens the food search", () => {
+  it("#621 the 🍽 button opens the food search", async () => {
     const view = mount(NOTE);
-    openFood(view);
+    await openFood(view);
     expect(document.activeElement).toBe(queryOf(view));
   });
 
   it("#621 typing a word sends one search after the pause", async () => {
     const view = mount(NOTE);
-    openFood(view);
+    await openFood(view);
     fireEvent.input(queryOf(view), { target: { value: "sn" } });
     await vi.advanceTimersByTimeAsync(100);
     fireEvent.input(queryOf(view), { target: { value: "snickers" } });
@@ -174,14 +177,14 @@ describe("the food search", () => {
       "Open Food Facts refused the request (too many requests or busy); try again in a minute";
     vi.mocked(searchFood).mockRejectedValueOnce(new Error(refusal));
     const view = mount(NOTE);
-    openFood(view);
+    await openFood(view);
     await typeQuery(view, "snickers");
     expect(foodWhy(view)).toBe(refusal);
   });
 
   it("#621 a pick reads the barcode for its serving and shows per-serving values", async () => {
     const view = mount(NOTE);
-    openFood(view);
+    await openFood(view);
     await typeQuery(view, "snickers");
     expect(foodResults(view)).toContain("481 kcal per 100 g");
     await pickFirst(view);
@@ -194,7 +197,7 @@ describe("the food search", () => {
 
   it("#621 changing grams or servings changes kcal and macros", async () => {
     const view = mount(NOTE);
-    openFood(view);
+    await openFood(view);
     await typeQuery(view, "snickers");
     await pickFirst(view);
     fireEvent.input(formField(view, ".cm-log-food-grams"), { target: { value: "100" } });
@@ -207,7 +210,7 @@ describe("the food search", () => {
 
   it("#621 Log writes one food line at the end of ## Log and the card totals count it", async () => {
     const view = mount(NOTE);
-    openFood(view);
+    await openFood(view);
     await typeQuery(view, "snickers");
     await pickFirst(view);
     logFood(view);
@@ -215,7 +218,8 @@ describe("the food search", () => {
       "# 2026-10-20 Tuesday\n\n## Log\n- 💧 500 ml\n- 🍽 lunch: Snickers (Mars Wrigley Confectionery UK Limited) 50 g 🔥 240 kcal 🥩 4.3 g 🍞 30.2 g 🧈 11.2 g\n\n## Done\n- [ ] write",
     );
     expect(drinkTotals(text(view)).food.kcal).toBe(240);
-    expect(totals(view)).toContain("🔥 240 kcal");
+    // The day's kcal is the big figure now, with no goal it reads as kcal eaten (#803).
+    expect(view.dom.querySelector(".cm-log-big-figure")?.textContent).toBe("240");
   });
 
   it("#621 the meal defaults by the hour", async () => {
@@ -228,7 +232,7 @@ describe("the food search", () => {
     for (const [hour, minute, meal] of cases) {
       vi.setSystemTime(new Date(2026, 9, 20, hour, minute));
       const view = mount(NOTE);
-      openFood(view);
+      await openFood(view);
       await typeQuery(view, "snickers");
       await pickFirst(view);
       expect(formField(view, ".cm-log-food-meal").value).toBe(meal);
@@ -257,7 +261,7 @@ describe("the food search", () => {
     ];
     vi.mocked(fetchLog).mockResolvedValue(days as unknown as LogDay[]);
     const view = mount(NOTE);
-    openFood(view);
+    await openFood(view);
     await vi.advanceTimersByTimeAsync(0);
     const first = view.dom.querySelector<HTMLButtonElement>(".cm-log-food-results button");
     expect(first?.textContent).toContain("Skyr naturel (Skyr)");
@@ -275,7 +279,7 @@ describe("the food search", () => {
 
   it("#621 with vim on, keys typed in the search field never reach vim and u takes the food line back", async () => {
     const view = mount(NOTE, DAILY, [vim(), vimModeState()]);
-    openFood(view);
+    await openFood(view);
     const query = queryOf(view);
     fireEvent.keyDown(query, { key: "i" });
     fireEvent.keyDown(query, { key: "u" });
@@ -291,13 +295,13 @@ describe("the food search", () => {
 
   it("#621 with vim off, undo takes a food line back and the card's Undo too", async () => {
     const view = mount(NOTE, DAILY, [vimKeys.of(false)]);
-    openFood(view);
+    await openFood(view);
     await typeQuery(view, "snickers");
     await pickFirst(view);
     logFood(view);
     undo(view);
     expect(text(view)).toBe(NOTE);
-    openFood(view);
+    await openFood(view);
     await typeQuery(view, "snickers");
     await pickFirst(view);
     logFood(view);
@@ -309,7 +313,7 @@ describe("the food search", () => {
 
   it("#621 grams of zero, negative or text write nothing and say why", async () => {
     const view = mount(NOTE);
-    openFood(view);
+    await openFood(view);
     await typeQuery(view, "snickers");
     await pickFirst(view);
     const refusals: [string, string][] = [
@@ -336,7 +340,7 @@ describe("the food search", () => {
       )
       .mockResolvedValueOnce([{ ...HIT, code: "3017620422003", name: "Skyr", brand: null }]);
     const view = mount(NOTE);
-    openFood(view);
+    await openFood(view);
     await typeQuery(view, "snickers");
     await typeQuery(view, "skyr");
     expect(foodResults(view)).toContain("Skyr");
@@ -346,10 +350,12 @@ describe("the food search", () => {
     expect(foodResults(view)).not.toContain("Snickers");
   });
 
-  it("#621 Escape closes the search without writing", () => {
+  it("#621 Escape closes the search without writing", async () => {
     const view = mount(NOTE);
-    openFood(view);
+    await openFood(view);
     fireEvent.keyDown(queryOf(view), { key: "Escape" });
+    // The sheet leaves by its own close, which takes a turn of the timers to unmount.
+    await vi.advanceTimersByTimeAsync(1000);
     expect(foodQuery(view)).toBeNull();
     expect(text(view)).toBe(NOTE);
   });
@@ -366,7 +372,7 @@ describe("the food search", () => {
       )
       .mockResolvedValueOnce(skyr);
     const view = mount(NOTE);
-    openFood(view);
+    await openFood(view);
     await typeQuery(view, "snickers");
     const rows = view.dom.querySelectorAll<HTMLButtonElement>(".cm-log-food-results button");
     expect(rows.length).toBe(2);
@@ -382,7 +388,7 @@ describe("the food search", () => {
 
   it("#621 a drink tap while the food search is open keeps the query and the chosen serving", async () => {
     const view = mount(NOTE);
-    openFood(view);
+    await openFood(view);
     await typeQuery(view, "snickers");
     await pickFirst(view);
     fireEvent.input(formField(view, ".cm-log-food-grams"), { target: { value: "100" } });
@@ -403,7 +409,7 @@ describe("the food search", () => {
       per_serving: { ...SNICKERS.per_serving, protein: -4.3 },
     });
     const view = mount(NOTE);
-    openFood(view);
+    await openFood(view);
     await typeQuery(view, "snickers");
     await pickFirst(view);
     logFood(view);
@@ -419,7 +425,7 @@ describe("the food search", () => {
       per_serving: { kcal: 8, protein: 0.1, carbs: 0.8, fat: 0.4 },
     });
     const view = mount(NOTE);
-    openFood(view);
+    await openFood(view);
     await typeQuery(view, "snickers");
     await pickFirst(view);
     fireEvent.input(formField(view, ".cm-log-food-grams"), { target: { value: "500" } });
@@ -438,7 +444,7 @@ describe("the food search", () => {
       }),
     );
     const view = mount(NOTE);
-    openFood(view);
+    await openFood(view);
     await typeQuery(view, "snickers");
     await pickFirst(view);
     // The form is hidden until the read answers, so Back is pressed by script here.

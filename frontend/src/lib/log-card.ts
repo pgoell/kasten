@@ -1,7 +1,8 @@
 /**
- * The drink card under a daily note's title, beside the weather: the day's totals
- * per kind, a button per kind that writes a line under `## Log`, and an undo for
- * the last tap.
+ * The Log card under a daily note's title, beside the weather: the kcal left today,
+ * the macros as rings, a button per kind that writes a line under `## Log`, the
+ * day's food by meal, and an undo for the last tap. The food search is a sheet
+ * the card shows over the page, from `food-sheet.tsx`.
  *
  * A tap is one change to the buffer being typed into, so undo, the history and
  * the cursor treat it as typing. Nothing is written beside the note: the totals
@@ -23,25 +24,30 @@ import {
   ViewPlugin,
   WidgetType,
 } from "@codemirror/view";
-import { foodPanel } from "@/lib/food-search";
-import { askLogConfig, logConfig, subscribeLogConfig } from "@/lib/log-config";
+import { foodSheetCleanup } from "@/components/food-sheet";
+import { shiftDay } from "@/lib/clock";
+import { type SheetHooks, stopFoodSheet, syncFoodSheet } from "@/lib/log-card-food";
+import { button, foodButton, mealBlock, quickButton, rawFold, topBlock } from "@/lib/log-card-view";
 import {
-  DEFAULT_CONFIG,
-  type FoodField,
-  type Goal,
-  kindLine,
-  kindTotal,
-  type LogConfig,
-  type LogKind,
-  tapLine,
-} from "@/lib/log-kinds";
-import { type DrinkTotals, drinkTotals, LOG_HEADING } from "@/lib/log-lines";
+  askYesterday,
+  type Copy,
+  copiesFor,
+  type Yesterday,
+  yesterdayArrived,
+} from "@/lib/log-card-yesterday";
+import { askLogConfig, logConfig, subscribeLogConfig } from "@/lib/log-config";
+import { foodEntries, groupByMeal, type MealGroup } from "@/lib/log-day";
+import { DEFAULT_CONFIG, kindLine, kindTotal, type LogConfig, type LogKind } from "@/lib/log-kinds";
+import { type DrinkTotals, drinkTotals, LOG_HEADING, logLines } from "@/lib/log-lines";
 import { appendUnderEdit } from "@/lib/note-section";
 import { dailyDate } from "@/lib/periodic";
 import { notePath } from "@/lib/todo-commands";
 import { cardLine } from "@/lib/weather-card";
 
-/** A line the card wrote: where it starts and what it says, read back to take it out. */
+/**
+ * A line or lines the card wrote: where they start and what they say, read back to
+ * take them out. Several lines are one tap when a meal's lines are copied from yesterday.
+ */
 interface LastTap {
   from: number;
   text: string;
@@ -50,111 +56,70 @@ interface LastTap {
 /** The last tap, or null once it is undone. */
 const tapped = StateEffect.define<LastTap | null>();
 
-/** Opens or closes the food search panel. */
+/** Opens or closes the food search sheet. */
 const foodOpen = StateEffect.define<boolean>();
 
 /** The store's config, pushed to each card when the store draws an answer that replaces the defaults. */
 const configArrived = StateEffect.define<LogConfig>();
 
-/** The food search panel of each view while it is open, reused by every card drawn meanwhile. */
-const openPanels = new WeakMap<EditorView, HTMLElement>();
-
 interface Card {
   totals: DrinkTotals;
   lastTap: LastTap | null;
-  /** Whether the food search panel is open. */
+  /** Whether the food search sheet is open. */
   food: boolean;
   /** The store's config when this was drawn, or null before its first answer, when the defaults are drawn. */
   config: LogConfig | null;
+  /** Yesterday's answer as it stands, which the card uses only when it is for yesterday. */
+  yesterday: Yesterday | null;
   /** Whether this note has a card at all, which the palette asks before it offers the search. */
   shown: boolean;
   decorations: DecorationSet;
 }
 
-/** Whether the doc still holds the tapped line whole, where it was written. */
+/** Whether the doc still holds the tapped text whole, where it was written, and ends its line. */
 function stillThere(doc: Text, tap: LastTap): boolean {
-  if (tap.from > doc.length) return false;
-  const line = doc.lineAt(tap.from);
-  return line.from === tap.from && line.text === tap.text;
+  const end = tap.from + tap.text.length;
+  if (end > doc.length || doc.lineAt(tap.from).from !== tap.from) return false;
+  if (doc.sliceString(tap.from, end) !== tap.text) return false;
+  return end === doc.length || doc.sliceString(end, end + 1) === "\n";
+}
+
+/** The day a daily note is for, or null for any other note. */
+function noteDay(state: EditorState): string | null {
+  const path = state.facet(notePath);
+  return path === undefined ? null : dailyDate(path);
+}
+
+/** The words of the tap Undo takes back: its line, or how many lines a copy wrote. */
+function undoWords(text: string): string {
+  return text.includes("\n") ? `Undo ${text.split("\n").length} lines` : `Undo ${text.slice(2)}`;
+}
+
+/** The unit and grams an entry of a kind shows after its total. */
+function tailOf(kind: LogKind, totals: DrinkTotals): string {
+  // Alcohol's grams follow its count, once there are some.
+  const grams =
+    kind.builtin === "alcohol" && totals.alcohol.grams > 0 ? `, ${totals.alcohol.grams} g` : "";
+  // The water total is millilitres whatever unit its config line writes.
+  const unit = kind.builtin === "water" ? "ml" : kind.unit;
+  return `${unit ? ` ${unit}` : ""}${grams}`;
 }
 
 /**
- * A total as its span. A goal goes after the total, and a floor's span carries the
- * share of the goal reached as the bar the CSS draws; the words say whether it is
- * met or passed, so the colour is not the only sign.
+ * Writes `text`, one or more lines, at the end of `## Log` as one tap: the card's
+ * Undo can take it back, and `effects` go in the same change.
  */
-function totalSpan(
-  head: string,
-  tail: string,
-  total: number,
-  goal: Goal | undefined,
-): HTMLSpanElement {
-  const span = document.createElement("span");
-  if (goal === undefined) {
-    span.textContent = `${head}${tail}`;
-    return span;
-  }
-  span.classList.add("cm-log-goal");
-  const words = `${head} / ${goal.value}${tail}`;
-  if (goal.type === "floor") {
-    const met = total >= goal.value;
-    span.classList.add(met ? "cm-log-met" : "cm-log-short");
-    const progress = Math.min(100, Math.round((total / goal.value) * 100));
-    span.setAttribute("style", `--log-progress: ${progress}%`);
-    span.textContent = met ? `${words} ✓` : words;
-  } else {
-    const over = total > goal.value;
-    span.classList.add(over ? "cm-log-over" : "cm-log-under");
-    span.textContent = over ? `${words} ⚠` : words;
-  }
-  return span;
-}
-
-/** The food fields in the order the card shows them, each with its marker and unit. */
-const FOOD_WORDS: { field: FoodField; mark: string; unit: string }[] = [
-  { field: "kcal", mark: "🔥", unit: "kcal" },
-  { field: "protein", mark: "🥩", unit: "g" },
-  { field: "carbs", mark: "🍞", unit: "g" },
-  { field: "fat", mark: "🧈", unit: "g" },
-];
-
-/**
- * A button that keeps the editor's focus and cursor. A press on the card is
- * handled by the card, and CodeMirror must not move the selection for it.
- */
-function button(
-  words: string,
-  label: string,
-  className: string,
-  press: () => void,
-): HTMLButtonElement {
-  const made = document.createElement("button");
-  made.type = "button";
-  made.className = className;
-  made.textContent = words;
-  made.setAttribute("aria-label", label);
-  made.addEventListener("mousedown", (event) => event.preventDefault());
-  made.addEventListener("click", press);
-  return made;
-}
-
-/**
- * Writes `line` at the end of `## Log` as one tap: the card's Undo can take it back,
- * and `effects` go in the same change.
- */
-function writeLogLine(view: EditorView, line: string, effects: StateEffect<unknown>[] = []): void {
-  const edit = appendUnderEdit(view.state.doc.toString(), LOG_HEADING, line);
-  keepPanelFocus(view, () =>
-    view.dispatch({
-      changes: edit,
-      // The edit starts where the inserted text does, and a new section's heading comes before the line.
-      effects: [tapped.of({ from: edit.from + edit.insert.indexOf(line), text: line }), ...effects],
-      userEvent: "input.log",
-      // History joins quick adjacent input into one step, so two fast taps, or a
-      // tap just after typing, would come back as one `u`.
-      annotations: isolateHistory.of("full"),
-    }),
-  );
+function writeLogLine(view: EditorView, text: string, effects: StateEffect<unknown>[] = []): void {
+  const edit = appendUnderEdit(view.state.doc.toString(), LOG_HEADING, text);
+  view.dispatch({
+    changes: edit,
+    // The edit starts where the inserted text does, and a new section's heading comes before the line.
+    effects: [tapped.of({ from: edit.from + edit.insert.indexOf(text), text }), ...effects],
+    userEvent: "input.log",
+    // History joins quick adjacent input into one step, so two fast taps, or a
+    // tap just after typing, would come back as one `u`.
+    annotations: isolateHistory.of("full"),
+  });
 }
 
 /**
@@ -166,20 +131,6 @@ function writeLogLine(view: EditorView, line: string, effects: StateEffect<unkno
 function focusInPlace(element: HTMLElement): void {
   element.focus({ preventScroll: true });
   element.scrollIntoView({ block: "nearest", inline: "nearest" });
-}
-
-/**
- * Runs `change`, then gives the focus back to the open panel's element that held it.
- * A card drawn anew moves the panel into itself, and a move drops the focus, so a
- * tap would blur the query. Once `change` returns, the card is in the page.
- */
-function keepPanelFocus(view: EditorView, change: () => void): void {
-  const held = document.activeElement;
-  const panel = openPanels.get(view);
-  const kept =
-    panel !== undefined && held instanceof HTMLElement && panel.contains(held) ? held : null;
-  change();
-  if (kept !== null) focusInPlace(kept);
 }
 
 /** Writes the line `amount` makes for `kind` at the end of `## Log`, or says why it cannot. */
@@ -195,18 +146,19 @@ function tap(view: EditorView, kind: LogKind, amount: HTMLInputElement, why: HTM
 }
 
 /**
- * Takes the tapped line out with its newline. Nothing happens once the line
+ * Takes the tapped lines out with a newline. Nothing happens once the text
  * no longer reads as the card wrote it.
  */
 function untap(view: EditorView, tap: LastTap): void {
   const { doc } = view.state;
   if (!stillThere(doc, tap)) return;
-  const line = doc.lineAt(tap.from);
-  // The last line has no newline after it, so the one before it goes instead.
+  const end = tap.from + tap.text.length;
+  // The text ends its last line, so the newline after it goes. Where it runs to the end of
+  // the doc, there is no newline after it, so the one before it goes instead.
   const changes =
-    line.to < doc.length
-      ? { from: line.from, to: line.to + 1 }
-      : { from: Math.max(0, line.from - 1), to: line.to };
+    end < doc.length
+      ? { from: tap.from, to: end + 1 }
+      : { from: Math.max(0, tap.from - 1), to: end };
   view.dispatch({ changes, effects: tapped.of(null), userEvent: "delete.log" });
 }
 
@@ -216,33 +168,35 @@ function undoLastTap(view: EditorView): void {
   if (last !== null) untap(view, last);
 }
 
+/** Whether each view's raw-lines fold is open, kept across the redraws a tap makes. */
+const rawOpen = new WeakMap<EditorView, boolean>();
+
+/** What a card draws, as plain data: two draws of the same data are the same DOM. */
+interface Drawn {
+  totals: DrinkTotals;
+  /** What each kind of the config adds up to, in the config's order. */
+  sums: number[];
+  /** The text of the tap Undo takes back, or null where there is none to offer. */
+  undo: string | null;
+  config: LogConfig;
+  groups: MealGroup[];
+  copies: Copy[];
+  /** The lines under `## Log`, as the doc holds them. */
+  raw: string[];
+}
+
 /**
- * The card as a widget. Its DOM is kept while its totals and undo stay the same,
- * so a typed amount survives an edit elsewhere in the note.
+ * The card as a widget. Its DOM is kept while what it draws stays the same, so a
+ * typed amount survives an edit elsewhere in the note.
  */
 class LogCard extends WidgetType {
-  private readonly totals: DrinkTotals;
-  /** What each kind of the config adds up to, in the config's order. */
-  private readonly sums: number[];
-  /** The text of the tap Undo takes back, or null where there is none to offer. */
-  private readonly undoText: string | null;
-  /** Whether the food search panel is drawn under the row. */
-  private readonly food: boolean;
+  private readonly drawn: Drawn;
   /** The store's config when this was drawn, or null before its first answer. */
   private readonly config: LogConfig | null;
 
-  constructor(
-    totals: DrinkTotals,
-    sums: number[],
-    undoText: string | null,
-    food: boolean,
-    config: LogConfig | null,
-  ) {
+  constructor(drawn: Drawn, config: LogConfig | null) {
     super();
-    this.totals = totals;
-    this.sums = sums;
-    this.undoText = undoText;
-    this.food = food;
+    this.drawn = drawn;
     this.config = config;
   }
 
@@ -250,14 +204,7 @@ class LogCard extends WidgetType {
   // it, and a rebuild for that would empty the amount field. The config is compared as
   // drawn: a null one draws the defaults, so an arrival of the defaults redraws nothing.
   override eq(other: LogCard): boolean {
-    return (
-      JSON.stringify([this.totals, this.sums, this.undoText, this.food, this.drawnConfig()]) ===
-      JSON.stringify([other.totals, other.sums, other.undoText, other.food, other.drawnConfig()])
-    );
-  }
-
-  private drawnConfig(): LogConfig {
-    return this.config ?? DEFAULT_CONFIG;
+    return JSON.stringify(this.drawn) === JSON.stringify(other.drawn);
   }
 
   override ignoreEvent(): boolean {
@@ -265,42 +212,12 @@ class LogCard extends WidgetType {
   }
 
   toDOM(view: EditorView): HTMLElement {
+    const { totals, sums, undo, config, groups, copies, raw } = this.drawn;
     const card = document.createElement("div");
     card.className = "cm-log";
     card.setAttribute("contenteditable", "false");
-    const config = this.config ?? DEFAULT_CONFIG;
+    card.append(topBlock(totals.food, config.food));
 
-    const totals = document.createElement("div");
-    totals.className = "cm-log-totals";
-    config.kinds.forEach((kind, index) => {
-      const total = this.sums[index] ?? 0;
-      // Alcohol's grams follow its count, once there are some.
-      const grams =
-        kind.builtin === "alcohol" && this.totals.alcohol.grams > 0
-          ? `, ${this.totals.alcohol.grams} g`
-          : "";
-      // The water total is millilitres whatever unit its config line writes.
-      const unit = kind.builtin === "water" ? "ml" : kind.unit;
-      const tail = `${unit ? ` ${unit}` : ""}${grams}`;
-      totals.appendChild(totalSpan(`${kind.mark} ${total}`, tail, total, kind.goal));
-    });
-    // Food with a goal shows each field, and the food words wait for the first food otherwise.
-    const food = this.totals.food;
-    const foodGoal = config.food;
-    if (FOOD_WORDS.some(({ field }) => foodGoal[field] !== undefined)) {
-      for (const { field, mark, unit } of FOOD_WORDS) {
-        totals.appendChild(
-          totalSpan(`${mark} ${food[field]}`, ` ${unit}`, food[field], foodGoal[field]),
-        );
-      }
-    } else if (food.kcal > 0 || food.protein > 0 || food.carbs > 0 || food.fat > 0) {
-      const span = document.createElement("span");
-      span.textContent = `🔥 ${food.kcal} kcal 🥩 ${food.protein} g 🍞 ${food.carbs} g 🧈 ${food.fat} g`;
-      totals.appendChild(span);
-    }
-
-    const row = document.createElement("div");
-    row.className = "cm-log-row";
     const amount = document.createElement("input");
     amount.className = "cm-log-amount";
     amount.placeholder = "amount";
@@ -309,18 +226,39 @@ class LogCard extends WidgetType {
     const why = document.createElement("div");
     why.className = "cm-log-why";
 
-    for (const kind of config.kinds) {
-      const words = `+ ${tapLine(kind).slice(2)}`;
+    const quick = document.createElement("div");
+    quick.className = "cm-log-totals";
+    config.kinds.forEach((kind, index) => {
       const press = () => tap(view, kind, amount, why);
-      row.appendChild(button(words, `Log ${kind.name}`, "cm-log-button", press));
+      const total = sums[index] ?? 0;
+      quick.append(quickButton(kind, total, tailOf(kind, totals), press));
+    });
+
+    const row = document.createElement("div");
+    row.className = "cm-log-row";
+    row.append(
+      foodButton(() => openFoodSearch(view)),
+      amount,
+    );
+    if (undo !== null) {
+      const words = undoWords(undo);
+      row.append(button(words, words, "cm-log-undo", () => undoLastTap(view)));
     }
-    row.appendChild(button("+ 🍽 food", "Log food", "cm-log-button", () => openFoodSearch(view)));
-    row.appendChild(amount);
-    if (this.undoText !== null) {
-      const words = `Undo ${this.undoText.slice(2)}`;
-      row.appendChild(button(words, words, "cm-log-undo", () => undoLastTap(view)));
+    card.append(quick, row, why);
+
+    const meals = document.createElement("div");
+    meals.className = "cm-log-meals";
+    for (const group of groups) {
+      const copy = copies.find((offered) => offered.meal === group.meal);
+      const offer =
+        copy === undefined
+          ? null
+          : { lines: copy.lines.length, press: () => writeLogLine(view, copy.lines.join("\n")) };
+      const block = mealBlock(group, offer);
+      if (block !== null) meals.append(block);
     }
-    card.append(totals, row, why);
+    card.append(meals);
+
     // A line the config could not read is named, so its kind is not missing for no reason.
     if (config.broken.length > 0) {
       const broken = document.createElement("div");
@@ -332,22 +270,7 @@ class LogCard extends WidgetType {
       }
       card.appendChild(broken);
     }
-    // The open panel is kept per view: a rebuild of the card for a tap or a reload
-    // would otherwise empty its query, its chosen serving and its focus.
-    if (this.food) {
-      let panel = openPanels.get(view);
-      if (panel === undefined) {
-        const path = view.state.facet(notePath);
-        panel = foodPanel(path === undefined ? null : dailyDate(path), {
-          log: (line) => writeLogLine(view, line, [foodOpen.of(false)]),
-          close: () => view.dispatch({ effects: foodOpen.of(false) }),
-        });
-        openPanels.set(view, panel);
-      }
-      card.append(panel);
-    } else {
-      openPanels.delete(view);
-    }
+    card.append(rawFold(raw, rawOpen.get(view) === true, (open) => rawOpen.set(view, open)));
     // Only a drawn card asks for the config, so a note with no card reads log.md for nothing.
     if (this.config === null) askLogConfig();
     return card;
@@ -362,7 +285,7 @@ function applyConfig(view: EditorView, config: LogConfig): void {
   const field = view.dom.querySelector<HTMLInputElement>(".cm-log-amount");
   const typed = field?.value ?? "";
   const focused = field !== null && document.activeElement === field;
-  keepPanelFocus(view, () => view.dispatch({ effects: configArrived.of(config) }));
+  view.dispatch({ effects: configArrived.of(config) });
   const next = view.dom.querySelector<HTMLInputElement>(".cm-log-amount");
   if (next !== null) {
     next.value = typed;
@@ -379,30 +302,46 @@ function build(
   lastTap: LastTap | null,
   food: boolean,
   config: LogConfig | null,
+  yesterday: Yesterday | null,
 ): Card {
-  const path = state.facet(notePath);
-  const line = path !== undefined && dailyDate(path) !== null ? cardLine(state.doc) : null;
-  if (line === null) {
+  const day = noteDay(state);
+  const line = day !== null ? cardLine(state.doc) : null;
+  if (day === null || line === null) {
     return {
       totals: NO_TOTALS,
       lastTap,
       food: false,
       config,
+      yesterday,
       shown: false,
       decorations: Decoration.none,
     };
   }
   const text = state.doc.toString();
   const totals = drinkTotals(text);
-  const sums = (config ?? DEFAULT_CONFIG).kinds.map((kind) => kindTotal(kind, text, totals));
+  const drawn = config ?? DEFAULT_CONFIG;
+  const sums = drawn.kinds.map((kind) => kindTotal(kind, text, totals));
   // Only a tap still on the page can be undone, so an edited one is offered nothing.
   const undo = lastTap !== null && stillThere(state.doc, lastTap) ? lastTap.text : null;
-  const widget = new LogCard(totals, sums, undo, food, config);
+  const groups = groupByMeal(foodEntries(text));
+  const widget = new LogCard(
+    {
+      totals,
+      sums,
+      undo,
+      config: drawn,
+      groups,
+      copies: copiesFor(day, yesterday, groups),
+      raw: logLines(text),
+    },
+    config,
+  );
   return {
     totals,
     lastTap,
     food,
     config,
+    yesterday,
     shown: true,
     decorations: Decoration.set([
       Decoration.widget({ widget, block: true, side: 2 }).range(state.doc.line(line).to),
@@ -416,11 +355,12 @@ function build(
  * takes only from state.
  */
 const cardField = StateField.define<Card>({
-  create: (state) => build(state, null, false, logConfig()),
+  create: (state) => build(state, null, false, logConfig(), null),
   update(value, tr) {
     let lastTap = value.lastTap;
     let food = value.food;
     let config = value.config;
+    let yesterday = value.yesterday;
     if (tr.docChanged && lastTap !== null) {
       lastTap = { from: tr.changes.mapPos(lastTap.from), text: lastTap.text };
     }
@@ -438,22 +378,79 @@ const cardField = StateField.define<Card>({
         config = effect.value;
         changed = true;
       }
+      // An answer for a day the note no longer comes after is dropped, and the one held stays.
+      const day = noteDay(tr.state);
+      if (effect.is(yesterdayArrived) && day !== null && effect.value.day === shiftDay(day, -1)) {
+        yesterday = effect.value;
+        changed = true;
+      }
     }
-    return changed ? build(tr.state, lastTap, food, config) : value;
+    return changed ? build(tr.state, lastTap, food, config, yesterday) : value;
   },
   provide: (field) => EditorView.decorations.from(field, (value) => value.decorations),
 });
 
-/** Each card is drawn again whenever the store draws an answer, so it shows log.md as it is now. */
+/**
+ * Each card is drawn again whenever the store draws an answer, so it shows log.md as
+ * it is now. The food sheet is shown and hidden as the card's `food` flag changes.
+ */
 const registry = ViewPlugin.define((view) => {
   const unsubscribe = subscribeLogConfig(() => {
     const current = logConfig();
     if (current !== null) applyConfig(view, current);
   });
-  return { destroy: unsubscribe };
+
+  const first = view.state.field(cardField, false);
+  const day = noteDay(view.state);
+  if (first?.shown === true && day !== null) askYesterday(view, day);
+
+  return {
+    update(update) {
+      // A flag changed by a transaction nobody called `syncSheet` for is still shown.
+      // Deferred: the sheet is DOM, and a sheet mounted inside an update is not measured with it.
+      const was = update.startState.field(cardField, false)?.food;
+      if (was !== update.state.field(cardField, false)?.food) {
+        queueMicrotask(() => syncSheet(view));
+      }
+    },
+    destroy() {
+      unsubscribe();
+      stopFoodSheet(view);
+    },
+  };
 });
 
-export const logCard: Extension = [cardField, registry];
+/** The card's side of the food sheet: the line it writes, the close, and the day's food it reads. */
+function sheetHooks(view: EditorView): SheetHooks {
+  return {
+    log: (line) => {
+      writeLogLine(view, line, [foodOpen.of(false)]);
+      syncSheet(view);
+    },
+    close: () => closeFood(view),
+    today: () => ({
+      eaten: drinkTotals(view.state.doc.toString()).food,
+      goals: (view.state.field(cardField).config ?? DEFAULT_CONFIG).food,
+    }),
+  };
+}
+
+/**
+ * Shows the sheet when the card's `food` flag is open, and takes it down when it is shut.
+ * Called after a dispatch returns, so the query is in the page when the press returns.
+ */
+function syncSheet(view: EditorView): void {
+  const open = view.state.field(cardField, false)?.food === true;
+  syncFoodSheet(view, open, sheetHooks(view));
+}
+
+/** Shuts the food sheet, writing nothing, and takes it down at once. */
+function closeFood(view: EditorView): void {
+  view.dispatch({ effects: foodOpen.of(false) });
+  syncSheet(view);
+}
+
+export const logCard: Extension = [cardField, registry, foodSheetCleanup];
 
 export { reloadLogConfig } from "@/lib/log-config";
 
@@ -469,6 +466,8 @@ export function cardShown(view: EditorView): boolean {
 export function openFoodSearch(view: EditorView): boolean {
   if (!cardShown(view)) return false;
   view.dispatch({ effects: foodOpen.of(true) });
+  // The sheet is shown here, after the dispatch, so its query is in the page when this returns.
+  syncSheet(view);
   const focusQuery = () => {
     const query = view.dom.querySelector<HTMLInputElement>(".cm-log-food-query");
     if (query !== null) focusInPlace(query);

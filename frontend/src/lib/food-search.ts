@@ -1,148 +1,55 @@
 /**
- * The food search on the log card: a query on Open Food Facts or a barcode, the
- * foods the last 30 days logged, and the serving a pick is logged with.
+ * The food search on the log card: a query on Open Food Facts or a barcode, your
+ * own foods, the foods the last 30 days logged, a quick add of kcal, and the
+ * serving a pick is logged with. `foodPanel` builds the panel the food sheet shows.
  *
- * The pure parts are exported so the card and the palette read a serving the same
- * way. `foodPanel` builds the panel the card draws while its search is open.
+ * The pure parts live in `food-math.ts`, and the two forms in `food-serving.ts`
+ * and `food-quick-add.ts`, so each file stays small enough to read whole.
  */
 
 import { NO_CAMERA, startCamera, torchButton } from "@/lib/barcode-camera";
 import { shiftDay } from "@/lib/clock";
 import { addForm } from "@/lib/food-add";
-import { type Food, fetchLog, type LogDay, readBarcode, searchFood } from "@/lib/food-api";
-import { foodLine, tenth } from "@/lib/log-lines";
+import { type Food, fetchLog, readBarcode, searchFood } from "@/lib/food-api";
+import { type Choice, make, recentFoods } from "@/lib/food-math";
+import { quickAddForm } from "@/lib/food-quick-add";
+import { servingForm } from "@/lib/food-serving";
+import type { FoodGoals } from "@/lib/log-kinds";
+import { type DrinkTotals, tenth } from "@/lib/log-lines";
 import { fetchMyFoods, type MyFood, myChoice } from "@/lib/my-foods";
 
-const MEALS = ["breakfast", "lunch", "dinner", "snack"] as const;
-
-export type Meal = (typeof MEALS)[number];
-
-/** The nutrients of a serving or of a logged amount, null where none is known. */
-export type Nutrients = Food["per_serving"];
-
-/** A food the form takes: one Open Food Facts gave, one of your own, or one the log already holds. */
-export interface Choice {
-  name: string;
-  brand: string | null;
-  /** Grams in one serving, or null for a logged line that names no grams. */
-  serving_g: number | null;
-  per_serving: Nutrients;
-}
+export { type Choice, GRAMS_END } from "@/lib/food-math";
 
 /** How long the query waits for the typing to stop before it is sent. */
 const PAUSE_MS = 400;
 /** The shortest query sent, so one letter is not a call to Open Food Facts. */
 const QUERY_MIN = 2;
-const RECENT_MAX = 10;
-/** The most a line may hold: beyond these its kcal has more digits than the parser reads. */
-const MAX_GRAMS = 5000;
-const MAX_SERVINGS = 100;
 const RECENT_DAYS = 30;
-/** A number as typed: digits, then an optional point or comma and more digits. */
-const NUMBER = /^[0-9]+(?:[.,][0-9]+)?$/;
-/** Words that end in a weight, as a line logged from this search writes it. */
-export const GRAMS_END = /^(.*\S)[ \t]+([0-9]+(?:[.,][0-9]+)?)[ \t]*g$/i;
-
-/** The meal a food is logged under at this hour: breakfast, lunch, dinner, or a snack otherwise. */
-export function mealByHour(hour: number): Meal {
-  if (hour >= 5 && hour <= 10) return "breakfast";
-  if (hour >= 11 && hour <= 14) return "lunch";
-  if (hour >= 17 && hour <= 21) return "dinner";
-  return "snack";
-}
-
-/** The number typed, when it is a number above zero, or null. */
-function positive(text: string): number | null {
-  const typed = text.trim();
-  if (!NUMBER.test(typed)) return null;
-  const value = Number(typed.replace(",", "."));
-  return value > 0 ? value : null;
-}
-
-/**
- * The nutrients of `grams` of `food`, scaled from its serving. A choice with no
- * serving weight takes a count of its servings in `grams`, since that is all it has.
- */
-export function servingValues(food: Choice, grams: number): Nutrients {
-  const scale = food.serving_g === null ? grams : grams / food.serving_g;
-  // A negative figure from Open Food Facts is no amount of food, so it reads as none.
-  const times = (value: number | null) => (value === null || value < 0 ? null : value * scale);
-  const { kcal, protein, carbs, fat } = food.per_serving;
-  return { kcal: times(kcal), protein: times(protein), carbs: times(carbs), fat: times(fat) };
-}
-
-/**
- * The words of a food line: the name, the brand where the name lacks it, and the
- * grams. The brand is skipped when the name holds it already, so it is not written twice.
- */
-export function foodWords(name: string, brand: string | null, grams: number | null): string {
-  const named =
-    brand !== null && !name.toLowerCase().includes(brand.toLowerCase())
-      ? `${name} (${brand})`
-      : name;
-  return grams === null ? named : `${named} ${tenth(grams)} g`;
-}
-
-/** A line the log holds, as a food the form can take again. */
-function choiceOf(words: string, entry: LogDay["entries"][number]): Choice {
-  const per_serving: Nutrients = {
-    kcal: entry.kcal ?? null,
-    protein: entry.protein ?? null,
-    carbs: entry.carbs ?? null,
-    fat: entry.fat ?? null,
-  };
-  // The fields of a line are for the grams it names, so the grams are the serving.
-  const found = GRAMS_END.exec(words);
-  const grams = Number((found?.[2] ?? "0").replace(",", "."));
-  if (found !== null && grams > 0) {
-    return { name: found[1] ?? words, brand: null, serving_g: grams, per_serving };
-  }
-  return { name: words, brand: null, serving_g: null, per_serving };
-}
-
-/**
- * The foods the days' food lines name, newest first, one per words, at most ten.
- * A repeat of the same words, in any case, is the one already listed.
- */
-export function recentFoods(days: LogDay[]): Choice[] {
-  const newest = [...days].sort((a, b) => b.date.localeCompare(a.date));
-  const seen = new Set<string>();
-  const found: Choice[] = [];
-  for (const day of newest) {
-    for (const entry of [...day.entries].sort((a, b) => b.line - a.line)) {
-      const words = entry.words ?? "";
-      if (entry.kind !== "food" || words === "") continue;
-      const key = words.toLowerCase();
-      if (seen.has(key)) continue;
-      seen.add(key);
-      found.push(choiceOf(words, entry));
-      if (found.length === RECENT_MAX) return found;
-    }
-  }
-  return found;
-}
 
 export interface PanelHooks {
   /** Writes the food line and closes the panel. */
   log: (line: string) => void;
   /** Closes the panel, writing nothing. */
   close: () => void;
+  /** Today's food totals and the config's food goals, for the serving preview and the quick add's goal. */
+  today: () => { eaten: DrinkTotals["food"]; goals: FoodGoals };
 }
 
-/** An element with its class and, when given, its text. */
-function make<K extends keyof HTMLElementTagNameMap>(
-  tag: K,
-  className: string,
-  text = "",
-): HTMLElementTagNameMap[K] {
-  const made = document.createElement(tag);
-  made.className = className;
-  if (text !== "") made.textContent = text;
-  return made;
+export interface FoodPanel {
+  root: HTMLElement;
+  /** Stops the camera and the torch. Closes nothing. */
+  stop: () => void;
 }
 
 function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : "The food search failed";
+}
+
+/** One of the result sections, with its small heading and its rows. */
+function section(title: string, rows: HTMLElement[]): HTMLElement {
+  const made = make("div", "cm-log-food-section");
+  made.append(make("div", "cm-log-food-section-title", title), ...rows);
+  return made;
 }
 
 /** A result row: the name, the brand, the kcal per serving, and `mine` or `recent` where it is one. */
@@ -151,7 +58,8 @@ function pickButton(
   tag: "mine" | "recent" | null,
   onPick: () => void,
 ): HTMLButtonElement {
-  const made = make("button", "cm-log-food-pick");
+  // A full-width row, so it takes the surface tint on a press rather than the shrink.
+  const made = make("button", "cm-log-food-pick k-row");
   made.type = "button";
   made.append(make("span", "cm-log-food-name", choice.name));
   if (choice.brand !== null) made.append(make("span", "cm-log-food-brand", choice.brand));
@@ -166,22 +74,12 @@ function pickButton(
   return made;
 }
 
-/** The totals a serving gives, in the words the form and the card use. Null values are left out. */
-function previewWords(values: Nutrients): string {
-  const parts: string[] = [];
-  if (values.kcal !== null) parts.push(`🔥 ${Math.round(values.kcal)} kcal`);
-  if (values.protein !== null) parts.push(`🥩 ${tenth(values.protein)} g`);
-  if (values.carbs !== null) parts.push(`🍞 ${tenth(values.carbs)} g`);
-  if (values.fat !== null) parts.push(`🧈 ${tenth(values.fat)} g`);
-  return parts.join(" ");
-}
-
 /**
  * The search panel. It is built each time the card opens it, so its answers are
  * dropped when its element is no longer in the page: a search or read that comes
  * back after the panel closed, or after a later search, draws nothing.
  */
-export function foodPanel(day: string | null, hooks: PanelHooks): HTMLElement {
+export function foodPanel(day: string | null, hooks: PanelHooks): FoodPanel {
   const root = make("div", "cm-log-food");
   const query = make("input", "cm-log-food-query");
   query.type = "text";
@@ -189,40 +87,26 @@ export function foodPanel(day: string | null, hooks: PanelHooks): HTMLElement {
   query.setAttribute("aria-label", "Food");
   const why = make("div", "cm-log-food-why");
   const results = make("div", "cm-log-food-results");
+  const say = (text: string) => {
+    why.textContent = text;
+  };
 
-  const serving = make("div", "cm-log-food-serving");
-  serving.hidden = true;
-  const heading = make("div", "cm-log-food-heading");
-  const grams = make("input", "cm-log-food-grams");
-  grams.type = "text";
-  grams.inputMode = "decimal";
-  grams.placeholder = "grams";
-  grams.setAttribute("aria-label", "Grams");
-  const servings = make("input", "cm-log-food-servings");
-  servings.type = "text";
-  servings.inputMode = "decimal";
-  servings.placeholder = "servings";
-  servings.setAttribute("aria-label", "Servings");
-  servings.value = "1";
-  const meal = make("select", "cm-log-food-meal");
-  meal.setAttribute("aria-label", "Meal");
-  for (const option of MEALS) {
-    const made = make("option", "", option);
-    made.value = option;
-    meal.append(made);
-  }
-  const preview = make("div", "cm-log-food-preview");
-  const log = make("button", "cm-log-food-log", "Log");
-  log.type = "button";
-  log.setAttribute("aria-label", "Log this food");
-  const back = make("button", "cm-log-food-back", "Back");
-  back.type = "button";
-  // Each field says what its number is, since two bare numbers read alike.
-  const gramsField = make("label", "cm-log-food-field");
-  gramsField.append(grams, make("span", "", "g"));
-  const servingsField = make("label", "cm-log-food-field");
-  servingsField.append(servings, make("span", "", "servings"));
-  serving.append(heading, gramsField, servingsField, meal, preview, log, back);
+  const serving = servingForm({
+    say,
+    log: (line) => {
+      stopScan();
+      hooks.log(line);
+    },
+    back: () => showSearch(),
+    today: hooks.today,
+  });
+  const quick = quickAddForm({
+    say,
+    log: (line) => {
+      stopScan();
+      hooks.log(line);
+    },
+  });
 
   const close = make("button", "cm-log-food-close", "Close");
   close.type = "button";
@@ -242,9 +126,7 @@ export function foodPanel(day: string | null, hooks: PanelHooks): HTMLElement {
   add.type = "button";
   add.setAttribute("aria-label", "Add a food of your own");
   const adding = addForm({
-    say: (text) => {
-      why.textContent = text;
-    },
+    say,
     saved: (food) => {
       mine = [...mine, food];
       unknownCode = null;
@@ -253,12 +135,12 @@ export function foodPanel(day: string | null, hooks: PanelHooks): HTMLElement {
     back: () => showSearch(),
   });
 
-  root.append(bar, video, why, results, add, adding.root, serving, close);
+  // The serving step comes last, so its foot is the last thing the sheet scrolls to.
+  root.append(bar, video, why, results, quick, add, adding.root, close, serving.root);
 
   let mine: MyFood[] = [];
   let recents: Choice[] = [];
   let offHits: Food[] = [];
-  let current: Choice | null = null;
   let latest = 0;
   /** Counts the picks, so a barcode read answered after a later pick is dropped. */
   let pickTurn = 0;
@@ -268,6 +150,7 @@ export function foodPanel(day: string | null, hooks: PanelHooks): HTMLElement {
   /** Stops the camera of the scan running, or null while none runs. */
   let stopCamera: (() => void) | null = null;
 
+  /** The sections in their order, each one drawn only where it has a row. */
   function render(): void {
     const typed = query.value.trim().toLowerCase();
     const ours = mine.filter(
@@ -279,49 +162,42 @@ export function foodPanel(day: string | null, hooks: PanelHooks): HTMLElement {
       (choice) =>
         choice.name.toLowerCase().includes(typed) && !names.has(choice.name.toLowerCase()),
     );
+    const sections: [string, HTMLElement[]][] = [
+      [
+        "Mine",
+        ours.map((food) => {
+          const choice = myChoice(food);
+          return pickButton(choice, "mine", () => pickRecent(choice));
+        }),
+      ],
+      ["Recent", matches.map((choice) => pickButton(choice, "recent", () => pickRecent(choice)))],
+      ["Open Food Facts", offHits.map((food) => pickButton(food, null, () => readPick(food)))],
+    ];
     results.replaceChildren(
-      ...ours.map((food) => {
-        const choice = myChoice(food);
-        return pickButton(choice, "mine", () => pickRecent(choice));
-      }),
-      ...matches.map((choice) => pickButton(choice, "recent", () => pickRecent(choice))),
-      ...offHits.map((food) => pickButton(food, null, () => readPick(food))),
+      ...sections
+        .filter(([, rows]) => rows.length > 0)
+        .map(([title, rows]) => section(title, rows)),
     );
   }
 
-  /** The amount the form holds: grams, or a count of servings where the choice has no grams. */
-  function amount(choice: Choice): number | null {
-    return choice.serving_g === null ? positive(servings.value) : positive(grams.value);
-  }
-
-  function updatePreview(): void {
-    const choice = current;
-    const count = choice === null ? null : amount(choice);
-    preview.textContent =
-      choice === null || count === null ? "" : previewWords(servingValues(choice, count));
-  }
-
   function show(choice: Choice): void {
-    current = choice;
-    heading.textContent = choice.name;
-    grams.disabled = choice.serving_g === null;
-    grams.value = choice.serving_g === null ? "" : String(choice.serving_g);
-    servings.value = "1";
-    meal.value = mealByHour(new Date().getHours());
+    why.textContent = "";
+    serving.show(choice);
+    serving.root.hidden = false;
     results.hidden = true;
     add.hidden = true;
+    quick.hidden = true;
     adding.root.hidden = true;
-    serving.hidden = false;
-    updatePreview();
   }
 
   /** The add form, filled from the query and the last barcode Open Food Facts did not know. */
   function showAdd(): void {
     pickTurn += 1;
-    current = null;
+    serving.clear();
     results.hidden = true;
     add.hidden = true;
-    serving.hidden = true;
+    quick.hidden = true;
+    serving.root.hidden = true;
     adding.open(query.value, unknownCode);
   }
 
@@ -362,21 +238,22 @@ export function foodPanel(day: string | null, hooks: PanelHooks): HTMLElement {
       },
       (error: unknown) => {
         if (turn !== pickTurn || !root.isConnected) return;
-        why.textContent = messageOf(error);
+        // The form is drawn first, since drawing it clears the message the form shows.
         show(food);
+        why.textContent = messageOf(error);
       },
     );
   }
 
-  /** A code the camera read is looked up as a pick is, so a late answer draws nothing. */
   /** The name search on screen, with no form: a read still in the air is for a form no longer shown, so it is dropped. */
   function showSearch(): void {
     pickTurn += 1;
-    current = null;
-    serving.hidden = true;
+    serving.clear();
+    serving.root.hidden = true;
     adding.root.hidden = true;
     results.hidden = false;
     add.hidden = false;
+    quick.hidden = false;
     render();
   }
 
@@ -453,81 +330,20 @@ export function foodPanel(day: string | null, hooks: PanelHooks): HTMLElement {
     }, PAUSE_MS);
   });
 
-  grams.addEventListener("input", () => {
-    const typed = positive(grams.value);
-    if (current?.serving_g && typed !== null) {
-      servings.value = String(Number((typed / current.serving_g).toFixed(2)));
-    }
-    updatePreview();
-  });
-
-  servings.addEventListener("input", () => {
-    const typed = positive(servings.value);
-    if (current?.serving_g && typed !== null) {
-      grams.value = String(tenth(typed * current.serving_g));
-    }
-    updatePreview();
-  });
-
-  log.addEventListener("click", () => {
-    const choice = current;
-    if (choice === null) return;
-    const typedGrams = choice.serving_g === null ? null : positive(grams.value);
-    if (choice.serving_g !== null && typedGrams === null) {
-      why.textContent = "grams must be a number above zero";
-      return;
-    }
-    const count = positive(servings.value);
-    if (count === null) {
-      why.textContent = "servings must be a number above zero";
-      return;
-    }
-    // Past these, a line's kcal runs to more digits than the log's parser reads. A food
-    // with a serving size is held by the grams it writes; one without has only the count.
-    if (typedGrams !== null && typedGrams > MAX_GRAMS) {
-      why.textContent = `grams must be at most ${MAX_GRAMS}`;
-      return;
-    }
-    if (choice.serving_g === null && count > MAX_SERVINGS) {
-      why.textContent = `servings must be at most ${MAX_SERVINGS}`;
-      return;
-    }
-    const values = servingValues(choice, typedGrams ?? count);
-    stopScan();
-    hooks.log(
-      foodLine({
-        meal: meal.value,
-        words: foodWords(choice.name, choice.brand, typedGrams),
-        kcal: values.kcal ?? undefined,
-        protein: values.protein ?? undefined,
-        carbs: values.carbs ?? undefined,
-        fat: values.fat ?? undefined,
-      }),
-    );
-  });
-
-  back.addEventListener("click", showSearch);
   add.addEventListener("click", showAdd);
 
-  // A key typed in a field is the field's own. The editor's keymap, vim's included,
-  // sits above these fields, so the key must not reach it.
+  // A key typed in the panel is the panel's own. The editor's keymap, vim's included,
+  // sits above the panel, so the key must not reach it. Tab is let through, since the
+  // sheet keeps the focus inside itself on Tab.
   // The camera stops with the panel, however the panel closes.
   const shut = () => {
     stopScan();
     hooks.close();
   };
-  const keys = (event: KeyboardEvent) => {
-    event.stopPropagation();
+  root.addEventListener("keydown", (event) => {
+    if (event.key !== "Tab") event.stopPropagation();
     if (event.key === "Escape") shut();
-  };
-  query.addEventListener("keydown", keys);
-  scan.addEventListener("keydown", keys);
-  torch.addEventListener("keydown", keys);
-  grams.addEventListener("keydown", keys);
-  servings.addEventListener("keydown", keys);
-  meal.addEventListener("keydown", keys);
-  for (const input of adding.root.querySelectorAll("input"))
-    input.addEventListener("keydown", keys);
+  });
   scan.addEventListener("click", startScan);
   close.addEventListener("click", () => shut());
 
@@ -556,5 +372,5 @@ export function foodPanel(day: string | null, hooks: PanelHooks): HTMLElement {
     );
   }
 
-  return root;
+  return { root, stop: stopScan };
 }
