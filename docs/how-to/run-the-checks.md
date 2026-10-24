@@ -49,6 +49,29 @@ together as one tuple. Use `# noqa` only where the function reads better whole,
 with a comment above it saying why, as `apkg` in `backend/tests/anki_build.py`
 has.
 
+## Get a frontend function past the complexity rule
+
+Biome, in `fe:lint` and `shell:lint`, fails any function with a cognitive
+complexity over 15 (`noExcessiveCognitiveComplexity`, set in
+`frontend/biome.jsonc`). Each `if`, loop, `catch`, `? :` and run of `&&` or
+`||` adds one, and each adds one more for every level of nesting it sits in.
+
+The 111 files that failed when the rule came in sit on a list in the last
+`overrides` entry of `frontend/biome.jsonc`, which turns the rule off for them.
+That list only shrinks. When the rule fires on your function, split it: return
+early instead of nesting, and lift a branch or a loop body into a function of
+its own. Never add a file to the list or raise the limit;
+`backend/tests/test_complexity_baseline.py` fails when the list holds more files
+than its `MAX_FILES`.
+
+To take a file off the list, make each of its functions pass, delete its line,
+and lower `MAX_FILES` by one in the same commit. To see what fails on the
+listed files:
+
+```sh
+cd frontend && bunx biome lint --only=complexity/noExcessiveCognitiveComplexity --max-diagnostics=200 src
+```
+
 ## Get past the copy check
 
 `lint:dup` runs jscpd over `frontend/src` and `backend/src` with the settings in
