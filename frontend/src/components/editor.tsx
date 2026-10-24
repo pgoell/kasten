@@ -419,8 +419,13 @@ export function Editor({
   }, [focused]);
 
   // Swapping the extension out is all this takes: the same `livePreview()`
-  // pieces come back by identity, so nothing below them is rebuilt.
+  // pieces come back by identity, so nothing below them is rebuilt. The view is
+  // built with this preview already, so the mount skips it: a reconfigure there
+  // would carry a scroll snapshot taken before the open centred its line, and
+  // that snapshot would put the note back at the top (#950).
   useEffect(() => {
+    if (renderedRef.current === rendered) return;
+    renderedRef.current = rendered;
     const view = viewRef.current;
     if (view) setPreview(view, rendered);
   }, [rendered]);
