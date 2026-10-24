@@ -35,6 +35,7 @@ import {
   setUp as setUpVault,
   untilCanvas,
   untilCounted,
+  untilSized,
 } from "./vault-graph-fixture";
 import { registerNotes, renderPanes, TAKE, TALK, talkNote, VIDEO } from "./video-pane-fixture";
 
@@ -153,6 +154,7 @@ describe("#793 A18 the media panes do not overflow sideways", () => {
     await mountPane(host);
     await untilCanvas(host);
     await untilCounted(host);
+    await untilSized(host);
     expectFits(host);
   });
 

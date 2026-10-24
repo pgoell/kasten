@@ -273,6 +273,24 @@ export async function untilCounted(host: HTMLElement): Promise<void> {
   );
 }
 
+/**
+ * Waits until the canvas is as wide as its box. force-graph draws its canvas at the
+ * window's width first and takes the box's width only when the pane's ResizeObserver
+ * calls back, so a check right after the counts can catch the canvas too wide.
+ */
+export async function untilSized(host: HTMLElement): Promise<void> {
+  const canvas = await untilCanvas(host);
+  const box = need(
+    host.querySelector<HTMLElement>("[data-testid='graph-canvas']"),
+    "graph canvas box",
+  );
+  await waitFor(() => {
+    const boxWidth = box.getBoundingClientRect().width;
+    expect(boxWidth).toBeGreaterThan(0);
+    expect(Math.abs(canvas.getBoundingClientRect().width - boxWidth)).toBeLessThan(1);
+  }, PATIENCE);
+}
+
 /** The put-back every vault graph test shares. A test that mounts serves its own answer. */
 export function registerVaultFixture() {
   afterEach(async () => {
