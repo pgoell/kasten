@@ -60,16 +60,16 @@ async function closeFocused(start: Layout) {
 
 function expectEmptiedInPlace(start: Layout, layout: Layout) {
   expect(layout.tabs).toHaveLength(1);
-  expect(isEmptyTab(activeTab(layout))).toBe(true);
   expect(focusedPane(layout).id).toBe(focusedPane(start).id);
+  expect(isEmptyTab(activeTab(layout))).toBe(true);
 }
 
 function expectEmptiedBeside(start: Layout, layout: Layout, kind: "graph" | "history" | "person") {
   const panes = tabPanes(layout);
-  expect(panes).toHaveLength(2);
   const emptied = panes.find((pane) => pane.id === focusedPane(start).id);
-  expect(emptied?.[kind]).toBeUndefined();
   expect(panes.map((pane) => pane.path)).toContain(NOTE);
+  expect(emptied?.[kind]).toBeUndefined();
+  expect(panes.map((pane) => pane.id)).toEqual(tabPanes(start).map((pane) => pane.id));
 }
 
 it("A1 q on a lone graph pane empties it and shows Today", async () => {
