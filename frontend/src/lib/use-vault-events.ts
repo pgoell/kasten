@@ -118,9 +118,13 @@ export function useVaultEvents(
         // off for the reason the two invalidations beside it have it off.
         // Not for the echo of a press in the pane: the press asks once after its
         // last write, and its own echoes would ask again for every row it moved.
-        if (!pressEcho(event.path)) {
+        // The echo is told by the digest, so a text typed into the same note by
+        // somebody else still asks. The answer comes a turn later, which is why
+        // the check is a promise and not a branch.
+        void pressEcho(event.path, event.digest).then((echo) => {
+          if (echo) return;
           queryClient.invalidateQueries({ queryKey: ["todos"] }, { cancelRefetch: false });
-        }
+        });
         // A link or a relation is a line of a note, so any write can move an
         // edge. Only a graph on screen is asked again, the rest marked stale.
         queryClient.invalidateQueries({ queryKey: ["graph"] }, { cancelRefetch: false });

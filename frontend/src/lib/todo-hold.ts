@@ -1,5 +1,6 @@
 import type { TodoHit } from "@/lib/api";
-import { parseTodo } from "@/lib/todo";
+import { parseTodo, wordTags } from "@/lib/todo";
+import { AGENT } from "@/lib/todo-agent";
 import { type Row, rowKey } from "@/lib/use-todo-rows";
 
 /** A row the order is held by: what it is, and the row as it was last drawn. */
@@ -29,12 +30,27 @@ export function identities(hits: TodoHit[]): Map<string, string> {
   const seen = new Map<string, number>();
   const ids = new Map<string, string>();
   for (const hit of inOrder) {
-    const stem = `${hit.path}\n${parseTodo(hit.text)?.text ?? hit.text}`;
+    const stem = `${hit.path}\n${wordsOf(parseTodo(hit.text)?.text ?? hit.text)}`;
     const nth = seen.get(stem) ?? 0;
     seen.set(stem, nth + 1);
     ids.set(rowKey(hit), `${stem}\n${nth}`);
   }
   return ids;
+}
+
+/**
+ * The words without their `#agent` tags, the way `@` leaves them: a press puts
+ * the tag on a todo and takes it off again, and neither is another todo.
+ */
+function wordsOf(text: string): string {
+  let words = text;
+  // Last first, so the offsets of the tags still to go hold.
+  for (const { tag, at } of [...wordTags(text)].reverse()) {
+    if (tag !== AGENT) continue;
+    const start = words[at - 1] === " " ? at - 1 : at;
+    words = words.slice(0, start) + words.slice(at + AGENT.length);
+  }
+  return words;
 }
 
 /** The groups as they are drawn, each row with its identity. */

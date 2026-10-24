@@ -302,11 +302,26 @@ export function TodoPane({
    */
   function edit(hit: SearchHit) {
     if (editing !== null) return;
+    // An edited line can change its words, which a held row would take for a new
+    // todo and put at the end of its group, so the list is drawn fresh instead.
+    setHold(null);
     setEditing({ key: rowKey(hit), line: hit.text });
   }
 
+  /** `s`: a part of the row, which lands beside its parent in the list drawn fresh. */
+  function part(hit: SearchHit) {
+    setHold(null);
+    onSubtask(hit);
+  }
+
+  /**
+   * `b`: the picker opens over the list. The picker lists the todos the list
+   * hides, so the order held for the list is let go rather than taking them in.
+   */
   function block(hit: SearchHit) {
-    if (blocker.block(hit)) setActive(0);
+    if (!blocker.block(hit)) return;
+    setHold(null);
+    setActive(0);
   }
 
   /** A row opens its note, or is the blocker picked while the list is the picker. */
@@ -320,7 +335,7 @@ export function TodoPane({
   const actions = (hit: TodoHit): [string, () => void][] => [
     ...Object.values(SET).map((state): [string, () => void] => [state, () => onCycle(hit, state)]),
     ["timer", () => onTimer(hit)],
-    ["part", () => onSubtask(hit)],
+    ["part", () => part(hit)],
     ["edit", () => edit(hit)],
     ["blocked by", () => block(hit)],
     ["refile", () => refile(hit)],
@@ -355,7 +370,7 @@ export function TodoPane({
     },
     add: () => onAdd(),
     subtask: () => {
-      if (at !== undefined) onSubtask(at.hit);
+      if (at !== undefined) part(at.hit);
     },
     edit: () => {
       if (at !== undefined) edit(at.hit);

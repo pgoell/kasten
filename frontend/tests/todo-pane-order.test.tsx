@@ -7,7 +7,7 @@ import type { EditorCommands } from "@/lib/key-bindings";
 import { periodicNote } from "@/lib/periodic";
 import { useTodoActions } from "@/lib/use-todo-actions";
 import { useVaultEvents } from "@/lib/use-vault-events";
-import type { VaultEvent } from "@/lib/vault-events";
+import { digestOf, type VaultEvent } from "@/lib/vault-events";
 import { COARSE, NARROW, stubMatchMedia } from "./match-media";
 
 /**
@@ -26,6 +26,8 @@ const vault = vi.hoisted(() => ({
   refuse: false,
   /** Held back for the next list answer only, which then waits on this before it lands. */
   held: undefined as Promise<void> | undefined,
+  /** How many more writes land before the next is refused, when counted. */
+  allow: undefined as number | undefined,
 }));
 
 vi.mock("@/lib/api-client", async (importOriginal) => {
@@ -65,7 +67,9 @@ vi.mock("@/lib/api-client", async (importOriginal) => {
         _url: string,
         init: { params: { path: { path: string } }; body: { content: string } },
       ) => {
-        if (vault.refuse) return { data: undefined, response: { status: 500 } };
+        if (vault.refuse || vault.allow === 0)
+          return { data: undefined, response: { status: 500 } };
+        if (vault.allow !== undefined) vault.allow -= 1;
         const path = init.params.path.path;
         vault.notes[path] = init.body.content;
         return ok({ path, content: init.body.content });
@@ -87,7 +91,7 @@ vi.mock("@/lib/api-client", async (importOriginal) => {
 const TODAY = "2026-08-10";
 /** Today's daily note as the app names it, which a press's done log writes into. */
 const DAILY = periodicNote("daily", new Date()).path;
-const NAMES = ["alpha", "bravo", "charlie", "delta", "echo", "foxtrot", "golf", "hotel"];
+const NAMES = ["alpha", "bravo", "charlie", "delta", "echo", "foxtrot", "golf", "hotel", "kilo"];
 
 /**
  * The stream the route opens, driven by the test. Only the members the hook
@@ -233,6 +237,7 @@ describe("the todo pane holds the order it is drawn in while a press is made", (
     vault.answers = 0;
     vault.refuse = false;
     vault.held = undefined;
+    vault.allow = undefined;
     // Doing, not open: the state cycle goes open, doing, done, so one `x` on a
     // row in progress checks it off.
     vault.notes = {
@@ -314,8 +319,17 @@ describe("the todo pane holds the order it is drawn in while a press is made", (
     expect(fetches()).toBe(1);
 
     // The writes the press made, reported by the stream after its answer landed.
-    stream().send({ path: note, change: "written", digest: null });
-    stream().send({ path: DAILY, change: "written", digest: null });
+    // Each echo carries the digest of the text the press wrote, as the vault reports it.
+    stream().send({
+      path: note,
+      change: "written",
+      digest: await digestOf(vault.notes[note] ?? ""),
+    });
+    stream().send({
+      path: DAILY,
+      change: "written",
+      digest: await digestOf(vault.notes[DAILY] ?? ""),
+    });
     await settle();
     expect(fetches()).toBe(1);
 
@@ -388,6 +402,88 @@ describe("the todo pane holds the order it is drawn in while a press is made", (
     await settle();
     expect(rowOf(first[0] ?? "")?.querySelector(".line-through")).not.toBeNull();
     expect(order()).toEqual(first);
+  });
+
+  it("#947 B1 a press whose later write fails still draws what its first writes changed", async () => {
+    await mount();
+    const first = order();
+
+    // The todo's own note lands, and the done log in today's note is refused.
+    vault.allow = 1;
+    press("x");
+    await settle();
+
+    expect(screen.getByTestId("notice").textContent).toMatch(
+      /^Nothing moved: PUT .+ failed with 500$/,
+    );
+    expect(rowOf(first[0] ?? "")?.querySelector(".line-through")).not.toBeNull();
+  });
+
+  it("#947 B4 an edit with i during a held order leaves the row where it was", async () => {
+    await mount();
+
+    press("x");
+    await settle();
+    press("j");
+    press("i");
+    const field = screen.getByLabelText("edit line") as HTMLInputElement;
+    // Changed words and a priority: the row must land at the top of its group,
+    // not at the end of the held order it was edited out of.
+    fireEvent.change(field, { target: { value: "- [/] kilo ⏫" } });
+    fireEvent.keyDown(field, { key: "Enter" });
+    await settle();
+
+    expect(order()[0]).toBe("kilo");
+  });
+
+  it("#947 B3 after b during a held order no todo is struck that was not checked off", async () => {
+    // A todo that cannot start yet: only the blocker picker lists it.
+    vault.notes["b.md"] = `${vault.notes["b.md"] ?? ""}\n- [ ] zulu 🛫 2026-09-01`;
+    await mount();
+
+    press("x");
+    await settle();
+    // `b` picks for an open row, so the cursor moves off the struck one first.
+    press("j");
+    press("b");
+    await settle();
+    expect(rowOf("zulu")).toBeDefined();
+    press("Escape");
+    await settle();
+
+    expect(rowOf("zulu")).toBeUndefined();
+  });
+
+  it("#947 B2 @ on a row keeps it in its place and the cursor on it", async () => {
+    await mount();
+    const first = order();
+
+    press("j");
+    press("@");
+    await settle();
+
+    expect(order()).toEqual(first);
+    expect(document.querySelector('[data-row][tabindex="0"]')?.textContent).toContain(
+      first[1] ?? "",
+    );
+  });
+
+  it("#947 B5 a todo typed into today's note right after a press reaches the pane", async () => {
+    await mount();
+
+    press("x");
+    await settle();
+
+    // Somebody types into today's note inside the window the press's echo lasts.
+    vault.notes[DAILY] = `${vault.notes[DAILY] ?? ""}\n- [ ] kilo`;
+    stream().send({
+      path: DAILY,
+      change: "written",
+      digest: await digestOf(vault.notes[DAILY] ?? ""),
+    });
+    await settle();
+
+    expect(order()).toContain("kilo");
   });
 
   it("#947 I3 a refused press keeps the notice and the row where it was", async () => {

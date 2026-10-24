@@ -37,9 +37,10 @@ state button on a phone) changes that row only. The list keeps the order it was
 drawn in: a row checked off stays where it was, struck through, and a todo
 written elsewhere meanwhile joins the end of its group. The order goes once the
 focus leaves the pane, the pane closes or the page reloads, and `d`, `n`, `v`,
-`c` and the filter draw the list afresh too. A press asks the vault for the list
-once, after its last write; the vault's own word on that write does not ask
-again (#947).
+`c`, `b`, `i`, `s` and the filter draw the list afresh too. A press redraws the
+list once, after its last write, whether every write landed or not; the vault's
+word on a note the press wrote asks again only where the note now holds other
+text than the press wrote (#947).
 
 `t` starts a session on the row's todo, or closes the ones it has running, and
 writes both to the [time log](/reference/todo-format/time-and-repeats.md#the-time-log). A row

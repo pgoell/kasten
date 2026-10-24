@@ -55,9 +55,9 @@ split inside a split the other way, or a close that folds a split back into its
 row, is no different from a split of the tab's only pane (#932, #935).
 
 A swap moves each pane to the other's place, and each keeps what it holds, the
-focus following the pane. A book and a video are the exception, being frames of
-their own that the browser reloads when they move: the reader comes back to the
-page it recorded and the player to the second the note names.
+focus following the pane. A book, a video and an HTML page are the exception,
+being frames of their own that the browser reloads when they move: the reader
+comes back to the page it recorded and the player to the second the note names.
 
 `<leader>z` draws the focused pane over the whole window, and a second press
 puts the tab back. It is tmux's own zoom key and hyprland's fullscreen. Nothing

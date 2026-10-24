@@ -1,12 +1,14 @@
+import { digestOf } from "@/lib/vault-events";
+
 /**
  * The vault's echo of a todo press, which the pane does not need to hear twice.
  *
  * A press writes one or more notes and then asks for the todo list once, after
  * the last write. `/api/events` then reports each of those writes too, and
  * every report would ask for the list again: a second and third fetch of a list
- * the press already read. So a path a press wrote is not asked for again while
- * the press runs, nor for a moment after it, which is how long the echo takes to
- * arrive.
+ * the press already read. So an event is the echo of a press only when its
+ * digest is the digest of a text the press wrote to that path. A text typed
+ * into the same note by anybody else carries another digest and still asks.
  */
 
 /** How long after a press the echo of its writes may still arrive. */
@@ -14,9 +16,11 @@ const ECHO_MS = 3000;
 
 /** Presses running now. A press can start before the last one has settled. */
 let running = 0;
-/** Paths written while a press runs, which the echo of waits for it to end. */
-const written = new Set<string>();
-/** Paths whose echo is due, by the time it stops being one. */
+/** The digests of the texts each path was written with, by the presses that wrote it. */
+const written = new Map<string, Promise<string>[]>();
+/** Paths the running presses wrote, which take an expiry once the last one ends. */
+const fresh = new Set<string>();
+/** When the echo of a path's writes stops being one, once no press runs. */
 const expiry = new Map<string, number>();
 
 /** A press has begun. Every write until its `endPress` is the press's own. */
@@ -29,21 +33,38 @@ export function endPress(): void {
   running -= 1;
   if (running > 0) return;
   const until = Date.now() + ECHO_MS;
-  for (const path of written) expiry.set(path, until);
-  written.clear();
+  for (const path of fresh) expiry.set(path, until);
+  fresh.clear();
 }
 
-/** A note a press has just written, by its path as the vault spells it. */
-export function pressWrote(path: string): void {
-  if (running > 0) written.add(path);
+/** Forget the writes whose echo has passed, so the record does not grow with the session. */
+function prune(): void {
+  const now = Date.now();
+  for (const [path, until] of expiry) {
+    if (until > now) continue;
+    expiry.delete(path);
+    written.delete(path);
+  }
 }
 
-/** Whether a write event for `path` is the echo of a press, and so not asked for again. */
-export function pressEcho(path: string): boolean {
-  if (running > 0 && written.has(path)) return true;
-  const until = expiry.get(path);
-  if (until === undefined) return false;
-  if (until > Date.now()) return true;
-  expiry.delete(path);
-  return false;
+/**
+ * A note a press has just written, and the text it now holds: what landed on
+ * disk, which is the digest `/api/events` reports for the write.
+ */
+export function pressWrote(path: string, content: string): void {
+  if (running === 0) return;
+  fresh.add(path);
+  written.set(path, [...(written.get(path) ?? []), digestOf(content)]);
+}
+
+/**
+ * Whether a write event for `path` with `digest` is the echo of a press: the
+ * digest is one of the texts a press wrote to that path, and the echo window is
+ * open, which it is while a press runs or for `ECHO_MS` after.
+ */
+export async function pressEcho(path: string, digest: string | null): Promise<boolean> {
+  prune();
+  const digests = written.get(path);
+  if (digests === undefined || digest === null) return false;
+  return (await Promise.all(digests)).includes(digest);
 }

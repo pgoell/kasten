@@ -63,10 +63,11 @@ The walk is the work: not started, started, finished, and out of the list again.
 Review, blocked, waiting and rejected are things that happen to work rather
 than steps in it, so none is on the walk and each has
 [a key of its own](#setting-a-state). That is also what puts done last. A list
-of open work loses a row the moment it is done, so a walk with two closed
-states in it could never reach the second: from the todo pane the old order
-made blocked and rejected unreachable, because the row left the list at done
-and took the rest of the walk with it.
+of open work loses a row once it is done (the todo pane keeps it, struck
+through, only until you leave the pane), so a walk with two closed states in it
+could never reach the second: from the todo pane the old order made blocked and
+rejected unreachable, because the row left the list at done and took the rest
+of the walk with it.
 
 The walk picks a blocked line up where the work left off, at doing, rather than
 at the start of it. A todo somebody blocked is one somebody had begun. It picks
