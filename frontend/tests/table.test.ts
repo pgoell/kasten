@@ -21,6 +21,12 @@ function open(doc: string, anchor: number) {
   });
 }
 
+/** The character under the cursor: a cell's first character is what a walk is checked by. */
+function charAtCursor(view: EditorView): string {
+  const { head } = view.state.selection.main;
+  return view.state.doc.sliceString(head, head + 1);
+}
+
 describe("alignTable", () => {
   it("pads every column to its widest cell", () => {
     expect(align("| a | longer |\n| - | - |\n| xx | b |")).toBe(
@@ -139,6 +145,88 @@ describe("moveCell", () => {
   it("declines outside a table, and in the first cell going back", () => {
     expect(moveCell(open("plain text", 3), 1)).toBe(false);
     expect(moveCell(open(table, 2), -1)).toBe(false);
+  });
+
+  it("#921 A1 Tab from a walks to c on the row under an emoji row", () => {
+    const view = open("| a | b |\n|---|---|\n| 😀 | x |\n| c | d |", 2);
+
+    // From a: b, then the emoji cell, then x, then the first cell of the row under.
+    for (let step = 0; step < 4; step++) expect(moveCell(view, 1)).toBe(true);
+    expect(charAtCursor(view)).toBe("c");
+  });
+
+  it("#921 A2 Shift-Tab lands on the cell's first character below an emoji row", () => {
+    const source = [
+      "| a   | b   |",
+      "| --- | --- |",
+      "| 😀  | x   |",
+      "| c   | d   |",
+      "| e   | f   |",
+    ].join("\n");
+    const view = open(source, source.indexOf("| e") + 2);
+
+    expect(moveCell(view, -1)).toBe(true);
+    // Back across the row boundary, to the last cell of the row above.
+    expect(charAtCursor(view)).toBe("d");
+    expect(moveCell(view, -1)).toBe(true);
+    expect(charAtCursor(view)).toBe("c");
+  });
+
+  it("#921 A3 a table Tab drew is one the line-up leaves alone", () => {
+    const view = open("| a | b |\n|---|---|\n| 😀 | x |\n| c | d |", 2);
+
+    moveCell(view, 1);
+
+    const run = tableAt(view.state.doc, 1);
+    expect(run).not.toBeNull();
+    expect(lineUpChanges(view.state.doc, run as TableRun)).toEqual([]);
+  });
+
+  it("#921 I1 Tab within the emoji row lands on the next cell", () => {
+    const source = "| a   | b   |\n| --- | --- |\n| 😀  | x   |\n| c   | d   |";
+    const view = open(source, source.indexOf("😀"));
+
+    expect(moveCell(view, 1)).toBe(true);
+    expect(charAtCursor(view)).toBe("x");
+  });
+
+  it("#921 I2 offsets from several astral characters and a ZWJ sequence add up", () => {
+    const source = [
+      "| a   | 🎉  |",
+      "| --- | --- |",
+      "| 😀  | x   |",
+      "| c   | 👩‍💻 |",
+      "| k   | z   |",
+    ].join("\n");
+    const view = open(source, 2);
+
+    // a, 🎉, 😀, x, c, the ZWJ cell: six presses reach the first cell of the last row.
+    for (let step = 0; step < 6; step++) expect(moveCell(view, 1)).toBe(true);
+    expect(charAtCursor(view)).toBe("k");
+    expect(moveCell(view, 1)).toBe(true);
+    expect(charAtCursor(view)).toBe("z");
+  });
+
+  it("#921 I3 CJK and combining marks rows land on the cell's first character", () => {
+    const view = open("| 中文 | x |\n|---|---|\n| é | y |\n| k | z |", 2);
+
+    expect(moveCell(view, 1)).toBe(true);
+    expect(charAtCursor(view)).toBe("x");
+    expect(moveCell(view, 1)).toBe(true);
+    expect(charAtCursor(view)).toBe("e");
+    expect(moveCell(view, 1)).toBe(true);
+    expect(charAtCursor(view)).toBe("y");
+  });
+
+  it("#921 I4 Tab past the last row of an emoji table lands in the new row", () => {
+    const source = "| a   | b   |\n| --- | --- |\n| 😀  | x   |";
+    const view = open(source, source.indexOf("x"));
+
+    expect(moveCell(view, 1)).toBe(true);
+    const doc = view.state.doc;
+    const line = doc.lineAt(view.state.selection.main.head);
+    expect(line.number).toBe(doc.lines);
+    expect(view.state.selection.main.head).toBe(line.from + 2);
   });
 });
 

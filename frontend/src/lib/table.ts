@@ -177,21 +177,24 @@ function dashes(width: number, align: Align): string {
   return "-".repeat(width);
 }
 
+/** One row's cells drawn to the column widths, the dashes among them. */
+function drawCells(grid: Grid, widths: number[], index: number): string[] {
+  const row = grid.rows[index] ?? [];
+  return widths.map((width, column) => {
+    const align = grid.aligns[column] ?? "none";
+    return index === DIVIDER_ROW ? dashes(width, align) : pad(row[column] ?? "", width, align);
+  });
+}
+
 /**
- * Every row drawn to the same widths, so each line comes out the same length.
+ * Every row drawn to the same column widths, so the walls line up on screen.
  *
- * That is what lets `moveCell` find a cell by arithmetic instead of by
- * searching the text it just wrote.
+ * The lines are not one length in UTF-16 once a cell holds an astral character,
+ * so `moveCell` measures the lines it walks past rather than assuming a width.
  */
 function draw(grid: Grid, widths: number[]): string {
   return grid.rows
-    .map((row, index) => {
-      const cells = widths.map((width, column) => {
-        const align = grid.aligns[column] ?? "none";
-        return index === DIVIDER_ROW ? dashes(width, align) : pad(row[column] ?? "", width, align);
-      });
-      return `${grid.indent}| ${cells.join(" | ")} |`;
-    })
+    .map((_, index) => `${grid.indent}| ${drawCells(grid, widths, index).join(" | ")} |`)
     .join("\n");
 }
 
@@ -308,16 +311,21 @@ export function moveCell(view: EditorView, step: 1 | -1): boolean {
   if (row >= grid.rows.length) grid.rows.push(new Array<string>(columns).fill(""));
 
   const widths = columnWidths(grid);
-  const stride = (column: number) =>
-    widths.slice(0, column).reduce((sum, width) => sum + width + 3, 0);
+  const drawn = draw(grid, widths);
+  // Measured off the drawn text in UTF-16, the units the editor counts. The
+  // widths count code points, so adding them up is a character short for every
+  // emoji above the cell.
+  const before = drawn
+    .split("\n")
+    .slice(0, row)
+    .reduce((sum, line) => sum + line.length + 1, 0);
+  const along = drawCells(grid, widths, row)
+    .slice(0, column)
+    .reduce((sum, cell) => sum + cell.length + 3, 0);
   const from = state.doc.line(run.first).from;
-  // Every drawn line is `indent | cells... |`, one character for the opening
-  // wall and one for the newline.
-  const lineWidth = grid.indent.length + 1 + stride(columns);
-  const at = row * (lineWidth + 1) + grid.indent.length + 2 + stride(column);
+  const at = before + grid.indent.length + 2 + along;
 
   const to = state.doc.line(run.last).to;
-  const drawn = draw(grid, widths);
   view.dispatch({
     // A table already square is left alone, so walking one is a move and not
     // an edit: no undo step per press, and no write of a file nothing changed.
