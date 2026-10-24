@@ -206,6 +206,23 @@ describe("table pictures, alone", () => {
     }
   }
 
+  // Edit in the pansy palette, light and dark, at 1440.
+  for (const theme of ["light", "dark"] as const) {
+    it.skipIf(!SHOTS)(`table-d-1440-${theme}-pansy`, () =>
+      picture(
+        `table-d-1440-${theme}-pansy`,
+        PADDED,
+        DESK,
+        theme,
+        "pansy",
+        (_host, at) => {
+          at.dispatch({ selection: { anchor: PADDED.indexOf("| WH-07") + 2 } });
+        },
+        false,
+      ),
+    );
+  }
+
   // The three other palettes, at 1440 in light, for the scrolled table.
   for (const palette of ["russet", "peach", "pansy"]) {
     it.skipIf(!SHOTS)(`table-b-1440-light-${palette}`, () =>

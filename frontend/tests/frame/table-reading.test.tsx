@@ -8,9 +8,17 @@
  * editor is the app's own, mounted the way table-link-url.test.tsx mounts it.
  */
 
+import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { cdp, page } from "vitest/browser";
-import { mountApp, SITE, stubOpen, tableLinkCleanup, tap } from "./table-link-fixture";
+import { kastenTheme } from "@/lib/editor-theme";
+import { imagePaths } from "@/lib/image";
+import { livePreview } from "@/lib/live-preview";
+import { noteLanguage } from "@/lib/note-language";
+import { notePath } from "@/lib/todo-commands";
+import { vimKeys } from "@/lib/vim-mode";
+import { vaultPaths } from "@/lib/wikilink";
+import { mountApp, SITE, settled, stubOpen, tableLinkCleanup, tap } from "./table-link-fixture";
 
 tableLinkCleanup();
 
@@ -135,13 +143,14 @@ describe("table reading", () => {
 
   it("#792 A3 the edge shadows are black in light and in dark, the token's colour", async () => {
     const { block } = await drawn(wideNote(3));
-    expect(getComputedStyle(block, "::after").backgroundImage).toContain("0, 0, 0");
+    expect(getComputedStyle(block, "::after").backgroundImage).toContain("rgba(0, 0, 0, 0.14)");
 
-    // A light shadow would be a bar in dark, so the dark theme keeps it black.
+    // A light shadow would be a bar in dark, so the dark theme keeps it black, and
+    // stronger, since the near-black ground hides a faint one.
     document.documentElement.setAttribute("data-theme", "dark");
     await expect
       .poll(() => getComputedStyle(block, "::after").backgroundImage)
-      .toContain("0, 0, 0");
+      .toContain("rgba(0, 0, 0, 0.55)");
   });
 
   it("#792 A4 a numeric column is right-aligned with tabular figures", async () => {
@@ -229,6 +238,47 @@ describe("table reading", () => {
     range.selectNodeContents(cell);
     const tops = new Set([...range.getClientRects()].map((rect) => Math.round(rect.top)));
     expect(tops.size).toBe(1);
+  });
+
+  it("#792 R6 a table in another note at the same offset opens at its start", async () => {
+    await page.viewport(1440, 900);
+    const doc = wideNote(3);
+    // One editor per note, each with its path, as the note pane gives them.
+    const open = (path: string): EditorView =>
+      new EditorView({
+        state: EditorState.create({
+          doc,
+          extensions: [
+            noteLanguage(),
+            kastenTheme,
+            vimKeys.of(false),
+            livePreview(),
+            notePath.of(path),
+            vaultPaths.of([]),
+            imagePaths.of([]),
+            EditorView.lineWrapping,
+          ],
+        }),
+        parent: document.body.appendChild(document.createElement("div")),
+      });
+
+    const first = open("A.md");
+    await expect.poll(() => first.dom.querySelector(".cm-table-scroll")).not.toBeNull();
+    const scrolledA = first.dom.querySelector(".cm-table-scroll") as HTMLElement;
+    scrolledA.scrollLeft = 150;
+    await expect.poll(() => scrolledA.scrollLeft).toBe(150);
+    // The cursor into the table takes its widget off the page, keeping the place.
+    first.dispatch({ selection: { anchor: doc.indexOf("| column 0") } });
+    await expect.poll(() => first.dom.querySelector(".cm-table-block")).toBeNull();
+
+    const second = open("B.md");
+    await expect.poll(() => second.dom.querySelector(".cm-table-scroll")).not.toBeNull();
+    await settled();
+    const scrolledB = second.dom.querySelector(".cm-table-scroll") as HTMLElement;
+    expect(scrolledB.scrollLeft).toBe(0);
+
+    first.destroy();
+    second.destroy();
   });
 
   it("#792 I5 a first column wider than half the box scrolls with the rest", async () => {

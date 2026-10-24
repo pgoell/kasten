@@ -124,7 +124,7 @@ The values are those of the default palette, `poel`. [Accent palettes](/referenc
 | `--k-muted` | `#666663` | `#9a9995` | Meta lines, captions, labels |
 | `--k-rule` | `#e1e1de` | `#2c2c2c` | Hairlines |
 | `--k-rule-strong` | `#1c1c1b` | `#e8e7e4` | Rule under a section head, top of a table |
-| `--k-edge` | `rgba(0,0,0,.14)` | `rgba(0,0,0,.14)` | Edge shadow of a table that scrolls sideways |
+| `--k-edge` | `rgba(0,0,0,.14)` | `rgba(0,0,0,.55)` | Edge shadow of a table that scrolls sideways |
 | `--k-inset` | `rgba(28,28,27,.06)` | `rgba(232,231,228,.08)` | Code blocks, placeholders |
 | `--k-accent`, `--k-link` | `#316f90` | `#82b9d9` | Links, kickers, active markers |
 | `--k-accent-wash` | `rgba(49,111,144,.11)` | `rgba(130,185,217,.14)` | Accent tint behind a chip or box |

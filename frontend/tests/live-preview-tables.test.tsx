@@ -132,6 +132,20 @@ describe("live preview", () => {
     expect(content(container)).not.toContain("‒");
   });
 
+  it("#792 A5 a cell of a typed dash is drawn muted", () => {
+    // The dash is text the writer typed, so it stays as written. Only its colour
+    // is the empty cell's, through the class.
+    const lines = ["before", "", "| a | b | c |", "| - | - | - |", "| 1 | - | – |"];
+    const { container } = renderEditor(<Editor initialDoc={lines.join("\n")} />);
+
+    const table = container.querySelector(".cm-table-grid") as HTMLTableElement;
+    const [number, dash, figure] = table.querySelectorAll("tbody td");
+    expect(dash?.classList.contains("cm-table-blank")).toBe(true);
+    expect(dash?.textContent).toBe("-");
+    expect(figure?.classList.contains("cm-table-blank")).toBe(true);
+    expect(number?.classList.contains("cm-table-blank")).toBe(false);
+  });
+
   it("#792 A6 a code-like cell is marked code, a word and a date are not", () => {
     const lines = [
       "before",

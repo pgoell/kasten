@@ -31,8 +31,9 @@
   --k-info: #4a6d89;
   --k-danger: #9a5143;
   --k-shadow: 0 1px 2px rgba(0,0,0,.05),0 12px 32px rgba(0,0,0,.09);
-  /* The edge a table's sideways scroll casts. Black in dark too, where a light
-     shadow would read as a bar, so only this one block sets it. */
+  /* The edge a table's sideways scroll casts: black in both themes, never a light
+     bar in dark. Dark sets its own, stronger, since black on a near-black ground
+     needs more of it to show. */
   --k-edge: rgba(0,0,0,.14);
 
   --tg-1: #b05459;
@@ -128,6 +129,7 @@
   --k-rule: #2c2c2c;
   --k-rule-strong: #e8e7e4;
   --k-inset: rgba(232,231,228,.08);
+  --k-edge: rgba(0,0,0,.55);
   --k-accent: #82b9d9;
   --k-link: #82b9d9;
   --k-accent-wash: rgba(130,185,217,.14);

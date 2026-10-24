@@ -7,18 +7,27 @@ import { INLINE } from "@/lib/live-preview-inline";
 import { rowSpans, type Span } from "@/lib/live-preview-table-cells";
 import { repeats } from "@/lib/presses";
 import { type Align, alignsOf, isRow } from "@/lib/table";
-import { isCodeToken, isNumericColumn } from "@/lib/table-kinds";
+import { isCodeToken, isDashes, isNumericColumn } from "@/lib/table-kinds";
+import { notePath } from "@/lib/todo-commands";
 
 /**
- * The scroll place of each table that was drawn, keyed by where it starts.
+ * The scroll place of each table that was drawn, kept per editor and keyed by
+ * the note and where the table starts.
  *
  * The widget is taken off the page whenever the cursor goes in to show its
  * source, and a new one is built when it comes out. Without this the sideways
- * scroll would go back to the start each time.
+ * scroll would go back to the start each time. Keyed by the note too, since two
+ * notes with a table at the same offset would otherwise open each other's scroll.
  */
-const scrolled = new Map<number, number>();
-/** The observer each drawn table holds, kept so `destroy` can let it go. */
-const watching = new WeakMap<HTMLElement, ResizeObserver>();
+const scrolled = new WeakMap<EditorView, Map<string, number>>();
+/**
+ * The observer each drawn table holds, and the place its scroll goes back to,
+ * kept so `destroy` can let the observer go and save the scroll.
+ */
+const watching = new WeakMap<
+  HTMLElement,
+  { observer: ResizeObserver; place: Map<string, number>; key: string }
+>();
 
 /** The text a cell shows, or null for a cell that holds a picture, which is never a number or code. */
 function textOf(spans: Span[]): string | null {
@@ -33,8 +42,13 @@ function textOf(spans: Span[]): string | null {
  * and a scroll all land on the same numbers. The first column's width is set as
  * a property so the left shadow can sit at its right edge.
  */
-function watchTable(block: HTMLElement, scroller: HTMLElement, from: number): void {
-  let restore = scrolled.get(from);
+function watchTable(
+  block: HTMLElement,
+  scroller: HTMLElement,
+  place: Map<string, number>,
+  key: string,
+): void {
+  let restore = place.get(key);
   const measure = (): void => {
     const { scrollLeft, scrollWidth, clientWidth } = scroller;
     block.toggleAttribute("data-shadow-left", scrollLeft > 0);
@@ -59,7 +73,7 @@ function watchTable(block: HTMLElement, scroller: HTMLElement, from: number): vo
   observer.observe(scroller);
   observer.observe(scroller.firstElementChild as Element);
   scroller.addEventListener("scroll", measure, { passive: true });
-  watching.set(block, observer);
+  watching.set(block, { observer, place, key });
 }
 
 /**
@@ -88,8 +102,11 @@ class TableGrid extends WidgetType {
 
   override destroy(dom: HTMLElement): void {
     const scroller = dom.querySelector<HTMLElement>(".cm-table-scroll");
-    if (scroller !== null) scrolled.set(this.from, scroller.scrollLeft);
-    watching.get(dom)?.disconnect();
+    const drawn = watching.get(dom);
+    if (drawn !== undefined && scroller !== null) {
+      drawn.place.set(drawn.key, scroller.scrollLeft);
+    }
+    drawn?.observer.disconnect();
     watching.delete(dom);
   }
 
@@ -220,6 +237,8 @@ class TableGrid extends WidgetType {
           // no text and a copy of the cell gets nothing.
           const text = textOf(spans);
           if (text === "") cell.classList.add("cm-table-empty");
+          // A dash the writer typed reads as the muted dash of an empty cell.
+          if (text !== null && isDashes(text)) cell.classList.add("cm-table-blank");
           // A cell that is one code span, or one token that reads as a code name.
           const wholeCode = spans.length === 1 && spans[0]?.class === INLINE.InlineCode?.class;
           if (wholeCode || (text !== null && isCodeToken(text))) {
@@ -245,7 +264,9 @@ class TableGrid extends WidgetType {
         }
       });
     });
-    watchTable(block, scroller, this.from);
+    const place = scrolled.get(view) ?? new Map<string, number>();
+    scrolled.set(view, place);
+    watchTable(block, scroller, place, `${view.state.facet(notePath) ?? ""}:${this.from}`);
     return block;
   }
 }

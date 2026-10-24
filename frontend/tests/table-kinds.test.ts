@@ -84,4 +84,28 @@ describe("table kinds", () => {
   it("#792 A6 a text of several words is not code, even with a digit in it", () => {
     expect(isCodeToken("two words a1")).toBe(false);
   });
+
+  it("#792 I7 a date written with two dots is not a number", () => {
+    expect(isNumber("24.10.2026")).toBe(false);
+  });
+
+  it("#792 I7 a version with two dots is not a number", () => {
+    expect(isNumber("1.2.3")).toBe(false);
+  });
+
+  it("#792 I7 two digits split by a space are not a number", () => {
+    expect(isNumber("1 2")).toBe(false);
+  });
+
+  it("#792 A6 a two-character token is not code", () => {
+    expect(isCodeToken("Q3")).toBe(false);
+  });
+
+  it("#792 A6 a version-like token of two characters is not code", () => {
+    expect(isCodeToken("v2")).toBe(false);
+  });
+
+  it("#792 A6 an ordinal of three characters is not code", () => {
+    expect(isCodeToken("3rd")).toBe(false);
+  });
 });

@@ -9,17 +9,25 @@
 /** A sign, the true minus included, since a table copied out of a spreadsheet has it. */
 const SIGN = "[+\\-\u2212]?";
 const CURRENCY = "[$€£¥]";
-/** Digits in groups, the groups split by a comma, a point, an apostrophe or a space. */
-const DIGITS = "\\d+(?:[.,'\u2009 ]\\d+)*";
+/**
+ * Digits, grouped in threes by a comma, a point, an apostrophe or a space, with
+ * at most one decimal separator after them. A date or a version has two separators
+ * and its groups are not threes, so it is not a number.
+ */
+const DIGITS = "(?:\\d+(?:[.,'  ]\\d{3})+|\\d+)(?:[.,]\\d+)?";
 const NUMBER = new RegExp(`^${SIGN}\\s?${CURRENCY}?\\s?${DIGITS}\\s?${CURRENCY}?\\s?%?$`);
 
 /** A cell that is only dashes stands for nothing, as an empty cell does. */
-const DASHES = /^[-\u2012\u2013\u2014]+$/;
+const DASHES = /^[-‒–—]+$/;
+
+/** Whether the text is only dashes, the writer's stand-in for nothing. */
+export function isDashes(text: string): boolean {
+  return DASHES.test(text.trim());
+}
 
 /** Whether a cell says nothing: empty, or dashes the writer put in its place. */
 export function isBlank(text: string): boolean {
-  const trimmed = text.trim();
-  return trimmed === "" || DASHES.test(trimmed);
+  return text.trim() === "" || isDashes(text);
 }
 
 /** Whether the text is a number, with its sign, currency and percent if it has them. */
@@ -43,7 +51,8 @@ export function isNumericColumn(texts: string[]): boolean {
  * has dashes and digits only, and is left as it is for the same reason.
  */
 export function isCodeToken(text: string): boolean {
-  if (text === "" || /\s/.test(text)) return false;
+  // Three characters or fewer is too short to name anything, `Q3` or `3rd` among them.
+  if (text.length < 4 || /\s/.test(text)) return false;
   if (text.includes("_")) return true;
   return /[A-Za-z]/.test(text) && /\d/.test(text);
 }

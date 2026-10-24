@@ -39,8 +39,9 @@
 .cm-table-block::after {
   content: "";
   position: absolute;
-  top: 0;
-  bottom: 0;
+  /* The block's own padding, so the shadow stops where the table does. */
+  top: 0.35em;
+  bottom: 0.35em;
   width: 0.75rem;
   z-index: 2;
   pointer-events: none;
@@ -122,6 +123,8 @@
   border-top: 1px solid var(--k-rule-strong);
   background: var(--k-bg);
   font-weight: 700;
+  /* A head cell holds its line: a wrapped "Week / 1" reads as two headings. */
+  white-space: nowrap;
 }
 
 /* The first column held at the left of a table that scrolls sideways. Its
@@ -158,7 +161,13 @@
 
 .cm-table-code {
   font-family: var(--k-mono);
-  font-size: var(--k-text-12);
+  font-size: var(--k-text-13);
+}
+
+/* A cell that is only a dash the writer typed, drawn as the muted dash an empty
+   cell gets. The text stays as written. */
+.cm-table-blank {
+  color: var(--k-muted);
 }
 
 /* A row of cells that wraps is hard to follow on a phone, so below 776 px of
