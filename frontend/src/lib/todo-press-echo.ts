@@ -17,7 +17,7 @@ const ECHO_MS = 3000;
 /** Presses running now. A press can start before the last one has settled. */
 let running = 0;
 /** The digests of the texts each path was written with, by the presses that wrote it. */
-const written = new Map<string, Promise<string>[]>();
+const written = new Map<string, Promise<string | null>[]>();
 /** Paths the running presses wrote, which take an expiry once the last one ends. */
 const fresh = new Set<string>();
 /** When the echo of a path's writes stops being one, once no press runs. */
@@ -54,7 +54,21 @@ function prune(): void {
 export function pressWrote(path: string, content: string): void {
   if (running === 0) return;
   fresh.add(path);
-  written.set(path, [...(written.get(path) ?? []), digestOf(content)]);
+  // Written again by a press, so the expiry of an earlier one no longer bounds
+  // it: pruning it then would drop the digest this press is about to echo.
+  expiry.delete(path);
+  // The vault keeps the note's own line endings, and the save answers with the
+  // text it was sent, so a CRLF note echoes the digest of the CRLF text.
+  const crlf = content.replace(/(?<!\r)\n/g, "\r\n");
+  // A digest needs `crypto.subtle`, which a page off a secure origin lacks. A
+  // failed digest matches nothing, so the list is asked for as it was before.
+  const digests = [content, crlf].map((text) =>
+    digestOf(text).then(
+      (digest): string | null => digest,
+      (): string | null => null,
+    ),
+  );
+  written.set(path, [...(written.get(path) ?? []), ...digests]);
 }
 
 /**

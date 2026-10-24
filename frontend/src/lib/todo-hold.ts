@@ -50,7 +50,8 @@ function wordsOf(text: string): string {
     const start = words[at - 1] === " " ? at - 1 : at;
     words = words.slice(0, start) + words.slice(at + AGENT.length);
   }
-  return words;
+  // A tag that led the words leaves a gap that the take-back closes.
+  return words.trim();
 }
 
 /** The groups as they are drawn, each row with its identity. */

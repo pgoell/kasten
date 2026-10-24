@@ -10,14 +10,7 @@ import { useVaultEvents } from "@/lib/use-vault-events";
 import { digestOf, type VaultEvent } from "@/lib/vault-events";
 import { COARSE, NARROW, stubMatchMedia } from "./match-media";
 
-/**
- * The vault the fake backend holds, by note path. Each test starts from a fresh
- * one, written in `beforeEach`.
- *
- * Only the HTTP client is stood in for, so `api.ts` runs as it does in the app:
- * its `createNote` and `saveNote` are what tell the echo of a press apart from
- * the writes of somebody else.
- */
+/** The notes the fake backend holds. Only the HTTP client is faked, so `api.ts` runs. */
 const vault = vi.hoisted(() => ({
   notes: {} as Record<string, string>,
   /** How many answers `/api/todos` has given, which is what shuffles them. */
@@ -45,7 +38,7 @@ vi.mock("@/lib/api-client", async (importOriginal) => {
           // Every answer comes back in another order, the way the vault's search
           // does not promise one, so a list that is redrawn from it reorders.
           const hits = Object.entries(vault.notes).flatMap(([path, text]) =>
-            text
+            lf(text)
               .split("\n")
               .map((line, index) => ({ path, line: index + 1, text: line }))
               .filter((hit) => hit.text.startsWith("- [")),
@@ -61,7 +54,7 @@ vi.mock("@/lib/api-client", async (importOriginal) => {
         const path = init?.params?.path?.path;
         const text = path === undefined ? undefined : vault.notes[path];
         if (path === undefined || text === undefined) return missing;
-        return ok({ path, content: text });
+        return ok({ path, content: lf(text) });
       },
       PUT: async (
         _url: string,
@@ -71,7 +64,12 @@ vi.mock("@/lib/api-client", async (importOriginal) => {
           return { data: undefined, response: { status: 500 } };
         if (vault.allow !== undefined) vault.allow -= 1;
         const path = init.params.path.path;
-        vault.notes[path] = init.body.content;
+        // A note with CRLF lines keeps them: the backend lands every lone LF as
+        // CRLF, and answers with the text it was sent, as LF.
+        const crlf = (vault.notes[path] ?? "").includes("\r\n");
+        vault.notes[path] = crlf
+          ? init.body.content.replace(/(?<!\r)\n/g, "\r\n")
+          : init.body.content;
         return ok({ path, content: init.body.content });
       },
       POST: async (
@@ -87,16 +85,25 @@ vi.mock("@/lib/api-client", async (importOriginal) => {
   };
 });
 
+/** A note's text as the backend reads it out: every CRLF as an LF. */
+function lf(text: string): string {
+  return text.replace(/\r\n/g, "\n");
+}
+
+/** Let the clock run on by `ms`, with whatever is due then. */
+async function advance(ms: number) {
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(ms);
+  });
+}
+
 /** The day the pane is drawn for. Nothing here is dated, so it decides no order. */
 const TODAY = "2026-08-10";
 /** Today's daily note as the app names it, which a press's done log writes into. */
 const DAILY = periodicNote("daily", new Date()).path;
 const NAMES = ["alpha", "bravo", "charlie", "delta", "echo", "foxtrot", "golf", "hotel", "kilo"];
 
-/**
- * The stream the route opens, driven by the test. Only the members the hook
- * uses, the same as the home route's fake.
- */
+/** The stream the route opens, driven by the test. */
 class FakeStream {
   static last: FakeStream | undefined;
   onopen: (() => void) | null = null;
@@ -119,10 +126,7 @@ function stream(): FakeStream {
 
 const commands = new Proxy({} as EditorCommands, { get: () => () => {} });
 
-/**
- * The pane with the real write hooks under it, and the stream they listen to:
- * what `TodoPane` gets from the route, with nothing in between.
- */
+/** The pane with the real write hooks and the stream under it, as the route wires them. */
 function Pane() {
   // The hook reads the listing of the vault's notes, which is what it checks a
   // write's note against, not the todos.
@@ -199,11 +203,7 @@ function noteOf(row: HTMLElement | undefined): string {
   return (row?.getAttribute("data-row") ?? "").replace(/:\d+$/, "");
 }
 
-/**
- * Count the fetches of the todo list, from the query cache itself. A cycle
- * press reads `/api/todos` once of its own, outside the query, so a count of
- * the requests would be one too high; the cache counts only the query.
- */
+/** The fetches of the todo query, counted in the cache: a press's own read is not one. */
 function countFetches(client: QueryClient): () => number {
   let fetches = 0;
   client.getQueryCache().subscribe((event) => {
@@ -454,6 +454,26 @@ describe("the todo pane holds the order it is drawn in while a press is made", (
     expect(rowOf("zulu")).toBeUndefined();
   });
 
+  it("#947 B8 @ on a todo whose first word is #agent keeps it in place", async () => {
+    vault.notes["a.md"] = [
+      "## TODOs",
+      "- [/] alpha",
+      // Open, since `@` takes its tag back only from an open todo.
+      "- [ ] #agent bravo",
+      "- [/] charlie",
+      "- [/] delta",
+    ].join("\n");
+    await mount();
+    const first = order();
+
+    for (let steps = first.indexOf("bravo"); steps > 0; steps -= 1) press("j");
+    press("@");
+    await settle();
+
+    expect(order()).toEqual(first);
+    expect(document.querySelector('[data-row][tabindex="0"]')?.textContent).toContain("bravo");
+  });
+
   it("#947 B2 @ on a row keeps it in its place and the cursor on it", async () => {
     await mount();
     const first = order();
@@ -484,6 +504,62 @@ describe("the todo pane holds the order it is drawn in while a press is made", (
     await settle();
 
     expect(order()).toContain("kilo");
+  });
+
+  it("#947 B6 a second press within the echo window still mutes its own echo", async () => {
+    const client = await mount();
+    const fetches = countFetches(client);
+
+    press("x");
+    await settle();
+    await advance(2900);
+
+    // A held list answer keeps a third press running, so the echo check comes
+    // after the first press's window and while the second press is still open.
+    vault.held = new Promise<void>(() => {});
+    press("j");
+    press("x");
+    await settle();
+    press("j");
+    press("x");
+    await settle();
+    await advance(200);
+    const before = fetches();
+
+    stream().send({
+      path: DAILY,
+      change: "written",
+      digest: await digestOf(vault.notes[DAILY] ?? ""),
+    });
+    await settle();
+    expect(fetches()).toBe(before);
+  });
+
+  it("#947 B7 a press on a note with CRLF line endings fetches the list once", async () => {
+    // Every note keeps CRLF line endings, as a note written on Windows does.
+    for (const path of Object.keys(vault.notes)) {
+      vault.notes[path] = (vault.notes[path] ?? "").replace(/\n/g, "\r\n");
+    }
+    const client = await mount();
+    const fetches = countFetches(client);
+    const pressed = noteOf(rowOf(order()[0] ?? ""));
+
+    press("x");
+    await settle();
+    expect(fetches()).toBe(1);
+
+    stream().send({
+      path: pressed,
+      change: "written",
+      digest: await digestOf(vault.notes[pressed] ?? ""),
+    });
+    stream().send({
+      path: DAILY,
+      change: "written",
+      digest: await digestOf(vault.notes[DAILY] ?? ""),
+    });
+    await settle();
+    expect(fetches()).toBe(1);
   });
 
   it("#947 I3 a refused press keeps the notice and the row where it was", async () => {
