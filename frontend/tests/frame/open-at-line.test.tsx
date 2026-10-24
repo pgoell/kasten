@@ -233,10 +233,11 @@ async function expectLineShown(
   { pane, read }: { pane?: string; read?: boolean } = {},
 ): Promise<void> {
   const viewNow = () => need(EditorView.findFromDOM(editorOf(host, pane)), "editor view");
-  await waitFor(
-    () => expect(viewNow().state.selection.main.head).toBe(viewNow().state.doc.line(LINE).from),
-    PATIENCE,
-  );
+  await waitFor(() => {
+    const current = viewNow();
+    expect(current.state.doc.toString(), "the note on screen").toContain(TODO_TEXT);
+    expect(current.state.selection.main.head).toBe(current.state.doc.line(LINE).from);
+  }, PATIENCE);
   await fontsIn();
 
   const view = viewNow();
@@ -365,7 +366,7 @@ it("A7 a backlink opens its note on the linking line", async () => {
       () =>
         need(
           [...host.querySelectorAll<HTMLElement>("button")].find(
-            (each) => each.textContent?.trim() === "Long",
+            (each) => each.getAttribute("role") !== "tab" && each.textContent?.trim() === "Long",
           ),
           "backlink to Long",
         ),
