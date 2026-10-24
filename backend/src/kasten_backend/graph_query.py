@@ -235,44 +235,53 @@ def _is_var(text: str) -> bool:
     return text.startswith("?")
 
 
-def _clauses(tokens: list[_Token], resolve: Callable[[str], str]) -> list[_Clause]:
-    """The pattern's clauses, each a triple or a test, with every `[[link]]` a path."""
+def _node(token: _Token, clause: str, resolve: Callable[[str], str]) -> str:
+    """A clause's place as a ?variable, or as the path its `[[link]]` resolves to."""
+    if token.kind == "var":
+        return token.text
+    if token.kind == "link":
+        name = link_target(token.text[2:-2])
+        if name is None:
+            raise GraphError(f"{token.text} names no note, in {clause!r}")
+        return resolve(name)
+    raise GraphError(f"{token.text!r} is not a ?variable or a [[note]], in {clause!r}")
 
-    def node(token: _Token, clause: str) -> str:
-        if token.kind == "var":
-            return token.text
-        if token.kind == "link":
-            name = link_target(token.text[2:-2])
-            if name is None:
-                raise GraphError(f"{token.text} names no note, in {clause!r}")
-            return resolve(name)
-        raise GraphError(f"{token.text!r} is not a ?variable or a [[note]], in {clause!r}")
 
+def _groups(tokens: list[_Token]) -> list[list[_Token]]:
+    """The tokens of each clause, split at the separators, an empty clause left out."""
     groups: list[list[_Token]] = [[]]
     for token in tokens:
         if token.kind == "sep":
             groups.append([])
         else:
             groups[-1].append(token)
+    return [group for group in groups if group]
 
+
+def _clauses(tokens: list[_Token], resolve: Callable[[str], str]) -> list[_Clause]:
+    """The pattern's clauses, each a triple or a test, with every `[[link]]` a path."""
     clauses: list[_Clause] = []
-    for group in groups:
-        if not group:
-            continue
+    for group in _groups(tokens):
         written = " ".join(token.text for token in group)
         match group:
             case [subject, filtering] if filtering.kind == "term":
                 term = _term(filtering)
                 if term.key == "rel":
                     raise GraphError(f"rel: filters a drawing. In {written!r} put it in the middle")
-                clauses.append(_Test(node(subject, written), term))
+                clauses.append(_Test(_node(subject, written, resolve), term))
             case [subject, relation, target] if relation.kind in {"word", "var"}:
                 predicate = relation.text
                 if relation.kind == "word" and not (
                     predicate in {ANY_LINK, ANY_RELATION} or NAME.fullmatch(predicate)
                 ):
                     raise GraphError(f"{predicate!r} is not a relation name, in {written!r}")
-                clauses.append(_Triple(node(subject, written), predicate, node(target, written)))
+                clauses.append(
+                    _Triple(
+                        _node(subject, written, resolve),
+                        predicate,
+                        _node(target, written, resolve),
+                    )
+                )
             case _:
                 raise GraphError(
                     f"Cannot read {written!r}. A clause is `subject relation object` "

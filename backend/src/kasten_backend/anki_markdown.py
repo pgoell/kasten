@@ -20,6 +20,8 @@ _BLOCK = frozenset(
 _BOLD = frozenset({"b", "strong", "u"})
 """Underline among them, since markdown has no underline and bold is the nearest stress."""
 _ITALIC = frozenset({"i", "em"})
+_RUBY = frozenset({"rp", "ruby", "rt"})
+"""Ruby and its parts, which a card keeps as HTML but for the parentheses."""
 
 
 def _ticks(code: str) -> str:
@@ -100,70 +102,96 @@ class _Markdown(HTMLParser):
             self.out.append("\n")
         marker = "**" if tag in _BOLD else "*" if tag in _ITALIC else None
         if marker is not None:
-            self.depth[marker] += 1
-            # Once, so `<b><u>x</u></b>` is not `****x****`.
-            if self.depth[marker] == 1:
-                self.opened[marker] = len(self.out)
+            self._open_mark(marker)
         elif tag in ("ul", "ol"):
             self.lists.append(1 if tag == "ol" else None)
         elif tag == "li":
-            number = self.lists[-1] if self.lists else None
-            if number is not None:
-                self.lists[-1] = number + 1
-            indent = _SPACE * 2 * max(len(self.lists) - 1, 0)
-            self.out.append(f"{indent}{'- ' if number is None else f'{number}. '}")
+            self._item()
         elif tag == "a":
             self.links.append((len(self.out), dict(attrs).get("href")))
         elif tag == "code" and self.pre is None:
             self.code.append(len(self.out))
         elif tag == "pre" and self.pre is None:
             self.pre = len(self.out)
-        elif tag == "rp":
+        elif tag in _RUBY:
+            self._open_ruby(tag)
+
+    def handle_endtag(self, tag: str) -> None:
+        marker = "**" if tag in _BOLD else "*" if tag in _ITALIC else None
+        if marker is not None and self.depth[marker] > 0:
+            self._close_mark(marker)
+        elif tag in ("ul", "ol") and self.lists:
+            self.lists.pop()
+        elif tag == "a" and self.links:
+            self._close_link()
+        elif tag == "code" and self.code:
+            self._close_code()
+        elif tag == "pre" and self.pre is not None:
+            self._close_pre(self.pre)
+        elif tag in _RUBY:
+            self._close_ruby(tag)
+        if tag in _BLOCK:
+            self.out.append("\n")
+
+    def _open_mark(self, marker: str) -> None:
+        self.depth[marker] += 1
+        # Once, so `<b><u>x</u></b>` is not `****x****`.
+        if self.depth[marker] == 1:
+            self.opened[marker] = len(self.out)
+
+    def _close_mark(self, marker: str) -> None:
+        self.depth[marker] -= 1
+        if self.depth[marker] == 0:
+            self._wrap(self.opened.pop(marker), marker)
+
+    def _open_ruby(self, tag: str) -> None:
+        if tag == "rp":
             # The parentheses a browser without ruby shows, which kasten draws.
             self.skip += 1
         elif tag == "ruby":
             self.ruby += 1
             self.out.append("<ruby>")
-        elif tag == "rt" and self.ruby:
+        elif self.ruby:
             self.out.append("<rt>")
 
-    def handle_endtag(self, tag: str) -> None:
-        marker = "**" if tag in _BOLD else "*" if tag in _ITALIC else None
-        if marker is not None and self.depth[marker] > 0:
-            self.depth[marker] -= 1
-            if self.depth[marker] == 0:
-                self._wrap(self.opened.pop(marker), marker)
-        elif tag in ("ul", "ol") and self.lists:
-            self.lists.pop()
-        elif tag == "a" and self.links:
-            at, href = self.links.pop()
-            # A link holds no line break, so a break in its text is a space.
-            inner = " ".join("".join(self.out[at:]).split("\n"))
-            if href and inner.strip():
-                # Parens and spaces would end the link early, as in `_LINK_SAFE`.
-                address = href.replace(" ", "%20").replace("(", "%28").replace(")", "%29")
-                self.out[at:] = [f"[{inner.strip()}]({address})"]
-        elif tag == "code" and self.code:
-            at = self.code.pop()
-            inner = "".join(self.out[at:])
-            self.coded.update(map(int, KEPT.findall(inner)))
-            lines = inner.split("\n")
-            self.out[at:] = ["\n".join(ticked(line) if line.strip() else line for line in lines)]
-        elif tag == "pre" and self.pre is not None:
-            inner = "".join(self.out[self.pre :]).replace(" ", _SPACE).replace("\t", _SPACE)
-            self.coded.update(map(int, KEPT.findall(inner)))
-            lines = [line for line in inner.split("\n") if line.replace(_SPACE, "").strip()]
-            self.out[self.pre :] = ["\n", *(f"{ticked(line)}\n" for line in lines)]
-            self.pre = None
-        elif tag == "rp" and self.skip:
+    def _close_ruby(self, tag: str) -> None:
+        if tag == "rp" and self.skip:
             self.skip -= 1
         elif tag == "rt" and self.ruby:
             self.out.append("</rt>")
         elif tag == "ruby" and self.ruby:
             self.ruby -= 1
             self.out.append("</ruby>")
-        if tag in _BLOCK:
-            self.out.append("\n")
+
+    def _item(self) -> None:
+        number = self.lists[-1] if self.lists else None
+        if number is not None:
+            self.lists[-1] = number + 1
+        indent = _SPACE * 2 * max(len(self.lists) - 1, 0)
+        self.out.append(f"{indent}{'- ' if number is None else f'{number}. '}")
+
+    def _close_link(self) -> None:
+        at, href = self.links.pop()
+        # A link holds no line break, so a break in its text is a space.
+        inner = " ".join("".join(self.out[at:]).split("\n"))
+        if href and inner.strip():
+            # Parens and spaces would end the link early, as in `_LINK_SAFE`.
+            address = href.replace(" ", "%20").replace("(", "%28").replace(")", "%29")
+            self.out[at:] = [f"[{inner.strip()}]({address})"]
+
+    def _close_code(self) -> None:
+        at = self.code.pop()
+        inner = "".join(self.out[at:])
+        self.coded.update(map(int, KEPT.findall(inner)))
+        lines = inner.split("\n")
+        self.out[at:] = ["\n".join(ticked(line) if line.strip() else line for line in lines)]
+
+    def _close_pre(self, at: int) -> None:
+        inner = "".join(self.out[at:]).replace(" ", _SPACE).replace("\t", _SPACE)
+        self.coded.update(map(int, KEPT.findall(inner)))
+        lines = [line for line in inner.split("\n") if line.replace(_SPACE, "").strip()]
+        self.out[at:] = ["\n", *(f"{ticked(line)}\n" for line in lines)]
+        self.pre = None
 
     def handle_data(self, data: str) -> None:
         if self.skip:

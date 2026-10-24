@@ -88,7 +88,7 @@ def rehome_entry(root: Path, old: str, new: str) -> None:
     write_note(source, "".join(line for line in lines if line not in carried))
 
     moved = [
-        relink_markdown(line, _index(here), _index(there), new, new).rstrip("\n") + "\n"
+        relink_markdown(line, _index(here), _index(there), (new, new)).rstrip("\n") + "\n"
         for line in carried
     ]
     target = root / _index(there)

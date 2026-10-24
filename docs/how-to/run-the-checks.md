@@ -11,7 +11,7 @@ status: stable
 Everything CI runs, you can run:
 
 ```sh
-mise run lint         # ruff, ty, biome, file size
+mise run lint         # ruff, ty, biome, file size, copies
 mise run test         # backend pytest and frontend vitest
 mise run fe:typecheck # builds the frontend, then tsc --noEmit
 ```
@@ -29,6 +29,41 @@ Lefthook runs some of this for you, from `.config/lefthook.yaml`:
 
 Anything slow enough to make you reach for `--no-verify` belongs in pre-push,
 not pre-commit.
+
+## Get a backend function past the complexity rules
+
+Besides its style and bug rules, ruff in `lint:py` holds every backend function,
+tests included, to these limits, all set in the root `pyproject.toml`:
+
+* `C901`: a McCabe complexity of at most 10. Each `if`, `elif`, loop, `except`,
+  `case` and nested `def` adds one; a boolean operator, a conditional
+  expression and a comprehension add nothing.
+* `PLR0911`, `PLR0912`, `PLR0915`: at most 6 returns, 12 branches and 50
+  statements.
+* `PLR0913`: at most 5 arguments, keyword-only ones included.
+
+When one fires, make the function simpler rather than silencing it: lift a
+closure or a loop with a job of its own into a module function, give each
+branch of a long `elif` chain its own method, or pass two values that travel
+together as one tuple. Use `# noqa` only where the function reads better whole,
+with a comment above it saying why, as `apkg` in `backend/tests/anki_build.py`
+has.
+
+## Get past the copy check
+
+`lint:dup` runs jscpd over `frontend/src` and `backend/src` with the settings in
+`.jscpd.json` at the root. A run of at least 70 tokens that appears twice counts
+as a clone, and the check fails when clones make up more than 1% of the lines.
+Generated code (`api-types.ts`, `routeTree.gen.ts`) and the fonts are left out.
+On `main` the figure is 0.73%, 17 clones.
+
+When it fails, it lists every clone with the two places it sits. Pull the
+copied block into one function or component both places call, rather than
+raising the threshold. To see the clones while it passes:
+
+```sh
+frontend/node_modules/.bin/jscpd
+```
 
 ## Find files over the size limit
 

@@ -110,9 +110,10 @@ container has no mise, so run that line there instead, as
 
 | Task | What it does |
 |---|---|
-| `lint` | ruff, ty, Biome on both JavaScript trees, `tsc` and the file-size check. The pre-commit gate and CI's Lint job |
+| `lint` | ruff, ty, Biome on both JavaScript trees, `tsc`, the file-size and the copy check. The pre-commit gate and CI's Lint job |
 | `lint:py` | Backend lint, format check and type check |
 | `lint:size` | Check every tracked file against the 5,000-token limit |
+| `lint:dup` | Fail when more than 1% of `frontend/src` and `backend/src` is copied code (jscpd) |
 | `fe:lint` | Biome on the frontend |
 | `shell:lint` | Biome on `shell/chat`, with the frontend's binary and rules |
 | `fmt` | Format everything |
@@ -135,6 +136,12 @@ tracked file. Pre-commit runs `lint`, so a commit fails while any tracked file i
 over 5,000 tokens, staged or not. Pre-commit also runs the script on the staged
 files, which names a staged file over the limit on its own. See
 [The file size limit](/explanation/file-size-limit.md).
+
+`lint:dup` runs jscpd with `.jscpd.json` at the root. jscpd alone takes about
+6 s, but `lint` runs its parts side by side, so the copy check adds about 2.5 s
+to the gate. It prints nothing when it passes and the list of clones when it
+fails. See
+[Get past the copy check](/how-to/run-the-checks.md#get-past-the-copy-check).
 
 ## Repo automation
 

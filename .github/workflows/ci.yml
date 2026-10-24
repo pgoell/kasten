@@ -19,9 +19,9 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/setup-mise
-      # Runs ruff, Biome and both type checkers. A step of its own for `tsc`
+      # Runs ruff, Biome, both type checkers and the copy check. A step of its own for `tsc`
       # would never go red: this one fails first on the same check.
-      - name: Ruff, Biome and the type checkers
+      - name: Ruff, Biome, the type checkers and jscpd
         run: mise run lint
       - name: Ty (with GitHub annotations)
         run: mise exec -- uv run ty check --output-format github --error-on-warning
