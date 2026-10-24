@@ -32,6 +32,15 @@ and it carries the same three rules `<leader>x` carries: the parts go with a
 parent, a recurring todo gets its next copy, and the dependents of a todo that
 just closed or reopened are rewritten wherever they live.
 
+A press on a row of the open list (`x`, a state key, `t`, `@`, `m`, or the
+state button on a phone) changes that row only. The list keeps the order it was
+drawn in: a row checked off stays where it was, struck through, and a todo
+written elsewhere meanwhile joins the end of its group. The order goes once the
+focus leaves the pane, the pane closes or the page reloads, and `d`, `n`, `v`,
+`c` and the filter draw the list afresh too. A press asks the vault for the list
+once, after its last write; the vault's own word on that write does not ask
+again (#947).
+
 `t` starts a session on the row's todo, or closes the ones it has running, and
 writes both to the [time log](/reference/todo-format/time-and-repeats.md#the-time-log). A row
 whose todo has a session open carries `▶` after its state, and where that
@@ -89,7 +98,7 @@ beginning of the vault is not one anybody reads to the end of. Pressing `d`
 again brings the open list back.
 
 The seven shifted keys set a state directly, which is the only way to review,
-blocked, waiting and rejected from here: a row leaves this list the moment it is done, and done is
+blocked, waiting and rejected from here: a row done is off the list the next time it is drawn, and done is
 where the walk goes first. They are the pane's spelling of the `<leader>s` keys
 and write exactly what those write.
 
