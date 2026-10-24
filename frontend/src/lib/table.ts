@@ -319,11 +319,14 @@ export function moveCell(view: EditorView, step: 1 | -1): boolean {
     .split("\n")
     .slice(0, row)
     .reduce((sum, line) => sum + line.length + 1, 0);
-  const along = drawCells(grid, widths, row)
-    .slice(0, column)
-    .reduce((sum, cell) => sum + cell.length + 3, 0);
+  const cells = drawCells(grid, widths, row);
+  const along = cells.slice(0, column).reduce((sum, cell) => sum + cell.length + 3, 0);
+  // A right-aligned or centered cell draws its padding before its text, so the
+  // cursor steps past the spaces. An empty cell is all padding: it lands at its start.
+  const lead =
+    grid.rows[row]?.[column] === "" ? 0 : (/^ */.exec(cells[column] ?? "")?.[0].length ?? 0);
   const from = state.doc.line(run.first).from;
-  const at = before + grid.indent.length + 2 + along;
+  const at = before + grid.indent.length + 2 + along + lead;
 
   const to = state.doc.line(run.last).to;
   view.dispatch({
