@@ -26,11 +26,13 @@ const LEAST_EASE = 130;
  * that bunching is actually felt.
  */
 export function nextSchedule(held: Schedule | null, rating: Rating, today: string): Schedule {
-  // A card nobody has answered has no interval to grow, so the four ratings
-  // pick a first gap rather than scale one. Easy skips the first day the way
-  // Anki's does; the other three all come back tomorrow.
-  if (held === null) {
-    const interval = rating === "easy" ? 4 : 1;
+  // A card nobody has answered, or one still in learning, has no interval to
+  // grow, so the four ratings pick a first gap rather than scale one. Easy
+  // skips the first day the way Anki's does; Hard and Good come back tomorrow.
+  // Again keeps the card in learning: due today with a gap of 0, so a reload or
+  // the next sitting asks it again until it is passed, as Anki's learning steps do.
+  if (held === null || learning(held)) {
+    const interval = rating === "easy" ? 4 : rating === "again" ? 0 : 1;
     return { due: shiftDay(today, interval), interval, ease: NEW_EASE };
   }
 
@@ -63,22 +65,33 @@ export function nextSchedule(held: Schedule | null, rating: Rating, today: strin
 }
 
 /**
+ * Whether the card was answered `again` on its first answer and not passed since.
+ *
+ * A gap of 0 is a state SM-2 never writes otherwise, its floor being 1, so the
+ * three numbers carry it without a fourth.
+ */
+export function learning(held: Schedule | null): boolean {
+  return held !== null && held.interval === 0;
+}
+
+/**
  * What answering the card today was, read off its schedule, or null where nothing did.
  *
  * The comment holds three numbers and no history, and obsidian-spaced-repetition
  * reads those three, so a fourth was not an option. What is there is enough:
  * every rating above writes a due date of today plus the interval, so a card
  * whose two agree was answered today. A first answer always lands on the
- * starting ease with a gap of 1 or 4, which is what tells a card introduced
+ * starting ease with a gap of 0, 1 or 4, which is what tells a card introduced
  * today from a review done today.
  *
  * Read off the vault, so a reload or a second device counts the same. The cost
- * is one mistake, and a rare one: a review that lands back on the starting ease
- * with a gap of 1 or 4 reads as new.
+ * is two mistakes, both rare: a review that lands back on the starting ease
+ * with a gap of 1 or 4 reads as new, and so does a card left in learning
+ * yesterday and passed today.
  */
 export function answeredToday(held: Schedule | null, today: string): "new" | "review" | null {
   if (held === null || held.due !== shiftDay(today, held.interval)) return null;
-  return held.ease === NEW_EASE && (held.interval === 1 || held.interval === 4) ? "new" : "review";
+  return held.ease === NEW_EASE && [0, 1, 4].includes(held.interval) ? "new" : "review";
 }
 
 /**

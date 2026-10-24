@@ -133,7 +133,7 @@ it("#790 I6 a card new at the start shows first-answer intervals on its buttons"
   await shownCard();
   reveal();
 
-  expect(screen.getByRole("button", { name: "Again" })).toHaveAccessibleDescription("1d");
+  expect(screen.getByRole("button", { name: "Again" })).toHaveAccessibleDescription("today");
   expect(screen.getByRole("button", { name: "Hard" })).toHaveAccessibleDescription("1d");
   expect(screen.getByRole("button", { name: "Good" })).toHaveAccessibleDescription("1d");
   expect(screen.getByRole("button", { name: "Easy" })).toHaveAccessibleDescription("4d");

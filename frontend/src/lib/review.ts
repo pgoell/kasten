@@ -25,7 +25,7 @@ import { type Divided, divide, parks, suspended } from "@/lib/card-line";
 import { deckPath, withoutTags } from "@/lib/deck-tag";
 import { noteName } from "@/lib/note-path";
 import { parseCards } from "@/lib/srs";
-import { answeredToday, readNoteSchedule, readNoteSuspended } from "@/lib/srs-schedule";
+import { answeredToday, learning, readNoteSchedule, readNoteSuspended } from "@/lib/srs-schedule";
 
 /** One deck as the overview draws it. */
 export interface Deck {
@@ -201,8 +201,11 @@ export function decksFrom(notes: DeckNote[], today: string, limits?: Limits): De
   // Keyed by name, so one tag in three notes is one deck. A whole note is keyed
   // by its path instead: it is not a tag, and nothing should merge with it.
   const decks = new Map<string, Deck>();
-  /** Per deck, the cards answered today: reviews done, and new cards introduced. */
-  const answered = new Map<string, { due: number; fresh: number }>();
+  /**
+   * Per deck, the cards answered today: reviews done and new cards introduced,
+   * and the cards in learning, which no limit holds back.
+   */
+  const answered = new Map<string, { due: number; fresh: number; learning: number }>();
   const bump = (key: string, deck: Deck) => {
     const held = decks.get(key);
     if (held === undefined) {
@@ -251,9 +254,12 @@ export function decksFrom(notes: DeckNote[], today: string, limits?: Limits): De
       // asks it in a sitting of any of them, and the Set is what keeps a card
       // tagged `databases` and `databases/postgres` counted once in the parent.
       for (const deck of new Set(card.decks.flatMap(deckPath))) {
-        const tally = answered.get(deck) ?? { due: 0, fresh: 0 };
+        const tally = answered.get(deck) ?? { due: 0, fresh: 0, learning: 0 };
         if (done === "review") tally.due += 1;
         if (done === "new") tally.fresh += 1;
+        // Its new slot was spent on its first answer, so a second asking spends
+        // none, of either limit.
+        if (card.parked === null && learning(card.held)) tally.learning += 1;
         answered.set(deck, tally);
         bump(deck, {
           name: deck,
@@ -281,7 +287,10 @@ export function decksFrom(notes: DeckNote[], today: string, limits?: Limits): De
       // and a limit on it would be a limit of one.
       if (held === undefined) continue;
       const limit = limitOf(key, set, limits.defaults);
-      if (limit.due !== null) held.due = Math.max(0, Math.min(held.due, limit.due - deck.due));
+      if (limit.due !== null) {
+        const reviews = held.due - deck.learning;
+        held.due = deck.learning + Math.max(0, Math.min(reviews, limit.due - deck.due));
+      }
       if (limit.fresh !== null) {
         held.fresh = Math.max(0, Math.min(held.fresh, limit.fresh - deck.fresh));
       }
