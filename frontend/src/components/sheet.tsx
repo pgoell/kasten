@@ -36,6 +36,8 @@ interface SheetProps {
   header?: ReactNode;
   /** The desktop side sheet: a 540 px panel at the right edge, a plain slide, no drag. */
   side?: boolean;
+  /** A bottom sheet that is the whole screen, up to the top safe area, not capped at 88dvh. */
+  full?: boolean;
   /** Whether the focus goes back to what held it when the sheet leaves. False where a command took the focus. */
   restoreFocus?: boolean;
   children: ReactNode;
@@ -59,7 +61,10 @@ interface Gesture {
 const REDUCED = "(prefers-reduced-motion: reduce)";
 
 const BOTTOM_PANEL =
-  "fixed inset-x-0 bottom-0 z-50 flex max-h-[88dvh] flex-col rounded-t-[var(--k-radius-8)] bg-k-paper shadow-[var(--k-shadow)] outline-none safe-foot";
+  "fixed inset-x-0 bottom-0 z-50 flex flex-col rounded-t-[var(--k-radius-8)] bg-k-paper shadow-[var(--k-shadow)] outline-none safe-foot";
+const CAPPED = "max-h-[88dvh]";
+// A sheet that is the whole screen stops at the notch's inset, so its top edge is under it.
+const WHOLE = "h-[calc(100dvh-env(safe-area-inset-top))]";
 const SIDE_PANEL =
   "absolute inset-y-0 right-0 z-50 flex w-[540px] max-w-full flex-col border-l border-k-rule bg-k-paper shadow-[var(--k-shadow)] outline-none";
 
@@ -84,6 +89,7 @@ export function Sheet({
   onClose,
   label,
   side = false,
+  full = false,
   restoreFocus = true,
   header,
   children,
@@ -411,7 +417,7 @@ export function Sheet({
           fading.current?.(true);
           fading.current = null;
         }}
-        className={side ? SIDE_PANEL : BOTTOM_PANEL}
+        className={side ? SIDE_PANEL : `${BOTTOM_PANEL} ${full ? WHOLE : CAPPED}`}
       >
         {!side && (
           <div data-sheet-drag className="flex h-11 shrink-0 items-center justify-center">

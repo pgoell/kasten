@@ -194,3 +194,14 @@
   }
 }
 
+/* On a phone the header's meta line, Graph and the Read and Edit switch take the
+   15 px the rest of the chrome uses. The path stays at 13 px in mono, the header's
+   own size, so the folders read as they did. */
+@media (width < 48rem) and (pointer: coarse) {
+  .k-reader .cm-note-meta,
+  .k-reader .cm-note-mode,
+  .k-reader .cm-note-graph {
+    font-size: var(--k-text-15);
+  }
+}
+

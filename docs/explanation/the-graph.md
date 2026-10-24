@@ -115,7 +115,7 @@ pane never waits on it.
 
 Colour is the first tag, by the same hash as the margin graph, and each further
 tag adds a thin ring in its own colour. A soft round area at 8 % (11 % in dark)
-shows each place. The 300 px panel beside the canvas counts what is drawn,
+shows each place. The 300 px panel beside the canvas (under it on a phone) counts what is drawn,
 switches the mode, hides tags, and shows the note under the pointer. The mode
 is kept per device; [the editor keys](/reference/editor-keys/panes-and-tabs.md)
 name the key that switches it.

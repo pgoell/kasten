@@ -1,7 +1,7 @@
 ---
 type: Explanation
 title: kasten on a phone
-description: Why vim is off under a finger, why a split draws one pane, why a tap raises no keyboard, why the toolbar stays above the keyboard, why a todo takes two taps and has no Undo, why kasten installs as one app, why it opens with no signal, why the camera reads barcodes on the phone and stops when the app hides, what an open tab does across a release, and what no real phone has confirmed.
+description: Why vim is off under a finger, why a split stacks its panes, why a tap raises no keyboard, why the toolbar stays above the keyboard, why a todo takes two taps and has no Undo, why kasten installs as one app, why it opens with no signal, why the camera reads barcodes on the phone and stops when the app hides, what an open tab does across a release, and what no real phone has confirmed.
 tags: [design, phone, touch, vim, keyboard, frontend]
 status: stable
 ---
@@ -24,7 +24,7 @@ tablet is wide and has neither. A rule written for "phones" would be wrong for
 both.
 
 So the layout follows the width, and the controls follow the pointer. A thin
-desktop window gets the drawer and the single pane and keeps vim and its small
+desktop window gets the drawer and stacked panes and keeps vim and its small
 rows. A tablet gets big rows, a plain editor and the terminal's key row, and
 keeps the tree beside the note. The toolbar needs both, as it stands in for
 the leader key where there is no key and no room.
@@ -51,25 +51,23 @@ on.
 What the editor shows without a mode to go by is in
 [Live preview and the vim mode](/explanation/live-preview/cursor-and-marks.md#the-mode-decides-not-the-cursor).
 
-## A split draws one pane
+## A split stacks its panes
 
 Two panes side by side on a phone are two columns of under 200px, and neither
 shows a note. Splits are not only made by hand, either: the book, the video,
 the graph around a note and the person card each open in a pane beside the
-note. So a narrow window draws the focused pane alone.
+note. So a narrow window stacks the panes of a split, top and bottom, whichever
+way the split divides. Each pane keeps its header row, so its kind and path
+still show.
 
-The layout itself is left as it is. The window draws through the same path
-`<leader>z` uses for a zoom, and the tree of splits is kept, so the panes are
-back side by side when the window widens, as when a phone is turned on its
-side.
+The tree of splits is kept, so the panes are side by side again when the window
+widens, as when a phone is turned on its side.
 
-It is not called a zoom, though. A zoom is a mode somebody turned on, and the
-status bar says so. Nobody asked for this one, so the status bar counts
-instead: `pane 1/2` tells you there is a pane you cannot see, which `zoom`
-would not.
+The keyboard takes half the screen, and two stacked panes would leave neither
+room to type. So while it is up, the focused pane alone takes the full height.
+The status bar still says `pane 1/2`, since the other pane is hidden from view.
 
-This follows the width alone. A thin desktop window has the same two useless
-columns.
+This follows the width alone. A thin desktop window stacks its panes too.
 
 ## A tap raises no keyboard
 

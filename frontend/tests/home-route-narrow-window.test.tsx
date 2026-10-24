@@ -174,7 +174,7 @@ describe("the route", () => {
   describe("in a narrow window", () => {
     /** The panes the tab is drawing, as opposed to the ones it only holds. */
     const drawn = () =>
-      [...document.querySelectorAll("[data-pane]")].filter(
+      [...document.querySelectorAll<HTMLElement>("[data-pane]")].filter(
         (pane) => !pane.classList.contains("hidden"),
       );
 
@@ -257,7 +257,12 @@ describe("the route", () => {
 
       expect(app.tree()).toBeNull();
       expect(page()).toBeNull();
-      expect(drawn()[0]?.contains(document.activeElement)).toBe(true);
+      // Both panes are drawn now (#793 A5), so the one with the focus line is the one to check.
+      const focusedPane = drawn().find(
+        (pane) =>
+          pane.querySelector("[data-focus-line]")?.classList.contains("bg-k-accent") === true,
+      );
+      expect(focusedPane?.contains(document.activeElement)).toBe(true);
     });
 
     it("closes the drawer on the note its New note button makes", async () => {
@@ -310,9 +315,10 @@ describe("the route", () => {
       expect(screen.queryByRole("button", { name: "Close file tree" })).toBeNull();
     });
 
-    it("draws the focused pane alone, and gives the split back when the window widens", async () => {
+    it("stacks both panes of a split, and puts them side by side when the window widens", async () => {
       // Narrow and no more: the split is asked for with a leader key, which a
       // touch screen may not have, and one pane to a tab is about the width.
+      // It drew the focused pane alone before #793 A5 stacked the split.
       const media = stubMatchMedia({ [NARROW]: true });
       const app = await renderApp();
       await settle();
@@ -321,18 +327,18 @@ describe("the route", () => {
       await settle();
 
       expect(app.panes()).toBe(2);
-      expect(drawn()).toHaveLength(1);
-      const first = drawn()[0];
+      expect(drawn()).toHaveLength(2);
+      expect(drawn()[1]?.style.top).toBe("calc(50% + 1px)");
 
       app.leader("o");
       await settle();
 
-      expect(drawn()).toHaveLength(1);
-      expect(drawn()[0]).not.toBe(first);
+      expect(drawn()).toHaveLength(2);
 
       media.set(NARROW, false);
 
       expect(drawn()).toHaveLength(2);
+      expect(drawn()[1]?.style.left).toBe("calc(50% + 1px)");
     });
 
     it("draws the toolbar on a phone and nowhere else", async () => {

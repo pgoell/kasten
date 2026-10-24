@@ -1,4 +1,4 @@
-import { type RefObject, useEffect } from "react";
+import { type RefObject, useEffect, useState } from "react";
 
 /**
  * Keep a box clear of an on-screen keyboard that covers the page.
@@ -14,8 +14,12 @@ import { type RefObject, useEffect } from "react";
  *
  * One box, the frame of the page. A second reader inside the first would
  * measure after the first had already made room, and find nothing covered.
+ *
+ * Returns whether a keyboard is up, for what must change while it is, such as a
+ * split giving its focused pane the whole height to type in.
  */
-export function useKeyboardInset(box: RefObject<HTMLElement | null>, on: boolean): void {
+export function useKeyboardInset(box: RefObject<HTMLElement | null>, on: boolean): boolean {
+  const [up, setUp] = useState(false);
   useEffect(() => {
     const element = box.current;
     const viewport = window.visualViewport;
@@ -34,9 +38,10 @@ export function useKeyboardInset(box: RefObject<HTMLElement | null>, on: boolean
       // zoomed and pans to the input, so both are a phone's ordinary state.
       const shown = document.documentElement.clientHeight / viewport.scale;
       const covered = Math.min(shown, bottom - viewport.offsetTop) - viewport.height;
-      const inset = `${Math.max(0, Math.round(covered))}px`;
-      element.style.paddingBottom = inset;
-      element.style.setProperty("--keyboard", inset);
+      const pixels = Math.max(0, Math.round(covered));
+      element.style.paddingBottom = `${pixels}px`;
+      element.style.setProperty("--keyboard", `${pixels}px`);
+      setUp(pixels > 0);
     };
 
     clear();
@@ -50,4 +55,5 @@ export function useKeyboardInset(box: RefObject<HTMLElement | null>, on: boolean
       element.style.removeProperty("--keyboard");
     };
   }, [box, on]);
+  return on && up;
 }

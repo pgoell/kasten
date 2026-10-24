@@ -44,7 +44,7 @@ load the phone's layout, and dragging it wide again would leave it there. The
 pointer stays put for the life of the page. A laptop with a touch screen still
 has a mouse as its primary pointer, so it keeps the desktop's layout.
 
-A phone draws one pane at a time, as
+A phone stacks the panes of a split, as
 [kasten on a phone](/explanation/kasten-on-a-phone.md) says, but its saved
 layout keeps the splits. Turn the phone into a wide tablet and they are there.
 

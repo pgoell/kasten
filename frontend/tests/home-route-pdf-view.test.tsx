@@ -324,7 +324,7 @@ describe("a pdf in kasten's own view", () => {
       (pane) => !pane.classList.contains("hidden"),
     );
 
-  it("A1 a tap on the embed on a phone opens kasten's view at page 3, alone on screen", async () => {
+  it("A1 a tap on the embed on a phone opens kasten's view at page 3, stacked under the note", async () => {
     stubMatchMedia({ [NARROW]: true, [COARSE]: true });
     await openNote("above\n![[my plan.pdf#page=3]]\n");
 
@@ -334,8 +334,10 @@ describe("a pdf in kasten's own view", () => {
     await settle();
 
     expect(pdfPane()?.getAttribute("data-page")).toBe("3");
-    expect(drawn()).toHaveLength(1);
-    expect(drawn()[0]?.querySelector("[data-pdf-pane]")).not.toBeNull();
+    // The view opens beside the note, and a split on a phone is stacked (#793 A5), so both are drawn.
+    expect(drawn()).toHaveLength(2);
+    expect(drawn()[0]?.querySelector(".cm-content")?.textContent).toContain("above");
+    expect(drawn()[1]?.querySelector("[data-pdf-pane]")).not.toBeNull();
     await showsPage(3);
   });
 

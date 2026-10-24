@@ -177,7 +177,7 @@ function Home() {
   // cursor's line, the bar and the toolbar all stay above it. A finger alone
   // decides it and not the width: a tablet has the same keyboard.
   const frame = useRef<HTMLElement>(null);
-  useKeyboardInset(frame, coarse);
+  const keyboard = useKeyboardInset(frame, coarse);
   const drawer = useTreeDrawer({ narrow, saved, savedAs, layout, focusSignal });
   const { treeOpen, setTreeOpen, treeFocus, treeReveal } = drawer;
   // Above the remount another note causes, so preview off stays off.
@@ -385,6 +385,7 @@ function Home() {
         <WorkspacePanes
           layout={layout}
           narrow={narrow}
+          keyboard={keyboard}
           inert={narrow && treeOpen}
           moveTo={moveTo}
           setLayout={setLayout}
@@ -420,8 +421,7 @@ function Home() {
         notice={notice}
         version={version}
         zoom={tab.zoom}
-        // Only where one pane of several is drawn, which is a narrow window:
-        // anywhere else the panes are on screen and count themselves.
+        // Narrow only: the bar says which pane of the stack has the focus.
         pane={
           narrow && panes.length > 1
             ? `${panes.findIndex((each) => each.id === pane.id) + 1}/${panes.length}`

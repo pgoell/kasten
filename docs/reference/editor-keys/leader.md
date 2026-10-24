@@ -18,7 +18,8 @@ move-right, because the leader is registered in normal mode only.
 Press Space and the which-key panel opens at once, at the foot of the focused
 pane. Its top line shows the presses so far, and below it the leader keys stand
 in six columns: Find, Create, Go to, Tabs, Panes and This note. The tables below
-follow those columns in that order. The next key narrows the panel to the keys
+follow those columns in that order. On a phone the panel is a bottom sheet and
+the six groups run one under the other, each row the sheet's full width. The next key narrows the panel to the keys
 that begin with it, so after `g` only the `g` keys stay. A click or tap on a row
 runs it. Esc, Space again, a press or a focus move outside the panel, or a key
 that matches nothing closes the panel, and the focus goes back where it was. A

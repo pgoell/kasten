@@ -28,7 +28,7 @@ a phone turned on its side can stop being narrow.
 
 | Needs | What it brings |
 | --- | --- |
-| Narrow | [The file tree](/reference/editor-keys/file-tree.md#the-file-tree) as a drawer over the page, closed to begin with. A tab draws its focused pane alone, and the status bar says `pane 1/2` and drops the weekday, the week, the version and `zoom`, as [Panes and tabs](/reference/editor-keys/panes-and-tabs.md#panes-and-tabs) says. [The note finder](/reference/editor-keys/finding.md#the-note-finder) and [the note search](/reference/editor-keys/finding.md#the-note-search) draw no preview |
+| Narrow | [The file tree](/reference/editor-keys/file-tree.md#the-file-tree) as a drawer over the page, closed to begin with. A split stacks its panes top and bottom, and while the keyboard is up only the focused one shows. The status bar says `pane 1/2` and drops the weekday, the week, the version and `zoom`, as [Panes and tabs](/reference/editor-keys/panes-and-tabs.md#panes-and-tabs) says. [The note finder](/reference/editor-keys/finding.md#the-note-finder) and [the note search](/reference/editor-keys/finding.md#the-note-search) draw no preview |
 | Coarse | The editor starts [without vim](/reference/editor-keys.md#vim-on-or-off). Rows and buttons are 44px tall. Inputs are 16px. The frame makes room for [the on-screen keyboard](#the-on-screen-keyboard). A terminal draws [a row of keys](/reference/editor-keys/terminal.md#terminal). Each pane draws [its own buttons](#what-each-pane-answers) |
 | Narrow and coarse | [The toolbar](#the-toolbar). No rail beside the file tree |
 | Narrow, and the last input was a touch | The editor takes [no focus it was not asked for](#focus) |
@@ -80,6 +80,8 @@ stay above it. Chrome on Android shrinks the page for the keyboard. Safari on iO
 covers the page, so there the frame reads `window.visualViewport` and pads away
 the covered part. A prompt, the palette, the finder and the search stop at the
 top of the keyboard the same way, input first. A zoomed page is padded too.
+In a narrow window with a split, the focused pane alone takes the full height
+while the keyboard is up.
 
 Under a coarse pointer these inputs are 16px: the prompts, the todo pane's
 filter and edit line, the graph's query, the review's two fields and the token
@@ -90,7 +92,7 @@ name. The editor's own text keeps its size.
 In a narrow window the editor takes the focus after a key moves to its pane or
 opens its note, and not after a tap does. A tap on `pane`, on a row of the tree
 or on a row of the finder shows the note, and a tap on its text focuses the
-editor. An editor that holds the focus keeps it, and coming back to the browser
+editor. A tap on a pane of a split moves the focus to that pane. An editor that holds the focus keeps it, and coming back to the browser
 tab hands it none.
 
 This goes by the last input, so a phone with a keyboard attached gets the focus

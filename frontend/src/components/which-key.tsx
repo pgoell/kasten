@@ -40,6 +40,9 @@ const CHIP = `${KEY} rounded-[var(--k-radius-4)] bg-k-surface px-1.5 py-0.5`;
 const ENTRY_TRACK = "grid grid-cols-[2.25rem_1fr] items-baseline gap-x-2";
 const TAB_TRACK = "grid grid-cols-[3rem_1fr] items-baseline gap-x-2";
 const TAB_LABEL = "Go to a tab by number";
+// The desktop panel wraps its six columns to the width. The phone sheet is one list.
+const COLUMNS = "grid grid-cols-[repeat(auto-fit,minmax(10.5rem,1fr))] gap-x-4 gap-y-4 px-2 pb-3";
+const ONE_COLUMN = "grid grid-cols-1 gap-y-4 px-2 pb-3";
 
 /** The keys as the panel prints them: `cf` reads as two presses, `c f`. */
 function spaced(keys: string): string {
@@ -153,15 +156,18 @@ function TabRow() {
 function Body({
   columns,
   typed,
+  phone = false,
   onRun,
 }: {
   columns: Column[];
   typed: string;
+  /** On a phone the sheet is one column of full-width rows, a finger's target each. */
+  phone?: boolean;
   onRun: (key: string) => void;
 }) {
   if (typed === "") {
     return (
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(10.5rem,1fr))] gap-x-4 gap-y-4 px-2 pb-3">
+      <div className={phone ? ONE_COLUMN : COLUMNS}>
         {columns.map((column) => (
           <section key={column.title} className="min-w-0">
             <h3 className={`${LABEL} mb-1 px-3`}>{column.title}</h3>
@@ -372,7 +378,7 @@ export function WhichKey({ phone }: { phone: boolean }) {
         header={<Pressed typed={typed} sheet />}
         restoreFocus={!ran}
       >
-        <Body columns={columns} typed={typed} onRun={runRow} />
+        <Body columns={columns} typed={typed} phone onRun={runRow} />
       </Sheet>
     );
   }

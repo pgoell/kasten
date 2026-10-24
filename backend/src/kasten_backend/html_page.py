@@ -79,6 +79,34 @@ def _face(family: str, style: str, weight: str, file: str) -> str:
     )
 
 
+_STACK = """
+@media (width < 640px) {
+  /* A column of grid or flex children keeps the page's gap. Lead is prose, so it
+     is block, and its text and links stay in their lines rather than each becoming
+     its own box. !important, since a page's own rule for these names would win. */
+  .k-masthead, .k-columns, .k-briefs {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    grid-template-columns: none !important;
+    column-count: 1 !important;
+  }
+  .k-lead {
+    display: block !important;
+    grid-template-columns: none !important;
+    column-count: 1 !important;
+  }
+  .k-masthead > *, .k-columns > *, .k-briefs > * {
+    width: auto !important;
+  }
+}
+"""
+"""The one-column rule for the four marked blocks, under 640 px only.
+
+Kept out of the token file, which the app shares, and given only to a page that
+opts in. A page with no such marked block is not changed by it.
+"""
+
 STYLES = (
     "<style data-kasten-fonts>"
     + _face("Newsreader Variable", "normal", "200 800", "newsreader-latin-opsz-normal.woff2")
@@ -91,9 +119,11 @@ STYLES = (
     )
     + "</style><style data-kasten-theme>"
     + KASTEN_THEME.decode("utf-8")
+    + "</style><style data-kasten-stack>"
+    + _STACK
     + "</style>"
 )
-"""What an opted-in page gets in its head: the fonts, then the tokens, neither in a layer.
+"""What an opted-in page gets in its head: the fonts, the tokens, then the stacking rule.
 
 Built once at import, as `PAGE_SCRIPT` is. They go last in the head, so a
 `:root` rule the page wrote for the same token name is the one overridden.

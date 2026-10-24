@@ -58,7 +58,8 @@ Commands worth knowing by name:
 ## See the keys after Space
 
 1. Tap `space`. The which-key panel rises from the foot of the screen, with the
-   leader keys in six columns: Find, Create, Go to, Tabs, Panes and This note.
+   leader keys in one column at full width, in the groups Find, Create, Go to,
+   Tabs, Panes and This note.
 2. Tap a row to run it.
 
 To close the panel, flick its grabber down.
@@ -74,10 +75,12 @@ time per browser. The same row turns vim off again.
 
 ## Move between the panes of a split
 
-A phone draws one pane of a split at a time. The status bar says which, as
-`pane 1/2`.
+A phone stacks the panes of a split, top and bottom, each with a header row. The
+focused pane has a line under its header. While the keyboard is up, only the
+focused pane shows, at full height. The status bar says how many panes the tab
+holds, as `pane 1/2`.
 
-1. Tap `pane`. The next pane takes the screen.
+1. Tap a pane to focus it, or tap `pane` to move the focus to the next one.
 2. Tap `pane` again to go on, round to the first.
 
 The `pane` button shows only while the tab holds more than one pane.
@@ -146,6 +149,8 @@ again to let go without sending anything.
 
 Tap the dimmed page outside it. That closes the palette, the finder, the
 search, key help, the which-key panel and a prompt you have not typed into.
+On a phone, key help is a full-height sheet, and dragging its grabber down
+closes it too.
 
 A prompt you have typed into stays open on a tap outside. Send it with the
 keyboard's Enter, or clear the input and then tap outside.

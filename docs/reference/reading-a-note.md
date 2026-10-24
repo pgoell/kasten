@@ -19,7 +19,8 @@ empty pane shows. The tokens these numbers come from are in
 A bar 56 px tall, sticky at the top of the window, with a frosted background.
 It holds the wordmark, Vault, Graph and Search, a search field that says how
 many notes it covers, and a New note button. Vault, Graph and Search are hidden
-below 768 px of window width.
+below 768 px of window width. There the search field opens the note finder
+instead, and a + button makes a new note; a screen reader still hears "New note".
 
 ## The note pane
 
@@ -48,12 +49,13 @@ The block at the top of the text, which scrolls with the note:
 - the path, in mono, and after it a Graph button while the right margin is
   hidden (see [the local graph](#the-graph-button-and-the-sheet));
 - the title, in serif at 36 px;
-- a meta line in sans at 13 px: the type, the edited date, the word count, and
-  the tags as pills in the accent wash;
+- a meta line in sans at 13 px, or 15 px on a phone: the type, the edited date,
+  the word count, and the tags as pills in the accent wash;
 - a Properties button, and beside it the relations as plain lines, "About ..."
   and "Part of ...".
 
-Read and Edit sit at the top right of the header, as a small switch.
+Read and Edit sit at the top right of the header, as a small switch, 15 px on a
+phone.
 
 ## Read and Edit
 
@@ -90,7 +92,7 @@ asks.
 
 The tab strip under the top bar is in
 [Panes and tabs](/reference/editor-keys/panes-and-tabs.md) (#780). The phone
-layout, which replaces the one-column stopgap below 776 px, is #793.
+layout is in [kasten on a phone](/explanation/kasten-on-a-phone.md) (#793).
 
 ## The local graph
 

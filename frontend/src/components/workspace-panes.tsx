@@ -101,6 +101,7 @@ export function videoTarget(layout: Layout): string | undefined {
 export function WorkspacePanes({
   layout,
   narrow,
+  keyboard,
   inert,
   moveTo,
   setLayout,
@@ -125,6 +126,8 @@ export function WorkspacePanes({
 }: {
   layout: Layout;
   narrow: boolean;
+  /** Whether an on-screen keyboard is up, which shows a narrow split's focused pane alone. */
+  keyboard: boolean;
   inert: boolean;
   moveTo: PaneMoves["moveTo"];
   setLayout: Dispatch<SetStateAction<Layout>>;
@@ -222,6 +225,7 @@ export function WorkspacePanes({
           the note stands conflicted. */}
       <TabStrip
         layout={layout}
+        narrow={narrow}
         onSelect={(index) => moveTo((previous) => goToTab(previous, index))}
         onClose={(index) => moveTo((previous) => closeTab(previous, index))}
         onHome={() => moveTo((previous) => homeTab(previous))}
@@ -234,13 +238,11 @@ export function WorkspacePanes({
           tabId={tab.id}
           narrow={narrow}
           divided={tabPanes(layout).length > 1}
-          // The focused pane is the one drawn alone, always: every key
-          // that moves the focus turns the zoom off on its way past.
-          //
-          // Below `md` every tab is drawn that way, a split of 390px being
-          // strips nobody can read. The tree is left as it is and so is
-          // `tab.zoom`, so the splits are back when the window widens.
-          zoomed={narrow || tab.zoom === true ? tab.focus : null}
+          // Below `md` a split is stacked (`PaneLayout`), except while the
+          // keyboard is up: two panes would leave ~100px to type in. The tree
+          // and `tab.zoom` are kept, so the stack returns with the window or
+          // the keyboard.
+          zoomed={tab.zoom === true || (narrow && keyboard) ? tab.focus : null}
           // The one way to another pane that `moveTo` does not stand in
           // front of, and it stays that way on purpose. This is reported
           // after the browser has moved the focus, so declining it would

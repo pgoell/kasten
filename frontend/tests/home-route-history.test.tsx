@@ -267,12 +267,14 @@ describe("the route", () => {
         fireEvent.click(screen.getByRole("button", { name: "Run a command by name" }));
         fireEvent.click(screen.getByRole("option", { name: /^Show this note's history/ }));
         await settle();
-        // One pane drawn: the history, the note hidden behind it.
-        const shown = [...document.querySelectorAll("[data-pane]")].filter(
+        // The history opens beside the note, and a split on a phone is stacked
+        // (#793 A5): the note above, the history below, both drawn.
+        const shown = [...document.querySelectorAll<HTMLElement>("[data-pane]")].filter(
           (each) => !each.classList.contains("hidden"),
         );
-        expect(shown).toHaveLength(1);
-        expect(shown[0]).toContainElement(historyPane());
+        expect(shown).toHaveLength(2);
+        expect(shown[0]?.querySelector(".cm-content")?.textContent).toContain("the index note");
+        expect(shown[1]).toContainElement(historyPane());
         const button = screen.getByRole("button", { name: "Restore" });
         expect(button).toHaveClass("pointer-coarse:min-h-11");
         fireEvent.click(button);

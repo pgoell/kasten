@@ -101,6 +101,20 @@ The backend serves its copy at `GET /api/kasten-theme.css`, and a test holds tha
 - May not: hex, rgb or named colours outside the fallback layer. Loading fonts or naming font families. Setting `data-theme` or reading the system theme inside Kasten. Redefining `--k-*` outside the fallback layer. Fixing the page height or catching Space, `?` or Escape. Fixed bars over the top of the page. Styling `::highlight(kasten-taken)` or `::selection`, or stopping `mouseup`, `selectionchange`, `keyup` (Shift with arrows), `pointerdown` and `scroll`, which the page script listens to. Using `y` as a shortcut while text is selected. `localStorage`, cookies or calls to the vault.
 - How to check a page: switch the theme half way down, scroll stays. Open the file directly in light and dark system mode. Grep the CSS for `#`, `rgb(` and quoted `font-family` outside the layer.
 
+## Stacking below 640 px
+
+For a page that opts in, kasten adds a rule below 640 px of width. The children
+of an element with one of these classes stack in one column, as a flex column
+with the page's own gap kept:
+
+- `k-masthead`
+- `k-columns`
+- `k-briefs`
+
+The class `k-lead` shows as a block. Above 640 px, and on a page that does not
+opt in, nothing changes. A page that stacks nothing is still free under "May:
+any layout" above.
+
 ## What kasten closes for you
 
 Two holes that #785 left in the page script are closed.

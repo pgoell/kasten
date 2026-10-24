@@ -68,12 +68,13 @@ turns it off, which is what tmux does, so `<leader>o` moves to the next pane
 and unzooms in one press. The four directions have nowhere to go while it is
 on, one pane being all there is on screen.
 
-A window narrower than 768px draws every tab that way, zoomed or not: the
-focused pane alone, the rest hidden and still holding what they held. The
-splits are kept, so they are back when the window widens. `<leader>o` is the
-way to the next pane there, and the footer does not say `zoom` for it. It
-says `pane 1/2` instead, the pane drawn and how many the tab holds, whenever
-the tab holds more than one.
+A window narrower than 768px stacks the panes of a split, top and bottom,
+whichever way the split divides. While the on-screen keyboard is up, only the
+focused pane shows, at full height, and the rest hold what they held. The
+splits are kept, so they are side by side again when the window widens.
+`<leader>o` moves to the next pane there. The footer says `pane 1/2`, the
+number of the pane the focus is on and how many the tab holds, whenever the
+tab holds more than one.
 
 That window's footer carries the date and the time and leaves out the weekday,
 the week and the version. A notice takes the clock's place while it shows. A
@@ -89,8 +90,9 @@ Every pane of a split on screen has a header row of its own, with the kind of
 thing it holds (Note, PDF, Book, Review, Graph or Video, each with its icon)
 and the path, and the focused pane has a 2 px accent line at its top. Nothing
 else changes colour when the focus moves, and a hairline divides the panes. A
-single pane, a zoomed one and a phone's pane have no header and no line,
-having nothing to tell them apart from. Each pane scrolls on its own and keeps
+single pane and a zoomed one have no header and no line, having nothing to
+tell them apart from. On a phone a split's panes have them, with the line on
+the focused one. Each pane scrolls on its own and keeps
 its place when the focus moves.
 
 No pane or tab key on this page moves while the note in the focused pane reads
@@ -115,7 +117,9 @@ has text not yet written shows a dot in place of the x, and the x on hover.
 Closing the active tab writes its note first, as moving away does; closing the
 last tab leaves one empty tab. `Space 1` and the other digits name the tab in
 its tooltip. Tabs that do not fit go behind `N more` at the right, which opens
-a list of them; the active tab is always among the tabs drawn. In the strip the
+a list of them; the active tab is always among the tabs drawn. In a window
+under 768px every tab is drawn instead, the strip scrolls sideways, the active
+tab is brought into view, and there is no `N more`. In the strip the
 arrow keys move between tabs, `Home` and `End` go to the ends, `Enter` opens
 one and `Delete` closes it. An empty tab reads `New tab`, and each tab is named
 for the note in the pane it
@@ -156,7 +160,7 @@ through pages rather than through panes.
 
 `<leader>gh` lists the jj changes of the open note in a pane beside it, newest
 first, and the palette's **Show this note's history beside it** does the same
-on a phone, where the pane takes the screen. A second press moves to the pane
+on a phone, where the two panes stack. A second press moves to the pane
 already open. The newest change is picked when it opens, and its text shows as
 a line diff against the note now, the `modified` line set aside. The keys are
 the same with vim on or off.
@@ -208,9 +212,10 @@ switch, the tags with their colour and count, and a card for the note under the
 pointer, with its folder, tags, links and an Open button. A click on a tag
 hides its area and ring, and every note that has no other tag; a second click
 shows it again. The mode is kept per device (`kasten.graph.mode`). In a pane
-under 640 px wide, and on a phone, the panel sits under the canvas. On a touch
-screen a tap on a note picks it into the card, and Open or a second tap opens
-it.
+under 640 px wide, and on a phone, the panel sits under the canvas. On a phone
+the canvas is about 118vw high, at most 70% of the screen height, and the panel
+below it takes the full width; the pane scrolls as one. On a touch screen a tap
+on a note picks it into the card, and Open or a second tap opens it.
 
 ### Around a note
 

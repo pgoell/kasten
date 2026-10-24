@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Sheet } from "@/components/sheet";
 import { FOLLOW, FORMAT, INDENT, LEADER_EDITS, readable } from "@/lib/buffer-keys";
 import { trapTab } from "@/lib/focus-trap";
 import {
@@ -14,6 +15,7 @@ import {
 } from "@/lib/key-bindings";
 import { LEADER, LEADER_COLUMNS, spelled, TAB_DIGITS, TAB_KEYS } from "@/lib/leader-keys";
 import { closeOnBackdrop, HEADER_ROW, INPUT, LABEL, PANEL, STATUS } from "@/lib/overlay-styles";
+import { useViewport } from "@/lib/use-viewport";
 import { VIDEO_PANE } from "@/lib/video-keys";
 import { useVim } from "@/lib/vim-setting";
 
@@ -132,6 +134,11 @@ export function KeyHelp({ onClose }: { onClose: () => void }) {
   const panel = useRef<HTMLDivElement>(null);
   const field = useRef<HTMLInputElement>(null);
   const vimOn = useVim();
+  // The which-key panel's phone signal. A phone gets the shared bottom sheet, where
+  // the desktop gets the centred panel. Read off the viewport and not named `narrow`,
+  // which is the filter's function below.
+  const viewport = useViewport();
+  const phone = viewport.narrow && viewport.coarse;
   const [query, setQuery] = useState("");
 
   // The filter takes the focus so the panel's own keys reach it, rather than
@@ -175,6 +182,56 @@ export function KeyHelp({ onClose }: { onClose: () => void }) {
     { title: "Screens you type", keys: SCREENS },
   ];
 
+  const header = (
+    <div className={HEADER_ROW}>
+      <span className={LABEL}>Keys</span>
+      <input
+        ref={field}
+        type="search"
+        aria-label="Filter keys"
+        placeholder="Filter, e.g. graph or tab"
+        value={query}
+        onChange={(event) => setQuery(event.target.value)}
+        className={`${INPUT} font-mono [&::-webkit-search-cancel-button]:appearance-none`}
+      />
+    </div>
+  );
+
+  const columns = (
+    <div className="min-h-0 overflow-auto px-4 py-3">
+      <div className="grid grid-cols-1 items-start gap-x-8 gap-y-4 md:grid-cols-2">
+        <Column
+          title="After Space"
+          // With vim off there is no normal mode and so no leader, but every
+          // one of these is a palette command under the same label.
+          intro={
+            vimOn
+              ? "These start with Space, in normal mode."
+              : `Vim is off, so run these from the command palette (${chordLabel("P")}), each by the same label.`
+          }
+          groups={narrow(leaderGroups(), query)}
+        />
+        <Column
+          title="Vim and the rest"
+          groups={narrow(others, query)}
+          className="mt-4 border-t border-k-rule pt-4 md:mt-0 md:border-t-0 md:pt-0"
+        />
+      </div>
+    </div>
+  );
+
+  // A phone has no room for a centred panel, and the one column of `columns` is
+  // all it needs. The sheet owns the Escape, the drag and the Tab stop, which the
+  // panel below does for the desktop.
+  if (phone) {
+    return (
+      <Sheet open onClose={onClose} label="Keyboard shortcuts" full header={header}>
+        {columns}
+        <p className={STATUS}>Escape or a drag down to close, or a tap outside</p>
+      </Sheet>
+    );
+  }
+
   return (
     <div
       ref={panel}
@@ -204,38 +261,8 @@ export function KeyHelp({ onClose }: { onClose: () => void }) {
           words are the UI and only the keys are code, so the sans goes on top,
           with `!` because both classes set the same font family. */}
       <div className={`${PANEL} !font-sans max-h-[88vh] w-[min(84rem,95vw)]`}>
-        <div className={HEADER_ROW}>
-          <span className={LABEL}>Keys</span>
-          <input
-            ref={field}
-            type="search"
-            aria-label="Filter keys"
-            placeholder="Filter, e.g. graph or tab"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            className={`${INPUT} font-mono [&::-webkit-search-cancel-button]:appearance-none`}
-          />
-        </div>
-        <div className="min-h-0 overflow-auto px-4 py-3">
-          <div className="grid grid-cols-1 items-start gap-x-8 gap-y-4 md:grid-cols-2">
-            <Column
-              title="After Space"
-              // With vim off there is no normal mode and so no leader, but every
-              // one of these is a palette command under the same label.
-              intro={
-                vimOn
-                  ? "These start with Space, in normal mode."
-                  : `Vim is off, so run these from the command palette (${chordLabel("P")}), each by the same label.`
-              }
-              groups={narrow(leaderGroups(), query)}
-            />
-            <Column
-              title="Vim and the rest"
-              groups={narrow(others, query)}
-              className="mt-4 border-t border-k-rule pt-4 md:mt-0 md:border-t-0 md:pt-0"
-            />
-          </div>
-        </div>
+        {header}
+        {columns}
         <p className={STATUS}>Escape or q to close, or a tap outside</p>
       </div>
     </div>

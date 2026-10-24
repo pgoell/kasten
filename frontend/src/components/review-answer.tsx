@@ -12,10 +12,11 @@ const RATINGS: { rating: Rating; label: string }[] = [
 
 /**
  * The grade buttons: Again in the danger colour, Good outlined as the default, and
- * Hard and Easy quiet. Taller on a touch screen, where the thumb is the pointer.
+ * Hard and Easy quiet. Taller on a touch screen, where the thumb is the pointer:
+ * 64 px, a thumb's target at the width four buttons share a phone.
  */
 const GRADE_BASE =
-  "min-h-11 pointer-coarse:min-h-14 rounded bg-k-paper text-k-15 hover:border-k-accent hover:text-k-accent active:bg-k-paper disabled:opacity-50";
+  "min-h-11 pointer-coarse:min-h-16 rounded bg-k-paper text-k-15 hover:border-k-accent hover:text-k-accent active:bg-k-paper disabled:opacity-50";
 // Good's outline is two pixels and the others one, so Good is marked by weight
 // and not by a second hue beside Again's russet. Its padding gives back the extra
 // pixel on each side, so all four buttons stand the same height.
@@ -132,7 +133,8 @@ export function ReviewAnswer({
             className="flex min-h-11 w-full items-center justify-between rounded border border-k-rule bg-k-paper px-4 py-2 text-k-15 text-k-ink hover:border-k-accent hover:text-k-accent active:bg-k-paper aria-disabled:opacity-50"
           >
             Show the answer
-            <kbd className="rounded border border-k-rule px-1.5 font-mono text-k-12 tracking-k-kbd text-k-muted">
+            {/* A finger has no Space bar, so the hint is for the keyboard only. */}
+            <kbd className="rounded border border-k-rule px-1.5 font-mono text-k-12 tracking-k-kbd text-k-muted pointer-coarse:hidden">
               Space
             </kbd>
           </button>

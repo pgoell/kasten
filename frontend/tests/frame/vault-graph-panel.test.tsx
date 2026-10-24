@@ -86,7 +86,10 @@ describe("vault graph panel", () => {
     const { canvas, panel } = boxesOf(host);
     expect(panel?.width).toBe(TOUCH.width);
     expect(panel?.top).toBeGreaterThanOrEqual(canvas.bottom);
-    expect(panel?.height).toBeLessThanOrEqual(TOUCH.height * 0.45 + 1);
+    // No 45 % cap (#793 I8): the panel is as tall as its rows, and the pane
+    // scrolls, not the panel.
+    const element = need(panelOf(host), "graph panel");
+    expect(element.scrollHeight).toBeLessThanOrEqual(element.clientHeight + 1);
   });
 
   it("L3 on a phone the mode toggle keeps its full height in the panel", async () => {

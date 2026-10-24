@@ -52,6 +52,7 @@ export function useTabGeometry(
   active: number,
   tabIds: string,
   labels: string,
+  fold: boolean,
 ): TabGeometry {
   // Whether the bar has been drawn since it last appeared, so its first place is
   // a jump and not a glide in from the left edge.
@@ -59,6 +60,10 @@ export function useTabGeometry(
   const [hidden, setHidden] = useState<readonly number[]>([]);
   const [cap, setCap] = useState<number>();
   const [open, setOpen] = useState(false);
+  // Read by the observer's callback, which is made again only per set of tabs and
+  // so would keep the value it was made with.
+  const folding = useRef(fold);
+  folding.current = fold;
 
   // What the observer measured, written only by its callback. Each tab's natural
   // width is kept by element, so it follows the tab and not its index.
@@ -100,7 +105,8 @@ export function useTabGeometry(
     );
     // No room at all is a strip not laid out (hidden, or no layout as in
     // jsdom), where folding would hide every tab but the active one for nothing.
-    return room.current === 0 ? [] : foldTabs(sizes, room.current, at, MORE).hidden;
+    if (room.current === 0 || !folding.current) return [];
+    return foldTabs(sizes, room.current, at, MORE).hidden;
   };
 
   const apply = (next: readonly number[]) => {
@@ -166,7 +172,7 @@ export function useTabGeometry(
   // The fold follows the width of the tabs and of the row they sit in. It is set
   // here, before paint, so a tab switch never shows a strip that has not folded.
   // A tab that is folded keeps its width, being hidden rather than removed.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: all three are the trigger, and tabIds and labels are not read.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: all four are the trigger, and tabIds and labels are not read.
   useLayoutEffect(() => {
     const row = list.current;
     if (row === null) return;
@@ -185,7 +191,7 @@ export function useTabGeometry(
         observer.observe(element);
       }
     }
-  }, [active, tabIds, labels]);
+  }, [active, tabIds, labels, fold]);
 
   // The bar follows the active tab once the fold has been applied, so it is
   // placed after the render that folds, and not in the effect above where the

@@ -54,6 +54,8 @@ the side it names. A swipe grades only past 38 % of the card's width, counting
 how fast the finger leaves, so a shorter one springs back and grades nothing.
 Each swipe that grades gives one short buzz where the phone can buzz. A mouse
 drag does not swipe, and the four buttons stay under the card for every rating.
+On a phone the four grade buttons sit in one row, each at least 64 px tall, and
+Show the answer fills the foot of the card.
 A swipe that starts on a button, a field, a sound player or another control does
 not swipe, and one that starts on a link still grades. A tap on a link, a button,
 a field or a player does not show the answer.

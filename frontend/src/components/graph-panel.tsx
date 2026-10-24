@@ -50,7 +50,8 @@ function folderOf(path: string): string {
  * toggle, the tags, and the note the pointer or a finger is on.
  *
  * It sits beside the canvas from 640 px, and under it below that, where its
- * container query takes the full width and at most 45% of the height.
+ * container query takes the full width and its whole height, and the pane scrolls
+ * as one: a capped panel would cut its rows off where a finger has to reach them.
  */
 export function GraphPanel({
   notes,
@@ -67,7 +68,7 @@ export function GraphPanel({
   return (
     <aside
       aria-label="graph panel"
-      className="flex min-h-0 shrink-0 flex-col gap-4 overflow-y-auto font-sans border-l border-k-rule px-3 py-3 w-[300px] @max-[640px]:w-full @max-[640px]:max-h-[45%] @max-[640px]:border-l-0 @max-[640px]:border-t"
+      className="flex min-h-0 shrink-0 flex-col gap-4 overflow-y-auto font-sans border-l border-k-rule px-3 py-3 w-[300px] @max-[640px]:w-full @max-[640px]:max-h-none @max-[640px]:border-l-0 @max-[640px]:border-t"
     >
       <h2 className="shrink-0 font-serif text-[17px] text-k-ink">Vault graph</h2>
       <p className="shrink-0 text-[12px] text-k-ink">

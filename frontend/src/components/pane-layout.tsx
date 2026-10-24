@@ -137,6 +137,10 @@ export function PaneLayout({
 /**
  * Give every pane under this node its box, each split dividing its own box among
  * its children along its direction. The list comes out in `panesOf` order.
+ *
+ * On a narrow window every split is stacked whatever its stored direction, a
+ * side-by-side pair being strips nobody can read. The tree keeps its direction,
+ * so the pair is side by side again when the window widens.
  */
 function place(node: PaneNode, box: Box, dir: Split["dir"], narrow: boolean, out: Placed[]) {
   if (!isSplit(node)) {
@@ -144,7 +148,7 @@ function place(node: PaneNode, box: Box, dir: Split["dir"], narrow: boolean, out
     return;
   }
 
-  const row = node.dir === "row";
+  const row = !narrow && node.dir === "row";
   const count = node.children.length;
   const start = row ? box.left : box.top;
   const end = row ? box.right : box.bottom;
