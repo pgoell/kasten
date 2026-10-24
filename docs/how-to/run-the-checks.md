@@ -11,7 +11,7 @@ status: stable
 Everything CI runs, you can run:
 
 ```sh
-mise run lint         # ruff, ty, biome, file size
+mise run lint         # ruff, ty, biome, file size, copies
 mise run test         # backend pytest and frontend vitest
 mise run fe:typecheck # builds the frontend, then tsc --noEmit
 ```
@@ -48,6 +48,22 @@ branch of a long `elif` chain its own method, or pass two values that travel
 together as one tuple. Use `# noqa` only where the function reads better whole,
 with a comment above it saying why, as `apkg` in `backend/tests/anki_build.py`
 has.
+
+## Get past the copy check
+
+`lint:dup` runs jscpd over `frontend/src` and `backend/src` with the settings in
+`.jscpd.json` at the root. A run of at least 70 tokens that appears twice counts
+as a clone, and the check fails when clones make up more than 1% of the lines.
+Generated code (`api-types.ts`, `routeTree.gen.ts`) and the fonts are left out.
+On `main` the figure is 0.73%, 17 clones.
+
+When it fails, it lists every clone with the two places it sits. Pull the
+copied block into one function or component both places call, rather than
+raising the threshold. To see the clones while it passes:
+
+```sh
+frontend/node_modules/.bin/jscpd
+```
 
 ## Find files over the size limit
 
