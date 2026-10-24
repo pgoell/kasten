@@ -53,8 +53,8 @@ has.
 
 Biome, in `fe:lint` and `shell:lint`, fails any function with a cognitive
 complexity over 15 (`noExcessiveCognitiveComplexity`, set in
-`frontend/biome.jsonc`). Each `if`, loop, `catch`, `? :` and run of `&&` or
-`||` adds one, and each adds one more for every level of nesting it sits in.
+`frontend/biome.jsonc`). Each `if`, loop, `catch` and `? :` adds one, plus one
+for every level of nesting it sits in; a run of `&&` or `||` adds one.
 
 The 111 files that failed when the rule came in sit on a list in the last
 `overrides` entry of `frontend/biome.jsonc`, which turns the rule off for them.
