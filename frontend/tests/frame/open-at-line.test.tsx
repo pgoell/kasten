@@ -372,8 +372,15 @@ it("A7 a backlink opens its note on the linking line", async () => {
         ),
       PATIENCE,
     );
+    // At this width the graph opens in a pane of its own beside the note, and a
+    // backlink opens its note in the pane it is listed in.
+    const graphPane = need(
+      backlink.closest<HTMLElement>("[data-pane]")?.dataset.pane,
+      "id of the graph pane",
+    );
+    backlink.focus();
     fireEvent.click(backlink);
-    await expectLineShown(host, { read: true });
+    await expectLineShown(host, { pane: graphPane, read: true });
   } finally {
     await unmount(mounted);
   }
