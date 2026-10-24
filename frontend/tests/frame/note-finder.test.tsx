@@ -32,6 +32,8 @@ vi.mock("@/lib/api", () => ({
   // imports these, and a factory short of a name breaks the import itself.
   fetchImages: () => Promise.resolve([]),
   uploadAsset: () => Promise.resolve(),
+  // The live preview's video times reach `transcript.ts`, which imports this.
+  fetchTranscript: () => Promise.resolve(),
 }));
 
 // Six times the 6.7ms synchronous median `mise run fe:frame` measures on this
