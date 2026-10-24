@@ -31,6 +31,8 @@ import { noteLanguage } from "@/lib/note-language";
 import { relationCompletions, vaultRelations } from "@/lib/ontology";
 import { slashCompletions } from "@/lib/palette";
 import { moveCell } from "@/lib/table";
+import { tableLineup } from "@/lib/table-lineup";
+import { tableSource } from "@/lib/table-source";
 import { tagCompletions, vaultTags } from "@/lib/tag";
 import { type CycleHandler, idElsewhere, notePath, todoCycled } from "@/lib/todo-commands";
 import { todoCompletions } from "@/lib/todo-suggest";
@@ -290,6 +292,10 @@ export function createNoteView(o: {
           outline: (outline) => latest.current.onOutline?.(outline),
         }),
         preview.of(o.preview ? [livePreview(), weatherCard, logCard, readMode.of(true)] : []),
+        // Outside the preview compartment: the source of a table is marked in
+        // Edit too, where preview is off, and the line-up has to be there either way.
+        tableSource,
+        tableLineup,
         kastenTheme,
         EditorView.lineWrapping,
         EditorView.updateListener.of((update) => {
@@ -313,10 +319,14 @@ export function setVim(view: EditorView, on: boolean): void {
 }
 
 export function setPreview(view: EditorView, on: boolean): void {
+  // The scroll is read first and put back in the same transaction: a table drawn
+  // or un-drawn changes the heights above the line at the top, which would
+  // otherwise move that line off the top.
   view.dispatch({
-    effects: preview.reconfigure(
-      on ? [livePreview(), weatherCard, logCard, readMode.of(true)] : [],
-    ),
+    effects: [
+      view.scrollSnapshot(),
+      preview.reconfigure(on ? [livePreview(), weatherCard, logCard, readMode.of(true)] : []),
+    ],
   });
 }
 

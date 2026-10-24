@@ -81,4 +81,88 @@ describe("live preview", () => {
     expect(container.querySelector(".cm-table-grid")).not.toBeNull();
     expect(content(container)).not.toContain("|");
   });
+
+  it("#792 A4 a numeric column is right-aligned with its head, a word column is not", () => {
+    // The price column holds a currency, a sign, a thousands separator and a
+    // decimal comma, and its empty cell does not count against it.
+    const lines = [
+      "before",
+      "",
+      "| item | qty | price |",
+      "| --- | --- | --- |",
+      "| WH-07 | 10 | $2.50 |",
+      "| tea | -3 |  |",
+      "| cake | +1,200 | 4,00 € |",
+    ];
+    const { container } = renderEditor(<Editor initialDoc={lines.join("\n")} />);
+
+    const table = container.querySelector(".cm-table-grid") as HTMLTableElement;
+    expect([...table.querySelectorAll("th")].map((cell) => cell.style.textAlign)).toEqual([
+      "",
+      "right",
+      "right",
+    ]);
+    const [first] = table.querySelectorAll("tbody tr");
+    const [item, qty] = (first as HTMLTableRowElement).querySelectorAll("td");
+    expect(qty?.classList.contains("cm-table-numeric")).toBe(true);
+    expect(qty?.style.textAlign).toBe("right");
+    expect(item?.classList.contains("cm-table-numeric")).toBe(false);
+  });
+
+  it("#792 A4 a colon in the dashes wins over the detection", () => {
+    // The `:--` says left, so the numbers under it keep their side.
+    const lines = ["before", "", "| a | b |", "| :-- | --- |", "| 1 | 2 |"];
+    const { container } = renderEditor(<Editor initialDoc={lines.join("\n")} />);
+
+    const table = container.querySelector(".cm-table-grid") as HTMLTableElement;
+    const [left, detected] = table.querySelectorAll("th");
+    expect(left?.style.textAlign).toBe("left");
+    expect(detected?.style.textAlign).toBe("right");
+  });
+
+  it("#792 A5 an empty body cell is marked empty and holds no dash in its text", () => {
+    const lines = ["before", "", "| a | b | c |", "| - | - | - |", "| 1 |  | 3 |"];
+    const { container } = renderEditor(<Editor initialDoc={lines.join("\n")} />);
+
+    const table = container.querySelector(".cm-table-grid") as HTMLTableElement;
+    const [, empty] = table.querySelectorAll("tbody td");
+    expect(empty?.classList.contains("cm-table-empty")).toBe(true);
+    expect(empty?.textContent).toBe("");
+    expect(table.querySelectorAll(".cm-table-empty")).toHaveLength(1);
+    expect(content(container)).not.toContain("‒");
+  });
+
+  it("#792 A6 a code-like cell is marked code, a word and a date are not", () => {
+    const lines = [
+      "before",
+      "",
+      "| id | name | day |",
+      "| --- | --- | --- |",
+      "| WH-07 | tea | 2026-10-24 |",
+      "| `a1b2` | us-east-1 | 2026-10-25 |",
+    ];
+    const { container } = renderEditor(<Editor initialDoc={lines.join("\n")} />);
+
+    const table = container.querySelector(".cm-table-grid") as HTMLTableElement;
+    const [first, second] = [...table.querySelectorAll("tbody tr")].map((row) =>
+      row.querySelectorAll("td"),
+    );
+    expect(first?.[0]?.classList.contains("cm-table-code")).toBe(true);
+    expect(first?.[1]?.classList.contains("cm-table-code")).toBe(false);
+    expect(first?.[2]?.classList.contains("cm-table-code")).toBe(false);
+    expect(second?.[0]?.classList.contains("cm-table-code")).toBe(true);
+    expect(second?.[1]?.classList.contains("cm-table-code")).toBe(true);
+    expect(second?.[2]?.classList.contains("cm-table-code")).toBe(false);
+  });
+
+  it("#792 A7 a caption under the table is drawn as a caption, its prefix hidden", () => {
+    // The caption is a row the parser swallows, so the table is drawn and the
+    // line after it is the caption, with `Table: ` off the screen.
+    const lines = ["before", "", "| a | b |", "| - | - |", "| 1 | 2 |", "Table: Totals in euros"];
+    const { container } = renderEditor(<Editor initialDoc={lines.join("\n")} />);
+
+    const caption = container.querySelector(".cm-table-caption");
+    expect(caption?.textContent).toBe("Totals in euros");
+    expect(content(container)).not.toContain("Table: ");
+  });
 });

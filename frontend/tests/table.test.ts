@@ -1,8 +1,8 @@
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
-import { EditorState, Text } from "@codemirror/state";
+import { type ChangeSpec, EditorState, Text } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { formatDocument } from "@/lib/format-commands";
-import { alignTable, moveCell, tableAt } from "@/lib/table";
+import { alignTable, lineUpChanges, moveCell, type TableRun, tableAt } from "@/lib/table";
 
 /** The run around the given line, drawn back out, or null. */
 function align(source: string, line = 1): string | null {
@@ -146,5 +146,50 @@ describe("formatDocument", () => {
 
     expect(formatDocument(view)).toBe(false);
     expect(view.state.doc.toString()).toBe(source);
+  });
+});
+
+describe("lineUpChanges", () => {
+  /** The table around line one, with the line-up's changes applied. */
+  function lined(source: string): { state: EditorState; changes: ChangeSpec[] } {
+    const state = EditorState.create({ doc: source });
+    const run = tableAt(state.doc, 1);
+    expect(run).not.toBeNull();
+    const changes = lineUpChanges(state.doc, run as TableRun);
+    return { state, changes };
+  }
+
+  it("#792 A9 lineUpChanges sets a ragged table to the lines alignTable draws", () => {
+    const { state, changes } = lined("| a | longer |\n| - | - |\n| xx | b |");
+
+    expect(state.update({ changes }).state.doc.toString()).toBe(
+      ["| a   | longer |", "| --- | ------ |", "| xx  | b      |"].join("\n"),
+    );
+  });
+
+  it("#792 A9 lineUpChanges only puts in or takes out spaces where only spaces differ", () => {
+    const { state, changes } = lined("| ab| c|\n|---|---|\n| d | e |");
+
+    expect(changes.length).toBeGreaterThan(0);
+    for (const change of changes as { from: number; to?: number; insert?: string }[]) {
+      expect(state.doc.sliceString(change.from, change.to ?? change.from).trim()).toBe("");
+      expect((change.insert ?? "").trim()).toBe("");
+    }
+  });
+
+  it("#792 A9 lineUpChanges keeps a cell's escaped wall and the text around the change", () => {
+    const source = "a \\| b | c\n| - | - |\n| d | e |";
+    const { state, changes } = lined(source);
+
+    expect(state.update({ changes }).state.doc.toString()).toContain("a \\| b");
+    expect(state.update({ changes }).state.doc.toString()).toBe(
+      ["| a \\| b | c   |", "| ------ | --- |", "| d      | e   |"].join("\n"),
+    );
+  });
+
+  it("#792 A9 lineUpChanges gives no change to a table already square", () => {
+    const { changes } = lined("| a   | bb  |\n| --- | --- |\n| ccc | d   |");
+
+    expect(changes).toEqual([]);
   });
 });

@@ -199,8 +199,10 @@ describe("pictures in a table", () => {
     // land on and take for a click in the table: its whole height is content.
     expect(block.offsetHeight).toBe(block.clientHeight);
     // It still scrolls, by wheel or trackpad, and stays drawn while it does.
-    block.scrollLeft = 200;
-    expect(block.scrollLeft).toBe(200);
+    // #792: the sideways scroll moved to the inner box, so the block can hold the edge shadows.
+    const scroller = at.dom.querySelector(".cm-table-scroll") as HTMLElement;
+    scroller.scrollLeft = 200;
+    expect(scroller.scrollLeft).toBe(200);
     expect(at.scrollDOM.scrollLeft).toBe(0);
     expect(at.dom.querySelector(".cm-table-grid")).not.toBeNull();
 
@@ -229,8 +231,9 @@ describe("pictures in a table", () => {
     // The parse can land a frame after the mount, the first run of a fresh
     // stylesheet being slow enough to show it.
     await expect.poll(() => at.dom.querySelector(".cm-table-block")).not.toBeNull();
-    const block = at.dom.querySelector(".cm-table-block") as HTMLElement;
-    expect(block.scrollWidth).toBeGreaterThan(block.clientWidth);
+    // #792: the sideways scroll moved to the inner box, so the block can hold the edge shadows.
+    const scroller = at.dom.querySelector(".cm-table-scroll") as HTMLElement;
+    expect(scroller.scrollWidth).toBeGreaterThan(scroller.clientWidth);
     expect(at.scrollDOM.scrollWidth).toBeLessThanOrEqual(at.scrollDOM.clientWidth);
   });
 });

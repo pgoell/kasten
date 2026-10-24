@@ -16,16 +16,68 @@
    to the widest content rather than to the page: a two-column table of short
    words has no business running the full width of the note. */
 .cm-table-block {
+  position: relative;
   padding: 0.35em 0;
   /* A table wider than the pane scrolls rather than widening the note. The
-     overflow alone does not do it: the table's width still counts towards the
-     editor's own, so the containment keeps it from counting at all. */
-  overflow-x: auto;
+     scroll is on the box inside, and the containment here keeps the table's
+     width from counting towards the editor's own. */
   contain: inline-size;
 }
 
+/* The box a table scrolls in. Its height is capped so a long table scrolls down
+   as well, with its head row held at the top. */
+.cm-table-scroll {
+  overflow-x: auto;
+  overflow-y: auto;
+  max-height: 70vh;
+}
+
+/* The edge shadows, drawn over the scroll in black in both themes, so they
+   never turn into a light bar in dark. The left one sits at the right edge of
+   the sticky first column, whose width the script sets. Only opacity animates. */
+.cm-table-block::before,
+.cm-table-block::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 0.75rem;
+  z-index: 2;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--k-hover) var(--k-ease-out);
+}
+
+.cm-table-block::before {
+  left: var(--k-table-first, 0px);
+  background: linear-gradient(to right, var(--k-edge), transparent);
+}
+
+.cm-table-block::after {
+  right: 0;
+  background: linear-gradient(to left, var(--k-edge), transparent);
+}
+
+.cm-table-block[data-shadow-left]::before,
+.cm-table-block[data-shadow-right]::after {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cm-table-block::before,
+  .cm-table-block::after {
+    transition: none;
+  }
+}
+
+/* Sans for the cells, as a table reads, and the one weight difference a head
+   row needs beside the rule above it. Border-collapse would take the borders off
+   a sticky cell, so the borders sit on the cells and the cells keep their own. */
 .cm-table-grid {
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-family: var(--k-sans);
+  font-size: var(--k-text-13);
 }
 
 /* Padding on the box and none of KaTeX's margin, for the table's reason. A
@@ -45,9 +97,10 @@
   text-decoration: underline wavy;
 }
 
+/* Hairlines between the rows and no walls between the columns. */
 .cm-table-grid th,
 .cm-table-grid td {
-  border: 1px solid var(--k-rule);
+  border-bottom: 1px solid var(--k-rule);
   padding: 0.2em 0.6em;
   text-align: left;
   /* An empty cell has nothing to give it a height, and a row of them would
@@ -55,14 +108,67 @@
   min-width: 1em;
 }
 
+/* The strong rule above the head row, and the head row held at the top of a
+   table that scrolls down. */
 .cm-table-grid th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  border-top: 1px solid var(--k-rule-strong);
   background: var(--k-paper);
   font-weight: 700;
 }
 
-/* Every other body row, so the eye can follow one across a wide table. */
-.cm-table-grid tbody tr:nth-child(even) {
-  background: var(--k-surface);
+/* The first column held at the left of a table that scrolls sideways. Its
+   background is opaque so the cells scrolling under it do not show through. */
+.cm-table-grid :is(th, td):first-child {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--k-paper);
+}
+
+/* The corner, held at the top and the left both, so it sits above each. */
+.cm-table-grid thead th:first-child {
+  z-index: 3;
+}
+
+/* A first column too wide to hold is left to scroll with the rest. */
+.cm-table-block[data-first-wide] .cm-table-grid :is(th, td):first-child {
+  left: auto;
+}
+
+.cm-table-numeric {
+  font-variant-numeric: tabular-nums;
+}
+
+/* A dash in an empty cell, drawn in the muted colour. It is CSS, not text, so
+   a copy of the table gets the cell and nothing in it. */
+.cm-table-empty::before {
+  content: "\2012";
+  color: var(--k-muted);
+}
+
+.cm-table-code {
+  font-family: var(--k-mono);
+  font-size: var(--k-text-12);
+}
+
+/* A row of cells that wraps is hard to follow on a phone, so below 776 px of
+   pane the cells hold their lines and the table scrolls instead. */
+@container k-reader (width < 776px) {
+  .cm-table-grid th,
+  .cm-table-grid td {
+    white-space: nowrap;
+  }
+}
+
+/* The line under a table, for its caption. Muted and in the sans, as a caption
+   is, and the `Table: ` in front of it hidden where the line is drawn. */
+.cm-line.cm-table-caption {
+  font-family: var(--k-sans);
+  font-size: var(--k-text-13);
+  color: var(--k-muted);
 }
 
 /* A ```mermaid block, drawn. Centred as a figure is, and held to the note's

@@ -1,0 +1,6 @@
+/* The row the cursor is on, in a table's source. The accent wash and not the
+   surface, which the grid's striped rows already use. The editor's own active
+   line is transparent in this theme, so this is the only mark on the row. */
+.cm-line.cm-table-cursor {
+  background-color: var(--k-accent-wash);
+}

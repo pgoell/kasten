@@ -6,6 +6,7 @@ import { toHtml, toSlack } from "@/lib/copy-as";
 import { follow } from "@/lib/editor-follow";
 import { noticeHandler } from "@/lib/image";
 import { type CopyFormat, viewCommands } from "@/lib/palette";
+import { lineUpEdited } from "@/lib/table-lineup";
 
 type SaveHandler = (doc: string) => void;
 /** Answers with the vault's text, or with null when the reload was refused. */
@@ -23,6 +24,8 @@ export const saveHandler = Facet.define<SaveHandler, SaveHandler | undefined>({
 });
 
 export function save(view: EditorView): boolean {
+  // Before the text is read, so what is saved is the table as lined up.
+  lineUpEdited(view);
   view.state.facet(saveHandler)?.(view.state.doc.toString());
   return true;
 }
