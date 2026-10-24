@@ -129,7 +129,9 @@ type Review = tuple[int, int, int, int, int]
 """A card row's schedule as the builder takes it: card id, type, ivl, factor, due."""
 
 
-def apkg(
+# A builder whose every knob has a default and is named at the call; grouping
+# them into a record would only add a type each test has to build.
+def apkg(  # noqa: PLR0913
     notes: tuple[tuple[int, int, str], ...] = NOTES,
     cards: tuple[tuple[int, int, int, int], ...] = CARDS,
     decks: tuple[tuple[int, str], ...] = DECKS,

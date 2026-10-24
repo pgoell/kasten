@@ -26,6 +26,8 @@ if TYPE_CHECKING:
     from collections.abc import AsyncIterator
     from pathlib import Path
 
+    from kasten_backend.anki_deck import Deck
+
 router = APIRouter()
 
 
@@ -134,6 +136,24 @@ async def import_anki_link(
     )
 
 
+def _new_media(deck: Deck, settings: Settings, *, fresh: bool) -> list[tuple[str, bytes]]:
+    """The files of `deck` to write, by vault path, refusing one the vault will not take."""
+    media: list[tuple[str, bytes]] = []
+    for name, data in deck.media.items():
+        path = media_path(settings.flashcards_path, deck.name, name)
+        asset = resolve_asset_path(settings.vault_path, path)
+        if asset is None:
+            raise HTTPException(status_code=400, detail=f"The vault will not take {path}")
+        if asset.exists():
+            # A merged deck's media is most likely this import's own
+            # from last time, and a card links it by name either way.
+            if not fresh:
+                continue
+            raise HTTPException(status_code=409, detail=f"{path} is already in the vault")
+        media.append((path, data))
+    return media
+
+
 async def _import_bytes(body: bytes, settings: Settings, *, carry: bool, limit: int) -> AnkiImport:
     """Import the export `body`, the one implementation behind a file and a link.
 
@@ -184,18 +204,7 @@ async def _import_bytes(body: bytes, settings: Settings, *, carry: bool, limit: 
                 updated += merged.updated
                 kept += merged.kept
                 removed += merged.removed
-            for name, data in deck.media.items():
-                path = media_path(settings.flashcards_path, deck.name, name)
-                asset = resolve_asset_path(settings.vault_path, path)
-                if asset is None:
-                    raise HTTPException(status_code=400, detail=f"The vault will not take {path}")
-                if asset.exists():
-                    # A merged deck's media is most likely this import's own
-                    # from last time, and a card links it by name either way.
-                    if not fresh:
-                        continue
-                    raise HTTPException(status_code=409, detail=f"{path} is already in the vault")
-                media.append((path, data))
+            media += _new_media(deck, settings, fresh=fresh)
 
         # One change for the import rather than one per deck, the way the type
         # backfill takes one for its pass.

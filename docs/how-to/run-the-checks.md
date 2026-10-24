@@ -30,6 +30,25 @@ Lefthook runs some of this for you, from `.config/lefthook.yaml`:
 Anything slow enough to make you reach for `--no-verify` belongs in pre-push,
 not pre-commit.
 
+## Get a backend function past the complexity rules
+
+Besides its style and bug rules, ruff in `lint:py` holds every backend function,
+tests included, to these limits, all set in the root `pyproject.toml`:
+
+* `C901`: a McCabe complexity of at most 10. Each `if`, `elif`, loop, `except`,
+  `case` and nested `def` adds one; a boolean operator, a conditional
+  expression and a comprehension add nothing.
+* `PLR0911`, `PLR0912`, `PLR0915`: at most 6 returns, 12 branches and 50
+  statements.
+* `PLR0913`: at most 5 arguments, keyword-only ones included.
+
+When one fires, make the function simpler rather than silencing it: lift a
+closure or a loop with a job of its own into a module function, give each
+branch of a long `elif` chain its own method, or pass two values that travel
+together as one tuple. Use `# noqa` only where the function reads better whole,
+with a comment above it saying why, as `apkg` in `backend/tests/anki_build.py`
+has.
+
 ## Find files over the size limit
 
 An authored file should stay under 5,000 tokens, counted as bytes divided by

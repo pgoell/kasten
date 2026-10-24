@@ -35,14 +35,13 @@ def broken(
     flags: int = 0,
     method: int | None = None,
     version: int | None = None,
-    data: bytes = b"",
 ) -> bytes:
-    """`export` with `member` patched: `flags` and `method` in both its headers, the
-    `version` needed in its central entry, or its stored bytes begun with `data`.
+    """`export` with `member` patched: `flags` and `method` in both its headers, or the
+    `version` needed in its central entry.
 
     Python writes no encrypted and no deflate64 member, so these patch one it wrote.
     """
-    local, central, start = headers(export, member)
+    local, central, _ = headers(export, member)
     out = bytearray(export)
     out[local + 6] |= flags
     out[central + 8] |= flags
@@ -51,6 +50,13 @@ def broken(
         struct.pack_into("<H", out, central + 10, method)
     if version is not None:
         out[central + 6] = version
+    return bytes(out)
+
+
+def begun(export: bytes, member: str, data: bytes) -> bytes:
+    """`export` with `member`'s stored bytes begun with `data`."""
+    _, _, start = headers(export, member)
+    out = bytearray(export)
     out[start : start + len(data)] = data
     return bytes(out)
 
@@ -74,17 +80,15 @@ def cut_short() -> bytes:
 
 UNREADABLE = {
     # A first byte of block type 3, which deflate does not have.
-    "deflate": broken(deflated(apkg()), "collection.anki2", data=b"\xff"),
+    "deflate": begun(deflated(apkg()), "collection.anki2", b"\xff"),
     "encrypted": broken(apkg(), "collection.anki2", flags=0x1),
     "deflate64": broken(deflated(apkg()), "collection.anki2", method=9),
     "cut-short": cut_short(),
-    "crc": broken(apkg(), "collection.anki2", data=b"X"),
+    "crc": begun(apkg(), "collection.anki2", b"X"),
     # Past zipfile's own four bytes, an lc/lp/pb byte no LZMA allows.
-    "lzma": broken(
-        deflated(apkg(), zipfile.ZIP_LZMA), "collection.anki2", data=b"\x09\x04\x05\x00\xff"
-    ),
-    "bzip2": broken(deflated(apkg(), zipfile.ZIP_BZIP2), "collection.anki2", data=b"XXXX"),
-    "zstd": broken(deflated(apkg(), zipfile.ZIP_ZSTANDARD), "collection.anki2", data=b"XXXX"),
+    "lzma": begun(deflated(apkg(), zipfile.ZIP_LZMA), "collection.anki2", b"\x09\x04\x05\x00\xff"),
+    "bzip2": begun(deflated(apkg(), zipfile.ZIP_BZIP2), "collection.anki2", b"XXXX"),
+    "zstd": begun(deflated(apkg(), zipfile.ZIP_ZSTANDARD), "collection.anki2", b"XXXX"),
     # zipfile reads up to version 6.3 and refuses the whole directory past it.
     "version": broken(apkg(), "collection.anki2", version=64),
 }
@@ -248,7 +252,7 @@ async def test_i2_a_zip64_record_or_a_comment_is_counted_and_imports(
 
 
 async def test_i3_a_corrupt_media_file_refuses_the_import(client: AsyncClient, vault: Path) -> None:
-    response = await client.post("/api/anki", content=broken(CAT_EXPORT, "0", data=b"X"))
+    response = await client.post("/api/anki", content=begun(CAT_EXPORT, "0", b"X"))
 
     assert response.status_code == 400
     assert response.json()["detail"].startswith("unreadable Anki export: 0: ")

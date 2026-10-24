@@ -182,6 +182,22 @@ def _rated(line: str, span: _Span, card: Card) -> list[str] | None:
     ]
 
 
+def _start(lines: list[str], at: int, last: str, hashed: str) -> int | None:
+    """Where the card ending in `last`, at line `at`, starts: None if none hashes to `hashed`.
+
+    `last` is the marker's line without the marker. See `_spans`.
+    """
+    card = [last]
+    for top in range(at, max(at - _SPAN_LIMIT, -1), -1):
+        if top < at:
+            if not lines[top].strip():
+                return None
+            card.insert(0, lines[top])
+        if digest(card) == hashed:
+            return top
+    return None
+
+
 def _spans(lines: list[str]) -> dict[tuple[int, int], _Span]:
     """Every marked card in `lines`, by its Anki note and template.
 
@@ -200,16 +216,7 @@ def _spans(lines: list[str]) -> dict[tuple[int, int], _Span]:
         found = _ANKI_ID.search(line)
         if found is None:
             continue
-        card = [line[: found.start()].removesuffix(" ")]
-        start = None
-        for top in range(at, max(at - _SPAN_LIMIT, -1), -1):
-            if top < at:
-                if not lines[top].strip():
-                    break
-                card.insert(0, lines[top])
-            if digest(card) == found[3]:
-                start = top
-                break
+        start = _start(lines, at, line[: found.start()].removesuffix(" "), found[3])
         end, state = at, line[found.end() :]
         below = lines[at + 1] if at + 1 < len(lines) else ""
         block = start is not None and start < at

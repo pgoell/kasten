@@ -29,6 +29,7 @@ from kasten_backend.todos import mask
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
+    from pathlib import Path
 
 router = APIRouter()
 
@@ -365,6 +366,38 @@ def _totals(entries: list[Entry], kinds: list[Kind] | None) -> Totals:
     )
 
 
+def _days(folder: Path, first: date, last: date) -> list[date]:
+    """The days from `first` to `last` that have a daily note in `folder`, in order."""
+    # Zero-padded names sort in date order, so the sort is the chronology.
+    found: list[date] = []
+    for name in sorted(item.name for item in folder.iterdir()):
+        if DAY_NOTE.fullmatch(name) is None:
+            continue
+        try:
+            day = date.fromisoformat(name.removesuffix(".md"))
+        except ValueError:
+            # Shaped like a date and no real one, such as 2026-02-30.
+            continue
+        if first <= day <= last:
+            found.append(day)
+    return found
+
+
+def _own_kinds(settings: Settings) -> list[Kind] | None:
+    """The kinds the config note adds to the built-in ones, or None with no readable note.
+
+    A note that is not there, or not UTF-8, leaves `mine` out of every day, as a
+    missing note does.
+    """
+    try:
+        config_text = vault.read_note(settings.vault_path, f"{settings.config_path}/{CONFIG_NOTE}")
+    except UnicodeDecodeError, OSError:
+        return None
+    if config_text is None:
+        return None
+    return [kind for kind in parse_config(config_text).kinds if kind.builtin is None]
+
+
 @router.get("/api/log")
 def read_log(
     start: Annotated[str, Query(alias="from", pattern=DATE_PATTERN)],
@@ -392,33 +425,10 @@ def read_log(
     if folder is None:
         return []
 
-    # Zero-padded names sort in date order, so the sort is the chronology.
-    found: list[date] = []
-    for name in sorted(item.name for item in folder.iterdir()):
-        if DAY_NOTE.fullmatch(name) is None:
-            continue
-        try:
-            day = date.fromisoformat(name.removesuffix(".md"))
-        except ValueError:
-            # Shaped like a date and no real one, such as 2026-02-30.
-            continue
-        if first <= day <= last:
-            found.append(day)
-
-    # Read once for the whole range. A note that is not there, or not UTF-8, leaves
-    # `mine` out of every day, as a missing note does.
-    try:
-        config_text = vault.read_note(settings.vault_path, f"{settings.config_path}/{CONFIG_NOTE}")
-    except UnicodeDecodeError, OSError:
-        config_text = None
-    kinds = (
-        None
-        if config_text is None
-        else [kind for kind in parse_config(config_text).kinds if kind.builtin is None]
-    )
-
+    # Read once for the whole range.
+    kinds = _own_kinds(settings)
     days: list[Day] = []
-    for day in found:
+    for day in _days(folder, first, last):
         path = daily_path(day, settings.periodic_path)
         try:
             text = vault.read_note(settings.vault_path, path)

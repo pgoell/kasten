@@ -118,13 +118,6 @@ def plain(field: str, links: Mapping[str, str] | None = None, *, cloze: bool = F
         # part of the outer answer and its brace would leave no mark.
         return bare.get(int(mark[1]), mark[0])
 
-    def verbatim(text: str) -> str:
-        # The import's marker and a schedule comment keep their backslash in
-        # code too, as `_escaped` gives it: `srs.ts` reads a schedule in a code
-        # span as anywhere else on the line (#351).
-        shown = _shown(KEPT.sub(inside, text))
-        return ticked(shown.replace("<!--SR:", "<!--SR\\:").replace("<!--anki:", "<!--anki\\:"))
-
     def keep(match: re.Match[str]) -> str:
         # Out of the parse and flat, so `{{c2::<b>France</b>}}` asks `France`,
         # which is what a typed answer is held against. Ruby stays, and
@@ -153,17 +146,11 @@ def plain(field: str, links: Mapping[str, str] | None = None, *, cloze: bool = F
         # its own and verbatim, so no `&#58;` either, since `_MARK` reads a
         # code span whole and a `::` in it is no hint (#346).
         opener = match[0][: match.start(1) - match.start()]
-        shown = verbatim(match[1])
-        code = f"{opener}{shown}{hint and '::' + verbatim(hint[2:])}}}}}"
-        if cloze and _MARK.fullmatch(code) is not None:
-            coded.append(KEPT.sub(lambda mark: coded[int(mark[1])], code))
-        else:
-            coded.append(f"=={KEPT.sub(lambda mark: coded[int(mark[1])], shown)}==")
-        if cloze and _MARK.fullmatch(flat) is not None:
-            kept.append(KEPT.sub(lambda mark: kept[int(mark[1])], flat))
-        else:
-            bare[len(kept)] = KEPT.sub(inside, match[1])
-            kept.append(f"=={KEPT.sub(lambda mark: kept[int(mark[1])], answer)}==")
+        shown = _verbatim(KEPT.sub(inside, match[1]))
+        code = f"{opener}{shown}{hint and '::' + _verbatim(KEPT.sub(inside, hint[2:]))}}}}}"
+        _settle(coded, code, shown, cloze=cloze)
+        if not _settle(kept, flat, answer, cloze=cloze):
+            bare[len(kept) - 1] = KEPT.sub(inside, match[1])
         return f"{len(kept) - 1}\ue003"
 
     # Innermost first, so an outer mark holding a whole inner one is read as
@@ -183,6 +170,32 @@ def plain(field: str, links: Mapping[str, str] | None = None, *, cloze: bool = F
     forms = [coded[at] if at in in_code else mark for at, mark in enumerate(kept)]
     text = KEPT.sub(lambda mark: forms[int(mark[1])], text)
     return _HELD.sub(lambda mark: held[int(mark[1])], text)
+
+
+def _verbatim(text: str) -> str:
+    """`text` as a code span, the form `plain` gives a kept mark that sat in code."""
+    # The import's marker and a schedule comment keep their backslash in
+    # code too, as `_escaped` gives it: `srs.ts` reads a schedule in a code
+    # span as anywhere else on the line (#351).
+    shown = _shown(text)
+    return ticked(shown.replace("<!--SR:", "<!--SR\\:").replace("<!--anki:", "<!--anki\\:"))
+
+
+def _settle(marks: list[str], mark: str, text: str, *, cloze: bool) -> bool:
+    """Add a cloze mark to `marks` as `mark` if kasten reads it, else as a highlight of `text`.
+
+    Either way the inner marks it holds by place in `marks` go back in. True
+    for the mark kept as a cloze.
+    """
+
+    def put(inner: re.Match[str]) -> str:
+        return marks[int(inner[1])]
+
+    if cloze and _MARK.fullmatch(mark) is not None:
+        marks.append(KEPT.sub(put, mark))
+        return True
+    marks.append(f"=={KEPT.sub(put, text)}==")
+    return False
 
 
 def _colon(found: re.Match[str]) -> str:

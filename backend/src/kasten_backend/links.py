@@ -228,12 +228,11 @@ def relink_markdown(
     text: str,
     before: str,
     after: str,
-    old: str,
-    new: str,
+    move: tuple[str, str],
     *,
     moves: dict[str, str] | None = None,
 ) -> str:
-    """`text`, held by the file at `before` and about to be at `after`, with `old` at `new`.
+    """`text`, held by the file at `before` and soon at `after`, with `move`'s `old` at `new`.
 
     Two things move a plain relative link, and either one rewrites it: its
     target moving, and the file holding it moving to another folder. A link
@@ -250,6 +249,7 @@ def relink_markdown(
     is written the short way from the new folder, or from the root for an
     embed, keeping a trailing slash and a leading `./` where it had them.
     """
+    old, new = move
     here = posixpath.dirname(before)
     there = posixpath.dirname(after)
     code = code_spans(text)
@@ -356,7 +356,7 @@ def _plan(
         text = (base / relative).read_text(encoding="utf-8")
         rewritten = relink(text, moves, paths)
         rewritten = relink_markdown(
-            rewritten, relative, moved(relative, old, new), old, new, moves=moves
+            rewritten, relative, moved(relative, old, new), move, moves=moves
         )
         if rewritten != text:
             plan[relative] = rewritten

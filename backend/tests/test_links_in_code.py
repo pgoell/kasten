@@ -166,7 +166,7 @@ def test_leaves_a_link_in_a_nested_fence_as_written(text: str) -> None:
     # A fence inside a blockquote or a list item is code all the same, though
     # its lines start with `> ` or with more than three spaces.
     assert relink(text, {"x.md": "y.md"}, ["x.md"]) == text
-    assert relink_markdown(text, "index.md", "index.md", "x.md", "y.md") == text
+    assert relink_markdown(text, "index.md", "index.md", ("x.md", "y.md")) == text
 
 
 @pytest.mark.parametrize(
