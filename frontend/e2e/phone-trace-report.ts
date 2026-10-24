@@ -6,27 +6,70 @@
  * prefix: its runs, their mean, the forced layouts by source line, and the
  * first-load JS. The numbers are read on the renderer main thread, between the
  * `<step>:start` and `<step>:end` marks the trace script set.
+ *
+ * For `tab` and `open` it also names what the long tasks ran: their style, their
+ * invalidations, their script and their handlers.
  */
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { originalPositionFor, TraceMap } from "@jridgewell/trace-mapping";
+import {
+  LONG_US,
+  printWork,
+  samplesOf,
+  WORK_STEPS,
+  type Work,
+  type WorkStep,
+  workOf,
+} from "./phone-trace-work";
 
-interface Frame {
+export interface Frame {
   url?: string;
   lineNumber?: number;
   columnNumber?: number;
   functionName?: string;
 }
 
-interface Ev {
+/** A trace event's `args.data`: the fields the long-task section reads, whatever the event. */
+export interface Data extends Frame {
+  reason?: string;
+  nodeName?: string;
+  selectors?: { selector?: string }[];
+  invalidatedSelectorId?: string;
+  changedClass?: string;
+  changedAttribute?: string;
+  changedPseudo?: string;
+  selectorPart?: string;
+  /** A `Profile` event's start, in microseconds. */
+  startTime?: number;
+  /** A `ProfileChunk`'s gaps before each of its samples, in microseconds. */
+  timeDeltas?: number[];
+  cpuProfile?: { nodes?: CpuNode[]; samples?: number[] };
+}
+
+/** A node of a CPU profile. Its parent is named by id, so the tree is walked by a map. */
+export interface CpuNode {
+  id: number;
+  parent?: number;
+  callFrame: Frame;
+}
+
+export interface Ev {
   name?: string;
   cat?: string;
   ph?: string;
+  /** The id a `Profile` and its `ProfileChunk`s share. */
+  id?: string;
   ts?: number;
   dur?: number;
   pid?: number;
   tid?: number;
-  args?: { name?: string; beginData?: { stackTrace?: Frame[] } };
+  args?: {
+    name?: string;
+    elementCount?: number;
+    beginData?: { stackTrace?: Frame[] };
+    data?: Data;
+  };
 }
 
 interface Meta {
@@ -51,9 +94,6 @@ const SCRIPT = new Set([
   "v8.compileModule",
 ]);
 
-/** A task longer than this, in microseconds, is a long task. */
-const LONG_US = 50_000;
-
 const TRACES = path.join(import.meta.dirname, "../traces");
 
 interface Cell {
@@ -77,9 +117,10 @@ interface Run {
   meta: Meta;
   cells: Record<Step, Cell>;
   callers: Record<Step, Map<string, Caller>>;
+  work: Record<WorkStep, Work>;
 }
 
-interface Lane {
+export interface Lane {
   /** The renderer main thread's events. */
   main: Ev[];
   /** Every event of that renderer process, for the frames it draws. */
@@ -88,7 +129,7 @@ interface Lane {
   frameName: string;
 }
 
-interface Place {
+export interface Place {
   text: string;
   inSrc: boolean;
 }
@@ -242,27 +283,39 @@ function stepOf(
   return { cell, callers: callersOf(forced, dist, maps) };
 }
 
+/** A step's window in microseconds, from its two marks. */
+function windowOf(marks: Map<string, number>, step: Step, label: string): [number, number] {
+  const start = marks.get(`${step}:start`);
+  const end = marks.get(`${step}:end`);
+  if (start === undefined || end === undefined) {
+    console.error(`${label}: marks ${step}:start and ${step}:end are not both in the trace`);
+    process.exit(1);
+  }
+  return [start, end];
+}
+
 function analyse(events: Ev[], meta: Meta): Run {
   const marks = markTimes(events);
   const lane = laneOf(events, meta.label);
   const maps = new Map<string, TraceMap | null>();
+  const locateAt = (frame: Frame) => locate(frame, meta.dist, maps);
+  const callerAt = (stack: Frame[]) => caller(stack, meta.dist, maps);
+  const samples = samplesOf(lane.pidEvents, locateAt);
   const cells = {} as Record<Step, Cell>;
   const callers = {} as Record<Step, Map<string, Caller>>;
+  const work = {} as Record<WorkStep, Work>;
 
   for (const step of STEPS) {
-    const start = marks.get(`${step}:start`);
-    const end = marks.get(`${step}:end`);
-    if (start === undefined || end === undefined) {
-      console.error(`${meta.label}: marks ${step}:start and ${step}:end are not both in the trace`);
-      process.exit(1);
-    }
-    const found = stepOf(lane, [start, end], meta.dist, maps);
+    const found = stepOf(lane, windowOf(marks, step, meta.label), meta.dist, maps);
     cells[step] = found.cell;
     callers[step] = found.callers;
   }
+  for (const step of WORK_STEPS) {
+    work[step] = workOf(lane, windowOf(marks, step, meta.label), samples, locateAt, callerAt);
+  }
 
   reportMissing(events, meta.label);
-  return { meta, cells, callers };
+  return { meta, cells, callers, work };
 }
 
 /** Names the trace has none of, so a zero in the table is not taken for a measurement. */
@@ -361,6 +414,7 @@ function printPrefix(prefix: string, runs: Run[]): void {
   console.log(`\n## ${prefix}\n`);
   printRows(runs);
   printCallers(runs);
+  printWork(runs.map((run) => ({ label: run.meta.label, work: run.work })));
   printFirstLoad(runs);
 }
 
