@@ -32,12 +32,12 @@ async function sitBeta() {
   return { pane, saved };
 }
 
-it("#790 B1 a held space does not answer the revealed card again", async () => {
+it("#790 B1 a held Enter does not answer the revealed card again", async () => {
   const { pane, saved } = await sitBeta();
-  fireEvent.keyDown(pane, { key: " " });
+  fireEvent.keyDown(pane, { key: "Enter" });
   expect(screen.getByTestId("review-back")).toHaveTextContent("d");
 
-  fireEvent.keyDown(pane, { key: " ", repeat: true });
+  fireEvent.keyDown(pane, { key: "Enter", repeat: true });
   await act(async () => {});
 
   expect(saved).not.toHaveBeenCalled();
@@ -45,7 +45,7 @@ it("#790 B1 a held space does not answer the revealed card again", async () => {
 
 it("#790 B1 a held 3 grades nothing after the first press", async () => {
   const { pane, saved } = await sitBeta();
-  fireEvent.keyDown(pane, { key: " " });
+  fireEvent.keyDown(pane, { key: "Enter" });
 
   fireEvent.keyDown(pane, { key: "3", repeat: true });
   await act(async () => {});
@@ -55,7 +55,7 @@ it("#790 B1 a held 3 grades nothing after the first press", async () => {
 
 it("#790 R8 Enter on a focused grade button on the answer side writes nothing and is stopped", async () => {
   const { pane, saved } = await sitBeta();
-  fireEvent.keyDown(pane, { key: " " });
+  fireEvent.keyDown(pane, { key: "Enter" });
   const again = screen.getByRole("button", { name: "Again" });
   again.focus();
 
@@ -68,7 +68,7 @@ it("#790 R8 Enter on a focused grade button on the answer side writes nothing an
   expect(saved).not.toHaveBeenCalled();
 });
 
-it("#790 R8 Space after a click on Park this card reveals the next card and writes nothing more", async () => {
+it("#790 R8 Enter after a click on Park this card reveals the next card and writes nothing more", async () => {
   const { saved } = await sitBeta();
   const park = screen.getByRole("button", { name: "Park this card" });
   park.focus();
@@ -76,7 +76,7 @@ it("#790 R8 Space after a click on Park this card reveals the next card and writ
   await waitFor(() => expect(saved).toHaveBeenCalledOnce());
   await waitFor(() => expect(screen.getByTestId("review-card")).toHaveTextContent("e"));
 
-  fireEvent.keyDown(document.activeElement ?? park, { key: " " });
+  fireEvent.keyDown(document.activeElement ?? park, { key: "Enter" });
 
   expect(await screen.findByTestId("review-back")).toHaveTextContent("f");
   await act(async () => {});
@@ -109,7 +109,7 @@ it("#790 R8 Space on a focused deck row opens the leader, so the next key reache
   expect(screen.queryByTestId("review-card")).not.toBeInTheDocument();
 });
 
-it("#790 R8 Space after an undo on a whole note writes nothing", async () => {
+it("#790 R8 Enter after an undo on a whole note writes nothing", async () => {
   vi.spyOn(api, "fetchCards").mockResolvedValue(WHOLE);
   serveNotes(WHOLE);
   render(
@@ -129,14 +129,14 @@ it("#790 R8 Space after an undo on a whole note writes nothing", async () => {
   await waitFor(() => expect(within(pane).getByTestId("review-card")).toBeInTheDocument());
 
   // The whole note is graded, then taken back: its answer is up again, but
-  // nothing was turned over, so a Space grades nothing.
+  // nothing was turned over, so an Enter grades nothing.
   fireEvent.keyDown(pane, { key: "3" });
   await waitFor(() => expect(saved).toHaveBeenCalledOnce());
   fireEvent.keyDown(pane, { key: "u" });
   // The card comes back, and with it the revealed flag, once the undo's write lands.
   await waitFor(() => expect(within(pane).getByTestId("review-card")).toBeInTheDocument());
   await act(async () => {});
-  fireEvent.keyDown(pane, { key: " " });
+  fireEvent.keyDown(pane, { key: "Enter" });
   await act(async () => {});
 
   expect(saved).toHaveBeenCalledTimes(2);
@@ -172,7 +172,7 @@ it("#927 a grade key pressed the moment a whole note's card shows grades it", as
   await waitFor(() => expect(saved).toHaveBeenCalledOnce());
 });
 
-it("#790 B5 one space does not grade a whole note, which is shown from the start", async () => {
+it("#790 B5 one Enter does not grade a whole note, which is shown from the start", async () => {
   vi.spyOn(api, "fetchCards").mockResolvedValue(WHOLE);
   serveNotes(WHOLE);
   render(
@@ -191,8 +191,38 @@ it("#790 B5 one space does not grade a whole note, which is shown from the start
   fireEvent.keyDown(pane, { key: "j" });
   fireEvent.keyDown(pane, { key: "l" });
   await waitFor(() => expect(within(pane).getByTestId("review-card")).toBeInTheDocument());
-  fireEvent.keyDown(pane, { key: " " });
+  fireEvent.keyDown(pane, { key: "Enter" });
   await act(async () => {});
 
   expect(saved).not.toHaveBeenCalled();
+});
+
+it("Space with a card on screen opens the leader and shows no answer", async () => {
+  const commands = stubCommands();
+  const pane = await renderPane(commands);
+  vi.spyOn(api, "fetchNote").mockImplementation((path) =>
+    Promise.resolve(path === "b.md" ? TWO : ""),
+  );
+  fireEvent.keyDown(pane, { key: "j" });
+  fireEvent.keyDown(pane, { key: "j" });
+  fireEvent.keyDown(pane, { key: "l" });
+  expect(await shownCard()).toHaveTextContent("c");
+
+  fireEvent.keyDown(pane, { key: " " });
+  fireEvent.keyDown(pane, { key: "b" });
+
+  expect(commands.toggleTree).toHaveBeenCalledOnce();
+  expect(screen.queryByTestId("review-back")).not.toBeInTheDocument();
+});
+
+it("a click on Start leaves the keys in the pane, so Enter shows the answer", async () => {
+  const pane = await renderPane();
+  const start = await within(pane).findByRole("button", { name: "Start with alpha" });
+  start.focus();
+  fireEvent.click(start);
+  await shownCard();
+
+  expect(document.activeElement).toBe(pane);
+  fireEvent.keyDown(document.activeElement ?? document.body, { key: "Enter" });
+  expect(screen.getByTestId("review-back")).toBeInTheDocument();
 });

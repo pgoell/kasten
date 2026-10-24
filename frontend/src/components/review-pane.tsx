@@ -78,6 +78,14 @@ export function ReviewPane({ commands, onClose, onOpen, focusSignal }: ReviewPan
     if (focusSignal) panel.current?.focus();
   }, [focusSignal]);
 
+  // A clicked deck row or Start button goes with the screen it was on, taking
+  // the focus to the body, and no key would reach the pane until a second click
+  // on the card. `l` puts it back itself; this covers the mouse.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: runs on each new screen
+  useEffect(() => {
+    if (document.activeElement === document.body) panel.current?.focus();
+  }, [screen]);
+
   function onKeyDown(event: React.KeyboardEvent) {
     const { key } = event;
 
@@ -189,8 +197,9 @@ export function ReviewPane({ commands, onClose, onOpen, focusSignal }: ReviewPan
       return;
     }
 
-    // The leader wherever no card is on screen, the done screen holding Undo too.
-    if (key === " " && !controls.current?.showing) {
+    // The leader on every screen, a card on it or not, so the other panes stay
+    // one Space away mid-sitting. Enter is the review's own key.
+    if (key === " ") {
       if (beginLeader(paneOpener(commands))) {
         event.preventDefault();
         return;
@@ -205,10 +214,10 @@ export function ReviewPane({ commands, onClose, onOpen, focusSignal }: ReviewPan
     // Once the answer is revealed, the same key grades it Good: the default
     // button, so a reader who knows the answer goes through the card in two
     // presses. A whole note is shown from the start with nothing to reveal, so
-    // its Space does nothing rather than grading a card nobody has looked at.
-    // With a button or link under the focus, its own Space and Enter are the
-    // ones that answer, so the pane grades nothing and only stops the key.
-    else if (key === " " || key === "Enter") {
+    // its Enter does nothing rather than grading a card nobody has looked at.
+    // With a button or link under the focus, its own Enter is the one that
+    // answers, so the pane grades nothing and only stops the key.
+    else if (key === "Enter") {
       const focused = document.activeElement;
       const onControl =
         (focused instanceof HTMLButtonElement || focused instanceof HTMLAnchorElement) &&

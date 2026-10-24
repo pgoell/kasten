@@ -30,14 +30,14 @@ beforeEach(() => {
 });
 
 it.each(["on", "off"])(
-  "#790 A7 Space shows the answer and a second Space grades it Good, vim %s",
+  "#790 A7 Enter shows the answer and a second Enter grades it Good, vim %s",
   async (vim) => {
     localStorage.setItem("kasten.vim", vim);
     const { pane, saved } = await sitBeta();
 
-    fireEvent.keyDown(pane, { key: " " });
+    fireEvent.keyDown(pane, { key: "Enter" });
     expect(screen.getByTestId("review-back")).toHaveTextContent("d");
-    fireEvent.keyDown(pane, { key: " " });
+    fireEvent.keyDown(pane, { key: "Enter" });
 
     // A fresh card's first Good is a day out, which the note writes as a gap of 1.
     await waitFor(() => expect(saved).toHaveBeenCalledOnce());
@@ -52,7 +52,7 @@ it.each(["on", "off"])(
     localStorage.setItem("kasten.vim", vim);
     const { pane, saved } = await sitBeta();
 
-    fireEvent.keyDown(pane, { key: " " });
+    fireEvent.keyDown(pane, { key: "Enter" });
     expect(screen.getByRole("button", { name: "Again" })).toHaveAccessibleDescription("1d");
 
     // Again sends the card to the back of the sitting, so the next one is `e`.
@@ -60,7 +60,7 @@ it.each(["on", "off"])(
     await waitFor(() => expect(saved).toHaveBeenCalledOnce());
     await waitFor(() => expect(screen.getByTestId("review-card")).toHaveTextContent("e"));
 
-    fireEvent.keyDown(pane, { key: " " });
+    fireEvent.keyDown(pane, { key: "Enter" });
     fireEvent.keyDown(pane, { key: "3" });
     await waitFor(() => expect(saved).toHaveBeenCalledTimes(2));
     await waitFor(() => expect(screen.getByTestId("review-card")).toHaveTextContent("c"));
@@ -88,7 +88,7 @@ it.each(["on", "off"])(
     localStorage.setItem("kasten.vim", vim);
     const { pane, saved } = await sitBeta();
 
-    fireEvent.keyDown(pane, { key: " " });
+    fireEvent.keyDown(pane, { key: "Enter" });
     expect(screen.getByRole("button", { name: "Good" })).toHaveAttribute("data-default");
     fireEvent.keyDown(pane, { key: "3" });
     await waitFor(() => expect(saved).toHaveBeenCalledOnce());

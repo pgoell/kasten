@@ -21,7 +21,7 @@ of each is waiting. Picking one starts a sitting, one card at a time.
 | `p` | Open [the parked list](/reference/flashcard-format/reviewing-cards.md#parking-a-card) |
 | `h` | Leave the sitting or the parked list, back to the decks |
 | `Enter` | Show the answer. Once it shows, grade the card Good, unless a button or link in the pane has the focus; then the key does nothing here, and that button or link takes it. On a whole note, which shows from the start, it does nothing |
-| `Space` | As `Enter`. With no card on screen, open [the which-key panel](/reference/editor-keys/leader.md) |
+| `Space` | Open [the which-key panel](/reference/editor-keys/leader.md), on every screen, a card on it or not, so the other panes stay one key away mid-sitting |
 | `1` `2` `3` `4` | Rate the card Again, Hard, Good, Easy |
 | `s` | Park the card on screen, before or after the answer, as the Park this card link does |
 | `n` | Write a new question into the note the card came from, as the Write a new question link does, or put the open jot line away unwritten |
@@ -30,7 +30,7 @@ of each is waiting. Picking one starts a sitting, one card at a time.
 | `o` | Open the note the parked row is written in |
 | `q` | Close the pane |
 
-A held key does not repeat. `Space`, `Enter` and `1` to `4` act once per press,
+A held key does not repeat. `Enter` and `1` to `4` act once per press,
 so holding one down rates or reveals a card once and no more.
 
 `j` and `k` move the focus itself rather than a highlight of their own, so

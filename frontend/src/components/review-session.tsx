@@ -41,12 +41,12 @@ interface ReviewSessionProps {
     controls: {
       /** Whether a card is on screen, which the done screen holding Undo has not. */
       showing: boolean;
-      /** Whether the answer is up, which is what makes `space` grade Good rather than reveal. */
+      /** Whether the answer is up, which is what makes Enter grade Good rather than reveal. */
       shown: boolean;
       /**
        * Whether the answer was turned over on a card that has one. A whole note is
        * shown from the start, and an undo turns its answer back on, so neither
-       * counts: a Space must not grade a note nobody has turned over.
+       * counts: an Enter must not grade a note nobody has turned over.
        */
       revealed: boolean;
       reveal: () => void;

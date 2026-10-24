@@ -26,7 +26,8 @@ Two places, the same session in both:
 | `za` | Fold or unfold the deck under the cursor; on a deck with none under it, fold the deck above |
 | `p` | Open the parked list |
 | `h` | Leave the sitting or the parked list, back to the decks |
-| `Space`, `Enter` | Show the answer; once it shows, grade the card Good, unless a button or link in the pane has the focus, which then takes the key itself. On a whole note, which shows from the start, they do nothing. A held key acts once per press |
+| `Enter` | Show the answer; once it shows, grade the card Good, unless a button or link in the pane has the focus, which then takes the key itself. On a whole note, which shows from the start, it does nothing. A held key acts once per press |
+| `Space` | Open the which-key panel, a card on screen or not |
 | `1` `2` `3` `4` | Again, Hard, Good, Easy |
 | `s` | Park the card on screen, as Park this card does |
 | `n` | Write a new question into the note the card came from, as Write a new question does |
