@@ -354,8 +354,13 @@ export function Editor({
   useLayoutEffect(() => {
     const view = viewRef.current;
     if (!leaving) {
-      if (view && positionRef.current && detachRef.current === null) {
-        detachRef.current = positionRef.current.attach(view);
+      // A new position, not the one the view was made with: that one has shown its
+      // scroll already, so its `reveal` would do nothing. This one reads what the
+      // leave just wrote and puts the scroll back once the pane has its size again.
+      if (view && detachRef.current === null) {
+        const position = notePosition(path, false);
+        positionRef.current = position;
+        detachRef.current = position.attach(view);
       }
       return;
     }
@@ -363,7 +368,7 @@ export function Editor({
     detachRef.current?.();
     detachRef.current = null;
     if (view?.hasFocus) view.contentDOM.blur();
-  }, [leaving]);
+  }, [leaving, path]);
 
   // The setting moved, in this pane or another. The cursor, the text and the
   // undo history all stay.
