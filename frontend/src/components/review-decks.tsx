@@ -1,9 +1,10 @@
 import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useRef, useState } from "react";
+import { Fragment, useRef, useState } from "react";
 import { type AnkiImport, fetchCards, fetchNote, importAnki, importAnkiLink } from "@/lib/api";
 import { readClock } from "@/lib/clock";
 import { whenKeysUp } from "@/lib/last-input";
 import { type Deck, deckNotes, decksFrom } from "@/lib/review";
+import { dayWords } from "@/lib/review-days";
 import { useEntrance } from "@/lib/stagger";
 import { useReviewLimits } from "@/lib/use-review-limits";
 
@@ -174,202 +175,250 @@ export function ReviewDecks({ onPick, onParked, archive = false }: ReviewDecksPr
       deck.whole ||
       ancestorsOf(deck.name).every((above) => !parents.has(above) || unfolded.has(above)),
   );
+  // The decks with cards to go are drawn first, then the ones with nothing due under
+  // their own label. A subtree's counts are its top deck's, so the top deck decides
+  // which group a row falls in, and the name order inside each group is kept.
+  const topCards = new Map(top.map((deck) => [deck.name, deck.due + deck.fresh]));
+  const hasCards = (deck: Deck) =>
+    (topCards.get(deck.name.split("/", 1)[0] ?? deck.name) ?? deck.due + deck.fresh) > 0;
+  const withCards = shown.filter(hasCards);
+  const ordered = [...withCards, ...shown.filter((deck) => !hasCards(deck))];
   // A deck's row is keyed by its note when the deck is one whole note, and by its
   // name otherwise, which is what each is unique by. Nothing staggers in while the
   // notes are still arriving, so the first list to be complete is the one that does.
   const keyOf = (deck: Deck) => (deck.whole ? (deck.notes[0] ?? deck.name) : deck.name);
   const entering = useEntrance(isPending ? [] : shown.map(keyOf));
 
+  // `Start with` begins the first row drawn with cards to go. Its parents hold
+  // its count, so it is never folded away while it has cards.
+  const first = shown.find((deck) => deck.due + deck.fresh > 0);
+  const going = top.filter((deck) => deck.due + deck.fresh > 0).length;
+  const parkedWords = parked > 0 ? ` ${parked} parked.` : "";
+  const summary =
+    waiting > 0
+      ? `${waiting} ${waiting === 1 ? "card" : "cards"} to go today in ${going} ${going === 1 ? "deck" : "decks"}.${parkedWords}`
+      : `Nothing to go today.${parkedWords}`;
+
   return (
-    <div className="flex h-full flex-col bg-k-bg font-mono text-k-ink">
-      <header className="flex items-center gap-3 border-k-rule border-b px-3 py-2">
-        <span className="text-[11px] text-k-muted uppercase tracking-wider">review</span>
-        <span className="min-w-0 flex-1 truncate text-[13px]">
-          {decks.length} deck{decks.length === 1 ? "" : "s"}
-        </span>
-        <span className="text-[11px] text-k-muted uppercase tracking-wider">{waiting} to go</span>
-        {/* A button and not only `p`, because `/review` is the phone's way in
-            and a phone has no keyboard to press it on. */}
-        {parked > 0 && (
-          <button
-            type="button"
-            onClick={onParked}
-            className="min-h-11 px-1 text-[11px] text-k-muted uppercase tracking-wider hover:text-k-accent"
-          >
-            {parked} parked
-          </button>
-        )}
-      </header>
-
-      {/* Closed until asked for, since an import is rare beside a sitting.
-          `details` hides what it holds rather than unmounting it, so closing
-          it keeps the summary line, the tick and a half-typed link. */}
-      <details className="border-k-rule border-b px-3 text-[13px] text-k-muted">
-        {/* Not `flex`: the browser draws the open and closed triangle only on
-            a summary left as a list item, and that triangle is what says this
-            line opens. */}
-        <summary className="min-h-11 cursor-pointer content-center hover:text-k-accent">
-          Import
-        </summary>
-        <div className="flex flex-wrap items-center gap-x-6">
-          {/* A plain file input rather than a prompt of our own: the browser
-              already has a file picker, and this one has to work on a phone.
-              Hidden, because a file input draws as grey text that reads as no
-              control, and the button below presses it. */}
-          <input
-            ref={picker}
-            type="file"
-            accept=".apkg"
-            aria-label="Import an Anki deck"
-            tabIndex={-1}
-            className="hidden"
-            onChange={(event) => {
-              const file = event.target.files?.[0];
-              // The value is cleared so picking the same file twice fires twice,
-              // which is what a failed import wants to let you retry.
-              event.target.value = "";
-              if (file === undefined) return;
-              // Floored, so the line never reads 100% while a piece is still
-              // on its way; once all are in, the backend is what is busy.
-              void runImport(
-                importAnki(file, carry, (sent, total) =>
-                  setImported(
-                    sent === total
-                      ? "Importing…"
-                      : `Uploading ${Math.floor((100 * sent) / total)}%…`,
-                  ),
-                ),
-              );
-            }}
-          />
-          <button
-            type="button"
-            onClick={() => whenKeysUp(() => picker.current?.click())}
-            className="my-1 min-h-11 rounded border border-k-rule px-3 text-k-ink hover:border-k-accent hover:text-k-accent"
-          >
-            Import an Anki deck
-          </button>
-          {/* Off by default: a re-import keeps the schedule kasten has been
-              building unless you say Anki's is the one to trust. */}
-          <label className="flex min-h-11 cursor-pointer items-center gap-2 hover:text-k-accent">
-            <input
-              type="checkbox"
-              checked={carry}
-              onChange={(event) => setCarry(event.target.checked)}
-              className="size-4 accent-k-accent"
-            />
-            <span>Carry Anki's schedule</span>
-          </label>
-          {/* A form so Enter at a desk and Go on a phone keyboard both submit.
-              The field keeps a link that failed, to retry, and clears on one
-              that landed. */}
-          {/* `noValidate`, or the browser refuses a link it thinks is no URL
-              with its own bubble and the backend's sentence never shows. */}
-          <form
-            noValidate
-            className="flex min-w-0 flex-1 basis-64 items-center gap-2"
-            onSubmit={(event) => {
-              event.preventDefault();
-              const url = link.trim();
-              // `linking` and not only the disabled button: Enter in the field
-              // submits the form whatever state the button is in.
-              if (url === "" || linking) return;
-              setLinking(true);
-              void runImport(importAnkiLink(url, carry)).then((landed) => {
-                setLinking(false);
-                if (landed) setLink("");
-              });
-            }}
-          >
-            <input
-              type="url"
-              inputMode="url"
-              autoCapitalize="off"
-              autoCorrect="off"
-              spellCheck={false}
-              aria-label="a link to an Anki deck"
-              placeholder="or paste a link to a deck"
-              value={link}
-              onChange={(event) => setLink(event.target.value)}
-              className="my-1 min-h-11 min-w-0 flex-1 rounded border border-k-rule bg-transparent px-2 text-k-ink outline-none placeholder:text-k-muted focus:border-k-accent"
-            />
+    <div className="flex h-full flex-col bg-k-bg font-sans text-k-ink">
+      <div className="min-h-0 flex-1 overflow-auto px-4 py-6">
+        <div className="mx-auto w-full max-w-[var(--k-measure)]">
+          <h2 className="font-serif text-k-27">Review</h2>
+          {!isPending && <p className="mt-1 text-k-15 text-k-muted">{summary}</p>}
+          {!isPending && first !== undefined && (
             <button
-              type="submit"
-              disabled={linking}
-              className="min-h-11 px-1 hover:text-k-accent disabled:opacity-50"
+              type="button"
+              data-start
+              onClick={() => onPick(first)}
+              className="mt-4 min-h-11 rounded bg-k-accent px-4 text-k-paper hover:opacity-90"
             >
-              Import link
+              Start with {first.name}
             </button>
-          </form>
-        </div>
-        {imported !== null && <p className="truncate pb-2 text-k-ink">{imported}</p>}
-      </details>
+          )}
 
-      <div className="min-h-0 flex-1 overflow-auto p-3">
-        {isPending && <p className="text-k-muted text-[13px]">Reading the vault…</p>}
+          {isPending && <p className="text-k-muted text-[13px]">Reading the vault…</p>}
 
-        {!isPending && decks.length === 0 && (
-          <p className="text-k-muted text-[13px]">
-            No decks. A deck is a note tagged <span className="text-k-ink">#flashcards</span>, or{" "}
-            <span className="text-k-ink">#flashcards/aws</span> to name it, holding lines written{" "}
-            <span className="text-k-ink">front::back</span>.
-          </p>
-        )}
+          {!isPending && decks.length === 0 && (
+            <p className="text-k-muted text-[13px]">
+              No decks. A deck is a note tagged <span className="text-k-ink">#flashcards</span>, or{" "}
+              <span className="text-k-ink">#flashcards/aws</span> to name it, holding lines written{" "}
+              <span className="text-k-ink">front::back</span>.
+            </p>
+          )}
 
-        {/* A whole note is keyed by its path and a deck of cards by its name,
+          {/* A whole note is keyed by its path and a deck of cards by its name,
             which is what each of the two is unique by: one tag is one deck
             however many notes carry it. */}
-        <ul className="space-y-2">
-          {shown.map((deck, index) => (
-            <li
-              key={keyOf(deck)}
-              className={`flex items-center gap-1 ${entering(keyOf(deck)) ? "k-enter" : ""}`}
-              style={entering(keyOf(deck)) ? ({ "--i": index } as React.CSSProperties) : undefined}
-            >
-              {/* Beside the row and not inside it: a button in a button is no
+          <ul className="mt-6 space-y-2">
+            {ordered.map((deck, index) => (
+              <Fragment key={keyOf(deck)}>
+                {index === withCards.length && withCards.length < ordered.length && (
+                  <li role="presentation" className="pt-2 text-k-12 text-k-muted uppercase">
+                    Nothing due
+                  </li>
+                )}
+                <li
+                  key={keyOf(deck)}
+                  className={`flex items-center gap-1 ${entering(keyOf(deck)) ? "k-enter" : ""}`}
+                  style={
+                    entering(keyOf(deck)) ? ({ "--i": index } as React.CSSProperties) : undefined
+                  }
+                >
+                  {/* Beside the row and not inside it: a button in a button is no
                   valid page, and a parent with nothing to offer is a disabled
                   row that still has to fold. */}
-              {!deck.whole && parents.has(deck.name) ? (
-                <button
-                  type="button"
-                  data-fold={deck.name}
-                  aria-expanded={unfolded.has(deck.name)}
-                  aria-label={`${unfolded.has(deck.name) ? "fold" : "unfold"} ${deck.name}`}
-                  onClick={() => toggleFold(deck.name)}
-                  className="flex min-h-11 min-w-11 shrink-0 items-center justify-center text-k-muted hover:text-k-accent"
-                >
-                  {unfolded.has(deck.name) ? "▾" : "▸"}
-                </button>
-              ) : (
-                // As wide as the toggle, so every name starts on one line. A
-                // list with no folds at all needs no gutter.
-                parents.size > 0 && <span aria-hidden="true" className="min-w-11 shrink-0" />
-              )}
-              <button
-                type="button"
-                onClick={() => onPick(deck)}
-                disabled={deck.due + deck.fresh === 0}
-                data-deck={deck.name}
-                // A deck under another is drawn indented and by its last part,
-                // the way the contents of a book are: `decksFrom` names every
-                // deck above one it finds, so the row it belongs under is
-                // always there and the full path would only repeat it.
-                style={{ paddingLeft: `${0.75 + depthOf(deck.name) * 0.75}rem` }}
-                className="k-row flex min-h-11 min-w-0 flex-1 items-center gap-3 rounded border border-k-rule px-3 py-2 text-left hover:border-k-accent disabled:opacity-50"
-              >
-                <span className="min-w-0 flex-1 truncate text-[13px]">{leafOf(deck.name)}</span>
-                <span className="text-[12px] text-k-accent">{deck.due} due</span>
-                <span className="text-[12px] text-k-muted">{deck.fresh} new</span>
-                {/* Only where there are any. A deck of nothing but parked cards
+                  {!deck.whole && parents.has(deck.name) ? (
+                    <button
+                      type="button"
+                      data-fold={deck.name}
+                      aria-expanded={unfolded.has(deck.name)}
+                      aria-label={`${unfolded.has(deck.name) ? "fold" : "unfold"} ${deck.name}`}
+                      onClick={() => toggleFold(deck.name)}
+                      className="flex min-h-11 min-w-11 shrink-0 items-center justify-center text-k-muted hover:text-k-accent"
+                    >
+                      {unfolded.has(deck.name) ? "▾" : "▸"}
+                    </button>
+                  ) : (
+                    // As wide as the toggle, so every name starts on one line. A
+                    // list with no folds at all needs no gutter.
+                    parents.size > 0 && <span aria-hidden="true" className="min-w-11 shrink-0" />
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => onPick(deck)}
+                    disabled={deck.due + deck.fresh === 0}
+                    data-deck={deck.name}
+                    // A deck under another is drawn indented and by its last part,
+                    // the way the contents of a book are: `decksFrom` names every
+                    // deck above one it finds, so the row it belongs under is
+                    // always there and the full path would only repeat it.
+                    style={{ paddingLeft: `${0.75 + depthOf(deck.name) * 0.75}rem` }}
+                    className="k-row flex min-h-11 min-w-0 flex-1 items-center gap-3 rounded border border-k-rule px-3 py-2 text-left hover:border-k-accent disabled:opacity-50"
+                  >
+                    <span className="min-w-0 flex-1 truncate text-k-15">
+                      {depthOf(deck.name) > 0 && <span className="text-k-muted">/ </span>}
+                      {leafOf(deck.name)}
+                    </span>
+                    <span className="text-k-13 text-k-accent">{deck.due} due</span>
+                    <span className="text-k-13 text-k-muted">{deck.fresh} new</span>
+                    {/* Only where there are any. A deck of nothing but parked cards
                     lands disabled on the rule above, and a bare `0 new` would
                     leave no way to find out why. */}
-                {deck.parked > 0 && (
-                  <span className="text-[12px] text-k-muted opacity-60">{deck.parked} parked</span>
-                )}
+                    {deck.parked > 0 && (
+                      <span className="text-k-13 text-k-muted opacity-60">
+                        {deck.parked} parked
+                      </span>
+                    )}
+                    {/* Where a deck has nothing to go, when it is next due, so the
+                    row says why it cannot be sat and when it can. */}
+                    {deck.due + deck.fresh === 0 && (
+                      <span className="text-k-13 text-k-muted">
+                        {deck.next === null
+                          ? "nothing scheduled"
+                          : `due ${dayWords(deck.next, today)}`}
+                      </span>
+                    )}
+                  </button>
+                </li>
+              </Fragment>
+            ))}
+          </ul>
+
+          {/* Below the decks, since an import is rare beside a sitting and the
+            decks are what a visit is for. Closed until asked for, and `details`
+            hides what it holds rather than unmounting it, so closing it keeps the
+            summary line, the tick and a half-typed link. */}
+          <details className="mt-8 border-k-rule border-t pt-3 text-k-13 text-k-muted">
+            {/* Not `flex`: the browser draws the open and closed triangle only on
+              a summary left as a list item, and that triangle is what says this
+              line opens. */}
+            <summary className="min-h-11 cursor-pointer content-center hover:text-k-accent">
+              Import an Anki deck
+            </summary>
+            <div className="flex flex-wrap items-center gap-x-6">
+              {/* A plain file input rather than a prompt of our own: the browser
+                already has a file picker, and this one has to work on a phone.
+                Hidden, because a file input draws as grey text that reads as no
+                control, and the button below presses it. */}
+              <input
+                ref={picker}
+                type="file"
+                accept=".apkg"
+                aria-label="Import an Anki deck"
+                tabIndex={-1}
+                className="hidden"
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  // The value is cleared so picking the same file twice fires twice,
+                  // which is what a failed import wants to let you retry.
+                  event.target.value = "";
+                  if (file === undefined) return;
+                  // Floored, so the line never reads 100% while a piece is still
+                  // on its way; once all are in, the backend is what is busy.
+                  void runImport(
+                    importAnki(file, carry, (sent, total) =>
+                      setImported(
+                        sent === total
+                          ? "Importing…"
+                          : `Uploading ${Math.floor((100 * sent) / total)}%…`,
+                      ),
+                    ),
+                  );
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => whenKeysUp(() => picker.current?.click())}
+                className="my-1 min-h-11 rounded border border-k-rule px-3 text-k-ink hover:border-k-accent hover:text-k-accent"
+              >
+                Choose an .apkg file
               </button>
-            </li>
-          ))}
-        </ul>
+              {/* Off by default: a re-import keeps the schedule kasten has been
+                building unless you say Anki's is the one to trust. */}
+              <label className="flex min-h-11 cursor-pointer items-center gap-2 hover:text-k-accent">
+                <input
+                  type="checkbox"
+                  checked={carry}
+                  onChange={(event) => setCarry(event.target.checked)}
+                  className="size-4 accent-k-accent"
+                />
+                <span>Carry Anki's schedule</span>
+              </label>
+              {/* A form so Enter at a desk and Go on a phone keyboard both submit.
+                The field keeps a link that failed, to retry, and clears on one
+                that landed. */}
+              {/* `noValidate`, or the browser refuses a link it thinks is no URL
+                with its own bubble and the backend's sentence never shows. */}
+              <form
+                noValidate
+                className="flex min-w-0 flex-1 basis-64 items-center gap-2"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  const url = link.trim();
+                  // `linking` and not only the disabled button: Enter in the field
+                  // submits the form whatever state the button is in.
+                  if (url === "" || linking) return;
+                  setLinking(true);
+                  void runImport(importAnkiLink(url, carry)).then((landed) => {
+                    setLinking(false);
+                    if (landed) setLink("");
+                  });
+                }}
+              >
+                <input
+                  type="url"
+                  inputMode="url"
+                  autoCapitalize="off"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  aria-label="a link to an Anki deck"
+                  placeholder="or paste a link to a deck"
+                  value={link}
+                  onChange={(event) => setLink(event.target.value)}
+                  className="my-1 min-h-11 min-w-0 flex-1 rounded border border-k-rule bg-transparent px-2 text-k-ink outline-none placeholder:text-k-muted focus:border-k-accent"
+                />
+                <button
+                  type="submit"
+                  disabled={linking}
+                  className="min-h-11 px-1 hover:text-k-accent disabled:opacity-50"
+                >
+                  Import link
+                </button>
+              </form>
+            </div>
+            {imported !== null && <p className="truncate pb-2 text-k-ink">{imported}</p>}
+          </details>
+
+          {parked > 0 && (
+            <button
+              type="button"
+              onClick={onParked}
+              className="mt-6 min-h-11 text-k-13 text-k-link underline hover:text-k-accent"
+            >
+              {parked} parked {parked === 1 ? "card" : "cards"}
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

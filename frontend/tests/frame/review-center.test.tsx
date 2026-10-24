@@ -57,6 +57,7 @@ it.each([
               fresh: 2,
               parked: 0,
               whole: false,
+              next: null,
             }}
             onLeave={() => {}}
           />
@@ -74,7 +75,7 @@ it.each([
 
       const header = host.querySelector("header") as HTMLElement;
       const buttons = [...header.querySelectorAll("button")].map((button) => button.textContent);
-      expect(buttons).toEqual(["← Decks", "Replay", "Undo", "Suspend", "Jot", "Type", "Center"]);
+      expect(buttons).toEqual(["← Decks", "Replay", "Undo", "Type", "Center"]);
 
       // Across: the words of the question, not the block they sit in.
       const card = host.querySelector('[data-testid="review-card"]') as HTMLElement;
@@ -89,12 +90,22 @@ it.each([
       ).toBeLessThan(8);
       expect(text.left - box.left, "the question sits at the left edge").toBeGreaterThan(20);
 
-      // Down: the card in the middle of the pane under the header.
-      const pane = (card.parentElement as HTMLElement).getBoundingClientRect();
+      // Down: the card in the middle of the pane under the header. The card's
+      // parent is the swipe box, the same size as the card, so the pane is the
+      // scroll body that holds the swipe box.
+      const paneEl = card.closest<HTMLElement>('[data-testid="review-swipe"]')
+        ?.parentElement as HTMLElement;
+      const pane = paneEl.getBoundingClientRect();
       expect(
         Math.abs((box.top + box.bottom) / 2 - (pane.top + pane.bottom) / 2),
         "down",
       ).toBeLessThan(8);
+      // The pane must be taller than the card, or centring it proves nothing.
+      if (name === "desktop") {
+        expect(pane.height - box.height, "the pane is taller than the card").toBeGreaterThanOrEqual(
+          100,
+        );
+      }
 
       const screen = document.documentElement.clientWidth;
       expect(header.scrollWidth, "header overflows").toBeLessThanOrEqual(header.clientWidth);

@@ -13,6 +13,7 @@ describe("ReviewSession on a whole note", () => {
     fresh: 0,
     parked: 0,
     whole: true,
+    next: null,
   };
   const MARKED =
     "---\nsr-due: 2026-01-01\nsr-interval: 4\nsr-ease: 250\n---\n# TLS\n\nthe handshake\n";
@@ -44,7 +45,7 @@ describe("ReviewSession on a whole note", () => {
     expect(card).toHaveTextContent("the handshake");
     expect(card).not.toHaveTextContent("sr-ease");
     expect(screen.getByRole("button", { name: "Good" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Show answer" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Show the answer" })).not.toBeInTheDocument();
   });
 
   it("does not ask a note its frontmatter parks", async () => {
@@ -65,7 +66,7 @@ describe("ReviewSession on a whole note", () => {
     const saved = renderNote();
     await shownCard();
 
-    fireEvent.click(screen.getByRole("button", { name: "Suspend" }));
+    fireEvent.click(screen.getByRole("button", { name: "Park this card" }));
 
     const written = saved.mock.calls[0]?.[1] ?? "";
     expect(written).toContain("sr-suspended: true");
@@ -95,6 +96,7 @@ describe("ReviewSession on a deck spanning two notes", () => {
     fresh: 2,
     parked: 0,
     whole: false,
+    next: null,
   };
   const PROCS =
     "#flashcards/db\n\nWhat is a proc?::a block\n\n#flashcards/dbt What is a macro?::jinja\n";
@@ -131,7 +133,7 @@ describe("ReviewSession on a deck spanning two notes", () => {
     const saved = renderSpread();
     await shownCard();
 
-    fireEvent.click(screen.getByRole("button", { name: "Show answer" }));
+    fireEvent.click(screen.getByRole("button", { name: "Show the answer" }));
     fireEvent.click(screen.getByRole("button", { name: "Good" }));
 
     expect(saved.mock.calls[0]?.[0]).toBe("db/procs.md");
@@ -141,7 +143,7 @@ describe("ReviewSession on a deck spanning two notes", () => {
 
     expect(await shownCard()).toHaveTextContent("What does dbt render?");
 
-    fireEvent.click(screen.getByRole("button", { name: "Show answer" }));
+    fireEvent.click(screen.getByRole("button", { name: "Show the answer" }));
     fireEvent.click(screen.getByRole("button", { name: "Good" }));
 
     expect(saved.mock.calls[1]?.[0]).toBe("db/dbt.md");
@@ -156,6 +158,7 @@ describe("ReviewSession on a parent deck", () => {
     fresh: 1,
     parked: 0,
     whole: false,
+    next: null,
   };
   const NESTED = "#flashcards/databases/postgres\n\nWhat is MVCC?::a row per version\n";
 

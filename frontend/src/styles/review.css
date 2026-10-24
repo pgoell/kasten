@@ -1,0 +1,17 @@
+/* The blank of a cloze, drawn as a small grey pill so it reads as a place to
+   answer rather than a pair of brackets in the sentence. */
+.review-gap {
+  background: var(--k-surface);
+  color: var(--k-muted);
+  border-radius: 999px;
+  padding: 0 0.45em;
+  font-family: var(--k-sans);
+  font-size: 0.7em;
+  vertical-align: 0.12em;
+}
+
+/* The question is set in the serif face. The preview's own scroller carries the
+   sans face, so it is set again here, one class deeper than that rule. */
+.review-front .cm-editor .cm-scroller {
+  font-family: var(--k-serif);
+}

@@ -15,6 +15,7 @@
 @import "./reader.css";
 @import "./live-preview-blocks.css";
 @import "./pdf-pane.css";
+@import "./review.css";
 
 /* Tailwind's names for the tokens in kasten-theme.css, so `bg-k-bg` and
    `text-k-ink` exist. Inline, so each utility keeps its `var()` and follows
@@ -388,7 +389,10 @@ body {
    from the question above it. The rendering under it paints its own text, so
    the colour has to reach past the wrapper to the lines themselves. */
 .review-back .cm-content {
-  color: var(--k-accent);
+  color: var(--k-ink);
+  font-family: var(--k-serif);
+  font-size: var(--k-text-read);
+  line-height: var(--k-leading-reading);
 }
 
 /* A centred card's sound player. Tailwind's preflight makes an audio element

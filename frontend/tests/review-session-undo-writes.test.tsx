@@ -62,7 +62,7 @@ describe("ReviewSession undoing the last step (#600)", () => {
 
   /** Turn the card and rate it, then let the rating's write land. */
   async function rate(name: string) {
-    fireEvent.click(screen.getByRole("button", { name: "Show answer" }));
+    fireEvent.click(screen.getByRole("button", { name: "Show the answer" }));
     fireEvent.click(screen.getByRole("button", { name }));
     await act(async () => {});
   }
@@ -91,7 +91,7 @@ describe("ReviewSession undoing the last step (#600)", () => {
         }),
     );
     await shownCard();
-    fireEvent.click(screen.getByRole("button", { name: "Show answer" }));
+    fireEvent.click(screen.getByRole("button", { name: "Show the answer" }));
     fireEvent.click(screen.getByRole("button", { name: "Good" }));
 
     const undo = undoButton();
@@ -158,12 +158,12 @@ describe("ReviewSession undoing the last step (#600)", () => {
     await act(async () => {});
 
     expect(screen.getByTestId("review-card")).toHaveTextContent("What is B?");
-    for (const name of ["Show answer", "Suspend", "Jot"]) {
+    for (const name of ["Show the answer", "Park this card", "Write a new question"]) {
       expect(screen.getByRole("button", { name })).toHaveAttribute("aria-disabled", "true");
     }
     // Taps on the greyed buttons, and the pane's keys, which reach the same
     // callbacks.
-    for (const name of ["Show answer", "Suspend", "Jot"]) {
+    for (const name of ["Show the answer", "Park this card", "Write a new question"]) {
       fireEvent.click(screen.getByRole("button", { name }));
     }
     act(() => {
@@ -192,7 +192,7 @@ describe("ReviewSession undoing the last step (#600)", () => {
     const { vault, saved } = renderVault();
     await shownCard();
     await rate("Good");
-    fireEvent.click(screen.getByRole("button", { name: "Jot" }));
+    fireEvent.click(screen.getByRole("button", { name: "Write a new question" }));
     fireEvent.change(screen.getByLabelText("a new question"), {
       target: { value: "What is a moved block?" },
     });
@@ -249,7 +249,7 @@ describe("ReviewSession undoing the last step (#600)", () => {
     await shownCard();
     await rate("Good");
     // Opened on B, which lives in y.md.
-    fireEvent.click(screen.getByRole("button", { name: "Jot" }));
+    fireEvent.click(screen.getByRole("button", { name: "Write a new question" }));
     fireEvent.change(screen.getByLabelText("a new question"), { target: { value: "Q?" } });
 
     const undo = undoButton();
@@ -272,7 +272,7 @@ describe("ReviewSession undoing the last step (#600)", () => {
     fireEvent.submit(screen.getByTestId("review-typed"));
     fireEvent.click(screen.getByRole("button", { name: "Good" }));
     await act(async () => {});
-    fireEvent.click(screen.getByRole("button", { name: "Jot" }));
+    fireEvent.click(screen.getByRole("button", { name: "Write a new question" }));
     fireEvent.change(screen.getByLabelText("a new question"), { target: { value: "Q?" } });
     fireEvent.change(screen.getByLabelText("your answer"), { target: { value: "Storage" } });
     let release: (() => void) | undefined;

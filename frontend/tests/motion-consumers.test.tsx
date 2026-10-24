@@ -227,7 +227,8 @@ describe("the consumers of the motion", () => {
       </QueryClientProvider>,
     );
     const row = (name: string) =>
-      screen.getByRole("button", { name: new RegExp(name) }).closest("li");
+      // Anchored, because the Start button names the first deck too.
+      screen.getByRole("button", { name: new RegExp(`^${name}`) }).closest("li");
 
     await waitFor(() => expect(row("alpha")).toHaveClass("k-enter"));
     expect(
@@ -438,6 +439,6 @@ describe("the consumers of the motion", () => {
       </QueryClientProvider>,
     );
 
-    expect(await screen.findByRole("button", { name: /alpha/ })).toHaveClass("k-row");
+    expect(await screen.findByRole("button", { name: /^alpha/ })).toHaveClass("k-row");
   });
 });

@@ -12,6 +12,7 @@ export const DECK: Deck = {
   fresh: 1,
   parked: 0,
   whole: false,
+  next: null,
 };
 
 const NOTE = "#flashcards/aws\n\nWhat does S3 stand for?::Simple Storage Service\n";

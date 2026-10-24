@@ -5,7 +5,7 @@ import { appendStub, setSuspended, writeSchedule } from "@/lib/card-write";
 import { readClock } from "@/lib/clock";
 import type { Deck, Limits } from "@/lib/review";
 import { cardsOf, type Seat, seatsFor } from "@/lib/review-queue";
-import type { Rating } from "@/lib/srs";
+import type { Card, Rating, Schedule } from "@/lib/srs";
 import { nextSchedule, writeNoteSchedule, writeNoteSuspended } from "@/lib/srs-schedule";
 import { soundsShowing } from "@/lib/use-card-sounds";
 import { useReviewLimits } from "@/lib/use-review-limits";
@@ -13,6 +13,18 @@ import { useSittingWrites } from "@/lib/use-sitting-writes";
 
 /** What the sitting refuses an undo with when the note moved on since the step. */
 const MOVED_ON = "The note changed since that step, so it was not undone.";
+
+/**
+ * The schedule a rating writes for the card on screen.
+ *
+ * One place for it, because the write and the interval the button shows must
+ * never disagree. A card new at the start keeps answering as a first answer until
+ * it leaves the queue. Anki's learning steps do the same, setting the first gap
+ * from the last answer, and `answeredToday` then still reads the card as new.
+ */
+function scheduleFor(seat: Seat, held: Card, rating: Rating, today: string): Schedule {
+  return nextSchedule(seat.fresh ? null : held.held, rating, today);
+}
 
 /**
  * The last rating or suspend, held so Undo can take it back.
@@ -113,6 +125,26 @@ export function useReviewSitting(deck: Deck, play: (sources: string[]) => void) 
   // the four ratings are the only thing its footer ever draws.
   const shown = revealed || card?.back === "";
 
+  // The interval each button shows, which is the one the rating writes, since
+  // both come from `scheduleFor`.
+  const next = useMemo(() => {
+    if (seat === undefined || card === undefined) return null;
+    const days = (rating: Rating) => scheduleFor(seat, card, rating, today).interval;
+    return { again: days("again"), hard: days("hard"), good: days("good"), easy: days("easy") };
+  }, [card, seat, today]);
+
+  // The done screen's "next due": the earliest day after today a card of this
+  // deck comes back. A parked card comes back on no day the screen can name.
+  const nextDue = useMemo(() => {
+    const dues = [...cards.values()].flatMap((each) =>
+      each.flatMap(({ held, parked }) =>
+        parked === null && held !== null && held.due > today ? [held.due] : [],
+      ),
+    );
+    const [first] = dues.sort();
+    return first ?? null;
+  }, [cards, today]);
+
   const rate = useCallback(
     (rating: Rating) => {
       // Held while an undo is out: its landing puts back the queue and the
@@ -122,10 +154,7 @@ export function useReviewSitting(deck: Deck, play: (sources: string[]) => void) 
       const held = cards.get(seat.note)?.[seat.at];
       if (text === undefined || held === undefined) return;
 
-      // A card new at the start keeps answering as a first answer until it leaves
-      // the queue. Anki's learning steps do the same, setting the first gap from
-      // the last answer, and `answeredToday` then still reads the card as new.
-      const moved = nextSchedule(seat.fresh ? null : held.held, rating, today);
+      const moved = scheduleFor(seat, held, rating, today);
       const next = deck.whole ? writeNoteSchedule(text, moved) : writeSchedule(text, held, moved);
       setTexts((was) => new Map(was).set(seat.note, next));
       setRevealed(false);
@@ -248,6 +277,9 @@ export function useReviewSitting(deck: Deck, play: (sources: string[]) => void) 
     card,
     revealed,
     shown,
+    next,
+    nextDue,
+    today,
     typed,
     setTyped,
     done,

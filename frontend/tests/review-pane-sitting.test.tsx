@@ -23,7 +23,7 @@ describe("ReviewPane leaving a sitting", () => {
     fireEvent.keyDown(pane, { key: "h" });
 
     expect(screen.queryByTestId("review-card")).not.toBeInTheDocument();
-    expect(await screen.findByRole("button", { name: /alpha/ })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: /^alpha/ })).toBeInTheDocument();
   });
 });
 
@@ -158,7 +158,7 @@ describe("ReviewPane undoing the last step (#600)", () => {
 
   it("#600 B6 a header button clicked before u keeps the focus, and the keys, in the pane", async () => {
     const { pane, saved } = await sitBeta(TWO);
-    const suspend = screen.getByRole("button", { name: "Suspend" });
+    const suspend = screen.getByRole("button", { name: "Park this card" });
     // A mouse click focuses the button before it presses it.
     suspend.focus();
     fireEvent.click(suspend);
@@ -291,7 +291,7 @@ describe("ReviewPane on a nested cloze", () => {
         <ReviewPane commands={stubCommands()} onClose={vi.fn()} onOpen={vi.fn()} />
       </QueryClientProvider>,
     );
-    screen.getByRole("button", { name: /capitals/ });
+    screen.getByRole("button", { name: /^capitals/ });
     const pane = screen.getByLabelText("review");
 
     fireEvent.keyDown(pane, { key: "j" });

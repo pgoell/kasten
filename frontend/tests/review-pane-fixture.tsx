@@ -68,6 +68,7 @@ export async function renderPane(commands = stubCommands()) {
     </QueryClientProvider>,
   );
   // `get` and not `find`: nothing is left to wait on.
-  screen.getByRole("button", { name: /alpha/ });
+  // Anchored, because the Start button names the first deck too.
+  screen.getByRole("button", { name: /^alpha/ });
   return screen.getByLabelText("review");
 }

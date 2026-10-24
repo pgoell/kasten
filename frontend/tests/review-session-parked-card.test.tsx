@@ -39,7 +39,7 @@ describe("ReviewSession on a parked card", () => {
     const saved = renderTwo();
     await shownCard();
 
-    fireEvent.click(screen.getByRole("button", { name: "Suspend" }));
+    fireEvent.click(screen.getByRole("button", { name: "Park this card" }));
 
     expect(saved.mock.calls[0]?.[0]).toBe("decks/aws.md");
     expect(saved.mock.calls[0]?.[1]).toContain("What is a VPC?::A private cloud !suspended");
@@ -55,10 +55,10 @@ describe("ReviewSession on a parked card", () => {
     }));
     await shownCard();
 
-    fireEvent.click(screen.getByRole("button", { name: "Show answer" }));
+    fireEvent.click(screen.getByRole("button", { name: "Show the answer" }));
     fireEvent.click(screen.getByRole("button", { name: "Good" }));
     await act(async () => {});
-    fireEvent.click(screen.getByRole("button", { name: "Show answer" }));
+    fireEvent.click(screen.getByRole("button", { name: "Show the answer" }));
     fireEvent.click(screen.getByRole("button", { name: "Good" }));
 
     expect(saved.mock.calls[0]?.slice(2)).toEqual([false, noteBase(TWO)]);
@@ -79,9 +79,9 @@ describe("ReviewSession on a parked card", () => {
     saved.mockImplementation(async (path: string, content: string) => ({ path, content }));
     await shownCard();
 
-    fireEvent.click(screen.getByRole("button", { name: "Show answer" }));
+    fireEvent.click(screen.getByRole("button", { name: "Show the answer" }));
     fireEvent.click(screen.getByRole("button", { name: "Good" }));
-    fireEvent.click(screen.getByRole("button", { name: "Show answer" }));
+    fireEvent.click(screen.getByRole("button", { name: "Show the answer" }));
     fireEvent.click(screen.getByRole("button", { name: "Good" }));
     await act(async () => {});
     expect(saved).toHaveBeenCalledTimes(1);
@@ -99,10 +99,10 @@ describe("ReviewSession on a parked card", () => {
     await shownCard();
     vi.mocked(api.fetchNote).mockResolvedValue(reread);
 
-    fireEvent.click(screen.getByRole("button", { name: "Show answer" }));
+    fireEvent.click(screen.getByRole("button", { name: "Show the answer" }));
     fireEvent.click(screen.getByRole("button", { name: "Good" }));
     await act(async () => {});
-    fireEvent.click(screen.getByRole("button", { name: "Show answer" }));
+    fireEvent.click(screen.getByRole("button", { name: "Show the answer" }));
     fireEvent.click(screen.getByRole("button", { name: "Good" }));
     await act(async () => {});
 
@@ -123,9 +123,9 @@ describe("ReviewSession on a parked card", () => {
     saved.mockRejectedValueOnce(new Error("the second was refused"));
     await shownCard();
 
-    fireEvent.click(screen.getByRole("button", { name: "Show answer" }));
+    fireEvent.click(screen.getByRole("button", { name: "Show the answer" }));
     fireEvent.click(screen.getByRole("button", { name: "Good" }));
-    fireEvent.click(screen.getByRole("button", { name: "Show answer" }));
+    fireEvent.click(screen.getByRole("button", { name: "Show the answer" }));
     fireEvent.click(screen.getByRole("button", { name: "Good" }));
     await act(async () => refuse?.());
     await act(async () => {});
@@ -147,11 +147,11 @@ describe("ReviewSession on a parked card", () => {
         }),
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Show answer" }));
+    fireEvent.click(screen.getByRole("button", { name: "Show the answer" }));
     fireEvent.click(screen.getByRole("button", { name: "Good" }));
     await act(async () => {});
     expect(reread).toBeDefined();
-    fireEvent.click(screen.getByRole("button", { name: "Show answer" }));
+    fireEvent.click(screen.getByRole("button", { name: "Show the answer" }));
     fireEvent.click(screen.getByRole("button", { name: "Good" }));
     await act(async () => reread?.());
     await act(async () => {});
@@ -165,7 +165,7 @@ describe("ReviewSession on a parked card", () => {
     await shownCard();
     expect(screen.getByText(/left/).textContent).toBe("2 left");
 
-    fireEvent.click(screen.getByRole("button", { name: "Suspend" }));
+    fireEvent.click(screen.getByRole("button", { name: "Park this card" }));
 
     expect(screen.getByText(/left/).textContent).toBe("1 left");
     expect(screen.getByTestId("review-card")).toHaveTextContent("What is Direct Connect?");

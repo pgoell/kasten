@@ -31,7 +31,7 @@ describe("ReviewDecks importing from a link", () => {
         <ReviewDecks onPick={vi.fn()} onParked={vi.fn()} />
       </QueryClientProvider>,
     );
-    screen.getByRole("button", { name: /alpha/ });
+    screen.getByRole("button", { name: /^alpha/ });
     const field = screen.getByLabelText("a link to an Anki deck") as HTMLInputElement;
     return { field, button: screen.getByRole("button", { name: "Import link" }) };
   }

@@ -46,7 +46,15 @@ function Review() {
           onOpen={(note) => void navigate({ to: "/", search: { note } })}
         />
       ) : (
-        <ReviewSession deck={screen.deck} onLeave={() => setScreen({ at: "decks" })} />
+        <ReviewSession
+          deck={screen.deck}
+          onLeave={() => setScreen({ at: "decks" })}
+          // The page proper, opened at the card's line. Leaves the review the
+          // way a parked note does, since a phone has no pane to open it in.
+          onOpen={(note, line) =>
+            void navigate({ to: "/", search: line === undefined ? { note } : { note, line } })
+          }
+        />
       )}
     </main>
   );

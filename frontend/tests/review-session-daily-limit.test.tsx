@@ -13,6 +13,7 @@ describe("ReviewSession under a daily limit", () => {
     fresh: 1,
     parked: 0,
     whole: false,
+    next: null,
   };
   const DUE = "<!--SR:!2020-01-01,3,250-->";
   const CARDS =
@@ -55,7 +56,7 @@ describe("ReviewSession under a daily limit", () => {
     const asked: string[] = [];
     for (let turn = 0; turn < 3; turn += 1) {
       asked.push((await shownCard()).textContent ?? "");
-      fireEvent.click(screen.getByRole("button", { name: "Show answer" }));
+      fireEvent.click(screen.getByRole("button", { name: "Show the answer" }));
       fireEvent.click(screen.getByRole("button", { name: "Good" }));
     }
 

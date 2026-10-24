@@ -33,9 +33,9 @@ describe("ReviewDecks reading the deck notes", () => {
     );
     renderDecks();
 
-    expect(await screen.findByRole("button", { name: /beta/ })).toHaveTextContent("1 new");
-    expect(screen.queryByRole("button", { name: /alpha/ })).not.toBeInTheDocument();
-    expect(screen.getByText(/to go/).textContent).toBe("1 to go");
+    expect(await screen.findByRole("button", { name: /^beta/ })).toHaveTextContent("1 new");
+    expect(screen.queryByRole("button", { name: /^alpha/ })).not.toBeInTheDocument();
+    expect(screen.getByText(/to go today/).textContent).toBe("1 card to go today in 1 deck.");
   });
 
   it("asks the scan to skip the archive, or to walk it", async () => {
@@ -44,12 +44,12 @@ describe("ReviewDecks reading the deck notes", () => {
 
     // The seeded scan is stale at once, so the mount still asks for it.
     renderDecks(HITS);
-    screen.getByRole("button", { name: /alpha/ });
+    screen.getByRole("button", { name: /^alpha/ });
     expect(cards).toHaveBeenLastCalledWith(false);
 
     cleanup();
     renderDecks(HITS, true);
-    screen.getByRole("button", { name: /alpha/ });
+    screen.getByRole("button", { name: /^alpha/ });
     expect(cards).toHaveBeenLastCalledWith(true);
   });
 
@@ -66,7 +66,7 @@ describe("ReviewDecks reading the deck notes", () => {
       removed: 2,
     });
     renderDecks(HITS);
-    screen.getByRole("button", { name: /alpha/ });
+    screen.getByRole("button", { name: /^alpha/ });
     const deck = new File(["apkg"], "aws.apkg");
     const carry = screen.getByRole("checkbox", { name: "Carry Anki's schedule" });
 
@@ -94,13 +94,13 @@ describe("ReviewDecks reading the deck notes", () => {
       opened.push(this);
     });
     renderDecks(HITS);
-    screen.getByRole("button", { name: /alpha/ });
+    screen.getByRole("button", { name: /^alpha/ });
 
     expect(screen.getByLabelText("a link to an Anki deck")).not.toBeVisible();
-    fireEvent.click(screen.getByText("Import"));
+    fireEvent.click(screen.getByText("Import an Anki deck"));
     expect(screen.getByLabelText("a link to an Anki deck")).toBeVisible();
 
-    const button = screen.getByRole("button", { name: "Import an Anki deck" });
+    const button = screen.getByRole("button", { name: "Choose an .apkg file" });
     expect(button.tagName).toBe("BUTTON");
     expect(button).toHaveClass("border", "min-h-11");
     fireEvent.click(button);
@@ -111,9 +111,9 @@ describe("ReviewDecks reading the deck notes", () => {
     vi.spyOn(api, "fetchCards").mockResolvedValue(HITS);
     serveNotes(HITS);
     renderDecks(HITS);
-    screen.getByRole("button", { name: /alpha/ });
-    fireEvent.click(screen.getByText("Import"));
-    const button = screen.getByRole("button", { name: "Import an Anki deck" });
+    screen.getByRole("button", { name: /^alpha/ });
+    fireEvent.click(screen.getByText("Import an Anki deck"));
+    const button = screen.getByRole("button", { name: "Choose an .apkg file" });
     const click = vi
       .spyOn(screen.getByLabelText("Import an Anki deck"), "click")
       .mockImplementation(() => {});
@@ -140,11 +140,11 @@ describe("ReviewDecks reading the deck notes", () => {
       removed: 2,
     });
     renderDecks(HITS);
-    screen.getByRole("button", { name: /alpha/ });
+    screen.getByRole("button", { name: /^alpha/ });
     const carry = screen.getByRole("checkbox", { name: "Carry Anki's schedule" });
 
     expect(carry).not.toBeVisible();
-    const entry = screen.getByText("Import");
+    const entry = screen.getByText("Import an Anki deck");
     fireEvent.click(entry);
     fireEvent.click(carry);
     fireEvent.change(screen.getByLabelText("Import an Anki deck"), {
@@ -179,7 +179,7 @@ describe("ReviewDecks importing a large deck (#521)", () => {
         <ReviewDecks onPick={vi.fn()} onParked={vi.fn()} />
       </QueryClientProvider>,
     );
-    screen.getByRole("button", { name: /alpha/ });
+    screen.getByRole("button", { name: /^alpha/ });
     fireEvent.change(screen.getByLabelText("Import an Anki deck"), { target: { files: [deck] } });
   }
 

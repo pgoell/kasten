@@ -32,7 +32,7 @@ describe("ReviewSession on a cloze", () => {
     const saved = renderCloze();
 
     expect(await shownCard()).toHaveTextContent("The capital of [...] is Paris.");
-    fireEvent.click(screen.getByRole("button", { name: "Show answer" }));
+    fireEvent.click(screen.getByRole("button", { name: "Show the answer" }));
     expect(screen.getByTestId("review-back")).toHaveTextContent("France");
     fireEvent.click(screen.getByRole("button", { name: "Good" }));
 
@@ -45,7 +45,7 @@ describe("ReviewSession on a cloze", () => {
         "The capital of France is [a city].",
       ),
     );
-    fireEvent.click(screen.getByRole("button", { name: "Show answer" }));
+    fireEvent.click(screen.getByRole("button", { name: "Show the answer" }));
     fireEvent.click(screen.getByRole("button", { name: "Easy" }));
 
     expect(saved.mock.calls[1]?.[1]).toMatch(
@@ -58,14 +58,14 @@ describe("ReviewSession on a cloze", () => {
     const saved = renderCloze();
     await shownCard();
 
-    fireEvent.click(screen.getByRole("button", { name: "Show answer" }));
+    fireEvent.click(screen.getByRole("button", { name: "Show the answer" }));
     fireEvent.click(screen.getByRole("button", { name: "Again" }));
     // c2, then c1 once more at the back of the queue.
     await waitFor(() => expect(screen.getByTestId("review-card")).toHaveTextContent("[a city]"));
-    fireEvent.click(screen.getByRole("button", { name: "Show answer" }));
+    fireEvent.click(screen.getByRole("button", { name: "Show the answer" }));
     fireEvent.click(screen.getByRole("button", { name: "Good" }));
     await waitFor(() => expect(screen.getByTestId("review-card")).toHaveTextContent("[...]"));
-    fireEvent.click(screen.getByRole("button", { name: "Show answer" }));
+    fireEvent.click(screen.getByRole("button", { name: "Show the answer" }));
     fireEvent.click(screen.getByRole("button", { name: "Again" }));
 
     const last = saved.mock.calls.at(-1)?.[1] ?? "";
@@ -87,7 +87,7 @@ describe("ReviewSession on a cloze", () => {
     const saved = renderCloze();
     await shownCard();
 
-    fireEvent.click(screen.getByRole("button", { name: "Suspend" }));
+    fireEvent.click(screen.getByRole("button", { name: "Park this card" }));
 
     expect(saved.mock.calls[0]?.[1]).toContain("{{c2::Paris::a city}}. !suspended\n");
     expect(await screen.findByTestId("review-done")).toBeInTheDocument();

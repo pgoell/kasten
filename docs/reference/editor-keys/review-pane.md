@@ -1,7 +1,7 @@
 ---
 type: Reference
 title: Editor keys, the review pane
-description: The review pane's keys for a sitting, its folds, parking, jots and undo.
+description: The review pane's keys for a sitting, its folds, parking, new questions and undo.
 tags: [editor, keyboard, review, flashcards, frontend]
 status: stable
 ---
@@ -20,11 +20,11 @@ of each is waiting. Picking one starts a sitting, one card at a time.
 | `za` | Fold or unfold the deck under the cursor |
 | `p` | Open [the parked list](/reference/flashcard-format/reviewing-cards.md#parking-a-card) |
 | `h` | Leave the sitting or the parked list, back to the decks |
-| `Enter` | Show the answer |
-| `Space` | Open [the which-key panel](/reference/editor-keys/leader.md) while the card is hidden |
+| `Enter` | Show the answer. Once it shows, grade the card Good |
+| `Space` | Show the answer. Once it shows, grade the card Good. With no card on screen, open [the which-key panel](/reference/editor-keys/leader.md) |
 | `1` `2` `3` `4` | Rate the card Again, Hard, Good, Easy |
-| `s` | Park the card on screen, before or after the answer |
-| `n` | Jot a new question into the note the card came from, or put the open jot line away unwritten |
+| `s` | Park the card on screen, before or after the answer, as the Park this card link does |
+| `n` | Write a new question into the note the card came from, as the Write a new question link does, or put the open jot line away unwritten |
 | `r` | Play the sounds of the side showing again: the question's before the answer, the answer's after |
 | `u` | In a sitting, undo the last rating or suspend; on the parked list, put the row under the cursor back |
 | `o` | Open the note the parked row is written in |

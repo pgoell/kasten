@@ -57,7 +57,7 @@ describe("ReviewSession rating a new card again (#816)", () => {
 
   /** Turn the card and rate it, then let the rating's write land. */
   async function rate(name: string) {
-    fireEvent.click(screen.getByRole("button", { name: "Show answer" }));
+    fireEvent.click(screen.getByRole("button", { name: "Show the answer" }));
     fireEvent.click(screen.getByRole("button", { name }));
     await act(async () => {});
   }
@@ -156,6 +156,7 @@ describe("ReviewSession rating a new card again (#816)", () => {
       fresh: 1,
       parked: 0,
       whole: true,
+      next: null,
     };
     const { vault } = renderVault(NOTE, whole, "");
     await shownCard();

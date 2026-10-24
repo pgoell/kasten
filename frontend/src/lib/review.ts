@@ -59,6 +59,13 @@ export interface Deck {
    * one, where two notes carrying one tag are one deck by construction.
    */
   whole: boolean;
+  /**
+   * The earliest day after today a card of this deck comes back, null for none.
+   *
+   * Set by the scheduled cards alone: a card due today is already counted in
+   * `due`, and a parked one comes back on no day the overview can name.
+   */
+  next: string | null;
 }
 
 /** One note the overview counts: where it is and everything in it. */
@@ -174,6 +181,13 @@ export function deckNotes(hits: SearchHit[]): string[] {
   return [...notes];
 }
 
+/** The earlier of two `YYYY-MM-DD` days, either may be null. ISO dates sort as text. */
+function earlier(one: string | null, two: string | null): string | null {
+  if (one === null) return two;
+  if (two === null) return one;
+  return one < two ? one : two;
+}
+
 /**
  * Every deck the notes hold, sorted by name.
  *
@@ -198,6 +212,7 @@ export function decksFrom(notes: DeckNote[], today: string, limits?: Limits): De
     held.due += deck.due;
     held.fresh += deck.fresh;
     held.parked += deck.parked;
+    held.next = earlier(held.next, deck.next);
     for (const note of deck.notes) if (!held.notes.includes(note)) held.notes.push(note);
   };
 
@@ -224,6 +239,7 @@ export function decksFrom(notes: DeckNote[], today: string, limits?: Limits): De
         fresh: !held && due === undefined ? 1 : 0,
         parked: held ? 1 : 0,
         whole: true,
+        next: !held && due !== undefined && due > today ? due : null,
       });
       continue;
     }
@@ -248,6 +264,10 @@ export function decksFrom(notes: DeckNote[], today: string, limits?: Limits): De
           fresh: card.parked === null && card.held === null ? 1 : 0,
           parked: card.parked !== null ? 1 : 0,
           whole: false,
+          next:
+            card.parked === null && card.held !== null && card.held.due > today
+              ? card.held.due
+              : null,
         });
       }
     }

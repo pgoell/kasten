@@ -55,7 +55,7 @@ describe("ReviewSession undoing the last step (#600)", () => {
 
   /** Turn the card and rate it, then let the rating's write land. */
   async function rate(name: string) {
-    fireEvent.click(screen.getByRole("button", { name: "Show answer" }));
+    fireEvent.click(screen.getByRole("button", { name: "Show the answer" }));
     fireEvent.click(screen.getByRole("button", { name }));
     await act(async () => {});
   }
@@ -93,7 +93,7 @@ describe("ReviewSession undoing the last step (#600)", () => {
     const cloze = "#flashcards/aws\n\nThe capital of {{c1::France}} is {{c2::Paris::a city}}.\n";
     const { vault } = renderVault(cloze);
     await shownCard();
-    fireEvent.click(screen.getByRole("button", { name: "Suspend" }));
+    fireEvent.click(screen.getByRole("button", { name: "Park this card" }));
     await act(async () => {});
     expect(screen.getByTestId("review-done")).toBeInTheDocument();
     expect(vault.disk).toContain("!suspended");
@@ -207,7 +207,7 @@ describe("ReviewSession undoing the last step (#600)", () => {
     const { vault, saved } = renderVault();
     await shownCard();
     await rate("Good");
-    fireEvent.click(screen.getByRole("button", { name: "Jot" }));
+    fireEvent.click(screen.getByRole("button", { name: "Write a new question" }));
     fireEvent.change(screen.getByLabelText("a new question"), {
       target: { value: "What is a moved block?" },
     });
@@ -259,6 +259,7 @@ describe("ReviewSession undoing the last step (#600)", () => {
       fresh: 0,
       parked: 0,
       whole: true,
+      next: null,
     });
     await shownCard();
     fireEvent.click(screen.getByRole("button", { name: "Good" }));
@@ -271,7 +272,7 @@ describe("ReviewSession undoing the last step (#600)", () => {
     await waitFor(() => expect(vault.disk).toBe(marked));
     await backOn("the handshake");
 
-    fireEvent.click(screen.getByRole("button", { name: "Suspend" }));
+    fireEvent.click(screen.getByRole("button", { name: "Park this card" }));
     await act(async () => {});
     expect(vault.disk).toContain("sr-suspended: true");
     fireEvent.click(undoButton() as HTMLElement);

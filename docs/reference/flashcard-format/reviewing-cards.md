@@ -26,10 +26,10 @@ Two places, the same session in both:
 | `za` | Fold or unfold the deck under the cursor; on a deck with none under it, fold the deck above |
 | `p` | Open the parked list |
 | `h` | Leave the sitting or the parked list, back to the decks |
-| `Space`, `Enter` | Show the answer |
+| `Space`, `Enter` | Show the answer; once it shows, grade the card Good |
 | `1` `2` `3` `4` | Again, Hard, Good, Easy |
-| `s` | Park the card on screen |
-| `n` | Jot a new question into the note the card came from |
+| `s` | Park the card on screen, as Park this card does |
+| `n` | Write a new question into the note the card came from, as Write a new question does |
 | `u` | In a sitting, undo the last rating or suspend; on the parked list, put the row under the cursor back |
 | `o` | Open the note the parked row is written in |
 | `q` | Close the pane |
@@ -47,14 +47,21 @@ Center, a toggle in the header, puts the front and the back in the middle of
 the pane, across and down. The browser keeps it, so it holds across sittings
 and reloads. Off draws the card at the top left.
 
+On a phone, a tap on the question shows the answer, and a swipe grades it: right
+for Good, left for Again. The card follows the finger, and a stamp fades in on
+the side it names. A swipe grades only past 38 % of the card's width, counting
+how fast the finger leaves, so a shorter one springs back and grades nothing.
+Each swipe that grades gives one short buzz where the phone can buzz. A mouse
+drag does not swipe, and the four buttons stay under the card for every rating.
+
 The leader still works inside the pane, so `<leader>o` and the rest reach the
 other panes mid-sitting.
 
 ### The parked screen
 
 The third screen lists every [parked](#parking-a-card) card, its deck and why it
-is parked. `p` opens it at a desk and the `N parked` count in the header opens it
-on a phone, which has no key to press.
+is parked. `p` opens it at a desk, and the `N parked cards` link at the foot of the
+decks opens it on a phone, which has no key to press.
 
 A row does two things. Putting it back takes the token off and returns the card
 to its deck on the schedule it already held; only a card carrying a token gets
@@ -64,8 +71,8 @@ question written mid-sitting gets its answer.
 
 ### A question you think of mid-sitting
 
-`s` parks the card in front of you and moves on without rating it. `n` opens a
-line for a question the card just reminded you of: what you type lands at the end
+`s` parks the card in front of you and moves on without rating it. `n`, or the
+Write a new question link under the card, opens a line for a question the card just reminded you of: what you type lands at the end
 of the note that card came from, written `Question::` and waiting on the parked
 screen until you answer it. The card on screen and the rest of the queue are
 untouched, because a card added at the end is last in line order and every card

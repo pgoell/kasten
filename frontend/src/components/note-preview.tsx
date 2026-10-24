@@ -1,5 +1,13 @@
 import { EditorState, Text } from "@codemirror/state";
-import { Decoration, EditorView, lineNumbers } from "@codemirror/view";
+import {
+  Decoration,
+  type DecorationSet,
+  EditorView,
+  lineNumbers,
+  MatchDecorator,
+  ViewPlugin,
+  type ViewUpdate,
+} from "@codemirror/view";
 import { useEffect, useRef } from "react";
 import { kastenTheme } from "@/lib/editor-theme";
 import { renderedMarkdown } from "@/lib/live-preview";
@@ -16,10 +24,36 @@ interface NotePreviewProps {
   firstLine?: number;
   /** The note's own number of the line to mark and centre on. */
   markLine?: number;
+  /** Draws each cloze gap of the text as a pill, for the front of a cloze card. */
+  gaps?: boolean;
 }
 
 /** Paints the line a search hit sits on, so the eye lands on it. */
 const HIT = Decoration.line({ class: "cm-searchHit" });
+
+/**
+ * A cloze gap, `\[...\]` or `\[hint\]`, marked over its text rather than replaced.
+ *
+ * A mark and not a widget, so the brackets stay in the DOM where the text reads
+ * them. The escapes are the ones `clozeQuestion` writes, which the preview would
+ * otherwise read as a link.
+ */
+const GAP = Decoration.mark({ class: "review-gap", attributes: { "data-gap": "" } });
+const gapFinder = new MatchDecorator({ regexp: /\\\[.*?\\\]/g, decoration: GAP });
+const GAPS = ViewPlugin.fromClass(
+  class {
+    decorations: DecorationSet;
+
+    constructor(view: EditorView) {
+      this.decorations = gapFinder.createDeco(view);
+    }
+
+    update(update: ViewUpdate) {
+      this.decorations = gapFinder.updateDeco(update, this.decorations);
+    }
+  },
+  { decorations: (plugin) => plugin.decorations },
+);
 
 /**
  * A note, rendered the way the editor renders it, with nothing to type into.
@@ -33,19 +67,19 @@ const HIT = Decoration.line({ class: "cm-searchHit" });
  * focus. The dialog above owns the arrows and Enter, and a pane that could be
  * typed into would swallow them.
  */
-export function NotePreview({ text, firstLine, markLine }: NotePreviewProps) {
+export function NotePreview({ text, firstLine, markLine, gaps }: NotePreviewProps) {
   const host = useRef<HTMLDivElement>(null);
 
   // Read once, on mount. Both panes pass a `key` that changes with the note
   // and the line, so showing another one remounts rather than reconfigures,
   // and there is no second path to keep in step with this one.
-  const initial = useRef({ text, firstLine, markLine });
+  const initial = useRef({ text, firstLine, markLine, gaps });
 
   useEffect(() => {
     const parent = host.current;
     if (!parent) return;
 
-    const { text: source, firstLine: from, markLine: mark } = initial.current;
+    const { text: source, firstLine: from, markLine: mark, gaps: marked } = initial.current;
     // The search pane's window starts partway down the note, so the gutter
     // counts from where the window starts rather than from one.
     const offset = from === undefined ? 0 : from - 1;
@@ -78,6 +112,7 @@ export function NotePreview({ text, firstLine, markLine }: NotePreviewProps) {
           EditorView.decorations.of(hit ? Decoration.set([HIT.range(hit.from)]) : Decoration.none),
           // A hit in a folded callout's body would mark a line nobody can see.
           ...(hit ? [opensFor.of(hit.from)] : []),
+          ...(marked ? [GAPS] : []),
           ...(from === undefined ? [] : [lineNumbers({ formatNumber: (n) => `${n + offset}` })]),
         ],
       }),

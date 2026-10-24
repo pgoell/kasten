@@ -128,7 +128,7 @@ dimmed page around them.
 | A video | A tap on the count goes to the next video. The player's controls are YouTube's own | [The video pane](/reference/editor-keys/video-pane.md#the-video-pane) |
 | A person card | A tap on a row opens the line it names | [The person card](/reference/editor-keys/links.md#the-person-card) |
 | A note's history | A tap on a change shows its diff against the note now. `Restore` writes the change shown back over the note | [The history pane](/reference/editor-keys/panes-and-tabs.md#the-history-pane) |
-| The review | Every move is a button | [The review pane](/reference/editor-keys/review-pane.md#the-review-pane) |
+| The review | A tap on the question shows the answer. Swipe the answer right for Good, left for Again, past 38 % of the card's width counting how fast the finger leaves; a shorter swipe grades nothing. Every other move is a button | [The review pane](/reference/editor-keys/review-pane.md#the-review-pane), [Reviewing cards](/reference/flashcard-format/reviewing-cards.md#sitting-one) |
 | A practice exam | An option is a button. A row of moves: `prev`, `next`, `reveal`, `timer`, `finish`, `close`. `finish` acts on the second tap, and so does `close` while a sitting is under way | [Sit it by touch](/how-to/write-a-practice-exam.md#sit-it-by-touch) |
 | A terminal | A tap focuses it. A row of keys: `Esc`, `Tab`, `Ctrl`, the arrows, `\|`, `/`, `-` | [Terminal](/reference/editor-keys/terminal.md#terminal) |
 | An HTML page | The page's own links and buttons. `Open in a browser tab` in the header | [The file tree](/reference/editor-keys/file-tree.md#the-file-tree) |

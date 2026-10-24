@@ -21,9 +21,9 @@ format and the older one are read, so no compatibility option needs setting.
 ## Import it
 
 Open `/review`, either on a phone or through `<leader>gs` in the app, and open
-**Import** above the decks; it stays closed until you do. To carry Anki's
-schedule, tick **Carry Anki's schedule** first; it is off by default. Press
-**Import an Anki deck** and pick the `.apkg`.
+**Import an Anki deck** below the decks; it stays closed until you do. To carry
+Anki's schedule, tick **Carry Anki's schedule** first; it is off by default.
+Press **Choose an .apkg file** and pick the `.apkg`.
 
 A file may weigh up to 1GiB. One bigger than a single request carries goes up
 in pieces, so Cloudflare's 100MB limit on a request does not stand in the way;
@@ -36,8 +36,8 @@ image and sound files came with them.
 
 ## From a link
 
-Beside **Import an Anki deck**, the field takes a link instead of a file. Paste
-it and import; kasten fetches the deck and imports it as it would the file,
+Beside **Choose an .apkg file**, the field takes a link instead of a file. Paste
+it and press **Import link**; kasten fetches the deck and imports it as it would the file,
 with the same summary and the same **Carry Anki's schedule**.
 
 Two kinds of link work:

@@ -13,8 +13,8 @@ interface ReviewPaneProps {
   commands: EditorCommands;
   /** Close the pane, which is `q`. */
   onClose: () => void;
-  /** Open a note in a pane, the way `ExamPane` is handed the same job. */
-  onOpen: (path: string) => void;
+  /** Open a note in a pane, at a line when the card has one. The way `ExamPane` is handed the same job. */
+  onOpen: (path: string, line?: number) => void;
   /** Raised when the pane this sits in has been moved to. See `Editor`. */
   focusSignal?: number;
 }
@@ -54,6 +54,7 @@ export function ReviewPane({ commands, onClose, onOpen, focusSignal }: ReviewPan
   const [pending, setPending] = useState("");
   const controls = useRef<{
     showing: boolean;
+    shown: boolean;
     reveal: () => void;
     rate: (rating: Rating) => void;
     suspend: () => void;
@@ -191,7 +192,12 @@ export function ReviewPane({ commands, onClose, onOpen, focusSignal }: ReviewPan
 
     const rating = KEYED[key];
     if (rating !== undefined) controls.current?.rate(rating);
-    else if (key === " " || key === "Enter") controls.current?.reveal();
+    // Once the answer is up, the same key grades it Good: the default button, so
+    // a reader who knows the answer goes through the card in two presses.
+    else if (key === " " || key === "Enter") {
+      if (controls.current?.shown) controls.current.rate("good");
+      else controls.current?.reveal();
+    }
     // Before the reveal as well as after it, because a card you want out of the
     // deck is one you have recognised from its question alone.
     else if (key === "s") controls.current?.suspend();
@@ -229,6 +235,7 @@ export function ReviewPane({ commands, onClose, onOpen, focusSignal }: ReviewPan
           deck={screen.deck}
           onLeave={() => setScreen({ at: "decks" })}
           onControls={onControls}
+          onOpen={onOpen}
         />
       )}
     </section>

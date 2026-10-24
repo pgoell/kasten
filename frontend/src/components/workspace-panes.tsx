@@ -232,7 +232,7 @@ export function WorkspacePanes({
               <ReviewPane
                 commands={commands}
                 onClose={() => void commands.closeNote()}
-                onOpen={(path) => void openInPane(path)}
+                onOpen={(path, line) => void openInPane(path, line)}
                 focusSignal={focused ? focusSignal : 0}
               />
             ) : shown.exam !== undefined ? (

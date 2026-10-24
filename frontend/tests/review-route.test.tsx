@@ -70,7 +70,7 @@ describe("the review route", () => {
     await renderRoute();
 
     // The exact name, because the deck row below names its parked count too.
-    fireEvent.click(await findButton("1 parked"));
+    fireEvent.click(await findButton("1 parked card"));
 
     expect(await screen.findByText("What is a VPC?")).toBeInTheDocument();
   });
@@ -103,10 +103,10 @@ describe("the review route on a phone", () => {
       .spyOn(api, "saveNote")
       .mockImplementation(async (path: string, content: string) => ({ path, content }));
 
-    fireEvent.click(await findButton(/capitals/));
+    fireEvent.click(await findButton(/^capitals/));
 
     expect(await shownCard()).toHaveTextContent(/^\[\.\.\.\]$/);
-    fireEvent.click(screen.getByRole("button", { name: "Show answer" }));
+    fireEvent.click(screen.getByRole("button", { name: "Show the answer" }));
     expect(screen.getByTestId("review-back")).toHaveTextContent("Canberra was founded in 1913");
     fireEvent.click(screen.getByRole("button", { name: "Good" }));
 
@@ -119,7 +119,7 @@ describe("the review route on a phone", () => {
         /^Canberra was \[\.\.\.\] in 1913$/,
       ),
     );
-    fireEvent.click(screen.getByRole("button", { name: "Show answer" }));
+    fireEvent.click(screen.getByRole("button", { name: "Show the answer" }));
     expect(screen.getByTestId("review-back")).toHaveTextContent("Canberra was founded in 1913");
     fireEvent.click(screen.getByRole("button", { name: "Good" }));
 
@@ -166,9 +166,9 @@ describe("the review route on a phone", () => {
       .spyOn(api, "saveNote")
       .mockImplementation(async (path: string, content: string) => ({ path, content }));
 
-    fireEvent.click(await findButton(/alpha/));
+    fireEvent.click(await findButton(/^alpha/));
     expect(await shownCard()).toHaveTextContent("a");
-    fireEvent.click(screen.getByRole("button", { name: "Show answer" }));
+    fireEvent.click(screen.getByRole("button", { name: "Show the answer" }));
     fireEvent.click(screen.getByRole("button", { name: "Good" }));
     expect(await screen.findByTestId("review-done")).toBeInTheDocument();
 
@@ -183,7 +183,8 @@ describe("the review route on a phone", () => {
     expect(center).toHaveClass("min-h-11");
     fireEvent.click(center);
     expect(center).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByTestId("review-card")).toHaveClass("text-center");
+    // The centring classes sit on the swipe wrapper around the card.
+    expect(screen.getByTestId("review-card").parentElement).toHaveClass("text-center");
   });
 
   it("#612 A5 a tapped rating's refetch of a changed decks.md leaves the sitting as it was", async () => {
@@ -209,9 +210,9 @@ describe("the review route on a phone", () => {
       return "alpha: 1 new\n";
     });
 
-    fireEvent.click(await findButton(/alpha/));
+    fireEvent.click(await findButton(/^alpha/));
     expect(await shownCard()).toHaveTextContent("a");
-    fireEvent.click(screen.getByRole("button", { name: "Show answer" }));
+    fireEvent.click(screen.getByRole("button", { name: "Show the answer" }));
     fireEvent.click(screen.getByRole("button", { name: "Good" }));
     await waitFor(() => expect(late.reads).toBeGreaterThan(0));
     await act(async () => {});

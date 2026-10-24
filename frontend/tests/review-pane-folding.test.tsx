@@ -121,8 +121,16 @@ describe("ReviewPane folding the deck list (#517)", () => {
     // A parent disabled above a subdeck that can be sat, which a daily limit
     // on the parent alone makes and the counts of today's cards never do.
     vi.spyOn(review, "decksFrom").mockReturnValue([
-      { name: "trivia", notes: ["d.md"], due: 0, fresh: 0, parked: 0, whole: false },
-      { name: "trivia/geography", notes: ["d.md"], due: 0, fresh: 1, parked: 0, whole: false },
+      { name: "trivia", notes: ["d.md"], due: 0, fresh: 0, parked: 0, whole: false, next: null },
+      {
+        name: "trivia/geography",
+        notes: ["d.md"],
+        due: 0,
+        fresh: 1,
+        parked: 0,
+        whole: false,
+        next: null,
+      },
     ]);
     localStorage.setItem(FOLDS, JSON.stringify(["trivia"]));
     vi.spyOn(api, "fetchCards").mockResolvedValue(TREE);

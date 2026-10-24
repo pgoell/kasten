@@ -32,7 +32,7 @@ describe("ReviewSession jotting a new question", () => {
     const saved = renderJot();
     await shownCard();
 
-    fireEvent.click(screen.getByRole("button", { name: "Jot" }));
+    fireEvent.click(screen.getByRole("button", { name: "Write a new question" }));
     fireEvent.change(screen.getByLabelText("a new question"), {
       target: { value: "What is a moved block?" },
     });
@@ -47,7 +47,7 @@ describe("ReviewSession jotting a new question", () => {
     await shownCard();
     expect(screen.getByText(/left/).textContent).toBe("2 left");
 
-    fireEvent.click(screen.getByRole("button", { name: "Jot" }));
+    fireEvent.click(screen.getByRole("button", { name: "Write a new question" }));
     fireEvent.change(screen.getByLabelText("a new question"), {
       target: { value: "What is a moved block?" },
     });
@@ -61,7 +61,7 @@ describe("ReviewSession jotting a new question", () => {
     renderJot();
     await shownCard();
 
-    fireEvent.click(screen.getByRole("button", { name: "Jot" }));
+    fireEvent.click(screen.getByRole("button", { name: "Write a new question" }));
     fireEvent.change(screen.getByLabelText("a new question"), { target: { value: "Q" } });
     fireEvent.submit(screen.getByTestId("review-capture"));
 
@@ -72,7 +72,7 @@ describe("ReviewSession jotting a new question", () => {
     const saved = renderJot();
     await shownCard();
 
-    const button = screen.getByRole("button", { name: "Jot" });
+    const button = screen.getByRole("button", { name: "Write a new question" });
     fireEvent.click(button);
     expect(button).toHaveAttribute("aria-expanded", "true");
     fireEvent.change(screen.getByLabelText("a new question"), { target: { value: "Q" } });
@@ -84,12 +84,13 @@ describe("ReviewSession jotting a new question", () => {
   });
 
   // jsdom lays nothing out, so the class is the nearest thing to a width there
-  // is to assert. "Jot" and "Type" are the two labels narrower than 44px.
+  // is to assert. "Type" is the one narrow label left in the header: Jot moved
+  // to the quiet link under the question, which is wide enough by its words.
   it("gives its narrow header buttons a thumb's width on a touch screen", async () => {
     renderJot();
     await shownCard();
 
-    for (const name of ["Jot", "Type"]) {
+    for (const name of ["Type"]) {
       const button = screen.getByRole("button", { name });
       expect(button).toHaveClass("min-h-11", "pointer-coarse:min-w-11");
     }

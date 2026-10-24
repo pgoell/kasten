@@ -108,7 +108,9 @@ describe("ReviewPane on a nested deck", () => {
     // The parent, the subdeck being folded away (#517).
     screen.getByRole("button", { name: /^databases/ });
 
-    expect(screen.getByText(/to go/).textContent).toBe("1 to go");
+    expect((await screen.findByText(/to go today/)).textContent).toBe(
+      "1 card to go today in 1 deck.",
+    );
   });
 });
 
@@ -135,20 +137,22 @@ describe("ReviewPane on a deck holding parked cards", () => {
         <ReviewPane commands={stubCommands()} onClose={vi.fn()} onOpen={vi.fn()} />
       </QueryClientProvider>,
     );
-    screen.getByRole("button", { name: /alpha/ });
+    screen.getByRole("button", { name: /^alpha/ });
   }
 
   it("counts the parked cards in the header beside the ones to go", async () => {
     await renderParked();
 
-    expect(screen.getByText(/to go/).textContent).toBe("1 to go");
-    expect(screen.getByText("2 parked")).toBeInTheDocument();
+    expect((await screen.findByText(/to go today/)).textContent).toBe(
+      "1 card to go today in 1 deck. 2 parked.",
+    );
+    expect(screen.getByRole("button", { name: "2 parked cards" })).toBeInTheDocument();
   });
 
   it("says on the row how many of its cards are parked", async () => {
     await renderParked();
 
-    expect(screen.getByRole("button", { name: /alpha/ })).toHaveTextContent("1 parked");
+    expect(screen.getByRole("button", { name: /^alpha/ })).toHaveTextContent("1 parked");
   });
 
   it("cannot sit a deck holding nothing but parked cards", async () => {
@@ -181,7 +185,7 @@ describe("ReviewPane on the parked screen", () => {
         <ReviewPane commands={stubCommands()} onClose={vi.fn()} onOpen={onOpen} />
       </QueryClientProvider>,
     );
-    screen.getByRole("button", { name: /alpha/ });
+    screen.getByRole("button", { name: /^alpha/ });
     const pane = screen.getByLabelText("review");
     fireEvent.keyDown(pane, { key: "p" });
     return { pane, container, onOpen };
@@ -211,7 +215,7 @@ describe("ReviewPane on the parked screen", () => {
 
     fireEvent.keyDown(pane, { key: "h" });
 
-    expect(await screen.findByRole("button", { name: /alpha/ })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: /^alpha/ })).toBeInTheDocument();
     expect(container.querySelector("button[data-deck]")).not.toBeNull();
   });
 
@@ -236,7 +240,7 @@ describe("ReviewPane on the parked screen", () => {
     // the body and every key after `u` reaches nothing.
     expect(document.activeElement).toBe(pane);
     fireEvent.keyDown(pane, { key: "h" });
-    expect(await screen.findByRole("button", { name: /alpha/ })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: /^alpha/ })).toBeInTheDocument();
   });
 
   it("opens the note the focused row is written in on o", async () => {

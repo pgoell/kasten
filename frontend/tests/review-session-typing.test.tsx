@@ -14,7 +14,7 @@ describe("ReviewSession typing", () => {
   it("asks for a button press when typing is off", async () => {
     await renderSession();
 
-    expect(screen.getByRole("button", { name: "Show answer" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Show the answer" })).toBeInTheDocument();
     expect(screen.queryByLabelText("your answer")).not.toBeInTheDocument();
   });
 
@@ -24,7 +24,7 @@ describe("ReviewSession typing", () => {
     fireEvent.click(screen.getByRole("button", { name: "Type" }));
 
     expect(screen.getByLabelText("your answer")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Show answer" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Show the answer" })).not.toBeInTheDocument();
   });
 
   it("keeps the ratings back until the answer is in", async () => {

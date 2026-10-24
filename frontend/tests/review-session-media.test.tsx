@@ -18,7 +18,7 @@ describe("ReviewSession on a card with pictures", () => {
       ),
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Show answer" }));
+    fireEvent.click(screen.getByRole("button", { name: "Show the answer" }));
 
     await waitFor(() =>
       expect(
@@ -63,7 +63,7 @@ describe("ReviewSession playing a card's sounds", () => {
     renderDeck(`#flashcards/aws\n\n![](${MEDIA}/kana.mp3)::か ![](${MEDIA}/ka.mp3)\n`);
     await waitFor(() => expect(play).toHaveBeenCalledOnce());
 
-    fireEvent.click(screen.getByRole("button", { name: "Show answer" }));
+    fireEvent.click(screen.getByRole("button", { name: "Show the answer" }));
 
     expect(played()).toHaveLength(2);
     expect(played()[1]).toMatch(/\/ka\.mp3$/);
@@ -75,7 +75,7 @@ describe("ReviewSession playing a card's sounds", () => {
     await waitFor(() => expect(play).toHaveBeenCalledOnce());
     pause.mockClear();
 
-    fireEvent.click(screen.getByRole("button", { name: "Show answer" }));
+    fireEvent.click(screen.getByRole("button", { name: "Show the answer" }));
 
     expect(pause).toHaveBeenCalled();
     expect(play).toHaveBeenCalledOnce();
@@ -88,7 +88,7 @@ describe("ReviewSession playing a card's sounds", () => {
     const { play, played } = stubPlayer();
     renderDeck(`#flashcards/aws\n\n![](${MEDIA}/a.mp3)::あ\n\n![](${MEDIA}/i.mp3)::い\n`);
     await waitFor(() => expect(play).toHaveBeenCalledOnce());
-    fireEvent.click(screen.getByRole("button", { name: "Show answer" }));
+    fireEvent.click(screen.getByRole("button", { name: "Show the answer" }));
 
     fireEvent.click(screen.getByRole("button", { name: "Good" }));
 
@@ -100,7 +100,7 @@ describe("ReviewSession playing a card's sounds", () => {
     renderDeck(`#flashcards/aws\n\n![](${MEDIA}/a.mp3)::あ\n\n![](${MEDIA}/i.mp3)::い\n`);
     await waitFor(() => expect(play).toHaveBeenCalledOnce());
 
-    fireEvent.click(screen.getByRole("button", { name: "Suspend" }));
+    fireEvent.click(screen.getByRole("button", { name: "Park this card" }));
 
     expect(played().at(-1)).toMatch(/\/i\.mp3$/);
   });
@@ -149,7 +149,7 @@ describe("ReviewSession playing a card's sounds", () => {
     const { play, pause } = stubPlayer();
     renderDeck(`#flashcards/aws\n\n![](${MEDIA}/a.mp3)::あ\n\nquiet::silent\n`);
     await waitFor(() => expect(play).toHaveBeenCalledOnce());
-    fireEvent.click(screen.getByRole("button", { name: "Show answer" }));
+    fireEvent.click(screen.getByRole("button", { name: "Show the answer" }));
     pause.mockClear();
 
     fireEvent.click(screen.getByRole("button", { name: "Good" }));
@@ -180,7 +180,7 @@ describe("ReviewSession playing a card's sounds", () => {
     expect(played()).toHaveLength(2);
     expect(played()[1]).toMatch(/\/kana\.mp3$/);
 
-    fireEvent.click(screen.getByRole("button", { name: "Show answer" }));
+    fireEvent.click(screen.getByRole("button", { name: "Show the answer" }));
     fireEvent.click(screen.getByRole("button", { name: "Replay" }));
     expect(played().at(-1)).toMatch(/\/ka\.mp3$/);
     expect(played().filter((src) => src.endsWith("/ka.mp3"))).toHaveLength(2);
@@ -193,7 +193,7 @@ describe("ReviewSession playing a card's sounds", () => {
 
     expect(screen.queryByRole("button", { name: "Replay" })).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Show answer" }));
+    fireEvent.click(screen.getByRole("button", { name: "Show the answer" }));
 
     expect(screen.getByRole("button", { name: "Replay" })).toBeInTheDocument();
   });

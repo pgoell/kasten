@@ -161,7 +161,9 @@ describe("the deck folds on the reference pages (#517)", () => {
         "editor-keys.md",
       )
       .toBe(true);
-    expect.soft(importIt, "import-an-anki-deck.md").toContain("**Import**");
+    expect
+      .soft(importIt, "import-an-anki-deck.md")
+      .toContain("**Import an Anki deck** below the decks");
   });
 });
 
