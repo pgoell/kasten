@@ -7,6 +7,7 @@ import type { TodoState } from "@/lib/todo";
 import { agentTodoIn, cycleTodoAside, cycleTodoInVault, toggleTimerInVault } from "@/lib/todo-api";
 import type { TodoCycle } from "@/lib/todo-commands";
 import { blockTodoInVault, editTodoInVault } from "@/lib/todo-line-edits";
+import { beginPress, endPress } from "@/lib/todo-press-echo";
 import { fileUnderTodos, lineOf, projectNote, refileOf } from "@/lib/todo-refile";
 import type { GuardedWrites } from "@/lib/use-guarded-writes";
 
@@ -80,10 +81,10 @@ export function useTodoActions({
   const cycleTodo = useCallback(
     (hit: SearchHit, state?: TodoState, twins?: number[]) => {
       setNotice(undefined);
-      void cycleTodoInVault(hit, readClock(new Date()).date, data ?? [], state, twins).then(
-        todosWritten,
-        (error: unknown) => setNotice(nothingMoved(error)),
-      );
+      beginPress();
+      void cycleTodoInVault(hit, readClock(new Date()).date, data ?? [], state, twins)
+        .then(todosWritten, (error: unknown) => setNotice(nothingMoved(error)))
+        .finally(endPress);
     },
     [data, todosWritten, setNotice],
   );
@@ -99,10 +100,10 @@ export function useTodoActions({
   const toggleTimer = useCallback(
     (hit: SearchHit, twins?: number[]) => {
       setNotice(undefined);
-      void toggleTimerInVault(hit, readClock(new Date()), data ?? [], twins).then(
-        todosWritten,
-        (error: unknown) => setNotice(nothingMoved(error)),
-      );
+      beginPress();
+      void toggleTimerInVault(hit, readClock(new Date()), data ?? [], twins)
+        .then(todosWritten, (error: unknown) => setNotice(nothingMoved(error)))
+        .finally(endPress);
     },
     [data, todosWritten, setNotice],
   );
@@ -119,7 +120,7 @@ export function useTodoActions({
    * words from before.
    */
   const agentLines = useRef(new Map<string, { listing: number; line: string }>());
-  const agentTodo = useCallback(
+  const tagTodo = useCallback(
     async (hit: SearchHit, twins?: number[]) => {
       setNotice(undefined);
       const note = hit.path;
@@ -201,6 +202,13 @@ export function useTodoActions({
     },
     [queryClient, write, todosWritten, archive, focusedNote, setNotice],
   );
+  const agentTodo = useCallback(
+    (hit: SearchHit, twins?: number[]) => {
+      beginPress();
+      return tagTodo(hit, twins).finally(endPress);
+    },
+    [tagTodo],
+  );
 
   /**
    * Put an edited line back in its note, from the pane's `e`.
@@ -211,10 +219,13 @@ export function useTodoActions({
    */
   const editTodo = useCallback(
     (hit: SearchHit, line: string) => {
-      void editTodoInVault(hit, line).then(todosWritten, () => {
-        // The vault refused the write, or the note moved out from under the
-        // row. The list stays as it is, and the next event redraws it.
-      });
+      beginPress();
+      void editTodoInVault(hit, line)
+        .then(todosWritten, () => {
+          // The vault refused the write, or the note moved out from under the
+          // row. The list stays as it is, and the next event redraws it.
+        })
+        .finally(endPress);
     },
     [todosWritten],
   );
@@ -227,9 +238,10 @@ export function useTodoActions({
    */
   const blockTodo = useCallback(
     (hit: SearchHit, blocker: SearchHit) => {
-      void blockTodoInVault(hit, blocker).then(todosWritten, (error: unknown) =>
-        setNotice(nothingMoved(error)),
-      );
+      beginPress();
+      void blockTodoInVault(hit, blocker)
+        .then(todosWritten, (error: unknown) => setNotice(nothingMoved(error)))
+        .finally(endPress);
     },
     [todosWritten, setNotice],
   );
@@ -246,7 +258,7 @@ export function useTodoActions({
    * lane the board draws it in. A drop names the lane's instead, which is how
    * a card in "No project" gets one: the same path, so a drop is no second move.
    */
-  const refileTodo = useCallback(
+  const moveTodo = useCallback(
     async (hit: TodoHit, lane?: string) => {
       setNotice(undefined);
       const project = lane ?? hit.project;
@@ -380,6 +392,13 @@ export function useTodoActions({
       );
     },
     [queryClient, write, todosWritten, focusedNote, setNotice],
+  );
+  const refileTodo = useCallback(
+    (hit: TodoHit, lane?: string) => {
+      beginPress();
+      return moveTodo(hit, lane).finally(endPress);
+    },
+    [moveTodo],
   );
 
   return {

@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { type BoardKeys, TodoBoard } from "@/components/todo-board";
 import { TodoFooter } from "@/components/todo-footer";
 import { TodoHeader } from "@/components/todo-header";
@@ -7,6 +7,7 @@ import { TodoList } from "@/components/todo-list";
 import { fetchTodos, type SearchHit, type TodoHit } from "@/lib/api";
 import type { EditorCommands } from "@/lib/key-bindings";
 import type { TodoState } from "@/lib/todo";
+import { type HeldGroup, holdOrder, identities, sameOrder, snapshot } from "@/lib/todo-hold";
 import { useArmed } from "@/lib/use-armed";
 import { useBlockerPick } from "@/lib/use-blocker-pick";
 import { useTodoFilter } from "@/lib/use-todo-filter";
@@ -175,15 +176,62 @@ export function TodoPane({
     board,
   });
 
+  /**
+   * The order the list is drawn in while a press holds it, or null while it is
+   * drawn as the vault answers. A press on a row keeps every other row where it
+   * was, so a todo checked off does not pull the rows under it up while the
+   * reader is aiming at the next one.
+   */
+  const [hold, setHold] = useState<HeldGroup[] | null>(null);
+  const ids = useMemo(() => identities(data ?? []), [data]);
+  const holding = useMemo(
+    () => (hold === null ? null : holdOrder(hold, facts.groups, data ?? [], ids)),
+    [hold, facts.groups, data, ids],
+  );
+  const groups = useMemo(
+    () =>
+      holding === null
+        ? facts.groups
+        : holding.map((group) => ({
+            heading: group.heading,
+            rows: group.rows.map((each) => each.row),
+          })),
+    [holding, facts.groups],
+  );
+  const rows = useMemo(() => groups.flatMap((group) => group.rows), [groups]);
+
+  // What was drawn becomes the hold, so a row that arrives later takes its place
+  // at the end of its group rather than wherever the answer put it. Kept as it
+  // was where the rows are the same, so this does not render again.
+  useEffect(() => {
+    if (holding === null) return;
+    setHold((previous) => (previous === null || sameOrder(previous, holding) ? previous : holding));
+  }, [holding]);
+
+  /** The first press of the open list holds the order it is drawn in. */
+  function holdNow() {
+    if (listed !== "open" || board) return;
+    setHold((previous) => previous ?? snapshot(facts.groups, ids));
+  }
+
+  /** A write from a row, held first, so the row it changes is still where it was drawn. */
+  function pressing<A extends unknown[]>(press: (...args: A) => void) {
+    return (...args: A) => {
+      holdNow();
+      press(...args);
+    };
+  }
+
   // Narrowing the list can strand the cursor past the end of it.
-  const cursor = Math.min(active, Math.max(facts.rows.length - 1, 0));
-  const at = facts.rows[cursor];
+  const cursor = Math.min(active, Math.max(rows.length - 1, 0));
+  const at = rows[cursor];
   const cursorKey = at === undefined ? "" : rowKey(at.hit);
+  const refile = pressing(onRefile);
   const { onCycle, onTimer, onAgent } = useTodoTwins({
     data,
-    cycle,
-    timer,
-    agent,
+    cycle: pressing(cycle),
+    timer: pressing(timer),
+    agent: pressing(agent),
     cursorRow,
     at,
     idle: board || blocker.picking !== null,
@@ -200,7 +248,7 @@ export function TodoPane({
     draft,
     focusSignal,
     cursorKey,
-    rows: facts.rows,
+    rows,
     board,
     editingKey,
   });
@@ -211,12 +259,20 @@ export function TodoPane({
   function show(list: Mode) {
     setMode((previous) => (previous === list ? "open" : list));
     setActive(0);
+    setHold(null);
   }
 
   /** `v`: the next view, writing the note first where the vault has none. */
   function nextView() {
     narrowing.nextView();
     setActive(0);
+    setHold(null);
+  }
+
+  /** `c`: the board or the list. Either way the order held for the list is let go. */
+  function toggleBoard() {
+    setBoard(!board);
+    setHold(null);
   }
 
   /**
@@ -267,15 +323,15 @@ export function TodoPane({
     ["part", () => onSubtask(hit)],
     ["edit", () => edit(hit)],
     ["blocked by", () => block(hit)],
-    ["refile", () => onRefile(hit)],
+    ["refile", () => refile(hit)],
     ["agent", () => onAgent(hit)],
   ];
 
   // What each key does here. Each act checks the row it needs, so a key that
   // binds no row (`a`, `d`, `n`) reaches the pane without one.
   const act: TodoKeyActions = {
-    toggleBoard: () => setBoard(!board),
-    down: () => setActive(Math.min(cursor + 1, facts.rows.length - 1)),
+    toggleBoard,
+    down: () => setActive(Math.min(cursor + 1, rows.length - 1)),
     up: () => setActive(Math.max(cursor - 1, 0)),
     enter: () => {
       if (at === undefined) return;
@@ -295,7 +351,7 @@ export function TodoPane({
       if (at !== undefined) onAgent(at.hit);
     },
     refile: () => {
-      if (at !== undefined) onRefile(at.hit);
+      if (at !== undefined) refile(at.hit);
     },
     add: () => onAdd(),
     subtask: () => {
@@ -333,8 +389,12 @@ export function TodoPane({
       }}
       // Only a move onto something outside gives the keys up. A row that
       // unmounts fires no blur at all, which is exactly the case above.
+      // Leaving the pane lets the order go, so the list is drawn fresh the next
+      // time the reader is in it.
       onBlur={(event) => {
-        held.current = panel.current?.contains(event.relatedTarget) === true;
+        const inside = panel.current?.contains(event.relatedTarget) === true;
+        held.current = inside;
+        if (!inside) setHold(null);
       }}
       // Focusable, but not in the tab order: the cursor row is the tab stop,
       // and this is where the focus rests before a row exists to hold it.
@@ -349,6 +409,7 @@ export function TodoPane({
         onType={(value) => {
           narrowing.type(value);
           setActive(0);
+          setHold(null);
         }}
         onFiltered={focusList}
         named={narrowing.named}
@@ -362,7 +423,7 @@ export function TodoPane({
           done: () => strip(() => show("done")),
           next: () => strip(() => show("next")),
           view: () => strip(nextView),
-          board: () => strip(() => setBoard(!board)),
+          board: () => strip(toggleBoard),
         }}
       />
 
@@ -386,13 +447,9 @@ export function TodoPane({
         />
       ) : (
         <TodoList
-          groups={facts.groups}
+          groups={groups}
           empty={
-            facts.rows.length === 0
-              ? listed === "done"
-                ? "nothing finished"
-                : "nothing to do"
-              : null
+            rows.length === 0 ? (listed === "done" ? "nothing finished" : "nothing to do") : null
           }
           cursorKey={cursorKey}
           facts={facts}
