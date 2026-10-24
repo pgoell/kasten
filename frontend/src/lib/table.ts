@@ -50,8 +50,20 @@ export function isRow(text: string): boolean {
   return WALL.test(text);
 }
 
+/**
+ * Whether a line is the row of dashes under a head.
+ *
+ * Read with `trim()`, not the padding `cellsOf` takes: the tree reads a no-break
+ * or an ideographic space beside a dash as whitespace, so the row is a divider
+ * there too.
+ */
 function isDivider(text: string): boolean {
-  const cells = cellsOf(text);
+  const cells = text
+    .trim()
+    .replace(/^\|/, "")
+    .replace(/(?<!\\)\|$/, "")
+    .split(WALLS)
+    .map((cell) => cell.trim());
   return cells.length > 0 && cells.every((cell) => DASHES.test(cell));
 }
 

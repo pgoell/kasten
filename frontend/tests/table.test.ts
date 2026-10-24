@@ -62,6 +62,12 @@ describe("alignTable", () => {
 });
 
 describe("tableAt", () => {
+  it("#792 R8 a row of dashes with a no-break space is still a divider", () => {
+    const doc = Text.of(["| a | b |", "|  - | - |", "| 1 | 2 |"]);
+
+    expect(tableAt(doc, 1)).toEqual({ first: 1, last: 3 });
+  });
+
   it("finds the table from any line in it", () => {
     const doc = Text.of(["intro", "| a | b |", "| - | - |", "| 1 | 2 |", "after"]);
 

@@ -27,18 +27,26 @@ import { lineUpChanges, type TableRun, tableAt } from "@/lib/table";
 /** The user event the line-up's own edits carry, so they are not taken for typing. */
 const LINE_UP = "format.table";
 
-/** Takes a table's first line out of the set, once it has been lined up. */
-const forget = StateEffect.define<number>();
+/**
+ * Takes a table's mark out of the set. By id, because a line-up moves the lines
+ * of every table after the one it lines up, so a position taken before it is
+ * stale; `at` only tells a change in the same transaction which table it is.
+ */
+const forget = StateEffect.define<{ id: number; at: number }>();
+
+/** The ids the marks are given, unique for the life of the page. */
+let seq = 0;
 
 /**
- * A table the reader typed into: the position of its first line, and its text as
- * it was before the typing.
+ * A table the reader typed into: its id, the position of its first line, and its
+ * text as it was before the typing.
  *
  * The text is how the line-up knows a table was changed and changed back. Undo,
  * or typing a character and deleting it again, leaves the table as it was, and
  * there is nothing to line up.
  */
 interface Mark {
+  id: number;
   at: number;
   before: string;
 }
@@ -64,18 +72,15 @@ function touchedBy(
   fromB: number,
   toB: number,
 ): Mark[] {
-  const before = tr.startState;
+  const before = tr.startState.doc;
   const inserted = tr.newDoc.sliceString(fromB, toB);
   const found: Mark[] = [];
-  for (let n = before.doc.lineAt(fromA).number; n <= before.doc.lineAt(toA).number; n++) {
-    const opened = tableAt(before.doc, n);
-    if (opened === null) continue;
-    const table = readable(before, before.doc.line(opened.first).from);
-    if (table === null) continue;
+  for (let n = before.lineAt(fromA).number; n <= before.lineAt(toA).number; n++) {
+    const run = tableAt(before, n);
+    if (run === null) continue;
 
-    const { run } = table;
-    const from = before.doc.line(run.first).from;
-    const to = before.doc.line(run.last).to;
+    const from = before.line(run.first).from;
+    const to = before.line(run.last).to;
     const hit =
       fromA === toA
         ? (from < fromA && fromA < to) ||
@@ -84,27 +89,52 @@ function touchedBy(
         : fromA < to && toA > from;
     if (!hit) continue;
 
-    // Deleted along with its first line, the table is gone and there is nothing to
-    // mark: its position would otherwise map onto the table after it.
-    if (fromA <= from && from < toA) continue;
+    // Deleted whole, the table is gone and there is nothing to mark: its position
+    // would otherwise map onto the table after it. A deletion over only part of it
+    // is an edit of the table.
+    if (fromA <= from && toA >= to) continue;
     const at = tr.changes.mapPos(from, -1, MapMode.TrackDel);
-    if (at !== null) found.push({ at, before: textOf(before.doc, run) });
+    if (at !== null) found.push({ id: ++seq, at, before: textOf(before, run) });
   }
   return found;
 }
 
 /**
- * The marks whose first character the change deletes, by their position before
- * the change.
+ * The tables a change puts a character into, measured in the document after it.
  *
- * `MapMode.TrackDel` does not report a deletion that starts on the position, so
- * a table cut out from its first line, a `dap` for one, is checked here.
+ * A row pasted under a table, or a copy of its last row, is text the table did not
+ * have before the change, so `touchedBy` cannot see it. The mark's text is empty,
+ * which no table reads as unchanged: the table is lined up when the reader leaves
+ * it. An Enter at the end of a row puts in only a newline, which opens no row.
+ */
+function openedBy(tr: Transaction, fromB: number, toB: number): Mark[] {
+  const doc = tr.newDoc;
+  if (doc.sliceString(fromB, toB).replace(/\n/g, "") === "") return [];
+  const found: Mark[] = [];
+  for (let n = doc.lineAt(fromB).number; n <= doc.lineAt(toB).number; n++) {
+    const run = tableAt(doc, n);
+    if (run === null) continue;
+    found.push({ id: ++seq, at: doc.line(run.first).from, before: "" });
+  }
+  return found;
+}
+
+/**
+ * The ids of the marks whose whole table the change deletes, measured in the
+ * document before it.
+ *
+ * `MapMode.TrackDel` does not report a deletion that starts on the position, so a
+ * table cut out from its first line, a `dap` for one, is checked here. Only a
+ * deletion over the whole table counts: one over its first character is an edit.
  */
 function lostIn(tr: Transaction, marks: Mark[]): Set<number> {
   const lost = new Set<number>();
+  const doc = tr.startState.doc;
   tr.changes.iterChangedRanges((fromA, toA) => {
     for (const mark of marks) {
-      if (fromA <= mark.at && mark.at < toA) lost.add(mark.at);
+      const run = tableAt(doc, doc.lineAt(mark.at).number);
+      if (run === null) continue;
+      if (fromA <= mark.at && toA >= doc.line(run.last).to) lost.add(mark.id);
     }
   });
   return lost;
@@ -120,25 +150,31 @@ const edited = StateField.define<Mark[]>({
   create: () => [],
   update(marks, tr) {
     const forgotten = new Set<number>();
+    const forgottenAt = new Set<number>();
     for (const effect of tr.effects) {
-      if (effect.is(forget)) forgotten.add(effect.value);
+      if (effect.is(forget)) {
+        forgotten.add(effect.value.id);
+        forgottenAt.add(effect.value.at);
+      }
     }
 
     const lost = lostIn(tr, marks);
     let next: Mark[] = [];
     for (const mark of marks) {
-      if (lost.has(mark.at)) continue;
+      if (lost.has(mark.id) || forgotten.has(mark.id)) continue;
       const at = tr.changes.mapPos(mark.at, -1, MapMode.TrackDel);
-      if (at !== null && !forgotten.has(at)) next.push({ at, before: mark.before });
+      if (at !== null) next.push({ id: mark.id, at, before: mark.before });
     }
     if (!isTyping(tr)) return next;
 
+    // A table this transaction forgets is not marked again by it.
+    const add = (mark: Mark) => {
+      if (forgottenAt.has(mark.at) || next.some((each) => each.at === mark.at)) return;
+      next = [...next, mark];
+    };
     tr.changes.iterChangedRanges((fromA, toA, fromB, toB) => {
-      for (const mark of touchedBy(tr, fromA, toA, fromB, toB)) {
-        if (!forgotten.has(mark.at) && !next.some((each) => each.at === mark.at)) {
-          next = [...next, mark];
-        }
-      }
+      for (const mark of touchedBy(tr, fromA, toA, fromB, toB)) add(mark);
+      for (const mark of openedBy(tr, fromB, toB)) add(mark);
     });
     return next;
   },
@@ -180,9 +216,12 @@ function readable(state: EditorState, first: number): Readable | null {
   if (tree === null) return null;
 
   const line = state.doc.lineAt(first);
-  let node: SyntaxNode | null = tree.resolveInner(line.from, 1);
+  // The tree starts a table after the indent, so the node is asked for there: a
+  // head the reader left with a leading space is still a table's head.
+  const start = line.from + line.text.length - line.text.trimStart().length;
+  let node: SyntaxNode | null = tree.resolveInner(start, 1);
   while (node !== null && node.name !== "Table") node = node.parent;
-  if (node === null || node.from !== line.from || node.parent?.name !== "Document") return null;
+  if (node === null || node.from !== start || node.parent?.name !== "Document") return null;
 
   const run = tableAt(state.doc, line.number);
   if (run === null || run.first !== line.number) return null;
@@ -224,31 +263,33 @@ const lineUpOnLeave = EditorState.transactionFilter.of((tr) => {
   const now = tr.newDoc.lineAt(tr.newSelection.main.head).number;
   const doc = tr.newDoc;
   const changes: ChangeSpec[] = [];
-  const effects: StateEffect<number>[] = [];
+  const effects: StateEffect<{ id: number; at: number }>[] = [];
 
   const lost = lostIn(tr, marks);
   for (const mark of marks) {
-    if (lost.has(mark.at)) continue;
+    if (lost.has(mark.id)) continue;
     const at = tr.changes.mapPos(mark.at, -1, MapMode.TrackDel);
     if (at === null) continue;
-    // A mark the tree refuses is forgotten, so the tree is not asked about it on
-    // every later leave.
-    const table = readable(tr.startState, mark.at);
-    if (table === null) {
-      effects.push(forget.of(at));
+    // No table on the mark's line any more, so the table is gone and so is the mark.
+    const opened = tableAt(tr.startState.doc, tr.startState.doc.lineAt(mark.at).number);
+    if (opened === null) {
+      effects.push(forget.of({ id: mark.id, at }));
       continue;
     }
+    // The tree refuses the table for now, as it does one that is mid-edit. The mark
+    // and its text wait for a leave the tree accepts.
+    const table = readable(tr.startState, mark.at);
+    if (table === null) continue;
     if (was < table.run.first || was > table.run.last) continue;
 
-    const line = doc.lineAt(at);
-    const next = tableAt(doc, line.number);
-    if (next !== null && next.first === line.number) {
+    const next = tableAt(doc, doc.lineAt(at).number);
+    if (next !== null && next.first === doc.lineAt(at).number) {
       const kept = cut(next, doc, tr.changes.mapPos(table.end, -1));
       if (now >= kept.first && now <= kept.last) continue;
       // Changed and changed back: the table is as it was, so there is nothing to line up.
-      if (textOf(doc, kept) !== mark.before) changes.push(...lineUpChanges(doc, kept));
+      if (textOf(doc, next) !== mark.before) changes.push(...lineUpChanges(doc, kept));
     }
-    effects.push(forget.of(at));
+    effects.push(forget.of({ id: mark.id, at }));
   }
 
   if (effects.length === 0) return tr;
@@ -274,14 +315,22 @@ export function lineUpEdited(view: EditorView): void {
 
   const doc = view.state.doc;
   const changes: ChangeSpec[] = [];
+  const done: Mark[] = [];
   for (const mark of marks) {
+    const opened = tableAt(doc, doc.lineAt(mark.at).number);
+    if (opened === null) {
+      done.push(mark);
+      continue;
+    }
+    // Refused by the tree for now: kept, as a leave keeps it, for a save the tree accepts.
     const table = readable(view.state, mark.at);
-    if (table === null || textOf(doc, table.run) === mark.before) continue;
-    changes.push(...lineUpChanges(doc, table.run));
+    if (table === null) continue;
+    done.push(mark);
+    if (textOf(doc, opened) !== mark.before) changes.push(...lineUpChanges(doc, table.run));
   }
   view.dispatch({
     changes,
-    effects: marks.map((mark) => forget.of(mark.at)),
+    effects: done.map((mark) => forget.of({ id: mark.id, at: mark.at })),
     annotations: [Transaction.userEvent.of(LINE_UP), isolateHistory.of("full")],
   });
 }
