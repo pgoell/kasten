@@ -110,6 +110,60 @@ describe("phone sheets", () => {
     expect(screen.getByRole("dialog", { name: "Leader keys" })).toBeInTheDocument();
   });
 
+  it("#793 R5 a press inside the phone sheet then a focus move the reader did not make keeps it open", async () => {
+    phone();
+    render(
+      <>
+        <button type="button">Note</button>
+        <WhichKey phone />
+      </>,
+    );
+    const note = screen.getByRole("button", { name: "Note" });
+    note.focus();
+    act(() => {
+      beginLeader(paneOpener(stubCommands()));
+    });
+    const panel = screen.getByRole("dialog", { name: "Leader keys" });
+
+    // A touch scroll of the rows starts inside the sheet: that is not the reader leaving it.
+    fireEvent.pointerDown(within(panel).getByText("Toggle the file tree", { selector: "span" }));
+    note.focus();
+    fireEvent.transitionEnd(panel, { propertyName: "opacity" });
+    await act(async () => {});
+
+    expect(screen.getByRole("dialog", { name: "Leader keys" })).toBeInTheDocument();
+  });
+
+  it("#793 R5 a press outside the phone sheet still closes it", async () => {
+    phone();
+    const other = document.createElement("button");
+    other.type = "button";
+    document.body.append(other);
+    try {
+      render(
+        <>
+          <button type="button">Note</button>
+          <WhichKey phone />
+        </>,
+      );
+      const note = screen.getByRole("button", { name: "Note" });
+      note.focus();
+      act(() => {
+        beginLeader(paneOpener(stubCommands()));
+      });
+      const panel = screen.getByRole("dialog", { name: "Leader keys" });
+
+      fireEvent.pointerDown(other);
+      other.focus();
+      fireEvent.transitionEnd(panel, { propertyName: "opacity" });
+      await act(async () => {});
+
+      expect(screen.queryByRole("dialog", { name: "Leader keys" })).toBeNull();
+    } finally {
+      other.remove();
+    }
+  });
+
   it("#793 R4 on a phone when the parent takes key help down, the focus goes back to the opener", () => {
     phone();
     const opener = document.createElement("button");

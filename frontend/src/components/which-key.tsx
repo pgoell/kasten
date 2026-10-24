@@ -229,7 +229,8 @@ export function WhichKey({ phone }: { phone: boolean }) {
   // Read by the one key listener, which outlives every render, so it never sees a stale phone.
   const phoneRef = useRef(phone);
   phoneRef.current = phone;
-  // Whether the reader has pressed a key or the pointer since the panel opened. On a
+  // Whether the reader has pressed a key the panel acts on, or pressed outside it, since
+  // it opened. A press inside the sheet (a scroll of its rows) does not count. On a
   // phone a focus that moves without one (the editor taking it back, say) is not the
   // reader going elsewhere, and must not take the sheet down with it.
   const gestured = useRef(false);
@@ -316,6 +317,8 @@ export function WhichKey({ phone }: { phone: boolean }) {
       // Enter on a focused row is that row's click, so the button gets it.
       if (key === "Enter" && event.target instanceof HTMLButtonElement && insidePanel(event.target))
         return;
+      // A key the panel acts on counts as the reader's; a lone modifier does not.
+      gestured.current = true;
       event.stopPropagation();
 
       if (key === "Tab") {
@@ -356,8 +359,8 @@ export function WhichKey({ phone }: { phone: boolean }) {
   // stopped here, so the press and the focus still reach their targets.
   useEffect(() => {
     const away = (event: Event) => {
-      if (event.type === "pointerdown") gestured.current = true;
       if (live.current.phase !== "open" || insidePanel(event.target)) return;
+      if (event.type === "pointerdown") gestured.current = true;
       // A focus move the reader did not make leaves a phone's sheet up. The desktop
       // panel keeps closing on any focus outside it, as it always has.
       if (event.type === "focusin" && phoneRef.current && !gestured.current) return;

@@ -221,7 +221,7 @@ export function TabStrip({
         onKeyDown={onTabKey}
         // Hidden tabs stay in the row, out of view, so their widths can be
         // measured. The clip stops them from widening the page sideways. On a
-        // narrow window the row is the scroller instead, with its bar hidden and
+        // phone the row is the scroller instead, with its bar hidden and
         // no pull past the end onto the page.
         className={`relative flex min-w-0 flex-1 items-stretch ${
           scrolls
