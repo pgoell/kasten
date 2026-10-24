@@ -435,7 +435,14 @@ it("I4 opening a todo's note writes nothing", async () => {
   const mounted = await mountWith(TODO_ALONE);
   try {
     await clickTodo(mounted.host);
-    await expectLineShown(mounted.host, { read: true });
+    // The open is done once the note's text is in the editor. The line is left to A1.
+    await waitFor(
+      () =>
+        expect(EditorView.findFromDOM(visibleEditor(mounted.host))?.state.doc.toString()).toContain(
+          TODO_TEXT,
+        ),
+      PATIENCE,
+    );
 
     // The autosave waits about a second before it writes, so a write would land in this wait.
     await new Promise((resolve) => setTimeout(resolve, 1200));
