@@ -40,7 +40,9 @@ interface Gesture {
   start: number;
   /** The furthest the finger has strayed from where it went down, in px. Under SLOP it is a tap. */
   reach: number;
-  /** The press began on a link, button, field or editable text, so it is not a tap on the card. */
+  /** The press began on a link, so a tap on it is the link's, though a swipe still grades the card. */
+  onLink: boolean;
+  /** The press began on a media or native widget, so neither a tap nor a swipe is the card's. */
   onControl: boolean;
   /** Set once the drag is horizontal and allowed: the card follows the finger. */
   decided: boolean;
@@ -50,11 +52,15 @@ interface Gesture {
 }
 
 /**
- * Where a press is not a tap on the card, since the control inside answers it. A read-only
- * CodeMirror view marks its text contenteditable="false", so only the editable ones count.
+ * Where a press belongs to a control inside the card, so the card neither taps nor swipes on it:
+ * a seek bar's drag is the bar's. A read-only CodeMirror view marks its text contenteditable="false",
+ * so only the editable ones count.
  */
 const CONTROL =
-  'a, audio, button, input, select, summary, textarea, video, [role="slider"], [contenteditable]:not([contenteditable="false"])';
+  'audio, button, input, select, summary, textarea, video, [role="slider"], [contenteditable]:not([contenteditable="false"])';
+
+/** A link inside the card: a tap is the link's, but a swipe that starts on it still grades. */
+const LINK = "a";
 
 /** Right is Good, left is Again. The stamps sit at the top corners on the side they name. */
 const STAMP =
@@ -157,6 +163,7 @@ export function SwipeCard({
       y: event.clientY,
       start: spring.value,
       reach: 0,
+      onLink: event.target instanceof Element && event.target.closest(LINK) !== null,
       onControl: event.target instanceof Element && event.target.closest(CONTROL) !== null,
       decided: false,
       dead: false,
@@ -207,7 +214,7 @@ export function SwipeCard({
     if (held.dead) return;
 
     if (!held.decided) {
-      if (held.reach < SLOP && !held.onControl) latest.current.onTap?.();
+      if (held.reach < SLOP && !held.onLink && !held.onControl) latest.current.onTap?.();
       return;
     }
 

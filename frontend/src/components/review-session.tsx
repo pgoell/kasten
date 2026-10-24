@@ -43,7 +43,11 @@ interface ReviewSessionProps {
       showing: boolean;
       /** Whether the answer is up, which is what makes `space` grade Good rather than reveal. */
       shown: boolean;
-      /** Whether the answer was turned over, as against shown from the start (a whole note). */
+      /**
+       * Whether the answer was turned over on a card that has one. A whole note is
+       * shown from the start, and an undo turns its answer back on, so neither
+       * counts: a Space must not grade a note nobody has turned over.
+       */
       revealed: boolean;
       reveal: () => void;
       rate: (rating: Rating) => void;
@@ -96,7 +100,7 @@ export function ReviewSession({ deck, onLeave, onControls, onOpen }: ReviewSessi
     next,
     nextDue,
     doneToday,
-    newCards,
+    newCount,
     today,
     typed,
     setTyped,
@@ -197,10 +201,11 @@ export function ReviewSession({ deck, onLeave, onControls, onOpen }: ReviewSessi
   // its `space` is the leader again rather than a reveal of nothing.
   useEffect(() => {
     const showing = card !== undefined;
+    const turned = card !== undefined && revealed && card.back !== "";
     onControls?.(
       !showing && step === null
         ? null
-        : { showing, shown, revealed, reveal, rate, suspend, capture, replay, undo },
+        : { showing, shown, revealed: turned, reveal, rate, suspend, capture, replay, undo },
     );
     return () => onControls?.(null);
   }, [capture, card, onControls, rate, replay, reveal, revealed, shown, step, suspend, undo]);
@@ -212,13 +217,17 @@ export function ReviewSession({ deck, onLeave, onControls, onOpen }: ReviewSessi
           puts Replay beside Undo, which is more than a phone holds, so there
           the row wraps rather than pushing Center off the screen. */}
       <header className="flex items-center gap-3 border-k-rule border-b px-3 py-2 max-md:flex-wrap max-md:justify-end max-md:gap-1">
-        <button type="button" onClick={onLeave} className="min-h-11 px-1 text-[13px] text-k-muted">
+        <button
+          type="button"
+          onClick={onLeave}
+          className="min-h-11 px-2 max-md:px-1 text-k-13 text-k-muted"
+        >
           ← Decks
         </button>
         <span className="min-w-0 flex-1 truncate font-mono text-k-13 text-k-muted">
           {deck.name}
         </span>
-        <span className="text-[11px] text-k-muted uppercase tracking-wider">
+        <span className="px-2 max-md:px-1 text-k-12 text-k-muted uppercase tracking-k-label">
           {queue.length} left
         </span>
         {/* The phone's `r`, and the only way to hear a first card a phone
@@ -227,7 +236,7 @@ export function ReviewSession({ deck, onLeave, onControls, onOpen }: ReviewSessi
           <button
             type="button"
             onClick={replay}
-            className="min-h-11 px-2 text-[11px] max-md:px-1 text-k-muted uppercase tracking-wider hover:text-k-accent pointer-coarse:min-w-11"
+            className="min-h-11 px-2 max-md:px-1 text-k-12 text-k-muted uppercase tracking-k-label hover:text-k-accent pointer-coarse:min-w-11"
           >
             Replay
           </button>
@@ -243,7 +252,7 @@ export function ReviewSession({ deck, onLeave, onControls, onOpen }: ReviewSessi
             type="button"
             onClick={undo}
             aria-disabled={undoing}
-            className="min-h-11 px-2 text-[11px] max-md:px-1 text-k-muted uppercase tracking-wider hover:text-k-accent aria-disabled:opacity-50 pointer-coarse:min-w-11"
+            className="min-h-11 px-2 max-md:px-1 text-k-12 text-k-muted uppercase tracking-k-label hover:text-k-accent aria-disabled:opacity-50 pointer-coarse:min-w-11"
           >
             Undo
           </button>
@@ -252,7 +261,7 @@ export function ReviewSession({ deck, onLeave, onControls, onOpen }: ReviewSessi
           type="button"
           onClick={toggleTyping}
           aria-pressed={typing}
-          className={`min-h-11 px-2 text-[11px] max-md:px-1 uppercase tracking-wider pointer-coarse:min-w-11 ${
+          className={`min-h-11 px-2 max-md:px-1 text-k-12 uppercase tracking-k-label pointer-coarse:min-w-11 ${
             typing ? "text-k-accent" : "text-k-muted"
           }`}
         >
@@ -262,7 +271,7 @@ export function ReviewSession({ deck, onLeave, onControls, onOpen }: ReviewSessi
           type="button"
           onClick={toggleCenter}
           aria-pressed={center}
-          className={`min-h-11 px-2 text-[11px] max-md:px-1 uppercase tracking-wider ${
+          className={`min-h-11 px-2 max-md:px-1 text-k-12 uppercase tracking-k-label ${
             center ? "text-k-accent" : "text-k-muted"
           }`}
         >
@@ -292,7 +301,7 @@ export function ReviewSession({ deck, onLeave, onControls, onOpen }: ReviewSessi
             value={jotting}
             onChange={(event) => setJotting(event.target.value)}
             placeholder="A question to answer later"
-            className="min-h-11 min-w-0 flex-1 rounded border border-k-rule bg-transparent px-3 text-[13px] text-k-ink outline-none focus:border-k-accent pointer-coarse:text-base"
+            className="min-h-11 min-w-0 flex-1 rounded border border-k-rule bg-transparent px-3 text-k-13 text-k-ink outline-none focus:border-k-accent pointer-coarse:text-base"
           />
           {/* Disabled while an undo is out, the question kept in the field
               for the next submit. */}
@@ -306,7 +315,7 @@ export function ReviewSession({ deck, onLeave, onControls, onOpen }: ReviewSessi
           here: a card taller than the pane would be pushed past the top of the
           scroll, where nothing can reach it. */}
       <div
-        className={`min-h-0 flex-1 overflow-auto px-4 py-6 text-[15px] ${center ? "flex flex-col" : ""}`}
+        className={`min-h-0 flex-1 overflow-auto px-4 py-6 text-k-15 ${center ? "flex flex-col" : ""}`}
       >
         {texts === null && failed === null && <p className="text-k-muted">Reading the deck…</p>}
 
@@ -319,10 +328,14 @@ export function ReviewSession({ deck, onLeave, onControls, onOpen }: ReviewSessi
             <p className="mt-2 text-k-muted">
               {nextDue !== null
                 ? `The next cards are due ${dayWords(nextDue, today)}.`
-                : newCards
-                  ? "New cards come tomorrow."
-                  : `Nothing in ${deck.name} is scheduled yet.`}
+                : `Nothing in ${deck.name} is scheduled yet.`}
             </p>
+            {/* New cards held back for a limit, which the schedule above does not name. */}
+            {newCount > 0 && (
+              <p className="mt-2 text-k-muted">
+                {newCount} new {newCount === 1 ? "card waits" : "cards wait"}.
+              </p>
+            )}
           </div>
         )}
 
@@ -332,7 +345,7 @@ export function ReviewSession({ deck, onLeave, onControls, onOpen }: ReviewSessi
             onGrade={rate}
             onFlight={onFlight}
             onTap={shown ? undefined : reveal}
-            className={`mx-auto w-full max-w-[var(--k-measure)]${center ? " review-center my-auto text-center" : ""}`}
+            className={`mx-auto w-full max-w-[var(--k-measure)]${center ? " review-center my-auto text-center" : ""} pointer-coarse:rounded-[var(--k-radius-8)] pointer-coarse:border pointer-coarse:border-k-rule pointer-coarse:bg-k-paper pointer-coarse:px-4 pointer-coarse:pt-10 pointer-coarse:pb-4`}
           >
             <div key={done} data-testid="review-card" className={entering ? "k-enter" : undefined}>
               {/* Rendered the way the editor renders it, so a card holding a
@@ -352,7 +365,7 @@ export function ReviewSession({ deck, onLeave, onControls, onOpen }: ReviewSessi
                 />
               </div>
               {shown && typing && (
-                <p data-testid="review-verdict" className="mt-6 text-[13px] text-k-muted">
+                <p data-testid="review-verdict" className="mt-6 text-k-13 text-k-muted">
                   {/* A cloze's back is the whole line, its target the hidden text.
                     A basic back is markdown, its escapes no part of the answer. */}
                   {sameAnswer(typed, card.target ?? unescaped(card.back)) ? (

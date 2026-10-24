@@ -56,16 +56,16 @@ it("#790 A4 the done screen counts the cards answered today, whichever sitting a
   expect(await screen.findByText("2 answered today in aws.")).toBeInTheDocument();
 });
 
-it("#790 D7 the done screen says new cards come tomorrow when new cards are held back", async () => {
+it("#790 D7 the done screen says how many new cards wait, when new cards are held back", async () => {
   // A new card and a limit of none for today: nothing is asked, and the new card
-  // waits for tomorrow's limit rather than being unscheduled.
+  // waits for a day with room under the limit.
   renderSitting(
     "#flashcards/aws\n\nWhat does S3 stand for?::Simple Storage Service\n",
     DECK,
     "aws: 0 new, 0 reviews\n",
   );
 
-  expect(await screen.findByText("New cards come tomorrow.")).toBeInTheDocument();
+  expect(await screen.findByText("1 new card waits.")).toBeInTheDocument();
 });
 
 it("#790 D8 the source line drops last seen when the schedule reads backwards", async () => {

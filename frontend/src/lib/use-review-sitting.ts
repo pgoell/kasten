@@ -169,8 +169,10 @@ export function useReviewSitting(
         .length,
     [cards, today],
   );
-  const newCards = useMemo(
-    () => [...cards.values()].flat().some(({ held, parked }) => parked === null && held === null),
+  const newCount = useMemo(
+    () =>
+      [...cards.values()].flat().filter(({ held, parked }) => parked === null && held === null)
+        .length,
     [cards],
   );
 
@@ -309,7 +311,7 @@ export function useReviewSitting(
     next,
     nextDue,
     doneToday,
-    newCards,
+    newCount,
     today,
     typed,
     setTyped,

@@ -15,12 +15,15 @@ const RATINGS: { rating: Rating; label: string }[] = [
  * Hard and Easy quiet. Taller on a touch screen, where the thumb is the pointer.
  */
 const GRADE_BASE =
-  "min-h-11 pointer-coarse:min-h-14 rounded border bg-k-paper px-2 py-2 text-k-15 hover:border-k-accent hover:text-k-accent active:bg-k-paper disabled:opacity-50";
+  "min-h-11 pointer-coarse:min-h-14 rounded bg-k-paper text-k-15 hover:border-k-accent hover:text-k-accent active:bg-k-paper disabled:opacity-50";
+// Good's outline is two pixels and the others one, so Good is marked by weight
+// and not by a second hue beside Again's russet. Its padding gives back the extra
+// pixel on each side, so all four buttons stand the same height.
 const GRADE: Record<Rating, string> = {
-  again: `${GRADE_BASE} border-k-rule text-k-danger`,
-  hard: `${GRADE_BASE} border-transparent text-k-ink`,
-  good: `${GRADE_BASE} border-k-accent text-k-ink`,
-  easy: `${GRADE_BASE} border-transparent text-k-ink`,
+  again: `${GRADE_BASE} border px-2 py-2 border-k-rule text-k-danger`,
+  hard: `${GRADE_BASE} border px-2 py-2 border-transparent text-k-ink`,
+  good: `${GRADE_BASE} border-2 px-[7px] py-[7px] border-k-accent text-k-ink`,
+  easy: `${GRADE_BASE} border px-2 py-2 border-transparent text-k-ink`,
 };
 
 /**
@@ -31,7 +34,7 @@ const GRADE: Record<Rating, string> = {
  * carries it, including the ones a desktop would be happy to draw smaller.
  */
 export const BUTTON =
-  "min-h-11 rounded border border-k-rule px-4 py-2 text-[13px] text-k-ink " +
+  "min-h-11 rounded border border-k-rule px-4 py-2 text-k-13 text-k-ink " +
   "hover:border-k-accent hover:text-k-accent active:bg-k-paper disabled:opacity-50 aria-disabled:opacity-50";
 
 /**
@@ -112,7 +115,7 @@ export function ReviewAnswer({
               aria-label="your answer"
               value={typed}
               onChange={(event) => onTyped(event.target.value)}
-              className="min-h-11 min-w-0 flex-1 rounded border border-k-rule bg-transparent px-3 text-[15px] text-k-ink outline-none focus:border-k-accent pointer-coarse:text-base"
+              className="min-h-11 min-w-0 flex-1 rounded border border-k-rule bg-transparent px-3 text-k-15 text-k-ink outline-none focus:border-k-accent pointer-coarse:text-base"
             />
             {/* Submitting the form is what the phone keyboard's Go key does. */}
             <button type="submit" disabled={undoing} className={BUTTON}>

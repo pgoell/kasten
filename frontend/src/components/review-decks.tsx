@@ -1,8 +1,8 @@
-import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Fragment, useRef, useState } from "react";
-import { type AnkiImport, fetchCards, fetchNote, importAnki, importAnkiLink } from "@/lib/api";
+import { useQueries, useQuery } from "@tanstack/react-query";
+import { Fragment, useState } from "react";
+import { ReviewImport } from "@/components/review-import";
+import { fetchCards, fetchNote } from "@/lib/api";
 import { readClock } from "@/lib/clock";
-import { whenKeysUp } from "@/lib/last-input";
 import { type Deck, deckNotes, decksFrom } from "@/lib/review";
 import { dayWords } from "@/lib/review-days";
 import { useEntrance } from "@/lib/stagger";
@@ -63,16 +63,6 @@ function ancestorsOf(name: string): string[] {
   return parts.slice(1).map((_, at) => parts.slice(0, at + 1).join("/"));
 }
 
-/** The line under the import row, one for a file and a link alike. */
-function summaryOf(done: AnkiImport): string {
-  return (
-    `${done.notes.length} deck${done.notes.length === 1 ? "" : "s"}, ${done.cards} cards: ` +
-    `${done.added} added, ${done.updated} updated, ${done.kept} kept, ` +
-    `${done.removed} removed in Anki` +
-    (done.media > 0 ? `, ${done.media} media file${done.media === 1 ? "" : "s"}` : "")
-  );
-}
-
 interface ReviewDecksProps {
   /** Start a sitting on this deck. */
   onPick: (deck: Deck) => void;
@@ -91,36 +81,13 @@ interface ReviewDecksProps {
  * from, so a deck can never promise a card its sitting will not ask.
  */
 export function ReviewDecks({ onPick, onParked, archive = false }: ReviewDecksProps) {
-  const [imported, setImported] = useState<string | null>(null);
-  const [carry, setCarry] = useState(false);
-  const [link, setLink] = useState("");
-  const [linking, setLinking] = useState(false);
   const [unfolded, setUnfolded] = useState(readUnfolded);
-  const picker = useRef<HTMLInputElement>(null);
-  const queryClient = useQueryClient();
 
   function toggleFold(name: string) {
     const next = new Set(unfolded);
     if (!next.delete(name)) next.add(name);
     setUnfolded(next);
     writeUnfolded(next);
-  }
-
-  /** Run one import, from a file or a link, and say on the line how it went. */
-  function runImport(started: Promise<AnkiImport>): Promise<boolean> {
-    setImported("Importing…");
-    return started.then(
-      (done) => {
-        setImported(summaryOf(done));
-        void queryClient.invalidateQueries({ queryKey: ["cards"] });
-        void queryClient.invalidateQueries({ queryKey: ["files"] });
-        return true;
-      },
-      (error: unknown) => {
-        setImported(error instanceof Error ? error.message : "the import failed");
-        return false;
-      },
-    );
   }
 
   const { data: hits, isPending: scanning } = useQuery({
@@ -216,10 +183,10 @@ export function ReviewDecks({ onPick, onParked, archive = false }: ReviewDecksPr
             </button>
           )}
 
-          {isPending && <p className="text-k-muted text-[13px]">Reading the vault…</p>}
+          {isPending && <p className="text-k-muted text-k-13">Reading the vault…</p>}
 
           {!isPending && decks.length === 0 && (
-            <p className="text-k-muted text-[13px]">
+            <p className="text-k-muted text-k-13">
               No decks. A deck is a note tagged <span className="text-k-ink">#flashcards</span>, or{" "}
               <span className="text-k-ink">#flashcards/aws</span> to name it, holding lines written{" "}
               <span className="text-k-ink">front::back</span>.
@@ -279,20 +246,31 @@ export function ReviewDecks({ onPick, onParked, archive = false }: ReviewDecksPr
                       {depthOf(deck.name) > 0 && <span className="text-k-muted">/ </span>}
                       {leafOf(deck.name)}
                     </span>
-                    <span className="text-k-13 text-k-accent">{deck.due} due</span>
-                    <span className="text-k-13 text-k-muted">{deck.fresh} new</span>
+                    {/* A deck with nothing to go shows no `0 due` and `0 new`: those
+                    counts are what the name competes with on a narrow screen, and a
+                    row with nothing to go says when it is next due instead. */}
+                    {deck.due + deck.fresh > 0 && (
+                      <>
+                        <span
+                          className={`shrink-0 text-k-13 ${deck.due > 0 ? "text-k-accent" : "text-k-muted"}`}
+                        >
+                          {deck.due} due
+                        </span>
+                        <span className="shrink-0 text-k-13 text-k-muted">{deck.fresh} new</span>
+                      </>
+                    )}
                     {/* Only where there are any. A deck of nothing but parked cards
                     lands disabled on the rule above, and a bare `0 new` would
                     leave no way to find out why. */}
                     {deck.parked > 0 && (
-                      <span className="text-k-13 text-k-muted opacity-60">
+                      <span className="shrink-0 text-k-13 text-k-muted opacity-60">
                         {deck.parked} parked
                       </span>
                     )}
                     {/* Where a deck has nothing to go, when it is next due, so the
                     row says why it cannot be sat and when it can. */}
                     {deck.due + deck.fresh === 0 && (
-                      <span className="text-k-13 text-k-muted">
+                      <span className="shrink-0 text-k-13 text-k-muted">
                         {deck.next === null
                           ? "nothing scheduled"
                           : `due ${dayWords(deck.next, today)}`}
@@ -305,109 +283,8 @@ export function ReviewDecks({ onPick, onParked, archive = false }: ReviewDecksPr
           </ul>
 
           {/* Below the decks, since an import is rare beside a sitting and the
-            decks are what a visit is for. Closed until asked for, and `details`
-            hides what it holds rather than unmounting it, so closing it keeps the
-            summary line, the tick and a half-typed link. */}
-          <details className="mt-8 border-k-rule border-t pt-3 text-k-13 text-k-muted">
-            {/* Not `flex`: the browser draws the open and closed triangle only on
-              a summary left as a list item, and that triangle is what says this
-              line opens. */}
-            <summary className="min-h-11 cursor-pointer content-center hover:text-k-accent">
-              Import an Anki deck
-            </summary>
-            <div className="flex flex-wrap items-center gap-x-6">
-              {/* A plain file input rather than a prompt of our own: the browser
-                already has a file picker, and this one has to work on a phone.
-                Hidden, because a file input draws as grey text that reads as no
-                control, and the button below presses it. */}
-              <input
-                ref={picker}
-                type="file"
-                accept=".apkg"
-                aria-label="Import an Anki deck"
-                tabIndex={-1}
-                className="hidden"
-                onChange={(event) => {
-                  const file = event.target.files?.[0];
-                  // The value is cleared so picking the same file twice fires twice,
-                  // which is what a failed import wants to let you retry.
-                  event.target.value = "";
-                  if (file === undefined) return;
-                  // Floored, so the line never reads 100% while a piece is still
-                  // on its way; once all are in, the backend is what is busy.
-                  void runImport(
-                    importAnki(file, carry, (sent, total) =>
-                      setImported(
-                        sent === total
-                          ? "Importing…"
-                          : `Uploading ${Math.floor((100 * sent) / total)}%…`,
-                      ),
-                    ),
-                  );
-                }}
-              />
-              <button
-                type="button"
-                onClick={() => whenKeysUp(() => picker.current?.click())}
-                className="my-1 min-h-11 rounded border border-k-rule px-3 text-k-ink hover:border-k-accent hover:text-k-accent"
-              >
-                Choose an .apkg file
-              </button>
-              {/* Off by default: a re-import keeps the schedule kasten has been
-                building unless you say Anki's is the one to trust. */}
-              <label className="flex min-h-11 cursor-pointer items-center gap-2 hover:text-k-accent">
-                <input
-                  type="checkbox"
-                  checked={carry}
-                  onChange={(event) => setCarry(event.target.checked)}
-                  className="size-4 accent-k-accent"
-                />
-                <span>Carry Anki's schedule</span>
-              </label>
-              {/* A form so Enter at a desk and Go on a phone keyboard both submit.
-                The field keeps a link that failed, to retry, and clears on one
-                that landed. */}
-              {/* `noValidate`, or the browser refuses a link it thinks is no URL
-                with its own bubble and the backend's sentence never shows. */}
-              <form
-                noValidate
-                className="flex min-w-0 flex-1 basis-64 items-center gap-2"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  const url = link.trim();
-                  // `linking` and not only the disabled button: Enter in the field
-                  // submits the form whatever state the button is in.
-                  if (url === "" || linking) return;
-                  setLinking(true);
-                  void runImport(importAnkiLink(url, carry)).then((landed) => {
-                    setLinking(false);
-                    if (landed) setLink("");
-                  });
-                }}
-              >
-                <input
-                  type="url"
-                  inputMode="url"
-                  autoCapitalize="off"
-                  autoCorrect="off"
-                  spellCheck={false}
-                  aria-label="a link to an Anki deck"
-                  placeholder="or paste a link to a deck"
-                  value={link}
-                  onChange={(event) => setLink(event.target.value)}
-                  className="my-1 min-h-11 min-w-0 flex-1 rounded border border-k-rule bg-transparent px-2 text-k-ink outline-none placeholder:text-k-muted focus:border-k-accent"
-                />
-                <button
-                  type="submit"
-                  disabled={linking}
-                  className="min-h-11 px-1 hover:text-k-accent disabled:opacity-50"
-                >
-                  Import link
-                </button>
-              </form>
-            </div>
-            {imported !== null && <p className="truncate pb-2 text-k-ink">{imported}</p>}
-          </details>
+            decks are what a visit is for. */}
+          <ReviewImport />
 
           {parked > 0 && (
             <button

@@ -26,7 +26,7 @@ Two places, the same session in both:
 | `za` | Fold or unfold the deck under the cursor; on a deck with none under it, fold the deck above |
 | `p` | Open the parked list |
 | `h` | Leave the sitting or the parked list, back to the decks |
-| `Space`, `Enter` | Show the answer; once it shows, grade the card Good |
+| `Space`, `Enter` | Show the answer; once it shows, grade the card Good, unless a button or link in the pane has the focus, which then takes the key itself. On a whole note, which shows from the start, they do nothing. A held key acts once per press |
 | `1` `2` `3` `4` | Again, Hard, Good, Easy |
 | `s` | Park the card on screen, as Park this card does |
 | `n` | Write a new question into the note the card came from, as Write a new question does |
@@ -53,6 +53,9 @@ the side it names. A swipe grades only past 38 % of the card's width, counting
 how fast the finger leaves, so a shorter one springs back and grades nothing.
 Each swipe that grades gives one short buzz where the phone can buzz. A mouse
 drag does not swipe, and the four buttons stay under the card for every rating.
+A swipe that starts on a button, a field, a sound player or another control does
+not swipe, and one that starts on a link still grades. A tap on a link, a button,
+a field or a player does not show the answer.
 
 The leader still works inside the pane, so `<leader>o` and the rest reach the
 other panes mid-sitting.

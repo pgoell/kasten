@@ -311,6 +311,30 @@ it("a sideways drag that starts on an audio control does not move the card or gr
   expect(onGrade).not.toHaveBeenCalled();
 });
 
+it("a sideways drag that starts on a link grades and swallows the click after it", async () => {
+  let clicked = 0;
+  const { root, onGrade } = renderCard({
+    children: (
+      <p>
+        <a href="#elsewhere">Open the note</a>
+      </p>
+    ),
+  });
+  const link = root.querySelector("a") as HTMLElement;
+  link.addEventListener("click", () => clicked++);
+  pointer(link, "pointerdown", 100, 300);
+  at(16);
+  pointer(link, "pointermove", 250, 300);
+  at(32);
+  pointer(link, "pointerup", 250, 300);
+
+  await waitFor(() => expect(onGrade).toHaveBeenCalledWith("good"));
+  act(() => {
+    link.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+  });
+  expect(clicked).toBe(0);
+});
+
 it("a horizontal touch move after the drag is decided is default prevented", () => {
   const { root } = renderCard();
   pointer(root, "pointerdown", 100, 300);
