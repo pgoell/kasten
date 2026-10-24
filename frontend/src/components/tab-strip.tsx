@@ -5,7 +5,7 @@ import type { HeldRow } from "@/lib/held-text";
 import { activeTab, isEmptyTab, type Layout, panesOf, type Tab } from "@/lib/panes";
 import { Spring } from "@/lib/spring";
 import type { SaveStatus } from "@/lib/use-autosave";
-import { useTabGeometry } from "@/lib/use-tab-geometry";
+import { TAB_MAX_WIDTH, useTabGeometry } from "@/lib/use-tab-geometry";
 
 interface TabStripProps {
   layout: Layout;
@@ -207,7 +207,7 @@ export function TabStrip({ layout, onSelect, onClose, onHome, unsaved }: TabStri
               } ${folded ? "invisible pointer-events-none absolute" : ""}`}
               style={
                 hidden.length > 0 && selected && cap !== undefined
-                  ? { maxWidth: Math.min(200, cap) }
+                  ? { maxWidth: Math.min(TAB_MAX_WIDTH, cap) }
                   : undefined
               }
             >

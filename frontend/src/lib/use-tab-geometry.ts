@@ -11,6 +11,13 @@ import { SPRINGS, type Spring } from "@/lib/spring";
 import { foldTabs } from "@/lib/tab-fold";
 
 /**
+ * The widest a tab draws, in px: the `max-w-[200px]` class on the tab in tab-strip.tsx.
+ *
+ * Tailwind needs that class as a literal, so the two are kept in step by hand.
+ */
+export const TAB_MAX_WIDTH = 200;
+
+/**
  * The room the "N more" button keeps at the right of the tabs, in px.
  *
  * Kept in step with the button's own `w-[88px]`, so a tab is never drawn under it.
@@ -65,16 +72,17 @@ export function useTabGeometry(
   // The observer is made again when the tabs change, so it reads the active tab from here.
   const activeNow = useRef(active);
 
-  // Reads the row and its tabs into the refs. A tab whose width reaches its cap is read
-  // again without the cap: the cap is not its natural width, and it would shape the
-  // fold that set it (R18). A tab that was narrower before it became active (R6) or
-  // whose label grew (R5) keeps its real width this way.
+  // Reads the row and its tabs into the refs. A tab whose width reaches a cap the fold
+  // gave it is read again without the cap, or the cap would shape the fold that set it
+  // (R18), and a tab that was narrower before it became active (R6) or whose label grew
+  // (R5) would keep its old width. The class's own cap is not the fold's: no tab is wider
+  // than it, so a tab at that width is read as it is, without a lift.
   const measure = (row: HTMLElement) => {
     room.current = row.clientWidth;
     for (const tab of row.querySelectorAll<HTMLElement>("[data-tab]")) {
       const width = tab.offsetWidth;
       const limit = Number.parseFloat(tab.style.maxWidth);
-      if (Number.isNaN(limit) || width < limit) {
+      if (Number.isNaN(limit) || limit >= TAB_MAX_WIDTH || width < limit) {
         natural.set(tab, width);
       } else {
         const kept = tab.style.maxWidth;
@@ -139,7 +147,8 @@ export function useTabGeometry(
     const sizes: number[] = [];
     for (const element of tabs) {
       const size = natural.get(element);
-      // A newly observed element always gets a first report, and the bar waits for it.
+      // A newly observed element gets its first report once it has a size, so a 0 by 0
+      // element may get none. The bar waits for that report.
       if (size === undefined) return undefined;
       sizes.push(size);
     }

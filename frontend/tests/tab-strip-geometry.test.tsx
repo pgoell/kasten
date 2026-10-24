@@ -63,19 +63,30 @@ function renamed(layout: Layout, index: number, path: string): Layout {
   };
 }
 
+/** What a fake observer watches, and the elements it has not reported yet. */
+interface FakeWatcher {
+  callback: () => void;
+  watched: Element[];
+  fresh: Element[];
+}
+
+const connected = (element: Element) => element.isConnected;
+
 /**
  * A ResizeObserver that reports only when the test fires it, as a browser does
- * after a layout. It fires only for an observer that still watches an element in
- * the document, and a disconnected one never fires. `made` lists the observers built.
+ * after a layout. A fire reports an observer's newly observed elements once, and
+ * `fire(true)` also reports every watched element, as a browser does when sizes
+ * change. A disconnected observer never fires. `made` lists the observers built.
  */
 function fakeObserver() {
   const made: object[] = [];
-  const live = new Set<{ callback: () => void; watched: Element[] }>();
+  const live = new Set<FakeWatcher>();
   vi.stubGlobal(
     "ResizeObserver",
-    class {
+    class implements FakeWatcher {
       callback: () => void;
       watched: Element[] = [];
+      fresh: Element[] = [];
 
       constructor(callback: () => void) {
         this.callback = callback;
@@ -85,9 +96,11 @@ function fakeObserver() {
 
       observe(element: Element) {
         this.watched.push(element);
+        this.fresh.push(element);
       }
       unobserve(element: Element) {
         this.watched = this.watched.filter((watched) => watched !== element);
+        this.fresh = this.fresh.filter((fresh) => fresh !== element);
       }
       disconnect() {
         live.delete(this);
@@ -100,10 +113,13 @@ function fakeObserver() {
     observes(element: Element | null) {
       return [...live].some((observer) => observer.watched.includes(element as Element));
     },
-    fire() {
+    fire(resized = false) {
       act(() => {
         for (const observer of live) {
-          if (observer.watched.some((element) => element.isConnected)) observer.callback();
+          const report =
+            observer.fresh.some(connected) || (resized && observer.watched.some(connected));
+          observer.fresh = [];
+          if (report) observer.callback();
         }
       });
     },
@@ -167,7 +183,7 @@ describe("TabStrip geometry", () => {
     expect(screen.getByRole("button", { name: "3 more" })).toBeInTheDocument();
 
     room = 400;
-    observer.fire();
+    observer.fire(true);
     expect(screen.queryByRole("button", { name: /more$/ })).toBeNull();
     expect(shownNames()).toEqual(["a", "b", "c", "d", "e"]);
   });
@@ -219,7 +235,7 @@ describe("TabStrip geometry", () => {
     observer.fire();
 
     view.rerender(strip(goToTab(layout, 4)));
-    observer.fire();
+    observer.fire(true);
 
     expect(screen.getByRole("button", { name: /more$/ }).textContent).toBe("4 more");
   });
@@ -246,5 +262,33 @@ describe("TabStrip geometry", () => {
 
     const bar = screen.getByRole("tablist").querySelector<HTMLElement>('span[aria-hidden="true"]');
     expect(bar?.style.transform).toBe("translateX(0px) scaleX(80)");
+  });
+
+  it("#976 R8 a capped tab at the class cap is read without lifting its cap", () => {
+    // Six tabs in a 400 px row. The active tab is 200 px, the class's own cap, and the
+    // fold caps it at 200 px inline too, so a read without the cap would be 200 again.
+    const widths = [100, 100, 100, 100, 100, 200];
+    let reads = 0;
+    vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockImplementation(function (
+      this: HTMLElement,
+    ) {
+      if (this.dataset.tab === "5") reads += 1;
+      return boxOf(this, widths[Number(this.dataset.tab)] ?? 0);
+    });
+    vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockImplementation(function (
+      this: HTMLElement,
+    ) {
+      return this.getAttribute("role") === "tablist" ? 400 : 0;
+    });
+    const observer = fakeObserver();
+    draw(goToTab(tabsOf("a.md", "b.md", "c.md", "d.md", "e.md", "f.md"), 5));
+    observer.fire();
+    expect(document.querySelector<HTMLElement>('[data-tab="5"]')?.style.maxWidth).toBe("200px");
+
+    const before = reads;
+    observer.fire(true);
+
+    // One read of the active tab per measure: a lift would read it a second time.
+    expect(reads - before).toBe(1);
   });
 });
