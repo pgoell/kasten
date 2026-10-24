@@ -53,6 +53,12 @@ describe("alignTable", () => {
   it("leaves an escaped wall inside a cell alone", () => {
     expect(align("| a \\| b | c |\n| - | - |")).toBe("| a \\| b | c   |\n| ------ | --- |");
   });
+
+  it("#792 R5 a cell's no-break and ideographic spaces survive a line-up", () => {
+    expect(align("|  x　 | y |\n| - | - |\n| z | w |")).toBe(
+      ["|  x　 | y   |", "| --- | --- |", "| z   | w   |"].join("\n"),
+    );
+  });
 });
 
 describe("tableAt", () => {

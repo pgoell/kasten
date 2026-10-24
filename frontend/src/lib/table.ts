@@ -29,13 +29,20 @@ const DASHES = /^:?-+:?$/;
 /** The narrowest a column can be drawn and still leave a legal `---`. */
 const MIN_WIDTH = 3;
 
+/**
+ * What pads a cell: spaces and tabs only. `trim()` would also take a no-break
+ * or an ideographic space, which the writer typed as text and which must come
+ * through a line-up as it went in.
+ */
+const PADDING = /^[ \t]+|[ \t]+$/g;
+
 /** Its cells, trimmed, with the outer walls dropped. */
 function cellsOf(text: string): string[] {
   const inner = text
-    .trim()
+    .replace(PADDING, "")
     .replace(/^\|/, "")
     .replace(/(?<!\\)\|$/, "");
-  return inner.split(WALLS).map((cell) => cell.trim());
+  return inner.split(WALLS).map((cell) => cell.replace(PADDING, ""));
 }
 
 /** Whether a line is a row of a table: a line carrying a cell wall. */

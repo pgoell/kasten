@@ -1,48 +1,21 @@
 import { Transaction } from "@codemirror/state";
-import { EditorView } from "@codemirror/view";
 import { act, fireEvent, render } from "@testing-library/react";
 import { Editor } from "@/components/editor";
 import { takeVaultText } from "@/lib/buffer-writes";
 import { runExCommand } from "./editor-fixture";
-
-/** A table with a short cell in its last row, and a line after it for the cursor to go to. */
-const DOC = ["| a | longer |", "| - | - |", "| xx | b |", "", "after"].join("\n");
-/** DOC with `c` typed after the `b`, the table not yet lined up. */
-const TYPED = DOC.replace("| xx | b |", "| xx | bc |");
-/** TYPED lined up, which is what the line-up writes. */
-const LINED = ["| a   | longer |", "| --- | ------ |", "| xx  | bc     |", "", "after"].join("\n");
+import {
+  content,
+  cursorTo,
+  DOC,
+  LINED,
+  saveWithCtrlS,
+  TYPED,
+  typeAt,
+  viewIn,
+} from "./table-lineup-fixture";
 
 beforeEach(() => localStorage.clear());
 afterEach(() => localStorage.clear());
-
-function viewIn(container: HTMLElement): EditorView {
-  return EditorView.findFromDOM(container.querySelector(".cm-editor") as HTMLElement) as EditorView;
-}
-
-function content(container: HTMLElement): HTMLElement {
-  return container.querySelector(".cm-content") as HTMLElement;
-}
-
-/** Puts the cursor where a click or a motion would. */
-function cursorTo(view: EditorView, at: number): void {
-  act(() => view.dispatch({ selection: { anchor: at } }));
-}
-
-/** Types `text` at `at` as the keyboard does, and leaves the cursor after it. */
-function typeAt(view: EditorView, at: number, text: string): void {
-  act(() =>
-    view.dispatch({
-      changes: { from: at, insert: text },
-      selection: { anchor: at + text.length },
-      userEvent: "input.type",
-    }),
-  );
-}
-
-/** Ctrl+s, which is the save key with vim on or off. */
-function saveWithCtrlS(container: HTMLElement): void {
-  fireEvent.keyDown(content(container), { key: "s", ctrlKey: true });
-}
 
 describe("the table line-up on save", () => {
   it("#792 A9 an edited table is lined up when the cursor leaves it", () => {
