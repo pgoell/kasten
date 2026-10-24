@@ -262,3 +262,17 @@ it("with reduced motion a swipe past 38 % grades at once", async () => {
   expect(writes).toHaveBeenCalledTimes(1);
   await expect.poll(() => cardOf(screen).textContent).toContain(S3);
 });
+
+it("A8 the grade buttons are 56 px high on touch, a thumb's 44 at least", async () => {
+  const screen = await mount();
+  await reveal(screen);
+  // The phone's answer is a finger's: the coarse query must match, or the taller rule is not in play.
+  expect(matchMedia("(pointer: coarse)").matches).toBe(true);
+
+  const buttons = [...screen.querySelectorAll<HTMLButtonElement>("button[data-rating]")];
+  expect(buttons.map((button) => button.dataset.rating)).toEqual(["again", "hard", "good", "easy"]);
+  for (const button of buttons) {
+    // 56 is `pointer-coarse:min-h-14`, which a finger's answer draws.
+    expect(button.getBoundingClientRect().height, button.dataset.rating).toBe(56);
+  }
+});
