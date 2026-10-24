@@ -60,6 +60,11 @@ export function copiesFor(day: string, yesterday: Yesterday | null, groups: Meal
   });
 }
 
+/** Forgets what a view asked, when its card goes, so a card built anew asks again. */
+export function forgetYesterday(view: EditorView): void {
+  asked.delete(view);
+}
+
 /**
  * Asks for yesterday's food lines, once per view and day. A failed read is a card
  * with nothing to copy, and the note is still the note.

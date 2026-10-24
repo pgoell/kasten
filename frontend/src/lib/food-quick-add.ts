@@ -38,8 +38,9 @@ export function quickAddForm(hooks: QuickAddHooks): HTMLElement {
   add.addEventListener("click", () => {
     const typed = kcal.value.trim();
     const value = NUMBER.test(typed) ? Number(typed.replace(",", ".")) : 0;
-    // Rounded, since a line holds whole kcal: a figure under half of one writes as zero.
-    if (Math.round(value) < 1 || value >= MAX_KCAL) {
+    // Checked after rounding, since the line holds whole kcal: 999999999.5 writes as 1000000000, which has no kcal in it.
+    const whole = Math.round(value);
+    if (whole < 1 || whole >= MAX_KCAL) {
       hooks.say(BAD_KCAL);
       return;
     }

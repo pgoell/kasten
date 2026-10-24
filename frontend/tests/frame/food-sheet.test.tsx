@@ -167,3 +167,26 @@ it("#803 A14 at 390x844 with the keyboard up the food sheet's foot sits above it
   expect(box.bottom).toBeLessThanOrEqual(above + 0.5);
   expect(box.top).toBeGreaterThanOrEqual(0);
 });
+
+it("#803 A14 at 390x844 with the keyboard up the whole food sheet stays on screen", async () => {
+  host.style.setProperty("--keyboard", "300px");
+  openFood();
+  await wait(500);
+  const query = view.dom.querySelector<HTMLInputElement>(".cm-log-food-query") as HTMLInputElement;
+  query.value = "snickers";
+  query.dispatchEvent(new Event("input"));
+  await wait(500);
+  view.dom.querySelector<HTMLButtonElement>(".cm-log-food-results button")?.click();
+  await wait(50);
+  // Taller than the sheet's room, so the sheet is as tall as it may be and not as tall as its content.
+  const panel = view.dom.querySelector<HTMLElement>(".cm-log-food") as HTMLElement;
+  const stand = document.createElement("div");
+  stand.style.height = "900px";
+  panel.prepend(stand);
+
+  const sheet = dialog() as HTMLElement;
+  expect(sheet).not.toBeNull();
+  const box = sheet.getBoundingClientRect();
+  expect(box.top).toBeGreaterThanOrEqual(0);
+  expect(box.bottom).toBeCloseTo(window.innerHeight - 300, 0);
+});

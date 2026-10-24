@@ -425,7 +425,15 @@ export function Sheet({
           fading.current = null;
         }}
         // The keyboard's height is a custom property the page sets, read here so the foot clears it.
-        style={!side && lift ? { bottom: "var(--keyboard, 0px)" } : undefined}
+        // Lifted, the sheet's cap shrinks by the same keyboard, so its top stays on the screen.
+        style={
+          !side && lift
+            ? {
+                bottom: "var(--keyboard, 0px)",
+                maxHeight: full ? undefined : "calc(88dvh - var(--keyboard, 0px))",
+              }
+            : undefined
+        }
         className={side ? SIDE_PANEL : `${BOTTOM_PANEL} ${full ? WHOLE : CAPPED}`}
       >
         {!side && (

@@ -182,3 +182,15 @@ it("#803 I8 a drink tap while the sheet is open keeps its query and focus", asyn
   expect(query?.value).toBe("snickers");
   expect(document.activeElement).toBe(query);
 });
+
+it("#803 I8 a view destroyed after the sheet opened leaves no host behind", async () => {
+  const view = mount(NOTE);
+  await openFood(view);
+  expect(sheetOf(view)).not.toBeNull();
+  // Taken out of the afterEach's list, since this test destroys the view itself.
+  mounted.splice(mounted.indexOf(view), 1);
+  view.destroy();
+  await Promise.resolve();
+  expect(document.querySelector(".cm-log-food-host")).toBeNull();
+  view.dom.parentElement?.remove();
+});

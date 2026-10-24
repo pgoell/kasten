@@ -39,9 +39,9 @@ export interface ServingForm {
 
 /** The macros in the order the card and the line write them. */
 const MACROS = [
-  { field: "protein", mark: "🥩" },
-  { field: "carbs", mark: "🍞" },
-  { field: "fat", mark: "🧈" },
+  { field: "protein", name: "Protein" },
+  { field: "carbs", name: "Carbs" },
+  { field: "fat", name: "Fat" },
 ] as const;
 
 /** The amount chips: a gram chip sets grams, and `1 serving` sets the count to one. */
@@ -105,14 +105,14 @@ export function servingForm(hooks: ServingHooks): ServingForm {
   const preview = make("div", "cm-log-food-preview");
   const kcal = make("div", "cm-log-food-kcal-big");
   const left = make("div", "cm-log-food-left");
-  const macros = MACROS.map(({ field, mark }) => {
+  const macros = MACROS.map(({ field, name }) => {
     const row = make("div", "cm-log-food-macro");
     const text = make("div", "cm-log-food-macro-text");
     const meter = make("div", "cm-log-food-meter");
     const fill = make("span", "");
     meter.append(fill);
     row.append(text, meter);
-    return { field, mark, row, text, meter, fill };
+    return { field, name, row, text, meter, fill };
   });
   preview.append(kcal, left, ...macros.map(({ row }) => row));
   const line = make("div", "cm-log-food-line");
@@ -185,20 +185,19 @@ export function servingForm(hooks: ServingHooks): ServingForm {
     goal: Goal | undefined,
   ): void {
     const value = values[part.field];
-    const unit =
-      goal === undefined
-        ? ""
-        : ` of ${goal.value} g, ${goal.type === "floor" ? "at least" : "at most"}`;
-    part.text.textContent =
-      value === null ? `${part.mark} none given` : `${part.mark} ${tenth(value)} g${unit}`;
     part.meter.hidden = goal === undefined;
-    if (goal === undefined) return;
+    if (goal === undefined) {
+      part.text.textContent = `${part.name} ${value === null ? "none given" : `${tenth(value)} g`}`;
+      return;
+    }
     const total = eaten[part.field] + (value ?? 0);
+    const over = goal.type === "ceiling" && total > goal.value;
+    // A ceiling passed is said in words as well as by the warning colour of the bar.
+    part.text.textContent = over
+      ? `${part.name} ${tenth(total - goal.value)} g over, at most ${goal.value} g`
+      : `${part.name} ${value === null ? "none given" : `${tenth(value)} g`} of ${goal.value} g, ${goal.type === "floor" ? "at least" : "at most"}`;
     part.fill.style.width = `${Math.min(100, (total / goal.value) * 100)}%`;
-    part.meter.classList.toggle(
-      "cm-log-food-meter-over",
-      goal.type === "ceiling" && total > goal.value,
-    );
+    part.meter.classList.toggle("cm-log-food-meter-over", over);
   }
 
   /** Draws the preview: kcal for this amount, what is left of today's goal after it, and each macro against its goal. */

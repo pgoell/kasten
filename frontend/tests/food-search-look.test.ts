@@ -188,6 +188,46 @@ it("#803 I6 quick add of zero, a negative, text or ten digits writes nothing and
   }
 });
 
+it("#803 A16 the preview says over in words when a serving passes a max goal", async () => {
+  // Breakfast already eaten 65 g of fat, against a ceiling of 70 g.
+  const FAT_EATEN =
+    "# 2026-10-20 Tuesday\n\n## Log\n- 🍽 breakfast: Butter 🔥 500 kcal 🧈 65 g\n\n## Done\n- [ ] write";
+  vi.mocked(fetchNote).mockResolvedValue("- 🍽 food: fat max 70\n");
+  reloadLogConfig();
+  // A cheese of 10 g of fat takes the day to 75 g: five grams over.
+  const CHEESE = {
+    date: "2026-10-19",
+    path: "01 Periodic/00 Daily/2026-10-19.md",
+    entries: [
+      {
+        line: 5,
+        text: "- 🍽 lunch: Cheese 100 g 🔥 300 kcal 🥩 25 g 🍞 1 g 🧈 10 g",
+        kind: "food",
+        meal: "lunch",
+        words: "Cheese 100 g",
+        kcal: 300,
+        protein: 25,
+        carbs: 1,
+        fat: 10,
+      },
+    ],
+  } as unknown as LogDay;
+  vi.mocked(fetchLog).mockResolvedValue([CHEESE]);
+  const view = mount(FAT_EATEN);
+  await openFood(view);
+  await vi.advanceTimersByTimeAsync(0);
+  await pickFirst(view);
+  expect(need(view, ".cm-log-food-preview").textContent).toContain("Fat 5 g over, at most 70 g");
+});
+
+it("#803 I6 quick add of 999999999.5 writes nothing and says why", async () => {
+  const view = mount(NOTE);
+  await openFood(view);
+  quickAdd(view, "999999999.5");
+  expect(text(view)).toBe(NOTE);
+  expect(whyOf(view)).not.toBe("");
+});
+
 it("#803 A12 the amount chips set grams or servings", async () => {
   vi.mocked(fetchLog).mockResolvedValue([SKYR_DAY]);
   const view = mount(NOTE);
@@ -226,7 +266,9 @@ it("#803 A13 the preview shows kcal, kcal left after and the exact line in mono"
   expect(need(view, ".cm-log-food-kcal-big").textContent).toBe("🔥 90 kcal");
   // 2000 goal, 1000 eaten and this 90.
   expect(need(view, ".cm-log-food-left").textContent).toBe("kcal left after: 910");
-  expect(need(view, ".cm-log-food-preview").textContent).toContain("🥩 15 g of 120 g, at least");
+  expect(need(view, ".cm-log-food-preview").textContent).toContain(
+    "Protein 15 g of 120 g, at least",
+  );
   expect(need(view, ".cm-log-food-line").textContent).toBe(SKYR_LINE);
   // The line is set in the mono face, which the stylesheet names for it.
   const css = readFileSync(

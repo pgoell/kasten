@@ -32,6 +32,7 @@ import {
   askYesterday,
   type Copy,
   copiesFor,
+  forgetYesterday,
   type Yesterday,
   yesterdayArrived,
 } from "@/lib/log-card-yesterday";
@@ -391,6 +392,18 @@ const cardField = StateField.define<Card>({
 });
 
 /**
+ * Asks for yesterday's lines while the card shows and holds no answer for its day. Run
+ * when the plugin is built and on every update, so a card that shows later asks too.
+ */
+function askForCard(view: EditorView): void {
+  const field = view.state.field(cardField, false);
+  const day = noteDay(view.state);
+  if (field?.shown !== true || day === null) return;
+  if (field.yesterday?.day === shiftDay(day, -1)) return;
+  askYesterday(view, day);
+}
+
+/**
  * Each card is drawn again whenever the store draws an answer, so it shows log.md as
  * it is now. The food sheet is shown and hidden as the card's `food` flag changes.
  */
@@ -400,12 +413,11 @@ const registry = ViewPlugin.define((view) => {
     if (current !== null) applyConfig(view, current);
   });
 
-  const first = view.state.field(cardField, false);
-  const day = noteDay(view.state);
-  if (first?.shown === true && day !== null) askYesterday(view, day);
+  askForCard(view);
 
   return {
     update(update) {
+      askForCard(update.view);
       // A flag changed by a transaction nobody called `syncSheet` for is still shown.
       // Deferred: the sheet is DOM, and a sheet mounted inside an update is not measured with it.
       const was = update.startState.field(cardField, false)?.food;
@@ -416,6 +428,7 @@ const registry = ViewPlugin.define((view) => {
     destroy() {
       unsubscribe();
       stopFoodSheet(view);
+      forgetYesterday(view);
     },
   };
 });

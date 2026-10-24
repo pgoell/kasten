@@ -53,12 +53,6 @@ function meter(progress: number, label: string): HTMLElement {
   return bar;
 }
 
-/** `of 120 g, at least` or `of 70 g, at most`, the goal written out in words. */
-function goalWords(goal: Goal, unit: string): string {
-  const named = unit === "" ? "" : ` ${unit}`;
-  return `of ${goal.value}${named}, ${goal.type === "floor" ? "at least" : "at most"}`;
-}
-
 /**
  * A total as its span, with the goal after it. A floor's span says whether it is met,
  * and a ceiling's says whether it is passed, so the warning colour is never the only sign.
@@ -128,37 +122,38 @@ export function macroRings(food: DrinkTotals["food"], goals: FoodGoals): HTMLEle
     { field: "carbs", name: "Carbs" },
     { field: "fat", name: "Fat" },
   ] as const;
-  for (const { field, name } of macros) {
-    const value = food[field];
-    const goal = goals[field];
-    const item = make("div", "cm-log-ring-item");
-    if (goal !== undefined) {
-      const ring = make("span", "cm-log-ring");
-      ring.setAttribute("aria-hidden", "true");
-      ring.style.setProperty("--log-progress", String(share(value, goal)));
-      if (overMax(value, goal)) ring.classList.add("cm-log-warn");
-      item.append(ring);
-    }
-    // A passed max says so in words, so the warn colour is never its only sign.
-    const passed = goal !== undefined && overMax(value, goal);
-    const words =
-      goal === undefined
-        ? `${value} g`
-        : `${value} g ${goalWords(goal, "g")}${passed ? ", over" : ""}`;
-    const labels = make("div", "cm-log-ring-text");
-    labels.append(make("span", "cm-log-ring-name", name));
-    const figure = make(
-      "span",
-      goal !== undefined && overMax(value, goal)
-        ? "cm-log-ring-words cm-log-warn"
-        : "cm-log-ring-words",
-      words,
-    );
-    labels.append(figure);
-    item.append(labels);
-    row.append(item);
-  }
+  for (const { field, name } of macros) row.append(macroRing(name, food[field], goals[field]));
   return row;
+}
+
+/** One macro: its ring when it has a goal, its name, and its grams with the goal written out. */
+function macroRing(name: string, value: number, goal: Goal | undefined): HTMLElement {
+  const item = make("div", "cm-log-ring-item");
+  if (goal !== undefined) {
+    const ring = make("span", "cm-log-ring");
+    ring.setAttribute("aria-hidden", "true");
+    ring.style.setProperty("--log-progress", String(share(value, goal)));
+    if (overMax(value, goal)) ring.classList.add("cm-log-warn");
+    item.append(ring);
+  }
+  // A passed max says so in words, so the warn colour is never its only sign.
+  const passed = goal !== undefined && overMax(value, goal);
+  const figure = make("div", passed ? "cm-log-ring-words cm-log-warn" : "cm-log-ring-words");
+  figure.append(make("span", "cm-log-ring-amount", `${value} g`));
+  if (goal !== undefined) {
+    // The goal's number and unit stay together; the words after them may wrap to a line of their own.
+    const at = goal.type === "floor" ? "at least" : "at most";
+    figure.append(
+      " ",
+      make("span", "cm-log-ring-goal", `of ${goal.value} g,`),
+      " ",
+      `${at}${passed ? ", over" : ""}`,
+    );
+  }
+  const labels = make("div", "cm-log-ring-text");
+  labels.append(make("span", "cm-log-ring-name", name), figure);
+  item.append(labels);
+  return item;
 }
 
 /** One quick button: the tap's words, the kind's total with its goal, and a meter where there is a goal. */

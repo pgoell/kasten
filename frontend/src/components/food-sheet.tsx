@@ -133,6 +133,9 @@ export const foodSheetCleanup: Extension = ViewPlugin.define((view) => ({
     const host = hosts.get(view);
     if (host === undefined) return;
     hosts.delete(view);
-    host.root.unmount();
+    host.element.remove();
+    // Destroy runs inside React's commit when the editor is torn down there, and a root
+    // unmounted during a commit warns, so the unmount waits for the commit to finish.
+    queueMicrotask(() => host.root.unmount());
   },
 }));

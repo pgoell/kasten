@@ -144,6 +144,21 @@ describe("copying yesterday's meal", () => {
     expect(vi.mocked(fetchLog).mock.calls.length).toBe(asked);
   });
 
+  it("#803 I2 the Copy yesterday offer comes back after live preview is turned off and on", async () => {
+    const view = mount(NOTE);
+    await vi.waitFor(() => expect(offer(view)).not.toBeNull());
+    // Live preview off and on builds the card anew on the same view, which is what a new state does here.
+    view.setState(
+      EditorState.create({
+        doc: NOTE,
+        extensions: [notePath.of(DAILY), history(), logCard],
+      }),
+    );
+    await vi.waitFor(() =>
+      expect(offer(view)?.textContent).toBe("Copy yesterday's dinner (2 lines)"),
+    );
+  });
+
   it("#803 I2 an answer for yesterday that comes after the note changed is dropped", async () => {
     let answer!: (days: LogDay[]) => void;
     vi.mocked(fetchLog).mockImplementation((from: string) => {

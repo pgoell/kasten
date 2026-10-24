@@ -71,8 +71,18 @@
 .cm-log-food-section-title {
   padding-bottom: var(--k-space-4);
   color: var(--k-muted);
-  font-size: var(--k-text-12);
+  font-size: var(--k-text-13);
   letter-spacing: var(--k-track-label);
+}
+
+/* Kept in the row for a reader of the words, and not drawn: the heading above says it. */
+.cm-log-food-tag {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 .cm-log-food-pick {
@@ -101,8 +111,6 @@
 }
 
 .cm-log-food-brand,
-.cm-log-food-recent,
-.cm-log-food-mine,
 .cm-log-food-kcal {
   color: var(--k-muted);
   font-size: var(--k-text-13);
@@ -270,18 +278,18 @@
   display: none;
 }
 
+/* Log this food over Back, both across the foot: one primary action, and its way out below it. */
 .cm-log-food-actions {
-  display: flex;
+  display: grid;
   gap: var(--k-space-8);
 }
 
 .cm-log-food-log {
-  flex: 1 1 auto;
   min-height: var(--food-target);
   padding: 0 var(--k-space-16);
-  border: 1px solid var(--k-ink);
+  border: 1px solid var(--k-accent);
   border-radius: var(--k-radius-6);
-  background: var(--k-ink);
+  background: var(--k-accent);
   color: var(--k-paper);
   font: inherit;
   font-size: var(--k-text-15);
@@ -297,12 +305,12 @@
   min-width: 0;
 }
 
-.cm-log-food-add-wide,
-.cm-log-food-add-heading {
+.cm-log-food-add-wide {
   flex-basis: 100%;
 }
 
 .cm-log-food-add-heading {
+  flex-basis: 100%;
   color: var(--k-muted);
   font-size: var(--k-text-13);
 }
@@ -310,10 +318,6 @@
 .cm-log-food-add-buttons {
   display: flex;
   gap: var(--k-space-8);
-}
-
-.cm-log-food-add-input {
-  flex: 1 1 6rem;
 }
 
 .cm-log-food-camera {
@@ -350,8 +354,7 @@
 .cm-log-food-new,
 .cm-log-food-save,
 .cm-log-food-quick-add,
-.cm-log-food-back,
-.cm-log-food-close {
+.cm-log-food-back {
   min-height: var(--food-target);
   min-width: var(--food-target);
   padding: 0 var(--k-space-12);
@@ -364,9 +367,22 @@
   white-space: nowrap;
 }
 
-.cm-log-food-back,
-.cm-log-food-close {
+.cm-log-food-back {
   color: var(--k-muted);
+}
+
+/* Close is a muted button of the same size, drawn on its own so the rule is in one place. */
+.cm-log-food-close {
+  min-height: var(--food-target);
+  min-width: var(--food-target);
+  padding: 0 var(--k-space-12);
+  border: 1px solid var(--k-rule);
+  border-radius: var(--k-radius-6);
+  background: var(--k-paper);
+  color: var(--k-muted);
+  font: inherit;
+  font-size: var(--k-text-13);
+  white-space: nowrap;
 }
 
 .cm-log-food-scan:hover,
@@ -381,4 +397,21 @@
 
 .cm-log-food-torch[aria-pressed="true"] {
   background: var(--k-rule);
+}
+
+/* On a finger the small words grow to 15px, the least a phone reads without a squint. */
+@media (pointer: coarse) {
+  .cm-log-food-section-title,
+  .cm-log-food-kcal,
+  .cm-log-food-quick-label,
+  .cm-log-food-chip,
+  .cm-log-food-scan,
+  .cm-log-food-torch,
+  .cm-log-food-new,
+  .cm-log-food-save,
+  .cm-log-food-quick-add,
+  .cm-log-food-back,
+  .cm-log-food-close {
+    font-size: var(--k-text-15);
+  }
 }

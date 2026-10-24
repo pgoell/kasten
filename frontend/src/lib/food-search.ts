@@ -69,7 +69,8 @@ function pickButton(
   made.append(
     make("span", "cm-log-food-kcal", kcal === null ? "no kcal" : `${Math.round(kcal)} kcal ${per}`),
   );
-  if (tag !== null) made.append(make("span", `cm-log-food-${tag}`, tag));
+  // The tag is kept in the row for a reader of the words, but not drawn: the heading above says it.
+  if (tag !== null) made.append(make("span", "cm-log-food-tag", tag));
   made.addEventListener("click", onPick);
   return made;
 }
@@ -184,6 +185,8 @@ export function foodPanel(day: string | null, hooks: PanelHooks): FoodPanel {
     why.textContent = "";
     serving.show(choice);
     serving.root.hidden = false;
+    // The serving step leaves by its own Back, so its only exit is in the foot.
+    close.hidden = true;
     results.hidden = true;
     add.hidden = true;
     quick.hidden = true;
@@ -250,6 +253,7 @@ export function foodPanel(day: string | null, hooks: PanelHooks): FoodPanel {
     pickTurn += 1;
     serving.clear();
     serving.root.hidden = true;
+    close.hidden = false;
     adding.root.hidden = true;
     results.hidden = false;
     add.hidden = false;

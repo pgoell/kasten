@@ -19,12 +19,14 @@
   flex-wrap: wrap;
   align-items: flex-end;
   gap: 16px 24px;
+  /* The note's measure, so on a wide screen the rings sit beside the figure, not at the edge. */
+  max-width: var(--k-measure);
   min-width: 0;
 }
 
 .cm-log-big {
   display: grid;
-  flex: 1 1 12rem;
+  flex: 0 1 14rem;
   gap: 2px;
   min-width: 0;
   color: var(--k-ink);
@@ -73,16 +75,17 @@
    (a percent, read as a number here), the rest is the track. */
 .cm-log-rings {
   display: flex;
-  flex: 1 1 14rem;
+  flex: 0 1 auto;
   flex-wrap: wrap;
   gap: 10px 16px;
   min-width: 0;
 }
 
+/* The labels hang from the top, so a long goal line does not push the ring down. */
 .cm-log-ring-item {
   display: flex;
   flex: 1 1 6.5rem;
-  align-items: center;
+  align-items: flex-start;
   gap: 8px;
   min-width: 0;
   font-size: var(--k-text-13);
@@ -118,6 +121,13 @@
   color: var(--k-muted);
 }
 
+/* The amount and the goal each stay on one line: the goal's number and unit never split, and the
+   words "at least" or "at most" may wrap to a line of their own. */
+.cm-log-ring-amount,
+.cm-log-ring-goal {
+  white-space: nowrap;
+}
+
 .cm-log-totals {
   display: flex;
   flex-wrap: wrap;
@@ -139,11 +149,21 @@
   font-weight: 600;
 }
 
-.cm-log-button-main {
+/* Two classes, so it wins over the plain quick button rules that come after it. The
+   label is centred, since a one-line button has no meter or total to lay out. */
+.cm-log-button.cm-log-button-main {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
   border-color: var(--k-accent);
   background: var(--k-accent);
   color: var(--k-paper);
   font-weight: 600;
+}
+
+.cm-log-button.cm-log-button-main:hover {
+  background: var(--k-accent);
 }
 
 .cm-log-button .cm-log-bar {
@@ -169,7 +189,7 @@
   background: var(--k-paper);
   color: var(--k-ink);
   font: inherit;
-  font-size: 14px;
+  font-size: var(--k-text-13);
   white-space: nowrap;
 }
 
@@ -215,7 +235,7 @@
 /* A refusal of the amount, in the warn colour. Nothing while there is none. */
 .cm-log-why {
   color: var(--k-danger);
-  font-size: 0.8em;
+  font-size: var(--k-text-13);
 }
 
 .cm-log-why:empty {
@@ -296,7 +316,7 @@
   min-height: 44px;
   max-width: 100%;
   padding: 0 14px;
-  border: 1px dashed var(--k-rule);
+  border: 1px dashed var(--k-rule-strong);
   border-radius: 6px;
   background: var(--k-paper);
   color: var(--k-accent);
@@ -336,7 +356,7 @@
   min-width: 0;
   max-width: 100%;
   color: var(--k-danger);
-  font-size: 0.8em;
+  font-size: var(--k-text-13);
   overflow-wrap: anywhere;
 }
 
@@ -355,6 +375,17 @@
   .cm-log-copy,
   .cm-log-raw > summary {
     min-height: 44px;
+  }
+
+  /* A phone's text is 15px at least, the card's small words included. The raw lines stay mono. */
+  .cm-log-button,
+  .cm-log-undo,
+  .cm-log-copy,
+  .cm-log-raw > summary,
+  .cm-log-ring-item,
+  .cm-log-big-goal,
+  .cm-log-entry {
+    font-size: var(--k-text-15);
   }
 
   .cm-log-amount {
