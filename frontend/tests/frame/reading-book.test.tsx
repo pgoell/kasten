@@ -137,7 +137,9 @@ async function opened(width: number, height: number, touch: boolean): Promise<vo
 
 /** The refusal on screen and at the foot, then its picture as `name`. */
 async function refusalAtFoot(name: string): Promise<void> {
-  await expect.poll(() => notice()?.textContent).toBe(`${READING} is not there`);
+  // Five seconds, not the default one: the whole frame project in CI mounts the
+  // route under load, and the notice came late there (#909).
+  await expect.poll(() => notice()?.textContent, { timeout: 5000 }).toBe(`${READING} is not there`);
   const box = notice()?.getBoundingClientRect();
   // Inside the window on every side, with some width to read, and in the lower
   // part of it rather than over the note.
