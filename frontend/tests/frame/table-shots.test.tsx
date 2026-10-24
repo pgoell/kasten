@@ -117,10 +117,17 @@ function mountEdit(doc: string, height: number): HTMLElement {
 }
 
 afterEach(() => {
-  if (edit === undefined) return;
-  edit.root.unmount();
-  edit.host.remove();
-  edit = undefined;
+  if (edit !== undefined) {
+    edit.root.unmount();
+    edit.host.remove();
+    edit = undefined;
+  }
+  // The theme and palette a picture was taken in, put back so the next test
+  // starts from the default. The viewport and touch are put back by the cleanup.
+  localStorage.removeItem(THEME_KEY);
+  localStorage.removeItem(PALETTE_KEY);
+  document.documentElement.removeAttribute("data-theme");
+  document.documentElement.removeAttribute("data-palette");
 });
 
 /** Shows the page at `size`, in `theme` and `palette`, the way the app reads them. */

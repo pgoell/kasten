@@ -48,6 +48,9 @@ function scrollerOf(block: Element): HTMLElement {
 
 /** The editor on `doc`, with the table's own box and its scroll, once drawn. */
 async function drawn(doc: string, height = 600) {
+  // Set here, not left to the test before: a width read from another test's leftover
+  // viewport made a table fit or not by order.
+  await page.viewport(1440, 900);
   const host = mountApp(doc, height, { vim: "off" });
   await expect.poll(() => host.querySelector(".cm-table-block")).not.toBeNull();
   const at = EditorView.findFromDOM(host.querySelector(".cm-editor") as HTMLElement) as EditorView;
@@ -191,6 +194,7 @@ describe("table reading", () => {
   it("#792 I5 a table that fits shows no shadow, and the shadow appears when the pane narrows", async () => {
     // In the reader's pane, where a narrow pane holds its cells to one line, so
     // eight columns fit the full pane and overflow a narrow one.
+    await page.viewport(1440, 900);
     const { host, block } = await drawn(wideNote(3, 8));
     host.classList.add("k-reader");
     expect(block.hasAttribute("data-shadow-right")).toBe(false);
