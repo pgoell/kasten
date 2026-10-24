@@ -135,8 +135,9 @@ slides in from its side and fades in, from below when the panes are stacked or
 on a phone.
 
 `<leader>q` walks back out of all of this, one press at a time. On a pane
-holding a note it writes the note and empties the pane, and it takes a terminal
-or the todo list out of a pane the same way. On an empty pane it closes the
+holding a note it writes the note and empties the pane, and it takes a terminal,
+the todo list, the graph, a note's history or a person card out of a pane the
+same way, so `q` in a lone graph pane leaves Today. On an empty pane it closes the
 pane. On the last pane of a tab it closes the tab. On the last pane of the last
 tab it does nothing, because a window with nothing on screen is not a state
 worth reaching.
