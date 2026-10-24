@@ -7,6 +7,8 @@
  * and the player's replies are sent as events.
  */
 
+import { syntaxTreeAvailable } from "@codemirror/language";
+import { EditorView } from "@codemirror/view";
 import "./html-take-api";
 import { commands as browser, page, userEvent } from "vitest/browser";
 import type { Passage } from "@/lib/highlight";
@@ -30,6 +32,21 @@ import {
   talkNote,
   VIDEO,
 } from "./video-pane-fixture";
+
+/**
+ * The 00:31 button of the editor `Space g v` mounted again, once that editor has
+ * parsed the whole note. Opening the pane turns the one pane into a split, which
+ * remounts the note's editor, and the new editor parses the note in slices: a slice
+ * landing redraws lines, and CodeMirror keeps only a few widget nodes to reuse, so
+ * a button grabbed before the parse ends can be replaced under the click (#929).
+ */
+function settledTime(host: HTMLElement, before: Element | null): HTMLElement | null {
+  const content = host.querySelector<HTMLElement>(".cm-content");
+  if (content === null || content === before) return null;
+  const view = EditorView.findFromDOM(content);
+  if (view === null || !syntaxTreeAvailable(view.state, view.state.doc.length)) return null;
+  return content.querySelector<HTMLElement>('.cm-time[data-seconds="31"]');
+}
 
 vi.mock("@/lib/api", async (importOriginal) => {
   const real = await importOriginal<typeof import("@/lib/api")>();
@@ -253,13 +270,15 @@ describe("a time in a note reaches the video pane of that note", () => {
 
   it("#791 A11 I6 with a video pane for that note, a click on its time seeks that pane's player to 31", async () => {
     await expect.poll(() => route.host.querySelector(".cm-time")).not.toBeNull();
+    const before = route.host.querySelector(".cm-content");
     leader(route.host, [" ", "g", "v"]);
     await expect.poll(() => route.host.querySelector("[data-video-pane] iframe")).not.toBeNull();
     const frame = route.host.querySelector<HTMLIFrameElement>("[data-video-pane] iframe");
     if (!frame) throw new Error("no video frame");
     const sent = spyFrame(frame);
 
-    const time = route.host.querySelector<HTMLElement>('.cm-time[data-seconds="31"]');
+    await expect.poll(() => settledTime(route.host, before)).not.toBeNull();
+    const time = settledTime(route.host, before);
     if (!time) throw new Error("no 00:31 time button");
     await userEvent.click(time);
 
