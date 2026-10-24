@@ -81,6 +81,9 @@ export function usePaneCommands({
     | "pdf"
     | "html"
     | "video"
+    | "person"
+    | "history"
+    | "graph"
   >;
   setLayout: Dispatch<SetStateAction<Layout>>;
   saveFirst: () => Promise<boolean>;
@@ -248,7 +251,10 @@ export function usePaneCommands({
           pane.image !== undefined ||
           pane.pdf !== undefined ||
           pane.html !== undefined ||
-          pane.video !== undefined
+          pane.video !== undefined ||
+          pane.person !== undefined ||
+          pane.history !== undefined ||
+          pane.graph !== undefined
         ) {
           moveTo(clearFocused);
           return;
@@ -477,6 +483,9 @@ export function usePaneCommands({
       pane.pdf,
       pane.html,
       pane.video,
+      pane.person,
+      pane.history,
+      pane.graph,
       queryClient,
       setNotice,
       food,
