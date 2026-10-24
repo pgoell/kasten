@@ -130,8 +130,8 @@ lifts the line out the way it does everywhere else, and so does either key
 outside a table. Each press lines the table up first, so a cell you have just
 typed into is squared before you leave it. Either key lands on the cell's first
 character, in a right-aligned or centered column as in a left one, and at the
-start of an empty cell, where what you type is lined up on the next press. A table already square is a move and
-not an edit: no undo step and nothing written to disk.
+start of an empty cell, where what you type is lined up on the next press. A
+table already square is a move and not an edit: no undo step and nothing written to disk.
 
 A table you type into is lined up for you as well, once you are done with it:
 when the cursor leaves the table, and when the note is saved (`:w`, ctrl+s).
