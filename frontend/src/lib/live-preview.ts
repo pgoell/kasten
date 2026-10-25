@@ -1,5 +1,11 @@
 import { syntaxTree, syntaxTreeAvailable } from "@codemirror/language";
-import { EditorState, type Extension, type RangeSet, StateField } from "@codemirror/state";
+import {
+  EditorState,
+  type Extension,
+  RangeSet,
+  StateField,
+  type Transaction,
+} from "@codemirror/state";
 import { Decoration, type DecorationSet, EditorView } from "@codemirror/view";
 import { embedSource } from "@/lib/embed";
 import { imagePaths } from "@/lib/image";
@@ -205,19 +211,54 @@ function build(state: EditorState): Live {
   };
 }
 
+/**
+ * How far the parse has got. The tree's own length can run past it, so this
+ * asks CodeMirror, by halves, up to where a full tree is available.
+ */
+function parsedTo(state: EditorState): number {
+  let low = 0;
+  let high = state.doc.length;
+  while (low < high) {
+    const mid = Math.ceil((low + high) / 2);
+    if (syntaxTreeAvailable(state, mid)) low = mid;
+    else high = mid - 1;
+  }
+  return low;
+}
+
+/**
+ * Where an edit's parse ran out of its 20ms (#1005), the tree stops short and
+ * `fresh`, built from it, draws nothing past that point: an embed there would
+ * lose its box and remount. The old drawing holds there, moved through the
+ * edit, until the parse lands and `parsed` builds again. A range on a line the
+ * edit touched, or a cursor is on, is left out, so it shows its source rather
+ * than marks that no longer fit it.
+ */
+function keepPastParse(value: Live, tr: Transaction, fresh: Live): Live {
+  const { doc, selection } = tr.state;
+  const reach = parsedTo(tr.state);
+  if (syntaxTreeAvailable(tr.state) || reach >= doc.length) return fresh;
+  const keep = (from: number, to: number) => {
+    if (from < reach) return false;
+    const onLines = (start: number, end: number) =>
+      doc.lineAt(start).from <= to && doc.lineAt(end).to >= from;
+    let touched = false;
+    tr.changes.iterChangedRanges((_fromA, _toA, fromB, toB) => {
+      if (onLines(fromB, toB)) touched = true;
+    });
+    return !touched && !selection.ranges.some((range) => onLines(range.from, range.to));
+  };
+  const old = <T extends Decoration>(set: RangeSet<T>) =>
+    (tr.docChanged ? set.map(tr.changes) : set).update({ filter: keep });
+  return {
+    decorations: RangeSet.join([fresh.decorations, old(value.decorations)]),
+    hidden: RangeSet.join([fresh.hidden, old(value.hidden)]),
+  };
+}
+
 const live = StateField.define<Live>({
   create: build,
   update(value, tr) {
-    // An edit's parse gets 20ms (#1005). Where it runs out, the tree stops
-    // short and a build from it would drop every widget past that point: an
-    // embed would lose its box and remount. The old drawing, moved through the
-    // edit, holds until the idle parse lands and `parsed` below builds again.
-    if (tr.docChanged && syntaxTreeAvailable(tr.startState) && !syntaxTreeAvailable(tr.state)) {
-      return {
-        decorations: value.decorations.map(tr.changes),
-        hidden: value.hidden.map(tr.changes),
-      };
-    }
     // Turning vim off or on arrives by reconfiguration, the way the listing
     // below does, and changes which line shows its source as a mode change does.
     const modeChanged =
@@ -249,7 +290,7 @@ const live = StateField.define<Live>({
     ) {
       return value;
     }
-    return build(tr.state);
+    return keepPastParse(value, tr, build(tr.state));
   },
   provide: (field) => EditorView.decorations.from(field, (value) => value.decorations),
 });

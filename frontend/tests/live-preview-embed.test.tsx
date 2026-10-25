@@ -118,6 +118,30 @@ describe("an embed", () => {
     expect(vault.watched).toEqual(["b.md"]);
   });
 
+  it("keeps its box through a cursor move before the edit's parse lands", () => {
+    const vault = fakeVault({ "b.md": "first" });
+    const view = mount(`${ABOVE}![[b]]`, plain(vault.source));
+    const box = view.dom.querySelector(".cm-embed");
+
+    stalled(() => view.dispatch({ changes: { from: 0, insert: "more " } }));
+    view.dispatch({ selection: EditorSelection.cursor(1) });
+    parsed(view);
+
+    expect(view.dom.querySelector(".cm-embed")).toBe(box);
+  });
+
+  it("keeps its box through a second edit whose parse runs out too", () => {
+    const vault = fakeVault({ "b.md": "first" });
+    const view = mount(`${ABOVE}![[b]]`, plain(vault.source));
+    const box = view.dom.querySelector(".cm-embed");
+
+    stalled(() => view.dispatch({ changes: { from: 0, insert: "more " } }));
+    stalled(() => view.dispatch({ changes: { from: 0, insert: "and " } }));
+    parsed(view);
+
+    expect(view.dom.querySelector(".cm-embed")).toBe(box);
+  });
+
   it("opens its note on ctrl or cmd and a click, and not on a plain click", () => {
     const vault = fakeVault({ "b.md": "body" });
     const view = mount(`${ABOVE}![[b]]`, plain(vault.source));
@@ -221,6 +245,29 @@ describe("an embed", () => {
 
     expect(view.dom.querySelector(".cm-embed")).toBeNull();
     expect(view.contentDOM.textContent).toContain("![[b]]");
+  });
+
+  it("shows the source of a line an edit moves the cursor onto, before the parse lands", () => {
+    const doc = "intro\n\n**a**\nx";
+    const view = mount(doc, plain(fakeVault({}).source), doc.length);
+    expect(view.contentDOM.textContent).not.toContain("**a**");
+
+    stalled(() =>
+      view.dispatch({
+        changes: { from: doc.length - 2, to: doc.length },
+        selection: EditorSelection.cursor(doc.length - 2),
+      }),
+    );
+
+    expect(view.contentDOM.textContent).toContain("**a**");
+  });
+
+  it("shows the source of a drawn range an edit cuts into, before the parse lands", () => {
+    const view = mount("intro\n\n**a** and more", plain(fakeVault({}).source));
+
+    stalled(() => view.dispatch({ changes: { from: 7, to: 8 } }));
+
+    expect(view.contentDOM.textContent).toContain("*a**");
   });
 
   it("shows its source in insert mode on the line, vim on", async () => {

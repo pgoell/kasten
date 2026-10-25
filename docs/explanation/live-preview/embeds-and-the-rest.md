@@ -106,6 +106,14 @@ this one, so a box built once with the decorations would go stale and stay
 that way. Instead each box watches its note and redraws itself when the note
 changes, whatever changed it.
 
+**An edit keeps the box.** CodeMirror gives the parse after each edit 20ms. On
+a loaded machine it can run out, and a drawing built from the tree as it then
+stands would stop where the tree does: every embed past that point would lose
+its box, its nested view and its watch, and draw again from nothing when the
+parse lands. So past that point the old drawing stays, moved through the edit,
+until the parse lands and the decorations are rebuilt. Only what the edit
+touched, and the lines a cursor sits on, show their source in the meantime.
+
 The finder's preview pane is the exception. It is told nothing about how to
 read the vault, so it shows `![[...]]` as source rather than calling every
 target missing.
