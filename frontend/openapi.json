@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "kasten",
-    "version": "0.109.0"
+    "version": "0.110.1"
   },
   "paths": {
     "/agent/notes/{path}": {
@@ -1905,7 +1905,7 @@
     "/api/finance/transactions": {
       "get": {
         "summary": "Read Transactions",
-        "description": "A page of the bookings on one account or all, from `from` to `to`, oldest first.\n\n`after` is the id of the last booking of the page before. A page shorter\nthan `limit` is the last.",
+        "description": "A page of the bookings that pass the filters, oldest first unless `order` is `desc`.\n\n`month` stands for a `from` and `to` around one month, so the two cannot\ncome together. `after` is the id of the last booking of the page before.\nA page shorter than `limit` is the last.",
         "operationId": "read_transactions_api_finance_transactions_get",
         "parameters": [
           {
@@ -1956,6 +1956,69 @@
                 }
               ],
               "title": "To"
+            }
+          },
+          {
+            "name": "month",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[0-9]{4}-[0-9]{2}$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Month"
+            }
+          },
+          {
+            "name": "category",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Category"
+            }
+          },
+          {
+            "name": "text",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Text"
+            }
+          },
+          {
+            "name": "order",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "type": "string",
+              "default": "asc",
+              "title": "Order"
             }
           },
           {
@@ -2094,6 +2157,267 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/TransactionOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/finance/budget": {
+      "get": {
+        "summary": "Read Budget",
+        "description": "Every spending category's month: limit, carried overspend, spent, average, status.",
+        "operationId": "read_budget_api_finance_budget_get",
+        "parameters": [
+          {
+            "name": "month",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]{4}-[0-9]{2}$",
+              "title": "Month"
+            }
+          },
+          {
+            "name": "today",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+              "title": "Today"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BudgetOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/finance/budget/free": {
+      "get": {
+        "summary": "Read Free To Spend",
+        "description": "Free to spend this month for mine and household, with the lines each is made of.",
+        "operationId": "read_free_to_spend_api_finance_budget_free_get",
+        "parameters": [
+          {
+            "name": "month",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]{4}-[0-9]{2}$",
+              "title": "Month"
+            }
+          },
+          {
+            "name": "today",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+              "title": "Today"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FreeToSpendOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/finance/budget/trend": {
+      "get": {
+        "summary": "Read Trend",
+        "description": "Each spending category's spending per month, over `months` months up to `month`.",
+        "operationId": "read_trend_api_finance_budget_trend_get",
+        "parameters": [
+          {
+            "name": "month",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]{4}-[0-9]{2}$",
+              "title": "Month"
+            }
+          },
+          {
+            "name": "months",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 60,
+              "minimum": 1,
+              "default": 12,
+              "title": "Months"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrendOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/finance/categories/{category_id}/limit": {
+      "put": {
+        "summary": "Write Limit",
+        "description": "Set a spending category's monthly limit from the month named on.",
+        "operationId": "write_limit_api_finance_categories__category_id__limit_put",
+        "parameters": [
+          {
+            "name": "category_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Category Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LimitIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LimitOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/finance/budget/settings": {
+      "get": {
+        "summary": "Read Settings",
+        "description": "The salary cutoff day and the income categories that count as salary.",
+        "operationId": "read_settings_api_finance_budget_settings_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettingsIn"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Write Settings",
+        "description": "Set the cutoff day and which income categories are salary; a non-income one is a 422.",
+        "operationId": "write_settings_api_finance_budget_settings_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SettingsIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettingsIn"
                 }
               }
             }
@@ -4370,6 +4694,154 @@
         "title": "BalanceIn",
         "description": "The balance the bank reported for one account on one day."
       },
+      "BudgetCategoryOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "limit": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Limit"
+          },
+          "carried": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Carried"
+          },
+          "available": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Available"
+          },
+          "spent": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Spent"
+          },
+          "average": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Average"
+          },
+          "expected_by_now": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected By Now"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "ok",
+                  "near",
+                  "over"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "suggestion": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SuggestionOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "kind",
+          "limit",
+          "carried",
+          "available",
+          "spent",
+          "average",
+          "expected_by_now",
+          "status",
+          "suggestion"
+        ],
+        "title": "BudgetCategoryOut",
+        "description": "One spending category in the month."
+      },
+      "BudgetOut": {
+        "properties": {
+          "month": {
+            "type": "string",
+            "title": "Month"
+          },
+          "share_of_month": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Share Of Month"
+          },
+          "categories": {
+            "items": {
+              "$ref": "#/components/schemas/BudgetCategoryOut"
+            },
+            "type": "array",
+            "title": "Categories"
+          },
+          "unreserved": {
+            "$ref": "#/components/schemas/UnreservedOut"
+          }
+        },
+        "type": "object",
+        "required": [
+          "month",
+          "share_of_month",
+          "categories",
+          "unreserved"
+        ],
+        "title": "BudgetOut",
+        "description": "A month's budget, every spending category by name."
+      },
       "Build": {
         "properties": {
           "backend": {
@@ -4939,6 +5411,154 @@
         "title": "Forecast",
         "description": "One place's day."
       },
+      "FreeLineOut": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "category_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category Id"
+          },
+          "so_far": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "So Far"
+          },
+          "average": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Average"
+          },
+          "counted": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Counted"
+          },
+          "basis": {
+            "type": "string",
+            "enum": [
+              "so_far",
+              "average"
+            ],
+            "title": "Basis"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "category_id",
+          "so_far",
+          "average",
+          "counted",
+          "basis"
+        ],
+        "title": "FreeLineOut",
+        "description": "One line of a part: what happened so far, the average, and what free to spend counts."
+      },
+      "FreeOut": {
+        "properties": {
+          "total": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Total"
+          },
+          "income": {
+            "$ref": "#/components/schemas/FreePartOut"
+          },
+          "fixed": {
+            "$ref": "#/components/schemas/FreePartOut"
+          },
+          "flexible": {
+            "$ref": "#/components/schemas/FreePartOut"
+          },
+          "non_monthly": {
+            "$ref": "#/components/schemas/FreePartOut"
+          },
+          "unsorted": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Unsorted"
+          },
+          "saved": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Saved"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total",
+          "income",
+          "fixed",
+          "flexible",
+          "non_monthly",
+          "unsorted",
+          "saved"
+        ],
+        "title": "FreeOut",
+        "description": "One scope's free to spend and what it is made of."
+      },
+      "FreePartOut": {
+        "properties": {
+          "total": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Total"
+          },
+          "lines": {
+            "items": {
+              "$ref": "#/components/schemas/FreeLineOut"
+            },
+            "type": "array",
+            "title": "Lines"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total",
+          "lines"
+        ],
+        "title": "FreePartOut",
+        "description": "A part of free to spend, and its lines."
+      },
+      "FreeToSpendOut": {
+        "properties": {
+          "month": {
+            "type": "string",
+            "title": "Month"
+          },
+          "mine": {
+            "$ref": "#/components/schemas/FreeOut"
+          },
+          "household": {
+            "$ref": "#/components/schemas/FreeOut"
+          }
+        },
+        "type": "object",
+        "required": [
+          "month",
+          "mine",
+          "household"
+        ],
+        "title": "FreeToSpendOut",
+        "description": "Free to spend for mine and for household."
+      },
       "Graph": {
         "properties": {
           "nodes": {
@@ -5323,6 +5943,70 @@
         ],
         "title": "Layout",
         "description": "The folders the editor files into or looks in, each a path from the vault root."
+      },
+      "LimitIn": {
+        "properties": {
+          "amount": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,12}|(?=[\\d.]{1,15}0*$)\\d{0,12}\\.\\d{0,2}0*$)"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amount"
+          },
+          "from": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-[0-9]{2}$",
+            "title": "From"
+          }
+        },
+        "type": "object",
+        "required": [
+          "amount",
+          "from"
+        ],
+        "title": "LimitIn",
+        "description": "A category's monthly limit from a month on; null takes the limit away from then."
+      },
+      "LimitOut": {
+        "properties": {
+          "category_id": {
+            "type": "integer",
+            "title": "Category Id"
+          },
+          "from": {
+            "type": "string",
+            "title": "From"
+          },
+          "amount": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amount"
+          }
+        },
+        "type": "object",
+        "required": [
+          "category_id",
+          "from",
+          "amount"
+        ],
+        "title": "LimitOut",
+        "description": "A limit as stored."
       },
       "LineHit": {
         "properties": {
@@ -6184,6 +6868,30 @@
         "title": "SearchHit",
         "description": "One line that matched a search, with the date and tags of the note it is in."
       },
+      "SettingsIn": {
+        "properties": {
+          "salary_cutoff_day": {
+            "type": "integer",
+            "maximum": 31.0,
+            "minimum": 1.0,
+            "title": "Salary Cutoff Day"
+          },
+          "salary_category_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Salary Category Ids"
+          }
+        },
+        "type": "object",
+        "required": [
+          "salary_cutoff_day",
+          "salary_category_ids"
+        ],
+        "title": "SettingsIn",
+        "description": "The budget settings: the salary cutoff day and the income categories that are salary."
+      },
       "SplitIn": {
         "properties": {
           "amount": {
@@ -6287,6 +6995,30 @@
         "title": "Stored",
         "description": "How many balances a post stored, new or replacing a figure for the same day."
       },
+      "SuggestionOut": {
+        "properties": {
+          "direction": {
+            "type": "string",
+            "enum": [
+              "raise",
+              "lower"
+            ],
+            "title": "Direction"
+          },
+          "amount": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Amount"
+          }
+        },
+        "type": "object",
+        "required": [
+          "direction",
+          "amount"
+        ],
+        "title": "SuggestionOut",
+        "description": "Raise or lower the limit to this amount."
+      },
       "SyncStatus": {
         "properties": {
           "requested_at": {
@@ -6310,6 +7042,10 @@
                 "type": "null"
               }
             ]
+          },
+          "running": {
+            "type": "boolean",
+            "title": "Running"
           },
           "last_success_at": {
             "anyOf": [
@@ -6346,6 +7082,7 @@
         "required": [
           "requested_at",
           "last_run",
+          "running",
           "last_success_at",
           "days_since_success",
           "accounts"
@@ -6965,6 +7702,110 @@
         ],
         "title": "TrashEntry",
         "description": "One deleted note or folder, waiting in the trash."
+      },
+      "TrendCategoryOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "amounts": {
+            "items": {
+              "type": "string",
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+            },
+            "type": "array",
+            "title": "Amounts"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "kind",
+          "amounts"
+        ],
+        "title": "TrendCategoryOut",
+        "description": "One spending category's spending in each month of the trend."
+      },
+      "TrendOut": {
+        "properties": {
+          "months": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Months"
+          },
+          "categories": {
+            "items": {
+              "$ref": "#/components/schemas/TrendCategoryOut"
+            },
+            "type": "array",
+            "title": "Categories"
+          },
+          "totals": {
+            "items": {
+              "type": "string",
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+            },
+            "type": "array",
+            "title": "Totals"
+          },
+          "limits": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Limits"
+          }
+        },
+        "type": "object",
+        "required": [
+          "months",
+          "categories",
+          "totals",
+          "limits"
+        ],
+        "title": "TrendOut",
+        "description": "Spending per month, oldest first."
+      },
+      "UnreservedOut": {
+        "properties": {
+          "last_month": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Last Month"
+          },
+          "total": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Total"
+          }
+        },
+        "type": "object",
+        "required": [
+          "last_month",
+          "total"
+        ],
+        "title": "UnreservedOut",
+        "description": "What the limits left: the month before, and every month since limits began."
       },
       "UploadSize": {
         "properties": {

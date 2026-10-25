@@ -40,7 +40,7 @@ Amount = Numeric(14, 2)
 """Euros and cents, signed: spending is negative. Never a float."""
 
 CategoryKind = Literal["fixed", "flexible", "non_monthly", "income", "saving", "ignore"]
-"""What a category counts as in the budget. The budget itself comes later (#1036)."""
+"""What a category counts as in the budget; docs/reference/budget-model.md says how each counts."""
 
 CATEGORY_KINDS: tuple[str, ...] = get_args(CategoryKind)
 
@@ -49,13 +49,19 @@ RuleKind = Literal["text_contains", "payee"]
 
 RULE_KINDS: tuple[str, ...] = get_args(RuleKind)
 
-SIDES = ("in", "out")
-"""The bookings a rule sorts: money in for an income category's rule, money out for the rest."""
+SIDES = ("in", "out", "both")
+"""The bookings a rule sorts: money in for income, both for ignore, money out for the rest."""
 
 
 def side_of(kind: str) -> str:
-    """The side a rule of a category of this kind sorts."""
-    return "in" if kind == "income" else "out"
+    """The side a rule of a category of this kind sorts.
+
+    An `ignore` rule sorts both, so a work hotel and its reimbursement land in
+    the one category and cancel out.
+    """
+    if kind == "income":
+        return "in"
+    return "both" if kind == "ignore" else "out"
 
 
 SetBy = Literal["rule", "hand"]
@@ -104,6 +110,9 @@ class Category(Base):
     id: Mapped[int] = mapped_column(Identity(), primary_key=True)
     name: Mapped[str] = mapped_column(Text, unique=True)
     kind: Mapped[str] = mapped_column(Text)
+    # An income category whose bookings count for the next month when they land
+    # after the cutoff day. A budget setting, written by `PUT /budget/settings`.
+    salary: Mapped[bool] = mapped_column(server_default=text("false"))
 
 
 class Payee(Base):
@@ -140,8 +149,9 @@ class Rule(Base):
     pattern: Mapped[str] = mapped_column(Text)
     category_id: Mapped[int] = mapped_column(ForeignKey(Category.id, ondelete="CASCADE"))
     # Which bookings the rule sorts: `in` (money in) for an income category,
-    # `out` for any other. Kept from the category's kind by the routes, so a
-    # pattern may name Salary for money in and Dining for money out.
+    # `both` for an ignore category, `out` for any other. Kept from the
+    # category's kind by the routes, so a pattern may name Salary for money in
+    # and Dining for money out.
     side: Mapped[str] = mapped_column(Text)
 
 
@@ -170,6 +180,12 @@ class Transaction(Base):
         # same booking again is refused by this and nothing else.
         UniqueConstraint("account_id", "source_key", name="transaction_account_source_key"),
         Index("transaction_account_booking_date", "account_id", "booking_date"),
+        # The budget finds each transfer's twin by its group; most bookings have none.
+        Index(
+            "transaction_transfer_group",
+            "transfer_group",
+            postgresql_where=text("transfer_group IS NOT NULL"),
+        ),
         _one_of("category_set_by", SET_BY, "transaction_set_by_check"),
         _sorted_by_someone("transaction_category_set_by"),
         {"schema": SCHEMA},

@@ -11,8 +11,9 @@ gives one winning:
    `lebensversic` names `lebensversicherung ag`.
 
 A rule only sorts a booking of its category's side: a rule for an `income`
-category only money in, any other rule only money out, so a payee rule
-`deloitte` for Salary leaves spending at the Deloitte canteen alone.
+category only money in, an `ignore` rule both, any other rule only money out,
+so a payee rule `deloitte` for Salary leaves spending at the Deloitte canteen
+alone, and a hotel paid for work and its reimbursement land in one category.
 
 Among rules of one kind the longest pattern wins, then the lowest id. Text
 rules come first because they exist for the bookings whose payee says
@@ -123,11 +124,12 @@ def _first_rule(kind: str, matches: ColumnElement[bool], amount: Any, payee: Any
     """The category of the winning rule of one kind, as a subquery correlated to its booking.
 
     Only rules of the booking's side take part: income for money in, the
-    rest for money out. With `payee`, the subquery joins that payee to each
-    rule on `matches`; every other table it names is the outer row's.
+    rest for money out, and ignore rules for both. With `payee`, the subquery
+    joins that payee to each rule on `matches`; every other table it names is
+    the outer row's.
     """
     side = case((amount > 0, literal("in")), else_=literal("out"))
-    statement = select(Rule.category_id).where(Rule.kind == kind, Rule.side == side)
+    statement = select(Rule.category_id).where(Rule.kind == kind, Rule.side.in_([side, "both"]))
     statement = statement.where(matches) if payee is None else statement.join(payee, matches)
     return (
         statement.correlate_except(Rule, *([] if payee is None else [payee]))

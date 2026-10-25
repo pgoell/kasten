@@ -177,6 +177,10 @@ async def sync_status(session: AsyncSession) -> dict[str, Any]:
     return {
         "requested_at": requested_at,
         "last_run": last_run,
+        # A run past the timeout was killed without saying so, as `start_run` reads it too.
+        "running": last_run is not None
+        and last_run.finished_at is None
+        and now - last_run.started_at < RUN_TIMEOUT,
         "last_success_at": last_success,
         "days_since_success": _days_since(last_success, now),
         "accounts": [

@@ -1,67 +1,15 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { type KeyboardEvent, useEffect, useRef, useState } from "react";
-import {
-  type Category,
-  fetchCategories,
-  fetchToSort,
-  sortByHand,
-  sortPayee,
-  type ToSort,
-} from "@/lib/finance-api";
-import { CATEGORY_KEYS } from "@/lib/finance-keys";
+import { type KeyboardEvent, useEffect, useId, useRef, useState } from "react";
+import { usePull } from "@/components/finance-bank";
+import { FinanceBudget } from "@/components/finance-budget-tab";
+import { FinanceOverview } from "@/components/finance-overview";
+import type { TabKeys } from "@/components/finance-sort-bar";
+import { FinanceToSort } from "@/components/finance-to-sort";
+import { FinanceTransactions } from "@/components/finance-transactions";
+import { FINANCE_TABS, type FinanceTab } from "@/lib/finance-keys";
+import { monthName, monthOf, shiftMonth } from "@/lib/finance-words";
 import type { EditorCommands } from "@/lib/key-bindings";
+import { useCategorySort } from "@/lib/use-category-sort";
 import { useLeader } from "@/lib/use-leader";
-
-/** One thing to sort: a booking without splits, or one split of a booking. */
-interface Row {
-  key: string;
-  transaction: number;
-  split?: number;
-  date: string;
-  who: string;
-  text: string;
-  amount: string;
-  currency: string;
-  payee: number | null;
-}
-
-/** The bookings as rows, a booking's loose splits in its place. */
-function rowsOf(bookings: ToSort[]): Row[] {
-  return bookings.flatMap((booking) => {
-    const shared = {
-      transaction: booking.id,
-      date: booking.booking_date,
-      who: booking.payee_name ?? booking.counterparty_name ?? "No payee",
-      currency: booking.currency,
-      payee: booking.payee_id,
-    };
-    if (booking.splits.length === 0) {
-      return [
-        {
-          ...shared,
-          key: `t${booking.id}`,
-          text: booking.purpose ?? "",
-          amount: booking.amount,
-        },
-      ];
-    }
-    return booking.splits.map((part) => ({
-      ...shared,
-      key: `s${part.id}`,
-      split: part.id,
-      text: part.text ?? "",
-      amount: part.amount,
-    }));
-  });
-}
-
-function money(amount: string, currency: string): string {
-  return new Intl.NumberFormat("de-DE", { style: "currency", currency }).format(Number(amount));
-}
-
-function messageOf(error: unknown): string {
-  return error instanceof Error ? error.message : "Finance did not load";
-}
 
 export interface FinancePaneProps {
   /** Reached by a leader sequence typed here, so every leader key still works. */
@@ -70,112 +18,88 @@ export interface FinancePaneProps {
   focusSignal: number;
   /** Says why a write was refused, or clears the line with undefined. */
   onNotice: (text: string | undefined) => void;
+  /** Today, as `YYYY-MM-DD`. The route reads the clock; this stays pure of it. */
+  today: string;
+}
+
+/** A key typed into a field is the field's, Escape aside, which leaves it. */
+function inField(target: EventTarget): boolean {
+  return (
+    target instanceof HTMLInputElement ||
+    target instanceof HTMLSelectElement ||
+    target instanceof HTMLTextAreaElement
+  );
 }
 
 /**
- * The finance pane, for now its to-sort view: every booking or split without a category,
- * oldest first. A key or a button per category sorts the cursor's row; with "always" armed it
- * sorts the row's payee instead, and every booking of theirs a rule may sort goes with it.
+ * A key the pane leaves alone: Enter or Space on a focused button or summary is its own press,
+ * and a chord such as Ctrl 1 belongs to the browser or the app, not to a category.
  */
-export function FinancePane({ commands, focusSignal, onNotice }: FinancePaneProps) {
-  const [cursor, setCursor] = useState(0);
-  const [always, setAlways] = useState(false);
-  // A write in the air. Keys and taps that sort wait for it, or a quick second press would sort
-  // the same row again, or the row under it into the category meant for this one.
-  const [busy, setBusy] = useState(false);
-  const panel = useRef<HTMLElement>(null);
-  const queries = useQueryClient();
-  const leader = useLeader(commands);
+function notOurs(event: KeyboardEvent): boolean {
+  // A summary opens its details on Enter or Space, as a button presses.
+  const pressable =
+    event.target instanceof HTMLButtonElement ||
+    (event.target instanceof HTMLElement && event.target.tagName === "SUMMARY");
+  if (pressable && (event.key === "Enter" || event.key === " ")) return true;
+  return event.ctrlKey || event.altKey || event.metaKey;
+}
 
-  const categories = useQuery({ queryKey: ["finance", "categories"], queryFn: fetchCategories });
-  const toSort = useQuery({ queryKey: ["finance", "to-sort"], queryFn: fetchToSort });
-  const rows = rowsOf(toSort.data?.bookings ?? []);
-  const at = Math.max(0, Math.min(cursor, rows.length - 1));
-  const row = rows[at];
+/**
+ * The finance pane: Overview, To sort, Transactions and Budget, under one month that `[` and `]`
+ * step. The frame takes the keys every tab shares (the tabs, the month, "pull now", the leader,
+ * `?` and `q`) after the tab in front has had its own.
+ */
+export function FinancePane({ commands, focusSignal, onNotice, today }: FinancePaneProps) {
+  const [tab, setTab] = useState<FinanceTab>("overview");
+  const [month, setMonth] = useState(monthOf(today));
+  const panel = useRef<HTMLElement>(null);
+  const keys = useRef<TabKeys>(null);
+  const id = useId();
+  const leader = useLeader(commands);
+  const sorter = useCategorySort(onNotice);
+  const pull = usePull(onNotice);
 
   useEffect(() => {
     if (focusSignal) panel.current?.focus();
   }, [focusSignal]);
 
-  async function sort(category: Category) {
-    if (row === undefined || busy) return;
-    const forPayee = always;
-    setAlways(false);
-    if (forPayee && row.payee === null) {
-      onNotice("This booking has no payee to sort");
-      return;
-    }
-    setBusy(true);
-    try {
-      if (forPayee && row.payee !== null) await sortPayee(row.payee, category.id);
-      else await sortByHand(row, category.id);
-      onNotice(undefined);
-    } catch (error) {
-      if (!(error instanceof Error)) throw error;
-      onNotice(error.message);
-    }
-    try {
-      await queries.invalidateQueries({ queryKey: ["finance", "to-sort"] });
-    } finally {
-      setBusy(false);
-    }
+  /** Show a tab and keep the keys in the pane, though what had the focus went with the old tab. */
+  function show(name: FinanceTab) {
+    setTab(name);
+    panel.current?.focus();
   }
 
-  /** The category a key sorts into, if it is one of `CATEGORY_KEYS` and that many are listed. */
-  function categoryOf(key: string): Category | undefined {
-    const index = key.length === 1 ? CATEGORY_KEYS.indexOf(key) : -1;
-    return index === -1 ? undefined : categories.data?.[index];
-  }
-
-  /** Stops an armed "always" first, and only then hands the keys back to the editor. */
-  function leave() {
-    if (always) setAlways(false);
-    else document.querySelector<HTMLElement>(".cm-content")?.focus();
-  }
+  const frameKeys: Record<string, () => void> = {
+    O: () => show("overview"),
+    S: () => show("to-sort"),
+    T: () => show("transactions"),
+    B: () => show("budget"),
+    "[": () => setMonth(shiftMonth(month, -1)),
+    "]": () => setMonth(shiftMonth(month, 1)),
+    P: () => void pull.pull(),
+    "?": () => commands.showHelp(),
+    q: () => commands.closeNote(),
+    Escape: () => document.querySelector<HTMLElement>(".cm-content")?.focus(),
+  };
 
   function onKeyDown(event: KeyboardEvent) {
-    const { target, key } = event;
-    // Enter or Space on a focused button is that button's own press, not the cursor row's.
-    if (target instanceof HTMLButtonElement && (key === "Enter" || key === " ")) return;
-    if (leader.feed(event)) return;
-    // A chord such as Ctrl 1 belongs to the browser or the app, not to a category.
-    if (event.ctrlKey || event.altKey || event.metaKey) return;
-
-    const category = categoryOf(key);
-    if (category !== undefined) {
-      void sort(category);
-      event.preventDefault();
+    if (inField(event.target)) {
+      if (event.key === "Escape") panel.current?.focus();
       return;
     }
-    switch (key) {
-      case " ":
-        leader.start(event);
-        break;
-      case "j":
-        setCursor(Math.min(at + 1, rows.length - 1));
-        break;
-      case "k":
-        setCursor(Math.max(at - 1, 0));
-        break;
-      case "a":
-        setAlways(!always);
-        break;
-      case "?":
-        commands.showHelp();
-        break;
-      case "q":
-        commands.closeNote();
-        break;
-      case "Escape":
-        leave();
-        break;
-      default:
-        return;
+    if (notOurs(event) || leader.feed(event)) return;
+    if (event.key === " ") {
+      leader.start(event);
+      return;
     }
+    const run = keys.current?.(event.key) ? () => undefined : frameKeys[event.key];
+    if (run === undefined) return;
+    run();
     event.preventDefault();
   }
 
-  const error = categories.error ?? toSort.error;
+  // Each tab hands its keys over as it draws; one that is not drawn has none.
+  keys.current = null;
   return (
     <section
       ref={panel}
@@ -185,55 +109,76 @@ export function FinancePane({ commands, focusSignal, onNotice }: FinancePaneProp
       className="finance-pane"
     >
       <header className="finance-pane-head">
-        <h2>To sort</h2>
-        <span className="finance-pane-count">
-          {toSort.data === undefined ? "" : `${toSort.data.total} to sort`}
-        </span>
-        <button
-          type="button"
-          className="finance-pane-button"
-          aria-pressed={always}
-          onClick={() => setAlways(!always)}
-        >
-          <kbd>a</kbd> Always for this payee
-        </button>
-      </header>
-      {error ? <p role="alert">{messageOf(error)}</p> : null}
-      <div role="toolbar" aria-label="Categories" className="finance-pane-categories">
-        {(categories.data ?? []).map((category, index) => (
-          <button
-            key={category.id}
-            type="button"
-            className="finance-pane-button"
-            disabled={row === undefined || busy}
-            onClick={() => void sort(category)}
-          >
-            {index < CATEGORY_KEYS.length ? <kbd>{CATEGORY_KEYS[index]}</kbd> : null}{" "}
-            {category.name}
-          </button>
-        ))}
-      </div>
-      {toSort.data !== undefined && rows.length === 0 ? (
-        <p className="finance-pane-empty">Nothing to sort.</p>
-      ) : null}
-      <ul aria-label="Bookings to sort" className="finance-pane-list">
-        {rows.map((item, index) => (
-          // The cursor's row is marked with aria-selected, which a list item does not take by role.
-          // biome-ignore lint/a11y/useAriaPropsSupportedByRole: the cursor row is the one marked, as the log pane's is.
-          <li
-            key={item.key}
-            aria-selected={index === at}
-            className={index === at ? "finance-pane-row finance-pane-selected" : "finance-pane-row"}
-          >
-            <button type="button" className="finance-pane-line" onClick={() => setCursor(index)}>
-              <span className="finance-pane-date">{item.date}</span>
-              <span className="finance-pane-who">{item.who}</span>
-              <span className="finance-pane-amount">{money(item.amount, item.currency)}</span>
-              <span className="finance-pane-text">{item.text}</span>
+        <div role="tablist" aria-label="Finance view" className="finance-pane-tabs">
+          {FINANCE_TABS.map(({ tab: name, label, key }) => (
+            <button
+              key={name}
+              type="button"
+              role="tab"
+              id={`${id}-tab-${name}`}
+              aria-controls={`${id}-view`}
+              aria-selected={tab === name}
+              className="finance-pane-tab"
+              onClick={() => show(name)}
+            >
+              {label} <kbd>{key}</kbd>
             </button>
-          </li>
-        ))}
-      </ul>
+          ))}
+        </div>
+        {tab === "to-sort" ? null : (
+          <div className="finance-pane-month">
+            <button
+              type="button"
+              className="finance-pane-button"
+              aria-label="Month before"
+              onClick={() => setMonth(shiftMonth(month, -1))}
+            >
+              ‹
+            </button>
+            <h2>{monthName(month)}</h2>
+            <button
+              type="button"
+              className="finance-pane-button"
+              aria-label="Month after"
+              onClick={() => setMonth(shiftMonth(month, 1))}
+            >
+              ›
+            </button>
+            {month === monthOf(today) ? null : (
+              <button
+                type="button"
+                className="finance-pane-button"
+                onClick={() => setMonth(monthOf(today))}
+              >
+                This month
+              </button>
+            )}
+          </div>
+        )}
+      </header>
+      <div
+        id={`${id}-view`}
+        role="tabpanel"
+        aria-labelledby={`${id}-tab-${tab}`}
+        className="finance-pane-view"
+      >
+        {tab === "overview" ? (
+          <FinanceOverview month={month} today={today} onMonth={setMonth} pull={pull} />
+        ) : null}
+        {tab === "to-sort" ? <FinanceToSort sorter={sorter} keys={keys} /> : null}
+        {tab === "transactions" ? (
+          <FinanceTransactions month={month} sorter={sorter} keys={keys} />
+        ) : null}
+        {tab === "budget" ? (
+          <FinanceBudget
+            month={month}
+            today={today}
+            keys={keys}
+            onNotice={onNotice}
+            refocus={() => panel.current?.focus()}
+          />
+        ) : null}
+      </div>
     </section>
   );
 }

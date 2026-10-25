@@ -7,6 +7,7 @@ Nothing here commits. The route that calls it does, once per request.
 """
 
 import uuid
+from dataclasses import dataclass
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 
@@ -15,7 +16,13 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import aliased, selectinload
 
-from kasten_backend.finance_models import Account, BalanceSnapshot, Transaction, TransactionSplit
+from kasten_backend.finance_models import (
+    Account,
+    BalanceSnapshot,
+    Payee,
+    Transaction,
+    TransactionSplit,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -216,35 +223,80 @@ async def list_accounts(session: AsyncSession) -> list[Account]:
     return list(await session.scalars(select(Account).order_by(Account.name)))
 
 
-async def list_transactions(  # noqa: PLR0913  each filter is its own keyword
+@dataclass(frozen=True)
+class Filters:
+    """What a reader narrows the bookings to. Each left None matches every booking."""
+
+    account: int | None = None
+    first: date | None = None
+    last: date | None = None
+    category: int | None = None
+    text: str | None = None
+
+
+def _matching(statement: Any, filters: Filters) -> Any:
+    """The bookings that pass every filter given.
+
+    A booking is in a category when it or one of its splits is. The text is
+    looked for in the purpose, the counterparty and the payee's name, case
+    ignored, as plain text rather than a pattern.
+    """
+    if filters.account is not None:
+        statement = statement.where(Transaction.account_id == filters.account)
+    if filters.first is not None:
+        statement = statement.where(Transaction.booking_date >= filters.first)
+    if filters.last is not None:
+        statement = statement.where(Transaction.booking_date <= filters.last)
+    if filters.category is not None:
+        statement = statement.where(
+            or_(
+                Transaction.category_id == filters.category,
+                exists().where(
+                    TransactionSplit.transaction_id == Transaction.id,
+                    TransactionSplit.category_id == filters.category,
+                ),
+            )
+        )
+    if filters.text:
+        needle = filters.text.lower()
+        payee = select(Payee.name).where(Payee.id == Transaction.payee_id).scalar_subquery()
+        statement = statement.where(
+            or_(
+                *(
+                    func.strpos(func.lower(func.coalesce(column, "")), needle) > 0
+                    for column in (Transaction.purpose, Transaction.counterparty_name, payee)
+                )
+            )
+        )
+    return statement
+
+
+async def list_transactions(
     session: AsyncSession,
+    filters: Filters,
     *,
-    account: int | None,
-    first: date | None,
-    last: date | None,
     after: int | None,
     limit: int,
+    newest_first: bool = False,
 ) -> list[Transaction]:
-    """At most `limit` bookings that match, oldest first, each with its splits.
+    """At most `limit` bookings that match, oldest first or newest first, each with its splits.
 
     `after` is the id of the last booking a reader has. The order is booking
     date then id, and ids do not follow booking dates (an import fills in the
     past), so the cursor resumes from that booking's place in the order.
     """
-    statement = select(Transaction).options(selectinload(Transaction.splits))
-    if account is not None:
-        statement = statement.where(Transaction.account_id == account)
-    if first is not None:
-        statement = statement.where(Transaction.booking_date >= first)
-    if last is not None:
-        statement = statement.where(Transaction.booking_date <= last)
+    statement = _matching(select(Transaction).options(selectinload(Transaction.splits)), filters)
+    key = tuple_(Transaction.booking_date, Transaction.id)
     if after is not None:
         place = select(Transaction.booking_date).where(Transaction.id == after).scalar_subquery()
-        statement = statement.where(
-            tuple_(Transaction.booking_date, Transaction.id) > tuple_(place, literal(after))
-        )
-    order = statement.order_by(Transaction.booking_date, Transaction.id).limit(limit)
-    return list(await session.scalars(order))
+        cursor = tuple_(place, literal(after))
+        statement = statement.where(key < cursor if newest_first else key > cursor)
+    order = (
+        (Transaction.booking_date.desc(), Transaction.id.desc())
+        if newest_first
+        else (Transaction.booking_date, Transaction.id)
+    )
+    return list(await session.scalars(statement.order_by(*order).limit(limit)))
 
 
 async def replace_splits(

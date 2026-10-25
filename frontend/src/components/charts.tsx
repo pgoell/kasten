@@ -19,13 +19,18 @@ interface BarsProps {
   goal?: Goal;
   /** When given, the bar at this index is full strength and the others step back. */
   todayIndex?: number;
+  /**
+   * Stretch the chart to the width it is given rather than keep its shape, for a chart wider
+   * than a card; its height then comes from the stylesheet.
+   */
+  stretch?: boolean;
 }
 
 /**
  * A bar per slot that has a value, with its goal as a dashed line. The goal counts toward
  * the top, so the line is always on the chart.
  */
-export function Bars({ label, points, slots, goal, todayIndex }: BarsProps) {
+export function Bars({ label, points, slots, goal, todayIndex, stretch }: BarsProps) {
   const slot = WIDTH / slots;
   const bar = slot * 0.7;
   const top = Math.max(1, goal?.value ?? 0, ...points.map((point) => point.amount));
@@ -36,6 +41,7 @@ export function Bars({ label, points, slots, goal, todayIndex }: BarsProps) {
       className="chart-svg"
       viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
       width="100%"
+      preserveAspectRatio={stretch ? "none" : undefined}
       role="img"
       aria-label={label}
     >

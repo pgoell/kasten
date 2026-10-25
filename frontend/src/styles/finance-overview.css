@@ -1,0 +1,496 @@
+/* The finance pane's overview and budget. The cards are the overview pane's (overview.css),
+   so the two read as one; the columns follow the pane's width through the view's container.
+   Status takes --k-ok, --k-warn and --k-danger, always beside a word and a sign; a category's
+   dot takes its tag slot. Text is 15px and no smaller on a phone, and every control is 44px
+   under a finger. */
+
+.finance-overview,
+.finance-budget {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+/* A budget row wider than this reads its meter as a line, not a share. */
+.finance-budget {
+  max-width: 56rem;
+}
+
+.finance-heroes,
+.finance-cards {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: 12px;
+  min-width: 0;
+}
+
+@container (min-width: 560px) {
+  .finance-heroes,
+  .finance-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .finance-wide-card {
+    grid-column: 1 / -1;
+  }
+}
+
+@container (min-width: 1000px) {
+  .finance-cards {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .finance-wide-card {
+    grid-column: span 2;
+  }
+}
+
+/* The two numbers the overview leads with, the size of the largest figure the app draws. */
+.finance-hero-figure {
+  margin: 4px 0 0;
+  color: var(--k-ink);
+  font-size: var(--k-text-46);
+  font-weight: 600;
+  line-height: var(--k-leading-display);
+  letter-spacing: var(--k-track-display);
+  font-variant-numeric: tabular-nums;
+}
+
+.finance-made-of {
+  margin: 4px 0 0;
+  color: var(--k-ink-soft);
+  font-size: var(--k-text-13);
+  overflow-wrap: anywhere;
+}
+
+.finance-muted {
+  color: var(--k-muted);
+}
+
+.finance-danger {
+  color: var(--k-danger);
+}
+
+.finance-status-text-ok {
+  color: var(--k-ok);
+}
+
+.finance-status-text-near {
+  color: var(--k-warn);
+}
+
+.finance-status-text-over {
+  color: var(--k-danger);
+}
+
+.finance-status-text-none {
+  color: var(--k-muted);
+}
+
+/* "How it adds up": the lines of free to spend as a table, closed until asked for. */
+.finance-sums {
+  margin-top: 8px;
+  font-size: var(--k-text-13);
+}
+
+.finance-sums summary {
+  color: var(--k-muted);
+  cursor: pointer;
+  list-style: none;
+}
+
+/* The marker is drawn here, since a summary laid out as flex for a finger loses the browser's. */
+.finance-sums summary::before {
+  content: "▸";
+  display: inline-block;
+  width: 1.1em;
+}
+
+.finance-sums[open] summary::before {
+  content: "▾";
+}
+
+.finance-sums summary::-webkit-details-marker {
+  display: none;
+}
+
+.finance-sums summary:focus-visible {
+  outline: 2px solid var(--k-accent);
+  outline-offset: 2px;
+}
+
+.finance-sums table {
+  width: 100%;
+  margin-top: 6px;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.finance-sums th,
+.finance-sums td {
+  padding: 4px 0;
+  border-top: 1px solid var(--k-rule);
+  font-weight: 400;
+  text-align: left;
+}
+
+.finance-sums td:last-child {
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* The log pane's meter: a 6px track in the rule colour, the fill in the accent, warning or
+   danger by status, and a tick in ink where the month stands. */
+.finance-meter {
+  position: relative;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--k-rule);
+}
+
+.finance-meter-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: var(--k-accent);
+}
+
+.finance-status-near .finance-meter-fill,
+.finance-status-near.finance-meter .finance-meter-fill {
+  background: var(--k-warn);
+}
+
+.finance-status-over .finance-meter-fill,
+.finance-status-over.finance-meter .finance-meter-fill {
+  background: var(--k-danger);
+}
+
+.finance-meter-tick {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 2px;
+  margin-left: -1px;
+  border-radius: 1px;
+  background: var(--k-ink);
+}
+
+/* Watch: a row per category to look at, its sum on the right, its state and any cut under it. */
+.finance-watch-list {
+  display: grid;
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.finance-watch-list li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--k-rule);
+}
+
+.finance-watch-list li:last-child {
+  border-bottom: 0;
+}
+
+.finance-watch-name {
+  font-weight: 600;
+}
+
+.finance-watch-sum {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.finance-watch-state,
+.finance-watch-cut {
+  grid-column: 1 / -1;
+  font-size: var(--k-text-13);
+}
+
+.finance-watch-cut {
+  color: var(--k-muted);
+}
+
+.finance-pull {
+  align-self: start;
+  margin-top: 8px;
+}
+
+/* The trend: the readout over the bars, a button over each bar, the months under them. */
+.finance-trend {
+  display: grid;
+  gap: 6px;
+  margin: 4px 0 0;
+}
+
+.finance-trend-readout {
+  margin: 0;
+  font-size: var(--k-text-15);
+  font-variant-numeric: tabular-nums;
+}
+
+.finance-trend-readout strong {
+  font-weight: 600;
+}
+
+.finance-trend-plot {
+  position: relative;
+  padding-top: 4px;
+  border-bottom: 1px solid var(--k-rule);
+}
+
+/* The bars stretch to the card's width at a fixed height; the goal's dashes keep their size. */
+.finance-trend-plot .chart-svg {
+  height: 140px;
+}
+
+.finance-trend-plot .log-chart-goal {
+  vector-effect: non-scaling-stroke;
+}
+
+.finance-trend-hits {
+  position: absolute;
+  inset: 0;
+  display: flex;
+}
+
+.finance-trend-hit {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--k-radius-4);
+  background: transparent;
+  cursor: pointer;
+}
+
+.finance-trend-hit:hover {
+  background: var(--k-inset);
+}
+
+.finance-trend-hit:focus-visible {
+  outline: 2px solid var(--k-accent);
+  outline-offset: -2px;
+}
+
+.finance-trend-axis {
+  display: flex;
+  color: var(--k-muted);
+  font-size: var(--k-text-12);
+  font-variant-numeric: tabular-nums;
+}
+
+.finance-trend-axis > span {
+  flex: 1 1 0;
+  min-width: 0;
+  text-align: center;
+}
+
+.finance-trend-now {
+  color: var(--k-accent);
+  font-weight: 700;
+}
+
+.finance-narrow {
+  display: none;
+}
+
+/* Twelve month names do not fit a phone's width, so it shows the months' numbers. */
+@container (max-width: 520px) {
+  .finance-wide {
+    display: none;
+  }
+
+  .finance-narrow {
+    display: inline;
+  }
+}
+
+/* Budget: a group per kind, a row per category with its sum, meter, words and actions. */
+.finance-budget-group {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.finance-budget-group h3 {
+  margin: 8px 0 0;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--k-rule-strong);
+  font-size: var(--k-text-15);
+  font-weight: 600;
+}
+
+.finance-budget-list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* The cursor's row has the accent on its left edge, as the log pane's does. */
+.finance-budget-row {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--k-rule);
+  border-left: 2px solid transparent;
+}
+
+.finance-budget-row.finance-pane-selected {
+  border-left-color: var(--k-accent);
+  background: var(--k-paper);
+}
+
+.finance-budget-line {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--k-ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.finance-budget-line:focus-visible {
+  outline: 2px solid var(--k-accent);
+  outline-offset: 2px;
+}
+
+.finance-budget-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.finance-budget-sum {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.finance-budget-sum .finance-muted {
+  font-weight: 400;
+}
+
+.finance-budget-aside {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 2px 12px;
+  margin: 0;
+  color: var(--k-muted);
+  font-size: var(--k-text-13);
+}
+
+.finance-budget-actions,
+.finance-budget-edit {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.finance-small {
+  min-height: 32px;
+  padding: 0 10px;
+  font-size: var(--k-text-13);
+}
+
+.finance-suggest {
+  border-color: var(--k-accent);
+  color: var(--k-accent);
+}
+
+/* The fields are 16px so a phone does not zoom into them. */
+.finance-budget-edit input,
+.finance-filters select,
+.finance-filters input {
+  min-width: 0;
+  min-height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--k-rule);
+  border-radius: var(--k-radius-6);
+  background: var(--k-paper);
+  color: var(--k-ink);
+  font: inherit;
+  font-size: 16px;
+}
+
+.finance-budget-edit input {
+  width: 7em;
+}
+
+.finance-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+}
+
+.finance-filters select,
+.finance-filters input {
+  flex: 1 1 10rem;
+}
+
+.finance-budget-edit input:focus-visible,
+.finance-filters select:focus-visible,
+.finance-filters input:focus-visible {
+  outline: 2px solid var(--k-accent);
+  outline-offset: 1px;
+}
+
+@media (pointer: coarse) {
+  .finance-pull kbd,
+  .finance-budget-actions kbd {
+    display: none;
+  }
+
+  .finance-small,
+  .finance-budget-edit input,
+  .finance-filters select,
+  .finance-filters input,
+  .finance-budget-line,
+  .finance-sums summary {
+    min-height: 44px;
+  }
+
+  .finance-budget-line,
+  .finance-sums summary {
+    align-items: center;
+  }
+
+  .finance-sums summary {
+    display: flex;
+  }
+}
+
+@media (width < 48rem) {
+  .finance-made-of,
+  .finance-sums,
+  .finance-watch-state,
+  .finance-watch-cut,
+  .finance-trend-axis,
+  .finance-budget-aside,
+  .finance-small {
+    font-size: var(--k-text-15);
+  }
+}
+
+.finance-sort-fold {
+  margin-top: 0;
+}
+
+.finance-sort-fold[open] summary {
+  margin-bottom: 8px;
+}

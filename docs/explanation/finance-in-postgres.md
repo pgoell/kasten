@@ -27,8 +27,11 @@ categories, payees and rules that
 [sort them](/reference/http-api/finance-sorting.md). Migration `0004` adds the sync
 requests and runs behind "pull now"
 ([the sync routes](/reference/http-api/finance-sync.md)), and `0005` gives
-each rule the side of the bookings it sorts. Budgets, plans and
-goals come later in the finance module (#971).
+each rule the side of the bookings it sorts. Migration `0007` adds the
+budget's settings: each category's limit by the month it takes effect from,
+the salary cutoff day and which income is salary
+([Budget model](/reference/budget-model.md)). Plans and goals come later in
+the finance module (#971).
 
 ## A transaction is not a note
 
