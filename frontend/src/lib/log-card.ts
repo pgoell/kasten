@@ -51,7 +51,11 @@ import {
   askPlaceholder,
   askWords,
   focusAmount,
+  forgetAmount,
   keepingField,
+  refuse,
+  rememberAmount,
+  showQuestion,
 } from "@/lib/log-card-weight";
 import {
   askYesterday,
@@ -133,7 +137,12 @@ function writeLogLine(view: EditorView, text: string, effects: StateEffect<unkno
   view.dispatch({
     changes: edit,
     // The edit starts where the inserted text does, and a new section's heading comes before the line.
-    effects: [tapped.of({ from: edit.from + edit.insert.indexOf(text), text }), ...effects],
+    // The card's own write ends a question it asked, and no other change does.
+    effects: [
+      tapped.of({ from: edit.from + edit.insert.indexOf(text), text }),
+      asking.of(null),
+      ...effects,
+    ],
     userEvent: "input.log",
     // History joins quick adjacent input into one step, so two fast taps, or a
     // tap just after typing, would come back as one `u`.
@@ -149,22 +158,14 @@ function tap(view: EditorView, kind: LogKind, amount: HTMLInputElement): void {
   const line = kindLine(kind, amount.value);
   if (typeof line === "string") {
     amount.value = "";
+    forgetAmount(view);
     writeLogLine(view, line);
   } else if (line.ask === true) {
     askFor(view, kind.mark);
+    showQuestion(view, kind);
   } else {
     refuse(view, line.why);
   }
-}
-
-/**
- * Says why an amount is no amount of its kind. A question the card asks is taken
- * back first, since that redraws the card and the line goes in the new one.
- */
-function refuse(view: EditorView, why: string): void {
-  if (view.state.field(cardField).ask !== null) keepingField(view, asking.of(null));
-  const element = view.dom.querySelector<HTMLElement>(".cm-log-why");
-  if (element !== null) element.textContent = why;
 }
 
 /**
@@ -181,7 +182,11 @@ function untap(view: EditorView, tap: LastTap): void {
     end < doc.length
       ? { from: tap.from, to: end + 1 }
       : { from: Math.max(0, tap.from - 1), to: end };
-  view.dispatch({ changes, effects: tapped.of(null), userEvent: "delete.log" });
+  view.dispatch({
+    changes,
+    effects: [tapped.of(null), asking.of(null)],
+    userEvent: "delete.log",
+  });
 }
 
 /** Takes back the last tap as the field holds it now, which an edit above it has moved. */
@@ -260,6 +265,7 @@ class LogCard extends WidgetType {
       event.stopPropagation();
       if (asked !== undefined) tap(view, asked, amount);
     });
+    rememberAmount(view, amount);
     const why = document.createElement("div");
     // A question is drawn in the muted colour, and only a refused amount in the warn colour.
     why.className = asked === undefined ? "cm-log-why" : "cm-log-why cm-log-ask";
@@ -390,8 +396,6 @@ const cardField = StateField.define<Card>({
     if (tr.docChanged && held.lastTap !== null) {
       held.lastTap = { from: tr.changes.mapPos(held.lastTap.from), text: held.lastTap.text };
     }
-    // A write, an edit or an Undo takes back the question a last kind asked.
-    if (tr.docChanged) held.ask = null;
     let changed = tr.docChanged;
     for (const effect of tr.effects) {
       if (effect.is(tapped)) {
@@ -516,6 +520,10 @@ export function cardShown(view: EditorView): boolean {
 export function askOnCard(view: EditorView, mark: string): boolean {
   if (!cardShown(view)) return false;
   askFor(view, mark);
+  const kind = view.state
+    .field(cardField)
+    .config?.kinds.find((known) => known.mark === mark && known.last === true);
+  if (kind !== undefined) showQuestion(view, kind);
   // The palette hands its focus back to the editor when it closes, after this returns.
   queueMicrotask(() => focusAmount(view));
   return true;

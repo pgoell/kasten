@@ -329,6 +329,49 @@ it("#805 A11 the hint goes back to amount once a weight is written", async () =>
   );
 });
 
+it("#805 A11 Enter in the amount field after an ask writes the weight line", async () => {
+  fetchNote.mockResolvedValue(withLines(WEIGHT_LINE));
+  const { actions } = renderPane();
+
+  fireEvent.click(await screen.findByRole("button", { name: "Log weight" }));
+  const amount = screen.getByLabelText("Amount");
+  fireEvent.change(amount, { target: { value: "82.4" } });
+  fireEvent.keyDown(amount, { key: "Enter" });
+  expect(actions.addLine).toHaveBeenLastCalledWith(TODAY, "- ⚖ 82.4 kg");
+});
+
+it("#805 A11 with no weigh-in on the day the pane's Weight button shows the latest before it with its date and no meter", async () => {
+  fetchNote.mockResolvedValue(withLines("- ⚖ weight: kg, last, max 85"));
+  fetchLog.mockImplementation(logDays([back(0, [weigh(null)]), back(1, [weigh(82.4)])]));
+  renderPane();
+
+  await waitFor(() =>
+    expect(screen.getByRole("button", { name: "Log weight" })).toHaveTextContent("82.4 kg, Oct 20"),
+  );
+  expect(
+    screen.getByRole("button", { name: "Log weight" }).querySelector("[role='meter']"),
+  ).toBeNull();
+});
+
+it("#805 A11 a day change clears the weight in kg hint", async () => {
+  fetchNote.mockResolvedValue(withLines(WEIGHT_LINE));
+  renderPane();
+
+  fireEvent.click(await screen.findByRole("button", { name: "Log weight" }));
+  expect(screen.getByLabelText("Amount")).toHaveAttribute("placeholder", "weight in kg");
+  fireEvent.click(screen.getByRole("button", { name: "Day before" }));
+  expect(screen.getByLabelText("Amount")).toHaveAttribute("placeholder", "amount");
+});
+
+it("#805 A2 a weigh-in of 82.45 kg reads 82.45 kg in the Today row and the tile", async () => {
+  fetchNote.mockResolvedValue(withLines(WEIGHT_LINE));
+  fetchLog.mockImplementation(logDays([back(0, [weigh(82.45)])]));
+  renderPane();
+
+  await waitFor(() => expect(rowNamed("Weight")?.textContent).toContain("82.45 kg"));
+  expect(figureOf(tileNamed("Weight"))).toBe("82.45 kg");
+});
+
 it("#805 guard with no weight kind the four #804 slots render as before", async () => {
   renderPane();
 

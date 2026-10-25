@@ -32,7 +32,7 @@ function suffix(kind: LogKind): string {
 }
 
 /** A date as its short month and day, `Oct 22`. */
-function monthDay(date: string): string {
+export function monthDay(date: string): string {
   return new Date(`${date}T00:00:00Z`).toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
@@ -50,6 +50,33 @@ function changeWords(change: number, tail: string): string {
 function countWords(count: number): string {
   if (count === 0) return "no weigh-ins";
   return count === 1 ? "one weigh-in" : `${grouped(count)} weigh-ins`;
+}
+
+/** The amount field's placeholder for a kind that asks for its number, as `weight in kg`. */
+export function hintOf(kind: LogKind): string {
+  return kind.unit === "" ? kind.name : `${kind.name} in ${kind.unit}`;
+}
+
+/**
+ * A last kind's button as the card draws it: the day's own weigh-in as the total, or with none
+ * the latest before the day in the range, in words and with no meter.
+ */
+export function weightButton(
+  kind: LogKind,
+  dates: string[],
+  days: LogDay[],
+  own: LogDay | undefined,
+  tail: string,
+): { total: number | null; words?: string } {
+  const value = valueOn(kind, own);
+  if (value !== null) return { total: value };
+  const day = dates[dates.length - 1] ?? "";
+  const latest = latestOn(weightOf(kind, dates, days).values, dates, day);
+  if (latest === null) return { total: null };
+  return {
+    total: null,
+    words: `${String(latest.value)}${tail}, ${monthDay(latest.date)}`,
+  };
 }
 
 /** A goal's side in words: a floor is `at least`, a ceiling `at most`. */
@@ -71,7 +98,7 @@ function WeightRow({ kind, dates, days }: { kind: LogKind; dates: string[]; days
   const figure =
     latest === null
       ? "—"
-      : `${grouped(latest.value)}${tail}${latest.date === day ? "" : `, ${monthDay(latest.date)}`}`;
+      : `${String(latest.value)}${tail}${latest.date === day ? "" : `, ${monthDay(latest.date)}`}`;
 
   return (
     <li className={`log-pane-reading log-pane-weight${state}`} data-kind={kind.name}>
@@ -139,7 +166,7 @@ function WeightChart({ kind, dates, days }: { kind: LogKind; dates: string[]; da
   const aim = goal === undefined ? "" : `, goal ${bound(goal)} ${grouped(goal.value)}${tail}`;
   const passed =
     last !== null && goal !== undefined && overMax(last, goal) ? ", over the goal" : "";
-  const latest = last === null ? "" : `, latest ${grouped(last)}${tail}`;
+  const latest = last === null ? "" : `, latest ${String(last)}${tail}`;
 
   return (
     <figure className="log-chart">
@@ -194,12 +221,12 @@ function tileOf(weight: Weight, tail: string): { figure: string; words: string }
   const { count, first, last, change } = weight;
   if (first === null || last === null || change === null) {
     return count === 1 && last !== null
-      ? { figure: `${grouped(last)}${tail}`, words: countWords(count) }
+      ? { figure: `${String(last)}${tail}`, words: countWords(count) }
       : { figure: "—", words: countWords(count) };
   }
   return {
     figure: changeWords(change, tail),
-    words: `from ${grouped(first)} to ${grouped(last)}${tail}`,
+    words: `from ${String(first)} to ${String(last)}${tail}`,
   };
 }
 

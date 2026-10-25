@@ -191,7 +191,7 @@ describe("the log card's weight kind", () => {
     expect(text(view)).toBe(NOTE);
   });
 
-  it("#805 I3 the question's words and placeholder clear on the next press, and a refused amount keeps its text", async () => {
+  it("#805 I3 the question's words and placeholder clear on the next write, and a refused amount keeps its text", async () => {
     vi.mocked(fetchNote).mockResolvedValue(WEIGHT);
     const view = mount(NOTE);
     await arrived(view, "Log weight");
@@ -202,7 +202,8 @@ describe("the log card's weight kind", () => {
     amount(view).value = "abc";
     press(view, "Log weight");
     expect(why(view)).toContain("not a weight amount: abc");
-    expect(amount(view).placeholder).toBe("amount");
+    // The question stays after a refusal, so its placeholder does too.
+    expect(amount(view).placeholder).toBe("weight in kg");
     expect(amount(view).value).toBe("abc");
 
     amount(view).value = "81";
@@ -225,6 +226,39 @@ describe("the log card's weight kind", () => {
     press(view, "Log weight");
     expect(why(view)).toContain("not a weight amount: abc");
     expect(view.dom.querySelector(".cm-log-why")?.classList.contains("cm-log-ask")).toBe(false);
+  });
+
+  it("#805 I3 an edit elsewhere in the note while the card asks keeps the typed number and the focus", async () => {
+    vi.mocked(fetchNote).mockResolvedValue(WEIGHT);
+    const view = mount(NOTE);
+    await arrived(view, "Log weight");
+    expect(button(view, "Log weight")).not.toBeNull();
+
+    press(view, "Log weight");
+    fireEvent.input(amount(view), { target: { value: "82" } });
+    // A change to the title, outside `## Log`, moves no total.
+    view.dispatch({ changes: { from: 2, insert: "x" } });
+    expect(amount(view).value).toBe("82");
+    expect(document.activeElement).toBe(amount(view));
+    expect(why(view)).toBe("Type the weight in kg");
+  });
+
+  it("#805 I1 after a refused amount, a fixed number and Enter still write the weight line", async () => {
+    vi.mocked(fetchNote).mockResolvedValue(WEIGHT);
+    const view = mount(NOTE);
+    await arrived(view, "Log weight");
+    expect(button(view, "Log weight")).not.toBeNull();
+
+    press(view, "Log weight");
+    fireEvent.input(amount(view), { target: { value: "abc" } });
+    press(view, "Log weight");
+    expect(why(view)).toContain("not a weight amount: abc");
+
+    fireEvent.input(amount(view), { target: { value: "82" } });
+    fireEvent.keyDown(amount(view), { key: "Enter" });
+    expect(text(view)).toBe(
+      "# 2026-10-20 Tuesday\n\n## Log\n- 💧 500 ml\n- ⚖ 82 kg\n\n## Done\n- [ ] write",
+    );
   });
 
   it("#805 I1 an amount that is no weight says why, writes nothing and keeps the text", async () => {
