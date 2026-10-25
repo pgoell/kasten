@@ -17,7 +17,9 @@ kasten has one design rule, and the rest of the system falls out of it.
 
 The rule has one exception, money. The `finance` schema is a system of record
 and does not rebuild from the vault; [Finance in Postgres](/explanation/finance-in-postgres.md)
-says why. Everything below holds for the rest of Postgres.
+says why. RSVP reading places bend it too, in a small way, as
+[below](#rsvp-reading-places). Everything else here holds for the rest of
+Postgres.
 
 ## What that buys you
 
@@ -31,7 +33,8 @@ That is backup and file history in one, and it costs nothing, because the vault
 is already plain text. Nobody has to write a database dump job.
 
 **The database is disposable.** `db:reset` throws away every row and you lose
-nothing. That makes schema work cheap and takes the fear out of migrations.
+no notes, only the RSVP reading places described below. That makes schema work
+cheap and takes the fear out of migrations.
 
 **Two writers are possible.** Editing a file on disk and editing it through the
 web page are the same operation, because the file is the thing. Sync tools,
@@ -48,6 +51,21 @@ The test for whether something belongs in the database is simple. If losing it
 would lose information, it does not belong there. Note text, titles and the
 links written inside a note are all recoverable by reading the vault again.
 Anything you cannot recover that way has to go into a file.
+
+## RSVP reading places
+
+The `rsvp_places` table, from migration `0006`, is the one thing in Postgres
+outside `finance` that the vault cannot rebuild. It holds, for each file an RSVP run stopped in, the word it stopped at,
+the length of the word list then, and a few words to find the place again.
+
+It lives in the database and not in the note's frontmatter because a run saves
+on every pause. A frontmatter write is a jj change, so each pause would add one
+to the note's history, and a PDF or a book has no frontmatter to write to.
+
+The rule bends here because the loss is small, unlike finance's. Drop the table and you lose
+where each run stopped, and nothing else: no note, no link, no word you wrote.
+The next run starts at the top of the file. See
+[HTTP API: RSVP](/reference/http-api/rsvp.md).
 
 ## What follows from it
 

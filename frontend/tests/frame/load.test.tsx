@@ -86,6 +86,8 @@ const INERT: TreeCommands = {
   openLocalGraph: vi.fn(),
   openVideo: vi.fn(),
   toggleVideo: vi.fn(),
+  openRsvp: vi.fn(),
+  rsvpFromHere: vi.fn(),
   uploadBook: vi.fn(),
   importNotes: vi.fn(),
   exportNote: vi.fn(),

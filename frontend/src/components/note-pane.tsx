@@ -12,18 +12,23 @@ import { LocalGraph } from "@/components/local-graph";
 import { NoteEditor } from "@/components/note-editor";
 import { Outline } from "@/components/note-margins";
 import { PersonFooter } from "@/components/person-card";
+import { Rsvp } from "@/components/rsvp";
 import { Sheet } from "@/components/sheet";
 import { TodayPane } from "@/components/today-pane";
 import { heldText } from "@/lib/held-text";
 import type { TreeCommands } from "@/lib/key-bindings";
 import type { Outline as OutlineState } from "@/lib/note-head";
 import type { Pane } from "@/lib/panes";
+import { indexAt } from "@/lib/rsvp";
+import { markdownWords } from "@/lib/rsvp-sources";
 import type { useAutosave } from "@/lib/use-autosave";
 import type { BufferSync } from "@/lib/use-buffer-sync";
+import { paneView } from "@/lib/use-food-wait";
 import type { GuardedWrites } from "@/lib/use-guarded-writes";
 import type { Listings } from "@/lib/use-listings";
 import type { NoteOpening } from "@/lib/use-note-opening";
 import { usePaneWide } from "@/lib/use-pane-wide";
+import { type RsvpAsk, useRsvpAsk } from "@/lib/use-rsvp";
 import type { TodoActions } from "@/lib/use-todo-actions";
 
 type Autosave = ReturnType<typeof useAutosave>;
@@ -51,6 +56,7 @@ export function NotePane({
   onGraphPane,
   onGraphSheet,
   onSeek,
+  rsvp,
 }: {
   shown: Pane;
   focused: boolean;
@@ -74,6 +80,8 @@ export function NotePane({
   onGraphSheet?: (note: string) => void;
   /** A time in the note asks the video playing that note to seek. See `NoteEditor`. */
   onSeek: (note: string, seconds: number, id?: string) => void;
+  /** Raised for this pane by `Space r r` and `Space r h`. */
+  rsvp?: RsvpAsk;
 }) {
   const queryClient = useQueryClient();
   const { held, standbyReload, typed, reload } = buffer;
@@ -112,6 +120,12 @@ export function NotePane({
     seenSignal.current = graphSignal;
     if (asked) openGraph();
   }, [graphSignal]);
+  const reading = useRsvpAsk(rsvp);
+  const closeReading = reading.close;
+  const closeRsvp = useCallback(() => {
+    closeReading();
+    paneView(shown.id)?.focus();
+  }, [closeReading, shown.id]);
   // The outline the editor reports, kept with the path it was reported for.
   // A note that fails to open or is still loading has no editor reporting,
   // so the last note's outline would otherwise stay in the margin, and a
@@ -252,6 +266,28 @@ export function NotePane({
             )}
           </aside>
         </div>
+        {reading.open && (
+          <Rsvp
+            key={reading.open.signal}
+            source={{
+              path: shown.path,
+              // The buffer and not the vault, so text typed and not yet saved
+              // is read too, and the cursor below counts in the same text.
+              words: async () =>
+                markdownWords(
+                  paneView(shown.id)?.state.doc.toString() ??
+                    queryClient.getQueryData<string>(["note", shown.path]) ??
+                    "",
+                ),
+              here: (words) => {
+                const view = paneView(shown.id);
+                return view === null ? null : indexAt(words, 0, view.state.selection.main.from);
+              },
+            }}
+            here={reading.open.here}
+            onClose={closeRsvp}
+          />
+        )}
         <Sheet
           side
           open={sheetOpen && !wide}

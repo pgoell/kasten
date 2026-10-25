@@ -7,7 +7,6 @@ import {
   ANYWHERE,
   chordLabel,
   LOG_PANE,
-  READER,
   REVIEW_PANE,
   SCREENS,
   TERMINAL,
@@ -16,6 +15,7 @@ import {
 } from "@/lib/key-bindings";
 import { LEADER, LEADER_COLUMNS, spelled, TAB_DIGITS, TAB_KEYS } from "@/lib/leader-keys";
 import { closeOnBackdrop, HEADER_ROW, INPUT, LABEL, PANEL, STATUS } from "@/lib/overlay-styles";
+import { READER, RSVP_KEYS } from "@/lib/reader-keys";
 import { useViewport } from "@/lib/use-viewport";
 import { VIDEO_PANE } from "@/lib/video-keys";
 import { useVim } from "@/lib/vim-setting";
@@ -168,6 +168,7 @@ export function KeyHelp({ onClose }: { onClose: () => void }) {
       ],
     },
     { title: "In a page, PDF or book", keys: READER },
+    { title: "Reading word by word", keys: RSVP_KEYS },
     { title: "Over a video", keys: VIDEO_PANE },
     { title: "In review", keys: REVIEW_PANE },
     { title: "Anywhere", keys: ANYWHERE },

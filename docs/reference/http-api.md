@@ -9,8 +9,8 @@ status: stable
 
 # HTTP API
 
-The backend serves seventy-six endpoints under `/api/`. Forty-two read,
-thirty-three write, and one streams. The interactive schema is at `/docs` while the backend
+The backend serves seventy-eight endpoints under `/api/`. Forty-three read,
+thirty-four write, and one streams. The interactive schema is at `/docs` while the backend
 runs, and the machine-readable one at `/openapi.json`.
 
 The agent's routes sit under `/agent/`, and they are documented on their own page,
@@ -36,6 +36,7 @@ including the check that refuses a cross-site `POST` with a `403`.
 * [Finance](/reference/http-api/finance.md): the accounts, balances and bookings host jobs write, the splits under a booking, and the reads, with a `503` when there is no database
 * [Finance sorting](/reference/http-api/finance-sorting.md): categories, payees and rules, the order the rules fire in, the category set by hand, and the to-sort list
 * [Finance sync](/reference/http-api/finance-sync.md): "pull now" and whether one waits, the runs the bank job records, and the sync status the pane and agents read
+* [RSVP](/reference/http-api/rsvp.md): read and save where an RSVP run stopped in a file
 * [Cards](/reference/http-api/cards.md): flashcard lines, review limits and Anki imports
 * [Capture](/reference/http-api/capture.md): the dump, web pages, YouTube transcripts, HTML pages, weather and GitHub contributions
 * [System](/reference/http-api/system.md): health, version, the change stream, terminals and agent tokens

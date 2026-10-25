@@ -86,7 +86,8 @@ which is the whole point of
 [The vault and the derived index](/explanation/vault-and-derived-index.md). The
 vault cannot be rebuilt from anything. The one exception is the `finance`
 schema, which is a record of its own, see
-[Finance in Postgres](/explanation/finance-in-postgres.md). Three consequences follow, and all three
+[Finance in Postgres](/explanation/finance-in-postgres.md). RSVP reading places
+do not rebuild either, but losing them costs only where each run stopped. Three consequences follow, and all three
 are deployment decisions rather than code:
 
 - The vault is a bind mount to a host path, never a named volume, and it lives

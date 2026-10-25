@@ -22,7 +22,9 @@ interface Pdfjs {
   }): {
     promise: Promise<{
       numPages: number;
-      getPage(page: number): Promise<{ getTextContent(): Promise<{ items: { str?: string }[] }> }>;
+      getPage(
+        page: number,
+      ): Promise<{ getTextContent(): Promise<{ items: { str?: string; hasEOL?: boolean }[] }> }>;
       destroy(): Promise<void>;
     }>;
     /** Frees the worker the task spawned, which a rejected `promise` leaves running. */
@@ -30,35 +32,28 @@ interface Pdfjs {
   };
 }
 
+/** A pdf opened by `readPdf`, as much of it as its readers use. */
+type OpenPdf = Awaited<ReturnType<Pdfjs["getDocument"]>["promise"]>;
+
 /**
- * Which page of `bytes` holds `quote`, counting from zero, or -1.
+ * Open `bytes` with pdf.js, hand the document to `read`, and free it.
  *
- * `getTextContent` is the cheap half of what rendering a page costs: it parses
- * the content stream and hands back the runs, and draws nothing. The runs are
- * joined with nothing between them, which is not a shortcut but the rule: the
- * text layer puts each run in a span of its own and no whitespace between two
- * of them, so a page's own words read the same way whether they are being
- * matched here or in the drawn document.
- *
- * `keep` is asked before every page, so a second press or a closed pane ends
- * the walk rather than finishing a scan nobody is waiting for. The document is
- * destroyed on every path out, its worker with it.
- *
- * Bytes pdf.js will not open answer -1 rather than throwing. The caller picks
- * this arm by the book carrying no document to walk, and a section of an epub
- * foliate could not build carries none either (`view.js:533`), so the wrong arm
- * is reachable and it must end in the same "not in the book" as an honest miss.
+ * Bytes pdf.js will not open answer `otherwise` rather than throwing. The caller
+ * picks a pdf arm by the book carrying no document to walk, and a section of an
+ * epub foliate could not build carries none either (`view.js:533`), so the wrong
+ * arm is reachable and it must end in the same answer as an honest miss. The
+ * document is destroyed on every path out, its worker with it.
  */
-async function pdfPageHolding(
+export async function readPdf<T>(
   bytes: ArrayBuffer,
-  quote: string[],
-  keep: () => boolean,
-): Promise<number> {
+  read: (pdf: OpenPdf) => Promise<T>,
+  otherwise: T,
+): Promise<T> {
   const pdfjs = (globalThis as { pdfjsLib?: Pdfjs }).pdfjsLib;
   // Nothing has opened a pdf in this tab, so nothing set the global. Reachable
   // only if foliate stops loading that module, which would have broken the
   // reader long before it reached this.
-  if (pdfjs === undefined) return -1;
+  if (pdfjs === undefined) return otherwise;
 
   // Opened the way foliate opens its own (`pdf.js:120-127`), the two url
   // options included: they are what makes this reading of the file the same
@@ -82,20 +77,43 @@ async function pdfPageHolding(
   // leaves one running for the life of the tab.
   if (opened === null) {
     await task.destroy();
-    return -1;
+    return otherwise;
   }
 
   try {
-    for (let page = 1; page <= opened.numPages; page += 1) {
-      if (!keep()) return -1;
-      const content = await (await opened.getPage(page)).getTextContent();
-      const text = content.items.map((item) => item.str ?? "").join("");
-      if (holdsWritten(text, quote)) return page - 1;
-    }
-    return -1;
+    return await read(opened);
   } finally {
     await opened.destroy();
   }
+}
+
+/**
+ * Which page of `bytes` holds `quote`, counting from zero, or -1.
+ *
+ * `getTextContent` is the cheap half of what rendering a page costs: it parses
+ * the content stream and hands back the runs, and draws nothing. The runs are
+ * joined with nothing between them, which is not a shortcut but the rule: the
+ * text layer puts each run in a span of its own and no whitespace between two
+ * of them, so a page's own words read the same way whether they are being
+ * matched here or in the drawn document.
+ *
+ * `keep` is asked before every page, so a second press or a closed pane ends
+ * the walk rather than finishing a scan nobody is waiting for.
+ */
+function pdfPageHolding(bytes: ArrayBuffer, quote: string[], keep: () => boolean): Promise<number> {
+  return readPdf(
+    bytes,
+    async (opened) => {
+      for (let page = 1; page <= opened.numPages; page += 1) {
+        if (!keep()) return -1;
+        const content = await (await opened.getPage(page)).getTextContent();
+        const text = content.items.map((item) => item.str ?? "").join("");
+        if (holdsWritten(text, quote)) return page - 1;
+      }
+      return -1;
+    },
+    -1,
+  );
 }
 
 /**

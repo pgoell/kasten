@@ -228,6 +228,13 @@
     // Marks are for every page, so they are answered before the opt-in check.
     if (data.kasten === "take") return take(data.id);
     if (data.kasten === "untake") return untake(data.id);
+    // The page's words for RSVP, for every page too. innerText and not
+    // textContent: it ends each block with a line break and leaves out what the
+    // page hides, which is the page as it reads.
+    if (data.kasten === "text") {
+      up.postMessage({ kasten: "text", text: document.body ? document.body.innerText : "" }, "*");
+      return;
+    }
     if (!optedIn()) return;
     if (data.kasten === "theme" && THEMES.includes(data.theme)) {
       document.documentElement.setAttribute("data-theme", data.theme);

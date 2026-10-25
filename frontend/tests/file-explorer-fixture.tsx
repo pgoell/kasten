@@ -99,6 +99,8 @@ export function Harness({
         openLocalGraph: () => {},
         openVideo: () => {},
         toggleVideo: () => {},
+        openRsvp: () => {},
+        rsvpFromHere: () => {},
         uploadBook: () => {},
         importNotes: () => {},
         exportNote: () => {},

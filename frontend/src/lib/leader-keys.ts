@@ -170,6 +170,15 @@ export const LEADER: readonly LeaderBinding[] = [
   // `rf` beside `cf`: same shape, the group letter then the thing, so renaming
   // a file sits next to creating one rather than somewhere else entirely.
   { key: "rf", label: "Rename the note", command: "renameNote" },
+  // `r` for read, the group's other word: RSVP is a reading of what the pane
+  // holds, a note, a page, a pdf or a book. Doubled the way `cc` and `gg` are,
+  // the thing's own first letter being the group's. Not a bare `r`, which
+  // would shadow `rf`: vim fires a complete match without waiting.
+  { key: "rr", label: "Read this pane word by word (RSVP)", command: "openRsvp" },
+  // `h` for here. A key and not only a palette row: a palette-only command
+  // leaves `LeaderCommand` and needs a row written by hand, where a key is in
+  // the palette and the `/` menu for nothing.
+  { key: "rh", label: "Read word by word from here (RSVP)", command: "rsvpFromHere" },
   // tmux walks its windows with `n` and `p`, and both are spent here: `p` is
   // live preview and `n` is too close to it to be worth the confusion. `h` and
   // `l` are the directions vim already reads as left and right.
@@ -283,6 +292,8 @@ export const LEADER_COLUMNS: readonly { title: string; keys: readonly string[] }
       "df",
       "du",
       "w",
+      "rr",
+      "rh",
       "p",
       "v",
       "=",

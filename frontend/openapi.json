@@ -3038,6 +3038,102 @@
         }
       }
     },
+    "/api/rsvp": {
+      "get": {
+        "summary": "Read Place",
+        "description": "The place a run last stopped at in one file, or `null` when none has.\n\n`null` rather than a 404, which is kept for a file that is not there: a file\nnever read is the usual case, not an error.",
+        "operationId": "read_place_api_rsvp_get",
+        "parameters": [
+          {
+            "name": "path",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Path"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/Place"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "title": "Response Read Place Api Rsvp Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Save Place",
+        "description": "Save where a run stopped in one file, over the place saved before.",
+        "operationId": "save_place_api_rsvp_put",
+        "parameters": [
+          {
+            "name": "path",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Path"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlaceEdit"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Place"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/events": {
       "get": {
         "summary": "Stream Events",
@@ -5503,6 +5599,69 @@
         ],
         "title": "PayeeOut",
         "description": "A payee: its cleaned key, the name shown, and its default category."
+      },
+      "Place": {
+        "properties": {
+          "word": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Word"
+          },
+          "words": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Words"
+          },
+          "anchor": {
+            "type": "string",
+            "title": "Anchor"
+          },
+          "path": {
+            "type": "string",
+            "title": "Path"
+          },
+          "updated": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated"
+          }
+        },
+        "type": "object",
+        "required": [
+          "word",
+          "words",
+          "anchor",
+          "path",
+          "updated"
+        ],
+        "title": "Place",
+        "description": "A saved place, with the file's path and when it was saved."
+      },
+      "PlaceEdit": {
+        "properties": {
+          "word": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Word"
+          },
+          "words": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Words"
+          },
+          "anchor": {
+            "type": "string",
+            "title": "Anchor"
+          }
+        },
+        "type": "object",
+        "required": [
+          "word",
+          "words",
+          "anchor"
+        ],
+        "title": "PlaceEdit",
+        "description": "Where a run stopped. The file it belongs to comes from `path` in the query."
       },
       "Ran": {
         "properties": {

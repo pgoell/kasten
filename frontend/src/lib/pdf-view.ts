@@ -34,6 +34,8 @@ export interface PdfPage {
   draw(canvas: HTMLCanvasElement, scale: number, colors?: PageColors): Promise<void>;
   /** pdf.js's text layer for this page into `container`, at `scale` CSS px per pdf unit. Optional so test fakes may leave it out. */
   text?(container: HTMLElement, scale: number): Promise<void>;
+  /** The page's text items, parsed and not drawn, for RSVP. Optional for the reason `text` is. */
+  content?(): Promise<{ str?: string; hasEOL?: boolean }[]>;
 }
 
 /** An opened pdf, its pages counted from one. */
@@ -92,6 +94,7 @@ interface PdfjsPage {
   }): { promise: Promise<void> };
   getOperatorList(): Promise<{ fnArray: number[]; argsArray: unknown[][] }>;
   streamTextContent(): ReadableStream;
+  getTextContent(): Promise<{ items: { str?: string; hasEOL?: boolean }[] }>;
 }
 
 /**
@@ -151,6 +154,9 @@ export const pdfjsRenderer: PdfRenderer = {
                 await page.render({ canvasContext, viewport, pageColors: colors }).promise;
                 if (colors !== undefined)
                   await restoreImages(page, lib.OPS, canvasContext, viewport);
+              },
+              async content() {
+                return (await page.getTextContent()).items;
               },
               async text(container, scale) {
                 // What pdf.js sizes its text layer with, which foliate sets on the

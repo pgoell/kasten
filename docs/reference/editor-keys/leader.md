@@ -128,6 +128,8 @@ The file pickers that `<leader>cm` and `<leader>cb` open wait until you let go o
 | `<leader>df` | Move the open note into the trash |
 | `<leader>du` | Put the last deleted note or folder back |
 | `<leader>w` | Download what this pane holds as a file |
+| `<leader>rr` | Read what this pane holds one word at a time, from where the last run stopped (RSVP) |
+| `<leader>rh` | The same from the selection, the cursor or the page on screen, which becomes the saved place |
 | `<leader>p` | Turn live preview off, or back on |
 | `<leader>v` | Play or pause a video from any pane: the focused video pane's, else the one playing this note's video, else the tab's first video pane. Nothing when the tab has none |
 | `<leader>=` | Tidy the markdown in this note |
@@ -176,6 +178,11 @@ new one's. Renaming a folder does the same for every note it carries.
 [What a move does to the links](/reference/http-api/moving.md#what-a-move-does-to-the-links)
 has the rules. [The link panels](/reference/editor-keys/links.md#the-link-panels)
 cover the two ways to read those links.
+
+`<leader>rr` and `<leader>rh` share the `r` group with the rename, `r` for
+read: they read a note, a page, a pdf or a book one word at a time over the
+pane. [Reading word by word](/reference/editor-keys/rsvp.md) has the keys inside
+the reader and its settings.
 
 `<leader>df` takes the note out of the vault, and `<leader>du` puts the last
 deleted one back. The pane holding the note empties, and so does every other

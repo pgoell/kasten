@@ -129,6 +129,10 @@ export interface EditorCommands {
   openVideo(): void;
   /** Play or pause that video without leaving the note, or nothing if none is open. */
   toggleVideo(): void;
+  /** Read the focused pane word by word (RSVP), from where the last run stopped. */
+  openRsvp(): void;
+  /** The same from the selection, the cursor or the page on screen, saved as the place. */
+  rsvpFromHere(): void;
   /** Pick an epub, put it in the inbox with a note, and open the note. */
   uploadBook(): void;
   /** Pick markdown files off disk, put them in the inbox, and open the first. */
@@ -404,17 +408,6 @@ export function chordLabel(key: string): string {
 
   return [...held, key].join(" ");
 }
-
-/** What the reader pane answers, in a page, a PDF or a book. Display only, the way `TREE` is. */
-export const READER: readonly { key: string; label: string }[] = [
-  { key: "l", label: "Turn to the next page" },
-  { key: "h", label: "Turn back to the page before" },
-  { key: "t", label: "Show the contents" },
-  { key: "y", label: "Take the selection" },
-  { key: "w", label: "Download what this pane holds as a file" },
-  { key: "q", label: "Close the book" },
-  { key: "Space", label: "Show the leader keys" },
-];
 
 /** What the review pane answers, on the decks, a sitting and the parked cards. Display only. */
 export const REVIEW_PANE: readonly { key: string; label: string }[] = [

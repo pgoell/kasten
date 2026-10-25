@@ -43,6 +43,7 @@ import type { GuardedWrites } from "@/lib/use-guarded-writes";
 import type { Listings } from "@/lib/use-listings";
 import type { LogActions } from "@/lib/use-log-actions";
 import { makeNote, type NoteOpening } from "@/lib/use-note-opening";
+import { useRsvpAsked } from "@/lib/use-rsvp";
 import type { TodoActions } from "@/lib/use-todo-actions";
 
 type Autosave = ReturnType<typeof useAutosave>;
@@ -163,6 +164,8 @@ export function WorkspacePanes({
   onNotice: Dispatch<SetStateAction<string | undefined>>;
 }) {
   const tab = activeTab(layout);
+  // The pane `<leader>rr` or `<leader>rh` was pressed in, and how many presses there have been.
+  const rsvpAsk = useRsvpAsked();
   const { data, archive } = listings;
   const { seek, openInPane } = opening;
   const queryClient = useQueryClient();
@@ -265,6 +268,8 @@ export function WorkspacePanes({
             const pdf = shown.pdf;
             const video = shown.video;
             const note = shown.path;
+            // Only the pane the press was made in is asked to read.
+            const rsvp = rsvpAsk.pane === shown.id ? rsvpAsk : undefined;
             return isWholePane(shown) ? (
               <WholePane
                 pane={shown}
@@ -310,6 +315,7 @@ export function WorkspacePanes({
                 onNotice={onNotice}
                 // One pane, the one reading the note the press came from.
                 seek={seek?.note === book ? seek : undefined}
+                rsvp={rsvp}
               />
             ) : image !== undefined ? (
               <ImagePane
@@ -332,6 +338,7 @@ export function WorkspacePanes({
                 // The note's name is the pdf's with `.md` for `.pdf`, so a
                 // `plan.pdf` in `x/` opens `x/plan.md`.
                 onNoteBeside={() => void noteBeside(`${pdf.path.replace(/\.pdf$/i, "")}.md`)}
+                rsvp={rsvp}
               />
             ) : shown.html !== undefined ? (
               <HtmlPane
@@ -343,6 +350,7 @@ export function WorkspacePanes({
                 // A click inside the frame reaches no ancestor, the way a
                 // click inside a book does not.
                 onFocus={() => setLayout((previous) => focusPane(previous, shown.id))}
+                rsvp={rsvp}
               />
             ) : video !== undefined ? (
               <VideoPane
@@ -431,6 +439,7 @@ export function WorkspacePanes({
                 }}
                 onGraphSheet={graphSheet}
                 onSeek={seekVideo}
+                rsvp={rsvp}
               />
             );
           }}

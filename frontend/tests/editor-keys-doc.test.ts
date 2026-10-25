@@ -123,6 +123,8 @@ const LEADER_GROUPS: Record<string, string[]> = {
     "df",
     "du",
     "w",
+    "rr",
+    "rh",
     "p",
     "v",
     "=",

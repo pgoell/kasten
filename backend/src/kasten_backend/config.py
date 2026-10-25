@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     )
 
     database_url: str = "postgresql+psycopg://kasten:kasten@localhost:5434/kasten_dev"
-    """Async SQLAlchemy URL for the derived index and the finance schema. Never holds notes."""
+    """Async SQLAlchemy URL for the derived index, finance and RSVP places. Never holds notes."""
 
     herdr_sessions_path: Path = Path("/herdr-home/.config/herdr/sessions")
     """Where the shell container keeps one directory per named herdr session.

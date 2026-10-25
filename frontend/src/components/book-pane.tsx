@@ -2,18 +2,21 @@ import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ContentsColumn, NoteColumn } from "@/components/book-columns";
 import { BookContents, type TocRow, tocRows } from "@/components/book-contents";
+import { Rsvp } from "@/components/rsvp";
 import { useBookNoteTake } from "@/components/use-book-note-take";
 import { fetchBook } from "@/lib/api";
 import type { FoliateView } from "@/lib/foliate-view";
 import type { Passage } from "@/lib/highlight";
 import type { EditorCommands } from "@/lib/key-bindings";
 import { BOOK_SUFFIXES, noteName } from "@/lib/note-path";
+import { bookSource } from "@/lib/rsvp-book";
 import { useBookHighlights } from "@/lib/use-book-highlights";
 import { useBookKeys } from "@/lib/use-book-keys";
 import { useBookSeek } from "@/lib/use-book-seek";
 import { useBookTake } from "@/lib/use-book-take";
 import { useBookTurns } from "@/lib/use-book-turns";
 import { useBookView } from "@/lib/use-book-view";
+import { type RsvpAsk, useRsvpAsk } from "@/lib/use-rsvp";
 import { useViewport } from "@/lib/use-viewport";
 
 /** The reading measure the text is set at, in px (`--k-measure`). */
@@ -95,6 +98,8 @@ interface BookPaneProps {
   seek?: { quote: string[] };
   /** A sentence for the bar, when a passage the reader asked for is not in the book. */
   onNotice: (message: string) => void;
+  /** Raised for this pane by `Space r r` and `Space r h`. */
+  rsvp?: RsvpAsk;
 }
 
 /**
@@ -117,6 +122,7 @@ export function BookPane({
   onNoteBeside,
   seek,
   onNotice,
+  rsvp,
 }: BookPaneProps) {
   const wrapper = useRef<HTMLDivElement>(null);
   const host = useRef<HTMLDivElement>(null);
@@ -285,6 +291,10 @@ export function BookPane({
     resumeSeek,
   });
 
+  const reading = useRsvpAsk(rsvp);
+
+  const rsvpSource = bookSource({ viewRef, ready, beside, note, onMoved, onLeavingRef });
+
   // Mount included, the way the editor and the terminal read the same prop: a
   // freshly split pane is created focused and its first render is the only
   // chance it gets to say so. An unfocused pane is handed 0 and stays put.
@@ -413,6 +423,17 @@ export function BookPane({
           start={contents.start}
           onGo={goToChapter}
           onClose={closeContents}
+        />
+      )}
+      {reading.open && (
+        <Rsvp
+          key={reading.open.signal}
+          source={rsvpSource}
+          here={reading.open.here}
+          onClose={() => {
+            reading.close();
+            wrapper.current?.focus();
+          }}
         />
       )}
       {failed && (

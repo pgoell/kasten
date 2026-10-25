@@ -11,7 +11,8 @@ must be able to drop the schema and rebuild it from the vault. Nothing that only
 exists in the database is allowed to matter.
 
 One exception: money. The `finance` schema is a system of record, see
-[Finance in Postgres](docs/explanation/finance-in-postgres.md).
+[Finance in Postgres](docs/explanation/finance-in-postgres.md). RSVP reading
+places sit there too; losing them loses only where each run stopped.
 
 ## Stack
 

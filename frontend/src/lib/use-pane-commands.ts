@@ -42,6 +42,7 @@ import {
 import { type Period, periodicNote } from "@/lib/periodic";
 import { isPerson } from "@/lib/person";
 import { paneView, useFoodWait } from "@/lib/use-food-wait";
+import { askRsvp } from "@/lib/use-rsvp";
 import { wholePaneOpeners } from "@/lib/whole-pane-openers";
 import { splitTarget, wikiLinkPath, wikiLinkTargets } from "@/lib/wikilink";
 
@@ -178,6 +179,11 @@ export function usePaneCommands({
 
   const food = useFoodWait(pane.id, pane.path);
 
+  const readRsvp = useCallback(
+    (here: boolean) => askRsvp(pane, here, setNotice),
+    [pane, setNotice],
+  );
+
   const commands = useMemo<
     Pick<
       TreeCommands,
@@ -202,6 +208,8 @@ export function usePaneCommands({
       | "openHistory"
       | "openVideo"
       | "toggleVideo"
+      | "openRsvp"
+      | "rsvpFromHere"
       | "openExam"
       | "openReview"
       | "createTab"
@@ -422,6 +430,10 @@ export function usePaneCommands({
       // is listening to, which is a key that does nothing rather than one that
       // has to check first.
       toggleVideo: () => setPlaySignal((count) => count + 1),
+      // The pane reads its own text, so these only ask it (`use-rsvp.ts`). No
+      // `moveTo` and no `saveFirst`: nothing moves, and a note is read from its buffer.
+      openRsvp: () => readRsvp(false),
+      rsvpFromHere: () => readRsvp(true),
       // Saved first the way `openTodos` is, and for the same reason: this
       // replaces the focused pane, so text still waiting would be written to a
       // pane the autosave no longer follows.
@@ -488,6 +500,7 @@ export function usePaneCommands({
       food,
       sheetGraph,
       sideGraph,
+      readRsvp,
     ],
   );
 

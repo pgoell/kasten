@@ -32,6 +32,7 @@ from kasten_backend.routes import (
     moves,
     notes,
     queries,
+    rsvp,
     share,
     tokens,
     web,
@@ -192,6 +193,7 @@ app.include_router(finance.router)
 app.include_router(finance_sorting.router)
 app.include_router(finance_sync.router)
 app.include_router(share.router)
+app.include_router(rsvp.router)
 app.add_middleware(share.ShareGate)
 """The shared lists, and the gate that keeps the share host to them.
 

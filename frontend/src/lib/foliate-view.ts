@@ -109,6 +109,11 @@ export interface FoliateView extends HTMLElement {
   } | null;
   /** The cfi for a place the renderer reported. A null range answers the section's own. */
   getCFI(index: number, range: Range | null): string;
+  /**
+   * The section a cfi names, and how to find its place in a document of that
+   * section (`view.js:436-445`). A pdf's book answers the page alone.
+   */
+  resolveCFI?(cfi: string): unknown;
 }
 
 /**

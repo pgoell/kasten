@@ -16,7 +16,8 @@ the editor does without it.
 
 Three files in `frontend/src/lib` hold these bindings as tables: the leader in
 `leader-keys.ts`, the keys that act inside the buffer in `buffer-keys.ts`, and
-the terminal, tree and pane keys in `key-bindings.ts`. Both the registrations
+the terminal, tree and pane keys in `key-bindings.ts`, `reader-keys.ts` and
+`video-keys.ts`. Both the registrations
 and the which-key panel and key help are built from them. A test fails if a table names a
 command the app does not provide.
 
@@ -28,6 +29,7 @@ command the app does not provide.
 * [The vault in the tree](/reference/editor-keys/file-tree.md): the file tree's keys, its drawer on a phone, and moving rows by drag.
 * [Terminals and chat](/reference/editor-keys/terminal.md): the terminal pane and its keys, and the chat pane with Claude Code.
 * [Books in the reader](/reference/editor-keys/book-pane.md): the book pane, its contents list and the highlights taken into a note.
+* [Reading word by word](/reference/editor-keys/rsvp.md): the RSVP reader over a note, a page, a pdf or a book, its keys, its settings and the place it keeps.
 * [Videos in the player](/reference/editor-keys/video-pane.md): the video pane, its chapters, the video view and its takes, its player keys, and the transcript written into a note.
 * [Links and people](/reference/editor-keys/links.md): the person card, wikilinks and the link panels.
 * [Completion lists](/reference/editor-keys/completing.md): the lists offered for a link, a tag and a todo field.

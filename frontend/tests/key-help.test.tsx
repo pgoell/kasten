@@ -162,6 +162,7 @@ describe("KeyHelp", () => {
     const other = [
       "In a note",
       "In a page, PDF or book",
+      "Reading word by word",
       "Over a video",
       "In review",
       "Anywhere",

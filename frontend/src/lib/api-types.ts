@@ -1594,6 +1594,33 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/rsvp": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Place
+         * @description The place a run last stopped at in one file, or `null` when none has.
+         *
+         *     `null` rather than a 404, which is kept for a file that is not there: a file
+         *     never read is the usual case, not an error.
+         */
+        get: operations["read_place_api_rsvp_get"];
+        /**
+         * Save Place
+         * @description Save where a run stopped in one file, over the place saved before.
+         */
+        put: operations["save_place_api_rsvp_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/events": {
         parameters: {
             query?: never;
@@ -2816,6 +2843,37 @@ export interface components {
             name: string;
             /** Category Id */
             category_id: number | null;
+        };
+        /**
+         * Place
+         * @description A saved place, with the file's path and when it was saved.
+         */
+        Place: {
+            /** Word */
+            word: number;
+            /** Words */
+            words: number;
+            /** Anchor */
+            anchor: string;
+            /** Path */
+            path: string;
+            /**
+             * Updated
+             * Format: date-time
+             */
+            updated: string;
+        };
+        /**
+         * PlaceEdit
+         * @description Where a run stopped. The file it belongs to comes from `path` in the query.
+         */
+        PlaceEdit: {
+            /** Word */
+            word: number;
+            /** Words */
+            words: number;
+            /** Anchor */
+            anchor: string;
         };
         /**
          * Ran
@@ -5479,6 +5537,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+        };
+    };
+    read_place_api_rsvp_get: {
+        parameters: {
+            query: {
+                path: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Place"] | null;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_place_api_rsvp_put: {
+        parameters: {
+            query: {
+                path: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlaceEdit"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Place"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

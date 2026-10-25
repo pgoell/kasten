@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Rsvp } from "@/components/rsvp";
 import { TakeButton } from "@/components/take-button-view";
 import { useDumpTake } from "@/components/use-dump-take";
 import { fileOf, type PagePassage, pageLink } from "@/lib/html-take";
@@ -7,8 +8,11 @@ import { heldModifier, leaderAction, leaderPrefix } from "@/lib/leader-keys";
 import { encodePath } from "@/lib/note-path";
 import { postLook } from "@/lib/page-look";
 import { type Anchor, low, placeFor, selectionOf } from "@/lib/page-selection";
+import { findQuote } from "@/lib/rsvp";
+import { textWords } from "@/lib/rsvp-sources";
 import { usePressGuard } from "@/lib/take-button";
 import { currentPalette, currentTheme, onThemeChange } from "@/lib/theme";
+import { type RsvpAsk, useRsvpAsk } from "@/lib/use-rsvp";
 import { useViewport } from "@/lib/use-viewport";
 import { beginLeader, paneOpener } from "@/lib/which-key";
 
@@ -33,6 +37,8 @@ interface HtmlPaneProps {
   focusSignal?: number;
   /** That a click landed in the page, which no ancestor is told. */
   onFocus: () => void;
+  /** Raised for this pane by `Space r r` and `Space r h`. */
+  rsvp?: RsvpAsk;
 }
 
 /**
@@ -56,6 +62,7 @@ export function HtmlPane({
   commands,
   focusSignal,
   onFocus,
+  rsvp,
 }: HtmlPaneProps) {
   const panel = useRef<HTMLElement>(null);
   const frame = useRef<HTMLIFrameElement>(null);
@@ -152,6 +159,35 @@ export function HtmlPane({
 
   useEffect(() => onThemeChange(() => postLook(frame.current)), []);
 
+  const reading = useRsvpAsk(rsvp);
+  /** Where the page's text goes once its script answers, while a read waits for it. */
+  const textWait = useRef<((text: string) => void) | null>(null);
+
+  /**
+   * The page's `innerText`, asked of its script: the frame has no
+   * `allow-same-origin`, so the page is the only thing that can read it. A page
+   * that never answers, one whose script a page error stopped, is given up on.
+   */
+  function pageText(): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const page = frame.current?.contentWindow;
+      if (page === null || page === undefined) {
+        reject(new Error("The page is not open"));
+        return;
+      }
+      const timer = setTimeout(() => {
+        textWait.current = null;
+        reject(new Error("The page did not hand over its text"));
+      }, 5000);
+      textWait.current = (text) => {
+        clearTimeout(timer);
+        textWait.current = null;
+        resolve(text);
+      };
+      page.postMessage({ kasten: "text" }, "*");
+    });
+  }
+
   /**
    * Space, from a key of this pane or from the page. The panel takes it. Where
    * none is mounted the pane keeps the sequence itself, and takes the focus so
@@ -212,6 +248,12 @@ export function HtmlPane({
       // asks as it loads. Answered whatever has the focus.
       if (kasten === "hello") {
         postLook(frame.current);
+        return;
+      }
+
+      // The answer to `pageText`, whatever has the focus: the reader asked for it.
+      if (kasten === "text") {
+        if (typeof data.text === "string") textWait.current?.(data.text);
         return;
       }
 
@@ -376,6 +418,26 @@ export function HtmlPane({
         {/* In the wrapper, so `top` sits under the header and the frame bounds the toast. */}
         {dump.toast}
       </div>
+      {reading.open && (
+        <Rsvp
+          key={reading.open.signal}
+          source={{
+            path,
+            words: async () => textWords(await pageText()),
+            // The passage held for a take is the page's selection, so "from
+            // here" starts at it, and resumes where nothing is selected.
+            here: (words) => {
+              const text = heldRef.current?.passage.text;
+              return text === undefined ? null : findQuote(words, text);
+            },
+          }}
+          here={reading.open.here}
+          onClose={() => {
+            reading.close();
+            panel.current?.focus();
+          }}
+        />
+      )}
     </section>
   );
 }

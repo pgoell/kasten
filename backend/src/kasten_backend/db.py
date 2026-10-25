@@ -1,9 +1,10 @@
 """Database engine, session factory and the declarative base.
 
 Postgres holds a derived index (documents, links, tags, full-text), which
-rebuilds from the vault, and the `finance` schema, which does not: finance is
-the one system of record kept outside the vault. See
-docs/explanation/finance-in-postgres.md.
+rebuilds from the vault, and two things that do not: the `finance` schema, the
+one system of record kept outside the vault (see
+docs/explanation/finance-in-postgres.md), and the RSVP reading places in
+`rsvp.py`, whose loss costs only where each run stopped.
 """
 
 import logging
@@ -24,14 +25,14 @@ logger = logging.getLogger(__name__)
 
 
 class Base(DeclarativeBase):
-    """Declarative base for every table, index and finance alike."""
+    """Declarative base for every table, index, finance and RSVP alike."""
 
 
 engine = create_async_engine(
     get_settings().database_url,
-    # Nothing connects at startup; the first finance request does. A host that
-    # drops packets rather than refusing would otherwise hold that request for
-    # the system's TCP timeout before it could answer 503.
+    # Nothing connects at startup; the first finance or RSVP request does. A
+    # host that drops packets rather than refusing would otherwise hold that
+    # request for the system's TCP timeout before it could answer 503.
     connect_args={"connect_timeout": 5},
 )
 
@@ -54,7 +55,7 @@ async def get_session() -> AsyncIterator[AsyncSession]:
             logger.warning("No database answers at KASTEN_DATABASE_URL: %s", error.orig)
             raise HTTPException(
                 status_code=503,
-                detail="No database answers at KASTEN_DATABASE_URL, and finance keeps its "
-                "records there. See docs/reference/configuration.md.",
+                detail="No database answers at KASTEN_DATABASE_URL, where finance and RSVP "
+                "places are kept. See docs/reference/configuration.md.",
             ) from error
         yield session

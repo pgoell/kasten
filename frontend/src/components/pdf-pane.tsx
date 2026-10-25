@@ -1,11 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import { usePdfTake } from "@/components/pdf-take";
 import { PdfThumbs, THUMBS_FROM, type ThumbsHandle } from "@/components/pdf-thumbs";
+import { Rsvp } from "@/components/rsvp";
 import type { EditorCommands } from "@/lib/key-bindings";
 import { heldModifier, leaderAction, leaderPrefix } from "@/lib/leader-keys";
 import { encodePath } from "@/lib/note-path";
 import { type PdfFile, type PdfView, pageColors, pdfjsRenderer, showPdf } from "@/lib/pdf-view";
+import { findQuote, firstOf, type Word } from "@/lib/rsvp";
+import { pdfWords } from "@/lib/rsvp-sources";
 import { onThemeChange } from "@/lib/theme";
+import { type RsvpAsk, useRsvpAsk } from "@/lib/use-rsvp";
 import { beginLeader, paneOpener } from "@/lib/which-key";
 
 interface PdfPaneProps {
@@ -23,6 +27,8 @@ interface PdfPaneProps {
   archive?: boolean;
   /** Opens the note of this pdf beside it. */
   onNoteBeside: () => void;
+  /** Raised for this pane by `Space r r` and `Space r h`. */
+  rsvp?: RsvpAsk;
 }
 
 const LABEL = "shrink-0 text-[11px] tracking-wide text-k-muted uppercase";
@@ -50,6 +56,7 @@ export function PdfPane({
   focusSignal,
   archive = false,
   onNoteBeside,
+  rsvp,
 }: PdfPaneProps) {
   const panel = useRef<HTMLElement>(null);
   const box = useRef<HTMLDivElement>(null);
@@ -65,6 +72,26 @@ export function PdfPane({
   /** Whether the pane is wide enough for the thumbnail column, measured on the pane itself. */
   const [wide, setWide] = useState(false);
   const take = usePdfTake({ path, box, wrapper, archive });
+  const reading = useRsvpAsk(rsvp);
+
+  /** The words of the open pdf, a page at a time, pdf.js parsing each page's text without drawing it. */
+  async function rsvpWords(keep: () => boolean) {
+    if (file === undefined) throw new Error("The pdf is still opening");
+    return pdfWords(
+      file.pages,
+      async (number) => (await (await file.page(number)).content?.()) ?? [],
+      keep,
+    );
+  }
+
+  /** The selection when it is in this pdf, else the page at the top of the box. */
+  function rsvpHere(words: Word[]) {
+    const page = firstOf(words, current - 1);
+    const selection = window.getSelection();
+    const inside = selection !== null && box.current?.contains(selection.anchorNode) === true;
+    const text = inside ? (selection?.toString().trim() ?? "") : "";
+    return text === "" ? page : (findQuote(words, text, page) ?? page);
+  }
 
   // Every open opens the pdf again rather than scrolling the one open, a
   // repeat of the same page too, the reader having maybe scrolled off it: the
@@ -191,7 +218,7 @@ export function PdfPane({
       tabIndex={-1}
       onKeyDown={onKeyDown}
       aria-label="pdf"
-      className="flex h-full flex-col bg-k-bg outline-none"
+      className="relative flex h-full flex-col bg-k-bg outline-none"
     >
       <header className="flex items-center gap-3 border-b border-k-rule px-3 py-1">
         <span className={LABEL}>PDF</span>
@@ -254,6 +281,17 @@ export function PdfPane({
           {take.overlay}
         </div>
       </div>
+      {reading.open && (
+        <Rsvp
+          key={reading.open.signal}
+          source={{ path, words: rsvpWords, here: rsvpHere }}
+          here={reading.open.here}
+          onClose={() => {
+            reading.close();
+            panel.current?.focus();
+          }}
+        />
+      )}
     </section>
   );
 }

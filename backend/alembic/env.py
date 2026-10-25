@@ -6,9 +6,10 @@ from alembic import context
 from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
-from kasten_backend import (  # noqa: F401  (registers the finance tables)
+from kasten_backend import (  # noqa: F401  (registers the finance and rsvp tables)
     finance_models,
     finance_sync_models,
+    rsvp,
 )
 from kasten_backend.config import get_settings
 from kasten_backend.db import Base
@@ -27,7 +28,7 @@ if config.config_file_name is not None:
 
 # Models must be imported before autogenerate runs, otherwise their tables
 # are absent from Base.metadata and alembic writes a migration that drops
-# them. That is what the `finance_models` import above is for.
+# them. That is what the imports above are for.
 #
 # Finance tables share this Base and name their schema in
 # `__table_args__ = {"schema": "finance"}`. One metadata keeps autogenerate
