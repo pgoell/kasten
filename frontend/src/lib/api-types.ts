@@ -1593,6 +1593,26 @@ export interface paths {
         patch: operations["finish_run_api_finance_sync_runs__run_id__patch"];
         trace?: never;
     };
+    "/share/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Me
+         * @description The person behind the proxy's address, and the people the lists offer in the menu.
+         */
+        get: operations["me_share_me_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/share/lists": {
         parameters: {
             query?: never;
@@ -1670,6 +1690,26 @@ export interface paths {
          *     does more on its own tick than this path does. Unticking has no such limit.
          */
         post: operations["tick_item_share_lists__name__tick_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/share/lists/{name}/assign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Assign Item
+         * @description Set or clear whose item one line of a list is. A name the app does not list answers 422.
+         */
+        post: operations["assign_item_share_lists__name__assign_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2383,6 +2423,18 @@ export interface components {
             sha?: string | null;
         };
         /**
+         * Assign
+         * @description Whose item a line is, by name, or None to clear it, and the digest of the list read.
+         */
+        Assign: {
+            /** Line */
+            line: number;
+            /** Assignee */
+            assignee: string | null;
+            /** Sha */
+            sha: string;
+        };
+        /**
          * BalanceIn
          * @description The balance the bank reported for one account on one day.
          */
@@ -2924,6 +2976,10 @@ export interface components {
             done: boolean;
             /** Assignee */
             assignee?: string | null;
+            /** Ticked By */
+            ticked_by?: string | null;
+            /** Ticked At */
+            ticked_at?: string | null;
         };
         /**
          * Layout
@@ -2986,6 +3042,16 @@ export interface components {
             amount: string;
             /** Text */
             text: string | null;
+        };
+        /**
+         * Me
+         * @description Who is asking, if the proxy's address is a listed one, and the people the app offers.
+         */
+        Me: {
+            /** Me */
+            me: string | null;
+            /** People */
+            people: string[];
         };
         /**
          * Mention
@@ -5940,6 +6006,26 @@ export interface operations {
             };
         };
     };
+    me_share_me_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Me"];
+                };
+            };
+        };
+    };
     list_names_share_lists_get: {
         parameters: {
             query?: never;
@@ -6038,6 +6124,41 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["Tick"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Checklist"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    assign_item_share_lists__name__assign_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Assign"];
             };
         };
         responses: {

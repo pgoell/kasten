@@ -68,10 +68,38 @@ async def test_read_returns_the_items_without_markdown_or_fields(
         "name": "Einkauf",
         "sha": sha,
         "items": [
-            {"line": 10, "text": "Milch", "done": False, "assignee": None},
-            {"line": 11, "text": "Brot", "done": True, "assignee": None},
-            {"line": 12, "text": "Eier", "done": True, "assignee": None},
-            {"line": 14, "text": "Butter", "done": False, "assignee": None},
+            {
+                "line": 10,
+                "text": "Milch",
+                "done": False,
+                "assignee": None,
+                "ticked_by": None,
+                "ticked_at": None,
+            },
+            {
+                "line": 11,
+                "text": "Brot",
+                "done": True,
+                "assignee": None,
+                "ticked_by": None,
+                "ticked_at": None,
+            },
+            {
+                "line": 12,
+                "text": "Eier",
+                "done": True,
+                "assignee": None,
+                "ticked_by": None,
+                "ticked_at": None,
+            },
+            {
+                "line": 14,
+                "text": "Butter",
+                "done": False,
+                "assignee": None,
+                "ticked_by": None,
+                "ticked_at": None,
+            },
         ],
     }
 
@@ -491,7 +519,16 @@ async def test_1058_read_after_a_tick_names_the_item_without_its_block_id(
     )
 
     assert tick.status_code == 200
-    assert tick.json()["items"] == [{"line": 6, "text": "Brot", "done": True, "assignee": None}]
+    assert tick.json()["items"] == [
+        {
+            "line": 6,
+            "text": "Brot",
+            "done": True,
+            "assignee": None,
+            "ticked_by": None,
+            "ticked_at": None,
+        }
+    ]
 
 
 async def test_1056_untick_keeps_a_dateless_done_sign(client: AsyncClient, folder: Path) -> None:

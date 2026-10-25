@@ -139,6 +139,20 @@ async def test_809_a6_the_route_answers_the_assignee(client: AsyncClient, folder
     response = await client.get("/share/lists/Einkauf")
 
     assert response.json()["items"] == [
-        {"line": 6, "text": "milk", "done": False, "assignee": "[[Pascal]]"},
-        {"line": 7, "text": "eggs", "done": False, "assignee": None},
+        {
+            "line": 6,
+            "text": "milk",
+            "done": False,
+            "assignee": "[[Pascal]]",
+            "ticked_by": None,
+            "ticked_at": None,
+        },
+        {
+            "line": 7,
+            "text": "eggs",
+            "done": False,
+            "assignee": None,
+            "ticked_by": None,
+            "ticked_at": None,
+        },
     ]

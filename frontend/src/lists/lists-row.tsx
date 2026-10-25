@@ -1,0 +1,216 @@
+import { type KeyboardEvent, type MouseEvent, useEffect, useRef, useState } from "react";
+import { personOf } from "./lists-person";
+import type { Item } from "./lists-store";
+
+/**
+ * One item: the tick and the words as one checkbox button, the assignee chip on
+ * the right as a sibling. A button may not hold a button, so the two sit side by side.
+ */
+export function Row({
+  item,
+  me,
+  people,
+  tick,
+  open,
+  onToggle,
+  onMenu,
+  onPick,
+}: {
+  item: Item;
+  me: string | null;
+  people: string[];
+  /** The "abgehakt von" line under a done item, or null. */
+  tick: string | null;
+  /** Whether this row's chip menu is the one open. */
+  open: boolean;
+  onToggle: () => void;
+  onMenu: (open: boolean) => void;
+  onPick: (name: string | null) => void;
+}) {
+  return (
+    <div className="row">
+      <div className="line">
+        {/* biome-ignore lint/a11y/useSemanticElements: the whole line is the tap target */}
+        <button
+          type="button"
+          role="checkbox"
+          aria-checked={item.done}
+          className="words"
+          onClick={onToggle}
+        >
+          <span className="check" aria-hidden="true" />
+          <span className="text">{item.text}</span>
+        </button>
+        {tick && <p className="by">{tick}</p>}
+      </div>
+      <PersonChip item={item} me={me} people={people} open={open} onMenu={onMenu} onPick={onPick} />
+    </div>
+  );
+}
+
+/**
+ * Who the item is for. "Wer?" when nobody, "Ich" when it is you, else the name.
+ * A tap opens the menu of people; a second tap on the chip closes it.
+ */
+function PersonChip({
+  item,
+  me,
+  people,
+  open,
+  onMenu,
+  onPick,
+}: {
+  item: Item;
+  me: string | null;
+  people: string[];
+  open: boolean;
+  onMenu: (open: boolean) => void;
+  onPick: (name: string | null) => void;
+}) {
+  const chip = useRef<HTMLButtonElement>(null);
+  const wrap = useRef<HTMLDivElement>(null);
+  // A key opens the menu with its checked item focused; a tap or a click leaves the focus where it was.
+  const [byKey, setByKey] = useState(false);
+  const name = personOf(item.assignee);
+  const label = name === null ? "Wer?" : name === me ? "Ich" : name;
+
+  // A press anywhere else closes the menu. The chip itself is inside `wrap`, so its own press is not outside.
+  useEffect(() => {
+    if (!open) return;
+    const outside = (event: PointerEvent) => {
+      if (event.target instanceof Node && !wrap.current?.contains(event.target)) onMenu(false);
+    };
+    document.addEventListener("pointerdown", outside);
+    return () => document.removeEventListener("pointerdown", outside);
+  }, [open, onMenu]);
+
+  // Escape closes the menu from wherever the focus is, as a menu does. The focus goes back
+  // to the chip, which a click left on the chip already, and a key's focus was in the menu.
+  useEffect(() => {
+    if (!open) return;
+    const onEscape = (event: globalThis.KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      onMenu(false);
+      chip.current?.focus();
+    };
+    document.addEventListener("keydown", onEscape);
+    return () => document.removeEventListener("keydown", onEscape);
+  }, [open, onMenu]);
+
+  function close(restore: boolean): void {
+    onMenu(false);
+    if (restore) chip.current?.focus();
+  }
+
+  return (
+    <div className="chip-wrap" ref={wrap}>
+      <button
+        ref={chip}
+        type="button"
+        className={`chip ${name === null ? "unlinked" : "linked"}`}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={(event: MouseEvent<HTMLButtonElement>) => {
+          // A key's click has a detail of 0; a tap or a mouse click has 1 or more.
+          setByKey(event.detail === 0);
+          onMenu(!open);
+        }}
+        onKeyDown={(event: KeyboardEvent<HTMLButtonElement>) => {
+          if (open) {
+            // With the menu open, the arrows from the chip move into it, from its first or last row.
+            if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+            event.preventDefault();
+            const rows = [
+              ...(wrap.current?.querySelectorAll<HTMLElement>("[role='menuitemradio']") ?? []),
+            ];
+            (event.key === "ArrowDown" ? rows[0] : rows.at(-1))?.focus();
+            return;
+          }
+          if (event.key !== "ArrowDown") return;
+          event.preventDefault();
+          setByKey(true);
+          onMenu(true);
+        }}
+      >
+        <span className="chip-name">{label}</span>
+      </button>
+      {open && (
+        <ChipMenu
+          names={people}
+          current={name}
+          focusChecked={byKey}
+          onPick={(picked) => {
+            close(true);
+            onPick(picked);
+          }}
+          onEscape={() => close(true)}
+        />
+      )}
+    </div>
+  );
+}
+
+/**
+ * The people, then Niemand. Opened by a key, it takes the focus on the one that is chosen,
+ * and the arrows move through it, as a menu does. Opened by a tap, the focus stays on the
+ * chip, so no ring appears on a row the finger never reached.
+ */
+function ChipMenu({
+  names,
+  current,
+  focusChecked,
+  onPick,
+  onEscape,
+}: {
+  names: string[];
+  current: string | null;
+  focusChecked: boolean;
+  onPick: (name: string | null) => void;
+  onEscape: () => void;
+}) {
+  const menu = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (focusChecked) menu.current?.querySelector<HTMLElement>("[aria-checked='true']")?.focus();
+  }, [focusChecked]);
+
+  function onKey(event: KeyboardEvent<HTMLDivElement>): void {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      onEscape();
+      return;
+    }
+    if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+    event.preventDefault();
+    const options = [
+      ...(menu.current?.querySelectorAll<HTMLElement>("[role='menuitemradio']") ?? []),
+    ];
+    const at = options.indexOf(document.activeElement as HTMLElement);
+    const step = event.key === "ArrowDown" ? 1 : -1;
+    options[(at + step + options.length) % options.length]?.focus();
+  }
+
+  return (
+    <div role="menu" aria-label="Wer?" className="menu" ref={menu} onKeyDown={onKey}>
+      {names.map((name) => (
+        <button
+          key={name}
+          type="button"
+          role="menuitemradio"
+          aria-checked={name === current}
+          onClick={() => onPick(name)}
+        >
+          {name}
+        </button>
+      ))}
+      <button
+        type="button"
+        role="menuitemradio"
+        aria-checked={current === null}
+        onClick={() => onPick(null)}
+      >
+        Niemand
+      </button>
+    </div>
+  );
+}

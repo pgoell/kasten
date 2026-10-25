@@ -1,46 +1,153 @@
-import { render, screen } from "@testing-library/react";
-import { page } from "vitest/browser";
+import "@fontsource-variable/instrument-sans/index.css";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { commands, page } from "vitest/browser";
 import { ListsApp } from "@/lists/lists-app";
-import { fakeShare } from "../lists-fixture";
+import { fakeShare, type Seed } from "../lists-fixture";
 import { shot } from "./shots";
 
-const SEED = {
+// Pictures land in node_modules/.cache/kasten-shots only when asked for, as the chip's are.
+const SHOTS = import.meta.env.VITE_KASTEN_SHOTS === "1";
+
+const SEED: Record<string, Seed[]> = {
   Einkauf: [
-    { text: "Milch", done: false },
-    { text: "Vollkornbrot", done: false },
-    { text: "Eier", done: true },
-    { text: "Zitronen", done: true },
+    { text: "Milch", done: false, assignee: "[[Pascal]]" },
+    { text: "Vollkornbrot", done: false, assignee: "[[Alicia]]" },
+    { text: "Eier", done: false },
+    { text: "Butter", done: false },
+    { text: "Haferflocken", done: false, assignee: "[[Pascal]]" },
+    { text: "Zitronen", done: false },
+    { text: "Bananen", done: true, ticked_by: "Alicia", ticked_at: "2026-10-23T16:04:00Z" },
+    { text: "Kaffee", done: true, ticked_by: "Pascal", ticked_at: "2026-10-22T07:30:00Z" },
+    { text: "Käse", done: true, ticked_at: "2026-10-21T19:10:00Z" },
+    { text: "Tee", done: true, ticked_by: "Alicia", ticked_at: "2026-10-20T12:45:00Z" },
+    { text: "Nudeln", done: true, ticked_by: "Pascal", ticked_at: "2026-10-19T18:20:00Z" },
   ],
   Todo: [
-    { text: "Steuer abgeben", done: false },
-    { text: "Paket zur Post", done: true },
+    { text: "Steuer abgeben", done: false, assignee: "[[Pascal]]" },
+    { text: "Paket zur Post", done: false, assignee: "[[Alicia]]" },
+    { text: "Kiste reparieren", done: false },
   ],
 };
 
-/** Draw the app at a viewport, optionally forced dark, and answer the picture's width. */
-async function draw(name: string, width: number, height: number, dark: boolean) {
-  await page.viewport(width, height);
-  if (dark) document.documentElement.setAttribute("data-theme", "dark");
-  const { container } = render(<ListsApp />);
-  await screen.findByRole("checkbox", { name: "Milch" });
-  return shot(container, name);
+const PHONE = { width: 390, height: 844 };
+const DESKTOP = { width: 1440, height: 900 };
+
+interface Look {
+  size: { width: number; height: number };
+  dark?: boolean;
+  touch?: boolean;
+  reduced?: boolean;
+  /** What the picture shows past the first draw: a list switched, a menu open, a field focused, a list scrolled. */
+  arrange?: (frame: HTMLElement) => void;
 }
 
-describe("the shared lists app on screen", () => {
+/** One picture: the app drawn as the look says, saved as `name`, its width checked. */
+async function picture(name: string, look: Look): Promise<void> {
+  localStorage.clear();
+  vi.stubGlobal("fetch", fakeShare(SEED).fetch);
+  // A stream that never opens, so the poll draws the list and nothing leaves the page.
+  vi.stubGlobal(
+    "EventSource",
+    class {
+      readyState = 0;
+      onopen = null;
+      onerror = null;
+      onmessage = null;
+      close() {}
+    },
+  );
+  await page.viewport(look.size.width, look.size.height);
+  await commands.emulateMedia({
+    touch: look.touch === true,
+    reducedMotion: look.reduced ? "reduce" : "no-preference",
+  });
+  // The app scrolls inside a box the size of the screen, so the sticky bars stick to
+  // the picture's edges and the picture is the screen, not the whole list.
+  const { container, unmount } = render(
+    <div
+      style={{
+        position: "relative",
+        width: look.size.width,
+        height: look.size.height,
+        overflow: "auto",
+      }}
+    >
+      <ListsApp />
+    </div>,
+  );
+  const frame = container.firstElementChild as HTMLElement;
+  try {
+    await screen.findByRole("checkbox", { name: "Milch" });
+    // After the mount, which sets the theme from the phone's scheme.
+    if (look.dark) document.documentElement.setAttribute("data-theme", "dark");
+    look.arrange?.(frame);
+    // The lines and the menu arrive on a transition, so the picture waits for the end state.
+    await Promise.all(document.getAnimations().map((animation) => animation.finished));
+    await document.fonts.ready;
+    expect(await shot(frame, name)).toBe(look.size.width);
+    expect(frame.getBoundingClientRect().height).toBe(look.size.height);
+  } finally {
+    unmount();
+    document.documentElement.removeAttribute("data-theme");
+    vi.unstubAllGlobals();
+    await commands.emulateMedia({});
+    await page.viewport(1280, 900);
+  }
+}
+
+/** The chip of the row whose words are `text`. */
+const chipOf = (text: string) =>
+  screen
+    .getByRole("checkbox", { name: text })
+    .closest(".row")
+    ?.querySelector(".chip") as HTMLElement;
+
+/** A picture test that runs only when pictures are asked for. */
+function shotTest(name: string, look: Look): void {
+  it.skipIf(!SHOTS)(`shot ${name}`, () => picture(name, look), 300_000);
+}
+
+const alle = { size: PHONE, touch: true };
+const meine = {
+  ...alle,
+  arrange: () => fireEvent.click(screen.getByRole("button", { name: "Meine" })),
+};
+// A tap's click carries a detail of 1; a bare one reads as a key and puts the focus ring in the menu.
+const menu = { ...alle, arrange: () => fireEvent.click(chipOf("Eier"), { detail: 1 }) };
+// Erledigt unfolds to all five, and the list is scrolled so its heading sits under the top bar.
+const done = {
+  ...alle,
+  arrange: (frame: HTMLElement) => {
+    fireEvent.click(screen.getByRole("button", { name: "Erledigt 5" }));
+    const heading = frame.querySelector<HTMLElement>(".done .group-head") as HTMLElement;
+    const bar = frame.querySelector<HTMLElement>(".top") as HTMLElement;
+    frame.scrollTop = heading.offsetTop - bar.offsetHeight;
+  },
+};
+const composer = {
+  size: { width: 390, height: 500 },
+  touch: true,
+  arrange: () => screen.getByRole("textbox", { name: "Eintrag" }).focus(),
+};
+
+shotTest("lists-phone-alle-light", alle);
+shotTest("lists-phone-meine-light", meine);
+shotTest("lists-phone-menu-light", menu);
+shotTest("lists-phone-done-light", done);
+shotTest("lists-phone-composer-light", composer);
+shotTest("lists-phone-alle-dark", { ...alle, dark: true });
+shotTest("lists-phone-meine-dark", { ...meine, dark: true });
+shotTest("lists-phone-menu-dark", { ...menu, dark: true });
+shotTest("lists-phone-done-dark", { ...done, dark: true });
+shotTest("lists-phone-composer-dark", { ...composer, dark: true });
+shotTest("lists-phone-alle-reduced-motion", { ...alle, reduced: true });
+shotTest("lists-desktop-light", { size: DESKTOP });
+shotTest("lists-desktop-dark", { size: DESKTOP, dark: true });
+
+describe("the shared lists app's rows on screen", () => {
   beforeEach(() => {
     localStorage.clear();
     vi.stubGlobal("fetch", fakeShare(SEED).fetch);
-    // A stream that never opens, so the poll draws the list and nothing leaves the page.
-    vi.stubGlobal(
-      "EventSource",
-      class {
-        readyState = 0;
-        onopen = null;
-        onerror = null;
-        onmessage = null;
-        close() {}
-      },
-    );
   });
 
   afterEach(async () => {
@@ -49,18 +156,7 @@ describe("the shared lists app on screen", () => {
     await page.viewport(1280, 900);
   });
 
-  it("saves a phone picture in light", async () => {
-    expect(await draw("lists-phone-light", 414, 896, false)).toBe(414);
-  }, 30_000);
-
-  it("saves a phone picture in dark", async () => {
-    expect(await draw("lists-phone-dark", 414, 896, true)).toBe(414);
-  }, 30_000);
-
-  it("saves a desktop picture in light", async () => {
-    expect(await draw("lists-desktop-light", 1280, 900, false)).toBe(1280);
-  }, 30_000);
-
+  // The colours are the tokens now (#810 A1): the ink, the muted ink, and the surface disc.
   it("open and done rows differ in light", async () => {
     const { open, done } = await drawRows(false);
     expect({
@@ -69,42 +165,45 @@ describe("the shared lists app on screen", () => {
       doneText: done.text.color,
       openDisc: open.check.backgroundColor,
       openRing: open.check.borderTopWidth,
-      doneDisc: done.check.backgroundColor,
+      doneDisc: done.fill.backgroundColor,
     }).toEqual({
-      openText: "rgb(0, 0, 0)",
+      openText: "rgb(28, 28, 27)",
       doneStrike: "line-through",
-      doneText: "rgb(108, 108, 112)",
+      doneText: "rgb(102, 102, 99)",
       openDisc: "rgba(0, 0, 0, 0)",
       openRing: "2px",
-      doneDisc: "rgb(142, 142, 147)",
+      doneDisc: "rgb(235, 235, 232)",
     });
   }, 30_000);
 
   it("open and done rows differ in dark", async () => {
     const { open, done } = await drawRows(true);
-    expect(open.text.color).toBe("rgb(255, 255, 255)");
+    expect(open.text.color).toBe("rgb(232, 231, 228)");
     expect(done.text.textDecorationLine).toContain("line-through");
-    expect(done.text.color).toBe("rgb(142, 142, 147)");
+    expect(done.text.color).toBe("rgb(154, 153, 149)");
     expect(open.check.backgroundColor).toBe("rgba(0, 0, 0, 0)");
-    expect([open.check.borderTopWidth, done.check.backgroundColor]).toEqual([
+    expect([open.check.borderTopWidth, done.fill.backgroundColor]).toEqual([
       "2px",
-      "rgb(142, 142, 147)",
+      "rgb(35, 35, 35)",
     ]);
   }, 30_000);
 });
 
-/** Draw the app at phone width and read the computed look of the open row Milch and the done row Eier. */
+/** Draw the app at phone width and read the computed look of the open row Milch and the done row Bananen. */
 async function drawRows(dark: boolean) {
-  await page.viewport(414, 896);
-  if (dark) document.documentElement.setAttribute("data-theme", "dark");
+  await page.viewport(390, 844);
   render(<ListsApp />);
   await screen.findByRole("checkbox", { name: "Milch" });
+  // After the mount, which sets the theme from the phone's scheme.
+  if (dark) document.documentElement.setAttribute("data-theme", "dark");
   const look = (name: string) => {
     const box = screen.getByRole("checkbox", { name });
+    const check = box.querySelector(".check") as HTMLElement;
     return {
-      check: getComputedStyle(box.querySelector(".check") as HTMLElement),
+      check: getComputedStyle(check),
+      fill: getComputedStyle(check, "::before"),
       text: getComputedStyle(box.querySelector(".text") as HTMLElement),
     };
   };
-  return { open: look("Milch"), done: look("Eier") };
+  return { open: look("Milch"), done: look("Bananen") };
 }

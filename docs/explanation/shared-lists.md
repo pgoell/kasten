@@ -1,7 +1,7 @@
 ---
 type: Explanation
 title: Shared lists
-description: Why the shared shopping and todo lists are plain lines in two vault notes, why a second gate and a /share prefix stand in front of them rather than a second user, what the second person can reach, and how a conflict, a live update, an offline change and Clear behave.
+description: Why the shared shopping and todo lists are plain lines in two vault notes, how an item is given to a person and who ticked it, why a second gate and a /share prefix stand in front of them rather than a second user, what the second person can reach, and how a conflict, a live update, an offline change, Alle and Meine, the look and Clear behave.
 tags: [share, lists, security, todo]
 status: stable
 ---
@@ -37,7 +37,62 @@ The app shows an item's words only. The fields kasten adds, such as the
 recurrence `🔁`, the waiting `👤` and the dates, and a block id at the end of
 the line are left out of the words. An item's assignee, the `👤 [[name]]` on
 its line, comes through the share routes as the `assignee` field of each item.
-The app does not draw it yet.
+
+The app draws it as a chip at the right of the row. The chip reads `Wer?` when
+nobody is set, `Ich` when the item is for you, and the name otherwise. A tap
+opens a small menu of the people, then Niemand. A pick writes `👤 [[Name]]` on
+the line, and Niemand takes the `👤` off. The chip shows the pick at once, and a
+refused pick shows the server's words. The line names the person by a link to
+their note, not by a bare name, so [the person card](/explanation/people-in-the-vault.md)
+lists the item the same way it lists any todo that links them.
+
+## Who ticked
+
+A done line names nobody. The line stays the todo line that the board and
+Obsidian read, with no extra field for a person. The history records each save
+instead. A write through the share routes names its person there: the gate sends
+the signed-in address as `X-Auth-Request-Email`,
+[`KASTEN_SHARE_PEOPLE`](/reference/configuration.md) maps it to a name, and the
+save is recorded under `share:<name>`. When the server lists a done item, it reads
+`jj evolog` for the latest change that ticked that line, and takes the writer and
+the commit time from it. The app shows what it is given, so a tick by Alicia reads
+`abgehakt von Alicia, Mo 18:04`.
+
+Two cases show less. A tick made in kasten has a time but no name, so the line
+reads `abgehakt Mo 18:04`. A write with no mapped address is recorded as
+`share`, and shows the same way, with no name. The history read never writes to
+the repository. If it fails, or the repository is missing, the item keeps its
+tick and the line under it stays blank.
+
+## Alle and Meine
+
+Alle shows every item in the list. Meine shows the open items for you and the
+ones for nobody. An item for Alicia stays out of your view, and an item nobody
+has taken stays in it, so nothing open drops out of sight. This is the issue's
+default. The filter applies to Erledigt too. The counts in the list switch still
+count every open item in the list, whatever filter is chosen.
+
+## How it looks
+
+The lists page draws with the tokens of the main app, so its colours, type and
+spacing match the rest of kasten. It is light by default and follows the phone's
+colour scheme, changing when the phone does. It does not read the choice made in
+the main app, which is stored under the main host's address and is not this
+page's to read. The page keeps the default accent and does not pick a palette.
+
+![The Einkauf list on a phone, with Alle selected](/assets/shared-lists/lists-phone-alle-light.png)
+
+The menu opened from a chip that says Wer?:
+
+![The chip menu of the Einkauf list on a phone](/assets/shared-lists/lists-phone-menu-light.png)
+
+Erledigt with its ticks and their lines, in the dark scheme:
+
+![The done items of the Einkauf list on a phone, in the dark scheme](/assets/shared-lists/lists-phone-done-dark.png)
+
+The same list on a desktop:
+
+![The Einkauf list on a desktop](/assets/shared-lists/lists-desktop-light.png)
 
 ## Why a second gate, not a second user
 
@@ -71,7 +126,7 @@ behind a gate that admits two people.
 
 Through the share host, the person reaches:
 
-* six routes under `/share/`, which read and write the notes in `05 Shared`
+* eight routes under `/share/`, which read and write the notes in `05 Shared`
   and nothing else
 * the app's own pages and files
 
@@ -123,7 +178,7 @@ them back.
 
 ## Related
 
-* [HTTP API: shared lists](/reference/http-api/shared-lists.md): the six routes, with what each takes and answers
+* [HTTP API: shared lists](/reference/http-api/shared-lists.md): the eight routes, with what each takes and answers
 * [Reverse-proxy routes](/reference/reverse-proxy-routes.md): the share host's table and its checks
 * [Security model](/explanation/security-model.md): the second edge and the rest of the gate
 * [The agent boundary](/explanation/the-agent-boundary.md): the other route into the vault, and how it is held

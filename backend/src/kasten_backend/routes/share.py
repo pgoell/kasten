@@ -7,11 +7,11 @@ over it, plus the one rule that keeps the share host to these routes.
 import asyncio
 from typing import TYPE_CHECKING, Annotated
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
-from kasten_backend import share, vcs
+from kasten_backend import share, share_history, vcs
 from kasten_backend.config import Settings, get_settings
 from kasten_backend.events import KEEPALIVE, format_retry, format_sse, watch_vault
 
@@ -32,14 +32,32 @@ RECONNECT_SECONDS = 30.0
 """How long the client waits before it opens the stream again, the same as `main.py`'s."""
 
 
-async def as_share() -> AsyncIterator[None]:
-    """Name every write made under these routes `share`, and reset the name after.
+def person_of(settings: Settings, request: Request) -> str | None:
+    """The person the proxy's sign-in address stands for, or None when no listed address came.
+
+    Only the header `oauth2-proxy-liste` sends is trusted, and an address the
+    settings do not list is no person, so it writes as `share` and has no "Ich".
+    """
+    email = request.headers.get("x-auth-request-email")
+    return None if email is None else settings.share_people.get(email.strip().lower())
+
+
+def people_of(settings: Settings) -> list[str]:
+    """The person names in the order the settings list them, each once."""
+    return list(dict.fromkeys(settings.share_people.values()))
+
+
+async def as_share(
+    request: Request, settings: Annotated[Settings, Depends(get_settings)]
+) -> AsyncIterator[None]:
+    """Name every write under these routes after its person, or `share`, and reset the name.
 
     A yield dependency for the reason `require_token` is one: without the reset the
     name leaks into the next request, and a save made by the notebook afterwards
     would be recorded in the history as the lists app's.
     """
-    held = vcs.writer.set("share")
+    person = person_of(settings, request)
+    held = vcs.writer.set("share" if person is None else f"share:{person}")
     try:
         yield
     finally:
@@ -70,12 +88,38 @@ class Clear(BaseModel):
     sha: str
 
 
+class Assign(BaseModel):
+    """Whose item a line is, by name, or None to clear it, and the digest of the list read."""
+
+    line: int
+    assignee: str | None
+    sha: str
+
+
+class Me(BaseModel):
+    """Who is asking, if the proxy's address is a listed one, and the people the app offers."""
+
+    me: str | None
+    people: list[str]
+
+
 def _found(found: share.Checklist | None) -> share.Checklist:
     """The list, or the 404 a name outside the share folder earns."""
     if found is None:
         raise HTTPException(status_code=404, detail="No such list")
 
     return found
+
+
+async def _answer(settings: Settings, found: share.Checklist | None) -> share.Checklist:
+    """The list with who ticked each done item, which every list answer carries."""
+    return await share_history.attach(settings, _found(found))
+
+
+@router.get("/me")
+async def me(request: Request, settings: Annotated[Settings, Depends(get_settings)]) -> Me:
+    """The person behind the proxy's address, and the people the lists offer in the menu."""
+    return Me(me=person_of(settings, request), people=people_of(settings))
 
 
 @router.get("/lists")
@@ -89,7 +133,7 @@ async def read_list(
     name: str, settings: Annotated[Settings, Depends(get_settings)]
 ) -> share.Checklist:
     """One list with its task lines, or an empty one when the note is not there yet."""
-    return _found(await share.read(settings, name))
+    return await _answer(settings, await share.read(settings, name))
 
 
 @router.post("/lists/{name:path}/items")
@@ -97,7 +141,7 @@ async def add_item(
     name: str, body: Add, settings: Annotated[Settings, Depends(get_settings)]
 ) -> share.Checklist:
     """Append an item to a list, creating the list when `sha` is absent and it is missing."""
-    return _found(await share.add(settings, name, body.text, body.sha))
+    return await _answer(settings, await share.add(settings, name, body.text, body.sha))
 
 
 @router.post("/lists/{name:path}/tick")
@@ -114,7 +158,19 @@ async def tick_item(
     except share.TickInKastenError as error:
         raise HTTPException(status_code=422, detail=str(error)) from error
 
-    return _found(found)
+    return await _answer(settings, found)
+
+
+@router.post("/lists/{name:path}/assign")
+async def assign_item(
+    name: str, body: Assign, settings: Annotated[Settings, Depends(get_settings)]
+) -> share.Checklist:
+    """Set or clear whose item one line of a list is. A name the app does not list answers 422."""
+    if body.assignee is not None and body.assignee not in people_of(settings):
+        raise HTTPException(status_code=422, detail="Not one of the people")
+
+    found = await share.assign(settings, name, body.line, body.assignee, body.sha)
+    return await _answer(settings, found)
 
 
 @router.post("/lists/{name:path}/clear")
@@ -122,7 +178,7 @@ async def clear_done(
     name: str, body: Clear, settings: Annotated[Settings, Depends(get_settings)]
 ) -> share.Checklist:
     """Remove every ticked item from a list, and nothing else."""
-    return _found(await share.clear(settings, name, body.sha))
+    return await _answer(settings, await share.clear(settings, name, body.sha))
 
 
 @router.get("/events")

@@ -1,15 +1,30 @@
 /**
  * The shared lists app's one module: the calls to `/share`, the writes that wait
  * for a connection, the live feed, and the memory the suggestions come from.
- * The screen holds none of it. It draws what `viewOf` and `suggestionsFor` give.
+ * The screen holds none of it. It draws what the view module (`lists-view.ts`) gives.
  */
+
+import { listPath, openCount, requestFor } from "./lists-view";
 
 export const LISTS = ["Einkauf", "Todo"];
 
-/** `assignee`: who the item is for, as written after an undated `👤`, or null. */
-export type Item = { line: number; text: string; done: boolean; assignee: string | null };
+export type Item = {
+  line: number;
+  text: string;
+  done: boolean;
+  /** Who the item is for, as written after an undated `👤`, or null. */
+  assignee: string | null;
+  /** Who ticked it, from the jj history, or null. */
+  ticked_by: string | null;
+  /** When it was ticked, an ISO time, or null. */
+  ticked_at: string | null;
+};
 
 export type ListData = { name: string; sha: string | null; items: Item[] };
+
+/** Who is using the app, and the people an item can be for. */
+type Who = { me: string | null; people: string[] };
+const NOBODY: Who = { me: null, people: [] };
 
 /**
  * A write the phone has made and the server has not yet taken. `before` counts
@@ -19,12 +34,17 @@ export type ListData = { name: string; sha: string | null; items: Item[] };
 type OpBody =
   | { kind: "add"; list: string; text: string; before?: number }
   | { kind: "tick"; list: string; text: string; done: boolean }
+  | { kind: "assign"; list: string; text: string; assignee: string | null; from: string | null }
   | { kind: "clear"; list: string };
 export type Op = OpBody & { id: string };
 
 export type Snapshot = {
   /** Each list as the server last gave it. */
   lists: Partial<Record<string, ListData>>;
+  /** The name this session's address maps to, or null. Read once at start. */
+  me: string | null;
+  /** The names an item can be assigned to, in menu order. Empty when the read failed. */
+  people: string[];
   /** Writes not yet taken, oldest first. Kept in localStorage. */
   queue: Op[];
   /** Every item text each list has held, for suggestions. Kept in localStorage. */
@@ -43,6 +63,8 @@ export type ListsStore = {
   snapshot: () => Snapshot;
   add: (list: string, text: string) => void;
   tick: (list: string, text: string, done: boolean) => void;
+  /** Sets whom an item is for, by name, or clears it with null. */
+  assign: (list: string, text: string, assignee: string | null, from: string | null) => void;
   clear: (list: string) => void;
   dismissErrors: () => void;
   close: () => void;
@@ -53,11 +75,11 @@ const BASE = "/share";
 // is refused rather than looped on.
 const TRIES = 3;
 const POLL_MS = 2000;
-const MAX_SUGGESTIONS = 5;
 // Long enough for a slow phone network, short enough that a hung write does not hold the drain lock for other tabs long.
 const TIMEOUT_MS = 15_000;
 const QUEUE_KEY = "kasten.lists.queue";
 const SEEN_KEY = "kasten.lists.seen";
+const WHO_KEY = "kasten.lists.me";
 
 class HttpError extends Error {
   readonly status: number;
@@ -124,84 +146,6 @@ async function send<T>(method: string, path: string, body?: object): Promise<T> 
   }
 }
 
-const listPath = (name: string) => `/lists/${encodeURIComponent(name)}`;
-
-/**
- * The write one op makes against the list as it reads now, or none when the
- * list already says what the op asks for. A tick names its line from this read,
- * so a line that moved since the op was queued is found by its text instead.
- */
-function requestFor(op: Op, list: ListData): { path: string; body: object } | null {
-  const path = listPath(op.list);
-  if (op.kind === "add") return { path: `${path}/items`, body: { text: op.text, sha: list.sha } };
-  if (list.sha === null) return null;
-  if (op.kind === "clear") return { path: `${path}/clear`, body: { sha: list.sha } };
-  const item = list.items.find((found) => found.text === op.text && found.done !== op.done);
-  if (!item) return null;
-  return { path: `${path}/tick`, body: { line: item.line, done: op.done, sha: list.sha } };
-}
-
-function applyOp(items: Item[], op: Op): Item[] {
-  if (op.kind === "add")
-    return [...items, { line: -1, text: op.text, done: false, assignee: null }];
-  if (op.kind === "clear") return items.filter((item) => !item.done);
-  const at = items.findIndex((item) => item.text === op.text && item.done !== op.done);
-  return at < 0 ? items : items.map((item, n) => (n === at ? { ...item, done: op.done } : item));
-}
-
-/** A list as the screen shows it: the server's copy with the queued writes laid over. */
-export function viewOf(snap: Snapshot, list: string): Item[] {
-  let items = snap.lists[list]?.items ?? [];
-  for (const op of snap.queue) if (op.list === list) items = applyOp(items, op);
-  return items;
-}
-
-/**
- * The text the server keeps for an item, which is what a list shows and what the
- * count compares against. Mirrors `share.add`, which writes `" ".join(text.split())`,
- * and `_words` in backend/src/kasten_backend/share.py, which cuts the words before the
- * first field marker and drops a trailing `^block-id`. Both run here, in that order.
- */
-const FIELD_MARK = /📅|📆|🗓|⏳|🛫|➕|✅|❌|🔺|⏫|🔼|🔽|⏬|🏁|🆔|⛔|⏲|⏱|🔁|👤/u;
-const BLOCK_ID = /\s*\^[A-Za-z0-9_-]+$/;
-
-function shownText(text: string): string {
-  const words = text.split(/\s+/).filter(Boolean).join(" ");
-  return (words.split(FIELD_MARK)[0] ?? "").replace(BLOCK_ID, "").trim();
-}
-
-function openCount(list: ListData, text: string): number {
-  const shown = shownText(text);
-  return list.items.filter((item) => !item.done && item.text === shown).length;
-}
-
-const fold = (text: string) => text.toLocaleLowerCase("de-DE");
-
-/**
- * The texts offered for what is typed: earlier items by their first letters
- * first, then by a letter run inside them. An item open on the list now is not
- * offered, since the point is to add the one that is missing.
- */
-export function suggestionsFor(snap: Snapshot, list: string, typed: string): string[] {
-  const needle = fold(typed.trim());
-  if (!needle) return [];
-  const open = new Set(
-    viewOf(snap, list)
-      .filter((item) => !item.done)
-      .map((item) => fold(item.text)),
-  );
-  const found = new Map<string, string>();
-  for (const text of snap.seen[list] ?? []) {
-    if (!open.has(fold(text))) found.set(fold(text), text);
-  }
-  const all = [...found.entries()];
-  const prefix = all.filter(([key]) => key.startsWith(needle)).map(([, text]) => text);
-  const inside = all
-    .filter(([key]) => !key.startsWith(needle) && key.includes(needle))
-    .map(([, text]) => text);
-  return [...prefix, ...inside].slice(0, MAX_SUGGESTIONS);
-}
-
 function load<T>(key: string, fallback: T): T {
   const raw = localStorage.getItem(key);
   if (raw === null) return fallback;
@@ -216,6 +160,8 @@ function load<T>(key: string, fallback: T): T {
 
 const DRAIN_LOCK = "kasten.lists.drain";
 let realmTail: Promise<void> = Promise.resolve();
+
+const tickKey = (list: string, text: string) => `${list}\n${text}`;
 
 const newId = () => `${Date.now().toString(36)}${Math.random().toString(36).slice(2)}`;
 
@@ -233,6 +179,7 @@ function exclusive(run: () => Promise<void>): Promise<void> {
 export function createListsStore(): ListsStore {
   let snap: Snapshot = {
     lists: {},
+    ...load<Who>(WHO_KEY, NOBODY),
     queue: load<Op[]>(QUEUE_KEY, []),
     seen: load<Record<string, string[]>>(SEEN_KEY, {}),
     online: navigator.onLine,
@@ -244,6 +191,10 @@ export function createListsStore(): ListsStore {
   // Every sync waits for the one before it, so a list read never overtakes a
   // write that is still on its way up.
   let chain: Promise<void> = Promise.resolve();
+  // Set once a read of who it is succeeds on this page; until then each sync reads again.
+  let whoRead = false;
+  // The time and person of each tick this page made, by list and text, kept for the page's life.
+  const ticks = new Map<string, { at: string; by: string | null }>();
 
   function update(patch: Partial<Snapshot>): void {
     snap = { ...snap, ...patch };
@@ -278,9 +229,39 @@ export function createListsStore(): ListsStore {
     update({ seen });
   }
 
+  /**
+   * A done item the server sends with no time, as a history read that failed does, takes
+   * the time and person this page's own tick recorded, so the line does not change under
+   * the person who ticked it.
+   */
+  function withLocalTick(name: string, item: Item): Item {
+    const local = ticks.get(tickKey(name, item.text));
+    if (!item.done || item.ticked_at !== null || !local) return item;
+    return { ...item, ticked_by: local.by, ticked_at: local.at };
+  }
+
+  /** Drops a local tick once the list no longer shows its item done, unless a tick for it is still queued. */
+  function prune(list: ListData): void {
+    const queued = new Set(
+      readQueue().flatMap((op) =>
+        op.kind === "tick" && op.done && op.list === list.name ? [op.text] : [],
+      ),
+    );
+    const prefix = `${list.name}\n`;
+    for (const key of [...ticks.keys()]) {
+      if (!key.startsWith(prefix)) continue;
+      const text = key.slice(prefix.length);
+      if (!queued.has(text) && !list.items.some((item) => item.text === text && item.done)) {
+        ticks.delete(key);
+      }
+    }
+  }
+
   function put(list: ListData): void {
+    prune(list);
+    const items = list.items.map((item) => withLocalTick(list.name, item));
     // Any answer that reads a list says the session is back.
-    update({ lists: { ...snap.lists, [list.name]: list }, signIn: false });
+    update({ lists: { ...snap.lists, [list.name]: { ...list, items } }, signIn: false });
     remember(
       list.name,
       list.items.map((item) => item.text),
@@ -293,6 +274,29 @@ export function createListsStore(): ListsStore {
 
   function getList(name: string): Promise<ListData> {
     return send<ListData>("GET", listPath(name));
+  }
+
+  /** Who this session is and who can be assigned, or null when the read failed. */
+  async function readWho(): Promise<Who | null> {
+    try {
+      return await send<Who>("GET", "/me");
+    } catch (error) {
+      if (error instanceof HttpError || transient(error)) return null;
+      throw error;
+    }
+  }
+
+  /**
+   * Reads who this session is until one read succeeds on this page. The answer is kept
+   * in storage, so a page opened while the read fails still knows its last answer.
+   */
+  async function refreshWho(): Promise<void> {
+    if (whoRead) return;
+    const who = await readWho();
+    if (who === null) return;
+    whoRead = true;
+    localStorage.setItem(WHO_KEY, JSON.stringify(who));
+    update(who);
   }
 
   /** One write: read the list, send, and on a stale sha read again and send again. */
@@ -376,11 +380,19 @@ export function createListsStore(): ListsStore {
   }
 
   function sync(): void {
-    chain = chain.then(() => exclusive(drainQueue)).then(refresh);
+    chain = chain
+      .then(() => exclusive(drainQueue))
+      .then(refresh)
+      .then(refreshWho);
   }
 
   function enqueue(op: OpBody): void {
     if (op.kind === "add") remember(op.list, [op.text]);
+    if (op.kind === "tick") {
+      const key = tickKey(op.list, op.text);
+      if (op.done) ticks.set(key, { at: new Date().toISOString(), by: snap.me });
+      else ticks.delete(key);
+    }
     setQueue([...readQueue(), { ...op, id: newId() }]);
     sync();
   }
@@ -423,6 +435,7 @@ export function createListsStore(): ListsStore {
     snapshot: () => snap,
     add: (list, text) => enqueue({ kind: "add", list, text }),
     tick: (list, text, done) => enqueue({ kind: "tick", list, text, done }),
+    assign: (list, text, assignee, from) => enqueue({ kind: "assign", list, text, assignee, from }),
     clear: (list) => enqueue({ kind: "clear", list }),
     dismissErrors: () => update({ errors: [] }),
     close: () => {

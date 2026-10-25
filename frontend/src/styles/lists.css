@@ -1,48 +1,11 @@
 /*
- * The lists app. Plain CSS on the system's own type and colours, so the lists
- * read like a native list on a phone and stay calm on a desktop.
+ * The lists app, on kasten's own tokens so it reads as kasten does in both
+ * schemes and in each palette. Colour, type, space, radius and motion come only
+ * from the `--k-*` tokens. The one value the tokens lack, a round end, is named
+ * where it is used.
  */
 
-:root {
-  color-scheme: light dark;
-  --bg: #f2f2f7;
-  --card: #ffffff;
-  --text: #000000;
-  --muted: #6c6c70;
-  --ring: #8e8e93;
-  --hairline: rgba(60, 60, 67, 0.18);
-  --fill: rgba(118, 118, 128, 0.12);
-  --accent: #007aff;
-  --danger: #d70015;
-}
-
-/* Two selectors on purpose: the media query follows the system, and the
-   attribute lets a screenshot force the dark set without a system change. */
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --bg: #000000;
-    --card: #1c1c1e;
-    --text: #ffffff;
-    --muted: #8e8e93;
-    --ring: #8e8e93;
-    --hairline: rgba(84, 84, 88, 0.65);
-    --fill: rgba(118, 118, 128, 0.24);
-    --accent: #0a84ff;
-    --danger: #ff453a;
-  }
-}
-
-:root[data-theme="dark"] {
-  --bg: #000000;
-  --card: #1c1c1e;
-  --text: #ffffff;
-  --muted: #8e8e93;
-  --ring: #8e8e93;
-  --hairline: rgba(84, 84, 88, 0.65);
-  --fill: rgba(118, 118, 128, 0.24);
-  --accent: #0a84ff;
-  --danger: #ff453a;
-}
+@import "./kasten-theme.css";
 
 * {
   box-sizing: border-box;
@@ -50,9 +13,10 @@
 
 body {
   margin: 0;
-  background: var(--bg);
-  color: var(--text);
-  font: 17px/1.35 -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+  background: var(--k-bg);
+  color: var(--k-ink);
+  font: var(--k-text-15) / var(--k-leading-ui) var(--k-sans);
+  letter-spacing: var(--k-track-body);
   -webkit-font-smoothing: antialiased;
 }
 
@@ -62,13 +26,27 @@ input {
   color: inherit;
 }
 
+/* Every tap is a tap, not a pinch or a double tap held back for zoom, so a press lands at once. */
 button {
   cursor: pointer;
+  touch-action: manipulation;
 }
 
 :focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--k-accent);
   outline-offset: 2px;
+}
+
+/* The press: a control gives a little under the finger, and a row only tints.
+   Only transform and opacity move. The words of a row are a row, so they never scale,
+   and neither does a menu row, which is full width and takes the tint instead. */
+button:not(.words, .menu button) {
+  transition: transform var(--k-press-out) var(--k-ease-out);
+}
+
+button:not(.words, .menu button):active:not(:disabled) {
+  transform: scale(var(--k-press-scale));
+  transition-duration: var(--k-press-in);
 }
 
 .app {
@@ -83,60 +61,105 @@ button {
   position: sticky;
   top: 0;
   z-index: 1;
-  padding: calc(12px + env(safe-area-inset-top)) 16px 8px;
-  background: color-mix(in srgb, var(--bg) 88%, transparent);
-  backdrop-filter: blur(20px);
+  display: grid;
+  gap: var(--k-space-8);
+  padding: calc(var(--k-space-12) + env(safe-area-inset-top)) var(--k-space-16) var(--k-space-8);
+  /* Glass, as the main app's tab strip is: the list shows through, blurred. */
+  background-color: color-mix(in srgb, var(--k-bg) 84%, transparent);
+  backdrop-filter: blur(18px) saturate(1.4);
+  -webkit-backdrop-filter: blur(18px) saturate(1.4);
+  border-bottom: 1px solid var(--k-rule);
 }
 
+/* Less transparency asked, or more contrast: the solid colour the glass stands in for,
+   and no blur. High contrast draws the edge in ink, so it is still there to see. */
+@media (prefers-reduced-transparency: reduce) {
+  .top {
+    background-color: var(--k-bg);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+
+@media (prefers-contrast: more) {
+  .top {
+    background-color: var(--k-bg);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    border-bottom-color: var(--k-ink);
+  }
+}
+
+.top h1 {
+  margin: 0;
+  font-size: var(--k-text-23);
+  font-weight: 600;
+  line-height: var(--k-leading-title);
+  letter-spacing: var(--k-track-title);
+}
+
+/* The track is the surface and the chosen segment the accent, which clears 3:1 against it in both schemes. */
 .segment {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  padding: 2px;
-  border-radius: 10px;
-  background: var(--fill);
+  gap: var(--k-space-4);
+  padding: var(--k-space-4);
+  border-radius: var(--k-radius-8);
+  background: var(--k-surface);
 }
 
 .segment button {
   min-height: 44px;
   border: 0;
-  border-radius: 8px;
+  border-radius: var(--k-radius-6);
   background: transparent;
+  color: var(--k-ink-soft);
+  font-size: var(--k-text-15);
   font-weight: 500;
+  letter-spacing: var(--k-track-label);
 }
 
 .segment button[aria-pressed="true"] {
-  /* Inverted so the chosen list clears 3:1 against its track in both schemes (#735). */
-  background: var(--text);
-  color: var(--card);
+  background: var(--k-accent);
+  color: var(--k-paper);
+}
+
+/* Tabular figures keep the open count from shifting as it goes 9 to 10. */
+.count {
+  font-size: var(--k-text-13);
+  font-variant-numeric: tabular-nums;
 }
 
 .status {
-  margin: 6px 0 0;
+  margin: var(--k-space-4) 0 0;
   text-align: center;
-  font-size: 13px;
-  color: var(--muted);
+  font-size: var(--k-text-13);
+  color: var(--k-muted);
 }
 
 .pill {
   display: block;
   width: max-content;
   margin-inline: auto;
-  padding: 2px 10px;
+  padding: var(--k-space-4) var(--k-space-12);
+  /* A round end, which kasten's tokens do not name: the pill's ends are half its height. */
   border-radius: 999px;
-  background: var(--card);
+  background: var(--k-surface);
 }
 
 .error {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  margin: 8px 16px 0;
-  padding: 10px 14px;
-  border-radius: 12px;
-  background: var(--card);
-  color: var(--danger);
-  font-size: 15px;
+  gap: var(--k-space-12);
+  margin: var(--k-space-8) var(--k-space-16) 0;
+  padding: var(--k-space-12) var(--k-space-16);
+  border: 1px solid var(--k-rule);
+  border-radius: var(--k-radius-8);
+  /* Paper, not the surface: the danger colour reads 4.5:1 on paper in every palette, and not on the surface. */
+  background: var(--k-paper);
+  color: var(--k-danger);
+  font-size: var(--k-text-15);
 }
 
 .error p {
@@ -147,44 +170,95 @@ button {
   min-height: 44px;
   border: 0;
   background: none;
-  color: var(--accent);
+  color: var(--k-link);
 }
 
 .lists {
   flex: 1;
-  padding: 8px 16px 16px;
+  padding: var(--k-space-8) var(--k-space-16) var(--k-space-16);
 }
 
 .group {
-  overflow: hidden;
-  border-radius: 12px;
-  background: var(--card);
+  position: relative;
+  border: 1px solid var(--k-rule);
+  border-radius: var(--k-radius-8);
+  background: var(--k-paper);
+}
+
+/* No clipping: a chip's menu hangs past the row and past the group's last row. The
+   corners the group would have clipped are the first and last row's own. */
+.group > .row:first-child {
+  border-start-start-radius: var(--k-radius-8);
+  border-start-end-radius: var(--k-radius-8);
+}
+
+.group > .row:last-child {
+  border-end-start-radius: var(--k-radius-8);
+  border-end-end-radius: var(--k-radius-8);
 }
 
 .row {
   display: flex;
+  /* The chip sits on the line of the words, not in the middle of a row with a note under it. */
+  align-items: flex-start;
+  gap: var(--k-space-12);
+  min-height: 44px;
+  padding: var(--k-space-8) var(--k-space-8) var(--k-space-8) var(--k-space-16);
+}
+
+.row + .row {
+  border-top: 1px solid var(--k-rule);
+}
+
+/* A press on the words tints the row. The row does not move. */
+.row:has(.words:active) {
+  background: var(--k-surface);
+}
+
+.line {
+  flex: 1;
+  min-width: 0;
+}
+
+.words {
+  display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--k-space-12);
   width: 100%;
   min-height: 44px;
-  padding: 10px 16px;
+  padding: 0;
   border: 0;
   background: none;
   text-align: start;
 }
 
-.row + .row {
-  border-top: 0.5px solid var(--hairline);
-}
-
 .check {
+  position: relative;
+  isolation: isolate;
   flex: none;
   display: grid;
   place-items: center;
-  width: 24px;
-  height: 24px;
-  border: 2px solid var(--ring);
+  width: var(--k-space-24);
+  height: var(--k-space-24);
+  border: 2px solid var(--k-rule-strong);
   border-radius: 50%;
+  transition: transform var(--k-press-out) var(--k-ease-out);
+}
+
+/* The fill is a disc under the tick, so the tick reads on it. It fills with the
+   ease-out curve, and only its transform and opacity change. */
+.check::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: 50%;
+  background: var(--k-surface);
+  transform: scale(0);
+  opacity: 0;
+  transition:
+    transform var(--k-spring-response) var(--k-ease-out),
+    opacity var(--k-spring-response) var(--k-ease-out);
 }
 
 /* The tick is drawn with borders, so no svg (and no title for it) is needed. */
@@ -193,87 +267,182 @@ button {
   width: 5px;
   height: 9px;
   margin-top: -2px;
-  border: solid #ffffff;
+  border: solid var(--k-ink);
   border-width: 0 2px 2px 0;
   transform: rotate(45deg);
   opacity: 0;
+  transition: opacity var(--k-spring-response) var(--k-ease-out);
 }
 
-/* A short spring when a row is ticked. It runs on mount too, because a ticked
-   row moves into the done group, which is a fresh element. */
-.row[aria-checked="true"] .check {
-  background: var(--ring);
-  border-color: var(--ring);
-  animation: fill-in 200ms cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-.row[aria-checked="true"] .check::after {
+.words[aria-checked="true"] .check::before {
+  transform: scale(1);
   opacity: 1;
 }
 
-@keyframes fill-in {
-  from {
-    transform: scale(0.6);
-  }
-  to {
-    transform: scale(1);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .row[aria-checked="true"] .check {
-    animation: none;
-  }
+.words[aria-checked="true"] .check::after {
+  opacity: 1;
 }
 
 .text {
-  flex: 1;
   min-width: 0;
+  font-size: var(--k-text-15);
   overflow-wrap: anywhere;
 }
 
-.row[aria-checked="true"] .text {
-  color: var(--muted);
+.words[aria-checked="true"] .text {
+  color: var(--k-muted);
   text-decoration: line-through;
 }
 
 .done {
-  margin-top: 24px;
+  margin-top: var(--k-space-24);
 }
 
 .group-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 4px 8px;
-  color: var(--muted);
+  padding: 0 var(--k-space-4) var(--k-space-8);
+  color: var(--k-muted);
 }
 
 .group-head h2 {
   margin: 0;
-  font-size: 13px;
+  font-size: var(--k-text-13);
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
+  letter-spacing: var(--k-track-label);
 }
 
-/* Tabular figures keep the count from shifting as it goes 9 to 10. */
-.group-head .count {
-  font-variant-numeric: tabular-nums;
-}
-
-.group-head button {
+.group-head h2 button,
+.group-head > button {
   min-height: 44px;
-  padding: 0 4px;
+  padding: 0 var(--k-space-4);
   border: 0;
   background: none;
-  color: var(--accent);
+  color: var(--k-link);
+  font-size: var(--k-text-13);
+  font-weight: 600;
+}
+
+.group-head h2 button {
+  color: var(--k-muted);
+}
+
+/* The fold's chevron: two borders turned into a V, pointing down when folded and up when
+   open. It turns with transform alone, and the reduced-motion rule stops the turn. */
+.group-head h2 button::after {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-inline-start: var(--k-space-8);
+  margin-bottom: 3px;
+  vertical-align: middle;
+  border-right: 2px solid var(--k-muted);
+  border-bottom: 2px solid var(--k-muted);
+  transform: rotate(45deg);
+  transition: transform var(--k-press-out) var(--k-ease-out);
+}
+
+.group-head h2 button[aria-expanded="true"]::after {
+  transform: rotate(-135deg);
+}
+
+/* The line under a done item: who ticked it and when, read from the note's history. */
+.by {
+  margin: var(--k-space-4) 0 0 calc(var(--k-space-24) + var(--k-space-12));
+  font-size: var(--k-text-12);
+  color: var(--k-muted);
 }
 
 .empty {
-  margin: 48px 0 0;
+  margin: var(--k-space-48) 0 0;
   text-align: center;
-  color: var(--muted);
+  color: var(--k-muted);
+}
+
+/* The chip: a name with a note is a filled pill in the link colour, a name still to file is an outlined one. */
+.chip-wrap {
+  position: relative;
+  flex: none;
+}
+
+.chip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+
+.chip-name {
+  display: block;
+  max-width: 12em;
+  overflow: hidden;
+  padding: var(--k-space-4) var(--k-space-12);
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font-size: var(--k-text-13);
+  line-height: var(--k-leading-ui);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chip.linked .chip-name {
+  background: var(--k-surface);
+  color: var(--k-link);
+}
+
+.chip.unlinked .chip-name {
+  border-style: dashed;
+  border-color: color-mix(in srgb, var(--k-rule-strong) 50%, transparent);
+  color: var(--k-muted);
+}
+
+.menu {
+  position: absolute;
+  inset-inline-end: 0;
+  top: calc(100% + var(--k-space-4));
+  z-index: 2;
+  display: grid;
+  min-width: 10rem;
+  padding: var(--k-space-4);
+  border: 1px solid var(--k-rule);
+  border-radius: var(--k-radius-8);
+  background: var(--k-paper);
+  box-shadow: var(--k-shadow);
+}
+
+.menu button {
+  min-height: 44px;
+  padding: 0 var(--k-space-12);
+  border: 0;
+  border-radius: var(--k-radius-6);
+  background: transparent;
+  color: var(--k-ink);
+  font-size: var(--k-text-15);
+  text-align: start;
+  white-space: nowrap;
+}
+
+/* A press tints the row, which is full width, rather than scaling it. */
+.menu button:active {
+  background: var(--k-surface);
+}
+
+/* Hover is a pointer's: a touch screen has none to show, and a tap would leave it stuck on. */
+@media (hover: hover) {
+  .menu button:hover {
+    background: var(--k-surface);
+  }
+}
+
+.menu button[aria-checked="true"] {
+  color: var(--k-link);
+  font-weight: 600;
 }
 
 .composer {
@@ -281,40 +450,75 @@ button {
   bottom: 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 8px 16px calc(10px + env(safe-area-inset-bottom));
-  background: color-mix(in srgb, var(--bg) 88%, transparent);
-  backdrop-filter: blur(20px);
+  gap: var(--k-space-8);
+  padding: var(--k-space-8) var(--k-space-16) calc(var(--k-space-12) + env(safe-area-inset-bottom));
+  /* Solid: glass is kept for the top bar only (#798). */
+  background: var(--k-bg);
+  border-top: 1px solid var(--k-rule);
 }
 
 .chips {
   display: flex;
-  gap: 8px;
+  gap: var(--k-space-8);
   overflow-x: auto;
   scrollbar-width: none;
 }
 
-.chip {
+.suggest {
   flex: none;
   min-height: 44px;
-  padding: 0 16px;
-  border: 0;
+  padding: 0 var(--k-space-16);
+  border: 1px solid var(--k-rule);
   border-radius: 999px;
-  background: var(--card);
+  background: var(--k-paper);
+  color: var(--k-ink);
   white-space: nowrap;
 }
 
+.entry {
+  display: flex;
+  gap: var(--k-space-8);
+}
+
 .field {
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   min-height: 44px;
-  padding: 0 14px;
-  border: 0;
-  border-radius: 12px;
-  background: var(--card);
-  /* 16px or more stops Safari zooming the page when the field takes focus. */
-  font-size: 17px;
+  padding: 0 var(--k-space-12);
+  border: 1px solid var(--k-rule);
+  border-radius: var(--k-radius-8);
+  background: var(--k-paper);
+  color: var(--k-ink);
+  /* 16px or more stops Safari zooming the page when the field takes focus, and no
+     token is that size. The 15 px step is the one items use, so this is the floor. */
+  font-size: max(16px, var(--k-text-15));
 }
 
 .field::placeholder {
-  color: var(--muted);
+  color: var(--k-muted);
+}
+
+.add {
+  min-height: 44px;
+  padding: 0 var(--k-space-16);
+  border: 0;
+  border-radius: var(--k-radius-8);
+  background: var(--k-accent);
+  color: var(--k-paper);
+  font-size: var(--k-text-15);
+  font-weight: 500;
+}
+
+/* The reader who asked for less motion gets none: no press, no fill, no transition. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition: none !important;
+    animation: none !important;
+  }
+
+  button:active {
+    transform: none !important;
+  }
 }

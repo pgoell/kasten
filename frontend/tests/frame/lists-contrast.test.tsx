@@ -1,13 +1,13 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { page } from "vitest/browser";
 import { ListsApp } from "@/lists/lists-app";
 import { fakeShare } from "../lists-fixture";
 
 const SEED = {
   Einkauf: [
-    { text: "Milch", done: false },
+    { text: "Milch", done: false, assignee: "[[Pascal]]" },
     { text: "Vollkornbrot", done: false },
-    { text: "Eier", done: true },
+    { text: "Eier", done: true, ticked_by: "Alicia" },
     { text: "Zitronen", done: true },
   ],
   Todo: [
@@ -55,12 +55,15 @@ function grade(r: number, min: number): string {
   return r >= min ? "ok" : r.toFixed(2);
 }
 
-/** Draw the app at phone width, optionally forced dark, and wait for the list. */
+/**
+ * Draw the app at phone width, optionally forced dark, and wait for the list. The app sets
+ * data-theme from the phone's scheme when it mounts, so the forced dark is set after that.
+ */
 async function draw(dark: boolean): Promise<void> {
   await page.viewport(414, 896);
-  if (dark) document.documentElement.setAttribute("data-theme", "dark");
   render(<ListsApp />);
   await screen.findByRole("checkbox", { name: "Milch" });
+  if (dark) document.documentElement.setAttribute("data-theme", "dark");
 }
 
 /** The colour a bare element sits on. */
@@ -88,6 +91,7 @@ describe("the lists app contrast", () => {
   afterEach(async () => {
     vi.unstubAllGlobals();
     document.documentElement.removeAttribute("data-theme");
+    document.documentElement.removeAttribute("data-palette");
     await page.viewport(1280, 900);
   });
 
@@ -121,18 +125,23 @@ describe("the lists app contrast", () => {
       const eier = screen.getByRole("checkbox", { name: "Eier" });
       const milch = screen.getByRole("checkbox", { name: "Milch" });
       const card = parse(getComputedStyle(eier.closest(".group") as HTMLElement).backgroundColor);
+      // The disc is the fill behind the tick (#810 A1), so it is the pseudo-element that is measured.
       const disc = parse(
-        getComputedStyle(eier.querySelector(".check") as HTMLElement).backgroundColor,
+        getComputedStyle(eier.querySelector(".check") as HTMLElement, "::before").backgroundColor,
       );
       const ring = parse(
         getComputedStyle(milch.querySelector(".check") as HTMLElement).borderTopColor,
       );
       const text = parse(getComputedStyle(eier.querySelector(".text") as HTMLElement).color);
+      const tick = parse(
+        getComputedStyle(eier.querySelector(".check") as HTMLElement, "::after").borderBottomColor,
+      );
+      // The disc is the surface, which sits near the card in tone on purpose (#810 A1). The
+      // state is the ink tick on it, and the ring around it, which are the 3:1 pairs.
       const result = {
         text: grade(ratio(text, card), 4.5),
-        disc: grade(ratio(disc, card), 3),
         ring: grade(ratio(ring, card), 3),
-        tick: grade(ratio([255, 255, 255, 1], disc), 3),
+        tick: grade(ratio(tick, disc), 3),
       };
       cleanup();
       return result;
@@ -140,8 +149,8 @@ describe("the lists app contrast", () => {
     const light = await measure(false);
     const dark = await measure(true);
     expect({ light, dark }).toEqual({
-      light: { text: "ok", disc: "ok", ring: "ok", tick: "ok" },
-      dark: { text: "ok", disc: "ok", ring: "ok", tick: "ok" },
+      light: { text: "ok", ring: "ok", tick: "ok" },
+      dark: { text: "ok", ring: "ok", tick: "ok" },
     });
   }, 30_000);
 
@@ -164,4 +173,138 @@ describe("the lists app contrast", () => {
       dark: { heading: "ok", count: "ok" },
     });
   }, 30_000);
+
+  it("#810 A5 the chip reads at 4.5:1 linked and unlinked in every palette and both schemes", async () => {
+    const result = await everyLook(() => {
+      const linked = need(".chip.linked .chip-name");
+      const unlinked = need(".chip.unlinked .chip-name");
+      const card = parse(
+        getComputedStyle(unlinked.closest(".group") as HTMLElement).backgroundColor,
+      );
+      return {
+        linked: grade(
+          ratio(
+            parse(getComputedStyle(linked).color),
+            parse(getComputedStyle(linked).backgroundColor),
+          ),
+          4.5,
+        ),
+        unlinked: grade(ratio(parse(getComputedStyle(unlinked).color), card), 4.5),
+      };
+    });
+    expect(result).toEqual(allOk(["linked", "unlinked"]));
+  }, 60_000);
+
+  it("#810 A7 the abgehakt line reads at 4.5:1 on its card in every palette and both schemes", async () => {
+    const result = await everyLook(() => {
+      const line = need(".by");
+      const card = parse(getComputedStyle(line.closest(".group") as HTMLElement).backgroundColor);
+      return { line: grade(ratio(parse(getComputedStyle(line).color), card), 4.5) };
+    });
+    expect(result).toEqual(allOk(["line"]));
+  }, 60_000);
+
+  it("#810 A3 the counts and the chosen list read in every palette and both schemes", async () => {
+    const result = await everyLook(() => {
+      const segment = document.querySelector(".segment") as HTMLElement;
+      const chosen = segment.querySelector('[aria-pressed="true"]') as HTMLElement;
+      const track = parse(getComputedStyle(segment).backgroundColor);
+      const thumb = parse(getComputedStyle(chosen).backgroundColor);
+      return {
+        chosenCount: grade(
+          ratio(
+            parse(getComputedStyle(need('.segment [aria-pressed="true"] .count')).color),
+            thumb,
+          ),
+          4.5,
+        ),
+        otherCount: grade(
+          ratio(
+            parse(getComputedStyle(need('.segment [aria-pressed="false"] .count')).color),
+            track,
+          ),
+          4.5,
+        ),
+        thumb: grade(ratio(thumb, track), 3),
+      };
+    });
+    expect(result).toEqual(allOk(["chosenCount", "otherCount", "thumb"]));
+  }, 60_000);
+
+  it("#810 A8 Hinzufügen reads at 4.5:1 on its accent in every palette and both schemes", async () => {
+    const result = await everyLook(() => {
+      const add = need(".add");
+      return {
+        add: grade(
+          ratio(parse(getComputedStyle(add).color), parse(getComputedStyle(add).backgroundColor)),
+          4.5,
+        ),
+      };
+    });
+    expect(result).toEqual(allOk(["add"]));
+  }, 60_000);
+
+  it("#810 L2 the error text reads at 4.5:1 in every palette and both schemes", async () => {
+    // The server refuses every write for good, so a tick leaves the error line on screen.
+    const share = fakeShare(SEED);
+    vi.stubGlobal("fetch", (url: string, init?: RequestInit) =>
+      init?.method === "POST"
+        ? Promise.resolve(new Response("{}", { status: 400 }))
+        : share.fetch(url, init),
+    );
+    const looks: Record<string, Record<string, string>> = {};
+    for (const palette of ["poel", "russet", "peach", "pansy"]) {
+      for (const dark of [false, true]) {
+        await drawLook(palette, dark);
+        fireEvent.click(screen.getByRole("checkbox", { name: "Vollkornbrot" }));
+        const alert = await screen.findByRole("alert");
+        const style = getComputedStyle(alert);
+        looks[`${palette}${dark ? " dark" : " light"}`] = {
+          error: grade(ratio(parse(style.color), parse(style.backgroundColor)), 4.5),
+        };
+        cleanup();
+      }
+    }
+    expect(looks).toEqual(allOk(["error"]));
+  }, 60_000);
+
+  /** The element a look is read from. Missing, the test says which one, not a null read. */
+  function need(selector: string): HTMLElement {
+    const found = document.querySelector<HTMLElement>(selector);
+    if (!found) throw new Error(`no ${selector} on the page`);
+    return found;
+  }
+
+  /** Draws the app in one palette and scheme, as a palette and the phone's scheme set them. */
+  async function drawLook(palette: string, dark: boolean): Promise<void> {
+    document.documentElement.setAttribute("data-palette", palette);
+    render(<ListsApp />);
+    await screen.findByRole("checkbox", { name: "Milch" });
+    // After the mount, which sets the theme from the phone's scheme (the headless browser's is light).
+    if (dark) document.documentElement.setAttribute("data-theme", "dark");
+    else document.documentElement.removeAttribute("data-theme");
+  }
+
+  /** Every palette in both schemes, read by `measure`, each look keyed by its name. */
+  async function everyLook(measure: () => Record<string, string>) {
+    const looks: Record<string, Record<string, string>> = {};
+    for (const palette of ["poel", "russet", "peach", "pansy"]) {
+      for (const dark of [false, true]) {
+        await drawLook(palette, dark);
+        looks[`${palette}${dark ? " dark" : " light"}`] = measure();
+        cleanup();
+      }
+    }
+    return looks;
+  }
+
+  /** The expected answer for every look: each named pairing reads "ok" in all eight. */
+  function allOk(names: string[]) {
+    const one = Object.fromEntries(names.map((name) => [name, "ok"]));
+    return Object.fromEntries(
+      ["poel", "russet", "peach", "pansy"].flatMap((palette) =>
+        ["light", "dark"].map((scheme) => [`${palette} ${scheme}`, one]),
+      ),
+    );
+  }
 });

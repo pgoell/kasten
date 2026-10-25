@@ -3155,6 +3155,28 @@
         }
       }
     },
+    "/share/me": {
+      "get": {
+        "tags": [
+          "share"
+        ],
+        "summary": "Me",
+        "description": "The person behind the proxy's address, and the people the lists offer in the menu.",
+        "operationId": "me_share_me_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Me"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/share/lists": {
       "get": {
         "tags": [
@@ -3302,6 +3324,59 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/Tick"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Checklist"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/share/lists/{name}/assign": {
+      "post": {
+        "tags": [
+          "share"
+        ],
+        "summary": "Assign Item",
+        "description": "Set or clear whose item one line of a list is. A name the app does not list answers 422.",
+        "operationId": "assign_item_share_lists__name__assign_post",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Assign"
               }
             }
           }
@@ -4595,6 +4670,37 @@
         ],
         "title": "Append",
         "description": "A line to add, and the digest of the note the caller read, when it read one."
+      },
+      "Assign": {
+        "properties": {
+          "line": {
+            "type": "integer",
+            "title": "Line"
+          },
+          "assignee": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assignee"
+          },
+          "sha": {
+            "type": "string",
+            "title": "Sha"
+          }
+        },
+        "type": "object",
+        "required": [
+          "line",
+          "assignee",
+          "sha"
+        ],
+        "title": "Assign",
+        "description": "Whose item a line is, by name, or None to clear it, and the digest of the list read."
       },
       "BalanceIn": {
         "properties": {
@@ -5928,6 +6034,28 @@
               }
             ],
             "title": "Assignee"
+          },
+          "ticked_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ticked By"
+          },
+          "ticked_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ticked At"
           }
         },
         "type": "object",
@@ -6092,6 +6220,35 @@
         ],
         "title": "LooseSplit",
         "description": "A split still without a category."
+      },
+      "Me": {
+        "properties": {
+          "me": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Me"
+          },
+          "people": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "People"
+          }
+        },
+        "type": "object",
+        "required": [
+          "me",
+          "people"
+        ],
+        "title": "Me",
+        "description": "Who is asking, if the proxy's address is a listed one, and the people the app offers."
       },
       "Mention": {
         "properties": {
