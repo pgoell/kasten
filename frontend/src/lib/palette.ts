@@ -171,9 +171,9 @@ export function paletteEntries(
         label: `Log ${kind.name}`,
         run: () => {
           // A kind that keeps its last value has no line without a number. Over a daily
-          // note's card it asks there; anywhere else it opens today's note and the user asks.
+          // note's card it asks there; anywhere else today's note is opened and asks there.
           if (line === null) {
-            if (view === null || !askOnCard(view, kind.mark)) commands.openDaily();
+            if (view === null || !askOnCard(view, kind.mark)) commands.logWeight?.(kind.mark);
             return;
           }
           if (view !== null && logDrinkInView(view, line)) return;

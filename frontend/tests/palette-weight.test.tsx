@@ -62,7 +62,7 @@ describe("the palette's weight entry", () => {
     expect(commands.openDaily).not.toHaveBeenCalled();
   });
 
-  it("#805 I4 Log weight away from a card opens today's note and writes no line", () => {
+  it("#805 I4 Log weight away from a card hands the ask to today's note and writes no line", () => {
     const view = new EditorView({
       state: EditorState.create({ doc: NOTE, extensions: [notePath.of("kasten.md")] }),
     });
@@ -73,7 +73,7 @@ describe("the palette's weight entry", () => {
     expect(entry).toBeDefined();
     entry?.run();
 
-    expect(commands.openDaily).toHaveBeenCalledTimes(1);
+    expect(commands.logWeight).toHaveBeenCalledWith("⚖");
     expect(commands.logDrink).not.toHaveBeenCalled();
     expect(view.state.doc.toString()).toBe(NOTE);
   });

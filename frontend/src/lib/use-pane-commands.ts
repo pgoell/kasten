@@ -13,7 +13,7 @@ import { fetchAssets, fetchFiles, fetchNote, NoteMissing } from "@/lib/api";
 import { heldText } from "@/lib/held-text";
 import type { TreeCommands } from "@/lib/key-bindings";
 import { READING_NOTE } from "@/lib/layout";
-import { openFoodSearch } from "@/lib/log-card";
+import { askOnCard, openFoodSearch } from "@/lib/log-card";
 import { drinkTarget, logDrinkInVault, logDrinkInView } from "@/lib/log-write";
 import { noteName } from "@/lib/note-path";
 import {
@@ -190,6 +190,7 @@ export function usePaneCommands({
       | "openDaily"
       | "logDrink"
       | "logFood"
+      | "logWeight"
       | "openWeekly"
       | "openMonthly"
       | "openQuarterly"
@@ -359,8 +360,19 @@ export function usePaneCommands({
         }
         // Saved first: a refused save leaves nothing waiting.
         if (!(await saveFirst())) return;
-        food.arm(today);
+        food.arm(today, (view) => openFoodSearch(view));
         // A failed create or open leaves nothing waiting, so a later `<leader>gd` is not searched.
+        if (!(await openPeriodic("daily"))) food.cancel();
+      },
+      logWeight: async (mark) => {
+        const today = periodicNote("daily", new Date()).path;
+        if (pane.path === today) {
+          const view = paneView(pane.id);
+          if (view !== null) askOnCard(view, mark);
+          return;
+        }
+        if (!(await saveFirst())) return;
+        food.arm(today, (view) => askOnCard(view, mark));
         if (!(await openPeriodic("daily"))) food.cancel();
       },
       openWeekly: () => openPeriodic("weekly"),

@@ -77,6 +77,11 @@ export interface EditorCommands {
    * way `logDrink` is.
    */
   logFood(): void;
+  /**
+   * Ask on today's card for the number the kind `mark` keeps as its last value, opening
+   * today's note first where it is not there. Reached by name from the palette only.
+   */
+  logWeight?(mark: string): void;
   openWeekly(): void;
   openMonthly(): void;
   openQuarterly(): void;
@@ -209,7 +214,10 @@ export interface TreeCommands extends EditorCommands {
  * so here is what lets the file tree run any binding it resolves by calling it
  * with nothing.
  */
-export type LeaderCommand = Exclude<keyof EditorCommands, "goToTab" | "logDrink" | "logFood">;
+export type LeaderCommand = Exclude<
+  keyof EditorCommands,
+  "goToTab" | "logDrink" | "logFood" | "logWeight"
+>;
 
 /**
  * The modifiers a terminal chord is held with, in one place so retuning the

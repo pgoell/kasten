@@ -31,6 +31,7 @@ export function stubCommands() {
     openDaily: vi.fn(),
     logDrink: vi.fn(),
     logFood: vi.fn(),
+    logWeight: vi.fn(),
     openWeekly: vi.fn(),
     openMonthly: vi.fn(),
     openQuarterly: vi.fn(),

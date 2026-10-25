@@ -191,6 +191,28 @@ describe("the palette's Log food, on the route", () => {
     expect(foodQuery()).not.toBeNull();
   });
 
+  it("#805 I4 Log weight away from a card opens today's note and asks on its card", async () => {
+    fetchNote.mockImplementation(async (path: string) => {
+      if (path === LOG_CONFIG) return "- ☕ coffee: 1\n- ⚖ weight: kg, last";
+      if (path === TODAY) return TODAY_TEXT;
+      return VAULT[path];
+    });
+    const app = await renderApp();
+    await settle();
+    app.click("index.md");
+    await settle();
+
+    app.leader(":");
+    await settle();
+    tapRow(/^Log weight/);
+    await settle();
+
+    expect(editorText()).toContain("# 2026-10-20 Tuesday");
+    expect(document.querySelector(".cm-log-why")?.textContent).toBe("Type the weight in kg");
+    expect(document.activeElement).toBe(document.querySelector(".cm-log-amount"));
+    expect(editorText()).not.toContain("⚖");
+  });
+
   it("#762 B2 B4 B5 with vim on, Log food over index.md opens today's note in the focused pane with the food query focused", async () => {
     const app = await renderApp();
     await settle();

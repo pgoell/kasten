@@ -1,7 +1,6 @@
 import { EditorView } from "@codemirror/view";
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef } from "react";
-import { openFoodSearch } from "@/lib/log-card";
 import { paneEditor } from "@/lib/pane-doc";
 
 /**
@@ -14,26 +13,27 @@ export function paneView(id: string): EditorView | null {
 }
 
 /**
- * Log food's wait for today's note: armed when the food is logged, and searched
+ * The palette's log wait for today's note: armed by a command that needs today's note
+ * open first (`Log food` opens the search, `Log weight` asks on the card), and run
  * once the note is on screen in the pane it was opened in.
  */
 export function useFoodWait(paneId: string, panePath: string | undefined) {
   const queryClient = useQueryClient();
-  /** Today's note path while `logFood` waits; cleared on a pane change or a failed load. */
-  const pending = useRef<string | null>(null);
+  /** Today's note path and what to do there, while a command waits; cleared on a pane change or a failed load. */
+  const pending = useRef<{ path: string; then: (view: EditorView) => void } | null>(null);
   useEffect(() => {
     const target = pending.current;
     pending.current = null;
-    if (target === null || panePath !== target) return;
+    if (target === null || panePath !== target.path) return;
     // Tried once, when the editor is in the pane, and then the watch ends whether
     // or not the card showed, so typing into the note later never opens it.
     const attach = () => {
       const view = paneView(paneId);
-      if (view !== null) openFoodSearch(view);
+      if (view !== null) target.then(view);
       return view !== null;
     };
     const settled = () =>
-      attach() || queryClient.getQueryState(["note", target])?.status === "error";
+      attach() || queryClient.getQueryState(["note", target.path])?.status === "error";
     if (settled()) return;
     // The editor mounts after the path is taken, so wait for it to appear.
     const element = document.querySelector<HTMLElement>(`[data-pane="${paneId}"]`);
@@ -48,8 +48,8 @@ export function useFoodWait(paneId: string, panePath: string | undefined) {
 
   return useMemo(
     () => ({
-      arm: (path: string) => {
-        pending.current = path;
+      arm: (path: string, then: (view: EditorView) => void) => {
+        pending.current = { path, then };
       },
       cancel: () => {
         pending.current = null;

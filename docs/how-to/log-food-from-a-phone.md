@@ -52,7 +52,7 @@ An empty meal on the card offers `Copy yesterday's <meal> (<n> lines)` when yest
 
 ## Log your weight
 
-Type the weight in kg into the amount field, and tap `⚖ Weight` on the card. The line `- ⚖ 82.4 kg` goes to the end of `## Log`, and the field empties. With the field empty, tapping `⚖ Weight` asks for the number: type it and press Enter. The button shows the day's weight, or the latest one from the 30 days before when the day has none. `Undo` takes the line back.
+Type the weight in kg into the amount field, and tap `⚖ Weight` on the card. The line `- ⚖ 82.4 kg` goes to the end of `## Log`, and the field empties. With the field empty, tapping `⚖ Weight` asks for the number: type it and press Enter. Or tap `run`, then `Log weight`: kasten opens today's note and asks there, and writes nothing until you type the number. The button shows the day's weight, or the latest one from the 30 days before when the day has none. `Undo` takes the line back.
 
 ## Close the sheet
 
