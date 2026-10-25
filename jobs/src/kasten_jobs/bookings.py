@@ -7,11 +7,15 @@ docs/reference/bank-sync.md#the-source-key.
 """
 
 import hashlib
+import re
 from datetime import date
 from decimal import Decimal
 from typing import Any
 
 CENT = Decimal("0.01")
+
+# Not followed by a digit, so a name that runs on in digits is not cut.
+GERMAN_IBAN = re.compile(r"DE\d{20}(?!\d)")
 
 
 def spelled(iban: str | None) -> str:
@@ -45,6 +49,24 @@ def key_prefix(bank: str, iban: str, record: dict[str, Any]) -> str:
     return f"{bank}:{iban}:{record['date']}:{record['amount'].amount}:{ref}:{digest}"
 
 
+def counterparty(record: dict[str, Any], own: frozenset[str]) -> tuple[str | None, str | None]:
+    """The record's counterparty IBAN and name, with an IBAN the bank glued to the name split off.
+
+    DKB's MT940 for a savings account leaves `applicant_iban` empty and starts
+    `applicant_name` with the IBAN, no separator: `DE02...2051Pascal`. A
+    German IBAN is always 22 characters, so it is cut there; any other
+    country's length is only known when it is a kasten account's IBAN.
+    """
+    iban, name = record.get("applicant_iban"), record.get("applicant_name")
+    if spelled(iban) or not name:
+        return iban, name
+    glued = GERMAN_IBAN.match(name)
+    cut = glued.end() if glued else next((len(o) for o in own if name.startswith(o)), 0)
+    if not cut:
+        return iban, name
+    return name[:cut], name[cut:].strip() or None
+
+
 def _plain(value: Any) -> Any:
     if value is None or isinstance(value, str | int | float | bool):
         return value
@@ -67,7 +89,8 @@ def to_bookings(
 
     `own` is every kasten account's IBAN, spelled as `spelled` spells it. A
     record whose counterparty is one of them is a move between own accounts
-    and takes `transfer_prefix`, as the old importer keyed it.
+    and takes `transfer_prefix`, as the old importer keyed it. The
+    counterparty is read by `counterparty`.
 
     Records alike in every part of the key, two coffees of one price on one
     day, get `:0`, `:1` and so on in the order the bank lists them. The bank
@@ -79,7 +102,8 @@ def to_bookings(
     seen: dict[str, int] = {}
     bookings = []
     for record in records:
-        other = spelled(record.get("applicant_iban"))
+        their_iban, their_name = counterparty(record, own)
+        other = spelled(their_iban)
         if other in own and other != spelled(iban):
             prefix = transfer_prefix(iban, other, record["date"], record["amount"].amount)
         else:
@@ -96,8 +120,8 @@ def to_bookings(
                 "currency": getattr(amount, "currency", None) or "EUR",
                 "purpose": record.get("purpose"),
                 "posting_text": record.get("posting_text"),
-                "counterparty_name": record.get("applicant_name"),
-                "counterparty_iban": record.get("applicant_iban"),
+                "counterparty_name": their_name,
+                "counterparty_iban": their_iban,
                 "bank_ref": record.get("prima_nota") or record.get("end_to_end_reference"),
                 "raw": {key: _plain(value) for key, value in record.items()},
                 "source_key": f"{prefix}:{occurrence}",

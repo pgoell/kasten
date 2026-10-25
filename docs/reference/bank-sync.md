@@ -125,6 +125,28 @@ transfer:<lo>:<hi>:<date>:<amount>:<n>
 
 A record whose counterparty is anyone else keeps the key above.
 
+#### An IBAN glued to the name
+
+DKB's MT940 for a savings account leaves `applicant_iban` (and
+`gvc_applicant_iban`) empty on an incoming transfer and starts
+`applicant_name` with the IBAN instead, with no separator:
+`DE02120300000000202051Pascal`. When `applicant_iban` is empty the sync cuts
+an IBAN off the front of the name before it builds the key, and posts the two
+parts as `counterparty_iban` and `counterparty_name` (the rest stripped, none
+when nothing is left), so the record keys as a move when the IBAN is an own
+account's and the backend links its two halves. It cuts:
+
+* a German IBAN, `DE` and 20 digits not followed by another digit, since a
+  German IBAN is always 22 characters;
+* any other country's IBAN only when it is a kasten account's IBAN, whose
+  length is then known.
+
+Anything else stays the name as the bank sent it. `raw` keeps the record
+unchanged. A stranger's IBAN is cut too but keeps the key above, which never
+reads the counterparty. Before this, the first pull on 2026-10-25 stored the
+savings half of a move from the giro account a second time beside the
+Firefly-imported one (#971).
+
 ### What the Firefly import computes
 
 For each Firefly withdrawal or deposit whose `external_id` has the shape above
