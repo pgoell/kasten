@@ -74,6 +74,34 @@ async def test_the_same_key_twice_in_one_batch_inserts_once(finance_client: Asyn
     assert [row["amount"] for row in stored] == ["-4.20"]
 
 
+async def test_a_booking_keeps_the_raw_record_it_came_with(finance_client: AsyncClient) -> None:
+    giro = await account(finance_client, "Giro")
+
+    await post(finance_client, [booking(giro, "k", raw={"bookingText": "KARTENZAHLUNG"})])
+
+    (stored,) = (await finance_client.get("/api/finance/transactions")).json()
+    assert stored["raw"] == {"bookingText": "KARTENZAHLUNG"}
+
+
+async def test_a_batch_over_the_cap_is_refused(finance_client: AsyncClient) -> None:
+    giro = await account(finance_client, "Giro")
+    batch = [booking(giro, str(number)) for number in range(1001)]
+
+    response = await finance_client.post("/api/finance/transactions", json=batch)
+
+    assert response.status_code == 422
+
+
+async def test_an_iban_another_account_holds_is_a_409(finance_client: AsyncClient) -> None:
+    await account(finance_client, "Giro", iban=GIRO)
+
+    response = await finance_client.post(
+        "/api/finance/accounts", json={"name": "Saving", "iban": GIRO, "kind": "saving"}
+    )
+
+    assert response.status_code == 409
+
+
 async def test_a_booking_on_an_unknown_account_is_refused_with_its_batch(
     finance_client: AsyncClient,
 ) -> None:
