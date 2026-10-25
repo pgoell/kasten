@@ -2217,6 +2217,8 @@ export interface components {
         /**
          * Totals
          * @description What a day adds up to. Every kind is always present, zero where nothing was logged.
+         *
+         *     The one exception is a last kind's `mine` total, which is null with no line that day.
          */
         Totals: {
             water: components["schemas"]["Water"];

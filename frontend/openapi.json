@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "kasten",
-    "version": "0.101.0"
+    "version": "0.102.0"
   },
   "paths": {
     "/agent/notes/{path}": {
@@ -4117,7 +4117,7 @@
           "food"
         ],
         "title": "Totals",
-        "description": "What a day adds up to. Every kind is always present, zero where nothing was logged."
+        "description": "What a day adds up to. Every kind is always present, zero where nothing was logged.\n\nThe one exception is a last kind's `mine` total, which is null with no line that day."
       },
       "Transcript": {
         "properties": {
