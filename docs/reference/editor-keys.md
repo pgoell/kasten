@@ -74,10 +74,10 @@ toolbar's `log` button does the same.
 ## The finance pane
 
 `<leader>gk` puts the finance pane in the focused pane, in place of whatever it
-held. It has four tabs: Overview, To sort, Transactions and Budget.
-[Read the finance overview](/how-to/read-the-finance-overview.md) and
-[Sort finance transactions](/how-to/sort-finance-transactions.md) walk
-through them. Every key has a button or a tap beside it, so the pane works the
+held. It has five tabs: Overview, To sort, Transactions, Budget and Plans &
+goals. [Read the finance overview](/how-to/read-the-finance-overview.md),
+[Sort finance transactions](/how-to/sort-finance-transactions.md) and
+[Plan costs and goals](/how-to/plan-costs-and-goals.md) walk through them. Every key has a button or a tap beside it, so the pane works the
 same with vim off and on a phone.
 
 On To sort and Transactions each category takes a key, in the order the
@@ -92,16 +92,23 @@ upper case and brackets, so they never meet a category's key.
 | `S` | Show the bookings to sort |
 | `T` | Show the transactions |
 | `B` | Show the budget |
+| `G` | Show the plans and goals |
 | `[` | Show the month before |
 | `]` | Show the month after |
 | `P` | Pull now: ask the bank job for a pull |
-| `j` | Move to the next booking or category |
-| `k` | Move to the previous booking or category |
+| `j` | Move to the next booking, category or goal |
+| `k` | Move to the previous booking, category or goal |
 | `1` | To sort and transactions: sort the booking into the first category; each button shows its key |
 | `a` | To sort and transactions: the next category key sorts the booking's payee, always |
 | `/` | Transactions: go to the text filter |
 | `e` | Budget: edit the category's limit; Enter saves, Escape leaves it |
 | `y` | Budget: take the suggested limit |
+| `1` | Plans & goals: confirm the proposed plan with that key, 1 to 9 |
+| `n` | Plans & goals: make a new plan |
+| `g` | Plans & goals: make a new goal |
+| `a` | Plans & goals: assign this month's contribution of the account's balance to the goal, once |
+| `u` | Plans & goals: undo the contribution assigned this month |
+| `e` | Plans & goals: edit the goal; Enter saves, Escape leaves it |
 | `?` | Show the keys |
 | `q` | Close the pane |
 | `Escape` | Stop the always, leave a field, or go back to the editor |

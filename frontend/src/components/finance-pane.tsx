@@ -2,6 +2,7 @@ import { type KeyboardEvent, useEffect, useId, useRef, useState } from "react";
 import { usePull } from "@/components/finance-bank";
 import { FinanceBudget } from "@/components/finance-budget-tab";
 import { FinanceOverview } from "@/components/finance-overview";
+import { FinancePlans } from "@/components/finance-plans-tab";
 import type { TabKeys } from "@/components/finance-sort-bar";
 import { FinanceToSort } from "@/components/finance-to-sort";
 import { FinanceTransactions } from "@/components/finance-transactions";
@@ -45,7 +46,7 @@ function notOurs(event: KeyboardEvent): boolean {
 }
 
 /**
- * The finance pane: Overview, To sort, Transactions and Budget, under one month that `[` and `]`
+ * The finance pane: Overview, To sort, Transactions, Budget and Plans & goals, under one month that `[` and `]`
  * step. The frame takes the keys every tab shares (the tabs, the month, "pull now", the leader,
  * `?` and `q`) after the tab in front has had its own.
  */
@@ -72,11 +73,19 @@ export function FinancePane({ commands, focusSignal, onNotice, today }: FinanceP
     panel.current?.focus();
   }
 
+  // On a phone the tab row scrolls sideways; bring the tab shown into view, keys or a tap alike.
+  useEffect(() => {
+    panel.current
+      ?.querySelector(`[id="${id}-tab-${tab}"]`)
+      ?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
+  }, [tab, id]);
+
   const frameKeys: Record<string, () => void> = {
     O: () => show("overview"),
     S: () => show("to-sort"),
     T: () => show("transactions"),
     B: () => show("budget"),
+    G: () => show("plans"),
     "[": () => setMonth(shiftMonth(month, -1)),
     "]": () => setMonth(shiftMonth(month, 1)),
     P: () => void pull.pull(),
@@ -183,6 +192,15 @@ export function FinancePane({ commands, focusSignal, onNotice, today }: FinanceP
         ) : null}
         {tab === "budget" ? (
           <FinanceBudget
+            month={month}
+            today={today}
+            keys={keys}
+            onNotice={onNotice}
+            refocus={() => panel.current?.focus()}
+          />
+        ) : null}
+        {tab === "plans" ? (
+          <FinancePlans
             month={month}
             today={today}
             keys={keys}

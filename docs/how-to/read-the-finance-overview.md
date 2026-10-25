@@ -1,7 +1,7 @@
 ---
 type: How-to Guide
 title: Read the finance overview
-description: Open the finance pane on its overview, read free to spend for mine and household and what makes each, see what to watch, the month's pace and where its money went, pull from the bank now, set and change a limit, take a suggested one, and find a booking.
+description: Open the finance pane on its overview, read free to spend for mine and household and what makes each, see what to watch, the month's pace, where its money went and the goals, pull from the bank now, set and change a limit, take a suggested one, and find a booking.
 tags: [finance, budget, pane, keys, phone]
 status: draft
 ---
@@ -17,8 +17,8 @@ and what needs a look. How each figure is worked out is in
 * With keys: `<leader>gk`.
 * On a phone: the palette's `Open the finance pane`.
 
-The pane has four tabs, Overview, To sort, Transactions and Budget. Tap one,
-or press `O`, `S`, `T` or `B`. Every tab but To sort reads one month, the
+The pane has five tabs, Overview, To sort, Transactions, Budget and Plans &
+goals. Tap one, or press `O`, `S`, `T`, `B` or `G`. Every tab but To sort reads one month, the
 current one at first; `[` and `]`, or the `‹` and `›` buttons, step it. All
 the keys are in [The finance pane](/reference/editor-keys.md#the-finance-pane).
 
@@ -27,12 +27,17 @@ the keys are in [The finance pane](/reference/editor-keys.md#the-finance-pane).
 The two big numbers are free to spend for **Mine** (your own giro, card and
 cash) and **Household** (the shared account). The line under each says what
 it is made of: the income expected this month, less fixed costs, flexible and
-non-monthly spending so far, spending not sorted yet, and what you moved to
-saving.
+non-monthly spending so far, spending not sorted yet, what you moved to
+saving, what the plans' reserves set aside, and the goal contributions still
+to move.
 
 Open `How it adds up` for the line of each category. A line marked `average`
 is an estimate: a salary not in yet counts as its 6-month average, and a fixed
-cost counts as the larger of what it cost so far and its average. A number in
+cost counts as the larger of what it cost so far and its average. A fixed cost
+with a plan counts what it cost plus its plans still to come. A `reserve` line
+is a plan's monthly share for a bill that comes less often, with what the
+reserve holds; a `goal` line is a contribution not yet moved into its saving
+account. A number in
 the danger colour with `⚠` means the month is already spent past what came in.
 
 ## See what needs a look
@@ -47,7 +52,7 @@ the danger colour with `⚠` means the month is already spent past what came in.
   and the month's limits as a dashed line. Point at a bar, or move to it with
   Tab, to read its month; press it to show that month.
 * **Where it went** draws the month's money as streams: each income into
-  Mine or Household, on into the kinds (fixed, flexible, non-monthly, saved,
+  Mine or Household, on into the kinds (fixed, flexible, non-monthly, reserved, saved,
   into household, not sorted), on into the categories. A stream that ends in
   `Left over` is what the month kept; one from `From earlier months`, in the
   danger colour, is what it spent past what came in. Mine's streams run
@@ -57,8 +62,15 @@ the danger colour with `⚠` means the month is already spent past what came in.
   or Tab to a name, to read its amount; press a category or an income to open
   its bookings for the month in Transactions. On a phone the chart scrolls
   sideways inside its card, and `Every stream` lists each amount as a table.
-* **Unreserved** is what the limits left at each month end since they began,
-  and what last month left.
+* **Left from limits** is what the limits left at each month end since they
+  began, less what you moved into goals, and what last month left.
+  `Move into a goal` moves part of it into one
+  ([Plan costs and goals](/how-to/plan-costs-and-goals.md)).
+* **Goals** shows each goal's reserved money against its target, the date,
+  what each month needs to reach it, and whether this month's contribution
+  reached the account; under them, what each saving account has not reserved
+  for a goal
+  ([Plan costs and goals](/how-to/plan-costs-and-goals.md)).
 
 ## Pull from the bank now
 

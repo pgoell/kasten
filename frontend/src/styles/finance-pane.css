@@ -35,17 +35,19 @@
   min-width: 0;
 }
 
-/* The four tabs, a quarter of the width each and 44px tall, as the log pane's two are. */
+/* The five tabs share the width, 44px tall as the log pane's two are. Where their names do not
+   fit, as on a phone, the row scrolls sideways rather than cut a name short. */
 .finance-pane-tabs {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  display: flex;
+  overflow-x: auto;
+  scrollbar-width: none;
   border-bottom: 1px solid var(--k-rule);
 }
 
 .finance-pane-tab {
+  flex: 1 0 auto;
   min-height: 44px;
-  min-width: 0;
-  padding: 0 2px;
+  padding: 0 8px;
   border: 0;
   border-bottom: 2px solid transparent;
   background: transparent;
@@ -54,8 +56,6 @@
   font-size: var(--k-text-15);
   font-weight: 600;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .finance-pane-tab[aria-selected="true"] {

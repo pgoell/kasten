@@ -29,7 +29,15 @@ function aside(row: BudgetCategory, month: string): string {
 export function amountOf(text: string): string | null {
   const typed = text.trim().replace(/\s|€/g, "");
   if (typed === "") return null;
-  return typed.includes(",") ? typed.replaceAll(".", "").replace(",", ".") : typed;
+  if (typed.includes(",")) return typed.replaceAll(".", "").replace(",", ".");
+  // `1.200` with no comma is twelve hundred the German way, not one point two.
+  return /^\d{1,3}(\.\d{3})+$/.test(typed) ? typed.replaceAll(".", "") : typed;
+}
+
+/** A typed amount as a number, or undefined for one that is not a number above zero. */
+export function positive(text: string): number | undefined {
+  const amount = Number(amountOf(text));
+  return Number.isFinite(amount) && amount > 0 ? amount : undefined;
 }
 
 interface RowProps {

@@ -174,7 +174,7 @@ async def test_a_limit_keeps_its_history_and_an_overspend_shrinks_the_next_month
     later = {row["name"]: row for row in november["categories"]}
     assert later["Groceries"]["carried"] == "20.00"
     assert later["Groceries"]["available"] == "280.00"
-    assert november["unreserved"] == {"last_month": "0.00", "total": "0.00"}
+    assert november["unreserved"] == {"last_month": "0.00", "total": "0.00", "moved": "0.00"}
 
 
 async def test_a_limit_on_no_spending_category_is_a_422_and_on_none_a_404(

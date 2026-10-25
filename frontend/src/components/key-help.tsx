@@ -109,7 +109,8 @@ function Table({ title, keys }: Group) {
       <h3 className={`${LABEL} mb-1`}>{title}</h3>
       <dl className="grid grid-cols-[auto_1fr] gap-x-3 text-k-13">
         {keys.map(({ key, label }) => (
-          <div key={key} className="contents">
+          // A key may do one thing on one tab and another on the next, so the pair is the key.
+          <div key={`${key}:${label}`} className="contents">
             <dt className="whitespace-nowrap font-mono tracking-k-kbd text-k-accent">{key}</dt>
             <dd className="text-k-muted">{label}</dd>
           </div>

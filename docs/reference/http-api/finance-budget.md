@@ -47,7 +47,7 @@ GET /api/finance/budget?month=2026-10&today=2026-10-10
       "suggestion": { "direction": "raise", "amount": "430.00" }
     }
   ],
-  "unreserved": { "last_month": "120.00", "total": "560.00" }
+  "unreserved": { "last_month": "120.00", "total": "460.00", "moved": "100.00" }
 }
 ```
 
@@ -61,6 +61,8 @@ GET /api/finance/budget?month=2026-10&today=2026-10-10
   category with a limit; `null` otherwise.
 * `status`: `ok`, `near`, `over`, or `null` without a limit.
 * `suggestion`: `null`, or a new limit to raise or lower it to.
+* `unreserved`: what the limits left the month before, and every month since
+  limits began less what was `moved` into goals by this month.
 
 ## GET /api/finance/budget/free
 
@@ -81,16 +83,37 @@ Free to spend for mine and household, each with the lines it is made of.
     "flexible": { "total": "520.00", "lines": [] },
     "non_monthly": { "total": "0.00", "lines": [] },
     "unsorted": "0.00",
-    "saved": "300.00"
+    "saved": "300.00",
+    "reserves": {
+      "total": "50.00",
+      "lines": [{ "plan_id": 3, "name": "Haftpflicht", "share": "50.00", "paid": "0.00", "shortfall": "0.00", "balance": "350.00" }]
+    },
+    "goals": {
+      "total": "200.00",
+      "lines": [
+        { "goal_id": 1, "name": "Wedding", "account_id": 5, "account_name": "DKB Personal Saving",
+          "planned": "500.00", "moved": "300.00", "done": false }
+      ]
+    }
   },
   "household": { "...": "the same shape" }
 }
 ```
 
-`total` is income less fixed, flexible, non-monthly, unsorted and saved. A
-line's `category_id` is `null` for the move between mine and household,
+`total` is income less fixed, flexible, non-monthly, unsorted, saved, the
+reserves' shares and shortfalls, and the goals' contributions still to move. A line's
+`category_id` is `null` for the move between mine and household,
 `Into the shared account` on mine and `From mine` on household. `basis` says
-whether `counted` is what happened so far or the average.
+whether `counted` is what happened so far, the average, or (`plan`) what it
+cost so far plus its plans still to come.
+
+`reserves` has a line per plan that sets money aside: its `share` this month,
+the bill it `paid` this month, the `shortfall` that bill cost past what was
+set aside, and the `balance` it holds at the month's end. `total` is the
+shares; the shortfalls come off `total` of free to spend as well. `goals` has a line per goal with a contribution this
+month, on mine only; `total` is `planned` less `moved` over them while the
+month runs, and `0.00` once it is over. Plans and goals have their own
+routes, [HTTP API: finance plans and goals](/reference/http-api/finance-plans.md).
 
 ## GET /api/finance/budget/flow
 

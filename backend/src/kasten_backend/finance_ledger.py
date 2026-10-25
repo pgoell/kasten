@@ -60,6 +60,7 @@ class Line:
 
     `late` is a booking made after the salary cutoff day. `twin_account` is
     the account of a transfer's other half, None for every other booking.
+    `reserved` is a booking that paid a plan's bill out of its reserve.
     """
 
     month: dt.date
@@ -68,6 +69,7 @@ class Line:
     category: int | None = None
     twin_account: int | None = None
     late: bool = False
+    reserved: bool = False
 
 
 @dataclass
@@ -76,6 +78,9 @@ class Month:
 
     `income` is by income category, `spent` by spending category. `other_scope`
     is what moved to the other scope: a cost on mine, income on household.
+    `from_reserve` is spending a plan's reserve paid, by category (None for
+    a booking not sorted yet), kept out of `spent` so free to spend does not
+    count the bill a second time. `saved_into` is `saved` by saving account.
     """
 
     income: dict[int, Decimal] = field(default_factory=lambda: defaultdict(Decimal))
@@ -83,6 +88,8 @@ class Month:
     other_scope: Decimal = ZERO
     saved: Decimal = ZERO
     unsorted: Decimal = ZERO
+    from_reserve: dict[int | None, Decimal] = field(default_factory=lambda: defaultdict(Decimal))
+    saved_into: dict[int, Decimal] = field(default_factory=lambda: defaultdict(Decimal))
 
 
 def scope_of(account: Account) -> Scope | None:
@@ -148,6 +155,8 @@ class Ledger:
             self._seen(scope, line.month)
         if twin is None:
             month.saved -= line.amount
+            if line.twin_account is not None:
+                month.saved_into[line.twin_account] -= line.amount
         elif scope == "mine":
             month.other_scope -= line.amount
         else:
@@ -159,7 +168,9 @@ class Ledger:
         month = self._months[at, scope]
         if category is not None:
             self._seen(category.id, at)
-        if category is None:
+        if line.reserved and (category is None or category.kind in SPENDING_KINDS):
+            month.from_reserve[None if category is None else category.id] -= line.amount
+        elif category is None:
             # Money in with no category yet is left out until it is sorted: it
             # may be a refund as easily as income.
             if line.amount < 0:
@@ -179,8 +190,15 @@ class Ledger:
         return self._months.get((month, scope), Month())
 
     def spent(self, month: dt.date, category: int) -> Decimal:
-        """What a category spent in a month, in both scopes."""
-        return sum((self.month(month, scope).spent.get(category, ZERO) for scope in SCOPES), ZERO)
+        """What a category spent in a month, in both scopes, a bill its reserve paid included."""
+        return sum(
+            (
+                self.month(month, scope).spent.get(category, ZERO)
+                + self.month(month, scope).from_reserve.get(category, ZERO)
+                for scope in SCOPES
+            ),
+            ZERO,
+        )
 
     def history(self, month: dt.date, count: int, key: int | Scope | None = None) -> list[dt.date]:
         """The up to `count` whole months before `month` that the history reaches.

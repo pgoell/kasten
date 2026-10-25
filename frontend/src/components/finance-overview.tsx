@@ -1,5 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { BankCard, type Pull } from "@/components/finance-bank";
+import { GoalsCard } from "@/components/finance-goals";
+import { MoveLeftover } from "@/components/finance-leftover";
 import { Meter, statusWords } from "@/components/finance-meter";
 import { FinanceSankey } from "@/components/finance-sankey";
 import { SpendingTrend } from "@/components/finance-trend";
@@ -39,6 +41,9 @@ export function madeOf(free: Free): string {
     ...PARTS.map(({ key, word }) => ({ amount: Number(free[key].total), word })),
     { amount: Number(free.unsorted), word: "not sorted" },
     { amount: Number(free.saved), word: "saved" },
+    { amount: Number(free.reserves.total), word: "reserved for plans" },
+    { amount: shortfall(free), word: "past what reserves held" },
+    { amount: Number(free.goals.total), word: "still to move to goals" },
   ];
   const less = parts
     .filter((part) => part.amount > 0)
@@ -89,9 +94,55 @@ function Sums({ free }: { free: Free }) {
               <td>{euros(-Number(free.saved))}</td>
             </tr>
           )}
+          <ReserveRows free={free} />
         </tbody>
       </table>
     </details>
+  );
+}
+
+/** What this month's bills cost past what their reserves held. */
+function shortfall(free: Free): number {
+  return free.reserves.lines.reduce((sum, line) => sum + Number(line.shortfall), 0);
+}
+
+/**
+ * The reserves and the goals as rows of the table: each plan's share set aside, with what the
+ * reserve holds after it, and each goal's contribution still to move this month.
+ */
+function ReserveRows({ free }: { free: Free }) {
+  return (
+    <>
+      {free.reserves.lines.map((line) => (
+        <tr key={`reserve-${line.plan_id}`}>
+          <th scope="row">{line.name}</th>
+          <td className="finance-muted">
+            {`reserve, holds ${euros(line.balance)}${Number(line.paid) > 0 ? `, paid ${euros(line.paid)}` : ""}`}
+          </td>
+          <td>{euros(-Number(line.share))}</td>
+        </tr>
+      ))}
+      {free.reserves.lines
+        .filter((line) => Number(line.shortfall) > 0)
+        .map((line) => (
+          <tr key={`shortfall-${line.plan_id}`}>
+            <th scope="row">{line.name}</th>
+            <td className="finance-muted">{`bill past its reserve, paid ${euros(line.paid)}`}</td>
+            <td>{euros(-Number(line.shortfall))}</td>
+          </tr>
+        ))}
+      {free.goals.lines.map((line) => (
+        <tr key={`goal-${line.goal_id}`}>
+          <th scope="row">{line.name}</th>
+          <td className="finance-muted">
+            {line.done
+              ? "goal, moved ✓"
+              : `goal, ${euros(line.moved)} of ${euros(line.planned)} moved`}
+          </td>
+          <td>{euros(-(Number(line.planned) - Number(line.moved)))}</td>
+        </tr>
+      ))}
+    </>
   );
 }
 
@@ -193,14 +244,22 @@ function Watch({ budget }: { budget: Budget }) {
   );
 }
 
-function Unreserved({ budget }: { budget: Budget }) {
+/**
+ * What the limits left at each month end, less what went into goals, named "left from limits" so
+ * it reads apart from a saving account's money not reserved for a goal; it can move into one.
+ */
+function LeftFromLimits({ budget, today }: { budget: Budget; today: string }) {
   const before = monthName(shiftMonth(budget.month, -1));
+  const moved = Number(budget.unreserved.moved);
   return (
     <article className="overview-card">
-      <h3 className="overview-name">Unreserved</h3>
+      <h3 className="overview-name">Left from limits</h3>
       <p className="overview-figure">{euros(budget.unreserved.total)}</p>
       <p className="overview-words">{`${euros(budget.unreserved.last_month)} left over from ${before}`}</p>
-      <p className="overview-caption">what the limits left at each month end since they began</p>
+      <p className="overview-caption">
+        {`what the limits left at each month end since they began${moved > 0 ? `, less ${euros(moved)} moved into goals` : ""}`}
+      </p>
+      <MoveLeftover left={Number(budget.unreserved.total)} today={today} />
     </article>
   );
 }
@@ -208,7 +267,7 @@ function Unreserved({ budget }: { budget: Budget }) {
 /**
  * The overview: free to spend for mine and household, big, with what each is made of; then
  * what to watch, the month's pace, the bank's last pull, where the month's money went, the
- * 12-month trend and unreserved.
+ * 12-month trend, what the limits left and the goals.
  */
 export function FinanceOverview({
   month,
@@ -264,7 +323,8 @@ export function FinanceOverview({
             <SpendingTrend trend={trend.data} month={month} onPick={onMonth} />
           </article>
         )}
-        {budget.data === undefined ? null : <Unreserved budget={budget.data} />}
+        {budget.data === undefined ? null : <LeftFromLimits budget={budget.data} today={today} />}
+        <GoalsCard today={today} />
       </div>
     </div>
   );

@@ -15,6 +15,7 @@ on its code.
 * [Import an Anki deck](import-an-anki-deck.md): turn an .apkg export into markdown notes, and know what does not survive the trip
 * [Install kasten on your phone](install-on-your-phone.md): put kasten on a phone's home screen, reach the capture page from its icon, and replace the capture app an earlier release installed
 * [Read the finance overview](read-the-finance-overview.md): free to spend for mine and household and what makes it, what to watch, the month's pace, where its money went, pull from the bank now, set or change a limit and take a suggested one, and find a booking
+* [Plan costs and goals](plan-costs-and-goals.md): confirm plans proposed from history, add and change a plan, see what is due this month and what met it, set a saving goal and assign money to it each month
 * [Sort finance transactions](sort-finance-transactions.md): open the finance pane on the bookings still to sort, sort one with a key or a tap, and send every booking of a payee to one category
 * [Use the log pane](use-the-log-pane.md): open the log pane, read a day's totals against your goals, log on any day, fix or delete an entry, and read the trends
 * [Add a food of your own](add-a-food-of-your-own.md): save a food Open Food Facts lacks to the foods note, from the food search or by hand, so the search lists it first and its barcode scans

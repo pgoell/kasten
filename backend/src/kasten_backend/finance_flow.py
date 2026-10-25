@@ -3,8 +3,8 @@
 Read off free to spend, as the month would stand once it is over: every line
 counts what happened so far and nothing is estimated. So the flow follows every
 rule free to spend does (the salary cutoff, moves between the scopes, splits,
-refunds, ignore), and each scope's money in, less its money out, is its free to
-spend for a month that is over. docs/reference/budget-model.md states it.
+refunds, ignore, plans' reserves), and each scope's money in, less its money
+out, is its free to spend for a month that is over. docs/reference/budget-model.md states it.
 """
 
 from collections import defaultdict
@@ -18,12 +18,15 @@ from kasten_backend.finance_ledger import SCOPES, ZERO, Ledger, Scope, add_month
 if TYPE_CHECKING:
     import datetime as dt
 
+    from kasten_backend.finance_plans import Book
+
 Role = Literal["source", "scope", "kind", "category", "left_over", "from_savings"]
 
 KINDS = {
     "fixed": "Fixed",
     "flexible": "Flexible",
     "non_monthly": "Non-monthly",
+    "reserved": "Reserved",
     "saved": "Saved",
     "into_household": "Into household",
     "unsorted": "Not sorted",
@@ -139,6 +142,8 @@ class _Builder:
                 self.money_out(
                     scope, "into_household" if part.category_id is None else kind, part, part.so_far
                 )
+        # A plan's share into its reserve, and a bill's cost past it, as free to spend counts them.
+        self.money_out(scope, "reserved", None, free.reserved + free.shortfall)
         self.money_out(scope, "saved", None, free.saved)
         self.money_out(scope, "unsorted", None, free.unsorted)
         left = free.total
@@ -227,12 +232,16 @@ def _order(nodes: dict[str, Node], links: list[Link]) -> list[Node]:
     return sorted(order, key=lambda node: node.column)
 
 
-def month_flow(ledger: Ledger, month: dt.date) -> Flow:
-    """Where `month`'s money went in both scopes, from what happened so far."""
+def month_flow(ledger: Ledger, month: dt.date, plans: Book | None = None) -> Flow:
+    """Where `month`'s money went in both scopes, from what happened so far.
+
+    With `plans`, the reserves' shares go out as `Reserved`, as free to spend
+    takes them, and a bill a reserve paid stays out of its category.
+    """
     builder = _Builder()
     # Read as a month that is over, so each line counts what happened and nothing is estimated.
     after = add_months(month, 1)
-    frees: dict[Scope, Free] = {s: free_to_spend(ledger, s, month, after) for s in SCOPES}
+    frees: dict[Scope, Free] = {s: free_to_spend(ledger, s, month, after, plans) for s in SCOPES}
     for free in frees.values():
         builder.scope(free)
     total = sum((amount for (_, target), amount in builder.links.items() if target in SCOPES), ZERO)

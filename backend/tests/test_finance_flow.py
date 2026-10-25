@@ -21,10 +21,12 @@ from backend.tests.test_finance_budget_model import (
     TRIPS,
     ledger,
     line,
+    month,
 )
 from kasten_backend.finance_flow import Flow, month_flow
 from kasten_backend.finance_free import free_to_spend
-from kasten_backend.finance_ledger import Category, Ledger
+from kasten_backend.finance_ledger import Category, Ledger, Line
+from kasten_backend.finance_plans import Book, Plan
 
 NOVEMBER = dt.date(2026, 11, 1)
 
@@ -139,3 +141,16 @@ def test_small_categories_fold_into_other_of_their_kind_but_never_one_alone() ->
     assert found[("Flexible", "Other flexible")] == Decimal(70)
     assert found[("Fixed", "Gym")] == Decimal(20)
     assert found[("Non-monthly", "Trips")] == Decimal(1000)
+
+
+def test_a_reserve_goes_out_as_reserved_and_the_flow_still_keeps_free_to_spend() -> None:
+    trip = Plan(1, "Trip", GIRO, "mine", TRIPS, Decimal(-1200), Decimal(0), 12, OCT, confirmed=OCT)
+    plans = Book(plans=[trip], matched={(1, OCT)}, paid={(1, OCT): Decimal(1300)})
+    paid = Line(month(0), GIRO, Decimal(-1300), TRIPS, reserved=True)
+    book = ledger(line(0, GIRO, "3000", SALARY), paid)
+    flow = month_flow(book, OCT, plans)
+    free = free_to_spend(book, "mine", OCT, NOVEMBER, plans)
+    # The whole bill set aside this month, and the 100 it cost past that.
+    assert flows(flow)["Mine", "Reserved"] == Decimal(1300)
+    assert flows(flow)["Mine", "Left over"] == free.total == Decimal(1700)
+    assert ("Non-monthly", "Trips") not in flows(flow)
