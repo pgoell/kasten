@@ -1,3 +1,4 @@
+import { chipNote, PersonChip } from "@/components/person-chip";
 import { ROW } from "@/lib/overlay-styles";
 import { isOpen, PRIORITY_SYMBOL, STATE_SYMBOL, type Todo } from "@/lib/todo";
 import { isClient, waitOf, waitsFor } from "@/lib/todo-view";
@@ -43,7 +44,9 @@ export function TodoRow({
   muted,
   coarse,
   indent,
+  files,
   onClick,
+  onPerson,
   enter,
 }: {
   row: Row;
@@ -53,7 +56,11 @@ export function TodoRow({
   muted: boolean;
   coarse: boolean;
   indent: React.CSSProperties;
+  /** Every path in the vault, which the assignee's chip resolves its note against. */
+  files: string[];
   onClick(): void;
+  /** Opens the person note a chip on the row names. */
+  onPerson(path: string): void;
   /** Set on a row of the first load, the place it staggers in at. */
   enter?: number;
 }) {
@@ -71,8 +78,13 @@ export function TodoRow({
       type="button"
       data-row={key}
       tabIndex={cursor ? 0 : -1}
-      // A tap is Enter by finger, and takes the row as Enter does.
-      onClick={onClick}
+      // A tap is Enter by finger, and takes the row as Enter does. A chip
+      // on the row takes its own press: the person's note, not the todo's.
+      onClick={(event) => {
+        const note = chipNote(event.target);
+        if (note === null) onClick();
+        else onPerson(note);
+      }}
       title={key}
       // The state button in front carries the indent on touch.
       style={{
@@ -113,6 +125,9 @@ export function TodoRow({
       <span className={`min-w-0 flex-1 truncate ${struck ? "text-k-muted line-through" : ""}`}>
         {todo.text}
       </span>
+      {/* Who the todo is for, beside its words and out of their
+        truncation, the way the date is kept. */}
+      {todo.assignee !== undefined && <PersonChip assignee={todo.assignee} paths={files} />}
       {/* Between the words and the date, where the spec's mock
         puts it, and out of the truncation for the reason the
         date is: it is the shortest thing on the row. */}

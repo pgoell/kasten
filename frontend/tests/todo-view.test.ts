@@ -365,7 +365,7 @@ describe("waitOf", () => {
   });
 
   it("says what the line carries where it carries half", () => {
-    expect(waitOf(todo("- [w] a 👤 [[Ada]]"), TODAY)).toBe("👤 Ada");
+    expect(waitOf(todo("- [w] a 👤 2026-08-03"), TODAY)).toBe("👤 7d");
     expect(waitOf(todo("- [w] a 👤 2026-08-03"), TODAY)).toBe("👤 7d");
     expect(waitOf(todo("- [w] a"), TODAY)).toBeNull();
   });

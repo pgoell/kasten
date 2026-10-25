@@ -58,7 +58,7 @@ export function fakeShare(seed: Record<string, Seed[]>) {
     return {
       name,
       sha: note ? String(note.rev) : null,
-      items: (note?.items ?? []).map((item, line) => ({ line, ...item })),
+      items: (note?.items ?? []).map((item, line) => ({ line, assignee: null, ...item })),
     };
   }
 

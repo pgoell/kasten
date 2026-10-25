@@ -26,7 +26,7 @@ not on it, and the seven `<leader>s` keys are how you reach any state from any
 other: `so` open, `sp` doing, `sv` review, `sx` done, `sb` blocked, `sw`
 waiting, `sr` rejected. On a line already in the state a key names, the key
 changes nothing: no second `- ✅` line, no cursor move, nothing to undo. A press of `<leader>x` on a review line ticks it done.
-`sw` stamps `👤` and today after the words and leaves the cursor on the date,
+`sw` stamps a dated `👤` with today after the words and any assignee, and leaves the cursor on the date,
 where `a` then types
 [who the todo waits on](/reference/todo-format/state-changes.md#waiting-on-somebody). They stamp what the
 walk stamps and drag what it drags, so setting a parent done still ticks its

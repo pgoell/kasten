@@ -56,7 +56,7 @@ A blocked todo is open work, and so are a waiting one and one in review.
 | `[r]` | `[x]` | `✅` today, and `🆔` unless the line already carries one |
 | `[x]` | a plain line | strips the `✅` it wrote |
 | `[b]` | `[/]` | nothing |
-| `[w]` | `[/]` | strips the `👤` |
+| `[w]` | `[/]` | strips the dated `👤`, keeps the assignee |
 | `[-]` | a plain line | strips the `❌` it wrote |
 
 The walk is the work: not started, started, finished, and out of the list again.
@@ -123,7 +123,8 @@ verify, `r` being spent on rejected.
 A state is worth the same whichever key wrote it. Entering done stamps `✅`
 today and an `🆔` where the line carries none, entering rejected stamps `❌`
 today, and leaving either drops the stamp it wrote, exactly as the walk does.
-Entering waiting stamps `👤` today, and leaving it drops the `👤` whole.
+Entering waiting stamps a dated `👤` today, after any assignee, and leaving it
+drops only that dated `👤`. An assignee stays in every state.
 A key aimed at the state a line is already in changes nothing. A plain line
 becomes a todo in that state, carrying the `➕` the walk would have stamped.
 
@@ -174,7 +175,7 @@ as closed. A todo with no parts shows nothing.
 Ticking a parent done ticks every part that is still open, stamping today's
 `✅` on each and leaving a part that was already done or rejected where it is.
 Blocked, waiting and review count as open, so a `[b]`, a `[w]` or an `[r]` part
-goes done with the rest, the `[w]` one losing its `👤`. One
+goes done with the rest, the `[w]` one losing its dated `👤` and keeping its assignee. One
 `- ✅` line is written for the press, naming the parent, because six lines for
 one press is noise, and no part gets an id, nothing naming one. It is one
 buffer edit, so one `u` puts every line back.
@@ -233,7 +234,7 @@ opened by the write that closes B rather than by the same pass.
 
 ## Waiting on somebody
 
-`[w]` says a todo waits on a person, and `👤` says who and since when:
+`[w]` says a todo waits on a person, and a dated `👤` says who and since when:
 
 ```markdown
 - [w] decision record for the queue #adr 👤 2026-08-03 [[Ada Lovelace]] 📅 2026-08-14
@@ -244,28 +245,40 @@ runs to the next field, the next tag or the end of the line. It is free text,
 so `the tax office` is a name. A `[[link]]` to
 [a person's note](/explanation/people-in-the-vault.md) is the better one: the
 link is on the line, so the todo shows on that person's card. Either half may
-be missing. A `👤` with nothing after it is not a field and stays in the words.
+be missing. A bare `👤` with nothing after it is words. A `👤` with a name and no date is
+the assignee instead, [who the todo is for](/reference/todo-format/the-line.md#the-fields).
 
 `W` in the todo pane and `<leader>sw` in the editor set the state and stamp
 `👤` with today. A date the line already carries is kept, so setting the state
 twice does not restart the wait. kasten cannot know the name, so you type it,
 straight after the date. Both places put the cursor there on a waiting line
-that names nobody: `i` in the pane opens the line with the cursor after the
+whose wait names nobody: `i` in the pane opens the line with the cursor after the
 date, and `<leader>sw` leaves it on the date's last digit, where `a` appends.
 On a line already waiting, `<leader>sw` changes nothing and leaves the cursor
 where it was.
 From the pane that is `W`, `i`, a space and the name, Enter.
 
-The `👤` is written straight after the words, ahead of every other field, so
+The `👤` fields are written straight after the words, ahead of every other
+field, the assignee first, so
 that [Obsidian still reads the rest of the line](/reference/todo-format/the-line.md#the-fields).
 
-Leaving the state drops the `👤` whole, the name with the date, whichever key
-leaves and wherever it goes. The field says who the todo waits on, and it no
-longer waits. `x` on a waiting line goes to doing, as it does on a blocked one.
+Leaving the state drops the dated `👤` whole, its date and its name, whichever key
+leaves and wherever it goes. The todo no longer waits. An assignee stays: a `👤 [[Pascal]]`
+with no date says who the todo is for, and every key keeps it. `x` on a
+waiting line goes to doing, as it does on a blocked one.
 
-A `👤` on a line that is not `[w]` is read, carried and written back by every
+With an assignee and a wait, leaving `[w]` keeps the assignee and drops the
+dated `👤`. Before and after:
+
+```markdown
+- [w] buy paint 👤 [[Pascal]] 👤 2026-10-25 [[Alicia]] 📅 2026-10-30
+- [/] buy paint 👤 [[Pascal]] 📅 2026-10-30
+```
+
+A dated `👤` on a line that is not `[w]` is read, carried and written back by every
 key, and means nothing until the line is set to waiting. Then its name is kept
-and the date is stamped.
+and the date is stamped. An undated `👤` is the assignee, and means the same in
+every state.
 
 `⛔` and `[w]` do not meet. kasten moves a line carrying `⛔` between `[ ]` and
 `[b]` only, so a waiting line that also names a blocker stays waiting when the

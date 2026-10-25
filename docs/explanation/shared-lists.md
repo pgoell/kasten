@@ -35,7 +35,9 @@ kasten. Unticking either kind still works here.
 
 The app shows an item's words only. The fields kasten adds, such as the
 recurrence `🔁`, the waiting `👤` and the dates, and a block id at the end of
-the line are left out.
+the line are left out of the words. An item's assignee, the `👤 [[name]]` on
+its line, comes through the share routes as the `assignee` field of each item.
+The app does not draw it yet.
 
 ## Why a second gate, not a second user
 

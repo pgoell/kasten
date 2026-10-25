@@ -11,8 +11,9 @@ describe("a marker typed with the variation selector", () => {
     expect(patchLine(line, { ...parsed(line), worked: "2h" })).toBe(
       "\t- [/] call zork-qux ⏱️ 2h ^blk9",
     );
+    // An undated `👤️ ada` is the assignee now, and the wait is stamped after it (#809).
     expect(set("\t- [/] call zork-qux 👤️ ada ^blk9", "waiting")).toBe(
-      `\t- [w] call zork-qux 👤️ ${TODAY} ada ^blk9`,
+      `\t- [w] call zork-qux 👤️ ada 👤 ${TODAY} ^blk9`,
     );
   });
 

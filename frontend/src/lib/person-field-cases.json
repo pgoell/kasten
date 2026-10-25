@@ -1,0 +1,138 @@
+[
+  {
+    "id": "assignee-link",
+    "rest": "buy milk 👤 [[Pascal]]",
+    "text": "buy milk",
+    "assignee": "[[Pascal]]",
+    "waitingSince": null,
+    "waitingOn": null
+  },
+  {
+    "id": "assignee-plain-name",
+    "rest": "buy milk 👤 Alicia",
+    "text": "buy milk",
+    "assignee": "Alicia",
+    "waitingSince": null,
+    "waitingOn": null
+  },
+  {
+    "id": "assignee-path-and-alias",
+    "rest": "buy milk 👤 [[03 Areas/08 People/Pascal|P]] 📅 2026-10-30",
+    "text": "buy milk",
+    "assignee": "[[03 Areas/08 People/Pascal|P]]",
+    "waitingSince": null,
+    "waitingOn": null
+  },
+  {
+    "id": "assignee-variation-selector",
+    "rest": "buy milk 👤️ [[Pascal]]",
+    "text": "buy milk",
+    "assignee": "[[Pascal]]",
+    "waitingSince": null,
+    "waitingOn": null
+  },
+  {
+    "id": "assignee-ends-at-tag",
+    "rest": "buy milk 👤 [[Pascal]] #home",
+    "text": "buy milk #home",
+    "assignee": "[[Pascal]]",
+    "waitingSince": null,
+    "waitingOn": null
+  },
+  {
+    "id": "assignee-ends-at-block-id",
+    "rest": "buy milk 👤 [[Pascal]] ^milk",
+    "text": "buy milk ^milk",
+    "assignee": "[[Pascal]]",
+    "waitingSince": null,
+    "waitingOn": null
+  },
+  {
+    "id": "wait-dated-and-named",
+    "rest": "the SynnoDB basics in writing 👤 2026-10-18 [[Timo Eckmann]] ⏳ 2026-10-31 #private ➕ 2026-10-18 🆔 kt-c41391",
+    "text": "the SynnoDB basics in writing #private",
+    "assignee": null,
+    "waitingSince": "2026-10-18",
+    "waitingOn": "[[Timo Eckmann]]"
+  },
+  {
+    "id": "wait-dated-only",
+    "rest": "ask pop for his pictures 👤 2026-10-20 ⏳ 2026-10-25 ➕ 2026-10-11 ⏲ 15m",
+    "text": "ask pop for his pictures",
+    "assignee": null,
+    "waitingSince": "2026-10-20",
+    "waitingOn": null
+  },
+  {
+    "id": "wait-dated-before-block-id",
+    "rest": "ask pop 👤 2026-10-20 ^pop",
+    "text": "ask pop ^pop",
+    "assignee": null,
+    "waitingSince": "2026-10-20",
+    "waitingOn": null
+  },
+  {
+    "id": "both-assignee-first",
+    "rest": "buy paint 👤 [[Pascal]] 👤 2026-10-25 [[Alicia]] 📅 2026-10-30",
+    "text": "buy paint",
+    "assignee": "[[Pascal]]",
+    "waitingSince": "2026-10-25",
+    "waitingOn": "[[Alicia]]"
+  },
+  {
+    "id": "both-wait-first",
+    "rest": "buy paint 👤 2026-10-25 [[Alicia]] 👤 [[Pascal]]",
+    "text": "buy paint",
+    "assignee": "[[Pascal]]",
+    "waitingSince": "2026-10-25",
+    "waitingOn": "[[Alicia]]"
+  },
+  {
+    "id": "both-wait-unnamed",
+    "rest": "buy paint 👤 [[Pascal]] 👤 2026-10-25",
+    "text": "buy paint",
+    "assignee": "[[Pascal]]",
+    "waitingSince": "2026-10-25",
+    "waitingOn": null
+  },
+  {
+    "id": "two-undated-first-is-assignee",
+    "rest": "buy paint 👤 [[Pascal]] 👤 [[Alicia]]",
+    "text": "buy paint 👤 [[Alicia]]",
+    "assignee": "[[Pascal]]",
+    "waitingSince": null,
+    "waitingOn": null
+  },
+  {
+    "id": "bare-marker-is-words",
+    "rest": "buy paint 👤",
+    "text": "buy paint 👤",
+    "assignee": null,
+    "waitingSince": null,
+    "waitingOn": null
+  },
+  {
+    "id": "bare-marker-before-a-field",
+    "rest": "buy paint 👤 📅 2026-10-30",
+    "text": "buy paint 👤",
+    "assignee": null,
+    "waitingSince": null,
+    "waitingOn": null
+  },
+  {
+    "id": "marker-in-a-link",
+    "rest": "see [[a 👤 b]]",
+    "text": "see [[a 👤 b]]",
+    "assignee": null,
+    "waitingSince": null,
+    "waitingOn": null
+  },
+  {
+    "id": "marker-in-a-code-span",
+    "rest": "run `👤 x` again",
+    "text": "run `👤 x` again",
+    "assignee": null,
+    "waitingSince": null,
+    "waitingOn": null
+  }
+]

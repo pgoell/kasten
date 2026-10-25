@@ -68,10 +68,10 @@ async def test_read_returns_the_items_without_markdown_or_fields(
         "name": "Einkauf",
         "sha": sha,
         "items": [
-            {"line": 10, "text": "Milch", "done": False},
-            {"line": 11, "text": "Brot", "done": True},
-            {"line": 12, "text": "Eier", "done": True},
-            {"line": 14, "text": "Butter", "done": False},
+            {"line": 10, "text": "Milch", "done": False, "assignee": None},
+            {"line": 11, "text": "Brot", "done": True, "assignee": None},
+            {"line": 12, "text": "Eier", "done": True, "assignee": None},
+            {"line": 14, "text": "Butter", "done": False, "assignee": None},
         ],
     }
 

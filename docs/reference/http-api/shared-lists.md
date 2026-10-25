@@ -27,13 +27,16 @@ dot-dot, a symlink or a nested folder, answers `404` with
 Each list route answers the same shape:
 
 ```json
-{ "name": "Einkauf", "sha": "3f9c1a0", "items": [{ "line": 4, "text": "Milch", "done": false }] }
+{ "name": "Einkauf", "sha": "3f9c1a0", "items": [{ "line": 4, "text": "Milch", "done": false, "assignee": null }] }
 ```
 
 * `sha` is the note's current sha, or `null` when the note is not there.
 * `line` is the item's 0-based line index in the note.
 * `text` is the item with no markdown: no `- [ ]`, and cut before the first
   Tasks field marker, such as `✅`, `🆔` or `📅`.
+* `assignee` is who the item is for: the name written after an undated `👤`,
+  such as `[[Pascal]]`, or `null` when there is none. A `👤` with a date is the
+  wait and gives no assignee.
 * Only top-level lines `- [ ] `, `- [x] ` and `- [X] ` are items.
 
 A note that is not there reads as `{"sha": null, "items": []}`, and an add with

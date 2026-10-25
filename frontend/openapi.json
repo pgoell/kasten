@@ -3667,6 +3667,17 @@
           "done": {
             "type": "boolean",
             "title": "Done"
+          },
+          "assignee": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assignee"
           }
         },
         "type": "object",
@@ -3676,7 +3687,7 @@
           "done"
         ],
         "title": "Item",
-        "description": "One task line: where it sits in the note, its words and whether it is ticked."
+        "description": "One task line: where it sits in the note, its words, its state and who it is for."
       },
       "Layout": {
         "properties": {

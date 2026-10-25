@@ -15,9 +15,10 @@ describe("a todo waiting on somebody", () => {
     expect(todo.text).toBe("decision record #adr");
   });
 
-  it("reads a name alone, a date alone, and a name written as plain words", () => {
-    expect(parsed("- [w] a 👤 [[Ada]]")).toMatchObject({ waitingOn: "[[Ada]]" });
-    expect(parsed("- [w] a 👤 [[Ada]]").waitingSince).toBeUndefined();
+  it("reads a date alone, and a name written as plain words after the date", () => {
+    // An undated `👤 [[Ada]]` is the assignee, not who the todo waits on (#809).
+    expect(parsed("- [w] a 👤 [[Ada]]")).toMatchObject({ assignee: "[[Ada]]" });
+    expect(parsed("- [w] a 👤 [[Ada]]").waitingOn).toBeUndefined();
     expect(parsed("- [w] a 👤 2026-08-03")).toMatchObject({ waitingSince: "2026-08-03" });
     expect(parsed("- [w] a 👤 2026-08-03").waitingOn).toBeUndefined();
     expect(parsed("- [w] a 👤 2026-08-03 the tax office")).toMatchObject({
@@ -76,8 +77,9 @@ describe("a todo waiting on somebody", () => {
     expect(set("- [ ] decision record 📅 2026-08-14", "waiting")).toBe(
       "- [w] decision record 👤 2026-08-10 📅 2026-08-14",
     );
+    // The assignee stays where it was written, and the wait is stamped after it (#809).
     expect(set("- [ ] decision record 👤 [[Ada]]", "waiting")).toBe(
-      "- [w] decision record 👤 2026-08-10 [[Ada]]",
+      "- [w] decision record 👤 [[Ada]] 👤 2026-08-10",
     );
     expect(set("- [/] decision record 👤 2026-08-03 Ada", "waiting")).toBe(
       "- [w] decision record 👤 2026-08-03 Ada",

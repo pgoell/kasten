@@ -34,6 +34,9 @@ export function TodoList(p: {
   armed: string | null;
   onArm(key: string | null): void;
   onRow(hit: SearchHit): void;
+  /** Every path in the vault, which a row's assignee chip resolves its note against. */
+  files: string[];
+  onPerson(path: string): void;
   onWrite(hit: SearchHit, line: string): void;
   onCycle(hit: SearchHit): void;
   actions(hit: TodoHit): [string, () => void][];
@@ -52,6 +55,8 @@ export function TodoList(p: {
     armed,
     onArm,
     onRow,
+    files,
+    onPerson,
     onWrite,
     onCycle,
     actions,
@@ -147,7 +152,10 @@ export function TodoList(p: {
                     muted={held}
                     coarse={coarse}
                     indent={indent}
+                    files={files}
                     onClick={() => onRow(hit)}
+                    // Picking a blocker, a chip is the row it sits on, as the row is.
+                    onPerson={(path) => (picking ? onRow(hit) : onPerson(path))}
                     enter={entering(key) ? place.get(key) : undefined}
                   />
                 );
@@ -216,7 +224,9 @@ export function TodoList(p: {
                     muted={held}
                     coarse={coarse}
                     indent={indent}
+                    files={files}
                     onClick={() => onRow(hit)}
+                    onPerson={(path) => (picking ? onRow(hit) : onPerson(path))}
                   />
                 </TodoMore>
               );

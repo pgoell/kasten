@@ -57,6 +57,17 @@ different one. The backlinks panel decides what links to a note this way, and
 the card decides what names a person the same way, on purpose: two answers to
 one question would be two answers to drift apart.
 
+## A todo's assignee is a link
+
+A todo or a list item for a person carries `👤 [[Name]]`, the person it is for,
+in any state. The card counts that link as it counts any other, so the item
+shows on the person's card. The todo pane and the board draw the link as a chip
+that opens the person note. Where the note is missing, the chip still shows, in
+an unlinked look.
+
+Pascal and Alicia are person notes like any other: `type: Person`, in
+`03 Areas/08 People/`.
+
 ## What it costs, and who pays
 
 Nothing links anybody yet. On the day the card shipped, no open todo in the

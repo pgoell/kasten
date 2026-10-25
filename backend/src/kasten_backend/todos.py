@@ -133,7 +133,7 @@ _VS = "\N{VARIATION SELECTOR-16}?"
 # Spelled out where it is alone, since ruff takes the glyph for a plus sign.
 _CREATED = "\N{HEAVY PLUS SIGN}"
 _STOP = "📅|📆|🗓|⏳|🛫|" + _CREATED + "|✅|❌|🔺|⏫|🔼|🔽|⏬|🏁|🆔|⛔|⏲|⏱"
-"""Every marker but `🔁` and `👤`, each of which ends the other's free text."""
+"""Every marker but `🔁` and `👤`, which end a free-text value by their own patterns."""
 _WORD = (
     r"([^ \t\n\x0b\f\r\N{NO-BREAK SPACE}\N{OGHAM SPACE MARK}\N{EN QUAD}-\N{HAIR SPACE}"
     r"\N{LINE SEPARATOR}\N{PARAGRAPH SEPARATOR}\N{NARROW NO-BREAK SPACE}"
@@ -166,9 +166,20 @@ FIELDS = (
     re.compile("🆔" + _VS + r"[ \t]+" + _WORD),
 )
 BLOCKED_BY = re.compile("⛔" + _VS + r"[ \t]+" + _WORD)
-WAITING = re.compile(
-    "👤" + _VS + r"(?:" + _DATE + r")?(?:[ \t]+(.+?))??"
-    r"(?=[ \t]+(?:" + _STOP + r"|🔁|#|" + _BLOCK_ID + r")|[ \t]*$)"
+# A `👤` value ends at the next field, tag, block id or second `👤`. The wait's
+# name is lazily optional, so `^pop` after the date stays a block id.
+_ENDS = r"(?=[ \t]+(?:" + _STOP + r"|🔁|👤|#|" + _BLOCK_ID + r")|[ \t]*$)"
+WAITING = re.compile("👤" + _VS + _DATE + r"(?:[ \t]+(.+?))??" + _ENDS)
+# A `👤` with a value that is no date and starts with no marker is the assignee,
+# `👤 [[Pascal]]`. A bare `👤` before a field stays words.
+ASSIGNEE = re.compile(
+    "👤"
+    + _VS
+    + r"[ \t]+(?!"
+    + r"[0-9]{4}-[0-9]{2}-[0-9]{2}(?:[ \t]|$)|"
+    + _STOP
+    + r"|🔁|👤|#)(.+?)"
+    + _ENDS
 )
 
 SPANS = re.compile(r"\[\[[^\[\]\n]+\]\]|\[[^\]\n]*\]\([^)\n]*\)|`[^`\n]*`|<!--[^\n]*?-->")
@@ -297,24 +308,39 @@ def tags_in(text: str) -> list[tuple[int, int]]:
     return line_tags(_blanked(text, hidden, "\N{NO-BREAK SPACE}"))
 
 
-def _words(rest: str) -> str:
-    """A todo's words: what follows the box with every field taken out, as `readFields` leaves it.
+def _fields(rest: str) -> tuple[str, str | None]:
+    """A todo's words and its assignee: the words with every field out, as `readFields` leaves them.
 
     Each field is found on a copy with every span blanked to a no-break space,
     so a marker inside a link is no marker and a one-word value cannot run into
     one, and cut from both. A match with no value is no field, and only the
-    first match of each is tried, as in the editor; only `⛔` repeats.
+    first match of each is tried, as in the editor; only `⛔` repeats. The
+    assignee is the value of the one `ASSIGNEE` match, read off `rest` at the
+    match's offsets, so its spelling is kept.
     """
     text = rest
     masked = mask(rest)
-    for pattern in (*FIELDS, BLOCKED_BY, WAITING):
+    who = None
+    for pattern in (*FIELDS, BLOCKED_BY, WAITING, ASSIGNEE):
         while (found := pattern.search(masked)) is not None and any(found.groups()):
+            if pattern is ASSIGNEE:
+                who = text[found.start(1) : found.end(1)]
             text = text[: found.start()] + text[found.end() :]
             masked = masked[: found.start()] + masked[found.end() :]
             if pattern is not BLOCKED_BY:
                 break
     # As the editor squeezes the words, so `[[FDE  Kickoff]]` names `FDE Kickoff`.
-    return re.sub(r"[ \t]+", " ", text)
+    return re.sub(r"[ \t]+", " ", text), who
+
+
+def _words(rest: str) -> str:
+    """A todo's words, as `_fields` leaves them."""
+    return _fields(rest)[0]
+
+
+def assignee(rest: str) -> str | None:
+    """The assignee a todo's words name, as written, or None when no undated `👤` names one."""
+    return _fields(rest)[1]
 
 
 def project_in(path: str, roots: tuple[str, ...]) -> str | None:

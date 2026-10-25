@@ -1,5 +1,6 @@
 import { useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 import { BoardPicker } from "@/components/board-picker";
+import { chipNote, PersonChip } from "@/components/person-chip";
 import type { SearchHit, TodoHit } from "@/lib/api";
 import { ROW } from "@/lib/overlay-styles";
 import { PRIORITY_SYMBOL, type Todo, type TodoState } from "@/lib/todo";
@@ -267,9 +268,12 @@ export function TodoBoard({
         data-lifted={lifted === key ? "" : undefined}
         tabIndex={focused ? 0 : -1}
         onPointerDown={(event) => grab(event, card, { lane, column: columnOf(todo) })}
-        onClick={() => {
+        onClick={(event) => {
           if (swallowed()) return;
-          onOpen(hit.path, hit.line);
+          // A chip takes its own press: the person's note, from its first line.
+          const note = chipNote(event.target);
+          if (note === null) onOpen(hit.path, hit.line);
+          else onOpen(note, 1);
         }}
         title={key}
         className={`${ROW} flex min-w-0 flex-col gap-0.5 text-k-ink ${focused ? CURSOR : ""} ${coarse ? "min-h-11 justify-center" : ""} ${lifted === key ? "opacity-40" : ""}`}
@@ -283,7 +287,10 @@ export function TodoBoard({
           )}
           <span className="min-w-0 flex-1 truncate">{todo.text}</span>
         </span>
-        {(progress.has(key) || blockers.length > 0 || todo.due !== undefined) && (
+        {(progress.has(key) ||
+          blockers.length > 0 ||
+          todo.assignee !== undefined ||
+          todo.due !== undefined) && (
           <span className="flex w-full gap-2 text-[11px] text-k-muted">
             {progress.has(key) && <span className="shrink-0">{progress.get(key)}</span>}
             {blockers.length > 0 && (
@@ -291,6 +298,8 @@ export function TodoBoard({
                 ⛔ {blockers.join(", ")}
               </span>
             )}
+            {/* Beside the due date, which is pushed to the end of the line. */}
+            {todo.assignee !== undefined && <PersonChip assignee={todo.assignee} paths={files} />}
             {/* Cut as the list cuts it: the year only where it is not this one. */}
             {todo.due !== undefined && (
               <span className="ml-auto shrink-0">

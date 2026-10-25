@@ -127,8 +127,10 @@ function tail(todo: Todo): string {
   // Ahead of every other field, straight after the words. obsidian-tasks reads
   // a line back from its end and stops at the first thing it does not know,
   // so a marker of ours written last would hide the due date from it. Here it
-  // reads as the end of the task's words.
-  if (todo.waitingSince !== undefined || todo.waitingOn !== undefined) {
+  // reads as the end of the task's words. The assignee comes first, so the wait
+  // reads after it, as `parseTodo` takes them.
+  if (todo.assignee !== undefined) parts.push(`👤 ${todo.assignee}`);
+  if (todo.waitingSince !== undefined) {
     parts.push(["👤", todo.waitingSince, todo.waitingOn].filter(Boolean).join(" "));
   }
   if (todo.due !== undefined) parts.push(`📅 ${todo.due}`);
@@ -211,8 +213,8 @@ export function patchLine(line: string, want: Todo, boxed = true): string {
  * Where the name goes on a waiting line that names nobody: the offset just
  * past the date its `👤` carries. Null on any other line.
  *
- * The key that sets the state cannot know who the todo waits on, and the `👤`
- * sits ahead of the other fields, so the place to type the name is mid-line.
+ * The key that sets the state cannot know who the todo waits on, and the dated
+ * `👤` sits ahead of the other fields, so the place to type the name is mid-line.
  * Both places a line is edited put the cursor here.
  */
 export function nameAt(line: string): number | null {
@@ -307,11 +309,10 @@ export function cycleLine(line: string, today: string, id: string): string {
  * The stamps are the cycle's, because a state is worth the same whichever key
  * wrote it: entering done stamps the date and an id, entering rejected stamps
  * its own date, and leaving either drops the stamp it wrote. Entering waiting
- * stamps the day the wait began, and leaving it drops the `👤` whole, the name
- * with the date: it says who the todo waits on, and it no longer waits. A line
- * already in
- * that state comes back untouched, so the caller can tell a press that changed
- * nothing.
+ * stamps the day the wait began after any assignee, and leaving it drops the
+ * dated `👤` with its name: it says who the todo waits on, and it no longer
+ * waits. The assignee stays in every state. A line already in that state comes
+ * back untouched, so the caller can tell a press that changed nothing.
  */
 export function setStateOn(line: string, state: TodoState, today: string, id: string): string {
   const todo = parseTodo(line) ?? todoOf(line, today);

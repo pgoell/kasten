@@ -2036,7 +2036,7 @@ export interface components {
         };
         /**
          * Item
-         * @description One task line: where it sits in the note, its words and whether it is ticked.
+         * @description One task line: where it sits in the note, its words, its state and who it is for.
          */
         Item: {
             /** Line */
@@ -2045,6 +2045,8 @@ export interface components {
             text: string;
             /** Done */
             done: boolean;
+            /** Assignee */
+            assignee?: string | null;
         };
         /**
          * Layout

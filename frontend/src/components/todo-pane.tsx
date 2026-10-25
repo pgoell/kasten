@@ -477,6 +477,8 @@ export function TodoPane({
           armed={armed.armed}
           onArm={armed.arm}
           onRow={onRow}
+          files={narrowing.files ?? []}
+          onPerson={(path) => onOpen(path, 1)}
           onWrite={onEdit}
           onCycle={onCycle}
           actions={actions}

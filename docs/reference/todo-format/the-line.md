@@ -63,8 +63,24 @@ and leaves the span whole.
 | worked | `⏱ 1h20m` | ours |
 | id | `🆔 kt-3f9a2c` | obsidian-tasks |
 | blocked by | `⛔ kt-8b1e04` | obsidian-tasks |
+| assignee | `👤 [[Pascal]]` | ours |
 | waiting on | `👤 2026-08-03 [[Ada Lovelace]]` | ours |
 | tags | `#kasten` | Obsidian |
+
+The `👤` marker has two forms, and the text after it tells them apart. A date
+after it makes the field the wait: the day a todo began waiting, and who it
+waits on, the name optional. Anything else that is no date makes it the
+assignee, the person the todo is for, in any state. A line may carry both, the
+assignee first:
+
+```markdown
+- [w] buy paint 👤 [[Pascal]] 👤 2026-10-25 [[Alicia]] 📅 2026-10-30
+```
+
+Of two undated `👤` on one line the first is the assignee and the second stays
+in the words. A bare `👤` with neither a date nor a name is words. One spelling
+changed meaning: an undated `👤 Ada` on a `[w]` line used to be who the todo
+waits on, and is now the assignee. To keep it as the wait, put the date first.
 
 The five dates are `YYYY-MM-DD` and nothing else. A `📅 next tuesday` is not a
 date, so the whole of it stays in the words. The five priority glyphs read
@@ -129,7 +145,7 @@ it.
 The words come first, then every field the line carries, in this order:
 
 ```
-👤 📅 ⏳ 🛫 priority 🔁 🏁 ➕ ✅ ❌ ⏲ ⏱ 🆔 ⛔
+👤 assignee 👤 wait 📅 ⏳ 🛫 priority 🔁 🏁 ➕ ✅ ❌ ⏲ ⏱ 🆔 ⛔
 ```
 
 A line kasten writes new, from the add prompt or as a recurring copy, comes out

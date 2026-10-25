@@ -73,7 +73,7 @@ sits in the group its due date names rather than under a heading of its own, its
 state already being written on the line. A row
 [waiting on somebody](/reference/todo-format/state-changes.md#waiting-on-somebody) is drawn
 the same way and says for how many days and on whom before its date,
-`👤 7d Ada Lovelace`. A narrow row cuts the name short and keeps the days. The footer counts the rows, so many open and so many
+`👤 7d Ada Lovelace`. A narrow row cuts the name short and keeps the days. A todo with an assignee draws it as a chip with that person's name, and a click or tap on the chip opens the person note, not the row. The footer counts the rows, so many open and so many
 blocked, how many are waiting where any are, how many are to review where
 any are, and how many timers are going
 where any are.

@@ -37,7 +37,7 @@ ID_MARK = "🆔"
 FIELD_MARKS = re.compile(todos._STOP + "|🔁|👤")
 """Where an item's words end: the Tasks fields kasten reads, and the two it adds.
 
-`🔁` (recurrence) and `👤` (waiting) are kasten's own fields, not Tasks plugin
+`🔁` (recurrence) and `👤` (the assignee or the wait) are kasten's own fields, not Tasks plugin
 ones, so `todos._STOP` leaves them out and they are listed here.
 """
 
@@ -60,13 +60,16 @@ class TickInKastenError(Exception):
 
 
 class Item(BaseModel):
-    """One task line: where it sits in the note, its words and whether it is ticked."""
+    """One task line: where it sits in the note, its words, its state and who it is for."""
 
     line: int
     """The 0-based index of the line in the note."""
 
     text: str
     done: bool
+
+    assignee: str | None = None
+    """Who the item is for, as written after an undated `👤`, or None. #810 reads and writes it."""
 
 
 class Checklist(BaseModel):
@@ -130,7 +133,14 @@ def items(text: str) -> list[Item]:
     for number, line in enumerate(text.split("\n")):
         match = ITEM.match(line)
         if match is not None:
-            found.append(Item(line=number, text=_words(match.group(2)), done=match.group(1) != " "))
+            found.append(
+                Item(
+                    line=number,
+                    text=_words(match.group(2)),
+                    done=match.group(1) != " ",
+                    assignee=todos.assignee(match.group(2)),
+                )
+            )
 
     return found
 

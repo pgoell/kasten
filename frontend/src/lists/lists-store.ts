@@ -6,7 +6,8 @@
 
 export const LISTS = ["Einkauf", "Todo"];
 
-export type Item = { line: number; text: string; done: boolean };
+/** `assignee`: who the item is for, as written after an undated `👤`, or null. */
+export type Item = { line: number; text: string; done: boolean; assignee: string | null };
 
 export type ListData = { name: string; sha: string | null; items: Item[] };
 
@@ -141,7 +142,8 @@ function requestFor(op: Op, list: ListData): { path: string; body: object } | nu
 }
 
 function applyOp(items: Item[], op: Op): Item[] {
-  if (op.kind === "add") return [...items, { line: -1, text: op.text, done: false }];
+  if (op.kind === "add")
+    return [...items, { line: -1, text: op.text, done: false, assignee: null }];
   if (op.kind === "clear") return items.filter((item) => !item.done);
   const at = items.findIndex((item) => item.text === op.text && item.done !== op.done);
   return at < 0 ? items : items.map((item, n) => (n === at ? { ...item, done: op.done } : item));

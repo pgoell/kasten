@@ -36,9 +36,11 @@ export interface Fields {
   estimate?: string;
   /** `1h20m`, as written. */
   worked?: string;
+  /** Who the todo is for, as written after an undated `👤`: a name, or a `[[link]]` to one. */
+  assignee?: string;
   /** The day a `[w]` todo began to wait, which is the date after its `👤`. */
   waitingSince?: string;
-  /** Who it waits on, as written after the `👤`: a name, or a `[[link]]` to one. */
+  /** Who it waits on, as written after the dated `👤`: a name, or a `[[link]]` to one. */
   waitingOn?: string;
 }
 
@@ -79,17 +81,24 @@ const WORKED = /⏱️?[ \t]+(\S+)/d;
 const RECURRENCE =
   /🔁️?[ \t]+(.+?)(?=[ \t]*(?:📅|📆|🗓|⏳|🛫|➕|✅|❌|🔺|⏫|🔼|🔽|⏬|🏁|🆔|⛔|⏲|⏱|👤|#)|[ \t]+\^[\w-]+[ \t]*$|[ \t]*$)/d;
 
-// Who a todo waits on and since when, both optional and the date first. The
-// name is free text as a rule is, so it runs to the next marker or tag. It
-// needs a space before either, which is what lets `[[ada#notes]]` keep its
-// anchor. A `^block` id at the end of the line ends it as well, or the date
-// stamped in front of one would read the id as who the todo waits on. The name
-// is tried last for the same reason, `??` rather than `?`.
+// A `👤` followed by a date is the wait: the day it began, then who it waits on,
+// the name optional. `👤` is a field of its own, so a name never runs past a
+// second one; the value ends at the next marker, a tag or a `^block` id, which
+// is also what lets `[[ada#notes]]` keep its anchor. The name is tried last,
+// `??` rather than `?`, or a date stamped in front of a `^block` id would read
+// the id as who the todo waits on.
 const WAITING =
-  /👤️?(?:[ \t]+(\d{4}-\d{2}-\d{2}))?(?:[ \t]+(.+?))??(?=[ \t]+(?:📅|📆|🗓|⏳|🛫|➕|✅|❌|🔺|⏫|🔼|🔽|⏬|🔁|🏁|🆔|⛔|⏲|⏱|#|\^[\w-]+[ \t]*$)|[ \t]*$)/d;
+  /👤️?[ \t]+(\d{4}-\d{2}-\d{2})(?:[ \t]+(.+?))??(?=[ \t]+(?:📅|📆|🗓|⏳|🛫|➕|✅|❌|🔺|⏫|🔼|🔽|⏬|🔁|🏁|🆔|⛔|⏲|⏱|👤|#|\^[\w-]+[ \t]*$)|[ \t]*$)/d;
+
+// A `👤` followed by anything that is no date and no marker is the assignee:
+// who the todo is for, in any state. It runs to the same stops as the wait's
+// name, so `👤 [[Pascal]] 👤 2026-10-25` reads the assignee and then the wait.
+const ASSIGNEE =
+  /👤️?[ \t]+(?!\d{4}-\d{2}-\d{2}(?:[ \t]|$))(?!(?:📅|📆|🗓|⏳|🛫|➕|✅|❌|🔺|⏫|🔼|🔽|⏬|🔁|🏁|🆔|⛔|⏲|⏱|👤|#))(.+?)(?=[ \t]+(?:📅|📆|🗓|⏳|🛫|➕|✅|❌|🔺|⏫|🔼|🔽|⏬|🔁|🏁|🆔|⛔|⏲|⏱|👤|#|\^[\w-]+[ \t]*$)|[ \t]*$)/d;
 
 /** Every field in the order `tail` writes them, which is where a stamp is added. */
 const ORDER = [
+  ASSIGNEE,
   WAITING,
   DUE,
   SCHEDULED,
@@ -106,7 +115,7 @@ const ORDER = [
   BLOCKED_BY,
 ];
 
-/** `👤` too: its name runs to the next marker, so words after it would be who the todo waits on. */
+/** `👤` too: its value runs to the next marker, so words after it would belong to the person. */
 const MARKER = /📅|📆|🗓|⏳|🛫|🔺|⏫|🔼|🔽|⏬|🔁|🏁|➕|✅|❌|⏲|⏱|🆔|⛔|👤/gu;
 
 const BLOCK_ID = /\^[\w-]+[ \t]*$/;
@@ -178,6 +187,7 @@ export function readTagged(rest: string): { fields: Fields; tags: { tag: string;
   }
 
   const [waitingSince, waitingOn] = take(WAITING);
+  const [assignee] = take(ASSIGNEE);
 
   // Read before the spaces close up, while `origin` still lines up. Closing
   // them up changes no tag, as a tag holds no space.
@@ -202,6 +212,7 @@ export function readTagged(rest: string): { fields: Fields; tags: { tag: string;
     blockedBy,
     estimate,
     worked,
+    assignee,
     waitingSince,
     waitingOn,
   };
@@ -261,10 +272,15 @@ const STAMPS: {
   write: (todo: Fields) => string | undefined;
 }[] = [
   {
+    pattern: ASSIGNEE,
+    keys: ["assignee"],
+    write: (todo) => todo.assignee && `👤 ${todo.assignee}`,
+  },
+  {
     pattern: WAITING,
     keys: ["waitingSince", "waitingOn"],
     write: (todo) =>
-      todo.waitingSince === undefined && todo.waitingOn === undefined
+      todo.waitingSince === undefined
         ? undefined
         : ["👤", todo.waitingSince, todo.waitingOn].filter(Boolean).join(" "),
   },
