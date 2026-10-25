@@ -26,7 +26,7 @@ the whole directory and the history comes along.
 
 Two things need no backup. Caddy's `caddy-data` volume holds certificates,
 which Caddy fetches again. And there is no database: the self-host stack runs no
-Postgres, and no module the running backend imports opens a connection.
+Postgres, and finance, the one feature that would keep records there, is off.
 
 The token file holds digests, never secrets, so a copy of it leaks nothing. The
 vault is plain markdown, so a copy of it is your notes in the clear; encrypt the

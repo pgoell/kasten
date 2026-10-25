@@ -41,15 +41,16 @@ both.
 postgresql+psycopg://kasten:kasten@localhost:5434/kasten_dev
 ```
 
-The SQLAlchemy URL for the derived index. It never holds note content.
+The SQLAlchemy URL for the derived index and `finance`, never notes.
 
-Only Alembic reads it today. No module the running backend imports opens a
-connection, which is why the [self-host stack](/how-to/self-host-kasten.md)
-ships no Postgres and leaves this at its default.
+Alembic and [the finance routes](/reference/http-api/finance.md) read it, the
+routes per request, never at startup, with a five-second timeout. With
+no database they answer `503` and the rest runs; the
+[self-host stack](/how-to/self-host-kasten.md) ships none.
 
-Dev points at kasten's own compose Postgres, published on the host at 5434. It
+Dev points at kasten's compose Postgres on host port 5434. It
 cannot use the shared `postgres` container on the VPS: that one publishes no
-host port, and the dev backend runs on the host rather than in a container.
+host port, and the dev backend runs on the host.
 
 ## KASTEN_ARCHIVE_PATH
 

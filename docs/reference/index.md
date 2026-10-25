@@ -5,7 +5,7 @@ is there and do not teach; for that, read a [tutorial](/tutorials/index.md) or a
 [how-to guide](/how-to/index.md).
 
 * [mise tasks](mise-tasks.md): every task defined in mise.toml, by group
-* [HTTP API](http-api.md): every endpoint the backend serves, with its response shape, the folders `GET /api/layout` names, and the addresses `GET /api/fetch` refuses
+* [HTTP API](http-api.md): every endpoint the backend serves, with its response shape, the folders `GET /api/layout` names, the addresses `GET /api/fetch` refuses, and the finance routes host jobs write through
 * [Note frontmatter](note-frontmatter.md): the YAML block every note carries, which fields kasten manages, when they are written, and the two filenames that get no block at all
 * [Exam format](exam-format.md): the note a practice exam is written in, every part it can carry, the two shapes a question takes, the two places an answer goes, what a sitting scores, and where the result note lands
 * [Flashcard format](flashcard-format.md): the two ways a card is written and the cloze, the comment holding its schedule, the tags that put a note and a single card in a deck, how a deck sits inside another, the frontmatter a whole note under review carries, the keys a sitting takes, its Undo and Center, and the daily limits on new cards and reviews

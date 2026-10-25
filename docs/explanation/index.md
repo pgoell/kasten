@@ -4,6 +4,7 @@ Why kasten is built the way it is. These pages are for reading away from the
 keyboard; they answer "why" rather than "how".
 
 * [The vault and the derived index](vault-and-derived-index.md): why the notes live on disk and Postgres is allowed to hold nothing that matters
+* [Finance in Postgres](finance-in-postgres.md): why money is the one record kasten keeps outside the vault, why Postgres and not a ledger file or SQLite, why agents may read single transactions, and what backing up the database now means
 * [Security model](security-model.md): why kasten has no login of its own, what the gate covers, the two prefixes left open, what the shell and the chat pane can reach, and the consent and page-fetch checks the backend makes itself
 * [Two environments](environments.md): why the maintainer's dev and prod are deployed in deliberately different ways, the constraints that box imposes on both, why the shell and the agent logins in it must sit behind the gate, why Claude Code is installed on first start and not in the image, and why prod images are built for amd64 and arm64
 * [The file size limit](file-size-limit.md): why an authored file stays under 5,000 tokens, why the check counts bytes, and why a file over the limit is split along a deep module

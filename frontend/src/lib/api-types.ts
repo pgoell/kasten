@@ -1045,6 +1045,103 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/finance/accounts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Accounts
+         * @description Every account, by name.
+         */
+        get: operations["read_accounts_api_finance_accounts_get"];
+        put?: never;
+        /**
+         * Write Account
+         * @description Make the account by its name, or update the fields the post names on the one with that name.
+         *
+         *     A 200 either way, and the row with its id, so a job can upsert its
+         *     accounts on every run and post bookings by the ids it gets back.
+         */
+        post: operations["write_account_api_finance_accounts_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/finance/balances": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Write Balances
+         * @description Store balances as the bank reported them, the latest for a day replacing an earlier one.
+         */
+        post: operations["write_balances_api_finance_balances_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/finance/transactions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Transactions
+         * @description A page of the bookings on one account or all, from `from` to `to`, oldest first.
+         *
+         *     `after` is the id of the last booking of the page before. A page shorter
+         *     than `limit` is the last.
+         */
+        get: operations["read_transactions_api_finance_transactions_get"];
+        put?: never;
+        /**
+         * Write Transactions
+         * @description Insert the bookings not already stored, then pair the transfers between own accounts.
+         *
+         *     A booking already there by account and source key is skipped and left as
+         *     it was, so a job may send an overlapping window every run.
+         */
+        post: operations["write_transactions_api_finance_transactions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/finance/transactions/{transaction_id}/splits": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Write Splits
+         * @description Replace the booking's splits, refusing a set that does not add up to its amount.
+         */
+        put: operations["write_splits_api_finance_transactions__transaction_id__splits_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/share/lists": {
         parameters: {
             query?: never;
@@ -1661,6 +1758,46 @@ export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         /**
+         * AccountIn
+         * @description An account as a job sends it. The name is the key it is upserted by.
+         */
+        AccountIn: {
+            /** Name */
+            name: string;
+            /** Bank */
+            bank?: string | null;
+            /** Iban */
+            iban?: string | null;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "giro" | "saving" | "card" | "cash";
+            /**
+             * Shared
+             * @default false
+             */
+            shared: boolean;
+        };
+        /**
+         * AccountOut
+         * @description An account as stored, with the id bookings and balances name it by.
+         */
+        AccountOut: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Bank */
+            bank: string | null;
+            /** Iban */
+            iban: string | null;
+            /** Kind */
+            kind: string;
+            /** Shared */
+            shared: boolean;
+        };
+        /**
          * Add
          * @description One item to append, and the digest of the list the caller read, if it read one.
          */
@@ -1711,6 +1848,21 @@ export interface components {
             text: string;
             /** Sha */
             sha?: string | null;
+        };
+        /**
+         * BalanceIn
+         * @description The balance the bank reported for one account on one day.
+         */
+        BalanceIn: {
+            /** Account Id */
+            account_id: number;
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** Amount */
+            amount: number | string;
         };
         /**
          * Build
@@ -2035,6 +2187,18 @@ export interface components {
             code: number;
         };
         /**
+         * Ingested
+         * @description What a batch of bookings did: new rows, rows already there, and transfers paired.
+         */
+        Ingested: {
+            /** Created */
+            created: number;
+            /** Skipped */
+            skipped: number;
+            /** Linked */
+            linked: number;
+        };
+        /**
          * Item
          * @description One task line: where it sits in the note, its words, its state and who it is for.
          */
@@ -2257,6 +2421,36 @@ export interface components {
             tags?: string[] | null;
         };
         /**
+         * SplitIn
+         * @description One part of a booking.
+         */
+        SplitIn: {
+            /** Amount */
+            amount: number | string;
+            /** Text */
+            text?: string | null;
+        };
+        /**
+         * SplitOut
+         * @description One part of a booking as stored.
+         */
+        SplitOut: {
+            /** Id */
+            id: number;
+            /** Amount */
+            amount: string;
+            /** Text */
+            text: string | null;
+        };
+        /**
+         * Stored
+         * @description How many balances a post stored, new or replacing a figure for the same day.
+         */
+        Stored: {
+            /** Stored */
+            stored: number;
+        };
+        /**
          * Tick
          * @description Which line to tick or untick, and the digest of the list the caller read.
          */
@@ -2316,6 +2510,97 @@ export interface components {
             food: components["schemas"]["kasten_backend__log__Food"];
             /** Mine */
             mine?: components["schemas"]["MineTotal"][] | null;
+        };
+        /**
+         * TransactionIn
+         * @description One booking as a job sends it.
+         *
+         *     `source_key` is the job's own name for the booking, unique per account. It
+         *     carries an occurrence index, so two identical bookings on one day are two
+         *     keys.
+         */
+        TransactionIn: {
+            /** Account Id */
+            account_id: number;
+            /**
+             * Booking Date
+             * Format: date
+             */
+            booking_date: string;
+            /** Value Date */
+            value_date?: string | null;
+            /** Amount */
+            amount: number | string;
+            /**
+             * Currency
+             * @default EUR
+             */
+            currency: string;
+            /** Purpose */
+            purpose?: string | null;
+            /** Posting Text */
+            posting_text?: string | null;
+            /** Counterparty Name */
+            counterparty_name?: string | null;
+            /** Counterparty Iban */
+            counterparty_iban?: string | null;
+            /** Bank Ref */
+            bank_ref?: string | null;
+            /** Raw */
+            raw?: {
+                [key: string]: unknown;
+            } | null;
+            /** Source Key */
+            source_key: string;
+        };
+        /**
+         * TransactionOut
+         * @description A booking as stored, with when it came in, its transfer group and its splits.
+         *
+         *     Its own model rather than the input's: a stored row is answered as it is,
+         *     and the rules a job's post is held to are no reason to fail a read.
+         */
+        TransactionOut: {
+            /** Id */
+            id: number;
+            /** Account Id */
+            account_id: number;
+            /**
+             * Booking Date
+             * Format: date
+             */
+            booking_date: string;
+            /** Value Date */
+            value_date: string | null;
+            /** Amount */
+            amount: string;
+            /** Currency */
+            currency: string;
+            /** Purpose */
+            purpose: string | null;
+            /** Posting Text */
+            posting_text: string | null;
+            /** Counterparty Name */
+            counterparty_name: string | null;
+            /** Counterparty Iban */
+            counterparty_iban: string | null;
+            /** Bank Ref */
+            bank_ref: string | null;
+            /** Raw */
+            raw: {
+                [key: string]: unknown;
+            } | null;
+            /** Source Key */
+            source_key: string;
+            /**
+             * Imported At
+             * Format: date-time
+             */
+            imported_at: string;
+            /** Transfer Group */
+            transfer_group: string | null;
+            /** Splits */
+            splits: components["schemas"]["SplitOut"][];
         };
         /**
          * Transcript
@@ -3663,6 +3948,195 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_accounts_api_finance_accounts_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountOut"][];
+                };
+            };
+        };
+    };
+    write_account_api_finance_accounts_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AccountIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    write_balances_api_finance_balances_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BalanceIn"][];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Stored"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_transactions_api_finance_transactions_get: {
+        parameters: {
+            query?: {
+                account?: number | null;
+                from?: string | null;
+                to?: string | null;
+                after?: number | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransactionOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    write_transactions_api_finance_transactions_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TransactionIn"][];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Ingested"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    write_splits_api_finance_transactions__transaction_id__splits_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                transaction_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SplitIn"][];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransactionOut"];
+                };
             };
             /** @description Validation Error */
             422: {

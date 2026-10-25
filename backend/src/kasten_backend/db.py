@@ -1,11 +1,16 @@
 """Database engine, session factory and the declarative base.
 
-Postgres holds only a derived index (documents, links, tags, full-text). It is
-rebuildable from the vault, so nothing here is a system of record.
+Postgres holds a derived index (documents, links, tags, full-text), which
+rebuilds from the vault, and the `finance` schema, which does not: finance is
+the one system of record kept outside the vault. See
+docs/explanation/finance-in-postgres.md.
 """
 
+import logging
 from typing import TYPE_CHECKING
 
+from fastapi import HTTPException
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
 
@@ -15,16 +20,41 @@ if TYPE_CHECKING:
     from collections.abc import AsyncIterator
 
 
+logger = logging.getLogger(__name__)
+
+
 class Base(DeclarativeBase):
-    """Declarative base for every index table."""
+    """Declarative base for every table, index and finance alike."""
 
 
-engine = create_async_engine(get_settings().database_url)
+engine = create_async_engine(
+    get_settings().database_url,
+    # Nothing connects at startup; the first finance request does. A host that
+    # drops packets rather than refusing would otherwise hold that request for
+    # the system's TCP timeout before it could answer 503.
+    connect_args={"connect_timeout": 5},
+)
 
 session_factory = async_sessionmaker(engine, expire_on_commit=False)
 
 
 async def get_session() -> AsyncIterator[AsyncSession]:
-    """FastAPI dependency yielding a session that closes with the request."""
+    """FastAPI dependency yielding a connected session that closes with the request.
+
+    The connection is opened here rather than at the first query, so a 503
+    means only that no database answered. A timeout or a deadlock later in the
+    request is a different failure and stays a 500.
+    """
     async with session_factory() as session:
+        try:
+            await session.connection()
+        except OperationalError as error:
+            # The driver's reason for the failed connect: host, port and cause,
+            # no statement and no parameters, since none was sent.
+            logger.warning("No database answers at KASTEN_DATABASE_URL: %s", error.orig)
+            raise HTTPException(
+                status_code=503,
+                detail="No database answers at KASTEN_DATABASE_URL, and finance keeps its "
+                "records there. See docs/reference/configuration.md.",
+            ) from error
         yield session

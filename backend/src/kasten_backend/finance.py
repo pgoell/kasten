@@ -1,0 +1,274 @@
+"""What the finance routes do to the tables: upsert, ingest, link transfers, split.
+
+Kasten stores and shows; jobs on the host gather (the bank sync, the order
+mails, the receipt reader) and write through the routes in `routes/finance.py`.
+So every write here is safe to repeat: a job that runs twice changes nothing.
+Nothing here commits. The route that calls it does, once per request.
+"""
+
+import uuid
+from decimal import Decimal
+from typing import TYPE_CHECKING, Any
+
+from sqlalchemy import and_, exists, func, literal, or_, select, tuple_, update
+from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import aliased, selectinload
+
+from kasten_backend.finance_models import Account, BalanceSnapshot, Transaction, TransactionSplit
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
+    from datetime import date
+
+    from sqlalchemy.ext.asyncio import AsyncSession
+
+LINK_LOCK = 0x6B66696E
+"""The advisory lock `link_transfers` holds until its transaction ends.
+
+Two batches linking at once would each read the other's halves as unlinked
+and pair them twice over, or wait on each other's row locks. With the lock
+the second waits, then reads what the first committed.
+"""
+
+TRANSFER_WINDOW_DAYS = 5
+"""How far apart the two halves of a move between own accounts may be booked.
+
+An instant transfer lands the same day; an ordinary one sent on a Friday is
+booked on the other side on Monday or Tuesday. Wider than that and two
+unrelated bookings of a round amount start to pair.
+"""
+
+
+class UnknownAccountError(LookupError):
+    """A row names an account id the table does not hold."""
+
+    def __init__(self, ids: Iterable[int]) -> None:
+        """Name every missing id, so a job can fix its whole batch at once."""
+        super().__init__(f"No account with id {', '.join(str(i) for i in sorted(ids))}")
+
+
+class TakenIbanError(ValueError):
+    """An upsert gives an account an IBAN another account already holds."""
+
+
+class KeyClashError(ValueError):
+    """One batch sends two different bookings under the same account and source key."""
+
+    def __init__(self, key: str) -> None:
+        """Name the key, since one of the two would otherwise be dropped unseen."""
+        super().__init__(f"Two different bookings carry the source key {key!r}")
+
+
+class SplitSumError(ValueError):
+    """The splits of a booking do not add up to its amount."""
+
+    def __init__(self, total: Decimal, amount: Decimal) -> None:
+        """Say both sums, which is what the sender needs to find its mistake."""
+        super().__init__(f"The splits add up to {total}, the booking is {amount}")
+
+
+async def _check_accounts(session: AsyncSession, ids: set[int]) -> None:
+    """Refuse a batch naming an account that is not there, before anything is written."""
+    found = set(await session.scalars(select(Account.id).where(Account.id.in_(ids))))
+    if missing := ids - found:
+        raise UnknownAccountError(missing)
+
+
+async def upsert_account(
+    session: AsyncSession, fields: dict[str, Any], sent: dict[str, Any]
+) -> Account:
+    """Make the account from `fields` by its name, or update the one with that name from `sent`.
+
+    `sent` is only what the request named, so a job that posts an account by
+    name alone leaves its IBAN and shared flag as they are.
+    """
+    statement = (
+        insert(Account)
+        .values(**fields)
+        .on_conflict_do_update(index_elements=[Account.name], set_=sent)
+        .returning(Account)
+    )
+    try:
+        return (await session.scalars(statement)).one()
+    except IntegrityError as error:
+        # The name is the conflict the upsert handles, so the other unique
+        # column is the only way here.
+        msg = f"Another account holds the IBAN {fields.get('iban')}"
+        raise TakenIbanError(msg) from error
+
+
+async def store_balances(session: AsyncSession, rows: list[dict[str, Any]]) -> int:
+    """Keep each balance the bank reported, the latest report for a day winning.
+
+    A second pull on the same day sees bookings the first did not, so its
+    balance is the truer one, and the earlier figure is replaced.
+    """
+    # One statement cannot update the same row twice, so two reports for one
+    # day in a batch are folded first, the later one winning.
+    rows = list({(row["account_id"], row["date"]): row for row in rows}.values())
+    if not rows:
+        return 0
+    await _check_accounts(session, {row["account_id"] for row in rows})
+    statement = insert(BalanceSnapshot).values(rows)
+    await session.execute(
+        statement.on_conflict_do_update(
+            index_elements=[BalanceSnapshot.account_id, BalanceSnapshot.date],
+            set_={"amount": statement.excluded.amount},
+        )
+    )
+    return len(rows)
+
+
+async def insert_transactions(session: AsyncSession, rows: list[dict[str, Any]]) -> int:
+    """Insert the bookings the table does not hold yet, and say how many that was.
+
+    A booking already there by its account and source key is left exactly as
+    it is, so a window that overlaps the last one costs nothing.
+    """
+    if not rows:
+        return 0
+    seen: dict[tuple[int, str], dict[str, Any]] = {}
+    for row in rows:
+        known = seen.setdefault((row["account_id"], row["source_key"]), row)
+        if known != row:
+            raise KeyClashError(row["source_key"])
+    await _check_accounts(session, {row["account_id"] for row in rows})
+    statement = (
+        insert(Transaction)
+        .values(rows)
+        .on_conflict_do_nothing(constraint="transaction_account_source_key")
+        .returning(Transaction.id)
+    )
+    return len((await session.scalars(statement)).all())
+
+
+async def link_transfers(session: AsyncSession) -> int:
+    """Give each move between two own accounts one shared transfer group, and count the pairs.
+
+    A booking pairs with one on the account whose IBAN is its counterparty
+    IBAN, of the opposite amount and the same currency, booked within
+    `TRANSFER_WINDOW_DAYS`, whose own counterparty IBAN is either missing or
+    the first booking's account. Only bookings not yet linked are read, the
+    whole table and not one batch, since the two halves often arrive in
+    different pulls. Run twice, the second run finds nothing to do.
+
+    The pairing is greedy, nearest first: three bookings of one amount in a
+    week can pair so that a fourth is left out where another order would have
+    paired it. Accepted, since a move between own accounts of the same amount
+    twice in five days is rare, and a booking left unlinked only counts as
+    spending until it is fixed by hand.
+    """
+    await session.execute(select(func.pg_advisory_xact_lock(LINK_LOCK)))
+    named, twin = aliased(Transaction), aliased(Transaction)
+    source, target = aliased(Account), aliased(Account)
+    gap = func.abs(named.booking_date - twin.booking_date)
+    candidates = await session.execute(
+        select(named.id, twin.id)
+        .join(source, source.id == named.account_id)
+        .join(target, target.iban == named.counterparty_iban)
+        .join(
+            twin,
+            and_(
+                twin.account_id == target.id,
+                twin.account_id != named.account_id,
+                twin.amount == -named.amount,
+                twin.currency == named.currency,
+                twin.transfer_group.is_(None),
+                or_(twin.counterparty_iban.is_(None), twin.counterparty_iban == source.iban),
+            ),
+        )
+        .where(named.transfer_group.is_(None), named.amount != 0, gap <= TRANSFER_WINDOW_DAYS)
+        # Nearest first, so of two candidates the closer one wins, and the rest
+        # by date and id so the same rows always pair the same way.
+        .order_by(gap, named.booking_date, named.id, twin.id)
+    )
+    # When both halves name the other's IBAN the pair is found from each side,
+    # and a booking may be a candidate for several; each is used once.
+    used: set[int] = set()
+    pairs = 0
+    for first, second in candidates.tuples():
+        if first in used or second in used:
+            continue
+        used.update((first, second))
+        pair = (first, second)
+        # Both halves or neither: the lock makes a linked half impossible here,
+        # and the guard keeps a half-linked pair impossible if it ever is not.
+        other = aliased(Transaction)
+        linked = await session.scalars(
+            update(Transaction)
+            .where(
+                Transaction.id.in_(pair),
+                ~exists().where(other.id.in_(pair), other.transfer_group.is_not(None)),
+            )
+            .values(transfer_group=uuid.uuid4())
+            .returning(Transaction.id)
+        )
+        if len(linked.all()) == len(pair):
+            pairs += 1
+    return pairs
+
+
+async def list_accounts(session: AsyncSession) -> list[Account]:
+    """Every account, by name."""
+    return list(await session.scalars(select(Account).order_by(Account.name)))
+
+
+async def list_transactions(  # noqa: PLR0913  each filter is its own keyword
+    session: AsyncSession,
+    *,
+    account: int | None,
+    first: date | None,
+    last: date | None,
+    after: int | None,
+    limit: int,
+) -> list[Transaction]:
+    """At most `limit` bookings that match, oldest first, each with its splits.
+
+    `after` is the id of the last booking a reader has. The order is booking
+    date then id, and ids do not follow booking dates (an import fills in the
+    past), so the cursor resumes from that booking's place in the order.
+    """
+    statement = select(Transaction).options(selectinload(Transaction.splits))
+    if account is not None:
+        statement = statement.where(Transaction.account_id == account)
+    if first is not None:
+        statement = statement.where(Transaction.booking_date >= first)
+    if last is not None:
+        statement = statement.where(Transaction.booking_date <= last)
+    if after is not None:
+        place = select(Transaction.booking_date).where(Transaction.id == after).scalar_subquery()
+        statement = statement.where(
+            tuple_(Transaction.booking_date, Transaction.id) > tuple_(place, literal(after))
+        )
+    order = statement.order_by(Transaction.booking_date, Transaction.id).limit(limit)
+    return list(await session.scalars(order))
+
+
+async def replace_splits(
+    session: AsyncSession, transaction_id: int, parts: list[dict[str, Any]]
+) -> Transaction | None:
+    """Put `parts` in place of the booking's splits, or None for no such booking.
+
+    The parts must add up to the booking's amount, or nothing is written: the
+    splits are what a budget counts in place of the booking, and a set that
+    does not add up would count money twice or not at all. An empty list
+    removes the splits, and the booking counts whole again. The parts may
+    differ in sign, as an order with a credit or a refunded item does.
+    """
+    # Locked, so two writers of one booking's splits take turns: each would
+    # otherwise delete the splits it read and add its own, leaving both sets.
+    booking = await session.scalar(
+        select(Transaction)
+        .options(selectinload(Transaction.splits))
+        .where(Transaction.id == transaction_id)
+        .with_for_update()
+    )
+    if booking is None:
+        return None
+    total = sum((part["amount"] for part in parts), Decimal(0))
+    if parts and total != booking.amount:
+        raise SplitSumError(total, booking.amount)
+    booking.splits = [TransactionSplit(**part) for part in parts]
+    await session.flush()
+    return booking

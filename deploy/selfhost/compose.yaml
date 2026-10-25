@@ -6,8 +6,8 @@
 #
 # Unlike deploy/compose.yaml, which leans on a Caddy, an oauth2-proxy and a
 # Postgres from another repo, this file holds the whole stack. There is no
-# Postgres in it: the backend reads and writes the vault and nothing else, and
-# no module it runs opens a database connection.
+# Postgres in it: the backend reads and writes the vault, and the finance
+# routes, the only ones that open a database connection, answer 503.
 
 name: kasten-selfhost
 

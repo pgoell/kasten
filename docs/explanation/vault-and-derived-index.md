@@ -15,6 +15,10 @@ kasten has one design rule, and the rest of the system falls out of it.
 > schema and rebuild it from the vault. Nothing that only exists in the
 > database is allowed to matter.
 
+The rule has one exception, money. The `finance` schema is a system of record
+and does not rebuild from the vault; [Finance in Postgres](/explanation/finance-in-postgres.md)
+says why. Everything below holds for the rest of Postgres.
+
 ## What that buys you
 
 **Your notes outlive the software.** They are markdown files in a directory. If

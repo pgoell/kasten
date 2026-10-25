@@ -78,7 +78,8 @@ has no path to them. The table is in
 
 Behind the gate, the backend listens on port `8000` on the docker network with
 no check at all. Any container on that network can call every `/api/` route,
-mint a token included. In the self-host stack the network holds only kasten's
+mint a token included. The jobs on the host that write
+[finance](/reference/http-api/finance.md) reach it this way. In the self-host stack the network holds only kasten's
 own containers. On a box where other services share the network, as the
 maintainer's does, they are inside the zone too.
 

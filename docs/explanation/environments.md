@@ -84,7 +84,9 @@ its own would be plumbing for a container you look at rather than through.
 Postgres holds a derived index and can be rebuilt from the vault at any time,
 which is the whole point of
 [The vault and the derived index](/explanation/vault-and-derived-index.md). The
-vault cannot be rebuilt from anything. Three consequences follow, and all three
+vault cannot be rebuilt from anything. The one exception is the `finance`
+schema, which is a record of its own, see
+[Finance in Postgres](/explanation/finance-in-postgres.md). Three consequences follow, and all three
 are deployment decisions rather than code:
 
 - The vault is a bind mount to a host path, never a named volume, and it lives

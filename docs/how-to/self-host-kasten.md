@@ -10,8 +10,9 @@ status: stable
 
 `deploy/selfhost/` holds a whole kasten in one compose file: the backend, the
 frontend, the shell, and Caddy in front of them doing TLS and the login gate.
-There is no database to run; the backend reads and writes the vault and nothing
-else.
+There is no database to run; the backend reads and writes the vault. The one
+feature that needs Postgres, [finance](/reference/http-api/finance.md), is off
+here, and its routes answer `503`.
 
 You need a Linux machine with Docker and the compose plugin (2.24 or later), on
 amd64 or arm64. arm64 images exist from the first release after 0.29.0.

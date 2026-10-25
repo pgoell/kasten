@@ -1798,6 +1798,319 @@
         }
       }
     },
+    "/api/finance/accounts": {
+      "get": {
+        "summary": "Read Accounts",
+        "description": "Every account, by name.",
+        "operationId": "read_accounts_api_finance_accounts_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AccountOut"
+                  },
+                  "type": "array",
+                  "title": "Response Read Accounts Api Finance Accounts Get"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Write Account",
+        "description": "Make the account by its name, or update the fields the post names on the one with that name.\n\nA 200 either way, and the row with its id, so a job can upsert its\naccounts on every run and post bookings by the ids it gets back.",
+        "operationId": "write_account_api_finance_accounts_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AccountIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/finance/balances": {
+      "post": {
+        "summary": "Write Balances",
+        "description": "Store balances as the bank reported them, the latest for a day replacing an earlier one.",
+        "operationId": "write_balances_api_finance_balances_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "items": {
+                  "$ref": "#/components/schemas/BalanceIn"
+                },
+                "type": "array",
+                "maxItems": 1000,
+                "title": "Balances"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Stored"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/finance/transactions": {
+      "get": {
+        "summary": "Read Transactions",
+        "description": "A page of the bookings on one account or all, from `from` to `to`, oldest first.\n\n`after` is the id of the last booking of the page before. A page shorter\nthan `limit` is the last.",
+        "operationId": "read_transactions_api_finance_transactions_get",
+        "parameters": [
+          {
+            "name": "account",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Account"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "From"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "To"
+            }
+          },
+          {
+            "name": "after",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "After"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 5000,
+              "minimum": 1,
+              "default": 500,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TransactionOut"
+                  },
+                  "title": "Response Read Transactions Api Finance Transactions Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Write Transactions",
+        "description": "Insert the bookings not already stored, then pair the transfers between own accounts.\n\nA booking already there by account and source key is skipped and left as\nit was, so a job may send an overlapping window every run.",
+        "operationId": "write_transactions_api_finance_transactions_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/TransactionIn"
+                },
+                "maxItems": 1000,
+                "title": "Bookings"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ingested"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/finance/transactions/{transaction_id}/splits": {
+      "put": {
+        "summary": "Write Splits",
+        "description": "Replace the booking's splits, refusing a set that does not add up to its amount.",
+        "operationId": "write_splits_api_finance_transactions__transaction_id__splits_put",
+        "parameters": [
+          {
+            "name": "transaction_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Transaction Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/SplitIn"
+                },
+                "title": "Parts"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransactionOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/share/lists": {
       "get": {
         "tags": [
@@ -2776,6 +3089,112 @@
   },
   "components": {
     "schemas": {
+      "AccountIn": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Name"
+          },
+          "bank": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bank"
+          },
+          "iban": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Iban"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "giro",
+              "saving",
+              "card",
+              "cash"
+            ],
+            "title": "Kind"
+          },
+          "shared": {
+            "type": "boolean",
+            "title": "Shared",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "kind"
+        ],
+        "title": "AccountIn",
+        "description": "An account as a job sends it. The name is the key it is upserted by."
+      },
+      "AccountOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "bank": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bank"
+          },
+          "iban": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Iban"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "shared": {
+            "type": "boolean",
+            "title": "Shared"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "bank",
+          "iban",
+          "kind",
+          "shared"
+        ],
+        "title": "AccountOut",
+        "description": "An account as stored, with the id bookings and balances name it by."
+      },
       "Add": {
         "properties": {
           "text": {
@@ -2896,6 +3315,39 @@
         ],
         "title": "Append",
         "description": "A line to add, and the digest of the note the caller read, when it read one."
+      },
+      "BalanceIn": {
+        "properties": {
+          "account_id": {
+            "type": "integer",
+            "title": "Account Id"
+          },
+          "date": {
+            "type": "string",
+            "format": "date",
+            "title": "Date"
+          },
+          "amount": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,12}|(?=[\\d.]{1,15}0*$)\\d{0,12}\\.\\d{0,2}0*$)"
+              }
+            ],
+            "title": "Amount"
+          }
+        },
+        "type": "object",
+        "required": [
+          "account_id",
+          "date",
+          "amount"
+        ],
+        "title": "BalanceIn",
+        "description": "The balance the bank reported for one account on one day."
       },
       "Build": {
         "properties": {
@@ -3654,6 +4106,30 @@
         "title": "Hour",
         "description": "One hour of one place's day, local time."
       },
+      "Ingested": {
+        "properties": {
+          "created": {
+            "type": "integer",
+            "title": "Created"
+          },
+          "skipped": {
+            "type": "integer",
+            "title": "Skipped"
+          },
+          "linked": {
+            "type": "integer",
+            "title": "Linked"
+          }
+        },
+        "type": "object",
+        "required": [
+          "created",
+          "skipped",
+          "linked"
+        ],
+        "title": "Ingested",
+        "description": "What a batch of bookings did: new rows, rows already there, and transfers paired."
+      },
       "Item": {
         "properties": {
           "line": {
@@ -4180,6 +4656,85 @@
         "title": "SearchHit",
         "description": "One line that matched a search, with the date and tags of the note it is in."
       },
+      "SplitIn": {
+        "properties": {
+          "amount": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,12}|(?=[\\d.]{1,15}0*$)\\d{0,12}\\.\\d{0,2}0*$)"
+              }
+            ],
+            "title": "Amount"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Text"
+          }
+        },
+        "type": "object",
+        "required": [
+          "amount"
+        ],
+        "title": "SplitIn",
+        "description": "One part of a booking."
+      },
+      "SplitOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "amount": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Amount"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Text"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "amount",
+          "text"
+        ],
+        "title": "SplitOut",
+        "description": "One part of a booking as stored."
+      },
+      "Stored": {
+        "properties": {
+          "stored": {
+            "type": "integer",
+            "title": "Stored"
+          }
+        },
+        "type": "object",
+        "required": [
+          "stored"
+        ],
+        "title": "Stored",
+        "description": "How many balances a post stored, new or replacing a figure for the same day."
+      },
       "Tick": {
         "properties": {
           "line": {
@@ -4312,6 +4867,284 @@
         ],
         "title": "Totals",
         "description": "What a day adds up to. Every kind is always present, zero where nothing was logged.\n\nThe one exception is a last kind's `mine` total, which is null with no line that day."
+      },
+      "TransactionIn": {
+        "properties": {
+          "account_id": {
+            "type": "integer",
+            "title": "Account Id"
+          },
+          "booking_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Booking Date"
+          },
+          "value_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value Date"
+          },
+          "amount": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,12}|(?=[\\d.]{1,15}0*$)\\d{0,12}\\.\\d{0,2}0*$)"
+              }
+            ],
+            "title": "Amount"
+          },
+          "currency": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$",
+            "title": "Currency",
+            "default": "EUR"
+          },
+          "purpose": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Purpose"
+          },
+          "posting_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Posting Text"
+          },
+          "counterparty_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Counterparty Name"
+          },
+          "counterparty_iban": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Counterparty Iban"
+          },
+          "bank_ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bank Ref"
+          },
+          "raw": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Raw"
+          },
+          "source_key": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Source Key"
+          }
+        },
+        "type": "object",
+        "required": [
+          "account_id",
+          "booking_date",
+          "amount",
+          "source_key"
+        ],
+        "title": "TransactionIn",
+        "description": "One booking as a job sends it.\n\n`source_key` is the job's own name for the booking, unique per account. It\ncarries an occurrence index, so two identical bookings on one day are two\nkeys."
+      },
+      "TransactionOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "account_id": {
+            "type": "integer",
+            "title": "Account Id"
+          },
+          "booking_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Booking Date"
+          },
+          "value_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value Date"
+          },
+          "amount": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Amount"
+          },
+          "currency": {
+            "type": "string",
+            "title": "Currency"
+          },
+          "purpose": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Purpose"
+          },
+          "posting_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Posting Text"
+          },
+          "counterparty_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Counterparty Name"
+          },
+          "counterparty_iban": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Counterparty Iban"
+          },
+          "bank_ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bank Ref"
+          },
+          "raw": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Raw"
+          },
+          "source_key": {
+            "type": "string",
+            "title": "Source Key"
+          },
+          "imported_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Imported At"
+          },
+          "transfer_group": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Transfer Group"
+          },
+          "splits": {
+            "items": {
+              "$ref": "#/components/schemas/SplitOut"
+            },
+            "type": "array",
+            "title": "Splits"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "account_id",
+          "booking_date",
+          "value_date",
+          "amount",
+          "currency",
+          "purpose",
+          "posting_text",
+          "counterparty_name",
+          "counterparty_iban",
+          "bank_ref",
+          "raw",
+          "source_key",
+          "imported_at",
+          "transfer_group",
+          "splits"
+        ],
+        "title": "TransactionOut",
+        "description": "A booking as stored, with when it came in, its transfer group and its splits.\n\nIts own model rather than the input's: a stored row is answered as it is,\nand the rules a job's post is held to are no reason to fail a read."
       },
       "Transcript": {
         "properties": {
