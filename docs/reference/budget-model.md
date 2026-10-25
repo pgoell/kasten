@@ -1,7 +1,7 @@
 ---
 type: Reference
 title: Budget model
-description: How the finance budget counts money, the two scopes mine and household, free to spend and each part of it, where the month's money went, the salary cutoff, limits over time, the overspend carried into the next month, unreserved, status, pace and the suggestion to change a limit, with every threshold.
+description: How the finance budget counts money, the two scopes mine and household, free to spend and each part of it, plans, reserves and goals, where the month's money went, the salary cutoff, limits over time, the overspend carried into the next month, unreserved, status, pace and the suggestion to change a limit, with every threshold.
 resource: backend/src/kasten_backend/finance_budget.py
 tags: [finance, budget, reference]
 status: draft
@@ -16,9 +16,9 @@ each category's kind, its limit, which income is salary and the salary cutoff
 day. The routes are in [HTTP API: finance budget](/reference/http-api/finance-budget.md).
 
 The code is `finance_ledger.py` (where each booking counts),
-`finance_free.py` (free to spend), `finance_flow.py` (where the money went)
-and `finance_budget.py` (limits). This page
-states what they do; a change to one changes this page.
+`finance_free.py` (free to spend), `finance_plans.py` (plans, reserves and
+goals), `finance_flow.py` (where the money went) and `finance_budget.py`
+(limits). This page states what they do; a change to one changes this page.
 
 ## Months
 
@@ -98,19 +98,37 @@ free to spend = income expected
               - non-monthly spending so far
               - unsorted spending so far
               - moved to saving so far
+              - reserved for plans
+              - reserve shortfalls
+              - goal contributions still to move
 ```
+
+A bill a plan's reserve paid counts in none of the spending parts: the
+reserve set its share aside in the months before.
 
 * **Income expected**: for each salary category, and on household for "From
   mine", what arrived this month; while nothing has arrived, its average over
   the last 6 months. Every other income category, such as a household
   contribution or a refund, counts only what came in: a one-off payment must
   not raise every month after it.
-* **Fixed costs**: for each fixed category, and on mine for "Into the shared
-  account", the larger of what it cost so far this month and its average over
-  the last 6 months. A cost that has not come yet is still counted.
+* **Fixed costs**: for a fixed category with a plan in this scope, what it
+  cost so far plus each of its plans' dates this month that no booking met
+  yet, at the plan's amount (`basis` `plan`), or its average when that is
+  larger (`basis` `average`): a cost no plan names yet still comes. A plan
+  that reserves is left out here, since its bill comes out of the reserve,
+  and a fixed category one reserves for counts what it cost so far and no
+  average, which holds its bills from before. For every other fixed
+  category, and on mine for "Into the shared account", the larger of what it
+  cost so far this month and its average over the last 6 months. A cost that
+  has not come yet is still counted.
 * **Flexible, non-monthly and unsorted spending**: what went out so far.
 * **Moved to saving**: what moved into an own saving account so far, less
   what came back, plus spending in a `saving` category.
+* **Reserved for plans**: each reserving plan's monthly share, below.
+* **Reserve shortfalls**: what a bill paid this month cost past what its
+  reserve held, below.
+* **Goal contributions still to move**: on mine, each goal's planned monthly
+  contribution less what of it moved into the goal's account so far; below.
 
 The average is the mean over the whole months before this one, at most 6,
 counted from the first month that category, or that move between mine and
@@ -121,7 +139,7 @@ there is no average, and a line counts what happened so far.
 A month that is over estimates nothing: each line counts what happened.
 
 The answer gives each line with its `so_far`, its `average`, the figure it
-`counted` and the `basis` of that figure (`so_far` or `average`), so the
+`counted` and the `basis` of that figure (`so_far`, `average` or `plan`), so the
 overview can say what the number is made of.
 
 ### Where the money went
@@ -133,16 +151,18 @@ it is the same reading. For each scope:
 
 ```
 money in  = each income line + money taken from earlier months
-money out = each fixed, flexible and non-monthly line + saved + not sorted
-            + left over
+money out = each fixed, flexible and non-monthly line + reserved + saved
+            + not sorted + left over
 ```
 
 * Each scope has its own kinds, in the order fixed, flexible, non-monthly,
-  saved, into household, not sorted, then left over; a category gathers what
+  reserved, saved, into household, not sorted, then left over; a category gathers what
   both scopes spent on it.
 * The move into the shared account is the kind `Into household` on mine and
   the source `From mine` on household, the same amount on both sides, so each
   scope adds up on its own.
+* `Reserved` is the plans' reserve shares and the month's shortfalls; a bill
+  a reserve paid is in no category's stream, as in free to spend.
 * Left over is free to spend for a month that is over, when it is above zero.
   Below zero, the same amount comes in as `From earlier months`: the month
   spent past what came in.
@@ -153,19 +173,88 @@ money out = each fixed, flexible and non-monthly line + saved + not sorted
   `Other <kind>`, and an income into `Other income`, when at least two of the
   same kind would; one alone keeps its name.
 
-### What plans and goals will change
+## Plans
 
-Plans and goals (#1037) replace two parts:
+A plan is an expected booking: a payee or a text, an amount give or take a
+tolerance, a schedule, an account and a category. It falls due on its start
+date and then every `every_months` months on the same day (the last day of a
+shorter month), until its end; a plan with no schedule falls due once.
 
-* The fixed-cost estimate. `estimate_fixed` in `finance_free.py` is the one
-  place it is worked out; a fixed cost will become what its plans expect,
-  matched or still to come.
-* Non-monthly spending. Until plans exist, a yearly or quarterly cost counts in
-  the month it is paid. With plans, each takes its monthly share off free to
-  spend into a reserve, and the payment comes out of the reserve.
+**Matching.** A booking meets a plan's date when it is on the plan's
+account, is no move between own accounts, has the plan's payee or holds its
+text in its purpose or counterparty name (any case), and its amount lies
+within the tolerance of the plan's. Every open period, the calendar month a
+date falls in, first takes a booking of its own month; a period still open
+after that takes one from the month before (paid early) or after (paid
+late) no more than 20 days from the date. Of several, the one nearest the date wins, then the one nearest the
+amount, and each booking meets one plan once. Matches are stored: they are made when
+bookings come in and when a plan is made or changed (a changed plan loses its
+matches and is matched afresh), never on a read. A date no booking met is
+upcoming, even once past. A salary plan's date after the cutoff day says
+which month it counts for.
 
-Goals will also take the money reserved for them off free to spend, and what
-is moved into a goal off unreserved.
+**Confirmed.** A plan counts in free to spend from the month it was made or
+confirmed in, never before: neither its reserve shares nor its fixed cost
+change the months already gone. Matching still links its bookings from its
+start, so the dates of past months show their ticks. Changing or deleting a
+plan has no history of its own: the plan as it now stands is read for every
+month from its confirmation on, so an edit changes those months too.
+
+**Reserves.** A cost that comes every 2 months or more reserves. Its reserve
+is walked month by month from the `every` months before its first date, or
+from the month it was confirmed in when that is later. Each month sets aside
+what the next bill still lacks over the months left to it, this one
+included, rounded up to the cent: a twelfth of a yearly bill when the reserve
+starts in time, more when a plan was confirmed late, and the whole bill when
+it is due in the month the reserve starts. That share comes off free to
+spend. The bill a match paid comes out of the reserve; what it cost past what
+the reserve held is the month's `shortfall`, which comes off free to spend in
+the bill's month, and what a cheaper bill left stays for the next. The
+booking that paid the bill, or its splits, counts in no spending part of free
+to spend, but the budget's categories still count it as spent.
+
+**Forecast.** Each scope's balance for this month and the 11 after it starts
+at the sum of its accounts' latest bank balances and adds every plan's dates
+in the scope, but a date a booking met on or before the day of its account's
+latest bank balance, which already holds it. Flexible spending and goal
+contributions have no plan, so they are not in it.
+
+## Goals
+
+A goal is a target by a due date, living in one own saving account. The owner
+assigns part of the account's latest bank balance to it as `reserved`; the
+goals of one account together may reserve no more than that balance, and
+what is left is the account's unreserved. Progress is reserved over target.
+The monthly need is what is left of the target over the months from this one
+up to and with the due month, rounded up to the cent; the due month is the
+last a contribution comes off free to spend in.
+
+The money reserved is already in the saving account, so it is off free to
+spend from the day it moved. What comes off free to spend is the goal's
+planned monthly contribution, set by the owner, as long as the goal is not
+reached and the month is not past its due month. Free to spend counts it once:
+what moved into the goal's account this month (`saved_into`) fills its goals
+in order of due date, and only what is still to move comes off, on top of
+moved to saving. A month that is over counts what moved, and nothing still to
+move.
+
+A balance that fell below what its goals reserve shows on the account's line;
+lowering a reservation or renaming a goal is still allowed then, and only a
+change that takes more of an account is checked against its balance.
+
+Assigning is the owner's step, and happens once a month: it raises
+`reserved` by the monthly contribution, up to the target and within the
+account's balance, and records the month and the amount, so a second assign
+that month changes nothing and the assign can be undone.
+
+The leftovers of the limits, unreserved below, are another figure from the
+saving account's unreserved: what the limits left of the spending accounts'
+money. The pane calls the first "left from limits" and the second "not
+reserved on" the account. Moving part of the leftover into a goal raises the
+goal's `reserved` by it, within the account's balance (so move the money to
+the saving account first), and records the move in the reader's month, which
+comes off the leftover from that month on. A move may take no more than the
+leftover less every move there is, so none spends what another took.
 
 ## Limits
 
@@ -191,8 +280,9 @@ At the end of a month:
 * What a category left of its available limit goes to **unreserved**.
   `unreserved.last_month` is what the month before left; `unreserved.total` is
   what every month since the first limit left. Only months that are over
-  count, so a month ahead adds nothing for the month still running. Nothing
-  is moved by hand yet; goals (#1037) will take from it.
+  count, so a month ahead adds nothing for the month still running.
+  `unreserved.total` is less what was moved into goals by the month shown,
+  which `unreserved.moved` gives.
 
 ### Status and pace
 

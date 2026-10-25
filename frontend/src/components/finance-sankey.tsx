@@ -28,6 +28,7 @@ const KIND_SLOTS: Record<string, string> = {
   fixed: "var(--tg-3)",
   flexible: "var(--tg-2)",
   non_monthly: "var(--tg-8)",
+  reserved: "var(--tg-5)",
   saved: "var(--tg-9)",
   into_household: "var(--tg-6)",
 };

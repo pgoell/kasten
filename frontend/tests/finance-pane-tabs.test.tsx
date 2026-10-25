@@ -28,6 +28,10 @@ vi.mock("@/lib/finance-api", () => ({
   sortByHand: api.sortByHand,
   sortPayee: api.sortPayee,
 }));
+// The goals card on the overview; its own tests are in finance-plans-tab.test.tsx.
+vi.mock("@/lib/finance-plans-api", () => ({
+  fetchGoals: () => Promise.resolve({ goals: [], accounts: [] }),
+}));
 vi.mock("@/lib/finance-budget-api", () => ({
   fetchBudget: api.fetchBudget,
   fetchFree: api.fetchFree,
@@ -62,6 +66,8 @@ const MINE = {
   non_monthly: part("0.00"),
   unsorted: "0.00",
   saved: "450.00",
+  reserves: part("0.00"),
+  goals: part("0.00"),
 };
 
 const GROCERIES = {

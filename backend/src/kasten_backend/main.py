@@ -26,6 +26,8 @@ from kasten_backend.routes import (
     assets,
     finance,
     finance_budget,
+    finance_goals,
+    finance_plans,
     finance_sorting,
     finance_sync,
     github,
@@ -192,6 +194,8 @@ app.include_router(anki.router)
 app.include_router(tokens.router)
 app.include_router(finance.router)
 app.include_router(finance_budget.router)
+app.include_router(finance_plans.router)
+app.include_router(finance_goals.router)
 app.include_router(finance_sorting.router)
 app.include_router(finance_sync.router)
 app.include_router(share.router)

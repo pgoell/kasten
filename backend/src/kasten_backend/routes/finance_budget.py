@@ -16,6 +16,7 @@ from sqlalchemy import select
 
 from kasten_backend import finance_budget as budget
 from kasten_backend import finance_budget_reads as reads
+from kasten_backend import finance_plan_reads as plan_reads
 from kasten_backend.finance_flow import Role, month_flow
 from kasten_backend.finance_free import Free, Part, free_to_spend
 from kasten_backend.finance_ledger import SPENDING_KINDS
@@ -41,20 +42,21 @@ MonthParam = Annotated[str, Query(pattern=MONTH_PATTERN)]
 TodayParam = Annotated[str, Query(pattern=DATE_PATTERN)]
 
 
-def _month(text: str) -> dt.date:
+def parse_month(text: str) -> dt.date:
+    """A `YYYY-MM` month as its first day; a month that is none is a 422."""
     try:
         return dt.date.fromisoformat(f"{text}-01")
     except ValueError as error:
         raise HTTPException(status_code=422, detail="`month` must be a real month") from error
 
 
-def _when(month: str, today: str) -> tuple[dt.date, dt.date]:
+def parse_when(month: str, today: str) -> tuple[dt.date, dt.date]:
     """The month asked for, as its first day, and the reader's today."""
     try:
         day = dt.date.fromisoformat(today)
     except ValueError as error:
         raise HTTPException(status_code=422, detail="`today` must be a real date") from error
-    return _month(month), day
+    return parse_month(month), day
 
 
 class SuggestionOut(BaseModel):
@@ -81,10 +83,11 @@ class BudgetCategoryOut(BaseModel):
 
 
 class UnreservedOut(BaseModel):
-    """What the limits left: the month before, and every month since limits began."""
+    """What the limits left: the month before, and every month since less what went into goals."""
 
     last_month: Cents
     total: Cents
+    moved: Cents
 
 
 class BudgetOut(BaseModel):
@@ -104,7 +107,7 @@ class FreeLineOut(BaseModel):
     so_far: Cents
     average: Cents | None
     counted: Cents
-    basis: Literal["so_far", "average"]
+    basis: Literal["so_far", "average", "plan"]
 
 
 class FreePartOut(BaseModel):
@@ -112,6 +115,43 @@ class FreePartOut(BaseModel):
 
     total: Cents
     lines: list[FreeLineOut]
+
+
+class ReserveOut(BaseModel):
+    """A plan's reserve this month: its share, the bill paid, the shortfall, what it holds after."""
+
+    plan_id: int
+    name: str
+    share: Cents
+    paid: Cents
+    shortfall: Cents
+    balance: Cents
+
+
+class ReservesOut(BaseModel):
+    """What the reserves took off this month, and each one."""
+
+    total: Cents
+    lines: list[ReserveOut]
+
+
+class GoalMonthOut(BaseModel):
+    """A goal's contribution this month: planned, and what of it moved into its account."""
+
+    goal_id: int
+    name: str
+    account_id: int
+    account_name: str
+    planned: Cents
+    moved: Cents
+    done: bool
+
+
+class GoalsPartOut(BaseModel):
+    """What the goals take off: their contributions planned and not yet moved, while it runs."""
+
+    total: Cents
+    lines: list[GoalMonthOut]
 
 
 class FreeOut(BaseModel):
@@ -124,6 +164,8 @@ class FreeOut(BaseModel):
     non_monthly: FreePartOut
     unsorted: Cents
     saved: Cents
+    reserves: ReservesOut
+    goals: GoalsPartOut
 
 
 class FreeToSpendOut(BaseModel):
@@ -223,6 +265,17 @@ def _free(free: Free) -> FreeOut:
         non_monthly=_part(free.non_monthly),
         unsorted=free.unsorted,
         saved=free.saved,
+        reserves=ReservesOut(
+            total=free.reserved,
+            lines=[ReserveOut.model_validate(r, from_attributes=True) for r in free.reserves],
+        ),
+        goals=GoalsPartOut(
+            total=free.to_move,
+            lines=[
+                GoalMonthOut(**vars(g), done=g.done)  # the dataclass's fields and its property
+                for g in free.goals
+            ],
+        ),
     )
 
 
@@ -248,14 +301,16 @@ def _category(row: budget.CategoryBudget) -> BudgetCategoryOut:
 @router.get("/budget")
 async def read_budget(session: Session, month: MonthParam, today: TodayParam) -> BudgetOut:
     """Every spending category's month: limit, carried overspend, spent, average, status."""
-    first, day = _when(month, today)
+    first, day = parse_when(month, today)
     ledger, limits = await reads.ledger(session), await reads.limits(session)
-    left = budget.unreserved(ledger, limits, first, day)
+    left = budget.unreserved(
+        ledger, limits, first, day, await plan_reads.moved_leftovers(session, first)
+    )
     return BudgetOut(
         month=first.strftime("%Y-%m"),
         share_of_month=budget.share_of_month(first, day).quantize(Decimal("0.0001")),
         categories=[_category(row) for row in budget.budget_of(ledger, limits, first, day)],
-        unreserved=UnreservedOut(last_month=left.last_month, total=left.total),
+        unreserved=UnreservedOut(last_month=left.last_month, total=left.total, moved=left.moved),
     )
 
 
@@ -264,12 +319,12 @@ async def read_free_to_spend(
     session: Session, month: MonthParam, today: TodayParam
 ) -> FreeToSpendOut:
     """Free to spend this month for mine and household, with the lines each is made of."""
-    first, day = _when(month, today)
-    ledger = await reads.ledger(session)
+    first, day = parse_when(month, today)
+    ledger, book = await reads.ledger(session), await plan_reads.book(session)
     return FreeToSpendOut(
         month=first.strftime("%Y-%m"),
-        mine=_free(free_to_spend(ledger, "mine", first, day)),
-        household=_free(free_to_spend(ledger, "household", first, day)),
+        mine=_free(free_to_spend(ledger, "mine", first, day, book)),
+        household=_free(free_to_spend(ledger, "household", first, day, book)),
     )
 
 
@@ -279,8 +334,8 @@ async def read_flow(session: Session, month: MonthParam) -> FlowOut:
 
     No `today`: the flow counts what happened, which needs no reader's day.
     """
-    first = _month(month)
-    flow = month_flow(await reads.ledger(session), first)
+    first = parse_month(month)
+    flow = month_flow(await reads.ledger(session), first, await plan_reads.book(session))
     return FlowOut(
         month=first.strftime("%Y-%m"),
         total=flow.total,
@@ -296,7 +351,7 @@ async def read_trend(
     months: Annotated[int, Query(ge=1, le=60)] = 12,
 ) -> TrendOut:
     """Each spending category's spending per month, over `months` months up to `month`."""
-    first = _month(month)
+    first = parse_month(month)
     found = budget.trend(await reads.ledger(session), await reads.limits(session), first, months)
     return TrendOut(
         months=[at.strftime("%Y-%m") for at in found.months],
@@ -317,7 +372,7 @@ async def write_limit(category_id: int, limit: LimitIn, session: Session) -> Lim
         raise HTTPException(status_code=404, detail="No such category")
     if category.kind not in SPENDING_KINDS:
         raise HTTPException(status_code=422, detail="Only a spending category takes a limit")
-    start = _month(limit.start)
+    start = parse_month(limit.start)
     await reads.set_limit(session, category_id, start, limit.amount)
     await session.commit()
     return LimitOut(category_id=category_id, start=start.strftime("%Y-%m"), amount=limit.amount)

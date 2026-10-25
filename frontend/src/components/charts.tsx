@@ -246,3 +246,57 @@ export function ActivityGrid({ counts, from, to, label }: ActivityGridProps) {
     </svg>
   );
 }
+
+// Twice the other pieces' width: the line fills half a wide pane, and its marks keep their size.
+const LINE_WIDTH = 600;
+const LINE_HEIGHT = 120;
+
+interface BalanceLineProps {
+  /** One balance a slot, oldest first. */
+  values: number[];
+  label: string;
+  /** The slot the reader points at, drawn with a larger dot. */
+  hovered?: number;
+}
+
+/**
+ * A balance over time as a 2px line over a faint area, a dot a slot, and the zero line. The y
+ * scale always takes in zero, so the area's height reads as money and a fall below zero shows;
+ * a dot below zero takes the danger colour, which the caller names in words too.
+ */
+export function BalanceLine({ values, label, hovered }: BalanceLineProps) {
+  const slot = LINE_WIDTH / Math.max(1, values.length);
+  const x = (index: number) => index * slot + slot / 2;
+  const low = Math.min(0, ...values);
+  const high = Math.max(0, ...values);
+  // Room above and below, so a dot at the top or bottom is not cut.
+  const pad = (high - low || 1) * 0.08;
+  const y = (value: number) =>
+    LINE_HEIGHT - ((value - (low - pad)) / (high - low + 2 * pad)) * LINE_HEIGHT;
+  const line = values.map((value, index) => `${x(index)},${y(value)}`).join(" ");
+  const area = `${x(0)},${y(0)} ${line} ${x(values.length - 1)},${y(0)}`;
+
+  return (
+    <svg
+      className="chart-svg"
+      viewBox={`0 0 ${LINE_WIDTH} ${LINE_HEIGHT}`}
+      width="100%"
+      role="img"
+      aria-label={label}
+    >
+      {values.length === 0 ? null : <polygon className="chart-balance-area" points={area} />}
+      <line className="chart-balance-zero" x1={0} x2={LINE_WIDTH} y1={y(0)} y2={y(0)} />
+      {values.length === 0 ? null : <polyline className="chart-balance-line" points={line} />}
+      {values.map((value, index) => (
+        <circle
+          // biome-ignore lint/suspicious/noArrayIndexKey: a slot is its place in time.
+          key={index}
+          className={value < 0 ? "chart-balance-dot chart-balance-below" : "chart-balance-dot"}
+          cx={x(index)}
+          cy={y(value)}
+          r={index === hovered ? 6 : 4}
+        />
+      ))}
+    </svg>
+  );
+}

@@ -23,7 +23,10 @@ export const client = createClient<paths>();
  * written for them.
  */
 export function reason(error: { detail?: unknown } | undefined): string | null {
-  return typeof error?.detail === "string" ? error.detail : null;
+  if (typeof error?.detail === "string") return error.detail;
+  // A body the route's model refused comes as FastAPI's list of what failed; its first says why.
+  const first = Array.isArray(error?.detail) ? (error.detail[0] as { msg?: unknown }) : undefined;
+  return typeof first?.msg === "string" ? first.msg.replace(/^Value error, /, "") : null;
 }
 
 /**

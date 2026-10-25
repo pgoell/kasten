@@ -226,7 +226,7 @@ def category_budget(
         expected_by_now=expected,
         status=status_of(category.kind, step, expected),
         # A yearly cost averages badly over months, so a non-monthly limit gets no
-        # suggestion; plans (#1037) will reserve for it instead.
+        # suggestion; a plan reserves for it instead.
         suggestion=None
         if category.kind == "non_monthly"
         else suggest(ledger, rows, category.id, month),
@@ -237,20 +237,27 @@ def category_budget(
 class Unreserved:
     """What the limits left at month end: the month before, and every month since limits began.
 
-    Plans and goals (#1037) will take what is moved into a goal off `total`.
+    `moved` is what the owner moved of it into goals, already off `total`.
+    Apart from a saving account's unreserved, which is its balance less what
+    its goals reserve (`routes/finance_goals.py`).
     """
 
     last_month: Decimal
     total: Decimal
+    moved: Decimal = ZERO
 
 
 def unreserved(
-    ledger: Ledger, limits: Mapping[int, LimitRows], month: dt.date, today: dt.date
+    ledger: Ledger,
+    limits: Mapping[int, LimitRows],
+    month: dt.date,
+    today: dt.date,
+    moved: Decimal = ZERO,
 ) -> Unreserved:
-    """The leftovers of every whole month before `month` that is over by `today`.
+    """The leftovers of every whole month before `month` that is over by `today`, less `moved`.
 
     A month still running has left nothing yet, so a month ahead does not
-    count this one.
+    count this one. `moved` is what went into goals by `month`.
     """
     last, total = ZERO, ZERO
     before = min(add_months(month, -1), add_months(today.replace(day=1), -1))
@@ -259,7 +266,7 @@ def unreserved(
             total += step.left
             if step.month == before:
                 last += step.left
-    return Unreserved(last, total)
+    return Unreserved(last, total - moved, moved)
 
 
 def spending_categories(ledger: Ledger) -> list[Category]:

@@ -1,0 +1,383 @@
+/* The finance pane's Plans & goals tab, and the overview's goals card. Groups and rows follow
+   the budget's (finance-overview.css), so the tabs read as one; text is 15px and no smaller
+   on a phone, and every control is 44px under a finger. */
+
+.finance-plans {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+/* Goals and the month's dates on the left, proposals and plans on the right, on a pane wide
+   enough for two; one column under the other on a phone. The forecast runs under both. */
+.finance-plans-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: 12px 24px;
+}
+
+.finance-plans-column {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.finance-forecast-lines {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px 24px;
+}
+
+@container (min-width: 900px) {
+  .finance-plans-columns {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .finance-forecast-lines {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.finance-forecast-scope {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  margin: 0;
+}
+
+/* The line keeps its shape, so a dot stays round and sits over its month's button. */
+.finance-forecast-scope .chart-svg {
+  height: auto;
+}
+
+.finance-forecast-name {
+  font-weight: 600;
+}
+
+.finance-goal-leftover {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 12px;
+  font-size: var(--k-text-13);
+}
+
+.finance-leftover {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
+  gap: 8px 12px;
+  margin-top: 6px;
+}
+
+.finance-leftover label {
+  display: grid;
+  gap: 4px;
+  color: var(--k-muted);
+  font-size: var(--k-text-13);
+}
+
+.finance-leftover p {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+/* Its own width, in a card laid out as a grid or as a column alike. */
+.finance-leftover-open {
+  justify-self: start;
+  align-self: flex-start;
+}
+
+.finance-goal-row .finance-budget-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.finance-goal-why {
+  flex-basis: 100%;
+  font-size: var(--k-text-13);
+  text-align: right;
+}
+
+.finance-goal-assigned {
+  align-self: center;
+  font-size: var(--k-text-13);
+}
+
+/* On the overview the goals sit two a row where the card is wide. */
+.finance-goals-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
+  gap: 14px 24px;
+}
+
+@container (min-width: 1000px) {
+  .finance-full-card {
+    grid-column: 1 / -1;
+  }
+}
+
+.finance-plans-group {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.finance-plans-group h3 {
+  margin: 8px 0 0;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--k-rule-strong);
+  font-size: var(--k-text-15);
+  font-weight: 600;
+}
+
+.finance-plans-group > p,
+.finance-plans-group > button {
+  margin: 0;
+  justify-self: start;
+}
+
+.finance-plans-list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Name and sum on one line, the words under them, the button at the end. */
+.finance-plans-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: baseline;
+  gap: 4px 12px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--k-rule);
+}
+
+.finance-plans-name {
+  grid-column: 2;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.finance-plans-row:not(:has(.finance-plans-tick)) .finance-plans-name {
+  grid-column: 1 / 3;
+}
+
+.finance-plans-sum,
+.finance-goal-sum {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Beside the button, not under it, so a long line wraps rather than runs beneath it. */
+.finance-plans-aside {
+  grid-column: 1 / 4;
+  grid-row: 2;
+  font-size: var(--k-text-13);
+}
+
+.finance-plans-row > button {
+  grid-column: 4;
+  grid-row: 1 / 3;
+  align-self: center;
+}
+
+.finance-plans-tick {
+  grid-column: 1;
+  width: 1.2em;
+  text-align: center;
+}
+
+/* A goal: name and sum, its meter, and the words under it. */
+.finance-goal {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.finance-goal-head,
+.finance-goal-aside {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 12px;
+  margin: 0;
+}
+
+.finance-goal-aside {
+  margin: 0;
+  color: var(--k-muted);
+  font-size: var(--k-text-13);
+}
+
+/* The goal, and its two buttons beside it where there is room, under it on a phone. */
+.finance-goal-row {
+  display: grid;
+  /* A fixed column for the buttons, so every goal's bar is as wide as the next. */
+  grid-template-columns: minmax(0, 1fr) 15rem;
+  align-items: center;
+  gap: 6px 16px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--k-rule);
+  border-left: 2px solid transparent;
+}
+
+.finance-goal-row.finance-pane-selected {
+  border-left-color: var(--k-accent);
+  background: var(--k-paper);
+}
+
+.finance-goal-pick {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--k-ink);
+  font: inherit;
+  text-align: left;
+}
+
+.finance-goal-pick:focus-visible {
+  outline: 2px solid var(--k-accent);
+  outline-offset: 2px;
+}
+
+.finance-goals-card {
+  display: grid;
+  gap: 12px;
+}
+
+.finance-goal-accounts {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 8px 0 0;
+  border-top: 1px solid var(--k-rule);
+  list-style: none;
+  font-size: var(--k-text-13);
+}
+
+.finance-goal-accounts li {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 12px;
+}
+
+/* The forms: one field a line on a phone, two side by side where there is room. */
+.finance-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
+  gap: 8px 12px;
+  padding: 10px;
+  border: 1px solid var(--k-rule);
+  border-radius: var(--k-radius-6);
+  background: var(--k-paper);
+}
+
+.finance-form label {
+  display: grid;
+  gap: 4px;
+  color: var(--k-muted);
+  font-size: var(--k-text-13);
+}
+
+.finance-form input,
+.finance-form select,
+.finance-leftover input,
+.finance-leftover select {
+  min-width: 0;
+  min-height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--k-rule);
+  border-radius: var(--k-radius-6);
+  background: var(--k-bg);
+  color: var(--k-ink);
+  font: inherit;
+  font-size: var(--k-text-15);
+}
+
+.finance-form input:focus-visible,
+.finance-form select:focus-visible,
+.finance-leftover input:focus-visible,
+.finance-leftover select:focus-visible {
+  outline: 2px solid var(--k-accent);
+  outline-offset: 1px;
+}
+
+.finance-form .finance-form-check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--k-ink);
+}
+
+.finance-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  grid-column: 1 / -1;
+  gap: 8px;
+}
+
+.finance-forecast {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.finance-forecast th,
+.finance-forecast td {
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--k-rule);
+  font-weight: 400;
+  text-align: right;
+}
+
+.finance-forecast th:first-child {
+  text-align: left;
+}
+
+.finance-forecast thead th {
+  color: var(--k-muted);
+  font-size: var(--k-text-13);
+}
+
+@media (pointer: coarse) {
+  .finance-plans kbd {
+    display: none;
+  }
+
+  .finance-form input,
+  .finance-form select,
+  .finance-leftover input,
+  .finance-leftover select {
+    min-height: 44px;
+  }
+}
+
+@media (width < 48rem) {
+  .finance-goal-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .finance-goal-row .finance-budget-actions {
+    justify-content: flex-start;
+  }
+
+  .finance-goal-why {
+    text-align: left;
+  }
+
+  .finance-plans-aside,
+  .finance-goal-aside,
+  .finance-goal-accounts,
+  .finance-goal-leftover,
+  .finance-goal-assigned,
+  .finance-leftover label,
+  .finance-form label {
+    font-size: var(--k-text-15);
+  }
+}
