@@ -165,7 +165,7 @@ editor's save path, which is a separate piece of work.
 In a JSON file beside the vault, holding a name, a creation date and a SHA-256
 digest per token. Never in the vault: a token there would enter jj history for
 good and sit one search away from any agent reading notes. Never in Postgres
-either, which has no tables and is not woken for this.
+either, which is not woken for this.
 
 Only the digest is kept, so the file is worth nothing to whoever reads it and a
 lost secret is replaced rather than recovered. SHA-256 rather than a slow hash,

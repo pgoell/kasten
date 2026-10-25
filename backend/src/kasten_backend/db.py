@@ -21,7 +21,13 @@ class Base(DeclarativeBase):
     """Declarative base for every table, index and finance alike."""
 
 
-engine = create_async_engine(get_settings().database_url)
+engine = create_async_engine(
+    get_settings().database_url,
+    # Nothing connects at startup; the first finance request does. A host that
+    # drops packets rather than refusing would otherwise hold that request for
+    # the system's TCP timeout before it could answer 503.
+    connect_args={"connect_timeout": 5},
+)
 
 session_factory = async_sessionmaker(engine, expire_on_commit=False)
 

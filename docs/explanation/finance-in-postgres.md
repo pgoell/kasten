@@ -20,8 +20,10 @@ into the note, the food you make up went into `foods.md`, the shared lists
 stayed two notes. This page says why money went the other way, and what that
 costs.
 
-The schema exists from migration `0001`. The tables arrive with the finance
-module (#971), so for now the schema is empty.
+The schema exists from migration `0001`. Migration `0002` adds accounts,
+balances, bookings and their splits, which jobs on the host write through
+[the finance routes](/reference/http-api/finance.md). Budgets, plans and goals
+come later in the finance module (#971).
 
 ## A transaction is not a note
 

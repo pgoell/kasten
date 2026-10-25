@@ -9,10 +9,15 @@ import pytest
 from asgi_lifespan import LifespanManager
 from httpcore._backends.anyio import AnyIOBackend
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy import text
+from sqlalchemy.exc import OperationalError
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.pool import NullPool
 
 from backend.tests.anki_link_web import PUBLIC
 from kasten_backend import files
 from kasten_backend.config import Settings, get_settings
+from kasten_backend.db import get_session
 from kasten_backend.main import app
 from kasten_backend.tokens import mint
 
@@ -64,6 +69,41 @@ async def client() -> AsyncIterator[AsyncClient]:
         AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as http_client,
     ):
         yield http_client
+
+
+@pytest.fixture
+async def finance_client(client: AsyncClient) -> AsyncIterator[AsyncClient]:
+    """The client, with the finance routes on a database transaction rolled back after the test.
+
+    The database is `KASTEN_DATABASE_URL`, which CI migrates before the tests
+    run. A box with no database, or one never migrated, skips these rather than
+    fails: the dev database is shared with checkouts that have no finance
+    tables. The routes commit to a savepoint inside the outer transaction, so
+    nothing a test writes outlives it.
+    """
+    engine = create_async_engine(get_settings().database_url, poolclass=NullPool)
+    try:
+        connection = await engine.connect()
+    except OperationalError:
+        await engine.dispose()
+        pytest.skip("No database answers at KASTEN_DATABASE_URL")
+    outer = await connection.begin()
+    if await connection.scalar(text("SELECT to_regclass('finance.transaction')")) is None:
+        await connection.close()
+        await engine.dispose()
+        pytest.skip("No finance tables in the database: run `mise run db:migrate`")
+    session = AsyncSession(
+        bind=connection, join_transaction_mode="create_savepoint", expire_on_commit=False
+    )
+    app.dependency_overrides[get_session] = lambda: session
+
+    yield client
+
+    app.dependency_overrides.pop(get_session)
+    await session.close()
+    await outer.rollback()
+    await connection.close()
+    await engine.dispose()
 
 
 @pytest.fixture
