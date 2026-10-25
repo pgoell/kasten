@@ -283,10 +283,18 @@ export function resume(place: Place | null, words: readonly Word[]): number {
   if (place.words === words.length && anchorAt(words, place.word) === place.anchor) {
     return place.word;
   }
-  const head = place.anchor.split(" ")[0];
+  // As many words as the anchor holds: one saved within the last four words of
+  // the text holds fewer than five, and text added after it would add words
+  // here that the saved anchor never had.
+  const wanted = place.anchor.split(" ");
+  const holds = (at: number) =>
+    words
+      .slice(at, at + wanted.length)
+      .map((word) => word.text)
+      .join(" ") === place.anchor;
   let best = -1;
   for (let at = 0; at < words.length; at += 1) {
-    if (words[at]?.text !== head || anchorAt(words, at) !== place.anchor) continue;
+    if (words[at]?.text !== wanted[0] || !holds(at)) continue;
     if (best === -1 || Math.abs(at - place.word) < Math.abs(best - place.word)) best = at;
   }
   return best === -1 ? 0 : best;

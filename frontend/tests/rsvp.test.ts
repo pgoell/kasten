@@ -153,6 +153,14 @@ describe("resume", () => {
     expect(resume(place, changed)).toBe(10);
   });
 
+  it("finds a place near the end once words are added after it", () => {
+    // Saved within the last four words, so its anchor holds fewer than five.
+    const place = placeAt(words, 12);
+    expect(place.anchor).toBe("e f");
+    const longer = plain("a b c d e f g h a b c d e f g h i");
+    expect(resume(place, longer)).toBe(12);
+  });
+
   it("starts at the top when the saved words are gone", () => {
     const place = { word: 2, words: 99, anchor: "no such words here" };
     expect(resume(place, words)).toBe(0);

@@ -10,6 +10,7 @@ import {
   forward,
   LIMITS,
   orp,
+  type Place,
   placeAt,
   type RsvpSettings,
   type RsvpSource,
@@ -90,18 +91,43 @@ export function Rsvp({
   /** The word last saved, so a press that moved nothing writes nothing. */
   const saved = useRef(-1);
 
-  const save = useCallback((at: number) => {
-    const list = now.current.words;
-    if (list === null || list.length === 0 || at === saved.current) return;
-    saved.current = at;
-    saveRsvp(sourceRef.current.path, placeAt(list, at)).then(
-      () => {},
-      (error: unknown) => {
-        saved.current = -1;
-        setNotice(error instanceof Error ? error.message : "The place was not saved");
-      },
-    );
+  /**
+   * The save waiting while another is in the air, the newest only. Two sent at
+   * once can land in either order, and the older landing last would move the
+   * place back, so one goes at a time and a place passed over is never sent.
+   */
+  const waiting = useRef<{ path: string; place: Place } | null>(null);
+  const sending = useRef(false);
+
+  const send = useCallback((path: string, place: Place) => {
+    sending.current = true;
+    saveRsvp(path, place)
+      .then(
+        () => {},
+        (error: unknown) => {
+          saved.current = -1;
+          setNotice(error instanceof Error ? error.message : "The place was not saved");
+        },
+      )
+      .then(() => {
+        sending.current = false;
+        const next = waiting.current;
+        waiting.current = null;
+        if (next !== null) send(next.path, next.place);
+      });
   }, []);
+
+  const save = useCallback(
+    (at: number) => {
+      const list = now.current.words;
+      if (list === null || list.length === 0 || at === saved.current) return;
+      saved.current = at;
+      const job = { path: sourceRef.current.path, place: placeAt(list, at) };
+      if (sending.current) waiting.current = job;
+      else send(job.path, job.place);
+    },
+    [send],
+  );
 
   // The text and the saved place, read once.
   useEffect(() => {

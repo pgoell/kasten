@@ -79,10 +79,39 @@ describe("the RSVP overlay", () => {
       press("Escape");
       expect(onClose).toHaveBeenCalled();
       unmount();
+      // Sent once the pause's save has landed.
+      await act(async () => {
+        await vi.runOnlyPendingTimersAsync();
+      });
       expect(saveRsvp).toHaveBeenLastCalledWith("notes/a.md", expect.objectContaining({ word: 3 }));
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("sends a save only once the one before it has landed", async () => {
+    fetchRsvp.mockResolvedValue(null);
+    let land: () => void = () => {};
+    saveRsvp.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          land = () => resolve({});
+        }),
+    );
+    const { unmount } = render(<Rsvp source={source()} here={false} onClose={() => {}} />);
+    await screen.findByText("n");
+
+    press("l");
+    press(" ");
+    press(" ");
+    press("l");
+    // The second place goes out on the way out, while the first is still in the air.
+    unmount();
+    expect(saveRsvp).toHaveBeenCalledTimes(1);
+
+    await act(async () => land());
+    await vi.waitFor(() => expect(saveRsvp).toHaveBeenCalledTimes(2));
+    expect(saveRsvp).toHaveBeenLastCalledWith("notes/a.md", expect.objectContaining({ word: 6 }));
   });
 
   it("starts from here and saves that as the place", async () => {

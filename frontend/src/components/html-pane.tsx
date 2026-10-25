@@ -175,15 +175,18 @@ export function HtmlPane({
         reject(new Error("The page is not open"));
         return;
       }
-      const timer = setTimeout(() => {
-        textWait.current = null;
-        reject(new Error("The page did not hand over its text"));
-      }, 5000);
-      textWait.current = (text) => {
+      const waiter = (text: string) => {
         clearTimeout(timer);
         textWait.current = null;
         resolve(text);
       };
+      // Cleared only while it is still this read's: a reader closed and opened
+      // again has put a waiter of its own there since.
+      const timer = setTimeout(() => {
+        if (textWait.current === waiter) textWait.current = null;
+        reject(new Error("The page did not hand over its text"));
+      }, 5000);
+      textWait.current = waiter;
       page.postMessage({ kasten: "text" }, "*");
     });
   }
