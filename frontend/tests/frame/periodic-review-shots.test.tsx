@@ -197,10 +197,21 @@ const YEAR_TEXT = [
 ].join("\n");
 const WEEK_TEXT = ["# Week", "", "## My notes", ...OWN, ""].join("\n");
 
+/** A daily note of this week with its closed sessions under `## Time`, which the week's time tile sums. */
+const dailyWith = (day: string, lines: string[]): [string, string] => [
+  periodicNote("daily", new Date(`${day}T12:00:00`)).path,
+  [`# ${day}`, "", "## Time", ...lines, ""].join("\n"),
+];
+
 const TEXTS: Record<string, string> = {
   [CONFIG_PATH]: CONFIG,
   [YEAR_PATH]: YEAR_TEXT,
   [WEEK_PATH]: WEEK_TEXT,
+  ...Object.fromEntries([
+    dailyWith(shiftDay(MONDAY, 1), ["- 09:00-10:30 wire up the pane", "- 13:00-13:45 review"]),
+    dailyWith(shiftDay(MONDAY, 3), ["- 09:15-11:00 write the spec"]),
+    dailyWith(shiftDay(MONDAY, 5), ["- 10:00-11:00 reading"]),
+  ]),
 };
 
 // The GitHub answer each picture asks for, set before the page mounts.
