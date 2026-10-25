@@ -756,12 +756,14 @@ source = { editable = "jobs" }
 dependencies = [
     { name = "fints" },
     { name = "httpx" },
+    { name = "psycopg", extra = ["binary"] },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "fints", specifier = "==5.0.0" },
     { name = "httpx", specifier = ">=0.28" },
+    { name = "psycopg", extras = ["binary"], specifier = ">=3.3" },
 ]
 
 [[package]]

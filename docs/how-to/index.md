@@ -11,6 +11,7 @@ on its code.
 * [Connect an agent](connect-an-agent.md): mint and revoke a token, then connect Claude Code, codex, Claude Desktop, claude.ai, chatgpt.com, another MCP client or curl, or install the skill where MCP is off
 * [Cut a release](cut-a-release.md): pick the next version from the commits, bump it, tag it and watch it deploy
 * [Deploy to the VPS](deploy-to-the-vps.md): the maintainer's own deployment, as a worked example: bootstrap dev and prod on the box, on amd64 or arm64, deploy day to day, open the chat route, and prove the shell is still behind its gate
+* [Import from Firefly III](import-from-firefly-iii.md): bring Firefly III's history into kasten once from a one-shot container, count first with a dry run, and check a second run changes nothing
 * [Import an Anki deck](import-an-anki-deck.md): turn an .apkg export into markdown notes, and know what does not survive the trip
 * [Install kasten on your phone](install-on-your-phone.md): put kasten on a phone's home screen, reach the capture page from its icon, and replace the capture app an earlier release installed
 * [Sort finance transactions](sort-finance-transactions.md): open the finance pane on the bookings still to sort, sort one with a key or a tap, and send every booking of a payee to one category
