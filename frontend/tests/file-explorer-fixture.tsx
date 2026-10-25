@@ -66,6 +66,7 @@ export function Harness({
         openPalette: () => {},
         openLog: () => {},
         openOverview: () => {},
+        openFinance: () => {},
         focusTree: () => {},
         revealTree: onRevealTree ?? (() => {}),
         createNote: onCreateNote ?? (() => {}),

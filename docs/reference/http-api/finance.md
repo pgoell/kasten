@@ -109,13 +109,20 @@ GET /api/finance/transactions?account=1&from=2026-10-01&to=2026-10-31&limit=500&
     "counterparty_name": "Amazon EU", "counterparty_iban": "LU89751000135104200E", "bank_ref": null,
     "raw": { "...": "the record as the bank sent it" }, "source_key": "2026-10-20|-30.00|AMAZON 302-1234567|0",
     "imported_at": "2026-10-25T17:00:03.120000Z", "transfer_group": null,
-    "splits": [{ "id": 1, "amount": "-20.00", "text": "Book" }, { "id": 2, "amount": "-10.00", "text": "Cable" }]
+    "payee_id": 5, "category_id": null, "category_set_by": null,
+    "splits": [
+      { "id": 1, "amount": "-20.00", "text": "Book", "category_id": 2, "category_set_by": "rule" },
+      { "id": 2, "amount": "-10.00", "text": "Cable", "category_id": null, "category_set_by": null }
+    ]
   }
 ]
 ```
 
 `transfer_group` is the same id on both halves of a move between two own
-accounts, and `null` on every other booking.
+accounts, and `null` on every other booking. `payee_id`, `category_id` and
+`category_set_by` (`rule`, `hand` or `null`) are how the booking, and each
+split, is sorted; [HTTP API: finance sorting](/reference/http-api/finance-sorting.md)
+says how.
 
 ## POST /api/finance/transactions
 
@@ -165,6 +172,11 @@ once take turns. The pairing is greedy: with the same amount moved several
 times in a few days, a booking can be left unlinked that another order would
 have paired. That is accepted as rare; such a booking counts as spending.
 
+After the linking, each new booking gets its payee from its counterparty name
+and the rules' category, in the order
+[HTTP API: finance sorting](/reference/http-api/finance-sorting.md#how-a-booking-gets-its-category)
+gives. A transfer takes no category.
+
 A booking on an account id that does not exist refuses the whole batch with a
 `422` naming the ids, and nothing is written.
 
@@ -174,7 +186,9 @@ Puts the list in place of the booking's splits, and answers with the booking
 as `GET` shows it. The splits must add up to the booking's amount: a set that
 does not is a `422` saying both sums, and nothing changes. The parts may
 differ in sign, as an order with a credit or a refunded item does. An empty
-list removes the splits.
+list removes the splits. The new splits take the rules' categories at once,
+and the booking gives up a category a rule gave it, since its category now
+lives on the splits.
 
 ```json
 [{ "amount": "-20.00", "text": "Book" }, { "amount": "-10.00", "text": "Cable" }]

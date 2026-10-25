@@ -83,6 +83,11 @@ export function openOverviewInFocused(layout: Layout): Layout {
   return fillFocused(layout, { overview: true });
 }
 
+/** Put the finance pane in the focused pane, over it for the reason the overview is. */
+export function openFinanceInFocused(layout: Layout): Layout {
+  return fillFocused(layout, { finance: true });
+}
+
 /**
  * Put the review in the focused pane, replacing whatever was there.
  *

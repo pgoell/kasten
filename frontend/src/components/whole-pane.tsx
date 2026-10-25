@@ -1,4 +1,5 @@
 import type { Dispatch, RefObject, SetStateAction } from "react";
+import { FinancePane } from "@/components/finance-pane";
 import { LogPane } from "@/components/log-pane";
 import { OverviewPane } from "@/components/overview-pane";
 import { ReviewPane } from "@/components/review-pane";
@@ -12,7 +13,7 @@ import type { NoteOpening } from "@/lib/use-note-opening";
 import type { TodoActions } from "@/lib/use-todo-actions";
 
 export interface WholePaneProps {
-  pane: Pick<Pane, "overview" | "log" | "todos" | "review">;
+  pane: Pick<Pane, "overview" | "finance" | "log" | "todos" | "review">;
   commands: TreeCommands;
   focused: boolean;
   focusSignal: number;
@@ -28,9 +29,15 @@ export interface WholePaneProps {
   todoRow: RefObject<AgentRow | null>;
 }
 
-/** Whether a pane holds one of the four kinds that fill the whole pane. */
+/** Whether a pane holds one of the five kinds that fill the whole pane. */
 export function isWholePane(pane: WholePaneProps["pane"]): boolean {
-  return pane.overview === true || pane.log === true || pane.todos === true || pane.review === true;
+  return (
+    pane.overview === true ||
+    pane.finance === true ||
+    pane.log === true ||
+    pane.todos === true ||
+    pane.review === true
+  );
 }
 
 /**
@@ -59,6 +66,15 @@ export function WholePane({
         archive={archive}
         // Read at the render, so a tab left open across midnight redraws.
         today={readClock(new Date()).date}
+      />
+    );
+  }
+  if (pane.finance === true) {
+    return (
+      <FinancePane
+        commands={commands}
+        focusSignal={focused ? focusSignal : 0}
+        onNotice={onNotice}
       />
     );
   }

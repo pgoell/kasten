@@ -45,6 +45,7 @@ export function forwardCommands(get: () => EditorCommands | undefined): Extensio
     openTodos: () => get()?.openTodos(),
     openLog: () => get()?.openLog(),
     openOverview: () => get()?.openOverview(),
+    openFinance: () => get()?.openFinance(),
     showBacklinks: () => get()?.showBacklinks(),
     showLinksOut: () => get()?.showLinksOut(),
     openDaily: () => get()?.openDaily(),

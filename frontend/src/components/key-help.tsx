@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Sheet } from "@/components/sheet";
 import { FOLLOW, FORMAT, INDENT, LEADER_EDITS, readable } from "@/lib/buffer-keys";
+import { FINANCE_PANE } from "@/lib/finance-keys";
 import { trapTab } from "@/lib/focus-trap";
 import {
   ANYWHERE,
@@ -173,6 +174,7 @@ export function KeyHelp({ onClose }: { onClose: () => void }) {
     { title: "File tree", keys: TREE },
     { title: "Todo pane", keys: TODO_PANE },
     { title: "Log pane", keys: LOG_PANE },
+    { title: "Finance pane", keys: FINANCE_PANE },
     // Its own group because these are not leader keys and cannot be: the leader
     // is the space bar and a shell must receive the space bar.
     {

@@ -1,6 +1,7 @@
 import type { PaneMoves } from "@/components/use-pane-moves";
 import {
   openChatInFocused,
+  openFinanceInFocused,
   openLogInFocused,
   openOverviewInFocused,
   openReviewInFocused,
@@ -26,6 +27,9 @@ export function wholePaneOpeners(saveFirst: () => Promise<boolean>, moveTo: Pane
     },
     openOverview: async () => {
       if (await saveFirst()) moveTo(openOverviewInFocused);
+    },
+    openFinance: async () => {
+      if (await saveFirst()) moveTo(openFinanceInFocused);
     },
     // Saved first for the reason `openExam` is: this replaces the focused pane, so text still
     // waiting would be written to a pane the autosave no longer follows. No note is named, unlike
