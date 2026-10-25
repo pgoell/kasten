@@ -69,6 +69,27 @@ toolbar's `log` button does the same.
 | `q` | Close the pane |
 | `Escape` | Leave the edit without writing |
 
+## The finance pane
+
+`<leader>gk` puts the finance pane in the focused pane, in place of whatever it
+held. For now it shows the bookings still to sort, oldest first.
+[Sort finance transactions](/how-to/sort-finance-transactions.md) walks
+through it.
+
+Each category takes a key, in the order the categories are listed by name:
+`1` to `9` and `0`, then `b` to `z` without `j`, `k` and `q`. The key shows on
+the category's button. A category past the last key is reached by its button.
+
+| Key | Does |
+| --- | --- |
+| `j` | Move to the next booking |
+| `k` | Move to the previous booking |
+| `1` | Sort the booking into the first category; each button shows its key |
+| `a` | The next category key sorts the booking's payee, always |
+| `?` | Show the keys |
+| `q` | Close the pane |
+| `Escape` | Stop the always, or go back to the editor |
+
 ## The overview
 
 `<leader>ga` puts the overview in the focused pane, in place of whatever it

@@ -1110,10 +1110,12 @@ export interface paths {
         put?: never;
         /**
          * Write Transactions
-         * @description Insert the bookings not already stored, then pair the transfers between own accounts.
+         * @description Insert the bookings not already stored, pair the transfers, then sort the new ones.
          *
          *     A booking already there by account and source key is skipped and left as
-         *     it was, so a job may send an overlapping window every run.
+         *     it was, so a job may send an overlapping window every run. The new
+         *     bookings get their payees and the rules' categories after the transfers
+         *     are paired, since a transfer takes no category.
          */
         post: operations["write_transactions_api_finance_transactions_post"];
         delete?: never;
@@ -1135,6 +1137,225 @@ export interface paths {
          * @description Replace the booking's splits, refusing a set that does not add up to its amount.
          */
         put: operations["write_splits_api_finance_transactions__transaction_id__splits_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/finance/categories": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Categories
+         * @description Every category, by name.
+         */
+        get: operations["read_categories_api_finance_categories_get"];
+        put?: never;
+        /**
+         * Write Category
+         * @description Make a category. A name already taken is a 409.
+         */
+        post: operations["write_category_api_finance_categories_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/finance/categories/{category_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Rewrite Category
+         * @description Rename a category or change its kind. The bookings in it stay in it.
+         */
+        put: operations["rewrite_category_api_finance_categories__category_id__put"];
+        post?: never;
+        /**
+         * Delete Category
+         * @description Delete a category and its rules, and run the rules over what it held.
+         */
+        delete: operations["delete_category_api_finance_categories__category_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/finance/payees": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Payees
+         * @description Every payee, by key.
+         */
+        get: operations["read_payees_api_finance_payees_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/finance/payees/{payee_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Write Payee
+         * @description Set a payee's default category, "always for this payee", and run the rules.
+         */
+        put: operations["write_payee_api_finance_payees__payee_id__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/finance/rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Rules
+         * @description Every rule, in the order they fire.
+         */
+        get: operations["read_rules_api_finance_rules_get"];
+        put?: never;
+        /**
+         * Write Rule
+         * @description Make a rule and run the rules over every booking.
+         */
+        post: operations["write_rule_api_finance_rules_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/finance/rules/{rule_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Rewrite Rule
+         * @description Change a rule and run the rules over every booking.
+         */
+        put: operations["rewrite_rule_api_finance_rules__rule_id__put"];
+        post?: never;
+        /**
+         * Delete Rule
+         * @description Delete a rule and run the rules over every booking, so what it sorted is sorted again.
+         */
+        delete: operations["delete_rule_api_finance_rules__rule_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/finance/rules/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Run Rules
+         * @description Give every booking a payee, run the rules over every booking, and count the changes.
+         */
+        post: operations["run_rules_api_finance_rules_run_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/finance/transactions/{transaction_id}/category": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Write Transaction Category
+         * @description Set a booking's category by hand, or with null hand it back to the rules.
+         */
+        put: operations["write_transaction_category_api_finance_transactions__transaction_id__category_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/finance/splits/{split_id}/category": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Write Split Category
+         * @description Set a split's category by hand, or with null hand it back to the rules.
+         */
+        put: operations["write_split_category_api_finance_splits__split_id__category_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/finance/to-sort": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read To Sort
+         * @description A page of the bookings that hold something without a category, oldest first, and a count.
+         *
+         *     `total` counts the bookings without splits and the loose splits, every
+         *     page alike, so a reader of the first page knows how many wait.
+         */
+        get: operations["read_to_sort_api_finance_to_sort_get"];
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -1902,6 +2123,34 @@ export interface components {
             id?: string | null;
         };
         /**
+         * CategoryIn
+         * @description A category as the browser sends it.
+         */
+        CategoryIn: {
+            /** Name */
+            name: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "fixed" | "flexible" | "non_monthly" | "income" | "saving" | "ignore";
+        };
+        /**
+         * CategoryOut
+         * @description A category as stored.
+         */
+        CategoryOut: {
+            /** Name */
+            name: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "fixed" | "flexible" | "non_monthly" | "income" | "saving" | "ignore";
+            /** Id */
+            id: number;
+        };
+        /**
          * Checklist
          * @description One list, and the digest of the note it was read from.
          */
@@ -1912,6 +2161,14 @@ export interface components {
             sha: string | null;
             /** Items */
             items: components["schemas"]["Item"][];
+        };
+        /**
+         * Choice
+         * @description A category to set, or null to hand the row back to the rules.
+         */
+        Choice: {
+            /** Category Id */
+            category_id: number | null;
         };
         /**
          * Clear
@@ -2241,6 +2498,18 @@ export interface components {
             text: string;
         };
         /**
+         * LooseSplit
+         * @description A split still without a category.
+         */
+        LooseSplit: {
+            /** Id */
+            id: number;
+            /** Amount */
+            amount: string;
+            /** Text */
+            text: string | null;
+        };
+        /**
          * Mention
          * @description One place another note names this one in plain text, without linking to it.
          */
@@ -2377,6 +2646,28 @@ export interface components {
             html: string;
         };
         /**
+         * PayeeOut
+         * @description A payee: its cleaned key, the name shown, and its default category.
+         */
+        PayeeOut: {
+            /** Id */
+            id: number;
+            /** Key */
+            key: string;
+            /** Name */
+            name: string;
+            /** Category Id */
+            category_id: number | null;
+        };
+        /**
+         * Ran
+         * @description How many bookings and splits a run of the rules gave another category.
+         */
+        Ran: {
+            /** Changed */
+            changed: number;
+        };
+        /**
          * Restored
          * @description Where a restored note or folder landed, which is where it was.
          */
@@ -2393,6 +2684,38 @@ export interface components {
             new_per_day: number | null;
             /** Reviews Per Day */
             reviews_per_day: number | null;
+        };
+        /**
+         * RuleIn
+         * @description A rule as the browser sends it. The pattern is stored as `sorting.clean_pattern` makes it.
+         */
+        RuleIn: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "text_contains" | "payee";
+            /** Pattern */
+            pattern: string;
+            /** Category Id */
+            category_id: number;
+        };
+        /**
+         * RuleOut
+         * @description A rule as stored.
+         */
+        RuleOut: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "text_contains" | "payee";
+            /** Pattern */
+            pattern: string;
+            /** Category Id */
+            category_id: number;
+            /** Id */
+            id: number;
         };
         /**
          * Save
@@ -2441,6 +2764,10 @@ export interface components {
             amount: string;
             /** Text */
             text: string | null;
+            /** Category Id */
+            category_id: number | null;
+            /** Category Set By */
+            category_set_by: string | null;
         };
         /**
          * Stored
@@ -2461,6 +2788,45 @@ export interface components {
             done: boolean;
             /** Sha */
             sha: string;
+        };
+        /**
+         * ToSort
+         * @description A booking that holds something to sort: itself, or the splits listed.
+         */
+        ToSort: {
+            /** Id */
+            id: number;
+            /** Account Id */
+            account_id: number;
+            /**
+             * Booking Date
+             * Format: date
+             */
+            booking_date: string;
+            /** Amount */
+            amount: string;
+            /** Currency */
+            currency: string;
+            /** Purpose */
+            purpose: string | null;
+            /** Counterparty Name */
+            counterparty_name: string | null;
+            /** Payee Id */
+            payee_id: number | null;
+            /** Payee Name */
+            payee_name: string | null;
+            /** Splits */
+            splits: components["schemas"]["LooseSplit"][];
+        };
+        /**
+         * ToSortPage
+         * @description A page of bookings to sort, and how many things are to sort in all.
+         */
+        ToSortPage: {
+            /** Total */
+            total: number;
+            /** Bookings */
+            bookings: components["schemas"]["ToSort"][];
         };
         /**
          * TodoHit
@@ -2599,6 +2965,12 @@ export interface components {
             imported_at: string;
             /** Transfer Group */
             transfer_group: string | null;
+            /** Payee Id */
+            payee_id: number | null;
+            /** Category Id */
+            category_id: number | null;
+            /** Category Set By */
+            category_set_by: string | null;
             /** Splits */
             splits: components["schemas"]["SplitOut"][];
         };
@@ -4136,6 +4508,417 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TransactionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_categories_api_finance_categories_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CategoryOut"][];
+                };
+            };
+        };
+    };
+    write_category_api_finance_categories_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CategoryIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CategoryOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    rewrite_category_api_finance_categories__category_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                category_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CategoryIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CategoryOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_category_api_finance_categories__category_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                category_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_payees_api_finance_payees_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PayeeOut"][];
+                };
+            };
+        };
+    };
+    write_payee_api_finance_payees__payee_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                payee_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Choice"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PayeeOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_rules_api_finance_rules_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RuleOut"][];
+                };
+            };
+        };
+    };
+    write_rule_api_finance_rules_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RuleIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RuleOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    rewrite_rule_api_finance_rules__rule_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                rule_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RuleIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RuleOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_rule_api_finance_rules__rule_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                rule_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    run_rules_api_finance_rules_run_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Ran"];
+                };
+            };
+        };
+    };
+    write_transaction_category_api_finance_transactions__transaction_id__category_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                transaction_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Choice"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransactionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    write_split_category_api_finance_splits__split_id__category_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                split_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Choice"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SplitOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_to_sort_api_finance_to_sort_get: {
+        parameters: {
+            query?: {
+                after?: number | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ToSortPage"];
                 };
             };
             /** @description Validation Error */

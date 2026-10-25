@@ -132,6 +132,9 @@ export const LEADER: readonly LeaderBinding[] = [
   { key: "gt", label: "Open the todo pane", command: "openTodos" },
   // `g` for go and `f` for food, the pane holding the day's food log.
   { key: "gf", label: "Open the log", command: "openLog" },
+  // `g` for go and `k` for Konto, the German word on every bank statement:
+  // `f` is spent on the food log and `m` on the month.
+  { key: "gk", label: "Open the finance pane", command: "openFinance" },
   // `g` for go and `v` for video. It sits with `gr` for the same reason: both
   // put the thing the note is about in a pane beside the note about it.
   { key: "gv", label: "Watch this note's video beside it", command: "openVideo" },
@@ -263,6 +266,7 @@ export const LEADER_COLUMNS: readonly { title: string; keys: readonly string[] }
       "gs",
       "gt",
       "gf",
+      "gk",
       "e",
       "E",
     ],

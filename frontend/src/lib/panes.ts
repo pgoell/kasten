@@ -55,6 +55,8 @@ export interface Pane {
   log?: boolean;
   /** The overview's pane. */
   overview?: boolean;
+  /** The finance pane's. */
+  finance?: boolean;
   /**
    * The literature note whose book this pane is reading, absent otherwise.
    *
@@ -117,8 +119,7 @@ export interface Pane {
    * The note's path and not the address, which is where this follows `book` and
    * `exam` rather than `image`: the link lives in the note, so the pane holds
    * the handle and a folder move that rewrites `path` carries the player with
-   * it. An eighth optional field for the reason `book` is the fourth, written
-   * out above.
+   * it. An eighth optional field for the reason `book` is the fourth.
    */
   video?: string;
   /**
@@ -127,7 +128,7 @@ export interface Pane {
    * The person's own note path, following `book` and `video` rather than
    * `image`: the card is read off that note and everything linking to it, so a
    * folder move that rewrites `path` carries the card with it. A ninth optional
-   * field for the reason `book` is the fourth, written out above.
+   * field for the reason `book` is the fourth.
    */
   person?: string;
   /**
@@ -144,8 +145,7 @@ export interface Pane {
    * `around` names the note a local graph is drawn around, and is absent on
    * the graph of the whole vault. An object rather than the path alone, so the
    * whole vault has a value that is not an empty string standing for nothing.
-   * A tenth optional field for the reason `book` is the fourth, written out
-   * above.
+   * A tenth optional field for the reason `book` is the fourth.
    */
   graph?: { around?: string };
   /**
@@ -453,6 +453,7 @@ const HOLDS = [
   "todos",
   "log",
   "overview",
+  "finance",
   "book",
   "exam",
   "review",

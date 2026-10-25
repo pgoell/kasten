@@ -74,6 +74,7 @@ const PANE: Record<string, Check> = {
   todos: isTrue,
   log: isTrue,
   overview: isTrue,
+  finance: isTrue,
   book: isString,
   exam: isString,
   review: isTrue,

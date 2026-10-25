@@ -120,14 +120,14 @@ async def store_balances(session: AsyncSession, rows: list[dict[str, Any]]) -> i
     return len(rows)
 
 
-async def insert_transactions(session: AsyncSession, rows: list[dict[str, Any]]) -> int:
-    """Insert the bookings the table does not hold yet, and say how many that was.
+async def insert_transactions(session: AsyncSession, rows: list[dict[str, Any]]) -> list[int]:
+    """Insert the bookings the table does not hold yet, and hand back their ids.
 
     A booking already there by its account and source key is left exactly as
     it is, so a window that overlaps the last one costs nothing.
     """
     if not rows:
-        return 0
+        return []
     seen: dict[tuple[int, str], dict[str, Any]] = {}
     for row in rows:
         known = seen.setdefault((row["account_id"], row["source_key"]), row)
@@ -140,7 +140,7 @@ async def insert_transactions(session: AsyncSession, rows: list[dict[str, Any]])
         .on_conflict_do_nothing(constraint="transaction_account_source_key")
         .returning(Transaction.id)
     )
-    return len((await session.scalars(statement)).all())
+    return list((await session.scalars(statement)).all())
 
 
 async def link_transfers(session: AsyncSession) -> int:
@@ -201,7 +201,9 @@ async def link_transfers(session: AsyncSession) -> int:
                 Transaction.id.in_(pair),
                 ~exists().where(other.id.in_(pair), other.transfer_group.is_not(None)),
             )
-            .values(transfer_group=uuid.uuid4())
+            # A transfer takes no category, so one a half got before its
+            # twin came in, by rule or by hand, goes.
+            .values(transfer_group=uuid.uuid4(), category_id=None, category_set_by=None)
             .returning(Transaction.id)
         )
         if len(linked.all()) == len(pair):
@@ -269,6 +271,11 @@ async def replace_splits(
     total = sum((part["amount"] for part in parts), Decimal(0))
     if parts and total != booking.amount:
         raise SplitSumError(total, booking.amount)
+    if parts:
+        # With splits the category lives on them, so the booking's own goes,
+        # even one set by hand.
+        booking.category_id = None
+        booking.category_set_by = None
     booking.splits = [TransactionSplit(**part) for part in parts]
     await session.flush()
     return booking

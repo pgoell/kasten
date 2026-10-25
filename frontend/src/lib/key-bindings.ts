@@ -48,12 +48,14 @@ export interface EditorCommands {
   findTodos(): void;
   /** Open the book finder, which lists every note with an epub beside it. */
   findBook(): void;
-  /** Put the todo list in the focused pane, replacing whatever was there. */
+  /** Put the todo list in the focused pane, replacing whatever was there. The next three alike. */
   openTodos(): void;
-  /** Put the log pane in the focused pane, replacing whatever was there. */
+  /** The log pane. */
   openLog(): void;
-  /** Put the overview of the week's numbers in the focused pane, replacing whatever was there. */
+  /** The overview of the week's numbers. */
   openOverview(): void;
+  /** The finance pane, on the bookings still to sort. */
+  openFinance(): void;
   /** Show what links to the open note. Needs one open, as its opposite does. */
   showBacklinks(): void;
   /** Show what the open note links to, which is that pair read the other way. */

@@ -73,6 +73,7 @@ export function usePaneCommands({
     | "todos"
     | "log"
     | "overview"
+    | "finance"
     | "book"
     | "exam"
     | "review"
@@ -184,6 +185,7 @@ export function usePaneCommands({
       | "openTodos"
       | "openLog"
       | "openOverview"
+      | "openFinance"
       | "openGraph"
       | "openLocalGraph"
       | "openDaily"
@@ -247,6 +249,7 @@ export function usePaneCommands({
           pane.todos === true ||
           pane.log === true ||
           pane.overview === true ||
+          pane.finance === true ||
           pane.book !== undefined ||
           pane.exam !== undefined ||
           pane.review === true ||
@@ -469,6 +472,7 @@ export function usePaneCommands({
       pane.todos,
       pane.log,
       pane.overview,
+      pane.finance,
       pane.book,
       pane.exam,
       pane.review,

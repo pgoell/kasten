@@ -168,6 +168,7 @@ describe("KeyHelp", () => {
       "File tree",
       "Todo pane",
       "Log pane",
+      "Finance pane",
       "Terminal",
       "Screens you type",
     ];

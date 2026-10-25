@@ -17,7 +17,7 @@ from fastapi import APIRouter, Body, Depends, HTTPException, Query
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from kasten_backend import finance
+from kasten_backend import finance, finance_sorting
 from kasten_backend.db import get_session
 from kasten_backend.finance_models import Kind  # noqa: TC001  pydantic reads it at runtime
 from kasten_backend.log import DATE_PATTERN
@@ -140,6 +140,8 @@ class SplitOut(BaseModel):
     id: int
     amount: Decimal
     text: str | None
+    category_id: int | None
+    category_set_by: str | None
 
 
 class TransactionOut(BaseModel):
@@ -166,6 +168,9 @@ class TransactionOut(BaseModel):
     source_key: str
     imported_at: datetime
     transfer_group: uuid.UUID | None
+    payee_id: int | None
+    category_id: int | None
+    category_set_by: str | None
     splits: list[SplitOut]
 
 
@@ -243,18 +248,25 @@ async def read_transactions(  # noqa: PLR0913  each query parameter is its own a
 async def write_transactions(
     bookings: Annotated[list[TransactionIn], Body(max_length=MAX_BATCH)], session: Session
 ) -> Ingested:
-    """Insert the bookings not already stored, then pair the transfers between own accounts.
+    """Insert the bookings not already stored, pair the transfers, then sort the new ones.
 
     A booking already there by account and source key is skipped and left as
-    it was, so a job may send an overlapping window every run.
+    it was, so a job may send an overlapping window every run. The new
+    bookings get their payees and the rules' categories after the transfers
+    are paired, since a transfer takes no category.
     """
+    # First, so the sorting after the insert and a run of the rules beside it
+    # take turns rather than wait on each other's rows.
+    await finance_sorting.lock(session)
     try:
         created = await finance.insert_transactions(session, [b.model_dump() for b in bookings])
     except (finance.UnknownAccountError, finance.KeyClashError) as refused:
         raise HTTPException(status_code=422, detail=str(refused)) from refused
     linked = await finance.link_transfers(session)
+    await finance_sorting.assign_payees(session, created)
+    await finance_sorting.apply_rules(session, created)
     await session.commit()
-    return Ingested(created=created, skipped=len(bookings) - created, linked=linked)
+    return Ingested(created=len(created), skipped=len(bookings) - len(created), linked=linked)
 
 
 @router.put("/transactions/{transaction_id}/splits")
@@ -262,6 +274,7 @@ async def write_splits(
     transaction_id: int, parts: list[SplitIn], session: Session
 ) -> TransactionOut:
     """Replace the booking's splits, refusing a set that does not add up to its amount."""
+    await finance_sorting.lock(session)
     try:
         booking = await finance.replace_splits(
             session, transaction_id, [part.model_dump() for part in parts]
@@ -270,5 +283,8 @@ async def write_splits(
         raise HTTPException(status_code=422, detail=str(uneven)) from uneven
     if booking is None:
         raise HTTPException(status_code=404, detail="No such transaction")
+    # The new splits are sorted at once, and the booking itself gives up a
+    # category a rule gave it, since its category now lives on them.
+    await finance_sorting.apply_rules(session, [transaction_id])
     await session.commit()
-    return TransactionOut.model_validate(booking)
+    return TransactionOut.model_validate(await finance_sorting.reread(session, transaction_id))

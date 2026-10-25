@@ -22,7 +22,9 @@ costs.
 
 The schema exists from migration `0001`. Migration `0002` adds accounts,
 balances, bookings and their splits, which jobs on the host write through
-[the finance routes](/reference/http-api/finance.md). Budgets, plans and goals
+[the finance routes](/reference/http-api/finance.md). Migration `0003` adds the
+categories, payees and rules that
+[sort them](/reference/http-api/finance-sorting.md). Budgets, plans and goals
 come later in the finance module (#971).
 
 ## A transaction is not a note

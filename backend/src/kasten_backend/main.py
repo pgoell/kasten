@@ -25,6 +25,7 @@ from kasten_backend.routes import (
     anki,
     assets,
     finance,
+    finance_sorting,
     github,
     listing,
     moves,
@@ -187,6 +188,7 @@ app.include_router(food.router)
 app.include_router(anki.router)
 app.include_router(tokens.router)
 app.include_router(finance.router)
+app.include_router(finance_sorting.router)
 app.include_router(share.router)
 app.add_middleware(share.ShareGate)
 """The shared lists, and the gate that keeps the share host to them.
