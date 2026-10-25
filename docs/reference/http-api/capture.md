@@ -300,9 +300,10 @@ the token set by [`KASTEN_GITHUB_TOKEN`](/reference/github-settings.md#kasten_gi
 Each day read is kept in
 [`KASTEN_GITHUB_CACHE_PATH`](/reference/github-settings.md#kasten_github_cache_path),
 outside the vault. The answer comes from that file when every day of the range
-is in it, and either the range ends before yesterday, since a past day does not
-change, or GitHub was last asked less than an hour ago. Otherwise GitHub is
-asked once for the range, and the answer is merged into the file.
+up to today is in it, and each of those days is either settled or was read less
+than an hour ago. A day is settled once it was read on a later day than itself.
+Otherwise GitHub is asked once for the range, and the answer is merged into the
+file. A day after today has no count yet, so it is left out of the answer.
 
 A read that fails, by an HTTP error, GraphQL errors or a timeout, answers the
 days the file holds for the range, and logs one warning that names no token.

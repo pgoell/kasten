@@ -57,11 +57,11 @@ Where the GitHub contributions read so far are kept.
 | Default | `github-contributions.json` beside the tokens file |
 | Read by | `GET /api/github` |
 
-Each day read is kept in this one JSON file, with the login it was read for and
-the time GitHub was last asked. A past day is answered from the file for good.
-The days through today are read again once the last read is an hour old. A
-file holding another login is ignored. A failed read answers the days the file
-holds.
+Each day read is kept in this one JSON file, with the login it was read for, the
+time GitHub was last asked, and which days are settled. A day read on a later
+day than itself is settled and is answered from the file for good. Any other
+day, today among them, is read again once the last read is an hour old. A file
+holding another login is ignored. A failed read answers the days the file holds.
 
 Like the tokens file, it lies outside the vault, so a count never enters jj
 history. Production mounts the directory that holds the tokens, which keeps the

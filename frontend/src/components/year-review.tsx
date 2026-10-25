@@ -77,6 +77,7 @@ function YearBody({
         <GitHub year={year} to={to} reads={reads} />
         <Months
           year={year}
+          to={to}
           today={today}
           written={reads.written.data}
           error={reads.written.error}
@@ -84,6 +85,7 @@ function YearBody({
         />
         <Weight year={year} reads={reads} from={from} to={to} />
         <Tags
+          year={year}
           notes={notes}
           from={from}
           to={to}
@@ -212,12 +214,14 @@ function GitHub({ year, to, reads }: { year: number; to: string; reads: YearRead
 
 function Months({
   year,
+  to,
   today,
   written,
   error,
   pending,
 }: {
   year: number;
+  to: string;
   today: string;
   written: string[];
   error: string | undefined;
@@ -237,7 +241,7 @@ function Months({
       </Section>
     );
   }
-  const amounts = monthCounts(written, year);
+  const amounts = monthCounts(written, year, to);
   const total = amounts.reduce((sum, count) => sum + count, 0);
   // The month the year is in now, full strength; the others step back as they do on the overview.
   const todayIndex = today.startsWith(`${year}-`) ? Number(today.slice(5, 7)) - 1 : undefined;
@@ -265,7 +269,15 @@ function Weight({
   from: string;
   to: string;
 }) {
-  // The kind is the config's, so the section waits on the config as well as on the days.
+  // The kind is the config's, so a config that failed to read says so, rather than the defaults'
+  // lack of a weight kind, and the section waits on the config as well as on the days.
+  if (reads.config.error !== undefined) {
+    return (
+      <Section heading="Weight">
+        <Failed message={reads.config.error} />
+      </Section>
+    );
+  }
   if (reads.config.pending || reads.days.pending) {
     return (
       <Section heading="Weight">
@@ -309,12 +321,14 @@ function Weight({
 }
 
 function Tags({
+  year,
   notes,
   from,
   to,
   error,
   pending,
 }: {
+  year: number;
   notes: WrittenNote[];
   from: string;
   to: string;
@@ -339,7 +353,7 @@ function Tags({
   if (tags.length === 0) {
     return (
       <Section heading="Top tags">
-        <Words>No tags on the notes written this year.</Words>
+        <Words>{`No tags on the notes written in ${year}.`}</Words>
       </Section>
     );
   }

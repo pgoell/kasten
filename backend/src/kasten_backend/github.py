@@ -2,13 +2,14 @@
 
 GitHub's GraphQL answers how many contributions a user made on each day of a
 range, and the review asks for the days it shows. A day already read is kept in
-a JSON file beside the agent tokens: a past day does not change, and the other
-days are read again once the last read is an hour old.
+a JSON file beside the agent tokens. A day read on a later day is settled and is
+not read again. Any other day is read again once the last read is an hour old.
 
 The token goes to GitHub in the `Authorization` header and nowhere else. The
 browser gets day counts and never the login or the token.
 """
 
+import asyncio
 import logging
 import os
 import tempfile
@@ -54,11 +55,18 @@ class _BadAnswerError(Exception):
 
 
 class Cache(BaseModel):
-    """The cache file: whose days these are, their counts, and when GitHub was last asked."""
+    """The cache file: whose days these are, their counts, which are settled, and the last read."""
 
     user: str
     days: dict[str, int]
+    settled: set[str] = Field(default_factory=set)
+    """The days read on a later day than themselves: GitHub's count for them is final."""
     read: datetime
+
+
+_lock = asyncio.Lock()
+"""Held across the load, the ask and the save, so two reads at once cannot each save a merge
+of the file they loaded and drop the other's days. One backend process, one lock."""
 
 
 def _client() -> httpx.AsyncClient:
@@ -67,8 +75,13 @@ def _client() -> httpx.AsyncClient:
 
 
 def _now() -> datetime:
-    """The moment now, a seam so a test can let an hour pass without waiting for it."""
+    """The moment now, a seam so a test can move the clock on without waiting for it."""
     return datetime.now(UTC)
+
+
+def _today() -> date:
+    """Today on the server's clock, the day the review's days are counted by."""
+    return _now().astimezone().date()
 
 
 def _days(first: date, last: date) -> list[str]:
@@ -82,8 +95,8 @@ def _load(path: Path, user: str) -> Cache | None:
         return None
     try:
         cache = Cache.model_validate_json(path.read_text(encoding="utf-8"))
-    except ValueError:
-        # A file that does not read is no cache, and the next read writes over it.
+    except OSError, ValueError:
+        # A file that cannot be read is no cache, and the next read writes over it.
         return None
     return cache if cache.user == user else None
 
@@ -187,21 +200,32 @@ async def contributions(
 ) -> dict[str, int]:
     """The contributions `user` made on each day from `first` to `last`, keyed by `YYYY-MM-DD`.
 
-    The cache answers when it holds every day of the range and either the range
-    ends before yesterday, past days being final, or the last read is under an
-    hour old. Otherwise GitHub is asked once for the range and the answer is
-    merged into the cache.
+    A day after today is not read yet, so it is neither asked for nor held, and a
+    day after today that GitHub has no count for is left out of the answer. The
+    cache answers when every day of the range up to today is held, and each of
+    them is either settled or was read less than an hour ago. Otherwise GitHub is
+    asked once for the range and the answer is merged into the cache.
 
     A read that fails answers the days the cache holds, with one warning that
-    names no token. With none of the range cached, `GitHubUnavailable` is raised.
+    names no token. With none of the range cached, `GitHubUnavailableError` is raised.
     """
+    async with _lock:
+        return await _contributions(user, token, cache, first, last)
+
+
+async def _contributions(
+    user: str, token: str, cache: Path, first: date, last: date
+) -> dict[str, int]:
+    """`contributions`, with the lock held by the caller."""
     wanted = _days(first, last)
+    today = _today().isoformat()
     held = _load(cache, user)
     days = held.days if held is not None else {}
-    yesterday = date.today() - timedelta(days=1)
+    settled = held.settled if held is not None else set()
     recent = held is not None and _now() - held.read < timedelta(seconds=REREAD_SECONDS)
-    if all(day in days for day in wanted) and (last < yesterday or recent):
-        return {day: days[day] for day in wanted}
+    due = [day for day in wanted if day <= today]
+    if all(day in days and (day in settled or recent) for day in due):
+        return {day: days[day] for day in wanted if day in days}
 
     try:
         asked = await _ask(user, token, first, last)
@@ -216,8 +240,13 @@ async def contributions(
         )
         return known
 
+    # A day read on a later day than itself is settled: the count it got then is final.
+    settled = settled | {day for day in asked if day < today}
     try:
-        _save(cache, Cache(user=user, days={**days, **asked}, read=_now()))
+        _save(
+            cache,
+            Cache(user=user, days={**days, **asked}, settled=settled, read=_now()),
+        )
     except OSError as error:
         # The answer is good whether or not it is kept, so a cache that cannot be
         # written costs only the next read.

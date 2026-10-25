@@ -116,6 +116,11 @@ function build(state: EditorState): DecorationSet {
  */
 export const periodicReview: Extension = StateField.define<DecorationSet>({
   create: build,
-  update: (value, tr) => (tr.docChanged ? build(tr.state) : value),
+  // A rename that leaves the text as it is changes the path the note is for, and so which review
+  // (if any) it gets: the block is built again for that.
+  update: (value, tr) =>
+    tr.docChanged || tr.startState.facet(notePath) !== tr.state.facet(notePath)
+      ? build(tr.state)
+      : value,
   provide: (field) => EditorView.decorations.from(field),
 });

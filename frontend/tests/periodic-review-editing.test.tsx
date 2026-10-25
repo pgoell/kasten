@@ -4,7 +4,7 @@ import { NoteMissing } from "@/lib/api";
 import { applyLayout } from "@/lib/layout";
 import { hashed } from "./digests";
 import { defineFoliateFake } from "./foliate-fake";
-import { FakeEventSource, pageHooks, renderApp, settle, VAULT } from "./home-route-fixture";
+import { FakeEventSource, pageHooks, renderApp, settle, stream, VAULT } from "./home-route-fixture";
 import { DEFAULT_LAYOUT } from "./home-route-overview-fixture";
 import {
   CONFIG,
@@ -284,6 +284,16 @@ describe("the periodic reviews in the note, read and edit", () => {
     expect(readCounts()).toEqual(before);
     expect(docText()).toBe(`${WEEK_TEXT}one more line\n`);
     expect(reviewText()).toContain("Week in review");
+  });
+
+  it("#807 I5 a note written elsewhere asks the written notes again, for their tags and projects", async () => {
+    await openNote(YEAR_NOTE);
+    const before = fetchWrittenNotes.mock.calls.length;
+
+    stream().send({ path: "00 Inbox/elsewhere.md", change: "written", digest: null });
+    await settle();
+
+    expect(fetchWrittenNotes.mock.calls.length).toBeGreaterThan(before);
   });
 
   // gg and G count lines, which jsdom can do. j and k move by screen rows, which jsdom lays

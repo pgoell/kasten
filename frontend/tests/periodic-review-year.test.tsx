@@ -166,6 +166,7 @@ const TEXTS: Record<string, string> = {
   [LOG_CONFIG]: CONFIG,
   [YEAR_NOTE]: YEAR_TEXT,
   [NEXT_YEAR_NOTE]: "# 2027\n\nmy own line\n",
+  [LAST_YEAR_NOTE]: "# 2025\n\nmy own line\n",
 };
 
 /** Opens a note on the route the way a link does, and lets its reads arrive. */
@@ -334,7 +335,7 @@ describe("the year review on the yearly note", () => {
 
     expect(sectionText("Projects")).toContain("No project had a done todo or a note in 2026.");
     expect(sectionText("Weight")).toContain("No weight kind in the log config.");
-    expect(sectionText("Top tags")).toContain("No tags on the notes written this year.");
+    expect(sectionText("Top tags")).toContain("No tags on the notes written in 2026.");
     expect(sectionText("Notes per month")).toContain("notes written per month, 0 in all");
     expect(statsOf()).toContainEqual(["Time logged", "0m"]);
     expect(reviewText()).not.toMatch(/NaN|Infinity/);
@@ -348,6 +349,33 @@ describe("the year review on the yearly note", () => {
     expect(sectionText("Projects")).toContain("Reading…");
     expect(sectionText("Top tags")).toContain("Reading…");
     expect(sectionText("Projects")).not.toContain("No project had");
+  });
+
+  it("#807 I1 a past year with no tags says in that year, not this one", async () => {
+    await openNote(LAST_YEAR_NOTE);
+
+    expect(sectionText("Top tags")).toContain("No tags on the notes written in 2025.");
+  });
+
+  it("#807 A3 a note dated after today is left out of the month bars, as Notes made leaves it out", async () => {
+    // Tomorrow's daily note is written ahead, and /api/written answers it for this range.
+    fetchWritten.mockResolvedValue([...YEAR_NOTES.map((note) => note.day), "2026-10-26"]);
+    await openNote(YEAR_NOTE);
+
+    expect(sectionText("Notes per month")).toContain("notes written per month, 6 in all");
+    expect(statsOf()).toContainEqual(["Notes made", "6"]);
+  });
+
+  it("#807 I2 a failed log config read says so in Weight, not as no weight kind", async () => {
+    const answer = fetchNote.getMockImplementation();
+    fetchNote.mockImplementation(async (path: string) => {
+      if (path === LOG_CONFIG) throw new Error("GET /api/files/log.md failed with 500");
+      return answer?.(path);
+    });
+    await openNote(YEAR_NOTE);
+
+    expect(sectionText("Weight")).toContain("GET /api/files/log.md failed with 500");
+    expect(sectionText("Weight")).not.toContain("No weight kind");
   });
 
   it("#807 I2 a failed todos read shows its message in Projects, and the GitHub section still draws", async () => {

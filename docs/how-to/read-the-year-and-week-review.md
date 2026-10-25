@@ -54,8 +54,8 @@ then by notes, most first, then by name.
 * A todo belongs to the project the todo list gives it. That is the first of the
   five steps in [Tags, projects and views](/reference/todo-format/tags-projects-and-views.md#projects),
   so a `#p/x` tag on the line wins, then the folder the note sits in.
-* A note belongs to the first `#p/x` tag it carries that names a project, or else
-  to the project folder it sits in.
+* A note belongs to the `#p/x` tag that comes first by name among its tags and
+  names a project folder. Without one, it belongs to the project folder it sits in.
 * Done counts the todos whose `✅` date falls in the year.
 * Time adds up the `⏱` on those done todos. A done todo with no `⏱` adds nothing.
 * Notes counts the notes written in the year that have a project.
@@ -181,9 +181,10 @@ If GitHub cannot be read, for example with a bad token or while GitHub is down,
 the section says `GitHub could not be read.` and gives the status of the failed
 read, such as `GET /api/github failed with 502`. The token is never in the words.
 
-The backend keeps each day it reads in a file outside the vault. A past day,
-once read, is kept for good and is not asked for again. Today is asked again once the last read is an hour old. The
-cache file and its location are in [GitHub settings](/reference/github-settings.md#kasten_github_cache_path).
+The backend keeps each day it reads in a file outside the vault. A day read on a
+later day than itself is settled and is not asked for again. Any other day, today
+among them, is asked again once the last read is an hour old. The cache file and
+its location are in [GitHub settings](/reference/github-settings.md#kasten_github_cache_path).
 
 Model use, tokens and cost are not in the review yet. They wait on issue #808.
 

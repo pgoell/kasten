@@ -104,9 +104,18 @@ describe("the notes per month, tags and numbers", () => {
     const counts = monthCounts(
       ["2026-01-05", "2026-01-31", "2026-12-31", "2025-12-30", "2027-01-01"],
       2026,
+      "2026-12-31",
     );
 
     expect(counts).toEqual([2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]);
+  });
+
+  it("#807 A3 leaves out a note dated after the range's last day, as Notes made does", () => {
+    // Tomorrow's daily note is written ahead, and /api/written answers it for today's range.
+    const counts = monthCounts(["2026-10-25", "2026-10-26"], 2026, "2026-10-25");
+
+    expect(counts[9]).toBe(1);
+    expect(counts.reduce((sum, count) => sum + count, 0)).toBe(1);
   });
 
   it("#807 A3 counts a tag once a note, most first, ties by tag, up to the limit", () => {
@@ -176,7 +185,7 @@ describe("the empty year", () => {
         to: YEAR.to,
       }),
     ).toEqual({ todosDone: 0, minutes: 0, notes: 0, flashcards: 0, daysLogged: 0 });
-    expect(monthCounts([], 2026)).toEqual([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+    expect(monthCounts([], 2026, "2026-12-31")).toEqual([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
     expect(topTags([], YEAR.from, YEAR.to)).toEqual([]);
     expect(minutesWords(0)).toBe("0m");
   });
@@ -189,7 +198,7 @@ describe("the local day of an instant", () => {
     const before = process.env.TZ;
     process.env.TZ = "Europe/Berlin";
     try {
-      const counts = monthCounts(["2026-10-31T23:30:00+00:00"], 2026);
+      const counts = monthCounts(["2026-10-31T23:30:00+00:00"], 2026, "2026-12-31");
       expect(counts[9]).toBe(0);
       expect(counts[10]).toBe(1);
     } finally {

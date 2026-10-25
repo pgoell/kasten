@@ -27,6 +27,8 @@ defineFoliateFake();
 /** The file a done row opens: its third line is the todo the row names. */
 const TASKS = "02 Projects/FDE/tasks.md";
 const TASKS_TEXT = "# tasks\n\n- [x] ship the export ✅ 2026-10-20\n- [ ] next thing\n";
+/** The week before the current one, which ends before the open todo's due date. */
+const PAST_WEEK_NOTE = "01 Periodic/01 Weekly/2026-W42.md";
 
 // The doubles, the same in every home-route file: see home-route-fixture.tsx.
 const {
@@ -165,6 +167,7 @@ const TEXTS: Record<string, string> = {
   [WEEK_NOTE]: WEEK_TEXT,
   [NEXT_WEEK_NOTE]: "# 2026-W44\n\nmy own line\n",
   [TASKS]: TASKS_TEXT,
+  [PAST_WEEK_NOTE]: "# 2026-W42\n\nmy own line\n",
 };
 
 /** Opens a note on the route the way a link does, and lets its reads arrive. */
@@ -201,7 +204,13 @@ describe("the week review on the weekly note", () => {
     vi.stubGlobal("EventSource", FakeEventSource);
     vi.stubGlobal("scrollTo", () => {});
     FakeEventSource.last = undefined;
-    fetchFiles.mockResolvedValue([...Object.keys(VAULT), WEEK_NOTE, NEXT_WEEK_NOTE, TASKS]);
+    fetchFiles.mockResolvedValue([
+      ...Object.keys(VAULT),
+      WEEK_NOTE,
+      NEXT_WEEK_NOTE,
+      PAST_WEEK_NOTE,
+      TASKS,
+    ]);
     fetchNote.mockImplementation(async (path: string) => {
       const text = TEXTS[path];
       if (text === undefined) throw new NoteMissing(path);
@@ -298,6 +307,25 @@ describe("the week review on the weekly note", () => {
 
     expect(sectionText("Done")).toContain("GET /api/todos failed with 500");
     expect(labelIn("kcal per day")).toBe("kcal per day this week, goal at most 2,200 kcal");
+  });
+
+  it("#807 I1 a past week with nothing carried over says so without speaking of today", async () => {
+    await openNote(PAST_WEEK_NOTE);
+
+    expect(sectionText("Carried over")).toContain("Nothing carried over from this week.");
+    expect(sectionText("Carried over")).not.toContain("today");
+  });
+
+  it("#807 I2 a failed log config read shows its message in the tiles, not as no kcal goal", async () => {
+    const answer = fetchNote.getMockImplementation();
+    fetchNote.mockImplementation(async (path: string) => {
+      if (path === LOG_CONFIG) throw new Error("GET /api/files/log.md failed with 500");
+      return answer?.(path);
+    });
+    await openNote(WEEK_NOTE);
+
+    expect(tiles()[2]?.[2]).toBe("GET /api/files/log.md failed with 500");
+    expect(reviewText()).not.toContain("no kcal goal");
   });
 
   it("#807 I3 a week that has not started says so, and draws nothing else", async () => {

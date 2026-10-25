@@ -59,6 +59,8 @@
   line-height: 1.1;
   color: var(--k-ink);
   font-variant-numeric: tabular-nums;
+  /* A figure like `33h 28m` breaks at its space otherwise, and a broken number reads as two. */
+  white-space: nowrap;
 }
 
 @media (width < 48rem) {
@@ -142,7 +144,10 @@
   text-align: left;
 }
 
-.review-table td {
+/* The first column names the row, and every column after it holds a number: those align right,
+   headers included, so a heading sits over its figures. */
+.review-table th:not(:first-child),
+.review-table td:not(:first-child) {
   text-align: right;
 }
 
@@ -193,5 +198,16 @@
     display: flex;
     align-items: center;
     min-height: 44px;
+  }
+}
+
+/* On a phone the words of these lines are 15 px, as the rule above sets them. They sit here,
+   after their own rules, so the size wins over the 13 px each of those rules sets. */
+@media (width < 48rem) {
+  .review-subtitle,
+  .review-table,
+  .review-tags,
+  .review-row {
+    font-size: var(--k-text-15);
   }
 }

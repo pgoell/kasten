@@ -73,6 +73,7 @@ export function useVaultEvents(
       const nowListed = listingOf(answer);
       if (listed !== undefined && nowListed !== listed) {
         queryClient.invalidateQueries({ queryKey: ["written"] }, { cancelRefetch: false });
+        queryClient.invalidateQueries({ queryKey: ["written-notes"] }, { cancelRefetch: false });
       }
       listed = nowListed;
     });
@@ -207,6 +208,15 @@ export function useVaultEvents(
         (dailyDate(event.path) !== null || event.path === LOG_NOTE)
       ) {
         queryClient.invalidateQueries({ queryKey: ["log"] }, { cancelRefetch: false });
+      }
+      // The review's notes carry tags and projects, which another note's write can change, so a
+      // write or removal elsewhere asks them again. Not the open note's own autosave: it is typed
+      // into every second, and the review's own note asks nothing as it is typed.
+      if (
+        (event.change === "written" || event.change === "removed") &&
+        event.path !== focusedNote.current.path
+      ) {
+        queryClient.invalidateQueries({ queryKey: ["written-notes"] }, { cancelRefetch: false });
       }
       const paths = queryClient.getQueryData<string[]>(["files"]);
       // A removal refetches no note, so the readers of log.md would keep the text

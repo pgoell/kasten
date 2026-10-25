@@ -9,6 +9,7 @@ Each test goes through the endpoint, so each one fails on a branch without the
 route for a reason of its own: a 404, or an assertion reached.
 """
 
+import asyncio
 import json
 import logging
 from collections.abc import Callable, Iterator
@@ -379,3 +380,95 @@ async def test_807_a6_nothing_is_written_in_the_vault(
         "status": 200,
         "unchanged": True,
     }
+
+
+async def test_807_i8_a_week_ahead_asks_once_for_the_days_read(
+    client: AsyncClient, served: Callable[..., None], github: Callable[[Answer], list]
+) -> None:
+    served()
+    today = date.today()
+    monday = today - timedelta(days=today.weekday())
+    sunday = monday + timedelta(days=6)
+    # GitHub's calendar stops at today, so the days after it are never in the file.
+    read_days = [(monday + timedelta(days=n)).isoformat() for n in range((today - monday).days + 1)]
+    seen = github(lambda request: httpx.Response(200, json=calendar(dict.fromkeys(read_days, 1))))
+    params = {"from": monday.isoformat(), "to": sunday.isoformat()}
+
+    first = await client.get("/api/github", params=params)
+    second = await client.get("/api/github", params=params)
+
+    assert {"statuses": [first.status_code, second.status_code], "asked": len(seen)} == {
+        "statuses": [200, 200],
+        "asked": 1,
+    }
+
+
+async def test_807_i8_a_day_read_on_its_own_day_is_read_again_later(
+    client: AsyncClient,
+    served: Callable[..., None],
+    github: Callable[[Answer], list],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    served()
+    today = date.today()
+    week = [(today - timedelta(days=back)).isoformat() for back in range(7)]
+    seen = github(lambda request: httpx.Response(200, json=calendar(dict.fromkeys(week, 1))))
+    first = await client.get("/api/github", params={"from": week[0], "to": week[0]})
+    assert first.status_code == 200
+
+    # Three days on, today's count is a past day's, so it is read again and settled.
+    later = datetime.now(UTC) + timedelta(days=3)
+    monkeypatch.setattr("kasten_backend.github._now", lambda: later)
+    second = await client.get("/api/github", params={"from": week[-1], "to": week[0]})
+    asked_then = len(seen)
+    # Six hours on, with the last read long past its hour, only settled days can answer.
+    monkeypatch.setattr("kasten_backend.github._now", lambda: later + timedelta(hours=6))
+    third = await client.get("/api/github", params={"from": week[-1], "to": week[0]})
+
+    assert {
+        "statuses": [second.status_code, third.status_code],
+        "asked": [asked_then, len(seen)],
+    } == {"statuses": [200, 200], "asked": [2, 2]}
+
+
+async def test_807_i8_an_unreadable_cache_is_no_cache(
+    client: AsyncClient,
+    served: Callable[..., None],
+    github: Callable[[Answer], list],
+    tmp_path: Path,
+) -> None:
+    served()
+    # A folder where the cache file should be: it cannot be read, nor replaced.
+    (tmp_path / CACHE_NAME).mkdir()
+    seen = github(calendar_for_march)
+
+    r = await client.get("/api/github", params={"from": "2026-03-01", "to": "2026-03-02"})
+
+    assert {"status": r.status_code, "answer": r.json(), "asked": len(seen)} == {
+        "status": 200,
+        "answer": {"on": True, "days": {"2026-03-01": 3, "2026-03-02": 0}},
+        "asked": 1,
+    }
+
+
+async def test_807_i8_two_reads_at_once_keep_both_ranges(
+    client: AsyncClient,
+    served: Callable[..., None],
+    github: Callable[[Answer], list],
+    tmp_path: Path,
+) -> None:
+    served()
+    github(
+        lambda request: httpx.Response(
+            200, json=calendar({"2026-03-01": 1, "2026-03-02": 2, "2026-03-10": 3, "2026-03-11": 4})
+        )
+    )
+
+    early, late = await asyncio.gather(
+        client.get("/api/github", params={"from": "2026-03-01", "to": "2026-03-02"}),
+        client.get("/api/github", params={"from": "2026-03-10", "to": "2026-03-11"}),
+    )
+
+    assert [early.status_code, late.status_code] == [200, 200]
+    stored = json.loads((tmp_path / CACHE_NAME).read_text(encoding="utf-8"))
+    assert sorted(stored["days"]) == ["2026-03-01", "2026-03-02", "2026-03-10", "2026-03-11"]

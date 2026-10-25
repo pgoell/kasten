@@ -115,12 +115,15 @@ export function projectRows(
 }
 
 /**
- * The notes written in each month of `year`, twelve numbers from January. A note counts
- * on the day `dayOf` gives it, so an instant near midnight lands in the reader's month.
+ * The notes written in each month of `year` up to `to`, twelve numbers from January. A note
+ * counts on the day `dayOf` gives it, so an instant near midnight lands in the reader's month.
+ * `to` is the last day counted, so a note made ahead (tomorrow's daily note) is left out the
+ * way Notes made leaves it out.
  */
-export function monthCounts(written: string[], year: number): number[] {
+export function monthCounts(written: string[], year: number, to: string): number[] {
   const counts = new Map<string, number>();
   for (const [day, count] of writtenCounts(written)) {
+    if (!inRange(day, `${year}-01-01`, to)) continue;
     const month = day.slice(0, 7);
     counts.set(month, (counts.get(month) ?? 0) + count);
   }

@@ -82,7 +82,11 @@ function WeekBody({
       <Rows
         heading="Carried over"
         hits={carriedOver(reads.todos.data, week.monday, week.sunday, today)}
-        empty="Nothing carried over into today."
+        empty={
+          week.monday <= today && today <= week.sunday
+            ? "Nothing carried over into today."
+            : "Nothing carried over from this week."
+        }
         error={reads.todos.error}
         pending={reads.todos.pending}
         open={open}
@@ -134,13 +138,18 @@ function Tiles({ week, reads }: { week: WeekOf; reads: WeekReads }) {
         : { figure, words };
   const todos = shown(reads.todos, grouped(tiles.todosDone), "ticked done this week");
   const minutes = shown(reads.notes, minutesWords(tiles.minutes), "in the day notes' sessions");
+  // The kcal and weight tiles read the config too: the goal and the weight kind come from it.
+  const dayRead = {
+    error: reads.days.error ?? reads.config.error,
+    pending: reads.days.pending || reads.config.pending,
+  };
   const kcal = shown(
-    reads.days,
+    dayRead,
     tiles.withinKcal === null ? "—" : `${tiles.withinKcal} of 7`,
     tiles.withinKcal === null ? "no kcal goal" : "days within the goal",
   );
   const weight = shown(
-    reads.days,
+    dayRead,
     change === null || kind === undefined
       ? "—"
       : `${change > 0 ? "+" : ""}${change + 0} ${kind.unit}`,
@@ -156,7 +165,19 @@ function Tiles({ week, reads }: { week: WeekOf; reads: WeekReads }) {
   );
 }
 
+/**
+ * The GitHub line, in a section of its own: a line of words straight under the tiles would
+ * read as the caption of the weight tile above it.
+ */
 function GitHubLine({ reads }: { reads: WeekReads }) {
+  return (
+    <div className="review-section">
+      <GitHubWords reads={reads} />
+    </div>
+  );
+}
+
+function GitHubWords({ reads }: { reads: WeekReads }) {
   const github = reads.github;
   if (github.error !== undefined)
     return <Failed message={`GitHub could not be read. ${github.error}`} />;
@@ -177,6 +198,13 @@ function Kcal({
 }) {
   const goal = reads.config.data.food.kcal;
   const bars = kcalPerDay(reads.days.data, reads.config.data, dates);
+  if (reads.config.error !== undefined) {
+    return (
+      <Section heading="kcal per day">
+        <Failed message={reads.config.error} />
+      </Section>
+    );
+  }
   if (reads.days.error !== undefined) {
     return (
       <Section heading="kcal per day">
