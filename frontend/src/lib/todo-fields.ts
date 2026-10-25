@@ -69,7 +69,7 @@ const DONE = /✅️?[ \t]+(\d{4}-\d{2}-\d{2})/d;
 const CANCELLED = /❌️?[ \t]+(\d{4}-\d{2}-\d{2})/d;
 const PRIORITY = /(🔺|⏫|🔼|🔽|⏬)️?/d;
 // Ends at a space or the line's end, so `🏁 keep-it` stays words.
-const ON_COMPLETION = /🏁️?[ \t]+(keep|delete)(?=[ \t]|$)/d;
+const ON_COMPLETION = /🏁️?[ \t]+(keep|delete)(?=[ \t\n]|$)/d;
 const ID = /🆔️?[ \t]+(\S+)/d;
 const BLOCKED_BY = /⛔️?[ \t]+(\S+)/d;
 const ESTIMATE = /⏲️?[ \t]+(\S+)/d;
@@ -77,12 +77,14 @@ const WORKED = /⏱️?[ \t]+(\S+)/d;
 
 // The one field whose value is free text, so it runs to the next marker rather
 // than to the next space. A tag ends it too: a recurrence never carries one,
-// and a tag belongs to the words, as does a `^block` id that ends the line.
+// and a tag belongs to the words, as does a `^block` id that ends the line. A
+// stop where a field was taken out ends it as well.
 const RECURRENCE =
-  /🔁️?[ \t]+(.+?)(?=[ \t]*(?:📅|📆|🗓|⏳|🛫|➕|✅|❌|🔺|⏫|🔼|🔽|⏬|🏁|🆔|⛔|⏲|⏱|👤|#)|[ \t]+\^[\w-]+[ \t]*$|[ \t]*$)/d;
+  /🔁️?[ \t]+(.+?)(?=[ \t]*(?:📅|📆|🗓|⏳|🛫|➕|✅|❌|🔺|⏫|🔼|🔽|⏬|🏁|🆔|⛔|⏲|⏱|👤|#)|[ \t]+\^[\w-]+[ \t]*(?:\n|$)|[ \t]*\n|[ \t]*$)/d;
 
-// Where a field was cut, a stop for a person's name, which would otherwise run
-// across the gap to the words after it. A todo's rest never holds a newline,
+// Where a field was taken out, a stop for the fields read after it. Without it a
+// value would run across the gap the field left, so `🔁 every week 📅 …` would
+// read its recurrence on into the words. A todo's rest never holds a newline,
 // and no value takes one.
 const CUT = "\n";
 
@@ -159,8 +161,8 @@ export function readFields(rest: string): Fields {
  * ends in `rest`. A tag is read on the words once the fields are out, so
  * `📅 2026-10-20#agent` carries one and `🆔 kt-a,#agent` none; `origin` keeps each
  * kept character's offset in `rest` so `@` can find that same tag on the line.
- * `waitEnd` is that match's end, read before the cut, so a `👤` another field
- * holds as its value never stands in for the wait. `places` gives each field's
+ * `waitEnd` is that match's end, so a `👤` another field holds as its value
+ * never stands in for the wait. `places` gives each field's
  * own match the same way, so a write over a stamp lands on the one the line
  * reads back and not on a `👤` an earlier field holds as its value.
  */
@@ -173,8 +175,6 @@ export function readTagged(rest: string): {
   let text = rest;
   let mask = masked(rest);
   let origin = Array.from({ length: rest.length }, (_, at) => at);
-  // Where each field taken out was, as an offset in `text`, kept in step as the text shrinks.
-  let cuts: number[] = [];
   let waitEnd: number | undefined;
   const places = new Map<RegExp, { from: number; to: number }>();
 
@@ -182,20 +182,14 @@ export function readTagged(rest: string): {
   function take(pattern: RegExp): (string | undefined)[] {
     const found = find(pattern, text, mask);
     if (found === null) return [];
-    // Mapped back through `origin`, a match is a place in `rest` only while it
-    // is contiguous there. One cut from the middle of a later field's match is
-    // not, and `patchFields` reads that back as a mismatch.
+    // A match never runs over a stop, so mapped back through `origin` it is a
+    // contiguous place in `rest`, which `patchFields` reads back as it stands.
     const place = { from: origin[found.from] ?? 0, to: (origin[found.to - 1] ?? 0) + 1 };
     if (pattern === WAITING) waitEnd = place.to;
     if (pattern !== BLOCKED_BY) places.set(pattern, place);
-    const width = found.to - found.from;
-    cuts = [
-      ...cuts.map((at) => (at <= found.from ? at : Math.max(found.from, at - width))),
-      found.from,
-    ];
-    text = text.slice(0, found.from) + text.slice(found.to);
-    mask = mask.slice(0, found.from) + mask.slice(found.to);
-    origin = [...origin.slice(0, found.from), ...origin.slice(found.to)];
+    text = text.slice(0, found.from) + CUT + text.slice(found.to);
+    mask = mask.slice(0, found.from) + CUT + mask.slice(found.to);
+    origin = [...origin.slice(0, found.from), -1, ...origin.slice(found.to)];
     return found.values;
   }
 
@@ -215,14 +209,6 @@ export function readTagged(rest: string): {
   const blockedBy: string[] = [];
   for (let [blocker] = take(BLOCKED_BY); blocker !== undefined; [blocker] = take(BLOCKED_BY)) {
     blockedBy.push(blocker);
-  }
-
-  // Put back as stops for the two person fields, which then stop at them. Highest
-  // first, so each insert leaves the offsets below it where they were.
-  for (const at of [...new Set(cuts)].sort((a, b) => b - a)) {
-    text = text.slice(0, at) + CUT + text.slice(at);
-    mask = mask.slice(0, at) + CUT + mask.slice(at);
-    origin = [...origin.slice(0, at), -1, ...origin.slice(at)];
   }
 
   const [waitingSince, waitingOn] = take(WAITING);
@@ -343,18 +329,19 @@ const STAMPS: {
 /** `rest` naming `blocker` as well, straight after the last `⛔` it carries. */
 function withBlocker(rest: string, blocker: string): string | null {
   const stamp = `⛔ ${blocker}`;
+  const had = readFields(rest);
+  const want = { ...had, blockedBy: [...had.blockedBy, blocker] };
   const last = [...masked(rest).matchAll(new RegExp(BLOCKED_BY.source, "g"))].at(-1);
   if (last !== undefined) {
-    // The value runs to a space or the line's end, so the stamp never touches a word.
+    // The value runs to a space or the line's end, so the stamp never touches a
+    // word. A bare `⛔` before a date reads `📅` as its value, so the insert is
+    // checked before it is kept.
     const at = last.index + last[0].length;
-    return `${rest.slice(0, at)} ${stamp}${rest.slice(at)}`;
+    const written = `${rest.slice(0, at)} ${stamp}${rest.slice(at)}`;
+    if (sameFields(readFields(written), want)) return written;
   }
   // The first one goes where any stamp goes, the end of the order.
-  const had = readFields(rest);
-  return withStamp(rest, stamp, ORDER.indexOf(BLOCKED_BY), {
-    ...had,
-    blockedBy: [...had.blockedBy, blocker],
-  });
+  return withStamp(rest, stamp, ORDER.indexOf(BLOCKED_BY), want);
 }
 
 /** Whether two readings carry the same words and fields, however they were spelled. */

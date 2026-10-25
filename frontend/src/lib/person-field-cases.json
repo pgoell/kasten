@@ -270,5 +270,77 @@
     "assignee": null,
     "waitingSince": "2026-10-25",
     "waitingOn": null
+  },
+  {
+    "id": "recurrence-stops-at-a-due-date",
+    "rest": "a 🔁 every week 📅 2026-10-20 more",
+    "text": "a more",
+    "assignee": null,
+    "waitingSince": null,
+    "waitingOn": null
+  },
+  {
+    "id": "recurrence-stops-at-a-priority",
+    "rest": "a 🔁 every day ⏫ more",
+    "text": "a more",
+    "assignee": null,
+    "waitingSince": null,
+    "waitingOn": null
+  },
+  {
+    "id": "bare-blocker-before-a-due-date",
+    "rest": "a ⛔ 📅 2026-10-20 more",
+    "text": "a ⛔ more",
+    "assignee": null,
+    "waitingSince": null,
+    "waitingOn": null
+  },
+  {
+    "id": "bare-estimate-before-a-due-date",
+    "rest": "a ⏲ 📅 2026-10-20 more",
+    "text": "a ⏲ more",
+    "assignee": null,
+    "waitingSince": null,
+    "waitingOn": null
+  },
+  {
+    "id": "bare-worked-before-a-due-date",
+    "rest": "a ⏱ 📅 2026-10-20 more",
+    "text": "a ⏱ more",
+    "assignee": null,
+    "waitingSince": null,
+    "waitingOn": null
+  },
+  {
+    "id": "bare-id-before-a-due-date",
+    "rest": "a 🆔 📅 2026-10-20 more",
+    "text": "a 🆔 more",
+    "assignee": null,
+    "waitingSince": null,
+    "waitingOn": null
+  },
+  {
+    "id": "blocker-hard-against-a-due-date",
+    "rest": "a ⛔ kt-1📅 2026-10-20 more",
+    "text": "a more",
+    "assignee": null,
+    "waitingSince": null,
+    "waitingOn": null
+  },
+  {
+    "id": "on-completion-hard-against-a-priority",
+    "rest": "a 🏁 keep⏫ more",
+    "text": "a more",
+    "assignee": null,
+    "waitingSince": null,
+    "waitingOn": null
+  },
+  {
+    "id": "recurrence-before-a-block-id-and-a-priority",
+    "rest": "a 🔁 every week ^x ⏫",
+    "text": "a ^x",
+    "assignee": null,
+    "waitingSince": null,
+    "waitingOn": null
   }
 ]

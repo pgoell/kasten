@@ -27,15 +27,15 @@ _WORD = (
 U+001F, which the editor's does not, and leaves out U+FEFF, which it holds."""
 _DATE = r"[ \t]+([0-9]{4}-[0-9]{2}-[0-9]{2})"
 _BLOCK_ID = r"\^[A-Za-z0-9_-]+[ \t]*(?:\n|$)"
+# A `🔁` value runs to the next field, tag, `👤`, block id or cut, as the editor's does.
+_RECURRENCE_END = r"(?=[ \t]*(?:" + STOP + r"|👤|#)|[ \t]+" + _BLOCK_ID + r"|[ \t]*\n|[ \t]*$)"
 FIELDS = (
     re.compile("(?:📅|📆|🗓)" + _VS + _DATE),
     re.compile("⏳" + _VS + _DATE),
     re.compile("🛫" + _VS + _DATE),
     re.compile("(🔺|⏫|🔼|🔽|⏬)" + _VS),
-    re.compile(
-        "🔁" + _VS + r"[ \t]+(.+?)(?=[ \t]*(?:" + STOP + r"|👤|#)|[ \t]+" + _BLOCK_ID + r"|[ \t]*$)"
-    ),
-    re.compile("🏁" + _VS + r"[ \t]+(keep|delete)(?=[ \t]|$)"),
+    re.compile("🔁" + _VS + r"[ \t]+(.+?)" + _RECURRENCE_END),
+    re.compile("🏁" + _VS + r"[ \t]+(keep|delete)(?=[ \t\n]|$)"),
     re.compile(_CREATED + _VS + _DATE),
     re.compile("✅" + _VS + _DATE),
     re.compile("❌" + _VS + _DATE),
@@ -44,7 +44,8 @@ FIELDS = (
     re.compile("🆔" + _VS + r"[ \t]+" + _WORD),
 )
 BLOCKED_BY = re.compile("⛔" + _VS + r"[ \t]+" + _WORD)
-# Where a field was cut: a stop for a person's name, so it does not run across the gap.
+# What a cut field leaves behind: a stop for every free-text or one-word value, so
+# it does not run across the gap. `_WORD` and the `🔁` value already refuse it.
 _CUT = "\n"
 # A `👤` value ends at a field, tag, block id, `👤` or cut; a wait's name is optional.
 _ENDS = r"(?=[ \t]+(?:" + STOP + r"|🔁|👤|#|" + _BLOCK_ID + r")|[ \t]*\n|[ \t]*$)"
@@ -90,26 +91,20 @@ def _fields(rest: str) -> tuple[str, str | None]:
 
     Each field is found on a copy with every span blanked to a no-break space,
     so a marker inside a link is no marker and a one-word value cannot run into
-    one, and cut from both. A match with no value is no field, and only the
+    one, and cut from both. Each cut leaves `_CUT` where it stood, so a value
+    read after it stops there. A match with no value is no field, and only the
     first match of each is tried, as in the editor; only `⛔` repeats. The
     assignee is read off `rest`, so its spelling is kept.
     """
     text = rest
     masked = mask(rest)
     who = None
-    cuts: list[int] = []
     for pattern in (*FIELDS, BLOCKED_BY, WAITING, ASSIGNEE):
-        if pattern is WAITING:
-            for at in sorted(set(cuts), reverse=True):
-                text = text[:at] + _CUT + text[at:]
-                masked = masked[:at] + _CUT + masked[at:]
         while (found := pattern.search(masked)) is not None and any(found.groups()):
             if pattern is ASSIGNEE:
                 who = text[found.start(1) : found.end(1)]
-            start, width = found.start(), found.end() - found.start()
-            cuts = [at if at <= start else max(start, at - width) for at in cuts] + [start]
-            text = text[: found.start()] + text[found.end() :]
-            masked = masked[: found.start()] + masked[found.end() :]
+            text = text[: found.start()] + _CUT + text[found.end() :]
+            masked = masked[: found.start()] + _CUT + masked[found.end() :]
             if pattern is not BLOCKED_BY:
                 break
     # As the editor squeezes the words, so `[[FDE  Kickoff]]` names `FDE Kickoff`.

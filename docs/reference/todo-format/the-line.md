@@ -85,6 +85,11 @@ with a field straight after it, as in `👤 ⏲ 2h Bob`. One spelling
 changed meaning: an undated `👤 Ada` on a `[w]` line used to be who the todo
 waits on, and is now the assignee. To keep it as the wait, put the date first.
 
+A value of one word or free text stops where a field cut before it stood. That
+holds for `🔁`, `🏁`, `⏲`, `⏱`, `🆔`, `⛔` and a person's name. So
+`a ⛔ 📅 2026-10-20 more` keeps `⛔ more` as words, and
+`a 🔁 every week 📅 2026-10-20 more` keeps `more`.
+
 The five dates are `YYYY-MM-DD` and nothing else. A `📅 next tuesday` is not a
 date, so the whole of it stays in the words. The five priority glyphs read
 highest, high, medium, low and lowest, in that order. The recurrence is the one
