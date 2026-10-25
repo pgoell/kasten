@@ -156,3 +156,21 @@ async def test_the_forecast_starts_at_the_bank_balance(finance_client: AsyncClie
     assert found["mine"]["balance"] == "2403.00"
     assert [m["balance"] for m in found["mine"]["months"][:2]] == ["1503.00", "603.00"]
     assert len(found["household"]["months"]) == 12
+
+
+async def test_a_booking_that_comes_in_after_the_plan_meets_it(finance_client: AsyncClient) -> None:
+    ids = await setup(finance_client)
+    await plan(
+        finance_client, name="Haftpflicht", account_id=ids["giro"], payee_id=ids["payee"],
+        amount="-600.00", tolerance="10.00", every_months=12, start="2026-10-01",
+    )  # fmt: skip
+    later = booking(
+        ids["giro"],
+        "bill-2027",
+        "-605.00",
+        booking_date="2027-10-03",
+        counterparty_name="HUK Coburg",
+    )
+    await post(finance_client, [later])
+    due = (await finance_client.get(f"{API}/plans/upcoming", params={"month": "2027-10"})).json()
+    assert due[0]["match"]["amount"] == "-605.00"
