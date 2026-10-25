@@ -196,14 +196,16 @@ def _done(line: str) -> bool:
 def _ticked(rest: str) -> str:
     """The words of an item as a done one: its done date and an id, the id last.
 
-    An item that already has an id keeps it and gets its date before it, so the
-    id does not move between edits.
+    An item that reads an id keeps it and gets its date before it, so the id does
+    not move between edits. The field reader decides what reads one, so a bare
+    `🆔` among the words, or one inside a link or code span, is words and gets a
+    new id.
     """
     rest = FINISHED.sub("", rest).rstrip()
     done = f"✅ {date.today().isoformat()}"
-    if ID_MARK in rest:
-        head, _, tail = rest.partition(ID_MARK)
-        return f"{head.rstrip()} {done} {ID_MARK}{tail}"
+    found = todo_fields.ID.search(todo_fields.mask(rest))
+    if found is not None:
+        return f"{rest[: found.start()].rstrip()} {done} {rest[found.start() :]}"
 
     return f"{rest} {done} {ID_MARK} kt-{secrets.token_hex(3)}"
 

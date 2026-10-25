@@ -33,6 +33,8 @@ _DATE = r"[ \t]+([0-9]{4}-[0-9]{2}-[0-9]{2})"
 _BLOCK_ID = r"\^[A-Za-z0-9_-]+[ \t]*(?:\n|$)"
 # A `🔁` value runs to the next field, tag, `👤`, block id or cut, as the editor's does.
 _RECURRENCE_END = r"(?=[ \t]*(?:" + STOP + r"|👤|#)|[ \t]+" + _BLOCK_ID + r"|[ \t]*\n|[ \t]*$)"
+ID = re.compile("🆔" + _VS + _ONE_WORD)
+"""The id field `🆔 kt-…`: a `🆔` whose next word is no marker, which `share.py` reads too."""
 FIELDS = (
     re.compile("(?:📅|📆|🗓)" + _VS + _DATE),
     re.compile("⏳" + _VS + _DATE),
@@ -45,7 +47,7 @@ FIELDS = (
     re.compile("❌" + _VS + _DATE),
     re.compile("⏲" + _VS + _ONE_WORD),
     re.compile("⏱" + _VS + _ONE_WORD),
-    re.compile("🆔" + _VS + _ONE_WORD),
+    ID,
 )
 BLOCKED_BY = re.compile("⛔" + _VS + _ONE_WORD)
 # What a cut field leaves behind: a stop for every free-text or one-word value, so

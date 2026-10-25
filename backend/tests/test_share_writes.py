@@ -146,6 +146,74 @@ async def test_tick_done_writes_the_done_mark_and_an_id(client: AsyncClient, fol
     assert re.search(rf"^- \[x\] Milch ✅ {today} 🆔 kt-[0-9a-f]{{6}}$", written, re.MULTILINE)
 
 
+async def test_1051_tick_stamps_an_id_when_the_words_hold_a_bare_id_sign(
+    client: AsyncClient, folder: Path
+) -> None:
+    sha = put(folder, BLOCK + "- [ ] a 🆔 ⛔ kt-1 more\n")
+
+    response = await client.post(
+        "/share/lists/Einkauf/tick", json={"line": 6, "done": True, "sha": sha}
+    )
+
+    written = (folder / "Einkauf.md").read_text(encoding="utf-8")
+    today = date.today().isoformat()
+    assert response.status_code == 200
+    assert re.search(
+        rf"^- \[x\] a 🆔 ⛔ kt-1 more ✅ {today} 🆔 kt-[0-9a-f]{{6}}$", written, re.MULTILINE
+    )
+
+
+async def test_1051_tick_keeps_the_id_the_line_reads_after_a_bare_id_sign(
+    client: AsyncClient, folder: Path
+) -> None:
+    sha = put(folder, BLOCK + "- [ ] a 🆔 ⛔ kt-1 🆔\N{VARIATION SELECTOR-16} kt-000002\n")
+
+    response = await client.post(
+        "/share/lists/Einkauf/tick", json={"line": 6, "done": True, "sha": sha}
+    )
+
+    written = (folder / "Einkauf.md").read_text(encoding="utf-8")
+    today = date.today().isoformat()
+    assert response.status_code == 200
+    assert body_of(written) == (
+        f"\n- [x] a 🆔 ⛔ kt-1 ✅ {today} 🆔\N{VARIATION SELECTOR-16} kt-000002\n"
+    )
+
+
+async def test_1051_tick_stamps_an_id_after_a_trailing_bare_id_sign(
+    client: AsyncClient, folder: Path
+) -> None:
+    sha = put(folder, BLOCK + "- [ ] a 🆔\n")
+
+    response = await client.post(
+        "/share/lists/Einkauf/tick", json={"line": 6, "done": True, "sha": sha}
+    )
+
+    written = (folder / "Einkauf.md").read_text(encoding="utf-8")
+    today = date.today().isoformat()
+    assert response.status_code == 200
+    assert re.search(rf"^- \[x\] a 🆔 ✅ {today} 🆔 kt-[0-9a-f]{{6}}$", written, re.MULTILINE)
+
+
+async def test_1051_tick_stamps_an_id_when_the_id_sits_in_a_link_or_code_span(
+    client: AsyncClient, folder: Path
+) -> None:
+    sha = put(folder, BLOCK + "- [ ] see [[🆔 kt-1]] and `🆔 kt-2`\n")
+
+    response = await client.post(
+        "/share/lists/Einkauf/tick", json={"line": 6, "done": True, "sha": sha}
+    )
+
+    written = (folder / "Einkauf.md").read_text(encoding="utf-8")
+    today = date.today().isoformat()
+    assert response.status_code == 200
+    assert re.search(
+        rf"^- \[x\] see \[\[🆔 kt-1\]\] and `🆔 kt-2` ✅ {today} 🆔 kt-[0-9a-f]{{6}}$",
+        written,
+        re.MULTILINE,
+    )
+
+
 async def test_untick_strips_the_done_mark_and_keeps_the_id(
     client: AsyncClient, folder: Path
 ) -> None:

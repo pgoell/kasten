@@ -73,7 +73,9 @@ last item line, or at the end of the note. Answers the `List` after the add.
 Takes `{"line": 4, "done": true, "sha": "3f9c1a0"}` and answers the `List`.
 
 Ticking to done writes `- [x] <text> ✅ <today>`, and a `🆔 kt-<6 hex>` after it
-unless the line has an id already. The `✅` goes before an existing `🆔`.
+unless the line reads an id already. The `✅` goes before the id it reads. A
+`🆔` with no word after it, or one inside a link or code span, reads no id, as in
+the editor, so the line gets one.
 Unticking writes `- [ ] <text>` and strips the `✅` date.
 
 A tick whose line is already in the asked state, or is not an item, answers
