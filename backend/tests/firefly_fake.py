@@ -69,8 +69,8 @@ def journal(  # noqa: PLR0913  a record of many fields, each test naming a few
 
 
 def firefly(*journals: Journal, triggers: tuple[Trigger, ...] = ()) -> Firefly:
-    """A Firefly with the accounts above, the journals given and two categories."""
-    return Firefly(ACCOUNTS, list(journals), ["Dining", "Groceries"], list(triggers))
+    """A Firefly with the accounts above, the journals given and three categories, one unused."""
+    return Firefly(ACCOUNTS, list(journals), ["Dining", "Groceries", "Unused"], list(triggers))
 
 
 class Bridge(httpx.BaseTransport):

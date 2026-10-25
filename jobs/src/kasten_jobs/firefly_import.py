@@ -41,7 +41,6 @@ KIND = {
     "Insurance & memberships": "fixed",
     "Subs (AI/tech)": "fixed",
     "Subs (personal)": "fixed",
-    "Subscriptions": "fixed",
     "Investments": "saving",
     "Wedding": "non_monthly",
     "Travel": "non_monthly",
@@ -145,6 +144,12 @@ class Report:
             log.info("rule not translated: %s (%s)", rule, reason)
 
 
+def used_categories(ff: Firefly) -> list[str]:
+    """The Firefly categories a journal or a translated rule names; an unused one stays behind."""
+    named = {j.category for j in ff.journals} | {r.category for r in translate(ff.triggers).rules}
+    return [name for name in ff.categories if name in named]
+
+
 def plan(ff: Firefly) -> tuple[Report, list[Booking]]:
     """What Firefly holds, counted, and the bookings with stand-in account ids."""
     assets = [a for a in ff.accounts.values() if a.type == "Asset account"]
@@ -162,6 +167,7 @@ def plan(ff: Firefly) -> tuple[Report, list[Booking]]:
         "with a counterparty IBAN": sum(bool(b.body["counterparty_iban"]) for b in made),
         "with a Firefly category": sum(bool(j.category) for j in ff.journals),
         "categories": len(ff.categories),
+        "categories in use": len(used_categories(ff)),
         "rule triggers": len(ff.triggers),
         "rules translated": len(rules.rules),
         "triggers merged into one rule": rules.merged,
@@ -176,7 +182,7 @@ def run(ff: Firefly, api: KastenApi) -> Report:
     c = report.counts
     c["categories created"] = c["rules created"] = 0
     categories = {row["name"]: row["id"] for row in api.categories()}
-    for name in ff.categories:
+    for name in used_categories(ff):
         if name not in categories:
             categories[name] = api.post_category(name, KIND.get(name, "flexible"))["id"]
             c["categories created"] += 1

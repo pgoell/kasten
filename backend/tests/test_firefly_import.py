@@ -144,6 +144,7 @@ async def test_a_category_the_rules_do_not_give_is_set_by_hand(
         r["raw"]["firefly"]["id"]: (r["category_id"], r["category_set_by"])
         for r in await stored(finance_client)
     }
+    assert set(categories) == {"Dining", "Groceries"}
     assert sorted_as == {
         1: (categories["Groceries"], "rule"),
         2: (categories["Dining"], "hand"),

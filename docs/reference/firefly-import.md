@@ -51,8 +51,10 @@ tags other than as names in `raw`, and piggy banks.
 
 ## What it writes, in order
 
-1. **Categories**: each Firefly category kasten lacks, by name, with the kind
-   from [the table below](#category-kinds). One kasten already has keeps its kind.
+1. **Categories**: each Firefly category kasten lacks that a journal or a
+   translated rule names, by name, with the kind from
+   [the table below](#category-kinds). One no journal and no rule names, such
+   as `Subscriptions`, stays behind. One kasten already has keeps its kind.
 2. **Rules**: each translated rule kasten lacks, compared by kind and pattern
    as stored. Rules come before bookings so the ingest sorts each booking as it
    comes in.
@@ -116,10 +118,14 @@ since every such rule fires on any one trigger.
 | `destination_account_contains`, `source_account_contains` | `payee`, on the pattern cleaned like a payee key |
 | `description_contains` | `text_contains` |
 
-Firefly matched a substring; a payee rule matches whole words. A trigger that
-is a fragment of a word, such as `Lebensversic`, then sorts less than it did,
-and a source trigger also matches spending to the same name. Step 6 puts
-Firefly's category back on the history either way; only new bookings feel it.
+Firefly matched a substring; a payee rule matches from the start of a word,
+so a fragment such as `Lebensversic` still sorts `Lebensversicherung`, but a
+pattern inside a word no longer matches. Firefly told a source trigger from a
+destination trigger; kasten tells them apart by the category's kind, an
+`income` rule sorting only money in and every other rule only money out, so
+`Deloitte` for Salary leaves spending at a Deloitte payee alone. Step 6 puts
+Firefly's category back on the history wherever the two still differ; only
+new bookings feel it.
 
 A trigger is left out, and named in the output, when its rule's
 `set_category` action is off, when its pattern has no letter or digit, when
@@ -132,7 +138,7 @@ category merges into it.
 | Kind | Firefly categories |
 |---|---|
 | `income` | Salary, Interest, Reimbursement, Household contribution |
-| `fixed` | Housing, Utilities, Telecom, Insurance & memberships, Subs (AI/tech), Subs (personal), Subscriptions |
+| `fixed` | Housing, Utilities, Telecom, Insurance & memberships, Subs (AI/tech), Subs (personal) |
 | `saving` | Investments |
 | `non_monthly` | Wedding, Travel, Gifts (given) |
 | `flexible` | Every other one: Groceries, Dining, Shopping, Clothing, Personal care, Health, Transport, Entertainment & gaming, Sports & fitness |

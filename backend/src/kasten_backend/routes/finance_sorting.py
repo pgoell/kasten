@@ -179,12 +179,17 @@ async def write_category(category: CategoryIn, session: Session) -> CategoryOut:
 
 @router.put("/categories/{category_id}")
 async def rewrite_category(category_id: int, category: CategoryIn, session: Session) -> CategoryOut:
-    """Rename a category or change its kind. The bookings in it stay in it."""
+    """Rename a category or change its kind, running the rules when the kind changes.
+
+    The kind says which side of a booking the category's rules sort, income
+    money in and the rest money out, so a new kind can move bookings.
+    """
     found = await session.get(Category, category_id)
     if found is None:
         raise HTTPException(status_code=404, detail="No such category")
+    run = found.kind != category.kind
     found.name, found.kind = category.name, category.kind
-    await _commit(session, f"A category named {category.name!r}")
+    await _commit(session, f"A category named {category.name!r}", run=run)
     return CategoryOut.model_validate(found)
 
 

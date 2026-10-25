@@ -54,6 +54,11 @@ ones it cannot. It writes nothing.
 
 ## 3. Import
 
+The hourly finance dump runs before you import
+([Back up and restore](/how-to/back-up-and-restore.md#the-finance-dump-on-the-maintainers-server)),
+so `~/backups/kasten-finance/` holds the schema as it was; to take a fresh one
+first, `systemctl --user start kasten-finance-backup.service`.
+
 ```sh
 docker run --rm --network web --env-file ~/.config/kasten/firefly-import.env \
   "$image" kasten-firefly-import

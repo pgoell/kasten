@@ -1,11 +1,14 @@
 """Firefly's Auto-categorize triggers turned into kasten rules, and the ones that do not turn.
 
 Firefly matched an account name or a description as a substring. Kasten's
-`payee` rule matches whole words of the cleaned payee key, and its
+`payee` rule matches from the start of a word of the cleaned payee key, so a
+fragment such as `Lebensversic` still sorts `Lebensversicherung`, and its
 `text_contains` rule a substring of the purpose, which is Firefly's
 description. So an account trigger becomes a payee rule and a description
-trigger a text rule; a fragment such as `Lebensversic` then sorts less than it
-did, and the import's hand step puts Firefly's category back on the history.
+trigger a text rule. Firefly's source and destination triggers both become
+payee rules: kasten tells them apart by the category's kind, an income rule
+sorting only money in. Where the two still differ, the import's hand step
+puts Firefly's category back on the history.
 """
 
 import re
