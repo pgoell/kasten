@@ -14,7 +14,7 @@ from datetime import date
 from pathlib import Path, PurePosixPath
 from typing import TYPE_CHECKING
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from kasten_backend import agent, todo_fields, vault
 
@@ -79,6 +79,13 @@ class Item(BaseModel):
 
     ticked_at: str | None = None
     """When the item was ticked, ISO 8601 with its offset, or None when the history does not say."""
+
+    key: str | None = Field(default=None, exclude=True)
+    """What names a done item across the history: its `🆔`, else its words. Not sent to the app.
+
+    Taken from the same bytes as the rest of the item, so a who-ticked read never
+    looks the item up in a note that has changed since.
+    """
 
 
 class Checklist(BaseModel):
@@ -148,10 +155,17 @@ def items(text: str) -> list[Item]:
                     text=words(match.group(2)),
                     done=match.group(1) != " ",
                     assignee=todo_fields.assignee(match.group(2)),
+                    key=key(match.group(2)) if match.group(1) != " " else None,
                 )
             )
 
     return found
+
+
+def key(rest: str) -> str:
+    """What names an item across the history: its `🆔` when it reads one, else its words."""
+    found = todo_fields.ID.search(todo_fields.mask(rest))
+    return words(rest) if found is None else rest[found.start() : found.end()]
 
 
 def words(rest: str) -> str:
@@ -250,20 +264,33 @@ def _assigned(rest: str, assignee: str | None) -> str:
     their bytes. The same assignee back in place is the same words, which is how
     a caller learns there is nothing to write.
     """
-    found = todo_fields.ASSIGNEE.search(todo_fields.mask(rest))
-    if found is None:
+    span = todo_fields.assignee_span(rest)
+    if span is None:
         return rest if assignee is None else _with_new_assignee(rest, assignee)
 
+    start, end = span
     if assignee is None:
-        head = rest[: found.start()].rstrip(" \t")
-        tail = rest[found.end() :]
-        return head + (tail if head else tail.lstrip(" \t"))
+        return _without(rest, start, end)
 
     value = f"[[{assignee}]]"
-    if rest[found.start(1) : found.end(1)] == value:
+    if todo_fields.assignee(rest) == value:
         return rest
 
-    return f"{rest[: found.start()]}👤 {value}{rest[found.end() :]}"
+    return f"{rest[:start]}👤 {value}{rest[end:]}"
+
+
+def _without(rest: str, start: int, end: int) -> str:
+    """The words with the assignee's span taken out, and the blank before it when a blank follows.
+
+    A field glued to the span keeps the blank before the span, so the field does
+    not run into the words before it.
+    """
+    head, tail = rest[:start], rest[end:]
+    if tail and tail[0] not in " \t":
+        return head + tail
+
+    head = head.rstrip(" \t")
+    return head + tail if head else tail.lstrip(" \t")
 
 
 def _with_new_assignee(rest: str, assignee: str) -> str:

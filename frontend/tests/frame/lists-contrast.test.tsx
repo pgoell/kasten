@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { page } from "vitest/browser";
 import { ListsApp } from "@/lists/lists-app";
 import { fakeShare } from "../lists-fixture";
@@ -55,12 +55,15 @@ function grade(r: number, min: number): string {
   return r >= min ? "ok" : r.toFixed(2);
 }
 
-/** Draw the app at phone width, optionally forced dark, and wait for the list. */
+/**
+ * Draw the app at phone width, optionally forced dark, and wait for the list. The app sets
+ * data-theme from the phone's scheme when it mounts, so the forced dark is set after that.
+ */
 async function draw(dark: boolean): Promise<void> {
   await page.viewport(414, 896);
-  if (dark) document.documentElement.setAttribute("data-theme", "dark");
   render(<ListsApp />);
   await screen.findByRole("checkbox", { name: "Milch" });
+  if (dark) document.documentElement.setAttribute("data-theme", "dark");
 }
 
 /** The colour a bare element sits on. */
@@ -241,6 +244,30 @@ describe("the lists app contrast", () => {
     expect(result).toEqual(allOk(["add"]));
   }, 60_000);
 
+  it("#810 L2 the error text reads at 4.5:1 in every palette and both schemes", async () => {
+    // The server refuses every write for good, so a tick leaves the error line on screen.
+    const share = fakeShare(SEED);
+    vi.stubGlobal("fetch", (url: string, init?: RequestInit) =>
+      init?.method === "POST"
+        ? Promise.resolve(new Response("{}", { status: 400 }))
+        : share.fetch(url, init),
+    );
+    const looks: Record<string, Record<string, string>> = {};
+    for (const palette of ["poel", "russet", "peach", "pansy"]) {
+      for (const dark of [false, true]) {
+        await drawLook(palette, dark);
+        fireEvent.click(screen.getByRole("checkbox", { name: "Vollkornbrot" }));
+        const alert = await screen.findByRole("alert");
+        const style = getComputedStyle(alert);
+        looks[`${palette}${dark ? " dark" : " light"}`] = {
+          error: grade(ratio(parse(style.color), parse(style.backgroundColor)), 4.5),
+        };
+        cleanup();
+      }
+    }
+    expect(looks).toEqual(allOk(["error"]));
+  }, 60_000);
+
   /** The element a look is read from. Missing, the test says which one, not a null read. */
   function need(selector: string): HTMLElement {
     const found = document.querySelector<HTMLElement>(selector);
@@ -251,10 +278,11 @@ describe("the lists app contrast", () => {
   /** Draws the app in one palette and scheme, as a palette and the phone's scheme set them. */
   async function drawLook(palette: string, dark: boolean): Promise<void> {
     document.documentElement.setAttribute("data-palette", palette);
-    if (dark) document.documentElement.setAttribute("data-theme", "dark");
-    else document.documentElement.removeAttribute("data-theme");
     render(<ListsApp />);
     await screen.findByRole("checkbox", { name: "Milch" });
+    // After the mount, which sets the theme from the phone's scheme (the headless browser's is light).
+    if (dark) document.documentElement.setAttribute("data-theme", "dark");
+    else document.documentElement.removeAttribute("data-theme");
   }
 
   /** Every palette in both schemes, read by `measure`, each look keyed by its name. */

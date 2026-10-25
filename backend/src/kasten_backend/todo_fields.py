@@ -94,7 +94,7 @@ def mask(text: str) -> str:
     return blank(text, SPANS)
 
 
-def _fields(rest: str) -> tuple[str, str | None]:
+def _scan(rest: str) -> tuple[str, str | None, tuple[int, int] | None]:
     """A todo's words and its assignee: the words with every field out, as `readFields` leaves them.
 
     Each field is found on a copy with every span blanked to a no-break space,
@@ -106,24 +106,40 @@ def _fields(rest: str) -> tuple[str, str | None]:
     """
     text = rest
     masked = mask(rest)
+    # Where each character of `text` sits in `rest`, -1 for a cut: the span the
+    # assignee takes is then the reader's own cut, not a match on the whole line.
+    origin = list(range(len(rest)))
     who = None
+    span = None
     for pattern in (*FIELDS, BLOCKED_BY, WAITING, ASSIGNEE):
         while (found := pattern.search(masked)) is not None and any(found.groups()):
             if pattern is ASSIGNEE:
                 who = text[found.start(1) : found.end(1)]
+                span = (origin[found.start()], origin[found.end() - 1] + 1)
             text = text[: found.start()] + _CUT + text[found.end() :]
             masked = masked[: found.start()] + _CUT + masked[found.end() :]
+            origin = [*origin[: found.start()], -1, *origin[found.end() :]]
             if pattern is not BLOCKED_BY:
                 break
     # As the editor squeezes the words, so `[[FDE  Kickoff]]` names `FDE Kickoff`.
-    return re.sub(r"[ \t]+", " ", text.replace(_CUT, "")), who
+    return re.sub(r"[ \t]+", " ", text.replace(_CUT, "")), who, span
 
 
 def words(rest: str) -> str:
-    """A todo's words, as `_fields` leaves them."""
-    return _fields(rest)[0]
+    """A todo's words, as `_scan` leaves them."""
+    return _scan(rest)[0]
 
 
 def assignee(rest: str) -> str | None:
     """The assignee a todo's words name, as written, or None when no undated `👤` names one."""
-    return _fields(rest)[1]
+    return _scan(rest)[1]
+
+
+def assignee_span(rest: str) -> tuple[int, int] | None:
+    """Where the assignee's `👤` and value sit in `rest`, as the reader cuts them, or None.
+
+    The span ends where the reader's cut ends the value, so a field glued to the
+    value (`👤 [[Alicia]]📅 …`) is not part of it, and an edit of the assignee
+    keeps that field.
+    """
+    return _scan(rest)[2]

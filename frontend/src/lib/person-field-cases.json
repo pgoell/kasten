@@ -516,5 +516,25 @@
     "assignee": null,
     "waitingSince": null,
     "waitingOn": null
+  },
+  {
+    "id": "lists-switch-a-glued-due-date",
+    "from": "Milch 👤 [[Alicia]]📅 2026-10-30 ^abc",
+    "assign": "Pascal",
+    "rest": "Milch 👤 [[Pascal]]📅 2026-10-30 ^abc",
+    "text": "Milch ^abc",
+    "assignee": "[[Pascal]]",
+    "waitingSince": null,
+    "waitingOn": null
+  },
+  {
+    "id": "lists-clear-keeps-a-glued-due-date",
+    "from": "Milch 👤 [[Alicia]]📅 2026-10-30 ^abc",
+    "assign": null,
+    "rest": "Milch 📅 2026-10-30 ^abc",
+    "text": "Milch ^abc",
+    "assignee": null,
+    "waitingSince": null,
+    "waitingOn": null
   }
 ]

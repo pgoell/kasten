@@ -1,5 +1,6 @@
 import { type KeyboardEvent, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import "../styles/lists.css";
+import { followScheme } from "./follow-scheme";
 import { personOf } from "./lists-person";
 import { Row } from "./lists-row";
 import {
@@ -20,6 +21,9 @@ type Keyed = Item & { key: string };
 
 export function ListsApp() {
   const [store, setStore] = useState<ListsStore | null>(null);
+
+  // The page follows the phone's scheme while it is open; the stop runs on unmount.
+  useEffect(() => followScheme(), []);
 
   useEffect(() => {
     // Made here and not at import: StrictMode runs this effect twice, and the
@@ -89,7 +93,7 @@ function Lists({ store }: { store: ListsStore }) {
         open={menu === item.key}
         onToggle={() => store.tick(current, item.text, !item.done)}
         onMenu={(on) => setMenu((prev) => (on ? item.key : prev === item.key ? null : prev))}
-        onPick={(name) => store.assign(current, item.text, name)}
+        onPick={(name) => store.assign(current, item.text, name, personOf(item.assignee))}
       />
     );
   }

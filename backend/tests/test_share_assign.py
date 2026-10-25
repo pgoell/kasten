@@ -195,6 +195,32 @@ async def test_810_a5_assign_then_read_names_the_assignee(
 
 
 @pytest.mark.usefixtures("people")
+async def test_810_r7_4_a_glued_due_date_survives_a_switch_and_a_clear(
+    client: AsyncClient, folder: Path
+) -> None:
+    sha = put(folder, BLOCK + "- [ ] Milch 👤 [[Alicia]]📅 2026-10-30 ^abc\n")
+
+    switched = await client.post(
+        "/share/lists/Einkauf/assign", json={"line": 6, "assignee": "Pascal", "sha": sha}
+    )
+
+    assert body_of((folder / "Einkauf.md").read_text(encoding="utf-8")) == (
+        "\n- [ ] Milch 👤 [[Pascal]]📅 2026-10-30 ^abc\n"
+    )
+    assert switched.status_code == 200
+
+    cleared = await client.post(
+        "/share/lists/Einkauf/assign",
+        json={"line": 6, "assignee": None, "sha": switched.json()["sha"]},
+    )
+
+    assert body_of((folder / "Einkauf.md").read_text(encoding="utf-8")) == (
+        "\n- [ ] Milch 📅 2026-10-30 ^abc\n"
+    )
+    assert cleared.status_code == 200
+
+
+@pytest.mark.usefixtures("people")
 async def test_810_a10_assign_writes_every_row_of_the_case_table(
     client: AsyncClient, folder: Path
 ) -> None:

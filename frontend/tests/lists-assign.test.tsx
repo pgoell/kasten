@@ -229,7 +229,8 @@ describe("the assignee chip in the lists app", () => {
     const store = createListsStore();
     await vi.waitFor(() => expect(store.snapshot().lists.Einkauf).toBeDefined());
 
-    store.assign("Einkauf", "Milch", "Nobody");
+    // The line showed nobody when picked, so the pick names `null` as `from`.
+    store.assign("Einkauf", "Milch", "Nobody", null);
 
     await vi.waitFor(() => expect(store.snapshot().errors).toEqual(["Unbekannte Person"]));
     expect(store.snapshot().queue).toEqual([]);
@@ -305,5 +306,20 @@ describe("the assignee chip in the lists app", () => {
 
     fireEvent.pointerDown(document.body);
     expect(screen.queryByRole("menu")).toBeNull();
+  });
+
+  it("#810 L4 a tap opens the menu without moving the focus into it, a key opens it with the checked item focused", async () => {
+    open({ Einkauf: [{ text: "Milch", done: false, assignee: "[[Alicia]]" }], Todo: [] });
+    const chip = await screen.findByRole("button", { name: "Alicia" });
+
+    chip.focus();
+    // A tap or a mouse click has a detail of 1 or more; a key's click has 0.
+    fireEvent.click(chip, { detail: 1 });
+    expect(screen.getByRole("menu")).toBeInTheDocument();
+    expect(chip).toHaveFocus();
+
+    fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" });
+    fireEvent.click(chip, { detail: 0 });
+    expect(screen.getByRole("menuitemradio", { name: "Alicia" })).toHaveFocus();
   });
 });

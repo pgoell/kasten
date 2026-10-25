@@ -1,4 +1,4 @@
-import { type KeyboardEvent, useEffect, useRef } from "react";
+import { type KeyboardEvent, type MouseEvent, useEffect, useRef, useState } from "react";
 import { personOf } from "./lists-person";
 import type { Item } from "./lists-store";
 
@@ -69,6 +69,8 @@ function PersonChip({
 }) {
   const chip = useRef<HTMLButtonElement>(null);
   const wrap = useRef<HTMLDivElement>(null);
+  // A key opens the menu with its checked item focused; a tap or a click leaves the focus where it was.
+  const [byKey, setByKey] = useState(false);
   const name = personOf(item.assignee);
   const label = name === null ? "Wer?" : name === me ? "Ich" : name;
 
@@ -95,7 +97,17 @@ function PersonChip({
         className={`chip ${name === null ? "unlinked" : "linked"}`}
         aria-haspopup="menu"
         aria-expanded={open}
-        onClick={() => onMenu(!open)}
+        onClick={(event: MouseEvent<HTMLButtonElement>) => {
+          // A key's click has a detail of 0; a tap or a mouse click has 1 or more.
+          setByKey(event.detail === 0);
+          onMenu(!open);
+        }}
+        onKeyDown={(event: KeyboardEvent<HTMLButtonElement>) => {
+          if (event.key !== "ArrowDown" || open) return;
+          event.preventDefault();
+          setByKey(true);
+          onMenu(true);
+        }}
       >
         <span className="chip-name">{label}</span>
       </button>
@@ -103,6 +115,7 @@ function PersonChip({
         <ChipMenu
           names={people}
           current={name}
+          focusChecked={byKey}
           onPick={(picked) => {
             close(true);
             onPick(picked);
@@ -115,25 +128,28 @@ function PersonChip({
 }
 
 /**
- * The people, then Niemand. Opens with the focus on the one that is chosen, and
- * the arrows move through it, as a menu does.
+ * The people, then Niemand. Opened by a key, it takes the focus on the one that is chosen,
+ * and the arrows move through it, as a menu does. Opened by a tap, the focus stays on the
+ * chip, so no ring appears on a row the finger never reached.
  */
 function ChipMenu({
   names,
   current,
+  focusChecked,
   onPick,
   onEscape,
 }: {
   names: string[];
   current: string | null;
+  focusChecked: boolean;
   onPick: (name: string | null) => void;
   onEscape: () => void;
 }) {
   const menu = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    menu.current?.querySelector<HTMLElement>("[aria-checked='true']")?.focus();
-  }, []);
+    if (focusChecked) menu.current?.querySelector<HTMLElement>("[aria-checked='true']")?.focus();
+  }, [focusChecked]);
 
   function onKey(event: KeyboardEvent<HTMLDivElement>): void {
     if (event.key === "Escape") {

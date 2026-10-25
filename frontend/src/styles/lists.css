@@ -26,8 +26,10 @@ input {
   color: inherit;
 }
 
+/* Every tap is a tap, not a pinch or a double tap held back for zoom, so a press lands at once. */
 button {
   cursor: pointer;
+  touch-action: manipulation;
 }
 
 :focus-visible {
@@ -36,12 +38,13 @@ button {
 }
 
 /* The press: a control gives a little under the finger, and a row only tints.
-   Only transform and opacity move. The words of a row are a row, so they never scale. */
-button:not(.words) {
+   Only transform and opacity move. The words of a row are a row, so they never scale,
+   and neither does a menu row, which is full width and takes the tint instead. */
+button:not(.words, .menu button) {
   transition: transform var(--k-press-out) var(--k-ease-out);
 }
 
-button:not(.words):active:not(:disabled) {
+button:not(.words, .menu button):active:not(:disabled) {
   transform: scale(var(--k-press-scale));
   transition-duration: var(--k-press-in);
 }
@@ -61,7 +64,30 @@ button:not(.words):active:not(:disabled) {
   display: grid;
   gap: var(--k-space-8);
   padding: calc(var(--k-space-12) + env(safe-area-inset-top)) var(--k-space-16) var(--k-space-8);
-  background: var(--k-bg);
+  /* Glass, as the main app's tab strip is: the list shows through, blurred. */
+  background-color: color-mix(in srgb, var(--k-bg) 84%, transparent);
+  backdrop-filter: blur(18px) saturate(1.4);
+  -webkit-backdrop-filter: blur(18px) saturate(1.4);
+  border-bottom: 1px solid var(--k-rule);
+}
+
+/* Less transparency asked, or more contrast: the solid colour the glass stands in for,
+   and no blur. High contrast draws the edge in ink, so it is still there to see. */
+@media (prefers-reduced-transparency: reduce) {
+  .top {
+    background-color: var(--k-bg);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+
+@media (prefers-contrast: more) {
+  .top {
+    background-color: var(--k-bg);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    border-bottom-color: var(--k-ink);
+  }
 }
 
 .top h1 {
@@ -128,8 +154,10 @@ button:not(.words):active:not(:disabled) {
   gap: var(--k-space-12);
   margin: var(--k-space-8) var(--k-space-16) 0;
   padding: var(--k-space-12) var(--k-space-16);
+  border: 1px solid var(--k-rule);
   border-radius: var(--k-radius-8);
-  background: var(--k-surface);
+  /* Paper, not the surface: the danger colour reads 4.5:1 on paper in every palette, and not on the surface. */
+  background: var(--k-paper);
   color: var(--k-danger);
   font-size: var(--k-text-15);
 }
@@ -171,7 +199,8 @@ button:not(.words):active:not(:disabled) {
 
 .row {
   display: flex;
-  align-items: center;
+  /* The chip sits on the line of the words, not in the middle of a row with a note under it. */
+  align-items: flex-start;
   gap: var(--k-space-12);
   min-height: 44px;
   padding: var(--k-space-8) var(--k-space-8) var(--k-space-8) var(--k-space-16);
@@ -209,10 +238,10 @@ button:not(.words):active:not(:disabled) {
   flex: none;
   display: grid;
   place-items: center;
-  width: 24px;
-  height: 24px;
+  width: var(--k-space-24);
+  height: var(--k-space-24);
   border: 2px solid var(--k-rule-strong);
-  border-radius: 999px;
+  border-radius: 50%;
   transition: transform var(--k-press-out) var(--k-ease-out);
 }
 
@@ -223,7 +252,7 @@ button:not(.words):active:not(:disabled) {
   position: absolute;
   inset: 0;
   z-index: -1;
-  border-radius: 999px;
+  border-radius: 50%;
   background: var(--k-surface);
   transform: scale(0);
   opacity: 0;
@@ -299,9 +328,29 @@ button:not(.words):active:not(:disabled) {
   color: var(--k-muted);
 }
 
+/* The fold's chevron: two borders turned into a V, pointing down when folded and up when
+   open. It turns with transform alone, and the reduced-motion rule stops the turn. */
+.group-head h2 button::after {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-inline-start: var(--k-space-8);
+  margin-bottom: 3px;
+  vertical-align: middle;
+  border-right: 2px solid var(--k-muted);
+  border-bottom: 2px solid var(--k-muted);
+  transform: rotate(45deg);
+  transition: transform var(--k-press-out) var(--k-ease-out);
+}
+
+.group-head h2 button[aria-expanded="true"]::after {
+  transform: rotate(-135deg);
+}
+
 /* The line under a done item: who ticked it and when, read from the note's history. */
 .by {
-  margin: var(--k-space-4) 0 0 calc(24px + var(--k-space-12));
+  margin: var(--k-space-4) 0 0 calc(var(--k-space-24) + var(--k-space-12));
   font-size: var(--k-text-12);
   color: var(--k-muted);
 }
@@ -379,8 +428,16 @@ button:not(.words):active:not(:disabled) {
   white-space: nowrap;
 }
 
-.menu button:hover {
+/* A press tints the row, which is full width, rather than scaling it. */
+.menu button:active {
   background: var(--k-surface);
+}
+
+/* Hover is a pointer's: a touch screen has none to show, and a tap would leave it stuck on. */
+@media (hover: hover) {
+  .menu button:hover {
+    background: var(--k-surface);
+  }
 }
 
 .menu button[aria-checked="true"] {
@@ -395,7 +452,9 @@ button:not(.words):active:not(:disabled) {
   flex-direction: column;
   gap: var(--k-space-8);
   padding: var(--k-space-8) var(--k-space-16) calc(var(--k-space-12) + env(safe-area-inset-bottom));
+  /* Solid: glass is kept for the top bar only (#798). */
   background: var(--k-bg);
+  border-top: 1px solid var(--k-rule);
 }
 
 .chips {

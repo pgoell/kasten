@@ -61,7 +61,6 @@ async function picture(name: string, look: Look): Promise<void> {
     touch: look.touch === true,
     reducedMotion: look.reduced ? "reduce" : "no-preference",
   });
-  if (look.dark) document.documentElement.setAttribute("data-theme", "dark");
   // The app scrolls inside a box the size of the screen, so the sticky bars stick to
   // the picture's edges and the picture is the screen, not the whole list.
   const { container, unmount } = render(
@@ -79,6 +78,8 @@ async function picture(name: string, look: Look): Promise<void> {
   const frame = container.firstElementChild as HTMLElement;
   try {
     await screen.findByRole("checkbox", { name: "Milch" });
+    // After the mount, which sets the theme from the phone's scheme.
+    if (look.dark) document.documentElement.setAttribute("data-theme", "dark");
     look.arrange?.(frame);
     // The lines and the menu arrive on a transition, so the picture waits for the end state.
     await Promise.all(document.getAnimations().map((animation) => animation.finished));
@@ -111,7 +112,8 @@ const meine = {
   ...alle,
   arrange: () => fireEvent.click(screen.getByRole("button", { name: "Meine" })),
 };
-const menu = { ...alle, arrange: () => fireEvent.click(chipOf("Eier")) };
+// A tap's click carries a detail of 1; a bare one reads as a key and puts the focus ring in the menu.
+const menu = { ...alle, arrange: () => fireEvent.click(chipOf("Eier"), { detail: 1 }) };
 // Erledigt unfolds to all five, and the list is scrolled so its heading sits under the top bar.
 const done = {
   ...alle,
@@ -190,9 +192,10 @@ describe("the shared lists app's rows on screen", () => {
 /** Draw the app at phone width and read the computed look of the open row Milch and the done row Bananen. */
 async function drawRows(dark: boolean) {
   await page.viewport(390, 844);
-  if (dark) document.documentElement.setAttribute("data-theme", "dark");
   render(<ListsApp />);
   await screen.findByRole("checkbox", { name: "Milch" });
+  // After the mount, which sets the theme from the phone's scheme.
+  if (dark) document.documentElement.setAttribute("data-theme", "dark");
   const look = (name: string) => {
     const box = screen.getByRole("checkbox", { name });
     const check = box.querySelector(".check") as HTMLElement;

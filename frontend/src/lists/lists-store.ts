@@ -34,7 +34,7 @@ const NOBODY: Who = { me: null, people: [] };
 type OpBody =
   | { kind: "add"; list: string; text: string; before?: number }
   | { kind: "tick"; list: string; text: string; done: boolean }
-  | { kind: "assign"; list: string; text: string; assignee: string | null }
+  | { kind: "assign"; list: string; text: string; assignee: string | null; from: string | null }
   | { kind: "clear"; list: string };
 export type Op = OpBody & { id: string };
 
@@ -64,7 +64,7 @@ export type ListsStore = {
   add: (list: string, text: string) => void;
   tick: (list: string, text: string, done: boolean) => void;
   /** Sets whom an item is for, by name, or clears it with null. */
-  assign: (list: string, text: string, assignee: string | null) => void;
+  assign: (list: string, text: string, assignee: string | null, from: string | null) => void;
   clear: (list: string) => void;
   dismissErrors: () => void;
   close: () => void;
@@ -80,6 +80,7 @@ const MAX_SUGGESTIONS = 5;
 const TIMEOUT_MS = 15_000;
 const QUEUE_KEY = "kasten.lists.queue";
 const SEEN_KEY = "kasten.lists.seen";
+const WHO_KEY = "kasten.lists.me";
 
 class HttpError extends Error {
   readonly status: number;
@@ -159,8 +160,9 @@ function requestFor(op: Op, list: ListData): { path: string; body: object } | nu
   if (list.sha === null) return null;
   if (op.kind === "clear") return { path: `${path}/clear`, body: { sha: list.sha } };
   if (op.kind === "assign") {
-    const item = list.items.find((found) => sameAssign(found, op));
-    if (!item) return null;
+    const item = list.items.find((found) => shownAs(found, op));
+    // Nothing to write when the line already names the person asked for, or no line is left that showed `from`.
+    if (!item || personOf(item.assignee) === op.assignee) return null;
     return {
       path: `${path}/assign`,
       body: { line: item.line, assignee: op.assignee, sha: list.sha },
@@ -171,12 +173,15 @@ function requestFor(op: Op, list: ListData): { path: string; body: object } | nu
   return { path: `${path}/tick`, body: { line: item.line, done: op.done, sha: list.sha } };
 }
 
-/** An item the assign op has yet to reach: its text is the op's, and its person is not. */
-function sameAssign(item: Item, op: { text: string; assignee: string | null }): boolean {
-  return item.text === op.text && personOf(item.assignee) !== op.assignee;
+/**
+ * The line an assign is for: its text, and the person it showed when picked. Two lines can
+ * share a text, so the person is what tells them apart.
+ */
+function shownAs(item: Item, op: { text: string; from: string | null }): boolean {
+  return item.text === op.text && personOf(item.assignee) === op.from;
 }
 
-function applyOp(items: Item[], op: Op): Item[] {
+function applyOp(items: Item[], op: Op, me: string | null): Item[] {
   if (op.kind === "add")
     return [
       ...items,
@@ -184,18 +189,23 @@ function applyOp(items: Item[], op: Op): Item[] {
     ];
   if (op.kind === "clear") return items.filter((item) => !item.done);
   if (op.kind === "assign") {
-    const at = items.findIndex((item) => sameAssign(item, op));
+    const at = items.findIndex((item) => shownAs(item, op));
     const assignee = op.assignee === null ? null : linkFor(op.assignee);
     return at < 0 ? items : items.map((item, n) => (n === at ? { ...item, assignee } : item));
   }
   const at = items.findIndex((item) => item.text === op.text && item.done !== op.done);
-  return at < 0 ? items : items.map((item, n) => (n === at ? { ...item, done: op.done } : item));
+  if (at < 0) return items;
+  // A tick shows its time and person at once, so it sorts where the server will put it.
+  const tick = op.done
+    ? { ticked_by: me, ticked_at: new Date().toISOString() }
+    : { ticked_by: null, ticked_at: null };
+  return items.map((item, n) => (n === at ? { ...item, done: op.done, ...tick } : item));
 }
 
 /** A list as the screen shows it: the server's copy with the queued writes laid over. */
 export function viewOf(snap: Snapshot, list: string): Item[] {
   let items = snap.lists[list]?.items ?? [];
-  for (const op of snap.queue) if (op.list === list) items = applyOp(items, op);
+  for (const op of snap.queue) if (op.list === list) items = applyOp(items, op, snap.me);
   return items;
 }
 
@@ -276,8 +286,7 @@ function exclusive(run: () => Promise<void>): Promise<void> {
 export function createListsStore(): ListsStore {
   let snap: Snapshot = {
     lists: {},
-    me: null,
-    people: [],
+    ...load<Who>(WHO_KEY, NOBODY),
     queue: load<Op[]>(QUEUE_KEY, []),
     seen: load<Record<string, string[]>>(SEEN_KEY, {}),
     online: navigator.onLine,
@@ -289,6 +298,8 @@ export function createListsStore(): ListsStore {
   // Every sync waits for the one before it, so a list read never overtakes a
   // write that is still on its way up.
   let chain: Promise<void> = Promise.resolve();
+  // Set once a read of who it is succeeds on this page; until then each sync reads again.
+  let whoRead = false;
 
   function update(patch: Partial<Snapshot>): void {
     snap = { ...snap, ...patch };
@@ -340,17 +351,27 @@ export function createListsStore(): ListsStore {
     return send<ListData>("GET", listPath(name));
   }
 
-  /**
-   * Who this session is and who can be assigned. A failed read gives nobody, so the
-   * menu still offers Niemand and no item reads as "Ich"; the list itself is read apart.
-   */
-  async function readWho(): Promise<Who> {
+  /** Who this session is and who can be assigned, or null when the read failed. */
+  async function readWho(): Promise<Who | null> {
     try {
       return await send<Who>("GET", "/me");
     } catch (error) {
-      if (error instanceof HttpError || transient(error)) return NOBODY;
+      if (error instanceof HttpError || transient(error)) return null;
       throw error;
     }
+  }
+
+  /**
+   * Reads who this session is until one read succeeds on this page. The answer is kept
+   * in storage, so a page opened while the read fails still knows its last answer.
+   */
+  async function refreshWho(): Promise<void> {
+    if (whoRead) return;
+    const who = await readWho();
+    if (who === null) return;
+    whoRead = true;
+    localStorage.setItem(WHO_KEY, JSON.stringify(who));
+    update(who);
   }
 
   /** One write: read the list, send, and on a stale sha read again and send again. */
@@ -434,7 +455,10 @@ export function createListsStore(): ListsStore {
   }
 
   function sync(): void {
-    chain = chain.then(() => exclusive(drainQueue)).then(refresh);
+    chain = chain
+      .then(() => exclusive(drainQueue))
+      .then(refresh)
+      .then(refreshWho);
   }
 
   function enqueue(op: OpBody): void {
@@ -442,8 +466,6 @@ export function createListsStore(): ListsStore {
     setQueue([...readQueue(), { ...op, id: newId() }]);
     sync();
   }
-
-  readWho().then((who) => update(who));
 
   const goOnline = () => {
     update({ online: true });
@@ -483,7 +505,7 @@ export function createListsStore(): ListsStore {
     snapshot: () => snap,
     add: (list, text) => enqueue({ kind: "add", list, text }),
     tick: (list, text, done) => enqueue({ kind: "tick", list, text, done }),
-    assign: (list, text, assignee) => enqueue({ kind: "assign", list, text, assignee }),
+    assign: (list, text, assignee, from) => enqueue({ kind: "assign", list, text, assignee, from }),
     clear: (list) => enqueue({ kind: "clear", list }),
     dismissErrors: () => update({ errors: [] }),
     close: () => {

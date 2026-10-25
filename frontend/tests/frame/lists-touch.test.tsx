@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 // For its types alone: the provider is what gives `cdp()` a typed `send`.
 import type {} from "@vitest/browser-playwright";
 import { cdp, commands, page } from "vitest/browser";
@@ -166,5 +166,45 @@ describe("the lists app in a browser, by touch, keys and mouse", () => {
 
     await click(screen.getByRole("heading", { name: "Listen" }));
     expect(screen.queryByRole("menu")).toBeNull();
+  }, 30_000);
+
+  it("#810 L1 every tappable has touch-action manipulation", async () => {
+    await page.viewport(390, 844);
+    await commands.emulateMedia({ touch: true });
+    await draw();
+
+    // The menu open and a suggestion showing, so every kind of tappable is on the page.
+    await tap(chipOf("Milch"));
+    fireEvent.change(screen.getByRole("textbox", { name: "Eintrag" }), {
+      target: { value: "Ei" },
+    });
+    await screen.findByRole("button", { name: "Eier" });
+
+    const buttons = [...document.querySelectorAll<HTMLElement>("button")];
+    expect(buttons.length).toBeGreaterThan(5);
+    expect(
+      buttons
+        .filter((button) => getComputedStyle(button).touchAction !== "manipulation")
+        .map((button) => button.textContent),
+    ).toEqual([]);
+  }, 30_000);
+
+  it("#810 L3 a menu row does not scale when pressed", async () => {
+    await page.viewport(390, 844);
+    await commands.emulateMedia({ touch: true });
+    await draw();
+
+    await tap(chipOf("Milch"));
+    const option = within(screen.getByRole("menu")).getByRole("menuitemradio", { name: "Alicia" });
+    const [x, y] = pagePoint(option);
+    const at = { x, y, button: "left" as const, clickCount: 1 };
+    await cdp().send("Input.dispatchMouseEvent", { type: "mousePressed", ...at });
+    try {
+      // The press has its transition run to the end before the style is read.
+      await Promise.all(document.getAnimations().map((animation) => animation.finished));
+      expect(getComputedStyle(option).transform).toBe("none");
+    } finally {
+      await cdp().send("Input.dispatchMouseEvent", { type: "mouseReleased", ...at });
+    }
   }, 30_000);
 });

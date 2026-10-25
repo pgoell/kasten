@@ -12,7 +12,7 @@ import json
 import re
 from typing import TYPE_CHECKING, NamedTuple
 
-from kasten_backend import agent, history, share, todo_fields, vcs
+from kasten_backend import history, share, vcs
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -60,23 +60,6 @@ class _Version(NamedTuple):
 _cache: dict[tuple[str, str, str], dict[str, Tick]] = {}
 
 
-def _key(rest: str) -> str:
-    """What names an item across versions: its `🆔` when it reads one, else its words."""
-    found = todo_fields.ID.search(todo_fields.mask(rest))
-    return share.words(rest) if found is None else rest[found.start() : found.end()]
-
-
-def _keys(text: str) -> dict[int, str]:
-    """The key of every done task line of `text`, by line number."""
-    keys = {}
-    for number, line in enumerate(text.split("\n")):
-        match = share.ITEM.match(line)
-        if match is not None and match.group(1) != " ":
-            keys[number] = _key(match.group(2))
-
-    return keys
-
-
 def _take(version: _Version, line: str) -> None:
     """Record a done task line of a version's patch on the side it sits on."""
     match = share.ITEM.match(line[1:])
@@ -84,7 +67,7 @@ def _take(version: _Version, line: str) -> None:
         return
 
     side = version.done_before if line[0] == "-" else version.done_after
-    side.add(_key(match.group(2)))
+    side.add(share.key(match.group(2)))
 
 
 def _head(line: str) -> _Version:
@@ -162,29 +145,27 @@ async def _ticks_of(root: Path, path: str, digest: str) -> dict[str, Tick]:
 async def attach(settings: Settings, found: share.Checklist) -> share.Checklist:
     """The list with `ticked_by` and `ticked_at` set on every done item the history can name.
 
-    A list with no done item, a vault with no history and a note with a name
-    jj cannot spell all answer the list as it is, with no jj call. A jj that
-    fails, is missing or prints what this cannot read answers the same.
+    The digest and the keys come from `found` itself, which was built from one
+    read of the note, so a write between two reads cannot shift a line onto
+    another item. A list with no done item, a vault with no history and a note
+    with a name jj cannot spell all answer the list as it is, with no jj call. A
+    jj that fails, is missing or prints what this cannot read answers the same.
     """
     done = [item for item in found.items if item.done]
-    if not done or not vcs.is_versioned(settings.vault_path):
+    if not done or found.sha is None or not vcs.is_versioned(settings.vault_path):
         return found
 
-    note = share.resolve_list(settings, found.name)
     path = f"{settings.share_folder}/{found.name}.md"
-    if note is None or not note.is_file() or not history.plain(path):
+    if not history.plain(path):
         return found
 
-    raw = note.read_bytes()
-    keys = _keys(raw.decode("utf-8"))
     try:
-        ticks = await _ticks_of(settings.vault_path, path, agent.digest(raw))
+        ticks = await _ticks_of(settings.vault_path, path, found.sha)
     except history.HistoryError, history.UnversionedError, ValueError:
         return found
 
     for item in done:
-        key = keys.get(item.line)
-        tick = None if key is None else ticks.get(key)
+        tick = None if item.key is None else ticks.get(item.key)
         if tick is not None:
             item.ticked_by, item.ticked_at = tick.who, tick.when
 
