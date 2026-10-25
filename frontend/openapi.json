@@ -2446,10 +2446,10 @@
             "content": {
               "application/json": {
                 "schema": {
+                  "type": "array",
                   "items": {
                     "$ref": "#/components/schemas/PlanOut"
                   },
-                  "type": "array",
                   "title": "Response Read Plans Api Finance Plans Get"
                 }
               }
@@ -2459,17 +2459,29 @@
       },
       "post": {
         "summary": "Write Plan",
-        "description": "Make a plan, a proposal confirmed or one made by hand, and match it against the bookings.",
+        "description": "Make a plan, a proposal confirmed or one made by hand, and match it against the bookings.\n\nIt counts in free to spend from the reader's month on, so a plan made\nfrom history leaves the months before as they were.",
         "operationId": "write_plan_api_finance_plans_post",
+        "parameters": [
+          {
+            "name": "today",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+              "title": "Today"
+            }
+          }
+        ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/PlanIn"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -2836,7 +2848,7 @@
       },
       "delete": {
         "summary": "Delete Goal",
-        "description": "Delete a goal; what it reserved goes back to unreserved.",
+        "description": "Delete a goal; what it reserved, leftovers moved into it included, is free again.",
         "operationId": "delete_goal_api_finance_goals__goal_id__delete",
         "parameters": [
           {
@@ -2852,6 +2864,164 @@
         "responses": {
           "204": {
             "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/finance/goals/{goal_id}/assign": {
+      "post": {
+        "summary": "Assign Contribution",
+        "description": "Assign this month's contribution of the account's balance to the goal, once a month.\n\nUp to the target. A second assign in the same month changes nothing.",
+        "operationId": "assign_contribution_api_finance_goals__goal_id__assign_post",
+        "parameters": [
+          {
+            "name": "goal_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Goal Id"
+            }
+          },
+          {
+            "name": "today",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+              "title": "Today"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StoredGoalOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Undo Contribution",
+        "description": "Take back this month's assigned contribution; `409` when none was assigned this month.",
+        "operationId": "undo_contribution_api_finance_goals__goal_id__assign_delete",
+        "parameters": [
+          {
+            "name": "goal_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Goal Id"
+            }
+          },
+          {
+            "name": "today",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+              "title": "Today"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StoredGoalOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/finance/goals/{goal_id}/leftover": {
+      "post": {
+        "summary": "Move Leftover",
+        "description": "Move part of what the limits left over into the goal: it reserves that much more.\n\nNo more than what is left from the limits in `month`, and the account's\nbalance must hold it, so move the money to the saving account first.",
+        "operationId": "move_leftover_api_finance_goals__goal_id__leftover_post",
+        "parameters": [
+          {
+            "name": "goal_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Goal Id"
+            }
+          },
+          {
+            "name": "today",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+              "title": "Today"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LeftoverIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StoredGoalOut"
+                }
+              }
+            }
           },
           "422": {
             "description": "Validation Error",
@@ -5513,6 +5683,17 @@
                 "type": "null"
               }
             ]
+          },
+          "counts_for": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Counts For"
           }
         },
         "type": "object",
@@ -5523,7 +5704,8 @@
           "amount",
           "category_id",
           "reserves",
-          "match"
+          "match",
+          "counts_for"
         ],
         "title": "DueOut",
         "description": "A date a plan falls due in the month, and the booking that met it, if one did."
@@ -6145,14 +6327,17 @@
       },
       "GoalOut": {
         "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
           "name": {
             "type": "string",
-            "minLength": 1,
             "title": "Name"
           },
           "target": {
             "type": "string",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,12}|(?=[\\d.]{1,15}0*$)\\d{0,12}\\.\\d{0,2}0*$)",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Target"
           },
           "due": {
@@ -6166,15 +6351,14 @@
           },
           "reserved": {
             "type": "string",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,12}|(?=[\\d.]{1,15}0*$)\\d{0,12}\\.\\d{0,2}0*$)",
-            "title": "Reserved",
-            "default": "0"
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Reserved"
           },
           "monthly": {
             "anyOf": [
               {
                 "type": "string",
-                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,12}|(?=[\\d.]{1,15}0*$)\\d{0,12}\\.\\d{0,2}0*$)"
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
               },
               {
                 "type": "null"
@@ -6182,9 +6366,28 @@
             ],
             "title": "Monthly"
           },
-          "id": {
-            "type": "integer",
-            "title": "Id"
+          "assigned_month": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assigned Month"
+          },
+          "assigned_amount": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assigned Amount"
           },
           "progress": {
             "type": "string",
@@ -6209,11 +6412,15 @@
         },
         "type": "object",
         "required": [
+          "id",
           "name",
           "target",
           "due",
           "account_id",
-          "id",
+          "reserved",
+          "monthly",
+          "assigned_month",
+          "assigned_amount",
           "progress",
           "need",
           "this_month"
@@ -6632,6 +6839,35 @@
         "title": "Layout",
         "description": "The folders the editor files into or looks in, each a path from the vault root."
       },
+      "LeftoverIn": {
+        "properties": {
+          "amount": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,12}|(?=[\\d.]{1,15}0*$)\\d{0,12}\\.\\d{0,2}0*$)"
+              }
+            ],
+            "title": "Amount"
+          },
+          "month": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-[0-9]{2}$",
+            "title": "Month"
+          }
+        },
+        "type": "object",
+        "required": [
+          "amount",
+          "month"
+        ],
+        "title": "LeftoverIn",
+        "description": "An amount of what the limits left over, moved into a goal in a month (`YYYY-MM`)."
+      },
       "LimitIn": {
         "properties": {
           "amount": {
@@ -6767,16 +7003,26 @@
             "type": "string",
             "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Amount"
+          },
+          "timing": {
+            "type": "string",
+            "enum": [
+              "on_time",
+              "early",
+              "late"
+            ],
+            "title": "Timing"
           }
         },
         "type": "object",
         "required": [
           "transaction_id",
           "booking_date",
-          "amount"
+          "amount",
+          "timing"
         ],
         "title": "MatchOut",
-        "description": "The booking that met a date."
+        "description": "The booking that met a date, and whether it came in the month before or after it."
       },
       "Mention": {
         "properties": {
@@ -7401,6 +7647,11 @@
             "type": "string",
             "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Share"
+          },
+          "confirmed": {
+            "type": "string",
+            "format": "date",
+            "title": "Confirmed"
           }
         },
         "type": "object",
@@ -7411,10 +7662,11 @@
           "start",
           "id",
           "reserves",
-          "share"
+          "share",
+          "confirmed"
         ],
         "title": "PlanOut",
-        "description": "A plan as stored, and what it sets aside each month when it reserves."
+        "description": "A plan as stored, what it sets aside a month when it reserves, and since when it counts."
       },
       "ProposalOut": {
         "properties": {
@@ -8145,14 +8397,17 @@
       },
       "StoredGoalOut": {
         "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
           "name": {
             "type": "string",
-            "minLength": 1,
             "title": "Name"
           },
           "target": {
             "type": "string",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,12}|(?=[\\d.]{1,15}0*$)\\d{0,12}\\.\\d{0,2}0*$)",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Target"
           },
           "due": {
@@ -8166,15 +8421,14 @@
           },
           "reserved": {
             "type": "string",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,12}|(?=[\\d.]{1,15}0*$)\\d{0,12}\\.\\d{0,2}0*$)",
-            "title": "Reserved",
-            "default": "0"
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Reserved"
           },
           "monthly": {
             "anyOf": [
               {
                 "type": "string",
-                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,12}|(?=[\\d.]{1,15}0*$)\\d{0,12}\\.\\d{0,2}0*$)"
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
               },
               {
                 "type": "null"
@@ -8182,21 +8436,44 @@
             ],
             "title": "Monthly"
           },
-          "id": {
-            "type": "integer",
-            "title": "Id"
+          "assigned_month": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assigned Month"
+          },
+          "assigned_amount": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assigned Amount"
           }
         },
         "type": "object",
         "required": [
+          "id",
           "name",
           "target",
           "due",
           "account_id",
-          "id"
+          "reserved",
+          "monthly",
+          "assigned_month",
+          "assigned_amount"
         ],
         "title": "StoredGoalOut",
-        "description": "A goal as written."
+        "description": "A goal as written, its amounts to the cent."
       },
       "SuggestionOut": {
         "properties": {
@@ -9000,15 +9277,21 @@
             "type": "string",
             "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Total"
+          },
+          "moved": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Moved"
           }
         },
         "type": "object",
         "required": [
           "last_month",
-          "total"
+          "total",
+          "moved"
         ],
         "title": "UnreservedOut",
-        "description": "What the limits left: the month before, and every month since limits began."
+        "description": "What the limits left: the month before, and every month since less what went into goals."
       },
       "UploadSize": {
         "properties": {

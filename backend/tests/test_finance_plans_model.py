@@ -5,6 +5,7 @@ helpers these share. The rules are the ones docs/reference/budget-model.md
 states.
 """
 
+import dataclasses
 import datetime as dt
 from decimal import Decimal
 
@@ -185,3 +186,35 @@ def test_proposals_read_firefly_bills_and_payees_paid_monthly_leaving_out_planne
         ("bill", "Haftpflicht", 12, Decimal("-486.00"), Decimal(6)),
         ("payee", "Netflix", 1, Decimal("-13.99"), Decimal(0)),
     ]
+
+
+def test_a_bill_a_month_early_or_late_meets_a_date_its_own_month_left_open() -> None:
+    rent, insurance = plan(1, start=dt.date(2026, 9, 1)), plan(2, "-600", 12, dt.date(2026, 9, 1))
+    found = match(
+        [rent, insurance],
+        [
+            booking(10, dt.date(2026, 9, 30), "-900"),  # October's rent, paid early
+            booking(11, dt.date(2026, 9, 1), "-900"),  # September's, nearest its date
+            booking(12, dt.date(2026, 10, 2), "-600"),  # the yearly bill, a month late
+        ],
+        matched=set(),
+    )
+    assert sorted(found) == [
+        (1, dt.date(2026, 9, 1), 11),
+        (1, dt.date(2026, 10, 1), 10),
+        (2, dt.date(2026, 9, 1), 12),
+    ]
+
+
+def test_a_plan_confirmed_late_sets_aside_from_then_and_leaves_earlier_months() -> None:
+    late = dataclasses.replace(
+        plan(1, "-1200", every=12, start=dt.date(2027, 3, 1), category=TRIPS),
+        confirmed=OCT,
+    )
+    assert shares_until(late, dt.date(2026, 9, 1)) == 0
+    assert shares_until(late, dt.date(2027, 3, 1)) == 6
+    rent = dataclasses.replace(plan(2, "-900"), confirmed=OCT)
+    lines = [line(-1, GIRO, "-2000", RENT)]
+    book = Book(plans=[rent])
+    september = free_to_spend(ledger(*lines), "mine", month(-1), TODAY, book)
+    assert september.fixed[0].basis == "so_far"

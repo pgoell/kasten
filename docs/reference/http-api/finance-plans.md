@@ -45,18 +45,21 @@ is an account, payee or category that is not there.
 ## GET /api/finance/plans
 
 Every plan, by name, each as above with its `id`, whether it `reserves` (a
-cost every 2 months or more) and the `share` it sets aside each month.
+cost every 2 months or more), the `share` it sets aside each month, and the
+first of the month it was `confirmed` in, from which free to spend reads it.
 
 ## POST /api/finance/plans
 
 Makes a plan from the body above, matches it against the bookings, and
-answers it as `GET` does. A proposal is confirmed by posting it as
+answers it as `GET` does. `today` (`YYYY-MM-DD`) is required: the plan counts
+from that month on, so one made from history leaves past months as they were. A proposal is confirmed by posting it as
 `GET /api/finance/plans/proposals` gave it, less its `key`, `source`, `seen`
 and `last`.
 
 ## PUT /api/finance/plans/{plan_id}
 
-Replaces a plan with the body. Its matches are dropped and made afresh. `404`
+Replaces a plan with the body, keeping the month it was confirmed in. Its
+matches are dropped and made afresh. `404`
 for a plan that is not there.
 
 ## DELETE /api/finance/plans/{plan_id}
@@ -66,14 +69,18 @@ Deletes a plan and its matches; the bookings stay. `204`, or `404`.
 ## GET /api/finance/plans/upcoming
 
 Every date a plan falls due in `month` (`YYYY-MM`, required), by date, each
-with the booking that met it or `null`.
+with the booking that met it or `null`. `timing` says whether that booking
+came in the date's own month (`on_time`), the month before (`early`) or after
+(`late`). `counts_for` names the month (`YYYY-MM`) a salary plan's date after
+the cutoff day pays for, `null` otherwise.
 
 ```json
 [
   {
     "plan_id": 3, "name": "Rent", "due": "2026-10-01", "amount": "-900.00",
     "category_id": 2, "reserves": false,
-    "match": { "transaction_id": 812, "booking_date": "2026-09-30", "amount": "-900.00" }
+    "match": { "transaction_id": 812, "booking_date": "2026-09-30", "amount": "-900.00", "timing": "early" },
+    "counts_for": null
   }
 ]
 ```
@@ -152,6 +159,7 @@ is required.
     {
       "id": 1, "name": "Wedding", "target": "12000.00", "due": "2027-04-01",
       "account_id": 5, "reserved": "600.00", "monthly": "500.00",
+      "assigned_month": "2026-10", "assigned_amount": "500.00",
       "progress": "0.0500", "need": "1900.00",
       "this_month": { "planned": "500.00", "moved": "0.00", "done": false }
     }
@@ -163,6 +171,8 @@ is required.
 }
 ```
 
+* `assigned_month` and `assigned_amount`: the month a contribution was last
+  assigned, and how much, or `null`.
 * `progress`: `reserved` over `target`, at most 1.
 * `need`: what each month from this one to the due month must add to reach
   the target.
@@ -173,7 +183,8 @@ is required.
 
 ## POST /api/finance/goals
 
-Makes a goal from the body above and answers it with its `id`.
+Makes a goal from the body above and answers it with its `id`, its amounts to
+the cent, and `assigned_month` and `assigned_amount`.
 
 ## PUT /api/finance/goals/{goal_id}
 
@@ -183,3 +194,30 @@ one write. `404` for a goal that is not there.
 ## DELETE /api/finance/goals/{goal_id}
 
 Deletes a goal; what it reserved goes back to unreserved. `204`, or `404`.
+
+## POST /api/finance/goals/{goal_id}/assign
+
+Assigns this month's contribution: `reserved` rises by `monthly`, up to the
+target, and the month and amount are recorded. `today` (`YYYY-MM-DD`) is
+required and names the month. A second assign in the same month, or one with
+no contribution left to add, changes nothing; one past the account's balance
+is a `422`. Answers the goal as `POST /goals` does.
+
+## DELETE /api/finance/goals/{goal_id}/assign
+
+Takes back the contribution assigned in `today`'s month: `reserved` drops by
+it. A `409` when none was assigned that month.
+
+## POST /api/finance/goals/{goal_id}/leftover
+
+Moves part of what the limits left over into the goal. `today` (`YYYY-MM-DD`)
+is required.
+
+```json
+{ "amount": "100.00", "month": "2026-11" }
+```
+
+`amount` may be no more than the budget's `unreserved.total` for `month`, and
+the goal's account must hold it as for any reservation; either refusal is a
+`422`. The goal reserves that much more, and the budget's leftover is less by
+it from `month` on. Deleting the goal gives it back.

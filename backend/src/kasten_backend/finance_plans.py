@@ -32,6 +32,10 @@ class Plan:
     end: dt.date | None = None
     payee: int | None = None
     text: str | None = None
+    # The first of the month the plan was confirmed in. Free to spend reads the
+    # plan from then on only, so confirming one from history leaves past months
+    # as they were; matching still links the bookings before it.
+    confirmed: dt.date = dt.date(1, 1, 1)
 
     @property
     def reserves(self) -> bool:
@@ -94,41 +98,64 @@ def fits(plan: Plan, booking: Booking) -> bool:
     return bool(plan.text) and plan.text.casefold() in booking.text
 
 
+Index = dict[tuple[int, dt.date], list[Booking]]
+
+
+def _nearest(
+    plan: Plan, due: dt.date, months: list[dt.date], by_month: Index, taken: set[int]
+) -> Booking | None:
+    """Of the fitting bookings in `months` no plan took, the nearest the date, then the amount."""
+    fitting = [
+        b
+        for month in months
+        for b in by_month.get((plan.account, month), [])
+        if b.id not in taken and fits(plan, b)
+    ]
+    if not fitting:
+        return None
+    return min(fitting, key=lambda b: (abs((b.day - due).days), abs(b.amount - plan.amount)))
+
+
 def match(
     plans: list[Plan], bookings: list[Booking], matched: set[tuple[int, dt.date]]
 ) -> list[tuple[int, dt.date, int]]:
     """New matches as (plan, period, booking), for every period with none yet.
 
-    A period is the calendar month a date falls due in, and a booking matches
-    it in that month only. Of several, the one nearest the date wins, then the
-    one nearest the amount. `bookings` are those no plan holds yet; each goes
-    to one plan at most, the plans taking turns by id.
+    A period is the calendar month a date falls due in. First every open
+    period takes a booking of its own month; then a period still open takes
+    one of the month before or after, a bill paid early or late. Of several,
+    the one nearest the date wins, then the one nearest the amount.
+    `bookings` are those no plan holds yet; each goes to one plan at most,
+    the plans taking turns by id.
     """
     if not bookings:
         return []
-    by_month: dict[tuple[int, dt.date], list[Booking]] = {}
+    by_month: Index = {}
     for booking in bookings:
         by_month.setdefault((booking.account, booking.day.replace(day=1)), []).append(booking)
-    # To the end of the latest booking's month: a booking before its date still meets it.
-    last = add_months(max(b.day for b in bookings).replace(day=1), 1) - dt.timedelta(days=1)
+    # To the end of the month after the latest booking's: a bill paid early meets a date
+    # in the month after it.
+    last = add_months(max(b.day for b in bookings).replace(day=1), 2) - dt.timedelta(days=1)
+    dues = [
+        (plan, due)
+        for plan in sorted(plans, key=lambda p: p.id)
+        for due in due_dates(plan, plan.start, last)
+        if (plan.id, due.replace(day=1)) not in matched
+    ]
     taken: set[int] = set()
     found = []
-    for plan in sorted(plans, key=lambda p: p.id):
-        for due in due_dates(plan, plan.start, last):
+    for near in (False, True):
+        still_open = []
+        for plan, due in dues:
             period = due.replace(day=1)
-            if (plan.id, period) in matched:
+            months = [add_months(period, -1), add_months(period, 1)] if near else [period]
+            best = _nearest(plan, due, months, by_month, taken)
+            if best is None:
+                still_open.append((plan, due))
                 continue
-            fitting = [
-                b
-                for b in by_month.get((plan.account, period), [])
-                if b.id not in taken and fits(plan, b)
-            ]
-            if fitting:
-                best = min(
-                    fitting, key=lambda b: (abs((b.day - due).days), abs(b.amount - plan.amount))
-                )
-                taken.add(best.id)
-                found.append((plan.id, period, best.id))
+            taken.add(best.id)
+            found.append((plan.id, period, best.id))
+        dues = still_open
     return found
 
 
@@ -137,11 +164,12 @@ def shares_until(plan: Plan, month: dt.date) -> int:
 
     Each date takes the `every` months up to and with its own month, so the
     reserve holds the whole bill by the time it comes: a yearly bill due in
-    March sets aside from April the year before.
+    March sets aside from April the year before. None before the month the
+    plan was confirmed in.
     """
     if not plan.reserves or plan.every is None:
         return 0
-    first = add_months(plan.start.replace(day=1), 1 - plan.every)
+    first = max(add_months(plan.start.replace(day=1), 1 - plan.every), plan.confirmed)
     last = month
     if plan.end is not None:
         dates = due_dates(plan, plan.start, plan.end)
@@ -230,7 +258,11 @@ class Book:
     def reserve(self, plan: Plan, month: dt.date) -> Reserve:
         """A reserving plan's month: its share, what it paid, and its balance at month end."""
         paid_before = sum(
-            (amount for (pid, at), amount in self.paid.items() if pid == plan.id and at <= month),
+            (
+                amount
+                for (pid, at), amount in self.paid.items()
+                if pid == plan.id and plan.confirmed <= at <= month
+            ),
             ZERO,
         )
         took = shares_until(plan, month) > shares_until(plan, add_months(month, -1))
@@ -239,7 +271,7 @@ class Book:
             plan.id,
             plan.name,
             share,
-            self.paid.get((plan.id, month), ZERO),
+            self.paid.get((plan.id, month), ZERO) if month >= plan.confirmed else ZERO,
             plan.share * shares_until(plan, month) - paid_before,
         )
 

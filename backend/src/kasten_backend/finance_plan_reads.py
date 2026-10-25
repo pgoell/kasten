@@ -11,7 +11,7 @@ from sqlalchemy.dialects.postgresql import insert
 
 from kasten_backend import finance_models as tables
 from kasten_backend.finance_ledger import ZERO, Account, Scope, scope_of
-from kasten_backend.finance_plan_models import Goal, Plan, PlanMatch
+from kasten_backend.finance_plan_models import Goal, GoalLeftover, Plan, PlanMatch
 from kasten_backend.finance_plans import Book, Booking, GoalPlan, match
 from kasten_backend.finance_plans import Plan as Rule
 from kasten_backend.finance_proposals import Seen
@@ -38,6 +38,7 @@ def rule_of(plan: Plan, scope: Scope | None) -> Rule:
         end=plan.end_date,
         payee=plan.payee_id,
         text=plan.text,
+        confirmed=plan.confirmed,
     )
 
 
@@ -182,3 +183,11 @@ async def history(session: AsyncSession) -> list[Seen]:
         .where(booking.transfer_group.is_(None))
     )
     return [Seen(*row) for row in rows]
+
+
+async def moved_leftovers(session: AsyncSession, month: dt.date) -> Decimal:
+    """What the owner moved of the limits' leftovers into goals, in `month` and before."""
+    found = await session.scalar(
+        select(func.sum(GoalLeftover.amount)).where(GoalLeftover.month <= month)
+    )
+    return found or ZERO

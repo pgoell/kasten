@@ -146,21 +146,29 @@ shorter month), until its end; a plan with no schedule falls due once.
 **Matching.** A booking meets a plan's date when it is on the plan's
 account, is no move between own accounts, has the plan's payee or holds its
 text in its purpose or counterparty name (any case), and its amount lies
-within the tolerance of the plan's. It must fall in the calendar month of the
-date, the plan's period; a bill that slips into the next month is not met.
-Of several, the one nearest the date wins, then the one nearest the amount,
-and each booking meets one plan once. Matches are stored: they are made when
+within the tolerance of the plan's. Every open period, the calendar month a
+date falls in, first takes a booking of its own month; a period still open
+after that takes one from the month before (paid early) or after (paid
+late). Of several, the one nearest the date wins, then the one nearest the
+amount, and each booking meets one plan once. Matches are stored: they are made when
 bookings come in and when a plan is made or changed (a changed plan loses its
 matches and is matched afresh), never on a read. A date no booking met is
-upcoming, even once past.
+upcoming, even once past. A salary plan's date after the cutoff day says
+which month it counts for.
+
+**Confirmed.** A plan counts in free to spend from the month it was made or
+confirmed in, never before: neither its reserve shares nor its fixed cost
+change the months already gone. Matching still links its bookings from its
+start, so the dates of past months show their ticks.
 
 **Reserves.** A cost that comes every 2 months or more reserves: each month it
 takes its share, the amount over the months between two dates rounded up to
 the cent, off free to spend. Each date takes the shares of the months up to
 and with its own month, so a yearly bill due in March sets aside from the
-April before, and a plan made late still takes the shares of the months
-before it was made. The reserve's balance at a month's end is the shares so
-far less the bills its matches paid; it goes below zero when a bill costs more
+April before; a plan confirmed later starts setting aside in that month, so
+its first bill finds less than the whole amount. The reserve's balance at a
+month's end is the shares since it was confirmed less the bills its matches
+paid since then; it goes below zero when a bill costs more
 than was set aside. The booking that paid the bill counts in no spending part
 of free to spend, but the budget's categories still count it as spent.
 
@@ -185,12 +193,20 @@ reached and the month is not past its due month. Free to spend counts it once:
 what moved into the goal's account this month (`saved_into`) fills its goals
 in order of due date, and only what is still to move comes off, on top of
 moved to saving. A month that is over counts what moved, and nothing still to
-move. Assigning the moved money to the goal, raising `reserved`, is the
-owner's step.
+move.
+
+Assigning is the owner's step, and happens once a month: it raises
+`reserved` by the monthly contribution, up to the target and within the
+account's balance, and records the month and the amount, so a second assign
+that month changes nothing and the assign can be undone.
 
 The leftovers of the limits, unreserved below, are another figure from the
 saving account's unreserved: what the limits left of the spending accounts'
-money.
+money. The pane calls the first "left from limits" and the second "not
+reserved on" the account. Moving part of the leftover into a goal raises the
+goal's `reserved` by it, within the account's balance (so move the money to
+the saving account first), and records the move, which comes off the
+leftover from that month on.
 
 ## Limits
 
@@ -216,9 +232,9 @@ At the end of a month:
 * What a category left of its available limit goes to **unreserved**.
   `unreserved.last_month` is what the month before left; `unreserved.total` is
   what every month since the first limit left. Only months that are over
-  count, so a month ahead adds nothing for the month still running. Nothing
-  is moved by hand; moving money into a goal is a transfer to its saving
-  account, which goals count as above.
+  count, so a month ahead adds nothing for the month still running.
+  `unreserved.total` is less what was moved into goals by the month shown,
+  which `unreserved.moved` gives.
 
 ### Status and pace
 

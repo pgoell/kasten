@@ -46,6 +46,9 @@ class Plan(Base):
     category_id: Mapped[int | None] = mapped_column(ForeignKey(Category.id, ondelete="SET NULL"))
     start_date: Mapped[dt.date] = mapped_column(Date)
     end_date: Mapped[dt.date | None] = mapped_column(Date)
+    # The first of the month it was confirmed in, set by the route from the
+    # reader's today; free to spend reads the plan from then on.
+    confirmed: Mapped[dt.date] = mapped_column(Date)
 
 
 class PlanMatch(Base):
@@ -84,3 +87,23 @@ class Goal(Base):
     account_id: Mapped[int] = mapped_column(ForeignKey(Account.id))
     reserved: Mapped[Decimal] = mapped_column(Amount, server_default=literal_column("0"))
     monthly: Mapped[Decimal | None] = mapped_column(Amount)
+    # The month a contribution was last assigned, and how much, so assigning is
+    # once a month and can be undone.
+    assigned_month: Mapped[dt.date | None] = mapped_column(Date)
+    assigned_amount: Mapped[Decimal | None] = mapped_column(Amount)
+
+
+class GoalLeftover(Base):
+    """Money the limits left, moved into a goal in a month; the leftover drops by it."""
+
+    __tablename__ = "goal_leftover"
+    __table_args__ = (
+        CheckConstraint("amount > 0", name="goal_leftover_amount_check"),
+        CheckConstraint("extract(day from month) = 1", name="goal_leftover_first_of_month"),
+        {"schema": SCHEMA},
+    )
+
+    id: Mapped[int] = mapped_column(Identity(), primary_key=True)
+    goal_id: Mapped[int] = mapped_column(ForeignKey(Goal.id, ondelete="CASCADE"))
+    month: Mapped[dt.date] = mapped_column(Date)
+    amount: Mapped[Decimal] = mapped_column(Amount)

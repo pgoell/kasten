@@ -16,8 +16,8 @@ if TYPE_CHECKING:
 TODAY = {"month": "2026-10", "today": "2026-10-10"}
 
 
-async def plan(client: AsyncClient, **fields: Any) -> dict[str, Any]:
-    response = await client.post(f"{API}/plans", json=fields)
+async def plan(client: AsyncClient, today: str = "2026-10-10", **fields: Any) -> dict[str, Any]:
+    response = await client.post(f"{API}/plans", json=fields, params={"today": today})
     assert response.status_code == 200, response.text
     return response.json()
 
@@ -59,6 +59,8 @@ async def test_a_plan_matches_its_bill_and_the_reserve_pays_it(finance_client: A
     ids = await setup(finance_client)
     made = await plan(
         finance_client,
+        # Confirmed a year back, so the reserve has set aside all twelve shares.
+        today="2025-11-01",
         name="Haftpflicht",
         account_id=ids["giro"],
         payee_id=ids["payee"],
@@ -85,8 +87,14 @@ async def test_a_plan_matches_its_bill_and_the_reserve_pays_it(finance_client: A
 
 async def test_a_plan_needs_a_payee_or_a_text(finance_client: AsyncClient) -> None:
     giro = await own(finance_client, "Giro", GIRO, "giro")
-    body = {"name": "Rent", "account_id": giro, "amount": "-900", "start": "2026-10-01"}
-    assert (await finance_client.post(f"{API}/plans", json=body)).status_code == 422
+    body: dict[str, Any] = {
+        "name": "Rent",
+        "account_id": giro,
+        "amount": "-900",
+        "start": "2026-10-01",
+    }
+    refused = await finance_client.post(f"{API}/plans", json=body, params={"today": "2026-10-10"})
+    assert refused.status_code == 422
     made = await plan(finance_client, **body, text="Miete")
     changed = await finance_client.put(
         f"{API}/plans/{made['id']}", json={**body, "text": "Miete", "every_months": None}
@@ -120,7 +128,7 @@ async def test_goals_reserve_no_more_than_the_balance_and_contribute_monthly(
     goal = {"name": "Wedding", "target": "12000", "due": "2027-04-01", "account_id": ids["saving"]}
     refused = await finance_client.post(f"{API}/goals", json={**goal, "reserved": "1000.01"})
     assert refused.status_code == 422
-    assert "1000.00 is unreserved" in refused.json()["detail"]
+    assert "may reserve at most 1000.00" in refused.json()["detail"]
     giro = await finance_client.post(f"{API}/goals", json={**goal, "account_id": ids["giro"]})
     assert giro.status_code == 422
     await finance_client.post(f"{API}/goals", json={**goal, "reserved": "600", "monthly": "500"})
@@ -174,3 +182,93 @@ async def test_a_booking_that_comes_in_after_the_plan_meets_it(finance_client: A
     await post(finance_client, [later])
     due = (await finance_client.get(f"{API}/plans/upcoming", params={"month": "2027-10"})).json()
     assert due[0]["match"]["amount"] == "-605.00"
+
+
+async def test_a_plan_confirmed_now_leaves_past_months_alone(finance_client: AsyncClient) -> None:
+    ids = await setup(finance_client)
+    before = (await finance_client.get(f"{API}/budget/free", params=TODAY)).json()["mine"]
+    await plan(
+        finance_client, today="2026-11-02", name="Haftpflicht", account_id=ids["giro"],
+        payee_id=ids["payee"], amount="-600.00", tolerance="5.00", every_months=12,
+        category_id=ids["insurance"], start="2026-10-01",
+    )  # fmt: skip
+    after = (await finance_client.get(f"{API}/budget/free", params=TODAY)).json()["mine"]
+    assert after == before
+    due = (await finance_client.get(f"{API}/plans/upcoming", params={"month": "2026-10"})).json()
+    assert due[0]["match"]["timing"] == "on_time"
+
+
+async def test_a_bill_paid_a_month_late_meets_its_open_date(finance_client: AsyncClient) -> None:
+    ids = await setup(finance_client)
+    await plan(
+        finance_client, name="Haftpflicht", account_id=ids["giro"], payee_id=ids["payee"],
+        amount="-600.00", tolerance="5.00", every_months=12, start="2026-09-15",
+    )  # fmt: skip
+    due = (await finance_client.get(f"{API}/plans/upcoming", params={"month": "2026-09"})).json()
+    assert (due[0]["match"]["booking_date"], due[0]["match"]["timing"]) == ("2026-10-04", "late")
+
+
+async def test_a_salary_after_the_cutoff_counts_for_the_next_month(
+    finance_client: AsyncClient,
+) -> None:
+    ids = await setup(finance_client)
+    await finance_client.put(
+        f"{API}/budget/settings",
+        json={"salary_cutoff_day": 15, "salary_category_ids": [ids["salary"]]},
+    )
+    await plan(
+        finance_client, name="Pay", account_id=ids["giro"], text="Lohn", amount="3000",
+        category_id=ids["salary"], start="2026-09-20",
+    )  # fmt: skip
+    due = (await finance_client.get(f"{API}/plans/upcoming", params={"month": "2026-10"})).json()
+    assert due[0]["counts_for"] == "2026-11"
+
+
+async def saving_goal(client: AsyncClient, ids: dict[str, int], **fields: Any) -> dict[str, Any]:
+    await client.post(
+        f"{API}/balances",
+        json=[{"account_id": ids["saving"], "date": "2026-10-09", "amount": "1000"}],
+    )
+    body = {"name": "Trip", "target": "2000", "due": "2027-04-01", "account_id": ids["saving"]}
+    response = await client.post(f"{API}/goals", json={**body, **fields})
+    assert response.status_code == 200, response.text
+    return response.json()
+
+
+async def test_assigning_a_contribution_is_once_a_month_and_undone(
+    finance_client: AsyncClient,
+) -> None:
+    goal = await saving_goal(finance_client, await setup(finance_client), monthly="300")
+    assert (goal["target"], goal["monthly"]) == ("2000.00", "300.00")
+    url, day = f"{API}/goals/{goal['id']}/assign", {"today": "2026-10-10"}
+    first = (await finance_client.post(url, params=day)).json()
+    again = (await finance_client.post(url, params=day)).json()
+    assert (first["reserved"], first["assigned_month"]) == ("300.00", "2026-10")
+    assert again["reserved"] == "300.00"
+    undone = (await finance_client.delete(url, params=day)).json()
+    assert (undone["reserved"], undone["assigned_month"]) == ("0.00", None)
+    assert (await finance_client.delete(url, params=day)).status_code == 409
+
+
+async def test_a_leftover_moved_into_a_goal_leaves_the_limits_leftover(
+    finance_client: AsyncClient,
+) -> None:
+    ids = await setup(finance_client)
+    goal = await saving_goal(finance_client, ids)
+    await finance_client.put(
+        f"{API}/categories/{ids['insurance']}/limit", json={"amount": "700", "from": "2026-10"}
+    )
+    month = {"month": "2026-11", "today": "2026-11-02"}
+    left = (await finance_client.get(f"{API}/budget", params=month)).json()["unreserved"]
+    assert left["total"] == "103.00"
+    url = f"{API}/goals/{goal['id']}/leftover"
+    too_much = await finance_client.post(
+        url, json={"amount": "200", "month": "2026-11"}, params={"today": "2026-11-02"}
+    )
+    assert too_much.status_code == 422
+    moved = await finance_client.post(
+        url, json={"amount": "100", "month": "2026-11"}, params={"today": "2026-11-02"}
+    )
+    assert moved.json()["reserved"] == "100.00"
+    left = (await finance_client.get(f"{API}/budget", params=month)).json()["unreserved"]
+    assert (left["total"], left["moved"]) == ("3.00", "100.00")

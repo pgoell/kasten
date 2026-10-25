@@ -43,6 +43,8 @@ async def _lines(session: AsyncSession, cutoff: int) -> list[Line]:
     reserved = exists().where(
         PlanMatch.transaction_id == booking.id,
         PlanMatch.plan_id == Plan.id,
+        # A bill paid before the plan was confirmed counts where it did then.
+        PlanMatch.period >= Plan.confirmed,
         Plan.every_months > 1,
         Plan.amount < 0,
     )

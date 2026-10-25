@@ -82,10 +82,11 @@ class BudgetCategoryOut(BaseModel):
 
 
 class UnreservedOut(BaseModel):
-    """What the limits left: the month before, and every month since limits began."""
+    """What the limits left: the month before, and every month since less what went into goals."""
 
     last_month: Cents
     total: Cents
+    moved: Cents
 
 
 class BudgetOut(BaseModel):
@@ -272,12 +273,14 @@ async def read_budget(session: Session, month: MonthParam, today: TodayParam) ->
     """Every spending category's month: limit, carried overspend, spent, average, status."""
     first, day = parse_when(month, today)
     ledger, limits = await reads.ledger(session), await reads.limits(session)
-    left = budget.unreserved(ledger, limits, first, day)
+    left = budget.unreserved(
+        ledger, limits, first, day, await plan_reads.moved_leftovers(session, first)
+    )
     return BudgetOut(
         month=first.strftime("%Y-%m"),
         share_of_month=budget.share_of_month(first, day).quantize(Decimal("0.0001")),
         categories=[_category(row) for row in budget.budget_of(ledger, limits, first, day)],
-        unreserved=UnreservedOut(last_month=left.last_month, total=left.total),
+        unreserved=UnreservedOut(last_month=left.last_month, total=left.total, moved=left.moved),
     )
 
 

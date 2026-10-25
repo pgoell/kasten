@@ -196,8 +196,13 @@ def planned_fixed(reader: _Reader, book: Book) -> list[Part]:
 
 
 def _alive(plan: Plan, month: dt.date) -> bool:
-    """Whether `month` lies in the plan's life; a plan that falls due once lives in its month."""
+    """Whether free to spend reads the plan in `month`: in its life, and once it was confirmed.
+
+    A plan that falls due once lives in its month.
+    """
     start = plan.start.replace(day=1)
+    if month < plan.confirmed:
+        return False
     if plan.every is None:
         return start == month
     return start <= month and (plan.end is None or plan.end >= month)

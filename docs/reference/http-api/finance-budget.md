@@ -47,7 +47,7 @@ GET /api/finance/budget?month=2026-10&today=2026-10-10
       "suggestion": { "direction": "raise", "amount": "430.00" }
     }
   ],
-  "unreserved": { "last_month": "120.00", "total": "560.00" }
+  "unreserved": { "last_month": "120.00", "total": "460.00", "moved": "100.00" }
 }
 ```
 
@@ -61,6 +61,8 @@ GET /api/finance/budget?month=2026-10&today=2026-10-10
   category with a limit; `null` otherwise.
 * `status`: `ok`, `near`, `over`, or `null` without a limit.
 * `suggestion`: `null`, or a new limit to raise or lower it to.
+* `unreserved`: what the limits left the month before, and every month since
+  limits began less what was `moved` into goals by this month.
 
 ## GET /api/finance/budget/free
 

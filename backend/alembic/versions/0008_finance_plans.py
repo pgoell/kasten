@@ -1,4 +1,4 @@
-"""Add plans, the bookings that matched them, and saving goals.
+"""Add plans, the bookings that matched them, saving goals and the leftovers moved into them.
 
 Revision ID: 0008
 Revises: 0007
@@ -21,7 +21,7 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
-    """Make the three tables empty: plans come from the owner confirming proposals."""
+    """Make the four tables empty: plans come from the owner confirming proposals."""
     op.create_table(
         "plan",
         sa.Column("id", sa.Integer(), sa.Identity(), nullable=False),
@@ -35,6 +35,7 @@ def upgrade() -> None:
         sa.Column("category_id", sa.Integer(), nullable=True),
         sa.Column("start_date", sa.Date(), nullable=False),
         sa.Column("end_date", sa.Date(), nullable=True),
+        sa.Column("confirmed", sa.Date(), nullable=False),
         sa.CheckConstraint(
             "payee_id IS NOT NULL OR text IS NOT NULL", name="plan_matches_something"
         ),
@@ -67,6 +68,8 @@ def upgrade() -> None:
         sa.Column("account_id", sa.Integer(), nullable=False),
         sa.Column("reserved", sa.Numeric(14, 2), server_default=sa.text("0"), nullable=False),
         sa.Column("monthly", sa.Numeric(14, 2), nullable=True),
+        sa.Column("assigned_month", sa.Date(), nullable=True),
+        sa.Column("assigned_amount", sa.Numeric(14, 2), nullable=True),
         sa.CheckConstraint("target > 0", name="goal_target_check"),
         sa.CheckConstraint("reserved >= 0", name="goal_reserved_check"),
         sa.CheckConstraint("monthly IS NULL OR monthly >= 0", name="goal_monthly_check"),
@@ -74,10 +77,23 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
         schema="finance",
     )
+    op.create_table(
+        "goal_leftover",
+        sa.Column("id", sa.Integer(), sa.Identity(), nullable=False),
+        sa.Column("goal_id", sa.Integer(), nullable=False),
+        sa.Column("month", sa.Date(), nullable=False),
+        sa.Column("amount", sa.Numeric(14, 2), nullable=False),
+        sa.CheckConstraint("amount > 0", name="goal_leftover_amount_check"),
+        sa.CheckConstraint("extract(day from month) = 1", name="goal_leftover_first_of_month"),
+        sa.ForeignKeyConstraint(["goal_id"], ["finance.goal.id"], ondelete="CASCADE"),
+        sa.PrimaryKeyConstraint("id"),
+        schema="finance",
+    )
 
 
 def downgrade() -> None:
-    """Drop the three tables, and every plan, match and goal with them."""
+    """Drop the four tables, and every plan, match, goal and leftover moved with them."""
+    op.drop_table("goal_leftover", schema="finance")
     op.drop_table("goal", schema="finance")
     op.drop_table("plan_match", schema="finance")
     op.drop_table("plan", schema="finance")

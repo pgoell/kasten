@@ -14,8 +14,10 @@ from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
+from kasten_backend import finance_budget_reads as budget_reads
 from kasten_backend import finance_plan_reads as reads
-from kasten_backend.finance_ledger import SCOPES
+from kasten_backend.finance_ledger import SCOPES, add_months
+from kasten_backend.finance_models import Category, Transaction
 from kasten_backend.finance_plan_models import Plan
 from kasten_backend.finance_plans import due_in, forecast
 from kasten_backend.finance_proposals import proposals
@@ -62,19 +64,21 @@ class PlanIn(BaseModel):
 
 
 class PlanOut(PlanIn):
-    """A plan as stored, and what it sets aside each month when it reserves."""
+    """A plan as stored, what it sets aside a month when it reserves, and since when it counts."""
 
     id: int
     reserves: bool
     share: Cents
+    confirmed: dt.date
 
 
 class MatchOut(BaseModel):
-    """The booking that met a date."""
+    """The booking that met a date, and whether it came in the month before or after it."""
 
     transaction_id: int
     booking_date: dt.date
     amount: Cents
+    timing: Literal["on_time", "early", "late"]
 
 
 class DueOut(BaseModel):
@@ -87,6 +91,8 @@ class DueOut(BaseModel):
     category_id: int | None
     reserves: bool
     match: MatchOut | None
+    # A salary that lands after the cutoff day pays for the month after (`YYYY-MM`).
+    counts_for: str | None
 
 
 class ForecastMonthOut(BaseModel):
@@ -146,6 +152,7 @@ def _out(plan: Plan) -> PlanOut:
         end=plan.end_date,
         reserves=rule.reserves,
         share=rule.share,
+        confirmed=plan.confirmed,
     )
 
 
@@ -178,9 +185,13 @@ async def read_plans(session: Session) -> list[PlanOut]:
 
 
 @router.post("/plans")
-async def write_plan(body: PlanIn, session: Session) -> PlanOut:
-    """Make a plan, a proposal confirmed or one made by hand, and match it against the bookings."""
-    plan = Plan()
+async def write_plan(body: PlanIn, session: Session, today: TodayParam) -> PlanOut:
+    """Make a plan, a proposal confirmed or one made by hand, and match it against the bookings.
+
+    It counts in free to spend from the reader's month on, so a plan made
+    from history leaves the months before as they were.
+    """
+    plan = Plan(confirmed=parse_when(today[:7], today)[0])
     _fill(plan, body)
     session.add(plan)
     return await _save(session, plan)
@@ -207,11 +218,20 @@ async def delete_plan(plan_id: int, session: Session) -> Response:
     return Response(status_code=204)
 
 
+def _timing(booking: Transaction, period: dt.date) -> Literal["on_time", "early", "late"]:
+    month = booking.booking_date.replace(day=1)
+    if month == period:
+        return "on_time"
+    return "early" if month < period else "late"
+
+
 @router.get("/plans/upcoming")
 async def read_upcoming(session: Session, month: MonthParam) -> list[DueOut]:
     """Every date a plan falls due in the month, by date, each with its match or none."""
     first = parse_month(month)
     found = await reads.matches(session)
+    cutoff = await budget_reads.cutoff_day(session)
+    salary = set(await session.scalars(select(Category.id).where(Category.salary)))
     dues = []
     for plan in await reads.rules(session):
         booking = found.get((plan.id, first))
@@ -219,9 +239,13 @@ async def read_upcoming(session: Session, month: MonthParam) -> list[DueOut]:
             None
             if booking is None
             else MatchOut(
-                transaction_id=booking.id, booking_date=booking.booking_date, amount=booking.amount
+                transaction_id=booking.id,
+                booking_date=booking.booking_date,
+                amount=booking.amount,
+                timing=_timing(booking, first),
             )
         )
+        late = plan.category in salary and plan.amount > 0
         dues.extend(
             DueOut(
                 plan_id=plan.id,
@@ -231,6 +255,9 @@ async def read_upcoming(session: Session, month: MonthParam) -> list[DueOut]:
                 category_id=plan.category,
                 reserves=plan.reserves,
                 match=matched,
+                counts_for=add_months(first, 1).strftime("%Y-%m")
+                if late and due.day > cutoff
+                else None,
             )
             for due in due_in(plan, first)
         )

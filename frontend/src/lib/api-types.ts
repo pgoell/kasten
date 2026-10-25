@@ -1265,6 +1265,9 @@ export interface paths {
         /**
          * Write Plan
          * @description Make a plan, a proposal confirmed or one made by hand, and match it against the bookings.
+         *
+         *     It counts in free to spend from the reader's month on, so a plan made
+         *     from history leaves the months before as they were.
          */
         post: operations["write_plan_api_finance_plans_post"];
         delete?: never;
@@ -1397,9 +1400,58 @@ export interface paths {
         post?: never;
         /**
          * Delete Goal
-         * @description Delete a goal; what it reserved goes back to unreserved.
+         * @description Delete a goal; what it reserved, leftovers moved into it included, is free again.
          */
         delete: operations["delete_goal_api_finance_goals__goal_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/finance/goals/{goal_id}/assign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Assign Contribution
+         * @description Assign this month's contribution of the account's balance to the goal, once a month.
+         *
+         *     Up to the target. A second assign in the same month changes nothing.
+         */
+        post: operations["assign_contribution_api_finance_goals__goal_id__assign_post"];
+        /**
+         * Undo Contribution
+         * @description Take back this month's assigned contribution; `409` when none was assigned this month.
+         */
+        delete: operations["undo_contribution_api_finance_goals__goal_id__assign_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/finance/goals/{goal_id}/leftover": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Move Leftover
+         * @description Move part of what the limits left over into the goal: it reserves that much more.
+         *
+         *     No more than what is left from the limits in `month`, and the account's
+         *     balance must hold it, so move the money to the saving account first.
+         */
+        post: operations["move_leftover_api_finance_goals__goal_id__leftover_post"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -2738,6 +2790,8 @@ export interface components {
             /** Reserves */
             reserves: boolean;
             match: components["schemas"]["MatchOut"] | null;
+            /** Counts For */
+            counts_for: string | null;
         };
         /**
          * Dump
@@ -2976,6 +3030,8 @@ export interface components {
          * @description A goal as stored, with how far it is and what each month needs to reach it in time.
          */
         GoalOut: {
+            /** Id */
+            id: number;
             /** Name */
             name: string;
             /** Target */
@@ -2987,15 +3043,14 @@ export interface components {
             due: string;
             /** Account Id */
             account_id: number;
-            /**
-             * Reserved
-             * @default 0
-             */
+            /** Reserved */
             reserved: string;
             /** Monthly */
-            monthly?: string | null;
-            /** Id */
-            id: number;
+            monthly: string | null;
+            /** Assigned Month */
+            assigned_month: string | null;
+            /** Assigned Amount */
+            assigned_amount: string | null;
             /** Progress */
             progress: string;
             /** Need */
@@ -3184,6 +3239,16 @@ export interface components {
             config: string;
         };
         /**
+         * LeftoverIn
+         * @description An amount of what the limits left over, moved into a goal in a month (`YYYY-MM`).
+         */
+        LeftoverIn: {
+            /** Amount */
+            amount: number | string;
+            /** Month */
+            month: string;
+        };
+        /**
          * LimitIn
          * @description A category's monthly limit from a month on; null takes the limit away from then.
          */
@@ -3231,7 +3296,7 @@ export interface components {
         };
         /**
          * MatchOut
-         * @description The booking that met a date.
+         * @description The booking that met a date, and whether it came in the month before or after it.
          */
         MatchOut: {
             /** Transaction Id */
@@ -3243,6 +3308,11 @@ export interface components {
             booking_date: string;
             /** Amount */
             amount: string;
+            /**
+             * Timing
+             * @enum {string}
+             */
+            timing: "on_time" | "early" | "late";
         };
         /**
          * Mention
@@ -3465,7 +3535,7 @@ export interface components {
         };
         /**
          * PlanOut
-         * @description A plan as stored, and what it sets aside each month when it reserves.
+         * @description A plan as stored, what it sets aside a month when it reserves, and since when it counts.
          */
         PlanOut: {
             /** Name */
@@ -3503,6 +3573,11 @@ export interface components {
             reserves: boolean;
             /** Share */
             share: string;
+            /**
+             * Confirmed
+             * Format: date
+             */
+            confirmed: string;
         };
         /**
          * ProposalOut
@@ -3803,9 +3878,11 @@ export interface components {
         };
         /**
          * StoredGoalOut
-         * @description A goal as written.
+         * @description A goal as written, its amounts to the cent.
          */
         StoredGoalOut: {
+            /** Id */
+            id: number;
             /** Name */
             name: string;
             /** Target */
@@ -3817,15 +3894,14 @@ export interface components {
             due: string;
             /** Account Id */
             account_id: number;
-            /**
-             * Reserved
-             * @default 0
-             */
+            /** Reserved */
             reserved: string;
             /** Monthly */
-            monthly?: string | null;
-            /** Id */
-            id: number;
+            monthly: string | null;
+            /** Assigned Month */
+            assigned_month: string | null;
+            /** Assigned Amount */
+            assigned_amount: string | null;
         };
         /**
          * SuggestionOut
@@ -4111,13 +4187,15 @@ export interface components {
         };
         /**
          * UnreservedOut
-         * @description What the limits left: the month before, and every month since limits began.
+         * @description What the limits left: the month before, and every month since less what went into goals.
          */
         UnreservedOut: {
             /** Last Month */
             last_month: string;
             /** Total */
             total: string;
+            /** Moved */
+            moved: string;
         };
         /**
          * UploadSize
@@ -5849,7 +5927,9 @@ export interface operations {
     };
     write_plan_api_finance_plans_post: {
         parameters: {
-            query?: never;
+            query: {
+                today: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -6153,6 +6233,109 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    assign_contribution_api_finance_goals__goal_id__assign_post: {
+        parameters: {
+            query: {
+                today: string;
+            };
+            header?: never;
+            path: {
+                goal_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StoredGoalOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    undo_contribution_api_finance_goals__goal_id__assign_delete: {
+        parameters: {
+            query: {
+                today: string;
+            };
+            header?: never;
+            path: {
+                goal_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StoredGoalOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    move_leftover_api_finance_goals__goal_id__leftover_post: {
+        parameters: {
+            query: {
+                today: string;
+            };
+            header?: never;
+            path: {
+                goal_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LeftoverIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StoredGoalOut"];
+                };
             };
             /** @description Validation Error */
             422: {
