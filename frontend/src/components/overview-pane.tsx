@@ -152,7 +152,10 @@ function foodCard(reads: Reads, commands: EditorCommands): Card {
   const bound = goal?.type === "floor" ? "at least" : "at most";
   return {
     key: "food",
-    caption: fortnightCaption("kcal per day, 14 days", goal, over),
+    caption:
+      bars.length === 0
+        ? "nothing logged in 14 days"
+        : fortnightCaption("kcal per day, 14 days", goal, over),
     name: "Food",
     target: "the log",
     open: () => commands.openLog(),
@@ -245,7 +248,10 @@ function waterCard(reads: Reads, commands: EditorCommands): Card {
     goal?.type === "ceiling" ? bars.filter(({ amount }) => overMax(amount, goal)).length : 0;
   return {
     key: "water",
-    caption: fortnightCaption("water per day, 14 days", goal, over),
+    caption:
+      bars.length === 0
+        ? "nothing logged in 14 days"
+        : fortnightCaption("water per day, 14 days", goal, over),
     name: "Water",
     target: "the log",
     open: () => commands.openLog(),

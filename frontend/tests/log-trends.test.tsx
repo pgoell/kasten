@@ -362,3 +362,14 @@ it("#806 A2 a range ending before today marks no bar past", async () => {
   );
   expect(document.querySelectorAll("rect.log-chart-past")).toHaveLength(0);
 });
+
+it("#806 A2 a past bar over a max goal is not marked past", async () => {
+  fetchLog.mockImplementation(logDays(thirtyDays()));
+  renderPane();
+  const kcal = await screen.findByRole("img", { name: /^kcal over 30 days/ });
+  await waitFor(() => expect(kcal.querySelectorAll("rect.log-chart-bar")).toHaveLength(27));
+
+  // Six past days pass the kcal ceiling. Their warning colour stays at full strength.
+  expect(kcal.querySelectorAll("rect.log-chart-over")).toHaveLength(6);
+  expect(kcal.querySelectorAll("rect.log-chart-over.log-chart-past")).toHaveLength(0);
+});

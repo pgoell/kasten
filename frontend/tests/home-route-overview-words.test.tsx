@@ -191,7 +191,8 @@ describe("the overview's words, on the route", () => {
   });
 
   it("#806 A1 each chart has a visible line saying what it shows, and each ring names its macro and grams", async () => {
-    config = "- 🍽 food: kcal max 2200, protein min 120\n";
+    // The config names water too, since a note that names no kind drops the defaults.
+    config = "- 🍽 food: kcal max 2200, protein min 120\n- 💧 water: 250 ml\n";
     const today = day("2026-10-20", 1240);
     today.totals.food.protein = 84;
     fetchLog.mockResolvedValue([today]);
@@ -237,5 +238,13 @@ describe("the overview's words, on the route", () => {
 
     expect(figureOf("Flashcards")).toBe("1 day");
     expect(wordsOf("Flashcards")).toBe("in a row with a review, 1 today");
+  });
+
+  it("#806 I1 a bar card with no logged day says nothing logged in 14 days under its chart", async () => {
+    // No log at all: the Food and Water charts have no bar to draw.
+    await openOverview();
+
+    expect(captionOf("Food")).toBe("nothing logged in 14 days");
+    expect(captionOf("Water")).toBe("nothing logged in 14 days");
   });
 });

@@ -106,14 +106,17 @@
 }
 
 @media (width < 48rem) {
+  .overview-name,
   .overview-caption,
   .overview-ring-label {
     font-size: var(--k-text-15);
   }
 }
 
+/* The labels start at one height whatever the ring's size, so they line up across the row. */
 .overview-rings {
   display: flex;
+  align-items: start;
   gap: 12px;
 }
 
@@ -124,10 +127,12 @@
   min-width: 0;
 }
 
+/* A square of up to 72 px, so every ring is the same size on a phone and on a desktop. */
 .overview-rings .chart-svg {
-  flex: 1 1 0;
-  min-width: 0;
+  flex: none;
+  width: 100%;
   max-width: 72px;
+  aspect-ratio: 1;
 }
 
 /* A tap target is at least 44 px tall on a touch screen, the card's name included. */

@@ -42,14 +42,16 @@ export function Bars({ label, points, slots, goal, todayIndex }: BarsProps) {
       {points.map(({ index, amount }) => {
         // A logged zero gets a stub one unit high, so it is not drawn like a day with no log.
         const barHeight = amount === 0 ? 1 : height(amount);
-        const base =
-          goal !== undefined && overMax(amount, goal)
-            ? "log-chart-bar log-chart-over"
-            : amount === 0
-              ? "log-chart-bar log-chart-zero"
-              : "log-chart-bar";
+        const over = goal !== undefined && overMax(amount, goal);
+        const base = over
+          ? "log-chart-bar log-chart-over"
+          : amount === 0
+            ? "log-chart-bar log-chart-zero"
+            : "log-chart-bar";
         // Today's bar stands out when the range ends on today, so the eye lands on it first.
-        const past = todayIndex !== undefined && index !== todayIndex;
+        // A bar over its ceiling keeps the warning at full strength, since a faded warning
+        // blends into the warm accents of the russet and peach palettes.
+        const past = todayIndex !== undefined && index !== todayIndex && !over;
         return (
           <rect
             key={index}
