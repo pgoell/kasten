@@ -6,8 +6,13 @@ gives one winning:
 1. the hand: a category set by hand is never touched by a rule;
 2. a `text_contains` rule whose pattern is in the purpose, case ignored;
 3. the payee's default category;
-4. a `payee` rule whose pattern, cleaned like a payee name, is whole words of
-   the payee's key, so `dm` names `dm drogerie` and not `admiral`.
+4. a `payee` rule whose pattern, cleaned like a payee name, starts at a word
+   of the payee's key, so `dm` names `dm drogerie` and not `admiral`, and
+   `lebensversic` names `lebensversicherung ag`.
+
+A rule only sorts a booking of its category's side: a rule for an `income`
+category only money in, any other rule only money out, so a payee rule
+`deloitte` for Salary leaves spending at the Deloitte canteen alone.
 
 Among rules of one kind the longest pattern wins, then the lowest id. Text
 rules come first because they exist for the bookings whose payee says
@@ -114,13 +119,15 @@ def _spelled(name: Any) -> ColumnElement[str]:
     return func.btrim(func.regexp_replace(name, r"\s+", " ", "g"))
 
 
-def _first_rule(kind: str, matches: ColumnElement[bool], payee: Any = None) -> Any:
+def _first_rule(kind: str, matches: ColumnElement[bool], amount: Any, payee: Any = None) -> Any:
     """The category of the winning rule of one kind, as a subquery correlated to its booking.
 
-    With `payee`, the subquery joins that payee to each rule on `matches`; every
-    other table it names is the outer row's.
+    Only rules of the booking's side take part: income for money in, the
+    rest for money out. With `payee`, the subquery joins that payee to each
+    rule on `matches`; every other table it names is the outer row's.
     """
-    statement = select(Rule.category_id).where(Rule.kind == kind)
+    side = case((amount > 0, literal("in")), else_=literal("out"))
+    statement = select(Rule.category_id).where(Rule.kind == kind, Rule.side == side)
     statement = statement.where(matches) if payee is None else statement.join(payee, matches)
     return (
         statement.correlate_except(Rule, *([] if payee is None else [payee]))
@@ -130,18 +137,20 @@ def _first_rule(kind: str, matches: ColumnElement[bool], payee: Any = None) -> A
     )
 
 
-def _chosen(text: Any, payee_id: Any) -> Any:
-    """The category the rules give a row whose text and payee are these columns."""
+def _chosen(text: Any, payee_id: Any, amount: Any) -> Any:
+    """The category the rules give a row whose text, payee and amount are these columns."""
     payee = aliased(Payee)
-    by_text = _first_rule("text_contains", func.strpos(func.lower(text), Rule.pattern) > 0)
-    # Padded with a space each side, so a pattern matches whole words of the key only.
-    padded = func.concat(" ", payee.key, " ")
+    by_text = _first_rule("text_contains", func.strpos(func.lower(text), Rule.pattern) > 0, amount)
+    # A space before the key and the pattern, so a pattern starts at a word of
+    # the key: Firefly's rules hold fragments such as `lebensversic`.
+    padded = func.concat(" ", payee.key)
     by_default = select(payee.category_id).where(payee.id == payee_id).scalar_subquery()
     # A join in the rule's own subquery, not an EXISTS under it: two levels
     # down, the EXISTS was not tied to the outer booking and matched any payee.
     by_payee = _first_rule(
         "payee",
-        and_(payee.id == payee_id, func.strpos(padded, func.concat(" ", Rule.pattern, " ")) > 0),
+        and_(payee.id == payee_id, func.strpos(padded, func.concat(" ", Rule.pattern)) > 0),
+        amount,
         payee=payee,
     )
     return func.coalesce(by_text, by_default, by_payee)
@@ -185,7 +194,7 @@ async def apply_rules(session: AsyncSession, ids: Sequence[int] | None = None) -
         booking.id,
         case(
             (or_(booking.transfer_group.is_not(None), has_splits), null()),
-            else_=_chosen(booking.purpose, booking.payee_id),
+            else_=_chosen(booking.purpose, booking.payee_id, booking.amount),
         ).label("category"),
     ).where(_by_rule(booking))
     parent = aliased(Transaction)
@@ -194,7 +203,7 @@ async def apply_rules(session: AsyncSession, ids: Sequence[int] | None = None) -
             split.id,
             case(
                 (parent.transfer_group.is_not(None), null()),
-                else_=_chosen(split.text, parent.payee_id),
+                else_=_chosen(split.text, parent.payee_id, split.amount),
             ).label("category"),
         )
         .join(parent, parent.id == split.transaction_id)

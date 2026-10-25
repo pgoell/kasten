@@ -11,6 +11,25 @@ from datetime import date
 from decimal import Decimal
 from typing import Any
 
+CENT = Decimal("0.01")
+
+
+def spelled(iban: str | None) -> str:
+    """An IBAN without spaces and in capitals, as kasten stores it; empty for none."""
+    return "".join((iban or "").split()).upper()
+
+
+def transfer_prefix(iban: str, other: str, day: date | str, amount: Decimal) -> str:
+    """The key prefix of a move between two own accounts, the same from either side.
+
+    The old importer's `transfer:<lo>:<hi>:<date>:<abs amount>`, with the two
+    IBANs spelled alike and sorted, and the amount always to the cent: the
+    bank prints `500` or `500.00` as it likes, and Firefly kept both and
+    `500.000000000000` besides.
+    """
+    lo, hi = sorted((spelled(iban), spelled(other)))
+    return f"transfer:{lo}:{hi}:{day}:{abs(amount).quantize(CENT)}"
+
 
 def key_prefix(bank: str, iban: str, record: dict[str, Any]) -> str:
     """The Firefly importer's `external_id` for the record, computed exactly as it did.
@@ -37,8 +56,18 @@ def _plain(value: Any) -> Any:
     return str(value)
 
 
-def to_bookings(bank: str, iban: str, account_id: int, records: list[dict[str, Any]]) -> list[dict]:
+def to_bookings(
+    bank: str,
+    iban: str,
+    account_id: int,
+    records: list[dict[str, Any]],
+    own: frozenset[str] = frozenset(),
+) -> list[dict]:
     """The bookings for one account's records, in the bank's order, each with its source key.
+
+    `own` is every kasten account's IBAN, spelled as `spelled` spells it. A
+    record whose counterparty is one of them is a move between own accounts
+    and takes `transfer_prefix`, as the old importer keyed it.
 
     Records alike in every part of the key, two coffees of one price on one
     day, get `:0`, `:1` and so on in the order the bank lists them. The bank
@@ -50,7 +79,11 @@ def to_bookings(bank: str, iban: str, account_id: int, records: list[dict[str, A
     seen: dict[str, int] = {}
     bookings = []
     for record in records:
-        prefix = key_prefix(bank, iban, record)
+        other = spelled(record.get("applicant_iban"))
+        if other in own and other != spelled(iban):
+            prefix = transfer_prefix(iban, other, record["date"], record["amount"].amount)
+        else:
+            prefix = key_prefix(bank, iban, record)
         occurrence = seen.get(prefix, 0)
         seen[prefix] = occurrence + 1
         amount = record["amount"]

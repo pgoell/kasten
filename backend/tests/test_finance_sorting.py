@@ -367,7 +367,7 @@ async def test_splitting_a_booking_takes_its_own_category_even_one_set_by_hand(
     assert (split.json()["category_id"], split.json()["category_set_by"]) == (None, None)
 
 
-async def test_patterns_are_one_whatever_their_case_and_payee_rules_match_whole_words(
+async def test_patterns_are_one_whatever_their_case_and_payee_rules_start_at_a_word(
     finance_client: AsyncClient,
 ) -> None:
     giro = await account(finance_client, "Giro")
@@ -386,9 +386,83 @@ async def test_patterns_are_one_whatever_their_case_and_payee_rules_match_whole_
             booking(giro, "admiral", purpose="", counterparty_name="Admiral Versicherung"),
         ],
     )
+    cover = await category(finance_client, "Insurance")
+    await rule(finance_client, "payee", "Lebensversic", cover)
+    await rule(finance_client, "payee", "NAVIT.Deutschlandticke", cover)
+    await post(
+        finance_client,
+        [
+            booking(giro, "life", purpose="", counterparty_name="Lebensversicherung AG"),
+            booking(giro, "ticket", purpose="", counterparty_name="NAVIT Deutschlandticket"),
+            booking(giro, "inside", purpose="", counterparty_name="Navit Xdeutschlandticket"),
+        ],
+    )
 
     rows = await stored(finance_client)
     assert again.status_code == 409
     assert made.json()["pattern"] == "dm"
     assert rows["dm"]["category_id"] == drugs
     assert rows["admiral"]["category_id"] is None
+    assert rows["life"]["category_id"] == cover
+    assert rows["ticket"]["category_id"] == cover
+    assert rows["inside"]["category_id"] is None
+
+
+async def test_a_rule_sorts_only_its_categorys_side(finance_client: AsyncClient) -> None:
+    giro = await account(finance_client, "Giro")
+    salary = await category(finance_client, "Salary", kind="income")
+    shop = await category(finance_client, "Shopping")
+    await rule(finance_client, "payee", "deloitte", salary)
+    await rule(finance_client, "text_contains", "amazon", shop)
+    await post(
+        finance_client,
+        [
+            booking(
+                giro, "pay", amount="3000.00", purpose="LOHN", counterparty_name="Deloitte GmbH"
+            ),
+            booking(giro, "lunch", purpose="", counterparty_name="Deloitte GmbH"),
+            booking(giro, "order", purpose="AMAZON 302"),
+            booking(giro, "refund", amount="12.00", purpose="AMAZON 302 refund"),
+        ],
+    )
+
+    rows = await stored(finance_client)
+    assert rows["pay"]["category_id"] == salary
+    assert rows["lunch"]["category_id"] is None
+    assert rows["order"]["category_id"] == shop
+    assert rows["refund"]["category_id"] is None
+
+    flipped = await finance_client.put(
+        f"{API}/categories/{shop}", json={"name": "Shopping", "kind": "income"}
+    )
+
+    assert flipped.status_code == 200
+    rows = await stored(finance_client)
+    assert rows["order"]["category_id"] is None
+    assert rows["refund"]["category_id"] == shop
+
+
+async def test_one_pattern_may_sort_each_side_and_a_split_takes_its_own_side(
+    finance_client: AsyncClient,
+) -> None:
+    giro = await account(finance_client, "Giro")
+    refund = await category(finance_client, "Refunds", kind="income")
+    shop = await category(finance_client, "Shopping")
+    await rule(finance_client, "text_contains", "cable", shop)
+    await rule(finance_client, "text_contains", "cable", refund)
+    repeat = await finance_client.post(
+        f"{API}/rules", json={"kind": "text_contains", "pattern": "Cable", "category_id": shop}
+    )
+    await post(finance_client, [booking(giro, "order", amount="-20.00", purpose="Order")])
+    order = (await stored(finance_client))["order"]["id"]
+
+    split = await finance_client.put(
+        f"{API}/transactions/{order}/splits",
+        json=[{"amount": "-30.00", "text": "Cable"}, {"amount": "10.00", "text": "Cable return"}],
+    )
+
+    assert repeat.status_code == 409
+    assert [(s["amount"], s["category_id"]) for s in split.json()["splits"]] == [
+        ("-30.00", shop),
+        ("10.00", refund),
+    ]

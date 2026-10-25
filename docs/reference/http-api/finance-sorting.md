@@ -24,8 +24,17 @@ A booking's category comes from the first of these that gives one:
 2. **A `text_contains` rule** whose pattern is in the booking's `purpose`,
    case ignored.
 3. **The payee's default category**, the one "always for this payee" sets.
-4. **A `payee` rule** whose pattern, cleaned like a payee name, is whole words
-   of the payee's key: `dm` sorts `dm drogerie markt` and not `admiral`.
+4. **A `payee` rule** whose pattern, cleaned like a payee name, starts at a
+   word of the payee's key: `dm` sorts `dm drogerie markt` and not `admiral`,
+   and `lebensversic` sorts `lebensversicherung ag`. Each pattern word but the
+   last must be a whole word of the key, the last only its start.
+
+A rule sorts only bookings on its category's side. A rule for an `income`
+category sorts money in, an amount above zero; a rule for any other kind
+sorts money out. So a payee rule `deloitte` for Salary sorts the salary and
+leaves a meal at the Deloitte canteen alone, and a refund from a shop goes to
+the to-sort list rather than into the shop's spending category. The payee's
+default and the hand take no side.
 
 Of two rules of one kind that both match, the longer pattern wins, and of two
 as long the lower id. Text rules come first because they exist for the
@@ -44,7 +53,7 @@ household account is a transfer too; the budget (#1036) counts it through the
 account's `shared` flag, not through a category.
 
 The rules run over every booking, history included, whenever a rule, a payee's
-default or a category's existence changes, and over the new bookings after
+default, a category's existence or its kind changes, and over the new bookings after
 every `POST /api/finance/transactions` and after `PUT .../splits`. A run also
 takes back a category a rule gave that no rule gives any more. `category_set_by`
 on a booking or split says who set its category: `rule`, `hand`, or `null` with
@@ -63,9 +72,11 @@ nothing, such as `-`, gets no payee.
 ## Patterns
 
 A pattern is stored lowercased, and a `payee` pattern also cleaned like a
-payee key, so `DM.` is stored as `dm`. A rule is unique by its kind and its
-stored pattern, so `REWE` beside `rewe` is a repeat. A pattern with no letter
-or digit in it is refused.
+payee key, so `DM.` is stored as `dm`. A rule is unique by its kind, its
+stored pattern and its side, so `REWE` beside `rewe` for two spending
+categories is a repeat, while one pattern may name an income category for
+money in and a spending category for money out. A pattern with no letter or
+digit in it is refused.
 
 Two writes that sort take turns: each holds one advisory lock until it
 commits, so a run of the rules never overwrites a category set by hand while
@@ -90,8 +101,10 @@ it with its id. A name already taken is a `409`.
 ## PUT /api/finance/categories/{category_id}
 
 Renames a category or changes its kind, from the same body as `POST`. The
-bookings in it stay in it. A name another category holds is a `409`, and a
-category that does not exist a `404`.
+bookings in it stay in it, except that a new kind moves its rules to the
+kind's side and runs the rules. A move that would give a rule the pattern of
+another on that side is a `409`, as is a name another category holds. A
+category that does not exist is a `404`.
 
 ## DELETE /api/finance/categories/{category_id}
 
@@ -129,7 +142,7 @@ longest pattern first and then by id.
 
 Makes a rule from `kind` (`text_contains` or `payee`), `pattern` and
 `category_id`, runs the rules over every booking, and answers it with the
-pattern as stored. A rule of the same kind and stored pattern is a `409`, and a category that does not exist a
+pattern as stored. A rule of the same kind, stored pattern and side is a `409`, and a category that does not exist a
 `422`. So is a pattern with no letter or digit in it: a payee pattern such as
 `-` cleans to nothing, which is in every payee's key.
 

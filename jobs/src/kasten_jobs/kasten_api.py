@@ -1,6 +1,6 @@
-"""The kasten routes the bank sync reads and writes, over plain HTTP.
+"""The kasten routes the host jobs read and write, over plain HTTP.
 
-The job runs in a container on the docker network `web` and names the backend
+A job runs in a container on the docker network `web` and names the backend
 `http://kasten-backend-prod:8000`, inside the trust zone, so it sends no token.
 """
 
@@ -10,6 +10,9 @@ import httpx
 
 BATCH = 1000
 """The most bookings or balances kasten takes in one post."""
+
+PAGE = 5000
+"""The most bookings kasten answers one read with."""
 
 
 class KastenApi:
@@ -61,3 +64,50 @@ class KastenApi:
     def finish_run(self, run_id: int, finish: dict[str, Any]) -> None:
         """`PATCH /api/finance/sync/runs/{run_id}`."""
         self._json(self.client.patch(f"/api/finance/sync/runs/{run_id}", json=finish))
+
+    def accounts(self) -> list[dict[str, Any]]:
+        """`GET /api/finance/accounts`."""
+        return self._json(self.client.get("/api/finance/accounts"))
+
+    def post_account(self, account: dict[str, Any]) -> dict[str, Any]:
+        """`POST /api/finance/accounts`: make the account, or update the one of that name."""
+        return self._json(self.client.post("/api/finance/accounts", json=account))
+
+    def bookings(self) -> list[dict[str, Any]]:
+        """Every booking, read page by page."""
+        rows: list[dict[str, Any]] = []
+        while True:
+            params: dict[str, Any] = {"limit": PAGE}
+            if rows:
+                params["after"] = rows[-1]["id"]
+            page = self._json(self.client.get("/api/finance/transactions", params=params))
+            rows += page
+            if len(page) < PAGE:
+                return rows
+
+    def categories(self) -> list[dict[str, Any]]:
+        """`GET /api/finance/categories`."""
+        return self._json(self.client.get("/api/finance/categories"))
+
+    def post_category(self, name: str, kind: str) -> dict[str, Any]:
+        """`POST /api/finance/categories`."""
+        body = {"name": name, "kind": kind}
+        return self._json(self.client.post("/api/finance/categories", json=body))
+
+    def rules(self) -> list[dict[str, Any]]:
+        """`GET /api/finance/rules`."""
+        return self._json(self.client.get("/api/finance/rules"))
+
+    def post_rule(self, kind: str, pattern: str, category_id: int) -> dict[str, Any]:
+        """`POST /api/finance/rules`, which also runs the rules over every booking."""
+        body = {"kind": kind, "pattern": pattern, "category_id": category_id}
+        return self._json(self.client.post("/api/finance/rules", json=body))
+
+    def run_rules(self) -> int:
+        """`POST /api/finance/rules/run`, and answer how many bookings took another category."""
+        return self._json(self.client.post("/api/finance/rules/run"))["changed"]
+
+    def set_category(self, transaction_id: int, category_id: int) -> None:
+        """`PUT /api/finance/transactions/{id}/category`: set the booking's category by hand."""
+        url = f"/api/finance/transactions/{transaction_id}/category"
+        self._json(self.client.put(url, json={"category_id": category_id}))

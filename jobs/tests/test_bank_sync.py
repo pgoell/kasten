@@ -77,13 +77,13 @@ def test_a_window_starts_two_weeks_before_the_last_good_one_ended(tmp_path: Path
     ]
 
 
-def test_a_first_pull_starts_at_the_newest_booking_stored(tmp_path: Path) -> None:
+def test_a_first_pull_starts_the_overlap_before_the_newest_booking_stored(tmp_path: Path) -> None:
     kasten = FakeKasten([account(1, GIRO, newest="2026-09-30"), account(2, SAVING)])
     client = FakeClient({GIRO: [], SAVING: []})
 
     run(kasten, client, tmp_path)
 
-    assert client.windows[GIRO] == (date(2026, 9, 30), TODAY)
+    assert client.windows[GIRO] == (date(2026, 9, 16), TODAY)
     assert client.windows[SAVING] == (date(2026, 7, 27), TODAY)
 
 

@@ -69,7 +69,10 @@ Each account's window ends today and starts at the first of:
 
 1. its `last_good_through` minus `BANK_SYNC_OVERLAP_DAYS`, so a booking the
    bank posts a few days late still comes in;
-2. its `newest_booking`, on a first pull after the Firefly history came in;
+2. its `newest_booking` minus `BANK_SYNC_OVERLAP_DAYS`, on a first pull after
+   the Firefly history came in: Firefly kept the value date, the bank picks by
+   booking date, and a booking booked days after its value date would
+   otherwise be missed;
 3. `BANK_SYNC_FIRST_DAYS` back.
 
 Both days are included. The overlap costs nothing: a booking whose account
@@ -88,7 +91,8 @@ banks take between two identical bookings of one value date.
 ```
 
 Everything before the last `:` is the `external_id` the Firefly importer wrote,
-built the same way from the same record:
+built the same way from the same record, except for a move between own
+accounts ([below](#a-move-between-own-accounts)):
 
 * `bank`: the lowercase prefix, `dkb` or `psd`.
 * `iban`: the IBAN as the bank's account list spells it.
@@ -103,6 +107,24 @@ built the same way from the same record:
   prefix is the same, in the bank's order. Two coffees of one price on one day
   are `:0` and `:1`.
 
+### A move between own accounts
+
+A record whose `applicant_iban`, without spaces and in capitals, is another
+kasten account's IBAN takes the key the Firefly importer gave a transfer:
+
+```
+transfer:<lo>:<hi>:<date>:<amount>:<n>
+```
+
+* `lo`, `hi`: the two IBANs, without spaces and in capitals, sorted, so both
+  halves name the move alike.
+* `date`: the record's `date`, the value date.
+* `amount`: the amount without its sign, always to the cent, `500.00`. The
+  bank prints `500` or `500.00` as it likes.
+* `n`: as above, among the records of one fetch with the same prefix.
+
+A record whose counterparty is anyone else keeps the key above.
+
 ### What the Firefly import computes
 
 For each Firefly withdrawal or deposit whose `external_id` has the shape above
@@ -115,12 +137,13 @@ booking whose `external_id` an earlier run had stored. The pull then sends
 `:1` for the second, which kasten stores: a booking recovered, not a
 duplicate.
 
-Two cases the key cannot cover:
+For a move between own accounts, a Firefly transfer or a withdrawal or
+deposit whose note names an own IBAN, the import builds the transfer key above
+from the two IBANs, the journal's date and its amount, rather than taking the
+`external_id`: Firefly spelled the amount as `500`, `500.00` or
+`500.000000000000`. The two then agree, and a pull over imported days skips
+the moves the import stored.
 
-* Firefly's own-account moves carry `transfer:<iban>:<iban>:<date>:<amount>`,
-  with neither reference nor purpose, so no bank key can be built for either
-  half. The import needs a key of its own for those, and a move on the
-  account's newest day can then come in twice, once from Firefly and once from
-  the first pull, since that pull starts on that day.
-* A record the bank changes after the fact (a purpose filled in later) gets a
-  new key and is stored twice. Firefly had the same weakness.
+One case the key cannot cover: a record the bank changes after the fact (a
+purpose filled in later) gets a new key and is stored twice. Firefly had the
+same weakness.

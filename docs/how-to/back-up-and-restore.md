@@ -1,7 +1,7 @@
 ---
 type: How-to Guide
 title: Back up and restore
-description: Know which three things a self-hosted kasten holds, copy them every night with tar or push the vault's history with jj, and bring them back onto a fresh machine.
+description: Know which three things a self-hosted kasten holds, copy them every night with tar or push the vault's history with jj, bring them back onto a fresh machine, and read and restore the hourly finance dump on the maintainer's server.
 tags: [backup, restore, self-host, jj]
 status: stable
 ---
@@ -85,6 +85,38 @@ jj -R data/vault git push --remote backup --bookmark backup --allow-empty-descri
 `--allow-empty-description` is there because the first change in a fresh vault
 has no description, and jj will not push it without the flag. The remote must
 be private: it holds every note and every version of it.
+
+## The finance dump on the maintainer's server
+
+Prod on the maintainer's VPS ([Deploy to the VPS](/how-to/deploy-to-the-vps.md))
+does run Postgres, and its `finance` schema holds the bank bookings, which
+exist nowhere else. server-infra dumps it every hour with the user unit
+`kasten-finance-backup.timer`, which starts `kasten-finance-backup.service`
+(`backup/kasten-finance-backup.sh`): `pg_dump -n finance -Fc` of `kasten_prod`
+in the `postgres` container, into `~/backups/kasten-finance/` (mode 700) as
+`kasten-finance-YYYYmmdd-HHMMSS.dump`. A dump is kept only when the data
+changed, and the newest 48 stay, within 1 GB in all. The nightly offsite job
+dumps the whole database besides; the hourly one means a bad import or a wrong
+delete costs at most an hour. Both copies on the box sit on the same disk.
+
+Check it, or dump now, before something risky:
+
+```sh
+cat ~/backups/kasten-finance/STATUS
+systemctl --user start kasten-finance-backup.service
+journalctl --user -u kasten-finance-backup.service -n 50
+```
+
+Restore the schema over the live one, which drops and recreates its objects:
+
+```sh
+docker exec -i postgres pg_restore -U postgres -d kasten_prod --clean --if-exists \
+  < ~/backups/kasten-finance/kasten-finance-YYYYmmdd-HHMMSS.dump
+```
+
+To look first, read the SQL with
+`docker exec -i postgres pg_restore -f - < file.dump`. The settings and the
+pruning are in server-infra's `backup/README.md`.
 
 ## Restore
 

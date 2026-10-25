@@ -90,8 +90,9 @@ def window_start(row: dict[str, Any] | None, today: date, settings: Settings) ->
     """Where an account's window starts.
 
     `overlap_days` before the last good window ended, so a booking the bank
-    posts late still comes in; else, on a first pull, at the newest booking
-    stored (the Firefly history); else `first_days` back.
+    posts late still comes in; else, on a first pull, `overlap_days` before
+    the newest booking stored (the Firefly history), since Firefly kept the
+    value date and the bank picks by booking date; else `first_days` back.
 
     The overlap also keeps the occurrence index of the source key honest. The
     bank selects a window by booking date and the key holds the value date,
@@ -102,7 +103,7 @@ def window_start(row: dict[str, Any] | None, today: date, settings: Settings) ->
     if row and row["last_good_through"]:
         return date.fromisoformat(row["last_good_through"]) - timedelta(settings.overlap_days)
     if row and row["newest_booking"]:
-        return date.fromisoformat(row["newest_booking"])
+        return date.fromisoformat(row["newest_booking"]) - timedelta(settings.overlap_days)
     return today - timedelta(settings.first_days)
 
 
@@ -152,7 +153,7 @@ def _store(run: Run, bank: Bank, account_id: int, pull: AccountPull) -> dict[str
     }
     if pull.error:
         return {**line, "outcome": "failed", "error": pull.error}
-    bookings = to_bookings(bank.name, pull.iban, account_id, pull.records)
+    bookings = to_bookings(bank.name, pull.iban, account_id, pull.records, frozenset(run.rows))
     try:
         created, skipped = run.api.post_bookings(bookings)
         if pull.balance:
