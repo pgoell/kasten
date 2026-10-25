@@ -80,8 +80,13 @@ def _now() -> datetime:
 
 
 def _today() -> date:
-    """Today on the server's clock, the day the review's days are counted by."""
-    return _now().astimezone().date()
+    """Today in UTC, the day `_ask` bounds its days by.
+
+    A day is settled only once it has ended in UTC, the zone GitHub's calendar is
+    read in. The server's own zone would count a day as ended hours early, and a
+    short count would then be kept for good.
+    """
+    return _now().date()
 
 
 def _days(first: date, last: date) -> list[str]:

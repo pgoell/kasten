@@ -286,11 +286,13 @@ describe("the periodic reviews in the note, read and edit", () => {
     expect(reviewText()).toContain("Week in review");
   });
 
-  it("#807 I5 a note written elsewhere asks the written notes again, for their tags and projects", async () => {
+  it("#807 I5 an autosave of another note in the other pane asks the written notes again", async () => {
+    // The yearly note is the one on screen; the other pane's autosave of note A arrives as a write
+    // with its digest, as the backend sends it.
     await openNote(YEAR_NOTE);
     const before = fetchWrittenNotes.mock.calls.length;
 
-    stream().send({ path: "00 Inbox/elsewhere.md", change: "written", digest: null });
+    stream().send({ path: "00 Inbox/a.md", change: "written", digest: "ab12cd34" });
     await settle();
 
     expect(fetchWrittenNotes.mock.calls.length).toBeGreaterThan(before);
