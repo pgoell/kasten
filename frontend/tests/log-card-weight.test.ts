@@ -34,6 +34,8 @@ const mounted: EditorView[] = [];
 beforeEach(() => {
   // A vault with no config note until a test gives one.
   vi.mocked(fetchNote).mockRejectedValue(new NoteMissing(LOG));
+  // Resets the call list too, which `thirtyReads` counts across the file's tests.
+  vi.mocked(fetchLog).mockReset();
   vi.mocked(fetchLog).mockResolvedValue([]);
 });
 
