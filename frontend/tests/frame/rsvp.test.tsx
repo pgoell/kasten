@@ -229,5 +229,17 @@ describe("RSVP over a book", () => {
     await vi.waitFor(() => expect(counter()).not.toBe(start));
     await press("r");
     await vi.waitFor(() => expect(moved.length).toBeGreaterThan(0));
+    // `r` moved the book to another page, which foliate is still drawing. Wait
+    // for its text layer to finish: unmounting earlier cancels pdf.js's render,
+    // and foliate leaves that rejection unhandled, which fails the run.
+    await vi.waitFor(
+      () => {
+        const view = document.querySelector("foliate-view") as FoliateView | null;
+        const contents = view?.renderer?.getContents?.() ?? [];
+        expect(contents.length).toBeGreaterThan(0);
+        for (const { doc } of contents) expect(doc.querySelector(".endOfContent")).not.toBeNull();
+      },
+      { timeout: 20_000 },
+    );
   });
 });
