@@ -12,7 +12,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, Query, Response
 from pydantic import BaseModel, ConfigDict, Field, model_validator
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 
 from kasten_backend import finance_sorting as sorting
@@ -24,6 +24,7 @@ from kasten_backend.finance_models import (
     RuleKind,
     Transaction,
     TransactionSplit,
+    side_of,
 )
 from kasten_backend.routes.finance import MAX_PAGE, PAGE, Session, SplitOut, TransactionOut
 
@@ -189,7 +190,13 @@ async def rewrite_category(category_id: int, category: CategoryIn, session: Sess
         raise HTTPException(status_code=404, detail="No such category")
     run = found.kind != category.kind
     found.name, found.kind = category.name, category.kind
-    await _commit(session, f"A category named {category.name!r}", run=run)
+    if run:
+        await session.execute(
+            update(Rule).where(Rule.category_id == category_id).values(side=side_of(category.kind))
+        )
+    await _commit(
+        session, f"A category named {category.name!r}, or a rule of its pattern and side", run=run
+    )
     return CategoryOut.model_validate(found)
 
 
@@ -229,16 +236,24 @@ async def read_rules(session: Session) -> list[RuleOut]:
     return [RuleOut.model_validate(rule) for rule in found]
 
 
+async def _side(session: Session, category_id: int) -> str:
+    """The side a rule for this category sorts; a category that does not exist is a 422."""
+    category = await session.get(Category, category_id)
+    if category is None:
+        raise HTTPException(status_code=422, detail="No such category")
+    return side_of(category.kind)
+
+
 async def _store_rule(session: Session, rule: Rule) -> RuleOut:
     """Run the rules with `rule` in place, commit, and answer it."""
-    await _commit(session, "A rule of that kind and pattern", run=True)
+    await _commit(session, "A rule of that kind, pattern and side", run=True)
     return RuleOut.model_validate(rule)
 
 
 @router.post("/rules")
 async def write_rule(rule: RuleIn, session: Session) -> RuleOut:
     """Make a rule and run the rules over every booking."""
-    made = Rule(**rule.model_dump())
+    made = Rule(**rule.model_dump(), side=await _side(session, rule.category_id))
     session.add(made)
     return await _store_rule(session, made)
 
@@ -250,6 +265,7 @@ async def rewrite_rule(rule_id: int, rule: RuleIn, session: Session) -> RuleOut:
     if found is None:
         raise HTTPException(status_code=404, detail="No such rule")
     found.kind, found.pattern, found.category_id = rule.kind, rule.pattern, rule.category_id
+    found.side = await _side(session, rule.category_id)
     return await _store_rule(session, found)
 
 

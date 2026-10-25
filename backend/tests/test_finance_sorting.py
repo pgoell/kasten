@@ -440,3 +440,29 @@ async def test_a_rule_sorts_only_its_categorys_side(finance_client: AsyncClient)
     rows = await stored(finance_client)
     assert rows["order"]["category_id"] is None
     assert rows["refund"]["category_id"] == shop
+
+
+async def test_one_pattern_may_sort_each_side_and_a_split_takes_its_own_side(
+    finance_client: AsyncClient,
+) -> None:
+    giro = await account(finance_client, "Giro")
+    refund = await category(finance_client, "Refunds", kind="income")
+    shop = await category(finance_client, "Shopping")
+    await rule(finance_client, "text_contains", "cable", shop)
+    await rule(finance_client, "text_contains", "cable", refund)
+    repeat = await finance_client.post(
+        f"{API}/rules", json={"kind": "text_contains", "pattern": "Cable", "category_id": shop}
+    )
+    await post(finance_client, [booking(giro, "order", amount="-20.00", purpose="Order")])
+    order = (await stored(finance_client))["order"]["id"]
+
+    split = await finance_client.put(
+        f"{API}/transactions/{order}/splits",
+        json=[{"amount": "-30.00", "text": "Cable"}, {"amount": "10.00", "text": "Cable return"}],
+    )
+
+    assert repeat.status_code == 409
+    assert [(s["amount"], s["category_id"]) for s in split.json()["splits"]] == [
+        ("-30.00", shop),
+        ("10.00", refund),
+    ]

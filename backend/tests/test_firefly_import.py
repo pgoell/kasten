@@ -8,11 +8,14 @@ import pytest
 
 from backend.tests.firefly_fake import EMPLOYER, GIRO, SAVING, UNKNOWN, Bridge, firefly, journal
 from kasten_jobs.firefly import Trigger
-from kasten_jobs.firefly_import import run
+from kasten_jobs.firefly_import import run, skipped_journals, without
 from kasten_jobs.kasten_api import KastenApi
 
 if TYPE_CHECKING:
     from kasten_jobs.firefly import Firefly
+
+MOVE = "transfer:DE05120300001201603451:DE48120300001306206119"
+"""A move's key up to the date: the giro's and the saving account's IBANs, sorted."""
 
 GROCERIES = Trigger("Auto: Groceries", "destination_account_contains", "REWE", "Groceries")
 
@@ -91,7 +94,8 @@ async def test_a_transfer_is_two_bookings_that_kasten_pairs(
 
     giro, saving = sorted(await stored(finance_client), key=lambda r: r["amount"])
     assert (giro["amount"], saving["amount"]) == ("-500.00", "500.00")
-    assert giro["source_key"] == saving["source_key"] == f"{key}:0"
+    # Rebuilt as the bank sync builds it, the amount to the cent, not verbatim.
+    assert giro["source_key"] == saving["source_key"] == f"{MOVE}:2026-10-20:500.00:0"
     assert giro["counterparty_iban"] == SAVING.iban
     assert saving["counterparty_iban"] == GIRO.iban
     assert giro["counterparty_name"] == SAVING.name
@@ -153,3 +157,23 @@ async def test_a_category_the_rules_do_not_give_is_set_by_hand(
     }
     assert counts["categories set by hand"] == 2
     assert counts["categories sorted by a rule only"] == 1
+
+
+async def test_a_payment_to_an_own_account_takes_the_transfer_key(
+    kasten: KastenApi, finance_client: httpx.AsyncClient
+):
+    # Firefly booked this as spending, its note naming the saving account.
+    ff = firefly(journal(1, "-50.00", notes=f"IBAN: {SAVING.iban}"))
+
+    await imported(kasten, ff)
+
+    [row] = await stored(finance_client)
+    assert row["source_key"] == f"{MOVE}:2026-10-20:50.00:0"
+
+
+def test_skipped_journals_come_from_the_flag_and_the_env():
+    ff = firefly(journal(1, "-1.00"), journal(2, "-2.00"), journal(3, "-3.00"))
+
+    skip = skipped_journals([1], " 3, ")
+
+    assert [j.id for j in without(ff, skip).journals] == [2]

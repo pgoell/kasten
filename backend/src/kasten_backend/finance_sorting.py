@@ -126,14 +126,11 @@ def _first_rule(kind: str, matches: ColumnElement[bool], amount: Any, payee: Any
     rest for money out. With `payee`, the subquery joins that payee to each
     rule on `matches`; every other table it names is the outer row's.
     """
-    statement = (
-        select(Rule.category_id)
-        .join(Category, Category.id == Rule.category_id)
-        .where(Rule.kind == kind, (Category.kind == "income") == (amount > 0))
-    )
+    side = case((amount > 0, literal("in")), else_=literal("out"))
+    statement = select(Rule.category_id).where(Rule.kind == kind, Rule.side == side)
     statement = statement.where(matches) if payee is None else statement.join(payee, matches)
     return (
-        statement.correlate_except(Rule, Category, *([] if payee is None else [payee]))
+        statement.correlate_except(Rule, *([] if payee is None else [payee]))
         .order_by(func.length(Rule.pattern).desc(), Rule.id)
         .limit(1)
         .scalar_subquery()

@@ -13,14 +13,15 @@ import os
 import re
 import sys
 from collections import Counter
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 
 import httpx
 
 from kasten_jobs import firefly
-from kasten_jobs.firefly_rules import translate
+from kasten_jobs.bookings import spelled, transfer_prefix
+from kasten_jobs.firefly_rules import KIND, translate
 from kasten_jobs.kasten_api import KastenApi
 
 if TYPE_CHECKING:
@@ -29,24 +30,6 @@ if TYPE_CHECKING:
 log = logging.getLogger("kasten_jobs.firefly_import")
 
 CENT = Decimal("0.01")
-
-KIND = {
-    "Salary": "income",
-    "Interest": "income",
-    "Reimbursement": "income",
-    "Household contribution": "income",
-    "Housing": "fixed",
-    "Utilities": "fixed",
-    "Telecom": "fixed",
-    "Insurance & memberships": "fixed",
-    "Subs (AI/tech)": "fixed",
-    "Subs (personal)": "fixed",
-    "Investments": "saving",
-    "Wedding": "non_monthly",
-    "Travel": "non_monthly",
-    "Gifts (given)": "non_monthly",
-}
-"""Each Firefly category's kind; every other one is `flexible`. The owner changes them in kasten."""
 
 ROLE_KIND = {
     "defaultAsset": "giro",
@@ -89,11 +72,15 @@ class Booking:
 def bookings(ff: Firefly, ids: dict[int, int]) -> list[Booking]:
     """A booking per journal on each asset account it touches, so a transfer gives two.
 
-    `ids` maps a Firefly asset account to its kasten id. The key is Firefly's
-    `external_id` as it stands, never recomputed, plus `:n`, the journal's
-    place among those on the same account with the same `external_id`, by
-    date and then id. A journal with no `external_id` is keyed by its id.
+    `ids` maps a Firefly asset account to its kasten id. The key is a prefix
+    plus `:n`, the journal's place among those on the same account with the
+    same prefix, by date and then id. The prefix is Firefly's `external_id` as
+    it stands, never recomputed, except for a move to or from another own
+    account, which takes `bookings.transfer_prefix` as the bank sync builds
+    it: Firefly spells a transfer's amount three ways. A journal with no
+    `external_id` is keyed by its id.
     """
+    own = {spelled(ff.accounts[i].iban) for i in ids if ff.accounts[i].iban}
     seen: Counter[tuple[int, str]] = Counter()
     out = []
     for journal in sorted(ff.journals, key=lambda j: (j.date, j.id)):
@@ -101,9 +88,6 @@ def bookings(ff: Firefly, ids: dict[int, int]) -> list[Booking]:
             if leg.account_id not in ids:
                 continue
             other = next(ff.accounts[o.account_id] for o in journal.legs if o is not leg)
-            prefix = journal.external_id or f"firefly:{journal.id}"
-            n = seen[leg.account_id, prefix]
-            seen[leg.account_id, prefix] += 1
             if other.id in ids:
                 # A move between own accounts: the other account's IBAN is what
                 # kasten's linker pairs the two halves by.
@@ -111,6 +95,13 @@ def bookings(ff: Firefly, ids: dict[int, int]) -> list[Booking]:
             else:
                 found = IBAN.search(journal.notes or "")
                 iban = found and found.group(1)
+            mine = spelled(ff.accounts[leg.account_id].iban)
+            if iban and spelled(iban) in own and spelled(iban) != mine:
+                prefix = transfer_prefix(mine, iban, journal.date, leg.amount)
+            else:
+                prefix = journal.external_id or f"firefly:{journal.id}"
+            n = seen[leg.account_id, prefix]
+            seen[leg.account_id, prefix] += 1
             body = {
                 "account_id": ids[leg.account_id],
                 "booking_date": str(journal.date),
@@ -142,6 +133,16 @@ class Report:
             log.info("bookings on %s: %d", account, value)
         for rule, reason in self.refused:
             log.info("rule not translated: %s (%s)", rule, reason)
+
+
+def without(ff: Firefly, skip: set[int]) -> Firefly:
+    """Firefly without the journals `skip` names, such as the old importer's doubles."""
+    return replace(ff, journals=[j for j in ff.journals if j.id not in skip])
+
+
+def skipped_journals(given: list[int], env: str) -> set[int]:
+    """The ids `--skip-journal` names, with those `FIREFLY_SKIP_JOURNALS` lists, commas between."""
+    return set(given) | {int(i) for i in env.split(",") if i.strip()}
 
 
 def used_categories(ff: Firefly) -> list[str]:
@@ -188,9 +189,14 @@ def run(ff: Firefly, api: KastenApi) -> Report:
             c["categories created"] += 1
     # Rules before bookings, so each rule's run over every booking is cheap
     # and the ingest sorts the bookings as they come in.
-    stored = {(row["kind"], row["pattern"]) for row in api.rules()}
-    for rule in translate(ff.triggers).rules:
-        if (rule.kind, rule.pattern) not in stored:
+    # A rule's side follows its category's kind in kasten, which the owner
+    # may have changed since a first run.
+    rows = api.categories()
+    kinds = {row["name"]: row["kind"] for row in rows}
+    side = {row["id"]: "in" if row["kind"] == "income" else "out" for row in rows}
+    stored = {(row["kind"], row["pattern"], side[row["category_id"]]) for row in api.rules()}
+    for rule in translate(ff.triggers, kinds).rules:
+        if (rule.kind, rule.pattern, rule.side) not in stored:
             api.post_rule(rule.kind, rule.pattern, categories[rule.category])
             c["rules created"] += 1
     assets = [a for a in ff.accounts.values() if a.type == "Asset account"]
@@ -235,8 +241,20 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--dry-run", action="store_true", help="read Firefly and count, write nothing"
     )
+    parser.add_argument(
+        "--skip-journal",
+        type=int,
+        action="append",
+        default=[],
+        metavar="ID",
+        help="leave this Firefly journal out; repeat for more",
+    )
     args = parser.parse_args(argv)
+    skip = skipped_journals(args.skip_journal, os.environ.get("FIREFLY_SKIP_JOURNALS", ""))
     ff = firefly.read(os.environ["FIREFLY_DATABASE_URL"])
+    kept = without(ff, skip)
+    log.info("journals skipped: %d", len(ff.journals) - len(kept.journals))
+    ff = kept
     if args.dry_run:
         plan(ff)[0].print()
         return 0

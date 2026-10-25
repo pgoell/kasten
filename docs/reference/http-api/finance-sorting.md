@@ -72,9 +72,11 @@ nothing, such as `-`, gets no payee.
 ## Patterns
 
 A pattern is stored lowercased, and a `payee` pattern also cleaned like a
-payee key, so `DM.` is stored as `dm`. A rule is unique by its kind and its
-stored pattern, so `REWE` beside `rewe` is a repeat. A pattern with no letter
-or digit in it is refused.
+payee key, so `DM.` is stored as `dm`. A rule is unique by its kind, its
+stored pattern and its side, so `REWE` beside `rewe` for two spending
+categories is a repeat, while one pattern may name an income category for
+money in and a spending category for money out. A pattern with no letter or
+digit in it is refused.
 
 Two writes that sort take turns: each holds one advisory lock until it
 commits, so a run of the rules never overwrites a category set by hand while
@@ -99,9 +101,10 @@ it with its id. A name already taken is a `409`.
 ## PUT /api/finance/categories/{category_id}
 
 Renames a category or changes its kind, from the same body as `POST`. The
-bookings in it stay in it, except that a new kind runs the rules, since the
-kind says which side its rules sort. A name another category holds is a `409`, and a
-category that does not exist a `404`.
+bookings in it stay in it, except that a new kind moves its rules to the
+kind's side and runs the rules. A move that would give a rule the pattern of
+another on that side is a `409`, as is a name another category holds. A
+category that does not exist is a `404`.
 
 ## DELETE /api/finance/categories/{category_id}
 
@@ -139,7 +142,7 @@ longest pattern first and then by id.
 
 Makes a rule from `kind` (`text_contains` or `payee`), `pattern` and
 `category_id`, runs the rules over every booking, and answers it with the
-pattern as stored. A rule of the same kind and stored pattern is a `409`, and a category that does not exist a
+pattern as stored. A rule of the same kind, stored pattern and side is a `409`, and a category that does not exist a
 `422`. So is a pattern with no letter or digit in it: a payee pattern such as
 `-` cleans to nothing, which is in every payee's key.
 

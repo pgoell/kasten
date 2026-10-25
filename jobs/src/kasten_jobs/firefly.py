@@ -134,8 +134,12 @@ def _meta(data: str | None) -> str | None:
 
 
 def read(url: str) -> Firefly:
-    """Read Firefly through a read-only session, so no statement here can change it."""
-    with psycopg.connect(url) as connection:
+    """Read Firefly through a read-only session, so no statement here can change it.
+
+    Read-only twice over: the server makes every transaction of the session
+    read-only from the start, and psycopg marks each one so as well.
+    """
+    with psycopg.connect(url, options="-c default_transaction_read_only=on") as connection:
         connection.read_only = True
         accounts = {
             row[0]: Account(row[0], row[1], row[2], row[3], _meta(row[4]))

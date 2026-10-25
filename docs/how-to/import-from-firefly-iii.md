@@ -45,8 +45,16 @@ docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' firefly | grep -E 
 
 ```sh
 docker run --rm --network web --env-file ~/.config/kasten/firefly-import.env \
-  "$image" kasten-firefly-import --dry-run
+  "$image" kasten-firefly-import --dry-run --skip-journal 1140 --skip-journal 1141
 ```
+
+Journals 1140 and 1141 are doubles the old importer wrote of journal 1075, a
+transfer of 10,000 on 2026-05-30 with the same description, made 14 and 15
+days after it. `--skip-journal` leaves them out; `FIREFLY_SKIP_JOURNALS=1140,1141`
+in the env file does the same. Journals 992 and 994, two transfers of 1,000 on
+2026-05-04 with different descriptions, share a key but are two real moves:
+keep both, and they become `:0` and `:1`. On another Firefly, look for doubles
+among the twins the dry run counts, and skip only those.
 
 The dry run reads Firefly and prints counts only: accounts, bookings per
 account, transfers, twins, categories, and the rules it would make and the
@@ -61,7 +69,7 @@ first, `systemctl --user start kasten-finance-backup.service`.
 
 ```sh
 docker run --rm --network web --env-file ~/.config/kasten/firefly-import.env \
-  "$image" kasten-firefly-import
+  "$image" kasten-firefly-import --skip-journal 1140 --skip-journal 1141
 ```
 
 It makes the categories, the rules and the accounts, posts every booking,
@@ -85,5 +93,5 @@ changed.
   [Sort finance transactions](/how-to/sort-finance-transactions.md).
 * Look over each category's kind in kasten. The import guesses one from the
   name ([the table](/reference/firefly-import.md#category-kinds)).
-* [Run the bank sync](/how-to/run-the-bank-sync.md): its first pull of an account starts on the newest day
-  the import stored.
+* [Run the bank sync](/how-to/run-the-bank-sync.md): its first pull of an account starts two weeks before the newest day
+  the import stored, and skips what the import already holds.

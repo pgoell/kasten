@@ -20,6 +20,7 @@ runs as a container on the docker network `web`. Running it is
 |---|---|
 | `kasten-firefly-import --dry-run` | Reads Firefly and prints counts. Writes nothing anywhere. |
 | `kasten-firefly-import` | Reads Firefly and imports, then prints counts. |
+| `--skip-journal ID` | Leaves that Firefly journal out, in either mode. Repeat it for more. |
 
 It exits `0` when done. Anything that fails, Firefly unreachable or a route
 answering an error, stops it with a traceback and a non-zero exit; a second
@@ -37,6 +38,10 @@ both.
 |---|---|---|
 | `FIREFLY_DATABASE_URL` | none | Firefly's Postgres as a libpq URL, `postgresql://user:password@postgres:5432/firefly`. The session is read-only, so no statement can change Firefly |
 | `KASTEN_API` | `http://kasten-backend-prod:8000` | The backend, by its name on `web` |
+| `FIREFLY_SKIP_JOURNALS` | empty | Journal ids to leave out, commas between, added to the `--skip-journal` ones |
+
+The connection sets `default_transaction_read_only=on` itself, in place of
+any `options` the URL carries.
 
 ## What it reads
 
@@ -62,7 +67,9 @@ tags other than as names in `raw`, and piggy banks.
    Firefly's account role (`defaultAsset` and `sharedAsset` giro, `savingAsset`
    saving, `ccAsset` card, `cashWalletAsset` cash), `shared` is the shared role,
    and `bank` the name's first word for an account with an IBAN. A rerun writes
-   these again over any change made in kasten.
+   these again over any change made in kasten. An account renamed in kasten
+   makes a rerun fail with a `409`, since the Firefly name then makes a new
+   account whose IBAN the renamed one holds: nothing is written twice.
 4. **Bookings**: one per journal on each asset account it touches, in batches
    of 1,000. A booking whose key the account holds is skipped.
 5. **`POST /api/finance/rules/run`**, once.
@@ -79,7 +86,7 @@ tags other than as names in `raw`, and piggy banks.
 | `booking_date`, `value_date` | The journal's date, which is the bank's value date |
 | `amount` | The asset account's transaction row, signed, to the cent |
 | `purpose` | The description |
-| `counterparty_name` | The journal's other account; `null` for Firefly's `Unknown payee` and `Unknown source` |
+| `counterparty_name` | The journal's other account; `null` for Firefly's `Unknown payee` and `Unknown source`. Firefly named its expense and revenue accounts itself, so the payee a history booking gets may differ from the bank's raw name on new bookings: an "always for this payee" set on history then does not sort those |
 | `counterparty_iban` | On a transfer, the other own account's IBAN, which kasten's linker pairs the two halves by. Else the first `IBAN: ...` in the note |
 | `raw` | `{"firefly": {...}}`: the journal id, type, `external_id`, category, budget, bill, note and tags |
 | `source_key` | Below |
@@ -91,18 +98,22 @@ tags other than as names in `raw`, and piggy banks.
 ```
 
 `external_id` is Firefly's, from `journal_meta`, as it stands and never
-recomputed. `n` is the journal's place, from `0`, among the journals on the
+recomputed, except for a move between own accounts, below. `n` is the journal's place, from `0`, among the journals on the
 same account with the same `external_id`, by date and then journal id. For a
 bank booking this is the key the bank sync builds
 ([Bank sync](/reference/bank-sync.md#the-source-key)), so a pull that covers an
 imported day skips what the import stored.
 
-A transfer's `external_id` is `transfer:<iban>:<iban>:<date>:<amount>`. Both
-halves take the same key, each on its own account, which is allowed since a
-key is unique per account. The bank sync cannot build that key from a bank
-record, so a move between own accounts on an account's newest imported day
-comes in twice: once from the import and once from the first pull, which
-starts on that day. Look for it there after the first pull.
+A move between own accounts, a transfer or a withdrawal or deposit whose note
+names an own IBAN, takes the key the bank sync gives such a record
+([Bank sync](/reference/bank-sync.md#a-move-between-own-accounts)),
+`transfer:<lo>:<hi>:<date>:<amount>:<n>`: the two IBANs sorted, the journal's
+date, and the amount without its sign to the cent. Firefly's own
+`transfer:...` ids carry the same parts, but spell the amount as `500`,
+`500.00` or `500.000000000000`, so the import rebuilds them. Both halves take
+the same key, each on its own account. The first pull starts
+`BANK_SYNC_OVERLAP_DAYS` before an account's newest imported booking, and
+skips every move and booking the import stored on those days.
 
 A journal with no `external_id` is keyed `firefly:<journal id>:0`, which no
 bank key can equal. Firefly holds none such today: only the opening balances
@@ -127,10 +138,12 @@ destination trigger; kasten tells them apart by the category's kind, an
 Firefly's category back on the history wherever the two still differ; only
 new bookings feel it.
 
-A trigger is left out, and named in the output, when its rule's
+A pattern may sort each side once, so
+`Globus.Markthalle` is a Groceries rule for spending and a Reimbursement rule
+for money in. A trigger is left out, and named in the output, when its rule's
 `set_category` action is off, when its pattern has no letter or digit, when
-its type has no kasten rule, or when a trigger before it made the same kind
-and pattern for another category. One that repeats a rule for the same
+its type has no kasten rule, or when a trigger before it made the same kind,
+pattern and side for another category. One that repeats a rule for the same
 category merges into it.
 
 ## Category kinds

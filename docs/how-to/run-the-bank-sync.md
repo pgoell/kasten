@@ -99,8 +99,8 @@ bank_sync pull; echo "exit $?"
 ```
 
 Approve the push TAN within four minutes. `0` means every account came in.
-A first pull starts at the newest booking stored for the account, else 90 days
-back.
+A first pull starts two weeks (`BANK_SYNC_OVERLAP_DAYS`) before the newest
+booking stored for the account, else 90 days back.
 
 ## 6. Start the timers
 

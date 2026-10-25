@@ -49,6 +49,15 @@ RuleKind = Literal["text_contains", "payee"]
 
 RULE_KINDS: tuple[str, ...] = get_args(RuleKind)
 
+SIDES = ("in", "out")
+"""The bookings a rule sorts: money in for an income category's rule, money out for the rest."""
+
+
+def side_of(kind: str) -> str:
+    """The side a rule of a category of this kind sorts."""
+    return "in" if kind == "income" else "out"
+
+
 SetBy = Literal["rule", "hand"]
 """Who gave a booking its category. A rule never overwrites `hand`."""
 
@@ -121,7 +130,8 @@ class Rule(Base):
     __tablename__ = "rule"
     __table_args__ = (
         _one_of("kind", RULE_KINDS, "rule_kind_check"),
-        UniqueConstraint("kind", "pattern", name="rule_kind_pattern"),
+        _one_of("side", SIDES, "rule_side_check"),
+        UniqueConstraint("kind", "pattern", "side", name="rule_kind_pattern_side"),
         {"schema": SCHEMA},
     )
 
@@ -129,6 +139,10 @@ class Rule(Base):
     kind: Mapped[str] = mapped_column(Text)
     pattern: Mapped[str] = mapped_column(Text)
     category_id: Mapped[int] = mapped_column(ForeignKey(Category.id, ondelete="CASCADE"))
+    # Which bookings the rule sorts: `in` (money in) for an income category,
+    # `out` for any other. Kept from the category's kind by the routes, so a
+    # pattern may name Salary for money in and Dining for money out.
+    side: Mapped[str] = mapped_column(Text)
 
 
 class BalanceSnapshot(Base):
