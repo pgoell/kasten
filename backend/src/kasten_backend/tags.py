@@ -16,7 +16,7 @@ indexed and nothing here can go stale.
 import asyncio
 from typing import TYPE_CHECKING
 
-from kasten_backend import frontmatter, todos
+from kasten_backend import frontmatter, todo_fields, todos
 from kasten_backend.search import scan_vault
 from kasten_backend.vault import read_note
 
@@ -66,7 +66,7 @@ def _read(root: Path, paths: list[str]) -> dict[str, set[str]]:
 
 
 _RUN = r"#[\p{L}\p{N}_/-]+"
-_SPAN_OR_TAG = rf"(?:{todos.SPANS.pattern})(?:{_RUN})?|(?:^|[^\p{{L}}\p{{N}}_/]){_RUN}"
+_SPAN_OR_TAG = rf"(?:{todo_fields.SPANS.pattern})(?:{_RUN})?|(?:^|[^\p{{L}}\p{{N}}_/]){_RUN}"
 """A span or what could be a tag, the span tried first at each place, as rg alternates.
 
 A superset of the rule, numbers alone included, which `todos.word_tags` then

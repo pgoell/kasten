@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING
 
 from pydantic import BaseModel
 
-from kasten_backend import agent, todos, vault
+from kasten_backend import agent, todo_fields, vault
 
 if TYPE_CHECKING:
     from kasten_backend.config import Settings
@@ -34,11 +34,11 @@ FINISHED = re.compile(r"[ \t]*✅\N{VARIATION SELECTOR-16}?(?:[ \t]+[0-9]{4}-[0-
 ID_MARK = "🆔"
 """The Tasks id a ticked item gets, so the done line keeps one name across edits."""
 
-FIELD_MARKS = re.compile(todos._STOP + "|🔁|👤")
+FIELD_MARKS = re.compile(todo_fields.STOP + "|🔁|👤")
 """Where an item's words end: the Tasks fields kasten reads, and the two it adds.
 
 `🔁` (recurrence) and `👤` (the assignee or the wait) are kasten's own fields, not Tasks plugin
-ones, so `todos._STOP` leaves them out and they are listed here.
+ones, so `todo_fields.STOP` leaves them out and they are listed here.
 """
 
 BLOCK_ID = re.compile(r"\s*\^[A-Za-z0-9_-]+$")
@@ -138,7 +138,7 @@ def items(text: str) -> list[Item]:
                     line=number,
                     text=_words(match.group(2)),
                     done=match.group(1) != " ",
-                    assignee=todos.assignee(match.group(2)),
+                    assignee=todo_fields.assignee(match.group(2)),
                 )
             )
 
