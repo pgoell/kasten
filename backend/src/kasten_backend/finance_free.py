@@ -1,9 +1,11 @@
 """Free to spend: what one scope may still spend this month, and the parts it is made of.
 
     free = income expected - fixed costs - flexible so far - non-monthly so far
-           - unsorted so far - moved to saving
+           - unsorted so far - moved to saving - reserved for plans - goals still to move
 
-docs/reference/budget-model.md states it in full. Each part is a list of
+A bill a plan's reserve paid counts in none of the spending parts: the
+reserve took its share each month before. docs/reference/budget-model.md
+states it in full. Each part is a list of
 lines, so the overview can say what made the number. A month that is over
 counts what happened and estimates nothing.
 """
@@ -13,14 +15,15 @@ from typing import TYPE_CHECKING, Literal
 
 from kasten_backend.finance_budget import AVERAGE_MONTHS
 from kasten_backend.finance_ledger import CENT, ZERO, Ledger, Month, Scope
+from kasten_backend.finance_plans import Book, GoalMonth, Plan, Reserve, goal_months
 
 if TYPE_CHECKING:
     import datetime as dt
     from collections.abc import Callable
     from decimal import Decimal
 
-Basis = Literal["so_far", "average"]
-"""Where a line's counted figure came from: what happened this month, or the average."""
+Basis = Literal["so_far", "average", "plan"]
+"""Where a line's counted figure came from: what happened this month, the average, or plans."""
 
 OTHER_SCOPE = {"mine": "Into the shared account", "household": "From mine"}
 """The name of the line for what moves between mine and household, in each scope."""
@@ -49,6 +52,21 @@ class Free:
     non_monthly: list[Part] = field(default_factory=list)
     unsorted: Decimal = ZERO
     saved: Decimal = ZERO
+    reserves: list[Reserve] = field(default_factory=list)
+    goals: list[GoalMonth] = field(default_factory=list)
+    over: bool = False
+
+    @property
+    def reserved(self) -> Decimal:
+        """What the plans' reserves took off this month."""
+        return sum((reserve.share for reserve in self.reserves), ZERO)
+
+    @property
+    def to_move(self) -> Decimal:
+        """The goal contributions planned and not yet moved, while the month runs; then none."""
+        if self.over:
+            return ZERO
+        return sum((goal.planned - goal.moved for goal in self.goals), ZERO)
 
     @staticmethod
     def total_of(parts: list[Part]) -> Decimal:
@@ -62,7 +80,8 @@ class Free:
             (self.total_of(parts) for parts in (self.fixed, self.flexible, self.non_monthly)),
             ZERO,
         )
-        return self.total_of(self.income) - spent - self.unsorted - self.saved
+        income = self.total_of(self.income)
+        return income - spent - self.unsorted - self.saved - self.reserved - self.to_move
 
 
 class _Reader:
@@ -153,15 +172,46 @@ def expected_income(reader: _Reader) -> list[Part]:
     return [part for part in parts if part.counted or part.so_far]
 
 
-def estimate_fixed(reader: _Reader) -> list[Part]:
-    """Each fixed cost, the larger of what it cost so far and its average.
+def planned_fixed(reader: _Reader, book: Book) -> list[Part]:
+    """Each fixed category with a plan in this scope: what it cost so far, plus its plans to come.
 
-    The seam for plans (#1037): a fixed cost will be what its plans expect,
-    matched or still to come, in place of this estimate.
+    A plan that reserves is left out: its bill comes out of the reserve. A
+    month that is over counts what it cost.
+    """
+    upcoming: dict[int, Decimal] = {}
+    for plan in book.plans:
+        if plan.scope != reader.scope or plan.category is None or plan.reserves:
+            continue
+        if reader.ledger.categories[plan.category].kind != "fixed":
+            continue
+        if not _alive(plan, reader.month):
+            continue
+        dues = [] if reader.over else book.upcoming(plan, reader.month)
+        upcoming[plan.category] = upcoming.get(plan.category, ZERO) - plan.amount * len(dues)
+    parts = []
+    for c in sorted(upcoming, key=reader.name):
+        so_far = reader.now.spent.get(c, ZERO)
+        parts.append(Part(reader.name(c), c, so_far, None, so_far + upcoming[c], "plan"))
+    return parts
+
+
+def _alive(plan: Plan, month: dt.date) -> bool:
+    """Whether `month` lies in the plan's life; a plan that falls due once lives in its month."""
+    start = plan.start.replace(day=1)
+    if plan.every is None:
+        return start == month
+    return start <= month and (plan.end is None or plan.end >= month)
+
+
+def estimate_fixed(reader: _Reader, planned: set[int] | None = None) -> list[Part]:
+    """Each fixed cost with no plan, the larger of what it cost so far and its average.
+
+    A category in `planned` has its line from `planned_fixed` instead.
     """
     parts = [
         reader.expected(reader.name(c), c, lambda m, c=c: m.spent.get(c, ZERO), larger=True)
         for c in reader.ids(lambda m: m.spent, "fixed")
+        if c not in (planned or set())
     ]
     if reader.scope == "mine":
         parts.append(
@@ -170,16 +220,32 @@ def estimate_fixed(reader: _Reader) -> list[Part]:
     return [part for part in parts if part.counted or part.so_far]
 
 
-def free_to_spend(ledger: Ledger, scope: Scope, month: dt.date, today: dt.date) -> Free:
-    """One scope's free to spend in `month`, as it stands on `today`."""
-    reader = _Reader(ledger, scope, month, over=today.replace(day=1) > month)
+def free_to_spend(
+    ledger: Ledger, scope: Scope, month: dt.date, today: dt.date, book: Book | None = None
+) -> Free:
+    """One scope's free to spend in `month`, as it stands on `today`.
+
+    Goal contributions come off mine only: a goal lives in an own saving
+    account, which money reaches from mine.
+    """
+    book = Book() if book is None else book
+    over = today.replace(day=1) > month
+    reader = _Reader(ledger, scope, month, over=over)
+    planned = planned_fixed(reader, book)
+    reserves = [
+        book.reserve(plan, month) for plan in book.plans if plan.scope == scope and plan.reserves
+    ]
     return Free(
         scope=scope,
         income=expected_income(reader),
-        fixed=estimate_fixed(reader),
+        fixed=planned
+        + estimate_fixed(reader, {p.category_id for p in planned if p.category_id is not None}),
         flexible=reader.so_far(_spent, "flexible"),
-        # Until plans (#1037) reserve a monthly share, a non-monthly cost counts when it is paid.
+        # A non-monthly cost with a plan comes out of its reserve; one without counts when paid.
         non_monthly=reader.so_far(_spent, "non_monthly"),
         unsorted=reader.now.unsorted,
         saved=reader.now.saved,
+        reserves=[r for r in reserves if r.share or r.paid],
+        goals=goal_months(book.goals, month, reader.now.saved_into) if scope == "mine" else [],
+        over=over,
     )

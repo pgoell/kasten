@@ -1116,7 +1116,7 @@ export interface paths {
          *     A booking already there by account and source key is skipped and left as
          *     it was, so a job may send an overlapping window every run. The new
          *     bookings get their payees and the rules' categories after the transfers
-         *     are paired, since a transfer takes no category.
+         *     are paired, since a transfer takes no category, and then meet the plans.
          */
         post: operations["write_transactions_api_finance_transactions_post"];
         delete?: never;
@@ -1244,6 +1244,162 @@ export interface paths {
         put: operations["write_settings_api_finance_budget_settings_put"];
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/finance/plans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Plans
+         * @description Every plan, by name.
+         */
+        get: operations["read_plans_api_finance_plans_get"];
+        put?: never;
+        /**
+         * Write Plan
+         * @description Make a plan, a proposal confirmed or one made by hand, and match it against the bookings.
+         */
+        post: operations["write_plan_api_finance_plans_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/finance/plans/{plan_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Rewrite Plan
+         * @description Change a plan; its matches are dropped and matched afresh.
+         */
+        put: operations["rewrite_plan_api_finance_plans__plan_id__put"];
+        post?: never;
+        /**
+         * Delete Plan
+         * @description Delete a plan and its matches; the bookings stay.
+         */
+        delete: operations["delete_plan_api_finance_plans__plan_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/finance/plans/upcoming": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Upcoming
+         * @description Every date a plan falls due in the month, by date, each with its match or none.
+         */
+        get: operations["read_upcoming_api_finance_plans_upcoming_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/finance/plans/forecast": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Forecast
+         * @description Each scope's balance at the end of this month and the 11 after it, by its plans alone.
+         */
+        get: operations["read_forecast_api_finance_plans_forecast_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/finance/plans/proposals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Proposals
+         * @description Plans read from Firefly's bills and from recurring payees; nothing is written.
+         */
+        get: operations["read_proposals_api_finance_plans_proposals_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/finance/goals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Goals
+         * @description Every goal by due date, and each own saving account's balance, reserved and unreserved.
+         */
+        get: operations["read_goals_api_finance_goals_get"];
+        put?: never;
+        /**
+         * Write Goal
+         * @description Make a goal; its reservation must fit the account's unreserved balance.
+         */
+        post: operations["write_goal_api_finance_goals_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/finance/goals/{goal_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Rewrite Goal
+         * @description Change a goal: assign more or less of the balance, or another monthly contribution.
+         */
+        put: operations["rewrite_goal_api_finance_goals__goal_id__put"];
+        post?: never;
+        /**
+         * Delete Goal
+         * @description Delete a goal; what it reserved goes back to unreserved.
+         */
+        delete: operations["delete_goal_api_finance_goals__goal_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -2517,6 +2673,18 @@ export interface components {
             count: number;
         };
         /**
+         * ContributionOut
+         * @description This month's contribution: what is planned, and what of it moved into the account.
+         */
+        ContributionOut: {
+            /** Planned */
+            planned: string;
+            /** Moved */
+            moved: string;
+            /** Done */
+            done: boolean;
+        };
+        /**
          * Contributions
          * @description Whether the review's GitHub section is on, and each day's count when it is.
          */
@@ -2548,6 +2716,28 @@ export interface components {
         DeckLink: {
             /** Url */
             url: string;
+        };
+        /**
+         * DueOut
+         * @description A date a plan falls due in the month, and the booking that met it, if one did.
+         */
+        DueOut: {
+            /** Plan Id */
+            plan_id: number;
+            /** Name */
+            name: string;
+            /**
+             * Due
+             * Format: date
+             */
+            due: string;
+            /** Amount */
+            amount: string;
+            /** Category Id */
+            category_id: number | null;
+            /** Reserves */
+            reserves: boolean;
+            match: components["schemas"]["MatchOut"] | null;
         };
         /**
          * Dump
@@ -2655,6 +2845,28 @@ export interface components {
             hours: components["schemas"]["Hour"][];
         };
         /**
+         * ForecastMonthOut
+         * @description A month's end: what the plans bring in and take out, and the balance after.
+         */
+        ForecastMonthOut: {
+            /** Month */
+            month: string;
+            /** Planned In */
+            planned_in: string;
+            /** Planned Out */
+            planned_out: string;
+            /** Balance */
+            balance: string;
+        };
+        /**
+         * ForecastOut
+         * @description The forecast for mine and for household.
+         */
+        ForecastOut: {
+            mine: components["schemas"]["ScopeForecastOut"];
+            household: components["schemas"]["ScopeForecastOut"];
+        };
+        /**
          * FreeLineOut
          * @description One line of a part: what happened so far, the average, and what free to spend counts.
          */
@@ -2673,7 +2885,7 @@ export interface components {
              * Basis
              * @enum {string}
              */
-            basis: "so_far" | "average";
+            basis: "so_far" | "average" | "plan";
         };
         /**
          * FreeOut
@@ -2690,6 +2902,8 @@ export interface components {
             unsorted: string;
             /** Saved */
             saved: string;
+            reserves: components["schemas"]["ReservesOut"];
+            goals: components["schemas"]["GoalsPartOut"];
         };
         /**
          * FreePartOut
@@ -2710,6 +2924,103 @@ export interface components {
             month: string;
             mine: components["schemas"]["FreeOut"];
             household: components["schemas"]["FreeOut"];
+        };
+        /**
+         * GoalIn
+         * @description A goal: a target by a date, the own saving account it lives in, what is reserved of it.
+         *
+         *     `monthly` is the contribution the owner plans; null or 0 plans none.
+         */
+        GoalIn: {
+            /** Name */
+            name: string;
+            /** Target */
+            target: number | string;
+            /**
+             * Due
+             * Format: date
+             */
+            due: string;
+            /** Account Id */
+            account_id: number;
+            /**
+             * Reserved
+             * @default 0
+             */
+            reserved: number | string;
+            /** Monthly */
+            monthly?: number | string | null;
+        };
+        /**
+         * GoalMonthOut
+         * @description A goal's contribution this month: planned, and what of it moved into its account.
+         */
+        GoalMonthOut: {
+            /** Goal Id */
+            goal_id: number;
+            /** Name */
+            name: string;
+            /** Account Id */
+            account_id: number;
+            /** Account Name */
+            account_name: string;
+            /** Planned */
+            planned: string;
+            /** Moved */
+            moved: string;
+            /** Done */
+            done: boolean;
+        };
+        /**
+         * GoalOut
+         * @description A goal as stored, with how far it is and what each month needs to reach it in time.
+         */
+        GoalOut: {
+            /** Name */
+            name: string;
+            /** Target */
+            target: string;
+            /**
+             * Due
+             * Format: date
+             */
+            due: string;
+            /** Account Id */
+            account_id: number;
+            /**
+             * Reserved
+             * @default 0
+             */
+            reserved: string;
+            /** Monthly */
+            monthly?: string | null;
+            /** Id */
+            id: number;
+            /** Progress */
+            progress: string;
+            /** Need */
+            need: string;
+            this_month: components["schemas"]["ContributionOut"] | null;
+        };
+        /**
+         * GoalsOut
+         * @description The goals, and the saving accounts they live in.
+         */
+        GoalsOut: {
+            /** Goals */
+            goals: components["schemas"]["GoalOut"][];
+            /** Accounts */
+            accounts: components["schemas"]["SavingAccountOut"][];
+        };
+        /**
+         * GoalsPartOut
+         * @description What the goals take off: their contributions planned and not yet moved, while it runs.
+         */
+        GoalsPartOut: {
+            /** Total */
+            total: string;
+            /** Lines */
+            lines: components["schemas"]["GoalMonthOut"][];
         };
         /**
          * Graph
@@ -2919,6 +3230,21 @@ export interface components {
             text: string | null;
         };
         /**
+         * MatchOut
+         * @description The booking that met a date.
+         */
+        MatchOut: {
+            /** Transaction Id */
+            transaction_id: number;
+            /**
+             * Booking Date
+             * Format: date
+             */
+            booking_date: string;
+            /** Amount */
+            amount: string;
+        };
+        /**
          * Mention
          * @description One place another note names this one in plain text, without linking to it.
          */
@@ -3100,6 +3426,126 @@ export interface components {
             anchor: string;
         };
         /**
+         * PlanIn
+         * @description A plan: a payee or a text to match, an amount give or take, a schedule, a category.
+         *
+         *     `every_months` is 1 for monthly, 12 for yearly, any months between; null
+         *     for a plan that falls due once, on `start`.
+         */
+        PlanIn: {
+            /** Name */
+            name: string;
+            /** Account Id */
+            account_id: number;
+            /** Payee Id */
+            payee_id?: number | null;
+            /** Text */
+            text?: string | null;
+            /** Amount */
+            amount: number | string;
+            /**
+             * Tolerance
+             * @default 0
+             */
+            tolerance: number | string;
+            /**
+             * Every Months
+             * @default 1
+             */
+            every_months: number | null;
+            /** Category Id */
+            category_id?: number | null;
+            /**
+             * Start
+             * Format: date
+             */
+            start: string;
+            /** End */
+            end?: string | null;
+        };
+        /**
+         * PlanOut
+         * @description A plan as stored, and what it sets aside each month when it reserves.
+         */
+        PlanOut: {
+            /** Name */
+            name: string;
+            /** Account Id */
+            account_id: number;
+            /** Payee Id */
+            payee_id?: number | null;
+            /** Text */
+            text?: string | null;
+            /** Amount */
+            amount: string;
+            /**
+             * Tolerance
+             * @default 0
+             */
+            tolerance: string;
+            /**
+             * Every Months
+             * @default 1
+             */
+            every_months: number | null;
+            /** Category Id */
+            category_id?: number | null;
+            /**
+             * Start
+             * Format: date
+             */
+            start: string;
+            /** End */
+            end?: string | null;
+            /** Id */
+            id: number;
+            /** Reserves */
+            reserves: boolean;
+            /** Share */
+            share: string;
+        };
+        /**
+         * ProposalOut
+         * @description A plan read from history, ready to post as it is, and what it was read from.
+         */
+        ProposalOut: {
+            /** Key */
+            key: string;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "bill" | "payee";
+            /** Name */
+            name: string;
+            /** Account Id */
+            account_id: number;
+            /** Payee Id */
+            payee_id: number | null;
+            /** Text */
+            text: string | null;
+            /** Amount */
+            amount: string;
+            /** Tolerance */
+            tolerance: string;
+            /** Every Months */
+            every_months: number;
+            /** Category Id */
+            category_id: number | null;
+            /**
+             * Start
+             * Format: date
+             */
+            start: string;
+            /** Seen */
+            seen: number;
+            /**
+             * Last
+             * Format: date
+             */
+            last: string;
+        };
+        /**
          * Ran
          * @description How many bookings and splits a run of the rules gave another category.
          */
@@ -3121,6 +3567,32 @@ export interface components {
             requested_at: string;
             /** Run Id */
             run_id: number | null;
+        };
+        /**
+         * ReserveOut
+         * @description A plan's reserve: the share set aside this month, the bill it paid, what it holds after.
+         */
+        ReserveOut: {
+            /** Plan Id */
+            plan_id: number;
+            /** Name */
+            name: string;
+            /** Share */
+            share: string;
+            /** Paid */
+            paid: string;
+            /** Balance */
+            balance: string;
+        };
+        /**
+         * ReservesOut
+         * @description What the reserves took off this month, and each one.
+         */
+        ReservesOut: {
+            /** Total */
+            total: string;
+            /** Lines */
+            lines: components["schemas"]["ReserveOut"][];
         };
         /**
          * Restored
@@ -3242,6 +3714,34 @@ export interface components {
             sha?: string | null;
         };
         /**
+         * SavingAccountOut
+         * @description An own saving account: its latest bank balance, what goals reserve, and the rest.
+         */
+        SavingAccountOut: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Balance */
+            balance: string;
+            /** Balance Date */
+            balance_date: string | null;
+            /** Reserved */
+            reserved: string;
+            /** Unreserved */
+            unreserved: string;
+        };
+        /**
+         * ScopeForecastOut
+         * @description A scope's bank balance today and its balance at each month's end by its plans.
+         */
+        ScopeForecastOut: {
+            /** Balance */
+            balance: string;
+            /** Months */
+            months: components["schemas"]["ForecastMonthOut"][];
+        };
+        /**
          * SearchHit
          * @description One line that matched a search, with the date and tags of the note it is in.
          */
@@ -3300,6 +3800,32 @@ export interface components {
         Stored: {
             /** Stored */
             stored: number;
+        };
+        /**
+         * StoredGoalOut
+         * @description A goal as written.
+         */
+        StoredGoalOut: {
+            /** Name */
+            name: string;
+            /** Target */
+            target: string;
+            /**
+             * Due
+             * Format: date
+             */
+            due: string;
+            /** Account Id */
+            account_id: number;
+            /**
+             * Reserved
+             * @default 0
+             */
+            reserved: string;
+            /** Monthly */
+            monthly?: string | null;
+            /** Id */
+            id: number;
         };
         /**
          * SuggestionOut
@@ -5289,6 +5815,344 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["SettingsIn"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_plans_api_finance_plans_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanOut"][];
+                };
+            };
+        };
+    };
+    write_plan_api_finance_plans_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlanIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    rewrite_plan_api_finance_plans__plan_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                plan_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlanIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_plan_api_finance_plans__plan_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                plan_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_upcoming_api_finance_plans_upcoming_get: {
+        parameters: {
+            query: {
+                month: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DueOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_forecast_api_finance_plans_forecast_get: {
+        parameters: {
+            query: {
+                today: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ForecastOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_proposals_api_finance_plans_proposals_get: {
+        parameters: {
+            query: {
+                today: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProposalOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_goals_api_finance_goals_get: {
+        parameters: {
+            query: {
+                today: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoalsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    write_goal_api_finance_goals_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GoalIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StoredGoalOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    rewrite_goal_api_finance_goals__goal_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                goal_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GoalIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StoredGoalOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_goal_api_finance_goals__goal_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                goal_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

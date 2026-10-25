@@ -9,8 +9,8 @@ status: stable
 
 # HTTP API
 
-The backend serves eighty-four endpoints under `/api/`. Forty-seven read,
-thirty-six write, and one streams. The interactive schema is at `/docs` while the backend
+The backend serves ninety-five endpoints under `/api/`. Fifty-two read,
+forty-two write, and one streams. The interactive schema is at `/docs` while the backend
 runs, and the machine-readable one at `/openapi.json`.
 
 The agent's routes sit under `/agent/`, and they are documented on their own page,
@@ -36,6 +36,7 @@ including the check that refuses a cross-site `POST` with a `403`.
 * [Finance](/reference/http-api/finance.md): the accounts, balances and bookings host jobs write, the splits under a booking, and the reads, with a `503` when there is no database
 * [Finance sorting](/reference/http-api/finance-sorting.md): categories, payees and rules, the order the rules fire in, the category set by hand, and the to-sort list
 * [Finance budget](/reference/http-api/finance-budget.md): a month's budget per category, free to spend for mine and household, the spending trend, a category's limit and the budget settings
+* [Finance plans and goals](/reference/http-api/finance-plans.md): plans and the bookings that met them, the month's dates, the 12-month forecast, plans proposed from history, and saving goals with what each account has unreserved
 * [Finance sync](/reference/http-api/finance-sync.md): "pull now" and whether one waits, the runs the bank job records, and the sync status the pane and agents read
 * [RSVP](/reference/http-api/rsvp.md): read and save where an RSVP run stopped in a file
 * [Cards](/reference/http-api/cards.md): flashcard lines, review limits and Anki imports

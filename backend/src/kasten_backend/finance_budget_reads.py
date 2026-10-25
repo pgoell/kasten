@@ -7,13 +7,14 @@ the budget's parts. Nothing here commits.
 
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Date, and_, cast, exists, func, null, select, union_all, update
+from sqlalchemy import Date, and_, cast, exists, false, func, null, select, union_all, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import aliased
 
 from kasten_backend import finance_models as tables
 from kasten_backend.finance_budget_models import CUTOFF_DAY, BudgetSettings, CategoryLimit
 from kasten_backend.finance_ledger import Account, Category, Ledger, Line
+from kasten_backend.finance_plan_models import Plan, PlanMatch
 
 if TYPE_CHECKING:
     import datetime as dt
@@ -34,9 +35,17 @@ async def _lines(session: AsyncSession, cutoff: int) -> list[Line]:
     Money in and money out are summed apart, since money in with no category
     counts nowhere and money out with none counts as unsorted. A transfer
     carries its twin's account, or the own account its counterparty IBAN names.
+    A booking that paid a reserving plan's bill is marked, since the reserve
+    paid it and free to spend must not count it again.
     """
     booking, twin, own = tables.Transaction, aliased(tables.Transaction), aliased(tables.Account)
     split = tables.TransactionSplit
+    reserved = exists().where(
+        PlanMatch.transaction_id == booking.id,
+        PlanMatch.plan_id == Plan.id,
+        Plan.every_months > 1,
+        Plan.amount < 0,
+    )
     whole = (
         select(
             booking.booking_date.label("day"),
@@ -44,6 +53,7 @@ async def _lines(session: AsyncSession, cutoff: int) -> list[Line]:
             booking.amount.label("amount"),
             booking.category_id.label("category"),
             func.coalesce(twin.account_id, own.id).label("twin"),
+            reserved.label("reserved"),
         )
         # A join, not a subquery per booking: the partial index on transfer_group
         # finds each twin at once.
@@ -65,16 +75,24 @@ async def _lines(session: AsyncSession, cutoff: int) -> list[Line]:
         .where(~exists().where(split.transaction_id == booking.id))
     )
     parts = select(
-        booking.booking_date, booking.account_id, split.amount, split.category_id, null()
+        booking.booking_date, booking.account_id, split.amount, split.category_id, null(), false()
     ).join(split, split.transaction_id == booking.id)
     rows = union_all(whole, parts).subquery()
     month = cast(func.date_trunc("month", rows.c.day), Date).label("month")
     late = (func.extract("day", rows.c.day) > cutoff).label("late")
-    keys = [month, rows.c.account, rows.c.category, rows.c.twin, late, rows.c.amount < 0]
-    summed = select(*keys[:5], func.sum(rows.c.amount)).group_by(*keys)
+    keys = [
+        month,
+        rows.c.account,
+        rows.c.category,
+        rows.c.twin,
+        late,
+        rows.c.reserved,
+        rows.c.amount < 0,
+    ]
+    summed = select(*keys[:6], func.sum(rows.c.amount)).group_by(*keys)
     return [
-        Line(month, account, amount, category, twin, late)
-        for month, account, category, twin, late, amount in await session.execute(summed)
+        Line(month, account, amount, category, twin, late, reserved)
+        for month, account, category, twin, late, reserved, amount in await session.execute(summed)
     ]
 
 
