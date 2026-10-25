@@ -14,14 +14,22 @@ import { boxOf, DEV_ANSWER, registerVaultFixture, SYNTHETIC } from "./vault-grap
 registerVaultFixture();
 
 const BOX = { width: 900, height: 600 };
-/** Long enough for the simulation's 300 ticks on any machine this runs on. */
+/**
+ * How long a settle waits before it reads null. A test that needs longer passes a
+ * larger cap, kept below a larger test timeout of its own, so a stuck engine fails
+ * on its own expect.
+ */
 const CAP = 15_000;
 
 /**
  * Draws the answer on a fresh canvas in a mode, and gives back the notes as they
  * are when the engine stops, or null when it never stops.
  */
-async function settle(answer: Graph, mode: "folders" | "tags"): Promise<DrawnNode[] | null> {
+async function settle(
+  answer: Graph,
+  mode: "folders" | "tags",
+  cap = CAP,
+): Promise<DrawnNode[] | null> {
   const element = boxOf(BOX.width, BOX.height);
   let finish: (nodes: DrawnNode[]) => void = () => {};
   const stopped = new Promise<DrawnNode[]>((resolve) => {
@@ -38,7 +46,7 @@ async function settle(answer: Graph, mode: "folders" | "tags"): Promise<DrawnNod
   made.cluster?.(mode);
   const nodes = await Promise.race([
     stopped,
-    new Promise<null>((resolve) => setTimeout(() => resolve(null), CAP)),
+    new Promise<null>((resolve) => setTimeout(() => resolve(null), cap)),
   ]);
   made.destroy();
   element.remove();
@@ -106,7 +114,9 @@ describe("vault graph layout on a canvas", () => {
   });
 
   it("A1 in Folders mode each note settles nearer its own folder's spot than any other spot, for most notes", async () => {
-    const nodes = await settle(SYNTHETIC, "folders");
+    // The product runs 300 force ticks, one per animation frame: 5 s alone at 60 fps,
+    // and longer when a loaded headless browser draws its frames slower (CI ran past 15 s).
+    const nodes = await settle(SYNTHETIC, "folders", 50_000);
     expect(nodes).not.toBeNull();
     const spots = spotsOf(SYNTHETIC.nodes, "folders");
 
@@ -129,5 +139,5 @@ describe("vault graph layout on a canvas", () => {
     console.error(`A1: ${own} of ${total} notes settle nearest their own folder's spot`);
     expect(total).toBeGreaterThan(100);
     expect(own / total).toBeGreaterThanOrEqual(0.9);
-  });
+  }, 60_000);
 });

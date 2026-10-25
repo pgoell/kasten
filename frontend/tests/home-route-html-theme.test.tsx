@@ -178,6 +178,8 @@ describe("the html theme on the home route", () => {
     if (row) fireEvent.click(row);
   }
 
+  // The whole app renders in jsdom with two panes (the vim editor and the page's frame)
+  // and then the palette: several seconds of work that a loaded machine (the pre-push hook beside another suite) has pushed past 5 s.
   it("with vim on, the palette's light and dark row turns an open page's frame to the other theme, and its address stays", async () => {
     stubMatchMedia({});
     localStorage.clear();
@@ -195,7 +197,7 @@ describe("the html theme on the home route", () => {
     expect(sent.mock.calls).toContainEqual([{ kasten: "theme", theme: "dark" }, "*"]);
     expect(frame().getAttribute("src")).toBe(addressed);
     expect(addressed).toBe(`/api/html/${PAGE}?theme=light&palette=poel`);
-  });
+  }, 15_000);
 
   it("with vim off, the same row, run from the chord, turns an open page's frame to the other theme, and its address stays", async () => {
     stubMatchMedia({});

@@ -1,10 +1,12 @@
 """What reading every tag costs, for `GET /api/tags` and the graph, over a generated vault.
 
-The wall time is printed for whoever runs `pytest -s`. The one bound on it is
-loose enough for a shared runner and still catches every note being read whole
-in Python again, which is what fenced blocks tempt the reader into.
+The wall and CPU time are printed for whoever runs `pytest -s`. The bound is on
+the CPU the readers spend: wall time moves with whatever else runs on a shared
+runner, CPU time does not, and it still catches every note being read whole in
+Python again, which is what fenced blocks tempt the reader into.
 """
 
+import os
 import statistics
 import time
 from typing import TYPE_CHECKING
@@ -18,7 +20,11 @@ if TYPE_CHECKING:
 NOTES = 2_000
 RUNS = 3
 MOST_SECONDS = 2.0
-"""A median above this is a regression, not noise: the reader takes a tenth of it."""
+"""A median of CPU seconds above this is a regression, not noise: the readers take about
+half of it in CPU, since rg runs several threads and its CPU outruns its wall time.
+
+Wall time is not bounded, because load from other processes moves it.
+"""
 
 
 def note(index: int) -> str:
@@ -46,8 +52,17 @@ def note(index: int) -> str:
     return text + "\nMore prose. " * 20 + "\n"
 
 
-def timed(label: str, durations: list[float]) -> None:
-    print(f"\n{label}: median {statistics.median(durations) * 1000:.1f}ms over {NOTES} notes")
+def cpu_seconds() -> float:
+    """The CPU this process spent: its threads, plus the child processes it has waited for."""
+    times = os.times()
+    return times.user + times.system + times.children_user + times.children_system
+
+
+def timed(label: str, wall: list[float], cpu: list[float]) -> None:
+    print(
+        f"\n{label}: wall median {statistics.median(wall) * 1000:.1f}ms, "
+        f"cpu median {statistics.median(cpu) * 1000:.1f}ms over {NOTES} notes"
+    )
 
 
 async def test_find_tags_and_graph_over_a_generated_vault(tmp_path: Path) -> None:
@@ -55,21 +70,25 @@ async def test_find_tags_and_graph_over_a_generated_vault(tmp_path: Path) -> Non
         (tmp_path / f"Note {index}.md").write_text(note(index), encoding="utf-8")
 
     durations = []
+    tag_cpu = []
     for _ in range(RUNS):
-        start = time.perf_counter()
+        start, cpu_start = time.perf_counter(), cpu_seconds()
         found = await find_tags(tmp_path)
         durations.append(time.perf_counter() - start)
-    timed("find_tags", durations)
+        tag_cpu.append(cpu_seconds() - cpu_start)
+    timed("find_tags", durations, tag_cpu)
 
     graphs = []
+    graph_cpu = []
     for _ in range(RUNS):
-        start = time.perf_counter()
+        start, cpu_start = time.perf_counter(), cpu_seconds()
         graph = await read_graph(tmp_path)
         graphs.append(time.perf_counter() - start)
-    timed("read_graph", graphs)
+        graph_cpu.append(cpu_seconds() - cpu_start)
+    timed("read_graph", graphs, graph_cpu)
 
     assert {"#shared", "#field", "#continued"} <= set(found)
     assert not {"#inside", "#fff", "#hidden"} & set(found)
     assert len(graph.nodes) == NOTES + 1
-    assert statistics.median(durations) < MOST_SECONDS
-    assert statistics.median(graphs) < MOST_SECONDS
+    assert statistics.median(tag_cpu) < MOST_SECONDS
+    assert statistics.median(graph_cpu) < MOST_SECONDS

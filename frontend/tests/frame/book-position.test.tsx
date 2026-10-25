@@ -20,12 +20,16 @@ function noteAt(cfi: string): string {
   return `---\nid: one\nreading: ${cfi}\n---\n# Plain\n`;
 }
 
-/** The view the pane's own effect builds, once it has built it and the book has a place. */
-async function viewIn(container: HTMLElement): Promise<FoliateView> {
+/**
+ * The view the pane's own effect builds, once it has built it and the book has a place.
+ * With `place`, waits until the reported place contains it.
+ */
+async function viewIn(container: HTMLElement, place = ""): Promise<FoliateView> {
   return vi.waitFor(
     () => {
       const view = container.querySelector("foliate-view") as FoliateView | null;
       expect(view?.lastLocation).toBeTruthy();
+      if (place) expect(view?.lastLocation?.cfi).toContain(place);
       return view as FoliateView;
     },
     { timeout: 10_000 },
@@ -63,7 +67,9 @@ describe("the place in a scrolled book", () => {
     mounted?.container.remove();
     mounted = null;
     const reopened = await drawBook(noteAt(cfi ?? ""), plainUrl);
-    const again = await viewIn(reopened.container);
+    // A reopen first reports the section start, then the stored place once the book
+    // lands on it, so wait for that place rather than read the first report.
+    const again = await viewIn(reopened.container, "/4[para]");
     // The same paragraph and not the same character: the reopen lands on the
     // start of the paragraph the scroll reached, which is where the place says.
     expect(cfi).toContain("/4[para]");
