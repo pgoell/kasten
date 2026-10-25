@@ -322,8 +322,6 @@ async def test_b1_link_in_a_field_files_nothing(client: AsyncClient, vault: Path
     lines = [
         "- [w] chase quote 👤 2026-10-01 [[Vendor]]",
         "- [ ] water plants 🔁 every week [[Vendor]]",
-        # The due date is taken first, so the rule runs on to the end of the line.
-        "- [ ] pay rent 🔁 every month 📅 2026-10-01 [[Vendor]]",
         "- [ ] call [[Vendor]] 👤 Bob",
     ]
     write(vault, DAILY, "\n".join(lines) + "\n")
@@ -332,8 +330,20 @@ async def test_b1_link_in_a_field_files_nothing(client: AsyncClient, vault: Path
 
     assert found[lines[0]] is None
     assert found[lines[1]] is None
-    assert found[lines[2]] is None
-    assert found[lines[3]] == "02 Projects/FDE"
+    assert found[lines[2]] == "02 Projects/FDE"
+
+
+async def test_1030_a4_a_link_after_a_field_cut_from_a_recurrence_files_the_todo(
+    client: AsyncClient, vault: Path
+) -> None:
+    write(vault, "02 Projects/FDE/People/Vendor.md", "")
+    line = "- [ ] pay rent 🔁 every month 📅 2026-10-01 [[Vendor]]"
+    # The rule stops where the date stood, so the link is in the words and files the todo.
+    write(vault, DAILY, f"{line}\n")
+
+    found = await projects(client)
+
+    assert found[line] == "02 Projects/FDE"
 
 
 async def test_b2_line_the_editor_rejects_is_no_parent(client: AsyncClient, vault: Path) -> None:
