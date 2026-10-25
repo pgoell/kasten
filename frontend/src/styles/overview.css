@@ -98,9 +98,30 @@
   margin-top: 8px;
 }
 
+.overview-caption,
+.overview-ring-label {
+  margin: 4px 0 0;
+  font-size: var(--k-text-13);
+  color: var(--k-muted);
+}
+
+@media (width < 48rem) {
+  .overview-caption,
+  .overview-ring-label {
+    font-size: var(--k-text-15);
+  }
+}
+
 .overview-rings {
   display: flex;
   gap: 12px;
+}
+
+.overview-ring {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-width: 0;
 }
 
 .overview-rings .chart-svg {

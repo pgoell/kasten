@@ -49,7 +49,9 @@ cards sit four across; in a narrow pane and on a phone they stand in one column.
 
 The charts speak one language, the one the log pane's Trends uses:
 
-* A bar per day. A day with no log draws no bar; a logged zero draws a thin stub.
+* A bar per day. On Food and Water a day with no log draws no bar and a logged
+  zero a thin stub. On Flashcards, Todos and Writing every day counts, so a day
+  with none draws the thin stub.
 * The goal is a dashed line. A bar past a ceiling goal (`max`, such as kcal,
   coffee or alcohol) is drawn in the warning colour, and the words under the
   chart count those days, so the colour is never the only sign. A floor goal
@@ -84,7 +86,8 @@ The vault keeps no history of ratings. A card holds three numbers, its due
 date, its interval and its ease ([Reviewing cards](/reference/flashcard-format/reviewing-cards.md)),
 and a rating always writes a due date of the rating's day plus the interval.
 So the day a card was last rated is its due date less its interval, and every
-schedule of a cloze line counts on its own.
+schedule of a cloze line counts on its own. Only schedules in a deck, a note
+the review pane asks cards from, count.
 
 That gives the day of each card's last rating, not every rating it ever had.
 A day shows as a review day while at least one card's last rating fell on it.
@@ -108,7 +111,10 @@ the same rule search's weekly bars use:
 
 So a note counts once, on one day. A daily note counts on its own day even
 when kasten made it for a log line, and a note with no `created` that you edit
-today counts today. The archive folder is left out, as it is from search.
+today counts today. The archive folder is left out, as it is from search,
+whether or not the archive is shown. A new or deleted note redraws the two
+cards at once; an edit to a note already there moves it to today only when the
+overview is next opened.
 
 ## Todos done
 

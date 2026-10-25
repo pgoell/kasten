@@ -31,6 +31,7 @@ import {
   writtenCounts,
   yearTally,
 } from "@/lib/overview";
+import { deckNotes } from "@/lib/review";
 import { useEntrance } from "@/lib/stagger";
 import { useLeader } from "@/lib/use-leader";
 
@@ -81,6 +82,8 @@ interface Card {
   figure: string;
   words: string;
   chart: ReactNode;
+  /** What the chart shows, in words under it, so the chart reads without its colours. */
+  caption: string;
   /** The read's message, when the read this card feeds failed. */
   failure?: string;
 }
@@ -160,10 +163,21 @@ function todayDayOf(reads: Reads): LogDay | undefined {
   return reads.days.find((day) => day.date === reads.today);
 }
 
-function kcalLabel(goal: Goal | undefined, over: number): string {
-  if (goal === undefined) return "kcal per day over 14 days, no kcal goal";
+/**
+ * A fortnight's bars in words: the goal, and the days over a ceiling counted, so the colour of
+ * a day over is never the only sign of it.
+ */
+function fortnightLabel(name: string, unit: string, goal: Goal | undefined, over: number): string {
+  if (goal === undefined) return `${name} per day over 14 days, no ${name} goal`;
   const tail = goal.type === "ceiling" ? `, ${plural(over, "day")} over the goal` : "";
-  return `kcal per day over 14 days, ${goalWords(goal, " kcal")}${tail}`;
+  return `${name} per day over 14 days, ${goalWords(goal, unit)}${tail}`;
+}
+
+/** A macro's visible words under its ring: its name, what it has reached, and its goal. */
+function ringWords(field: string, value: number, goal: Goal | undefined): string {
+  const name = `${field.charAt(0).toUpperCase()}${field.slice(1)}`;
+  if (goal === undefined) return `${name} ${grouped(value)} g`;
+  return `${name} ${grouped(value)} of ${grouped(goal.value)} g`;
 }
 
 function foodCard(reads: Reads, commands: EditorCommands): Card {
@@ -176,6 +190,7 @@ function foodCard(reads: Reads, commands: EditorCommands): Card {
   const bound = goal?.type === "floor" ? "at least" : "at most";
   return {
     key: "food",
+    caption: "kcal per day, 14 days",
     name: "Food",
     target: "the log",
     open: () => commands.openLog(),
@@ -187,7 +202,13 @@ function foodCard(reads: Reads, commands: EditorCommands): Card {
           ? "logged days in a row"
           : `in a row within ${bound} ${grouped(goal.value)} kcal`,
     chart: (
-      <Bars label={kcalLabel(goal, over)} points={bars} slots={14} goal={goal} todayIndex={13} />
+      <Bars
+        label={fortnightLabel("kcal", " kcal", goal, over)}
+        points={bars}
+        slots={14}
+        goal={goal}
+        todayIndex={13}
+      />
     ),
     failure: reads.logError,
   };
@@ -203,6 +224,7 @@ function todayCard(reads: Reads, commands: EditorCommands): Card {
   }));
   return {
     key: "today",
+    caption: "macros against today's goal",
     name: "Today",
     target: "the log",
     open: () => commands.openLog(),
@@ -211,7 +233,10 @@ function todayCard(reads: Reads, commands: EditorCommands): Card {
     chart: (
       <div className="overview-rings">
         {macros.map(({ field, value, goal }) => (
-          <Ring key={field} value={value} goal={goal} label={ringLabel(field, value, goal)} />
+          <div key={field} className="overview-ring">
+            <Ring value={value} goal={goal} label={ringLabel(field, value, goal)} />
+            <p className="overview-ring-label">{ringWords(field, value, goal)}</p>
+          </div>
         ))}
       </div>
     ),
@@ -237,6 +262,7 @@ function weightCard(reads: Reads, commands: EditorCommands): Card {
   const latest = weight?.last ?? null;
   return {
     key: "weight",
+    caption: "weight, 30 days, 7-day average",
     name: "Weight",
     target: "the log",
     open: () => commands.openLog(),
@@ -258,8 +284,12 @@ function waterCard(reads: Reads, commands: EditorCommands): Card {
   const day = todayDayOf(reads);
   const ml = kind === undefined ? 0 : totalOf(kind, day);
   const goal = kind?.goal;
+  const bars = kind === undefined ? [] : fortnight(reads, (logged) => totalOf(kind, logged));
+  const over =
+    goal?.type === "ceiling" ? bars.filter(({ amount }) => overMax(amount, goal)).length : 0;
   return {
     key: "water",
+    caption: "water per day, 14 days",
     name: "Water",
     target: "the log",
     open: () => commands.openLog(),
@@ -267,12 +297,8 @@ function waterCard(reads: Reads, commands: EditorCommands): Card {
     words: goal === undefined ? "no water goal" : goalPhrase(ml, goal),
     chart: (
       <Bars
-        label={
-          goal === undefined
-            ? "water per day over 14 days, no water goal"
-            : `water per day over 14 days, ${goalWords(goal, " ml")}`
-        }
-        points={kind === undefined ? [] : fortnight(reads, (logged) => totalOf(kind, logged))}
+        label={fortnightLabel("water", " ml", goal, over)}
+        points={bars}
         slots={14}
         goal={goal}
         todayIndex={13}
@@ -283,10 +309,13 @@ function waterCard(reads: Reads, commands: EditorCommands): Card {
 }
 
 function flashcardsCard(reads: Reads, commands: EditorCommands): Card {
-  const reviews = reviewCounts(reads.cards);
+  // Only the notes the review pane counts as decks: a schedule in any other note is no card.
+  const decks = new Set(deckNotes(reads.cards));
+  const reviews = reviewCounts(reads.cards.filter((hit) => decks.has(hit.path)));
   const rated = reviews.get(reads.today) ?? 0;
   return {
     key: "flashcards",
+    caption: "cards rated per day, 14 days",
     name: "Flashcards",
     target: "the review pane",
     open: () => commands.openReview(),
@@ -314,6 +343,7 @@ function todosCard(reads: Reads, commands: EditorCommands): Card {
   const tally = todoTally(reads.todos, reads.today);
   return {
     key: "todos",
+    caption: "todos done per day, 14 days",
     name: "Todos",
     target: "the todo pane",
     open: () => commands.openTodos(),
@@ -337,6 +367,7 @@ function writingCard(reads: Reads, commands: EditorCommands): Card {
   const today = notes.get(reads.today) ?? 0;
   return {
     key: "writing",
+    caption: "notes written per day, 14 days",
     name: "Writing",
     target: "today's note",
     open: () => commands.openDaily(),
@@ -359,6 +390,7 @@ function yearCard(reads: Reads, commands: EditorCommands): Card {
   const year = yearTally(notes, reads.today);
   return {
     key: "year",
+    caption: "notes written per day this year",
     name: "This year",
     target: "this year's note",
     open: () => commands.openYearly(),
@@ -506,6 +538,7 @@ export function OverviewPane({ commands, focusSignal, archive, today }: Overview
                 <p className="overview-words">{card.words}</p>
               )}
               {failed ? null : <div className="overview-chart">{card.chart}</div>}
+              {failed ? null : <p className="overview-caption">{card.caption}</p>}
             </article>
           );
         })}

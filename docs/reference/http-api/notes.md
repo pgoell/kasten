@@ -269,14 +269,17 @@ within `from` less one day and `to` plus one day. An instant such as
 the day either side is kept. The server does not know the reader's zone. The client
 works out the reader's own day and drops what falls outside it.
 
-## Errors
+### Errors
 
 * `400` when `from` is after `to`.
 * `422` when a date is not `YYYY-MM-DD` or names no day, `2026-02-30` among them.
 
-## Reading
+### Reading
 
 The route lists the vault's notes, leaves out the archive folder and reads each
-remaining note once, in a thread. It writes nothing, touches no database and
-keeps no index. The overview's Writing and This year cards read it.
+remaining note once, in a thread. It takes no `archive`: the archive always
+stays out, even with the archive shown in searches. It writes nothing, touches
+no database and keeps no index. The overview's Writing and This year cards read
+it. The overview asks it again when a note is added or removed, not on each
+save of a note already there, since one read takes every note in the vault.
 

@@ -272,6 +272,8 @@ describe("the overview, on the route", () => {
   it("#806 A6 the flashcard streak counts days in a row with a review, read off due less interval, every cloze schedule counting", async () => {
     // A review on each of the 20th, 19th, 18th and 17th, none on the 16th, one on the 15th.
     fetchCards.mockResolvedValue([
+      // The deck marker: a schedule counts only in a note the review pane counts as a deck.
+      card("#flashcards/aws", 0),
       card("Q :: A <!--SR:!2026-10-24,4,270-->", 1),
       card("Q2 :: A <!--SR:!2026-10-23,4,270-->", 2),
       card("Q3 :: A <!--SR:!2026-10-22,4,270-->", 3),
@@ -355,6 +357,7 @@ describe("the overview, on the route", () => {
   it("#806 I8 a line with two cloze schedules counts on both days", async () => {
     // The 20th from one cloze schedule and the 17th from its other, with a review on each of the 19th and 18th.
     fetchCards.mockResolvedValue([
+      card("#flashcards/aws", 0),
       card(
         "{{c1::p}} and {{c2::q}} <!--SR:c1!2026-10-22,2,250--> <!--SR:c2!2026-10-19,2,250-->",
         1,

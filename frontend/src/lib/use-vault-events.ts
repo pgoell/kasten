@@ -193,10 +193,15 @@ export function useVaultEvents(
       ) {
         queryClient.invalidateQueries({ queryKey: ["log"] }, { cancelRefetch: false });
       }
-      // The overview's Writing and This year count notes by the day each one counts on, so a
-      // note written or removed asks that read again. Ahead of the early return below, which
-      // would otherwise walk past a write to a note the tree already draws.
-      if (event.change === "written" || event.change === "removed") {
+      // The overview's Writing and This year count each note on the day it counts on. A note the
+      // listing does not hold yet is a new one, and asks that read again; an edit to a listed
+      // note moves at most its own day, and re-reading every note per autosave costs more than
+      // the listing the test below refuses to re-walk. A removal always asks.
+      const paths = queryClient.getQueryData<string[]>(["files"]);
+      if (
+        event.change === "removed" ||
+        (event.change === "written" && !paths?.includes(event.path))
+      ) {
         queryClient.invalidateQueries({ queryKey: ["written"] }, { cancelRefetch: false });
       }
       // A removal refetches no note, so the readers of log.md would keep the text
@@ -210,7 +215,6 @@ export function useVaultEvents(
         reloadLogConfig();
       }
 
-      const paths = queryClient.getQueryData<string[]>(["files"]);
       if (event.change === "written" && paths?.includes(event.path)) return;
       queryClient.invalidateQueries({ queryKey: ["files"] }, { cancelRefetch: false });
     };

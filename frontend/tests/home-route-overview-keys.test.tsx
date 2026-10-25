@@ -304,4 +304,15 @@ describe("the overview keys, on the route", () => {
 
     expect(fetchWritten.mock.calls.length).toBeGreaterThan(asked);
   });
+
+  it("#806 I5 an autosave of a note already listed does not ask the written read again", async () => {
+    await openOverview();
+    const asked = fetchWritten.mock.calls.length;
+
+    // `index.md` is in the listing already, so this is an autosave of a known note.
+    act(() => stream().send({ path: "index.md", change: "written", digest: "a".repeat(64) }));
+    await settle();
+
+    expect(fetchWritten.mock.calls.length).toBe(asked);
+  });
 });
