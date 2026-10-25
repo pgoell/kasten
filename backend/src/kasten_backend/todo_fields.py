@@ -26,7 +26,7 @@ _WORD = (
 """The editor's `(\\S+)`, spelled out: Python's `\\s` holds U+0085 and U+001C to
 U+001F, which the editor's does not, and leaves out U+FEFF, which it holds."""
 _DATE = r"[ \t]+([0-9]{4}-[0-9]{2}-[0-9]{2})"
-_BLOCK_ID = r"\^[A-Za-z0-9_-]+[ \t]*$"
+_BLOCK_ID = r"\^[A-Za-z0-9_-]+[ \t]*(?:\n|$)"
 FIELDS = (
     re.compile("(?:📅|📆|🗓)" + _VS + _DATE),
     re.compile("⏳" + _VS + _DATE),

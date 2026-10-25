@@ -238,5 +238,37 @@
     "assignee": null,
     "waitingSince": null,
     "waitingOn": null
+  },
+  {
+    "id": "bare-marker-before-a-field-then-a-wait",
+    "rest": "a 👤 ⏲ 2h 2026-10-25 Ada",
+    "text": "a 👤 2026-10-25 Ada",
+    "assignee": null,
+    "waitingSince": null,
+    "waitingOn": null
+  },
+  {
+    "id": "assignee-before-a-block-id-and-a-field",
+    "rest": "a 👤 Bob ^x ⏲ 2h",
+    "text": "a ^x",
+    "assignee": "Bob",
+    "waitingSince": null,
+    "waitingOn": null
+  },
+  {
+    "id": "bare-marker-before-a-block-id-and-a-field",
+    "rest": "a 👤 ^x ⏲ 2h",
+    "text": "a 👤 ^x",
+    "assignee": null,
+    "waitingSince": null,
+    "waitingOn": null
+  },
+  {
+    "id": "wait-before-a-block-id-and-a-field",
+    "rest": "a 👤 2026-10-25 ^x ⏲ 2h",
+    "text": "a ^x",
+    "assignee": null,
+    "waitingSince": "2026-10-25",
+    "waitingOn": null
   }
 ]

@@ -93,7 +93,7 @@ const CUT = "\n";
 // last, `??` rather than `?`, or a date stamped in front of a `^block` id would
 // read the id as who the todo waits on.
 const WAITING =
-  /👤️?[ \t]+(\d{4}-\d{2}-\d{2})(?:[ \t]+(.+?))??(?=[ \t]+(?:📅|📆|🗓|⏳|🛫|➕|✅|❌|🔺|⏫|🔼|🔽|⏬|🔁|🏁|🆔|⛔|⏲|⏱|👤|#|\^[\w-]+[ \t]*$)|[ \t]*\n|[ \t]*$)/d;
+  /👤️?[ \t]+(\d{4}-\d{2}-\d{2})(?:[ \t]+(.+?))??(?=[ \t]+(?:📅|📆|🗓|⏳|🛫|➕|✅|❌|🔺|⏫|🔼|🔽|⏬|🔁|🏁|🆔|⛔|⏲|⏱|👤|#|\^[\w-]+[ \t]*(?:\n|$))|[ \t]*\n|[ \t]*$)/d;
 
 // A `👤` followed by anything that is no date and no marker is the assignee:
 // who the todo is for, in any state. It runs to the same stops as the wait's
@@ -101,7 +101,7 @@ const WAITING =
 // The value may not open on a space, or the spaces would give back one and
 // read the rest of the gap as the name; a `^block` id is never a name either.
 const ASSIGNEE =
-  /👤️?[ \t]+(?![ \t])(?!\d{4}-\d{2}-\d{2}(?:[ \t]|$))(?!(?:📅|📆|🗓|⏳|🛫|➕|✅|❌|🔺|⏫|🔼|🔽|⏬|🔁|🏁|🆔|⛔|⏲|⏱|👤|#|\^[\w-]+[ \t]*$))(.+?)(?=[ \t]+(?:📅|📆|🗓|⏳|🛫|➕|✅|❌|🔺|⏫|🔼|🔽|⏬|🔁|🏁|🆔|⛔|⏲|⏱|👤|#|\^[\w-]+[ \t]*$)|[ \t]*\n|[ \t]*$)/d;
+  /👤️?[ \t]+(?![ \t])(?!\d{4}-\d{2}-\d{2}(?:[ \t]|$))(?!(?:📅|📆|🗓|⏳|🛫|➕|✅|❌|🔺|⏫|🔼|🔽|⏬|🔁|🏁|🆔|⛔|⏲|⏱|👤|#|\^[\w-]+[ \t]*(?:\n|$)))(.+?)(?=[ \t]+(?:📅|📆|🗓|⏳|🛫|➕|✅|❌|🔺|⏫|🔼|🔽|⏬|🔁|🏁|🆔|⛔|⏲|⏱|👤|#|\^[\w-]+[ \t]*(?:\n|$))|[ \t]*\n|[ \t]*$)/d;
 
 /** Every field in the order `tail` writes them, which is where a stamp is added. */
 const ORDER = [
