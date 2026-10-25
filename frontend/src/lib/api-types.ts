@@ -1178,7 +1178,10 @@ export interface paths {
         get?: never;
         /**
          * Rewrite Category
-         * @description Rename a category or change its kind. The bookings in it stay in it.
+         * @description Rename a category or change its kind, running the rules when the kind changes.
+         *
+         *     The kind says which side of a booking the category's rules sort, income
+         *     money in and the rest money out, so a new kind can move bookings.
          */
         put: operations["rewrite_category_api_finance_categories__category_id__put"];
         post?: never;
