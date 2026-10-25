@@ -116,6 +116,7 @@ describe("Editor", () => {
   it("follows a wikilink on ctrl+click, the way a browser opens a link", () => {
     const onFollow = vi.fn();
     const { container } = render(<Editor initialDoc="see [[borges]] now" onFollow={onFollow} />);
+    finishParsing(container);
 
     fireEvent.mouseDown(container.querySelector(".cm-wikilink") as HTMLElement, { ctrlKey: true });
 
@@ -127,6 +128,7 @@ describe("Editor", () => {
     // modifier is what tells the two apart.
     const onFollow = vi.fn();
     const { container } = render(<Editor initialDoc="see [[borges]] now" onFollow={onFollow} />);
+    finishParsing(container);
 
     fireEvent.mouseDown(container.querySelector(".cm-wikilink") as HTMLElement);
 
@@ -138,6 +140,7 @@ describe("Editor", () => {
     const { container } = render(
       <Editor initialDoc="see [mail](https://mail.google.com/mail/u/0/#all/1a) now" />,
     );
+    finishParsing(container);
 
     fireEvent.mouseDown(container.querySelector(".cm-link") as HTMLElement, { ctrlKey: true });
 
@@ -152,6 +155,7 @@ describe("Editor", () => {
   it("opens nothing on ctrl+click on a markdown link with a relative address", () => {
     const open = vi.spyOn(window, "open").mockReturnValue(null);
     const { container } = render(<Editor initialDoc="see [notes](notes.md) now" />);
+    finishParsing(container);
 
     fireEvent.mouseDown(container.querySelector(".cm-link") as HTMLElement, { ctrlKey: true });
 
@@ -205,6 +209,7 @@ describe("Editor", () => {
         onFollow={onFollow}
       />,
     );
+    finishParsing(container);
     act(() => toggleVim());
 
     fireEvent.mouseDown(container.querySelector(".cm-link") as HTMLElement, { ctrlKey: true });

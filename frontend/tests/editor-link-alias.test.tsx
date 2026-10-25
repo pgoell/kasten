@@ -2,6 +2,7 @@ import { act, fireEvent, render } from "@testing-library/react";
 import { Editor } from "@/components/editor";
 import { toggleVim } from "@/lib/vim-setting";
 import { deleteCurrentLine } from "./editor-fixture";
+import { finishParsing } from "./parsing";
 
 describe("Editor following a link with an alias or a heading", () => {
   // The whole target, heading and alias and all: the route is what splits it,
@@ -26,6 +27,7 @@ describe("Editor following a link with an alias or a heading", () => {
   it("hands the whole target on ctrl+click on the alias, vim on or off", () => {
     const onFollow = vi.fn();
     const { container } = render(<Editor initialDoc={DOC} onFollow={onFollow} />);
+    finishParsing(container);
     const alias = () => container.querySelector(".cm-wikilink") as HTMLElement;
 
     expect(alias().textContent).toBe("Jorge");
@@ -41,6 +43,7 @@ describe("Editor following a link with an alias or a heading", () => {
     const { container } = render(
       <Editor initialDoc={"[[#Below]]\ntext\n## Below\nend"} onFollow={onFollow} />,
     );
+    finishParsing(container);
     const content = container.querySelector(".cm-content") as HTMLElement;
 
     fireEvent.keyDown(content, { key: "g" });
@@ -60,6 +63,7 @@ describe("Editor following a link with an alias or a heading", () => {
   it("hands the whole target on a tap on the alias", () => {
     const onFollow = vi.fn();
     const { container } = render(<Editor initialDoc={`intro\n\n${DOC}`} onFollow={onFollow} />);
+    finishParsing(container);
     const alias = container.querySelector(".cm-wikilink") as HTMLElement;
 
     expect(alias.textContent).toBe("Jorge");

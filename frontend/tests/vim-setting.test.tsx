@@ -283,6 +283,7 @@ describe("the editor without vim", () => {
     const onFollow = vi.fn();
     // The cursor opens on the first line, which is the link's.
     const { container } = render(<Editor initialDoc="[[reading/borges]]" onFollow={onFollow} />);
+    finishParsing(container);
     const link = container.querySelector(".cm-wikilink") as HTMLElement;
     expect(content(container).textContent).toBe("[[reading/borges]]");
 
@@ -311,6 +312,7 @@ describe("the editor without vim", () => {
     const open = vi.spyOn(window, "open").mockReturnValue(null);
     // The cursor opens on the first line, which is the link's.
     const { container } = render(<Editor initialDoc="[mail](https://mail.example)" />);
+    finishParsing(container);
     const link = container.querySelector(".cm-link") as HTMLElement;
 
     fireEvent.pointerDown(link, { pointerType: "touch" });
