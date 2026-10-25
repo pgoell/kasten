@@ -15,11 +15,12 @@ registerVaultFixture();
 
 const BOX = { width: 900, height: 600 };
 /**
- * How long a settle waits before it reads null. A test that needs longer passes a
- * larger cap, kept below a larger test timeout of its own, so a stuck engine fails
- * on its own expect.
+ * How long a settle waits before it reads null. The product runs 300 force ticks, one
+ * per animation frame, and a loaded headless browser draws its frames slower, so a
+ * settle can take well over the 5 s of a quiet run. The cap stays below each test's
+ * timeout, so a stuck engine fails on its own expect and not on vitest's timeout.
  */
-const CAP = 15_000;
+const CAP = 25_000;
 
 /**
  * Draws the answer on a fresh canvas in a mode, and gives back the notes as they
@@ -58,6 +59,7 @@ const distance = (node: DrawnNode, x: number, y: number) =>
 
 describe("vault graph layout on a canvas", () => {
   it("A7 the same vault lays out the same on two fresh canvases", async () => {
+    // Two settles of CAP each fit inside the 60 s timeout.
     const first = await settle(DEV_ANSWER, "folders");
     const second = await settle(DEV_ANSWER, "folders");
     expect(first).not.toBeNull();
@@ -72,9 +74,10 @@ describe("vault graph layout on a canvas", () => {
     });
     expect(drift.length).toBe(DEV_ANSWER.nodes.length);
     expect(Math.max(...drift)).toBeLessThan(1e-6);
-  });
+  }, 60_000);
 
   it("A7 after settle no note lies farther from the middle than the farthest spot plus two spot spacings", async () => {
+    // Two settles of CAP each fit inside the 60 s timeout.
     for (const answer of [DEV_ANSWER, SYNTHETIC]) {
       const nodes = await settle(answer, "folders");
       expect(nodes).not.toBeNull();
@@ -87,7 +90,7 @@ describe("vault graph layout on a canvas", () => {
       const farthestNote = Math.max(...(nodes ?? []).map((node) => distance(node, 0, 0)));
       expect(farthestNote).toBeLessThanOrEqual(farthestSpot + 2 * spacing);
     }
-  });
+  }, 60_000);
 
   it("A2 in Tags mode a note with exactly two tags settles inside the circle whose diameter joins its two tags' spots, for most such notes", async () => {
     const nodes = await settle(SYNTHETIC, "tags");
@@ -111,7 +114,7 @@ describe("vault graph layout on a canvas", () => {
     console.error(`A2: ${inside} of ${total} two-tag notes settle inside their circle`);
     expect(total).toBeGreaterThan(10);
     expect(inside / total).toBeGreaterThanOrEqual(0.9);
-  });
+  }, 60_000);
 
   it("A1 in Folders mode each note settles nearer its own folder's spot than any other spot, for most notes", async () => {
     // The product runs 300 force ticks, one per animation frame: 5 s alone at 60 fps,

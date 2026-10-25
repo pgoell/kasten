@@ -5,6 +5,7 @@ import { Editor } from "@/components/editor";
 import { paletteEntries } from "@/lib/palette";
 import { toggleVim } from "@/lib/vim-setting";
 import { COARSE, stubMatchMedia } from "./match-media";
+import { finishParsing, renderStarved } from "./parsing";
 import { stubCommands } from "./stub-commands";
 
 const DOC = "line one\nline two";
@@ -231,9 +232,11 @@ describe("the editor without vim", () => {
 
   it("follows a link on a tap", () => {
     const onFollow = vi.fn();
-    const { container } = render(
+    const { container } = renderStarved(
       <Editor initialDoc={"intro\n\nsee [[reading/borges]]"} onFollow={onFollow} />,
     );
+    // The first parse may stop before the link on a loaded machine (#1075).
+    finishParsing(container);
     const link = container.querySelector(".cm-wikilink") as HTMLElement;
 
     fireEvent.pointerDown(link, { pointerType: "touch" });
@@ -244,9 +247,10 @@ describe("the editor without vim", () => {
 
   it("does not follow a link the finger only scrolled from", () => {
     const onFollow = vi.fn();
-    const { container } = render(
+    const { container } = renderStarved(
       <Editor initialDoc={"intro\n\nsee [[reading/borges]]"} onFollow={onFollow} />,
     );
+    finishParsing(container);
 
     const link = container.querySelector(".cm-wikilink") as HTMLElement;
 
@@ -263,9 +267,10 @@ describe("the editor without vim", () => {
 
   it("leaves a mouse click to the cursor", () => {
     const onFollow = vi.fn();
-    const { container } = render(
+    const { container } = renderStarved(
       <Editor initialDoc={"intro\n\nsee [[reading/borges]]"} onFollow={onFollow} />,
     );
+    finishParsing(container);
     const link = container.querySelector(".cm-wikilink") as HTMLElement;
 
     fireEvent.pointerDown(link, { pointerType: "mouse" });
@@ -289,9 +294,10 @@ describe("the editor without vim", () => {
 
   it("opens a markdown link's address on a tap", () => {
     const open = vi.spyOn(window, "open").mockReturnValue(null);
-    const { container } = render(
+    const { container } = renderStarved(
       <Editor initialDoc={"intro\n\nsee [mail](https://mail.example)"} />,
     );
+    finishParsing(container);
     const link = container.querySelector(".cm-link") as HTMLElement;
 
     fireEvent.pointerDown(link, { pointerType: "touch" });
