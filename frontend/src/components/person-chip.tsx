@@ -27,10 +27,13 @@ export function chipNote(target: EventTarget | null): string | null {
 
 /** The pill itself. It takes the text size of the line it sits on. */
 const PILL =
-  "block min-w-0 truncate rounded-full px-[var(--k-space-8)] transition-colors duration-150 motion-reduce:transition-none motion-reduce:duration-0";
+  "block min-w-0 truncate rounded-full px-[var(--k-space-8)] transition-colors duration-(--k-hover) ease-(--k-ease-out) motion-reduce:transition-none motion-reduce:duration-0";
 
-/** A name with a note: a filled pill that reads as a link. */
-const LINKED = "bg-k-surface text-k-ink hover:bg-k-rule hover:text-k-accent";
+/**
+ * A name with a note: a filled pill in the link colour, which the theme sets to
+ * pass as text on the surface. Its border is clear so it is the size of the dashed one.
+ */
+const LINKED = "border border-transparent bg-k-surface text-k-link hover:underline";
 
 /** A name with no note: an outlined pill, muted, so it reads as a name still to be filed. */
 const UNLINKED =
@@ -47,7 +50,7 @@ export function PersonChip({ assignee, paths }: { assignee: string; paths: strin
       data-person={assignee}
       data-person-path={note ?? undefined}
       title={assignee}
-      className="flex max-w-[40%] shrink-0 items-center self-stretch pointer-coarse:min-h-11"
+      className="flex max-w-[40%] min-w-[5ch] shrink items-center justify-center self-stretch pointer-coarse:min-h-11 pointer-coarse:min-w-11"
     >
       <span className={`${PILL} ${note === null ? UNLINKED : LINKED}`}>{plainLinks(assignee)}</span>
     </span>

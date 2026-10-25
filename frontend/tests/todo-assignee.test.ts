@@ -1,5 +1,5 @@
 import { EditorView } from "@codemirror/view";
-import { fireEvent } from "@testing-library/react";
+import { fireEvent, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, vi } from "vitest";
 import cases from "@/lib/person-field-cases.json";
 import { cycleLine, formatTodo, nameAt, parseTodo, setStateOn, type TodoState } from "@/lib/todo";
@@ -8,6 +8,18 @@ import { expandShorthand } from "@/lib/todo-shorthand";
 import { cycleLines } from "@/lib/todo-write";
 import { open } from "./keybindings-fixture";
 import { FRESH } from "./todo-fixture";
+import { paneHooks, renderPane } from "./todo-pane-fixture";
+
+// The pane's doubles, as each pane test file keeps its own: `vi.mock` hoists
+// only within the file that calls it.
+const { fetchTodos, fetchNote, fetchFiles, createNote } = vi.hoisted(() => ({
+  fetchTodos: vi.fn(),
+  fetchNote: vi.fn(),
+  fetchFiles: vi.fn(),
+  createNote: vi.fn(),
+}));
+vi.mock("@/lib/api", () => ({ fetchTodos, fetchNote, fetchFiles, createNote }));
+paneHooks();
 
 const TODAY = "2026-10-25";
 
@@ -225,9 +237,42 @@ describe("#809 the assignee in the editor and the implied paths", () => {
     expect(line.slice(0, nameAt(line) ?? 0)).toBe("- [w] buy paint 👤 [[Pascal]] 👤 2026-10-25");
   });
 
+  it("#809 I1 a state change on a line with a bare 👤 before a block id keeps the id at the end", () => {
+    expect(setStateOn("- [/] buy paint 👤 ^milk", "done", TODAY, FRESH)).toBe(
+      "- [x] buy paint 👤 ✅ 2026-10-25 🆔 kt-000001 ^milk",
+    );
+  });
+
+  it("#809 I6 the name place skips an assignee that starts with today's date", () => {
+    const line = setStateOn(
+      "- [ ] buy paint 👤 2026-10-25-review 📅 2026-10-30",
+      "waiting",
+      TODAY,
+      FRESH,
+    );
+
+    expect(line.slice(0, nameAt(line) ?? 0)).toBe(
+      "- [w] buy paint 👤 2026-10-25-review 👤 2026-10-25",
+    );
+  });
+
   it("#809 I8 quick add keeps a typed 👤 [[name]] as the assignee", () => {
     const line = formatTodo(expandShorthand("buy paint 👤 [[Pascal]] due:10-30", TODAY));
 
     expect(parseTodo(line)).toMatchObject({ text: "buy paint", assignee: "[[Pascal]]" });
+  });
+});
+
+describe("#809 the assignee in the pane", () => {
+  it("#809 A10 the pane's filter finds a todo by its assignee", async () => {
+    const pane = renderPane([
+      { path: "a.md", line: 1, text: "- [ ] x 👤 [[Pascal]] 👤 2026-10-20 [[Alicia]]" },
+      { path: "a.md", line: 2, text: "- [ ] buy milk" },
+    ]);
+    await waitFor(() => expect(pane.rows()).toHaveLength(2));
+
+    fireEvent.change(pane.filter(), { target: { value: "Pascal" } });
+
+    await waitFor(() => expect(pane.rows()).toHaveLength(1));
   });
 });

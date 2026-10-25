@@ -122,7 +122,7 @@ export function TodoRow({
       )}
       {/* Struck while it stays in the list it was checked off in, so the
         words say what was done without the row moving under the finger. */}
-      <span className={`min-w-0 flex-1 truncate ${struck ? "text-k-muted line-through" : ""}`}>
+      <span className={`min-w-[8ch] flex-1 truncate ${struck ? "text-k-muted line-through" : ""}`}>
         {todo.text}
       </span>
       {/* Who the todo is for, beside its words and out of their

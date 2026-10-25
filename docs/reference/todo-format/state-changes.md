@@ -244,9 +244,10 @@ The date comes first and is the day the wait began. The name comes after it and
 runs to the next field, the next tag or the end of the line. It is free text,
 so `the tax office` is a name. A `[[link]]` to
 [a person's note](/explanation/people-in-the-vault.md) is the better one: the
-link is on the line, so the todo shows on that person's card. Either half may
-be missing. A bare `👤` with nothing after it is words. A `👤` with a name and no date is
-the assignee instead, [who the todo is for](/reference/todo-format/the-line.md#the-fields).
+link is on the line, so the todo shows on that person's card. The date is
+required, and the name may be missing. A `👤` with a name and no date is the
+assignee instead, [who the todo is for](/reference/todo-format/the-line.md#the-fields).
+A bare `👤` with nothing after it is words.
 
 `W` in the todo pane and `<leader>sw` in the editor set the state and stamp
 `👤` with today. A date the line already carries is kept, so setting the state
@@ -276,8 +277,8 @@ dated `👤`. Before and after:
 ```
 
 A dated `👤` on a line that is not `[w]` is read, carried and written back by every
-key, and means nothing until the line is set to waiting. Then its name is kept
-and the date is stamped. An undated `👤` is the assignee, and means the same in
+key, and means nothing until the line is set to waiting. Then the date it
+carries is kept and nothing is stamped. An undated `👤` is the assignee, and means the same in
 every state.
 
 `⛔` and `[w]` do not meet. kasten moves a line carrying `⛔` between `[ ]` and

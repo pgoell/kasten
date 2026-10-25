@@ -60,6 +60,7 @@ const PICTURES: Picture[] = [
   { name: "desktop-board-peach", size: DESKTOP, theme: "light", palette: "peach", board: true },
   { name: "phone-pane-pansy", size: PHONE, theme: "light", palette: "pansy" },
   { name: "desktop-pane-reduced-motion", size: DESKTOP, theme: "light", reduced: true },
+  { name: "phone-board-light", size: PHONE, theme: "light", board: true },
 ];
 
 /** One picture, once its rows and entrances have settled, and its width checked. */

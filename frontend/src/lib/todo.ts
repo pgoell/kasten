@@ -223,7 +223,9 @@ export function nameAt(line: string): number | null {
 
   if (todo.waitingSince === undefined) return null;
   // The marker as typed, with or without the variation selector after it.
-  const stamp = new RegExp(`👤️?[ \\t]+${todo.waitingSince}`).exec(line);
+  // The date ends at a space or the line's end, so an assignee that opens with
+  // it (`👤 2026-10-25-review`) is not mistaken for the stamp.
+  const stamp = new RegExp(`👤️?[ \\t]+${todo.waitingSince}(?=[ \\t]|$)`).exec(line);
   return stamp === null ? null : stamp.index + stamp[0].length;
 }
 

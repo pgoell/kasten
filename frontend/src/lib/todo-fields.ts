@@ -93,8 +93,10 @@ const WAITING =
 // A `👤` followed by anything that is no date and no marker is the assignee:
 // who the todo is for, in any state. It runs to the same stops as the wait's
 // name, so `👤 [[Pascal]] 👤 2026-10-25` reads the assignee and then the wait.
+// The value may not open on a space, or the spaces would give back one and
+// read the rest of the gap as the name; a `^block` id is never a name either.
 const ASSIGNEE =
-  /👤️?[ \t]+(?!\d{4}-\d{2}-\d{2}(?:[ \t]|$))(?!(?:📅|📆|🗓|⏳|🛫|➕|✅|❌|🔺|⏫|🔼|🔽|⏬|🔁|🏁|🆔|⛔|⏲|⏱|👤|#))(.+?)(?=[ \t]+(?:📅|📆|🗓|⏳|🛫|➕|✅|❌|🔺|⏫|🔼|🔽|⏬|🔁|🏁|🆔|⛔|⏲|⏱|👤|#|\^[\w-]+[ \t]*$)|[ \t]*$)/d;
+  /👤️?[ \t]+(?![ \t])(?!\d{4}-\d{2}-\d{2}(?:[ \t]|$))(?!(?:📅|📆|🗓|⏳|🛫|➕|✅|❌|🔺|⏫|🔼|🔽|⏬|🔁|🏁|🆔|⛔|⏲|⏱|👤|#|\^[\w-]+[ \t]*$))(.+?)(?=[ \t]+(?:📅|📆|🗓|⏳|🛫|➕|✅|❌|🔺|⏫|🔼|🔽|⏬|🔁|🏁|🆔|⛔|⏲|⏱|👤|#|\^[\w-]+[ \t]*$)|[ \t]*$)/d;
 
 /** Every field in the order `tail` writes them, which is where a stamp is added. */
 const ORDER = [

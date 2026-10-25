@@ -127,9 +127,9 @@ function narrow(rows: Row[], line: string, today: string): Row[] {
   // Here the ranking only decides membership: the sections set the order.
   const reads = new Set(
     rankLines(
-      // The name a todo waits on is off its words and on its row, so it is
-      // ranked with them: typing a name finds what waits on that person.
-      kept.map(({ todo }) => `${todo.text} ${todo.waitingOn ?? ""}`),
+      // The names a todo carries are off its words and on its row, so they are
+      // ranked with them: typing a name finds what is for that person or waits on them.
+      kept.map(({ todo }) => `${todo.text} ${todo.assignee ?? ""} ${todo.waitingOn ?? ""}`),
       terms.text,
     ),
   );

@@ -95,7 +95,8 @@ Today's date below is the day you are doing this, `YYYY-MM-DD`.
    [the field order](#the-field-order).
 3. If the todo has parts, that is todos indented under it, tick every part that
    is still `[ ]`, `[/]`, `[b]`, `[w]` or `[r]`: box `[x]` and `✅ <today>` on
-   each, no id, and drop a `👤` field the part carries.
+   each, no id, and drop the dated `👤` wait the part carries. An undated `👤`
+   is the assignee and stays.
    Leave a part already done or rejected alone.
 4. If the line carries `🔁`, leave the finished line where it is and put a fresh
    copy above it, one period on. Move every date it carries by the same number
@@ -142,7 +143,8 @@ off, the done log line is deleted wherever it sits, and dependents go back to
 | worked | `⏱ 1h20m` | a duration, written by kasten off the time log |
 | id | `🆔 kt-3f9a2c` | `kt-` and six hex characters |
 | blocked by | `⛔ kt-8b1e04` | another todo's id |
-| waiting on | `👤 2026-08-03 [[Ada Lovelace]]` | the day the wait began, then who |
+| assignee | `👤 [[Pascal]]` | an undated name, the person the todo is for, in any state |
+| waiting on | `👤 2026-08-03 [[Ada Lovelace]]` | a date, the day the wait began, then who (the name optional) |
 | tags | `#health` | a word, left where you typed it |
 
 **A date** is `YYYY-MM-DD` and nothing else. `📅 next tuesday` is not a date, so
@@ -183,15 +185,17 @@ rejected stamps `❌ <today>`, and leaving it drops that stamp.
 
 Blocked waits on another todo, named by `⛔`. Waiting waits on a person, for an
 approval or an answer. To set a todo waiting, write the box `[w]` and put
-`👤 <today> <who>` straight after the words, ahead of every other field, the
-name as a `[[link]]` to the person's
+`👤 <today> <who>` straight after the words, after any assignee and ahead of
+every other field, the name as a `[[link]]` to the person's
 note where the vault has one. Keep a date the line already carries. When the
-todo leaves `[w]` for any other state, drop the `👤` field whole.
+todo leaves `[w]` for any other state, drop only the dated `👤`. An assignee
+`👤 [[Pascal]]` with no date stays.
 
 Review is yours. When your work on a todo is done and the owner has to check
 it, write the box `[r]`. Never tick it `[x]` yourself: the owner ticks it once
 the check is done, and a tick of a parent ticks its `[r]` parts with it. Drop
-a `✅`, `❌` or `👤` the line carries from the state it leaves.
+a `✅`, `❌` or dated `👤` the line carries from the state it leaves. Keep an
+undated `👤` assignee.
 
 A move from `[x]` to `[r]` leaves done, so it is the un-ticking walk with `[r]`
 in place of `[ ]`: take the `✅` off, delete its done log line wherever it
@@ -202,7 +206,7 @@ sits, and put dependents back to `[b]`.
 The words first, then the fields:
 
 ```
-👤 📅 ⏳ 🛫 priority 🔁 ➕ ✅ ❌ ⏲ ⏱ 🆔 ⛔
+👤 assignee 👤 wait 📅 ⏳ 🛫 priority 🔁 ➕ ✅ ❌ ⏲ ⏱ 🆔 ⛔
 ```
 
 kasten writes a new line in this order. A line that is already there it patches

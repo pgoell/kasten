@@ -120,6 +120,38 @@
     "waitingOn": null
   },
   {
+    "id": "bare-marker-before-a-block-id",
+    "rest": "buy paint 👤 ^milk",
+    "text": "buy paint 👤 ^milk",
+    "assignee": null,
+    "waitingSince": null,
+    "waitingOn": null
+  },
+  {
+    "id": "bare-marker-two-spaces-before-a-tag",
+    "rest": "buy paint 👤  #home",
+    "text": "buy paint 👤 #home",
+    "assignee": null,
+    "waitingSince": null,
+    "waitingOn": null
+  },
+  {
+    "id": "bare-marker-two-spaces-before-a-field",
+    "rest": "buy paint 👤  📅 2026-10-30",
+    "text": "buy paint 👤",
+    "assignee": null,
+    "waitingSince": null,
+    "waitingOn": null
+  },
+  {
+    "id": "assignee-after-two-spaces",
+    "rest": "buy paint 👤  [[Pascal]]",
+    "text": "buy paint",
+    "assignee": "[[Pascal]]",
+    "waitingSince": null,
+    "waitingOn": null
+  },
+  {
     "id": "marker-in-a-link",
     "rest": "see [[a 👤 b]]",
     "text": "see [[a 👤 b]]",

@@ -166,19 +166,20 @@ FIELDS = (
     re.compile("🆔" + _VS + r"[ \t]+" + _WORD),
 )
 BLOCKED_BY = re.compile("⛔" + _VS + r"[ \t]+" + _WORD)
-# A `👤` value ends at the next field, tag, block id or second `👤`. The wait's
-# name is lazily optional, so `^pop` after the date stays a block id.
+# A `👤` value ends at the next field, tag, block id or `👤`; a wait's name is optional.
 _ENDS = r"(?=[ \t]+(?:" + _STOP + r"|🔁|👤|#|" + _BLOCK_ID + r")|[ \t]*$)"
 WAITING = re.compile("👤" + _VS + _DATE + r"(?:[ \t]+(.+?))??" + _ENDS)
-# A `👤` with a value that is no date and starts with no marker is the assignee,
-# `👤 [[Pascal]]`. A bare `👤` before a field stays words.
+# The assignee: a `👤` whose value is no date, marker or block id. The
+# `(?![ \t])` stops a backtrack from leaving a space to start the value.
 ASSIGNEE = re.compile(
     "👤"
     + _VS
-    + r"[ \t]+(?!"
+    + r"[ \t]+(?![ \t])(?!"
     + r"[0-9]{4}-[0-9]{2}-[0-9]{2}(?:[ \t]|$)|"
     + _STOP
-    + r"|🔁|👤|#)(.+?)"
+    + r"|🔁|👤|#|"
+    + _BLOCK_ID
+    + r")(.+?)"
     + _ENDS
 )
 
@@ -315,8 +316,7 @@ def _fields(rest: str) -> tuple[str, str | None]:
     so a marker inside a link is no marker and a one-word value cannot run into
     one, and cut from both. A match with no value is no field, and only the
     first match of each is tried, as in the editor; only `⛔` repeats. The
-    assignee is the value of the one `ASSIGNEE` match, read off `rest` at the
-    match's offsets, so its spelling is kept.
+    assignee is read off `rest`, so its spelling is kept.
     """
     text = rest
     masked = mask(rest)
