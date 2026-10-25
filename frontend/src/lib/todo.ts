@@ -164,11 +164,13 @@ function joinParts(todo: Todo): string {
 const BARE_MARKER = /(?:🔁|🏁|⏲|⏱|🆔|⛔)️?(?=[ \t]+\S)/gu;
 
 /**
- * `tail` with the dated fields and priority written straight after a bare
- * one-word marker in the words, as `⛔ 📅 2026-10-20 more`. Those fields are read
- * before every one-word field and end at their own value, so each one stops the
- * marker from taking the words after it; written after the words, `⛔ more`
- * would read `more` as the blocker. Null where no place reads back as `fields`.
+ * `tail` with the fields written straight after a bare one-word marker in the
+ * words, as `⛔ 📅 2026-10-20 more`. Those fields are read before every one-word
+ * field and end at their own value, so each one stops the marker from taking the
+ * words after it; written after the words, `⛔ more` would read `more` as the
+ * blocker. The one-word `⏲`, `⏱` and `🆔` are in the pool too, so a bare `⏲`
+ * before an id stays words. A blocker is not: moving one would also mean
+ * rebuilding the rest of `blockedBy`. Null where no place reads back as `fields`.
  */
 function insideWords(todo: Todo, fields: Fields): string | null {
   // Each field that may move, with the text it is written as.
@@ -177,6 +179,9 @@ function insideWords(todo: Todo, fields: Fields): string | null {
   if (todo.scheduled !== undefined) pool.push(["scheduled", `⏳ ${todo.scheduled}`]);
   if (todo.start !== undefined) pool.push(["start", `🛫 ${todo.start}`]);
   if (todo.priority !== undefined) pool.push(["priority", PRIORITY_SYMBOL[todo.priority]]);
+  if (todo.estimate !== undefined) pool.push(["estimate", `⏲ ${todo.estimate}`]);
+  if (todo.worked !== undefined) pool.push(["worked", `⏱ ${todo.worked}`]);
+  if (todo.id !== undefined) pool.push(["id", `🆔 ${todo.id}`]);
 
   let words = todo.text;
   let shift = 0;

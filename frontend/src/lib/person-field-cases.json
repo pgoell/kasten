@@ -342,5 +342,69 @@
     "assignee": null,
     "waitingSince": null,
     "waitingOn": null
+  },
+  {
+    "id": "bare-estimate-before-an-id",
+    "rest": "a ⏲ 🆔 kt-1 more",
+    "text": "a ⏲ more",
+    "assignee": null,
+    "waitingSince": null,
+    "waitingOn": null
+  },
+  {
+    "id": "bare-worked-before-a-blocker",
+    "rest": "a ⏱ ⛔ kt-1 more",
+    "text": "a ⏱ more",
+    "assignee": null,
+    "waitingSince": null,
+    "waitingOn": null
+  },
+  {
+    "id": "bare-estimate-before-a-blocker",
+    "rest": "a ⏲ ⛔ kt-1 more",
+    "text": "a ⏲ more",
+    "assignee": null,
+    "waitingSince": null,
+    "waitingOn": null
+  },
+  {
+    "id": "bare-worked-before-an-id",
+    "rest": "a ⏱ 🆔 kt-1 more",
+    "text": "a ⏱ more",
+    "assignee": null,
+    "waitingSince": null,
+    "waitingOn": null
+  },
+  {
+    "id": "bare-id-before-a-blocker",
+    "rest": "a 🆔 ⛔ kt-1 more",
+    "text": "a 🆔 more",
+    "assignee": null,
+    "waitingSince": null,
+    "waitingOn": null
+  },
+  {
+    "id": "bare-blocker-before-a-blocker",
+    "rest": "a ⛔ ⛔ kt-1 more",
+    "text": "a ⛔ more",
+    "assignee": null,
+    "waitingSince": null,
+    "waitingOn": null
+  },
+  {
+    "id": "bare-estimate-before-an-id-with-selectors",
+    "rest": "a ⏲️ 🆔️ kt-1 more",
+    "text": "a ⏲️ more",
+    "assignee": null,
+    "waitingSince": null,
+    "waitingOn": null
+  },
+  {
+    "id": "bare-estimate-before-a-worked",
+    "rest": "a ⏲ ⏱ 1h more",
+    "text": "a ⏲ more",
+    "assignee": null,
+    "waitingSince": null,
+    "waitingOn": null
   }
 ]

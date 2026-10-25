@@ -25,6 +25,10 @@ _WORD = (
 )
 """The editor's `(\\S+)`, spelled out: Python's `\\s` holds U+0085 and U+001C to
 U+001F, which the editor's does not, and leaves out U+FEFF, which it holds."""
+# A one-word value never starts with a field marker, so a bare `⏲` before `🆔 kt-1`
+# reads the `🆔` as the next field. `👤` is left out on purpose: `⏲ 👤 2026-10-20`
+# reads `👤` as the estimate, as the editor does.
+_ONE_WORD = r"[ \t]+(?!(?:" + STOP + r"|🔁))" + _WORD
 _DATE = r"[ \t]+([0-9]{4}-[0-9]{2}-[0-9]{2})"
 _BLOCK_ID = r"\^[A-Za-z0-9_-]+[ \t]*(?:\n|$)"
 # A `🔁` value runs to the next field, tag, `👤`, block id or cut, as the editor's does.
@@ -39,11 +43,11 @@ FIELDS = (
     re.compile(_CREATED + _VS + _DATE),
     re.compile("✅" + _VS + _DATE),
     re.compile("❌" + _VS + _DATE),
-    re.compile("⏲" + _VS + r"[ \t]+" + _WORD),
-    re.compile("⏱" + _VS + r"[ \t]+" + _WORD),
-    re.compile("🆔" + _VS + r"[ \t]+" + _WORD),
+    re.compile("⏲" + _VS + _ONE_WORD),
+    re.compile("⏱" + _VS + _ONE_WORD),
+    re.compile("🆔" + _VS + _ONE_WORD),
 )
-BLOCKED_BY = re.compile("⛔" + _VS + r"[ \t]+" + _WORD)
+BLOCKED_BY = re.compile("⛔" + _VS + _ONE_WORD)
 # What a cut field leaves behind: a stop for every free-text or one-word value, so
 # it does not run across the gap. `_WORD` and the `🔁` value already refuse it.
 _CUT = "\n"
