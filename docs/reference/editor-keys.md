@@ -74,23 +74,37 @@ toolbar's `log` button does the same.
 ## The finance pane
 
 `<leader>gk` puts the finance pane in the focused pane, in place of whatever it
-held. For now it shows the bookings still to sort, oldest first.
-[Sort finance transactions](/how-to/sort-finance-transactions.md) walks
-through it.
+held. It has four tabs: Overview, To sort, Transactions and Budget.
+[Read the finance overview](/how-to/read-the-finance-overview.md) and
+[Sort finance transactions](/how-to/sort-finance-transactions.md) walk
+through them. Every key has a button or a tap beside it, so the pane works the
+same with vim off and on a phone.
 
-Each category takes a key, in the order the categories are listed by name:
-`1` to `9` and `0`, then `b` to `z` without `j`, `k` and `q`. The key shows on
-the category's button. A category past the last key is reached by its button.
+On To sort and Transactions each category takes a key, in the order the
+categories are listed by name: `1` to `9` and `0`, then `b` to `z` without
+`j`, `k` and `q`. The key shows on the category's button. A category past the
+last key is reached by its button. The tabs, the month and "pull now" take
+upper case and brackets, so they never meet a category's key.
 
 | Key | Does |
 | --- | --- |
-| `j` | Move to the next booking |
-| `k` | Move to the previous booking |
-| `1` | Sort the booking into the first category; each button shows its key |
-| `a` | The next category key sorts the booking's payee, always |
+| `O` | Show the overview |
+| `S` | Show the bookings to sort |
+| `T` | Show the transactions |
+| `B` | Show the budget |
+| `[` | Show the month before |
+| `]` | Show the month after |
+| `P` | Pull now: ask the bank job for a pull |
+| `j` | Move to the next booking or category |
+| `k` | Move to the previous booking or category |
+| `1` | To sort and transactions: sort the booking into the first category; each button shows its key |
+| `a` | To sort and transactions: the next category key sorts the booking's payee, always |
+| `/` | Transactions: go to the text filter |
+| `e` | Budget: edit the category's limit; Enter saves, Escape leaves it |
+| `y` | Budget: take the suggested limit |
 | `?` | Show the keys |
 | `q` | Close the pane |
-| `Escape` | Stop the always, or go back to the editor |
+| `Escape` | Stop the always, leave a field, or go back to the editor |
 
 ## The overview
 

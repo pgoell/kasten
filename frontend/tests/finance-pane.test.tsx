@@ -11,6 +11,13 @@ const { fetchCategories, fetchToSort, sortByHand, sortPayee } = vi.hoisted(() =>
 }));
 
 vi.mock("@/lib/finance-api", () => ({ fetchCategories, fetchToSort, sortByHand, sortPayee }));
+// The overview and the bank card read these as the pane opens; the to-sort list needs none.
+vi.mock("@/lib/finance-budget-api", () => ({
+  fetchBudget: () => new Promise(() => {}),
+  fetchFree: () => new Promise(() => {}),
+  fetchTrend: () => new Promise(() => {}),
+  fetchSync: () => new Promise(() => {}),
+}));
 
 const CATEGORIES = [
   { id: 7, name: "Food", kind: "flexible" },
@@ -59,9 +66,16 @@ function renderPane() {
   const onNotice = vi.fn();
   render(
     <QueryClientProvider client={client}>
-      <FinancePane commands={stubCommands()} focusSignal={0} onNotice={onNotice} />
+      <FinancePane
+        commands={stubCommands()}
+        focusSignal={0}
+        onNotice={onNotice}
+        today="2026-10-25"
+      />
     </QueryClientProvider>,
   );
+  // The pane opens on its overview; these are the to-sort list's tests.
+  fireEvent.click(screen.getByRole("tab", { name: /^To sort/ }));
   return { onNotice };
 }
 

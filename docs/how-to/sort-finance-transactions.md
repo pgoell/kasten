@@ -17,8 +17,8 @@ oldest first, so a backlog clears from its start.
 * With keys: `<leader>gk`.
 * On a phone: the palette's `Open the finance pane`.
 
-The pane opens in the focused pane. Split first to keep the note you were in
-beside it. Its keys are in
+The pane opens in the focused pane, on its overview; press `S` or tap
+`To sort` for the list. Split first to keep the note you were in beside it. Its keys are in
 [The finance pane](/reference/editor-keys.md#the-finance-pane).
 
 You need at least one category. Until the categories screen comes, make them
@@ -48,6 +48,13 @@ sorting anything.
 Do not use it for PayPal, Amazon or another payee who stands for many shops.
 For those, a `text_contains` rule on the purpose is the right tool, and it
 beats the payee's default.
+
+## Sort from the transactions list
+
+A booking that already has a category, or one you find by its payee, sorts
+the same way from the Transactions tab (`T`): move to it, then press the
+category's key or tap its button. A split booking sorts on To sort, part by
+part, and a transfer takes no category.
 
 ## Which category wins
 

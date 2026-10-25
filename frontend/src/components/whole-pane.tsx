@@ -75,6 +75,7 @@ export function WholePane({
         commands={commands}
         focusSignal={focused ? focusSignal : 0}
         onNotice={onNotice}
+        today={readClock(new Date()).date}
       />
     );
   }

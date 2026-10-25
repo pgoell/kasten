@@ -1,7 +1,9 @@
-/* The finance pane's to-sort view, built like the log pane: the head, the category buttons,
-   then one row per booking or split. Buttons and rows are 44px so a phone sorts by tapping,
-   and everything wraps, so a 390px screen never scrolls sideways. Colours, type and motion
-   are the app's tokens, and amounts take tabular figures so they line up. */
+/* The finance pane, built like the log pane: the tabs and the month in the head, then the tab
+   in front. The to-sort and transactions lists are the category buttons and a row per booking
+   or split. Buttons and rows are 44px so a phone sorts by tapping, and everything wraps, so a
+   390px screen never scrolls sideways. Colours, type and motion are the app's tokens, and
+   amounts take tabular figures so they line up. The overview and budget are in
+   finance-overview.css. */
 .finance-pane {
   display: flex;
   flex-direction: column;
@@ -27,7 +29,75 @@
   font-weight: 600;
 }
 
-.finance-pane-head,
+.finance-pane-head {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+/* The four tabs, a quarter of the width each and 44px tall, as the log pane's two are. */
+.finance-pane-tabs {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border-bottom: 1px solid var(--k-rule);
+}
+
+.finance-pane-tab {
+  min-height: 44px;
+  min-width: 0;
+  padding: 0 2px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--k-muted);
+  font: inherit;
+  font-size: var(--k-text-15);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.finance-pane-tab[aria-selected="true"] {
+  border-bottom-color: var(--k-accent);
+  color: var(--k-ink);
+}
+
+.finance-pane-tab kbd {
+  color: var(--k-muted);
+  font-family: var(--k-mono);
+  font-size: var(--k-text-12);
+  font-weight: 400;
+}
+
+/* A finger has no key to press, so the tabs drop the key they show. */
+@media (pointer: coarse) {
+  .finance-pane-tab kbd {
+    display: none;
+  }
+}
+
+.finance-pane-month {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.finance-pane-month h2 {
+  min-width: 9.5em;
+  text-align: center;
+}
+
+/* The tab in front is the size container, so its columns follow the pane, not the window. */
+.finance-pane-view {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  container-type: inline-size;
+}
+
 .finance-pane-categories {
   display: flex;
   flex-wrap: wrap;
@@ -135,10 +205,70 @@
   font-size: var(--k-text-13);
 }
 
+/* A booking's category under its purpose, with the dot its name's tag slot colours. */
+.finance-pane-tag {
+  grid-column: 1 / -1;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--k-ink-soft);
+  font-size: var(--k-text-13);
+}
+
+.finance-pane-tag::before,
+.finance-budget-name::before {
+  content: "";
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--finance-dot, var(--tg-none));
+}
+
 /* A phone's text is 15px at least, the small words included. */
 @media (width < 48rem) {
   .finance-pane-text,
+  .finance-pane-tag,
   .finance-pane-button kbd {
     font-size: var(--k-text-15);
+  }
+}
+
+/* A wide pane puts a booking on one line, date, payee, purpose, category and amount, so a
+   month reads as a table; the purpose and category give way first. */
+@container (min-width: 720px) {
+  .finance-pane-line {
+    grid-template-columns: 6.5em minmax(0, 14em) minmax(0, 1fr) minmax(0, 11em) 7em;
+    grid-template-areas: "date who text tag amount";
+    align-items: center;
+    min-height: 40px;
+    padding: 6px 10px;
+  }
+
+  .finance-pane-date {
+    grid-area: date;
+  }
+
+  .finance-pane-who {
+    grid-area: who;
+  }
+
+  .finance-pane-text {
+    grid-area: text;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .finance-pane-tag {
+    grid-area: tag;
+  }
+
+  .finance-pane-amount {
+    grid-area: amount;
+  }
+
+  .finance-pane-list {
+    gap: 2px;
   }
 }
