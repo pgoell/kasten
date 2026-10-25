@@ -232,7 +232,7 @@ export function FinanceSankey({
             viewBox={`0 0 ${WIDTH} ${height}`}
             width="100%"
             role="img"
-            aria-label={text}
+            aria-label={`where the money of ${monthName(month)} went`}
           >
             {drawn.links.map((placed) => (
               <Band
