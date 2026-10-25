@@ -2,6 +2,7 @@ import { EditorView } from "@codemirror/view";
 import { fireEvent, screen } from "@testing-library/react";
 import { afterEach } from "vitest";
 import { NoteMissing, type TodoHit } from "@/lib/api";
+import { readClock } from "@/lib/clock";
 import { noteBase } from "@/lib/note-base";
 import { parseTodo, patchLine, type Todo } from "@/lib/todo";
 import { blockLine } from "@/lib/todo-blocked";
@@ -125,8 +126,14 @@ afterEach(() => {
   localStorage.removeItem("kasten.vim");
 });
 
-/** The done line the editor writes: the editor stamps a fresh `🆔`, so its hex is not fixed. */
-const DONE_LINE = /^- \[x\] a 🔁 every week 📅 2026-10-20 ✅ 2026-10-25 🆔 kt-[0-9a-f]+ more$/;
+/**
+ * The done line the editor writes: the editor stamps a fresh `🆔`, so its hex is
+ * not fixed, and today's date off the wall clock, so the date is read the same
+ * way here rather than written in, which failed every day after it was (#1093).
+ */
+const DONE_LINE = new RegExp(
+  `^- \\[x\\] a 🔁 every week 📅 2026-10-20 ✅ ${readClock(new Date()).date} 🆔 kt-[0-9a-f]+ more$`,
+);
 
 /** The line with one field of its todo changed, every other byte kept. */
 function edited(line: string, change: Partial<Todo>): string {
