@@ -223,3 +223,17 @@ async def test_a_window_backwards_or_in_the_future_is_refused(
     )
 
     assert response.status_code == 422
+
+
+async def test_the_status_says_a_run_is_running_until_it_finishes(
+    finance_client: AsyncClient,
+) -> None:
+    started = await finance_client.post("/api/finance/sync/runs", json={"trigger": "scheduled"})
+    running = (await finance_client.get("/api/finance/sync")).json()["running"]
+    await finance_client.patch(
+        f"/api/finance/sync/runs/{started.json()['run']['id']}",
+        json={"outcome": "ok", "accounts": []},
+    )
+    done = (await finance_client.get("/api/finance/sync")).json()["running"]
+
+    assert (running, done) == (True, False)

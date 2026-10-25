@@ -114,6 +114,7 @@ class SyncStatus(BaseModel):
 
     requested_at: datetime | None
     last_run: RunOut | None
+    running: bool
     last_success_at: datetime | None
     days_since_success: int | None
     accounts: list[AccountStatus]

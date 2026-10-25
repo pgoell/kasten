@@ -30,10 +30,12 @@ A booking's category comes from the first of these that gives one:
    last must be a whole word of the key, the last only its start.
 
 A rule sorts only bookings on its category's side. A rule for an `income`
-category sorts money in, an amount above zero; a rule for any other kind
-sorts money out. So a payee rule `deloitte` for Salary sorts the salary and
-leaves a meal at the Deloitte canteen alone, and a refund from a shop goes to
-the to-sort list rather than into the shop's spending category. The payee's
+category sorts money in, an amount above zero; a rule for an `ignore`
+category sorts both; a rule for any other kind sorts money out. So a payee
+rule `deloitte` for Salary sorts the salary and leaves a meal at the Deloitte
+canteen alone, and a refund from a shop goes to the to-sort list rather than
+into the shop's spending category. A hotel paid for work and the
+reimbursement for it both land in Reimbursement, and cancel out. The payee's
 default and the hand take no side.
 
 Of two rules of one kind that both match, the longer pattern wins, and of two
@@ -50,7 +52,8 @@ takes none and is never on the to-sort list: it is no spending. A booking
 that had a category before its twin came in loses it when the two are paired,
 and setting one by hand on a transfer is a `409`. The move into the shared
 household account is a transfer too; the budget (#1036) counts it through the
-account's `shared` flag, not through a category.
+account's `shared` flag, not through a category
+([Budget model](/reference/budget-model.md#where-a-booking-counts)).
 
 The rules run over every booking, history included, whenever a rule, a payee's
 default, a category's existence or its kind changes, and over the new bookings after
@@ -75,7 +78,9 @@ A pattern is stored lowercased, and a `payee` pattern also cleaned like a
 payee key, so `DM.` is stored as `dm`. A rule is unique by its kind, its
 stored pattern and its side, so `REWE` beside `rewe` for two spending
 categories is a repeat, while one pattern may name an income category for
-money in and a spending category for money out. A pattern with no letter or
+money in and a spending category for money out. An ignore rule's `both`
+overlaps both other sides: a pattern an ignore rule holds cannot also be held
+by a rule of the same kind on either side, nor the other way round. A pattern with no letter or
 digit in it is refused.
 
 Two writes that sort take turns: each holds one advisory lock until it
@@ -91,7 +96,9 @@ Every category, by name.
 ```
 
 `kind` is one of `fixed`, `flexible`, `non_monthly`, `income`, `saving` and
-`ignore`. Limits come with the budget (#1036).
+`ignore`; [Budget model](/reference/budget-model.md#where-a-booking-counts)
+says how each counts. A category's limit is set through
+[the budget routes](/reference/http-api/finance-budget.md#put-apifinancecategoriescategory_idlimit).
 
 ## POST /api/finance/categories
 
@@ -102,8 +109,9 @@ it with its id. A name already taken is a `409`.
 
 Renames a category or changes its kind, from the same body as `POST`. The
 bookings in it stay in it, except that a new kind moves its rules to the
-kind's side and runs the rules. A move that would give a rule the pattern of
-another on that side is a `409`, as is a name another category holds. A
+kind's side and runs the rules. Its limits stay, and count again if it becomes
+a spending kind again. A move that would give a rule the pattern of
+another of its kind on an overlapping side is a `409`, as is a name another category holds. A
 category that does not exist is a `404`.
 
 ## DELETE /api/finance/categories/{category_id}
@@ -142,7 +150,7 @@ longest pattern first and then by id.
 
 Makes a rule from `kind` (`text_contains` or `payee`), `pattern` and
 `category_id`, runs the rules over every booking, and answers it with the
-pattern as stored. A rule of the same kind, stored pattern and side is a `409`, and a category that does not exist a
+pattern as stored. A rule of the same kind and stored pattern on an overlapping side is a `409`, and a category that does not exist a
 `422`. So is a pattern with no letter or digit in it: a payee pattern such as
 `-` cleans to nothing, which is in every payee's key.
 

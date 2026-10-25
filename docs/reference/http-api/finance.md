@@ -89,16 +89,25 @@ mismatch between the two, not as a wrong balance.
 ## GET /api/finance/transactions
 
 A page of the bookings, oldest first by booking date and then by id, each with
-its splits. Takes `account`, an account id, and `from` and `to`, both
-`YYYY-MM-DD` and both included. Each is optional.
+its splits. Each filter is optional:
+
+* `account`: an account id.
+* `from` and `to`: both `YYYY-MM-DD` and both included.
+* `month`: `YYYY-MM`, the same as `from` and `to` around that month. With
+  `from` or `to` beside it, a `400`.
+* `category`: a category id. A booking counts when it, or one of its splits,
+  has that category.
+* `text`: plain text, case ignored, looked for in the purpose, the
+  counterparty and the payee's name.
+* `order`: `asc`, the default, or `desc` for newest first.
 
 `limit` is the page's size, 500 unless it says otherwise, at most 5,000.
 `after` is the `id` of the last booking of the page before, and the next page
-starts behind it in the same order. A page shorter than `limit` is the last.
+starts behind it in the same order, `desc` included. A page shorter than `limit` is the last.
 An `after` naming no booking answers `[]`.
 
 ```
-GET /api/finance/transactions?account=1&from=2026-10-01&to=2026-10-31&limit=500&after=7
+GET /api/finance/transactions?account=1&month=2026-10&category=4&text=rewe&order=desc&limit=500&after=7
 ```
 
 ```json
@@ -205,7 +214,8 @@ A booking that does not exist is a `404`.
   [`KASTEN_DATABASE_URL`](/reference/configuration.md#kasten_database_url)
   cannot be opened. The rest of kasten runs as before. A database that answers
   and then fails, a timeout or a deadlock, is a `500`.
-* `400` when `from` is after `to`.
-* `422` when a date is not `YYYY-MM-DD` or names no day, an amount has more
+* `400` when `from` is after `to`, or `month` comes with `from` or `to`.
+* `422` when a date is not `YYYY-MM-DD` or names no day, a month is not
+  `YYYY-MM` or names no month, an amount has more
   than two decimals, a batch holds more than 1,000 bookings or balances, or
 `limit` is not between 1 and 5,000.

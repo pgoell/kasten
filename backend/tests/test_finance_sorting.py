@@ -4,39 +4,17 @@ Every test goes through the routes, on a migrated database, and skips
 without one; see the `finance_session` fixture.
 """
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from sqlalchemy import literal, select, text
 
-from backend.tests.finance_rows import account, booking, post
+from backend.tests.finance_rows import API, account, booking, category, post, rule, stored
 from kasten_backend import finance_sorting as sorting
 from kasten_backend.finance_models import Transaction
 
 if TYPE_CHECKING:
     from httpx import AsyncClient
     from sqlalchemy.ext.asyncio import AsyncSession
-
-API = "/api/finance"
-
-
-async def category(client: AsyncClient, name: str, kind: str = "flexible") -> int:
-    response = await client.post(f"{API}/categories", json={"name": name, "kind": kind})
-    assert response.status_code == 200, response.text
-    return response.json()["id"]
-
-
-async def rule(client: AsyncClient, kind: str, pattern: str, category_id: int) -> int:
-    response = await client.post(
-        f"{API}/rules", json={"kind": kind, "pattern": pattern, "category_id": category_id}
-    )
-    assert response.status_code == 200, response.text
-    return response.json()["id"]
-
-
-async def stored(client: AsyncClient) -> dict[str, dict[str, Any]]:
-    """Every booking by source key."""
-    rows = (await client.get(f"{API}/transactions")).json()
-    return {row["source_key"]: row for row in rows}
 
 
 async def payee_of(client: AsyncClient, key: str) -> int:
@@ -406,63 +384,3 @@ async def test_patterns_are_one_whatever_their_case_and_payee_rules_start_at_a_w
     assert rows["life"]["category_id"] == cover
     assert rows["ticket"]["category_id"] == cover
     assert rows["inside"]["category_id"] is None
-
-
-async def test_a_rule_sorts_only_its_categorys_side(finance_client: AsyncClient) -> None:
-    giro = await account(finance_client, "Giro")
-    salary = await category(finance_client, "Salary", kind="income")
-    shop = await category(finance_client, "Shopping")
-    await rule(finance_client, "payee", "deloitte", salary)
-    await rule(finance_client, "text_contains", "amazon", shop)
-    await post(
-        finance_client,
-        [
-            booking(
-                giro, "pay", amount="3000.00", purpose="LOHN", counterparty_name="Deloitte GmbH"
-            ),
-            booking(giro, "lunch", purpose="", counterparty_name="Deloitte GmbH"),
-            booking(giro, "order", purpose="AMAZON 302"),
-            booking(giro, "refund", amount="12.00", purpose="AMAZON 302 refund"),
-        ],
-    )
-
-    rows = await stored(finance_client)
-    assert rows["pay"]["category_id"] == salary
-    assert rows["lunch"]["category_id"] is None
-    assert rows["order"]["category_id"] == shop
-    assert rows["refund"]["category_id"] is None
-
-    flipped = await finance_client.put(
-        f"{API}/categories/{shop}", json={"name": "Shopping", "kind": "income"}
-    )
-
-    assert flipped.status_code == 200
-    rows = await stored(finance_client)
-    assert rows["order"]["category_id"] is None
-    assert rows["refund"]["category_id"] == shop
-
-
-async def test_one_pattern_may_sort_each_side_and_a_split_takes_its_own_side(
-    finance_client: AsyncClient,
-) -> None:
-    giro = await account(finance_client, "Giro")
-    refund = await category(finance_client, "Refunds", kind="income")
-    shop = await category(finance_client, "Shopping")
-    await rule(finance_client, "text_contains", "cable", shop)
-    await rule(finance_client, "text_contains", "cable", refund)
-    repeat = await finance_client.post(
-        f"{API}/rules", json={"kind": "text_contains", "pattern": "Cable", "category_id": shop}
-    )
-    await post(finance_client, [booking(giro, "order", amount="-20.00", purpose="Order")])
-    order = (await stored(finance_client))["order"]["id"]
-
-    split = await finance_client.put(
-        f"{API}/transactions/{order}/splits",
-        json=[{"amount": "-30.00", "text": "Cable"}, {"amount": "10.00", "text": "Cable return"}],
-    )
-
-    assert repeat.status_code == 409
-    assert [(s["amount"], s["category_id"]) for s in split.json()["splits"]] == [
-        ("-30.00", shop),
-        ("10.00", refund),
-    ]

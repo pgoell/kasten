@@ -13,6 +13,8 @@ GIRO = "DE02120300000000202051"
 SAVING = "DE02500105170137075030"
 STRANGER = "DE89370400440532013000"
 
+API = "/api/finance"
+
 
 async def account(client: AsyncClient, name: str, iban: str | None = None) -> int:
     """Upsert an account by name and hand back its id."""
@@ -46,3 +48,23 @@ async def groups(client: AsyncClient) -> dict[str, str | None]:
     """Every stored booking's transfer group, by source key."""
     rows = (await client.get("/api/finance/transactions")).json()
     return {row["source_key"]: row["transfer_group"] for row in rows}
+
+
+async def category(client: AsyncClient, name: str, kind: str = "flexible") -> int:
+    response = await client.post(f"{API}/categories", json={"name": name, "kind": kind})
+    assert response.status_code == 200, response.text
+    return response.json()["id"]
+
+
+async def rule(client: AsyncClient, kind: str, pattern: str, category_id: int) -> int:
+    response = await client.post(
+        f"{API}/rules", json={"kind": kind, "pattern": pattern, "category_id": category_id}
+    )
+    assert response.status_code == 200, response.text
+    return response.json()["id"]
+
+
+async def stored(client: AsyncClient) -> dict[str, dict[str, Any]]:
+    """Every booking by source key."""
+    rows = (await client.get(f"{API}/transactions")).json()
+    return {row["source_key"]: row for row in rows}

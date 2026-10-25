@@ -1101,10 +1101,11 @@ export interface paths {
         };
         /**
          * Read Transactions
-         * @description A page of the bookings on one account or all, from `from` to `to`, oldest first.
+         * @description A page of the bookings that pass the filters, oldest first unless `order` is `desc`.
          *
-         *     `after` is the id of the last booking of the page before. A page shorter
-         *     than `limit` is the last.
+         *     `month` stands for a `from` and `to` around one month, so the two cannot
+         *     come together. `after` is the id of the last booking of the page before.
+         *     A page shorter than `limit` is the last.
          */
         get: operations["read_transactions_api_finance_transactions_get"];
         put?: never;
@@ -1137,6 +1138,110 @@ export interface paths {
          * @description Replace the booking's splits, refusing a set that does not add up to its amount.
          */
         put: operations["write_splits_api_finance_transactions__transaction_id__splits_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/finance/budget": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Budget
+         * @description Every spending category's month: limit, carried overspend, spent, average, status.
+         */
+        get: operations["read_budget_api_finance_budget_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/finance/budget/free": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Free To Spend
+         * @description Free to spend this month for mine and household, with the lines each is made of.
+         */
+        get: operations["read_free_to_spend_api_finance_budget_free_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/finance/budget/trend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Trend
+         * @description Each spending category's spending per month, over `months` months up to `month`.
+         */
+        get: operations["read_trend_api_finance_budget_trend_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/finance/categories/{category_id}/limit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Write Limit
+         * @description Set a spending category's monthly limit from the month named on.
+         */
+        put: operations["write_limit_api_finance_categories__category_id__limit_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/finance/budget/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Settings
+         * @description The salary cutoff day and the income categories that count as salary.
+         */
+        get: operations["read_settings_api_finance_budget_settings_get"];
+        /**
+         * Write Settings
+         * @description Set the cutoff day and which income categories are salary; a non-income one is a 422.
+         */
+        put: operations["write_settings_api_finance_budget_settings_put"];
         post?: never;
         delete?: never;
         options?: never;
@@ -2271,6 +2376,46 @@ export interface components {
             amount: number | string;
         };
         /**
+         * BudgetCategoryOut
+         * @description One spending category in the month.
+         */
+        BudgetCategoryOut: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Kind */
+            kind: string;
+            /** Limit */
+            limit: string | null;
+            /** Carried */
+            carried: string;
+            /** Available */
+            available: string | null;
+            /** Spent */
+            spent: string;
+            /** Average */
+            average: string | null;
+            /** Expected By Now */
+            expected_by_now: string | null;
+            /** Status */
+            status: ("ok" | "near" | "over") | null;
+            suggestion: components["schemas"]["SuggestionOut"] | null;
+        };
+        /**
+         * BudgetOut
+         * @description A month's budget, every spending category by name.
+         */
+        BudgetOut: {
+            /** Month */
+            month: string;
+            /** Share Of Month */
+            share_of_month: string;
+            /** Categories */
+            categories: components["schemas"]["BudgetCategoryOut"][];
+            unreserved: components["schemas"]["UnreservedOut"];
+        };
+        /**
          * Build
          * @description What the backend is running, for the reading in the status bar.
          */
@@ -2510,6 +2655,63 @@ export interface components {
             hours: components["schemas"]["Hour"][];
         };
         /**
+         * FreeLineOut
+         * @description One line of a part: what happened so far, the average, and what free to spend counts.
+         */
+        FreeLineOut: {
+            /** Name */
+            name: string;
+            /** Category Id */
+            category_id: number | null;
+            /** So Far */
+            so_far: string;
+            /** Average */
+            average: string | null;
+            /** Counted */
+            counted: string;
+            /**
+             * Basis
+             * @enum {string}
+             */
+            basis: "so_far" | "average";
+        };
+        /**
+         * FreeOut
+         * @description One scope's free to spend and what it is made of.
+         */
+        FreeOut: {
+            /** Total */
+            total: string;
+            income: components["schemas"]["FreePartOut"];
+            fixed: components["schemas"]["FreePartOut"];
+            flexible: components["schemas"]["FreePartOut"];
+            non_monthly: components["schemas"]["FreePartOut"];
+            /** Unsorted */
+            unsorted: string;
+            /** Saved */
+            saved: string;
+        };
+        /**
+         * FreePartOut
+         * @description A part of free to spend, and its lines.
+         */
+        FreePartOut: {
+            /** Total */
+            total: string;
+            /** Lines */
+            lines: components["schemas"]["FreeLineOut"][];
+        };
+        /**
+         * FreeToSpendOut
+         * @description Free to spend for mine and for household.
+         */
+        FreeToSpendOut: {
+            /** Month */
+            month: string;
+            mine: components["schemas"]["FreeOut"];
+            household: components["schemas"]["FreeOut"];
+        };
+        /**
          * Graph
          * @description What a query drew, and for a pattern the rows it matched.
          */
@@ -2669,6 +2871,28 @@ export interface components {
             images: string;
             /** Config */
             config: string;
+        };
+        /**
+         * LimitIn
+         * @description A category's monthly limit from a month on; null takes the limit away from then.
+         */
+        LimitIn: {
+            /** Amount */
+            amount: number | string | null;
+            /** From */
+            from: string;
+        };
+        /**
+         * LimitOut
+         * @description A limit as stored.
+         */
+        LimitOut: {
+            /** Category Id */
+            category_id: number;
+            /** From */
+            from: string;
+            /** Amount */
+            amount: string | null;
         };
         /**
          * LineHit
@@ -3034,6 +3258,16 @@ export interface components {
             tags?: string[] | null;
         };
         /**
+         * SettingsIn
+         * @description The budget settings: the salary cutoff day and the income categories that are salary.
+         */
+        SettingsIn: {
+            /** Salary Cutoff Day */
+            salary_cutoff_day: number;
+            /** Salary Category Ids */
+            salary_category_ids: number[];
+        };
+        /**
          * SplitIn
          * @description One part of a booking.
          */
@@ -3068,6 +3302,19 @@ export interface components {
             stored: number;
         };
         /**
+         * SuggestionOut
+         * @description Raise or lower the limit to this amount.
+         */
+        SuggestionOut: {
+            /**
+             * Direction
+             * @enum {string}
+             */
+            direction: "raise" | "lower";
+            /** Amount */
+            amount: string;
+        };
+        /**
          * SyncStatus
          * @description The open request, the last run, the last success, and every account.
          */
@@ -3075,6 +3322,8 @@ export interface components {
             /** Requested At */
             requested_at: string | null;
             last_run: components["schemas"]["RunOut"] | null;
+            /** Running */
+            running: boolean;
             /** Last Success At */
             last_success_at: string | null;
             /** Days Since Success */
@@ -3305,6 +3554,44 @@ export interface components {
              * Format: date-time
              */
             deleted: string;
+        };
+        /**
+         * TrendCategoryOut
+         * @description One spending category's spending in each month of the trend.
+         */
+        TrendCategoryOut: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Kind */
+            kind: string;
+            /** Amounts */
+            amounts: string[];
+        };
+        /**
+         * TrendOut
+         * @description Spending per month, oldest first.
+         */
+        TrendOut: {
+            /** Months */
+            months: string[];
+            /** Categories */
+            categories: components["schemas"]["TrendCategoryOut"][];
+            /** Totals */
+            totals: string[];
+            /** Limits */
+            limits: (string | null)[];
+        };
+        /**
+         * UnreservedOut
+         * @description What the limits left: the month before, and every month since limits began.
+         */
+        UnreservedOut: {
+            /** Last Month */
+            last_month: string;
+            /** Total */
+            total: string;
         };
         /**
          * UploadSize
@@ -4729,6 +5016,10 @@ export interface operations {
                 account?: number | null;
                 from?: string | null;
                 to?: string | null;
+                month?: string | null;
+                category?: number | null;
+                text?: string | null;
+                order?: "asc" | "desc";
                 after?: number | null;
                 limit?: number;
             };
@@ -4813,6 +5104,190 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TransactionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_budget_api_finance_budget_get: {
+        parameters: {
+            query: {
+                month: string;
+                today: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BudgetOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_free_to_spend_api_finance_budget_free_get: {
+        parameters: {
+            query: {
+                month: string;
+                today: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FreeToSpendOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_trend_api_finance_budget_trend_get: {
+        parameters: {
+            query: {
+                month: string;
+                months?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrendOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    write_limit_api_finance_categories__category_id__limit_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                category_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LimitIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LimitOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_settings_api_finance_budget_settings_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SettingsIn"];
+                };
+            };
+        };
+    };
+    write_settings_api_finance_budget_settings_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SettingsIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SettingsIn"];
                 };
             };
             /** @description Validation Error */

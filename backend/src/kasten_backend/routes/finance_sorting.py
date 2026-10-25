@@ -17,6 +17,7 @@ from sqlalchemy.exc import IntegrityError
 
 from kasten_backend import finance_sorting as sorting
 from kasten_backend.finance_models import (
+    SIDES,
     Category,
     CategoryKind,
     Payee,
@@ -189,6 +190,12 @@ async def rewrite_category(category_id: int, category: CategoryIn, session: Sess
     if found is None:
         raise HTTPException(status_code=404, detail="No such category")
     run = found.kind != category.kind
+    if run:
+        mine = list(await session.scalars(select(Rule).where(Rule.category_id == category_id)))
+        side = side_of(category.kind)
+        await _refuse_overlap(
+            session, [(rule.kind, rule.pattern, side) for rule in mine], {r.id for r in mine}
+        )
     found.name, found.kind = category.name, category.kind
     if run:
         await session.execute(
@@ -236,6 +243,37 @@ async def read_rules(session: Session) -> list[RuleOut]:
     return [RuleOut.model_validate(rule) for rule in found]
 
 
+def _overlapping(side: str) -> tuple[str, ...]:
+    """The sides a rule of `side` shares bookings with: both shares with every side."""
+    return SIDES if side == "both" else (side, "both")
+
+
+async def _refuse_overlap(
+    session: Session, rules: list[tuple[str, str, str]], leaving: set[int]
+) -> None:
+    """A 409 when another rule of a kind and pattern sorts the same side as one of `rules`.
+
+    The unique constraint holds kind, pattern and side apart, and `both` is a
+    side of its own there; an ignore rule `hotel` beside a spending rule
+    `hotel` would sort the same money out two ways, so it is refused here.
+    `leaving` names the rules the write changes, which do not clash with
+    themselves.
+    """
+    for kind, pattern, side in rules:
+        clash = await session.scalar(
+            select(Rule.id).where(
+                Rule.kind == kind,
+                Rule.pattern == pattern,
+                Rule.side.in_(_overlapping(side)),
+                Rule.id.not_in(leaving or {0}),
+            )
+        )
+        if clash is not None:
+            raise HTTPException(
+                status_code=409, detail="A rule of that kind and pattern sorts the same side"
+            )
+
+
 async def _side(session: Session, category_id: int) -> str:
     """The side a rule for this category sorts; a category that does not exist is a 422."""
     category = await session.get(Category, category_id)
@@ -254,6 +292,7 @@ async def _store_rule(session: Session, rule: Rule) -> RuleOut:
 async def write_rule(rule: RuleIn, session: Session) -> RuleOut:
     """Make a rule and run the rules over every booking."""
     made = Rule(**rule.model_dump(), side=await _side(session, rule.category_id))
+    await _refuse_overlap(session, [(made.kind, made.pattern, made.side)], set())
     session.add(made)
     return await _store_rule(session, made)
 
@@ -264,8 +303,10 @@ async def rewrite_rule(rule_id: int, rule: RuleIn, session: Session) -> RuleOut:
     found = await session.get(Rule, rule_id)
     if found is None:
         raise HTTPException(status_code=404, detail="No such rule")
+    side = await _side(session, rule.category_id)
+    await _refuse_overlap(session, [(rule.kind, rule.pattern, side)], {rule_id})
     found.kind, found.pattern, found.category_id = rule.kind, rule.pattern, rule.category_id
-    found.side = await _side(session, rule.category_id)
+    found.side = side
     return await _store_rule(session, found)
 
 

@@ -9,9 +9,10 @@ database runs everything else and answers these with a 503 (`db.get_session`).
 """
 
 import uuid  # noqa: TC003  pydantic reads the annotation at runtime
+from calendar import monthrange
 from datetime import date, datetime
 from decimal import Decimal
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field
@@ -220,6 +221,15 @@ async def write_balances(
     return Stored(stored=stored)
 
 
+def _month_range(month: str) -> tuple[date, date]:
+    """The first and last day of a `YYYY-MM` month."""
+    try:
+        first = date.fromisoformat(f"{month}-01")
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail="`month` must be a real month") from error
+    return first, date(first.year, first.month, monthrange(first.year, first.month)[1])
+
+
 @router.get("/transactions")
 async def read_transactions(  # noqa: PLR0913  each query parameter is its own argument
     session: Session,
@@ -227,19 +237,27 @@ async def read_transactions(  # noqa: PLR0913  each query parameter is its own a
     account: int | None = None,
     start: Annotated[str | None, Query(alias="from", pattern=DATE_PATTERN)] = None,
     end: Annotated[str | None, Query(alias="to", pattern=DATE_PATTERN)] = None,
+    month: Annotated[str | None, Query(pattern=r"^[0-9]{4}-[0-9]{2}$")] = None,
+    category: int | None = None,
+    text: str | None = None,
+    order: Literal["asc", "desc"] = "asc",
     after: int | None = None,
     limit: Annotated[int, Query(ge=1, le=MAX_PAGE)] = PAGE,
 ) -> list[TransactionOut]:
-    """A page of the bookings on one account or all, from `from` to `to`, oldest first.
+    """A page of the bookings that pass the filters, oldest first unless `order` is `desc`.
 
-    `after` is the id of the last booking of the page before. A page shorter
-    than `limit` is the last.
+    `month` stands for a `from` and `to` around one month, so the two cannot
+    come together. `after` is the id of the last booking of the page before.
+    A page shorter than `limit` is the last.
     """
-    first, last = _day(start), _day(end)
+    if month is not None and (start is not None or end is not None):
+        raise HTTPException(status_code=400, detail="`month` comes without `from` and `to`")
+    first, last = _month_range(month) if month is not None else (_day(start), _day(end))
     if first is not None and last is not None and first > last:
         raise HTTPException(status_code=400, detail="`from` is after `to`")
+    filters = finance.Filters(account, first, last, category, text)
     found = await finance.list_transactions(
-        session, account=account, first=first, last=last, after=after, limit=limit
+        session, filters, after=after, limit=limit, newest_first=order == "desc"
     )
     return [TransactionOut.model_validate(booking) for booking in found]
 

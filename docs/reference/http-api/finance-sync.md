@@ -31,6 +31,7 @@ The status. The job reads it every minute, so it stays cheap.
     "finished_at": "2026-10-24T15:01:10Z", "outcome": "failed",
     "error": "psd: TAN not approved within 240s"
   },
+  "running": false,
   "last_success_at": "2026-10-23T15:00:40Z",
   "days_since_success": 2,
   "accounts": [
@@ -47,6 +48,8 @@ The status. The job reads it every minute, so it stays cheap.
   waits.
 * `last_run`: the newest run, finished or not; `null` before the first.
   `finished_at` and `outcome` stay `null` while it runs.
+* `running`: whether that run is still going, unfinished and started less than
+  30 minutes ago. An older unfinished run was killed without saying so.
 * `last_success_at` and `days_since_success`: the newest run whose outcome was
   `ok`, and the whole days since. Both `null` when none ever was.
 * `accounts`, one row per account by name: `last_good_through` is the last day
