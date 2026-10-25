@@ -112,7 +112,9 @@ async def test_the_flow_of_a_month_agrees_with_its_free_to_spend_in_each_scope(
         into = sum(Decimal(link["amount"]) for link in flow["links"] if link["target"] == scope)
         left = [link for link in flow["links"] if link["source"] == scope]
         assert into == sum(Decimal(link["amount"]) for link in left)
-        kept = sum(Decimal(link["amount"]) for link in left if link["target"] == "left-over")
+        kept = sum(
+            Decimal(link["amount"]) for link in left if link["target"].startswith("left-over")
+        )
         assert kept == Decimal(free[scope]["total"])
     names = {node["key"]: node["name"] for node in flow["nodes"]}
     # The salary of 20 September counts for October, past the cutoff on the 15th.

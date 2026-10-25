@@ -98,7 +98,8 @@ class _Builder:
         if amount > 0:
             self.link(self.node(key, part.name, "source", category), scope, amount)
         elif amount < 0:
-            self.link(scope, self.node(f"back-{key}", f"{part.name} paid back", "kind"), -amount)
+            back = self.node(f"back-{scope}-{key}", f"{part.name} paid back", "kind")
+            self.link(scope, back, -amount)
 
     def money_out(self, scope: str, kind: str, part: Part | None, amount: Decimal) -> None:
         """Money out of a scope by a kind, and on to its category when it has one.
@@ -116,7 +117,8 @@ class _Builder:
             return
         if amount == 0:
             return
-        kind_key = self.node(f"kind-{kind}", KINDS[kind], "kind")
+        # Each scope has its own kinds, so mine's streams stay above household's.
+        kind_key = self.node(f"kind-{scope}-{kind}", KINDS[kind], "kind")
         self.link(scope, kind_key, amount)
         if category is not None:
             target = self.node(f"category-{category}", name, "category", category)
@@ -141,9 +143,9 @@ class _Builder:
         self.money_out(scope, "unsorted", None, free.unsorted)
         left = free.total
         if left > 0:
-            self.link(scope, self.node("left-over", "Left over", "left_over"), left)
+            self.link(scope, self.node(f"left-over-{scope}", "Left over", "left_over"), left)
         elif left < 0:
-            source = self.node("from-savings", "From earlier months", "from_savings")
+            source = self.node(f"from-savings-{scope}", "From earlier months", "from_savings")
             self.link(source, scope, -left)
 
 
@@ -161,7 +163,7 @@ def _fold(builder: _Builder, total: Decimal) -> dict[str, str]:
             group_of[source] = "income"
         elif target.startswith("category-"):
             sizes[target] += amount
-            group_of[target] = source.removeprefix("kind-")
+            group_of[target] = _kind(source)
     groups: dict[str, list[str]] = defaultdict(list)
     for key, size in sizes.items():
         if size < total * FOLD_SHARE:
@@ -177,25 +179,52 @@ def _fold(builder: _Builder, total: Decimal) -> dict[str, str]:
     return moved
 
 
-def _order(nodes: dict[str, Node], links: list[Link]) -> list[Node]:
-    """Each column largest first, kinds in their order; "Other", left over and from before last."""
+def _kind(key: str) -> str:
+    """The kind of a kind node's key, `kind-<scope>-<kind>`."""
+    return key.split("-", 2)[2]
+
+
+def _rank(node: Node) -> tuple[int, int, Decimal]:
+    """Within a scope's stack: kinds in their order, then "Other", left over and from before."""
+    last = node.key.startswith("other-") or node.role in ("left_over", "from_savings")
     kinds = list(KINDS)
+    if node.key.startswith("kind-"):
+        group = kinds.index(_kind(node.key))
+    elif node.role in ("kind", "left_over"):
+        group = len(kinds)  # money paid back, then left over, after the kinds
+    else:
+        group = 0
+    return (group, int(last), -node.amount)
 
-    def rank(node: Node) -> tuple[int, int, int, Decimal]:
-        last = node.key.startswith("other-") or node.role in ("left_over", "from_savings")
-        if node.role == "category":
-            # A category sits beside its kind, so its streams do not cross the others.
-            kind = next(link.source for link in links if link.target == node.key)
-            group = kinds.index(kind.removeprefix("kind-"))
-        elif node.key.startswith("kind-"):
-            group = kinds.index(node.key.removeprefix("kind-"))
-        elif node.role == "kind":
-            group = len(kinds)  # money a scope paid back, after the kinds
-        else:
-            group = len(kinds) if last else 0
-        return (node.column, group, int(last), -node.amount)
 
-    return sorted(nodes.values(), key=rank)
+def _centres(links: list[Link], at: dict[str, float], *, from_source: bool) -> dict[str, float]:
+    """Each node's barycentre: the mean place of the placed nodes it links to, by amount."""
+    sums: dict[str, list[float]] = defaultdict(lambda: [0.0, 0.0])
+    for link in links:
+        near, far = (link.target, link.source) if from_source else (link.source, link.target)
+        if far in at:
+            sums[near][0] += at[far] * float(link.amount)
+            sums[near][1] += float(link.amount)
+    return {key: total / weight for key, (total, weight) in sums.items() if weight}
+
+
+def _order(nodes: dict[str, Node], links: list[Link]) -> list[Node]:
+    """Each column top down so streams mostly run straight: mine's above household's.
+
+    Mine and household are placed first; the kinds, then the categories, by
+    the place of what flows into them, and the sources by where they flow.
+    """
+    columns: dict[int, list[Node]] = defaultdict(list)
+    for node in nodes.values():
+        columns[node.column].append(node)
+    at: dict[str, float] = {key: float(SCOPES.index(key)) for key in SCOPES if key in nodes}
+    order = sorted(columns[1], key=lambda node: at[node.key])
+    for column, from_source in ((2, True), (3, True), (0, False)):
+        centre = _centres(links, at, from_source=from_source)
+        placed = sorted(columns[column], key=lambda n: (centre.get(n.key, 0.0), _rank(n)))
+        at |= {node.key: float(index) for index, node in enumerate(placed)}
+        order += placed
+    return sorted(order, key=lambda node: node.column)
 
 
 def month_flow(ledger: Ledger, month: dt.date) -> Flow:

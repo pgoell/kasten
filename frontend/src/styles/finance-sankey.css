@@ -1,7 +1,7 @@
 /* The overview's sankey of where the month's money went. It draws at a fixed width and
    scrolls inside its card when the card is narrower, so a phone keeps the labels at their
-   size and the page never scrolls sideways. Bands are light, so the labels over them read;
-   a category's band takes its tag slot, money taken from before takes --k-danger. */
+   size and the page never scrolls sideways. A kind and the streams out of it take the kind's
+   tag slot, each category its own, and money taken from before --k-danger. */
 
 .finance-sankey {
   display: grid;
@@ -51,12 +51,12 @@
   font-size: 13px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
-  /* A halo of the card's colour, so a label over a band reads in either theme. */
-  paint-order: stroke;
-  stroke: var(--k-paper);
-  stroke-width: 3px;
-  stroke-linejoin: round;
   pointer-events: none;
+}
+
+/* The chip behind a middle column's label, so no stream runs under its text. */
+.finance-sankey-chip {
+  flood-color: var(--k-paper);
 }
 
 .finance-sankey-amount {

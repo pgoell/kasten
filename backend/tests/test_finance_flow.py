@@ -85,6 +85,18 @@ def test_each_scope_takes_in_what_it_gives_out_and_keeps_free_to_spend_as_left_o
     assert flow.total == Decimal(3000 + 900 + 800 + 300)
 
 
+def test_mines_streams_stand_above_households_in_every_column() -> None:
+    flow = month_flow(october(), OCT)
+
+    def column(index: int) -> list[str]:
+        return [node.name for node in flow.nodes if node.column == index]
+
+    assert column(0) == ["Salary", "From mine", "Household contribution", "From earlier months"]
+    assert column(1) == ["Mine", "Household"]
+    assert column(2) == ["Flexible", "Saved", "Into household", "Not sorted", "Left over", "Fixed"]
+    assert column(3) == ["Groceries", "Rent"]
+
+
 def test_the_flow_counts_what_happened_so_far_not_the_average() -> None:
     book = ledger(
         *[line(back, SHARED, "-1000", RENT) for back in (-2, -1)],

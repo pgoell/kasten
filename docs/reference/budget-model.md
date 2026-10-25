@@ -137,6 +137,9 @@ money out = each fixed, flexible and non-monthly line + saved + not sorted
             + left over
 ```
 
+* Each scope has its own kinds, in the order fixed, flexible, non-monthly,
+  saved, into household, not sorted, then left over; a category gathers what
+  both scopes spent on it.
 * The move into the shared account is the kind `Into household` on mine and
   the source `From mine` on household, the same amount on both sides, so each
   scope adds up on its own.

@@ -130,15 +130,15 @@ const FLOW = {
   nodes: [
     node("income-1", "Salary", "source", 0, "3000.00"),
     node("mine", "Mine", "scope", 1, "3000.00"),
-    node("kind-flexible", "Flexible", "kind", 2, "400.00"),
-    node("left-over", "Left over", "left_over", 2, "2600.00"),
+    node("kind-mine-flexible", "Flexible", "kind", 2, "400.00"),
+    node("left-over-mine", "Left over", "left_over", 2, "2600.00"),
     node("category-4", "Groceries", "category", 3, "400.00"),
   ],
   links: [
     { source: "income-1", target: "mine", amount: "3000.00" },
-    { source: "mine", target: "kind-flexible", amount: "400.00" },
-    { source: "mine", target: "left-over", amount: "2600.00" },
-    { source: "kind-flexible", target: "category-4", amount: "400.00" },
+    { source: "mine", target: "kind-mine-flexible", amount: "400.00" },
+    { source: "mine", target: "left-over-mine", amount: "2600.00" },
+    { source: "kind-mine-flexible", target: "category-4", amount: "400.00" },
   ],
 };
 
@@ -318,15 +318,16 @@ describe("the finance pane's overview, budget and transactions", () => {
 
   it("#1082 the sankey says where the money went, and a category opens its bookings", async () => {
     renderPane();
-    const words = await screen.findByText(/came in and/);
-    expect(words.textContent?.replaceAll("\u00a0", " ")).toMatch(
-      /^October 2026 so far: 3.000 € came in and 400 € went out, 2.600 € left over\. The most went to Groceries 400 €\./,
+    // The readout above the chart; the caption under it starts with the same words.
+    const [readout] = await screen.findAllByText(/^October 2026 so far: 3.000\s€ in, 400\s€ out/);
+    expect(readout?.textContent?.replaceAll("\u00a0", " ")).toBe(
+      "October 2026 so far: 3.000 € in, 400 € out, 2.600 € left",
     );
+    expect(screen.getByText(/The most went to Groceries 400\s€\./)).toBeTruthy();
 
-    fireEvent.focus(
-      screen.getByRole("button", { name: /^Left over, 2.600\s€, 87% of the money in$/ }),
-    );
-    expect(screen.getByText(/^Left over, 2.600\s€, 87% of the money in$/)).toBeTruthy();
+    const left = /^Left over from Mine, 2.600\s€, 87% of the money in$/;
+    fireEvent.focus(screen.getByRole("button", { name: left }));
+    expect(screen.getByText(left)).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: /^Groceries, 400\s€.*show its bookings$/ }));
     await waitFor(() =>

@@ -50,7 +50,9 @@ the danger colour with `⚠` means the month is already spent past what came in.
   Mine or Household, on into the kinds (fixed, flexible, non-monthly, saved,
   into household, not sorted), on into the categories. A stream that ends in
   `Left over` is what the month kept; one from `From earlier months`, in the
-  danger colour, is what it spent past what came in. It counts what happened
+  danger colour, is what it spent past what came in. Mine's streams run
+  above household's, and each kind's streams keep the kind's colour. The line
+  above the chart sums the month up until you point at something. It counts what happened
   so far, not the estimates free to spend makes. Point at a stream or a name,
   or Tab to a name, to read its amount; press a category or an income to open
   its bookings for the month in Transactions. On a phone the chart scrolls

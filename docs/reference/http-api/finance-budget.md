@@ -112,12 +112,12 @@ GET /api/finance/budget/flow?month=2026-10
   "nodes": [
     { "key": "income-1", "name": "Salary", "role": "source", "column": 0, "category_id": 1, "amount": "4100.00" },
     { "key": "mine", "name": "Mine", "role": "scope", "column": 1, "category_id": null, "amount": "4100.00" },
-    { "key": "kind-flexible", "name": "Flexible", "role": "kind", "column": 2, "category_id": null, "amount": "1113.00" },
+    { "key": "kind-mine-flexible", "name": "Flexible", "role": "kind", "column": 2, "category_id": null, "amount": "1113.00" },
     { "key": "category-10", "name": "Groceries", "role": "category", "column": 3, "category_id": 10, "amount": "522.00" }
   ],
   "links": [
     { "source": "income-1", "target": "mine", "amount": "4100.00" },
-    { "source": "kind-flexible", "target": "category-10", "amount": "522.00" }
+    { "source": "kind-mine-flexible", "target": "category-10", "amount": "522.00" }
   ]
 }
 ```
@@ -129,8 +129,12 @@ GET /api/finance/budget/flow?month=2026-10
   stands with the kinds, money taken from earlier months with the sources.
 * `category_id`: the category behind an income or a spending node; `null` for
   the rest and for an `Other …` node that holds several.
-* Nodes come in the order they are drawn, top down in each column. A link's
-  amount is always positive.
+* Each scope has its own kind nodes and left over, keyed `kind-<scope>-<kind>`
+  and `left-over-<scope>`; a category takes money from either scope's kind.
+* Nodes come in the order they are drawn, top down in each column: mine's
+  streams above household's, the kinds in a fixed order, and each category
+  and source by the mean place of the nodes it links to. A link's amount is
+  always positive.
 
 ## GET /api/finance/budget/trend
 
