@@ -165,3 +165,61 @@ async def test_a_status_with_no_runs_says_so(sync_client: AsyncClient) -> None:
 
     assert status["last_run"] is None
     assert status["days_since_success"] is None
+
+
+async def test_a_run_dead_for_31_minutes_does_not_block_the_next(
+    sync_client: AsyncClient, finance_session: AsyncSession
+) -> None:
+    await finance_session.execute(
+        text(
+            "INSERT INTO finance.sync_run (trigger, started_at) "
+            "VALUES ('scheduled', now() - interval '31 minutes')"
+        )
+    )
+
+    nxt = await sync_client.post("/api/finance/sync/runs", json={"trigger": "scheduled"})
+
+    assert nxt.status_code == 200, nxt.text
+
+
+async def test_a_run_29_minutes_old_still_blocks(
+    sync_client: AsyncClient, finance_session: AsyncSession
+) -> None:
+    await finance_session.execute(
+        text(
+            "INSERT INTO finance.sync_run (trigger, started_at) "
+            "VALUES ('scheduled', now() - interval '29 minutes')"
+        )
+    )
+
+    nxt = await sync_client.post("/api/finance/sync/runs", json={"trigger": "scheduled"})
+
+    assert nxt.status_code == 409
+
+
+async def test_the_open_request_is_a_404_until_one_waits(sync_client: AsyncClient) -> None:
+    assert (await sync_client.get("/api/finance/sync/requests/open")).status_code == 404
+
+    made = (await sync_client.post("/api/finance/sync/requests")).json()
+    found = await sync_client.get("/api/finance/sync/requests/open")
+
+    assert found.status_code == 200
+    assert found.json()["id"] == made["id"]
+
+
+@pytest.mark.parametrize(
+    ("first", "through"),
+    [("2026-10-20", "2026-10-19"), ("2026-10-01", "2999-01-01")],
+)
+async def test_a_window_backwards_or_in_the_future_is_refused(
+    sync_client: AsyncClient, first: str, through: str
+) -> None:
+    giro = await account(sync_client, "Giro", GIRO)
+    run = (await start(sync_client, "scheduled"))["run"]
+    line = {**fetched(giro, through), "fetched_from": first}
+
+    response = await sync_client.patch(
+        f"/api/finance/sync/runs/{run['id']}", json={"outcome": "ok", "accounts": [line]}
+    )
+
+    assert response.status_code == 422

@@ -2663,6 +2663,25 @@
         }
       }
     },
+    "/api/finance/sync/requests/open": {
+      "get": {
+        "summary": "Read Open Request",
+        "description": "The \"pull now\" that waits, or 404: what the poll unit's `ExecCondition=` asks.",
+        "operationId": "read_open_request_api_finance_sync_requests_open_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/finance/sync/requests": {
       "post": {
         "summary": "Write Request",

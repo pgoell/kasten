@@ -24,10 +24,13 @@ class FakeKasten:
     balances: list[dict[str, Any]] = field(default_factory=list)
     finishes: list[dict[str, Any]] = field(default_factory=list)
     days_since_success: int | None = 0
+    refuse: set[int] = field(default_factory=set)
+    status_reads: int = 0
 
     def handle(self, request: httpx.Request) -> httpx.Response:
         route = {
             ("GET", "/api/finance/sync"): self._status,
+            ("GET", "/api/finance/sync/requests/open"): self._open,
             ("POST", "/api/finance/sync/runs"): self._start,
             ("POST", "/api/finance/transactions"): self._bookings,
             ("POST", "/api/finance/balances"): self._balances,
@@ -37,7 +40,13 @@ class FakeKasten:
             return httpx.Response(404, json={"detail": f"no fake for {request.url.path}"})
         return route(json.loads(request.content) if request.content else None)
 
+    def _open(self, _body: Any) -> httpx.Response:
+        if self.requested:
+            return httpx.Response(200, json={"id": 1, "run_id": None})
+        return httpx.Response(404, json={"detail": "No sync request is open"})
+
     def _status(self, _body: Any) -> httpx.Response:
+        self.status_reads += 1
         return httpx.Response(
             200,
             json={
@@ -53,6 +62,8 @@ class FakeKasten:
         return httpx.Response(200, json={"run": {"id": 7}, "claimed": 1})
 
     def _bookings(self, body: Any) -> httpx.Response:
+        if refused := {b["account_id"] for b in body} & self.refuse:
+            return httpx.Response(422, json={"detail": f"No account with id {min(refused)}"})
         known = {b["source_key"] for b in self.bookings}
         new = [b for b in body if b["source_key"] not in known]
         self.bookings += new

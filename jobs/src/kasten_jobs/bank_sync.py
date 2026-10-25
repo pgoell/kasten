@@ -42,6 +42,7 @@ class Settings:
     overlap_days: int
     first_days: int
     stale_days: int
+    skip_ibans: frozenset[str]
 
     @classmethod
     def from_env(cls, env: Mapping[str, str]) -> Settings:
@@ -52,9 +53,12 @@ class Settings:
                 b.strip().upper() for b in env.get("BANK_SYNC_BANKS", "DKB,PSD").split(",")
             ),
             state_dir=Path(env.get("BANK_SYNC_STATE_DIR", "/state")),
-            overlap_days=int(env.get("BANK_SYNC_OVERLAP_DAYS", "5")),
+            overlap_days=int(env.get("BANK_SYNC_OVERLAP_DAYS", "14")),
             first_days=int(env.get("BANK_SYNC_FIRST_DAYS", "90")),
             stale_days=int(env.get("BANK_SYNC_STALE_DAYS", "7")),
+            skip_ibans=frozenset(
+                _spelled(i) for i in env.get("BANK_SYNC_SKIP_IBANS", "").split(",") if i.strip()
+            ),
         )
 
 
@@ -85,9 +89,15 @@ def _spelled(iban: str | None) -> str:
 def window_start(row: dict[str, Any] | None, today: date, settings: Settings) -> date:
     """Where an account's window starts.
 
-    A few days before the last good window ended, so a booking the bank posts
-    late still comes in; else, on a first pull, at the newest booking stored
-    (the Firefly history); else `first_days` back.
+    `overlap_days` before the last good window ended, so a booking the bank
+    posts late still comes in; else, on a first pull, at the newest booking
+    stored (the Firefly history); else `first_days` back.
+
+    The overlap also keeps the occurrence index of the source key honest. The
+    bank selects a window by booking date and the key holds the value date,
+    so twins (same value date, amount, reference and purpose) are counted
+    right only while one window sees all of them: they must be booked within
+    the overlap of each other. Two weeks is far more than banks take.
     """
     if row and row["last_good_through"]:
         return date.fromisoformat(row["last_good_through"]) - timedelta(settings.overlap_days)
@@ -109,10 +119,29 @@ class Run:
     errors: list[str] = field(default_factory=list)
     accounts: list[dict[str, Any]] = field(default_factory=list)
 
-    def since_for(self, iban: str) -> date | None:
-        """Where the window of the account with this IBAN starts, or None for no such account."""
-        row = self.rows.get(_spelled(iban))
-        return None if row is None else window_start(row, self.today, self.settings)
+    def since_for(self, bank: Bank, iban: str) -> date | None:
+        """Where the window of the account with this IBAN starts, or None to leave it out.
+
+        An IBAN in `skip_ibans` is left out quietly. One no kasten account
+        holds is left out and fails the run, naming it.
+        """
+        spelled = _spelled(iban)
+        if spelled in self.settings.skip_ibans:
+            log.info("[%s] %s: skipped, BANK_SYNC_SKIP_IBANS names it", bank.name, iban)
+            return None
+        row = self.rows.get(spelled)
+        if row is None:
+            self.errors.append(f"{bank.name}: no kasten account has the IBAN {iban}")
+            return None
+        return window_start(row, self.today, self.settings)
+
+
+def _refusal(error: httpx.HTTPError) -> str:
+    # The answer's body says what kasten refused; it holds bookings at most,
+    # never a login. Cut short, since a 422 can echo a whole batch back.
+    if isinstance(error, httpx.HTTPStatusError):
+        return f"kasten answered {error.response.status_code}: {error.response.text[:500]}"
+    return f"kasten unreachable: {error}"
 
 
 def _store(run: Run, bank: Bank, account_id: int, pull: AccountPull) -> dict[str, Any]:
@@ -124,31 +153,33 @@ def _store(run: Run, bank: Bank, account_id: int, pull: AccountPull) -> dict[str
     if pull.error:
         return {**line, "outcome": "failed", "error": pull.error}
     bookings = to_bookings(bank.name, pull.iban, account_id, pull.records)
-    created, skipped = run.api.post_bookings(bookings)
-    if pull.balance:
-        day, amount = pull.balance
-        balance = {"account_id": account_id, "date": str(day), "amount": str(amount)}
-        run.api.post_balances([balance])
+    try:
+        created, skipped = run.api.post_bookings(bookings)
+        if pull.balance:
+            day, amount = pull.balance
+            balance = {"account_id": account_id, "date": str(day), "amount": str(amount)}
+            run.api.post_balances([balance])
+    except httpx.HTTPError as error:
+        log.error("[%s] %s: %s", bank.name, pull.iban, _refusal(error))
+        return {**line, "outcome": "failed", "error": _refusal(error)}
     log.info("[%s] %s: %d new, %d known", bank.name, pull.iban, created, skipped)
     return {**line, "outcome": "ok", "created": created, "skipped": skipped}
 
 
 def _pull_bank(run: Run, bank: Bank) -> None:
     try:
-        pulls, unknown = fints_bank.fetch(
-            bank, run.since_for, run.today, make=run.make, sleep=run.sleep
+        pulls = fints_bank.fetch(
+            bank, lambda iban: run.since_for(bank, iban), run.today, make=run.make, sleep=run.sleep
         )
     except (FinTSError, fints_bank.BankError, TimeoutError) as error:
         log.error("[%s] %s", bank.name, error)
         run.errors.append(f"{bank.name}: {error}")
         return
-    for iban in unknown:
-        run.errors.append(f"{bank.name}: no kasten account has the IBAN {iban}")
     for pull in pulls:
         line = _store(run, bank, run.rows[_spelled(pull.iban)]["account_id"], pull)
         run.accounts.append(line)
         if line["outcome"] == "failed":
-            run.errors.append(f"{bank.name}: {pull.iban}: {pull.error}")
+            run.errors.append(f"{bank.name}: {pull.iban}: {line['error']}")
 
 
 def pull(  # noqa: PLR0913  the trigger, and what the tests swap out
@@ -226,7 +257,7 @@ def main(argv: list[str] | None = None) -> int:
         api = KastenApi(client)
         if args.command == "check":
             return check(api, settings)
-        if args.command == "poll" and api.status()["requested_at"] is None:
+        if args.command == "poll" and not api.request_open():
             return 0
         banks = [bank_from_env(prefix, os.environ, settings.state_dir) for prefix in settings.banks]
         trigger = "request" if args.command == "poll" else "scheduled"

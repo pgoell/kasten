@@ -52,13 +52,13 @@ def run(kasten: FakeKasten, client: FakeClient, tmp_path: Path, clock: Clock | N
     )
 
 
-def test_a_window_starts_five_days_before_the_last_good_one_ended(tmp_path: Path) -> None:
+def test_a_window_starts_two_weeks_before_the_last_good_one_ended(tmp_path: Path) -> None:
     kasten = FakeKasten([account(1, GIRO, through="2026-10-20", newest="2026-10-19")])
     client = FakeClient({GIRO: [record("-4.20")]})
 
     assert run(kasten, client, tmp_path) == 0
 
-    assert client.windows[GIRO] == (date(2026, 10, 15), TODAY)
+    assert client.windows[GIRO] == (date(2026, 10, 6), TODAY)
     assert kasten.finishes == [
         {
             "outcome": "ok",
@@ -66,7 +66,7 @@ def test_a_window_starts_five_days_before_the_last_good_one_ended(tmp_path: Path
             "accounts": [
                 {
                     "account_id": 1,
-                    "fetched_from": "2026-10-15",
+                    "fetched_from": "2026-10-06",
                     "fetched_through": "2026-10-25",
                     "outcome": "ok",
                     "created": 1,
@@ -229,11 +229,13 @@ def test_a_poll_with_nothing_requested_exits_without_the_bank(
 ) -> None:
     kasten = FakeKasten([account(1, GIRO)], requested=False)
     monkeypatch.setattr(bank_sync, "KastenApi", lambda _client: kasten.api())
+    monkeypatch.setattr(bank_sync.os, "environ", {})
     monkeypatch.setattr(bank_sync.fints_bank, "make_client", pytest.fail)
 
     assert bank_sync.main(["poll"]) == 0
 
     assert kasten.finishes == []
+    assert kasten.status_reads == 0
 
 
 def test_a_bank_with_a_variable_missing_names_it() -> None:
@@ -249,4 +251,71 @@ def test_setup_chooses_the_push_tan_and_saves_the_state(tmp_path: Path) -> None:
     )
 
     assert client.mechanism == "940"
+    assert (tmp_path / "dkb.bin").read_bytes() == b"state"
+
+
+def test_twins_split_over_two_windows_are_both_kept(tmp_path: Path) -> None:
+    # The bank selects by booking date and the key holds the value date: the
+    # second twin, booked a day later, is outside the first window and inside
+    # the second, which the overlap makes hold both.
+    kasten = FakeKasten([account(1, GIRO)])
+    first = FakeClient({GIRO: [record("-4.20")]})
+    second = FakeClient({GIRO: [record("-4.20"), record("-4.20")]})
+
+    run(kasten, first, tmp_path)
+    run(kasten, second, tmp_path)
+
+    assert [b["source_key"][-2:] for b in kasten.bookings] == [":0", ":1"]
+
+
+def test_a_refused_post_fails_that_account_and_the_others_still_come_in(tmp_path: Path) -> None:
+    kasten = FakeKasten([account(1, GIRO), account(2, SAVING)], refuse={1})
+    client = FakeClient({GIRO: [record("-4.20")], SAVING: [record("100.00")]})
+
+    assert run(kasten, client, tmp_path) == 1
+
+    lines = {line["account_id"]: line for line in kasten.finishes[0]["accounts"]}
+    assert lines[1]["outcome"] == "failed"
+    assert lines[1]["error"] == 'kasten answered 422: {"detail":"No account with id 1"}'
+    assert lines[2]["outcome"] == "ok"
+    assert "kasten answered 422" in kasten.finishes[0]["error"]
+
+
+def test_a_tan_timing_out_on_one_account_keeps_the_others_and_the_state(tmp_path: Path) -> None:
+    kasten = FakeKasten([account(1, GIRO), account(2, SAVING)])
+    client = FakeClient({GIRO: [], SAVING: [record("100.00")]}, tan_for={GIRO}, approve_after=None)
+
+    assert run(kasten, client, tmp_path) == 1
+
+    lines = {line["account_id"]: line for line in kasten.finishes[0]["accounts"]}
+    assert "TAN not approved" in lines[1]["error"]
+    assert lines[2]["outcome"] == "ok"
+    assert (tmp_path / "dkb.bin").read_bytes() == b"state"
+
+
+def test_an_iban_to_skip_is_neither_fetched_nor_an_error(tmp_path: Path) -> None:
+    kasten = FakeKasten([account(1, GIRO)])
+    client = FakeClient({GIRO: [], SAVING: [record("1.00")]})
+    skipping = Settings.from_env({"BANK_SYNC_SKIP_IBANS": f" {SAVING[:4]} {SAVING[4:]} ,"})
+
+    code = bank_sync.pull(
+        kasten.api(),
+        [dkb(tmp_path)],
+        skipping,
+        "request",
+        today=TODAY,
+        make=lambda _bank, _state: cast("FinTS3PinTanClient", client),
+        sleep=Clock(),
+    )
+
+    assert code == 0
+    assert SAVING not in client.windows
+
+
+def test_the_state_is_replaced_whole(tmp_path: Path) -> None:
+    (tmp_path / "dkb.bin").write_bytes(b"old")
+
+    run(FakeKasten([account(1, GIRO)]), FakeClient({GIRO: []}), tmp_path)
+
+    assert [p.name for p in tmp_path.iterdir()] == ["dkb.bin"]
     assert (tmp_path / "dkb.bin").read_bytes() == b"state"

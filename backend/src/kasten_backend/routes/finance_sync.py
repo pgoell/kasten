@@ -7,11 +7,11 @@ agents show: the last good pull per account, the last run's outcome, and the
 days since a run last succeeded. Same gate and same 503 as `routes/finance.py`.
 """
 
-from datetime import date, datetime  # noqa: TC003  pydantic reads the annotations at runtime
-from typing import Annotated
+from datetime import UTC, date, datetime, timedelta
+from typing import Annotated, Self
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from kasten_backend import finance_sync
@@ -75,6 +75,19 @@ class AccountFetch(BaseModel):
     skipped: Count = 0
     error: str | None = None
 
+    @model_validator(mode="after")
+    def _a_real_window(self) -> Self:
+        # The next window starts from `fetched_through`, so a window in the
+        # future would skip days for good. "Today" is read a day wide: the job
+        # counts days on the box's clock, ahead of UTC in Berlin after midnight.
+        if self.fetched_from > self.fetched_through:
+            msg = "`fetched_from` is after `fetched_through`"
+            raise ValueError(msg)
+        if self.fetched_through > datetime.now(UTC).date() + timedelta(days=1):
+            msg = "`fetched_through` is in the future"
+            raise ValueError(msg)
+        return self
+
 
 class RunFinish(BaseModel):
     """How a run ended, with a line per account it reached."""
@@ -110,6 +123,15 @@ class SyncStatus(BaseModel):
 async def read_status(session: Session) -> SyncStatus:
     """The sync status, and whether a "pull now" waits, which is all a minute's poll reads."""
     return SyncStatus.model_validate(await finance_sync.sync_status(session), from_attributes=True)
+
+
+@router.get("/requests/open")
+async def read_open_request(session: Session) -> RequestOut:
+    """The "pull now" that waits, or 404: what the poll unit's `ExecCondition=` asks."""
+    waiting = await finance_sync.open_request(session)
+    if waiting is None:
+        raise HTTPException(status_code=404, detail="No sync request is open")
+    return RequestOut.model_validate(waiting)
 
 
 @router.post("/requests")

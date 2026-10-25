@@ -1,7 +1,7 @@
 ---
 type: Reference
 title: "HTTP API: finance sync"
-description: The four routes behind "pull now" and the bank sync status, that the bank job polls, starts and finishes its runs through, with the claim two pollers race for.
+description: The five routes behind "pull now" and the bank sync status, that the bank job polls, starts and finishes its runs through, with the claim two pollers race for.
 resource: backend/src/kasten_backend/routes/finance_sync.py
 tags: [api, backend, openapi, finance]
 status: draft
@@ -55,6 +55,12 @@ The status. The job reads it every minute, so it stays cheap.
   `newest_booking` is the latest booking date stored. The job starts its next
   window from these ([Bank sync](/reference/bank-sync.md#the-window)).
 
+## GET /api/finance/sync/requests/open
+
+The "pull now" that waits, the oldest if there are several, as `POST` answers
+it; `404` when none does. The poll unit asks this every minute before it
+starts a container, so it reads one row and nothing else.
+
 ## POST /api/finance/sync/requests
 
 "Pull now". Records a request, or answers the one still open, so pressing twice
@@ -91,8 +97,10 @@ scheduled run claims them too. `claimed` counts them.
 * another run is starting at the same moment. A start holds a database lock
   until it commits, and a second start that finds it held is turned away rather
   than queued, so two pollers never both pull, and never send two TANs.
-* another run has not finished and started less than 30 minutes ago. An older
-  unfinished run died without saying so and no longer blocks.
+* another run has not finished and started less than 30 minutes ago. The
+  systemd units stop the job at 25 minutes, so an older unfinished run was
+  killed without saying so and no longer blocks. The margin is on purpose: a
+  limit below the units' would let a second run join a slow live one.
 * the trigger is `request` and no request is open, because another poller
   claimed it first.
 
@@ -120,3 +128,8 @@ and `skipped` may be left out. At most 100 lines.
 * `409` for a run already finished: its record stays as the first finish wrote
   it.
 * `422` naming every account id that does not exist, and nothing is written.
+* `422` for a line whose `fetched_from` is after its `fetched_through`, or
+  whose `fetched_through` is after tomorrow in UTC. The next window starts
+  from it, so a day in the future would skip days for good; tomorrow is
+  allowed because the job counts days on the box's clock, ahead of UTC in
+  Berlin after midnight.

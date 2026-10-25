@@ -19,7 +19,7 @@ container on the docker network `web`. Setting it up is
 
 | Command | What it does | Exit code |
 |---|---|---|
-| `poll` | Reads [`GET /api/finance/sync`](/reference/http-api/finance-sync.md#get-apifinancesync). Ends at once when no "pull now" waits; else starts a run with trigger `request` and pulls. Meant for every minute. | `0` nothing to do, or the pull came in; `1` the pull failed |
+| `poll` | Asks [`GET /api/finance/sync/requests/open`](/reference/http-api/finance-sync.md#get-apifinancesyncrequestsopen). Ends at once when no "pull now" waits; else starts a run with trigger `request` and pulls. Meant for every minute. | `0` nothing to do, or the pull came in; `1` the pull failed |
 | `pull` | Starts a run with trigger `scheduled` and pulls. The one daily attempt. | as `poll` |
 | `check` | Fails when no run has succeeded for `BANK_SYNC_STALE_DAYS`, or ever. Touches no bank. | `0` fine; `1` stale |
 | `setup <bank>` | Logs in by hand, approves the TAN, picks the push TAN method and saves the state. Run once per bank, with a terminal. Touches no kasten. | `0` done |
@@ -27,8 +27,9 @@ container on the docker network `web`. Setting it up is
 A run that another run beat to the start (a `409`) exits `0`. A run fails when
 any bank or account failed: a login refused, a TAN not approved within 240
 seconds, a TAN to type rather than a push, an error on one account, or an IBAN
-no kasten account holds. The other accounts still come in, and the run records
-which failed. Anything else stops the job with a traceback and exit `1`, and
+no kasten account holds, or kasten refusing an account's post (the run records
+kasten's answer, cut to 500 characters). The other accounts and banks still
+come in, and the run records which failed. Anything else stops the job with a traceback and exit `1`, and
 the run is still marked failed in kasten.
 
 ## The env file
@@ -42,7 +43,9 @@ Read with `docker run --env-file`, so the file is never mounted. Mode `600`.
 | `BANK_SYNC_BANKS` | `DKB,PSD` | The banks to pull, as the prefixes of their variables |
 | `<BANK>_BLZ`, `<BANK>_LOGIN`, `<BANK>_PIN`, `<BANK>_FINTS_URL` | none | One login per bank, the names the Firefly importer read. All four are needed |
 | `BANK_SYNC_STATE_DIR` | `/state` | Where the state blobs live inside the container |
-| `BANK_SYNC_OVERLAP_DAYS` | `5` | How many days before the last good window's end the next starts |
+| `BANK_SYNC_OVERLAP_DAYS` | `14` | How many days before the last good window's end the next starts |
+| `BANK_SYNC_SKIP_IBANS` | empty | IBANs the bank lists that kasten should not track, comma-separated, spaces ignored. Neither fetched nor an error |
+| `TZ` | UTC | The box's zone, `Europe/Berlin`, so a window ends on the bank's day |
 | `BANK_SYNC_FIRST_DAYS` | `90` | How far back a first pull of an account with no bookings goes |
 | `BANK_SYNC_STALE_DAYS` | `7` | When `check` fails |
 
@@ -56,7 +59,7 @@ whole bank messages.
 |---|---|---|
 | `~/.config/kasten/bank-sync.env` | `600` | The env file, logins and PINs |
 | `~/.config/kasten/fints/` | `700` | The state, mounted read-write at `/state` |
-| `~/.config/kasten/fints/<bank>.bin` | `600` | One bank's FinTS client state (`deconstruct(including_private=True)`): the chosen TAN method, the bank's parameters, the system id. Written by `setup` and after every pull |
+| `~/.config/kasten/fints/<bank>.bin` | `600` | One bank's FinTS client state (`deconstruct(including_private=True)`): the chosen TAN method, the bank's parameters, the system id. Written by `setup` and after every pull, to a new file moved over the old, so a killed job never leaves half a state |
 
 None of it is in the repo or in `~/kasten-data/`, which holds data only.
 
@@ -69,9 +72,14 @@ Each account's window ends today and starts at the first of:
 2. its `newest_booking`, on a first pull after the Firefly history came in;
 3. `BANK_SYNC_FIRST_DAYS` back.
 
-Both days are included and every window covers whole days, which is what keeps
-the occurrence index below stable. The overlap costs nothing: a booking whose
-account already holds its key is skipped.
+Both days are included. The overlap costs nothing: a booking whose account
+already holds its key is skipped. It is also what keeps the occurrence index
+below honest. The bank picks a window's records by booking date, but the key
+holds the value date, so twins are counted right only while one window sees
+them all: the job assumes twins are booked within `BANK_SYNC_OVERLAP_DAYS` of
+each other, and that the bank lists them by booking date. A twin booked later
+than that is taken for the first and dropped. Two weeks is far beyond what
+banks take between two identical bookings of one value date.
 
 ## The source key
 

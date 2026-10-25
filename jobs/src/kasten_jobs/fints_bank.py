@@ -8,8 +8,11 @@ method and the bank's parameters between runs, and `setup` writes it once.
 """
 
 import logging
+import os
+import tempfile
 import time
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from fints.camt_parser import camt053_to_dict
@@ -21,7 +24,6 @@ if TYPE_CHECKING:
     from collections.abc import Callable
     from datetime import date
     from decimal import Decimal
-    from pathlib import Path
 
     from fints.models import SEPAAccount
 
@@ -91,11 +93,18 @@ def _load_state(path: Path) -> bytes | None:
 
 
 def _save_state(path: Path, data: bytes) -> None:
-    # Made 600 before the blob goes in: it holds the bank's session parameters.
+    # Written beside the old one and moved over it, so a job killed mid-write
+    # leaves the old state whole rather than a torn one the bank refuses.
+    # `mkstemp` makes the file 600 before the blob goes in: it holds the
+    # bank's session parameters.
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.touch(mode=0o600, exist_ok=True)
-    path.chmod(0o600)
-    path.write_bytes(data)
+    handle, temp = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.")
+    try:
+        with os.fdopen(handle, "wb") as file:
+            file.write(data)
+        Path(temp).replace(path)
+    finally:
+        Path(temp).unlink(missing_ok=True)
 
 
 def approve_tan(
@@ -197,7 +206,7 @@ def _balance(
         response = client.get_balance(account)
         if isinstance(response, NeedTANResponse):
             response = approve_tan(client, response, interactive=False, sleep=sleep)
-    except FinTSClientError as error:
+    except (FinTSClientError, BankError, TimeoutError) as error:
         log.warning("%s: no balance: %s", account.iban, error)
         return None
     amount = getattr(getattr(response, "amount", None), "amount", None)
@@ -215,33 +224,33 @@ def fetch(
     *,
     make: MakeClient = make_client,
     sleep: Sleep = time.sleep,
-) -> tuple[list[AccountPull], list[str]]:
+) -> list[AccountPull]:
     """Pull each of the bank's accounts from the day `since_for` names for its IBAN.
 
-    Answers the pulls and the IBANs `since_for` knew nothing of, which get no
-    fetch. A failed account is a pull with an error, and the others go on, as
-    in the importer. A failed login raises.
+    An account `since_for` answers None for gets no fetch. A failed account is
+    a pull with an error, and the others go on, as in the importer. A failed
+    login raises.
     """
     log.info("[%s] Connecting", bank.name)
     client = make(bank, _load_state(bank.state_path))
     pulls: list[AccountPull] = []
-    unknown: list[str] = []
     with client:
         _resolve_initial_tan(client, interactive=False, sleep=sleep)
         for account in client.get_sepa_accounts():
             since = since_for(account.iban)
             if since is None:
-                unknown.append(account.iban)
                 continue
             pull = AccountPull(account.iban, since, until)
             log.info("[%s] %s: %s to %s", bank.name, account.iban, since, until)
             try:
                 pull.records = _records(client, account, pull, sleep)
-            except (FinTSClientError, BankError) as error:
+            # A TAN timed out on one account fails that account alone: the
+            # others' records and the state saved below are still good.
+            except (FinTSClientError, BankError, TimeoutError) as error:
                 log.error("[%s] %s: %s", bank.name, account.iban, error)
                 pull.error = str(error)
             else:
                 pull.balance = _balance(client, account, sleep)
             pulls.append(pull)
         _save_state(bank.state_path, client.deconstruct(including_private=True))
-    return pulls, unknown
+    return pulls

@@ -11,7 +11,7 @@ authors = [
 requires-python = ">=3.14"
 dependencies = [
     # Pinned exactly: the bank sync works around how 5.0.0 hands back a CAMT
-    # fetch resumed after a TAN (see `fints_bank.fetch_bookings`), and a bump
+    # fetch resumed after a TAN (see `fints_bank._records`), and a bump
     # may change that shape.
     "fints==5.0.0",
     "httpx>=0.28",

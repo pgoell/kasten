@@ -27,9 +27,13 @@ class KastenApi:
         """`GET /api/finance/sync`: the open request, the last run, and every account."""
         return self._json(self.client.get("/api/finance/sync"))
 
-    def accounts(self) -> list[dict[str, Any]]:
-        """`GET /api/finance/accounts`."""
-        return self._json(self.client.get("/api/finance/accounts"))
+    def request_open(self) -> bool:
+        """`GET /api/finance/sync/requests/open`: whether a "pull now" waits."""
+        response = self.client.get("/api/finance/sync/requests/open")
+        if response.status_code == httpx.codes.NOT_FOUND:
+            return False
+        response.raise_for_status()
+        return True
 
     def start_run(self, trigger: str) -> dict[str, Any] | None:
         """Start a run and claim the open requests, or None when another run has them."""

@@ -41,8 +41,11 @@ def to_bookings(bank: str, iban: str, account_id: int, records: list[dict[str, A
     """The bookings for one account's records, in the bank's order, each with its source key.
 
     Records alike in every part of the key, two coffees of one price on one
-    day, get `:0`, `:1` and so on in the order the bank lists them. The index
-    holds still from pull to pull because a window always covers whole days.
+    day, get `:0`, `:1` and so on in the order the bank lists them. The bank
+    picks a window's records by booking date while the key holds the value
+    date, so the index holds still from pull to pull only while twins are
+    booked within the overlap of each other (`bank_sync.window_start`), and
+    the bank lists them by booking date.
     """
     seen: dict[str, int] = {}
     bookings = []

@@ -29,7 +29,11 @@ $EDITOR ~/.config/kasten/bank-sync.env
 ```
 
 Fill in `DKB_LOGIN`, `DKB_PIN`, `PSD_LOGIN` and `PSD_PIN`; the rest has its
-defaults. Drop a bank you do not have from `BANK_SYNC_BANKS`.
+defaults. Write each value bare, `DKB_PIN=12345`, never in quotes: docker's
+`--env-file` keeps quotes as part of the value, and the bank refuses the PIN.
+Drop a bank you do not have from `BANK_SYNC_BANKS`, and list an account the
+bank shows that kasten should not track, such as a depot, in
+`BANK_SYNC_SKIP_IBANS`.
 
 ## 2. Name the command once
 
@@ -52,7 +56,18 @@ Only the state folder is, read-write, because each run writes the state back.
 
 ## 3. Log in to each bank once
 
-With the phone at hand:
+If the Firefly importer ran on this box, its state is already a login: reuse
+it rather than run setup. The job builds its client from the same product id,
+mode, BLZ and login, on python-fints 5.0.0 as the importer did, so the bank
+sees the same client. The importer must stay stopped from here on: two clients
+writing one bank's state fall out of step with the bank.
+
+```sh
+install -m 600 ~/Code/firefly-importer/state/dkb.bin ~/Code/firefly-importer/state/psd.bin \
+  ~/.config/kasten/fints/
+```
+
+Otherwise, with the phone at hand:
 
 ```sh
 bank_sync setup dkb
@@ -93,7 +108,9 @@ Three user units in server-infra's `jobs/`, beside the other jobs there. Every
 minute a poll that ends at once unless "pull now" waits; one pull a day; and a
 check that fails when no pull has succeeded for a week. Each fails into
 `job-failed@.service`, which logs at error priority and stays failed, so
-`systemctl --user --failed` shows it.
+`systemctl --user --failed` shows it. Each stops the job at 25 minutes
+(`TimeoutStartSec=`), short of the 30 minutes after which kasten lets the next
+run start beside an unfinished one.
 
 `kasten-bank-sync-poll.service`:
 
@@ -105,6 +122,11 @@ OnFailure=job-failed@%n.service
 [Service]
 Type=oneshot
 Environment=PATH=/usr/bin:/bin
+TimeoutStartSec=25min
+# Asks kasten first, without a container: a 404 (nothing waits) or no answer
+# fails the condition, which systemd counts as a skip, not a failure.
+ExecCondition=/usr/bin/sg docker -c 'curl -sf -o /dev/null \
+  "http://$$(docker inspect -f "{{.NetworkSettings.Networks.web.IPAddress}}" kasten-backend-prod):8000/api/finance/sync/requests/open"'
 # The image the backend runs, so the job matches its routes after every
 # deploy. `$$` is a literal `$` for the shell, not a systemd variable.
 ExecStart=/usr/bin/sg docker -c 'docker run --rm --network web --user 1000:1000 \
@@ -128,8 +150,10 @@ WantedBy=timers.target
 ```
 
 `kasten-bank-sync.service` is the poll service with `Description=Pull the banks
-into kasten` and `pull` in place of `poll`, and `kasten-bank-sync.timer` runs
-it once a day; pick an hour the phone is at hand:
+into kasten`, `pull` in place of `poll`, and no `ExecCondition=`. Keep
+`TimeoutStartSec=25min`. `kasten-bank-sync.timer` runs it once a day; pick an
+hour the phone is at hand. `OnCalendar=` times are the box's local time,
+Europe/Berlin:
 
 ```ini
 [Timer]
@@ -137,8 +161,9 @@ OnCalendar=*-*-* 17:00
 Persistent=true
 ```
 
-`kasten-bank-sync-check.service` is the same with `check`, and its timer runs
-it at `*-*-* 09:00` with `Persistent=true`. Then:
+`kasten-bank-sync-check.service` is the same with `check`, again with
+`TimeoutStartSec=25min` and no `ExecCondition=`, and its timer runs it at
+`*-*-* 09:00` local time with `Persistent=true`. Then:
 
 ```sh
 systemctl --user daemon-reload

@@ -67,11 +67,14 @@ class FakeClient:
         login_tan: bool = False,
         approve_after: int | None = 1,
         fail: set[str] | None = None,
+        tan_for: set[str] | None = None,
     ) -> None:
         self.answers = answers
         self.init_tan_response = Tan() if login_tan else None
         self.approve_after = approve_after
         self.fail = fail or set()
+        # Accounts whose fetch asks for a push TAN that is never approved.
+        self.tan_for = tan_for or set()
         self.windows: dict[str, tuple[date, date]] = {}
         self.asks = 0
         self.mechanism = "942"
@@ -92,6 +95,8 @@ class FakeClient:
         if account.iban in self.fail:
             msg = "Konto gesperrt"
             raise FinTSClientError(msg)
+        if account.iban in self.tan_for:
+            return Tan()
         return self.answers[account.iban]
 
     def get_balance(self, account: SEPAAccount) -> Balance:

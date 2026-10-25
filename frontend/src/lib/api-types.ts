@@ -1383,6 +1383,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/finance/sync/requests/open": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Open Request
+         * @description The "pull now" that waits, or 404: what the poll unit's `ExecCondition=` asks.
+         */
+        get: operations["read_open_request_api_finance_sync_requests_open_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/finance/sync/requests": {
         parameters: {
             query?: never;
@@ -5172,6 +5192,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SyncStatus"];
+                };
+            };
+        };
+    };
+    read_open_request_api_finance_sync_requests_open_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestOut"];
                 };
             };
         };

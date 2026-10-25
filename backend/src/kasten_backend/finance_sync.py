@@ -28,8 +28,11 @@ once rather than queued behind the first.
 RUN_TIMEOUT = timedelta(minutes=30)
 """How long an unfinished run blocks the next one.
 
-A run waits up to four minutes for each push TAN, a few times over. A run
-older than this died without saying so, and the next one may start.
+A run waits up to four minutes for each push TAN, a few times over, and the
+systemd units stop the job at 25 minutes (`TimeoutStartSec=25min` in
+docs/how-to/run-the-bank-sync.md). So a run older than this is surely dead,
+killed without finishing, and the next one may start. Kept above the unit's
+limit: below it, a slow live run could be joined by a second.
 """
 
 
@@ -47,16 +50,21 @@ class RunFinishedError(ValueError):
 
 async def request_sync(session: AsyncSession) -> SyncRequest:
     """Record a "pull now", or hand back the one still open, so pressing twice asks once."""
-    open_request = await session.scalar(
-        select(SyncRequest).where(SyncRequest.run_id.is_(None)).order_by(SyncRequest.id).limit(1)
-    )
-    if open_request is not None:
-        return open_request
+    waiting = await open_request(session)
+    if waiting is not None:
+        return waiting
     created = SyncRequest()
     session.add(created)
     await session.flush()
     await session.refresh(created)
     return created
+
+
+async def open_request(session: AsyncSession) -> SyncRequest | None:
+    """The oldest "pull now" no run has claimed, or None."""
+    return await session.scalar(
+        select(SyncRequest).where(SyncRequest.run_id.is_(None)).order_by(SyncRequest.id).limit(1)
+    )
 
 
 async def start_run(session: AsyncSession, trigger: str) -> tuple[SyncRun, int]:
