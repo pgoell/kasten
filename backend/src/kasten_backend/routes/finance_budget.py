@@ -117,12 +117,13 @@ class FreePartOut(BaseModel):
 
 
 class ReserveOut(BaseModel):
-    """A plan's reserve: the share set aside this month, the bill it paid, what it holds after."""
+    """A plan's reserve this month: its share, the bill paid, the shortfall, what it holds after."""
 
     plan_id: int
     name: str
     share: Cents
     paid: Cents
+    shortfall: Cents
     balance: Cents
 
 

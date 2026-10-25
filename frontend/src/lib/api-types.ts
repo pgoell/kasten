@@ -1447,8 +1447,9 @@ export interface paths {
          * Move Leftover
          * @description Move part of what the limits left over into the goal: it reserves that much more.
          *
-         *     No more than what is left from the limits in `month`, and the account's
-         *     balance must hold it, so move the money to the saving account first.
+         *     Dated `today`'s month, and no more than the leftover less every move there
+         *     is, so no move can spend what another took. The account's balance must
+         *     hold it too, so move the money to the saving account first.
          */
         post: operations["move_leftover_api_finance_goals__goal_id__leftover_post"];
         delete?: never;
@@ -3240,13 +3241,11 @@ export interface components {
         };
         /**
          * LeftoverIn
-         * @description An amount of what the limits left over, moved into a goal in a month (`YYYY-MM`).
+         * @description An amount of what the limits left over, moved into a goal.
          */
         LeftoverIn: {
             /** Amount */
             amount: number | string;
-            /** Month */
-            month: string;
         };
         /**
          * LimitIn
@@ -3645,7 +3644,7 @@ export interface components {
         };
         /**
          * ReserveOut
-         * @description A plan's reserve: the share set aside this month, the bill it paid, what it holds after.
+         * @description A plan's reserve this month: its share, the bill paid, the shortfall, what it holds after.
          */
         ReserveOut: {
             /** Plan Id */
@@ -3656,6 +3655,8 @@ export interface components {
             share: string;
             /** Paid */
             paid: string;
+            /** Shortfall */
+            shortfall: string;
             /** Balance */
             balance: string;
         };

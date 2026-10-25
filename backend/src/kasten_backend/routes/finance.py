@@ -284,7 +284,7 @@ async def write_transactions(
     await finance_sorting.assign_payees(session, created)
     await finance_sorting.apply_rules(session, created)
     # After the payees, which a plan may match by.
-    await finance_plan_reads.run_matching(session)
+    await finance_plan_reads.run_matching(session, created)
     await session.commit()
     return Ingested(created=len(created), skipped=len(bookings) - len(created), linked=linked)
 

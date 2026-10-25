@@ -7,7 +7,7 @@ the budget's parts. Nothing here commits.
 
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Date, and_, cast, exists, false, func, null, select, union_all, update
+from sqlalchemy import Date, and_, cast, exists, func, null, select, union_all, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import aliased
 
@@ -76,8 +76,9 @@ async def _lines(session: AsyncSession, cutoff: int) -> list[Line]:
         )
         .where(~exists().where(split.transaction_id == booking.id))
     )
+    # A split of a bill a reserve paid is marked as the whole booking would be.
     parts = select(
-        booking.booking_date, booking.account_id, split.amount, split.category_id, null(), false()
+        booking.booking_date, booking.account_id, split.amount, split.category_id, null(), reserved
     ).join(split, split.transaction_id == booking.id)
     rows = union_all(whole, parts).subquery()
     month = cast(func.date_trunc("month", rows.c.day), Date).label("month")

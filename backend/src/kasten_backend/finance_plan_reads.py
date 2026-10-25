@@ -4,9 +4,10 @@ The rules are in `finance_plans` and `finance_proposals`; this turns rows
 into their terms and back. Nothing here commits.
 """
 
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from sqlalchemy import delete, exists, func, select
+from sqlalchemy import delete, exists, func, select, true
 from sqlalchemy.dialects.postgresql import insert
 
 from kasten_backend import finance_models as tables
@@ -59,12 +60,15 @@ async def scopes(session: AsyncSession) -> dict[int, Scope | None]:
     return {a.id: scope_of(Account(a.shared, a.kind)) for a in rows}
 
 
-async def run_matching(session: AsyncSession) -> int:
+async def run_matching(session: AsyncSession, ids: list[int] | None = None) -> int:
     """Match every period of every plan that has no booking yet; how many matched.
 
     Reads only bookings no plan holds and no transfer, since a move between
-    own accounts pays no bill.
+    own accounts pays no bill; with `ids`, only those bookings, the ones a
+    batch just brought in.
     """
+    if ids is not None and not ids:
+        return 0
     plans = await rules(session)
     if not plans:
         return 0
@@ -84,6 +88,7 @@ async def run_matching(session: AsyncSession) -> int:
             booking.booking_date >= first,
             booking.account_id.in_({plan.account for plan in plans}),
             ~exists().where(PlanMatch.transaction_id == booking.id),
+            true() if ids is None else booking.id.in_(ids),
         )
     )
     bookings = [
@@ -108,14 +113,24 @@ async def forget_matches(session: AsyncSession, plan_id: int) -> None:
     await session.execute(delete(PlanMatch).where(PlanMatch.plan_id == plan_id))
 
 
-async def matches(session: AsyncSession) -> dict[tuple[int, dt.date], tables.Transaction]:
+@dataclass(frozen=True)
+class Met:
+    """The booking that met a period: its id, day and amount."""
+
+    id: int
+    day: dt.date
+    amount: Decimal
+
+
+async def matches(session: AsyncSession) -> dict[tuple[int, dt.date], Met]:
     """Every match's booking, by plan and period."""
+    booking = tables.Transaction
     rows = await session.execute(
-        select(PlanMatch.plan_id, PlanMatch.period, tables.Transaction).join(
-            tables.Transaction, tables.Transaction.id == PlanMatch.transaction_id
-        )
+        select(
+            PlanMatch.plan_id, PlanMatch.period, booking.id, booking.booking_date, booking.amount
+        ).join(booking, booking.id == PlanMatch.transaction_id)
     )
-    return {(plan, period): booking for plan, period, booking in rows}
+    return {(plan, period): Met(id_, day, amount) for plan, period, id_, day, amount in rows}
 
 
 async def goal_plans(session: AsyncSession) -> list[GoalPlan]:
@@ -143,7 +158,8 @@ async def book(session: AsyncSession) -> Book:
     return Book(
         plans=await rules(session),
         matched=set(found),
-        paid={key: -booking.amount for key, booking in found.items()},
+        paid={key: -met.amount for key, met in found.items()},
+        paid_on={key: met.day for key, met in found.items()},
         goals=await goal_plans(session),
     )
 
@@ -185,9 +201,13 @@ async def history(session: AsyncSession) -> list[Seen]:
     return [Seen(*row) for row in rows]
 
 
-async def moved_leftovers(session: AsyncSession, month: dt.date) -> Decimal:
-    """What the owner moved of the limits' leftovers into goals, in `month` and before."""
-    found = await session.scalar(
-        select(func.sum(GoalLeftover.amount)).where(GoalLeftover.month <= month)
-    )
-    return found or ZERO
+async def moved_leftovers(session: AsyncSession, month: dt.date | None = None) -> Decimal:
+    """What the owner moved of the limits' leftovers into goals, in `month` and before.
+
+    With no month, every move there is, which is what a new move is checked
+    against: a move dated earlier must not spend money a later one already took.
+    """
+    statement = select(func.sum(GoalLeftover.amount))
+    if month is not None:
+        statement = statement.where(GoalLeftover.month <= month)
+    return await session.scalar(statement) or ZERO

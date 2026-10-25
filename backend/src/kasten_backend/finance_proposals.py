@@ -79,7 +79,9 @@ def _most[T](values: list[T]) -> T:
     return Counter(values).most_common(1)[0][0]
 
 
-def _proposal(key: str, source: Literal["bill", "payee"], name: str, rows: list[Seen]) -> Proposal:
+def _proposal(
+    key: str, source: Literal["bill", "payee"], name: str, rows: list[Seen], every: int
+) -> Proposal:
     usual = Decimal(median(row.amount for row in rows))
     spread = max(abs(row.amount - usual) for row in rows)
     payee = _most([row.payee for row in rows])
@@ -94,7 +96,7 @@ def _proposal(key: str, source: Literal["bill", "payee"], name: str, rows: list[
         amount=usual.quantize(Decimal("0.01")),
         # To the euro above, so a bill that rose by cents still matches.
         tolerance=spread.quantize(Decimal(1), rounding=ROUND_UP),
-        every=every_of(days) or 1,
+        every=every,
         category=_most([row.category for row in rows]),
         start=min(days),
         seen=len(rows),
@@ -102,13 +104,28 @@ def _proposal(key: str, source: Literal["bill", "payee"], name: str, rows: list[
     )
 
 
-def from_bills(history: list[Seen]) -> list[Proposal]:
-    """A proposal per Firefly bill: Firefly matched these bookings to it, every one of them."""
+def _over(rows: list[Seen], every: int, today: dt.date) -> bool:
+    """Whether a habit is over: its last booking more than its gap plus half a month ago."""
+    return (today - max(row.day for row in rows)).days > every * 31 + 15
+
+
+def from_bills(history: list[Seen], today: dt.date) -> list[Proposal]:
+    """A proposal per Firefly bill still paid: Firefly matched these bookings to it.
+
+    The schedule comes from all of the bill's history; the amount from its
+    last 400 days, so a bill that rose is proposed at what it costs now.
+    """
     bills: dict[str, list[Seen]] = {}
     for row in history:
         if row.bill:
             bills.setdefault(row.bill, []).append(row)
-    return [_proposal(f"bill:{name}", "bill", name, rows) for name, rows in sorted(bills.items())]
+    found = []
+    for name, rows in sorted(bills.items()):
+        recent = [row for row in rows if row.day >= today - LOOKBACK]
+        every = every_of([row.day for row in rows]) or 1
+        if recent and not _over(rows, every, today):
+            found.append(_proposal(f"bill:{name}", "bill", name, recent, every))
+    return found
 
 
 def _steady(rows: list[Seen]) -> list[Seen]:
@@ -121,8 +138,9 @@ def _steady(rows: list[Seen]) -> list[Seen]:
 def from_payees(history: list[Seen], today: dt.date) -> list[Proposal]:
     """A proposal per payee paid or paying about the same amount at a steady gap of a month or more.
 
-    Read by payee, account and direction over the last 400 days. A habit whose
-    last booking is more than its gap plus half a month ago is taken as over.
+    Read by payee, account and direction over the last 400 days. A payee
+    booked every three weeks or more often overall is left out, and so is a
+    habit whose last booking is more than its gap plus half a month ago.
     """
     groups: dict[tuple[int, int, bool], list[Seen]] = {}
     for row in history:
@@ -130,13 +148,17 @@ def from_payees(history: list[Seen], today: dt.date) -> list[Proposal]:
             groups.setdefault((row.payee, row.account, row.amount > ZERO), []).append(row)
     found = []
     for (payee, account, incoming), rows in groups.items():
+        # A shop visited every week at the same price is no bill, though its
+        # same-priced visits alone might look monthly.
+        if every_of([row.day for row in rows]) is None:
+            continue
         steady = _steady(rows)
         every = every_of([row.day for row in steady]) if len(steady) >= LEAST_SEEN else None
-        if every is None or (today - max(r.day for r in steady)).days > every * 31 + 15:
+        if every is None or _over(steady, every, today):
             continue
         name = steady[0].payee_name or steady[0].counterparty or "Payee"
         side = "in" if incoming else "out"
-        found.append(_proposal(f"payee:{payee}:{account}:{side}", "payee", name, steady))
+        found.append(_proposal(f"payee:{payee}:{account}:{side}", "payee", name, steady, every))
     return sorted(found, key=lambda p: p.name.casefold())
 
 
@@ -147,7 +169,7 @@ def proposals(
 
     `planned` holds each plan's payee and account, `names` each plan's name casefolded.
     """
-    bills = from_bills(history)
+    bills = from_bills(history, today)
     covered = set(planned) | {(p.payee, p.account) for p in bills if p.payee is not None}
     payees = [p for p in from_payees(history, today) if (p.payee, p.account) not in covered]
     return [

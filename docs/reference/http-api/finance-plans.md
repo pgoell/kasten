@@ -52,7 +52,9 @@ first of the month it was `confirmed` in, from which free to spend reads it.
 
 Makes a plan from the body above, matches it against the bookings, and
 answers it as `GET` does. `today` (`YYYY-MM-DD`) is required: the plan counts
-from that month on, so one made from history leaves past months as they were. A proposal is confirmed by posting it as
+from that month on, so one made from history leaves past months as they were.
+A plan with the same account, payee, text, amount, schedule and start as one
+already there is a `409`, so a second press makes no twin. A proposal is confirmed by posting it as
 `GET /api/finance/plans/proposals` gave it, less its `key`, `source`, `seen`
 and `last`.
 
@@ -89,8 +91,9 @@ the cutoff day pays for, `null` otherwise.
 
 Mine's and household's balance at the end of this month and each of the 11
 after it, by plans alone. `today` (`YYYY-MM-DD`) is required and names this
-month. `balance` is the sum of each scope account's latest bank balance;
-this month adds only the dates no booking has met yet.
+month. `balance` is the sum of each scope account's latest bank balance; a
+date a booking met on or before that balance's day is left out, the balance
+holding it already.
 
 ```json
 {
@@ -110,14 +113,19 @@ paying about the same amount at a steady gap of a month or more. A proposal a
 plan already covers, by its payee and account or by its name, is left out.
 
 * **A Firefly bill**: the bookings the Firefly import kept the bill's name
-  for (`raw.firefly.bill`), all of history. The amount is their median; the
+  for (`raw.firefly.bill`). The schedule comes from all of them, the rest
+  from those of the last 400 days; a bill with none then, or whose last is
+  more than its gap plus half a month ago, is over and left out. The amount
+  is their median; the
   tolerance the furthest any lies from it, rounded up to the euro; the
   account, payee and category those most of them have, and the counterparty
   name as `text` when they have no payee. The schedule is the median gap
   between them in months, rounded to 1, 2, 3, 4, 6 or 12; one booking makes a
   yearly bill. `start` is the first booking's day.
 * **A recurring payee**: bookings of the last 400 days by payee, account and
-  direction, without a Firefly bill. Those within 10 % (at least 1 euro) of
+  direction, without a Firefly bill. A payee booked every three weeks or more
+  often, all its bookings read, is left out, such as a shop. Those within
+  10 % (at least 1 euro) of
   the median count, and need to be 3 or more, at a median gap of 20 days or
   more, the last no longer ago than the gap plus half a month. The rest is
   read as for a bill. A payee a bill proposal covers is left out.
@@ -189,7 +197,8 @@ the cent, and `assigned_month` and `assigned_amount`.
 ## PUT /api/finance/goals/{goal_id}
 
 Replaces a goal, so assigning more of the balance or another contribution is
-one write. `404` for a goal that is not there.
+one write. Only a change that reserves more, or moves the goal to another
+account, is checked against the balance. `404` for a goal that is not there.
 
 ## DELETE /api/finance/goals/{goal_id}
 
@@ -198,7 +207,8 @@ Deletes a goal; what it reserved goes back to unreserved. `204`, or `404`.
 ## POST /api/finance/goals/{goal_id}/assign
 
 Assigns this month's contribution: `reserved` rises by `monthly`, up to the
-target, and the month and amount are recorded. `today` (`YYYY-MM-DD`) is
+target, and the month and amount are recorded, in one conditional write so
+two presses at once assign once. `today` (`YYYY-MM-DD`) is
 required and names the month. A second assign in the same month, or one with
 no contribution left to add, changes nothing; one past the account's balance
 is a `422`. Answers the goal as `POST /goals` does.
@@ -214,10 +224,10 @@ Moves part of what the limits left over into the goal. `today` (`YYYY-MM-DD`)
 is required.
 
 ```json
-{ "amount": "100.00", "month": "2026-11" }
+{ "amount": "100.00" }
 ```
 
-`amount` may be no more than the budget's `unreserved.total` for `month`, and
-the goal's account must hold it as for any reservation; either refusal is a
-`422`. The goal reserves that much more, and the budget's leftover is less by
-it from `month` on. Deleting the goal gives it back.
+The move is dated `today`'s month. `amount` may be no more than what the
+limits left by then less every move there is, and the goal's account must
+hold it as for any reservation; either refusal is a `422`. The goal reserves
+that much more, and the budget's leftover is less by it from that month on. Deleting the goal gives it back.

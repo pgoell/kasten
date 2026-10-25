@@ -12,7 +12,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, Response
 from pydantic import BaseModel, Field
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 
 from kasten_backend import finance_budget as budget
 from kasten_backend import finance_budget_reads as budget_reads
@@ -25,10 +25,8 @@ from kasten_backend.routes.finance import (  # noqa: TC001  FastAPI reads both a
     Session,
 )
 from kasten_backend.routes.finance_budget import (
-    MONTH_PATTERN,
     Cents,
     TodayParam,
-    parse_month,
     parse_when,
 )
 
@@ -64,10 +62,9 @@ class StoredGoalOut(BaseModel):
 
 
 class LeftoverIn(BaseModel):
-    """An amount of what the limits left over, moved into a goal in a month (`YYYY-MM`)."""
+    """An amount of what the limits left over, moved into a goal."""
 
     amount: Annotated[Money, Field(gt=0)]
-    month: Annotated[str, Field(pattern=MONTH_PATTERN)]
 
 
 class ContributionOut(BaseModel):
@@ -104,11 +101,20 @@ class GoalsOut(BaseModel):
     accounts: list[SavingAccountOut]
 
 
-async def _check(session: Session, account_id: int, reserved: Decimal, goal_id: int | None) -> None:
+async def _check(
+    session: Session,
+    account_id: int,
+    reserved: Decimal,
+    goal_id: int | None,
+    *,
+    rises: bool = True,
+) -> None:
     """Refuse an account that is no own saving account, or a reservation past its balance."""
     account = await session.get(Account, account_id)
     if account is None or account.kind != "saving" or account.shared:
         raise HTTPException(status_code=422, detail="A goal lives in an own saving account")
+    if not rises:
+        return
     others = await session.scalar(
         select(func.sum(Goal.reserved)).where(
             Goal.account_id == account_id, Goal.id != (goal_id or 0)
@@ -210,7 +216,10 @@ async def write_goal(body: GoalIn, session: Session) -> StoredGoalOut:
 async def rewrite_goal(goal_id: int, body: GoalIn, session: Session) -> StoredGoalOut:
     """Change a goal: assign more or less of the balance, or another monthly contribution."""
     goal = await _goal(session, goal_id)
-    await _check(session, body.account_id, body.reserved, goal_id)
+    # A balance that fell below what is reserved must not block lowering it or
+    # changing the name; only taking more of an account is checked.
+    rises = body.reserved > goal.reserved or body.account_id != goal.account_id
+    await _check(session, body.account_id, body.reserved, goal_id, rises=rises)
     _fill(goal, body)
     await session.commit()
     return _stored(goal)
@@ -236,9 +245,15 @@ async def assign_contribution(goal_id: int, session: Session, today: TodayParam)
     if goal.assigned_month == month or amount == 0:
         return _stored(goal)
     await _check(session, goal.account_id, goal.reserved + amount, goal_id)
-    goal.reserved += amount
-    goal.assigned_month, goal.assigned_amount = month, amount
+    # Conditional, so two presses at once add the contribution once: the second
+    # finds the month already set and changes nothing.
+    await session.execute(
+        update(Goal)
+        .where(Goal.id == goal_id, Goal.assigned_month.is_distinct_from(month))
+        .values(reserved=Goal.reserved + amount, assigned_month=month, assigned_amount=amount)
+    )
     await session.commit()
+    await session.refresh(goal)
     return _stored(goal)
 
 
@@ -261,15 +276,14 @@ async def move_leftover(
 ) -> StoredGoalOut:
     """Move part of what the limits left over into the goal: it reserves that much more.
 
-    No more than what is left from the limits in `month`, and the account's
-    balance must hold it, so move the money to the saving account first.
+    Dated `today`'s month, and no more than the leftover less every move there
+    is, so no move can spend what another took. The account's balance must
+    hold it too, so move the money to the saving account first.
     """
     goal = await _goal(session, goal_id)
-    month, day = parse_month(body.month), parse_when(today[:7], today)[1]
+    month, day = parse_when(today[:7], today)
     ledger, limits = await budget_reads.ledger(session), await budget_reads.limits(session)
-    left = budget.unreserved(
-        ledger, limits, month, day, await reads.moved_leftovers(session, month)
-    )
+    left = budget.unreserved(ledger, limits, month, day, await reads.moved_leftovers(session))
     if body.amount > left.total:
         raise HTTPException(status_code=422, detail=f"The limits left {left.total} to move")
     await _check(session, goal.account_id, goal.reserved + body.amount, goal_id)

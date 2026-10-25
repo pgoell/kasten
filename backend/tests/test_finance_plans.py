@@ -7,7 +7,7 @@ database in test_finance_plans_model.py.
 
 from typing import TYPE_CHECKING, Any
 
-from backend.tests.finance_rows import API, GIRO, SAVING, booking, category, post
+from backend.tests.finance_rows import API, GIRO, SAVING, booking, category, post, stored
 from backend.tests.test_finance_budget import own
 
 if TYPE_CHECKING:
@@ -80,6 +80,7 @@ async def test_a_plan_matches_its_bill_and_the_reserve_pays_it(finance_client: A
         "name": "Haftpflicht",
         "share": "50.00",
         "paid": "597.00",
+        "shortfall": "0.00",
         "balance": "3.00",
     }
     assert free["total"] == "2950.00"
@@ -142,7 +143,7 @@ async def test_goals_reserve_no_more_than_the_balance_and_contribute_monthly(
         "unreserved": "400.00",
     }
     wedding = read["goals"][0]
-    assert (wedding["progress"], wedding["need"]) == ("0.0500", "1900.00")
+    assert (wedding["progress"], wedding["need"]) == ("0.0500", "1628.58")
     assert wedding["this_month"] == {"planned": "500.00", "moved": "0.00", "done": False}
     free = (await finance_client.get(f"{API}/budget/free", params=TODAY)).json()["mine"]
     assert free["goals"]["total"] == "500.00"
@@ -263,12 +264,44 @@ async def test_a_leftover_moved_into_a_goal_leaves_the_limits_leftover(
     assert left["total"] == "103.00"
     url = f"{API}/goals/{goal['id']}/leftover"
     too_much = await finance_client.post(
-        url, json={"amount": "200", "month": "2026-11"}, params={"today": "2026-11-02"}
+        url, json={"amount": "200"}, params={"today": "2026-11-02"}
     )
     assert too_much.status_code == 422
-    moved = await finance_client.post(
-        url, json={"amount": "100", "month": "2026-11"}, params={"today": "2026-11-02"}
-    )
+    moved = await finance_client.post(url, json={"amount": "100"}, params={"today": "2026-11-02"})
     assert moved.json()["reserved"] == "100.00"
     left = (await finance_client.get(f"{API}/budget", params=month)).json()["unreserved"]
     assert (left["total"], left["moved"]) == ("3.00", "100.00")
+
+
+async def test_the_splits_of_a_bill_its_reserve_paid_count_in_no_spending(
+    finance_client: AsyncClient,
+) -> None:
+    ids = await setup(finance_client)
+    await plan(
+        finance_client, today="2025-11-01", name="Haftpflicht", account_id=ids["giro"],
+        payee_id=ids["payee"], amount="-600.00", tolerance="5.00", every_months=12,
+        category_id=ids["insurance"], start="2026-10-01",
+    )  # fmt: skip
+    bill = (await stored(finance_client))["bill"]["id"]
+    parts = [{"amount": "-300.00"}, {"amount": "-297.00"}]
+    split = await finance_client.put(f"{API}/transactions/{bill}/splits", json=parts)
+    for part in split.json()["splits"]:
+        await finance_client.put(
+            f"{API}/splits/{part['id']}/category", json={"category_id": ids["insurance"]}
+        )
+    free = (await finance_client.get(f"{API}/budget/free", params=TODAY)).json()["mine"]
+    assert free["non_monthly"]["lines"] == []
+
+
+async def test_a_second_press_makes_no_twin_plan(finance_client: AsyncClient) -> None:
+    giro = await own(finance_client, "Giro", GIRO, "giro")
+    body: dict[str, Any] = {
+        "name": "Rent",
+        "account_id": giro,
+        "text": "Miete",
+        "amount": "-900",
+        "start": "2026-10-01",
+    }
+    await plan(finance_client, **body)
+    again = await finance_client.post(f"{API}/plans", json=body, params={"today": "2026-10-10"})
+    assert again.status_code == 409

@@ -86,7 +86,7 @@ Free to spend for mine and household, each with the lines it is made of.
     "saved": "300.00",
     "reserves": {
       "total": "50.00",
-      "lines": [{ "plan_id": 3, "name": "Haftpflicht", "share": "50.00", "paid": "0.00", "balance": "350.00" }]
+      "lines": [{ "plan_id": 3, "name": "Haftpflicht", "share": "50.00", "paid": "0.00", "shortfall": "0.00", "balance": "350.00" }]
     },
     "goals": {
       "total": "200.00",
@@ -101,15 +101,16 @@ Free to spend for mine and household, each with the lines it is made of.
 ```
 
 `total` is income less fixed, flexible, non-monthly, unsorted, saved, the
-reserves' shares and the goals' contributions still to move. A line's
+reserves' shares and shortfalls, and the goals' contributions still to move. A line's
 `category_id` is `null` for the move between mine and household,
 `Into the shared account` on mine and `From mine` on household. `basis` says
 whether `counted` is what happened so far, the average, or (`plan`) what it
 cost so far plus its plans still to come.
 
 `reserves` has a line per plan that sets money aside: its `share` this month,
-the bill it `paid` this month, and the `balance` it holds at the month's end,
-which may be below zero. `goals` has a line per goal with a contribution this
+the bill it `paid` this month, the `shortfall` that bill cost past what was
+set aside, and the `balance` it holds at the month's end. `total` is the
+shares; the shortfalls come off `total` of free to spend as well. `goals` has a line per goal with a contribution this
 month, on mine only; `total` is `planned` less `moved` over them while the
 month runs, and `0.00` once it is over. Plans and goals have their own
 routes, [HTTP API: finance plans and goals](/reference/http-api/finance-plans.md).

@@ -101,15 +101,28 @@ def fits(plan: Plan, booking: Booking) -> bool:
 Index = dict[tuple[int, dt.date], list[Booking]]
 
 
-def _nearest(
-    plan: Plan, due: dt.date, months: list[dt.date], by_month: Index, taken: set[int]
+NEAR_DAYS = 20
+"""How far from its date a bill paid in the month before or after may lie and still meet it."""
+
+
+def _nearest(  # noqa: PLR0913  each part of the search is its own argument
+    plan: Plan,
+    due: dt.date,
+    months: list[dt.date],
+    by_month: Index,
+    taken: set[int],
+    *,
+    days: int | None = None,
 ) -> Booking | None:
-    """Of the fitting bookings in `months` no plan took, the nearest the date, then the amount."""
+    """Of the fitting bookings in `months` no plan took, the nearest the date, then the amount.
+
+    With `days`, only those that many days from the date or fewer.
+    """
     fitting = [
         b
         for month in months
         for b in by_month.get((plan.account, month), [])
-        if b.id not in taken and fits(plan, b)
+        if b.id not in taken and fits(plan, b) and (days is None or abs((b.day - due).days) <= days)
     ]
     if not fitting:
         return None
@@ -123,7 +136,8 @@ def match(
 
     A period is the calendar month a date falls due in. First every open
     period takes a booking of its own month; then a period still open takes
-    one of the month before or after, a bill paid early or late. Of several,
+    one of the month before or after within 20 days of the date, a bill paid
+    early or late. Of several,
     the one nearest the date wins, then the one nearest the amount.
     `bookings` are those no plan holds yet; each goes to one plan at most,
     the plans taking turns by id.
@@ -149,7 +163,7 @@ def match(
         for plan, due in dues:
             period = due.replace(day=1)
             months = [add_months(period, -1), add_months(period, 1)] if near else [period]
-            best = _nearest(plan, due, months, by_month, taken)
+            best = _nearest(plan, due, months, by_month, taken, days=NEAR_DAYS if near else None)
             if best is None:
                 still_open.append((plan, due))
                 continue
@@ -159,32 +173,35 @@ def match(
     return found
 
 
-def shares_until(plan: Plan, month: dt.date) -> int:
-    """How many monthly shares the plan set aside up to and with `month`.
+def next_due(plan: Plan, month: dt.date) -> dt.date | None:
+    """The first date the plan falls due in `month` or after, none past its end."""
+    found = due_dates(plan, month, add_months(month, (plan.every or 1) + 1))
+    return found[0] if found else None
 
-    Each date takes the `every` months up to and with its own month, so the
-    reserve holds the whole bill by the time it comes: a yearly bill due in
-    March sets aside from April the year before. None before the month the
-    plan was confirmed in.
+
+def saving_from(plan: Plan) -> dt.date:
+    """The first month a reserving plan sets aside in.
+
+    The `every` months up to its first date, or the month it was confirmed in
+    when that is later.
     """
-    if not plan.reserves or plan.every is None:
-        return 0
-    first = max(add_months(plan.start.replace(day=1), 1 - plan.every), plan.confirmed)
-    last = month
-    if plan.end is not None:
-        dates = due_dates(plan, plan.start, plan.end)
-        last = min(month, dates[-1].replace(day=1)) if dates else first
-    return max(0, months_between(first, last) + 1) if last >= first else 0
+    every = plan.every or 1
+    return max(add_months(plan.start.replace(day=1), 1 - every), plan.confirmed)
 
 
 @dataclass(frozen=True)
 class Reserve:
-    """A plan's reserve in a month: the share set aside, what it paid, and what it holds after."""
+    """A plan's reserve in a month: what it set aside, paid, lacked, and holds after.
+
+    `shortfall` is what the bill cost past what was set aside, which comes off
+    free to spend that month.
+    """
 
     plan_id: int
     name: str
     share: Decimal
     paid: Decimal
+    shortfall: Decimal
     balance: Decimal
 
 
@@ -250,35 +267,50 @@ class Book:
     matched: set[tuple[int, dt.date]] = field(default_factory=set)
     paid: dict[tuple[int, dt.date], Decimal] = field(default_factory=dict)
     goals: list[GoalPlan] = field(default_factory=list)
+    # The day of the booking that met each period, so the forecast knows whether
+    # the bank balance it starts from already holds it.
+    paid_on: dict[tuple[int, dt.date], dt.date] = field(default_factory=dict)
 
     def upcoming(self, plan: Plan, month: dt.date) -> list[dt.date]:
         """The dates the plan falls due in `month` that no booking met yet."""
         return [due for due in due_in(plan, month) if (plan.id, month) not in self.matched]
 
     def reserve(self, plan: Plan, month: dt.date) -> Reserve:
-        """A reserving plan's month: its share, what it paid, and its balance at month end."""
-        paid_before = sum(
-            (
-                amount
-                for (pid, at), amount in self.paid.items()
-                if pid == plan.id and plan.confirmed <= at <= month
-            ),
-            ZERO,
-        )
-        took = shares_until(plan, month) > shares_until(plan, add_months(month, -1))
-        share = plan.share if took else ZERO
-        return Reserve(
-            plan.id,
-            plan.name,
-            share,
-            self.paid.get((plan.id, month), ZERO) if month >= plan.confirmed else ZERO,
-            plan.share * shares_until(plan, month) - paid_before,
-        )
+        """A reserving plan's month, walked from the first month it sets aside in.
+
+        Each month sets aside what the next bill still lacks over the months
+        left to it, this one included, so a plan made late catches up and the
+        whole bill is there in its month. A bill that costs more than was set
+        aside takes the rest off free to spend as `shortfall`; one that costs
+        less leaves the rest for the next.
+        """
+        bill = -plan.amount
+        balance = ZERO
+        found = Reserve(plan.id, plan.name, ZERO, ZERO, ZERO, ZERO)
+        at = saving_from(plan)
+        while at <= month:
+            due = next_due(plan, at)
+            share = ZERO
+            if due is not None:
+                left = months_between(at, due.replace(day=1)) + 1
+                share = max(ZERO, (bill - balance) / left).quantize(CENT, rounding=ROUND_UP)
+            balance += share
+            paid = self.paid.get((plan.id, at), ZERO)
+            shortfall = max(ZERO, paid - balance)
+            balance = max(ZERO, balance - paid)
+            found = Reserve(plan.id, plan.name, share, paid, shortfall, balance)
+            at = add_months(at, 1)
+        return found
 
 
 def monthly_need(target: Decimal, reserved: Decimal, due: dt.date, today: dt.date) -> Decimal:
-    """What must go in each month from this one on to reach the target by the due month."""
-    months = max(1, months_between(today.replace(day=1), due.replace(day=1)))
+    """What must go in each month from this one up to and with the due month to reach the target.
+
+    The due month counts, as it does for the goal's contribution in free to spend.
+    """
+    months = months_between(today.replace(day=1), due.replace(day=1)) + 1
+    if months < 1:
+        return max(ZERO, target - reserved)
     return max(ZERO, (target - reserved) / months).quantize(CENT, rounding=ROUND_UP)
 
 
@@ -292,22 +324,34 @@ class ForecastMonth:
     balance: Decimal
 
 
-def forecast(
-    book: Book, scope: Scope, balance: Decimal, month: dt.date, count: int = FORECAST_MONTHS
+def forecast(  # noqa: PLR0913  each input of the forecast is its own argument
+    book: Book,
+    scope: Scope,
+    balance: Decimal,
+    month: dt.date,
+    as_of: dict[int, dt.date],
+    *,
+    count: int = FORECAST_MONTHS,
 ) -> list[ForecastMonth]:
     """The balance month by month from `month`, from today's bank balance and the plans alone.
 
-    This month counts only what no booking met yet, since the bank balance
-    already holds what did. Flexible spending has no plan, so it is not in it.
+    A date counts unless a booking met it on or before the day of its
+    account's bank balance (`as_of`), which already holds that booking.
+    Flexible spending has no plan, so it is not in it.
     """
+
+    def held(plan: Plan, at: dt.date) -> bool:
+        paid = book.paid_on.get((plan.id, at))
+        return paid is not None and paid <= as_of.get(plan.account, dt.date.min)
+
     found = []
     for step in range(count):
         at = add_months(month, step)
         moves = [
             plan.amount
             for plan in book.plans
-            if plan.scope == scope
-            for _ in book.upcoming(plan, at)
+            if plan.scope == scope and not held(plan, at)
+            for _ in due_in(plan, at)
         ]
         planned_in = sum((m for m in moves if m > 0), ZERO)
         planned_out = -sum((m for m in moves if m < 0), ZERO)

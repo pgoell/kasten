@@ -2979,7 +2979,7 @@
     "/api/finance/goals/{goal_id}/leftover": {
       "post": {
         "summary": "Move Leftover",
-        "description": "Move part of what the limits left over into the goal: it reserves that much more.\n\nNo more than what is left from the limits in `month`, and the account's\nbalance must hold it, so move the money to the saving account first.",
+        "description": "Move part of what the limits left over into the goal: it reserves that much more.\n\nDated `today`'s month, and no more than the leftover less every move there\nis, so no move can spend what another took. The account's balance must\nhold it too, so move the money to the saving account first.",
         "operationId": "move_leftover_api_finance_goals__goal_id__leftover_post",
         "parameters": [
           {
@@ -6853,20 +6853,14 @@
               }
             ],
             "title": "Amount"
-          },
-          "month": {
-            "type": "string",
-            "pattern": "^[0-9]{4}-[0-9]{2}$",
-            "title": "Month"
           }
         },
         "type": "object",
         "required": [
-          "amount",
-          "month"
+          "amount"
         ],
         "title": "LeftoverIn",
-        "description": "An amount of what the limits left over, moved into a goal in a month (`YYYY-MM`)."
+        "description": "An amount of what the limits left over, moved into a goal."
       },
       "LimitIn": {
         "properties": {
@@ -7837,6 +7831,11 @@
             "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Paid"
           },
+          "shortfall": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Shortfall"
+          },
           "balance": {
             "type": "string",
             "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
@@ -7849,10 +7848,11 @@
           "name",
           "share",
           "paid",
+          "shortfall",
           "balance"
         ],
         "title": "ReserveOut",
-        "description": "A plan's reserve: the share set aside this month, the bill it paid, what it holds after."
+        "description": "A plan's reserve this month: its share, the bill paid, the shortfall, what it holds after."
       },
       "ReservesOut": {
         "properties": {

@@ -32,7 +32,6 @@ from kasten_backend.finance_plans import (
     forecast,
     match,
     monthly_need,
-    shares_until,
 )
 from kasten_backend.finance_proposals import Seen, every_of, proposals
 
@@ -112,12 +111,14 @@ def test_of_two_bookings_the_one_nearest_the_date_matches_and_each_matches_once(
     assert found == [(1, dt.date(2026, 1, 1), 11), (2, dt.date(2026, 1, 1), 10)]
 
 
-def test_a_yearly_plan_sets_aside_twelve_shares_up_to_its_bill() -> None:
+def test_a_yearly_plan_sets_aside_a_twelfth_each_month_up_to_its_bill() -> None:
     insurance = plan(amount="-600", every=12, start=dt.date(2027, 3, 1))
     assert insurance.share == Decimal(50)
-    assert shares_until(insurance, dt.date(2026, 3, 1)) == 0
-    assert shares_until(insurance, dt.date(2026, 4, 1)) == 1
-    assert shares_until(insurance, dt.date(2027, 3, 1)) == 12
+    book = Book(plans=[insurance])
+    assert book.reserve(insurance, dt.date(2026, 3, 1)).share == 0
+    assert book.reserve(insurance, dt.date(2026, 4, 1)).share == Decimal(50)
+    march = book.reserve(insurance, dt.date(2027, 3, 1))
+    assert (march.share, march.balance) == (Decimal(50), Decimal(600))
 
 
 def test_free_to_spend_takes_the_share_and_the_bill_comes_out_of_the_reserve() -> None:
@@ -133,14 +134,36 @@ def test_free_to_spend_takes_the_share_and_the_bill_comes_out_of_the_reserve() -
     assert ledger(paid).spent(OCT, TRIPS) == Decimal(1200)
 
 
-def test_a_fixed_category_with_a_plan_counts_what_it_cost_and_its_dates_still_to_come() -> None:
+def test_a_fixed_category_with_a_plan_counts_its_cost_and_dates_to_come_or_its_average() -> None:
     book = Book(plans=[plan(1, "-900"), plan(2, "-50", start=dt.date(2026, 1, 20))])
     book.matched.add((1, OCT))
-    lines = [line(back, GIRO, "-2000", RENT) for back in (-2, -1)] + [line(0, GIRO, "-900", RENT)]
-    free = free_to_spend(ledger(*lines), "mine", OCT, TODAY, book)
+    usual = [line(back, GIRO, "-900", RENT) for back in (-2, -1)] + [line(0, GIRO, "-900", RENT)]
+    free = free_to_spend(ledger(*usual), "mine", OCT, TODAY, book)
     assert [(p.name, p.counted, p.basis) for p in free.fixed] == [("Rent", Decimal(950), "plan")]
-    # Without plans the average of 2000 would have counted.
-    assert free_to_spend(ledger(*lines), "mine", OCT, TODAY).fixed[0].counted == Decimal(2000)
+    # An average above what the plans expect says a cost has no plan yet.
+    dear = [line(back, GIRO, "-2000", RENT) for back in (-2, -1)] + [line(0, GIRO, "-900", RENT)]
+    free = free_to_spend(ledger(*dear), "mine", OCT, TODAY, book)
+    assert [(p.counted, p.basis) for p in free.fixed] == [(Decimal(2000), "average")]
+
+
+def test_a_reserving_plan_on_a_fixed_category_leaves_it_so_far_only() -> None:
+    water = dataclasses.replace(plan(1, "-300", every=3, start=OCT), confirmed=OCT)
+    history = [line(back, GIRO, "-100", RENT) for back in (-3, -2, -1)]
+    free = free_to_spend(ledger(*history), "mine", OCT, TODAY, Book(plans=[water]))
+    # The bills in the average would count beside the reserve's share otherwise.
+    assert [(p.counted, p.basis) for p in free.fixed] == []
+    assert free.reserved == Decimal(300)
+
+
+def test_a_bill_past_its_reserve_takes_the_rest_off_free_to_spend() -> None:
+    trip = dataclasses.replace(plan(1, "-1200", every=12, start=OCT, category=TRIPS), confirmed=OCT)
+    book = Book(plans=[trip], matched={(1, OCT)}, paid={(1, OCT): Decimal(1300)})
+    reserve = book.reserve(trip, OCT)
+    # Confirmed in its own month, the whole bill is this month's share.
+    assert (reserve.share, reserve.shortfall, reserve.balance) == (Decimal(1200), Decimal(100), 0)
+    paid = Line(month(0), GIRO, Decimal(-1300), TRIPS, reserved=True)
+    free = free_to_spend(ledger(line(0, GIRO, "3000", SALARY), paid), "mine", OCT, TODAY, book)
+    assert free.total == Decimal(1700)
 
 
 def test_a_goal_takes_its_contribution_until_it_has_moved_and_not_twice() -> None:
@@ -156,16 +179,22 @@ def test_a_goal_takes_its_contribution_until_it_has_moved_and_not_twice() -> Non
 
 
 def test_the_need_spreads_what_is_left_over_the_months_to_the_due_month() -> None:
+    # October to March, both in: six months.
     need = monthly_need(Decimal(6000), Decimal(1000), dt.date(2027, 3, 1), TODAY)
-    assert need == Decimal(1000)
+    assert need == Decimal("833.34")
 
 
 def test_the_forecast_adds_the_plans_still_to_come_to_the_bank_balance() -> None:
     pay = plan(1, "3000", payee=None, text="Lohn", category=SALARY)
     rent = plan(2, "-900")
     book = Book(plans=[pay, rent, plan(3, "-40", category=GROCERIES)], matched={(1, OCT)})
-    months = forecast(book, "mine", Decimal(1000), OCT, 2)
+    book.paid_on[1, OCT] = dt.date(2026, 10, 1)
+    # The bank balance of 5 October holds the pay of the 1st.
+    months = forecast(book, "mine", Decimal(1000), OCT, {GIRO: dt.date(2026, 10, 5)}, count=2)
     assert [m.balance for m in months] == [Decimal(60), Decimal(2120)]
+    # One from 30 September does not, so the pay still counts.
+    months = forecast(book, "mine", Decimal(1000), OCT, {GIRO: dt.date(2026, 9, 30)}, count=1)
+    assert [m.balance for m in months] == [Decimal(3060)]
 
 
 def seen(day: dt.date, amount: str, payee: int | None = 3, bill: str | None = None) -> Seen:
@@ -183,13 +212,13 @@ def test_proposals_read_firefly_bills_and_payees_paid_monthly_leaving_out_planne
     ]
     found = proposals(history, TODAY, planned={(4, GIRO)}, names=set())
     assert [(p.source, p.name, p.every, p.amount, p.tolerance) for p in found] == [
-        ("bill", "Haftpflicht", 12, Decimal("-486.00"), Decimal(6)),
+        ("bill", "Haftpflicht", 12, Decimal("-492.00"), Decimal(0)),
         ("payee", "Netflix", 1, Decimal("-13.99"), Decimal(0)),
     ]
 
 
 def test_a_bill_a_month_early_or_late_meets_a_date_its_own_month_left_open() -> None:
-    rent, insurance = plan(1, start=dt.date(2026, 9, 1)), plan(2, "-600", 12, dt.date(2026, 9, 1))
+    rent, insurance = plan(1, start=dt.date(2026, 9, 1)), plan(2, "-600", 12, dt.date(2026, 9, 15))
     found = match(
         [rent, insurance],
         [
@@ -211,8 +240,11 @@ def test_a_plan_confirmed_late_sets_aside_from_then_and_leaves_earlier_months() 
         plan(1, "-1200", every=12, start=dt.date(2027, 3, 1), category=TRIPS),
         confirmed=OCT,
     )
-    assert shares_until(late, dt.date(2026, 9, 1)) == 0
-    assert shares_until(late, dt.date(2027, 3, 1)) == 6
+    book = Book(plans=[late])
+    assert book.reserve(late, dt.date(2026, 9, 1)).share == 0
+    # Six months from October to the March bill, so a sixth each, not a twelfth.
+    march = book.reserve(late, dt.date(2027, 3, 1))
+    assert (march.share, march.balance) == (Decimal(200), Decimal(1200))
     rent = dataclasses.replace(plan(2, "-900"), confirmed=OCT)
     lines = [line(-1, GIRO, "-2000", RENT)]
     book = Book(plans=[rent])

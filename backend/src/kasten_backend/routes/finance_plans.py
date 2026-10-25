@@ -17,7 +17,7 @@ from sqlalchemy.exc import IntegrityError
 from kasten_backend import finance_budget_reads as budget_reads
 from kasten_backend import finance_plan_reads as reads
 from kasten_backend.finance_ledger import SCOPES, add_months
-from kasten_backend.finance_models import Category, Transaction
+from kasten_backend.finance_models import Category
 from kasten_backend.finance_plan_models import Plan
 from kasten_backend.finance_plans import due_in, forecast
 from kasten_backend.finance_proposals import proposals
@@ -191,6 +191,19 @@ async def write_plan(body: PlanIn, session: Session, today: TodayParam) -> PlanO
     It counts in free to spend from the reader's month on, so a plan made
     from history leaves the months before as they were.
     """
+    twin = await session.scalar(
+        select(Plan.id).where(
+            Plan.account_id == body.account_id,
+            Plan.payee_id.is_not_distinct_from(body.payee_id),
+            Plan.text.is_not_distinct_from(body.text),
+            Plan.amount == body.amount,
+            Plan.every_months.is_not_distinct_from(body.every_months),
+            Plan.start_date == body.start,
+        )
+    )
+    # A second press, or a proposal confirmed twice, makes no twin.
+    if twin is not None:
+        raise HTTPException(status_code=409, detail="That plan is already there")
     plan = Plan(confirmed=parse_when(today[:7], today)[0])
     _fill(plan, body)
     session.add(plan)
@@ -218,8 +231,8 @@ async def delete_plan(plan_id: int, session: Session) -> Response:
     return Response(status_code=204)
 
 
-def _timing(booking: Transaction, period: dt.date) -> Literal["on_time", "early", "late"]:
-    month = booking.booking_date.replace(day=1)
+def _timing(met: reads.Met, period: dt.date) -> Literal["on_time", "early", "late"]:
+    month = met.day.replace(day=1)
     if month == period:
         return "on_time"
     return "early" if month < period else "late"
@@ -240,7 +253,7 @@ async def read_upcoming(session: Session, month: MonthParam) -> list[DueOut]:
             if booking is None
             else MatchOut(
                 transaction_id=booking.id,
-                booking_date=booking.booking_date,
+                booking_date=booking.day,
                 amount=booking.amount,
                 timing=_timing(booking, first),
             )
@@ -276,7 +289,8 @@ async def read_forecast(session: Session, today: TodayParam) -> ForecastOut:
             (amount for account, (_, amount) in banks.items() if scoped.get(account) == scope),
             Decimal(0),
         )
-        months = forecast(book, scope, balance, first)
+        as_of = {account: day for account, (day, _) in banks.items()}
+        months = forecast(book, scope, balance, first, as_of)
         out[scope] = ScopeForecastOut(
             balance=balance,
             months=[

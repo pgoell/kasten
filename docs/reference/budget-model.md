@@ -99,6 +99,7 @@ free to spend = income expected
               - unsorted spending so far
               - moved to saving so far
               - reserved for plans
+              - reserve shortfalls
               - goal contributions still to move
 ```
 
@@ -112,8 +113,11 @@ reserve set its share aside in the months before.
   not raise every month after it.
 * **Fixed costs**: for a fixed category with a plan in this scope, what it
   cost so far plus each of its plans' dates this month that no booking met
-  yet, at the plan's amount (`basis` `plan`). A plan that reserves is left out
-  here, since its bill comes out of the reserve. For every other fixed
+  yet, at the plan's amount (`basis` `plan`), or its average when that is
+  larger (`basis` `average`): a cost no plan names yet still comes. A plan
+  that reserves is left out here, since its bill comes out of the reserve,
+  and a fixed category one reserves for counts what it cost so far and no
+  average, which holds its bills from before. For every other fixed
   category, and on mine for "Into the shared account", the larger of what it
   cost so far this month and its average over the last 6 months. A cost that
   has not come yet is still counted.
@@ -121,6 +125,8 @@ reserve set its share aside in the months before.
 * **Moved to saving**: what moved into an own saving account so far, less
   what came back, plus spending in a `saving` category.
 * **Reserved for plans**: each reserving plan's monthly share, below.
+* **Reserve shortfalls**: what a bill paid this month cost past what its
+  reserve held, below.
 * **Goal contributions still to move**: on mine, each goal's planned monthly
   contribution less what of it moved into the goal's account so far; below.
 
@@ -133,7 +139,7 @@ there is no average, and a line counts what happened so far.
 A month that is over estimates nothing: each line counts what happened.
 
 The answer gives each line with its `so_far`, its `average`, the figure it
-`counted` and the `basis` of that figure (`so_far` or `average`), so the
+`counted` and the `basis` of that figure (`so_far`, `average` or `plan`), so the
 overview can say what the number is made of.
 
 ## Plans
@@ -149,7 +155,7 @@ text in its purpose or counterparty name (any case), and its amount lies
 within the tolerance of the plan's. Every open period, the calendar month a
 date falls in, first takes a booking of its own month; a period still open
 after that takes one from the month before (paid early) or after (paid
-late). Of several, the one nearest the date wins, then the one nearest the
+late) no more than 20 days from the date. Of several, the one nearest the date wins, then the one nearest the
 amount, and each booking meets one plan once. Matches are stored: they are made when
 bookings come in and when a plan is made or changed (a changed plan loses its
 matches and is matched afresh), never on a read. A date no booking met is
@@ -159,22 +165,27 @@ which month it counts for.
 **Confirmed.** A plan counts in free to spend from the month it was made or
 confirmed in, never before: neither its reserve shares nor its fixed cost
 change the months already gone. Matching still links its bookings from its
-start, so the dates of past months show their ticks.
+start, so the dates of past months show their ticks. Changing or deleting a
+plan has no history of its own: the plan as it now stands is read for every
+month from its confirmation on, so an edit changes those months too.
 
-**Reserves.** A cost that comes every 2 months or more reserves: each month it
-takes its share, the amount over the months between two dates rounded up to
-the cent, off free to spend. Each date takes the shares of the months up to
-and with its own month, so a yearly bill due in March sets aside from the
-April before; a plan confirmed later starts setting aside in that month, so
-its first bill finds less than the whole amount. The reserve's balance at a
-month's end is the shares since it was confirmed less the bills its matches
-paid since then; it goes below zero when a bill costs more
-than was set aside. The booking that paid the bill counts in no spending part
-of free to spend, but the budget's categories still count it as spent.
+**Reserves.** A cost that comes every 2 months or more reserves. Its reserve
+is walked month by month from the `every` months before its first date, or
+from the month it was confirmed in when that is later. Each month sets aside
+what the next bill still lacks over the months left to it, this one
+included, rounded up to the cent: a twelfth of a yearly bill when the reserve
+starts in time, more when a plan was confirmed late, and the whole bill when
+it is due in the month the reserve starts. That share comes off free to
+spend. The bill a match paid comes out of the reserve; what it cost past what
+the reserve held is the month's `shortfall`, which comes off free to spend in
+the bill's month, and what a cheaper bill left stays for the next. The
+booking that paid the bill, or its splits, counts in no spending part of free
+to spend, but the budget's categories still count it as spent.
 
 **Forecast.** Each scope's balance for this month and the 11 after it starts
 at the sum of its accounts' latest bank balances and adds every plan's dates
-in the scope, this month only those no booking met. Flexible spending and goal
+in the scope, but a date a booking met on or before the day of its account's
+latest bank balance, which already holds it. Flexible spending and goal
 contributions have no plan, so they are not in it.
 
 ## Goals
@@ -184,7 +195,8 @@ assigns part of the account's latest bank balance to it as `reserved`; the
 goals of one account together may reserve no more than that balance, and
 what is left is the account's unreserved. Progress is reserved over target.
 The monthly need is what is left of the target over the months from this one
-to the due month, at least one, rounded up to the cent.
+up to and with the due month, rounded up to the cent; the due month is the
+last a contribution comes off free to spend in.
 
 The money reserved is already in the saving account, so it is off free to
 spend from the day it moved. What comes off free to spend is the goal's
@@ -194,6 +206,10 @@ what moved into the goal's account this month (`saved_into`) fills its goals
 in order of due date, and only what is still to move comes off, on top of
 moved to saving. A month that is over counts what moved, and nothing still to
 move.
+
+A balance that fell below what its goals reserve shows on the account's line;
+lowering a reservation or renaming a goal is still allowed then, and only a
+change that takes more of an account is checked against its balance.
 
 Assigning is the owner's step, and happens once a month: it raises
 `reserved` by the monthly contribution, up to the target and within the
@@ -205,8 +221,9 @@ saving account's unreserved: what the limits left of the spending accounts'
 money. The pane calls the first "left from limits" and the second "not
 reserved on" the account. Moving part of the leftover into a goal raises the
 goal's `reserved` by it, within the account's balance (so move the money to
-the saving account first), and records the move, which comes off the
-leftover from that month on.
+the saving account first), and records the move in the reader's month, which
+comes off the leftover from that month on. A move may take no more than the
+leftover less every move there is, so none spends what another took.
 
 ## Limits
 
