@@ -22,6 +22,7 @@ on its code.
 * [Recover an earlier version of a note](recover-an-earlier-version.md): read back or restore a note as it was before a save overwrote it, from the history pane or with jj
 * [Regenerate the API types](regenerate-the-api-types.md): rebuild the frontend's TypeScript types after changing a backend endpoint
 * [Review an area for deep modules](review-an-area-for-deep-modules.md): list one area's files and who imports them, ask of each whether it hides work or only passes calls on, and file what should merge or move as refactor issues
+* [Run the bank sync](run-the-bank-sync.md): set up the bank sync on the server with its env file and FinTS state in `~/.config/kasten`, log in to each bank once, start it on systemd timers, ask for a pull now, and read the status
 * [Run the checks](run-the-checks.md): run the linters, tests and type checks, and get past the two ways the git hooks go wrong
 * [Self-host kasten](self-host-kasten.md): run kasten on one machine of your own, amd64 or arm64, behind basic auth, oauth2-proxy or Tailscale
 * [Run a skill from the chat pane](run-a-skill-from-the-chat-pane.md): open the chat pane, start `/close-day` or `/process-meeting`, answer a question, read a tool call, stop a run and start a new session, at a desk and on a phone

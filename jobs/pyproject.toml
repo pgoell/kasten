@@ -1,0 +1,25 @@
+[project]
+name = "kasten-jobs"
+# Ships inside the backend image and moves with its release, so it carries no
+# version of its own to keep in step.
+version = "0.0.0"
+description = "Jobs on the host that gather data for kasten and write it through the HTTP API"
+license = "AGPL-3.0-only"
+authors = [
+    { name = "pgoell", email = "pascal98kraus@gmail.com" }
+]
+requires-python = ">=3.14"
+dependencies = [
+    # Pinned exactly: the bank sync works around how 5.0.0 hands back a CAMT
+    # fetch resumed after a TAN (see `fints_bank.fetch_bookings`), and a bump
+    # may change that shape.
+    "fints==5.0.0",
+    "httpx>=0.28",
+]
+
+[project.scripts]
+kasten-bank-sync = "kasten_jobs.bank_sync:main"
+
+[build-system]
+requires = ["uv_build>=0.9,<0.12.0"]
+build-backend = "uv_build"

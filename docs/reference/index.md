@@ -5,7 +5,7 @@ is there and do not teach; for that, read a [tutorial](/tutorials/index.md) or a
 [how-to guide](/how-to/index.md).
 
 * [mise tasks](mise-tasks.md): every task defined in mise.toml, by group
-* [HTTP API](http-api.md): every endpoint the backend serves, with its response shape, the folders `GET /api/layout` names, the addresses `GET /api/fetch` refuses, and the finance routes host jobs write through and that sort bookings
+* [HTTP API](http-api.md): every endpoint the backend serves, with its response shape, the folders `GET /api/layout` names, the addresses `GET /api/fetch` refuses, the finance routes host jobs write through and that sort bookings, and the sync routes behind "pull now"
 * [Note frontmatter](note-frontmatter.md): the YAML block every note carries, which fields kasten manages, when they are written, and the two filenames that get no block at all
 * [Exam format](exam-format.md): the note a practice exam is written in, every part it can carry, the two shapes a question takes, the two places an answer goes, what a sitting scores, and where the result note lands
 * [Flashcard format](flashcard-format.md): the two ways a card is written and the cloze, the comment holding its schedule, the tags that put a note and a single card in a deck, how a deck sits inside another, the frontmatter a whole note under review carries, the keys a sitting takes, its Undo and Center, and the daily limits on new cards and reviews
@@ -21,6 +21,7 @@ is there and do not teach; for that, read a [tutorial](/tutorials/index.md) or a
 * [Agent API](agent-api.md): the routes an agent outside the box reaches the vault with, the bearer rule in front of them, what a digest means, and the origin check on the consent step
 * [Chat runner](chat-runner.md): the process the chat pane talks to: its five routes, the events it streams, the check every post must pass, the options it starts Claude Code with, where its files live, and how a run is signed in and billed
 * [GitHub settings](github-settings.md): the three `KASTEN_GITHUB_*` settings that switch on the year and week review's GitHub section, and the cache of the days read
+* [Bank sync](bank-sync.md): the bank sync job's commands and exit codes, its env file, the files it keeps on the server, where each window starts, and the source key a booking is stored by, which the Firefly import computes alike
 * [Configuration](configuration.md): every backend setting and compose variable with its default, the self-host stack's included, the folders a vault can name for itself, the startup type pass, and the shell container: the `JJ_USER` and `JJ_EMAIL` it reads, the uid it runs as and the Claude Code it installs on first start
 * [Reverse-proxy routes](reverse-proxy-routes.md): every path the proxy in front of kasten routes, which carry the login gate, and the event stream and WebSocket rules
 * [Requirements](requirements.md): the machine, ports, memory and disk the self-host stack needs

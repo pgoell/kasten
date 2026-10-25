@@ -16,6 +16,9 @@ oauth2-proxy.
   git, curl, jq, Claude Code, codex and dsh beside it. `shell/chat/` is the
   runner the chat pane talks to. It publishes no port, the way in being a Caddy
   `handle /term/*` and `handle /chat/*` behind oauth2-proxy.
+- `jobs/`: the jobs that run on the host and write into kasten through its
+  HTTP API, such as the bank sync. They ship in the backend image and run as
+  one-shot containers; their secrets and state stay on the server.
 - `vault/`: the notes, and a colocated jj repo holding their history.
 - `plugins/`: the Claude Code plugin that reaches the vault with curl where MCP
   is off. `.claude-plugin/marketplace.json` at the root makes the repo its

@@ -127,7 +127,7 @@ description = "Run all tests (backend + frontend)"
 depends = ["test:py", "fe:test", "shell:test"]
 
 [tasks."test:py"]
-description = "Run backend tests"
+description = "Run backend and host job tests"
 run = "uv run pytest"
 
 [tasks."fe:test"]
@@ -184,7 +184,7 @@ description = "Run the fast linters, both type checkers, the file-size and the c
 depends = ["lint:py", "lint:size", "lint:dup", "fe:lint", "fe:typecheck", "shell:lint"]
 
 [tasks."lint:py"]
-description = "Lint, format-check and type-check the backend"
+description = "Lint, format-check and type-check the backend and the host jobs"
 run = [
   "uv run ruff check",
   "uv run ruff format --check",
@@ -198,7 +198,7 @@ description = "Check every tracked file against the 5,000-token limit"
 run = "python3 scripts/file_size.py"
 
 [tasks."lint:dup"]
-description = "Fail when more than 1% of frontend/src and backend/src is copied code (jscpd)"
+description = "Fail when more than 1% of frontend/src, backend/src and jobs/src is copied code (jscpd)"
 # In the pre-commit gate although jscpd alone takes about 6 s: mise runs the
 # depends side by side, so it adds about 2.5 s to `lint` (4.6 s to 7.2 s). The
 # quiet run prints nothing; only a failure runs it again to list the clones.

@@ -24,8 +24,10 @@ The schema exists from migration `0001`. Migration `0002` adds accounts,
 balances, bookings and their splits, which jobs on the host write through
 [the finance routes](/reference/http-api/finance.md). Migration `0003` adds the
 categories, payees and rules that
-[sort them](/reference/http-api/finance-sorting.md). Budgets, plans and goals
-come later in the finance module (#971).
+[sort them](/reference/http-api/finance-sorting.md). Migration `0004` adds the sync
+requests and runs behind "pull now"
+([the sync routes](/reference/http-api/finance-sync.md)). Budgets, plans and
+goals come later in the finance module (#971).
 
 ## A transaction is not a note
 
@@ -102,5 +104,10 @@ slow rebuild, so:
 - **No second database role.** Agents will reach finance through kasten's
   routes like everything else, so a role would guard nothing they could
   otherwise reach.
+- **No bank client inside kasten.** Kasten stores and shows; jobs on the host
+  gather. The bank sync is one of them ([Run the bank sync](/how-to/run-the-bank-sync.md)):
+  kasten records that a pull was asked for, and the job, polling every
+  minute, does the pull. So bank logins never reach the backend, and a bank
+  that hangs on a TAN holds up a job, not a request.
 - **No index of the vault in the same schema.** The derived index, when it
   comes, stays outside `finance` and stays disposable.

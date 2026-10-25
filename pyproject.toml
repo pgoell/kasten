@@ -2,7 +2,7 @@
 # This is NOT a publishable package; it has no [project] section.
 
 [tool.uv.workspace]
-members = ["backend"]
+members = ["backend", "jobs"]
 
 # ─── Shared Python tool config ──────────────────────────────────────────────
 
@@ -10,7 +10,7 @@ members = ["backend"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 asyncio_default_test_loop_scope   = "function"
-testpaths = ["backend/tests"]
+testpaths = ["backend/tests", "jobs/tests"]
 # `importlib` avoids the classic pytest trap where two test dirs that both
 # contain `__init__.py` collide under the same `tests` package name.
 addopts   = ["--import-mode=importlib"]
@@ -66,7 +66,7 @@ select = [
 max-complexity = 10
 
 [tool.ruff.lint.isort]
-known-first-party = ["kasten_backend"]
+known-first-party = ["kasten_backend", "kasten_jobs"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
