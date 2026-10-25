@@ -28,9 +28,6 @@ Only the margin counts, so an indented task under another item is not a list
 item and nothing here ticks it.
 """
 
-FINISHED = re.compile(r"[ \t]*✅\N{VARIATION SELECTOR-16}?(?:[ \t]+[0-9]{4}-[0-9]{2}-[0-9]{2})?")
-"""The done mark a tick writes and an untick takes away, with its date when it has one."""
-
 ID_MARK = "🆔"
 """The Tasks id a ticked item gets, so the done line keeps one name across edits."""
 
@@ -43,6 +40,12 @@ ones, so `todo_fields.STOP` leaves them out and they are listed here.
 
 BLOCK_ID = re.compile(r"\s*\^[A-Za-z0-9_-]+$")
 """A trailing `^block-id`, which kasten uses to link into a line and is no word."""
+
+TRAILING_BLOCK_ID = re.compile(r"[ \t]+\^[A-Za-z0-9_-]+$")
+"""The block id a tick keeps last, so a link into the line still lands.
+
+It needs a blank before the `^`, so `x^2` is no id.
+"""
 
 PARTS = re.compile(r"^[ \t]+- \[.\] ")
 """An indented task: a part of the task above it, which kasten ticks along with it."""
@@ -193,21 +196,37 @@ def _done(line: str) -> bool:
     return match is not None and match.group(1) != " "
 
 
+def _undone(rest: str) -> str:
+    """The words without the done field the line reads, its date and all.
+
+    A bare `✅` among the words, or one in a link or code span, is words and stays,
+    so only the first `✅ <date>` on the masked text goes.
+    """
+    found = todo_fields.DONE.search(todo_fields.mask(rest))
+    if found is None:
+        return rest.rstrip()
+
+    return (rest[: found.start()].rstrip() + rest[found.end() :]).rstrip()
+
+
 def _ticked(rest: str) -> str:
-    """The words of an item as a done one: its done date and an id, the id last.
+    """The words of an item as a done one: its done date and an id, a block id last.
 
     An item that reads an id keeps it and gets its date before it, so the id does
     not move between edits. The field reader decides what reads one, so a bare
     `🆔` among the words, or one inside a link or code span, is words and gets a
-    new id.
+    new id. A trailing block id stays last, after the id.
     """
-    rest = FINISHED.sub("", rest).rstrip()
+    rest = _undone(rest)
+    block = TRAILING_BLOCK_ID.search(rest)
+    tail = "" if block is None else block[0]
+    rest = rest[: len(rest) - len(tail)]
     done = f"✅ {date.today().isoformat()}"
     found = todo_fields.ID.search(todo_fields.mask(rest))
     if found is not None:
-        return f"{rest[: found.start()].rstrip()} {done} {rest[found.start() :]}"
+        return f"{rest[: found.start()].rstrip()} {done} {rest[found.start() :]}{tail}"
 
-    return f"{rest} {done} {ID_MARK} kt-{secrets.token_hex(3)}"
+    return f"{rest} {done} {ID_MARK} kt-{secrets.token_hex(3)}{tail}"
 
 
 async def _save(settings: Settings, name: str, content: str, sha: str | None) -> Checklist | None:
@@ -289,7 +308,7 @@ async def tick(settings: Settings, name: str, line: int, done: bool, sha: str) -
     if done:
         lines[line] = f"- [x] {_ticked(rest)}{eol}"
     else:
-        lines[line] = f"- [ ] {FINISHED.sub('', rest).rstrip()}{eol}"
+        lines[line] = f"- [ ] {_undone(rest)}{eol}"
 
     return await _save(settings, name, "\n".join(lines), sha)
 

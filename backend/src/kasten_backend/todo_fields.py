@@ -30,6 +30,8 @@ U+001F, which the editor's does not, and leaves out U+FEFF, which it holds."""
 # reads `👤` as the estimate, as the editor does.
 _ONE_WORD = r"[ \t]+(?!(?:" + STOP + r"|🔁))" + _WORD
 _DATE = r"[ \t]+([0-9]{4}-[0-9]{2}-[0-9]{2})"
+DONE = re.compile("✅" + _VS + _DATE)
+"""The done field `✅ <date>`, which `share.py` reads too."""
 _BLOCK_ID = r"\^[A-Za-z0-9_-]+[ \t]*(?:\n|$)"
 # A `🔁` value runs to the next field, tag, `👤`, block id or cut, as the editor's does.
 _RECURRENCE_END = r"(?=[ \t]*(?:" + STOP + r"|👤|#)|[ \t]+" + _BLOCK_ID + r"|[ \t]*\n|[ \t]*$)"
@@ -43,7 +45,7 @@ FIELDS = (
     re.compile("🔁" + _VS + r"[ \t]+(.+?)" + _RECURRENCE_END),
     re.compile("🏁" + _VS + r"[ \t]+(keep|delete)(?=[ \t\n]|$)"),
     re.compile(_CREATED + _VS + _DATE),
-    re.compile("✅" + _VS + _DATE),
+    DONE,
     re.compile("❌" + _VS + _DATE),
     re.compile("⏲" + _VS + _ONE_WORD),
     re.compile("⏱" + _VS + _ONE_WORD),
