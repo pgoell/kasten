@@ -8,6 +8,7 @@
  * how a total stands against its goal, so the pane and the charts agree.
  */
 
+import { WeightCells, WeightCharts, WeightHead, WeightTiles } from "@/components/log-weight";
 import { shiftDay } from "@/lib/clock";
 import type { LogDay } from "@/lib/food-api";
 import { overMax } from "@/lib/log-day";
@@ -267,20 +268,9 @@ function Macros({ logged, range }: { logged: Logged[]; range: number }) {
 }
 
 /** One figure of the summary row: its label, the figure and what it means in words. */
-function Tile({
-  label,
-  figure,
-  words,
-  slot,
-}: {
-  label: string;
-  figure: string;
-  words: string;
-  /** Set on a figure that #805 fills, so it can be found where it sits. */
-  slot?: string;
-}) {
+function Tile({ label, figure, words }: { label: string; figure: string; words: string }) {
   return (
-    <div className="log-summary-tile" data-slot={slot}>
+    <div className="log-summary-tile">
       <dt>{label}</dt>
       <dd className="log-summary-figure">{figure}</dd>
       <dd className="log-summary-words">{words}</dd>
@@ -349,7 +339,15 @@ function weekLabel(monday: string): string {
 }
 
 /** A row per week, with the averages of its logged days, `—` where a week has none. */
-function WeekTable({ weeks, anyLogged }: { weeks: Week[]; anyLogged: boolean }) {
+function WeekTable({
+  weeks,
+  anyLogged,
+  kinds,
+}: {
+  weeks: Week[];
+  anyLogged: boolean;
+  kinds: LogKind[];
+}) {
   return (
     <>
       <table className="log-weeks">
@@ -360,7 +358,7 @@ function WeekTable({ weeks, anyLogged }: { weeks: Week[]; anyLogged: boolean }) 
             <th scope="col">kcal</th>
             <th scope="col">Protein</th>
             <th scope="col">Water</th>
-            <th scope="col">Weight</th>
+            <WeightHead kinds={kinds} />
             <th scope="col">Days</th>
           </tr>
         </thead>
@@ -378,7 +376,7 @@ function WeekTable({ weeks, anyLogged }: { weeks: Week[]; anyLogged: boolean }) 
                 <td>{kcal === null ? "—" : grouped(Math.round(kcal))}</td>
                 <td>{protein === null ? "—" : grouped(tenth(protein))}</td>
                 <td>{water === null ? "—" : grouped(Math.round(water))}</td>
-                <td data-slot="weight">—</td>
+                <WeightCells kinds={kinds} logged={week.logged} />
                 <td>{`${count} of ${week.inRange}`}</td>
               </tr>
             );
@@ -412,6 +410,8 @@ export function LogTrends({
     return day === undefined ? [] : [{ index, day }];
   });
 
+  const weightKinds = config.kinds.filter((kind) => kind.last === true);
+  const chartKinds = config.kinds.filter((kind) => kind.last !== true);
   const goal = config.food.kcal;
   const noneLogged = logged.length === 0;
   const kcal = logged.map(({ day }) => foodTotal(day, "kcal"));
@@ -451,11 +451,11 @@ export function LogTrends({
                 : "in a row within the kcal goal"
           }
         />
-        <Tile label="Weight" figure="—" words="no weigh-ins yet" slot="weight" />
+        <WeightTiles kinds={weightKinds} dates={dates} days={days} />
       </dl>
 
       <div className="log-multiples">
-        {config.kinds.map((kind) => (
+        {chartKinds.map((kind) => (
           <Chart
             key={kind.mark}
             name={kind.name}
@@ -479,14 +479,11 @@ export function LogTrends({
         ))}
       </div>
 
-      <figure className="log-chart log-chart-slot" data-slot="weight">
-        <figcaption>Weight</figcaption>
-        <p className="log-chart-empty">No weigh-ins yet</p>
-      </figure>
+      <WeightCharts kinds={weightKinds} dates={dates} days={days} />
 
       <Macros logged={logged} range={range} />
 
-      <WeekTable weeks={weeksOf(dates, byDate)} anyLogged={!noneLogged} />
+      <WeekTable weeks={weeksOf(dates, byDate)} anyLogged={!noneLogged} kinds={weightKinds} />
     </div>
   );
 }

@@ -23,14 +23,18 @@ FIELD_MARKS = frozenset({"🔥", "🥩", "🍞", "🧈"})
 """The food line's field markers. A kind on one would read as a field inside a food line."""
 
 KIND_LINE = re.compile(
-    rf"- (.)(️)?[ \t]+([^:]+):[ \t]*({NUMBER})(?:[ \t]+([A-Za-z]+))?"
-    rf"(?:[ \t]*,[ \t]*(min|max)[ \t]+({NUMBER}))?[ \t]*",
+    rf"- (?P<mark>.)️?[ \t]+(?P<name>[^:]+):[ \t]*"
+    rf"(?:(?P<tap>{NUMBER})(?:[ \t]+(?P<unit>[A-Za-z]+))?"
+    rf"|(?:(?!last\b)(?P<last_unit>[A-Za-z]+)[ \t]*,[ \t]*)?(?P<last>last))"
+    rf"(?:[ \t]*,[ \t]*(?P<sense>min|max)[ \t]+(?P<goal>{NUMBER}))?[ \t]*",
     re.IGNORECASE,
 )
-"""A kind line: the mark, the name up to the colon, the tap, an optional unit and an optional goal.
+"""A kind line: the mark, the name up to the colon, then a tap or `last`, and an optional goal.
 
-The mark is any one character, and `parse_kind_config` asks whether it is a symbol. A
-character class of symbols cannot be written here, since `re` has no Unicode categories.
+A tap takes an optional unit. `last` takes an optional unit too, and the lookahead keeps
+the word itself from reading as one. The mark is any one character, and `parse_kind_config`
+asks whether it is a symbol. A character class of symbols cannot be written here, since
+`re` has no Unicode categories.
 """
 
 FOOD_LINE = re.compile(r"- 🍽️?[ \t]+([^:]+):(.*)")
@@ -52,14 +56,18 @@ class Goal:
 
 @dataclass(frozen=True)
 class Kind:
-    """One kind the note names: its mark, name, what one tap logs and its goal, if any."""
+    """One kind the note names: its mark, name, what one tap logs and its goal, if any.
+
+    A last kind has no tap and `last` True: its day's value is its last line, not a sum.
+    """
 
     mark: str
     name: str
-    tap: float
+    tap: float | None
     unit: str
     goal: Goal | None = None
     builtin: str | None = None
+    last: bool | None = None
 
 
 @dataclass(frozen=True)
@@ -127,28 +135,35 @@ def parse_kind_config(text: str) -> Kind | None:
     found = KIND_LINE.fullmatch(text)
     if found is None:
         return None
-    mark, name, tap_text = found[1], found[3], found[4]
-    written, sense, goal_text = found[5] or "", found[6], found[7]
-    label = name.strip()
-    tap = _amount(tap_text)
+    mark, label = found["mark"], found["name"].strip()
+    written = found["unit"] or found["last_unit"] or ""
     builtin = BUILTINS.get(mark)
-    if not _is_mark(mark) or label == "" or tap <= 0 or mark in FIELD_MARKS:
+    last = found["last"] is not None
+    # A built-in kind keeps its tap, so `last` is broken on one.
+    if not _is_mark(mark) or label == "" or mark in FIELD_MARKS or (last and builtin):
         return None
-    if builtin == "water" and written.lower() not in ("ml", "l"):
-        return None
-    # Coffee and alcohol are counted, so a tap is a whole number with no unit.
-    counted = builtin in ("coffee", "alcohol")
-    if counted and (written != "" or re.fullmatch("[0-9]+", tap_text) is None):
-        return None
+    tap = None
+    if not last:
+        tap_text = found["tap"]
+        tap = _amount(tap_text)
+        # Coffee and alcohol are counted, so a tap is a whole number with no unit.
+        counted = builtin in ("coffee", "alcohol")
+        whole = re.fullmatch("[0-9]+", tap_text) is not None
+        wrong_unit = (builtin == "water" and written.lower() not in ("ml", "l")) or (
+            counted and (written != "" or not whole)
+        )
+        if tap <= 0 or wrong_unit:
+            return None
     goal = None
-    if sense is not None:
-        goal_value = _amount(goal_text)
+    if found["sense"] is not None:
+        goal_value = _amount(found["goal"])
         if goal_value <= 0:
             return None
         # The day's water is counted in millilitres, so a goal in litres is scaled to match.
         scale = 1000 if builtin == "water" and written.lower() == "l" else 1
-        goal = Goal("floor" if sense.lower() == "min" else "ceiling", _clean(goal_value * scale))
-    return Kind(mark, label, tap, written, goal, builtin)
+        sense = found["sense"].lower()
+        goal = Goal("floor" if sense == "min" else "ceiling", _clean(goal_value * scale))
+    return Kind(mark, label, tap, written, goal, builtin, last or None)
 
 
 def parse_config(note: str | None) -> Config:

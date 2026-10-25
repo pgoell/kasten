@@ -8,7 +8,7 @@ import { editorCommands } from "@/lib/editor-commands";
 import { toggleMark } from "@/lib/format-commands";
 import type { EditorCommands } from "@/lib/key-bindings";
 import { LEADER, spelled, TAB_KEYS } from "@/lib/leader-keys";
-import { openFoodSearch } from "@/lib/log-card";
+import { askOnCard, openFoodSearch } from "@/lib/log-card";
 import { DEFAULT_CONFIG, type LogKind, tapLine } from "@/lib/log-kinds";
 import { logDrinkInView } from "@/lib/log-write";
 import { pickPalette, toggleTheme } from "@/lib/theme";
@@ -170,6 +170,12 @@ export function paletteEntries(
       return {
         label: `Log ${kind.name}`,
         run: () => {
+          // A kind that keeps its last value has no line without a number. Over a daily
+          // note's card it asks there; anywhere else it opens today's note and the user asks.
+          if (line === null) {
+            if (view === null || !askOnCard(view, kind.mark)) commands.openDaily();
+            return;
+          }
           if (view !== null && logDrinkInView(view, line)) return;
           commands.logDrink(line);
         },

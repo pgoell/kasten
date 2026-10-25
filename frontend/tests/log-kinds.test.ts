@@ -6,6 +6,7 @@ import {
   kindLine,
   kindTotal,
   type LogKind,
+  lastValue,
   parseConfig,
   parseKindLine,
   tapLine,
@@ -26,7 +27,18 @@ interface LineRow {
   amount: number | null;
 }
 
-const { config, lines } = cases as { config: ConfigRow[]; lines: LineRow[] };
+interface DayRow {
+  id: string;
+  kind: string;
+  lines: string[];
+  value: number | null;
+}
+
+const { config, lines, days } = cases as {
+  config: ConfigRow[];
+  lines: LineRow[];
+  days: DayRow[];
+};
 
 describe("parseConfig, against the shared cases", () => {
   it.each(config.map((row) => [row.id, row] as const))("%s", (_id, row) => {
@@ -41,8 +53,10 @@ describe("parseConfig, against the shared cases", () => {
 
 describe("parseKindLine, against the shared cases", () => {
   it.each(lines.map((row) => [row.id, row] as const))("%s", (_id, row) => {
-    const kind = parseConfig(row.kind).kinds[0] as LogKind;
-    expect(parseKindLine(kind, row.line)).toBe(row.amount);
+    // Over the kinds the row names, so a row whose kind is broken fails on its amounts.
+    expect(parseConfig(row.kind).kinds.map((kind) => parseKindLine(kind, row.line))).toEqual([
+      row.amount,
+    ]);
   });
 });
 
@@ -122,5 +136,57 @@ describe("kind of your own", () => {
       "- 🍵 1",
     ].join("\n");
     expect(kindTotal(tea, text, drinkTotals(text))).toBe(2.5);
+  });
+});
+
+describe("#805 last kind, against the shared days", () => {
+  it.each(days.map((row) => [row.id, row] as const))("%s", (_id, row) => {
+    const text = `## Log\n${row.lines.join("\n")}`;
+    expect(
+      parseConfig(row.kind).kinds.map((kind) => kindTotal(kind, text, drinkTotals(text))),
+    ).toEqual([row.value]);
+  });
+});
+
+describe("#805 last kind of weight", () => {
+  const WEIGHT = "- ⚖ weight: kg, last";
+
+  it("#805 A1 a last kind takes no tap line", () => {
+    expect(parseConfig(WEIGHT).kinds.map(tapLine)).toEqual([null]);
+  });
+
+  it("#805 A2 a last kind asks for its amount when none is typed", () => {
+    expect(parseConfig(WEIGHT).kinds.map((kind) => kindLine(kind, ""))).toEqual([
+      { why: "Type the weight in kg", ask: true },
+    ]);
+  });
+
+  it("#805 A3 a typed amount writes a line like a kind of its own", () => {
+    expect(
+      parseConfig(WEIGHT).kinds.map((kind) =>
+        ["82.4", "82,4", "82.4 kg"].map((typed) => kindLine(kind, typed)),
+      ),
+    ).toEqual([["- ⚖ 82.4 kg", "- ⚖ 82,4 kg", "- ⚖ 82.4 kg"]]);
+  });
+
+  it("#805 A4 a weight in another unit is refused", () => {
+    expect(parseConfig(WEIGHT).kinds.map((kind) => kindLine(kind, "82.4 lb"))).toEqual([
+      { why: "not a weight amount: 82.4 lb" },
+    ]);
+  });
+
+  it("#805 A5 the day value is the last line that parses, as written", () => {
+    const log = ["- ⚖ 82.45 kg", "- ⚖ 81 lb", "- ⚖ 0 kg"];
+    expect(parseConfig(WEIGHT).kinds.map((kind) => lastValue(kind, log))).toEqual([82.45]);
+  });
+
+  it("#805 A6 a last kind with no line has no day value", () => {
+    expect(parseConfig(WEIGHT).kinds.map((kind) => lastValue(kind, []))).toEqual([null]);
+  });
+
+  it("#805 A7 a last kind with no unit asks for a bare amount", () => {
+    expect(parseConfig("- ⚖ weight: last").kinds.map((kind) => kindLine(kind, ""))).toEqual([
+      { why: "Type the weight", ask: true },
+    ]);
   });
 });

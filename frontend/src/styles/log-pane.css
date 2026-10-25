@@ -283,6 +283,18 @@
   background: var(--k-ok);
 }
 
+/* A last kind's line: a dot per weigh-in, and the 7-day average as one thinner line under them. */
+.log-weight-dot {
+  fill: var(--k-accent);
+}
+
+.log-weight-avg {
+  fill: none;
+  stroke: var(--k-accent);
+  stroke-width: 1.5;
+  stroke-opacity: 0.6;
+}
+
 .log-pane-list {
   display: grid;
   gap: 8px;

@@ -41,6 +41,32 @@ export function button(
   return made;
 }
 
+/** The words Undo names: its line, or how many lines a copy wrote. */
+export function undoWords(text: string): string {
+  return text.includes("\n") ? `Undo ${text.split("\n").length} lines` : `Undo ${text.slice(2)}`;
+}
+
+/** The unit and grams an entry of a kind shows after its total. */
+export function tailOf(kind: LogKind, totals: DrinkTotals): string {
+  // Alcohol's grams follow its count, once there are some.
+  const grams =
+    kind.builtin === "alcohol" && totals.alcohol.grams > 0 ? `, ${totals.alcohol.grams} g` : "";
+  // The water total is millilitres whatever unit its config line writes.
+  const unit = kind.builtin === "water" ? "ml" : kind.unit;
+  return `${unit ? ` ${unit}` : ""}${grams}`;
+}
+
+/**
+ * Focuses `element` and shows it the least way. The browser's own scroll on a focus
+ * differs by browser (Firefox jumped the note on a tap, #814), so the focus does not
+ * scroll, and `nearest` moves the note only when the element is out of view, and only
+ * as far as it takes to show it, the same in every browser.
+ */
+export function focusInPlace(element: HTMLElement): void {
+  element.focus({ preventScroll: true });
+  element.scrollIntoView({ block: "nearest", inline: "nearest" });
+}
+
 /** A bar that is `progress` percent full. The width is the CSS's, so only the number is set here. */
 function meter(progress: number, label: string): HTMLElement {
   const bar = make("span", "cm-log-bar");
@@ -156,19 +182,51 @@ function macroRing(name: string, value: number, goal: Goal | undefined): HTMLEle
   return item;
 }
 
-/** One quick button: the tap's words, the kind's total with its goal, and a meter where there is a goal. */
+/**
+ * One quick button: the tap's words, the kind's total with its goal, and a meter where there is a goal.
+ * A kind that keeps its last value has no tap, so its button names the kind and shows the value, or
+ * `words` on a day with none, which the card takes from the 30 days before it.
+ */
 export function quickButton(
   kind: LogKind,
-  total: number,
+  total: number | null,
   tail: string,
   press: () => void,
+  words?: string,
 ): HTMLButtonElement {
+  const line = tapLine(kind);
+  if (line === null) return lastButton(kind, total, tail, press, words);
   const made = button("", `Log ${kind.name}`, "cm-log-button", press);
-  made.append(make("span", "cm-log-button-tap", `+ ${tapLine(kind).slice(2)}`));
-  const totalWords = totalSpan(`${kind.mark} ${total}`, tail, total, kind.goal);
+  made.append(make("span", "cm-log-button-tap", `+ ${line.slice(2)}`));
+  const value = total ?? 0;
+  const totalWords = totalSpan(`${kind.mark} ${value}`, tail, value, kind.goal);
   totalWords.classList.add("cm-log-button-total");
   made.append(totalWords);
-  if (kind.goal !== undefined) made.append(meter(share(total, kind.goal), kind.name));
+  if (kind.goal !== undefined) made.append(meter(share(value, kind.goal), kind.name));
+  return made;
+}
+
+/** A last kind's button: its name with its mark, the value or the words for a day with none, and a meter with a goal. */
+function lastButton(
+  kind: LogKind,
+  total: number | null,
+  tail: string,
+  press: () => void,
+  words = "no weigh-ins yet",
+): HTMLButtonElement {
+  const made = button("", `Log ${kind.name}`, "cm-log-button", press);
+  const name = kind.name.charAt(0).toUpperCase() + kind.name.slice(1);
+  made.append(make("span", "cm-log-button-tap", `${kind.mark} ${name}`));
+  // The goal is read against the value, with the same words and warning a tap's total has.
+  const totalWords =
+    total !== null && kind.goal !== undefined
+      ? totalSpan(String(total), tail, total, kind.goal)
+      : make("span", "", total === null ? words : `${total}${tail}`);
+  totalWords.classList.add("cm-log-button-total");
+  made.append(totalWords);
+  if (total !== null && kind.goal !== undefined) {
+    made.append(meter(share(total, kind.goal), kind.name));
+  }
   return made;
 }
 

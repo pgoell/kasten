@@ -27,7 +27,32 @@ import {
 import { foodSheetCleanup } from "@/components/food-sheet";
 import { shiftDay } from "@/lib/clock";
 import { type SheetHooks, stopFoodSheet, syncFoodSheet } from "@/lib/log-card-food";
-import { button, foodButton, mealBlock, quickButton, rawFold, topBlock } from "@/lib/log-card-view";
+import {
+  askLatest,
+  earlierWords,
+  forgetLatest,
+  type Latest,
+  latestArrived,
+} from "@/lib/log-card-latest";
+import {
+  button,
+  focusInPlace,
+  foodButton,
+  mealBlock,
+  quickButton,
+  rawFold,
+  tailOf,
+  topBlock,
+  undoWords,
+} from "@/lib/log-card-view";
+import {
+  askFor,
+  asking,
+  askPlaceholder,
+  askWords,
+  focusAmount,
+  keepingField,
+} from "@/lib/log-card-weight";
 import {
   askYesterday,
   type Copy,
@@ -63,8 +88,8 @@ const foodOpen = StateEffect.define<boolean>();
 /** The store's config, pushed to each card when the store draws an answer that replaces the defaults. */
 const configArrived = StateEffect.define<LogConfig>();
 
-interface Card {
-  totals: DrinkTotals;
+/** What the card holds between draws, each set by a press or an answer. */
+interface Held {
   lastTap: LastTap | null;
   /** Whether the food search sheet is open. */
   food: boolean;
@@ -72,6 +97,14 @@ interface Card {
   config: LogConfig | null;
   /** Yesterday's answer as it stands, which the card uses only when it is for yesterday. */
   yesterday: Yesterday | null;
+  /** The latest values before the note's day, which the card uses only when it is for this day. */
+  latest: Latest | null;
+  /** The mark of the last kind the card asks a number for, or null. */
+  ask: string | null;
+}
+
+interface Card extends Held {
+  totals: DrinkTotals;
   /** Whether this note has a card at all, which the palette asks before it offers the search. */
   shown: boolean;
   decorations: DecorationSet;
@@ -89,21 +122,6 @@ function stillThere(doc: Text, tap: LastTap): boolean {
 function noteDay(state: EditorState): string | null {
   const path = state.facet(notePath);
   return path === undefined ? null : dailyDate(path);
-}
-
-/** The words of the tap Undo takes back: its line, or how many lines a copy wrote. */
-function undoWords(text: string): string {
-  return text.includes("\n") ? `Undo ${text.split("\n").length} lines` : `Undo ${text.slice(2)}`;
-}
-
-/** The unit and grams an entry of a kind shows after its total. */
-function tailOf(kind: LogKind, totals: DrinkTotals): string {
-  // Alcohol's grams follow its count, once there are some.
-  const grams =
-    kind.builtin === "alcohol" && totals.alcohol.grams > 0 ? `, ${totals.alcohol.grams} g` : "";
-  // The water total is millilitres whatever unit its config line writes.
-  const unit = kind.builtin === "water" ? "ml" : kind.unit;
-  return `${unit ? ` ${unit}` : ""}${grams}`;
 }
 
 /**
@@ -124,26 +142,29 @@ function writeLogLine(view: EditorView, text: string, effects: StateEffect<unkno
 }
 
 /**
- * Focuses `element` and shows it the least way. The browser's own scroll on a focus
- * differs by browser (Firefox jumped the note on a tap, #814), so the focus does not
- * scroll, and `nearest` moves the note only when the element is out of view, and only
- * as far as it takes to show it, the same in every browser.
+ * Writes the line `amount` makes for `kind` at the end of `## Log`, or says why it
+ * cannot. A last kind with no number asks for one, and Enter in the field is a press.
  */
-function focusInPlace(element: HTMLElement): void {
-  element.focus({ preventScroll: true });
-  element.scrollIntoView({ block: "nearest", inline: "nearest" });
+function tap(view: EditorView, kind: LogKind, amount: HTMLInputElement): void {
+  const line = kindLine(kind, amount.value);
+  if (typeof line === "string") {
+    amount.value = "";
+    writeLogLine(view, line);
+  } else if (line.ask === true) {
+    askFor(view, kind.mark);
+  } else {
+    refuse(view, line.why);
+  }
 }
 
-/** Writes the line `amount` makes for `kind` at the end of `## Log`, or says why it cannot. */
-function tap(view: EditorView, kind: LogKind, amount: HTMLInputElement, why: HTMLElement): void {
-  const line = kindLine(kind, amount.value);
-  if (typeof line !== "string") {
-    why.textContent = line.why;
-    return;
-  }
-  why.textContent = "";
-  amount.value = "";
-  writeLogLine(view, line);
+/**
+ * Says why an amount is no amount of its kind. A question the card asks is taken
+ * back first, since that redraws the card and the line goes in the new one.
+ */
+function refuse(view: EditorView, why: string): void {
+  if (view.state.field(cardField).ask !== null) keepingField(view, asking.of(null));
+  const element = view.dom.querySelector<HTMLElement>(".cm-log-why");
+  if (element !== null) element.textContent = why;
 }
 
 /**
@@ -175,8 +196,12 @@ const rawOpen = new WeakMap<EditorView, boolean>();
 /** What a card draws, as plain data: two draws of the same data are the same DOM. */
 interface Drawn {
   totals: DrinkTotals;
-  /** What each kind of the config adds up to, in the config's order. */
-  sums: number[];
+  /** What each kind of the config adds up to, in the config's order; null for a last kind with no line that day. */
+  sums: (number | null)[];
+  /** The words a last kind's button shows on a day with no value, where the read has an earlier one. */
+  words: (string | undefined)[];
+  /** The mark of the kind the card asks a number for, or null. */
+  ask: string | null;
   /** The text of the tap Undo takes back, or null where there is none to offer. */
   undo: string | null;
   config: LogConfig;
@@ -213,26 +238,39 @@ class LogCard extends WidgetType {
   }
 
   toDOM(view: EditorView): HTMLElement {
-    const { totals, sums, undo, config, groups, copies, raw } = this.drawn;
+    const { totals, sums, words, ask, undo, config, groups, copies, raw } = this.drawn;
     const card = document.createElement("div");
     card.className = "cm-log";
     card.setAttribute("contenteditable", "false");
     card.append(topBlock(totals.food, config.food));
 
+    const asked =
+      ask === null
+        ? undefined
+        : config.kinds.find((kind) => kind.mark === ask && kind.last === true);
     const amount = document.createElement("input");
     amount.className = "cm-log-amount";
-    amount.placeholder = "amount";
-    amount.setAttribute("inputmode", "text");
+    amount.placeholder = asked === undefined ? "amount" : askPlaceholder(asked);
+    amount.setAttribute("inputmode", asked === undefined ? "text" : "decimal");
     amount.setAttribute("aria-label", "Amount");
+    // Enter never reaches vim or CodeMirror. While a kind asks, it writes that kind's line.
+    amount.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter") return;
+      event.preventDefault();
+      event.stopPropagation();
+      if (asked !== undefined) tap(view, asked, amount);
+    });
     const why = document.createElement("div");
     why.className = "cm-log-why";
+    if (asked !== undefined) why.textContent = askWords(asked);
 
     const quick = document.createElement("div");
     quick.className = "cm-log-totals";
     config.kinds.forEach((kind, index) => {
-      const press = () => tap(view, kind, amount, why);
-      const total = sums[index] ?? 0;
-      quick.append(quickButton(kind, total, tailOf(kind, totals), press));
+      const press = () => tap(view, kind, amount);
+      quick.append(
+        quickButton(kind, sums[index] ?? null, tailOf(kind, totals), press, words[index]),
+      );
     });
 
     const row = document.createElement("div");
@@ -283,66 +321,47 @@ class LogCard extends WidgetType {
  * typed text and the focus are carried over.
  */
 function applyConfig(view: EditorView, config: LogConfig): void {
-  const field = view.dom.querySelector<HTMLInputElement>(".cm-log-amount");
-  const typed = field?.value ?? "";
-  const focused = field !== null && document.activeElement === field;
-  view.dispatch({ effects: configArrived.of(config) });
-  const next = view.dom.querySelector<HTMLInputElement>(".cm-log-amount");
-  if (next !== null) {
-    next.value = typed;
-    if (focused) next.focus({ preventScroll: true });
-  }
+  keepingField(view, configArrived.of(config));
 }
 
 /** What a note with no card is told: nothing logged. Read by no one, so it need not be the note's. */
 const NO_TOTALS = drinkTotals("");
 
 /** The card for a note: its totals and widget only on a daily note. */
-function build(
-  state: EditorState,
-  lastTap: LastTap | null,
-  food: boolean,
-  config: LogConfig | null,
-  yesterday: Yesterday | null,
-): Card {
+function build(state: EditorState, held: Held): Card {
   const day = noteDay(state);
   const line = day !== null ? cardLine(state.doc) : null;
   if (day === null || line === null) {
-    return {
-      totals: NO_TOTALS,
-      lastTap,
-      food: false,
-      config,
-      yesterday,
-      shown: false,
-      decorations: Decoration.none,
-    };
+    return { ...held, food: false, totals: NO_TOTALS, shown: false, decorations: Decoration.none };
   }
   const text = state.doc.toString();
   const totals = drinkTotals(text);
-  const drawn = config ?? DEFAULT_CONFIG;
+  const drawn = held.config ?? DEFAULT_CONFIG;
   const sums = drawn.kinds.map((kind) => kindTotal(kind, text, totals));
+  const words = drawn.kinds.map((kind, index) =>
+    sums[index] === null ? earlierWords(kind, held.latest, day) : undefined,
+  );
   // Only a tap still on the page can be undone, so an edited one is offered nothing.
-  const undo = lastTap !== null && stillThere(state.doc, lastTap) ? lastTap.text : null;
+  const undo =
+    held.lastTap !== null && stillThere(state.doc, held.lastTap) ? held.lastTap.text : null;
   const groups = groupByMeal(foodEntries(text));
   const widget = new LogCard(
     {
       totals,
       sums,
+      words,
+      ask: held.ask,
       undo,
       config: drawn,
       groups,
-      copies: copiesFor(day, yesterday, groups),
+      copies: copiesFor(day, held.yesterday, groups),
       raw: logLines(text),
     },
-    config,
+    held.config,
   );
   return {
+    ...held,
     totals,
-    lastTap,
-    food,
-    config,
-    yesterday,
     shown: true,
     decorations: Decoration.set([
       Decoration.widget({ widget, block: true, side: 2 }).range(state.doc.line(line).to),
@@ -356,37 +375,52 @@ function build(
  * takes only from state.
  */
 const cardField = StateField.define<Card>({
-  create: (state) => build(state, null, false, logConfig(), null),
+  create: (state) =>
+    build(state, {
+      lastTap: null,
+      food: false,
+      config: logConfig(),
+      yesterday: null,
+      latest: null,
+      ask: null,
+    }),
   update(value, tr) {
-    let lastTap = value.lastTap;
-    let food = value.food;
-    let config = value.config;
-    let yesterday = value.yesterday;
-    if (tr.docChanged && lastTap !== null) {
-      lastTap = { from: tr.changes.mapPos(lastTap.from), text: lastTap.text };
+    const held: Held = { ...value };
+    if (tr.docChanged && held.lastTap !== null) {
+      held.lastTap = { from: tr.changes.mapPos(held.lastTap.from), text: held.lastTap.text };
     }
+    // A write, an edit or an Undo takes back the question a last kind asked.
+    if (tr.docChanged) held.ask = null;
     let changed = tr.docChanged;
     for (const effect of tr.effects) {
       if (effect.is(tapped)) {
-        lastTap = effect.value;
+        held.lastTap = effect.value;
         changed = true;
       }
       if (effect.is(foodOpen)) {
-        food = effect.value;
+        held.food = effect.value;
+        changed = true;
+      }
+      if (effect.is(asking)) {
+        held.ask = effect.value;
         changed = true;
       }
       if (effect.is(configArrived)) {
-        config = effect.value;
+        held.config = effect.value;
         changed = true;
       }
       // An answer for a day the note no longer comes after is dropped, and the one held stays.
       const day = noteDay(tr.state);
       if (effect.is(yesterdayArrived) && day !== null && effect.value.day === shiftDay(day, -1)) {
-        yesterday = effect.value;
+        held.yesterday = effect.value;
+        changed = true;
+      }
+      if (effect.is(latestArrived) && day !== null && effect.value.day === day) {
+        held.latest = effect.value;
         changed = true;
       }
     }
-    return changed ? build(tr.state, lastTap, food, config, yesterday) : value;
+    return changed ? build(tr.state, held) : value;
   },
   provide: (field) => EditorView.decorations.from(field, (value) => value.decorations),
 });
@@ -399,8 +433,9 @@ function askForCard(view: EditorView): void {
   const field = view.state.field(cardField, false);
   const day = noteDay(view.state);
   if (field?.shown !== true || day === null) return;
-  if (field.yesterday?.day === shiftDay(day, -1)) return;
-  askYesterday(view, day);
+  if (field.yesterday?.day !== shiftDay(day, -1)) askYesterday(view, day);
+  // The 30 days are read only where a kind keeps its last value, so a vault with none asks for nothing more.
+  if (field.config?.kinds.some((kind) => kind.last === true) === true) askLatest(view, day);
 }
 
 /**
@@ -429,6 +464,7 @@ const registry = ViewPlugin.define((view) => {
       unsubscribe();
       stopFoodSheet(view);
       forgetYesterday(view);
+      forgetLatest(view);
     },
   };
 });
@@ -470,6 +506,18 @@ export { reloadLogConfig } from "@/lib/log-config";
 /** Whether the view shows a card, which only a daily note with one does. */
 export function cardShown(view: EditorView): boolean {
   return view.state.field(cardField, false)?.shown === true;
+}
+
+/**
+ * Asks on the card for the number `mark`'s last kind needs, and writes nothing. False,
+ * with nothing changed, where the view shows no card.
+ */
+export function askOnCard(view: EditorView, mark: string): boolean {
+  if (!cardShown(view)) return false;
+  askFor(view, mark);
+  // The palette hands its focus back to the editor when it closes, after this returns.
+  queueMicrotask(() => focusAmount(view));
+  return true;
 }
 
 /**

@@ -137,6 +137,78 @@
       "id": "c21-digit-mark",
       "line": "- 7 tea: 1 cup",
       "kind": null
+    },
+    {
+      "id": "c22-weight-last",
+      "line": "- ⚖ weight: kg, last",
+      "kind": { "mark": "⚖", "name": "weight", "unit": "kg", "last": true }
+    },
+    {
+      "id": "c23-weight-last-variation-selector-goal-ceiling",
+      "line": "- ⚖️ weight: kg, last, max 85",
+      "kind": {
+        "mark": "⚖",
+        "name": "weight",
+        "unit": "kg",
+        "goal": { "type": "ceiling", "value": 85 },
+        "last": true
+      }
+    },
+    {
+      "id": "c24-weight-last-goal-floor",
+      "line": "- ⚖ weight: kg, last, min 60",
+      "kind": {
+        "mark": "⚖",
+        "name": "weight",
+        "unit": "kg",
+        "goal": { "type": "floor", "value": 60 },
+        "last": true
+      }
+    },
+    {
+      "id": "c25-weight-last-no-unit",
+      "line": "- ⚖ weight: last",
+      "kind": { "mark": "⚖", "name": "weight", "unit": "", "last": true }
+    },
+    {
+      "id": "c26-weight-last-upper-case",
+      "line": "- ⚖ weight: kg, LAST",
+      "kind": { "mark": "⚖", "name": "weight", "unit": "kg", "last": true }
+    },
+    {
+      "id": "c27-weight-tap-with-last",
+      "line": "- ⚖ weight: 80 kg, last",
+      "kind": null
+    },
+    {
+      "id": "c28-water-last",
+      "line": "- 💧 water: ml, last",
+      "kind": null
+    },
+    {
+      "id": "c29-coffee-last",
+      "line": "- ☕ coffee: last",
+      "kind": null
+    },
+    {
+      "id": "c30-goal-before-last",
+      "line": "- ⚖ weight: kg, max 85, last",
+      "kind": null
+    },
+    {
+      "id": "c31-last-twice",
+      "line": "- ⚖ weight: kg, last, last",
+      "kind": null
+    },
+    {
+      "id": "c32-last-goal-zero",
+      "line": "- ⚖ weight: kg, last, max 0",
+      "kind": null
+    },
+    {
+      "id": "c33-weight-no-tap-no-last",
+      "line": "- ⚖ weight: kg",
+      "kind": null
     }
   ],
   "lines": [
@@ -199,6 +271,68 @@
       "kind": "- 🫖 pot: 2",
       "line": "- 🫖 2 cup",
       "amount": null
+    },
+    {
+      "id": "w01-weight-kg",
+      "kind": "- ⚖ weight: kg, last",
+      "line": "- ⚖ 82.4 kg",
+      "amount": 82.4
+    },
+    {
+      "id": "w02-weight-variation-selector-comma",
+      "kind": "- ⚖ weight: kg, last",
+      "line": "- ⚖️ 82,4 kg",
+      "amount": 82.4
+    },
+    {
+      "id": "w03-weight-no-unit",
+      "kind": "- ⚖ weight: kg, last",
+      "line": "- ⚖ 82.4",
+      "amount": null
+    },
+    {
+      "id": "w04-weight-zero",
+      "kind": "- ⚖ weight: kg, last",
+      "line": "- ⚖ 0 kg",
+      "amount": null
+    }
+  ],
+  "days": [
+    {
+      "id": "d01-two-weigh-ins-later-wins",
+      "kind": "- ⚖ weight: kg, last",
+      "lines": ["- ⚖ 82.4 kg", "- ⚖ 82.1 kg"],
+      "value": 82.1
+    },
+    {
+      "id": "d02-no-weight-line",
+      "kind": "- ⚖ weight: kg, last",
+      "lines": ["- 💧 500 ml"],
+      "value": null
+    },
+    {
+      "id": "d03-summed-kind-stays-a-sum",
+      "kind": "- 🍵 tea: 1 cup",
+      "lines": ["- 🍵 1 cup", "- 🍵 2 cup"],
+      "value": 3
+    },
+    {
+      "id": "d04-broken-line-after-good-one",
+      "kind": "- ⚖ weight: kg, last",
+      "lines": ["- ⚖ 82.4 kg", "- ⚖ 81 lb"],
+      "value": 82.4
+    },
+    {
+      "id": "d05-two-decimals-as-written",
+      "kind": "- ⚖ weight: kg, last",
+      "lines": ["- ⚖ 82.45 kg"],
+      "value": 82.45
+    },
+    {
+      "id": "d06-other-lines-between",
+      "kind": "- ⚖ weight: kg, last",
+      "lines": ["- 💧 500 ml", "- 🍽 lunch: Skyr 250 g 🔥 160 kcal", "- ⚖ 82.2 kg", "- 🍺 1"],
+      "value": 82.2
     }
   ]
 }

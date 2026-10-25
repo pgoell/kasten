@@ -42,7 +42,8 @@ GET /api/log?from=2026-10-20&to=2026-10-20
 ```
 
 Every field of an entry is there, `null` where its kind has none. Every total
-is there too, zero where nothing was logged. The lines are read as
+is there too, zero where nothing was logged, or `null` for a last kind with no
+line that day. The lines are read as
 [the log format](/reference/log-format.md) describes them.
 
 ### Kinds of your own
@@ -56,7 +57,9 @@ is an entry with `"kind": "mine"`. It has four more fields: `mark`, `name`,
 ```
 
 `totals.mine` holds one object per kind of your own the note names, in the
-note's order, zero where nothing was logged. `total` is rounded to a tenth.
+note's order, zero where nothing was logged. `total` is rounded to a tenth. On a
+last kind (`- ⚖ weight: kg, last`), `total` is the amount of the day's last line
+for that kind, as written, and `null` on a day with a `## Log` and no such line.
 
 ```json
 "mine": [{ "mark": "🍵", "name": "tea", "unit": "cup", "total": 1.5 }]

@@ -134,16 +134,22 @@ class Food(BaseModel):
 
 
 class MineTotal(BaseModel):
-    """What one kind of your own adds up to on a day, rounded to a tenth."""
+    """What one kind of your own adds up to on a day: a sum rounded to a tenth.
+
+    On a last kind it is the last amount instead, and null with no line that day.
+    """
 
     mark: str
     name: str
     unit: str
-    total: float
+    total: float | None
 
 
 class Totals(BaseModel):
-    """What a day adds up to. Every kind is always present, zero where nothing was logged."""
+    """What a day adds up to. Every kind is always present, zero where nothing was logged.
+
+    The one exception is a last kind's `mine` total, which is null with no line that day.
+    """
 
     water: Water
     coffee: Coffee
@@ -323,11 +329,22 @@ def _grams_of(entry: Entry) -> float:
     return _grams(entry.ml, entry.abv)
 
 
+def _mine_total(kind: Kind, entries: list[Entry]) -> float | None:
+    """A kind of your own's day value: the amounts summed, or a last kind's last amount.
+
+    None on a last kind with no line that day, as there is no value to show.
+    """
+    amounts = [e.amount or 0 for e in entries if e.kind == "mine" and e.mark == kind.mark]
+    if kind.last:
+        return amounts[-1] if amounts else None
+    return round(sum(amounts), 1)
+
+
 def _totals(entries: list[Entry], kinds: list[Kind] | None) -> Totals:
     """Each kind's sums over `entries`, taken unrounded and rounded once at the end.
 
     `kinds` is the config's kinds of your own, or None with no config note, which
-    leaves `mine` out of the answer.
+    leaves `mine` out of the answer. A last kind takes its last amount, not a sum.
     """
 
     def total(kind: str, name: str) -> float:
@@ -338,13 +355,7 @@ def _totals(entries: list[Entry], kinds: list[Kind] | None) -> Totals:
     if kinds is not None:
         mine = [
             MineTotal(
-                mark=kind.mark,
-                name=kind.name,
-                unit=kind.unit,
-                total=round(
-                    sum(e.amount or 0 for e in entries if e.kind == "mine" and e.mark == kind.mark),
-                    1,
-                ),
+                mark=kind.mark, name=kind.name, unit=kind.unit, total=_mine_total(kind, entries)
             )
             for kind in kinds
         ]

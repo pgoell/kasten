@@ -3607,7 +3607,14 @@
             "title": "Unit"
           },
           "total": {
-            "type": "number",
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Total"
           }
         },
@@ -3619,7 +3626,7 @@
           "total"
         ],
         "title": "MineTotal",
-        "description": "What one kind of your own adds up to on a day, rounded to a tenth."
+        "description": "What one kind of your own adds up to on a day: a sum rounded to a tenth.\n\nOn a last kind it is the last amount instead, and null with no line that day."
       },
       "Minted": {
         "properties": {

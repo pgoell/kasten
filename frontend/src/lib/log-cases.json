@@ -139,5 +139,6 @@
   { "id": "indented", "line": "  - 💧 500 ml", "entry": null },
   { "id": "unknown-marker", "line": "- 🍵 1", "entry": null },
   { "id": "no-bullet", "line": "💧 500 ml", "entry": null },
-  { "id": "star-bullet", "line": "* 💧 500 ml", "entry": null }
+  { "id": "star-bullet", "line": "* 💧 500 ml", "entry": null },
+  { "id": "weight-own-kind-not-built-in", "line": "- ⚖ 82.4 kg", "entry": null }
 ]

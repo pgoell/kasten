@@ -35,9 +35,15 @@ each kind of the config note `99 Misc/01 Config/log.md`. A row gives the name,
 the total, and where there is a goal, a meter and the goal in words: `at most
 2,200, within` or `at most 2,200, over` for a ceiling, `at least 120` or `at
 least 120, met` for a floor. A passed ceiling turns the warning colour; a floor
-not met is just a shorter bar. A kind with no goal shows its total alone. The
-last row, weight, stays empty until weight gets its own kind (#805). Below the
-rows are the day's entries, the food grouped by meal.
+not met is just a shorter bar. A kind with no goal shows its total alone. Below
+the rows are the day's entries, the food grouped by meal.
+
+A kind marked `last`, such as weight, keeps its last value instead of adding up.
+Its row has no meter. It shows the day's value, or with none the latest value
+before the day and its date. Then come the 7-day average and the goal in words.
+With no weigh-in in the range, the row says `no weigh-ins yet`. To add weight,
+put this line in `99 Misc/01 Config/log.md`: `- ⚖ weight: kg, last`. A goal
+goes at the end, as in `- ⚖ weight: kg, last, max 85`.
 
 To see another day, press `h` or `l`, tap `‹` or `›`, or pick the date. `t`
 or `Today` comes back.
@@ -53,6 +59,11 @@ tap on the dimmed part or a drag down closes it and gives the pane the keys
 back. The line goes into the note of the day shown, and the sheet closes once
 it is written; a refused write keeps it open. A day with no note gets one, made
 the way `<leader>gd` makes a daily note.
+
+A `last` kind's button shows its latest value. Type the number and press the
+button, and the line is written, such as `- ⚖ 82.4 kg`. With the field empty,
+the button writes nothing. It says `Type the weight in kg`, the field takes the
+focus, and its placeholder reads `weight in kg` until the next press.
 
 ## Fix or delete an entry
 
@@ -77,15 +88,20 @@ when its note has a `## Log`.
 * The summary row comes first: the average kcal over the logged days; the days
   within the kcal goal, as `21 of 27` logged days; the streak, the logged days
   within the kcal goal in a row up to the day shown (a day with no log ends it;
-  today with nothing logged yet does not); and the weight change, empty until
-  weight has its own kind (#805).
-* A small chart for each kind and for kcal, protein, carbs and fat, all the
-  same size: a bar per logged day, the goal as a dashed line. A bar past a
+  today with nothing logged yet does not); and for each `last` kind, such as
+  weight, the change from its first weigh-in in the range to its last. It reads
+  as `-1.2 kg` or `+0.4 kg`, with the words `from 83.6 to 82.4 kg`.
+* A small chart for each kind, except a `last` kind, and for kcal, protein,
+  carbs and fat, all the same size: a bar per logged day, the goal as a dashed line. A bar past a
   ceiling takes the warning colour, and the chart says in words how many days
   went over. A day with no log has no bar and does not count toward an average.
-* The weight chart, empty until #805.
+* A line for each `last` kind, such as weight: a dot for each weigh-in, the
+  7-day average as a thin line under the dots, and the goal as a dashed line if
+  it has one. The scale runs from the lowest value to the highest, not from zero,
+  so small changes show. The chart says in words how many weigh-ins it has and
+  the change.
 * The macro split: one bar of the average protein, carbs and fat as shares of
   their kcal, with the percentages under it.
 * A table by week, newest first: average kcal, protein and water over the
-  week's logged days, weight (empty until #805), and the days logged, as
-  `5 of 7`.
+  week's logged days, a column for each `last` kind with its mean weigh-in over
+  the week, and the days logged, as `5 of 7`.

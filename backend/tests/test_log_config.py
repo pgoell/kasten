@@ -64,9 +64,10 @@ def test_769_a1_config_rows(row: dict[str, Any]) -> None:
 def test_769_a1_line_rows(row: dict[str, Any]) -> None:
     from kasten_backend.log_config import parse_config, parse_kind_line  # noqa: PLC0415
 
-    kind = parse_config(row["kind"]).kinds[0]
+    # Over the kinds the row names, so a row whose kind is broken fails on its amounts.
+    amounts = [parse_kind_line(kind, row["line"]) for kind in parse_config(row["kind"]).kinds]
 
-    assert parse_kind_line(kind, row["line"]) == row["amount"]
+    assert amounts == [row["amount"]]
 
 
 async def test_769_a2_a_tea_line_is_an_entry_and_a_total(client: AsyncClient, vault: Path) -> None:

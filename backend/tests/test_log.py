@@ -9,16 +9,23 @@ from datetime import date, timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+import pytest
+
 from kasten_backend.vault import read_note
 
 if TYPE_CHECKING:
-    import pytest
     from httpx import AsyncClient
 
 CASES = json.loads(
     (Path(__file__).parents[2] / "frontend/src/lib/log-cases.json").read_text(encoding="utf-8")
 )
+DAY_CASES = json.loads(
+    (Path(__file__).parents[2] / "frontend/src/lib/log-config-cases.json").read_text(
+        encoding="utf-8"
+    )
+)["days"]
 DAILY = "01 Periodic/00 Daily"
+CONFIG = "99 Misc/01 Config/log.md"
 START = date(2026, 1, 1)
 
 
@@ -27,6 +34,13 @@ def write(vault: Path, name: str, text: str | bytes) -> None:
     note = vault / DAILY / name
     note.parent.mkdir(parents=True, exist_ok=True)
     note.write_bytes(text if isinstance(text, bytes) else text.encode("utf-8"))
+
+
+def write_config(vault: Path, text: str) -> None:
+    """Write the config note the endpoint reads for the kinds of your own."""
+    note = vault / CONFIG
+    note.parent.mkdir(parents=True, exist_ok=True)
+    note.write_text(text, encoding="utf-8")
 
 
 def snapshot(root: Path) -> dict[str, tuple[bytes, int]]:
@@ -319,4 +333,58 @@ async def test_619_i8_note_gone_is_skipped(
     assert {"status": r.status_code, "dates": dates} == {
         "status": 200,
         "dates": ["2026-01-01", "2026-01-03"],
+    }
+
+
+@pytest.mark.parametrize("row", DAY_CASES, ids=lambda row: row["id"])
+async def test_805_a1_last_kind_day_value(
+    client: AsyncClient, vault: Path, row: dict[str, Any]
+) -> None:
+    write_config(vault, f"{row['kind']}\n")
+    write(vault, "2026-01-04.md", "## Log\n" + "".join(f"{line}\n" for line in row["lines"]))
+
+    r = await client.get("/api/log", params={"from": "2026-01-04", "to": "2026-01-04"})
+    totals = (
+        [[kind["total"] for kind in day["totals"]["mine"]] for day in r.json()]
+        if r.status_code == 200
+        else None
+    )
+
+    assert {"status": r.status_code, "totals": totals} == {
+        "status": 200,
+        "totals": [[row["value"]]],
+    }
+
+
+async def test_805_a2_last_kind_with_no_line_is_null_in_the_raw_answer(
+    client: AsyncClient, vault: Path
+) -> None:
+    write_config(vault, "- ⚖ weight: kg, last\n")
+    write(vault, "2026-01-04.md", "## Log\n- 💧 500 ml\n")
+
+    r = await client.get("/api/log", params={"from": "2026-01-04", "to": "2026-01-04"})
+    mine = '"mine":[{"mark":"⚖","name":"weight","unit":"kg","total":null}]'
+
+    assert {"status": r.status_code, "mine": mine in r.content.decode("utf-8")} == {
+        "status": 200,
+        "mine": True,
+    }
+
+
+async def test_805_a3_a_summed_kind_total_is_unchanged_in_the_raw_answer(
+    client: AsyncClient, vault: Path
+) -> None:
+    write_config(vault, "- 🍵 tea: 1 cup, min 3\n")
+    write(vault, "2026-01-04.md", "## Log\n- 🍵 1 cup\n- 🍵 0,5 cup\n")
+    # A day with a `## Log` and no tea line sums to zero, written as `0.0` like the others.
+    write(vault, "2026-01-05.md", "## Log\n- ☕ 1\n")
+
+    r = await client.get("/api/log", params={"from": "2026-01-04", "to": "2026-01-05"})
+    text = r.content.decode("utf-8")
+    mine = '"mine":[{"mark":"🍵","name":"tea","unit":"cup","total":1.5}]'
+    empty = '"mine":[{"mark":"🍵","name":"tea","unit":"cup","total":0.0}]'
+
+    assert {"status": r.status_code, "mine": (mine in text, empty in text)} == {
+        "status": 200,
+        "mine": (True, True),
     }

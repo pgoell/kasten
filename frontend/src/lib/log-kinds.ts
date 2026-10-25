@@ -18,10 +18,13 @@ export interface Goal {
 export interface LogKind {
   mark: string;
   name: string;
-  tap: number;
+  /** Absent on a last kind, which takes no tap. */
+  tap?: number;
   /** `""` for none. */
   unit: string;
   goal?: Goal;
+  /** Set on a last kind, whose day value is its last line rather than a sum. */
+  last?: true;
   /** Set on the three built-in kinds, whose lines the totals already read. */
   builtin?: DrinkKind;
 }
@@ -66,11 +69,12 @@ const BUILTINS = new Map<string, DrinkKind>([
 const FIELD_MARKS = new Set(["🔥", "🥩", "🍞", "🧈"]);
 
 /**
- * A kind line: the mark with its U+FE0F dropped, the name up to the colon, the tap,
- * an optional unit and an optional goal. The mark is astral, so the `u` flag.
+ * A kind line: the mark with its U+FE0F dropped, the name up to the colon, then a tap or
+ * `last`, each with an optional unit, then an optional goal. The mark is astral, so the
+ * `u` flag. The lookahead keeps the word `last` from reading as a unit.
  */
 const KIND_LINE = new RegExp(
-  `^- (\\p{So})️?[ \\t]+([^:]+):[ \\t]*(${NUMBER})(?:[ \\t]+([A-Za-z]+))?(?:[ \\t]*,[ \\t]*(min|max)[ \\t]+(${NUMBER}))?[ \\t]*$`,
+  `^- (?<mark>\\p{So})️?[ \\t]+(?<name>[^:]+):[ \\t]*(?:(?<tap>${NUMBER})(?:[ \\t]+(?<unit>[A-Za-z]+))?|(?:(?!last\\b)(?<lastUnit>[A-Za-z]+)[ \\t]*,[ \\t]*)?(?<last>last))(?:[ \\t]*,[ \\t]*(?<sense>min|max)[ \\t]+(?<goal>${NUMBER}))?[ \\t]*$`,
   "iu",
 );
 
@@ -110,41 +114,42 @@ function parseFoodLine(text: string): FoodGoals | null {
 
 /** A kind line as its kind, or null where the line is broken. The caller checks the mark is free. */
 function parseKindConfig(text: string): LogKind | null {
-  const found = KIND_LINE.exec(text);
-  if (found === null) return null;
-  const [, mark = "", name = "", tapText = "", written, sense, goalText = ""] = found;
-  const label = name.trim();
-  const tap = amount(tapText);
-  const unit = written ?? "";
+  const found = KIND_LINE.exec(text)?.groups;
+  if (found === undefined) return null;
+  const mark = found.mark ?? "";
+  const label = (found.name ?? "").trim();
+  const unit = found.unit ?? found.lastUnit ?? "";
   const builtin = BUILTINS.get(mark);
-  if (label === "" || tap <= 0 || FIELD_MARKS.has(mark)) return null;
-  if (builtin === "water" && !/^(ml|l)$/i.test(unit)) return null;
-  // Coffee and alcohol are counted, so a tap is a whole number with no unit.
-  if (
-    (builtin === "coffee" || builtin === "alcohol") &&
-    (unit !== "" || !/^[0-9]+$/.test(tapText))
-  ) {
-    return null;
+  const last = found.last !== undefined;
+  // A built-in kind keeps its tap, so `last` is broken on one.
+  if (label === "" || FIELD_MARKS.has(mark) || (last && builtin !== undefined)) return null;
+  const tapText = found.tap ?? "";
+  const tap = amount(tapText);
+  if (!last) {
+    if (tap <= 0) return null;
+    if (builtin === "water" && !/^(ml|l)$/i.test(unit)) return null;
+    // Coffee and alcohol are counted, so a tap is a whole number with no unit.
+    if (
+      (builtin === "coffee" || builtin === "alcohol") &&
+      (unit !== "" || !/^[0-9]+$/.test(tapText))
+    ) {
+      return null;
+    }
   }
-  const goalValue = amount(goalText);
-  if (sense !== undefined && goalValue <= 0) return null;
+  const goalValue = amount(found.goal ?? "");
+  if (found.sense !== undefined && goalValue <= 0) return null;
   // The day's water is counted in millilitres, so a goal in litres is scaled to match.
   const scale = builtin === "water" && unit.toLowerCase() === "l" ? 1000 : 1;
-  const kind: LogKind = {
-    mark,
-    name: label,
-    tap,
-    unit,
-    ...(sense === undefined
-      ? {}
-      : {
-          goal: {
-            type: sense.toLowerCase() === "min" ? "floor" : "ceiling",
-            value: clean(goalValue * scale),
-          },
-        }),
-    ...(builtin === undefined ? {} : { builtin }),
-  };
+  const kind: LogKind = { mark, name: label, unit };
+  if (last) kind.last = true;
+  else kind.tap = tap;
+  if (found.sense !== undefined) {
+    kind.goal = {
+      type: found.sense.toLowerCase() === "min" ? "floor" : "ceiling",
+      value: clean(goalValue * scale),
+    };
+  }
+  if (builtin !== undefined) kind.builtin = builtin;
   return kind;
 }
 
@@ -183,8 +188,9 @@ export function parseConfig(note: string | null): LogConfig {
   return { kinds, food: food ?? {}, broken };
 }
 
-/** The line one tap writes for `kind` with nothing typed. */
-export function tapLine(kind: LogKind): string {
+/** The line one tap writes for `kind` with nothing typed, or null on a last kind, which has no tap. */
+export function tapLine(kind: LogKind): string | null {
+  if (kind.tap === undefined) return null;
   // A String of a tiny number is an exponent, `1e-7`, which no log parser reads.
   const tap = kind.tap.toFixed(9).replace(/\.?0+$/, "");
   return `- ${kind.mark} ${tap}${kind.unit === "" ? "" : ` ${kind.unit}`}`;
@@ -192,12 +198,20 @@ export function tapLine(kind: LogKind): string {
 
 /**
  * The line a tap writes for `typed` under `kind`, or why `typed` is no amount of
- * that kind. The empty amount is the default line; a kind of your own takes a bare
- * number with its unit added, or a number with its own unit.
+ * that kind. The empty amount is the default line, or on a last kind a request for
+ * the amount; a kind of your own takes a bare number with its unit added, or a number
+ * with its own unit.
  */
-export function kindLine(kind: LogKind, typed: string): string | { why: string } {
+export function kindLine(kind: LogKind, typed: string): string | { why: string; ask?: true } {
   const text = typed.trim();
-  if (text === "") return tapLine(kind);
+  if (text === "") {
+    return (
+      tapLine(kind) ?? {
+        why: `Type the ${kind.name}${kind.unit === "" ? "" : ` in ${kind.unit}`}`,
+        ask: true,
+      }
+    );
+  }
   if (kind.builtin !== undefined) return amountLine(kind.builtin, typed);
   const bare = new RegExp(`^${NUMBER}$`).test(text);
   const line = `- ${kind.mark} ${bare && kind.unit !== "" ? `${text} ${kind.unit}` : text}`;
@@ -221,14 +235,23 @@ export function parseKindLine(kind: LogKind, line: string): number | null {
 }
 
 /**
- * The day's total for `kind`. The built-in kinds read their totals; a kind of your
- * own sums its lines under `## Log`, rounded once as the other totals are.
+ * The day's total for `kind`. The built-in kinds read their totals; a last kind takes
+ * its last line's amount, or null with none; a kind of your own sums its lines under
+ * `## Log`, rounded once as the other totals are.
  */
-export function kindTotal(kind: LogKind, text: string, totals: DrinkTotals): number {
+export function kindTotal(kind: LogKind, text: string, totals: DrinkTotals): number | null {
   if (kind.builtin === "water") return totals.water.ml;
   if (kind.builtin === "coffee") return totals.coffee.count;
   if (kind.builtin === "alcohol") return totals.alcohol.count;
+  if (kind.last === true) return lastValue(kind, logLines(text));
   let sum = 0;
   for (const line of logLines(text)) sum += parseKindLine(kind, line) ?? 0;
   return tenth(sum);
+}
+
+/** The amount of the last line that parses for `kind`, unrounded, or null when none does. */
+export function lastValue(kind: LogKind, lines: string[]): number | null {
+  let value: number | null = null;
+  for (const line of lines) value = parseKindLine(kind, line) ?? value;
+  return value;
 }

@@ -2007,7 +2007,9 @@ export interface components {
         };
         /**
          * MineTotal
-         * @description What one kind of your own adds up to on a day, rounded to a tenth.
+         * @description What one kind of your own adds up to on a day: a sum rounded to a tenth.
+         *
+         *     On a last kind it is the last amount instead, and null with no line that day.
          */
         MineTotal: {
             /** Mark */
@@ -2017,7 +2019,7 @@ export interface components {
             /** Unit */
             unit: string;
             /** Total */
-            total: number;
+            total: number | null;
         };
         /**
          * Minted

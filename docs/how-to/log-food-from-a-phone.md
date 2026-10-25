@@ -50,6 +50,10 @@ The line `- 🍽 <meal>: 🔥 250 kcal` goes to the end of `## Log`, under the m
 
 An empty meal on the card offers `Copy yesterday's <meal> (<n> lines)` when yesterday's note has lines for that meal. Tap it. Each of yesterday's lines for that meal goes into today's note as yesterday holds it. Yesterday's note does not change. The copy is one change, so `u` (vim on), undo (vim off) or the card's `Undo` takes every copied line back at once.
 
+## Log your weight
+
+Type the weight in kg into the amount field, and tap `⚖ Weight` on the card. The line `- ⚖ 82.4 kg` goes to the end of `## Log`, and the field empties. With the field empty, tapping `⚖ Weight` asks for the number: type it and press Enter. The button shows the day's weight, or the latest one from the 30 days before when the day has none. `Undo` takes the line back.
+
 ## Close the sheet
 
 Press `Escape`, drag the grabber at the top of the sheet down, or, on a desktop, click the dimmed scrim beside the panel. Nothing is logged. The camera stops, and the editor takes the focus back.

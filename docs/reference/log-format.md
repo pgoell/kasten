@@ -94,7 +94,8 @@ coffee or alcohol, a marker inside a code span or a link (`` - `☕ 1` ``,
 | food | `kcal`, `protein`, `carbs`, `fat` in grams, each over the lines that give it |
 
 A day whose note holds a `## Log` answers every kind, zero where nothing was
-logged. A day without one is absent, not zero. Totals are rounded to one
+logged, except a last kind with no line that day, which is `null`. A day without
+a `## Log` is absent, not zero. Totals are rounded to one
 decimal once, after the sum, half to even as Python's `round` does: 0.25 g is
 0.2 g. An alcohol entry's own `grams` is rounded the same way.
 
@@ -180,12 +181,13 @@ field is left out of the answer.
 Only lines that start with `- ` at column 0 are read. The frontmatter and every
 other line are ignored. Each `- ` line is a kind or broken.
 
-A kind line is `- <emoji> <name>: <tap>[ <unit>][, min <n> | , max <n>]`. The
-mark is one symbol, a character whose Unicode category is `So` (an emoji is
-one), and U+FE0F may follow it. A letter or a digit is no mark, so `- x tea: 1 cup` and `- 7 tea: 1 cup` are broken. The tap is the amount one tap
-writes: a number, written as the log format writes numbers, above zero. `min N`
-is a floor, met at or above N. `max N` is a ceiling, passed only above N. N is
-above zero.
+A kind line is `- <emoji> <name>: <tap>[ <unit>][, min <n> | , max <n>]`, or the
+last kind's form below. The mark is one symbol, a character whose Unicode
+category is `So` (an emoji is one), and U+FE0F may follow it. A letter or a digit
+is no mark, so `- x tea: 1 cup` and `- 7 tea: 1 cup` are broken. The tap is the
+amount one tap writes: a number, written as the log format writes numbers, above
+zero. `min N` is a floor, met at or above N. `max N` is a ceiling, passed only
+above N. N is above zero.
 
 - 💧 is water. Its unit is `ml` or `l`. The goal is in that unit, and the card
   compares it with the day's total in ml.
@@ -200,6 +202,17 @@ above zero.
 - In the card's amount field, a bare number takes the kind's unit, so `2` on
   tea writes `- 🍵 2 cup`. Text that is no amount writes nothing, and the card
   says why.
+- A last kind is `- <emoji> <name>: [<unit>, ]last[, min <n> | , max <n>]`, so
+  `- ⚖ weight: kg, last` or `- ⚖ weight: last`, with no unit when none is
+  given. `last` is read in any case, and the word is never a unit. It takes no
+  tap, so a tap writes nothing and the card asks for the amount, as `Type the
+  weight in kg`. A goal is allowed after it. Its log lines read as any kind of
+  your own, so `- ⚖ 82.4 kg` is one.
+- A last kind's day total is not a sum. It is the amount of the day's last line
+  that parses for the kind, as written with no rounding, so `82.45` stays
+  `82.45`. A day with a `## Log` and no such line has no total, and the answer
+  gives `null`. Lines that do not parse are passed over, so a broken line after
+  a good one keeps the good one.
 
 A food line is `- 🍽 food: kcal max 2200, protein min 120, carbs max 250, fat max 70`.
 Its fields are kcal, protein, carbs and fat, each `min` or `max`, each at most
@@ -213,6 +226,9 @@ These lines are broken, and the card skips them:
 - 🔥 🥩 🍞 🧈 as a kind's emoji
 - an emoji that an earlier line already took, since the first keeps it
 - a zero tap or goal
+- a kind with neither a tap nor `last`
+- `last` with a tap (`- ⚖ weight: 80 kg, last`), on 💧, ☕ or 🍺, after a goal
+  (`- ⚖ weight: kg, max 85, last`), or twice
 - an unknown or repeated food field
 - a second food line
 
