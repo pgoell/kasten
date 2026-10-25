@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "kasten",
-    "version": "0.107.0"
+    "version": "0.108.0"
   },
   "paths": {
     "/agent/notes/{path}": {
@@ -2174,7 +2174,7 @@
     "/api/finance/categories/{category_id}": {
       "put": {
         "summary": "Rewrite Category",
-        "description": "Rename a category or change its kind. The bookings in it stay in it.",
+        "description": "Rename a category or change its kind, running the rules when the kind changes.\n\nThe kind says which side of a booking the category's rules sort, income\nmoney in and the rest money out, so a new kind can move bookings.",
         "operationId": "rewrite_category_api_finance_categories__category_id__put",
         "parameters": [
           {
