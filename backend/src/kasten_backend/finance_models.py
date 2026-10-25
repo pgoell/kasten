@@ -1,4 +1,4 @@
-"""The finance tables: accounts, their balances, bookings and the splits under a booking.
+"""The finance tables: accounts, balances, bookings, splits, and what sorts them into categories.
 
 Every table lives in the `finance` schema and is the only copy of what it
 holds, unlike the derived index. See docs/explanation/finance-in-postgres.md.
@@ -39,6 +39,31 @@ KINDS: tuple[str, ...] = get_args(Kind)
 Amount = Numeric(14, 2)
 """Euros and cents, signed: spending is negative. Never a float."""
 
+CategoryKind = Literal["fixed", "flexible", "non_monthly", "income", "saving", "ignore"]
+"""What a category counts as in the budget. The budget itself comes later (#1036)."""
+
+CATEGORY_KINDS: tuple[str, ...] = get_args(CategoryKind)
+
+RuleKind = Literal["text_contains", "payee"]
+"""What a rule reads: the booking's purpose, or its payee's name."""
+
+RULE_KINDS: tuple[str, ...] = get_args(RuleKind)
+
+SetBy = Literal["rule", "hand"]
+"""Who gave a booking its category. A rule never overwrites `hand`."""
+
+SET_BY: tuple[str, ...] = get_args(SetBy)
+
+
+def _one_of(column: str, values: tuple[str, ...], name: str) -> CheckConstraint:
+    """A check that `column` holds one of `values`, since jobs write here as well as the routes."""
+    return CheckConstraint(f"{column} IN ({', '.join(f"'{v}'" for v in values)})", name=name)
+
+
+def _sorted_by_someone(name: str) -> CheckConstraint:
+    """A category and the word for who set it come and go together."""
+    return CheckConstraint("(category_id IS NULL) = (category_set_by IS NULL)", name=name)
+
 
 class Account(Base):
     """A real bank account, or the cash in a wallet."""
@@ -59,6 +84,51 @@ class Account(Base):
     iban: Mapped[str | None] = mapped_column(Text, unique=True)
     kind: Mapped[str] = mapped_column(Text)
     shared: Mapped[bool] = mapped_column(server_default=text("false"))
+
+
+class Category(Base):
+    """One line of the budget, such as Groceries, in one kind."""
+
+    __tablename__ = "category"
+    __table_args__ = (_one_of("kind", CATEGORY_KINDS, "category_kind_check"), {"schema": SCHEMA})
+
+    id: Mapped[int] = mapped_column(Identity(), primary_key=True)
+    name: Mapped[str] = mapped_column(Text, unique=True)
+    kind: Mapped[str] = mapped_column(Text)
+
+
+class Payee(Base):
+    """A counterparty under its cleaned name, with the category its bookings take by default.
+
+    `key` is what bookings are matched by: the counterparty name casefolded,
+    every run of characters that are not letters or digits made one space, and
+    trimmed (`finance_sorting.payee_key`). `name` is the first spelling seen,
+    for showing.
+    """
+
+    __tablename__ = "payee"
+    __table_args__ = ({"schema": SCHEMA},)
+
+    id: Mapped[int] = mapped_column(Identity(), primary_key=True)
+    key: Mapped[str] = mapped_column(Text, unique=True)
+    name: Mapped[str] = mapped_column(Text)
+    category_id: Mapped[int | None] = mapped_column(ForeignKey(Category.id, ondelete="SET NULL"))
+
+
+class Rule(Base):
+    """A pattern that gives a booking a category. `finance_sorting` says the order they fire in."""
+
+    __tablename__ = "rule"
+    __table_args__ = (
+        _one_of("kind", RULE_KINDS, "rule_kind_check"),
+        UniqueConstraint("kind", "pattern", name="rule_kind_pattern"),
+        {"schema": SCHEMA},
+    )
+
+    id: Mapped[int] = mapped_column(Identity(), primary_key=True)
+    kind: Mapped[str] = mapped_column(Text)
+    pattern: Mapped[str] = mapped_column(Text)
+    category_id: Mapped[int] = mapped_column(ForeignKey(Category.id, ondelete="CASCADE"))
 
 
 class BalanceSnapshot(Base):
@@ -86,6 +156,8 @@ class Transaction(Base):
         # same booking again is refused by this and nothing else.
         UniqueConstraint("account_id", "source_key", name="transaction_account_source_key"),
         Index("transaction_account_booking_date", "account_id", "booking_date"),
+        _one_of("category_set_by", SET_BY, "transaction_set_by_check"),
+        _sorted_by_someone("transaction_category_set_by"),
         {"schema": SCHEMA},
     )
 
@@ -107,7 +179,13 @@ class Transaction(Base):
         DateTime(timezone=True), server_default=func.now()
     )
     transfer_group: Mapped[uuid.UUID | None] = mapped_column(UUID)
+    payee_id: Mapped[int | None] = mapped_column(ForeignKey(Payee.id))
+    # No `ondelete`: deleting a category clears its bookings first, both columns
+    # at once, which a `SET NULL` here could not do.
+    category_id: Mapped[int | None] = mapped_column(ForeignKey(Category.id))
+    category_set_by: Mapped[str | None] = mapped_column(Text)
 
+    payee: Mapped[Payee | None] = relationship()
     splits: Mapped[list[TransactionSplit]] = relationship(
         order_by="TransactionSplit.id", cascade="all, delete-orphan"
     )
@@ -121,7 +199,11 @@ class TransactionSplit(Base):
     """
 
     __tablename__ = "transaction_split"
-    __table_args__ = ({"schema": SCHEMA},)
+    __table_args__ = (
+        _one_of("category_set_by", SET_BY, "transaction_split_set_by_check"),
+        _sorted_by_someone("transaction_split_category_set_by"),
+        {"schema": SCHEMA},
+    )
 
     id: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True)
     transaction_id: Mapped[int] = mapped_column(
@@ -129,3 +211,5 @@ class TransactionSplit(Base):
     )
     amount: Mapped[Decimal] = mapped_column(Amount)
     text: Mapped[str | None] = mapped_column(Text)
+    category_id: Mapped[int | None] = mapped_column(ForeignKey(Category.id))
+    category_set_by: Mapped[str | None] = mapped_column(Text)

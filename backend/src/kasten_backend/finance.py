@@ -120,14 +120,14 @@ async def store_balances(session: AsyncSession, rows: list[dict[str, Any]]) -> i
     return len(rows)
 
 
-async def insert_transactions(session: AsyncSession, rows: list[dict[str, Any]]) -> int:
-    """Insert the bookings the table does not hold yet, and say how many that was.
+async def insert_transactions(session: AsyncSession, rows: list[dict[str, Any]]) -> list[int]:
+    """Insert the bookings the table does not hold yet, and hand back their ids.
 
     A booking already there by its account and source key is left exactly as
     it is, so a window that overlaps the last one costs nothing.
     """
     if not rows:
-        return 0
+        return []
     seen: dict[tuple[int, str], dict[str, Any]] = {}
     for row in rows:
         known = seen.setdefault((row["account_id"], row["source_key"]), row)
@@ -140,7 +140,7 @@ async def insert_transactions(session: AsyncSession, rows: list[dict[str, Any]])
         .on_conflict_do_nothing(constraint="transaction_account_source_key")
         .returning(Transaction.id)
     )
-    return len((await session.scalars(statement)).all())
+    return list((await session.scalars(statement)).all())
 
 
 async def link_transfers(session: AsyncSession) -> int:

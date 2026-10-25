@@ -2016,7 +2016,7 @@
       },
       "post": {
         "summary": "Write Transactions",
-        "description": "Insert the bookings not already stored, then pair the transfers between own accounts.\n\nA booking already there by account and source key is skipped and left as\nit was, so a job may send an overlapping window every run.",
+        "description": "Insert the bookings not already stored, pair the transfers, then sort the new ones.\n\nA booking already there by account and source key is skipped and left as\nit was, so a job may send an overlapping window every run. The new\nbookings get their payees and the rules' categories after the transfers\nare paired, since a transfer takes no category.",
         "operationId": "write_transactions_api_finance_transactions_post",
         "requestBody": {
           "required": true,
@@ -2094,6 +2094,543 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/TransactionOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/finance/categories": {
+      "get": {
+        "summary": "Read Categories",
+        "description": "Every category, by name.",
+        "operationId": "read_categories_api_finance_categories_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CategoryOut"
+                  },
+                  "type": "array",
+                  "title": "Response Read Categories Api Finance Categories Get"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Write Category",
+        "description": "Make a category. A name already taken is a 409.",
+        "operationId": "write_category_api_finance_categories_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CategoryIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CategoryOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/finance/categories/{category_id}": {
+      "put": {
+        "summary": "Rewrite Category",
+        "description": "Rename a category or change its kind. The bookings in it stay in it.",
+        "operationId": "rewrite_category_api_finance_categories__category_id__put",
+        "parameters": [
+          {
+            "name": "category_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Category Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CategoryIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CategoryOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete Category",
+        "description": "Delete a category and its rules, and run the rules over what it held.",
+        "operationId": "delete_category_api_finance_categories__category_id__delete",
+        "parameters": [
+          {
+            "name": "category_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Category Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/finance/payees": {
+      "get": {
+        "summary": "Read Payees",
+        "description": "Every payee, by key.",
+        "operationId": "read_payees_api_finance_payees_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PayeeOut"
+                  },
+                  "type": "array",
+                  "title": "Response Read Payees Api Finance Payees Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/finance/payees/{payee_id}": {
+      "put": {
+        "summary": "Write Payee",
+        "description": "Set a payee's default category, \"always for this payee\", and run the rules.",
+        "operationId": "write_payee_api_finance_payees__payee_id__put",
+        "parameters": [
+          {
+            "name": "payee_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Payee Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Choice"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PayeeOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/finance/rules": {
+      "get": {
+        "summary": "Read Rules",
+        "description": "Every rule, in the order they fire.",
+        "operationId": "read_rules_api_finance_rules_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/RuleOut"
+                  },
+                  "type": "array",
+                  "title": "Response Read Rules Api Finance Rules Get"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Write Rule",
+        "description": "Make a rule and run the rules over every booking.",
+        "operationId": "write_rule_api_finance_rules_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RuleIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RuleOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/finance/rules/{rule_id}": {
+      "put": {
+        "summary": "Rewrite Rule",
+        "description": "Change a rule and run the rules over every booking.",
+        "operationId": "rewrite_rule_api_finance_rules__rule_id__put",
+        "parameters": [
+          {
+            "name": "rule_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Rule Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RuleIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RuleOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete Rule",
+        "description": "Delete a rule and run the rules over every booking, so what it sorted is sorted again.",
+        "operationId": "delete_rule_api_finance_rules__rule_id__delete",
+        "parameters": [
+          {
+            "name": "rule_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Rule Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/finance/rules/run": {
+      "post": {
+        "summary": "Run Rules",
+        "description": "Give every booking a payee, run the rules over every booking, and count the changes.",
+        "operationId": "run_rules_api_finance_rules_run_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ran"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/finance/transactions/{transaction_id}/category": {
+      "put": {
+        "summary": "Write Transaction Category",
+        "description": "Set a booking's category by hand, or with null hand it back to the rules.",
+        "operationId": "write_transaction_category_api_finance_transactions__transaction_id__category_put",
+        "parameters": [
+          {
+            "name": "transaction_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Transaction Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Choice"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransactionOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/finance/splits/{split_id}/category": {
+      "put": {
+        "summary": "Write Split Category",
+        "description": "Set a split's category by hand, or with null hand it back to the rules.",
+        "operationId": "write_split_category_api_finance_splits__split_id__category_put",
+        "parameters": [
+          {
+            "name": "split_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Split Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Choice"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SplitOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/finance/to-sort": {
+      "get": {
+        "summary": "Read To Sort",
+        "description": "A page of the bookings that hold something without a category, oldest first.",
+        "operationId": "read_to_sort_api_finance_to_sort_get",
+        "parameters": [
+          {
+            "name": "after",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "After"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 5000,
+              "minimum": 1,
+              "default": 500,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ToSort"
+                  },
+                  "title": "Response Read To Sort Api Finance To Sort Get"
                 }
               }
             }
@@ -3414,6 +3951,67 @@
         "title": "Capture",
         "description": "A dump from the app, which may carry the id its sender minted at typing.\n\n`POST /api/dump` only. The agent's route and its MCP tool keep `Dump`, so\nan agent's schema never grows a field it has no use for: an agent that\nlost an answer reads the note again rather than resending blind."
       },
+      "CategoryIn": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Name"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "fixed",
+              "flexible",
+              "non_monthly",
+              "income",
+              "saving",
+              "ignore"
+            ],
+            "title": "Kind"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "kind"
+        ],
+        "title": "CategoryIn",
+        "description": "A category as the browser sends it."
+      },
+      "CategoryOut": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Name"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "fixed",
+              "flexible",
+              "non_monthly",
+              "income",
+              "saving",
+              "ignore"
+            ],
+            "title": "Kind"
+          },
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "kind",
+          "id"
+        ],
+        "title": "CategoryOut",
+        "description": "A category as stored."
+      },
       "Checklist": {
         "properties": {
           "name": {
@@ -3447,6 +4045,27 @@
         ],
         "title": "Checklist",
         "description": "One list, and the digest of the note it was read from."
+      },
+      "Choice": {
+        "properties": {
+          "category_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "category_id"
+        ],
+        "title": "Choice",
+        "description": "A category to set, or null to hand the row back to the rules."
       },
       "Clear": {
         "properties": {
@@ -4223,6 +4842,38 @@
         "title": "LineHit",
         "description": "One line in the vault, and enough to open the note on it."
       },
+      "LooseSplit": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "amount": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Amount"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Text"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "amount",
+          "text"
+        ],
+        "title": "LooseSplit",
+        "description": "A split still without a category."
+      },
       "Mention": {
         "properties": {
           "path": {
@@ -4535,6 +5186,56 @@
         "title": "Page",
         "description": "One web page as it arrived, for the client to make a note out of."
       },
+      "PayeeOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "category_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "key",
+          "name",
+          "category_id"
+        ],
+        "title": "PayeeOut",
+        "description": "A payee: its cleaned key, the name shown, and its default category."
+      },
+      "Ran": {
+        "properties": {
+          "changed": {
+            "type": "integer",
+            "title": "Changed"
+          }
+        },
+        "type": "object",
+        "required": [
+          "changed"
+        ],
+        "title": "Ran",
+        "description": "How many bookings and splits a run of the rules gave another category."
+      },
       "Restored": {
         "properties": {
           "path": {
@@ -4581,6 +5282,69 @@
         ],
         "title": "ReviewLimits",
         "description": "The daily limits a deck falls back on, None meaning no limit."
+      },
+      "RuleIn": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "text_contains",
+              "payee"
+            ],
+            "title": "Kind"
+          },
+          "pattern": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Pattern"
+          },
+          "category_id": {
+            "type": "integer",
+            "title": "Category Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "pattern",
+          "category_id"
+        ],
+        "title": "RuleIn",
+        "description": "A rule as the browser sends it."
+      },
+      "RuleOut": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "text_contains",
+              "payee"
+            ],
+            "title": "Kind"
+          },
+          "pattern": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Pattern"
+          },
+          "category_id": {
+            "type": "integer",
+            "title": "Category Id"
+          },
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "pattern",
+          "category_id",
+          "id"
+        ],
+        "title": "RuleOut",
+        "description": "A rule as stored."
       },
       "Save": {
         "properties": {
@@ -4710,13 +5474,37 @@
               }
             ],
             "title": "Text"
+          },
+          "category_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category Id"
+          },
+          "category_set_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category Set By"
           }
         },
         "type": "object",
         "required": [
           "id",
           "amount",
-          "text"
+          "text",
+          "category_id",
+          "category_set_by"
         ],
         "title": "SplitOut",
         "description": "One part of a booking as stored."
@@ -4758,6 +5546,98 @@
         ],
         "title": "Tick",
         "description": "Which line to tick or untick, and the digest of the list the caller read."
+      },
+      "ToSort": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "account_id": {
+            "type": "integer",
+            "title": "Account Id"
+          },
+          "booking_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Booking Date"
+          },
+          "amount": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Amount"
+          },
+          "currency": {
+            "type": "string",
+            "title": "Currency"
+          },
+          "purpose": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Purpose"
+          },
+          "counterparty_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Counterparty Name"
+          },
+          "payee_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Payee Id"
+          },
+          "payee_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Payee Name"
+          },
+          "splits": {
+            "items": {
+              "$ref": "#/components/schemas/LooseSplit"
+            },
+            "type": "array",
+            "title": "Splits"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "account_id",
+          "booking_date",
+          "amount",
+          "currency",
+          "purpose",
+          "counterparty_name",
+          "payee_id",
+          "payee_name",
+          "splits"
+        ],
+        "title": "ToSort",
+        "description": "A booking that holds something to sort: itself, or the splits listed."
       },
       "TodoHit": {
         "properties": {
@@ -5116,6 +5996,39 @@
             ],
             "title": "Transfer Group"
           },
+          "payee_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Payee Id"
+          },
+          "category_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category Id"
+          },
+          "category_set_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category Set By"
+          },
           "splits": {
             "items": {
               "$ref": "#/components/schemas/SplitOut"
@@ -5141,6 +6054,9 @@
           "source_key",
           "imported_at",
           "transfer_group",
+          "payee_id",
+          "category_id",
+          "category_set_by",
           "splits"
         ],
         "title": "TransactionOut",
