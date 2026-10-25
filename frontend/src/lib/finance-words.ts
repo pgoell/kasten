@@ -12,16 +12,24 @@ const EUROS = new Intl.NumberFormat("de-DE", {
   maximumFractionDigits: 0,
 });
 
-/** An amount to the cent, `1.234,56 €`, in its own currency when one is given. */
+/** The minus sign, wider than the hyphen Intl writes, so a negative amount reads as one. */
+const MINUS = "\u2212";
+
+function signed(format: Intl.NumberFormat, value: number): string {
+  return value < 0 ? `${MINUS}${format.format(-value)}` : format.format(value);
+}
+
+/** An amount to the cent, `1.234,56 €` or `−4,20 €`, in its own currency when one is given. */
 export function money(amount: string | number, currency = "EUR"): string {
   const format =
     currency === "EUR" ? CENTS : new Intl.NumberFormat("de-DE", { style: "currency", currency });
-  return format.format(Number(amount));
+  return signed(format, Number(amount));
 }
 
-/** An amount in whole euros, `1.235 €`, for figures read at a glance. */
+/** An amount in whole euros, `1.235 €` or `−50 €`, for figures read at a glance. */
 export function euros(amount: string | number): string {
-  return EUROS.format(Math.round(Number(amount)));
+  // Rounded first, so `-0.4` reads `0 €` and not `−0 €`.
+  return signed(EUROS, Math.round(Number(amount)) || 0);
 }
 
 /** The month a day falls in, `YYYY-MM`. */

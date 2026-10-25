@@ -19,7 +19,8 @@ export function Meter({
   /** The share of the month gone, 0 to 1, or undefined for no tick. */
   tick?: number;
 }) {
-  const share = available <= 0 ? (spent > 0 ? 1 : 0) : Math.min(1, spent / available);
+  // A refund can leave a negative sum; the fill stays between empty and full.
+  const share = available <= 0 ? (spent > 0 ? 1 : 0) : Math.min(1, Math.max(0, spent / available));
   return (
     // Hidden from a screen reader: the words beside it say the same, the status included.
     <div className={`finance-meter finance-status-${status ?? "none"}`} aria-hidden="true">

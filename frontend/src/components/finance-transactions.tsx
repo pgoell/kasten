@@ -30,6 +30,7 @@ function lineOf(booking: Transaction, names: Map<number, string>): BookingLine {
     date: booking.booking_date,
     who: booking.counterparty_name ?? "No payee",
     amount: booking.amount,
+    currency: booking.currency,
     text: booking.purpose ?? "",
     category: categoryWords(booking, names),
   };

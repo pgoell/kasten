@@ -22,6 +22,16 @@ function aside(row: BudgetCategory, month: string): string {
   return `${average}${cut}`;
 }
 
+/**
+ * A typed limit as the API takes it: `1.234,56` and `1234.56` alike, the German way when a
+ * comma is in it; an empty field is no limit.
+ */
+export function amountOf(text: string): string | null {
+  const typed = text.trim().replace(/\s|€/g, "");
+  if (typed === "") return null;
+  return typed.includes(",") ? typed.replaceAll(".", "").replace(",", ".") : typed;
+}
+
 interface RowProps {
   row: BudgetCategory;
   month: string;
@@ -44,7 +54,7 @@ function LimitField({
   const [draft, setDraft] = useState(
     row.limit == null ? "" : String(Math.round(Number(row.limit))),
   );
-  const save = () => onSave(draft.trim() === "" ? null : draft.trim().replace(",", "."));
+  const save = () => onSave(amountOf(draft));
   return (
     <span className="finance-budget-edit">
       <input
@@ -178,11 +188,14 @@ export function FinanceBudget({
   today,
   keys,
   onNotice,
+  refocus,
 }: {
   month: string;
   today: string;
   keys: RefObject<TabKeys | null>;
   onNotice: (text: string | undefined) => void;
+  /** Gives the pane the keys back once the field it held closes. */
+  refocus: () => void;
 }) {
   const queries = useQueryClient();
   const budget = useQuery({
@@ -197,15 +210,18 @@ export function FinanceBudget({
   const at = Math.max(0, Math.min(cursor, rows.length - 1));
   const share = Number(budget.data?.share_of_month ?? 0);
 
+  /** Write the limit; a refused one leaves the field open with what was typed. */
   async function save(row: BudgetCategory, amount: string | null) {
-    setEditing(undefined);
     try {
       await writeLimit(row.id, amount, month);
-      onNotice(undefined);
     } catch (error) {
       if (!(error instanceof Error)) throw error;
       onNotice(error.message);
+      return;
     }
+    onNotice(undefined);
+    setEditing(undefined);
+    refocus();
     await queries.invalidateQueries({ queryKey: ["finance"] });
   }
 
@@ -249,7 +265,10 @@ export function FinanceBudget({
                     setEditing(row.id);
                   }}
                   onSave={(amount) => void save(row, amount)}
-                  onCancel={() => setEditing(undefined)}
+                  onCancel={() => {
+                    setEditing(undefined);
+                    refocus();
+                  }}
                 />
               ),
             )}

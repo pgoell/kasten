@@ -32,12 +32,15 @@ function inField(target: EventTarget): boolean {
 }
 
 /**
- * A key the pane leaves alone: Enter or Space on a focused button is that button's own press,
+ * A key the pane leaves alone: Enter or Space on a focused button or summary is its own press,
  * and a chord such as Ctrl 1 belongs to the browser or the app, not to a category.
  */
 function notOurs(event: KeyboardEvent): boolean {
-  const button = event.target instanceof HTMLButtonElement;
-  if (button && (event.key === "Enter" || event.key === " ")) return true;
+  // A summary opens its details on Enter or Space, as a button presses.
+  const pressable =
+    event.target instanceof HTMLButtonElement ||
+    (event.target instanceof HTMLElement && event.target.tagName === "SUMMARY");
+  if (pressable && (event.key === "Enter" || event.key === " ")) return true;
   return event.ctrlKey || event.altKey || event.metaKey;
 }
 
@@ -60,11 +63,17 @@ export function FinancePane({ commands, focusSignal, onNotice, today }: FinanceP
     if (focusSignal) panel.current?.focus();
   }, [focusSignal]);
 
+  /** Show a tab and keep the keys in the pane, though what had the focus went with the old tab. */
+  function show(name: FinanceTab) {
+    setTab(name);
+    panel.current?.focus();
+  }
+
   const frameKeys: Record<string, () => void> = {
-    O: () => setTab("overview"),
-    S: () => setTab("to-sort"),
-    T: () => setTab("transactions"),
-    B: () => setTab("budget"),
+    O: () => show("overview"),
+    S: () => show("to-sort"),
+    T: () => show("transactions"),
+    B: () => show("budget"),
     "[": () => setMonth(shiftMonth(month, -1)),
     "]": () => setMonth(shiftMonth(month, 1)),
     P: () => void pull.pull(),
@@ -110,7 +119,7 @@ export function FinancePane({ commands, focusSignal, onNotice, today }: FinanceP
               aria-controls={`${id}-view`}
               aria-selected={tab === name}
               className="finance-pane-tab"
-              onClick={() => setTab(name)}
+              onClick={() => show(name)}
             >
               {label} <kbd>{key}</kbd>
             </button>
@@ -161,7 +170,13 @@ export function FinancePane({ commands, focusSignal, onNotice, today }: FinanceP
           <FinanceTransactions month={month} sorter={sorter} keys={keys} />
         ) : null}
         {tab === "budget" ? (
-          <FinanceBudget month={month} today={today} keys={keys} onNotice={onNotice} />
+          <FinanceBudget
+            month={month}
+            today={today}
+            keys={keys}
+            onNotice={onNotice}
+            refocus={() => panel.current?.focus()}
+          />
         ) : null}
       </div>
     </section>

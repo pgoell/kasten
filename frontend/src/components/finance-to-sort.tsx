@@ -13,6 +13,7 @@ interface Row {
   who: string;
   text: string;
   amount: string;
+  currency: string;
   payee: number | null;
 }
 
@@ -23,6 +24,7 @@ function rowsOf(bookings: ToSort[]): Row[] {
       transaction: booking.id,
       date: booking.booking_date,
       who: booking.payee_name ?? booking.counterparty_name ?? "No payee",
+      currency: booking.currency,
       payee: booking.payee_id,
     };
     if (booking.splits.length === 0) {

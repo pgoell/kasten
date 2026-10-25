@@ -1,7 +1,9 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { amountOf } from "@/components/finance-budget-tab";
 import { madeOf } from "@/components/finance-overview";
 import { FinancePane } from "@/components/finance-pane";
+import { euros } from "@/lib/finance-words";
 import { stubCommands } from "./stub-commands";
 
 const api = vi.hoisted(() => ({
@@ -137,6 +139,7 @@ beforeEach(() => {
   api.fetchSync.mockResolvedValue({
     requested_at: null,
     last_run: null,
+    running: false,
     last_success_at: "2026-10-24T15:00:00Z",
     days_since_success: 1,
     accounts: [],
@@ -227,5 +230,59 @@ describe("the finance pane's overview, budget and transactions", () => {
     expect(api.fetchTransactions).toHaveBeenCalledWith(
       expect.objectContaining({ month: "2026-10" }),
     );
+  });
+
+  it("#1036 a negative amount takes a minus sign, and money given back reads as plus", () => {
+    expect(euros("-50").replaceAll("\u00a0", " ")).toBe("\u221250 €");
+    expect(euros("-0.4").replaceAll("\u00a0", " ")).toBe("0 €");
+    const drawn = { ...MINE, saved: "-200.00", flexible: part("0.00") };
+    expect(madeOf(drawn as never).replaceAll("\u00a0", " ")).toBe(
+      "3.450 € income, less 1.247 € fixed, plus 200 € taken from saving",
+    );
+  });
+
+  it("#1036 a limit reads 1.234,56 the German way and 1234.56 alike", () => {
+    expect(amountOf("1.234,56")).toBe("1234.56");
+    expect(amountOf(" 1234.56 € ")).toBe("1234.56");
+    expect(amountOf("")).toBeNull();
+  });
+
+  it("#1036 a refused limit keeps the field open with what was typed", async () => {
+    api.writeLimit.mockRejectedValue(new Error("Only a spending category takes a limit"));
+    renderPane();
+    press("B");
+    await screen.findByText(/Raise to 540/);
+
+    press("e");
+    const field = await screen.findByRole("textbox", { name: "Rent limit from October 2026" });
+    fireEvent.change(field, { target: { value: "1.700" } });
+    fireEvent.keyDown(field, { key: "Enter" });
+
+    await waitFor(() => expect(api.writeLimit).toHaveBeenCalled());
+    expect(screen.getByRole("textbox", { name: "Rent limit from October 2026" })).toHaveValue(
+      "1.700",
+    );
+  });
+
+  it("#1036 while a pull waits the button says so and P asks no more; a failed read shows", async () => {
+    api.fetchSync.mockResolvedValue({
+      requested_at: "2026-10-25T08:00:00Z",
+      last_run: null,
+      running: false,
+      last_success_at: null,
+      days_since_success: null,
+      accounts: [],
+    });
+    renderPane();
+
+    expect(await screen.findByRole("button", { name: "Waiting for the bank job…" })).toBeDisabled();
+    press("P");
+    expect(api.requestPull).not.toHaveBeenCalled();
+
+    cleanup();
+    api.fetchSync.mockRejectedValue(new Error("GET /api/finance/sync failed with 503"));
+    renderPane();
+    const failed = await screen.findByText("GET /api/finance/sync failed with 503");
+    expect(failed.getAttribute("role")).toBe("alert");
   });
 });

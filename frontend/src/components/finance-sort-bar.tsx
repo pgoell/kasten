@@ -73,6 +73,8 @@ export interface BookingLine {
   date: string;
   who: string;
   amount: string;
+  /** EUR unless the booking says otherwise. */
+  currency?: string;
   text: string;
   /** The category's name, where the list shows one; "Not sorted" or "Transfer" otherwise. */
   category?: string;
@@ -106,7 +108,7 @@ export function BookingList({
           <button type="button" className="finance-pane-line" onClick={() => onPick(index)}>
             <span className="finance-pane-date">{item.date}</span>
             <span className="finance-pane-who">{item.who}</span>
-            <span className="finance-pane-amount">{money(item.amount)}</span>
+            <span className="finance-pane-amount">{money(item.amount, item.currency)}</span>
             <span className="finance-pane-text">{item.text}</span>
             {item.category === undefined ? null : (
               <span

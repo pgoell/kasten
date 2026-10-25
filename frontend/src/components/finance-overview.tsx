@@ -18,17 +18,39 @@ const PARTS: { key: "fixed" | "flexible" | "non_monthly"; word: string }[] = [
   { key: "non_monthly", word: "non-monthly" },
 ];
 
-/** The line under the figure: `3.450 € income, less 1.247 € fixed, 591 € flexible, 450 € saved`. */
+/** What a part is called when it took money away, and when it gave some back. */
+const GAVE_BACK: Record<string, string> = {
+  fixed: "fixed refunded",
+  flexible: "flexible refunded",
+  "non-monthly": "non-monthly refunded",
+  "not sorted": "not sorted",
+  saved: "taken from saving",
+};
+
+/**
+ * The line under the figure: `3.450 € income, less 1.247 € fixed, 591 € flexible, 450 € saved`.
+ * A part that gave money back, such as savings drawn on, follows as `plus 200 € taken from
+ * saving`, so no amount reads as a double negative.
+ */
 export function madeOf(free: Free): string {
-  const less = [
+  const parts = [
     ...PARTS.map(({ key, word }) => ({ amount: Number(free[key].total), word })),
     { amount: Number(free.unsorted), word: "not sorted" },
     { amount: Number(free.saved), word: "saved" },
-  ]
-    .filter((part) => part.amount !== 0)
+  ];
+  const less = parts
+    .filter((part) => part.amount > 0)
     .map((part) => `${euros(part.amount)} ${part.word}`);
-  const income = `${euros(free.income.total)} income`;
-  return less.length === 0 ? income : `${income}, less ${less.join(", ")}`;
+  const plus = parts
+    .filter((part) => part.amount < 0)
+    .map((part) => `${euros(-part.amount)} ${GAVE_BACK[part.word] ?? part.word}`);
+  return [
+    `${euros(free.income.total)} income`,
+    less.length === 0 ? "" : `less ${less.join(", ")}`,
+    plus.length === 0 ? "" : `plus ${plus.join(", ")}`,
+  ]
+    .filter(Boolean)
+    .join(", ");
 }
 
 /** Each line of free to spend as a table row, so the figure reads without the words above. */
@@ -47,7 +69,7 @@ function Sums({ free }: { free: Free }) {
                   {word}
                   {line.basis === "average" ? ", average" : ""}
                 </td>
-                <td>{key === "income" ? euros(line.counted) : `−${euros(line.counted)}`}</td>
+                <td>{euros(key === "income" ? line.counted : -Number(line.counted))}</td>
               </tr>
             )),
           )}
@@ -55,14 +77,14 @@ function Sums({ free }: { free: Free }) {
             <tr>
               <th scope="row">Not sorted yet</th>
               <td className="finance-muted">spending</td>
-              <td>{`−${euros(free.unsorted)}`}</td>
+              <td>{euros(-Number(free.unsorted))}</td>
             </tr>
           )}
           {Number(free.saved) === 0 ? null : (
             <tr>
               <th scope="row">Moved to saving</th>
               <td className="finance-muted">saved</td>
-              <td>{`−${euros(free.saved)}`}</td>
+              <td>{euros(-Number(free.saved))}</td>
             </tr>
           )}
         </tbody>
@@ -99,7 +121,11 @@ function Pace({ budget }: { budget: Budget }) {
   );
   // A limit an overspend cut below zero adds nothing, rather than taking from the others.
   const available = flexible.reduce((sum, row) => sum + Math.max(0, Number(row.available)), 0);
-  const spent = flexible.reduce((sum, row) => sum + Number(row.spent), 0);
+  // A refund larger than the month's spending is no negative pace.
+  const spent = Math.max(
+    0,
+    flexible.reduce((sum, row) => sum + Number(row.spent), 0),
+  );
   const share = Number(budget.share_of_month);
   const ahead = spent > available * share + available * 0.1;
   const status = spent > available ? "over" : ahead ? "near" : "ok";
@@ -117,13 +143,15 @@ function Pace({ budget }: { budget: Budget }) {
           <Meter spent={spent} available={available} status={status} tick={share} />
         </div>
       )}
-      <p className={`overview-caption finance-status-text-${status}`}>
-        {status === "over"
-          ? "over the flexible limits ⚠"
-          : ahead
-            ? "ahead of the month ⚠"
-            : "on pace ✓"}
-      </p>
+      {flexible.length === 0 ? null : (
+        <p className={`overview-caption finance-status-text-${status}`}>
+          {status === "over"
+            ? "over the flexible limits ⚠"
+            : ahead
+              ? "ahead of the month ⚠"
+              : "on pace ✓"}
+        </p>
+      )}
     </article>
   );
 }

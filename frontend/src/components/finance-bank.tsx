@@ -1,13 +1,19 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { fetchSync, requestPull, type SyncStatus } from "@/lib/finance-budget-api";
 
 /** How often the status is read again while a "pull now" waits for the bank job. */
 const POLL_MS = 5000;
 
+/** Whether a "pull now" waits for the job, or a run is still going. */
+function waitingOf(data: SyncStatus | undefined): boolean {
+  return data?.requested_at != null || data?.running === true;
+}
+
 /**
- * The bank sync's status and "pull now". While a request waits, or a run it started has not
- * finished, the status is read every five seconds, so the card follows the job to its end.
+ * The bank sync's status and "pull now". While a request waits or a run goes, the status is
+ * read every five seconds, so the card follows the job to its end; when it ends every finance
+ * read is fetched again, since the pull brought bookings in.
  */
 export function usePull(onNotice: (text: string | undefined) => void) {
   const queries = useQueryClient();
@@ -15,15 +21,19 @@ export function usePull(onNotice: (text: string | undefined) => void) {
   const status = useQuery({
     queryKey: ["finance", "sync"],
     queryFn: fetchSync,
-    refetchInterval: (query) => {
-      const data = query.state.data;
-      const running = data?.last_run != null && data.last_run.finished_at == null;
-      return data?.requested_at != null || running ? POLL_MS : false;
-    },
+    refetchInterval: (query) => (waitingOf(query.state.data) ? POLL_MS : false),
   });
+  const waiting = waitingOf(status.data);
+  const waited = useRef(false);
+
+  useEffect(() => {
+    if (waited.current && !waiting) void queries.invalidateQueries({ queryKey: ["finance"] });
+    waited.current = waiting;
+  }, [waiting, queries]);
 
   async function pull() {
-    if (asking) return;
+    // A request that waits already asks for the next pull; a second would only say so again.
+    if (asking || waiting) return;
     setAsking(true);
     try {
       await requestPull();
@@ -37,7 +47,7 @@ export function usePull(onNotice: (text: string | undefined) => void) {
     await queries.invalidateQueries({ queryKey: ["finance", "sync"] });
   }
 
-  return { status, pull, asking };
+  return { status, pull, asking, waiting };
 }
 
 export type Pull = ReturnType<typeof usePull>;
@@ -58,7 +68,8 @@ function daysWords(days: number | null | undefined): string {
   return days === 1 ? "1 day ago" : `${days} days ago`;
 }
 
-function lastGood(data: SyncStatus | undefined): string {
+function lastGood(data: SyncStatus | undefined, error: Error | null): string {
+  if (error !== null) return error.message;
   if (data === undefined) return "loading";
   if (data.last_success_at == null) return "no pull has worked yet";
   return `last good pull ${when(data.last_success_at)}`;
@@ -68,7 +79,7 @@ function lastGood(data: SyncStatus | undefined): string {
 export function BankCard({ pull }: { pull: Pull }) {
   const data = pull.status.data;
   const run = data?.last_run;
-  const waiting = data?.requested_at != null || (run != null && run.finished_at == null);
+  const waiting = pull.waiting;
   const failed = run?.outcome === "failed";
   const stale = (data?.days_since_success ?? 0) >= 7;
   return (
@@ -77,7 +88,12 @@ export function BankCard({ pull }: { pull: Pull }) {
       <p className={stale ? "overview-figure finance-danger" : "overview-figure"}>
         {data === undefined ? "…" : daysWords(data.days_since_success)}
       </p>
-      <p className="overview-words">{lastGood(data)}</p>
+      <p
+        className={pull.status.error ? "overview-words finance-danger" : "overview-words"}
+        role={pull.status.error ? "alert" : undefined}
+      >
+        {lastGood(data, pull.status.error)}
+      </p>
       {run == null || run.finished_at == null ? null : (
         <p className={`overview-caption finance-status-text-${failed ? "over" : "ok"}`}>
           {failed ? `last run failed ⚠ ${run.error ?? ""}`.trim() : "last run ok ✓"}

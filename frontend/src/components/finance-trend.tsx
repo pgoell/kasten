@@ -22,7 +22,11 @@ export function SpendingTrend({
   const shown = trend.months.indexOf(month);
   const limit = trend.limits[shown === -1 ? trend.months.length - 1 : shown];
   const goal = limit == null ? undefined : { type: "ceiling" as const, value: Number(limit) };
-  const points = trend.totals.map((total, index) => ({ index, amount: Number(total) }));
+  // A month of refunds past its spending draws no bar below the axis.
+  const points = trend.totals.map((total, index) => ({
+    index,
+    amount: Math.max(0, Number(total)),
+  }));
   const read = hovered ?? (shown === -1 ? trend.months.length - 1 : shown);
   const over = goal === undefined ? 0 : points.filter((point) => point.amount > goal.value).length;
 
