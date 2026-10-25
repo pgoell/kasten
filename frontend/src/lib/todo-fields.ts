@@ -155,23 +155,32 @@ export function readFields(rest: string): Fields {
  * `📅 2026-10-20#agent` carries one and `🆔 kt-a,#agent` none; `origin` keeps each
  * kept character's offset in `rest` so `@` can find that same tag on the line.
  * `waitEnd` is that match's end, read before the cut, so a `👤` another field
- * holds as its value never stands in for the wait.
+ * holds as its value never stands in for the wait. `places` gives each field's
+ * own match the same way, so a write over a stamp lands on the one the line
+ * reads back and not on a `👤` an earlier field holds as its value.
  */
 export function readTagged(rest: string): {
   fields: Fields;
   tags: { tag: string; at: number }[];
   waitEnd: number | undefined;
+  places: Map<RegExp, { from: number; to: number }>;
 } {
   let text = rest;
   let mask = masked(rest);
   let origin = Array.from({ length: rest.length }, (_, at) => at);
   let waitEnd: number | undefined;
+  const places = new Map<RegExp, { from: number; to: number }>();
 
   // The mask and the offsets are cut with the text, so the three stay in step.
   function take(pattern: RegExp): (string | undefined)[] {
     const found = find(pattern, text, mask);
     if (found === null) return [];
-    if (pattern === WAITING) waitEnd = (origin[found.to - 1] ?? 0) + 1;
+    // Mapped back through `origin`, a match is a place in `rest` only while it
+    // is contiguous there. One cut from the middle of a later field's match is
+    // not, and `patchFields` reads that back as a mismatch.
+    const place = { from: origin[found.from] ?? 0, to: (origin[found.to - 1] ?? 0) + 1 };
+    if (pattern === WAITING) waitEnd = place.to;
+    if (pattern !== BLOCKED_BY) places.set(pattern, place);
     text = text.slice(0, found.from) + text.slice(found.to);
     mask = mask.slice(0, found.from) + mask.slice(found.to);
     origin = [...origin.slice(0, found.from), ...origin.slice(found.to)];
@@ -226,7 +235,7 @@ export function readTagged(rest: string): {
     waitingSince,
     waitingOn,
   };
-  return { fields, tags, waitEnd };
+  return { fields, tags, waitEnd, places };
 }
 
 /**
@@ -370,12 +379,12 @@ function withStamp(rest: string, stamp: string, rank: number, want: Fields): str
 export function patchFields(typed: string, fields: Fields): string | null {
   let rest = typed;
   for (const { pattern, keys, write } of STAMPS) {
-    const had = readFields(rest);
+    const { fields: had, places } = readTagged(rest);
     const was = write(had);
     const now = write(fields);
     if (was === now) continue;
 
-    const found = find(pattern, rest, masked(rest));
+    const found = places.get(pattern) ?? null;
     if (now === undefined) {
       if (found === null) continue;
       // The stamp and one space beside it, so the words close up as they were.
