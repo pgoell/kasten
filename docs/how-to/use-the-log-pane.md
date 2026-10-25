@@ -60,10 +60,14 @@ back. The line goes into the note of the day shown, and the sheet closes once
 it is written; a refused write keeps it open. A day with no note gets one, made
 the way `<leader>gd` makes a daily note.
 
-A `last` kind's button shows its latest value. Type the number and press the
-button, and the line is written, such as `- ⚖ 82.4 kg`. With the field empty,
-the button writes nothing. It says `Type the weight in kg`, the field takes the
-focus, and its placeholder reads `weight in kg` until the next press.
+A `last` kind's button shows the day's value, or with none the latest value
+before the day, with its date. Type the number and press the button, and the
+line is written, such as `- ⚖ 82.4 kg`. With the field empty, the button writes
+nothing. It says `Type the weight in kg`, the field takes the focus, and its
+placeholder reads `weight in kg`. Then Enter in the field writes the number. A
+refused amount, such as `abc`, keeps the ask, so a fixed number can be typed and
+Enter pressed. The ask ends once a line is written, when another kind's button is
+pressed, or when the day changes.
 
 ## Fix or delete an entry
 

@@ -167,7 +167,7 @@ it("#805 A8 the weight line's words give the count and the change", async () => 
   expect(line.closest("figure")?.textContent).toContain("weight: 6 weigh-ins, latest 82.4 kg");
 });
 
-it("#805 A8 the weight chart has a dashed goal and no bar, outside the small multiples", async () => {
+it("#805 A8 the weight chart has a dashed goal and no bar", async () => {
   fetchNote.mockResolvedValue(withLines("- ⚖ weight: kg, last, max 85"));
   fetchLog.mockImplementation(logDays(week()));
   renderPane();
@@ -175,7 +175,61 @@ it("#805 A8 the weight chart has a dashed goal and no bar, outside the small mul
   const line = await screen.findByRole("img", { name: /^weight over 30 days/ });
   expect(line.querySelector('line[data-goal="85"].log-chart-goal')).not.toBeNull();
   expect(line.querySelectorAll("rect")).toHaveLength(0);
-  expect(line.closest(".log-multiples")).toBeNull();
+});
+
+it("#805 A8 the weight chart sits in the grid of small multiples with the bar charts", async () => {
+  fetchNote.mockResolvedValue(withLines(WEIGHT_LINE));
+  fetchLog.mockImplementation(logDays(week()));
+  renderPane();
+
+  const line = await screen.findByRole("img", { name: /^weight over 30 days/ });
+  expect(line.closest(".log-multiples")).not.toBeNull();
+  expect(line.closest(".log-multiples")?.querySelectorAll(".log-chart")).toHaveLength(9);
+});
+
+it("#805 I6 a weigh-in past a max is drawn over and the caption counts it", async () => {
+  fetchNote.mockResolvedValue(withLines("- ⚖ weight: kg, last, max 85"));
+  fetchLog.mockImplementation(
+    logDays([back(0, [weigh(86.1)]), back(1, [weigh(82.4)]), back(2, [weigh(84)])]),
+  );
+  renderPane();
+
+  const line = await screen.findByRole("img", { name: /^weight over 30 days/ });
+  expect(line.querySelectorAll("circle.log-chart-over")).toHaveLength(1);
+  expect(line.querySelectorAll("circle.log-weight-dot")).toHaveLength(3);
+  expect(line.closest("figure")?.textContent).toContain("1 day over the goal");
+});
+
+it("#805 A11 after a refused amount the pane still asks and Enter writes the fixed number", async () => {
+  fetchNote.mockResolvedValue(withLines(WEIGHT_LINE));
+  const { actions, onNotice } = renderPane();
+
+  fireEvent.click(await screen.findByRole("button", { name: "Log weight" }));
+  const amount = screen.getByLabelText("Amount");
+  fireEvent.change(amount, { target: { value: "abc" } });
+  fireEvent.keyDown(amount, { key: "Enter" });
+  expect(onNotice).toHaveBeenLastCalledWith("not a weight amount: abc");
+  expect(amount).toHaveAttribute("placeholder", "weight in kg");
+
+  fireEvent.change(amount, { target: { value: "82.4" } });
+  fireEvent.keyDown(amount, { key: "Enter" });
+  expect(actions.addLine).toHaveBeenLastCalledWith(TODAY, "- ⚖ 82.4 kg");
+});
+
+it("#805 A11 the pane's earlier weigh-in is never the day shown", async () => {
+  fetchNote.mockResolvedValue(withLines(WEIGHT_LINE));
+  // The day's own read has no weigh-in yet, while the range read already has today's.
+  fetchLog.mockImplementation((from: string, to: string) =>
+    Promise.resolve(
+      from === to ? [back(0, [weigh(null)])] : [back(0, [weigh(82.4)]), back(1, [weigh(81)])],
+    ),
+  );
+  renderPane();
+
+  await waitFor(() =>
+    expect(screen.getByRole("button", { name: "Log weight" })).toHaveTextContent("81 kg, Oct 20"),
+  );
+  expect(screen.getByRole("button", { name: "Log weight" })).not.toHaveTextContent("Oct 21");
 });
 
 it("#805 A8 the weight line scales to its own range and not from zero", async () => {
@@ -246,12 +300,12 @@ it("#805 A9 no weigh-in shows a dash and the words no weigh-ins", async () => {
   );
 });
 
-it("#805 A9 a change of nothing reads 0 kg", async () => {
+it("#805 A9 a change of nothing reads 0.0 kg", async () => {
   fetchNote.mockResolvedValue(withLines(WEIGHT_LINE));
   fetchLog.mockImplementation(logDays([back(0, [weigh(82.4)]), back(6, [weigh(82.4)])]));
   renderPane();
 
-  await waitFor(() => expect(figureOf(tileNamed("Weight"))).toBe("0 kg"));
+  await waitFor(() => expect(figureOf(tileNamed("Weight"))).toBe("0.0 kg"));
 });
 
 it("#805 A10 the week table's weight column is the week's mean weigh-in", async () => {

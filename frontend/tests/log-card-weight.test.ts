@@ -6,7 +6,7 @@ import { fireEvent } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fetchNote, NoteMissing } from "@/lib/api";
 import { fetchLog, type LogDay } from "@/lib/food-api";
-import { logCard } from "@/lib/log-card";
+import { logCard, reloadLogConfig } from "@/lib/log-card";
 import { notePath } from "@/lib/todo-commands";
 import { vimKeys, vimModeField, vimModeState } from "@/lib/vim-mode";
 
@@ -241,6 +241,40 @@ describe("the log card's weight kind", () => {
     expect(amount(view).value).toBe("82");
     expect(document.activeElement).toBe(amount(view));
     expect(why(view)).toBe("Type the weight in kg");
+  });
+
+  it("#805 I3 a line added under ## Log while the card asks keeps the typed number, the focus and the question", async () => {
+    vi.mocked(fetchNote).mockResolvedValue(WEIGHT);
+    const view = mount(NOTE);
+    await arrived(view, "Log weight");
+    press(view, "Log weight");
+    fireEvent.input(amount(view), { target: { value: "82" } });
+
+    // A water line lands under `## Log`, so the card is drawn again with a new total.
+    const at = NOTE.indexOf("- 💧 500 ml") + "- 💧 500 ml".length;
+    view.dispatch({ changes: { from: at, insert: "\n- 💧 250 ml" } });
+    await settle();
+    expect(amount(view).value).toBe("82");
+    expect(document.activeElement).toBe(amount(view));
+    expect(why(view)).toBe("Type the weight in kg");
+  });
+
+  it("#805 I3 a config that drops the weight kind ends the ask", async () => {
+    vi.mocked(fetchNote).mockResolvedValue(WEIGHT);
+    const view = mount(NOTE);
+    await arrived(view, "Log weight");
+    press(view, "Log weight");
+    expect(why(view)).toBe("Type the weight in kg");
+
+    // The config loses the weight kind and gets it back, with no press in between.
+    vi.mocked(fetchNote).mockResolvedValue(DEFAULTS);
+    reloadLogConfig();
+    await vi.waitFor(() => expect(button(view, "Log weight")).toBeNull());
+    vi.mocked(fetchNote).mockResolvedValue(WEIGHT);
+    reloadLogConfig();
+    await arrived(view, "Log weight");
+    expect(why(view)).toBeFalsy();
+    expect(amount(view).placeholder).toBe("amount");
   });
 
   it("#805 I1 after a refused amount, a fixed number and Enter still write the weight line", async () => {

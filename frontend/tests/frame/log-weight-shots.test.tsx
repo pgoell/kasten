@@ -62,7 +62,10 @@ const NOTE_BODY = [
 const DAILY_TEXT = ["---", "type: Periodic Note", "---", "", NOTE_BODY].join("\n");
 
 // Set by a test before it mounts. The pane and the card read thirty days from the same fixture.
-const state = vi.hoisted(() => ({ fixture: true }));
+const state = vi.hoisted(() => ({ fixture: true, over: false }));
+
+// The same config with the weight's max at 83, so the early weigh-ins pass it.
+const CONFIG_OVER = CONFIG.replace("max 85", "max 83");
 
 /** The weigh-in on the range's index: 84.0 on the first day, 82.4 on the 28th. Twenty of thirty days have one. */
 const weighIn = (index: number): number => Math.round((84 - (1.6 * index) / 28) * 10) / 10;
@@ -111,7 +114,7 @@ const dayOf = (index: number, date: string): LogDay => {
 vi.mock("@/lib/api", async (importOriginal) => {
   const real = await importOriginal<typeof import("@/lib/api")>();
   const fetchNote = async (path: string) => {
-    if (path === LOG_CONFIG) return CONFIG;
+    if (path === LOG_CONFIG) return state.over ? CONFIG_OVER : CONFIG;
     if (path === DAILY) return DAILY_TEXT;
     throw new real.NoteMissing(path);
   };
@@ -324,6 +327,7 @@ afterEach(async () => {
   card = undefined;
   box = undefined;
   state.fixture = true;
+  state.over = false;
   localStorage.clear();
   document.documentElement.removeAttribute("data-theme");
   document.documentElement.removeAttribute("data-palette");
@@ -390,17 +394,44 @@ it("shot desktop-pane-dark", async () => {
 
 it("shot palette-russet", async () => {
   const panel = await desktopPane("light", "russet");
+  scrollToWeight(panel);
+  await wait(200);
   expect(await shot(panel, "palette-russet")).toBeGreaterThan(0);
 });
 
 it("shot palette-peach", async () => {
   const panel = await desktopPane("light", "peach");
+  scrollToWeight(panel);
+  await wait(200);
   expect(await shot(panel, "palette-peach")).toBeGreaterThan(0);
 });
 
 it("shot palette-pansy", async () => {
   const panel = await desktopPane("dark", "pansy");
+  scrollToWeight(panel);
+  await wait(200);
   expect(await shot(panel, "palette-pansy")).toBeGreaterThan(0);
+});
+
+it("shot desktop-pane-trends-weight-over", async () => {
+  state.over = true;
+  const panel = await desktopPane("light");
+  scrollToWeight(panel);
+  await wait(200);
+  expect(await shot(panel, "desktop-pane-trends-weight-over")).toBeGreaterThan(0);
+});
+
+it("shot phone-card-ask-dark", async () => {
+  const view = await phoneCard("dark");
+  await askWeight(view);
+  expect(await shot(cardOf(view), "phone-card-ask-dark")).toBeGreaterThan(0);
+});
+
+it("shot phone-card-no-weigh-ins", async () => {
+  state.fixture = false;
+  const view = await phoneCard();
+  await expect.poll(() => weightOf(view)?.textContent ?? "").toContain("no weigh-ins yet");
+  expect(await shot(cardOf(view), "phone-card-no-weigh-ins")).toBeGreaterThan(0);
 });
 
 it("shot desktop-reduced-motion-ask", async () => {

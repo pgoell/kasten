@@ -412,6 +412,11 @@ const cardField = StateField.define<Card>({
       }
       if (effect.is(configArrived)) {
         held.config = effect.value;
+        // A config with no last kind of the asked mark has no question to keep.
+        const kept = effect.value.kinds.some(
+          (kind) => kind.mark === held.ask && kind.last === true,
+        );
+        if (!kept) held.ask = null;
         changed = true;
       }
       // An answer for a day the note no longer comes after is dropped, and the one held stays.

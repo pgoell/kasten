@@ -40,10 +40,9 @@ export function monthDay(date: string): string {
   });
 }
 
-/** A change with its sign: `+0.4 kg`, `-1.2 kg`, and `0 kg` with none. */
+/** A change with its sign and one decimal: `+0.4 kg`, `-1.2 kg`, `0.0 kg`. */
 function changeWords(change: number, tail: string): string {
-  if (change === 0) return `0${tail}`;
-  return `${change > 0 ? "+" : ""}${grouped(change)}${tail}`;
+  return `${change > 0 ? "+" : ""}${change.toFixed(1)}${tail}`;
 }
 
 /** The weigh-in count in words: `no weigh-ins`, `one weigh-in`, `12 weigh-ins`. */
@@ -70,8 +69,10 @@ export function weightButton(
 ): { total: number | null; words?: string } {
   const value = valueOn(kind, own);
   if (value !== null) return { total: value };
+  // Only the dates before the day, so the day's own weigh-in can never come back dated earlier.
+  const before = dates.slice(0, -1);
   const day = dates[dates.length - 1] ?? "";
-  const latest = latestOn(weightOf(kind, dates, days).values, dates, day);
+  const latest = latestOn(weightOf(kind, before, days).values, before, day);
   if (latest === null) return { total: null };
   return {
     total: null,
@@ -106,7 +107,7 @@ function WeightRow({ kind, dates, days }: { kind: LogKind; dates: string[]; days
       <span className="log-pane-total">{figure}</span>
       {latest === null ? <span className="log-pane-goal">no weigh-ins yet</span> : null}
       {average === null ? null : (
-        <span className="log-pane-goal">{`7-day average ${grouped(average)}${tail}`}</span>
+        <span className="log-pane-goal">{`7-day average ${average.toFixed(1)}${tail}`}</span>
       )}
       {latest === null || goal === undefined ? null : (
         <span className="log-pane-goal">{goalPhrase(latest.value, goal)}</span>
@@ -164,8 +165,13 @@ function WeightChart({ kind, dates, days }: { kind: LogKind; dates: string[]; da
   );
   const changed = change === null ? "" : `, change ${changeWords(change, tail)}`;
   const aim = goal === undefined ? "" : `, goal ${bound(goal)} ${grouped(goal.value)}${tail}`;
-  const passed =
-    last !== null && goal !== undefined && overMax(last, goal) ? ", over the goal" : "";
+  // A weigh-in past a max is drawn in the warning colour and counted in words, as a bar is.
+  const passes = (value: number) => goal !== undefined && overMax(value, goal);
+  const overCount = values.filter((value) => value !== null && passes(value)).length;
+  const over =
+    overCount === 0
+      ? ""
+      : `, ${grouped(overCount)} ${overCount === 1 ? "day" : "days"} over the goal`;
   const latest = last === null ? "" : `, latest ${String(last)}${tail}`;
 
   return (
@@ -175,7 +181,7 @@ function WeightChart({ kind, dates, days }: { kind: LogKind; dates: string[]; da
         viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
         width="100%"
         role="img"
-        aria-label={`${kind.name} over ${dates.length} days, ${countWords(count)}${changed}`}
+        aria-label={`${kind.name} over ${dates.length} days, ${countWords(count)}${changed}${over}`}
       >
         {line.length === 0 ? null : <polyline className="log-weight-avg" points={line.join(" ")} />}
         {goal === undefined ? null : (
@@ -189,30 +195,39 @@ function WeightChart({ kind, dates, days }: { kind: LogKind; dates: string[]; da
           />
         )}
         {points.map(({ index, value }) => (
-          <circle key={index} className="log-weight-dot" cx={x(index)} cy={y(value)} r={2.5} />
+          <circle
+            key={index}
+            className={passes(value) ? "log-weight-dot log-chart-over" : "log-weight-dot"}
+            cx={x(index)}
+            cy={y(value)}
+            r={2.5}
+          />
         ))}
       </svg>
-      <figcaption>{`${kind.name}: ${countWords(count)}${latest}${aim}${passed}`}</figcaption>
+      <figcaption>{`${kind.name}: ${countWords(count)}${latest}${aim}${over}`}</figcaption>
     </figure>
   );
 }
 
-/** The weight lines under the small multiples, one per last kind, or the empty slot with none. */
+/** The weight lines, one per last kind, drawn in the grid of small multiples beside the bars. */
 export function WeightCharts({ kinds, dates, days }: WeightProps) {
-  if (kinds.length === 0) {
-    return (
-      <figure className="log-chart log-chart-slot" data-slot="weight">
-        <figcaption>Weight</figcaption>
-        <p className="log-chart-empty">No weigh-ins yet</p>
-      </figure>
-    );
-  }
   return (
     <>
       {kinds.map((kind) => (
         <WeightChart key={kind.mark} kind={kind} dates={dates} days={days} />
       ))}
     </>
+  );
+}
+
+/** The empty weight slot #804 drew, outside the grid, with no last kind to draw. */
+export function WeightSlot({ kinds }: { kinds: LogKind[] }) {
+  if (kinds.length > 0) return null;
+  return (
+    <figure className="log-chart log-chart-slot" data-slot="weight">
+      <figcaption>Weight</figcaption>
+      <p className="log-chart-empty">No weigh-ins yet</p>
+    </figure>
   );
 }
 
@@ -278,7 +293,7 @@ export function WeightCells({ kinds, logged }: { kinds: LogKind[]; logged: LogDa
     <>
       {kinds.map((kind) => {
         const mean = meanOf(logged.map((day) => valueOn(kind, day)));
-        return <td key={kind.mark}>{mean === null ? "—" : grouped(mean)}</td>;
+        return <td key={kind.mark}>{mean === null ? "—" : mean.toFixed(1)}</td>;
       })}
     </>
   );

@@ -141,6 +141,8 @@
 .cm-log-button {
   display: grid;
   justify-items: start;
+  /* Rows stay at their own height, so a button with no meter keeps its value line level with its neighbours'. */
+  align-content: start;
   gap: 2px;
   text-align: left;
 }

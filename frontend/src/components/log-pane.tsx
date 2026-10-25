@@ -276,7 +276,8 @@ export function LogPane({ commands, onOpen, focusSignal, today, actions, onNotic
   }
 
   function tapKind(kind: LogKind) {
-    setAsking(null);
+    // A press of another kind ends the ask. A refused amount keeps it, as the card's does.
+    if (asking !== null && asking.mark !== kind.mark) setAsking(null);
     const line = kindLine(kind, amount);
     if (typeof line !== "string") {
       onNotice(line.why);
@@ -288,7 +289,10 @@ export function LogPane({ commands, onOpen, focusSignal, today, actions, onNotic
       return;
     }
     void actions.addLine(day, line).then((ok) => {
-      if (ok) setAmount("");
+      if (ok) {
+        setAmount("");
+        setAsking(null);
+      }
     });
   }
 

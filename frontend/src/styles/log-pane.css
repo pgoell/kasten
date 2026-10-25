@@ -283,16 +283,22 @@
   background: var(--k-ok);
 }
 
-/* A last kind's line: a dot per weigh-in, and the 7-day average as one thinner line under them. */
+/* A last kind's line: a dot per weigh-in, with a paper halo so the average line, drawn
+   through them, reads apart from them. The line is full strength for its 3:1 contrast. */
 .log-weight-dot {
   fill: var(--k-accent);
+  stroke: var(--k-paper);
+  stroke-width: 1;
+}
+
+.log-weight-dot.log-chart-over {
+  fill: var(--k-warn);
 }
 
 .log-weight-avg {
   fill: none;
   stroke: var(--k-accent);
   stroke-width: 1.5;
-  stroke-opacity: 0.6;
 }
 
 .log-pane-list {

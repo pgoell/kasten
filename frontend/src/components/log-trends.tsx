@@ -8,7 +8,13 @@
  * how a total stands against its goal, so the pane and the charts agree.
  */
 
-import { WeightCells, WeightCharts, WeightHead, WeightTiles } from "@/components/log-weight";
+import {
+  WeightCells,
+  WeightCharts,
+  WeightHead,
+  WeightSlot,
+  WeightTiles,
+} from "@/components/log-weight";
 import { shiftDay } from "@/lib/clock";
 import type { LogDay } from "@/lib/food-api";
 import { overMax } from "@/lib/log-day";
@@ -477,9 +483,10 @@ export function LogTrends({
             value={(day) => foodTotal(day, field)}
           />
         ))}
+        <WeightCharts kinds={weightKinds} dates={dates} days={days} />
       </div>
 
-      <WeightCharts kinds={weightKinds} dates={dates} days={days} />
+      <WeightSlot kinds={weightKinds} />
 
       <Macros logged={logged} range={range} />
 
