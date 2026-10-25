@@ -81,14 +81,19 @@ const WORKED = /⏱️?[ \t]+(\S+)/d;
 const RECURRENCE =
   /🔁️?[ \t]+(.+?)(?=[ \t]*(?:📅|📆|🗓|⏳|🛫|➕|✅|❌|🔺|⏫|🔼|🔽|⏬|🏁|🆔|⛔|⏲|⏱|👤|#)|[ \t]+\^[\w-]+[ \t]*$|[ \t]*$)/d;
 
+// Where a field was cut, a stop for a person's name, which would otherwise run
+// across the gap to the words after it. A todo's rest never holds a newline,
+// and no value takes one.
+const CUT = "\n";
+
 // A `👤` followed by a date is the wait: the day it began, then who it waits on,
 // the name optional. `👤` is a field of its own, so a name never runs past a
-// second one; the value ends at the next marker, a tag or a `^block` id, which
-// is also what lets `[[ada#notes]]` keep its anchor. The name is tried last,
-// `??` rather than `?`, or a date stamped in front of a `^block` id would read
-// the id as who the todo waits on.
+// second one; the value ends at the next marker, a tag, a `^block` id or a cut,
+// which is also what lets `[[ada#notes]]` keep its anchor. The name is tried
+// last, `??` rather than `?`, or a date stamped in front of a `^block` id would
+// read the id as who the todo waits on.
 const WAITING =
-  /👤️?[ \t]+(\d{4}-\d{2}-\d{2})(?:[ \t]+(.+?))??(?=[ \t]+(?:📅|📆|🗓|⏳|🛫|➕|✅|❌|🔺|⏫|🔼|🔽|⏬|🔁|🏁|🆔|⛔|⏲|⏱|👤|#|\^[\w-]+[ \t]*$)|[ \t]*$)/d;
+  /👤️?[ \t]+(\d{4}-\d{2}-\d{2})(?:[ \t]+(.+?))??(?=[ \t]+(?:📅|📆|🗓|⏳|🛫|➕|✅|❌|🔺|⏫|🔼|🔽|⏬|🔁|🏁|🆔|⛔|⏲|⏱|👤|#|\^[\w-]+[ \t]*(?:\n|$))|[ \t]*\n|[ \t]*$)/d;
 
 // A `👤` followed by anything that is no date and no marker is the assignee:
 // who the todo is for, in any state. It runs to the same stops as the wait's
@@ -96,7 +101,7 @@ const WAITING =
 // The value may not open on a space, or the spaces would give back one and
 // read the rest of the gap as the name; a `^block` id is never a name either.
 const ASSIGNEE =
-  /👤️?[ \t]+(?![ \t])(?!\d{4}-\d{2}-\d{2}(?:[ \t]|$))(?!(?:📅|📆|🗓|⏳|🛫|➕|✅|❌|🔺|⏫|🔼|🔽|⏬|🔁|🏁|🆔|⛔|⏲|⏱|👤|#|\^[\w-]+[ \t]*$))(.+?)(?=[ \t]+(?:📅|📆|🗓|⏳|🛫|➕|✅|❌|🔺|⏫|🔼|🔽|⏬|🔁|🏁|🆔|⛔|⏲|⏱|👤|#|\^[\w-]+[ \t]*$)|[ \t]*$)/d;
+  /👤️?[ \t]+(?![ \t])(?!\d{4}-\d{2}-\d{2}(?:[ \t]|$))(?!(?:📅|📆|🗓|⏳|🛫|➕|✅|❌|🔺|⏫|🔼|🔽|⏬|🔁|🏁|🆔|⛔|⏲|⏱|👤|#|\^[\w-]+[ \t]*(?:\n|$)))(.+?)(?=[ \t]+(?:📅|📆|🗓|⏳|🛫|➕|✅|❌|🔺|⏫|🔼|🔽|⏬|🔁|🏁|🆔|⛔|⏲|⏱|👤|#|\^[\w-]+[ \t]*(?:\n|$))|[ \t]*\n|[ \t]*$)/d;
 
 /** Every field in the order `tail` writes them, which is where a stamp is added. */
 const ORDER = [
@@ -168,6 +173,8 @@ export function readTagged(rest: string): {
   let text = rest;
   let mask = masked(rest);
   let origin = Array.from({ length: rest.length }, (_, at) => at);
+  // Where each field taken out was, as an offset in `text`, kept in step as the text shrinks.
+  let cuts: number[] = [];
   let waitEnd: number | undefined;
   const places = new Map<RegExp, { from: number; to: number }>();
 
@@ -181,6 +188,11 @@ export function readTagged(rest: string): {
     const place = { from: origin[found.from] ?? 0, to: (origin[found.to - 1] ?? 0) + 1 };
     if (pattern === WAITING) waitEnd = place.to;
     if (pattern !== BLOCKED_BY) places.set(pattern, place);
+    const width = found.to - found.from;
+    cuts = [
+      ...cuts.map((at) => (at <= found.from ? at : Math.max(found.from, at - width))),
+      found.from,
+    ];
     text = text.slice(0, found.from) + text.slice(found.to);
     mask = mask.slice(0, found.from) + mask.slice(found.to);
     origin = [...origin.slice(0, found.from), ...origin.slice(found.to)];
@@ -205,8 +217,22 @@ export function readTagged(rest: string): {
     blockedBy.push(blocker);
   }
 
+  // Put back as stops for the two person fields, which then stop at them. Highest
+  // first, so each insert leaves the offsets below it where they were.
+  for (const at of [...new Set(cuts)].sort((a, b) => b - a)) {
+    text = text.slice(0, at) + CUT + text.slice(at);
+    mask = mask.slice(0, at) + CUT + mask.slice(at);
+    origin = [...origin.slice(0, at), -1, ...origin.slice(at)];
+  }
+
   const [waitingSince, waitingOn] = take(WAITING);
   const [assignee] = take(ASSIGNEE);
+
+  // Taken out by origin, not by character, so a real character is never dropped
+  // with a stop. The tags are read after this, and a stop holds no tag.
+  const kept = origin.flatMap((from, at) => (from === -1 ? [] : [at]));
+  text = kept.map((at) => text[at] ?? "").join("");
+  origin = kept.map((at) => origin[at] ?? 0);
 
   // Read before the spaces close up, while `origin` still lines up. Closing
   // them up changes no tag, as a tag holds no space.

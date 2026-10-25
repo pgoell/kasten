@@ -25,7 +25,7 @@ from kasten_backend.config import Settings, get_settings
 from kasten_backend.frontmatter import body_start
 from kasten_backend.log_config import Kind, parse_config, parse_kind_line
 from kasten_backend.periodic import DAILY, SECTION_END, daily_path
-from kasten_backend.todos import mask
+from kasten_backend.todo_fields import mask
 
 if TYPE_CHECKING:
     from collections.abc import Sequence

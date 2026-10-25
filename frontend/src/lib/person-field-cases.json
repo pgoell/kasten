@@ -166,5 +166,109 @@
     "assignee": null,
     "waitingSince": null,
     "waitingOn": null
+  },
+  {
+    "id": "wait-name-stops-at-an-estimate",
+    "rest": "a 👤 2026-10-25 Ada ⏲ 2h more",
+    "text": "a more",
+    "assignee": null,
+    "waitingSince": "2026-10-25",
+    "waitingOn": "Ada"
+  },
+  {
+    "id": "wait-name-stops-at-a-due-date",
+    "rest": "a 👤 2026-10-25 Ada 📅 2026-10-20 more",
+    "text": "a more",
+    "assignee": null,
+    "waitingSince": "2026-10-25",
+    "waitingOn": "Ada"
+  },
+  {
+    "id": "wait-name-stops-at-a-blocker",
+    "rest": "a 👤 2026-10-25 Ada ⛔ kt-1 more",
+    "text": "a more",
+    "assignee": null,
+    "waitingSince": "2026-10-25",
+    "waitingOn": "Ada"
+  },
+  {
+    "id": "wait-name-stops-at-a-field-without-a-space",
+    "rest": "a 👤 2026-10-25 Ada⏲ 2h more",
+    "text": "a more",
+    "assignee": null,
+    "waitingSince": "2026-10-25",
+    "waitingOn": "Ada"
+  },
+  {
+    "id": "wait-unnamed-before-a-field",
+    "rest": "a 👤 2026-10-25 ⏲ 2h more",
+    "text": "a more",
+    "assignee": null,
+    "waitingSince": "2026-10-25",
+    "waitingOn": null
+  },
+  {
+    "id": "assignee-stops-at-an-estimate",
+    "rest": "a 👤 Bob ⏲ 2h more",
+    "text": "a more",
+    "assignee": "Bob",
+    "waitingSince": null,
+    "waitingOn": null
+  },
+  {
+    "id": "assignee-stops-at-a-due-date",
+    "rest": "a 👤 Bob 📅 2026-10-20 more",
+    "text": "a more",
+    "assignee": "Bob",
+    "waitingSince": null,
+    "waitingOn": null
+  },
+  {
+    "id": "assignee-stops-at-a-blocker",
+    "rest": "a 👤 Bob ⛔ kt-1 more",
+    "text": "a more",
+    "assignee": "Bob",
+    "waitingSince": null,
+    "waitingOn": null
+  },
+  {
+    "id": "bare-marker-before-a-field-then-a-name",
+    "rest": "a 👤 ⏲ 2h Bob",
+    "text": "a 👤 Bob",
+    "assignee": null,
+    "waitingSince": null,
+    "waitingOn": null
+  },
+  {
+    "id": "bare-marker-before-a-field-then-a-wait",
+    "rest": "a 👤 ⏲ 2h 2026-10-25 Ada",
+    "text": "a 👤 2026-10-25 Ada",
+    "assignee": null,
+    "waitingSince": null,
+    "waitingOn": null
+  },
+  {
+    "id": "assignee-before-a-block-id-and-a-field",
+    "rest": "a 👤 Bob ^x ⏲ 2h",
+    "text": "a ^x",
+    "assignee": "Bob",
+    "waitingSince": null,
+    "waitingOn": null
+  },
+  {
+    "id": "bare-marker-before-a-block-id-and-a-field",
+    "rest": "a 👤 ^x ⏲ 2h",
+    "text": "a 👤 ^x",
+    "assignee": null,
+    "waitingSince": null,
+    "waitingOn": null
+  },
+  {
+    "id": "wait-before-a-block-id-and-a-field",
+    "rest": "a 👤 2026-10-25 ^x ⏲ 2h",
+    "text": "a ^x",
+    "assignee": null,
+    "waitingSince": "2026-10-25",
+    "waitingOn": null
   }
 ]

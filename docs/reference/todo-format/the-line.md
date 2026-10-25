@@ -78,7 +78,10 @@ assignee first:
 ```
 
 Of two undated `👤` on one line the first is the assignee and the second stays
-in the words. A bare `👤` with neither a date nor a name is words. One spelling
+in the words. A name of either form ends where the next field, a tag or a
+`^block` id starts, so `👤 Bob 📅 2026-10-20 more` names `Bob` and keeps `more`
+in the words. A bare `👤` with neither a date nor a name is words, and so is one
+with a field straight after it, as in `👤 ⏲ 2h Bob`. One spelling
 changed meaning: an undated `👤 Ada` on a `[w]` line used to be who the todo
 waits on, and is now the assignee. To keep it as the wait, put the date first.
 

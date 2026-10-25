@@ -30,10 +30,10 @@ describe("#1021 the name place in the editor", () => {
     fireEvent.keyDown(editor, { key: "s" });
     fireEvent.keyDown(editor, { key: "w" });
 
-    const stamped = `- [w] a ⏲ 👤 ${TODAY} 👤 ${TODAY}`;
+    const stamped = `- [w] a 👤 ${TODAY} ⏲ 👤 ${TODAY}`;
     expect(doc()).toBe(stamped);
     const view = EditorView.findFromDOM(editor) as EditorView;
-    expect(view.state.selection.main.head).toBe(stamped.length - 1);
+    expect(view.state.selection.main.head).toBe(`- [w] a 👤 ${TODAY}`.length - 1);
   });
 
   it("#1021 A2 Space s w with a worked time that takes the 👤 puts the cursor after the wait stamp it wrote", () => {
@@ -43,10 +43,10 @@ describe("#1021 the name place in the editor", () => {
     fireEvent.keyDown(editor, { key: "s" });
     fireEvent.keyDown(editor, { key: "w" });
 
-    const stamped = `- [w] a ⏱ 👤 ${TODAY} 👤 ${TODAY}`;
+    const stamped = `- [w] a 👤 ${TODAY} ⏱ 👤 ${TODAY}`;
     expect(doc()).toBe(stamped);
     const view = EditorView.findFromDOM(editor) as EditorView;
-    expect(view.state.selection.main.head).toBe(stamped.length - 1);
+    expect(view.state.selection.main.head).toBe(`- [w] a 👤 ${TODAY}`.length - 1);
   });
 
   it("#1021 A3 Space s w with an id that takes the 👤 puts the cursor after the wait stamp it wrote", () => {
@@ -56,10 +56,10 @@ describe("#1021 the name place in the editor", () => {
     fireEvent.keyDown(editor, { key: "s" });
     fireEvent.keyDown(editor, { key: "w" });
 
-    const stamped = `- [w] a 🆔 👤 ${TODAY} 👤 ${TODAY}`;
+    const stamped = `- [w] a 👤 ${TODAY} 🆔 👤 ${TODAY}`;
     expect(doc()).toBe(stamped);
     const view = EditorView.findFromDOM(editor) as EditorView;
-    expect(view.state.selection.main.head).toBe(stamped.length - 1);
+    expect(view.state.selection.main.head).toBe(`- [w] a 👤 ${TODAY}`.length - 1);
   });
 
   it("#1021 A4 Space s w with a blocker that takes the 👤 puts the cursor after the wait stamp it wrote", () => {
@@ -69,10 +69,10 @@ describe("#1021 the name place in the editor", () => {
     fireEvent.keyDown(editor, { key: "s" });
     fireEvent.keyDown(editor, { key: "w" });
 
-    const stamped = `- [w] a ⛔ 👤 ${TODAY} 👤 ${TODAY}`;
+    const stamped = `- [w] a 👤 ${TODAY} ⛔ 👤 ${TODAY}`;
     expect(doc()).toBe(stamped);
     const view = EditorView.findFromDOM(editor) as EditorView;
-    expect(view.state.selection.main.head).toBe(stamped.length - 1);
+    expect(view.state.selection.main.head).toBe(`- [w] a 👤 ${TODAY}`.length - 1);
   });
 });
 
@@ -148,9 +148,9 @@ describe("#1021 the name place with vim off and by touch", () => {
 
     cycleTodoAtCursor(view, "waiting");
 
-    const stamped = `- [w] a ⏲ 👤 ${TODAY} 👤 ${TODAY}`;
+    const stamped = `- [w] a 👤 ${TODAY} ⏲ 👤 ${TODAY}`;
     expect(doc()).toBe(stamped);
-    expect(view.state.selection.main.head).toBe(stamped.length - 1);
+    expect(view.state.selection.main.head).toBe(`- [w] a 👤 ${TODAY}`.length - 1);
   });
 
   it("#1021 I6 by touch edit on a waiting row with an estimate that takes the 👤 puts the cursor after the wait stamp", async () => {
