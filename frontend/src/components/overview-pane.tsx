@@ -16,9 +16,9 @@ import { fetchLog, type LogDay } from "@/lib/food-api";
 import type { EditorCommands } from "@/lib/key-bindings";
 import { LOG_NOTE } from "@/lib/layout";
 import { overMax } from "@/lib/log-day";
-import { DEFAULT_CONFIG, type Goal, type LogConfig, parseConfig } from "@/lib/log-kinds";
+import { DEFAULT_CONFIG, type LogConfig, parseConfig } from "@/lib/log-kinds";
 import { streakOf } from "@/lib/log-streak";
-import { rangeDates, type Weight, weightOf } from "@/lib/log-weight";
+import { rangeDates, weightOf } from "@/lib/log-weight";
 import { goalPhrase, grouped } from "@/lib/log-words";
 import {
   type Bar,
@@ -31,6 +31,16 @@ import {
   writtenCounts,
   yearTally,
 } from "@/lib/overview";
+import {
+  fortnightCaption,
+  fortnightLabel,
+  plural,
+  ringLabel,
+  ringWords,
+  todayWords,
+  weightLabel,
+  weightWords,
+} from "@/lib/overview-words";
 import { deckNotes } from "@/lib/review";
 import { useEntrance } from "@/lib/stagger";
 import { useLeader } from "@/lib/use-leader";
@@ -38,39 +48,8 @@ import { useLeader } from "@/lib/use-leader";
 /** The eight cards, in the order the pane draws them. */
 const KEYS = ["food", "today", "weight", "water", "flashcards", "todos", "writing", "year"];
 
-/** A count with its noun: `1 day`, `5 days`. */
-function plural(count: number, noun: string): string {
-  return `${grouped(count)} ${count === 1 ? noun : `${noun}s`}`;
-}
-
-/** A goal in the chart's words: `goal at most 2,200 kcal`. */
-function goalWords(goal: Goal, unit: string): string {
-  return `goal ${goal.type === "floor" ? "at least" : "at most"} ${grouped(goal.value)}${unit}`;
-}
-
 function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : "The read did not load";
-}
-
-/** A weight card's words: how many weigh-ins there are, and the change across the thirty days. */
-function weightWords(count: number, change: number | null, unit: string): string {
-  if (count === 0) return "no weigh-ins yet";
-  if (count === 1) return "one weigh-in";
-  if (change === null) return "";
-  // `+ 0` turns a minus zero into a zero, which the words would otherwise read as `-0`.
-  return `${change > 0 ? "+" : ""}${grouped(change + 0)} ${unit} in 30 days`;
-}
-
-/** Today's kcal in words, against the kcal goal when there is one. */
-function todayWords(kcal: number, goal: Goal | undefined): string {
-  if (goal === undefined) return "no kcal goal";
-  if (goal.type === "floor") {
-    return `of at least ${grouped(goal.value)} kcal, ${kcal >= goal.value ? "met" : `${grouped(goal.value - kcal)} to go`}`;
-  }
-  const left = overMax(kcal, goal)
-    ? `${grouped(kcal - goal.value)} over`
-    : `${grouped(goal.value - kcal)} left`;
-  return `of at most ${grouped(goal.value)} kcal, ${left}`;
 }
 
 interface Card {
@@ -163,23 +142,6 @@ function todayDayOf(reads: Reads): LogDay | undefined {
   return reads.days.find((day) => day.date === reads.today);
 }
 
-/**
- * A fortnight's bars in words: the goal, and the days over a ceiling counted, so the colour of
- * a day over is never the only sign of it.
- */
-function fortnightLabel(name: string, unit: string, goal: Goal | undefined, over: number): string {
-  if (goal === undefined) return `${name} per day over 14 days, no ${name} goal`;
-  const tail = goal.type === "ceiling" ? `, ${plural(over, "day")} over the goal` : "";
-  return `${name} per day over 14 days, ${goalWords(goal, unit)}${tail}`;
-}
-
-/** A macro's visible words under its ring: its name, what it has reached, and its goal. */
-function ringWords(field: string, value: number, goal: Goal | undefined): string {
-  const name = `${field.charAt(0).toUpperCase()}${field.slice(1)}`;
-  if (goal === undefined) return `${name} ${grouped(value)} g`;
-  return `${name} ${grouped(value)} of ${grouped(goal.value)} g`;
-}
-
 function foodCard(reads: Reads, commands: EditorCommands): Card {
   const goal = reads.config.food.kcal;
   const byDate = new Map(reads.days.map((day) => [day.date, day]));
@@ -190,7 +152,7 @@ function foodCard(reads: Reads, commands: EditorCommands): Card {
   const bound = goal?.type === "floor" ? "at least" : "at most";
   return {
     key: "food",
-    caption: "kcal per day, 14 days",
+    caption: fortnightCaption("kcal per day, 14 days", goal, over),
     name: "Food",
     target: "the log",
     open: () => commands.openLog(),
@@ -224,7 +186,9 @@ function todayCard(reads: Reads, commands: EditorCommands): Card {
   }));
   return {
     key: "today",
-    caption: "macros against today's goal",
+    caption: macros.some(({ goal }) => goal !== undefined)
+      ? "macros against today's goal"
+      : "macros today, no goals",
     name: "Today",
     target: "the log",
     open: () => commands.openLog(),
@@ -244,17 +208,6 @@ function todayCard(reads: Reads, commands: EditorCommands): Card {
   };
 }
 
-/** One macro's ring label: what it has reached against its goal, or that it has none. */
-function ringLabel(field: string, value: number, goal: Goal | undefined): string {
-  if (goal === undefined) return `${field}, ${grouped(value)} g, no goal`;
-  return `${field}, ${grouped(value)} of ${grouped(goal.value)} g`;
-}
-
-function weightLabel(weight: Weight | undefined, unit: string): string {
-  if (weight === undefined || weight.count === 0) return "weight over 30 days, nothing logged";
-  return `weight in ${unit} over 30 days, ${plural(weight.count, "weigh-in")}, with the 7-day average`;
-}
-
 function weightCard(reads: Reads, commands: EditorCommands): Card {
   const kind = reads.config.kinds.find((found) => found.last === true);
   const dates = rangeDates(shiftDay(reads.today, -29), 30);
@@ -262,7 +215,10 @@ function weightCard(reads: Reads, commands: EditorCommands): Card {
   const latest = weight?.last ?? null;
   return {
     key: "weight",
-    caption: "weight, 30 days, 7-day average",
+    caption:
+      (weight?.count ?? 0) === 0
+        ? "weight, 30 days, no weigh-ins yet"
+        : "weight, 30 days, 7-day average",
     name: "Weight",
     target: "the log",
     open: () => commands.openLog(),
@@ -289,7 +245,7 @@ function waterCard(reads: Reads, commands: EditorCommands): Card {
     goal?.type === "ceiling" ? bars.filter(({ amount }) => overMax(amount, goal)).length : 0;
   return {
     key: "water",
-    caption: "water per day, 14 days",
+    caption: fortnightCaption("water per day, 14 days", goal, over),
     name: "Water",
     target: "the log",
     open: () => commands.openLog(),

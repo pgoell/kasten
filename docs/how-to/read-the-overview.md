@@ -112,8 +112,8 @@ the same rule search's weekly bars use:
 So a note counts once, on one day. A daily note counts on its own day even
 when kasten made it for a log line, and a note with no `created` that you edit
 today counts today. The archive folder is left out, as it is from search,
-whether or not the archive is shown. A new or deleted note redraws the two
-cards at once; an edit to a note already there moves it to today only when the
+whether or not the archive is shown. A note added, deleted or moved
+redraws the two cards once the file list has it; an edit to a note already there moves it to today only when the
 overview is next opened.
 
 ## Todos done

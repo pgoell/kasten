@@ -9,6 +9,11 @@ import { parseVaultEvent } from "@/lib/vault-events";
 
 type Autosave = ReturnType<typeof useAutosave>;
 
+/** Every note in a listing, sorted and joined, so two answers compare with `!==`. */
+function listingOf(paths: string[] | undefined): string | undefined {
+  return paths?.slice().sort().join("\n");
+}
+
 /**
  * The daily notes in a listing, sorted and joined, so two answers compare with
  * `!==`. Undefined where there is no listing to read.
@@ -52,14 +57,24 @@ export function useVaultEvents(
     // one may have walked the vault before the move. The answer that carries the
     // move can then come from a later fetch than the one being awaited.
     let dailies = dailySet(queryClient.getQueryData<string[]>(["files"]));
+    // The overview's Writing and This year count each note by its day, so a note made, removed or
+    // moved (the archive included) asks them again. The app's own creates land in the listing
+    // before their vault event does, so the listing is where the change shows.
+    let listed = listingOf(queryClient.getQueryData<string[]>(["files"]));
     const unsubscribe = queryClient.getQueryCache().subscribe((cacheEvent) => {
       if (cacheEvent.type !== "updated" || cacheEvent.action.type !== "success") return;
       if (cacheEvent.query.queryKey[0] !== "files") return;
-      const next = dailySet(cacheEvent.query.state.data as string[] | undefined);
+      const answer = cacheEvent.query.state.data as string[] | undefined;
+      const next = dailySet(answer);
       if (dailies !== undefined && next !== dailies) {
         queryClient.invalidateQueries({ queryKey: ["log"] }, { cancelRefetch: false });
       }
       dailies = next;
+      const nowListed = listingOf(answer);
+      if (listed !== undefined && nowListed !== listed) {
+        queryClient.invalidateQueries({ queryKey: ["written"] }, { cancelRefetch: false });
+      }
+      listed = nowListed;
     });
     // Every open, the first one included. A stream that went down and came
     // back missed whatever the vault did in between: the backend replays
@@ -193,17 +208,7 @@ export function useVaultEvents(
       ) {
         queryClient.invalidateQueries({ queryKey: ["log"] }, { cancelRefetch: false });
       }
-      // The overview's Writing and This year count each note on the day it counts on. A note the
-      // listing does not hold yet is a new one, and asks that read again; an edit to a listed
-      // note moves at most its own day, and re-reading every note per autosave costs more than
-      // the listing the test below refuses to re-walk. A removal always asks.
       const paths = queryClient.getQueryData<string[]>(["files"]);
-      if (
-        event.change === "removed" ||
-        (event.change === "written" && !paths?.includes(event.path))
-      ) {
-        queryClient.invalidateQueries({ queryKey: ["written"] }, { cancelRefetch: false });
-      }
       // A removal refetches no note, so the readers of log.md would keep the text
       // it had. A write does reach its note query above.
       if (event.change === "removed" && event.path === LOG_NOTE) {

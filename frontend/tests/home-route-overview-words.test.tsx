@@ -5,6 +5,7 @@ import { hashed } from "./digests";
 import { defineFoliateFake } from "./foliate-fake";
 import { FakeEventSource, pageHooks, VAULT } from "./home-route-fixture";
 import {
+  captionOf,
   card,
   cardOf,
   DEFAULT_LAYOUT,
@@ -200,7 +201,7 @@ describe("the overview's words, on the route", () => {
     expect(captions()).toEqual([
       "kcal per day, 14 days",
       "macros against today's goal",
-      "weight, 30 days, 7-day average",
+      "weight, 30 days, no weigh-ins yet",
       "water per day, 14 days",
       "cards rated per day, 14 days",
       "todos done per day, 14 days",
@@ -222,6 +223,7 @@ describe("the overview's words, on the route", () => {
       "water per day over 14 days, goal at most 2,000 ml, 2 days over the goal",
     );
     expect(cardOf("Water").querySelectorAll(".log-chart-over")).toHaveLength(2);
+    expect(captionOf("Water")).toBe("water per day, 14 days, 2 days over the goal");
   });
 
   it("#806 I8 a schedule in a note that is no deck does not count", async () => {

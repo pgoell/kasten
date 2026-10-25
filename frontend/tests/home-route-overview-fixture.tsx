@@ -77,6 +77,9 @@ export function cardOf(name: string): HTMLElement {
 export const wordsOf = (name: string) => cardOf(name).querySelector(".overview-words")?.textContent;
 export const figureOf = (name: string) =>
   cardOf(name).querySelector(".overview-figure")?.textContent;
+/** The visible line under a card's chart, which says what the chart shows. */
+export const captionOf = (name: string) =>
+  cardOf(name).querySelector(".overview-caption")?.textContent;
 
 /** Open the overview from the home screen with the leader, as a reader does. */
 export async function openOverview() {

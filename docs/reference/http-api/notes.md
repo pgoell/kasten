@@ -280,6 +280,7 @@ The route lists the vault's notes, leaves out the archive folder and reads each
 remaining note once, in a thread. It takes no `archive`: the archive always
 stays out, even with the archive shown in searches. It writes nothing, touches
 no database and keeps no index. The overview's Writing and This year cards read
-it. The overview asks it again when a note is added or removed, not on each
-save of a note already there, since one read takes every note in the vault.
+it. The overview asks it again when the file list changes (a note added, removed
+or moved), not on each save of a note already there, since one read takes
+every note in the vault.
 

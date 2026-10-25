@@ -6,6 +6,7 @@ import { hashed } from "./digests";
 import { defineFoliateFake } from "./foliate-fake";
 import { FakeEventSource, pageHooks, settle, VAULT } from "./home-route-fixture";
 import {
+  captionOf,
   card,
   cardOf,
   DEFAULT_LAYOUT,
@@ -301,6 +302,8 @@ describe("the overview, on the route", () => {
     expect(wordsOf("Todos")).toBe("done today, 0 open, 0 overdue");
     expect(wordsOf("Writing")).toBe("notes in 7 days, 0 today");
     expect(wordsOf("This year")).toBe("no notes this year");
+    expect(captionOf("Weight")).toBe("weight, 30 days, no weigh-ins yet");
+    expect(captionOf("Today")).toBe("macros today, no goals");
     expect(overview()?.textContent).not.toMatch(/NaN|Infinity/);
   });
 
@@ -332,6 +335,7 @@ describe("the overview, on the route", () => {
       "kcal per day over 14 days, goal at most 2,200 kcal, 2 days over the goal",
     );
     expect(cardOf("Food").querySelectorAll(".log-chart-over")).toHaveLength(2);
+    expect(captionOf("Food")).toBe("kcal per day, 14 days, 2 days over the goal");
   });
 
   it("#806 I3 a floor goal never warns", async () => {

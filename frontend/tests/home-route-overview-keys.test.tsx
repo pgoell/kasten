@@ -20,6 +20,7 @@ import {
   openOverview,
   overview,
   TODAY,
+  wordsOf,
   YEAR,
 } from "./home-route-overview-fixture";
 
@@ -296,6 +297,8 @@ describe("the overview keys, on the route", () => {
   it("#806 I5 a vault event for a new note asks the written read again", async () => {
     await openOverview();
     const asked = fetchWritten.mock.calls.length;
+    // The listing answers with the new note, as the vault's own write makes it do.
+    fetchFiles.mockResolvedValue([...Object.keys(VAULT), TODAY, YEAR, "00 Inbox/new idea.md"]);
 
     act(() =>
       stream().send({ path: "00 Inbox/new idea.md", change: "written", digest: "a".repeat(64) }),
@@ -303,6 +306,18 @@ describe("the overview keys, on the route", () => {
     await settle();
 
     expect(fetchWritten.mock.calls.length).toBeGreaterThan(asked);
+  });
+
+  it("#806 I5 a note the app creates itself is counted once the listing holds it", async () => {
+    await openOverview();
+    fetchWritten.mockResolvedValue(["2026-10-20"]);
+    // The app's own create puts the path into the listing, with no vault event for it.
+    fetchFiles.mockResolvedValue([...Object.keys(VAULT), TODAY, YEAR, "00 Inbox/made here.md"]);
+
+    act(() => stream().send({ path: "", change: "listing", digest: null }));
+    await settle();
+
+    expect(wordsOf("Writing")).toBe("notes in 7 days, 1 today");
   });
 
   it("#806 I5 an autosave of a note already listed does not ask the written read again", async () => {

@@ -104,18 +104,21 @@ function dayOf(date: string): LogDay {
 const schedule = (ago: number, interval: number) =>
   `<!--SR:!${shiftDay(TODAY, interval - ago)},${interval},250-->`;
 
+// A note is a deck only when a line carries its tag, so each note starts with one.
 // Plain cards rated over the last twenty days, two of every three, and one cloze rated today.
 const CARDS: LineHit[] = [
+  { path: "01 Flashcards/aws.md", line: 1, text: "#flashcards/aws" },
   ...Array.from({ length: 20 }, (_, ago) => ago)
     .filter((ago) => ago % 3 !== 1)
     .map((ago) => ({
       path: "01 Flashcards/aws.md",
-      line: ago + 1,
+      line: ago + 2,
       text: `What is item ${ago}?::An answer ${schedule(ago, 3)}`,
     })),
+  { path: "01 Flashcards/geography.md", line: 1, text: "#flashcards/geography" },
   {
     path: "01 Flashcards/geography.md",
-    line: 1,
+    line: 2,
     text: `The capital of {{c1::France}} is Paris. <!--SR:c1!${shiftDay(TODAY, 2)},2,250-->`,
   },
 ];
