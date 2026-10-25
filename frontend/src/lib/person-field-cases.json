@@ -406,5 +406,115 @@
     "assignee": null,
     "waitingSince": null,
     "waitingOn": null
+  },
+  {
+    "id": "lists-new-on-plain-words",
+    "from": "buy milk",
+    "assign": "Pascal",
+    "rest": "buy milk 👤 [[Pascal]]",
+    "text": "buy milk",
+    "assignee": "[[Pascal]]",
+    "waitingSince": null,
+    "waitingOn": null
+  },
+  {
+    "id": "lists-new-before-a-done-date-and-id",
+    "from": "buy milk ✅ 2026-10-25 🆔 kt-abc123",
+    "assign": "Alicia",
+    "rest": "buy milk 👤 [[Alicia]] ✅ 2026-10-25 🆔 kt-abc123",
+    "text": "buy milk",
+    "assignee": "[[Alicia]]",
+    "waitingSince": null,
+    "waitingOn": null
+  },
+  {
+    "id": "lists-new-before-a-block-id",
+    "from": "buy milk ^milk",
+    "assign": "Pascal",
+    "rest": "buy milk 👤 [[Pascal]] ^milk",
+    "text": "buy milk ^milk",
+    "assignee": "[[Pascal]]",
+    "waitingSince": null,
+    "waitingOn": null
+  },
+  {
+    "id": "lists-new-after-a-tag",
+    "from": "buy milk #bio",
+    "assign": "Pascal",
+    "rest": "buy milk #bio 👤 [[Pascal]]",
+    "text": "buy milk #bio",
+    "assignee": "[[Pascal]]",
+    "waitingSince": null,
+    "waitingOn": null
+  },
+  {
+    "id": "lists-new-before-a-dated-wait",
+    "from": "ask pop 👤 2026-10-20 [[Alicia]]",
+    "assign": "Pascal",
+    "rest": "ask pop 👤 [[Pascal]] 👤 2026-10-20 [[Alicia]]",
+    "text": "ask pop",
+    "assignee": "[[Pascal]]",
+    "waitingSince": "2026-10-20",
+    "waitingOn": "[[Alicia]]"
+  },
+  {
+    "id": "lists-switch-to-alicia",
+    "from": "buy milk 👤 [[Pascal]]",
+    "assign": "Alicia",
+    "rest": "buy milk 👤 [[Alicia]]",
+    "text": "buy milk",
+    "assignee": "[[Alicia]]",
+    "waitingSince": null,
+    "waitingOn": null
+  },
+  {
+    "id": "lists-switch-a-plain-name",
+    "from": "buy milk 👤 Alicia",
+    "assign": "Pascal",
+    "rest": "buy milk 👤 [[Pascal]]",
+    "text": "buy milk",
+    "assignee": "[[Pascal]]",
+    "waitingSince": null,
+    "waitingOn": null
+  },
+  {
+    "id": "lists-clear",
+    "from": "buy milk 👤 [[Pascal]]",
+    "assign": null,
+    "rest": "buy milk",
+    "text": "buy milk",
+    "assignee": null,
+    "waitingSince": null,
+    "waitingOn": null
+  },
+  {
+    "id": "lists-clear-keeps-a-block-id",
+    "from": "buy milk 👤 [[Pascal]] ^milk",
+    "assign": null,
+    "rest": "buy milk ^milk",
+    "text": "buy milk ^milk",
+    "assignee": null,
+    "waitingSince": null,
+    "waitingOn": null
+  },
+  {
+    "id": "lists-clear-keeps-a-dated-wait",
+    "from": "buy paint 👤 [[Pascal]] 👤 2026-10-25 [[Alicia]]",
+    "assign": null,
+    "rest": "buy paint 👤 2026-10-25 [[Alicia]]",
+    "text": "buy paint",
+    "assignee": null,
+    "waitingSince": "2026-10-25",
+    "waitingOn": "[[Alicia]]"
+  },
+  {
+    "id": "lists-clear-keeps-a-done-date-and-id",
+    "from": "buy milk 👤 [[Pascal]] ✅ 2026-10-25 🆔 kt-abc123",
+    "assign": null,
+    "rest": "buy milk ✅ 2026-10-25 🆔 kt-abc123",
+    "text": "buy milk",
+    "assignee": null,
+    "waitingSince": null,
+    "waitingOn": null
   }
 ]

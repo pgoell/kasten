@@ -10,7 +10,8 @@ function open(seed: Record<string, Seed[]>) {
   return share;
 }
 
-const input = () => screen.getByRole("textbox", { name: "Neuer Eintrag" });
+// A2 names the field "Eintrag" (it was "Neuer Eintrag").
+const input = () => screen.getByRole("textbox", { name: "Eintrag" });
 
 beforeEach(() => {
   localStorage.clear();

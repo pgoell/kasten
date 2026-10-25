@@ -72,7 +72,13 @@ class Item(BaseModel):
     done: bool
 
     assignee: str | None = None
-    """Who the item is for, as written after an undated `👤`, or None. #810 reads and writes it."""
+    """Who the item is for, as written after an undated `👤`, or None."""
+
+    ticked_by: str | None = None
+    """Who ticked the item, from the history, or None when no person's write made the tick."""
+
+    ticked_at: str | None = None
+    """When the item was ticked, ISO 8601 with its offset, or None when the history does not say."""
 
 
 class Checklist(BaseModel):
@@ -139,7 +145,7 @@ def items(text: str) -> list[Item]:
             found.append(
                 Item(
                     line=number,
-                    text=_words(match.group(2)),
+                    text=words(match.group(2)),
                     done=match.group(1) != " ",
                     assignee=todo_fields.assignee(match.group(2)),
                 )
@@ -148,7 +154,7 @@ def items(text: str) -> list[Item]:
     return found
 
 
-def _words(rest: str) -> str:
+def words(rest: str) -> str:
     """The words of an item: what is left before the first field marker, without its id."""
     return BLOCK_ID.sub("", FIELD_MARKS.split(rest, maxsplit=1)[0]).strip()
 
@@ -227,6 +233,52 @@ def _ticked(rest: str) -> str:
         return f"{rest[: found.start()].rstrip()} {done} {rest[found.start() :]}{tail}"
 
     return f"{rest} {done} {ID_MARK} kt-{secrets.token_hex(3)}{tail}"
+
+
+NEW_FIELD_AT = re.compile(
+    todo_fields.STOP + "|🔁|👤\N{VARIATION SELECTOR-16}?[ \t]+[0-9]{4}-[0-9]{2}-[0-9]{2}"
+)
+"""Where a new assignee goes: the first field marker, or a dated `👤` (the wait) that is one."""
+
+
+def _assigned(rest: str, assignee: str | None) -> str:
+    """The words of an item with its undated `👤` set to `assignee`, or cleared when it is None.
+
+    A switch replaces the value where it stands, and a clear takes the blank
+    before it too. A new one goes in before the first field, then before a
+    trailing block id, then at the end, so the words, tags and fields keep
+    their bytes. The same assignee back in place is the same words, which is how
+    a caller learns there is nothing to write.
+    """
+    found = todo_fields.ASSIGNEE.search(todo_fields.mask(rest))
+    if found is None:
+        return rest if assignee is None else _with_new_assignee(rest, assignee)
+
+    if assignee is None:
+        head = rest[: found.start()].rstrip(" \t")
+        tail = rest[found.end() :]
+        return head + (tail if head else tail.lstrip(" \t"))
+
+    value = f"[[{assignee}]]"
+    if rest[found.start(1) : found.end(1)] == value:
+        return rest
+
+    return f"{rest[: found.start()]}👤 {value}{rest[found.end() :]}"
+
+
+def _with_new_assignee(rest: str, assignee: str) -> str:
+    """The words with `👤 [[assignee]]` added where the reader finds no other field."""
+    field = f"👤 [[{assignee}]]"
+    marker = NEW_FIELD_AT.search(todo_fields.mask(rest))
+    if marker is not None:
+        return f"{rest[: marker.start()]}{field} {rest[marker.start() :]}"
+
+    block = TRAILING_BLOCK_ID.search(rest)
+    if block is not None:
+        return f"{rest[: block.start()]} {field}{rest[block.start() :]}"
+
+    end = len(rest.rstrip(" \t"))
+    return f"{rest[:end]} {field}{rest[end:]}"
 
 
 async def _save(settings: Settings, name: str, content: str, sha: str | None) -> Checklist | None:
@@ -310,6 +362,35 @@ async def tick(settings: Settings, name: str, line: int, done: bool, sha: str) -
     else:
         lines[line] = f"- [ ] {_undone(rest)}{eol}"
 
+    return await _save(settings, name, "\n".join(lines), sha)
+
+
+async def assign(
+    settings: Settings, name: str, line: int, assignee: str | None, sha: str
+) -> Checklist | None:
+    """Set or clear the undated `👤` of the task on `line`, or change nothing when it is so already.
+
+    A line that is no task, or is out of range, answers the list as it is, the
+    same as a tick. The caller has already checked that `assignee` is one of the
+    people the app knows, so nothing else is written into the line.
+    """
+    note = resolve_list(settings, name)
+    if note is None:
+        return None
+
+    raw = _read_bytes(note)
+    _agree(raw, sha)
+    lines = ("" if raw is None else raw.decode("utf-8")).split("\n")
+    match = ITEM.match(lines[line]) if 0 <= line < len(lines) else None
+    if match is None:
+        return _shape(name, raw)
+
+    rest, eol = match.group(2), match.group(3)
+    edited = _assigned(rest, assignee)
+    if edited == rest:
+        return _shape(name, raw)
+
+    lines[line] = f"- [{match.group(1)}] {edited}{eol}"
     return await _save(settings, name, "\n".join(lines), sha)
 
 

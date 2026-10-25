@@ -87,7 +87,8 @@ editor, and the startup notes and the agent instructions spell them as set.
 | `KASTEN_IMAGES_PATH` | `99 Misc/02 Assets/01 Images` | an image pasted or dropped into a note |
 | `KASTEN_CONFIG_PATH` | `99 Misc/01 Config` | `reading-this-vault.md`, `todo-views.md` and `reading-now.md`, and the ontology and three agent guides in `01 Agents` under it |
 | `KASTEN_ARCHIVE_PATH` | `98 Archive` | see [its own section](#kasten_archive_path) |
-| `KASTEN_SHARE_FOLDER` | `05 Shared` | the [shared lists](/explanation/shared-lists.md), one note a list. The `/share/` routes reach nothing outside it |
+| `KASTEN_SHARE_FOLDER` | `05 Shared` | the [shared lists](/explanation/shared-lists.md), one note a list, and all the `/share/` routes reach |
+| `KASTEN_SHARE_PEOPLE` | `{}` | [who writes](/reference/http-api/shared-lists.md#who-is-writing) a shared list |
 
 Only the parent folders are settings. The subfolders under them keep their
 names, so one setting moves a whole group and the list stays short.
@@ -266,15 +267,8 @@ It also bounds the `Origin` check on the
 
 ## KASTEN_SHARE_HOST
 
-The `Host` the shared lists app arrives on, `liste.pgoell.com` on the box.
-
-| | |
-| --- | --- |
-| Default | empty, which turns the check off |
-| Read by | every route, through the host check |
-
-On that host the backend answers `404` to every path outside `/share/`, before
-any route runs. That is the [second lock](/explanation/shared-lists.md#two-locks).
+The `Host` of the shared lists app, `liste.pgoell.com` on the box; empty, the
+default, turns the check off. There the backend answers `404` outside `/share/`, before any route runs. That is the [second lock](/explanation/shared-lists.md#two-locks).
 
 ## KASTEN_HERDR_SESSIONS_PATH
 

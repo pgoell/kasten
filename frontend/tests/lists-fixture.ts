@@ -6,7 +6,17 @@ import type { ListData } from "@/lists/lists-store";
  * the note's sha, and a tick naming no line changes nothing.
  */
 
-export type Seed = { text: string; done: boolean };
+/** A seeded line. The three person fields are the server's own, and default to none. */
+export type Seed = {
+  text: string;
+  done: boolean;
+  assignee?: string | null;
+  ticked_by?: string | null;
+  ticked_at?: string | null;
+};
+
+/** Who the fake session is, and the people an item can be given to. */
+const WHO = { me: "Pascal", people: ["Pascal", "Alicia"] };
 
 type Note = { rev: number; items: Seed[] };
 
@@ -58,7 +68,13 @@ export function fakeShare(seed: Record<string, Seed[]>) {
     return {
       name,
       sha: note ? String(note.rev) : null,
-      items: (note?.items ?? []).map((item, line) => ({ line, assignee: null, ...item })),
+      items: (note?.items ?? []).map((item, line) => ({
+        line,
+        assignee: null,
+        ticked_by: null,
+        ticked_at: null,
+        ...item,
+      })),
     };
   }
 
@@ -68,7 +84,8 @@ export function fakeShare(seed: Record<string, Seed[]>) {
       throw new TypeError("Failed to fetch");
     }
     if (expired) return expired === "opaque" ? opaqueRedirect() : signInPage();
-    const match = /^\/share\/lists\/([^/]+)(?:\/(items|tick|clear))?$/.exec(url);
+    if (url === "/share/me") return reply(WHO);
+    const match = /^\/share\/lists\/([^/]+)(?:\/(items|tick|clear|assign))?$/.exec(url);
     if (!match) return reply({ detail: "No such list" }, 404);
     const name = decodeURIComponent(match[1] ?? "");
     const action = match[2];
@@ -93,12 +110,25 @@ export function fakeShare(seed: Record<string, Seed[]>) {
     const note = notes.get(name);
     const current = note ? String(note.rev) : null;
     if (body.sha !== current) return reply({ detail: "Stale", current }, 409);
+    // The server's own check: only a name from `people` is written, or none.
+    if (
+      action === "assign" &&
+      body.assignee !== null &&
+      !WHO.people.includes(String(body.assignee))
+    ) {
+      return reply({ detail: "Unbekannte Person" }, 422);
+    }
 
     const items = [...(note?.items ?? [])];
     if (action === "items") items.push({ text: serverText(String(body.text)), done: false });
     if (action === "tick") {
       const at = Number(body.line);
       if (items[at]) items[at] = { ...items[at], done: Boolean(body.done) };
+    }
+    if (action === "assign") {
+      const at = Number(body.line);
+      const link = body.assignee === null ? null : `[[${String(body.assignee)}]]`;
+      if (items[at]) items[at] = { ...items[at], assignee: link };
     }
     const kept = action === "clear" ? items.filter((item) => !item.done) : items;
     notes.set(name, { rev: (note?.rev ?? 0) + 1, items: kept });

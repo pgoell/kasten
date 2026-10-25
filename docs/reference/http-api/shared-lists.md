@@ -1,7 +1,7 @@
 ---
 type: Reference
 title: "HTTP API: shared lists"
-description: The six routes the shared lists app reaches under /share/, with what each takes and answers.
+description: The eight routes the shared lists app reaches under /share/, with what each takes and answers.
 resource: backend/src/kasten_backend/routes/share.py
 tags: [api, backend, share, lists]
 status: stable
@@ -9,7 +9,7 @@ status: stable
 
 # HTTP API: shared lists
 
-The six routes under `/share/`. They sit outside `/api/`, so the count on
+The eight routes under `/share/`. They sit outside `/api/`, so the count on
 [the HTTP API page](/reference/http-api.md) leaves them out. On the share host,
 set by [`KASTEN_SHARE_HOST`](/reference/configuration.md#kasten_share_host), they
 are the only paths the backend answers. The reasoning is in
@@ -27,7 +27,7 @@ dot-dot, a symlink or a nested folder, answers `404` with
 Each list route answers the same shape:
 
 ```json
-{ "name": "Einkauf", "sha": "3f9c1a0", "items": [{ "line": 4, "text": "Milch", "done": false, "assignee": null }] }
+{ "name": "Einkauf", "sha": "3f9c1a0", "items": [{ "line": 4, "text": "Milch", "done": false, "assignee": null, "ticked_by": null, "ticked_at": null }] }
 ```
 
 * `sha` is the note's current sha, or `null` when the note is not there.
@@ -37,6 +37,12 @@ Each list route answers the same shape:
 * `assignee` is who the item is for: the name written after an undated `👤`,
   such as `[[Pascal]]`, or `null` when there is none. A `👤` with a date is the
   wait and gives no assignee.
+* `ticked_by` is who ticked a done item, such as `Alicia`, read from the note's
+  jj history. It is `null` for an open item, for a tick no listed person made,
+  and when the history cannot be read.
+* `ticked_at` is when a done item was ticked, as ISO 8601 with an offset, such as
+  `2026-10-25T18:04:12+02:00`. It is `null` for an open item and when the history
+  cannot be read.
 * Only top-level lines `- [ ] `, `- [x] ` and `- [X] ` are items.
 
 A note that is not there reads as `{"sha": null, "items": []}`, and an add with
@@ -44,6 +50,31 @@ A note that is not there reads as `{"sha": null, "items": []}`, and an add with
 
 Every write goes through the same save as the rest of kasten, so a stale sha
 answers `409` with `{"detail": ..., "current": "<sha>"}` and writes nothing.
+
+## GET /share/me
+
+Answers who is asking and who the app offers:
+
+```json
+{ "me": "Alicia", "people": ["Pascal", "Alicia"] }
+```
+
+`me` is who is writing, below, or `null`. `people` is every name in
+`KASTEN_SHARE_PEOPLE`, in its order, each once.
+
+### Who is writing
+
+The share host's oauth2-proxy sends the signed-in address as
+`X-Auth-Request-Email` on every `/share/` request. `KASTEN_SHARE_PEOPLE` maps
+an address to a name, as JSON in menu order, addresses without case:
+
+```sh
+KASTEN_SHARE_PEOPLE='{"pascal@example.test": "Pascal", "alicia@example.test": "Alicia"}'
+```
+
+A write by a listed address is named after its person in the vault's history,
+`agent(share:Alicia): 05 Shared/Einkauf.md`. A missing header or an address not
+listed writes as `share` and has no `me`. The default `{}` lists nobody.
 
 ## GET /share/lists
 
@@ -87,6 +118,22 @@ carrying `🔁`, or on a line with indented parts under it, answers `422`
 `{"detail": "Tick this one in kasten"}` and writes nothing: kasten's own cycle
 writes the next occurrence and ticks the parts.
 
+## POST /share/lists/{name}/assign
+
+Takes `{"line": 4, "assignee": "Alicia", "sha": "3f9c1a0"}` and answers the
+`List`. `assignee` is a name from `people` in
+[`GET /share/me`](#get-shareme), or `null` to clear the assignee. Any other name
+answers `422` with `{"detail": "Not one of the people"}` and writes nothing.
+
+The write sets `👤 [[Alicia]]` in place of the line's undated `👤`, or adds it
+before the line's first field, and a clear removes the `👤` with the blank before
+it. Every other byte of the line stays: the words, tags, the `✅` date, the `🆔`,
+a dated wait and a `^block-id` at the end.
+
+A stale sha answers `409`. An assign to the state the line is in already, or on a
+line that is no task, writes nothing and answers the `List`. An item that is
+done keeps who ticked it, since an assign is no tick.
+
 ## POST /share/lists/{name}/clear
 
 Takes `{"sha": "3f9c1a0"}` and removes the `- [x]` and `- [X]` item lines.
@@ -104,5 +151,5 @@ says for the other streams.
 ## Related
 
 * [Shared lists](/explanation/shared-lists.md): why the lists are notes, and how a conflict is settled
-* [Configuration](/reference/configuration.md): `KASTEN_SHARE_FOLDER` and `KASTEN_SHARE_HOST`
+* [Configuration](/reference/configuration.md): `KASTEN_SHARE_FOLDER`, `KASTEN_SHARE_HOST` and `KASTEN_SHARE_PEOPLE`
 * [Reverse-proxy routes](/reference/reverse-proxy-routes.md): which gate covers these routes

@@ -199,6 +199,16 @@ class Settings(BaseSettings):
     leaves every host the same, which is what dev and the test client need.
     """
 
+    share_people: dict[str, str] = {}
+    """Who the shared lists app's people are: sign-in address to person name, in menu order.
+
+    JSON in the environment: `{"pascal@example.test": "Pascal"}`. The proxy sends
+    the address of whoever signed in, and a write made by a listed address is
+    named after the person in the history. An address not listed writes as
+    `share`, and has no "Ich" in the app. Addresses compare case-insensitively,
+    so they are stored lowercase.
+    """
+
     food_contact: str = "https://github.com/pgoell/kasten"
     """How Open Food Facts can reach whoever is asking, sent in every request's `User-Agent`.
 
@@ -233,6 +243,16 @@ class Settings(BaseSettings):
         the gate would stay open without any error to say so.
         """
         return value.strip().lower().partition(":")[0]
+
+    @field_validator("share_people")
+    @classmethod
+    def _addresses_as_the_proxy_sends_them(cls, value: dict[str, str]) -> dict[str, str]:
+        """Lowercase every address, since the header is matched against them as lowercase.
+
+        Left as written, `Pascal@Example.test` would never equal the header, and
+        that person would write as `share` with no error to say why.
+        """
+        return {address.strip().lower(): name for address, name in value.items()}
 
     @model_validator(mode="after")
     def _uploads_outside_the_vault(self) -> Self:

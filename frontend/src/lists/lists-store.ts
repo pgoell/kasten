@@ -4,12 +4,27 @@
  * The screen holds none of it. It draws what `viewOf` and `suggestionsFor` give.
  */
 
+import { linkFor, personOf } from "./lists-person";
+
 export const LISTS = ["Einkauf", "Todo"];
 
-/** `assignee`: who the item is for, as written after an undated `👤`, or null. */
-export type Item = { line: number; text: string; done: boolean; assignee: string | null };
+export type Item = {
+  line: number;
+  text: string;
+  done: boolean;
+  /** Who the item is for, as written after an undated `👤`, or null. */
+  assignee: string | null;
+  /** Who ticked it, from the jj history, or null. */
+  ticked_by: string | null;
+  /** When it was ticked, an ISO time, or null. */
+  ticked_at: string | null;
+};
 
 export type ListData = { name: string; sha: string | null; items: Item[] };
+
+/** Who is using the app, and the people an item can be for. */
+type Who = { me: string | null; people: string[] };
+const NOBODY: Who = { me: null, people: [] };
 
 /**
  * A write the phone has made and the server has not yet taken. `before` counts
@@ -19,12 +34,17 @@ export type ListData = { name: string; sha: string | null; items: Item[] };
 type OpBody =
   | { kind: "add"; list: string; text: string; before?: number }
   | { kind: "tick"; list: string; text: string; done: boolean }
+  | { kind: "assign"; list: string; text: string; assignee: string | null }
   | { kind: "clear"; list: string };
 export type Op = OpBody & { id: string };
 
 export type Snapshot = {
   /** Each list as the server last gave it. */
   lists: Partial<Record<string, ListData>>;
+  /** The name this session's address maps to, or null. Read once at start. */
+  me: string | null;
+  /** The names an item can be assigned to, in menu order. Empty when the read failed. */
+  people: string[];
   /** Writes not yet taken, oldest first. Kept in localStorage. */
   queue: Op[];
   /** Every item text each list has held, for suggestions. Kept in localStorage. */
@@ -43,6 +63,8 @@ export type ListsStore = {
   snapshot: () => Snapshot;
   add: (list: string, text: string) => void;
   tick: (list: string, text: string, done: boolean) => void;
+  /** Sets whom an item is for, by name, or clears it with null. */
+  assign: (list: string, text: string, assignee: string | null) => void;
   clear: (list: string) => void;
   dismissErrors: () => void;
   close: () => void;
@@ -136,15 +158,36 @@ function requestFor(op: Op, list: ListData): { path: string; body: object } | nu
   if (op.kind === "add") return { path: `${path}/items`, body: { text: op.text, sha: list.sha } };
   if (list.sha === null) return null;
   if (op.kind === "clear") return { path: `${path}/clear`, body: { sha: list.sha } };
+  if (op.kind === "assign") {
+    const item = list.items.find((found) => sameAssign(found, op));
+    if (!item) return null;
+    return {
+      path: `${path}/assign`,
+      body: { line: item.line, assignee: op.assignee, sha: list.sha },
+    };
+  }
   const item = list.items.find((found) => found.text === op.text && found.done !== op.done);
   if (!item) return null;
   return { path: `${path}/tick`, body: { line: item.line, done: op.done, sha: list.sha } };
 }
 
+/** An item the assign op has yet to reach: its text is the op's, and its person is not. */
+function sameAssign(item: Item, op: { text: string; assignee: string | null }): boolean {
+  return item.text === op.text && personOf(item.assignee) !== op.assignee;
+}
+
 function applyOp(items: Item[], op: Op): Item[] {
   if (op.kind === "add")
-    return [...items, { line: -1, text: op.text, done: false, assignee: null }];
+    return [
+      ...items,
+      { line: -1, text: op.text, done: false, assignee: null, ticked_by: null, ticked_at: null },
+    ];
   if (op.kind === "clear") return items.filter((item) => !item.done);
+  if (op.kind === "assign") {
+    const at = items.findIndex((item) => sameAssign(item, op));
+    const assignee = op.assignee === null ? null : linkFor(op.assignee);
+    return at < 0 ? items : items.map((item, n) => (n === at ? { ...item, assignee } : item));
+  }
   const at = items.findIndex((item) => item.text === op.text && item.done !== op.done);
   return at < 0 ? items : items.map((item, n) => (n === at ? { ...item, done: op.done } : item));
 }
@@ -233,6 +276,8 @@ function exclusive(run: () => Promise<void>): Promise<void> {
 export function createListsStore(): ListsStore {
   let snap: Snapshot = {
     lists: {},
+    me: null,
+    people: [],
     queue: load<Op[]>(QUEUE_KEY, []),
     seen: load<Record<string, string[]>>(SEEN_KEY, {}),
     online: navigator.onLine,
@@ -293,6 +338,19 @@ export function createListsStore(): ListsStore {
 
   function getList(name: string): Promise<ListData> {
     return send<ListData>("GET", listPath(name));
+  }
+
+  /**
+   * Who this session is and who can be assigned. A failed read gives nobody, so the
+   * menu still offers Niemand and no item reads as "Ich"; the list itself is read apart.
+   */
+  async function readWho(): Promise<Who> {
+    try {
+      return await send<Who>("GET", "/me");
+    } catch (error) {
+      if (error instanceof HttpError || transient(error)) return NOBODY;
+      throw error;
+    }
   }
 
   /** One write: read the list, send, and on a stale sha read again and send again. */
@@ -385,6 +443,8 @@ export function createListsStore(): ListsStore {
     sync();
   }
 
+  readWho().then((who) => update(who));
+
   const goOnline = () => {
     update({ online: true });
     sync();
@@ -423,6 +483,7 @@ export function createListsStore(): ListsStore {
     snapshot: () => snap,
     add: (list, text) => enqueue({ kind: "add", list, text }),
     tick: (list, text, done) => enqueue({ kind: "tick", list, text, done }),
+    assign: (list, text, assignee) => enqueue({ kind: "assign", list, text, assignee }),
     clear: (list) => enqueue({ kind: "clear", list }),
     dismissErrors: () => update({ errors: [] }),
     close: () => {
