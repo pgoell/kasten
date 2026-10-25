@@ -85,14 +85,20 @@ with a field straight after it, as in `👤 ⏲ 2h Bob`. One spelling
 changed meaning: an undated `👤 Ada` on a `[w]` line used to be who the todo
 waits on, and is now the assignee. To keep it as the wait, put the date first.
 
-A marker of `🔁`, `🏁`, `⏲`, `⏱`, `🆔` or `⛔` with a date field or a priority
-straight after it stays in the words, and a recurrence ends at such a field. So
-`a ⛔ 📅 2026-10-20 more` keeps `⛔ more` as words, and
+A `🔁` or `🏁`, and each of `⏲`, `⏱`, `🆔` and `⛔`, with a date field or a
+priority straight after it stays in the words, and a recurrence ends at such a
+field. So `a ⛔ 📅 2026-10-20 more` keeps `⛔ more` as words, and
 `a 🔁 every week 📅 2026-10-20 more` reads the rule `every week` and keeps
-`more`. Where kasten writes such a line again, as the next copy of a recurring
-todo, it writes a date field or the priority straight after each such marker,
-so it stays words: the copy of `a ⛔ 📅 2026-10-20 more 🔁 every week` is
-`a ⛔ 📅 2026-10-27 more 🔁 every week`.
+`more`. Each of `⏲`, `⏱`, `🆔` and `⛔` also stays in the words straight before
+any other marker but `👤`, even when no space follows that marker:
+`a ⏲ 🆔 kt-1 more` reads the id `kt-1` and keeps `⏲ more`, while
+`a ⏲ 🆔kt-1 more` keeps all of it as words, since `🆔kt-1` is no id.
+
+Where kasten writes such a line again, as the next copy of a recurring todo or
+a line whose fields it rebuilds, it writes a date field or the priority straight
+after each such marker. Where that does not read back, it writes a `⏲`, `⏱` or
+`🆔` straight after it. Either way the marker stays words: the copy of
+`a ⛔ 📅 2026-10-20 more 🔁 every week` is `a ⛔ 📅 2026-10-27 more 🔁 every week`.
 
 The five dates are `YYYY-MM-DD` and nothing else. A `📅 next tuesday` is not a
 date, so the whole of it stays in the words. The five priority glyphs read

@@ -70,10 +70,14 @@ const CANCELLED = /❌️?[ \t]+(\d{4}-\d{2}-\d{2})/d;
 const PRIORITY = /(🔺|⏫|🔼|🔽|⏬)️?/d;
 // Ends at a space, a stop or the line's end, so `🏁 keep-it` stays words.
 const ON_COMPLETION = /🏁️?[ \t]+(keep|delete)(?=[ \t\n]|$)/d;
-const ID = /🆔️?[ \t]+(\S+)/d;
-const BLOCKED_BY = /⛔️?[ \t]+(\S+)/d;
-const ESTIMATE = /⏲️?[ \t]+(\S+)/d;
-const WORKED = /⏱️?[ \t]+(\S+)/d;
+// A one-word value never opens on a field marker, so a bare one-word marker stays
+// words and the next field reads as itself: `⏲ 🆔 kt-1` reads the id `kt-1`.
+// `👤` is left out on purpose: #1021 and #1024 let a one-word field hold it, as
+// in `⏲ 👤 2026-10-20`. Literal emoji, no `u` flag: `withBlocker` copies the source.
+const ID = /🆔️?[ \t]+(?!📅|📆|🗓|⏳|🛫|➕|✅|❌|🔺|⏫|🔼|🔽|⏬|🔁|🏁|🆔|⛔|⏲|⏱)(\S+)/d;
+const BLOCKED_BY = /⛔️?[ \t]+(?!📅|📆|🗓|⏳|🛫|➕|✅|❌|🔺|⏫|🔼|🔽|⏬|🔁|🏁|🆔|⛔|⏲|⏱)(\S+)/d;
+const ESTIMATE = /⏲️?[ \t]+(?!📅|📆|🗓|⏳|🛫|➕|✅|❌|🔺|⏫|🔼|🔽|⏬|🔁|🏁|🆔|⛔|⏲|⏱)(\S+)/d;
+const WORKED = /⏱️?[ \t]+(?!📅|📆|🗓|⏳|🛫|➕|✅|❌|🔺|⏫|🔼|🔽|⏬|🔁|🏁|🆔|⛔|⏲|⏱)(\S+)/d;
 
 // The one field whose value is free text, so it runs to the next marker rather
 // than to the next space. A tag ends it too: a recurrence never carries one,
@@ -334,8 +338,7 @@ function withBlocker(rest: string, blocker: string): string | null {
   const last = [...masked(rest).matchAll(new RegExp(BLOCKED_BY.source, "g"))].at(-1);
   if (last !== undefined) {
     // The value runs to a space or the line's end, so the stamp never touches a
-    // word. A bare `⛔` before a date reads `📅` as its value, so the insert is
-    // checked before it is kept.
+    // word. The insert is checked before it is kept.
     const at = last.index + last[0].length;
     const written = `${rest.slice(0, at)} ${stamp}${rest.slice(at)}`;
     if (sameFields(readFields(written), want)) return written;
