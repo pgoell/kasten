@@ -27,27 +27,38 @@ export function content(container: HTMLElement): string {
  * CodeMirror gives the parse at state creation 20ms of wall clock and leaves the
  * rest to an idle callback. On a loaded machine the tree, and so the drawing
  * built from it, can stop partway (#365). A partial first draw is fine in the
- * app; a test that counts bullets at once needs the whole tree.
+ * app; a test that counts bullets at once needs the whole tree. A nested embed
+ * view gets the same 20ms when it is built (#1008), so every `.cm-editor` under
+ * the view is parsed too, and the ones a parse draws deeper, until none is new.
  */
 export function parsed(view: EditorView): void {
   act(() => {
     forceParsing(view, view.state.doc.length, 5000);
+    let found = -1;
+    while (found !== view.dom.querySelectorAll(".cm-editor").length) {
+      const editors = view.dom.querySelectorAll<HTMLElement>(".cm-editor");
+      found = editors.length;
+      for (const el of editors) {
+        const nested = EditorView.findFromDOM(el) as EditorView;
+        forceParsing(nested, nested.state.doc.length, 5000);
+      }
+    }
   });
 }
 
 /**
  * Runs `step` on a clock that jumps 30ms at every read, so a parse inside it
  * runs out of the 20ms CodeMirror gives each edit, as it can on a loaded
- * machine (#1005).
+ * machine (#1005). Returns what `step` returns.
  */
-export function stalled(step: () => void): void {
+export function stalled<T>(step: () => T): T {
   let now = Date.now();
   const clock = vi.spyOn(Date, "now").mockImplementation(() => {
     now += 30;
     return now;
   });
   try {
-    step();
+    return step();
   } finally {
     clock.mockRestore();
   }

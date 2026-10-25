@@ -19,6 +19,7 @@ import {
   mount,
   PLAN,
   slotsOf,
+  stalled,
   withPdfs,
 } from "./live-preview-fixture";
 
@@ -187,13 +188,16 @@ describe("a pdf embed", () => {
   });
 
   it("opens only the pdf, not the note around it, from inside a note embed", () => {
-    const vault = fakeVault({ "b.md": "![[plan.pdf]]" });
-    const view = mount(`${ABOVE}![[b]]`, withPdfs(vault.source, fakePdfs({ [PLAN]: 1 })));
-    const box = view.dom.querySelector(".cm-embed .cm-embed-pdf") as HTMLElement;
+    const vault = fakeVault({ "b.md": "b\n\n![[plan.pdf]]" });
+    const view = stalled(() =>
+      mount(`${ABOVE}![[b]]`, withPdfs(vault.source, fakePdfs({ [PLAN]: 1 }))),
+    );
+    const box = view.dom.querySelector(".cm-embed .cm-embed-pdf");
+    expect(box).not.toBeNull();
 
-    fireEvent.mouseDown(box, { ctrlKey: true });
-    fireEvent.pointerDown(box, { pointerType: "touch" });
-    fireEvent.click(box);
+    fireEvent.mouseDown(box as HTMLElement, { ctrlKey: true });
+    fireEvent.pointerDown(box as HTMLElement, { pointerType: "touch" });
+    fireEvent.click(box as HTMLElement);
 
     expect(vault.opened).toEqual([
       ["docs/plan.pdf", undefined],

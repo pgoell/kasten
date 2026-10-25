@@ -52,9 +52,11 @@ describe("an embed", () => {
   it("draws the same embed under an alias", () => {
     const vault = fakeVault({ "b.md": "# B\ntop\n## Two\ntwo body" });
 
-    expect(embedded(mount(`${ABOVE}![[b|see b]]`, plain(vault.source)))).toBe("BtopTwotwo body");
-    expect(embedded(mount(`${ABOVE}![[b#Two|see b]]`, plain(vault.source)))).toBe(
-      embedded(mount(`${ABOVE}![[b#Two]]`, plain(vault.source))),
+    expect(embedded(stalled(() => mount(`${ABOVE}![[b#Two|see b]]`, plain(vault.source))))).toBe(
+      embedded(stalled(() => mount(`${ABOVE}![[b#Two]]`, plain(vault.source)))),
+    );
+    expect(embedded(stalled(() => mount(`${ABOVE}![[b|see b]]`, plain(vault.source))))).toBe(
+      "BtopTwotwo body",
     );
   });
 
@@ -186,12 +188,13 @@ describe("an embed", () => {
   });
 
   it("opens only the inner note on ctrl or cmd and a click inside a note embed", () => {
-    const vault = fakeVault({ "b.md": "![[c]]", "c.md": "body of c" });
-    const view = mount(`${ABOVE}![[b]]`, plain(vault.source, ["b.md", "c.md"]));
-    const inner = view.dom.querySelector(".cm-embed .cm-embed") as HTMLElement;
+    const vault = fakeVault({ "b.md": "b\n\n![[c]]", "c.md": "body of c" });
+    const view = stalled(() => mount(`${ABOVE}![[b]]`, plain(vault.source, ["b.md", "c.md"])));
+    const inner = view.dom.querySelector(".cm-embed .cm-embed");
+    expect(inner).not.toBeNull();
 
-    fireEvent.mouseDown(inner, { ctrlKey: true });
-    fireEvent.mouseDown(inner, { metaKey: true });
+    fireEvent.mouseDown(inner as HTMLElement, { ctrlKey: true });
+    fireEvent.mouseDown(inner as HTMLElement, { metaKey: true });
 
     expect(vault.opened).toEqual([
       ["c.md", undefined],
@@ -307,19 +310,23 @@ describe("an embed", () => {
   });
 
   it("stops at the depth cap where two notes embed each other", () => {
-    const vault = fakeVault({ "a.md": "![[b]]", "b.md": "![[a]]" });
-    const view = mount(`${ABOVE}![[a]]`, plain(vault.source, ["a.md", "b.md"]));
+    const vault = fakeVault({ "a.md": "a\n\n![[b]]", "b.md": "b\n\n![[a]]" });
+    const view = stalled(() => mount(`${ABOVE}![[a]]`, plain(vault.source, ["a.md", "b.md"])));
 
-    expect(view.dom.querySelectorAll(".cm-embed")).toHaveLength(EMBED_DEPTH);
-    expect(view.dom.querySelectorAll(".cm-embed-stub")).toHaveLength(1);
+    expect([
+      view.dom.querySelectorAll(".cm-embed").length,
+      view.dom.querySelectorAll(".cm-embed-stub").length,
+    ]).toEqual([EMBED_DEPTH, 1]);
   });
 
   it("stops at the depth cap where a note embeds itself", () => {
-    const vault = fakeVault({ "a.md": "![[a]]" });
-    const view = mount(`${ABOVE}![[a]]`, plain(vault.source, ["a.md"]));
+    const vault = fakeVault({ "a.md": "a\n\n![[a]]" });
+    const view = stalled(() => mount(`${ABOVE}![[a]]`, plain(vault.source, ["a.md"])));
 
-    expect(view.dom.querySelectorAll(".cm-embed")).toHaveLength(EMBED_DEPTH);
-    expect(view.dom.querySelectorAll(".cm-embed-stub")).toHaveLength(1);
+    expect([
+      view.dom.querySelectorAll(".cm-embed").length,
+      view.dom.querySelectorAll(".cm-embed-stub").length,
+    ]).toEqual([EMBED_DEPTH, 1]);
   });
 
   it("stays its source where nobody said how to read the vault", () => {
@@ -369,12 +376,15 @@ describe("an embed", () => {
 
   it("draws the note read-only, rendered, and told what the vault holds", () => {
     const vault = fakeVault({ "b.md": "# B\nsee [[ghost]]" });
-    const view = mount(`${ABOVE}![[b]]`, plain(vault.source));
+    const view = stalled(() => mount(`${ABOVE}![[b]]`, plain(vault.source)));
     const nested = view.dom.querySelector(".cm-embed .cm-content") as HTMLElement;
+    expect(nested).not.toBeNull();
 
-    expect(nested.getAttribute("contenteditable")).toBe("false");
-    expect(nested.textContent).toBe("Bsee ghost");
-    expect(nested.querySelector(".cm-wikilink-dead")?.textContent).toBe("ghost");
+    expect({
+      editable: nested.getAttribute("contenteditable"),
+      text: nested.textContent,
+      dead: nested.querySelector(".cm-wikilink-dead")?.textContent,
+    }).toEqual({ editable: "false", text: "Bsee ghost", dead: "ghost" });
   });
 
   it("stops listening when it leaves the screen", () => {
