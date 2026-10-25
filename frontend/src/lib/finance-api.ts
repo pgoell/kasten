@@ -14,6 +14,9 @@ export type Category = components["schemas"]["CategoryOut"];
 /** A booking with something to sort: itself, or the splits it lists. */
 export type ToSort = components["schemas"]["ToSort"];
 
+/** A page of those, and how many things wait to be sorted in all. */
+export type ToSortPage = components["schemas"]["ToSortPage"];
+
 /** How many bookings the pane asks for at once. Sorting one brings the next in. */
 const PAGE = 200;
 
@@ -28,7 +31,7 @@ export async function fetchCategories(): Promise<Category[]> {
 }
 
 /** The oldest bookings that hold something without a category. */
-export async function fetchToSort(): Promise<ToSort[]> {
+export async function fetchToSort(): Promise<ToSortPage> {
   const { data, error, response } = await client.GET("/api/finance/to-sort", {
     params: { query: { limit: PAGE } },
   });

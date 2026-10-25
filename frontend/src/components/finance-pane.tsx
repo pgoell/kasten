@@ -80,13 +80,16 @@ export interface FinancePaneProps {
 export function FinancePane({ commands, focusSignal, onNotice }: FinancePaneProps) {
   const [cursor, setCursor] = useState(0);
   const [always, setAlways] = useState(false);
+  // A write in the air. Keys and taps that sort wait for it, or a quick second press would sort
+  // the same row again, or the row under it into the category meant for this one.
+  const [busy, setBusy] = useState(false);
   const panel = useRef<HTMLElement>(null);
   const queries = useQueryClient();
   const leader = useLeader(commands);
 
   const categories = useQuery({ queryKey: ["finance", "categories"], queryFn: fetchCategories });
   const toSort = useQuery({ queryKey: ["finance", "to-sort"], queryFn: fetchToSort });
-  const rows = rowsOf(toSort.data ?? []);
+  const rows = rowsOf(toSort.data?.bookings ?? []);
   const at = Math.max(0, Math.min(cursor, rows.length - 1));
   const row = rows[at];
 
@@ -95,13 +98,14 @@ export function FinancePane({ commands, focusSignal, onNotice }: FinancePaneProp
   }, [focusSignal]);
 
   async function sort(category: Category) {
-    if (row === undefined) return;
+    if (row === undefined || busy) return;
     const forPayee = always;
     setAlways(false);
     if (forPayee && row.payee === null) {
       onNotice("This booking has no payee to sort");
       return;
     }
+    setBusy(true);
     try {
       if (forPayee && row.payee !== null) await sortPayee(row.payee, category.id);
       else await sortByHand(row, category.id);
@@ -110,7 +114,11 @@ export function FinancePane({ commands, focusSignal, onNotice }: FinancePaneProp
       if (!(error instanceof Error)) throw error;
       onNotice(error.message);
     }
-    await queries.invalidateQueries({ queryKey: ["finance", "to-sort"] });
+    try {
+      await queries.invalidateQueries({ queryKey: ["finance", "to-sort"] });
+    } finally {
+      setBusy(false);
+    }
   }
 
   /** The category a key sorts into, if it is one of `CATEGORY_KEYS` and that many are listed. */
@@ -130,6 +138,8 @@ export function FinancePane({ commands, focusSignal, onNotice }: FinancePaneProp
     // Enter or Space on a focused button is that button's own press, not the cursor row's.
     if (target instanceof HTMLButtonElement && (key === "Enter" || key === " ")) return;
     if (leader.feed(event)) return;
+    // A chord such as Ctrl 1 belongs to the browser or the app, not to a category.
+    if (event.ctrlKey || event.altKey || event.metaKey) return;
 
     const category = categoryOf(key);
     if (category !== undefined) {
@@ -177,7 +187,7 @@ export function FinancePane({ commands, focusSignal, onNotice }: FinancePaneProp
       <header className="finance-pane-head">
         <h2>To sort</h2>
         <span className="finance-pane-count">
-          {toSort.data === undefined ? "" : `${rows.length} to sort`}
+          {toSort.data === undefined ? "" : `${toSort.data.total} to sort`}
         </span>
         <button
           type="button"
@@ -195,7 +205,7 @@ export function FinancePane({ commands, focusSignal, onNotice }: FinancePaneProp
             key={category.id}
             type="button"
             className="finance-pane-button"
-            disabled={row === undefined}
+            disabled={row === undefined || busy}
             onClick={() => void sort(category)}
           >
             {index < CATEGORY_KEYS.length ? <kbd>{CATEGORY_KEYS[index]}</kbd> : null}{" "}

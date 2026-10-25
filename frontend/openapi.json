@@ -2588,7 +2588,7 @@
     "/api/finance/to-sort": {
       "get": {
         "summary": "Read To Sort",
-        "description": "A page of the bookings that hold something without a category, oldest first.",
+        "description": "A page of the bookings that hold something without a category, oldest first, and a count.\n\n`total` counts the bookings without splits and the loose splits, every\npage alike, so a reader of the first page knows how many wait.",
         "operationId": "read_to_sort_api_finance_to_sort_get",
         "parameters": [
           {
@@ -2626,11 +2626,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/ToSort"
-                  },
-                  "title": "Response Read To Sort Api Finance To Sort Get"
+                  "$ref": "#/components/schemas/ToSortPage"
                 }
               }
             }
@@ -5309,7 +5305,7 @@
           "category_id"
         ],
         "title": "RuleIn",
-        "description": "A rule as the browser sends it."
+        "description": "A rule as the browser sends it. The pattern is stored as `sorting.clean_pattern` makes it."
       },
       "RuleOut": {
         "properties": {
@@ -5636,6 +5632,28 @@
         ],
         "title": "ToSort",
         "description": "A booking that holds something to sort: itself, or the splits listed."
+      },
+      "ToSortPage": {
+        "properties": {
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "bookings": {
+            "items": {
+              "$ref": "#/components/schemas/ToSort"
+            },
+            "type": "array",
+            "title": "Bookings"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total",
+          "bookings"
+        ],
+        "title": "ToSortPage",
+        "description": "A page of bookings to sort, and how many things are to sort in all."
       },
       "TodoHit": {
         "properties": {

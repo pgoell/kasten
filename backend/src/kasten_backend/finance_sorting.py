@@ -4,9 +4,10 @@ A booking's category comes from one place, in this order, the first that
 gives one winning:
 
 1. the hand: a category set by hand is never touched by a rule;
-2. a `text_contains` rule whose pattern is in the purpose, casefolded;
+2. a `text_contains` rule whose pattern is in the purpose, case ignored;
 3. the payee's default category;
-4. a `payee` rule whose pattern, cleaned like a payee name, is in the payee's key.
+4. a `payee` rule whose pattern, cleaned like a payee name, is whole words of
+   the payee's key, so `dm` names `dm drogerie` and not `admiral`.
 
 Among rules of one kind the longest pattern wins, then the lowest id. Text
 rules come first because they exist for the bookings whose payee says
@@ -23,8 +24,13 @@ none either, being no spending.
 Rules run over every booking whenever a rule, a payee's default or a category
 changes, and over the new rows of every ingest. A run also clears a category
 a rule gave that no rule gives any more. Nothing here commits.
+
+Every write that sorts takes `SORT_LOCK` before it touches a booking, so two
+runs, or a run and a sort by hand, take turns rather than wait on each
+other's rows.
 """
 
+import re
 from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import (
@@ -57,22 +63,50 @@ if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
 
+SORT_LOCK = 0x6B736F72
+"""The advisory lock every sorting write holds until its transaction ends.
+
+A run reads which rows are sorted by hand and then writes the rest. Two at
+once, or a run beside a sort by hand, would each lock rows the other wants
+next and deadlock, so they take turns on this first.
+"""
+
+
 class UnknownCategoryError(LookupError):
     """A write names a category id the table does not hold."""
 
 
-class HasSplitsError(ValueError):
-    """A category set on a booking whose category lives on its splits."""
+class TakesNoCategoryError(ValueError):
+    """A category set on a booking that takes none: one with splits, or a transfer."""
+
+
+async def lock(session: AsyncSession) -> None:
+    """Wait for `SORT_LOCK`. Taken twice in one transaction, it is held once more."""
+    await session.execute(select(func.pg_advisory_xact_lock(SORT_LOCK)))
 
 
 def payee_key(name: Any) -> ColumnElement[str]:
     """The key a counterparty name is matched by, worked out in the database.
 
-    Casefolded, every run of characters that are neither letters nor digits
-    made one space, and trimmed, so `REWE Markt GmbH.` and `Rewe  markt gmbh`
-    are one payee. Postgres's `[:alnum:]` takes umlauts as letters.
+    Lowercased with Postgres's `lower()` (not a full casefold: `ß` stays `ß`),
+    every run of characters that are neither letters nor digits made one
+    space, and trimmed, so `REWE Markt GmbH.` and `Rewe  markt gmbh` are one
+    payee. Under the database's `en_US.utf8` locale `[:alnum:]` takes umlauts
+    as letters.
     """
     return func.btrim(func.regexp_replace(func.lower(name), "[^[:alnum:]]+", " ", "g"))
+
+
+def clean_pattern(kind: str, pattern: str) -> str:
+    r"""A rule's pattern as stored and matched: lowercased, and a payee one cleaned like a key.
+
+    Stored this way so the unique `(kind, pattern)` refuses `REWE` beside `rewe`.
+    Python's `[^\W_]` is the letters and digits that `[:alnum:]` is in `payee_key`.
+    """
+    lowered = pattern.lower()
+    if kind == "payee":
+        return " ".join(re.findall(r"[^\W_]+", lowered))
+    return lowered.strip()
 
 
 def _spelled(name: Any) -> ColumnElement[str]:
@@ -80,11 +114,16 @@ def _spelled(name: Any) -> ColumnElement[str]:
     return func.btrim(func.regexp_replace(name, r"\s+", " ", "g"))
 
 
-def _first_rule(kind: str, matches: ColumnElement[bool]) -> Any:
-    """The category of the winning rule of one kind, as a subquery correlated to its booking."""
+def _first_rule(kind: str, matches: ColumnElement[bool], payee: Any = None) -> Any:
+    """The category of the winning rule of one kind, as a subquery correlated to its booking.
+
+    With `payee`, the subquery joins that payee to each rule on `matches`; every
+    other table it names is the outer row's.
+    """
+    statement = select(Rule.category_id).where(Rule.kind == kind)
+    statement = statement.where(matches) if payee is None else statement.join(payee, matches)
     return (
-        select(Rule.category_id)
-        .where(Rule.kind == kind, matches)
+        statement.correlate_except(Rule, *([] if payee is None else [payee]))
         .order_by(func.length(Rule.pattern).desc(), Rule.id)
         .limit(1)
         .scalar_subquery()
@@ -94,23 +133,34 @@ def _first_rule(kind: str, matches: ColumnElement[bool]) -> Any:
 def _chosen(text: Any, payee_id: Any) -> Any:
     """The category the rules give a row whose text and payee are these columns."""
     payee = aliased(Payee)
-    by_text = _first_rule(
-        "text_contains", func.strpos(func.lower(text), func.lower(Rule.pattern)) > 0
-    )
+    by_text = _first_rule("text_contains", func.strpos(func.lower(text), Rule.pattern) > 0)
+    # Padded with a space each side, so a pattern matches whole words of the key only.
+    padded = func.concat(" ", payee.key, " ")
     by_default = select(payee.category_id).where(payee.id == payee_id).scalar_subquery()
+    # A join in the rule's own subquery, not an EXISTS under it: two levels
+    # down, the EXISTS was not tied to the outer booking and matched any payee.
     by_payee = _first_rule(
         "payee",
-        exists().where(payee.id == payee_id, func.strpos(payee.key, payee_key(Rule.pattern)) > 0),
+        and_(payee.id == payee_id, func.strpos(padded, func.concat(" ", Rule.pattern, " ")) > 0),
+        payee=payee,
     )
     return func.coalesce(by_text, by_default, by_payee)
 
 
 async def _apply(session: AsyncSession, table: Any, rows: Any) -> int:
-    """Write the rules' choice from `rows` (id, category) into `table`, where it changes."""
+    """Write the rules' choice from `rows` (id, category) into `table`, where it changes.
+
+    The hand's rows are kept out here as well as in `rows`: a row sorted by hand
+    while this waited for its lock is checked again against this `WHERE` alone.
+    """
     choice = rows.subquery()
     written = await session.scalars(
         update(table)
-        .where(table.id == choice.c.id, table.category_id.is_distinct_from(choice.c.category))
+        .where(
+            table.id == choice.c.id,
+            _by_rule(table),
+            table.category_id.is_distinct_from(choice.c.category),
+        )
         .values(
             category_id=choice.c.category,
             category_set_by=case((choice.c.category.is_(None), null()), else_=literal("rule")),
@@ -127,6 +177,7 @@ def _by_rule(row: Any) -> ColumnElement[bool]:
 
 async def apply_rules(session: AsyncSession, ids: Sequence[int] | None = None) -> int:
     """Run the rules over the bookings `ids` and their splits, or all, and count the changes."""
+    await lock(session)
     await session.flush()
     booking, split = aliased(Transaction), aliased(TransactionSplit)
     has_splits = exists().where(TransactionSplit.transaction_id == booking.id)
@@ -198,16 +249,18 @@ async def set_by_hand(
     Answers the row, or None when there is no such row.
     """
     await _check_category(session, category_id)
+    # Before the row lock, so a run that holds the lock is not left waiting on this row.
+    await lock(session)
     row = await session.get(table, row_id, with_for_update=True)
     if row is None:
         return None
-    if (
-        table is Transaction
-        and category_id is not None
-        and await session.scalar(select(exists().where(TransactionSplit.transaction_id == row_id)))
-    ):
-        msg = "This booking has splits, and its category lives on them"
-        raise HasSplitsError(msg)
+    if table is Transaction and category_id is not None:
+        if row.transfer_group is not None:
+            msg = "This booking is a move between own accounts, which takes no category"
+            raise TakesNoCategoryError(msg)
+        if await session.scalar(select(exists().where(TransactionSplit.transaction_id == row_id))):
+            msg = "This booking has splits, and its category lives on them"
+            raise TakesNoCategoryError(msg)
     row.category_id = category_id
     row.category_set_by = None if category_id is None else "hand"
     if category_id is None:
@@ -221,13 +274,18 @@ async def set_by_hand(
 async def set_payee_category(
     session: AsyncSession, payee_id: int, category_id: int | None
 ) -> Payee | None:
-    """Give a payee its default category, the "always for this payee", and run the rules."""
+    """Give a payee its default category, the "always for this payee", and run the rules.
+
+    Over that payee's bookings only: no other booking reads this default.
+    """
     await _check_category(session, category_id)
+    await lock(session)
     payee = await session.get(Payee, payee_id)
     if payee is None:
         return None
     payee.category_id = category_id
-    await apply_rules(session)
+    theirs = await session.scalars(select(Transaction.id).where(Transaction.payee_id == payee_id))
+    await apply_rules(session, list(theirs))
     return payee
 
 
@@ -237,6 +295,7 @@ async def delete_category(session: AsyncSession, category_id: int) -> bool:
     The bookings it held, by hand or by rule, go back to the rules first, so a
     rule may sort them elsewhere and the rest come back to the to-sort list.
     """
+    await lock(session)
     category = await session.get(Category, category_id)
     if category is None:
         return False
@@ -275,6 +334,35 @@ def rules_in_order() -> Any:
     )
 
 
+def _loose() -> tuple[ColumnElement[bool], ColumnElement[bool]]:
+    """A booking that is itself to sort, and one with a split to sort. Transfers are neither."""
+    any_split = exists().where(TransactionSplit.transaction_id == Transaction.id)
+    whole = and_(
+        Transaction.transfer_group.is_(None), Transaction.category_id.is_(None), ~any_split
+    )
+    split = and_(
+        Transaction.transfer_group.is_(None),
+        exists().where(
+            TransactionSplit.transaction_id == Transaction.id,
+            TransactionSplit.category_id.is_(None),
+        ),
+    )
+    return whole, split
+
+
+async def to_sort_total(session: AsyncSession) -> int:
+    """How many things there are to sort: bookings without splits, and loose splits."""
+    whole, _ = _loose()
+    bookings = select(func.count()).select_from(Transaction).where(whole)
+    splits = (
+        select(func.count())
+        .select_from(TransactionSplit)
+        .join(Transaction, Transaction.id == TransactionSplit.transaction_id)
+        .where(Transaction.transfer_group.is_(None), TransactionSplit.category_id.is_(None))
+    )
+    return (await session.scalar(bookings) or 0) + (await session.scalar(splits) or 0)
+
+
 async def to_sort(session: AsyncSession, *, after: int | None, limit: int) -> list[Transaction]:
     """At most `limit` bookings that hold something without a category, oldest first.
 
@@ -283,17 +371,11 @@ async def to_sort(session: AsyncSession, *, after: int | None, limit: int) -> li
     uncategorised splits in its place. `after` is a cursor as in
     `finance.list_transactions`.
     """
-    loose_split = exists().where(
-        TransactionSplit.transaction_id == Transaction.id, TransactionSplit.category_id.is_(None)
-    )
-    any_split = exists().where(TransactionSplit.transaction_id == Transaction.id)
+    whole, split = _loose()
     statement = (
         select(Transaction)
         .options(selectinload(Transaction.splits), selectinload(Transaction.payee))
-        .where(
-            Transaction.transfer_group.is_(None),
-            or_(and_(Transaction.category_id.is_(None), ~any_split), loose_split),
-        )
+        .where(or_(whole, split))
     )
     if after is not None:
         place = select(Transaction.booking_date).where(Transaction.id == after).scalar_subquery()

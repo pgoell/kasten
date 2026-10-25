@@ -24,8 +24,8 @@ A booking's category comes from the first of these that gives one:
 2. **A `text_contains` rule** whose pattern is in the booking's `purpose`,
    case ignored.
 3. **The payee's default category**, the one "always for this payee" sets.
-4. **A `payee` rule** whose pattern, cleaned like a payee name, is in the
-   payee's key.
+4. **A `payee` rule** whose pattern, cleaned like a payee name, is whole words
+   of the payee's key: `dm` sorts `dm drogerie markt` and not `admiral`.
 
 Of two rules of one kind that both match, the longer pattern wins, and of two
 as long the lower id. Text rules come first because they exist for the
@@ -37,7 +37,11 @@ it names that payee alone, where a rule names part of many.
 A split is sorted the same way, with its own `text` in place of the purpose and
 its booking's payee. A booking with splits takes no category itself; its
 splits do. A move between own accounts, a booking with a `transfer_group`,
-takes none and is never on the to-sort list: it is no spending.
+takes none and is never on the to-sort list: it is no spending. A booking
+that had a category before its twin came in loses it when the two are paired,
+and setting one by hand on a transfer is a `409`. The move into the shared
+household account is a transfer too; the budget (#1036) counts it through the
+account's `shared` flag, not through a category.
 
 The rules run over every booking, history included, whenever a rule, a payee's
 default or a category's existence changes, and over the new bookings after
@@ -49,11 +53,23 @@ no category.
 ## Payees
 
 Every booking with a counterparty name gets a payee when it comes in. The
-payee's `key` is the name casefolded, every run of characters that are neither
+payee's `key` is the name lowercased with Postgres's `lower()`, which is not a
+full casefold (`ß` stays `ß`), every run of characters that are neither
 letters nor digits made one space, and trimmed, so `REWE Markt GmbH.` and
 `Rewe  markt gmbh` are the one payee `rewe markt gmbh`. Its `name` is the first
 spelling seen, with its spaces tidied, for showing. A name that cleans to
 nothing, such as `-`, gets no payee.
+
+## Patterns
+
+A pattern is stored lowercased, and a `payee` pattern also cleaned like a
+payee key, so `DM.` is stored as `dm`. A rule is unique by its kind and its
+stored pattern, so `REWE` beside `rewe` is a repeat. A pattern with no letter
+or digit in it is refused.
+
+Two writes that sort take turns: each holds one advisory lock until it
+commits, so a run of the rules never overwrites a category set by hand while
+it ran.
 
 ## GET /api/finance/categories
 
@@ -95,7 +111,7 @@ Every payee, by key, with its default category or `null`.
 ## PUT /api/finance/payees/{payee_id}
 
 Sets the payee's default category from `{ "category_id": 1 }`, or clears it
-with `null`, runs the rules over every booking, and answers the payee. This is
+with `null`, runs the rules over that payee's bookings, and answers the payee. This is
 "always for this payee": every booking of the payee that no text rule and no
 hand sorts takes the category. A payee that does not exist is a `404`, a
 category that does not exist a `422`.
@@ -112,8 +128,8 @@ longest pattern first and then by id.
 ## POST /api/finance/rules
 
 Makes a rule from `kind` (`text_contains` or `payee`), `pattern` and
-`category_id`, runs the rules over every booking, and answers it. A rule of
-the same kind and pattern is a `409`, and a category that does not exist a
+`category_id`, runs the rules over every booking, and answers it with the
+pattern as stored. A rule of the same kind and stored pattern is a `409`, and a category that does not exist a
 `422`. So is a pattern with no letter or digit in it: a payee pattern such as
 `-` cleans to nothing, which is in every payee's key.
 
@@ -145,8 +161,8 @@ Firefly import, that writes the tables some other way.
 Sets the booking's category by hand from `{ "category_id": 1 }`, and answers
 the booking as `GET /api/finance/transactions` shows it. `null` hands the
 booking back to the rules, which run on it at once. A booking with splits is a
-`409`, since its category lives on the splits; setting `null` on one is
-allowed. A booking that does not exist is a `404`, a category that does not
+`409`, since its category lives on the splits, and so is a transfer, which
+takes none; setting `null` on either is allowed. A booking that does not exist is a `404`, a category that does not
 exist a `422`.
 
 ## PUT /api/finance/splits/{split_id}/category
@@ -167,17 +183,21 @@ booking itself is the thing to sort.
 
 `limit` and `after` page as on `GET /api/finance/transactions`: 500 unless
 asked otherwise, at most 5,000, and `after` the `id` of the last booking of the
-page before.
+page before. `total` counts everything there is to sort, the bookings without
+splits and the loose splits, on every page alike.
 
 ```json
-[
+{
+  "total": 580,
+  "bookings": [
   {
     "id": 7, "account_id": 1, "booking_date": "2026-10-20", "amount": "-30.00", "currency": "EUR",
     "purpose": "AMAZON 302-1234567", "counterparty_name": "Amazon EU",
     "payee_id": 5, "payee_name": "Amazon EU",
     "splits": [{ "id": 2, "amount": "-10.00", "text": "Cable" }]
   }
-]
+  ]
+}
 ```
 
 ## Related

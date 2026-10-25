@@ -201,7 +201,9 @@ async def link_transfers(session: AsyncSession) -> int:
                 Transaction.id.in_(pair),
                 ~exists().where(other.id.in_(pair), other.transfer_group.is_not(None)),
             )
-            .values(transfer_group=uuid.uuid4())
+            # A transfer takes no category, so one a half got before its
+            # twin came in, by rule or by hand, goes.
+            .values(transfer_group=uuid.uuid4(), category_id=None, category_set_by=None)
             .returning(Transaction.id)
         )
         if len(linked.all()) == len(pair):
@@ -269,6 +271,11 @@ async def replace_splits(
     total = sum((part["amount"] for part in parts), Decimal(0))
     if parts and total != booking.amount:
         raise SplitSumError(total, booking.amount)
+    if parts:
+        # With splits the category lives on them, so the booking's own goes,
+        # even one set by hand.
+        booking.category_id = None
+        booking.category_set_by = None
     booking.splits = [TransactionSplit(**part) for part in parts]
     await session.flush()
     return booking

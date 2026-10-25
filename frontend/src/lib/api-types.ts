@@ -1349,7 +1349,10 @@ export interface paths {
         };
         /**
          * Read To Sort
-         * @description A page of the bookings that hold something without a category, oldest first.
+         * @description A page of the bookings that hold something without a category, oldest first, and a count.
+         *
+         *     `total` counts the bookings without splits and the loose splits, every
+         *     page alike, so a reader of the first page knows how many wait.
          */
         get: operations["read_to_sort_api_finance_to_sort_get"];
         put?: never;
@@ -2684,7 +2687,7 @@ export interface components {
         };
         /**
          * RuleIn
-         * @description A rule as the browser sends it.
+         * @description A rule as the browser sends it. The pattern is stored as `sorting.clean_pattern` makes it.
          */
         RuleIn: {
             /**
@@ -2814,6 +2817,16 @@ export interface components {
             payee_name: string | null;
             /** Splits */
             splits: components["schemas"]["LooseSplit"][];
+        };
+        /**
+         * ToSortPage
+         * @description A page of bookings to sort, and how many things are to sort in all.
+         */
+        ToSortPage: {
+            /** Total */
+            total: number;
+            /** Bookings */
+            bookings: components["schemas"]["ToSort"][];
         };
         /**
          * TodoHit
@@ -4905,7 +4918,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ToSort"][];
+                    "application/json": components["schemas"]["ToSortPage"];
                 };
             };
             /** @description Validation Error */

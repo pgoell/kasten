@@ -6,10 +6,15 @@ without one; see the `finance_session` fixture.
 
 from typing import TYPE_CHECKING, Any
 
+from sqlalchemy import literal, select, text
+
 from backend.tests.finance_rows import account, booking, post
+from kasten_backend import finance_sorting as sorting
+from kasten_backend.finance_models import Transaction
 
 if TYPE_CHECKING:
     from httpx import AsyncClient
+    from sqlalchemy.ext.asyncio import AsyncSession
 
 API = "/api/finance"
 
@@ -168,7 +173,7 @@ async def test_ingest_sorts_new_bookings_and_leaves_transfers_out(
     assert rows["out"]["transfer_group"] is not None
     assert rows["out"]["category_id"] is None
     to_sort = (await finance_client.get(f"{API}/to-sort")).json()
-    assert to_sort == []
+    assert to_sort == {"total": 0, "bookings": []}
 
 
 async def test_to_sort_pages_oldest_first_and_shows_a_booking_by_its_loose_splits(
@@ -192,10 +197,11 @@ async def test_to_sort_pages_oldest_first_and_shows_a_booking_by_its_loose_split
     )
     assert [part["category_id"] for part in split.json()["splits"]] == [books, None]
 
-    first = (await finance_client.get(f"{API}/to-sort", params={"limit": 2})).json()
+    page = (await finance_client.get(f"{API}/to-sort", params={"limit": 2})).json()
+    first = page["bookings"]
     rest = (
         await finance_client.get(f"{API}/to-sort", params={"limit": 2, "after": first[-1]["id"]})
-    ).json()
+    ).json()["bookings"]
 
     assert [row["booking_date"] for row in first + rest] == [
         "2026-10-01",
@@ -206,6 +212,8 @@ async def test_to_sort_pages_oldest_first_and_shows_a_booking_by_its_loose_split
         {"id": split.json()["splits"][1]["id"], "amount": "-10.00", "text": "Cable"}
     ]
     assert first[0]["splits"] == []
+    # The two whole bookings and the cable; the novel's split is sorted.
+    assert page["total"] == 3
 
 
 async def test_a_split_by_hand_and_a_category_on_a_split_booking(
@@ -254,9 +262,9 @@ async def test_deleting_a_category_sends_its_bookings_back_to_sort(
     assert (await finance_client.delete(f"{API}/categories/{food}")).status_code == 204
 
     assert taken.status_code == 409
-    assert [row["id"] for row in (await finance_client.get(f"{API}/to-sort")).json()] == [
-        booking_id
-    ]
+    assert [
+        row["id"] for row in (await finance_client.get(f"{API}/to-sort")).json()["bookings"]
+    ] == [booking_id]
 
 
 async def test_a_repeated_rule_is_a_409_and_one_on_no_category_a_422(
@@ -284,3 +292,103 @@ async def test_a_pattern_without_a_letter_or_digit_is_refused(finance_client: As
     )
 
     assert dash.status_code == 422
+
+
+async def test_a_run_never_writes_a_row_sorted_by_hand_even_when_it_read_it_as_a_rule_row(
+    finance_client: AsyncClient, finance_session: AsyncSession
+) -> None:
+    # The run's choice is read before its update locks the row, so a sort by
+    # hand can land in between. The update's own WHERE is what Postgres checks
+    # again after the wait; here the choice holds every row, the hand's too.
+    giro = await account(finance_client, "Giro")
+    food, gifts = await category(finance_client, "Food"), await category(finance_client, "Gifts")
+    await post(finance_client, [booking(giro, "k")])
+    booking_id = (await stored(finance_client))["k"]["id"]
+    await finance_client.put(
+        f"{API}/transactions/{booking_id}/category", json={"category_id": gifts}
+    )
+
+    every_row = select(Transaction.id, literal(food).label("category"))
+    written = await sorting._apply(finance_session, Transaction, every_row)
+
+    assert written == 0
+    assert (await stored(finance_client))["k"]["category_id"] == gifts
+
+
+async def test_a_run_holds_the_sort_lock_until_its_transaction_ends(
+    finance_client: AsyncClient, finance_session: AsyncSession
+) -> None:
+    await sorting.apply_rules(finance_session)
+
+    held = await finance_session.scalar(
+        text("SELECT count(*) FROM pg_locks WHERE locktype = 'advisory' AND objid = :lock"),
+        {"lock": sorting.SORT_LOCK},
+    )
+    assert held == 1
+
+
+async def test_a_half_sorted_before_its_twin_came_gives_up_its_category_and_takes_no_hand(
+    finance_client: AsyncClient,
+) -> None:
+    giro = await account(finance_client, "Giro", "DE02120300000000202051")
+    saving = await account(finance_client, "Saving", "DE02500105170137075030")
+    food = await category(finance_client, "Food")
+    await post(
+        finance_client,
+        [booking(giro, "out", "-50.00", counterparty_iban="DE02500105170137075030")],
+    )
+    out = (await stored(finance_client))["out"]["id"]
+    await finance_client.put(f"{API}/transactions/{out}/category", json={"category_id": food})
+
+    await post(finance_client, [booking(saving, "in", "50.00")])
+    hand = await finance_client.put(
+        f"{API}/transactions/{out}/category", json={"category_id": food}
+    )
+
+    row = (await stored(finance_client))["out"]
+    assert row["transfer_group"] is not None
+    assert (row["category_id"], row["category_set_by"]) == (None, None)
+    assert hand.status_code == 409
+
+
+async def test_splitting_a_booking_takes_its_own_category_even_one_set_by_hand(
+    finance_client: AsyncClient,
+) -> None:
+    giro = await account(finance_client, "Giro")
+    food = await category(finance_client, "Food")
+    await post(finance_client, [booking(giro, "order", "-30.00")])
+    order = (await stored(finance_client))["order"]["id"]
+    await finance_client.put(f"{API}/transactions/{order}/category", json={"category_id": food})
+
+    split = await finance_client.put(
+        f"{API}/transactions/{order}/splits", json=[{"amount": "-20.00"}, {"amount": "-10.00"}]
+    )
+
+    assert (split.json()["category_id"], split.json()["category_set_by"]) == (None, None)
+
+
+async def test_patterns_are_one_whatever_their_case_and_payee_rules_match_whole_words(
+    finance_client: AsyncClient,
+) -> None:
+    giro = await account(finance_client, "Giro")
+    drugs = await category(finance_client, "Drugstore")
+    await rule(finance_client, "text_contains", "REWE", drugs)
+    again = await finance_client.post(
+        f"{API}/rules", json={"kind": "text_contains", "pattern": "rewe", "category_id": drugs}
+    )
+    made = await finance_client.post(
+        f"{API}/rules", json={"kind": "payee", "pattern": "DM.", "category_id": drugs}
+    )
+    await post(
+        finance_client,
+        [
+            booking(giro, "dm", purpose="", counterparty_name="dm-drogerie markt"),
+            booking(giro, "admiral", purpose="", counterparty_name="Admiral Versicherung"),
+        ],
+    )
+
+    rows = await stored(finance_client)
+    assert again.status_code == 409
+    assert made.json()["pattern"] == "dm"
+    assert rows["dm"]["category_id"] == drugs
+    assert rows["admiral"]["category_id"] is None

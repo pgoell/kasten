@@ -11,7 +11,7 @@ from decimal import Decimal  # noqa: TC003  pydantic reads the annotation at run
 from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, Query, Response
-from pydantic import AfterValidator, BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
@@ -64,24 +64,25 @@ class Choice(BaseModel):
     category_id: int | None
 
 
-def _says_something(pattern: str) -> str:
-    """A pattern with a letter or digit in it, refusing one that would match every booking.
-
-    A payee pattern is cleaned like a payee name, so `-` cleans to nothing, and
-    nothing is in every key. A text pattern of spaces is in nearly every purpose.
-    """
-    if not any(char.isalnum() for char in pattern):
-        msg = "A pattern needs a letter or a digit"
-        raise ValueError(msg)
-    return pattern
-
-
 class RuleIn(BaseModel):
-    """A rule as the browser sends it."""
+    """A rule as the browser sends it. The pattern is stored as `sorting.clean_pattern` makes it."""
 
     kind: RuleKind
-    pattern: Annotated[str, AfterValidator(_says_something)]
+    pattern: str
     category_id: int
+
+    @model_validator(mode="after")
+    def _cleaned(self) -> RuleIn:
+        """Clean the pattern, refusing one with no letter or digit, which would match every booking.
+
+        A payee pattern such as `-` cleans to nothing, and nothing is in every
+        key; a text pattern of spaces is in nearly every purpose.
+        """
+        self.pattern = sorting.clean_pattern(self.kind, self.pattern)
+        if not any(char.isalnum() for char in self.pattern):
+            msg = "A pattern needs a letter or a digit"
+            raise ValueError(msg)
+        return self
 
 
 class RuleOut(RuleIn):
@@ -106,6 +107,13 @@ class LooseSplit(BaseModel):
     id: int
     amount: Decimal
     text: str | None
+
+
+class ToSortPage(BaseModel):
+    """A page of bookings to sort, and how many things are to sort in all."""
+
+    total: int
+    bookings: list[ToSort]
 
 
 class ToSort(BaseModel):
@@ -185,7 +193,7 @@ async def delete_category(category_id: int, session: Session) -> Response:
     """Delete a category and its rules, and run the rules over what it held."""
     if not await sorting.delete_category(session, category_id):
         raise HTTPException(status_code=404, detail="No such category")
-    await session.commit()
+    await _commit(session, "A category")
     return Response(status_code=204)
 
 
@@ -205,7 +213,7 @@ async def write_payee(payee_id: int, choice: Choice, session: Session) -> PayeeO
         raise HTTPException(status_code=422, detail=str(unknown)) from unknown
     if payee is None:
         raise HTTPException(status_code=404, detail="No such payee")
-    await session.commit()
+    await _commit(session, "A payee")
     return PayeeOut.model_validate(payee)
 
 
@@ -247,8 +255,7 @@ async def delete_rule(rule_id: int, session: Session) -> Response:
     if found is None:
         raise HTTPException(status_code=404, detail="No such rule")
     await session.delete(found)
-    await sorting.apply_rules(session)
-    await session.commit()
+    await _commit(session, "A rule", run=True)
     return Response(status_code=204)
 
 
@@ -266,8 +273,8 @@ async def _by_hand(session: Session, table: type, row_id: int, choice: Choice) -
         row = await sorting.set_by_hand(session, table, row_id, choice.category_id)
     except sorting.UnknownCategoryError as unknown:
         raise HTTPException(status_code=422, detail=str(unknown)) from unknown
-    except sorting.HasSplitsError as split:
-        raise HTTPException(status_code=409, detail=str(split)) from split
+    except sorting.TakesNoCategoryError as none:
+        raise HTTPException(status_code=409, detail=str(none)) from none
     if row is None:
         raise HTTPException(status_code=404, detail="No such row")
     await session.commit()
@@ -295,10 +302,14 @@ async def read_to_sort(
     *,
     after: int | None = None,
     limit: Annotated[int, Query(ge=1, le=MAX_PAGE)] = PAGE,
-) -> list[ToSort]:
-    """A page of the bookings that hold something without a category, oldest first."""
+) -> ToSortPage:
+    """A page of the bookings that hold something without a category, oldest first, and a count.
+
+    `total` counts the bookings without splits and the loose splits, every
+    page alike, so a reader of the first page knows how many wait.
+    """
     found = await sorting.to_sort(session, after=after, limit=limit)
-    return [
+    bookings = [
         ToSort(
             id=booking.id,
             account_id=booking.account_id,
@@ -317,3 +328,4 @@ async def read_to_sort(
         )
         for booking in found
     ]
+    return ToSortPage(total=await sorting.to_sort_total(session), bookings=bookings)

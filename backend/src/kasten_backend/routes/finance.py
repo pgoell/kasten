@@ -255,6 +255,9 @@ async def write_transactions(
     bookings get their payees and the rules' categories after the transfers
     are paired, since a transfer takes no category.
     """
+    # First, so the sorting after the insert and a run of the rules beside it
+    # take turns rather than wait on each other's rows.
+    await finance_sorting.lock(session)
     try:
         created = await finance.insert_transactions(session, [b.model_dump() for b in bookings])
     except (finance.UnknownAccountError, finance.KeyClashError) as refused:
@@ -271,6 +274,7 @@ async def write_splits(
     transaction_id: int, parts: list[SplitIn], session: Session
 ) -> TransactionOut:
     """Replace the booking's splits, refusing a set that does not add up to its amount."""
+    await finance_sorting.lock(session)
     try:
         booking = await finance.replace_splits(
             session, transaction_id, [part.model_dump() for part in parts]

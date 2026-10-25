@@ -100,7 +100,7 @@ class Category(Base):
 class Payee(Base):
     """A counterparty under its cleaned name, with the category its bookings take by default.
 
-    `key` is what bookings are matched by: the counterparty name casefolded,
+    `key` is what bookings are matched by: the counterparty name lowercased,
     every run of characters that are not letters or digits made one space, and
     trimmed (`finance_sorting.payee_key`). `name` is the first spelling seen,
     for showing.

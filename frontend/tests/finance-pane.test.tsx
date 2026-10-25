@@ -44,7 +44,7 @@ const ORDER = {
 
 beforeEach(() => {
   fetchCategories.mockResolvedValue(CATEGORIES);
-  fetchToSort.mockResolvedValue([BAKERY, ORDER]);
+  fetchToSort.mockResolvedValue({ total: 2, bookings: [BAKERY, ORDER] });
   sortByHand.mockResolvedValue(undefined);
   sortPayee.mockResolvedValue(undefined);
 });
@@ -88,6 +88,8 @@ describe("the finance pane's to-sort view", () => {
     await screen.findByText("Cable");
 
     press("1");
+    // The next sort waits until this one is written.
+    await waitFor(() => expect(screen.getByRole("button", { name: "1 Food" })).toBeEnabled());
     press("j");
     press("2");
 
@@ -106,6 +108,7 @@ describe("the finance pane's to-sort view", () => {
     press("a");
     press("2");
     await waitFor(() => expect(sortPayee).toHaveBeenCalledWith(3, 9));
+    await waitFor(() => expect(screen.getByRole("button", { name: "1 Food" })).toBeEnabled());
 
     const order = screen.getAllByRole("listitem")[1]?.querySelector("button");
     fireEvent.click(order as HTMLElement);
@@ -115,5 +118,40 @@ describe("the finance pane's to-sort view", () => {
     await waitFor(() => expect(onNotice).toHaveBeenCalledWith("This booking has no payee to sort"));
     expect(sortPayee).toHaveBeenCalledTimes(1);
     expect(sortByHand).not.toHaveBeenCalled();
+  });
+
+  it("#1035 a key held with Ctrl, Alt or Meta sorts nothing", async () => {
+    renderPane();
+    await screen.findByText("Cable");
+
+    for (const held of ["ctrlKey", "altKey", "metaKey"]) {
+      fireEvent.keyDown(screen.getByRole("region", { name: "Finance" }), {
+        key: "1",
+        [held]: true,
+      });
+    }
+
+    expect(sortByHand).not.toHaveBeenCalled();
+  });
+
+  it("#1035 a second press while a sort is in the air sorts nothing more", async () => {
+    let finish: () => void = () => {};
+    sortByHand.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          finish = resolve;
+        }),
+    );
+    renderPane();
+    await screen.findByText("Cable");
+
+    press("1");
+    press("2");
+    expect(screen.getByRole("button", { name: "1 Food" })).toBeDisabled();
+    finish();
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "1 Food" })).toBeEnabled());
+    expect(sortByHand).toHaveBeenCalledTimes(1);
+    expect(screen.getByText("2 to sort")).toBeTruthy();
   });
 });

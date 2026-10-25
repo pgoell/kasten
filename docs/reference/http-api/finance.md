@@ -171,6 +171,8 @@ pulls. A second post of the same batch links nothing, and two posts linking at
 once take turns. The pairing is greedy: with the same amount moved several
 times in a few days, a booking can be left unlinked that another order would
 have paired. That is accepted as rare; such a booking counts as spending.
+A transfer takes no category, so a half that had one, by rule or by hand,
+loses it when it is paired.
 
 After the linking, each new booking gets its payee from its counterparty name
 and the rules' category, in the order
@@ -187,9 +189,9 @@ as `GET` shows it. The splits must add up to the booking's amount: a set that
 does not is a `422` saying both sums, and nothing changes. The parts may
 differ in sign, as an order with a credit or a refunded item does. An empty
 list removes the splits. A category set by hand on an old split goes with it.
-The new splits take the rules' categories at once,
-and the booking gives up a category a rule gave it, since its category now
-lives on the splits.
+The new splits take the rules' categories at once, and the booking gives up
+its own category, even one set by hand, since its category now lives on the
+splits.
 
 ```json
 [{ "amount": "-20.00", "text": "Book" }, { "amount": "-10.00", "text": "Cable" }]
