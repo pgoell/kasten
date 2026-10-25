@@ -242,6 +242,11 @@
   display: none;
 }
 
+/* The card asking for a number is a question, not a refusal, so it is the muted text and not the warn colour. */
+.cm-log-ask {
+  color: var(--k-muted);
+}
+
 /* A goal's total in words. A met floor is green with a tick. A passed max is the
    warn colour and says so with a mark, so the colour is never the only sign. A min
    not met is only a shorter bar, with no colour of its own. */

@@ -209,6 +209,22 @@ describe("the log card's weight kind", () => {
     expect(amount(view).placeholder).toBe("amount");
   });
 
+  it("#805 I3 the question is drawn as a question, not as a refusal", async () => {
+    vi.mocked(fetchNote).mockResolvedValue(WEIGHT);
+    const view = mount(NOTE);
+    await arrived(view, "Log weight");
+    expect(button(view, "Log weight")).not.toBeNull();
+
+    press(view, "Log weight");
+    expect(why(view)).toBe("Type the weight in kg");
+    expect(view.dom.querySelector(".cm-log-why")?.classList.contains("cm-log-ask")).toBe(true);
+
+    amount(view).value = "abc";
+    press(view, "Log weight");
+    expect(why(view)).toContain("not a weight amount: abc");
+    expect(view.dom.querySelector(".cm-log-why")?.classList.contains("cm-log-ask")).toBe(false);
+  });
+
   it("#805 I1 an amount that is no weight says why, writes nothing and keeps the text", async () => {
     vi.mocked(fetchNote).mockResolvedValue(WEIGHT);
     const view = mount(NOTE);

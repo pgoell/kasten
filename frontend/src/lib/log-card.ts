@@ -261,7 +261,8 @@ class LogCard extends WidgetType {
       if (asked !== undefined) tap(view, asked, amount);
     });
     const why = document.createElement("div");
-    why.className = "cm-log-why";
+    // A question is drawn in the muted colour, and only a refused amount in the warn colour.
+    why.className = asked === undefined ? "cm-log-why" : "cm-log-why cm-log-ask";
     if (asked !== undefined) why.textContent = askWords(asked);
 
     const quick = document.createElement("div");
