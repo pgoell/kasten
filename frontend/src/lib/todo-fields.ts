@@ -150,20 +150,28 @@ export function readFields(rest: string): Fields {
 }
 
 /**
- * `readFields`, and where each tag starts in `rest`. A tag is read on the
- * words once the fields are out, so `📅 2026-10-20#agent` carries one and
- * `🆔 kt-a,#agent` none; `origin` keeps each kept character's offset in `rest`
- * so `@` can find that same tag on the line.
+ * `readFields`, where each tag starts in `rest`, and where the wait's own match
+ * ends in `rest`. A tag is read on the words once the fields are out, so
+ * `📅 2026-10-20#agent` carries one and `🆔 kt-a,#agent` none; `origin` keeps each
+ * kept character's offset in `rest` so `@` can find that same tag on the line.
+ * `waitEnd` is that match's end, read before the cut, so a `👤` another field
+ * holds as its value never stands in for the wait.
  */
-export function readTagged(rest: string): { fields: Fields; tags: { tag: string; at: number }[] } {
+export function readTagged(rest: string): {
+  fields: Fields;
+  tags: { tag: string; at: number }[];
+  waitEnd: number | undefined;
+} {
   let text = rest;
   let mask = masked(rest);
   let origin = Array.from({ length: rest.length }, (_, at) => at);
+  let waitEnd: number | undefined;
 
   // The mask and the offsets are cut with the text, so the three stay in step.
   function take(pattern: RegExp): (string | undefined)[] {
     const found = find(pattern, text, mask);
     if (found === null) return [];
+    if (pattern === WAITING) waitEnd = (origin[found.to - 1] ?? 0) + 1;
     text = text.slice(0, found.from) + text.slice(found.to);
     mask = mask.slice(0, found.from) + mask.slice(found.to);
     origin = [...origin.slice(0, found.from), ...origin.slice(found.to)];
@@ -218,7 +226,7 @@ export function readTagged(rest: string): { fields: Fields; tags: { tag: string;
     waitingSince,
     waitingOn,
   };
-  return { fields, tags };
+  return { fields, tags, waitEnd };
 }
 
 /**

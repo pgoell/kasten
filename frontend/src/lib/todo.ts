@@ -222,13 +222,13 @@ export function nameAt(line: string): number | null {
   if (todo?.state !== "waiting" || todo.waitingOn !== undefined) return null;
 
   if (todo.waitingSince === undefined) return null;
-  // The marker as typed, with or without the variation selector after it.
-  // The date ends at a space or the line's end, so an assignee that opens with
-  // it (`👤 2026-10-25-review`) is not mistaken for the stamp. The mask, so a
-  // `👤` and date inside a code span or link, which parseTodo does not read as
-  // the wait, does not catch the cursor.
-  const stamp = new RegExp(`👤️?[ \\t]+${todo.waitingSince}(?=[ \\t]|$)`).exec(masked(line));
-  return stamp === null ? null : stamp.index + stamp[0].length;
+  // The end of the wait's own match from readTagged, the one parseTodo reads. A
+  // `👤` and date that another field holds as its value, or that sits in a span
+  // or link, is not that match, so it never catches the cursor.
+  const rest = LINE.exec(line)?.[3];
+  if (rest === undefined) return null;
+  const end = readTagged(rest).waitEnd;
+  return end === undefined ? null : line.length - rest.length + end;
 }
 
 /** Neither done nor rejected, which is what both views show by default. */
