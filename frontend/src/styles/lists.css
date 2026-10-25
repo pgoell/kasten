@@ -61,7 +61,7 @@ button:not(.words):active:not(:disabled) {
   display: grid;
   gap: var(--k-space-8);
   padding: calc(var(--k-space-12) + env(safe-area-inset-top)) var(--k-space-16) var(--k-space-8);
-  background: color-mix(in srgb, var(--k-bg) 88%, transparent);
+  background: var(--k-bg);
 }
 
 .top h1 {
@@ -395,7 +395,7 @@ button:not(.words):active:not(:disabled) {
   flex-direction: column;
   gap: var(--k-space-8);
   padding: var(--k-space-8) var(--k-space-16) calc(var(--k-space-12) + env(safe-area-inset-bottom));
-  background: color-mix(in srgb, var(--k-bg) 88%, transparent);
+  background: var(--k-bg);
 }
 
 .chips {

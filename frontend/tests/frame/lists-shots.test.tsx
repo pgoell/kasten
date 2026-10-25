@@ -19,6 +19,8 @@ const SEED: Record<string, Seed[]> = {
     { text: "Bananen", done: true, ticked_by: "Alicia", ticked_at: "2026-10-23T16:04:00Z" },
     { text: "Kaffee", done: true, ticked_by: "Pascal", ticked_at: "2026-10-22T07:30:00Z" },
     { text: "Käse", done: true, ticked_at: "2026-10-21T19:10:00Z" },
+    { text: "Tee", done: true, ticked_by: "Alicia", ticked_at: "2026-10-20T12:45:00Z" },
+    { text: "Nudeln", done: true, ticked_by: "Pascal", ticked_at: "2026-10-19T18:20:00Z" },
   ],
   Todo: [
     { text: "Steuer abgeben", done: false, assignee: "[[Pascal]]" },
@@ -35,8 +37,8 @@ interface Look {
   dark?: boolean;
   touch?: boolean;
   reduced?: boolean;
-  /** What the picture shows past the first draw: a list switched, a menu open, a field focused. */
-  arrange?: () => void;
+  /** What the picture shows past the first draw: a list switched, a menu open, a field focused, a list scrolled. */
+  arrange?: (frame: HTMLElement) => void;
 }
 
 /** One picture: the app drawn as the look says, saved as `name`, its width checked. */
@@ -60,14 +62,29 @@ async function picture(name: string, look: Look): Promise<void> {
     reducedMotion: look.reduced ? "reduce" : "no-preference",
   });
   if (look.dark) document.documentElement.setAttribute("data-theme", "dark");
-  const { container, unmount } = render(<ListsApp />);
+  // The app scrolls inside a box the size of the screen, so the sticky bars stick to
+  // the picture's edges and the picture is the screen, not the whole list.
+  const { container, unmount } = render(
+    <div
+      style={{
+        position: "relative",
+        width: look.size.width,
+        height: look.size.height,
+        overflow: "auto",
+      }}
+    >
+      <ListsApp />
+    </div>,
+  );
+  const frame = container.firstElementChild as HTMLElement;
   try {
     await screen.findByRole("checkbox", { name: "Milch" });
-    look.arrange?.();
+    look.arrange?.(frame);
     // The lines and the menu arrive on a transition, so the picture waits for the end state.
     await Promise.all(document.getAnimations().map((animation) => animation.finished));
     await document.fonts.ready;
-    expect(await shot(container, name)).toBe(look.size.width);
+    expect(await shot(frame, name)).toBe(look.size.width);
+    expect(frame.getBoundingClientRect().height).toBe(look.size.height);
   } finally {
     unmount();
     document.documentElement.removeAttribute("data-theme");
@@ -95,9 +112,15 @@ const meine = {
   arrange: () => fireEvent.click(screen.getByRole("button", { name: "Meine" })),
 };
 const menu = { ...alle, arrange: () => fireEvent.click(chipOf("Eier")) };
+// Erledigt unfolds to all five, and the list is scrolled so its heading sits under the top bar.
 const done = {
   ...alle,
-  arrange: () => fireEvent.click(screen.getByRole("button", { name: /^Erledigt/ })),
+  arrange: (frame: HTMLElement) => {
+    fireEvent.click(screen.getByRole("button", { name: "Erledigt 5" }));
+    const heading = frame.querySelector<HTMLElement>(".done .group-head") as HTMLElement;
+    const bar = frame.querySelector<HTMLElement>(".top") as HTMLElement;
+    frame.scrollTop = heading.offsetTop - bar.offsetHeight;
+  },
 };
 const composer = {
   size: { width: 390, height: 500 },
