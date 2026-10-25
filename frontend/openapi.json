@@ -2276,6 +2276,47 @@
         }
       }
     },
+    "/api/finance/budget/flow": {
+      "get": {
+        "summary": "Read Flow",
+        "description": "Where the month's money went in both scopes, each column in the order it is drawn.\n\nNo `today`: the flow counts what happened, which needs no reader's day.",
+        "operationId": "read_flow_api_finance_budget_flow_get",
+        "parameters": [
+          {
+            "name": "month",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]{4}-[0-9]{2}$",
+              "title": "Month"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlowOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/finance/budget/trend": {
       "get": {
         "summary": "Read Trend",
@@ -5244,6 +5285,122 @@
         ],
         "title": "Filed",
         "description": "The vault-relative path a file landed at."
+      },
+      "FlowLinkOut": {
+        "properties": {
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "target": {
+            "type": "string",
+            "title": "Target"
+          },
+          "amount": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Amount"
+          }
+        },
+        "type": "object",
+        "required": [
+          "source",
+          "target",
+          "amount"
+        ],
+        "title": "FlowLinkOut",
+        "description": "Money from one node to the next."
+      },
+      "FlowNodeOut": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "source",
+              "scope",
+              "kind",
+              "category",
+              "left_over",
+              "from_savings"
+            ],
+            "title": "Role"
+          },
+          "column": {
+            "type": "integer",
+            "title": "Column"
+          },
+          "category_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category Id"
+          },
+          "amount": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Amount"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "name",
+          "role",
+          "column",
+          "category_id",
+          "amount"
+        ],
+        "title": "FlowNodeOut",
+        "description": "A place the month's money passes, and how much passes it."
+      },
+      "FlowOut": {
+        "properties": {
+          "month": {
+            "type": "string",
+            "title": "Month"
+          },
+          "total": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Total"
+          },
+          "nodes": {
+            "items": {
+              "$ref": "#/components/schemas/FlowNodeOut"
+            },
+            "type": "array",
+            "title": "Nodes"
+          },
+          "links": {
+            "items": {
+              "$ref": "#/components/schemas/FlowLinkOut"
+            },
+            "type": "array",
+            "title": "Links"
+          }
+        },
+        "type": "object",
+        "required": [
+          "month",
+          "total",
+          "nodes",
+          "links"
+        ],
+        "title": "FlowOut",
+        "description": "Where the month's money went, from what happened so far; `total` is the money in."
       },
       "Folder": {
         "properties": {

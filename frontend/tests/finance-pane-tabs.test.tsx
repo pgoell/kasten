@@ -14,6 +14,7 @@ const api = vi.hoisted(() => ({
   fetchBudget: vi.fn(),
   fetchFree: vi.fn(),
   fetchTrend: vi.fn(),
+  fetchFlow: vi.fn(),
   fetchTransactions: vi.fn(),
   fetchAccounts: vi.fn(),
   fetchSync: vi.fn(),
@@ -31,6 +32,7 @@ vi.mock("@/lib/finance-budget-api", () => ({
   fetchBudget: api.fetchBudget,
   fetchFree: api.fetchFree,
   fetchTrend: api.fetchTrend,
+  fetchFlow: api.fetchFlow,
   fetchTransactions: api.fetchTransactions,
   fetchAccounts: api.fetchAccounts,
   fetchSync: api.fetchSync,
@@ -113,6 +115,33 @@ const BOOKING = {
   splits: [],
 };
 
+const node = (key: string, name: string, role: string, column: number, amount: string) => ({
+  key,
+  name,
+  role,
+  column,
+  amount,
+  category_id: role === "category" ? 4 : null,
+});
+
+const FLOW = {
+  month: "2026-10",
+  total: "3000.00",
+  nodes: [
+    node("income-1", "Salary", "source", 0, "3000.00"),
+    node("mine", "Mine", "scope", 1, "3000.00"),
+    node("kind-flexible", "Flexible", "kind", 2, "400.00"),
+    node("left-over", "Left over", "left_over", 2, "2600.00"),
+    node("category-4", "Groceries", "category", 3, "400.00"),
+  ],
+  links: [
+    { source: "income-1", target: "mine", amount: "3000.00" },
+    { source: "mine", target: "kind-flexible", amount: "400.00" },
+    { source: "mine", target: "left-over", amount: "2600.00" },
+    { source: "kind-flexible", target: "category-4", amount: "400.00" },
+  ],
+};
+
 beforeEach(() => {
   api.fetchCategories.mockResolvedValue([{ id: 4, name: "Groceries", kind: "flexible" }]);
   api.fetchToSort.mockResolvedValue({ total: 0, bookings: [] });
@@ -134,6 +163,7 @@ beforeEach(() => {
     totals: ["2400.00", "2100.00"],
     limits: [null, "2150.00"],
   });
+  api.fetchFlow.mockResolvedValue(FLOW);
   api.fetchTransactions.mockResolvedValue([BOOKING]);
   api.fetchAccounts.mockResolvedValue([]);
   api.fetchSync.mockResolvedValue({
@@ -284,5 +314,29 @@ describe("the finance pane's overview, budget and transactions", () => {
     renderPane();
     const failed = await screen.findByText("GET /api/finance/sync failed with 503");
     expect(failed.getAttribute("role")).toBe("alert");
+  });
+
+  it("#1082 the sankey says where the money went, and a category opens its bookings", async () => {
+    renderPane();
+    const words = await screen.findByText(/came in and/);
+    expect(words.textContent?.replaceAll("\u00a0", " ")).toMatch(
+      /^October 2026 so far: 3.000 € came in and 400 € went out, 2.600 € left over\. The most went to Groceries 400 €\./,
+    );
+
+    fireEvent.focus(
+      screen.getByRole("button", { name: /^Left over, 2.600\s€, 87% of the money in$/ }),
+    );
+    expect(screen.getByText(/^Left over, 2.600\s€, 87% of the money in$/)).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: /^Groceries, 400\s€.*show its bookings$/ }));
+    await waitFor(() =>
+      expect(api.fetchTransactions).toHaveBeenCalledWith(
+        expect.objectContaining({ month: "2026-10", category: 4 }),
+      ),
+    );
+    expect(screen.getByRole("tab", { name: /Transactions/ })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
   });
 });

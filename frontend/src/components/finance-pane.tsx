@@ -52,6 +52,8 @@ function notOurs(event: KeyboardEvent): boolean {
 export function FinancePane({ commands, focusSignal, onNotice, today }: FinancePaneProps) {
   const [tab, setTab] = useState<FinanceTab>("overview");
   const [month, setMonth] = useState(monthOf(today));
+  // The category the overview's sankey opened the transactions on, until another tab is shown.
+  const [category, setCategory] = useState<number>();
   const panel = useRef<HTMLElement>(null);
   const keys = useRef<TabKeys>(null);
   const id = useId();
@@ -66,6 +68,7 @@ export function FinancePane({ commands, focusSignal, onNotice, today }: FinanceP
   /** Show a tab and keep the keys in the pane, though what had the focus went with the old tab. */
   function show(name: FinanceTab) {
     setTab(name);
+    setCategory(undefined);
     panel.current?.focus();
   }
 
@@ -163,11 +166,20 @@ export function FinancePane({ commands, focusSignal, onNotice, today }: FinanceP
         className="finance-pane-view"
       >
         {tab === "overview" ? (
-          <FinanceOverview month={month} today={today} onMonth={setMonth} pull={pull} />
+          <FinanceOverview
+            month={month}
+            today={today}
+            onMonth={setMonth}
+            onCategory={(id) => {
+              show("transactions");
+              setCategory(id);
+            }}
+            pull={pull}
+          />
         ) : null}
         {tab === "to-sort" ? <FinanceToSort sorter={sorter} keys={keys} /> : null}
         {tab === "transactions" ? (
-          <FinanceTransactions month={month} sorter={sorter} keys={keys} />
+          <FinanceTransactions month={month} category={category} sorter={sorter} keys={keys} />
         ) : null}
         {tab === "budget" ? (
           <FinanceBudget

@@ -1185,6 +1185,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/finance/budget/flow": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Flow
+         * @description Where the month's money went in both scopes, each column in the order it is drawn.
+         *
+         *     No `today`: the flow counts what happened, which needs no reader's day.
+         */
+        get: operations["read_flow_api_finance_budget_flow_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/finance/budget/trend": {
         parameters: {
             query?: never;
@@ -2620,6 +2642,53 @@ export interface components {
         Filed: {
             /** Path */
             path: string;
+        };
+        /**
+         * FlowLinkOut
+         * @description Money from one node to the next.
+         */
+        FlowLinkOut: {
+            /** Source */
+            source: string;
+            /** Target */
+            target: string;
+            /** Amount */
+            amount: string;
+        };
+        /**
+         * FlowNodeOut
+         * @description A place the month's money passes, and how much passes it.
+         */
+        FlowNodeOut: {
+            /** Key */
+            key: string;
+            /** Name */
+            name: string;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "source" | "scope" | "kind" | "category" | "left_over" | "from_savings";
+            /** Column */
+            column: number;
+            /** Category Id */
+            category_id: number | null;
+            /** Amount */
+            amount: string;
+        };
+        /**
+         * FlowOut
+         * @description Where the month's money went, from what happened so far; `total` is the money in.
+         */
+        FlowOut: {
+            /** Month */
+            month: string;
+            /** Total */
+            total: string;
+            /** Nodes */
+            nodes: components["schemas"]["FlowNodeOut"][];
+            /** Links */
+            links: components["schemas"]["FlowLinkOut"][];
         };
         /**
          * Folder
@@ -5168,6 +5237,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FreeToSpendOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_flow_api_finance_budget_flow_get: {
+        parameters: {
+            query: {
+                month: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FlowOut"];
                 };
             };
             /** @description Validation Error */

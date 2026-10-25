@@ -1,6 +1,6 @@
 /**
  * The calls the finance pane's overview, budget and transactions make: the month's budget,
- * free to spend, the trend, the bookings, a limit, the accounts and the bank pull.
+ * free to spend, where the month's money went, the trend, the bookings, a limit, the accounts and the bank pull.
  *
  * Apart from `finance-api.ts`, which holds the sorting calls the to-sort view makes. The
  * answers are the ones `routes/finance_budget.py`, `routes/finance.py` and
@@ -15,6 +15,8 @@ export type BudgetCategory = components["schemas"]["BudgetCategoryOut"];
 export type FreeToSpend = components["schemas"]["FreeToSpendOut"];
 export type Free = components["schemas"]["FreeOut"];
 export type Trend = components["schemas"]["TrendOut"];
+export type Flow = components["schemas"]["FlowOut"];
+export type FlowNode = components["schemas"]["FlowNodeOut"];
 export type Transaction = components["schemas"]["TransactionOut"];
 export type Account = components["schemas"]["AccountOut"];
 export type SyncStatus = components["schemas"]["SyncStatus"];
@@ -47,6 +49,14 @@ export async function fetchFree(month: string, today: string): Promise<FreeToSpe
     params: { query: { month, today } },
   });
   if (!data) throw failed("GET /api/finance/budget/free", error, response.status);
+  return data;
+}
+
+export async function fetchFlow(month: string): Promise<Flow> {
+  const { data, error, response } = await client.GET("/api/finance/budget/flow", {
+    params: { query: { month } },
+  });
+  if (!data) throw failed("GET /api/finance/budget/flow", error, response.status);
   return data;
 }
 

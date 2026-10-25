@@ -1,11 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
 import { BankCard, type Pull } from "@/components/finance-bank";
 import { Meter, statusWords } from "@/components/finance-meter";
+import { FinanceSankey } from "@/components/finance-sankey";
 import { SpendingTrend } from "@/components/finance-trend";
 import {
   type Budget,
   type Free,
   fetchBudget,
+  fetchFlow,
   fetchFree,
   fetchTrend,
 } from "@/lib/finance-budget-api";
@@ -205,17 +207,21 @@ function Unreserved({ budget }: { budget: Budget }) {
 
 /**
  * The overview: free to spend for mine and household, big, with what each is made of; then
- * what to watch, the month's pace, the bank's last pull, the 12-month trend and unreserved.
+ * what to watch, the month's pace, the bank's last pull, where the month's money went, the
+ * 12-month trend and unreserved.
  */
 export function FinanceOverview({
   month,
   today,
   onMonth,
+  onCategory,
   pull,
 }: {
   month: string;
   today: string;
   onMonth: (month: string) => void;
+  /** Opens the transactions of the month shown in one category. */
+  onCategory: (category: number) => void;
   pull: Pull;
 }) {
   const free = useQuery({
@@ -230,7 +236,11 @@ export function FinanceOverview({
     queryKey: ["finance", "trend", month],
     queryFn: () => fetchTrend(month),
   });
-  const error = free.error ?? budget.error ?? trend.error;
+  const flow = useQuery({
+    queryKey: ["finance", "flow", month],
+    queryFn: () => fetchFlow(month),
+  });
+  const error = free.error ?? budget.error ?? trend.error ?? flow.error;
   return (
     <div className="finance-overview">
       {error ? <p role="alert">{error.message}</p> : null}
@@ -242,6 +252,12 @@ export function FinanceOverview({
         {budget.data === undefined ? null : <Watch budget={budget.data} />}
         {budget.data === undefined ? null : <Pace budget={budget.data} />}
         <BankCard pull={pull} />
+        {flow.data === undefined ? null : (
+          <article className="overview-card finance-wide-card finance-sankey-card">
+            <h3 className="overview-name">Where it went</h3>
+            <FinanceSankey flow={flow.data} month={month} today={today} onCategory={onCategory} />
+          </article>
+        )}
         {trend.data === undefined ? null : (
           <article className="overview-card finance-wide-card">
             <h3 className="overview-name">Spending</h3>

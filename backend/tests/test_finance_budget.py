@@ -5,6 +5,7 @@ Through the routes on a migrated database, skipped without one; see the
 in test_finance_budget_model.py; these check the routes read and write them.
 """
 
+from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 
 from backend.tests.finance_rows import API, GIRO, SAVING, booking, category, post
@@ -92,6 +93,36 @@ async def test_free_to_spend_counts_the_move_into_the_shared_account_once_on_eac
     assert shared["income"]["total"] == "1700.00"
     assert shared["fixed"]["total"] == "1500.00"
     assert shared["total"] == "200.00"
+
+
+async def test_the_flow_of_a_month_agrees_with_its_free_to_spend_in_each_scope(
+    finance_client: AsyncClient,
+) -> None:
+    ids = await household(finance_client)
+    await finance_client.put(
+        f"{API}/budget/settings",
+        json={"salary_cutoff_day": 15, "salary_category_ids": [ids["salary"]]},
+    )
+
+    flow = (await finance_client.get(f"{API}/budget/flow", params={"month": "2026-10"})).json()
+    over = {"month": "2026-10", "today": "2026-11-01"}
+    free = (await finance_client.get(f"{API}/budget/free", params=over)).json()
+
+    for scope in ("mine", "household"):
+        into = sum(Decimal(link["amount"]) for link in flow["links"] if link["target"] == scope)
+        left = [link for link in flow["links"] if link["source"] == scope]
+        assert into == sum(Decimal(link["amount"]) for link in left)
+        kept = sum(Decimal(link["amount"]) for link in left if link["target"] == "left-over")
+        assert kept == Decimal(free[scope]["total"])
+    names = {node["key"]: node["name"] for node in flow["nodes"]}
+    # The salary of 20 September counts for October, past the cutoff on the 15th.
+    assert ("Salary", "Mine", "3000.00") in [
+        (names[link["source"]], names[link["target"]], link["amount"]) for link in flow["links"]
+    ]
+    assert {node["category_id"] for node in flow["nodes"] if node["role"] == "category"} == {
+        ids["rent"],
+        ids["groceries"],
+    }
 
 
 async def test_a_salary_counts_for_its_own_month_once_the_cutoff_is_after_its_day(

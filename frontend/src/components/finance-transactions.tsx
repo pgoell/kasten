@@ -106,14 +106,17 @@ function FilterRow({
  */
 export function FinanceTransactions({
   month,
+  category,
   sorter,
   keys,
 }: {
   month: string;
+  /** The category the list opens on, such as one the overview's sankey was pressed on. */
+  category?: number;
   sorter: CategorySort;
   keys: RefObject<TabKeys | null>;
 }) {
-  const [filters, setFilters] = useState<Filters>({ text: "" });
+  const [filters, setFilters] = useState<Filters>({ text: "", category });
   const [cursor, setCursor] = useState(0);
   const text = useRef<HTMLInputElement>(null);
   const filter = {

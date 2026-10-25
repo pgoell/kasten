@@ -1,7 +1,7 @@
 ---
 type: Reference
 title: Budget model
-description: How the finance budget counts money, the two scopes mine and household, free to spend and each part of it, the salary cutoff, limits over time, the overspend carried into the next month, unreserved, status, pace and the suggestion to change a limit, with every threshold.
+description: How the finance budget counts money, the two scopes mine and household, free to spend and each part of it, where the month's money went, the salary cutoff, limits over time, the overspend carried into the next month, unreserved, status, pace and the suggestion to change a limit, with every threshold.
 resource: backend/src/kasten_backend/finance_budget.py
 tags: [finance, budget, reference]
 status: draft
@@ -16,7 +16,8 @@ each category's kind, its limit, which income is salary and the salary cutoff
 day. The routes are in [HTTP API: finance budget](/reference/http-api/finance-budget.md).
 
 The code is `finance_ledger.py` (where each booking counts),
-`finance_free.py` (free to spend) and `finance_budget.py` (limits). This page
+`finance_free.py` (free to spend), `finance_flow.py` (where the money went)
+and `finance_budget.py` (limits). This page
 states what they do; a change to one changes this page.
 
 ## Months
@@ -122,6 +123,32 @@ A month that is over estimates nothing: each line counts what happened.
 The answer gives each line with its `so_far`, its `average`, the figure it
 `counted` and the `basis` of that figure (`so_far` or `average`), so the
 overview can say what the number is made of.
+
+### Where the money went
+
+The overview's sankey reads free to spend as if the month were over, so each
+line counts what happened so far and nothing is estimated: a salary not in
+yet and a fixed cost still to come are not drawn. Every rule above holds, as
+it is the same reading. For each scope:
+
+```
+money in  = each income line + money taken from earlier months
+money out = each fixed, flexible and non-monthly line + saved + not sorted
+            + left over
+```
+
+* The move into the shared account is the kind `Into household` on mine and
+  the source `From mine` on household, the same amount on both sides, so each
+  scope adds up on its own.
+* Left over is free to spend for a month that is over, when it is above zero.
+  Below zero, the same amount comes in as `From earlier months`: the month
+  spent past what came in.
+* A line below zero changes sides: a refund larger than its category's
+  spending, or savings drawn on, comes in as a source of its own; income paid
+  back goes out.
+* A category below 3 % of the money into both scopes folds into
+  `Other <kind>`, and an income into `Other income`, when at least two of the
+  same kind would; one alone keeps its name.
 
 ### What plans and goals will change
 

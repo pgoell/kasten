@@ -1,7 +1,7 @@
 ---
 type: Reference
 title: "HTTP API: finance budget"
-description: The routes behind the finance budget, a month's budget per category, free to spend for mine and household, the spending trend, a category's limit and the budget settings.
+description: The routes behind the finance budget, a month's budget per category, free to spend for mine and household, where the month's money went, the spending trend, a category's limit and the budget settings.
 resource: backend/src/kasten_backend/routes/finance_budget.py
 tags: [api, backend, openapi, finance]
 status: draft
@@ -20,7 +20,7 @@ Amounts are euros as JSON strings, to the cent, spending as a positive figure.
 
 ## Month and today
 
-The three reads take `month` (`YYYY-MM`) and the first two `today`
+The four reads take `month` (`YYYY-MM`) and the first two `today`
 (`YYYY-MM-DD`), all required: pace and "so far" depend on the reader's own
 day, and the server keeps UTC, which on the last evening of a month is already
 the next one in Berlin. A month that names no month, such as `2026-13`, is a
@@ -91,6 +91,46 @@ Free to spend for mine and household, each with the lines it is made of.
 line's `category_id` is `null` for the move between mine and household,
 `Into the shared account` on mine and `From mine` on household. `basis` says
 whether `counted` is what happened so far or the average.
+
+## GET /api/finance/budget/flow
+
+Where the month's money went, as the nodes and links of the overview's
+sankey: each income into mine or household, on into the kinds, on into the
+categories. It counts what happened so far and estimates nothing, so for a
+month that is over each scope's money in, less its money out, is its free to
+spend; [Budget model](/reference/budget-model.md#where-the-money-went) has the
+rules. No `today`, since nothing depends on the reader's day.
+
+```
+GET /api/finance/budget/flow?month=2026-10
+```
+
+```json
+{
+  "month": "2026-10",
+  "total": "6600.00",
+  "nodes": [
+    { "key": "income-1", "name": "Salary", "role": "source", "column": 0, "category_id": 1, "amount": "4100.00" },
+    { "key": "mine", "name": "Mine", "role": "scope", "column": 1, "category_id": null, "amount": "4100.00" },
+    { "key": "kind-flexible", "name": "Flexible", "role": "kind", "column": 2, "category_id": null, "amount": "1113.00" },
+    { "key": "category-10", "name": "Groceries", "role": "category", "column": 3, "category_id": 10, "amount": "522.00" }
+  ],
+  "links": [
+    { "source": "income-1", "target": "mine", "amount": "4100.00" },
+    { "source": "kind-flexible", "target": "category-10", "amount": "522.00" }
+  ]
+}
+```
+
+* `total`: the money into both scopes, with the move from mine into the
+  shared account counted on household's side as well.
+* `role`: `source`, `scope`, `kind`, `category`, `left_over` or
+  `from_savings`. `column` is 0 to 3, sources to categories; left over
+  stands with the kinds, money taken from earlier months with the sources.
+* `category_id`: the category behind an income or a spending node; `null` for
+  the rest and for an `Other …` node that holds several.
+* Nodes come in the order they are drawn, top down in each column. A link's
+  amount is always positive.
 
 ## GET /api/finance/budget/trend
 

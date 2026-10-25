@@ -1,7 +1,7 @@
 ---
 type: How-to Guide
 title: Read the finance overview
-description: Open the finance pane on its overview, read free to spend for mine and household and what makes each, see what to watch and the month's pace, pull from the bank now, set and change a limit, take a suggested one, and find a booking.
+description: Open the finance pane on its overview, read free to spend for mine and household and what makes each, see what to watch, the month's pace and where its money went, pull from the bank now, set and change a limit, take a suggested one, and find a booking.
 tags: [finance, budget, pane, keys, phone]
 status: draft
 ---
@@ -46,6 +46,15 @@ the danger colour with `⚠` means the month is already spent past what came in.
 * **Spending** shows 12 months of spending, the month shown in full strength,
   and the month's limits as a dashed line. Point at a bar, or move to it with
   Tab, to read its month; press it to show that month.
+* **Where it went** draws the month's money as streams: each income into
+  Mine or Household, on into the kinds (fixed, flexible, non-monthly, saved,
+  into household, not sorted), on into the categories. A stream that ends in
+  `Left over` is what the month kept; one from `From earlier months`, in the
+  danger colour, is what it spent past what came in. It counts what happened
+  so far, not the estimates free to spend makes. Point at a stream or a name,
+  or Tab to a name, to read its amount; press a category or an income to open
+  its bookings for the month in Transactions. On a phone the chart scrolls
+  sideways inside its card, and `Every stream` lists each amount as a table.
 * **Unreserved** is what the limits left at each month end since they began,
   and what last month left.
 

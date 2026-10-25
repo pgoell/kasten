@@ -1,4 +1,4 @@
-"""The budget routes: a month's budget, free to spend, the 12-month trend, limits and settings.
+"""The budget routes: a month's budget, free to spend, its flow, the trend, limits and settings.
 
 Beside the other finance routes, under the same prefix and gate. The reads
 take the month and the reader's today, since pace and "so far" depend on the
@@ -16,6 +16,7 @@ from sqlalchemy import select
 
 from kasten_backend import finance_budget as budget
 from kasten_backend import finance_budget_reads as reads
+from kasten_backend.finance_flow import Role, month_flow
 from kasten_backend.finance_free import Free, Part, free_to_spend
 from kasten_backend.finance_ledger import SPENDING_KINDS
 from kasten_backend.finance_models import Category
@@ -133,6 +134,34 @@ class FreeToSpendOut(BaseModel):
     household: FreeOut
 
 
+class FlowNodeOut(BaseModel):
+    """A place the month's money passes, and how much passes it."""
+
+    key: str
+    name: str
+    role: Role
+    column: int
+    category_id: int | None
+    amount: Cents
+
+
+class FlowLinkOut(BaseModel):
+    """Money from one node to the next."""
+
+    source: str
+    target: str
+    amount: Cents
+
+
+class FlowOut(BaseModel):
+    """Where the month's money went, from what happened so far; `total` is the money in."""
+
+    month: str
+    total: Cents
+    nodes: list[FlowNodeOut]
+    links: list[FlowLinkOut]
+
+
 class TrendCategoryOut(BaseModel):
     """One spending category's spending in each month of the trend."""
 
@@ -241,6 +270,22 @@ async def read_free_to_spend(
         month=first.strftime("%Y-%m"),
         mine=_free(free_to_spend(ledger, "mine", first, day)),
         household=_free(free_to_spend(ledger, "household", first, day)),
+    )
+
+
+@router.get("/budget/flow")
+async def read_flow(session: Session, month: MonthParam) -> FlowOut:
+    """Where the month's money went in both scopes, each column in the order it is drawn.
+
+    No `today`: the flow counts what happened, which needs no reader's day.
+    """
+    first = _month(month)
+    flow = month_flow(await reads.ledger(session), first)
+    return FlowOut(
+        month=first.strftime("%Y-%m"),
+        total=flow.total,
+        nodes=[FlowNodeOut.model_validate(node, from_attributes=True) for node in flow.nodes],
+        links=[FlowLinkOut.model_validate(link, from_attributes=True) for link in flow.links],
     )
 
 

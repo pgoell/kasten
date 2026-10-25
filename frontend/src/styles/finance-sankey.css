@@ -1,0 +1,89 @@
+/* The overview's sankey of where the month's money went. It draws at a fixed width and
+   scrolls inside its card when the card is narrower, so a phone keeps the labels at their
+   size and the page never scrolls sideways. Bands are light, so the labels over them read;
+   a category's band takes its tag slot, money taken from before takes --k-danger. */
+
+.finance-sankey {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  margin: 4px 0 0;
+}
+
+/* The widest card on the overview: its four columns need the room. */
+@container (min-width: 1000px) {
+  .finance-sankey-card {
+    grid-column: 1 / -1;
+  }
+}
+
+/* A shadow at an edge says more of the chart lies past it. Each shadow stays at its edge
+   while a patch of the card's colour moves with the chart's ends and covers it there, so a
+   shadow shows only where there is more to scroll to, with no script. */
+.finance-sankey-scroll {
+  min-width: 0;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  background:
+    linear-gradient(to right, var(--k-paper) 40%, transparent) left / 32px 100% no-repeat local,
+    linear-gradient(to left, var(--k-paper) 40%, transparent) right / 32px 100% no-repeat local,
+    linear-gradient(to right, var(--k-edge), transparent) left / 14px 100% no-repeat scroll,
+    linear-gradient(to left, var(--k-edge), transparent) right / 14px 100% no-repeat scroll;
+}
+
+.finance-sankey-plot {
+  position: relative;
+  /* Drawn at its own units, so a label is 13px: smaller would not read, larger only shouts. */
+  width: 870px;
+}
+
+.finance-sankey-band {
+  opacity: 0.3;
+  transition: opacity 120ms;
+}
+
+.finance-sankey-lit {
+  opacity: 0.6;
+}
+
+.finance-sankey-label {
+  fill: var(--k-ink);
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  /* A halo of the card's colour, so a label over a band reads in either theme. */
+  paint-order: stroke;
+  stroke: var(--k-paper);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+
+.finance-sankey-amount {
+  fill: var(--k-muted);
+  font-weight: 400;
+}
+
+.finance-sankey-hit {
+  position: absolute;
+  padding: 0;
+  border: 0;
+  border-radius: var(--k-radius-4);
+  background: transparent;
+  cursor: pointer;
+}
+
+.finance-sankey-hit:hover {
+  background: var(--k-inset);
+}
+
+.finance-sankey-hit:focus-visible {
+  outline: 2px solid var(--k-accent);
+  outline-offset: -2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .finance-sankey-band {
+    transition: none;
+  }
+}
