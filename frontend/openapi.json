@@ -1822,7 +1822,7 @@
       },
       "post": {
         "summary": "Write Account",
-        "description": "Make the account by its name, or update the one with that name.\n\nA 200 either way, and the row with its id, so a job can upsert its\naccounts on every run and post bookings by the ids it gets back.",
+        "description": "Make the account by its name, or update the fields the post names on the one with that name.\n\nA 200 either way, and the row with its id, so a job can upsert its\naccounts on every run and post bookings by the ids it gets back.",
         "operationId": "write_account_api_finance_accounts_post",
         "requestBody": {
           "content": {
@@ -1871,6 +1871,7 @@
                   "$ref": "#/components/schemas/BalanceIn"
                 },
                 "type": "array",
+                "maxItems": 1000,
                 "title": "Balances"
               }
             }
@@ -1904,7 +1905,7 @@
     "/api/finance/transactions": {
       "get": {
         "summary": "Read Transactions",
-        "description": "The bookings on one account or all of them, from `from` to `to` by booking date.",
+        "description": "A page of the bookings on one account or all, from `from` to `to`, oldest first.\n\n`after` is the id of the last booking of the page before. A page shorter\nthan `limit` is the last.",
         "operationId": "read_transactions_api_finance_transactions_get",
         "parameters": [
           {
@@ -1955,6 +1956,34 @@
                 }
               ],
               "title": "To"
+            }
+          },
+          {
+            "name": "after",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "After"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 5000,
+              "minimum": 1,
+              "default": 500,
+              "title": "Limit"
             }
           }
         ],
@@ -3115,9 +3144,12 @@
       },
       "AccountOut": {
         "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
           "name": {
             "type": "string",
-            "minLength": 1,
             "title": "Name"
           },
           "bank": {
@@ -3144,29 +3176,21 @@
           },
           "kind": {
             "type": "string",
-            "enum": [
-              "giro",
-              "saving",
-              "card",
-              "cash"
-            ],
             "title": "Kind"
           },
           "shared": {
             "type": "boolean",
-            "title": "Shared",
-            "default": false
-          },
-          "id": {
-            "type": "integer",
-            "title": "Id"
+            "title": "Shared"
           }
         },
         "type": "object",
         "required": [
+          "id",
           "name",
+          "bank",
+          "iban",
           "kind",
-          "id"
+          "shared"
         ],
         "title": "AccountOut",
         "description": "An account as stored, with the id bookings and balances name it by."
@@ -4667,9 +4691,13 @@
       },
       "SplitOut": {
         "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
           "amount": {
             "type": "string",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,12}|(?=[\\d.]{1,15}0*$)\\d{0,12}\\.\\d{0,2}0*$)",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Amount"
           },
           "text": {
@@ -4682,16 +4710,13 @@
               }
             ],
             "title": "Text"
-          },
-          "id": {
-            "type": "integer",
-            "title": "Id"
           }
         },
         "type": "object",
         "required": [
+          "id",
           "amount",
-          "id"
+          "text"
         ],
         "title": "SplitOut",
         "description": "One part of a booking as stored."
@@ -4969,6 +4994,10 @@
       },
       "TransactionOut": {
         "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
           "account_id": {
             "type": "integer",
             "title": "Account Id"
@@ -4992,14 +5021,12 @@
           },
           "amount": {
             "type": "string",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,12}|(?=[\\d.]{1,15}0*$)\\d{0,12}\\.\\d{0,2}0*$)",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Amount"
           },
           "currency": {
             "type": "string",
-            "pattern": "^[A-Z]{3}$",
-            "title": "Currency",
-            "default": "EUR"
+            "title": "Currency"
           },
           "purpose": {
             "anyOf": [
@@ -5070,12 +5097,7 @@
           },
           "source_key": {
             "type": "string",
-            "minLength": 1,
             "title": "Source Key"
-          },
-          "id": {
-            "type": "integer",
-            "title": "Id"
           },
           "imported_at": {
             "type": "string",
@@ -5104,17 +5126,25 @@
         },
         "type": "object",
         "required": [
+          "id",
           "account_id",
           "booking_date",
+          "value_date",
           "amount",
+          "currency",
+          "purpose",
+          "posting_text",
+          "counterparty_name",
+          "counterparty_iban",
+          "bank_ref",
+          "raw",
           "source_key",
-          "id",
           "imported_at",
           "transfer_group",
           "splits"
         ],
         "title": "TransactionOut",
-        "description": "A booking as stored, with when it came in, its transfer group and its splits."
+        "description": "A booking as stored, with when it came in, its transfer group and its splits.\n\nIts own model rather than the input's: a stored row is answered as it is,\nand the rules a job's post is held to are no reason to fail a read."
       },
       "Transcript": {
         "properties": {

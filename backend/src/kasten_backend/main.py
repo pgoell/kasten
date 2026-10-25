@@ -9,7 +9,6 @@ from typing import TYPE_CHECKING, Annotated
 from fastapi import Depends, FastAPI
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from sqlalchemy.exc import OperationalError
 
 from kasten_backend import agent_mcp, food, log, uploads
 from kasten_backend.agent import ConflictError, EmptyCaptureError, TooLargeError
@@ -188,7 +187,6 @@ app.include_router(food.router)
 app.include_router(anki.router)
 app.include_router(tokens.router)
 app.include_router(finance.router)
-app.add_exception_handler(OperationalError, finance.no_database)
 app.include_router(share.router)
 app.add_middleware(share.ShareGate)
 """The shared lists, and the gate that keeps the share host to them.

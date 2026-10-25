@@ -67,15 +67,15 @@ size needs Postgres for speed: about 20,000 transactions in twenty years.
 
 ## Agents read everything
 
-The finance module lets an agent with a token read single transactions, not
-only totals. The first
+The finance module will let an agent with a token read single transactions,
+not only totals, once its agent tools land (#1038). The first
 design gave agents summary views and nothing else, enforced by a database role.
 It was dropped (2026-10-25): finance is useful to an agent mostly in the
 detail, a payee, a duplicate, a missed refund.
 
 The cost is the one [the agent boundary](/explanation/the-agent-boundary.md)
-already names for the vault: a leaked token exposes it. From the finance
-module on, that includes every transaction.
+already names for the vault: a leaked token exposes it. Once those tools are
+in, that includes every transaction.
 
 ## What backing up now means
 
@@ -87,8 +87,8 @@ slow rebuild, so:
   test data, and the reset stays safe there. It was never safe against prod.
 - Prod's `finance` schema is in the nightly offsite dump of `kasten_prod`, as
   the whole database is. The vault gets an hourly local backup as well; the
-  finance rows get one when they arrive (#1033), so a bad edit costs at most an
-  hour rather than a day.
+  finance rows get theirs with #1033, before the first real data is loaded, so
+  a bad edit will cost at most an hour rather than a day.
 - A rollback to a release older than a migration needs that migration undone
   first, with the newer image: the older image does not know the revision. See
   [Deploy to the VPS](/how-to/deploy-to-the-vps.md).

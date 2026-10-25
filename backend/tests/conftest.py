@@ -72,8 +72,8 @@ async def client() -> AsyncIterator[AsyncClient]:
 
 
 @pytest.fixture
-async def finance_client(client: AsyncClient) -> AsyncIterator[AsyncClient]:
-    """The client, with the finance routes on a database transaction rolled back after the test.
+async def finance_session() -> AsyncIterator[AsyncSession]:
+    """The session the finance routes get, on a database transaction rolled back after the test.
 
     The database is `KASTEN_DATABASE_URL`, which CI migrates before the tests
     run. A box with no database, or one never migrated, skips these rather than
@@ -97,13 +97,19 @@ async def finance_client(client: AsyncClient) -> AsyncIterator[AsyncClient]:
     )
     app.dependency_overrides[get_session] = lambda: session
 
-    yield client
+    yield session
 
     app.dependency_overrides.pop(get_session)
     await session.close()
     await outer.rollback()
     await connection.close()
     await engine.dispose()
+
+
+@pytest.fixture
+def finance_client(client: AsyncClient, finance_session: AsyncSession) -> AsyncClient:
+    """The client, with the finance routes on `finance_session`."""
+    return client
 
 
 @pytest.fixture

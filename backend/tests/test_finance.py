@@ -1,47 +1,28 @@
-"""The finance ingest API: idempotent bookings, splits that add up, transfers, and no database.
+"""The finance ingest API: idempotent bookings, accounts, balances, splits, paging, no database.
 
-Every test goes through the routes. All but the last need a migrated
-database and skip without one; see the `finance_client` fixture.
+Every test goes through the routes. All but the 503 test need a migrated
+database and skip without one; see the `finance_session` fixture. Linking is
+in `test_finance_transfers.py`.
+
+Two writers at once are not tested here: the advisory lock in
+`finance.link_transfers` and the row lock in `finance.replace_splits` are
+what keep them apart, and a test of that would race the scheduler.
 """
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
+import pytest
+from sqlalchemy import select
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-from kasten_backend import db
+from backend.tests.finance_rows import GIRO, account, booking, post
+from kasten_backend import db, finance
+from kasten_backend.finance_models import BalanceSnapshot
 
 if TYPE_CHECKING:
-    import pytest
     from httpx import AsyncClient
-
-GIRO = "DE02120300000000202051"
-SAVING = "DE02500105170137075030"
-STRANGER = "DE89370400440532013000"
-
-
-async def account(client: AsyncClient, name: str, iban: str | None = None) -> int:
-    response = await client.post(
-        "/api/finance/accounts", json={"name": name, "bank": "DKB", "iban": iban, "kind": "giro"}
-    )
-    assert response.status_code == 200, response.text
-    return response.json()["id"]
-
-
-def booking(account_id: int, key: str, amount: str = "-4.20", **fields: Any) -> dict[str, Any]:
-    return {
-        "account_id": account_id,
-        "booking_date": "2026-10-20",
-        "amount": amount,
-        "purpose": "Bäckerei",
-        "source_key": key,
-        **fields,
-    }
-
-
-async def post(client: AsyncClient, bookings: list[dict[str, Any]]) -> dict[str, int]:
-    response = await client.post("/api/finance/transactions", json=bookings)
-    assert response.status_code == 200, response.text
-    return response.json()
+    from sqlalchemy.ext.asyncio import AsyncSession
 
 
 async def test_two_identical_bookings_with_their_own_keys_both_survive_a_second_post(
@@ -64,14 +45,29 @@ async def test_two_identical_bookings_with_their_own_keys_both_survive_a_second_
     assert stored[0]["currency"] == "EUR"
 
 
-async def test_the_same_key_twice_in_one_batch_inserts_once(finance_client: AsyncClient) -> None:
+async def test_the_same_booking_twice_in_one_batch_inserts_once(
+    finance_client: AsyncClient,
+) -> None:
     giro = await account(finance_client, "Giro")
 
-    created = await post(finance_client, [booking(giro, "k"), booking(giro, "k", amount="-9.99")])
+    created = await post(finance_client, [booking(giro, "k"), booking(giro, "k")])
 
     assert created == {"created": 1, "skipped": 1, "linked": 0}
-    stored = (await finance_client.get("/api/finance/transactions")).json()
-    assert [row["amount"] for row in stored] == ["-4.20"]
+
+
+async def test_two_different_bookings_under_one_key_are_refused(
+    finance_client: AsyncClient,
+) -> None:
+    giro = await account(finance_client, "Giro")
+
+    response = await finance_client.post(
+        "/api/finance/transactions",
+        json=[booking(giro, "k"), booking(giro, "k", amount="-9.99")],
+    )
+
+    assert response.status_code == 422
+    assert "'k'" in response.json()["detail"]
+    assert (await finance_client.get("/api/finance/transactions")).json() == []
 
 
 async def test_a_booking_keeps_the_raw_record_it_came_with(finance_client: AsyncClient) -> None:
@@ -126,6 +122,20 @@ async def test_an_account_posted_again_by_name_is_updated_not_doubled(
     assert [(row["name"], row["iban"]) for row in accounts] == [("Giro", GIRO)]
 
 
+async def test_an_account_posted_again_without_its_iban_keeps_it(
+    finance_client: AsyncClient,
+) -> None:
+    await finance_client.post(
+        "/api/finance/accounts",
+        json={"name": "Shared", "iban": GIRO, "kind": "giro", "shared": True},
+    )
+
+    await finance_client.post("/api/finance/accounts", json={"name": "Shared", "kind": "giro"})
+
+    (stored,) = (await finance_client.get("/api/finance/accounts")).json()
+    assert (stored["iban"], stored["shared"]) == (GIRO, True)
+
+
 async def test_splits_that_do_not_add_up_are_refused_and_nothing_is_written(
     finance_client: AsyncClient,
 ) -> None:
@@ -157,52 +167,42 @@ async def test_splits_of_a_missing_booking_are_a_404(finance_client: AsyncClient
     assert response.status_code == 404
 
 
-async def test_a_move_between_own_accounts_is_paired_once_and_a_lookalike_is_not(
-    finance_client: AsyncClient,
+async def test_a_later_balance_for_a_day_replaces_the_earlier(
+    finance_client: AsyncClient, finance_session: AsyncSession
 ) -> None:
-    giro = await account(finance_client, "Giro", iban=GIRO)
-    saving = await account(finance_client, "Saving", iban=SAVING)
-    out = booking(giro, "out", amount="-100.00", counterparty_iban=SAVING)
-    # The same amount to someone else, the same day: no twin of anything.
-    lookalike = booking(giro, "rent", amount="-100.00", counterparty_iban=STRANGER)
-    # Booked on the other side two days later, as an ordinary transfer is.
-    into = booking(saving, "in", amount="100.00", booking_date="2026-10-22", counterparty_iban=GIRO)
-
-    # The halves in two posts, as two pulls would send them.
-    assert (await post(finance_client, [out, lookalike]))["linked"] == 0
-    assert (await post(finance_client, [into]))["linked"] == 1
-    assert (await post(finance_client, [out, lookalike, into]))["linked"] == 0
-
-    rows = (await finance_client.get("/api/finance/transactions")).json()
-    groups = {row["source_key"]: row["transfer_group"] for row in rows}
-    assert groups["out"] is not None
-    assert groups["out"] == groups["in"]
-    assert groups["rent"] is None
-
-
-async def test_bookings_too_far_apart_are_not_a_transfer(finance_client: AsyncClient) -> None:
-    giro = await account(finance_client, "Giro", iban=GIRO)
-    saving = await account(finance_client, "Saving", iban=SAVING)
-
-    linked = await post(
-        finance_client,
-        [
-            booking(giro, "out", amount="-50.00", counterparty_iban=SAVING),
-            booking(saving, "in", amount="50.00", booking_date="2026-11-20"),
-        ],
-    )
-
-    assert linked["linked"] == 0
-
-
-async def test_balances_keep_the_latest_report_for_a_day(finance_client: AsyncClient) -> None:
     giro = await account(finance_client, "Giro")
     day = {"account_id": giro, "date": "2026-10-20"}
 
     first = await finance_client.post("/api/finance/balances", json=[{**day, "amount": "10.00"}])
-    again = await finance_client.post("/api/finance/balances", json=[{**day, "amount": "12.50"}])
+    # Two reports for one day in one batch: the later one wins.
+    again = await finance_client.post(
+        "/api/finance/balances", json=[{**day, "amount": "11.00"}, {**day, "amount": "12.50"}]
+    )
 
     assert first.json() == again.json() == {"stored": 1}
+    stored = await finance_session.scalars(select(BalanceSnapshot.amount))
+    assert [str(amount) for amount in stored] == ["12.50"]
+
+
+async def test_bookings_are_read_a_page_at_a_time_in_booking_order(
+    finance_client: AsyncClient,
+) -> None:
+    giro = await account(finance_client, "Giro")
+    # Posted out of order, as an import that fills in the past would.
+    days = ["2026-10-03", "2026-10-01", "2026-10-02", "2026-10-01"]
+    await post(finance_client, [booking(giro, f"k{n}", booking_date=d) for n, d in enumerate(days)])
+
+    read: list[str] = []
+    after = None
+    while True:
+        params = {"limit": 2} | ({"after": after} if after is not None else {})
+        page = (await finance_client.get("/api/finance/transactions", params=params)).json()
+        read += [row["source_key"] for row in page]
+        if len(page) < 2:
+            break
+        after = page[-1]["id"]
+
+    assert read == ["k1", "k3", "k2", "k0"]
 
 
 async def test_without_a_database_finance_answers_503_and_the_rest_runs(
@@ -218,3 +218,16 @@ async def test_without_a_database_finance_answers_503_and_the_rest_runs(
     assert "KASTEN_DATABASE_URL" in response.json()["detail"]
     assert (await client.get("/api/health")).status_code == 200
     await nowhere.dispose()
+
+
+async def test_a_database_failure_after_the_connect_is_not_a_503(
+    finance_client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def timed_out(_session: AsyncSession) -> None:
+        raise OperationalError("SELECT 1", {}, Exception("canceling statement due to timeout"))
+
+    monkeypatch.setattr(finance, "list_accounts", timed_out)
+
+    # Not caught as a missing database, so it reaches the client as the error it is.
+    with pytest.raises(OperationalError):
+        await finance_client.get("/api/finance/accounts")

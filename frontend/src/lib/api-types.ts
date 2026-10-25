@@ -1060,7 +1060,7 @@ export interface paths {
         put?: never;
         /**
          * Write Account
-         * @description Make the account by its name, or update the one with that name.
+         * @description Make the account by its name, or update the fields the post names on the one with that name.
          *
          *     A 200 either way, and the row with its id, so a job can upsert its
          *     accounts on every run and post bookings by the ids it gets back.
@@ -1101,7 +1101,10 @@ export interface paths {
         };
         /**
          * Read Transactions
-         * @description The bookings on one account or all of them, from `from` to `to` by booking date.
+         * @description A page of the bookings on one account or all, from `from` to `to`, oldest first.
+         *
+         *     `after` is the id of the last booking of the page before. A page shorter
+         *     than `limit` is the last.
          */
         get: operations["read_transactions_api_finance_transactions_get"];
         put?: never;
@@ -1781,24 +1784,18 @@ export interface components {
          * @description An account as stored, with the id bookings and balances name it by.
          */
         AccountOut: {
+            /** Id */
+            id: number;
             /** Name */
             name: string;
             /** Bank */
-            bank?: string | null;
+            bank: string | null;
             /** Iban */
-            iban?: string | null;
-            /**
-             * Kind
-             * @enum {string}
-             */
-            kind: "giro" | "saving" | "card" | "cash";
-            /**
-             * Shared
-             * @default false
-             */
+            iban: string | null;
+            /** Kind */
+            kind: string;
+            /** Shared */
             shared: boolean;
-            /** Id */
-            id: number;
         };
         /**
          * Add
@@ -2438,12 +2435,12 @@ export interface components {
          * @description One part of a booking as stored.
          */
         SplitOut: {
+            /** Id */
+            id: number;
             /** Amount */
             amount: string;
             /** Text */
-            text?: string | null;
-            /** Id */
-            id: number;
+            text: string | null;
         };
         /**
          * Stored
@@ -2559,8 +2556,13 @@ export interface components {
         /**
          * TransactionOut
          * @description A booking as stored, with when it came in, its transfer group and its splits.
+         *
+         *     Its own model rather than the input's: a stored row is answered as it is,
+         *     and the rules a job's post is held to are no reason to fail a read.
          */
         TransactionOut: {
+            /** Id */
+            id: number;
             /** Account Id */
             account_id: number;
             /**
@@ -2569,32 +2571,27 @@ export interface components {
              */
             booking_date: string;
             /** Value Date */
-            value_date?: string | null;
+            value_date: string | null;
             /** Amount */
             amount: string;
-            /**
-             * Currency
-             * @default EUR
-             */
+            /** Currency */
             currency: string;
             /** Purpose */
-            purpose?: string | null;
+            purpose: string | null;
             /** Posting Text */
-            posting_text?: string | null;
+            posting_text: string | null;
             /** Counterparty Name */
-            counterparty_name?: string | null;
+            counterparty_name: string | null;
             /** Counterparty Iban */
-            counterparty_iban?: string | null;
+            counterparty_iban: string | null;
             /** Bank Ref */
-            bank_ref?: string | null;
+            bank_ref: string | null;
             /** Raw */
-            raw?: {
+            raw: {
                 [key: string]: unknown;
             } | null;
             /** Source Key */
             source_key: string;
-            /** Id */
-            id: number;
             /**
              * Imported At
              * Format: date-time
@@ -4055,6 +4052,8 @@ export interface operations {
                 account?: number | null;
                 from?: string | null;
                 to?: string | null;
+                after?: number | null;
+                limit?: number;
             };
             header?: never;
             path?: never;

@@ -33,7 +33,8 @@ the address changes when the container restarts:
 ```sh
 docker inspect -f '{{.NetworkSettings.Networks.web.IPAddress}}' kasten-backend-prod
 ```
- The shell and the chat pane reach them the same way. No token
+
+The shell and the chat pane reach them the same way. No token
 reaches them: nothing under `/agent/` reads finance yet.
 
 ## GET /api/finance/accounts
@@ -60,15 +61,19 @@ gets back.
 { "name": "DKB Girokonto", "bank": "DKB", "iban": "DE02120300000000202051", "kind": "giro", "shared": false }
 ```
 
-`bank`, `iban` and `shared` may be left out. An IBAN another account holds is a
-`409`: transfer linking reads an account off its IBAN, so two accounts cannot
-share one.
+`bank`, `iban` and `shared` may be left out. On a new account they then take
+`null`, `null` and `false`; on an existing one a field left out keeps what the
+account holds, and only a field the post names, `null` included, changes. An
+IBAN is stored without spaces and in capitals, however it was sent. An IBAN
+another account holds is a `409`: transfer linking reads an account off its
+IBAN, so two accounts cannot share one.
 
 ## POST /api/finance/balances
 
-Stores the balances the bank reported, one per account and day. A second
-report for the same day replaces the first, since a later pull has seen more
-bookings. Answers with how many it stored.
+Stores up to 1,000 balances the bank reported, one per account and day. A
+second report for the same day replaces the first, since a later pull has seen
+more bookings, and of two for one day in the same post the later one wins.
+Answers with how many it stored.
 
 ```json
 [{ "account_id": 1, "date": "2026-10-25", "amount": "1234.56" }]
@@ -83,12 +88,17 @@ mismatch between the two, not as a wrong balance.
 
 ## GET /api/finance/transactions
 
-The bookings, oldest first by booking date, each with its splits. Takes
-`account`, an account id, and `from` and `to`, both `YYYY-MM-DD` and both
-included. Each is optional.
+A page of the bookings, oldest first by booking date and then by id, each with
+its splits. Takes `account`, an account id, and `from` and `to`, both
+`YYYY-MM-DD` and both included. Each is optional.
+
+`limit` is the page's size, 500 unless it says otherwise, at most 5,000.
+`after` is the `id` of the last booking of the page before, and the next page
+starts behind it in the same order. A page shorter than `limit` is the last.
+An `after` naming no booking answers `[]`.
 
 ```
-GET /api/finance/transactions?account=1&from=2026-10-01&to=2026-10-31
+GET /api/finance/transactions?account=1&from=2026-10-01&to=2026-10-31&limit=500&after=7
 ```
 
 ```json
@@ -132,15 +142,28 @@ Only `account_id`, `booking_date`, `amount` and `source_key` are required.
 
 `source_key` is the job's own name for the booking, unique per account. A
 booking whose account already holds its key is skipped and left exactly as it
-was, so a job can send an overlapping window on every run. The key should end
+was, so a job can send an overlapping window on every run. The same booking
+twice in one post is stored once. Two different bookings under one key in one
+post are a `422` naming the key, since one of them would be dropped unseen.
+`counterparty_iban` is stored without spaces and in capitals. The key should end
 in an occurrence index, the booking's place among identical bookings that day,
 so two coffees of the same price on the same day are two keys and both stay.
 
 `linked` counts the transfers paired after the insert. A booking pairs with one
-on the account whose IBAN is its `counterparty_iban`, of the opposite amount,
-booked at most five days apart; the nearest wins, and each booking pairs once.
-Every unlinked booking takes part, not only this batch, because the two halves
-often come in different pulls. A second post of the same batch links nothing.
+that:
+
+* is on the account whose IBAN is its `counterparty_iban`,
+* has the opposite amount and the same currency,
+* was booked at most five days before or after it,
+* and names as its own `counterparty_iban` either nothing or the first
+  booking's account.
+
+The nearest wins, and each booking pairs once. Every unlinked booking takes
+part, not only this batch, because the two halves often come in different
+pulls. A second post of the same batch links nothing, and two posts linking at
+once take turns. The pairing is greedy: with the same amount moved several
+times in a few days, a booking can be left unlinked that another order would
+have paired. That is accepted as rare; such a booking counts as spending.
 
 A booking on an account id that does not exist refuses the whole batch with a
 `422` naming the ids, and nothing is written.
@@ -149,8 +172,9 @@ A booking on an account id that does not exist refuses the whole batch with a
 
 Puts the list in place of the booking's splits, and answers with the booking
 as `GET` shows it. The splits must add up to the booking's amount: a set that
-does not is a `422` saying both sums, and nothing changes. An empty list
-removes the splits.
+does not is a `422` saying both sums, and nothing changes. The parts may
+differ in sign, as an order with a credit or a refunded item does. An empty
+list removes the splits.
 
 ```json
 [{ "amount": "-20.00", "text": "Book" }, { "amount": "-10.00", "text": "Cable" }]
@@ -160,9 +184,11 @@ A booking that does not exist is a `404`.
 
 ## Errors
 
-* `503` on every route here when no database answers at
-  [`KASTEN_DATABASE_URL`](/reference/configuration.md#kasten_database_url). The
-  rest of kasten runs as before.
+* `503` on every route here when the connection to
+  [`KASTEN_DATABASE_URL`](/reference/configuration.md#kasten_database_url)
+  cannot be opened. The rest of kasten runs as before. A database that answers
+  and then fails, a timeout or a deadlock, is a `500`.
 * `400` when `from` is after `to`.
 * `422` when a date is not `YYYY-MM-DD` or names no day, an amount has more
-  than two decimals, or a batch holds more than 1,000 bookings.
+  than two decimals, a batch holds more than 1,000 bookings or balances, or
+`limit` is not between 1 and 5,000.

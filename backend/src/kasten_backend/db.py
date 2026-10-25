@@ -6,8 +6,11 @@ the one system of record kept outside the vault. See
 docs/explanation/finance-in-postgres.md.
 """
 
+import logging
 from typing import TYPE_CHECKING
 
+from fastapi import HTTPException
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
 
@@ -15,6 +18,9 @@ from kasten_backend.config import get_settings
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
+
+
+logger = logging.getLogger(__name__)
 
 
 class Base(DeclarativeBase):
@@ -33,6 +39,22 @@ session_factory = async_sessionmaker(engine, expire_on_commit=False)
 
 
 async def get_session() -> AsyncIterator[AsyncSession]:
-    """FastAPI dependency yielding a session that closes with the request."""
+    """FastAPI dependency yielding a connected session that closes with the request.
+
+    The connection is opened here rather than at the first query, so a 503
+    means only that no database answered. A timeout or a deadlock later in the
+    request is a different failure and stays a 500.
+    """
     async with session_factory() as session:
+        try:
+            await session.connection()
+        except OperationalError as error:
+            # The driver's reason for the failed connect: host, port and cause,
+            # no statement and no parameters, since none was sent.
+            logger.warning("No database answers at KASTEN_DATABASE_URL: %s", error.orig)
+            raise HTTPException(
+                status_code=503,
+                detail="No database answers at KASTEN_DATABASE_URL, and finance keeps its "
+                "records there. See docs/reference/configuration.md.",
+            ) from error
         yield session

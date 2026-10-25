@@ -5,29 +5,22 @@ with no lock of their own. Agents read everything (decided 2026-10-25), and a
 job on the host reaches the backend over the docker network, inside the trust
 zone docs/explanation/security-model.md describes. The routes connect to
 Postgres when they are asked, never at startup, so a backend without a
-database runs everything else and answers these with a 503.
+database runs everything else and answers these with a 503 (`db.get_session`).
 """
 
-import logging
 import uuid  # noqa: TC003  pydantic reads the annotation at runtime
 from datetime import date, datetime
 from decimal import Decimal
-from typing import TYPE_CHECKING, Annotated, Any
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query
-from fastapi.responses import JSONResponse
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from kasten_backend import finance
 from kasten_backend.db import get_session
 from kasten_backend.finance_models import Kind  # noqa: TC001  pydantic reads it at runtime
 from kasten_backend.log import DATE_PATTERN
-
-if TYPE_CHECKING:
-    from fastapi import Request
-
-logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/finance")
 
@@ -36,30 +29,46 @@ Session = Annotated[AsyncSession, Depends(get_session)]
 Money = Annotated[Decimal, Field(max_digits=14, decimal_places=2)]
 """Euros and cents, signed, as `numeric(14,2)` holds them. JSON sends it as a string."""
 
+
+def _spelled_as_stored(iban: str | None) -> str | None:
+    """An IBAN without its spaces and in capitals, or None for an empty one.
+
+    Banks print it in groups of four and jobs pass it on as they got it, and
+    transfer linking compares IBANs as text.
+    """
+    if iban is None:
+        return None
+    return "".join(iban.split()).upper() or None
+
+
+Iban = Annotated[str | None, AfterValidator(_spelled_as_stored)]
+
 MAX_BATCH = 1000
-"""The most bookings one post may carry.
+"""The most bookings or balances one post may carry.
 
 One insert binds thirteen values a booking, and Postgres takes 65,535 binds a
 statement, so this keeps a batch well inside one statement. A first import
 sends its history in several posts.
 """
 
+PAGE = 500
+"""How many bookings a read answers with when it names no `limit`."""
 
-async def no_database(_request: Request, error: Exception) -> JSONResponse:
-    """Answer 503 when Postgres cannot be reached, with the setting that names it.
+MAX_PAGE = 5000
+"""The most bookings one read answers with."""
 
-    The only routes that touch the database are these, so a self-host stack
-    with no Postgres sees this here and nowhere else.
-    """
-    # The driver's own words name the host and port, never the password.
-    logger.warning("No database for finance: %s", error)
-    return JSONResponse(
-        status_code=503,
-        content={
-            "detail": "No database answers at KASTEN_DATABASE_URL, and finance keeps its "
-            "records there. See docs/reference/configuration.md."
-        },
-    )
+
+class AccountOut(BaseModel):
+    """An account as stored, with the id bookings and balances name it by."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    bank: str | None
+    iban: str | None
+    kind: str
+    shared: bool
 
 
 class AccountIn(BaseModel):
@@ -67,17 +76,9 @@ class AccountIn(BaseModel):
 
     name: Annotated[str, Field(min_length=1)]
     bank: str | None = None
-    iban: str | None = None
+    iban: Iban = None
     kind: Kind
     shared: bool = False
-
-
-class AccountOut(AccountIn):
-    """An account as stored, with the id bookings and balances name it by."""
-
-    model_config = ConfigDict(from_attributes=True)
-
-    id: int
 
 
 class BalanceIn(BaseModel):
@@ -110,7 +111,7 @@ class TransactionIn(BaseModel):
     purpose: str | None = None
     posting_text: str | None = None
     counterparty_name: str | None = None
-    counterparty_iban: str | None = None
+    counterparty_iban: Iban = None
     bank_ref: str | None = None
     raw: dict[str, Any] | None = None
     source_key: Annotated[str, Field(min_length=1)]
@@ -131,20 +132,38 @@ class SplitIn(BaseModel):
     text: str | None = None
 
 
-class SplitOut(SplitIn):
+class SplitOut(BaseModel):
     """One part of a booking as stored."""
 
     model_config = ConfigDict(from_attributes=True)
 
     id: int
+    amount: Decimal
+    text: str | None
 
 
-class TransactionOut(TransactionIn):
-    """A booking as stored, with when it came in, its transfer group and its splits."""
+class TransactionOut(BaseModel):
+    """A booking as stored, with when it came in, its transfer group and its splits.
+
+    Its own model rather than the input's: a stored row is answered as it is,
+    and the rules a job's post is held to are no reason to fail a read.
+    """
 
     model_config = ConfigDict(from_attributes=True)
 
     id: int
+    account_id: int
+    booking_date: date
+    value_date: date | None
+    amount: Decimal
+    currency: str
+    purpose: str | None
+    posting_text: str | None
+    counterparty_name: str | None
+    counterparty_iban: str | None
+    bank_ref: str | None
+    raw: dict[str, Any] | None
+    source_key: str
     imported_at: datetime
     transfer_group: uuid.UUID | None
     splits: list[SplitOut]
@@ -168,13 +187,15 @@ async def read_accounts(session: Session) -> list[AccountOut]:
 
 @router.post("/accounts")
 async def write_account(account: AccountIn, session: Session) -> AccountOut:
-    """Make the account by its name, or update the one with that name.
+    """Make the account by its name, or update the fields the post names on the one with that name.
 
     A 200 either way, and the row with its id, so a job can upsert its
     accounts on every run and post bookings by the ids it gets back.
     """
     try:
-        stored = await finance.upsert_account(session, account.model_dump())
+        stored = await finance.upsert_account(
+            session, account.model_dump(), account.model_dump(exclude_unset=True)
+        )
     except finance.TakenIbanError as taken:
         raise HTTPException(status_code=409, detail=str(taken)) from taken
     await session.commit()
@@ -182,7 +203,9 @@ async def write_account(account: AccountIn, session: Session) -> AccountOut:
 
 
 @router.post("/balances")
-async def write_balances(balances: list[BalanceIn], session: Session) -> Stored:
+async def write_balances(
+    balances: Annotated[list[BalanceIn], Body(max_length=MAX_BATCH)], session: Session
+) -> Stored:
     """Store balances as the bank reported them, the latest for a day replacing an earlier one."""
     try:
         stored = await finance.store_balances(session, [b.model_dump() for b in balances])
@@ -193,17 +216,26 @@ async def write_balances(balances: list[BalanceIn], session: Session) -> Stored:
 
 
 @router.get("/transactions")
-async def read_transactions(
+async def read_transactions(  # noqa: PLR0913  each query parameter is its own argument
     session: Session,
+    *,
     account: int | None = None,
     start: Annotated[str | None, Query(alias="from", pattern=DATE_PATTERN)] = None,
     end: Annotated[str | None, Query(alias="to", pattern=DATE_PATTERN)] = None,
+    after: int | None = None,
+    limit: Annotated[int, Query(ge=1, le=MAX_PAGE)] = PAGE,
 ) -> list[TransactionOut]:
-    """The bookings on one account or all of them, from `from` to `to` by booking date."""
+    """A page of the bookings on one account or all, from `from` to `to`, oldest first.
+
+    `after` is the id of the last booking of the page before. A page shorter
+    than `limit` is the last.
+    """
     first, last = _day(start), _day(end)
     if first is not None and last is not None and first > last:
         raise HTTPException(status_code=400, detail="`from` is after `to`")
-    found = await finance.list_transactions(session, account, first, last)
+    found = await finance.list_transactions(
+        session, account=account, first=first, last=last, after=after, limit=limit
+    )
     return [TransactionOut.model_validate(booking) for booking in found]
 
 
@@ -218,8 +250,8 @@ async def write_transactions(
     """
     try:
         created = await finance.insert_transactions(session, [b.model_dump() for b in bookings])
-    except finance.UnknownAccountError as unknown:
-        raise HTTPException(status_code=422, detail=str(unknown)) from unknown
+    except (finance.UnknownAccountError, finance.KeyClashError) as refused:
+        raise HTTPException(status_code=422, detail=str(refused)) from refused
     linked = await finance.link_transfers(session)
     await session.commit()
     return Ingested(created=created, skipped=len(bookings) - created, linked=linked)
