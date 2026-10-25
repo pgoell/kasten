@@ -3,7 +3,7 @@ import { fireEvent, screen } from "@testing-library/react";
 import { afterEach } from "vitest";
 import { NoteMissing, type TodoHit } from "@/lib/api";
 import { noteBase } from "@/lib/note-base";
-import { parseTodo, patchLine, type Todo } from "@/lib/todo";
+import { formatTodo, parseTodo, patchLine, type Todo } from "@/lib/todo";
 import { cycleTodoAtCursor } from "@/lib/todo-commands";
 import { readFields } from "@/lib/todo-fields";
 import { cycleLines } from "@/lib/todo-write";
@@ -325,5 +325,19 @@ describe("#1046 guards that pass on main too", () => {
       blockedBy: ["kt-2"],
       text: "a more",
     });
+  });
+});
+
+describe("#1046 a rebuild moves no field on a line without the bug", () => {
+  it("#1046 B1 setting an estimate on a line with a bare blocker before a due date and a bare on-completion keeps the on-completion words", () => {
+    expect(edited("- [ ] a ⛔ 📅 2026-10-20 b 🏁 x ⏲ 1h", { estimate: "2h" })).toBe(
+      "- [ ] a ⛔ 📅 2026-10-20 b 🏁 x ⏲ 2h",
+    );
+  });
+
+  it("#1046 B2 rebuilding a line with a bare blocker before a due date and a bare on-completion keeps the id at the end", () => {
+    const todo = parseTodo("- [ ] a ⛔ 📅 2026-10-20 b 🏁 x 🆔 kt-1");
+
+    expect(todo === null ? "" : formatTodo(todo)).toBe("- [ ] a ⛔ 📅 2026-10-20 b 🏁 x 🆔 kt-1");
   });
 });

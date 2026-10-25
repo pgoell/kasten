@@ -168,21 +168,31 @@ const BARE_MARKER = /(?:🔁|🏁|⏲|⏱|🆔|⛔)️?(?=[ \t]+\S)/gu;
  * words, as `⛔ 📅 2026-10-20 more`. Those fields are read before every one-word
  * field and end at their own value, so each one stops the marker from taking the
  * words after it; written after the words, `⛔ more` would read `more` as the
- * blocker. The one-word `⏲`, `⏱` and `🆔` are in the pool too, so a bare `⏲`
- * before an id stays words. A blocker is not: moving one would also mean
- * rebuilding the rest of `blockedBy`. Null where no place reads back as `fields`.
+ * blocker. The one-word `⏲`, `⏱` and `🆔` come after them, so a bare `⏲` before an
+ * id stays words, but only on a line the dated fields alone do not fix. A blocker
+ * is not in the pool: moving one would also mean rebuilding the rest of
+ * `blockedBy`. Null where no place reads back as `fields`.
  */
 function insideWords(todo: Todo, fields: Fields): string | null {
-  // Each field that may move, with the text it is written as.
-  const pool: [keyof Todo, string][] = [];
-  if (todo.due !== undefined) pool.push(["due", `📅 ${todo.due}`]);
-  if (todo.scheduled !== undefined) pool.push(["scheduled", `⏳ ${todo.scheduled}`]);
-  if (todo.start !== undefined) pool.push(["start", `🛫 ${todo.start}`]);
-  if (todo.priority !== undefined) pool.push(["priority", PRIORITY_SYMBOL[todo.priority]]);
-  if (todo.estimate !== undefined) pool.push(["estimate", `⏲ ${todo.estimate}`]);
-  if (todo.worked !== undefined) pool.push(["worked", `⏱ ${todo.worked}`]);
-  if (todo.id !== undefined) pool.push(["id", `🆔 ${todo.id}`]);
+  // The dated fields and priority are tried alone first, as they always were, so a
+  // line that never had the bug is written as it was. The one-word fields are
+  // spent only where that does not read back: a bare `🏁` before a field would
+  // otherwise take `⏲` or `🆔` as its own.
+  const dated: [keyof Todo, string][] = [];
+  if (todo.due !== undefined) dated.push(["due", `📅 ${todo.due}`]);
+  if (todo.scheduled !== undefined) dated.push(["scheduled", `⏳ ${todo.scheduled}`]);
+  if (todo.start !== undefined) dated.push(["start", `🛫 ${todo.start}`]);
+  if (todo.priority !== undefined) dated.push(["priority", PRIORITY_SYMBOL[todo.priority]]);
+  const oneWord: [keyof Todo, string][] = [];
+  if (todo.estimate !== undefined) oneWord.push(["estimate", `⏲ ${todo.estimate}`]);
+  if (todo.worked !== undefined) oneWord.push(["worked", `⏱ ${todo.worked}`]);
+  if (todo.id !== undefined) oneWord.push(["id", `🆔 ${todo.id}`]);
 
+  return placeInWords(todo, fields, dated) ?? placeInWords(todo, fields, [...dated, ...oneWord]);
+}
+
+/** `insideWords` with the fields of `pool` written after the bare markers, in order. */
+function placeInWords(todo: Todo, fields: Fields, pool: [keyof Todo, string][]): string | null {
   let words = todo.text;
   let shift = 0;
   let taken = 0;
