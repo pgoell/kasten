@@ -57,6 +57,11 @@ The block at the top of the text, which scrolls with the note:
 Read and Edit sit at the top right of the header, as a small switch, 15 px on a
 phone.
 
+A yearly or weekly note also carries its review under the title, drawn in Read
+and in Edit and never written into the file. The review sits above the note's
+own text. [Read the year and week review](/how-to/read-the-year-and-week-review.md)
+says what each section shows.
+
 ## Read and Edit
 
 Read is live preview on and Edit is the markdown source. The switch is the

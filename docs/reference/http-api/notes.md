@@ -284,3 +284,46 @@ it. The overview asks it again when the file list changes (a note added, removed
 or moved), not on each save of a note already there, since one read takes
 every note in the vault.
 
+## GET /api/written/notes
+
+Takes `from` and `to` as `/api/written` does and answers with the notes that
+count in the range, one object each, sorted by day and then by path. The
+notes and days are the ones `/api/written` answers, so the two agree on which
+note falls in a week.
+
+```
+GET /api/written/notes?from=2026-10-19&to=2026-10-20
+```
+
+```json
+[
+  {
+    "path": "02 Projects/FDE/2026-10-19 Kickoff.md",
+    "day": "2026-10-19",
+    "tags": ["#client", "#p/fde"],
+    "project": "02 Projects/FDE"
+  }
+]
+```
+
+Each object holds:
+
+* `path`: the note, relative to the vault root.
+* `day`: the day the note counts on, spelled the way `/api/written` spells it.
+* `tags`: the note's tags, each with its hash, sorted, as search reads them.
+* `project`: the folder the note is filed under. It is the first of the note's
+  `#p/x` tags, in the sorted order of `tags`, that names a folder directly under
+  `02 Projects`. Without one, it is the project folder the note sits in. Without
+  either, it is `null`. A todo's project follows the same rule, as
+  [the todos route](/reference/http-api/todos.md) describes.
+
+### Errors
+
+* `400` when `from` is after `to`.
+* `422` when a date is not `YYYY-MM-DD` or names no day, `2026-02-30` among them.
+
+### Reading
+
+The reading is the same as `/api/written`: the archive folder is left out, each
+note is read once in a thread, and nothing is written, stored or indexed.
+

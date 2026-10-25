@@ -734,6 +734,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/written/notes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Written Notes
+         * @description The notes outside the archive that count on a day from `from` to `to`, with tags and project.
+         *
+         *     The notes and days `GET /api/written` answers, a day either side included,
+         *     so the two cannot disagree about which note is in a week. Sorted by day, then
+         *     path, and read only: nothing is written or stored.
+         */
+        get: operations["list_written_notes_api_written_notes_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/review/limits": {
         parameters: {
             query?: never;
@@ -801,6 +825,31 @@ export interface paths {
          *     vault as it is now.
          */
         get: operations["show_graph_api_graph_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/github": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Github
+         * @description The contributions the configured GitHub user made each day from `from` to `to`.
+         *
+         *     Off, with GitHub never asked, unless both `KASTEN_GITHUB_TOKEN` and
+         *     `KASTEN_GITHUB_USER` are set. The token and the user name are never in the
+         *     answer. A day already read is answered from the cache file, as
+         *     [the reference](/reference/http-api/capture.md#get-apigithub) says.
+         */
+        get: operations["read_github_api_github_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1729,6 +1778,18 @@ export interface components {
             count: number;
         };
         /**
+         * Contributions
+         * @description Whether the review's GitHub section is on, and each day's count when it is.
+         */
+        Contributions: {
+            /** On */
+            on: boolean;
+            /** Days */
+            days: {
+                [key: string]: number;
+            };
+        };
+        /**
          * Day
          * @description A day whose note holds a `## Log`: its entries in line order, and their totals.
          */
@@ -2325,6 +2386,20 @@ export interface components {
         Water: {
             /** Ml */
             ml: number;
+        };
+        /**
+         * WrittenNote
+         * @description One note outside the archive, the day it counts on, and what the review files it under.
+         */
+        WrittenNote: {
+            /** Path */
+            path: string;
+            /** Day */
+            day: string;
+            /** Tags */
+            tags: string[];
+            /** Project */
+            project: string | null;
         };
         /**
          * Food
@@ -3217,6 +3292,38 @@ export interface operations {
             };
         };
     };
+    list_written_notes_api_written_notes_get: {
+        parameters: {
+            query: {
+                from: string;
+                to: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WrittenNote"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     read_review_limits_api_review_limits_get: {
         parameters: {
             query?: never;
@@ -3278,6 +3385,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Graph"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_github_api_github_get: {
+        parameters: {
+            query: {
+                from: string;
+                to: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Contributions"];
                 };
             };
             /** @description Validation Error */

@@ -168,6 +168,13 @@ export const NoteEditor = memo(function NoteEditor({
         onNotice={onNotice}
         path={path}
         embeds={embeds}
+        // The query client the review reads through, and the opener the embeds use, so a
+        // Done row opens its note in this same pane.
+        review={
+          embeds === undefined
+            ? undefined
+            : { client: queryClient, open: (target, line) => embeds.open(target, line) }
+        }
         onOutline={onOutline}
         onGraph={onGraph}
         onSeek={(seconds, id) => onSeek?.(path, seconds, id)}

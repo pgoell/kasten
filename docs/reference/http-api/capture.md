@@ -268,6 +268,51 @@ coordinates leave the machine. The backend keeps a day's answer for 30 minutes.
 
 An empty `KASTEN_WEATHER_PLACES` answers `[]` and asks nobody.
 
+## GET /api/github
+
+The GitHub contributions of the configured user, one count for each day of a
+range, for the year and week review. Takes `from` and `to`, both `YYYY-MM-DD`,
+and the range may hold at most 366 days.
+
+```
+GET /api/github?from=2026-10-19&to=2026-10-20
+```
+
+Without a token or a user name the answer is off, and GitHub is never asked:
+
+```json
+{ "on": false, "days": {} }
+```
+
+With both, it is on and `days` holds each day of the range:
+
+```json
+{ "on": true, "days": { "2026-10-19": 4, "2026-10-20": 0 } }
+```
+
+Neither answer holds the user name or the token. The counts are GitHub's
+`contributionsCollection` for the user set by
+[`KASTEN_GITHUB_USER`](/reference/github-settings.md#kasten_github_user), read with
+the token set by [`KASTEN_GITHUB_TOKEN`](/reference/github-settings.md#kasten_github_token).
+
+### The cache
+
+Each day read is kept in
+[`KASTEN_GITHUB_CACHE_PATH`](/reference/github-settings.md#kasten_github_cache_path),
+outside the vault. The answer comes from that file when every day of the range
+is in it, and either the range ends before yesterday, since a past day does not
+change, or GitHub was last asked less than an hour ago. Otherwise GitHub is
+asked once for the range, and the answer is merged into the file.
+
+A read that fails, by an HTTP error, GraphQL errors or a timeout, answers the
+days the file holds for the range, and logs one warning that names no token.
+
+| Status | When |
+| --- | --- |
+| `400` | `from` is after `to`, or the range is longer than 366 days |
+| `422` | a date is not `YYYY-MM-DD`, or names no day such as `2026-02-30` |
+| `502` | GitHub could not be read and none of the range is in the file. The detail is `GitHub could not be read` |
+
 ## POST /api/dump
 
 Adds one paragraph to the `## Dump` section of a day's daily note. The body

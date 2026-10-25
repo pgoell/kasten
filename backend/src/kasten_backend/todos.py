@@ -317,8 +317,12 @@ def _words(rest: str) -> str:
     return re.sub(r"[ \t]+", " ", text)
 
 
-def _project_in(path: str, roots: tuple[str, ...]) -> str | None:
-    """The project folder `path` lies in under one of `roots`, at any depth."""
+def project_in(path: str, roots: tuple[str, ...]) -> str | None:
+    """The project folder `path` lies in under one of `roots`, at any depth.
+
+    Public for the written notes, which fall back on the folder a note sits in
+    the way a todo does.
+    """
     # Root, folder and at least the file: a note directly in a root is in none.
     root, _, rest = path.partition("/")
     folder, slash, _ = rest.partition("/")
@@ -332,21 +336,25 @@ def _spoken(name: str) -> str:
     return name.lower().replace("-", " ").replace("_", " ")
 
 
-def _tag_project(text: str, folders: dict[str, str]) -> str | None:
-    """The folder the first `#p/x` tag on `text` that names one names.
+def project_by_tag(tags: list[str], folders: dict[str, str]) -> str | None:
+    """The folder the first `#p/x` in `tags` that names one names, in the order given.
 
     A tag naming nothing is passed over, as a link to a missing note is: a typo
     would otherwise make a project nobody made. `#p/x/y` names `x`, a project
-    being one folder deep.
+    being one folder deep. `folders` is what `project_folders` makes.
     """
-    for start, end in word_tags(text):
-        tag = text[start:end]
+    for tag in tags:
         if tag[1:3].lower() != "p/":
             continue
         folder = folders.get(_spoken(tag[3:].split("/")[0]))
         if folder is not None:
             return folder
     return None
+
+
+def _tag_project(text: str, folders: dict[str, str]) -> str | None:
+    """The project a line's own tags name, as `project_by_tag` reads them."""
+    return project_by_tag([text[start:end] for start, end in word_tags(text)], folders)
 
 
 def _link_project(text: str, paths: list[str]) -> str | None:
@@ -358,10 +366,25 @@ def _link_project(text: str, paths: list[str]) -> str | None:
         linked = link_path(target, paths)
         if linked not in paths:
             continue
-        project = _project_in(linked, (LINK_ROOT,))
+        project = project_in(linked, (LINK_ROOT,))
         if project is not None:
             return project
     return None
+
+
+def project_folders(paths: list[str]) -> dict[str, str]:
+    """Each project folder something is filed in, keyed by the name a `#p/x` tag spells.
+
+    Public because the written notes name a note's project the same way, and a
+    second map would drift from this one. Only folders something is filed in: an
+    empty one is no project to name.
+    """
+    folders: dict[str, str] = {}
+    for path in paths:
+        project = project_in(path, (LINK_ROOT,))
+        if project is not None:
+            folders.setdefault(_spoken(project.split("/")[1]), project)
+    return folders
 
 
 def projects_of(hits: list[Hit], paths: list[str]) -> list[str | None]:
@@ -375,12 +398,7 @@ def projects_of(hits: list[Hit], paths: list[str]) -> list[str | None]:
     A part is a child of the nearest todo above it with a smaller indent, as
     the editor's `treeOf` reads one, prose between the two ending nothing.
     """
-    # Only folders something is filed in: an empty one is no project to name.
-    folders: dict[str, str] = {}
-    for path in paths:
-        project = _project_in(path, (LINK_ROOT,))
-        if project is not None:
-            folders.setdefault(_spoken(project.split("/")[1]), project)
+    folders = project_folders(paths)
 
     found: dict[tuple[str, int], str | None] = {}
     by_note: dict[str, list[Hit]] = {}
@@ -388,7 +406,7 @@ def projects_of(hits: list[Hit], paths: list[str]) -> list[str | None]:
         by_note.setdefault(hit.path, []).append(hit)
 
     for note, lines in by_note.items():
-        folder = _project_in(note, PROJECT_ROOTS)
+        folder = project_in(note, PROJECT_ROOTS)
         # The todos open above this one, shallowest first: indent, the tag
         # project it passes down, and its whole project.
         above: list[tuple[int, str | None, str | None]] = []

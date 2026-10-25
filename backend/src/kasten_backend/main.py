@@ -21,7 +21,18 @@ from kasten_backend.events import KEEPALIVE, format_retry, format_sse, watch_vau
 from kasten_backend.files import RefusedError
 from kasten_backend.guide import write_guide
 from kasten_backend.okf import prepare
-from kasten_backend.routes import anki, assets, listing, moves, notes, queries, share, tokens, web
+from kasten_backend.routes import (
+    anki,
+    assets,
+    github,
+    listing,
+    moves,
+    notes,
+    queries,
+    share,
+    tokens,
+    web,
+)
 from kasten_backend.trash import purge_trash
 from kasten_backend.vcs import is_versioned, write_ignores
 
@@ -169,6 +180,7 @@ async def read_build() -> Build:
 app.include_router(listing.router)
 app.include_router(web.router)
 app.include_router(queries.router)
+app.include_router(github.router)
 app.include_router(log.router)
 app.include_router(food.router)
 app.include_router(anki.router)

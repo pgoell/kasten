@@ -9,7 +9,7 @@ status: stable
 
 # HTTP API
 
-The backend serves forty-nine endpoints under `/api/`. Thirty-two read,
+The backend serves fifty-one endpoints under `/api/`. Thirty-four read,
 sixteen write, and one streams. The interactive schema is at `/docs` while the backend
 runs, and the machine-readable one at `/openapi.json`.
 
@@ -25,7 +25,7 @@ including the check that refuses a cross-site `POST` with a `403`.
 
 ## Routes by area
 
-* [Notes](/reference/http-api/notes.md): list, read, save and create notes, and the day each one counts on
+* [Notes](/reference/http-api/notes.md): list, read, save and create notes, the day each one counts on, and the notes a range holds with their tags and project
 * [Moving](/reference/http-api/moving.md): give a note or folder a new path, and preview what a move rewrites
 * [Trash and history](/reference/http-api/trash-and-history.md): delete into the trash, restore, and read a note's jj history
 * [Assets and books](/reference/http-api/assets-and-books.md): images, sounds, books and the chunked uploads
@@ -34,7 +34,7 @@ including the check that refuses a cross-site `POST` with a `403`.
 * [Log](/reference/http-api/log.md): the day's water, coffee, alcohol and food, and their totals
 * [Food](/reference/http-api/food.md): search Open Food Facts for a food, or read one by its barcode
 * [Cards](/reference/http-api/cards.md): flashcard lines, review limits and Anki imports
-* [Capture](/reference/http-api/capture.md): the dump, web pages, YouTube transcripts, HTML pages and weather
+* [Capture](/reference/http-api/capture.md): the dump, web pages, YouTube transcripts, HTML pages, weather and GitHub contributions
 * [System](/reference/http-api/system.md): health, version, the change stream, terminals and agent tokens
 * [Shared lists](/reference/http-api/shared-lists.md): the six `/share/` routes the shared lists app reaches, outside the `/api/` count
 

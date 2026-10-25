@@ -30,6 +30,7 @@ import { graphHandler, noteHead, type Outline, readMode } from "@/lib/note-head"
 import { noteLanguage } from "@/lib/note-language";
 import { relationCompletions, vaultRelations } from "@/lib/ontology";
 import { slashCompletions } from "@/lib/palette";
+import { periodicReview, type ReviewSource, reviewSource } from "@/lib/periodic-review";
 import { moveCell } from "@/lib/table";
 import { tableLineup } from "@/lib/table-lineup";
 import { tableSource } from "@/lib/table-source";
@@ -56,6 +57,7 @@ export interface NoteViewLatest {
   onNotice?: (message: string) => void;
   onReload?: (force: boolean) => Promise<string | null>;
   embeds?: EmbedSource;
+  review?: ReviewSource;
   allowReload?: (text: string) => boolean;
   onOutline?: (outline: Outline) => void;
   onGraph?: () => void;
@@ -296,6 +298,17 @@ export function createNoteView(o: {
         // Edit too, where preview is off, and the line-up has to be there either way.
         tableSource,
         tableLineup,
+        // The same for the review block, which reads from the view's own state, so
+        // the ref is read here and not the prop, as the embeds' source is above.
+        ...(latest.current.review === undefined
+          ? []
+          : [
+              reviewSource.of({
+                client: latest.current.review.client,
+                open: (path, line) => latest.current.review?.open(path, line),
+              }),
+            ]),
+        periodicReview,
         kastenTheme,
         EditorView.lineWrapping,
         EditorView.updateListener.of((update) => {

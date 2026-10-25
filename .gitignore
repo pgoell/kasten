@@ -17,10 +17,12 @@ backend/.env.local
 # The dev vault — notes are yours, not the repo's
 /vault/
 
-# The token store and the dump receipts beside it, which dev keeps in the
-# working directory because `KASTEN_TOKENS_PATH` defaults to a relative path.
+# The token store, the dump receipts and the GitHub contributions cache beside it,
+# which dev keeps in the working directory because `KASTEN_TOKENS_PATH` defaults
+# to a relative path.
 tokens.json
 dump-receipts.json
+github-contributions.json
 
 # Dependency trees belonging to the dev containers, kept out of the host's.
 .container/

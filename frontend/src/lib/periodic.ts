@@ -12,7 +12,7 @@
  * already carries both directions.
  */
 
-import { isoWeek, readClock } from "@/lib/clock";
+import { isoWeek, readClock, shiftDay } from "@/lib/clock";
 import { PERIODIC } from "@/lib/layout";
 
 export type Period = "daily" | "weekly" | "monthly" | "quarterly" | "yearly";
@@ -42,12 +42,55 @@ function folder(period: Period): string {
  * for, and a note not named for a day cannot say which day that is.
  */
 export function dailyDate(path: string): string | null {
-  // The prefix is compared as text rather than put in the pattern: a folder is
-  // whatever the vault calls it, and a `.` or a `(` in one is not regex.
-  const prefix = `${folder("daily")}/`;
-  if (!path.startsWith(prefix)) return null;
-  const found = /^(\d{4}-\d{2}-\d{2})\.md$/.exec(path.slice(prefix.length));
-  return found?.[1] ?? null;
+  const inside = insideFolder("daily", path);
+  if (inside === null) return null;
+  return /^(\d{4}-\d{2}-\d{2})\.md$/.exec(inside)?.[1] ?? null;
+}
+
+/**
+ * The part of a path after the folder one kind lives in, or null where the path is
+ * not in that folder.
+ *
+ * The prefix is compared as text rather than put in the pattern: a folder is
+ * whatever the vault calls it, and a `.` or a `(` in one is not regex.
+ */
+function insideFolder(period: Period, path: string): string | null {
+  const prefix = `${folder(period)}/`;
+  return path.startsWith(prefix) ? path.slice(prefix.length) : null;
+}
+
+/**
+ * The year a yearly note is named for, or null where the path is not `YYYY.md` in
+ * the yearly folder. Read back off the name as `dailyDate` reads a day, so the year
+ * review draws on the note it is for and on no other.
+ */
+export function yearlyYear(path: string): number | null {
+  const inside = insideFolder("yearly", path);
+  const found = inside === null ? null : /^(\d{4})\.md$/.exec(inside);
+  return found === null ? null : Number(found[1]);
+}
+
+/**
+ * The ISO week a weekly note is named for, with its Monday and Sunday as `YYYY-MM-DD`,
+ * or null where the path is not `YYYY-Www.md` in the weekly folder or its year has no
+ * such week.
+ *
+ * Counted off 4 January, which week 1 of every ISO year holds, so week 1 starts on the
+ * Monday on or before it. A week belongs to the year its Thursday falls in, which is
+ * the check that refuses `W00` and a `W53` in a year of 52 weeks.
+ */
+export function weeklyWeek(
+  path: string,
+): { year: number; week: number; monday: string; sunday: string } | null {
+  const inside = insideFolder("weekly", path);
+  const found = inside === null ? null : /^(\d{4})-W(\d{2})\.md$/.exec(inside);
+  if (found === null) return null;
+  const jan4 = `${found[1]}-01-04`;
+  const weekday = new Date(`${jan4}T00:00:00Z`).getUTCDay() || 7;
+  const week = Number(found[2]);
+  const monday = shiftDay(jan4, 1 - weekday + (week - 1) * 7);
+  if (shiftDay(monday, 3).slice(0, 4) !== found[1]) return null;
+  return { year: Number(found[1]), week, monday, sunday: shiftDay(monday, 6) };
 }
 
 /** What holds each kind, which the note links up to. A year is held by nothing. */

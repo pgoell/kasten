@@ -15,9 +15,22 @@ from kasten_backend.history import HistoryError, list_changes, plain, read_versi
 from kasten_backend.log import DATE_PATTERN
 from kasten_backend.mentions import find_mentions
 from kasten_backend.search import search_vault
-from kasten_backend.search_meta import day_of, notes_meta
+from kasten_backend.search_meta import (
+    cached_tags,
+    day_of,
+    forget_except,
+    notes_meta,
+    stamp,
+)
 from kasten_backend.tags import find_tags
-from kasten_backend.todos import find_todos, projects_of
+from kasten_backend.todos import (
+    PROJECT_ROOTS,
+    find_todos,
+    project_by_tag,
+    project_folders,
+    project_in,
+    projects_of,
+)
 from kasten_backend.vault import (
     list_markdown_files,
     read_note,
@@ -313,23 +326,92 @@ async def list_cards(
     return [LineHit(path=hit.path, line=hit.line, text=hit.text) for hit in hits]
 
 
-def _written_on(root: Path, paths: list[str], first: date, last: date) -> list[str]:
-    """The day each of `paths` counts on, where that day falls in the range and a day each side."""
+class WrittenNote(BaseModel):
+    """One note outside the archive, the day it counts on, and what the review files it under."""
+
+    path: str
+    """The note, relative to the vault root."""
+
+    day: str
+    """The day it counts on, spelled as `GET /api/written` answers it."""
+
+    tags: list[str]
+    """The note's tags, each with its hash, sorted, as search reads them."""
+
+    project: str | None
+    """The first `#p/x` tag, in `tags` order, naming a folder under `02 Projects`.
+
+    Else the project folder the note sits in, else None. The same rule a todo's
+    project follows, read off `todos.project_by_tag` and `todos.project_in`.
+    """
+
+
+def day_range(start: str, end: str) -> tuple[date, date]:
+    """The two dates a range is asked by, or the 422 or 400 a bad pair answers with."""
+    try:
+        first, last = date.fromisoformat(start), date.fromisoformat(end)
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail="`from` and `to` must be real dates") from error
+    if first > last:
+        raise HTTPException(status_code=400, detail="`from` is after `to`")
+    return first, last
+
+
+def _bounds(first: date, last: date) -> tuple[str, str]:
+    """The first and last day a written note may fall on: the range, and a day either side."""
     # Clamped at the calendar's ends, where a day either side would overflow.
     low = (first - EXTRA_DAY if first > date.min else first).isoformat()
     high = (last + EXTRA_DAY if last < date.max else last).isoformat()
-    found: list[str] = []
+    return low, high
+
+
+def _on_range(day: str, low: str, high: str) -> bool:
+    """Whether a day as written falls from `low` to `high`, both ends in."""
+    # The first ten characters are the day as written, which an instant starts with too.
+    return low <= day[:10] <= high
+
+
+def _dated(
+    root: Path, paths: list[str], first: date, last: date
+) -> list[tuple[str, str, str | None, tuple[int, int] | None]]:
+    """Each of `paths` that counts on a day in the range, with its day, text and stamp.
+
+    The text is read once here, so the day and the tags of a note come off the
+    same read. Only the notes in the range go on to be parsed for tags.
+    """
+    low, high = _bounds(first, last)
+    found: list[tuple[str, str, str | None, tuple[int, int] | None]] = []
     for path in paths:
+        # Stamped before the read: an edit in between is then seen as a change on the
+        # next read, where a stamp taken after it would keep the old tags for the new text.
+        moment = stamp(root, path)
         try:
             text = read_note(root, path)
         except UnicodeDecodeError, OSError:
             # A note the client cannot open is still dated by its name and its file.
             text = None
         day = day_of(root, path, text)
-        # The first ten characters are the day as written, which an instant starts with too.
-        if day is not None and low <= day[:10] <= high:
-            found.append(day)
-    return sorted(found)
+        if day is not None and _on_range(day, low, high):
+            found.append((path, day, text, moment))
+    return found
+
+
+def _written_on(root: Path, paths: list[str], first: date, last: date) -> list[str]:
+    """The day each of `paths` counts on, where that day falls in the range and a day each side."""
+    return sorted(day for _, day, _, _ in _dated(root, paths, first, last))
+
+
+def _written_notes(
+    root: Path, paths: list[str], folders: dict[str, str], first: date, last: date
+) -> list[WrittenNote]:
+    """The notes that count on a day in the range, with their tags and project, by day then path."""
+    forget_except(root, paths)
+    notes: list[WrittenNote] = []
+    for path, day, text, moment in _dated(root, paths, first, last):
+        tags = [] if text is None else cached_tags(root, path, text, moment)
+        project = project_by_tag(tags, folders) or project_in(path, PROJECT_ROOTS)
+        notes.append(WrittenNote(path=path, day=day, tags=tags, project=project))
+    return sorted(notes, key=lambda note: (note.day, note.path))
 
 
 @router.get("/api/written")
@@ -346,18 +428,34 @@ async def list_written(
     reader's own day. A day either side of the range is answered too, for the
     same reason. Sorted, and read only: nothing is written or stored.
     """
-    try:
-        first, last = date.fromisoformat(start), date.fromisoformat(end)
-    except ValueError as error:
-        raise HTTPException(status_code=422, detail="`from` and `to` must be real dates") from error
-    if first > last:
-        raise HTTPException(status_code=400, detail="`from` is after `to`")
+    first, last = day_range(start, end)
 
     archive = f"{settings.archive_path}/"
     paths = [
         path for path in list_markdown_files(settings.vault_path) if not path.startswith(archive)
     ]
     return await asyncio.to_thread(_written_on, settings.vault_path, paths, first, last)
+
+
+@router.get("/api/written/notes")
+async def list_written_notes(
+    start: Annotated[str, Query(alias="from", pattern=DATE_PATTERN)],
+    end: Annotated[str, Query(alias="to", pattern=DATE_PATTERN)],
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> list[WrittenNote]:
+    """The notes outside the archive that count on a day from `from` to `to`, with tags and project.
+
+    The notes and days `GET /api/written` answers, a day either side included,
+    so the two cannot disagree about which note is in a week. Sorted by day, then
+    path, and read only: nothing is written or stored.
+    """
+    first, last = day_range(start, end)
+
+    everything = list_markdown_files(settings.vault_path)
+    archive = f"{settings.archive_path}/"
+    paths = [path for path in everything if not path.startswith(archive)]
+    folders = project_folders(everything)
+    return await asyncio.to_thread(_written_notes, settings.vault_path, paths, folders, first, last)
 
 
 @router.get("/api/review/limits")

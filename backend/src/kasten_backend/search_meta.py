@@ -97,10 +97,56 @@ def day_of(root: Path, path: str, text: str | None) -> str | None:
     return datetime.fromtimestamp(moment, UTC).isoformat(timespec="seconds")
 
 
-def _tags(text: str) -> list[str]:
-    """The note's tags with their hashes, sorted, read the way the tags route reads them."""
+def tags_of(text: str) -> list[str]:
+    """The note's tags with their hashes, sorted, read the way the tags route reads them.
+
+    Public so the written notes take their tags off the one read of a note they
+    already make, rather than through a second parse of the whole vault.
+    """
     found = {text[start:end] for start, end in todos.tags_in(text)} | field_tags(text)
     return sorted(found)
+
+
+_held: dict[str, tuple[int, int, list[str]]] = {}
+"""The tags each note was last parsed to, with the stamp it had then, by absolute path.
+
+One entry per note the written notes have read, pruned to the live notes on each
+read, so the cache is never bigger than the vault. Parsing a note holding `<!--`
+takes the slow path through `code_spans`, which is most of a flashcard note's
+cost. An edit changes the file's modification time or its size, so an entry whose
+stamp no longer matches is parsed again and never served.
+"""
+
+
+def stamp(root: Path, path: str) -> tuple[int, int] | None:
+    """The modification time in nanoseconds and the size of a note, or None when it is gone."""
+    try:
+        status = (root / path).stat()
+    except OSError:
+        # The note went between the list and this, so there is nothing to keep.
+        return None
+    return status.st_mtime_ns, status.st_size
+
+
+def cached_tags(root: Path, path: str, text: str, moment: tuple[int, int] | None) -> list[str]:
+    """The tags of a note whose text is `text`, from the cache while its stamp `moment` holds."""
+    if moment is None:
+        return tags_of(text)
+    key = str(root / path)
+    held = _held.get(key)
+    if held is not None and (held[0], held[1]) == moment:
+        return list(held[2])
+    tags = tags_of(text)
+    _held[key] = (moment[0], moment[1], tags)
+    return tags
+
+
+def forget_except(root: Path, paths: list[str]) -> None:
+    """Drop the cached tags of every note not in `paths`, so the cache holds only live notes."""
+    live = {str(root / path) for path in paths}
+    for key in list(_held):
+        if key not in live:
+            _held.pop(key, None)
 
 
 def _read_all(root: Path, paths: list[str]) -> dict[str, tuple[str | None, list[str] | None]]:
@@ -112,7 +158,7 @@ def _read_all(root: Path, paths: list[str]) -> dict[str, tuple[str | None, list[
             # A note the client cannot open is still dated by its name and its file.
             text = None
         day = day_of(root, path, text)
-        meta[path] = (day, None if text is None else _tags(text))
+        meta[path] = (day, None if text is None else tags_of(text))
     return meta
 
 

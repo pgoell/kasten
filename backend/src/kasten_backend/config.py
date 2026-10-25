@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Annotated, Self
 from urllib.parse import quote
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from kasten_backend.uploads import UPLOAD_SWEEP_SECONDS
@@ -137,6 +137,28 @@ class Settings(BaseSettings):
     break.
     """
 
+    github_user: str = ""
+    """The GitHub login whose contributions the year and week review draws.
+
+    Empty, the review's GitHub section is off. Read with `github_token`, and
+    never sent to the browser: the backend asks GitHub and answers the days.
+    """
+
+    github_token: SecretStr | None = None
+    """A GitHub token that may read the user's contributions, or None for off.
+
+    A `SecretStr`, so a settings dump or a traceback shows `**********`. It is
+    sent to GitHub in the `Authorization` header and nowhere else.
+    """
+
+    github_cache_path: Path | None = None
+    """Where the GitHub contributions read so far are kept, or None for beside the tokens.
+
+    None is `github-contributions.json` in the tokens file's folder, which is
+    `github_cache` below. Outside the vault for the reason the tokens are: the
+    file would enter jj history and sit beside every note an agent reads.
+    """
+
     upload_path: Path = Path(tempfile.gettempdir()) / "kasten-uploads"
     """Where a file sent in pieces is joined before the route that finishes it reads it.
 
@@ -225,6 +247,11 @@ class Settings(BaseSettings):
             msg = f"KASTEN_UPLOAD_PATH must be outside the vault, {vault}"
             raise ValueError(msg)
         return self
+
+    @property
+    def github_cache(self) -> Path:
+        """Where the GitHub cache lives: `github_cache_path`, else beside the tokens file."""
+        return self.github_cache_path or self.tokens_path.with_name("github-contributions.json")
 
     def fill(self, text: str) -> str:
         """`text` with each `{{folder}}` in it spelled the way this vault spells it.

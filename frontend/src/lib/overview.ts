@@ -92,14 +92,17 @@ export function todoTally(todos: TodoHit[], today: string): { open: number; over
 }
 
 /**
- * The day each note counts on, as `GET /api/written` answers it. A `YYYY-MM-DD` is that
+ * The day a note counts on, as `GET /api/written` answers it. A `YYYY-MM-DD` is that
  * day; an instant is the reader's own local day, read the way `readClock` reads one.
  */
+export function dayOf(value: string): string {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : readClock(new Date(value)).date;
+}
+
+/** The notes written on each day. */
 export function writtenCounts(values: string[]): Map<string, number> {
   const counts = new Map<string, number>();
-  for (const value of values) {
-    tally(counts, /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : readClock(new Date(value)).date);
-  }
+  for (const value of values) tally(counts, dayOf(value));
   return counts;
 }
 

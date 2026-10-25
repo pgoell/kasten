@@ -16,6 +16,7 @@ import {
   setPreview,
   setVim,
 } from "@/lib/note-view";
+import type { ReviewSource } from "@/lib/periodic-review";
 import type { CycleHandler } from "@/lib/todo-commands";
 import { useVim } from "@/lib/vim-setting";
 
@@ -157,6 +158,8 @@ interface EditorProps {
    * missing. Read at mount for whether there is one, through the ref after.
    */
   embeds?: EmbedSource;
+  /** What a periodic note's review block reads with. Absent, no block is drawn. */
+  review?: ReviewSource;
   /**
    * Called with a sentence for the reader when a pasted image is refused.
    *
@@ -208,6 +211,7 @@ export function Editor({
   path,
   onNotice,
   embeds,
+  review,
   onOutline,
   onGraph,
   onSeek,
@@ -248,6 +252,7 @@ export function Editor({
     allowReload,
     onReload,
     embeds,
+    review,
     onOutline,
     onGraph,
     onSeek,
@@ -270,6 +275,7 @@ export function Editor({
       allowReload,
       onReload,
       embeds,
+      review,
       onOutline,
       onGraph,
       onSeek,
@@ -287,6 +293,7 @@ export function Editor({
     allowReload,
     onReload,
     embeds,
+    review,
     onOutline,
     onGraph,
     onSeek,
