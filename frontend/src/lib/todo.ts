@@ -21,6 +21,7 @@ import {
   patchFields,
   readFields,
   readTagged,
+  sameFields,
   type TodoPriority,
 } from "@/lib/todo-fields";
 
@@ -121,6 +122,14 @@ export function parseTodo(line: string): Todo | null {
 
 /** The words and the fields, in the one order every line kasten writes carries. */
 function tail(todo: Todo): string {
+  const plain = joinParts(todo);
+  const { indent: _indent, state: _state, ...fields } = todo;
+  if (sameFields(readFields(plain), fields)) return plain;
+  return insideWords(todo, fields) ?? plain;
+}
+
+/** The words, then every field after them, in the order `tail` writes them. */
+function joinParts(todo: Todo): string {
   const parts: string[] = [];
 
   if (todo.text !== "") parts.push(todo.text);
@@ -148,6 +157,43 @@ function tail(todo: Todo): string {
   for (const blocker of todo.blockedBy) parts.push(`⛔ ${blocker}`);
 
   return parts.join(" ");
+}
+
+// A one-word field that may stand bare in the words, so the words after it could
+// read as its value.
+const BARE_MARKER = /(?:🔁|🏁|⏲|⏱|🆔|⛔)️?(?=[ \t]+\S)/gu;
+
+/**
+ * `tail` with the dated fields and priority written straight after a bare
+ * one-word marker in the words, as `⛔ 📅 2026-10-20 more`. Those fields are read
+ * before every one-word field and end at their own value, so each one stops the
+ * marker from taking the words after it; written after the words, `⛔ more`
+ * would read `more` as the blocker. Null where no place reads back as `fields`.
+ */
+function insideWords(todo: Todo, fields: Fields): string | null {
+  // Each field that may move, with the text it is written as.
+  const pool: [keyof Todo, string][] = [];
+  if (todo.due !== undefined) pool.push(["due", `📅 ${todo.due}`]);
+  if (todo.scheduled !== undefined) pool.push(["scheduled", `⏳ ${todo.scheduled}`]);
+  if (todo.start !== undefined) pool.push(["start", `🛫 ${todo.start}`]);
+  if (todo.priority !== undefined) pool.push(["priority", PRIORITY_SYMBOL[todo.priority]]);
+
+  let words = todo.text;
+  let shift = 0;
+  let taken = 0;
+  for (const found of masked(todo.text).matchAll(BARE_MARKER)) {
+    if (taken === pool.length) break;
+    const at = (found.index ?? 0) + found[0].length + shift;
+    const field = ` ${pool[taken]?.[1] ?? ""}`;
+    words = words.slice(0, at) + field + words.slice(at);
+    shift += field.length;
+    taken += 1;
+  }
+  if (taken === 0) return null;
+
+  const moved = Object.fromEntries(pool.slice(0, taken).map(([key]) => [key, undefined]));
+  const line = joinParts({ ...todo, ...moved, text: words });
+  return sameFields(readFields(line), fields) ? line : null;
 }
 
 export function formatTodo(todo: Todo): string {

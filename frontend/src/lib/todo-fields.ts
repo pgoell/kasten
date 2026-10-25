@@ -68,7 +68,7 @@ const CREATED = /➕️?[ \t]+(\d{4}-\d{2}-\d{2})/d;
 const DONE = /✅️?[ \t]+(\d{4}-\d{2}-\d{2})/d;
 const CANCELLED = /❌️?[ \t]+(\d{4}-\d{2}-\d{2})/d;
 const PRIORITY = /(🔺|⏫|🔼|🔽|⏬)️?/d;
-// Ends at a space or the line's end, so `🏁 keep-it` stays words.
+// Ends at a space, a stop or the line's end, so `🏁 keep-it` stays words.
 const ON_COMPLETION = /🏁️?[ \t]+(keep|delete)(?=[ \t\n]|$)/d;
 const ID = /🆔️?[ \t]+(\S+)/d;
 const BLOCKED_BY = /⛔️?[ \t]+(\S+)/d;
@@ -345,7 +345,7 @@ function withBlocker(rest: string, blocker: string): string | null {
 }
 
 /** Whether two readings carry the same words and fields, however they were spelled. */
-function sameFields(a: Fields, b: Fields): boolean {
+export function sameFields(a: Fields, b: Fields): boolean {
   const key = (fields: Fields) =>
     JSON.stringify(
       Object.entries(fields)

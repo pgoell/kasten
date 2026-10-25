@@ -321,3 +321,38 @@ describe("#1030 blocking a line with a bare blocker before a due date", () => {
     });
   });
 });
+
+describe("#1030 a rebuilt line keeps a bare field as words", () => {
+  it("#1030 B1 cycle to done on a recurring line with a bare blocker before its due date writes a copy that keeps the blocker as words", () => {
+    const line = "- [ ] a ⛔ 📅 2026-10-20 more 🔁 every week";
+    const copy = cycleLines({
+      lines: [line],
+      line: 1,
+      today: TODAY,
+      id: "kt-3f9a2c",
+      closed: UNKNOWN,
+      state: "done",
+    })
+      .get(1)
+      ?.split("\n")[0];
+    const todo = parseTodo(copy ?? "");
+
+    expect({
+      copy,
+      blockedBy: todo?.blockedBy,
+      text: todo?.text,
+      recurrence: todo?.recurrence,
+    }).toEqual({
+      copy: "- [ ] a ⛔ 📅 2026-10-27 more 🔁 every week",
+      blockedBy: [],
+      text: "a ⛔ more",
+      recurrence: "every week",
+    });
+  });
+
+  it("#1030 B2 setting an estimate on a line with a bare estimate before its due date keeps the marker as words", () => {
+    expect(edited("- [ ] a ⏲ 📅 2026-10-20 more", { estimate: "2h" })).toBe(
+      "- [ ] a ⏲ 📅 2026-10-20 more ⏲ 2h",
+    );
+  });
+});
