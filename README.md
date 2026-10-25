@@ -10,6 +10,9 @@ Postgres holds a derived index only (documents, links, tags, full-text), and you
 must be able to drop the schema and rebuild it from the vault. Nothing that only
 exists in the database is allowed to matter.
 
+One exception: money. The `finance` schema is a system of record, see
+[Finance in Postgres](docs/explanation/finance-in-postgres.md).
+
 ## Stack
 
 - Backend: Python 3.14, FastAPI, SQLAlchemy 2 async, Alembic, uv

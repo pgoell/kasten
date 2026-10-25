@@ -1,7 +1,9 @@
 """Database engine, session factory and the declarative base.
 
-Postgres holds only a derived index (documents, links, tags, full-text). It is
-rebuildable from the vault, so nothing here is a system of record.
+Postgres holds a derived index (documents, links, tags, full-text), which
+rebuilds from the vault, and the `finance` schema, which does not: finance is
+the one system of record kept outside the vault. See
+docs/explanation/finance-in-postgres.md.
 """
 
 from typing import TYPE_CHECKING
@@ -16,7 +18,7 @@ if TYPE_CHECKING:
 
 
 class Base(DeclarativeBase):
-    """Declarative base for every index table."""
+    """Declarative base for every table, index and finance alike."""
 
 
 engine = create_async_engine(get_settings().database_url)

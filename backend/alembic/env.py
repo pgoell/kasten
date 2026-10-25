@@ -24,7 +24,22 @@ if config.config_file_name is not None:
 # Index models must be imported before autogenerate runs, otherwise their
 # tables are absent from Base.metadata and alembic writes a migration that
 # drops them. Import the models module here once the first model exists.
+#
+# Finance tables share this Base and name their schema in
+# `__table_args__ = {"schema": "finance"}`. One metadata keeps autogenerate
+# comparing everything in one pass.
 target_metadata = Base.metadata
+
+# The schemas alembic may compare and write. The prod database sits on a
+# shared Postgres container, so a schema kasten did not make is left alone.
+OWN_SCHEMAS = {None, "public", "finance"}
+
+
+def include_name(name: str | None, type_: str, parent_names: object) -> bool:
+    """Keep autogenerate inside kasten's own schemas."""
+    if type_ == "schema":
+        return name in OWN_SCHEMAS
+    return True
 
 
 def database_url() -> str:
@@ -49,6 +64,8 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
+        include_schemas=True,
+        include_name=include_name,
     )
 
     with context.begin_transaction():
@@ -56,7 +73,12 @@ def run_migrations_offline() -> None:
 
 
 def do_run_migrations(connection: Connection) -> None:
-    context.configure(connection=connection, target_metadata=target_metadata)
+    context.configure(
+        connection=connection,
+        target_metadata=target_metadata,
+        include_schemas=True,
+        include_name=include_name,
+    )
 
     with context.begin_transaction():
         context.run_migrations()
