@@ -102,6 +102,10 @@ without `:n`, the import (#1033) takes that `external_id` as it is, never
 recomputing it, and appends `:n`, where `n` counts the Firefly journals on the
 same account with the same `external_id`, from `0`, by date and then journal id.
 The bank pull then names the same booking alike, and the ingest skips it.
+Firefly sometimes kept only one of two twins, because the importer dropped a
+booking whose `external_id` an earlier run had stored. The pull then sends
+`:1` for the second, which kasten stores: a booking recovered, not a
+duplicate.
 
 Two cases the key cannot cover:
 
