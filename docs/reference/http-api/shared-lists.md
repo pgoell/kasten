@@ -75,8 +75,11 @@ Takes `{"line": 4, "done": true, "sha": "3f9c1a0"}` and answers the `List`.
 Ticking to done writes `- [x] <text> ✅ <today>`, and a `🆔 kt-<6 hex>` after it
 unless the line reads an id already. The `✅` goes before the id it reads. A
 `🆔` with no word after it, or one inside a link or code span, reads no id, as in
-the editor, so the line gets one.
-Unticking writes `- [ ] <text>` and strips the `✅` date.
+the editor, so the line gets one. A `^block-id` at the end of the line stays
+last, so `- [ ] Brot ^abc` becomes `- [x] Brot ✅ <today> 🆔 kt-… ^abc`.
+Unticking writes `- [ ] <text>` and strips the `✅` date. Both take only the
+done field the line reads, a `✅` with a date outside a link or code span: a
+bare `✅` among the words, or one inside a code span, stays as it is.
 
 A tick whose line is already in the asked state, or is not an item, answers
 `200` and changes nothing. A stale sha answers `409`. A tick to done on a line

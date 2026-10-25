@@ -351,3 +351,157 @@ async def test_read_cuts_recurrence_waiting_and_block_ids(
         "Butter #bio",
         "Eier",
     ]
+
+
+async def test_1058_tick_keeps_a_trailing_block_id_last(client: AsyncClient, folder: Path) -> None:
+    sha = put(folder, BLOCK + "- [ ] Brot ^abc\n")
+
+    response = await client.post(
+        "/share/lists/Einkauf/tick", json={"line": 6, "done": True, "sha": sha}
+    )
+
+    written = (folder / "Einkauf.md").read_text(encoding="utf-8")
+    today = date.today().isoformat()
+    assert response.status_code == 200
+    assert re.search(rf"^- \[x\] Brot ✅ {today} 🆔 kt-[0-9a-f]{{6}} \^abc$", written, re.MULTILINE)
+
+
+async def test_1058_untick_keeps_the_id_and_the_block_id(client: AsyncClient, folder: Path) -> None:
+    sha = put(folder, BLOCK + "- [ ] Brot ^abc\n")
+    ticked = await client.post(
+        "/share/lists/Einkauf/tick", json={"line": 6, "done": True, "sha": sha}
+    )
+
+    response = await client.post(
+        "/share/lists/Einkauf/tick",
+        json={"line": 6, "done": False, "sha": ticked.json()["sha"]},
+    )
+
+    written = (folder / "Einkauf.md").read_text(encoding="utf-8")
+    assert ticked.status_code == 200
+    assert response.status_code == 200
+    assert re.search(r"^- \[ \] Brot 🆔 kt-[0-9a-f]{6} \^abc$", written, re.MULTILINE)
+    assert body_of(written).count("\n") == 2
+
+
+async def test_1056_tick_keeps_a_bare_done_sign_among_the_words(
+    client: AsyncClient, folder: Path
+) -> None:
+    sha = put(folder, BLOCK + "- [ ] Haken ✅ kaufen\n")
+
+    response = await client.post(
+        "/share/lists/Einkauf/tick", json={"line": 6, "done": True, "sha": sha}
+    )
+
+    written = (folder / "Einkauf.md").read_text(encoding="utf-8")
+    today = date.today().isoformat()
+    assert response.status_code == 200
+    assert re.search(
+        rf"^- \[x\] Haken ✅ kaufen ✅ {today} 🆔 kt-[0-9a-f]{{6}}$", written, re.MULTILINE
+    )
+
+
+async def test_1056_tick_keeps_a_done_date_inside_a_code_span(
+    client: AsyncClient, folder: Path
+) -> None:
+    sha = put(folder, BLOCK + "- [ ] see `✅ 2026-01-01`\n")
+
+    response = await client.post(
+        "/share/lists/Einkauf/tick", json={"line": 6, "done": True, "sha": sha}
+    )
+
+    written = (folder / "Einkauf.md").read_text(encoding="utf-8")
+    today = date.today().isoformat()
+    assert response.status_code == 200
+    assert re.search(
+        rf"^- \[x\] see `✅ 2026-01-01` ✅ {today} 🆔 kt-[0-9a-f]{{6}}$", written, re.MULTILINE
+    )
+
+
+async def test_1056_untick_keeps_a_bare_done_sign_among_the_words(
+    client: AsyncClient, folder: Path
+) -> None:
+    sha = put(folder, BLOCK + "- [x] Haken ✅ kaufen ✅ 2026-10-19 🆔 kt-000001\n")
+
+    response = await client.post(
+        "/share/lists/Einkauf/tick", json={"line": 6, "done": False, "sha": sha}
+    )
+
+    assert response.status_code == 200
+    assert body_of((folder / "Einkauf.md").read_text(encoding="utf-8")) == (
+        "\n- [ ] Haken ✅ kaufen 🆔 kt-000001\n"
+    )
+
+
+async def test_1056_untick_keeps_a_done_date_inside_a_code_span(
+    client: AsyncClient, folder: Path
+) -> None:
+    sha = put(folder, BLOCK + "- [x] see `✅ 2026-01-01` ✅ 2026-10-19 🆔 kt-000001\n")
+
+    response = await client.post(
+        "/share/lists/Einkauf/tick", json={"line": 6, "done": False, "sha": sha}
+    )
+
+    assert response.status_code == 200
+    assert body_of((folder / "Einkauf.md").read_text(encoding="utf-8")) == (
+        "\n- [ ] see `✅ 2026-01-01` 🆔 kt-000001\n"
+    )
+
+
+async def test_1058_tick_keeps_the_id_before_a_trailing_block_id(
+    client: AsyncClient, folder: Path
+) -> None:
+    sha = put(folder, BLOCK + "- [ ] Haken ✅ kaufen 🆔 kt-000001 ^abc\n")
+
+    response = await client.post(
+        "/share/lists/Einkauf/tick", json={"line": 6, "done": True, "sha": sha}
+    )
+
+    today = date.today().isoformat()
+    assert response.status_code == 200
+    assert body_of((folder / "Einkauf.md").read_text(encoding="utf-8")) == (
+        f"\n- [x] Haken ✅ kaufen ✅ {today} 🆔 kt-000001 ^abc\n"
+    )
+
+
+async def test_1058_tick_keeps_crlf_and_the_block_id_last(
+    client: AsyncClient, folder: Path
+) -> None:
+    sha = put(folder, (BLOCK + "- [ ] Brot ^abc\n").replace("\n", "\r\n"))
+
+    response = await client.post(
+        "/share/lists/Einkauf/tick", json={"line": 6, "done": True, "sha": sha}
+    )
+
+    written = (folder / "Einkauf.md").read_bytes().decode("utf-8")
+    today = date.today().isoformat()
+    assert response.status_code == 200
+    assert re.search(
+        rf"^- \[x\] Brot ✅ {today} 🆔 kt-[0-9a-f]{{6}} \^abc\r$", written, re.MULTILINE
+    )
+
+
+async def test_1058_read_after_a_tick_names_the_item_without_its_block_id(
+    client: AsyncClient, folder: Path
+) -> None:
+    sha = put(folder, BLOCK + "- [ ] Brot ^abc\n")
+
+    tick = await client.post(
+        "/share/lists/Einkauf/tick", json={"line": 6, "done": True, "sha": sha}
+    )
+
+    assert tick.status_code == 200
+    assert tick.json()["items"] == [{"line": 6, "text": "Brot", "done": True, "assignee": None}]
+
+
+async def test_1056_untick_keeps_a_dateless_done_sign(client: AsyncClient, folder: Path) -> None:
+    sha = put(folder, BLOCK + "- [x] Brot ✅ 🆔 kt-000001\n")
+
+    response = await client.post(
+        "/share/lists/Einkauf/tick", json={"line": 6, "done": False, "sha": sha}
+    )
+
+    assert response.status_code == 200
+    assert body_of((folder / "Einkauf.md").read_text(encoding="utf-8")) == (
+        "\n- [ ] Brot ✅ 🆔 kt-000001\n"
+    )
