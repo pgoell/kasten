@@ -83,6 +83,7 @@ describe("Editor following a link inside bold or another mark (#432)", () => {
   it("opens a markdown link's address in bold on ctrl+click (I3)", () => {
     const open = vi.spyOn(window, "open").mockReturnValue(null);
     const { container } = render(<Editor initialDoc="see **[mail](https://example.com/a)** now" />);
+    finishParsing(container);
 
     fireEvent.mouseDown(textIn(container, "mail"), { ctrlKey: true });
 
@@ -95,6 +96,7 @@ describe("Editor following a link inside bold or another mark (#432)", () => {
     const { container } = render(
       <Editor initialDoc="see **[[borges]]** now" onFollow={onFollow} />,
     );
+    finishParsing(container);
 
     fireEvent.mouseDown(textIn(container, "borges"));
 
@@ -106,6 +108,7 @@ describe("Editor following a link inside bold or another mark (#432)", () => {
     const { container } = render(
       <Editor initialDoc={"intro\n\nsee **[[borges]]** now"} onFollow={onFollow} />,
     );
+    finishParsing(container);
     const content = container.querySelector(".cm-content") as HTMLElement;
     const tap = () => {
       fireEvent.pointerDown(textIn(container, "borges"), { pointerType: "touch" });
@@ -128,6 +131,7 @@ describe("Editor following a link inside bold or another mark (#432)", () => {
     const open = vi.spyOn(window, "open").mockReturnValue(null);
     const onFollow = vi.fn();
     const { container } = render(<Editor initialDoc={`intro\n\n${doc}`} onFollow={onFollow} />);
+    finishParsing(container);
 
     fireEvent.mouseDown(textIn(container, "text"), { ctrlKey: true });
     fireEvent.mouseDown(textIn(container, "text"), { metaKey: true });
@@ -144,6 +148,7 @@ describe("Editor following a link inside bold or another mark (#432)", () => {
     const { container } = render(
       <Editor initialDoc={"intro\n\nsee [mail](https://example.com/a) now"} />,
     );
+    finishParsing(container);
 
     fireEvent.pointerDown(textIn(container, "mail"), { pointerType: "touch" });
     fireEvent.click(textIn(container, "mail"));
@@ -165,6 +170,7 @@ describe("Editor following a link inside bold or another mark (#432)", () => {
       const { container } = render(
         <Editor initialDoc={`intro\n\n${doc}\n\n[docs]: https://example.com/a`} />,
       );
+      finishParsing(container);
 
       fireEvent.mouseDown(textIn(container, text), { ctrlKey: true });
       fireEvent.mouseDown(textIn(container, text), { metaKey: true });
@@ -185,6 +191,7 @@ describe("Editor following a link inside bold or another mark (#432)", () => {
     const { container } = render(
       <Editor initialDoc={`intro\n\n${doc}\n\n[docs]: https://example.com/a`} />,
     );
+    finishParsing(container);
     const tap = () => {
       fireEvent.pointerDown(textIn(container, text), { pointerType: "touch" });
       fireEvent.click(textIn(container, text));
@@ -214,6 +221,7 @@ describe("Editor following a link inside bold or another mark (#432)", () => {
       "[vb]: vbscript:x",
     ];
     const { container } = render(<Editor initialDoc={doc.join("\n")} />);
+    finishParsing(container);
     const both = (text: string) => {
       fireEvent.mouseDown(textIn(container, text), { ctrlKey: true });
       fireEvent.pointerDown(textIn(container, text), { pointerType: "touch" });
@@ -233,6 +241,7 @@ describe("Editor following a link inside bold or another mark (#432)", () => {
     const { container } = render(
       <Editor initialDoc={"intro\n\nsee [docs] here\n\n[docs]: https://example.com/a"} />,
     );
+    finishParsing(container);
 
     fireEvent.mouseDown(textIn(container, "docs"));
     expect(open).not.toHaveBeenCalled();
@@ -247,6 +256,7 @@ describe("Editor following a link inside bold or another mark (#432)", () => {
     const { container } = render(
       <Editor initialDoc={"[docs]: https://example.com/a\n\nsee [Docs] here"} />,
     );
+    finishParsing(container);
     const content = container.querySelector(".cm-content") as HTMLElement;
     // `Docs` rather than `docs`, which the definition above spells first.
     const tap = () => {
@@ -273,6 +283,7 @@ describe("Editor following a link inside bold or another mark (#432)", () => {
     const { container } = render(
       <Editor initialDoc={"intro\n\nsee [a](<https://example.com>) now"} />,
     );
+    finishParsing(container);
 
     fireEvent.mouseDown(textIn(container, "a"), { ctrlKey: true });
     fireEvent.mouseDown(textIn(container, "a"), { metaKey: true });
@@ -288,6 +299,7 @@ describe("Editor following a link inside bold or another mark (#432)", () => {
     const { container } = render(
       <Editor initialDoc={"intro\n\nsee [a](<https://example.com>) now"} />,
     );
+    finishParsing(container);
     const tap = () => {
       fireEvent.pointerDown(textIn(container, "a"), { pointerType: "touch" });
       fireEvent.click(textIn(container, "a"));
@@ -307,6 +319,7 @@ describe("Editor following a link inside bold or another mark (#432)", () => {
   ])("I4 opens %s with its backslash escape undone (#447)", (_, doc, address) => {
     const open = vi.spyOn(window, "open").mockReturnValue(null);
     const { container } = render(<Editor initialDoc={`intro\n\n${doc}`} />);
+    finishParsing(container);
 
     fireEvent.mouseDown(textIn(container, "a"), { ctrlKey: true });
 
