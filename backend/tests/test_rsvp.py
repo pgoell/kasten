@@ -7,10 +7,14 @@ Postgres can say whether a second save lands on the first row.
 from typing import TYPE_CHECKING
 
 import pytest
-from sqlalchemy import delete
+from sqlalchemy import text
+from sqlalchemy.exc import OperationalError
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.pool import NullPool
 
-from kasten_backend.db import engine, session_factory
-from kasten_backend.rsvp import RsvpPlace
+from kasten_backend.config import get_settings
+from kasten_backend.db import get_session
+from kasten_backend.main import app
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -19,22 +23,36 @@ if TYPE_CHECKING:
     from httpx import AsyncClient
 
 
-async def clear() -> None:
-    async with session_factory() as session:
-        await session.execute(delete(RsvpPlace))
-        await session.commit()
-
-
 @pytest.fixture(autouse=True)
 async def places() -> AsyncIterator[None]:
-    """An empty table before each test, and after it.
+    """The routes' session, on a transaction rolled back after the test.
 
-    The engine is disposed at the end because its pool holds connections bound
-    to this test's event loop, and the next test runs on another.
+    The pattern of `finance_session` in conftest, and skipped the same way: the
+    dev database is shared with checkouts that have no `rsvp_places` table.
     """
-    await clear()
+    engine = create_async_engine(get_settings().database_url, poolclass=NullPool)
+    try:
+        connection = await engine.connect()
+    except OperationalError:
+        await engine.dispose()
+        pytest.skip("No database answers at KASTEN_DATABASE_URL")
+    outer = await connection.begin()
+    if await connection.scalar(text("SELECT to_regclass('rsvp_places')")) is None:
+        await connection.close()
+        await engine.dispose()
+        pytest.skip("No rsvp_places table in the database: run `mise run db:migrate`")
+    session = AsyncSession(
+        bind=connection, join_transaction_mode="create_savepoint", expire_on_commit=False
+    )
+    app.dependency_overrides[get_session] = lambda: session
+
     yield
-    await clear()
+
+    # The `vault` fixture clears every override on its way out, which may come first.
+    app.dependency_overrides.pop(get_session, None)
+    await session.close()
+    await outer.rollback()
+    await connection.close()
     await engine.dispose()
 
 

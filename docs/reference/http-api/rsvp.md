@@ -15,6 +15,10 @@ path, in the query. It may name a note (`.md`), an HTML page (`.html`) or an
 asset such as a PDF or an EPUB, and the file must be there: a path the vault would not take, or one with
 no file at it, is a `404` with `{"detail": "No such file"}`.
 
+With no database to reach, both answer `503` with
+`{"detail": "No database answers at KASTEN_DATABASE_URL, where finance and RSVP places are kept. See docs/reference/configuration.md."}`,
+as the finance routes do. The self-host stack runs that way.
+
 The place is keyed by the vault's own spelling of the path, so
 `reading/./borges.md` and `reading/borges.md` are one row. A book's note and
 the book beside it are two paths and so two rows; which one a client saves

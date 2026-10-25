@@ -1,8 +1,8 @@
 """Add rsvp_places, the reading place of each file an RSVP run stopped in.
 
-Revision ID: 28629df4dafd
-Revises:
-Create Date: 2026-10-25 17:55:53.769918
+Revision ID: 0006
+Revises: 0005
+Create Date: 2026-10-25
 
 """
 
@@ -14,8 +14,8 @@ from alembic import op
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-revision: str = "28629df4dafd"
-down_revision: str | Sequence[str] | None = None
+revision: str = "0006"
+down_revision: str | Sequence[str] | None = "0005"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
