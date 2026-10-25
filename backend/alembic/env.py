@@ -30,9 +30,10 @@ if config.config_file_name is not None:
 # comparing everything in one pass.
 target_metadata = Base.metadata
 
-# The schemas alembic may compare and write. The prod database sits on a
-# shared Postgres container, so a schema kasten did not make is left alone.
-OWN_SCHEMAS = {None, "public", "finance"}
+# The schemas alembic may compare and write; a schema kasten did not make, an
+# extension's for example, is left alone. Alembic reports the default schema
+# as None.
+OWN_SCHEMAS = {None, "finance"}
 
 
 def include_name(name: str | None, type_: str, parent_names: object) -> bool:

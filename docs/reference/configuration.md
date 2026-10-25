@@ -41,7 +41,8 @@ both.
 postgresql+psycopg://kasten:kasten@localhost:5434/kasten_dev
 ```
 
-The SQLAlchemy URL for the derived index. It never holds note content.
+The SQLAlchemy URL for the derived index and the finance schema. It never holds
+notes.
 
 Only Alembic reads it today. No module the running backend imports opens a
 connection, which is why the [self-host stack](/how-to/self-host-kasten.md)

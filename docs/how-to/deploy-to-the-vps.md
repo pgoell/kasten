@@ -183,6 +183,13 @@ waits for the backend healthcheck.
 **Rollback.** Run the `Deploy production` workflow by hand with the `tag` input
 set to an older release. It skips the build and redeploys that tag.
 
+A release older than a migration does not know that migration's revision, so
+its `alembic upgrade head` fails and the backend never starts. Before rolling
+back past one, undo it with the image that has it: run `alembic downgrade <rev>`
+in the current `kasten-migrate-prod` image, `<rev>` being the newest revision
+the older release ships, or `base` before `0001`. A downgrade that would drop
+finance rows fails rather than drop them.
+
 ## Open the agent door
 
 Do this once, and only after the release carrying the token gate is live. A

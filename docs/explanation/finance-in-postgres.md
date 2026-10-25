@@ -12,8 +12,8 @@ status: draft
 kasten has [one rule](/explanation/vault-and-derived-index.md): the vault is
 the source of truth, and nothing that only exists in the database is allowed
 to matter. Finance breaks it on purpose. Transactions, budgets, plans and goals
-live in a `finance` schema in Postgres, and nothing in the vault can rebuild
-them.
+will live in a `finance` schema in Postgres, and nothing in the vault will be
+able to rebuild them.
 
 Every feature before this one turned Postgres down. The flashcard schedule went
 into the note, the food you make up went into `foods.md`, the shared lists
@@ -59,13 +59,14 @@ It was turned down for three reasons:
 
 SQLite would be one file with an hourly backup, as other services on the same
 box keep. Postgres won on smaller points: kasten's dev, CI and prod already run
-it, Alembic already points at it, prod sits on a shared container that is
-already dumped every night, and `numeric` holds exact amounts. Nothing at this
+it, Alembic already points at it, the host's nightly offsite backup already
+dumps the whole prod database, and `numeric` holds exact amounts. Nothing at this
 size needs Postgres for speed: about 20,000 transactions in twenty years.
 
 ## Agents read everything
 
-An agent with a token may read single transactions, not only totals. The first
+The finance module lets an agent with a token read single transactions, not
+only totals. The first
 design gave agents summary views and nothing else, enforced by a database role.
 It was dropped (2026-10-25): finance is useful to an agent mostly in the
 detail, a payee, a duplicate, a missed refund.
@@ -82,15 +83,20 @@ slow rebuild, so:
 
 - `db:reset` on a dev database loses that database's finance rows. Dev rows are
   test data, and the reset stays safe there. It was never safe against prod.
-- Prod needs a dump of the `finance` schema on a schedule, written as code on
-  the host beside the vault backup. It lands with the first finance data.
+- Prod's `finance` schema is in the nightly offsite dump of `kasten_prod`, as
+  the whole database is. The vault gets an hourly local backup as well; the
+  finance rows get one when they arrive (#1033), so a bad edit costs at most an
+  hour rather than a day.
+- A rollback to a release older than a migration needs that migration undone
+  first, with the newer image: the older image does not know the revision. See
+  [Deploy to the VPS](/how-to/deploy-to-the-vps.md).
 
 ## What is deliberately not here
 
 - **No finance data in the vault.** No export into notes, no ledger mirror. One
   copy, in one place.
-- **No second database role.** Agents reach finance through kasten's routes
-  like everything else, so a role would guard nothing they could otherwise
-  reach.
+- **No second database role.** Agents will reach finance through kasten's
+  routes like everything else, so a role would guard nothing they could
+  otherwise reach.
 - **No index of the vault in the same schema.** The derived index, when it
   comes, stays outside `finance` and stays disposable.
