@@ -13,7 +13,9 @@ import {
   liveHooks,
   mount,
   mounted,
+  parsed,
   plain,
+  stalled,
 } from "./live-preview-fixture";
 
 liveHooks();
@@ -105,7 +107,10 @@ describe("an embed", () => {
     const view = mount(`${ABOVE}![[b]]`, plain(vault.source));
     const box = view.dom.querySelector(".cm-embed");
 
-    view.dispatch({ changes: { from: 0, insert: "more " } });
+    // The edit's parse may run out of time under load; the box must still be
+    // the one drawn before it once the parse is done.
+    stalled(() => view.dispatch({ changes: { from: 0, insert: "more " } }));
+    parsed(view);
     vault.push("b.md", "second");
 
     expect(view.dom.querySelector(".cm-embed")).toBe(box);
@@ -329,9 +334,14 @@ describe("an embed", () => {
     const vault = fakeVault({ "b.md": "body", "c.md": "other" });
     const view = mount(`${ABOVE}![[b]]`, plain(vault.source, ["b.md", "c.md"]));
 
-    view.dispatch({
-      changes: { from: view.state.doc.length - 3, to: view.state.doc.length - 2, insert: "c" },
-    });
+    // A parse that runs out of time under load must not stop the embed's
+    // listener from being dropped once the note is parsed.
+    stalled(() =>
+      view.dispatch({
+        changes: { from: view.state.doc.length - 3, to: view.state.doc.length - 2, insert: "c" },
+      }),
+    );
+    parsed(view);
     expect(vault.listening("b.md")).toBe(0);
     expect(vault.listening("c.md")).toBe(1);
 

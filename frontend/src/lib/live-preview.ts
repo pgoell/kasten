@@ -1,4 +1,4 @@
-import { syntaxTree } from "@codemirror/language";
+import { syntaxTree, syntaxTreeAvailable } from "@codemirror/language";
 import { EditorState, type Extension, type RangeSet, StateField } from "@codemirror/state";
 import { Decoration, type DecorationSet, EditorView } from "@codemirror/view";
 import { embedSource } from "@/lib/embed";
@@ -208,6 +208,16 @@ function build(state: EditorState): Live {
 const live = StateField.define<Live>({
   create: build,
   update(value, tr) {
+    // An edit's parse gets 20ms (#1005). Where it runs out, the tree stops
+    // short and a build from it would drop every widget past that point: an
+    // embed would lose its box and remount. The old drawing, moved through the
+    // edit, holds until the idle parse lands and `parsed` below builds again.
+    if (tr.docChanged && syntaxTreeAvailable(tr.startState) && !syntaxTreeAvailable(tr.state)) {
+      return {
+        decorations: value.decorations.map(tr.changes),
+        hidden: value.hidden.map(tr.changes),
+      };
+    }
     // Turning vim off or on arrives by reconfiguration, the way the listing
     // below does, and changes which line shows its source as a mode change does.
     const modeChanged =

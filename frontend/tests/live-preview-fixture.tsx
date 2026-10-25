@@ -35,6 +35,24 @@ export function parsed(view: EditorView): void {
   });
 }
 
+/**
+ * Runs `step` on a clock that jumps 30ms at every read, so a parse inside it
+ * runs out of the 20ms CodeMirror gives each edit, as it can on a loaded
+ * machine (#1005).
+ */
+export function stalled(step: () => void): void {
+  let now = Date.now();
+  const clock = vi.spyOn(Date, "now").mockImplementation(() => {
+    now += 30;
+    return now;
+  });
+  try {
+    step();
+  } finally {
+    clock.mockRestore();
+  }
+}
+
 /** `render` for an `Editor`, its note parsed to the end. */
 export function renderEditor(ui: ReactElement): RenderResult {
   const result = render(ui);
