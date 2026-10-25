@@ -74,8 +74,8 @@ cd frontend && bunx biome lint --only=complexity/noExcessiveCognitiveComplexity 
 
 ## Get past the copy check
 
-`lint:dup` runs jscpd over `frontend/src` and `backend/src` with the settings in
-`.jscpd.json` at the root. A run of at least 70 tokens that appears twice counts
+`lint:dup` runs jscpd over `frontend/src`, `backend/src` and `jobs/src` with
+the settings in `.jscpd.json` at the root. A run of at least 70 tokens that appears twice counts
 as a clone, and the check fails when clones make up more than 1% of the lines.
 Generated code (`api-types.ts`, `routeTree.gen.ts`) and the fonts are left out.
 On `main` the figure is 0.73%, 17 clones.

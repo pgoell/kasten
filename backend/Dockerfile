@@ -2,6 +2,8 @@
 #
 # backend/Dockerfile
 #
+# The backend, and the host jobs under jobs/ beside it.
+#
 # Build context: repo root, so the uv workspace root manifests are reachable.
 #
 # Built for linux/amd64 and linux/arm64. BuildKit fills TARGETARCH with one of
@@ -24,11 +26,15 @@ ENV UV_COMPILE_BYTECODE=1 \
 
 COPY pyproject.toml uv.lock ./
 COPY backend/ backend/
+# The host jobs ride in this image rather than one of their own: a job runs as
+# a one-shot container of the release whose routes it writes through, the way
+# kasten-migrate-prod does. See docs/how-to/run-the-bank-sync.md.
+COPY jobs/ jobs/
 
-# --no-editable installs kasten-backend as a real wheel rather than a .pth
-# editable install. Editable entries point at /app/backend/src, which does not
+# --no-editable installs both packages as real wheels rather than .pth
+# editable installs. Editable entries point at /app/*/src, which does not
 # exist in the runtime stage, so imports would fail there.
-RUN uv sync --frozen --no-dev --no-editable --package kasten-backend
+RUN uv sync --frozen --no-dev --no-editable --package kasten-backend --package kasten-jobs
 
 # jj records every vault write, so the backend needs the binary beside it. The
 # release build is static, which is why it can be lifted into another image.

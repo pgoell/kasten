@@ -1363,6 +1363,106 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/finance/sync": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Status
+         * @description The sync status, and whether a "pull now" waits, which is all a minute's poll reads.
+         */
+        get: operations["read_status_api_finance_sync_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/finance/sync/requests/open": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Open Request
+         * @description The "pull now" that waits, or 404: what the poll unit's `ExecCondition=` asks.
+         */
+        get: operations["read_open_request_api_finance_sync_requests_open_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/finance/sync/requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Write Request
+         * @description Ask for a pull. A request already open is answered instead of a second one.
+         */
+        post: operations["write_request_api_finance_sync_requests_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/finance/sync/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start Run
+         * @description Start a run and claim every open request, or 409 when another run has it.
+         */
+        post: operations["start_run_api_finance_sync_runs_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/finance/sync/runs/{run_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Finish Run
+         * @description Record how the run ended, once, with what it fetched per account.
+         */
+        patch: operations["finish_run_api_finance_sync_runs__run_id__patch"];
+        trace?: never;
+    };
     "/share/lists": {
         parameters: {
             query?: never;
@@ -1979,6 +2079,41 @@ export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         /**
+         * AccountFetch
+         * @description What a run fetched for one account, and what the ingest made of it.
+         */
+        AccountFetch: {
+            /** Account Id */
+            account_id: number;
+            /**
+             * Fetched From
+             * Format: date
+             */
+            fetched_from: string;
+            /**
+             * Fetched Through
+             * Format: date
+             */
+            fetched_through: string;
+            /**
+             * Outcome
+             * @enum {string}
+             */
+            outcome: "ok" | "failed";
+            /**
+             * Created
+             * @default 0
+             */
+            created: number;
+            /**
+             * Skipped
+             * @default 0
+             */
+            skipped: number;
+            /** Error */
+            error?: string | null;
+        };
+        /**
          * AccountIn
          * @description An account as a job sends it. The name is the key it is upserted by.
          */
@@ -2017,6 +2152,26 @@ export interface components {
             kind: string;
             /** Shared */
             shared: boolean;
+        };
+        /**
+         * AccountStatus
+         * @description Where an account stands: its last good window, and the newest booking stored.
+         */
+        AccountStatus: {
+            /** Account Id */
+            account_id: number;
+            /** Name */
+            name: string;
+            /** Iban */
+            iban: string | null;
+            /** Last Good Through */
+            last_good_through: string | null;
+            /** Last Good At */
+            last_good_at: string | null;
+            /** Days Since Success */
+            days_since_success: number | null;
+            /** Newest Booking */
+            newest_booking: string | null;
         };
         /**
          * Add
@@ -2668,6 +2823,21 @@ export interface components {
             changed: number;
         };
         /**
+         * RequestOut
+         * @description A "pull now": open while `run_id` is null.
+         */
+        RequestOut: {
+            /** Id */
+            id: number;
+            /**
+             * Requested At
+             * Format: date-time
+             */
+            requested_at: string;
+            /** Run Id */
+            run_id: number | null;
+        };
+        /**
          * Restored
          * @description Where a restored note or folder landed, which is where it was.
          */
@@ -2716,6 +2886,65 @@ export interface components {
             category_id: number;
             /** Id */
             id: number;
+        };
+        /**
+         * RunFinish
+         * @description How a run ended, with a line per account it reached.
+         */
+        RunFinish: {
+            /**
+             * Outcome
+             * @enum {string}
+             */
+            outcome: "ok" | "failed";
+            /** Error */
+            error?: string | null;
+            /**
+             * Accounts
+             * @default []
+             */
+            accounts: components["schemas"]["AccountFetch"][];
+        };
+        /**
+         * RunIn
+         * @description What starts a run: a request the job found open, or its own daily timer.
+         */
+        RunIn: {
+            /**
+             * Trigger
+             * @enum {string}
+             */
+            trigger: "request" | "scheduled";
+        };
+        /**
+         * RunOut
+         * @description A run as stored. `finished_at` and `outcome` are null while it runs.
+         */
+        RunOut: {
+            /** Id */
+            id: number;
+            /** Trigger */
+            trigger: string;
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+            /** Finished At */
+            finished_at: string | null;
+            /** Outcome */
+            outcome: string | null;
+            /** Error */
+            error: string | null;
+        };
+        /**
+         * RunStarted
+         * @description The run, and how many open requests it claimed.
+         */
+        RunStarted: {
+            run: components["schemas"]["RunOut"];
+            /** Claimed */
+            claimed: number;
         };
         /**
          * Save
@@ -2776,6 +3005,21 @@ export interface components {
         Stored: {
             /** Stored */
             stored: number;
+        };
+        /**
+         * SyncStatus
+         * @description The open request, the last run, the last success, and every account.
+         */
+        SyncStatus: {
+            /** Requested At */
+            requested_at: string | null;
+            last_run: components["schemas"]["RunOut"] | null;
+            /** Last Success At */
+            last_success_at: string | null;
+            /** Days Since Success */
+            days_since_success: number | null;
+            /** Accounts */
+            accounts: components["schemas"]["AccountStatus"][];
         };
         /**
          * Tick
@@ -4919,6 +5163,134 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ToSortPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_status_api_finance_sync_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SyncStatus"];
+                };
+            };
+        };
+    };
+    read_open_request_api_finance_sync_requests_open_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestOut"];
+                };
+            };
+        };
+    };
+    write_request_api_finance_sync_requests_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestOut"];
+                };
+            };
+        };
+    };
+    start_run_api_finance_sync_runs_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RunIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunStarted"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    finish_run_api_finance_sync_runs__run_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RunFinish"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunOut"];
                 };
             };
             /** @description Validation Error */

@@ -6,7 +6,10 @@ from alembic import context
 from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
-from kasten_backend import finance_models  # noqa: F401  (registers the finance tables)
+from kasten_backend import (  # noqa: F401  (registers the finance tables)
+    finance_models,
+    finance_sync_models,
+)
 from kasten_backend.config import get_settings
 from kasten_backend.db import Base
 

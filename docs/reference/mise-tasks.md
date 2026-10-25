@@ -59,7 +59,7 @@ the other two services run stock images and rebuild nothing.
 | Task | What it does |
 |---|---|
 | `test` | Backend, frontend and chat runner tests |
-| `test:py` | Backend tests only |
+| `test:py` | Backend and host job (`jobs/`) tests |
 | `fe:test` | Frontend tests only, the `unit` and `perf` projects |
 | `shell:test` | The chat runner's tests, on node's own test runner against a scripted session |
 | `chat:stub` | Run the chat runner on `127.0.0.1:7682` with a scripted session, no SDK and no login. `fe:dev` proxies `/chat` to it |
@@ -113,9 +113,9 @@ container has no mise, so run that line there instead, as
 | Task | What it does |
 |---|---|
 | `lint` | ruff, ty, Biome on both JavaScript trees, `tsc`, the file-size and the copy check. The pre-commit gate and CI's Lint job |
-| `lint:py` | Backend lint, format check and type check |
+| `lint:py` | Backend and host job lint, format check and type check |
 | `lint:size` | Check every tracked file against the 5,000-token limit |
-| `lint:dup` | Fail when more than 1% of `frontend/src` and `backend/src` is copied code (jscpd) |
+| `lint:dup` | Fail when more than 1% of `frontend/src`, `backend/src` and `jobs/src` is copied code (jscpd) |
 | `fe:lint` | Biome on the frontend |
 | `shell:lint` | Biome on `shell/chat`, with the frontend's binary and rules |
 | `fmt` | Format everything |

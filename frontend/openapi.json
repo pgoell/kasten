@@ -2644,6 +2644,152 @@
         }
       }
     },
+    "/api/finance/sync": {
+      "get": {
+        "summary": "Read Status",
+        "description": "The sync status, and whether a \"pull now\" waits, which is all a minute's poll reads.",
+        "operationId": "read_status_api_finance_sync_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncStatus"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/finance/sync/requests/open": {
+      "get": {
+        "summary": "Read Open Request",
+        "description": "The \"pull now\" that waits, or 404: what the poll unit's `ExecCondition=` asks.",
+        "operationId": "read_open_request_api_finance_sync_requests_open_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/finance/sync/requests": {
+      "post": {
+        "summary": "Write Request",
+        "description": "Ask for a pull. A request already open is answered instead of a second one.",
+        "operationId": "write_request_api_finance_sync_requests_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/finance/sync/runs": {
+      "post": {
+        "summary": "Start Run",
+        "description": "Start a run and claim every open request, or 409 when another run has it.",
+        "operationId": "start_run_api_finance_sync_runs_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RunIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunStarted"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/finance/sync/runs/{run_id}": {
+      "patch": {
+        "summary": "Finish Run",
+        "description": "Record how the run ended, once, with what it fetched per account.",
+        "operationId": "finish_run_api_finance_sync_runs__run_id__patch",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RunFinish"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/share/lists": {
       "get": {
         "tags": [
@@ -3622,6 +3768,64 @@
   },
   "components": {
     "schemas": {
+      "AccountFetch": {
+        "properties": {
+          "account_id": {
+            "type": "integer",
+            "title": "Account Id"
+          },
+          "fetched_from": {
+            "type": "string",
+            "format": "date",
+            "title": "Fetched From"
+          },
+          "fetched_through": {
+            "type": "string",
+            "format": "date",
+            "title": "Fetched Through"
+          },
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "failed"
+            ],
+            "title": "Outcome"
+          },
+          "created": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Created",
+            "default": 0
+          },
+          "skipped": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Skipped",
+            "default": 0
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          }
+        },
+        "type": "object",
+        "required": [
+          "account_id",
+          "fetched_from",
+          "fetched_through",
+          "outcome"
+        ],
+        "title": "AccountFetch",
+        "description": "What a run fetched for one account, and what the ingest made of it."
+      },
       "AccountIn": {
         "properties": {
           "name": {
@@ -3727,6 +3931,88 @@
         ],
         "title": "AccountOut",
         "description": "An account as stored, with the id bookings and balances name it by."
+      },
+      "AccountStatus": {
+        "properties": {
+          "account_id": {
+            "type": "integer",
+            "title": "Account Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "iban": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Iban"
+          },
+          "last_good_through": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Good Through"
+          },
+          "last_good_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Good At"
+          },
+          "days_since_success": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Days Since Success"
+          },
+          "newest_booking": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Newest Booking"
+          }
+        },
+        "type": "object",
+        "required": [
+          "account_id",
+          "name",
+          "iban",
+          "last_good_through",
+          "last_good_at",
+          "days_since_success",
+          "newest_booking"
+        ],
+        "title": "AccountStatus",
+        "description": "Where an account stands: its last good window, and the newest booking stored."
       },
       "Add": {
         "properties": {
@@ -5232,6 +5518,38 @@
         "title": "Ran",
         "description": "How many bookings and splits a run of the rules gave another category."
       },
+      "RequestOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "requested_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Requested At"
+          },
+          "run_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Run Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "requested_at",
+          "run_id"
+        ],
+        "title": "RequestOut",
+        "description": "A \"pull now\": open while `run_id` is null."
+      },
       "Restored": {
         "properties": {
           "path": {
@@ -5339,6 +5657,142 @@
         ],
         "title": "RuleOut",
         "description": "A rule as stored."
+      },
+      "RunFinish": {
+        "properties": {
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "failed"
+            ],
+            "title": "Outcome"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "accounts": {
+            "items": {
+              "$ref": "#/components/schemas/AccountFetch"
+            },
+            "type": "array",
+            "maxItems": 100,
+            "title": "Accounts",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "outcome"
+        ],
+        "title": "RunFinish",
+        "description": "How a run ended, with a line per account it reached."
+      },
+      "RunIn": {
+        "properties": {
+          "trigger": {
+            "type": "string",
+            "enum": [
+              "request",
+              "scheduled"
+            ],
+            "title": "Trigger"
+          }
+        },
+        "type": "object",
+        "required": [
+          "trigger"
+        ],
+        "title": "RunIn",
+        "description": "What starts a run: a request the job found open, or its own daily timer."
+      },
+      "RunOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "trigger": {
+            "type": "string",
+            "title": "Trigger"
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Started At"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "outcome": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outcome"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "trigger",
+          "started_at",
+          "finished_at",
+          "outcome",
+          "error"
+        ],
+        "title": "RunOut",
+        "description": "A run as stored. `finished_at` and `outcome` are null while it runs."
+      },
+      "RunStarted": {
+        "properties": {
+          "run": {
+            "$ref": "#/components/schemas/RunOut"
+          },
+          "claimed": {
+            "type": "integer",
+            "title": "Claimed"
+          }
+        },
+        "type": "object",
+        "required": [
+          "run",
+          "claimed"
+        ],
+        "title": "RunStarted",
+        "description": "The run, and how many open requests it claimed."
       },
       "Save": {
         "properties": {
@@ -5516,6 +5970,72 @@
         ],
         "title": "Stored",
         "description": "How many balances a post stored, new or replacing a figure for the same day."
+      },
+      "SyncStatus": {
+        "properties": {
+          "requested_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requested At"
+          },
+          "last_run": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RunOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "last_success_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Success At"
+          },
+          "days_since_success": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Days Since Success"
+          },
+          "accounts": {
+            "items": {
+              "$ref": "#/components/schemas/AccountStatus"
+            },
+            "type": "array",
+            "title": "Accounts"
+          }
+        },
+        "type": "object",
+        "required": [
+          "requested_at",
+          "last_run",
+          "last_success_at",
+          "days_since_success",
+          "accounts"
+        ],
+        "title": "SyncStatus",
+        "description": "The open request, the last run, the last success, and every account."
       },
       "Tick": {
         "properties": {

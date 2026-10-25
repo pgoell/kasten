@@ -83,9 +83,9 @@ jobs:
             # What goes into each image, as the Dockerfiles copy it. The
             # backend takes the root lockfile and project file too, which is
             # also what makes every release rebuild it: the version bump lands
-            # there.
+            # there. It carries the host jobs as well.
             case "$component" in
-              backend) sources="backend pyproject.toml uv.lock" ;;
+              backend) sources="backend jobs pyproject.toml uv.lock" ;;
               frontend) sources="frontend" ;;
               shell) sources="shell" ;;
             esac

@@ -1,7 +1,7 @@
 {
   "minTokens": 70,
   "threshold": 1,
-  "path": ["frontend/src", "backend/src"],
+  "path": ["frontend/src", "backend/src", "jobs/src"],
   "ignore": ["**/api-types.ts", "**/routeTree.gen.ts", "**/fonts/**"],
   "gitignore": true,
   "reporters": ["console"]
