@@ -114,7 +114,8 @@ longest pattern first and then by id.
 Makes a rule from `kind` (`text_contains` or `payee`), `pattern` and
 `category_id`, runs the rules over every booking, and answers it. A rule of
 the same kind and pattern is a `409`, and a category that does not exist a
-`422`.
+`422`. So is a pattern with no letter or digit in it: a payee pattern such as
+`-` cleans to nothing, which is in every payee's key.
 
 ## PUT /api/finance/rules/{rule_id}
 

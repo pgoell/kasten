@@ -186,7 +186,8 @@ Puts the list in place of the booking's splits, and answers with the booking
 as `GET` shows it. The splits must add up to the booking's amount: a set that
 does not is a `422` saying both sums, and nothing changes. The parts may
 differ in sign, as an order with a credit or a refunded item does. An empty
-list removes the splits. The new splits take the rules' categories at once,
+list removes the splits. A category set by hand on an old split goes with it.
+The new splits take the rules' categories at once,
 and the booking gives up a category a rule gave it, since its category now
 lives on the splits.
 

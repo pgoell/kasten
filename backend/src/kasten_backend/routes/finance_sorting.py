@@ -11,7 +11,7 @@ from decimal import Decimal  # noqa: TC003  pydantic reads the annotation at run
 from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, Query, Response
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
@@ -64,11 +64,23 @@ class Choice(BaseModel):
     category_id: int | None
 
 
+def _says_something(pattern: str) -> str:
+    """A pattern with a letter or digit in it, refusing one that would match every booking.
+
+    A payee pattern is cleaned like a payee name, so `-` cleans to nothing, and
+    nothing is in every key. A text pattern of spaces is in nearly every purpose.
+    """
+    if not any(char.isalnum() for char in pattern):
+        msg = "A pattern needs a letter or a digit"
+        raise ValueError(msg)
+    return pattern
+
+
 class RuleIn(BaseModel):
     """A rule as the browser sends it."""
 
     kind: RuleKind
-    pattern: Name
+    pattern: Annotated[str, AfterValidator(_says_something)]
     category_id: int
 
 

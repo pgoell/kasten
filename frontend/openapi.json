@@ -5295,7 +5295,6 @@
           },
           "pattern": {
             "type": "string",
-            "minLength": 1,
             "title": "Pattern"
           },
           "category_id": {
@@ -5324,7 +5323,6 @@
           },
           "pattern": {
             "type": "string",
-            "minLength": 1,
             "title": "Pattern"
           },
           "category_id": {

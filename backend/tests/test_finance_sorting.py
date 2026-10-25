@@ -274,3 +274,13 @@ async def test_a_repeated_rule_is_a_409_and_one_on_no_category_a_422(
 
     assert again.status_code == 409
     assert nowhere.status_code == 422
+
+
+async def test_a_pattern_without_a_letter_or_digit_is_refused(finance_client: AsyncClient) -> None:
+    food = await category(finance_client, "Food")
+
+    dash = await finance_client.post(
+        f"{API}/rules", json={"kind": "payee", "pattern": " - ", "category_id": food}
+    )
+
+    assert dash.status_code == 422
