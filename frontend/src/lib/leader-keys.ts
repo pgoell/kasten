@@ -87,6 +87,9 @@ export const LEADER: readonly LeaderBinding[] = [
   // name, so it sits beside the note and the line rather than under `g`, which
   // is where the pane holding the same list lives.
   { key: "ft", label: "Find a todo", command: "findTodos" },
+  // `g` for go and `a` for at a glance: the overview of the week's numbers. `o`
+  // is spent on the links out, so the word overview does not give the letter.
+  { key: "ga", label: "Open the overview", command: "openOverview" },
   // `g` for go, then the direction. Obsidian calls the pair backlinks and
   // outgoing links, and `b` and `o` are those two words. Neither can be a bare
   // letter: `b` folds the tree away and `o` opens a line in vim.
@@ -241,6 +244,7 @@ export const LEADER_COLUMNS: readonly { title: string; keys: readonly string[] }
   {
     title: "Go to",
     keys: [
+      "ga",
       "gd",
       "gw",
       "gm",

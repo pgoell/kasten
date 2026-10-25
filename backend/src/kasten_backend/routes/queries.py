@@ -1,5 +1,7 @@
 """Routes that query the vault's notes: search, mentions, history, todos, cards, tags, graph."""
 
+import asyncio
+from datetime import date, timedelta
 from typing import TYPE_CHECKING, Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -10,13 +12,15 @@ from kasten_backend.config import Settings, get_settings
 from kasten_backend.graph import MOST_DEPTH, Graph, GraphError
 from kasten_backend.graph_query import query_graph
 from kasten_backend.history import HistoryError, list_changes, plain, read_version
+from kasten_backend.log import DATE_PATTERN
 from kasten_backend.mentions import find_mentions
 from kasten_backend.search import search_vault
-from kasten_backend.search_meta import notes_meta
+from kasten_backend.search_meta import day_of, notes_meta
 from kasten_backend.tags import find_tags
 from kasten_backend.todos import find_todos, projects_of
 from kasten_backend.vault import (
     list_markdown_files,
+    read_note,
     relative_path,
     resolve_note,
     resolve_path,
@@ -26,6 +30,13 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 router = APIRouter()
+
+EXTRA_DAY = timedelta(days=1)
+"""How far past each end of `from` and `to` a written day may fall and still be answered.
+
+An instant is a different local day for the reader, so the client drops what
+falls outside its own days. The extra day each side is what it works from.
+"""
 
 
 class LineHit(BaseModel):
@@ -300,6 +311,53 @@ async def list_cards(
     """
     hits = await find_cards(settings.vault_path, None if archive else settings.archive_path)
     return [LineHit(path=hit.path, line=hit.line, text=hit.text) for hit in hits]
+
+
+def _written_on(root: Path, paths: list[str], first: date, last: date) -> list[str]:
+    """The day each of `paths` counts on, where that day falls in the range and a day each side."""
+    # Clamped at the calendar's ends, where a day either side would overflow.
+    low = (first - EXTRA_DAY if first > date.min else first).isoformat()
+    high = (last + EXTRA_DAY if last < date.max else last).isoformat()
+    found: list[str] = []
+    for path in paths:
+        try:
+            text = read_note(root, path)
+        except UnicodeDecodeError, OSError:
+            # A note the client cannot open is still dated by its name and its file.
+            text = None
+        day = day_of(root, path, text)
+        # The first ten characters are the day as written, which an instant starts with too.
+        if day is not None and low <= day[:10] <= high:
+            found.append(day)
+    return sorted(found)
+
+
+@router.get("/api/written")
+async def list_written(
+    start: Annotated[str, Query(alias="from", pattern=DATE_PATTERN)],
+    end: Annotated[str, Query(alias="to", pattern=DATE_PATTERN)],
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> list[str]:
+    """The day each note outside the archive counts on, for the notes written from `from` to `to`.
+
+    Each answer is the date a note counts on, as search dates its hits: the name's
+    day, else `created`, else the file's modification time. A day is an answer
+    as written, and an instant keeps its offset, so the client works out the
+    reader's own day. A day either side of the range is answered too, for the
+    same reason. Sorted, and read only: nothing is written or stored.
+    """
+    try:
+        first, last = date.fromisoformat(start), date.fromisoformat(end)
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail="`from` and `to` must be real dates") from error
+    if first > last:
+        raise HTTPException(status_code=400, detail="`from` is after `to`")
+
+    archive = f"{settings.archive_path}/"
+    paths = [
+        path for path in list_markdown_files(settings.vault_path) if not path.startswith(archive)
+    ]
+    return await asyncio.to_thread(_written_on, settings.vault_path, paths, first, last)
 
 
 @router.get("/api/review/limits")

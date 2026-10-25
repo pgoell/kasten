@@ -1175,6 +1175,61 @@
         }
       }
     },
+    "/api/written": {
+      "get": {
+        "summary": "List Written",
+        "description": "The day each note outside the archive counts on, for the notes written from `from` to `to`.\n\nEach answer is the date a note counts on, as search dates its hits: the name's\nday, else `created`, else the file's modification time. A day is an answer\nas written, and an instant keeps its offset, so the client works out the\nreader's own day. A day either side of the range is answered too, for the\nsame reason. Sorted, and read only: nothing is written or stored.",
+        "operationId": "list_written_api_written_get",
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+              "title": "From"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+              "title": "To"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "title": "Response List Written Api Written Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/review/limits": {
       "get": {
         "summary": "Read Review Limits",

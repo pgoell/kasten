@@ -76,8 +76,12 @@ def _created(text: str) -> str | None:
     return value
 
 
-def _day(root: Path, path: str, text: str | None) -> str | None:
-    """The date a note counts on, as ISO 8601: its name's day, else `created`, else mtime."""
+def day_of(root: Path, path: str, text: str | None) -> str | None:
+    """The date a note counts on, as ISO 8601: its name's day, else `created`, else mtime.
+
+    Public because the written route counts notes on the same day, and a second
+    copy of this rule would drift from the one search dates its hits by.
+    """
     named = _as_date(path.rsplit("/", 1)[-1][:10])
     if named is not None:
         return named.isoformat()
@@ -107,7 +111,7 @@ def _read_all(root: Path, paths: list[str]) -> dict[str, tuple[str | None, list[
         except UnicodeDecodeError, OSError:
             # A note the client cannot open is still dated by its name and its file.
             text = None
-        day = _day(root, path, text)
+        day = day_of(root, path, text)
         meta[path] = (day, None if text is None else _tags(text))
     return meta
 

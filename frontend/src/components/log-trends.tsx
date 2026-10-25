@@ -8,6 +8,7 @@
  * how a total stands against its goal, so the pane and the charts agree.
  */
 
+import { Bars } from "@/components/charts";
 import {
   WeightCells,
   WeightCharts,
@@ -20,6 +21,7 @@ import type { LogDay } from "@/lib/food-api";
 import { overMax } from "@/lib/log-day";
 import type { FoodField, Goal, LogConfig, LogKind } from "@/lib/log-kinds";
 import { tenth } from "@/lib/log-lines";
+import { streakOf, within } from "@/lib/log-streak";
 import { grouped } from "@/lib/log-words";
 
 /** A day of the log as `GET /api/log` answers it, and one of its lines. */
@@ -73,7 +75,6 @@ export function share(total: number, goal: Goal): number {
 }
 
 const WIDTH = 300;
-const HEIGHT = 80;
 
 /** A count of logged days in words: `1 logged day`, `27 logged days`. */
 function loggedDays(count: number): string {
@@ -90,11 +91,6 @@ function bound(goal: Goal): string {
   return goal.type === "floor" ? "at least" : "at most";
 }
 
-/** Whether a day's kcal is within its goal: a ceiling at or under it, a floor at or over it. */
-function within(kcal: number, goal: Goal): boolean {
-  return goal.type === "floor" ? kcal >= goal.value : kcal <= goal.value;
-}
-
 interface Logged {
   index: number;
   day: Day;
@@ -108,20 +104,16 @@ interface ChartProps {
   logged: Logged[];
   range: number;
   value: (day: Day) => number;
+  todayIndex?: number;
 }
 
 /**
  * One kind's bars, a bar per logged day, with its goal as a dashed line. Every chart is
  * the same size, so they can be read against each other by eye.
  */
-function Chart({ name, unit, goal, logged, range, value }: ChartProps) {
+function Chart({ name, unit, goal, logged, range, value, todayIndex }: ChartProps) {
   const points = logged.map(({ index, day }) => ({ index, amount: value(day) }));
   const sum = points.reduce((total, point) => total + point.amount, 0);
-  // The goal counts toward the top, so the line is always on the chart.
-  const top = Math.max(1, goal?.value ?? 0, ...points.map((point) => point.amount));
-  const slot = WIDTH / range;
-  const bar = slot * 0.7;
-  const height = (amount: number) => (amount / top) * HEIGHT;
   const suffix = unit === "" ? "" : ` ${unit}`;
   const average =
     points.length === 0
@@ -137,42 +129,13 @@ function Chart({ name, unit, goal, logged, range, value }: ChartProps) {
   return (
     <figure className="log-chart">
       <h3 className="log-chart-title">{title}</h3>
-      <svg
-        viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
-        width="100%"
-        role="img"
-        aria-label={`${name} over ${range} days${overWords}`}
-      >
-        {points.map(({ index, amount }) => {
-          // A logged zero gets a stub one unit high, so it is not drawn like a day with no log.
-          const barHeight = amount === 0 ? 1 : height(amount);
-          const className = passes(amount)
-            ? "log-chart-bar log-chart-over"
-            : amount === 0
-              ? "log-chart-bar log-chart-zero"
-              : "log-chart-bar";
-          return (
-            <rect
-              key={index}
-              className={className}
-              x={index * slot + (slot - bar) / 2}
-              y={HEIGHT - barHeight}
-              width={bar}
-              height={barHeight}
-            />
-          );
-        })}
-        {goal === undefined ? null : (
-          <line
-            data-goal={goal.value}
-            className="log-chart-goal"
-            x1={0}
-            x2={WIDTH}
-            y1={HEIGHT - height(goal.value)}
-            y2={HEIGHT - height(goal.value)}
-          />
-        )}
-      </svg>
+      <Bars
+        label={`${name} over ${range} days${overWords}`}
+        points={points}
+        slots={range}
+        goal={goal}
+        todayIndex={todayIndex}
+      />
       <figcaption>{`${name}: ${average}${aim}${overWords}`}</figcaption>
     </figure>
   );
@@ -282,30 +245,6 @@ function Tile({ label, figure, words }: { label: string; figure: string; words: 
       <dd className="log-summary-words">{words}</dd>
     </div>
   );
-}
-
-/**
- * The logged days in a row, counted back from the day shown: within the kcal goal when
- * there is one. A day with no log, or over the goal, ends the run. Today, while it has no
- * log yet, is skipped instead, so a day still being written does not end it.
- */
-function streakOf(
-  dates: string[],
-  byDate: Map<string, Day>,
-  today: string,
-  goal: Goal | undefined,
-): number {
-  let count = 0;
-  for (const [position, date] of [...dates].reverse().entries()) {
-    const day = byDate.get(date);
-    if (day === undefined) {
-      if (position === 0 && date === today) continue;
-      break;
-    }
-    if (goal !== undefined && !within(foodTotal(day, "kcal"), goal)) break;
-    count += 1;
-  }
-  return count;
 }
 
 interface Week {
@@ -426,6 +365,8 @@ export function LogTrends({
     : Math.round(kcal.reduce((sum, value) => sum + value, 0) / logged.length);
   const withinGoal = goal === undefined ? 0 : kcal.filter((value) => within(value, goal)).length;
   const streak = streakOf(dates, byDate, today, goal);
+  // Only a range that ends on today marks its bars: a past range draws every bar full strength.
+  const todayIndex = dates[range - 1] === today ? range - 1 : undefined;
 
   return (
     <div className="log-trends">
@@ -470,6 +411,7 @@ export function LogTrends({
             logged={logged}
             range={range}
             value={(day) => totalOf(kind, day)}
+            todayIndex={todayIndex}
           />
         ))}
         {FOOD_CHARTS.map(({ field, unit }) => (
@@ -481,6 +423,7 @@ export function LogTrends({
             logged={logged}
             range={range}
             value={(day) => foodTotal(day, field)}
+            todayIndex={todayIndex}
           />
         ))}
         <WeightCharts kinds={weightKinds} dates={dates} days={days} />

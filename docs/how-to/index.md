@@ -16,6 +16,7 @@ on its code.
 * [Use the log pane](use-the-log-pane.md): open the log pane, read a day's totals against your goals, log on any day, fix or delete an entry, and read the trends
 * [Add a food of your own](add-a-food-of-your-own.md): save a food Open Food Facts lacks to the foods note, from the food search or by hand, so the search lists it first and its barcode scans
 * [Log food from a phone](log-food-from-a-phone.md): scan a food's barcode with the phone camera and log it on today's note, and what to do when the camera is refused or the barcode is unknown
+* [Read the overview](read-the-overview.md): open the overview of scores and streaks, read its eight cards, open the pane behind one, and know the streak rules and what counts as a note written
 * [Recover an earlier version of a note](recover-an-earlier-version.md): read back or restore a note as it was before a save overwrote it, from the history pane or with jj
 * [Regenerate the API types](regenerate-the-api-types.md): rebuild the frontend's TypeScript types after changing a backend endpoint
 * [Run the checks](run-the-checks.md): run the linters, tests and type checks, and get past the two ways the git hooks go wrong

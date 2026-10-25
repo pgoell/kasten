@@ -5,14 +5,12 @@
  * it did before.
  */
 
+import { WeightLine } from "@/components/charts";
 import type { LogDay } from "@/lib/food-api";
 import { overMax } from "@/lib/log-day";
 import type { LogKind } from "@/lib/log-kinds";
 import { latestOn, meanOf, valueOn, type Weight, weightOf } from "@/lib/log-weight";
 import { goalPhrase, grouped } from "@/lib/log-words";
-
-const WIDTH = 300;
-const HEIGHT = 80;
 
 interface WeightProps {
   kinds: LogKind[];
@@ -138,31 +136,14 @@ export function WeightRows({ kinds, dates, days }: WeightProps) {
 
 /**
  * One kind's line: a dot per weigh-in at its date, the 7-day average as one line, and a
- * dashed goal. The y scale runs from the lowest value to the highest, not from zero, so
- * the changes show.
+ * dashed goal, drawn by the shared line chart.
  */
 function WeightChart({ kind, dates, days }: { kind: LogKind; dates: string[]; days: LogDay[] }) {
   const weight = weightOf(kind, dates, days);
   const { values, averages, count, change, last } = weight;
-  const slot = WIDTH / dates.length;
-  const x = (index: number) => index * slot + slot / 2;
   const goal = kind.goal;
   const tail = suffix(kind);
 
-  // The goal counts toward the scale, so its line is always on the chart.
-  const shown = [...values, goal?.value ?? null].filter((value): value is number => value !== null);
-  const low = shown.length === 0 ? 0 : Math.min(...shown);
-  const high = shown.length === 0 ? 0 : Math.max(...shown);
-  // A single value has no spread, so it gets a unit either side rather than a divide by zero.
-  const pad = high - low === 0 ? 1 : (high - low) * 0.1;
-  const floor = low - pad;
-  const ceiling = high + pad;
-  const y = (value: number) => HEIGHT - ((value - floor) / (ceiling - floor)) * HEIGHT;
-
-  const points = values.flatMap((value, index) => (value === null ? [] : [{ index, value }]));
-  const line = averages.flatMap((average, index) =>
-    average === null ? [] : [`${x(index)},${y(average)}`],
-  );
   const changed = change === null ? "" : `, change ${changeWords(change, tail)}`;
   const aim = goal === undefined ? "" : `, goal ${bound(goal)} ${grouped(goal.value)}${tail}`;
   // A weigh-in past a max is drawn in the warning colour and counted in words, as a bar is.
@@ -177,33 +158,12 @@ function WeightChart({ kind, dates, days }: { kind: LogKind; dates: string[]; da
   return (
     <figure className="log-chart">
       <h3 className="log-chart-title">{title(kind.name)}</h3>
-      <svg
-        viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
-        width="100%"
-        role="img"
-        aria-label={`${kind.name} over ${dates.length} days, ${countWords(count)}${changed}${over}`}
-      >
-        {line.length === 0 ? null : <polyline className="log-weight-avg" points={line.join(" ")} />}
-        {goal === undefined ? null : (
-          <line
-            data-goal={goal.value}
-            className="log-chart-goal"
-            x1={0}
-            x2={WIDTH}
-            y1={y(goal.value)}
-            y2={y(goal.value)}
-          />
-        )}
-        {points.map(({ index, value }) => (
-          <circle
-            key={index}
-            className={passes(value) ? "log-weight-dot log-chart-over" : "log-weight-dot"}
-            cx={x(index)}
-            cy={y(value)}
-            r={2.5}
-          />
-        ))}
-      </svg>
+      <WeightLine
+        values={values}
+        averages={averages}
+        goal={goal}
+        label={`${kind.name} over ${dates.length} days, ${countWords(count)}${changed}${over}`}
+      />
       <figcaption>{`${kind.name}: ${countWords(count)}${latest}${aim}${over}`}</figcaption>
     </figure>
   );

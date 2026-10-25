@@ -1,0 +1,99 @@
+/* The marks the shared chart pieces draw (components/charts.tsx) and the log pane's
+   figures use. Colours are the app's tokens, so light and dark both read: the accent
+   for what is logged, the warning colour only for a pass over a ceiling, and the muted
+   ink for a goal, which is never the warning. */
+
+.log-chart svg,
+.chart-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.log-chart-bar {
+  fill: var(--k-accent);
+}
+
+.log-chart-over {
+  fill: var(--k-warn);
+}
+
+/* A bar that is not today's, in a range that ends on today: lighter, so today's reads first. */
+.log-chart-past {
+  opacity: 0.55;
+}
+
+/* The goal is a dashed line in the muted ink, never the warning colour: the
+   warning is for a bar that passed its ceiling. */
+.log-chart-goal {
+  fill: none;
+  stroke: var(--k-muted);
+  stroke-width: 1.5;
+  stroke-dasharray: 4 3;
+}
+
+/* A last kind's line: a dot per weigh-in, with a paper halo so the average line, drawn
+   through them, reads apart from them. The line is full strength for its 3:1 contrast. */
+.log-weight-dot {
+  fill: var(--k-accent);
+  stroke: var(--k-paper);
+  stroke-width: 1;
+}
+
+.log-weight-dot.log-chart-over {
+  fill: var(--k-warn);
+}
+
+.log-weight-avg {
+  fill: none;
+  stroke: var(--k-accent);
+  stroke-width: 1.5;
+}
+
+/* A ring: a track the whole way round, and the fill from its top as far as the goal is
+   reached. Past a ceiling the fill turns to the warning colour. */
+.chart-ring-track {
+  fill: none;
+  stroke: var(--k-rule);
+  stroke-width: 3;
+}
+
+.chart-ring-fill {
+  fill: none;
+  stroke: var(--k-accent);
+  stroke-width: 3;
+}
+
+.chart-ring-over {
+  stroke: var(--k-warn);
+}
+
+/* An activity cell: no count is the rule colour, and the accent grows stronger in four
+   steps by how much was counted. Opacity, not a gradient, so it reads the same in both themes. */
+.chart-level-0 {
+  fill: var(--k-rule);
+}
+
+.chart-level-1,
+.chart-level-2,
+.chart-level-3,
+.chart-level-4 {
+  fill: var(--k-accent);
+}
+
+.chart-level-1 {
+  opacity: 0.3;
+}
+
+.chart-level-2 {
+  opacity: 0.5;
+}
+
+.chart-level-3 {
+  opacity: 0.75;
+}
+
+.chart-level-4 {
+  opacity: 1;
+}

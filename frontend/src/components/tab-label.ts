@@ -13,6 +13,7 @@ export function tabLabel(tab: Tab): string {
   if (focused?.term !== undefined) return focused.term;
   if (focused?.todos === true) return "todos";
   if (focused?.log === true) return "log";
+  if (focused?.overview === true) return "overview";
   if (focused?.chat === true) return "chat";
   // A reader names the note it reads beside, which is the only name it has.
   if (focused?.book !== undefined) return noteName(focused.book);

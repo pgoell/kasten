@@ -69,35 +69,11 @@
   font-weight: 600;
 }
 
-.log-chart svg {
-  display: block;
-  width: 100%;
-  height: auto;
-  overflow: visible;
-}
-
 .log-chart figcaption {
   color: var(--k-muted);
   font-size: var(--k-text-13);
   letter-spacing: var(--k-track-label);
   overflow-wrap: anywhere;
-}
-
-.log-chart-bar {
-  fill: var(--k-accent);
-}
-
-.log-chart-over {
-  fill: var(--k-warn);
-}
-
-/* The goal is a dashed line in the muted ink, never the warning colour: the
-   warning is for a bar that passed its ceiling. */
-.log-chart-goal {
-  fill: none;
-  stroke: var(--k-muted);
-  stroke-width: 1.5;
-  stroke-dasharray: 4 3;
 }
 
 .log-chart-slot {

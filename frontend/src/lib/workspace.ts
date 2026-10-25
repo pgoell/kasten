@@ -73,6 +73,7 @@ const PANE: Record<string, Check> = {
   term: isString,
   todos: isTrue,
   log: isTrue,
+  overview: isTrue,
   book: isString,
   exam: isString,
   review: isTrue,

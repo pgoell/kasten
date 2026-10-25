@@ -34,10 +34,12 @@ export function TodayPane({
   archive,
   onOpen,
   onReview,
+  onOverview,
 }: {
   archive: boolean;
   onOpen: (path: string, line?: number) => void;
   onReview: () => void;
+  onOverview: () => void;
 }) {
   const now = new Date();
   const clock = readClock(now);
@@ -65,7 +67,17 @@ export function TodayPane({
       aria-label="Today"
       className="@container mx-auto w-full max-w-[1100px] px-4 py-6 md:px-12"
     >
-      <h1 className="font-serif text-k-36 text-k-ink">{headingOf(now, clock.weekday)}</h1>
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h1 className="font-serif text-k-36 text-k-ink">{headingOf(now, clock.weekday)}</h1>
+        {/* Quiet, so the date stays the heading. Taller on a touch screen, where a finger needs it. */}
+        <button
+          type="button"
+          onClick={onOverview}
+          className="font-sans text-k-13 text-k-muted transition-colors duration-(--k-hover) hover:text-k-accent pointer-coarse:min-h-11 pointer-coarse:px-2"
+        >
+          Overview
+        </button>
+      </div>
       <div className="mt-8 grid gap-12 @[776px]:grid-cols-3">
         <div data-today-column className="flex min-w-0 flex-col gap-2">
           <h2 className="font-sans text-k-13 text-k-muted tracking-k-label">Today</h2>

@@ -234,3 +234,49 @@ and a snapshot after, so a new note arrives as its own `vault: <path>` change.
 A vault that is not a jj repo takes the note just the same and keeps no
 history.
 
+## GET /api/written
+
+Takes `from` and `to`, both `YYYY-MM-DD`, and answers with a sorted list of
+strings. Each string is the day one note counts on. A note counts when its day
+falls in the range, widened by one day on each side.
+
+```
+GET /api/written?from=2026-10-19&to=2026-10-20
+```
+
+```json
+["2026-10-19", "2026-10-20", "2026-10-20T23:30:00+00:00"]
+```
+
+The list has one string per note, so a day with three notes appears three
+times. Each string is the day as written, in one of three forms:
+
+1. a note whose name starts with a date, such as `2026-10-19 Plan.md`, counts on
+   that calendar day, `2026-10-19`;
+2. a note with no such name counts on its `created` field as written, a day or
+   an instant with its offset;
+3. a note with neither counts on its file's modification time, as an instant
+   in UTC with its offset.
+
+This is the rule that [search's hit date](/reference/http-api/finding.md) uses,
+so the overview and search agree on a note's day.
+
+### The extra day either side
+
+The range keeps a value when its first ten characters, the day as written, fall
+within `from` less one day and `to` plus one day. An instant such as
+`2026-10-19T23:30:00+00:00` is already the next day for a reader in Berlin, so
+the day either side is kept. The server does not know the reader's zone. The client
+works out the reader's own day and drops what falls outside it.
+
+## Errors
+
+* `400` when `from` is after `to`.
+* `422` when a date is not `YYYY-MM-DD` or names no day, `2026-02-30` among them.
+
+## Reading
+
+The route lists the vault's notes, leaves out the archive folder and reads each
+remaining note once, in a thread. It writes nothing, touches no database and
+keeps no index. The overview's Writing and This year cards read it.
+

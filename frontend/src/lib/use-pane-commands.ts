@@ -20,15 +20,11 @@ import {
   clearFocused,
   openBookBeside,
   openBookInFocused,
-  openChatInFocused,
   openExamInFocused,
   openGraphBeside,
   openGraphInFocused,
   openHistoryBeside,
-  openLogInFocused,
   openPersonBeside,
-  openReviewInFocused,
-  openTodosInFocused,
   openVideoBeside,
 } from "@/lib/pane-contents";
 import { paneEditor } from "@/lib/pane-doc";
@@ -46,6 +42,7 @@ import {
 import { type Period, periodicNote } from "@/lib/periodic";
 import { isPerson } from "@/lib/person";
 import { paneView, useFoodWait } from "@/lib/use-food-wait";
+import { wholePaneOpeners } from "@/lib/whole-pane-openers";
 import { splitTarget, wikiLinkPath, wikiLinkTargets } from "@/lib/wikilink";
 
 export type PaneCommands = ReturnType<typeof usePaneCommands>;
@@ -75,6 +72,7 @@ export function usePaneCommands({
     | "chat"
     | "todos"
     | "log"
+    | "overview"
     | "book"
     | "exam"
     | "review"
@@ -185,6 +183,7 @@ export function usePaneCommands({
       | "closeNote"
       | "openTodos"
       | "openLog"
+      | "openOverview"
       | "openGraph"
       | "openLocalGraph"
       | "openDaily"
@@ -247,6 +246,7 @@ export function usePaneCommands({
           pane.chat === true ||
           pane.todos === true ||
           pane.log === true ||
+          pane.overview === true ||
           pane.book !== undefined ||
           pane.exam !== undefined ||
           pane.review === true ||
@@ -267,16 +267,8 @@ export function usePaneCommands({
         }
         if (await saveFirst()) moveTo(clearFocused);
       },
-      // Saved first, unlike the panels above: this one replaces what the pane
-      // holds, which unmounts the editor in it and would take unsaved text
-      // with it. The same rule `closeNote` follows.
-      openTodos: async () => {
-        if (await saveFirst()) moveTo(openTodosInFocused);
-      },
-      // Saved first for the reason `openTodos` is: the log replaces the pane.
-      openLog: async () => {
-        if (await saveFirst()) moveTo(openLogInFocused);
-      },
+      // The whole-pane openers: the todo list, the log, the overview, the review and the chat.
+      ...wholePaneOpeners(saveFirst, moveTo),
       // Saved first for the reason `openTodos` is: the graph replaces what the
       // pane holds.
       openGraph: async () => {
@@ -435,20 +427,7 @@ export function usePaneCommands({
         const note = pane.path;
         if (await saveFirst()) moveTo((previous) => openExamInFocused(previous, note));
       },
-      // Saved first for the reason `openExam` is: this replaces the focused
-      // pane, so text still waiting would be written to a pane the autosave no
-      // longer follows. No note is named, unlike the exam: the pane opens on
-      // the list of decks and picks its own.
-      openReview: async () => {
-        if (await saveFirst()) moveTo(openReviewInFocused);
-      },
       createTab: () => moveTo(addTab),
-      // Saved first for the reason `openReview` is: this replaces the focused
-      // pane. Closing the pane later ends nothing, the session being the
-      // runner's.
-      openChat: async () => {
-        if (await saveFirst()) moveTo(openChatInFocused);
-      },
       // A bare `nextPane` and `goToTab` inside these reach the imports, not the
       // keys they are written beside: an object literal's keys are not names in
       // the scope its values are written in.
@@ -489,6 +468,7 @@ export function usePaneCommands({
       pane.chat,
       pane.todos,
       pane.log,
+      pane.overview,
       pane.book,
       pane.exam,
       pane.review,

@@ -99,6 +99,9 @@ when its note has a `## Log`.
   carbs and fat, all the same size: a bar per logged day, the goal as a dashed line. A bar past a
   ceiling takes the warning colour, and the chart says in words how many days
   went over. A day with no log has no bar and does not count toward an average.
+  When the range ends on today, today's bar is full strength and the days
+  before it lighter. The overview draws its bars the same way
+  ([Read the overview](/how-to/read-the-overview.md)).
 * A line for each `last` kind, such as weight: a dot for each weigh-in, the
   7-day average as a thin line under the dots, and the goal as a dashed line if
   it has one. The scale runs from the lowest value to the highest, not from zero,

@@ -193,6 +193,12 @@ export function useVaultEvents(
       ) {
         queryClient.invalidateQueries({ queryKey: ["log"] }, { cancelRefetch: false });
       }
+      // The overview's Writing and This year count notes by the day each one counts on, so a
+      // note written or removed asks that read again. Ahead of the early return below, which
+      // would otherwise walk past a write to a note the tree already draws.
+      if (event.change === "written" || event.change === "removed") {
+        queryClient.invalidateQueries({ queryKey: ["written"] }, { cancelRefetch: false });
+      }
       // A removal refetches no note, so the readers of log.md would keep the text
       // it had. A write does reach its note query above.
       if (event.change === "removed" && event.path === LOG_NOTE) {

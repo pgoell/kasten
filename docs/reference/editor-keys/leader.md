@@ -87,6 +87,7 @@ The file pickers that `<leader>cm` and `<leader>cb` open wait until you let go o
 | `<leader>gs` | Put the review in the focused pane |
 | `<leader>gt` | Put the todo list in the focused pane |
 | `<leader>gf` | Put the food log in the focused pane |
+| `<leader>ga` | Put the overview in the focused pane |
 | `<leader>e` | Move the focus to the file tree |
 | `<leader>E` | Unfold the tree down to the open note and put its cursor there |
 

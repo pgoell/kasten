@@ -48,6 +48,7 @@ function OpenNote({ path }: { path: string }) {
       showHelp: () => {},
       openPalette: () => {},
       openLog: () => {},
+      openOverview: () => {},
       createNote: () => {},
       renameNote: () => {},
       deleteNote: () => {},

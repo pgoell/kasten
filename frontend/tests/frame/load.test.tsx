@@ -67,6 +67,7 @@ const INERT: TreeCommands = {
   findBook: vi.fn(),
   openTodos: vi.fn(),
   openLog: vi.fn(),
+  openOverview: vi.fn(),
   showBacklinks: vi.fn(),
   showLinksOut: vi.fn(),
   openDaily: vi.fn(),

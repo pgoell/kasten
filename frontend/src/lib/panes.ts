@@ -53,6 +53,8 @@ export interface Pane {
    * so the pane holds no note to name.
    */
   log?: boolean;
+  /** The overview's pane. */
+  overview?: boolean;
   /**
    * The literature note whose book this pane is reading, absent otherwise.
    *
@@ -450,6 +452,7 @@ const HOLDS = [
   "term",
   "todos",
   "log",
+  "overview",
   "book",
   "exam",
   "review",

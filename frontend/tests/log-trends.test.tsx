@@ -330,3 +330,35 @@ it("#804 I5 a chart with days over its max says how many in words", async () => 
     ),
   ).toBeInTheDocument();
 });
+
+it("#806 A2 with the range ending today, today's bar is full strength and the other bars are marked past", async () => {
+  fetchLog.mockImplementation(logDays(thirtyDays()));
+  renderPane();
+  const water = await screen.findByRole("img", { name: "water over 30 days" });
+  await waitFor(() => expect(water.querySelectorAll("rect.log-chart-bar")).toHaveLength(27));
+
+  // Today is the last of the 30 slots and has a log, so its bar is the last one drawn.
+  const bars = water.querySelectorAll("rect.log-chart-bar");
+  expect(bars[bars.length - 1]).not.toHaveClass("log-chart-past");
+  expect(water.querySelectorAll("rect.log-chart-past")).toHaveLength(26);
+});
+
+it("#806 A2 a range ending before today marks no bar past", async () => {
+  fetchLog.mockImplementation(logDays(thirtyDays()));
+  renderPane();
+  await screen.findByRole("img", { name: "water over 30 days" });
+
+  // The range now ends yesterday. Its 30 days run from 30 days back, and 26 of them have a log.
+  press("h");
+  await waitFor(() =>
+    expect(fetchLog).toHaveBeenLastCalledWith(shiftDay(TODAY, -30), shiftDay(TODAY, -1)),
+  );
+  await waitFor(() =>
+    expect(
+      screen
+        .getByRole("img", { name: "water over 30 days" })
+        .querySelectorAll("rect.log-chart-bar"),
+    ).toHaveLength(26),
+  );
+  expect(document.querySelectorAll("rect.log-chart-past")).toHaveLength(0);
+});

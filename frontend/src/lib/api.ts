@@ -162,6 +162,19 @@ export async function fetchCards(archive = false): Promise<LineHit[]> {
   return data;
 }
 
+/** The day each note counts on, from `from` to `to`: a `YYYY-MM-DD`, or an instant. */
+export async function fetchWritten(from: string, to: string): Promise<string[]> {
+  const { data, response } = await client.GET("/api/written", {
+    params: { query: { from, to } },
+  });
+
+  if (!data) {
+    throw new Error(`GET /api/written failed with ${response.status}`);
+  }
+
+  return data;
+}
+
 export type ReviewLimits = components["schemas"]["ReviewLimits"];
 
 /** The daily limits a deck gets where `decks.md` names none, null for no limit. */

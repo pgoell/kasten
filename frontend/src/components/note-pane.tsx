@@ -148,6 +148,7 @@ export function NotePane({
           archive={archive}
           onOpen={(path, line) => void openInPane(path, line)}
           onReview={() => commands.openReview()}
+          onOverview={() => commands.openOverview()}
         />
       </div>
       <div className="min-h-[40%] flex-1">

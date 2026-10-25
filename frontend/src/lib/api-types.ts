@@ -708,6 +708,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/written": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Written
+         * @description The day each note outside the archive counts on, for the notes written from `from` to `to`.
+         *
+         *     Each answer is the date a note counts on, as search dates its hits: the name's
+         *     day, else `created`, else the file's modification time. A day is an answer
+         *     as written, and an instant keeps its offset, so the client works out the
+         *     reader's own day. A day either side of the range is answered too, for the
+         *     same reason. Sorted, and read only: nothing is written or stored.
+         */
+        get: operations["list_written_api_written_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/review/limits": {
         parameters: {
             query?: never;
@@ -3146,6 +3172,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LineHit"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_written_api_written_get: {
+        parameters: {
+            query: {
+                from: string;
+                to: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": string[];
                 };
             };
             /** @description Validation Error */

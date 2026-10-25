@@ -69,6 +69,20 @@ toolbar's `log` button does the same.
 | `q` | Close the pane |
 | `Escape` | Leave the edit without writing |
 
+## The overview
+
+`<leader>ga` puts the overview in the focused pane, in place of whatever it
+held; so does the `Overview` button on the home screen.
+[Read the overview](/how-to/read-the-overview.md) says what each card counts.
+
+| Key | Does |
+| --- | --- |
+| `h`, `ArrowLeft` | Move to the card on the left |
+| `l`, `ArrowRight` | Move to the card on the right |
+| `k`, `ArrowUp` | Move to the card above |
+| `j`, `ArrowDown` | Move to the card below |
+| `Enter` | Open the pane behind the card |
+
 ## Vim on or off
 
 Where the primary pointer is a finger, the editor starts without vim. Where it

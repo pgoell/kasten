@@ -74,6 +74,16 @@ export function openLogInFocused(layout: Layout): Layout {
 }
 
 /**
+ * Put the overview in the focused pane, replacing whatever was there.
+ *
+ * Over the pane, following `openLogInFocused`: the overview is the whole week's
+ * numbers, not a thing read beside a note.
+ */
+export function openOverviewInFocused(layout: Layout): Layout {
+  return fillFocused(layout, { overview: true });
+}
+
+/**
  * Put the review in the focused pane, replacing whatever was there.
  *
  * Over the pane rather than beside it, following `openTodosInFocused`: this is

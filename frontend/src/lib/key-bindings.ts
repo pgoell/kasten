@@ -52,6 +52,8 @@ export interface EditorCommands {
   openTodos(): void;
   /** Put the log pane in the focused pane, replacing whatever was there. */
   openLog(): void;
+  /** Put the overview of the week's numbers in the focused pane, replacing whatever was there. */
+  openOverview(): void;
   /** Show what links to the open note. Needs one open, as its opposite does. */
   showBacklinks(): void;
   /** Show what the open note links to, which is that pair read the other way. */
