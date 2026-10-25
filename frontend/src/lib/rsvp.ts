@@ -157,6 +157,27 @@ export function orp(word: string): number {
   return lead + into;
 }
 
+/**
+ * The fixed letter of a chunk, `text` being its words joined by single spaces.
+ *
+ * One word keeps `orp`. Two or three take the letter nearest the middle of the
+ * whole chunk: the reading letter of the first word would leave the rest of
+ * the chunk hanging off to the right, and the eye has to travel to read it.
+ * A space or a stop in the middle gives way to the nearest letter, the left
+ * one first on a tie.
+ */
+export function chunkFix(text: string): number {
+  if (!text.includes(" ")) return orp(text);
+  const letters = Array.from(text);
+  const middle = Math.floor((letters.length - 1) / 2);
+  for (let step = 0; step < letters.length; step += 1) {
+    for (const at of [middle - step, middle + step]) {
+      if (/[\p{L}\p{N}]/u.test(letters[at] ?? "")) return at;
+    }
+  }
+  return middle;
+}
+
 /** What the player is set to. Kept per device under `kasten.rsvp`. */
 export interface RsvpSettings {
   /** Words per minute. */

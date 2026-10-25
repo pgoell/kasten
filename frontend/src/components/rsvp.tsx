@@ -5,11 +5,11 @@ import { LABEL, PANEL, STATUS } from "@/lib/overlay-styles";
 import {
   back,
   chunkEnd,
+  chunkFix,
   clampSetting,
   delay,
   forward,
   LIMITS,
-  orp,
   type Place,
   placeAt,
   type RsvpSettings,
@@ -437,10 +437,9 @@ function Stage({
   }
 
   const shown = words.slice(index, chunkEnd(words, index, settings.chunk));
-  const head = shown[0]?.text ?? "";
-  const letters = Array.from(head);
-  const fixed = orp(head);
-  const rest = [letters.slice(fixed + 1).join(""), ...shown.slice(1).map((word) => word.text)];
+  const text = shown.map((word) => word.text).join(" ");
+  const letters = Array.from(text);
+  const fixed = chunkFix(text);
   return (
     <output
       aria-live="off"
@@ -453,7 +452,7 @@ function Stage({
         {letters.slice(0, fixed).join("")}
       </span>
       <span className="text-k-accent">{letters[fixed] ?? ""}</span>
-      <span className="overflow-hidden whitespace-pre">{rest.join(" ")}</span>
+      <span className="overflow-hidden whitespace-pre">{letters.slice(fixed + 1).join("")}</span>
     </output>
   );
 }

@@ -25,9 +25,11 @@ is RSVP, rapid serial visual presentation. It reads four kinds of pane:
 Any other pane says at the foot of the window that there is nothing to read.
 
 The reader opens paused, on the place the last run in that file stopped at.
-Space plays. One letter near the start of each word, a little left of its
-middle, is drawn in the accent colour and stays in the same column, marked by a
-tick above and below, while the words change around it.
+Space plays. One letter of each chunk is drawn in the accent colour and stays
+in the same column, marked by a tick above and below, while the words change
+around it. For one word it sits near the start, a little left of the middle;
+for two or three it is the letter nearest the middle of the whole chunk, so the
+chunk sits centred on it.
 
 `<leader>rh` opens it from here instead: from the selection when there is one,
 else from the cursor in a note, the page at the top of a pdf, or the page on

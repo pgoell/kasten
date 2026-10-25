@@ -2,6 +2,7 @@ import {
   anchorAt,
   back,
   chunkEnd,
+  chunkFix,
   DEFAULT_SETTINGS,
   delay,
   findQuote,
@@ -94,6 +95,23 @@ describe("orp", () => {
 
   it("counts past a leading quote", () => {
     expect(orp('"word"')).toBe(2);
+  });
+});
+
+describe("chunkFix", () => {
+  it("keeps the reading letter of a single word", () => {
+    expect(chunkFix("reading")).toBe(orp("reading"));
+  });
+
+  it("fixes a chunk of three on its middle word", () => {
+    // "one two three": the middle letter is the `o` of `two`.
+    expect(chunkFix("one two three")).toBe(6);
+  });
+
+  it("steps off a space in the middle to the letter left of it", () => {
+    // "ab cd": the middle is `b`, index 1; "abc de" has the space at 3.
+    expect(chunkFix("ab cd")).toBe(1);
+    expect(chunkFix("abc def")).toBe(2);
   });
 });
 
