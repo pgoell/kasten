@@ -84,6 +84,19 @@ function PersonChip({
     return () => document.removeEventListener("pointerdown", outside);
   }, [open, onMenu]);
 
+  // Escape closes the menu from wherever the focus is, as a menu does. The focus goes back
+  // to the chip, which a click left on the chip already, and a key's focus was in the menu.
+  useEffect(() => {
+    if (!open) return;
+    const onEscape = (event: globalThis.KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      onMenu(false);
+      chip.current?.focus();
+    };
+    document.addEventListener("keydown", onEscape);
+    return () => document.removeEventListener("keydown", onEscape);
+  }, [open, onMenu]);
+
   function close(restore: boolean): void {
     onMenu(false);
     if (restore) chip.current?.focus();
@@ -103,7 +116,17 @@ function PersonChip({
           onMenu(!open);
         }}
         onKeyDown={(event: KeyboardEvent<HTMLButtonElement>) => {
-          if (event.key !== "ArrowDown" || open) return;
+          if (open) {
+            // With the menu open, the arrows from the chip move into it, from its first or last row.
+            if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+            event.preventDefault();
+            const rows = [
+              ...(wrap.current?.querySelectorAll<HTMLElement>("[role='menuitemradio']") ?? []),
+            ];
+            (event.key === "ArrowDown" ? rows[0] : rows.at(-1))?.focus();
+            return;
+          }
+          if (event.key !== "ArrowDown") return;
           event.preventDefault();
           setByKey(true);
           onMenu(true);

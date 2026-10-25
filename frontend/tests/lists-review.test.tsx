@@ -112,4 +112,24 @@ describe("the review fixes", () => {
     );
     expect(screen.getByRole("button", { name: "Alicia" })).toBeInTheDocument();
   });
+
+  it("#810 R7.10 an item ticked on the phone stays among the folded Erledigt rows after the server answers with no time", async () => {
+    const share = fakeShare({
+      Einkauf: [
+        { text: "Eier", done: false },
+        { text: "Alt", done: true, ticked_at: "2020-10-20T10:00:00Z" },
+        { text: "Mittel", done: true, ticked_at: "2020-10-21T10:00:00Z" },
+        { text: "Neu", done: true, ticked_at: "2020-10-22T10:00:00Z" },
+      ],
+      Todo: [],
+    });
+    vi.stubGlobal("fetch", share.fetch);
+    render(<ListsApp />);
+
+    fireEvent.click(await screen.findByRole("checkbox", { name: "Eier" }));
+
+    // The server takes the tick and answers it with no time, as a history read that failed does.
+    await vi.waitFor(() => expect(localStorage.getItem("kasten.lists.queue")).toBe("[]"));
+    expect(doneWords()).toEqual(["Eier", "Neu", "Mittel"]);
+  });
 });

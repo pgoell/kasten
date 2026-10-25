@@ -3,15 +3,8 @@ import "../styles/lists.css";
 import { followScheme } from "./follow-scheme";
 import { personOf } from "./lists-person";
 import { Row } from "./lists-row";
-import {
-  createListsStore,
-  type Item,
-  LISTS,
-  type ListsStore,
-  type Snapshot,
-  suggestionsFor,
-  viewOf,
-} from "./lists-store";
+import { createListsStore, type Item, LISTS, type ListsStore, type Snapshot } from "./lists-store";
+import { suggestionsFor, viewOf } from "./lists-view";
 import { tickLine } from "./tick-line";
 
 /** The done items shown before "Erledigt" is unfolded. */

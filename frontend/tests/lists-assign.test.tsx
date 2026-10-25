@@ -322,4 +322,18 @@ describe("the assignee chip in the lists app", () => {
     fireEvent.click(chip, { detail: 0 });
     expect(screen.getByRole("menuitemradio", { name: "Alicia" })).toHaveFocus();
   });
+
+  it("#810 R7.11 Escape closes a menu a click opened", async () => {
+    open({ Einkauf: [{ text: "Milch", done: false }], Todo: [] });
+    const chip = await screen.findByRole("button", { name: "Wer?" });
+
+    chip.focus();
+    // A mouse click, so the focus stays on the chip and the Escape reaches the document.
+    fireEvent.click(chip, { detail: 1 });
+    expect(screen.getByRole("menu")).toBeInTheDocument();
+
+    fireEvent.keyDown(document.body, { key: "Escape" });
+    expect(screen.queryByRole("menu")).toBeNull();
+    expect(chip).toHaveFocus();
+  });
 });
