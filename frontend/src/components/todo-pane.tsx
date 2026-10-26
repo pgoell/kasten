@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { type BoardKeys, TodoBoard } from "@/components/todo-board";
 import { TodoFooter } from "@/components/todo-footer";
 import { TodoHeader } from "@/components/todo-header";
@@ -8,13 +8,14 @@ import { TodoList } from "@/components/todo-list";
 import { fetchTodos, type SearchHit, type TodoHit } from "@/lib/api";
 import type { EditorCommands } from "@/lib/key-bindings";
 import type { TodoState } from "@/lib/todo";
-import { type HeldGroup, holdOrder, identities, sameOrder, snapshot } from "@/lib/todo-hold";
 import { useArmed } from "@/lib/use-armed";
 import { useBlockerPick } from "@/lib/use-blocker-pick";
 import { useTodoFilter } from "@/lib/use-todo-filter";
 import { useTodoFocus } from "@/lib/use-todo-focus";
+import { useTodoHold } from "@/lib/use-todo-hold";
 import { SET, type TodoKeyActions, useTodoKeys } from "@/lib/use-todo-keys";
 import { type Mode, rowKey, useTodoRows } from "@/lib/use-todo-rows";
+
 import { useTodoTwins } from "@/lib/use-todo-twins";
 import { useViewport } from "@/lib/use-viewport";
 
@@ -185,57 +186,21 @@ export function TodoPane({
     shared: narrowing.shared,
   });
 
-  /**
-   * The order the list is drawn in while a press holds it, or null while it is
-   * drawn as the vault answers. A press on a row keeps every other row where it
-   * was, so a todo checked off does not pull the rows under it up while the
-   * reader is aiming at the next one.
-   */
-  const [hold, setHold] = useState<HeldGroup[] | null>(null);
-  const ids = useMemo(() => identities(data ?? []), [data]);
-  const holding = useMemo(
-    () => (hold === null ? null : holdOrder(hold, facts.groups, data ?? [], ids)),
-    [hold, facts.groups, data, ids],
-  );
-  const groups = useMemo(
-    () =>
-      holding === null
-        ? facts.groups
-        : holding.map((group) => ({
-            heading: group.heading,
-            rows: group.rows.map((each) => each.row),
-          })),
-    [holding, facts.groups],
-  );
-  const groupRows = useMemo(() => groups.flatMap((group) => group.rows), [groups]);
+  // The order the rows are drawn in, held while a press is being read.
+  const { groups, groupRows, foldRows, pressing, release } = useTodoHold({
+    data,
+    current: facts.groups,
+    doneWeek: facts.doneWeek,
+    listed,
+    board,
+    doneOpen,
+  });
   // What `j` and `k` walk: the groups, and the Done this week rows once their
   // fold is open. A folded row is not on screen, so the cursor does not stop on it.
   const rows = useMemo(
-    () => (doneOpen ? [...groupRows, ...facts.doneWeek] : groupRows),
-    [groupRows, doneOpen, facts.doneWeek],
+    () => (doneOpen ? [...groupRows, ...foldRows] : groupRows),
+    [groupRows, doneOpen, foldRows],
   );
-
-  // What was drawn becomes the hold, so a row that arrives later takes its place
-  // at the end of its group rather than wherever the answer put it. Kept as it
-  // was where the rows are the same, so this does not render again.
-  useEffect(() => {
-    if (holding === null) return;
-    setHold((previous) => (previous === null || sameOrder(previous, holding) ? previous : holding));
-  }, [holding]);
-
-  /** The first press of the open list holds the order it is drawn in. */
-  function holdNow() {
-    if (listed !== "open" || board) return;
-    setHold((previous) => previous ?? snapshot(facts.groups, ids));
-  }
-
-  /** A write from a row, held first, so the row it changes is still where it was drawn. */
-  function pressing<A extends unknown[]>(press: (...args: A) => void) {
-    return (...args: A) => {
-      holdNow();
-      press(...args);
-    };
-  }
 
   // Narrowing the list can strand the cursor past the end of it.
   const cursor = Math.min(active, Math.max(rows.length - 1, 0));
@@ -274,20 +239,20 @@ export function TodoPane({
   function show(list: Mode) {
     setMode((previous) => (previous === list ? "open" : list));
     setActive(0);
-    setHold(null);
+    release();
   }
 
   /** `v`: the next view, writing the note first where the vault has none. */
   function nextView() {
     narrowing.nextView();
     setActive(0);
-    setHold(null);
+    release();
   }
 
   /** `c`: the board or the list. Either way the order held for the list is let go. */
   function toggleBoard() {
     setBoard(!board);
-    setHold(null);
+    release();
   }
 
   /**
@@ -298,14 +263,14 @@ export function TodoPane({
   function pickKind(next: string | null) {
     narrowing.setKind(next);
     setActive(0);
-    setHold(null);
+    release();
   }
 
   /** The shared toggle, which restarts the cursor for the same reason a chip does. */
   function flipShared() {
     narrowing.toggleShared();
     setActive(0);
-    setHold(null);
+    release();
   }
 
   /**
@@ -337,13 +302,13 @@ export function TodoPane({
     if (editing !== null) return;
     // An edited line can change its words, which a held row would take for a new
     // todo and put at the end of its group, so the list is drawn fresh instead.
-    setHold(null);
+    release();
     setEditing({ key: rowKey(hit), line: hit.text });
   }
 
   /** `s`: a part of the row, which lands beside its parent in the list drawn fresh. */
   function part(hit: SearchHit) {
-    setHold(null);
+    release();
     onSubtask(hit);
   }
 
@@ -353,7 +318,7 @@ export function TodoPane({
    */
   function block(hit: SearchHit) {
     if (!blocker.block(hit)) return;
-    setHold(null);
+    release();
     setActive(0);
   }
 
@@ -451,7 +416,7 @@ export function TodoPane({
       onBlur={(event) => {
         const inside = panel.current?.contains(event.relatedTarget) === true;
         held.current = inside;
-        if (!inside) setHold(null);
+        if (!inside) release();
       }}
       // Focusable, but not in the tab order: the cursor row is the tab stop,
       // and this is where the focus rests before a row exists to hold it.
@@ -466,7 +431,7 @@ export function TodoPane({
         onType={(value) => {
           narrowing.type(value);
           setActive(0);
-          setHold(null);
+          release();
         }}
         onFiltered={focusList}
         named={narrowing.named}
@@ -509,7 +474,8 @@ export function TodoPane({
         />
       ) : (
         <>
-          <TodoLegend counts={facts.counts} />
+          {/* The counts are of the open list, so the legend is drawn only over it. */}
+          {mode === "open" && blocker.picking === null && <TodoLegend counts={facts.counts} />}
           <TodoList
             groups={groups}
             empty={empty}
@@ -529,7 +495,7 @@ export function TodoPane({
             onWrite={onEdit}
             onCycle={onCycle}
             actions={actions}
-            doneWeek={facts.doneWeek}
+            doneWeek={foldRows}
             doneOpen={doneOpen}
             onDoneFold={() => setDoneOpen(!doneOpen)}
           />

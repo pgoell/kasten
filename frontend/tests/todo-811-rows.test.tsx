@@ -189,6 +189,40 @@ describe("the rows of the todo list", () => {
   });
 });
 
+it("#811 A2 the words drop the trailing tags the meta line shows and keep a tag inside the sentence", () => {
+  drawRow(rowOf(1, "- [ ] file #work the expense report #client"));
+
+  // The words stop before the trailing tag, which the meta line holds.
+  expect(screen.getByText("file #work the expense report")).toBeInTheDocument();
+  // The meta line holds every tag of the todo, in the order written.
+  expect(screen.getByText("#work #client")).toBeInTheDocument();
+  expect(document.querySelector(`[data-row="${PATH}:1"]`)?.getAttribute("title")).toBe(`${PATH}:1`);
+});
+
+it("#811 A2 an overdue date on a phone row is drawn in the danger colour, a muted row too", () => {
+  // Blocked is a muted row: its date must still be read as overdue on touch.
+  render(
+    <TodoList
+      {...listProps({
+        coarse: true,
+        groups: [
+          {
+            heading: "Overdue",
+            rows: [
+              rowOf(1, "- [b] ship it 📅 2026-10-20"),
+              rowOf(2, "- [ ] buy milk 📅 2026-10-20"),
+            ],
+          },
+        ],
+      })}
+    />,
+  );
+
+  const dates = screen.getAllByText("10-20");
+  expect(dates).toHaveLength(2);
+  for (const date of dates) expect(date).toHaveClass("text-k-danger");
+});
+
 describe("the done this week fold of the todo list", () => {
   it("#811 A3 the done this week heading folds and unfolds and says its count", () => {
     const doneWeek = [rowOf(31, "- [x] read the spec ✅ 2026-10-24"), rowOf(32, "- [x] write it")];

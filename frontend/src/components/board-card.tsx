@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { chipNote, PersonChip } from "@/components/person-chip";
 import type { Card } from "@/components/todo-board";
 import type { SearchHit, TodoHit } from "@/lib/api";
-import { PRIORITY_SYMBOL, type Todo, type TodoState } from "@/lib/todo";
+import { isOpen, PRIORITY_SYMBOL, type Todo, type TodoState } from "@/lib/todo";
 import type { Closed } from "@/lib/todo-blocked";
 import { columnOf } from "@/lib/todo-board";
 import { type Placed, waitsFor } from "@/lib/todo-view";
@@ -167,7 +167,8 @@ export function BoardCard({
   const key = cardKey(hit);
   const blockers = waitsFor(todo, named, closed);
   // A due date before today reads red, the one thing on a card that asks for action.
-  const overdue = todo.due !== undefined && todo.due < today;
+  // Only open work asks for it, as the list's row reads it, so a finished card stays muted.
+  const overdue = todo.due !== undefined && isOpen(todo) && todo.due < today;
   const face = (
     <button
       type="button"
@@ -185,7 +186,7 @@ export function BoardCard({
       }}
       title={key}
       // The card sits on `paper`, not `surface`: the due date's red is measured on that ground.
-      className={`flex min-w-0 cursor-pointer flex-col gap-0.5 rounded-[var(--k-radius-6)] border border-k-rule bg-k-paper px-2 py-1.5 text-left font-sans text-[13px] text-k-ink ${focused ? CURSOR : ""} ${coarse ? "min-h-11 justify-center" : ""} ${lifted ? "opacity-40" : ""}`}
+      className={`flex min-w-0 cursor-pointer flex-col gap-0.5 ${coarse ? "flex-1" : "w-full"} rounded-[var(--k-radius-6)] border border-k-rule bg-k-paper px-2 py-1.5 text-left font-sans text-[13px] text-k-ink ${focused ? CURSOR : ""} ${coarse ? "min-h-11 justify-center" : ""} ${lifted ? "opacity-40" : ""}`}
     >
       {parent !== undefined && (
         <span className="w-full truncate text-[12px] text-k-muted">↳ {parent.todo.text}</span>

@@ -208,7 +208,12 @@ export function useColumnSwipe({
       onPointerMove,
       onPointerUp,
       onPointerCancel: (event) => abandon(event.pointerId),
-      onLostPointerCapture: (event) => abandon(event.pointerId),
+      // A card's button holds the finger first, so the column's capture takes it
+      // from the card, and the card's loss bubbles here. Only the column's own loss
+      // is the swipe's end: the card's is the hand-off, not a cancel.
+      onLostPointerCapture: (event) => {
+        if (event.target === ref.current) abandon(event.pointerId);
+      },
       // Capture, so the click a swipe ends with stops here and opens no card.
       onClickCapture: (event) => {
         if (!swallow.current) return;

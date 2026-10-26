@@ -126,8 +126,8 @@ describe("the phone board's column swipe (#811 A8 I1 I2)", () => {
     fireEvent.pointerMove(col, { pointerType: "touch", pointerId: 1, clientX: 200, clientY: 160 });
 
     expect(col.style.transform).toBe("");
-    // The column claims only the sideways pan, so the page keeps its scroll.
-    expect(col.style.touchAction).toBe("pan-y");
+    // The column claims only the sideways pan and the pinch, so the page keeps its scroll (#811 R7.7).
+    expect(col.style.touchAction).toBe("pan-y pinch-zoom");
     expect(col.style.overscrollBehaviorX).toBe("contain");
     expect(fireEvent.touchMove(col)).toBe(true);
   });
@@ -223,5 +223,19 @@ describe("the phone board's column swipe (#811 A8 I1 I2)", () => {
 
     expect(screen.getByRole("tab", { name: "Open 3" }).getAttribute("aria-selected")).toBe("true");
     expect(pane.onCycle).not.toHaveBeenCalled();
+  });
+
+  it("#811 I3 on the phone h and l move the shown column as a tab does", async () => {
+    const pane = await boardPane();
+
+    pane.press("l");
+
+    expect(screen.getByRole("tab", { name: "Doing 1" }).getAttribute("aria-selected")).toBe("true");
+    expect(pane.texts()).toEqual([expect.stringContaining("draw the chart")]);
+
+    pane.press("h");
+
+    expect(screen.getByRole("tab", { name: "Open 3" }).getAttribute("aria-selected")).toBe("true");
+    expect(pane.texts()).toContainEqual(expect.stringContaining("send the invoice"));
   });
 });

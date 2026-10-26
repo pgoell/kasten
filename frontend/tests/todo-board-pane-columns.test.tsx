@@ -57,7 +57,8 @@ describe("the todo board", () => {
       "Waiting 0",
       "Blocked 1",
       "Done 1",
-      "Rejected 1",
+      // Folded, Rejected reads as a chevron and its count (#811 F3c), so its name is on the label.
+      "› 1",
     ]);
     expect(pane.texts().join()).not.toContain("old idea");
     // Rejected is folded on a desktop by default (#811 A7), so a click draws its card.

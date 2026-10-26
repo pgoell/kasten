@@ -1,5 +1,6 @@
 import { useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 import { BoardCard, SET } from "@/components/board-card";
+import { HEADING, LaneHeading } from "@/components/board-lane-heading";
 import { BoardPicker } from "@/components/board-picker";
 import type { SearchHit, TodoHit } from "@/lib/api";
 import type { Todo, TodoState } from "@/lib/todo";
@@ -13,6 +14,7 @@ import {
 } from "@/lib/todo-board";
 import { dropOf, pinnedBy } from "@/lib/todo-drag";
 import type { Placed } from "@/lib/todo-view";
+import { useBoardFolds } from "@/lib/use-board-folds";
 import { cardKey, useBoardLanes } from "@/lib/use-board-lanes";
 import { useCardDrag } from "@/lib/use-card-drag";
 import { useColumnSwipe } from "@/lib/use-column-swipe";
@@ -28,13 +30,6 @@ export interface Card {
 export interface BoardKeys {
   onKey: (key: string) => boolean;
 }
-
-/**
- * Where Rejected sits in the columns. It is folded on a desktop by default, the
- * one column a board folds, since the work done a week ago is rarely what the
- * eye is after.
- */
-const REJECTED = COLUMNS.indexOf("rejected");
 
 interface TodoBoardProps {
   ref: React.Ref<BoardKeys>;
@@ -90,13 +85,6 @@ export function TodoBoard({
 }: TodoBoardProps) {
   /** `g`, and the `project` button: lanes by project rather than by kind. */
   const [byProject, setByProject] = useState(false);
-  /**
-   * The lanes a tap folded, by id. Memory only, so a reload draws them all open
-   * again, as the lanes' own state is kept per mount.
-   */
-  const [folded, setFolded] = useState<Set<string>>(() => new Set());
-  /** Whether the Rejected column was unfolded by a click, which `l` onto it also does while the cursor is there. */
-  const [rejectedOpen, setRejectedOpen] = useState(false);
   /** Bumped by a tapped button, which the focus effect below reads as its cue. */
   const [settled, setSettled] = useState(0);
   const [col, setCol] = useState(0);
@@ -128,6 +116,12 @@ export function TodoBoard({
 
   const { ancestors, lanes, columns } = useBoardLanes(cards, parents, byProject);
 
+  const { folded, rejectedDrawn, toggleLane, toggleRejected } = useBoardFolds(
+    col,
+    showColumn,
+    endDrag,
+  );
+
   // The cards the keys walk. A lane the user folded draws none, so the cursor
   // passes over it rather than onto a card nobody can see.
   const walkable = useMemo(
@@ -137,10 +131,6 @@ export function TodoBoard({
       ),
     [lanes, folded],
   );
-
-  // Rejected is drawn unfolded while the cursor is on it, so `l` opens it, and
-  // `h` folds it again by leaving.
-  const rejectedDrawn = rejectedOpen || col === REJECTED;
 
   const swipe = useColumnSwipe({
     active: coarse,
@@ -175,6 +165,21 @@ export function TodoBoard({
     (card ?? element.closest<HTMLElement>("section"))?.focus();
   }, [cursorKey, cards, held, settled]);
 
+  // The shown tab is kept in sight. At 390 px the strip is wider than the screen,
+  // so a swipe or `h` `l` to Done or Rejected would show a column whose tab is
+  // off screen. Reduced motion jumps to it rather than scrolling.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `col` is the trigger, not a value the effect reads: the tab it scrolls to is the one the DOM marks selected.
+  useEffect(() => {
+    if (!coarse) return;
+    const tab = root.current?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]');
+    const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    tab?.scrollIntoView?.({
+      inline: "nearest",
+      block: "nearest",
+      behavior: reduced ? "auto" : "smooth",
+    });
+  }, [col, coarse]);
+
   /** A button was tapped: the focus goes back to the card under the cursor. */
   function settle() {
     setSettled((count) => count + 1);
@@ -195,34 +200,16 @@ export function TodoBoard({
     settle();
   }
 
-  /** A tab tap or a swipe shows the column at `index`, from its top. */
+  /**
+   * A tab tap or a swipe shows the column at `index`, from its top. A card
+   * carried at the time is let go first: the cell it was over is no longer the
+   * one shown, so a release would write into a cell nobody can see. A tab
+   * released over is a different path, a pointer up on the tab, which still drops.
+   */
   function showColumn(index: number) {
+    if (carrying()) endDrag();
     setCol(index);
     setRow(0);
-  }
-
-  /** A tap on a lane's heading folds the lane or unfolds it. */
-  function toggleLane(id: string) {
-    setFolded((before) => {
-      const after = new Set(before);
-      if (after.has(id)) after.delete(id);
-      else after.add(id);
-      return after;
-    });
-  }
-
-  /**
-   * The Rejected heading: unfolds the column, or folds it again. Folding it
-   * while the cursor is on it moves the cursor to Done, or the column would
-   * stay drawn open under the cursor.
-   */
-  function toggleRejected() {
-    if (!rejectedDrawn) {
-      setRejectedOpen(true);
-      return;
-    }
-    setRejectedOpen(false);
-    if (col === REJECTED) showColumn(REJECTED - 1);
   }
 
   /** Escape, and `cancel` by finger. */
@@ -251,6 +238,9 @@ export function TodoBoard({
         endDrag();
         return true;
       }
+      // A carried card is held over one cell, and moving the shown column would
+      // leave that cell's drop to write into a column nobody is looking at.
+      if ((key === "h" || key === "l") && carrying()) return true;
       if (picker !== null) {
         const choice = choices[picker.at];
         if (key === "j") setPicker({ ...picker, at: Math.min(picker.at + 1, choices.length - 1) });
@@ -335,52 +325,7 @@ export function TodoBoard({
     );
   }
 
-  /**
-   * A lane's heading, a button that folds it. It names the lane and counts the
-   * cards it holds, which a folded lane keeps. `locked` is a lane with nothing
-   * in the shown state: it folds on its own and cannot be opened.
-   */
-  function laneHeading(
-    id: string,
-    name: string,
-    count: number,
-    open: boolean,
-    locked: boolean,
-    span: string,
-  ) {
-    return (
-      <h3 className={`${heading} ${span}`}>
-        <button
-          type="button"
-          aria-expanded={open}
-          disabled={locked}
-          onClick={() => toggleLane(id)}
-          // The count is drawn from the attribute, not typed as text, so the heading's text
-          // stays the lane's name: a folded lane's count is still there, and the names read alone.
-          data-count={count}
-          className={`flex w-full items-center gap-1.5 text-left after:ml-1 after:text-[12px] after:text-k-muted after:content-[attr(data-count)] ${coarse ? "min-h-11" : ""}`}
-        >
-          <svg
-            aria-hidden="true"
-            viewBox="0 0 16 16"
-            className={`size-3 shrink-0 transition-transform duration-[var(--k-hover)] ease-[var(--k-ease-out)] motion-reduce:transition-none ${open ? "rotate-90" : ""}`}
-          >
-            <path
-              d="M6 4l4 4-4 4"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-          {name}
-        </button>
-      </h3>
-    );
-  }
-
-  const heading = "px-3 pt-2 pb-1 text-[11px] tracking-wider text-k-muted uppercase";
+  const heading = HEADING;
 
   /** The mark a drop zone carries while the pointer brings a card over it. */
   const marked = (name: string) => (overZone === name ? "" : undefined);
@@ -456,7 +401,8 @@ export function TodoBoard({
         // The swipe is on the column alone: the tabs and the page keep their own touches.
         <div
           ref={swipe.ref}
-          style={{ touchAction: "pan-y", overscrollBehaviorX: "contain" }}
+          className="px-3"
+          style={{ touchAction: "pan-y pinch-zoom", overscrollBehaviorX: "contain" }}
           {...swipe.handlers}
         >
           {lanes.map((lane) => {
@@ -478,7 +424,15 @@ export function TodoBoard({
                 onPointerLeave={unhover}
                 className={shut ? undefined : lit(name)}
               >
-                {laneHeading(lane.id, lane.name, shown.length, !shut, empty, "")}
+                <LaneHeading
+                  name={lane.name}
+                  count={shown.length}
+                  open={!shut}
+                  locked={empty}
+                  coarse={coarse}
+                  span=""
+                  onToggle={() => toggleLane(lane.id)}
+                />
                 {!shut && shown.map((card) => drawCard(card, lane.id))}
               </div>
             );
@@ -495,13 +449,19 @@ export function TodoBoard({
               className={`${heading} ${index === col ? "text-k-ink" : ""}`}
             >
               {name === "rejected" ? (
+                // Folded, the track is 3rem, too narrow for the word, so it reads as a
+                // chevron and the count. The name stays on the label and the title.
                 <button
                   type="button"
                   aria-expanded={rejectedDrawn}
+                  aria-label={`${COLUMN_HEADING[name]} ${columns[index]?.length ?? 0}`}
+                  title={`${COLUMN_HEADING[name]} ${columns[index]?.length ?? 0}`}
                   onClick={toggleRejected}
-                  className={`text-left ${rejectedDrawn ? "" : "min-w-0 truncate"}`}
+                  className="text-left"
                 >
-                  {COLUMN_HEADING[name]} {columns[index]?.length ?? 0}
+                  {rejectedDrawn
+                    ? `${COLUMN_HEADING[name]} ${columns[index]?.length ?? 0}`
+                    : `› ${columns[index]?.length ?? 0}`}
                 </button>
               ) : (
                 <>
@@ -516,14 +476,15 @@ export function TodoBoard({
             const count = lane.cells.reduce((sum, cell) => sum + cell.length, 0);
             return (
               <div key={lane.id} className="col-span-7 grid grid-cols-subgrid">
-                {laneHeading(
-                  lane.id,
-                  lane.name,
-                  count,
-                  !shut,
-                  false,
-                  "col-span-7 border-t border-k-rule",
-                )}
+                <LaneHeading
+                  name={lane.name}
+                  count={count}
+                  open={!shut}
+                  locked={false}
+                  coarse={coarse}
+                  span="col-span-7 border-t border-k-rule"
+                  onToggle={() => toggleLane(lane.id)}
+                />
                 {!shut &&
                   COLUMNS.map((column, index) => {
                     if (column === "rejected" && !rejectedDrawn) return <div key={column} />;
@@ -536,7 +497,7 @@ export function TodoBoard({
                         data-over={marked(name)}
                         onPointerOver={(event) => hover(event, name, column, lane.id)}
                         onPointerLeave={unhover}
-                        className={`min-w-0 ${lit(name)}`}
+                        className={`min-w-0 ${index === 0 ? "pl-3" : "pl-1"} pr-1 ${lit(name)}`}
                       >
                         {lane.cells[index]?.map((card) => drawCard(card, lane.id))}
                       </div>

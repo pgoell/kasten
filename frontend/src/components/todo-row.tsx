@@ -30,6 +30,19 @@ function clocks(todo: Todo): string | null {
   return null;
 }
 
+/**
+ * The words of a todo with the tags that trail them taken off, because the
+ * meta line shows those tags beside the row. A tag inside the sentence stays,
+ * since it is part of what the sentence says. A todo made of nothing but tags
+ * keeps its text, so the row is never blank.
+ */
+function wordsOf(text: string, tags: string[]): string {
+  const words = text.split(" ");
+  while (words.length > 0 && tags.includes(words[words.length - 1] ?? "")) words.pop();
+  const rest = words.join(" ").trimEnd();
+  return rest === "" ? text : rest;
+}
+
 /** The keyboard cursor, drawn the way the file tree draws its own. */
 const CURSOR = [
   "outline-1 -outline-offset-1 outline-k-accent/45",
@@ -150,7 +163,7 @@ export function TodoRow({
           <span
             className={`min-w-[8ch] flex-1 truncate ${struck ? "text-k-muted line-through" : ""}`}
           >
-            {todo.text}
+            {wordsOf(todo.text, todo.tags)}
           </span>
         </span>
         {meta && (

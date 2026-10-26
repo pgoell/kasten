@@ -261,7 +261,7 @@ export function TodoList(p: {
               {/* A chevron that turns to point down when open, as the file tree's does. */}
               <span
                 aria-hidden="true"
-                className={`inline-block transition-transform duration-(--k-hover) ease-(--k-ease-out) motion-reduce:transition-none ${doneOpen ? "rotate-90" : ""}`}
+                className={`inline-block transition-transform duration-(--k-hover) ease-(--k-ease-out) motion-reduce:transition-none motion-reduce:duration-0 ${doneOpen ? "rotate-90" : ""}`}
               >
                 ›
               </span>
