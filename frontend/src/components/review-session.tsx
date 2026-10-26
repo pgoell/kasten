@@ -106,6 +106,8 @@ export function ReviewSession({ deck, onLeave, onControls, onOpen }: ReviewSessi
     setTyped,
     done,
     failed,
+    rereadable,
+    reread,
     step,
     undoing,
     reveal,
@@ -405,6 +407,11 @@ export function ReviewSession({ deck, onLeave, onControls, onOpen }: ReviewSessi
           <p role="alert" className="mt-6 text-k-muted">
             {failed}
           </p>
+        )}
+        {rereadable && (
+          <button type="button" onClick={reread} className={`mt-3 ${BUTTON}`}>
+            Try again
+          </button>
         )}
       </div>
 

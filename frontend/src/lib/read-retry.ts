@@ -31,7 +31,7 @@ export const readRetry = {
 
 /**
  * Reads a note, trying again while the backend restarts, as `useSittingWrites` tries a write.
- * The parked list and the sitting both read through it, so they retry alike. `live` says
+ * The parked list and the sitting both read through `readNotes`, so they retry alike. `live` says
  * whether the effect that asked still stands, so a read it has left stops before its next try.
  */
 export async function readNote(note: string, live: () => boolean): Promise<string> {
@@ -43,5 +43,24 @@ export async function readNote(note: string, live: () => boolean): Promise<strin
       await new Promise((wake) => setTimeout(wake, BACKOFF[attempt]));
       if (!live()) throw error;
     }
+  }
+}
+
+/**
+ * Reads every note at once, as `readNote` reads one. The first note that fails for good fails
+ * them all, so the others stop before their next try rather than retrying a batch already lost.
+ */
+export async function readNotes(
+  notes: readonly string[],
+  live: () => boolean,
+): Promise<(readonly [string, string])[]> {
+  let lost = false;
+  try {
+    return await Promise.all(
+      notes.map(async (note) => [note, await readNote(note, () => live() && !lost)] as const),
+    );
+  } catch (error) {
+    lost = true;
+    throw error;
   }
 }

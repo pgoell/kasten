@@ -222,6 +222,9 @@ export function ReviewPane({ commands, onClose, onOpen, focusSignal }: ReviewPan
       const onControl =
         (focused instanceof HTMLButtonElement || focused instanceof HTMLAnchorElement) &&
         panel.current?.contains(focused) === true;
+      // With no card up, a focused button's Enter is its own press (Try again on a
+      // deck that failed to read), so it is left unstopped for the browser to click.
+      if (onControl && !controls.current?.showing) return;
       if (controls.current?.revealed) {
         if (!onControl) controls.current.rate("good");
       } else if (!controls.current?.shown) controls.current?.reveal();

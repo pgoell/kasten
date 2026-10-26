@@ -3,7 +3,7 @@ import { ChangedOnDisk } from "@/lib/api";
 import { soundsIn } from "@/lib/audio";
 import { appendStub, setSuspended, writeSchedule } from "@/lib/card-write";
 import { readClock } from "@/lib/clock";
-import { readNote } from "@/lib/read-retry";
+import { readNotes } from "@/lib/read-retry";
 import type { Deck, Limits } from "@/lib/review";
 import { cardsOf, type Seat, seatsFor } from "@/lib/review-queue";
 import type { Card, Rating, Schedule } from "@/lib/srs";
@@ -21,6 +21,8 @@ import { useSittingWrites } from "@/lib/use-sitting-writes";
 const MOVED_ON = "The note changed since that step, so it was not undone.";
 /** What the foot says when the daily limits could not be read, before the reason. */
 const LIMITS_UNREAD = "The daily limits could not be read: ";
+/** What the foot says when a note of the deck could not be read, before the reason. */
+const NOTE_UNREAD = "The note could not be read: ";
 
 /**
  * The schedule a rating writes for the card on screen.
@@ -85,6 +87,8 @@ export function useReviewSitting(
   const [done, setDone] = useState(0);
   /** The sentence at the foot, which a refused undo words apart from a failed write. */
   const [failed, setFailed] = useState<string | null>(null);
+  /** Bumped by Try again, which runs the deck read once more. */
+  const [tries, setTries] = useState(0);
   const [step, setStep] = useState<Step | null>(null);
   const [undoing, setUndoing] = useState(false);
   const unwritten = useCallback(
@@ -118,6 +122,7 @@ export function useReviewSitting(
     }
   }, [limits, limitsFailed]);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `tries` is the trigger for Try again, and is not read.
   useEffect(() => {
     // Before any note is read: a queue built without the limits would ask the
     // whole deck, and the latch above keeps later limits from rebuilding it.
@@ -128,9 +133,7 @@ export function useReviewSitting(
     // so the queue is the whole sitting from the first question and the count
     // in the header does not climb as you go. Each read tries again while the
     // backend restarts, and the foot says it is reading until one answers.
-    void Promise.all(
-      deck.notes.map(async (note) => [note, await readNote(note, () => live)] as const),
-    ).then(
+    void readNotes(deck.notes, () => live).then(
       (read) => {
         if (!live) return;
         const texts = new Map(read);
@@ -141,7 +144,7 @@ export function useReviewSitting(
         // A read, not a write: nothing was sent to the vault, so the foot says so.
         if (live) {
           setFailed(
-            `The note could not be read: ${error instanceof Error ? error.message : "could not read the note"}`,
+            `${NOTE_UNREAD}${error instanceof Error ? error.message : "could not read the note"}`,
           );
         }
       },
@@ -149,7 +152,15 @@ export function useReviewSitting(
     return () => {
       live = false;
     };
-  }, [deck, today, limits]);
+  }, [deck, today, limits, tries]);
+
+  // Try again reads the deck once more, and only while no text was read: a read
+  // over a sitting that has answers would rebuild its queue under them.
+  const rereadable = texts === null && failed?.startsWith(NOTE_UNREAD) === true;
+  const reread = useCallback(() => {
+    setFailed(null);
+    setTries((n) => n + 1);
+  }, []);
 
   const cards = useMemo(() => cardsOf(deck, texts ?? new Map()), [deck, texts]);
   const seat = queue[0];
@@ -336,6 +347,8 @@ export function useReviewSitting(
     setTyped,
     done,
     failed,
+    rereadable,
+    reread,
     step,
     undoing,
     reveal,

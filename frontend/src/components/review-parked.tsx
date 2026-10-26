@@ -5,7 +5,7 @@ import { clozePlain, unescaped } from "@/lib/card-line";
 import { setSuspended } from "@/lib/card-write";
 import { withoutTags } from "@/lib/deck-tag";
 import { noteName } from "@/lib/note-path";
-import { readNote, readRetry } from "@/lib/read-retry";
+import { readNotes, readRetry } from "@/lib/read-retry";
 import { parkedNotes } from "@/lib/review";
 import { type Parked, parseCards } from "@/lib/srs";
 import { readNoteSuspended, writeNoteSuspended } from "@/lib/srs-schedule";
@@ -70,9 +70,7 @@ export function ReviewParked({ onLeave, onOpen, archive = false }: ReviewParkedP
     if (hits === undefined) return;
     let live = true;
     const landedAt = new Map(landed.current);
-    void Promise.all(
-      notes.map(async (note) => [note, await readNote(note, () => live)] as const),
-    ).then(
+    void readNotes(notes, () => live).then(
       (read) => {
         // A note with a write out, or a put-back that landed while this read was on its
         // way, keeps the text the screen holds: the read may predate that landing. A put-back
