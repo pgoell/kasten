@@ -83,6 +83,13 @@ FROM rg-${TARGETARCH} AS rg
 FROM ghcr.io/astral-sh/uv:python3.14-bookworm-slim AS runtime
 WORKDIR /app
 
+# The base image still trusts emSign ECC Root CA - G3, which Mozilla dropped.
+# The security repo's ca-certificates no longer does. Drop this once the base
+# image ships it.
+RUN apt-get update \
+    && apt-get install --only-upgrade -y ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY --from=jj /usr/local/bin/jj /usr/local/bin/jj
 COPY --from=rg /usr/local/bin/rg /usr/local/bin/rg
 COPY --from=builder /app/.venv /app/.venv
