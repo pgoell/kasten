@@ -91,13 +91,13 @@ when its note has a `## Log`.
 
 * The summary row comes first: the average kcal over the days with a food line,
   as `over 27 food days`; the days within the kcal goal, as `21 of 27` days with
-  a food line. A day of drinks only, or of weight only, counts in neither, and
-  with no food line in the range both read `—` and `no food logged`; the
-  streak, the logged days
-  within the kcal goal in a row up to the day shown (a day with no food line
-  ends it, even one with drinks logged; today with no food line yet does not);
-  and for each `last` kind, such as
-  weight, the change from its first weigh-in in the range to its last. It reads
+  a food line. A day of drinks only, or of weight only, counts in neither. When
+  the range has logged days but no food line, both read `—` and
+  `no food logged` (Within goal says `no kcal goal` while there is none); the
+  streak, the logged days within the kcal goal in a row up to the day shown (a
+  day with no food line ends it, even one with drinks logged; today with no
+  food line yet does not); and for each `last` kind, such as weight, the change
+  from its first weigh-in in the range to its last. It reads
   as `-1.2 kg` or `+0.4 kg`, with the words `from 83.6 to 82.4 kg`.
 * A small chart for each kind, except a `last` kind, and for kcal, protein,
   carbs and fat, all the same size: a bar per logged day, the goal as a dashed line. A bar past a
