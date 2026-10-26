@@ -1,6 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
 import { type RefObject, useState } from "react";
-import { amountOf } from "@/components/finance-budget-tab";
 import { type DrillProps, useWrite, Waiting } from "@/components/finance-drill-parts";
 import type { TabKeys } from "@/components/finance-sort-bar";
 import { fetchSetup, type Setup, writeLimits } from "@/lib/finance-budget-api";
@@ -19,10 +18,61 @@ function shown(amount: string | null | undefined): string {
   return cents === "00" ? (whole ?? "") : `${whole},${cents}`;
 }
 
-/** A field's amount in cents, or null for an empty or unreadable one, which is no limit. */
-function cents(text: string): number | null {
-  const amount = Number(amountOf(text));
-  return text.trim() === "" || !Number.isFinite(amount) ? null : Math.round(amount * 100);
+/** What a field holds: a limit in cents, none (an empty field), or why it is not an amount. */
+export type Parsed = { cents: number | null } | { error: string };
+
+/** Digits, a separator, then whole groups of three; the decimal part, one or two digits. */
+const SHAPES: { shape: RegExp; thousands: string; decimal: string }[] = [
+  // 1234,56 and 1.234,56: the German way.
+  { shape: /^\d{1,3}(\.\d{3})*(,\d{1,2})?$|^\d+(,\d{1,2})?$/, thousands: ".", decimal: "," },
+  // 1234.56 and 1,234.56.
+  { shape: /^\d{1,3}(,\d{3})*\.\d{1,2}$|^\d+\.\d{1,2}$/, thousands: ",", decimal: "." },
+];
+
+/**
+ * A typed limit, read strictly: `1.234,56`, `1234,56`, `1,234.56`, `1234.56`, `1.200` and `1200`
+ * all read, and anything else is an error rather than a guess, so a slip never takes a limit
+ * away. `1,234` alone could be either way and is refused.
+ */
+export function parseLimit(text: string): Parsed {
+  const typed = text.trim().replace(/\s|€/g, "");
+  if (typed === "") return { cents: null };
+  if (/^[-\u2212]/.test(typed)) return { error: "a limit is not below zero" };
+  if (/^\d{1,3}(,\d{3})+$/.test(typed)) return { error: "write 1234 or 1234,56" };
+  for (const { shape, thousands, decimal } of SHAPES) {
+    if (!shape.test(typed)) continue;
+    const plain = typed.replaceAll(thousands, "").replace(decimal, ".");
+    return { cents: Math.round(Number(plain) * 100) };
+  }
+  return { error: "not an amount" };
+}
+
+/** A limit's field, with why it cannot be read under it. */
+function LimitInput({
+  label,
+  value,
+  parsed,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  parsed: Parsed | undefined;
+  onChange: (value: string) => void;
+}) {
+  const error = parsed !== undefined && "error" in parsed ? parsed.error : undefined;
+  return (
+    <>
+      <input
+        inputMode="decimal"
+        aria-label={label}
+        aria-invalid={error !== undefined}
+        placeholder="none"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+      />
+      {error === undefined ? null : <span className="finance-setup-error">{error}</span>}
+    </>
+  );
 }
 
 /** A stored amount in cents, or null for none. */
@@ -59,14 +109,19 @@ function SetupForm({
     suggest();
     return true;
   };
-  const total =
-    setup.categories.reduce((sum, c) => sum + (cents(drafts[c.id] ?? "") ?? 0), 0) / 100;
+  const parsed = new Map(setup.categories.map((c) => [c.id, parseLimit(drafts[c.id] ?? "")]));
+  const centsOf = (id: number) => {
+    const found = parsed.get(id);
+    return found === undefined || "error" in found ? null : found.cents;
+  };
+  const wrong = [...parsed.values()].some((found) => "error" in found);
+  const total = setup.categories.reduce((sum, c) => sum + (centsOf(c.id) ?? 0), 0) / 100;
   const income = Number(setup.expected_income);
   const left = income - total;
   const changed = setup.categories
-    .filter((c) => cents(drafts[c.id] ?? "") !== stored(c.limit))
+    .filter((c) => !("error" in (parsed.get(c.id) ?? {})) && centsOf(c.id) !== stored(c.limit))
     .map((c) => {
-      const amount = cents(drafts[c.id] ?? "");
+      const amount = centsOf(c.id);
       return { category_id: c.id, amount: amount === null ? null : (amount / 100).toFixed(2) };
     });
   return (
@@ -107,12 +162,11 @@ function SetupForm({
                   <td>{c.average == null ? "none" : euros(c.average)}</td>
                   <td>{c.suggested == null ? "none" : euros(c.suggested)}</td>
                   <td>
-                    <input
-                      inputMode="decimal"
-                      aria-label={`${c.name} limit from ${monthName(month)}`}
-                      placeholder="none"
+                    <LimitInput
+                      label={`${c.name} limit from ${monthName(month)}`}
                       value={drafts[c.id] ?? ""}
-                      onChange={(event) => setDrafts({ ...drafts, [c.id]: event.target.value })}
+                      parsed={parsed.get(c.id)}
+                      onChange={(value) => setDrafts({ ...drafts, [c.id]: value })}
                     />
                   </td>
                 </tr>
@@ -136,10 +190,16 @@ function SetupForm({
         <button type="button" className="finance-pane-button" onClick={suggest}>
           <kbd>u</kbd> Use suggestions
         </button>
-        <button type="submit" className="finance-pane-button" disabled={changed.length === 0}>
-          {changed.length === 0
-            ? "Nothing changed"
-            : `Save ${changed.length} ${changed.length === 1 ? "limit" : "limits"}`}
+        <button
+          type="submit"
+          className="finance-pane-button"
+          disabled={wrong || changed.length === 0}
+        >
+          {wrong
+            ? "Fix the fields marked"
+            : changed.length === 0
+              ? "Nothing changed"
+              : `Save ${changed.length} ${changed.length === 1 ? "limit" : "limits"}`}
         </button>
       </div>
     </form>
@@ -163,7 +223,6 @@ export function DrillSetup({ today, keys, onNotice }: DrillProps) {
       <article className="overview-card">
         <h3 className="overview-name">{`Every limit from ${monthName(month)}`}</h3>
         <SetupForm
-          key={setup.dataUpdatedAt}
           setup={setup.data}
           month={month}
           keys={keys}

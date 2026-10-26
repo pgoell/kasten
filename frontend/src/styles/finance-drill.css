@@ -317,3 +317,14 @@ button.finance-drill-row:hover {
     white-space: normal;
   }
 }
+
+.finance-setup-table input[aria-invalid="true"] {
+  border-color: var(--k-danger);
+}
+
+.finance-setup-error {
+  display: block;
+  color: var(--k-danger);
+  font-size: var(--k-text-13);
+  white-space: normal;
+}

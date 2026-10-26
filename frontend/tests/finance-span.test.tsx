@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { parseLimit } from "@/components/finance-budget-setup";
 import { FinancePane } from "@/components/finance-pane";
 import { spanName, spanOf, stepMonth } from "@/lib/finance-span";
 import { stubCommands } from "./stub-commands";
@@ -230,5 +231,42 @@ describe("the span of months", () => {
     const mine = (await screen.findAllByRole("table"))[0] as HTMLElement;
     expect(within(mine).getAllByRole("columnheader")[1]).toHaveTextContent("October 2026 so far");
     expect(within(mine).getAllByText("no data").length).toBeGreaterThan(0);
+  });
+
+  it("#1083 a limit reads either way round, and what cannot be read is an error, not no limit", () => {
+    expect(parseLimit("1.234,56")).toEqual({ cents: 123456 });
+    expect(parseLimit("1,234.56")).toEqual({ cents: 123456 });
+    expect(parseLimit("1234,5")).toEqual({ cents: 123450 });
+    expect(parseLimit("1.200")).toEqual({ cents: 120000 });
+    expect(parseLimit(" 300 € ")).toEqual({ cents: 30000 });
+    expect(parseLimit("")).toEqual({ cents: null });
+    for (const bad of ["abc", "1.2.3", "1,234", "12,345.6.7", "-50"]) {
+      expect(parseLimit(bad)).toHaveProperty("error");
+    }
+  });
+
+  it("#1083 the setup blocks a field it cannot read, and keeps what was typed through a failed save", async () => {
+    api.writeLimits.mockRejectedValue(new Error("Setting the limits failed with 503"));
+    renderPane();
+    press("B");
+    press("s");
+    const rent = await screen.findByRole("textbox", { name: "Rent limit from October 2026" });
+    fireEvent.change(rent, { target: { value: "abc" } });
+    expect(rent).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByText("not an amount")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Fix the fields marked" })).toBeDisabled();
+
+    fireEvent.change(rent, { target: { value: "1.600,25" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save 1 limit" }));
+    await waitFor(() =>
+      expect(api.writeLimits).toHaveBeenCalledWith("2026-10", [
+        { category_id: 3, amount: "1600.25" },
+      ]),
+    );
+    // The failed save reads the setup again; the field keeps what was typed.
+    await waitFor(() => expect(api.fetchSetup).toHaveBeenCalledTimes(2));
+    expect(screen.getByRole("textbox", { name: "Rent limit from October 2026" })).toHaveValue(
+      "1.600,25",
+    );
   });
 });

@@ -259,7 +259,7 @@ describe("the finance pane's drilldowns", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Groceries ›" }));
     expect(
       await screen.findByText(
-        /^October 2026: 100\s€; a year before 80\s€; 6-month average 380\s€; 400\s€ available$/,
+        /^October 2026 so far: 100\s€; a year before 80\s€; 6-month average 380\s€; 400\s€ available$/,
       ),
     ).toBeTruthy();
     expect(screen.getByText("rule: payee starts with “rewe”")).toBeTruthy();
@@ -411,5 +411,22 @@ describe("the finance pane's drilldowns", () => {
     press("Enter");
     fireEvent.click(await screen.findByRole("button", { name: "REWE ›" }));
     expect(await screen.findByText(/^average 3.000\s€ a month$/)).toBeTruthy();
+  });
+
+  it("#1083 a split the server refuses, such as of a move between own accounts, says why", async () => {
+    api.writeSplits.mockRejectedValue(
+      new Error("A move between own accounts is no spending and cannot be split into categories"),
+    );
+    renderPane();
+    press("T");
+    await screen.findByText("REWE SAGT DANKE");
+    press("Enter");
+    fireEvent.click(await screen.findByRole("button", { name: "Split into parts" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save the splits" }));
+    await waitFor(() =>
+      expect(notice).toHaveBeenCalledWith(
+        "A move between own accounts is no spending and cannot be split into categories",
+      ),
+    );
   });
 });

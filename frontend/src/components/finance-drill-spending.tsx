@@ -17,7 +17,7 @@ import {
   type PayeeDrill,
   writePayeeRule,
 } from "@/lib/finance-drill-api";
-import { euros, monthName } from "@/lib/finance-words";
+import { euros, monthName, monthOf } from "@/lib/finance-words";
 
 /** How often a plan falls due, in words. */
 function every(months: number | null | undefined): string {
@@ -27,10 +27,12 @@ function every(months: number | null | undefined): string {
 }
 
 /** A category's span in one line: its figure, a year before, the average and what was available. */
-function spanWords(data: CategoryDrill, label: string): string {
+function spanWords(data: CategoryDrill, label: string, running: boolean): string {
   const { now, last_year: before, average, available } = data.span;
+  // A span ending in the month still running holds only its days so far, as the tables say.
+  const name = running && !label.endsWith("so far") ? `${label} so far` : label;
   return [
-    `${label}: ${euros(now.total)}`,
+    `${name}: ${euros(now.total)}`,
     before == null ? "no data a year before" : `a year before ${euros(before.total)}`,
     average == null ? "no average yet" : `6-month average ${euros(average.total)}`,
     available == null ? "" : `${euros(available)} available`,
@@ -47,6 +49,7 @@ function spanWords(data: CategoryDrill, label: string): string {
 export function DrillCategory({
   span,
   spanLabel,
+  today,
   id,
   month,
   onOpen,
@@ -98,7 +101,7 @@ export function DrillCategory({
               );
             }}
           />
-          <p className="overview-words">{spanWords(data, spanLabel)}</p>
+          <p className="overview-words">{spanWords(data, spanLabel, span.to === monthOf(today))}</p>
           <p className="overview-caption">
             {category.kind === "ignore"
               ? "an ignored category counts nowhere; its bookings are below"
