@@ -14,6 +14,11 @@ ships in the `kasten-backend` image as the command `kasten-firefly-import`, and
 runs as a container on the docker network `web`. Running it is
 [Import from Firefly III](/how-to/import-from-firefly-iii.md).
 
+A one-off: it ran on the maintainer's server on 2026-10-25, and Firefly III
+there is retired since (#1041). The code stays for anyone moving from Firefly,
+and because the history it stored still carries `raw.firefly`, which the plan
+proposals read for Firefly's bills.
+
 ## Command
 
 | Command | What it does |
