@@ -139,3 +139,33 @@ class KastenApi:
         """`PUT /api/finance/transactions/{id}/category`: set the booking's category by hand."""
         url = f"/api/finance/transactions/{transaction_id}/category"
         self._json(self.client.put(url, json={"category_id": category_id}))
+
+    def post_receipt(self, data: bytes, name: str, source: str) -> dict[str, Any] | None:
+        """`POST /api/finance/receipts`: the receipt kept and whether new, or None if refused.
+
+        The same file sent again is the receipt already kept, so a rerun sends
+        every attachment again and changes nothing.
+        """
+        files = {"file": (name, data, "application/octet-stream")}
+        response = self.client.post("/api/finance/receipts", files=files, data={"source": source})
+        if response.status_code == httpx.codes.UNPROCESSABLE_ENTITY:
+            log.warning("kasten refused receipt %s: %s", name, response.text)
+            return None
+        return self._json(response)
+
+    def unread_receipts(self, after: int | None, limit: int = 20) -> list[dict[str, Any]]:
+        """`GET /api/finance/receipts`: receipts not read yet, oldest first, past `after`."""
+        params: dict[str, Any] = {"limit": limit}
+        if after is not None:
+            params["after"] = after
+        return self._json(self.client.get("/api/finance/receipts", params=params))
+
+    def receipt_file(self, receipt_id: int) -> bytes:
+        """`GET /api/finance/receipts/{id}/file`: the receipt's bytes."""
+        response = self.client.get(f"/api/finance/receipts/{receipt_id}/file")
+        response.raise_for_status()
+        return response.content
+
+    def put_reading(self, receipt_id: int, reading: dict[str, Any]) -> None:
+        """`PUT /api/finance/receipts/{id}/reading`: what the reader found, or why nothing."""
+        self._json(self.client.put(f"/api/finance/receipts/{receipt_id}/reading", json=reading))

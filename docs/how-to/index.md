@@ -25,6 +25,7 @@ on its code.
 * [Recover an earlier version of a note](recover-an-earlier-version.md): read back or restore a note as it was before a save overwrote it, from the history pane or with jj
 * [Regenerate the API types](regenerate-the-api-types.md): rebuild the frontend's TypeScript types after changing a backend endpoint
 * [Review an area for deep modules](review-an-area-for-deep-modules.md): list one area's files and who imports them, ask of each whether it hides work or only passes calls on, and file what should merge or move as refactor issues
+* [Collect receipts](collect-receipts.md): get tax receipts in from the finance pane, the phone and Gmail, set up the receipt job that reads each one with Claude, confirm what kasten proposes, and read and export the tax year
 * [Run the order sync](run-the-order-sync.md): set up the PayPal and Amazon order mail job with a read-only Gmail login in `~/.config/kasten`, check what it reads, start it on a systemd timer, and read the orders no booking holds yet
 * [Run the bank sync](run-the-bank-sync.md): set up the bank sync on the server with its env file and FinTS state in `~/.config/kasten`, log in to each bank once, start it on systemd timers, ask for a pull now, and read the status
 * [Run the checks](run-the-checks.md): run the linters, tests and type checks, and get past the two ways the git hooks go wrong

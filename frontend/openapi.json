@@ -576,6 +576,51 @@
         }
       }
     },
+    "/agent/finance/tax/{year}": {
+      "get": {
+        "tags": [
+          "agent"
+        ],
+        "summary": "Read Year",
+        "description": "Totals per line for the bookings paid in `year`, the receipts missing and money back.",
+        "operationId": "read_year_agent_finance_tax__year__get",
+        "parameters": [
+          {
+            "name": "year",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "maximum": 2100,
+              "minimum": 2000,
+              "title": "Year"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/YearOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/agent/finance/transactions/{transaction_id}": {
       "get": {
         "tags": [
@@ -4989,6 +5034,685 @@
         }
       }
     },
+    "/api/finance/receipts": {
+      "post": {
+        "summary": "Write Receipt",
+        "description": "Keep a PDF, JPEG or PNG of up to 20 MB, on the booking named or on none.\n\nThe same file again answers the receipt already kept, `created` false,\nand links it when it was on no booking; on another booking it is a 409.",
+        "operationId": "write_receipt_api_finance_receipts_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_write_receipt_api_finance_receipts_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StoredOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "summary": "Read Receipts",
+        "description": "The receipts the reader has not done yet, oldest first, past the id `after`.\n\n`unread` is the one `state` there is. A receipt the reader could not get\nan answer for stays unread, so `after` lets it page on past one.",
+        "operationId": "read_receipts_api_finance_receipts_get",
+        "parameters": [
+          {
+            "name": "state",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^unread$",
+              "default": "unread",
+              "title": "State"
+            }
+          },
+          {
+            "name": "after",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "After"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ReceiptOut"
+                  },
+                  "title": "Response Read Receipts Api Finance Receipts Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/finance/receipts/share": {
+      "post": {
+        "summary": "Share",
+        "description": "What the phone's share sheet posts: keep the files as receipts, then open `/capture`.\n\nThe manifest's `share_target` sends here. The files go to the receipt\nqueue, on no booking; the title, text and address go on to `/capture` as\na plain share would, with how many receipts were kept and refused. A\nshare of text alone opens no database, so it works on a backend with none.",
+        "operationId": "share_api_finance_receipts_share_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_share_api_finance_receipts_share_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/finance/receipts/{receipt_id}/reading": {
+      "delete": {
+        "summary": "Delete Reading",
+        "description": "Forget what the reader found, so it reads the receipt again on its next run.",
+        "operationId": "delete_reading_api_finance_receipts__receipt_id__reading_delete",
+        "parameters": [
+          {
+            "name": "receipt_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Receipt Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Write Reading",
+        "description": "Store what the reader found. It replaces an earlier reading; it links and marks nothing.",
+        "operationId": "write_reading_api_finance_receipts__receipt_id__reading_put",
+        "parameters": [
+          {
+            "name": "receipt_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Receipt Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReadingIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReceiptOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/finance/receipts/to-sort": {
+      "get": {
+        "summary": "Read To Sort",
+        "description": "Every receipt on no booking and not put aside, with the bookings it may have paid.",
+        "operationId": "read_to_sort_api_finance_receipts_to_sort_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ToSortOut"
+                  },
+                  "type": "array",
+                  "title": "Response Read To Sort Api Finance Receipts To Sort Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/finance/receipts/{receipt_id}/file": {
+      "get": {
+        "summary": "Read File",
+        "description": "The receipt's file, as its type, to show in the browser.",
+        "operationId": "read_file_api_finance_receipts__receipt_id__file_get",
+        "parameters": [
+          {
+            "name": "receipt_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Receipt Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/finance/receipts/{receipt_id}": {
+      "patch": {
+        "summary": "Write Receipt Fields",
+        "description": "Link the receipt to a booking, take it off with `transaction_id` null, or put it aside.",
+        "operationId": "write_receipt_fields_api_finance_receipts__receipt_id__patch",
+        "parameters": [
+          {
+            "name": "receipt_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Receipt Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReceiptPatch"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReceiptOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete Receipt",
+        "description": "Delete the receipt's file; its hash stays, so the mail job does not bring it back.",
+        "operationId": "delete_receipt_api_finance_receipts__receipt_id__delete",
+        "parameters": [
+          {
+            "name": "receipt_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Receipt Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/finance/receipts/{receipt_id}/confirm": {
+      "post": {
+        "summary": "Confirm",
+        "description": "Put the receipt on the booking and, with a line, mark the booking; all or nothing.\n\nEvery rule is checked before anything is written, so a refusal leaves the\nreceipt in the queue as it was.",
+        "operationId": "confirm_api_finance_receipts__receipt_id__confirm_post",
+        "parameters": [
+          {
+            "name": "receipt_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Receipt Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReceiptOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/finance/transactions/{transaction_id}/tax": {
+      "get": {
+        "summary": "Read Booking Tax",
+        "description": "The booking's mark and its receipts, for its drilldown.",
+        "operationId": "read_booking_tax_api_finance_transactions__transaction_id__tax_get",
+        "parameters": [
+          {
+            "name": "transaction_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Transaction Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BookingTaxOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/finance/transactions/{transaction_id}/tax-mark": {
+      "put": {
+        "summary": "Write Mark",
+        "description": "Mark the booking, or change its mark. A 422 says which money rule refused it.",
+        "operationId": "write_mark_api_finance_transactions__transaction_id__tax_mark_put",
+        "parameters": [
+          {
+            "name": "transaction_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Transaction Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MarkIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MarkOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete Mark",
+        "description": "Take the booking's mark away. Its receipts stay on it.",
+        "operationId": "delete_mark_api_finance_transactions__transaction_id__tax_mark_delete",
+        "parameters": [
+          {
+            "name": "transaction_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Transaction Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/finance/tax/{year}": {
+      "get": {
+        "summary": "Read Year",
+        "description": "Totals per line for the bookings paid in `year`, the receipts missing and money back.",
+        "operationId": "read_year_api_finance_tax__year__get",
+        "parameters": [
+          {
+            "name": "year",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "maximum": 2100,
+              "minimum": 2000,
+              "title": "Year"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/YearOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/finance/tax/{year}/lines/{form_line}.csv": {
+      "get": {
+        "summary": "Read Line Csv",
+        "description": "One line's bookings of the year as CSV, naming each receipt as the ZIP does.",
+        "operationId": "read_line_csv_api_finance_tax__year__lines__form_line__csv_get",
+        "parameters": [
+          {
+            "name": "year",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "maximum": 2100,
+              "minimum": 2000,
+              "title": "Year"
+            }
+          },
+          {
+            "name": "form_line",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "enum": [
+                "werbungskosten",
+                "sonderausgaben",
+                "haushaltsnahe_dienste",
+                "handwerker",
+                "aussergewoehnliche_belastungen"
+              ],
+              "type": "string",
+              "title": "Form Line"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/finance/tax/{year}/receipts.zip": {
+      "get": {
+        "summary": "Read Receipts Zip",
+        "description": "Every receipt of the year's marked bookings, named `YYYY-MM-DD_payee_amount`.",
+        "operationId": "read_receipts_zip_api_finance_tax__year__receipts_zip_get",
+        "parameters": [
+          {
+            "name": "year",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "maximum": 2100,
+              "minimum": 2000,
+              "title": "Year"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/share/me": {
       "get": {
         "tags": [
@@ -6717,6 +7441,89 @@
         "title": "BalanceMonthOut",
         "description": "An account's month by booking date: the balance at its end, money in and out."
       },
+      "Body_share_api_finance_receipts_share_post": {
+        "properties": {
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Text"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          },
+          "receipts": {
+            "items": {
+              "type": "string",
+              "contentMediaType": "application/octet-stream"
+            },
+            "type": "array",
+            "title": "Receipts",
+            "default": []
+          }
+        },
+        "type": "object",
+        "title": "Body_share_api_finance_receipts_share_post"
+      },
+      "Body_write_receipt_api_finance_receipts_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "File"
+          },
+          "transaction_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Transaction Id"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "upload",
+              "capture",
+              "mail"
+            ],
+            "title": "Source",
+            "default": "upload"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_write_receipt_api_finance_receipts_post"
+      },
       "BookingDrillOut": {
         "properties": {
           "transaction": {
@@ -6972,6 +7779,34 @@
         "title": "BookingPage",
         "description": "A page of bookings, and the `after` that asks for the next; null on the last page."
       },
+      "BookingTaxOut": {
+        "properties": {
+          "mark": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MarkOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "receipts": {
+            "items": {
+              "$ref": "#/components/schemas/ReceiptOut"
+            },
+            "type": "array",
+            "title": "Receipts"
+          }
+        },
+        "type": "object",
+        "required": [
+          "mark",
+          "receipts"
+        ],
+        "title": "BookingTaxOut",
+        "description": "A booking's mark, or null, and its receipts."
+      },
       "BudgetCategoryOut": {
         "properties": {
           "id": {
@@ -7133,6 +7968,67 @@
         ],
         "title": "Build",
         "description": "What the backend is running, for the reading in the status bar."
+      },
+      "CandidateOut": {
+        "properties": {
+          "transaction_id": {
+            "type": "integer",
+            "title": "Transaction Id"
+          },
+          "booking_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Booking Date"
+          },
+          "amount": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Amount"
+          },
+          "payee": {
+            "type": "string",
+            "title": "Payee"
+          },
+          "purpose": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Purpose"
+          },
+          "tax_amount": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tax Amount"
+          },
+          "shared": {
+            "type": "boolean",
+            "title": "Shared"
+          }
+        },
+        "type": "object",
+        "required": [
+          "transaction_id",
+          "booking_date",
+          "amount",
+          "payee",
+          "purpose",
+          "tax_amount",
+          "shared"
+        ],
+        "title": "CandidateOut",
+        "description": "A booking the receipt may have paid, and the tax amount a mark on it would take."
       },
       "CaptionLine": {
         "properties": {
@@ -7636,6 +8532,76 @@
         "title": "Coffee",
         "description": "How many coffees the day logs."
       },
+      "ConfirmIn": {
+        "properties": {
+          "transaction_id": {
+            "type": "integer",
+            "title": "Transaction Id"
+          },
+          "form_line": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "werbungskosten",
+                  "sonderausgaben",
+                  "haushaltsnahe_dienste",
+                  "handwerker",
+                  "aussergewoehnliche_belastungen"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Form Line"
+          },
+          "tax_amount": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,12}|(?=[\\d.]{1,15}0*$)\\d{0,12}\\.\\d{0,2}0*$)"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tax Amount"
+          },
+          "receipt_needed": {
+            "type": "boolean",
+            "title": "Receipt Needed",
+            "default": true
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "replace": {
+            "type": "boolean",
+            "title": "Replace",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "transaction_id"
+        ],
+        "title": "ConfirmIn",
+        "description": "The booking the receipt paid and, with a line, the mark to set on it."
+      },
       "ContributionOut": {
         "properties": {
           "planned": {
@@ -8083,6 +9049,96 @@
         ],
         "title": "Entry",
         "description": "One log line that parsed: its kind, and the fields the line gives and no others."
+      },
+      "EntryOut": {
+        "properties": {
+          "transaction_id": {
+            "type": "integer",
+            "title": "Transaction Id"
+          },
+          "booking_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Booking Date"
+          },
+          "payee": {
+            "type": "string",
+            "title": "Payee"
+          },
+          "purpose": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Purpose"
+          },
+          "amount": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Amount"
+          },
+          "tax_amount": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Tax Amount"
+          },
+          "counted": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Counted"
+          },
+          "form_line": {
+            "type": "string",
+            "title": "Form Line"
+          },
+          "receipt_status": {
+            "type": "string",
+            "title": "Receipt Status"
+          },
+          "receipt_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Receipt Ids"
+          },
+          "shared": {
+            "type": "boolean",
+            "title": "Shared"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "type": "object",
+        "required": [
+          "transaction_id",
+          "booking_date",
+          "payee",
+          "purpose",
+          "amount",
+          "tax_amount",
+          "counted",
+          "form_line",
+          "receipt_status",
+          "receipt_ids",
+          "shared",
+          "note"
+        ],
+        "title": "EntryOut",
+        "description": "A marked booking of the year. `counted` is negative for money in: it comes off the line."
       },
       "Fetch": {
         "properties": {
@@ -9365,6 +10421,41 @@
         "title": "LineHit",
         "description": "One line in the vault, and enough to open the note on it."
       },
+      "LineOut": {
+        "properties": {
+          "form_line": {
+            "type": "string",
+            "title": "Form Line"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "total": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Total"
+          },
+          "bookings": {
+            "type": "integer",
+            "title": "Bookings"
+          },
+          "missing": {
+            "type": "integer",
+            "title": "Missing"
+          }
+        },
+        "type": "object",
+        "required": [
+          "form_line",
+          "label",
+          "total",
+          "bookings",
+          "missing"
+        ],
+        "title": "LineOut",
+        "description": "One line of the return for the year: what counts, how many bookings, receipts missing."
+      },
       "Lookup": {
         "properties": {
           "accounts": {
@@ -9429,6 +10520,107 @@
         ],
         "title": "LooseSplit",
         "description": "A split still without a category."
+      },
+      "MarkIn": {
+        "properties": {
+          "form_line": {
+            "type": "string",
+            "enum": [
+              "werbungskosten",
+              "sonderausgaben",
+              "haushaltsnahe_dienste",
+              "handwerker",
+              "aussergewoehnliche_belastungen"
+            ],
+            "title": "Form Line"
+          },
+          "tax_amount": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,12}|(?=[\\d.]{1,15}0*$)\\d{0,12}\\.\\d{0,2}0*$)"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tax Amount"
+          },
+          "receipt_needed": {
+            "type": "boolean",
+            "title": "Receipt Needed",
+            "default": true
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "type": "object",
+        "required": [
+          "form_line"
+        ],
+        "title": "MarkIn",
+        "description": "A booking's line and the amount that counts there; none means the whole booking."
+      },
+      "MarkOut": {
+        "properties": {
+          "transaction_id": {
+            "type": "integer",
+            "title": "Transaction Id"
+          },
+          "form_line": {
+            "type": "string",
+            "title": "Form Line"
+          },
+          "tax_amount": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Tax Amount"
+          },
+          "receipt_needed": {
+            "type": "boolean",
+            "title": "Receipt Needed"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "receipt_status": {
+            "type": "string",
+            "title": "Receipt Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "transaction_id",
+          "form_line",
+          "tax_amount",
+          "receipt_needed",
+          "note",
+          "receipt_status"
+        ],
+        "title": "MarkOut",
+        "description": "A mark as stored, and whether its receipt is attached, missing or not needed."
       },
       "MatchOut": {
         "properties": {
@@ -9679,6 +10871,37 @@
         ],
         "title": "ModelUseLine",
         "description": "One day, model and project of Claude Code's usage, and what it cost at list prices."
+      },
+      "MoneyBackOut": {
+        "properties": {
+          "transaction_id": {
+            "type": "integer",
+            "title": "Transaction Id"
+          },
+          "booking_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Booking Date"
+          },
+          "payee": {
+            "type": "string",
+            "title": "Payee"
+          },
+          "amount": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Amount"
+          }
+        },
+        "type": "object",
+        "required": [
+          "transaction_id",
+          "booking_date",
+          "payee",
+          "amount"
+        ],
+        "title": "MoneyBackOut",
+        "description": "Money in with no mark that looks like a marked cost paid back: mark it or leave it."
       },
       "MovePreview": {
         "properties": {
@@ -10723,6 +11946,285 @@
         "title": "RangeOut",
         "description": "Both scopes over a span of months."
       },
+      "ReadingIn": {
+        "properties": {
+          "date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Date"
+          },
+          "amount": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,12}|(?=[\\d.]{1,15}0*$)\\d{0,12}\\.\\d{0,2}0*$)"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amount"
+          },
+          "payee": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Payee"
+          },
+          "labour": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,12}|(?=[\\d.]{1,15}0*$)\\d{0,12}\\.\\d{0,2}0*$)"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Labour"
+          },
+          "form_line": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "werbungskosten",
+                  "sonderausgaben",
+                  "haushaltsnahe_dienste",
+                  "handwerker",
+                  "aussergewoehnliche_belastungen"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Form Line"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          }
+        },
+        "type": "object",
+        "title": "ReadingIn",
+        "description": "What the receipt reader found, or why it found nothing."
+      },
+      "ReceiptOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "sha256": {
+            "type": "string",
+            "title": "Sha256"
+          },
+          "media_type": {
+            "type": "string",
+            "title": "Media Type"
+          },
+          "size": {
+            "type": "integer",
+            "title": "Size"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "received_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Received At"
+          },
+          "transaction_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Transaction Id"
+          },
+          "dismissed": {
+            "type": "boolean",
+            "title": "Dismissed"
+          },
+          "read_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Read At"
+          },
+          "read_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Read Error"
+          },
+          "read_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Read Date"
+          },
+          "read_amount": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Read Amount"
+          },
+          "read_payee": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Read Payee"
+          },
+          "read_labour": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Read Labour"
+          },
+          "read_line": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Read Line"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "sha256",
+          "media_type",
+          "size",
+          "name",
+          "source",
+          "received_at",
+          "transaction_id",
+          "dismissed",
+          "read_at",
+          "read_error",
+          "read_date",
+          "read_amount",
+          "read_payee",
+          "read_labour",
+          "read_line"
+        ],
+        "title": "ReceiptOut",
+        "description": "A receipt as kept: its file, where it came from, its booking and what the reader read."
+      },
+      "ReceiptPatch": {
+        "properties": {
+          "transaction_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Transaction Id"
+          },
+          "dismissed": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dismissed"
+          }
+        },
+        "type": "object",
+        "title": "ReceiptPatch",
+        "description": "Link the receipt to a booking, take it off one with null, or put it aside."
+      },
       "RequestOut": {
         "properties": {
           "id": {
@@ -11758,6 +13260,24 @@
         "title": "StoredGoalOut",
         "description": "A goal as written, its amounts to the cent."
       },
+      "StoredOut": {
+        "properties": {
+          "receipt": {
+            "$ref": "#/components/schemas/ReceiptOut"
+          },
+          "created": {
+            "type": "boolean",
+            "title": "Created"
+          }
+        },
+        "type": "object",
+        "required": [
+          "receipt",
+          "created"
+        ],
+        "title": "StoredOut",
+        "description": "The receipt, and whether this send made it (false: the same file was already kept)."
+      },
       "SuggestionOut": {
         "properties": {
           "direction": {
@@ -11968,6 +13488,39 @@
         ],
         "title": "ToSort",
         "description": "A booking that holds something to sort: itself, or the splits listed."
+      },
+      "ToSortOut": {
+        "properties": {
+          "receipt": {
+            "$ref": "#/components/schemas/ReceiptOut"
+          },
+          "candidates": {
+            "items": {
+              "$ref": "#/components/schemas/CandidateOut"
+            },
+            "type": "array",
+            "title": "Candidates"
+          },
+          "form_line": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Form Line"
+          }
+        },
+        "type": "object",
+        "required": [
+          "receipt",
+          "candidates",
+          "form_line"
+        ],
+        "title": "ToSortOut",
+        "description": "A receipt on no booking, the bookings it may have paid, best first, and the line read."
       },
       "ToSortPage": {
         "properties": {
@@ -12715,6 +14268,64 @@
         ],
         "title": "WrittenNote",
         "description": "One note outside the archive, the day it counts on, and what the review files it under."
+      },
+      "YearOut": {
+        "properties": {
+          "year": {
+            "type": "integer",
+            "title": "Year"
+          },
+          "lines": {
+            "items": {
+              "$ref": "#/components/schemas/LineOut"
+            },
+            "type": "array",
+            "title": "Lines"
+          },
+          "allowance": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Allowance"
+          },
+          "werbungskosten_over": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Werbungskosten Over"
+          },
+          "missing": {
+            "items": {
+              "$ref": "#/components/schemas/EntryOut"
+            },
+            "type": "array",
+            "title": "Missing"
+          },
+          "money_back": {
+            "items": {
+              "$ref": "#/components/schemas/MoneyBackOut"
+            },
+            "type": "array",
+            "title": "Money Back"
+          },
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/EntryOut"
+            },
+            "type": "array",
+            "title": "Entries"
+          }
+        },
+        "type": "object",
+        "required": [
+          "year",
+          "lines",
+          "allowance",
+          "werbungskosten_over",
+          "missing",
+          "money_back",
+          "entries"
+        ],
+        "title": "YearOut",
+        "description": "The tax year: totals per line, Werbungskosten over the allowance, and what to look at."
       },
       "kasten_backend__food__Food": {
         "properties": {

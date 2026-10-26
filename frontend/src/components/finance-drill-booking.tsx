@@ -9,6 +9,7 @@ import {
 } from "@/components/finance-drill-parts";
 import { BookingOrder } from "@/components/finance-orders";
 import { SortBar, sortKeys } from "@/components/finance-sort-bar";
+import { BookingTaxCard } from "@/components/finance-tax-mark";
 import { sortByHand } from "@/lib/finance-api";
 import type { Transaction } from "@/lib/finance-budget-api";
 import { type BookingDrill, fetchBookingDrill, writeSplits } from "@/lib/finance-drill-api";
@@ -199,8 +200,8 @@ function Fields({
 
 /**
  * One booking whole: every field and its raw record, where it counts in the budget, its twin, the
- * plan it met and the order it paid, its splits to edit, and the category buttons and keys to
- * sort it again.
+ * plan it met and the order it paid, its tax mark and receipts, its splits to edit, and the
+ * category buttons and keys to sort it again.
  */
 export function DrillBooking({ id, onOpen, sorter, keys, onNotice }: DrillProps & { id: number }) {
   const write = useWrite(onNotice);
@@ -289,6 +290,7 @@ export function DrillBooking({ id, onOpen, sorter, keys, onNotice }: DrillProps 
           )}
         </article>
         {data.order == null ? null : <BookingOrder order={data.order} />}
+        {t.transfer_group != null ? null : <BookingTaxCard id={id} onNotice={onNotice} />}
         <article className="overview-card finance-wide-card">
           <h3 className="overview-name">Sort</h3>
           {row === undefined ? null : <SortBar sorter={sorter} row={row} />}

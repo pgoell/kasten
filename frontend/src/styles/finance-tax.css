@@ -1,0 +1,88 @@
+/* The finance pane's Tax tab, a booking's tax card and the receipt queue under To sort. Built
+   from the drilldown's cards and tables; every control is 44px under a finger. */
+
+.finance-tax {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.finance-tax-year {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.finance-tax-form {
+  display: grid;
+  gap: 8px;
+}
+
+.finance-tax-form label {
+  display: grid;
+  gap: 4px;
+  color: var(--k-muted);
+  font-size: var(--k-text-15);
+}
+
+.finance-tax-form select,
+.finance-tax-form input:not([type="checkbox"]) {
+  min-height: 44px;
+  min-width: 0;
+  padding: 0 8px;
+  border: 1px solid var(--k-rule);
+  border-radius: var(--k-radius-6);
+  background: var(--k-paper);
+  color: var(--k-ink);
+  font: inherit;
+}
+
+.finance-tax-form .finance-tax-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  color: var(--k-ink);
+}
+
+/* A file held over the card: the accent says it will land here. */
+.finance-tax-drop {
+  outline: 2px dashed var(--k-accent);
+  outline-offset: -2px;
+}
+
+.finance-tax-receipt {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.finance-tax-receipt a,
+.finance-tax-queue a {
+  color: var(--k-accent);
+  overflow-wrap: anywhere;
+}
+
+.finance-tax-queue {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* A download that looks like the pane's buttons. */
+.finance-tax a.finance-pane-button {
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  width: fit-content;
+  text-decoration: none;
+}
+
+/* Room between the figures, so a count and its CSV link do not run together on a phone. */
+.finance-tax .finance-drill-table td,
+.finance-tax .finance-drill-table thead th + th {
+  padding-left: 12px;
+}

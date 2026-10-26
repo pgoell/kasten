@@ -107,7 +107,8 @@ ENV PATH="/app/.venv/bin:${PATH}" \
 # under /app, inside the container: a deploy that forgot the variable would
 # save notes and tokens that vanish with the next image. An env_file still wins.
 ENV KASTEN_VAULT_PATH=/vault \
-    KASTEN_TOKENS_PATH=/agent-data/tokens.json
+    KASTEN_TOKENS_PATH=/agent-data/tokens.json \
+    KASTEN_RECEIPTS_PATH=/receipts
 
 EXPOSE 8000
 # `--timeout-graceful-shutdown` bounds how long a deploy waits on `/api/events`.

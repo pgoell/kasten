@@ -18,6 +18,11 @@ vi.mock("@/lib/finance-orders-api", async (original) => ({
   ...(await original<typeof import("@/lib/finance-orders-api")>()),
   fetchUnmatchedOrders,
 }));
+// The receipt queue under the to-sort list; its own tests are in finance-tax.test.tsx.
+vi.mock("@/lib/finance-tax-api", async (original) => ({
+  ...(await original<typeof import("@/lib/finance-tax-api")>()),
+  fetchReceiptsToSort: async () => [],
+}));
 // The overview and the bank card read these as the pane opens; the to-sort list needs none.
 vi.mock("@/lib/finance-budget-api", () => ({
   fetchBudget: () => new Promise(() => {}),

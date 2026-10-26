@@ -276,6 +276,7 @@ async def test_the_reading_tools_say_so(
         "goal_progress": True,
         "plan_forecast": True,
         "sync_status": True,
+        "tax_year_summary": True,
         "list_transactions": True,
         "read_transaction": True,
         "finance_lookup": True,

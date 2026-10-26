@@ -11,15 +11,16 @@
  */
 export const CATEGORY_KEYS = "1234567890bcdefghilmnoprstuvwxyz";
 
-export type FinanceTab = "overview" | "to-sort" | "transactions" | "budget" | "plans";
+export type FinanceTab = "overview" | "to-sort" | "transactions" | "budget" | "plans" | "tax";
 
-/** The pane's five tabs, in order, each with the key that shows it. Upper case, as the lower keys sort. */
+/** The pane's six tabs, in order, each with the key that shows it. Upper case, as the lower keys sort. */
 export const FINANCE_TABS: readonly { tab: FinanceTab; label: string; key: string }[] = [
   { tab: "overview", label: "Overview", key: "O" },
   { tab: "to-sort", label: "To sort", key: "S" },
   { tab: "transactions", label: "Transactions", key: "T" },
   { tab: "budget", label: "Budget", key: "B" },
   { tab: "plans", label: "Plans & goals", key: "G" },
+  { tab: "tax", label: "Tax", key: "X" },
 ];
 
 /** What the keys do inside the finance pane. Display only, the way `TODO_PANE` in `key-bindings.ts` is. */
@@ -29,6 +30,7 @@ export const FINANCE_PANE: readonly { key: string; label: string }[] = [
   { key: "T", label: "Show the transactions" },
   { key: "B", label: "Show the budget" },
   { key: "G", label: "Show the plans and goals" },
+  { key: "X", label: "Show the tax year" },
   { key: "[", label: "Show the month before" },
   { key: "]", label: "Show the month after" },
   { key: "P", label: "Pull now: ask the bank job for a pull" },
@@ -63,6 +65,7 @@ export const FINANCE_PANE: readonly { key: string; label: string }[] = [
   },
   { key: "u", label: "Plans & goals: undo the contribution assigned this month" },
   { key: "e", label: "Plans & goals: edit the goal; Enter saves, Escape leaves it" },
+  { key: "[", label: "Tax: show the year before; ] the year after" },
   { key: "?", label: "Show the keys" },
   { key: "q", label: "Close the pane" },
   {

@@ -238,6 +238,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/agent/finance/tax/{year}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Year
+         * @description Totals per line for the bookings paid in `year`, the receipts missing and money back.
+         */
+        get: operations["read_year_agent_finance_tax__year__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/agent/finance/transactions/{transaction_id}": {
         parameters: {
             query?: never;
@@ -2213,6 +2233,276 @@ export interface paths {
         patch: operations["finish_run_api_finance_sync_runs__run_id__patch"];
         trace?: never;
     };
+    "/api/finance/receipts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Receipts
+         * @description The receipts the reader has not done yet, oldest first, past the id `after`.
+         *
+         *     `unread` is the one `state` there is. A receipt the reader could not get
+         *     an answer for stays unread, so `after` lets it page on past one.
+         */
+        get: operations["read_receipts_api_finance_receipts_get"];
+        put?: never;
+        /**
+         * Write Receipt
+         * @description Keep a PDF, JPEG or PNG of up to 20 MB, on the booking named or on none.
+         *
+         *     The same file again answers the receipt already kept, `created` false,
+         *     and links it when it was on no booking; on another booking it is a 409.
+         */
+        post: operations["write_receipt_api_finance_receipts_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/finance/receipts/share": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Share
+         * @description What the phone's share sheet posts: keep the files as receipts, then open `/capture`.
+         *
+         *     The manifest's `share_target` sends here. The files go to the receipt
+         *     queue, on no booking; the title, text and address go on to `/capture` as
+         *     a plain share would, with how many receipts were kept and refused. A
+         *     share of text alone opens no database, so it works on a backend with none.
+         */
+        post: operations["share_api_finance_receipts_share_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/finance/receipts/{receipt_id}/reading": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Write Reading
+         * @description Store what the reader found. It replaces an earlier reading; it links and marks nothing.
+         */
+        put: operations["write_reading_api_finance_receipts__receipt_id__reading_put"];
+        post?: never;
+        /**
+         * Delete Reading
+         * @description Forget what the reader found, so it reads the receipt again on its next run.
+         */
+        delete: operations["delete_reading_api_finance_receipts__receipt_id__reading_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/finance/receipts/to-sort": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read To Sort
+         * @description Every receipt on no booking and not put aside, with the bookings it may have paid.
+         */
+        get: operations["read_to_sort_api_finance_receipts_to_sort_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/finance/receipts/{receipt_id}/file": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read File
+         * @description The receipt's file, as its type, to show in the browser.
+         */
+        get: operations["read_file_api_finance_receipts__receipt_id__file_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/finance/receipts/{receipt_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Receipt
+         * @description Delete the receipt's file; its hash stays, so the mail job does not bring it back.
+         */
+        delete: operations["delete_receipt_api_finance_receipts__receipt_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Write Receipt Fields
+         * @description Link the receipt to a booking, take it off with `transaction_id` null, or put it aside.
+         */
+        patch: operations["write_receipt_fields_api_finance_receipts__receipt_id__patch"];
+        trace?: never;
+    };
+    "/api/finance/receipts/{receipt_id}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm
+         * @description Put the receipt on the booking and, with a line, mark the booking; all or nothing.
+         *
+         *     Every rule is checked before anything is written, so a refusal leaves the
+         *     receipt in the queue as it was.
+         */
+        post: operations["confirm_api_finance_receipts__receipt_id__confirm_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/finance/transactions/{transaction_id}/tax": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Booking Tax
+         * @description The booking's mark and its receipts, for its drilldown.
+         */
+        get: operations["read_booking_tax_api_finance_transactions__transaction_id__tax_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/finance/transactions/{transaction_id}/tax-mark": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Write Mark
+         * @description Mark the booking, or change its mark. A 422 says which money rule refused it.
+         */
+        put: operations["write_mark_api_finance_transactions__transaction_id__tax_mark_put"];
+        post?: never;
+        /**
+         * Delete Mark
+         * @description Take the booking's mark away. Its receipts stay on it.
+         */
+        delete: operations["delete_mark_api_finance_transactions__transaction_id__tax_mark_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/finance/tax/{year}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Year
+         * @description Totals per line for the bookings paid in `year`, the receipts missing and money back.
+         */
+        get: operations["read_year_api_finance_tax__year__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/finance/tax/{year}/lines/{form_line}.csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Line Csv
+         * @description One line's bookings of the year as CSV, naming each receipt as the ZIP does.
+         */
+        get: operations["read_line_csv_api_finance_tax__year__lines__form_line__csv_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/finance/tax/{year}/receipts.zip": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Receipts Zip
+         * @description Every receipt of the year's marked bookings, named `YYYY-MM-DD_payee_amount`.
+         */
+        get: operations["read_receipts_zip_api_finance_tax__year__receipts_zip_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/share/me": {
         parameters: {
             query?: never;
@@ -3118,6 +3408,33 @@ export interface components {
             /** Money Out */
             money_out: string;
         };
+        /** Body_share_api_finance_receipts_share_post */
+        Body_share_api_finance_receipts_share_post: {
+            /** Title */
+            title?: string | null;
+            /** Text */
+            text?: string | null;
+            /** Url */
+            url?: string | null;
+            /**
+             * Receipts
+             * @default []
+             */
+            receipts: string[];
+        };
+        /** Body_write_receipt_api_finance_receipts_post */
+        Body_write_receipt_api_finance_receipts_post: {
+            /** File */
+            file: string;
+            /** Transaction Id */
+            transaction_id?: number | null;
+            /**
+             * Source
+             * @default upload
+             * @enum {string}
+             */
+            source: "upload" | "capture" | "mail";
+        };
         /**
          * BookingDrillOut
          * @description A booking with every field, its account, payee, twin, plan, order and where it counts.
@@ -3190,6 +3507,15 @@ export interface components {
             next: number | null;
         };
         /**
+         * BookingTaxOut
+         * @description A booking's mark, or null, and its receipts.
+         */
+        BookingTaxOut: {
+            mark: components["schemas"]["MarkOut"] | null;
+            /** Receipts */
+            receipts: components["schemas"]["ReceiptOut"][];
+        };
+        /**
          * BudgetCategoryOut
          * @description One spending category in the month.
          */
@@ -3236,6 +3562,29 @@ export interface components {
         Build: {
             /** Backend */
             backend: string;
+        };
+        /**
+         * CandidateOut
+         * @description A booking the receipt may have paid, and the tax amount a mark on it would take.
+         */
+        CandidateOut: {
+            /** Transaction Id */
+            transaction_id: number;
+            /**
+             * Booking Date
+             * Format: date
+             */
+            booking_date: string;
+            /** Amount */
+            amount: string;
+            /** Payee */
+            payee: string;
+            /** Purpose */
+            purpose: string | null;
+            /** Tax Amount */
+            tax_amount: string | null;
+            /** Shared */
+            shared: boolean;
         };
         /**
          * CaptionLine
@@ -3437,6 +3786,30 @@ export interface components {
             count: number;
         };
         /**
+         * ConfirmIn
+         * @description The booking the receipt paid and, with a line, the mark to set on it.
+         */
+        ConfirmIn: {
+            /** Transaction Id */
+            transaction_id: number;
+            /** Form Line */
+            form_line?: ("werbungskosten" | "sonderausgaben" | "haushaltsnahe_dienste" | "handwerker" | "aussergewoehnliche_belastungen") | null;
+            /** Tax Amount */
+            tax_amount?: number | string | null;
+            /**
+             * Receipt Needed
+             * @default true
+             */
+            receipt_needed: boolean;
+            /** Note */
+            note?: string | null;
+            /**
+             * Replace
+             * @default false
+             */
+            replace: boolean;
+        };
+        /**
          * ContributionOut
          * @description This month's contribution: what is planned, and what of it moved into the account.
          */
@@ -3593,6 +3966,39 @@ export interface components {
             amount?: number | null;
             /** Unit */
             unit?: string | null;
+        };
+        /**
+         * EntryOut
+         * @description A marked booking of the year. `counted` is negative for money in: it comes off the line.
+         */
+        EntryOut: {
+            /** Transaction Id */
+            transaction_id: number;
+            /**
+             * Booking Date
+             * Format: date
+             */
+            booking_date: string;
+            /** Payee */
+            payee: string;
+            /** Purpose */
+            purpose: string | null;
+            /** Amount */
+            amount: string;
+            /** Tax Amount */
+            tax_amount: string;
+            /** Counted */
+            counted: string;
+            /** Form Line */
+            form_line: string;
+            /** Receipt Status */
+            receipt_status: string;
+            /** Receipt Ids */
+            receipt_ids: number[];
+            /** Shared */
+            shared: boolean;
+            /** Note */
+            note: string | null;
         };
         /**
          * Fetch
@@ -4119,6 +4525,22 @@ export interface components {
             text: string;
         };
         /**
+         * LineOut
+         * @description One line of the return for the year: what counts, how many bookings, receipts missing.
+         */
+        LineOut: {
+            /** Form Line */
+            form_line: string;
+            /** Label */
+            label: string;
+            /** Total */
+            total: string;
+            /** Bookings */
+            bookings: number;
+            /** Missing */
+            missing: number;
+        };
+        /**
          * Lookup
          * @description The ids the filters and the summaries name: accounts, categories and payees.
          */
@@ -4141,6 +4563,44 @@ export interface components {
             amount: string;
             /** Text */
             text: string | null;
+        };
+        /**
+         * MarkIn
+         * @description A booking's line and the amount that counts there; none means the whole booking.
+         */
+        MarkIn: {
+            /**
+             * Form Line
+             * @enum {string}
+             */
+            form_line: "werbungskosten" | "sonderausgaben" | "haushaltsnahe_dienste" | "handwerker" | "aussergewoehnliche_belastungen";
+            /** Tax Amount */
+            tax_amount?: number | string | null;
+            /**
+             * Receipt Needed
+             * @default true
+             */
+            receipt_needed: boolean;
+            /** Note */
+            note?: string | null;
+        };
+        /**
+         * MarkOut
+         * @description A mark as stored, and whether its receipt is attached, missing or not needed.
+         */
+        MarkOut: {
+            /** Transaction Id */
+            transaction_id: number;
+            /** Form Line */
+            form_line: string;
+            /** Tax Amount */
+            tax_amount: string;
+            /** Receipt Needed */
+            receipt_needed: boolean;
+            /** Note */
+            note: string | null;
+            /** Receipt Status */
+            receipt_status: string;
         };
         /**
          * MatchOut
@@ -4256,6 +4716,23 @@ export interface components {
             cost: number | null;
             /** Unpriced */
             unpriced: number;
+        };
+        /**
+         * MoneyBackOut
+         * @description Money in with no mark that looks like a marked cost paid back: mark it or leave it.
+         */
+        MoneyBackOut: {
+            /** Transaction Id */
+            transaction_id: number;
+            /**
+             * Booking Date
+             * Format: date
+             */
+            booking_date: string;
+            /** Payee */
+            payee: string;
+            /** Amount */
+            amount: string;
         };
         /**
          * MovePreview
@@ -4675,6 +5152,75 @@ export interface components {
             household: components["schemas"]["ScopeComparedOut"];
         };
         /**
+         * ReadingIn
+         * @description What the receipt reader found, or why it found nothing.
+         */
+        ReadingIn: {
+            /** Date */
+            date?: string | null;
+            /** Amount */
+            amount?: number | string | null;
+            /** Payee */
+            payee?: string | null;
+            /** Labour */
+            labour?: number | string | null;
+            /** Form Line */
+            form_line?: ("werbungskosten" | "sonderausgaben" | "haushaltsnahe_dienste" | "handwerker" | "aussergewoehnliche_belastungen") | null;
+            /** Error */
+            error?: string | null;
+        };
+        /**
+         * ReceiptOut
+         * @description A receipt as kept: its file, where it came from, its booking and what the reader read.
+         */
+        ReceiptOut: {
+            /** Id */
+            id: number;
+            /** Sha256 */
+            sha256: string;
+            /** Media Type */
+            media_type: string;
+            /** Size */
+            size: number;
+            /** Name */
+            name: string | null;
+            /** Source */
+            source: string;
+            /**
+             * Received At
+             * Format: date-time
+             */
+            received_at: string;
+            /** Transaction Id */
+            transaction_id: number | null;
+            /** Dismissed */
+            dismissed: boolean;
+            /** Read At */
+            read_at: string | null;
+            /** Read Error */
+            read_error: string | null;
+            /** Read Date */
+            read_date: string | null;
+            /** Read Amount */
+            read_amount: string | null;
+            /** Read Payee */
+            read_payee: string | null;
+            /** Read Labour */
+            read_labour: string | null;
+            /** Read Line */
+            read_line: string | null;
+        };
+        /**
+         * ReceiptPatch
+         * @description Link the receipt to a booking, take it off one with null, or put it aside.
+         */
+        ReceiptPatch: {
+            /** Transaction Id */
+            transaction_id?: number | null;
+            /** Dismissed */
+            dismissed?: boolean | null;
+        };
+        /**
          * RequestOut
          * @description A "pull now": open while `run_id` is null.
          */
@@ -5067,6 +5613,15 @@ export interface components {
             assigned_amount: string | null;
         };
         /**
+         * StoredOut
+         * @description The receipt, and whether this send made it (false: the same file was already kept).
+         */
+        StoredOut: {
+            receipt: components["schemas"]["ReceiptOut"];
+            /** Created */
+            created: boolean;
+        };
+        /**
          * SuggestionOut
          * @description Raise or lower the limit to this amount.
          */
@@ -5136,6 +5691,17 @@ export interface components {
             payee_name: string | null;
             /** Splits */
             splits: components["schemas"]["LooseSplit"][];
+        };
+        /**
+         * ToSortOut
+         * @description A receipt on no booking, the bookings it may have paid, best first, and the line read.
+         */
+        ToSortOut: {
+            receipt: components["schemas"]["ReceiptOut"];
+            /** Candidates */
+            candidates: components["schemas"]["CandidateOut"][];
+            /** Form Line */
+            form_line: string | null;
         };
         /**
          * ToSortPage
@@ -5420,6 +5986,26 @@ export interface components {
             tags: string[];
             /** Project */
             project: string | null;
+        };
+        /**
+         * YearOut
+         * @description The tax year: totals per line, Werbungskosten over the allowance, and what to look at.
+         */
+        YearOut: {
+            /** Year */
+            year: number;
+            /** Lines */
+            lines: components["schemas"]["LineOut"][];
+            /** Allowance */
+            allowance: string;
+            /** Werbungskosten Over */
+            werbungskosten_over: string;
+            /** Missing */
+            missing: components["schemas"]["EntryOut"][];
+            /** Money Back */
+            money_back: components["schemas"]["MoneyBackOut"][];
+            /** Entries */
+            entries: components["schemas"]["EntryOut"][];
         };
         /**
          * Food
@@ -5823,6 +6409,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SyncStatus"];
+                };
+            };
+        };
+    };
+    read_year_agent_finance_tax__year__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                year: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["YearOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -8705,6 +9322,508 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RunOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_receipts_api_finance_receipts_get: {
+        parameters: {
+            query?: {
+                state?: string;
+                after?: number | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReceiptOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    write_receipt_api_finance_receipts_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_write_receipt_api_finance_receipts_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StoredOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    share_api_finance_receipts_share_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_share_api_finance_receipts_share_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    write_reading_api_finance_receipts__receipt_id__reading_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                receipt_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReadingIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReceiptOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_reading_api_finance_receipts__receipt_id__reading_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                receipt_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_to_sort_api_finance_receipts_to_sort_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ToSortOut"][];
+                };
+            };
+        };
+    };
+    read_file_api_finance_receipts__receipt_id__file_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                receipt_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_receipt_api_finance_receipts__receipt_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                receipt_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    write_receipt_fields_api_finance_receipts__receipt_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                receipt_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReceiptPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReceiptOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    confirm_api_finance_receipts__receipt_id__confirm_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                receipt_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConfirmIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReceiptOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_booking_tax_api_finance_transactions__transaction_id__tax_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                transaction_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookingTaxOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    write_mark_api_finance_transactions__transaction_id__tax_mark_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                transaction_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MarkIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MarkOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_mark_api_finance_transactions__transaction_id__tax_mark_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                transaction_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_year_api_finance_tax__year__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                year: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["YearOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_line_csv_api_finance_tax__year__lines__form_line__csv_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                year: number;
+                form_line: "werbungskosten" | "sonderausgaben" | "haushaltsnahe_dienste" | "handwerker" | "aussergewoehnliche_belastungen";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_receipts_zip_api_finance_tax__year__receipts_zip_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                year: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */

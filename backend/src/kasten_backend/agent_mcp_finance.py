@@ -19,7 +19,13 @@ from mcp.server.mcpserver.exceptions import ToolError
 from sqlalchemy.exc import SQLAlchemyError
 
 from kasten_backend import agent_finance
-from kasten_backend.routes import finance_budget, finance_drill, finance_goals, finance_plans
+from kasten_backend.routes import (
+    finance_budget,
+    finance_drill,
+    finance_goals,
+    finance_plans,
+    finance_tax,
+)
 from kasten_backend.routes import finance_sync as sync
 
 if TYPE_CHECKING:
@@ -122,6 +128,18 @@ async def sync_status() -> dict[str, Any]:
     return await _read(sync.read_status)
 
 
+async def tax_year_summary(year: int) -> dict[str, Any]:
+    """The tax `year` (paid in it, by booking date) as the Tax tab shows it: totals per line.
+
+    Lines: werbungskosten (Anlage N), sonderausgaben, §35a haushaltsnahe_dienste
+    and handwerker (labour only), aussergewoehnliche_belastungen. A marked
+    refund counts negative. `werbungskosten_over` is the part above `allowance`,
+    the year's (1,230 from 2023, 1,200 in 2022, 1,000 before). Also the
+    bookings missing a receipt and unmarked money back.
+    """
+    return await _read(lambda s: finance_tax.read_year(s, year))
+
+
 async def list_transactions(  # noqa: PLR0913  each filter is its own argument
     *,
     month: str | None = None,
@@ -194,6 +212,7 @@ TOOLS = (
     goal_progress,
     plan_forecast,
     sync_status,
+    tax_year_summary,
     list_transactions,
     read_transaction,
     finance_lookup,

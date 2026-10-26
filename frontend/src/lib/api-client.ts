@@ -24,6 +24,9 @@ export const client = createClient<paths>();
  */
 export function reason(error: { detail?: unknown } | undefined): string | null {
   if (typeof error?.detail === "string") return error.detail;
+  // A refusal with a code for the page to branch on carries its sentence beside it.
+  const coded = error?.detail as { message?: unknown } | null | undefined;
+  if (typeof coded?.message === "string") return coded.message;
   // A body the route's model refused comes as FastAPI's list of what failed; its first says why.
   const first = Array.isArray(error?.detail) ? (error.detail[0] as { msg?: unknown }) : undefined;
   return typeof first?.msg === "string" ? first.msg.replace(/^Value error, /, "") : null;

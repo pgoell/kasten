@@ -15,7 +15,13 @@ from fastapi import APIRouter, Query
 from kasten_backend import agent_finance
 from kasten_backend.finance_ledger import Scope  # noqa: TC001  FastAPI reads it at runtime
 from kasten_backend.log import DATE_PATTERN
-from kasten_backend.routes import finance_budget, finance_drill, finance_goals, finance_plans
+from kasten_backend.routes import (
+    finance_budget,
+    finance_drill,
+    finance_goals,
+    finance_plans,
+    finance_tax,
+)
 from kasten_backend.routes import finance_sync as sync
 from kasten_backend.routes.finance import Session  # noqa: TC001  FastAPI reads it at runtime
 from kasten_backend.routes.finance_budget import MONTH_PATTERN
@@ -29,6 +35,7 @@ for path, read in [
     ("/plans/forecast", finance_plans.read_forecast),
     ("/plans/upcoming", finance_plans.read_upcoming),
     ("/sync", sync.read_status),
+    ("/tax/{year}", finance_tax.read_year),
     ("/transactions/{transaction_id}", finance_drill.read_booking),
 ]:
     router.add_api_route(path, read, methods=["GET"])

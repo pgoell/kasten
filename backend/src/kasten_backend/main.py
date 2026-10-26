@@ -19,6 +19,7 @@ from kasten_backend.build import build_id
 from kasten_backend.config import Settings, get_settings
 from kasten_backend.events import KEEPALIVE, format_retry, format_sse, watch_vault
 from kasten_backend.files import RefusedError
+from kasten_backend.finance_guard import FinanceGuard
 from kasten_backend.guide import write_guide
 from kasten_backend.okf import prepare
 from kasten_backend.routes import (
@@ -31,8 +32,10 @@ from kasten_backend.routes import (
     finance_orders,
     finance_plans,
     finance_range,
+    finance_receipts,
     finance_sorting,
     finance_sync,
+    finance_tax,
     github,
     listing,
     model_use,
@@ -206,9 +209,12 @@ app.include_router(finance_goals.router)
 app.include_router(finance_orders.router)
 app.include_router(finance_sorting.router)
 app.include_router(finance_sync.router)
+app.include_router(finance_receipts.router)
+app.include_router(finance_tax.router)
 app.include_router(share.router)
 app.include_router(rsvp.router)
 app.add_middleware(share.ShareGate)
+app.add_middleware(FinanceGuard)
 """The shared lists, and the gate that keeps the share host to them.
 
 The gate is registered here rather than in a router because it has to see every

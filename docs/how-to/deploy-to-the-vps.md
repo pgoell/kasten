@@ -90,7 +90,7 @@ story and the defaults in `config.py` already point at it.
 ### 4. Vault directories
 
 ```sh
-mkdir -p /home/pascal/kasten-data/vault
+mkdir -p /home/pascal/kasten-data/vault /home/pascal/kasten-data/finance/receipts
 mkdir -p /home/pascal/Code/kasten/vault          # dev, already gitignored
 ```
 
@@ -135,9 +135,10 @@ this box's value, and this box sets none of them:
 | `KASTEN_NETWORK` | `web` | the external Docker network shared with Caddy |
 | `JJ_USER`, `JJ_EMAIL` | unset | who jj records for a change made in the shell |
 
-`KASTEN_DATA_DIR`, the host directory holding `vault/` and `agent/`, is not in
-the file: compose defaults it to `/home/pascal/kasten-data`, and the deploy
-script checks that `vault/` is there before it starts anything.
+`KASTEN_DATA_DIR`, the host directory holding `vault/`, `agent/` and
+`finance/receipts/`, is not in the file: compose defaults it to
+`/home/pascal/kasten-data`, and the deploy script checks that `vault/` and
+`finance/receipts/` are there before it starts anything.
 
 To run kasten on one machine without a shared Caddy at all, use
 [Self-host kasten](/how-to/self-host-kasten.md) instead.

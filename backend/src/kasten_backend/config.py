@@ -167,6 +167,16 @@ class Settings(BaseSettings):
     in memory and a restart forgets them.
     """
 
+    receipts_path: Path = Path("receipts")
+    """Where the finance receipts are kept: PDFs and photos, by their hash, never in the vault.
+
+    The database holds each one's name here, its hash and its booking. Outside
+    the vault, so a receipt never enters jj history or a note an agent reads;
+    `GET /api/finance/receipts/{id}/file` is the only way to one. Relative by
+    default like `tokens_path`; the backend image sets `/receipts`, a mount of
+    `~/kasten-data/finance/receipts`.
+    """
+
     upload_sweep_seconds: Annotated[float, Field(gt=0)] = UPLOAD_SWEEP_SECONDS
     """How often the backend deletes uploads idle over an hour.
 
@@ -256,7 +266,7 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def _uploads_outside_the_vault(self) -> Self:
-        """Refuse to start with the upload folder in the vault.
+        """Refuse to start with the upload folder or the receipts in the vault.
 
         Half-sent files there would reach the file tree, the watcher and jj,
         and the wipe at startup would delete vault files that happen to be
@@ -265,6 +275,10 @@ class Settings(BaseSettings):
         vault = self.vault_path.resolve()
         if self.upload_path.resolve().is_relative_to(vault):
             msg = f"KASTEN_UPLOAD_PATH must be outside the vault, {vault}"
+            raise ValueError(msg)
+        # A receipt in the vault would be a file any agent reads and jj keeps.
+        if self.receipts_path.resolve().is_relative_to(vault):
+            msg = f"KASTEN_RECEIPTS_PATH must be outside the vault, {vault}"
             raise ValueError(msg)
         return self
 

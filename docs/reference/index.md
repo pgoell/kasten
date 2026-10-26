@@ -5,7 +5,7 @@ is there and do not teach; for that, read a [tutorial](/tutorials/index.md) or a
 [how-to guide](/how-to/index.md).
 
 * [mise tasks](mise-tasks.md): every task defined in mise.toml, by group
-* [HTTP API](http-api.md): every endpoint the backend serves, with its response shape, the folders `GET /api/layout` names, the addresses `GET /api/fetch` refuses, the finance routes host jobs write through and that sort bookings, the budget routes, the sync routes behind "pull now", and the PayPal and Amazon orders
+* [HTTP API](http-api.md): every endpoint the backend serves, with its response shape, the folders `GET /api/layout` names, the addresses `GET /api/fetch` refuses, the finance routes host jobs write through and that sort bookings, the budget routes, the sync routes behind "pull now", the PayPal and Amazon orders, and the tax marks and receipts
 * [Firefly import](firefly-import.md): the one-off `kasten-firefly-import` command, its env file, what it reads from Firefly III and writes to kasten in what order, the source key of each booking and transfer half, the category kinds it guesses and how Firefly's rules become kasten's
 * [Note frontmatter](note-frontmatter.md): the YAML block every note carries, which fields kasten manages, when they are written, and the two filenames that get no block at all
 * [Exam format](exam-format.md): the note a practice exam is written in, every part it can carry, the two shapes a question takes, the two places an answer goes, what a sitting scores, and where the result note lands
@@ -25,9 +25,11 @@ is there and do not teach; for that, read a [tutorial](/tutorials/index.md) or a
 * [GitHub settings](github-settings.md): the three `KASTEN_GITHUB_*` settings that switch on the year and week review's GitHub section, and the cache of the days read
 * [Budget model](budget-model.md): how the finance budget counts money, mine and household, free to spend and each part of it, where the month's money went, the salary cutoff, limits over time, the overspend carried on, unreserved, status, pace and the suggestion to change a limit
 * [Order sync](order-sync.md): the order mail job's commands and exit codes, its env file and Gmail login on the server, and the PayPal and Amazon mails it reads and the orders it makes of them
+* [Receipt jobs](receipt-jobs.md): the receipt job's commands and exit codes, its env file with the Anthropic key, the Gmail search it sends PDFs from, and how it reads a receipt with Claude
 * [Bank sync](bank-sync.md): the bank sync job's commands and exit codes, its env file, the files it keeps on the server, where each window starts, and the source key a booking is stored by, which the Firefly import computes alike
-* [Configuration](configuration.md): every backend setting and compose variable with its default, the self-host stack's included, the folders a vault can name for itself, the startup type pass, and the shell container: the `JJ_USER` and `JJ_EMAIL` it reads, the uid it runs as and the Claude Code it installs on first start
+* [Configuration](configuration.md): every backend setting and compose variable with its default, the finance receipts folder among them, the folders a vault can name for itself, the startup type pass, and the shell container: the `JJ_USER` and `JJ_EMAIL` it reads, the uid it runs as and the Claude Code it installs on first start
 * [Reverse-proxy routes](reverse-proxy-routes.md): every path the proxy in front of kasten routes, which carry the login gate, and the event stream and WebSocket rules
+* [The self-host stack](configuration/self-host-stack.md): the variables `deploy/selfhost/compose.yaml` reads from its `.env`, and the two files beside it
 * [Requirements](requirements.md): the machine, ports, memory and disk the self-host stack needs
 * [Reading a note](reading-a-note.md): the top bar, the three columns a note sits in with their widths and the breaks of its container query, the header block, Read and Edit, the outline, the local graph in the right margin and its sheet, and the Today screen an empty pane shows
 * [Design tokens](design-tokens.md): the token file the app is painted from, every colour of the light and the dark set, the graph's tag slots, type, space and motion, the contrast each pair holds, how light and dark are chosen and kept, and the fonts and their licenses

@@ -236,4 +236,19 @@ describe("the capture route", () => {
     );
     expect(sent.mock.calls.map(([url]) => url)).not.toContain("/api/dump");
   });
+
+  it("says where the files of a share went, and that they did not go with no signal", async () => {
+    await renderRoute("/capture?receipts=1&refused=1");
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "1 receipt kept for tax, waiting under Finance, To sort; 1 refused",
+    );
+    cleanup();
+
+    await renderRoute("/capture?title=A+page&offline=2");
+    expect(screen.getByRole("status")).toHaveTextContent("2 files not sent: no signal");
+    cleanup();
+
+    await renderRoute("/capture?text=x&toolarge=1");
+    expect(screen.getByRole("status")).toHaveTextContent("1 file too large to send");
+  });
 });
