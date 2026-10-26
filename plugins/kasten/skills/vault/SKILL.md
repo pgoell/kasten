@@ -7,8 +7,8 @@ description: Read, search and write notes in the user's kasten vault over its RE
 
 kasten serves one personal markdown vault. This skill reaches it with curl and
 a bearer token, for a machine where the kasten MCP server cannot be used. The
-routes are the same eight capabilities the MCP tools offer, and one more way in
-for a file: its bytes, straight off this machine's disk.
+routes are the same eight capabilities the MCP tools offer, the finance reads,
+and one more way in for a file: its bytes, straight off this machine's disk.
 
 ## Auth
 
@@ -162,6 +162,33 @@ curl -sS --fail-with-body -H "Authorization: Bearer $KASTEN_TOKEN" \
 Answers `{"path", "content", "sha"}`. `content` is the whole file, frontmatter
 block included. Keep `sha`: an overwrite needs it back. A note that is not
 there is `404`.
+
+### Read finance
+
+Where the backend has finance, `$KASTEN_AGENT/finance/` reads it; with no
+database every route there answers `503`. Nothing there writes.
+
+```sh
+curl -sS --fail-with-body -G -H "Authorization: Bearer $KASTEN_TOKEN" \
+  -d month=2026-10 -d today=2026-10-26 "$KASTEN_AGENT/finance/budget/free"
+```
+
+For a total, read a summary and never sum bookings: the budget's rules (the
+salary cutoff, the transfer into the shared account, moves between own
+accounts, splits) are in them. `today` is the user's local date. Amounts are
+euros as strings, negative is money out; `mine` is the own accounts, `household`
+the shared one, and an own saving account is in neither.
+
+| Route | Answers |
+| --- | --- |
+| `budget/free?month=&today=` | free to spend for mine and household, and its parts |
+| `budget?month=&today=` | each spending category's limit, spent, average and status |
+| `goals?today=` | each goal's progress, and each saving account's balance |
+| `plans/forecast?today=`, `plans/upcoming?month=` | balances by the plans, and the month's dates due |
+| `sync` | when the bank sync last succeeded |
+| `transactions` | a page of bookings: `month` or `from`/`to`, `scope`, `account`, `category`, `payee`, `text`, `limit` (100, at most 500), `after` (the page's `next`) |
+| `transactions/{id}` | one booking whole, and where it counts |
+| `lookup` | every account, category and payee by id |
 
 ## Write
 

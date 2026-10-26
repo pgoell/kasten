@@ -230,6 +230,22 @@ def _month_range(month: str) -> tuple[date, date]:
     return first, date(first.year, first.month, monthrange(first.year, first.month)[1])
 
 
+def booking_span(
+    month: str | None, start: str | None, end: str | None
+) -> tuple[date | None, date | None]:
+    """The first and last booking day a list asks for, from a `month` or a `from` and `to`.
+
+    `month` stands for a `from` and `to` around one month, so the two cannot
+    come with it. The agent's page of bookings reads its span here too.
+    """
+    if month is not None and (start is not None or end is not None):
+        raise HTTPException(status_code=400, detail="`month` comes without `from` and `to`")
+    first, last = _month_range(month) if month is not None else (_day(start), _day(end))
+    if first is not None and last is not None and first > last:
+        raise HTTPException(status_code=400, detail="`from` is after `to`")
+    return first, last
+
+
 @router.get("/transactions")
 async def read_transactions(  # noqa: PLR0913  each query parameter is its own argument
     session: Session,
@@ -251,11 +267,7 @@ async def read_transactions(  # noqa: PLR0913  each query parameter is its own a
     come together. `after` is the id of the last booking of the page before.
     A page shorter than `limit` is the last.
     """
-    if month is not None and (start is not None or end is not None):
-        raise HTTPException(status_code=400, detail="`month` comes without `from` and `to`")
-    first, last = _month_range(month) if month is not None else (_day(start), _day(end))
-    if first is not None and last is not None and first > last:
-        raise HTTPException(status_code=400, detail="`from` is after `to`")
+    first, last = booking_span(month, start, end)
     filters = finance.Filters(account, first, last, category, text, payee)
     found = await finance.list_transactions(
         session, filters, after=after, limit=limit, newest_first=order == "desc"

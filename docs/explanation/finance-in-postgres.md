@@ -75,15 +75,15 @@ size needs Postgres for speed: about 20,000 transactions in twenty years.
 
 ## Agents read everything
 
-The finance module will let an agent with a token read single transactions,
-not only totals, once its agent tools land (#1038). The first
+An agent with a token reads single transactions, not only totals, through
+the finance tools and `/agent/finance/*` (#1038). The first
 design gave agents summary views and nothing else, enforced by a database role.
 It was dropped (2026-10-25): finance is useful to an agent mostly in the
 detail, a payee, a duplicate, a missed refund.
 
-The cost is the one [the agent boundary](/explanation/the-agent-boundary.md)
-already names for the vault: a leaked token exposes it. Once those tools are
-in, that includes every transaction.
+The cost is the one [the agent boundary](/explanation/the-agent-boundary/finance-reads.md)
+names for the vault: a leaked token exposes it, and that includes every
+transaction.
 
 ## What backing up now means
 
@@ -105,7 +105,7 @@ slow rebuild, so:
 
 - **No finance data in the vault.** No export into notes, no ledger mirror. One
   copy, in one place.
-- **No second database role.** Agents will reach finance through kasten's
+- **No second database role.** Agents reach finance through kasten's
   routes like everything else, so a role would guard nothing they could
   otherwise reach.
 - **No bank client inside kasten.** Kasten stores and shows; jobs on the host

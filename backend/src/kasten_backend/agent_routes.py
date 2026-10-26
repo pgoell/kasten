@@ -18,6 +18,7 @@ from pydantic import BaseModel
 from starlette.requests import ClientDisconnect
 
 from kasten_backend import agent, files, vcs
+from kasten_backend.agent_finance_routes import router as finance_router
 from kasten_backend.config import Settings, get_settings
 from kasten_backend.graph import MOST_DEPTH, Graph, GraphError
 from kasten_backend.tokens import verify
@@ -124,6 +125,11 @@ async def schema(request: Request) -> dict[str, Any]:
         version=request.app.version,
         routes=router.routes,
     )
+
+
+# Included here rather than in `main.py`, so the finance reads sit behind this
+# router's token check and in the schema above without either knowing of them.
+router.include_router(finance_router)
 
 
 @router.put("/notes/{path:path}")

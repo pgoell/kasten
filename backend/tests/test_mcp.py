@@ -271,6 +271,14 @@ async def test_the_reading_tools_say_so(
         "append_note": False,
         "dump": False,
         "save_file": False,
+        "free_to_spend": True,
+        "monthly_by_category": True,
+        "goal_progress": True,
+        "plan_forecast": True,
+        "sync_status": True,
+        "list_transactions": True,
+        "read_transaction": True,
+        "finance_lookup": True,
     }
 
 

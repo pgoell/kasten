@@ -45,7 +45,7 @@ from mcp.server.transport_security import TransportSecuritySettings
 from mcp.types import ToolAnnotations
 from starlette.responses import JSONResponse
 
-from kasten_backend import agent, files, vcs
+from kasten_backend import agent, agent_mcp_finance, files, vcs
 from kasten_backend.agent_oauth import challenge
 from kasten_backend.agent_routes import BEARER, REFUSED
 from kasten_backend.config import DEFAULTS, get_settings
@@ -220,15 +220,20 @@ TOOLS = (
     dump,
     save_file,
     read_guide,
+    *agent_mcp_finance.TOOLS,
 )
-"""The eight, in the order the reference page lists them, and the guide behind them.
+"""The eight, in the order the reference page lists them, the guide, and the finance reads.
 
 `read_guide` is a ninth tool and not a ninth capability. It reads a string
 compiled into the image, never the vault, so the audit this prefix exists for is
-still a list of eight things.
+still a list of eight things. The finance reads are a ninth capability, argued
+for in docs/explanation/the-agent-boundary.md.
 """
 
-READING = frozenset({"list_notes", "read_note", "search_notes", "query_graph", "read_guide"})
+READING = (
+    frozenset({"list_notes", "read_note", "search_notes", "query_graph", "read_guide"})
+    | agent_mcp_finance.READING
+)
 """Which of the tools only read, told to the client as `readOnlyHint`.
 
 chatgpt.com treats a tool without it as a write and asks you to confirm every
