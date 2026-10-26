@@ -170,11 +170,10 @@ month, the plans and rules behind it, and the month's bookings.
   from the category's first month with money: the budget's `average` for a
   spending category, and money in for an income one.
 * `span`: what the category counted over the span, a year before (`null`
-  when its history does not reach back), and at its 6-month average for as
+  when its history does not hold all of those months), and at its 6-month average for as
   many months, the average from the category's first month with money.
-  `available` is each month's limit added up, less the overspend carried
-  into the span's first month, never below zero; `null` with no limit in any
-  of its months.
+  `available` is the first month's `available` and each later month's limit
+  whole; `null` with no limit in any of its months.
 * `payees`: what each payee gave the category over the span, the largest
   first; `id` `null` for bookings with no payee. They add up to the span's
   `total`.
@@ -207,7 +206,8 @@ the payee rules that name it, and the month's bookings.
   accounts of one scope, or between mine and household, is in none of them.
 * `bookings` in a month: how many bookings count in it, as `spent` and
   `received` count them; a move between own accounts, a booking in an
-  `ignore` category and money in not sorted yet are none.
+  `ignore` category and money in not sorted yet are none. The `bookings`
+  list at the end holds the same bookings the count counts.
 * `average`: the mean `spent` over the whole months before `month`, at most
   6, from the payee's first month; `null` with none. `average_received` is
   the same for `received`, for a payee that pays in, such as an employer.

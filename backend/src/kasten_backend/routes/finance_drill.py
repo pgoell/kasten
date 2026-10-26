@@ -353,7 +353,10 @@ async def read_payee(
     view = drill.payee_view(ledger, payee_id, span)
     filters = finance.Filters(payee=payee_id)
     count = await drill_reads.booking_counts(session, filters, span, how)
-    bookings = await drill_reads.month_bookings(session, filters, spans.months_of(first, last), how)
+    # The list the count is of: no move between own accounts, no `ignore`, no money in not sorted.
+    bookings = await drill_reads.month_bookings(
+        session, filters, spans.months_of(first, last), how, counted=True
+    )
     sides = {"in" if line.amount > 0 else "out" for line in ledger.lines if line.payee == payee_id}
     return PayeeDrillOut(
         payee=PayeeOut.model_validate(payee),

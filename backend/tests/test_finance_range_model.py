@@ -27,6 +27,7 @@ from backend.tests.test_finance_budget_model import (
 )
 from backend.tests.test_finance_drill_model import at
 from backend.tests.test_finance_flow import flows
+from kasten_backend.finance_budget import budget_of, step_of
 from kasten_backend.finance_drill import scope_month
 from kasten_backend.finance_flow import month_flow
 from kasten_backend.finance_free import free_to_spend
@@ -211,3 +212,41 @@ def test_expected_income_counts_household_money_from_mine_once() -> None:
         at(0, SHARED, "500", CONTRIBUTION),
     )
     assert expected_income(book, OCT, dt.date(2026, 10, 25), Book()) == Decimal(3500)
+
+
+def test_a_span_available_matches_its_months_when_the_carry_passes_the_first_limit() -> None:
+    book = ledger(at(-1, CARD, "-300", GROCERIES))
+    rows = [(AUG, Decimal(50))]
+    span = [OCT, NOV, month(2)]
+    per_month = sum((step_of(book, rows, GROCERIES, m).available or 0 for m in span), Decimal(0))
+    # 0 + 50 + 50, as the budget tab gives each month: September's 250 over takes October's 50.
+    assert per_month == Decimal(100)
+    assert available_in(book, rows, GROCERIES, span) == per_month
+
+
+def test_the_setup_and_the_budgets_suggestion_leave_out_a_bill_a_reserve_paid() -> None:
+    lines = [at(back, GIRO, "-10", TRIPS) for back in range(-6, 0)]
+    lines += [at(-2, GIRO, "-1200", TRIPS, reserved=True)]
+    lines += [at(back, CARD, "-100", GROCERIES) for back in range(-6, 0)]
+    lines += [at(-2, CARD, "-600", GROCERIES, reserved=True)]
+    book = ledger(*lines)
+    trip = Plan(2, "Trip", GIRO, "mine", TRIPS, Decimal(-1200), Decimal(0), 12, AUG)
+    rows = {r.id: r for r in setup(book, {}, [trip], OCT)}
+    # The reserve sets the bill's share aside each month; the limit is for the rest.
+    assert rows[TRIPS].average == Decimal(10)
+    assert rows[TRIPS].suggested == Decimal(10)
+    # The budget tab's suggestion reads the same average: 100 a month, not 200.
+    limits = {GROCERIES: [(month(-6), Decimal(300))]}
+    found = next(r for r in budget_of(book, limits, OCT, OCT) if r.category.id == GROCERIES)
+    assert found.suggestion is not None
+    assert found.suggestion.amount == Decimal(100)
+
+
+def test_a_year_before_that_the_history_reaches_only_in_part_is_none() -> None:
+    lines = [at(-12, CARD, "-10", GROCERIES)]
+    lines += [at(back, CARD, "-400", GROCERIES) for back in range(-11, 1)]
+    book = ledger(*lines)
+    # The year before is 12 months; the history holds only the last of them.
+    assert scope_compared(book, "mine", month(-11), OCT, None).last_year is None
+    assert category_compared(book, GROCERIES, month(-11), OCT).last_year is None
+    assert scope_compared(book, "mine", OCT, OCT, None).last_year is not None

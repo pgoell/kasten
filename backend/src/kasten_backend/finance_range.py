@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING
 from kasten_backend.finance_budget import (
     AVERAGE_MONTHS,
     LimitRows,
-    average_spent,
+    limit_average,
     limit_in,
     step_of,
 )
@@ -116,8 +116,12 @@ def scope_compared(
 
 
 def _reaches(first: dt.date | None, months: list[dt.date]) -> bool:
-    """Whether a history starting in `first` holds any of the months."""
-    return first is not None and months[-1] >= first
+    """Whether a history starting in `first` holds every one of the months.
+
+    A year before that the history holds only in part would read as a whole
+    span against a part of one.
+    """
+    return first is not None and months[0] >= first
 
 
 def _counted_span(part: Ledger, category: int, months: list[dt.date]) -> Counted:
@@ -165,16 +169,17 @@ def available_in(
 ) -> Decimal | None:
     """What the limits made available over the months, None where no month had a limit.
 
-    Each month's limit added up, less only the overspend carried into the
-    first: an overspend inside the span is spending the span already counts,
-    so taking it off the next month's limit too would count it twice. A month
-    with no limit adds nothing.
+    The first month's `available`, its limit less the overspend carried into
+    it and never below zero, as the budget tab gives it; then each later
+    month's limit whole. An overspend inside the span is spending the span
+    already counts, so taking it off the next month's limit too would count it
+    twice. A month with no limit adds nothing.
     """
-    limits = [limit_in(rows, at) for at in months]
-    if all(limit is None for limit in limits):
+    limits = [limit_in(rows, at) for at in months[1:]]
+    first = step_of(ledger, rows, category, months[0]).available
+    if first is None and all(limit is None for limit in limits):
         return None
-    total = sum((limit for limit in limits if limit is not None), ZERO)
-    return max(ZERO, total - step_of(ledger, rows, category, months[0]).carried)
+    return (first or ZERO) + sum((limit for limit in limits if limit is not None), ZERO)
 
 
 @dataclass(frozen=True)
@@ -244,7 +249,7 @@ def setup(
                 category.name,
                 category.kind,
                 limit_in(limits.get(category.id, []), month),
-                average_spent(ledger, category.id, month),
+                limit_average(ledger, category.id, month),
                 planned,
                 names,
             )

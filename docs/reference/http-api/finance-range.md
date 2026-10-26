@@ -60,7 +60,7 @@ GET /api/finance/budget/range?from=2026-07&month=2026-09
   has them. `left` is what the span kept in all: a month that spent past what
   came in nets against the others.
 * `last_year`: the same months a year before, dated by its first; `null`
-  when the history does not reach back to them.
+  when the history does not hold all of them.
 * `average`: the 6 whole months before the span, from the first month with
   any booking, averaged and taken as many times as the span has months, so
   it reads against `now` at the same length; `null` with no month before.
@@ -95,6 +95,8 @@ GET /api/finance/budget/setup?month=2026-11&today=2026-10-26
   the month it was confirmed in. A plan that reserves, such as a yearly
   bill, and a plan due once are no monthly cost and are left out. `null`
   with none.
+* `average`: the mean spending of the whole months before, at most 6, without
+  the bills a plan's reserve paid.
 * `suggested`: the larger of `planned` and the average rounded up to the
   euro; `null` with neither.
 * `expected_income`: the month's income as free to spend expects it, both

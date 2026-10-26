@@ -51,7 +51,13 @@ class Reading:
     own: dict[str, int]
 
     def moves(self, booking: tables.Transaction) -> bool:
-        """Whether a booking is a move between own accounts, its twin in or not."""
+        """Whether a booking is a move between own accounts, its twin in or not.
+
+        A booking with splits is none: the ledger counts its splits by their
+        categories, so the drilldowns list it where they count.
+        """
+        if booking.splits:
+            return False
         if booking.transfer_group is not None:
             return True
         other = self.own.get(booking.counterparty_iban or "")
@@ -122,16 +128,19 @@ async def month_bookings(
     filters: finance.Filters,
     months: list[dt.date],
     how: Reading,
+    *,
+    counted: bool = False,
 ) -> list[tuple[tables.Transaction, set[dt.date]]]:
     """The bookings that pass `filters` and count in one of the budget `months`, newest first.
 
     With a category in `filters`, a booking counts by that category's parts.
+    With `counted`, as a payee's figures and `booking_counts` count it.
     """
     span = replace(filters, first=add_months(months[0], -1), last=last_day(months[-1]))
     found = await every_booking(session, span, newest_first=True)
     kept = []
     for booking in found:
-        counts_in = how.months(booking, category=filters.category)
+        counts_in = how.months(booking, category=filters.category, counted=counted)
         if counts_in & set(months):
             kept.append((booking, counts_in))
     return kept

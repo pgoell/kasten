@@ -6,7 +6,7 @@ without a database in test_finance_range_model.py.
 
 from typing import TYPE_CHECKING
 
-from backend.tests.finance_rows import API, booking, post
+from backend.tests.finance_rows import API, SAVING, booking, category, post
 from backend.tests.test_finance_drill import settled
 from kasten_backend import finance_drill_reads as drill_reads
 
@@ -132,3 +132,70 @@ async def test_a_long_span_lists_every_booking_page_by_page(
     assert {row["source_key"] for row in scope["bookings"]} == {"pay", "out", "save", "food"}
     account = (await finance_client.get(f"{API}/drill/accounts/{ids['giro']}", params=SPAN)).json()
     assert {row["source_key"] for row in account["bookings"]} == {"pay", "out", "save", "food"}
+
+
+async def test_a_move_between_own_accounts_cannot_be_split(finance_client: AsyncClient) -> None:
+    ids = await settled(finance_client)
+    # Half a move whose other half is not in yet, and a move with both halves in.
+    await post(
+        finance_client,
+        [
+            booking(
+                ids["giro"], "half", "-200.00", booking_date="2026-10-04", counterparty_iban=SAVING
+            )
+        ],
+    )
+    rows = {
+        row["source_key"]: row for row in (await finance_client.get(f"{API}/transactions")).json()
+    }
+    for key in ("half", "out"):
+        amount = rows[key]["amount"]
+        response = await finance_client.put(
+            f"{API}/transactions/{rows[key]['id']}/splits",
+            json=[{"amount": amount, "text": "all of it"}],
+        )
+        assert response.status_code == 422, key
+        assert "move between own accounts" in response.json()["detail"]
+    groceries = (
+        await finance_client.get(f"{API}/drill/categories/{ids['groceries']}", params=SPAN)
+    ).json()
+    assert groceries["span"]["now"]["total"] == "120.00"
+    assert {row["source_key"] for row in groceries["bookings"]} == {"food"}
+
+
+async def test_a_payees_list_holds_what_its_count_counts(finance_client: AsyncClient) -> None:
+    ids = await settled(finance_client)
+    work = await category(finance_client, "Work travel", "ignore")
+    await post(
+        finance_client,
+        [
+            booking(
+                ids["giro"], "lunch", "-12.00", booking_date="2026-10-06", counterparty_name="Max"
+            ),
+            booking(
+                ids["giro"], "trip", "-80.00", booking_date="2026-10-07", counterparty_name="Max"
+            ),
+            booking(
+                ids["giro"],
+                "move",
+                "-50.00",
+                booking_date="2026-10-08",
+                counterparty_name="Max",
+                counterparty_iban=SAVING,
+            ),
+        ],
+    )
+    rows = {
+        row["source_key"]: row for row in (await finance_client.get(f"{API}/transactions")).json()
+    }
+    await finance_client.put(
+        f"{API}/transactions/{rows['lunch']['id']}/category", json={"category_id": ids["groceries"]}
+    )
+    await finance_client.put(
+        f"{API}/transactions/{rows['trip']['id']}/category", json={"category_id": work}
+    )
+    found = (
+        await finance_client.get(f"{API}/drill/payees/{rows['lunch']['payee_id']}", params=SPAN)
+    ).json()
+    assert {row["source_key"] for row in found["bookings"]} == {"lunch"}
+    assert sum(month["bookings"] for month in found["months"]) == 1

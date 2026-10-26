@@ -202,7 +202,7 @@ span's last month belongs to the next span.
 A span compares with two figures:
 
 * the same months a year before, or nothing when the history (for a
-  category, its own) does not reach back to them;
+  category, its own) does not hold all of them;
 * the 6 whole months before the span, from the first month with any booking
   (for a category, its own first month with money), averaged and taken as
   many times as the span has months, so both read at the same length.
@@ -210,16 +210,16 @@ A span compares with two figures:
 When the span ends in the month still running, that month holds only the
 days so far, and the comparison says so.
 
-For a span, what the limits made available is each month's limit added up,
-less the overspend carried into the span's first month and never below
-zero. An overspend inside the span is spending the span already counts, so
-it does not come off the next month's limit a second time; a month with no
-limit adds nothing.
+For a span, what the limits made available is the first month's `available`
+(its limit less the overspend carried into it, never below zero) and each
+later month's limit whole. An overspend inside the span is spending the span
+already counts, so it does not come off the next month's limit a second
+time; a month with no limit adds nothing.
 
 ### The budget setup
 
 The setup lists every spending category with its limit in force, its 6-month
-average and what its monthly plans cost, each read from the month it was
+average without the bills a reserve paid, as the suggestion above reads it, and what its monthly plans cost, each read from the month it was
 confirmed in, as free to spend reads it. A plan that reserves is left out,
 since its bill comes out of its reserve, and so is a plan due once, which is
 no monthly cost. Each category's suggestion is the larger of its plans'
@@ -362,7 +362,9 @@ Beside each limit stands the category's average over the last 6 whole months,
 from its first month with money.
 When the limit in force and the average have stood apart in the same direction
 for 3 months running, the budget suggests raising or lowering the limit to the
-average, rounded to the nearest 10 euros. Apart means a gap of at least 10 %
+average, read without the bills a plan's reserve paid (the reserve sets their
+share aside every month already, so a limit raised for them would count them
+twice), rounded to the nearest 10 euros. Apart means a gap of at least 10 %
 of the limit and at least 10 euros. Each of the 3 months is read with the
 average as it stood at its end, against the limit in force now, so a limit
 changed to fit stops the suggestion at once. The category's own history must

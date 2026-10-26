@@ -75,6 +75,16 @@ class SplitSumError(ValueError):
         super().__init__(f"The splits add up to {total}, the booking is {amount}")
 
 
+class TransferSplitError(ValueError):
+    """A move between own accounts cannot be split: its parts would count as spending."""
+
+    def __init__(self) -> None:
+        """Say why, in words the pane shows."""
+        super().__init__(
+            "A move between own accounts is no spending and cannot be split into categories"
+        )
+
+
 async def _check_accounts(session: AsyncSession, ids: set[int]) -> None:
     """Refuse a batch naming an account that is not there, before anything is written."""
     found = set(await session.scalars(select(Account.id).where(Account.id.in_(ids))))
@@ -305,6 +315,25 @@ async def list_transactions(
     return list(await session.scalars(statement.order_by(*order).limit(limit)))
 
 
+async def _is_move(session: AsyncSession, booking: Transaction) -> bool:
+    """Whether a booking is a move between own accounts, its other half in or not yet.
+
+    The budget reads a booking whose counterparty IBAN is another own account's
+    as a move even before its twin comes, so splitting either would turn the
+    move into spending.
+    """
+    if booking.transfer_group is not None:
+        return True
+    if booking.counterparty_iban is None:
+        return False
+    other = await session.scalar(
+        select(Account.id).where(
+            Account.iban == booking.counterparty_iban, Account.id != booking.account_id
+        )
+    )
+    return other is not None
+
+
 async def replace_splits(
     session: AsyncSession, transaction_id: int, parts: list[dict[str, Any]]
 ) -> Transaction | None:
@@ -326,6 +355,8 @@ async def replace_splits(
     )
     if booking is None:
         return None
+    if parts and await _is_move(session, booking):
+        raise TransferSplitError
     total = sum((part["amount"] for part in parts), Decimal(0))
     if parts and total != booking.amount:
         raise SplitSumError(total, booking.amount)
