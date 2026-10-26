@@ -50,9 +50,12 @@ so do the decks' reads of the cards, their notes and the
 back rather than at the next rating. A deck note that still cannot be read is
 named at the foot of the decks, its cards not counted. Limits that still cannot
 be read leave the overview with no decks to sit and a sitting with nothing to
-ask, each saying so, rather than counting no limit. The parked list reads its
+ask, each saying so, rather than counting no limit. A sitting reads its deck's
+notes again the same way, saying `Reading the deck…` meanwhile, and a note that
+still cannot be read is named in its foot as not read. The parked list reads its
 notes again the same way, says `Reading the notes…` until the scan of the cards
-answers, and shows the scan's error if it fails.
+answers, and shows the scan's error if it fails. A put-back whose write fails
+says the note could not be written, apart from a read that failed.
 
 Center, a toggle in the header, puts the front and the back in the middle of
 the pane, across and down. The browser keeps it, so it holds across sittings
