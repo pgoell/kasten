@@ -94,7 +94,8 @@ export function weekTiles(input: {
 }
 
 /**
- * One bar per logged day of `dates`, at its kcal, with no bar for a day not logged. The
+ * One bar per day of `dates` with a food line, at its kcal, with no bar for a day without one
+ * (no log, drinks only or weight only). A food line of 0 kcal still draws a bar, a stub. The
  * goal is drawn by the chart, so `config` is named for the signature the view codes to
  * and not read here.
  */
@@ -102,7 +103,7 @@ export function kcalPerDay(days: LogDay[], _config: LogConfig, dates: string[]):
   const byDate = new Map(days.map((day) => [day.date, day]));
   return dates.flatMap((date, index) => {
     const day = byDate.get(date);
-    if (day === undefined || day.entries.length === 0) return [];
+    if (day === undefined || !hasFood(day)) return [];
     return [{ index, amount: day.totals.food.kcal ?? 0 }];
   });
 }
