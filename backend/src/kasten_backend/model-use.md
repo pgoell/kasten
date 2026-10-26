@@ -5,7 +5,7 @@ title: Model use prices and projects
 
 # Model use prices and projects
 
-Prices are Anthropic's list prices in US dollars per million tokens, read 2026-10-26 from https://platform.claude.com/docs/en/about-claude/pricing. The gpt rows are OpenAI's list prices, read 2026-10-26 from https://developers.openai.com/api/docs/pricing (standard tier; long context above 272K input tokens).
+Prices are Anthropic's list prices in US dollars per million tokens, read 2026-10-26 from https://platform.claude.com/docs/en/about-claude/pricing. The gpt rows are OpenAI's list prices, read 2026-10-26 from https://developers.openai.com/api/docs/pricing (standard tier; long context above 272K input tokens). The grok rows are xAI's list prices, read 2026-10-26 from https://docs.x.ai/docs/models (long context from 200K prompt tokens). xAI lists no cache write rate, so the rows charge a cache write at the input rate. grok's CLI bills `grok-4.7-build`, which xAI lists no price for, so its lines say `cost unknown` until you add a `grok-4.7-build` row here.
 
 Each row holds input, output, cache write 5m, cache write 1h and cache read, in that order. A `fast` row prices fast-mode messages, and an `over N` row prices messages whose prompt is above N tokens.
 
@@ -47,6 +47,16 @@ Each row holds input, output, cache write 5m, cache write 1h and cache read, in 
 - gpt-5.4: input 2.5, output 15, cache write 5m 2.5, cache write 1h 2.5, cache read 0.25
 - gpt-5.4 over 272000: input 5, output 22.5, cache write 5m 5, cache write 1h 5, cache read 0.5
 - gpt-5.3-codex: input 1.75, output 14, cache write 5m 1.75, cache write 1h 1.75, cache read 0.175
+- grok-4.7: input 2, output 6, cache write 5m 2, cache write 1h 2, cache read 0.5
+- grok-4.7 over 199999: input 4, output 12, cache write 5m 4, cache write 1h 4, cache read 1
+- grok-4.6: input 2, output 6, cache write 5m 2, cache write 1h 2, cache read 0.5
+- grok-4.6 over 199999: input 4, output 12, cache write 5m 4, cache write 1h 4, cache read 1
+- grok-4.5: input 2, output 6, cache write 5m 2, cache write 1h 2, cache read 0.3
+- grok-4.5 over 199999: input 4, output 12, cache write 5m 4, cache write 1h 4, cache read 0.6
+- grok-4.3: input 1.25, output 2.5, cache write 5m 1.25, cache write 1h 1.25, cache read 0.2
+- grok-4.3 over 199999: input 2.5, output 5, cache write 5m 2.5, cache write 1h 2.5, cache read 0.4
+- grok-build-0.1: input 1, output 2, cache write 5m 1, cache write 1h 1, cache read 0.2
+- grok-build-0.1 over 199999: input 2, output 4, cache write 5m 2, cache write 1h 2, cache read 0.4
 
 ## Projects
 

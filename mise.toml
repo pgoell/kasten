@@ -156,7 +156,7 @@ dir = "{{config_root}}/backend"
 run = "uv run python -m kasten_backend.okf ../vault"
 
 [tasks."model-use"]
-description = "Write Claude Code's and codex's tokens and cost per day into the vault's model-use notes"
+description = "Write Claude Code's, codex's and grok's tokens and cost per day into the vault's model-use notes"
 # The source and the vault are arguments, as `db:revision` takes its flags: after
 # a `--`, `mise run model-use -- <source> <vault>`. The paths are read from
 # `backend/`, which `dir` sets.

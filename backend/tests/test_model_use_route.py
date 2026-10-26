@@ -1,10 +1,16 @@
 """`GET /api/model-use` answers the collector's usage lines from its monthly notes.
 
 The notes are written here as literal text, not by the collector, so each test
-fails on a branch without the route for a reason of its own: a 404.
+fails on a branch without the route for a reason of its own: a 404. The #1129 test
+runs the collector over a made-up grok file, since what it proves is that the line
+the collector writes for grok reaches the year review.
 """
 
+from datetime import UTC, date, datetime
 from typing import TYPE_CHECKING
+
+from backend.tests.model_use_records import CONFIG, grok_session, grok_turn
+from kasten_backend.model_use import run
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -113,6 +119,34 @@ async def test_1099_a5_the_route_answers_a_codex_line(client: AsyncClient, vault
                 "cache_write": 0,
                 "cache_read": 12032,
                 "cost": 0.1209,
+                "unpriced": 0,
+            }
+        ],
+    )
+
+
+async def test_1129_a5_the_route_answers_a_grok_line_the_collector_wrote(
+    client: AsyncClient, vault: Path, tmp_path: Path
+) -> None:
+    source = tmp_path / "grok-sessions"
+    # Noon UTC, so the turn's day is the 25th on any clock the suite runs on.
+    grok_session(source, grok_turn(stamp=1792929600))
+    run(source, vault, CONFIG, date(2026, 10, 25), date(2026, 10, 25), datetime.now(UTC))
+
+    r = await client.get("/api/model-use", params={"from": "2026-10-25", "to": "2026-10-25"})
+
+    assert (r.status_code, r.json()) == (
+        200,
+        [
+            {
+                "day": "2026-10-25",
+                "model": "grok-4.7",
+                "project": "proj",
+                "input": 19790,
+                "output": 193,
+                "cache_write": 1000,
+                "cache_read": 1664,
+                "cost": 0.0436,
                 "unpriced": 0,
             }
         ],

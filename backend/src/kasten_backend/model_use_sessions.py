@@ -1,9 +1,10 @@
-"""The Claude Code and codex session files, read into one usage per day, tool, model and project.
+"""The Claude Code, codex and grok session files, read into one usage per day, tool, model, project.
 
 Claude Code writes one record per block of an answer, each carrying the answer's
 usage, and a resumed session copies earlier records into its new file. So a
 message is counted once, by its id, however many records or files carry it.
-A codex file is read by `model_use_codex`, and any other file as Claude Code's.
+A codex file is read by `model_use_codex`, a grok file by `model_use_grok`, and
+any other file as Claude Code's.
 """
 
 import json
@@ -11,7 +12,7 @@ from dataclasses import dataclass
 from datetime import date, datetime
 from typing import TYPE_CHECKING
 
-from kasten_backend import model_use_codex
+from kasten_backend import model_use_codex, model_use_grok
 from kasten_backend.model_use_config import Config, Price, price_of, project_of
 from kasten_backend.model_use_lines import CLAUDE_CODE, Usage
 
@@ -38,6 +39,8 @@ class Message:
     write_5m: int
     write_1h: int
     tool: str = CLAUDE_CODE
+    calls: int = 1
+    """The model calls the counts sum: a grok turn sums its calls, any other message is one."""
 
 
 def count_of(usage: dict, key: str) -> int:
@@ -134,6 +137,8 @@ def read_messages(source: Path, first: date) -> dict[str, Message]:
         # The first record tells the tool: codex's file opens with a session_meta record.
         if model_use_codex.is_codex(lines):
             messages = model_use_codex.codex_messages(lines)
+        elif model_use_grok.is_grok(lines):
+            messages = model_use_grok.grok_messages(lines, path)
         else:
             messages = _claude_messages(lines)
         for message in messages:
@@ -186,7 +191,8 @@ def usage_lines(messages: dict[str, Message], config: Config, first: str, last: 
         project = project_of(message.cwd, config.folders)
         if not project:
             continue
-        prompt = message.input + message.write + message.read
+        # A long-context row prices one call, so a grok turn is held to it by its calls' mean.
+        prompt = (message.input + message.write + message.read) // message.calls
         row = price_of(message.model, message.fast, prompt, config.prices)
         key = (message.day, message.tool, message.model, project)
         sums.setdefault(key, _Sum()).add(message, row)

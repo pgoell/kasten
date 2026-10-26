@@ -1,7 +1,7 @@
-"""Write Claude Code and codex tokens and cost per day, model and project into the monthly notes.
+"""Write Claude Code, codex and grok tokens and cost per day, model and project into monthly notes.
 
 `python -m kasten_backend.model_use <source> <vault> [--from] [--to] [--config]`
-reads every session file under `<source>`, Claude Code's and codex's alike, and
+reads every session file under `<source>`, Claude Code's, codex's and grok's alike, and
 prices each message at the config
 note's rows, and writes the months the days from `--from` to `--to` touch. The
 format is in docs/reference/model-use-format.md.
@@ -50,7 +50,7 @@ def run(  # noqa: PLR0913, PLR0917  each part of a run is its own argument
 def main(argv: list[str] | None = None) -> int:
     """Run the collector from the command line, printing a line per note and skipped config line."""
     parser = argparse.ArgumentParser(
-        description="Collect Claude Code and codex usage into model-use notes."
+        description="Collect Claude Code, codex and grok usage into model-use notes."
     )
     parser.add_argument("source", type=Path, help="the folder of session files, any depth")
     parser.add_argument("vault", type=Path, help="the vault the notes are written into")

@@ -63,6 +63,59 @@ def session(root: Path, name: str, *lines: str) -> None:
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
+GROK_FOLDER = "%2Fhome%2Fme%2FCode%2Fproj"
+"""A grok session folder: the folder grok ran in, `/home/me/Code/proj`, percent-encoded."""
+GROK_STAMP = 1792922400
+"""2026-10-25T10:00:00Z in seconds, the way grok stamps a record."""
+
+
+def grok_counts(  # noqa: PLR0913, PLR0917  each count is its own argument, as grok writes them
+    tokens_in: int = 22454,
+    out: int = 193,
+    cached: int = 1664,
+    written: int = 1000,
+    calls: int = 1,
+    reasoning: int = 0,
+) -> dict:
+    """One model's counts in a grok turn, inputTokens holding the cached and written tokens."""
+    return {
+        "inputTokens": tokens_in,
+        "outputTokens": out,
+        "totalTokens": tokens_in + out,
+        "cachedReadTokens": cached,
+        "cacheCreationTokens": written,
+        "reasoningTokens": reasoning,
+        "modelCalls": calls,
+        "costUsdTicks": 1,
+    }
+
+
+def grok_turn(prompt: str = "p1", models: dict | None = None, **fields) -> str:
+    """A grok `turn_completed` record with these counts per model, a line of `updates.jsonl`.
+
+    `stamp` changes the stamp and `usage` the whole usage; None drops either field.
+    """
+    models = {"grok-4.7": grok_counts()} if models is None else models
+    update: dict = {"sessionUpdate": "turn_completed", "prompt_id": prompt}
+    default_usage = {"inputTokens": 0, "modelUsage": models}
+    if (body := fields.get("usage", default_usage)) is not None:
+        update["usage"] = body
+    line: dict = {
+        "method": "_x.ai/session/update",
+        "params": {"sessionId": "s1", "update": update},
+    }
+    if (stamp := fields.get("stamp", GROK_STAMP)) is not None:
+        line["timestamp"] = stamp
+    return json.dumps(line)
+
+
+def grok_session(
+    root: Path, *lines: str, session_id: str = "s1", name: str = "updates.jsonl"
+) -> None:
+    """Write a grok session file at `<root>/<folder>/<session>/<name>`."""
+    session(root, f"{GROK_FOLDER}/{session_id}/{name}", *lines)
+
+
 def config(vault: Path, text: str = PRICES) -> None:
     """Write the config note under the vault's config folder."""
     (vault / CONFIG).mkdir(parents=True, exist_ok=True)
