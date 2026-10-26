@@ -61,6 +61,8 @@ class Line:
     `late` is a booking made after the salary cutoff day. `twin_account` is
     the account of a transfer's other half, None for every other booking.
     `reserved` is a booking that paid a plan's bill out of its reserve.
+    `payee` is the booking's payee, a split's being its booking's; the budget
+    never reads it, the drilldowns do.
     """
 
     month: dt.date
@@ -70,6 +72,7 @@ class Line:
     twin_account: int | None = None
     late: bool = False
     reserved: bool = False
+    payee: int | None = None
 
 
 @dataclass
@@ -122,7 +125,7 @@ class Ledger:
         categories: dict[int, Category],
     ) -> None:
         """Sort every line once. Lines on accounts or categories not named are left out."""
-        self.categories = categories
+        self.lines, self.accounts, self.categories = lines, accounts, categories
         self._months: dict[tuple[dt.date, Scope], Month] = defaultdict(Month)
         self.first: dt.date | None = None
         # The first month each category, and each scope's move to the other, had money,
@@ -184,6 +187,22 @@ class Ledger:
 
     def _seen(self, key: int | Scope, month: dt.date) -> None:
         self.since[key] = min(self.since.get(key, month), month)
+
+    def only(self, keep: Callable[[Line], bool]) -> Ledger:
+        """A ledger of the lines `keep` takes, sorted by the same rules.
+
+        Each line counts on its own, so the parts of a part ledger add up to the
+        whole: what a payee or an account gave each part of the month. The
+        averages start from the part's own first month.
+        """
+        return Ledger([line for line in self.lines if keep(line)], self.accounts, self.categories)
+
+    def entries(self) -> list[tuple[dt.date, Scope, Month]]:
+        """Every month and scope something counts in, oldest first."""
+        return sorted(
+            ((at, scope, month) for (at, scope), month in self._months.items()),
+            key=lambda e: (e[0], e[1]),
+        )
 
     def month(self, month: dt.date, scope: Scope) -> Month:
         """One scope's month, empty when nothing counts in it."""

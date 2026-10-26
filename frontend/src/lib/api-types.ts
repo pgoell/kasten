@@ -1294,6 +1294,106 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/finance/drill/scopes/{scope}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Scope
+         * @description A scope's months as the sankey reads them, its accounts and the month's bookings.
+         */
+        get: operations["read_scope_api_finance_drill_scopes__scope__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/finance/drill/categories/{category_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Category
+         * @description A category's months against its limit, its payees, plans, rules and the month's bookings.
+         */
+        get: operations["read_category_api_finance_drill_categories__category_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/finance/drill/payees/{payee_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Payee
+         * @description A payee's months, average, categories, the rules that name it and the month's bookings.
+         */
+        get: operations["read_payee_api_finance_drill_payees__payee_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/finance/drill/accounts/{account_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Account
+         * @description An account's month-end balances, the month's money by category and transfers, by date.
+         */
+        get: operations["read_account_api_finance_drill_accounts__account_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/finance/drill/bookings/{transaction_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Booking
+         * @description A booking whole: every field and its raw record, its twin, plan and where it counts.
+         */
+        get: operations["read_booking_api_finance_drill_bookings__transaction_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/finance/plans": {
         parameters: {
             query?: never;
@@ -2508,6 +2608,25 @@ export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         /**
+         * AccountDrillOut
+         * @description An account's balance over the months, the month's money by category and its transfers.
+         */
+        AccountDrillOut: {
+            account: components["schemas"]["AccountOut"];
+            /** Scope */
+            scope: ("mine" | "household") | null;
+            /** Month */
+            month: string;
+            /** Months */
+            months: components["schemas"]["BalanceMonthOut"][];
+            /** Categories */
+            categories: components["schemas"]["AmountOut"][];
+            /** Transfers */
+            transfers: components["schemas"]["AmountOut"][];
+            /** Bookings */
+            bookings: components["schemas"]["TransactionOut"][];
+        };
+        /**
          * AccountFetch
          * @description What a run fetched for one account, and what the ingest made of it.
          */
@@ -2625,6 +2744,18 @@ export interface components {
             grams: number;
         };
         /**
+         * AmountOut
+         * @description What one payee, category or account gave.
+         */
+        AmountOut: {
+            /** Id */
+            id: number | null;
+            /** Name */
+            name: string;
+            /** Amount */
+            amount: string;
+        };
+        /**
          * AnkiImport
          * @description What one `.apkg` turned into.
          */
@@ -2680,6 +2811,36 @@ export interface components {
             date: string;
             /** Amount */
             amount: number | string;
+        };
+        /**
+         * BalanceMonthOut
+         * @description An account's month by booking date: the balance at its end, money in and out.
+         */
+        BalanceMonthOut: {
+            /** Month */
+            month: string;
+            /** Balance */
+            balance: string;
+            /** Balance From */
+            balance_from: string | null;
+            /** Money In */
+            money_in: string;
+            /** Money Out */
+            money_out: string;
+        };
+        /**
+         * BookingDrillOut
+         * @description A booking with every field, its account and payee, its twin, plan and where it counts.
+         */
+        BookingDrillOut: {
+            transaction: components["schemas"]["TransactionOut"];
+            account: components["schemas"]["AccountOut"];
+            payee: components["schemas"]["PayeeOut"] | null;
+            twin: components["schemas"]["TransactionOut"] | null;
+            /** Plans */
+            plans: components["schemas"]["MatchedPlanOut"][];
+            /** Counts */
+            counts: components["schemas"]["CountOut"][];
         };
         /**
          * BudgetCategoryOut
@@ -2759,6 +2920,25 @@ export interface components {
             id?: string | null;
         };
         /**
+         * CategoryDrillOut
+         * @description A category over the months, its payees in the month, the plans and rules behind it.
+         */
+        CategoryDrillOut: {
+            category: components["schemas"]["CategoryOut"];
+            /** Month */
+            month: string;
+            /** Months */
+            months: components["schemas"]["CategoryMonthOut"][];
+            /** Payees */
+            payees: components["schemas"]["AmountOut"][];
+            /** Plans */
+            plans: components["schemas"]["PlanBriefOut"][];
+            /** Rules */
+            rules: components["schemas"]["RuleOut"][];
+            /** Bookings */
+            bookings: components["schemas"]["TransactionOut"][];
+        };
+        /**
          * CategoryIn
          * @description A category as the browser sends it.
          */
@@ -2770,6 +2950,28 @@ export interface components {
              * @enum {string}
              */
             kind: "fixed" | "flexible" | "non_monthly" | "income" | "saving" | "ignore";
+        };
+        /**
+         * CategoryMonthOut
+         * @description What a category counted in a month, by scope, against its limit and average.
+         */
+        CategoryMonthOut: {
+            /** Month */
+            month: string;
+            /** Mine */
+            mine: string;
+            /** Household */
+            household: string;
+            /** Total */
+            total: string;
+            /** From Reserve */
+            from_reserve: string;
+            /** Limit */
+            limit: string | null;
+            /** Available */
+            available: string | null;
+            /** Average */
+            average: string | null;
         };
         /**
          * CategoryOut
@@ -2845,6 +3047,25 @@ export interface components {
             days: {
                 [key: string]: number;
             };
+        };
+        /**
+         * CountOut
+         * @description Where a booking counts: the budget month, scope, part and category, and the amount.
+         */
+        CountOut: {
+            /** Month */
+            month: string;
+            /**
+             * Scope
+             * @enum {string}
+             */
+            scope: "mine" | "household";
+            /** Part */
+            part: string;
+            /** Category Id */
+            category_id: number | null;
+            /** Amount */
+            amount: string;
         };
         /**
          * Day
@@ -3462,6 +3683,18 @@ export interface components {
             timing: "on_time" | "early" | "late";
         };
         /**
+         * MatchedPlanOut
+         * @description The plan a booking met, and the period it met.
+         */
+        MatchedPlanOut: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Period */
+            period: string;
+        };
+        /**
          * Me
          * @description Who is asking, if the proxy's address is a listed one, and the people the app offers.
          */
@@ -3632,6 +3865,55 @@ export interface components {
             html: string;
         };
         /**
+         * PayeeCategoryOut
+         * @description A category a payee's money went to over the months, with its kind.
+         */
+        PayeeCategoryOut: {
+            /** Id */
+            id: number | null;
+            /** Name */
+            name: string;
+            /** Amount */
+            amount: string;
+            /** Kind */
+            kind: string;
+        };
+        /**
+         * PayeeDrillOut
+         * @description A payee over the months, its average spending, its categories, rules and bookings.
+         */
+        PayeeDrillOut: {
+            payee: components["schemas"]["PayeeOut"];
+            /** Month */
+            month: string;
+            /** Months */
+            months: components["schemas"]["PayeeMonthOut"][];
+            /** Average */
+            average: string | null;
+            /** Categories */
+            categories: components["schemas"]["PayeeCategoryOut"][];
+            /** Rules */
+            rules: components["schemas"]["RuleOut"][];
+            /** Bookings */
+            bookings: components["schemas"]["TransactionOut"][];
+        };
+        /**
+         * PayeeMonthOut
+         * @description A payee's month: spending, income, money moved to saving and how many bookings.
+         */
+        PayeeMonthOut: {
+            /** Month */
+            month: string;
+            /** Spent */
+            spent: string;
+            /** Received */
+            received: string;
+            /** Saved */
+            saved: string;
+            /** Bookings */
+            bookings: number;
+        };
+        /**
          * PayeeOut
          * @description A payee: its cleaned key, the name shown, and its default category.
          */
@@ -3675,6 +3957,20 @@ export interface components {
             words: number;
             /** Anchor */
             anchor: string;
+        };
+        /**
+         * PlanBriefOut
+         * @description A plan behind a category or a booking.
+         */
+        PlanBriefOut: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Amount */
+            amount: string;
+            /** Every Months */
+            every_months: number | null;
         };
         /**
          * PlanIn
@@ -3990,6 +4286,43 @@ export interface components {
             unreserved: string;
         };
         /**
+         * ScopeAccountOut
+         * @description An account of the scope: its latest bank balance and what its bookings moved in the month.
+         */
+        ScopeAccountOut: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Kind */
+            kind: string;
+            /** Balance */
+            balance: string | null;
+            /** Balance On */
+            balance_on: string | null;
+            /** Moved */
+            moved: string;
+        };
+        /**
+         * ScopeDrillOut
+         * @description One scope over the months up to `month`, its accounts, and the month's bookings.
+         */
+        ScopeDrillOut: {
+            /**
+             * Scope
+             * @enum {string}
+             */
+            scope: "mine" | "household";
+            /** Month */
+            month: string;
+            /** Months */
+            months: components["schemas"]["ScopeMonthOut"][];
+            /** Accounts */
+            accounts: components["schemas"]["ScopeAccountOut"][];
+            /** Bookings */
+            bookings: components["schemas"]["TransactionOut"][];
+        };
+        /**
          * ScopeForecastOut
          * @description A scope's bank balance today and its balance at each month's end by its plans.
          */
@@ -3998,6 +4331,32 @@ export interface components {
             balance: string;
             /** Months */
             months: components["schemas"]["ForecastMonthOut"][];
+        };
+        /**
+         * ScopeMonthOut
+         * @description A scope's month, each part as the sankey draws it; `left` below zero is taken from before.
+         */
+        ScopeMonthOut: {
+            /** Month */
+            month: string;
+            /** Income */
+            income: string;
+            /** Other Scope */
+            other_scope: string;
+            /** Fixed */
+            fixed: string;
+            /** Flexible */
+            flexible: string;
+            /** Non Monthly */
+            non_monthly: string;
+            /** Reserved */
+            reserved: string;
+            /** Saved */
+            saved: string;
+            /** Unsorted */
+            unsorted: string;
+            /** Left */
+            left: string;
         };
         /**
          * SearchHit
@@ -5839,6 +6198,7 @@ export interface operations {
                 to?: string | null;
                 month?: string | null;
                 category?: number | null;
+                payee?: number | null;
                 text?: string | null;
                 order?: "asc" | "desc";
                 after?: number | null;
@@ -6140,6 +6500,173 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SettingsIn"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_scope_api_finance_drill_scopes__scope__get: {
+        parameters: {
+            query: {
+                month: string;
+                months?: number;
+            };
+            header?: never;
+            path: {
+                scope: "mine" | "household";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScopeDrillOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_category_api_finance_drill_categories__category_id__get: {
+        parameters: {
+            query: {
+                month: string;
+                months?: number;
+            };
+            header?: never;
+            path: {
+                category_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CategoryDrillOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_payee_api_finance_drill_payees__payee_id__get: {
+        parameters: {
+            query: {
+                month: string;
+                months?: number;
+            };
+            header?: never;
+            path: {
+                payee_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PayeeDrillOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_account_api_finance_drill_accounts__account_id__get: {
+        parameters: {
+            query: {
+                month: string;
+                months?: number;
+            };
+            header?: never;
+            path: {
+                account_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountDrillOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_booking_api_finance_drill_bookings__transaction_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                transaction_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookingDrillOut"];
                 };
             };
             /** @description Validation Error */

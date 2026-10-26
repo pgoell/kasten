@@ -2047,6 +2047,22 @@
             }
           },
           {
+            "name": "payee",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Payee"
+            }
+          },
+          {
             "name": "text",
             "in": "query",
             "required": false,
@@ -2514,6 +2530,298 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/SettingsIn"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/finance/drill/scopes/{scope}": {
+      "get": {
+        "summary": "Read Scope",
+        "description": "A scope's months as the sankey reads them, its accounts and the month's bookings.",
+        "operationId": "read_scope_api_finance_drill_scopes__scope__get",
+        "parameters": [
+          {
+            "name": "scope",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "enum": [
+                "mine",
+                "household"
+              ],
+              "type": "string",
+              "title": "Scope"
+            }
+          },
+          {
+            "name": "month",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]{4}-[0-9]{2}$",
+              "title": "Month"
+            }
+          },
+          {
+            "name": "months",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 60,
+              "minimum": 1,
+              "default": 12,
+              "title": "Months"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScopeDrillOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/finance/drill/categories/{category_id}": {
+      "get": {
+        "summary": "Read Category",
+        "description": "A category's months against its limit, its payees, plans, rules and the month's bookings.",
+        "operationId": "read_category_api_finance_drill_categories__category_id__get",
+        "parameters": [
+          {
+            "name": "category_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Category Id"
+            }
+          },
+          {
+            "name": "month",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]{4}-[0-9]{2}$",
+              "title": "Month"
+            }
+          },
+          {
+            "name": "months",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 60,
+              "minimum": 1,
+              "default": 12,
+              "title": "Months"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CategoryDrillOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/finance/drill/payees/{payee_id}": {
+      "get": {
+        "summary": "Read Payee",
+        "description": "A payee's months, average, categories, the rules that name it and the month's bookings.",
+        "operationId": "read_payee_api_finance_drill_payees__payee_id__get",
+        "parameters": [
+          {
+            "name": "payee_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Payee Id"
+            }
+          },
+          {
+            "name": "month",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]{4}-[0-9]{2}$",
+              "title": "Month"
+            }
+          },
+          {
+            "name": "months",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 60,
+              "minimum": 1,
+              "default": 12,
+              "title": "Months"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PayeeDrillOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/finance/drill/accounts/{account_id}": {
+      "get": {
+        "summary": "Read Account",
+        "description": "An account's month-end balances, the month's money by category and transfers, by date.",
+        "operationId": "read_account_api_finance_drill_accounts__account_id__get",
+        "parameters": [
+          {
+            "name": "account_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Account Id"
+            }
+          },
+          {
+            "name": "month",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]{4}-[0-9]{2}$",
+              "title": "Month"
+            }
+          },
+          {
+            "name": "months",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 60,
+              "minimum": 1,
+              "default": 12,
+              "title": "Months"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountDrillOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/finance/drill/bookings/{transaction_id}": {
+      "get": {
+        "summary": "Read Booking",
+        "description": "A booking whole: every field and its raw record, its twin, plan and where it counts.",
+        "operationId": "read_booking_api_finance_drill_bookings__transaction_id__get",
+        "parameters": [
+          {
+            "name": "transaction_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Transaction Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BookingDrillOut"
                 }
               }
             }
@@ -4960,6 +5268,72 @@
   },
   "components": {
     "schemas": {
+      "AccountDrillOut": {
+        "properties": {
+          "account": {
+            "$ref": "#/components/schemas/AccountOut"
+          },
+          "scope": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "mine",
+                  "household"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scope"
+          },
+          "month": {
+            "type": "string",
+            "title": "Month"
+          },
+          "months": {
+            "items": {
+              "$ref": "#/components/schemas/BalanceMonthOut"
+            },
+            "type": "array",
+            "title": "Months"
+          },
+          "categories": {
+            "items": {
+              "$ref": "#/components/schemas/AmountOut"
+            },
+            "type": "array",
+            "title": "Categories"
+          },
+          "transfers": {
+            "items": {
+              "$ref": "#/components/schemas/AmountOut"
+            },
+            "type": "array",
+            "title": "Transfers"
+          },
+          "bookings": {
+            "items": {
+              "$ref": "#/components/schemas/TransactionOut"
+            },
+            "type": "array",
+            "title": "Bookings"
+          }
+        },
+        "type": "object",
+        "required": [
+          "account",
+          "scope",
+          "month",
+          "months",
+          "categories",
+          "transfers",
+          "bookings"
+        ],
+        "title": "AccountDrillOut",
+        "description": "An account's balance over the months, the month's money by category and its transfers."
+      },
       "AccountFetch": {
         "properties": {
           "account_id": {
@@ -5255,6 +5629,38 @@
         "title": "Alcohol",
         "description": "What the alcohol lines add up to: drinks, millilitres and grams of ethanol."
       },
+      "AmountOut": {
+        "properties": {
+          "id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "amount": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Amount"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "amount"
+        ],
+        "title": "AmountOut",
+        "description": "What one payee, category or account gave."
+      },
       "AnkiImport": {
         "properties": {
           "notes": {
@@ -5390,6 +5796,106 @@
         ],
         "title": "BalanceIn",
         "description": "The balance the bank reported for one account on one day."
+      },
+      "BalanceMonthOut": {
+        "properties": {
+          "month": {
+            "type": "string",
+            "title": "Month"
+          },
+          "balance": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Balance"
+          },
+          "balance_from": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Balance From"
+          },
+          "money_in": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Money In"
+          },
+          "money_out": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Money Out"
+          }
+        },
+        "type": "object",
+        "required": [
+          "month",
+          "balance",
+          "balance_from",
+          "money_in",
+          "money_out"
+        ],
+        "title": "BalanceMonthOut",
+        "description": "An account's month by booking date: the balance at its end, money in and out."
+      },
+      "BookingDrillOut": {
+        "properties": {
+          "transaction": {
+            "$ref": "#/components/schemas/TransactionOut"
+          },
+          "account": {
+            "$ref": "#/components/schemas/AccountOut"
+          },
+          "payee": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PayeeOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "twin": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TransactionOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "plans": {
+            "items": {
+              "$ref": "#/components/schemas/MatchedPlanOut"
+            },
+            "type": "array",
+            "title": "Plans"
+          },
+          "counts": {
+            "items": {
+              "$ref": "#/components/schemas/CountOut"
+            },
+            "type": "array",
+            "title": "Counts"
+          }
+        },
+        "type": "object",
+        "required": [
+          "transaction",
+          "account",
+          "payee",
+          "twin",
+          "plans",
+          "counts"
+        ],
+        "title": "BookingDrillOut",
+        "description": "A booking with every field, its account and payee, its twin, plan and where it counts."
       },
       "BudgetCategoryOut": {
         "properties": {
@@ -5604,6 +6110,64 @@
         "title": "Capture",
         "description": "A dump from the app, which may carry the id its sender minted at typing.\n\n`POST /api/dump` only. The agent's route and its MCP tool keep `Dump`, so\nan agent's schema never grows a field it has no use for: an agent that\nlost an answer reads the note again rather than resending blind."
       },
+      "CategoryDrillOut": {
+        "properties": {
+          "category": {
+            "$ref": "#/components/schemas/CategoryOut"
+          },
+          "month": {
+            "type": "string",
+            "title": "Month"
+          },
+          "months": {
+            "items": {
+              "$ref": "#/components/schemas/CategoryMonthOut"
+            },
+            "type": "array",
+            "title": "Months"
+          },
+          "payees": {
+            "items": {
+              "$ref": "#/components/schemas/AmountOut"
+            },
+            "type": "array",
+            "title": "Payees"
+          },
+          "plans": {
+            "items": {
+              "$ref": "#/components/schemas/PlanBriefOut"
+            },
+            "type": "array",
+            "title": "Plans"
+          },
+          "rules": {
+            "items": {
+              "$ref": "#/components/schemas/RuleOut"
+            },
+            "type": "array",
+            "title": "Rules"
+          },
+          "bookings": {
+            "items": {
+              "$ref": "#/components/schemas/TransactionOut"
+            },
+            "type": "array",
+            "title": "Bookings"
+          }
+        },
+        "type": "object",
+        "required": [
+          "category",
+          "month",
+          "months",
+          "payees",
+          "plans",
+          "rules",
+          "bookings"
+        ],
+        "title": "CategoryDrillOut",
+        "description": "A category over the months, its payees in the month, the plans and rules behind it."
+      },
       "CategoryIn": {
         "properties": {
           "name": {
@@ -5631,6 +6195,83 @@
         ],
         "title": "CategoryIn",
         "description": "A category as the browser sends it."
+      },
+      "CategoryMonthOut": {
+        "properties": {
+          "month": {
+            "type": "string",
+            "title": "Month"
+          },
+          "mine": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Mine"
+          },
+          "household": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Household"
+          },
+          "total": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Total"
+          },
+          "from_reserve": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "From Reserve"
+          },
+          "limit": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Limit"
+          },
+          "available": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Available"
+          },
+          "average": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Average"
+          }
+        },
+        "type": "object",
+        "required": [
+          "month",
+          "mine",
+          "household",
+          "total",
+          "from_reserve",
+          "limit",
+          "available",
+          "average"
+        ],
+        "title": "CategoryMonthOut",
+        "description": "What a category counted in a month, by scope, against its limit and average."
       },
       "CategoryOut": {
         "properties": {
@@ -5795,6 +6436,52 @@
         ],
         "title": "Contributions",
         "description": "Whether the review's GitHub section is on, and each day's count when it is."
+      },
+      "CountOut": {
+        "properties": {
+          "month": {
+            "type": "string",
+            "title": "Month"
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "mine",
+              "household"
+            ],
+            "title": "Scope"
+          },
+          "part": {
+            "type": "string",
+            "title": "Part"
+          },
+          "category_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category Id"
+          },
+          "amount": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Amount"
+          }
+        },
+        "type": "object",
+        "required": [
+          "month",
+          "scope",
+          "part",
+          "category_id",
+          "amount"
+        ],
+        "title": "CountOut",
+        "description": "Where a booking counts: the budget month, scope, part and category, and the amount."
       },
       "Day": {
         "properties": {
@@ -7358,6 +8045,30 @@
         "title": "MatchOut",
         "description": "The booking that met a date, and whether it came in the month before or after it."
       },
+      "MatchedPlanOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "period": {
+            "type": "string",
+            "title": "Period"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "period"
+        ],
+        "title": "MatchedPlanOut",
+        "description": "The plan a booking met, and the period it met."
+      },
       "Me": {
         "properties": {
           "me": {
@@ -7760,6 +8471,143 @@
         "title": "Page",
         "description": "One web page as it arrived, for the client to make a note out of."
       },
+      "PayeeCategoryOut": {
+        "properties": {
+          "id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "amount": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Amount"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "amount",
+          "kind"
+        ],
+        "title": "PayeeCategoryOut",
+        "description": "A category a payee's money went to over the months, with its kind."
+      },
+      "PayeeDrillOut": {
+        "properties": {
+          "payee": {
+            "$ref": "#/components/schemas/PayeeOut"
+          },
+          "month": {
+            "type": "string",
+            "title": "Month"
+          },
+          "months": {
+            "items": {
+              "$ref": "#/components/schemas/PayeeMonthOut"
+            },
+            "type": "array",
+            "title": "Months"
+          },
+          "average": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Average"
+          },
+          "categories": {
+            "items": {
+              "$ref": "#/components/schemas/PayeeCategoryOut"
+            },
+            "type": "array",
+            "title": "Categories"
+          },
+          "rules": {
+            "items": {
+              "$ref": "#/components/schemas/RuleOut"
+            },
+            "type": "array",
+            "title": "Rules"
+          },
+          "bookings": {
+            "items": {
+              "$ref": "#/components/schemas/TransactionOut"
+            },
+            "type": "array",
+            "title": "Bookings"
+          }
+        },
+        "type": "object",
+        "required": [
+          "payee",
+          "month",
+          "months",
+          "average",
+          "categories",
+          "rules",
+          "bookings"
+        ],
+        "title": "PayeeDrillOut",
+        "description": "A payee over the months, its average spending, its categories, rules and bookings."
+      },
+      "PayeeMonthOut": {
+        "properties": {
+          "month": {
+            "type": "string",
+            "title": "Month"
+          },
+          "spent": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Spent"
+          },
+          "received": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Received"
+          },
+          "saved": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Saved"
+          },
+          "bookings": {
+            "type": "integer",
+            "title": "Bookings"
+          }
+        },
+        "type": "object",
+        "required": [
+          "month",
+          "spent",
+          "received",
+          "saved",
+          "bookings"
+        ],
+        "title": "PayeeMonthOut",
+        "description": "A payee's month: spending, income, money moved to saving and how many bookings."
+      },
       "PayeeOut": {
         "properties": {
           "id": {
@@ -7858,6 +8706,43 @@
         ],
         "title": "PlaceEdit",
         "description": "Where a run stopped. The file it belongs to comes from `path` in the query."
+      },
+      "PlanBriefOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "amount": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Amount"
+          },
+          "every_months": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Every Months"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "amount",
+          "every_months"
+        ],
+        "title": "PlanBriefOut",
+        "description": "A plan behind a category or a booking."
       },
       "PlanIn": {
         "properties": {
@@ -8626,6 +9511,109 @@
         "title": "SavingAccountOut",
         "description": "An own saving account: its latest bank balance, what goals reserve, and the rest."
       },
+      "ScopeAccountOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "balance": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Balance"
+          },
+          "balance_on": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Balance On"
+          },
+          "moved": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Moved"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "kind",
+          "balance",
+          "balance_on",
+          "moved"
+        ],
+        "title": "ScopeAccountOut",
+        "description": "An account of the scope: its latest bank balance and what its bookings moved in the month."
+      },
+      "ScopeDrillOut": {
+        "properties": {
+          "scope": {
+            "type": "string",
+            "enum": [
+              "mine",
+              "household"
+            ],
+            "title": "Scope"
+          },
+          "month": {
+            "type": "string",
+            "title": "Month"
+          },
+          "months": {
+            "items": {
+              "$ref": "#/components/schemas/ScopeMonthOut"
+            },
+            "type": "array",
+            "title": "Months"
+          },
+          "accounts": {
+            "items": {
+              "$ref": "#/components/schemas/ScopeAccountOut"
+            },
+            "type": "array",
+            "title": "Accounts"
+          },
+          "bookings": {
+            "items": {
+              "$ref": "#/components/schemas/TransactionOut"
+            },
+            "type": "array",
+            "title": "Bookings"
+          }
+        },
+        "type": "object",
+        "required": [
+          "scope",
+          "month",
+          "months",
+          "accounts",
+          "bookings"
+        ],
+        "title": "ScopeDrillOut",
+        "description": "One scope over the months up to `month`, its accounts, and the month's bookings."
+      },
       "ScopeForecastOut": {
         "properties": {
           "balance": {
@@ -8648,6 +9636,74 @@
         ],
         "title": "ScopeForecastOut",
         "description": "A scope's bank balance today and its balance at each month's end by its plans."
+      },
+      "ScopeMonthOut": {
+        "properties": {
+          "month": {
+            "type": "string",
+            "title": "Month"
+          },
+          "income": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Income"
+          },
+          "other_scope": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Other Scope"
+          },
+          "fixed": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Fixed"
+          },
+          "flexible": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Flexible"
+          },
+          "non_monthly": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Non Monthly"
+          },
+          "reserved": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Reserved"
+          },
+          "saved": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Saved"
+          },
+          "unsorted": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Unsorted"
+          },
+          "left": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Left"
+          }
+        },
+        "type": "object",
+        "required": [
+          "month",
+          "income",
+          "other_scope",
+          "fixed",
+          "flexible",
+          "non_monthly",
+          "reserved",
+          "saved",
+          "unsorted",
+          "left"
+        ],
+        "title": "ScopeMonthOut",
+        "description": "A scope's month, each part as the sankey draws it; `left` below zero is taken from before."
       },
       "SearchHit": {
         "properties": {
