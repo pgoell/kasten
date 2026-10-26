@@ -4,10 +4,12 @@
  * 900 with a mouse, in both themes, with GitHub on and off, the other palettes and reduced motion.
  * Each picture is its own test, run alone with `-t "shot <name>"`, and lands in
  * node_modules/.cache/kasten-shots with VITE_KASTEN_SHOTS=1. Without it the tests are skipped.
+ * The week-kcal-no-food pictures (#1116) show the kcal per day section with a drinks-only Tuesday.
  */
 
 import {
   drawnTitle,
+  flags,
   installShotReads,
   mountLook,
   restoreShot,
@@ -17,7 +19,8 @@ import {
   WEEK_ROUTE,
   YEAR_ROUTE,
 } from "./periodic-review-shots-fixture";
-import { DESKTOP, TOUCH, unmount } from "./reader-fixture";
+import { DESKTOP, need, TOUCH, unmount } from "./reader-fixture";
+import { wait } from "./sheet-fixture";
 import { shot } from "./shots";
 
 const mocks = vi.hoisted(() => {
@@ -224,3 +227,39 @@ picture("shot desktop-week-reduced-motion", async () => {
     await unmount(mounted);
   }
 });
+
+const TOUCH_414 = { name: "touch-414", width: 414, height: 896, coarse: true };
+
+/** The kcal per day section of the week review, with a drinks-only Tuesday, shot alone (#1116). */
+async function kcalSectionShot(size: typeof DESKTOP, theme: "light" | "dark", name: string) {
+  flags.drinksDay = true;
+  const mounted = await mountLook(size, WEEK_ROUTE, { theme });
+  try {
+    await drawnTitle(mounted.host, "Week in review");
+    const section = [...mounted.host.querySelectorAll<HTMLElement>(".review-section")].find(
+      (one) => one.querySelector("h3")?.textContent === "kcal per day",
+    );
+    const shotted = need(section, "kcal per day section");
+    shotted.scrollIntoView({ block: "start" });
+    await wait(200);
+    expect(await shot(shotted, name)).toBeGreaterThan(0);
+  } finally {
+    await unmount(mounted);
+  }
+}
+
+picture("shot week-kcal-no-food-light-phone", () =>
+  kcalSectionShot(TOUCH_414, "light", "week-kcal-no-food-light-phone"),
+);
+
+picture("shot week-kcal-no-food-dark-phone", () =>
+  kcalSectionShot(TOUCH_414, "dark", "week-kcal-no-food-dark-phone"),
+);
+
+picture("shot week-kcal-no-food-light-desktop", () =>
+  kcalSectionShot(DESKTOP, "light", "week-kcal-no-food-light-desktop"),
+);
+
+picture("shot week-kcal-no-food-dark-desktop", () =>
+  kcalSectionShot(DESKTOP, "dark", "week-kcal-no-food-dark-desktop"),
+);

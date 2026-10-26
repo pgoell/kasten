@@ -225,7 +225,22 @@ const TEXTS: Record<string, string> = {
 };
 
 /** What a picture asks the reads for, set before its page mounts. */
-export const flags = { github: true, modelUse: true };
+export const flags = { github: true, modelUse: true, drinksDay: false };
+
+// The Tuesday of this week, which a picture with `drinksDay` answers as a day of drinks only (#1116).
+const TUESDAY = shiftDay(MONDAY, 1);
+const DRINKS_DAY: LogDay = {
+  date: TUESDAY,
+  path: `01 Periodic/00 Daily/${TUESDAY}.md`,
+  entries: [{ line: 1, text: "- 💧 500 ml", kind: "water", ml: 500 }],
+  totals: {
+    water: { ml: 500 },
+    coffee: { count: 0 },
+    alcohol: { count: 0, ml: 0, grams: 0 },
+    food: { kcal: 0, protein: 0, carbs: 0, fat: 0 },
+    mine: [],
+  },
+};
 
 /** The reads each picture file's doubles answer, named as the picture files mock them. */
 export interface ShotMocks {
@@ -252,9 +267,12 @@ export function installShotReads(mocks: ShotMocks): void {
   mocks.fetchWritten.mockImplementation(async (from: string, to: string) =>
     [...new Set(NOTES.map((note) => note.day))].filter((day) => day >= from && day <= to),
   );
-  mocks.fetchLog.mockImplementation(async (from: string, to: string) =>
-    LOGS.filter((day) => day.date >= from && day.date <= to),
-  );
+  mocks.fetchLog.mockImplementation(async (from: string, to: string) => {
+    const logs = flags.drinksDay
+      ? [...LOGS.filter((day) => day.date !== TUESDAY), DRINKS_DAY]
+      : LOGS;
+    return logs.filter((day) => day.date >= from && day.date <= to);
+  });
 }
 
 /** A stream that never says anything, so the route opens no connection. */
@@ -291,6 +309,7 @@ export function stubShotFetch(): void {
 
 /** The state each picture leaves behind: the globals, the media, the look and the viewport. */
 export async function restoreShot(): Promise<void> {
+  flags.drinksDay = false;
   vi.unstubAllGlobals();
   localStorage.clear();
   document.documentElement.removeAttribute("data-theme");

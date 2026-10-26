@@ -4,6 +4,7 @@
  * picture is its own test, run alone with `-t "shot <name>"`, and lands in
  * node_modules/.cache/kasten-shots with VITE_KASTEN_SHOTS=1. A tab, a range button or
  * + Food is pressed only where the pane draws it, so the picture shows the pane as it is.
+ * The trends-no-food pictures (#1116) show two drinks-only days in the 7-day Trends, phone and desktop.
  */
 
 import "@fontsource-variable/newsreader/opsz.css";
@@ -56,8 +57,9 @@ const CONFIG = [
   "- 🍽 food: kcal max 2200, protein min 120",
 ].join("\n");
 
-// Set by a test before it mounts, so the one-day read of today answers nothing.
-const state = vi.hoisted(() => ({ emptyToday: false }));
+// Set by a test before it mounts, so the one-day read of today answers nothing, and so the
+// days at index 2 and 3 of a range have no food line (#1116).
+const state = vi.hoisted(() => ({ emptyToday: false, drinksOnly: false }));
 
 vi.mock("@/lib/api", async (importOriginal) => {
   const real = await importOriginal<typeof import("@/lib/api")>();
@@ -177,6 +179,19 @@ const dayOf = (index: number, date: string): LogDay => {
   };
 };
 
+/** The day with its food lines dropped: the drinks stay, and the food totals read zero. */
+const withoutFood = (day: LogDay): LogDay => ({
+  ...day,
+  entries: day.entries.filter((entry) => entry.kind !== "food"),
+  totals: { ...day.totals, food: { kcal: 0, protein: 0, carbs: 0, fat: 0 } },
+});
+
+/** The day at `index` of a range, with the days at index 2 and 3 drinks only when asked (#1116). */
+const logAt = (index: number, date: string): LogDay => {
+  const day = dayOf(index, date);
+  return state.drinksOnly && (index === 2 || index === 3) ? withoutFood(day) : day;
+};
+
 vi.mock("@/lib/food-api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/food-api")>()),
   fetchLog: async (from: string, to: string): Promise<LogDay[]> => {
@@ -186,7 +201,7 @@ vi.mock("@/lib/food-api", async (importOriginal) => ({
       const date = shiftDay(from, index);
       if (date > to) break;
       // Every ninth day in a range has no log, so the bars have gaps.
-      if (index % 9 !== 4 || index === 0) days.push(dayOf(index, date));
+      if (index % 9 !== 4 || index === 0) days.push(logAt(index, date));
     }
     return days;
   },
@@ -278,16 +293,29 @@ async function pressIfDrawn(element: HTMLElement | null): Promise<void> {
   if (element !== null) await tap(element);
 }
 
+/** The 7-day Trends with its kcal chart scrolled into view, for the pictures of #1116. */
+async function sevenDayKcal(): Promise<void> {
+  await pressIfDrawn(tabOf("Trends"));
+  await pressIfDrawn(paneButton("7d"));
+  await wait(500);
+  const chart = [...(trends()?.querySelectorAll<HTMLElement>("figure") ?? [])].find((figure) =>
+    figure.querySelector("svg")?.getAttribute("aria-label")?.startsWith("kcal over 7 days"),
+  );
+  chart?.scrollIntoView({ block: "start" });
+  await wait(200);
+}
+
 /** The pane at a phone's size, by touch, opened from the toolbar's log button. */
 async function phone(
   theme: Theme = "light",
   motion: "reduce" | "no-preference" = "no-preference",
   palette = "poel",
+  width?: number,
 ) {
   stubMatchMedia({ [NARROW]: true, [COARSE]: true, [REDUCED]: motion === "reduce" });
   await commands.emulateMedia({ touch: true, reducedMotion: motion });
   setLook(theme, palette);
-  await mount(390, 844);
+  await mount(width ?? 390, width === undefined ? 844 : 896);
   await expect
     .poll(() => document.querySelector("button[aria-label='Open the log']"))
     .not.toBeNull();
@@ -323,6 +351,7 @@ afterEach(async () => {
   root = undefined;
   host = undefined;
   state.emptyToday = false;
+  state.drinksOnly = false;
   localStorage.clear();
   document.documentElement.removeAttribute("data-theme");
   document.documentElement.removeAttribute("data-palette");
@@ -462,3 +491,31 @@ for (const palette of ["russet", "peach"]) {
     }
   }
 }
+
+it("shot trends-no-food-light-phone", async () => {
+  state.drinksOnly = true;
+  const panel = await phone("light", "no-preference", "poel", 414);
+  await sevenDayKcal();
+  expect(await shot(panel, "trends-no-food-light-phone")).toBe(414);
+});
+
+it("shot trends-no-food-dark-phone", async () => {
+  state.drinksOnly = true;
+  const panel = await phone("dark", "no-preference", "poel", 414);
+  await sevenDayKcal();
+  expect(await shot(panel, "trends-no-food-dark-phone")).toBe(414);
+});
+
+it("shot trends-no-food-light-desktop", async () => {
+  state.drinksOnly = true;
+  const panel = await desktop("light");
+  await sevenDayKcal();
+  expect(await shot(panel, "trends-no-food-light-desktop")).toBeGreaterThan(0);
+});
+
+it("shot trends-no-food-dark-desktop", async () => {
+  state.drinksOnly = true;
+  const panel = await desktop("dark");
+  await sevenDayKcal();
+  expect(await shot(panel, "trends-no-food-dark-desktop")).toBeGreaterThan(0);
+});
