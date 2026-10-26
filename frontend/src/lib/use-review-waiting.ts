@@ -12,13 +12,14 @@ function depthOf(name: string): number {
 
 /**
  * The cards the review pane counts as waiting, or undefined until every read
- * the count needs is in.
+ * the count needs is in. Null when the daily limits could not be read at all:
+ * a count without them would be past the limit, and nothing would ever come.
  *
  * A copy of the pane's count rather than a shared hook, because the pane owns
  * its queries and draws its own pending state. The keys are the pane's, so the
  * two read one answer, and a sitting's writes move both counts at once.
  */
-export function useReviewWaiting(archive: boolean): number | undefined {
+export function useReviewWaiting(archive: boolean): number | null | undefined {
   const { data: hits } = useQuery({
     queryKey: ["cards", archive],
     queryFn: () => fetchCards(archive),
@@ -32,8 +33,9 @@ export function useReviewWaiting(archive: boolean): number | undefined {
       ...readRetry,
     })),
   });
-  const { limits } = useReviewLimits();
+  const { limits, failed } = useReviewLimits();
 
+  if (limits === undefined && failed !== null) return null;
   if (hits === undefined || limits === undefined || reads.some((read) => read.isPending)) {
     return undefined;
   }

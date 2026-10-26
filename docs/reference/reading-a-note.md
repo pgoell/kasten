@@ -164,4 +164,5 @@ took still works. The heading is the date, under it three columns:
 
 A column with nothing in it says so in one line: "Nothing for today.",
 "Nothing written lately." or "Nothing due." A column whose read fails shows its
-line and no error.
+line and no error, but for the review's daily limits: when those cannot be read,
+Due says the cards could not be counted, in a row that opens the review.

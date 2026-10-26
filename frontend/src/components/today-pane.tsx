@@ -58,8 +58,11 @@ export function TodayPane({
   const loops = parsed.filter(
     ({ todo }) => LOOP_STATES.has(todo.state) && sectionOf(todo, today) !== "today",
   );
-  const reviewing = review !== undefined && review > 0;
-  const nothingDue = !reviewing && overdue.length === 0 && loops.length === 0;
+  // Null when the daily limits could not be read, so no count can be given: the
+  // row says so, and "Nothing due." would be a lie about the cards not counted.
+  const unread = review === null;
+  const reviewing = review !== undefined && review !== null && review > 0;
+  const nothingDue = !unread && !reviewing && overdue.length === 0 && loops.length === 0;
 
   return (
     <section
@@ -104,6 +107,13 @@ export function TodayPane({
             <Group label="Review">
               <Row onClick={onReview}>
                 <span>{`${review} ${review === 1 ? "card" : "cards"} waiting`}</span>
+              </Row>
+            </Group>
+          )}
+          {unread && (
+            <Group label="Review">
+              <Row onClick={onReview}>
+                <span>Cards could not be counted: the daily limits could not be read</span>
               </Row>
             </Group>
           )}
