@@ -34,9 +34,7 @@ export function useReviewWaiting(archive: boolean): number | undefined {
   });
   const limits = useReviewLimits();
 
-  // A note retrying after a failure holds nothing back, as in the review's list.
-  const held = reads.some((read) => read.isPending && read.failureCount === 0);
-  if (hits === undefined || limits === undefined || held) {
+  if (hits === undefined || limits === undefined || reads.some((read) => read.isPending)) {
     return undefined;
   }
 
