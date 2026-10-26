@@ -111,6 +111,38 @@ describe("ReviewSession undoing the last step (#600)", () => {
     expect(vault.disk).toBe(TWO);
   });
 
+  it("#1135 I2 an undo pressed while the rating's write retries lands after it and brings the card back", async () => {
+    const { vault, saved } = renderVault();
+    // The first try is dropped by the restart; the retry finds the note as it was.
+    saved.mockRejectedValueOnce(
+      new Error("PUT /api/files/decks/aws.md failed with 502", { cause: 502 }),
+    );
+    await shownCard();
+    vi.useFakeTimers();
+    fireEvent.click(screen.getByRole("button", { name: "Show the answer" }));
+    fireEvent.click(screen.getByRole("button", { name: "Good" }));
+    await act(async () => {});
+
+    const undo = undoButton();
+    expect(undo).not.toBeNull();
+    fireEvent.click(undo as HTMLElement);
+    await act(async () => {});
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000);
+    });
+    vi.useRealTimers();
+
+    await backOn("What is a VPC?");
+    expect(screen.getByTestId("review-back")).toHaveTextContent("A private cloud");
+    expect(saved).toHaveBeenCalledTimes(3);
+    expect(saved.mock.calls[1]?.[1]).toBe(saved.mock.calls[0]?.[1]);
+    expect(saved.mock.calls[1]?.[3]).toBe(saved.mock.calls[0]?.[3]);
+    expect(saved.mock.calls[2]?.[1]).toBe(TWO);
+    expect(saved.mock.calls[2]?.[3]).toBe(noteBase(saved.mock.calls[1]?.[1] ?? ""));
+    expect(vault.disk).toBe(TWO);
+  });
+
   it("#600 B1 nothing rates, parks, turns or jots the next card while an undo is out", async () => {
     // A in one note and B in another, so nothing done to B waits behind the
     // undo's write in the queue of A's note.

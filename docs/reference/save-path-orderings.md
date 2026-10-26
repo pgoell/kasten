@@ -67,7 +67,7 @@ The table splits by theme. Rows keep their numbers on every page, so "As 82" poi
 * [Moving a todo between notes](/reference/save-path-orderings/todo-pane-moves.md): rows 117 to 123.
 * [Presses on a todo row](/reference/save-path-orderings/todo-row-presses.md): rows 124 to 129.
 * [Agent tags and the editor's todo shortcut](/reference/save-path-orderings/todo-agent-tags.md): rows 130 to 134.
-* [The review sitting's undo](/reference/save-path-orderings/review-sitting-undo.md): rows U1 to U6 and R1 to R7.
+* [The review sitting's writes and undo](/reference/save-path-orderings/review-sitting-undo.md): rows U1 to U6 and R1 to R7.
 * [The log card, the palette's log commands and the log pane](/reference/save-path-orderings/log-card.md): rows L1 to L20.
 * [The log card's weight kind](/reference/save-path-orderings/log-weight.md): rows L21 to L26.
 * [The log pane's sheet and quick buttons](/reference/save-path-orderings/log-pane.md): rows L21 and L22.

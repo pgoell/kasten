@@ -1,13 +1,13 @@
 ---
 type: Reference
-title: Save path orderings: the review sitting's undo
-description: The orders in which the review sitting's undo can meet the write queue of its own rating, jot and suspend writes, what must hold in each, and whether getting it wrong loses typed text.
+title: Save path orderings: the review sitting's writes and undo
+description: The orders in which the review sitting's writes and undo can meet the write queue of its own rating, jot and suspend writes, including a write the restart drops and goes again, what must hold in each, and whether getting it wrong loses typed text.
 resource: frontend/src/lib/use-sitting-writes.ts
 tags: [editor, saving, autosave, frontend, tests]
 status: stable
 ---
 
-# Save path orderings: the review sitting's undo
+# Save path orderings: the review sitting's writes and undo
 
 Part of [save path orderings](/reference/save-path-orderings.md). The columns are explained in [How to read the table](/reference/save-path-orderings.md#how-to-read-the-table).
 
@@ -36,7 +36,7 @@ the step's write and U the undo's. The tests are in
 
 ## A write the restart drops
 
-The backend restarts now and then. A write sent in that gap gets a 502, 503 or 504, or no answer at all. The review sitting then sends the same write again, with the same text over the same base, one try after another for about a minute. The resend is safe: over a base the vault already holds, the vault answers with the note as it stands and writes nothing. Over a base the note has moved past, it refuses with a 409, and the write fails at once. A write made meanwhile waits behind the one that retries. A retry goes on even when the screen unmounts. The tests are in `frontend/tests/use-sitting-writes-retry.test.tsx`.
+The backend restarts now and then. A write sent in that gap gets a 502, 503 or 504, or no answer at all. The review sitting then sends the same write again, with the same text over the same base, one try after another for about a minute. The resend is safe. Its base is stale once an earlier try has landed and moved the note on, but the disk already holds the text being resent, so the vault answers with the note as it stands and writes nothing. A base the note moved past for any other reason is a 409, and the write fails at once. A write made meanwhile waits behind the one that retries. A retry goes on even when the screen unmounts. The tests are in `frontend/tests/use-sitting-writes-retry.test.tsx`.
 
 | # | Ordering | Must hold | Loses typed text if wrong | Test |
 |---|---|---|---|---|
@@ -45,5 +45,5 @@ The backend restarts now and then. A write sent in that gap gets a 502, 503 or 5
 | R3 | S keeps getting a 502 for a minute. | S stops after about a minute, the foot says the note could not be written, and the note is read again. | no | `#1135 A4 a write the backend drops for a minute fails then, and the note is read again` |
 | R4 | S gets a 409. | S fails at once with one write, as before. | no | `#1135 A5 a refusal from the vault fails at once with one write, as before` |
 | R5 | S gets a 502, then a 409 on the next try. | S fails at once on the 409 and sends nothing more. | no | `#1135 A6 a retry the vault refuses because the note moved on fails at once and sends nothing more` |
-| R6 | A write for the same note is made while S retries (a jot, or an undo). | It waits behind S and names S's answer as its base; both land, in order. | yes | `#1135 I1 a write made while one retries waits behind it and names its answer as the base`, `#1135 I2 an undo pressed while a write retries waits behind it and settles as landed` |
+| R6 | A write for the same note is made while S retries (a jot, or an undo). | It waits behind S and names S's answer as its base; both land, in order. | yes | `#1135 I1 a write made while one retries waits behind it and names its answer as the base`, `#1135 I2 an undo pressed while a write retries waits behind it and settles as landed`, `#1135 I2 an undo pressed while the rating's write retries lands after it and brings the card back` |
 | R7 | The screen unmounts while S retries. | S keeps going and lands once the backend is back. | no | `#1135 I4 a write still retrying when its component unmounts keeps going and lands` |

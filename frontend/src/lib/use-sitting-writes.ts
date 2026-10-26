@@ -32,8 +32,9 @@ function retryable(error: unknown): boolean {
  *
  * Nothing is dropped. A write that fails while the backend restarts goes again
  * for about a minute, with the same text over the same base. That is safe: the
- * vault answers with the note as it stands and writes nothing when the base is
- * text it already holds, and refuses a base that has moved on. A write that
+ * base is stale once an earlier try has landed, but the disk already holds the
+ * text being resent, so the vault answers with the note as it stands and writes
+ * nothing. A base the note moved past for any other reason is a 409. A write that
  * still fails names text that never landed, the vault refuses it, and it fails
  * out loud like the one before it. A failure also reads the note again, so the
  * screen holds the vault's text and the next change is made against that.
