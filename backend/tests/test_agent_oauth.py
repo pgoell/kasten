@@ -256,6 +256,15 @@ async def test_the_consent_page_is_a_form_rather_than_a_redirect(
     assert "<form method=post" in response.text
 
 
+async def test_the_consent_page_says_the_grant_reads_every_transaction(
+    client: AsyncClient, agent_vault: Path
+) -> None:
+    # The cost of the finance reads is stated where the person grants it.
+    response = await client.get(f"/api/oauth/authorize?redirect_uri={CLAUDE}&state=x")
+
+    assert "every finance figure and transaction" in response.text
+
+
 @pytest.mark.parametrize(
     "headers",
     [

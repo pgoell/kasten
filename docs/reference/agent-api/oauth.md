@@ -67,8 +67,8 @@ The same document answers at
 path-inserted spelling off the `401` header and ChatGPT probes the bare one, and
 a `404` on whichever a client tries ends the flow there.
 
-`kasten:notes` is the one scope. It names the eight capabilities and there is
-nothing to narrow. `read_guide` is a ninth tool under it and not a ninth
+`kasten:notes` is the one scope. It names the eight capabilities and the
+finance reads, and there is nothing to narrow. `read_guide` is a ninth tool under it and not a ninth
 capability: it answers with a string compiled into the image and reads no note,
 so the audit this prefix exists for is still a list of eight things.
 
@@ -97,7 +97,7 @@ endpoint, which is both of them.
 ### GET and POST /api/oauth/authorize
 
 The `GET` renders one button, naming the host it would give the eight
-capabilities to. The `POST` behind that button mints a code and answers `302` to
+capabilities and every finance figure and transaction to. The `POST` behind that button mints a code and answers `302` to
 the address it was given, carrying `code`, `state` and `iss`.
 
 A `GET` never mints. oauth2-proxy's cookie is `SameSite=Lax`, which a browser

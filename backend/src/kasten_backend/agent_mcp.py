@@ -1,6 +1,7 @@
-"""The same eight capabilities, served as MCP tools at `/agent/mcp`.
+"""The same eight capabilities, served as MCP tools at `/agent/mcp`, and the finance reads.
 
-Thin wrappers over `agent.py` and nothing else. The rules about what an agent
+Thin wrappers over `agent.py` and nothing else; the finance reads are in
+`agent_mcp_finance.py`. The rules about what an agent
 may do live there, so the two surfaces cannot drift into disagreeing about them.
 
 The tools live here and never in `routes/notes.py`. That module already imports
@@ -226,8 +227,8 @@ TOOLS = (
 
 `read_guide` is a ninth tool and not a ninth capability. It reads a string
 compiled into the image, never the vault, so the audit this prefix exists for is
-still a list of eight things. The finance reads are a ninth capability, argued
-for in docs/explanation/the-agent-boundary.md.
+still a list of eight things. The finance reads sit beside the eight, argued
+for in docs/explanation/the-agent-boundary/finance-reads.md.
 """
 
 READING = (
