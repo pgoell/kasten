@@ -20,7 +20,7 @@ of each is waiting. Picking one starts a sitting, one card at a time.
 | `za` | Fold or unfold the deck under the cursor |
 | `p` | Open [the parked list](/reference/flashcard-format/reviewing-cards.md#parking-a-card) |
 | `h` | Leave the sitting or the parked list, back to the decks |
-| `Enter` | Show the answer. Once it shows, grade the card Good, unless a button or link in the pane has the focus; then the key does nothing here, and that button or link takes it. With no card on screen, as under a deck that could not be read, a focused button or link takes it too. On a whole note, which shows from the start, it does nothing |
+| `Enter` | Show the answer. Once it shows, grade the card Good, unless a button or link in the pane has the focus; then the key does nothing here, and that button or link takes it. A focused `Try again`, under a deck that could not be read, takes it too. On a whole note, which shows from the start, it does nothing |
 | `Space` | Open [the which-key panel](/reference/editor-keys/leader.md), on every screen, a card on it or not, so the other panes stay one key away mid-sitting |
 | `1` `2` `3` `4` | Rate the card Again, Hard, Good, Easy |
 | `s` | Park the card on screen, before or after the answer, as the Park this card link does |

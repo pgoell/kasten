@@ -183,4 +183,54 @@ describe("a sitting whose deck note read failed for good can try again (#1163)",
 
     expect(await shownCard()).toHaveTextContent("c");
   });
+
+  it("#1163 B1 after Try again by key in the review pane the pane's Enter shows the answer of the card that comes up", async () => {
+    vi.useRealTimers();
+    const pane = await renderPane();
+    const BETA = "#flashcards/beta\n\nc::d\n\ne::f\n";
+    let broken = true;
+    vi.spyOn(api, "fetchNote").mockImplementation((path) => {
+      if (path !== "b.md") return Promise.resolve("");
+      return broken ? Promise.reject(failure("/api/files/b.md", 500)) : Promise.resolve(BETA);
+    });
+    fireEvent.keyDown(pane, { key: "j" });
+    fireEvent.keyDown(pane, { key: "j" });
+    fireEvent.keyDown(pane, { key: "l" });
+    const again = await screen.findByRole("button", { name: "Try again" });
+
+    again.focus();
+    broken = false;
+    expect(fireEvent.keyDown(again, { key: "Enter" })).toBe(true);
+    fireEvent.click(again);
+    expect(await shownCard()).toHaveTextContent("c");
+
+    // Where the focus is now is where a key goes: the pane listens on its own
+    // section, so a focus lost to the body would take the key nowhere.
+    fireEvent.keyDown(document.activeElement ?? pane, { key: "Enter" });
+
+    expect(await screen.findByTestId("review-back")).toHaveTextContent("d");
+  });
+
+  it("#1163 B2 Enter on a header button left focused on the done screen presses nothing", async () => {
+    vi.useRealTimers();
+    const pane = await renderPane();
+    const ONE = "#flashcards/beta\n\nc::d\n";
+    vi.spyOn(api, "fetchNote").mockImplementation((path) =>
+      Promise.resolve(path === "b.md" ? ONE : ""),
+    );
+    vi.spyOn(api, "saveNote").mockImplementation(async (path, content) => ({ path, content }));
+    fireEvent.keyDown(pane, { key: "j" });
+    fireEvent.keyDown(pane, { key: "j" });
+    fireEvent.keyDown(pane, { key: "l" });
+    await shownCard();
+    fireEvent.keyDown(pane, { key: "Enter" });
+    fireEvent.keyDown(pane, { key: "3" });
+    await screen.findByTestId("review-done");
+
+    const center = screen.getByRole("button", { name: "Center" });
+    center.focus();
+
+    expect(fireEvent.keyDown(center, { key: "Enter" })).toBe(false);
+    expect(center).toHaveAttribute("aria-pressed", "false");
+  });
 });
