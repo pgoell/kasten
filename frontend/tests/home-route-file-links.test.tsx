@@ -7,6 +7,7 @@ import type { TodoState } from "@/lib/todo";
 import { hashed } from "./digests";
 import { defineFoliateFake } from "./foliate-fake";
 import { FakeEventSource, pageHooks, renderApp, settle } from "./home-route-fixture";
+import { finishParsing } from "./parsing";
 
 defineFoliateFake();
 
@@ -193,6 +194,7 @@ describe("following a link to a page of HTML", () => {
     await settle();
     app.click(NOTE);
     await settle();
+    finishParsing(document.body);
     app.press("g");
     app.press("f");
     await settle();
@@ -244,6 +246,7 @@ describe("following a link to a page of HTML", () => {
     app.expand("00 Daily");
     app.click("00 Daily/d.md");
     await settle();
+    finishParsing(document.body);
     app.press("g");
     app.press("f");
     await settle();
@@ -305,6 +308,7 @@ describe("following a link to an asset", () => {
     await settle();
     app.click(NOTE);
     await settle();
+    finishParsing(document.body);
     app.press("g");
     app.press("f");
     await settle();
@@ -346,6 +350,7 @@ describe("following a link to an asset", () => {
       app.click(NOTE);
       await settle();
       expect(document.querySelector(".cm-vimMode")).toBeNull();
+      finishParsing(document.body);
       const link = document.querySelector(".cm-wikilink") as HTMLElement;
       fireEvent.mouseDown(link, { ctrlKey: true });
       await settle();

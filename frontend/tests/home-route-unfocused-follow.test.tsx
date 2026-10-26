@@ -8,6 +8,7 @@ import type { TodoState } from "@/lib/todo";
 import { hashed } from "./digests";
 import { defineFoliateFake } from "./foliate-fake";
 import { act, FakeEventSource, pageHooks, renderApp, settle } from "./home-route-fixture";
+import { finishParsing } from "./parsing";
 
 defineFoliateFake();
 
@@ -300,6 +301,7 @@ describe("following from a pane that is not focused", () => {
     "I4 %s+click on a [[wikilink]] in an unfocused pane opens it in that pane (I5: vim %s)",
     async (_key, _vim, held, vim) => {
       await twoPanes("second note\n[[target]]\n", vim);
+      finishParsing(drawn()[1] as HTMLElement);
 
       const link = drawn()[1]?.querySelector<HTMLElement>(".cm-wikilink") as HTMLElement;
       fireEvent.mouseDown(link, held);
@@ -318,6 +320,7 @@ describe("following from a pane that is not focused", () => {
     "B %s+click on a [[link#heading]] in an unfocused pane opens it at the heading in that pane (vim %s)",
     async (_key, _vim, held, vim) => {
       await twoPanes("second note\n[[target#Head]]\n", vim);
+      finishParsing(drawn()[1] as HTMLElement);
 
       const link = drawn()[1]?.querySelector<HTMLElement>(".cm-wikilink") as HTMLElement;
       fireEvent.mouseDown(link, held);
