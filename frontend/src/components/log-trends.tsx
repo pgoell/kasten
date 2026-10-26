@@ -226,8 +226,9 @@ function Macros({ fed, noneLogged, range }: { fed: Logged[]; noneLogged: boolean
   return (
     <figure className="log-macros">
       <figcaption>
+        {/* Food with kcal but no protein, carbs or fat is logged, so it is not "nothing logged". */}
         {shares === null
-          ? `macros: ${noneLogged || fed.length > 0 ? "nothing logged" : "no food logged"}`
+          ? `macros: ${noneLogged ? "nothing logged" : fed.length > 0 ? "no macros logged" : "no food logged"}`
           : `macros, share of kcal over ${foodDays(fed.length)}`}
       </figcaption>
       {shares === null ? null : (

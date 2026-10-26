@@ -257,6 +257,25 @@ it("#1116 A3 the macro split caption counts the food days, not a day of drinks o
   expect(screen.getByText("macros, share of kcal over 2 food days")).toBeInTheDocument();
 });
 
+it("#1126 A3 the macro split on food days with kcal but no protein, carbs or fat says no macros logged, beside a day of drinks only", () => {
+  render(
+    <LogTrends
+      days={[
+        loggedOn("2026-10-22", { kcal: 1500 }),
+        loggedOn("2026-10-23", { kcal: 1500 }),
+        drinksOn("2026-10-24", 250),
+      ]}
+      config={parseConfig(CONFIG_NOTE)}
+      from="2026-10-22"
+      range={3}
+      today="2026-10-25"
+    />,
+  );
+
+  expect(screen.getByText("macros: no macros logged")).toBeInTheDocument();
+  expect(screen.queryByRole("img", { name: "macro split over 3 days" })).not.toBeInTheDocument();
+});
+
 it("#1116 A4 the By week row averages kcal and protein over the week's food days, and a week with no food day reads —", () => {
   // The week of Oct 12 has drinks only on Oct 13. The week of Oct 19 has food on Oct 19 and drinks on Oct 20.
   render(

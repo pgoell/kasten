@@ -3,7 +3,8 @@
  * desktop at 1440 by 900 with a mouse, in both themes and the four palettes, the log pane a
  * tap on Food opens, and the overview of an empty vault. Each picture is its own test, run
  * alone with `-t "shot <name>"`, and lands in node_modules/.cache/kasten-shots with
- * VITE_KASTEN_SHOTS=1.
+ * VITE_KASTEN_SHOTS=1. The four `overview-food-no-food-*` pictures (#1122) show the Food card
+ * with two drinks-only days, at phone and desktop size, in both themes.
  */
 
 import "@fontsource-variable/newsreader/opsz.css";
@@ -42,8 +43,9 @@ const CONFIG = [
 // The same header with no goal and no kind, so the cards draw their empty words.
 const EMPTY_CONFIG = ["---", "type: Config", "---"].join("\n");
 
-// Set by a test before it mounts, so every read answers as an empty vault.
-const state = vi.hoisted(() => ({ empty: false }));
+// Set by a test before it mounts, so every read answers as an empty vault, or the 2nd and 4th days
+// ago have drinks only.
+const state = vi.hoisted(() => ({ empty: false, drinksOnly: false }));
 
 /** Days before today, so 0 is today and 1 is yesterday. */
 const agoOf = (date: string): number =>
@@ -98,6 +100,20 @@ function dayOf(date: string): LogDay {
       mine: weight === null ? [] : [{ mark: "⚖", name: "weight", unit: "kg", total: weight }],
     },
   };
+}
+
+/** The day with its food line dropped: the drinks stay, and the food totals read zero (#1122). */
+const withoutFood = (day: LogDay): LogDay => ({
+  ...day,
+  entries: day.entries.filter((entry) => entry.kind !== "food"),
+  totals: { ...day.totals, food: { kcal: 0, protein: 0, carbs: 0, fat: 0 } },
+});
+
+/** The day as the log answers it: the 2nd and 4th days ago have drinks only when a test asks (#1122). */
+function logOn(date: string): LogDay {
+  const ago = agoOf(date);
+  const day = dayOf(date);
+  return state.drinksOnly && (ago === 2 || ago === 4) ? withoutFood(day) : day;
 }
 
 // A schedule comment whose rating fell `ago` days back, so the review count lands on that day.
@@ -186,7 +202,7 @@ vi.mock("@/lib/food-api", async (importOriginal) => ({
       const ago = agoOf(date);
       // Some days have no log at all, so the bars and the streak show their gaps.
       if (ago !== 0 && (ago % 9 === 4 || (ago >= 25 && ago <= 27))) continue;
-      days.push(dayOf(date));
+      days.push(logOn(date));
     }
     return days;
   },
@@ -257,6 +273,10 @@ const overviewButton = () =>
 const overviewPane = () => document.querySelector<HTMLElement>("section[aria-label='Overview']");
 const buttons = () => [...(overviewPane()?.querySelectorAll<HTMLElement>(".overview-open") ?? [])];
 const logPane = () => document.querySelector<HTMLElement>("section[aria-label='Log']");
+const foodCard = () =>
+  [...document.querySelectorAll<HTMLElement>(".overview-card")].find(
+    (card) => card.querySelector(".overview-name")?.textContent === "Food",
+  ) ?? null;
 
 /** The overview at a size, opened from the home screen's button, in the look asked for. */
 async function open(width: number, height: number, theme: Theme, palette = "poel") {
@@ -284,6 +304,7 @@ afterEach(async () => {
   root = undefined;
   host = undefined;
   state.empty = false;
+  state.drinksOnly = false;
   localStorage.clear();
   document.documentElement.removeAttribute("data-theme");
   document.documentElement.removeAttribute("data-palette");
@@ -352,4 +373,36 @@ it("shot desktop-overview-reduced-motion", async () => {
   await commands.emulateMedia({ reducedMotion: "reduce" });
   const panel = await open(1440, 900, "light");
   expect(await shot(panel, "desktop-overview-reduced-motion")).toBeGreaterThan(0);
+});
+
+it("shot overview-food-no-food-light-phone", async () => {
+  state.drinksOnly = true;
+  await phone("light");
+  expect(
+    await shot(foodCard() as HTMLElement, "overview-food-no-food-light-phone"),
+  ).toBeGreaterThan(0);
+});
+
+it("shot overview-food-no-food-dark-phone", async () => {
+  state.drinksOnly = true;
+  await phone("dark");
+  expect(await shot(foodCard() as HTMLElement, "overview-food-no-food-dark-phone")).toBeGreaterThan(
+    0,
+  );
+});
+
+it("shot overview-food-no-food-light-desktop", async () => {
+  state.drinksOnly = true;
+  await open(1440, 900, "light");
+  expect(
+    await shot(foodCard() as HTMLElement, "overview-food-no-food-light-desktop"),
+  ).toBeGreaterThan(0);
+});
+
+it("shot overview-food-no-food-dark-desktop", async () => {
+  state.drinksOnly = true;
+  await open(1440, 900, "dark");
+  expect(
+    await shot(foodCard() as HTMLElement, "overview-food-no-food-dark-desktop"),
+  ).toBeGreaterThan(0);
 });

@@ -17,7 +17,7 @@ import type { EditorCommands } from "@/lib/key-bindings";
 import { LOG_NOTE } from "@/lib/layout";
 import { overMax } from "@/lib/log-day";
 import { DEFAULT_CONFIG, type LogConfig, parseConfig } from "@/lib/log-kinds";
-import { streakOf } from "@/lib/log-streak";
+import { hasFood, streakOf } from "@/lib/log-streak";
 import { rangeDates, weightOf } from "@/lib/log-weight";
 import { goalPhrase, grouped } from "@/lib/log-words";
 import {
@@ -129,9 +129,12 @@ function useReads(today: string, archive: boolean): Reads {
   };
 }
 
-/** The bars of the last fortnight's logged days, `value` of each, with no bar for a day not logged. */
-function fortnight(reads: Reads, value: (day: LogDay) => number): Bar[] {
-  const byDate = new Map(reads.days.map((day) => [day.date, day]));
+/**
+ * The bars of the last fortnight's days in `days`, `value` of each, with no bar for a day not in
+ * them. Each bar keeps its slot in the fortnight, so a day left out leaves a gap, not a shift.
+ */
+function fortnight(reads: Reads, value: (day: LogDay) => number, days = reads.days): Bar[] {
+  const byDate = new Map(days.map((day) => [day.date, day]));
   return daysBack(reads.today, 14).flatMap((date, index) => {
     const logged = byDate.get(date);
     return logged === undefined ? [] : [{ index, amount: value(logged) }];
@@ -146,15 +149,18 @@ function foodCard(reads: Reads, commands: EditorCommands): Card {
   const goal = reads.config.food.kcal;
   const byDate = new Map(reads.days.map((day) => [day.date, day]));
   const streak = streakOf(rangeDates(shiftDay(reads.today, -89), 90), byDate, reads.today, goal);
-  const bars = fortnight(reads, (day) => day.totals.food.kcal);
+  // A day of drinks is no food day, so it draws no bar, as the log pane's kcal charts leave it out.
+  const bars = fortnight(reads, (day) => day.totals.food.kcal, reads.days.filter(hasFood));
   const over =
     goal?.type === "ceiling" ? bars.filter(({ amount }) => overMax(amount, goal)).length : 0;
   const bound = goal?.type === "floor" ? "at least" : "at most";
+  // A fortnight with days logged but no food line says so, since drinks are logged, just no food.
+  const loggedIn14 = daysBack(reads.today, 14).some((date) => byDate.has(date));
   return {
     key: "food",
     caption:
       bars.length === 0
-        ? "nothing logged in 14 days"
+        ? `${loggedIn14 ? "no food" : "nothing"} logged in 14 days`
         : fortnightCaption("kcal per day, 14 days", goal, over),
     name: "Food",
     target: "the log",

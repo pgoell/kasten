@@ -5,6 +5,7 @@
  * node_modules/.cache/kasten-shots with VITE_KASTEN_SHOTS=1. A tab, a range button or
  * + Food is pressed only where the pane draws it, so the picture shows the pane as it is.
  * The trends-no-food pictures (#1116) show two drinks-only days in the 7-day Trends, phone and desktop.
+ * The trends-no-macros pictures (#1126) show food days with kcal and no macros, beside a drinks-only day, with the macro split in view.
  */
 
 import "@fontsource-variable/newsreader/opsz.css";
@@ -57,9 +58,10 @@ const CONFIG = [
   "- 🍽 food: kcal max 2200, protein min 120",
 ].join("\n");
 
-// Set by a test before it mounts, so the one-day read of today answers nothing, and so the
-// days at index 2 and 3 of a range have no food line (#1116).
-const state = vi.hoisted(() => ({ emptyToday: false, drinksOnly: false }));
+// Set by a test before it mounts, so the one-day read of today answers nothing, so the
+// days at index 2 and 3 of a range have no food line (#1116), and so each food day keeps
+// its kcal and no macros (#1126).
+const state = vi.hoisted(() => ({ emptyToday: false, drinksOnly: false, noMacros: false }));
 
 vi.mock("@/lib/api", async (importOriginal) => {
   const real = await importOriginal<typeof import("@/lib/api")>();
@@ -186,10 +188,22 @@ const withoutFood = (day: LogDay): LogDay => ({
   totals: { ...day.totals, food: { kcal: 0, protein: 0, carbs: 0, fat: 0 } },
 });
 
+/** The day with each food line cut to its kcal, and the macro totals reading zero (#1126). */
+const withoutMacros = (day: LogDay): LogDay => ({
+  ...day,
+  entries: day.entries.map((entry): LogDay["entries"][number] =>
+    entry.kind === "food"
+      ? { line: entry.line, text: `- 🍽 🔥 ${entry.kcal} kcal`, kind: "food", kcal: entry.kcal }
+      : entry,
+  ),
+  totals: { ...day.totals, food: { kcal: day.totals.food.kcal, protein: 0, carbs: 0, fat: 0 } },
+});
+
 /** The day at `index` of a range, with the days at index 2 and 3 drinks only when asked (#1116). */
 const logAt = (index: number, date: string): LogDay => {
   const day = dayOf(index, date);
-  return state.drinksOnly && (index === 2 || index === 3) ? withoutFood(day) : day;
+  const kept = state.drinksOnly && (index === 2 || index === 3) ? withoutFood(day) : day;
+  return state.noMacros ? withoutMacros(kept) : kept;
 };
 
 vi.mock("@/lib/food-api", async (importOriginal) => ({
@@ -293,15 +307,13 @@ async function pressIfDrawn(element: HTMLElement | null): Promise<void> {
   if (element !== null) await tap(element);
 }
 
-/** The 7-day Trends with its kcal chart scrolled into view, for the pictures of #1116. */
-async function sevenDayKcal(): Promise<void> {
+/** The 7-day Trends with the figure `find` picks scrolled into view, for the pictures of #1116 and #1126. */
+async function sevenDayFigure(find: (figure: HTMLElement) => boolean): Promise<void> {
   await pressIfDrawn(tabOf("Trends"));
   await pressIfDrawn(paneButton("7d"));
   await wait(500);
-  const chart = [...(trends()?.querySelectorAll<HTMLElement>("figure") ?? [])].find((figure) =>
-    figure.querySelector("svg")?.getAttribute("aria-label")?.startsWith("kcal over 7 days"),
-  );
-  chart?.scrollIntoView({ block: "start" });
+  const figure = [...(trends()?.querySelectorAll<HTMLElement>("figure") ?? [])].find(find);
+  figure?.scrollIntoView({ block: "start" });
   await wait(200);
 }
 
@@ -352,6 +364,7 @@ afterEach(async () => {
   host = undefined;
   state.emptyToday = false;
   state.drinksOnly = false;
+  state.noMacros = false;
   localStorage.clear();
   document.documentElement.removeAttribute("data-theme");
   document.documentElement.removeAttribute("data-palette");
@@ -492,30 +505,39 @@ for (const palette of ["russet", "peach"]) {
   }
 }
 
-it("shot trends-no-food-light-phone", async () => {
-  state.drinksOnly = true;
-  const panel = await phone("light", "no-preference", "poel", 414);
-  await sevenDayKcal();
-  expect(await shot(panel, "trends-no-food-light-phone")).toBe(414);
-});
+// The 7-day Trends with a drinks-only day: the kcal chart in view (#1116), and the macro split
+// in view on food days with kcal and no macros (#1126).
+const TRENDS_SHOTS: { name: string; noMacros: boolean; find: (figure: HTMLElement) => boolean }[] =
+  [
+    {
+      name: "no-food",
+      noMacros: false,
+      find: (figure) =>
+        figure.querySelector("svg")?.getAttribute("aria-label")?.startsWith("kcal over 7 days") ===
+        true,
+    },
+    {
+      name: "no-macros",
+      noMacros: true,
+      find: (figure) => figure.classList.contains("log-macros"),
+    },
+  ];
 
-it("shot trends-no-food-dark-phone", async () => {
-  state.drinksOnly = true;
-  const panel = await phone("dark", "no-preference", "poel", 414);
-  await sevenDayKcal();
-  expect(await shot(panel, "trends-no-food-dark-phone")).toBe(414);
-});
-
-it("shot trends-no-food-light-desktop", async () => {
-  state.drinksOnly = true;
-  const panel = await desktop("light");
-  await sevenDayKcal();
-  expect(await shot(panel, "trends-no-food-light-desktop")).toBeGreaterThan(0);
-});
-
-it("shot trends-no-food-dark-desktop", async () => {
-  state.drinksOnly = true;
-  const panel = await desktop("dark");
-  await sevenDayKcal();
-  expect(await shot(panel, "trends-no-food-dark-desktop")).toBeGreaterThan(0);
-});
+for (const { name, noMacros, find } of TRENDS_SHOTS) {
+  for (const theme of ["light", "dark"] as const) {
+    for (const size of ["phone", "desktop"] as const) {
+      it(`shot trends-${name}-${theme}-${size}`, async () => {
+        state.drinksOnly = true;
+        state.noMacros = noMacros;
+        const panel =
+          size === "phone"
+            ? await phone(theme, "no-preference", "poel", 414)
+            : await desktop(theme);
+        await sevenDayFigure(find);
+        const width = await shot(panel, `trends-${name}-${theme}-${size}`);
+        if (size === "phone") expect(width).toBe(414);
+        else expect(width).toBeGreaterThan(0);
+      });
+    }
+  }
+}
