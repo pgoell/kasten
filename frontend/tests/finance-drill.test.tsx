@@ -264,7 +264,7 @@ describe("the finance pane's drilldowns", () => {
       expect(api.sortByHand).toHaveBeenCalledWith({ transaction: 9, payee: 5 }, 6),
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Add a part" }));
+    fireEvent.click(screen.getByRole("button", { name: "Split into parts" }));
     fireEvent.change(screen.getByRole("textbox", { name: "Part 1 amount" }), {
       target: { value: "-70,00" },
     });

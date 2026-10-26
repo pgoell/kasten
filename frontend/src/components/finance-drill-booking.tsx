@@ -88,26 +88,32 @@ function Splits({
           className="finance-pane-button"
           onClick={() => setParts([...parts, { amount: left.toFixed(2), text: "" }])}
         >
-          Add a part
+          {parts.length === 0 ? "Split into parts" : "Add a part"}
         </button>
-        <button
-          type="button"
-          className="finance-pane-button"
-          disabled={!even}
-          onClick={() =>
-            void onSave(
-              parts.map((part) => ({
-                amount: (cents(part.amount) / 100).toFixed(2),
-                text: part.text.trim() || null,
-              })),
-            )
-          }
-        >
-          {parts.length === 0 ? "Save, whole" : "Save the splits"}
-        </button>
+        {parts.length === 0 && booking.splits.length === 0 ? null : (
+          <button
+            type="button"
+            className="finance-pane-button"
+            disabled={!even}
+            onClick={() =>
+              void onSave(
+                parts.map((part) => ({
+                  amount: (cents(part.amount) / 100).toFixed(2),
+                  text: part.text.trim() || null,
+                })),
+              )
+            }
+          >
+            {parts.length === 0 ? "Save, whole" : "Save the splits"}
+          </button>
+        )}
       </div>
       <p className={even ? "overview-caption" : "overview-caption finance-danger"}>
-        {even ? "the parts add up to the booking" : `${money(left)} still to share out`}
+        {parts.length === 0
+          ? "split it to sort each part on its own"
+          : even
+            ? "the parts add up to the booking"
+            : `${money(left)} still to share out`}
       </p>
     </section>
   );

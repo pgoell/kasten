@@ -60,6 +60,10 @@
   outline-offset: 1px;
 }
 
+.finance-drill-fields .finance-crumb {
+  padding: 0;
+}
+
 .overview-name .finance-crumb {
   min-height: 0;
   padding: 0;

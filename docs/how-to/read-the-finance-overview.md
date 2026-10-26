@@ -97,10 +97,11 @@ step it. The breadcrumbs over the view say where you are, such as
   `Add a rule` to sort every payee whose name starts the same way.
 * **A booking** gives every field and its raw record, where it counts in the
   budget, the plan it met and the other half of a transfer. Sort it again
-  with a category's key or button, as on To sort. To split it, `Add a part`
-  for each part, type each amount and what it was, and `Save the splits` once
-  the parts add up; then sort each part. With no parts, `Save, whole` makes
-  it one booking again.
+  with a category's key or button, as on To sort. To split it, press
+  `Split into parts`, then `Add a part` for each further part; type each
+  amount and what it was, and press `Save the splits` once the parts add up.
+  Then sort each part. Remove every part and press `Save, whole` to make it
+  one booking again.
 
 The bookings a view lists are those that count in the month, so a salary
 booked after the cutoff day shows in the month after. Tap one, or move with
