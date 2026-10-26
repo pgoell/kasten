@@ -1,9 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { type RefObject, useState } from "react";
 import { amountOf } from "@/components/finance-budget-tab";
 import { type DrillProps, useWrite, Waiting } from "@/components/finance-drill-parts";
+import type { TabKeys } from "@/components/finance-sort-bar";
 import { fetchSetup, type Setup, writeLimits } from "@/lib/finance-budget-api";
-import { euros, monthName } from "@/lib/finance-words";
+import { euros, monthName, monthOf } from "@/lib/finance-words";
 
 const KINDS: Record<string, string> = {
   fixed: "Fixed",
@@ -11,46 +12,62 @@ const KINDS: Record<string, string> = {
   non_monthly: "Non-monthly",
 };
 
-/** A limit as the field shows it: whole euros, or nothing for no limit. */
+/** An amount as a field shows it, the German way and to the cent: `1450,50`, `1450`, or empty. */
 function shown(amount: string | null | undefined): string {
-  return amount == null ? "" : String(Math.round(Number(amount)));
+  if (amount == null) return "";
+  const [whole, cents] = Number(amount).toFixed(2).split(".");
+  return cents === "00" ? (whole ?? "") : `${whole},${cents}`;
 }
 
-/** The figure a field holds, as a number; an empty or unreadable field is none. */
-function figure(text: string): number {
+/** A field's amount in cents, or null for an empty or unreadable one, which is no limit. */
+function cents(text: string): number | null {
   const amount = Number(amountOf(text));
-  return text.trim() === "" || !Number.isFinite(amount) ? 0 : amount;
+  return text.trim() === "" || !Number.isFinite(amount) ? null : Math.round(amount * 100);
+}
+
+/** A stored amount in cents, or null for none. */
+function stored(amount: string | null | undefined): number | null {
+  return amount == null ? null : Math.round(Number(amount) * 100);
 }
 
 /**
- * Every spending category's limit on one screen, from the month shown on. Each field starts from
- * the category's plans where it has one, else its 6-month average; its limit now, average and
- * plans stand beside it. The total of the fields reads against the month's expected income, and
- * saving sets every changed limit at once.
+ * Every spending category's limit on one screen. Each field starts from the limit in force; the
+ * suggestion stands beside it, the larger of the category's monthly plans and its 6-month average,
+ * and `u` or `Use suggestions` fills every field with them. The fields add up against the month's
+ * expected income, and saving sends only the limits that changed.
  */
 function SetupForm({
   setup,
   month,
+  keys,
   onSave,
 }: {
   setup: Setup;
   month: string;
+  keys: RefObject<TabKeys | null>;
   onSave: (limits: { category_id: number; amount: string | null }[]) => Promise<void>;
 }) {
   const [drafts, setDrafts] = useState<Record<number, string>>(() =>
-    Object.fromEntries(setup.categories.map((c) => [c.id, shown(c.suggested ?? c.limit)])),
+    Object.fromEntries(setup.categories.map((c) => [c.id, shown(c.limit)])),
   );
-  const total = setup.categories.reduce((sum, c) => sum + figure(drafts[c.id] ?? ""), 0);
+  const suggest = () =>
+    setDrafts(
+      Object.fromEntries(setup.categories.map((c) => [c.id, shown(c.suggested ?? c.limit)])),
+    );
+  keys.current = (key) => {
+    if (key !== "u") return false;
+    suggest();
+    return true;
+  };
+  const total =
+    setup.categories.reduce((sum, c) => sum + (cents(drafts[c.id] ?? "") ?? 0), 0) / 100;
   const income = Number(setup.expected_income);
   const left = income - total;
   const changed = setup.categories
-    .map((c) => ({ category_id: c.id, amount: amountOf(drafts[c.id] ?? "") }))
-    .filter((row, index) => {
-      const before = setup.categories[index]?.limit;
-      return (
-        (row.amount == null ? null : Number(row.amount)) !==
-        (before == null ? null : Number(before))
-      );
+    .filter((c) => cents(drafts[c.id] ?? "") !== stored(c.limit))
+    .map((c) => {
+      const amount = cents(drafts[c.id] ?? "");
+      return { category_id: c.id, amount: amount === null ? null : (amount / 100).toFixed(2) };
     });
   return (
     <form
@@ -64,8 +81,8 @@ function SetupForm({
         <thead>
           <tr>
             <th scope="col">Category</th>
-            <th scope="col">Now</th>
             <th scope="col">Average</th>
+            <th scope="col">Suggested</th>
             <th scope="col">{`From ${monthName(month, true)}`}</th>
           </tr>
         </thead>
@@ -87,12 +104,13 @@ function SetupForm({
                       <span className="finance-muted">{` plans: ${c.plans.join(", ")}, ${euros(c.planned ?? 0)}`}</span>
                     )}
                   </th>
-                  <td>{c.limit == null ? "none" : euros(c.limit)}</td>
                   <td>{c.average == null ? "none" : euros(c.average)}</td>
+                  <td>{c.suggested == null ? "none" : euros(c.suggested)}</td>
                   <td>
                     <input
                       inputMode="decimal"
                       aria-label={`${c.name} limit from ${monthName(month)}`}
+                      placeholder="none"
                       value={drafts[c.id] ?? ""}
                       onChange={(event) => setDrafts({ ...drafts, [c.id]: event.target.value })}
                     />
@@ -110,11 +128,14 @@ function SetupForm({
         </strong>
       </p>
       <p className="overview-caption">
-        a field starts from the category's plans where it has one, else from its 6-month average; an
-        empty field takes the limit away. Saving sets every changed limit from {monthName(month)}{" "}
-        on; the months before keep theirs.
+        each field starts from the limit in force; a suggestion is the larger of the category's
+        monthly plans and its 6-month average. An empty field takes the limit away. Saving sets the
+        limits you changed from {monthName(month)} on; the months before keep theirs.
       </p>
       <div className="finance-pane-categories">
+        <button type="button" className="finance-pane-button" onClick={suggest}>
+          <kbd>u</kbd> Use suggestions
+        </button>
         <button type="submit" className="finance-pane-button" disabled={changed.length === 0}>
           {changed.length === 0
             ? "Nothing changed"
@@ -125,9 +146,13 @@ function SetupForm({
   );
 }
 
-/** The budget setup as a drilldown of the Budget tab: one form for the month shown. */
-export function DrillSetup({ month, today, onNotice }: DrillProps) {
+/**
+ * The budget setup as a drilldown of the Budget tab. It always sets limits from this month on,
+ * whatever month is shown, so a month already over never changes under it.
+ */
+export function DrillSetup({ today, keys, onNotice }: DrillProps) {
   const write = useWrite(onNotice);
+  const month = monthOf(today);
   const setup = useQuery({
     queryKey: ["finance", "setup", month, today],
     queryFn: () => fetchSetup(month, today),
@@ -141,6 +166,7 @@ export function DrillSetup({ month, today, onNotice }: DrillProps) {
           key={setup.dataUpdatedAt}
           setup={setup.data}
           month={month}
+          keys={keys}
           onSave={(limits) => write(() => writeLimits(month, limits))}
         />
       </article>

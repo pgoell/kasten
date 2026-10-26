@@ -9,7 +9,7 @@ import {
 } from "@/components/finance-drill-parts";
 import { MonthChart } from "@/components/finance-month-chart";
 import { fetchAccountDrill, fetchScope, type Scope } from "@/lib/finance-drill-api";
-import { euros, monthName } from "@/lib/finance-words";
+import { euros, monthName, monthOf } from "@/lib/finance-words";
 
 /**
  * One scope, mine or household: the month's parts as the sankey has them and what was left, the
@@ -18,6 +18,7 @@ import { euros, monthName } from "@/lib/finance-words";
 export function DrillScope({
   span,
   spanLabel,
+  today,
   scope,
   month,
   onOpen,
@@ -65,7 +66,12 @@ export function DrillScope({
         </article>
         <article className="overview-card finance-wide-card">
           <h3 className="overview-name">Compared</h3>
-          <CompareTable scope={scope} compared={data.span} label={spanLabel} />
+          <CompareTable
+            scope={scope}
+            compared={data.span}
+            label={spanLabel}
+            running={span.to === monthOf(today)}
+          />
         </article>
         <article className="overview-card finance-wide-card">
           <h3 className="overview-name">Spent per month</h3>

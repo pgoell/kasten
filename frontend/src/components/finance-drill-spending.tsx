@@ -11,6 +11,7 @@ import {
 import { MonthChart } from "@/components/finance-month-chart";
 import { sortPayee } from "@/lib/finance-api";
 import {
+  type CategoryDrill,
   fetchCategoryDrill,
   fetchPayeeDrill,
   type PayeeDrill,
@@ -23,6 +24,19 @@ function every(months: number | null | undefined): string {
   if (months == null) return "once";
   if (months === 1) return "monthly";
   return months === 12 ? "yearly" : `every ${months} months`;
+}
+
+/** A category's span in one line: its figure, a year before, the average and what was available. */
+function spanWords(data: CategoryDrill, label: string): string {
+  const { now, last_year: before, average, available } = data.span;
+  return [
+    `${label}: ${euros(now.total)}`,
+    before == null ? "no data a year before" : `a year before ${euros(before.total)}`,
+    average == null ? "no average yet" : `6-month average ${euros(average.total)}`,
+    available == null ? "" : `${euros(available)} available`,
+  ]
+    .filter(Boolean)
+    .join("; ");
 }
 
 /**
@@ -84,18 +98,7 @@ export function DrillCategory({
               );
             }}
           />
-          <p className="overview-words">
-            {[
-              `${spanLabel}: ${euros(data.span.now.total)}`,
-              `a year before ${euros(data.span.last_year.total)}`,
-              data.span.average == null
-                ? "no average yet"
-                : `6-month average ${euros(data.span.average.total)}`,
-              data.span.available == null ? "" : `${euros(data.span.available)} available`,
-            ]
-              .filter(Boolean)
-              .join("; ")}
-          </p>
+          <p className="overview-words">{spanWords(data, spanLabel)}</p>
           <p className="overview-caption">
             {category.kind === "ignore"
               ? "an ignored category counts nowhere; its bookings are below"

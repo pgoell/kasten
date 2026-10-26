@@ -88,7 +88,7 @@ const SETUP = {
       id: 3,
       name: "Rent",
       kind: "fixed",
-      limit: "1500.00",
+      limit: "1500.50",
       average: "1500.00",
       planned: "1450.00",
       plans: ["Rent"],
@@ -188,28 +188,47 @@ describe("the span of months", () => {
     expect(within(household).getAllByText("none yet").length).toBeGreaterThan(0);
   });
 
-  it("#1083 the budget setup starts each limit from its plan or average and saves what changed", async () => {
+  it("#1083 the budget setup starts from the limits in force, to the cent, and changes nothing untouched", async () => {
     renderPane();
     press("B");
+    // A month already over is shown; the setup still sets limits from this month on.
+    press("[");
     press("s");
 
     const groceries = await screen.findByRole("textbox", {
       name: "Groceries limit from October 2026",
     });
     const rent = screen.getByRole("textbox", { name: "Rent limit from October 2026" });
+    expect((rent as HTMLInputElement).value).toBe("1500,50");
+    expect((groceries as HTMLInputElement).value).toBe("");
+    expect(screen.getByRole("button", { name: "Nothing changed" })).toBeDisabled();
+    expect(screen.getByText(/^1.501\s€ of limits against 3.800\s€ expected income:/)).toBeTruthy();
+
+    press("u");
     expect((rent as HTMLInputElement).value).toBe("1450");
     expect((groceries as HTMLInputElement).value).toBe("497");
-    expect(screen.getByText(/^1.947\s€ of limits against 3.800\s€ expected income:/)).toBeTruthy();
-
     fireEvent.change(groceries, { target: { value: "2500" } });
     expect(screen.getByText(/^150\s€ over ⚠$/)).toBeTruthy();
-    fireEvent.change(rent, { target: { value: "1500" } });
+    fireEvent.change(rent, { target: { value: "1500,50" } });
     fireEvent.click(screen.getByRole("button", { name: "Save 1 limit" }));
     await waitFor(() =>
-      expect(api.writeLimits).toHaveBeenCalledWith("2026-10", [{ category_id: 4, amount: "2500" }]),
+      expect(api.writeLimits).toHaveBeenCalledWith("2026-10", [
+        { category_id: 4, amount: "2500.00" },
+      ]),
     );
-    expect(screen.getByRole("navigation", { name: "Breadcrumbs" }).textContent).toBe(
-      "October 2026Every limit",
-    );
+  });
+
+  it("#1083 a comparison with no history a year before says so, and a running month reads so far", async () => {
+    api.fetchRange.mockResolvedValue({
+      ...RANGE,
+      first: "2026-10",
+      month: "2026-10",
+      months: 1,
+      mine: { ...RANGE.mine, last_year: null },
+    });
+    renderPane();
+    const mine = (await screen.findAllByRole("table"))[0] as HTMLElement;
+    expect(within(mine).getAllByRole("columnheader")[1]).toHaveTextContent("October 2026 so far");
+    expect(within(mine).getAllByText("no data").length).toBeGreaterThan(0);
   });
 });

@@ -18,7 +18,7 @@ import {
 } from "@/lib/finance-budget-api";
 import type { Scope } from "@/lib/finance-drill-api";
 import type { Span } from "@/lib/finance-span";
-import { euros, monthName, percent, shiftMonth } from "@/lib/finance-words";
+import { euros, monthName, monthOf, percent, shiftMonth } from "@/lib/finance-words";
 
 /** The parts free to spend is made of, in the order the line under it names them. */
 const PARTS: { key: "fixed" | "flexible" | "non_monthly"; word: string }[] = [
@@ -406,8 +406,15 @@ export function FinanceOverview({
         {range.data === undefined ? null : (
           <article className="overview-card finance-wide-card">
             <h3 className="overview-name">Compared</h3>
-            <CompareTable scope="mine" compared={range.data.mine} label={spanLabel} />
-            <CompareTable scope="household" compared={range.data.household} label={spanLabel} />
+            {(["mine", "household"] as const).map((scope) => (
+              <CompareTable
+                key={scope}
+                scope={scope}
+                compared={range.data[scope]}
+                label={spanLabel}
+                running={span.to === monthOf(today)}
+              />
+            ))}
             <p className="overview-caption">
               what happened, against the same months a year before and the 6 months before at the
               same length

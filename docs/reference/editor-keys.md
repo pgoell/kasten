@@ -106,6 +106,7 @@ upper case and brackets, so they never meet a category's key.
 | `e` | Budget: edit the category's limit; Enter saves, Escape leaves it |
 | `y` | Budget: take the suggested limit |
 | `s` | Budget: set up every limit on one screen |
+| `u` | Budget setup: fill every field with its suggestion |
 | `1` | Plans & goals: confirm the proposed plan with that key, 1 to 9 |
 | `n` | Plans & goals: make a new plan |
 | `g` | Plans & goals: make a new goal |

@@ -127,7 +127,9 @@ Pace and Left from limits read one month and step aside.
 
 **Compared** sets each scope's span against the same months a year before
 and against the 6 months before it, taken as many times as the span has
-months, with the change in percent. A category's view gives the same three
+months, with the change in percent. `no data` means the history does not
+reach back a year; a span that ends this month reads `so far`, since this
+month holds only the days gone. A category's view gives the same three
 figures and what its limits made available over the span. Press a bar in a
 chart to read that month alone.
 
@@ -154,14 +156,17 @@ offers `Raise to …` or `Lower to …`. Press `y`, or tap it, to take it.
 
 ## Set every limit at once
 
-1. Open Budget with `B`, on the month the limits should start.
-2. Press `s`, or tap `Set up every limit`.
-3. Each spending category has a field, filled from its plans where it has
-   one (a yearly bill as a twelfth) and from its 6-month average otherwise.
-   Its limit now and its average stand beside it.
-4. Change what you want. The line under the table adds the fields up against
-   the income the month expects, and says what is left, or how far over.
-5. Press `Save`. Every limit you changed counts from the month shown on; an
+1. Open Budget with `B`, and press `s`, or tap `Set up every limit`.
+2. Each spending category has a field holding its limit in force. Beside it
+   stand its 6-month average and a suggestion: the larger of what its
+   monthly plans cost and its average. A yearly bill a plan reserves for is
+   not in the suggestion, since the reserve pays it.
+3. Press `u`, or tap `Use suggestions`, to fill every field with its
+   suggestion, then change what you want. The line under the table adds the
+   fields up against the income the month expects, and says what is left, or
+   how far over.
+4. Press `Save`. Only the limits you changed are written, from this month
+   on, whatever month the pane shows, so no month already over changes. An
    empty field takes a limit away. `Escape` goes back to Budget.
 
 ## Find a booking

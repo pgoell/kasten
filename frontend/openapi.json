@@ -6358,7 +6358,14 @@
             "$ref": "#/components/schemas/CountedOut"
           },
           "last_year": {
-            "$ref": "#/components/schemas/CountedOut"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CountedOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "average": {
             "anyOf": [
@@ -10007,7 +10014,14 @@
             "$ref": "#/components/schemas/ScopeMonthOut"
           },
           "last_year": {
-            "$ref": "#/components/schemas/ScopeMonthOut"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ScopeMonthOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "average": {
             "anyOf": [

@@ -2991,7 +2991,7 @@ export interface components {
          */
         CategoryComparedOut: {
             now: components["schemas"]["CountedOut"];
-            last_year: components["schemas"]["CountedOut"];
+            last_year: components["schemas"]["CountedOut"] | null;
             average: components["schemas"]["CountedOut"] | null;
             /** Available */
             available: string | null;
@@ -4443,7 +4443,7 @@ export interface components {
          */
         ScopeComparedOut: {
             now: components["schemas"]["ScopeMonthOut"];
-            last_year: components["schemas"]["ScopeMonthOut"];
+            last_year: components["schemas"]["ScopeMonthOut"] | null;
             average: components["schemas"]["ScopeMonthOut"] | null;
         };
         /**

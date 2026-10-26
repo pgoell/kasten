@@ -38,19 +38,44 @@ function Change({ now, before }: { now: string; before: string }) {
   return words === "" ? null : <span className="finance-muted"> {words}</span>;
 }
 
+/** One figure to compare with, and the change to it; `none` where there is no figure. */
+function Against({
+  now,
+  other,
+  sign,
+  none,
+}: {
+  now: string;
+  other: string | undefined;
+  sign: 1 | -1;
+  none: string;
+}) {
+  if (other === undefined) return <td className="finance-muted">{none}</td>;
+  return (
+    <td>
+      {euros(sign * Number(other))}
+      <Change now={now} before={other} />
+    </td>
+  );
+}
+
 /**
  * A scope's span against the same months a year before and the 6 months before it, a row per
- * part that is not zero in any of the three, then what was left. With no month before the span,
- * the average reads "none yet".
+ * part that is not zero in any of the three, then what was left. With no history a year
+ * before, that column reads "no data"; with no month before the span, the average "none yet".
+ * A span that ends in the month still running says "so far", since that month holds only the
+ * days gone.
  */
 export function CompareTable({
   scope,
   compared,
   label,
+  running = false,
 }: {
   scope: Scope;
   compared: ScopeCompared;
   label: string;
+  running?: boolean;
 }) {
   const { now, last_year: before, average } = compared;
   const rows = [
@@ -63,7 +88,7 @@ export function CompareTable({
         <thead>
           <tr>
             <th scope="col">{scope === "mine" ? "Mine" : "Household"}</th>
-            <th scope="col">{label}</th>
+            <th scope="col">{running && !label.endsWith("so far") ? `${label} so far` : label}</th>
             <th scope="col">A year before</th>
             <th scope="col">6-month average</th>
           </tr>
@@ -73,14 +98,8 @@ export function CompareTable({
             <tr key={key}>
               <th scope="row">{name}</th>
               <td>{euros(sign * Number(now[key]))}</td>
-              <td>
-                {euros(sign * Number(before[key]))}
-                <Change now={now[key]} before={before[key]} />
-              </td>
-              <td>
-                {average == null ? "none yet" : euros(sign * Number(average[key]))}
-                {average == null ? null : <Change now={now[key]} before={average[key]} />}
-              </td>
+              <Against now={now[key]} other={before?.[key]} sign={sign} none="no data" />
+              <Against now={now[key]} other={average?.[key]} sign={sign} none="none yet" />
             </tr>
           ))}
         </tbody>
