@@ -1,0 +1,2 @@
+# Every pull request appends a line to the day page; keep both sides on merge and rebase.
+docs/log/** merge=union
