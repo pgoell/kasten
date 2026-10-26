@@ -58,7 +58,7 @@ def _field(front: list[str], key: str) -> str | None:
     """The value of a frontmatter field as written, or None when the block has no such line."""
     for line in front:
         name, separator, value = line.partition(":")
-        if separator and name.strip() == key:
+        if separator and name == key:
             return value.strip()
     return None
 
@@ -109,7 +109,8 @@ def _front(front: list[str], values: dict[str, str]) -> list[str]:
     """The frontmatter lines: the collector's fields set, every other line as it was, in order."""
     lines, written = [], set()
     for line in front:
-        key = line.partition(":")[0].strip()
+        # Only a line with no leading space is a field: an indented one belongs to the field above.
+        key = line.partition(":")[0]
         if key not in values:
             lines.append(line)
         elif key not in written:

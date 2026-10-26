@@ -209,6 +209,38 @@ def test_808_r2_other_frontmatter_fields_survive_a_rewrite(world: tuple[Path, Pa
     ) == (["id", "created", "modified", "type", "tags", "generator"], True)
 
 
+def test_808_f1_an_indented_frontmatter_line_is_not_the_collectors_field(
+    world: tuple[Path, Path],
+) -> None:
+    source, vault = world
+    session(source, "a.jsonl", record("m1", usage(input=100)))
+    run(source, vault, CONFIG, DAY, DAY, NOW)
+    note = vault / NOTE
+    note.write_text(
+        note.read_text(encoding="utf-8").replace(
+            "type: Reference", "source:\n  type: book\ntype: Reference"
+        ),
+        encoding="utf-8",
+    )
+    before = note.read_text(encoding="utf-8").split("\n")
+    session(source, "b.jsonl", record("m2", usage(input=50)))
+
+    run(source, vault, CONFIG, DAY, DAY, NOW)
+
+    after = note.read_text(encoding="utf-8").split("\n")
+    front_before = before[1 : before.index("---", 1)]
+    front_after = after[1 : after.index("---", 1)]
+    assert (
+        front_after[0] == front_before[0],
+        front_after[1] == front_before[1],
+        front_after[3:],
+    ) == (
+        True,
+        True,
+        ["source:", "  type: book", "type: Reference", "generator: kasten-model-use"],
+    )
+
+
 def test_808_r5_a_note_that_is_not_utf8_is_left_alone_and_named(
     world: tuple[Path, Path],
 ) -> None:
