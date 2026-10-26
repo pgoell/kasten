@@ -1,5 +1,7 @@
 """Gmail, read only, over its REST API with the login the gws CLI exported.
 
+The order sync reads mail bodies; the receipt job reads PDF attachments.
+
 The credentials file is what `gws auth export --unmasked` prints: an OAuth
 client id and secret and a refresh token. Each run trades the refresh token
 for an access token and only ever reads: it lists messages by a search and
@@ -39,8 +41,12 @@ class Mail:
     html: str
 
 
+def _bytes(data: str) -> bytes:
+    return base64.urlsafe_b64decode(data + "=" * (-len(data) % 4))
+
+
 def _decode(data: str) -> str:
-    return base64.urlsafe_b64decode(data + "=" * (-len(data) % 4)).decode("utf-8", "replace")
+    return _bytes(data).decode("utf-8", "replace")
 
 
 def _bodies(part: dict[str, Any], found: dict[str, str]) -> None:
@@ -71,8 +77,25 @@ def to_mail(message: dict[str, Any]) -> Mail:
     )
 
 
+@dataclass(frozen=True)
+class Attachment:
+    """A file a message carries: its name and its bytes."""
+
+    name: str
+    data: bytes
+
+
+def _pdf_parts(part: dict[str, Any], found: list[dict[str, Any]]) -> None:
+    """Collect every MIME part under `part` that is a PDF file, by its type or its name."""
+    name = part.get("filename", "")
+    if name and (part.get("mimeType") == "application/pdf" or name.lower().endswith(".pdf")):
+        found.append(part)
+    for child in part.get("parts", []):
+        _pdf_parts(child, found)
+
+
 class Gmail:
-    """The two reads the job makes: a search, and one message."""
+    """The reads the jobs make: a search, one message, and a message's PDF files."""
 
     def __init__(self, client: httpx.Client, credentials: dict[str, str]) -> None:
         """Wrap a client for Google's hosts and the exported login."""
@@ -123,3 +146,24 @@ class Gmail:
         )
         response.raise_for_status()
         return to_mail(response.json())
+
+    def pdfs(self, message_id: str) -> list[Attachment]:
+        """The PDF files a message carries. Large ones Gmail hands over by their own id."""
+        response = self.client.get(
+            f"{API}/messages/{message_id}", params={"format": "full"}, headers=self._auth()
+        )
+        response.raise_for_status()
+        parts: list[dict[str, Any]] = []
+        _pdf_parts(response.json()["payload"], parts)
+        found = []
+        for part in parts:
+            body = part.get("body", {})
+            data = body.get("data")
+            if data is None and "attachmentId" in body:
+                url = f"{API}/messages/{message_id}/attachments/{body['attachmentId']}"
+                fetched = self.client.get(url, headers=self._auth())
+                fetched.raise_for_status()
+                data = fetched.json()["data"]
+            if data:
+                found.append(Attachment(part["filename"], _bytes(data)))
+        return found

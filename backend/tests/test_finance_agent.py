@@ -64,6 +64,7 @@ async def month(client: AsyncClient) -> dict[str, int]:
         ("/budget/free", OCTOBER, "free_to_spend", OCTOBER),
         ("/goals", {"today": "2026-10-10"}, "goal_progress", {"today": "2026-10-10"}),
         ("/sync", {}, "sync_status", {}),
+        ("/tax/2026", {}, "tax_year_summary", {"year": 2026}),
     ],
 )
 async def test_each_summary_is_the_panes_own_figure(  # noqa: PLR0913, PLR0917  one fixture each
@@ -82,6 +83,33 @@ async def test_each_summary_is_the_panes_own_figure(  # noqa: PLR0913, PLR0917  
     assert agent.status_code == 200, agent.text
     assert agent.json() == pane
     assert await tool(finance_client, bearer, name, **arguments) == pane
+
+
+async def test_the_tax_year_is_the_tax_tabs_own_figure(
+    finance_client: AsyncClient, bearer: dict[str, str]
+) -> None:
+    ids = await month(finance_client)
+    rows = {
+        row["source_key"]: row["id"]
+        for row in (await finance_client.get(f"{API}/transactions")).json()
+    }
+    marks = [
+        ("food", {"form_line": "werbungskosten"}),
+        ("rent", {"form_line": "haushaltsnahe_dienste", "tax_amount": "100.00"}),
+    ]
+    for key, body in marks:
+        response = await finance_client.put(f"{API}/transactions/{rows[key]}/tax-mark", json=body)
+        assert response.status_code == 200, response.text
+
+    pane = (await finance_client.get(f"{API}/tax/2026")).json()
+    agent = await finance_client.get(f"{AGENT}/tax/2026", headers=bearer)
+
+    assert ids["giro"]
+    assert agent.json() == pane
+    assert await tool(finance_client, bearer, "tax_year_summary", year=2026) == pane
+    lines = {line["form_line"]: line["total"] for line in pane["lines"]}
+    assert (lines["werbungskosten"], lines["haushaltsnahe_dienste"]) == ("120.00", "100.00")
+    assert len(pane["missing"]) == 2
 
 
 async def test_free_to_spend_counts_the_shared_move_once_and_the_late_salary_in_october(
@@ -219,7 +247,7 @@ async def test_the_agent_writes_nothing_to_finance(
     schema = (await finance_client.get("/agent/openapi.json", headers=bearer)).json()
     finance = {path: ops for path, ops in schema["paths"].items() if "/finance/" in path}
 
-    assert len(finance) == 9
+    assert len(finance) == 10
     assert {method for ops in finance.values() for method in ops} == {"get"}
     post_attempt = await finance_client.post(f"{AGENT}/transactions", json=[], headers=bearer)
     # Past the routes to the MCP mount, which has no such path either.

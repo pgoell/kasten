@@ -6,6 +6,7 @@ import { FinanceOverview } from "@/components/finance-overview";
 import { FinancePlans } from "@/components/finance-plans-tab";
 import type { TabKeys } from "@/components/finance-sort-bar";
 import { SpanBar, useSpan } from "@/components/finance-span-bar";
+import { FinanceTax } from "@/components/finance-tax-tab";
 import { FinanceToSort } from "@/components/finance-to-sort";
 import { FinanceTransactions } from "@/components/finance-transactions";
 import type { DrillStep } from "@/lib/finance-drill-api";
@@ -55,8 +56,8 @@ function notOurs(event: KeyboardEvent): boolean {
 }
 
 /**
- * The finance pane: Overview, To sort, Transactions, Budget and Plans & goals, under one month that `[` and `]`
- * step. The frame takes the keys every tab shares (the tabs, the month, "pull now", the leader,
+ * The finance pane: Overview, To sort, Transactions, Budget, Plans & goals and Tax, under one month that
+ * `[` and `]` step; on the Tax tab they step the year. The frame takes the keys every tab shares (the tabs, the month, "pull now", the leader,
  * `?` and `q`) after the tab in front has had its own.
  */
 export function FinancePane({ commands, focusSignal, onNotice, today }: FinancePaneProps) {
@@ -123,6 +124,7 @@ export function FinancePane({ commands, focusSignal, onNotice, today }: FinanceP
     T: () => show("transactions"),
     B: () => show("budget"),
     G: () => show("plans"),
+    X: () => show("tax"),
     "[": () => spanState.step(-1, spans),
     "]": () => spanState.step(1, spans),
     P: () => void pull.pull(),
@@ -168,7 +170,7 @@ export function FinancePane({ commands, focusSignal, onNotice, today }: FinanceP
         pull={pull}
       />
     ),
-    "to-sort": () => <FinanceToSort sorter={sorter} keys={tabKeys} />,
+    "to-sort": () => <FinanceToSort sorter={sorter} keys={tabKeys} onNotice={onNotice} />,
     transactions: () => (
       <FinanceTransactions month={month} sorter={sorter} keys={tabKeys} onOpen={open} />
     ),
@@ -191,6 +193,7 @@ export function FinancePane({ commands, focusSignal, onNotice, today }: FinanceP
         refocus={() => panel.current?.focus()}
       />
     ),
+    tax: () => <FinanceTax today={today} keys={tabKeys} onOpen={open} />,
   };
 
   // Each tab hands its keys over as it draws; one that is not drawn has none.
@@ -220,7 +223,7 @@ export function FinancePane({ commands, focusSignal, onNotice, today }: FinanceP
             </button>
           ))}
         </div>
-        {tab === "to-sort" && trail.length === 0 ? null : (
+        {(tab === "to-sort" || tab === "tax") && trail.length === 0 ? null : (
           <SpanBar state={spanState} spans={spans} today={today} />
         )}
       </header>

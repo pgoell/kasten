@@ -12,6 +12,7 @@ from kasten_backend import (  # noqa: F401  (registers the finance and rsvp tabl
     finance_order_models,
     finance_plan_models,
     finance_sync_models,
+    finance_tax_models,
     rsvp,
 )
 from kasten_backend.config import get_settings

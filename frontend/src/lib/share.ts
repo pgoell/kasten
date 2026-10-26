@@ -1,7 +1,8 @@
 /**
  * What another app hands the capture page through Android's share sheet.
  *
- * The manifest's `share_target` opens `/capture?title=…&text=…&url=…`, and
+ * The manifest's `share_target` posts to `/api/finance/receipts/share`, which keeps any files
+ * as receipts and opens `/capture?title=…&text=…&url=…`, and
  * which of the three a sharing app fills is up to that app. Chrome sharing a
  * page puts the address in `text` and leaves `url` empty, a note app puts
  * everything in `text`, and some fill `url` alone. So nothing here trusts one

@@ -31,8 +31,10 @@ from kasten_backend.routes import (
     finance_orders,
     finance_plans,
     finance_range,
+    finance_receipts,
     finance_sorting,
     finance_sync,
+    finance_tax,
     github,
     listing,
     model_use,
@@ -206,6 +208,8 @@ app.include_router(finance_goals.router)
 app.include_router(finance_orders.router)
 app.include_router(finance_sorting.router)
 app.include_router(finance_sync.router)
+app.include_router(finance_receipts.router)
+app.include_router(finance_tax.router)
 app.include_router(share.router)
 app.include_router(rsvp.router)
 app.add_middleware(share.ShareGate)

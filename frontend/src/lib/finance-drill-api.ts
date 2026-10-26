@@ -25,7 +25,7 @@ export type DrillStep =
 const MONTHS = 12;
 
 /** The answer's data, or the error a failed call gives. */
-function answer<T>(
+export function answer<T>(
   what: string,
   result: { data?: T; error?: { detail?: unknown }; response: Response },
 ): T {

@@ -241,6 +241,35 @@ describe("the service worker", () => {
     expect(await sw.request(new Request("https://elsewhere.test/x.js"))).toBeUndefined();
   });
 
+  it("a share goes to the backend, and offline its text still reaches /capture", async () => {
+    const sw = await installed();
+    // A stand-in for the posted form: jsdom's File is not the one undici's Request parses into.
+    const fields = new Map<string, string[]>([
+      ["title", ["A page"]],
+      ["text", [""]],
+      ["receipts", ["a.pdf"]],
+    ]);
+    const form = {
+      get: (key: string) => fields.get(key)?.[0] ?? null,
+      getAll: (key: string) => fields.get(key) ?? [],
+    };
+    const share = () => {
+      const request = { method: "POST", url: `${ORIGIN}/api/finance/receipts/share` };
+      return {
+        ...request,
+        clone: () => ({ ...request, formData: async () => form }),
+      } as unknown as Request;
+    };
+    sw.fetch.mockResolvedValueOnce(basic("", 303));
+    expect((await sw.request(share()))?.status).toBe(303);
+    expect(sw.fetch).toHaveBeenCalledTimes(1);
+
+    sw.fetch.mockRejectedValue(new TypeError("Failed to fetch"));
+    const offline = await sw.request(share());
+    expect(offline?.status).toBe(303);
+    expect(offline?.headers.get("location")).toBe(`${ORIGIN}/capture?title=A+page&offline=1`);
+  });
+
   it("activate deletes the caches of an older version", async () => {
     const sw = await installed();
     await sw.caches.open("kasten-0ld");

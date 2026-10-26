@@ -97,6 +97,10 @@ slow rebuild, so:
   the whole database is. The vault gets an hourly local backup as well; the
   finance rows get theirs with #1033, before the first real data is loaded, so
   a bad edit will cost at most an hour rather than a day.
+- Receipts are files, not rows: `~/kasten-data/finance/receipts/` holds them
+  by their hash, beside the vault and not in it, and the database holds each
+  one's hash and booking. The nightly offsite backup of the home directory
+  takes them; the hourly finance dump does not.
 - A rollback to a release older than a migration needs that migration undone
   first, with the newer image: the older image does not know the revision. See
   [Deploy to the VPS](/how-to/deploy-to-the-vps.md).

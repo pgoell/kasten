@@ -74,10 +74,11 @@ toolbar's `log` button does the same.
 ## The finance pane
 
 `<leader>gk` puts the finance pane in the focused pane, in place of whatever it
-held. It has five tabs: Overview, To sort, Transactions, Budget and Plans &
-goals. [Read the finance overview](/how-to/read-the-finance-overview.md),
-[Sort finance transactions](/how-to/sort-finance-transactions.md) and
-[Plan costs and goals](/how-to/plan-costs-and-goals.md) walk through them. Every key has a button or a tap beside it, so the pane works the
+held. It has six tabs: Overview, To sort, Transactions, Budget, Plans &
+goals and Tax. [Read the finance overview](/how-to/read-the-finance-overview.md),
+[Sort finance transactions](/how-to/sort-finance-transactions.md),
+[Plan costs and goals](/how-to/plan-costs-and-goals.md) and
+[Collect receipts](/how-to/collect-receipts.md) walk through them. Every key has a button or a tap beside it, so the pane works the
 same with vim off and on a phone.
 
 On To sort and Transactions each category takes a key, in the order the
@@ -93,6 +94,7 @@ upper case and brackets, so they never meet a category's key.
 | `T` | Show the transactions |
 | `B` | Show the budget |
 | `G` | Show the plans and goals |
+| `X` | Show the tax year |
 | `[` | Show the month before |
 | `]` | Show the month after |
 | `P` | Pull now: ask the bank job for a pull |
@@ -113,6 +115,7 @@ upper case and brackets, so they never meet a category's key.
 | `a` | Plans & goals: assign this month's contribution of the account's balance to the goal, once |
 | `u` | Plans & goals: undo the contribution assigned this month |
 | `e` | Plans & goals: edit the goal; Enter saves, Escape leaves it |
+| `[` | Tax: show the year before; `]` the year after |
 | `?` | Show the keys |
 | `q` | Close the pane |
 | `Escape` | Stop the always, leave a field, step back out of a drilldown, or go back to the editor |

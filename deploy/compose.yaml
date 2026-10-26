@@ -53,6 +53,12 @@ services:
       # file would break every mint and every revoke in production while passing
       # every test there is.
       - ${KASTEN_DATA_DIR:-/home/pascal/kasten-data}/agent:/agent-data
+      # The finance receipts, beside the vault and never in it, for the
+      # reason the tokens are: in the vault they would enter jj history and
+      # sit beside every note an agent reads. Only `/api/finance/receipts/*`
+      # serves them. Made by hand before the first deploy, owned by 1000, so
+      # docker does not make it root's.
+      - ${KASTEN_DATA_DIR:-/home/pascal/kasten-data}/finance/receipts:/receipts
     depends_on:
       kasten-migrate-prod:
         condition: service_completed_successfully

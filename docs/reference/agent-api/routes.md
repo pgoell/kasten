@@ -293,7 +293,7 @@ into the vault: the model sees its text and never its bytes.
 
 ## The finance reads
 
-Nine `GET` routes under `/agent/finance/`, and no route that writes. Each
+Ten `GET` routes under `/agent/finance/`, and no route that writes. Each
 summary is the finance pane's own route, served a second time behind the token,
 so it takes the same query and answers the same JSON, to the cent; the pages
 under [HTTP API](/reference/http-api.md) describe the shapes. `today` is always
@@ -307,6 +307,7 @@ the reader's local date, never the server's.
 | `GET /agent/finance/plans/forecast?today=` | [`GET /api/finance/plans/forecast`](/reference/http-api/finance-plans.md) | `plan_forecast` |
 | `GET /agent/finance/plans/upcoming?month=` | [`GET /api/finance/plans/upcoming`](/reference/http-api/finance-plans.md) | `plan_forecast` |
 | `GET /agent/finance/sync` | [`GET /api/finance/sync`](/reference/http-api/finance-sync.md) | `sync_status` |
+| `GET /agent/finance/tax/{year}` | [`GET /api/finance/tax/{year}`](/reference/http-api/finance-tax.md) | `tax_year_summary` |
 | `GET /agent/finance/transactions/{id}` | [`GET /api/finance/drill/bookings/{id}`](/reference/http-api/finance-drill.md) | `read_transaction` |
 | `GET /agent/finance/transactions` | below | `list_transactions` |
 | `GET /agent/finance/lookup` | below | `finance_lookup` |

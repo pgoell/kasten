@@ -11,12 +11,45 @@ export const Route = createFileRoute("/capture")({
   // Android's share sheet opens this page with what was shared in the query,
   // as the manifest's `share_target` names it. Anything that is not a string
   // reads as nothing, which covers a hand-typed address as well.
-  validateSearch: (search: Record<string, unknown>): Shared => ({
+  validateSearch: (search: Record<string, unknown>): Shared & Receipts => ({
     title: typeof search.title === "string" ? search.title : undefined,
     text: typeof search.text === "string" ? search.text : undefined,
     url: typeof search.url === "string" ? search.url : undefined,
+    receipts: count(search.receipts),
+    refused: count(search.refused),
+    offline: count(search.offline),
   }),
 });
+
+/**
+ * What a share of files did. The share sheet posts files to the backend, which keeps them as
+ * receipts and opens this page with how many it kept and refused (`share_target` in the
+ * manifest, `POST /api/finance/receipts/share`).
+ */
+interface Receipts {
+  receipts?: number;
+  refused?: number;
+  /** Files shared with no signal, which the service worker could not send. */
+  offline?: number;
+}
+
+/** A count from the query, which the router may hand over parsed or as text. */
+function count(value: unknown): number | undefined {
+  const number = Number(value);
+  return value != null && Number.isInteger(number) && number >= 0 ? number : undefined;
+}
+
+/** The line that says where a shared file went. */
+function receiptWords({ receipts, refused, offline }: Receipts): string | null {
+  if (offline !== undefined) {
+    return `${offline} file${offline === 1 ? "" : "s"} not sent: no signal. Share again when you have one.`;
+  }
+  if (receipts === undefined) return null;
+  const kept =
+    receipts === 0 ? "No receipt kept" : `${receipts} receipt${receipts === 1 ? "" : "s"} kept`;
+  const tail = refused ? `; ${refused} refused: only PDF, JPEG and PNG up to 20 MB` : "";
+  return `${kept} for tax, waiting under Finance, To sort${tail}.`;
+}
 
 /** One thing this page put in the vault, for the list that says it landed. */
 interface Sent {
@@ -247,6 +280,12 @@ function Capture() {
             </button>
           )}
         </div>
+
+        {receiptWords(shared) !== null && (
+          <p role="status" className="text-[13px] text-k-muted">
+            {receiptWords(shared)}
+          </p>
+        )}
 
         {alert !== null && (
           <p role="alert" className="text-[13px] text-k-danger">
