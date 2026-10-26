@@ -109,7 +109,8 @@ when its note has a `## Log`.
   draws a stub. With logged days but no food line, those four charts say
   `no food logged`. When the range ends on today, today's bar is full strength and the days
   before it lighter. The overview draws its bars the same way
-  ([Read the overview](/how-to/read-the-overview.md)).
+  ([Read the overview](/how-to/read-the-overview.md)), except that its Food
+  card still draws a day of drinks only as a 0 kcal stub (#1122).
 * A line for each `last` kind, such as weight: a dot for each weigh-in, the
   7-day average as a thin line under the dots, and the goal as a dashed line if
   it has one. The scale runs from the lowest value to the highest, not from zero,
