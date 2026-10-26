@@ -76,33 +76,60 @@ class Found:
     payments: dict[str, Payment]
     refunds: list[Refund]
     seen: set[str]
+    skipped: int = 0
 
 
 def _sender(mail: Mail) -> str:
     return mail.sender.rsplit("<", 1)[-1].rstrip(">").strip().lower()
 
 
+PARSE_ERRORS = (ValueError, ArithmeticError, IndexError, KeyError, UnicodeError)
+"""What a parser raises on a mail in a shape it did not expect, such as an amount it cannot read."""
+
+
 def read(mailbox: Mailbox, query: str, found: Found) -> None:
-    """Parse every mail the search finds into `found`; a mail in no known shape is skipped."""
+    """Parse every mail the search finds into `found`.
+
+    A mail in no known shape is passed over. One that Gmail will not hand
+    over, or that breaks a parser, is skipped and counted, so one odd mail
+    never costs the run.
+    """
     for message_id in mailbox.search(query):
         if message_id in found.seen:
             continue
         found.seen.add(message_id)
-        mail = mailbox.message(message_id)
-        sender = _sender(mail)
-        if sender == orders_amazon.CONFIRMATION:
-            for order in orders_amazon.parse_confirmation(mail):
-                found.confirmations.setdefault(order.order_id, order)
-        elif sender == orders_amazon.DISPATCH:
-            if (shipment := orders_amazon.parse_shipment(mail)) is not None:
-                found.shipments.append(shipment)
+        try:
+            _parse(mailbox.message(message_id), found)
+        except (*PARSE_ERRORS, httpx.HTTPStatusError) as error:
+            found.skipped += 1
+            log.warning("Skipped mail %s: %s", message_id, error)
+
+
+def _parse(mail: Mail, found: Found) -> None:
+    """Put one mail's order, shipment, payment or refund into `found`."""
+    sender = _sender(mail)
+    if sender == orders_amazon.CONFIRMATION:
+        for order in orders_amazon.parse_confirmation(mail):
+            found.confirmations.setdefault(order.order_id, order)
+    elif sender == orders_amazon.DISPATCH:
+        if (shipment := orders_amazon.parse_shipment(mail)) is not None:
+            found.shipments.append(shipment)
+        else:
+            log.warning("Skipped Amazon dispatch mail %s: no one order with items", mail.id)
+    elif sender == orders_paypal.SENDER:
+        if (refund := orders_paypal.parse_refund(mail)) is not None:
+            found.refunds.append(refund)
+        elif (payment := orders_paypal.parse_payment(mail)) is not None:
+            if _to_amazon(payment.merchant):
+                # Amazon's own mails say more, item by item and per shipment.
+                log.info("Left out PayPal payment %s to Amazon", payment.code)
             else:
-                log.warning("Skipped Amazon dispatch mail %s: no one order with items", mail.id)
-        elif sender == orders_paypal.SENDER:
-            if (refund := orders_paypal.parse_refund(mail)) is not None:
-                found.refunds.append(refund)
-            elif (payment := orders_paypal.parse_payment(mail)) is not None:
                 found.payments.setdefault(payment.code, payment)
+
+
+def _to_amazon(merchant: str) -> bool:
+    """A PayPal payment to Amazon, which Amazon's own mails cover item by item."""
+    return merchant.casefold().startswith("amazon")
 
 
 def _gmail_day(day: date) -> str:
@@ -140,8 +167,12 @@ def complete(mailbox: Mailbox, found: Found) -> None:
             read(mailbox, f"from:{orders_paypal.SENDER} after:{after} before:{before}", found)
 
 
+TEXT = 500
+"""The longest item text kasten takes."""
+
+
 def _items(items: list[Item]) -> list[dict[str, str]]:
-    return [{"text": text, "amount": str(amount)} for text, amount in items]
+    return [{"text": text[:TEXT], "amount": str(amount)} for text, amount in items]
 
 
 def _amazon(found: Found) -> list[dict[str, Any]]:
@@ -209,6 +240,8 @@ def _paypal(found: Found) -> list[dict[str, Any]]:
         for code, payment in found.payments.items()
     }
     for refund in found.refunds:
+        if _to_amazon(refund.merchant):
+            continue
         payment = _refunded(refund, found.payments)
         if payment is None:
             log.warning("No payment found for the PayPal refund in mail %s", refund.mail_id)
@@ -224,28 +257,38 @@ def _paypal(found: Found) -> list[dict[str, Any]]:
     return list(orders.values())
 
 
-def gather(mailbox: Mailbox, days: int) -> list[dict[str, Any]]:
-    """Every order the last `days` of mail hold, as `POST /api/finance/orders` takes them."""
+def gather_found(mailbox: Mailbox, days: int) -> Found:
+    """What the last `days` of mail hold, and how many mails were skipped."""
     found = Found({}, [], {}, [], set())
     senders = " OR ".join(SENDERS)
     read(mailbox, f"from:({senders}) newer_than:{days}d", found)
     complete(mailbox, found)
+    return found
+
+
+def gather(mailbox: Mailbox, days: int) -> list[dict[str, Any]]:
+    """Every order the last `days` of mail hold, as `POST /api/finance/orders` takes them."""
+    found = gather_found(mailbox, days)
     return _amazon(found) + _paypal(found)
 
 
 def sync(api: KastenApi, mailbox: Mailbox, days: int) -> int:
-    """Gather the orders and send them; 0 once kasten has them all."""
-    orders = gather(mailbox, days)
+    """Gather the orders and send them; 1 only when there were orders and kasten took none."""
+    found = gather_found(mailbox, days)
+    orders = _amazon(found) + _paypal(found)
     stored = api.post_orders(orders)
     log.info(
-        "Sent %d orders: %d new, %d changed, %d as they were; %d charges matched",
+        "Sent %d orders: %d new, %d changed, %d as they were, %d refused; %d charges matched;"
+        " %d mails skipped",
         len(orders),
         stored["created"],
         stored["updated"],
         stored["unchanged"],
+        stored["refused"],
         stored["matched"],
+        found.skipped,
     )
-    return 0
+    return 1 if orders and stored["refused"] == len(orders) else 0
 
 
 def main(argv: list[str] | None = None) -> int:

@@ -28,7 +28,10 @@ Session = Annotated[AsyncSession, Depends(get_session)]
 MAX_BATCH = 200
 """The most orders one post may carry. A first run over months of mail sends several."""
 
-Text = Annotated[str, Field(min_length=1)]
+Text = Annotated[str, Field(min_length=1, max_length=500)]
+"""An item's text, a merchant: a long Amazon title fits, a pasted page does not."""
+
+Key = Annotated[str, Field(min_length=1, max_length=200)]
 
 
 class ItemIn(BaseModel):
@@ -42,10 +45,10 @@ class ChargeIn(BaseModel):
     """One payment for the order, with the items it paid for, or one refund, which has none."""
 
     kind: ChargeKind = "charge"
-    key: Text
+    key: Key
     charged_on: date
     amount: Annotated[Money, Field(gt=0)]
-    items: list[ItemIn] = []
+    items: Annotated[list[ItemIn], Field(max_length=100)] = []
 
     @model_validator(mode="after")
     def _items_fit_the_kind(self) -> Self:
@@ -62,7 +65,7 @@ class OrderIn(BaseModel):
     """An order as the job sends it, keyed by its source and the shop's order id."""
 
     source: Source
-    order_key: Text
+    order_key: Key
     ordered_on: date
     merchant: Text
     total: Money | None = None

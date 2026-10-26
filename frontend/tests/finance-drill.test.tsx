@@ -363,6 +363,14 @@ describe("the finance pane's drilldowns", () => {
     await screen.findByText("REWE SAGT DANKE");
     press("Enter");
     expect(await screen.findByText(/^You had sorted or split this booking by hand/)).toBeTruthy();
+
+    cleanup();
+    api.fetchBookingDrill.mockResolvedValue({ ...DRILLED, order: order("unsplit") });
+    renderPane();
+    press("T");
+    await screen.findByText("REWE SAGT DANKE");
+    press("Enter");
+    expect(await screen.findByText(/^You took away the split into these items/)).toBeTruthy();
   });
 
   it("#1083 a category lists a split booking by its part in that category, so the net is its own", async () => {

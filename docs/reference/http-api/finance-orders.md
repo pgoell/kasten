@@ -62,6 +62,9 @@ matches every charge that waits to its booking. Answers with what it did.
   Shipping and tax are items too. `key` is the job's name for the charge,
   unique within the order and kind: Amazon's dispatch mail, or `payment` for
   PayPal's one charge.
+* Sizes: a charge holds at most 100 items, an item's text and the merchant at
+  most 500 characters, `order_key` and `key` at most 200. An order holds at
+  most 50 charges.
 
 Amazon charges each shipment on its own, so an Amazon order has one charge per
 shipment, each matched to its own booking. A digital order, which ships
@@ -73,8 +76,8 @@ old shipment falls out of its window. A charge not matched yet takes what the
 post says; one already matched keeps what it had. A post with no `total`
 keeps the total and day an order already has: the job sends none when it found
 no order confirmation, and the day it sends then is a stand-in. A `422` refuses a charge with
-no items, a refund with items, two charges of one kind under one key, or a
-`source` other than the two.
+no items, a refund with items, two charges of one kind under one key, a
+`source` other than the two, or anything past the sizes above.
 
 ### How a charge finds its booking
 
@@ -91,15 +94,23 @@ A charge matches a booking that:
 The banks write these bookings in two shapes. Amazon's direct debit starts
 with the order id: `123-4567890-1234567 AMZNMktp DE 5ABC4DEF5GHI6JKL
 FOLGELASTSCHRIFT`, or `D01-...` for a digital order. PayPal's names the shop:
-`1059876543210/PP.4711.PP/. Example Shop GmbH, Ihr Einkauf bei Example Shop
-GmbH`, and a refund to the bank `. Example Shop GmbH, Ihr Einkauf bei ...
-GUTSCHR. UEBERWEISUNG`. The leading number is PayPal's debit reference, which
-the mail does not carry.
+`1059876543210/PP.4711.PP/. Example Shop B.V., Ihr Einkauf bei Example Shop
+FOLGELASTSCHRIFT`, the legal name before the comma and the shop's own after
+"Ihr Einkauf bei", and a refund to the bank `. Example Shop B.V., Ihr Einkauf
+bei ... GUTSCHR. UEBERWEISUNG`. The leading number is PayPal's debit
+reference, which the mail does not carry.
 
-Of the bookings that fit, one that names the order id wins over one whose shop
-holds the merchant's first word, which wins over one that names no shop (money
-sent to a person). One that names another Amazon order or another PayPal shop
-never matches. Bookings that name an order id go first, in a pass of their
+An Amazon booking matches only when it names the order id. A PayPal booking
+in the shape above matches when either of its two names is the mail's
+merchant, compared casefolded, with spaces, dots and legal forms (GmbH, B.V.,
+Inc., Ltd., S.a.r.l. and the like) taken out, one the start of the other, as
+PayPal cuts a long name short in its mails. One that names no shop at all,
+`. , Ihr Einkauf bei`, fits money sent to a person. A booking that names
+another shop, or is in no such shape (a card payment `PAYPAL *SHOP`), never
+matches.
+
+Of the bookings that fit, one that names the order id wins over one that
+names the merchant, which wins over one that names no shop. Bookings that name an order id go first, in a pass of their
 own. Two bookings that fit alike leave the charge `ambiguous`; kasten never
 guesses. The one exception: two bookings that both name the order id are two
 shipments of one amount, so the older takes the first shipment and the other
@@ -114,12 +125,24 @@ money twice or not at all.
 
 * A `charge` splits its booking into its items, the booking's own category
   goes, and the rules sort each item by its text
-  ([how the rules fire](/reference/http-api/finance-sorting.md)). An item no
+  ([how the rules fire](/reference/http-api/finance-sorting.md)). A part
+  whose own text no rule names takes a text rule on the booking's purpose,
+  so an `amzn` rule still sorts it as it sorted the whole booking. A part no
   rule sorts waits in the to-sort list. Status `split`.
+* A discount or credit (an item below zero) is no part of its own: it would
+  be money in on a booking of money out, which no spending rule sorts and the
+  budget skips, so the items would count more than was paid. It is shared out
+  over the other items by their amounts, to the cent, the cents rounding
+  leaves going to the largest first, so the parts still add up to the
+  booking.
 * A booking the owner sorted by hand, or split by hand, stays exactly as it is:
   kasten links the charge to it and writes nothing. Status `kept`. The booking
   view shows the order's items beside it, and the owner can split it by hand
   from them.
+* Splits the owner takes away by hand afterwards
+  ([`PUT .../splits`](/reference/http-api/finance.md) with none) stay away:
+  status `unsplit`, never split again. Splits the owner rewrites read as
+  `kept`.
 * A `refund` is linked to its own booking of money in and never split. Status
   `linked`.
 * Amazon sends no refund mail the job reads. A booking of money in that names
@@ -162,7 +185,8 @@ under To sort. `limit` is 1 to 500, 50 by default.
 | `ambiguous` | More than one booking fits alike. |
 | `items_off` | Its items do not add up to it, so it is never matched. |
 | `split` | Matched; the booking is split into its items. |
-| `kept` | Matched to a booking split or sorted by hand, left as it was. |
+| `kept` | Matched to a booking split or sorted by hand, left as it was, or whose splits the owner rewrote. |
+| `unsplit` | Matched and split, then the owner took the splits away. |
 | `linked` | A refund, matched. |
 
 The order a booking paid shows in

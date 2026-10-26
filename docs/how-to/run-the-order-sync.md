@@ -63,7 +63,7 @@ matches the route it writes through:
 order_sync() {
   sg docker -c "docker run --rm --network web --user $(id -u):$(id -g) \
     --env-file $HOME/.config/kasten/order-sync.env \
-    -v $HOME/.config/kasten/gmail.json:/gmail.json:ro \
+    --mount type=bind,src=$HOME/.config/kasten/gmail.json,dst=/gmail.json,readonly \
     $(docker inspect -f '{{.Config.Image}}' kasten-backend-prod) \
     kasten-order-sync $*"
 }
@@ -126,12 +126,21 @@ matches one, kasten links it and leaves the booking as it was. The booking's
 view in the finance pane shows the order and its items with a note saying so;
 to use the items, split the booking by hand from them.
 
+## Undo a split
+
+To have a booking whole again after an order split it, open the booking, remove
+every part and press "Save, whole". Kasten marks the order's charge "split
+removed by hand" and never splits that booking again.
+
 ## Sorting the items
 
 Each item is sorted by the rules, reading the item's text: a text rule
 `garden` sends a "Garden hose" to its category. PayPal items carry the shop's
-name, so a rule on the shop still sorts them. An item no rule sorts waits in
-the to-sort list. Give PayPal or Amazon no "always for this payee": that
+name, and Amazon items start with `Amazon:`, so a rule on the shop still sorts
+them. A text rule on the booking's purpose, such as `amzn`, sorts the items
+no rule of their own names, as it sorted the booking before. A discount is
+shared out over the items, so they add up to what you paid. An item no rule
+sorts waits in the to-sort list. Give PayPal or Amazon no "always for this payee": that
 default would take every item no text rule sorts ([Sort finance
 transactions](/how-to/sort-finance-transactions.md)).
 

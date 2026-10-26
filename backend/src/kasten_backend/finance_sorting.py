@@ -23,7 +23,9 @@ before a payee rule because it names that one payee, and a rule names a part
 of many.
 
 A split is sorted the same way, its own text standing in for the purpose and
-its booking's payee for its own. A booking with splits takes no category
+its booking's payee for its own; a text rule on its booking's purpose comes
+right after one on its own text, so a part no rule names keeps the category
+a purpose rule such as `amzn` gave the whole booking. A booking with splits takes no category
 itself; its splits do. A move between own accounts (`transfer_group`) takes
 none either, being no spending.
 
@@ -139,10 +141,21 @@ def _first_rule(kind: str, matches: ColumnElement[bool], amount: Any, payee: Any
     )
 
 
-def _chosen(text: Any, payee_id: Any, amount: Any) -> Any:
-    """The category the rules give a row whose text, payee and amount are these columns."""
+def _by_text(text: Any, amount: Any) -> Any:
+    return _first_rule("text_contains", func.strpos(func.lower(text), Rule.pattern) > 0, amount)
+
+
+def _chosen(text: Any, payee_id: Any, amount: Any, booking_text: Any = None) -> Any:
+    """The category the rules give a row whose text, payee and amount are these columns.
+
+    A split passes its booking's purpose as `booking_text`: a text rule on
+    the purpose, such as `amzn`, then sorts a part its own text leaves alone,
+    as it sorted the booking before the split.
+    """
     payee = aliased(Payee)
-    by_text = _first_rule("text_contains", func.strpos(func.lower(text), Rule.pattern) > 0, amount)
+    by_text = _by_text(text, amount)
+    if booking_text is not None:
+        by_text = func.coalesce(by_text, _by_text(booking_text, amount))
     # A space before the key and the pattern, so a pattern starts at a word of
     # the key: Firefly's rules hold fragments such as `lebensversic`.
     padded = func.concat(" ", payee.key)
@@ -205,7 +218,7 @@ async def apply_rules(session: AsyncSession, ids: Sequence[int] | None = None) -
             split.id,
             case(
                 (parent.transfer_group.is_not(None), null()),
-                else_=_chosen(split.text, parent.payee_id, split.amount),
+                else_=_chosen(split.text, parent.payee_id, split.amount, parent.purpose),
             ).label("category"),
         )
         .join(parent, parent.id == split.transaction_id)

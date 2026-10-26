@@ -37,14 +37,15 @@ ChargeKind = Literal["charge", "refund"]
 
 CHARGE_KINDS: tuple[str, ...] = get_args(ChargeKind)
 
-Status = Literal["waiting", "ambiguous", "items_off", "split", "kept", "linked"]
+Status = Literal["waiting", "ambiguous", "items_off", "split", "kept", "unsplit", "linked"]
 """Where a charge stands.
 
 `waiting`: no booking found yet. `ambiguous`: more than one booking fits.
 `items_off`: its items do not add up to it, so it is never matched. `split`:
 matched, the booking split into its items. `kept`: matched to a booking the
-owner had split or sorted by hand, which stays as it was. `linked`: a refund,
-matched and never split.
+owner had split or sorted by hand, which stays as it was, or whose splits
+the owner rewrote later. `unsplit`: matched and split, and the owner took
+the splits away. `linked`: a refund, matched and never split.
 """
 
 STATUSES: tuple[str, ...] = get_args(Status)

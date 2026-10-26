@@ -7451,6 +7451,7 @@
           },
           "key": {
             "type": "string",
+            "maxLength": 200,
             "minLength": 1,
             "title": "Key"
           },
@@ -7477,6 +7478,7 @@
               "$ref": "#/components/schemas/ItemIn"
             },
             "type": "array",
+            "maxItems": 100,
             "title": "Items",
             "default": []
           }
@@ -9119,6 +9121,7 @@
         "properties": {
           "text": {
             "type": "string",
+            "maxLength": 500,
             "minLength": 1,
             "title": "Text"
           },
@@ -9882,6 +9885,7 @@
           },
           "order_key": {
             "type": "string",
+            "maxLength": 200,
             "minLength": 1,
             "title": "Order Key"
           },
@@ -9892,6 +9896,7 @@
           },
           "merchant": {
             "type": "string",
+            "maxLength": 500,
             "minLength": 1,
             "title": "Merchant"
           },

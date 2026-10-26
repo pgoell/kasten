@@ -46,7 +46,9 @@ read past PayPal to Spotify. A payee's own default beats a payee rule because
 it names that payee alone, where a rule names part of many.
 
 A split is sorted the same way, with its own `text` in place of the purpose and
-its booking's payee. A booking with splits takes no category itself; its
+its booking's payee. A text rule on the booking's purpose comes right after a
+text rule on the split's own text, so a part no rule names keeps the category
+a purpose rule such as `amzn` gave the whole booking. A booking with splits takes no category itself; its
 splits do. A move between own accounts, a booking with a `transfer_group`,
 takes none and is never on the to-sort list: it is no spending. A booking
 that had a category before its twin came in loses it when the two are paired,

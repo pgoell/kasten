@@ -17,6 +17,7 @@ const STATUS: Record<string, string> = {
   items_off: "its items do not add up",
   split: "split into its items",
   kept: "kept as you sorted it",
+  unsplit: "split removed by hand",
   linked: "linked",
 };
 

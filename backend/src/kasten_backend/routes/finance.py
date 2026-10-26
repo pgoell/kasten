@@ -319,6 +319,8 @@ async def write_splits(
         raise HTTPException(status_code=422, detail=str(refused)) from refused
     if booking is None:
         raise HTTPException(status_code=404, detail="No such transaction")
+    # An order's split, rewritten or taken away by hand, stays as the owner left it.
+    await finance_orders.unsplit_by_hand(session, transaction_id, removed=not parts)
     # The new splits are sorted at once, and the booking itself gives up a
     # category a rule gave it, since its category now lives on them.
     await finance_sorting.apply_rules(session, [transaction_id])

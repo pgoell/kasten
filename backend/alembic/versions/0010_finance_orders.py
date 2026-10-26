@@ -54,7 +54,7 @@ def upgrade() -> None:
         sa.Column("status", sa.Text(), server_default="waiting", nullable=False),
         sa.CheckConstraint("kind IN ('charge', 'refund')", name="order_charge_kind_check"),
         sa.CheckConstraint(
-            "status IN ('waiting', 'ambiguous', 'items_off', 'split', 'kept', 'linked')",
+            "status IN ('waiting', 'ambiguous', 'items_off', 'split', 'kept', 'unsplit', 'linked')",
             name="order_charge_status_check",
         ),
         sa.CheckConstraint("amount > 0", name="order_charge_amount_check"),

@@ -49,7 +49,7 @@ def test_a_digital_order_is_its_own_charge_at_its_total_with_tax() -> None:
             "D01-1234567-7654321",
             DAY,
             Decimal("8.99"),
-            [("A Novel About Gardens (English Edition)", Decimal("8.99"))],
+            [("Amazon: A Novel About Gardens (English Edition)", Decimal("8.99"))],
         )
     ]
 
@@ -64,7 +64,10 @@ def test_a_dispatch_charges_its_items_at_quantity_times_unit_price_to_the_cent()
         "111-2223334-4445556",
         DAY,
         Decimal("27.00"),
-        [("Garden hose, 20 m, green", Decimal("24.50")), ("2 x Hose clip", Decimal("2.50"))],
+        [
+            ("Amazon: Garden hose, 20 m, green", Decimal("24.50")),
+            ("Amazon: 2 x Hose clip", Decimal("2.50")),
+        ],
     )
     assert sum(amount for _, amount in shipment.items) == shipment.amount
 

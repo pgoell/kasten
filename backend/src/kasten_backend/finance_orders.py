@@ -11,14 +11,17 @@ own category and nothing twice. The rules that keep it so:
   amount) booked from `EARLY_DAYS` before to `LATE_DAYS` after it, or up to
   `NAMED_LATE_DAYS` when it names the order id, whose purpose or
   counterparty names the source, which is not a move between own accounts
-  and which no other charge holds. Amazon's debits start with the order id;
-  PayPal's name the shop ("Ihr Einkauf bei ..."). One that names the order
-  id beats one that names the merchant, which beats one that names none; one
-  that names another order or shop never matches. Two of the best kind
+  and which no other charge holds. Amazon's debits start with the order id,
+  and only one naming it matches. PayPal's name the shop twice ("Shop B.V.,
+  Ihr Einkauf bei Shop"): one naming the merchant beats one naming no shop;
+  one naming another shop, or in no PayPal debit's shape, never matches. Two of the best kind
   leave the charge `ambiguous`, never guessed, unless both name the order
   id: two shipments of one amount, either right.
 - A booking the owner split or sorted by hand is linked but left as it is
-  (`kept`); the booking view shows the order's items beside it.
+  (`kept`); the booking view shows the order's items beside it. Splits the
+  owner later removes or rewrites stay so (`unsplit`, `kept`).
+- A discount or credit is shared out over the items it came off, so no part
+  is money in on a booking of money out.
 - A refund is linked to its own booking and never split.
 - Amazon refunds come with no mail the job reads, so a booking of money in
   that names a stored Amazon order id becomes that order's refund.
@@ -26,18 +29,18 @@ own category and nothing twice. The rules that keep it so:
 Nothing here commits.
 """
 
-import re
 from dataclasses import dataclass
 from datetime import date, timedelta
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import exists, func, literal, or_, select
+from sqlalchemy import exists, func, literal, or_, select, update
 from sqlalchemy.orm import selectinload
 
 from kasten_backend import finance, finance_sorting
 from kasten_backend.finance_models import Account, Transaction, TransactionSplit
 from kasten_backend.finance_order_models import OrderCharge, OrderItem, ShopOrder
+from kasten_backend.finance_order_text import NAMED, Candidate, choose, rank
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -64,12 +67,6 @@ Amazon's direct debits start with the order id, which no other booking
 carries, so a late one is still safe to take.
 """
 
-_ORDER_ID = re.compile(r"\b(?:\d{3}|d01)-\d{7}-\d{7}\b")
-"""An Amazon order id as a booking's lowercased text carries it."""
-
-_PAYPAL_SHOP = re.compile(r"(?:^|/)\s*\.\s*(.*?),\s*ihr einkauf bei")
-"""The shop a PayPal debit names: `.../PP.1234.PP/. Shop GmbH, Ihr Einkauf bei Shop GmbH`."""
-
 AMAZON_REFUND_DAYS = 180
 """How long after an Amazon order a booking of money in naming it counts as its refund."""
 
@@ -85,12 +82,6 @@ class Stored:
     updated: int
     unchanged: int
     matched: int
-
-
-def _merchant_word(merchant: str) -> str | None:
-    """The merchant's first word of three letters or more, lowercased, which a purpose may name."""
-    words = re.findall(r"[^\W_]{3,}", merchant.lower())
-    return words[0] if words else None
 
 
 def _items_of(charge: dict[str, Any]) -> list[tuple[str, Decimal]]:
@@ -184,60 +175,6 @@ async def store_orders(session: AsyncSession, orders: list[dict[str, Any]]) -> S
     return Stored(created, updated, unchanged, matched)
 
 
-@dataclass(frozen=True)
-class Candidate:
-    """A booking that could have paid a charge: its id and how well its text names the order.
-
-    Candidates come oldest first, by booking date and id.
-    """
-
-    id: int
-    rank: int
-
-
-NAMED = 2
-"""The rank of a booking that names the order id."""
-
-OTHER = -1
-"""The rank of a booking that names another order or another shop: never a match."""
-
-
-def choose(candidates: Sequence[Candidate]) -> tuple[str, int | None]:
-    """The booking a charge matches, or why none: `waiting`, or `ambiguous` for a tie.
-
-    Two bookings that both name the order id are two shipments of one order
-    at the same amount, so either is right: the older is taken, and the other
-    is left for the next shipment.
-    """
-    fits = [c for c in candidates if c.rank > OTHER]
-    if not fits:
-        return "waiting", None
-    best = max(c.rank for c in fits)
-    top = [c for c in fits if c.rank == best]
-    if len(top) > 1 and best != NAMED:
-        return "ambiguous", None
-    return "linked", top[0].id
-
-
-def _rank(text: str, order: ShopOrder) -> int:
-    """How well a booking's lowercased text names the order.
-
-    `NAMED` for the order id. Else, for Amazon, `OTHER` when it names
-    another order id; for PayPal, 1 when the shop it names holds the
-    merchant's first word, 0 when it names none, `OTHER` when it names
-    another shop.
-    """
-    if order.order_key.lower() in text:
-        return NAMED
-    if order.source == "amazon":
-        return OTHER if _ORDER_ID.search(text) else 0
-    shop = _PAYPAL_SHOP.search(text)
-    word = _merchant_word(order.merchant)
-    if shop is None or not shop.group(1).strip() or word is None:
-        return 0
-    return 1 if word in shop.group(1) else OTHER
-
-
 def _text() -> Any:
     return func.lower(
         func.concat(
@@ -265,7 +202,7 @@ async def _candidates(session: AsyncSession, charge: OrderCharge) -> list[Candid
     late = LATE_DAYS if charge.kind == "charge" else REFUND_LATE_DAYS
     text = _text()
     rows = await session.execute(
-        select(Transaction.id, Transaction.booking_date, text)
+        select(Transaction.id, Transaction.booking_date, text, Transaction.purpose)
         .where(
             Transaction.amount == sign * charge.amount,
             Transaction.currency == order.currency,
@@ -279,9 +216,46 @@ async def _candidates(session: AsyncSession, charge: OrderCharge) -> list[Candid
         .order_by(Transaction.booking_date, Transaction.id)
     )
     last = charge.charged_on + timedelta(days=late)
-    found = [(id_, day, _rank(words, order)) for id_, day, words in rows]
+    found = [(id_, day, rank(words, purpose or "", order)) for id_, day, words, purpose in rows]
     # Past the usual window only a booking that names the order id is taken.
     return [Candidate(id_, rank) for id_, day, rank in found if rank == NAMED or day <= last]
+
+
+def net(items: Sequence[OrderItem]) -> list[tuple[str, Decimal]]:
+    """The items with each discount or credit shared out over the others, cents exact.
+
+    A discount kept as a part of its own would be money in on a booking of
+    money out: no spending rule sorts it, and the budget skips money in not
+    sorted, so the items would count more than was paid. Each item takes a
+    share of the discounts by its amount; the cents left by rounding go to
+    the largest items first, so the parts still add up to the charge.
+    """
+    paid = [(item.text, int(item.amount * 100)) for item in items if item.amount > 0]
+    credit = sum(int(item.amount * 100) for item in items if item.amount < 0)
+    if not credit:
+        return [(text, Decimal(cents) / 100) for text, cents in paid]
+    gross = sum(cents for _, cents in paid)
+    total = gross + credit
+    shares = [cents * total // gross for _, cents in paid]
+    order = sorted(range(len(paid)), key=lambda at: (-paid[at][1], at))
+    for at in order[: total - sum(shares)]:
+        shares[at] += 1
+    # An item the credit took whole is no part at all.
+    shared = zip(paid, shares, strict=True)
+    return [(text, Decimal(share) / 100) for (text, _), share in shared if share]
+
+
+async def unsplit_by_hand(session: AsyncSession, booking_id: int, *, removed: bool) -> None:
+    """Mark the charge whose items split a booking once the owner rewrites that booking's splits.
+
+    `unsplit` when the owner took the splits away, `kept` when they wrote
+    their own, so the matcher never splits it again and the pane says why.
+    """
+    await session.execute(
+        update(OrderCharge)
+        .where(OrderCharge.transaction_id == booking_id, OrderCharge.status == "split")
+        .values(status="unsplit" if removed else "kept")
+    )
 
 
 async def _split(session: AsyncSession, charge: OrderCharge, booking_id: int) -> str:
@@ -302,7 +276,7 @@ async def _split(session: AsyncSession, charge: OrderCharge, booking_id: int) ->
     )
     if by_hand:
         return "kept"
-    parts = [{"amount": -item.amount, "text": item.text} for item in charge.items]
+    parts = [{"amount": -amount, "text": text} for text, amount in net(charge.items)]
     await finance.replace_splits(session, booking_id, parts)
     await finance_sorting.apply_rules(session, [booking_id])
     return "split"

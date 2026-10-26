@@ -52,6 +52,9 @@ export function UnmatchedOrders() {
 /** What a match did to this booking, in a sentence. */
 function outcome(charge: Charge): string {
   if (charge.kind === "refund") return "Money back for this order.";
+  if (charge.status === "unsplit") {
+    return "You took away the split into these items, so it stays whole.";
+  }
   if (charge.status === "kept") {
     return "You had sorted or split this booking by hand, so it stays as you left it. To use the items, split it by hand from them.";
   }

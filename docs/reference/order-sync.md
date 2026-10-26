@@ -23,13 +23,16 @@ It only reads mail. It never labels, moves, archives or sends one.
 
 | Command | What it does | Exit code |
 |---|---|---|
-| `sync [--days N]` | Reads the last `N` days of order mail (`ORDER_SYNC_DAYS`) and sends every order in it. | `0` kasten has them; `1` Gmail or kasten refused |
+| `sync [--days N]` | Reads the last `N` days of order mail (`ORDER_SYNC_DAYS`) and sends every order in it. | `0` kasten took the orders, or some of them; `1` it took none, Gmail refused the login, or kasten did not answer |
 | `show [--days N]` | Reads the same mail and prints the orders as JSON, sending nothing. For checking what the job makes of the mail. | `0` |
 
 Every run sends every order it finds, not only new ones: an order sent again
 changes nothing, so a failed run or a missed day costs nothing. A mail in no
-shape the job knows is skipped, and a dispatch mail it cannot read logs a
-warning. A refused Gmail login stops the job with `Google refused the login`
+shape the job knows is passed over, and a dispatch mail it cannot read logs a
+warning. A mail Gmail will not hand over, or that breaks a parser, is skipped
+with a warning naming it, and the run's last line counts the mails skipped. A
+batch kasten refuses with a `422` is sent again order by order, so an order
+kasten will not take costs only that order, logged with kasten's reason. A refused Gmail login stops the job with `Google refused the login`
 and exit `1`: the refresh token was revoked, or its login done again.
 
 ## The env file
@@ -76,7 +79,7 @@ versandbestaetigung@amazon.de OR service@paypal.de) newer_than:<days>d`:
 |---|---|---|
 | `bestellbestaetigung@amazon.de` | Order confirmation, in English ("Order #", "Total") | The order: its id, day and total. No charge: Amazon charges at dispatch |
 | `bestellbestaetigung@amazon.de` | Digital order, in German ("Bestellnr.", "Gesamtsumme") | The order and its one charge at the total with tax, the titles as one item |
-| `versandbestaetigung@amazon.de` | Dispatch ("Order #", items, "Total") | One charge, keyed by the mail's id, with its items |
+| `versandbestaetigung@amazon.de` | Dispatch ("Order #", items, "Total") | One charge, keyed by the mail's id, with its items, each named `Amazon: <title>` |
 | `service@paypal.de` | Receipt with a transaction code | The order, keyed by the code, and its one charge `payment` |
 | `service@paypal.de` | "Deine Rückzahlung über ..." | A refund of the payment it names, keyed by the mail's id |
 
@@ -90,7 +93,9 @@ Gartenschere`, so a rule on the shop's name still sorts them. Shipping, tax
 and a discount are items of their own. A receipt that lists no items, or whose
 lines do not add up to its total, is one item in the shop's name for the
 whole. Money sent to a person is one item in their name. A payment in another
-currency is skipped.
+currency is skipped, and so is a payment to Amazon and its refund: Amazon's
+own mails cover that order item by item and per shipment. An item text longer
+than kasten's 500 characters is cut there.
 
 ### What the window leaves out
 

@@ -21,7 +21,7 @@ from backend.tests.finance_order_rows import (
     unmatched,
 )
 from backend.tests.finance_rows import GIRO, SAVING, account, booking, post, stored
-from kasten_backend.finance_orders import Candidate, choose
+from kasten_backend.finance_order_text import Candidate, choose
 
 if TYPE_CHECKING:
     from httpx import AsyncClient

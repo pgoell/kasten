@@ -27,6 +27,7 @@ class FakeKasten:
     refuse: set[int] = field(default_factory=set)
     status_reads: int = 0
     orders: list[list[dict[str, Any]]] = field(default_factory=list)
+    refuse_orders: set[str] = field(default_factory=set)
 
     def handle(self, request: httpx.Request) -> httpx.Response:
         route = {
@@ -81,6 +82,8 @@ class FakeKasten:
         return httpx.Response(200, json={"id": 7})
 
     def _orders(self, body: Any) -> httpx.Response:
+        if {o["order_key"] for o in body} & self.refuse_orders:
+            return httpx.Response(422, json={"detail": "refused"})
         self.orders.append(body)
         answer = {"created": len(body), "updated": 0, "unchanged": 0, "matched": 1}
         return httpx.Response(200, json=answer)
