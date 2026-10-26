@@ -29,13 +29,17 @@ function messageOf(error: unknown): string {
  * `current` holds back a stale cached answer until the refetch on mount lands.
  * A sitting keeps the first answer it sees, and an edit to `decks.md` since the
  * overview read it invalidates nothing, so a stale one would outlive the edit.
+ *
+ * `retry` reads them again. `failed` is null while that read runs, so a retry
+ * that fails with the same message still shows as a new failure to the caller.
  */
 export function useReviewLimits(current = false): {
   limits: Limits | undefined;
   /** The message of the failed read, when there is no answer to show. */
   failed: string | null;
+  retry: () => void;
 } {
-  const { data, error, isError, isFetchedAfterMount, isStale } = useQuery({
+  const { data, error, isError, isFetching, isFetchedAfterMount, isStale, refetch } = useQuery({
     queryKey: ["cards", "limits"],
     queryFn: async (): Promise<Limits> => {
       const [note, defaults] = await Promise.all([
@@ -60,6 +64,7 @@ export function useReviewLimits(current = false): {
   });
   return {
     limits: current && isStale && !isFetchedAfterMount ? undefined : data,
-    failed: isError && data === undefined ? messageOf(error) : null,
+    failed: isError && !isFetching && data === undefined ? messageOf(error) : null,
+    retry: () => void refetch(),
   };
 }

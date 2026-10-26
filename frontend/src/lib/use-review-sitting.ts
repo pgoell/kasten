@@ -101,7 +101,7 @@ export function useReviewSitting(
   const write = useSittingWrites(setTexts, unwritten);
 
   const today = useMemo(() => readClock(new Date()).date, []);
-  const { limits: read, failed: limitsFailed } = useReviewLimits(true);
+  const { limits: read, failed: limitsFailed, retry: retryLimits } = useReviewLimits(true);
   // The first limits read, kept for the whole sitting. Every rating refetches
   // them, and a `decks.md` that answers differently by then would otherwise
   // build the queue again under the sitting: the count jumps back and a card
@@ -154,13 +154,17 @@ export function useReviewSitting(
     };
   }, [deck, today, limits, tries]);
 
-  // Try again reads the deck once more, and only while no text was read: a read
-  // over a sitting that has answers would rebuild its queue under them.
-  const rereadable = texts === null && failed?.startsWith(NOTE_UNREAD) === true;
+  // Try again reads what failed, and only while no text was read: a read over a
+  // sitting that has answers would rebuild its queue under them. Limits that
+  // failed are read again first, and the deck after them by the effect above.
+  const rereadable =
+    texts === null &&
+    (failed?.startsWith(NOTE_UNREAD) === true || failed?.startsWith(LIMITS_UNREAD) === true);
   const reread = useCallback(() => {
     setFailed(null);
-    setTries((n) => n + 1);
-  }, []);
+    if (limits === undefined) retryLimits();
+    else setTries((n) => n + 1);
+  }, [limits, retryLimits]);
 
   const cards = useMemo(() => cardsOf(deck, texts ?? new Map()), [deck, texts]);
   const seat = queue[0];

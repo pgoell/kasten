@@ -18,6 +18,7 @@ import type { ReactElement } from "react";
 import { createRoot } from "react-dom/client";
 import { commands, page } from "vitest/browser";
 import { ReviewSession } from "@/components/review-session";
+import { readRetry } from "@/lib/read-retry";
 import type { Deck } from "@/lib/review";
 import { shot } from "./shots";
 import "@/styles/app.css";
@@ -38,9 +39,14 @@ const DECK: Deck = {
   next: null,
 };
 
+const limits = vi.hoisted(() => ({ down: false }));
+
 vi.mock("@/lib/api", async (original) => ({
   ...(await original<typeof import("@/lib/api")>()),
-  fetchReviewLimits: () => Promise.resolve({ new_per_day: null, reviews_per_day: null }),
+  fetchReviewLimits: () =>
+    limits.down
+      ? Promise.reject(new Error("GET /api/review/limits failed with 502", { cause: 502 }))
+      : Promise.resolve({ new_per_day: null, reviews_per_day: null }),
   fetchNote: () =>
     Promise.reject(new Error(`GET /api/files/${NOTE} failed with 500`, { cause: 500 })),
 }));
@@ -72,9 +78,17 @@ async function mountAt(size: Size) {
 
 afterEach(async () => {
   delete document.documentElement.dataset.theme;
+  limits.down = false;
+  vi.restoreAllMocks();
   await commands.emulateMedia({});
   await page.viewport(1280, 900);
 });
+
+/** The daily limits read fails for good: one refused read and no more, so the foot shows at once. */
+function limitsDown() {
+  limits.down = true;
+  vi.spyOn(readRetry, "retry").mockReturnValue(false);
+}
 
 it("#1163 I5 at phone width 414 Try again is a tap target at least 44 px high", async () => {
   const { host, root } = await mountAt(PHONE);
@@ -83,6 +97,20 @@ it("#1163 I5 at phone width 414 Try again is a tap target at least 44 px high", 
       .poll(() => tryAgain(host)?.getBoundingClientRect().height ?? 0)
       .toBeGreaterThanOrEqual(44);
     if (SHOTS) await shot(host, "review-try-again-414");
+  } finally {
+    root.unmount();
+    host.remove();
+  }
+});
+
+it("#1167 I5 at phone width 414 the limits Try again is a tap target at least 44 px high", async () => {
+  limitsDown();
+  const { host, root } = await mountAt(PHONE);
+  try {
+    await expect
+      .poll(() => tryAgain(host)?.getBoundingClientRect().height ?? 0)
+      .toBeGreaterThanOrEqual(44);
+    if (SHOTS) await shot(host, "review-limits-try-again-414");
   } finally {
     root.unmount();
     host.remove();
@@ -104,5 +132,14 @@ async function picture(name: string, size: Size): Promise<void> {
 it.skipIf(!SHOTS)(
   "review-try-again-1440",
   () => picture("review-try-again-1440", DESKTOP),
+  120_000,
+);
+
+it.skipIf(!SHOTS)(
+  "review-limits-try-again-1440",
+  () => {
+    limitsDown();
+    return picture("review-limits-try-again-1440", DESKTOP);
+  },
   120_000,
 );

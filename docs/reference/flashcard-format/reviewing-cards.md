@@ -53,8 +53,10 @@ be read leave the overview with no decks to sit and a sitting with nothing to
 ask, each saying so, rather than counting no limit. A sitting reads its deck's
 notes again the same way, saying `Reading the deck…` meanwhile, and a read that
 still fails says in its foot that the note could not be read, with the reason,
-and offers `Try again`, which reads the deck again. The button shows only while
-the sitting has read nothing, so it never reads over answers already given. The
+and offers `Try again`, which reads the deck again. A sitting whose limits still
+cannot be read offers the same `Try again` under that alert, which reads the
+limits again and then the deck. The button shows only while the sitting has
+read nothing, so it never reads over answers already given. The
 parked list reads its notes again the same way, says `Reading the notes…` until
 the scan of the cards answers, and shows the scan's error if it fails. When one
 note of either read fails for good, the other notes stop trying. A put-back whose write fails

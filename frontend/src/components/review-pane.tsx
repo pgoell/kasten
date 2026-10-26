@@ -197,6 +197,21 @@ export function ReviewPane({ commands, onClose, onOpen, focusSignal }: ReviewPan
       return;
     }
 
+    // Enter on a focused row presses it, as `l` and `o` do. Left to the Enter
+    // below, the key is stopped there and the browser's click on the row is
+    // cancelled with it.
+    const focused = document.activeElement as HTMLButtonElement | null;
+    if (key === "Enter" && screen.at === "decks" && focused?.dataset.deck !== undefined) {
+      walk(panel.current, deckStops(panel.current), "l");
+      event.preventDefault();
+      return;
+    }
+    if (key === "Enter" && screen.at === "parked" && focused?.dataset.parked !== undefined) {
+      focused.click();
+      event.preventDefault();
+      return;
+    }
+
     // The leader on every screen, a card on it or not, so the other panes stay
     // one Space away mid-sitting. Enter is the review's own key.
     if (key === " ") {
