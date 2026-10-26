@@ -1,124 +1,33 @@
 """PayPal and Amazon orders: stored by id, matched to their bookings, split into their items.
 
 Every test goes through the routes, on a migrated database, and skips
-without one; see the `finance_session` fixture. The order ids, codes and
-names are made up.
+without one; see the `finance_session` fixture. How a charge picks its
+booking by the bank's text is in `test_finance_orders_matching.py`.
 """
 
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
-from backend.tests.finance_rows import (
-    API,
-    GIRO,
-    SAVING,
-    account,
-    booking,
-    category,
-    post,
-    rule,
-    stored,
+from backend.tests.finance_order_rows import (
+    ORDERS,
+    PAYPAL_REFUND,
+    amazon,
+    amazon_booking,
+    amazon_purpose,
+    charge,
+    item,
+    parts,
+    paypal,
+    paypal_booking,
+    refund,
+    send,
+    statuses,
+    unmatched,
 )
-from kasten_backend.finance_orders import Candidate, choose
+from backend.tests.finance_rows import API, GIRO, account, category, post, rule, stored
 
 if TYPE_CHECKING:
     from httpx import AsyncClient
-
-ORDERS = f"{API}/orders"
-PAYPAL_PURPOSE = "PP.4711.PP . Example Shop GmbH, Ihr Einkauf bei Example Shop GmbH"
-
-
-def item(text: str, amount: str) -> dict[str, str]:
-    return {"text": text, "amount": amount}
-
-
-def charge(key: str, amount: str, items: list[dict[str, str]], day: str = "2026-10-17") -> dict:
-    return {"kind": "charge", "key": key, "charged_on": day, "amount": amount, "items": items}
-
-
-def refund(key: str, amount: str, day: str = "2026-10-22") -> dict[str, str]:
-    return {"kind": "refund", "key": key, "charged_on": day, "amount": amount}
-
-
-def paypal(code: str = "1AB23456CD789012E", **fields: Any) -> dict[str, Any]:
-    """A PayPal payment of 30.00 at Example Shop for a book and a mug."""
-    return {
-        "source": "paypal",
-        "order_key": code,
-        "ordered_on": "2026-10-17",
-        "merchant": "Example Shop GmbH",
-        "total": "30.00",
-        "charges": [
-            charge("payment", "30.00", [item("Garden book", "18.50"), item("Blue mug", "11.50")])
-        ],
-        **fields,
-    }
-
-
-def amazon(order_id: str = "123-4567890-1234567", **fields: Any) -> dict[str, Any]:
-    """An Amazon order of 40.00, sent in two shipments of 25.00 and 15.00."""
-    return {
-        "source": "amazon",
-        "order_key": order_id,
-        "ordered_on": "2026-10-15",
-        "merchant": "Amazon",
-        "total": "40.00",
-        "charges": [
-            charge("ship-a", "25.00", [item("Lamp", "25.00")], day="2026-10-16"),
-            charge(
-                "ship-b",
-                "15.00",
-                [item("2 x Light bulb", "12.00"), item("Cable", "3.00")],
-                day="2026-10-18",
-            ),
-        ],
-        **fields,
-    }
-
-
-def paypal_booking(giro: int, key: str, amount: str = "-30.00", **fields: Any) -> dict:
-    return booking(
-        giro,
-        key,
-        amount,
-        **{
-            "booking_date": "2026-10-19",
-            "purpose": PAYPAL_PURPOSE,
-            "counterparty_name": "PayPal Europe S.a.r.l. et Cie S.C.A",
-            **fields,
-        },
-    )
-
-
-def amazon_booking(giro: int, key: str, amount: str, day: str, purpose: str = "") -> dict:
-    return booking(
-        giro,
-        key,
-        amount,
-        booking_date=day,
-        purpose=purpose or "AMZN Mktp DE 2X3Y4Z",
-        counterparty_name="AMAZON PAYMENTS EUROPE S.C.A.",
-    )
-
-
-async def send(client: AsyncClient, orders: list[dict[str, Any]]) -> dict[str, int]:
-    response = await client.post(ORDERS, json=orders)
-    assert response.status_code == 200, response.text
-    return response.json()
-
-
-async def unmatched(client: AsyncClient) -> list[dict[str, Any]]:
-    response = await client.get(f"{ORDERS}/unmatched")
-    assert response.status_code == 200, response.text
-    return response.json()
-
-
-def statuses(orders: list[dict[str, Any]]) -> dict[str, str]:
-    return {c["key"]: c["status"] for o in orders for c in o["charges"]}
-
-
-def parts(row: dict[str, Any]) -> list[tuple[str, str | None]]:
-    return [(s["amount"], s["text"]) for s in row["splits"]]
 
 
 async def test_a_paypal_payment_splits_its_booking_into_the_items_which_the_rules_sort(
@@ -270,7 +179,7 @@ async def test_a_refund_links_its_own_booking_and_leaves_the_payment_split(
         finance_client,
         [
             paypal_booking(giro, "pp"),
-            paypal_booking(giro, "back", "11.50", booking_date="2026-10-23"),
+            paypal_booking(giro, "back", "11.50", booking_date="2026-10-23", purpose=PAYPAL_REFUND),
         ],
     )
     await send(finance_client, [paypal()])
@@ -290,99 +199,6 @@ async def test_a_refund_links_its_own_booking_and_leaves_the_payment_split(
         ("charge", "split", rows["pp"]["id"]),
         ("refund", "linked", rows["back"]["id"]),
     }
-
-
-async def test_two_bookings_that_fit_alike_leave_the_charge_ambiguous(
-    finance_client: AsyncClient,
-) -> None:
-    giro = await account(finance_client, "Giro", GIRO)
-    await post(
-        finance_client,
-        [
-            paypal_booking(giro, "one"),
-            paypal_booking(giro, "two", booking_date="2026-10-20"),
-        ],
-    )
-
-    answer = await send(finance_client, [paypal()])
-
-    rows = await stored(finance_client)
-    assert answer["matched"] == 0
-    assert rows["one"]["splits"] == rows["two"]["splits"] == []
-    assert statuses(await unmatched(finance_client)) == {"payment": "ambiguous"}
-
-
-async def test_the_booking_naming_the_order_id_wins_over_one_that_does_not(
-    finance_client: AsyncClient,
-) -> None:
-    giro = await account(finance_client, "Giro", GIRO)
-    await post(
-        finance_client,
-        [
-            amazon_booking(giro, "other", "-25.00", "2026-10-16"),
-            amazon_booking(
-                giro, "named", "-25.00", "2026-10-19", "123-4567890-1234567 AMZN Mktp DE"
-            ),
-        ],
-    )
-
-    await send(finance_client, [amazon()])
-
-    rows = await stored(finance_client)
-    assert parts(rows["named"]) == [("-25.00", "Lamp")]
-    assert rows["other"]["splits"] == []
-
-
-async def test_an_older_charge_leaves_a_booking_naming_another_order_to_that_order(
-    finance_client: AsyncClient,
-) -> None:
-    giro = await account(finance_client, "Giro", GIRO)
-    await post(
-        finance_client,
-        [amazon_booking(giro, "named", "-25.00", "2026-10-19", "999-0000000-0000001 AMZN")],
-    )
-    older = amazon(charges=[charge("old", "25.00", [item("Old lamp", "25.00")], day="2026-10-15")])
-    newer = amazon(
-        "999-0000000-0000001",
-        charges=[charge("new", "25.00", [item("New lamp", "25.00")], day="2026-10-18")],
-    )
-
-    await send(finance_client, [older, newer])
-
-    assert parts((await stored(finance_client))["named"]) == [("-25.00", "New lamp")]
-    assert statuses(await unmatched(finance_client)) == {"old": "waiting"}
-
-
-async def test_a_move_between_own_accounts_and_a_booking_out_of_window_never_match(
-    finance_client: AsyncClient,
-) -> None:
-    giro = await account(finance_client, "Giro", GIRO)
-    await account(finance_client, "Saving", SAVING)
-    await post(
-        finance_client,
-        [
-            paypal_booking(giro, "move", counterparty_iban=SAVING),
-            paypal_booking(giro, "late", booking_date="2026-11-05"),
-            booking(giro, "rewe", "-30.00", booking_date="2026-10-18", purpose="REWE"),
-        ],
-    )
-
-    answer = await send(finance_client, [paypal()])
-
-    assert answer["matched"] == 0
-    assert all(row["splits"] == [] for row in (await stored(finance_client)).values())
-    assert statuses(await unmatched(finance_client)) == {"payment": "waiting"}
-
-
-async def test_a_booking_pays_one_charge_only(finance_client: AsyncClient) -> None:
-    giro = await account(finance_client, "Giro", GIRO)
-    await post(finance_client, [paypal_booking(giro, "pp")])
-
-    answer = await send(finance_client, [paypal("1AB23456CD789012E"), paypal("9ZZ99999ZZ999999Z")])
-
-    assert answer["matched"] == 1
-    assert statuses(await unmatched(finance_client)) == {"payment": "waiting"}
-    assert [o["order_key"] for o in await unmatched(finance_client)] == ["9ZZ99999ZZ999999Z"]
 
 
 async def test_a_booking_that_comes_after_its_order_is_matched_when_it_comes_in(
@@ -410,7 +226,9 @@ async def test_money_in_naming_an_amazon_order_becomes_its_refund(
         [
             amazon_booking(giro, "a", "-25.00", "2026-10-17"),
             amazon_booking(giro, "b", "-15.00", "2026-10-20"),
-            amazon_booking(giro, "back", "3.00", "2026-10-30", "Erstattung 123-4567890-1234567"),
+            amazon_booking(
+                giro, "back", "3.00", "2026-10-30", amazon_purpose(ref="9ZYX8WVU7TSR6QPO")
+            ),
         ],
     )
 
@@ -475,9 +293,3 @@ async def test_a_charge_without_items_and_a_refund_with_items_are_refused(
     for body in (bare, itemised, twice, {**paypal(), "source": "ebay"}):
         response = await finance_client.post(ORDERS, json=[body])
         assert response.status_code == 422, body
-
-
-def test_choose_takes_the_best_ranked_booking_and_never_guesses_between_two() -> None:
-    assert choose([]) == ("waiting", None)
-    assert choose([Candidate(1, 0), Candidate(2, 2)]) == ("linked", 2)
-    assert choose([Candidate(1, 1), Candidate(2, 1), Candidate(3, 0)]) == ("ambiguous", None)

@@ -8,11 +8,15 @@ own category and nothing twice. The rules that keep it so:
   nothing. A charge already matched is never rewritten by a later send.
 - A charge whose items do not add up to it is never matched (`items_off`).
 - A charge matches a booking of the opposite amount (a refund, the same
-  amount) booked from `EARLY_DAYS` before to `LATE_DAYS` after it, whose
-  purpose or counterparty names the source, which is not a move between
-  own accounts and which no other charge holds. Of those, one that names
-  the order id beats one that names the merchant, which beats the rest. Two
-  of the best kind leave the charge `ambiguous`, never guessed.
+  amount) booked from `EARLY_DAYS` before to `LATE_DAYS` after it, or up to
+  `NAMED_LATE_DAYS` when it names the order id, whose purpose or
+  counterparty names the source, which is not a move between own accounts
+  and which no other charge holds. Amazon's debits start with the order id;
+  PayPal's name the shop ("Ihr Einkauf bei ..."). One that names the order
+  id beats one that names the merchant, which beats one that names none; one
+  that names another order or shop never matches. Two of the best kind
+  leave the charge `ambiguous`, never guessed, unless both name the order
+  id: two shipments of one amount, either right.
 - A booking the owner split or sorted by hand is linked but left as it is
   (`kept`); the booking view shows the order's items beside it.
 - A refund is linked to its own booking and never split.
@@ -52,6 +56,19 @@ within a few days, a card a week later at most. A refund takes longer.
 
 REFUND_LATE_DAYS = 14
 """How many days after the refund mail its booking may be booked."""
+
+NAMED_LATE_DAYS = 30
+"""How many days after its charge a booking that names the order id may be booked.
+
+Amazon's direct debits start with the order id, which no other booking
+carries, so a late one is still safe to take.
+"""
+
+_ORDER_ID = re.compile(r"\b(?:\d{3}|d01)-\d{7}-\d{7}\b")
+"""An Amazon order id as a booking's lowercased text carries it."""
+
+_PAYPAL_SHOP = re.compile(r"(?:^|/)\s*\.\s*(.*?),\s*ihr einkauf bei")
+"""The shop a PayPal debit names: `.../PP.1234.PP/. Shop GmbH, Ihr Einkauf bei Shop GmbH`."""
 
 AMAZON_REFUND_DAYS = 180
 """How long after an Amazon order a booking of money in naming it counts as its refund."""
@@ -169,33 +186,56 @@ async def store_orders(session: AsyncSession, orders: list[dict[str, Any]]) -> S
 
 @dataclass(frozen=True)
 class Candidate:
-    """A booking that could have paid a charge: its id and how well its text names the order."""
+    """A booking that could have paid a charge: its id and how well its text names the order.
+
+    Candidates come oldest first, by booking date and id.
+    """
 
     id: int
     rank: int
 
 
+NAMED = 2
+"""The rank of a booking that names the order id."""
+
+OTHER = -1
+"""The rank of a booking that names another order or another shop: never a match."""
+
+
 def choose(candidates: Sequence[Candidate]) -> tuple[str, int | None]:
-    """The booking a charge matches, or why none: `waiting`, or `ambiguous` for a tie."""
-    if not candidates:
+    """The booking a charge matches, or why none: `waiting`, or `ambiguous` for a tie.
+
+    Two bookings that both name the order id are two shipments of one order
+    at the same amount, so either is right: the older is taken, and the other
+    is left for the next shipment.
+    """
+    fits = [c for c in candidates if c.rank > OTHER]
+    if not fits:
         return "waiting", None
-    best = max(c.rank for c in candidates)
-    top = [c for c in candidates if c.rank == best]
-    if len(top) > 1:
+    best = max(c.rank for c in fits)
+    top = [c for c in fits if c.rank == best]
+    if len(top) > 1 and best != NAMED:
         return "ambiguous", None
     return "linked", top[0].id
 
 
-NAMED = 2
-"""The rank of a booking that names the order id."""
-
-
 def _rank(text: str, order: ShopOrder) -> int:
-    """`NAMED` when the booking names the order id, 1 when it names the merchant, else 0."""
+    """How well a booking's lowercased text names the order.
+
+    `NAMED` for the order id. Else, for Amazon, `OTHER` when it names
+    another order id; for PayPal, 1 when the shop it names holds the
+    merchant's first word, 0 when it names none, `OTHER` when it names
+    another shop.
+    """
     if order.order_key.lower() in text:
         return NAMED
+    if order.source == "amazon":
+        return OTHER if _ORDER_ID.search(text) else 0
+    shop = _PAYPAL_SHOP.search(text)
     word = _merchant_word(order.merchant)
-    return 1 if word is not None and word not in WORDS[order.source] and word in text else 0
+    if shop is None or not shop.group(1).strip() or word is None:
+        return 0
+    return 1 if word in shop.group(1) else OTHER
 
 
 def _text() -> Any:
@@ -225,18 +265,23 @@ async def _candidates(session: AsyncSession, charge: OrderCharge) -> list[Candid
     late = LATE_DAYS if charge.kind == "charge" else REFUND_LATE_DAYS
     text = _text()
     rows = await session.execute(
-        select(Transaction.id, text).where(
+        select(Transaction.id, Transaction.booking_date, text)
+        .where(
             Transaction.amount == sign * charge.amount,
             Transaction.currency == order.currency,
             Transaction.booking_date.between(
                 charge.charged_on - timedelta(days=EARLY_DAYS),
-                charge.charged_on + timedelta(days=late),
+                charge.charged_on + timedelta(days=max(late, NAMED_LATE_DAYS)),
             ),
             or_(*(func.strpos(text, word) > 0 for word in WORDS[order.source])),
             *_free(),
         )
+        .order_by(Transaction.booking_date, Transaction.id)
     )
-    return [Candidate(id_, _rank(words, order)) for id_, words in rows]
+    last = charge.charged_on + timedelta(days=late)
+    found = [(id_, day, _rank(words, order)) for id_, day, words in rows]
+    # Past the usual window only a booking that names the order id is taken.
+    return [Candidate(id_, rank) for id_, day, rank in found if rank == NAMED or day <= last]
 
 
 async def _split(session: AsyncSession, charge: OrderCharge, booking_id: int) -> str:
@@ -327,7 +372,7 @@ async def match(session: AsyncSession, ids: Sequence[int] | None = None) -> int:
                 ).where(Transaction.id.in_(ids))
             )
         ).one()
-        first: date = days[0] - timedelta(days=REFUND_LATE_DAYS)
+        first: date = days[0] - timedelta(days=max(REFUND_LATE_DAYS, NAMED_LATE_DAYS))
         last: date = days[1] + timedelta(days=EARLY_DAYS)
         waiting = waiting.where(OrderCharge.charged_on.between(first, last))
     matched = await _amazon_refunds(session, ids)

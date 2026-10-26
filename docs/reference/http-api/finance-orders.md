@@ -83,16 +83,27 @@ A charge matches a booking that:
 * has the opposite amount, or for a refund the same amount, in the order's
   currency;
 * was booked from 3 days before the charge to 10 days after, or 14 for a
-  refund;
+  refund, or 30 when it names the order id;
 * names the source in its purpose or counterparty;
 * is no move between own accounts, its other half in or not;
 * and is held by no other charge.
 
-Of those, a booking that names the order id wins over one that names the
-merchant's first word, which wins over the rest. Bookings that name an order
-id go first, in a pass of their own, so an older charge never takes a booking
-that names another order. Two bookings that fit alike leave the charge
-`ambiguous`; kasten never guesses. Charges go oldest first, so of two that fit
+The banks write these bookings in two shapes. Amazon's direct debit starts
+with the order id: `123-4567890-1234567 AMZNMktp DE 5ABC4DEF5GHI6JKL
+FOLGELASTSCHRIFT`, or `D01-...` for a digital order. PayPal's names the shop:
+`1059876543210/PP.4711.PP/. Example Shop GmbH, Ihr Einkauf bei Example Shop
+GmbH`, and a refund to the bank `. Example Shop GmbH, Ihr Einkauf bei ...
+GUTSCHR. UEBERWEISUNG`. The leading number is PayPal's debit reference, which
+the mail does not carry.
+
+Of the bookings that fit, one that names the order id wins over one whose shop
+holds the merchant's first word, which wins over one that names no shop (money
+sent to a person). One that names another Amazon order or another PayPal shop
+never matches. Bookings that name an order id go first, in a pass of their
+own. Two bookings that fit alike leave the charge `ambiguous`; kasten never
+guesses. The one exception: two bookings that both name the order id are two
+shipments of one amount, so the older takes the first shipment and the other
+the next. Charges go oldest first, so of two that fit
 one booking, the older takes it.
 
 A charge whose items do not add up to it is never matched (`items_off`): the
