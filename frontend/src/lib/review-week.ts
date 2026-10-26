@@ -9,7 +9,7 @@ import { shiftDay } from "@/lib/clock";
 import type { LogDay } from "@/lib/food-api";
 import type { LogConfig, LogKind } from "@/lib/log-kinds";
 import { tenth } from "@/lib/log-lines";
-import { within } from "@/lib/log-streak";
+import { hasFood, within } from "@/lib/log-streak";
 import { valueOn } from "@/lib/log-weight";
 import { noteSectionOf } from "@/lib/note-section";
 import { type Bar, barsOf, doneCounts, reviewCounts } from "@/lib/overview";
@@ -37,7 +37,7 @@ export function sessionMinutes(text: string): number {
 export interface WeekTiles {
   todosDone: number;
   minutes: number;
-  /** Logged days of the week within the kcal goal; null with no kcal goal. */
+  /** Days of the week with a food line within the kcal goal; null with no kcal goal. */
   withinKcal: number | null;
   loggedDays: number;
   /** The change in the last kind's weight, to a tenth; null where there is not one to read. */
@@ -87,7 +87,7 @@ export function weekTiles(input: {
     withinKcal:
       goal === undefined
         ? null
-        : week.filter((day) => within(day.totals.food.kcal ?? 0, goal)).length,
+        : week.filter((day) => hasFood(day) && within(day.totals.food.kcal ?? 0, goal)).length,
     loggedDays: week.length,
     weightChange: lastKind === undefined ? null : weightChangeOf(lastKind, days, from, to),
   };

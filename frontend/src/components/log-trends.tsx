@@ -21,7 +21,7 @@ import type { LogDay } from "@/lib/food-api";
 import { overMax } from "@/lib/log-day";
 import type { FoodField, Goal, LogConfig, LogKind } from "@/lib/log-kinds";
 import { tenth } from "@/lib/log-lines";
-import { streakOf, within } from "@/lib/log-streak";
+import { hasFood, streakOf, within } from "@/lib/log-streak";
 import { grouped } from "@/lib/log-words";
 
 /** A day of the log as `GET /api/log` answers it, and one of its lines. */
@@ -81,6 +81,11 @@ function loggedDays(count: number): string {
   return `${grouped(count)} logged ${count === 1 ? "day" : "days"}`;
 }
 
+/** A count of food days in words: `1 food day`, `27 food days`. */
+function foodDays(count: number): string {
+  return `${grouped(count)} food ${count === 1 ? "day" : "days"}`;
+}
+
 /** A count of days in words: `1 day`, `3 days`. */
 function daysOf(count: number): string {
   return `${grouped(count)} ${count === 1 ? "day" : "days"}`;
@@ -89,6 +94,19 @@ function daysOf(count: number): string {
 /** A goal's side in words: a floor is `at least`, a ceiling `at most`. */
 function bound(goal: Goal): string {
   return goal.type === "floor" ? "at least" : "at most";
+}
+
+/** The words under the Average figure, over the food days it is worked out from. */
+function averageWords(noneLogged: boolean, noFood: boolean, count: number): string {
+  if (noneLogged) return "nothing logged";
+  return noFood ? "no food logged" : `over ${foodDays(count)}`;
+}
+
+/** The words under the Within goal figure: the goal, or why there is no count to set against it. */
+function withinWords(goal: Goal | undefined, noneLogged: boolean, noFood: boolean): string {
+  if (goal === undefined) return "no kcal goal";
+  if (noneLogged) return "nothing logged";
+  return noFood ? "no food logged" : `days ${bound(goal)} ${grouped(goal.value)} kcal`;
 }
 
 interface Logged {
@@ -359,10 +377,13 @@ export function LogTrends({
   const chartKinds = config.kinds.filter((kind) => kind.last !== true);
   const goal = config.food.kcal;
   const noneLogged = logged.length === 0;
-  const kcal = logged.map(({ day }) => foodTotal(day, "kcal"));
-  const average = noneLogged
+  // A day with no food line is no food day, as the streak reads it, so drinks alone are left out of the kcal tiles.
+  const fed = logged.filter(({ day }) => hasFood(day));
+  const noFood = fed.length === 0;
+  const kcal = fed.map(({ day }) => foodTotal(day, "kcal"));
+  const average = noFood
     ? null
-    : Math.round(kcal.reduce((sum, value) => sum + value, 0) / logged.length);
+    : Math.round(kcal.reduce((sum, value) => sum + value, 0) / fed.length);
   const withinGoal = goal === undefined ? 0 : kcal.filter((value) => within(value, goal)).length;
   const streak = streakOf(dates, byDate, today, goal);
   // Only a range that ends on today marks its bars: a past range draws every bar full strength.
@@ -374,18 +395,12 @@ export function LogTrends({
         <Tile
           label="Average"
           figure={average === null ? "—" : `${grouped(average)} kcal`}
-          words={noneLogged ? "nothing logged" : `over ${loggedDays(logged.length)}`}
+          words={averageWords(noneLogged, noFood, fed.length)}
         />
         <Tile
           label="Within goal"
-          figure={goal === undefined || noneLogged ? "—" : `${withinGoal} of ${logged.length}`}
-          words={
-            goal === undefined
-              ? "no kcal goal"
-              : noneLogged
-                ? "nothing logged"
-                : `days ${bound(goal)} ${grouped(goal.value)} kcal`
-          }
+          figure={goal === undefined || noFood ? "—" : `${withinGoal} of ${fed.length}`}
+          words={withinWords(goal, noneLogged, noFood)}
         />
         <Tile
           label="Streak"

@@ -1,6 +1,8 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render } from "@testing-library/react";
 import { LogPane } from "@/components/log-pane";
+import { shiftDay } from "@/lib/clock";
+import type { LogDay } from "@/lib/food-api";
 import type { LogActions } from "@/lib/use-log-actions";
 import { stubCommands } from "./stub-commands";
 
@@ -116,4 +118,41 @@ export function renderPane(options: { actions?: LogActions; client?: QueryClient
     </QueryClientProvider>,
   );
   return { ...view, actions, commands, onOpen, onNotice };
+}
+
+interface Totals {
+  kcal?: number;
+  protein?: number;
+  carbs?: number;
+  fat?: number;
+  water?: number;
+  coffee?: number;
+}
+
+/** A day with a `## Log` that adds up to `totals`, as `GET /api/log` answers it. */
+export function loggedOn(date: string, totals: Totals): LogDay {
+  // A day with kcal has a food line, since a day with no food line is no day within the kcal goal.
+  const kcal = totals.kcal ?? 0;
+  return {
+    date,
+    path: `daily/${date}.md`,
+    entries: kcal > 0 ? [{ line: 1, text: `- 🍽 🔥 ${kcal} kcal`, kind: "food", kcal }] : [],
+    totals: {
+      water: { ml: totals.water ?? 0 },
+      coffee: { count: totals.coffee ?? 0 },
+      alcohol: { count: 0, ml: 0, grams: 0 },
+      food: {
+        kcal: totals.kcal ?? 0,
+        protein: totals.protein ?? 0,
+        carbs: totals.carbs ?? 0,
+        fat: totals.fat ?? 0,
+      },
+      mine: [],
+    },
+  };
+}
+
+/** The day `count` days before today, logged with `totals`. */
+export function back(count: number, totals: Totals) {
+  return loggedOn(shiftDay(TODAY, -count), totals);
 }

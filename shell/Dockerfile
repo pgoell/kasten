@@ -173,6 +173,13 @@ RUN apt-get update \
     && ln -s "$(dpkg -L libnss-wrapper | grep '/libnss_wrapper\.so$')" \
        /usr/local/lib/libnss_wrapper.so
 
+# A cached layer of the install above may hold a bundle that still trusts
+# emSign ECC Root CA - G3, which Mozilla dropped. The security repo's
+# ca-certificates no longer does.
+RUN apt-get update \
+    && apt-get install --only-upgrade -y ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY --from=ttyd /usr/local/bin/ttyd /usr/local/bin/ttyd
 COPY --from=herdr /usr/local/bin/herdr /usr/local/bin/herdr
 COPY --from=jj /usr/local/bin/jj /usr/local/bin/jj

@@ -1,6 +1,7 @@
 /**
- * The streak the log pane and the overview count: days in a row within the kcal goal.
- * Kept out of the pane's components so the overview can read it without drawing the pane.
+ * The streak the log pane and the overview count: days in a row within the kcal goal, and
+ * the food day that every kcal count reads, shared by the pane, the overview and the week
+ * review. Kept out of the pane's components so the overview can read it without drawing the pane.
  */
 
 import type { LogDay } from "@/lib/food-api";
@@ -9,6 +10,11 @@ import type { Goal } from "@/lib/log-kinds";
 /** Whether a day's kcal is within its goal: a ceiling at or under it, a floor at or over it. */
 export function within(kcal: number, goal: Goal): boolean {
   return goal.type === "floor" ? kcal >= goal.value : kcal <= goal.value;
+}
+
+/** Whether a day has a food line. Drinks, or a line of your own such as weight, alone make no food day. */
+export function hasFood(day: LogDay): boolean {
+  return day.entries.some((entry) => entry.kind === "food");
 }
 
 /**
@@ -27,7 +33,7 @@ export function streakOf(
   let count = 0;
   for (const [position, date] of [...dates].reverse().entries()) {
     const day = byDate.get(date);
-    if (day === undefined || !day.entries.some((entry) => entry.kind === "food")) {
+    if (day === undefined || !hasFood(day)) {
       if (position === 0 && date === today) continue;
       break;
     }
