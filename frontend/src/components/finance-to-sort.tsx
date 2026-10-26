@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { type RefObject, useState } from "react";
+import { UnmatchedOrders } from "@/components/finance-orders";
 import { BookingList, SortBar, sortKeys, type TabKeys } from "@/components/finance-sort-bar";
 import { fetchToSort, type ToSort } from "@/lib/finance-api";
 import type { CategorySort } from "@/lib/use-category-sort";
@@ -50,6 +51,7 @@ function rowsOf(bookings: ToSort[]): Row[] {
 /**
  * The to-sort list: every booking or split without a category, oldest first. A key or a button
  * per category sorts the cursor's row; with "always" armed it sorts the row's payee instead.
+ * Under it, the PayPal and Amazon orders no booking holds yet.
  */
 export function FinanceToSort({
   sorter,
@@ -78,6 +80,7 @@ export function FinanceToSort({
         <p className="finance-pane-empty">Nothing to sort.</p>
       ) : null}
       <BookingList label="Bookings to sort" lines={rows} at={at} onPick={setCursor} />
+      <UnmatchedOrders />
     </>
   );
 }

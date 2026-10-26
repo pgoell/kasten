@@ -311,6 +311,60 @@ describe("the finance pane's drilldowns", () => {
     );
   });
 
+  it("#1039 a booking an order paid shows the order and its items, and says when it kept a hand sort", async () => {
+    const charge = (id: number, status: string, items: { text: string; amount: string }[]) => ({
+      id,
+      kind: "charge",
+      key: `k${id}`,
+      charged_on: "2026-10-04",
+      amount: "100.00",
+      transaction_id: 9,
+      status,
+      items,
+    });
+    const order = (status: string) => ({
+      order: {
+        id: 3,
+        source: "amazon",
+        order_key: "123-4567890-1234567",
+        ordered_on: "2026-10-03",
+        merchant: "Amazon",
+        total: "100.00",
+        currency: "EUR",
+        charges: [
+          charge(5, status, [
+            { text: "Lamp", amount: "70.00" },
+            { text: "2 x Light bulb", amount: "30.00" },
+          ]),
+        ],
+      },
+      charge_id: 5,
+    });
+    api.fetchBookingDrill.mockResolvedValue({ ...DRILLED, order: order("split") });
+    renderPane();
+    press("T");
+    await screen.findByText("REWE SAGT DANKE");
+    press("Enter");
+
+    const card = (await screen.findByRole("heading", { name: "Amazon order" })).closest("article");
+    if (card === null) throw new Error("no order card");
+    expect(within(card).getByText(/123-4567890-1234567, ordered 2026-10-03/)).toBeTruthy();
+    expect(within(card).getByText(/^Split into the items below/)).toBeTruthy();
+    const rows = within(card).getAllByRole("row");
+    expect(rows.map((row) => row.textContent?.replaceAll("\u00a0", " "))).toEqual([
+      "Lamp70,00 €",
+      "2 x Light bulb30,00 €",
+    ]);
+
+    cleanup();
+    api.fetchBookingDrill.mockResolvedValue({ ...DRILLED, order: order("kept") });
+    renderPane();
+    press("T");
+    await screen.findByText("REWE SAGT DANKE");
+    press("Enter");
+    expect(await screen.findByText(/^You had sorted or split this booking by hand/)).toBeTruthy();
+  });
+
   it("#1083 a category lists a split booking by its part in that category, so the net is its own", async () => {
     const split = {
       ...BOOKING,

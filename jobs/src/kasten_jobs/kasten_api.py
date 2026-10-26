@@ -11,6 +11,9 @@ import httpx
 BATCH = 1000
 """The most bookings or balances kasten takes in one post."""
 
+ORDER_BATCH = 200
+"""The most orders kasten takes in one post."""
+
 PAGE = 5000
 """The most bookings kasten answers one read with."""
 
@@ -55,6 +58,15 @@ class KastenApi:
             created += answer["created"]
             skipped += answer["skipped"]
         return created, skipped
+
+    def post_orders(self, orders: list[dict[str, Any]]) -> dict[str, int]:
+        """`POST /api/finance/orders` in batches, and answer the counts summed over them."""
+        totals = {"created": 0, "updated": 0, "unchanged": 0, "matched": 0}
+        for start in range(0, len(orders), ORDER_BATCH):
+            batch = orders[start : start + ORDER_BATCH]
+            answer = self._json(self.client.post("/api/finance/orders", json=batch))
+            totals = {key: totals[key] + answer[key] for key in totals}
+        return totals
 
     def post_balances(self, balances: list[dict[str, Any]]) -> None:
         """`POST /api/finance/balances`."""

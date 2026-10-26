@@ -247,7 +247,7 @@ export interface paths {
         };
         /**
          * Read Booking
-         * @description A booking whole: every field and its raw record, its twin, plan and where it counts.
+         * @description A booking whole: every field, its raw record, twin, plan, order and where it counts.
          */
         get: operations["read_booking_agent_finance_transactions__transaction_id__get"];
         put?: never;
@@ -1319,7 +1319,8 @@ export interface paths {
          *     A booking already there by account and source key is skipped and left as
          *     it was, so a job may send an overlapping window every run. The new
          *     bookings get their payees and the rules' categories after the transfers
-         *     are paired, since a transfer takes no category, and then meet the plans.
+         *     are paired, since a transfer takes no category, and then meet the plans and
+         *     the PayPal and Amazon orders that wait for them.
          */
         post: operations["write_transactions_api_finance_transactions_post"];
         delete?: never;
@@ -1564,7 +1565,7 @@ export interface paths {
         };
         /**
          * Read Booking
-         * @description A booking whole: every field and its raw record, its twin, plan and where it counts.
+         * @description A booking whole: every field, its raw record, twin, plan, order and where it counts.
          */
         get: operations["read_booking_api_finance_drill_bookings__transaction_id__get"];
         put?: never;
@@ -1841,6 +1842,49 @@ export interface paths {
          *     hold it too, so move the money to the saving account first.
          */
         post: operations["move_leftover_api_finance_goals__goal_id__leftover_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/finance/orders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Write Orders
+         * @description Store the orders by their ids and match every charge that waits to its booking.
+         *
+         *     An order sent again with nothing new changes nothing. A charge no longer
+         *     sent stays, and one already matched is never rewritten.
+         */
+        post: operations["write_orders_api_finance_orders_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/finance/orders/unmatched": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Unmatched
+         * @description The newest orders with a charge no booking holds yet, or with no charge yet, newest first.
+         */
+        get: operations["read_unmatched_api_finance_orders_unmatched_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -3076,7 +3120,7 @@ export interface components {
         };
         /**
          * BookingDrillOut
-         * @description A booking with every field, its account and payee, its twin, plan and where it counts.
+         * @description A booking with every field, its account, payee, twin, plan, order and where it counts.
          */
         BookingDrillOut: {
             transaction: components["schemas"]["TransactionOut"];
@@ -3085,8 +3129,18 @@ export interface components {
             twin: components["schemas"]["TransactionOut"] | null;
             /** Plans */
             plans: components["schemas"]["MatchedPlanOut"][];
+            order: components["schemas"]["BookingOrderOut"] | null;
             /** Counts */
             counts: components["schemas"]["CountOut"][];
+        };
+        /**
+         * BookingOrderOut
+         * @description The order a booking paid or got money back from, and which of its charges the booking is.
+         */
+        BookingOrderOut: {
+            order: components["schemas"]["OrderOut"];
+            /** Charge Id */
+            charge_id: number;
         };
         /**
          * BookingOut
@@ -3294,6 +3348,57 @@ export interface components {
             kind: "fixed" | "flexible" | "non_monthly" | "income" | "saving" | "ignore";
             /** Id */
             id: number;
+        };
+        /**
+         * ChargeIn
+         * @description One payment for the order, with the items it paid for, or one refund, which has none.
+         */
+        ChargeIn: {
+            /**
+             * Kind
+             * @default charge
+             * @enum {string}
+             */
+            kind: "charge" | "refund";
+            /** Key */
+            key: string;
+            /**
+             * Charged On
+             * Format: date
+             */
+            charged_on: string;
+            /** Amount */
+            amount: number | string;
+            /**
+             * Items
+             * @default []
+             */
+            items: components["schemas"]["ItemIn"][];
+        };
+        /**
+         * ChargeOut
+         * @description A charge or refund as stored, the booking it matched and where it stands.
+         */
+        ChargeOut: {
+            /** Id */
+            id: number;
+            /** Kind */
+            kind: string;
+            /** Key */
+            key: string;
+            /**
+             * Charged On
+             * Format: date
+             */
+            charged_on: string;
+            /** Amount */
+            amount: string;
+            /** Transaction Id */
+            transaction_id: number | null;
+            /** Status */
+            status: string;
+            /** Items */
+            items: components["schemas"]["ItemOut"][];
         };
         /**
          * Checklist
@@ -3916,6 +4021,26 @@ export interface components {
             ticked_at?: string | null;
         };
         /**
+         * ItemIn
+         * @description One line of a charge at its line price, or shipping, tax or a discount.
+         */
+        ItemIn: {
+            /** Text */
+            text: string;
+            /** Amount */
+            amount: number | string;
+        };
+        /**
+         * ItemOut
+         * @description One line of a charge.
+         */
+        ItemOut: {
+            /** Text */
+            text: string;
+            /** Amount */
+            amount: string;
+        };
+        /**
          * Layout
          * @description The folders the editor files into or looks in, each a path from the vault root.
          */
@@ -4208,6 +4333,77 @@ export interface components {
             carbs: number | null;
             /** Fat */
             fat: number | null;
+        };
+        /**
+         * OrderIn
+         * @description An order as the job sends it, keyed by its source and the shop's order id.
+         */
+        OrderIn: {
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "amazon" | "paypal";
+            /** Order Key */
+            order_key: string;
+            /**
+             * Ordered On
+             * Format: date
+             */
+            ordered_on: string;
+            /** Merchant */
+            merchant: string;
+            /** Total */
+            total?: number | string | null;
+            /**
+             * Currency
+             * @default EUR
+             */
+            currency: string;
+            /**
+             * Charges
+             * @default []
+             */
+            charges: components["schemas"]["ChargeIn"][];
+        };
+        /**
+         * OrderOut
+         * @description An order as stored, with its charges and refunds.
+         */
+        OrderOut: {
+            /** Id */
+            id: number;
+            /** Source */
+            source: string;
+            /** Order Key */
+            order_key: string;
+            /**
+             * Ordered On
+             * Format: date
+             */
+            ordered_on: string;
+            /** Merchant */
+            merchant: string;
+            /** Total */
+            total: string | null;
+            /** Currency */
+            currency: string;
+            /** Charges */
+            charges: components["schemas"]["ChargeOut"][];
+        };
+        /**
+         * OrdersStored
+         * @description What a post did: orders new, changed and as they were, and charges matched to a booking.
+         */
+        OrdersStored: {
+            /** Created */
+            created: number;
+            /** Updated */
+            updated: number;
+            /** Unchanged */
+            unchanged: number;
+            /** Matched */
+            matched: number;
         };
         /**
          * Page
@@ -7906,6 +8102,70 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["StoredGoalOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    write_orders_api_finance_orders_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OrderIn"][];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrdersStored"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_unmatched_api_finance_orders_unmatched_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderOut"][];
                 };
             };
             /** @description Validation Error */
