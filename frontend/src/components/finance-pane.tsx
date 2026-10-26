@@ -1,11 +1,13 @@
 import { type KeyboardEvent, useEffect, useId, useRef, useState } from "react";
 import { usePull } from "@/components/finance-bank";
 import { FinanceBudget } from "@/components/finance-budget-tab";
+import { Breadcrumbs, FinanceDrill } from "@/components/finance-drill";
 import { FinanceOverview } from "@/components/finance-overview";
 import { FinancePlans } from "@/components/finance-plans-tab";
 import type { TabKeys } from "@/components/finance-sort-bar";
 import { FinanceToSort } from "@/components/finance-to-sort";
 import { FinanceTransactions } from "@/components/finance-transactions";
+import type { DrillStep } from "@/lib/finance-drill-api";
 import { FINANCE_TABS, type FinanceTab } from "@/lib/finance-keys";
 import { monthName, monthOf, shiftMonth } from "@/lib/finance-words";
 import type { EditorCommands } from "@/lib/key-bindings";
@@ -53,8 +55,8 @@ function notOurs(event: KeyboardEvent): boolean {
 export function FinancePane({ commands, focusSignal, onNotice, today }: FinancePaneProps) {
   const [tab, setTab] = useState<FinanceTab>("overview");
   const [month, setMonth] = useState(monthOf(today));
-  // The category the overview's sankey opened the transactions on, until another tab is shown.
-  const [category, setCategory] = useState<number>();
+  // What the reader drilled down into from the tab, the month first; empty shows the tab itself.
+  const [trail, setTrail] = useState<DrillStep[]>([]);
   const panel = useRef<HTMLElement>(null);
   const keys = useRef<TabKeys>(null);
   const id = useId();
@@ -69,9 +71,25 @@ export function FinancePane({ commands, focusSignal, onNotice, today }: FinanceP
   /** Show a tab and keep the keys in the pane, though what had the focus went with the old tab. */
   function show(name: FinanceTab) {
     setTab(name);
-    setCategory(undefined);
+    setTrail([]);
     panel.current?.focus();
   }
+
+  /** Go one step further down, keeping the keys in the pane as the old view goes. */
+  function open(step: DrillStep) {
+    setTrail((steps) => [...steps, step]);
+    panel.current?.focus();
+  }
+
+  /** Go back to the trail's first `length` steps; none is the tab. */
+  function back(length: number) {
+    setTrail((steps) => steps.slice(0, length));
+    panel.current?.focus();
+  }
+
+  const names = new Map((sorter.categories.data ?? []).map((c) => [c.id, c.name]));
+  const openCategory = (id: number) =>
+    open({ kind: "category", id, name: names.get(id) ?? "Category" });
 
   // On a phone the tab row scrolls sideways; bring the tab shown into view, keys or a tap alike.
   useEffect(() => {
@@ -91,7 +109,11 @@ export function FinancePane({ commands, focusSignal, onNotice, today }: FinanceP
     P: () => void pull.pull(),
     "?": () => commands.showHelp(),
     q: () => commands.closeNote(),
-    Escape: () => document.querySelector<HTMLElement>(".cm-content")?.focus(),
+    // A drilldown steps back first; from the tab itself, back to the editor.
+    Escape: () =>
+      trail.length > 0
+        ? back(trail.length - 1)
+        : document.querySelector<HTMLElement>(".cm-content")?.focus(),
   };
 
   function onKeyDown(event: KeyboardEvent) {
@@ -174,23 +196,41 @@ export function FinancePane({ commands, focusSignal, onNotice, today }: FinanceP
         aria-labelledby={`${id}-tab-${tab}`}
         className="finance-pane-view"
       >
-        {tab === "overview" ? (
+        {trail.length > 0 ? (
+          <>
+            <Breadcrumbs month={month} trail={trail} onTrail={back} />
+            <FinanceDrill
+              key={trail.length}
+              step={trail[trail.length - 1] as DrillStep}
+              month={month}
+              today={today}
+              onOpen={open}
+              onMonth={setMonth}
+              sorter={sorter}
+              keys={keys}
+              onNotice={onNotice}
+            />
+          </>
+        ) : null}
+        {trail.length === 0 && tab === "overview" ? (
           <FinanceOverview
             month={month}
             today={today}
             onMonth={setMonth}
-            onCategory={(id) => {
-              show("transactions");
-              setCategory(id);
-            }}
+            onCategory={openCategory}
+            onScope={(scope) =>
+              open({ kind: "scope", scope, name: scope === "mine" ? "Mine" : "Household" })
+            }
             pull={pull}
           />
         ) : null}
-        {tab === "to-sort" ? <FinanceToSort sorter={sorter} keys={keys} /> : null}
-        {tab === "transactions" ? (
-          <FinanceTransactions month={month} category={category} sorter={sorter} keys={keys} />
+        {trail.length === 0 && tab === "to-sort" ? (
+          <FinanceToSort sorter={sorter} keys={keys} />
         ) : null}
-        {tab === "budget" ? (
+        {trail.length === 0 && tab === "transactions" ? (
+          <FinanceTransactions month={month} sorter={sorter} keys={keys} onOpen={open} />
+        ) : null}
+        {trail.length === 0 && tab === "budget" ? (
           <FinanceBudget
             month={month}
             today={today}
@@ -199,7 +239,7 @@ export function FinancePane({ commands, focusSignal, onNotice, today }: FinanceP
             refocus={() => panel.current?.focus()}
           />
         ) : null}
-        {tab === "plans" ? (
+        {trail.length === 0 && tab === "plans" ? (
           <FinancePlans
             month={month}
             today={today}

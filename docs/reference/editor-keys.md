@@ -101,6 +101,8 @@ upper case and brackets, so they never meet a category's key.
 | `1` | To sort and transactions: sort the booking into the first category; each button shows its key |
 | `a` | To sort and transactions: the next category key sorts the booking's payee, always |
 | `/` | Transactions: go to the text filter |
+| `Enter` | Transactions and drilldowns: open the booking under the cursor |
+| `1` | A booking's drilldown: sort the booking into that category, as on the to-sort list |
 | `e` | Budget: edit the category's limit; Enter saves, Escape leaves it |
 | `y` | Budget: take the suggested limit |
 | `1` | Plans & goals: confirm the proposed plan with that key, 1 to 9 |
@@ -111,7 +113,7 @@ upper case and brackets, so they never meet a category's key.
 | `e` | Plans & goals: edit the goal; Enter saves, Escape leaves it |
 | `?` | Show the keys |
 | `q` | Close the pane |
-| `Escape` | Stop the always, leave a field, or go back to the editor |
+| `Escape` | Stop the always, leave a field, step back out of a drilldown, or go back to the editor |
 
 ## The overview
 

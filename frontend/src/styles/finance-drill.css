@@ -1,0 +1,203 @@
+/* The finance pane's drilldowns: the breadcrumbs over the view, and the cards, rows and fields
+   of a scope, account, category, payee or booking. Cards are the overview's
+   (finance-overview.css); rows are 44px under a finger, and everything wraps, so a 390px
+   screen never scrolls sideways. */
+
+.finance-drill {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+/* The trail wraps onto a second line on a phone rather than run off the side. */
+.finance-crumbs ol {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--k-text-15);
+}
+
+.finance-crumbs li {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.finance-crumbs li + li::before {
+  content: "›";
+  padding-right: 4px;
+  color: var(--k-muted);
+}
+
+.finance-crumbs [aria-current="page"] {
+  font-weight: 600;
+}
+
+/* A step back, a heading that opens, or a field's link: text that reads as a link, 44px tall. */
+.finance-crumb {
+  min-height: 44px;
+  padding: 0 4px;
+  border: 0;
+  background: none;
+  color: var(--k-accent);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.finance-crumb:hover {
+  text-decoration: underline;
+}
+
+.finance-crumb:focus-visible,
+.finance-drill-row:focus-visible {
+  outline: 2px solid var(--k-accent);
+  outline-offset: 1px;
+}
+
+.overview-name .finance-crumb {
+  min-height: 0;
+  padding: 0;
+  font-weight: 600;
+}
+
+.finance-drill-rows,
+.finance-drill-notes {
+  display: grid;
+  gap: 2px;
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+  min-width: 0;
+}
+
+.finance-drill-notes li {
+  color: var(--k-muted);
+  overflow-wrap: anywhere;
+}
+
+.finance-drill-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 44px;
+  padding: 0 4px;
+  border: 0;
+  border-bottom: 1px solid var(--k-rule);
+  background: none;
+  color: var(--k-ink);
+  font: inherit;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+
+button.finance-drill-row:hover {
+  background: var(--k-surface);
+}
+
+.finance-drill-table {
+  width: 100%;
+  margin-top: 8px;
+  border-collapse: collapse;
+}
+
+.finance-drill-table th,
+.finance-drill-table td {
+  padding: 4px 0;
+  border-bottom: 1px solid var(--k-rule);
+  font-weight: 400;
+  text-align: left;
+}
+
+.finance-drill-table td {
+  text-align: right;
+}
+
+.finance-drill-bookings {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+/* Name over value on a phone, side by side where there is room. */
+.finance-drill-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 2px 12px;
+  margin: 8px 0 0;
+}
+
+.finance-drill-field {
+  display: contents;
+}
+
+.finance-drill-fields dt {
+  color: var(--k-muted);
+  font-size: var(--k-text-13);
+}
+
+.finance-drill-fields dd {
+  margin: 0 0 6px;
+  overflow-wrap: anywhere;
+}
+
+@container (min-width: 560px) {
+  .finance-drill-fields {
+    grid-template-columns: max-content minmax(0, 1fr);
+  }
+
+  .finance-drill-fields dd {
+    margin: 0;
+  }
+}
+
+.finance-drill-raw {
+  max-height: 320px;
+  overflow: auto;
+  margin: 0;
+  padding: 8px;
+  background: var(--k-surface);
+  border-radius: var(--k-radius-6);
+  font-family: var(--k-mono);
+  font-size: var(--k-text-13);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.finance-drill-splits {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.finance-drill-split {
+  display: grid;
+  grid-template-columns: 7em minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
+.finance-drill-split input,
+.finance-drill-split-sort select,
+.finance-drill select {
+  min-height: 44px;
+  min-width: 0;
+  padding: 0 8px;
+  border: 1px solid var(--k-rule);
+  border-radius: var(--k-radius-6);
+  background: var(--k-paper);
+  color: var(--k-ink);
+  font: inherit;
+}
+
+.finance-drill-split-sort {
+  display: grid;
+  gap: 4px;
+  margin-top: 8px;
+}
