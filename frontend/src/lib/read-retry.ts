@@ -1,3 +1,5 @@
+import { fetchNote } from "@/lib/api";
+
 /** Waits between the tries of a request the backend dropped: about a minute in all. */
 export const BACKOFF = [1000, 2000, 4000, 8000, 15000, 15000, 15000];
 
@@ -26,3 +28,20 @@ export const readRetry = {
   // `retry` never asks past the end of BACKOFF, so `?? 0` only satisfies the type.
   retryDelay: (attempt: number) => BACKOFF[attempt] ?? 0,
 };
+
+/**
+ * Reads a note, trying again while the backend restarts, as `useSittingWrites` tries a write.
+ * The parked list and the sitting both read through it, so they retry alike. `live` says
+ * whether the effect that asked still stands, so a read it has left stops before its next try.
+ */
+export async function readNote(note: string, live: () => boolean): Promise<string> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await fetchNote(note);
+    } catch (error) {
+      if (!retryable(error) || attempt === BACKOFF.length) throw error;
+      await new Promise((wake) => setTimeout(wake, BACKOFF[attempt]));
+      if (!live()) throw error;
+    }
+  }
+}

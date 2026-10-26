@@ -1,11 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { fetchCards, fetchNote } from "@/lib/api";
+import { fetchCards } from "@/lib/api";
 import { clozePlain, unescaped } from "@/lib/card-line";
 import { setSuspended } from "@/lib/card-write";
 import { withoutTags } from "@/lib/deck-tag";
 import { noteName } from "@/lib/note-path";
-import { BACKOFF, readRetry, retryable } from "@/lib/read-retry";
+import { readNote, readRetry } from "@/lib/read-retry";
 import { parkedNotes } from "@/lib/review";
 import { type Parked, parseCards } from "@/lib/srs";
 import { readNoteSuspended, writeNoteSuspended } from "@/lib/srs-schedule";
@@ -205,29 +205,12 @@ export function ReviewParked({ onLeave, onOpen, archive = false }: ReviewParkedP
 
         {failed !== null && (
           <p role="alert" className="mt-6 text-k-muted">
-            The note could not be read: {failed}
+            The note could not be written: {failed}
           </p>
         )}
       </div>
     </div>
   );
-}
-
-/**
- * Reads a note, trying again while the backend restarts, as `useSittingWrites` tries a write.
- * `live` says whether the effect that asked still stands, so a read it has left stops
- * before its next try.
- */
-async function readNote(note: string, live: () => boolean): Promise<string> {
-  for (let attempt = 0; ; attempt++) {
-    try {
-      return await fetchNote(note);
-    } catch (error) {
-      if (!retryable(error) || attempt === BACKOFF.length) throw error;
-      await new Promise((wake) => setTimeout(wake, BACKOFF[attempt]));
-      if (!live()) throw error;
-    }
-  }
 }
 
 /** Moves a note's count by `by`, from zero where the note has none yet. */

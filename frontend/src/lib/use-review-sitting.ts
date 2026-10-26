@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ChangedOnDisk, fetchNote } from "@/lib/api";
+import { ChangedOnDisk } from "@/lib/api";
 import { soundsIn } from "@/lib/audio";
 import { appendStub, setSuspended, writeSchedule } from "@/lib/card-write";
 import { readClock } from "@/lib/clock";
+import { readNote } from "@/lib/read-retry";
 import type { Deck, Limits } from "@/lib/review";
 import { cardsOf, type Seat, seatsFor } from "@/lib/review-queue";
 import type { Card, Rating, Schedule } from "@/lib/srs";
@@ -125,8 +126,11 @@ export function useReviewSitting(
     // All of them before any of them is asked. A deck spanning three notes is
     // three reads at the start rather than one on the card that first needs it,
     // so the queue is the whole sitting from the first question and the count
-    // in the header does not climb as you go.
-    void Promise.all(deck.notes.map(async (note) => [note, await fetchNote(note)] as const)).then(
+    // in the header does not climb as you go. Each read tries again while the
+    // backend restarts, and the foot says it is reading until one answers.
+    void Promise.all(
+      deck.notes.map(async (note) => [note, await readNote(note, () => live)] as const),
+    ).then(
       (read) => {
         if (!live) return;
         const texts = new Map(read);
@@ -134,15 +138,18 @@ export function useReviewSitting(
         setQueue(seatsFor(deck, texts, today, limits));
       },
       (error: unknown) => {
+        // A read, not a write: nothing was sent to the vault, so the foot says so.
         if (live) {
-          unwritten(error instanceof Error ? error.message : "could not read the note");
+          setFailed(
+            `The note could not be read: ${error instanceof Error ? error.message : "could not read the note"}`,
+          );
         }
       },
     );
     return () => {
       live = false;
     };
-  }, [deck, today, limits, unwritten]);
+  }, [deck, today, limits]);
 
   const cards = useMemo(() => cardsOf(deck, texts ?? new Map()), [deck, texts]);
   const seat = queue[0];
