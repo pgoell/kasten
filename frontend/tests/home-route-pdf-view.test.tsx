@@ -8,6 +8,7 @@ import { hashed } from "./digests";
 import { defineFoliateFake } from "./foliate-fake";
 import { FakeEventSource, pageHooks, renderApp, settle } from "./home-route-fixture";
 import { COARSE, NARROW, stubMatchMedia } from "./match-media";
+import { finishParsing } from "./parsing";
 
 defineFoliateFake();
 
@@ -283,6 +284,7 @@ describe("a pdf in kasten's own view", () => {
     if (app.tree() === null) fireEvent.click(screen.getByRole("button", { name: "File tree" }));
     app.click(NOTE);
     await settle();
+    finishParsing(document.body);
     return app;
   }
 
@@ -487,6 +489,7 @@ describe("a pdf in kasten's own view", () => {
     app.expand("rehearse");
     app.click("rehearse/d.md");
     await settle();
+    finishParsing(document.body);
 
     app.press("g");
     app.press("f");
@@ -505,6 +508,7 @@ describe("a pdf in kasten's own view", () => {
     app.expand("B");
     app.click("B/index.md");
     await settle();
+    finishParsing(document.body);
 
     app.press("g");
     app.press("f");
@@ -522,6 +526,7 @@ describe("a pdf in kasten's own view", () => {
     app.expand("B");
     app.click("B/index.md");
     await settle();
+    finishParsing(document.body);
 
     app.press("g");
     app.press("f");

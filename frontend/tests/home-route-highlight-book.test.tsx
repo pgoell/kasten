@@ -13,6 +13,7 @@ import {
   sectionsOf,
 } from "./foliate-fake";
 import { act, FakeEventSource, pageHooks, renderApp, settle, stream } from "./home-route-fixture";
+import { finishParsing } from "./parsing";
 
 defineFoliateFake();
 
@@ -221,6 +222,7 @@ describe("opening a highlight's book with gf", () => {
    * `j` under this file's fake timers leaves the view taking no further keys.
    */
   async function follows(app: Awaited<ReturnType<typeof opened>>) {
+    finishParsing(document.body);
     app.press("g");
     app.press("f");
     await settle();

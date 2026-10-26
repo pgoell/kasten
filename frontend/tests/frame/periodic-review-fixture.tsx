@@ -37,7 +37,10 @@ export const VIM = "kasten.vim";
 
 // The notes are the current year's and the current week's, so the review draws the period
 // the clock is in. The review's own rules name them, so the paths come from the app's helpers.
-const NOW = new Date();
+// VITE_KASTEN_TODAY (a YYYY-MM-DD day) stands in for the clock's day, only so a run can show
+// the week tests hold whichever weekday they run on (#1096).
+const DAY = import.meta.env.VITE_KASTEN_TODAY;
+const NOW = DAY ? new Date(`${DAY}T12:00:00`) : new Date();
 export const YEAR = NOW.getFullYear();
 export const YEAR_PATH = periodicNote("yearly", NOW).path;
 const WEEK_PATH = periodicNote("weekly", NOW).path;
@@ -46,7 +49,7 @@ export const WEEK_ROUTE = `/?note=${encodeURIComponent(WEEK_PATH)}`;
 
 // The week runs Monday to Sunday, so the Monday is the day that many days back from today.
 const monday = shiftDay(readClock(NOW).date, -((NOW.getDay() + 6) % 7));
-const sunday = shiftDay(monday, 6);
+export const SUNDAY = shiftDay(monday, 6);
 
 const CONFIG_PATH = "99 Misc/01 Config/log.md";
 export const TASKS = "02 Projects/FDE/tasks.md";
@@ -114,7 +117,7 @@ const NOTES: WrittenNote[] = [
 ];
 
 // GitHub's days: three in January and nineteen on the Sunday of this week.
-const GITHUB_DAYS: Record<string, number> = { [`${YEAR}-01-05`]: 3, [sunday]: 19 };
+const GITHUB_DAYS: Record<string, number> = { [`${YEAR}-01-05`]: 3, [SUNDAY]: 19 };
 
 /** One logged day with a kcal line, and a weigh-in when one is given. */
 function logged(date: string, kcal: number, weight?: number): LogDay {

@@ -16,6 +16,7 @@ import {
   restoreFrame,
   rowNamed,
   SilentEventSource,
+  SUNDAY,
   stubReviewFetch,
   tap,
   textOf,
@@ -117,6 +118,10 @@ it("#807 A9 at 390x844 by touch the yearly review stands in one column, nothing 
 });
 
 it("#807 I7 at 390x844 by touch every row of the week review is 44 px tall and a tap on a done row opens its note at its line", async () => {
+  // The carried over row holds an open todo dated before today, and the fixture's is due on
+  // the week's Thursday, so the clock stands on the week's Sunday, when the week has passed.
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date(`${SUNDAY}T12:00:00`));
   const mounted = await mountAt(TOUCH, WEEK_ROUTE, {}, "no-preference");
   try {
     const { host } = mounted;
@@ -133,6 +138,7 @@ it("#807 I7 at 390x844 by touch every row of the week review is 44 px tall and a
     expect(cursorLine(host)).toContain("ship the export");
   } finally {
     await unmount(mounted);
+    vi.useRealTimers();
   }
 });
 

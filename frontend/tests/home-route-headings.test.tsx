@@ -8,6 +8,7 @@ import type { TodoState } from "@/lib/todo";
 import { hashed } from "./digests";
 import { defineFoliateFake } from "./foliate-fake";
 import { FakeEventSource, pageHooks, renderApp, settle } from "./home-route-fixture";
+import { finishParsing } from "./parsing";
 
 defineFoliateFake();
 
@@ -201,6 +202,7 @@ describe("following a link with an alias or a heading", () => {
     await settle();
     app.click(NOTE);
     await settle();
+    finishParsing(document.body);
     app.press("g");
     app.press("f");
     await settle();
@@ -288,7 +290,10 @@ describe("following a link with an alias or a heading", () => {
 
     // A copy of the link pasted under it, which no save has reached yet: the
     // heading is a line further down than the vault has it.
-    for (const key of ["y", "y", "p", "g", "f"]) app.press(key);
+    for (const key of ["y", "y", "p"]) app.press(key);
+    finishParsing(document.body);
+    app.press("g");
+    app.press("f");
     await settle();
 
     expect(opened().line).toBe(6);
@@ -308,6 +313,7 @@ describe("following a link with an alias or a heading", () => {
     await settle();
     app.click(NOTE);
     await settle();
+    finishParsing(document.body);
     app.press("g");
     app.press("f");
     await settle();

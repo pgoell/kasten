@@ -264,6 +264,7 @@ describe("following from a pane that is not focused", () => {
     "A5 %s+click on a note embed in an unfocused pane opens it in that pane (I5: vim %s)",
     async (_key, _vim, held, vim) => {
       await twoPanes("second note\n![[embedded]]\n", vim);
+      finishParsing(drawn()[1] as HTMLElement);
 
       const box = drawn()[1]?.querySelector<HTMLElement>(".cm-embed") as HTMLElement;
       fireEvent.mouseDown(box, held);
@@ -280,6 +281,7 @@ describe("following from a pane that is not focused", () => {
     "A6 %s+click on a pdf embed in an unfocused pane opens the pdf beside that pane (I5: vim %s)",
     async (_key, _vim, held, vim) => {
       await twoPanes("second note\n![[my plan.pdf#page=3]]\n", vim);
+      finishParsing(drawn()[1] as HTMLElement);
 
       const box = drawn()[1]?.querySelector<HTMLElement>(".cm-embed-pdf") as HTMLElement;
       fireEvent.mouseDown(box, held);
@@ -342,6 +344,7 @@ describe("following from a pane that is not focused", () => {
     "I8 a plain click on a %s embed in an unfocused pane opens nothing",
     async (_, embed, kind) => {
       await twoPanes(`second note\n${embed}\n`, true);
+      finishParsing(drawn()[1] as HTMLElement);
 
       const box = drawn()[1]?.querySelector<HTMLElement>(kind) as HTMLElement;
       fireEvent.mouseDown(box);
