@@ -1,6 +1,9 @@
-import { cleanup, fireEvent, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { LogTrends } from "@/components/log-trends";
 import { NoteMissing } from "@/lib/api";
+import type { LogDay } from "@/lib/food-api";
 import { applyLayout } from "@/lib/layout";
+import { parseConfig } from "@/lib/log-kinds";
 import { noteBase } from "@/lib/note-base";
 import { hashed } from "./digests";
 import { defineFoliateFake } from "./foliate-fake";
@@ -268,6 +271,39 @@ describe("the overview, on the route", () => {
 
     expect(figureOf("Food")).toBe("3 days");
     expect(wordsOf("Food")).toBe("in a row within at most 2,200 kcal");
+  });
+
+  it("#1012 A3 the log pane Trends and the overview Food card read the same streak on drinks-only days", async () => {
+    config = GOALS;
+    const drinks = (date: string): LogDay => ({
+      ...day(date, 0, 250),
+      entries: [{ line: 1, text: "- 💧 250 ml", kind: "water", ml: 250 }],
+    });
+    // Today and the 18th have drinks only. The 19th and 17th have food within the goal.
+    const days = [
+      drinks("2026-10-20"),
+      day("2026-10-19", 1500),
+      drinks("2026-10-18"),
+      day("2026-10-17", 1500),
+    ];
+    fetchLog.mockResolvedValue(days);
+    await openOverview();
+
+    const { container } = render(
+      <LogTrends
+        days={days}
+        config={parseConfig(GOALS)}
+        from={FROM}
+        range={90}
+        today="2026-10-20"
+      />,
+    );
+    const trends = within(container).getByText("Streak").closest(".log-summary-tile");
+
+    expect({
+      overview: figureOf("Food"),
+      trends: trends?.querySelector(".log-summary-figure")?.textContent,
+    }).toEqual({ overview: "1 day", trends: "1 day" });
   });
 
   it("#806 A6 the flashcard streak counts days in a row with a review, read off due less interval, every cloze schedule counting", async () => {

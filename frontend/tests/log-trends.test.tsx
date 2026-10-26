@@ -48,10 +48,12 @@ interface Totals {
 
 /** A day with a `## Log` that adds up to `totals`, as `GET /api/log` answers it. */
 function loggedOn(date: string, totals: Totals) {
+  // A day with kcal has a food line, since a day with no food line is no day within the kcal goal.
+  const kcal = totals.kcal ?? 0;
   return {
     date,
     path: `daily/${date}.md`,
-    entries: [],
+    entries: kcal > 0 ? [{ line: 1, text: `- 🍽 🔥 ${kcal} kcal`, kind: "food", kcal }] : [],
     totals: {
       water: { ml: totals.water ?? 0 },
       coffee: { count: totals.coffee ?? 0 },

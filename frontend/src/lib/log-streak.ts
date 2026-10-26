@@ -13,8 +13,10 @@ export function within(kcal: number, goal: Goal): boolean {
 
 /**
  * The logged days in a row, counted back from the day shown: within the kcal goal when
- * there is one. A day with no log, or over the goal, ends the run. Today, while it has no
- * log yet, is skipped instead, so a day still being written does not end it.
+ * there is one. A day with no log, or over the goal, ends the run. A day with no food line
+ * counts as a day with no log, so drinks alone do not pass for a day within the goal. Today,
+ * while it has no food line yet, is skipped instead, so a day still being written does not
+ * end it.
  */
 export function streakOf(
   dates: string[],
@@ -25,7 +27,7 @@ export function streakOf(
   let count = 0;
   for (const [position, date] of [...dates].reverse().entries()) {
     const day = byDate.get(date);
-    if (day === undefined) {
+    if (day === undefined || !day.entries.some((entry) => entry.kind === "food")) {
       if (position === 0 && date === today) continue;
       break;
     }

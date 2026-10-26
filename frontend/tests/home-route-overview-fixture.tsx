@@ -27,12 +27,15 @@ export const DEFAULT_LAYOUT: Layout = {
   config: "99 Misc/01 Config",
 };
 
-/** One day of the log as `GET /api/log` answers it, with the kcal and water on it. */
+/**
+ * One day of the log as `GET /api/log` answers it, with the kcal and water on it. A day with
+ * kcal has a food line, since a day with no food line is no day within the kcal goal.
+ */
 export function day(date: string, kcal: number, ml = 0): LogDay {
   return {
     date,
     path: `01 Periodic/00 Daily/${date}.md`,
-    entries: [],
+    entries: kcal > 0 ? [{ line: 1, text: `- 🍽 🔥 ${kcal} kcal`, kind: "food", kcal }] : [],
     totals: {
       water: { ml },
       coffee: { count: 0 },
