@@ -189,6 +189,9 @@ describe("the finance pane's plans and goals", () => {
   it("#1037 amounts read the German way and an assign that cannot happen says why", async () => {
     expect(amountOf("1.200")).toBe("1200");
     expect(amountOf("1.200,50")).toBe("1200.50");
+    // A split part or a refund is typed with its sign, the German way too.
+    expect(amountOf("-1.200")).toBe("-1200");
+    expect(amountOf("\u22121.200,50")).toBe("-1200.50");
     expect(amountOf("12.5")).toBe("12.5");
     expect(positive("abc")).toBeUndefined();
     expect(positive("0")).toBeUndefined();

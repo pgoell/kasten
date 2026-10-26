@@ -13,6 +13,7 @@ import {
   fetchFree,
   fetchTrend,
 } from "@/lib/finance-budget-api";
+import type { Scope } from "@/lib/finance-drill-api";
 import { euros, monthName, percent, shiftMonth } from "@/lib/finance-words";
 
 /** The parts free to spend is made of, in the order the line under it names them. */
@@ -146,11 +147,23 @@ function ReserveRows({ free }: { free: Free }) {
   );
 }
 
-function Hero({ name, free }: { name: string; free: Free | undefined }) {
+function Hero({
+  name,
+  free,
+  onOpen,
+}: {
+  name: string;
+  free: Free | undefined;
+  onOpen: () => void;
+}) {
   const total = Number(free?.total ?? 0);
   return (
     <article className="overview-card finance-hero">
-      <h3 className="overview-name">{name}</h3>
+      <h3 className="overview-name">
+        <button type="button" className="finance-crumb" onClick={onOpen}>
+          {`${name} ›`}
+        </button>
+      </h3>
       <p className={total < 0 ? "finance-hero-figure finance-danger" : "finance-hero-figure"}>
         {free === undefined ? "…" : euros(total)}
       </p>
@@ -274,13 +287,16 @@ export function FinanceOverview({
   today,
   onMonth,
   onCategory,
+  onScope,
   pull,
 }: {
   month: string;
   today: string;
   onMonth: (month: string) => void;
-  /** Opens the transactions of the month shown in one category. */
+  /** Opens one category's drilldown for the month shown. */
   onCategory: (category: number) => void;
+  /** Opens mine's or household's drilldown. */
+  onScope: (scope: Scope) => void;
   pull: Pull;
 }) {
   const free = useQuery({
@@ -304,8 +320,8 @@ export function FinanceOverview({
     <div className="finance-overview">
       {error ? <p role="alert">{error.message}</p> : null}
       <div className="finance-heroes">
-        <Hero name="Mine" free={free.data?.mine} />
-        <Hero name="Household" free={free.data?.household} />
+        <Hero name="Mine" free={free.data?.mine} onOpen={() => onScope("mine")} />
+        <Hero name="Household" free={free.data?.household} onOpen={() => onScope("household")} />
       </div>
       <div className="finance-cards">
         {budget.data === undefined ? null : <Watch budget={budget.data} />}

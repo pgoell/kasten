@@ -20,6 +20,7 @@ const api = vi.hoisted(() => ({
   fetchSync: vi.fn(),
   requestPull: vi.fn(),
   writeLimit: vi.fn(),
+  fetchCategoryDrill: vi.fn(),
 }));
 
 vi.mock("@/lib/finance-api", () => ({
@@ -31,6 +32,10 @@ vi.mock("@/lib/finance-api", () => ({
 // The goals card on the overview; its own tests are in finance-plans-tab.test.tsx.
 vi.mock("@/lib/finance-plans-api", () => ({
   fetchGoals: () => Promise.resolve({ goals: [], accounts: [] }),
+}));
+// The drilldowns' own tests are in finance-drill.test.tsx; here only the way in.
+vi.mock("@/lib/finance-drill-api", () => ({
+  fetchCategoryDrill: api.fetchCategoryDrill,
 }));
 vi.mock("@/lib/finance-budget-api", () => ({
   fetchBudget: api.fetchBudget,
@@ -182,6 +187,7 @@ beforeEach(() => {
   });
   api.requestPull.mockResolvedValue(undefined);
   api.writeLimit.mockResolvedValue(undefined);
+  api.fetchCategoryDrill.mockReturnValue(new Promise(() => undefined));
 });
 
 afterEach(() => {
@@ -211,7 +217,7 @@ describe("the finance pane's overview, budget and transactions", () => {
   it("#1036 opens on the overview: both numbers, what they are made of, and what to watch", async () => {
     renderPane();
 
-    const mine = (await screen.findByRole("heading", { name: "Mine" })).closest("article");
+    const mine = (await screen.findByRole("heading", { name: "Mine ›" })).closest("article");
     expect(await within(mine as HTMLElement).findByText(/^736\s€$/)).toBeTruthy();
     expect(screen.getByText(/^over by 20\s€ ⚠$/)).toBeTruthy();
     expect(await screen.findByText(/^Over by 10\s€ ⚠$/)).toBeTruthy();
@@ -322,7 +328,7 @@ describe("the finance pane's overview, budget and transactions", () => {
     expect(failed.getAttribute("role")).toBe("alert");
   });
 
-  it("#1082 the sankey says where the money went, and a category opens its bookings", async () => {
+  it("#1082 the sankey says where the money went, and a category opens its drilldown", async () => {
     renderPane();
     // The readout above the chart; the caption under it starts with the same words.
     const [readout] = await screen.findAllByText(/^October 2026 so far: 3.000\s€ in, 400\s€ out/);
@@ -335,15 +341,9 @@ describe("the finance pane's overview, budget and transactions", () => {
     fireEvent.focus(screen.getByRole("button", { name: left }));
     expect(screen.getByText(left)).toBeTruthy();
 
-    fireEvent.click(screen.getByRole("button", { name: /^Groceries, 400\s€.*show its bookings$/ }));
-    await waitFor(() =>
-      expect(api.fetchTransactions).toHaveBeenCalledWith(
-        expect.objectContaining({ month: "2026-10", category: 4 }),
-      ),
-    );
-    expect(screen.getByRole("tab", { name: /Transactions/ })).toHaveAttribute(
-      "aria-selected",
-      "true",
-    );
+    fireEvent.click(screen.getByRole("button", { name: /^Groceries, 400\s€.*open the category$/ }));
+    await waitFor(() => expect(api.fetchCategoryDrill).toHaveBeenCalledWith(4, "2026-10"));
+    const crumbs = screen.getByRole("navigation", { name: "Breadcrumbs" });
+    expect(crumbs.textContent).toBe("October 2026Groceries");
   });
 });

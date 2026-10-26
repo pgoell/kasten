@@ -1,7 +1,7 @@
 ---
 type: How-to Guide
 title: Read the finance overview
-description: Open the finance pane on its overview, read free to spend for mine and household and what makes each, see what to watch, the month's pace, where its money went and the goals, pull from the bank now, set and change a limit, take a suggested one, and find a booking.
+description: Open the finance pane on its overview, read free to spend for mine and household and what makes each, see what to watch, the month's pace, where its money went and the goals, drill down into a scope, account, category, payee or booking, pull from the bank now, set and change a limit, take a suggested one, and find a booking.
 tags: [finance, budget, pane, keys, phone]
 status: draft
 ---
@@ -59,8 +59,8 @@ the danger colour with `⚠` means the month is already spent past what came in.
   above household's, and each kind's streams keep the kind's colour. The line
   above the chart sums the month up until you point at something. It counts what happened
   so far, not the estimates free to spend makes. Point at a stream or a name,
-  or Tab to a name, to read its amount; press a category or an income to open
-  its bookings for the month in Transactions. On a phone the chart scrolls
+  or Tab to a name, to read its amount; press a category to open it
+  (below). On a phone the chart scrolls
   sideways inside its card, and `Every stream` lists each amount as a table.
 * **Left from limits** is what the limits left at each month end since they
   began, less what you moved into goals, and what last month left.
@@ -71,6 +71,46 @@ the danger colour with `⚠` means the month is already spent past what came in.
   reached the account; under them, what each saving account has not reserved
   for a goal
   ([Plan costs and goals](/how-to/plan-costs-and-goals.md)).
+
+## Drill down
+
+Press `Mine ›` or `Household ›` over a big number, or a category in **Where
+it went**, to open it. Each view reads the month shown, and `[` and `]` still
+step it. The breadcrumbs over the view say where you are, such as
+`October 2026 › Groceries › REWE`; press one to go back to it, or press
+`Escape` to step back one. From the month, `Escape` goes back to the editor.
+
+* **A scope** gives its month as the sankey draws it, income less each part,
+  and what was left; its spending month by month, with `Every month` as a
+  table; its accounts with their latest bank balance; and its bookings.
+* **An account** gives its balance at each month end, counted from the bank's
+  balances and the bookings between; the month's money by category; the
+  transfers to and from your other accounts; and its bookings. It reads
+  bookings by booking date, as the bank does, so a salary booked on the 20th
+  sits in that month here.
+* **A category** gives 12 months of bars against what its limit made
+  available, with its average; its payees in the month; the plans and rules
+  that book into it; and its bookings.
+* **A payee** gives its spending each month, how many bookings and the
+  average, and the categories its money went to. Pick a category, then
+  `Make it the default` to sort this payee's bookings into it, or
+  `Add a rule` to sort every payee whose name starts the same way.
+* **A booking** gives every field and its raw record, where it counts in the
+  budget, the plan it met and the other half of a transfer. Sort it again
+  with a category's key or button, as on To sort. To split it, press
+  `Split into parts`, then `Add a part` for each further part; type each
+  amount and what it was, and press `Save the splits` once the parts add up.
+  Then sort each part. Remove every part and press `Save, whole` to make it
+  one booking again.
+
+The bookings a view lists are those that count in the month, so a salary
+booked after the cutoff day shows in the month after. Tap one, or move with
+`j` and `k` and press Enter, to open it.
+
+A view's figures are the overview's own: a scope's month adds up to what the
+sankey shows for it, and a category's month is its `spent` on Budget. A bill
+a plan's reserve paid counts in its category there, and the view says how
+much of it the reserve paid.
 
 ## Pull from the bank now
 
@@ -99,10 +139,12 @@ Open Transactions with `T`. The month shown's bookings are listed newest
 first. Narrow them by account, category or text; `/` goes to the text field.
 Sort the booking under the cursor as on the To sort list, with its category's
 key or button, or `a` first for every booking of its payee
-([Sort finance transactions](/how-to/sort-finance-transactions.md)).
+([Sort finance transactions](/how-to/sort-finance-transactions.md)). Enter
+opens the booking under the cursor.
 
 ## Related
 
 * [Budget model](/reference/budget-model.md): every rule behind the figures
 * [HTTP API: finance budget](/reference/http-api/finance-budget.md): the routes the pane reads
+* [HTTP API: finance drilldowns](/reference/http-api/finance-drill.md): the routes the drilldowns read
 * [Run the bank sync](/how-to/run-the-bank-sync.md): the job "pull now" asks

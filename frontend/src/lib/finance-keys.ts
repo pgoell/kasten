@@ -44,6 +44,11 @@ export const FINANCE_PANE: readonly { key: string; label: string }[] = [
     label: "To sort and transactions: the next category key sorts the booking's payee, always",
   },
   { key: "/", label: "Transactions: go to the text filter" },
+  { key: "Enter", label: "Transactions and drilldowns: open the booking under the cursor" },
+  {
+    key: "1",
+    label: "A booking's drilldown: sort the booking into that category, as on the to-sort list",
+  },
   { key: "e", label: "Budget: edit the category's limit; Enter saves, Escape leaves it" },
   { key: "y", label: "Budget: take the suggested limit" },
   { key: "1", label: "Plans & goals: confirm the proposed plan with that key, 1 to 9" },
@@ -58,5 +63,8 @@ export const FINANCE_PANE: readonly { key: string; label: string }[] = [
   { key: "e", label: "Plans & goals: edit the goal; Enter saves, Escape leaves it" },
   { key: "?", label: "Show the keys" },
   { key: "q", label: "Close the pane" },
-  { key: "Escape", label: "Stop the always, leave a field, or go back to the editor" },
+  {
+    key: "Escape",
+    label: "Stop the always, leave a field, step back out of a drilldown, or go back to the editor",
+  },
 ];

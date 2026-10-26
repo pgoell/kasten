@@ -1,6 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
-import { BalanceLine } from "@/components/charts";
+import { MonthChart } from "@/components/finance-month-chart";
 import { fetchForecast } from "@/lib/finance-plans-api";
 import { euros, monthName } from "@/lib/finance-words";
 
@@ -11,54 +10,34 @@ type ScopeForecast = Awaited<ReturnType<typeof fetchForecast>>["mine"];
  * it; a button over each month names it for a screen reader, as the spending trend's do.
  */
 function ScopeLine({ name, forecast }: { name: string; forecast: ScopeForecast }) {
-  const [hovered, setHovered] = useState<number>();
   const values = forecast.months.map((row) => Number(row.balance));
-  const read = hovered ?? values.length - 1;
-  const row = forecast.months[read];
   const below = values.filter((value) => value < 0).length;
   return (
     <figure className="finance-forecast-scope">
       <figcaption className="finance-forecast-name">{name}</figcaption>
-      {row === undefined ? null : (
-        <p className="finance-trend-readout" aria-live="polite">
-          <span>{monthName(row.month)}</span>{" "}
-          <strong className={Number(row.balance) < 0 ? "finance-danger" : undefined}>
-            {euros(row.balance)}
-            {Number(row.balance) < 0 ? " ⚠" : ""}
-          </strong>
-        </p>
-      )}
-      <div className="finance-trend-plot">
-        <BalanceLine
-          values={values}
-          hovered={hovered}
-          label={`${name}: balance by plans over ${values.length} months, from ${euros(forecast.balance)}${below ? `, below zero in ${below}` : ""}`}
-        />
-        <div className="finance-trend-hits">
-          {forecast.months.map((month, index) => (
-            <button
-              key={month.month}
-              type="button"
-              aria-label={`${name}, end of ${monthName(month.month)}, ${euros(month.balance)}`}
-              className="finance-trend-hit"
-              onFocus={() => setHovered(index)}
-              onBlur={() => setHovered(undefined)}
-              onPointerEnter={(event) => {
-                if (event.pointerType === "mouse") setHovered(index);
-              }}
-              onPointerLeave={() => setHovered(undefined)}
-            />
-          ))}
-        </div>
-      </div>
-      <div className="finance-trend-axis" aria-hidden="true">
-        {forecast.months.map((month) => (
-          <span key={month.month}>
-            <span className="finance-wide">{monthName(month.month, true)}</span>
-            <span className="finance-narrow">{Number(month.month.slice(5))}</span>
-          </span>
-        ))}
-      </div>
+      <MonthChart
+        line
+        months={forecast.months.map((row) => row.month)}
+        values={values}
+        label={`${name}: balance by plans over ${values.length} months, from ${euros(forecast.balance)}${below ? `, below zero in ${below}` : ""}`}
+        hitLabel={(index) => {
+          const row = forecast.months[index];
+          return `${name}, end of ${monthName(row?.month ?? "")}, ${euros(row?.balance ?? 0)}`;
+        }}
+        readout={(read) => {
+          const row = forecast.months[read];
+          if (row === undefined) return null;
+          return (
+            <>
+              <span>{monthName(row.month)}</span>{" "}
+              <strong className={Number(row.balance) < 0 ? "finance-danger" : undefined}>
+                {euros(row.balance)}
+                {Number(row.balance) < 0 ? " ⚠" : ""}
+              </strong>
+            </>
+          );
+        }}
+      />
     </figure>
   );
 }

@@ -232,6 +232,8 @@ class Filters:
     last: date | None = None
     category: int | None = None
     text: str | None = None
+    payee: int | None = None
+    accounts: tuple[int, ...] | None = None
 
 
 def _matching(statement: Any, filters: Filters) -> Any:
@@ -243,6 +245,10 @@ def _matching(statement: Any, filters: Filters) -> Any:
     """
     if filters.account is not None:
         statement = statement.where(Transaction.account_id == filters.account)
+    if filters.accounts is not None:
+        statement = statement.where(Transaction.account_id.in_(filters.accounts))
+    if filters.payee is not None:
+        statement = statement.where(Transaction.payee_id == filters.payee)
     if filters.first is not None:
         statement = statement.where(Transaction.booking_date >= filters.first)
     if filters.last is not None:

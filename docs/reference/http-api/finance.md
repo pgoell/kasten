@@ -97,6 +97,7 @@ its splits. Each filter is optional:
   `from` or `to` beside it, a `400`.
 * `category`: a category id. A booking counts when it, or one of its splits,
   has that category.
+* `payee`: a payee id.
 * `text`: plain text, case ignored, looked for in the purpose, the
   counterparty and the payee's name.
 * `order`: `asc`, the default, or `desc` for newest first.

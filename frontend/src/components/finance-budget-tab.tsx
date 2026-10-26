@@ -27,11 +27,12 @@ function aside(row: BudgetCategory, month: string): string {
  * comma is in it; an empty field is no limit.
  */
 export function amountOf(text: string): string | null {
-  const typed = text.trim().replace(/\s|€/g, "");
+  // The minus sign the pane writes amounts with reads as a hyphen's.
+  const typed = text.trim().replace(/\s|€/g, "").replace("\u2212", "-");
   if (typed === "") return null;
   if (typed.includes(",")) return typed.replaceAll(".", "").replace(",", ".");
-  // `1.200` with no comma is twelve hundred the German way, not one point two.
-  return /^\d{1,3}(\.\d{3})+$/.test(typed) ? typed.replaceAll(".", "") : typed;
+  // `1.200` with no comma is twelve hundred the German way, not one point two; `-1.200` too.
+  return /^-?\d{1,3}(\.\d{3})+$/.test(typed) ? typed.replaceAll(".", "") : typed;
 }
 
 /** A typed amount as a number, or undefined for one that is not a number above zero. */

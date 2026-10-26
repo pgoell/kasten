@@ -29,14 +29,15 @@ async def cutoff_day(session: AsyncSession) -> int:
     return CUTOFF_DAY if settings is None else settings.salary_cutoff_day
 
 
-async def _lines(session: AsyncSession, cutoff: int) -> list[Line]:
+async def _lines(session: AsyncSession, cutoff: int, transaction: int | None = None) -> list[Line]:
     """Every booking without splits and every split, summed by what decides where it counts.
 
     Money in and money out are summed apart, since money in with no category
     counts nowhere and money out with none counts as unsorted. A transfer
     carries its twin's account, or the own account its counterparty IBAN names.
     A booking that paid a reserving plan's bill is marked, since the reserve
-    paid it and free to spend must not count it again.
+    paid it and free to spend must not count it again. With `transaction`,
+    that one booking's lines only, as the booking drilldown says where it counts.
     """
     booking, twin, own = tables.Transaction, aliased(tables.Transaction), aliased(tables.Account)
     split = tables.TransactionSplit
@@ -56,6 +57,7 @@ async def _lines(session: AsyncSession, cutoff: int) -> list[Line]:
             booking.category_id.label("category"),
             func.coalesce(twin.account_id, own.id).label("twin"),
             reserved.label("reserved"),
+            booking.payee_id.label("payee"),
         )
         # A join, not a subquery per booking: the partial index on transfer_group
         # finds each twin at once.
@@ -78,8 +80,16 @@ async def _lines(session: AsyncSession, cutoff: int) -> list[Line]:
     )
     # A split of a bill a reserve paid is marked as the whole booking would be.
     parts = select(
-        booking.booking_date, booking.account_id, split.amount, split.category_id, null(), reserved
+        booking.booking_date,
+        booking.account_id,
+        split.amount,
+        split.category_id,
+        null(),
+        reserved,
+        booking.payee_id,
     ).join(split, split.transaction_id == booking.id)
+    if transaction is not None:
+        whole, parts = (q.where(booking.id == transaction) for q in (whole, parts))
     rows = union_all(whole, parts).subquery()
     month = cast(func.date_trunc("month", rows.c.day), Date).label("month")
     late = (func.extract("day", rows.c.day) > cutoff).label("late")
@@ -90,17 +100,23 @@ async def _lines(session: AsyncSession, cutoff: int) -> list[Line]:
         rows.c.twin,
         late,
         rows.c.reserved,
+        rows.c.payee,
         rows.c.amount < 0,
     ]
-    summed = select(*keys[:6], func.sum(rows.c.amount)).group_by(*keys)
+    summed = select(*keys[:7], func.sum(rows.c.amount)).group_by(*keys)
     return [
-        Line(month, account, amount, category, twin, late, reserved)
-        for month, account, category, twin, late, reserved, amount in await session.execute(summed)
+        Line(month, account, amount, category, twin, late, reserved, payee)
+        for month, account, category, twin, late, reserved, payee, amount in await session.execute(
+            summed
+        )
     ]
 
 
-async def ledger(session: AsyncSession) -> Ledger:
-    """Every booking in the budget's terms, with the accounts and categories it reads."""
+async def ledger(session: AsyncSession, transaction: int | None = None) -> Ledger:
+    """Every booking in the budget's terms, with the accounts and categories it reads.
+
+    With `transaction`, that one booking alone.
+    """
     accounts = {
         row.id: Account(row.shared, row.kind)
         for row in await session.scalars(select(tables.Account))
@@ -109,7 +125,7 @@ async def ledger(session: AsyncSession) -> Ledger:
         row.id: Category(row.id, row.name, row.kind, row.salary)
         for row in await session.scalars(select(tables.Category))
     }
-    lines = await _lines(session, await cutoff_day(session))
+    lines = await _lines(session, await cutoff_day(session), transaction)
     return Ledger(lines, accounts, categories)
 
 

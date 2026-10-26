@@ -186,6 +186,8 @@ class Transaction(Base):
             "transfer_group",
             postgresql_where=text("transfer_group IS NOT NULL"),
         ),
+        # The payee drilldown reads a payee's bookings.
+        Index("transaction_payee", "payee_id"),
         _one_of("category_set_by", SET_BY, "transaction_set_by_check"),
         _sorted_by_someone("transaction_category_set_by"),
         {"schema": SCHEMA},

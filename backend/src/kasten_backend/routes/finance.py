@@ -239,6 +239,7 @@ async def read_transactions(  # noqa: PLR0913  each query parameter is its own a
     end: Annotated[str | None, Query(alias="to", pattern=DATE_PATTERN)] = None,
     month: Annotated[str | None, Query(pattern=r"^[0-9]{4}-[0-9]{2}$")] = None,
     category: int | None = None,
+    payee: int | None = None,
     text: str | None = None,
     order: Literal["asc", "desc"] = "asc",
     after: int | None = None,
@@ -255,7 +256,7 @@ async def read_transactions(  # noqa: PLR0913  each query parameter is its own a
     first, last = _month_range(month) if month is not None else (_day(start), _day(end))
     if first is not None and last is not None and first > last:
         raise HTTPException(status_code=400, detail="`from` is after `to`")
-    filters = finance.Filters(account, first, last, category, text)
+    filters = finance.Filters(account, first, last, category, text, payee)
     found = await finance.list_transactions(
         session, filters, after=after, limit=limit, newest_first=order == "desc"
     )

@@ -17,8 +17,8 @@ day. The routes are in [HTTP API: finance budget](/reference/http-api/finance-bu
 
 The code is `finance_ledger.py` (where each booking counts),
 `finance_free.py` (free to spend), `finance_plans.py` (plans, reserves and
-goals), `finance_flow.py` (where the money went) and `finance_budget.py`
-(limits). This page states what they do; a change to one changes this page.
+goals), `finance_flow.py` (where the money went), `finance_drill.py` (the
+drilldowns) and `finance_budget.py` (limits). This page states what they do; a change to one changes this page.
 
 ## Months
 
@@ -172,6 +172,22 @@ money out = each fixed, flexible and non-monthly line + reserved + saved
 * A category below 3 % of the money into both scopes folds into
   `Other <kind>`, and an income into `Other income`, when at least two of the
   same kind would; one alone keeps its name.
+
+### Drilldowns
+
+The drilldowns read the same lines, so a booking counts there where it
+counts here ([HTTP API: finance drilldowns](/reference/http-api/finance-drill.md)):
+
+* A scope's month is the sankey's: each part counts what happened, and what
+  is left is free to spend for a month that is over.
+* A category's month is its `spent` below, both scopes together, a bill a
+  reserve paid included; the sankey draws that bill as reserved instead, so
+  its stream is the category's month less what the reserve paid.
+* A payee's month is its bookings' lines alone. Spending is money out in
+  spending categories and not sorted; a move between own accounts is never
+  spending, and its saved part is shown apart.
+* An account is the one view by booking date, not budget month, as its bank
+  balance is: the salary cutoff does not move its bookings.
 
 ## Plans
 

@@ -171,7 +171,7 @@ function Hit({
       type="button"
       className="finance-sankey-hit"
       style={style}
-      aria-label={category == null ? words : `${words}; show its bookings`}
+      aria-label={category == null ? words : `${words}; open the category`}
       onClick={() => (category == null ? onPoint({ node }) : onCategory(category))}
       onFocus={() => onPoint({ node })}
       onBlur={() => onPoint(undefined)}
@@ -238,7 +238,7 @@ function Streams({ links, nodes }: { links: Link[]; nodes: Map<string, Node> }) 
 /**
  * Where the month's money went: each income into mine or household, on into the kinds and the
  * categories, with what was left over or taken from before. A category's button opens its
- * bookings for the month; every node's names it and its amount on hover, focus or a tap.
+ * drilldown for the month; every node's names it and its amount on hover, focus or a tap.
  */
 export function FinanceSankey({
   flow,

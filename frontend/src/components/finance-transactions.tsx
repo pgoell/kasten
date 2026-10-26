@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { type RefObject, useRef, useState } from "react";
+import { categoryOf } from "@/components/finance-drill-parts";
 import {
   type BookingLine,
   BookingList,
@@ -9,20 +10,9 @@ import {
 } from "@/components/finance-sort-bar";
 import type { Category } from "@/lib/finance-api";
 import { fetchAccounts, fetchTransactions, type Transaction } from "@/lib/finance-budget-api";
+import type { DrillStep } from "@/lib/finance-drill-api";
 import { money } from "@/lib/finance-words";
 import type { CategorySort, SortRow } from "@/lib/use-category-sort";
-
-/** The category a booking shows: its own, its splits' when it has them, or why it has none. */
-function categoryWords(booking: Transaction, names: Map<number, string>): string {
-  if (booking.transfer_group != null) return "Transfer";
-  if (booking.splits.length > 0) {
-    const parts = booking.splits.map((part) =>
-      part.category_id == null ? "Not sorted" : (names.get(part.category_id) ?? "?"),
-    );
-    return [...new Set(parts)].join(", ");
-  }
-  return booking.category_id == null ? "Not sorted" : (names.get(booking.category_id) ?? "?");
-}
 
 function lineOf(booking: Transaction, names: Map<number, string>): BookingLine {
   return {
@@ -32,7 +22,7 @@ function lineOf(booking: Transaction, names: Map<number, string>): BookingLine {
     amount: booking.amount,
     currency: booking.currency,
     text: booking.purpose ?? "",
-    category: categoryWords(booking, names),
+    category: categoryOf(booking, names),
   };
 }
 
@@ -106,17 +96,17 @@ function FilterRow({
  */
 export function FinanceTransactions({
   month,
-  category,
   sorter,
   keys,
+  onOpen,
 }: {
   month: string;
-  /** The category the list opens on, such as one the overview's sankey was pressed on. */
-  category?: number;
   sorter: CategorySort;
   keys: RefObject<TabKeys | null>;
+  /** Opens a booking's drilldown, on Enter at the cursor. */
+  onOpen: (step: DrillStep) => void;
 }) {
-  const [filters, setFilters] = useState<Filters>({ text: "", category });
+  const [filters, setFilters] = useState<Filters>({ text: "" });
   const [cursor, setCursor] = useState(0);
   const text = useRef<HTMLInputElement>(null);
   const filter = {
@@ -140,6 +130,11 @@ export function FinanceTransactions({
     setCursor(Math.max(0, Math.min(at + step, found.length - 1))),
   );
   keys.current = (key) => {
+    const booking = found[at];
+    if (key === "Enter" && booking !== undefined) {
+      onOpen({ kind: "booking", id: booking.id, name: booking.counterparty_name ?? "Booking" });
+      return true;
+    }
     if (key !== "/") return sorting(key);
     text.current?.focus();
     return true;
