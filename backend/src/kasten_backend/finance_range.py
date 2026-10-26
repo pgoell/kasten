@@ -101,8 +101,9 @@ def scope_compared(
     before = _before(ledger, first)
     average = None
     if before:
-        mean = _scaled(scope_span(ledger, scope, before, book), Decimal(1) / len(before))
-        average = replace(_scaled(mean, Decimal(len(months))), month=first)
+        # One rounding, at the end: the sum over the months before, times the span's share of them.
+        by = Decimal(len(months)) / len(before)
+        average = replace(_scaled(scope_span(ledger, scope, before, book), by), month=first)
     return Compared(
         scope_span(ledger, scope, months, book),
         scope_span(ledger, scope, [add_months(m, -YEAR) for m in months], book),

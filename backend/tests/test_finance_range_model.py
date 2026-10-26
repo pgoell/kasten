@@ -19,6 +19,7 @@ from backend.tests.test_finance_budget_model import (
     REIMBURSED,
     RENT,
     SALARY,
+    SAVING,
     SHARED,
     TRIPS,
     ledger,
@@ -112,6 +113,18 @@ def test_a_span_compares_with_a_year_before_and_the_average_at_its_length() -> N
     assert category.last_year.total == Decimal(300)
     assert category.average is not None
     assert category.average.total == Decimal(600)
+
+
+def test_the_average_at_a_spans_length_is_rounded_once() -> None:
+    # 400 saved in two of the six months before: 800 over 6, three times, is 400, not 399.99.
+    book = ledger(
+        *[at(back, CARD, "-1", GROCERIES) for back in range(-6, 0)],
+        at(-2, GIRO, "-400", twin_account=SAVING),
+        at(-1, GIRO, "-400", twin_account=SAVING),
+    )
+    found = scope_compared(book, "mine", OCT, month(2), None)
+    assert found.average is not None
+    assert found.average.saved == Decimal(400)
 
 
 def test_a_span_with_no_month_before_it_has_no_average() -> None:
