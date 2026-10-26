@@ -17,6 +17,12 @@ export interface ToastTaking {
   source: string;
   /** The passage sat in the lower half of its frame, so the toast goes to the top (#885). */
   top: boolean;
+  /**
+   * The dump's line in place of the quote, written relative to the daily note: a
+   * story saved to share later. Such a take is no passage, so there is nothing to
+   * put into a note.
+   */
+  line?: (note: string) => string;
 }
 
 /** The toast on screen: what it says, and the take it can undo, if it can. */
@@ -74,8 +80,8 @@ export function useTakeToast(o: TakeToastOptions): {
 
   function show(title: string, taking: ToastTaking, undo?: Undo) {
     toastId.current += 1;
-    const { text, linkIn, source, top } = taking;
-    setToast({ id: toastId.current, title, text, linkIn, source, top, undo });
+    const { text, linkIn, source, top, line } = taking;
+    setToast({ id: toastId.current, title, text, linkIn, source, top, line, undo });
   }
 
   /**
@@ -123,7 +129,9 @@ export function useTakeToast(o: TakeToastOptions): {
         source={toast.source}
         archive={o.archive}
         onUndo={undo === undefined ? undefined : () => void undoTake(undo)}
-        onPut={(notePath) => putInto(toast.id, notePath, toast)}
+        onPut={
+          toast.line === undefined ? (notePath) => putInto(toast.id, notePath, toast) : undefined
+        }
         onDone={forget}
       />
     );

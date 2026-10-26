@@ -1,7 +1,9 @@
 /**
  * Kasten's half of a selection and its marks in a frame (#787): what the page
- * posts when a passage is selected, and what `y`, `take` and `untake` do. The
- * page makes its selection on a message, since a frame's DOM is out of reach.
+ * posts when a passage is selected, and what `y`, `take` and `untake` do. Then
+ * the Share later button on a newspaper's stories: where it goes, what a press
+ * posts, and what `shared` and `unshared` do to it. The page makes its selection
+ * and presses its buttons on a message, since a frame's DOM is out of reach.
  */
 
 import { userEvent } from "vitest/browser";
@@ -12,6 +14,7 @@ import {
   field,
   keysSent,
   lastSelection,
+  type Message,
   marks,
   marksPage,
   messages,
@@ -19,6 +22,7 @@ import {
   NESTED,
   NEWSPAPER,
   PLAIN,
+  REPORT,
   reported,
   SELECTING,
   selectMouse,
@@ -249,4 +253,73 @@ it("a long selection is cut on a whole character, not in the middle of a pair", 
 
   await expect.poll(() => lastSelection()?.text?.endsWith("\u{1F600}")).toBe(true);
   expect(Array.from(lastSelection()?.text ?? "")).toHaveLength(10000);
+});
+
+/**
+ * Presses the nth button on "press", and answers "buttons" with every button's
+ * label and state and the page's own text, which must not take in a label.
+ */
+const PRESSING = `<script>
+const all = () => [...document.querySelectorAll("article > span")].map((host) => host.shadowRoot.querySelector("button"));
+addEventListener("message", (event) => {
+  const data = event.data;
+  if (typeof data !== "object" || data === null) return;
+  if (typeof data.press === "number") all()[data.press].click();
+  if (data.buttons) parent.postMessage({ fixture: "buttons", labels: all().map((b) => b.textContent), disabled: all().map((b) => b.disabled), text: document.body.innerText }, "*");
+});
+</script>`;
+
+/** A story with a marked source, one with only an outside link, and an article with no id. */
+const STORIES = atStart(
+  `<article><a class="sid" href="#s1">#s1</a><h2>First story</h2><p>Alpha <a href="https://example.com/other">other</a> and <a class="src" href="https://news.example/one">the source</a>.</p></article><article><a class="sid" href="#s2">#s2</a><h2>Second story</h2><p>Delta <a href="other.html">a vault page</a>, then <a href="https://blog.example/two?a=1">the post</a>.</p></article><article><h2>No id</h2><p>Echo.</p></article>${REPORT}${PRESSING}`,
+);
+
+async function buttons(): Promise<Message | undefined> {
+  const before = messages.length;
+  sendToPage({ buttons: true });
+  await expect.poll(() => messages.slice(before).some((m) => m.fixture === "buttons")).toBe(true);
+  return messages.slice(before).find((m) => m.fixture === "buttons");
+}
+
+const shares = () => messages.filter((m) => m.kasten === "share");
+
+it("puts a button on each story with an id, and keeps its label out of the page's text", async () => {
+  await mount(STORIES);
+
+  const state = await buttons();
+  expect(state?.labels).toEqual(["Share later", "Share later"]);
+  expect(state?.text).not.toContain("Share later");
+});
+
+it("a press posts the story's heading, id and marked source", async () => {
+  await mount(STORIES);
+  sendToPage({ press: 0 });
+
+  await expect.poll(() => shares().length).toBe(1);
+  expect(shares()[0]).toMatchObject({
+    heading: "First story",
+    anchor: "s1",
+    source: "https://news.example/one",
+  });
+});
+
+it("with no marked source the first link off the page's host is the source", async () => {
+  await mount(STORIES);
+  sendToPage({ press: 1 });
+
+  await expect.poll(() => shares().length).toBe(1);
+  expect(shares()[0]?.source).toBe("https://blog.example/two?a=1");
+});
+
+it("shared marks the button saved, and unshared gives it back", async () => {
+  await mount(STORIES);
+
+  sendToPage({ kasten: "shared", anchor: "s2" });
+  await expect
+    .poll(async () => (await buttons())?.labels)
+    .toEqual(["Share later", "Saved to share"]);
+  expect((await buttons())?.disabled).toEqual([false, true]);
+
+  sendToPage({ kasten: "unshared", anchor: "s2" });
+  await expect.poll(async () => (await buttons())?.labels).toEqual(["Share later", "Share later"]);
 });
