@@ -11,8 +11,8 @@ status: stable
 A yearly note opens with a review of its year. A weekly note opens with a review
 of its week. The review holds the todos done, the time on them, the notes
 written, the tags, the flashcards answered and the days logged. It also holds
-the weight and the kcal. The year review adds Claude Code's tokens and cost. A
-GitHub section joins it when the backend has a token.
+the weight and the kcal. The year review adds the tokens and cost of Claude Code
+and codex. A GitHub section joins it when the backend has a token.
 Every number is worked out from what the notes already hold. The review writes
 nothing into them.
 
@@ -78,22 +78,24 @@ the same rule the overview uses. The caption gives the total, as
 
 ### Model use
 
-One bar for each month, January to December, for the tokens Claude Code used in
-it. A second set of bars shows the cost of those tokens in US dollars, at list
-prices. Under them, a table has one row for each project, with its tokens and
-cost for the year, tokens being input, output, cache write and cache read
-together. When some tokens had no price, a line under the table gives them,
-since the cost leaves them out.
+One bar for each month, January to December, for the tokens Claude Code and
+codex used in it. A second set of bars shows the cost of those tokens in US
+dollars, at list prices. Under them, a table has one row for each project, with
+its tokens and cost for the year, tokens being input, output, cache write and
+cache read together. When some tokens had no price, a line under the table gives
+them, since the cost leaves them out.
 
 The numbers come from the monthly notes the collector writes under the config
 folder. [Model use format](/reference/model-use-format.md) describes them. The
-collector runs on the computer that holds the Claude Code sessions:
+collector runs on the computer that holds the sessions. Run it once for each
+folder of sessions:
 
 ```
 mise run model-use -- ~/.claude/projects <vault>
+mise run model-use -- ~/.codex/sessions <vault>
 ```
 
-Give both as absolute paths: the task runs in `backend/`.
+Give each path as an absolute path: the task runs in `backend/`.
 
 It counts yesterday and today. For a backfill, pass `--from` with the first day,
 such as `--from 2026-01-01`. With no usage line in the year, the section says

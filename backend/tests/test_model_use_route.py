@@ -92,6 +92,33 @@ async def test_808_i6_a_range_with_no_notes_is_an_empty_list(
     assert (r.status_code, r.json()) == (200, [])
 
 
+async def test_1099_a5_the_route_answers_a_codex_line(client: AsyncClient, vault: Path) -> None:
+    write(
+        vault,
+        MARKED + "- 2026-10-25 codex/gpt-6-astra proj: in 9822, out 213, cache write 0, "
+        "cache read 12032, cost 0.1209 usd\n",
+    )
+
+    r = await client.get("/api/model-use", params={"from": "2026-10-25", "to": "2026-10-25"})
+
+    assert (r.status_code, r.json()) == (
+        200,
+        [
+            {
+                "day": "2026-10-25",
+                "model": "gpt-6-astra",
+                "project": "proj",
+                "input": 9822,
+                "output": 213,
+                "cache_write": 0,
+                "cache_read": 12032,
+                "cost": 0.1209,
+                "unpriced": 0,
+            }
+        ],
+    )
+
+
 async def test_808_i6_a_bad_date_is_422(client: AsyncClient) -> None:
     r = await client.get("/api/model-use", params={"from": "2026-02-01", "to": "2026-02-30"})
 

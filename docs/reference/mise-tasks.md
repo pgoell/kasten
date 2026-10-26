@@ -86,7 +86,7 @@ The thresholds are assertions in the test files instead. See
 |---|---|
 | `okf:backfill` | Write `type` into every note in the vault that has none |
 | `index:backfill` | Write an `index.md` into every folder in the vault that has none |
-| `model-use` | Write Claude Code's tokens and cost per day, model and project from `~/.claude/projects` into the monthly notes. Takes the source and the vault, then `--from` and `--to` for the days |
+| `model-use` | Write Claude Code's and codex's tokens and cost per day, model and project from a session folder, `~/.claude/projects` or `~/.codex/sessions`, into the monthly notes. Takes the source and the vault, then `--from` and `--to` for the days |
 
 `okf:backfill` runs the same pass the backend runs at startup, from a terminal.
 It takes the vault as a path so the one command reaches any vault, `../vault` by

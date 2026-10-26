@@ -1,8 +1,9 @@
-"""The Claude Code session files, read into one usage per day, model and project.
+"""The Claude Code and codex session files, read into one usage per day, tool, model and project.
 
 Claude Code writes one record per block of an answer, each carrying the answer's
 usage, and a resumed session copies earlier records into its new file. So a
 message is counted once, by its id, however many records or files carry it.
+A codex file is read by `model_use_codex`, and any other file as Claude Code's.
 """
 
 import json
@@ -10,8 +11,9 @@ from dataclasses import dataclass
 from datetime import date, datetime
 from typing import TYPE_CHECKING
 
+from kasten_backend import model_use_codex
 from kasten_backend.model_use_config import Config, Price, price_of, project_of
-from kasten_backend.model_use_lines import Usage
+from kasten_backend.model_use_lines import CLAUDE_CODE, Usage
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -35,9 +37,10 @@ class Message:
     read: int
     write_5m: int
     write_1h: int
+    tool: str = CLAUDE_CODE
 
 
-def _count(usage: dict, key: str) -> int:
+def count_of(usage: dict, key: str) -> int:
     """The count under `key`, or 0 when it is missing or not a whole number."""
     value = usage.get(key)
     return value if isinstance(value, int) and not isinstance(value, bool) else 0
@@ -72,12 +75,12 @@ def _message(record: object) -> Message | None:
 
     # A cache write is priced by how long it is kept, read off `cache_creation` when the
     # record has it. A record without it prices every cache write at the 5-minute rate.
-    write = _count(usage, "cache_creation_input_tokens")
+    write = count_of(usage, "cache_creation_input_tokens")
     cache = usage.get("cache_creation")
     write_5m, write_1h = write, 0
     if isinstance(cache, dict):
-        write_5m = _count(cache, "ephemeral_5m_input_tokens")
-        write_1h = _count(cache, "ephemeral_1h_input_tokens")
+        write_5m = count_of(cache, "ephemeral_5m_input_tokens")
+        write_1h = count_of(cache, "ephemeral_1h_input_tokens")
 
     return Message(
         id=mid,
@@ -86,10 +89,10 @@ def _message(record: object) -> Message | None:
         day=when.astimezone().date().isoformat(),
         cwd=cwd,
         fast=usage.get("speed") == "fast",
-        input=_count(usage, "input_tokens"),
-        output=_count(usage, "output_tokens"),
+        input=count_of(usage, "input_tokens"),
+        output=count_of(usage, "output_tokens"),
         write=write,
-        read=_count(usage, "cache_read_input_tokens"),
+        read=count_of(usage, "cache_read_input_tokens"),
         write_5m=write_5m,
         write_1h=write_1h,
     )
@@ -98,6 +101,20 @@ def _message(record: object) -> Message | None:
 def has_sessions(source: Path) -> bool:
     """Whether a session file sits at any depth under `source`: false for a folder not there."""
     return any(source.rglob("*.jsonl"))
+
+
+def _claude_messages(lines: list[str]) -> list[Message]:
+    """The countable messages of a Claude Code file, one for each record that holds one."""
+    found = []
+    for raw in lines:
+        try:
+            record = json.loads(raw)
+        except json.JSONDecodeError:
+            continue
+        message = _message(record)
+        if message is not None:
+            found.append(message)
+    return found
 
 
 def read_messages(source: Path, first: date) -> dict[str, Message]:
@@ -113,14 +130,13 @@ def read_messages(source: Path, first: date) -> dict[str, Message]:
     for path in sorted(source.rglob("*.jsonl")):
         if path.stat().st_mtime < start:
             continue
-        for raw in path.read_text(encoding="utf-8", errors="replace").splitlines():
-            try:
-                record = json.loads(raw)
-            except json.JSONDecodeError:
-                continue
-            message = _message(record)
-            if message is None:
-                continue
+        lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+        # The first record tells the tool: codex's file opens with a session_meta record.
+        if model_use_codex.is_codex(lines):
+            messages = model_use_codex.codex_messages(lines)
+        else:
+            messages = _claude_messages(lines)
+        for message in messages:
             held = found.get(message.id)
             if held is None or message.output > held.output:
                 found[message.id] = message
@@ -159,11 +175,11 @@ class _Sum:
 
 
 def usage_lines(messages: dict[str, Message], config: Config, first: str, last: str) -> list[Usage]:
-    """One usage per day, model and project of the messages from `first` to `last`, both ends in.
+    """One usage per day, tool, model and project, for the days from `first` to `last`, both in.
 
     A message whose folder names no project is passed over.
     """
-    sums: dict[tuple[str, str, str], _Sum] = {}
+    sums: dict[tuple[str, str, str, str], _Sum] = {}
     for message in messages.values():
         if not first <= message.day <= last:
             continue
@@ -172,11 +188,13 @@ def usage_lines(messages: dict[str, Message], config: Config, first: str, last: 
             continue
         prompt = message.input + message.write + message.read
         row = price_of(message.model, message.fast, prompt, config.prices)
-        sums.setdefault((message.day, message.model, project), _Sum()).add(message, row)
+        key = (message.day, message.tool, message.model, project)
+        sums.setdefault(key, _Sum()).add(message, row)
 
     usages = []
-    for day, model, project in sorted(sums):
-        total = sums[day, model, project]
+    for key in sorted(sums):
+        day, tool, model, project = key
+        total = sums[key]
         usages.append(
             Usage(
                 day=day,
@@ -188,6 +206,7 @@ def usage_lines(messages: dict[str, Message], config: Config, first: str, last: 
                 cache_read=total.read,
                 cost=total.cost if total.priced else None,
                 unpriced=total.unpriced,
+                tool=tool,
             )
         )
     return usages

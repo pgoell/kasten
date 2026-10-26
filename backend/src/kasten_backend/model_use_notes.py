@@ -126,20 +126,23 @@ def _render(front: list[str], body: list[str]) -> str:
 
 
 def _usage_entries(body: list[str], fresh: list[Usage]) -> list[tuple[Usage, str]]:
-    """The usage lines to write, as (usage, text), sorted by day, model and project.
+    """The usage lines to write, as (usage, text), sorted by day, tool, model and project.
 
-    A day the run counted has its old lines replaced by the fresh ones. Any other
-    body line keeps its text, so it is written back byte for byte: a day with no
-    message in the source keeps what it had.
+    A day and tool the run counted has its old lines replaced by the fresh ones, so
+    a codex run leaves a day's Claude Code lines alone. Any other body line keeps its
+    text, so it is written back byte for byte: a day with no message in the source
+    keeps what it had.
     """
-    counted = {usage.day for usage in fresh}
+    counted = {(usage.day, usage.tool) for usage in fresh}
     entries = []
     for line in body:
         usage = parse_line(line)
-        if usage is not None and usage.day not in counted:
+        if usage is not None and (usage.day, usage.tool) not in counted:
             entries.append((usage, line))
     entries += [(usage, format_line(usage)) for usage in fresh]
-    return sorted(entries, key=lambda entry: (entry[0].day, entry[0].model, entry[0].project))
+    return sorted(
+        entries, key=lambda entry: (entry[0].day, entry[0].tool, entry[0].model, entry[0].project)
+    )
 
 
 def _body(month: str, entries: list[tuple[Usage, str]], foreign: list[str]) -> list[str]:
