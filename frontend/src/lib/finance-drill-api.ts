@@ -6,6 +6,7 @@
 
 import { client, reason } from "@/lib/api-client";
 import type { components } from "@/lib/api-types";
+import type { Span } from "@/lib/finance-span";
 
 export type ScopeDrill = components["schemas"]["ScopeDrillOut"];
 export type AccountDrill = components["schemas"]["AccountDrillOut"];
@@ -17,7 +18,8 @@ export type Scope = ScopeDrill["scope"];
 /** One step down from the month: what it opens, and the name its breadcrumb shows. */
 export type DrillStep =
   | { kind: "scope"; scope: Scope; name: string }
-  | { kind: "account" | "category" | "payee" | "booking"; id: number; name: string };
+  | { kind: "account" | "category" | "payee" | "booking"; id: number; name: string }
+  | { kind: "setup"; name: string };
 
 /** How many months a drilldown reads back from the month shown, the month included. */
 const MONTHS = 12;
@@ -33,8 +35,13 @@ function answer<T>(
   return result.data;
 }
 
-export async function fetchScope(scope: Scope, month: string): Promise<ScopeDrill> {
-  const query = { month, months: MONTHS };
+/** The query a drilldown reads a span with: the span, and the months its chart shows. */
+function spanQuery(span: Span) {
+  return { month: span.to, from: span.from, months: MONTHS };
+}
+
+export async function fetchScope(scope: Scope, span: Span): Promise<ScopeDrill> {
+  const query = spanQuery(span);
   return answer(
     "The scope",
     await client.GET("/api/finance/drill/scopes/{scope}", {
@@ -43,8 +50,8 @@ export async function fetchScope(scope: Scope, month: string): Promise<ScopeDril
   );
 }
 
-export async function fetchAccountDrill(id: number, month: string): Promise<AccountDrill> {
-  const query = { month, months: MONTHS };
+export async function fetchAccountDrill(id: number, span: Span): Promise<AccountDrill> {
+  const query = spanQuery(span);
   return answer(
     "The account",
     await client.GET("/api/finance/drill/accounts/{account_id}", {
@@ -53,8 +60,8 @@ export async function fetchAccountDrill(id: number, month: string): Promise<Acco
   );
 }
 
-export async function fetchCategoryDrill(id: number, month: string): Promise<CategoryDrill> {
-  const query = { month, months: MONTHS };
+export async function fetchCategoryDrill(id: number, span: Span): Promise<CategoryDrill> {
+  const query = spanQuery(span);
   return answer(
     "The category",
     await client.GET("/api/finance/drill/categories/{category_id}", {
@@ -63,8 +70,8 @@ export async function fetchCategoryDrill(id: number, month: string): Promise<Cat
   );
 }
 
-export async function fetchPayeeDrill(id: number, month: string): Promise<PayeeDrill> {
-  const query = { month, months: MONTHS };
+export async function fetchPayeeDrill(id: number, span: Span): Promise<PayeeDrill> {
+  const query = spanQuery(span);
   return answer(
     "The payee",
     await client.GET("/api/finance/drill/payees/{payee_id}", {

@@ -31,6 +31,8 @@ function every(months: number | null | undefined): string {
  * budget's, so a month's bar is the category's spent on the budget tab.
  */
 export function DrillCategory({
+  span,
+  spanLabel,
   id,
   month,
   onOpen,
@@ -39,8 +41,8 @@ export function DrillCategory({
   keys,
 }: DrillProps & { id: number }) {
   const drill = useQuery({
-    queryKey: ["finance", "drill", "category", id, month],
-    queryFn: () => fetchCategoryDrill(id, month),
+    queryKey: ["finance", "drill", "category", id, span],
+    queryFn: () => fetchCategoryDrill(id, span),
     // The view stays while the next month loads, so the focus and the keys stay with it.
     placeholderData: (previous) => previous,
   });
@@ -80,6 +82,18 @@ export function DrillCategory({
               );
             }}
           />
+          <p className="overview-words">
+            {[
+              `${spanLabel}: ${euros(data.span.now.total)}`,
+              `a year before ${euros(data.span.last_year.total)}`,
+              data.span.average == null
+                ? "no average yet"
+                : `6-month average ${euros(data.span.average.total)}`,
+              data.span.available == null ? "" : `${euros(data.span.available)} available`,
+            ]
+              .filter(Boolean)
+              .join("; ")}
+          </p>
           <p className="overview-caption">
             {category.kind === "ignore"
               ? "an ignored category counts nowhere; its bookings are below"
@@ -95,7 +109,7 @@ export function DrillCategory({
           </p>
         </article>
         <article className="overview-card">
-          <h3 className="overview-name">{`Payees in ${monthName(month)}`}</h3>
+          <h3 className="overview-name">{`Payees in ${spanLabel}`}</h3>
           {data.payees.length === 0 ? <p className="overview-words">none this month</p> : null}
           <AmountRows
             label="Payees"
@@ -162,6 +176,8 @@ function payeeWords(data: PayeeDrill, row: PayeeDrill["months"][number], paysIn:
  * accounts is never spending here, as it is nowhere in the budget.
  */
 export function DrillPayee({
+  span,
+  spanLabel,
   id,
   month,
   onOpen,
@@ -173,8 +189,8 @@ export function DrillPayee({
   const write = useWrite(onNotice);
   const [choice, setChoice] = useState<number>();
   const drill = useQuery({
-    queryKey: ["finance", "drill", "payee", id, month],
-    queryFn: () => fetchPayeeDrill(id, month),
+    queryKey: ["finance", "drill", "payee", id, span],
+    queryFn: () => fetchPayeeDrill(id, span),
     // The view stays while the next month loads, so the focus and the keys stay with it.
     placeholderData: (previous) => previous,
   });
@@ -186,6 +202,9 @@ export function DrillPayee({
   const paysIn = data.months.every((m) => Number(m.spent) === 0);
   const figure = (m: (typeof data.months)[number]) => Number(paysIn ? m.received : m.spent);
   const names = categoryNames(sorter);
+  const inSpan = data.months.filter((m) => m.month >= span.from && m.month <= span.to);
+  const spanFigure = inSpan.reduce((sum, m) => sum + figure(m), 0);
+  const spanCount = inSpan.reduce((sum, m) => sum + m.bookings, 0);
   const chosen = choice ?? payee.category_id ?? undefined;
 
   return (
@@ -216,6 +235,9 @@ export function DrillPayee({
               );
             }}
           />
+          <p className="overview-words">
+            {`${spanLabel}: ${euros(spanFigure)} in ${spanCount} ${spanCount === 1 ? "booking" : "bookings"}`}
+          </p>
           <p className="overview-caption">{payeeWords(data, row, paysIn)}</p>
         </article>
         <article className="overview-card">

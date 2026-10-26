@@ -32,6 +32,7 @@ vi.mock("@/lib/finance-budget-api", () => ({
   fetchFree: never,
   fetchTrend: never,
   fetchFlow: never,
+  fetchRange: never,
   fetchTransactions: api.fetchTransactions,
   fetchAccounts: () => Promise.resolve([]),
   fetchSync: never,
@@ -108,7 +109,26 @@ const SCOPE = {
     },
   ],
   bookings: [BOOKING],
+  first: "2026-10",
+  span: {
+    now: month("2026-10", {
+      income: "3000.00",
+      other_scope: "900.00",
+      flexible: "100.00",
+      saved: "300.00",
+      left: "1700.00",
+    }),
+    last_year: month("2025-10", { income: "2800.00", left: "2800.00" }),
+    average: null,
+  },
 };
+
+const counted = (total: string) => ({
+  mine: total,
+  household: "0.00",
+  total,
+  from_reserve: "0.00",
+});
 
 const CATEGORY = {
   category: { id: 4, name: "Groceries", kind: "flexible" },
@@ -125,6 +145,13 @@ const CATEGORY = {
       average: "380.00",
     },
   ],
+  first: "2026-10",
+  span: {
+    now: counted("100.00"),
+    last_year: counted("80.00"),
+    average: counted("380.00"),
+    available: "400.00",
+  },
   payees: [{ id: 5, name: "REWE", amount: "100.00" }],
   plans: [],
   rules: [{ id: 3, kind: "payee", pattern: "rewe", category_id: 4 }],
@@ -200,7 +227,7 @@ describe("the finance pane's drilldowns", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Mine ›" }));
 
     expect(await screen.findByRole("heading", { name: "Mine in October 2026" })).toBeTruthy();
-    expect(api.fetchScope).toHaveBeenCalledWith("mine", "2026-10");
+    expect(api.fetchScope).toHaveBeenCalledWith("mine", { from: "2026-10", to: "2026-10" });
     const card = screen.getByRole("heading", { name: "Mine in October 2026" }).closest("article");
     const rows = within(card as HTMLElement).getAllByRole("row");
     expect(rows.map((row) => row.textContent?.replaceAll(" ", " "))).toEqual([
@@ -212,7 +239,9 @@ describe("the finance pane's drilldowns", () => {
     expect(crumbs()).toBe("October 2026 › Mine");
 
     fireEvent.click(screen.getByRole("button", { name: /^Giro, 2026-10-02 ›/ }));
-    await waitFor(() => expect(api.fetchAccountDrill).toHaveBeenCalledWith(1, "2026-10"));
+    await waitFor(() =>
+      expect(api.fetchAccountDrill).toHaveBeenCalledWith(1, { from: "2026-10", to: "2026-10" }),
+    );
     expect(crumbs()).toBe("October 2026 › Mine › Giro");
 
     press("Escape");
@@ -228,7 +257,11 @@ describe("the finance pane's drilldowns", () => {
     await screen.findByText("REWE SAGT DANKE");
     press("Enter");
     fireEvent.click(await screen.findByRole("button", { name: "Groceries ›" }));
-    expect(await screen.findByText(/average 380\s€/)).toBeTruthy();
+    expect(
+      await screen.findByText(
+        /^October 2026: 100\s€; a year before 80\s€; 6-month average 380\s€; 400\s€ available$/,
+      ),
+    ).toBeTruthy();
     expect(screen.getByText("rule: payee starts with “rewe”")).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: /^REWE ›/ }));

@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { BankCard, type Pull } from "@/components/finance-bank";
+import { CompareTable, spanMadeOf } from "@/components/finance-compare";
 import { GoalsCard } from "@/components/finance-goals";
 import { MoveLeftover } from "@/components/finance-leftover";
 import { Meter, statusWords } from "@/components/finance-meter";
@@ -11,9 +12,12 @@ import {
   fetchBudget,
   fetchFlow,
   fetchFree,
+  fetchRange,
   fetchTrend,
+  type Range,
 } from "@/lib/finance-budget-api";
 import type { Scope } from "@/lib/finance-drill-api";
+import type { Span } from "@/lib/finance-span";
 import { euros, monthName, percent, shiftMonth } from "@/lib/finance-words";
 
 /** The parts free to spend is made of, in the order the line under it names them. */
@@ -144,6 +148,42 @@ function ReserveRows({ free }: { free: Free }) {
         </tr>
       ))}
     </>
+  );
+}
+
+/** A span's figure for one scope: what it kept in all, and the parts it is made of. */
+function SpanHero({
+  scope,
+  range,
+  label,
+  onOpen,
+}: {
+  scope: Scope;
+  range: Range | undefined;
+  label: string;
+  onOpen: (scope: Scope) => void;
+}) {
+  const row = range?.[scope].now;
+  const left = Number(row?.left ?? 0);
+  return (
+    <article className="overview-card finance-hero">
+      <h3 className="overview-name">
+        <button type="button" className="finance-crumb" onClick={() => onOpen(scope)}>
+          {`${scope === "mine" ? "Mine" : "Household"} ›`}
+        </button>
+      </h3>
+      <p className={left < 0 ? "finance-hero-figure finance-danger" : "finance-hero-figure"}>
+        {row === undefined ? "…" : euros(left)}
+      </p>
+      <p className="overview-words">
+        {row === undefined
+          ? "loading"
+          : left < 0
+            ? `spent ${euros(-left)} past what came in, ${label} ⚠`
+            : `left over, ${label}`}
+      </p>
+      {row === undefined ? null : <p className="finance-made-of">{spanMadeOf(scope, row)}</p>}
+    </article>
   );
 }
 
@@ -284,6 +324,8 @@ function LeftFromLimits({ budget, today }: { budget: Budget; today: string }) {
  */
 export function FinanceOverview({
   month,
+  span,
+  spanLabel,
   today,
   onMonth,
   onCategory,
@@ -291,6 +333,9 @@ export function FinanceOverview({
   pull,
 }: {
   month: string;
+  /** The span the sankey and the comparison read; its name, such as `Q3 2026 so far`. */
+  span: Span;
+  spanLabel: string;
   today: string;
   onMonth: (month: string) => void;
   /** Opens one category's drilldown for the month shown. */
@@ -312,25 +357,61 @@ export function FinanceOverview({
     queryFn: () => fetchTrend(month),
   });
   const flow = useQuery({
-    queryKey: ["finance", "flow", month],
-    queryFn: () => fetchFlow(month),
+    queryKey: ["finance", "flow", span],
+    queryFn: () => fetchFlow(span),
   });
-  const error = free.error ?? budget.error ?? trend.error ?? flow.error;
+  const range = useQuery({
+    queryKey: ["finance", "range", span],
+    queryFn: () => fetchRange(span),
+  });
+  const error = free.error ?? budget.error ?? trend.error ?? flow.error ?? range.error;
+  // A quarter or a year: what the span kept, and no card that reads the one month.
+  const many = span.from !== span.to;
   return (
     <div className="finance-overview">
       {error ? <p role="alert">{error.message}</p> : null}
       <div className="finance-heroes">
-        <Hero name="Mine" free={free.data?.mine} onOpen={() => onScope("mine")} />
-        <Hero name="Household" free={free.data?.household} onOpen={() => onScope("household")} />
+        {many ? (
+          <>
+            <SpanHero scope="mine" range={range.data} label={spanLabel} onOpen={onScope} />
+            <SpanHero scope="household" range={range.data} label={spanLabel} onOpen={onScope} />
+          </>
+        ) : (
+          <>
+            <Hero name="Mine" free={free.data?.mine} onOpen={() => onScope("mine")} />
+            <Hero
+              name="Household"
+              free={free.data?.household}
+              onOpen={() => onScope("household")}
+            />
+          </>
+        )}
       </div>
       <div className="finance-cards">
-        {budget.data === undefined ? null : <Watch budget={budget.data} />}
-        {budget.data === undefined ? null : <Pace budget={budget.data} />}
+        {many || budget.data === undefined ? null : <Watch budget={budget.data} />}
+        {many || budget.data === undefined ? null : <Pace budget={budget.data} />}
         <BankCard pull={pull} />
         {flow.data === undefined ? null : (
           <article className="overview-card finance-wide-card finance-sankey-card">
             <h3 className="overview-name">Where it went</h3>
-            <FinanceSankey flow={flow.data} month={month} today={today} onCategory={onCategory} />
+            <FinanceSankey
+              flow={flow.data}
+              month={month}
+              today={today}
+              name={many ? spanLabel : undefined}
+              onCategory={onCategory}
+            />
+          </article>
+        )}
+        {range.data === undefined ? null : (
+          <article className="overview-card finance-wide-card">
+            <h3 className="overview-name">Compared</h3>
+            <CompareTable scope="mine" compared={range.data.mine} label={spanLabel} />
+            <CompareTable scope="household" compared={range.data.household} label={spanLabel} />
+            <p className="overview-caption">
+              what happened, against the same months a year before and the 6 months before at the
+              same length
+            </p>
           </article>
         )}
         {trend.data === undefined ? null : (
@@ -339,7 +420,9 @@ export function FinanceOverview({
             <SpendingTrend trend={trend.data} month={month} onPick={onMonth} />
           </article>
         )}
-        {budget.data === undefined ? null : <LeftFromLimits budget={budget.data} today={today} />}
+        {many || budget.data === undefined ? null : (
+          <LeftFromLimits budget={budget.data} today={today} />
+        )}
         <GoalsCard today={today} />
       </div>
     </div>

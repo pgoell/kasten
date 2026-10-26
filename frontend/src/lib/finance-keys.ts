@@ -51,6 +51,7 @@ export const FINANCE_PANE: readonly { key: string; label: string }[] = [
   },
   { key: "e", label: "Budget: edit the category's limit; Enter saves, Escape leaves it" },
   { key: "y", label: "Budget: take the suggested limit" },
+  { key: "s", label: "Budget: set up every limit on one screen" },
   { key: "1", label: "Plans & goals: confirm the proposed plan with that key, 1 to 9" },
   { key: "n", label: "Plans & goals: make a new plan" },
   { key: "g", label: "Plans & goals: make a new goal" },

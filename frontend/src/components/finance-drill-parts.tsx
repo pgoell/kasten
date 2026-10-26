@@ -3,12 +3,17 @@ import { type RefObject, useState } from "react";
 import { BookingList, type TabKeys } from "@/components/finance-sort-bar";
 import type { Transaction } from "@/lib/finance-budget-api";
 import type { DrillStep } from "@/lib/finance-drill-api";
+import type { Span } from "@/lib/finance-span";
 import { euros, money } from "@/lib/finance-words";
 import type { CategorySort } from "@/lib/use-category-sort";
 
 /** What every drilldown view is handed: where it is, and how to go further down. */
 export interface DrillProps {
+  /** The month shown, the span's last. */
   month: string;
+  /** The span the view reads, and its name, such as `Q3 2026`. */
+  span: Span;
+  spanLabel: string;
   today: string;
   /** Opens one step further down, on top of the trail. */
   onOpen: (step: DrillStep) => void;

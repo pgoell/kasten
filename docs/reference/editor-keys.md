@@ -105,6 +105,7 @@ upper case and brackets, so they never meet a category's key.
 | `1` | A booking's drilldown: sort the booking into that category, as on the to-sort list |
 | `e` | Budget: edit the category's limit; Enter saves, Escape leaves it |
 | `y` | Budget: take the suggested limit |
+| `s` | Budget: set up every limit on one screen |
 | `1` | Plans & goals: confirm the proposed plan with that key, 1 to 9 |
 | `n` | Plans & goals: make a new plan |
 | `g` | Plans & goals: make a new goal |

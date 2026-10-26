@@ -42,6 +42,7 @@ vi.mock("@/lib/finance-budget-api", () => ({
   fetchFree: api.fetchFree,
   fetchTrend: api.fetchTrend,
   fetchFlow: api.fetchFlow,
+  fetchRange: () => new Promise(() => undefined),
   fetchTransactions: api.fetchTransactions,
   fetchAccounts: api.fetchAccounts,
   fetchSync: api.fetchSync,
@@ -342,7 +343,9 @@ describe("the finance pane's overview, budget and transactions", () => {
     expect(screen.getByText(left)).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: /^Groceries, 400\s€.*open the category$/ }));
-    await waitFor(() => expect(api.fetchCategoryDrill).toHaveBeenCalledWith(4, "2026-10"));
+    await waitFor(() =>
+      expect(api.fetchCategoryDrill).toHaveBeenCalledWith(4, { from: "2026-10", to: "2026-10" }),
+    );
     const crumbs = screen.getByRole("navigation", { name: "Breadcrumbs" });
     expect(crumbs.textContent).toBe("October 2026Groceries");
   });

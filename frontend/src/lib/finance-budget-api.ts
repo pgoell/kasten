@@ -9,6 +9,7 @@
 
 import { client, reason } from "@/lib/api-client";
 import type { components } from "@/lib/api-types";
+import type { Span } from "@/lib/finance-span";
 
 export type Budget = components["schemas"]["BudgetOut"];
 export type BudgetCategory = components["schemas"]["BudgetCategoryOut"];
@@ -20,6 +21,9 @@ export type FlowNode = components["schemas"]["FlowNodeOut"];
 export type Transaction = components["schemas"]["TransactionOut"];
 export type Account = components["schemas"]["AccountOut"];
 export type SyncStatus = components["schemas"]["SyncStatus"];
+export type Range = components["schemas"]["RangeOut"];
+export type ScopeCompared = components["schemas"]["ScopeComparedOut"];
+export type Setup = components["schemas"]["SetupOut"];
 
 /** What the transactions list narrows to; every field left out matches every booking. */
 export interface TransactionFilter {
@@ -52,12 +56,42 @@ export async function fetchFree(month: string, today: string): Promise<FreeToSpe
   return data;
 }
 
-export async function fetchFlow(month: string): Promise<Flow> {
+/** Where the money of a span went; a span of one month is that month. */
+export async function fetchFlow(span: Span): Promise<Flow> {
   const { data, error, response } = await client.GET("/api/finance/budget/flow", {
-    params: { query: { month } },
+    params: { query: { month: span.to, from: span.from } },
   });
   if (!data) throw failed("GET /api/finance/budget/flow", error, response.status);
   return data;
+}
+
+/** Both scopes over a span, against the same months a year before and the 6-month average. */
+export async function fetchRange(span: Span): Promise<Range> {
+  const { data, error, response } = await client.GET("/api/finance/budget/range", {
+    params: { query: { month: span.to, from: span.from } },
+  });
+  if (!data) throw failed("GET /api/finance/budget/range", error, response.status);
+  return data;
+}
+
+/** Every spending category's limit, average and plans, and the income they are set against. */
+export async function fetchSetup(month: string, today: string): Promise<Setup> {
+  const { data, error, response } = await client.GET("/api/finance/budget/setup", {
+    params: { query: { month, today } },
+  });
+  if (!data) throw failed("GET /api/finance/budget/setup", error, response.status);
+  return data;
+}
+
+/** Set every limit given from `month` on, all or none; null takes one away. */
+export async function writeLimits(
+  month: string,
+  limits: { category_id: number; amount: string | null }[],
+): Promise<void> {
+  const { error, response } = await client.PUT("/api/finance/budget/limits", {
+    body: { from: month, limits },
+  });
+  if (!response.ok) throw failed("Setting the limits", error, response.status);
 }
 
 export async function fetchTrend(month: string): Promise<Trend> {
