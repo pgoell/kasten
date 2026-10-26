@@ -90,8 +90,8 @@ A deck tag typed at the head of the question files it elsewhere, the way
 whatever note it is written in.
 
 Cards come due first and new second, each in its note's order and the notes in
-the order the deck found them. Nothing is shuffled: a deck written in an order
-was written in that order on purpose.
+path order, since the scan finds the notes in no fixed order. Nothing is shuffled:
+a deck written in an order was written in that order on purpose.
 
 ## Typing the answer
 

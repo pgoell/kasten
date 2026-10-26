@@ -353,7 +353,9 @@ export async function saveNote(
 
   if (response.status === 409) throw new ChangedOnDisk();
   if (!data) {
-    throw new Error(`PUT /api/files/${path} failed with ${response.status}`);
+    throw new Error(`PUT /api/files/${path} failed with ${response.status}`, {
+      cause: response.status,
+    });
   }
 
   pressWrote(data.path, data.content);

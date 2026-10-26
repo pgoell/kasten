@@ -124,29 +124,42 @@ describe("ReviewSession on a deck spanning two notes", () => {
   it("asks only the cards of this deck, out of every note holding one", async () => {
     renderSpread();
 
-    // The tagged card of the procs note, and not the untagged one beside it.
+    // Path order asks db/dbt.md first, then db/procs.md. The untagged card of
+    // the procs note never comes up, so after the two tagged cards the sitting
+    // is done.
+    expect(await shownCard()).toHaveTextContent("What does dbt render?");
+    fireEvent.click(screen.getByRole("button", { name: "Show the answer" }));
+    fireEvent.click(screen.getByRole("button", { name: "Good" }));
+
     expect(await shownCard()).toHaveTextContent("What is a macro?");
     expect(screen.getByTestId("review-card")).not.toHaveTextContent("What is a proc?");
+    fireEvent.click(screen.getByRole("button", { name: "Show the answer" }));
+    fireEvent.click(screen.getByRole("button", { name: "Good" }));
+
+    expect(await screen.findByTestId("review-done")).toBeInTheDocument();
   });
 
   it("writes each rating back into the note that card is in", async () => {
     const saved = renderSpread();
     await shownCard();
 
+    // The dbt card comes first, so its rating is written into db/dbt.md.
     fireEvent.click(screen.getByRole("button", { name: "Show the answer" }));
     fireEvent.click(screen.getByRole("button", { name: "Good" }));
 
-    expect(saved.mock.calls[0]?.[0]).toBe("db/procs.md");
+    expect(saved.mock.calls[0]?.[0]).toBe("db/dbt.md");
+    expect(saved.mock.calls[0]?.[1]).toContain("What does dbt render?::sql <!--SR:!");
+    expect(saved.mock.calls[0]?.[1]).toContain("#flashcards/dbt\n");
+
+    expect(await shownCard()).toHaveTextContent("What is a macro?");
+
     // The tag stays on the line: a rating writes the comment and nothing else.
-    expect(saved.mock.calls[0]?.[1]).toContain("#flashcards/dbt What is a macro?::jinja <!--SR:!");
-    expect(saved.mock.calls[0]?.[1]).toContain("What is a proc?::a block\n");
-
-    expect(await shownCard()).toHaveTextContent("What does dbt render?");
-
     fireEvent.click(screen.getByRole("button", { name: "Show the answer" }));
     fireEvent.click(screen.getByRole("button", { name: "Good" }));
 
-    expect(saved.mock.calls[1]?.[0]).toBe("db/dbt.md");
+    expect(saved.mock.calls[1]?.[0]).toBe("db/procs.md");
+    expect(saved.mock.calls[1]?.[1]).toContain("#flashcards/dbt What is a macro?::jinja <!--SR:!");
+    expect(saved.mock.calls[1]?.[1]).toContain("What is a proc?::a block\n");
   });
 });
 

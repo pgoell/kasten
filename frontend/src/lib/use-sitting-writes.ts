@@ -1,7 +1,24 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { type Dispatch, type SetStateAction, useCallback, useRef } from "react";
-import { fetchNote, saveNote } from "@/lib/api";
+import { fetchNote, type Note, saveNote } from "@/lib/api";
 import { noteBase } from "@/lib/note-base";
+
+/** Waits between the tries of a write the backend dropped: about a minute in all. */
+const BACKOFF = [1000, 2000, 4000, 8000, 15000, 15000, 15000];
+
+/**
+ * A write that failed because the backend is down or restarting: a gateway
+ * answer, or no answer, which fetch reports as a `TypeError`. `saveNote` puts
+ * the status of a failed save in `cause`.
+ */
+function retryable(error: unknown): boolean {
+  if (error instanceof TypeError) return true;
+  return (
+    error instanceof Error &&
+    typeof error.cause === "number" &&
+    [502, 503, 504].includes(error.cause)
+  );
+}
 
 /**
  * Writes for a screen that reads its notes once and then saves the same note
@@ -13,10 +30,13 @@ import { noteBase } from "@/lib/note-base";
  * or a `created` into. Writes to one note go out one after another, so that
  * answer is in before the write after it leaves.
  *
- * Nothing is dropped. A change made against a write that failed names text
- * that never landed, the vault refuses it, and it fails out loud like the one
- * before it. A failure also reads the note again, so the screen holds the
- * vault's text and the next change is made against that.
+ * Nothing is dropped. A write that fails while the backend restarts goes again
+ * for about a minute, with the same text over the same base. That is safe: the
+ * vault answers with the note as it stands and writes nothing when the base is
+ * text it already holds, and refuses a base that has moved on. A write that
+ * still fails names text that never landed, the vault refuses it, and it fails
+ * out loud like the one before it. A failure also reads the note again, so the
+ * screen holds the vault's text and the next change is made against that.
  *
  * Each write answers, once settled, what it failed with or null where it
  * landed, so the sitting's undo puts the card back only for a write that took.
@@ -37,7 +57,18 @@ export function useSittingWrites(
         const answers = landed.current.get(note) ?? new Map<string, string>();
         landed.current.set(note, answers);
 
-        const written = await saveNote(note, next, false, noteBase(answers.get(prev) ?? prev));
+        // The base is computed once, so every try names the same text.
+        const base = noteBase(answers.get(prev) ?? prev);
+        let written: Note;
+        for (let attempt = 0; ; attempt++) {
+          try {
+            written = await saveNote(note, next, false, base);
+            break;
+          } catch (error) {
+            if (!retryable(error) || attempt === BACKOFF.length) throw error;
+            await new Promise((wake) => setTimeout(wake, BACKOFF[attempt]));
+          }
+        }
         answers.set(next, written.content);
         // Only while `next` is still what the screen holds: a change made while
         // this was out has moved the note on already.

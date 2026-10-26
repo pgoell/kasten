@@ -68,6 +68,7 @@ describe("ReviewSession undoing the last step (#600)", () => {
   beforeEach(() => {
     localStorage.clear();
     vi.restoreAllMocks();
+    vi.useRealTimers();
   });
 
   it("#600 A5 Undo takes back a rating: the old text goes back and the card comes back revealed, first", async () => {
@@ -233,17 +234,21 @@ describe("ReviewSession undoing the last step (#600)", () => {
     await shownCard();
     await rate("Good");
     const rated = vault.disk;
-    saved.mockRejectedValueOnce(new TypeError("Failed to fetch"));
+    saved.mockRejectedValue(new TypeError("Failed to fetch"));
+    vi.useFakeTimers();
 
     const undo = undoButton();
     expect(undo).not.toBeNull();
     fireEvent.click(undo as HTMLElement);
 
-    await waitFor(() =>
-      expect(screen.getByRole("alert")).toHaveTextContent(
-        "The note could not be written: Failed to fetch",
-      ),
+    // The write is tried again for about a minute, then the failure shows.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(60_000);
+    });
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "The note could not be written: Failed to fetch",
     );
+    expect(saved).toHaveBeenCalledTimes(9);
     expect(vault.disk).toBe(rated);
     expect(screen.getByTestId("review-card")).toHaveTextContent("What is S3?");
     expect(undoButton()).toBeNull();
@@ -283,12 +288,18 @@ describe("ReviewSession undoing the last step (#600)", () => {
 
   it("#600 an undo after the rating's write failed is refused, writing nothing", async () => {
     const { vault, saved } = renderVault();
-    saved.mockRejectedValueOnce(new TypeError("Failed to fetch"));
     await shownCard();
+    const landing = saved.getMockImplementation();
+    saved.mockRejectedValue(new TypeError("Failed to fetch"));
+    vi.useFakeTimers();
     await rate("Good");
-    await waitFor(() =>
-      expect(screen.getByRole("alert")).toHaveTextContent("could not be written: Failed to fetch"),
-    );
+    // The network is down for the whole minute of tries, then it is back.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(60_000);
+    });
+    expect(screen.getByRole("alert")).toHaveTextContent("could not be written: Failed to fetch");
+    if (landing) saved.mockImplementation(landing);
+    vi.useRealTimers();
 
     const undo = undoButton();
     expect(undo).not.toBeNull();
@@ -297,7 +308,7 @@ describe("ReviewSession undoing the last step (#600)", () => {
     // The rating never landed, so the base the undo names is one the vault
     // never held, and it refuses rather than guess.
     await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent(MOVED_ON));
-    expect(saved).toHaveBeenCalledTimes(2);
+    expect(saved).toHaveBeenCalledTimes(9);
     expect(vault.disk).toBe(TWO);
     expect(screen.getByTestId("review-card")).toHaveTextContent("What is S3?");
   });

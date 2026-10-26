@@ -36,12 +36,14 @@ export function seatsFor(
   limits: Limits,
 ): Seat[] {
   // Due first, then the ones nobody has answered, each in its note's
-  // order and the notes in the order the deck names them. Nothing is
-  // shuffled: a deck written in an order was written in that order on
-  // purpose, and an import arrives in the order Anki held.
-  const seats = [...cardsOf(deck, texts)].flatMap(([note, cards]) =>
-    cards.map((card, at) => ({ note, at, card })),
-  );
+  // order and the notes in path order. The scan finds the notes in no
+  // fixed order, so sorting by path is what keeps a split deck's queue
+  // the same from one reload to the next. Nothing is shuffled: a deck
+  // written in an order was written in that order on purpose, and an
+  // import arrives in the order Anki held.
+  const seats = [...cardsOf(deck, texts)]
+    .sort(([one], [two]) => (one < two ? -1 : one > two ? 1 : 0))
+    .flatMap(([note, cards]) => cards.map((card, at) => ({ note, at, card })));
   // A parked card keeps its seat and its ordinal and is never asked. It
   // has to keep them: the queue addresses a card by its ordinal, so a
   // card taken out of the array renumbers the ones behind it.
