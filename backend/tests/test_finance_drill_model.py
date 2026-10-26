@@ -24,6 +24,7 @@ from backend.tests.test_finance_budget_model import (
     month,
 )
 from backend.tests.test_finance_flow import NOVEMBER, flows, october
+from kasten_backend.finance_budget import average_spent
 from kasten_backend.finance_drill import (
     account_flow,
     balance_on,
@@ -104,7 +105,14 @@ def test_a_category_shows_the_limit_and_average_the_budget_tab_shows() -> None:
     assert [m.limit for m in found] == [Decimal(250), Decimal(250)]
     # September's overspend of 50 comes off October.
     assert found[-1].available == Decimal(200)
-    assert found[-1].average == Decimal(300)
+    assert found[-1].average == Decimal(300) == average_spent(book, GROCERIES, OCT)
+
+
+def test_an_income_categorys_average_is_of_its_money_in() -> None:
+    book = ledger(*[at(back, GIRO, "3000", SALARY) for back in (-2, -1, 0)])
+    found = category_months(book, [], SALARY, [OCT])
+    assert found[0].counted.total == Decimal(3000)
+    assert found[0].average == Decimal(3000)
 
 
 def test_an_ignored_category_and_money_in_without_one_count_nothing() -> None:

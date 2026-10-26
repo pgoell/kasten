@@ -7,7 +7,7 @@ read, and list the bookings of the budget month, the salary cutoff included.
 
 from typing import TYPE_CHECKING, Any
 
-from backend.tests.finance_rows import API, booking, post
+from backend.tests.finance_rows import API, booking, category, post
 from backend.tests.test_finance_budget import household
 
 if TYPE_CHECKING:
@@ -98,6 +98,20 @@ async def test_a_category_drill_counts_a_split_part_and_its_payees_add_up(
     assert {row["source_key"] for row in found["bookings"]} == {"rewe", "food"}
 
     payee = rewe["payee_id"]
+    # An ignored booking of the same payee counts in neither its spending nor its bookings.
+    work = await category(finance_client, "Work travel", "ignore")
+    await post(
+        finance_client,
+        [
+            booking(
+                ids["giro"], "hotel", "-80.00", booking_date="2026-10-06", counterparty_name="REWE"
+            )
+        ],
+    )
+    hotel = (await by_key(finance_client))["hotel"]
+    await finance_client.put(
+        f"{API}/transactions/{hotel['id']}/category", json={"category_id": work}
+    )
     view = (await finance_client.get(f"{API}/drill/payees/{payee}", params=OCTOBER)).json()
     assert view["months"][-1]["spent"] == "100.00"
     assert view["months"][-1]["bookings"] == 1

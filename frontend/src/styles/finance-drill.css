@@ -28,9 +28,10 @@
   overflow-wrap: anywhere;
 }
 
-.finance-crumbs li + li::before {
+/* After the step, not before the next, so a wrapped line never starts with it. */
+.finance-crumbs li:not(:last-child)::after {
   content: "›";
-  padding-right: 4px;
+  padding-left: 4px;
   color: var(--k-muted);
 }
 

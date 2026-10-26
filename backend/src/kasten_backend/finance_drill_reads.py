@@ -67,7 +67,10 @@ async def booking_counts(  # noqa: PLR0913  each input of the count is its own a
     cutoff: int,
     own: set[str],
 ) -> dict[dt.date, int]:
-    """How many bookings count in each of `months`; a move between own accounts is none.
+    """How many bookings count in each of `months`, as a payee's figures count them.
+
+    A move between own accounts is none, nor a booking in an `ignore` category
+    or money in not sorted yet.
 
     `own` is the own accounts' IBANs, which name a move whose other half is not in yet.
     """
@@ -79,6 +82,12 @@ async def booking_counts(  # noqa: PLR0913  each input of the count is its own a
             continue
         parts = [(s.amount, s.category_id) for s in booking.splits] or [
             (booking.amount, booking.category_id)
+        ]
+        # Only the parts the payee's figures count: no `ignore`, no money in not sorted.
+        parts = [
+            (amount, c)
+            for amount, c in parts
+            if (amount < 0 if c is None else categories[c].kind != "ignore")
         ]
         for month in booking_months(booking.booking_date, parts, categories, cutoff):
             if month in count:

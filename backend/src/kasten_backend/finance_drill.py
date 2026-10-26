@@ -16,7 +16,7 @@ from dataclasses import dataclass, field
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
-from kasten_backend.finance_budget import AVERAGE_MONTHS, LimitRows, average_spent, step_of
+from kasten_backend.finance_budget import AVERAGE_MONTHS, LimitRows, step_of
 from kasten_backend.finance_free import free_to_spend
 from kasten_backend.finance_ledger import SCOPES, ZERO, Category, Ledger, Line, Scope, add_months
 
@@ -131,7 +131,11 @@ class CategoryMonth:
 def category_months(
     ledger: Ledger, rows: LimitRows, category: int, months: list[dt.date]
 ) -> list[CategoryMonth]:
-    """Each month's figures, the limit and average as the budget tab gives them."""
+    """Each month's figures, the limit as the budget tab gives it.
+
+    The average is of what the bars show, so an income category's is its
+    money in; a spending category's is the budget's `average`.
+    """
     part = of_category(ledger, category)
     found = []
     for month in months:
@@ -142,7 +146,12 @@ def category_months(
                 counted(part, category, month),
                 step.limit,
                 step.available,
-                average_spent(ledger, category, month),
+                part.average(
+                    month,
+                    AVERAGE_MONTHS,
+                    lambda at: counted(part, category, at).total,
+                    category,
+                ),
             )
         )
     return found
