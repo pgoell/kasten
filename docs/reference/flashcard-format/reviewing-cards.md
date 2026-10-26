@@ -51,8 +51,8 @@ back rather than at the next rating. A deck note that still cannot be read is
 named at the foot of the decks, its cards not counted. Limits that still cannot
 be read leave the overview with no decks to sit and a sitting with nothing to
 ask, each saying so, rather than counting no limit. A sitting reads its deck's
-notes again the same way, saying `Reading the deck…` meanwhile, and a note that
-still cannot be read is named in its foot as not read. The parked list reads its
+notes again the same way, saying `Reading the deck…` meanwhile, and a read that
+still fails says in its foot that the note could not be read, with the reason. The parked list reads its
 notes again the same way, says `Reading the notes…` until the scan of the cards
 answers, and shows the scan's error if it fails. A put-back whose write fails
 says the note could not be written, apart from a read that failed.
