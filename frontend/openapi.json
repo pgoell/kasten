@@ -8536,6 +8536,18 @@
             ],
             "title": "Average"
           },
+          "average_received": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Average Received"
+          },
           "categories": {
             "items": {
               "$ref": "#/components/schemas/PayeeCategoryOut"
@@ -8564,6 +8576,7 @@
           "month",
           "months",
           "average",
+          "average_received",
           "categories",
           "rules",
           "bookings"

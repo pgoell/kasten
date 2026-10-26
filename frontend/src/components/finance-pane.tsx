@@ -1,4 +1,4 @@
-import { type KeyboardEvent, useEffect, useId, useRef, useState } from "react";
+import { type KeyboardEvent, type ReactNode, useEffect, useId, useRef, useState } from "react";
 import { usePull } from "@/components/finance-bank";
 import { FinanceBudget } from "@/components/finance-budget-tab";
 import { Breadcrumbs, FinanceDrill } from "@/components/finance-drill";
@@ -23,6 +23,11 @@ export interface FinancePaneProps {
   onNotice: (text: string | undefined) => void;
   /** Today, as `YYYY-MM-DD`. The route reads the clock; this stays pure of it. */
   today: string;
+}
+
+/** What tells two steps of a trail apart, so a new step at a place is drawn afresh. */
+function stepKey(step: DrillStep): string {
+  return step.kind === "scope" ? step.scope : `${step.kind}-${step.id}`;
 }
 
 /** A key typed into a field is the field's, Escape aside, which leaves it. */
@@ -59,6 +64,8 @@ export function FinancePane({ commands, focusSignal, onNotice, today }: FinanceP
   const [trail, setTrail] = useState<DrillStep[]>([]);
   const panel = useRef<HTMLElement>(null);
   const keys = useRef<TabKeys>(null);
+  // Where a view drawn but hidden hands its keys, so they never reach the pane.
+  const idle = useRef<TabKeys>(null);
   const id = useId();
   const leader = useLeader(commands);
   const sorter = useCategorySort(onNotice);
@@ -86,6 +93,12 @@ export function FinancePane({ commands, focusSignal, onNotice, today }: FinanceP
     setTrail((steps) => steps.slice(0, length));
     panel.current?.focus();
   }
+
+  /** Show a month a chart's bar was pressed on, and keep the keys in the pane. */
+  const pickMonth = (picked: string) => {
+    setMonth(picked);
+    panel.current?.focus();
+  };
 
   const names = new Map((sorter.categories.data ?? []).map((c) => [c.id, c.name]));
   const openCategory = (id: number) =>
@@ -131,6 +144,45 @@ export function FinancePane({ commands, focusSignal, onNotice, today }: FinanceP
     run();
     event.preventDefault();
   }
+
+  // The tab in front. Drawn under a drilldown too, hidden, so it keeps what it held.
+  const tabKeys = trail.length > 0 ? idle : keys;
+  const views: Record<FinanceTab, () => ReactNode> = {
+    overview: () => (
+      <FinanceOverview
+        month={month}
+        today={today}
+        onMonth={pickMonth}
+        onCategory={openCategory}
+        onScope={(scope) =>
+          open({ kind: "scope", scope, name: scope === "mine" ? "Mine" : "Household" })
+        }
+        pull={pull}
+      />
+    ),
+    "to-sort": () => <FinanceToSort sorter={sorter} keys={tabKeys} />,
+    transactions: () => (
+      <FinanceTransactions month={month} sorter={sorter} keys={tabKeys} onOpen={open} />
+    ),
+    budget: () => (
+      <FinanceBudget
+        month={month}
+        today={today}
+        keys={tabKeys}
+        onNotice={onNotice}
+        refocus={() => panel.current?.focus()}
+      />
+    ),
+    plans: () => (
+      <FinancePlans
+        month={month}
+        today={today}
+        keys={tabKeys}
+        onNotice={onNotice}
+        refocus={() => panel.current?.focus()}
+      />
+    ),
+  };
 
   // Each tab hands its keys over as it draws; one that is not drawn has none.
   keys.current = null;
@@ -196,58 +248,31 @@ export function FinancePane({ commands, focusSignal, onNotice, today }: FinanceP
         aria-labelledby={`${id}-tab-${tab}`}
         className="finance-pane-view"
       >
-        {trail.length > 0 ? (
-          <>
-            <Breadcrumbs month={month} trail={trail} onTrail={back} />
+        {trail.length > 0 ? <Breadcrumbs month={month} trail={trail} onTrail={back} /> : null}
+        {/* Every step stays drawn, hidden but the last, so stepping back finds its cursor and
+            the tab its filters as they were. Only what is shown takes the keys. */}
+        {trail.map((step, index) => (
+          <div
+            // biome-ignore lint/suspicious/noArrayIndexKey: a step is its place in the trail and what it opens.
+            key={`${index}-${stepKey(step)}`}
+            hidden={index !== trail.length - 1}
+            className="finance-pane-stack"
+          >
             <FinanceDrill
-              key={trail.length}
-              step={trail[trail.length - 1] as DrillStep}
+              step={step}
               month={month}
               today={today}
               onOpen={open}
-              onMonth={setMonth}
+              onMonth={pickMonth}
               sorter={sorter}
-              keys={keys}
+              keys={index === trail.length - 1 ? keys : idle}
               onNotice={onNotice}
             />
-          </>
-        ) : null}
-        {trail.length === 0 && tab === "overview" ? (
-          <FinanceOverview
-            month={month}
-            today={today}
-            onMonth={setMonth}
-            onCategory={openCategory}
-            onScope={(scope) =>
-              open({ kind: "scope", scope, name: scope === "mine" ? "Mine" : "Household" })
-            }
-            pull={pull}
-          />
-        ) : null}
-        {trail.length === 0 && tab === "to-sort" ? (
-          <FinanceToSort sorter={sorter} keys={keys} />
-        ) : null}
-        {trail.length === 0 && tab === "transactions" ? (
-          <FinanceTransactions month={month} sorter={sorter} keys={keys} onOpen={open} />
-        ) : null}
-        {trail.length === 0 && tab === "budget" ? (
-          <FinanceBudget
-            month={month}
-            today={today}
-            keys={keys}
-            onNotice={onNotice}
-            refocus={() => panel.current?.focus()}
-          />
-        ) : null}
-        {trail.length === 0 && tab === "plans" ? (
-          <FinancePlans
-            month={month}
-            today={today}
-            keys={keys}
-            onNotice={onNotice}
-            refocus={() => panel.current?.focus()}
-          />
-        ) : null}
+          </div>
+        ))}
+        <div hidden={trail.length > 0} className="finance-pane-stack">
+          {views[tab]()}
+        </div>
       </div>
     </section>
   );

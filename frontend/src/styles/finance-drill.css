@@ -206,3 +206,11 @@ button.finance-drill-row:hover {
   gap: 4px;
   margin-top: 8px;
 }
+
+/* A drilldown step or the tab under it; a hidden one keeps its state and takes no room. */
+.finance-pane-stack:not([hidden]) {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}

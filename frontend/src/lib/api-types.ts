@@ -3890,6 +3890,8 @@ export interface components {
             months: components["schemas"]["PayeeMonthOut"][];
             /** Average */
             average: string | null;
+            /** Average Received */
+            average_received: string | null;
             /** Categories */
             categories: components["schemas"]["PayeeCategoryOut"][];
             /** Rules */

@@ -53,6 +53,8 @@ export function DrillScope({
   const drill = useQuery({
     queryKey: ["finance", "drill", "scope", scope, month],
     queryFn: () => fetchScope(scope, month),
+    // The view stays while the next month loads, so the focus and the keys stay with it.
+    placeholderData: (previous) => previous,
   });
   const data = drill.data;
   const row = data?.months.at(-1);
@@ -189,6 +191,8 @@ export function DrillAccount({
   const drill = useQuery({
     queryKey: ["finance", "drill", "account", id, month],
     queryFn: () => fetchAccountDrill(id, month),
+    // The view stays while the next month loads, so the focus and the keys stay with it.
+    placeholderData: (previous) => previous,
   });
   const data = drill.data;
   if (data === undefined) return <Waiting error={drill.error} />;

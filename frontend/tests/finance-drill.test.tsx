@@ -136,6 +136,7 @@ const PAYEE = {
   month: "2026-10",
   months: [{ month: "2026-10", spent: "100.00", received: "0.00", saved: "0.00", bookings: 2 }],
   average: "90.00",
+  average_received: "0.00",
   categories: [{ id: 4, name: "Groceries", kind: "flexible", amount: "100.00" }],
   rules: [],
   bookings: [BOOKING],
@@ -170,16 +171,13 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
+const notice = vi.fn();
+
 function renderPane() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={client}>
-      <FinancePane
-        commands={stubCommands()}
-        focusSignal={0}
-        onNotice={vi.fn()}
-        today="2026-10-25"
-      />
+      <FinancePane commands={stubCommands()} focusSignal={0} onNotice={notice} today="2026-10-25" />
     </QueryClientProvider>,
   );
 }
@@ -301,5 +299,84 @@ describe("the finance pane's drilldowns", () => {
       "1 booking, −70,00 € net",
     );
     expect(within(bookings).getByText(/^part of −100,00\s€, REWE SAGT DANKE$/)).toBeTruthy();
+  });
+
+  it("#1083 stepping back finds the tab's filter and the list's cursor as they were", async () => {
+    const second = { ...BOOKING, id: 10, counterparty_name: "EDEKA", purpose: "EDEKA SAGT DANKE" };
+    api.fetchCategoryDrill.mockResolvedValue({ ...CATEGORY, bookings: [BOOKING, second] });
+    renderPane();
+    press("T");
+    await screen.findByText("REWE SAGT DANKE");
+    fireEvent.change(screen.getByRole("searchbox", { name: "Text" }), {
+      target: { value: "rewe" },
+    });
+    press("Enter");
+    fireEvent.click(await screen.findByRole("button", { name: "Groceries ›" }));
+    await screen.findByText("EDEKA SAGT DANKE");
+    press("j");
+    press("Enter");
+    await waitFor(() => expect(api.fetchBookingDrill).toHaveBeenLastCalledWith(10));
+
+    press("Escape");
+    const rows = within(screen.getByRole("list", { name: "Bookings" })).getAllByRole("listitem");
+    expect(rows[1]).toHaveAttribute("aria-selected", "true");
+    press("Escape");
+    press("Escape");
+    expect(screen.getByRole("searchbox", { name: "Text" })).toHaveValue("rewe");
+  });
+
+  it("#1083 a month's bar keeps the keys in the pane, so Escape still steps back", async () => {
+    const [october] = CATEGORY.months;
+    const september = { ...october, month: "2026-09", total: "80.00" };
+    api.fetchCategoryDrill.mockResolvedValue({ ...CATEGORY, months: [september, october] });
+    renderPane();
+    press("T");
+    await screen.findByText("REWE SAGT DANKE");
+    press("Enter");
+    fireEvent.click(await screen.findByRole("button", { name: "Groceries ›" }));
+    const bar = await screen.findByRole("button", { name: /^September 2026, 80\s€$/ });
+    bar.focus();
+    fireEvent.click(bar);
+    await waitFor(() => expect(api.fetchCategoryDrill).toHaveBeenCalledTimes(2));
+    expect(document.activeElement).toBe(screen.getByRole("region", { name: "Finance" }));
+    press("Escape");
+    expect(crumbs()).toBe("September 2026 › REWE");
+  });
+
+  it("#1083 a category key on a split booking says to sort its parts", async () => {
+    const split = {
+      ...BOOKING,
+      category_id: null,
+      splits: [
+        { id: 1, amount: "-70.00", text: "food", category_id: 4, category_set_by: "hand" },
+        { id: 2, amount: "-30.00", text: "wine", category_id: null, category_set_by: null },
+      ],
+    };
+    api.fetchBookingDrill.mockResolvedValue({ ...DRILLED, transaction: split });
+    renderPane();
+    press("T");
+    await screen.findByText("REWE SAGT DANKE");
+    press("Enter");
+    await screen.findByText("Part 1, −70,00 €, food");
+    press("2");
+    expect(notice).toHaveBeenCalledWith("This booking is split: sort each part below");
+    expect(api.sortByHand).not.toHaveBeenCalled();
+  });
+
+  it("#1083 a payee that only pays in averages its money in", async () => {
+    api.fetchPayeeDrill.mockResolvedValue({
+      ...PAYEE,
+      months: [
+        { month: "2026-10", spent: "0.00", received: "3000.00", saved: "0.00", bookings: 1 },
+      ],
+      average: "0.00",
+      average_received: "3000.00",
+    });
+    renderPane();
+    press("T");
+    await screen.findByText("REWE SAGT DANKE");
+    press("Enter");
+    fireEvent.click(await screen.findByRole("button", { name: "REWE ›" }));
+    expect(await screen.findByText(/^average 3.000\s€ a month$/)).toBeTruthy();
   });
 });

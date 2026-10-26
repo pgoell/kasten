@@ -10,7 +10,12 @@ import {
 } from "@/components/finance-drill-parts";
 import { MonthChart } from "@/components/finance-month-chart";
 import { sortPayee } from "@/lib/finance-api";
-import { fetchCategoryDrill, fetchPayeeDrill, writePayeeRule } from "@/lib/finance-drill-api";
+import {
+  fetchCategoryDrill,
+  fetchPayeeDrill,
+  type PayeeDrill,
+  writePayeeRule,
+} from "@/lib/finance-drill-api";
 import { euros, monthName } from "@/lib/finance-words";
 
 /** How often a plan falls due, in words. */
@@ -36,6 +41,8 @@ export function DrillCategory({
   const drill = useQuery({
     queryKey: ["finance", "drill", "category", id, month],
     queryFn: () => fetchCategoryDrill(id, month),
+    // The view stays while the next month loads, so the focus and the keys stay with it.
+    placeholderData: (previous) => previous,
   });
   const data = drill.data;
   const row = data?.months.at(-1);
@@ -135,6 +142,20 @@ export function DrillCategory({
   );
 }
 
+/** The line under a payee's chart: its average, a booking's size, and what moved to saving. */
+function payeeWords(data: PayeeDrill, row: PayeeDrill["months"][number], paysIn: boolean): string {
+  const average = paysIn ? data.average_received : data.average;
+  return [
+    average == null ? "no average yet" : `average ${euros(average)} a month`,
+    row.bookings > 0 && !paysIn
+      ? `${euros(Number(row.spent) / row.bookings)} a booking this month`
+      : "",
+    Number(row.saved) > 0 ? `${euros(row.saved)} moved to saving` : "",
+  ]
+    .filter(Boolean)
+    .join("; ");
+}
+
 /**
  * One payee: its spending each month as bars, how often and how much on average, the categories
  * its money went to, its default category and rules, and the month's bookings. A move between own
@@ -154,6 +175,8 @@ export function DrillPayee({
   const drill = useQuery({
     queryKey: ["finance", "drill", "payee", id, month],
     queryFn: () => fetchPayeeDrill(id, month),
+    // The view stays while the next month loads, so the focus and the keys stay with it.
+    placeholderData: (previous) => previous,
   });
   const data = drill.data;
   const row = data?.months.at(-1);
@@ -193,17 +216,7 @@ export function DrillPayee({
               );
             }}
           />
-          <p className="overview-caption">
-            {[
-              data.average == null ? "no average yet" : `average ${euros(data.average)} a month`,
-              row.bookings > 0 && !paysIn
-                ? `${euros(Number(row.spent) / row.bookings)} a booking this month`
-                : "",
-              Number(row.saved) > 0 ? `${euros(row.saved)} moved to saving` : "",
-            ]
-              .filter(Boolean)
-              .join("; ")}
-          </p>
+          <p className="overview-caption">{payeeWords(data, row, paysIn)}</p>
         </article>
         <article className="overview-card">
           <h3 className="overview-name">{`Categories over ${data.months.length} months`}</h3>

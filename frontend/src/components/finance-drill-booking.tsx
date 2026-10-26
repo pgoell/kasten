@@ -213,7 +213,20 @@ export function DrillBooking({ id, onOpen, sorter, keys, onNotice }: DrillProps 
       ? undefined
       : { transaction: t.id, payee: t.payee_id };
   // After the hooks: the keys sort the booking as the to-sort list's do.
-  keys.current = sortKeys(sorter, row, () => undefined);
+  const sorting = sortKeys(sorter, row, () => undefined);
+  keys.current = (key) => {
+    // A split booking sorts by its parts and a move takes no category, so a category key
+    // says why it did nothing rather than nothing at all.
+    if (row === undefined && t !== undefined && sorter.categoryOf(key) !== undefined) {
+      onNotice(
+        t.transfer_group != null
+          ? "A move between own accounts takes no category"
+          : "This booking is split: sort each part below",
+      );
+      return true;
+    }
+    return sorting(key);
+  };
   if (data === undefined || t === undefined) return <Waiting error={drill.error} />;
   const names = categoryNames(sorter);
 
