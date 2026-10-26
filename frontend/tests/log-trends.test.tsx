@@ -1,6 +1,6 @@
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { shiftDay } from "@/lib/clock";
-import { CONFIG_NOTE, logDays, renderPane, TODAY } from "./log-pane-fixture";
+import { back, CONFIG_NOTE, logDays, renderPane, TODAY } from "./log-pane-fixture";
 
 const { fetchLog, fetchNote, searchFood, readBarcode } = vi.hoisted(() => ({
   fetchLog: vi.fn(),
@@ -35,43 +35,6 @@ beforeEach(() => {
 /** Presses a key on the pane, as a press reaches it from the focused list. */
 function press(key: string) {
   fireEvent.keyDown(screen.getByRole("region", { name: "Log" }), { key });
-}
-
-interface Totals {
-  kcal?: number;
-  protein?: number;
-  carbs?: number;
-  fat?: number;
-  water?: number;
-  coffee?: number;
-}
-
-/** A day with a `## Log` that adds up to `totals`, as `GET /api/log` answers it. */
-function loggedOn(date: string, totals: Totals) {
-  // A day with kcal has a food line, since a day with no food line is no day within the kcal goal.
-  const kcal = totals.kcal ?? 0;
-  return {
-    date,
-    path: `daily/${date}.md`,
-    entries: kcal > 0 ? [{ line: 1, text: `- 🍽 🔥 ${kcal} kcal`, kind: "food", kcal }] : [],
-    totals: {
-      water: { ml: totals.water ?? 0 },
-      coffee: { count: totals.coffee ?? 0 },
-      alcohol: { count: 0, ml: 0, grams: 0 },
-      food: {
-        kcal: totals.kcal ?? 0,
-        protein: totals.protein ?? 0,
-        carbs: totals.carbs ?? 0,
-        fat: totals.fat ?? 0,
-      },
-      mine: [],
-    },
-  };
-}
-
-/** The day `count` days before today, logged with `totals`. */
-function back(count: number, totals: Totals) {
-  return loggedOn(shiftDay(TODAY, -count), totals);
 }
 
 /** Days with no log, counted back from today, and the days over the 2,000 kcal ceiling. */
@@ -146,7 +109,7 @@ it("#804 A8 the summary row reads the average kcal, days within the goal as N of
   expect(summary?.nextElementSibling?.classList.contains("log-multiples")).toBe(true);
   // 46,500 kcal over 27 logged days, rounded.
   expect(screen.getByText("1,722 kcal")).toBeInTheDocument();
-  expect(screen.getByText("over 27 logged days")).toBeInTheDocument();
+  expect(screen.getByText("over 27 food days")).toBeInTheDocument();
   expect(screen.getByText("days at most 2,000 kcal")).toBeInTheDocument();
   // Today and the two days before it are within the goal; 3 days back is over it.
   expect(screen.getByText("3 days")).toBeInTheDocument();

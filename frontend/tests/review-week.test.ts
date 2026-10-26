@@ -24,7 +24,10 @@ function todo(text: string): TodoHit {
   return { path: "02 Projects/tasks.md", line: 1, text, project: null, shared: false };
 }
 
-/** A log day with `entries` lines, its kcal and its weigh-in when given. */
+/**
+ * A log day with `entries` lines, its kcal and its weigh-in when given. A day with kcal has
+ * food lines, since a day with no food line is no food day for the week's kcal count.
+ */
 function day(
   date: string,
   { entries = 1, kcal = 0, weight }: { entries?: number; kcal?: number; weight?: number },
@@ -32,7 +35,7 @@ function day(
   return {
     date,
     path: `01 Periodic/00 Daily/${date}.md`,
-    entries: Array.from({ length: entries }, () => ({})),
+    entries: Array.from({ length: entries }, () => (kcal > 0 ? { kind: "food" } : {})),
     totals: {
       food: { kcal },
       mine: weight === undefined ? [] : [{ mark: "⚖", name: "weight", unit: "kg", total: weight }],
@@ -121,6 +124,24 @@ describe("the week's tiles", () => {
     });
 
     expect(tiles.withinKcal).toBeNull();
+  });
+
+  it("#1113 A3 weekTiles leaves a day of drinks only out of the days within kcal", () => {
+    const drinks: LogDay = {
+      ...day("2026-10-20", {}),
+      entries: [{ line: 1, text: "- 💧 250 ml", kind: "water", ml: 250 }],
+    };
+    const tiles = weekTiles({
+      todos: [],
+      days: [drinks, day("2026-10-21", { kcal: 1500 })],
+      config: CONFIG,
+      notes: notesWith(""),
+      from: FROM,
+      to: TO,
+    });
+
+    // The drinks day is no food day, so only the food day within the 2,000 kcal ceiling counts.
+    expect(tiles.withinKcal).toBe(1);
   });
 
   it("#807 I1 the empty week gives zeros and nulls, never NaN", () => {

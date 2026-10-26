@@ -140,8 +140,8 @@ Four tiles sit in a row at the top.
 * Time logged: the closed sessions under `## Time` in the week's seven daily
   notes, added up. A session still running counts nothing. A session that ends
   before it starts counts nothing too.
-* Days within kcal: the logged days of the week within the kcal goal, shown as
-  `N of 7`. Within means at or under a ceiling goal, at or over a floor goal. With
+* Days within kcal: the days of the week with a food line within the kcal goal,
+  shown as `N of 7`. A day of drinks only does not count. Within means at or under a ceiling goal, at or over a floor goal. With
   no kcal goal, the tile says `no kcal goal`.
 * Weight change: the last weigh-in on or before Sunday, less the last weigh-in
   before Monday. With no weigh-in before Monday, the first weigh-in of the week

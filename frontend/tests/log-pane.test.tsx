@@ -61,7 +61,10 @@ it("#624 Today shows each kind against its goal and the food day grouped by meal
   expect(screen.getByText("at most 3, within")).toBeInTheDocument();
   expect(screen.getByText("200 ml")).toBeInTheDocument();
   expect(screen.getByText("at most 500, within")).toBeInTheDocument();
-  expect(screen.getByText("380 kcal")).toBeInTheDocument();
+  // The Trends Average tile reads the same 380 kcal, since the other logged day has no food line, so scope to Today.
+  expect(
+    within(screen.getByRole("region", { name: "Today" })).getByText("380 kcal"),
+  ).toBeInTheDocument();
   expect(screen.getByText("at most 2,000, within")).toBeInTheDocument();
   expect(screen.getByText("10 g")).toBeInTheDocument();
   expect(screen.getByText("at least 100")).toBeInTheDocument();

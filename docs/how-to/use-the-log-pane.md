@@ -89,8 +89,11 @@ pane writes nothing and says why. Read the note again and retry.
 `9`, or tap `7d`, `30d` or `90d`, to change the range. A day counts as logged
 when its note has a `## Log`.
 
-* The summary row comes first: the average kcal over the logged days; the days
-  within the kcal goal, as `21 of 27` logged days; the streak, the logged days
+* The summary row comes first: the average kcal over the days with a food line,
+  as `over 27 food days`; the days within the kcal goal, as `21 of 27` days with
+  a food line. A day of drinks only, or of weight only, counts in neither, and
+  with no food line in the range both read `—` and `no food logged`; the
+  streak, the logged days
   within the kcal goal in a row up to the day shown (a day with no food line
   ends it, even one with drinks logged; today with no food line yet does not);
   and for each `last` kind, such as
