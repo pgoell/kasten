@@ -286,7 +286,7 @@ it("#804 I5 a chart with days over its max says how many in words", async () => 
 
   expect(
     await screen.findByText(
-      "kcal: average 1,722.2 kcal over 27 logged days, goal at most 2,000 kcal, 6 days over the goal",
+      "kcal: average 1,722.2 kcal over 27 food days, goal at most 2,000 kcal, 6 days over the goal",
     ),
   ).toBeInTheDocument();
   expect(

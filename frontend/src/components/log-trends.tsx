@@ -122,21 +122,27 @@ interface ChartProps {
   logged: Logged[];
   range: number;
   value: (day: Day) => number;
+  /** Set on the food charts, whose `logged` is the food days: the words count those, and `noneLogged` tells `no food logged` from `nothing logged`. */
+  food?: { noneLogged: boolean };
   todayIndex?: number;
 }
 
 /**
  * One kind's bars, a bar per logged day, with its goal as a dashed line. Every chart is
- * the same size, so they can be read against each other by eye.
+ * the same size, so they can be read against each other by eye. The food charts get the
+ * food days only, since a day of drinks is no food day and draws no bar.
  */
-function Chart({ name, unit, goal, logged, range, value, todayIndex }: ChartProps) {
+function Chart({ name, unit, goal, logged, range, value, food, todayIndex }: ChartProps) {
   const points = logged.map(({ index, day }) => ({ index, amount: value(day) }));
   const sum = points.reduce((total, point) => total + point.amount, 0);
   const suffix = unit === "" ? "" : ` ${unit}`;
+  // Drinks alone leave a food chart empty but not with nothing logged, so its words say which.
+  const empty = food !== undefined && !food.noneLogged ? "no food logged" : "nothing logged";
+  const counted = food === undefined ? loggedDays(points.length) : foodDays(points.length);
   const average =
     points.length === 0
-      ? "nothing logged"
-      : `average ${grouped(tenth(sum / points.length))}${suffix} over ${loggedDays(points.length)}`;
+      ? empty
+      : `average ${grouped(tenth(sum / points.length))}${suffix} over ${counted}`;
   const aim = goal === undefined ? "" : `, goal ${bound(goal)} ${grouped(goal.value)}${suffix}`;
   // Only a ceiling is passed in a warning. The words count the passes too, so colour is not the only sign.
   const passes = (amount: number) => goal !== undefined && overMax(amount, goal);
@@ -175,7 +181,7 @@ const MACROS: { name: string; field: FoodField; perGram: number; className: stri
 ];
 
 /**
- * Each macro's share of the kcal the macros give, over the logged days, as whole
+ * Each macro's share of the kcal the macros give, over the food days, as whole
  * percentages that add up to 100: the points the rounding leaves over go to the parts
  * with the largest remainders. Null when no macro is logged, so there is nothing to share.
  */
@@ -203,9 +209,12 @@ function macroShares(
   }));
 }
 
-/** The food's macro split over the logged days: one stacked bar, each part named with its percentage under it. */
-function Macros({ logged, range }: { logged: Logged[]; range: number }) {
-  const shares = macroShares(logged);
+/**
+ * The food's macro split over the food days: one stacked bar, each part named with its percentage under it.
+ * A day of drinks is no food day, so it is left out of the split and the count in its caption.
+ */
+function Macros({ fed, noneLogged, range }: { fed: Logged[]; noneLogged: boolean; range: number }) {
+  const shares = macroShares(fed);
   let start = 0;
   const drawn = (shares ?? []).map((part) => {
     const width = (part.percent / 100) * WIDTH;
@@ -218,8 +227,8 @@ function Macros({ logged, range }: { logged: Logged[]; range: number }) {
     <figure className="log-macros">
       <figcaption>
         {shares === null
-          ? "macros: nothing logged"
-          : `macros, share of kcal over ${loggedDays(logged.length)}`}
+          ? `macros: ${noneLogged || fed.length > 0 ? "nothing logged" : "no food logged"}`
+          : `macros, share of kcal over ${foodDays(fed.length)}`}
       </figcaption>
       {shares === null ? null : (
         <>
@@ -301,7 +310,11 @@ function weekLabel(monday: string): string {
   });
 }
 
-/** A row per week, with the averages of its logged days, `—` where a week has none. */
+/**
+ * A row per week, with the averages of its days, `—` where a week has none to average. Kcal
+ * and protein average the food days only, so a day of drinks does not pull them down to 0.
+ * Water and the day count take every logged day.
+ */
 function WeekTable({
   weeks,
   anyLogged,
@@ -328,11 +341,14 @@ function WeekTable({
         <tbody>
           {weeks.map((week) => {
             const count = week.logged.length;
-            const mean = (value: (day: Day) => number) =>
-              count === 0 ? null : week.logged.reduce((sum, day) => sum + value(day), 0) / count;
-            const kcal = mean((day) => foodTotal(day, "kcal"));
-            const protein = mean((day) => foodTotal(day, "protein"));
-            const water = mean((day) => day.totals.water.ml);
+            const fed = week.logged.filter(hasFood);
+            const mean = (days: Day[], value: (day: Day) => number) =>
+              days.length === 0
+                ? null
+                : days.reduce((sum, day) => sum + value(day), 0) / days.length;
+            const kcal = mean(fed, (day) => foodTotal(day, "kcal"));
+            const protein = mean(fed, (day) => foodTotal(day, "protein"));
+            const water = mean(week.logged, (day) => day.totals.water.ml);
             return (
               <tr key={week.monday}>
                 <th scope="row">{weekLabel(week.monday)}</th>
@@ -377,7 +393,7 @@ export function LogTrends({
   const chartKinds = config.kinds.filter((kind) => kind.last !== true);
   const goal = config.food.kcal;
   const noneLogged = logged.length === 0;
-  // A day with no food line is no food day, as the streak reads it, so drinks alone are left out of the kcal tiles.
+  // A day with no food line is no food day, as the streak reads it, so drinks alone are left out of the kcal tiles and food charts.
   const fed = logged.filter(({ day }) => hasFood(day));
   const noFood = fed.length === 0;
   const kcal = fed.map(({ day }) => foodTotal(day, "kcal"));
@@ -435,9 +451,10 @@ export function LogTrends({
             name={field}
             unit={unit}
             goal={config.food[field]}
-            logged={logged}
+            logged={fed}
             range={range}
             value={(day) => foodTotal(day, field)}
+            food={{ noneLogged }}
             todayIndex={todayIndex}
           />
         ))}
@@ -446,7 +463,7 @@ export function LogTrends({
 
       <WeightSlot kinds={weightKinds} />
 
-      <Macros logged={logged} range={range} />
+      <Macros fed={fed} noneLogged={noneLogged} range={range} />
 
       <WeekTable weeks={weeksOf(dates, byDate)} anyLogged={!noneLogged} kinds={weightKinds} />
     </div>
