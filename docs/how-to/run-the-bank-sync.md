@@ -62,6 +62,9 @@ mode, BLZ and login, on python-fints 5.0.0 as the importer did, so the bank
 sees the same client. The importer must stay stopped from here on: two clients
 writing one bank's state fall out of step with the bank.
 
+On the maintainer's server this is done, and the importer is archived under
+`~/backups/` since Firefly III was retired (#1041).
+
 ```sh
 install -m 600 ~/Code/firefly-importer/state/dkb.bin ~/Code/firefly-importer/state/psd.bin \
   ~/.config/kasten/fints/

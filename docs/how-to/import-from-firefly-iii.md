@@ -1,7 +1,7 @@
 ---
 type: How-to Guide
 title: Import from Firefly III
-description: Bring Firefly III's history into kasten once, with its accounts, bookings, categories and rules, from a one-shot container on the server; count first with a dry run, then import, then check a second run changes nothing.
+description: A one-off. Bring Firefly III's history into kasten once, with its accounts, bookings, categories and rules, from a one-shot container on the server; count first with a dry run, then import, then check a second run changes nothing.
 tags: [finance, jobs, firefly, deploy]
 status: draft
 ---
@@ -13,6 +13,13 @@ through [the finance routes](/reference/http-api/finance.md). It never writes to
 Firefly and never to kasten's database directly. What it takes, the key it
 stores each booking by and every count it prints are in
 [Firefly import](/reference/firefly-import.md).
+
+This is a one-off. It ran once on the maintainer's server, on 2026-10-25, and
+Firefly III there is retired since (#1041). Its final dump is
+`~/backups/firefly/firefly-final-<date>.sql.gz`. To run the import again from
+that dump, restore it into a database `firefly` in the `postgres` container
+first, and put the role you restore it under into `FIREFLY_DATABASE_URL`: with
+no `firefly` container, the `docker inspect` in step 1 finds nothing.
 
 You need a prod kasten with a database
 ([Deploy to the VPS](/how-to/deploy-to-the-vps.md)) on a release that carries
