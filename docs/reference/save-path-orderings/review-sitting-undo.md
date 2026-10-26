@@ -47,3 +47,7 @@ The backend restarts now and then. A write sent in that gap gets a 502, 503 or 5
 | R5 | S gets a 502, then a 409 on the next try. | S fails at once on the 409 and sends nothing more. | no | `#1135 A6 a retry the vault refuses because the note moved on fails at once and sends nothing more` |
 | R6 | A write for the same note is made while S retries (a jot, or an undo). | It waits behind S and names S's answer as its base; both land, in order. | yes | `#1135 I1 a write made while one retries waits behind it and names its answer as the base`, `#1135 I2 an undo pressed while a write retries waits behind it and settles as landed`, `#1135 I2 an undo pressed while the rating's write retries lands after it and brings the card back` |
 | R7 | The screen unmounts while S retries. | S keeps going and lands once the backend is back. | no | `#1135 I4 a write still retrying when its component unmounts keeps going and lands` |
+
+## The parked list's reads around its writes
+
+The parked list writes each put-back through the same queue, and reads its notes again whenever the scan of the cards changes, which every landed write sets off. A note with a put-back out keeps the text on screen over that read, and so does a note whose put-back went out while the read was out, so a read from before the write never shows the card as parked again. A note with nothing out takes the read's text. The writes and their order are as above. P is a put-back.
