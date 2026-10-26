@@ -1,0 +1,3 @@
+# 2026-10-26: the review's reads
+
+* **Fix**: the review's daily limits read goes again on a `502`, `503`, `504` or a network error, for about a minute, instead of taking the failure as no limits, so the overview and a sitting no longer count past `new_per_day` while the backend restarts; a read that still fails says so and starts no sitting. A missing `decks.md` still means no per-deck limits (#1149). The parked list says `Reading the notes…` until the card scan answers and shows the scan's error when it fails, instead of `Nothing parked.` (#1150); its reads of the parked notes go again the same way, and a read that answers takes down the alert of one that failed (#1151). The overview names each deck note it could not read, at the foot of the decks (#1153).
