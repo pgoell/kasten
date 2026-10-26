@@ -19,7 +19,7 @@ from backend.tests.finance_order_rows import (
 )
 from backend.tests.finance_rows import API, GIRO, account, category, post, rule, stored
 from kasten_backend.finance_order_models import OrderItem
-from kasten_backend.finance_order_text import shop_name
+from kasten_backend.finance_order_text import same_shop, shop_name
 from kasten_backend.finance_orders import net
 
 if TYPE_CHECKING:
@@ -132,6 +132,45 @@ async def test_too_many_items_or_too_long_a_text_is_refused(finance_client: Asyn
 
     for body in (many, long, paypal(order_key="k" * 201)):
         assert (await finance_client.post(ORDERS, json=[body])).status_code == 422
+
+
+def test_shops_are_one_when_one_name_starts_the_other_and_short_names_match_whole() -> None:
+    assert same_shop("Apple", "Apple Services")
+    assert same_shop("Google Payment Irela...", "Google Payment Ireland Limited")
+    assert not same_shop("Otto GmbH", "Lotto24 AG")
+    assert not same_shop("C&A", "Carl Zeiss")
+    assert same_shop("dm", "DM")
+
+
+async def test_an_item_rule_beats_the_rule_on_the_booking_purpose(
+    finance_client: AsyncClient,
+) -> None:
+    giro = await account(finance_client, "Giro", GIRO)
+    shopping, books = (
+        await category(finance_client, "Shopping"),
+        await category(finance_client, "Books"),
+    )
+    await rule(finance_client, "text_contains", "amznmktp", shopping)
+    await rule(finance_client, "text_contains", "roman", books)
+    await post(finance_client, [amazon_booking(giro, "b", "-15.00", "2026-10-20")])
+    order = amazon(
+        charges=[
+            charge(
+                "ship-b",
+                "15.00",
+                [item("Roman Taschenbuch", "12.00"), item("Lamp shade", "3.00")],
+                day="2026-10-18",
+            )
+        ]
+    )
+
+    await send(finance_client, [order])
+
+    splits = (await stored(finance_client))["b"]["splits"]
+    assert [(s["text"], s["category_id"]) for s in splits] == [
+        ("Roman Taschenbuch", books),
+        ("Lamp shade", shopping),
+    ]
 
 
 def test_shop_names_compare_without_legal_forms_spaces_or_dots() -> None:

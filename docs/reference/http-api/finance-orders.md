@@ -103,8 +103,12 @@ reference, which the mail does not carry.
 An Amazon booking matches only when it names the order id. A PayPal booking
 in the shape above matches when either of its two names is the mail's
 merchant, compared casefolded, with spaces, dots and legal forms (GmbH, B.V.,
-Inc., Ltd., S.a.r.l. and the like) taken out, one the start of the other, as
-PayPal cuts a long name short in its mails. One that names no shop at all,
+Inc., Ltd., S.a.r.l. and the like) taken out. They are one shop when one
+starts the other, as PayPal cuts a long name short in its mails: `Apple` is
+`Apple Services`, but `Otto` is not `Lotto24`. A name under four letters
+must match whole, so `C&A` is not `Carl Zeiss`. An Amazon order paid with
+PayPal is a PayPal order of its own: its booking carries no Amazon order id,
+so the Amazon order's shipments never take it. One that names no shop at all,
 `. , Ihr Einkauf bei`, fits money sent to a person. A booking that names
 another shop, or is in no such shape (a card payment `PAYPAL *SHOP`), never
 matches.
@@ -170,7 +174,7 @@ under To sort. `limit` is 1 to 500, 50 by default.
       {
         "id": 9, "kind": "charge", "key": "payment", "charged_on": "2026-10-17", "amount": "30.00",
         "transaction_id": null, "status": "ambiguous",
-        "items": [ { "text": "Example Shop GmbH: Garden book", "amount": "18.50" } ]
+        "items": [ { "text": "Garden book", "amount": "18.50" } ]
       }
     ]
   }

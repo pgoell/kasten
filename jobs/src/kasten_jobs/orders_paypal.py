@@ -138,10 +138,12 @@ def _extras(lines: list[str], start: int) -> list[Item]:
 
 
 def _items(lines: list[str], merchant: str, total: Decimal) -> list[Item]:
-    """The receipt's lines, each named with the merchant so a rule on the shop still sorts them.
+    """The receipt's lines as it names them.
 
-    When the receipt lists none, or its lines do not add up to the total, the
-    payment is one line, the merchant's, for the whole.
+    Not prefixed with the shop, which would let a rule on the shop beat one
+    on the item; a part no rule names takes the booking's own rule. When the
+    receipt lists none, or its lines do not add up to the total, the payment
+    is one line, the merchant's, for the whole.
     """
     items, end = _listed(lines)
     if not items:
@@ -149,7 +151,7 @@ def _items(lines: list[str], merchant: str, total: Decimal) -> list[Item]:
     items += _extras(lines, end) if items else []
     if not items or sum((a for _, a in items), Decimal(0)) != total:
         return [(merchant, total)]
-    return [(f"{merchant}: {text}", amount) for text, amount in items]
+    return items
 
 
 def parse_payment(mail: Mail) -> Payment | None:

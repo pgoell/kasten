@@ -135,9 +135,8 @@ removed by hand" and never splits that booking again.
 ## Sorting the items
 
 Each item is sorted by the rules, reading the item's text: a text rule
-`garden` sends a "Garden hose" to its category. PayPal items carry the shop's
-name, and Amazon items start with `Amazon:`, so a rule on the shop still sorts
-them. A text rule on the booking's purpose, such as `amzn`, sorts the items
+`garden` sends a "Garden hose" to its category, even when a rule on the shop
+would say otherwise. A text rule on the booking's purpose, such as `amzn`, sorts the items
 no rule of their own names, as it sorted the booking before. A discount is
 shared out over the items, so they add up to what you paid. An item no rule
 sorts waits in the to-sort list. Give PayPal or Amazon no "always for this payee": that

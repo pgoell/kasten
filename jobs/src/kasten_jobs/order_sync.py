@@ -120,16 +120,9 @@ def _parse(mail: Mail, found: Found) -> None:
         if (refund := orders_paypal.parse_refund(mail)) is not None:
             found.refunds.append(refund)
         elif (payment := orders_paypal.parse_payment(mail)) is not None:
-            if _to_amazon(payment.merchant):
-                # Amazon's own mails say more, item by item and per shipment.
-                log.info("Left out PayPal payment %s to Amazon", payment.code)
-            else:
-                found.payments.setdefault(payment.code, payment)
-
-
-def _to_amazon(merchant: str) -> bool:
-    """A PayPal payment to Amazon, which Amazon's own mails cover item by item."""
-    return merchant.casefold().startswith("amazon")
+            # A payment to Amazon stays: its PayPal booking carries no Amazon
+            # order id, so only this order can match it.
+            found.payments.setdefault(payment.code, payment)
 
 
 def _gmail_day(day: date) -> str:
@@ -226,7 +219,7 @@ def _paypal(found: Found) -> list[dict[str, Any]]:
             "source": "paypal",
             "order_key": code,
             "ordered_on": payment.day.isoformat(),
-            "merchant": payment.merchant,
+            "merchant": payment.merchant[:TEXT],
             "total": str(payment.total),
             "charges": [
                 {
@@ -240,8 +233,6 @@ def _paypal(found: Found) -> list[dict[str, Any]]:
         for code, payment in found.payments.items()
     }
     for refund in found.refunds:
-        if _to_amazon(refund.merchant):
-            continue
         payment = _refunded(refund, found.payments)
         if payment is None:
             log.warning("No payment found for the PayPal refund in mail %s", refund.mail_id)

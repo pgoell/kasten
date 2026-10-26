@@ -14,9 +14,6 @@ if TYPE_CHECKING:
 
     from kasten_backend.finance_order_models import ShopOrder
 
-_ORDER_ID = re.compile(r"\b(?:\d{3}|d01)-\d{7}-\d{7}\b")
-"""An Amazon order id as a booking's lowercased text carries it."""
-
 _PAYPAL_SHOP = re.compile(r"(?:^|/)\s*\.\s*([^/]*?),\s*ihr einkauf bei\s*([^/]*)")
 """The two names a PayPal debit gives its shop.
 
@@ -46,9 +43,23 @@ def shop_name(name: str) -> str:
     return "".join(word for word in words if word not in _NOISE)
 
 
-def _same_shop(merchant: str, named: str) -> bool:
+SHORT = 4
+"""Below this many letters a shop's name must match whole: `ca` is no start of `carlzeiss`."""
+
+
+def same_shop(merchant: str, named: str) -> bool:
+    """Whether two names are one shop: one the start of the other, as PayPal cuts names short.
+
+    The start, never anywhere inside, so `Otto GmbH` is not `Lotto24 AG`; and
+    a name under `SHORT` letters only when the two are equal.
+    """
     mine, theirs = shop_name(merchant), shop_name(named)
-    return bool(mine and theirs) and (mine in theirs or theirs in mine)
+    short, long = sorted((mine, theirs), key=len)
+    if not short:
+        return False
+    if len(short) < SHORT:
+        return short == long
+    return long.startswith(short)
 
 
 @dataclass(frozen=True)
@@ -106,4 +117,4 @@ def rank(text: str, purpose: str, order: ShopOrder) -> int:
     names = [name for name in shop.groups() if shop_name(name)]
     if not names:
         return 0
-    return 1 if any(_same_shop(order.merchant, name) for name in names) else OTHER
+    return 1 if any(same_shop(order.merchant, name) for name in names) else OTHER

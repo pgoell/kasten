@@ -49,7 +49,7 @@ def test_a_digital_order_is_its_own_charge_at_its_total_with_tax() -> None:
             "D01-1234567-7654321",
             DAY,
             Decimal("8.99"),
-            [("Amazon: A Novel About Gardens (English Edition)", Decimal("8.99"))],
+            [("A Novel About Gardens (English Edition)", Decimal("8.99"))],
         )
     ]
 
@@ -65,8 +65,8 @@ def test_a_dispatch_charges_its_items_at_quantity_times_unit_price_to_the_cent()
         DAY,
         Decimal("27.00"),
         [
-            ("Amazon: Garden hose, 20 m, green", Decimal("24.50")),
-            ("Amazon: 2 x Hose clip", Decimal("2.50")),
+            ("Garden hose, 20 m, green", Decimal("24.50")),
+            ("2 x Hose clip", Decimal("2.50")),
         ],
     )
     assert sum(amount for _, amount in shipment.items) == shipment.amount
@@ -80,7 +80,7 @@ def test_a_dispatch_naming_two_orders_or_no_items_is_skipped() -> None:
         assert orders_amazon.parse_shipment(amazon_mail("s", orders_amazon.DISPATCH, text)) is None
 
 
-def test_a_shop_payment_lists_its_items_and_shipping_named_with_the_shop() -> None:
+def test_a_shop_payment_lists_its_items_and_shipping() -> None:
     payment = orders_paypal.parse_payment(paypal_mail("p1", SHOP_PAYMENT))
 
     assert payment == orders_paypal.Payment(
@@ -89,9 +89,9 @@ def test_a_shop_payment_lists_its_items_and_shipping_named_with_the_shop() -> No
         "Example Shop GmbH",
         Decimal("36.40"),
         [
-            ("Example Shop GmbH: Gartenschere", Decimal("19.90")),
-            ("Example Shop GmbH: Handschuhe", Decimal("12.00")),
-            ("Example Shop GmbH: Versand", Decimal("4.50")),
+            ("Gartenschere", Decimal("19.90")),
+            ("Handschuhe", Decimal("12.00")),
+            ("Versand", Decimal("4.50")),
         ],
     )
 
@@ -106,8 +106,8 @@ def test_a_receipt_with_a_table_takes_its_rows_and_its_tax_and_skips_the_zero_li
         Decimal("20.00"),
     )
     assert payment.items == [
-        ("Example Software Ltd: Pro plan, one month", Decimal("16.81")),
-        ("Example Software Ltd: Umsatzsteuer", Decimal("3.19")),
+        ("Pro plan, one month", Decimal("16.81")),
+        ("Umsatzsteuer", Decimal("3.19")),
     ]
 
 

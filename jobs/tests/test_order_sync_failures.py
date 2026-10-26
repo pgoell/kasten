@@ -50,7 +50,17 @@ def test_the_run_fails_only_when_kasten_took_none_of_the_orders() -> None:
     assert order_sync.sync(kasten.api(), mailbox([]), 60) == 0
 
 
-def test_a_paypal_payment_to_amazon_is_left_to_amazons_own_mails() -> None:
+def test_a_paypal_payment_to_amazon_stays_a_paypal_order() -> None:
     to_amazon = SHOP_PAYMENT.replace("Example Shop GmbH", "Amazon Payments Europe S.C.A.")
 
-    assert order_sync.gather(mailbox([paypal_mail("pay", to_amazon)]), 60) == []
+    [order] = order_sync.gather(mailbox([paypal_mail("pay", to_amazon)]), 60)
+
+    assert (order["source"], order["merchant"]) == ("paypal", "Amazon Payments Europe S.C.A.")
+
+
+def test_a_merchant_name_is_cut_to_what_kasten_takes() -> None:
+    long = SHOP_PAYMENT.replace("Example Shop GmbH", "S" * 600)
+
+    [order] = order_sync.gather(mailbox([paypal_mail("pay", long)]), 60)
+
+    assert len(order["merchant"]) == order_sync.TEXT

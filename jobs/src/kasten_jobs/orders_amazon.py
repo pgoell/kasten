@@ -23,9 +23,6 @@ if TYPE_CHECKING:
 CONFIRMATION = "bestellbestaetigung@amazon.de"
 DISPATCH = "versandbestaetigung@amazon.de"
 
-SHOP = "Amazon: "
-"""What each item's text starts with, so a rule on the shop still sorts it, as PayPal's items do."""
-
 ORDER_ID = re.compile(r"\b(?:\d{3}|D01)-\d{7}-\d{7}\b")
 _EUR = re.compile(r"^([\d.,]+) EUR$")
 _QUANTITY = re.compile(r"^Quantity: (\d+)$")
@@ -82,7 +79,7 @@ def _items(lines: list[str]) -> list[Item]:
             count = int(quantity.group(1))
             title = line[2:].strip()
             text = title if count == 1 else f"{count} x {title}"
-            items.append((f"{SHOP}{text}", cents(count * english_amount(price.group(1)))))
+            items.append((text, cents(count * english_amount(price.group(1)))))
     return items
 
 
@@ -95,7 +92,7 @@ def _digital(mail: Mail, lines: list[str]) -> Confirmation | None:
     # The title stands on the line before its seller. The prices listed are
     # before tax, so the order's items share its total as one line.
     titles = [lines[at - 1] for at, line in enumerate(lines) if line.startswith("Verkauft von:")]
-    text = SHOP + ("; ".join(titles) or "digital order")
+    text = "; ".join(titles) or "Amazon digital order"
     return Confirmation(found.group(0), mail.day, amount, [(text, amount)])
 
 

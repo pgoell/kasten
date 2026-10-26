@@ -79,7 +79,7 @@ versandbestaetigung@amazon.de OR service@paypal.de) newer_than:<days>d`:
 |---|---|---|
 | `bestellbestaetigung@amazon.de` | Order confirmation, in English ("Order #", "Total") | The order: its id, day and total. No charge: Amazon charges at dispatch |
 | `bestellbestaetigung@amazon.de` | Digital order, in German ("Bestellnr.", "Gesamtsumme") | The order and its one charge at the total with tax, the titles as one item |
-| `versandbestaetigung@amazon.de` | Dispatch ("Order #", items, "Total") | One charge, keyed by the mail's id, with its items, each named `Amazon: <title>` |
+| `versandbestaetigung@amazon.de` | Dispatch ("Order #", items, "Total") | One charge, keyed by the mail's id, with its items |
 | `service@paypal.de` | Receipt with a transaction code | The order, keyed by the code, and its one charge `payment` |
 | `service@paypal.de` | "Deine Rückzahlung über ..." | A refund of the payment it names, keyed by the mail's id |
 
@@ -88,14 +88,15 @@ dispatch's lines are `Quantity: n` and the unit price, so an item's amount is
 the two multiplied; the total is rounded to the cent, since Amazon writes sums
 such as `23.979999999999997 EUR`. A dispatch that names two orders is skipped.
 
-A PayPal receipt's items are named with the shop, `Example Shop GmbH:
-Gartenschere`, so a rule on the shop's name still sorts them. Shipping, tax
+Items keep the names the mail gives them, with no shop in front, so a rule on
+an item beats a rule on the shop; a part no rule names takes the rule that
+sorts its booking. Shipping, tax
 and a discount are items of their own. A receipt that lists no items, or whose
 lines do not add up to its total, is one item in the shop's name for the
 whole. Money sent to a person is one item in their name. A payment in another
-currency is skipped, and so is a payment to Amazon and its refund: Amazon's
-own mails cover that order item by item and per shipment. An item text longer
-than kasten's 500 characters is cut there.
+currency is skipped. A payment to Amazon through PayPal stays a PayPal order,
+which is what its booking can match. An item text or a merchant longer than
+kasten's 500 characters is cut there.
 
 ### What the window leaves out
 

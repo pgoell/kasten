@@ -84,8 +84,8 @@ def test_an_amazon_order_carries_one_charge_per_dispatch_and_its_total() -> None
                     "charged_on": "2026-10-20",
                     "amount": "27.00",
                     "items": [
-                        {"text": "Amazon: Garden hose, 20 m, green", "amount": "24.50"},
-                        {"text": "Amazon: 2 x Hose clip", "amount": "2.50"},
+                        {"text": "Garden hose, 20 m, green", "amount": "24.50"},
+                        {"text": "2 x Hose clip", "amount": "2.50"},
                     ],
                 }
             ],
@@ -103,9 +103,7 @@ def test_a_digital_order_is_charged_whole_with_no_dispatch() -> None:
             "key": "order",
             "charged_on": "2026-10-20",
             "amount": "8.99",
-            "items": [
-                {"text": "Amazon: A Novel About Gardens (English Edition)", "amount": "8.99"}
-            ],
+            "items": [{"text": "A Novel About Gardens (English Edition)", "amount": "8.99"}],
         }
     ]
 

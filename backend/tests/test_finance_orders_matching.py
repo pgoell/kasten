@@ -255,3 +255,22 @@ async def test_money_sent_to_a_person_matches_a_debit_that_names_no_shop(
     rows = await stored(finance_client)
     assert parts(rows["blank"]) == [("-55.00", "Sam Sample")]
     assert rows["other"]["splits"] == []
+
+
+async def test_an_amazon_order_paid_with_paypal_is_matched_by_the_paypal_order_alone(
+    finance_client: AsyncClient,
+) -> None:
+    giro = await account(finance_client, "Giro", GIRO)
+    shop = "Amazon Payments Europe S.C.A."
+    purpose = PAYPAL_PURPOSE.replace("Example Shop GmbH", shop)
+    await post(finance_client, [paypal_booking(giro, "pp", "-25.00", purpose=purpose)])
+    via_paypal = paypal(
+        merchant=shop,
+        total="25.00",
+        charges=[charge("payment", "25.00", [item(shop, "25.00")])],
+    )
+
+    await send(finance_client, [amazon(), via_paypal])
+
+    assert parts((await stored(finance_client))["pp"]) == [("-25.00", shop)]
+    assert statuses(await unmatched(finance_client)) == {"ship-a": "waiting", "ship-b": "waiting"}
