@@ -245,8 +245,10 @@ describe("the overview's Food card, on the route", () => {
     );
     if (kcal === undefined) throw new Error("no kcal chart");
 
-    expect(slotsOf(cardOf("Food"))).toEqual(slotsOf(kcal));
-    expect(slotsOf(kcal)).toEqual([9, 11, 13]);
+    expect({ overview: slotsOf(cardOf("Food")), trends: slotsOf(kcal) }).toEqual({
+      overview: [9, 11, 13],
+      trends: [9, 11, 13],
+    });
   });
 
   it("#1122 I1 a food line of 0 kcal still draws a stub on the Food card, beside a day of drinks only that draws none", async () => {
@@ -269,7 +271,9 @@ describe("the overview's Food card, on the route", () => {
     await openOverview();
 
     expect(slotsOf(cardOf("Water"))).toContain(12);
-    expect(slotsOf(cardOf("Food"))).toEqual([]);
-    expect(captionOf("Food")).toBe("no food logged in 14 days");
+    expect({ slots: slotsOf(cardOf("Food")), caption: captionOf("Food") }).toEqual({
+      slots: [],
+      caption: "no food logged in 14 days",
+    });
   });
 });
