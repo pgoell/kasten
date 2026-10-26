@@ -44,9 +44,16 @@ counterparty's name and IBAN, the purpose line and the raw record the bank
 sent, is one paged read away from whoever holds it. The same holds for a model
 fooled by text it read. The chat pane's model runs every tool without asking
 and reaches `/api/finance/` from inside the box, so a note that tells it to
-fetch the bookings and write them somewhere is a note to be careful with. Nothing undoes a read. What bounds the damage is what
-bounds a leaked token anywhere here: one revoke at `/tokens`, taking effect on
-the next request.
+fetch the bookings and write them somewhere is a note to be careful with.
+Nothing undoes a read. What bounds the damage is what bounds a leaked token
+anywhere here: one revoke at `/tokens`, taking effect on the next request.
+
+Tokens are not scoped, so the reads reach every token there is, the ones
+minted or connected before this release included. None of them was asked
+again: a token granted for the notes now reads finance too, from the first
+request after the upgrade. A token that should not see money is revoked at
+`/tokens`, and a product that still needs the notes connects again, through
+the consent screen that now names the finance reads.
 
 A backend with no database, the self-host default, has no finance. Its finance
 routes answer `503` and its finance tools fail with the same sentence, so a

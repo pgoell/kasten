@@ -24,6 +24,7 @@ from pydantic import BaseModel, ConfigDict
 
 from kasten_backend import db, finance
 from kasten_backend.finance_ledger import Account, Scope, scope_of
+from kasten_backend.finance_models import Transaction
 from kasten_backend.routes.finance import (
     AccountOut,
     SplitOut,
@@ -142,6 +143,12 @@ async def bookings(  # noqa: PLR0913  each filter is its own argument
     first, last = booking_span(month, start, end)
     if not 1 <= limit <= MAX_PAGE:
         raise HTTPException(status_code=422, detail=f"`limit` is from 1 to {MAX_PAGE}")
+    # Else the cursor's place reads as null, which matches nothing, and the
+    # paging ends as if the list did.
+    if after is not None and await session.get(Transaction, after) is None:
+        raise HTTPException(
+            status_code=400, detail=f"No booking {after} to page after; start again without it"
+        )
     accounts = None if scope is None else await _in_scope(session, scope)
     filters = finance.Filters(account, first, last, category, text, payee, accounts)
     found = await finance.list_transactions(

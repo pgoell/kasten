@@ -328,7 +328,9 @@ booking route carries.
 ```
 
 `next` is the `after` for the page that follows, and `null` on a page shorter
-than `limit`.
+than `limit`. An `after` that names no booking, one deleted since, is `400`
+rather than an empty page. A database that fails partway through a read
+answers a tool with a short sentence, and the server log keeps the reason.
 
 `GET /agent/finance/lookup` answers every account, category and payee, the
 ids the filters and the summaries name:

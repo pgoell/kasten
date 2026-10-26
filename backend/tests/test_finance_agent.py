@@ -9,12 +9,13 @@ to the pane's own route for the same month, so a rule the budget gets right
 from typing import TYPE_CHECKING, Any
 
 import pytest
+from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from backend.tests.finance_rows import API, SAVING
 from backend.tests.test_finance_budget import household, own
 from backend.tests.test_mcp import ENDPOINT, RPC, call, payload
-from kasten_backend import agent_finance, db
+from kasten_backend import agent_finance, agent_mcp_finance, db
 
 if TYPE_CHECKING:
     from httpx import AsyncClient
@@ -168,7 +169,11 @@ async def test_the_filters_narrow_by_text_category_and_booking_date(
     refused = await tool(
         finance_client, bearer, "list_transactions", month="2026-10", start="2026-10-01"
     )
-    assert refused.endswith("`month` comes without `from` and `to`")
+    assert refused.endswith("`month` comes without `start` and `end`")
+    backwards = await tool(
+        finance_client, bearer, "list_transactions", start="2026-10-02", end="2026-10-01"
+    )
+    assert backwards.endswith("`start` is after `end`")
 
 
 async def test_pages_follow_one_another_and_carry_no_raw_record(
@@ -246,3 +251,32 @@ async def test_a_month_that_is_none_is_a_tool_error(
     )
 
     assert said.endswith("`month` must be a real month")
+
+
+async def test_a_cursor_whose_booking_is_gone_is_refused_rather_than_an_empty_page(
+    finance_client: AsyncClient, bearer: dict[str, str]
+) -> None:
+    await month(finance_client)
+    newest = (await tool(finance_client, bearer, "list_transactions"))["bookings"][0]["id"]
+
+    said = await tool(finance_client, bearer, "list_transactions", after=newest + 999)
+    route = await finance_client.get(
+        f"{AGENT}/transactions", params={"after": newest + 999}, headers=bearer
+    )
+
+    assert said.endswith(f"No booking {newest + 999} to page after; start again without it")
+    assert route.status_code == 400
+
+
+async def test_a_database_failure_reaches_the_agent_without_its_sql(
+    finance_client: AsyncClient, bearer: dict[str, str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def broken(_session: object) -> None:
+        raise ProgrammingError("SELECT iban FROM finance.account", {}, Exception("no table"))
+
+    monkeypatch.setattr(agent_finance, "lookup", broken)
+
+    said = await tool(finance_client, bearer, "finance_lookup")
+
+    assert said.endswith(agent_mcp_finance.UNREADABLE)
+    assert "SELECT" not in said

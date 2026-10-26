@@ -10,11 +10,13 @@ client reads off `tools/list`. The rules common to all of them are in
 `free_to_spend`'s, the one a model asking about money calls first.
 """
 
+import logging
 from datetime import date  # noqa: TC003  the SDK reads the annotation at runtime
 from typing import TYPE_CHECKING, Any, Literal
 
 from fastapi import HTTPException
 from mcp.server.mcpserver.exceptions import ToolError
+from sqlalchemy.exc import SQLAlchemyError
 
 from kasten_backend import agent_finance
 from kasten_backend.routes import finance_budget, finance_drill, finance_goals, finance_plans
@@ -25,6 +27,11 @@ if TYPE_CHECKING:
 
     from pydantic import BaseModel
     from sqlalchemy.ext.asyncio import AsyncSession
+
+logger = logging.getLogger(__name__)
+
+UNREADABLE = "Finance could not be read just now; the server log says why"
+"""What a tool says when the database fails mid-read, in place of the driver's text."""
 
 
 async def _read(read: Callable[[AsyncSession], Awaitable[BaseModel]]) -> dict[str, Any]:
@@ -39,6 +46,11 @@ async def _read(read: Callable[[AsyncSession], Awaitable[BaseModel]]) -> dict[st
             found = await read(session)
     except HTTPException as refused:
         raise ToolError(str(refused.detail)) from refused
+    except SQLAlchemyError as failed:
+        # The driver's text can carry the statement and its values, which are
+        # the user's bookings and no use to a model. The log keeps them.
+        logger.exception("A finance tool failed on the database")
+        raise ToolError(UNREADABLE) from failed
     # JSON mode, so an amount comes as the string the routes send, to the cent.
     return found.model_dump(mode="json")
 
@@ -133,6 +145,12 @@ async def list_transactions(  # noqa: PLR0913  each filter is its own argument
     keeps its categories on them. Up to 500 a page, 100 by default; pass
     `next` back as `after` for the page after, null means the last.
     """
+    # Before the read, so a refusal names this tool's `start` and `end` rather
+    # than the routes' `from` and `to`.
+    if month is not None and (start is not None or end is not None):
+        raise ToolError("`month` comes without `start` and `end`")
+    if start is not None and end is not None and start > end:
+        raise ToolError("`start` is after `end`")
 
     def page(session: AsyncSession) -> Awaitable[agent_finance.BookingPage]:
         return agent_finance.bookings(
