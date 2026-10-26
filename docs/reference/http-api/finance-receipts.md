@@ -18,7 +18,10 @@ The receipt reader job reads it and sends back what it found; kasten proposes
 the booking it paid and a mark, and links or marks nothing until `confirm`.
 Marks are on [HTTP API: finance tax](/reference/http-api/finance-tax.md).
 
-Same gate and same `503` as every finance route.
+Same gate and same `503` as every finance route. A `409` here carries a code
+beside its sentence, `{"detail": {"code": "receipt_linked", "message": "…"}}`:
+`receipt_linked` when the receipt is on another booking, `mark_exists` when a
+confirm would replace the booking's mark.
 
 ## POST /api/finance/receipts
 
@@ -49,7 +52,8 @@ the rest refused, and at most 200 MB and a bit in all (`413`). Answers `303` to
 with `receipts` and `refused`, how many files were kept and turned away, when
 files came. A share of text alone opens no database, so it works on a backend
 with none. With no signal the service worker sends the text on to `/capture`
-itself, with `offline`, the number of files that did not go.
+itself, with `offline`, the number of files that did not go; a share over the
+cap reaches `/capture` the same way with `toolarge` in place of the `413`.
 
 ## GET /api/finance/receipts
 
@@ -118,8 +122,9 @@ all or nothing: every rule is checked before anything is written.
 { "transaction_id": 930, "form_line": "handwerker", "tax_amount": "300.00", "receipt_needed": true, "note": null, "replace": false }
 ```
 
-A booking that already has a mark keeps it: the confirm is a `409` naming the
-mark, and nothing is written, unless `replace` is `true`. The pane asks.
+A booking that already has a mark keeps it: the confirm is a `409` with code
+`mark_exists` naming the mark, and nothing is written, unless `replace` is
+`true`. The pane asks.
 
 The mark is held to the rules of
 [`PUT /api/finance/transactions/{transaction_id}/tax-mark`](/reference/http-api/finance-tax.md#put-apifinancetransactionstransaction_idtax-mark),

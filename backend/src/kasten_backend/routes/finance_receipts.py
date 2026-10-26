@@ -113,6 +113,15 @@ class ConfirmIn(BaseModel):
     replace: bool = False
 
 
+def conflict(code: str, message: str) -> HTTPException:
+    """A 409 whose `detail` names which conflict it is, so the pane can tell them apart.
+
+    `receipt_linked`: the receipt is on another booking. `mark_exists`: the
+    booking holds a mark that a confirm would replace.
+    """
+    return HTTPException(status_code=409, detail={"code": code, "message": message})
+
+
 async def _get(session: Session, receipt_id: int) -> Receipt:
     receipt = await session.get(Receipt, receipt_id)
     if receipt is None or receipt.deleted:
@@ -141,7 +150,7 @@ async def _keep(
     except receipts.ReceiptRefusedError as refused:
         raise HTTPException(status_code=422, detail=str(refused)) from refused
     except receipts.ReceiptTakenError as taken:
-        raise HTTPException(status_code=409, detail=str(taken)) from taken
+        raise conflict("receipt_linked", str(taken)) from taken
 
 
 @router.post("")
@@ -318,7 +327,7 @@ async def _link(session: Session, receipt: Receipt, transaction_id: int) -> None
     except finance_tax.NoBookingError as missing:
         raise HTTPException(status_code=404, detail="No such transaction") from missing
     except receipts.ReceiptTakenError as taken:
-        raise HTTPException(status_code=409, detail=str(taken)) from taken
+        raise conflict("receipt_linked", str(taken)) from taken
 
 
 @router.post("/{receipt_id}/confirm")
@@ -335,9 +344,9 @@ async def confirm(receipt_id: int, body: ConfirmIn, session: Session) -> Receipt
             finance_tax.check_mark(paid, account, body.form_line, body.tax_amount)
             held = await finance_tax.mark_of(session, body.transaction_id)
             if held is not None and not body.replace:
-                raise HTTPException(
-                    status_code=409,
-                    detail=f"The booking is already marked {held.tax_amount} on {held.form_line};"
+                raise conflict(
+                    "mark_exists",
+                    f"The booking is already marked {held.tax_amount} on {held.form_line};"
                     " confirm again to replace that mark",
                 )
         await receipts.link(session, receipt, body.transaction_id)
@@ -353,7 +362,7 @@ async def confirm(receipt_id: int, body: ConfirmIn, session: Session) -> Receipt
     except finance_tax.NoBookingError as missing:
         raise HTTPException(status_code=404, detail="No such transaction") from missing
     except receipts.ReceiptTakenError as taken:
-        raise HTTPException(status_code=409, detail=str(taken)) from taken
+        raise conflict("receipt_linked", str(taken)) from taken
     except finance_tax.MarkRefusedError as refused:
         raise HTTPException(status_code=422, detail=str(refused)) from refused
     await session.commit()

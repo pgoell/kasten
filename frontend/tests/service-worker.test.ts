@@ -270,6 +270,26 @@ describe("the service worker", () => {
     expect(offline?.headers.get("location")).toBe(`${ORIGIN}/capture?title=A+page&offline=1`);
   });
 
+  it("a share over the size cap lands on /capture with its text and a too large notice", async () => {
+    const sw = await installed();
+    const fields = new Map<string, string[]>([
+      ["text", ["keep me"]],
+      ["receipts", ["a.pdf", "b.pdf"]],
+    ]);
+    const form = {
+      get: (key: string) => fields.get(key)?.[0] ?? null,
+      getAll: (key: string) => fields.get(key) ?? [],
+    };
+    const request = { method: "POST", url: `${ORIGIN}/api/finance/receipts/share` };
+    const share = { ...request, clone: () => ({ ...request, formData: async () => form }) };
+    sw.fetch.mockResolvedValueOnce(basic('{"detail":"too big"}', 413, "application/json"));
+
+    const answer = await sw.request(share as unknown as Request);
+
+    expect(answer?.status).toBe(303);
+    expect(answer?.headers.get("location")).toBe(`${ORIGIN}/capture?text=keep+me&toolarge=2`);
+  });
+
   it("activate deletes the caches of an older version", async () => {
     const sw = await installed();
     await sw.caches.open("kasten-0ld");

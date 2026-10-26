@@ -251,3 +251,74 @@ def test_a_file_the_api_refuses_is_done_and_a_busy_api_stops_the_run() -> None:
 def test_only_a_stopped_run_fails() -> None:
     assert not receipts.failed({"read": 0, "unreadable": 4, "skipped": 2, "stopped": 0})
     assert receipts.failed({"read": 5, "unreadable": 0, "skipped": 0, "stopped": 1})
+
+
+class FixedReader:
+    """A reader whose model always reads the same total, counting its calls."""
+
+    def __init__(self, total: str) -> None:
+        self.calls = 0
+        self.total = total
+
+    def read(self, data: bytes, media_type: str) -> dict[str, Any]:
+        self.calls += 1
+        return reading({**READ, "total": self.total})
+
+
+class HugeReader:
+    """A reader that sends an amount no `numeric(14,2)` holds, as an older reader could."""
+
+    def read(self, data: bytes, media_type: str) -> dict[str, Any]:
+        return {"amount": "1234567890123456.00"}
+
+
+def kasten_refusing_long_amounts() -> tuple[KastenApi, dict[int, dict[str, Any]]]:
+    """One unread receipt; kasten refuses an amount of more than 14 digits, as `numeric(14,2)`."""
+    readings: dict[int, dict[str, Any]] = {}
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        if request.method == "GET" and request.url.path == "/api/finance/receipts":
+            after = int(request.url.params.get("after", "0"))
+            done = after >= 1 or 1 in readings
+            return httpx.Response(200, json=[] if done else [{"id": 1, "media_type": "image/png"}])
+        if request.url.path.endswith("/file"):
+            return httpx.Response(200, content=PDF)
+        body = json.loads(request.content)
+        if len((body.get("amount") or "").replace(".", "")) > 14:
+            return httpx.Response(422, json={"detail": "too many digits"})
+        readings[1] = body
+        return httpx.Response(200, json={"id": 1})
+
+    client = httpx.Client(base_url="http://kasten", transport=httpx.MockTransport(handle))
+    return KastenApi(client), readings
+
+
+def test_nan_infinity_and_huge_totals_read_as_none() -> None:
+    for total in ("NaN", "Infinity", "-inf", "1000000000000", "1234567890123456"):
+        assert reading({**READ, "total": total})["amount"] is None, total
+    assert reading({**READ, "total": "999999999999.99"})["amount"] == "999999999999.99"
+
+
+def test_a_reading_kasten_refuses_is_stored_as_an_error_and_never_read_again() -> None:
+    api, readings = kasten_refusing_long_amounts()
+    reader = FixedReader("476.00")
+    huge = HugeReader()
+
+    first = receipts.read_all(api, huge)
+    later = [receipts.read_all(api, reader) for _ in range(2)]
+
+    assert readings[1]["error"].startswith("kasten refused the reading: ")
+    assert first["unreadable"] == 1
+    assert reader.calls == 0
+    assert all(not receipts.failed(c) for c in [first, *later])
+
+
+def test_a_nan_total_does_not_stop_the_run() -> None:
+    api, readings = kasten_refusing_long_amounts()
+    reader = FixedReader("NaN")
+
+    counts = receipts.read_all(api, reader)
+
+    assert reader.calls == 1
+    assert readings[1]["amount"] is None
+    assert counts["read"] == 1

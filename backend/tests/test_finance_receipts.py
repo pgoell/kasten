@@ -71,6 +71,7 @@ async def test_a_receipt_dropped_on_a_booking_is_its_and_no_other_bookings(
 
     assert on_a.json()["receipt"]["transaction_id"] == rows["a"]
     assert on_b.status_code == 409
+    assert on_b.json()["detail"]["code"] == "receipt_linked"
     assert nowhere.status_code == 422
     queue = (await finance_client.get(f"{RECEIPTS}/to-sort")).json()
     assert queue == []

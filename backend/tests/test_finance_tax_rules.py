@@ -66,7 +66,8 @@ async def test_confirm_does_not_overwrite_a_hand_mark_unless_told(
     replaced = await finance_client.post(url, json={**body, "replace": True})
 
     assert kept_mark.status_code == 409
-    assert "400.00" in kept_mark.json()["detail"]
+    assert kept_mark.json()["detail"]["code"] == "mark_exists"
+    assert "400.00" in kept_mark.json()["detail"]["message"]
     assert after["entries"][0]["tax_amount"] == "400.00"
     assert after["entries"][0]["receipt_ids"] == []
     assert replaced.status_code == 200
@@ -189,3 +190,22 @@ async def test_a_csv_cell_never_starts_a_formula(finance_client: AsyncClient) ->
     [row] = list(csv.DictReader(io.StringIO(text)))
     assert (row["payee"], row["purpose"], row["note"]) == (f"'{payee}", "'@SUM(1)", "'+1")
     assert row["booking_amount"] == "-20.00"
+
+
+async def test_the_two_conflicts_of_a_confirm_say_which_they_are(
+    finance_client: AsyncClient,
+) -> None:
+    giro = await account(finance_client, "Giro", GIRO)
+    await post(finance_client, [booking(giro, "a", "-10.00"), booking(giro, "b", "-10.00")])
+    rows = await ids(finance_client)
+    receipt = await kept(finance_client, transaction_id=rows["a"])
+    await mark(finance_client, rows["a"], "sonderausgaben")
+    url = f"{RECEIPTS}/{receipt['id']}/confirm"
+
+    linked = await finance_client.post(url, json={"transaction_id": rows["b"]})
+    marked = await finance_client.post(
+        url, json={"transaction_id": rows["a"], "form_line": "werbungskosten"}
+    )
+
+    assert (linked.status_code, linked.json()["detail"]["code"]) == (409, "receipt_linked")
+    assert (marked.status_code, marked.json()["detail"]["code"]) == (409, "mark_exists")

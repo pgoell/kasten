@@ -18,6 +18,7 @@ export const Route = createFileRoute("/capture")({
     receipts: count(search.receipts),
     refused: count(search.refused),
     offline: count(search.offline),
+    toolarge: count(search.toolarge),
   }),
 });
 
@@ -31,6 +32,8 @@ interface Receipts {
   refused?: number;
   /** Files shared with no signal, which the service worker could not send. */
   offline?: number;
+  /** Files of a share over the size cap, which the server refused whole. */
+  toolarge?: number;
 }
 
 /** A count from the query, which the router may hand over parsed or as text. */
@@ -40,7 +43,10 @@ function count(value: unknown): number | undefined {
 }
 
 /** The line that says where a shared file went. */
-function receiptWords({ receipts, refused, offline }: Receipts): string | null {
+function receiptWords({ receipts, refused, offline, toolarge }: Receipts): string | null {
+  if (toolarge !== undefined) {
+    return `${toolarge} file${toolarge === 1 ? "" : "s"} too large to send: at most 20 MB each, and fewer at once.`;
+  }
   if (offline !== undefined) {
     return `${offline} file${offline === 1 ? "" : "s"} not sent: no signal. Share again when you have one.`;
   }

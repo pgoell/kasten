@@ -38,7 +38,8 @@ logged with kasten's reason.
 * sends it whole to the Messages API, a PDF as a document and a photo as an
   image, asking for JSON in a fixed schema;
 * sends kasten what came back as a reading. A field that does not parse, such
-  as an amount that is no number, is left out rather than sent wrong.
+  as an amount that is no number, `NaN`, infinite, or of 10^12 or more, is
+  left out rather than sent wrong.
 
 What happens when a receipt gets no answer:
 
@@ -47,6 +48,7 @@ What happens when a receipt gets no answer:
 | The model declines the file, or says it is no receipt | a reading with `error` saying so; the receipt is done |
 | The API refuses the file (`400`, `413`) | a reading with `error` and the API's reason; the receipt is done |
 | The reply is cut off or is not JSON | asked again, up to 3 times in the run; then a reading with `error`, and done |
+| Kasten refuses the reading (`422`), such as an amount no booking can hold | the refusal is sent back as the reading's `error`; the receipt is done |
 | Kasten has no file for it | skipped, tried again next run |
 | Rate limited, overloaded, a server error or no connection | the run stops there with exit `1`; the rest wait for the next run |
 

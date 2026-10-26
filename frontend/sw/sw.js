@@ -131,13 +131,18 @@ async function fresh(request) {
 
 /**
  * A share from the phone goes to the backend, which keeps its files as receipts and opens
- * `/capture`. With no signal the text still reaches the capture page, as it did when the share
- * was a plain GET; the files cannot wait, and the page says how many did not go.
+ * `/capture`. With no signal, or files over the backend's size cap (a 413), the text still
+ * reaches the capture page, as it did when the share was a plain GET; the page says how many
+ * files did not go, and why.
  */
 async function share(request) {
   const copy = request.clone();
+  let missed = "offline";
   try {
-    return await fetch(request);
+    const answer = await fetch(request);
+    // Over the size cap the backend answers JSON, which is no page to land on.
+    if (answer.status !== 413) return answer;
+    missed = "toolarge";
   } catch (error) {
     if (!(error instanceof TypeError)) throw error;
   }
@@ -148,6 +153,6 @@ async function share(request) {
     if (typeof value === "string" && value !== "") params.set(key, value);
   }
   const files = form.getAll("receipts").length;
-  if (files > 0) params.set("offline", String(files));
+  if (files > 0) params.set(missed, String(files));
   return Response.redirect(new URL(`/capture?${params}`, self.location.origin).href, 303);
 }

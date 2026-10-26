@@ -65,7 +65,8 @@ clipped twice opens as one note, not two.
 A shared PDF or photo goes to the finance receipts, not the dump: the page
 says how many receipts it kept, and they wait under Finance, To sort
 ([Collect receipts](/how-to/collect-receipts.md)). The share goes to the server
-first, so with no signal its text still reaches the box but its files do not.
+first, so with no signal its text still reaches the box but its files do not;
+the same holds for files over 20 MB, and the page says which happened.
 
 ## On an iPhone
 

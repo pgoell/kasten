@@ -85,15 +85,25 @@ def _block(data: bytes, media_type: str) -> BetaRequestDocumentBlockParam | Beta
     return {"type": "image", "source": {"type": "base64", "media_type": image, "data": encoded}}
 
 
+LARGEST = Decimal(10) ** 12
+"""The first amount `numeric(14,2)` cannot hold."""
+
+
 def _amount(text: object) -> str | None:
-    """A positive amount to the cent, as kasten takes it, or None for what reads as none."""
+    """A positive amount to the cent, as kasten takes it, or None for what reads as none.
+
+    `NaN`, `Infinity` and anything of 10^12 or more read as none: kasten keeps
+    amounts in `numeric(14,2)` and would refuse them.
+    """
     if not isinstance(text, str):
         return None
     try:
-        amount = Decimal(text.replace(",", ".").replace("€", "").strip()).quantize(Decimal("0.01"))
+        amount = Decimal(text.replace(",", ".").replace("€", "").strip())
     except InvalidOperation:
         return None
-    return str(amount) if amount > 0 else None
+    if not amount.is_finite() or amount <= 0 or amount >= LARGEST:
+        return None
+    return str(amount.quantize(Decimal("0.01")))
 
 
 def _date(text: object) -> str | None:

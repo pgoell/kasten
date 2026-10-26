@@ -133,8 +133,9 @@ async def tax_year_summary(year: int) -> dict[str, Any]:
 
     Lines: werbungskosten (Anlage N), sonderausgaben, §35a haushaltsnahe_dienste
     and handwerker (labour only), aussergewoehnliche_belastungen. A marked
-    refund counts negative. `werbungskosten_over` is the part above the 1,230
-    allowance. Also the bookings missing a receipt and unmarked money back.
+    refund counts negative. `werbungskosten_over` is the part above `allowance`,
+    the year's (1,230 from 2023, 1,200 in 2022, 1,000 before). Also the
+    bookings missing a receipt and unmarked money back.
     """
     return await _read(lambda s: finance_tax.read_year(s, year))
 

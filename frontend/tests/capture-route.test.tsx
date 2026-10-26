@@ -246,5 +246,9 @@ describe("the capture route", () => {
 
     await renderRoute("/capture?title=A+page&offline=2");
     expect(screen.getByRole("status")).toHaveTextContent("2 files not sent: no signal");
+    cleanup();
+
+    await renderRoute("/capture?text=x&toolarge=1");
+    expect(screen.getByRole("status")).toHaveTextContent("1 file too large to send");
   });
 });

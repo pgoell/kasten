@@ -146,6 +146,21 @@ def _reading(reader: Reader, data: bytes, media_type: str) -> dict[str, Any]:
     return {"error": f"No usable answer in {TRIES} tries"}
 
 
+def _sent(api: KastenApi, receipt_id: int, reading: dict[str, Any]) -> dict[str, Any]:
+    """Send kasten the reading; one it refuses (422) goes again as an error, so it is done.
+
+    Else the receipt stays unread and the next run pays for the same call.
+    """
+    try:
+        api.put_reading(receipt_id, reading)
+    except httpx.HTTPStatusError as refused:
+        if refused.response.status_code != httpx.codes.UNPROCESSABLE_ENTITY:
+            raise
+        reading = {"error": f"kasten refused the reading: {refused.response.text}"[:500]}
+        api.put_reading(receipt_id, reading)
+    return reading
+
+
 def read_all(api: KastenApi, reader: Reader) -> dict[str, int]:
     """Read every unread receipt, oldest first, and send kasten each reading.
 
@@ -160,7 +175,7 @@ def read_all(api: KastenApi, reader: Reader) -> dict[str, int]:
             try:
                 data = api.receipt_file(receipt["id"])
                 reading = _reading(reader, data, receipt["media_type"])
-                api.put_reading(receipt["id"], reading)
+                reading = _sent(api, receipt["id"], reading)
             except httpx.HTTPStatusError as error:
                 # Kasten has no file for it, or the receipt went meanwhile.
                 counts["skipped"] += 1

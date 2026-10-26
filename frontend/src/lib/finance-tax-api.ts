@@ -116,7 +116,9 @@ export async function confirmReceipt(id: number, body: ConfirmBody): Promise<voi
     params: { path: { receipt_id: id } },
     body: { ...body, replace: body.replace ?? false, receipt_needed: true },
   });
-  if (result.response.status === 409) {
+  // Only `mark_exists` is a mark to replace; `receipt_linked` is the receipt on another booking.
+  const code = (result.error?.detail as { code?: unknown } | undefined)?.code;
+  if (result.response.status === 409 && code === "mark_exists") {
     throw new MarkHeldError(reason(result.error) ?? "The booking already has a mark");
   }
   answer("Confirming the receipt", result);
