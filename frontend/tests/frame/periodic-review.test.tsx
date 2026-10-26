@@ -219,7 +219,7 @@ function modelUseSection(host: HTMLElement): HTMLElement | undefined {
 
 /** The token chart and the cost chart, each as its box, once both are drawn. */
 function chartsOf(host: HTMLElement): HTMLElement[] {
-  return [...host.querySelectorAll<HTMLElement>(".review-charts > div")];
+  return [...host.querySelectorAll<HTMLElement>(".review-charts > .review-section")];
 }
 
 it("#808 A7 at 414 by touch the model use section stands in one column and nothing scrolls sideways", async () => {

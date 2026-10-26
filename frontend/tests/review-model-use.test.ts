@@ -75,15 +75,21 @@ describe("the model use sums", () => {
     expect(tokenWords(912)).toBe("912");
     expect(tokenWords(340_100)).toBe("340k");
     expect(tokenWords(1_234_000)).toBe("1.2M");
-    expect(tokenWords(999_600)).toBe("1.0M");
+    expect(tokenWords(999_600)).toBe("1M");
     expect(costWords(4.1)).toBe("$4.10");
     expect(costWords(1204.55)).toBe("$1,204.55");
     expect(costWords(0)).toBe("$0.00");
   });
 
   it("#808 A4 tokenWords writes billions as B from 999.5M up, so a year of cache reads never reads as thousands of M", () => {
-    expect(tokenWords(999_000_000)).toBe("999.0M");
-    expect(tokenWords(999_600_000)).toBe("1.0B");
+    expect(tokenWords(999_000_000)).toBe("999M");
+    expect(tokenWords(999_600_000)).toBe("1B");
     expect(tokenWords(12_300_000_000)).toBe("12.3B");
+  });
+
+  it("#808 A4 tokenWords drops a trailing .0", () => {
+    expect(tokenWords(700_000_000)).toBe("700M");
+    expect(tokenWords(2_000_000_000)).toBe("2B");
+    expect(tokenWords(1_200_000_000)).toBe("1.2B");
   });
 });

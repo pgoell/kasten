@@ -316,10 +316,10 @@ function ModelUse({
   // The same month marking as Notes per month: this year's current month at full strength.
   const todayIndex = today.startsWith(`${year}-`) ? Number(today.slice(5, 7)) - 1 : undefined;
   return (
-    <Section heading="Model use">
+    <>
       {/* Two charts side by side from the container's 600 px, one above the other on a phone. */}
       <div className="review-charts">
-        <div>
+        <Section heading="Tokens per month">
           <Bars
             label={`tokens per month in ${year}, ${tokenWords(tokens)} in all`}
             points={months.map((month, index) => ({ index, amount: month.tokens }))}
@@ -327,8 +327,8 @@ function ModelUse({
             todayIndex={todayIndex}
           />
           <Caption>{`tokens per month, ${tokenWords(tokens)} in all`}</Caption>
-        </div>
-        <div>
+        </Section>
+        <Section heading="Cost per month">
           {/* With no priced line there is no cost to draw, and a $0.00 bar would say there was. */}
           {priced ? (
             <Bars
@@ -343,13 +343,15 @@ function ModelUse({
               ? `cost per month, ${costWords(cost)} in all`
               : "cost unknown, no price for these models"}
           </Caption>
-        </div>
+        </Section>
       </div>
-      <ProjectUseTable rows={projectUse(lines)} />
-      {unpriced > 0 ? (
-        <Words>{`${tokenWords(unpriced)} tokens had no price and are left out of the cost.`}</Words>
-      ) : null}
-    </Section>
+      <Section heading="Model use">
+        <ProjectUseTable rows={projectUse(lines)} />
+        {unpriced > 0 ? (
+          <Words>{`${tokenWords(unpriced)} tokens had no price and are left out of the cost.`}</Words>
+        ) : null}
+      </Section>
+    </>
   );
 }
 

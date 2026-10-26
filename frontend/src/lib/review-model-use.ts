@@ -77,8 +77,9 @@ export function unpricedTokens(lines: ModelUseLine[]): number {
  * The M step stops where the B step starts, at 999.5M, so a figure that rounds up to 1000M reads as 1.0B.
  */
 export function tokenWords(tokens: number): string {
-  if (tokens >= 999_500_000) return `${(tokens / 1_000_000_000).toFixed(1)}B`;
-  if (tokens >= 999_500) return `${(tokens / 1_000_000).toFixed(1)}M`;
+  // Number() drops a `.0` that toFixed keeps, so 700M reads as 700M and not 700.0M.
+  if (tokens >= 999_500_000) return `${Number((tokens / 1_000_000_000).toFixed(1))}B`;
+  if (tokens >= 999_500) return `${Number((tokens / 1_000_000).toFixed(1))}M`;
   if (tokens >= 1000) return `${Math.round(tokens / 1000)}k`;
   return String(tokens);
 }

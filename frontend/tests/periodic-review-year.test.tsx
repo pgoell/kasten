@@ -201,11 +201,16 @@ function projectRows(): string[][] {
   );
 }
 
-/** The model use section, or undefined while the review has not drawn it. */
-function modelUseSection(): HTMLElement | undefined {
+/** The section under `heading`, or undefined while the review has not drawn it. */
+function sectionNamed(heading: string): HTMLElement | undefined {
   return [...document.querySelectorAll<HTMLElement>(".review-section")].find(
-    (each) => each.querySelector(".review-heading")?.textContent === "Model use",
+    (each) => each.querySelector(".review-heading")?.textContent === heading,
   );
+}
+
+/** The model use section, which holds the table and the words under it. */
+function modelUseSection(): HTMLElement | undefined {
+  return sectionNamed("Model use");
 }
 
 /** The rows of the model use table, each as its cells' words. */
@@ -217,8 +222,10 @@ function modelUseRows(): string[][] {
 
 /** The bar heights of each model use chart, tokens first, one number per month as drawn. */
 function modelUseBars(): number[][] {
-  return [...(modelUseSection()?.querySelectorAll("svg") ?? [])].map((svg) =>
-    [...svg.querySelectorAll("rect")].map((rect) => Number(rect.getAttribute("height"))),
+  return ["Tokens per month", "Cost per month"].map((heading) =>
+    [...(sectionNamed(heading)?.querySelectorAll("rect") ?? [])].map((rect) =>
+      Number(rect.getAttribute("height")),
+    ),
   );
 }
 
@@ -431,9 +438,9 @@ describe("the year review on the yearly note", () => {
     fetchModelUse.mockResolvedValue(YEAR_MODEL_USE);
     await openNote(YEAR_NOTE);
 
-    expect(labelIn("Model use")).toBe("tokens per month in 2026, 1.6M in all");
-    expect(sectionText("Model use")).toContain("tokens per month, 1.6M in all");
-    expect(sectionText("Model use")).toContain("cost per month, $1,205.05 in all");
+    expect(labelIn("Tokens per month")).toBe("tokens per month in 2026, 1.6M in all");
+    expect(sectionText("Tokens per month")).toContain("tokens per month, 1.6M in all");
+    expect(sectionText("Cost per month")).toContain("cost per month, $1,205.05 in all");
     // Twelve bars a chart. January has nothing in it, so it is the one-unit stub; October is the top.
     const [tokenBars = [], costBars = []] = modelUseBars();
     expect(tokenBars).toHaveLength(12);
@@ -473,8 +480,8 @@ describe("the year review on the yearly note", () => {
     fetchModelUse.mockResolvedValue(YEAR_MODEL_USE.map((line) => ({ ...line, cost: null })));
     await openNote(YEAR_NOTE);
 
-    expect(sectionText("Model use")).toContain("cost unknown, no price for these models");
-    expect(labelIn("Model use")).toBe("tokens per month in 2026, 1.6M in all");
+    expect(sectionText("Cost per month")).toContain("cost unknown, no price for these models");
+    expect(labelIn("Tokens per month")).toBe("tokens per month in 2026, 1.6M in all");
     expect(reviewText()).not.toContain("$0.00");
     expect(modelUseRows()).toContainEqual(["kasten", "1.2M", "unknown"]);
   });
