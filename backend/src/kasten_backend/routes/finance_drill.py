@@ -304,7 +304,7 @@ async def read_category(
         month=_month(last),
         span=CategoryComparedOut(
             now=counted_out(compared.now),
-            last_year=counted_out(compared.last_year),
+            last_year=None if compared.last_year is None else counted_out(compared.last_year),
             average=None if compared.average is None else counted_out(compared.average),
             available=spans.available_in(ledger, rows, category_id, in_span),
         ),
@@ -418,12 +418,8 @@ async def read_account(
         )
     flow = drill.account_flow(ledger.lines, account_id, first, last)
     names = {a.id: a.name for a in await finance.list_accounts(session)}
-    bookings = await finance.list_transactions(
-        session,
-        finance.Filters(account_id, first, drill_reads.last_day(last)),
-        after=None,
-        limit=drill_reads.MOST,
-        newest_first=True,
+    bookings = await drill_reads.every_booking(
+        session, finance.Filters(account_id, first, drill_reads.last_day(last)), newest_first=True
     )
     return AccountDrillOut(
         account=AccountOut.model_validate(account),

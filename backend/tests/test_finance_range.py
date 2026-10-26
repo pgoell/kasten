@@ -8,8 +8,10 @@ from typing import TYPE_CHECKING
 
 from backend.tests.finance_rows import API, booking, post
 from backend.tests.test_finance_drill import settled
+from kasten_backend import finance_drill_reads as drill_reads
 
 if TYPE_CHECKING:
+    import pytest
     from httpx import AsyncClient
 
 SPAN = {"from": "2026-09", "month": "2026-10"}
@@ -40,7 +42,8 @@ async def test_a_span_reads_both_scopes_as_the_spans_sankey_does(
     assert mine["income"] == streams["Salary", "Mine"] == "3000.00"
     assert mine["other_scope"] == streams["Mine", "Into household"] == "900.00"
     assert mine["left"] == streams["Mine", "Left over"] == "1680.00"
-    assert found["mine"]["last_year"]["income"] == "0.00"
+    # The history starts in September 2026: nothing a year before to compare with.
+    assert found["mine"]["last_year"] is None
     assert flow["first"] == "2026-09"
 
 
@@ -117,3 +120,15 @@ async def test_setting_every_limit_at_once_writes_all_or_none(
     september = {"month": "2026-09", "today": "2026-10-10"}
     rows = (await finance_client.get(f"{API}/budget", params=september)).json()["categories"]
     assert all(row["limit"] is None for row in rows)
+
+
+async def test_a_long_span_lists_every_booking_page_by_page(
+    finance_client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    ids = await settled(finance_client)
+    # Pages of two, so the four bookings of mine take three reads, as a year's would at 5000.
+    monkeypatch.setattr(drill_reads, "PAGE", 2)
+    scope = (await finance_client.get(f"{API}/drill/scopes/mine", params=SPAN)).json()
+    assert {row["source_key"] for row in scope["bookings"]} == {"pay", "out", "save", "food"}
+    account = (await finance_client.get(f"{API}/drill/accounts/{ids['giro']}", params=SPAN)).json()
+    assert {row["source_key"] for row in account["bookings"]} == {"pay", "out", "save", "food"}

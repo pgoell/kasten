@@ -200,7 +200,7 @@ def planned_fixed(reader: _Reader, book: Book) -> list[Part]:
             continue
         if reader.ledger.categories[plan.category].kind != "fixed":
             continue
-        if not _alive(plan, reader.month):
+        if not alive(plan, reader.month):
             continue
         dues = [] if reader.over else book.upcoming(plan, reader.month)
         upcoming[plan.category] = upcoming.get(plan.category, ZERO) - plan.amount * len(dues)
@@ -216,8 +216,8 @@ def planned_fixed(reader: _Reader, book: Book) -> list[Part]:
     return parts
 
 
-def _alive(plan: Plan, month: dt.date) -> bool:
-    """Whether free to spend reads the plan in `month`: in its life, and once it was confirmed.
+def alive(plan: Plan, month: dt.date) -> bool:
+    """Whether the budget reads the plan in `month`: in its life, and once it was confirmed.
 
     A plan that falls due once lives in its month.
     """

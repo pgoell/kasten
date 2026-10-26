@@ -28,7 +28,7 @@ from kasten_backend.finance_drill import (
     of_category,
     scope_month,
 )
-from kasten_backend.finance_free import free_to_spend
+from kasten_backend.finance_free import alive, free_to_spend
 from kasten_backend.finance_ledger import (
     CENT,
     SCOPES,
@@ -80,11 +80,12 @@ def _scaled(row: ScopeMonth, by: Decimal) -> ScopeMonth:
 class Compared[T]:
     """A span's figures, the same months a year before, and the 6 months before at that length.
 
-    `average` is None when the history holds no whole month before the span.
+    `last_year` is None when the history does not reach back to it, and
+    `average` when the history holds no whole month before the span.
     """
 
     now: T
-    last_year: T
+    last_year: T | None
     average: T | None
 
 
@@ -104,11 +105,19 @@ def scope_compared(
         # One rounding, at the end: the sum over the months before, times the span's share of them.
         by = Decimal(len(months)) / len(before)
         average = replace(_scaled(scope_span(ledger, scope, before, book), by), month=first)
+    year_before = [add_months(m, -YEAR) for m in months]
     return Compared(
         scope_span(ledger, scope, months, book),
-        scope_span(ledger, scope, [add_months(m, -YEAR) for m in months], book),
+        scope_span(ledger, scope, year_before, book)
+        if _reaches(ledger.first, year_before)
+        else None,
         average,
     )
+
+
+def _reaches(first: dt.date | None, months: list[dt.date]) -> bool:
+    """Whether a history starting in `first` holds any of the months."""
+    return first is not None and months[-1] >= first
 
 
 def _counted_span(part: Ledger, category: int, months: list[dt.date]) -> Counted:
@@ -141,9 +150,12 @@ def category_compared(
             (total.household * by).quantize(CENT),
             (total.from_reserve * by).quantize(CENT),
         )
+    year_before = [add_months(m, -YEAR) for m in months]
     return Compared(
         _counted_span(part, category, months),
-        _counted_span(part, category, [add_months(m, -YEAR) for m in months]),
+        _counted_span(part, category, year_before)
+        if _reaches(ledger.since.get(category), year_before)
+        else None,
         average,
     )
 
@@ -151,19 +163,28 @@ def category_compared(
 def available_in(
     ledger: Ledger, rows: LimitRows, category: int, months: list[dt.date]
 ) -> Decimal | None:
-    """What the limits made available over the months, None where no month had a limit."""
-    found = [step_of(ledger, rows, category, at).available for at in months]
-    kept = [amount for amount in found if amount is not None]
-    return sum(kept, ZERO) if kept else None
+    """What the limits made available over the months, None where no month had a limit.
+
+    Each month's limit added up, less only the overspend carried into the
+    first: an overspend inside the span is spending the span already counts,
+    so taking it off the next month's limit too would count it twice. A month
+    with no limit adds nothing.
+    """
+    limits = [limit_in(rows, at) for at in months]
+    if all(limit is None for limit in limits):
+        return None
+    total = sum((limit for limit in limits if limit is not None), ZERO)
+    return max(ZERO, total - step_of(ledger, rows, category, months[0]).carried)
 
 
 @dataclass(frozen=True)
 class SetupRow:
     """One spending category on the budget setup: its limit now and what to start from.
 
-    `planned` is what its plans cost a month, each as its amount over its
-    months between dates; `suggested` is that where a plan exists, else the
-    average rounded up to the euro.
+    `planned` is what its monthly plans cost: a plan that reserves sets its
+    bill aside through the reserve, and one due once is no monthly cost, so
+    neither is in it. `suggested` is the larger of that and the average
+    rounded up to the euro, as free to spend counts a planned cost.
     """
 
     id: int
@@ -176,31 +197,35 @@ class SetupRow:
 
     @property
     def suggested(self) -> Decimal | None:
-        """The planned cost where a plan exists, else the average up to the next euro."""
-        if self.planned is not None:
-            return self.planned
-        if self.average is None:
-            return None
-        return self.average.quantize(Decimal(1), rounding=ROUND_CEILING)
-
-
-def _lives(plan: Plan, month: dt.date) -> bool:
-    """Whether a plan falls due in or around `month`: started, not ended, or due once in it."""
-    start = plan.start.replace(day=1)
-    if plan.every is None:
-        return start == month
-    return start <= month and (plan.end is None or plan.end >= month)
+        """The larger of the planned cost and the average up to the next euro."""
+        found = [
+            figure
+            for figure in (
+                self.planned,
+                None
+                if self.average is None
+                else self.average.quantize(Decimal(1), rounding=ROUND_CEILING),
+            )
+            if figure is not None
+        ]
+        return max(found) if found else None
 
 
 def monthly_cost(
     plans: list[Plan], category: int, month: dt.date
 ) -> tuple[Decimal | None, list[str]]:
-    """What a category's cost plans come to a month in `month`, and their names."""
-    found = [p for p in plans if p.category == category and p.amount < 0 and _lives(p, month)]
+    """What a category's monthly cost plans come to in `month`, and their names.
+
+    Read as free to spend reads plans: from the month each was confirmed in.
+    """
+    found = [
+        p
+        for p in plans
+        if p.category == category and p.amount < 0 and p.every == 1 and alive(p, month)
+    ]
     if not found:
         return None, []
-    total = sum(((-p.amount / (p.every or 1)).quantize(CENT) for p in found), ZERO)
-    return total, sorted(p.name for p in found)
+    return sum((-p.amount for p in found), ZERO), sorted(p.name for p in found)
 
 
 def setup(

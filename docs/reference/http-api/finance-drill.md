@@ -169,11 +169,12 @@ month, the plans and rules behind it, and the month's bookings.
   `average` is the mean of `total` over the whole months before, at most 6,
   from the category's first month with money: the budget's `average` for a
   spending category, and money in for an income one.
-* `span`: what the category counted over the span, a year before, and at its
-  6-month average for as many months, the average from the category's first
-  month with money. `available` is what the limits made available over the
-  span, each month less the overspend carried into it; `null` with no limit
-  in any of its months.
+* `span`: what the category counted over the span, a year before (`null`
+  when its history does not reach back), and at its 6-month average for as
+  many months, the average from the category's first month with money.
+  `available` is each month's limit added up, less the overspend carried
+  into the span's first month, never below zero; `null` with no limit in any
+  of its months.
 * `payees`: what each payee gave the category over the span, the largest
   first; `id` `null` for bookings with no payee. They add up to the span's
   `total`.

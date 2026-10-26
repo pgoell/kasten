@@ -59,7 +59,8 @@ GET /api/finance/budget/range?from=2026-07&month=2026-09
   [a scope's month](/reference/http-api/finance-drill.md#get-apifinancedrillscopesscope)
   has them. `left` is what the span kept in all: a month that spent past what
   came in nets against the others.
-* `last_year`: the same months a year before, dated by its first.
+* `last_year`: the same months a year before, dated by its first; `null`
+  when the history does not reach back to them.
 * `average`: the 6 whole months before the span, from the first month with
   any booking, averaged and taken as many times as the span has months, so
   it reads against `now` at the same length; `null` with no month before.
@@ -90,11 +91,12 @@ GET /api/finance/budget/setup?month=2026-11&today=2026-10-26
 }
 ```
 
-* `planned`: what the category's cost plans living in `month` come to a
-  month, each its amount over its months between dates (a yearly bill is a
-  twelfth); a plan due once counts only in its own month. `null` with none.
-* `suggested`: `planned` where a plan exists, else the average rounded up to
-  the euro; `null` with neither.
+* `planned`: what the category's monthly cost plans come to, each read from
+  the month it was confirmed in. A plan that reserves, such as a yearly
+  bill, and a plan due once are no monthly cost and are left out. `null`
+  with none.
+* `suggested`: the larger of `planned` and the average rounded up to the
+  euro; `null` with neither.
 * `expected_income`: the month's income as free to spend expects it, both
   scopes, each income category once. Household's money from mine is left
   out, since it is mine's income moved.

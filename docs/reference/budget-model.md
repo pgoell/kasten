@@ -201,25 +201,35 @@ span's last month belongs to the next span.
 
 A span compares with two figures:
 
-* the same months a year before;
+* the same months a year before, or nothing when the history (for a
+  category, its own) does not reach back to them;
 * the 6 whole months before the span, from the first month with any booking
   (for a category, its own first month with money), averaged and taken as
   many times as the span has months, so both read at the same length.
 
-For a span, what the limits made available is each month's `available`
-added up.
+When the span ends in the month still running, that month holds only the
+days so far, and the comparison says so.
+
+For a span, what the limits made available is each month's limit added up,
+less the overspend carried into the span's first month and never below
+zero. An overspend inside the span is spending the span already counts, so
+it does not come off the next month's limit a second time; a month with no
+limit adds nothing.
 
 ### The budget setup
 
 The setup lists every spending category with its limit in force, its 6-month
-average and what its plans cost a month: each cost plan living in the month,
-its amount over its months between dates, so a yearly bill is a twelfth; a
-plan due once counts in its own month only. It starts each category from its
-plans where it has one, and from its average rounded up to the euro
-otherwise. The limits are set against the month's income as free to spend
-expects it, both scopes, each income category once: household's money from
-mine is mine's income moved, and counting it would count it twice. Saving
-sets every limit from the month shown on, all at once.
+average and what its monthly plans cost, each read from the month it was
+confirmed in, as free to spend reads it. A plan that reserves is left out,
+since its bill comes out of its reserve, and so is a plan due once, which is
+no monthly cost. Each category's suggestion is the larger of its plans'
+cost and its average rounded up to the euro, as free to spend counts a
+planned cost. Each field starts from the limit in force; one key fills every
+field with its suggestion. The limits are set against the month's income as
+free to spend expects it, both scopes, each income category once:
+household's money from mine is mine's income moved, and counting it would
+count it twice. Saving sets the changed limits from this month on, all at
+once, whatever month is shown, so no month already over changes.
 
 ## Plans
 

@@ -103,6 +103,7 @@ def test_a_span_compares_with_a_year_before_and_the_average_at_its_length() -> N
     book = ledger(*lines)
     found = scope_compared(book, "mine", OCT, NOV, None)
     assert found.now.flexible == Decimal(500)
+    assert found.last_year is not None
     assert found.last_year.flexible == Decimal(300)
     assert found.last_year.month == month(-12)
     # The 6 months before October average 300, twice for a span of two months.
@@ -110,6 +111,7 @@ def test_a_span_compares_with_a_year_before_and_the_average_at_its_length() -> N
     assert found.average.flexible == Decimal(600)
     category = category_compared(book, GROCERIES, OCT, NOV)
     assert category.now.total == Decimal(500)
+    assert category.last_year is not None
     assert category.last_year.total == Decimal(300)
     assert category.average is not None
     assert category.average.total == Decimal(600)
@@ -144,35 +146,61 @@ def test_a_categorys_span_nets_refunds_and_an_ignored_one_counts_nothing() -> No
     assert category_compared(book, REIMBURSED, OCT, NOV).now.total == 0
 
 
-def test_a_spans_available_adds_each_months_limit_after_the_carried_overspend() -> None:
-    book = ledger(at(0, CARD, "-150", GROCERIES), at(1, CARD, "-50", GROCERIES))
-    rows = [(OCT, Decimal(100))]
-    # October has 100; November 100 less October's overspend of 50.
-    assert available_in(book, rows, GROCERIES, [OCT, NOV]) == Decimal(150)
+def test_a_spans_available_adds_each_months_limit_and_only_the_carry_into_its_first() -> None:
+    book = ledger(
+        at(-1, CARD, "-130", GROCERIES),
+        at(0, CARD, "-150", GROCERIES),
+        at(1, CARD, "-50", GROCERIES),
+    )
+    rows = [(SEP, Decimal(100))]
+    # October's overspend is spending the span counts; taking it off November too counted it twice.
+    assert available_in(book, rows, GROCERIES, [OCT, NOV]) == Decimal(200 - 30)
+    # September's overspend of 30 is carried in from before the span, and comes off once.
+    assert available_in(book, rows, GROCERIES, [SEP, OCT, NOV]) == Decimal(300)
     assert available_in(book, [], GROCERIES, [OCT, NOV]) is None
+    # A month with no limit adds nothing; the carry never takes the figure below zero.
+    assert available_in(book, [(NOV, Decimal(20))], GROCERIES, [OCT, NOV]) == Decimal(20)
 
 
-def test_the_setup_starts_fixed_costs_from_their_plans_and_the_rest_from_the_average() -> None:
+def test_the_setup_takes_monthly_plans_and_the_larger_of_them_and_the_average() -> None:
     lines = [at(back, CARD, f"-{300 + back}", GROCERIES) for back in range(-6, 0)]
     lines += [at(back, SHARED, "-1500", RENT) for back in range(-6, 0)]
+    lines += [at(-2, GIRO, "-1200", TRIPS)]
     book = ledger(*lines)
     rent = Plan(1, "Rent", SHARED, "household", RENT, Decimal(-1450), Decimal(0), 1, AUG)
     trip = Plan(2, "Trip", GIRO, "mine", TRIPS, Decimal(-1200), Decimal(0), 12, AUG)
-    gone = Plan(3, "Old", GIRO, "mine", TRIPS, Decimal(-99), Decimal(0), None, AUG)
-    rows = {
-        row.name: row
-        for row in setup(book, {RENT: [(AUG, Decimal(1500))]}, [rent, trip, gone], OCT)
-    }
+    once = Plan(3, "Old", GIRO, "mine", TRIPS, Decimal(-99), Decimal(0), None, OCT)
+    later = Plan(
+        4, "Gym", CARD, "mine", GROCERIES, Decimal(-500), Decimal(0), 1, AUG, confirmed=NOV
+    )
+    limits = {RENT: [(AUG, Decimal("1500.50"))]}
+    rows = {row.name: row for row in setup(book, limits, [rent, trip, once, later], OCT)}
 
     assert [row.kind for row in rows.values()] == ["fixed", "flexible", "non_monthly"]
-    assert rows["Rent"].limit == Decimal(1500)
-    assert rows["Rent"].planned == rows["Rent"].suggested == Decimal(1450)
-    # A yearly bill is a twelfth a month; a plan due once in August is not October's.
-    assert rows["Trips"].planned == Decimal(100)
-    assert rows["Trips"].plans == ["Trip"]
+    assert rows["Rent"].limit == Decimal("1500.50")
+    # The plan says 1450 and the rent averaged 1500: the larger, as free to spend counts it.
+    assert rows["Rent"].planned == Decimal(1450)
+    assert rows["Rent"].suggested == Decimal(1500)
+    # A yearly bill reserves, and a plan due once is no monthly cost: no plan for Trips.
+    assert rows["Trips"].planned is None
+    assert rows["Trips"].plans == []
+    # A plan confirmed in November is not read in October.
+    assert rows["Groceries"].planned is None
     # The average of 294.00 to 299.00 is 296.50, and the start rounds it up to the euro.
     assert rows["Groceries"].average == Decimal("296.50")
     assert rows["Groceries"].suggested == Decimal(297)
+
+
+def test_a_span_before_the_history_has_no_year_before() -> None:
+    book = ledger(at(0, CARD, "-40", GROCERIES), at(-12, CARD, "-10", RENT))
+    assert scope_compared(book, "mine", OCT, OCT, None).last_year is not None
+    assert (
+        scope_compared(ledger(at(0, CARD, "-40", GROCERIES)), "mine", OCT, OCT, None).last_year
+        is None
+    )
+    # A category's history is its own: Groceries had no money a year before.
+    assert category_compared(book, GROCERIES, OCT, OCT).last_year is None
+    assert category_compared(book, RENT, OCT, OCT).last_year is not None
 
 
 def test_expected_income_counts_household_money_from_mine_once() -> None:

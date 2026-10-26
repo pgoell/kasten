@@ -79,7 +79,7 @@ class ScopeComparedOut(BaseModel):
     """A scope's span, the same months a year before, and the 6 months before at that length."""
 
     now: ScopeMonthOut
-    last_year: ScopeMonthOut
+    last_year: ScopeMonthOut | None
     average: ScopeMonthOut | None
 
 
@@ -87,7 +87,7 @@ def scope_compared_out(found: span.Compared[ScopeMonth]) -> ScopeComparedOut:
     """A scope's comparison as answered."""
     return ScopeComparedOut(
         now=scope_out(found.now),
-        last_year=scope_out(found.last_year),
+        last_year=None if found.last_year is None else scope_out(found.last_year),
         average=None if found.average is None else scope_out(found.average),
     )
 
@@ -115,7 +115,7 @@ class CategoryComparedOut(BaseModel):
     """A category's span against a year before and its average; `available` is the limits'."""
 
     now: CountedOut
-    last_year: CountedOut
+    last_year: CountedOut | None
     average: CountedOut | None
     available: Cents | None
 
