@@ -1,7 +1,7 @@
 ---
 type: How-to Guide
 title: Read the finance overview
-description: Open the finance pane on its overview, read free to spend for mine and household and what makes each, see what to watch, the month's pace, where its money went and the goals, drill down into a scope, account, category, payee or booking, pull from the bank now, set and change a limit, take a suggested one, and find a booking.
+description: Open the finance pane on its overview, read free to spend for mine and household and what makes each, see what to watch, the month's pace, where its money went and the goals, drill down into a scope, account, category, payee or booking, read a quarter, a year or any months against a year before, pull from the bank now, set and change a limit, set every limit at once, and find a booking.
 tags: [finance, budget, pane, keys, phone]
 status: draft
 ---
@@ -112,6 +112,27 @@ sankey shows for it, and a category's month is its `spent` on Budget. A bill
 a plan's reserve paid counts in its category there, and the view says how
 much of it the reserve paid.
 
+## Read a quarter, a year or any months
+
+On the overview and in a drilldown, the `Span` list over the view reads
+`Month`, `Quarter`, `Year` or `Custom`. A quarter or a year is the one the
+month shown is in, and a custom span is the months you pick, first and last.
+`[` and `]`, or `‹` and `›`, step a whole span. A span never runs past this
+month, so the year still running reads `2026 so far`.
+
+Over more than one month the big numbers are what each scope kept over the
+span, with the parts it is made of; **Where it went** draws the whole span,
+so a month that spent past what came in nets against the others. Watch,
+Pace and Left from limits read one month and step aside.
+
+**Compared** sets each scope's span against the same months a year before
+and against the 6 months before it, taken as many times as the span has
+months, with the change in percent. `no data` means the history does not
+reach back a year; a span that ends this month reads `so far`, since this
+month holds only the days gone. A category's view gives the same three
+figures and what its limits made available over the span. Press a bar in a
+chart to read that month alone.
+
 ## Pull from the bank now
 
 The **Bank** card says when the last good pull was and whether the last run
@@ -132,6 +153,21 @@ start. The months before keep the limit they had.
 
 When a limit and the category's average have stood apart for 3 months, the row
 offers `Raise to …` or `Lower to …`. Press `y`, or tap it, to take it.
+
+## Set every limit at once
+
+1. Open Budget with `B`, and press `s`, or tap `Set up every limit`.
+2. Each spending category has a field holding its limit in force. Beside it
+   stand its 6-month average and a suggestion: the larger of what its
+   monthly plans cost and its average. A yearly bill a plan reserves for is
+   not in the suggestion, since the reserve pays it.
+3. Press `u`, or tap `Use suggestions`, to fill every field with its
+   suggestion, then change what you want. The line under the table adds the
+   fields up against the income the month expects, and says what is left, or
+   how far over.
+4. Press `Save`. Only the limits you changed are written, from this month
+   on, whatever month the pane shows, so no month already over changes. An
+   empty field takes a limit away. `Escape` goes back to Budget.
 
 ## Find a booking
 

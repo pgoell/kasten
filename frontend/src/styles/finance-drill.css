@@ -214,3 +214,117 @@ button.finance-drill-row:hover {
   gap: 12px;
   min-width: 0;
 }
+
+/* The span's kind and a custom span's months sit after the month buttons and wrap under them
+   on a phone. */
+.finance-pane-month {
+  flex-wrap: wrap;
+}
+
+.finance-span-kind,
+.finance-span-custom input,
+.finance-setup-table input {
+  min-height: 44px;
+  min-width: 0;
+  padding: 0 8px;
+  border: 1px solid var(--k-rule);
+  border-radius: var(--k-radius-6);
+  background: var(--k-paper);
+  color: var(--k-ink);
+  font: inherit;
+}
+
+.finance-span-custom {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* A comparison reads across, so its numbers keep to their columns; on a phone the table scrolls
+   inside its card rather than the page sideways. */
+.finance-compare {
+  overflow-x: auto;
+}
+
+.finance-compare + .finance-compare {
+  margin-top: 16px;
+}
+
+.finance-compare table {
+  margin-top: 0;
+}
+
+.finance-compare thead th {
+  color: var(--k-muted);
+  font-size: var(--k-text-13);
+  text-align: right;
+}
+
+.finance-compare thead th:first-child {
+  color: var(--k-ink);
+  font-weight: 600;
+  text-align: left;
+}
+
+.finance-compare td {
+  padding-left: 12px;
+  white-space: nowrap;
+}
+
+.finance-setup {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.finance-setup-table input {
+  width: 6.5em;
+  text-align: right;
+}
+
+.finance-setup-table thead th + th {
+  text-align: right;
+}
+
+.finance-setup-table thead th {
+  color: var(--k-muted);
+  font-size: var(--k-text-13);
+}
+
+.finance-setup-table th[scope="row"] span {
+  display: block;
+  font-size: var(--k-text-13);
+}
+
+.finance-setup-table .finance-setup-kind {
+  padding-top: 12px;
+  font-weight: 600;
+}
+
+.finance-setup-table td {
+  padding-left: 8px;
+  white-space: nowrap;
+}
+
+/* On a phone the change goes under its figure, so the four columns fit the card. */
+@container (max-width: 520px) {
+  .finance-compare td .finance-muted {
+    display: block;
+    font-size: var(--k-text-13);
+  }
+
+  .finance-compare thead th {
+    white-space: normal;
+  }
+}
+
+.finance-setup-table input[aria-invalid="true"] {
+  border-color: var(--k-danger);
+}
+
+.finance-setup-error {
+  display: block;
+  color: var(--k-danger);
+  font-size: var(--k-text-13);
+  white-space: normal;
+}

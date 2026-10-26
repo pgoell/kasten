@@ -201,7 +201,9 @@ differ in sign, as an order with a credit or a refunded item does. An empty
 list removes the splits. A category set by hand on an old split goes with it.
 The new splits take the rules' categories at once, and the booking gives up
 its own category, even one set by hand, since its category now lives on the
-splits.
+splits. A move between own accounts, one half of a transfer or a booking whose
+counterparty IBAN is another own account's, cannot be split: it is no
+spending, and its parts would count as spending. That is a `422` saying so.
 
 ```json
 [{ "amount": "-20.00", "text": "Book" }, { "amount": "-10.00", "text": "Cable" }]

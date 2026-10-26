@@ -11,7 +11,7 @@ lines, so the overview can say what made the number. A month that is over
 counts what happened and estimates nothing.
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING, Literal
 
 from kasten_backend.finance_budget import AVERAGE_MONTHS
@@ -200,7 +200,7 @@ def planned_fixed(reader: _Reader, book: Book) -> list[Part]:
             continue
         if reader.ledger.categories[plan.category].kind != "fixed":
             continue
-        if not _alive(plan, reader.month):
+        if not alive(plan, reader.month):
             continue
         dues = [] if reader.over else book.upcoming(plan, reader.month)
         upcoming[plan.category] = upcoming.get(plan.category, ZERO) - plan.amount * len(dues)
@@ -216,8 +216,8 @@ def planned_fixed(reader: _Reader, book: Book) -> list[Part]:
     return parts
 
 
-def _alive(plan: Plan, month: dt.date) -> bool:
-    """Whether free to spend reads the plan in `month`: in its life, and once it was confirmed.
+def alive(plan: Plan, month: dt.date) -> bool:
+    """Whether the budget reads the plan in `month`: in its life, and once it was confirmed.
 
     A plan that falls due once lives in its month.
     """
@@ -292,4 +292,51 @@ def free_to_spend(
         reserves=[r for r in reserves if r.share or r.paid or r.balance],
         goals=goal_months(book.goals, month, reader.now.saved_into) if scope == "mine" else [],
         over=over,
+    )
+
+
+def joined(frees: list[Free]) -> Free:
+    """Several months of one scope, each over, as one: every line and part summed.
+
+    A line is a category, or the move between mine and household, and keeps
+    no average; a reserve sums its shares, bills and shortfalls and keeps the
+    last month's balance. No goal is still to move in a month that is over, so
+    the total is the months' totals added up.
+    """
+    if len(frees) == 1:
+        return frees[0]
+
+    def lines(parts: list[list[Part]]) -> list[Part]:
+        summed: dict[tuple[str, int | None], tuple[Decimal, Decimal]] = {}
+        for part in (p for month in parts for p in month):
+            so_far, counted = summed.get((part.name, part.category_id), (ZERO, ZERO))
+            summed[part.name, part.category_id] = (so_far + part.so_far, counted + part.counted)
+        return [
+            Part(name, category, so_far, None, counted, "so_far")
+            for (name, category), (so_far, counted) in summed.items()
+        ]
+
+    reserves: dict[int, Reserve] = {}
+    for reserve in (r for free in frees for r in free.reserves):
+        before = reserves.get(reserve.plan_id)
+        reserves[reserve.plan_id] = (
+            reserve
+            if before is None
+            else replace(
+                reserve,
+                share=before.share + reserve.share,
+                paid=before.paid + reserve.paid,
+                shortfall=before.shortfall + reserve.shortfall,
+            )
+        )
+    return Free(
+        scope=frees[0].scope,
+        income=lines([f.income for f in frees]),
+        fixed=lines([f.fixed for f in frees]),
+        flexible=lines([f.flexible for f in frees]),
+        non_monthly=lines([f.non_monthly for f in frees]),
+        unsorted=sum((f.unsorted for f in frees), ZERO),
+        saved=sum((f.saved for f in frees), ZERO),
+        reserves=list(reserves.values()),
+        over=True,
     )

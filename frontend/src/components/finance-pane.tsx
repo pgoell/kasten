@@ -5,11 +5,12 @@ import { Breadcrumbs, FinanceDrill } from "@/components/finance-drill";
 import { FinanceOverview } from "@/components/finance-overview";
 import { FinancePlans } from "@/components/finance-plans-tab";
 import type { TabKeys } from "@/components/finance-sort-bar";
+import { SpanBar, useSpan } from "@/components/finance-span-bar";
 import { FinanceToSort } from "@/components/finance-to-sort";
 import { FinanceTransactions } from "@/components/finance-transactions";
 import type { DrillStep } from "@/lib/finance-drill-api";
 import { FINANCE_TABS, type FinanceTab } from "@/lib/finance-keys";
-import { monthName, monthOf, shiftMonth } from "@/lib/finance-words";
+import { monthName } from "@/lib/finance-words";
 import type { EditorCommands } from "@/lib/key-bindings";
 import { useCategorySort } from "@/lib/use-category-sort";
 import { useLeader } from "@/lib/use-leader";
@@ -27,7 +28,8 @@ export interface FinancePaneProps {
 
 /** What tells two steps of a trail apart, so a new step at a place is drawn afresh. */
 function stepKey(step: DrillStep): string {
-  return step.kind === "scope" ? step.scope : `${step.kind}-${step.id}`;
+  if (step.kind === "scope") return step.scope;
+  return step.kind === "setup" ? step.kind : `${step.kind}-${step.id}`;
 }
 
 /** A key typed into a field is the field's, Escape aside, which leaves it. */
@@ -59,7 +61,14 @@ function notOurs(event: KeyboardEvent): boolean {
  */
 export function FinancePane({ commands, focusSignal, onNotice, today }: FinancePaneProps) {
   const [tab, setTab] = useState<FinanceTab>("overview");
-  const [month, setMonth] = useState(monthOf(today));
+  const spanState = useSpan(today);
+  const { month, setMonth, span, label } = spanState;
+  /** A bar's month, pressed: that month alone. */
+  const pickMonth = (picked: string) => {
+    spanState.setKind("month");
+    setMonth(picked);
+    panel.current?.focus();
+  };
   // What the reader drilled down into from the tab, the month first; empty shows the tab itself.
   const [trail, setTrail] = useState<DrillStep[]>([]);
   const panel = useRef<HTMLElement>(null);
@@ -94,12 +103,9 @@ export function FinancePane({ commands, focusSignal, onNotice, today }: FinanceP
     panel.current?.focus();
   }
 
-  /** Show a month a chart's bar was pressed on, and keep the keys in the pane. */
-  const pickMonth = (picked: string) => {
-    setMonth(picked);
-    panel.current?.focus();
-  };
-
+  // The overview and the drilldowns read a span; the other tabs, and the setup, the month shown.
+  const top = trail.at(-1);
+  const spans = top === undefined ? tab === "overview" : top.kind !== "setup";
   const names = new Map((sorter.categories.data ?? []).map((c) => [c.id, c.name]));
   const openCategory = (id: number) =>
     open({ kind: "category", id, name: names.get(id) ?? "Category" });
@@ -117,8 +123,8 @@ export function FinancePane({ commands, focusSignal, onNotice, today }: FinanceP
     T: () => show("transactions"),
     B: () => show("budget"),
     G: () => show("plans"),
-    "[": () => setMonth(shiftMonth(month, -1)),
-    "]": () => setMonth(shiftMonth(month, 1)),
+    "[": () => spanState.step(-1, spans),
+    "]": () => spanState.step(1, spans),
     P: () => void pull.pull(),
     "?": () => commands.showHelp(),
     q: () => commands.closeNote(),
@@ -151,6 +157,8 @@ export function FinancePane({ commands, focusSignal, onNotice, today }: FinanceP
     overview: () => (
       <FinanceOverview
         month={month}
+        span={span}
+        spanLabel={label}
         today={today}
         onMonth={pickMonth}
         onCategory={openCategory}
@@ -171,6 +179,7 @@ export function FinancePane({ commands, focusSignal, onNotice, today }: FinanceP
         keys={tabKeys}
         onNotice={onNotice}
         refocus={() => panel.current?.focus()}
+        onSetup={() => open({ kind: "setup", name: "Every limit" })}
       />
     ),
     plans: () => (
@@ -211,35 +220,8 @@ export function FinancePane({ commands, focusSignal, onNotice, today }: FinanceP
             </button>
           ))}
         </div>
-        {tab === "to-sort" ? null : (
-          <div className="finance-pane-month">
-            <button
-              type="button"
-              className="finance-pane-button"
-              aria-label="Month before"
-              onClick={() => setMonth(shiftMonth(month, -1))}
-            >
-              ‹
-            </button>
-            <h2>{monthName(month)}</h2>
-            <button
-              type="button"
-              className="finance-pane-button"
-              aria-label="Month after"
-              onClick={() => setMonth(shiftMonth(month, 1))}
-            >
-              ›
-            </button>
-            {month === monthOf(today) ? null : (
-              <button
-                type="button"
-                className="finance-pane-button"
-                onClick={() => setMonth(monthOf(today))}
-              >
-                This month
-              </button>
-            )}
-          </div>
+        {tab === "to-sort" && trail.length === 0 ? null : (
+          <SpanBar state={spanState} spans={spans} today={today} />
         )}
       </header>
       <div
@@ -248,7 +230,9 @@ export function FinancePane({ commands, focusSignal, onNotice, today }: FinanceP
         aria-labelledby={`${id}-tab-${tab}`}
         className="finance-pane-view"
       >
-        {trail.length > 0 ? <Breadcrumbs month={month} trail={trail} onTrail={back} /> : null}
+        {trail.length > 0 ? (
+          <Breadcrumbs label={spans ? label : monthName(month)} trail={trail} onTrail={back} />
+        ) : null}
         {/* Every step stays drawn, hidden but the last, so stepping back finds its cursor and
             the tab its filters as they were. Only what is shown takes the keys. */}
         {trail.map((step, index) => (
@@ -261,6 +245,8 @@ export function FinancePane({ commands, focusSignal, onNotice, today }: FinanceP
             <FinanceDrill
               step={step}
               month={month}
+              span={span}
+              spanLabel={label}
               today={today}
               onOpen={open}
               onMonth={pickMonth}

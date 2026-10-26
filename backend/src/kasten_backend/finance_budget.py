@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING, Literal
 
 from kasten_backend.finance_ledger import (
     CENT,
+    SCOPES,
     SPENDING_KINDS,
     ZERO,
     Category,
@@ -148,6 +149,22 @@ def average_spent(ledger: Ledger, category: int, month: dt.date) -> Decimal | No
     )
 
 
+def limit_average(ledger: Ledger, category: int, month: dt.date) -> Decimal | None:
+    """The average a limit is suggested from: as `average_spent`, but no bill a reserve paid.
+
+    A plan's reserve sets that bill's share aside each month already, so a
+    limit raised to cover it would count the bill a second time.
+    """
+    return ledger.average(
+        month,
+        AVERAGE_MONTHS,
+        lambda earlier: sum(
+            (ledger.month(earlier, scope).spent.get(category, ZERO) for scope in SCOPES), ZERO
+        ),
+        category,
+    )
+
+
 def _drift(limit: Decimal, average: Decimal) -> Literal["raise", "lower"] | None:
     gap = average - limit
     if abs(gap) < max(DRIFT_FLOOR, limit * DRIFT_SHARE):
@@ -173,13 +190,13 @@ def suggest(ledger: Ledger, rows: LimitRows, category: int, month: dt.date) -> S
     if limit is None or since is None or since > add_months(month, -DRIFT_MONTHS):
         return None
     directions = {
-        _drift(limit, average_spent(ledger, category, add_months(month, -back)) or ZERO)
+        _drift(limit, limit_average(ledger, category, add_months(month, -back)) or ZERO)
         for back in range(DRIFT_MONTHS)
     }
     if len(directions) != 1:
         return None
     direction = directions.pop()
-    amount = _rounded(average_spent(ledger, category, month) or ZERO)
+    amount = _rounded(limit_average(ledger, category, month) or ZERO)
     # An average that rounds to nothing is a category not used lately, not one
     # whose limit should go.
     if direction is None or amount in (limit, 0):

@@ -1,24 +1,25 @@
+import { DrillSetup } from "@/components/finance-budget-setup";
 import { DrillAccount, DrillScope } from "@/components/finance-drill-accounts";
 import { DrillBooking } from "@/components/finance-drill-booking";
 import type { DrillProps } from "@/components/finance-drill-parts";
 import { DrillCategory, DrillPayee } from "@/components/finance-drill-spending";
 import type { DrillStep } from "@/lib/finance-drill-api";
-import { monthName } from "@/lib/finance-words";
 
 /**
  * The trail as breadcrumbs, `October 2026 › Dining › REWE`: the month leads back to the tab, and
  * each step back to itself. The last is where the reader is, so it is no button.
  */
 export function Breadcrumbs({
-  month,
+  label,
   trail,
   onTrail,
 }: {
-  month: string;
+  /** The span's name, the first step. */
+  label: string;
   trail: DrillStep[];
   onTrail: (length: number) => void;
 }) {
-  const steps = [monthName(month), ...trail.map((step) => step.name)];
+  const steps = [label, ...trail.map((step) => step.name)];
   return (
     <nav aria-label="Breadcrumbs" className="finance-crumbs">
       <ol>
@@ -45,5 +46,6 @@ export function FinanceDrill({ step, ...props }: DrillProps & { step: DrillStep 
   if (step.kind === "account") return <DrillAccount id={step.id} {...props} />;
   if (step.kind === "category") return <DrillCategory id={step.id} {...props} />;
   if (step.kind === "payee") return <DrillPayee id={step.id} {...props} />;
+  if (step.kind === "setup") return <DrillSetup {...props} />;
   return <DrillBooking id={step.id} {...props} />;
 }

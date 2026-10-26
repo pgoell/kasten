@@ -22,9 +22,23 @@ from kasten_backend import finance_drill as drill
 from kasten_backend import finance_drill_reads as drill_reads
 from kasten_backend import finance_models as tables
 from kasten_backend import finance_plan_reads as plan_reads
+from kasten_backend import finance_range as spans
 from kasten_backend.finance_ledger import Account, Scope, scope_of
 from kasten_backend.routes.finance import AccountOut, Session, TransactionOut
-from kasten_backend.routes.finance_budget import Cents, MonthParam, parse_month
+from kasten_backend.routes.finance_budget import (  # noqa: TC001  FastAPI reads both at runtime
+    Cents,
+    MonthParam,
+)
+from kasten_backend.routes.finance_range import (
+    CategoryComparedOut,
+    FromParam,
+    ScopeComparedOut,
+    ScopeMonthOut,
+    counted_out,
+    parse_span,
+    scope_compared_out,
+    scope_out,
+)
 from kasten_backend.routes.finance_sorting import CategoryOut, PayeeOut, RuleOut
 
 if TYPE_CHECKING:
@@ -39,21 +53,6 @@ def _month(at: dt.date) -> str:
     return at.strftime("%Y-%m")
 
 
-class ScopeMonthOut(BaseModel):
-    """A scope's month, each part as the sankey draws it; `left` below zero is taken from before."""
-
-    month: str
-    income: Cents
-    other_scope: Cents
-    fixed: Cents
-    flexible: Cents
-    non_monthly: Cents
-    reserved: Cents
-    saved: Cents
-    unsorted: Cents
-    left: Cents
-
-
 class ScopeAccountOut(BaseModel):
     """An account of the scope: its latest bank balance and what its bookings moved in the month."""
 
@@ -66,11 +65,13 @@ class ScopeAccountOut(BaseModel):
 
 
 class ScopeDrillOut(BaseModel):
-    """One scope over the months up to `month`, its accounts, and the month's bookings."""
+    """One scope over the months up to `month`, its span compared, accounts and bookings."""
 
     scope: Scope
+    first: str
     month: str
     months: list[ScopeMonthOut]
+    span: ScopeComparedOut
     accounts: list[ScopeAccountOut]
     bookings: list[TransactionOut]
 
@@ -109,8 +110,10 @@ class CategoryDrillOut(BaseModel):
     """A category over the months, its payees in the month, the plans and rules behind it."""
 
     category: CategoryOut
+    first: str
     month: str
     months: list[CategoryMonthOut]
+    span: CategoryComparedOut
     payees: list[AmountOut]
     plans: list[PlanBriefOut]
     rules: list[RuleOut]
@@ -137,6 +140,7 @@ class PayeeDrillOut(BaseModel):
     """A payee over the months, its average spending, its categories, rules and bookings."""
 
     payee: PayeeOut
+    first: str
     month: str
     months: list[PayeeMonthOut]
     average: Cents | None
@@ -161,6 +165,7 @@ class AccountDrillOut(BaseModel):
 
     account: AccountOut
     scope: Scope | None
+    first: str
     month: str
     months: list[BalanceMonthOut]
     categories: list[AmountOut]
@@ -212,23 +217,32 @@ def _name(ledger: Ledger, category: int | None) -> str:
 
 @router.get("/scopes/{scope}")
 async def read_scope(
-    scope: Scope, session: Session, month: MonthParam, months: MonthsParam = 12
+    scope: Scope,
+    session: Session,
+    month: MonthParam,
+    start: FromParam = None,
+    months: MonthsParam = 12,
 ) -> ScopeDrillOut:
-    """A scope's months as the sankey reads them, its accounts and the month's bookings."""
-    first = parse_month(month)
+    """A scope's months as the sankey reads them, its span, accounts and the span's bookings."""
+    first, last = parse_span(month, start)
     ledger, book = await reads.ledger(session), await plan_reads.book(session)
-    found = [drill.scope_month(ledger, scope, at, book) for at in drill.months_to(first, months)]
+    found = [drill.scope_month(ledger, scope, at, book) for at in _window(first, last, months)]
     accounts = [a for a in await finance.list_accounts(session) if _scope(a) == scope]
     balances = await plan_reads.balances(session)
-    flows = {a.id: drill.account_flow(ledger.lines, a.id, first, first).net for a in accounts}
+    flows = {a.id: drill.account_flow(ledger.lines, a.id, first, last).net for a in accounts}
     filters = finance.Filters(accounts=tuple(a.id for a in accounts))
     bookings = await drill_reads.month_bookings(
-        session, filters, first, await drill_reads.reading(session, ledger.categories)
+        session,
+        filters,
+        spans.months_of(first, last),
+        await drill_reads.reading(session, ledger.categories),
     )
     return ScopeDrillOut(
         scope=scope,
-        month=_month(first),
-        months=[ScopeMonthOut(**{**vars(m), "month": _month(m.month)}) for m in found],
+        first=_month(first),
+        month=_month(last),
+        months=[scope_out(m) for m in found],
+        span=scope_compared_out(spans.scope_compared(ledger, scope, first, last, book)),
         accounts=[
             ScopeAccountOut(
                 id=a.id,
@@ -244,6 +258,11 @@ async def read_scope(
     )
 
 
+def _window(first: dt.date, last: dt.date, months: int) -> list[dt.date]:
+    """The months a drilldown's chart reads: `months` up to `last`, the whole span at least."""
+    return drill.months_to(last, max(months, len(spans.months_of(first, last))))
+
+
 def _scope(account: tables.Account) -> Scope | None:
     return scope_of(Account(account.shared, account.kind))
 
@@ -257,25 +276,38 @@ async def _category(session: Session, category_id: int) -> tables.Category:
 
 @router.get("/categories/{category_id}")
 async def read_category(
-    category_id: int, session: Session, month: MonthParam, months: MonthsParam = 12
+    category_id: int,
+    session: Session,
+    month: MonthParam,
+    start: FromParam = None,
+    months: MonthsParam = 12,
 ) -> CategoryDrillOut:
-    """A category's months against its limit, its payees, plans, rules and the month's bookings."""
+    """A category's months against its limit, its span, payees, plans, rules and bookings."""
     category = await _category(session, category_id)
-    first = parse_month(month)
+    first, last = parse_span(month, start)
     ledger, limits = await reads.ledger(session), await reads.limits(session)
-    span = drill.months_to(first, months)
-    found = drill.category_months(ledger, limits.get(category_id, []), category_id, span)
+    rows = limits.get(category_id, [])
+    found = drill.category_months(ledger, rows, category_id, _window(first, last, months))
     payees = {p.id: p.name for p in await session.scalars(select(tables.Payee))}
-    by_payee = drill.by_payee(ledger, category_id, [first])
+    in_span = spans.months_of(first, last)
+    by_payee = drill.by_payee(ledger, category_id, in_span)
     bookings = await drill_reads.month_bookings(
         session,
         finance.Filters(category=category_id),
-        first,
+        in_span,
         await drill_reads.reading(session, ledger.categories),
     )
+    compared = spans.category_compared(ledger, category_id, first, last)
     return CategoryDrillOut(
         category=CategoryOut.model_validate(category),
-        month=_month(first),
+        first=_month(first),
+        month=_month(last),
+        span=CategoryComparedOut(
+            now=counted_out(compared.now),
+            last_year=None if compared.last_year is None else counted_out(compared.last_year),
+            average=None if compared.average is None else counted_out(compared.average),
+            available=spans.available_in(ledger, rows, category_id, in_span),
+        ),
         months=[
             CategoryMonthOut(
                 month=_month(m.month),
@@ -304,24 +336,32 @@ async def read_category(
 
 @router.get("/payees/{payee_id}")
 async def read_payee(
-    payee_id: int, session: Session, month: MonthParam, months: MonthsParam = 12
+    payee_id: int,
+    session: Session,
+    month: MonthParam,
+    start: FromParam = None,
+    months: MonthsParam = 12,
 ) -> PayeeDrillOut:
-    """A payee's months, average, categories, the rules that name it and the month's bookings."""
+    """A payee's months, average, categories, the rules that name it and the span's bookings."""
     payee = await session.get(tables.Payee, payee_id)
     if payee is None:
         raise HTTPException(status_code=404, detail="No such payee")
-    first = parse_month(month)
+    first, last = parse_span(month, start)
     ledger = await reads.ledger(session)
     how = await drill_reads.reading(session, ledger.categories)
-    span = drill.months_to(first, months)
+    span = _window(first, last, months)
     view = drill.payee_view(ledger, payee_id, span)
     filters = finance.Filters(payee=payee_id)
     count = await drill_reads.booking_counts(session, filters, span, how)
-    bookings = await drill_reads.month_bookings(session, filters, first, how)
+    # The list the count is of: no move between own accounts, no `ignore`, no money in not sorted.
+    bookings = await drill_reads.month_bookings(
+        session, filters, spans.months_of(first, last), how, counted=True
+    )
     sides = {"in" if line.amount > 0 else "out" for line in ledger.lines if line.payee == payee_id}
     return PayeeDrillOut(
         payee=PayeeOut.model_validate(payee),
-        month=_month(first),
+        first=_month(first),
+        month=_month(last),
         months=[
             PayeeMonthOut(
                 month=_month(m.month),
@@ -351,43 +391,44 @@ async def read_payee(
 
 @router.get("/accounts/{account_id}")
 async def read_account(
-    account_id: int, session: Session, month: MonthParam, months: MonthsParam = 12
+    account_id: int,
+    session: Session,
+    month: MonthParam,
+    start: FromParam = None,
+    months: MonthsParam = 12,
 ) -> AccountDrillOut:
-    """An account's month-end balances, the month's money by category and transfers, by date."""
+    """An account's month-end balances, the span's money by category and transfers, by date."""
     account = await session.get(tables.Account, account_id)
     if account is None:
         raise HTTPException(status_code=404, detail="No such account")
-    first = parse_month(month)
+    first, last = parse_span(month, start)
     ledger = await reads.ledger(session)
     snapshots = await drill_reads.snapshots(session, account_id)
     daily = await drill_reads.daily(session, account_id)
     sides = await drill_reads.sides(session, account_id)
     found = []
-    for at in drill.months_to(first, months):
-        balance, start = drill.balance_on(drill_reads.last_day(at), snapshots, daily)
+    for at in _window(first, last, months):
+        balance, since = drill.balance_on(drill_reads.last_day(at), snapshots, daily)
         money_in, money_out = sides.get(at, (Decimal(0), Decimal(0)))
         found.append(
             BalanceMonthOut(
                 month=_month(at),
                 balance=balance,
-                balance_from=start,
+                balance_from=since,
                 money_in=money_in,
                 money_out=money_out,
             )
         )
-    flow = drill.account_flow(ledger.lines, account_id, first, first)
+    flow = drill.account_flow(ledger.lines, account_id, first, last)
     names = {a.id: a.name for a in await finance.list_accounts(session)}
-    bookings = await finance.list_transactions(
-        session,
-        finance.Filters(account_id, first, drill_reads.last_day(first)),
-        after=None,
-        limit=drill_reads.MOST,
-        newest_first=True,
+    bookings = await drill_reads.every_booking(
+        session, finance.Filters(account_id, first, drill_reads.last_day(last)), newest_first=True
     )
     return AccountDrillOut(
         account=AccountOut.model_validate(account),
         scope=_scope(account),
-        month=_month(first),
+        first=_month(first),
+        month=_month(last),
         months=found,
         categories=[
             AmountOut(id=c, name=_name(ledger, c), amount=amount)

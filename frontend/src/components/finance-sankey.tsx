@@ -92,13 +92,12 @@ function describe(point: Point, links: Link[], nodes: Map<string, Node>, total: 
 }
 
 /** The month in one line, `October 2026 so far: 6.600 € in, 5.711 € out, 889 € left`. */
-function headline(flow: Flow, nodes: Node[], month: string, today: string): string {
+function headline(flow: Flow, nodes: Node[], when: string): string {
   const sum = (role: Node["role"]) =>
     nodes.filter((node) => node.role === role).reduce((total, node) => total + node.amount, 0);
   const left = sum("left_over");
   const taken = sum("from_savings");
   const total = Number(flow.total);
-  const when = month === monthOf(today) ? `${monthName(month)} so far` : monthName(month);
   return [
     `${when}: ${euros(total)} in, ${euros(total - left)} out`,
     left > 0 ? `, ${euros(left)} left` : "",
@@ -244,11 +243,14 @@ export function FinanceSankey({
   flow,
   month,
   today,
+  name,
   onCategory,
 }: {
   flow: Flow;
   month: string;
   today: string;
+  /** The span's name, such as `Q3 2026 so far`, when it is more than the one month. */
+  name?: string;
   onCategory: (id: number) => void;
 }) {
   const [point, setPoint] = useState<Point>();
@@ -261,11 +263,12 @@ export function FinanceSankey({
   const total = Number(flow.total);
   if (links.length === 0) {
     // After the hooks, which run on every render.
-    return <p className="overview-words">nothing booked in {monthName(month)} yet</p>;
+    return <p className="overview-words">nothing booked in {name ?? monthName(month)} yet</p>;
   }
   const drawn = layout(nodes, links, COLUMNS, WIDTH);
   const height = drawn.height + 2;
-  const head = headline(flow, nodes, month, today);
+  const when = name ?? (month === monthOf(today) ? `${monthName(month)} so far` : monthName(month));
+  const head = headline(flow, nodes, when);
   return (
     <figure className="finance-sankey">
       <p className="finance-trend-readout" aria-live="polite">
@@ -278,7 +281,7 @@ export function FinanceSankey({
             viewBox={`0 0 ${WIDTH} ${height}`}
             width="100%"
             role="img"
-            aria-label={`where the money of ${monthName(month)} went`}
+            aria-label={`where the money of ${name ?? monthName(month)} went`}
           >
             <defs>
               {/* In sRGB, so the chip is the card's colour exactly and not a shade off it. */}

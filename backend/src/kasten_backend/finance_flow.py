@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 from typing import TYPE_CHECKING, Literal
 
-from kasten_backend.finance_free import Free, Part, free_to_spend
+from kasten_backend.finance_free import Free, Part, free_to_spend, joined
 from kasten_backend.finance_ledger import SCOPES, ZERO, Ledger, Scope, add_months
 
 if TYPE_CHECKING:
@@ -232,16 +232,30 @@ def _order(nodes: dict[str, Node], links: list[Link]) -> list[Node]:
     return sorted(order, key=lambda node: node.column)
 
 
-def month_flow(ledger: Ledger, month: dt.date, plans: Book | None = None) -> Flow:
+def month_flow(
+    ledger: Ledger, month: dt.date, plans: Book | None = None, last: dt.date | None = None
+) -> Flow:
     """Where `month`'s money went in both scopes, from what happened so far.
 
     With `plans`, the reserves' shares go out as `Reserved`, as free to spend
-    takes them, and a bill a reserve paid stays out of its category.
+    takes them, and a bill a reserve paid stays out of its category. With
+    `last`, the months from `month` to `last` as one: each scope's lines
+    summed over them, so what is left over is what the span kept in all.
     """
-    builder = _Builder()
+    months = [month]
+    while months[-1] < (last or month):
+        months.append(add_months(months[-1], 1))
     # Read as a month that is over, so each line counts what happened and nothing is estimated.
-    after = add_months(month, 1)
-    frees: dict[Scope, Free] = {s: free_to_spend(ledger, s, month, after, plans) for s in SCOPES}
+    frees: dict[Scope, Free] = {
+        s: joined([free_to_spend(ledger, s, at, add_months(at, 1), plans) for at in months])
+        for s in SCOPES
+    }
+    return _flow(frees)
+
+
+def _flow(frees: dict[Scope, Free]) -> Flow:
+    """The flow of each scope's free to spend, small streams folded."""
+    builder = _Builder()
     for free in frees.values():
         builder.scope(free)
     total = sum((amount for (_, target), amount in builder.links.items() if target in SCOPES), ZERO)

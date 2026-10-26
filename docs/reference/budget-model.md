@@ -189,6 +189,48 @@ counts here ([HTTP API: finance drilldowns](/reference/http-api/finance-drill.md
 * An account is the one view by booking date, not budget month, as its bank
   balance is: the salary cutoff does not move its bookings.
 
+### Spans of months
+
+A quarter, a year or any span of months is read month by month, each as
+over, and added up: a span's figures are its months', so nothing is counted
+that a month would not count. In the sankey of a span each scope's lines are
+summed before they are drawn, so left over is what the span kept in all, and
+a month that spent past what came in nets against the others. A span holds a
+salary by the month it counts for, so one booked after the cutoff in the
+span's last month belongs to the next span.
+
+A span compares with two figures:
+
+* the same months a year before, or nothing when the history (for a
+  category, its own) does not hold all of them;
+* the 6 whole months before the span, from the first month with any booking
+  (for a category, its own first month with money), averaged and taken as
+  many times as the span has months, so both read at the same length.
+
+When the span ends in the month still running, that month holds only the
+days so far, and the comparison says so.
+
+For a span, what the limits made available is the first month's `available`
+(its limit less the overspend carried into it, never below zero) and each
+later month's limit whole. An overspend inside the span is spending the span
+already counts, so it does not come off the next month's limit a second
+time; a month with no limit adds nothing.
+
+### The budget setup
+
+The setup lists every spending category with its limit in force, its 6-month
+average without the bills a reserve paid, as the suggestion above reads it, and what its monthly plans cost, each read from the month it was
+confirmed in, as free to spend reads it. A plan that reserves is left out,
+since its bill comes out of its reserve, and so is a plan due once, which is
+no monthly cost. Each category's suggestion is the larger of its plans'
+cost and its average rounded up to the euro, as free to spend counts a
+planned cost. Each field starts from the limit in force; one key fills every
+field with its suggestion. The limits are set against the month's income as
+free to spend expects it, both scopes, each income category once:
+household's money from mine is mine's income moved, and counting it would
+count it twice. Saving sets the changed limits from this month on, all at
+once, whatever month is shown, so no month already over changes.
+
 ## Plans
 
 A plan is an expected booking: a payee or a text, an amount give or take a
@@ -320,7 +362,9 @@ Beside each limit stands the category's average over the last 6 whole months,
 from its first month with money.
 When the limit in force and the average have stood apart in the same direction
 for 3 months running, the budget suggests raising or lowering the limit to the
-average, rounded to the nearest 10 euros. Apart means a gap of at least 10 %
+average, read without the bills a plan's reserve paid (the reserve sets their
+share aside every month already, so a limit raised for them would count them
+twice), rounded to the nearest 10 euros. Apart means a gap of at least 10 %
 of the limit and at least 10 euros. Each of the 3 months is read with the
 average as it stood at its end, against the limit in force now, so a limit
 changed to fit stops the suggestion at once. The category's own history must

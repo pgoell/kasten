@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { CompareTable, partsOf, spentIn } from "@/components/finance-compare";
 import {
   AmountRows,
   categoryNames,
@@ -7,42 +8,17 @@ import {
   Waiting,
 } from "@/components/finance-drill-parts";
 import { MonthChart } from "@/components/finance-month-chart";
-import {
-  fetchAccountDrill,
-  fetchScope,
-  type Scope,
-  type ScopeDrill,
-} from "@/lib/finance-drill-api";
-import { euros, monthName } from "@/lib/finance-words";
-
-type ScopeMonth = ScopeDrill["months"][number];
-
-/** A scope's parts in the order the sankey stacks them, each with the sign it has on the month. */
-function partsOf(scope: Scope): { key: keyof ScopeMonth; name: string; sign: 1 | -1 }[] {
-  return [
-    { key: "income", name: "Income", sign: 1 },
-    scope === "household"
-      ? { key: "other_scope", name: "From mine", sign: 1 }
-      : { key: "other_scope", name: "Into household", sign: -1 },
-    { key: "fixed", name: "Fixed", sign: -1 },
-    { key: "flexible", name: "Flexible", sign: -1 },
-    { key: "non_monthly", name: "Non-monthly", sign: -1 },
-    { key: "reserved", name: "Reserved for plans", sign: -1 },
-    { key: "saved", name: "Saved", sign: -1 },
-    { key: "unsorted", name: "Not sorted", sign: -1 },
-  ];
-}
-
-/** What a month spent: its fixed, flexible and non-monthly parts. */
-function spentIn(row: ScopeMonth): number {
-  return Number(row.fixed) + Number(row.flexible) + Number(row.non_monthly);
-}
+import { fetchAccountDrill, fetchScope, type Scope } from "@/lib/finance-drill-api";
+import { euros, monthName, monthOf } from "@/lib/finance-words";
 
 /**
  * One scope, mine or household: the month's parts as the sankey has them and what was left, the
  * months' spending as bars and every month as a table, its accounts and the month's bookings.
  */
 export function DrillScope({
+  span,
+  spanLabel,
+  today,
   scope,
   month,
   onOpen,
@@ -51,13 +27,13 @@ export function DrillScope({
   keys,
 }: DrillProps & { scope: Scope }) {
   const drill = useQuery({
-    queryKey: ["finance", "drill", "scope", scope, month],
-    queryFn: () => fetchScope(scope, month),
+    queryKey: ["finance", "drill", "scope", scope, span],
+    queryFn: () => fetchScope(scope, span),
     // The view stays while the next month loads, so the focus and the keys stay with it.
     placeholderData: (previous) => previous,
   });
   const data = drill.data;
-  const row = data?.months.at(-1);
+  const row = data?.span.now;
   if (data === undefined || row === undefined) return <Waiting error={drill.error} />;
   const name = scope === "mine" ? "Mine" : "Household";
   const parts = partsOf(scope).filter(({ key }) => Number(row[key]) !== 0);
@@ -66,7 +42,7 @@ export function DrillScope({
     <div className="finance-drill">
       <div className="finance-cards">
         <article className="overview-card">
-          <h3 className="overview-name">{`${name} in ${monthName(month)}`}</h3>
+          <h3 className="overview-name">{`${name} in ${spanLabel}`}</h3>
           <p className={left < 0 ? "overview-figure finance-danger" : "overview-figure"}>
             {euros(left)}
           </p>
@@ -87,6 +63,15 @@ export function DrillScope({
             what happened, as the sankey draws it; free to spend on the overview also counts what is
             still to come
           </p>
+        </article>
+        <article className="overview-card finance-wide-card">
+          <h3 className="overview-name">Compared</h3>
+          <CompareTable
+            scope={scope}
+            compared={data.span}
+            label={spanLabel}
+            running={span.to === monthOf(today)}
+          />
         </article>
         <article className="overview-card finance-wide-card">
           <h3 className="overview-name">Spent per month</h3>
@@ -181,6 +166,8 @@ export function DrillScope({
  * date, and the month's bookings.
  */
 export function DrillAccount({
+  span,
+  spanLabel,
   id,
   month,
   onOpen,
@@ -189,8 +176,8 @@ export function DrillAccount({
   keys,
 }: DrillProps & { id: number }) {
   const drill = useQuery({
-    queryKey: ["finance", "drill", "account", id, month],
-    queryFn: () => fetchAccountDrill(id, month),
+    queryKey: ["finance", "drill", "account", id, span],
+    queryFn: () => fetchAccountDrill(id, span),
     // The view stays while the next month loads, so the focus and the keys stay with it.
     placeholderData: (previous) => previous,
   });
@@ -236,7 +223,7 @@ export function DrillAccount({
           </p>
         </article>
         <article className="overview-card">
-          <h3 className="overview-name">{`${monthName(month)} by category`}</h3>
+          <h3 className="overview-name">{`${spanLabel} by category`}</h3>
           <AmountRows
             label="By category"
             signed

@@ -198,6 +198,7 @@ export function FinanceBudget({
   keys,
   onNotice,
   refocus,
+  onSetup,
 }: {
   month: string;
   today: string;
@@ -205,6 +206,8 @@ export function FinanceBudget({
   onNotice: (text: string | undefined) => void;
   /** Gives the pane the keys back once the field it held closes. */
   refocus: () => void;
+  /** Opens the setup that sets every limit on one screen. */
+  onSetup: () => void;
 }) {
   const queries = useQueryClient();
   const budget = useQuery({
@@ -240,6 +243,7 @@ export function FinanceBudget({
       setCursor(Math.max(0, Math.min(at + (key === "j" ? 1 : -1), rows.length - 1)));
     else if (key === "e" && row !== undefined) setEditing(row.id);
     else if (key === "y" && row?.suggestion != null) void save(row, row.suggestion.amount);
+    else if (key === "s") onSetup();
     else return false;
     return true;
   };
@@ -255,6 +259,11 @@ export function FinanceBudget({
           {`${euros(spent)} spent of ${euros(limits)} in limits, ${percent(share)} of ${monthName(month)} gone`}
         </p>
       )}
+      <div className="finance-pane-categories">
+        <button type="button" className="finance-pane-button" onClick={onSetup}>
+          <kbd>s</kbd> Set up every limit
+        </button>
+      </div>
       {KINDS.map(({ kind, name }) => (
         <section key={kind} aria-label={name} className="finance-budget-group">
           <h3>{name}</h3>

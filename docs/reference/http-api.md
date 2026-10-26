@@ -9,8 +9,8 @@ status: stable
 
 # HTTP API
 
-The backend serves one hundred and five endpoints under `/api/`. Fifty-nine read,
-forty-five write, and one streams. The interactive schema is at `/docs` while the backend
+The backend serves one hundred and eight endpoints under `/api/`. Sixty-one read,
+forty-six write, and one streams. The interactive schema is at `/docs` while the backend
 runs, and the machine-readable one at `/openapi.json`.
 
 The agent's routes sit under `/agent/`, and they are documented on their own page,
@@ -37,6 +37,7 @@ including the check that refuses a cross-site `POST` with a `403`.
 * [Finance sorting](/reference/http-api/finance-sorting.md): categories, payees and rules, the order the rules fire in, the category set by hand, and the to-sort list
 * [Finance budget](/reference/http-api/finance-budget.md): a month's budget per category, free to spend for mine and household, where the month's money went, the spending trend, a category's limit and the budget settings
 * [Finance drilldowns](/reference/http-api/finance-drill.md): one scope, account, category, payee or booking, month by month, with the bookings that count in the month and where a booking counts
+* [Finance spans and setup](/reference/http-api/finance-range.md): both scopes over a span of months against a year before and the 6-month average, the budget setup, and every limit set at once
 * [Finance plans and goals](/reference/http-api/finance-plans.md): plans and the bookings that met them, the month's dates, the 12-month forecast, plans proposed from history, and saving goals with what each account has unreserved
 * [Finance sync](/reference/http-api/finance-sync.md): "pull now" and whether one waits, the runs the bank job records, and the sync status the pane and agents read
 * [RSVP](/reference/http-api/rsvp.md): read and save where an RSVP run stopped in a file

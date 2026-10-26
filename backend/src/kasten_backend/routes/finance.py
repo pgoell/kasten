@@ -300,8 +300,8 @@ async def write_splits(
         booking = await finance.replace_splits(
             session, transaction_id, [part.model_dump() for part in parts]
         )
-    except finance.SplitSumError as uneven:
-        raise HTTPException(status_code=422, detail=str(uneven)) from uneven
+    except (finance.SplitSumError, finance.TransferSplitError) as refused:
+        raise HTTPException(status_code=422, detail=str(refused)) from refused
     if booking is None:
         raise HTTPException(status_code=404, detail="No such transaction")
     # The new splits are sorted at once, and the booking itself gives up a

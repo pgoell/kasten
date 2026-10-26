@@ -27,8 +27,8 @@ if TYPE_CHECKING:
 
     from kasten_backend.finance_ledger import Category
 
-MOST = 5000
-"""The most bookings a drilldown lists; a month holds about 100."""
+PAGE = 5000
+"""How many bookings a drilldown reads at once; it reads on until it has every one."""
 
 
 def last_day(month: dt.date) -> dt.date:
@@ -51,7 +51,13 @@ class Reading:
     own: dict[str, int]
 
     def moves(self, booking: tables.Transaction) -> bool:
-        """Whether a booking is a move between own accounts, its twin in or not."""
+        """Whether a booking is a move between own accounts, its twin in or not.
+
+        A booking with splits is none: the ledger counts its splits by their
+        categories, so the drilldowns list it where they count.
+        """
+        if booking.splits:
+            return False
         if booking.transfer_group is not None:
             return True
         other = self.own.get(booking.counterparty_iban or "")
@@ -99,25 +105,44 @@ async def reading(session: AsyncSession, categories: dict[int, Category]) -> Rea
     )
 
 
+async def every_booking(
+    session: AsyncSession, filters: finance.Filters, *, newest_first: bool = False
+) -> list[tables.Transaction]:
+    """Every booking that passes `filters`, page by page, so a year's list is never cut short."""
+    found: list[tables.Transaction] = []
+    while True:
+        page = await finance.list_transactions(
+            session,
+            filters,
+            after=found[-1].id if found else None,
+            limit=PAGE,
+            newest_first=newest_first,
+        )
+        found += page
+        if len(page) < PAGE:
+            return found
+
+
 async def month_bookings(
     session: AsyncSession,
     filters: finance.Filters,
-    month: dt.date,
+    months: list[dt.date],
     how: Reading,
+    *,
+    counted: bool = False,
 ) -> list[tuple[tables.Transaction, set[dt.date]]]:
-    """The bookings that pass `filters` and count in budget `month`, newest first.
+    """The bookings that pass `filters` and count in one of the budget `months`, newest first.
 
     With a category in `filters`, a booking counts by that category's parts.
+    With `counted`, as a payee's figures and `booking_counts` count it.
     """
-    span = replace(filters, first=add_months(month, -1), last=last_day(month))
-    found = await finance.list_transactions(
-        session, span, after=None, limit=MOST, newest_first=True
-    )
+    span = replace(filters, first=add_months(months[0], -1), last=last_day(months[-1]))
+    found = await every_booking(session, span, newest_first=True)
     kept = []
     for booking in found:
-        months = how.months(booking, category=filters.category)
-        if month in months:
-            kept.append((booking, months))
+        counts_in = how.months(booking, category=filters.category, counted=counted)
+        if counts_in & set(months):
+            kept.append((booking, counts_in))
     return kept
 
 
@@ -130,7 +155,7 @@ async def booking_counts(
     money in not sorted yet, or a booking on an own saving account.
     """
     span = replace(filters, first=add_months(months[0], -1), last=last_day(months[-1]))
-    found = await finance.list_transactions(session, span, after=None, limit=MOST)
+    found = await every_booking(session, span)
     count = dict.fromkeys(months, 0)
     for booking in found:
         for month in how.months(booking, counted=True):
