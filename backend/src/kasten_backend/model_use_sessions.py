@@ -7,7 +7,7 @@ message is counted once, by its id, however many records or files carry it.
 
 import json
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime
 from typing import TYPE_CHECKING
 
 from kasten_backend.model_use_config import Config, Price, price_of, project_of
@@ -95,14 +95,24 @@ def _message(record: object) -> Message | None:
     )
 
 
-def read_messages(source: Path) -> dict[str, Message]:
-    """Every countable message under `source`, once each by id.
+def has_sessions(source: Path) -> bool:
+    """Whether a session file sits at any depth under `source`: false for a folder not there."""
+    return any(source.rglob("*.jsonl"))
+
+
+def read_messages(source: Path, first: date) -> dict[str, Message]:
+    """Every countable message under `source`, once each by id, from the files the range can use.
 
     Of the records that carry one id, the one with the most output tokens is the
     one kept. The first seen keeps a tie, so the order of the files decides nothing.
     """
+    # Claude Code appends to a session file, so one last written before the range began
+    # holds no message of the range, and reading it again is the cost this skips.
+    start = datetime(first.year, first.month, first.day).timestamp()
     found: dict[str, Message] = {}
     for path in sorted(source.rglob("*.jsonl")):
+        if path.stat().st_mtime < start:
+            continue
         for raw in path.read_text(encoding="utf-8", errors="replace").splitlines():
             try:
                 record = json.loads(raw)

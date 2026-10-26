@@ -4,6 +4,7 @@ Nothing here reads a real session file. Each test writes its own records; the
 note's own rules (rerun, foreign lines, the rewrite) are in test_model_use_notes.py.
 """
 
+import os
 import time
 from datetime import UTC, date, datetime
 from typing import TYPE_CHECKING
@@ -403,3 +404,65 @@ def test_808_a3_the_bundled_price_table_has_no_broken_line() -> None:
     parsed = read_config(BUNDLED.read_text(encoding="utf-8"))
 
     assert (parsed.skipped, len(parsed.prices) > 0) == ([], True)
+
+
+def test_808_r1_a_missing_source_is_refused_and_writes_nothing(
+    world: tuple[Path, Path], tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    source, vault = world
+    session(source, "a.jsonl", record("m1", usage(input=100)))
+    days = ["--from", "2026-10-25", "--to", "2026-10-25"]
+    main([str(source), str(vault), *days])
+    before = (vault / NOTE).read_bytes()
+    empty = tmp_path / "empty"
+    empty.mkdir()
+    typo = tmp_path / "typo"
+
+    statuses = [main([str(typo), str(vault), *days]), main([str(empty), str(vault), *days])]
+
+    err = capsys.readouterr().err
+    assert (
+        statuses,
+        (vault / NOTE).read_bytes() == before,
+        str(typo) in err,
+        str(empty) in err,
+    ) == ([2, 2], True, True, True)
+
+
+def test_808_r3_a_new_point_release_has_no_price(tmp_path: Path) -> None:
+    source, vault = tmp_path / "projects", tmp_path / "vault"
+    source.mkdir()
+    vault.mkdir()
+    session(source, "a.jsonl", record("m1", usage(input=1_000_000), model="claude-opus-5-6"))
+
+    run(source, vault, CONFIG, DAY, DAY, NOW)
+
+    # The bundled table has claude-opus-5 but no 5-6 row, and `-6` is not a date.
+    assert usage_lines(vault) == [
+        "- 2026-10-25 claude-opus-5-6 kasten: in 1000000, out 0, cache write 0, "
+        "cache read 0, cost unknown"
+    ]
+
+
+def test_808_r7_a_cwd_of_root_still_counts(world: tuple[Path, Path]) -> None:
+    source, vault = world
+    session(source, "a.jsonl", record("m1", usage(input=1_000_000), cwd="/"))
+
+    run(source, vault, CONFIG, DAY, DAY, NOW)
+
+    assert usage_lines(vault) == [
+        "- 2026-10-25 claude-opus-5-5 /: in 1000000, out 0, cache write 0, "
+        "cache read 0, cost 4.0000 usd"
+    ]
+
+
+def test_808_r9_a_file_older_than_the_range_is_not_read(world: tuple[Path, Path]) -> None:
+    source, vault = world
+    # The message is inside the range, but the file was last written before the range began.
+    session(source, "old.jsonl", record("m1", usage(input=1_000_000)))
+    long_ago = datetime(2026, 10, 1, tzinfo=UTC).timestamp()
+    os.utime(source / "old.jsonl", (long_ago, long_ago))
+
+    report = run(source, vault, CONFIG, DAY, DAY, NOW)
+
+    assert (report, (vault / NOTE).exists()) == ([], False)

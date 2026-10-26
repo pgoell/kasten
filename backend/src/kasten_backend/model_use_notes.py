@@ -94,31 +94,48 @@ def _foreign(body: list[str], month: str) -> list[str]:
     return kept
 
 
-def _render(ident: str, created: str, modified: str, body: list[str]) -> str:
-    """The whole note: the frontmatter the collector writes, then the body."""
-    front = [
-        FENCE,
-        f"id: {ident}",
-        f"created: {created}",
-        f"modified: {modified}",
-        "type: Reference",
-        f"generator: {GENERATOR}",
-        FENCE,
-    ]
-    return "\n".join([*front, *body]) + "\n"
+def _values(ident: str, created: str, modified: str) -> dict[str, str]:
+    """The frontmatter fields the collector sets, in the order it writes them."""
+    return {
+        "id": ident,
+        "created": created,
+        "modified": modified,
+        "type": "Reference",
+        "generator": GENERATOR,
+    }
 
 
-def _usage_entries(
-    body: list[str], fresh: list[Usage], first: str, last: str
-) -> list[tuple[Usage, str]]:
+def _front(front: list[str], values: dict[str, str]) -> list[str]:
+    """The frontmatter lines: the collector's fields set, every other line as it was, in order."""
+    lines, written = [], set()
+    for line in front:
+        key = line.partition(":")[0].strip()
+        if key not in values:
+            lines.append(line)
+        elif key not in written:
+            lines.append(f"{key}: {values[key]}")
+            written.add(key)
+    lines += [f"{key}: {value}" for key, value in values.items() if key not in written]
+    return lines
+
+
+def _render(front: list[str], body: list[str]) -> str:
+    """The whole note: its frontmatter block, then the body."""
+    return "\n".join([FENCE, *front, FENCE, *body]) + "\n"
+
+
+def _usage_entries(body: list[str], fresh: list[Usage]) -> list[tuple[Usage, str]]:
     """The usage lines to write, as (usage, text), sorted by day, model and project.
 
-    A body line outside the range keeps its text, so it is written back byte for byte.
+    A day the run counted has its old lines replaced by the fresh ones. Any other
+    body line keeps its text, so it is written back byte for byte: a day with no
+    message in the source keeps what it had.
     """
+    counted = {usage.day for usage in fresh}
     entries = []
     for line in body:
         usage = parse_line(line)
-        if usage is not None and not first <= usage.day <= last:
+        if usage is not None and usage.day not in counted:
             entries.append((usage, line))
     entries += [(usage, format_line(usage)) for usage in fresh]
     return sorted(entries, key=lambda entry: (entry[0].day, entry[0].model, entry[0].project))
@@ -134,17 +151,19 @@ def _body(month: str, entries: list[tuple[Usage, str]], foreign: list[str]) -> l
     return lines
 
 
-def write_month(  # noqa: PLR0913, PLR0917  each part of a month's note is its own argument
-    path: Path, month: str, fresh: list[Usage], first: str, last: str, now: datetime
-) -> str:
-    """Write a month's note with the `fresh` lines for the days from `first` to `last`.
+def write_month(path: Path, month: str, fresh: list[Usage], now: datetime) -> str:
+    """Write a month's note with the `fresh` lines, one day at a time (see `_usage_entries`).
 
     Returns `written`, `unchanged` or `left alone`, or an empty string when there is
-    nothing to write and no note to write it into. Lines of other days stay byte for
-    byte, and so does everything the collector did not write. A write goes to a hidden
-    file beside the note and is renamed over it, so a broken run leaves the old note.
+    nothing to write and no note to write it into. A note that is not ours, or does
+    not decode as UTF-8, is left alone. Everything the collector did not write stays,
+    frontmatter included. A write goes to a hidden file beside the note and is renamed
+    over it, so a broken run leaves the old note.
     """
-    text = path.read_text(encoding="utf-8") if path.is_file() else None
+    try:
+        text = path.read_text(encoding="utf-8") if path.is_file() else None
+    except UnicodeDecodeError:
+        return "left alone"
     if text is None and not fresh:
         return ""
     if text is not None and _field(_split(text)[0], "generator") != GENERATOR:
@@ -152,18 +171,16 @@ def write_month(  # noqa: PLR0913, PLR0917  each part of a month's note is its o
 
     stamp = now.isoformat(timespec="seconds")
     front, body = _split(text or "")
-    lines = _body(month, _usage_entries(body, fresh, first, last), _foreign(body, month))
+    lines = _body(month, _usage_entries(body, fresh), _foreign(body, month))
     ident = _field(front, "id") or str(uuid7())
     created = _field(front, "created") or stamp
     # The same bytes as the file means nothing changed, so the file keeps its mtime too.
-    if (
-        text is not None
-        and _render(ident, created, _field(front, "modified") or stamp, lines) == text
-    ):
+    held = _field(front, "modified") or stamp
+    if text is not None and _render(_front(front, _values(ident, created, held)), lines) == text:
         return "unchanged"
 
     path.parent.mkdir(parents=True, exist_ok=True)
     temp = path.with_name(f".{path.name}.tmp")
-    temp.write_text(_render(ident, created, stamp, lines), encoding="utf-8")
+    temp.write_text(_render(_front(front, _values(ident, created, stamp)), lines), encoding="utf-8")
     temp.replace(path)
     return "written"

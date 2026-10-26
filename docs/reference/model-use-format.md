@@ -26,7 +26,8 @@ account is needed: every number comes off the computer the collector runs on.
    `99 Misc/01 Config/Model use/2026-10.md` on the default layout.
 2. The collector writes the note whole: the frontmatter, a heading
    `# Model use YYYY-MM`, one sentence that says the collector writes it, then
-   one line per day, model and project, in that order.
+   one line per day, model and project, in that order. Frontmatter fields the
+   collector did not set stay where they were.
 3. The frontmatter carries `generator: kasten-model-use` beside `id`,
    `created`, `type: Reference` and `modified`. That field is how the collector
    knows the note is its own. A note at the path without it is someone else's:
@@ -76,11 +77,17 @@ runs in `backend/`), reads every `*.jsonl` under
 4. `--from` and `--to` name the days the run writes, both ends in, yesterday
    and today when left out. A line of a day in the range is written from the
    source alone; a line of a day outside it is never changed. A day in the
-   range with no messages loses its lines.
+   range with no counted message in the source keeps its lines as they are, so
+   a source that lost a day's files does not empty that day's note.
 5. A run that would write the bytes a note already holds writes nothing, so a
    second run over the same files leaves every note as it was. A write goes to
    a hidden file in the same folder and is then renamed over the note, so a
    broken run leaves the old note.
+6. A source that does not exist, or holds no `*.jsonl` at any depth, is refused:
+   the run prints why, exits with status 2 and writes nothing.
+7. A session file last written before the first day of the range is not read.
+   Claude Code appends to its files, so such a file holds no message of the
+   range, and a run over a long history does not read every file again.
 
 ## The price of a message
 
@@ -90,9 +97,12 @@ at the 5-minute rate and `ephemeral_1h_input_tokens` at the 1-hour rate, from
 the usage's `cache_creation`. A record without that part prices its
 `cache_creation_input_tokens` at the 5-minute rate.
 
-The row is found by the model's id: the row named the same, or the longest
-row whose name and a `-` start the id, so `claude-haiku-4-5` prices
-`claude-haiku-4-5-20251001`. Two kinds of row stand beside a model's own:
+The row is found by the model's id: the row named the same, or the row whose
+name is followed by a `-` and an eight-digit date, so `claude-haiku-4-5` prices
+`claude-haiku-4-5-20251001`. Any other suffix names a model of its own:
+`claude-opus-5-6` has no row until a line names it, so it is unpriced until
+then, even though `claude-opus-5` is in the table. Two kinds of row stand beside
+a model's own:
 
 * `<model> fast` prices a message whose usage says `"speed": "fast"`.
 * `<model> over N` prices a message whose prompt (input, cache write and cache

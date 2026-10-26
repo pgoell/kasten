@@ -19,6 +19,8 @@ _RATES = re.compile(
     rf"cache write 1h ({_RATE}), cache read ({_RATE})$"
 )
 _FOLDER = re.compile(r"^(/.+?): (.+)$")
+DATE_SUFFIX = re.compile(r"\d{8}")
+"""The date a dated model id ends with, such as `20251001`."""
 
 
 @dataclass(frozen=True)
@@ -111,14 +113,35 @@ def read_config(text: str) -> Config:
 
 
 def project_of(cwd: str, folders: list[tuple[str, str]]) -> str:
-    """The project of a folder: the longest mapped folder holding it, else its last name."""
-    cwd = cwd.rstrip("/")
+    """The project of a folder: the longest mapped folder holding it, else its last name.
+
+    A folder with no last name, `/` for one, counts under the folder as written, so
+    the message is not dropped.
+    """
+    trimmed = cwd.rstrip("/")
     held = [
-        (folder, name) for folder, name in folders if cwd == folder or cwd.startswith(folder + "/")
+        (folder, name)
+        for folder, name in folders
+        if trimmed == folder or trimmed.startswith(folder + "/")
     ]
     if held:
         return max(held, key=lambda pair: len(pair[0]))[1]
-    return _name(cwd.rsplit("/", 1)[-1])
+    return _name(trimmed.rsplit("/", 1)[-1]) or _name(cwd)
+
+
+def _takes(model: str, row_model: str) -> bool:
+    """Whether a row named `row_model` prices `model`: the same name, or that name and a date.
+
+    A dated id such as `claude-haiku-4-5-20251001` takes its name's row. Any other
+    suffix is a model of its own, `claude-opus-5-6` for one, and has no row until a
+    line names it.
+    """
+    if model == row_model:
+        return True
+    return (
+        model.startswith(row_model + "-")
+        and DATE_SUFFIX.fullmatch(model.removeprefix(row_model + "-")) is not None
+    )
 
 
 def price_of(model: str, fast: bool, prompt: int, prices: list[Price]) -> Price | None:
@@ -130,7 +153,7 @@ def price_of(model: str, fast: bool, prompt: int, prices: list[Price]) -> Price 
     plain one. A plain message takes the `over` row with the highest N below its
     prompt, else the plain row.
     """
-    names = [row.model for row in prices if model == row.model or model.startswith(row.model + "-")]
+    names = [row.model for row in prices if _takes(model, row.model)]
     if not names:
         return None
 

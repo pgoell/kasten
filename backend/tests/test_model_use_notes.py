@@ -3,7 +3,8 @@
 Made-up files under tmp_path, as in test_model_use.py.
 """
 
-from datetime import UTC, date, datetime
+import os
+from datetime import UTC, date, datetime, timedelta
 from typing import TYPE_CHECKING
 
 import pytest
@@ -166,3 +167,65 @@ def test_808_i5_id_and_created_survive_a_rewrite_with_no_temp_file(
         "modified": "modified: 2026-10-27T08:00:00+00:00",
         "files": ["2026-10.md"],
     }
+
+
+def test_808_r1_a_day_with_no_message_in_the_source_keeps_its_lines(
+    world: tuple[Path, Path],
+) -> None:
+    source, vault = world
+    session(source, "a.jsonl", record("m1", usage(input=100)))
+    run(source, vault, CONFIG, DAY, DAY + timedelta(days=1), NOW)
+    # The 25th's file is gone; only the 26th has a message now.
+    (source / "a.jsonl").unlink()
+    session(source, "b.jsonl", record("m2", usage(input=50), stamp="2026-10-26T10:00:00Z"))
+
+    run(source, vault, CONFIG, DAY, DAY + timedelta(days=1), NOW)
+
+    assert usage_lines(vault) == [
+        "- 2026-10-25 claude-opus-5-5 kasten: in 100, out 0, cache write 0, cache read 0, "
+        "cost 0.0004 usd",
+        "- 2026-10-26 claude-opus-5-5 kasten: in 50, out 0, cache write 0, cache read 0, "
+        "cost 0.0002 usd",
+    ]
+
+
+def test_808_r2_other_frontmatter_fields_survive_a_rewrite(world: tuple[Path, Path]) -> None:
+    source, vault = world
+    session(source, "a.jsonl", record("m1", usage(input=100)))
+    run(source, vault, CONFIG, DAY, DAY, NOW)
+    note = vault / NOTE
+    note.write_text(
+        note.read_text(encoding="utf-8").replace("type: Reference", "type: Reference\ntags: [ai]"),
+        encoding="utf-8",
+    )
+    session(source, "b.jsonl", record("m2", usage(input=50)))
+
+    run(source, vault, CONFIG, DAY, DAY, NOW)
+
+    front = note.read_text(encoding="utf-8").split("\n")[1:7]
+    assert (
+        [line.partition(":")[0] for line in front],
+        "tags: [ai]" in front,
+    ) == (["id", "created", "modified", "type", "tags", "generator"], True)
+
+
+def test_808_r5_a_note_that_is_not_utf8_is_left_alone_and_named(
+    world: tuple[Path, Path],
+) -> None:
+    source, vault = world
+    session(source, "a.jsonl", record("m1", usage(input=100), stamp="2026-11-01T10:00:00Z"))
+    # Written in November, as Claude Code would have, so the range does not skip the file.
+    november_day = datetime(2026, 11, 1, 12, tzinfo=UTC).timestamp()
+    os.utime(source / "a.jsonl", (november_day, november_day))
+    november = f"{CONFIG}/Model use/2026-11.md"
+    bad = b"---\n\xff\xfe broken\n---\n"
+    (vault / CONFIG / "Model use").mkdir(parents=True)
+    (vault / NOTE).write_bytes(bad)
+
+    report = run(source, vault, CONFIG, date(2026, 10, 31), date(2026, 11, 1), NOW)
+
+    assert (report, (vault / NOTE).read_bytes(), (vault / november).is_file()) == (
+        [f"left alone {NOTE}", f"written {november}"],
+        bad,
+        True,
+    )

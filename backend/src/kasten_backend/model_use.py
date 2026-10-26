@@ -7,13 +7,14 @@ format is in docs/reference/model-use-format.md.
 """
 
 import argparse
+import sys
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
 from kasten_backend.config import DEFAULTS
 from kasten_backend.model_use_config import CONFIG_NOTE, Config, read_config
 from kasten_backend.model_use_notes import months, note_path, write_month
-from kasten_backend.model_use_sessions import read_messages, usage_lines
+from kasten_backend.model_use_sessions import has_sessions, read_messages, usage_lines
 
 BUNDLED = Path(__file__).parent / "model-use.md"
 """The price table the package ships, read when the vault holds no config note of its own."""
@@ -35,11 +36,11 @@ def run(  # noqa: PLR0913, PLR0917  each part of a run is its own argument
     config, notices = _config(vault, config_path)
     report = [*notices, *config.skipped]
     start, end = first.isoformat(), last.isoformat()
-    usages = usage_lines(read_messages(source), config, start, end)
+    usages = usage_lines(read_messages(source, first), config, start, end)
     for month in months(first, last):
         path = note_path(vault, config_path, month)
         fresh = [usage for usage in usages if usage.day[:7] == month]
-        outcome = write_month(path, month, fresh, start, end, now)
+        outcome = write_month(path, month, fresh, now)
         if outcome:
             report.append(f"{outcome} {path.relative_to(vault).as_posix()}")
     return report
@@ -60,6 +61,11 @@ def main(argv: list[str] | None = None) -> int:
     last = args.end or today
     if first > last:
         parser.error("--from is after --to")
+    # A source that is missing or holds no session file is refused, not read as an empty
+    # month: an empty read would clear the days of the range from their notes.
+    if not has_sessions(args.source):
+        print(f"No session files (*.jsonl) under {args.source}: nothing written", file=sys.stderr)
+        return 2
 
     for line in run(args.source, args.vault, args.config, first, last, datetime.now(UTC)):
         print(line)
