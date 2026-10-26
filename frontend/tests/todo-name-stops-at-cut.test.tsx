@@ -247,7 +247,7 @@ describe("#1027 the name stops at a cut field by touch", () => {
     const text = `## TODOs\n${line}`;
     const written = () =>
       (saveNote.mock.calls.find(([path]) => path === PATH)?.[1] as string | undefined)?.split("\n");
-    const rows: TodoHit[] = [{ path: PATH, line: 2, text: line, project: null }];
+    const rows: TodoHit[] = [{ path: PATH, line: 2, text: line, project: null, shared: false }];
     fetchFiles.mockImplementation(async () => [...Object.keys(VAULT), PATH]);
     // A note the vault lacks is NoteMissing, as the api answers it, not undefined.
     fetchNote.mockImplementation(async (path: string) => {

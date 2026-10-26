@@ -3,9 +3,9 @@ import type { SearchHit, TodoHit } from "@/lib/api";
 import { shiftDay } from "@/lib/clock";
 import { rankLines } from "@/lib/fuzzy";
 import { dailyDate } from "@/lib/periodic";
-import { isOpen, parseTodo, type Todo } from "@/lib/todo";
+import { isOpen, parseTodo, type Todo, type TodoState } from "@/lib/todo";
 import { type Closed, closedAmong } from "@/lib/todo-blocked";
-import { onBoard } from "@/lib/todo-board";
+import { kindOf, onBoard } from "@/lib/todo-board";
 import type { TodoPriority } from "@/lib/todo-fields";
 import { matchesFilter, parseFilter } from "@/lib/todo-shorthand";
 import { parseSession, type Session } from "@/lib/todo-time";
@@ -137,6 +137,39 @@ function narrow(rows: Row[], line: string, today: string): Row[] {
 }
 
 /**
+ * The kind a row is, read the way the board reads a card: its own tag, else the
+ * nearest ancestor's. Walked up the forest the way the lanes walk it, so a part
+ * the filter hides still takes its parent's kind.
+ */
+function kindAt(parents: Map<string, Placed>, hit: TodoHit, todo: Todo): string | null {
+  const above: Todo[] = [];
+  for (
+    let up = parents.get(rowKey(hit));
+    up !== undefined;
+    up = parents.get(`${hit.path}:${up.line}`)
+  ) {
+    above.push(up.todo);
+  }
+  return kindOf(todo, above);
+}
+
+/**
+ * What a view keeps: the kind the filter names, and the shared lists unless they
+ * are hidden, then the filter line. The kind and the shared lists are read off
+ * the whole tree before the line narrows anything, so all three hold at once.
+ */
+function scoped(
+  rows: Row[],
+  ofKind: (row: Row) => boolean,
+  sharedOn: boolean,
+  line: string,
+  today: string,
+): Row[] {
+  const kept = rows.filter((row) => ofKind(row) && (sharedOn || row.hit.shared !== true));
+  return narrow(kept, line, today);
+}
+
+/**
  * How far back `d` reaches, in days.
  *
  * Seven, and read the way `due:<7d` is read, so the seventh day back is already
@@ -172,6 +205,10 @@ export function useTodoRows(o: {
   listed: Mode;
   line: string;
   board: boolean;
+  /** The kind the chips name, or null for All. */
+  kind: string | null;
+  /** Whether the shared lists are shown. */
+  shared: boolean;
 }): RowFacts & {
   parents: Map<string, Placed>;
   timers: number;
@@ -179,8 +216,14 @@ export function useTodoRows(o: {
   cards: Row[];
   groups: { heading: string; rows: Row[] }[];
   rows: Row[];
+  /** The Done this week fold under the open list: what `d` reads, scoped and narrowed. */
+  doneWeek: Row[];
+  /** The legend's count per state, of what is shown. */
+  counts: Record<TodoState, number>;
+  /** How many rows the view would add if the shared lists were shown. */
+  sharedHidden: number;
 } {
-  const { data, today, picking, listed, line, board } = o;
+  const { data, today, picking, listed, line, board, kind, shared } = o;
 
   // Every line the vault answered with, read once. One endpoint answers both
   // shapes, so a line is a todo or a session and never both, and the four memos
@@ -233,6 +276,12 @@ export function useTodoRows(o: {
 
     return { trees, hits, parents, todos };
   }, [parsed]);
+
+  /** Whether a row is the kind the chips name. All passes every row. */
+  const ofKind = useMemo(
+    () => (row: Row) => kind === null || kindAt(forest.parents, row.hit, row.todo) === kind,
+    [forest, kind],
+  );
 
   // A session line is not work to do, and neither is a finished todo. A todo
   // whose `🛫` has not arrived goes with them: a list of things you cannot start
@@ -339,15 +388,21 @@ export function useTodoRows(o: {
     return found;
   }, [parsed, today, forest]);
 
-  const shown = useMemo(() => {
-    const lists: Record<Mode, Row[]> = { open, done: finished, next };
-    return narrow(lists[listed], line, today);
-  }, [open, finished, next, listed, line, today]);
+  const lists = useMemo(
+    (): Record<Mode, Row[]> => ({ open, done: finished, next }),
+    [open, finished, next],
+  );
+
+  const shown = useMemo(
+    () => scoped(lists[listed], ofKind, shared, line, today),
+    [lists, listed, ofKind, shared, line, today],
+  );
 
   // What `c` draws: the open todos and the ones finished lately, rejected too,
   // each as the tree left it. A todo whose `🛫` has not arrived stays off, as
-  // it does in the list.
-  const cards = useMemo(() => {
+  // it does in the list. Narrowed after, in `cards`, so the shared count can
+  // read the same rows with the lists shown.
+  const boardRows = useMemo(() => {
     if (!board) return [];
     const found: Row[] = [];
     for (const { hit, todo } of parsed) {
@@ -356,8 +411,61 @@ export function useTodoRows(o: {
       if (isOpen(full) && waiting(full, today)) continue;
       found.push({ hit, todo: full });
     }
-    return narrow(found, line, today);
-  }, [board, parsed, forest, line, today]);
+    return found;
+  }, [board, parsed, forest, today]);
+
+  const cards = useMemo(
+    () => scoped(boardRows, ofKind, shared, line, today),
+    [boardRows, ofKind, shared, line, today],
+  );
+
+  // The Done this week fold under the open list. Not on the board, which has
+  // its own done cards, and not while a blocker is picked: a finished todo is
+  // no blocker to pick, so the picker leaves it out.
+  const foldShown = listed === "open" && picking === null;
+  const doneWeek = useMemo(
+    () => (foldShown && !board ? scoped(finished, ofKind, shared, line, today) : []),
+    [foldShown, board, finished, ofKind, shared, line, today],
+  );
+
+  // Rejected todos the board would draw, for the legend. Read with `onBoard`,
+  // as the board reads them, so the count and the cards agree.
+  const rejected = useMemo(() => {
+    const found: Row[] = [];
+    for (const { hit, todo } of parsed) {
+      const full = forest.todos.get(rowKey(hit)) ?? todo;
+      if (full !== null && full.state === "rejected" && onBoard(full, today)) {
+        found.push({ hit, todo: full });
+      }
+    }
+    return scoped(found, ofKind, shared, line, today);
+  }, [parsed, forest, today, ofKind, shared, line]);
+
+  const counts = useMemo(() => {
+    const found: Record<TodoState, number> = {
+      open: 0,
+      doing: 0,
+      review: 0,
+      waiting: 0,
+      blocked: 0,
+      done: doneWeek.length,
+      rejected: rejected.length,
+    };
+    if (listed === "open") for (const { todo } of shown) found[todo.state] += 1;
+    return found;
+  }, [shown, listed, doneWeek, rejected]);
+
+  // How many rows the view would add with the shared lists on: the same rows,
+  // read twice, once with them and once without. Nothing while they are shown.
+  const sharedHidden = useMemo(() => {
+    if (shared) return 0;
+    const hidden = (rows: Row[]) =>
+      scoped(rows, ofKind, true, line, today).length -
+      scoped(rows, ofKind, false, line, today).length;
+    if (board) return scoped(boardRows, ofKind, true, line, today).length - cards.length;
+    const doneHidden = foldShown ? hidden(finished) : 0;
+    return hidden(lists[listed]) + doneHidden;
+  }, [shared, board, boardRows, cards, lists, listed, foldShown, finished, ofKind, line, today]);
 
   // The heading is the group's name here, not a lookup at the draw, because
   // `d` groups on a date and there is no table of every day there has been.
@@ -389,5 +497,8 @@ export function useTodoRows(o: {
     cards,
     groups,
     rows,
+    doneWeek,
+    counts,
+    sharedHidden,
   };
 }

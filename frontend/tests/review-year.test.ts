@@ -15,7 +15,7 @@ const KASTEN = "02 Projects/Kasten";
 const YEAR = { from: "2026-01-01", to: "2026-12-31" };
 
 function todo(text: string, project: string | null = FDE): TodoHit {
-  return { path: "02 Projects/tasks.md", line: 1, text, project };
+  return { path: "02 Projects/tasks.md", line: 1, text, project, shared: false };
 }
 
 function note(day: string, project: string | null, tags: string[] = []): WrittenNote {

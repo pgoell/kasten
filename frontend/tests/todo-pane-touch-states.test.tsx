@@ -32,7 +32,8 @@ describe("the todo pane by touch", () => {
 
     fireEvent.click(state);
     // The state the second tap would leave, and a question mark.
-    expect(state.textContent).toBe("◐?");
+    expect(state.querySelector('svg[data-state="doing"]')).not.toBeNull();
+    expect(state.textContent).toBe("?");
     expect(state.getAttribute("aria-pressed")).toBe("true");
     expect(pane.onCycle).not.toHaveBeenCalled();
 
@@ -40,7 +41,7 @@ describe("the todo pane by touch", () => {
     // The hit and no state, which is what `x` sends.
     expect(pane.onCycle).toHaveBeenCalledTimes(1);
     expect(pane.onCycle).toHaveBeenCalledWith(TODOS[3]);
-    expect(state.textContent).toBe("☐");
+    expect(state.querySelector('svg[data-state="open"]')).not.toBeNull();
     expect(pane.onOpen).not.toHaveBeenCalled();
   });
 
@@ -50,11 +51,12 @@ describe("the todo pane by touch", () => {
     const pane = renderPane([hit]);
     await waitFor(() => expect(row("write the parser")).toBeDefined());
     const state = screen.getByLabelText("cycle write the parser");
-    expect(state.textContent).toBe("◎");
+    expect(state.querySelector('svg[data-state="review"]')).not.toBeNull();
 
     fireEvent.click(state);
     // Review leaves the walk for done, which is the owner's approval.
-    expect(state.textContent).toBe("☑?");
+    expect(state.querySelector('svg[data-state="done"]')).not.toBeNull();
+    expect(state.textContent).toBe("?");
     expect(pane.onCycle).not.toHaveBeenCalled();
 
     fireEvent.click(state);
@@ -126,7 +128,7 @@ describe("the todo pane by touch", () => {
     );
     const state = await screen.findByLabelText("cycle feed the cat");
     expect(state.getAttribute("aria-pressed")).toBe("false");
-    expect(state.textContent).toBe("☐");
+    expect(state.querySelector('svg[data-state="open"]')).not.toBeNull();
 
     // A first tap for this todo, which asks and writes nothing.
     fireEvent.click(state);

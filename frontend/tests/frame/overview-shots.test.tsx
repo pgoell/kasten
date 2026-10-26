@@ -128,6 +128,7 @@ const todo = (line: number, text: string): TodoHit => ({
   line,
   text,
   project: null,
+  shared: false,
 });
 
 // Done today and in the fortnight before, a few a day, then some open ones, two of them overdue.

@@ -1,6 +1,7 @@
 import { chipNote, PersonChip } from "@/components/person-chip";
-import { ROW } from "@/lib/overlay-styles";
-import { isOpen, PRIORITY_SYMBOL, STATE_SYMBOL, type Todo } from "@/lib/todo";
+import { TodoStateBox } from "@/components/todo-state-box";
+import { isOpen, PRIORITY_SYMBOL, type Todo } from "@/lib/todo";
+import { laneName } from "@/lib/todo-board";
 import { isClient, waitOf, waitsFor } from "@/lib/todo-view";
 import { type Row, type RowFacts, rowKey } from "@/lib/use-todo-rows";
 
@@ -35,7 +36,14 @@ const CURSOR = [
   "focus:outline-2 focus:outline-k-accent focus:bg-k-accent/15",
 ].join(" ");
 
-/** One row of the list: the line as a button that opens its note. */
+/**
+ * One row of the list: the line as a button that opens its note.
+ *
+ * Two lines: the words, and under them a meta line in the smaller, muted face
+ * that says what else the todo carries. The date is at the right, in the
+ * danger colour once it is past. The row sits on the pane's ground and never
+ * on a surface: `--k-danger` reads 4.34:1 on `--k-surface`, short of 4.5.
+ */
 export function TodoRow({
   row,
   facts,
@@ -72,6 +80,20 @@ export function TodoRow({
   const blockers = waitsFor(todo, facts.links.named, facts.links.closed);
   const dependents =
     todo.id !== undefined && isOpen(todo) ? facts.links.dependents.get(todo.id) : undefined;
+  const progress = facts.progress.get(key);
+  // A row with nothing for its meta line draws none, so a bare todo is one line.
+  // A row the answer left no project on reads as none, undefined as null.
+  const meta =
+    hit.project != null ||
+    todo.tags.length > 0 ||
+    todo.assignee !== undefined ||
+    wait !== null ||
+    blockers.length > 0 ||
+    dependents !== undefined ||
+    progress !== undefined ||
+    time !== null;
+  // A date that is past on a todo still open. A finished one is a record, not a debt.
+  const overdue = todo.due !== undefined && isOpen(todo) && todo.due < today;
 
   return (
     <button
@@ -95,73 +117,77 @@ export function TodoRow({
       // heading of its own: its state is written on the line, and
       // the date group is still where the work belongs. A waiting
       // row is held the same way, by a person rather than a todo.
-      className={`${ROW} flex gap-2 ${muted ? "text-k-muted" : "text-k-ink"} ${cursor ? CURSOR : ""} ${coarse ? "min-h-11 min-w-0 items-center" : ""} ${enter === undefined ? "" : "k-enter"}`}
+      className={`k-row flex w-full min-w-0 cursor-pointer items-center gap-2 px-3 py-[3px] text-left font-sans ${muted ? "text-k-muted" : "text-k-ink"} ${cursor ? CURSOR : ""} ${coarse ? "min-h-11" : ""} ${enter === undefined ? "" : "k-enter"}`}
     >
-      {!coarse && <span className="shrink-0">{STATE_SYMBOL[todo.state]}</span>}
-      {/* Leftmost of what a row carries beyond its state, so
-        scanning the list finds what is going. */}
-      {mark !== null && <span className="shrink-0 text-k-ok">{mark}</span>}
-      {/* Between the state and the words, where the spec's mock
-        puts it, and absent rather than blank on a row that
-        carries none. */}
-      {todo.priority !== undefined && (
-        <span className="shrink-0">{PRIORITY_SYMBOL[todo.priority]}</span>
-      )}
-      {/* Drawn as well as left in the words, because a part takes
-        the mark off its parent and has no tag to show. */}
-      {isClient(todo) && (
-        <span title="client work" className="shrink-0 text-k-accent">
-          {CLIENT_MARK}
+      {/* On touch the state button in front of the row carries the box instead. */}
+      {!coarse && <TodoStateBox state={todo.state} />}
+      <span className="flex min-w-0 flex-1 flex-col">
+        <span className="flex min-w-0 items-baseline gap-2 text-k-15">
+          {/* Leftmost of what a row carries beyond its state, so
+            scanning the list finds what is going. */}
+          {mark !== null && <span className="shrink-0 text-k-ok">{mark}</span>}
+          {/* Between the state and the words, where the spec's mock
+            puts it, and absent rather than blank on a row that
+            carries none. */}
+          {todo.priority !== undefined && (
+            <span className="shrink-0">{PRIORITY_SYMBOL[todo.priority]}</span>
+          )}
+          {/* Drawn as well as left in the words, because a part takes
+            the mark off its parent and has no tag to show. */}
+          {isClient(todo) && (
+            <span title="client work" className="shrink-0 text-k-accent">
+              {CLIENT_MARK}
+            </span>
+          )}
+          {/* What this is a part of, in front of the part itself, so
+            a next action reads as work on something. Muted: the row
+            is about the action, and this says where it sits. */}
+          {under !== undefined && (
+            <span className="max-w-[40%] shrink-0 truncate text-k-muted">{under}</span>
+          )}
+          {/* Struck while it stays in the list it was checked off in, so the
+            words say what was done without the row moving under the finger. */}
+          <span
+            className={`min-w-[8ch] flex-1 truncate ${struck ? "text-k-muted line-through" : ""}`}
+          >
+            {todo.text}
+          </span>
         </span>
-      )}
-      {/* What this is a part of, in front of the part itself, so
-        a next action reads as work on something. Muted: the row
-        is about the action, and this says where it sits. */}
-      {under !== undefined && (
-        <span className="max-w-[40%] shrink-0 truncate text-k-muted">{under}</span>
-      )}
-      {/* Struck while it stays in the list it was checked off in, so the
-        words say what was done without the row moving under the finger. */}
-      <span className={`min-w-[8ch] flex-1 truncate ${struck ? "text-k-muted line-through" : ""}`}>
-        {todo.text}
+        {meta && (
+          <span className="flex min-w-0 flex-wrap items-center gap-x-2 text-[12px] text-k-muted">
+            {hit.project != null && <span className="shrink-0">{laneName(hit.project)}</span>}
+            {todo.tags.length > 0 && <span className="shrink-0">{todo.tags.join(" ")}</span>}
+            {/* Who the todo is for, out of the words' truncation the way the date is
+              kept, and the one chip of the person's note (#809). */}
+            {todo.assignee !== undefined && <PersonChip assignee={todo.assignee} paths={files} />}
+            {/* Who a waiting row is on and for how many days, taken off
+              the line's `👤`. */}
+            {wait !== null && <span className="max-w-[40%] truncate">{wait}</span>}
+            {/* What the row waits for: the blocker's words where there
+              is one, a count where there are more, and every one of
+              them in the title. Nothing for a blocker already closed. */}
+            {blockers.length > 0 && (
+              <span title={`waits for:\n${blockers.join("\n")}`} className="max-w-[40%] truncate">
+                ⛔ {blockers.length === 1 ? blockers[0] : blockers.length}
+              </span>
+            )}
+            {/* And what waits for it, as a count: the words are on the
+              rows that wait. */}
+            {dependents !== undefined && (
+              <span
+                title={`blocks:\n${dependents.map((one) => one.text).join("\n")}`}
+                className="shrink-0"
+              >
+                → {dependents.length}
+              </span>
+            )}
+            {progress !== undefined && <span className="shrink-0">{progress}</span>}
+            {/* What is on the line, not a sum: a running session lands here
+              when it is stopped. */}
+            {time !== null && <span className="shrink-0">{time}</span>}
+          </span>
+        )}
       </span>
-      {/* Who the todo is for, beside its words and out of their
-        truncation, the way the date is kept. */}
-      {todo.assignee !== undefined && <PersonChip assignee={todo.assignee} paths={files} />}
-      {/* Between the words and the date, where the spec's mock
-        puts it, and out of the truncation for the reason the
-        date is: it is the shortest thing on the row. */}
-      {facts.progress.has(key) && (
-        <span className="shrink-0 text-k-muted">{facts.progress.get(key)}</span>
-      )}
-      {/* What the row waits for: the blocker's words where there
-        is one, a count where there are more, and every one of
-        them in the title. Nothing for a blocker already closed. */}
-      {blockers.length > 0 && (
-        <span
-          title={`waits for:\n${blockers.join("\n")}`}
-          className="max-w-[40%] shrink-0 truncate text-k-muted"
-        >
-          ⛔ {blockers.length === 1 ? blockers[0] : blockers.length}
-        </span>
-      )}
-      {/* And what waits for it, as a count: the words are on the
-        rows that wait. */}
-      {dependents !== undefined && (
-        <span
-          title={`blocks:\n${dependents.map((one) => one.text).join("\n")}`}
-          className="shrink-0 text-k-muted"
-        >
-          → {dependents.length}
-        </span>
-      )}
-      {/* Who a waiting row is on and for how many days, taken off
-        the line's `👤`. */}
-      {wait !== null && <span className="max-w-[40%] shrink-0 truncate text-k-muted">{wait}</span>}
-      {/* Out of the truncation for the reason the date is. What
-        is on the line, not a sum: a running session lands here
-        when it is stopped. */}
-      {time !== null && <span className="shrink-0 text-k-muted">{time}</span>}
       {/* Out of the truncation, so a long todo loses its words
         rather than the date they are due on. The year is cut
         from a date inside this one, where every row shares it,
@@ -169,7 +195,9 @@ export function TodoRow({
         two rows reading `01-01` say nothing about which is
         sooner. */}
       {todo.due !== undefined && (
-        <span className="shrink-0 text-k-muted">
+        <span
+          className={`shrink-0 text-[13px] tabular-nums ${overdue ? "text-k-danger" : "text-k-muted"}`}
+        >
           {todo.due.startsWith(today.slice(0, 4)) ? todo.due.slice(5) : todo.due}
         </span>
       )}

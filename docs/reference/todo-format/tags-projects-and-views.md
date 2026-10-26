@@ -95,6 +95,18 @@ you typed to look for. A bare `#` names no tag and is a word like any other.
 finished and you have not ticked. `-/review` leaves those out. A line in
 [the saved views note](#saved-views), `- review: /review`, puts it one `v` away.
 
+## Kind chips and shared lists
+
+Under the filter line the pane has four kind chips, All, #client, #internal and
+#private. A chip keeps only the todos of that kind. A todo's kind is its own
+kind tag, or else its nearest ancestor's, so a part inherits its parent's kind.
+The chips narrow the list and the board alike, and they combine with the filter
+terms above.
+
+The Shared lists toggle is a filter too. Todos in a note directly inside
+`05 Shared` are hidden until it is on, and the toggle says how many are hidden.
+While hidden it reads `Shared lists, N hidden`, and once shown it reads `Shared lists, shown`. It is hidden at first, and its state stays on that device.
+
 ## Saved views
 
 `99 Misc/01 Config/todo-views.md` on the default layout

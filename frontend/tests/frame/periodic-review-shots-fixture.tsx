@@ -70,6 +70,7 @@ const DONE: TodoHit[] = Array.from({ length: 36 }, (_, k) => {
     line: k + 3,
     text: `- [x] task ${k} ✅ ${spread(k, 36)}${time}`,
     project,
+    shared: false,
   };
 });
 
@@ -79,30 +80,35 @@ const WEEK_TODOS: TodoHit[] = [
     line: 60,
     text: `- [x] ship the export ✅ ${shiftDay(MONDAY, 1)} ⏱ 1h30m`,
     project: PROJECTS[0] ?? null,
+    shared: false,
   },
   {
     path: `${PROJECTS[1]}/tasks.md`,
     line: 61,
     text: `- [x] reply to Anna ✅ ${shiftDay(MONDAY, 2)} ⏱ 10m`,
     project: PROJECTS[1] ?? null,
+    shared: false,
   },
   {
     path: `${PROJECTS[2]}/tasks.md`,
     line: 62,
     text: `- [x] fix the boiler ✅ ${shiftDay(MONDAY, 4)}`,
     project: PROJECTS[2] ?? null,
+    shared: false,
   },
   {
     path: "00 Inbox/tasks.md",
     line: 63,
     text: `- [ ] send the deck 📅 ${shiftDay(MONDAY, 2)}`,
     project: null,
+    shared: false,
   },
   {
     path: "00 Inbox/tasks.md",
     line: 64,
     text: `- [ ] renew passport 📅 ${shiftDay(TODAY, 9)}`,
     project: null,
+    shared: false,
   },
 ];
 

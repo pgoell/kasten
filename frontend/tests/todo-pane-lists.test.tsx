@@ -81,7 +81,12 @@ describe("the todo pane", () => {
     // Grouped by the day they were finished rather than by when they were due,
     // a finished todo having no due date worth grouping on. Newest day first.
     await waitFor(() => expect(pane.rows()).toHaveLength(2));
-    expect(pane.headings()).toEqual(["2026-08-10", "2026-08-08"]);
+    // Each group's heading now carries its row count after the day (#811), so the
+    // count is taken off here; the day is what this test is about.
+    expect(pane.headings().map((heading) => heading?.replace(/ \d+$/, ""))).toEqual([
+      "2026-08-10",
+      "2026-08-08",
+    ]);
     expect(pane.texts()[0]).toContain("read the spec");
     expect(pane.texts()[1]).toContain("write the spec");
     // Nine days back is past the window.

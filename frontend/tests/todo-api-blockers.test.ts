@@ -158,7 +158,13 @@ describe("#537 a ⛔ naming a 🆔 two todos carry", () => {
     const notes: Record<string, string> = { "inbox.md": lines.join("\n"), [daily]: "## Done\n" };
     serve(notes);
     fetchTodos.mockResolvedValue(
-      lines.map((text, index) => ({ path: "inbox.md", line: index + 1, text, project: null })),
+      lines.map((text, index) => ({
+        path: "inbox.md",
+        line: index + 1,
+        text,
+        project: null,
+        shared: false,
+      })),
     );
 
     await cycleTodoInVault(
@@ -189,10 +195,16 @@ describe("#537 a ⛔ naming a 🆔 two todos carry", () => {
     };
     serve(notes);
     fetchTodos.mockResolvedValue([
-      { path: "d.md", line: 1, text: "- [/] d 🆔 kt-dddddd", project: null },
-      { path: "a.md", line: 1, text: "- [ ] a 🆔 kt-aaaaaa", project: null },
-      { path: "b.md", line: 1, text: "- [x] a 🆔 kt-aaaaaa", project: null },
-      { path: "deps.md", line: 1, text: "- [b] c ⛔ kt-dddddd ⛔ kt-aaaaaa", project: null },
+      { path: "d.md", line: 1, text: "- [/] d 🆔 kt-dddddd", project: null, shared: false },
+      { path: "a.md", line: 1, text: "- [ ] a 🆔 kt-aaaaaa", project: null, shared: false },
+      { path: "b.md", line: 1, text: "- [x] a 🆔 kt-aaaaaa", project: null, shared: false },
+      {
+        path: "deps.md",
+        line: 1,
+        text: "- [b] c ⛔ kt-dddddd ⛔ kt-aaaaaa",
+        project: null,
+        shared: false,
+      },
     ]);
 
     await cycleTodoInVault(
@@ -211,9 +223,9 @@ describe("#537 a ⛔ naming a 🆔 two todos carry", () => {
     const blocker = { path: "release.md", line: 1, text: "- [ ] a 🆔 kt-aaaaaa" };
     serve({ "docs.md": "# Docs\n- [ ] write the docs", "release.md": blocker.text });
     fetchTodos.mockResolvedValue([
-      { ...docs, project: null },
-      { ...blocker, project: null },
-      { path: "other.md", line: 3, text: "- [x] a 🆔 kt-aaaaaa", project: null },
+      { ...docs, project: null, shared: false },
+      { ...blocker, project: null, shared: false },
+      { path: "other.md", line: 3, text: "- [x] a 🆔 kt-aaaaaa", project: null, shared: false },
     ]);
 
     await expect(blockTodoInVault(docs, blocker)).rejects.toThrow(

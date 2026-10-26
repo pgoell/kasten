@@ -60,6 +60,8 @@ describe("the todo board", () => {
       "Rejected 1",
     ]);
     expect(pane.texts().join()).not.toContain("old idea");
+    // Rejected is folded on a desktop by default (#811 A7), so a click draws its card.
+    fireEvent.click(screen.getByRole("button", { name: "Rejected 1" }));
     expect(pane.texts().join()).toContain("drop the logo");
   });
 
@@ -96,9 +98,27 @@ describe("the todo board", () => {
   it("#541 I4 a card waits on an id two todos carry, though the done twin is listed last", async () => {
     const pane = await boardPane({
       hits: [
-        { path: DAILY, line: 1, text: "- [ ] ship the release 🆔 kt-aaaaaa", project: null },
-        { path: DAILY, line: 2, text: "- [x] cut the branch 🆔 kt-aaaaaa", project: null },
-        { path: DAILY, line: 3, text: "- [b] write the docs ⛔ kt-aaaaaa", project: null },
+        {
+          path: DAILY,
+          line: 1,
+          text: "- [ ] ship the release 🆔 kt-aaaaaa",
+          project: null,
+          shared: false,
+        },
+        {
+          path: DAILY,
+          line: 2,
+          text: "- [x] cut the branch 🆔 kt-aaaaaa",
+          project: null,
+          shared: false,
+        },
+        {
+          path: DAILY,
+          line: 3,
+          text: "- [b] write the docs ⛔ kt-aaaaaa",
+          project: null,
+          shared: false,
+        },
       ],
     });
 
@@ -114,11 +134,16 @@ describe("the todo board", () => {
 
   it("#429 A4 a review card sits in a Review column after Doing, in a grid of seven", async () => {
     const pane = await boardPane({
-      hits: [...BOARD, { path: DAILY, line: 9, text: "- [r] write the parser", project: null }],
+      hits: [
+        ...BOARD,
+        { path: DAILY, line: 9, text: "- [r] write the parser", project: null, shared: false },
+      ],
     });
 
     expect(pane.columns().slice(0, 3)).toEqual(["Open 3", "Doing 1", "Review 1"]);
-    // Seven columns, so the grid and every lane's span count seven.
+    // Seven columns, so the grid and every lane's span count seven. Rejected is
+    // folded by default (#811 A7), which narrows its track, so it is unfolded here.
+    fireEvent.click(screen.getByRole("button", { name: "Rejected 1" }));
     const grid = screen.getAllByTestId("todo-column")[0]?.parentElement;
     expect(grid?.className).toContain("grid-cols-7");
     expect(grid?.innerHTML).not.toContain("col-span-6");
@@ -135,7 +160,13 @@ describe("the todo board", () => {
 
   it("#429 A4 a phone has a Review tab, and the card's strip sets review on one tap", async () => {
     stubMatchMedia({ [NARROW]: true, [COARSE]: true });
-    const review = { path: DAILY, line: 9, text: "- [r] write the parser", project: null };
+    const review = {
+      path: DAILY,
+      line: 9,
+      text: "- [r] write the parser",
+      project: null,
+      shared: false,
+    };
     const pane = await boardPane({ hits: [...BOARD, review] });
 
     fireEvent.click(screen.getByRole("tab", { name: "Review 1" }));
@@ -157,13 +188,14 @@ describe("the todo board", () => {
   it("A3 the lanes button switches lanes on a touch screen", async () => {
     stubMatchMedia({ [NARROW]: true, [COARSE]: true });
     const pane = await boardPane();
-    expect(pane.headings()).toEqual(["#client", "#internal", "No kind"]);
+    // A lane with nothing in the shown column is drawn folded on a phone (#811 A8), so #private shows.
+    expect(pane.headings()).toEqual(["#client", "#internal", "#private", "No kind"]);
 
-    fireEvent.click(screen.getByRole("button", { name: "lanes" }));
+    fireEvent.click(screen.getByRole("button", { name: "project" }));
     expect(pane.headings()).toEqual(["No project", "FDE"]);
 
-    fireEvent.click(screen.getByRole("button", { name: "lanes" }));
-    expect(pane.headings()).toEqual(["#client", "#internal", "No kind"]);
+    fireEvent.click(screen.getByRole("button", { name: "kind" }));
+    expect(pane.headings()).toEqual(["#client", "#internal", "#private", "No kind"]);
   });
 
   it("A3 the lanes button does what g does: cursor to the top, focus on its card", async () => {
@@ -172,7 +204,7 @@ describe("the todo board", () => {
     pane.press("j");
     expect(pane.cursor()).toContain("write the deck");
 
-    const lanes = screen.getByRole("button", { name: "lanes" });
+    const lanes = screen.getByRole("button", { name: "project" });
     lanes.focus();
     fireEvent.click(lanes);
 
@@ -185,8 +217,20 @@ describe("the todo board", () => {
     const errors = vi.spyOn(console, "error").mockImplementation(() => {});
     const pane = await boardPane({
       hits: [
-        { path: "02 Projects/Foo/a.md", line: 1, text: "- [ ] one", project: "02 Projects/Foo" },
-        { path: "03 Areas/Foo/b.md", line: 1, text: "- [ ] two", project: "03 Areas/Foo" },
+        {
+          path: "02 Projects/Foo/a.md",
+          line: 1,
+          text: "- [ ] one",
+          project: "02 Projects/Foo",
+          shared: false,
+        },
+        {
+          path: "03 Areas/Foo/b.md",
+          line: 1,
+          text: "- [ ] two",
+          project: "03 Areas/Foo",
+          shared: false,
+        },
       ],
     });
 
@@ -214,13 +258,20 @@ describe("lanes by the project the backend names (#395, #394)", () => {
     line: 1,
     text: "- [ ] send the deck #p/fde",
     project: "02 Projects/FDE",
+    shared: false,
   };
 
   it("A2 #395 a daily todo with no link sits in the lane the API names", async () => {
     const pane = await boardPane({
       hits: [
-        { path: DAILY, line: 4, text: "- [ ] send the deck", project: "02 Projects/FDE" },
-        { path: DAILY, line: 6, text: "- [ ] fix the tap", project: null },
+        {
+          path: DAILY,
+          line: 4,
+          text: "- [ ] send the deck",
+          project: "02 Projects/FDE",
+          shared: false,
+        },
+        { path: DAILY, line: 6, text: "- [ ] fix the tap", project: null, shared: false },
       ],
     });
 
@@ -235,7 +286,13 @@ describe("lanes by the project the backend names (#395, #394)", () => {
     const pane = await boardPane({
       hits: [
         TAGGED,
-        { path: KASTEN, line: 2, text: "- [ ] fix the tap", project: "02 Projects/Kasten" },
+        {
+          path: KASTEN,
+          line: 2,
+          text: "- [ ] fix the tap",
+          project: "02 Projects/Kasten",
+          shared: false,
+        },
       ],
     });
 
@@ -280,7 +337,7 @@ describe("lanes by the project the backend names (#395, #394)", () => {
     stubMatchMedia({ [NARROW]: true, [COARSE]: true });
     const pane = await boardPane({ hits: [...BOARD.slice(0, 2), TAGGED] });
 
-    fireEvent.click(screen.getByRole("button", { name: "lanes" }));
+    fireEvent.click(screen.getByRole("button", { name: "project" }));
 
     expect(pane.headings()).toEqual(["FDE"]);
     expect(screen.getAllByRole("tab")[0]?.textContent).toBe("Open 2");

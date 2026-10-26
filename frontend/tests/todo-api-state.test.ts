@@ -214,9 +214,21 @@ describe("cycleTodoAside", () => {
     };
     fetchNote.mockImplementation(async (path: string) => notes[path]);
     fetchTodos.mockResolvedValue([
-      { path: "projects/kasten.md", line: 3, text: "- [/] a 🆔 kt-aaaaaa", project: null },
-      { path: "projects/other.md", line: 1, text: "- [ ] a 🆔 kt-aaaaaa", project: null },
-      { path: "deps.md", line: 1, text: "- [b] c ⛔ kt-aaaaaa", project: null },
+      {
+        path: "projects/kasten.md",
+        line: 3,
+        text: "- [/] a 🆔 kt-aaaaaa",
+        project: null,
+        shared: false,
+      },
+      {
+        path: "projects/other.md",
+        line: 1,
+        text: "- [ ] a 🆔 kt-aaaaaa",
+        project: null,
+        shared: false,
+      },
+      { path: "deps.md", line: 1, text: "- [b] c ⛔ kt-aaaaaa", project: null, shared: false },
     ]);
     searchNotes.mockResolvedValue([
       { path: "projects/other.md", line: 1, text: "- [ ] a 🆔 kt-aaaaaa" },
@@ -245,8 +257,20 @@ describe("cycleTodoAside", () => {
     // The disk still holds the twin; the buffer changed its id an autosave ago.
     const daily = periodicNote("daily", new Date()).path;
     fetchTodos.mockResolvedValue([
-      { path: "projects/kasten.md", line: 1, text: "- [/] a 🆔 kt-aaaaaa", project: null },
-      { path: "projects/kasten.md", line: 2, text: "- [/] a 🆔 kt-aaaaaa", project: null },
+      {
+        path: "projects/kasten.md",
+        line: 1,
+        text: "- [/] a 🆔 kt-aaaaaa",
+        project: null,
+        shared: false,
+      },
+      {
+        path: "projects/kasten.md",
+        line: 2,
+        text: "- [/] a 🆔 kt-aaaaaa",
+        project: null,
+        shared: false,
+      },
     ]);
 
     await cycleTodoAside(
@@ -270,7 +294,13 @@ describe("cycleTodoAside", () => {
   it("#534 B2 a <leader>x on a copy the disk does not hold yet is refused", async () => {
     // `yy p` an autosave ago: the disk holds one line, the buffer two.
     fetchTodos.mockResolvedValue([
-      { path: "projects/kasten.md", line: 1, text: "- [/] a 🆔 kt-aaaaaa", project: null },
+      {
+        path: "projects/kasten.md",
+        line: 1,
+        text: "- [/] a 🆔 kt-aaaaaa",
+        project: null,
+        shared: false,
+      },
     ]);
 
     await expect(

@@ -166,7 +166,13 @@ describe("the route", () => {
 
   describe("sending a todo to the agent worker", () => {
     const PATH = "inbox.md";
-    const ROW = { path: PATH, line: 2, text: "- [ ] send the deck 📅 2026-10-20", project: null };
+    const ROW = {
+      path: PATH,
+      line: 2,
+      text: "- [ ] send the deck 📅 2026-10-20",
+      project: null,
+      shared: false,
+    };
 
     /** What the vault holds, which the writes change as a real vault would. */
     let notes: Record<string, string>;
@@ -362,8 +368,8 @@ describe("the route", () => {
 
     it("#523 I2 the pane's @ on a twin tags that twin after a shift", async () => {
       const twins = [
-        { path: PATH, line: 1, text: "- [ ] a", project: null },
-        { path: PATH, line: 2, text: "- [ ] a", project: null },
+        { path: PATH, line: 1, text: "- [ ] a", project: null, shared: false },
+        { path: PATH, line: 2, text: "- [ ] a", project: null, shared: false },
       ];
       const app = await listing(twins, "## TODOs\n- [ ] a\n- [ ] a");
 
@@ -393,8 +399,8 @@ describe("the route", () => {
 
     /** `- [ ] foo` and the same words tagged, both listed. */
     const FOOS = [
-      { path: PATH, line: 2, text: "- [ ] foo", project: null },
-      { path: PATH, line: 3, text: "- [ ] foo #agent", project: null },
+      { path: PATH, line: 2, text: "- [ ] foo", project: null, shared: false },
+      { path: PATH, line: 3, text: "- [ ] foo #agent", project: null, shared: false },
     ];
 
     it("#523 B1 the pane's @ on a row whose line was deleted leaves the tag on the todo below", async () => {
@@ -419,7 +425,7 @@ describe("the route", () => {
 
     it("#523 B2 a second @ whose line now has a twin below a deleted line writes nothing and says so", async () => {
       const rows = [
-        { path: PATH, line: 2, text: "- [ ] x", project: null },
+        { path: PATH, line: 2, text: "- [ ] x", project: null, shared: false },
         ...FOOS.map((row) => ({ ...row, line: row.line + 1 })),
       ];
       const app = await listing(rows, "## TODOs\n- [ ] x\n- [ ] foo\n- [ ] foo #agent");

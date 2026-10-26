@@ -28,7 +28,7 @@ const TODAY = "2026-10-18";
 const DAILY = "01 Periodic/00 Daily/2026-10-18.md";
 const HITS = [
   { path: DAILY, line: 3, text: "- [ ] send the deck", project: "02 Projects/FDE" },
-  { path: DAILY, line: 4, text: "- [ ] book the flights", project: null },
+  { path: DAILY, line: 4, text: "- [ ] book the flights", project: null, shared: false },
 ];
 
 /** The pane over `HITS` at one size, and what `onRefile` was handed. */

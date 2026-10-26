@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { type BoardKeys, TodoBoard } from "@/components/todo-board";
 import { TodoFooter } from "@/components/todo-footer";
 import { TodoHeader } from "@/components/todo-header";
+import { TodoLegend } from "@/components/todo-legend";
 import { TodoList } from "@/components/todo-list";
 import { fetchTodos, type SearchHit, type TodoHit } from "@/lib/api";
 import type { EditorCommands } from "@/lib/key-bindings";
@@ -144,6 +145,12 @@ export function TodoPane({
   const [mode, setMode] = useState<Mode>("open");
   /** `c`: the todos drawn as a board rather than as the list. */
   const [board, setBoard] = useState(false);
+  /**
+   * The Done this week fold under the open list: folded at the start, so the
+   * list reads as what is left to do. Its rows are walked by `j` and `k` only
+   * while it is open.
+   */
+  const [doneOpen, setDoneOpen] = useState(false);
   /** The board's keys, which the handler below hands it in board mode. */
   const boardKeys = useRef<BoardKeys>(null);
   /**
@@ -174,6 +181,8 @@ export function TodoPane({
     listed,
     line: narrowing.line,
     board,
+    kind: narrowing.kind,
+    shared: narrowing.shared,
   });
 
   /**
@@ -198,7 +207,13 @@ export function TodoPane({
           })),
     [holding, facts.groups],
   );
-  const rows = useMemo(() => groups.flatMap((group) => group.rows), [groups]);
+  const groupRows = useMemo(() => groups.flatMap((group) => group.rows), [groups]);
+  // What `j` and `k` walk: the groups, and the Done this week rows once their
+  // fold is open. A folded row is not on screen, so the cursor does not stop on it.
+  const rows = useMemo(
+    () => (doneOpen ? [...groupRows, ...facts.doneWeek] : groupRows),
+    [groupRows, doneOpen, facts.doneWeek],
+  );
 
   // What was drawn becomes the hold, so a row that arrives later takes its place
   // at the end of its group rather than wherever the answer put it. Kept as it
@@ -272,6 +287,24 @@ export function TodoPane({
   /** `c`: the board or the list. Either way the order held for the list is let go. */
   function toggleBoard() {
     setBoard(!board);
+    setHold(null);
+  }
+
+  /**
+   * A kind chip: the list and the board narrow to that kind. The cursor goes
+   * back to the top, as it does when the filter line is typed in, since the rows
+   * under it may now be other rows.
+   */
+  function pickKind(next: string | null) {
+    narrowing.setKind(next);
+    setActive(0);
+    setHold(null);
+  }
+
+  /** The shared toggle, which restarts the cursor for the same reason a chip does. */
+  function flipShared() {
+    narrowing.toggleShared();
+    setActive(0);
     setHold(null);
   }
 
@@ -393,6 +426,15 @@ export function TodoPane({
     act,
   });
 
+  // The fold is a group of its own, so an open list with only finished rows
+  // still has a fold to draw rather than a message over nothing.
+  const empty =
+    groupRows.length === 0 && facts.doneWeek.length === 0
+      ? listed === "done"
+        ? "nothing finished"
+        : "nothing to do"
+      : null;
+
   return (
     // The handler sits on the pane, not the rows: the keys act on the row the
     // cursor is on, which is not always the one holding focus.
@@ -416,7 +458,7 @@ export function TodoPane({
       tabIndex={-1}
       onKeyDown={onKeyDown}
       onPointerDown={armed.disarmElsewhere}
-      className="flex h-full flex-col bg-k-bg font-mono"
+      className="flex h-full flex-col bg-k-bg font-sans"
     >
       <TodoHeader
         filter={filter}
@@ -440,6 +482,11 @@ export function TodoPane({
           view: () => strip(nextView),
           board: () => strip(toggleBoard),
         }}
+        kind={narrowing.kind}
+        onKind={(next) => strip(() => pickKind(next))}
+        shared={narrowing.shared}
+        sharedHidden={facts.sharedHidden}
+        onShared={() => strip(flipShared)}
       />
 
       {board ? (
@@ -461,28 +508,32 @@ export function TodoPane({
           onNotice={onNotice}
         />
       ) : (
-        <TodoList
-          groups={groups}
-          empty={
-            rows.length === 0 ? (listed === "done" ? "nothing finished" : "nothing to do") : null
-          }
-          cursorKey={cursorKey}
-          facts={facts}
-          today={today}
-          coarse={coarse}
-          picking={blocker.picking !== null}
-          editing={editing}
-          onEditing={setEditing}
-          draft={draft}
-          armed={armed.armed}
-          onArm={armed.arm}
-          onRow={onRow}
-          files={narrowing.files ?? []}
-          onPerson={(path) => onOpen(path, 1)}
-          onWrite={onEdit}
-          onCycle={onCycle}
-          actions={actions}
-        />
+        <>
+          <TodoLegend counts={facts.counts} />
+          <TodoList
+            groups={groups}
+            empty={empty}
+            cursorKey={cursorKey}
+            facts={facts}
+            today={today}
+            coarse={coarse}
+            picking={blocker.picking !== null}
+            editing={editing}
+            onEditing={setEditing}
+            draft={draft}
+            armed={armed.armed}
+            onArm={armed.arm}
+            onRow={onRow}
+            files={narrowing.files ?? []}
+            onPerson={(path) => onOpen(path, 1)}
+            onWrite={onEdit}
+            onCycle={onCycle}
+            actions={actions}
+            doneWeek={facts.doneWeek}
+            doneOpen={doneOpen}
+            onDoneFold={() => setDoneOpen(!doneOpen)}
+          />
+        </>
       )}
 
       <TodoFooter

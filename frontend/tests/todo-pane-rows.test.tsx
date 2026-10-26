@@ -39,14 +39,24 @@ describe("the todo pane", () => {
     ]);
 
     await waitFor(() => expect(pane.rows()).toHaveLength(1));
-    expect(pane.headings()).toEqual(["Today"]);
+    // Each heading carries its row count beside the name (#811 A2).
+    expect(pane.headings()).toEqual(["Today 1"]);
   });
 
   it("draws one heading per section that has rows, in order", async () => {
     const pane = renderPane();
 
     await waitFor(() => expect(pane.rows().length).toBeGreaterThan(0));
-    expect(pane.headings()).toEqual(["Overdue", "Today", "This week", "Later", "No date"]);
+    // Each group carries its row count (#811 A2), and the folded Done this week
+    // heading comes last (#811 A3): its chevron is the leading glyph.
+    expect(pane.headings()).toEqual([
+      "Overdue 1",
+      "Today 2",
+      "This week 1",
+      "Later 1",
+      "No date 1",
+      "›Done this week 2",
+    ]);
   });
 
   it("draws no heading for a section with nothing in it", async () => {
@@ -56,7 +66,8 @@ describe("the todo pane", () => {
     ]);
 
     await waitFor(() => expect(pane.rows()).toHaveLength(2));
-    expect(pane.headings()).toEqual(["Overdue", "No date"]);
+    // Each heading carries its row count beside the name (#811 A2).
+    expect(pane.headings()).toEqual(["Overdue 1", "No date 1"]);
   });
 
   it("leaves out what is finished and what was never a todo", async () => {

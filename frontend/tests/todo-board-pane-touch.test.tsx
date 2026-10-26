@@ -163,8 +163,9 @@ describe("refiling one todo (#396)", () => {
     line: 4,
     text: "- [ ] send the invoice",
     project: "02 Projects/FDE",
+    shared: false,
   };
-  const LOOSE = { path: DAILY, line: 6, text: "- [ ] fix the tap", project: null };
+  const LOOSE = { path: DAILY, line: 6, text: "- [ ] fix the tap", project: null, shared: false };
 
   /** The list with its rows drawn. */
   async function listPane(options?: Parameters<typeof renderPane>[0]) {

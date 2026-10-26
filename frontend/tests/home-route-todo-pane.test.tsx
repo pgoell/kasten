@@ -305,7 +305,13 @@ describe("the route", () => {
 
   describe("a state the vault refuses", () => {
     it("#397 I3 a state write the vault refuses leaves the card and says so", async () => {
-      const row = { path: "daily.md", line: 2, text: "- [ ] send the deck", project: null };
+      const row = {
+        path: "daily.md",
+        line: 2,
+        text: "- [ ] send the deck",
+        project: null,
+        shared: false,
+      };
       const text = "## TODOs\n- [ ] send the deck";
       fetchFiles.mockImplementation(async () => [...Object.keys(VAULT), row.path]);
       fetchNote.mockImplementation(async (path: string) =>
@@ -354,15 +360,15 @@ describe("the route", () => {
       (saveNote.mock.calls.find(([path]) => path === PATH)?.[1] as string | undefined)?.split("\n");
 
     const TWINS = [
-      { path: PATH, line: 1, text: "- [ ] a", project: null },
-      { path: PATH, line: 2, text: "- [ ] a", project: null },
+      { path: PATH, line: 1, text: "- [ ] a", project: null, shared: false },
+      { path: PATH, line: 2, text: "- [ ] a", project: null, shared: false },
     ];
     /** A line written above both twins since the listing. */
     const SHIFTED = "## TODOs\n- [ ] a\n- [ ] a";
 
     it("#529 A2 a timer press that cannot find its todo says Nothing moved", async () => {
       const app = await listing(
-        [{ path: PATH, line: 2, text: "- [ ] send the deck", project: null }],
+        [{ path: PATH, line: 2, text: "- [ ] send the deck", project: null, shared: false }],
         "## TODOs\n- [ ] buy milk",
       );
       const pane = app.todoPane() as HTMLElement;

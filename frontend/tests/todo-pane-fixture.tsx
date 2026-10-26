@@ -66,11 +66,20 @@ function recorder() {
 /** The strip above the list as a mouse sees it, drawn on every pointer since #419. */
 const STRIP = ["d done", "n next", "v view", "c board"];
 
-/** Every button but that strip, which is what the list drew before it had one. */
+/**
+ * Every button but that strip, the scope chips and toggle (#811), and the Done
+ * this week fold, which is a row's heading and not a row: the list drew none of
+ * them before they had buttons.
+ */
 function buttons() {
-  return screen
-    .queryAllByRole("button")
-    .filter((button) => !STRIP.includes(button.textContent ?? ""));
+  return (
+    screen
+      .queryAllByRole("button")
+      .filter((button) => !STRIP.includes(button.textContent ?? ""))
+      .filter((button) => button.closest("[data-todo-scope]") === null)
+      // The fold's text opens with its chevron, so this reads the words, not the start.
+      .filter((button) => !(button.textContent ?? "").includes("Done this week"))
+  );
 }
 
 export function renderPane(hits = TODOS, focusSignal = 0) {

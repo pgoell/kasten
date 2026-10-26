@@ -70,15 +70,23 @@ export const YEAR_TODOS: TodoHit[] = [
     line: 3,
     text: "- [x] ship the export ✅ 2026-02-11 ⏱ 1h30m",
     project: "02 Projects/FDE",
+    shared: false,
   },
   {
     path: "02 Projects/FDE/tasks.md",
     line: 4,
     text: "- [x] write the spec ✅ 2026-03-01 ⏱ 45m",
     project: "02 Projects/FDE",
+    shared: false,
   },
-  { path: "00 Inbox/tasks.md", line: 1, text: "- [x] tidy the inbox ✅ 2026-10-02", project: null },
-  { path: "00 Inbox/tasks.md", line: 2, text: "- [ ] open thing", project: null },
+  {
+    path: "00 Inbox/tasks.md",
+    line: 1,
+    text: "- [x] tidy the inbox ✅ 2026-10-02",
+    project: null,
+    shared: false,
+  },
+  { path: "00 Inbox/tasks.md", line: 2, text: "- [ ] open thing", project: null, shared: false },
 ];
 
 /** The notes written in the year, one each, with the tags and the project folder each one carries. */
@@ -191,14 +199,22 @@ export const WEEK_TODOS: TodoHit[] = [
     line: 3,
     text: "- [x] ship the export ✅ 2026-10-20",
     project: "02 Projects/FDE",
+    shared: false,
   },
   {
     path: "00 Inbox/tasks.md",
     line: 7,
     text: "- [x] reply to Anna ✅ 2026-10-22 ⏱ 10m",
     project: null,
+    shared: false,
   },
-  { path: "00 Inbox/tasks.md", line: 8, text: "- [ ] send the deck 📅 2026-10-22", project: null },
+  {
+    path: "00 Inbox/tasks.md",
+    line: 8,
+    text: "- [ ] send the deck 📅 2026-10-22",
+    project: null,
+    shared: false,
+  },
 ];
 
 /** One flashcard rated on the 22nd, in the deck. */

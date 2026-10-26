@@ -171,10 +171,16 @@ describe("the route", () => {
     const LINE = "- [/] a 🆔 kt-aaaaaa";
     /** The issue's copy-paste: one todo line twice, id and all. */
     const TWINS = [
-      { path: PATH, line: 1, text: LINE, project: null },
-      { path: PATH, line: 2, text: LINE, project: null },
+      { path: PATH, line: 1, text: LINE, project: null, shared: false },
+      { path: PATH, line: 2, text: LINE, project: null, shared: false },
     ];
-    const DEPENDENT = { path: "deps.md", line: 1, text: "- [b] c ⛔ kt-aaaaaa", project: null };
+    const DEPENDENT = {
+      path: "deps.md",
+      line: 1,
+      text: "- [b] c ⛔ kt-aaaaaa",
+      project: null,
+      shared: false,
+    };
     /** What a press on the second twin says. */
     const SECOND = "Nothing moved: 🆔 kt-aaaaaa is on another todo too: inbox.md line 1";
 
@@ -425,9 +431,15 @@ describe("the route", () => {
       fetchFiles.mockImplementation(async () => Object.keys(notes));
       fetchNote.mockImplementation(async (path: string) => notes[path]);
       fetchTodos.mockResolvedValue([
-        { path: daily, line: 1, text: "- [/] a 🆔 kt-aaaaaa", project: null },
-        { path: daily, line: 2, text: "- [b] c ⛔ kt-aaaaaa", project: null },
-        { path: "projects/x.md", line: 1, text: "- [/] z 🆔 kt-aaaaaa", project: null },
+        { path: daily, line: 1, text: "- [/] a 🆔 kt-aaaaaa", project: null, shared: false },
+        { path: daily, line: 2, text: "- [b] c ⛔ kt-aaaaaa", project: null, shared: false },
+        {
+          path: "projects/x.md",
+          line: 1,
+          text: "- [/] z 🆔 kt-aaaaaa",
+          project: null,
+          shared: false,
+        },
       ]);
       const app = await renderApp(`/?note=${encodeURIComponent(daily)}`);
       await settle();
@@ -478,9 +490,9 @@ describe("the route", () => {
         fetchFiles.mockImplementation(async () => Object.keys(notes));
         fetchNote.mockImplementation(async (path: string) => notes[path]);
         fetchTodos.mockResolvedValue([
-          { path: PATH, line: 1, text: DOCS, project: null },
-          { path: PATH, line: 2, text: SHIP, project: null },
-          { path: "other.md", line: 1, text: COPY, project: null },
+          { path: PATH, line: 1, text: DOCS, project: null, shared: false },
+          { path: PATH, line: 2, text: SHIP, project: null, shared: false },
+          { path: "other.md", line: 1, text: COPY, project: null, shared: false },
         ]);
         const app = await renderApp();
         await settle();

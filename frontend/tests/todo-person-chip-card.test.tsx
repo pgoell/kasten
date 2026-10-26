@@ -23,7 +23,7 @@ describe("PersonCard over an assignee", () => {
   it("#809 A5 the person card lists an open todo assigned to them", async () => {
     vi.spyOn(api, "fetchNote").mockResolvedValue(PASCAL_NOTE);
     vi.spyOn(api, "fetchTodos").mockResolvedValue([
-      { path: DAILY, line: 4, text: "- [ ] buy paint 👤 [[Pascal]]", project: null },
+      { path: DAILY, line: 4, text: "- [ ] buy paint 👤 [[Pascal]]", project: null, shared: false },
     ]);
     vi.spyOn(api, "searchNotes").mockResolvedValue([]);
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });

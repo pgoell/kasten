@@ -81,24 +81,28 @@ const TODOS: TodoHit[] = [
     line: 3,
     text: `- [x] ship the export ✅ ${shiftDay(monday, 1)} ⏱ 1h30m`,
     project: "02 Projects/FDE",
+    shared: false,
   },
   {
     path: TASKS,
     line: 4,
     text: `- [x] write the spec ✅ ${YEAR}-02-11 ⏱ 45m`,
     project: "02 Projects/FDE",
+    shared: false,
   },
   {
     path: "00 Inbox/tasks.md",
     line: 7,
     text: `- [x] reply to Anna ✅ ${shiftDay(monday, 2)} ⏱ 10m`,
     project: null,
+    shared: false,
   },
   {
     path: "00 Inbox/tasks.md",
     line: 8,
     text: `- [ ] send the deck 📅 ${shiftDay(monday, 3)}`,
     project: null,
+    shared: false,
   },
 ];
 

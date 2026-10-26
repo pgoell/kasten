@@ -35,13 +35,55 @@ async def test_finds_every_state(client: AsyncClient, vault: Path) -> None:
 
     assert response.status_code == 200
     assert response.json() == [
-        {"path": "projects/kasten.md", "line": 2, "text": "- [ ] open", "project": None},
-        {"path": "projects/kasten.md", "line": 3, "text": "- [/] doing", "project": None},
-        {"path": "projects/kasten.md", "line": 4, "text": "- [x] done", "project": None},
-        {"path": "projects/kasten.md", "line": 5, "text": "- [b] blocked", "project": None},
-        {"path": "projects/kasten.md", "line": 6, "text": "- [-] rejected", "project": None},
-        {"path": "projects/kasten.md", "line": 7, "text": "- [w] waiting", "project": None},
-        {"path": "projects/kasten.md", "line": 8, "text": "- [r] review", "project": None},
+        {
+            "path": "projects/kasten.md",
+            "line": 2,
+            "text": "- [ ] open",
+            "project": None,
+            "shared": False,
+        },
+        {
+            "path": "projects/kasten.md",
+            "line": 3,
+            "text": "- [/] doing",
+            "project": None,
+            "shared": False,
+        },
+        {
+            "path": "projects/kasten.md",
+            "line": 4,
+            "text": "- [x] done",
+            "project": None,
+            "shared": False,
+        },
+        {
+            "path": "projects/kasten.md",
+            "line": 5,
+            "text": "- [b] blocked",
+            "project": None,
+            "shared": False,
+        },
+        {
+            "path": "projects/kasten.md",
+            "line": 6,
+            "text": "- [-] rejected",
+            "project": None,
+            "shared": False,
+        },
+        {
+            "path": "projects/kasten.md",
+            "line": 7,
+            "text": "- [w] waiting",
+            "project": None,
+            "shared": False,
+        },
+        {
+            "path": "projects/kasten.md",
+            "line": 8,
+            "text": "- [r] review",
+            "project": None,
+            "shared": False,
+        },
     ]
 
 

@@ -83,7 +83,8 @@ describe("the todo pane", () => {
 
     // The part is due when what it is a part of is due, so it sits in that
     // group rather than under No date with the todo that spells nothing.
-    expect(pane.headings()).toEqual(["Today", "No date"]);
+    // Each heading carries its row count beside the name (#811 A2).
+    expect(pane.headings()).toEqual(["Today 2", "No date 1"]);
     expect(pane.texts()[1]).toContain("check list");
     expect(pane.texts()[1]).toContain("08-10");
     expect(pane.texts()[1]).toContain(PRIORITY_SYMBOL.high);

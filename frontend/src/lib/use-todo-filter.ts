@@ -3,13 +3,47 @@ import { useMemo, useRef, useState } from "react";
 import { createNote, fetchFiles, fetchNote } from "@/lib/api";
 import { DEFAULT_VIEWS, parseViews, VIEWS_NOTE } from "@/lib/todo-view";
 
+/** Whether the shared lists are shown, kept per device. Off unless stored as on. */
+export const SHARED_KEY = "kasten.todos.shared";
+
+/**
+ * Whether shared lists were shown last time. A browser with site data blocked
+ * throws a `SecurityError` on any touch of `localStorage`, and that reads as
+ * hidden, the default, as `theme.ts` reads its own choice.
+ */
+function sharedStored(): boolean {
+  try {
+    return localStorage.getItem(SHARED_KEY) === "1";
+  } catch (error) {
+    if (error instanceof DOMException) return false;
+    throw error;
+  }
+}
+
+/** Keeps the choice. Hidden is no entry at all, so a stray value never reads as shown. */
+function keepShared(shown: boolean): void {
+  try {
+    if (shown) localStorage.setItem(SHARED_KEY, "1");
+    else localStorage.removeItem(SHARED_KEY);
+  } catch (error) {
+    // Refused, so the toggle still does what it was asked for, in memory alone.
+    if (!(error instanceof DOMException)) throw error;
+  }
+}
+
 /**
  * What the pane's filter line holds: what was typed, or the saved view `v` has
  * walked to. The views live in a note the vault may not have, so the first
  * press that asks for them may also write it.
+ *
+ * Beside it, the kind the chips name and whether the shared lists are shown.
  */
 export function useTodoFilter() {
   const [typed, setTyped] = useState("");
+  /** The kind chip pressed, or null for All. Not kept: a chip is a look at the list, not a setting. */
+  const [kind, setKind] = useState<string | null>(null);
+  /** Read once at mount, so the toggle is the one that writes it from then on. */
+  const [shared, setShared] = useState(sharedStored);
   /** Whether `v` has been pressed, which is what asks the vault for the views. */
   const [asked, setAsked] = useState(false);
   /** How many times `v` has been pressed. Which view that is, is read below. */
@@ -81,6 +115,15 @@ export function useTodoFilter() {
     line,
     named,
     files,
+    kind,
+    setKind,
+    shared,
+    /** The toggle: the shared lists shown or hidden, kept for the next visit. */
+    toggleShared() {
+      const next = !shared;
+      setShared(next);
+      keepShared(next);
+    },
     type(value: string) {
       setTyped(value);
       setPicked(0);

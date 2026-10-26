@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { TodoPane } from "@/components/todo-pane";
-import { createNote, fetchFiles, fetchNote, fetchTodos } from "@/lib/api";
+import { createNote, fetchFiles, fetchNote, fetchTodos, type TodoHit } from "@/lib/api";
 import type { EditorCommands } from "@/lib/key-bindings";
 import { DEFAULT_VIEWS, VIEWS_NOTE } from "@/lib/todo-view";
 
@@ -32,25 +32,45 @@ export function boardHooks() {
  * none, as the backend answers. The old rejection is past the board's seven
  * days.
  */
-export const BOARD = [
+export const BOARD: TodoHit[] = [
   {
     path: PLAN,
     line: 1,
     text: "- [ ] write the deck 📅 2026-08-12 ⏫ #internal",
     project: "02 Projects/FDE",
+    shared: false,
   },
-  { path: PLAN, line: 2, text: "  - [/] draw the chart", project: "02 Projects/FDE" },
-  { path: PLAN, line: 3, text: "  - [x] gather numbers ✅ 2026-08-09", project: "02 Projects/FDE" },
+  {
+    path: PLAN,
+    line: 2,
+    text: "  - [/] draw the chart",
+    project: "02 Projects/FDE",
+    shared: false,
+  },
+  {
+    path: PLAN,
+    line: 3,
+    text: "  - [x] gather numbers ✅ 2026-08-09",
+    project: "02 Projects/FDE",
+    shared: false,
+  },
   {
     path: DAILY,
     line: 4,
     text: "- [ ] send the invoice [[02 Projects/FDE/index|FDE]] #client",
     project: "02 Projects/FDE",
+    shared: false,
   },
-  { path: DAILY, line: 5, text: "- [b] ship it ⛔ kt-000009 #private", project: null },
-  { path: DAILY, line: 6, text: "- [ ] fix the tap 🆔 kt-000009", project: null },
-  { path: DAILY, line: 7, text: "- [-] old idea ❌ 2026-08-01", project: null },
-  { path: DAILY, line: 8, text: "- [-] drop the logo ❌ 2026-08-09", project: null },
+  {
+    path: DAILY,
+    line: 5,
+    text: "- [b] ship it ⛔ kt-000009 #private",
+    project: null,
+    shared: false,
+  },
+  { path: DAILY, line: 6, text: "- [ ] fix the tap 🆔 kt-000009", project: null, shared: false },
+  { path: DAILY, line: 7, text: "- [-] old idea ❌ 2026-08-01", project: null, shared: false },
+  { path: DAILY, line: 8, text: "- [-] drop the logo ❌ 2026-08-09", project: null, shared: false },
 ];
 
 export const [DECK, CHART, NUMBERS, INVOICE, , TAP] = BOARD;

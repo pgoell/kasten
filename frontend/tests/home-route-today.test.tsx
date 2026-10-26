@@ -100,7 +100,7 @@ pageHooks();
 const TODAY = new Date(2026, 9, 22, 9, 0);
 
 function todo(line: number, text: string): TodoHit {
-  return { path: "index.md", line, text, project: null };
+  return { path: "index.md", line, text, project: null, shared: false };
 }
 
 function stamped(path: string, line: number, stamp: string): SearchHit {

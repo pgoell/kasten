@@ -2,11 +2,21 @@ import type { RefObject } from "react";
 import type { SearchHit } from "@/lib/api";
 import { INPUT, LABEL } from "@/lib/overlay-styles";
 import { parseTodo } from "@/lib/todo";
+import { KINDS } from "@/lib/todo-board";
 import type { Mode } from "@/lib/use-todo-rows";
 
 /**
+ * A chip or the shared toggle: a pill with a rule around it, filled with the
+ * accent wash when it is the one pressed. It presses down like a button does,
+ * and never waits on the motion setting to be told so.
+ */
+const CHIP =
+  "rounded-full border px-2.5 py-0.5 touch-manipulation transition-transform duration-[var(--k-press-in)] active:scale-[var(--k-press-scale)] motion-reduce:transition-none motion-reduce:active:scale-100 pointer-coarse:min-h-11 pointer-coarse:px-3";
+
+/**
  * The pane's top: the filter line with the view's name, the picker's question
- * while one is open, and the strip of list switches under them.
+ * while one is open, the kind chips and the shared toggle under the line, and
+ * the strip of list switches under them.
  */
 export function TodoHeader(p: {
   filter: RefObject<HTMLInputElement | null>;
@@ -21,6 +31,13 @@ export function TodoHeader(p: {
   mode: Mode;
   board: boolean;
   strip: { done(): void; next(): void; view(): void; board(): void };
+  /** The kind the chips name, or null for All. */
+  kind: string | null;
+  onKind(kind: string | null): void;
+  shared: boolean;
+  /** How many rows the shared lists would add, which the toggle says while they are hidden. */
+  sharedHidden: number;
+  onShared(): void;
 }) {
   const {
     filter,
@@ -35,13 +52,18 @@ export function TodoHeader(p: {
     mode,
     board,
     strip,
+    kind,
+    onKind,
+    shared,
+    sharedHidden,
+    onShared,
   } = p;
   /** The strip's buttons: a tap's height by finger, a line's by mouse. */
   const pad = coarse ? "min-h-11 px-3" : "px-2 py-1";
 
   return (
     <>
-      <header className="flex items-center gap-3 border-b border-k-rule px-3 py-1">
+      <header className="flex items-center gap-3 border-b border-k-rule px-3 py-1 font-sans">
         <span className={LABEL}>todos</span>
         <input
           ref={filter}
@@ -77,6 +99,45 @@ export function TodoHeader(p: {
           </button>
         )}
       </header>
+
+      {/* The kinds the list and the board narrow to, and the shared lists'
+          switch, under the filter line. Out of the tab order like the strip,
+          since the cursor row is the pane's one stop, and a click here
+          refocuses the cursor the way the strip's does. */}
+      {/* Marked so a test reading the strip by its buttons can tell these
+          scope buttons from the list's own; they are not rows or strip keys. */}
+      <div
+        data-todo-scope=""
+        className="flex flex-wrap items-center gap-2 border-b border-k-rule px-3 py-1 font-sans text-[12px]"
+      >
+        {[null, ...KINDS].map((chip) => (
+          <button
+            key={chip ?? "all"}
+            type="button"
+            tabIndex={-1}
+            onClick={() => onKind(chip)}
+            aria-pressed={kind === chip}
+            className={`${CHIP} ${
+              kind === chip
+                ? "border-k-accent bg-k-accent-wash text-k-ink"
+                : "border-k-rule text-k-muted"
+            }`}
+          >
+            {chip ?? "All"}
+          </button>
+        ))}
+        <button
+          type="button"
+          tabIndex={-1}
+          onClick={onShared}
+          aria-pressed={shared}
+          className={`${CHIP} ${
+            shared ? "border-k-accent bg-k-accent-wash text-k-ink" : "border-k-rule text-k-muted"
+          }`}
+        >
+          {shared ? "Shared lists, shown" : `Shared lists, ${sharedHidden} hidden`}
+        </button>
+      </div>
 
       {/* What the list is for while it is a picker, and whose blocker it is
           picking. A line of its own, so a narrow header loses no filter. */}

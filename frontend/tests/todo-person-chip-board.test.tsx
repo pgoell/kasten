@@ -24,8 +24,15 @@ const CHIPPED = [
     line: 1,
     text: "- [ ] send the invoice 👤 [[Pascal]] #client",
     project: null,
+    shared: false,
   },
-  { path: DAILY, line: 2, text: "- [ ] fix the tap 👤 Alicia #client", project: null },
+  {
+    path: DAILY,
+    line: 2,
+    text: "- [ ] fix the tap 👤 Alicia #client",
+    project: null,
+    shared: false,
+  },
 ];
 
 /** The chip a card draws, which the card must hold. */
@@ -79,7 +86,8 @@ describe("the assignee chip on a board card", () => {
 
     expect(pane.onOpen).toHaveBeenCalledExactlyOnceWith(PASCAL, 1);
     expect(pane.onCycle).not.toHaveBeenCalled();
-    expect(document.querySelector('[aria-expanded="true"]')).toBeNull();
+    // Only a card's `⋯` strip counts: a lane heading is aria-expanded too (#811 A6).
+    expect(document.querySelector('[aria-label^="more for"][aria-expanded="true"]')).toBeNull();
   });
 
   it("#809 I2 a drag that starts on a board card's chip still moves the card", async () => {

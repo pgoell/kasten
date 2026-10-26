@@ -15,11 +15,17 @@ The route that finds every todo line in the vault, and works out which project e
 
 Finds every line in the vault that could be a todo. Takes an optional
 `archive` and answers with at most 100,000 matches, in the shape
-`GET /api/search` returns plus a `project` on each.
+`GET /api/search` returns plus a `project` and a `shared` on each.
 
 ```json
-[{ "path": "02 Projects/kasten/plan.md", "line": 12, "text": "- [/] wire up the pane 📅 2026-08-14 ⏫", "project": "02 Projects/kasten" }]
+[{ "path": "02 Projects/kasten/plan.md", "line": 12, "text": "- [/] wire up the pane 📅 2026-08-14 ⏫", "project": "02 Projects/kasten", "shared": false }]
 ```
+
+`shared` is `true` when the todo's note sits directly inside the share folder,
+`05 Shared` by default: `05 Shared/Einkauf.md` is shared, `05 Shared/sub/x.md`
+and `05 Sharedx/a.md` are not. It is the rule the share lists are read by, so
+the client can hide the shared lists from the todo views without a rule of its
+own.
 
 One `rg` pass, carrying the same flags search carries, so this and
 `GET /api/files` cannot disagree about which notes the vault holds. Nothing is

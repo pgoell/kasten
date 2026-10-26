@@ -33,22 +33,42 @@ export const FILES = [VIEWS_NOTE, DAILY, PASCAL, ALICIA];
 
 /** One line for each shape of assignee, a wait, a tag, and two todos with no name. */
 export const HITS: TodoHit[] = [
-  { path: DAILY, line: 1, text: "- [ ] buy paint 👤 [[Pascal]] 📅 2026-10-27", project: null },
+  {
+    path: DAILY,
+    line: 1,
+    text: "- [ ] buy paint 👤 [[Pascal]] 📅 2026-10-27",
+    project: null,
+    shared: false,
+  },
   {
     path: DAILY,
     line: 2,
     text: "- [/] book the flat viewing 👤 [[Alicia]] #private",
     project: null,
+    shared: false,
   },
   {
     path: DAILY,
     line: 3,
     text: "- [w] the contract back 👤 [[Pascal]] 👤 2026-10-20 [[Alicia]] 📅 2026-10-30",
     project: null,
+    shared: false,
   },
-  { path: DAILY, line: 4, text: "- [ ] call the plumber 👤 [[Nobody]]", project: null },
-  { path: DAILY, line: 5, text: "- [ ] water the plants", project: null },
-  { path: DAILY, line: 6, text: "- [ ] renew the passport 📅 2026-11-02", project: null },
+  {
+    path: DAILY,
+    line: 4,
+    text: "- [ ] call the plumber 👤 [[Nobody]]",
+    project: null,
+    shared: false,
+  },
+  { path: DAILY, line: 5, text: "- [ ] water the plants", project: null, shared: false },
+  {
+    path: DAILY,
+    line: 6,
+    text: "- [ ] renew the passport 📅 2026-11-02",
+    project: null,
+    shared: false,
+  },
 ];
 
 /** The chip a row or card draws for `name`, the text it shows. */

@@ -9162,6 +9162,10 @@
               }
             ],
             "title": "Project"
+          },
+          "shared": {
+            "type": "boolean",
+            "title": "Shared"
           }
         },
         "type": "object",
@@ -9169,7 +9173,8 @@
           "path",
           "line",
           "text",
-          "project"
+          "project",
+          "shared"
         ],
         "title": "TodoHit",
         "description": "One todo line, or one running session line, and the project it belongs to."

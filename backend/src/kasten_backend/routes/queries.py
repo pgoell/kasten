@@ -22,6 +22,7 @@ from kasten_backend.search_meta import (
     notes_meta,
     stamp,
 )
+from kasten_backend.share import inside
 from kasten_backend.tags import find_tags
 from kasten_backend.todos import (
     PROJECT_ROOTS,
@@ -93,6 +94,13 @@ class TodoHit(LineHit):
 
     Its own model rather than a field on `LineHit`, which the cards answer with
     too and which have no project to give.
+    """
+
+    shared: bool
+    """Whether the todo's note is a shared list, a note directly inside the share folder.
+
+    The rule `share.inside` reads, so the client hides these from the todo
+    views by default without a copy of the rule of its own.
     """
 
 
@@ -299,7 +307,13 @@ async def list_todos(
     hits = await find_todos(settings.vault_path, None if archive else settings.archive_path)
     projects = projects_of(hits, list_markdown_files(settings.vault_path))
     return [
-        TodoHit(path=hit.path, line=hit.line, text=hit.text, project=project)
+        TodoHit(
+            path=hit.path,
+            line=hit.line,
+            text=hit.text,
+            project=project,
+            shared=inside(settings, hit.path),
+        )
         for hit, project in zip(hits, projects, strict=True)
     ]
 

@@ -12,13 +12,20 @@ status: stable
 
 `<leader>gt` fills the focused pane with every open todo in the vault, grouped
 by when it is due, under Overdue, Today, This week, Later and No date. An empty
-group draws no heading. A row is the state's symbol, the mark where a timer is
-running on it, the priority where there is one, `◆` on
-[client work](/reference/todo-format/tags-projects-and-views.md#client-work), the words, the count of
-its parts where it has any, the two clocks and the day of the due date.
+group draws no heading. Done this week comes last and stays folded, see
+[Done this week](#done-this-week).
+
+A row starts with its state box. Each state has a box of its own look: open,
+doing, review, waiting, blocked, done and rejected. In front of the words
+come the timer mark `▶` where a timer runs, the priority where there is one,
+and `◆` on [client work](/reference/todo-format/tags-projects-and-views.md#client-work).
+The date sits at the right. It is red when it is overdue. Under the words is a
+meta line with the project, the tags, who the todo waits on and since when, the
+blocker, the count of its parts, the time, and the assignee chip where there is
+one.
 
 A click or a tap on a row opens the line the todo is written on. On a touch
-screen the state's symbol is a button of its own that cycles the todo as `x`
+screen the state box is a button of its own that cycles the todo as `x`
 does, and the header carries a `+` that adds one as `a` does. Under the header
 `done`, `next`, `view` and `board` do what `d`, `n`, `v` and `c` do, and
 nothing while a row is being edited or a blocker picked. Enter and Space on a
@@ -38,11 +45,11 @@ too, and each button names its key: `d done`, `n next`, `v view` and `c board`.
 A click does what the key does, and nothing while a row is being edited or a
 blocker picked.
 
-The state button takes two taps: the first turns the symbol into the state the
+The state box takes two taps: the first turns the box into the state the
 todo would move to with a `?` after it, and the second is the one that cycles.
 The question is taken back after four seconds, on a tap anywhere else, when the
 list scrolls, and when another row's button is tapped. Opening a strip takes it
-back too, and a tap on a state button shuts an open strip. The keys ask
+back too, and a tap on a state box shuts an open strip. The keys ask
 nothing. [kasten on a phone](/explanation/kasten-on-a-phone.md#a-write-asks-first)
 says why the button asks and why there is no Undo.
 
@@ -78,12 +85,47 @@ blocked, how many are waiting where any are, how many are to review where
 any are, and how many timers are going
 where any are.
 
-Only open todos are listed. One that is done or rejected is not work, and the
-session lines `GET /api/todos` also matches are not todos, so neither is here.
+### Done this week
+
+The todos done in the last seven days, the window `d` reads, sit last under a
+heading, Done this week, folded. A tap or a click on the heading unfolds it, and
+a second one folds it again. While it is folded, `j` and `k` skip its rows. Once
+it is unfolded they walk into it.
+
+### The legend
+
+A legend draws the seven state boxes, each with its count. Open, doing, review,
+waiting and blocked count the open rows shown. Done counts the Done this week
+rows. Rejected counts the todos rejected in the last seven days. Every filter
+applies to the counts.
+
+### Kind chips
+
+Under the filter line are four chips: All, #client, #internal and #private. A
+chip keeps only the todos of its kind. A todo's kind is its own kind tag, or the
+tag of its nearest ancestor when it has none, so a part of an #internal todo is
+#internal. The chips narrow the list and the board alike.
+
+### Shared lists
+
+A todo in a note directly inside the share folder, `05 Shared` by default, is in
+a shared list. Shared lists are hidden by default, so the shopping and household
+lists stay out of the work list. The Shared lists toggle shows them, and hides
+them again. While they are hidden it reads `Shared lists, N hidden`, with N the
+count the other filters would show. Once they show it reads `Shared lists, shown`. Turning it on or off writes nothing to disk.
+
+The toggle is kept per device, in the browser under the key
+`kasten.todos.shared`, so a reload keeps it. Where the browser refuses storage,
+the lists stay hidden.
+
+Only open todos are listed, and the todos done in the last seven days under
+Done this week. Rejected todos are not listed. The session lines
+`GET /api/todos` also matches are not todos, so neither is here.
 
 | Key | Does |
 | --- | --- |
-| `j` / `k` | Move the cursor down or up |
+| Click or tap a group heading | Fold or unfold the group, Done this week included |
+| `j` / `k` | Move the cursor down or up, into Done this week only when it is unfolded |
 | Enter | Open the note the todo is in |
 | `x` | Cycle the todo under the cursor |
 | `a` | Add a todo to today's note |
@@ -91,7 +133,7 @@ session lines `GET /api/todos` also matches are not todos, so neither is here.
 | `i` | Edit the row's own line, in place, with the fields it has not got under it |
 | `t` | Start a timer on the todo under the cursor, or stop the ones it has running |
 | `@` | Send the todo under the cursor to the agent, or take it back |
-| `d` | Show what was finished in the last seven days |
+| `d` | Show what was finished in the last seven days, one list per day |
 | `n` | Show one next action per task |
 | `v` | Show the next saved view, or all todos again |
 | `c` | Turn the list into [the board](/reference/editor-keys/todo-board.md#the-board), and back |

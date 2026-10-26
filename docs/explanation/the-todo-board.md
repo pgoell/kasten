@@ -306,7 +306,36 @@ to move a card; the keys and the strip stay as they are.
   cards follow the vault, and a position written into the note would be a
   second source of truth beside the line.
 * On a phone a long press picks the card up. A finger that moves before
-  then scrolls. The card drops on a column's tab or on a lane of the column
-  shown.
+  then swipes the column, and lifts nothing. The card drops on a column's tab
+  or on a lane of the column shown.
 * A write that fails leaves the card where it was, since the board draws the
   vault and not the drag, and the notice says so.
+
+### Why the phone board swipes
+
+Seven columns do not fit at 390 px, the width of a common phone. So the phone
+shows one state at a time, with a tab per state that carries its count, and the
+whole board stays in view as a row of numbers. A swipe to the next state is how
+a finger turns a page, so the column moves with the finger. A tap on a tab does
+the same for anyone who would rather point.
+
+### Why the swipe stays on the column
+
+The page scrolls up and down, and the system takes a touch from the screen's
+edge. A swipe that began anywhere else would fight both. Keeping the swipe on
+the column leaves each of the others its own gesture. A long press lifts a
+card, and a finger that moves first swipes, so one touch never does both.
+
+### Why Rejected folds
+
+Rejected is the state a todo leaves when it is dropped, and nothing moves on
+from it. Most of the time nobody needs to look at it. On a desktop it folds
+away, and one click opens it when it is wanted.
+
+### Why shared lists are hidden by default
+
+The lists in `05 Shared`, such as the shopping and the household lists, are
+notes the user keeps for everyday things. Mixed into the work list, a shopping
+item due today sits beside the work due today, and the work gets lost in it.
+So the lists are hidden by default. The Shared lists toggle shows them when the
+user wants them. The setting is kept per device.

@@ -4180,6 +4180,8 @@ export interface components {
             text: string;
             /** Project */
             project: string | null;
+            /** Shared */
+            shared: boolean;
         };
         /**
          * Token

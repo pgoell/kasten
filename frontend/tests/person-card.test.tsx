@@ -23,8 +23,15 @@ const TODOS = [
     line: 12,
     text: "- [ ] send [[Max Bosch]] the repo 📅 2026-10-02",
     project: null,
+    shared: false,
   },
-  { path: DAILY, line: 13, text: "- [ ] something nobody is named in", project: null },
+  {
+    path: DAILY,
+    line: 13,
+    text: "- [ ] something nobody is named in",
+    project: null,
+    shared: false,
+  },
 ];
 
 /** Every line carrying the name, which is what `GET /api/search` answers with. */

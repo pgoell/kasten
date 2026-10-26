@@ -21,7 +21,7 @@ const CONFIG: LogConfig = {
 };
 
 function todo(text: string): TodoHit {
-  return { path: "02 Projects/tasks.md", line: 1, text, project: null };
+  return { path: "02 Projects/tasks.md", line: 1, text, project: null, shared: false };
 }
 
 /** A log day with `entries` lines, its kcal and its weigh-in when given. */

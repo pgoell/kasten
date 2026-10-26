@@ -31,7 +31,8 @@ describe("the todo pane", () => {
 
     await waitFor(() => expect(pane.rows()).toHaveLength(2));
     const waiting = pane.rows().find((row) => row.textContent?.includes("decision record"));
-    expect(waiting?.textContent).toContain("◷");
+    // The state is drawn as its box now (#811), not as its symbol in the words.
+    expect(waiting?.querySelector("[data-state='waiting']")).not.toBeNull();
     expect(waiting?.textContent).toContain("👤 7d Ada");
     expect(waiting?.className).toContain("text-k-muted");
     expect(pane.footer()).toContain("1 open, 0 blocked, 1 waiting");
@@ -78,7 +79,8 @@ describe("the todo pane", () => {
 
     await waitFor(() => expect(pane.rows()).toHaveLength(2));
     const review = pane.rows().find((row) => row.textContent?.includes("write the parser"));
-    expect(review?.textContent).toContain("◎");
+    // The state is drawn as its box now (#811), not as its symbol in the words.
+    expect(review?.querySelector("[data-state='review']")).not.toBeNull();
     // Not held as blocked and waiting are: what it waits for is the owner's
     // eye, so it has to stand out rather than fade.
     expect(review?.className).toContain("text-k-ink");

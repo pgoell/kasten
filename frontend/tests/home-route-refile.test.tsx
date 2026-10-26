@@ -171,7 +171,13 @@ describe("the route", () => {
     /** A todo with a part, and one after it that stays. */
     const SOURCE = ["## TODOs", "- [ ] send the deck", "  - [ ] draw the chart", "- [ ] buy milk"];
     const PROJECT_NOTE = "# FDE\n\n## TODOs\n- [ ] old";
-    const ROW = { path: DAILY, line: 2, text: "- [ ] send the deck", project: PROJECT };
+    const ROW = {
+      path: DAILY,
+      line: 2,
+      text: "- [ ] send the deck",
+      project: PROJECT,
+      shared: false,
+    };
     const MOVED =
       "Moved into 02 Projects/FDE/index.md. The history pane's restore on both notes takes it back";
 
@@ -308,7 +314,7 @@ describe("the route", () => {
       });
       fetchTodos.mockResolvedValue([
         ROW,
-        { path: DAILY, line: 4, text: "- [ ] buy milk", project: PROJECT },
+        { path: DAILY, line: 4, text: "- [ ] buy milk", project: PROJECT, shared: false },
       ]);
       const app = await renderApp();
       await settle();
@@ -349,7 +355,7 @@ describe("the route", () => {
       });
       fetchTodos.mockResolvedValue([
         ROW,
-        { path: DAILY, line: 4, text: "- [ ] buy milk", project: PROJECT },
+        { path: DAILY, line: 4, text: "- [ ] buy milk", project: PROJECT, shared: false },
       ]);
       const app = await renderApp();
       await settle();
@@ -434,7 +440,7 @@ describe("the route", () => {
     });
 
     it("#396 I5 a todo with no project moves nothing, and names p and a #p/x tag", async () => {
-      fetchTodos.mockResolvedValue([{ ...ROW, project: null }]);
+      fetchTodos.mockResolvedValue([{ ...ROW, project: null, shared: false }]);
       const app = await renderApp();
       await settle();
 
@@ -513,7 +519,7 @@ describe("the route", () => {
       });
 
       it("#397 A2 a card with no project dropped on a project lane moves into that project's note", async () => {
-        const row = { ...ROW, project: null };
+        const row = { ...ROW, project: null, shared: false };
         fetchTodos.mockResolvedValue([row]);
         app = await renderApp();
         await settle();

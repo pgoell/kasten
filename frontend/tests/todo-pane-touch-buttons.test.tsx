@@ -87,7 +87,8 @@ describe("the todo pane by touch", () => {
 
     fireEvent.click(button("done"));
 
-    await waitFor(() => expect(pane.headings()).toEqual(["2026-08-10", "2026-08-08"]));
+    // Each heading carries its row count beside the day (#811 A3).
+    await waitFor(() => expect(pane.headings()).toEqual(["2026-08-10 1", "2026-08-08 1"]));
     expect(button("done")).toHaveAttribute("aria-pressed", "true");
     expect(row("buy milk")).toBeUndefined();
 

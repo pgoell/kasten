@@ -29,6 +29,7 @@ describe("dragging a card (#397)", () => {
     line: 1,
     text: "- [ ] fix the bug",
     project: KASTEN,
+    shared: false,
   };
 
   /** A desktop cell, by its lane's id and its column. */
@@ -170,7 +171,7 @@ describe("dragging a card (#397)", () => {
   it("#397 A3 a long press on a phone and a drop on a lane of the column shown refiles", async () => {
     stubMatchMedia({ [NARROW]: true, [COARSE]: true });
     const pane = await boardPane();
-    fireEvent.click(screen.getByRole("button", { name: "lanes" }));
+    fireEvent.click(screen.getByRole("button", { name: "project" }));
     vi.useFakeTimers();
 
     hold(pane.card("fix the tap"));

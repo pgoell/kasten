@@ -186,9 +186,15 @@ describe("cycleTodoInVault", () => {
       };
       fetchNote.mockImplementation(async (path: string) => notes[path]);
       fetchTodos.mockResolvedValue([
-        { path: "projects/kasten.md", line: 1, text: line, project: null },
-        { path: "projects/other.md", line: 7, text: "- [ ] a 🆔 kt-aaaaaa", project: null },
-        { path: "deps.md", line: 1, text: "- [b] c ⛔ kt-aaaaaa", project: null },
+        { path: "projects/kasten.md", line: 1, text: line, project: null, shared: false },
+        {
+          path: "projects/other.md",
+          line: 7,
+          text: "- [ ] a 🆔 kt-aaaaaa",
+          project: null,
+          shared: false,
+        },
+        { path: "deps.md", line: 1, text: "- [b] c ⛔ kt-aaaaaa", project: null, shared: false },
       ]);
       searchNotes.mockResolvedValue([
         { path: "projects/kasten.md", line: 1, text: line },
@@ -216,10 +222,10 @@ describe("cycleTodoInVault", () => {
     const note = `${line}\n${line}\n`;
     fetchNote.mockResolvedValue(note);
     fetchTodos.mockResolvedValue([
-      { path: "projects/kasten.md", line: 1, text: line, project: null },
-      { path: "projects/kasten.md", line: 2, text: line, project: null },
-      { path: "a.md", line: 3, text: line, project: null },
-      { path: "b.md", line: 4, text: line, project: null },
+      { path: "projects/kasten.md", line: 1, text: line, project: null, shared: false },
+      { path: "projects/kasten.md", line: 2, text: line, project: null, shared: false },
+      { path: "a.md", line: 3, text: line, project: null, shared: false },
+      { path: "b.md", line: 4, text: line, project: null, shared: false },
     ]);
 
     await expect(
@@ -248,9 +254,9 @@ describe("cycleTodoInVault", () => {
     fetchNote.mockImplementation(async (path: string) => notes[path]);
     // `GET /api/todos` answers with running sessions beside the todos.
     fetchTodos.mockResolvedValue([
-      { path: "projects/kasten.md", line: 1, text: line, project: null },
-      { path: "deps.md", line: 1, text: "- [b] c ⛔ kt-aaaaaa", project: null },
-      { path: daily, line: 4, text: session, project: null },
+      { path: "projects/kasten.md", line: 1, text: line, project: null, shared: false },
+      { path: "deps.md", line: 1, text: "- [b] c ⛔ kt-aaaaaa", project: null, shared: false },
+      { path: daily, line: 4, text: session, project: null, shared: false },
     ]);
     searchNotes.mockResolvedValue([
       { path: "projects/kasten.md", line: 1, text: line },

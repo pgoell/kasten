@@ -94,7 +94,7 @@ const NOTES: Record<string, string> = {
   [TARGET]: "# Target\n",
 };
 
-const TODOS = [{ path: LONG, line: LINE, text: TODO_TEXT, project: null }];
+const TODOS = [{ path: LONG, line: LINE, text: TODO_TEXT, project: null, shared: false }];
 
 const HIT = { path: LONG, line: LINE, text: TODO_TEXT };
 const BACKLINK = { path: LONG, line: LINE, text: LINKED_LINE };

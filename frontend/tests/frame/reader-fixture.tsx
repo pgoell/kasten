@@ -109,9 +109,21 @@ const GRAPH = {
 
 // Two todos due today and one waiting, in the form `todo.ts` reads.
 const TODOS = [
-  { path: "Today.md", line: 3, text: "- [ ] write the outline 📅 2026-10-22", project: null },
-  { path: "Today.md", line: 4, text: "- [ ] check the margins 📅 2026-10-22", project: null },
-  { path: "Today.md", line: 5, text: "- [w] wait for the review", project: null },
+  {
+    path: "Today.md",
+    line: 3,
+    text: "- [ ] write the outline 📅 2026-10-22",
+    project: null,
+    shared: false,
+  },
+  {
+    path: "Today.md",
+    line: 4,
+    text: "- [ ] check the margins 📅 2026-10-22",
+    project: null,
+    shared: false,
+  },
+  { path: "Today.md", line: 5, text: "- [w] wait for the review", project: null, shared: false },
 ];
 
 // The three notes whose `modified:` stamp is this month, for the Today screen's recent column.
