@@ -243,12 +243,15 @@ button.finance-drill-row:hover {
 /* A comparison reads across, so its numbers keep to their columns; on a phone the table scrolls
    inside its card rather than the page sideways. */
 .finance-compare {
-  display: block;
   overflow-x: auto;
 }
 
 .finance-compare + .finance-compare {
   margin-top: 16px;
+}
+
+.finance-compare table {
+  margin-top: 0;
 }
 
 .finance-compare thead th {
@@ -279,6 +282,15 @@ button.finance-drill-row:hover {
   text-align: right;
 }
 
+.finance-setup-table thead th + th {
+  text-align: right;
+}
+
+.finance-setup-table thead th {
+  color: var(--k-muted);
+  font-size: var(--k-text-13);
+}
+
 .finance-setup-table th[scope="row"] span {
   display: block;
   font-size: var(--k-text-13);
@@ -292,4 +304,16 @@ button.finance-drill-row:hover {
 .finance-setup-table td {
   padding-left: 8px;
   white-space: nowrap;
+}
+
+/* On a phone the change goes under its figure, so the four columns fit the card. */
+@container (max-width: 520px) {
+  .finance-compare td .finance-muted {
+    display: block;
+    font-size: var(--k-text-13);
+  }
+
+  .finance-compare thead th {
+    white-space: normal;
+  }
 }

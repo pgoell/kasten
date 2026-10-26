@@ -58,32 +58,34 @@ export function CompareTable({
     { key: "left" as const, name: "Left over", sign: 1 as const },
   ].filter(({ key }) => [now, before, average].some((row) => row && Number(row[key]) !== 0));
   return (
-    <table className="finance-drill-table finance-compare">
-      <thead>
-        <tr>
-          <th scope="col">{scope === "mine" ? "Mine" : "Household"}</th>
-          <th scope="col">{label}</th>
-          <th scope="col">A year before</th>
-          <th scope="col">6-month average</th>
-        </tr>
-      </thead>
-      <tbody>
-        {rows.map(({ key, name, sign }) => (
-          <tr key={key}>
-            <th scope="row">{name}</th>
-            <td>{euros(sign * Number(now[key]))}</td>
-            <td>
-              {euros(sign * Number(before[key]))}
-              <Change now={now[key]} before={before[key]} />
-            </td>
-            <td>
-              {average == null ? "none yet" : euros(sign * Number(average[key]))}
-              {average == null ? null : <Change now={now[key]} before={average[key]} />}
-            </td>
+    <div className="finance-compare">
+      <table className="finance-drill-table">
+        <thead>
+          <tr>
+            <th scope="col">{scope === "mine" ? "Mine" : "Household"}</th>
+            <th scope="col">{label}</th>
+            <th scope="col">A year before</th>
+            <th scope="col">6-month average</th>
           </tr>
-        ))}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {rows.map(({ key, name, sign }) => (
+            <tr key={key}>
+              <th scope="row">{name}</th>
+              <td>{euros(sign * Number(now[key]))}</td>
+              <td>
+                {euros(sign * Number(before[key]))}
+                <Change now={now[key]} before={before[key]} />
+              </td>
+              <td>
+                {average == null ? "none yet" : euros(sign * Number(average[key]))}
+                {average == null ? null : <Change now={now[key]} before={average[key]} />}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 

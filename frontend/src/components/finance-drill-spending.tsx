@@ -47,9 +47,11 @@ export function DrillCategory({
     placeholderData: (previous) => previous,
   });
   const data = drill.data;
-  const row = data?.months.at(-1);
+  // The month shown, whose limit the dashed line is; the span's last when it is not in the chart.
+  const row = data?.months.find((m) => m.month === month) ?? data?.months.at(-1);
   if (data === undefined || row === undefined) return <Waiting error={drill.error} />;
   const { category } = data;
+  const now = data.span.now;
   const income = category.kind === "income";
   const limit = row.available == null ? undefined : Number(row.available);
   return (
@@ -98,11 +100,13 @@ export function DrillCategory({
             {category.kind === "ignore"
               ? "an ignored category counts nowhere; its bookings are below"
               : [
-                  `mine ${euros(row.mine)}, household ${euros(row.household)}`,
-                  Number(row.from_reserve) > 0
-                    ? `${euros(row.from_reserve)} of it paid from a plan's reserve`
+                  `${spanLabel}: mine ${euros(now.mine)}, household ${euros(now.household)}`,
+                  Number(now.from_reserve) > 0
+                    ? `${euros(now.from_reserve)} of it paid from a plan's reserve`
                     : "",
-                  limit === undefined ? "no limit set" : "the dashed line is what was available",
+                  limit === undefined
+                    ? "no limit set"
+                    : `the dashed line is what ${monthName(row.month)} had available`,
                 ]
                   .filter(Boolean)
                   .join("; ")}
@@ -162,7 +166,7 @@ function payeeWords(data: PayeeDrill, row: PayeeDrill["months"][number], paysIn:
   return [
     average == null ? "no average yet" : `average ${euros(average)} a month`,
     row.bookings > 0 && !paysIn
-      ? `${euros(Number(row.spent) / row.bookings)} a booking this month`
+      ? `${euros(Number(row.spent) / row.bookings)} a booking in ${monthName(row.month)}`
       : "",
     Number(row.saved) > 0 ? `${euros(row.saved)} moved to saving` : "",
   ]
@@ -195,7 +199,7 @@ export function DrillPayee({
     placeholderData: (previous) => previous,
   });
   const data = drill.data;
-  const row = data?.months.at(-1);
+  const row = data?.months.find((m) => m.month === month) ?? data?.months.at(-1);
   if (data === undefined || row === undefined) return <Waiting error={drill.error} />;
   const { payee } = data;
   // A payee that only pays in, such as an employer, is drawn by what it paid.

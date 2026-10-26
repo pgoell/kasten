@@ -10,6 +10,7 @@ import { FinanceToSort } from "@/components/finance-to-sort";
 import { FinanceTransactions } from "@/components/finance-transactions";
 import type { DrillStep } from "@/lib/finance-drill-api";
 import { FINANCE_TABS, type FinanceTab } from "@/lib/finance-keys";
+import { monthName } from "@/lib/finance-words";
 import type { EditorCommands } from "@/lib/key-bindings";
 import { useCategorySort } from "@/lib/use-category-sort";
 import { useLeader } from "@/lib/use-leader";
@@ -102,8 +103,9 @@ export function FinancePane({ commands, focusSignal, onNotice, today }: FinanceP
     panel.current?.focus();
   }
 
-  // The overview and the drilldowns read a span; the other tabs read the month shown.
-  const spans = trail.length > 0 || tab === "overview";
+  // The overview and the drilldowns read a span; the other tabs, and the setup, the month shown.
+  const top = trail.at(-1);
+  const spans = top === undefined ? tab === "overview" : top.kind !== "setup";
   const names = new Map((sorter.categories.data ?? []).map((c) => [c.id, c.name]));
   const openCategory = (id: number) =>
     open({ kind: "category", id, name: names.get(id) ?? "Category" });
@@ -228,7 +230,9 @@ export function FinancePane({ commands, focusSignal, onNotice, today }: FinanceP
         aria-labelledby={`${id}-tab-${tab}`}
         className="finance-pane-view"
       >
-        {trail.length > 0 ? <Breadcrumbs label={label} trail={trail} onTrail={back} /> : null}
+        {trail.length > 0 ? (
+          <Breadcrumbs label={spans ? label : monthName(month)} trail={trail} onTrail={back} />
+        ) : null}
         {/* Every step stays drawn, hidden but the last, so stepping back finds its cursor and
             the tab its filters as they were. Only what is shown takes the keys. */}
         {trail.map((step, index) => (

@@ -266,7 +266,7 @@ describe("the finance pane's drilldowns", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /^REWE ›/ }));
     expect(
-      await screen.findByText(/average 90\s€ a month; 50\s€ a booking this month/),
+      await screen.findByText(/average 90\s€ a month; 50\s€ a booking in October 2026/),
     ).toBeTruthy();
     expect(crumbs()).toBe("October 2026 › REWE › Groceries › REWE");
 
