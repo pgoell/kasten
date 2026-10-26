@@ -102,11 +102,14 @@ export function TabStrip({
 
   // The bar's left edge and width are springs, so it glides from one tab to the
   // next. Painted as a transform, because left and width would lay the strip out
-  // on every frame of the glide.
+  // on every frame of the glide. The bar is drawn TAB_MAX_WIDTH wide and scaled
+  // down, not 1px wide and scaled up: at a fractional pixel ratio (Windows at
+  // 150%) a 1px box snaps to whole device pixels before the scale, which drew
+  // the bar a third wider than its tab.
   const [motion] = useState(() => {
     const paint = () => {
       if (bar.current === null) return;
-      bar.current.style.transform = `translateX(${motion.x.value}px) scaleX(${motion.width.value})`;
+      bar.current.style.transform = `translateX(${motion.x.value}px) scaleX(${motion.width.value / TAB_MAX_WIDTH})`;
     };
     return { x: new Spring(0, paint), width: new Spring(0, paint) };
   });
@@ -331,7 +334,7 @@ export function TabStrip({
         <span
           ref={bar}
           aria-hidden="true"
-          className="pointer-events-none absolute bottom-0 left-0 h-0.5 w-px origin-left bg-k-accent"
+          className="pointer-events-none absolute bottom-0 left-0 h-0.5 w-[200px] origin-left bg-k-accent"
         />
       </div>
       {hidden.length > 0 && (

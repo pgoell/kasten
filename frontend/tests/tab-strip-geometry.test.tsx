@@ -257,7 +257,7 @@ describe("TabStrip geometry", () => {
     vi.advanceTimersByTime(1000);
 
     const bar = screen.getByRole("tablist").querySelector<HTMLElement>('span[aria-hidden="true"]');
-    expect(bar?.style.transform).toBe("translateX(0px) scaleX(80)");
+    expect(bar?.style.transform).toBe("translateX(0px) scaleX(0.4)");
   });
 
   it("#976 R8 a capped tab at the class cap is read without lifting its cap", () => {

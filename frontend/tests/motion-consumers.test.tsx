@@ -96,7 +96,7 @@ describe("the consumers of the motion", () => {
       />,
     );
 
-    expect(bar()?.style.transform).toBe("translateX(100px) scaleX(70)");
+    expect(bar()?.style.transform).toBe("translateX(100px) scaleX(0.35)");
   });
 
   it("the underline glides to a newly selected tab on the tab spring", () => {
@@ -129,7 +129,7 @@ describe("the consumers of the motion", () => {
     expect(x).toBeGreaterThan(0);
     expect(x).toBeLessThan(100);
     vi.advanceTimersByTime(1000);
-    expect(bar()?.style.transform).toBe("translateX(100px) scaleX(70)");
+    expect(bar()?.style.transform).toBe("translateX(100px) scaleX(0.35)");
   });
 
   it("the underline follows when a tab left of the active one closes", () => {
@@ -159,7 +159,7 @@ describe("the consumers of the motion", () => {
     );
     vi.advanceTimersByTime(1000);
 
-    expect(bar()?.style.transform).toBe("translateX(100px) scaleX(70)");
+    expect(bar()?.style.transform).toBe("translateX(100px) scaleX(0.35)");
   });
 
   it("a pane split off after the first draw slides in from the right and fades", async () => {
@@ -288,7 +288,7 @@ describe("the consumers of the motion", () => {
         unsaved={() => false}
       />,
     );
-    expect(bar()?.style.transform).toBe("translateX(100px) scaleX(70)");
+    expect(bar()?.style.transform).toBe("translateX(100px) scaleX(0.35)");
 
     const before = emptyLayout("a.md");
     const after = splitFocused(before, "row");
@@ -361,7 +361,7 @@ describe("the consumers of the motion", () => {
 
     const width = (screen.getAllByRole("tab")[0]?.textContent ?? "").length * 8;
     expect(width).toBeGreaterThan(24);
-    expect(bar()?.style.transform).toBe(`translateX(0px) scaleX(${width})`);
+    expect(bar()?.style.transform).toBe(`translateX(0px) scaleX(${width / 200})`);
   });
 
   it("under reduced motion a new pane fades in without sliding", () => {
