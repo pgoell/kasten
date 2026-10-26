@@ -4,7 +4,7 @@
  * 900 with a mouse, in both themes, with GitHub on and off, the other palettes and reduced motion.
  * Each picture is its own test, run alone with `-t "shot <name>"`, and lands in
  * node_modules/.cache/kasten-shots with VITE_KASTEN_SHOTS=1. Without it the tests are skipped.
- * The week-kcal-no-food pictures (#1116) show the kcal per day section with a drinks-only Tuesday.
+ * The week-kcal-no-food pictures (#1116) show the kcal per day section with a drinks-only Monday.
  */
 
 import {
@@ -230,7 +230,7 @@ picture("shot desktop-week-reduced-motion", async () => {
 
 const TOUCH_414 = { name: "touch-414", width: 414, height: 896, coarse: true };
 
-/** The kcal per day section of the week review, with a drinks-only Tuesday, shot alone (#1116). */
+/** The kcal per day section of the week review, with a drinks-only Monday, shot alone (#1116). */
 async function kcalSectionShot(size: typeof DESKTOP, theme: "light" | "dark", name: string) {
   flags.drinksDay = true;
   const mounted = await mountLook(size, WEEK_ROUTE, { theme });

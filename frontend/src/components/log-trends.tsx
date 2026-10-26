@@ -118,7 +118,7 @@ interface ChartProps {
   name: string;
   unit: string;
   goal: Goal | undefined;
-  /** The days with a `## Log`, each with its index in the range. */
+  /** The days the chart draws, each with its index in the range: every logged day for a kind, the food days for a food chart. */
   logged: Logged[];
   range: number;
   value: (day: Day) => number;
