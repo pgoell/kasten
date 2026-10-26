@@ -2,6 +2,7 @@ import { EditorView } from "@codemirror/view";
 import type { LineHit, TodoHit } from "@/lib/api";
 import type { LogDay } from "@/lib/food-api";
 import { periodicNote } from "@/lib/periodic";
+import type { ModelUseLine } from "@/lib/review-api";
 import type { WrittenNote } from "@/lib/review-year";
 import { renderApp, settle } from "./home-route-fixture";
 
@@ -104,6 +105,69 @@ export const CARDS: LineHit[] = [
 
 /** GitHub's answer for the year, which the grid counts. */
 export const YEAR_GITHUB = { on: true, days: { "2026-01-05": 3, "2026-10-20": 5 } };
+
+/**
+ * The collector's lines for the year: kasten in February and October, blattwerk in both, its
+ * October line with no price, and scratch with no price at all. The sums the review draws:
+ * 1,551,100 tokens (1.6M) and $1,205.05; kasten 1.2M and $1,204.55; 340,100 tokens unpriced.
+ */
+export const YEAR_MODEL_USE: ModelUseLine[] = [
+  {
+    day: "2026-02-11",
+    model: "claude-opus-5-5",
+    project: "kasten",
+    input: 1000,
+    output: 2000,
+    cache_write: 3000,
+    cache_read: 4000,
+    cost: 4.1,
+    unpriced: 0,
+  },
+  {
+    day: "2026-02-12",
+    model: "claude-haiku-5-5",
+    project: "blattwerk",
+    input: 500,
+    output: 500,
+    cache_write: 0,
+    cache_read: 0,
+    cost: 0.5,
+    unpriced: 0,
+  },
+  {
+    day: "2026-10-03",
+    model: "claude-opus-5-5",
+    project: "kasten",
+    input: 1000000,
+    output: 200000,
+    cache_write: 0,
+    cache_read: 0,
+    cost: 1200.45,
+    unpriced: 0,
+  },
+  {
+    day: "2026-10-04",
+    model: "claude-haiku-5-5",
+    project: "blattwerk",
+    input: 300000,
+    output: 40000,
+    cache_write: 0,
+    cache_read: 0,
+    cost: null,
+    unpriced: 0,
+  },
+  {
+    day: "2026-10-06",
+    model: "claude-haiku-5-5",
+    project: "scratch",
+    input: 60,
+    output: 20,
+    cache_write: 10,
+    cache_read: 10,
+    cost: null,
+    unpriced: 0,
+  },
+];
 
 /** The week's log: the weigh-in before it, then five logged days, one of them over the kcal ceiling. */
 export const WEEK_LOG: LogDay[] = [

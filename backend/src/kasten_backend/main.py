@@ -32,6 +32,7 @@ from kasten_backend.routes import (
     finance_sync,
     github,
     listing,
+    model_use,
     moves,
     notes,
     queries,
@@ -188,6 +189,7 @@ app.include_router(listing.router)
 app.include_router(web.router)
 app.include_router(queries.router)
 app.include_router(github.router)
+app.include_router(model_use.router)
 app.include_router(log.router)
 app.include_router(food.router)
 app.include_router(anki.router)

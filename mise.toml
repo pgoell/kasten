@@ -155,6 +155,14 @@ description = "Write `type` into every note in the vault that has none"
 dir = "{{config_root}}/backend"
 run = "uv run python -m kasten_backend.okf ../vault"
 
+[tasks."model-use"]
+description = "Write Claude Code's tokens and cost per day into the vault's model-use notes"
+# The source and the vault are arguments, as `db:revision` takes its flags: after
+# a `--`, `mise run model-use -- <source> <vault>`. The paths are read from
+# `backend/`, which `dir` sets.
+dir = "{{config_root}}/backend"
+run = "uv run python -m kasten_backend.model_use"
+
 [tasks."index:backfill"]
 description = "Write an index.md into every folder in the vault that has none"
 # Never run at startup, unlike the type pass: a folder whose index you deleted

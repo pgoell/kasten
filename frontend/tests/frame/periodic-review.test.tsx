@@ -8,10 +8,12 @@
 
 import { userEvent } from "vitest/browser";
 import {
+  answerModelUse,
   cursorLine,
   drawn,
   installReads,
   inView,
+  MODEL_USE,
   mountAt,
   restoreFrame,
   rowNamed,
@@ -203,4 +205,95 @@ it("#807 A1 opening, scrolling and leaving the yearly note sends no write", asyn
   expect(writes(), "requests that wrote").toEqual([]);
   expect(mocks.saveNote).not.toHaveBeenCalled();
   expect(mocks.updateNote).not.toHaveBeenCalled();
+});
+
+// A phone at 414 px, the width the model use box is checked at, beside the 390 px touch size.
+const PHONE = { ...TOUCH, name: "touch-414", width: 414 };
+
+/** The model use section, or undefined while the review has not drawn it. */
+function modelUseSection(host: HTMLElement): HTMLElement | undefined {
+  return [...host.querySelectorAll<HTMLElement>(".review-section")].find(
+    (each) => each.querySelector(".review-heading")?.textContent === "Model use",
+  );
+}
+
+/** The token chart and the cost chart, each as its box, once both are drawn. */
+function chartsOf(host: HTMLElement): HTMLElement[] {
+  return [...host.querySelectorAll<HTMLElement>(".review-charts > div")];
+}
+
+it("#808 A7 at 414 by touch the model use section stands in one column and nothing scrolls sideways", async () => {
+  answerModelUse(MODEL_USE);
+  const mounted = await mountAt(PHONE, YEAR_ROUTE, {}, "no-preference");
+  try {
+    const { host } = mounted;
+    await drawn(host, "Year in review");
+    await expect.poll(() => chartsOf(host).length, PATIENCE).toBe(2);
+
+    const [tokenChart, costChart] = chartsOf(host);
+    const tokens = need(tokenChart, "the token chart").getBoundingClientRect();
+    const cost = need(costChart, "the cost chart").getBoundingClientRect();
+    expect(cost.top, "the cost chart sits under the token chart").toBeGreaterThanOrEqual(
+      tokens.bottom,
+    );
+
+    const section = need(modelUseSection(host), "the model use section");
+    const table = need(section.querySelector<HTMLElement>(".review-table"), "the model use table");
+    const box = section.getBoundingClientRect();
+    expect(
+      table.getBoundingClientRect().right,
+      "the table runs past the section",
+    ).toBeLessThanOrEqual(box.right);
+    expect(box.right, "the section runs past the screen").toBeLessThanOrEqual(
+      document.documentElement.clientWidth,
+    );
+    expect(document.documentElement.scrollWidth, "page scrolls sideways").toBeLessThanOrEqual(
+      document.documentElement.clientWidth,
+    );
+  } finally {
+    await unmount(mounted);
+  }
+});
+
+it("#808 A7 at 1440x900 the token and cost charts sit side by side", async () => {
+  answerModelUse(MODEL_USE);
+  const mounted = await mountAt(DESKTOP, YEAR_ROUTE, {}, "no-preference");
+  try {
+    const { host } = mounted;
+    await drawn(host, "Year in review");
+    await expect.poll(() => chartsOf(host).length, PATIENCE).toBe(2);
+
+    const [tokenChart, costChart] = chartsOf(host);
+    const tokens = need(tokenChart, "the token chart").getBoundingClientRect();
+    const cost = need(costChart, "the cost chart").getBoundingClientRect();
+    expect(cost.left, "the cost chart starts past the token chart").toBeGreaterThanOrEqual(
+      tokens.right,
+    );
+    expect(Math.abs(cost.top - tokens.top), "the charts share a top").toBeLessThan(1);
+  } finally {
+    await unmount(mounted);
+  }
+});
+
+it("#808 A7 with reduced motion on the model use section animates nothing", async () => {
+  answerModelUse(MODEL_USE);
+  const mounted = await mountAt(DESKTOP, YEAR_ROUTE, {}, "reduce");
+  try {
+    const { host } = mounted;
+    await drawn(host, "Year in review");
+    await expect.poll(() => chartsOf(host).length, PATIENCE).toBe(2);
+
+    const section = need(modelUseSection(host), "the model use section");
+    expect(
+      section.getAnimations({ subtree: true }).length,
+      "animations running in the section",
+    ).toBe(0);
+    await nextFrame();
+    expect(
+      section.getAnimations({ subtree: true }).length,
+      "animations running in the section",
+    ).toBe(0);
+  } finally {
+    await unmount(mounted);
+  }
 });

@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { type RefObject, useEffect } from "react";
-import { LOG_NOTE } from "@/lib/layout";
+import { LOG_NOTE, MODEL_USE_FOLDER } from "@/lib/layout";
 import { reloadLogConfig } from "@/lib/log-card";
 import { dailyDate, weeklyWeek, yearlyYear } from "@/lib/periodic";
 import { pressEcho } from "@/lib/todo-press-echo";
@@ -219,6 +219,14 @@ export function useVaultEvents(
         weeklyWeek(event.path) === null
       ) {
         queryClient.invalidateQueries({ queryKey: ["written-notes"] }, { cancelRefetch: false });
+      }
+      // The collector writes its monthly notes from outside kasten, so the backend's watcher is the
+      // only thing that says a month's lines changed. A removal asks again too, for the lines it took.
+      if (
+        (event.change === "written" || event.change === "removed") &&
+        event.path.startsWith(`${MODEL_USE_FOLDER}/`)
+      ) {
+        queryClient.invalidateQueries({ queryKey: ["model-use"] }, { cancelRefetch: false });
       }
       const paths = queryClient.getQueryData<string[]>(["files"]);
       // A removal refetches no note, so the readers of log.md would keep the text

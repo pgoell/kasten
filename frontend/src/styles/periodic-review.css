@@ -119,6 +119,11 @@
   grid-template-columns: minmax(0, 1fr);
 }
 
+/* A chart's drawing may be wider than its column, so the box must not take the drawing's width. */
+.review-charts > * {
+  min-width: 0;
+}
+
 @container (width >= 600px) {
   .review-tiles {
     grid-template-columns: repeat(4, minmax(0, 1fr));

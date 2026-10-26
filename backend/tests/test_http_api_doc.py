@@ -36,6 +36,10 @@ TENS = ["twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "nin
 
 def number(word: str) -> int:
     word = word.lower()
+    # The count passed a hundred with #808, written as "one hundred and four".
+    if word.startswith("one hundred"):
+        rest = word.removeprefix("one hundred").strip().removeprefix("and").strip()
+        return 100 + (number(rest) if rest else 0)
     if word in UNITS:
         return UNITS.index(word)
     if word in TEENS:
@@ -72,7 +76,7 @@ def test_the_http_api_page_counts_and_heads_every_api_route() -> None:
     )
 
     opening = re.search(
-        r"serves\s+(?P<total>[a-z-]+)\s+endpoints\s+under\s+`/api/`\.\s+"
+        r"serves\s+(?P<total>[a-z][a-z -]*?)\s+endpoints\s+under\s+`/api/`\.\s+"
         r"(?P<read>[A-Za-z-]+)\s+read,\s+(?P<write>[a-z-]+)\s+write,\s+"
         r"and\s+(?P<stream>[a-z-]+)\s+streams?\.",
         index,

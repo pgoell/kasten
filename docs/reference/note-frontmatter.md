@@ -146,6 +146,9 @@ the table say why.
 | `How-To-TODO.md` and `How-To-Exam.md`, the two format guides | `Reference` |
 | A note with an epub beside it | `Book` |
 | A note with a pdf beside it | `Source` |
+| A month of model use, which the collector writes | `Reference` |
+
+The collector also writes `generator: kasten-model-use` into its monthly notes, the field by which it knows them as its own.
 
 One type for all five periodic notes rather than five. `01 Periodic/00 Daily/`,
 on the default layout, already says which grain the note is, and `Daily Note`

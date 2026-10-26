@@ -11,7 +11,8 @@ status: stable
 A yearly note opens with a review of its year. A weekly note opens with a review
 of its week. The review holds the todos done, the time on them, the notes
 written, the tags, the flashcards answered and the days logged. It also holds
-the weight and the kcal. A GitHub section joins it when the backend has a token.
+the weight and the kcal. The year review adds Claude Code's tokens and cost. A
+GitHub section joins it when the backend has a token.
 Every number is worked out from what the notes already hold. The review writes
 nothing into them.
 
@@ -41,7 +42,7 @@ elsewhere reaches the review.
 
 ## The year review
 
-The heading says `Year in review`, with the year under it. Five sections sit in
+The heading says `Year in review`, with the year under it. Six sections sit in
 the main column, and a column of five numbers sits beside them.
 
 ### Projects
@@ -74,6 +75,29 @@ note counts on its day by the rule in
 [What counts as a note written](/how-to/read-the-overview.md#what-counts-as-a-note-written),
 the same rule the overview uses. The caption gives the total, as
 `notes written per month, N in all`.
+
+### Model use
+
+One bar for each month, January to December, for the tokens Claude Code used in
+it. A second set of bars shows the cost of those tokens in US dollars, at list
+prices. Under them, a table has one row for each project, with its tokens and
+cost for the year, tokens being input, output, cache write and cache read
+together. When some tokens had no price, a line under the table gives them,
+since the cost leaves them out.
+
+The numbers come from the monthly notes the collector writes under the config
+folder. [Model use format](/reference/model-use-format.md) describes them. The
+collector runs on the computer that holds the Claude Code sessions:
+
+```
+mise run model-use -- ~/.claude/projects <vault>
+```
+
+Give both as absolute paths: the task runs in `backend/`.
+
+It counts yesterday and today. For a backfill, pass `--from` with the first day,
+such as `--from 2026-01-01`. With no usage line in the year, the section says
+`No model use recorded in 2026.` and draws no number.
 
 ### Weight
 
@@ -186,10 +210,9 @@ later day than itself is settled and is not asked for again. Any other day, toda
 among them, is asked again once the last read is an hour old. The cache file and
 its location are in [GitHub settings](/reference/github-settings.md#kasten_github_cache_path).
 
-Model use, tokens and cost are not in the review yet. They wait on issue #808.
-
 ## Related
 
+* [Model use format](/reference/model-use-format.md): the monthly notes the model use section draws, and the prices behind its cost
 * [Read the overview](/how-to/read-the-overview.md): the same counts on the overview's cards, and the streak rules
 * [GitHub settings](/reference/github-settings.md): the three settings that switch the GitHub section on
 * [HTTP API: notes](/reference/http-api/notes.md#get-apiwrittennotes): the route that dates the notes written

@@ -1457,6 +1457,61 @@
         }
       }
     },
+    "/api/model-use": {
+      "get": {
+        "summary": "Read Model Use",
+        "description": "The usage lines from `from` to `to`, sorted by day, model and project.\n\nRead from the collector's own notes under the config folder. A note without\nits marker and a line that does not parse are skipped, not answered.",
+        "operationId": "read_model_use_api_model_use_get",
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+              "title": "From"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+              "title": "To"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ModelUseLine"
+                  },
+                  "title": "Response Read Model Use Api Model Use Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/log": {
       "get": {
         "summary": "Read Log",
@@ -7431,6 +7486,67 @@
         ],
         "title": "Minted",
         "description": "One token as its owner sees it, once."
+      },
+      "ModelUseLine": {
+        "properties": {
+          "day": {
+            "type": "string",
+            "title": "Day"
+          },
+          "model": {
+            "type": "string",
+            "title": "Model"
+          },
+          "project": {
+            "type": "string",
+            "title": "Project"
+          },
+          "input": {
+            "type": "integer",
+            "title": "Input"
+          },
+          "output": {
+            "type": "integer",
+            "title": "Output"
+          },
+          "cache_write": {
+            "type": "integer",
+            "title": "Cache Write"
+          },
+          "cache_read": {
+            "type": "integer",
+            "title": "Cache Read"
+          },
+          "cost": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cost"
+          },
+          "unpriced": {
+            "type": "integer",
+            "title": "Unpriced"
+          }
+        },
+        "type": "object",
+        "required": [
+          "day",
+          "model",
+          "project",
+          "input",
+          "output",
+          "cache_write",
+          "cache_read",
+          "cost",
+          "unpriced"
+        ],
+        "title": "ModelUseLine",
+        "description": "One day, model and project of Claude Code's usage, and what it cost at list prices."
       },
       "MovePreview": {
         "properties": {

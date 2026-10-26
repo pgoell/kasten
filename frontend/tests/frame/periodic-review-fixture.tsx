@@ -18,6 +18,7 @@ import { readClock, shiftDay } from "@/lib/clock";
 import type { LogDay } from "@/lib/food-api";
 import { periodicNote } from "@/lib/periodic";
 import { startPress } from "@/lib/press";
+import type { ModelUseLine } from "@/lib/review-api";
 import type { WrittenNote } from "@/lib/review-year";
 import { routeTree } from "@/routeTree.gen";
 import { COARSE, NARROW, stubMatchMedia } from "../match-media";
@@ -119,6 +120,35 @@ const NOTES: WrittenNote[] = [
 // GitHub's days: three in January and nineteen on the Sunday of this week.
 const GITHUB_DAYS: Record<string, number> = { [`${YEAR}-01-05`]: 3, [SUNDAY]: 19 };
 
+/** The model use the year holds, in two months: enough for both charts to draw a bar. */
+export const MODEL_USE: ModelUseLine[] = [
+  {
+    day: `${YEAR}-02-11`,
+    model: "claude-opus-5-5",
+    project: "kasten",
+    input: 1000,
+    output: 2000,
+    cache_write: 3000,
+    cache_read: 4000,
+    cost: 4.1,
+    unpriced: 0,
+  },
+  {
+    day: `${YEAR}-10-03`,
+    model: "claude-opus-5-5",
+    project: "kasten",
+    input: 1000000,
+    output: 200000,
+    cache_write: 0,
+    cache_read: 0,
+    cost: 1200.45,
+    unpriced: 0,
+  },
+];
+
+// The model use answer for the next test; empty until a test gives it lines.
+let modelUse: ModelUseLine[] = [];
+
 /** One logged day with a kcal line, and a weigh-in when one is given. */
 function logged(date: string, kcal: number, weight?: number): LogDay {
   const mine =
@@ -187,18 +217,25 @@ export class SilentEventSource {
 /** Every request the page makes, as its method and path. A write shows as a method other than GET. */
 let requests: string[] = [];
 
-/** The review's two reads answered, and any other request a 404. Each request is recorded. */
+/** The review's reads answered, and any other request a 404. Each request is recorded. */
 function answer(input: RequestInfo | URL, init?: RequestInit): Response {
   const url = new URL(input instanceof Request ? input.url : String(input), location.href);
   requests.push(`${init?.method ?? "GET"} ${url.pathname}`);
   if (url.pathname === "/api/written/notes") return Response.json(NOTES);
   if (url.pathname === "/api/github") return Response.json({ on: true, days: GITHUB_DAYS });
+  if (url.pathname === "/api/model-use") return Response.json(modelUse);
   return new Response("not in this test", { status: 404 });
+}
+
+/** Gives the model use read its lines for the test that follows; the default is none. */
+export function answerModelUse(lines: ModelUseLine[]): void {
+  modelUse = lines;
 }
 
 /** Stubs `fetch` with the answers above and starts a fresh request record. */
 export function stubReviewFetch(): void {
   requests = [];
+  modelUse = [];
   vi.stubGlobal("fetch", async (input: RequestInfo | URL, init?: RequestInit) =>
     answer(input, init),
   );

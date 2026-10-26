@@ -2,7 +2,7 @@ import { NoteMissing } from "@/lib/api";
 import { applyLayout } from "@/lib/layout";
 import { hashed } from "./digests";
 import { defineFoliateFake } from "./foliate-fake";
-import { FakeEventSource, pageHooks, renderApp, settle, VAULT } from "./home-route-fixture";
+import { FakeEventSource, pageHooks, renderApp, settle, stream, VAULT } from "./home-route-fixture";
 import { DEFAULT_LAYOUT } from "./home-route-overview-fixture";
 import {
   CARDS,
@@ -19,6 +19,7 @@ import {
   WEEK_DAILY,
   YEAR_GITHUB,
   YEAR_LOG,
+  YEAR_MODEL_USE,
   YEAR_NOTE,
   YEAR_NOTES,
   YEAR_TEXT,
@@ -58,6 +59,7 @@ const {
   fetchWritten,
   fetchWrittenNotes,
   fetchGithub,
+  fetchModelUse,
   fetchReviewLimits,
 } = vi.hoisted(() => {
   const beside = (note: string, suffix = ".epub") => ({
@@ -109,6 +111,7 @@ const {
     fetchWritten: vi.fn(),
     fetchWrittenNotes: vi.fn(),
     fetchGithub: vi.fn(),
+    fetchModelUse: vi.fn(),
     fetchReviewLimits: vi.fn(),
   };
 });
@@ -145,7 +148,7 @@ vi.mock("@/lib/food-api", async (importOriginal) => ({
 vi.mock("@/lib/move-api", () => ({ renameNote, moveFolder }));
 vi.mock("@/lib/trash-api", () => ({ deleteNote, fetchTrash, restoreEntry, deleteImage }));
 vi.mock("@/lib/history-api", () => ({ fetchHistory, fetchHistoryText }));
-vi.mock("@/lib/review-api", () => ({ fetchWrittenNotes, fetchGithub }));
+vi.mock("@/lib/review-api", () => ({ fetchWrittenNotes, fetchGithub, fetchModelUse }));
 vi.mock("foliate-js/view.js", () => ({}));
 vi.mock("@/lib/outbox", () => ({
   keep: vi.fn(),
@@ -198,6 +201,27 @@ function projectRows(): string[][] {
   );
 }
 
+/** The model use section, or undefined while the review has not drawn it. */
+function modelUseSection(): HTMLElement | undefined {
+  return [...document.querySelectorAll<HTMLElement>(".review-section")].find(
+    (each) => each.querySelector(".review-heading")?.textContent === "Model use",
+  );
+}
+
+/** The rows of the model use table, each as its cells' words. */
+function modelUseRows(): string[][] {
+  return [
+    ...(modelUseSection()?.querySelectorAll<HTMLTableRowElement>(".review-table tbody tr") ?? []),
+  ].map((row) => [...row.children].map((cell) => cell.textContent ?? ""));
+}
+
+/** The bar heights of each model use chart, tokens first, one number per month as drawn. */
+function modelUseBars(): number[][] {
+  return [...(modelUseSection()?.querySelectorAll("svg") ?? [])].map((svg) =>
+    [...svg.querySelectorAll("rect")].map((rect) => Number(rect.getAttribute("height"))),
+  );
+}
+
 describe("the year review on the yearly note", () => {
   beforeEach(() => {
     vi.useFakeTimers();
@@ -223,6 +247,7 @@ describe("the year review on the yearly note", () => {
     fetchWritten.mockResolvedValue(YEAR_NOTES.map((note) => note.day));
     fetchWrittenNotes.mockResolvedValue(YEAR_NOTES);
     fetchGithub.mockResolvedValue(YEAR_GITHUB);
+    fetchModelUse.mockResolvedValue([]);
     fetchReviewLimits.mockResolvedValue({});
     searchNotes.mockResolvedValue([]);
     fetchTags.mockResolvedValue([]);
@@ -400,5 +425,79 @@ describe("the year review on the yearly note", () => {
 
     expect(reviewText()).toContain("2027 has not started.");
     expect(document.querySelector(".review-aside")).toBeNull();
+  });
+
+  it("#808 A4 the model use section draws tokens and cost per month, and a row per project, most costly first", async () => {
+    fetchModelUse.mockResolvedValue(YEAR_MODEL_USE);
+    await openNote(YEAR_NOTE);
+
+    expect(labelIn("Model use")).toBe("tokens per month in 2026, 1.6M in all");
+    expect(sectionText("Model use")).toContain("tokens per month, 1.6M in all");
+    expect(sectionText("Model use")).toContain("cost per month, $1,205.05 in all");
+    // Twelve bars a chart. January has nothing in it, so it is the one-unit stub; October is the top.
+    const [tokenBars = [], costBars = []] = modelUseBars();
+    expect(tokenBars).toHaveLength(12);
+    expect(costBars).toHaveLength(12);
+    expect(tokenBars[0]).toBe(1);
+    expect(tokenBars[1]).toBeGreaterThan(0);
+    expect(tokenBars[9]).toBe(Math.max(...tokenBars));
+    expect(costBars[9]).toBe(Math.max(...costBars));
+    expect(modelUseRows()).toEqual([
+      ["kasten", "1.2M", "$1,204.55"],
+      ["blattwerk", "341k", "$0.50"],
+      ["scratch", "100", "unknown"],
+    ]);
+  });
+
+  it("#808 A4 with no model use in the year the section says so, and draws no number", async () => {
+    await openNote(YEAR_NOTE);
+
+    expect(sectionText("Model use")).toContain("No model use recorded in 2026.");
+    expect(sectionText("Model use")).not.toContain("$");
+    expect(labelIn("Model use")).toBe("");
+    expect(reviewText()).not.toContain("tokens per month");
+  });
+
+  it("#808 I1 the unpriced tokens are said in words, and a line with no cost is never a cost of $0.00", async () => {
+    fetchModelUse.mockResolvedValue(YEAR_MODEL_USE);
+    await openNote(YEAR_NOTE);
+
+    expect(sectionText("Model use")).toContain(
+      "340k tokens had no price and are left out of the cost.",
+    );
+    expect(reviewText()).not.toContain("$0.00");
+    expect(modelUseRows()).toContainEqual(["scratch", "100", "unknown"]);
+  });
+
+  it("#808 I1 a year with no priced line draws no cost of $0.00", async () => {
+    fetchModelUse.mockResolvedValue(YEAR_MODEL_USE.map((line) => ({ ...line, cost: null })));
+    await openNote(YEAR_NOTE);
+
+    expect(sectionText("Model use")).toContain("cost unknown, no price for these models");
+    expect(labelIn("Model use")).toBe("tokens per month in 2026, 1.6M in all");
+    expect(reviewText()).not.toContain("$0.00");
+    expect(modelUseRows()).toContainEqual(["kasten", "1.2M", "unknown"]);
+  });
+
+  it("#808 I6 a failed model use read shows its message in its section, and Projects still draws", async () => {
+    fetchModelUse.mockRejectedValue(new Error("GET /api/model-use failed with 500"));
+    await openNote(YEAR_NOTE);
+
+    expect(sectionText("Model use")).toContain("GET /api/model-use failed with 500");
+    expect(projectRows()).toEqual([["FDE", "2", "2h 15m", "2"]]);
+  });
+
+  it("#808 I6 a collector write to the model use folder asks the model use again", async () => {
+    await openNote(YEAR_NOTE);
+    const before = fetchModelUse.mock.calls.length;
+
+    stream().send({
+      path: "99 Misc/01 Config/Model use/2026-10.md",
+      change: "written",
+      digest: "ab12cd34",
+    });
+    await settle();
+
+    expect(fetchModelUse.mock.calls.length).toBeGreaterThan(before);
   });
 });

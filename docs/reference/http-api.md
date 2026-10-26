@@ -9,7 +9,7 @@ status: stable
 
 # HTTP API
 
-The backend serves ninety-nine endpoints under `/api/`. Fifty-three read,
+The backend serves one hundred endpoints under `/api/`. Fifty-four read,
 forty-five write, and one streams. The interactive schema is at `/docs` while the backend
 runs, and the machine-readable one at `/openapi.json`.
 
@@ -25,7 +25,7 @@ including the check that refuses a cross-site `POST` with a `403`.
 
 ## Routes by area
 
-* [Notes](/reference/http-api/notes.md): list, read, save and create notes, the day each one counts on, and the notes a range holds with their tags and project
+* [Notes](/reference/http-api/notes.md): list, read, save and create notes, the day each one counts on, and the notes a range holds with their tags and project, and the model use a range holds
 * [Moving](/reference/http-api/moving.md): give a note or folder a new path, and preview what a move rewrites
 * [Trash and history](/reference/http-api/trash-and-history.md): delete into the trash, restore, and read a note's jj history
 * [Assets and books](/reference/http-api/assets-and-books.md): images, sounds, books and the chunked uploads

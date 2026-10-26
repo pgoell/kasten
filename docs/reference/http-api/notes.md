@@ -327,3 +327,54 @@ Each object holds:
 The reading is the same as `/api/written`: the archive folder is left out, each
 note is read once in a thread, and nothing is written, stored or indexed.
 
+## GET /api/model-use
+
+Takes `from` and `to`, both `YYYY-MM-DD` and both in, and answers with the usage
+lines of the days in the range. The lines come from the monthly notes the
+collector writes under `<config>/Model use/`, read as
+[the model use format](/reference/model-use-format.md) describes.
+
+```
+GET /api/model-use?from=2026-10-25&to=2026-10-26
+```
+
+```json
+[
+  {
+    "day": "2026-10-26",
+    "model": "claude-haiku-5-5",
+    "project": "kasten",
+    "input": 310,
+    "output": 9120,
+    "cache_write": 88000,
+    "cache_read": 1200300,
+    "cost": 0.0347,
+    "unpriced": 0
+  }
+]
+```
+
+Each object holds:
+
+* `day`: the day of the line, `YYYY-MM-DD`.
+* `model`: the model's id, as the session file holds it.
+* `project`: the project's name, the rest of the line up to the colon.
+* `input`, `output`, `cache_write`, `cache_read`: the token counts of the line.
+* `cost`: the cost in US dollars, or `null` when no message of the line had a price.
+* `unpriced`: the tokens of the messages that had no price. The cost leaves them
+  out, and the number is `0` when every message had a price.
+
+The list is sorted by day, then model, then project. A note without
+`generator: kasten-model-use` is not read, and a line that does not parse is
+passed over. Unlike `/api/written`, the range adds no day either side: a line
+counts on its own day.
+
+### Errors
+
+* `400` when `from` is after `to`.
+* `422` when a date is not `YYYY-MM-DD` or names no day, `2026-02-30` among them.
+
+### Reading
+
+The route writes nothing. It touches no database and keeps no index.
+

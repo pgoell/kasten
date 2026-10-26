@@ -61,6 +61,7 @@ const {
   fetchWritten,
   fetchWrittenNotes,
   fetchGithub,
+  fetchModelUse,
   fetchReviewLimits,
 } = vi.hoisted(() => {
   const beside = (note: string, suffix = ".epub") => ({
@@ -112,6 +113,7 @@ const {
     fetchWritten: vi.fn(),
     fetchWrittenNotes: vi.fn(),
     fetchGithub: vi.fn(),
+    fetchModelUse: vi.fn(),
     fetchReviewLimits: vi.fn(),
   };
 });
@@ -148,7 +150,7 @@ vi.mock("@/lib/food-api", async (importOriginal) => ({
 vi.mock("@/lib/move-api", () => ({ renameNote, moveFolder }));
 vi.mock("@/lib/trash-api", () => ({ deleteNote, fetchTrash, restoreEntry, deleteImage }));
 vi.mock("@/lib/history-api", () => ({ fetchHistory, fetchHistoryText }));
-vi.mock("@/lib/review-api", () => ({ fetchWrittenNotes, fetchGithub }));
+vi.mock("@/lib/review-api", () => ({ fetchWrittenNotes, fetchGithub, fetchModelUse }));
 vi.mock("foliate-js/view.js", () => ({}));
 vi.mock("@/lib/outbox", () => ({
   keep: vi.fn(),
@@ -228,6 +230,7 @@ describe("the periodic reviews in the note, read and edit", () => {
     fetchWritten.mockResolvedValue([]);
     fetchWrittenNotes.mockResolvedValue([]);
     fetchGithub.mockResolvedValue(WEEK_GITHUB);
+    fetchModelUse.mockResolvedValue([]);
     fetchReviewLimits.mockResolvedValue({});
     searchNotes.mockResolvedValue([]);
     fetchTags.mockResolvedValue([]);

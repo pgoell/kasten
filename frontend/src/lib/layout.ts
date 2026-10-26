@@ -47,6 +47,9 @@ export let LOG_NOTE = "99 Misc/01 Config/log.md";
 /** The note holding foods of your own, which the food search lists before Open Food Facts. */
 export let FOODS_NOTE = "99 Misc/01 Config/foods.md";
 
+/** The folder of the collector's monthly model-use notes. It is written from outside kasten, so a write there is an event. */
+export let MODEL_USE_FOLDER = "99 Misc/01 Config/Model use";
+
 /** Take the folders the backend named, from here on. */
 export function applyLayout(layout: Layout): void {
   INBOX = layout.inbox;
@@ -59,4 +62,5 @@ export function applyLayout(layout: Layout): void {
   DECKS_NOTE = `${layout.config}/decks.md`;
   LOG_NOTE = `${layout.config}/log.md`;
   FOODS_NOTE = `${layout.config}/foods.md`;
+  MODEL_USE_FOLDER = `${layout.config}/Model use`;
 }

@@ -56,7 +56,8 @@ over, and the collector keeps it as a line it did not write.
 ## What the collector counts
 
 `python -m kasten_backend.model_use <source> <vault> [--from YYYY-MM-DD] [--to YYYY-MM-DD]`,
-or `mise run model-use <source> <vault>`, reads every `*.jsonl` under
+or `mise run model-use -- <source> <vault>` (absolute paths, since the task
+runs in `backend/`), reads every `*.jsonl` under
 `<source>`, at any depth, so `~/.claude/projects` with each subagent's
 `subagents/agent-*.jsonl` file.
 
@@ -65,9 +66,9 @@ or `mise run model-use <source> <vault>`, reads every `*.jsonl` under
    no JSON is passed over.
 2. Each message counts once, by `message.id`. Claude Code writes one record per
    block of an answer, each with the answer's usage, and a resumed session
-   copies the earlier records into its new file. Over 13,932 message ids in
-   real files, no id carried two different usages; where one would, the record
-   with the most output tokens counts.
+   copies the earlier records into its new file. The record with the most
+   output tokens counts: an early record of an answer can carry the output
+   counted so far, as 108 of 661 message ids in one sample of real files did.
 3. The project is the record's `cwd` through the
    [projects table](#the-config-note): the longest folder that is the `cwd` or
    holds it. A `cwd` no row names counts under its last folder name, so
@@ -126,18 +127,19 @@ The prices and the project folders are in `<config>/model-use.md`, so
 * A line that breaks these rules is broken: the collector names it as
   `Skipped line N of model-use.md: <text>` and reads the rest.
 
-With no config note, no message has a price and every folder counts under its
-last name.
-
-The dev vault's note holds Anthropic's list prices as
+With no config note in the vault, the collector reads the one it ships with,
+`backend/src/kasten_backend/model-use.md`, and says so. It never writes the
+config note. That table holds Anthropic's list prices as
 [the pricing page](https://platform.claude.com/docs/en/about-claude/pricing)
-gave them on 2026-10-26. A price that changes is a new line you write; the
+gave them on 2026-10-26, and no projects, so every folder counts under its last
+name. To change a price or map a folder, copy it to `<config>/model-use.md` and
+edit it there. A price that changes is a new line you write; the
 collector prices a run's days at the rows of that run, so a range written
 again takes the new rates.
 
 ## The year review
 
 `GET /api/model-use?from&to` answers the usage lines of the days from `from` to
-`to` in the collector's notes; see [the HTTP API](/reference/http-api.md). The year review
+`to` in the collector's notes; see [the HTTP API](/reference/http-api/notes.md#get-apimodel-use). The year review
 draws tokens and cost per month and a table per project from them; with no line
 in the year it says so and draws no number.

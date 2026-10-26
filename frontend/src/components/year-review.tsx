@@ -6,6 +6,15 @@ import { rangeDates, weightOf } from "@/lib/log-weight";
 import { grouped } from "@/lib/log-words";
 import { plural } from "@/lib/overview-words";
 import { deckNotes } from "@/lib/review";
+import type { ModelUseLine } from "@/lib/review-api";
+import {
+  costWords,
+  monthUse,
+  type ProjectUse,
+  projectUse,
+  tokenWords,
+  unpricedTokens,
+} from "@/lib/review-model-use";
 import {
   minutesWords,
   monthCounts,
@@ -82,6 +91,13 @@ function YearBody({
           written={reads.written.data}
           error={reads.written.error}
           pending={reads.written.pending}
+        />
+        <ModelUse
+          year={year}
+          today={today}
+          lines={reads.modelUse.data}
+          error={reads.modelUse.error}
+          pending={reads.modelUse.pending}
         />
         <Weight year={year} reads={reads} from={from} to={to} />
         <Tags
@@ -255,6 +271,108 @@ function Months({
       />
       <Caption>{`notes written per month, ${grouped(total)} in all`}</Caption>
     </Section>
+  );
+}
+
+function ModelUse({
+  year,
+  today,
+  lines,
+  error,
+  pending,
+}: {
+  year: number;
+  today: string;
+  lines: ModelUseLine[];
+  error: string | undefined;
+  pending: boolean;
+}) {
+  if (error !== undefined) {
+    return (
+      <Section heading="Model use">
+        <Failed message={error} />
+      </Section>
+    );
+  }
+  if (pending) {
+    return (
+      <Section heading="Model use">
+        <Reading />
+      </Section>
+    );
+  }
+  if (lines.length === 0) {
+    return (
+      <Section heading="Model use">
+        <Words>{`No model use recorded in ${year}.`}</Words>
+      </Section>
+    );
+  }
+  const months = monthUse(lines, year);
+  const tokens = months.reduce((sum, month) => sum + month.tokens, 0);
+  const cost = months.reduce((sum, month) => sum + (month.cost ?? 0), 0);
+  const priced = lines.some((line) => line.cost !== null);
+  const unpriced = unpricedTokens(lines);
+  // The same month marking as Notes per month: this year's current month at full strength.
+  const todayIndex = today.startsWith(`${year}-`) ? Number(today.slice(5, 7)) - 1 : undefined;
+  return (
+    <Section heading="Model use">
+      {/* Two charts side by side from the container's 600 px, one above the other on a phone. */}
+      <div className="review-charts">
+        <div>
+          <Bars
+            label={`tokens per month in ${year}, ${tokenWords(tokens)} in all`}
+            points={months.map((month, index) => ({ index, amount: month.tokens }))}
+            slots={12}
+            todayIndex={todayIndex}
+          />
+          <Caption>{`tokens per month, ${tokenWords(tokens)} in all`}</Caption>
+        </div>
+        <div>
+          {/* With no priced line there is no cost to draw, and a $0.00 bar would say there was. */}
+          {priced ? (
+            <Bars
+              label={`cost per month in ${year}, ${costWords(cost)} in all`}
+              points={months.map((month, index) => ({ index, amount: month.cost ?? 0 }))}
+              slots={12}
+              todayIndex={todayIndex}
+            />
+          ) : null}
+          <Caption>
+            {priced
+              ? `cost per month, ${costWords(cost)} in all`
+              : "cost unknown, no price for these models"}
+          </Caption>
+        </div>
+      </div>
+      <ProjectUseTable rows={projectUse(lines)} />
+      {unpriced > 0 ? (
+        <Words>{`${tokenWords(unpriced)} tokens had no price and are left out of the cost.`}</Words>
+      ) : null}
+    </Section>
+  );
+}
+
+function ProjectUseTable({ rows }: { rows: ProjectUse[] }) {
+  return (
+    <table className="review-table">
+      <thead>
+        <tr>
+          <th scope="col">Project</th>
+          <th scope="col">Tokens</th>
+          <th scope="col">Cost</th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((row) => (
+          <tr key={row.project}>
+            <th scope="row">{row.project}</th>
+            <td>{tokenWords(row.tokens)}</td>
+            <td>{row.cost === null ? "unknown" : costWords(row.cost)}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
   );
 }
 

@@ -19,7 +19,7 @@ import { fetchLog, type LogDay } from "@/lib/food-api";
 import { LOG_NOTE } from "@/lib/layout";
 import { DEFAULT_CONFIG, type LogConfig, parseConfig } from "@/lib/log-kinds";
 import { periodicNote } from "@/lib/periodic";
-import { fetchGithub, fetchWrittenNotes } from "@/lib/review-api";
+import { fetchGithub, fetchModelUse, fetchWrittenNotes, type ModelUseLine } from "@/lib/review-api";
 import type { WrittenNote } from "@/lib/review-year";
 
 /**
@@ -87,6 +87,7 @@ export interface YearReads {
   written: Read<string[]>;
   notes: Read<WrittenNote[]>;
   github: Read<{ on: boolean; days: Record<string, number> }>;
+  modelUse: Read<ModelUseLine[]>;
 }
 
 /** Every read the year review makes, over `from` to `to`. */
@@ -102,6 +103,10 @@ export function useYearReads(from: string, to: string): YearReads {
     queryKey: ["written-notes", from, to],
     queryFn: () => fetchWrittenNotes(from, to),
   });
+  const modelUse = useQuery({
+    queryKey: ["model-use", from, to],
+    queryFn: () => fetchModelUse(from, to),
+  });
   return {
     config,
     ...lists,
@@ -109,6 +114,7 @@ export function useYearReads(from: string, to: string): YearReads {
     written: readOf(written, []),
     notes: readOf(notes, []),
     github: useGithub(from, to),
+    modelUse: readOf(modelUse, []),
   };
 }
 

@@ -858,6 +858,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/model-use": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Model Use
+         * @description The usage lines from `from` to `to`, sorted by day, model and project.
+         *
+         *     Read from the collector's own notes under the config folder. A note without
+         *     its marker and a line that does not parse are skipped, not answered.
+         */
+        get: operations["read_model_use_api_model_use_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/log": {
         parameters: {
             query?: never;
@@ -3498,6 +3521,30 @@ export interface components {
             secret: string;
         };
         /**
+         * ModelUseLine
+         * @description One day, model and project of Claude Code's usage, and what it cost at list prices.
+         */
+        ModelUseLine: {
+            /** Day */
+            day: string;
+            /** Model */
+            model: string;
+            /** Project */
+            project: string;
+            /** Input */
+            input: number;
+            /** Output */
+            output: number;
+            /** Cache Write */
+            cache_write: number;
+            /** Cache Read */
+            cache_read: number;
+            /** Cost */
+            cost: number | null;
+            /** Unpriced */
+            unpriced: number;
+        };
+        /**
          * MovePreview
          * @description What a move would rewrite, asked before it is made.
          */
@@ -5408,6 +5455,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Contributions"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_model_use_api_model_use_get: {
+        parameters: {
+            query: {
+                from: string;
+                to: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModelUseLine"][];
                 };
             };
             /** @description Validation Error */
