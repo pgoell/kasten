@@ -31,6 +31,10 @@ function held(interval: number, due = TODAY) {
 
 /** The sitting over `text`, with the writes it makes and the callback it opens sources with. */
 function renderSitting(text: string, deck: Deck = DECK) {
+  vi.spyOn(api, "fetchReviewLimits").mockResolvedValue({
+    new_per_day: null,
+    reviews_per_day: null,
+  });
   vi.spyOn(api, "fetchNote").mockImplementation((path) =>
     Promise.resolve(path === "decks/aws.md" ? text : ""),
   );

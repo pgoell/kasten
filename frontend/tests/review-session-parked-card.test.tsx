@@ -21,6 +21,10 @@ describe("ReviewSession on a parked card", () => {
     "What is Direct Connect?::A private link\n";
 
   function renderTwo() {
+    vi.spyOn(api, "fetchReviewLimits").mockResolvedValue({
+      new_per_day: null,
+      reviews_per_day: null,
+    });
     vi.spyOn(api, "fetchNote").mockResolvedValue(TWO);
     const saved = vi.spyOn(api, "saveNote").mockResolvedValue({
       path: "decks/aws.md",
@@ -172,6 +176,10 @@ describe("ReviewSession on a parked card", () => {
   });
 
   it("leaves the parked card out of the queue", async () => {
+    vi.spyOn(api, "fetchReviewLimits").mockResolvedValue({
+      new_per_day: null,
+      reviews_per_day: null,
+    });
     vi.spyOn(api, "fetchNote").mockResolvedValue(PARKED);
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(

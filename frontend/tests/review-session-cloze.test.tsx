@@ -9,6 +9,10 @@ describe("ReviewSession on a cloze", () => {
   const CLOZE = "#flashcards/aws\n\nThe capital of {{c1::France}} is {{c2::Paris::a city}}.\n";
 
   function renderCloze(text = CLOZE) {
+    vi.spyOn(api, "fetchReviewLimits").mockResolvedValue({
+      new_per_day: null,
+      reviews_per_day: null,
+    });
     vi.spyOn(api, "fetchNote").mockResolvedValue(text);
     // The vault answers with what was sent: the next rating starts from it.
     const saved = vi

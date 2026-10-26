@@ -26,6 +26,11 @@ describe("ReviewDecks reading the deck notes", () => {
 
   it("counts the other decks when one note fails to read", async () => {
     vi.spyOn(api, "fetchCards").mockResolvedValue(HITS);
+    // No backend here, so the defaults read would retry a network error for a minute.
+    vi.spyOn(api, "fetchReviewLimits").mockResolvedValue({
+      new_per_day: null,
+      reviews_per_day: null,
+    });
     vi.spyOn(api, "fetchNote").mockImplementation((path) =>
       path === "a.md"
         ? Promise.reject(new Error("GET /api/files/a.md failed with 500"))

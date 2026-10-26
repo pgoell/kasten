@@ -279,6 +279,10 @@ describe("ReviewPane on a nested cloze", () => {
   });
 
   it("A8 a nested cloze is asked as c1 then c2 and rated by key", async () => {
+    vi.spyOn(api, "fetchReviewLimits").mockResolvedValue({
+      new_per_day: null,
+      reviews_per_day: null,
+    });
     vi.spyOn(api, "fetchCards").mockResolvedValue(HITS);
     vi.spyOn(api, "fetchNote").mockResolvedValue(NESTED);
     // The vault answers with what was sent: the next rating starts from it.

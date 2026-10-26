@@ -64,6 +64,10 @@ function pointer(target: Element, type: string, x: number, y: number) {
 
 /** The sitting over `text`, with the writes it makes. */
 function renderSitting(text: string) {
+  vi.spyOn(api, "fetchReviewLimits").mockResolvedValue({
+    new_per_day: null,
+    reviews_per_day: null,
+  });
   vi.spyOn(api, "fetchNote").mockImplementation((path) =>
     Promise.resolve(path === "decks/aws.md" ? text : ""),
   );

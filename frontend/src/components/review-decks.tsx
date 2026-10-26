@@ -111,24 +111,35 @@ export function ReviewDecks({ onPick, onParked, archive = false }: ReviewDecksPr
   });
 
   // The same limits the sitting reads, so a row counts what its sitting asks.
-  const limits = useReviewLimits();
+  const { limits, failed: limitsFailed } = useReviewLimits();
+  // A limit that could not be read at all: no rows, since a row would count past it.
+  const unread = limits === undefined && limitsFailed !== null;
 
   // Until the last note is in, so a vault of decks never flashes "No decks",
-  // and until the limits are. Rows drawn before then count no limit; the
-  // sitting waits for the limits itself, so what it asks never rests on that.
-  // A retrying note still holds the summary: its cards are not in yet, so a
-  // summary drawn without them would say "No decks" or count short.
-  const isPending = scanning || reads.some((read) => read.isPending) || limits === undefined;
+  // and until the limits are, unless they failed. Rows drawn before then count
+  // no limit; the sitting waits for the limits itself, so what it asks never
+  // rests on that. A retrying note still holds the summary: its cards are not
+  // in yet, so a summary drawn without them would say "No decks" or count short.
+  const isPending =
+    scanning || reads.some((read) => read.isPending) || (limits === undefined && !unread);
+
+  // A note that failed at last is named below the decks, not left out in silence.
+  // An earlier read of it that answered still counts.
+  const unreadNotes = paths.filter(
+    (_, at) => reads[at]?.isError === true && reads[at]?.data === undefined,
+  );
 
   const today = readClock(new Date()).date;
-  const decks = decksFrom(
-    paths.flatMap((path, at) => {
-      const text = reads[at]?.data;
-      return text === undefined ? [] : [{ path, text }];
-    }),
-    today,
-    limits,
-  );
+  const decks = unread
+    ? []
+    : decksFrom(
+        paths.flatMap((path, at) => {
+          const text = reads[at]?.data;
+          return text === undefined ? [] : [{ path, text }];
+        }),
+        today,
+        limits,
+      );
   // Top-level rows only. A deck counts every card under it, so summing all of
   // them would count a card in `databases/postgres` again for `databases`, and
   // an imported Anki tree would read as twice the cards it holds.
@@ -176,7 +187,12 @@ export function ReviewDecks({ onPick, onParked, archive = false }: ReviewDecksPr
       <div className="min-h-0 flex-1 overflow-auto px-4 py-6">
         <div className="mx-auto w-full max-w-[var(--k-measure)]">
           <h2 className="font-serif text-k-27">Review</h2>
-          {!isPending && <p className="mt-1 text-k-15 text-k-muted">{summary}</p>}
+          {!isPending && unread && (
+            <p role="alert" className="mt-1 text-k-15 text-k-muted">
+              The daily limits could not be read: {limitsFailed}
+            </p>
+          )}
+          {!isPending && !unread && <p className="mt-1 text-k-15 text-k-muted">{summary}</p>}
           {!isPending && first !== undefined && (
             <button
               type="button"
@@ -190,7 +206,7 @@ export function ReviewDecks({ onPick, onParked, archive = false }: ReviewDecksPr
 
           {isPending && <p className="text-k-muted text-k-13">Reading the vault…</p>}
 
-          {!isPending && decks.length === 0 && (
+          {!isPending && !unread && decks.length === 0 && (
             <p className="text-k-muted text-k-13">
               No decks. A deck is a note tagged <span className="text-k-ink">#flashcards</span>, or{" "}
               <span className="text-k-ink">#flashcards/aws</span> to name it, holding lines written{" "}
@@ -286,6 +302,13 @@ export function ReviewDecks({ onPick, onParked, archive = false }: ReviewDecksPr
               </Fragment>
             ))}
           </ul>
+
+          {unreadNotes.length > 0 && (
+            <p role="alert" className="mt-6 text-k-13 text-k-muted">
+              These notes could not be read, so their cards are not counted:{" "}
+              {unreadNotes.join(", ")}
+            </p>
+          )}
 
           {/* Below the decks, since an import is rare beside a sitting and the
             decks are what a visit is for. */}

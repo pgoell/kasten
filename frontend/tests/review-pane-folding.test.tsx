@@ -27,6 +27,10 @@ describe("ReviewPane folding the deck list (#517)", () => {
   afterEach(() => localStorage.clear());
 
   function renderTree() {
+    vi.spyOn(api, "fetchReviewLimits").mockResolvedValue({
+      new_per_day: null,
+      reviews_per_day: null,
+    });
     vi.spyOn(api, "fetchCards").mockResolvedValue(TREE);
     serveNotes(TREE);
     render(
@@ -133,6 +137,10 @@ describe("ReviewPane folding the deck list (#517)", () => {
       },
     ]);
     localStorage.setItem(FOLDS, JSON.stringify(["trivia"]));
+    vi.spyOn(api, "fetchReviewLimits").mockResolvedValue({
+      new_per_day: null,
+      reviews_per_day: null,
+    });
     vi.spyOn(api, "fetchCards").mockResolvedValue(TREE);
     serveNotes(TREE);
     render(

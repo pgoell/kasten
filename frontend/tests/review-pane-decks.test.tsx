@@ -66,6 +66,10 @@ describe("ReviewPane keys on the deck overview", () => {
 describe("ReviewPane on a nested deck", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    vi.spyOn(api, "fetchReviewLimits").mockResolvedValue({
+      new_per_day: null,
+      reviews_per_day: null,
+    });
   });
 
   const NESTED = [
@@ -126,6 +130,10 @@ describe("ReviewPane on a deck holding parked cards", () => {
 
   beforeEach(() => {
     vi.restoreAllMocks();
+    vi.spyOn(api, "fetchReviewLimits").mockResolvedValue({
+      new_per_day: null,
+      reviews_per_day: null,
+    });
   });
 
   async function renderParked() {
@@ -266,6 +274,11 @@ describe("ReviewPane under a daily limit", () => {
   /** The pane over `hits`, with `limits` as the vault's `decks.md`. */
   function renderLimited(hits: api.SearchHit[], limits: string) {
     vi.spyOn(api, "fetchCards").mockResolvedValue(hits);
+    // No backend here, so the defaults read would retry a network error for a minute.
+    vi.spyOn(api, "fetchReviewLimits").mockResolvedValue({
+      new_per_day: null,
+      reviews_per_day: null,
+    });
     vi.spyOn(api, "fetchNote").mockImplementation((path) =>
       Promise.resolve(path === "99 Misc/01 Config/decks.md" ? limits : noteOf(hits, path)),
     );

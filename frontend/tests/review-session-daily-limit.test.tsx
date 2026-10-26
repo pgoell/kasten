@@ -26,6 +26,12 @@ describe("ReviewSession under a daily limit", () => {
     vi.spyOn(api, "fetchNote").mockImplementation((path: string) =>
       Promise.resolve(path === "99 Misc/01 Config/decks.md" ? "trivia: 1 new, 2 reviews\n" : CARDS),
     );
+    // No backend here, so the defaults read would fail as a network error, which
+    // now retries for a minute rather than falling back at once.
+    vi.spyOn(api, "fetchReviewLimits").mockResolvedValue({
+      new_per_day: null,
+      reviews_per_day: null,
+    });
     vi.spyOn(api, "saveNote").mockImplementation((path: string, content: string) =>
       Promise.resolve({ path, content }),
     );

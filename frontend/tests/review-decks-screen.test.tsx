@@ -34,6 +34,10 @@ afterEach(() => {
 });
 
 function renderDecks(hits = HITS) {
+  vi.spyOn(api, "fetchReviewLimits").mockResolvedValue({
+    new_per_day: null,
+    reviews_per_day: null,
+  });
   vi.spyOn(api, "fetchCards").mockResolvedValue(hits);
   serveNotes(hits);
   const onPick = vi.fn();

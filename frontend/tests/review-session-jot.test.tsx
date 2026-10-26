@@ -14,6 +14,10 @@ describe("ReviewSession jotting a new question", () => {
   });
 
   function renderJot() {
+    vi.spyOn(api, "fetchReviewLimits").mockResolvedValue({
+      new_per_day: null,
+      reviews_per_day: null,
+    });
     vi.spyOn(api, "fetchNote").mockResolvedValue(DECK_NOTE);
     const saved = vi.spyOn(api, "saveNote").mockResolvedValue({
       path: "decks/aws.md",

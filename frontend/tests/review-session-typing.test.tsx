@@ -55,6 +55,10 @@ describe("ReviewSession typing", () => {
 
   it("A3 counts a typed a\\-b right against an imported back a\\\\-b", async () => {
     const note = "#flashcards/aws\n\nWhat is it?::a\\\\-b \\*c\\* <!--anki:1:0:abcdef12-->\n";
+    vi.spyOn(api, "fetchReviewLimits").mockResolvedValue({
+      new_per_day: null,
+      reviews_per_day: null,
+    });
     vi.spyOn(api, "fetchNote").mockResolvedValue(note);
     vi.spyOn(api, "saveNote").mockResolvedValue({ path: "decks/aws.md", content: note });
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -74,6 +78,10 @@ describe("ReviewSession typing", () => {
 
   it("A3 counts a typed &#58; right against an imported back \\&#58;", async () => {
     const note = "#flashcards/aws\n\nWhat is it?::a\\\\\\&#58; \\&#58; <!--anki:1:0:abcdef12-->\n";
+    vi.spyOn(api, "fetchReviewLimits").mockResolvedValue({
+      new_per_day: null,
+      reviews_per_day: null,
+    });
     vi.spyOn(api, "fetchNote").mockResolvedValue(note);
     vi.spyOn(api, "saveNote").mockResolvedValue({ path: "decks/aws.md", content: note });
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });

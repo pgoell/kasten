@@ -14,6 +14,10 @@ const WHOLE = [{ path: "tls.md", line: 1, text: "#review" }];
 beforeEach(() => {
   localStorage.clear();
   vi.restoreAllMocks();
+  vi.spyOn(api, "fetchReviewLimits").mockResolvedValue({
+    new_per_day: null,
+    reviews_per_day: null,
+  });
 });
 
 /** The pane on the first card of `beta`, its writes kept. */

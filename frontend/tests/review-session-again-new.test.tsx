@@ -25,6 +25,10 @@ describe("ReviewSession rating a new card again (#816)", () => {
    */
   function renderVault(start: string, deck: Deck, decksNote: string) {
     const vault = { disk: start };
+    vi.spyOn(api, "fetchReviewLimits").mockResolvedValue({
+      new_per_day: null,
+      reviews_per_day: null,
+    });
     vi.spyOn(api, "fetchNote").mockImplementation(async (path: string) =>
       path === "99 Misc/01 Config/decks.md" ? decksNote : vault.disk,
     );

@@ -45,8 +45,14 @@ step. It writes nothing where the note changed since that step, in another
 pane, on disk or by a jot, and says so at the foot.
 
 While the backend restarts, a rating's write goes again for about a minute, and
-so do the decks' reads of the cards and their notes, so the counts on the
-overview catch up once it is back rather than at the next rating.
+so do the decks' reads of the cards, their notes and the
+[daily limits](#daily-limits), so the counts on the overview catch up once it is
+back rather than at the next rating. A deck note that still cannot be read is
+named at the foot of the decks, its cards not counted. Limits that still cannot
+be read leave the overview with no decks to sit and a sitting with nothing to
+ask, each saying so, rather than counting no limit. The parked list reads its
+notes again the same way, says `Reading the notes…` until the scan of the cards
+answers, and shows the scan's error if it fails.
 
 Center, a toggle in the header, puts the front and the back in the middle of
 the pane, across and down. The browser keeps it, so it holds across sittings
@@ -241,7 +247,9 @@ The name is the deck's as the overview writes it, a subdeck with its full path.
 Either half may go, and so may the `- `. A line that does not read this way is
 skipped and the rest still count, so the note can carry frontmatter and a
 sentence about why. A vault with no `decks.md` has no limits per deck, and no
-error says so.
+error says so. A `decks.md` the backend fails to answer while it restarts is
+not taken as missing: it is read again, as
+[under Sitting one](#sitting-one).
 
 Each half of a deck's limit is its own line's, else that of the nearest deck
 above it that sets one, else the default

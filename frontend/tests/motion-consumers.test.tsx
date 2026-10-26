@@ -75,6 +75,10 @@ describe("the consumers of the motion", () => {
     vi.spyOn(api, "fetchTodos").mockResolvedValue([]);
     vi.spyOn(api, "fetchNote").mockResolvedValue(DEFAULT_VIEWS);
     vi.spyOn(api, "fetchFiles").mockResolvedValue([VIEWS_NOTE]);
+    vi.spyOn(api, "fetchReviewLimits").mockResolvedValue({
+      new_per_day: null,
+      reviews_per_day: null,
+    });
   });
 
   afterEach(() => {

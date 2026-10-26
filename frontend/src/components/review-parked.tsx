@@ -5,7 +5,7 @@ import { clozePlain, unescaped } from "@/lib/card-line";
 import { setSuspended } from "@/lib/card-write";
 import { withoutTags } from "@/lib/deck-tag";
 import { noteName } from "@/lib/note-path";
-import { readRetry } from "@/lib/read-retry";
+import { BACKOFF, readRetry, retryable } from "@/lib/read-retry";
 import { parkedNotes } from "@/lib/review";
 import { type Parked, parseCards } from "@/lib/srs";
 import { readNoteSuspended, writeNoteSuspended } from "@/lib/srs-schedule";
@@ -43,7 +43,10 @@ interface ReviewParkedProps {
  */
 export function ReviewParked({ onLeave, onOpen, archive = false }: ReviewParkedProps) {
   const [texts, setTexts] = useState<Map<string, string> | null>(null);
+  /** A put-back whose write failed. A later read does not clear it: the write did not land. */
   const [failed, setFailed] = useState<string | null>(null);
+  /** A read of the notes that failed, cleared by the next read that answers. */
+  const [readFailed, setReadFailed] = useState<string | null>(null);
   const write = useSittingWrites(setTexts, setFailed);
   /** Per note, the writes out now. */
   const out = useRef(new Map<string, number>());
@@ -52,18 +55,24 @@ export function ReviewParked({ onLeave, onOpen, archive = false }: ReviewParkedP
 
   // The same key the overview holds, so opening this screen reads no cards the
   // list behind it has not already fetched.
-  const { data: hits } = useQuery({
+  const { data: hits, error: hitsError } = useQuery({
     queryKey: ["cards", archive],
     queryFn: () => fetchCards(archive),
     ...readRetry,
   });
+  // Out, or failed with nothing to read the notes by. Neither is an empty vault.
+  const scanFailed = hits === undefined && hitsError !== null;
 
   const notes = useMemo(() => (hits === undefined ? [] : parkedNotes(hits)), [hits]);
 
   useEffect(() => {
+    // Until the scan answers there is no list of notes to read, and reading none would show "Nothing parked.".
+    if (hits === undefined) return;
     let live = true;
     const landedAt = new Map(landed.current);
-    void Promise.all(notes.map(async (note) => [note, await fetchNote(note)] as const)).then(
+    void Promise.all(
+      notes.map(async (note) => [note, await readNote(note, () => live)] as const),
+    ).then(
       (read) => {
         // A note with a write out, or a put-back that landed while this read was on its
         // way, keeps the text the screen holds: the read may predate that landing. A put-back
@@ -71,7 +80,8 @@ export function ReviewParked({ onLeave, onOpen, archive = false }: ReviewParkedP
         const busy = (note: string) =>
           (out.current.get(note) ?? 0) > 0 ||
           (landed.current.get(note) ?? 0) !== (landedAt.get(note) ?? 0);
-        if (live)
+        if (live) {
+          setReadFailed(null);
           setTexts((was) =>
             was === null
               ? new Map(read)
@@ -79,15 +89,16 @@ export function ReviewParked({ onLeave, onOpen, archive = false }: ReviewParkedP
                   read.map(([note, text]) => [note, busy(note) ? (was.get(note) ?? text) : text]),
                 ),
           );
+        }
       },
       (error: unknown) => {
-        if (live) setFailed(error instanceof Error ? error.message : "could not read the note");
+        if (live) setReadFailed(error instanceof Error ? error.message : "could not read the note");
       },
     );
     return () => {
       live = false;
     };
-  }, [notes]);
+  }, [notes, hits]);
 
   const rows = useMemo(() => rowsOf(texts ?? new Map()), [texts]);
 
@@ -130,7 +141,7 @@ export function ReviewParked({ onLeave, onOpen, archive = false }: ReviewParkedP
       </header>
 
       <div className="min-h-0 flex-1 overflow-auto p-3">
-        {texts === null && failed === null && (
+        {texts === null && failed === null && readFailed === null && !scanFailed && (
           <p className="text-k-muted text-[13px]">Reading the notes…</p>
         )}
 
@@ -179,6 +190,19 @@ export function ReviewParked({ onLeave, onOpen, archive = false }: ReviewParkedP
           ))}
         </ul>
 
+        {scanFailed && (
+          <p role="alert" className="mt-6 text-k-muted">
+            The cards could not be read:{" "}
+            {hitsError instanceof Error ? hitsError.message : "could not read the cards"}
+          </p>
+        )}
+
+        {readFailed !== null && (
+          <p role="alert" className="mt-6 text-k-muted">
+            The note could not be read: {readFailed}
+          </p>
+        )}
+
         {failed !== null && (
           <p role="alert" className="mt-6 text-k-muted">
             The note could not be read: {failed}
@@ -187,6 +211,23 @@ export function ReviewParked({ onLeave, onOpen, archive = false }: ReviewParkedP
       </div>
     </div>
   );
+}
+
+/**
+ * Reads a note, trying again while the backend restarts, as `useSittingWrites` tries a write.
+ * `live` says whether the effect that asked still stands, so a read it has left stops
+ * before its next try.
+ */
+async function readNote(note: string, live: () => boolean): Promise<string> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await fetchNote(note);
+    } catch (error) {
+      if (!retryable(error) || attempt === BACKOFF.length) throw error;
+      await new Promise((wake) => setTimeout(wake, BACKOFF[attempt]));
+      if (!live()) throw error;
+    }
+  }
 }
 
 /** Moves a note's count by `by`, from zero where the note has none yet. */

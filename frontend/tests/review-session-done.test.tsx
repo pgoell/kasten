@@ -26,6 +26,10 @@ const WHOLE: Deck = { ...DECK, whole: true };
  * `limits` is the text of `decks.md`, which is where a daily limit is written.
  */
 function renderSitting(text: string, deck: Deck = DECK, limits = "") {
+  vi.spyOn(api, "fetchReviewLimits").mockResolvedValue({
+    new_per_day: null,
+    reviews_per_day: null,
+  });
   vi.spyOn(api, "fetchNote").mockImplementation((path) =>
     Promise.resolve(
       path === "decks/aws.md" ? text : path === "99 Misc/01 Config/decks.md" ? limits : "",

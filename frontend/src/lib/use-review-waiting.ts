@@ -32,7 +32,7 @@ export function useReviewWaiting(archive: boolean): number | undefined {
       ...readRetry,
     })),
   });
-  const limits = useReviewLimits();
+  const { limits } = useReviewLimits();
 
   if (hits === undefined || limits === undefined || reads.some((read) => read.isPending)) {
     return undefined;

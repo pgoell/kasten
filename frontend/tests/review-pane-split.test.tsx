@@ -13,6 +13,10 @@ beforeEach(() => {
 });
 
 it("#790 A16 a key grades the card of the focused pane and leaves the pane beside it alone", async () => {
+  vi.spyOn(api, "fetchReviewLimits").mockResolvedValue({
+    new_per_day: null,
+    reviews_per_day: null,
+  });
   vi.spyOn(api, "fetchCards").mockResolvedValue(HITS);
   serveNotes(HITS);
   render(

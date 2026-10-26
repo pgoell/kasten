@@ -23,6 +23,10 @@ describe("ReviewDecks importing from a link", () => {
   });
 
   async function renderDecks() {
+    vi.spyOn(api, "fetchReviewLimits").mockResolvedValue({
+      new_per_day: null,
+      reviews_per_day: null,
+    });
     vi.spyOn(api, "fetchCards").mockResolvedValue(HITS);
     serveNotes(HITS);
     const client = seededClient(HITS);

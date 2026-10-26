@@ -18,6 +18,8 @@ import { useSittingWrites } from "@/lib/use-sitting-writes";
 
 /** What the sitting refuses an undo with when the note moved on since the step. */
 const MOVED_ON = "The note changed since that step, so it was not undone.";
+/** What the foot says when the daily limits could not be read, before the reason. */
+const LIMITS_UNREAD = "The daily limits could not be read: ";
 
 /**
  * The schedule a rating writes for the card on screen.
@@ -94,7 +96,7 @@ export function useReviewSitting(
   const write = useSittingWrites(setTexts, unwritten);
 
   const today = useMemo(() => readClock(new Date()).date, []);
-  const read = useReviewLimits(true);
+  const { limits: read, failed: limitsFailed } = useReviewLimits(true);
   // The first limits read, kept for the whole sitting. Every rating refetches
   // them, and a `decks.md` that answers differently by then would otherwise
   // build the queue again under the sitting: the count jumps back and a card
@@ -104,6 +106,16 @@ export function useReviewSitting(
   useEffect(() => {
     if (read !== undefined) setLimits((was) => was ?? read);
   }, [read]);
+
+  // Said in the foot, and no queue built: asking without the limits could ask
+  // past them. A later read that answers takes the message away again.
+  useEffect(() => {
+    if (limits !== undefined) {
+      setFailed((was) => (was?.startsWith(LIMITS_UNREAD) ? null : was));
+    } else if (limitsFailed !== null) {
+      setFailed(`${LIMITS_UNREAD}${limitsFailed}`);
+    }
+  }, [limits, limitsFailed]);
 
   useEffect(() => {
     // Before any note is read: a queue built without the limits would ask the

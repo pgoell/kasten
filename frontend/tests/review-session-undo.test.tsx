@@ -30,6 +30,10 @@ describe("ReviewSession undoing the last step (#600)", () => {
     const vault = { disk: start };
     const answers = [decksNote].flat();
     const decks = { reads: 0 };
+    vi.spyOn(api, "fetchReviewLimits").mockResolvedValue({
+      new_per_day: null,
+      reviews_per_day: null,
+    });
     vi.spyOn(api, "fetchNote").mockImplementation(async (path: string) => {
       if (path !== "99 Misc/01 Config/decks.md") return vault.disk;
       decks.reads += 1;

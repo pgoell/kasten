@@ -22,6 +22,10 @@ const HITS = [
 const NOTE = "#flashcards/alpha\na::b\nWhat is a VPC?::A private cloud !suspended\n";
 
 async function renderRoute(hits: api.SearchHit[] = HITS, note = NOTE) {
+  vi.spyOn(api, "fetchReviewLimits").mockResolvedValue({
+    new_per_day: null,
+    reviews_per_day: null,
+  });
   vi.spyOn(api, "fetchCards").mockResolvedValue(hits);
   vi.spyOn(api, "fetchNote").mockResolvedValue(note);
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -228,6 +232,10 @@ describe("the review route under a daily limit", () => {
 
   beforeEach(() => {
     vi.restoreAllMocks();
+    vi.spyOn(api, "fetchReviewLimits").mockResolvedValue({
+      new_per_day: null,
+      reviews_per_day: null,
+    });
   });
 
   it("A12 draws a deck's row with the due and new counts its decks.md line allows", async () => {

@@ -19,6 +19,10 @@ describe("ReviewSession on a whole note", () => {
     "---\nsr-due: 2026-01-01\nsr-interval: 4\nsr-ease: 250\n---\n# TLS\n\nthe handshake\n";
 
   function renderNote() {
+    vi.spyOn(api, "fetchReviewLimits").mockResolvedValue({
+      new_per_day: null,
+      reviews_per_day: null,
+    });
     vi.spyOn(api, "fetchNote").mockResolvedValue(MARKED);
     const saved = vi.spyOn(api, "saveNote").mockResolvedValue({
       path: "notes/tls.md",
@@ -50,6 +54,10 @@ describe("ReviewSession on a whole note", () => {
 
   it("does not ask a note its frontmatter parks", async () => {
     const parked = MARKED.replace("---\nsr-due:", "---\nsr-suspended: true\nsr-due:");
+    vi.spyOn(api, "fetchReviewLimits").mockResolvedValue({
+      new_per_day: null,
+      reviews_per_day: null,
+    });
     vi.spyOn(api, "fetchNote").mockResolvedValue(parked);
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(
@@ -103,6 +111,10 @@ describe("ReviewSession on a deck spanning two notes", () => {
   const DBT = "#flashcards/dbt\n\nWhat does dbt render?::sql\n";
 
   function renderSpread() {
+    vi.spyOn(api, "fetchReviewLimits").mockResolvedValue({
+      new_per_day: null,
+      reviews_per_day: null,
+    });
     vi.spyOn(api, "fetchNote").mockImplementation((path: string) =>
       Promise.resolve(path === "db/procs.md" ? PROCS : DBT),
     );
@@ -181,6 +193,10 @@ describe("ReviewSession on a parent deck", () => {
   });
 
   it("asks the cards of the decks under it", async () => {
+    vi.spyOn(api, "fetchReviewLimits").mockResolvedValue({
+      new_per_day: null,
+      reviews_per_day: null,
+    });
     vi.spyOn(api, "fetchNote").mockResolvedValue(NESTED);
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(

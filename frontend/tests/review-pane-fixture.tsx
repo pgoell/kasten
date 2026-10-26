@@ -60,6 +60,10 @@ export function seededClient(hits: api.SearchHit[], archive = false) {
  */
 export async function renderPane(commands = stubCommands()) {
   vi.spyOn(api, "fetchCards").mockResolvedValue(HITS);
+  vi.spyOn(api, "fetchReviewLimits").mockResolvedValue({
+    new_per_day: null,
+    reviews_per_day: null,
+  });
   serveNotes(HITS);
   const client = seededClient(HITS);
   render(

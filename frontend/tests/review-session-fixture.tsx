@@ -20,6 +20,10 @@ const NOTE = "#flashcards/aws\n\nWhat does S3 stand for?::Simple Storage Service
 export function renderSession() {
   vi.spyOn(api, "fetchNote").mockResolvedValue(NOTE);
   vi.spyOn(api, "saveNote").mockResolvedValue({ path: "decks/aws.md", content: NOTE });
+  vi.spyOn(api, "fetchReviewLimits").mockResolvedValue({
+    new_per_day: null,
+    reviews_per_day: null,
+  });
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 
   render(
@@ -37,6 +41,10 @@ export const MEDIA = "Flashcards/Japanese%20media";
 export function renderDeck(note: string) {
   vi.spyOn(api, "fetchNote").mockResolvedValue(note);
   vi.spyOn(api, "saveNote").mockResolvedValue({ path: "decks/aws.md", content: note });
+  vi.spyOn(api, "fetchReviewLimits").mockResolvedValue({
+    new_per_day: null,
+    reviews_per_day: null,
+  });
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
