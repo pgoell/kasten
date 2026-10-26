@@ -126,6 +126,16 @@ def merge(old: str, deck: Deck) -> Merged | None:
     return Merged(text, len(added), updated, kept, removed)
 
 
+def marked_cards(text: str) -> set[tuple[int, int]]:
+    """The Anki note and template of every card `text` marks, read as `_spans` reads a marker."""
+    cards: set[tuple[int, int]] = set()
+    for line in text.split("\n"):
+        found = _ANKI_ID.search(line)
+        if found is not None:
+            cards.add((int(found[1]), int(found[2])))
+    return cards
+
+
 def _replaced(
     lines: list[str], replaced: dict[int, tuple[_Span, list[str]]]
 ) -> tuple[list[str], int]:

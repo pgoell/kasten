@@ -54,3 +54,4 @@ This log keeps one page for each day, under `log/<year>/`. Each month below list
 * [2026-10-25: the shared lists](/log/2026/10-25-shared-lists.md)
 * [2026-10-26](/log/2026/10-26.md)
 * [2026-10-26: the review's reads](/log/2026/10-26-review.md)
+* [2026-10-27](/log/2026/10-27.md)

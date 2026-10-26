@@ -200,6 +200,11 @@ such a file has nothing left to ask and is left out.
   is written at all**, not even the decks in the same export that would have
   been fine. Every path is resolved and every collision found before the first
   write.
+* A deck holding a card the import would add whose marker already sits in
+  another note, outside the export's own notes and the archive, answers 409
+  the same way, with a `detail` naming those notes and saying to join them
+  into the deck's note. A merge goes into one note, so the card would land
+  there a second time.
 * A media file whose path is already taken answers 409 the same way for a deck
   imported the first time. A deck merged into its note keeps the file it finds
   and does not count it.

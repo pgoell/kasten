@@ -189,6 +189,26 @@ A deck imported before kasten wrote the comment cannot be merged, because
 nothing in it says which card is which. Importing it again is refused and
 writes nothing. Rename the old note first and import into a fresh one.
 
+### A deck spread over several notes
+
+The import merges a deck into one note, the one its name gives, such as
+`03 Flashcards/AWS Certification.md`. If you split a deck over several notes
+that share its tag, or moved its note elsewhere, its cards sit in notes the
+import does not merge into, and it would add them to the deck's note a second
+time. So kasten refuses the import when a card it would add already sits in
+another note, names those notes, and writes nothing:
+
+```
+AWS Certification already has cards in 03 Flashcards/AWS Certification 2.md.
+An import merges a deck into one note, 03 Flashcards/AWS Certification.md, so
+it would add them to it a second time. Join those notes into
+03 Flashcards/AWS Certification.md, then import again.
+```
+
+Join the parts back into that note, import, and split it again if you want it
+split. A note under the deck's tag holding only cards you wrote yourself does
+not count, and nor does one in the archive folder, which the review skips.
+
 ## How a note becomes cards
 
 Anki makes cards from a note through its note type's card templates, and the

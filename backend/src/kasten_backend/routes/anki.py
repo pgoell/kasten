@@ -8,13 +8,14 @@ from pydantic import BaseModel
 
 from kasten_backend import ankiweb, files, uploads
 from kasten_backend.anki import media_path, read_apkg
-from kasten_backend.anki_merge import merge
+from kasten_backend.anki_merge import marked_cards, merge
 from kasten_backend.anki_note import as_note, card_count, note_cards
 from kasten_backend.change import vault_change, vault_write
 from kasten_backend.config import Settings, get_settings
 from kasten_backend.files import store
 from kasten_backend.folders import create_note
 from kasten_backend.frontmatter import reserved, stamp
+from kasten_backend.search import notes_holding
 from kasten_backend.vault import (
     relative_path,
     resolve_asset_path,
@@ -85,7 +86,8 @@ async def import_anki(
     A deck already imported is merged into its note by `merge`, which keeps
     every schedule in it, since that is a note you may have answered fifty
     cards in. One imported before the cards carried their Anki ids is refused
-    instead, there being no telling its cards apart.
+    instead, there being no telling its cards apart. A deck whose cards another
+    note already holds is refused too, since merging would add them a second time.
 
     `carry` writes Anki's schedule onto every card Anki has in review, as the
     comment a rating would leave, so the review picks up where Anki left off.
@@ -154,6 +156,25 @@ def _new_media(deck: Deck, settings: Settings, *, fresh: bool) -> list[tuple[str
     return media
 
 
+async def _marked_elsewhere(settings: Settings, own: set[str]) -> dict[tuple[int, int], set[str]]:
+    """Which notes outside `own` hold each marked card, the archive left out as the review does."""
+    paths = await notes_holding(settings.vault_path, "<!--anki:", skip=settings.archive_path)
+    outside = [path for path in paths if path not in own]
+    # One thread for every note, as `read_apkg` takes one for its unzip: a vault of
+    # hundreds of notes would otherwise cost a hop each.
+    texts = await asyncio.to_thread(_read_all, settings.vault_path, outside)
+    elsewhere: dict[tuple[int, int], set[str]] = {}
+    for path, text in texts.items():
+        for key in marked_cards(text):
+            elsewhere.setdefault(key, set()).add(path)
+    return elsewhere
+
+
+def _read_all(root: Path, paths: list[str]) -> dict[str, str]:
+    """The text of each note in `paths`, read in turn."""
+    return {path: (root / path).read_text(encoding="utf-8") for path in paths}
+
+
 async def _import_bytes(body: bytes, settings: Settings, *, carry: bool, limit: int) -> AnkiImport:
     """Import the export `body`, the one implementation behind a file and a link.
 
@@ -181,17 +202,36 @@ async def _import_bytes(body: bytes, settings: Settings, *, carry: bool, limit: 
         media: list[tuple[str, bytes]] = []
         notes: list[str] = []
         added = updated = kept = removed = 0
-        for deck in decks:
-            note = resolve_path(settings.vault_path, f"{settings.flashcards_path}/{deck.name}.md")
+        homes = [
+            (deck, resolve_path(settings.vault_path, f"{settings.flashcards_path}/{deck.name}.md"))
+            for deck in decks
+        ]
+        own = {relative_path(settings.vault_path, home) for _, home in homes if home is not None}
+        elsewhere = await _marked_elsewhere(settings, own)
+        for deck, note in homes:
             if note is None:
                 raise HTTPException(status_code=400, detail=f"The vault will not take {deck.name}")
-            notes.append(relative_path(settings.vault_path, note))
+            target = relative_path(settings.vault_path, note)
+            notes.append(target)
             fresh = not note.exists()
+            old = "" if fresh else note.read_text(encoding="utf-8")
+            # Only a card the note does not mark yet would be a second copy. The
+            # other notes hold a split deck's parts, so merging here adds them twice.
+            adding = {(card.nid, card.ord) for card in note_cards(deck)} - marked_cards(old)
+            others = sorted({path for key in adding for path in elsewhere.get(key, ())})
+            if others:
+                raise HTTPException(
+                    status_code=409,
+                    detail=(
+                        f"{deck.name} already has cards in {', '.join(others)}. An import merges "
+                        f"a deck into one note, {target}, so it would add them to it a second "
+                        f"time. Join those notes into {target}, then import again."
+                    ),
+                )
             if fresh:
                 targets.append((note, as_note(deck), None))
                 added += len(note_cards(deck))
             else:
-                old = note.read_text(encoding="utf-8")
                 merged = merge(old, deck)
                 if merged is None:
                     raise HTTPException(
