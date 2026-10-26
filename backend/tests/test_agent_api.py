@@ -412,6 +412,15 @@ async def test_the_schema_describes_the_agent_routes(
         "/agent/files/{path}",
         "/agent/files/{path}/fetch",
         "/agent/openapi.json",
+        "/agent/finance/budget",
+        "/agent/finance/budget/free",
+        "/agent/finance/goals",
+        "/agent/finance/plans/forecast",
+        "/agent/finance/plans/upcoming",
+        "/agent/finance/sync",
+        "/agent/finance/transactions",
+        "/agent/finance/transactions/{transaction_id}",
+        "/agent/finance/lookup",
     }
 
 

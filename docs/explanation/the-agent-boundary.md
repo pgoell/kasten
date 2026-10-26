@@ -1,7 +1,7 @@
 ---
 type: Explanation
 title: The agent boundary
-description: Why a token reaches eight capabilities under /agent/ rather than the thirty-five routes the browser uses, and what it cannot do.
+description: Why a token reaches eight capabilities and the finance reads under /agent/ rather than the thirty-five routes the browser uses, what it cannot do, and what a leaked one now exposes.
 tags: [agent, tokens, security, api]
 status: stable
 ---
@@ -50,9 +50,10 @@ twenty-four things with exceptions.
 
 ## What a token grants
 
-Eight capabilities and nothing else, listed in
+Eight capabilities on the vault, listed in
 [the Agent API](/reference/agent-api.md): list, read, search, graph, save,
-append, dump and file.
+append, dump and file. Beside them, the finance reads, argued for
+[below](#why-the-finance-reads-are-acceptable).
 
 There is no delete, no move, no rename and no folder operation. The shell
 container keeps the knife, and that makes the honest claim about this feature
@@ -144,6 +145,16 @@ of kilobytes. claude.ai and chatgpt.com have no shell to send bytes with, so a
 URL is the only form a document can reach them in. A file attached to a chat
 there has no URL and still cannot come in; the model sees its text, never its
 bytes.
+
+## Why the finance reads are acceptable
+
+The finance reads are the first capability that reaches data no note holds:
+the finance pane's summaries, single bookings with their raw bank records, and
+the accounts, categories and payees. They only read, and the summaries are the
+pane's own figures. The cost was accepted on purpose: **a leaked token exposes
+every transaction**, and nothing undoes a read. The whole argument, and why a
+backend with no database exposes nothing more, is in
+[Finance reads past the boundary](/explanation/the-agent-boundary/finance-reads.md).
 
 ## Why the write is conditional in one direction
 
@@ -310,8 +321,10 @@ browser or the shell. A note write is capped at 1MiB and a file at 100MiB, and
 the aggregate is not. A book an agent files is outside jj's history and outside
 every delete route, so the shell is the only way to take one out.
 
-A leaked token is the whole vault. `list_notes` and `read_note` together are
-every note there is, and no revoke takes back a copy someone already holds. The
+A leaked token is the whole vault, and on a backend with finance every
+transaction too. `list_notes` and `read_note` together are every note there
+is, `list_transactions` is every booking, and no revoke takes back a copy
+someone already holds. The
 writing half is the recoverable one: an agent write lands in the jj repo beside
 the vault like any other, so a bad `save_note` is one command from being undone.
 Reading is the half nothing undoes, and that is the asymmetry to weigh when
@@ -319,6 +332,7 @@ handing a token out.
 
 ## Related
 
+* [Finance reads past the boundary](/explanation/the-agent-boundary/finance-reads.md): what the finance reads are and what a leaked token costs with them
 * [Agent API](/reference/agent-api.md): the routes, the bearer rule and the digest contract
 * [Connect an agent](/how-to/connect-an-agent.md): how each client is configured
 * [Two environments](/explanation/environments.md): where the gate in front of everything else lives

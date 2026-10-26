@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.pool import NullPool
 
 from backend.tests.anki_link_web import PUBLIC
-from kasten_backend import files
+from kasten_backend import agent_finance, files
 from kasten_backend.config import Settings, get_settings
 from kasten_backend.db import get_session
 from kasten_backend.main import app
@@ -97,8 +97,15 @@ async def finance_session() -> AsyncIterator[AsyncSession]:
     )
     app.dependency_overrides[get_session] = lambda: session
 
+    async def same() -> AsyncIterator[AsyncSession]:
+        yield session
+
+    # The MCP tools get no dependency, so the override above does not reach them.
+    agent_finance.sessions = same
+
     yield session
 
+    agent_finance.sessions = get_session
     app.dependency_overrides.pop(get_session)
     await session.close()
     await outer.rollback()

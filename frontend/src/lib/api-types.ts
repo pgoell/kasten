@@ -118,6 +118,186 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/agent/finance/budget": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Budget
+         * @description Every spending category's month: limit, carried overspend, spent, average, status.
+         */
+        get: operations["read_budget_agent_finance_budget_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/agent/finance/budget/free": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Free To Spend
+         * @description Free to spend this month for mine and household, with the lines each is made of.
+         */
+        get: operations["read_free_to_spend_agent_finance_budget_free_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/agent/finance/goals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Goals
+         * @description Every goal by due date, and each own saving account's balance, reserved and unreserved.
+         */
+        get: operations["read_goals_agent_finance_goals_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/agent/finance/plans/forecast": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Forecast
+         * @description Each scope's balance at the end of this month and the 11 after it, by its plans alone.
+         */
+        get: operations["read_forecast_agent_finance_plans_forecast_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/agent/finance/plans/upcoming": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Upcoming
+         * @description Every date a plan falls due in the month, by date, each with its match or none.
+         */
+        get: operations["read_upcoming_agent_finance_plans_upcoming_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/agent/finance/sync": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Status
+         * @description The sync status, and whether a "pull now" waits, which is all a minute's poll reads.
+         */
+        get: operations["read_status_agent_finance_sync_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/agent/finance/transactions/{transaction_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Booking
+         * @description A booking whole: every field and its raw record, its twin, plan and where it counts.
+         */
+        get: operations["read_booking_agent_finance_transactions__transaction_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/agent/finance/lookup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Lookup
+         * @description Every account, category and payee, for the ids the other routes name.
+         */
+        get: operations["lookup_agent_finance_lookup_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/agent/finance/transactions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Bookings
+         * @description A page of the bookings that pass the filters, newest first; `next` asks for the next.
+         */
+        get: operations["bookings_agent_finance_transactions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/agent/notes/{path}/append": {
         parameters: {
             query?: never;
@@ -2909,6 +3089,53 @@ export interface components {
             counts: components["schemas"]["CountOut"][];
         };
         /**
+         * BookingOut
+         * @description A booking as a page lists it: no raw bank record, which `read_transaction` has.
+         */
+        BookingOut: {
+            /** Id */
+            id: number;
+            /** Account Id */
+            account_id: number;
+            /**
+             * Booking Date
+             * Format: date
+             */
+            booking_date: string;
+            /** Value Date */
+            value_date: string | null;
+            /** Amount */
+            amount: string;
+            /** Currency */
+            currency: string;
+            /** Purpose */
+            purpose: string | null;
+            /** Posting Text */
+            posting_text: string | null;
+            /** Counterparty Name */
+            counterparty_name: string | null;
+            /** Counterparty Iban */
+            counterparty_iban: string | null;
+            /** Transfer Group */
+            transfer_group: string | null;
+            /** Payee Id */
+            payee_id: number | null;
+            /** Category Id */
+            category_id: number | null;
+            /** Splits */
+            splits: components["schemas"]["SplitOut"][];
+        };
+        /**
+         * BookingPage
+         * @description A page of bookings, and the `after` that asks for the next; null on the last page.
+         */
+        BookingPage: {
+            /** Bookings */
+            bookings: components["schemas"]["BookingOut"][];
+            /** Next */
+            next: number | null;
+        };
+        /**
          * BudgetCategoryOut
          * @description One spending category in the month.
          */
@@ -3765,6 +3992,18 @@ export interface components {
             line: number;
             /** Text */
             text: string;
+        };
+        /**
+         * Lookup
+         * @description The ids the filters and the summaries name: accounts, categories and payees.
+         */
+        Lookup: {
+            /** Accounts */
+            accounts: components["schemas"]["AccountOut"][];
+            /** Categories */
+            categories: components["schemas"]["CategoryOut"][];
+            /** Payees */
+            payees: components["schemas"]["PayeeOut"][];
         };
         /**
          * LooseSplit
@@ -5211,6 +5450,275 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+        };
+    };
+    read_budget_agent_finance_budget_get: {
+        parameters: {
+            query: {
+                month: string;
+                today: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BudgetOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_free_to_spend_agent_finance_budget_free_get: {
+        parameters: {
+            query: {
+                month: string;
+                today: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FreeToSpendOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_goals_agent_finance_goals_get: {
+        parameters: {
+            query: {
+                today: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoalsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_forecast_agent_finance_plans_forecast_get: {
+        parameters: {
+            query: {
+                today: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ForecastOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_upcoming_agent_finance_plans_upcoming_get: {
+        parameters: {
+            query: {
+                month: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DueOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_status_agent_finance_sync_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SyncStatus"];
+                };
+            };
+        };
+    };
+    read_booking_agent_finance_transactions__transaction_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                transaction_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookingDrillOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    lookup_agent_finance_lookup_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Lookup"];
+                };
+            };
+        };
+    };
+    bookings_agent_finance_transactions_get: {
+        parameters: {
+            query?: {
+                month?: string | null;
+                from?: string | null;
+                to?: string | null;
+                scope?: ("mine" | "household") | null;
+                account?: number | null;
+                category?: number | null;
+                payee?: number | null;
+                text?: string | null;
+                order?: "asc" | "desc";
+                after?: number | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookingPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
