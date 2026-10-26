@@ -25,11 +25,16 @@ estimated.
 Amounts are euros as JSON strings, to the cent. A name that matches nothing,
 such as an id no category has, is a `404`.
 
-## Month and months
+## Month, from and months
 
-The four month reads take `month` (`YYYY-MM`, required) and `months` (1 to
-60, 12 when left out): the answer covers the `months` months up to and with
-`month`, oldest first. The bookings listed are those of `month` alone.
+The four month reads take `month` (`YYYY-MM`, required), `from` (`YYYY-MM`,
+optional) and `months` (1 to 60, 12 when left out). The span is `from` to
+`month`, both included, or `month` alone with no `from`; a `from` after
+`month` is a `422`. `months` lists the `months` months up to and with
+`month`, oldest first, and never fewer than the span holds. The bookings, a
+scope's span, a category's payees and span, and an account's money by
+category and transfers are the span's. `first` in the answer is the span's
+first month.
 
 A scope's, a category's and a payee's bookings are those that count in the
 budget month: a salary booked after the cutoff day lists in the month after
@@ -52,6 +57,7 @@ GET /api/finance/drill/scopes/mine?month=2026-10&months=12
 ```json
 {
   "scope": "mine",
+  "first": "2026-10",
   "month": "2026-10",
   "months": [
     {
@@ -60,6 +66,7 @@ GET /api/finance/drill/scopes/mine?month=2026-10&months=12
       "reserved": "0.00", "saved": "300.00", "unsorted": "0.00", "left": "1680.00"
     }
   ],
+  "span": { "now": { "month": "2026-10", "left": "1680.00" }, "last_year": { }, "average": { } },
   "accounts": [
     { "id": 1, "name": "Giro", "kind": "giro", "balance": "1680.00",
       "balance_on": "2026-10-02", "moved": "-1320.00" }
@@ -74,6 +81,12 @@ GET /api/finance/drill/scopes/mine?month=2026-10&months=12
 * `left`: income, plus or less `other_scope`, less every other part. It is
   free to spend for a month that is over; below zero, the month spent past
   what came in.
+* `span`: the span's figures added up (`now`), the same months a year before
+  (`last_year`), and the 6 whole months before the span averaged and taken as
+  many times as the span has months (`average`, `null` with no month before),
+  each shaped as a month is, as
+  [GET /api/finance/budget/range](/reference/http-api/finance-range.md) gives
+  them.
 * `accounts`: the accounts of the scope, by name, each with its latest bank
   balance (`null` with none) and what its bookings moved in the month, by
   booking date.
@@ -92,6 +105,7 @@ date.
 {
   "account": { "id": 1, "name": "Giro", "bank": "DKB", "iban": "DE02…", "kind": "giro", "shared": false },
   "scope": "mine",
+  "first": "2026-10",
   "month": "2026-10",
   "months": [
     { "month": "2026-10", "balance": "1680.00", "balance_from": "2026-10-02",
@@ -125,11 +139,18 @@ month, the plans and rules behind it, and the month's bookings.
 ```json
 {
   "category": { "id": 4, "name": "Groceries", "kind": "flexible" },
+  "first": "2026-10",
   "month": "2026-10",
   "months": [
     { "month": "2026-10", "mine": "190.00", "household": "0.00", "total": "190.00",
       "from_reserve": "0.00", "limit": "400.00", "available": "365.00", "average": "412.33" }
   ],
+  "span": {
+    "now": { "mine": "190.00", "household": "0.00", "total": "190.00", "from_reserve": "0.00" },
+    "last_year": { "mine": "160.00", "household": "0.00", "total": "160.00", "from_reserve": "0.00" },
+    "average": { "mine": "412.33", "household": "0.00", "total": "412.33", "from_reserve": "0.00" },
+    "available": "365.00"
+  },
   "payees": [ { "id": 5, "name": "REWE", "amount": "70.00" } ],
   "plans": [ { "id": 2, "name": "Rent", "amount": "-1500.00", "every_months": 1 } ],
   "rules": [ { "id": 3, "kind": "payee", "pattern": "rewe", "category_id": 4 } ],
@@ -148,8 +169,14 @@ month, the plans and rules behind it, and the month's bookings.
   `average` is the mean of `total` over the whole months before, at most 6,
   from the category's first month with money: the budget's `average` for a
   spending category, and money in for an income one.
-* `payees`: what each payee gave the category in `month`, the largest first;
-  `id` `null` for bookings with no payee. They add up to the month's `total`.
+* `span`: what the category counted over the span, a year before, and at its
+  6-month average for as many months, the average from the category's first
+  month with money. `available` is what the limits made available over the
+  span, each month less the overspend carried into it; `null` with no limit
+  in any of its months.
+* `payees`: what each payee gave the category over the span, the largest
+  first; `id` `null` for bookings with no payee. They add up to the span's
+  `total`.
 * `rules`: the rules that sort into the category.
 
 ## GET /api/finance/drill/payees/{payee_id}
@@ -160,6 +187,7 @@ the payee rules that name it, and the month's bookings.
 ```json
 {
   "payee": { "id": 5, "key": "rewe", "name": "REWE", "category_id": 4 },
+  "first": "2026-10",
   "month": "2026-10",
   "months": [
     { "month": "2026-10", "spent": "100.00", "received": "0.00", "saved": "0.00", "bookings": 1 }

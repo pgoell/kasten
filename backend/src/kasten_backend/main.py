@@ -29,6 +29,7 @@ from kasten_backend.routes import (
     finance_drill,
     finance_goals,
     finance_plans,
+    finance_range,
     finance_sorting,
     finance_sync,
     github,
@@ -198,6 +199,7 @@ app.include_router(tokens.router)
 app.include_router(finance.router)
 app.include_router(finance_budget.router)
 app.include_router(finance_drill.router)
+app.include_router(finance_range.router)
 app.include_router(finance_plans.router)
 app.include_router(finance_goals.router)
 app.include_router(finance_sorting.router)

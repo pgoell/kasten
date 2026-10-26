@@ -1217,9 +1217,10 @@ export interface paths {
         };
         /**
          * Read Flow
-         * @description Where the month's money went in both scopes, each column in the order it is drawn.
+         * @description Where the money of `from` to `month` went in both scopes, each column in drawing order.
          *
          *     No `today`: the flow counts what happened, which needs no reader's day.
+         *     With no `from`, the one month.
          */
         get: operations["read_flow_api_finance_budget_flow_get"];
         put?: never;
@@ -1303,7 +1304,7 @@ export interface paths {
         };
         /**
          * Read Scope
-         * @description A scope's months as the sankey reads them, its accounts and the month's bookings.
+         * @description A scope's months as the sankey reads them, its span, accounts and the span's bookings.
          */
         get: operations["read_scope_api_finance_drill_scopes__scope__get"];
         put?: never;
@@ -1323,7 +1324,7 @@ export interface paths {
         };
         /**
          * Read Category
-         * @description A category's months against its limit, its payees, plans, rules and the month's bookings.
+         * @description A category's months against its limit, its span, payees, plans, rules and bookings.
          */
         get: operations["read_category_api_finance_drill_categories__category_id__get"];
         put?: never;
@@ -1343,7 +1344,7 @@ export interface paths {
         };
         /**
          * Read Payee
-         * @description A payee's months, average, categories, the rules that name it and the month's bookings.
+         * @description A payee's months, average, categories, the rules that name it and the span's bookings.
          */
         get: operations["read_payee_api_finance_drill_payees__payee_id__get"];
         put?: never;
@@ -1363,7 +1364,7 @@ export interface paths {
         };
         /**
          * Read Account
-         * @description An account's month-end balances, the month's money by category and transfers, by date.
+         * @description An account's month-end balances, the span's money by category and transfers, by date.
          */
         get: operations["read_account_api_finance_drill_accounts__account_id__get"];
         put?: never;
@@ -1387,6 +1388,69 @@ export interface paths {
          */
         get: operations["read_booking_api_finance_drill_bookings__transaction_id__get"];
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/finance/budget/range": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Range
+         * @description Each scope over `from` to `month`, as the sankey reads it, against a year and the average.
+         */
+        get: operations["read_range_api_finance_budget_range_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/finance/budget/setup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Setup
+         * @description Every spending category with its limit, average and plans, and the expected income.
+         */
+        get: operations["read_setup_api_finance_budget_setup_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/finance/budget/limits": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Write Limits
+         * @description Set many categories' limits from one month on, all or none.
+         *
+         *     A category that is not a spending one, or is named twice, is a 422 and
+         *     nothing is written.
+         */
+        put: operations["write_limits_api_finance_budget_limits_put"];
         post?: never;
         delete?: never;
         options?: never;
@@ -2615,6 +2679,8 @@ export interface components {
             account: components["schemas"]["AccountOut"];
             /** Scope */
             scope: ("mine" | "household") | null;
+            /** First */
+            first: string;
             /** Month */
             month: string;
             /** Months */
@@ -2920,15 +2986,29 @@ export interface components {
             id?: string | null;
         };
         /**
+         * CategoryComparedOut
+         * @description A category's span against a year before and its average; `available` is the limits'.
+         */
+        CategoryComparedOut: {
+            now: components["schemas"]["CountedOut"];
+            last_year: components["schemas"]["CountedOut"];
+            average: components["schemas"]["CountedOut"] | null;
+            /** Available */
+            available: string | null;
+        };
+        /**
          * CategoryDrillOut
          * @description A category over the months, its payees in the month, the plans and rules behind it.
          */
         CategoryDrillOut: {
             category: components["schemas"]["CategoryOut"];
+            /** First */
+            first: string;
             /** Month */
             month: string;
             /** Months */
             months: components["schemas"]["CategoryMonthOut"][];
+            span: components["schemas"]["CategoryComparedOut"];
             /** Payees */
             payees: components["schemas"]["AmountOut"][];
             /** Plans */
@@ -3066,6 +3146,20 @@ export interface components {
             category_id: number | null;
             /** Amount */
             amount: string;
+        };
+        /**
+         * CountedOut
+         * @description What a category counted, by scope, and what of it a plan's reserve paid.
+         */
+        CountedOut: {
+            /** Mine */
+            mine: string;
+            /** Household */
+            household: string;
+            /** Total */
+            total: string;
+            /** From Reserve */
+            from_reserve: string;
         };
         /**
          * Day
@@ -3219,9 +3313,11 @@ export interface components {
         };
         /**
          * FlowOut
-         * @description Where the month's money went, from what happened so far; `total` is the money in.
+         * @description Where the span's money went, from what happened so far; `total` is the money in.
          */
         FlowOut: {
+            /** First */
+            first: string;
             /** Month */
             month: string;
             /** Total */
@@ -3639,6 +3735,26 @@ export interface components {
             amount: string | null;
         };
         /**
+         * LimitRowIn
+         * @description One category's monthly limit; null takes it away.
+         */
+        LimitRowIn: {
+            /** Category Id */
+            category_id: number;
+            /** Amount */
+            amount: number | string | null;
+        };
+        /**
+         * LimitsIn
+         * @description Every limit the setup sets, all from one month on.
+         */
+        LimitsIn: {
+            /** From */
+            from: string;
+            /** Limits */
+            limits: components["schemas"]["LimitRowIn"][];
+        };
+        /**
          * LineHit
          * @description One line in the vault, and enough to open the note on it.
          */
@@ -3884,6 +4000,8 @@ export interface components {
          */
         PayeeDrillOut: {
             payee: components["schemas"]["PayeeOut"];
+            /** First */
+            first: string;
             /** Month */
             month: string;
             /** Months */
@@ -4108,6 +4226,20 @@ export interface components {
             changed: number;
         };
         /**
+         * RangeOut
+         * @description Both scopes over a span of months.
+         */
+        RangeOut: {
+            /** First */
+            first: string;
+            /** Month */
+            month: string;
+            /** Months */
+            months: number;
+            mine: components["schemas"]["ScopeComparedOut"];
+            household: components["schemas"]["ScopeComparedOut"];
+        };
+        /**
          * RequestOut
          * @description A "pull now": open while `run_id` is null.
          */
@@ -4306,8 +4438,17 @@ export interface components {
             moved: string;
         };
         /**
+         * ScopeComparedOut
+         * @description A scope's span, the same months a year before, and the 6 months before at that length.
+         */
+        ScopeComparedOut: {
+            now: components["schemas"]["ScopeMonthOut"];
+            last_year: components["schemas"]["ScopeMonthOut"];
+            average: components["schemas"]["ScopeMonthOut"] | null;
+        };
+        /**
          * ScopeDrillOut
-         * @description One scope over the months up to `month`, its accounts, and the month's bookings.
+         * @description One scope over the months up to `month`, its span compared, accounts and bookings.
          */
         ScopeDrillOut: {
             /**
@@ -4315,10 +4456,13 @@ export interface components {
              * @enum {string}
              */
             scope: "mine" | "household";
+            /** First */
+            first: string;
             /** Month */
             month: string;
             /** Months */
             months: components["schemas"]["ScopeMonthOut"][];
+            span: components["schemas"]["ScopeComparedOut"];
             /** Accounts */
             accounts: components["schemas"]["ScopeAccountOut"][];
             /** Bookings */
@@ -4336,7 +4480,9 @@ export interface components {
         };
         /**
          * ScopeMonthOut
-         * @description A scope's month, each part as the sankey draws it; `left` below zero is taken from before.
+         * @description A scope's month or span, each part as the sankey draws it.
+         *
+         *     `left` below zero is what was taken from before.
          */
         ScopeMonthOut: {
             /** Month */
@@ -4385,6 +4531,44 @@ export interface components {
             salary_cutoff_day: number;
             /** Salary Category Ids */
             salary_category_ids: number[];
+        };
+        /**
+         * SetupCategoryOut
+         * @description A spending category on the setup: its limit now, its average, its plans, and a start.
+         */
+        SetupCategoryOut: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Kind */
+            kind: string;
+            /** Limit */
+            limit: string | null;
+            /** Average */
+            average: string | null;
+            /** Planned */
+            planned: string | null;
+            /** Plans */
+            plans: string[];
+            /** Suggested */
+            suggested: string | null;
+        };
+        /**
+         * SetupOut
+         * @description Every spending category's limit on one screen, with the income it is set against.
+         */
+        SetupOut: {
+            /** Month */
+            month: string;
+            /** Expected Income */
+            expected_income: string;
+            /** Limits */
+            limits: string;
+            /** Suggested */
+            suggested: string;
+            /** Categories */
+            categories: components["schemas"]["SetupCategoryOut"][];
         };
         /**
          * SplitIn
@@ -6368,6 +6552,7 @@ export interface operations {
         parameters: {
             query: {
                 month: string;
+                from?: string | null;
             };
             header?: never;
             path?: never;
@@ -6519,6 +6704,7 @@ export interface operations {
         parameters: {
             query: {
                 month: string;
+                from?: string | null;
                 months?: number;
             };
             header?: never;
@@ -6553,6 +6739,7 @@ export interface operations {
         parameters: {
             query: {
                 month: string;
+                from?: string | null;
                 months?: number;
             };
             header?: never;
@@ -6587,6 +6774,7 @@ export interface operations {
         parameters: {
             query: {
                 month: string;
+                from?: string | null;
                 months?: number;
             };
             header?: never;
@@ -6621,6 +6809,7 @@ export interface operations {
         parameters: {
             query: {
                 month: string;
+                from?: string | null;
                 months?: number;
             };
             header?: never;
@@ -6669,6 +6858,103 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BookingDrillOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_range_api_finance_budget_range_get: {
+        parameters: {
+            query: {
+                month: string;
+                from?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RangeOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_setup_api_finance_budget_setup_get: {
+        parameters: {
+            query: {
+                month: string;
+                today: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SetupOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    write_limits_api_finance_budget_limits_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LimitsIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LimitOut"][];
                 };
             };
             /** @description Validation Error */

@@ -2350,7 +2350,7 @@
     "/api/finance/budget/flow": {
       "get": {
         "summary": "Read Flow",
-        "description": "Where the month's money went in both scopes, each column in the order it is drawn.\n\nNo `today`: the flow counts what happened, which needs no reader's day.",
+        "description": "Where the money of `from` to `month` went in both scopes, each column in drawing order.\n\nNo `today`: the flow counts what happened, which needs no reader's day.\nWith no `from`, the one month.",
         "operationId": "read_flow_api_finance_budget_flow_get",
         "parameters": [
           {
@@ -2361,6 +2361,23 @@
               "type": "string",
               "pattern": "^[0-9]{4}-[0-9]{2}$",
               "title": "Month"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[0-9]{4}-[0-9]{2}$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "From"
             }
           }
         ],
@@ -2550,7 +2567,7 @@
     "/api/finance/drill/scopes/{scope}": {
       "get": {
         "summary": "Read Scope",
-        "description": "A scope's months as the sankey reads them, its accounts and the month's bookings.",
+        "description": "A scope's months as the sankey reads them, its span, accounts and the span's bookings.",
         "operationId": "read_scope_api_finance_drill_scopes__scope__get",
         "parameters": [
           {
@@ -2574,6 +2591,23 @@
               "type": "string",
               "pattern": "^[0-9]{4}-[0-9]{2}$",
               "title": "Month"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[0-9]{4}-[0-9]{2}$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "From"
             }
           },
           {
@@ -2616,7 +2650,7 @@
     "/api/finance/drill/categories/{category_id}": {
       "get": {
         "summary": "Read Category",
-        "description": "A category's months against its limit, its payees, plans, rules and the month's bookings.",
+        "description": "A category's months against its limit, its span, payees, plans, rules and bookings.",
         "operationId": "read_category_api_finance_drill_categories__category_id__get",
         "parameters": [
           {
@@ -2636,6 +2670,23 @@
               "type": "string",
               "pattern": "^[0-9]{4}-[0-9]{2}$",
               "title": "Month"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[0-9]{4}-[0-9]{2}$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "From"
             }
           },
           {
@@ -2678,7 +2729,7 @@
     "/api/finance/drill/payees/{payee_id}": {
       "get": {
         "summary": "Read Payee",
-        "description": "A payee's months, average, categories, the rules that name it and the month's bookings.",
+        "description": "A payee's months, average, categories, the rules that name it and the span's bookings.",
         "operationId": "read_payee_api_finance_drill_payees__payee_id__get",
         "parameters": [
           {
@@ -2698,6 +2749,23 @@
               "type": "string",
               "pattern": "^[0-9]{4}-[0-9]{2}$",
               "title": "Month"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[0-9]{4}-[0-9]{2}$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "From"
             }
           },
           {
@@ -2740,7 +2808,7 @@
     "/api/finance/drill/accounts/{account_id}": {
       "get": {
         "summary": "Read Account",
-        "description": "An account's month-end balances, the month's money by category and transfers, by date.",
+        "description": "An account's month-end balances, the span's money by category and transfers, by date.",
         "operationId": "read_account_api_finance_drill_accounts__account_id__get",
         "parameters": [
           {
@@ -2760,6 +2828,23 @@
               "type": "string",
               "pattern": "^[0-9]{4}-[0-9]{2}$",
               "title": "Month"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[0-9]{4}-[0-9]{2}$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "From"
             }
           },
           {
@@ -2822,6 +2907,158 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/BookingDrillOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/finance/budget/range": {
+      "get": {
+        "summary": "Read Range",
+        "description": "Each scope over `from` to `month`, as the sankey reads it, against a year and the average.",
+        "operationId": "read_range_api_finance_budget_range_get",
+        "parameters": [
+          {
+            "name": "month",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]{4}-[0-9]{2}$",
+              "title": "Month"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[0-9]{4}-[0-9]{2}$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "From"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RangeOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/finance/budget/setup": {
+      "get": {
+        "summary": "Read Setup",
+        "description": "Every spending category with its limit, average and plans, and the expected income.",
+        "operationId": "read_setup_api_finance_budget_setup_get",
+        "parameters": [
+          {
+            "name": "month",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]{4}-[0-9]{2}$",
+              "title": "Month"
+            }
+          },
+          {
+            "name": "today",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+              "title": "Today"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetupOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/finance/budget/limits": {
+      "put": {
+        "summary": "Write Limits",
+        "description": "Set many categories' limits from one month on, all or none.\n\nA category that is not a spending one, or is named twice, is a 422 and\nnothing is written.",
+        "operationId": "write_limits_api_finance_budget_limits_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LimitsIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/LimitOut"
+                  },
+                  "type": "array",
+                  "title": "Response Write Limits Api Finance Budget Limits Put"
                 }
               }
             }
@@ -5288,6 +5525,10 @@
             ],
             "title": "Scope"
           },
+          "first": {
+            "type": "string",
+            "title": "First"
+          },
           "month": {
             "type": "string",
             "title": "Month"
@@ -5325,6 +5566,7 @@
         "required": [
           "account",
           "scope",
+          "first",
           "month",
           "months",
           "categories",
@@ -6110,10 +6352,55 @@
         "title": "Capture",
         "description": "A dump from the app, which may carry the id its sender minted at typing.\n\n`POST /api/dump` only. The agent's route and its MCP tool keep `Dump`, so\nan agent's schema never grows a field it has no use for: an agent that\nlost an answer reads the note again rather than resending blind."
       },
+      "CategoryComparedOut": {
+        "properties": {
+          "now": {
+            "$ref": "#/components/schemas/CountedOut"
+          },
+          "last_year": {
+            "$ref": "#/components/schemas/CountedOut"
+          },
+          "average": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CountedOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "available": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Available"
+          }
+        },
+        "type": "object",
+        "required": [
+          "now",
+          "last_year",
+          "average",
+          "available"
+        ],
+        "title": "CategoryComparedOut",
+        "description": "A category's span against a year before and its average; `available` is the limits'."
+      },
       "CategoryDrillOut": {
         "properties": {
           "category": {
             "$ref": "#/components/schemas/CategoryOut"
+          },
+          "first": {
+            "type": "string",
+            "title": "First"
           },
           "month": {
             "type": "string",
@@ -6125,6 +6412,9 @@
             },
             "type": "array",
             "title": "Months"
+          },
+          "span": {
+            "$ref": "#/components/schemas/CategoryComparedOut"
           },
           "payees": {
             "items": {
@@ -6158,8 +6448,10 @@
         "type": "object",
         "required": [
           "category",
+          "first",
           "month",
           "months",
+          "span",
           "payees",
           "plans",
           "rules",
@@ -6482,6 +6774,39 @@
         ],
         "title": "CountOut",
         "description": "Where a booking counts: the budget month, scope, part and category, and the amount."
+      },
+      "CountedOut": {
+        "properties": {
+          "mine": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Mine"
+          },
+          "household": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Household"
+          },
+          "total": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Total"
+          },
+          "from_reserve": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "From Reserve"
+          }
+        },
+        "type": "object",
+        "required": [
+          "mine",
+          "household",
+          "total",
+          "from_reserve"
+        ],
+        "title": "CountedOut",
+        "description": "What a category counted, by scope, and what of it a plan's reserve paid."
       },
       "Day": {
         "properties": {
@@ -6914,6 +7239,10 @@
       },
       "FlowOut": {
         "properties": {
+          "first": {
+            "type": "string",
+            "title": "First"
+          },
           "month": {
             "type": "string",
             "title": "Month"
@@ -6940,13 +7269,14 @@
         },
         "type": "object",
         "required": [
+          "first",
           "month",
           "total",
           "nodes",
           "links"
         ],
         "title": "FlowOut",
-        "description": "Where the month's money went, from what happened so far; `total` is the money in."
+        "description": "Where the span's money went, from what happened so far; `total` is the money in."
       },
       "Folder": {
         "properties": {
@@ -7953,6 +8283,60 @@
         "title": "LimitOut",
         "description": "A limit as stored."
       },
+      "LimitRowIn": {
+        "properties": {
+          "category_id": {
+            "type": "integer",
+            "title": "Category Id"
+          },
+          "amount": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,12}|(?=[\\d.]{1,15}0*$)\\d{0,12}\\.\\d{0,2}0*$)"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amount"
+          }
+        },
+        "type": "object",
+        "required": [
+          "category_id",
+          "amount"
+        ],
+        "title": "LimitRowIn",
+        "description": "One category's monthly limit; null takes it away."
+      },
+      "LimitsIn": {
+        "properties": {
+          "from": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-[0-9]{2}$",
+            "title": "From"
+          },
+          "limits": {
+            "items": {
+              "$ref": "#/components/schemas/LimitRowIn"
+            },
+            "type": "array",
+            "title": "Limits"
+          }
+        },
+        "type": "object",
+        "required": [
+          "from",
+          "limits"
+        ],
+        "title": "LimitsIn",
+        "description": "Every limit the setup sets, all from one month on."
+      },
       "LineHit": {
         "properties": {
           "path": {
@@ -8513,6 +8897,10 @@
           "payee": {
             "$ref": "#/components/schemas/PayeeOut"
           },
+          "first": {
+            "type": "string",
+            "title": "First"
+          },
           "month": {
             "type": "string",
             "title": "Month"
@@ -8573,6 +8961,7 @@
         "type": "object",
         "required": [
           "payee",
+          "first",
           "month",
           "months",
           "average",
@@ -9107,6 +9496,38 @@
         "title": "Ran",
         "description": "How many bookings and splits a run of the rules gave another category."
       },
+      "RangeOut": {
+        "properties": {
+          "first": {
+            "type": "string",
+            "title": "First"
+          },
+          "month": {
+            "type": "string",
+            "title": "Month"
+          },
+          "months": {
+            "type": "integer",
+            "title": "Months"
+          },
+          "mine": {
+            "$ref": "#/components/schemas/ScopeComparedOut"
+          },
+          "household": {
+            "$ref": "#/components/schemas/ScopeComparedOut"
+          }
+        },
+        "type": "object",
+        "required": [
+          "first",
+          "month",
+          "months",
+          "mine",
+          "household"
+        ],
+        "title": "RangeOut",
+        "description": "Both scopes over a span of months."
+      },
       "RequestOut": {
         "properties": {
           "id": {
@@ -9580,6 +10001,34 @@
         "title": "ScopeAccountOut",
         "description": "An account of the scope: its latest bank balance and what its bookings moved in the month."
       },
+      "ScopeComparedOut": {
+        "properties": {
+          "now": {
+            "$ref": "#/components/schemas/ScopeMonthOut"
+          },
+          "last_year": {
+            "$ref": "#/components/schemas/ScopeMonthOut"
+          },
+          "average": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ScopeMonthOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "now",
+          "last_year",
+          "average"
+        ],
+        "title": "ScopeComparedOut",
+        "description": "A scope's span, the same months a year before, and the 6 months before at that length."
+      },
       "ScopeDrillOut": {
         "properties": {
           "scope": {
@@ -9589,6 +10038,10 @@
               "household"
             ],
             "title": "Scope"
+          },
+          "first": {
+            "type": "string",
+            "title": "First"
           },
           "month": {
             "type": "string",
@@ -9600,6 +10053,9 @@
             },
             "type": "array",
             "title": "Months"
+          },
+          "span": {
+            "$ref": "#/components/schemas/ScopeComparedOut"
           },
           "accounts": {
             "items": {
@@ -9619,13 +10075,15 @@
         "type": "object",
         "required": [
           "scope",
+          "first",
           "month",
           "months",
+          "span",
           "accounts",
           "bookings"
         ],
         "title": "ScopeDrillOut",
-        "description": "One scope over the months up to `month`, its accounts, and the month's bookings."
+        "description": "One scope over the months up to `month`, its span compared, accounts and bookings."
       },
       "ScopeForecastOut": {
         "properties": {
@@ -9716,7 +10174,7 @@
           "left"
         ],
         "title": "ScopeMonthOut",
-        "description": "A scope's month, each part as the sankey draws it; `left` below zero is taken from before."
+        "description": "A scope's month or span, each part as the sankey draws it.\n\n`left` below zero is what was taken from before."
       },
       "SearchHit": {
         "properties": {
@@ -9790,6 +10248,130 @@
         ],
         "title": "SettingsIn",
         "description": "The budget settings: the salary cutoff day and the income categories that are salary."
+      },
+      "SetupCategoryOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "limit": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Limit"
+          },
+          "average": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Average"
+          },
+          "planned": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Planned"
+          },
+          "plans": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Plans"
+          },
+          "suggested": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Suggested"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "kind",
+          "limit",
+          "average",
+          "planned",
+          "plans",
+          "suggested"
+        ],
+        "title": "SetupCategoryOut",
+        "description": "A spending category on the setup: its limit now, its average, its plans, and a start."
+      },
+      "SetupOut": {
+        "properties": {
+          "month": {
+            "type": "string",
+            "title": "Month"
+          },
+          "expected_income": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Expected Income"
+          },
+          "limits": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Limits"
+          },
+          "suggested": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Suggested"
+          },
+          "categories": {
+            "items": {
+              "$ref": "#/components/schemas/SetupCategoryOut"
+            },
+            "type": "array",
+            "title": "Categories"
+          }
+        },
+        "type": "object",
+        "required": [
+          "month",
+          "expected_income",
+          "limits",
+          "suggested",
+          "categories"
+        ],
+        "title": "SetupOut",
+        "description": "Every spending category's limit on one screen, with the income it is set against."
       },
       "SplitIn": {
         "properties": {

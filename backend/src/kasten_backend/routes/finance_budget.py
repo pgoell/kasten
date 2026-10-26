@@ -196,8 +196,9 @@ class FlowLinkOut(BaseModel):
 
 
 class FlowOut(BaseModel):
-    """Where the month's money went, from what happened so far; `total` is the money in."""
+    """Where the span's money went, from what happened so far; `total` is the money in."""
 
+    first: str
     month: str
     total: Cents
     nodes: list[FlowNodeOut]
@@ -329,15 +330,24 @@ async def read_free_to_spend(
 
 
 @router.get("/budget/flow")
-async def read_flow(session: Session, month: MonthParam) -> FlowOut:
-    """Where the month's money went in both scopes, each column in the order it is drawn.
+async def read_flow(
+    session: Session,
+    month: MonthParam,
+    start: Annotated[str | None, Query(alias="from", pattern=MONTH_PATTERN)] = None,
+) -> FlowOut:
+    """Where the money of `from` to `month` went in both scopes, each column in drawing order.
 
     No `today`: the flow counts what happened, which needs no reader's day.
+    With no `from`, the one month.
     """
-    first = parse_month(month)
-    flow = month_flow(await reads.ledger(session), first, await plan_reads.book(session))
+    last = parse_month(month)
+    first = last if start is None else parse_month(start)
+    if first > last:
+        raise HTTPException(status_code=422, detail="`from` is after `month`")
+    flow = month_flow(await reads.ledger(session), first, await plan_reads.book(session), last)
     return FlowOut(
-        month=first.strftime("%Y-%m"),
+        first=first.strftime("%Y-%m"),
+        month=last.strftime("%Y-%m"),
         total=flow.total,
         nodes=[FlowNodeOut.model_validate(node, from_attributes=True) for node in flow.nodes],
         links=[FlowLinkOut.model_validate(link, from_attributes=True) for link in flow.links],

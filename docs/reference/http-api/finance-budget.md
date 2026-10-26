@@ -124,12 +124,18 @@ month that is over each scope's money in, less its money out, is its free to
 spend; [Budget model](/reference/budget-model.md#where-the-money-went) has the
 rules. No `today`, since nothing depends on the reader's day.
 
+`from` (`YYYY-MM`, optional) makes it a span, `from` to `month`, both
+included: each scope's lines are summed over the months, so left over is what
+the span kept in all, and a month that spent past what came in nets against
+the others rather than showing apart. A `from` after `month` is a `422`.
+
 ```
 GET /api/finance/budget/flow?month=2026-10
 ```
 
 ```json
 {
+  "first": "2026-10",
   "month": "2026-10",
   "total": "6600.00",
   "nodes": [

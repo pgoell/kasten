@@ -189,6 +189,38 @@ counts here ([HTTP API: finance drilldowns](/reference/http-api/finance-drill.md
 * An account is the one view by booking date, not budget month, as its bank
   balance is: the salary cutoff does not move its bookings.
 
+### Spans of months
+
+A quarter, a year or any span of months is read month by month, each as
+over, and added up: a span's figures are its months', so nothing is counted
+that a month would not count. In the sankey of a span each scope's lines are
+summed before they are drawn, so left over is what the span kept in all, and
+a month that spent past what came in nets against the others. A span holds a
+salary by the month it counts for, so one booked after the cutoff in the
+span's last month belongs to the next span.
+
+A span compares with two figures:
+
+* the same months a year before;
+* the 6 whole months before the span, from the first month with any booking
+  (for a category, its own first month with money), averaged and taken as
+  many times as the span has months, so both read at the same length.
+
+For a span, what the limits made available is each month's `available`
+added up.
+
+### The budget setup
+
+The setup lists every spending category with its limit in force, its 6-month
+average and what its plans cost a month: each cost plan living in the month,
+its amount over its months between dates, so a yearly bill is a twelfth; a
+plan due once counts in its own month only. It starts each category from its
+plans where it has one, and from its average rounded up to the euro
+otherwise. The limits are set against the month's income as free to spend
+expects it, both scopes, each income category once: household's money from
+mine is mine's income moved, and counting it would count it twice. Saving
+sets every limit from the month shown on, all at once.
+
 ## Plans
 
 A plan is an expected booking: a payee or a text, an amount give or take a

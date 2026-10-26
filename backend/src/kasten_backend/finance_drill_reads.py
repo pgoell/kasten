@@ -102,22 +102,22 @@ async def reading(session: AsyncSession, categories: dict[int, Category]) -> Rea
 async def month_bookings(
     session: AsyncSession,
     filters: finance.Filters,
-    month: dt.date,
+    months: list[dt.date],
     how: Reading,
 ) -> list[tuple[tables.Transaction, set[dt.date]]]:
-    """The bookings that pass `filters` and count in budget `month`, newest first.
+    """The bookings that pass `filters` and count in one of the budget `months`, newest first.
 
     With a category in `filters`, a booking counts by that category's parts.
     """
-    span = replace(filters, first=add_months(month, -1), last=last_day(month))
+    span = replace(filters, first=add_months(months[0], -1), last=last_day(months[-1]))
     found = await finance.list_transactions(
         session, span, after=None, limit=MOST, newest_first=True
     )
     kept = []
     for booking in found:
-        months = how.months(booking, category=filters.category)
-        if month in months:
-            kept.append((booking, months))
+        counts_in = how.months(booking, category=filters.category)
+        if counts_in & set(months):
+            kept.append((booking, counts_in))
     return kept
 
 
