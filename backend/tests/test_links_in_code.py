@@ -1,3 +1,4 @@
+import gc
 import time
 from typing import TYPE_CHECKING
 
@@ -207,6 +208,10 @@ def test_reads_a_carriage_return_as_no_line_break() -> None:
 def test_reads_code_of_a_long_note_full_of_fences_in_time() -> None:
     # The note is parsed once, and in blocks only, for the same event loop.
     text = "para `c` [[x]]\n\n```py\n[[x]]\n```\n\n> ```\n> q\n> ```\n- item\n\n" * 1000
+    # A full collection of the suite's heap takes about half a second on its
+    # own, and one that falls inside the window fails the parse for the rest of
+    # the suite's garbage. Collected first, the counters start again from zero.
+    gc.collect()
     began = time.perf_counter()
 
     code_spans(text)
