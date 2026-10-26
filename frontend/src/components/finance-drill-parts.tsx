@@ -74,12 +74,15 @@ export function DrillBookings({
   onOpen,
   keys,
   more,
+  category,
 }: {
   bookings: Transaction[];
   names: Map<number, string>;
   onOpen: (step: DrillStep) => void;
   keys: RefObject<TabKeys | null>;
   more?: TabKeys;
+  /** A category's view: a split booking shows only its parts in that category. */
+  category?: number;
 }) {
   const [cursor, setCursor] = useState(0);
   const at = Math.max(0, Math.min(cursor, bookings.length - 1));
@@ -98,7 +101,13 @@ export function DrillBookings({
     }
     return more?.(key) ?? false;
   };
-  const total = bookings.reduce((sum, booking) => sum + Number(booking.amount), 0);
+  const amountOf = (booking: Transaction) =>
+    category === undefined || booking.splits.length === 0
+      ? Number(booking.amount)
+      : booking.splits
+          .filter((split) => split.category_id === category)
+          .reduce((sum, split) => sum + Number(split.amount), 0);
+  const total = bookings.reduce((sum, booking) => sum + amountOf(booking), 0);
   return (
     <section aria-label="Bookings" className="finance-drill-bookings">
       <h3 className="overview-name">
@@ -110,9 +119,12 @@ export function DrillBookings({
           key: `t${booking.id}`,
           date: booking.booking_date,
           who: booking.counterparty_name ?? "No payee",
-          amount: booking.amount,
+          amount: String(amountOf(booking)),
           currency: booking.currency,
-          text: booking.purpose ?? "",
+          text:
+            amountOf(booking) === Number(booking.amount)
+              ? (booking.purpose ?? "")
+              : `part of ${money(booking.amount, booking.currency)}, ${booking.purpose ?? ""}`,
           category: categoryOf(booking, names),
         }))}
         at={at}

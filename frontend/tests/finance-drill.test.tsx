@@ -279,4 +279,27 @@ describe("the finance pane's drilldowns", () => {
       ]),
     );
   });
+
+  it("#1083 a category lists a split booking by its part in that category, so the net is its own", async () => {
+    const split = {
+      ...BOOKING,
+      category_id: null,
+      splits: [
+        { id: 1, amount: "-70.00", text: "food", category_id: 4, category_set_by: "hand" },
+        { id: 2, amount: "-30.00", text: "wine", category_id: 6, category_set_by: "hand" },
+      ],
+    };
+    api.fetchCategoryDrill.mockResolvedValue({ ...CATEGORY, bookings: [split] });
+    renderPane();
+    press("T");
+    await screen.findByText("REWE SAGT DANKE");
+    press("Enter");
+    fireEvent.click(await screen.findByRole("button", { name: "Groceries ›" }));
+
+    const bookings = await screen.findByRole("region", { name: "Bookings" });
+    expect(within(bookings).getByRole("heading").textContent?.replaceAll("\u00a0", " ")).toBe(
+      "1 booking, −70,00 € net",
+    );
+    expect(within(bookings).getByText(/^part of −100,00\s€, REWE SAGT DANKE$/)).toBeTruthy();
+  });
 });

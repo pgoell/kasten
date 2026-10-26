@@ -129,6 +129,7 @@ export function DrillCategory({
         names={categoryNames(sorter)}
         onOpen={onOpen}
         keys={keys}
+        category={id}
       />
     </div>
   );
