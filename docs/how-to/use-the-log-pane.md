@@ -91,8 +91,9 @@ when its note has a `## Log`.
 
 * The summary row comes first: the average kcal over the logged days; the days
   within the kcal goal, as `21 of 27` logged days; the streak, the logged days
-  within the kcal goal in a row up to the day shown (a day with no log ends it;
-  today with nothing logged yet does not); and for each `last` kind, such as
+  within the kcal goal in a row up to the day shown (a day with no food line
+  ends it, even one with drinks logged; today with no food line yet does not);
+  and for each `last` kind, such as
   weight, the change from its first weigh-in in the range to its last. It reads
   as `-1.2 kg` or `+0.4 kg`, with the words `from 83.6 to 82.4 kg`.
 * A small chart for each kind, except a `last` kind, and for kcal, protein,

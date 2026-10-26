@@ -66,16 +66,17 @@ The charts speak one language, the one the log pane's Trends uses:
 A streak counts days in a row, back from today.
 
 * **Food**: days in a row within the kcal goal. Within means at or under a
-  ceiling goal, at or over a floor goal. With no kcal goal, it counts logged
-  days in a row.
+  ceiling goal, at or over a floor goal. With no kcal goal, it counts days in
+  a row with a food line.
 * **Flashcards**: days in a row with at least one card rated.
 
 For both:
 
 * A day with no log breaks the streak. For Food that is a day whose daily note
-  has no `## Log`; for Flashcards a day on which no card was rated.
-* Today does not break it while it has nothing yet, so a streak does not drop
-  to zero in the morning. Once today has a log over the goal, it ends the Food
+  has no food line under `## Log`, so a day of drinks only, or of weight only,
+  counts as no log; for Flashcards a day on which no card was rated.
+* Today does not break it while it has nothing yet (for Food, no food line
+  yet), so a streak does not drop to zero in the morning. Once today has a log over the goal, it ends the Food
   streak.
 * The Food streak looks back 90 days, the longest range the log pane reads; a
   streak longer than that reads as 90 days.
