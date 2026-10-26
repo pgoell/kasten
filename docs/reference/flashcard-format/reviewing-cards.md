@@ -44,6 +44,10 @@ cloze's other numbers that a suspend took out come back with it. Undo holds one
 step. It writes nothing where the note changed since that step, in another
 pane, on disk or by a jot, and says so at the foot.
 
+While the backend restarts, a rating's write goes again for about a minute, and
+so do the decks' reads of the cards and their notes, so the counts on the
+overview catch up once it is back rather than at the next rating.
+
 Center, a toggle in the header, puts the front and the back in the middle of
 the pane, across and down. The browser keeps it, so it holds across sittings
 and reloads. Off draws the card at the top left.
@@ -73,7 +77,8 @@ A row does two things. Putting it back takes the token off and returns the card
 to its deck on the schedule it already held; only a card carrying a token gets
 that control, a question with no answer having none to remove. Opening the row
 puts its note in a pane at a desk and on the page on a phone, which is how a
-question written mid-sitting gets its answer.
+question written mid-sitting gets its answer. A row put back stays gone while
+its write is out, whatever the list reads meanwhile.
 
 ### A question you think of mid-sitting
 

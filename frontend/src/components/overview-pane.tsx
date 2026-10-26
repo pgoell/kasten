@@ -41,6 +41,7 @@ import {
   weightLabel,
   weightWords,
 } from "@/lib/overview-words";
+import { readRetry } from "@/lib/read-retry";
 import { deckNotes } from "@/lib/review";
 import { useEntrance } from "@/lib/stagger";
 import { useLeader } from "@/lib/use-leader";
@@ -104,7 +105,11 @@ function useReads(today: string, archive: boolean): Reads {
   const from = shiftDay(today, -89);
   const log = useQuery({ queryKey: ["log", from, today], queryFn: () => fetchLog(from, today) });
   const todos = useQuery({ queryKey: ["todos", archive], queryFn: () => fetchTodos(archive) });
-  const cards = useQuery({ queryKey: ["cards", archive], queryFn: () => fetchCards(archive) });
+  const cards = useQuery({
+    queryKey: ["cards", archive],
+    queryFn: () => fetchCards(archive),
+    ...readRetry,
+  });
   // From Jan 1 or thirteen days back, whichever is earlier: Writing and This year both read it.
   const year = `${today.slice(0, 4)}-01-01`;
   const writtenFrom = year < shiftDay(today, -13) ? year : shiftDay(today, -13);

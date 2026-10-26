@@ -1,7 +1,7 @@
 ---
 type: Reference
 title: Save path orderings: the review sitting's writes and undo
-description: The orders in which the review sitting's writes and undo can meet the write queue of its own rating, jot and suspend writes, including a write the restart drops and goes again, what must hold in each, and whether getting it wrong loses typed text.
+description: The orders in which the review sitting's writes and undo can meet the write queue of its own rating, jot and suspend writes, including a write the restart drops and goes again and the parked list's reads around its writes, what must hold in each, and whether getting it wrong loses typed text.
 resource: frontend/src/lib/use-sitting-writes.ts
 tags: [editor, saving, autosave, frontend, tests]
 status: stable
@@ -50,4 +50,12 @@ The backend restarts now and then. A write sent in that gap gets a 502, 503 or 5
 
 ## The parked list's reads around its writes
 
-The parked list writes each put-back through the same queue, and reads its notes again whenever the scan of the cards changes, which every landed write sets off. A note with a put-back out keeps the text on screen over that read, and so does a note whose put-back went out while the read was out, so a read from before the write never shows the card as parked again. A note with nothing out takes the read's text. The writes and their order are as above. P is a put-back.
+The parked list writes each put-back through the same queue, and reads its notes again whenever the scan of the cards changes, which every landed write sets off. A note with a put-back out keeps the text on screen over that read, and so does a note whose put-back went out while the read was out, so a read from before the write never shows the card as parked again. A note with nothing out takes the read's text. The writes and their order are as above. P is a put-back. The tests are in `frontend/tests/review-parked-refetch.test.tsx`.
+
+| # | Ordering | Must hold | Loses typed text if wrong | Test |
+|---|---|---|---|---|
+| P1 | P in note A retries; a put-back in note B lands and the notes are read again. | A's row stays put back. | no | `#1142 A3 a put-back retrying in one note stays put back when another note's put-back lands and the notes are read again` |
+| P2 | A read leaves; P goes out and lands; the read answers with A's text from before P. | A's row stays put back. | no | `#1142 I5 a read that left while a put-back was out and answers after it landed keeps the row put back` |
+| P3 | P fails at last. | A is read again, its row shows parked, and the error shows. | no | `#1142 I6 a put-back that fails at last reads its note again and shows the row parked with the error` |
+| P4 | A read answers for a note with no put-back out. | The note takes the read's text, so a card parked elsewhere shows up. | no | `#1142 I7 a note with no put-back out takes the read's text, so a card parked elsewhere shows up` |
+| P5 | Two put-backs in A, a read between them. | Both rows stay gone, and both land in order. | no | `#1142 I8 two put-backs in one note with a read between them both stay gone and land in order` |

@@ -156,7 +156,9 @@ export async function fetchCards(archive = false): Promise<LineHit[]> {
   });
 
   if (!data) {
-    throw new Error(`GET /api/cards failed with ${response.status}`);
+    throw new Error(`GET /api/cards failed with ${response.status}`, {
+      cause: response.status,
+    });
   }
 
   return data;
@@ -182,7 +184,9 @@ export async function fetchReviewLimits(): Promise<ReviewLimits> {
   const { data, response } = await client.GET("/api/review/limits");
 
   if (!data) {
-    throw new Error(`GET /api/review/limits failed with ${response.status}`);
+    throw new Error(`GET /api/review/limits failed with ${response.status}`, {
+      cause: response.status,
+    });
   }
 
   return data;
@@ -255,7 +259,9 @@ export async function fetchNote(path: string): Promise<string> {
 
   if (response.status === 404) throw new NoteMissing(path);
   if (!data) {
-    throw new Error(`GET /api/files/${path} failed with ${response.status}`);
+    throw new Error(`GET /api/files/${path} failed with ${response.status}`, {
+      cause: response.status,
+    });
   }
 
   return data.content;

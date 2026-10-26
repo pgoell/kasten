@@ -1,6 +1,7 @@
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { fetchCards, fetchNote } from "@/lib/api";
 import { readClock } from "@/lib/clock";
+import { readRetry } from "@/lib/read-retry";
 import { deckNotes, decksFrom } from "@/lib/review";
 import { useReviewLimits } from "@/lib/use-review-limits";
 
@@ -21,12 +22,14 @@ export function useReviewWaiting(archive: boolean): number | undefined {
   const { data: hits } = useQuery({
     queryKey: ["cards", archive],
     queryFn: () => fetchCards(archive),
+    ...readRetry,
   });
   const paths = hits === undefined ? [] : deckNotes(hits);
   const reads = useQueries({
     queries: paths.map((path) => ({
       queryKey: ["cards", "note", path],
       queryFn: () => fetchNote(path),
+      ...readRetry,
     })),
   });
   const limits = useReviewLimits();

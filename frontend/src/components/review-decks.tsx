@@ -3,6 +3,7 @@ import { Fragment, useState } from "react";
 import { ReviewImport } from "@/components/review-import";
 import { fetchCards, fetchNote } from "@/lib/api";
 import { readClock } from "@/lib/clock";
+import { readRetry } from "@/lib/read-retry";
 import { type Deck, deckNotes, decksFrom } from "@/lib/review";
 import { dayWords } from "@/lib/review-days";
 import { useEntrance } from "@/lib/stagger";
@@ -93,6 +94,7 @@ export function ReviewDecks({ onPick, onParked, archive = false }: ReviewDecksPr
   const { data: hits, isPending: scanning } = useQuery({
     queryKey: ["cards", archive],
     queryFn: () => fetchCards(archive),
+    ...readRetry,
   });
 
   // Under `cards` rather than `note`, so the invalidation every rating, parking
@@ -104,6 +106,7 @@ export function ReviewDecks({ onPick, onParked, archive = false }: ReviewDecksPr
     queries: paths.map((path) => ({
       queryKey: ["cards", "note", path],
       queryFn: () => fetchNote(path),
+      ...readRetry,
     })),
   });
 

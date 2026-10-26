@@ -54,8 +54,9 @@ describe("the assignee chip in a browser (#809)", () => {
     const pane = await mount(390, 844, { coarse: true });
     try {
       const chip = chipNamed(pane.host, "Pascal");
-      // I7: the tap box is at least 44 px tall on touch.
-      expect(chip.getBoundingClientRect().height).toBeGreaterThanOrEqual(44);
+      // I7: the tap box is at least 44 px tall on touch. The row's entrance slide moves
+      // getBoundingClientRect off the laid-out box by a float step, so read the layout.
+      expect(parseFloat(getComputedStyle(chip).height)).toBeGreaterThanOrEqual(44);
 
       await tap(chip);
 
@@ -69,6 +70,28 @@ describe("the assignee chip in a browser (#809)", () => {
         document.documentElement.clientWidth,
       );
     } finally {
+      pane.unmount();
+    }
+  });
+
+  it("#1145 A4 with its row held mid-entrance the chip's tap box still measures at least 44 px", async () => {
+    await commands.emulateMedia({ touch: true });
+    const pane = await mount(390, 844, { coarse: true });
+    const held: Animation[] = [];
+    try {
+      const chip = chipNamed(pane.host, "Pascal");
+      // Held at 180 ms, where the slide's float32 transform takes the box to 43.99997 px.
+      for (const animation of document.getAnimations()) {
+        const target = (animation.effect as KeyframeEffect | null)?.target;
+        if (!(target instanceof Element) || !pane.host.contains(target)) continue;
+        animation.pause();
+        animation.currentTime = 180;
+        held.push(animation);
+      }
+      expect(held.length).toBeGreaterThan(0);
+      expect(parseFloat(getComputedStyle(chip).height)).toBeGreaterThanOrEqual(44);
+    } finally {
+      for (const animation of held) animation.cancel();
       pane.unmount();
     }
   });

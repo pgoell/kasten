@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { fetchNote, fetchReviewLimits } from "@/lib/api";
 import { DECKS_NOTE } from "@/lib/layout";
+import { readRetry } from "@/lib/read-retry";
 import type { Limits } from "@/lib/review";
 
 /** No default, which is what an unset setting means and what a failed read falls back on. */
@@ -37,6 +38,7 @@ export function useReviewLimits(current = false): Limits | undefined {
       ]);
       return { note, defaults };
     },
+    ...readRetry,
   });
   return current && isStale && !isFetchedAfterMount ? undefined : data;
 }

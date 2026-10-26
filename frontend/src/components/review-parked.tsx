@@ -1,10 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { fetchCards, fetchNote } from "@/lib/api";
 import { clozePlain, unescaped } from "@/lib/card-line";
 import { setSuspended } from "@/lib/card-write";
 import { withoutTags } from "@/lib/deck-tag";
 import { noteName } from "@/lib/note-path";
+import { readRetry } from "@/lib/read-retry";
 import { parkedNotes } from "@/lib/review";
 import { type Parked, parseCards } from "@/lib/srs";
 import { readNoteSuspended, writeNoteSuspended } from "@/lib/srs-schedule";
@@ -44,21 +45,41 @@ export function ReviewParked({ onLeave, onOpen, archive = false }: ReviewParkedP
   const [texts, setTexts] = useState<Map<string, string> | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
   const write = useSittingWrites(setTexts, setFailed);
+  /** Per note, the writes out now. */
+  const out = useRef(new Map<string, number>());
+  /** Per note, the writes ever sent, so a read can tell one went out while it was on its way. */
+  const sent = useRef(new Map<string, number>());
 
   // The same key the overview holds, so opening this screen reads no cards the
   // list behind it has not already fetched.
   const { data: hits } = useQuery({
     queryKey: ["cards", archive],
     queryFn: () => fetchCards(archive),
+    ...readRetry,
   });
 
   const notes = useMemo(() => (hits === undefined ? [] : parkedNotes(hits)), [hits]);
 
   useEffect(() => {
     let live = true;
+    const sentAt = new Map(sent.current);
+    const outAt = new Map(out.current);
     void Promise.all(notes.map(async (note) => [note, await fetchNote(note)] as const)).then(
       (read) => {
-        if (live) setTexts(new Map(read));
+        // A note with a write out, or sent while this read was on its way, keeps the
+        // text the screen holds: the read may have been taken before that write landed.
+        const busy = (note: string) =>
+          (out.current.get(note) ?? 0) > 0 ||
+          (outAt.get(note) ?? 0) > 0 ||
+          (sent.current.get(note) ?? 0) !== (sentAt.get(note) ?? 0);
+        if (live)
+          setTexts((was) =>
+            was === null
+              ? new Map(read)
+              : new Map(
+                  read.map(([note, text]) => [note, busy(note) ? (was.get(note) ?? text) : text]),
+                ),
+          );
       },
       (error: unknown) => {
         if (live) setFailed(error instanceof Error ? error.message : "could not read the note");
@@ -90,7 +111,9 @@ export function ReviewParked({ onLeave, onOpen, archive = false }: ReviewParkedP
     }
 
     setTexts((was) => new Map(was).set(row.note, next));
-    write(row.note, text, next);
+    tally(sent.current, row.note, 1);
+    tally(out.current, row.note, 1);
+    void write(row.note, text, next).then(() => tally(out.current, row.note, -1));
   }
 
   return (
@@ -163,6 +186,11 @@ export function ReviewParked({ onLeave, onOpen, archive = false }: ReviewParkedP
       </div>
     </div>
   );
+}
+
+/** Moves a note's count by `by`, from zero where the note has none yet. */
+function tally(counts: Map<string, number>, note: string, by: number) {
+  counts.set(note, (counts.get(note) ?? 0) + by);
 }
 
 /**

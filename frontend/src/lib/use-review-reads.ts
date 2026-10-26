@@ -19,6 +19,7 @@ import { fetchLog, type LogDay } from "@/lib/food-api";
 import { LOG_NOTE } from "@/lib/layout";
 import { DEFAULT_CONFIG, type LogConfig, parseConfig } from "@/lib/log-kinds";
 import { periodicNote } from "@/lib/periodic";
+import { readRetry } from "@/lib/read-retry";
 import { fetchGithub, fetchModelUse, fetchWrittenNotes, type ModelUseLine } from "@/lib/review-api";
 import type { WrittenNote } from "@/lib/review-year";
 
@@ -63,7 +64,11 @@ function useConfig(): Read<LogConfig> {
 /** The todos and the flashcard lines, the two lists every review counts. */
 function useLists() {
   const todos = useQuery({ queryKey: ["todos", false], queryFn: () => fetchTodos(false) });
-  const cards = useQuery({ queryKey: ["cards", false], queryFn: () => fetchCards(false) });
+  const cards = useQuery({
+    queryKey: ["cards", false],
+    queryFn: () => fetchCards(false),
+    ...readRetry,
+  });
   return {
     todos: readOf<TodoHit[]>(todos, []),
     cards: readOf<LineHit[]>(cards, []),

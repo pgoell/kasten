@@ -2,23 +2,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { type Dispatch, type SetStateAction, useCallback, useRef } from "react";
 import { fetchNote, type Note, saveNote } from "@/lib/api";
 import { noteBase } from "@/lib/note-base";
-
-/** Waits between the tries of a write the backend dropped: about a minute in all. */
-const BACKOFF = [1000, 2000, 4000, 8000, 15000, 15000, 15000];
-
-/**
- * A write that failed because the backend is down or restarting: a gateway
- * answer, or no answer, which fetch reports as a `TypeError`. `saveNote` puts
- * the status of a failed save in `cause`.
- */
-function retryable(error: unknown): boolean {
-  if (error instanceof TypeError) return true;
-  return (
-    error instanceof Error &&
-    typeof error.cause === "number" &&
-    [502, 503, 504].includes(error.cause)
-  );
-}
+import { BACKOFF, retryable } from "@/lib/read-retry";
 
 /**
  * Writes for a screen that reads its notes once and then saves the same note
