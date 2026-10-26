@@ -220,7 +220,8 @@ the payee rules that name it, and the month's bookings.
 ## GET /api/finance/drill/bookings/{transaction_id}
 
 One booking with every field and its raw record, its account and payee, the
-other half of a transfer, the plan it met, and where it counts.
+other half of a transfer, the plan it met, the order it paid, and where it
+counts.
 
 ```json
 {
@@ -229,6 +230,7 @@ other half of a transfer, the plan it met, and where it counts.
   "payee": null,
   "twin": { "id": 8, "account_id": 2, "amount": "900.00" },
   "plans": [ { "id": 2, "name": "Rent", "period": "2026-10" } ],
+  "order": null,
   "counts": [
     { "month": "2026-10", "scope": "mine", "part": "other_scope", "category_id": null, "amount": "900.00" }
   ]
@@ -239,6 +241,10 @@ other half of a transfer, the plan it met, and where it counts.
   [GET /api/finance/transactions](/reference/http-api/finance.md) answers a
   booking. `twin` is `null` for a booking that is no transfer, or whose other
   half is not in yet.
+* `order`: the PayPal or Amazon order the booking paid or got money back
+  from, as [GET /api/finance/orders/unmatched](/reference/http-api/finance-orders.md#get-apifinanceordersunmatched)
+  answers one, with every charge and refund, and `charge_id`, the one this
+  booking is. `null` for a booking no order holds.
 * `counts`: each budget month, scope and part the booking or its splits
   count in, the amount positive as the part counts it. `part` is `income`,
   `fixed`, `flexible`, `non_monthly`, `reserve` (a bill a plan's reserve

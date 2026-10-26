@@ -166,6 +166,11 @@ post are a `422` naming the key, since one of them would be dropped unseen.
 in an occurrence index, the booking's place among identical bookings that day,
 so two coffees of the same price on the same day are two keys and both stay.
 
+After the transfers are paired and the new bookings sorted, they meet the
+plans and then the PayPal and Amazon orders waiting for them
+([finance orders](/reference/http-api/finance-orders.md#how-a-charge-finds-its-booking)):
+a new booking that pays an order's charge is split into its items.
+
 `linked` counts the transfers paired after the insert. A booking pairs with one
 that:
 

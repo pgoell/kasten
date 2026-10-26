@@ -4,12 +4,18 @@ A job runs in a container on the docker network `web` and names the backend
 `http://kasten-backend-prod:8000`, inside the trust zone, so it sends no token.
 """
 
+import logging
 from typing import Any
 
 import httpx
 
+log = logging.getLogger("kasten_jobs.kasten_api")
+
 BATCH = 1000
 """The most bookings or balances kasten takes in one post."""
+
+ORDER_BATCH = 200
+"""The most orders kasten takes in one post."""
 
 PAGE = 5000
 """The most bookings kasten answers one read with."""
@@ -55,6 +61,28 @@ class KastenApi:
             created += answer["created"]
             skipped += answer["skipped"]
         return created, skipped
+
+    def post_orders(self, orders: list[dict[str, Any]]) -> dict[str, int]:
+        """`POST /api/finance/orders` in batches, and answer the counts summed over them.
+
+        A batch kasten refuses (a `422`) is sent again order by order, so one
+        order it will not take costs only that order; `refused` counts those.
+        """
+        totals = {"created": 0, "updated": 0, "unchanged": 0, "matched": 0, "refused": 0}
+        for start in range(0, len(orders), ORDER_BATCH):
+            batch = orders[start : start + ORDER_BATCH]
+            for answer in self._orders(batch):
+                totals = {key: totals[key] + answer.get(key, 0) for key in totals}
+        return totals
+
+    def _orders(self, batch: list[dict[str, Any]]) -> list[dict[str, int]]:
+        response = self.client.post("/api/finance/orders", json=batch)
+        if response.status_code != httpx.codes.UNPROCESSABLE_ENTITY:
+            return [self._json(response)]
+        if len(batch) == 1:
+            log.warning("kasten refused order %s: %s", batch[0].get("order_key"), response.text)
+            return [{"refused": 1}]
+        return [answer for order in batch for answer in self._orders([order])]
 
     def post_balances(self, balances: list[dict[str, Any]]) -> None:
         """`POST /api/finance/balances`."""

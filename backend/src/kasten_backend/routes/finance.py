@@ -18,7 +18,7 @@ from fastapi import APIRouter, Body, Depends, HTTPException, Query
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from kasten_backend import finance, finance_plan_reads, finance_sorting
+from kasten_backend import finance, finance_orders, finance_plan_reads, finance_sorting
 from kasten_backend.db import get_session
 from kasten_backend.finance_models import Kind  # noqa: TC001  pydantic reads it at runtime
 from kasten_backend.log import DATE_PATTERN
@@ -284,7 +284,8 @@ async def write_transactions(
     A booking already there by account and source key is skipped and left as
     it was, so a job may send an overlapping window every run. The new
     bookings get their payees and the rules' categories after the transfers
-    are paired, since a transfer takes no category, and then meet the plans.
+    are paired, since a transfer takes no category, and then meet the plans and
+    the PayPal and Amazon orders that wait for them.
     """
     # First, so the sorting after the insert and a run of the rules beside it
     # take turns rather than wait on each other's rows.
@@ -298,6 +299,8 @@ async def write_transactions(
     await finance_sorting.apply_rules(session, created)
     # After the payees, which a plan may match by.
     await finance_plan_reads.run_matching(session, created)
+    # After the rules, so an order's split replaces what a rule gave the booking.
+    await finance_orders.match(session, created)
     await session.commit()
     return Ingested(created=len(created), skipped=len(bookings) - len(created), linked=linked)
 
@@ -316,6 +319,8 @@ async def write_splits(
         raise HTTPException(status_code=422, detail=str(refused)) from refused
     if booking is None:
         raise HTTPException(status_code=404, detail="No such transaction")
+    # An order's split, rewritten or taken away by hand, stays as the owner left it.
+    await finance_orders.unsplit_by_hand(session, transaction_id, removed=not parts)
     # The new splits are sorted at once, and the booking itself gives up a
     # category a rule gave it, since its category now lives on them.
     await finance_sorting.apply_rules(session, [transaction_id])

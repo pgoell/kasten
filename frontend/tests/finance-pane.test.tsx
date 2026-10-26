@@ -3,14 +3,21 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { FinancePane } from "@/components/finance-pane";
 import { stubCommands } from "./stub-commands";
 
-const { fetchCategories, fetchToSort, sortByHand, sortPayee } = vi.hoisted(() => ({
-  fetchCategories: vi.fn(),
-  fetchToSort: vi.fn(),
-  sortByHand: vi.fn(),
-  sortPayee: vi.fn(),
-}));
+const { fetchCategories, fetchToSort, sortByHand, sortPayee, fetchUnmatchedOrders } = vi.hoisted(
+  () => ({
+    fetchCategories: vi.fn(),
+    fetchToSort: vi.fn(),
+    sortByHand: vi.fn(),
+    sortPayee: vi.fn(),
+    fetchUnmatchedOrders: vi.fn(),
+  }),
+);
 
 vi.mock("@/lib/finance-api", () => ({ fetchCategories, fetchToSort, sortByHand, sortPayee }));
+vi.mock("@/lib/finance-orders-api", async (original) => ({
+  ...(await original<typeof import("@/lib/finance-orders-api")>()),
+  fetchUnmatchedOrders,
+}));
 // The overview and the bank card read these as the pane opens; the to-sort list needs none.
 vi.mock("@/lib/finance-budget-api", () => ({
   fetchBudget: () => new Promise(() => {}),
@@ -54,6 +61,7 @@ beforeEach(() => {
   fetchToSort.mockResolvedValue({ total: 2, bookings: [BAKERY, ORDER] });
   sortByHand.mockResolvedValue(undefined);
   sortPayee.mockResolvedValue(undefined);
+  fetchUnmatchedOrders.mockResolvedValue([]);
 });
 
 afterEach(() => {
@@ -83,7 +91,67 @@ function press(key: string) {
   fireEvent.keyDown(screen.getByRole("region", { name: "Finance" }), { key });
 }
 
+const charge = (
+  id: number,
+  amount: string,
+  status: string,
+  transaction_id: number | null = null,
+) => ({
+  id,
+  kind: "charge",
+  key: `k${id}`,
+  charged_on: "2026-10-17",
+  amount,
+  transaction_id,
+  status,
+  items: [],
+});
+
 describe("the finance pane's to-sort view", () => {
+  it("#1039 lists each order charge no booking holds, and why, under the bookings", async () => {
+    fetchUnmatchedOrders.mockResolvedValue([
+      {
+        id: 1,
+        source: "paypal",
+        order_key: "1AB23456CD789012E",
+        ordered_on: "2026-10-17",
+        merchant: "Example Shop GmbH",
+        total: "30.00",
+        currency: "EUR",
+        charges: [charge(1, "30.00", "ambiguous")],
+      },
+      {
+        id: 2,
+        source: "amazon",
+        order_key: "123-4567890-1234567",
+        ordered_on: "2026-10-15",
+        merchant: "Amazon",
+        total: "40.00",
+        currency: "EUR",
+        charges: [charge(2, "25.00", "split", 9), charge(3, "15.00", "items_off")],
+      },
+      {
+        id: 3,
+        source: "amazon",
+        order_key: "123-0000000-0000001",
+        ordered_on: "2026-10-14",
+        merchant: "Amazon",
+        total: "12.00",
+        currency: "EUR",
+        charges: [],
+      },
+    ]);
+    renderPane();
+
+    const orders = await screen.findByRole("region", { name: "Orders without a booking" });
+    const lines = orders.querySelectorAll("li");
+    expect([...lines].map((line) => line.textContent?.replaceAll("\u00a0", " "))).toEqual([
+      "2026-10-17, Example Shop GmbH, 30,00 €: two bookings fit alike",
+      "2026-10-15, Amazon, 15,00 €: its items do not add up",
+      "2026-10-14, Amazon, 12,00 €: not dispatched yet",
+    ]);
+  });
+
   it("#1035 shows a row per booking and per loose split, oldest first, with a key per category", async () => {
     renderPane();
 

@@ -16,7 +16,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
-from kasten_backend import finance
+from kasten_backend import finance, finance_orders
 from kasten_backend import finance_budget_reads as reads
 from kasten_backend import finance_drill as drill
 from kasten_backend import finance_drill_reads as drill_reads
@@ -29,6 +29,7 @@ from kasten_backend.routes.finance_budget import (  # noqa: TC001  FastAPI reads
     Cents,
     MonthParam,
 )
+from kasten_backend.routes.finance_orders import OrderOut
 from kasten_backend.routes.finance_range import (
     CategoryComparedOut,
     FromParam,
@@ -191,14 +192,22 @@ class MatchedPlanOut(BaseModel):
     period: str
 
 
+class BookingOrderOut(BaseModel):
+    """The order a booking paid or got money back from, and which of its charges the booking is."""
+
+    order: OrderOut
+    charge_id: int
+
+
 class BookingDrillOut(BaseModel):
-    """A booking with every field, its account and payee, its twin, plan and where it counts."""
+    """A booking with every field, its account, payee, twin, plan, order and where it counts."""
 
     transaction: TransactionOut
     account: AccountOut
     payee: PayeeOut | None
     twin: TransactionOut | None
     plans: list[MatchedPlanOut]
+    order: BookingOrderOut | None
     counts: list[CountOut]
 
 
@@ -445,7 +454,7 @@ async def read_account(
 
 @router.get("/bookings/{transaction_id}")
 async def read_booking(transaction_id: int, session: Session) -> BookingDrillOut:
-    """A booking whole: every field and its raw record, its twin, plan and where it counts."""
+    """A booking whole: every field, its raw record, twin, plan, order and where it counts."""
     booking = await session.scalar(
         select(tables.Transaction)
         .options(selectinload(tables.Transaction.splits))
@@ -457,6 +466,7 @@ async def read_booking(transaction_id: int, session: Session) -> BookingDrillOut
     payee = None if booking.payee_id is None else await session.get(tables.Payee, booking.payee_id)
     twin = await drill_reads.twin_of(session, booking)
     ledger = await reads.ledger(session, transaction_id)
+    order = await finance_orders.of_booking(session, transaction_id)
     return BookingDrillOut(
         transaction=TransactionOut.model_validate(booking),
         account=AccountOut.model_validate(account),
@@ -466,6 +476,9 @@ async def read_booking(transaction_id: int, session: Session) -> BookingDrillOut
             MatchedPlanOut(id=plan, name=name, period=_month(period))
             for plan, name, period in await drill_reads.matched_plans(session, transaction_id)
         ],
+        order=None
+        if order is None
+        else BookingOrderOut(order=OrderOut.model_validate(order[0]), charge_id=order[1]),
         counts=[
             CountOut(
                 month=_month(c.month),

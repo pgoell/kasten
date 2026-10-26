@@ -26,6 +26,8 @@ class FakeKasten:
     days_since_success: int | None = 0
     refuse: set[int] = field(default_factory=set)
     status_reads: int = 0
+    orders: list[list[dict[str, Any]]] = field(default_factory=list)
+    refuse_orders: set[str] = field(default_factory=set)
 
     def handle(self, request: httpx.Request) -> httpx.Response:
         route = {
@@ -35,6 +37,7 @@ class FakeKasten:
             ("POST", "/api/finance/transactions"): self._bookings,
             ("POST", "/api/finance/balances"): self._balances,
             ("PATCH", "/api/finance/sync/runs/7"): self._finish,
+            ("POST", "/api/finance/orders"): self._orders,
         }.get((request.method, request.url.path))
         if route is None:
             return httpx.Response(404, json={"detail": f"no fake for {request.url.path}"})
@@ -77,6 +80,13 @@ class FakeKasten:
     def _finish(self, body: Any) -> httpx.Response:
         self.finishes.append(body)
         return httpx.Response(200, json={"id": 7})
+
+    def _orders(self, body: Any) -> httpx.Response:
+        if {o["order_key"] for o in body} & self.refuse_orders:
+            return httpx.Response(422, json={"detail": "refused"})
+        self.orders.append(body)
+        answer = {"created": len(body), "updated": 0, "unchanged": 0, "matched": 1}
+        return httpx.Response(200, json=answer)
 
     def api(self) -> KastenApi:
         client = httpx.Client(base_url="http://kasten", transport=httpx.MockTransport(self.handle))

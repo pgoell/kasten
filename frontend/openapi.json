@@ -582,7 +582,7 @@
           "agent"
         ],
         "summary": "Read Booking",
-        "description": "A booking whole: every field and its raw record, its twin, plan and where it counts.",
+        "description": "A booking whole: every field, its raw record, twin, plan, order and where it counts.",
         "operationId": "read_booking_agent_finance_transactions__transaction_id__get",
         "parameters": [
           {
@@ -2692,7 +2692,7 @@
       },
       "post": {
         "summary": "Write Transactions",
-        "description": "Insert the bookings not already stored, pair the transfers, then sort the new ones.\n\nA booking already there by account and source key is skipped and left as\nit was, so a job may send an overlapping window every run. The new\nbookings get their payees and the rules' categories after the transfers\nare paired, since a transfer takes no category, and then meet the plans.",
+        "description": "Insert the bookings not already stored, pair the transfers, then sort the new ones.\n\nA booking already there by account and source key is skipped and left as\nit was, so a job may send an overlapping window every run. The new\nbookings get their payees and the rules' categories after the transfers\nare paired, since a transfer takes no category, and then meet the plans and\nthe PayPal and Amazon orders that wait for them.",
         "operationId": "write_transactions_api_finance_transactions_post",
         "requestBody": {
           "required": true,
@@ -3429,7 +3429,7 @@
     "/api/finance/drill/bookings/{transaction_id}": {
       "get": {
         "summary": "Read Booking",
-        "description": "A booking whole: every field and its raw record, its twin, plan and where it counts.",
+        "description": "A booking whole: every field, its raw record, twin, plan, order and where it counts.",
         "operationId": "read_booking_api_finance_drill_bookings__transaction_id__get",
         "parameters": [
           {
@@ -4202,6 +4202,97 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/StoredGoalOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/finance/orders": {
+      "post": {
+        "summary": "Write Orders",
+        "description": "Store the orders by their ids and match every charge that waits to its booking.\n\nAn order sent again with nothing new changes nothing. A charge no longer\nsent stays, and one already matched is never rewritten.",
+        "operationId": "write_orders_api_finance_orders_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "items": {
+                  "$ref": "#/components/schemas/OrderIn"
+                },
+                "type": "array",
+                "maxItems": 200,
+                "title": "Orders"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrdersStored"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/finance/orders/unmatched": {
+      "get": {
+        "summary": "Read Unmatched",
+        "description": "The newest orders with a charge no booking holds yet, or with no charge yet, newest first.",
+        "operationId": "read_unmatched_api_finance_orders_unmatched_get",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/OrderOut"
+                  },
+                  "title": "Response Read Unmatched Api Finance Orders Unmatched Get"
                 }
               }
             }
@@ -6661,6 +6752,16 @@
             "type": "array",
             "title": "Plans"
           },
+          "order": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BookingOrderOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "counts": {
             "items": {
               "$ref": "#/components/schemas/CountOut"
@@ -6676,10 +6777,29 @@
           "payee",
           "twin",
           "plans",
+          "order",
           "counts"
         ],
         "title": "BookingDrillOut",
-        "description": "A booking with every field, its account and payee, its twin, plan and where it counts."
+        "description": "A booking with every field, its account, payee, twin, plan, order and where it counts."
+      },
+      "BookingOrderOut": {
+        "properties": {
+          "order": {
+            "$ref": "#/components/schemas/OrderOut"
+          },
+          "charge_id": {
+            "type": "integer",
+            "title": "Charge Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "order",
+          "charge_id"
+        ],
+        "title": "BookingOrderOut",
+        "description": "The order a booking paid or got money back from, and which of its charges the booking is."
       },
       "BookingOut": {
         "properties": {
@@ -7317,6 +7437,121 @@
         ],
         "title": "CategoryOut",
         "description": "A category as stored."
+      },
+      "ChargeIn": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "charge",
+              "refund"
+            ],
+            "title": "Kind",
+            "default": "charge"
+          },
+          "key": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Key"
+          },
+          "charged_on": {
+            "type": "string",
+            "format": "date",
+            "title": "Charged On"
+          },
+          "amount": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,12}|(?=[\\d.]{1,15}0*$)\\d{0,12}\\.\\d{0,2}0*$)"
+              }
+            ],
+            "title": "Amount"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ItemIn"
+            },
+            "type": "array",
+            "maxItems": 100,
+            "title": "Items",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "charged_on",
+          "amount"
+        ],
+        "title": "ChargeIn",
+        "description": "One payment for the order, with the items it paid for, or one refund, which has none."
+      },
+      "ChargeOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "charged_on": {
+            "type": "string",
+            "format": "date",
+            "title": "Charged On"
+          },
+          "amount": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Amount"
+          },
+          "transaction_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Transaction Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ItemOut"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "kind",
+          "key",
+          "charged_on",
+          "amount",
+          "transaction_id",
+          "status",
+          "items"
+        ],
+        "title": "ChargeOut",
+        "description": "A charge or refund as stored, the booking it matched and where it stands."
       },
       "Checklist": {
         "properties": {
@@ -8882,6 +9117,55 @@
         "title": "Item",
         "description": "One task line: where it sits in the note, its words, its state and who it is for."
       },
+      "ItemIn": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Text"
+          },
+          "amount": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,12}|(?=[\\d.]{1,15}0*$)\\d{0,12}\\.\\d{0,2}0*$)"
+              }
+            ],
+            "title": "Amount"
+          }
+        },
+        "type": "object",
+        "required": [
+          "text",
+          "amount"
+        ],
+        "title": "ItemIn",
+        "description": "One line of a charge at its line price, or shipping, tax or a discount."
+      },
+      "ItemOut": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "amount": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Amount"
+          }
+        },
+        "type": "object",
+        "required": [
+          "text",
+          "amount"
+        ],
+        "title": "ItemOut",
+        "description": "One line of a charge."
+      },
       "Layout": {
         "properties": {
           "inbox": {
@@ -9588,6 +9872,164 @@
         ],
         "title": "Nutrients",
         "description": "What a serving or 100 grams holds: kilocalories, and grams of protein, carbs and fat."
+      },
+      "OrderIn": {
+        "properties": {
+          "source": {
+            "type": "string",
+            "enum": [
+              "amazon",
+              "paypal"
+            ],
+            "title": "Source"
+          },
+          "order_key": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Order Key"
+          },
+          "ordered_on": {
+            "type": "string",
+            "format": "date",
+            "title": "Ordered On"
+          },
+          "merchant": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Merchant"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,12}|(?=[\\d.]{1,15}0*$)\\d{0,12}\\.\\d{0,2}0*$)"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total"
+          },
+          "currency": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$",
+            "title": "Currency",
+            "default": "EUR"
+          },
+          "charges": {
+            "items": {
+              "$ref": "#/components/schemas/ChargeIn"
+            },
+            "type": "array",
+            "maxItems": 50,
+            "title": "Charges",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "source",
+          "order_key",
+          "ordered_on",
+          "merchant"
+        ],
+        "title": "OrderIn",
+        "description": "An order as the job sends it, keyed by its source and the shop's order id."
+      },
+      "OrderOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "order_key": {
+            "type": "string",
+            "title": "Order Key"
+          },
+          "ordered_on": {
+            "type": "string",
+            "format": "date",
+            "title": "Ordered On"
+          },
+          "merchant": {
+            "type": "string",
+            "title": "Merchant"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total"
+          },
+          "currency": {
+            "type": "string",
+            "title": "Currency"
+          },
+          "charges": {
+            "items": {
+              "$ref": "#/components/schemas/ChargeOut"
+            },
+            "type": "array",
+            "title": "Charges"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "source",
+          "order_key",
+          "ordered_on",
+          "merchant",
+          "total",
+          "currency",
+          "charges"
+        ],
+        "title": "OrderOut",
+        "description": "An order as stored, with its charges and refunds."
+      },
+      "OrdersStored": {
+        "properties": {
+          "created": {
+            "type": "integer",
+            "title": "Created"
+          },
+          "updated": {
+            "type": "integer",
+            "title": "Updated"
+          },
+          "unchanged": {
+            "type": "integer",
+            "title": "Unchanged"
+          },
+          "matched": {
+            "type": "integer",
+            "title": "Matched"
+          }
+        },
+        "type": "object",
+        "required": [
+          "created",
+          "updated",
+          "unchanged",
+          "matched"
+        ],
+        "title": "OrdersStored",
+        "description": "What a post did: orders new, changed and as they were, and charges matched to a booking."
       },
       "Page": {
         "properties": {
