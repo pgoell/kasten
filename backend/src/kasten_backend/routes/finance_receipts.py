@@ -17,7 +17,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Respon
 from fastapi.responses import FileResponse, RedirectResponse
 from pydantic import BaseModel, ConfigDict, Field
 
-from kasten_backend import agent_finance, finance_tax
+from kasten_backend import agent_finance, finance, finance_tax
 from kasten_backend import finance_receipts as receipts
 from kasten_backend.config import Settings, get_settings
 from kasten_backend.finance_tax_models import (
@@ -71,6 +71,8 @@ class CandidateOut(BaseModel):
     payee: str
     purpose: str | None
     tax_amount: Decimal | None
+    # On the shared account `tax_amount` is null: only the owner knows their share.
+    shared: bool
 
 
 class ToSortOut(BaseModel):
@@ -107,11 +109,13 @@ class ConfirmIn(BaseModel):
     tax_amount: Annotated[Money, Field(gt=0)] | None = None
     receipt_needed: bool = True
     note: Annotated[str, Field(max_length=500)] | None = None
+    # True to replace a mark the booking already has; else that is a 409.
+    replace: bool = False
 
 
 async def _get(session: Session, receipt_id: int) -> Receipt:
     receipt = await session.get(Receipt, receipt_id)
-    if receipt is None:
+    if receipt is None or receipt.deleted:
         raise HTTPException(status_code=404, detail="No such receipt")
     return receipt
 
@@ -179,7 +183,7 @@ async def share(
             # The MCP tools' way to a session, which the tests point at theirs;
             # a dependency would open one for a share of text alone too.
             async with agent_finance.session() as session:
-                for file in files:
+                for file in files[: receipts.MAX_SHARED]:
                     try:
                         await _keep(session, settings, file, "capture")
                     except HTTPException as refusal:
@@ -191,6 +195,7 @@ async def share(
                 await session.commit()
         except HTTPException:
             kept, refused = 0, len(files)
+        refused += max(0, len(files) - receipts.MAX_SHARED)
     fields = (("title", title), ("text", text), ("url", url))
     params = {key: value for key, value in fields if value}
     if files:
@@ -231,6 +236,7 @@ async def delete_reading(receipt_id: int, session: Session) -> Response:
 async def read_to_sort(session: Session) -> list[ToSortOut]:
     """Every receipt on no booking and not put aside, with the bookings it may have paid."""
     found = []
+    shared = {account.id: account.shared for account in await finance.list_accounts(session)}
     for receipt in await receipts.to_sort(session):
         candidates = await receipts.candidates(session, receipt)
         found.append(
@@ -244,7 +250,10 @@ async def read_to_sort(session: Session) -> list[ToSortOut]:
                         amount=booking.amount,
                         payee=finance_tax.payee_of(booking),
                         purpose=booking.purpose,
-                        tax_amount=receipts.proposed_amount(receipt, booking),
+                        tax_amount=receipts.proposed_amount(
+                            receipt, booking, shared=shared[booking.account_id]
+                        ),
+                        shared=shared[booking.account_id],
                     )
                     for booking in candidates
                 ],
@@ -258,7 +267,7 @@ async def read_file(receipt_id: int, session: Session, settings: SettingsDep) ->
     """The receipt's file, as its type, to show in the browser."""
     receipt = await _get(session, receipt_id)
     path = settings.receipts_path / receipt.path
-    if not path.is_file():
+    if receipt.deleted or not path.is_file():
         raise HTTPException(status_code=404, detail="The receipt's file is gone")
     return FileResponse(
         path,
@@ -324,6 +333,13 @@ async def confirm(receipt_id: int, body: ConfirmIn, session: Session) -> Receipt
         paid, account = await finance_tax.booking(session, body.transaction_id)
         if body.form_line is not None:
             finance_tax.check_mark(paid, account, body.form_line, body.tax_amount)
+            held = await finance_tax.mark_of(session, body.transaction_id)
+            if held is not None and not body.replace:
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"The booking is already marked {held.tax_amount} on {held.form_line};"
+                    " confirm again to replace that mark",
+                )
         await receipts.link(session, receipt, body.transaction_id)
         if body.form_line is not None:
             await finance_tax.set_mark(
@@ -346,7 +362,7 @@ async def confirm(receipt_id: int, body: ConfirmIn, session: Session) -> Receipt
 
 @router.delete("/{receipt_id}", status_code=204)
 async def delete_receipt(receipt_id: int, session: Session, settings: SettingsDep) -> Response:
-    """Forget the receipt and delete its file."""
+    """Delete the receipt's file; its hash stays, so the mail job does not bring it back."""
     path = await receipts.remove(session, await _get(session, receipt_id))
     # After the commit, so a delete that fails to commit leaves the file.
     await session.commit()

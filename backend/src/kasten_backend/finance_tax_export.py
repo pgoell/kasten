@@ -70,6 +70,18 @@ async def _receipts(session: AsyncSession, entries: list[Entry]) -> dict[int, Re
     return {receipt.id: receipt for receipt in found}
 
 
+FORMULA = ("=", "+", "-", "@", "\t", "\r")
+
+
+def cell(text: str) -> str:
+    """A text cell a spreadsheet will not run: one that starts like a formula gets a `'`.
+
+    Payees and purposes come from the bank, so anyone who sends money writes
+    them. Amounts are kasten's own and stay numbers.
+    """
+    return f"'{text}" if text.startswith(FORMULA) else text
+
+
 COLUMNS = (
     "date",
     "payee",
@@ -97,14 +109,14 @@ async def line_csv(session: AsyncSession, entries: list[Entry], line: str) -> st
         writer.writerow(
             [
                 entry.booking_date.isoformat(),
-                entry.payee,
-                entry.purpose or "",
+                cell(entry.payee),
+                cell(entry.purpose or ""),
                 f"{entry.amount:.2f}",
                 f"{entry.tax_amount:.2f}",
                 f"{entry.counted:.2f}",
                 entry.receipt_status,
                 " ".join(names[i] for i in entry.receipt_ids),
-                entry.note or "",
+                cell(entry.note or ""),
                 entry.transaction_id,
             ]
         )

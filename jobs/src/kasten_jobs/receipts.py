@@ -104,14 +104,13 @@ def collect(api: KastenApi, mailbox: Mailbox, label: str, days: int) -> dict[str
     return counts
 
 
-SKIP = (
-    anthropic.BadRequestError,
-    anthropic.RequestTooLargeError,
-    UnansweredError,
-    json.JSONDecodeError,
-    httpx.HTTPStatusError,
-)
-"""What costs one receipt this run: it stays unread and the next run tries it again."""
+UNREADABLE = (anthropic.BadRequestError, anthropic.RequestTooLargeError)
+"""The API will not take this file: asking again gets the same answer, so it is done."""
+
+RETRY = (UnansweredError, json.JSONDecodeError)
+"""A reply cut off or not JSON: asked again, up to `TRIES` times in one run."""
+
+TRIES = 3
 
 STOP = (
     anthropic.RateLimitError,
@@ -120,24 +119,50 @@ STOP = (
     anthropic.ServiceUnavailableError,
     anthropic.APIConnectionError,
 )
-"""What ends the run: the API is busy or away, so the next receipt would fare no better."""
+"""The API is busy or away: the run ends there and the next one reads the rest."""
+
+
+def _why(refused: anthropic.APIStatusError) -> str:
+    """The API's own sentence for a refusal, without the status line around it."""
+    body = refused.body
+    if isinstance(body, dict) and isinstance(error := body.get("error"), dict):
+        return str(error.get("message", refused.message))
+    return refused.message
+
+
+def _reading(reader: Reader, data: bytes, media_type: str) -> dict[str, Any]:
+    """What the receipt says, or a reading with `error` once it cannot be read.
+
+    A receipt that ends with an error reading is never sent to the API again,
+    so a file it refuses costs one call, not one an hour.
+    """
+    for attempt in range(1, TRIES + 1):
+        try:
+            return reader.read(data, media_type)
+        except UNREADABLE as refused:
+            return {"error": f"The reader could not take this file: {_why(refused)}"[:500]}
+        except RETRY as error:
+            log.warning("Reply %d of %d for a receipt was no answer: %s", attempt, TRIES, error)
+    return {"error": f"No usable answer in {TRIES} tries"}
 
 
 def read_all(api: KastenApi, reader: Reader) -> dict[str, int]:
     """Read every unread receipt, oldest first, and send kasten each reading.
 
     A bad key or a model that is not there raises, failing the run before it
-    reads anything; see `SKIP` and `STOP` for the rest.
+    reads anything. A busy or unreachable API ends the run; see `STOP`.
     """
-    counts = {"read": 0, "skipped": 0, "stopped": 0}
+    counts = {"read": 0, "unreadable": 0, "skipped": 0, "stopped": 0}
     after: int | None = None
     while page := api.unread_receipts(after):
         for receipt in page:
             after = receipt["id"]
             try:
                 data = api.receipt_file(receipt["id"])
-                api.put_reading(receipt["id"], reader.read(data, receipt["media_type"]))
-            except SKIP as error:
+                reading = _reading(reader, data, receipt["media_type"])
+                api.put_reading(receipt["id"], reading)
+            except httpx.HTTPStatusError as error:
+                # Kasten has no file for it, or the receipt went meanwhile.
                 counts["skipped"] += 1
                 log.warning("Skipped receipt %s: %s", receipt["id"], error)
                 continue
@@ -145,14 +170,14 @@ def read_all(api: KastenApi, reader: Reader) -> dict[str, int]:
                 counts["stopped"] = 1
                 log.warning("Stopped at receipt %s: %s", receipt["id"], error)
                 return counts
-            counts["read"] += 1
+            counts["unreadable" if "error" in reading else "read"] += 1
     log.info("Receipts read: %s", counts)
     return counts
 
 
 def failed(counts: dict[str, int]) -> bool:
-    """Whether the run should fail: it stopped early, or every receipt it tried was skipped."""
-    return bool(counts["stopped"]) or (counts["skipped"] > 0 and counts["read"] == 0)
+    """Whether the run should fail: only when the API stopped it, never for one bad file."""
+    return bool(counts["stopped"])
 
 
 def main(argv: list[str] | None = None) -> int:

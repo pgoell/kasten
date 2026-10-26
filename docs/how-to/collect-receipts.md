@@ -14,7 +14,7 @@ each on the booking it paid. The routes are in
 [HTTP API: finance receipts](/reference/http-api/finance-receipts.md); the
 job's commands and settings are in [Receipt jobs](/reference/receipt-jobs.md).
 
-A receipt is a PDF, JPEG or PNG of up to 20 MB. An iPhone's HEIC photo is not
+A receipt is a PDF, JPEG or PNG of up to 20 MB, a photo at most 7 MB. An iPhone's HEIC photo is not
 taken: export it as JPEG or PDF and drop it on its booking in the pane.
 
 ## From the finance pane
@@ -96,11 +96,16 @@ When no booking fits, the bank may not have sent it yet; it shows up after the
 next bank pull. Or drop the file on the booking by hand. **Put aside** takes a
 file that is no tax receipt out of the queue.
 
+On the shared account kasten proposes no amount: the button asks for your
+share. A booking you marked already keeps its mark; kasten asks before
+replacing it. A §35a mark needs the labour share as its tax amount, never the
+whole invoice.
+
 ## Read the tax year
 
 The finance pane's **Tax** tab (`X`) shows the year by the day paid: what
-counts on each line, the Werbungskosten over the €1,230 allowance, the marked
-bookings still missing a receipt, and money back that may pay a marked cost
+counts on each line, the Werbungskosten over that year's allowance (€1,230
+from 2023), the marked bookings still missing a receipt, and money back that may pay a marked cost
 back. An employer paying a work cost back is no Werbungskosten: mark the money
 in on the same line and it comes off. `[` and `]` step the year. Each line
 downloads as CSV, and **Every receipt of the year** as a ZIP with the files

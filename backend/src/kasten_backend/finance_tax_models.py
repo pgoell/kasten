@@ -113,6 +113,9 @@ class Receipt(Base):
     )
     # Out of the to-sort queue with no booking: not a receipt for tax.
     dismissed: Mapped[bool] = mapped_column(server_default=text("false"))
+    # Deleted by the owner: the file is gone, and the row stays so the mail
+    # job's next send of the same bytes is known and not kept again.
+    deleted: Mapped[bool] = mapped_column(server_default=text("false"))
     # What the receipt reader job found. `read_at` set means it is done with
     # this one, `read_error` saying why it found nothing.
     read_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))

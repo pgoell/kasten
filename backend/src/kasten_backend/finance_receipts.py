@@ -32,6 +32,13 @@ if TYPE_CHECKING:
 MAX_BYTES = 20 * 1024 * 1024
 """The largest receipt kept. A scanned invoice of a few pages fits; a video does not."""
 
+MAX_SHARED = 10
+"""The most files one share from the phone may carry; the rest are refused."""
+
+IMAGE_BYTES = 7 * 1024 * 1024
+"""The largest photo kept. The Messages API takes an image of up to 10 MB in base64, which
+is 7.5 MB of bytes; a PDF has no such limit short of the 32 MB request."""
+
 SUFFIXES = {"application/pdf": ".pdf", "image/jpeg": ".jpg", "image/png": ".png"}
 
 
@@ -100,11 +107,21 @@ async def store(  # noqa: PLR0913  each fact about the file is its own argument
     if media_type is None:
         msg = "A receipt is a PDF, JPEG or PNG"
         raise ReceiptRefusedError(msg)
+    if media_type != "application/pdf" and len(data) > IMAGE_BYTES:
+        msg = "A photo of a receipt is at most 7 MB, which the reader can take; send a smaller one"
+        raise ReceiptRefusedError(msg)
     if transaction_id is not None and await session.get(Transaction, transaction_id) is None:
         msg = f"No booking {transaction_id}"
         raise ReceiptRefusedError(msg)
     digest = hashlib.sha256(data).hexdigest()
     relative = f"{digest[:2]}/{digest}{SUFFIXES[media_type]}"
+    gone = await session.scalar(
+        select(Receipt).where(Receipt.sha256 == digest, Receipt.deleted.is_(True))
+    )
+    if gone is not None:
+        return await _deleted_again(
+            session, root, gone, data, source=source, transaction_id=transaction_id
+        )
     # Before the row, so a row never names a file that is not there. The same
     # bytes written twice are the same file.
     await asyncio.to_thread(_write, root, relative, data)
@@ -132,6 +149,29 @@ async def store(  # noqa: PLR0913  each fact about the file is its own argument
     return Stored(receipt, made is not None)
 
 
+async def _deleted_again(  # noqa: PLR0913  the receipt and the send that names it
+    session: AsyncSession,
+    root: Path,
+    receipt: Receipt,
+    data: bytes,
+    *,
+    source: str,
+    transaction_id: int | None,
+) -> Stored:
+    """A deleted receipt sent again: the mail job is ignored, the owner gets it back.
+
+    The mail job sends its whole window on every run, so a receipt deleted in
+    the pane would otherwise come back within the hour.
+    """
+    if source == "mail":
+        return Stored(receipt, created=False)
+    await asyncio.to_thread(_write, root, receipt.path, data)
+    receipt.deleted = receipt.dismissed = False
+    receipt.transaction_id = transaction_id
+    await session.flush()
+    return Stored(receipt, created=True)
+
+
 async def link(session: AsyncSession, receipt: Receipt, transaction_id: int) -> None:
     """Make the receipt the booking's, unless it is another booking's."""
     if receipt.transaction_id not in (None, transaction_id):
@@ -143,15 +183,20 @@ async def link(session: AsyncSession, receipt: Receipt, transaction_id: int) -> 
 
 
 async def remove(session: AsyncSession, receipt: Receipt) -> str:
-    """Forget the receipt, and answer its file's path for the caller to delete once committed."""
-    await session.delete(receipt)
+    """Delete the receipt, and answer its file's path for the caller to delete once committed.
+
+    The row stays, marked deleted and on no booking, so the same bytes sent by
+    the mail job again are known; see `_deleted_again`.
+    """
+    receipt.deleted = True
+    receipt.transaction_id = None
     await session.flush()
     return receipt.path
 
 
 async def unread(session: AsyncSession, after: int | None, limit: int) -> list[Receipt]:
     """Receipts the reader has not done yet, oldest first, from past the id `after`."""
-    query = select(Receipt).where(Receipt.read_at.is_(None))
+    query = select(Receipt).where(Receipt.read_at.is_(None), Receipt.deleted.is_(False))
     if after is not None:
         query = query.where(Receipt.id > after)
     found = await session.scalars(query.order_by(Receipt.id).limit(limit))
@@ -162,7 +207,11 @@ async def to_sort(session: AsyncSession) -> list[Receipt]:
     """Receipts on no booking that nobody put aside, oldest first."""
     found = await session.scalars(
         select(Receipt)
-        .where(Receipt.transaction_id.is_(None), Receipt.dismissed.is_(False))
+        .where(
+            Receipt.transaction_id.is_(None),
+            Receipt.dismissed.is_(False),
+            Receipt.deleted.is_(False),
+        )
         .order_by(Receipt.id)
     )
     return list(found)
@@ -226,9 +275,13 @@ async def candidates(session: AsyncSession, receipt: Receipt) -> list[Transactio
     return sorted(found, key=rank)[:CANDIDATES]
 
 
-def proposed_amount(receipt: Receipt, booking: Transaction) -> Decimal | None:
-    """The tax amount to propose: the labour share on a §35a line, else the whole, capped."""
-    if receipt.read_line is None:
+def proposed_amount(receipt: Receipt, booking: Transaction, *, shared: bool) -> Decimal | None:
+    """The tax amount to propose: the labour share on a §35a line, else the whole, capped.
+
+    None on the shared account, where only the owner's share counts and only
+    the owner can type it.
+    """
+    if receipt.read_line is None or shared:
         return None
     amount = receipt.read_amount
     if receipt.read_line in LABOUR_LINES:

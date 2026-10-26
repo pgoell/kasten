@@ -31,8 +31,11 @@ the default, or `mail`).
 ```
 
 The type is read off the first bytes, never the name or the header: anything
-but PDF, JPEG and PNG is a `422`, and so are an empty file, one over 20 MB and
-a `transaction_id` that names no booking. The same bytes again answer the
+but PDF, JPEG and PNG is a `422`, and so are an empty file, one over 20 MB, a
+photo over 7 MB (the Messages API takes an image of up to 10 MB in base64) and
+a `transaction_id` that names no booking. A body over 20 MB and a bit is
+refused with a `413` before it is read: at once when its `Content-Length`
+says so, else once that many bytes have come. The same bytes again answer the
 receipt already kept with `created` false, linked to the booking named when it
 was on none; on another booking it is a `409`.
 
@@ -40,7 +43,8 @@ was on none; on another booking it is a `409`.
 
 Where the manifest's `share_target` posts what the phone's share sheet hands
 kasten: `title`, `text` and `url`, and files under `receipts`. Each file is
-kept as a receipt on no booking, with `source` `capture`. Answers `303` to
+kept as a receipt on no booking, with `source` `capture`; at most 10 a share,
+the rest refused, and at most 200 MB and a bit in all (`413`). Answers `303` to
 `/capture` with the title, text and address as a plain share has them, and
 with `receipts` and `refused`, how many files were kept and turned away, when
 files came. A share of text alone opens no database, so it works on a backend
@@ -73,7 +77,8 @@ to 60 days after, never a move between own accounts; at most three. One that
 names a word of four letters or more of the payee read comes first, then the
 nearest in date. `tax_amount` is what a mark would take: the labour read on a
 §35a line, else the amount read, never more than the booking; `null` when no
-line was read. Nothing here is linked or marked.
+line was read, and on the shared account (`shared` true), where only the owner
+knows their share and the pane asks for it. Nothing here is linked or marked.
 
 ## GET /api/finance/receipts/{receipt_id}/file
 
@@ -110,8 +115,11 @@ Puts the receipt on the booking and, with a `form_line`, marks the booking,
 all or nothing: every rule is checked before anything is written.
 
 ```json
-{ "transaction_id": 930, "form_line": "handwerker", "tax_amount": "300.00", "receipt_needed": true, "note": null }
+{ "transaction_id": 930, "form_line": "handwerker", "tax_amount": "300.00", "receipt_needed": true, "note": null, "replace": false }
 ```
+
+A booking that already has a mark keeps it: the confirm is a `409` naming the
+mark, and nothing is written, unless `replace` is `true`. The pane asks.
 
 The mark is held to the rules of
 [`PUT /api/finance/transactions/{transaction_id}/tax-mark`](/reference/http-api/finance-tax.md#put-apifinancetransactionstransaction_idtax-mark),
@@ -119,4 +127,7 @@ and a refusal is the same `422`. Answers the receipt.
 
 ## DELETE /api/finance/receipts/{receipt_id}
 
-Forgets the receipt and deletes its file once that is committed. Answers `204`.
+Deletes the receipt's file once that is committed and takes it off its
+booking. Answers `204`. The row stays, marked deleted, so the mail job sending
+the same bytes again changes nothing; dropped or shared again by you, the
+receipt comes back. A deleted receipt is a `404` on every route here.

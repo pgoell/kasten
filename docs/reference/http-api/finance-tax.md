@@ -11,7 +11,10 @@ status: draft
 
 A tax mark puts one booking on one line of the German employee's return, with
 the amount that counts there. The tax year goes by booking date, the day the
-money was paid (§11 EStG). The Tax tab, these exports and the agent's
+money was paid (§11 EStG). It does not apply the 10-day rule for regular
+payments around the turn of the year, and a credit card booking counts on the
+day the bank booked it, not the day the card was used; move such a booking to
+the right year by hand on the return. The Tax tab, these exports and the agent's
 `tax_year_summary` read one summary, so they agree to the cent. Receipts have
 their own page, [HTTP API: finance receipts](/reference/http-api/finance-receipts.md).
 
@@ -23,7 +26,7 @@ The lines, by the key a mark names:
 
 | `form_line` | Line of the return |
 | --- | --- |
-| `werbungskosten` | Werbungskosten, Anlage N; they count only above the €1,230 Arbeitnehmer-Pauschbetrag |
+| `werbungskosten` | Werbungskosten, Anlage N; they count only above the Arbeitnehmer-Pauschbetrag: €1,230 from 2023, €1,200 for 2022, €1,000 before |
 | `sonderausgaben` | Sonderausgaben: donations, insurance |
 | `haushaltsnahe_dienste` | §35a haushaltsnahe Dienstleistungen: the labour only |
 | `handwerker` | §35a Handwerkerleistungen: the labour only |
@@ -46,8 +49,8 @@ booking too, with the tax amount saying how much of it counts.
 ```
 
 * `tax_amount`: what counts on the line, more than 0 and never more than the
-  booking's own amount. Left out, it is the whole booking. On §35a lines it is
-  the labour share of the invoice.
+  booking's own amount. Left out, it is the whole booking, except on the two
+  §35a lines, which need it: only the labour share of the invoice counts.
 * `receipt_needed`: false for a line that needs no receipt kept.
 * `receipt_status`: `attached` when a receipt is on the booking, else
   `missing`, or `not_needed` when `receipt_needed` is false. Never stored: a
@@ -59,6 +62,7 @@ A `422` says which money rule refused the mark:
 * a §35a line on a cash account, since §35a counts only what was paid by transfer;
 * a booking on the shared account with no `tax_amount`: only the owner's share
   counts, and only the owner knows it;
+* a §35a line with no `tax_amount`, which would count the materials too;
 * a `tax_amount` over the booking's amount, or of 0.
 
 A `404` names a booking that is not there.
@@ -99,6 +103,7 @@ The tax year, for the bookings paid in it.
 
 * `lines`: every line, in the order above, with nothing on it as `0.00`.
   `total` sums `counted`, so money in comes off and a line can go below zero.
+* `allowance`: the Arbeitnehmer-Pauschbetrag of that year.
 * `werbungskosten_over`: the Werbungskosten total above `allowance`, never below zero.
 * `entries`: every marked booking of the year, oldest first. `counted` is the
   tax amount, negative on money in. `shared` says the booking is on the shared
@@ -116,8 +121,10 @@ The tax year, for the bookings paid in it.
 One line's marked bookings of the year as CSV, a header row and a row each,
 for a download. Columns: `date`, `payee`, `purpose`, `booking_amount`,
 `tax_amount`, `counted`, `receipt_status`, `receipts` (the names the ZIP gives
-them, space between), `note` and `transaction_id`. A `form_line` that is no
-line is a `422`.
+them, space between), `note` and `transaction_id`. A text cell that starts
+with `=`, `+`, `-`, `@`, a tab or a carriage return gets a `'` in front, so a
+spreadsheet shows a payee the bank sent rather than running it as a formula.
+A `form_line` that is no line is a `422`.
 
 ## GET /api/finance/tax/{year}/receipts.zip
 

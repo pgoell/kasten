@@ -2364,7 +2364,7 @@ export interface paths {
         post?: never;
         /**
          * Delete Receipt
-         * @description Forget the receipt and delete its file.
+         * @description Delete the receipt's file; its hash stays, so the mail job does not bring it back.
          */
         delete: operations["delete_receipt_api_finance_receipts__receipt_id__delete"];
         options?: never;
@@ -3583,6 +3583,8 @@ export interface components {
             purpose: string | null;
             /** Tax Amount */
             tax_amount: string | null;
+            /** Shared */
+            shared: boolean;
         };
         /**
          * CaptionLine
@@ -3801,6 +3803,11 @@ export interface components {
             receipt_needed: boolean;
             /** Note */
             note?: string | null;
+            /**
+             * Replace
+             * @default false
+             */
+            replace: boolean;
         };
         /**
          * ContributionOut

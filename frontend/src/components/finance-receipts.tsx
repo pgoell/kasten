@@ -1,15 +1,59 @@
 import { useQuery } from "@tanstack/react-query";
+import { amountOf } from "@/components/finance-budget-tab";
 import { useWrite } from "@/components/finance-drill-parts";
 import {
+  type ConfirmBody,
   confirmReceipt,
   type FormLine,
   fetchReceiptsToSort,
   lineLabel,
+  MarkHeldError,
   patchReceipt,
   type ReceiptToSort,
   receiptUrl,
 } from "@/lib/finance-tax-api";
 import { money } from "@/lib/finance-words";
+
+type Candidate = ReceiptToSort["candidates"][number];
+
+/**
+ * What pressing a proposal sends. On the shared account kasten proposes no amount, since only
+ * the owner knows their share, so it asks for one; cancelled, nothing is sent.
+ */
+function proposal(candidate: Candidate, line: FormLine | null): ConfirmBody | null {
+  const base = { transaction_id: candidate.transaction_id };
+  if (line != null && candidate.shared) {
+    const typed = window.prompt(
+      `Your share of ${money(candidate.amount)} for ${lineLabel(line)}, in euros`,
+    );
+    if (typed == null) return null;
+    const amount = amountOf(typed);
+    return amount == null ? null : { ...base, form_line: line, tax_amount: amount };
+  }
+  const amount = candidate.tax_amount ?? null;
+  return { ...base, form_line: amount == null ? null : line, tax_amount: amount };
+}
+
+/** Confirm, and when the booking holds a mark already, ask before replacing it. */
+async function confirmAsking(id: number, body: ConfirmBody): Promise<void> {
+  try {
+    await confirmReceipt(id, body);
+  } catch (error) {
+    if (!(error instanceof MarkHeldError)) throw error;
+    if (!window.confirm(`${error.message}?`)) return;
+    await confirmReceipt(id, { ...body, replace: true });
+  }
+}
+
+/** The words on a proposal's button: the booking, and the mark it would set. */
+function proposalWords(candidate: Candidate, line: FormLine | null): string {
+  const head = `${candidate.booking_date}, ${candidate.payee}, ${money(candidate.amount)}`;
+  if (line == null) return head;
+  if (candidate.shared) return `${head}: ${lineLabel(line)}, your share`;
+  return candidate.tax_amount == null
+    ? head
+    : `${head}: ${lineLabel(line)} ${money(candidate.tax_amount)}`;
+}
 
 /** What the reader found on a receipt, in one line, or why it found nothing. */
 function readWords({ receipt }: ReceiptToSort): string {
@@ -64,21 +108,12 @@ export function ReceiptsToSort({ onNotice }: { onNotice: (text: string | undefin
                     key={candidate.transaction_id}
                     type="button"
                     className="finance-pane-button"
-                    onClick={() =>
-                      void write(() =>
-                        confirmReceipt(receipt.id, {
-                          transaction_id: candidate.transaction_id,
-                          form_line: candidate.tax_amount == null ? null : line,
-                          tax_amount: candidate.tax_amount ?? null,
-                        }),
-                      )
-                    }
+                    onClick={() => {
+                      const body = proposal(candidate, line);
+                      if (body != null) void write(() => confirmAsking(receipt.id, body));
+                    }}
                   >
-                    {`${candidate.booking_date}, ${candidate.payee}, ${money(candidate.amount)}${
-                      candidate.tax_amount == null || line == null
-                        ? ""
-                        : `: ${lineLabel(line)} ${money(candidate.tax_amount)}`
-                    }`}
+                    {proposalWords(candidate, line)}
                   </button>
                 ))}
                 <button

@@ -5374,7 +5374,7 @@
       },
       "delete": {
         "summary": "Delete Receipt",
-        "description": "Forget the receipt and delete its file.",
+        "description": "Delete the receipt's file; its hash stays, so the mail job does not bring it back.",
         "operationId": "delete_receipt_api_finance_receipts__receipt_id__delete",
         "parameters": [
           {
@@ -8011,6 +8011,10 @@
               }
             ],
             "title": "Tax Amount"
+          },
+          "shared": {
+            "type": "boolean",
+            "title": "Shared"
           }
         },
         "type": "object",
@@ -8020,7 +8024,8 @@
           "amount",
           "payee",
           "purpose",
-          "tax_amount"
+          "tax_amount",
+          "shared"
         ],
         "title": "CandidateOut",
         "description": "A booking the receipt may have paid, and the tax amount a mark on it would take."
@@ -8583,6 +8588,11 @@
               }
             ],
             "title": "Note"
+          },
+          "replace": {
+            "type": "boolean",
+            "title": "Replace",
+            "default": false
           }
         },
         "type": "object",

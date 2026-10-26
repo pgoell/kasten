@@ -23,7 +23,7 @@ receipt or sets a mark: kasten proposes, the owner confirms.
 | Command | What it does | Exit code |
 |---|---|---|
 | `mail` | Sends kasten each PDF attached to a mail of the last `RECEIPTS_DAYS` days under the label, with `source` `mail`. | `0`; `1` when Gmail refuses the login or kasten does not answer |
-| `read` | Reads each unread receipt with Claude and sends kasten the reading. | `0`; `1` when the run stopped early, or every receipt it tried was skipped |
+| `read` | Reads each unread receipt with Claude and sends kasten the reading. | `0`; `1` when the API stopped the run (rate limit, server error, no connection) |
 | `run` | `mail`, then `read`. | as `read` |
 
 `mail` searches `label:"Receipt" has:attachment filename:pdf newer_than:30d`
@@ -45,8 +45,13 @@ What happens when a receipt gets no answer:
 | What | Then |
 |---|---|
 | The model declines the file, or says it is no receipt | a reading with `error` saying so; the receipt is done |
-| The API refuses the request (`400`, `413`), the reply is cut off or is not JSON, or kasten has no file for it | skipped this run, left unread, tried again next run |
+| The API refuses the file (`400`, `413`) | a reading with `error` and the API's reason; the receipt is done |
+| The reply is cut off or is not JSON | asked again, up to 3 times in the run; then a reading with `error`, and done |
+| Kasten has no file for it | skipped, tried again next run |
 | Rate limited, overloaded, a server error or no connection | the run stops there with exit `1`; the rest wait for the next run |
+
+A receipt that ends with an error reading is never sent to the API again, and
+a file that cannot be read does not fail the run.
 | The key is wrong or lacks permission, or the model is not there | the job fails at once |
 
 A reading kasten has can be dropped with

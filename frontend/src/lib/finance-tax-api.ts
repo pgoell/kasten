@@ -100,14 +100,25 @@ export async function fetchReceiptsToSort(): Promise<ReceiptToSort[]> {
   return answer("Reading the receipts to sort", await client.GET("/api/finance/receipts/to-sort"));
 }
 
-export async function confirmReceipt(
-  id: number,
-  body: { transaction_id: number; form_line: FormLine | null; tax_amount: string | null },
-): Promise<void> {
+/** The booking already has a mark; the message says which, for the owner to replace or keep. */
+export class MarkHeldError extends Error {}
+
+export interface ConfirmBody {
+  transaction_id: number;
+  form_line: FormLine | null;
+  tax_amount: string | null;
+  /** Replace a mark the booking already has, which is otherwise refused. */
+  replace?: boolean;
+}
+
+export async function confirmReceipt(id: number, body: ConfirmBody): Promise<void> {
   const result = await client.POST("/api/finance/receipts/{receipt_id}/confirm", {
     params: { path: { receipt_id: id } },
-    body: { ...body, receipt_needed: true },
+    body: { ...body, replace: body.replace ?? false, receipt_needed: true },
   });
+  if (result.response.status === 409) {
+    throw new MarkHeldError(reason(result.error) ?? "The booking already has a mark");
+  }
   answer("Confirming the receipt", result);
 }
 

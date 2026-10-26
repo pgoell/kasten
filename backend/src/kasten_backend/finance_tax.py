@@ -31,8 +31,16 @@ LINES: dict[str, str] = {
 }
 """Each line's name as the return has it, in the order the Tax tab lists them."""
 
-ALLOWANCE = Decimal("1230.00")
-"""The Arbeitnehmer-Pauschbetrag: Werbungskosten count only above it."""
+
+def allowance(year: int) -> Decimal:
+    """The Arbeitnehmer-Pauschbetrag of `year`: Werbungskosten count only above it.
+
+    €1,230 from 2023, €1,200 for 2022, €1,000 before.
+    """
+    if year >= 2023:  # noqa: PLR2004  the year the law changed
+        return Decimal("1230.00")
+    return Decimal("1200.00") if year == 2022 else Decimal("1000.00")  # noqa: PLR2004
+
 
 ZERO = Decimal("0.00")
 
@@ -66,7 +74,8 @@ def check_mark(
     """The tax amount a mark of `line` on this booking takes, or why it may not have one.
 
     No amount means the whole booking, except on the shared account, where
-    only the owner's share counts and only the owner knows it.
+    only the owner's share counts and only the owner knows it, and on a §35a
+    line, where only the labour counts and the invoice says how much that is.
     """
     if booking.transfer_group is not None:
         msg = "A move between own accounts is no cost: mark the booking that paid the bill"
@@ -78,6 +87,9 @@ def check_mark(
     if tax_amount is None:
         if account.shared:
             msg = "A booking on the shared account needs its tax amount: your share of it"
+            raise MarkRefusedError(msg)
+        if line in LABOUR_LINES:
+            msg = "§35a counts the labour only: give the labour share as the tax amount"
             raise MarkRefusedError(msg)
         return whole
     if tax_amount > whole:
@@ -281,8 +293,8 @@ async def year_summary(session: AsyncSession, year: int) -> Year:
     return Year(
         year=year,
         lines=lines,
-        allowance=ALLOWANCE,
-        werbungskosten_over=max(ZERO, werbungskosten - ALLOWANCE),
+        allowance=allowance(year),
+        werbungskosten_over=max(ZERO, werbungskosten - allowance(year)),
         entries=found,
         money_back=await money_back(session, year),
     )

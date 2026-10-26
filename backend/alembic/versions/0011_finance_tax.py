@@ -56,6 +56,7 @@ def upgrade() -> None:
         ),
         sa.Column("transaction_id", sa.BigInteger(), nullable=True),
         sa.Column("dismissed", sa.Boolean(), server_default=sa.text("false"), nullable=False),
+        sa.Column("deleted", sa.Boolean(), server_default=sa.text("false"), nullable=False),
         sa.Column("read_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("read_error", sa.Text(), nullable=True),
         sa.Column("read_date", sa.Date(), nullable=True),

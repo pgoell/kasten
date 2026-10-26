@@ -209,21 +209,28 @@ def test_what_does_not_parse_is_left_out_and_no_receipt_says_so() -> None:
     assert "error" in reading({**READ, "is_receipt": False})
 
 
-def test_a_decline_is_a_reading_and_a_cut_off_reply_is_left_for_the_next_run() -> None:
-    kasten = FakeKasten(
-        unread=[{"id": 1, "media_type": "image/jpeg"}, {"id": 2, "media_type": "application/pdf"}]
-    )
-    replies = iter([answer("", "refusal"), answer('{"is_', "max_tokens")])
-    reader = claude(lambda: (200, next(replies)), [])
+def test_a_decline_and_three_cut_off_replies_end_as_readings_never_sent_again() -> None:
+    unread = [{"id": n, "media_type": "application/pdf"} for n in (1, 2, 3)]
+    kasten = FakeKasten(unread=unread)
+    cut = answer('{"is_', "max_tokens")
+    replies = iter([answer("", "refusal"), cut, cut, cut, cut, answer(json.dumps(READ))])
+    sent: list[dict[str, Any]] = []
+    reader = claude(lambda: (200, next(replies)), sent)
 
     counts = receipts.read_all(kasten.api(), reader)
+    again = receipts.read_all(kasten.api(), reader)
 
-    assert counts == {"read": 1, "skipped": 1, "stopped": 0}
-    assert kasten.readings == {1: {"error": "The model declined to read this file"}}
+    assert counts == {"read": 1, "unreadable": 2, "skipped": 0, "stopped": 0}
+    assert kasten.readings[1] == {"error": "The model declined to read this file"}
+    assert kasten.readings[2] == {"error": "No usable answer in 3 tries"}
+    # 3: one cut-off, then an answer, in the same run.
+    assert kasten.readings[3]["amount"] == "476.00"
+    assert len(sent) == 6
+    assert again == {"read": 0, "unreadable": 0, "skipped": 0, "stopped": 0}
     assert not receipts.failed(counts)
 
 
-def test_a_busy_api_stops_the_run_and_a_bad_file_only_costs_itself() -> None:
+def test_a_file_the_api_refuses_is_done_and_a_busy_api_stops_the_run() -> None:
     kasten = FakeKasten(
         unread=[{"id": n, "media_type": "application/pdf"} for n in (1, 2, 3)], gone={1}
     )
@@ -235,6 +242,12 @@ def test_a_busy_api_stops_the_run_and_a_bad_file_only_costs_itself() -> None:
     counts = receipts.read_all(kasten.api(), reader)
 
     # 1: its file is gone; 2: the API refused the file; 3: the API was busy.
-    assert counts == {"read": 0, "skipped": 2, "stopped": 1}
-    assert kasten.readings == {}
+    assert counts == {"read": 0, "unreadable": 1, "skipped": 1, "stopped": 1}
+    assert kasten.readings == {2: {"error": "The reader could not take this file: bad pdf"}}
+    assert 3 not in kasten.readings
     assert receipts.failed(counts)
+
+
+def test_only_a_stopped_run_fails() -> None:
+    assert not receipts.failed({"read": 0, "unreadable": 4, "skipped": 2, "stopped": 0})
+    assert receipts.failed({"read": 5, "unreadable": 0, "skipped": 0, "stopped": 1})

@@ -177,6 +177,59 @@ describe("the receipts to sort", () => {
   });
 });
 
+describe("a proposal on a booking already marked or on the shared account", () => {
+  const queued = (shared: boolean) => [
+    {
+      receipt: { id: 3, name: "R.pdf", read_at: "2026-10-26T10:00:00Z", read_error: null },
+      form_line: "haushaltsnahe_dienste",
+      candidates: [
+        {
+          transaction_id: 9,
+          booking_date: "2026-10-28",
+          amount: "-800.00",
+          payee: "Garten GmbH",
+          purpose: null,
+          tax_amount: shared ? null : "800.00",
+          shared,
+        },
+      ],
+    },
+  ];
+
+  it("#1040 asks for your share on the shared account and sends what you typed", async () => {
+    tax.fetchReceiptsToSort.mockResolvedValue(queued(true));
+    const ask = vi.spyOn(window, "prompt").mockReturnValue("400,00");
+    wrap(<ReceiptsToSort onNotice={vi.fn()} />);
+
+    fireEvent.click(await screen.findByRole("button", { name: /your share/ }));
+
+    expect(ask).toHaveBeenCalled();
+    await waitFor(() =>
+      expect(tax.confirmReceipt).toHaveBeenCalledWith(3, {
+        transaction_id: 9,
+        form_line: "haushaltsnahe_dienste",
+        tax_amount: "400.00",
+      }),
+    );
+    ask.mockRestore();
+  });
+
+  it("#1040 replaces a mark the booking holds only when you say so", async () => {
+    const { MarkHeldError } =
+      await vi.importActual<typeof import("@/lib/finance-tax-api")>("@/lib/finance-tax-api");
+    tax.fetchReceiptsToSort.mockResolvedValue(queued(false));
+    tax.confirmReceipt.mockRejectedValueOnce(new MarkHeldError("Already marked 400.00"));
+    const ask = vi.spyOn(window, "confirm").mockReturnValue(false);
+    wrap(<ReceiptsToSort onNotice={vi.fn()} />);
+
+    fireEvent.click(await screen.findByRole("button", { name: /Garten GmbH/ }));
+
+    await waitFor(() => expect(ask).toHaveBeenCalledWith("Already marked 400.00?"));
+    expect(tax.confirmReceipt).toHaveBeenCalledTimes(1);
+    ask.mockRestore();
+  });
+});
+
 describe("a booking's tax card", () => {
   it("#1040 saves a mark with the amount typed the German way, and keeps a dropped file", async () => {
     tax.fetchBookingTax.mockResolvedValue({ mark: null, receipts: [] });

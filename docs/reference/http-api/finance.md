@@ -19,6 +19,13 @@ with at most two decimals and twelve digits before the point.
 
 ## Who reaches these routes
 
+Every write under `/api/finance/` (anything but `GET`) from a browser must come
+from kasten's own page: one whose `Sec-Fetch-Site` is not `same-origin` or
+`none`, or, from a browser too old to send that, whose `Origin` names another
+host, is a `403`. The login is a cookie the browser sends to any site that
+posts here, so this keeps another site from writing through it. The jobs send
+neither header and pass.
+
 They sit under `/api/`, behind the login gate like every other route there,
 with no lock of their own: agents read everything, settled on 2026-10-25. A job
 on the host, such as the bank sync, has no browser session and does not pass
