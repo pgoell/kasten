@@ -116,7 +116,12 @@ export function ReviewDecks({ onPick, onParked, archive = false }: ReviewDecksPr
   // Until the last note is in, so a vault of decks never flashes "No decks",
   // and until the limits are. Rows drawn before then count no limit; the
   // sitting waits for the limits itself, so what it asks never rests on that.
-  const isPending = scanning || reads.some((read) => read.isPending) || limits === undefined;
+  // A note that failed and is retrying holds nothing back: its deck joins when
+  // a retry answers, as a retry can take a minute.
+  const isPending =
+    scanning ||
+    reads.some((read) => read.isPending && read.failureCount === 0) ||
+    limits === undefined;
 
   const today = readClock(new Date()).date;
   const decks = decksFrom(

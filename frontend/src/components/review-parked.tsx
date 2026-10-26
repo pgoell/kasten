@@ -47,8 +47,8 @@ export function ReviewParked({ onLeave, onOpen, archive = false }: ReviewParkedP
   const write = useSittingWrites(setTexts, setFailed);
   /** Per note, the writes out now. */
   const out = useRef(new Map<string, number>());
-  /** Per note, the writes ever sent, so a read can tell one went out while it was on its way. */
-  const sent = useRef(new Map<string, number>());
+  /** Per note, the put-backs that landed, so a read can tell one landed while it was on its way. */
+  const landed = useRef(new Map<string, number>());
 
   // The same key the overview holds, so opening this screen reads no cards the
   // list behind it has not already fetched.
@@ -62,16 +62,15 @@ export function ReviewParked({ onLeave, onOpen, archive = false }: ReviewParkedP
 
   useEffect(() => {
     let live = true;
-    const sentAt = new Map(sent.current);
-    const outAt = new Map(out.current);
+    const landedAt = new Map(landed.current);
     void Promise.all(notes.map(async (note) => [note, await fetchNote(note)] as const)).then(
       (read) => {
-        // A note with a write out, or sent while this read was on its way, keeps the
-        // text the screen holds: the read may have been taken before that write landed.
+        // A note with a write out, or a put-back that landed while this read was on its
+        // way, keeps the text the screen holds: the read may predate that landing. A put-back
+        // that failed left the vault as it was, so the read's text is then the truth.
         const busy = (note: string) =>
           (out.current.get(note) ?? 0) > 0 ||
-          (outAt.get(note) ?? 0) > 0 ||
-          (sent.current.get(note) ?? 0) !== (sentAt.get(note) ?? 0);
+          (landed.current.get(note) ?? 0) !== (landedAt.get(note) ?? 0);
         if (live)
           setTexts((was) =>
             was === null
@@ -111,9 +110,11 @@ export function ReviewParked({ onLeave, onOpen, archive = false }: ReviewParkedP
     }
 
     setTexts((was) => new Map(was).set(row.note, next));
-    tally(sent.current, row.note, 1);
     tally(out.current, row.note, 1);
-    void write(row.note, text, next).then(() => tally(out.current, row.note, -1));
+    void write(row.note, text, next).then((failure) => {
+      tally(out.current, row.note, -1);
+      if (failure === null) tally(landed.current, row.note, 1);
+    });
   }
 
   return (

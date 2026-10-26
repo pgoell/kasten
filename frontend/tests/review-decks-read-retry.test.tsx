@@ -43,8 +43,8 @@ function readsOf(reads: ReturnType<typeof vault>): number {
 }
 
 /** Mounts `ui` over a client set up as `main.tsx` sets it: no retry by default. */
-function mount(ui: ReactNode): QueryClient {
-  vi.spyOn(api, "fetchCards").mockResolvedValue(HITS);
+function mount(ui: ReactNode, hits = HITS): QueryClient {
+  vi.spyOn(api, "fetchCards").mockResolvedValue(hits);
   vi.spyOn(api, "fetchReviewLimits").mockResolvedValue({
     new_per_day: null,
     reviews_per_day: null,
@@ -195,5 +195,51 @@ describe("ReviewDecks' reads retry a backend that is restarting (#1139)", () => 
     await settle(5000);
 
     expect(screen.getByText("waiting 0")).toBeInTheDocument();
+  });
+});
+
+/** Two decks in two notes, each with one new card. */
+const PAIR = [
+  { path: "a.md", line: 1, text: "#flashcards/alpha" },
+  { path: "a.md", line: 2, text: "a::b" },
+  { path: "b.md", line: 1, text: "#flashcards/beta" },
+  { path: "b.md", line: 2, text: "c::d" },
+];
+const BETA = "#flashcards/beta\nc::d";
+
+/**
+ * Each note's answers, in order, as `vault` takes them, for every note named.
+ * A note not named reads empty.
+ */
+function vaults(notes: Record<string, (string | Error)[]>) {
+  const read: Record<string, number> = {};
+  return vi.spyOn(api, "fetchNote").mockImplementation(async (path) => {
+    const answers = notes[path];
+    if (answers === undefined) return "";
+    const at = read[path] ?? 0;
+    read[path] = at + 1;
+    const answer = answers[Math.min(at, answers.length - 1)] ?? "";
+    if (answer instanceof Error) throw answer;
+    return answer;
+  });
+}
+
+describe("ReviewDecks' reads hold back no deck for a note that keeps failing (#1139)", () => {
+  it("#1139 B1 a deck note that keeps failing on first open does not hold the other decks back", async () => {
+    vaults({ "a.md": [gateway(504)], "b.md": [BETA] });
+    mount(<ReviewDecks onPick={vi.fn()} onParked={vi.fn()} />, PAIR);
+    await settle(2000);
+
+    expect(screen.getByText("1 card to go today in 1 deck.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Start with beta" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /alpha/ })).not.toBeInTheDocument();
+  });
+
+  it("#1139 B1 a deck note that keeps failing does not hold the today pane's count back", async () => {
+    vaults({ "a.md": [gateway(504)], "b.md": [BETA] });
+    mount(<WaitingCount />, PAIR);
+    await settle(2000);
+
+    expect(screen.getByText("waiting 1")).toBeInTheDocument();
   });
 });

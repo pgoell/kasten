@@ -25,6 +25,7 @@ let vault: Record<string, string>;
 let hits: { path: string; line: number; text: string }[];
 let writes: Held[];
 let readGate: Promise<void> | null;
+let refused: boolean;
 
 /** The scan's lines for a note, the way the search answers them. */
 function hitsOf(path: string, text: string) {
@@ -37,10 +38,12 @@ function setup(notes: Record<string, string>) {
   hits = Object.entries(notes).flatMap(([path, text]) => hitsOf(path, text));
   writes = [];
   readGate = null;
+  refused = false;
   vi.spyOn(api, "fetchCards").mockImplementation(async () => hits);
   vi.spyOn(api, "fetchNote").mockImplementation(async (path: string) => {
     // The text is taken when the read is sent, so a read held open answers with what the vault held then.
     const text = vault[path] ?? "";
+    if (path === "a.md" && refused) throw new Error("GET /api/files/a.md failed");
     if (path === "a.md" && readGate !== null) await readGate;
     return text;
   });
@@ -164,6 +167,38 @@ describe("ReviewParked keeps a put-back while another write to the note is out (
 
     expect(screen.getByText("Q C?")).toBeInTheDocument();
     expect(rowOf(container, "a.md:0")).toBeNull();
+  });
+
+  it("#1142 B1 a put-back that fails at last while its re-read fails too shows the vault's text from a read that left before", async () => {
+    setup({ "a.md": A, "b.md": B });
+    const { container, client } = renderParked();
+    await pass();
+
+    putBack(container, "a.md:0");
+    // A card parked in C changes the scan, so the notes are read again while A's write is out.
+    // That read is held open.
+    let release: () => void = () => {};
+    readGate = new Promise<void>((open) => {
+      release = open;
+    });
+    vault["c.md"] = C;
+    hits = [...hits, ...hitsOf("c.md", C)];
+    await act(async () => {
+      await client.invalidateQueries({ queryKey: ["cards"] });
+    });
+    await pass();
+
+    // A's write is refused, and the re-read that follows it fails too.
+    refused = true;
+    takeWrite("a.md").fail(new api.ChangedOnDisk());
+    await pass();
+
+    // The held read answers with A's text from the vault, which still has it parked.
+    release();
+    await pass();
+
+    expect(screen.getByText("Q C?")).toBeInTheDocument();
+    expect(rowOf(container, "a.md:0")).not.toBeNull();
   });
 
   it("#1142 I6 a put-back that fails at last reads its note again and shows the row parked with the error", async () => {
