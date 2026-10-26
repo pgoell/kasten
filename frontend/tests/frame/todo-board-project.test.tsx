@@ -91,10 +91,10 @@ it("A4 #394 draws a tagged daily todo in its tag's project lane, on a phone and 
       pane?.dispatchEvent(new KeyboardEvent("keydown", { key: "c", bubbles: true }));
       await expect.poll(() => host.querySelector("[data-testid='todo-card']")).not.toBeNull();
 
-      // Lanes by project: `lanes` by finger on a phone, `g` on a desktop.
+      // Lanes by project: `project` by finger on a phone, `g` on a desktop.
       if (phone) {
         [...host.querySelectorAll<HTMLElement>("button")]
-          .find((one) => one.textContent === "lanes")
+          .find((one) => one.textContent === "project")
           ?.click();
       } else {
         pane?.dispatchEvent(new KeyboardEvent("keydown", { key: "g", bubbles: true }));
