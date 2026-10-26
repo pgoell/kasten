@@ -184,6 +184,29 @@ describe("the week's charts and lists", () => {
     ]);
   });
 
+  it("#1116 A5 kcalPerDay draws no bar for a day of drinks only and a stub for a food line of 0 kcal", () => {
+    const bars = kcalPerDay(
+      [
+        day("2026-10-19", { kcal: 1500 }),
+        {
+          ...day("2026-10-20", {}),
+          entries: [{ line: 1, text: "- 💧 250 ml", kind: "water", ml: 250 }],
+        } as unknown as LogDay,
+        {
+          ...day("2026-10-21", {}),
+          entries: [{ line: 1, text: "- 🍽 🔥 0 kcal", kind: "food", kcal: 0 }],
+        } as unknown as LogDay,
+      ],
+      CONFIG,
+      ["2026-10-19", "2026-10-20", "2026-10-21", "2026-10-22"],
+    );
+
+    expect(bars).toEqual([
+      { index: 0, amount: 1500 },
+      { index: 2, amount: 0 },
+    ]);
+  });
+
   it("#807 A5 doneIn lists the week's done todos oldest first", () => {
     const done = doneIn(
       [
