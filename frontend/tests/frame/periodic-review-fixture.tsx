@@ -326,8 +326,9 @@ export async function tap(element: HTMLElement): Promise<void> {
   });
 }
 
-/** The state each frame test leaves behind: the media, the globals and the viewport. */
+/** The state each frame test leaves behind: the media, the globals, the clock and the viewport. */
 export async function restoreFrame(): Promise<void> {
+  vi.useRealTimers();
   vi.unstubAllGlobals();
   localStorage.clear();
   document.documentElement.removeAttribute("data-theme");

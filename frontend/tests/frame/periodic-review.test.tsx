@@ -138,7 +138,6 @@ it("#807 I7 at 390x844 by touch every row of the week review is 44 px tall and a
     expect(cursorLine(host)).toContain("ship the export");
   } finally {
     await unmount(mounted);
-    vi.useRealTimers();
   }
 });
 

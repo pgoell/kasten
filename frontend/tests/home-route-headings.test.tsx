@@ -261,6 +261,7 @@ describe("following a link with an alias or a heading", () => {
     app.press("6");
     app.press("G");
     expect(opened().line).toBe(6);
+    finishParsing(document.body);
     app.press("g");
     app.press("f");
     await settle();
