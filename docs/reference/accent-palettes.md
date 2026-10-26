@@ -43,7 +43,7 @@ Russet, peach and pansy draw their status and tag colours from Wada's colours (S
 1. It finds the Wada colours in a combination with the palette's number. These are the direct neighbours.
 2. It finds every colour in a combination with a neighbour's combination. This is the pool. It drops the palette's own colour (Hay's Russet, Peach Red or Pansy Purple), any grey with chroma under 0.04, and any colour within 20 degrees of the accent's hue, so no status or tag reads as the accent.
 3. It picks one colour per slot, in this order: `--k-danger`, `--k-warn`, `--k-ok`, `--k-info`, then `--tg-1` to `--tg-10`. Each slot takes the unused colour nearest in hue to poel's value for that slot, among those at least 20 degrees in light hue from every colour already picked for the palette. Only when none is left at 20 degrees does the fallback run. It takes a colour at least 20 degrees from every status colour if one is left, and otherwise the colour farthest from the earlier picks. The picks table marks that slot `(fallback)`. A tie goes to the higher chroma, then to the name. Light and dark use the same colour, so each slot keeps its meaning across palettes. `--k-warn` takes only colours at least 60 degrees in light hue from the accent (#1001). The pick fits accent and warn to nearly the same contrast on paper, and caps chroma, so hue is the one axis left to tell them apart; 60 degrees is a sixth of the wheel, the step from red to yellow. Without it, russet and peach took Cream Yellow, an ochre about 40 degrees from their red accents.
-4. It sets each pick's lightness so the colour reaches its target on its ground. Status sits on paper, tags on the page background. The target is 5 for status and 4.5 for tags in light, and 8 for both in dark. Danger has its own target: 9 in light and 5.5 in dark. Each sits darker than the accent, so danger still reads apart from it when a red palette leaves no hue room. In dark, the lowest status on paper is therefore danger, at 5.5. Chroma is capped at 0.12 in light and 0.10 in dark. A colour outside sRGB loses chroma, and keeps its lightness and hue, so nothing clips to pure red.
+4. It sets each pick's lightness so the colour reaches its target on its ground. Status sits on paper, tags on the page background. The target is 5 for status and 4.5 for tags in light, and 8 for both in dark. Danger has its own target: 9 in light and 10.5 in dark. A red palette leaves no hue room between danger and its accent, so lightness keeps them apart. In light, danger is darker than the accent. In dark, it is lighter, because danger text also sits on the highlight, which is dark there, and a darker danger fell to 3.3:1 on it. The lowest status on paper in dark is therefore status, at 8.0. Chroma is capped at 0.12 in light and 0.10 in dark. A colour outside sRGB loses chroma, and keeps its lightness and hue, so nothing clips to pure red.
 
 The picks are in the table below.
 
@@ -59,7 +59,7 @@ It prints the CSS for the region between the `palettes:begin` and `palettes:end`
 
 ## Bars and measures
 
-The bars are these. Light accent on paper, 5. Light accent on surface, 4.6. Dark accent on paper, 6. Every other text pair, 4.5 (AA). Status and tags of the three new palettes stay under their chroma caps. The measures are WCAG ratios, with each alpha colour blended over its backdrop, as `frontend/tests/theme-contrast.test.ts` does. A cell under its bar shows the number and the bar. A chroma over its cap shows the number and the cap. The warn hue gap row gives the degrees between warn and the accent of the same palette and theme; a gap under 60 shows `(under 60)`. Warn meets 60 in every palette. The danger hue gap row gives the same for danger, with no bar. Danger misses 60 in russet, peach and pansy, so the lightness row gives the gap in OKLab lightness, and it shows `(under 0.08)` only where the hue gap also misses 60. The lowest of those gaps is 0.092, in dark russet and pansy.
+The bars are these. Light accent on paper, 5. Light accent on surface, 4.6. Dark accent on paper, 6. Every other text pair, 4.5 (AA). Status and tags of the three new palettes stay under their chroma caps. The measures are WCAG ratios, with each alpha colour blended over its backdrop, as `frontend/tests/theme-contrast.test.ts` does. A cell under its bar shows the number and the bar. A chroma over its cap shows the number and the cap. The warn hue gap row gives the degrees between warn and the accent of the same palette and theme; a gap under 60 shows `(under 60)`. Warn meets 60 in every palette. The danger hue gap row gives the same for danger, with no bar. Danger misses 60 in russet, peach and pansy, so the lightness row gives the gap in OKLab lightness, and it shows `(under 0.08)` only where the hue gap also misses 60. The lowest of those gaps is 0.085, in dark peach. The danger on highlight row gives danger text on the highlight, with a bar of 4.5, and a miss shows `(under 4.5)`.
 
 The issue's values are kept where a bar misses, and the tests name each miss:
 
@@ -77,17 +77,18 @@ The issue's values are kept where a bar misses, and the tests name each miss:
 | Accent on its wash | 4.60 | 6.30 | 4.80 | 6.09 | 4.88 | 6.02 | 4.89 | 5.96 |
 | Ink on highlight | 14.04 | 9.19 | 13.53 | 8.53 | 13.98 | 8.20 | 14.64 | 7.70 |
 | Link on highlight | 4.54 | 5.35 | 4.59 | 4.76 | 4.91 | 4.48 (under 4.5) | 5.10 | 4.17 (under 4.5) |
+| Danger on highlight | 4.76 | 5.46 | 7.44 | 6.38 | 7.67 | 6.12 | 8.03 | 5.78 |
 | Muted on highlight | 4.74 | 3.98 (under 4.5) | 4.57 | 3.70 (under 4.5) | 4.72 | 3.56 (under 4.5) | 4.94 | 3.34 (under 4.5) |
-| Lowest status on paper | 5.06 | 8.37 | 5.04 | 5.53 | 5.01 | 5.53 | 5.01 | 5.53 |
+| Lowest status on paper | 5.06 | 8.37 | 5.04 | 8.01 | 5.01 | 8.01 | 5.01 | 8.00 |
 | Lowest tag on bg | 4.09 (under 4.5) | 8.23 | 4.50 | 8.00 | 4.50 | 8.00 | 4.50 | 8.01 |
 | Highest chroma of status and tags | 0.120 | 0.126 | 0.119 | 0.100 | 0.120 | 0.099 | 0.120 | 0.100 |
 | Warn hue gap to accent | 160.7 | 160.9 | 63.4 | 63.6 | 60.3 | 62.3 | 65.9 | 65.8 |
-| Danger hue gap to accent | 157.3 | 157.0 | 22.2 | 22.0 | 21.5 | 21.0 | 29.8 | 30.8 |
-| Danger lightness gap to accent | 0.004 | 0.021 | 0.109 | 0.092 | 0.114 | 0.094 | 0.111 | 0.092 |
+| Danger hue gap to accent | 157.3 | 157.0 | 22.2 | 22.1 | 21.5 | 21.1 | 29.8 | 31.0 |
+| Danger lightness gap to accent | 0.004 | 0.021 | 0.109 | 0.086 | 0.114 | 0.085 | 0.111 | 0.087 |
 
 | Palette | Slot | Poel hue | Wada colour | Wada hue | Light | Light hue | Dark | Dark hue |
 |---|---|---:|---|---:|---|---:|---|---:|
-| russet | --k-danger | 32 | Eosine Pink | 10 | #7d283c | 10 | #c97b87 | 10 |
+| russet | --k-danger | 32 | Eosine Pink | 10 | #7d283c | 10 | #ffb6c0 | 10 |
 | russet | --k-warn | 74 | Pyrite Yellow | 96 | #806b00 | 95 | #c3b064 | 96 |
 | russet | --k-ok | 155 | Dull Viridian Green | 162 | #007c54 | 162 | #6ec099 | 162 |
 | russet | --k-info | 243 | Blue | 248 | #2970ad | 248 | #7cb5eb | 248 |
@@ -101,7 +102,7 @@ The issue's values are kept where a bar misses, and the tests name each miss:
 | russet | --tg-8 (fallback) | 62 | Ochraceous Salmon | 58 | #976640 | 58 | #d5a078 | 58 |
 | russet | --tg-9 (fallback) | 155 | Dusky Madder Violet | 329 | #955e91 | 329 | #d298ce | 329 |
 | russet | --tg-10 (fallback) | 291 | Benzol Green | 187 | #007f77 | 187 | #51bcb1 | 186 |
-| peach | --k-danger | 32 | Corinthian Pink | 15 | #6d363c | 14 | #be8185 | 15 |
+| peach | --k-danger | 32 | Corinthian Pink | 15 | #6d363c | 14 | #fbb8bc | 15 |
 | peach | --k-warn | 74 | Sulpher Yellow | 97 | #766d48 | 96 | #b9b188 | 98 |
 | peach | --k-ok | 155 | Cobalt Green | 155 | #407856 | 156 | #82bd96 | 155 |
 | peach | --k-info | 243 | Helvetia Blue | 243 | #2672a6 | 243 | #74b7e9 | 242 |
@@ -115,7 +116,7 @@ The issue's values are kept where a bar misses, and the tests name each miss:
 | peach | --tg-8 | 62 | Sea Green | 178 | #00806d | 177 | #58bca7 | 178 |
 | peach | --tg-9 | 155 | Pale King's Blue | 222 | #4d7786 | 223 | #86b2c1 | 221 |
 | peach | --tg-10 (fallback) | 291 | Ochraceous Salmon | 58 | #976640 | 58 | #d5a078 | 58 |
-| pansy | --k-danger | 32 | Peach Red | 36 | #7e2b15 | 36 | #c97e69 | 36 |
+| pansy | --k-danger | 32 | Peach Red | 36 | #7e2b15 | 36 | #ffb9a5 | 37 |
 | pansy | --k-warn | 74 | Cinnamon Buff | 72 | #956212 | 72 | #d9a769 | 71 |
 | pansy | --k-ok | 155 | Sea Green | 178 | #007b6a | 179 | #5dc1ac | 178 |
 | pansy | --k-info | 243 | Olympic Blue | 254 | #486f9f | 254 | #89b3e6 | 254 |

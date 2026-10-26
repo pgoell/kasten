@@ -109,7 +109,7 @@ const EXPECTED: Record<string, Record<Theme, Paint>> = {
       callout: "rgb(128, 107, 0)",
     },
     dark: {
-      overdue: "rgb(201, 123, 135)",
+      overdue: "rgb(255, 182, 192)",
       link: "rgb(229, 156, 141)",
       warn: "rgb(195, 176, 100)",
       tg8: "rgb(213, 160, 120)",
@@ -125,7 +125,7 @@ const EXPECTED: Record<string, Record<Theme, Paint>> = {
       callout: "rgb(118, 109, 72)",
     },
     dark: {
-      overdue: "rgb(190, 129, 133)",
+      overdue: "rgb(251, 184, 188)",
       link: "rgb(253, 142, 112)",
       warn: "rgb(185, 177, 136)",
       tg8: "rgb(88, 188, 167)",
@@ -141,7 +141,7 @@ const EXPECTED: Record<string, Record<Theme, Paint>> = {
       callout: "rgb(149, 98, 18)",
     },
     dark: {
-      overdue: "rgb(201, 126, 105)",
+      overdue: "rgb(255, 185, 165)",
       link: "rgb(244, 141, 165)",
       warn: "rgb(217, 167, 105)",
       tg8: "rgb(193, 170, 94)",

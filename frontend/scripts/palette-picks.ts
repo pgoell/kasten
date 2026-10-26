@@ -44,11 +44,13 @@ export const SLOTS = ["--k-danger", "--k-warn", "--k-ok", "--k-info", ...TAGS];
 
 /**
  * Bars for the status and tag colours: light on the ground it is read on, dark at 8.
- * Danger has its own bar, darker than the accent on both themes (see DANGER_LIGHT_APART).
+ * Danger has its own bar, so it steps off the accent's lightness. In light it is darker
+ * than the accent. In dark it is lighter, because danger text also sits on the highlight,
+ * which is dark there, and a darker danger fell to 3.3:1 on it.
  */
 const TARGET: Record<Theme, { status: number; tag: number; danger: number }> = {
   light: { status: 5, tag: 4.5, danger: 9 },
-  dark: { status: 8, tag: 8, danger: 5.5 },
+  dark: { status: 8, tag: 8, danger: 10.5 },
 };
 
 /** The bar a slot's colour must reach on its ground in one theme. */

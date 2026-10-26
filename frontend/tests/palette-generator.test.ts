@@ -58,6 +58,7 @@ const PAIRS = [
   "accentOnWash",
   "inkOnHighlight",
   "linkOnHighlight",
+  "dangerOnHighlight",
   "mutedOnHighlight",
   "lowestStatus",
   "lowestTag",
@@ -71,6 +72,7 @@ const OK = {
   accentOnWash: "ok",
   inkOnHighlight: "ok",
   linkOnHighlight: "ok",
+  dangerOnHighlight: "ok",
   mutedOnHighlight: "ok",
   lowestStatus: "ok",
   lowestTag: "ok",
@@ -95,7 +97,7 @@ test("every palette's status and tag hues sit at least 20 degrees apart", () => 
       { pair: ["--tg-5", "--tg-10"], gap: 18 },
     ],
     pansy: [
-      // A fallback slot. Every colour left sat under 20 degrees from danger, so the farthest went in.
+      // A fallback slot. No colour left was clear of every status, so the colour farthest from all earlier picks went in.
       { pair: ["--k-danger", "--tg-10"], gap: 14.7 },
       // A fallback slot, as above.
       { pair: ["--tg-1", "--tg-6"], gap: 8.6 },
@@ -122,7 +124,7 @@ function byPaletteAndTheme<T>(grade: (id: PaletteId, theme: Theme) => T) {
 }
 
 test("every palette's danger sits 60 degrees of hue or 0.08 of lightness from its accent, light and dark", () => {
-  // A red accent leaves no hue room for danger, so danger steps darker by lightness instead.
+  // A red accent leaves no hue room for danger, so danger steps off the accent in lightness instead.
   const measured = checks();
   const grade = (id: PaletteId, theme: Theme) => {
     const m = measured[id][theme];
@@ -177,10 +179,10 @@ test("no tag sits under 20 degrees in hue from a status colour, in any palette, 
     },
     russet: { light: [], dark: [] },
     peach: { light: [], dark: [] },
-    // A fallback slot: every colour left sat under 20 degrees from danger, so the farthest went in.
+    // A fallback slot. No colour left was clear of every status, so the colour farthest from all earlier picks went in.
     pansy: {
       light: [["--k-danger", "--tg-10", 14.7]],
-      dark: [["--k-danger", "--tg-10", 14.6]],
+      dark: [["--k-danger", "--tg-10", 14.4]],
     },
   });
 });

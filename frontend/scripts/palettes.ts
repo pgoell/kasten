@@ -147,7 +147,7 @@ export function css(): string {
 /**
  * The least lightness gap, in OKLab L, between a palette's danger and its accent, for
  * a danger that is not WARN_APART degrees of hue away. Hue and lightness are the two
- * axes left to tell them apart, and a red accent leaves no hue room, so danger steps darker.
+ * axes left to tell them apart, and a red accent leaves no hue room, so danger steps off the accent's lightness.
  */
 const DANGER_LIGHT_APART = 0.08;
 
@@ -158,6 +158,7 @@ export interface Measures {
   accentOnWash: number;
   inkOnHighlight: number;
   linkOnHighlight: number;
+  dangerOnHighlight: number;
   mutedOnHighlight: number;
   lowestStatus: number;
   lowestTag: number;
@@ -190,6 +191,7 @@ function measure(tokens: Tokens): Measures {
     accentOnWash: onGround("--k-accent", wash),
     inkOnHighlight: onGround("--k-ink", highlight),
     linkOnHighlight: onGround("--k-link", highlight),
+    dangerOnHighlight: onGround("--k-danger", highlight),
     mutedOnHighlight: onGround("--k-muted", highlight),
     lowestStatus: Math.min(...STATUS.map((n) => onGround(n, paper))),
     lowestTag: Math.min(...TAGS.map((n) => onGround(n, bg))),
@@ -272,6 +274,7 @@ const ROWS: [keyof Measures, string][] = [
   ["accentOnWash", "Accent on its wash"],
   ["inkOnHighlight", "Ink on highlight"],
   ["linkOnHighlight", "Link on highlight"],
+  ["dangerOnHighlight", "Danger on highlight"],
   ["mutedOnHighlight", "Muted on highlight"],
   ["lowestStatus", "Lowest status on paper"],
   ["lowestTag", "Lowest tag on bg"],
