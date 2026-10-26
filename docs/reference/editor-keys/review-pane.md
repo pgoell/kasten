@@ -20,7 +20,7 @@ of each is waiting. Picking one starts a sitting, one card at a time.
 | `za` | Fold or unfold the deck under the cursor |
 | `p` | Open [the parked list](/reference/flashcard-format/reviewing-cards.md#parking-a-card) |
 | `h` | Leave the sitting or the parked list, back to the decks |
-| `Enter` | Show the answer. Once it shows, grade the card Good, unless a button or link in the pane has the focus; then the key does nothing here, and that button or link takes it. A focused `Try again`, under a deck or daily limits that could not be read, takes it too. On the decks and the parked list, Enter presses the deck or parked row under the cursor and nothing else. On a whole note, which shows from the start, it does nothing |
+| `Enter` | Show the answer. Once it shows, grade the card Good, unless a button or link in the pane has the focus; then the key does nothing, and presses nothing either. A focused `Try again`, under a deck or daily limits that could not be read, is the one button Enter presses. On the decks and the parked list, Enter presses the deck or parked row under the cursor and nothing else. On a whole note, which shows from the start, it does nothing |
 | `Space` | Open [the which-key panel](/reference/editor-keys/leader.md), on every screen, a card on it or not, so the other panes stay one key away mid-sitting |
 | `1` `2` `3` `4` | Rate the card Again, Hard, Good, Easy |
 | `s` | Park the card on screen, before or after the answer, as the Park this card link does |
@@ -34,8 +34,8 @@ A held key does not repeat. `Enter` and `1` to `4` act once per press,
 so holding one down rates or reveals a card once and no more.
 
 `j` and `k` move the focus itself rather than a highlight of their own, so
-Enter on the deck they reach opens it, and `l` is the same press under the
-finger vim leaves it on. Enter on a parked row opens its note, as `o` does. A
+Enter on the deck row they reach opens it, and `l` is the same press under the
+finger vim leaves it on. On a fold arrow only `l` and `za` act; Enter does nothing. Enter on a parked row opens its note, as `o` does. A
 deck with nothing waiting is skipped: its row is disabled and cannot be sat, and
 a deck holding nothing but parked cards is one of those, its row saying how many
 so a `0 new` is never a mystery.
