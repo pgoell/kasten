@@ -1,7 +1,16 @@
 /// <reference types="node" />
 
 import { existsSync, readFileSync } from "node:fs";
-import { checks, closePairs, css, type Measures, type Theme, table } from "../scripts/palettes";
+import {
+  checks,
+  closePairs,
+  css,
+  type Measures,
+  type PaletteId,
+  statusTagClose,
+  type Theme,
+  table,
+} from "../scripts/palettes";
 
 /** A file that is not there reads as empty, so a missing page fails its comparison and does not throw. */
 function read(file: string): string {
@@ -72,35 +81,107 @@ test("every palette's status and tag hues sit at least 20 degrees apart", () => 
   // pool had no colour left that sat farther from the slots picked before it.
   expect(closePairs()).toEqual({
     russet: [
-      // The pool could not separate this pair.
-      { pair: ["--k-warn", "--tg-8"], gap: 16.7 },
-      // The pool could not separate this pair.
-      { pair: ["--k-ok", "--tg-10"], gap: 15.3 },
-      // The pool could not separate this pair.
-      { pair: ["--tg-5", "--tg-9"], gap: 16.5 },
+      // A fallback slot: no colour left sat 20 degrees from every earlier pick.
+      { pair: ["--tg-1", "--tg-9"], gap: 17.7 },
+      // A fallback slot, as above.
+      { pair: ["--tg-4", "--tg-9"], gap: 12.9 },
+      // A fallback slot, as above.
+      { pair: ["--tg-5", "--tg-8"], gap: 16.5 },
+      // A fallback slot, as above.
+      { pair: ["--tg-6", "--tg-10"], gap: 12.6 },
     ],
     peach: [
-      // The pool could not separate this pair.
+      // A fallback slot, as above.
       { pair: ["--tg-5", "--tg-10"], gap: 18 },
     ],
     pansy: [
-      // The pool could not separate this pair.
-      { pair: ["--k-danger", "--tg-5"], gap: 13.7 },
-      // The pool could not separate this pair.
-      { pair: ["--k-warn", "--tg-6"], gap: 12.5 },
-      // The pool could not separate this pair.
-      { pair: ["--k-warn", "--tg-9"], gap: 9.5 },
-      // The pool could not separate this pair.
-      { pair: ["--k-info", "--tg-8"], gap: 9.5 },
-      // The pool could not separate this pair.
-      { pair: ["--tg-1", "--tg-10"], gap: 8.6 },
-      // The pool could not separate this pair.
-      { pair: ["--tg-2", "--tg-6"], gap: 12.7 },
-      // The pool could not separate this pair.
-      { pair: ["--tg-3", "--tg-7"], gap: 10.1 },
-      // The pool could not separate this pair.
-      { pair: ["--tg-5", "--tg-9"], gap: 11.9 },
+      // A fallback slot. Every colour left sat under 20 degrees from danger, so the farthest went in.
+      { pair: ["--k-danger", "--tg-10"], gap: 14.7 },
+      // A fallback slot, as above.
+      { pair: ["--tg-1", "--tg-6"], gap: 8.6 },
+      // A fallback slot, as above.
+      { pair: ["--tg-2", "--tg-8"], gap: 4.5 },
+      // A fallback slot, as above.
+      { pair: ["--tg-2", "--tg-9"], gap: 4 },
+      // A fallback slot, as above.
+      { pair: ["--tg-3", "--tg-5"], gap: 10.1 },
+      // A fallback slot, as above.
+      { pair: ["--tg-4", "--tg-7"], gap: 5 },
+      // A fallback slot, as above.
+      { pair: ["--tg-8", "--tg-9"], gap: 0.5 },
     ],
+  });
+});
+
+/** One grade per palette and theme, in the shape the expectations read. */
+const PALETTE_IDS = ["poel", "russet", "peach", "pansy"] as const;
+function byPaletteAndTheme<T>(grade: (id: PaletteId, theme: Theme) => T) {
+  return Object.fromEntries(
+    PALETTE_IDS.map((id) => [id, { light: grade(id, "light"), dark: grade(id, "dark") }]),
+  );
+}
+
+test("every palette's danger sits 60 degrees of hue or 0.08 of lightness from its accent, light and dark", () => {
+  // A red accent leaves no hue room for danger, so danger steps darker by lightness instead.
+  const measured = checks();
+  const grade = (id: PaletteId, theme: Theme) => {
+    const m = measured[id][theme];
+    return m.dangerGap >= 60 || m.dangerLightGap >= 0.08
+      ? "ok"
+      : { hue: round(m.dangerGap, 1), light: round(m.dangerLightGap, 3) };
+  };
+  expect(byPaletteAndTheme(grade)).toEqual({
+    poel: { light: "ok", dark: "ok" },
+    russet: { light: "ok", dark: "ok" },
+    peach: { light: "ok", dark: "ok" },
+    pansy: { light: "ok", dark: "ok" },
+  });
+});
+
+test("every palette's danger reads red and sits at least 20 degrees in hue from warn, light and dark", () => {
+  // Red runs from 340 round to 45 degrees, so an overdue date reads as an error, not a warning.
+  const measured = checks();
+  const grade = (id: PaletteId, theme: Theme) => {
+    const m = measured[id][theme];
+    const red = m.dangerHue >= 340 || m.dangerHue <= 45;
+    return red && m.dangerWarnGap >= 20
+      ? "ok"
+      : { hue: round(m.dangerHue, 1), warn: round(m.dangerWarnGap, 1) };
+  };
+  expect(byPaletteAndTheme(grade)).toEqual({
+    poel: { light: "ok", dark: "ok" },
+    russet: { light: "ok", dark: "ok" },
+    peach: { light: "ok", dark: "ok" },
+    pansy: { light: "ok", dark: "ok" },
+  });
+});
+
+test("no tag sits under 20 degrees in hue from a status colour, in any palette, light and dark", () => {
+  // A tag near a status colour is the wrong signal. Each pair listed is one the pool could not clear.
+  const close = statusTagClose();
+  expect(byPaletteAndTheme((id, theme) => close[id][theme])).toEqual({
+    // Poel's values are 0.83.0's own, copied from :root, so the generator never picks them.
+    poel: {
+      light: [
+        ["--k-ok", "--tg-9", 0.2],
+        ["--k-warn", "--tg-8", 12.4],
+        ["--k-info", "--tg-3", 0.7],
+        ["--k-danger", "--tg-1", 13.7],
+      ],
+      dark: [
+        ["--k-ok", "--tg-9", 0.3],
+        ["--k-warn", "--tg-8", 12.3],
+        ["--k-info", "--tg-3", 0.2],
+        ["--k-danger", "--tg-1", 13.5],
+      ],
+    },
+    russet: { light: [], dark: [] },
+    peach: { light: [], dark: [] },
+    // A fallback slot: every colour left sat under 20 degrees from danger, so the farthest went in.
+    pansy: {
+      light: [["--k-danger", "--tg-10", 14.7]],
+      dark: [["--k-danger", "--tg-10", 14.6]],
+    },
   });
 });
 

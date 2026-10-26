@@ -212,7 +212,7 @@
   --k-ok: #007c54;
   --k-warn: #806b00;
   --k-info: #2970ad;
-  --k-danger: #aa5062;
+  --k-danger: #7d283c;
   --tg-1: #a75683;
   --tg-2: #647660;
   --tg-3: #177a9a;
@@ -220,9 +220,9 @@
   --tg-5: #816e55;
   --tg-6: #007e83;
   --tg-7: #7569a3;
-  --tg-8: #727603;
-  --tg-9: #976640;
-  --tg-10: #00806d;
+  --tg-8: #976640;
+  --tg-9: #955e91;
+  --tg-10: #007f77;
 }
 
 [data-palette="russet"][data-theme="dark"] {
@@ -234,7 +234,7 @@
   --k-ok: #6ec099;
   --k-warn: #c3b064;
   --k-info: #7cb5eb;
-  --k-danger: #eb9aa6;
+  --k-danger: #c97b87;
   --tg-1: #de95bb;
   --tg-2: #9db199;
   --tg-3: #5eb6d7;
@@ -242,9 +242,9 @@
   --tg-5: #bca88d;
   --tg-6: #4dbbc0;
   --tg-7: #afa3e0;
-  --tg-8: #abb064;
-  --tg-9: #d5a078;
-  --tg-10: #58bca7;
+  --tg-8: #d5a078;
+  --tg-9: #d298ce;
+  --tg-10: #51bcb1;
 }
 
 [data-palette="peach"] {
@@ -256,7 +256,7 @@
   --k-ok: #407856;
   --k-warn: #766d48;
   --k-info: #2672a6;
-  --k-danger: #975d61;
+  --k-danger: #6d363c;
   --tg-1: #966277;
   --tg-2: #557c2a;
   --tg-3: #5e7197;
@@ -278,7 +278,7 @@
   --k-ok: #82bd96;
   --k-warn: #b9b188;
   --k-info: #74b7e9;
-  --k-danger: #e09fa3;
+  --k-danger: #be8185;
   --tg-1: #d49bb1;
   --tg-2: #93b673;
   --tg-3: #96acd4;
@@ -300,17 +300,17 @@
   --k-ok: #007b6a;
   --k-warn: #956212;
   --k-info: #486f9f;
-  --k-danger: #aa543c;
+  --k-danger: #7e2b15;
   --tg-1: #955d98;
   --tg-2: #7f7132;
   --tg-3: #007d8c;
   --tg-4: #7467b0;
-  --tg-5: #8d6955;
-  --tg-6: #846e41;
-  --tg-7: #207d81;
-  --tg-8: #5e7197;
-  --tg-9: #a46116;
-  --tg-10: #8a6299;
+  --tg-5: #207d81;
+  --tg-6: #8a6299;
+  --tg-7: #6e6ba5;
+  --tg-8: #886e00;
+  --tg-9: #836f2a;
+  --tg-10: #8d6955;
 }
 
 [data-palette="pansy"][data-theme="dark"] {
@@ -322,17 +322,17 @@
   --k-ok: #5dc1ac;
   --k-warn: #d9a769;
   --k-info: #89b3e6;
-  --k-danger: #eb9d87;
+  --k-danger: #c97e69;
   --tg-1: #d099d1;
   --tg-2: #baab6c;
   --tg-3: #50b9ca;
   --tg-4: #ada3e8;
-  --tg-5: #caa38d;
-  --tg-6: #c0a979;
-  --tg-7: #63b9bc;
-  --tg-8: #96acd4;
-  --tg-9: #db9f6a;
-  --tg-10: #c69cd6;
+  --tg-5: #63b9bc;
+  --tg-6: #c69cd6;
+  --tg-7: #a7a5e4;
+  --tg-8: #c1aa5e;
+  --tg-9: #beaa65;
+  --tg-10: #caa38d;
 }
 /* palettes:end */
 

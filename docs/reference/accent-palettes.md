@@ -38,12 +38,12 @@ The accent and the highlight of each palette come from the issue (#778). They ar
 
 ## How the status and tag colours are picked
 
-Russet, peach and pansy draw their status and tag colours from Wada's colours (Sanzo Wada, *A Dictionary of Color Combinations*). The generator in `frontend/scripts/palettes.ts` does this:
+Russet, peach and pansy draw their status and tag colours from Wada's colours (Sanzo Wada, *A Dictionary of Color Combinations*). The generator in `frontend/scripts/palette-picks.ts` does this:
 
 1. It finds the Wada colours in a combination with the palette's number. These are the direct neighbours.
 2. It finds every colour in a combination with a neighbour's combination. This is the pool. It drops the palette's own colour (Hay's Russet, Peach Red or Pansy Purple), any grey with chroma under 0.04, and any colour within 20 degrees of the accent's hue, so no status or tag reads as the accent.
-3. It picks one colour per slot, in this order: `--k-danger`, `--k-warn`, `--k-ok`, `--k-info`, then `--tg-1` to `--tg-10`. Each slot takes the unused colour nearest in hue to poel's value for that slot, among those at least 20 degrees in light hue from every colour already picked for the palette. Only when none is left at 20 degrees does it take the colour farthest from the earlier picks, and the picks table marks that slot `(fallback)`. A tie goes to the higher chroma, then to the name. Light and dark use the same colour, so each slot keeps its meaning across palettes. `--k-warn` takes only colours at least 60 degrees in light hue from the accent (#1001). The pick fits accent and warn to nearly the same contrast on paper, and caps chroma, so hue is the one axis left to tell them apart; 60 degrees is a sixth of the wheel, the step from red to yellow. Without it, russet and peach took Cream Yellow, an ochre about 40 degrees from their red accents.
-4. It sets each pick's lightness so the colour reaches its target on its ground. Status sits on paper, tags on the page background. The target is 5 for status and 4.5 for tags in light, and 8 for both in dark. Chroma is capped at 0.12 in light and 0.10 in dark. A colour outside sRGB loses chroma, and keeps its lightness and hue, so nothing clips to pure red.
+3. It picks one colour per slot, in this order: `--k-danger`, `--k-warn`, `--k-ok`, `--k-info`, then `--tg-1` to `--tg-10`. Each slot takes the unused colour nearest in hue to poel's value for that slot, among those at least 20 degrees in light hue from every colour already picked for the palette. Only when none is left at 20 degrees does the fallback run. It takes a colour at least 20 degrees from every status colour if one is left, and otherwise the colour farthest from the earlier picks. The picks table marks that slot `(fallback)`. A tie goes to the higher chroma, then to the name. Light and dark use the same colour, so each slot keeps its meaning across palettes. `--k-warn` takes only colours at least 60 degrees in light hue from the accent (#1001). The pick fits accent and warn to nearly the same contrast on paper, and caps chroma, so hue is the one axis left to tell them apart; 60 degrees is a sixth of the wheel, the step from red to yellow. Without it, russet and peach took Cream Yellow, an ochre about 40 degrees from their red accents.
+4. It sets each pick's lightness so the colour reaches its target on its ground. Status sits on paper, tags on the page background. The target is 5 for status and 4.5 for tags in light, and 8 for both in dark. Danger has its own target: 9 in light and 5.5 in dark. Each sits darker than the accent, so danger still reads apart from it when a red palette leaves no hue room. In dark, the lowest status on paper is therefore danger, at 5.5. Chroma is capped at 0.12 in light and 0.10 in dark. A colour outside sRGB loses chroma, and keeps its lightness and hue, so nothing clips to pure red.
 
 The picks are in the table below.
 
@@ -59,14 +59,14 @@ It prints the CSS for the region between the `palettes:begin` and `palettes:end`
 
 ## Bars and measures
 
-The bars are these. Light accent on paper, 5. Light accent on surface, 4.6. Dark accent on paper, 6. Every other text pair, 4.5 (AA). Status and tags of the three new palettes stay under their chroma caps. The measures are WCAG ratios, with each alpha colour blended over its backdrop, as `frontend/tests/theme-contrast.test.ts` does. A cell under its bar shows the number and the bar. A chroma over its cap shows the number and the cap. The two hue gap rows give the degrees between warn and the accent, and between danger and the accent, of the same palette and theme; a gap under 60 shows `(under 60)`. Warn meets 60 in every palette. Danger misses in russet, peach and pansy, and #1105 holds that.
+The bars are these. Light accent on paper, 5. Light accent on surface, 4.6. Dark accent on paper, 6. Every other text pair, 4.5 (AA). Status and tags of the three new palettes stay under their chroma caps. The measures are WCAG ratios, with each alpha colour blended over its backdrop, as `frontend/tests/theme-contrast.test.ts` does. A cell under its bar shows the number and the bar. A chroma over its cap shows the number and the cap. The warn hue gap row gives the degrees between warn and the accent of the same palette and theme; a gap under 60 shows `(under 60)`. Warn meets 60 in every palette. The danger hue gap row gives the same for danger, with no bar. Danger misses 60 in russet, peach and pansy, so the lightness row gives the gap in OKLab lightness, and it shows `(under 0.08)` only where the hue gap also misses 60. The lowest of those gaps is 0.092, in dark russet and pansy.
 
 The issue's values are kept where a bar misses, and the tests name each miss:
 
 - Poel, light: the lowest tag is 4.09 on the background. This is the value 0.83.0 already paints.
 - Poel, dark: muted text on the highlight is 3.98. This is the #777 exception.
 - Russet, peach and pansy, dark: muted text on the highlight misses. Peach and pansy also miss with link text on the highlight. The dark highlights are the issue's values, so the fix is a choice for the issue, not a change made here.
-- Russet, peach and pansy: the pool runs out for some slots, which take the fallback. The fallback slots are russet's `--tg-8`, `--tg-9` and `--tg-10`, peach's `--tg-10`, and pansy's `--tg-5` to `--tg-10`. The hue columns of the picks table show every hue. The last table lists every pair of picks under 20 degrees apart in light hue, with the gap.
+- Russet, peach and pansy: the pool runs out for some slots, which take the fallback. The fallback slots are russet's `--tg-8`, `--tg-9` and `--tg-10`, peach's `--tg-10`, and pansy's `--tg-5` to `--tg-10`. Pansy's `--tg-10` sits 14.7 degrees from `--k-danger` in light, because no colour left was clear of every status colour. That pair stays, and the test names it. The hue columns of the picks table show every hue. The last table lists every pair of picks under 20 degrees apart in light hue, with the gap. Poel's own status and tag pairs under 20 degrees also stay, since poel keeps 0.83.0's values; the test names them.
 
 <!-- palettes:begin -->
 | Measure | poel light | poel dark | russet light | russet dark | peach light | peach dark | pansy light | pansy dark |
@@ -78,15 +78,16 @@ The issue's values are kept where a bar misses, and the tests name each miss:
 | Ink on highlight | 14.04 | 9.19 | 13.53 | 8.53 | 13.98 | 8.20 | 14.64 | 7.70 |
 | Link on highlight | 4.54 | 5.35 | 4.59 | 4.76 | 4.91 | 4.48 (under 4.5) | 5.10 | 4.17 (under 4.5) |
 | Muted on highlight | 4.74 | 3.98 (under 4.5) | 4.57 | 3.70 (under 4.5) | 4.72 | 3.56 (under 4.5) | 4.94 | 3.34 (under 4.5) |
-| Lowest status on paper | 5.06 | 8.37 | 5.03 | 8.01 | 5.00 | 8.00 | 5.01 | 8.00 |
+| Lowest status on paper | 5.06 | 8.37 | 5.04 | 5.53 | 5.01 | 5.53 | 5.01 | 5.53 |
 | Lowest tag on bg | 4.09 (under 4.5) | 8.23 | 4.50 | 8.00 | 4.50 | 8.00 | 4.50 | 8.01 |
-| Highest chroma of status and tags | 0.120 | 0.126 | 0.120 | 0.100 | 0.120 | 0.099 | 0.119 | 0.100 |
+| Highest chroma of status and tags | 0.120 | 0.126 | 0.119 | 0.100 | 0.120 | 0.099 | 0.120 | 0.100 |
 | Warn hue gap to accent | 160.7 | 160.9 | 63.4 | 63.6 | 60.3 | 62.3 | 65.9 | 65.8 |
-| Danger hue gap to accent | 157.3 | 157.0 | 22.8 (under 60) | 22.1 (under 60) | 20.4 (under 60) | 21.1 (under 60) | 30.8 (under 60) | 30.9 (under 60) |
+| Danger hue gap to accent | 157.3 | 157.0 | 22.2 | 22.0 | 21.5 | 21.0 | 29.8 | 30.8 |
+| Danger lightness gap to accent | 0.004 | 0.021 | 0.109 | 0.092 | 0.114 | 0.094 | 0.111 | 0.092 |
 
 | Palette | Slot | Poel hue | Wada colour | Wada hue | Light | Light hue | Dark | Dark hue |
 |---|---|---:|---|---:|---|---:|---|---:|
-| russet | --k-danger | 32 | Eosine Pink | 10 | #aa5062 | 9 | #eb9aa6 | 10 |
+| russet | --k-danger | 32 | Eosine Pink | 10 | #7d283c | 10 | #c97b87 | 10 |
 | russet | --k-warn | 74 | Pyrite Yellow | 96 | #806b00 | 95 | #c3b064 | 96 |
 | russet | --k-ok | 155 | Dull Viridian Green | 162 | #007c54 | 162 | #6ec099 | 162 |
 | russet | --k-info | 243 | Blue | 248 | #2970ad | 248 | #7cb5eb | 248 |
@@ -97,10 +98,10 @@ The issue's values are kept where a bar misses, and the tests name each miss:
 | russet | --tg-5 | 106 | Ecru | 75 | #816e55 | 74 | #bca88d | 75 |
 | russet | --tg-6 | 201 | Green Blue | 200 | #007e83 | 200 | #4dbbc0 | 199 |
 | russet | --tg-7 | 316 | Dull Violet Black | 293 | #7569a3 | 293 | #afa3e0 | 293 |
-| russet | --tg-8 (fallback) | 62 | Citron Yellow | 112 | #727603 | 112 | #abb064 | 112 |
-| russet | --tg-9 (fallback) | 155 | Ochraceous Salmon | 58 | #976640 | 58 | #d5a078 | 58 |
-| russet | --tg-10 (fallback) | 291 | Sea Green | 178 | #00806d | 177 | #58bca7 | 178 |
-| peach | --k-danger | 32 | Corinthian Pink | 15 | #975d61 | 15 | #e09fa3 | 15 |
+| russet | --tg-8 (fallback) | 62 | Ochraceous Salmon | 58 | #976640 | 58 | #d5a078 | 58 |
+| russet | --tg-9 (fallback) | 155 | Dusky Madder Violet | 329 | #955e91 | 329 | #d298ce | 329 |
+| russet | --tg-10 (fallback) | 291 | Benzol Green | 187 | #007f77 | 187 | #51bcb1 | 186 |
+| peach | --k-danger | 32 | Corinthian Pink | 15 | #6d363c | 14 | #be8185 | 15 |
 | peach | --k-warn | 74 | Sulpher Yellow | 97 | #766d48 | 96 | #b9b188 | 98 |
 | peach | --k-ok | 155 | Cobalt Green | 155 | #407856 | 156 | #82bd96 | 155 |
 | peach | --k-info | 243 | Helvetia Blue | 243 | #2672a6 | 243 | #74b7e9 | 242 |
@@ -114,7 +115,7 @@ The issue's values are kept where a bar misses, and the tests name each miss:
 | peach | --tg-8 | 62 | Sea Green | 178 | #00806d | 177 | #58bca7 | 178 |
 | peach | --tg-9 | 155 | Pale King's Blue | 222 | #4d7786 | 223 | #86b2c1 | 221 |
 | peach | --tg-10 (fallback) | 291 | Ochraceous Salmon | 58 | #976640 | 58 | #d5a078 | 58 |
-| pansy | --k-danger | 32 | Peach Red | 36 | #aa543c | 37 | #eb9d87 | 36 |
+| pansy | --k-danger | 32 | Peach Red | 36 | #7e2b15 | 36 | #c97e69 | 36 |
 | pansy | --k-warn | 74 | Cinnamon Buff | 72 | #956212 | 72 | #d9a769 | 71 |
 | pansy | --k-ok | 155 | Sea Green | 178 | #007b6a | 179 | #5dc1ac | 178 |
 | pansy | --k-info | 243 | Olympic Blue | 254 | #486f9f | 254 | #89b3e6 | 254 |
@@ -122,27 +123,27 @@ The issue's values are kept where a bar misses, and the tests name each miss:
 | pansy | --tg-2 | 131 | Pale Lemon Yellow | 96 | #7f7132 | 97 | #baab6c | 96 |
 | pansy | --tg-3 | 243 | Cerulian Blue | 210 | #007d8c | 209 | #50b9ca | 210 |
 | pansy | --tg-4 | 336 | Violet | 291 | #7467b0 | 290 | #ada3e8 | 290 |
-| pansy | --tg-5 (fallback) | 106 | Seashell Pink | 51 | #8d6955 | 50 | #caa38d | 51 |
-| pansy | --tg-6 (fallback) | 201 | Ivory Buff | 85 | #846e41 | 84 | #c0a979 | 85 |
-| pansy | --tg-7 (fallback) | 316 | Calamine BLue | 199 | #207d81 | 199 | #63b9bc | 198 |
-| pansy | --tg-8 (fallback) | 62 | Deep Indigo | 263 | #5e7197 | 264 | #96acd4 | 262 |
-| pansy | --tg-9 (fallback) | 155 | Golden Yellow | 62 | #a46116 | 62 | #db9f6a | 62 |
-| pansy | --tg-10 (fallback) | 291 | Light Mauve | 316 | #8a6299 | 317 | #c69cd6 | 317 |
+| pansy | --tg-5 (fallback) | 106 | Calamine BLue | 199 | #207d81 | 199 | #63b9bc | 198 |
+| pansy | --tg-6 (fallback) | 201 | Light Mauve | 316 | #8a6299 | 317 | #c69cd6 | 317 |
+| pansy | --tg-7 (fallback) | 316 | Dark Soft Violet | 286 | #6e6ba5 | 285 | #a7a5e4 | 285 |
+| pansy | --tg-8 (fallback) | 62 | Olive Ocher | 93 | #886e00 | 92 | #c1aa5e | 93 |
+| pansy | --tg-9 (fallback) | 155 | Naples Yellow | 93 | #836f2a | 93 | #beaa65 | 94 |
+| pansy | --tg-10 (fallback) | 291 | Seashell Pink | 51 | #8d6955 | 50 | #caa38d | 51 |
 
 | Palette | Pair under 20 degrees | Gap |
 |---|---|---:|
-| russet | --k-warn and --tg-8 | 16.7 |
-| russet | --k-ok and --tg-10 | 15.3 |
-| russet | --tg-5 and --tg-9 | 16.5 |
+| russet | --tg-1 and --tg-9 | 17.7 |
+| russet | --tg-4 and --tg-9 | 12.9 |
+| russet | --tg-5 and --tg-8 | 16.5 |
+| russet | --tg-6 and --tg-10 | 12.6 |
 | peach | --tg-5 and --tg-10 | 18.0 |
-| pansy | --k-danger and --tg-5 | 13.7 |
-| pansy | --k-warn and --tg-6 | 12.5 |
-| pansy | --k-warn and --tg-9 | 9.5 |
-| pansy | --k-info and --tg-8 | 9.5 |
-| pansy | --tg-1 and --tg-10 | 8.6 |
-| pansy | --tg-2 and --tg-6 | 12.7 |
-| pansy | --tg-3 and --tg-7 | 10.1 |
-| pansy | --tg-5 and --tg-9 | 11.9 |
+| pansy | --k-danger and --tg-10 | 14.7 |
+| pansy | --tg-1 and --tg-6 | 8.6 |
+| pansy | --tg-2 and --tg-8 | 4.5 |
+| pansy | --tg-2 and --tg-9 | 4.0 |
+| pansy | --tg-3 and --tg-5 | 10.1 |
+| pansy | --tg-4 and --tg-7 | 5.0 |
+| pansy | --tg-8 and --tg-9 | 0.5 |
 <!-- palettes:end -->
 
 ## Credit

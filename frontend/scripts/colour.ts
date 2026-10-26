@@ -9,6 +9,8 @@
 
 export type RGB = [number, number, number];
 
+export const BLACK: RGB = [0, 0, 0];
+
 export interface LCH {
   l: number;
   c: number;
