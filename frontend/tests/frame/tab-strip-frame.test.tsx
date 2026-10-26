@@ -283,7 +283,7 @@ it("A15 under reduced motion the underline lands in the first frame", async () =
     fireEvent.click(need(second?.querySelector("[role='tab']"), "second tab"));
     await nextFrame();
     const painted = barOf(host).style.transform;
-    expect(painted).toBe(`translateX(${to}px) scaleX(${width})`);
+    expect(painted).toBe(`translateX(${to}px) scaleX(${width / 200})`);
     expect(
       need(first?.querySelector("[role='tab']"), "first tab button").getAttribute("aria-selected"),
     ).toBe("false");

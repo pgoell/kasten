@@ -11,9 +11,10 @@ import { SPRINGS, type Spring } from "@/lib/spring";
 import { foldTabs } from "@/lib/tab-fold";
 
 /**
- * The widest a tab draws, in px: the `max-w-[200px]` class on the tab in tab-strip.tsx.
+ * The widest a tab draws, in px: the `max-w-[200px]` class on the tab in tab-strip.tsx,
+ * and the `w-[200px]` the bar under the active tab is drawn at before its scale.
  *
- * Tailwind needs that class as a literal, so the two are kept in step by hand.
+ * Tailwind needs those classes as literals, so the three are kept in step by hand.
  */
 export const TAB_MAX_WIDTH = 200;
 

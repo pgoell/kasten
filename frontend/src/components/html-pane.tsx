@@ -2,6 +2,8 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { Rsvp } from "@/components/rsvp";
 import { TakeButton } from "@/components/take-button-view";
 import { useDumpTake } from "@/components/use-dump-take";
+import { readClock } from "@/lib/clock";
+import { type Story, shareLine, storyOf } from "@/lib/html-share";
 import { fileOf, type PagePassage, pageLink } from "@/lib/html-take";
 import type { EditorCommands } from "@/lib/key-bindings";
 import { heldModifier, leaderAction, leaderPrefix } from "@/lib/leader-keys";
@@ -95,6 +97,13 @@ export function HtmlPane({
    * button, the way the book answers its own (`use-book-take.ts`).
    */
   const lost = useRef(false);
+  /**
+   * The stories saved to share later from this page, by take id, so an Undo
+   * tells the page which button to give back. `saving` holds their ids in the
+   * page as well as any on their way, so a second press adds no second todo.
+   */
+  const shared = useRef(new Map<number, string>());
+  const saving = useRef(new Set<string>());
   /** Whether the page's relayed `y` has taken in this visit: one per visit, see `takeAsReader`. */
   const relayedTaken = useRef(false);
   const { pressing, press } = usePressGuard(() => {
@@ -116,7 +125,16 @@ export function HtmlPane({
       if (heldRef.current === null) hold(null);
       frame.current?.contentWindow?.postMessage({ kasten: "take", id }, "*");
     },
-    onUnmarked: (id) => frame.current?.contentWindow?.postMessage({ kasten: "untake", id }, "*"),
+    onUnmarked: (id) => {
+      const anchor = shared.current.get(id);
+      if (anchor === undefined) {
+        frame.current?.contentWindow?.postMessage({ kasten: "untake", id }, "*");
+        return;
+      }
+      shared.current.delete(id);
+      saving.current.delete(anchor);
+      frame.current?.contentWindow?.postMessage({ kasten: "unshared", anchor }, "*");
+    },
   });
   const dumpForget = dump.forget;
 
@@ -126,6 +144,8 @@ export function HtmlPane({
    */
   const forget = useCallback(() => {
     lost.current = false;
+    shared.current.clear();
+    saving.current.clear();
     hold(null);
     dumpForget();
   }, [hold, dumpForget]);
@@ -225,6 +245,36 @@ export function HtmlPane({
     });
     if (!kept) hold(taken);
   }
+  /**
+   * Save a story to share later: a `#share` todo in today's dump, linked to the
+   * story's source and to its place in the paper. A story already saved from
+   * this page is not saved twice. Kept off the selection, so a passage held for
+   * a take stays held.
+   */
+  async function share(story: Story) {
+    if (saving.current.has(story.anchor)) return;
+    // Held at once, so a second press while the first is on its way adds nothing.
+    saving.current.add(story.anchor);
+    const date = readClock(new Date()).date;
+    const kept = await dump.take({
+      text: story.heading === "" ? fileOf(path) : story.heading,
+      linkIn: (note) => pageLink(path, { text: "", ...story }, note),
+      line: (note) => shareLine(path, story, note, date),
+      source: fileOf(path),
+      top: false,
+      landed: "Saved to share later",
+      onKept: (id) => {
+        shared.current.set(id, story.anchor);
+        frame.current?.contentWindow?.postMessage({ kasten: "shared", anchor: story.anchor }, "*");
+      },
+    });
+    if (!kept) saving.current.delete(story.anchor);
+  }
+  const shareRef = useRef(share);
+  useLayoutEffect(() => {
+    shareRef.current = share;
+  });
+
   /** The reader's own take, which starts a new visit for the page's `y` (`relayedTaken`). */
   function takeAsReader() {
     relayedTaken.current = false;
@@ -281,6 +331,17 @@ export function HtmlPane({
             ? null
             : placeFor(frame.current, wrapper.current, rect, coarseRef.current);
         hold({ passage: { text, heading, anchor }, at });
+        return;
+      }
+
+      // A press on a story's Share later button. The page can post this itself,
+      // so it counts only while the frame holds the focus and the reader has
+      // just pressed something, and the toast's Undo takes a forged one back.
+      if (kasten === "share") {
+        const story = storyOf(data);
+        if (story === null || document.activeElement !== frame.current) return;
+        if (navigator.userActivation?.isActive === false) return;
+        void shareRef.current(story);
         return;
       }
 

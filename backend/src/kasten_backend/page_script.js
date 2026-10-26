@@ -207,6 +207,69 @@
     taken.delete(id);
   };
 
+  // Each newspaper story gets a Share later button beside its printed id. It sits
+  // in a shadow root, so the page's styles do not reach its insides and a
+  // selection or the page's text never takes in its label. The root is open so
+  // the key listener's path reaches the button and Space presses it. Closing it
+  // would keep nothing from the page, which can post a share of its own anyway.
+  // The story's source
+  // is the link the paper marks `a.src`, or else the first link in the story
+  // that leaves the page's own host.
+  const SHARE = "Share later";
+  const SAVED = "Saved to share";
+  const SHARE_STYLE = `button { font: 11px/1.4 system-ui, sans-serif; color: var(--k-muted, #6b6b66); background: transparent; border: 1px solid var(--k-rule, #d8d8d2); border-radius: 4px; padding: 1px 6px; margin-inline-start: 8px; cursor: pointer; vertical-align: middle; } button:hover, button:focus-visible { color: var(--k-accent, currentColor); } button:disabled { cursor: default; color: var(--k-accent, currentColor); } @media (pointer: coarse) { button { min-height: 32px; padding: 4px 10px; } }`;
+  const buttons = new Map();
+  const sourceOf = (story) => {
+    const marked = story.querySelector("a.src[href]");
+    if (marked) return marked.href;
+    const home = window.location.host;
+    for (const link of story.querySelectorAll("a[href]")) {
+      if (/^https?:$/.test(link.protocol) && link.host !== home) return link.href;
+    }
+    return "";
+  };
+  const addShareButtons = () => {
+    for (const story of document.querySelectorAll("article")) {
+      const sid = story.querySelector("a.sid");
+      const anchor = sid?.getAttribute("href")?.replace(/^#/, "") ?? "";
+      if (anchor === "" || buttons.has(anchor)) continue;
+      const host = document.createElement("span");
+      const root = host.attachShadow({ mode: "open" });
+      const style = document.createElement("style");
+      style.textContent = SHARE_STYLE;
+      const button = document.createElement("button");
+      button.type = "button";
+      button.textContent = SHARE;
+      button.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const heading = story.querySelector(HEADINGS);
+        up.postMessage(
+          {
+            kasten: "share",
+            heading: clip(squash(heading?.textContent ?? ""), 300),
+            anchor: clip(anchor, 200),
+            source: clip(sourceOf(story), 2000),
+          },
+          "*",
+        );
+      });
+      root.append(style, button);
+      sid.after(host);
+      buttons.set(anchor, button);
+    }
+  };
+  // The script runs before the page is parsed, so the stories are there only later.
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", addShareButtons);
+  } else addShareButtons();
+  const markShared = (anchor, saved) => {
+    const button = buttons.get(anchor);
+    if (button === undefined) return;
+    button.textContent = saved ? SAVED : SHARE;
+    button.disabled = saved;
+  };
+
   // A page that opts in takes the theme and the palette from kasten. An answer
   // that lands before the meta is parsed is dropped: the backend already wrote
   // both into `<html>` at serve time, and the pane posts again on the frame's
@@ -222,19 +285,27 @@
         (meta.getAttribute("name") ?? "").trim().toLowerCase() === "kasten-theme" &&
         (meta.getAttribute("content") ?? "").trim().toLowerCase() === "tokens",
     );
+  // What every page answers, opted in or not: marks, share buttons and the
+  // page's words for RSVP. A Map and not an object, so a `kasten` of
+  // "constructor" finds nothing.
+  const EVERY_PAGE = new Map([
+    ["take", (data) => take(data.id)],
+    ["untake", (data) => untake(data.id)],
+    ["shared", (data) => markShared(data.anchor, true)],
+    ["unshared", (data) => markShared(data.anchor, false)],
+    // innerText and not textContent: it ends each block with a line break and
+    // leaves out what the page hides, which is the page as it reads.
+    [
+      "text",
+      () =>
+        up.postMessage({ kasten: "text", text: document.body ? document.body.innerText : "" }, "*"),
+    ],
+  ]);
   window.addEventListener("message", (event) => {
     const data = event.data;
     if (event.source !== up || typeof data !== "object" || data === null) return;
-    // Marks are for every page, so they are answered before the opt-in check.
-    if (data.kasten === "take") return take(data.id);
-    if (data.kasten === "untake") return untake(data.id);
-    // The page's words for RSVP, for every page too. innerText and not
-    // textContent: it ends each block with a line break and leaves out what the
-    // page hides, which is the page as it reads.
-    if (data.kasten === "text") {
-      up.postMessage({ kasten: "text", text: document.body ? document.body.innerText : "" }, "*");
-      return;
-    }
+    const answer = EVERY_PAGE.get(data.kasten);
+    if (answer !== undefined) return answer(data);
     if (!optedIn()) return;
     if (data.kasten === "theme" && THEMES.includes(data.theme)) {
       document.documentElement.setAttribute("data-theme", data.theme);

@@ -22,8 +22,8 @@ interface TakeToastProps {
   archive: boolean;
   /** Set when the take can be taken back. Absent where it cannot, so no button shows. */
   onUndo?: () => void;
-  /** Put the passage into the note picked from the list. */
-  onPut: (path: string) => void;
+  /** Put the passage into the note picked from the list. Absent where there is no passage to put. */
+  onPut?: (path: string) => void;
   /** Called once the toast has faded, so the owner can drop it. Keep it stable. */
   onDone: () => void;
   /** Set when the passage sits low in the frame, so the toast goes to the top and leaves it in sight (#885). */
@@ -81,14 +81,16 @@ export function TakeToast({
       <p className="shrink-0 truncate font-sans text-k-13 text-k-muted">{source}</p>
 
       <div className="mt-1 flex shrink-0 gap-4 font-sans text-k-13">
-        <button
-          type="button"
-          aria-expanded={listing}
-          onClick={() => setListing((open) => !open)}
-          className="text-k-link hover:text-k-accent focus-visible:text-k-accent pointer-coarse:min-h-11"
-        >
-          Put it in a note
-        </button>
+        {onPut !== undefined && (
+          <button
+            type="button"
+            aria-expanded={listing}
+            onClick={() => setListing((open) => !open)}
+            className="text-k-link hover:text-k-accent focus-visible:text-k-accent pointer-coarse:min-h-11"
+          >
+            Put it in a note
+          </button>
+        )}
         {onUndo !== undefined && (
           <button
             type="button"
@@ -100,7 +102,7 @@ export function TakeToast({
         )}
       </div>
 
-      {listing && (
+      {listing && onPut !== undefined && (
         <RecentNotes
           archive={archive}
           onPick={(path) => {

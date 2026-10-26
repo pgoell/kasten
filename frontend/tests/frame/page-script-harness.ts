@@ -34,6 +34,9 @@ export interface Message {
   html?: string;
   styles?: number;
   selection?: string;
+  source?: string;
+  labels?: string[];
+  disabled?: boolean[];
 }
 
 /**

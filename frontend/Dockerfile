@@ -20,6 +20,10 @@ COPY frontend/ ./
 RUN bun run build
 
 FROM nginx:1.27-alpine AS runtime
+# nginx 1.27 gets no new images, and its bundle still trusts emSign ECC Root
+# CA - G3, which Mozilla dropped. Both packages, or the trigger rebuilds the old
+# bundle.
+RUN apk upgrade --no-cache ca-certificates ca-certificates-bundle
 COPY frontend/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=builder /app/frontend/dist /usr/share/nginx/html
 

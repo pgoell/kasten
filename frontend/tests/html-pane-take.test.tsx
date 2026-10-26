@@ -465,3 +465,71 @@ describe("taking a passage out of an html page", () => {
     expect(dumpsSent(sent)[0]?.text).toContain("[H](../../x/a%5D%5Db.html#s1)");
   });
 });
+
+describe("saving a story to share later", () => {
+  const STORY = {
+    kasten: "share",
+    heading: "Results",
+    anchor: "s1",
+    source: "https://news.example/one",
+  };
+  const today = () => readClock(new Date()).date;
+  const LINE = () =>
+    `- [ ] share [Results](https://news.example/one) ([[${PATH}#s1|in the paper]]) #share ➕ ${today()}`;
+
+  it("a press writes the todo into the dump, tells the page, and a second press adds nothing", async () => {
+    const sent = answering();
+    const { frame } = renderPane();
+    const posted = vi
+      .spyOn(frame.contentWindow as Window, "postMessage")
+      .mockImplementation(() => {});
+
+    frame.focus();
+    fromPage(frame.contentWindow, STORY);
+    fromPage(frame.contentWindow, STORY);
+    const toast = await screen.findByRole("status");
+
+    expect(dumpsSent(sent).map((dump) => dump.text)).toEqual([LINE()]);
+    expect(within(toast).getByText("Saved to share later")).not.toBeNull();
+    expect(within(toast).queryByRole("button", { name: "Put it in a note" })).toBeNull();
+    expect(posted).toHaveBeenCalledWith({ kasten: "shared", anchor: "s1" }, "*");
+    expect(posted).not.toHaveBeenCalledWith(expect.objectContaining({ kasten: "take" }), "*");
+  });
+
+  it("is not saved while the frame does not hold the focus", async () => {
+    const sent = answering();
+    const { frame } = renderPane();
+
+    fromPage(frame.contentWindow, STORY);
+    await settled(() => false);
+
+    expect(dumpsSent(sent)).toEqual([]);
+  });
+
+  it("Undo takes the todo out and gives the page its button back", async () => {
+    answering();
+    const note = () => `## Dump\n\n${LINE()}\n`;
+    fetchNote.mockImplementation(async () => note());
+    saveNote.mockResolvedValue({ path: DAILY, content: "" });
+    const { frame } = renderPane();
+    const posted = vi
+      .spyOn(frame.contentWindow as Window, "postMessage")
+      .mockImplementation(() => {});
+
+    frame.focus();
+    fromPage(frame.contentWindow, STORY);
+    fireEvent.click(await screen.findByRole("button", { name: "Undo" }));
+
+    await waitFor(() => expect(saveNote).toHaveBeenCalledTimes(1));
+    expect(saveNote).toHaveBeenCalledWith(
+      DAILY,
+      expect.not.stringContaining("#share"),
+      false,
+      noteBase(note()),
+    );
+    await waitFor(() =>
+      expect(posted).toHaveBeenCalledWith({ kasten: "unshared", anchor: "s1" }, "*"),
+    );
+    expect(posted).not.toHaveBeenCalledWith(expect.objectContaining({ kasten: "untake" }), "*");
+  });
+});

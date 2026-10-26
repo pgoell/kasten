@@ -12,6 +12,8 @@ import { periodicNote } from "@/lib/periodic";
 export interface Taking extends ToastTaking {
   /** Called with this take's id once it is kept, for what this take alone holds. */
   onKept?: (id: number) => void;
+  /** The toast's line once the take has landed. "Taken into today's dump" when left out. */
+  landed?: string;
 }
 
 /**
@@ -55,7 +57,7 @@ export function useDumpTake(o: {
   async function take(taking: Taking): Promise<boolean> {
     const now = new Date();
     const daily = periodicNote("daily", now).path;
-    const quote = quoteBlock(taking.text, taking.linkIn(daily));
+    const quote = taking.line?.(daily) ?? quoteBlock(taking.text, taking.linkIn(daily));
     marks.current += 1;
     const id = marks.current;
     // Read before the first await, so a forget() during the keep or the send shows.
@@ -74,8 +76,9 @@ export function useDumpTake(o: {
 
     // Kept on a document the pane has left: the mark and the passage's onKept belong to
     // the old one, so they are skipped. The line is still sent.
+    // A line of its own is no selection, so there is nothing on the page to mark.
     if (!moved()) {
-      markedRef.current(id);
+      if (taking.line === undefined) markedRef.current(id);
       taking.onKept?.(id);
     }
     // The same answers `capture` gives, in the take's words.
@@ -86,7 +89,7 @@ export function useDumpTake(o: {
       // The daily note is read over the network, so the pane may move on while it is.
       const undo = await undoFor(daily, quote, id);
       if (moved()) return true;
-      toast.show("Taken into today's dump", taking, undo);
+      toast.show(taking.landed ?? "Taken into today's dump", taking, undo);
     } else if (mine.refused !== undefined) {
       toast.show(mine.refused, taking);
     } else if (failure?.kind === "sign-in") {

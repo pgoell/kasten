@@ -1,7 +1,7 @@
 ---
 type: Reference
 title: Editor keys, capture
-description: The keys that bring a web page, a markdown file or a thought into the vault, and the key that takes a note back out.
+description: The keys that bring a web page, a markdown file or a thought into the vault, the button that saves a newspaper story to share later, and the key that takes a note back out.
 tags: [editor, keyboard, capture, import, frontend]
 status: stable
 ---
@@ -101,6 +101,29 @@ wikilink would, and a rename or move keeps it pointing at the file.
 A take whose send lands after its pane has moved to another page or pdf still
 lands in the dump, but shows no note over the new document, and so no Undo;
 the line is edited in the daily note. A selection made after `y` stays.
+
+## Saving a story to share later
+
+A newspaper in the vault shows a Share later button beside each story's id.
+A press writes a todo into today's dump, by the same route and with the same
+toast, Undo and outbox as a take:
+
+```markdown
+- [ ] share [<headline>](<source>) ([[<page>#<story id>|in the paper]]) #share ➕ <date>
+```
+
+A story that links to no source gets `- [ ] share [[<page>#<story id>|<headline>]] #share ➕ <date>`.
+The headline loses the characters that would open a link, a tag or markup, and
+sits inside a link either way, so a date or a marker in it gives the todo no
+field. The source must be an `http` or `https` address of 2000 characters at
+most, or the line leaves it out. `#share` in the todo pane's [filter line](/reference/todo-format/tags-projects-and-views.md#filter-terms) lists every story
+still to send.
+
+The button then reads Saved to share until Undo takes the todo back out. A story
+is saved once while its page is open; a second press does nothing. The toast
+offers no Put it in a note, since there is no passage to put. Where the button
+goes and which link counts as the source is in the
+[HTML theme contract](/reference/html-theme-contract.md#what-kasten-adds).
 
 ## Importing markdown, and taking a note out
 
