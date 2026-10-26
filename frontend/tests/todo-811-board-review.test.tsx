@@ -137,6 +137,14 @@ describe("the board's review fixes (#811 R7)", () => {
     }
   });
 
+  it("#811 L1 the focused card draws no tinted ground", async () => {
+    const pane = await boardPane();
+
+    // The keyboard cursor is the outline alone: a tint behind the card would drop its text under 4.5:1.
+    expect(pane.cursor()).toContain("send the invoice");
+    expect(pane.card("send the invoice").className).not.toContain("bg-k-accent");
+  });
+
   it("#811 F1 a lost pointer capture on a card inside the column does not end the swipe", async () => {
     stubMatchMedia({ [NARROW]: true, [COARSE]: true });
     const pane = await boardPane();

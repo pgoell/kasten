@@ -348,7 +348,7 @@ export function TodoBoard({
   }
 
   return (
-    <div ref={root} className="flex-1 overflow-auto py-1 font-sans text-[13px]">
+    <div ref={root} className="flex-1 overflow-auto py-1 font-sans text-k-13">
       {picker !== null && (
         <BoardPicker
           title={picker.hit.text}
@@ -422,7 +422,7 @@ export function TodoBoard({
                   shut ? undefined : (event) => hover(event, name, COLUMNS[col] ?? "open", lane.id)
                 }
                 onPointerLeave={unhover}
-                className={shut ? undefined : lit(name)}
+                className={`flex flex-col gap-1 ${shut ? "" : lit(name)}`}
               >
                 <LaneHeading
                   name={lane.name}
@@ -446,7 +446,7 @@ export function TodoBoard({
             <div
               key={name}
               data-testid="todo-column"
-              className={`${heading} ${index === col ? "text-k-ink" : ""}`}
+              className={`${heading} px-3 ${index === col ? "text-k-ink" : ""}`}
             >
               {name === "rejected" ? (
                 // Folded, the track is 3rem, too narrow for the word, so it reads as a
@@ -482,7 +482,7 @@ export function TodoBoard({
                   open={!shut}
                   locked={false}
                   coarse={coarse}
-                  span="col-span-7 border-t border-k-rule"
+                  span="col-span-7 border-t border-k-rule px-3"
                   onToggle={() => toggleLane(lane.id)}
                 />
                 {!shut &&
@@ -497,7 +497,7 @@ export function TodoBoard({
                         data-over={marked(name)}
                         onPointerOver={(event) => hover(event, name, column, lane.id)}
                         onPointerLeave={unhover}
-                        className={`min-w-0 ${index === 0 ? "pl-3" : "pl-1"} pr-1 ${lit(name)}`}
+                        className={`flex min-w-0 flex-col gap-1 ${index === 0 ? "pl-3" : "pl-1"} pr-1 ${lit(name)}`}
                       >
                         {lane.cells[index]?.map((card) => drawCard(card, lane.id))}
                       </div>

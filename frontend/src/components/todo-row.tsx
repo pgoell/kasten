@@ -36,17 +36,21 @@ function clocks(todo: Todo): string | null {
  * since it is part of what the sentence says. A todo made of nothing but tags
  * keeps its text, so the row is never blank.
  */
-function wordsOf(text: string, tags: string[]): string {
+export function wordsOf(text: string, tags: string[]): string {
   const words = text.split(" ");
   while (words.length > 0 && tags.includes(words[words.length - 1] ?? "")) words.pop();
   const rest = words.join(" ").trimEnd();
   return rest === "" ? text : rest;
 }
 
-/** The keyboard cursor, drawn the way the file tree draws its own. */
+/**
+ * The keyboard cursor, an outline only. A tint on the ground would sit under
+ * the muted and danger text and push it below 4.5:1, so the row keeps its
+ * ground and the outline carries the cursor.
+ */
 const CURSOR = [
   "outline-1 -outline-offset-1 outline-k-accent/45",
-  "focus:outline-2 focus:outline-k-accent focus:bg-k-accent/15",
+  "focus:outline-2 focus:outline-k-accent",
 ].join(" ");
 
 /**
@@ -130,10 +134,16 @@ export function TodoRow({
       // heading of its own: its state is written on the line, and
       // the date group is still where the work belongs. A waiting
       // row is held the same way, by a person rather than a todo.
-      className={`k-row flex w-full min-w-0 cursor-pointer items-center gap-2 px-3 py-[3px] text-left font-sans ${muted ? "text-k-muted" : "text-k-ink"} ${cursor ? CURSOR : ""} ${coarse ? "min-h-11" : ""} ${enter === undefined ? "" : "k-enter"}`}
+      className={`k-row flex w-full min-w-0 max-w-[52rem] cursor-pointer items-start gap-2 px-3 py-[3px] text-left font-sans ${muted ? "text-k-muted" : "text-k-ink"} ${cursor ? CURSOR : ""} ${coarse ? "min-h-11" : ""} ${enter === undefined ? "" : "k-enter"}`}
     >
       {/* On touch the state button in front of the row carries the box instead. */}
-      {!coarse && <TodoStateBox state={todo.state} />}
+      {/* Top-aligned with the words, the way the touch button is, so the box
+        sits on the line the words are on and not between the two lines. */}
+      {!coarse && (
+        <span className="mt-[3px] flex shrink-0">
+          <TodoStateBox state={todo.state} />
+        </span>
+      )}
       <span className="flex min-w-0 flex-1 flex-col">
         <span className="flex min-w-0 items-baseline gap-2 text-k-15">
           {/* Leftmost of what a row carries beyond its state, so
@@ -167,7 +177,7 @@ export function TodoRow({
           </span>
         </span>
         {meta && (
-          <span className="flex min-w-0 flex-wrap items-center gap-x-2 text-[12px] text-k-muted">
+          <span className="flex min-w-0 flex-wrap items-center gap-x-2 text-k-12 text-k-muted">
             {hit.project != null && <span className="shrink-0">{laneName(hit.project)}</span>}
             {todo.tags.length > 0 && <span className="shrink-0">{todo.tags.join(" ")}</span>}
             {/* Who the todo is for, out of the words' truncation the way the date is
@@ -209,7 +219,7 @@ export function TodoRow({
         sooner. */}
       {todo.due !== undefined && (
         <span
-          className={`shrink-0 text-[13px] tabular-nums ${overdue ? "text-k-danger" : "text-k-muted"}`}
+          className={`shrink-0 text-k-13 tabular-nums ${overdue ? "text-k-danger" : "text-k-muted"}`}
         >
           {todo.due.startsWith(today.slice(0, 4)) ? todo.due.slice(5) : todo.due}
         </span>

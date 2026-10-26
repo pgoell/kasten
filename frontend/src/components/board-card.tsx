@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { chipNote, PersonChip } from "@/components/person-chip";
 import type { Card } from "@/components/todo-board";
+import { wordsOf } from "@/components/todo-row";
 import type { SearchHit, TodoHit } from "@/lib/api";
 import { isOpen, PRIORITY_SYMBOL, type Todo, type TodoState } from "@/lib/todo";
 import type { Closed } from "@/lib/todo-blocked";
@@ -23,7 +24,7 @@ export const SET: Record<string, TodoState> = {
 /** The keyboard cursor, the list's own. */
 export const CURSOR = [
   "outline-1 -outline-offset-1 outline-k-accent/45",
-  "focus:outline-2 focus:outline-k-accent focus:bg-k-accent/15",
+  "focus:outline-2 focus:outline-k-accent",
 ].join(" ");
 
 interface CardMetaProps {
@@ -37,7 +38,7 @@ interface CardMetaProps {
 function CardMeta({ progress, blockers, assignee, files }: CardMetaProps) {
   if (progress === undefined && blockers.length === 0 && assignee === undefined) return null;
   return (
-    <span className="flex w-full gap-2 text-[12px] text-k-muted">
+    <span className="flex w-full gap-2 text-k-12 text-k-muted">
       {progress !== undefined && <span className="shrink-0">{progress}</span>}
       {blockers.length > 0 && (
         <span title={`waits for:\n${blockers.join("\n")}`} className="min-w-0 truncate">
@@ -91,7 +92,7 @@ function CardMore({ card, more, onMore, onCycle, onProject, onRefile, children }
         </button>
       </div>
       {opened && (
-        <div className="flex flex-wrap px-1 text-[12px] text-k-muted">
+        <div className="flex flex-wrap px-1 text-k-12 text-k-muted">
           {actions.map(([label, run]) => (
             <button
               key={label}
@@ -186,19 +187,19 @@ export function BoardCard({
       }}
       title={key}
       // The card sits on `paper`, not `surface`: the due date's red is measured on that ground.
-      className={`flex min-w-0 cursor-pointer flex-col gap-0.5 ${coarse ? "flex-1" : "w-full"} rounded-[var(--k-radius-6)] border border-k-rule bg-k-paper px-2 py-1.5 text-left font-sans text-[13px] text-k-ink ${focused ? CURSOR : ""} ${coarse ? "min-h-11 justify-center" : ""} ${lifted ? "opacity-40" : ""}`}
+      className={`flex min-w-0 cursor-pointer flex-col gap-0.5 ${coarse ? "flex-1" : "w-full"} rounded-[var(--k-radius-6)] border border-k-rule bg-k-paper px-2 py-1.5 text-left font-sans text-k-13 text-k-ink k-row ${focused ? CURSOR : ""} ${coarse ? "min-h-11 justify-center" : ""} ${lifted ? "opacity-40" : ""}`}
     >
       {parent !== undefined && (
-        <span className="w-full truncate text-[12px] text-k-muted">↳ {parent.todo.text}</span>
+        <span className="w-full truncate text-k-12 text-k-muted">↳ {parent.todo.text}</span>
       )}
       <span className="flex w-full gap-2">
         {todo.priority !== undefined && (
           <span className="shrink-0">{PRIORITY_SYMBOL[todo.priority]}</span>
         )}
-        <span className="min-w-0 flex-1 truncate">{todo.text}</span>
+        <span className="min-w-0 flex-1 truncate">{wordsOf(todo.text, todo.tags)}</span>
         {/* Cut as the list cuts it: the year only where it is not this one. */}
         {todo.due !== undefined && (
-          <span className={`shrink-0 text-[12px] ${overdue ? "text-k-danger" : "text-k-muted"}`}>
+          <span className={`shrink-0 text-k-12 ${overdue ? "text-k-danger" : "text-k-muted"}`}>
             {todo.due.startsWith(today.slice(0, 4)) ? todo.due.slice(5) : todo.due}
           </span>
         )}

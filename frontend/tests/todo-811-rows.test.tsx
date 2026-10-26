@@ -35,13 +35,16 @@ function factsOf(over: Partial<RowFacts> = {}): RowFacts {
 }
 
 /** A row drawn on its own, with the props the list passes it. */
-function drawRow(row: Row, over: { coarse?: boolean; facts?: RowFacts; files?: string[] } = {}) {
+function drawRow(
+  row: Row,
+  over: { coarse?: boolean; facts?: RowFacts; files?: string[]; cursor?: boolean } = {},
+) {
   return render(
     <TodoRow
       row={row}
       facts={over.facts ?? factsOf()}
       today={TODAY}
-      cursor={false}
+      cursor={over.cursor ?? false}
       muted={false}
       coarse={over.coarse ?? false}
       indent={{}}
@@ -197,6 +200,14 @@ it("#811 A2 the words drop the trailing tags the meta line shows and keep a tag 
   // The meta line holds every tag of the todo, in the order written.
   expect(screen.getByText("#work #client")).toBeInTheDocument();
   expect(document.querySelector(`[data-row="${PATH}:1"]`)?.getAttribute("title")).toBe(`${PATH}:1`);
+});
+
+it("#811 L1 the cursor row draws no tinted ground", () => {
+  // A tint behind the row would sit under its muted and danger text.
+  drawRow(rowOf(1, "- [ ] file the expense report 📅 2026-10-20"), { cursor: true });
+  const row = document.querySelector(`[data-row="${PATH}:1"]`) as HTMLElement;
+  expect(row.className).not.toContain("bg-k-accent/15");
+  expect(row.className).toContain("outline-k-accent");
 });
 
 it("#811 A2 an overdue date on a phone row is drawn in the danger colour, a muted row too", () => {

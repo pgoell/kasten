@@ -1,5 +1,5 @@
 /** The heading a board draws over its lanes and columns, in the same type. */
-export const HEADING = "px-3 pt-2 pb-1 text-[11px] tracking-wider text-k-muted uppercase";
+export const HEADING = "pt-2 pb-1 text-k-12 tracking-[var(--k-track-label)] text-k-muted uppercase";
 
 interface LaneHeadingProps {
   name: string;
@@ -39,7 +39,7 @@ export function LaneHeading({
         // The count is drawn from the attribute, not typed as text, so the heading's text
         // stays the lane's name: a folded lane's count is still there, and the names read alone.
         data-count={count}
-        className={`flex w-full items-center gap-1.5 text-left after:ml-1 after:text-[12px] after:text-k-muted after:content-[attr(data-count)] ${coarse ? "min-h-11" : ""}`}
+        className={`k-row flex w-full items-center gap-1.5 text-left uppercase after:text-k-12 after:text-k-muted after:content-[attr(data-count)] ${coarse ? "min-h-11" : ""}`}
       >
         <svg
           aria-hidden="true"

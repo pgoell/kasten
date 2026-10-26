@@ -16,6 +16,16 @@ const STEP = 1.1;
 const GUTTER = 0.75;
 
 /**
+ * A group heading's face: the label size and tracking the theme sets, in the
+ * muted colour. The fold's button takes the same face, since a button resets
+ * its text transform and would otherwise drop the capitals.
+ */
+const HEADING_TEXT = "font-sans text-k-12 tracking-[var(--k-track-label)] text-k-muted uppercase";
+
+/** A group heading, capped at the width a row is, so its label stays by its rows. */
+const HEADING = `max-w-[52rem] px-3 pt-2 pb-1 ${HEADING_TEXT}`;
+
+/**
  * The list of rows under their headings: the row itself, and on touch the
  * state button and `⋯` beside it, with the input a row turns into while it is
  * edited.
@@ -85,12 +95,12 @@ export function TodoList(p: {
     /* A list that moves under the finger has moved the armed row with it. */
     <div className="flex-1 overflow-auto py-1" onScroll={() => onArm(null)}>
       {empty !== null ? (
-        <p className="px-3 py-1 text-[13px] text-k-muted">{empty}</p>
+        <p className="px-3 py-1 text-k-13 text-k-muted">{empty}</p>
       ) : (
         groups.map(({ heading, rows: group }) => (
           <div key={heading}>
             {/* The count beside the name, so a group reads its size before its rows. */}
-            <h3 className="px-3 pt-2 pb-1 font-sans text-[12px] tracking-wider text-k-muted uppercase">
+            <h3 className={HEADING}>
               {heading} {group.length}
             </h3>
             {group.map((row) => {
@@ -134,7 +144,7 @@ export function TodoList(p: {
                       // row of the list, at the list's size, wearing the
                       // keyboard cursor's own outline, because this row is
                       // where the keys are going.
-                      className="w-full bg-k-accent/15 px-3 py-[3px] text-[13px] text-k-ink outline-2 -outline-offset-1 outline-k-accent pointer-coarse:text-base"
+                      className="w-full bg-k-accent/15 px-3 py-[3px] text-k-13 text-k-ink outline-2 -outline-offset-1 outline-k-accent pointer-coarse:text-base"
                     />
                     <TodoHints
                       found={lineSuggestions(editing.line, today, true)}
@@ -217,14 +227,24 @@ export function TodoList(p: {
                     aria-pressed={asking}
                     data-armed={asking ? "" : undefined}
                     style={indent}
-                    className={`flex min-h-11 min-w-11 shrink-0 items-center pr-2 text-left text-[13px] ${
+                    className={`flex min-h-11 min-w-11 shrink-0 items-start pr-2 text-left text-k-13 ${
                       asking ? "text-k-accent" : held ? "text-k-muted" : "text-k-ink"
                     }`}
                   >
+                    {/* Top-aligned with the words of the row beside it, as the box on desktop is. */}
                     {asking ? (
-                      <>{next === undefined ? null : <TodoStateBox state={next} />}?</>
+                      <>
+                        {next === undefined ? null : (
+                          <span className="mt-[3px] flex shrink-0">
+                            <TodoStateBox state={next} />
+                          </span>
+                        )}
+                        ?
+                      </>
                     ) : (
-                      <TodoStateBox state={todo.state} />
+                      <span className="mt-[3px] flex shrink-0">
+                        <TodoStateBox state={todo.state} />
+                      </span>
                     )}
                   </button>
                   <TodoRow
@@ -250,13 +270,14 @@ export function TodoList(p: {
         default: the open work is what a person comes to the list for. */}
       {doneWeek.length > 0 && (
         <div>
-          <h3 className="px-3 pt-2 pb-1 font-sans text-[12px] tracking-wider text-k-muted uppercase">
+          <h3 className={HEADING}>
             <button
               type="button"
               tabIndex={-1}
               aria-expanded={doneOpen}
               onClick={onDoneFold}
-              className="flex w-full items-center gap-1 pointer-coarse:min-h-11"
+              // A full-width button tints on a press, as a row does, rather than scaling.
+              className={`k-row flex w-full items-center gap-1 pointer-coarse:min-h-11 ${HEADING_TEXT}`}
             >
               {/* A chevron that turns to point down when open, as the file tree's does. */}
               <span
@@ -292,8 +313,8 @@ export function TodoList(p: {
               // Not a button: a done row has no cycle to answer to.
               if (!coarse) return drawn;
               return (
-                <div key={key} className="flex min-w-0 items-center">
-                  <span className="flex w-11 shrink-0 justify-center">
+                <div key={key} className="flex min-w-0 items-start">
+                  <span className="mt-[3px] flex w-11 shrink-0 justify-center">
                     <TodoStateBox state={row.todo.state} />
                   </span>
                   {drawn}
