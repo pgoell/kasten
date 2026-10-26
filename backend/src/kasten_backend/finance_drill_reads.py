@@ -6,16 +6,17 @@ salary booked after the cutoff day counts for the next month, and then kept by
 """
 
 from calendar import monthrange
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING
 
-from sqlalchemy import func, select
+from sqlalchemy import case, func, select
 from sqlalchemy.orm import selectinload
 
 from kasten_backend import finance
 from kasten_backend import finance_models as tables
+from kasten_backend.finance_budget_reads import cutoff_day
 from kasten_backend.finance_drill import booking_months
-from kasten_backend.finance_ledger import add_months
+from kasten_backend.finance_ledger import Account, add_months, scope_of
 from kasten_backend.finance_plan_models import Plan, PlanMatch
 
 if TYPE_CHECKING:
@@ -35,61 +36,104 @@ def last_day(month: dt.date) -> dt.date:
     return month.replace(day=monthrange(month.year, month.month)[1])
 
 
+@dataclass(frozen=True)
+class Reading:
+    """What deciding a booking's budget months takes, beside the booking.
+
+    `scoped` is the accounts in mine or household: a booking on an own saving
+    account counts nowhere, so no drilldown lists it. `own` is each own
+    account's IBAN, which names a move whose other half is not in yet.
+    """
+
+    categories: dict[int, Category]
+    cutoff: int
+    scoped: frozenset[int]
+    own: dict[str, int]
+
+    def moves(self, booking: tables.Transaction) -> bool:
+        """Whether a booking is a move between own accounts, its twin in or not."""
+        if booking.transfer_group is not None:
+            return True
+        other = self.own.get(booking.counterparty_iban or "")
+        return other is not None and other != booking.account_id
+
+    def months(
+        self,
+        booking: tables.Transaction,
+        *,
+        category: int | None = None,
+        counted: bool = False,
+    ) -> set[dt.date]:
+        """The budget months a booking counts in, as the ledger counts it.
+
+        With `category`, by that category's parts alone, and a move between own
+        accounts in none. With `counted`, as a payee's figures count it: no
+        move, no `ignore` part, no money in not sorted.
+        """
+        if booking.account_id not in self.scoped:
+            return set()
+        parts = [(s.amount, s.category_id) for s in booking.splits] or [
+            (booking.amount, booking.category_id)
+        ]
+        if (category is not None or counted) and self.moves(booking):
+            return set()
+        if category is not None:
+            parts = [(amount, c) for amount, c in parts if c == category]
+        if counted:
+            parts = [
+                (amount, c)
+                for amount, c in parts
+                if (amount < 0 if c is None else self.categories[c].kind != "ignore")
+            ]
+        return booking_months(booking.booking_date, parts, self.categories, self.cutoff)
+
+
+async def reading(session: AsyncSession, categories: dict[int, Category]) -> Reading:
+    """The reading for every account there is."""
+    accounts = await finance.list_accounts(session)
+    return Reading(
+        categories,
+        await cutoff_day(session),
+        frozenset(a.id for a in accounts if scope_of(Account(a.shared, a.kind)) is not None),
+        {a.iban: a.id for a in accounts if a.iban},
+    )
+
+
 async def month_bookings(
     session: AsyncSession,
     filters: finance.Filters,
     month: dt.date,
-    categories: dict[int, Category],
-    cutoff: int,
+    how: Reading,
 ) -> list[tuple[tables.Transaction, set[dt.date]]]:
-    """The bookings that pass `filters` and count in budget `month`, newest first."""
+    """The bookings that pass `filters` and count in budget `month`, newest first.
+
+    With a category in `filters`, a booking counts by that category's parts.
+    """
     span = replace(filters, first=add_months(month, -1), last=last_day(month))
     found = await finance.list_transactions(
         session, span, after=None, limit=MOST, newest_first=True
     )
     kept = []
     for booking in found:
-        parts = [(s.amount, s.category_id) for s in booking.splits] or [
-            (booking.amount, booking.category_id)
-        ]
-        months = booking_months(booking.booking_date, parts, categories, cutoff)
+        months = how.months(booking, category=filters.category)
         if month in months:
             kept.append((booking, months))
     return kept
 
 
-async def booking_counts(  # noqa: PLR0913  each input of the count is its own argument
-    session: AsyncSession,
-    filters: finance.Filters,
-    months: list[dt.date],
-    *,
-    categories: dict[int, Category],
-    cutoff: int,
-    own: set[str],
+async def booking_counts(
+    session: AsyncSession, filters: finance.Filters, months: list[dt.date], how: Reading
 ) -> dict[dt.date, int]:
     """How many bookings count in each of `months`, as a payee's figures count them.
 
-    A move between own accounts is none, nor a booking in an `ignore` category
-    or money in not sorted yet.
-
-    `own` is the own accounts' IBANs, which name a move whose other half is not in yet.
+    A move between own accounts is none, nor a booking in an `ignore` category,
+    money in not sorted yet, or a booking on an own saving account.
     """
     span = replace(filters, first=add_months(months[0], -1), last=last_day(months[-1]))
     found = await finance.list_transactions(session, span, after=None, limit=MOST)
     count = dict.fromkeys(months, 0)
     for booking in found:
-        if booking.transfer_group is not None or booking.counterparty_iban in own:
-            continue
-        parts = [(s.amount, s.category_id) for s in booking.splits] or [
-            (booking.amount, booking.category_id)
-        ]
-        # Only the parts the payee's figures count: no `ignore`, no money in not sorted.
-        parts = [
-            (amount, c)
-            for amount, c in parts
-            if (amount < 0 if c is None else categories[c].kind != "ignore")
-        ]
-        for month in booking_months(booking.booking_date, parts, categories, cutoff):
+        for month in how.months(booking, counted=True):
             if month in count:
                 count[month] += 1
     return count
@@ -104,6 +148,25 @@ async def snapshots(session: AsyncSession, account: int) -> list[tuple[dt.date, 
         .order_by(snapshot.date)
     )
     return [(day, amount) for day, amount in rows]
+
+
+async def sides(session: AsyncSession, account: int) -> dict[dt.date, tuple[Decimal, Decimal]]:
+    """Each month's money in and money out on the account, by booking date, both positive.
+
+    Summed apart, so a refund on a day of spending does not net the two.
+    """
+    booking = tables.Transaction
+    month = func.date_trunc("month", booking.booking_date)
+    rows = await session.execute(
+        select(
+            month,
+            func.coalesce(func.sum(case((booking.amount > 0, booking.amount))), 0),
+            func.coalesce(func.sum(case((booking.amount < 0, -booking.amount))), 0),
+        )
+        .where(booking.account_id == account)
+        .group_by(month)
+    )
+    return {at.date(): (money_in, money_out) for at, money_in, money_out in rows}
 
 
 async def daily(session: AsyncSession, account: int) -> list[tuple[dt.date, Decimal]]:
@@ -133,9 +196,15 @@ async def rules_of(session: AsyncSession, category: int | None = None) -> list[t
     return list(await session.scalars(statement))
 
 
-def names_payee(rule: tables.Rule, key: str) -> bool:
-    """Whether a payee rule matches a payee key: its pattern starts at a word of the key."""
-    return rule.kind == "payee" and f" {rule.pattern}" in f" {key}"
+def names_payee(rule: tables.Rule, key: str, sides: set[str]) -> bool:
+    """Whether a payee rule sorts some of a payee's bookings.
+
+    Its pattern starts at a word of the key, and it sorts a side the payee's
+    bookings are on: `in` for money in, `out` for money out; `both` sorts either.
+    """
+    if rule.kind != "payee" or f" {rule.pattern}" not in f" {key}":
+        return False
+    return rule.side == "both" or rule.side in sides
 
 
 async def matched_plans(session: AsyncSession, transaction: int) -> list[tuple[int, str, dt.date]]:

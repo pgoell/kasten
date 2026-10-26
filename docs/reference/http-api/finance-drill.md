@@ -34,8 +34,11 @@ The four month reads take `month` (`YYYY-MM`, required) and `months` (1 to
 A scope's, a category's and a payee's bookings are those that count in the
 budget month: a salary booked after the cutoff day lists in the month after
 its booking date. A split booking lists in each month one of its splits
-counts in. An account's bookings go by booking date, as its bank balance
-does.
+counts in; in a category's view, only its splits in that category decide.
+A booking on an own saving account counts in no scope and lists in none of
+these, and a category lists no move between own accounts, even one whose
+other half is not in yet. An account's bookings go by booking date, as its
+bank balance does.
 
 ## GET /api/finance/drill/scopes/{scope}
 
@@ -107,7 +110,8 @@ date.
   was counted from, `null` with none at all, when the balance is the
   bookings summed from zero.
 * `money_in` and `money_out`: what the month's bookings brought in and took
-  out, transfers included.
+  out, transfers included, each summed on its own, so a refund does not net
+  the spending of its day.
 * `categories`: each category's net in the month, signed as bookings are,
   the largest first; `null` for bookings not sorted. `transfers`: the same
   for each other own account. The two add up to what the balance moved.
@@ -161,6 +165,7 @@ the payee rules that name it, and the month's bookings.
     { "month": "2026-10", "spent": "100.00", "received": "0.00", "saved": "0.00", "bookings": 1 }
   ],
   "average": "86.50",
+  "average_received": "0.00",
   "categories": [ { "id": 4, "name": "Groceries", "kind": "flexible", "amount": "70.00" } ],
   "rules": [],
   "bookings": []
@@ -175,11 +180,13 @@ the payee rules that name it, and the month's bookings.
   `received` count them; a move between own accounts, a booking in an
   `ignore` category and money in not sorted yet are none.
 * `average`: the mean `spent` over the whole months before `month`, at most
-  6, from the payee's first month; `null` with none.
+  6, from the payee's first month; `null` with none. `average_received` is
+  the same for `received`, for a payee that pays in, such as an employer.
 * `categories`: what each category got over all the months asked for, the
   largest first.
 * `rules`: the `payee` rules whose pattern starts at a word of the payee's
-  key, as the rules match.
+  key, as the rules match, and that sort a side its bookings are on: a rule
+  for money out does not name a payee that only pays in.
 
 ## GET /api/finance/drill/bookings/{transaction_id}
 

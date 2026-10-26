@@ -7,7 +7,7 @@ read, and list the bookings of the budget month, the salary cutoff included.
 
 from typing import TYPE_CHECKING, Any
 
-from backend.tests.finance_rows import API, booking, category, post
+from backend.tests.finance_rows import API, SAVING, booking, category, post, rule
 from backend.tests.test_finance_budget import household
 
 if TYPE_CHECKING:
@@ -171,3 +171,148 @@ async def test_a_drill_into_nothing_is_a_404(finance_client: AsyncClient) -> Non
     assert (
         await finance_client.get(f"{API}/drill/scopes/theirs", params=OCTOBER)
     ).status_code == 422
+
+
+async def sort(client: AsyncClient, key: str, category_id: int) -> dict[str, Any]:
+    """Set a stored booking's category by hand and hand back the booking."""
+    row = (await by_key(client))[key]
+    await client.put(f"{API}/transactions/{row['id']}/category", json={"category_id": category_id})
+    return row
+
+
+async def test_an_accounts_money_in_and_out_are_summed_apart_within_a_day(
+    finance_client: AsyncClient,
+) -> None:
+    ids = await settled(finance_client)
+    # A refund on the day of 1320 out must not net it down to 1270.
+    await post(
+        finance_client,
+        [booking(ids["giro"], "refund", "50.00", booking_date="2026-10-02", purpose="Rewe")],
+    )
+    found = (await finance_client.get(f"{API}/drill/accounts/{ids['giro']}", params=OCTOBER)).json()
+    october = found["months"][-1]
+    assert (october["money_in"], october["money_out"]) == ("50.00", "1320.00")
+
+
+async def test_a_booking_on_an_own_saving_account_is_in_no_category_or_payee_drill(
+    finance_client: AsyncClient,
+) -> None:
+    ids = await settled(finance_client)
+    fees = await category(finance_client, "Fees", "fixed")
+    accounts = {a["name"]: a["id"] for a in (await finance_client.get(f"{API}/accounts")).json()}
+    await post(
+        finance_client,
+        [
+            booking(
+                accounts["Saving"],
+                "fee",
+                "-5.00",
+                booking_date="2026-10-03",
+                counterparty_name="Bank",
+            )
+        ],
+    )
+    row = await sort(finance_client, "fee", fees)
+    drilled = (await finance_client.get(f"{API}/drill/categories/{fees}", params=OCTOBER)).json()
+    assert drilled["months"][-1]["total"] == "0.00"
+    assert drilled["bookings"] == []
+    payee = (
+        await finance_client.get(f"{API}/drill/payees/{row['payee_id']}", params=OCTOBER)
+    ).json()
+    assert payee["months"][-1] == {
+        "month": "2026-10",
+        "spent": "0.00",
+        "received": "0.00",
+        "saved": "0.00",
+        "bookings": 0,
+    }
+    assert payee["bookings"] == []
+    assert ids
+
+
+async def test_half_a_transfer_whose_twin_is_not_in_is_in_no_category_drill(
+    finance_client: AsyncClient,
+) -> None:
+    ids = await settled(finance_client)
+    await post(
+        finance_client,
+        [
+            booking(
+                ids["giro"], "half", "-200.00", booking_date="2026-10-04", counterparty_iban=SAVING
+            )
+        ],
+    )
+    await sort(finance_client, "half", ids["groceries"])
+    drilled = (
+        await finance_client.get(f"{API}/drill/categories/{ids['groceries']}", params=OCTOBER)
+    ).json()
+    assert drilled["months"][-1]["total"] == "120.00"
+    assert {row["source_key"] for row in drilled["bookings"]} == {"food"}
+
+
+async def test_a_split_across_the_cutoff_lists_by_the_category_asked_for(
+    finance_client: AsyncClient,
+) -> None:
+    ids = await settled(finance_client)
+    fees = await category(finance_client, "Fees", "fixed")
+    await post(
+        finance_client,
+        [booking(ids["giro"], "mixed", "3000.00", booking_date="2026-10-20", purpose="Lohn")],
+    )
+    row = (await by_key(finance_client))["mixed"]
+    split = await finance_client.put(
+        f"{API}/transactions/{row['id']}/splits",
+        json=[{"amount": "3100.00", "text": "pay"}, {"amount": "-100.00", "text": "fee"}],
+    )
+    pay, fee = split.json()["splits"]
+    await finance_client.put(
+        f"{API}/splits/{pay['id']}/category", json={"category_id": ids["salary"]}
+    )
+    await finance_client.put(f"{API}/splits/{fee['id']}/category", json={"category_id": fees})
+
+    def listed(found: dict[str, Any]) -> set[str]:
+        return {b["source_key"] for b in found["bookings"]}
+
+    async def drill(category_id: int, month: str) -> dict[str, Any]:
+        query = {"month": month, "months": 1}
+        return (
+            await finance_client.get(f"{API}/drill/categories/{category_id}", params=query)
+        ).json()
+
+    # The salary part counts for November, the fee part in October.
+    assert "mixed" not in listed(await drill(ids["salary"], "2026-10"))
+    assert "mixed" in listed(await drill(ids["salary"], "2026-11"))
+    assert "mixed" in listed(await drill(fees, "2026-10"))
+    november_fees = await drill(fees, "2026-11")
+    assert november_fees["months"][-1]["total"] == "0.00"
+    assert "mixed" not in listed(november_fees)
+
+
+async def test_a_payee_that_pays_in_averages_its_money_in_and_lists_only_its_sides_rules(
+    finance_client: AsyncClient,
+) -> None:
+    ids = await settled(finance_client)
+    await post(
+        finance_client,
+        [
+            booking(
+                ids["giro"],
+                f"boss{m}",
+                "1000.00",
+                booking_date=f"2026-{m}-05",
+                counterparty_name="Boss",
+            )
+            for m in ("08", "09")
+        ],
+    )
+    for m in ("08", "09"):
+        row = await sort(finance_client, f"boss{m}", ids["contribution"])
+    await rule(finance_client, "payee", "boss", ids["contribution"])
+    await rule(finance_client, "payee", "boss", ids["groceries"])
+    found = (
+        await finance_client.get(f"{API}/drill/payees/{row['payee_id']}", params=OCTOBER)
+    ).json()
+    assert found["average"] == "0.00"
+    assert found["average_received"] == "1000.00"
+    # Boss only pays in, so the rule that sorts money out into Groceries does not name it.
+    assert [r["category_id"] for r in found["rules"]] == [ids["contribution"]]

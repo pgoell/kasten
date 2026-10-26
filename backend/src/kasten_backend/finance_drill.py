@@ -191,10 +191,15 @@ def _payee_month(ledger: Ledger, month: dt.date) -> PayeeMonth:
 
 @dataclass(frozen=True)
 class PayeeView:
-    """A payee's months, its average spending, and what each category got of it."""
+    """A payee's months, its average spending and money in, and what each category got of it.
+
+    `average_received` is for a payee that pays in, such as an employer, whose
+    spending averages nothing.
+    """
 
     months: list[PayeeMonth]
     average: Decimal | None
+    average_received: Decimal | None
     categories: dict[int, Decimal]
 
 
@@ -212,10 +217,11 @@ def payee_view(ledger: Ledger, payee: int, months: list[dt.date]) -> PayeeView:
         amount = sum((counted(sub, category, month).total for month in months), ZERO)
         if amount:
             categories[category] = amount
-    average = part.average(
-        months[-1], AVERAGE_MONTHS, lambda month: _payee_month(part, month).spent
+    average, received = (
+        part.average(months[-1], AVERAGE_MONTHS, lambda at, f=f: getattr(_payee_month(part, at), f))
+        for f in ("spent", "received")
     )
-    return PayeeView([_payee_month(part, month) for month in months], average, categories)
+    return PayeeView([_payee_month(part, month) for month in months], average, received, categories)
 
 
 @dataclass

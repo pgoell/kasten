@@ -140,6 +140,7 @@ class PayeeDrillOut(BaseModel):
     month: str
     months: list[PayeeMonthOut]
     average: Cents | None
+    average_received: Cents | None
     categories: list[PayeeCategoryOut]
     rules: list[RuleOut]
     bookings: list[TransactionOut]
@@ -222,7 +223,7 @@ async def read_scope(
     flows = {a.id: drill.account_flow(ledger.lines, a.id, first, first).net for a in accounts}
     filters = finance.Filters(accounts=tuple(a.id for a in accounts))
     bookings = await drill_reads.month_bookings(
-        session, filters, first, ledger.categories, await reads.cutoff_day(session)
+        session, filters, first, await drill_reads.reading(session, ledger.categories)
     )
     return ScopeDrillOut(
         scope=scope,
@@ -270,8 +271,7 @@ async def read_category(
         session,
         finance.Filters(category=category_id),
         first,
-        ledger.categories,
-        await reads.cutoff_day(session),
+        await drill_reads.reading(session, ledger.categories),
     )
     return CategoryDrillOut(
         category=CategoryOut.model_validate(category),
@@ -311,15 +311,14 @@ async def read_payee(
     if payee is None:
         raise HTTPException(status_code=404, detail="No such payee")
     first = parse_month(month)
-    ledger, cutoff = await reads.ledger(session), await reads.cutoff_day(session)
+    ledger = await reads.ledger(session)
+    how = await drill_reads.reading(session, ledger.categories)
     span = drill.months_to(first, months)
     view = drill.payee_view(ledger, payee_id, span)
     filters = finance.Filters(payee=payee_id)
-    own = {a.iban for a in await finance.list_accounts(session) if a.iban}
-    count = await drill_reads.booking_counts(
-        session, filters, span, categories=ledger.categories, cutoff=cutoff, own=own
-    )
-    bookings = await drill_reads.month_bookings(session, filters, first, ledger.categories, cutoff)
+    count = await drill_reads.booking_counts(session, filters, span, how)
+    bookings = await drill_reads.month_bookings(session, filters, first, how)
+    sides = {"in" if line.amount > 0 else "out" for line in ledger.lines if line.payee == payee_id}
     return PayeeDrillOut(
         payee=PayeeOut.model_validate(payee),
         month=_month(first),
@@ -334,6 +333,7 @@ async def read_payee(
             for m in view.months
         ],
         average=view.average,
+        average_received=view.average_received,
         categories=[
             PayeeCategoryOut(
                 id=c, name=_name(ledger, c), kind=ledger.categories[c].kind, amount=amount
@@ -343,7 +343,7 @@ async def read_payee(
         rules=[
             RuleOut.model_validate(r)
             for r in await drill_reads.rules_of(session)
-            if drill_reads.names_payee(r, payee.key)
+            if drill_reads.names_payee(r, payee.key, sides)
         ],
         bookings=_out(bookings),
     )
@@ -361,17 +361,18 @@ async def read_account(
     ledger = await reads.ledger(session)
     snapshots = await drill_reads.snapshots(session, account_id)
     daily = await drill_reads.daily(session, account_id)
+    sides = await drill_reads.sides(session, account_id)
     found = []
     for at in drill.months_to(first, months):
         balance, start = drill.balance_on(drill_reads.last_day(at), snapshots, daily)
-        moved = [a for d, a in daily if d.replace(day=1) == at]
+        money_in, money_out = sides.get(at, (Decimal(0), Decimal(0)))
         found.append(
             BalanceMonthOut(
                 month=_month(at),
                 balance=balance,
                 balance_from=start,
-                money_in=sum((a for a in moved if a > 0), Decimal(0)),
-                money_out=-sum((a for a in moved if a < 0), Decimal(0)),
+                money_in=money_in,
+                money_out=money_out,
             )
         )
     flow = drill.account_flow(ledger.lines, account_id, first, first)
