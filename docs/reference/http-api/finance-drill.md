@@ -139,8 +139,11 @@ month, the plans and rules behind it, and the month's bookings.
   category.
 * `from_reserve`: the part of it a plan's reserve paid. The sankey draws that
   part as reserved, so its stream into the category is `total` less this.
-* `limit`, `available` and `average`: as
+* `limit` and `available`: as
   [GET /api/finance/budget](/reference/http-api/finance-budget.md) gives them.
+  `average` is the mean of `total` over the whole months before, at most 6,
+  from the category's first month with money: the budget's `average` for a
+  spending category, and money in for an income one.
 * `payees`: what each payee gave the category in `month`, the largest first;
   `id` `null` for bookings with no payee. They add up to the month's `total`.
 * `rules`: the rules that sort into the category.
@@ -168,8 +171,9 @@ the payee rules that name it, and the month's bookings.
   refunds. `received`: money in, in income categories. `saved`: moved into
   an own saving account, or spent in a `saving` category. A move between
   accounts of one scope, or between mine and household, is in none of them.
-* `bookings`: how many bookings count in the month; a move between own
-  accounts is none.
+* `bookings` in a month: how many bookings count in it, as `spent` and
+  `received` count them; a move between own accounts, a booking in an
+  `ignore` category and money in not sorted yet are none.
 * `average`: the mean `spent` over the whole months before `month`, at most
   6, from the payee's first month; `null` with none.
 * `categories`: what each category got over all the months asked for, the
