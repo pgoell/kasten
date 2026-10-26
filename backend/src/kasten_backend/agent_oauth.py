@@ -182,7 +182,11 @@ async def authorization_server(request: Request) -> dict[str, Any]:
 
     `S256` above all: chatgpt.com refuses a server whose metadata omits it,
     before it tries anything. `none` is what lets a client with no secret use the
-    token endpoint, which is both of them.
+    token endpoint, which is both of them. chatgpt.com wants a way to get a
+    `client_id` too, and with neither this flag nor a registration endpoint its
+    add dialog will not submit. The flag lets it send the URL of its own client
+    document as the id; kasten never fetches it, since the redirect allowlist,
+    not the client, is what decides where a code goes.
     """
     root = origin(request)
 
@@ -196,6 +200,7 @@ async def authorization_server(request: Request) -> dict[str, Any]:
         "token_endpoint_auth_methods_supported": ["none"],
         "scopes_supported": [SCOPE],
         "authorization_response_iss_parameter_supported": True,
+        "client_id_metadata_document_supported": True,
     }
 
 

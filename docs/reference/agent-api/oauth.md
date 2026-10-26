@@ -86,13 +86,20 @@ RFC 8414. Every field here is read by one product or the other.
   "code_challenge_methods_supported": ["S256"],
   "token_endpoint_auth_methods_supported": ["none"],
   "scopes_supported": ["kasten:notes"],
-  "authorization_response_iss_parameter_supported": true
+  "authorization_response_iss_parameter_supported": true,
+  "client_id_metadata_document_supported": true
 }
 ```
 
 `S256` above all: chatgpt.com refuses a server whose metadata omits it before it
 tries anything. `none` is what lets a client with no secret reach the token
 endpoint, which is both of them.
+
+`client_id_metadata_document_supported` is for chatgpt.com, which needs a way to
+get a `client_id` and greys out its add button when the server offers none.
+With the flag it sends `https://chatgpt.com/oauth/client.json` as the id and
+skips registration. kasten never fetches that document and never reads a
+`client_id` at all: the redirect allowlist below decides where a code goes.
 
 ### GET and POST /api/oauth/authorize
 

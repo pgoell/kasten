@@ -102,6 +102,17 @@ async def test_the_metadata_promises_s256(client: AsyncClient, agent_vault: Path
     assert metadata["issuer"] == "http://test"
 
 
+async def test_the_metadata_offers_chatgpt_a_client_id(
+    client: AsyncClient, agent_vault: Path
+) -> None:
+    # With no registration endpoint, chatgpt.com's add dialog will not submit
+    # unless the server says it takes a client metadata document URL as the id.
+    metadata = (await client.get("/.well-known/oauth-authorization-server")).json()
+
+    assert metadata["client_id_metadata_document_supported"] is True
+    assert "registration_endpoint" not in metadata
+
+
 async def test_the_mcp_401_points_at_the_metadata(client: AsyncClient, agent_vault: Path) -> None:
     # The one thing that turns a refusal into a sign-in. Without it a client has
     # nothing to discover and stops.
