@@ -274,10 +274,13 @@ function tokensFor(spec: Generated, picks: Pick[], base: Record<Theme, Tokens>, 
  * Picks one Wada colour per slot. A pick sits at least MIN_APART from every
  * earlier pick of the palette, and among those is nearest in hue to poel's value
  * of the slot. Only when none is left at MIN_APART does the farthest one go in.
+ * The warn is first limited to colours at least WARN_APART from the accent, so
+ * the two stay apart even where the pool would put a near colour in their place.
  */
 function generated(id: GeneratedId, base: Record<Theme, Tokens>): TokenSet {
   const spec = GENERATED[id];
-  const pool = poolFor(spec, rgbToLch(hexRgb(spec.accent.light)).h);
+  const accentHue = rgbToLch(hexRgb(spec.accent.light)).h;
+  const pool = poolFor(spec, accentHue);
   const taken = new Set<string>();
   const picks: Pick[] = [];
   for (const slot of SLOTS) {
@@ -290,7 +293,8 @@ function generated(id: GeneratedId, base: Record<Theme, Tokens>): TokenSet {
       .map((p) => ({
         ...p,
         hue: rgbToLch(hexRgb(fitSeed(p.wada.hex, ground, bar, "light"))).h,
-      }));
+      }))
+      .filter((p) => slot !== "--k-warn" || hueGap(p.hue, accentHue) >= WARN_APART);
     const apart = (hue: number) => Math.min(360, ...picks.map((q) => hueGap(hue, q.hue)));
     const nearest = (a: (typeof free)[number], b: (typeof free)[number]) =>
       hueGap(a.lch.h, target) - hueGap(b.lch.h, target) ||
@@ -337,6 +341,14 @@ export function css(): string {
   }).join("\n\n");
 }
 
+/**
+ * The least hue gap, in degrees, between a palette's warn and its accent. Lightness is
+ * fixed by the contrast fit and chroma is capped, so hue is the only axis left to
+ * tell them apart. 60 is one sixth of the wheel, the step from red to yellow. The
+ * pick of --k-warn only takes colours this far from the accent.
+ */
+const WARN_APART = 60;
+
 export interface Measures {
   accentOnPaper: number;
   accentOnSurface: number;
@@ -348,6 +360,8 @@ export interface Measures {
   lowestStatus: number;
   lowestTag: number;
   highestChroma: number;
+  warnGap: number;
+  dangerGap: number;
 }
 
 /** The pairs of the contrast table, measured over the tokens of one palette and theme. */
@@ -358,6 +372,7 @@ function measure(tokens: Tokens): Measures {
   const wash = colour(at(tokens, "--k-accent-wash"), paper);
   const highlight = colour(at(tokens, "--k-highlight"), paper);
   const onGround = (name: string, ground: RGB) => ratio(colour(at(tokens, name), ground), ground);
+  const hueOf = (name: string) => rgbToLch(colour(at(tokens, name), BLACK)).h;
   return {
     accentOnPaper: onGround("--k-accent", paper),
     accentOnSurface: onGround("--k-accent", surface),
@@ -371,6 +386,8 @@ function measure(tokens: Tokens): Measures {
     highestChroma: Math.max(
       ...[...STATUS, ...TAGS].map((n) => rgbToLch(colour(at(tokens, n), BLACK)).c),
     ),
+    warnGap: hueGap(hueOf("--k-warn"), hueOf("--k-accent")),
+    dangerGap: hueGap(hueOf("--k-danger"), hueOf("--k-accent")),
   };
 }
 
@@ -393,7 +410,7 @@ export function checks(): Record<PaletteId, Record<Theme, Measures>> {
 
 /** The bar a measure must reach, or undefined where the measure is graded some other way. */
 function bar(theme: Theme, key: keyof Measures): number | undefined {
-  if (key === "highestChroma") return undefined;
+  if (key === "highestChroma" || key === "warnGap" || key === "dangerGap") return undefined;
   if (theme === "light" && key === "accentOnPaper") return 5;
   if (theme === "light" && key === "accentOnSurface") return 4.6;
   if (theme === "dark" && key === "accentOnPaper") return 6;
@@ -411,9 +428,15 @@ const ROWS: [keyof Measures, string][] = [
   ["lowestStatus", "Lowest status on paper"],
   ["lowestTag", "Lowest tag on bg"],
   ["highestChroma", "Highest chroma of status and tags"],
+  ["warnGap", "Warn hue gap to accent"],
+  ["dangerGap", "Danger hue gap to accent"],
 ];
 
 function cell(id: PaletteId, theme: Theme, key: keyof Measures, value: number): string {
+  if (key === "warnGap" || key === "dangerGap") {
+    const shown = value.toFixed(1);
+    return value < WARN_APART ? `${shown} (under ${WARN_APART})` : shown;
+  }
   if (key === "highestChroma") {
     const shown = value.toFixed(3);
     return id !== "poel" && value > CAP[theme] ? `${shown} (over ${CAP[theme]})` : shown;

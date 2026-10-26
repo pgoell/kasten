@@ -24,6 +24,22 @@ import { wait } from "./sheet-fixture";
 import { shot } from "./shots";
 import "@/styles/app.css";
 
+// The warn of #1001: the warn token each palette and theme sets in kasten-theme.css. The
+// over bars must paint this value, so update it whenever the token changes.
+type WarnKey = "russet-light" | "russet-dark" | "peach-light" | "peach-dark";
+const EXPECTED_WARN: Record<WarnKey, string> = {
+  "russet-light": "#806b00",
+  "russet-dark": "#c3b064",
+  "peach-light": "#766d48",
+  "peach-dark": "#b9b188",
+};
+
+/** The `rgb(r, g, b)` a browser reports for a `#rrggbb` colour, as it reports fill and stroke. */
+const rgbOf = (hex: string): string => {
+  const channel = (start: number) => Number.parseInt(hex.slice(start, start + 2), 16);
+  return `rgb(${channel(1)}, ${channel(3)}, ${channel(5)})`;
+};
+
 const LOG_CONFIG = "99 Misc/01 Config/log.md";
 const DAILY = periodicNote("daily", new Date()).path;
 const DAILY_TEXT = "---\ntype: Periodic Note\n---\n\n# Today\n\n## TODOs\n";
@@ -263,10 +279,14 @@ async function pressIfDrawn(element: HTMLElement | null): Promise<void> {
 }
 
 /** The pane at a phone's size, by touch, opened from the toolbar's log button. */
-async function phone(theme: Theme = "light", motion: "reduce" | "no-preference" = "no-preference") {
+async function phone(
+  theme: Theme = "light",
+  motion: "reduce" | "no-preference" = "no-preference",
+  palette = "poel",
+) {
   stubMatchMedia({ [NARROW]: true, [COARSE]: true, [REDUCED]: motion === "reduce" });
   await commands.emulateMedia({ touch: true, reducedMotion: motion });
-  setLook(theme);
+  setLook(theme, palette);
   await mount(390, 844);
   await expect
     .poll(() => document.querySelector("button[aria-label='Open the log']"))
@@ -406,4 +426,39 @@ for (const [palette, theme] of [
     const panel = await desktop(theme, palette);
     expect(await shot(panel, `palette-${palette}`)).toBeGreaterThan(0);
   });
+}
+
+// The 30-day range holds days over the kcal max of 2200 (the fixture runs 1500 to 2399),
+// and each over bar is a rect with the log-chart-over class, from charts.tsx.
+for (const palette of ["russet", "peach"]) {
+  for (const theme of ["light", "dark"] as const) {
+    for (const device of ["desktop", "phone"] as const) {
+      it(`shot trends-over-${palette}-${theme}-${device}`, async () => {
+        const panel =
+          device === "phone"
+            ? await phone(theme, "no-preference", palette)
+            : await desktop(theme, palette);
+        await pressIfDrawn(tabOf("Trends"));
+        await pressIfDrawn(paneButton("30d"));
+        await wait(500);
+        const bars = [...(trends()?.querySelectorAll<SVGRectElement>(".log-chart-over") ?? [])];
+        expect(bars.length).toBeGreaterThan(0);
+        for (const bar of bars) {
+          expect(getComputedStyle(bar).fill).toBe(
+            rgbOf(EXPECTED_WARN[`${palette}-${theme}` as WarnKey]),
+          );
+        }
+        // A phone's pane scrolls, and the first over bar sits below the fold, so the picture
+        // is taken with it in view.
+        if (device === "phone") {
+          bars[0]?.scrollIntoView({ block: "center" });
+          await wait(200);
+        }
+        const name = `trends-over-${palette}-${theme}-${device}`;
+        const width = await shot(panel, name);
+        if (device === "phone") expect(width).toBe(390);
+        else expect(width).toBeGreaterThan(0);
+      });
+    }
+  }
 }

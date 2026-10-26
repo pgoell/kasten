@@ -73,15 +73,15 @@ test("every palette's status and tag hues sit at least 20 degrees apart", () => 
   expect(closePairs()).toEqual({
     russet: [
       // The pool could not separate this pair.
-      { pair: ["--k-warn", "--tg-8"], gap: 15.9 },
+      { pair: ["--k-warn", "--tg-8"], gap: 16.7 },
       // The pool could not separate this pair.
-      { pair: ["--k-ok", "--tg-9"], gap: 15.3 },
+      { pair: ["--k-ok", "--tg-10"], gap: 15.3 },
       // The pool could not separate this pair.
-      { pair: ["--k-info", "--tg-10"], gap: 13 },
+      { pair: ["--tg-5", "--tg-9"], gap: 16.5 },
     ],
     peach: [
       // The pool could not separate this pair.
-      { pair: ["--k-warn", "--tg-10"], gap: 15.9 },
+      { pair: ["--tg-5", "--tg-10"], gap: 18 },
     ],
     pansy: [
       // The pool could not separate this pair.
@@ -101,6 +101,27 @@ test("every palette's status and tag hues sit at least 20 degrees apart", () => 
       // The pool could not separate this pair.
       { pair: ["--tg-5", "--tg-9"], gap: 11.9 },
     ],
+  });
+});
+
+test("every palette's warn sits at least 60 degrees in hue from its accent, light and dark", () => {
+  // Accent and warn sit near the same contrast on paper and chroma is capped, so
+  // hue is the only axis left to tell them apart. 60 degrees is one sixth of the wheel.
+  const measured = checks();
+  const grade = (id: keyof typeof measured, theme: Theme) => {
+    const gap = measured[id][theme].warnGap;
+    return gap >= 60 ? "ok" : round(gap, 1);
+  };
+  expect({
+    poel: { light: grade("poel", "light"), dark: grade("poel", "dark") },
+    russet: { light: grade("russet", "light"), dark: grade("russet", "dark") },
+    peach: { light: grade("peach", "light"), dark: grade("peach", "dark") },
+    pansy: { light: grade("pansy", "light"), dark: grade("pansy", "dark") },
+  }).toEqual({
+    poel: { light: "ok", dark: "ok" },
+    russet: { light: "ok", dark: "ok" },
+    peach: { light: "ok", dark: "ok" },
+    pansy: { light: "ok", dark: "ok" },
   });
 });
 

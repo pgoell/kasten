@@ -27,6 +27,22 @@ import {
   touchUp,
 } from "./todo-811-fixture";
 
+// The warn of #1001: the warn token each palette and theme sets in kasten-theme.css. The
+// waiting box must paint this value, so update it whenever the token changes.
+type WarnKey = "russet-light" | "russet-dark" | "peach-light" | "peach-dark";
+const EXPECTED_WARN: Record<WarnKey, string> = {
+  "russet-light": "#806b00",
+  "russet-dark": "#c3b064",
+  "peach-light": "#766d48",
+  "peach-dark": "#b9b188",
+};
+
+/** The `rgb(r, g, b)` a browser reports for a `#rrggbb` colour, as it reports fill and stroke. */
+const rgbOf = (hex: string): string => {
+  const channel = (start: number) => Number.parseInt(hex.slice(start, start + 2), 16);
+  return `rgb(${channel(1)}, ${channel(3)}, ${channel(5)})`;
+};
+
 const SHOTS = import.meta.env.VITE_KASTEN_SHOTS === "1";
 
 const { fetchTodos, fetchNote, fetchFiles, createNote, searchNotes } = vi.hoisted(() => ({
@@ -233,6 +249,66 @@ async function shoot(picture: Picture): Promise<void> {
 /** A picture test that runs only when pictures are asked for. */
 function shotTest(picture: Picture) {
   it.skipIf(!SHOTS)(`shot ${picture.name}`, () => shoot(picture), 300_000);
+}
+
+/** The phone shows one column, so the waiting state's tab is pressed to bring its card up. */
+const waitingTab: Step = async (host) => {
+  const tab = [...host.querySelectorAll<HTMLElement>("[role='tab']")].find((one) =>
+    one.textContent?.startsWith("Waiting"),
+  );
+  if (!tab) throw new Error("no waiting tab on the phone board");
+  await click(tab);
+};
+
+/** The board's waiting card is on the page, and on a phone the waiting tab is the one selected. */
+function expectWaitingCard(host: HTMLElement, phone: boolean): void {
+  const card = [...host.querySelectorAll<HTMLElement>("[data-card]")].find((one) =>
+    one.textContent?.includes("send the invoice"),
+  );
+  if (!card) throw new Error("no waiting card on the board");
+  if (phone) {
+    const selected = host.querySelector<HTMLElement>("[role='tab'][aria-selected='true']");
+    expect(selected?.textContent?.startsWith("Waiting")).toBe(true);
+  }
+}
+
+/** The list's waiting row, brought into view, whose state box must paint the warn token. */
+const expectListWaiting =
+  (key: WarnKey): Step =>
+  async (host) => {
+    const row = [...host.querySelectorAll<HTMLElement>("[data-row]")].find((one) =>
+      one.textContent?.includes("send the invoice"),
+    );
+    if (!row) throw new Error("no waiting row on the list");
+    row.scrollIntoView({ block: "center" });
+    const box = row.querySelector<SVGElement>("[data-state='waiting'] .stroke-k-warn");
+    if (!box) throw new Error("no waiting state box on the row");
+    expect(getComputedStyle(box).stroke).toBe(rgbOf(EXPECTED_WARN[key]));
+  };
+
+for (const palette of ["russet", "peach"]) {
+  for (const theme of ["light", "dark"] as const) {
+    for (const device of ["desktop", "phone"] as const) {
+      PICTURES.push({
+        name: `board-waiting-${palette}-${theme}-${device}`,
+        size: device === "phone" ? PHONE : DESKTOP,
+        theme,
+        palette,
+        board: true,
+        steps: async (host) => {
+          if (device === "phone") await waitingTab(host);
+          expectWaitingCard(host, device === "phone");
+        },
+      });
+    }
+    PICTURES.push({
+      name: `list-waiting-${palette}-${theme}-desktop`,
+      size: DESKTOP,
+      theme,
+      palette,
+      steps: expectListWaiting(`${palette}-${theme}` as WarnKey),
+    });
+  }
 }
 
 for (const picture of PICTURES) shotTest(picture);
