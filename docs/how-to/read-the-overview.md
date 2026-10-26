@@ -50,9 +50,12 @@ cards sit four across; in a narrow pane and on a phone they stand in one column.
 The charts speak one language, the one the log pane's Trends uses:
 
 * A bar per day. On Food and Water a day with no log draws no bar and a logged
-  zero a thin stub. Food still draws a day of drinks only as a 0 kcal stub,
-  where the log pane's Trends leaves it out (#1122). On Flashcards, Todos and Writing every day counts, so a day
-  with none draws the thin stub.
+  zero a thin stub. Food draws a bar only for a day with a food line, so a day
+  of drinks only, or of weight only, leaves a gap, as in the log pane's Trends;
+  a food line of 0 kcal still draws a stub. With logged days but no food line
+  in the 14 days, the Food chart says `no food logged in 14 days`. On
+  Flashcards, Todos and Writing every day counts, so a day with none draws the
+  thin stub.
 * The goal is a dashed line. A bar past a ceiling goal (`max`, such as kcal,
   coffee or alcohol) is drawn in the warning colour, and the words under the
   chart count those days, so the colour is never the only sign. A floor goal

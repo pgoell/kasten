@@ -108,9 +108,8 @@ when its note has a `## Log`.
   only, or of weight only, leaves a gap there. A food line of 0 kcal still
   draws a stub. With logged days but no food line, those four charts say
   `no food logged`. When the range ends on today, today's bar is full strength and the days
-  before it lighter. The overview draws its bars the same way
-  ([Read the overview](/how-to/read-the-overview.md)), except that its Food
-  card still draws a day of drinks only as a 0 kcal stub (#1122).
+  before it lighter. The overview draws its bars the same way, its Food card
+  too ([Read the overview](/how-to/read-the-overview.md)).
 * A line for each `last` kind, such as weight: a dot for each weigh-in, the
   7-day average as a thin line under the dots, and the goal as a dashed line if
   it has one. The scale runs from the lowest value to the highest, not from zero,
@@ -118,7 +117,8 @@ when its note has a `## Log`.
   the change.
 * The macro split: one bar of the average protein, carbs and fat as shares of
   their kcal over the days with a food line, with the percentages under it.
-  With logged days but no food line, it says `macros: no food logged`.
+  With logged days but no food line, it says `macros: no food logged`; with
+  food lines that carry no protein, carbs or fat, `macros: no macros logged`.
 * A table by week, newest first: average kcal and protein over the week's days
   with a food line (`—` for a week with none), average water over the week's
   logged days, a column for each `last` kind with its mean weigh-in over
