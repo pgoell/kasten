@@ -44,3 +44,6 @@ github-contributions.json
 frontend/public/pdfjs/
 # Its copies on the way in, which only a start killed mid-copy leaves behind.
 frontend/.pdfjs-*/
+
+# Copies of real Claude Code session files for a collector try: they hold private text.
+.session-copy/
