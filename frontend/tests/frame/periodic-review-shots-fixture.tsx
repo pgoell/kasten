@@ -227,11 +227,10 @@ const TEXTS: Record<string, string> = {
 /** What a picture asks the reads for, set before its page mounts. */
 export const flags = { github: true, modelUse: true, drinksDay: false };
 
-// The Tuesday of this week, which a picture with `drinksDay` answers as a day of drinks only (#1116).
-const TUESDAY = shiftDay(MONDAY, 1);
+// The week fixture logs only up to today, so the drinks day must be on or before today: Monday (#1116).
 const DRINKS_DAY: LogDay = {
-  date: TUESDAY,
-  path: `01 Periodic/00 Daily/${TUESDAY}.md`,
+  date: MONDAY,
+  path: `01 Periodic/00 Daily/${MONDAY}.md`,
   entries: [{ line: 1, text: "- 💧 500 ml", kind: "water", ml: 500 }],
   totals: {
     water: { ml: 500 },
@@ -269,7 +268,7 @@ export function installShotReads(mocks: ShotMocks): void {
   );
   mocks.fetchLog.mockImplementation(async (from: string, to: string) => {
     const logs = flags.drinksDay
-      ? [...LOGS.filter((day) => day.date !== TUESDAY), DRINKS_DAY]
+      ? [...LOGS.filter((day) => day.date !== MONDAY), DRINKS_DAY]
       : LOGS;
     return logs.filter((day) => day.date >= from && day.date <= to);
   });
