@@ -160,8 +160,9 @@ One line under the tiles, `GitHub: 23 contributions this week`. See
 
 ### kcal per day
 
-One bar for each logged day, Monday to Sunday, at its kcal. A day with no log draws no
-bar. The goal is a dashed line. Today's bar is at full strength.
+One bar for each day with a food line, Monday to Sunday, at its kcal. A day with no log
+draws no bar, and nor does a day of drinks only, or of weight only. A food line of 0 kcal
+draws a stub. The goal is a dashed line. Today's bar is at full strength.
 
 ### Todos per day
 
