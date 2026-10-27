@@ -1168,7 +1168,8 @@ export interface paths {
          *     A deck already imported is merged into its note by `merge`, which keeps
          *     every schedule in it, since that is a note you may have answered fifty
          *     cards in. One imported before the cards carried their Anki ids is refused
-         *     instead, there being no telling its cards apart.
+         *     instead, there being no telling its cards apart. A deck whose cards another
+         *     note already holds is refused too, since merging would add them a second time.
          *
          *     `carry` writes Anki's schedule onto every card Anki has in review, as the
          *     comment a rating would leave, so the review picks up where Anki left off.

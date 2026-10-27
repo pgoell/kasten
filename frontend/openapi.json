@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "kasten",
-    "version": "0.121.0"
+    "version": "0.121.1"
   },
   "paths": {
     "/agent/notes/{path}": {
@@ -2242,7 +2242,7 @@
     "/api/anki": {
       "post": {
         "summary": "Import Anki",
-        "description": "Turn an Anki export into one markdown note per deck.\n\nThe bytes come as the raw body rather than as a multipart form, the way\n`POST /api/assets/{path}` takes a book: one file, no fields beside it, and\nno dependency on a form parser for a request that carries nothing to parse.\n\nA deck already imported is merged into its note by `merge`, which keeps\nevery schedule in it, since that is a note you may have answered fifty\ncards in. One imported before the cards carried their Anki ids is refused\ninstead, there being no telling its cards apart.\n\n`carry` writes Anki's schedule onto every card Anki has in review, as the\ncomment a rating would leave, so the review picks up where Anki left off.\nOnly on a card the import adds: one already in the note keeps kasten's.\n\n`upload` names a file sent in pieces through `/api/uploads`, read in place\nof the body, which is then empty.",
+        "description": "Turn an Anki export into one markdown note per deck.\n\nThe bytes come as the raw body rather than as a multipart form, the way\n`POST /api/assets/{path}` takes a book: one file, no fields beside it, and\nno dependency on a form parser for a request that carries nothing to parse.\n\nA deck already imported is merged into its note by `merge`, which keeps\nevery schedule in it, since that is a note you may have answered fifty\ncards in. One imported before the cards carried their Anki ids is refused\ninstead, there being no telling its cards apart. A deck whose cards another\nnote already holds is refused too, since merging would add them a second time.\n\n`carry` writes Anki's schedule onto every card Anki has in review, as the\ncomment a rating would leave, so the review picks up where Anki left off.\nOnly on a card the import adds: one already in the note keeps kasten's.\n\n`upload` names a file sent in pieces through `/api/uploads`, read in place\nof the body, which is then empty.",
         "operationId": "import_anki_api_anki_post",
         "parameters": [
           {
