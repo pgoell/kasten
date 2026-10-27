@@ -82,9 +82,9 @@ async def test_i1_a_deck_whose_note_was_moved_away_is_refused_and_writes_no_note
     (folder / "Old").mkdir()
     (folder / "AWS.md").rename(folder / "Old" / "AWS.md")
 
-    await client.post("/api/anki", content=TWO_CARDS)
+    response = await client.post("/api/anki", content=TWO_CARDS)
 
-    assert not (folder / "AWS.md").exists()
+    assert (response.status_code, (folder / "AWS.md").exists()) == (409, False)
 
 
 async def test_i2_an_export_with_one_split_deck_leaves_the_other_decks_note_unwritten(
@@ -135,3 +135,50 @@ async def test_i4_a_part_in_the_archive_does_not_block_a_re_import(
     response = await client.post("/api/anki", content=TWO_CARDS)
 
     assert response.status_code == 201
+
+
+async def test_b1_a_marked_note_that_is_not_utf8_does_not_fail_the_import(
+    client: AsyncClient, vault: Path
+) -> None:
+    await client.post("/api/anki", content=TWO_CARDS)
+    (vault / "03 Flashcards" / "Bad.md").write_bytes(
+        b"#flashcards/Other\n\n\xff\n<!--anki:99:0:deadbeef-->\n"
+    )
+    grown = apkg(
+        notes=((1, BASIC, "a\x1fb"), (2, BASIC, "c\x1fd"), (3, BASIC, "e\x1ff")),
+        cards=((1, 1, 10, 0), (2, 2, 10, 0), (3, 3, 10, 0)),
+        decks=((10, "AWS"),),
+    )
+
+    response = await client.post("/api/anki", content=grown)
+
+    assert response.status_code == 201
+
+
+async def test_b2_an_import_over_a_vault_rg_cannot_read_whole_says_why(
+    client: AsyncClient, vault: Path
+) -> None:
+    locked = vault / "Locked"
+    locked.mkdir()
+    locked.chmod(0)
+    try:
+        response = await client.post("/api/anki", content=TWO_CARDS)
+    finally:
+        locked.chmod(0o755)
+
+    assert "could not be read whole" in response.text
+
+
+async def test_d4_a_note_from_before_the_marker_is_refused_as_before_when_its_cards_sit_elsewhere(
+    client: AsyncClient, vault: Path
+) -> None:
+    folder = vault / "03 Flashcards"
+    folder.mkdir()
+    (folder / "AWS.md").write_text("#flashcards/AWS\n\na::b\n", encoding="utf-8")
+    (folder / "AWS 2.md").write_text(
+        "#flashcards/AWS\n\nc::d <!--anki:2:0:deadbeef-->\n", encoding="utf-8"
+    )
+
+    response = await client.post("/api/anki", content=TWO_CARDS)
+
+    assert "AWS is already in the vault" in response.text

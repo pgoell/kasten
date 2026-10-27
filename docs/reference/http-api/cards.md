@@ -204,7 +204,9 @@ such a file has nothing left to ask and is left out.
   another note, outside the export's own notes and the archive, answers 409
   the same way, with a `detail` naming those notes and saying to join them
   into the deck's note. A merge goes into one note, so the card would land
-  there a second time.
+  there a second time. A deck note from before the marker gets the refusal
+  above first. Where rg cannot read the whole vault to look, the import
+  answers 503 `The vault could not be read whole…` and writes nothing.
 * A media file whose path is already taken answers 409 the same way for a deck
   imported the first time. A deck merged into its note keeps the file it finds
   and does not count it.

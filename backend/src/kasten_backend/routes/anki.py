@@ -15,7 +15,7 @@ from kasten_backend.config import Settings, get_settings
 from kasten_backend.files import store
 from kasten_backend.folders import create_note
 from kasten_backend.frontmatter import reserved, stamp
-from kasten_backend.search import notes_holding
+from kasten_backend.search import SearchError, notes_holding
 from kasten_backend.vault import (
     relative_path,
     resolve_asset_path,
@@ -158,7 +158,18 @@ def _new_media(deck: Deck, settings: Settings, *, fresh: bool) -> list[tuple[str
 
 async def _marked_elsewhere(settings: Settings, own: set[str]) -> dict[tuple[int, int], set[str]]:
     """Which notes outside `own` hold each marked card, the archive left out as the review does."""
-    paths = await notes_holding(settings.vault_path, "<!--anki:", skip=settings.archive_path)
+    try:
+        paths = await notes_holding(settings.vault_path, "<!--anki:", skip=settings.archive_path)
+    except SearchError as error:
+        # A short listing could miss the part a split deck keeps elsewhere, so the
+        # import is refused rather than written on a guess.
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "The vault could not be read whole, so the import cannot tell whether its "
+                "cards sit in another note. Make the vault readable, then import again."
+            ),
+        ) from error
     outside = [path for path in paths if path not in own]
     # One thread for every note, as `read_apkg` takes one for its unzip: a vault of
     # hundreds of notes would otherwise cost a hop each.
@@ -171,8 +182,17 @@ async def _marked_elsewhere(settings: Settings, own: set[str]) -> dict[tuple[int
 
 
 def _read_all(root: Path, paths: list[str]) -> dict[str, str]:
-    """The text of each note in `paths`, read in turn."""
-    return {path: (root / path).read_text(encoding="utf-8") for path in paths}
+    """The text of each note in `paths` that is still there, read in turn."""
+    texts: dict[str, str] = {}
+    for path in paths:
+        # A note that is not UTF-8 still holds its ASCII markers, so it is read
+        # with replacement rather than skipped, and only a note gone since rg
+        # listed it is left out.
+        try:
+            texts[path] = (root / path).read_text(encoding="utf-8", errors="replace")
+        except FileNotFoundError:
+            continue
+    return texts
 
 
 async def _import_bytes(body: bytes, settings: Settings, *, carry: bool, limit: int) -> AnkiImport:
@@ -215,6 +235,11 @@ async def _import_bytes(body: bytes, settings: Settings, *, carry: bool, limit: 
             notes.append(target)
             fresh = not note.exists()
             old = "" if fresh else note.read_text(encoding="utf-8")
+            merged = None if fresh else merge(old, deck)
+            # A note from before the marker gets the refusal it always got: the
+            # "Join" advice below would only lead to its cards doubled.
+            if not fresh and merged is None:
+                raise HTTPException(status_code=409, detail=f"{deck.name} is already in the vault")
             # Only a card the note does not mark yet would be a second copy. The
             # other notes hold a split deck's parts, so merging here adds them twice.
             adding = {(card.nid, card.ord) for card in note_cards(deck)} - marked_cards(old)
@@ -228,15 +253,10 @@ async def _import_bytes(body: bytes, settings: Settings, *, carry: bool, limit: 
                         f"time. Join those notes into {target}, then import again."
                     ),
                 )
-            if fresh:
+            if merged is None:
                 targets.append((note, as_note(deck), None))
                 added += len(note_cards(deck))
             else:
-                merged = merge(old, deck)
-                if merged is None:
-                    raise HTTPException(
-                        status_code=409, detail=f"{deck.name} is already in the vault"
-                    )
                 # Unchanged, it is not written: a stamp would date the note today.
                 if merged.text != old:
                     targets.append((note, merged.text, old))

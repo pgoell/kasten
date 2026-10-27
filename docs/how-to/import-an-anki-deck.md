@@ -196,7 +196,8 @@ The import merges a deck into one note, the one its name gives, such as
 that share its tag, or moved its note elsewhere, its cards sit in notes the
 import does not merge into, and it would add them to the deck's note a second
 time. So kasten refuses the import when a card it would add already sits in
-another note, names those notes, and writes nothing:
+another note, found by the comment at its end whatever tag that note carries,
+names those notes, and writes nothing:
 
 ```
 AWS Certification already has cards in 03 Flashcards/AWS Certification 2.md.
