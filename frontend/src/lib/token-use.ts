@@ -20,7 +20,8 @@ export function lastUse(at: string | null, now: Date): string {
   if (elapsed < MINUTE) return "just now";
   if (elapsed < HOUR) return `${Math.floor(elapsed / MINUTE)} min ago`;
   if (elapsed < DAY) return `${Math.floor(elapsed / HOUR)} h ago`;
-  return `${Math.floor(elapsed / DAY)} days ago`;
+  const days = Math.floor(elapsed / DAY);
+  return `${days} ${days === 1 ? "day" : "days"} ago`;
 }
 
 /**

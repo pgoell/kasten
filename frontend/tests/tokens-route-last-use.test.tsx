@@ -51,6 +51,17 @@ beforeEach(() => {
   vi.restoreAllMocks();
 });
 
+it("a token used one day ago reads 1 day ago, not 1 days", async () => {
+  const now = Date.now();
+  serve([
+    { name: "laptop", created: since(now, 2 * DAY), last_used: since(now, 25 * 60 * MINUTE) },
+  ]);
+  await renderPage();
+
+  expect(await screen.findByText("used 1 day ago")).toBeInTheDocument();
+  expect(screen.queryByText(/1 days/)).not.toBeInTheDocument();
+});
+
 it("each token shows its last use, and never for one without", async () => {
   const now = Date.now();
   serve([
