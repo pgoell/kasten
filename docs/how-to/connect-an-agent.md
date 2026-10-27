@@ -77,21 +77,31 @@ of a name the store does not hold `404`. The shapes are in
 ## What kasten records
 
 Every request a token makes writes one row to the `token_action` table in
-Postgres: the time, the token's name, the client's address as Caddy saw it, the
-MCP tool or the HTTP method and path, the note path the request named, the
-status, and the outcome. The outcome is `ok`, or `error` when the status is
-`400` or worse or a tool reports a failure, or `revoked` when the token has been
-revoked. A revoked token's requests keep their rows, so the list still names
-what it tried.
+Postgres: the time, the token's name, the client's address, the MCP tool or the
+HTTP method and path, the note path the request named, the status, and the
+outcome. The outcome is `ok`, or `error` when the status is `400` or worse or a
+tool reports a failure, or `revoked` when the token has been revoked.
+
+The client's address is the `Cf-Connecting-Ip` header when one is sent, else the
+last hop of `X-Forwarded-For`, else the address that connected. It is the address
+Caddy saw. A caller inside the server can set those headers, so an address from
+there proves nothing. The path, the note and the tool are each cut to 1024
+characters.
 
 A row never holds a secret, a token value, a query string or a note's
 contents. Rows older than 90 days are deleted. A row is never written to a file
 or to the vault, so no agent reading notes can search them.
 
+A revoked token's rows stay for those 90 days. They show in the actions list of a
+token later minted under the same name, such as a reconnect through OAuth, marked
+`revoked`. `/tokens` lists live tokens only.
+
 Open `/tokens` to read them. Each token shows its last use, and a token unused
-for 30 days is marked. Open a token for its recent actions, newest first, up to
-50. The self-host stack runs no Postgres, so it records nothing and no token
-shows a last use.
+for 30 days is marked. Last use counts only the live token's own requests, so a
+token minted under a used name starts with none. Open a token for its recent
+actions, newest first, up to 50. The self-host stack runs no Postgres, so it
+records nothing, logs one warning per agent request, and no token shows a last
+use.
 
 ## Claude Code
 

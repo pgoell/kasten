@@ -127,9 +127,11 @@ time each one last made a request.
 [{ "name": "laptop", "created": "2026-08-18T09:00:00+00:00", "last_used": "2026-08-18T09:05:00+00:00" }]
 ```
 
-`last_used` is `null` for a token with no recorded request. It is also `null`
-when no database answers: the list still answers `200`, and the backend logs a
-warning. The times come from [what kasten records](/how-to/connect-an-agent.md#what-kasten-records).
+`last_used` is the time of the live token's latest request, and counts only what
+that token itself made since it was minted: rows of a revoked token, or of an
+earlier token under the same name, do not count. It is `null` when there is no
+such request, and also when no database answers: the list still answers `200`,
+and the backend logs a warning. The times come from [what kasten records](/how-to/connect-an-agent.md#what-kasten-records).
 
 Never a digest and never a secret. Only the digest is kept at all, so there is
 no way back to a secret from here even by mistake.
@@ -153,7 +155,11 @@ is a row of [what kasten records](/how-to/connect-an-agent.md#what-kasten-record
 ```
 
 `client`, `tool` and `note` are `null` when the request had no such value. The
-`outcome` is `ok`, `error` or `revoked`. Answers `503` when no database answers.
+`outcome` is `ok`, `error` or `revoked`. `client` is the address Caddy saw, from
+`Cf-Connecting-Ip`, else the last `X-Forwarded-For` hop, else the peer; a caller
+inside the server can set those headers. `path`, `note` and `tool` are cut to
+1024 characters. Answers `503` when no database answers within
+`KASTEN_ACTIVITY_TIMEOUT_SECONDS`.
 
 ## POST /api/tokens
 
@@ -192,7 +198,9 @@ requests, so there is no window in which a revoked token still works.
 
 The record moves from `tokens.json` to `tokens-revoked.json` beside it. A request
 the revoked token makes after that is still recorded, with the outcome
-`revoked`, so its name stays in the action list.
+`revoked`. Its rows stay for 90 days and show in the actions list of a token
+minted later under the same name, such as a reconnect through OAuth. This list
+leaves the revoked token out.
 
 A name the store has not got is a `404`.
 

@@ -215,6 +215,9 @@ with a warning in the log. Every request a token makes writes one row to
 [the action log](/how-to/connect-an-agent.md#what-kasten-records), so this is also
 the most that write can hold up the request.
 
+A box with no database records nothing. Each agent request logs one warning
+instead, and [the action list](/reference/http-api/system.md) answers `503`.
+
 | | |
 | --- | --- |
 | Default | `2` |
