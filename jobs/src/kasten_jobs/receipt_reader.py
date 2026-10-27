@@ -14,8 +14,9 @@ import logging
 import os
 import subprocess
 import tempfile
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from decimal import Decimal, InvalidOperation
+from http import HTTPStatus
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -160,27 +161,39 @@ def _env(home: Path, token: str) -> dict[str, str]:
     }
 
 
+FILE_FAULTS = ("image_error", "prompt_too_long")
+"""The `terminal_reason`s that blame the file: asking again gets the same answer."""
+
+
 def _answer(done: subprocess.CompletedProcess[str]) -> dict[str, Any] | None:
-    """The schema's JSON from Claude Code's result, None for a decline, or the error it names."""
+    """The schema's JSON from Claude Code's result, None for a decline, or the error it names.
+
+    Every error that is not the file's own stops the run and leaves the
+    receipt unread, so a broken setup never turns the queue into error readings.
+    """
     try:
         result = json.loads(done.stdout)
-    except json.JSONDecodeError as error:
-        msg = f"Claude Code exited {done.returncode} with no JSON: {done.stderr[-300:]!r}"
-        raise UnansweredError(msg) from error
+    except json.JSONDecodeError:
+        result = None
     if not isinstance(result, dict):
-        msg = "Claude Code answered no result"
-        raise UnansweredError(msg)
+        # No result at all: an unknown flag after an update, or a crash.
+        msg = f"Claude Code exited {done.returncode} with no JSON result: {done.stderr[-300:]!r}"
+        raise SetupError(msg)
     why = str(result.get("result") or "")[:300]
     status = result.get("api_error_status")
+    reason = result.get("terminal_reason")
     if result.get("is_error"):
         if status in (401, 403, 404) or "Not logged in" in why:
             raise SetupError(why)
-        if status in (400, 413):
+        if status == HTTPStatus.REQUEST_ENTITY_TOO_LARGE or reason in FILE_FAULTS:
             raise RefusedError(why)
-        if result.get("terminal_reason") == "api_error":
-            # 429 and 5xx, the subscription's usage limit, and no network.
-            raise BusyError(why)
-        raise UnansweredError(why)
+        if status == HTTPStatus.BAD_REQUEST:
+            # A model the plan lacks, a Claude Code too old, a schema refused:
+            # the setup's fault, not the file's.
+            raise SetupError(why)
+        # 429 and 5xx, the usage limit (`blocking_limit`), no network, and
+        # whatever else Claude Code reports: the next run tries again.
+        raise BusyError(why)
     if result.get("stop_reason") == "refusal":
         return None
     answer = result.get("structured_output")
@@ -194,7 +207,7 @@ def _answer(done: subprocess.CompletedProcess[str]) -> dict[str, Any] | None:
 class ClaudeReader:
     """Reads a receipt with one run of headless Claude Code."""
 
-    token: str
+    token: str = field(repr=False)
     model: str = MODEL
     timeout: float = TIMEOUT
     run: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run

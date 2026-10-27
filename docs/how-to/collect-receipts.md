@@ -48,9 +48,10 @@ The job reuses the order sync's read-only Gmail login,
 The same job reads each receipt with headless Claude Code on your Claude
 subscription: the date, the total, who issued it, the labour share on a
 craftsman's or household service invoice, and the line it likely belongs on.
-No API key and no bill per receipt, but each receipt counts against the
-subscription's usage limits like any other Claude Code session; when the
-limit is reached, the run stops and the next one reads the rest.
+No API key is needed. Each receipt counts against the subscription's usage
+limits like any other Claude Code session, and may cost money when the plan
+has extra usage turned on; when the limit is reached, the run stops and the
+next one reads the rest.
 
 It needs Claude Code installed on the host, at `~/.local/bin/claude`: the job
 mounts that binary into its container, since kasten's public image does not

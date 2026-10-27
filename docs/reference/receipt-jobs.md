@@ -23,7 +23,7 @@ receipt or sets a mark: kasten proposes, the owner confirms.
 | Command | What it does | Exit code |
 |---|---|---|
 | `mail` | Sends kasten each PDF attached to a mail of the last `RECEIPTS_DAYS` days under the label, with `source` `mail`. | `0`; `1` when Gmail refuses the login or kasten does not answer |
-| `read` | Reads each unread receipt with Claude Code and sends kasten the reading. | `0`; `1` when `CLAUDE_CODE_OAUTH_TOKEN` is not set, or the run stopped (usage limit, rate limit, server error, no connection, a hung Claude Code) |
+| `read` | Reads each unread receipt with Claude Code and sends kasten the reading. | `0`; `1` when `CLAUDE_CODE_OAUTH_TOKEN` is not set, the setup is wrong, or the run stopped (usage limit, rate limit, server error, no connection, a hung Claude Code, 3 receipts in a row with no answer) |
 | `run` | `mail`, then `read`. | as `read` |
 
 `mail` searches `label:"Receipt" has:attachment filename:pdf newer_than:30d`, with
@@ -48,13 +48,15 @@ What happens when a receipt gets no answer:
 | What | Then |
 |---|---|
 | The model declines the file, or says it is no receipt | a reading with `error` saying so; the receipt is done |
-| The API refuses the file (`400`, `413`) | a reading with `error` and the API's reason; the receipt is done |
-| Claude Code prints no JSON, an error of its own, or a result without the schema's JSON | asked again, up to 3 times in the run; then a reading with `error`, and done |
+| The file is too large (`413`), or Claude Code ends with `image_error` or `prompt_too_long` | a reading with `error` and Claude Code's reason; the receipt is done |
+| A result without the schema's JSON | asked again, up to 3 times in the run; then a reading with `error`, and done |
+| 3 receipts in a row end that way | the run stops at the third with exit `1`; it and the rest stay unread |
 | Kasten refuses the reading (`422`), such as an amount no booking can hold | the refusal is sent back as the reading's `error`; the receipt is done |
 | Kasten has no file for it | skipped, tried again next run |
-| The subscription's usage limit, a rate limit, overload, a server error or no connection | the run stops there with exit `1`; the rest wait for the next run |
+| The subscription's usage limit (`blocking_limit`), a rate limit, overload, a server error, no connection, or any other error Claude Code reports | the run stops there with exit `1`; the rest wait for the next run |
 | Claude Code takes more than 180 seconds | as above: the run stops, the receipt stays unread |
-| The token is missing, wrong or expired, or the model is not there (`401`, `403`, `404`) | the job fails at once with Claude Code's message |
+| The token is missing, wrong or expired, the model is not there or not on the plan, Claude Code is too old, or the API refuses the request (`400`, `401`, `403`, `404`) | the job fails at once with Claude Code's message; the receipt stays unread |
+| Claude Code prints no JSON result at all, as after an update that drops a flag | as above |
 
 A receipt that ends with an error reading is never read again, and a file
 that cannot be read does not fail the run.
@@ -94,8 +96,8 @@ second temporary folder, since the container user has no home; so an
 run ends.
 
 Each receipt counts against the subscription's usage limits like any other
-Claude Code session. When the limit is reached, the run stops and the next
-one carries on.
+Claude Code session, and may cost money when the plan has extra usage turned
+on. When the limit is reached, the run stops and the next one carries on.
 
 ### Where `claude` comes from
 

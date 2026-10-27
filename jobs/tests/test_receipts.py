@@ -261,10 +261,10 @@ def test_a_decline_and_three_unusable_replies_end_as_readings_never_sent_again()
     kasten = FakeKasten(unread=unread)
     reader, fake = claude(
         answer(None, "refusal"),
-        "",  # Claude Code died before it printed anything.
         answer(None),  # A result with no structured output.
-        failure(None, "Something odd") | {"terminal_reason": "completed"},
-        "not json",
+        answer(None),
+        answer(None),
+        answer(None),
         answer(READ),
     )
 
@@ -274,7 +274,7 @@ def test_a_decline_and_three_unusable_replies_end_as_readings_never_sent_again()
     assert counts == {"read": 1, "unreadable": 2, "skipped": 0, "stopped": 0}
     assert kasten.readings[1] == {"error": "The model declined to read this file"}
     assert kasten.readings[2] == {"error": "No usable answer in 3 tries"}
-    # 3: one reply that is no JSON, then an answer, in the same run.
+    # 3: one result without the schema's JSON, then an answer, in the same run.
     assert kasten.readings[3]["amount"] == "476.00"
     assert len(fake.runs) == 6
     assert again == {"read": 0, "unreadable": 0, "skipped": 0, "stopped": 0}
@@ -286,7 +286,7 @@ def test_a_file_the_api_refuses_is_done_and_a_busy_api_stops_the_run() -> None:
         unread=[{"id": n, "media_type": "application/pdf"} for n in (1, 2, 3)], gone={1}
     )
     reader, _ = claude(
-        failure(400, "API Error: 400 bad pdf"), failure(429, "Claude usage limit reached")
+        failure(413, "API Error: 413 too large"), failure(429, "Claude usage limit reached")
     )
 
     counts = receipts.read_all(kasten.api(), reader)
@@ -294,14 +294,19 @@ def test_a_file_the_api_refuses_is_done_and_a_busy_api_stops_the_run() -> None:
     # 1: its file is gone; 2: the API refused the file; 3: the limit was reached.
     assert counts == {"read": 0, "unreadable": 1, "skipped": 1, "stopped": 1}
     assert kasten.readings == {
-        2: {"error": "The reader could not take this file: API Error: 400 bad pdf"}
+        2: {"error": "The reader could not take this file: API Error: 413 too large"}
     }
     assert 3 not in kasten.readings
     assert receipts.failed(counts)
 
 
-def test_a_hung_claude_code_and_no_network_stop_the_run() -> None:
-    for reply in (subprocess.TimeoutExpired, failure(None, "Connection error")):
+def test_a_hung_claude_code_no_network_and_the_usage_limit_stop_the_run() -> None:
+    for reply in (
+        subprocess.TimeoutExpired,
+        failure(None, "Connection error"),
+        failure(None, "Usage limit reached") | {"terminal_reason": "blocking_limit"},
+        failure(None, "Something odd") | {"terminal_reason": "completed"},
+    ):
         kasten = FakeKasten(unread=[{"id": 1, "media_type": "application/pdf"}])
         reader, _ = claude(reply)
 
@@ -316,6 +321,10 @@ def test_a_missing_or_bad_token_or_model_fails_the_run_loudly() -> None:
         failure(None, "Not logged in · Please run /login"),
         failure(401, "Failed to authenticate. API Error: 401 OAuth access token is invalid."),
         failure(404, "There's an issue with the selected model (claude-bogus-9)."),
+        failure(400, "claude_code_version_too_old"),
+        failure(400, "The model is not on your plan"),
+        "",  # Claude Code died before it printed anything.
+        "error: unknown option '--effort'",
     ):
         kasten = FakeKasten(unread=[{"id": 1, "media_type": "application/pdf"}])
         reader, _ = claude(reply)
@@ -323,6 +332,43 @@ def test_a_missing_or_bad_token_or_model_fails_the_run_loudly() -> None:
         with pytest.raises(SetupError):
             receipts.read_all(kasten.api(), reader)
         assert kasten.readings == {}
+
+
+def test_a_file_too_big_or_unreadable_is_done_at_once() -> None:
+    for reply in (
+        failure(413, "Request too large"),
+        failure(None, "Could not process image") | {"terminal_reason": "image_error"},
+        failure(None, "Prompt is too long") | {"terminal_reason": "prompt_too_long"},
+    ):
+        kasten = FakeKasten(unread=[{"id": 1, "media_type": "application/pdf"}])
+        reader, fake = claude(reply)
+
+        counts = receipts.read_all(kasten.api(), reader)
+
+        assert counts == {"read": 0, "unreadable": 1, "skipped": 0, "stopped": 0}
+        assert kasten.readings[1]["error"].startswith("The reader could not take this file: ")
+        assert len(fake.runs) == 1
+
+
+def test_three_receipts_in_a_row_with_no_answer_stop_the_run() -> None:
+    kasten = FakeKasten(unread=[{"id": n, "media_type": "application/pdf"} for n in (1, 2, 3, 4)])
+    reader, fake = claude(*[answer(None)] * 9)
+
+    counts = receipts.read_all(kasten.api(), reader)
+
+    assert counts == {"read": 0, "unreadable": 2, "skipped": 0, "stopped": 1}
+    # The third stays unread, and the fourth is never tried.
+    assert set(kasten.readings) == {1, 2}
+    assert len(fake.runs) == 9
+    assert receipts.failed(counts)
+
+
+def test_the_token_never_shows_in_a_repr() -> None:
+    reader, _ = claude()
+    settings = receipts.Settings.from_env({"CLAUDE_CODE_OAUTH_TOKEN": TOKEN})
+
+    assert TOKEN not in repr(reader)
+    assert TOKEN not in repr(settings)
 
 
 def test_read_without_a_token_fails_before_it_calls_anything(

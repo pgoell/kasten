@@ -14,7 +14,7 @@ import argparse
 import logging
 import os
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol
 
@@ -67,7 +67,7 @@ class Settings:
     label: str
     days: int
     model: str
-    token: str
+    token: str = field(repr=False)
 
     @classmethod
     def from_env(cls, env: Mapping[str, str]) -> Settings:
@@ -112,9 +112,14 @@ def collect(api: KastenApi, mailbox: Mailbox, label: str, days: int) -> dict[str
 
 
 RETRY = (UnansweredError,)
-"""A reply Claude Code could not finish or not JSON: asked again, up to `TRIES` times in a run."""
+"""A result without the schema's JSON: asked again, up to `TRIES` times in a run."""
 
 TRIES = 3
+
+NO_ANSWER = f"No usable answer in {TRIES} tries"
+
+STREAK = 3
+"""Receipts in a row with no usable answer before the run stops: by then it is the reader."""
 
 STOP = (BusyError,)
 """The API is busy or out of the subscription's limits: the next run reads the rest."""
@@ -133,7 +138,7 @@ def _reading(reader: Reader, data: bytes, media_type: str) -> dict[str, Any]:
             return {"error": f"The reader could not take this file: {refused}"[:500]}
         except RETRY as error:
             log.warning("Reply %d of %d for a receipt was no answer: %s", attempt, TRIES, error)
-    return {"error": f"No usable answer in {TRIES} tries"}
+    return {"error": NO_ANSWER}
 
 
 def _sent(api: KastenApi, receipt_id: int, reading: dict[str, Any]) -> dict[str, Any]:
@@ -160,12 +165,18 @@ def read_all(api: KastenApi, reader: Reader) -> dict[str, int]:
     """
     counts = {"read": 0, "unreadable": 0, "skipped": 0, "stopped": 0}
     after: int | None = None
+    streak = 0
     while page := api.unread_receipts(after):
         for receipt in page:
             after = receipt["id"]
             try:
                 data = api.receipt_file(receipt["id"])
                 reading = _reading(reader, data, receipt["media_type"])
+                streak = streak + 1 if reading.get("error") == NO_ANSWER else 0
+                if streak == STREAK:
+                    # Kept unread: the fault is likely the reader's, not this file's.
+                    msg = f"{STREAK} receipts in a row got no usable answer"
+                    raise BusyError(msg)
                 reading = _sent(api, receipt["id"], reading)
             except httpx.HTTPStatusError as error:
                 # Kasten has no file for it, or the receipt went meanwhile.
