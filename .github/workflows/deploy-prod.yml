@@ -35,10 +35,9 @@ jobs:
           # diffs this release against the one before it, and neither the tag
           # list nor the range exists in a shallow clone.
           fetch-depth: 0
-      # The tag is the version the backend reports, so a malformed one, or one that
-      # is not the next patch, minor or major,
-      # stops here, before anything is built or pushed. The checkout already has
-      # every tag (fetch-depth 0).
+      # The tag is the version the backend reports, so a malformed one, or one
+      # that is not the next patch, minor or major, stops here, before anything
+      # is built or pushed. The checkout already has every tag (fetch-depth 0).
       - name: Check the tag is the next release number
         env:
           TAG: ${{ github.event.release.tag_name }}
