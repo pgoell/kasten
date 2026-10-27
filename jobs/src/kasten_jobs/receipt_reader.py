@@ -1,26 +1,27 @@
 """Read one receipt with Claude: its date, total, payee, the labour share, and a tax line.
 
-The file goes to the Messages API as it is, a PDF as a document and a photo
-as an image, and the answer comes back as JSON in a fixed schema. Nothing
-here decides anything: kasten proposes a booking and a mark from what comes
-back, and the owner confirms. See docs/reference/receipt-jobs.md.
+The file goes to headless Claude Code (`claude -p`), which runs on the
+owner's Claude subscription through `CLAUDE_CODE_OAUTH_TOKEN`. Claude Code
+reads the file with its Read tool, confined to a fresh folder holding only
+the receipt, and answers JSON in a fixed schema. Nothing here decides
+anything: kasten proposes a booking and a mark from what comes back, and the
+owner confirms. See docs/reference/receipt-jobs.md.
 """
 
-import base64
 import datetime as dt
 import json
 import logging
-from dataclasses import dataclass
+import os
+import subprocess
+import tempfile
+from dataclasses import dataclass, field
 from decimal import Decimal, InvalidOperation
+from http import HTTPStatus
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    import anthropic
-    from anthropic.types.beta import (
-        BetaImageBlockParam,
-        BetaMessageParam,
-        BetaRequestDocumentBlockParam,
-    )
+    from collections.abc import Callable
 
 log = logging.getLogger("kasten_jobs.receipt_reader")
 
@@ -71,18 +72,26 @@ SCHEMA: dict[str, Any] = {
 
 
 class UnansweredError(RuntimeError):
-    """No answer this time, such as a cut-off reply: the receipt stays unread for the next run."""
+    """No usable answer this time, such as a reply that is not JSON: asked again."""
 
 
-def _block(data: bytes, media_type: str) -> BetaRequestDocumentBlockParam | BetaImageBlockParam:
-    encoded = base64.standard_b64encode(data).decode()
-    if media_type == "application/pdf":
-        return {
-            "type": "document",
-            "source": {"type": "base64", "media_type": "application/pdf", "data": encoded},
-        }
-    image = "image/png" if media_type == "image/png" else "image/jpeg"
-    return {"type": "image", "source": {"type": "base64", "media_type": image, "data": encoded}}
+class SetupError(RuntimeError):
+    """The token is missing or wrong, or the model is not there: the run fails loudly."""
+
+
+class RefusedError(RuntimeError):
+    """The API will not take this file: asking again gets the same answer."""
+
+
+class BusyError(RuntimeError):
+    """The API is busy, away or out of the subscription's limits, or Claude Code hung."""
+
+
+SUFFIX = {"application/pdf": ".pdf", "image/png": ".png"}
+"""The file name tells Claude Code's Read tool what it holds; anything else is a photo."""
+
+TIMEOUT = 180
+"""Seconds one reading may take; a receipt takes about ten."""
 
 
 LARGEST = Decimal(10) ** 12
@@ -134,49 +143,134 @@ def reading(answer: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _env(home: Path, token: str) -> dict[str, str]:
+    """Claude Code's environment, built from nothing so no other key leaks in.
+
+    `ANTHROPIC_API_KEY` in particular would win over the token and bill the
+    API account. HOME is a fresh folder: the container user has no home of
+    its own, and Claude Code writes its config there.
+    """
+    return {
+        "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
+        "HOME": str(home),
+        "CLAUDE_CODE_OAUTH_TOKEN": token,
+        "DISABLE_AUTOUPDATER": "1",
+        "DISABLE_TELEMETRY": "1",
+        "DISABLE_ERROR_REPORTING": "1",
+        "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
+    }
+
+
+FILE_FAULTS = ("image_error", "prompt_too_long")
+"""The `terminal_reason`s that blame the file: asking again gets the same answer."""
+
+
+def _answer(done: subprocess.CompletedProcess[str]) -> dict[str, Any] | None:
+    """The schema's JSON from Claude Code's result, None for a decline, or the error it names.
+
+    Every error that is not the file's own stops the run and leaves the
+    receipt unread, so a broken setup never turns the queue into error readings.
+    """
+    try:
+        result = json.loads(done.stdout)
+    except json.JSONDecodeError:
+        result = None
+    if not isinstance(result, dict):
+        # No result at all: an unknown flag after an update, or a crash.
+        msg = f"Claude Code exited {done.returncode} with no JSON result: {done.stderr[-300:]!r}"
+        raise SetupError(msg)
+    why = str(result.get("result") or "")[:300]
+    status = result.get("api_error_status")
+    reason = result.get("terminal_reason")
+    if result.get("is_error"):
+        if status in (401, 403, 404) or "Not logged in" in why:
+            raise SetupError(why)
+        if status == HTTPStatus.REQUEST_ENTITY_TOO_LARGE or reason in FILE_FAULTS:
+            raise RefusedError(why)
+        if status == HTTPStatus.BAD_REQUEST:
+            # A model the plan lacks, a Claude Code too old, a schema refused:
+            # the setup's fault, not the file's.
+            raise SetupError(why)
+        # 429 and 5xx, the usage limit (`blocking_limit`), no network, and
+        # whatever else Claude Code reports: the next run tries again.
+        raise BusyError(why)
+    if result.get("stop_reason") == "refusal":
+        return None
+    answer = result.get("structured_output")
+    if not isinstance(answer, dict):
+        msg = f"The result held no structured output: {why!r}"
+        raise UnansweredError(msg)
+    return answer
+
+
 @dataclass
 class ClaudeReader:
-    """Reads a receipt with one Messages API call."""
+    """Reads a receipt with one run of headless Claude Code."""
 
-    client: anthropic.Anthropic
+    token: str = field(repr=False)
     model: str = MODEL
+    timeout: float = TIMEOUT
+    run: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run
+
+    def command(self, name: str) -> list[str]:
+        """The `claude -p` line that reads the file `name` in the working folder.
+
+        Only the Read tool, confined to the working folder by `--restricted`,
+        so a receipt that asks for more gets nothing.
+        """
+        return [
+            "claude",
+            "-p",
+            f"Read the receipt at ./{name}.",
+            "--model",
+            self.model,
+            "--effort",
+            "low",
+            "--system-prompt",
+            INSTRUCTIONS,
+            "--output-format",
+            "json",
+            "--json-schema",
+            json.dumps(SCHEMA),
+            "--restricted",
+            "--tools",
+            "Read",
+            "--allowedTools",
+            "Read",
+            "--permission-mode",
+            "dontAsk",
+            "--strict-mcp-config",
+            "--no-session-persistence",
+        ]
 
     def read(self, data: bytes, media_type: str) -> dict[str, Any]:
         """What the receipt says, as a reading for kasten; a reading with `error` when declined.
 
-        Raises `UnansweredError` when the reply was cut off, and lets the SDK's
-        errors through for the caller to sort into skip and stop.
+        Raises `UnansweredError` for a reply it cannot use, and `RefusedError`,
+        `BusyError` and `SetupError` for the caller to sort into done, stop
+        and fail.
         """
-        messages: list[BetaMessageParam] = [
-            {
-                "role": "user",
-                "content": [
-                    _block(data, media_type),
-                    {"type": "text", "text": "Read this receipt."},
-                ],
-            }
-        ]
-        response = self.client.beta.messages.create(
-            model=self.model,
-            max_tokens=16000,
-            # On a decline by the safety classifiers the API runs the request
-            # again on the model it routes that kind of decline to.
-            betas=["server-side-fallback-2026-07-01"],
-            fallbacks="default",
-            output_config={
-                "effort": "low",
-                "format": {"type": "json_schema", "schema": SCHEMA},
-            },
-            system=INSTRUCTIONS,
-            messages=messages,
-        )
-        if response.stop_reason == "refusal":
+        with tempfile.TemporaryDirectory(prefix="kasten-receipt-") as temp:
+            home, folder = Path(temp, "home"), Path(temp, "receipt")
+            home.mkdir()
+            folder.mkdir()
+            name = "receipt" + SUFFIX.get(media_type, ".jpg")
+            (folder / name).write_bytes(data)
+            try:
+                done = self.run(
+                    self.command(name),
+                    cwd=folder,
+                    env=_env(home, self.token),
+                    stdin=subprocess.DEVNULL,
+                    capture_output=True,
+                    text=True,
+                    timeout=self.timeout,
+                    check=False,
+                )
+            except subprocess.TimeoutExpired as error:
+                msg = f"Claude Code took more than {self.timeout:g} seconds"
+                raise BusyError(msg) from error
+        answer = _answer(done)
+        if answer is None:
             return {"error": "The model declined to read this file"}
-        if response.stop_reason == "max_tokens":
-            msg = "The reply was cut off"
-            raise UnansweredError(msg)
-        text = next((block.text for block in response.content if block.type == "text"), None)
-        if text is None:
-            msg = "The reply held no text"
-            raise UnansweredError(msg)
-        return reading(json.loads(text))
+        return reading(answer)

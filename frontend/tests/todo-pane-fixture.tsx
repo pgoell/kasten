@@ -132,6 +132,20 @@ export function renderPane(hits = TODOS, focusSignal = 0) {
     picking: () => screen.queryByTestId("todo-pick")?.textContent ?? "",
     /** What the vault answers with next, which is how a write reaches the pane. */
     answer: (next: typeof TODOS) => act(() => client.setQueryData(["todos", false], next)),
+    /**
+     * Once the vault's todos have reached the pane: the query settled, then
+     * react-query's hand-off to its observers, which it puts on a timeout of 0
+     * when the fetch settles, so one more timeout of 0 lands after it. Waits on
+     * that state rather than on `waitFor`'s second, which a busy host outruns.
+     */
+    loaded: () =>
+      act(async () => {
+        await client.ensureQueryData({
+          queryKey: ["todos", false],
+          queryFn: () => vi.mocked(fetchTodos)(false),
+        });
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      }),
     filter: () => screen.getByLabelText("filter todos") as HTMLInputElement,
     /** The row being edited, as the input it turns into, or null where none is. */
     draft: () => screen.queryByLabelText("edit line"),

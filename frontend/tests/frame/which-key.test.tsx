@@ -149,10 +149,25 @@ it("Space while the panel fades catches it and brings it back", async () => {
 
   // The opener holds the focus again, as Esc left it.
   flushSync(() => beginLeader(paneOpener(stubCommands())));
-  await nextFrame();
 
+  // The spring keeps the fade's speed as it turns, so for a frame or two it dips
+  // a few hundredths below where Space caught it before it climbs, by as much as
+  // the frame's length. Read frame by frame until it is back there: a fade that
+  // started over from nothing would dip far below half. The turn writes nothing
+  // until its first frame, so at least one frame is read.
+  let lowest = caught;
+  let now = caught;
+  let frames = 0;
+  do {
+    await nextFrame();
+    expect(panelOf()).toBe(panel);
+    now = Number(panel.style.opacity);
+    lowest = Math.min(lowest, now);
+    frames += 1;
+  } while (frames < 60 && now < caught);
   expect(panelOf()).toBe(panel);
-  expect(Number(panel.style.opacity)).toBeGreaterThanOrEqual(caught);
+  expect(lowest).toBeGreaterThan(caught / 2);
+  expect(now).toBeGreaterThanOrEqual(caught);
   await expect.poll(() => Number(panel.style.opacity), { timeout: 2000 }).toBe(1);
 });
 

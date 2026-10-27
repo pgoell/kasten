@@ -358,18 +358,18 @@ export function pageHooks() {
 
   // The route's component is split into a chunk of its own, so the first
   // `router.load()` is where vite transforms `Home` and everything under it. That
-  // took 1.4s alone and over 5s under the pre-push hook's load, all of it charged
-  // to whichever test mounted first. Loaded here, it is charged to no test.
+  // took 1.4s alone and over 5s under load, charged to whichever test mounted
+  // first. Here it is charged to no test, and fails no file (#1208).
   beforeAll(async () => {
     const router = createRouter({
       routeTree,
       context: { queryClient: new QueryClient() },
       history: createMemoryHistory({ initialEntries: ["/"] }),
     });
-    await Promise.all(
+    await Promise.allSettled(
       Object.values(router.routesById).map((route) => router.loadRouteChunk(route)),
     );
-  });
+  }, 60_000);
 }
 
 /** The hooks of the `the route` block: the fakes, the stream and the page's cleanup. */

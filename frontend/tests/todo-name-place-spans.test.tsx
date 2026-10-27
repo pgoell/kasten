@@ -67,7 +67,8 @@ describe("#1018 the name place past a span in the pane", () => {
   it("#1018 A2 the pane opens the edit past a code span holding the stamp with the cursor after the stamp", async () => {
     const line = "- [w] see `👤 2026-10-25 x` x 👤 2026-10-25";
     const pane = renderPane([{ path: "a.md", line: 1, text: line }]);
-    await waitFor(() => expect(pane.rows()).toHaveLength(1));
+    await pane.loaded();
+    expect(pane.rows()).toHaveLength(1);
 
     pane.press("i");
 
@@ -79,7 +80,8 @@ describe("#1018 the name place past a span in the pane", () => {
   it("#1018 A4 the pane opens the edit past a markdown link holding the stamp with the cursor after the stamp", async () => {
     const line = "- [w] see [👤 2026-10-25 x](x) x 👤 2026-10-25";
     const pane = renderPane([{ path: "a.md", line: 1, text: line }]);
-    await waitFor(() => expect(pane.rows()).toHaveLength(1));
+    await pane.loaded();
+    expect(pane.rows()).toHaveLength(1);
 
     pane.press("i");
 
@@ -91,7 +93,8 @@ describe("#1018 the name place past a span in the pane", () => {
   it("#1018 A6 the pane opens the edit past a wikilink holding the stamp with the cursor after the stamp", async () => {
     const line = "- [w] see [[👤 2026-10-25 x]] x 👤 2026-10-25";
     const pane = renderPane([{ path: "a.md", line: 1, text: line }]);
-    await waitFor(() => expect(pane.rows()).toHaveLength(1));
+    await pane.loaded();
+    expect(pane.rows()).toHaveLength(1);
 
     pane.press("i");
 

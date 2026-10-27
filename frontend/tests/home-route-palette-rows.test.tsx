@@ -244,13 +244,16 @@ describe("the palette keeps its rows", () => {
     expect(ranked).toHaveBeenCalledTimes(0);
   }
 
+  // First in the file, so it pays the cold mount, and with timers faked none of
+  // it is waiting: all of it is work. 0.8 s idle, 2.0 s alone at load 47 on 16
+  // cores, over 5 s inside the full suite at load 34 (#1206).
   it("#592 A1 A5 the palette opened over a note with vim on builds its candidates once while the route renders again", async () => {
     const app = await noteOpen();
     app.leader(":");
     await settle();
 
     await ranksOnce();
-  });
+  }, 15_000);
 
   it("#592 A2 A5 the palette opened by its chord with vim off builds its candidates once while the route renders again", async () => {
     localStorage.setItem("kasten.vim", "off");

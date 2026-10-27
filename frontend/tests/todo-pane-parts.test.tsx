@@ -1,4 +1,3 @@
-import { waitFor } from "@testing-library/react";
 import { PRIORITY_SYMBOL } from "@/lib/todo";
 import { paneHooks, renderPane } from "./todo-pane-fixture";
 
@@ -24,7 +23,8 @@ describe("the todo pane", () => {
       { path: "a.md", line: 4, text: "  - [ ] write it" },
     ]);
 
-    await waitFor(() => expect(pane.rows()).toHaveLength(2));
+    await pane.loaded();
+    expect(pane.rows()).toHaveLength(2);
     expect(pane.texts()[0]).toContain("2/3");
     expect(pane.texts()[1]).not.toContain("/");
   });
@@ -45,7 +45,8 @@ describe("the todo pane", () => {
 
   it("draws a part indented under the todo it belongs to", async () => {
     const pane = renderPane(NESTED_ROWS);
-    await waitFor(() => expect(pane.rows()).toHaveLength(5));
+    await pane.loaded();
+    expect(pane.rows()).toHaveLength(5);
 
     // Today holds safari preparation and This week holds check list; the rest
     // are under No date, in note order.
@@ -62,7 +63,8 @@ describe("the todo pane", () => {
 
   it("names the parent of a part whose parent is in another group", async () => {
     const pane = renderPane(NESTED_ROWS);
-    await waitFor(() => expect(pane.rows()).toHaveLength(5));
+    await pane.loaded();
+    expect(pane.rows()).toHaveLength(5);
 
     // `check list` hangs off `safari preparation`, which is due today, and its
     // own date puts it a group further out. An indent there would be a lie.
@@ -79,7 +81,8 @@ describe("the todo pane", () => {
       { path: "a.md", line: 3, text: "- [ ] buy milk" },
     ]);
 
-    await waitFor(() => expect(pane.rows()).toHaveLength(3));
+    await pane.loaded();
+    expect(pane.rows()).toHaveLength(3);
 
     // The part is due when what it is a part of is due, so it sits in that
     // group rather than under No date with the todo that spells nothing.
@@ -98,7 +101,8 @@ describe("the todo pane", () => {
       { path: "a.md", line: 3, text: "- [ ] buy milk" },
     ]);
 
-    await waitFor(() => expect(pane.rows()).toHaveLength(1));
+    await pane.loaded();
+    expect(pane.rows()).toHaveLength(1);
     expect(pane.texts().join()).toContain("buy milk");
   });
 });

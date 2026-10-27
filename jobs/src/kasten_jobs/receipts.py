@@ -3,27 +3,32 @@
 `mail` sends kasten each PDF attached to a mail under the `Receipt` label;
 kasten keeps each file once by its hash, so every run sends the whole window
 again and changes nothing it already has. `read` reads each unread receipt
-with Claude and sends kasten what it found; kasten proposes a booking and a
-tax mark from it, which the owner confirms in the finance pane. `run` does
-both. It never writes to the mailbox. See docs/how-to/collect-receipts.md and
+with headless Claude Code on the owner's subscription and sends kasten
+what it found; kasten proposes a booking and a tax mark from it, which the
+owner confirms in the finance pane. `run` does both. It never writes to
+the mailbox. See docs/how-to/collect-receipts.md and
 docs/reference/receipt-jobs.md.
 """
 
 import argparse
-import json
 import logging
 import os
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol
 
-import anthropic
 import httpx
 
 from kasten_jobs.gmail import Gmail
 from kasten_jobs.kasten_api import KastenApi
-from kasten_jobs.receipt_reader import MODEL, ClaudeReader, UnansweredError
+from kasten_jobs.receipt_reader import (
+    MODEL,
+    BusyError,
+    ClaudeReader,
+    RefusedError,
+    UnansweredError,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -62,16 +67,18 @@ class Settings:
     label: str
     days: int
     model: str
+    token: str = field(repr=False)
 
     @classmethod
     def from_env(cls, env: Mapping[str, str]) -> Settings:
-        """Read the settings, each with its default. The API key is the SDK's to read."""
+        """Read the settings, each with its default; the token has none."""
         return cls(
             api=env.get("KASTEN_API", "http://kasten-backend-prod:8000"),
             credentials=Path(env.get("RECEIPTS_GMAIL_CREDENTIALS", "/gmail.json")),
             label=env.get("RECEIPTS_LABEL", "Receipt"),
             days=int(env.get("RECEIPTS_DAYS", "30")),
             model=env.get("RECEIPTS_MODEL", MODEL),
+            token=env.get("CLAUDE_CODE_OAUTH_TOKEN", ""),
         )
 
 
@@ -104,30 +111,18 @@ def collect(api: KastenApi, mailbox: Mailbox, label: str, days: int) -> dict[str
     return counts
 
 
-UNREADABLE = (anthropic.BadRequestError, anthropic.RequestTooLargeError)
-"""The API will not take this file: asking again gets the same answer, so it is done."""
-
-RETRY = (UnansweredError, json.JSONDecodeError)
-"""A reply cut off or not JSON: asked again, up to `TRIES` times in one run."""
+RETRY = (UnansweredError,)
+"""A result without the schema's JSON: asked again, up to `TRIES` times in a run."""
 
 TRIES = 3
 
-STOP = (
-    anthropic.RateLimitError,
-    anthropic.InternalServerError,
-    anthropic.OverloadedError,
-    anthropic.ServiceUnavailableError,
-    anthropic.APIConnectionError,
-)
-"""The API is busy or away: the run ends there and the next one reads the rest."""
+NO_ANSWER = f"No usable answer in {TRIES} tries"
 
+STREAK = 3
+"""Receipts in a row with no usable answer before the run stops: by then it is the reader."""
 
-def _why(refused: anthropic.APIStatusError) -> str:
-    """The API's own sentence for a refusal, without the status line around it."""
-    body = refused.body
-    if isinstance(body, dict) and isinstance(error := body.get("error"), dict):
-        return str(error.get("message", refused.message))
-    return refused.message
+STOP = (BusyError,)
+"""The API is busy or out of the subscription's limits: the next run reads the rest."""
 
 
 def _reading(reader: Reader, data: bytes, media_type: str) -> dict[str, Any]:
@@ -139,11 +134,11 @@ def _reading(reader: Reader, data: bytes, media_type: str) -> dict[str, Any]:
     for attempt in range(1, TRIES + 1):
         try:
             return reader.read(data, media_type)
-        except UNREADABLE as refused:
-            return {"error": f"The reader could not take this file: {_why(refused)}"[:500]}
+        except RefusedError as refused:
+            return {"error": f"The reader could not take this file: {refused}"[:500]}
         except RETRY as error:
             log.warning("Reply %d of %d for a receipt was no answer: %s", attempt, TRIES, error)
-    return {"error": f"No usable answer in {TRIES} tries"}
+    return {"error": NO_ANSWER}
 
 
 def _sent(api: KastenApi, receipt_id: int, reading: dict[str, Any]) -> dict[str, Any]:
@@ -164,17 +159,24 @@ def _sent(api: KastenApi, receipt_id: int, reading: dict[str, Any]) -> dict[str,
 def read_all(api: KastenApi, reader: Reader) -> dict[str, int]:
     """Read every unread receipt, oldest first, and send kasten each reading.
 
-    A bad key or a model that is not there raises, failing the run before it
-    reads anything. A busy or unreachable API ends the run; see `STOP`.
+    A bad token or a model that is not there raises `SetupError`, failing the
+    run before it reads anything. A busy or unreachable API ends the run; see
+    `STOP`.
     """
     counts = {"read": 0, "unreadable": 0, "skipped": 0, "stopped": 0}
     after: int | None = None
+    streak = 0
     while page := api.unread_receipts(after):
         for receipt in page:
             after = receipt["id"]
             try:
                 data = api.receipt_file(receipt["id"])
                 reading = _reading(reader, data, receipt["media_type"])
+                streak = streak + 1 if reading.get("error") == NO_ANSWER else 0
+                if streak == STREAK:
+                    # Kept unread: the fault is likely the reader's, not this file's.
+                    msg = f"{STREAK} receipts in a row got no usable answer"
+                    raise BusyError(msg)
                 reading = _sent(api, receipt["id"], reading)
             except httpx.HTTPStatusError as error:
                 # Kasten has no file for it, or the receipt went meanwhile.
@@ -212,6 +214,9 @@ def main(argv: list[str] | None = None) -> int:
     command = parser.parse_args(argv).command
 
     settings = Settings.from_env(os.environ)
+    if command in ("read", "run") and not settings.token:
+        log.error("CLAUDE_CODE_OAUTH_TOKEN is not set: make one with `claude setup-token`")
+        return 1
     status = 0
     with httpx.Client(base_url=settings.api, timeout=60) as client:
         api = KastenApi(client)
@@ -224,7 +229,7 @@ def main(argv: list[str] | None = None) -> int:
                     settings.days,
                 )
         if command in ("read", "run"):
-            reader = ClaudeReader(anthropic.Anthropic(), settings.model)
+            reader = ClaudeReader(settings.token, settings.model)
             status = 1 if failed(read_all(api, reader)) else 0
     return status
 

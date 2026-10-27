@@ -35,7 +35,8 @@ describe("the todo pane by touch", () => {
 
   it("draws no button a mouse does not need", async () => {
     const pane = renderPane();
-    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+    await pane.loaded();
+    expect(pane.rows()).toHaveLength(6);
 
     expect(screen.queryByLabelText("add todo")).toBeNull();
     expect(screen.queryByLabelText(/^cycle /)).toBeNull();
@@ -48,7 +49,8 @@ describe("the todo pane by touch", () => {
   it("sends every press of x, however fast, and asks nothing", async () => {
     // A mouse and a keyboard, where a key has never slipped.
     const pane = renderPane();
-    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+    await pane.loaded();
+    expect(pane.rows()).toHaveLength(6);
 
     pane.press("x");
     pane.press("x");
