@@ -1,7 +1,7 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import type { RefObject } from "react";
-import type { FoliateView } from "@/lib/foliate-view";
-import { useBookView } from "@/lib/use-book-view";
+import type { FoliateView } from "@/lib/book/foliate-view";
+import { useBookView } from "@/lib/book/use-book-view";
 import { CFI, CHAPTERS } from "./book-pane-fixture";
 import { defineFoliateFake, FakeView, lastView, resetFoliateFake } from "./foliate-fake";
 

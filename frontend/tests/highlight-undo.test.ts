@@ -1,5 +1,5 @@
+import { withoutHighlight } from "@/lib/book/highlight-undo";
 import { addHighlight } from "@/lib/highlight";
-import { withoutHighlight } from "@/lib/highlight-undo";
 
 const BASE = "# DDIA\n\n## Highlights\n";
 const QUOTE = "Systems that tolerate faults are called fault-tolerant.";

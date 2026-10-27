@@ -10,7 +10,7 @@
  * layout and a real decoder answer.
  */
 
-import { BACKING, INK } from "@/lib/book-backing";
+import { BACKING, INK } from "@/lib/book/book-backing";
 import {
   chapterOne,
   clearPage,

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { isError } from "@/lib/book/foliate-view";
 import { trapTab } from "@/lib/focus-trap";
-import { isError } from "@/lib/foliate-view";
 import { LABEL, PANEL, STATUS } from "@/lib/overlay-styles";
 import {
   back,

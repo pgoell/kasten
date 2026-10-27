@@ -1,8 +1,8 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { type ReactNode, useRef } from "react";
 import { useTakeToast } from "@/components/use-take-toast";
+import { withoutHighlight } from "@/lib/book/highlight-undo";
 import { collapse, type Passage } from "@/lib/highlight";
-import { withoutHighlight } from "@/lib/highlight-undo";
 import { aliasOf, fileLink, needsMarkdown } from "@/lib/html-take";
 import { noteName } from "@/lib/note-path";
 import { BOOK_REFUSED, undoFor } from "@/lib/page-undo";

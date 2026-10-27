@@ -24,7 +24,7 @@ type MakeRange = (
  * What foliate's walker hands the caller, which is all this asks of it.
  *
  * Named here rather than reached for through the library's own types, which it
- * ships none of, the way `lib/foliate-view.ts` names `FoliateView`.
+ * ships none of, the way `lib/book/foliate-view.ts` names `FoliateView`.
  */
 type TextWalker = <T>(
   doc: Document,

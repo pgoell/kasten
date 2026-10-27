@@ -1,5 +1,5 @@
 import type { Root } from "react-dom/client";
-import type { FoliateView } from "@/lib/foliate-view";
+import type { FoliateView } from "@/lib/book/foliate-view";
 import plainUrl from "../fixtures/plain.epub?url";
 import { chooseTheme, drawBook, drawn, sections, trackMounted } from "./book-pane-fixture";
 

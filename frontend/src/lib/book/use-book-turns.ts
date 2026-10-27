@@ -1,5 +1,5 @@
 import { type RefObject, useCallback, useLayoutEffect, useRef } from "react";
-import type { FoliateView } from "@/lib/foliate-view";
+import type { FoliateView } from "@/lib/book/foliate-view";
 
 /**
  * How much of the pane's width, at each side, a tap turns the page from.

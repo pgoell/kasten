@@ -1,4 +1,4 @@
-import { findWritten, holdsWritten } from "@/lib/find-quote";
+import { findWritten, holdsWritten } from "@/lib/book/find-quote";
 import { highlightBlocks } from "@/lib/highlight";
 import { quoteParagraphs } from "@/lib/html-take";
 import { documentOf } from "./foliate-fake";

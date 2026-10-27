@@ -1,4 +1,4 @@
-import { absoluteUrls } from "@/lib/book-fonts";
+import { absoluteUrls } from "@/lib/book/book-fonts";
 
 describe("absoluteUrls", () => {
   it("makes each relative url absolute and keeps a data url as it is", () => {

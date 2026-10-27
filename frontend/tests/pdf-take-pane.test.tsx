@@ -2,9 +2,9 @@ import "fake-indexeddb/auto";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { useRef } from "react";
 import { usePdfTake } from "@/components/pdf-take";
+import { pdfQuote } from "@/lib/book/pdf-take";
 import { noteBase } from "@/lib/note-base";
 import { reset, waiting } from "@/lib/outbox";
-import { pdfQuote } from "@/lib/pdf-take";
 import { periodicNote } from "@/lib/periodic";
 import { stubMatchMedia } from "./match-media";
 

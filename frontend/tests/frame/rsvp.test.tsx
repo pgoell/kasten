@@ -19,7 +19,7 @@ import { commands as browser, userEvent } from "vitest/browser";
 import { BookPane } from "@/components/book-pane";
 import { HtmlPane } from "@/components/html-pane";
 import { PdfPane } from "@/components/pdf-pane";
-import type { FoliateView } from "@/lib/foliate-view";
+import type { FoliateView } from "@/lib/book/foliate-view";
 import type { RsvpAsk } from "@/lib/use-rsvp";
 import "@/styles/app.css";
 import contentsUrl from "../fixtures/contents.pdf?url";

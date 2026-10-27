@@ -8,7 +8,7 @@
  */
 
 import { Facet } from "@codemirror/state";
-import { type Matrix, restoreImages } from "@/lib/pdf-images";
+import { type Matrix, restoreImages } from "@/lib/book/pdf-images";
 
 /**
  * Where the pdf.js files sit, which `vite.config.ts` decides and stages.

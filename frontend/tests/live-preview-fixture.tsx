@@ -3,12 +3,12 @@ import { EditorState, type Extension } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { act, type RenderResult, render, waitFor } from "@testing-library/react";
 import type { ReactElement } from "react";
+import { type PdfFile, type PdfRenderer, pdfRenderer } from "@/lib/book/pdf-view";
 import { vimKeys } from "@/lib/editor/vim-mode";
 import { type EmbedSource, embedSource } from "@/lib/embed";
 import { imagePaths } from "@/lib/image";
 import { livePreview } from "@/lib/live/live-preview";
 import { noteLanguage } from "@/lib/note-language";
-import { type PdfFile, type PdfRenderer, pdfRenderer } from "@/lib/pdf-view";
 import { vaultPaths } from "@/lib/wikilink";
 
 /**

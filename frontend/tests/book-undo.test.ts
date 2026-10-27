@@ -1,5 +1,5 @@
+import { withoutHighlight } from "@/lib/book/highlight-undo";
 import { addHighlight } from "@/lib/highlight";
-import { withoutHighlight } from "@/lib/highlight-undo";
 import { noteBase } from "@/lib/note-base";
 import { undoFor, undoPassage } from "@/lib/page-undo";
 

@@ -1,5 +1,5 @@
-import { backImages, fitCover } from "@/lib/book-backing";
-import { type FoliateView, pdfLayer } from "@/lib/foliate-view";
+import { backImages, fitCover } from "@/lib/book/book-backing";
+import { type FoliateView, pdfLayer } from "@/lib/book/foliate-view";
 
 /**
  * The pane's own listeners for a page's document. The same functions are added

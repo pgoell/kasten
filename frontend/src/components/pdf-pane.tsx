@@ -2,10 +2,16 @@ import { useEffect, useRef, useState } from "react";
 import { usePdfTake } from "@/components/pdf-take";
 import { PdfThumbs, THUMBS_FROM, type ThumbsHandle } from "@/components/pdf-thumbs";
 import { Rsvp } from "@/components/rsvp";
+import {
+  type PdfFile,
+  type PdfView,
+  pageColors,
+  pdfjsRenderer,
+  showPdf,
+} from "@/lib/book/pdf-view";
 import type { EditorCommands } from "@/lib/key-bindings";
 import { heldModifier, leaderAction, leaderPrefix } from "@/lib/leader-keys";
 import { encodePath } from "@/lib/note-path";
-import { type PdfFile, type PdfView, pageColors, pdfjsRenderer, showPdf } from "@/lib/pdf-view";
 import { findQuote, firstOf, type Word } from "@/lib/rsvp";
 import { pdfWords } from "@/lib/rsvp-sources";
 import { onThemeChange } from "@/lib/theme";

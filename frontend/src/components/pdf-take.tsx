@@ -10,9 +10,9 @@ import {
 } from "react";
 import { TakeButton } from "@/components/take-button-view";
 import { useDumpTake } from "@/components/use-dump-take";
+import { offsetsIn, oneLine, pdfLink, rangeIn, takenHighlight } from "@/lib/book/pdf-take";
 import { fileOf } from "@/lib/html-take";
 import { type Anchor, low, placeFor } from "@/lib/page-selection";
-import { offsetsIn, oneLine, pdfLink, rangeIn, takenHighlight } from "@/lib/pdf-take";
 import { usePressGuard } from "@/lib/take-button";
 import { useViewport } from "@/lib/use-viewport";
 

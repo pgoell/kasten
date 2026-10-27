@@ -6,7 +6,7 @@
  * book: what the finder promises is a rule about strings and ranges.
  */
 
-import { findQuotes } from "@/lib/find-quote";
+import { findQuotes } from "@/lib/book/find-quote";
 
 const FIRST = "Systems that tolerate faults are called fault-tolerant.";
 const SECOND = "A system that is reliable does what the user expects.";

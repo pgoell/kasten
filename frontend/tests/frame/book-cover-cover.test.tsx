@@ -11,7 +11,7 @@
  */
 
 import { page } from "vitest/browser";
-import { BACKING, backImages, treatmentFor } from "@/lib/book-backing";
+import { BACKING, backImages, treatmentFor } from "@/lib/book/book-backing";
 import {
   computed,
   drawBook,

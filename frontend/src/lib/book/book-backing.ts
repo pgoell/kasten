@@ -16,7 +16,7 @@
  * small svg drawing such a glyph through an `<image>` is judged the same (#483).
  */
 
-import { fontFaces } from "@/lib/book-fonts";
+import { fontFaces } from "@/lib/book/book-fonts";
 import { currentTheme } from "@/lib/theme";
 
 /** The attribute the page's stylesheet reads to draw white behind an image. */

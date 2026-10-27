@@ -1,6 +1,6 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { PdfPane } from "@/components/pdf-pane";
-import type { PdfFile, ShowOptions } from "@/lib/pdf-view";
+import type { PdfFile, ShowOptions } from "@/lib/book/pdf-view";
 import { pickPalette, toggleTheme } from "@/lib/theme";
 import { stubCommands } from "./keybindings-fixture";
 
@@ -10,8 +10,8 @@ const pdf = vi.hoisted(() => ({
   view: Object.assign(vi.fn(), { redraw: vi.fn(), setZoom: vi.fn(), goTo: vi.fn() }),
   options: undefined as ShowOptions | undefined,
 }));
-vi.mock("@/lib/pdf-view", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/pdf-view")>()),
+vi.mock("@/lib/book/pdf-view", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/book/pdf-view")>()),
   showPdf: (
     _box: HTMLElement,
     _renderer: unknown,

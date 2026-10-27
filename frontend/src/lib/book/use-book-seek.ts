@@ -1,8 +1,8 @@
 import { type RefObject, useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import type { BookBeside } from "@/lib/api";
-import { findWritten, holdsWritten } from "@/lib/find-quote";
-import { type FoliateView, pdfLayer } from "@/lib/foliate-view";
-import { PDFJS_BASE } from "@/lib/pdf-view";
+import { findWritten, holdsWritten } from "@/lib/book/find-quote";
+import { type FoliateView, pdfLayer } from "@/lib/book/foliate-view";
+import { PDFJS_BASE } from "@/lib/book/pdf-view";
 
 /**
  * The little of pdf.js the seek uses, which is a page's words and nothing else.

@@ -1,5 +1,5 @@
 import type { Root } from "react-dom/client";
-import { BACKING, backImages, treatmentFor } from "@/lib/book-backing";
+import { BACKING, backImages, treatmentFor } from "@/lib/book/book-backing";
 import { computed, drawDark, located, sections, trackMounted } from "./book-pane-fixture";
 
 const { fetchBook, fetchNote } = vi.hoisted(() => ({ fetchBook: vi.fn(), fetchNote: vi.fn() }));

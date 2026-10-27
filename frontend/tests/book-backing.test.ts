@@ -1,4 +1,4 @@
-import { BACKING, backImages, INK, pageStyles, treatmentFor } from "@/lib/book-backing";
+import { BACKING, backImages, INK, pageStyles, treatmentFor } from "@/lib/book/book-backing";
 
 const { theme } = vi.hoisted(() => ({ theme: { current: "light" as "light" | "dark" } }));
 vi.mock("@/lib/theme", () => ({ currentTheme: () => theme.current }));

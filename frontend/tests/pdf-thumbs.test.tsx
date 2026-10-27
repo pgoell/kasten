@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { act, cleanup, render, screen } from "@testing-library/react";
 import { createRef } from "react";
 import { PdfThumbs, type ThumbsHandle } from "@/components/pdf-thumbs";
-import type { PdfFile } from "@/lib/pdf-view";
+import type { PdfFile } from "@/lib/book/pdf-view";
 
 /** An IntersectionObserver that sees a page's slot come into view only when a test says so. */
 class FakeObserver {

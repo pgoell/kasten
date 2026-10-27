@@ -1,6 +1,7 @@
 import { EditorState, type Extension } from "@codemirror/state";
 import { Decoration, EditorView, WidgetType } from "@codemirror/view";
 import type { SyntaxNode } from "@lezer/common";
+import { type PdfRenderer, pdfRenderer, showPdf } from "@/lib/book/pdf-view";
 import { kastenTheme } from "@/lib/editor/editor-theme";
 import { EMBED_DEPTH, type EmbedSource, embedDepth, embedSource } from "@/lib/embed";
 import { imagePaths } from "@/lib/image";
@@ -10,7 +11,6 @@ import { noteBody } from "@/lib/note-frontmatter";
 import { noteLanguage } from "@/lib/note-language";
 import { encodePath } from "@/lib/note-path";
 import { noteSectionOf } from "@/lib/note-section";
-import { type PdfRenderer, pdfRenderer, showPdf } from "@/lib/pdf-view";
 import { pdfPage, resolveIn, splitTarget, vaultPaths, wikiLinkPath } from "@/lib/wikilink";
 
 /** What a mounted embed has to let go of, keyed by its box. */

@@ -2,9 +2,9 @@ import { EditorView } from "@codemirror/view";
 import { fireEvent } from "@testing-library/react";
 import { useMemo } from "react";
 import type { TodoHit } from "@/lib/api";
+import type { PdfRenderer } from "@/lib/book/pdf-view";
 import { heldText } from "@/lib/held-text";
 import { noteBase } from "@/lib/note-base";
-import type { PdfRenderer } from "@/lib/pdf-view";
 import type { TodoState } from "@/lib/todo/todo";
 import { hashed } from "./digests";
 import { defineFoliateFake } from "./foliate-fake";
@@ -119,8 +119,8 @@ vi.mock("@/lib/trash-api", () => ({ deleteNote, fetchTrash, restoreEntry, delete
 vi.mock("@/lib/history-api", () => ({ fetchHistory, fetchHistoryText }));
 vi.mock("foliate-js/view.js", () => ({}));
 const pdfPaneRenderer = vi.hoisted(() => ({ current: null as PdfRenderer | null }));
-vi.mock("@/lib/pdf-view", async (importOriginal) => {
-  const real = await importOriginal<typeof import("@/lib/pdf-view")>();
+vi.mock("@/lib/book/pdf-view", async (importOriginal) => {
+  const real = await importOriginal<typeof import("@/lib/book/pdf-view")>();
   return {
     ...real,
     pdfjsRenderer: {

@@ -4,8 +4,8 @@ import { useQuery } from "@tanstack/react-query";
 import { Overlayer } from "foliate-js/overlayer.js";
 import { type RefObject, useCallback, useEffect, useMemo, useRef } from "react";
 import { fetchNote } from "@/lib/api";
-import { findWritten } from "@/lib/find-quote";
-import { type FoliateOverlayer, type FoliateView, pdfLayer } from "@/lib/foliate-view";
+import { findWritten } from "@/lib/book/find-quote";
+import { type FoliateOverlayer, type FoliateView, pdfLayer } from "@/lib/book/foliate-view";
 import { type HighlightBlock, highlightBlocks } from "@/lib/highlight";
 import { onThemeChange } from "@/lib/theme";
 

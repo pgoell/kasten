@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, screen } from "@testing-library/react";
 import { NoteExists } from "@/lib/api";
-import type { PdfRenderer } from "@/lib/pdf-view";
+import type { PdfRenderer } from "@/lib/book/pdf-view";
 import { hashed } from "./digests";
 import { defineFoliateFake } from "./foliate-fake";
 import { FakeEventSource, pageHooks, renderApp, settle, VAULT } from "./home-route-fixture";
@@ -66,8 +66,8 @@ vi.mock("@/lib/outbox", () => outbox);
 
 // A pdf of one page that draws nothing: the pane's look is no concern here.
 const pdfPaneRenderer = vi.hoisted(() => ({ current: null as PdfRenderer | null }));
-vi.mock("@/lib/pdf-view", async (importOriginal) => {
-  const real = await importOriginal<typeof import("@/lib/pdf-view")>();
+vi.mock("@/lib/book/pdf-view", async (importOriginal) => {
+  const real = await importOriginal<typeof import("@/lib/book/pdf-view")>();
   return {
     ...real,
     pdfjsRenderer: {

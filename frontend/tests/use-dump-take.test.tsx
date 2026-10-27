@@ -1,11 +1,11 @@
 import "fake-indexeddb/auto";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type Taking, useDumpTake } from "@/components/use-dump-take";
+import { pdfLink } from "@/lib/book/pdf-take";
 import { readClock } from "@/lib/clock";
 import { quoteBlock } from "@/lib/html-take";
 import { noteBase } from "@/lib/note-base";
 import { reset, waiting } from "@/lib/outbox";
-import { pdfLink } from "@/lib/pdf-take";
 import { periodicNote } from "@/lib/periodic";
 
 const { fetchNote, saveNote, updateNote, searchNotes } = vi.hoisted(() => ({

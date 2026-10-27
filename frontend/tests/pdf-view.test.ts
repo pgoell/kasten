@@ -1,7 +1,7 @@
 import { EditorState } from "@codemirror/state";
 import { waitFor } from "@testing-library/react";
 import "@/lib/live/live-preview";
-import { pdfRenderer, showPdf } from "@/lib/pdf-view";
+import { pdfRenderer, showPdf } from "@/lib/book/pdf-view";
 
 // pdf.js as the vendored build hands it over: a module whose loading sets
 // `globalThis.pdfjsLib`. Counted, so a test can tell whether anything loaded

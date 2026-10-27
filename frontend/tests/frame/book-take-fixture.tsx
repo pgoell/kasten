@@ -9,7 +9,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { flushSync } from "react-dom";
 import { BookPane } from "@/components/book-pane";
 import { updateNote } from "@/lib/api";
-import type { FoliateView } from "@/lib/foliate-view";
+import type { FoliateView } from "@/lib/book/foliate-view";
 import { addHighlight, type Passage } from "@/lib/highlight";
 import { quoteParagraphs } from "@/lib/html-take";
 import { newId } from "@/lib/todo/todo";

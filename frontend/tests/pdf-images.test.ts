@@ -1,4 +1,4 @@
-import { imageBoxes, type Matrix } from "@/lib/pdf-images";
+import { imageBoxes, type Matrix } from "@/lib/book/pdf-images";
 
 /** The operator codes of pdf.js's `OPS` table, for the operators these tests use. */
 const ops = {

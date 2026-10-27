@@ -4,10 +4,10 @@ import { readFileSync } from "node:fs";
 import { EditorSelection } from "@codemirror/state";
 import { vim } from "@replit/codemirror-vim";
 import { fireEvent, waitFor } from "@testing-library/react";
+import { pdfRenderer } from "@/lib/book/pdf-view";
 import { embedSource } from "@/lib/embed";
 import { imagePaths } from "@/lib/image";
 import { livePreview } from "@/lib/live/live-preview";
-import { pdfRenderer } from "@/lib/pdf-view";
 import { vaultPaths } from "@/lib/wikilink";
 import {
   ABOVE,

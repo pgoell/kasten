@@ -5,8 +5,8 @@
  */
 
 import { afterEach, expect, it } from "vitest";
+import { offsetsIn, pdfLink, pdfQuote, rangeIn } from "@/lib/book/pdf-take";
 import { pageLink, quoteBlock } from "@/lib/html-take";
-import { offsetsIn, pdfLink, pdfQuote, rangeIn } from "@/lib/pdf-take";
 import { tagsOf } from "@/lib/tag-rule";
 
 const PATH = "30 Research/report.pdf";

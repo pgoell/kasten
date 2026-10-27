@@ -1,8 +1,8 @@
 import { type RefObject, useCallback, useEffect, useLayoutEffect, useRef } from "react";
-import type { FoliateView } from "@/lib/foliate-view";
+import type { FoliateView } from "@/lib/book/foliate-view";
+import type { BookTake } from "@/lib/book/use-book-take";
+import type { BookTurns } from "@/lib/book/use-book-turns";
 import { type EditorCommands, TERMINAL, TERMINAL_CHORD } from "@/lib/key-bindings";
-import type { BookTake } from "@/lib/use-book-take";
-import type { BookTurns } from "@/lib/use-book-turns";
 import { beginLeader, paneOpener } from "@/lib/which-key";
 
 /**
