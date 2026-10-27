@@ -96,8 +96,10 @@ is done. The branch ends when the pull request lands.
   choice that looks odd. Match the density of the surrounding file.
 - **SHA-pin every GitHub Action.** Every `uses:`, `actions/*` and `github/*`
   included, pins a full commit SHA with a trailing `# vX.Y.Z`; only a local
-  `./.github/actions/*` path goes without. The repo's Actions settings require
-  it, and a run with an `@vN` ref ends in `startup_failure` with no checks.
+  `./` path goes without. The action's owner must be on
+  `.github/selected-actions.json` too. Both are repo settings
+  (`.github/actions-permissions.json`), and a run that breaks either ends in
+  `startup_failure` with no checks.
 - **Conventional Commits.** `<type>(<scope>)?: <subject>`, subject lowercase.
   `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`,
   `chore`, `revert`. Append `!` for breaking changes. PR titles follow the same
