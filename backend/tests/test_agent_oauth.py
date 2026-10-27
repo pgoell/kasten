@@ -13,12 +13,15 @@ session gets, and whether a code can be spent twice.
 
 import base64
 import hashlib
+import json
+import time
 from typing import TYPE_CHECKING, Any
 from urllib.parse import parse_qs, urlsplit
 
 import pytest
 
 from backend.tests.test_mcp import ENDPOINT, RPC, call
+from kasten_backend import agent_oauth
 from kasten_backend.agent_routes import BEARER
 from kasten_backend.config import get_settings
 
@@ -215,6 +218,68 @@ async def test_plain_pkce_is_refused(client: AsyncClient, agent_vault: Path) -> 
     )
 
     assert response.status_code == 400
+
+
+def grants() -> list[str]:
+    """The names `tokens.json` holds, empty when it does not exist yet."""
+    store = get_settings().tokens_path
+    if not store.exists():
+        return []
+
+    return [record["name"] for record in json.loads(store.read_text(encoding="utf-8"))]
+
+
+@pytest.mark.parametrize(
+    "challenge",
+    [
+        "é" * 43,
+        CHALLENGE[:42],
+        "a" * 129,
+        CHALLENGE + "=",
+        "+" + CHALLENGE[1:],
+        "/" + CHALLENGE[1:],
+    ],
+    ids=["non-ascii", "42-chars", "129-chars", "padding", "plus", "slash"],
+)
+async def test_a_challenge_that_is_not_rfc_7636_shape_is_refused_without_a_code(
+    client: AsyncClient, agent_vault: Path, challenge: str
+) -> None:
+    # Main stored a non-ASCII challenge, and the exchange then raised a 500
+    # from `compare_digest` (#1228).
+    held = dict(agent_oauth._codes)
+
+    response = await client.post(
+        "/api/oauth/authorize", data=consent(challenge=challenge), follow_redirects=False
+    )
+
+    assert response.status_code == 400
+    assert "location" not in response.headers
+    assert agent_oauth._codes == held
+
+
+async def test_a_code_holding_a_non_ascii_challenge_answers_invalid_grant(
+    client: AsyncClient, agent_vault: Path
+) -> None:
+    # Planted past authorize, so this holds whatever a stored challenge carries.
+    agent_oauth._codes["planted"] = (CLAUDE, "é" * 43, time.monotonic() + 60)
+
+    response = await client.post("/agent/oauth/token", data=exchange("planted"))
+
+    assert response.status_code == 400
+    assert response.json() == {"error": "invalid_grant"}
+    assert grants() == []
+
+
+async def test_a_non_ascii_verifier_answers_invalid_grant(
+    client: AsyncClient, agent_vault: Path
+) -> None:
+    code = await code_from(client)
+
+    response = await client.post("/agent/oauth/token", data=exchange(code, verifier="é" * 64))
+
+    assert response.status_code == 400
+    assert response.json() == {"error": "invalid_grant"}
+    assert grants() == []
 
 
 async def test_chatgpts_per_app_callback_is_accepted(
