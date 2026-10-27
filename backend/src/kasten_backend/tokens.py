@@ -240,7 +240,9 @@ async def identify(store: Path, secret: str) -> tuple[str, bool] | None:
         try:
             records = _read(store)
         except _UNREADABLE as error:
-            logger.warning("Refusing every bearer: %s cannot be read (%s)", store, type(error).__name__)
+            logger.warning(
+                "Refusing every bearer: %s cannot be read (%s)", store, type(error).__name__
+            )
             return None
 
         for record in records:
