@@ -213,6 +213,15 @@ it("#953 A5 a pause on another video the frame moved to writes nothing under the
   expect(watchedAt(at.state.doc.toString(), ID)).toBe(40);
 });
 
+it("#1188 I6 the note's player counts an empty video_id as no name and still writes its pause", async () => {
+  const at = mount(NOTE);
+  const frame = await frameIn(at);
+  send(frame.contentWindow, { event: "infoDelivery", info: { videoData: { video_id: "" } } });
+  send(frame.contentWindow, { event: "infoDelivery", info: { playerState: 1, currentTime: 50 } });
+  send(frame.contentWindow, { event: "infoDelivery", info: { playerState: 2, currentTime: 55 } });
+  expect(watchedAt(at.state.doc.toString(), ID)).toBe(55);
+});
+
 it("#953 A6 the note's player writes the second the pane reads back from the note", async () => {
   const at = mount(NOTE);
   const frame = await frameIn(at);
