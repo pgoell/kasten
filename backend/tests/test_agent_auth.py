@@ -357,3 +357,94 @@ async def test_a_broken_store_refuses_a_bearer_with_401(
     )
 
     assert response.status_code == 401
+
+
+def bad_record(digest: str) -> dict[str, str]:
+    """A record of the right shape but for its digest, as a hand edit could leave it."""
+    return {"name": "edited", "created": "2026-01-01T00:00:00Z", "digest": digest}
+
+
+async def test_a_non_ascii_digest_in_the_store_refuses_every_bearer_with_401(
+    client: AsyncClient, agent_vault: Path, bearer: dict[str, str]
+) -> None:
+    # Main let the active bearer before the bad record in, then raised a 500
+    # from `compare_digest` for every other one (#1226).
+    (agent_vault / "index.md").write_text("# index")
+    store = get_settings().tokens_path
+    store.write_text(
+        json.dumps([*json.loads(store.read_text(encoding="utf-8")), bad_record("é")]),
+        encoding="utf-8",
+    )
+
+    valid = await client.get("/agent/notes/index.md", headers=bearer)
+    junk = await client.get(
+        "/agent/notes/index.md", headers={"Authorization": "Bearer kasten_junk"}
+    )
+
+    assert valid.status_code == 401
+    assert junk.status_code == 401
+
+
+async def test_a_non_ascii_digest_in_the_revoked_file_refuses_an_unknown_bearer_with_401(
+    client: AsyncClient, agent_vault: Path, bearer: dict[str, str]
+) -> None:
+    (agent_vault / "index.md").write_text("# index")
+    revoked_file().write_text(
+        json.dumps([{**bad_record("é"), "revoked": "2026-01-02T00:00:00Z"}]), encoding="utf-8"
+    )
+
+    junk = await client.get(
+        "/agent/notes/index.md", headers={"Authorization": "Bearer kasten_junk"}
+    )
+    valid = await client.get("/agent/notes/index.md", headers=bearer)
+
+    assert junk.status_code == 401
+    assert valid.status_code == 200
+
+
+async def test_revoke_sets_aside_a_revoked_file_with_a_non_ascii_digest(
+    client: AsyncClient, agent_vault: Path, bearer: dict[str, str]
+) -> None:
+    # Main carried the bad record into the file it wrote, so the revoke left
+    # every unknown bearer a 500. Now the file counts as broken and is set aside.
+    (agent_vault / "index.md").write_text("# index")
+    revoked_file().write_text(
+        json.dumps([{**bad_record("é"), "revoked": "2026-01-02T00:00:00Z"}]), encoding="utf-8"
+    )
+
+    assert await revoke(get_settings().tokens_path, "laptop")
+
+    assert revoked_file().with_name(tokens.REVOKED + ".broken").exists()
+    assert (await client.get("/agent/notes/index.md", headers=bearer)).status_code == 401
+    junk = await client.get(
+        "/agent/notes/index.md", headers={"Authorization": "Bearer kasten_junk"}
+    )
+    assert junk.status_code == 401
+
+
+@pytest.mark.parametrize(
+    "digest",
+    ["é" * 64, "A" * 64, "a" * 63, "a" * 65, "", "a" * 64 + "\n", "g" * 64],
+    ids=["non-ascii", "upper-case", "short", "long", "empty", "newline", "not-hex"],
+)
+async def test_a_digest_that_is_not_sha256_hex_makes_the_store_unreadable(
+    client: AsyncClient,
+    agent_vault: Path,
+    bearer: dict[str, str],
+    caplog: pytest.LogCaptureFixture,
+    digest: str,
+) -> None:
+    # No such digest can match, so a record holding one means the file was
+    # edited by hand or broken, and a broken store admits nobody, loudly.
+    (agent_vault / "index.md").write_text("# index")
+    store = get_settings().tokens_path
+    store.write_text(
+        json.dumps([*json.loads(store.read_text(encoding="utf-8")), bad_record(digest)]),
+        encoding="utf-8",
+    )
+    caplog.set_level(logging.WARNING, logger="kasten_backend.tokens")
+
+    response = await client.get("/agent/notes/index.md", headers=bearer)
+
+    assert response.status_code == 401
+    assert any("Refusing every bearer" in record.getMessage() for record in caplog.records)

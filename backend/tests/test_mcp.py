@@ -124,6 +124,26 @@ async def test_mcp_refuses_with_401_on_a_broken_revoked_file(
     assert response.status_code == 401
 
 
+@pytest.mark.parametrize("which", ["tokens.json", REVOKED])
+async def test_mcp_refuses_with_401_when_a_token_record_holds_a_non_ascii_digest(
+    client: AsyncClient, agent_vault: Path, token: str, which: str
+) -> None:
+    # `compare_digest` raises on non-ASCII text, which main let through (#1226).
+    (agent_vault / "borges.md").write_text("# borges\n")
+    record = {"name": "edited", "created": "2026-01-01T00:00:00Z", "digest": "é"}
+    if which == REVOKED:
+        record["revoked"] = "2026-01-02T00:00:00Z"
+    get_settings().tokens_path.with_name(which).write_text(json.dumps([record]), encoding="utf-8")
+
+    response = await client.post(
+        ENDPOINT,
+        json=call("read_note", {"path": "borges.md"}),
+        headers={"Authorization": "Bearer kasten_junk", **RPC},
+    )
+
+    assert response.status_code == 401
+
+
 @pytest.mark.skipif(os.geteuid() == 0, reason="root reads a file whatever its mode")
 @pytest.mark.parametrize("which", ["tokens.json", REVOKED])
 async def test_mcp_refuses_with_401_on_an_unreadable_token_file(

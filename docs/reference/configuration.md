@@ -181,7 +181,7 @@ not a second vault. The reasoning is in
 ## KASTEN_TOKENS_PATH
 
 Where the [agent tokens](/reference/agent-api.md) are kept, one JSON record per
-token holding a name, a creation date and a SHA-256 digest.
+token holding a name, a creation date and a SHA-256 digest in lowercase hex.
 
 | | |
 | --- | --- |

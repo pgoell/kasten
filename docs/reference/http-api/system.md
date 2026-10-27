@@ -217,5 +217,9 @@ is and logs a warning.
 A `tokens.json` the backend cannot read refuses every bearer with a 401 and a
 logged warning. Minting, revoking and listing raise on it and write nothing.
 
+Either file counts as unreadable when a record's `digest` is not 64 lowercase
+hex characters, the only form the backend writes, since no secret could match
+it.
+
 A name the store has not got is a `404`.
 

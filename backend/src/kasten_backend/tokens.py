@@ -26,7 +26,7 @@ import tempfile
 from datetime import UTC, datetime
 from pathlib import Path
 
-from pydantic import BaseModel, ConfigDict, TypeAdapter, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError
 
 logger = logging.getLogger(__name__)
 
@@ -59,9 +59,15 @@ class Minted(Token):
 
 
 class _Record(Token):
-    """One token as the file holds it."""
+    """One token as the file holds it.
 
-    digest: str
+    The digest must be what `digest` writes, 64 lowercase hex characters. Any
+    other text could never match, and non-ASCII text makes `compare_digest`
+    raise `TypeError`, which turned every refusal into a 500 (#1226). So a
+    record with anything else makes its file unreadable, which refuses with 401.
+    """
+
+    digest: str = Field(pattern=r"^[0-9a-f]{64}$")
 
 
 class _Revoked(_Record):

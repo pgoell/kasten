@@ -118,6 +118,28 @@ async def test_mint_and_revoke_on_a_broken_store_leave_it_alone(tmp_path: Path) 
     assert not (tmp_path / tokens.REVOKED).exists()
 
 
+@pytest.mark.parametrize("digest", ["é", "A" * 64], ids=["non-ascii", "upper-case"])
+async def test_mint_and_revoke_on_a_store_with_a_bad_digest_leave_it_alone(
+    tmp_path: Path, digest: str
+) -> None:
+    # A record no secret can match makes the store broken, so neither writes
+    # over it and carries the bad record on.
+    store = tmp_path / "tokens.json"
+    await tokens.mint(store, "laptop")
+    records = json.loads(store.read_text(encoding="utf-8"))
+    records[0]["digest"] = digest
+    store.write_text(json.dumps(records), encoding="utf-8")
+    before = store.read_bytes()
+
+    with pytest.raises(ValidationError):
+        await tokens.mint(store, "phone")
+    with pytest.raises(ValidationError):
+        await tokens.revoke(store, "laptop")
+
+    assert store.read_bytes() == before
+    assert not (tmp_path / tokens.REVOKED).exists()
+
+
 @pytest.mark.skipif(os.geteuid() == 0, reason="root reads a file whatever its mode")
 async def test_mint_revoke_and_listing_on_an_unreadable_store_leave_it_alone(
     tmp_path: Path,
