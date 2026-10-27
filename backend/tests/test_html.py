@@ -509,3 +509,14 @@ async def test_a_python_alias_of_utf8_goes_out_as_utf8(client: AsyncClient, vaul
 
     assert "café".encode() in response.content
     assert response.headers["content-type"] == "text/html; charset=utf-8"
+
+
+async def test_a_page_may_be_framed_by_kasten_alone(client: AsyncClient, vault: Path) -> None:
+    # Checked on the header itself, not against HTML_POLICY, which is what moves
+    # when the directive goes missing (#870).
+    (vault / "report.html").write_text("<!doctype html><p>findings</p>", encoding="utf-8")
+
+    response = await client.get("/api/html/report.html")
+
+    policy = [d.strip() for d in response.headers["content-security-policy"].split(";")]
+    assert "frame-ancestors 'self'" in policy

@@ -48,6 +48,7 @@ The page goes out with a policy of its own in `Content-Security-Policy`:
 | `style-src 'unsafe-inline' https:` | A report carries its own styles, and fonts off Google Fonts |
 | `img-src 'self' data: blob: https:` | Pictures, inline or linked |
 | `connect-src 'none'`, `form-action 'none'` | The page cannot send a request to kasten, a write included |
+| `frame-ancestors 'self'` | Only kasten frames the page, so another site cannot draw it and catch the keys it posts to its parent |
 
 For a page without the meta, two scripts go into the page and nothing else
 changes. An opted-in page also gets the `<html>` element and the styles below.

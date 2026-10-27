@@ -108,6 +108,11 @@ HTML_POLICY = "; ".join(
         "connect-src 'none'",
         "form-action 'none'",
         "base-uri 'none'",
+        # Only kasten frames a page, so another site cannot draw one under its own
+        # and catch the keys the page posts to its parent (#870). `'self'` is
+        # matched against the address the page came from, not the opaque origin
+        # the sandbox gives it, so the pane's frame passes.
+        "frame-ancestors 'self'",
     ]
 )
 """What one page of HTML out of the vault may do, which is draw itself."""

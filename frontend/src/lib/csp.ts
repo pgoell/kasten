@@ -49,6 +49,10 @@ const DIRECTIVES = [
   // `default-src` does not govern where a form posts, and kasten has none to
   // submit.
   "form-action 'none'",
+  // Only kasten frames the app, so another site cannot lay it under a page of
+  // its own and steer clicks into it (#870). `'self'` rather than `'none'`:
+  // vitest's browser mode runs the frame tests inside a frame of its own.
+  "frame-ancestors 'self'",
 ];
 
 /** The policy production serves. */

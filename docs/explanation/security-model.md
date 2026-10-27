@@ -193,6 +193,13 @@ straight from its address is held the same way. `connect-src 'none'` closes
 the last gap, a blind `POST` that would land wherever the browser still sends
 the cookie. What is left is the page drawing itself, which is the point.
 
+Only kasten may frame the page or the app: `HTML_POLICY` and the app's own
+policy both end in `frame-ancestors 'self'`. Without it, another site could
+frame a vault page while you are signed in and read the keys the page posts to
+its parent, or lay the app under a page of its own and steer clicks into it.
+`'self'` is matched against the address the page was served from, not the
+opaque origin its sandbox gives it, so the pane's frame passes.
+
 The frame never gets `allow-same-origin`. With it beside `allow-scripts`, a
 page could reach into its own frame and lift the sandbox off.
 

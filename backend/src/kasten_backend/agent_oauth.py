@@ -38,7 +38,7 @@ from html import escape
 from typing import Annotated, Any
 from urllib.parse import urlencode, urlsplit
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Request
+from fastapi import APIRouter, Depends, Form, HTTPException, Request, Response
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 
 from kasten_backend.config import Settings, get_settings
@@ -219,6 +219,7 @@ async def authorization_server(request: Request) -> dict[str, Any]:
 
 @router.get("/api/oauth/authorize", response_class=HTMLResponse)
 async def consent(
+    response: Response,
     redirect_uri: str = "",
     state: str = "",
     code_challenge: str = "",
@@ -239,6 +240,12 @@ async def consent(
     """
     if not _permitted(redirect_uri):
         raise HTTPException(status_code=400, detail="That is not an address kasten sends codes to")
+
+    # A page whose whole job is one button is the page another site would frame
+    # to steer a click (#870). Nothing of kasten's frames it, and an epub chapter
+    # may frame any URL of kasten's under the app's `frame-src 'self'`, hence
+    # `'none'` rather than `'self'`.
+    response.headers["Content-Security-Policy"] = "frame-ancestors 'none'"
 
     fields = "".join(
         f'<input type=hidden name="{name}" value="{escape(value, quote=True)}">'

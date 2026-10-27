@@ -108,6 +108,8 @@ capabilities and every finance figure and transaction to. The `POST` behind that
 the address it was given, carrying `code`, `state` and `iss`. A `GET` whose
 `redirect_uri` is not one of the addresses below, missing or malformed included,
 answers `400` with no button, so the page never names a host no code goes to.
+The page goes out with `Content-Security-Policy: frame-ancestors 'none'`, so no
+page, kasten's own included, can frame the button and steer a click onto it.
 
 A `GET` never mints. oauth2-proxy's cookie is `SameSite=Lax`, which a browser
 attaches to a top-level navigation, so a link here would otherwise mint a code

@@ -475,3 +475,13 @@ async def test_sec_fetch_site_settles_it_beside_a_malformed_origin(
     )
 
     assert response.status_code == 302
+
+
+async def test_the_consent_page_may_be_framed_by_no_one(
+    client: AsyncClient, agent_vault: Path
+) -> None:
+    # One button is what another site would frame to steer a click (#870).
+    response = await client.get("/api/oauth/authorize", params={"redirect_uri": CLAUDE})
+
+    assert "<form" in response.text
+    assert response.headers["content-security-policy"] == "frame-ancestors 'none'"

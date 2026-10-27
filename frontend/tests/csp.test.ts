@@ -43,6 +43,15 @@ describe("the content security policy", () => {
     expect(sources(POLICY, "script-src")).toBe("'self'");
   });
 
+  it("lets no site but kasten frame a page nginx sends", () => {
+    // Every copy, the share host's lists page included, and not only the first
+    // a match finds (#870).
+    const policies = [...NGINX.matchAll(/add_header\s+Content-Security-Policy\s+"([^"]*)"/g)].map(
+      (found) => sources(found[1] ?? "", "frame-ancestors"),
+    );
+    expect(policies).toEqual(["'self'", "'self'"]);
+  });
+
   it("adds one minted nonce and nothing else in development", () => {
     expect(sources(devPolicy("x"), "script-src")).toBe("'self' 'nonce-x'");
   });

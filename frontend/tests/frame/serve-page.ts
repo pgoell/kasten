@@ -20,7 +20,8 @@ const PAGES = path.resolve(import.meta.dirname, "../../node_modules/.cache/kaste
  * Routes `/api/html/<pagePath>` to the backend's own page writer, so the page a
  * frame test draws is the one the app serves: the script first, the theme and
  * palette from the request's query when the page opts in. The sandbox line is
- * the one `HTML_POLICY` leads with, and it is the part a frame needs. Routed
+ * the one `HTML_POLICY` leads with, and it is the part a frame needs, with its
+ * frame-ancestors beside it. Routed
  * here rather than through the dev server, which proxies `/api` to a backend
  * these tests do not start.
  */
@@ -48,8 +49,10 @@ async function routePage({ context }: BrowserCommandContext, pagePath: string, f
         status: 200,
         contentType: "text/html",
         headers: {
+          // `HTML_POLICY`'s frame-ancestors too, so a test that sees the page
+          // load proves the pane's frame passes it (#870).
           "Content-Security-Policy":
-            "sandbox allow-scripts allow-popups allow-popups-to-escape-sandbox",
+            "sandbox allow-scripts allow-popups allow-popups-to-escape-sandbox; frame-ancestors 'self'",
         },
         body,
       });
