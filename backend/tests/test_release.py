@@ -52,6 +52,10 @@ def publish_remote(tmp_path: Path, repo: Path) -> None:
     git(repo, "push", "-q", "origin", "main", "--tags")
 
 
+def detach(repo: Path) -> None:
+    git(repo, "checkout", "-q", "--detach", "origin/main")
+
+
 def install_fake_gh(tmp_path: Path) -> None:
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
@@ -188,18 +192,73 @@ def test_release_publishes_from_the_head_it_read(tmp_path: Path) -> None:
     assert gh_calls(tmp_path) == [f"release create 0.5.0 --target {head} --generate-notes"]
 
 
-@pytest.mark.parametrize("drift", ["branch", "dirty", "ahead"])
-def test_release_refuses_off_main_dirty_or_behind(tmp_path: Path, drift: str) -> None:
+def test_release_passes_in_a_worktree_detached_at_origin_main(tmp_path: Path) -> None:
     repo = make_repo(tmp_path)
     publish_remote(tmp_path, repo)
-    if drift == "branch":
-        git(repo, "checkout", "-q", "-b", "feature")
-    elif drift == "dirty":
-        (repo / "scratch.txt").write_text("dirty", encoding="utf-8")
-    else:
-        commit(repo, "feat: a")
+    commit(repo, "feat: a")
+    git(repo, "push", "-q", "origin", "main")
+    head = git(repo, "rev-parse", "HEAD")
+    worktree = tmp_path / "wt"
+    git(repo, "worktree", "add", "-q", "--detach", str(worktree), "origin/main")
+
+    result = run_release(tmp_path, worktree)
+
+    assert result.returncode == 0
+    assert result.stdout == "0.5.0\n"
+    assert gh_calls(tmp_path) == [f"release create 0.5.0 --target {head} --generate-notes"]
+
+
+def test_release_refuses_ahead_of_origin_main(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+    publish_remote(tmp_path, repo)
+    detach(repo)
+    commit(repo, "feat: a")
 
     result = run_release(tmp_path, repo)
 
     assert result.returncode == 1
+    assert "release: HEAD is ahead of origin/main" in result.stderr
     assert gh_calls(tmp_path) == []
+
+
+def test_release_refuses_behind_origin_main(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+    publish_remote(tmp_path, repo)
+    commit(repo, "feat: a")
+    git(repo, "push", "-q", "origin", "main")
+    git(repo, "reset", "-q", "--hard", "HEAD~1")
+    git(repo, "checkout", "-q", "--detach", "HEAD")
+    # Only the script's own fetch can show that origin has moved on.
+    git(repo, "update-ref", "refs/remotes/origin/main", "HEAD")
+
+    result = run_release(tmp_path, repo)
+
+    assert result.returncode == 1
+    assert "release: HEAD is behind origin/main" in result.stderr
+    assert gh_calls(tmp_path) == []
+
+
+def test_release_refuses_a_dirty_tree(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+    publish_remote(tmp_path, repo)
+    detach(repo)
+    (repo / "scratch.txt").write_text("dirty", encoding="utf-8")
+
+    result = run_release(tmp_path, repo)
+
+    assert result.returncode == 1
+    assert "release: working tree is not clean" in result.stderr
+    assert gh_calls(tmp_path) == []
+
+
+def test_release_passes_on_a_branch_at_origin_main(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+    publish_remote(tmp_path, repo)
+    commit(repo, "fix: a")
+    git(repo, "push", "-q", "origin", "main")
+    git(repo, "checkout", "-q", "-b", "feature")
+
+    result = run_release(tmp_path, repo)
+
+    assert result.returncode == 0
+    assert result.stdout == "0.4.3\n"

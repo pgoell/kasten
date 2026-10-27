@@ -1,7 +1,7 @@
 ---
 type: How-to Guide
 title: Cut a release
-description: Run one command on a clean, up to date main. It picks the next version from the commits and publishes the release, and the workflow deploys it.
+description: Run one command on a clean, up to date main or a worktree at origin/main. It picks the next version from the commits and publishes the release, and the workflow deploys it.
 tags: [release, versioning, deploy, ci]
 status: stable
 ---
@@ -14,12 +14,24 @@ it.
 
 ## 1. Check main
 
-Cut from `main` with a clean tree, at the tip of `origin/main`. Off `main`,
-with uncommitted changes, or not at the tip, the command stops and says why.
+Cut from the tip of `origin/main` with a clean tree, on `main` or detached. With
+uncommitted changes, or ahead of, behind or diverged from `origin/main`, the
+command fetches, stops and says why.
+
+In the shared checkout:
 
 ```sh
 git checkout main && git pull
 ```
+
+In a git worktree, where `main` is checked out elsewhere:
+
+```sh
+git fetch origin && git checkout --detach origin/main
+```
+
+Never run `git checkout -B main` in a worktree, since it moves the `main` the
+other checkout holds.
 
 ## 2. See the version
 
