@@ -26,6 +26,7 @@ afterEach(() => {
   view?.destroy();
   view = undefined;
   document.getElementById("outside")?.remove();
+  document.getElementById("icon")?.remove();
 });
 
 function mount(svg: string): EditorView {
@@ -181,9 +182,11 @@ it("#952 A6 keeps the arrowheads of a flow chart", async () => {
     `<svg viewBox="0 0 200 60"><defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><path d="M0,0 L9,3 L0,6 z" fill="currentColor"/></marker></defs><path d="M10 30 L150 30" stroke="currentColor" marker-end="url(#arrow)"/><text x="10" y="20" fill="currentColor">Start</text></svg>`,
   );
 
-  expect(picture.querySelector("marker")?.getAttribute("id")).toBe("arrow");
+  // Ids carry the block's prefix, so the marker is found by its name's end, and the ref is checked against that id.
+  const id = picture.querySelector("marker")?.getAttribute("id");
+  expect(id).toMatch(/arrow$/);
   expect(picture.querySelector('path[d="M10 30 L150 30"]')?.getAttribute("marker-end")).toBe(
-    "url(#arrow)",
+    `url(#${id})`,
   );
   expect(picture.querySelector("text")?.textContent).toBe("Start");
 });
@@ -194,5 +197,86 @@ it("#952 A5 a use pointing inside the block keeps its href", async () => {
   );
 
   expect(picture.querySelector("path")).not.toBeNull();
-  expect(picture.querySelector("use")?.getAttribute("href")).toBe("#dot");
+  const dot = picture.querySelector("circle")?.getAttribute("id");
+  expect(dot).toMatch(/dot$/);
+  expect(picture.querySelector("use")?.getAttribute("href")).toBe(`#${dot}`);
+});
+
+it("#952 A5 a use whose id also sits outside the block draws the block's own", async () => {
+  const outside = document.body.appendChild(document.createElement("div"));
+  outside.id = "icon";
+
+  const picture = await drawn(
+    `<svg viewBox="0 0 20 20"><defs><circle id="icon" r="2"/></defs><use href="#icon"/></svg>`,
+  );
+
+  const href = picture.querySelector("use")?.getAttribute("href") ?? "";
+  const id = href.slice(1);
+  expect(href.startsWith("#")).toBe(true);
+  expect(id).not.toBe("icon");
+  expect(picture.querySelector(`[id="${id}"]`)).not.toBeNull();
+});
+
+it("#952 A5 an id in the svg does not clobber a window global", async () => {
+  await drawn(`<svg viewBox="0 0 20 20"><g id="process"><path d="M0 0"/></g></svg>`);
+
+  expect(document.getElementById("process")).toBeNull();
+  expect(Reflect.get(window, "process") instanceof Element).toBe(false);
+});
+
+it("#952 A5 drops a transform on the root svg", async () => {
+  const picture = await drawn(
+    `<svg viewBox="0 0 20 20" transform="translate(50 50)" x="10" y="10">${PATH}</svg>`,
+  );
+
+  expect(picture.querySelector("path")).not.toBeNull();
+  expect(picture.hasAttribute("transform")).toBe(false);
+  expect(picture.hasAttribute("x")).toBe(false);
+  expect(picture.hasAttribute("y")).toBe(false);
+});
+
+it("#952 A5 drops a use that points at another use", async () => {
+  const picture = await drawn(
+    `<svg viewBox="0 0 20 20"><g id="a">${PATH}</g><g id="b"><use href="#a"/><use href="#a"/></g><use href="#b"/></svg>`,
+  );
+
+  const top = Array.from(picture.children).find((el) => el.localName === "use");
+  expect(top?.hasAttribute("href")).toBe(false);
+  const inner = Array.from(picture.querySelectorAll("g > use"));
+  expect(inner.length).toBe(2);
+  for (const use of inner) expect(use.hasAttribute("href")).toBe(true);
+});
+
+it("#952 A5 drops a url ref with a no-break space", async () => {
+  const picture = await drawn(
+    `<svg viewBox="0 0 20 20"><mask id="m"><path d="M0 0 L5 5"/></mask>${PATH}<rect x="0" y="0" width="5" height="5" mask="url( #m)"/></svg>`,
+  );
+
+  expect(picture.querySelector("rect")?.hasAttribute("mask")).toBe(false);
+});
+
+it("#952 A5 drops element and var functions in a style", async () => {
+  const picture = await drawn(
+    `<svg viewBox="0 0 20 20">${PATH}<rect style="fill: var(--k-ink); mask: -moz-element(#x)" x="0" y="0" width="5" height="5"/></svg>`,
+  );
+
+  expect(picture.querySelector("rect")?.getAttribute("style") ?? "").not.toMatch(
+    /var\(|moz-element/,
+  );
+});
+
+it("#952 A1 two svgs in one block show the source", async () => {
+  const one = `<svg viewBox="0 0 20 20">${PATH}</svg>`;
+  const two = `<svg viewBox="0 0 20 20"><circle r="2"/></svg>`;
+  const at = mount(`${one}\n${two}`);
+
+  await vi.waitFor(() => expect(at.dom.querySelector(".cm-svg-error")).not.toBeNull());
+  expect(at.dom.querySelector(".cm-svg-source")?.textContent).toBe(`${one}\n${two}`);
+  expect(at.dom.querySelector(".cm-svg-block svg")).toBeNull();
+});
+
+it("#952 I1 an svg whose only content is a nested script shows its source", async () => {
+  const at = mount(`<svg><g><script>alert(1)</script></g></svg>`);
+
+  await vi.waitFor(() => expect(at.dom.querySelector(".cm-svg-error")).not.toBeNull());
 });
