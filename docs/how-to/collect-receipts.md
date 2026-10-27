@@ -1,7 +1,7 @@
 ---
 type: How-to Guide
 title: Collect receipts
-description: Get tax receipts into kasten from the finance pane, the phone and Gmail, run the receipt job that collects mail and reads each receipt with Claude, and confirm what kasten proposes.
+description: Get tax receipts into kasten from the finance pane, the phone and Gmail, run the receipt job that collects mail and reads each receipt with headless Claude Code on your subscription, and confirm what kasten proposes.
 tags: [finance, tax, receipts, jobs, gmail, deploy]
 status: draft
 ---
@@ -35,7 +35,8 @@ on no booking. With no signal the file does not go; share it again later.
 ## From Gmail
 
 Put the label `Receipt` on each mail that carries a receipt as a PDF, by hand
-or with a Gmail filter. The receipt job sends kasten every PDF of those mails
+or with a Gmail filter. To use another label, set `RECEIPTS_LABEL` in the env
+file below. The receipt job sends kasten every PDF of those mails
 from the last 30 days on each run; a file it sent before changes nothing.
 
 The job reuses the order sync's read-only Gmail login,
@@ -44,13 +45,28 @@ The job reuses the order sync's read-only Gmail login,
 
 ## Set up the receipt job
 
-The same job reads each receipt with Claude: the date, the total, who issued
-it, the labour share on a craftsman's or household service invoice, and the
-line it likely belongs on. It needs an Anthropic API key, from
-console.anthropic.com under API keys. Reading a receipt costs a few cents.
+The same job reads each receipt with headless Claude Code on your Claude
+subscription: the date, the total, who issued it, the labour share on a
+craftsman's or household service invoice, and the line it likely belongs on.
+No API key is needed. Each receipt counts against the subscription's usage
+limits like any other Claude Code session, and may cost money when the plan
+has extra usage turned on; when the limit is reached, the run stops and the
+next one reads the rest.
 
-1. Write the env file, then put the key in it with an editor, never on the
-   command line, where the shell history would keep it:
+It needs Claude Code installed on the host, at `~/.local/bin/claude`: the job
+mounts that binary into its container, since kasten's public image does not
+carry it.
+
+1. Make a token for the subscription. It opens a login in the browser and
+   prints a long-lived token:
+
+   ```sh
+   claude setup-token
+   ```
+
+2. Write the env file, then put the token in it as
+   `CLAUDE_CODE_OAUTH_TOKEN` with an editor, never on the command line, where
+   the shell history would keep it:
 
    ```sh
    install -m 600 ~/Code/kasten/jobs/receipts.env.example ~/.config/kasten/receipts.env
@@ -59,23 +75,24 @@ console.anthropic.com under API keys. Reading a receipt costs a few cents.
    Write each value bare, never in quotes: docker's `--env-file` keeps quotes
    as part of the value.
 
-2. Name the command once. Every run is a container of the image the backend
-   runs:
+3. Name the command once. Every run is a container of the image the backend
+   runs, with the host's `claude` mounted in:
 
    ```sh
    receipts() {
      sg docker -c "docker run --rm --network web --user $(id -u):$(id -g) \
        --env-file $HOME/.config/kasten/receipts.env \
        --mount type=bind,src=$HOME/.config/kasten/gmail.json,dst=/gmail.json,readonly \
+       --mount type=bind,src=$HOME/.local/bin/claude,dst=/usr/local/bin/claude,readonly \
        $(docker inspect -f '{{.Config.Image}}' kasten-backend-prod) \
        kasten-receipts $*"
    }
    ```
 
-3. Run it once: `receipts run; echo "exit $?"`. The log says how many mail
+4. Run it once: `receipts run; echo "exit $?"`. The log says how many mail
    PDFs were new and how many receipts were read.
 
-4. Start the timer. `kasten-receipts.service` and `.timer` in server-infra's
+5. Start the timer. `kasten-receipts.service` and `.timer` in server-infra's
    `jobs/` run `kasten-receipts run` every hour:
 
    ```sh
