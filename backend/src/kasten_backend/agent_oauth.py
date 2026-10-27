@@ -157,10 +157,15 @@ def _same_origin(request: Request) -> bool:
     if sent is None:
         return True
 
+    try:
+        host = urlsplit(sent).netloc
+    except ValueError:
+        # `http://[` and its kind, which no browser sends: a refusal, not a 500
+        # (#1230).
+        return False
+
     named = get_settings().agent_host
-    return urlsplit(sent).netloc == request.headers.get("host") or (
-        bool(named) and sent == f"https://{named}"
-    )
+    return host == request.headers.get("host") or (bool(named) and sent == f"https://{named}")
 
 
 def _resource(request: Request) -> dict[str, Any]:
@@ -227,7 +232,14 @@ async def consent(
     waiting to spend it. A cross-site POST carries no cookie, so oauth2-proxy
     turns it away before this is reached, and `_same_origin` refuses it behind
     a proxy that does not.
+
+    An address the POST would refuse is refused here first, so the page never
+    names a host no code goes to, and `urlsplit` below only ever meets one of
+    the allowed addresses: on anything else it can raise (#1230).
     """
+    if not _permitted(redirect_uri):
+        raise HTTPException(status_code=400, detail="That is not an address kasten sends codes to")
+
     fields = "".join(
         f'<input type=hidden name="{name}" value="{escape(value, quote=True)}">'
         for name, value in (
@@ -241,7 +253,7 @@ async def consent(
     return (
         "<!doctype html><title>Connect to kasten</title>"
         f"<form method=post>{fields}"
-        f"<p>Give {escape(urlsplit(redirect_uri).netloc or 'this client')} the eight agent "
+        f"<p>Give {escape(urlsplit(redirect_uri).netloc)} the eight agent "
         "capabilities: list, read, search, graph, save, append, dump and file, "
         "and every finance figure and transaction, to read.</p>"
         "<button>Connect</button></form>"

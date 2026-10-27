@@ -406,3 +406,72 @@ async def test_a_cross_site_consent_is_refused_without_redirecting(
 
     assert response.status_code == 403
     assert "location" not in response.headers
+
+
+@pytest.mark.parametrize("redirect_uri", ["http://[", "http://\uff03x/", "https://a:b@[::1"])
+async def test_a_malformed_redirect_uri_on_the_consent_page_is_refused(
+    client: AsyncClient, agent_vault: Path, redirect_uri: str
+) -> None:
+    # `urlsplit` raises on these, and the page once named the host by parsing
+    # whatever it was given, so the refusal was a 500 (#1230).
+    response = await client.get("/api/oauth/authorize", params={"redirect_uri": redirect_uri})
+
+    assert response.status_code == 400
+    assert "<form" not in response.text
+
+
+@pytest.mark.parametrize("redirect_uri", ["", "https://attacker.example/callback"])
+async def test_the_consent_page_refuses_an_address_no_code_goes_to(
+    client: AsyncClient, agent_vault: Path, redirect_uri: str
+) -> None:
+    # The page would name a host the POST then refuses, so it refuses first.
+    response = await client.get("/api/oauth/authorize", params={"redirect_uri": redirect_uri})
+
+    assert response.status_code == 400
+    assert "<form" not in response.text
+
+
+async def test_the_consent_page_names_chatgpts_per_app_callback(
+    client: AsyncClient, agent_vault: Path
+) -> None:
+    response = await client.get(
+        "/api/oauth/authorize",
+        params={"redirect_uri": "https://chatgpt.com/connector/oauth/abc_123"},
+    )
+
+    assert response.status_code == 200
+    assert "Give chatgpt.com the eight" in response.text
+
+
+@pytest.mark.parametrize("origin", [b"http://[", b"http://[::1", b"https://a:b@[::1"])
+async def test_a_malformed_origin_is_refused_without_a_code(
+    client: AsyncClient, agent_vault: Path, origin: bytes
+) -> None:
+    # Raw bytes, as a client other than httpx could send them. `urlsplit`
+    # raises on each, and the refusal was a 500 (#1230).
+    held = dict(agent_oauth._codes)
+    response = await client.post(
+        "/api/oauth/authorize",
+        data=consent(),
+        headers=[(b"origin", origin)],
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 403
+    assert "location" not in response.headers
+    assert agent_oauth._codes == held
+
+
+async def test_sec_fetch_site_settles_it_beside_a_malformed_origin(
+    client: AsyncClient, agent_vault: Path
+) -> None:
+    # A guard that held on main: the Origin is never parsed when the browser
+    # says where the request came from.
+    response = await client.post(
+        "/api/oauth/authorize",
+        data=consent(),
+        headers={"sec-fetch-site": "same-origin", "origin": "http://["},
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 302

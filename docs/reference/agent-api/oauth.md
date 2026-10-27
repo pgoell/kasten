@@ -105,7 +105,9 @@ skips registration. kasten never fetches that document and never reads a
 
 The `GET` renders one button, naming the host it would give the eight
 capabilities and every finance figure and transaction to. The `POST` behind that button mints a code and answers `302` to
-the address it was given, carrying `code`, `state` and `iss`.
+the address it was given, carrying `code`, `state` and `iss`. A `GET` whose
+`redirect_uri` is not one of the addresses below, missing or malformed included,
+answers `400` with no button, so the page never names a host no code goes to.
 
 A `GET` never mints. oauth2-proxy's cookie is `SameSite=Lax`, which a browser
 attaches to a top-level navigation, so a link here would otherwise mint a code
@@ -119,7 +121,8 @@ here. It answers `403` and redirects nowhere when:
 
 * `Sec-Fetch-Site` is present and is anything but `same-origin`
 * `Sec-Fetch-Site` is absent, `Origin` is present, and its host matches neither
-  the request's `Host` nor [`KASTEN_AGENT_HOST`](/reference/configuration.md#kasten_agent_host)
+  the request's `Host` nor [`KASTEN_AGENT_HOST`](/reference/configuration.md#kasten_agent_host),
+  or is not a URL that parses, such as `http://[`
 
 `Sec-Fetch-Site` wins when both are sent, so a dev proxy that rewrites `Host`
 does not break the real consent page. A request with neither header came from
