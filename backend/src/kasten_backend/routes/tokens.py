@@ -7,7 +7,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel, ConfigDict
-from sqlalchemy.exc import OperationalError, SQLAlchemyError
+from sqlalchemy.exc import SQLAlchemyError
 
 from kasten_backend import db, token_activity
 from kasten_backend.config import Settings, get_settings
@@ -68,24 +68,37 @@ async def read_tokens(settings: Annotated[Settings, Depends(get_settings)]) -> l
         last = {}
 
     return [
-        TokenUse(name=token.name, created=token.created, last_used=last.get(token.name))
+        TokenUse(name=token.name, created=token.created, last_used=_since(last, token))
         for token in tokens
     ]
 
 
+def _since(last: dict[str, datetime], token: Token) -> datetime | None:
+    """`token`'s last use, unless it falls before the token was made.
+
+    The OAuth reconnect revokes a name and mints it again, so rows under that name
+    can belong to the old secret. Those are older than the new token's `created`.
+    """
+    used = last.get(token.name)
+    return used if used is not None and used >= token.created else None
+
+
 @router.get("/api/tokens/{name}/actions")
-async def read_token_actions(name: str) -> list[TokenActionRead]:
+async def read_token_actions(
+    name: str, settings: Annotated[Settings, Depends(get_settings)]
+) -> list[TokenActionRead]:
     """The newest requests one token made, newest first, at most fifty.
 
-    503 rather than an empty list when no database answers, since an empty list
-    would say the token had done nothing.
+    Every row under the name, the revoked ones included and marked so. 503 rather
+    than an empty list when no database answers, since an empty list would say the
+    token had done nothing.
     """
     try:
-        async with db.session_factory() as session:
-            rows = await token_activity.recent(session, name)
-    except OperationalError as error:
-        # The driver's reason for the failed connect, with no statement in it.
-        logger.warning("No database answers for the token activity: %s", error.orig)
+        async with asyncio.timeout(settings.activity_timeout_seconds):
+            async with db.session_factory() as session:
+                rows = await token_activity.recent(session, name)
+    except (SQLAlchemyError, OSError, TimeoutError) as error:
+        logger.warning("No database answers for the token activity: %s", type(error).__name__)
         raise HTTPException(
             status_code=503,
             detail="No database answers at KASTEN_DATABASE_URL, where the token activity is "

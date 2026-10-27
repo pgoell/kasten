@@ -131,16 +131,35 @@ def _kept(path: str) -> bool:
     return path.startswith("/agent/") and not path.startswith("/agent/oauth/")
 
 
-def _client(scope: Scope) -> str | None:
-    """The address the request came from: the last proxy hop, else the socket's peer.
+CAP = 1024
+"""The most characters of a path, note or tool name a row keeps.
 
-    Caddy appends the address it saw, so the last hop is the one nothing in front
-    of the vault can have written. The peer is the fallback for a request that
-    came without a proxy.
+A token holder can send megabytes as any of them, and the row would keep all of it
+for ninety days.
+"""
+
+
+def _cut(text: str | None) -> str | None:
+    """`text`, shortened to `CAP` characters, or None as it came."""
+    return text[:CAP] if text is not None else None
+
+
+def _client(scope: Scope) -> str | None:
+    """The address the request came from, in the order the prod Caddy reads it.
+
+    Caddy's `client_ip_headers Cf-Connecting-Ip X-Forwarded-For` takes the Cloudflare
+    header first. Behind Cloudflare, Caddy appends the Cloudflare edge as the last
+    `X-Forwarded-For` hop, so that hop alone names Cloudflare and not the agent. The
+    peer is the fallback for a request that came without a proxy.
     """
-    for name, value in scope.get("headers", []):
-        if name == b"x-forwarded-for":
-            return value.decode("latin-1").split(",")[-1].strip()
+    headers = dict(scope.get("headers", []))
+    sent = headers.get(b"cf-connecting-ip")
+    if sent is not None:
+        return sent.decode("latin-1").strip()
+
+    forwarded = headers.get(b"x-forwarded-for")
+    if forwarded is not None:
+        return forwarded.decode("latin-1").split(",")[-1].strip()
 
     peer = scope.get("client")
     return peer[0] if peer else None
@@ -159,9 +178,9 @@ def _row(scope: Scope, action: Action, token: str, status: int) -> TokenAction:
         token=token,
         client=_client(scope),
         method=scope["method"],
-        path=scope["path"],
-        tool=action.tool,
-        note=action.note,
+        path=scope["path"][:CAP],
+        tool=_cut(action.tool),
+        note=_cut(action.note),
         status=status,
         outcome=outcome,
     )
@@ -226,9 +245,15 @@ async def _record(row: TokenAction) -> None:
 
 
 async def last_uses(session: AsyncSession) -> dict[str, datetime]:
-    """The newest row's time for each token that has one."""
+    """The newest live row's time for each token that has one.
+
+    A revoked row is left out: it is a request the store refused, so it says nothing
+    about a token that is in use.
+    """
     result = await session.execute(
-        select(TokenAction.token, func.max(TokenAction.at).label("at")).group_by(TokenAction.token)
+        select(TokenAction.token, func.max(TokenAction.at).label("at"))
+        .where(TokenAction.outcome != "revoked")
+        .group_by(TokenAction.token)
     )
     return {row.token: row.at for row in result.all()}
 
