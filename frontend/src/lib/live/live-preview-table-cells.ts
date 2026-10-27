@@ -6,8 +6,8 @@ import {
   embeddedPicture,
   type Pictured,
   spacedAddress,
-} from "@/lib/live-preview-images";
-import { INLINE } from "@/lib/live-preview-inline";
+} from "@/lib/live/live-preview-images";
+import { INLINE } from "@/lib/live/live-preview-inline";
 import { splitTarget, vaultPaths, wikiLinkLands } from "@/lib/wikilink";
 
 /** A run of a cell's text drawn as one element. */

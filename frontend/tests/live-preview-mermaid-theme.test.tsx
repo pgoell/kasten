@@ -13,8 +13,8 @@ import { act } from "@testing-library/react";
 import { createRoot, type Root } from "react-dom/client";
 import { NotePreview } from "@/components/note-preview";
 import { imagePaths } from "@/lib/image";
-import { livePreview } from "@/lib/live-preview";
-import { drawMermaid } from "@/lib/mermaid";
+import { livePreview } from "@/lib/live/live-preview";
+import { drawMermaid } from "@/lib/live/mermaid";
 import { noteLanguage } from "@/lib/note-language";
 import { startTheme, toggleTheme } from "@/lib/theme";
 import { vimKeys } from "@/lib/vim-mode";
@@ -24,7 +24,7 @@ import { stubMatchMedia } from "./match-media";
 const DARK = "(prefers-color-scheme: dark)";
 
 // Spied, so a test can read the draws a switch asked for.
-vi.mock("@/lib/mermaid", { spy: true });
+vi.mock("@/lib/live/mermaid", { spy: true });
 
 const { initialize, render, hold } = vi.hoisted(() => {
   let theme = "default";

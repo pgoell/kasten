@@ -1,6 +1,6 @@
 import { EditorState } from "@codemirror/state";
 import { waitFor } from "@testing-library/react";
-import "@/lib/live-preview";
+import "@/lib/live/live-preview";
 import { pdfRenderer, showPdf } from "@/lib/pdf-view";
 
 // pdf.js as the vendored build hands it over: a module whose loading sets

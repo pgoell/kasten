@@ -1,7 +1,7 @@
 import { ensureSyntaxTree, forceParsing, syntaxTree } from "@codemirror/language";
 import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
-import { renderedMarkdown } from "@/lib/live-preview";
+import { renderedMarkdown } from "@/lib/live/live-preview";
 import { noteLanguage } from "@/lib/note-language";
 import { wikiLinkAt } from "@/lib/wikilink";
 

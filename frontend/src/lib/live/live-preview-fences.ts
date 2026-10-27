@@ -1,8 +1,8 @@
 import { StateEffect } from "@codemirror/state";
 import { Decoration, type EditorView, ViewPlugin, WidgetType } from "@codemirror/view";
 import type { SyntaxNode } from "@lezer/common";
-import { isBlockRevealed, isNodeRevealed, type Walk } from "@/lib/live-preview-hidden";
-import { type Drawing, drawMermaid, drawnMermaid, holdMermaid } from "@/lib/mermaid";
+import { isBlockRevealed, isNodeRevealed, type Walk } from "@/lib/live/live-preview-hidden";
+import { type Drawing, drawMermaid, drawnMermaid, holdMermaid } from "@/lib/live/mermaid";
 import { currentTheme, onThemeChange, type Theme } from "@/lib/theme";
 
 /** Sent on a switch of theme, so a diagram on screen is built again in the new one. */

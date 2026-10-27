@@ -20,7 +20,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { cdp, page } from "vitest/browser";
 import { Editor } from "@/components/editor";
 import { imagePaths } from "@/lib/image";
-import { livePreview } from "@/lib/live-preview";
+import { livePreview } from "@/lib/live/live-preview";
 import { noteLanguage } from "@/lib/note-language";
 import { vimKeys } from "@/lib/vim-mode";
 import { vaultPaths } from "@/lib/wikilink";

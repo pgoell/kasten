@@ -6,7 +6,7 @@ import type { EditorView } from "@codemirror/view";
 import { vim } from "@replit/codemirror-vim";
 import { kastenTheme } from "@/lib/editor-theme";
 import { imagePaths } from "@/lib/image";
-import { livePreview } from "@/lib/live-preview";
+import { livePreview } from "@/lib/live/live-preview";
 import { vaultPaths } from "@/lib/wikilink";
 import { liveHooks, mount, plain } from "./live-preview-fixture";
 

@@ -10,8 +10,8 @@ import {
 } from "@codemirror/view";
 import { useEffect, useRef } from "react";
 import { kastenTheme } from "@/lib/editor-theme";
-import { renderedMarkdown } from "@/lib/live-preview";
-import { opensFor } from "@/lib/live-preview-callouts";
+import { renderedMarkdown } from "@/lib/live/live-preview";
+import { opensFor } from "@/lib/live/live-preview-callouts";
 import { noteLanguage } from "@/lib/note-language";
 
 interface NotePreviewProps {

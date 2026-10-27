@@ -5,7 +5,7 @@ import { act, type RenderResult, render, waitFor } from "@testing-library/react"
 import type { ReactElement } from "react";
 import { type EmbedSource, embedSource } from "@/lib/embed";
 import { imagePaths } from "@/lib/image";
-import { livePreview } from "@/lib/live-preview";
+import { livePreview } from "@/lib/live/live-preview";
 import { noteLanguage } from "@/lib/note-language";
 import { type PdfFile, type PdfRenderer, pdfRenderer } from "@/lib/pdf-view";
 import { vimKeys } from "@/lib/vim-mode";

@@ -1,6 +1,6 @@
 import { Decoration, type EditorView, WidgetType } from "@codemirror/view";
 import type { SyntaxNode } from "@lezer/common";
-import { HIDDEN, isBlockRevealed, type Walk } from "@/lib/live-preview-hidden";
+import { HIDDEN, isBlockRevealed, type Walk } from "@/lib/live/live-preview-hidden";
 import { loadKatex } from "@/lib/math";
 
 /**

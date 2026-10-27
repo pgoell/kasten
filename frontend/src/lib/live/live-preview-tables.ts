@@ -1,13 +1,13 @@
 import type { EditorState } from "@codemirror/state";
 import { Decoration, type EditorView, WidgetType } from "@codemirror/view";
 import type { SyntaxNode } from "@lezer/common";
-import { isBlockRevealed, isLineRevealed, type Walk } from "@/lib/live-preview-hidden";
-import { pictureElement } from "@/lib/live-preview-images";
-import { INLINE } from "@/lib/live-preview-inline";
-import { rowSpans, type Span } from "@/lib/live-preview-table-cells";
+import { isBlockRevealed, isLineRevealed, type Walk } from "@/lib/live/live-preview-hidden";
+import { pictureElement } from "@/lib/live/live-preview-images";
+import { INLINE } from "@/lib/live/live-preview-inline";
+import { rowSpans, type Span } from "@/lib/live/live-preview-table-cells";
+import { isCodeToken, isDashes, isNumericColumn } from "@/lib/live/table-kinds";
 import { repeats } from "@/lib/presses";
 import { type Align, alignsOf, isRow } from "@/lib/table";
-import { isCodeToken, isDashes, isNumericColumn } from "@/lib/table-kinds";
 import { notePath } from "@/lib/todo/todo-commands";
 
 /**

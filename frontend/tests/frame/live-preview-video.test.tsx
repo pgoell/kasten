@@ -12,7 +12,7 @@ import type { MockInstance } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import { kastenTheme } from "@/lib/editor-theme";
 import { imagePaths } from "@/lib/image";
-import { livePreview } from "@/lib/live-preview";
+import { livePreview } from "@/lib/live/live-preview";
 import { readField } from "@/lib/note-frontmatter";
 import { noteLanguage } from "@/lib/note-language";
 import { PLAYER, watchedAt } from "@/lib/video";

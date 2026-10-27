@@ -1,7 +1,7 @@
 import { Decoration, WidgetType } from "@codemirror/view";
 import type { SyntaxNode } from "@lezer/common";
-import { isBlockRevealed, type Walk } from "@/lib/live-preview-hidden";
-import { sanitizeSvg } from "@/lib/svg-sanitize";
+import { isBlockRevealed, type Walk } from "@/lib/live/live-preview-hidden";
+import { sanitizeSvg } from "@/lib/live/svg-sanitize";
 
 /** A whole `<svg>` element, open tag to close tag, and nothing after it but space. */
 const SVG_BLOCK = /^<svg[\s>][\s\S]*<\/svg>\s*$/i;

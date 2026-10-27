@@ -2,7 +2,7 @@ import type { Line } from "@codemirror/state";
 import { Decoration, WidgetType } from "@codemirror/view";
 import type { SyntaxNode } from "@lezer/common";
 import { readClock } from "@/lib/clock";
-import type { Walk } from "@/lib/live-preview-hidden";
+import type { Walk } from "@/lib/live/live-preview-hidden";
 import { masked, parseTodo } from "@/lib/todo/todo";
 import { DUE } from "@/lib/todo/todo-fields";
 import { descendants, type Placed, progressOf, treeOf } from "@/lib/todo/todo-view";

@@ -2,7 +2,7 @@ import { ensureSyntaxTree } from "@codemirror/language";
 import { EditorState } from "@codemirror/state";
 import { type EditorView, ViewPlugin, type ViewUpdate } from "@codemirror/view";
 import { writeWatched } from "@/lib/buffer-writes";
-import { drawnImage } from "@/lib/live-preview-images";
+import { drawnImage } from "@/lib/live/live-preview-images";
 import { namedVideo, PLAYER } from "@/lib/video";
 import { applyVideoSettings, learnVideoSettings } from "@/lib/video-settings";
 

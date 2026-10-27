@@ -2,7 +2,7 @@ import { vim } from "@replit/codemirror-vim";
 import { render } from "@testing-library/react";
 import { NotePreview } from "@/components/note-preview";
 import { imagePaths } from "@/lib/image";
-import { livePreview } from "@/lib/live-preview";
+import { livePreview } from "@/lib/live/live-preview";
 import { vaultPaths } from "@/lib/wikilink";
 import { content, liveHooks, mount, plain } from "./live-preview-fixture";
 

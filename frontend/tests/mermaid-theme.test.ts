@@ -33,7 +33,7 @@ beforeEach(() => {
 /** Draws one diagram in `current` and answers what mermaid was initialised with. */
 async function initialisedIn(current: "light" | "dark") {
   theme.current = current;
-  const { drawMermaid } = await import("@/lib/mermaid");
+  const { drawMermaid } = await import("@/lib/live/mermaid");
   await drawMermaid("graph TD; a-->b");
   return initialize.mock.calls[0]?.[0];
 }
@@ -48,7 +48,7 @@ describe("mermaid's theme", () => {
   });
 
   it("#835 A3 a switch back shows the drawing of that theme, not the other", async () => {
-    const { drawMermaid, drawnMermaid } = await import("@/lib/mermaid");
+    const { drawMermaid, drawnMermaid } = await import("@/lib/live/mermaid");
     const source = "graph TD; a-->b";
     await drawMermaid(source, "light");
     await drawMermaid(source, "dark");
@@ -65,7 +65,7 @@ describe("mermaid's theme", () => {
   });
 
   it("#835 I1 two draws in different themes at once each get their own theme", async () => {
-    const { drawMermaid } = await import("@/lib/mermaid");
+    const { drawMermaid } = await import("@/lib/live/mermaid");
     const source = "graph TD; a-->b";
     const light = drawMermaid(source, "light");
     const dark = drawMermaid(source, "dark");

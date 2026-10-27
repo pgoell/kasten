@@ -14,7 +14,7 @@ import { EditorView } from "@codemirror/view";
 import type {} from "@vitest/browser-playwright";
 import { cdp, page } from "vitest/browser";
 import { imagePaths } from "@/lib/image";
-import { livePreview } from "@/lib/live-preview";
+import { livePreview } from "@/lib/live/live-preview";
 import { noteLanguage } from "@/lib/note-language";
 import { notePath } from "@/lib/todo/todo-commands";
 import { vimKeys } from "@/lib/vim-mode";

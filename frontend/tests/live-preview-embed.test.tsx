@@ -3,7 +3,7 @@ import { vim } from "@replit/codemirror-vim";
 import { fireEvent, waitFor } from "@testing-library/react";
 import { EMBED_DEPTH, embedSource } from "@/lib/embed";
 import { imagePaths } from "@/lib/image";
-import { livePreview } from "@/lib/live-preview";
+import { livePreview } from "@/lib/live/live-preview";
 import { vimKeys } from "@/lib/vim-mode";
 import { vaultPaths } from "@/lib/wikilink";
 import {

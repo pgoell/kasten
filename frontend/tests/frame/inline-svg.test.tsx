@@ -12,7 +12,7 @@ import { page, userEvent } from "vitest/browser";
 import { NotePreview } from "@/components/note-preview";
 import { kastenTheme } from "@/lib/editor-theme";
 import { imagePaths } from "@/lib/image";
-import { livePreview, renderedMarkdown } from "@/lib/live-preview";
+import { livePreview, renderedMarkdown } from "@/lib/live/live-preview";
 import { noteLanguage } from "@/lib/note-language";
 import { applyTheme, THEME_KEY } from "@/lib/theme";
 import { vimKeys } from "@/lib/vim-mode";

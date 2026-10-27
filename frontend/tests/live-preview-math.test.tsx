@@ -9,7 +9,7 @@ import { act, fireEvent, type RenderResult, render, waitFor } from "@testing-lib
 import { Editor } from "@/components/editor";
 import { NotePreview } from "@/components/note-preview";
 import { kastenTheme } from "@/lib/editor-theme";
-import { renderedMarkdown } from "@/lib/live-preview";
+import { renderedMarkdown } from "@/lib/live/live-preview";
 import { loadKatex } from "@/lib/math";
 import { noteLanguage } from "@/lib/note-language";
 

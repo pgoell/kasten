@@ -9,7 +9,7 @@ import { cdp, page } from "vitest/browser";
 import { Editor } from "@/components/editor";
 import { kastenTheme } from "@/lib/editor-theme";
 import { imagePaths } from "@/lib/image";
-import { livePreview } from "@/lib/live-preview";
+import { livePreview } from "@/lib/live/live-preview";
 import { noteLanguage } from "@/lib/note-language";
 import { vimKeys } from "@/lib/vim-mode";
 import { vaultPaths } from "@/lib/wikilink";

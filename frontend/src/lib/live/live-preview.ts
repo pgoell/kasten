@@ -9,18 +9,29 @@ import {
 import { Decoration, type DecorationSet, EditorView } from "@codemirror/view";
 import { embedSource } from "@/lib/embed";
 import { imagePaths } from "@/lib/image";
-import { Callouts, foldClicks, folds, toggleFold } from "@/lib/live-preview-callouts";
-import { drawEmbed } from "@/lib/live-preview-embeds";
-import { drawFence, retheme, rethemes } from "@/lib/live-preview-fences";
-import { isLineRevealed, isNodeRevealed, nudgeOutOfHidden, Walk } from "@/lib/live-preview-hidden";
-import { drawImage } from "@/lib/live-preview-images";
-import { drawInline, drawLink, drawRuby, INLINE, markRelation } from "@/lib/live-preview-inline";
-import { Lists } from "@/lib/live-preview-lists";
-import { drawBlockMath, drawInlineMath } from "@/lib/live-preview-math";
-import { drawSvg } from "@/lib/live-preview-svg";
-import { drawTable } from "@/lib/live-preview-tables";
-import { drawTime, linkedVideos } from "@/lib/live-preview-times";
-import { videoLayer } from "@/lib/live-preview-video";
+import { Callouts, foldClicks, folds, toggleFold } from "@/lib/live/live-preview-callouts";
+import { drawEmbed } from "@/lib/live/live-preview-embeds";
+import { drawFence, retheme, rethemes } from "@/lib/live/live-preview-fences";
+import {
+  isLineRevealed,
+  isNodeRevealed,
+  nudgeOutOfHidden,
+  Walk,
+} from "@/lib/live/live-preview-hidden";
+import { drawImage } from "@/lib/live/live-preview-images";
+import {
+  drawInline,
+  drawLink,
+  drawRuby,
+  INLINE,
+  markRelation,
+} from "@/lib/live/live-preview-inline";
+import { Lists } from "@/lib/live/live-preview-lists";
+import { drawBlockMath, drawInlineMath } from "@/lib/live/live-preview-math";
+import { drawSvg } from "@/lib/live/live-preview-svg";
+import { drawTable } from "@/lib/live/live-preview-tables";
+import { drawTime, linkedVideos } from "@/lib/live/live-preview-times";
+import { videoLayer } from "@/lib/live/live-preview-video";
 import { watchPresses } from "@/lib/presses";
 import { setVimMode, vimKeys, vimModeField, vimModeState } from "@/lib/vim-mode";
 import { vaultPaths } from "@/lib/wikilink";

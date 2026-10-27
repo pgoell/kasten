@@ -15,7 +15,7 @@ import { page } from "vitest/browser";
 import { TodoPane } from "@/components/todo-pane";
 import { kastenTheme } from "@/lib/editor-theme";
 import { imagePaths } from "@/lib/image";
-import { livePreview } from "@/lib/live-preview";
+import { livePreview } from "@/lib/live/live-preview";
 import { noteLanguage } from "@/lib/note-language";
 import { DEFAULT_VIEWS } from "@/lib/todo/todo-view";
 import { vimKeys } from "@/lib/vim-mode";

@@ -35,7 +35,7 @@ const s = (i: number) => `graph TD; s${i}-->t`;
 
 describe("mermaid's cache", () => {
   it("#838 A1 past 32 drawings the oldest is drawn again and a recent one is not", async () => {
-    const { drawMermaid, drawnMermaid } = await import("@/lib/mermaid");
+    const { drawMermaid, drawnMermaid } = await import("@/lib/live/mermaid");
     // 32 is RECENT in mermaid.ts: the drawings kept besides those on screen.
     for (let i = 0; i <= 32; i++) await drawMermaid(s(i));
 
@@ -51,7 +51,7 @@ describe("mermaid's cache", () => {
   });
 
   it("#838 I3 a running draw asked twice renders once", async () => {
-    const { drawMermaid } = await import("@/lib/mermaid");
+    const { drawMermaid } = await import("@/lib/live/mermaid");
     const first = drawMermaid(s(0));
     const second = drawMermaid(s(0));
     await Promise.all([first, second]);
@@ -60,7 +60,7 @@ describe("mermaid's cache", () => {
   });
 
   it("#838 I3 a draw evicted while it runs does not come back when it lands", async () => {
-    const { drawMermaid, drawnMermaid } = await import("@/lib/mermaid");
+    const { drawMermaid, drawnMermaid } = await import("@/lib/live/mermaid");
     // The first draw waits for `release`; the inTurn chain holds the others behind it.
     let release = (): void => {};
     pause.source = s(0);

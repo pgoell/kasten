@@ -15,7 +15,7 @@ import { vim as vimKeymap } from "@replit/codemirror-vim";
 import type {} from "@vitest/browser-playwright";
 import { cdp, page, userEvent } from "vitest/browser";
 import { imagePaths } from "@/lib/image";
-import { livePreview } from "@/lib/live-preview";
+import { livePreview } from "@/lib/live/live-preview";
 import { noteLanguage } from "@/lib/note-language";
 import { vimKeys } from "@/lib/vim-mode";
 import { vaultPaths } from "@/lib/wikilink";

@@ -8,14 +8,14 @@
 import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { imagePaths } from "@/lib/image";
-import { livePreview } from "@/lib/live-preview";
-import { drawMermaid, drawnMermaid } from "@/lib/mermaid";
+import { livePreview } from "@/lib/live/live-preview";
+import { drawMermaid, drawnMermaid } from "@/lib/live/mermaid";
 import { noteLanguage } from "@/lib/note-language";
 import { vimKeys } from "@/lib/vim-mode";
 import { vaultPaths } from "@/lib/wikilink";
 
 // Spied, so a test can wait on the drawing a widget asked for.
-vi.mock("@/lib/mermaid", { spy: true });
+vi.mock("@/lib/live/mermaid", { spy: true });
 
 /** Whether the next fetch of mermaid fails, the way a chunk does while offline. */
 const network = vi.hoisted(() => ({ down: false }));

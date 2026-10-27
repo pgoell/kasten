@@ -2,7 +2,7 @@ import type { Line, Range, Text } from "@codemirror/state";
 import { Decoration, WidgetType } from "@codemirror/view";
 import type { SyntaxNode } from "@lezer/common";
 import { linkAddress, unescaped } from "@/lib/link-reference";
-import { HIDDEN, type Walk } from "@/lib/live-preview-hidden";
+import { HIDDEN, type Walk } from "@/lib/live/live-preview-hidden";
 import { readRelation } from "@/lib/relation";
 import { parseTodo } from "@/lib/todo/todo";
 import { splitTarget, vaultPaths, wikiLinkLands } from "@/lib/wikilink";
