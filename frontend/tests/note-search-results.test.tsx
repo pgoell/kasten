@@ -31,11 +31,7 @@ it("opens the hit that is tapped", async () => {
   const row = screen.getAllByRole("option")[1] as HTMLElement;
   fireEvent.click(row);
 
-  expect(search.onOpen).toHaveBeenCalledWith(
-    "reference/deploy.md",
-    88,
-    expect.objectContaining({ line: 88 }),
-  );
+  expect(search.onOpen).toHaveBeenCalledWith("reference/deploy.md", 88);
   // jsdom applies no media query, so the height is read off the class.
   expect(row).toHaveClass("pointer-coarse:min-h-11");
 });
@@ -47,11 +43,7 @@ it("opens the note on the line the match is on", async () => {
   await waitFor(() => expect(search.rows()).toHaveLength(2));
   search.press("Enter");
 
-  expect(search.onOpen).toHaveBeenCalledWith(
-    "projects/kasten.md",
-    12,
-    expect.objectContaining({ line: 12 }),
-  );
+  expect(search.onOpen).toHaveBeenCalledWith("projects/kasten.md", 12);
 });
 
 it("says so when the vault holds nothing that matches", async () => {

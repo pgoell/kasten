@@ -222,7 +222,10 @@ export function ContentSearch({
     const hit = found[index];
     if (hit === undefined) return;
     opening.current = true;
-    onOpen(hit.path, hit.line, hit);
+    // The hit goes along only for a file, whose place says where to open it; a
+    // note opens at its line, as it always has.
+    if ("place" in hit && hit.place) onOpen(hit.path, hit.line, hit);
+    else onOpen(hit.path, hit.line);
   }
 
   /** A folder or a tag: the one chosen clears on a second press, and the other is left alone. */

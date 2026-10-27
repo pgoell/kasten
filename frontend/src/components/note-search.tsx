@@ -183,7 +183,7 @@ function LineSearch({
     const hit = found[index];
     if (hit === undefined) return;
     opening.current = true;
-    onOpen(hit.path, hit.line, isMention(hit) ? undefined : hit);
+    onOpen(hit.path, hit.line);
   }
 
   /** Why the last link was not written, which the line under the list says. */
