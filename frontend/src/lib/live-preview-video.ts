@@ -3,7 +3,7 @@ import { EditorState } from "@codemirror/state";
 import { type EditorView, ViewPlugin, type ViewUpdate } from "@codemirror/view";
 import { writeWatched } from "@/lib/buffer-writes";
 import { drawnImage } from "@/lib/live-preview-images";
-import { PLAYER } from "@/lib/video";
+import { namedVideo, PLAYER } from "@/lib/video";
 import { applyVideoSettings, learnVideoSettings } from "@/lib/video-settings";
 
 /**
@@ -236,9 +236,8 @@ class VideoLayer {
     // screen, reports that video's position. None of it is the link's. The
     // player sends its video once, when it changes, so the id is kept until the
     // next one, not read off each tick.
-    const named = (videoData as { video_id?: unknown } | undefined)?.video_id;
-    if (typeof named === "string") player.reported = named;
-    const elsewhere = player.reported !== undefined && player.reported !== player.id;
+    const { named, elsewhere } = namedVideo(player.reported, videoData, player.id);
+    player.reported = named;
     if (!elsewhere && typeof currentTime === "number" && currentTime > 0) {
       player.seconds = currentTime;
     }

@@ -129,3 +129,28 @@ export function setWatched(text: string, id: string, seconds: number): string {
 export function videoId(url: string): string | null {
   return noteVideos(url)[0] ?? null;
 }
+
+/** A string the player sent, or undefined when it sent none or an empty one. */
+export function nonEmpty(value: unknown): string | undefined {
+  return typeof value === "string" && value !== "" ? value : undefined;
+}
+
+/**
+ * Which video a player is on, read from one delivery's `videoData`.
+ *
+ * YouTube sends `videoData` once, when the video changes, and the ticks after
+ * carry only the time. So the name is kept from the last delivery that gave one,
+ * and a player that moved on to a suggestion stays named as that video until it
+ * names another. Returns the name held now and whether it is another video than
+ * `own`, the one the pane or the note is about. While it is, the time and the
+ * state are that video's and not the note's.
+ */
+export function namedVideo(
+  held: string | undefined,
+  videoData: unknown,
+  own: string | undefined,
+): { named: string | undefined; elsewhere: boolean } {
+  const named =
+    nonEmpty((videoData as { video_id?: unknown } | null | undefined)?.video_id) ?? held;
+  return { named, elsewhere: named !== undefined && named !== own };
+}

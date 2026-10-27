@@ -1,5 +1,5 @@
 import { type RefObject, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { PLAYER } from "@/lib/video";
+import { namedVideo, nonEmpty, PLAYER } from "@/lib/video";
 import { applyVideoSettings, learnVideoSettings } from "@/lib/video-settings";
 
 /**
@@ -16,7 +16,7 @@ interface Delivery {
   info?: {
     playerState?: unknown;
     currentTime?: unknown;
-    videoData?: { title?: unknown; author?: unknown } | null;
+    videoData?: { video_id?: unknown; title?: unknown; author?: unknown } | null;
   };
 }
 
@@ -68,11 +68,6 @@ function command(frame: HTMLIFrameElement | null, func: string, args: unknown[] 
   frame?.contentWindow?.postMessage(JSON.stringify({ event: "command", func, args }), PLAYER);
 }
 
-/** A string the player sent, or undefined when it sent none or an empty one. */
-function nonEmpty(value: unknown): string | undefined {
-  return typeof value === "string" && value !== "" ? value : undefined;
-}
-
 /**
  * The player in a video pane: where it is, whether it runs, what it is called,
  * and the commands the pane sends it.
@@ -111,6 +106,9 @@ export function useVideoPlayer({
    * the pane would put its duration back over that start.
    */
   const ended = useRef(false);
+  /** The video the player last named, and whether it is another one than `id`. */
+  const named = useRef<string | undefined>(undefined);
+  const elsewhere = useRef(false);
 
   // The new frame has played none of it yet, and reporting the old video's
   // second against the new video's id is the one way this could write a
@@ -120,6 +118,8 @@ export function useVideoPlayer({
     second.current = 0;
     runningNow.current = false;
     ended.current = false;
+    named.current = undefined;
+    elsewhere.current = false;
     setAt(0);
     setRunning(false);
   }
@@ -137,8 +137,10 @@ export function useVideoPlayer({
     onWatchedRef.current = onWatched;
   });
 
+  // Nothing is reported while the player is on another video: its position is
+  // that video's, and the note's entry for this one would take it.
   const report = useCallback(() => {
-    if (id !== undefined && second.current > 0 && !ended.current) {
+    if (id !== undefined && second.current > 0 && !ended.current && !elsewhere.current) {
       onWatchedRef.current(id, second.current);
     }
   }, [id]);
@@ -166,11 +168,16 @@ export function useVideoPlayer({
       }
 
       const info = (message as Delivery).info;
+      // Read first: a delivery that names another video carries that video's
+      // time and state, and none of it is this video's to keep.
+      const which = namedVideo(named.current, info?.videoData, id);
+      named.current = which.named;
+      elsewhere.current = which.elsewhere;
       // Every delivery carries the time and only some carry the state, so the
       // two are read apart. The time is what a stop is reported with, so it has
       // to be the one from before the stop rather than a zero the player sends
       // on its way somewhere else.
-      if (typeof info?.currentTime === "number" && info.currentTime > 0) {
+      if (!elsewhere.current && typeof info?.currentTime === "number" && info.currentTime > 0) {
         second.current = info.currentTime;
         setAt(info.currentTime);
       }
@@ -189,7 +196,7 @@ export function useVideoPlayer({
       if (runningNow.current) ended.current = false;
       // An ended video starts from the beginning next time, so its entry goes
       // rather than its end. Written once: the player may say `ended` again.
-      if (info.playerState === 0 && id !== undefined && !ended.current) {
+      if (info.playerState === 0 && id !== undefined && !ended.current && !elsewhere.current) {
         ended.current = true;
         onWatchedRef.current(id, 0);
       }

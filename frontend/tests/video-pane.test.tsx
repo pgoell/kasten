@@ -108,10 +108,15 @@ function StopOnCommit({
 
 /** What the player says when it starts and stops, which is the only way to know. */
 function reports(state: number, currentTime = 0) {
+  delivers({ playerState: state, currentTime });
+}
+
+/** One info delivery with whatever `info` holds, for a delivery that names a video or carries more than `reports` sends. */
+function delivers(info: Record<string, unknown>) {
   window.dispatchEvent(
     new MessageEvent("message", {
       origin: "https://www.youtube.com",
-      data: JSON.stringify({ event: "infoDelivery", info: { playerState: state, currentTime } }),
+      data: JSON.stringify({ event: "infoDelivery", info }),
     }),
   );
 }
@@ -345,5 +350,101 @@ describe("the video pane", () => {
     fireEvent.keyDown(pane, { key: "q" });
 
     expect(commands.closeNote).toHaveBeenCalled();
+  });
+
+  it("#1188 A1 the pane writes nothing when the other video pauses", async () => {
+    const { onWatched } = open();
+
+    await screen.findByTitle("video");
+    delivers({ videoData: { video_id: "iDulhoQ2pro" } });
+    reports(1, 12);
+    reports(1, 30);
+    reports(2, 40);
+
+    expect(onWatched).not.toHaveBeenCalled();
+  });
+
+  it("#1188 A2 the linked video pause reports its seconds under its id", async () => {
+    const { onWatched } = open();
+
+    await screen.findByTitle("video");
+    delivers({ videoData: { video_id: "dQw4w9WgXcQ" } });
+    reports(1, 30);
+    reports(2, 40);
+
+    expect(onWatched.mock.calls).toEqual([["dQw4w9WgXcQ", 40]]);
+  });
+
+  it("#1188 I1 one delivery naming another video and pausing reports nothing", async () => {
+    const { onWatched } = open();
+
+    await screen.findByTitle("video");
+    reports(1, 12);
+    delivers({ videoData: { video_id: "iDulhoQ2pro" }, playerState: 2, currentTime: 30 });
+
+    expect(onWatched).not.toHaveBeenCalled();
+  });
+
+  it("#1188 I2 closing the pane while another video plays reports nothing", async () => {
+    const { onWatched, unmount } = open();
+
+    await screen.findByTitle("video");
+    delivers({ videoData: { video_id: "iDulhoQ2pro" }, playerState: 1, currentTime: 40 });
+    unmount();
+
+    expect(onWatched).not.toHaveBeenCalled();
+  });
+
+  it("#1188 I3 another video played to its end writes nothing for the linked video", async () => {
+    const { onWatched } = open();
+
+    await screen.findByTitle("video");
+    delivers({ videoData: { video_id: "iDulhoQ2pro" } });
+    reports(1, 30);
+    reports(0, 60);
+
+    expect(onWatched).not.toHaveBeenCalled();
+  });
+
+  it("#1188 I4 the player back on the linked video reports its own pause again", async () => {
+    const { onWatched } = open();
+
+    await screen.findByTitle("video");
+    delivers({ videoData: { video_id: "iDulhoQ2pro" }, playerState: 1, currentTime: 100 });
+    delivers({ videoData: { video_id: "dQw4w9WgXcQ" }, playerState: 1, currentTime: 50 });
+    reports(2, 50);
+
+    expect(onWatched.mock.calls).toEqual([["dQw4w9WgXcQ", 50]]);
+  });
+
+  it("#1188 I5 after n the next video pause reports under its own id", async () => {
+    fetchNote.mockResolvedValue(
+      "[one](https://youtu.be/dQw4w9WgXcQ)\n[two](https://youtu.be/iDulhoQ2pro)\n",
+    );
+    const { onWatched, pane } = open();
+
+    await screen.findByTitle("video");
+    delivers({ videoData: { video_id: "dQw4w9WgXcQ" }, playerState: 1 });
+    fireEvent.keyDown(pane, { key: "n" });
+
+    expect(await screen.findByTitle("video")).toHaveAttribute(
+      "src",
+      "https://www.youtube.com/embed/iDulhoQ2pro?enablejsapi=1",
+    );
+    reports(1, 25);
+    reports(2, 25);
+
+    expect(onWatched.mock.calls).toEqual([["iDulhoQ2pro", 25]]);
+  });
+
+  it("#1188 I6 an empty video_id counts as no name", async () => {
+    const { onWatched } = open();
+
+    await screen.findByTitle("video");
+    delivers({ videoData: { video_id: "" } });
+    reports(1, 30);
+    reports(2, 40);
+
+    expect(onWatched.mock.calls).toEqual([["dQw4w9WgXcQ", 40]]);
   });
 });
