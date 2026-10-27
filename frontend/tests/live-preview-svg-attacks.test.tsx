@@ -280,3 +280,42 @@ it("#952 I1 an svg whose only content is a nested script shows its source", asyn
 
   await vi.waitFor(() => expect(at.dom.querySelector(".cm-svg-error")).not.toBeNull());
 });
+
+it("#952 I1 an svg that only draws inside defs shows its source", async () => {
+  const at = mount(`<svg viewBox="0 0 9 9"><defs><path d="M0 0h9v9z"/></defs></svg>`);
+
+  await vi.waitFor(() => expect(at.dom.querySelector(".cm-svg-error")).not.toBeNull());
+});
+
+it("#952 A5 a duplicate id cannot hide a use chain", async () => {
+  const picture = await drawn(
+    `<svg viewBox="0 0 9 9"><g id="l0"><path d="M0 0h9v9z"/></g><g id="l1"><use href="#l0"/><use href="#l0"/></g><rect id="l1" width="1" height="1"/><use href="#l1"/></svg>`,
+  );
+
+  const uses = Array.from(picture.children).filter((el) => el.localName === "use");
+  expect(uses[uses.length - 1]?.hasAttribute("href")).toBe(false);
+  const named = Array.from(picture.querySelectorAll("[id]")).filter((el) =>
+    (el.getAttribute("id") ?? "").endsWith("l1"),
+  );
+  expect(named).toHaveLength(1);
+});
+
+it("#952 A5 drops a mask chain", async () => {
+  const picture = await drawn(
+    `<svg viewBox="0 0 9 9"><defs><mask id="m2"><rect width="9" height="9" fill="white"/></mask><mask id="m1"><rect width="9" height="9" fill="white" mask="url(#m2)"/></mask></defs><rect width="9" height="9" mask="url(#m1)"/></svg>`,
+  );
+
+  const inner = picture.querySelectorAll("mask rect");
+  expect(inner).toHaveLength(2);
+  expect(inner[1]?.hasAttribute("mask")).toBe(false);
+  const top = Array.from(picture.children).find((el) => el.localName === "rect");
+  expect(top?.hasAttribute("mask")).toBe(true);
+});
+
+it("#952 A5 keeps an oklch fill", async () => {
+  const picture = await drawn(
+    `<svg viewBox="0 0 9 9"><rect width="9" height="9" fill="oklch(70% 0.1 200)"/></svg>`,
+  );
+
+  expect(picture.querySelector("rect")?.getAttribute("fill")).toBe("oklch(70% 0.1 200)");
+});
