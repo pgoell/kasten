@@ -1,6 +1,8 @@
 import os
 import shutil
 import subprocess
+import sys
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import httpcore
@@ -9,13 +11,19 @@ import pytest
 from asgi_lifespan import LifespanManager
 from httpcore._backends.anyio import AnyIOBackend
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy import text
+from sqlalchemy import create_engine, text
+from sqlalchemy.engine import make_url
 from sqlalchemy.exc import OperationalError
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.ext.asyncio import (
+    AsyncEngine,
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
 from sqlalchemy.pool import NullPool
 
 from backend.tests.anki_link_web import PUBLIC
-from kasten_backend import agent_finance, files
+from kasten_backend import agent_finance, db, files
 from kasten_backend.config import Settings, get_settings
 from kasten_backend.db import get_session
 from kasten_backend.main import app
@@ -23,10 +31,12 @@ from kasten_backend.tokens import mint
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Callable, Iterator
-    from pathlib import Path
 
 JJ = shutil.which("jj")
 """Where jj is, or None on a box without it, which every jj test skips on."""
+
+BACKEND = Path(__file__).resolve().parents[1]
+"""The folder alembic.ini lives in, where `alembic` must run from."""
 
 
 @pytest.fixture(autouse=True)
@@ -174,6 +184,82 @@ def versioned_agent_vault(agent_vault: Path) -> Path:
 def bearer(token: str) -> dict[str, str]:
     """The header a token holder sends, which every `/agent/` request carries."""
     return {"Authorization": f"Bearer {token}"}
+
+
+def alembic(url: str, *args: str) -> None:
+    """Run alembic against `url`, the way the app reads its database: from the environment."""
+    subprocess.run(  # noqa: S603
+        [sys.executable, "-m", "alembic", *args],
+        cwd=BACKEND,
+        env={**os.environ, "KASTEN_DATABASE_URL": url},
+        check=True,
+        capture_output=True,
+    )
+
+
+@pytest.fixture(scope="session")
+def scratch_database() -> Iterator[str]:
+    """A database of this run's own, migrated to head, for the tests that write rows.
+
+    `kasten_dev` is shared with other checkouts, and a 0012 applied there would
+    break their upgrade, so the row tests never touch it. The name carries the
+    process id, so two runs at once do not share one.
+    """
+    url = make_url(Settings().database_url)
+    name = f"kasten_scratch_{os.getpid()}"
+    maintenance = create_engine(
+        url.set(database="postgres", drivername="postgresql+psycopg"),
+        isolation_level="AUTOCOMMIT",
+    )
+    try:
+        with maintenance.connect() as connection:
+            connection.execute(text(f"DROP DATABASE IF EXISTS {name}"))
+            connection.execute(text(f"CREATE DATABASE {name}"))
+    except OperationalError:
+        maintenance.dispose()
+        pytest.skip("No database answers at KASTEN_DATABASE_URL")
+
+    scratch = url.set(database=name).render_as_string(hide_password=False)
+    alembic(scratch, "upgrade", "head")
+
+    yield scratch
+
+    with maintenance.connect() as connection:
+        connection.execute(text(f"DROP DATABASE {name} WITH (FORCE)"))
+    maintenance.dispose()
+
+
+@pytest.fixture
+async def activity(
+    scratch_database: str, monkeypatch: pytest.MonkeyPatch
+) -> AsyncIterator[AsyncEngine]:
+    """The scratch database for the app's own sessions, emptied of token actions first.
+
+    Both the activity recorder and the token listing read `db.session_factory`,
+    and the finance routes and tools get their session from `get_session` and
+    `agent_finance.sessions`, so all three are pointed at the scratch database.
+    """
+    engine = create_async_engine(scratch_database, poolclass=NullPool)
+    async with engine.begin() as connection:
+        if await connection.scalar(text("SELECT to_regclass('token_action')")) is not None:
+            await connection.execute(text("DELETE FROM token_action"))
+
+    factory = async_sessionmaker(engine, expire_on_commit=False)
+    monkeypatch.setattr(db, "session_factory", factory)
+
+    async def sessions() -> AsyncIterator[AsyncSession]:
+        async with factory() as session:
+            yield session
+
+    previous = agent_finance.sessions
+    agent_finance.sessions = sessions
+    app.dependency_overrides[get_session] = sessions
+
+    yield engine
+
+    agent_finance.sessions = previous
+    app.dependency_overrides.pop(get_session)
+    await engine.dispose()
 
 
 def _serve_vault(root: Path) -> Iterator[Path]:
