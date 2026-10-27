@@ -43,7 +43,7 @@ const ID = /^[A-Za-z_][\w.-]*$/;
 const FUNCTION = /([A-Za-z-]+)\(/g;
 /** The functions a drawing may use. `url` is checked on its own; var(), env(), attr() and -moz-element() are not here. */
 const FUNCTIONS = new Set(
-  "translate translatex translatey rotate scale scalex scaley skewx skewy matrix rgb rgba hsl hsla".split(
+  "translate translatex translatey rotate scale scalex scaley skewx skewy matrix rgb rgba hsl hsla oklch oklab lab lch hwb color-mix calc light-dark".split(
     " ",
   ),
 );
@@ -78,7 +78,8 @@ function clean(value: string, block: Block): string | null {
 function keepAttributes(el: Element, from: Element, block: Block) {
   for (const attr of Array.from(from.attributes)) {
     if (attr.name === "id") {
-      if (ID.test(attr.value)) {
+      // The first element with an id keeps it, as the browser resolves an id to its first match; a later duplicate would be a decoy that no guard checks.
+      if (ID.test(attr.value) && !block.ids.has(attr.value)) {
         el.setAttribute("id", block.prefix + attr.value);
         block.ids.set(attr.value, el);
       }
@@ -132,8 +133,8 @@ function settleHref(el: Element, value: string, block: Block) {
   const id = HREF.exec(value)?.[1];
   const target = id === undefined ? undefined : block.ids.get(id);
   if (id === undefined || target === undefined) return;
-  // A use of a use, or of anything holding one, copies the copies: each level
-  // multiplies the work, so the ref goes rather than hang the tab.
+  // A use of a group that holds a use loses its href: stripTargets clears the refs
+  // inside the group, not this use, and each use level would multiply the work.
   if (el.localName === "use" && (target.localName === "use" || target.querySelector("use"))) return;
   el.setAttribute("href", `#${block.prefix}${id}`);
 }
@@ -149,6 +150,72 @@ function settle(el: Element, name: string, value: string, block: Block) {
     const cleaned = clean(value, block);
     if (cleaned !== null) el.setAttribute(name, cleaned);
   }
+}
+
+/** Ids a kept ref names inside an attribute or style value, as `url(#id)`. */
+const NAMED = /url\(#([^)]+)\)/g;
+/** Inside these a shape draws only when something refers to it, so it does not count as a drawing. */
+const HIDDEN = "defs, marker, clipPath, mask, pattern, symbol";
+
+/** Drops every ref on one element: its href, its url-valued attributes, and its url declarations in a style. */
+function stripRefs(el: Element) {
+  el.removeAttribute("href");
+  for (const attr of Array.from(el.attributes)) {
+    if (!attr.value.includes("url(")) continue;
+    if (attr.name !== "style") {
+      el.removeAttribute(attr.name);
+      continue;
+    }
+    const rest = attr.value
+      .split(";")
+      .map((d) => d.trim())
+      .filter((d) => d !== "" && !d.includes("url("))
+      .join("; ");
+    if (rest) el.setAttribute("style", rest);
+    else el.removeAttribute("style");
+  }
+}
+
+/**
+ * A target that some kept ref points at keeps no refs on itself or beneath it.
+ * Each ref then draws a picture with no refs in it, so a chain of uses, masks,
+ * patterns or markers costs one copy per level, not a tree of copies.
+ */
+function stripTargets(root: Element) {
+  const all = [root, ...Array.from(root.querySelectorAll("*"))];
+  const byId = new Map(
+    all.filter((el) => el.id !== "").map((el): [string, Element] => [el.id, el]),
+  );
+  for (const target of refTargets(all, byId)) {
+    for (const el of [target, ...Array.from(target.querySelectorAll("*"))]) stripRefs(el);
+  }
+}
+
+/** The elements that a kept href or url(#id) in `all` points at. */
+function refTargets(all: Element[], byId: Map<string, Element>): Set<Element> {
+  const targets = new Set<Element>();
+  for (const el of all) {
+    const href = el.getAttribute("href") ?? "";
+    const hrefTarget = href.startsWith("#") ? byId.get(href.slice(1)) : undefined;
+    if (hrefTarget) targets.add(hrefTarget);
+    for (const attr of Array.from(el.attributes)) addNamed(attr.value, byId, targets);
+  }
+  return targets;
+}
+
+/** Adds the element each `url(#id)` in `value` names. */
+function addNamed(value: string, byId: Map<string, Element>, targets: Set<Element>) {
+  for (const m of value.matchAll(NAMED)) {
+    const target = byId.get(m[1] ?? "");
+    if (target) targets.add(target);
+  }
+}
+
+/** Whether something outside the hidden parts draws: a shape, or a use still pointing at one. */
+function drawsSomething(root: Element): boolean {
+  return Array.from(root.querySelectorAll(DRAWN)).some(
+    (el) => (el.localName !== "use" || el.hasAttribute("href")) && el.closest(HIDDEN) === null,
+  );
 }
 
 /**
@@ -167,9 +234,10 @@ export function sanitizeSvg(source: string): SVGSVGElement | null {
 
   const block: Block = { prefix: `kasten-svg-${++blocks}-`, ids: new Map(), deferred: [] };
   const root = copy(only, block);
-  if (!root || root.querySelector(DRAWN) === null) return null;
+  if (!root) return null;
 
   for (const [el, name, value] of block.deferred) settle(el, name, value, block);
+  stripTargets(root);
   for (const name of ROOT_DROPS) root.removeAttribute(name);
-  return root as SVGSVGElement;
+  return drawsSomething(root) ? (root as SVGSVGElement) : null;
 }

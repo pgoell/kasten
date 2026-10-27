@@ -96,16 +96,28 @@ everything inside it. That drops script, style, foreignObject, a, image, the
 animation elements and filters.
 
 A kept element keeps its geometry and presentation attributes. `class` and any
-`on…` event handler go. `href` stays only as `#id`, naming an element in the same
-block. `url(...)` stays only as `url(#id)`, naming an element in the same block.
+`on…` event handler go. `href` stays only as `#id`, and `url(...)` only as
+`url(#id)`, each naming an element in the same block. Ids are renamed for each
+block, so two blocks with the same marker id each keep their own, and a
+reference reaches only its own block.
+
+The root svg loses `transform`, `x` and `y`, and the picture stays inside its
+box, so it cannot cover the note or the app. A `use` that points at another
+`use`, or at a group holding one, is dropped, since each level multiplies the
+copies.
+
 A `style` attribute keeps only presentation properties, such as fill, stroke and
-font, so it cannot place the picture over the app.
+font. A value may call only `url(#id)`, `translate`, `rotate`, `scale`, `skew`,
+`matrix`, `rgb`, `rgba`, `hsl` and `hsla`. Any other function, such as `var()`
+or `element()`, drops its value.
 
 `currentColor` takes the theme's ink colour, so a picture drawn in it follows
 light and dark. Other colours stay as written.
 
-A block with nothing left to draw shows a short message and its source. On a
-phone the picture shrinks to the note's width.
+A block with nothing left to draw shows the message "This svg cannot be drawn."
+and its source. So does a block that holds more than the one svg, such as two
+svgs on back-to-back lines or text beside the svg. On a phone the picture
+shrinks to the note's width.
 
 The cursor inside the block shows the source in any mode, as a mermaid block, a
 table and a `$$` block do. A click on the picture puts the cursor there.
