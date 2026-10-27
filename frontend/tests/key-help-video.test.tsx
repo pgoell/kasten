@@ -20,4 +20,12 @@ describe("KeyHelp over a video", () => {
       expect(group("Over a video").getByText(key).nextElementSibling).toHaveTextContent(label);
     }
   });
+
+  it("#914 A6 lists f under Over a video", () => {
+    render(<KeyHelp onClose={() => {}} />);
+
+    expect(group("Over a video").queryByText("f")?.nextElementSibling).toHaveTextContent(
+      "Full screen, and out again",
+    );
+  });
 });

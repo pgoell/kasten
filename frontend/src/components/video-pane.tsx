@@ -10,6 +10,7 @@ import type { EditorCommands } from "@/lib/key-bindings";
 import { heldModifier, leaderAction, leaderPrefix } from "@/lib/leader-keys";
 import { readField } from "@/lib/note-frontmatter";
 import { noteName } from "@/lib/note-path";
+import { useFullScreen } from "@/lib/use-full-screen";
 import { useVideoPlayer } from "@/lib/use-video-player";
 import { noteVideos, PLAYER, playerUrl, watchedAt } from "@/lib/video";
 import { noteChapters, watchUrl } from "@/lib/video-notes";
@@ -77,7 +78,10 @@ export function VideoPane({
 }: VideoPaneProps) {
   const panel = useRef<HTMLElement>(null);
   const frame = useRef<HTMLIFrameElement>(null);
+  /** The player box, the frame with the shield over it: what goes full screen. */
+  const box = useRef<HTMLDivElement>(null);
   const transcript = useRef<TranscriptHandle>(null);
+  const { full, canFull, toggleFull, refocus } = useFullScreen(box, panel);
   /** Which of the note's videos is in the frame, by position in the note. */
   const [index, setIndex] = useState(0);
   /** Whether the pane shows the video view: the big player beside the transcript. */
@@ -186,7 +190,10 @@ export function VideoPane({
     if (event.ctrlKey || event.altKey || event.metaKey) return;
 
     if (key === " ") {
-      if (beginLeader(paneOpener(commands))) {
+      // Full screen, the which-key panel would open outside the box, where the
+      // browser does not draw it, so the pane keeps the sequence itself and it
+      // runs typed blind.
+      if (!full && beginLeader(paneOpener(commands))) {
         event.preventDefault();
         return;
       }
@@ -207,6 +214,11 @@ export function VideoPane({
     if ((key === "j" || key === "l") && source !== null) {
       event.preventDefault();
       seek(second.current + (key === "l" ? 10 : -10));
+      return;
+    }
+    if (key === "f" && source !== null && canFull) {
+      event.preventDefault();
+      toggleFull();
       return;
     }
     if (key === "y" && view && transcript.current?.take()) event.preventDefault();
@@ -276,6 +288,22 @@ export function VideoPane({
             >
               Video view
             </button>
+            {canFull && (
+              // The focus goes back to the pane at once, so a refused request
+              // does not leave the leader's space pressing this button; a
+              // granted one moves it into the box.
+              <button
+                type="button"
+                aria-pressed={full}
+                onClick={() => {
+                  toggleFull();
+                  panel.current?.focus();
+                }}
+                className="shrink-0 cursor-pointer whitespace-nowrap font-sans text-k-12 text-k-link hover:text-k-accent pointer-coarse:min-h-11"
+              >
+                Full screen
+              </button>
+            )}
             <a
               href={watchUrl(id, at)}
               target="_blank"
@@ -315,7 +343,14 @@ export function VideoPane({
             // Capped to the pane's height as well as its width: the body is a size
             // container, so 70% of its height is the most a player may take, and
             // the rest is left for the title, the chapters and the line under them.
-            <div className="relative mx-auto aspect-video w-[min(100%,calc(70cqh*16/9))] shrink-0">
+            // Full screen, the browser's own rules make the box fill the screen
+            // whatever its classes say, and the frame fills the box.
+            <div
+              ref={box}
+              data-video-box
+              tabIndex={-1}
+              className="relative mx-auto aspect-video w-[min(100%,calc(70cqh*16/9))] shrink-0 outline-none"
+            >
               <iframe
                 ref={frame}
                 // Keyed on the URL so a note that changes which video it links gets
@@ -347,10 +382,24 @@ export function VideoPane({
                 running={running}
                 onPress={() => {
                   togglePlayer();
-                  panel.current?.focus();
+                  refocus();
                   onFocus?.();
                 }}
               />
+              {full && (
+                // The header is outside the box and off screen now, and a phone
+                // has no Esc, so the way out sits on the player itself. After the
+                // shield so it lies over it, and out of the focus as the shield is.
+                <button
+                  type="button"
+                  tabIndex={-1}
+                  onPointerDown={(event) => event.preventDefault()}
+                  onClick={toggleFull}
+                  className="absolute top-2 right-2 cursor-pointer rounded-[var(--k-radius-4)] bg-k-ink/70 px-2 py-1 font-sans text-k-12 text-k-paper pointer-coarse:min-h-11"
+                >
+                  Exit full screen
+                </button>
+              )}
             </div>
           )}
           {source !== null && id !== undefined && (

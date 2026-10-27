@@ -5,5 +5,6 @@ export const VIDEO_PANE: readonly { key: string; label: string }[] = [
   { key: "k", label: "Play or pause" },
   { key: "j", label: "Ten seconds back" },
   { key: "l", label: "Ten seconds on" },
+  { key: "f", label: "Full screen, and out again" },
   { key: "y", label: "Take the selected transcript into the note" },
 ];

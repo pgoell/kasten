@@ -6,6 +6,7 @@
  */
 
 import "./html-take-api";
+import { act } from "react";
 import { commands as browser, page, userEvent } from "vitest/browser";
 import { applyTheme, PALETTE_KEY, THEME_KEY } from "@/lib/theme";
 import { type Mounted, setUp, tearDown } from "./html-take-fixture";
@@ -229,6 +230,51 @@ describe("the video pane pictures, alone", () => {
     } finally {
       force.remove();
     }
+  });
+
+  /**
+   * The pane with `Full screen` in its header and `Exit full screen` on the
+   * player. Headless Chrome will not really go full screen for a script, so the
+   * browser's change is told by hand: the box is named the full-screen element
+   * and the change is announced, which is all the pane reads.
+   */
+  async function fullScreenLook(size: Size, theme: "light" | "dark", name: string) {
+    await look(size, theme);
+    renderPanes(mounted, [{ note: TALK }]);
+    const pane = paneOf(mounted.host);
+    // The header's other button first, so a pane without `Full screen` still
+    // reaches every check below and fails each one.
+    await expect.poll(() => paneButton(pane, "Video view")).toBeDefined();
+    expect.soft(paneButton(pane, "Full screen")).toBeDefined();
+    titled();
+    const box = pane.querySelector("[data-video-box]");
+    Object.defineProperty(document, "fullscreenElement", { configurable: true, get: () => box });
+    try {
+      act(() => {
+        document.dispatchEvent(new Event("fullscreenchange"));
+      });
+      expect.soft(paneButton(pane, "Exit full screen")).toBeDefined();
+      await document.fonts.ready;
+      await picture(pane, name);
+    } finally {
+      Reflect.deleteProperty(document, "fullscreenElement");
+    }
+  }
+
+  shotTest("video-full-screen-1440-light", async () => {
+    await fullScreenLook(DESK, "light", "video-full-screen-1440-light");
+  });
+
+  shotTest("video-full-screen-1440-dark", async () => {
+    await fullScreenLook(DESK, "dark", "video-full-screen-1440-dark");
+  });
+
+  shotTest("video-full-screen-414-light", async () => {
+    await fullScreenLook(PHONE, "light", "video-full-screen-414-light");
+  });
+
+  shotTest("video-full-screen-414-dark", async () => {
+    await fullScreenLook(PHONE, "dark", "video-full-screen-414-dark");
   });
 
   shotTest("video-take-1440-light", async () => {
