@@ -172,7 +172,7 @@ request each say so in the status bar, and leave the note as it was.
 The header reads, left to right: `VIDEO`, the video's address in mono, then the
 count, `2/5`, when the note links more than one video. A click or a tap on the
 count goes to the next one and wraps, as `n` does. The count is not there for a
-note with one video. Then `Video view` and `Open on YouTube`.
+note with one video. Then `Video view`, `Full screen` and `Open on YouTube`.
 
 `Open on YouTube` opens the watch address at the second the player is at, in a
 new tab.
@@ -218,8 +218,28 @@ a short hover, a hint reads `Click to play or pause, or press k`. Touch screens
 do not get the hint.
 
 The shield covers YouTube's own controls as well, so the progress bar and the
-full-screen button under it are out of reach. The pane has no full-screen button
-of its own.
+full-screen button under it are out of reach. The pane has a full-screen button
+of its own instead: see [Full screen](#full-screen).
+
+## Full screen
+
+`Full screen` in the header, or `f` over the pane, makes the player box full
+screen: the frame with the shield over it. So a click or a tap on the player
+still plays or pauses, and `k`, `j`, `l`, `n` and `p` still work, since the
+focus moves into the box.
+
+Esc leaves full screen, as it does anywhere in a browser. So do `f` again and
+the `Exit full screen` button in the top corner of the player, which is there
+only while the player is full screen. That button is the way out on a phone,
+which has no Esc.
+
+Space still starts the leader in full screen, but the which-key panel does not
+show: it sits outside the box, so the browser hides it. A sequence typed blind
+still runs, so `Space q` closes the pane and leaves full screen with it.
+
+Where the browser cannot put a box full screen, as Safari on an iPhone cannot,
+the button is not drawn and `f` does nothing. A browser that refuses the request
+leaves the pane as it was.
 
 Nothing starts the video on its own. The frame is given `autoplay` so that a tap
 on the shield can start it, and the address carries no `autoplay=1`.
@@ -282,8 +302,10 @@ way `n` and `p` are, because the pane has nothing else to type into:
   view and only with words selected. With no selection, the key goes to the
   browser.
 * `n` and `p` play the note's next and previous video, and wrap at either end.
+* `f` puts the player in full screen, and takes it out again. See
+  [Full screen](#full-screen).
 
-`k`, `j` and `l` do nothing until a video is in the frame. The key help lists
+`k`, `j`, `l` and `f` do nothing until a video is in the frame. The key help lists
 these under `Over a video`.
 
 ## Time buttons in a note
