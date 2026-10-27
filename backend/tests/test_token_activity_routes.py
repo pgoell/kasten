@@ -168,7 +168,9 @@ async def test_each_agent_route_writes_one_row(  # noqa: PLR0913, PLR0917  one f
 
     path, note, status, outcome = expected
     assert answer.status_code == status, answer.text
-    rows = (await client.get("/api/tokens/laptop/actions")).json()
+    listing = await client.get("/api/tokens/laptop/actions")
+    assert listing.status_code == 200
+    rows = listing.json()
     assert len(rows) == 1
     row = rows[0]
     assert (row["method"], row["path"], row["note"], row["status"], row["outcome"]) == (

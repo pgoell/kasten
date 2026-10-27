@@ -82,7 +82,9 @@ async def test_each_mcp_tool_writes_one_row(  # noqa: PLR0913, PLR0917  one fixt
     answer = await client.post(ENDPOINT, json=call(tool, arguments), headers={**bearer, **RPC})
 
     assert answer.status_code == 200
-    rows = (await client.get("/api/tokens/laptop/actions")).json()
+    listing = await client.get("/api/tokens/laptop/actions")
+    assert listing.status_code == 200
+    rows = listing.json()
     assert len(rows) == 1
     row = rows[0]
     shape = (row["tool"], row["method"], row["path"], row["note"], row["status"], row["outcome"])

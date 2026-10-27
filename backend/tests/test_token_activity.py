@@ -63,7 +63,7 @@ async def test_a_request_with_a_token_writes_one_row_and_is_its_last_use(
 
     listed = (await client.get("/api/tokens")).json()
     laptop = next(entry for entry in listed if entry["name"] == "laptop")
-    assert laptop["last_used"] is not None
+    assert laptop.get("last_used") is not None
     rows = await actions(client)
     assert len(rows) == 1
     row = rows[0]
