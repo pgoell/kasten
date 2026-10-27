@@ -26,7 +26,8 @@ function legend() {
 describe("the todo pane's review fixes", () => {
   it("#811 R7.3 x on a done row in the fold, then x again, acts on the same row", async () => {
     const pane = renderPane(DONE);
-    await waitFor(() => expect(pane.texts().join()).toContain("buy milk"));
+    await pane.loaded();
+    expect(pane.texts().join()).toContain("buy milk");
     fireEvent.click(screen.getByRole("button", { name: /^Done this week/ }));
 
     pane.press("j");
@@ -52,7 +53,8 @@ describe("the todo pane's review fixes", () => {
 
   it("#811 R7.4 an open row checked off with the fold open is drawn once", async () => {
     const pane = renderPane(DONE);
-    await waitFor(() => expect(pane.texts().join()).toContain("buy milk"));
+    await pane.loaded();
+    expect(pane.texts().join()).toContain("buy milk");
     fireEvent.click(screen.getByRole("button", { name: /^Done this week/ }));
 
     pane.press("x");
@@ -71,7 +73,8 @@ describe("the todo pane's review fixes", () => {
 
   it("#811 R7.5 the legend is drawn on the open list, and not on d or n", async () => {
     const pane = renderPane(DONE);
-    await waitFor(() => expect(pane.texts().join()).toContain("buy milk"));
+    await pane.loaded();
+    expect(pane.texts().join()).toContain("buy milk");
     expect(legend()).not.toBeNull();
 
     pane.press("d");

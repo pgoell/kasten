@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, screen } from "@testing-library/react";
 import { boardHooks, boardPane } from "./todo-board-pane-fixture";
 import { paneHooks, renderPane } from "./todo-pane-fixture";
 
@@ -60,7 +60,8 @@ afterEach(() => {
 describe("the todo pane's scope", () => {
   it("#811 A5 the kind chips narrow the list", async () => {
     const pane = renderPane(KINDS);
-    await waitFor(() => expect(pane.texts().join()).toContain("send the invoice"));
+    await pane.loaded();
+    expect(pane.texts().join()).toContain("send the invoice");
 
     fireEvent.click(screen.getByRole("button", { name: "#client" }));
     expect(pane.texts().join()).toContain("send the invoice");
@@ -84,7 +85,8 @@ describe("the todo pane's scope", () => {
 
   it("#811 A5 a part of an internal todo is internal in the filter", async () => {
     const pane = renderPane(PARTS);
-    await waitFor(() => expect(pane.texts().join()).toContain("write the deck"));
+    await pane.loaded();
+    expect(pane.texts().join()).toContain("write the deck");
 
     fireEvent.click(screen.getByRole("button", { name: "#internal" }));
     expect(pane.texts().join()).toContain("draw the chart");
@@ -93,7 +95,8 @@ describe("the todo pane's scope", () => {
 
   it("#811 I4 the chip, the toggle and the typed filter all hold at once", async () => {
     const pane = renderPane(CLIENTS);
-    await waitFor(() => expect(pane.texts().join()).toContain("call the client"));
+    await pane.loaded();
+    expect(pane.texts().join()).toContain("call the client");
 
     fireEvent.click(screen.getByRole("button", { name: "#client" }));
     expect(pane.texts().join()).toContain("call the client");
@@ -114,7 +117,8 @@ describe("the todo pane's scope", () => {
 
   it("#811 A10 shared lists are hidden by default and the toggle says how many", async () => {
     const pane = renderPane(SHARED);
-    await waitFor(() => expect(pane.texts().join()).toContain("call the client"));
+    await pane.loaded();
+    expect(pane.texts().join()).toContain("call the client");
 
     expect(pane.texts().join()).not.toContain("buy eggs");
     const toggle = screen.getByRole("button", { name: "Shared lists, 1 hidden" });
@@ -124,7 +128,8 @@ describe("the todo pane's scope", () => {
 
   it("#811 A10 the toggle shows them and is kept under kasten.todos.shared", async () => {
     const pane = renderPane(SHARED);
-    await waitFor(() => expect(pane.texts().join()).toContain("call the client"));
+    await pane.loaded();
+    expect(pane.texts().join()).toContain("call the client");
 
     fireEvent.click(screen.getByRole("button", { name: "Shared lists, 1 hidden" }));
     expect(pane.texts().join()).toContain("buy eggs");
@@ -134,7 +139,8 @@ describe("the todo pane's scope", () => {
     // A reload reads the stored choice back, so the lists stay shown.
     cleanup();
     const again = renderPane(SHARED);
-    await waitFor(() => expect(again.texts().join()).toContain("buy eggs"));
+    await again.loaded();
+    expect(again.texts().join()).toContain("buy eggs");
 
     fireEvent.click(screen.getByRole("button", { name: "Shared lists, shown" }));
     expect(localStorage.getItem("kasten.todos.shared")).toBe(null);
@@ -150,7 +156,8 @@ describe("the todo pane's scope", () => {
     });
 
     const pane = renderPane(SHARED);
-    await waitFor(() => expect(pane.texts().join()).toContain("call the client"));
+    await pane.loaded();
+    expect(pane.texts().join()).toContain("call the client");
     expect(pane.texts().join()).not.toContain("buy eggs");
 
     fireEvent.click(screen.getByRole("button", { name: "Shared lists, 1 hidden" }));

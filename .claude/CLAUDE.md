@@ -94,8 +94,10 @@ is done. The branch ends when the pull request lands.
 - **Comments explain why.** The code already says what it does. A comment earns
   its place by recording the constraint, the surprise or the reason for a
   choice that looks odd. Match the density of the surrounding file.
-- **SHA-pin third-party GitHub Actions.** `actions/*` and `github/*` may use
-  `@vN`; everything else pins a full commit SHA with a trailing `# vX.Y.Z`.
+- **SHA-pin every GitHub Action.** Every `uses:`, `actions/*` and `github/*`
+  included, pins a full commit SHA with a trailing `# vX.Y.Z`; only a local
+  `./.github/actions/*` path goes without. The repo's Actions settings require
+  it, and a run with an `@vN` ref ends in `startup_failure` with no checks.
 - **Conventional Commits.** `<type>(<scope>)?: <subject>`, subject lowercase.
   `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`,
   `chore`, `revert`. Append `!` for breaking changes. PR titles follow the same

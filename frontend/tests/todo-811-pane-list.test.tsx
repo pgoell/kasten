@@ -45,7 +45,8 @@ function legend(): Record<string, string | null> {
 describe("the todo pane's list", () => {
   it("#811 A3 done this week sits folded after the groups and a click unfolds it", async () => {
     const pane = renderPane(LIST);
-    await waitFor(() => expect(pane.texts().join()).toContain("buy milk"));
+    await pane.loaded();
+    expect(pane.texts().join()).toContain("buy milk");
     expect(pane.texts().join()).not.toContain("read the spec");
 
     const region = screen.getByRole("region", { name: "Todos" }).textContent ?? "";
@@ -58,7 +59,8 @@ describe("the todo pane's list", () => {
 
   it("#811 A4 the legend counts each state of what is shown", async () => {
     const pane = renderPane(STATES);
-    await waitFor(() => expect(pane.texts().join()).toContain("buy milk"));
+    await pane.loaded();
+    expect(pane.texts().join()).toContain("buy milk");
 
     // The shared todo is hidden, so it is not counted; the finished and the
     // rejected ones are, as the Done this week fold and the rejected window show them.
@@ -75,7 +77,8 @@ describe("the todo pane's list", () => {
 
   it("#811 I3 j and k skip a folded done this week and walk into it unfolded", async () => {
     const pane = renderPane(LIST);
-    await waitFor(() => expect(pane.texts().join()).toContain("buy milk"));
+    await pane.loaded();
+    expect(pane.texts().join()).toContain("buy milk");
     const at = () => pane.cursor()?.textContent ?? "";
 
     // Past the last open row the cursor stops there, since the fold is shut.
