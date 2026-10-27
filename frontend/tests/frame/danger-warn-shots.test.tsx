@@ -17,7 +17,7 @@ import "@fontsource-variable/instrument-sans/index.css";
 import "@fontsource-variable/jetbrains-mono/index.css";
 import { waitFor } from "@testing-library/react";
 import { commands, page } from "vitest/browser";
-import { tagVariable } from "@/lib/graph";
+import { tagVariable } from "@/lib/graph/graph";
 import {
   closeTree,
   DESKTOP,
@@ -271,8 +271,8 @@ vi.mock("@/lib/trash-api", async (original) => ({
   fetchTrash: async () => [],
 }));
 
-vi.mock("@/lib/graph-api", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/graph-api")>()),
+vi.mock("@/lib/graph/graph-api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/graph/graph-api")>()),
   fetchGraph: async () => GRAPH,
 }));
 

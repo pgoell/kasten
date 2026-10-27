@@ -7,8 +7,8 @@
  * the update, then two animation frames, the second being the first painted one.
  */
 
-import type { GraphEdge, GraphNode } from "@/lib/graph";
-import { drawGraph } from "@/lib/graph-canvas";
+import type { GraphEdge, GraphNode } from "@/lib/graph/graph";
+import { drawGraph } from "@/lib/graph/graph-canvas";
 
 const RUNS = 20;
 

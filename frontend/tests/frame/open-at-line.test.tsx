@@ -11,7 +11,7 @@
 import { EditorView } from "@codemirror/view";
 import { fireEvent, waitFor } from "@testing-library/react";
 import { fetchFiles, fetchNote, fetchTodos, NoteMissing, searchNotes } from "@/lib/api";
-import { fetchGraph } from "@/lib/graph-api";
+import { fetchGraph } from "@/lib/graph/graph-api";
 import { readMode } from "@/lib/note-head";
 import {
   DESKTOP,
@@ -56,8 +56,8 @@ vi.mock("@/lib/trash-api", async (original) => ({
   fetchTrash: async () => [],
 }));
 
-vi.mock("@/lib/graph-api", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/graph-api")>()),
+vi.mock("@/lib/graph/graph-api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/graph/graph-api")>()),
   fetchGraph: vi.fn(),
 }));
 

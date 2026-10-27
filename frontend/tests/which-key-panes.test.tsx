@@ -35,8 +35,8 @@ vi.mock("@/lib/api", async (importOriginal) => ({
 }));
 
 const graph = vi.hoisted(() => ({ fetchGraph: vi.fn() }));
-vi.mock("@/lib/graph-api", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/graph-api")>()),
+vi.mock("@/lib/graph/graph-api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/graph/graph-api")>()),
   ...graph,
 }));
 
@@ -47,8 +47,8 @@ vi.mock("@/lib/history-api", async (importOriginal) => ({
 }));
 
 // jsdom draws no canvas, and the graph's drawing is not what these tests are about.
-vi.mock("@/lib/graph-canvas", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/graph-canvas")>()),
+vi.mock("@/lib/graph/graph-canvas", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/graph/graph-canvas")>()),
   drawGraph: () => ({
     update: vi.fn(),
     resize: vi.fn(),

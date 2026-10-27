@@ -3,7 +3,7 @@
  * the cent; the pane writes them in euros the German way, as the to-sort list always has.
  */
 
-import { tagVariable } from "@/lib/graph";
+import { tagVariable } from "@/lib/graph/graph";
 
 const CENTS = new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" });
 const EUROS = new Intl.NumberFormat("de-DE", {

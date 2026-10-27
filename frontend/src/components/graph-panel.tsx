@@ -1,6 +1,6 @@
-import { tagVariable } from "@/lib/graph";
-import type { GraphMode } from "@/lib/graph-mode";
-import type { TagCount } from "@/lib/graph-tags";
+import { tagVariable } from "@/lib/graph/graph";
+import type { GraphMode } from "@/lib/graph/graph-mode";
+import type { TagCount } from "@/lib/graph/graph-tags";
 import { LABEL } from "@/lib/overlay-styles";
 
 /** The note the card shows: the one under the pointer, or the one a finger picked. */

@@ -16,7 +16,7 @@ import {
   radialLayout,
   radiusOf,
   tagColourOf,
-} from "@/lib/graph";
+} from "@/lib/graph/graph";
 
 function note(path: string, type: string | null = "Note") {
   return { path, name: path.replace(/\.md$/, ""), type, tags: [], missing: false };

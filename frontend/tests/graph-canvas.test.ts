@@ -3,9 +3,9 @@
  * has not got, so `force-graph` is replaced and never called.
  */
 
-import type { DrawnNode } from "@/lib/graph";
-import { radiusOf } from "@/lib/graph";
-import { drawGraph, type GraphCanvasHandlers, hitRadius } from "@/lib/graph-canvas";
+import type { DrawnNode } from "@/lib/graph/graph";
+import { radiusOf } from "@/lib/graph/graph";
+import { drawGraph, type GraphCanvasHandlers, hitRadius } from "@/lib/graph/graph-canvas";
 
 // Each setter is kept by name, with the arguments of its last call, and every
 // call answers the graph, as the library's setters do.

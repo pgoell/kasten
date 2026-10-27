@@ -106,7 +106,7 @@ vi.mock("@/lib/api", () => ({
   NoteExists: class NoteExists extends Error {},
   NoteMissing: class NoteMissing extends Error {},
 }));
-vi.mock("@/lib/graph-api", () => ({ fetchGraph }));
+vi.mock("@/lib/graph/graph-api", () => ({ fetchGraph }));
 vi.mock("@/lib/move-api", () => ({ renameNote, moveFolder }));
 vi.mock("@/lib/trash-api", () => ({ deleteNote, fetchTrash, restoreEntry, deleteImage }));
 vi.mock("@/lib/history-api", () => ({ fetchHistory, fetchHistoryText }));

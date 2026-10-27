@@ -2,9 +2,9 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { INSET, LABEL } from "@/components/note-margins";
 import { fetchMentions } from "@/lib/api";
-import type { DrawnNode } from "@/lib/graph";
-import { fetchGraph } from "@/lib/graph-api";
-import { drawGraph, type GraphCanvas } from "@/lib/graph-canvas";
+import type { DrawnNode } from "@/lib/graph/graph";
+import { fetchGraph } from "@/lib/graph/graph-api";
+import { drawGraph, type GraphCanvas } from "@/lib/graph/graph-canvas";
 import { noteName } from "@/lib/note-path";
 import { useViewport } from "@/lib/use-viewport";
 

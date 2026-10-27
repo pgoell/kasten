@@ -4,8 +4,8 @@
  * The canvas decides when each is drawn; this says how.
  */
 
-import type { DrawnNode } from "@/lib/graph";
-import { areaOf, gapOf, nameBaselines, type Spot } from "@/lib/graph-clusters";
+import type { DrawnNode } from "@/lib/graph/graph";
+import { areaOf, gapOf, nameBaselines, type Spot } from "@/lib/graph/graph-clusters";
 
 /**
  * A label in the fill the caller set, with the page colour stroked round its

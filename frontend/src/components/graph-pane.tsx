@@ -1,11 +1,11 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { GraphPanel, type PanelCard } from "@/components/graph-panel";
-import { isNotePath, PLAIN, TYPE_COLOURS } from "@/lib/graph";
-import { fetchGraph } from "@/lib/graph-api";
-import { drawGraph, type GraphCanvas } from "@/lib/graph-canvas";
-import { type GraphMode, readGraphMode, writeGraphMode } from "@/lib/graph-mode";
-import { tagCounts, withoutTags } from "@/lib/graph-tags";
+import { isNotePath, PLAIN, TYPE_COLOURS } from "@/lib/graph/graph";
+import { fetchGraph } from "@/lib/graph/graph-api";
+import { drawGraph, type GraphCanvas } from "@/lib/graph/graph-canvas";
+import { type GraphMode, readGraphMode, writeGraphMode } from "@/lib/graph/graph-mode";
+import { tagCounts, withoutTags } from "@/lib/graph/graph-tags";
 import type { EditorCommands } from "@/lib/key-bindings";
 import { heldModifier, leaderAction, leaderPrefix } from "@/lib/leader-keys";
 import { noteName } from "@/lib/note-path";

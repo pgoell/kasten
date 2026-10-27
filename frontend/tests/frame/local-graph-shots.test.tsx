@@ -13,7 +13,7 @@ import "@fontsource-variable/instrument-sans/index.css";
 import "@fontsource-variable/jetbrains-mono/index.css";
 import { waitFor } from "@testing-library/react";
 import { commands, page, userEvent } from "vitest/browser";
-import { fetchGraph } from "@/lib/graph-api";
+import { fetchGraph } from "@/lib/graph/graph-api";
 import {
   closeTree,
   DESKTOP,
@@ -163,8 +163,8 @@ vi.mock("@/lib/trash-api", async (original) => ({
   fetchTrash: async () => [],
 }));
 
-vi.mock("@/lib/graph-api", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/graph-api")>()),
+vi.mock("@/lib/graph/graph-api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/graph/graph-api")>()),
   fetchGraph: vi.fn(async (ask: { depth?: number }) => (ask.depth === 2 ? TWO_STEPS : GRAPH)),
 }));
 

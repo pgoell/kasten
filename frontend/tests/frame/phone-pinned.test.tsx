@@ -8,7 +8,7 @@
 
 import { cdp, page } from "vitest/browser";
 import { fetchMentions } from "@/lib/api";
-import { fetchGraph } from "@/lib/graph-api";
+import { fetchGraph } from "@/lib/graph/graph-api";
 import {
   mountNote,
   need,
@@ -48,8 +48,8 @@ vi.mock("@/lib/trash-api", async (original) => ({
   fetchTrash: async () => [],
 }));
 
-vi.mock("@/lib/graph-api", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/graph-api")>()),
+vi.mock("@/lib/graph/graph-api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/graph/graph-api")>()),
   fetchGraph: vi.fn(),
 }));
 

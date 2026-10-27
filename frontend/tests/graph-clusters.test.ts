@@ -3,8 +3,8 @@
  * positions and the forces. None of it exists on main, so these cannot run there.
  */
 
-import type { DrawnLink, DrawnNode, GraphNode } from "@/lib/graph";
-import { tagVariable } from "@/lib/graph";
+import type { DrawnLink, DrawnNode, GraphNode } from "@/lib/graph/graph";
+import { tagVariable } from "@/lib/graph/graph";
 import {
   ANCHOR,
   ATTRACT,
@@ -16,7 +16,7 @@ import {
   type Spot,
   seedPositions,
   spotsOf,
-} from "@/lib/graph-clusters";
+} from "@/lib/graph/graph-clusters";
 
 /** A note as the vault's graph answers it, with the tags as written. */
 function note(path: string, tags: string[] = []): GraphNode {

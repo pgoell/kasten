@@ -32,8 +32,8 @@ import {
   untilCounted,
 } from "./vault-graph-fixture";
 
-vi.mock("@/lib/graph-api", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/graph-api")>()),
+vi.mock("@/lib/graph/graph-api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/graph/graph-api")>()),
   fetchGraph: vi.fn(),
 }));
 

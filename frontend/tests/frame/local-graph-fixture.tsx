@@ -15,7 +15,7 @@ import { fireEvent, waitFor } from "@testing-library/react";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { fetchFiles, fetchMentions, fetchNote, NoteMissing } from "@/lib/api";
-import { fetchGraph } from "@/lib/graph-api";
+import { fetchGraph } from "@/lib/graph/graph-api";
 import { routeTree } from "@/routeTree.gen";
 import { need } from "./reader-fixture";
 import "@/styles/app.css";

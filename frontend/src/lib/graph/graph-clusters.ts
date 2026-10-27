@@ -8,9 +8,9 @@
  * counts towards every tag it carries.
  */
 
-import type { DrawnLink, DrawnNode, GraphNode } from "@/lib/graph";
-import { tagVariable } from "@/lib/graph";
-import type { GraphMode } from "@/lib/graph-mode";
+import type { DrawnLink, DrawnNode, GraphNode } from "@/lib/graph/graph";
+import { tagVariable } from "@/lib/graph/graph";
+import type { GraphMode } from "@/lib/graph/graph-mode";
 
 /** Each force's strength, the same numbers the canvas and the tests use. */
 export const K = 30;

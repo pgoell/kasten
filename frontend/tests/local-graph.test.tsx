@@ -3,9 +3,9 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-libra
 import type { ReactElement } from "react";
 import { LocalGraph } from "@/components/local-graph";
 import { fetchMentions } from "@/lib/api";
-import type { DrawnNode } from "@/lib/graph";
-import { fetchGraph } from "@/lib/graph-api";
-import { drawGraph, type GraphCanvasHandlers } from "@/lib/graph-canvas";
+import type { DrawnNode } from "@/lib/graph/graph";
+import { fetchGraph } from "@/lib/graph/graph-api";
+import { drawGraph, type GraphCanvasHandlers } from "@/lib/graph/graph-canvas";
 import { stubMatchMedia } from "./match-media";
 
 const canvas = vi.hoisted(() => ({
@@ -15,8 +15,8 @@ const canvas = vi.hoisted(() => ({
   cluster: vi.fn(),
   destroy: vi.fn(),
 }));
-vi.mock("@/lib/graph-canvas", () => ({ drawGraph: vi.fn() }));
-vi.mock("@/lib/graph-api", () => ({ fetchGraph: vi.fn() }));
+vi.mock("@/lib/graph/graph-canvas", () => ({ drawGraph: vi.fn() }));
+vi.mock("@/lib/graph/graph-api", () => ({ fetchGraph: vi.fn() }));
 vi.mock("@/lib/api", () => ({ fetchMentions: vi.fn() }));
 
 const NOTE = "index.md";

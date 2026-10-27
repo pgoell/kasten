@@ -1,4 +1,4 @@
-import { readGraphMode, writeGraphMode } from "@/lib/graph-mode";
+import { readGraphMode, writeGraphMode } from "@/lib/graph/graph-mode";
 
 // Order matters: a refused write holds its pick for the page until the next
 // write that storage takes, so the refusal runs last.

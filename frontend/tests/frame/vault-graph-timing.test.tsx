@@ -8,8 +8,8 @@
  * a cap of 20 s either way. Each draw is a fresh canvas in a 1000 by 700 box.
  */
 
-import type { Graph } from "@/lib/graph-api";
-import { drawGraph, type GraphCanvas } from "@/lib/graph-canvas";
+import type { Graph } from "@/lib/graph/graph-api";
+import { drawGraph, type GraphCanvas } from "@/lib/graph/graph-canvas";
 import { need } from "./reader-fixture";
 import { boxOf, DEV_ANSWER, LARGE, registerVaultFixture, signatureOf } from "./vault-graph-fixture";
 

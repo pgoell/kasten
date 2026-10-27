@@ -5,10 +5,10 @@
  * moment the engine stops, through `onSettle`.
  */
 
-import type { DrawnNode } from "@/lib/graph";
-import type { Graph } from "@/lib/graph-api";
-import { drawGraph, type GraphCanvasHandlers } from "@/lib/graph-canvas";
-import { placeOf, spotsOf } from "@/lib/graph-clusters";
+import type { DrawnNode } from "@/lib/graph/graph";
+import type { Graph } from "@/lib/graph/graph-api";
+import { drawGraph, type GraphCanvasHandlers } from "@/lib/graph/graph-canvas";
+import { placeOf, spotsOf } from "@/lib/graph/graph-clusters";
 import { boxOf, DEV_ANSWER, registerVaultFixture, SYNTHETIC } from "./vault-graph-fixture";
 
 registerVaultFixture();

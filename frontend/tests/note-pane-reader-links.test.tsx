@@ -2,7 +2,7 @@ import { EditorView } from "@codemirror/view";
 import { act, cleanup, fireEvent, screen, within } from "@testing-library/react";
 import { useMemo } from "react";
 import type { TodoHit } from "@/lib/api";
-import { drawGraph } from "@/lib/graph-canvas";
+import { drawGraph } from "@/lib/graph/graph-canvas";
 import { noteBase } from "@/lib/note-base";
 import type { PdfRenderer } from "@/lib/pdf-view";
 import type { TodoState } from "@/lib/todo/todo";
@@ -104,7 +104,7 @@ vi.mock("@/lib/api", () => ({
   NoteExists: class NoteExists extends Error {},
   NoteMissing: class NoteMissing extends Error {},
 }));
-vi.mock("@/lib/graph-api", () => ({ fetchGraph }));
+vi.mock("@/lib/graph/graph-api", () => ({ fetchGraph }));
 // jsdom has no canvas, so the drawing is a double, and a test counts the drawings.
 const canvas = vi.hoisted(() => ({
   update: vi.fn(),
@@ -113,7 +113,7 @@ const canvas = vi.hoisted(() => ({
   cluster: vi.fn(),
   destroy: vi.fn(),
 }));
-vi.mock("@/lib/graph-canvas", () => ({ drawGraph: vi.fn() }));
+vi.mock("@/lib/graph/graph-canvas", () => ({ drawGraph: vi.fn() }));
 vi.mock("@/lib/move-api", () => ({ renameNote, moveFolder }));
 vi.mock("@/lib/trash-api", () => ({ deleteNote, fetchTrash, restoreEntry, deleteImage }));
 vi.mock("@/lib/history-api", () => ({ fetchHistory, fetchHistoryText }));

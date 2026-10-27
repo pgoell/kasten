@@ -6,7 +6,7 @@
  * `Rust` and `rust` are one tag in the list and one tag on the canvas.
  */
 
-import type { GraphEdge, GraphNode } from "@/lib/graph";
+import type { GraphEdge, GraphNode } from "@/lib/graph/graph";
 
 export interface TagCount {
   /** The tag as first spelled in the answer. */

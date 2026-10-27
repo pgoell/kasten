@@ -7,8 +7,8 @@
  * the screen place of the drawing's origin, which must be the middle of the box.
  */
 
-import type { GraphEdge, GraphNode } from "@/lib/graph";
-import { drawGraph, type GraphCanvas, type GraphCanvasHandlers } from "@/lib/graph-canvas";
+import type { GraphEdge, GraphNode } from "@/lib/graph/graph";
+import { drawGraph, type GraphCanvas, type GraphCanvasHandlers } from "@/lib/graph/graph-canvas";
 
 const handlers: GraphCanvasHandlers = {
   onOpen: () => {},

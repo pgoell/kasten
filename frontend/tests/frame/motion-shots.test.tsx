@@ -116,8 +116,8 @@ vi.mock("@/lib/trash-api", async (original) => ({
   fetchTrash: async () => [],
 }));
 
-vi.mock("@/lib/graph-api", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/graph-api")>()),
+vi.mock("@/lib/graph/graph-api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/graph/graph-api")>()),
   fetchGraph: async () => GRAPH,
 }));
 

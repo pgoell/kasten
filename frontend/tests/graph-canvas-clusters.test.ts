@@ -4,10 +4,10 @@
  * and never called, as in graph-canvas.test.ts. None of this exists on main.
  */
 
-import type { DrawnNode, GraphNode } from "@/lib/graph";
-import { tagVariable } from "@/lib/graph";
-import { drawGraph, type GraphCanvasHandlers } from "@/lib/graph-canvas";
-import { CHARGE, CHARGE_REACH } from "@/lib/graph-clusters";
+import type { DrawnNode, GraphNode } from "@/lib/graph/graph";
+import { tagVariable } from "@/lib/graph/graph";
+import { drawGraph, type GraphCanvasHandlers } from "@/lib/graph/graph-canvas";
+import { CHARGE, CHARGE_REACH } from "@/lib/graph/graph-clusters";
 
 type Stub = { [method: string]: (...args: unknown[]) => unknown };
 interface Fake {

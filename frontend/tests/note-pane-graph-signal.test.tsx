@@ -14,7 +14,7 @@ vi.mock("@/lib/api", async (importOriginal) => ({
   fetchNote,
   fetchMentions,
 }));
-vi.mock("@/lib/graph-api", () => ({
+vi.mock("@/lib/graph/graph-api", () => ({
   fetchGraph: vi.fn().mockResolvedValue({
     nodes: [],
     edges: [],
@@ -23,7 +23,7 @@ vi.mock("@/lib/graph-api", () => ({
     truncated: false,
   }),
 }));
-vi.mock("@/lib/graph-canvas", () => ({
+vi.mock("@/lib/graph/graph-canvas", () => ({
   drawGraph: () => ({ update() {}, resize() {}, fit() {}, destroy() {} }),
 }));
 

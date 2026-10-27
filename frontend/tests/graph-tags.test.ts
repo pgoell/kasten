@@ -1,5 +1,5 @@
-import type { GraphEdge, GraphNode } from "@/lib/graph";
-import { tagCounts, withoutTags } from "@/lib/graph-tags";
+import type { GraphEdge, GraphNode } from "@/lib/graph/graph";
+import { tagCounts, withoutTags } from "@/lib/graph/graph-tags";
 
 function note(path: string, tags: string[]): GraphNode {
   return { path, name: path.replace(/\.md$/, ""), type: null, tags, missing: false };

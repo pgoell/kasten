@@ -7,8 +7,8 @@
  * Pictures land in node_modules/.cache/kasten-shots with VITE_KASTEN_SHOTS=1.
  */
 
-import type { Graph } from "@/lib/graph-api";
-import { drawGraph } from "@/lib/graph-canvas";
+import type { Graph } from "@/lib/graph/graph-api";
+import { drawGraph } from "@/lib/graph/graph-canvas";
 import { DESKTOP, picture, type Theme, TOUCH } from "./reader-fixture";
 import {
   boxOf,
@@ -26,8 +26,8 @@ import {
   untilStill,
 } from "./vault-graph-fixture";
 
-vi.mock("@/lib/graph-api", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/graph-api")>()),
+vi.mock("@/lib/graph/graph-api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/graph/graph-api")>()),
   fetchGraph: vi.fn(),
 }));
 

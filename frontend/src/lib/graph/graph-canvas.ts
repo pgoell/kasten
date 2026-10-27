@@ -27,7 +27,7 @@ import {
   radiusOf,
   tagColourOf,
   tagVariable,
-} from "@/lib/graph";
+} from "@/lib/graph/graph";
 import {
   CHARGE,
   CHARGE_REACH,
@@ -37,9 +37,9 @@ import {
   type Spot,
   seedPositions,
   spotsOf,
-} from "@/lib/graph-clusters";
-import type { GraphMode } from "@/lib/graph-mode";
-import { areasOf, paintDiscs, paintNames, ringed } from "@/lib/graph-paint";
+} from "@/lib/graph/graph-clusters";
+import type { GraphMode } from "@/lib/graph/graph-mode";
+import { areasOf, paintDiscs, paintNames, ringed } from "@/lib/graph/graph-paint";
 import { onThemeChange } from "@/lib/theme";
 
 export interface GraphCanvasHandlers {

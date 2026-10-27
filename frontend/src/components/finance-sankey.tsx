@@ -1,7 +1,7 @@
 import { type CSSProperties, useId, useState } from "react";
 import type { Flow, FlowNode as FlowNodeOut } from "@/lib/finance-budget-api";
 import { euros, monthName, monthOf, percent } from "@/lib/finance-words";
-import { tagVariable } from "@/lib/graph";
+import { tagVariable } from "@/lib/graph/graph";
 import { layout, NODE_WIDTH, type PlacedLink, type PlacedNode } from "@/lib/sankey";
 
 /** Drawn at this width and scrolled inside the card on a phone, so the labels keep their size. */
