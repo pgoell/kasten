@@ -43,7 +43,8 @@ In the browser:
 3. Copy the secret. It is shown once and never again: the vault keeps only the
    digest, so you replace a lost secret rather than find it.
 
-The same screen lists every token by name and date. Under a fresh secret it
+The same screen lists every token by name, the date it was made and when it was
+last used. Under a fresh secret it
 shows the `claude mcp add` line with the secret and this host filled in; if
 Claude Code is the client, that line is the whole of the next section. Each row
 has a **Revoke** button, which asks once and takes effect on the next request
@@ -72,6 +73,25 @@ curl -X POST -H 'content-type: application/json' \
 A mint answers `201` with the secret, a name already taken `409`, and a revoke
 of a name the store does not hold `404`. The shapes are in
 [HTTP API](/reference/http-api/system.md#get-apitokens).
+
+## What kasten records
+
+Every request a token makes writes one row to the `token_action` table in
+Postgres: the time, the token's name, the client's address as Caddy saw it, the
+MCP tool or the HTTP method and path, the note path the request named, the
+status, and the outcome. The outcome is `ok`, or `error` when the status is
+`400` or worse or a tool reports a failure, or `revoked` when the token has been
+revoked. A revoked token's requests keep their rows, so the list still names
+what it tried.
+
+A row never holds a secret, a token value, a query string or a note's
+contents. Rows older than 90 days are deleted. A row is never written to a file
+or to the vault, so no agent reading notes can search them.
+
+Open `/tokens` to read them. Each token shows its last use, and a token unused
+for 30 days is marked. Open a token for its recent actions, newest first, up to
+50. The self-host stack runs no Postgres, so it records nothing and no token
+shows a last use.
 
 ## Claude Code
 

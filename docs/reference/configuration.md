@@ -204,6 +204,22 @@ refused until you mint again.
 A store that does not exist reads as an empty list, so a box with no tokens
 refuses every bearer rather than failing to start.
 
+A revoked token's record moves out of this file into `tokens-revoked.json`,
+beside it, so a request that token makes later can still be named in the action
+log. Both files sit in the same directory and are written the same way.
+
+## KASTEN_ACTIVITY_TIMEOUT_SECONDS
+
+The most a recording insert may take, in seconds, before its row is dropped
+with a warning in the log. Every request a token makes writes one row to
+[the action log](/how-to/connect-an-agent.md#what-kasten-records), so this is also
+the most that write can hold up the request.
+
+| | |
+| --- | --- |
+| Default | `2` |
+| Read by | every `/agent/` request |
+
 ## KASTEN_UPLOAD_PATH
 
 The folder a file sent in pieces is joined in, until

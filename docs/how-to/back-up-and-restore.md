@@ -17,7 +17,7 @@ your own paths.
 | What | Where | If you lose it |
 | --- | --- | --- |
 | The vault | `data/vault/` | Your notes are gone. Nothing rebuilds them |
-| The token store | `data/agent/tokens.json` | Every agent is refused until you mint again and reconnect it |
+| The token store | `data/agent/tokens.json`, and `tokens-revoked.json` beside it | Every agent is refused until you mint again and reconnect it |
 | The shell's home | the `kasten-selfhost_shell-home` volume | Claude Code, codex and dsh ask you to log in again, and your `~/.zshrc` is empty |
 
 The vault is the one that matters. It holds the notes, the jj history in

@@ -292,9 +292,10 @@ RFC 8707 conformance, which is neither built nor claimed.
 
 The token's name goes into the description of the jj change its write makes, so
 `jj log` reads `agent(laptop): daily/2026-08-18.md` where your own edit reads
-`vault: daily/2026-08-18.md`. That is why there is no `last_used` field on a
-token: it would mean a file write on every request to answer a question the
-history already answers, and answers better.
+`vault: daily/2026-08-18.md`. That is why a token has no `last_used` field in the
+token file: it would mean a file write on every request. The database keeps the
+requests instead, one row each, and [Connect an agent](/how-to/connect-an-agent.md#what-kasten-records)
+says what a row holds.
 
 A token from the connector flow carries the product's host as its name, so a
 note written from claude.ai reads `agent(claude.ai): daily/2026-08-18.md`.

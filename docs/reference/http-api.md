@@ -9,14 +9,15 @@ status: stable
 
 # HTTP API
 
-The backend serves one hundred and twenty-six endpoints under `/api/`.
-Sixty-nine read, fifty-six write, and one streams. The interactive schema is at `/docs` while the backend
+The backend serves one hundred and twenty-seven endpoints under `/api/`.
+Seventy read, fifty-six write, and one streams. The interactive schema is at `/docs` while the backend
 runs, and the machine-readable one at `/openapi.json`.
 
 The agent's routes sit under `/agent/`, and they are documented on their own page,
 [the Agent API](/reference/agent-api.md). Everything here is reached through
 the login gate in front of kasten and nothing else; everything there is reached
-with a bearer token and nothing else.
+with a bearer token and nothing else. Every request a token makes is recorded
+with its outcome; [Connect an agent](/how-to/connect-an-agent.md#what-kasten-records) says what.
 
 The OAuth consent step, `GET` and `POST /api/oauth/authorize`, sits under
 `/api/` too but is left out of the count and the schema. It is documented with

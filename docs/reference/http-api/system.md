@@ -1,7 +1,7 @@
 ---
 type: Reference
 title: "HTTP API: system"
-description: Routes that report the process and its version, stream changes to the vault, name the terminals, and make and revoke agent tokens.
+description: Routes that report the process and its version, stream changes to the vault, name the terminals, and make, revoke and review agent tokens.
 resource: backend/src/kasten_backend/routes/
 tags: [api, backend, openapi]
 status: stable
@@ -9,7 +9,7 @@ status: stable
 
 # HTTP API: system
 
-The routes that report the process and its version, stream changes to the vault, name the terminals, and make and revoke agent tokens.
+The routes that report the process and its version, stream changes to the vault, name the terminals, and make, revoke and review agent tokens.
 
 ## GET /api/health
 
@@ -120,14 +120,40 @@ gives the Caddy fix.
 
 ## GET /api/tokens
 
-Lists every [agent token](/reference/agent-api.md) the vault holds.
+Lists every [agent token](/reference/agent-api.md) the vault holds, with the
+time each one last made a request.
 
 ```json
-[{ "name": "laptop", "created": "2026-08-18T09:00:00+00:00" }]
+[{ "name": "laptop", "created": "2026-08-18T09:00:00+00:00", "last_used": "2026-08-18T09:05:00+00:00" }]
 ```
+
+`last_used` is `null` for a token with no recorded request. It is also `null`
+when no database answers: the list still answers `200`, and the backend logs a
+warning. The times come from [what kasten records](/how-to/connect-an-agent.md#what-kasten-records).
 
 Never a digest and never a secret. Only the digest is kept at all, so there is
 no way back to a secret from here even by mistake.
+
+## GET /api/tokens/{name}/actions
+
+The most recent requests one agent token made, newest first, at most 50. Each
+is a row of [what kasten records](/how-to/connect-an-agent.md#what-kasten-records).
+
+```json
+[{
+  "at": "2026-08-18T09:05:00+00:00",
+  "client": "203.0.113.7",
+  "method": "POST",
+  "path": "/agent/mcp",
+  "tool": "save_note",
+  "note": "daily/2026-08-18.md",
+  "status": 200,
+  "outcome": "ok"
+}]
+```
+
+`client`, `tool` and `note` are `null` when the request had no such value. The
+`outcome` is `ok`, `error` or `revoked`. Answers `503` when no database answers.
 
 ## POST /api/tokens
 
@@ -163,6 +189,10 @@ Revokes one agent token, and answers `204`.
 
 The next request carrying that token is refused. Nothing is held between
 requests, so there is no window in which a revoked token still works.
+
+The record moves from `tokens.json` to `tokens-revoked.json` beside it. A request
+the revoked token makes after that is still recorded, with the outcome
+`revoked`, so its name stays in the action list.
 
 A name the store has not got is a `404`.
 
