@@ -207,9 +207,13 @@
 
 /* A raw svg in the note, drawn the same way (#952). Its colour is the text's,
    because currentColor reads `color`, so the ink token shows through it. */
+/* Clipped and painted on its own layer, so a pasted svg cannot paint over the
+   note or the app around it. */
 .cm-svg-block {
   padding: 0.35em 0;
   color: var(--k-ink);
+  overflow: hidden;
+  contain: paint;
 }
 
 .cm-svg-block > svg {

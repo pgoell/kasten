@@ -34,51 +34,76 @@ const ATTRIBUTES = new Set([...GEOMETRY, ...PRESENTATION]);
 
 /** Markup, a quote or a script hook in a value; the value is dropped. */
 const UNSAFE = /[\\<>@&"']|\/\*|expression|javascript:/i;
-const URL_REF = /^url\(\s*#([A-Za-z_][\w.-]*)\s*\)$/i;
+// CSS white space only: `\s` also matches a no-break space, which a browser does not read as one.
+const URL_REF = /^url\([ \t\n\r\f]*#([A-Za-z_][\w.-]*)[ \t\n\r\f]*\)$/i;
 const HREF = /^#([A-Za-z_][\w.-]*)$/;
 const ID = /^[A-Za-z_][\w.-]*$/;
 
-/** A value the drawing may keep: no unsafe text, and any `url(...)` names an id in the block. */
-function valueOk(value: string, ids: Set<string>): boolean {
-  if (UNSAFE.test(value)) return false;
-  if (!/url\(/i.test(value)) return true;
-  const id = URL_REF.exec(value)?.[1];
-  return id !== undefined && ids.has(id);
-}
+/** Every `name(` in a value, so a function the drawing does not need is caught. */
+const FUNCTION = /([A-Za-z-]+)\(/g;
+/** The functions a drawing may use. `url` is checked on its own; var(), env(), attr() and -moz-element() are not here. */
+const FUNCTIONS = new Set(
+  "translate translatex translatey rotate scale scalex scaley skewx skewy matrix rgb rgba hsl hsla".split(
+    " ",
+  ),
+);
+/** The shapes and text a picture must hold to be worth drawing. */
+const DRAWN = "path, rect, circle, ellipse, line, polyline, polygon, text, use";
+/** The root is the page's own box: a move or an offset here would carry the app with it. */
+const ROOT_DROPS = ["transform", "x", "y"];
+
+/** Each block gets its own id prefix: getElementById finds the first match on the page, and a bare id like `process` would shadow a window global. */
+let blocks = 0;
 
 /** An attribute to set once every id in the block is known: element, name, value. */
 type Deferred = [Element, string, string];
 
+/** One svg being cleaned: the prefix its ids take, the element behind each id, and the attributes still to set. */
+type Block = { prefix: string; ids: Map<string, Element>; deferred: Deferred[] };
+
+/**
+ * The value with its refs moved to the block's prefixed ids, or null when it may
+ * not stay. Every `name(` must be a function a drawing needs, and a `url(...)`
+ * must be one ref to an id in the block.
+ */
+function clean(value: string, block: Block): string | null {
+  if (UNSAFE.test(value)) return null;
+  const names = Array.from(value.matchAll(FUNCTION), (m) => (m[1] ?? "").toLowerCase());
+  if (!names.includes("url")) return names.every((n) => FUNCTIONS.has(n)) ? value : null;
+  const id = URL_REF.exec(value)?.[1];
+  return id !== undefined && block.ids.has(id) ? `url(#${block.prefix}${id})` : null;
+}
+
 /** Sets the id now, since the refs checked later need every id in the block; defers the rest. */
-function keepAttributes(el: Element, from: Element, ids: Set<string>, deferred: Deferred[]) {
+function keepAttributes(el: Element, from: Element, block: Block) {
   for (const attr of Array.from(from.attributes)) {
     if (attr.name === "id") {
       if (ID.test(attr.value)) {
-        el.setAttribute("id", attr.value);
-        ids.add(attr.value);
+        el.setAttribute("id", block.prefix + attr.value);
+        block.ids.set(attr.value, el);
       }
     } else if (
       attr.localName === "href" &&
       (attr.namespaceURI === null || attr.namespaceURI === XLINK)
     ) {
-      deferred.push([el, "href", attr.value]);
+      block.deferred.push([el, "href", attr.value]);
     } else if (attr.name === "style" || ATTRIBUTES.has(attr.name)) {
-      deferred.push([el, attr.name, attr.value]);
+      block.deferred.push([el, attr.name, attr.value]);
     }
   }
 }
 
 /** Copies an allowed svg element and its text into `document`; anything else, subtree and all, is dropped. */
-function copy(from: Element, ids: Set<string>, deferred: Deferred[]): Element | null {
+function copy(from: Element, block: Block): Element | null {
   if (from.namespaceURI !== SVG || !ELEMENTS.has(from.localName)) return null;
   const el = document.createElementNS(SVG, from.localName);
-  keepAttributes(el, from, ids, deferred);
+  keepAttributes(el, from, block);
 
   for (const node of Array.from(from.childNodes)) {
     if (node.nodeType === Node.TEXT_NODE) {
       el.appendChild(document.createTextNode(node.textContent ?? ""));
     } else if (node instanceof Element) {
-      const child = copy(node, ids, deferred);
+      const child = copy(node, block);
       if (child) el.appendChild(child);
     }
   }
@@ -89,44 +114,62 @@ function copy(from: Element, ids: Set<string>, deferred: Deferred[]): Element | 
  * The style declarations that may stay, written back as `prop: value`. Each is
  * checked on its own, so `position: fixed` goes and the `fill` beside it stays.
  */
-function styleOf(value: string, ids: Set<string>): string {
+function styleOf(value: string, block: Block): string {
   const kept: string[] = [];
   for (const piece of value.split(";")) {
     const colon = piece.indexOf(":");
     if (colon < 0) continue;
     const prop = piece.slice(0, colon).trim().toLowerCase();
     const val = piece.slice(colon + 1).trim();
-    if (PRESENTATION.has(prop) && valueOk(val, ids)) kept.push(`${prop}: ${val}`);
+    const cleaned = PRESENTATION.has(prop) ? clean(val, block) : null;
+    if (cleaned !== null) kept.push(`${prop}: ${cleaned}`);
   }
   return kept.join("; ");
 }
 
+/** An href to an id in the block, kept unless it is a use of a use. */
+function settleHref(el: Element, value: string, block: Block) {
+  const id = HREF.exec(value)?.[1];
+  const target = id === undefined ? undefined : block.ids.get(id);
+  if (id === undefined || target === undefined) return;
+  // A use of a use, or of anything holding one, copies the copies: each level
+  // multiplies the work, so the ref goes rather than hang the tab.
+  if (el.localName === "use" && (target.localName === "use" || target.querySelector("use"))) return;
+  el.setAttribute("href", `#${block.prefix}${id}`);
+}
+
 /** Sets one deferred attribute, now that every id in the block is known. */
-function settle(el: Element, name: string, value: string, ids: Set<string>) {
+function settle(el: Element, name: string, value: string, block: Block) {
   if (name === "href") {
-    const id = HREF.exec(value)?.[1];
-    if (id !== undefined && ids.has(id)) el.setAttribute("href", value);
+    settleHref(el, value, block);
   } else if (name === "style") {
-    const style = styleOf(value, ids);
+    const style = styleOf(value, block);
     if (style) el.setAttribute("style", style);
-  } else if (valueOk(value, ids)) {
-    el.setAttribute(name, value);
+  } else {
+    const cleaned = clean(value, block);
+    if (cleaned !== null) el.setAttribute(name, cleaned);
   }
 }
 
 /**
- * The first svg in `source` as a fresh, cleaned element, or null when there is
- * nothing to draw. The page inserts it as a node, never as markup.
+ * The one svg in `source`, cleaned, or null when the source is anything but one
+ * svg or the cleaned svg has nothing to draw. The page inserts it as a node,
+ * never as markup.
  */
 export function sanitizeSvg(source: string): SVGSVGElement | null {
-  const found = new DOMParser().parseFromString(source, "text/html").querySelector("svg");
-  if (!found) return null;
+  const body = new DOMParser().parseFromString(source, "text/html").body;
+  // A second svg, or a word beside the first, would draw as part of this picture.
+  const parts = Array.from(body.childNodes).filter(
+    (n) => n.nodeType !== Node.TEXT_NODE || (n.textContent ?? "").trim() !== "",
+  );
+  const only = parts[0];
+  if (parts.length !== 1 || !(only instanceof Element) || only.localName !== "svg") return null;
 
-  const ids = new Set<string>();
-  const deferred: Deferred[] = [];
-  const root = copy(found, ids, deferred);
-  if (!root || root.children.length === 0) return null;
+  const block: Block = { prefix: `kasten-svg-${++blocks}-`, ids: new Map(), deferred: [] };
+  const root = copy(only, block);
+  if (!root || root.querySelector(DRAWN) === null) return null;
 
-  for (const [el, name, value] of deferred) settle(el, name, value, ids);
+  for (const [el, name, value] of block.deferred) settle(el, name, value, block);
+  for (const name of ROOT_DROPS) root.removeAttribute(name);
   return root as SVGSVGElement;
 }

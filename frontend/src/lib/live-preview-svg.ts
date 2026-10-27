@@ -36,11 +36,12 @@ class SvgBlock extends WidgetType {
       block.appendChild(svg);
       return block;
     }
-    // Nothing the sanitiser keeps can be drawn, so the source shows rather than a
+    // Null when the sanitiser keeps nothing to draw, or keeps more than the one
+    // svg (text beside it included). Either way the source shows rather than a
     // blank, as a diagram that will not draw does.
     const message = block.appendChild(document.createElement("div"));
     message.className = "cm-svg-error";
-    message.textContent = "Nothing in this svg can be drawn.";
+    message.textContent = "This svg cannot be drawn.";
     const code = block.appendChild(document.createElement("pre"));
     code.className = "cm-svg-source";
     code.textContent = this.source;
