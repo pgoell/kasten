@@ -63,7 +63,7 @@ class NoteRead(BaseModel):
 class Hit(BaseModel):
     """One matching line: where it lives, which line it is, and what it says.
 
-    Its own model rather than `routes.queries.SearchHit`, because nothing here may
+    Its own model rather than `routes.search.SearchHit`, because nothing here may
     import from `routes/`: that would point the dependency at the surface instead of
     away from it, and the MCP tools import this module too.
     """

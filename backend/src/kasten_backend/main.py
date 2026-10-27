@@ -43,6 +43,7 @@ from kasten_backend.routes import (
     notes,
     queries,
     rsvp,
+    search,
     share,
     tokens,
     web,
@@ -194,6 +195,7 @@ async def read_build() -> Build:
 app.include_router(listing.router)
 app.include_router(web.router)
 app.include_router(queries.router)
+app.include_router(search.router)
 app.include_router(github.router)
 app.include_router(model_use.router)
 app.include_router(log.router)

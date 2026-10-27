@@ -14,12 +14,10 @@ from kasten_backend.graph_query import query_graph
 from kasten_backend.history import HistoryError, list_changes, plain, read_version
 from kasten_backend.log import DATE_PATTERN
 from kasten_backend.mentions import find_mentions
-from kasten_backend.search import search_vault
 from kasten_backend.search_meta import (
     cached_tags,
     day_of,
     forget_except,
-    notes_meta,
     stamp,
 )
 from kasten_backend.share import inside
@@ -64,26 +62,6 @@ class LineHit(BaseModel):
 
     text: str
     """The line itself, for the client to show and to rank."""
-
-
-class SearchHit(LineHit):
-    """One line that matched a search, with the date and tags of the note it is in."""
-
-    date: str | None = None
-    """The date the note counts on, as ISO 8601: a calendar day or an instant.
-
-    A calendar day (`YYYY-MM-DD`) when the note's name starts with one, which needs
-    no zone. Otherwise an instant, from the note's `created` as written or its
-    file's modification time in UTC with its offset. The instant is not cut to a
-    day here because the day depends on the reader's zone: `created` is written
-    in UTC, so a note written at 00:30 in Berlin is the day before in UTC. The
-    client reads the instant in its own zone.
-
-    Read by `search_meta.notes_meta`. None when the note could not be read.
-    """
-
-    tags: list[str] | None = None
-    """The note's tags, each with its hash, sorted. None when the note could not be read."""
 
 
 class TodoHit(LineHit):
@@ -167,35 +145,6 @@ class ReviewLimits(BaseModel):
 
     new_per_day: int | None
     reviews_per_day: int | None
-
-
-@router.get("/api/search")
-async def search_files(
-    q: str, settings: Annotated[Settings, Depends(get_settings)], archive: bool = False
-) -> list[SearchHit]:
-    """Find every line in the vault containing `q`, ignoring case.
-
-    A literal match, not a regex and not a fuzzy one. The client ranks what
-    comes back, which is what makes the finder feel fuzzy without asking a
-    subsequence match to mean something over prose, where it matches everything.
-
-    `archive` walks the archive folder too. Off by default, because what is
-    filed away is not usually what is being looked for, and the cap on what
-    comes back means an archive left in would eventually push live notes out of
-    the answer rather than merely lengthening it.
-    """
-    hits = await search_vault(settings.vault_path, q, None if archive else settings.archive_path)
-    meta = await notes_meta(settings.vault_path, [hit.path for hit in hits])
-    return [
-        SearchHit(
-            path=hit.path,
-            line=hit.line,
-            text=hit.text,
-            date=meta[hit.path][0],
-            tags=meta[hit.path][1],
-        )
-        for hit in hits
-    ]
 
 
 @router.get("/api/mentions")

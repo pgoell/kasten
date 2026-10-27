@@ -39,6 +39,7 @@ async def test_finds_the_line_a_word_is_on(client: AsyncClient, vault: Path) -> 
             "path": "projects/2026-10-07 kasten.md",
             "line": 3,
             "text": "Postgres holds a derived index.",
+            "place": None,
             "date": "2026-10-07",
             "tags": [],
         }

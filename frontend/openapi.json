@@ -1474,60 +1474,6 @@
         }
       }
     },
-    "/api/search": {
-      "get": {
-        "summary": "Search Files",
-        "description": "Find every line in the vault containing `q`, ignoring case.\n\nA literal match, not a regex and not a fuzzy one. The client ranks what\ncomes back, which is what makes the finder feel fuzzy without asking a\nsubsequence match to mean something over prose, where it matches everything.\n\n`archive` walks the archive folder too. Off by default, because what is\nfiled away is not usually what is being looked for, and the cap on what\ncomes back means an archive left in would eventually push live notes out of\nthe answer rather than merely lengthening it.",
-        "operationId": "search_files_api_search_get",
-        "parameters": [
-          {
-            "name": "q",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Q"
-            }
-          },
-          {
-            "name": "archive",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "boolean",
-              "default": false,
-              "title": "Archive"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/SearchHit"
-                  },
-                  "title": "Response Search Files Api Search Get"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/mentions": {
       "get": {
         "summary": "List Mentions",
@@ -1976,6 +1922,60 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Graph"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/search": {
+      "get": {
+        "summary": "Search Files",
+        "description": "Find every line in the vault containing `q`, ignoring case.\n\nA literal match, not a regex and not a fuzzy one. The client ranks what\ncomes back, which is what makes the finder feel fuzzy without asking a\nsubsequence match to mean something over prose, where it matches everything.\n\n`archive` walks the archive folder too. Off by default, because what is\nfiled away is not usually what is being looked for, and the cap on what\ncomes back means an archive left in would eventually push live notes out of\nthe answer rather than merely lengthening it.",
+        "operationId": "search_files_api_search_get",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Q"
+            }
+          },
+          {
+            "name": "archive",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Archive"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SearchHit"
+                  },
+                  "title": "Response Search Files Api Search Get"
                 }
               }
             }
@@ -9198,6 +9198,52 @@
         "title": "Fetch",
         "description": "Where to read a file from, for a caller holding a link rather than the bytes."
       },
+      "FilePlace": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "pdf",
+              "epub",
+              "html"
+            ],
+            "title": "Kind"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "page": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page"
+          },
+          "anchor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Anchor"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "label"
+        ],
+        "title": "FilePlace",
+        "description": "Where in a pdf, an epub or an html page a line sits, for a hit in one."
+      },
       "Filed": {
         "properties": {
           "path": {
@@ -10100,7 +10146,7 @@
           "text"
         ],
         "title": "Hit",
-        "description": "One matching line: where it lives, which line it is, and what it says.\n\nIts own model rather than `routes.queries.SearchHit`, because nothing here may\nimport from `routes/`: that would point the dependency at the surface instead of\naway from it, and the MCP tools import this module too."
+        "description": "One matching line: where it lives, which line it is, and what it says.\n\nIts own model rather than `routes.search.SearchHit`, because nothing here may\nimport from `routes/`: that would point the dependency at the surface instead of\naway from it, and the MCP tools import this module too."
       },
       "Hour": {
         "properties": {
@@ -12937,6 +12983,16 @@
           "text": {
             "type": "string",
             "title": "Text"
+          },
+          "place": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FilePlace"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "date": {
             "anyOf": [

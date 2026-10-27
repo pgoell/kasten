@@ -737,35 +737,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/search": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Search Files
-         * @description Find every line in the vault containing `q`, ignoring case.
-         *
-         *     A literal match, not a regex and not a fuzzy one. The client ranks what
-         *     comes back, which is what makes the finder feel fuzzy without asking a
-         *     subsequence match to mean something over prose, where it matches everything.
-         *
-         *     `archive` walks the archive folder too. Off by default, because what is
-         *     filed away is not usually what is being looked for, and the cap on what
-         *     comes back means an archive left in would eventually push live notes out of
-         *     the answer rather than merely lengthening it.
-         */
-        get: operations["search_files_api_search_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/mentions": {
         parameters: {
             query?: never;
@@ -1025,6 +996,35 @@ export interface paths {
          *     vault as it is now.
          */
         get: operations["show_graph_api_graph_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Search Files
+         * @description Find every line in the vault containing `q`, ignoring case.
+         *
+         *     A literal match, not a regex and not a fuzzy one. The client ranks what
+         *     comes back, which is what makes the finder feel fuzzy without asking a
+         *     subsequence match to mean something over prose, where it matches everything.
+         *
+         *     `archive` walks the archive folder too. Off by default, because what is
+         *     filed away is not usually what is being looked for, and the cap on what
+         *     comes back means an archive left in would eventually push live notes out of
+         *     the answer rather than merely lengthening it.
+         */
+        get: operations["search_files_api_search_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -4037,6 +4037,23 @@ export interface components {
             url: string;
         };
         /**
+         * FilePlace
+         * @description Where in a pdf, an epub or an html page a line sits, for a hit in one.
+         */
+        FilePlace: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "pdf" | "epub" | "html";
+            /** Label */
+            label: string;
+            /** Page */
+            page?: number | null;
+            /** Anchor */
+            anchor?: string | null;
+        };
+        /**
          * Filed
          * @description The vault-relative path a file landed at.
          */
@@ -4396,7 +4413,7 @@ export interface components {
          * Hit
          * @description One matching line: where it lives, which line it is, and what it says.
          *
-         *     Its own model rather than `routes.queries.SearchHit`, because nothing here may
+         *     Its own model rather than `routes.search.SearchHit`, because nothing here may
          *     import from `routes/`: that would point the dependency at the surface instead of
          *     away from it, and the MCP tools import this module too.
          */
@@ -5526,6 +5543,7 @@ export interface components {
             line: number;
             /** Text */
             text: string;
+            place?: components["schemas"]["FilePlace"] | null;
             /** Date */
             date?: string | null;
             /** Tags */
@@ -7034,38 +7052,6 @@ export interface operations {
             };
         };
     };
-    search_files_api_search_get: {
-        parameters: {
-            query: {
-                q: string;
-                archive?: boolean;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SearchHit"][];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     list_mentions_api_mentions_get: {
         parameters: {
             query: {
@@ -7348,6 +7334,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Graph"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    search_files_api_search_get: {
+        parameters: {
+            query: {
+                q: string;
+                archive?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SearchHit"][];
                 };
             };
             /** @description Validation Error */
