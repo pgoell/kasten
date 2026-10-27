@@ -171,23 +171,28 @@ async def scan_vault(
     # `stdout=PIPE` above is what makes this a reader and not None, which the
     # type checker cannot see from here.
     stdout = cast("asyncio.StreamReader", process.stdout)
-    async for raw in stdout:
-        # `--null` puts a NUL after the filename, which is the one byte a path
-        # cannot contain. Splitting on the colon alone would break on any note
-        # whose name has one.
-        path, _, rest = raw.decode("utf-8", "replace").rstrip("\n").partition("\0")
-        number, _, text = rest.partition(":")
-        hits.append(Hit(path=str(Path(path).relative_to(root)), line=int(number), text=text))
-        if len(hits) == cap:
-            break
-
-    # Counted here rather than handed to `--max-count`, which counts per file
-    # and would take the cap from every note separately. Reaching it means rg
-    # is still scanning for matches nobody asked for, so it is stopped rather
-    # than waited out.
-    if process.returncode is None:
-        process.kill()
-    await process.wait()
+    try:
+        async for raw in stdout:
+            # `--null` puts a NUL after the filename, which is the one byte a
+            # path cannot contain. Splitting on the colon alone would break on
+            # any note whose name has one.
+            path, _, rest = raw.decode("utf-8", "replace").rstrip("\n").partition("\0")
+            number, _, text = rest.partition(":")
+            hits.append(Hit(path=str(Path(path).relative_to(root)), line=int(number), text=text))
+            if len(hits) == cap:
+                break
+    finally:
+        # Counted here rather than handed to `--max-count`, which counts per
+        # file and would take the cap from every note separately. Reaching it
+        # means rg is still scanning for matches nobody asked for, so it is
+        # stopped rather than waited out; so is a scan whose request went away.
+        if process.returncode is None:
+            process.kill()
+        # `communicate` and not `wait`: `wait` returns only once stdout has
+        # closed, and a buffer left holding more than the reader's high-water
+        # mark has paused the pipe, so its end is never read and `wait` never
+        # returns (#1242). Reading the rest is what resumes it.
+        await process.communicate()
     return hits
 
 

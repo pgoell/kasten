@@ -101,10 +101,12 @@ async def _read(root: Path, *args: str) -> str:
         raise HistoryError(f"jj {args[0]} took longer than {TIMEOUT:g} seconds") from error
     finally:
         # Killed and reaped on every way out, a cancelled request included, so a
-        # jj still running leaves no child behind.
+        # jj still running leaves no child behind. Drained by `communicate`
+        # rather than waited for: a stdout paused mid-output never closes, and
+        # `wait` waits for it to (#1242).
         if process.returncode is None:
             process.kill()
-            await process.wait()
+            await process.communicate()
 
     if process.returncode != 0:
         raise HistoryError(f"jj {args[0]} failed: {stderr.decode(errors='replace').strip()}")
