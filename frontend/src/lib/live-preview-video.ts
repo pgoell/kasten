@@ -2,8 +2,8 @@ import { ensureSyntaxTree } from "@codemirror/language";
 import { EditorState } from "@codemirror/state";
 import { type EditorView, ViewPlugin, type ViewUpdate } from "@codemirror/view";
 import { writeWatched } from "@/lib/buffer-writes";
-import { linkAddress } from "@/lib/link-reference";
-import { PLAYER, videoId } from "@/lib/video";
+import { drawnImage } from "@/lib/live-preview-images";
+import { PLAYER } from "@/lib/video";
 import { applyVideoSettings, learnVideoSettings } from "@/lib/video-settings";
 
 /**
@@ -25,6 +25,8 @@ interface Player {
   running: boolean;
   /** The last position the player reported above zero. */
   seconds: number;
+  /** The video the player last named, undefined until it names one: its own. */
+  reported?: string;
 }
 
 /** Where a placeholder is on the layer, in pixels. */
@@ -47,8 +49,10 @@ function embeddedVideos(state: EditorState): Set<string> | null {
   tree.iterate({
     enter: (node) => {
       if (node.name !== "Image") return;
-      const id = videoId(linkAddress(node.node, state.doc) ?? "");
-      if (id !== null) ids.add(id);
+      // What the note draws, read the way the drawing reads it, so a spaced
+      // address (`![t](https://youtu.be/<id> x)`) keeps its player too.
+      const drawn = drawnImage(state, node.node);
+      if (drawn?.kind === "video") ids.add(drawn.id);
     },
   });
   return ids;
@@ -86,7 +90,7 @@ class VideoLayer {
   update(update: ViewUpdate): void {
     // Only a change to the text can remove a link, and a removed link ends its
     // player (I5). A player whose placeholder is merely off screen keeps going.
-    if (update.docChanged) {
+    if (update.docChanged && this.players.size > 0) {
       const videos = embeddedVideos(update.state);
       // A tree still parsing names no video it has not read yet, so nothing is
       // ended on its word.
@@ -229,9 +233,12 @@ class VideoLayer {
   ): void {
     const { currentTime, playerState, videoData } = info;
     // A frame moved to another video, such as a suggestion picked on the end
-    // screen, reports that video's position. None of it is the link's.
+    // screen, reports that video's position. None of it is the link's. The
+    // player sends its video once, when it changes, so the id is kept until the
+    // next one, not read off each tick.
     const named = (videoData as { video_id?: unknown } | undefined)?.video_id;
-    const elsewhere = typeof named === "string" && named !== player.id;
+    if (typeof named === "string") player.reported = named;
+    const elsewhere = player.reported !== undefined && player.reported !== player.id;
     if (!elsewhere && typeof currentTime === "number" && currentTime > 0) {
       player.seconds = currentTime;
     }

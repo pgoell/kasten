@@ -204,17 +204,12 @@ it("#953 A5 a pause on another video the frame moved to writes nothing under the
   send(frame.contentWindow, { event: "infoDelivery", info: { playerState: 2, currentTime: 40 } });
   expect.soft(watchedAt(at.state.doc.toString(), ID)).toBe(40);
 
-  // The frame moved on to a suggested video and was paused two minutes in.
+  // The frame moved on to a suggested video. YouTube names the video once, when
+  // it changes, and the ticks and the pause after that carry no video at all.
   const other = "zyxwvutsrqp";
-  const moved = { video_id: other };
-  send(frame.contentWindow, {
-    event: "infoDelivery",
-    info: { playerState: 1, currentTime: 120, videoData: moved },
-  });
-  send(frame.contentWindow, {
-    event: "infoDelivery",
-    info: { playerState: 2, currentTime: 120, videoData: moved },
-  });
+  send(frame.contentWindow, { event: "infoDelivery", info: { videoData: { video_id: other } } });
+  send(frame.contentWindow, { event: "infoDelivery", info: { playerState: 1, currentTime: 120 } });
+  send(frame.contentWindow, { event: "infoDelivery", info: { playerState: 2, currentTime: 125 } });
   expect(watchedAt(at.state.doc.toString(), ID)).toBe(40);
 });
 
@@ -315,6 +310,29 @@ it("#953 I5 deleting the link from the note ends its player", async () => {
   at.dispatch({ changes: { from: start, to: start + LINK.length } });
   expect(frame.isConnected).toBe(false);
   expect.soft(at.dom.querySelector(".cm-video-frame")).toBeNull();
+});
+
+it("#953 I5 a spaced embed keeps its player through an edit elsewhere in the note", async () => {
+  const doc = [
+    "---",
+    "title: Talk",
+    "---",
+    "",
+    `![talk](https://youtu.be/${ID} x)`,
+    "",
+    ...Array.from({ length: 200 }, (_, index) => `filler line ${index}`),
+  ].join("\n");
+  const at = mount(doc);
+  const frame = await frameIn(at);
+  scrollTo(at, "bottom");
+  await expect.poll(() => at.contentDOM.querySelector(".cm-video")).toBeNull();
+  scrollTo(at, 0);
+  await expect.poll(() => at.contentDOM.querySelector(".cm-video")).not.toBeNull();
+  expect.soft(at.dom.querySelector('iframe[title="video"]')).toBe(frame);
+
+  at.dispatch({ changes: { from: doc.length, insert: "z" } });
+  expect(frame.isConnected).toBe(true);
+  expect(at.dom.querySelector('iframe[title="video"]')).toBe(frame);
 });
 
 it("#953 I5 deleting the embed ends its player while a plain link to the same video stays", async () => {
