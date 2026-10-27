@@ -211,7 +211,8 @@ in its place, bad JSON, or anything but a list of records) does not open the
 gate either: every bearer `tokens.json` does not hold gets a 401, and the
 backend logs a warning with the path. The next revoke moves that file to
 `tokens-revoked.json.broken` and starts a fresh one; when that move fails, the
-revoke fails with `tokens.json` unchanged.
+revoke still takes the token out of `tokens.json`, leaves the revoked file as it
+is and logs a warning.
 
 A `tokens.json` the backend cannot read refuses every bearer with a 401 and a
 logged warning. Minting, revoking and listing raise on it and write nothing.

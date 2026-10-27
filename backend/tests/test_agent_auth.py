@@ -287,24 +287,24 @@ async def test_revoke_on_an_unreadable_revoked_file_completes(
     assert revoked_file().with_name(tokens.REVOKED + ".broken").exists()
 
 
-@pytest.mark.skipif(ROOT, reason="root reads a file whatever its mode")
-async def test_a_failed_rename_of_a_broken_revoked_file_leaves_the_store_alone(
-    agent_vault: Path, token: str, give_back: None
+async def test_a_failed_rename_of_a_broken_revoked_file_still_cuts_the_token(
+    client: AsyncClient, agent_vault: Path, bearer: dict[str, str]
 ) -> None:
-    # The rename runs before the first write, so when it fails the token is
-    # still where it was and nothing is half-moved.
+    # A revoke that cannot be recorded still revokes. The broken file stays as
+    # it is, since a directory in its place cannot be written over either.
+    (agent_vault / "index.md").write_text("# index")
     store = get_settings().tokens_path
-    before = store.read_bytes()
     revoked_file().write_text("{", encoding="utf-8")
     aside = revoked_file().with_name(tokens.REVOKED + ".broken")
     aside.mkdir()
     (aside / "keep").write_text("x", encoding="utf-8")
 
-    with pytest.raises(OSError, match="tokens-revoked"):
-        await revoke(store, "laptop")
+    assert await revoke(store, "laptop") is True
 
-    assert store.read_bytes() == before
+    assert json.loads(store.read_text(encoding="utf-8")) == []
     assert revoked_file().read_text(encoding="utf-8") == "{"
+    response = await client.get("/agent/notes/index.md", headers=bearer)
+    assert response.status_code == 401
 
 
 @pytest.mark.skipif(ROOT, reason="root reads a file whatever its mode")

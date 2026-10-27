@@ -26,7 +26,7 @@ import tempfile
 from datetime import UTC, datetime
 from pathlib import Path
 
-from pydantic import BaseModel, TypeAdapter, ValidationError
+from pydantic import BaseModel, ConfigDict, TypeAdapter, ValidationError
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +43,10 @@ waiting on a slow note save would be two unrelated things sharing a queue.
 
 class Token(BaseModel):
     """One token as anything but the mint may see it."""
+
+    # A validation error's text quotes the input, which in a token file holds
+    # digests, and an error that escapes lands in the log with its traceback.
+    model_config = ConfigDict(hide_input_in_errors=True)
 
     name: str
     created: datetime
@@ -70,8 +74,9 @@ class _Revoked(_Record):
     revoked: datetime
 
 
-_RECORDS = TypeAdapter(list[_Record])
-_REVOKED_LIST = TypeAdapter(list[_Revoked])
+_HIDDEN = ConfigDict(hide_input_in_errors=True)
+_RECORDS = TypeAdapter(list[_Record], config=_HIDDEN)
+_REVOKED_LIST = TypeAdapter(list[_Revoked], config=_HIDDEN)
 
 _UNREADABLE = (OSError, ValidationError)
 """Every way reading a token file fails: the file system's errors, and pydantic's.
@@ -190,9 +195,11 @@ async def revoke(store: Path, name: str) -> bool:
     writes then leaves the token refused and unrecorded, which is safe; the other
     order would leave it active.
 
-    A broken revoked file is set aside as `.broken` and started again, before
-    the first write, so a rename that fails leaves the store as it was. Its
+    A broken revoked file is set aside as `.broken` and started again. Its
     records only name refusals, so losing them costs a log line, not access.
+    When even the rename fails, the token still leaves the active file and the
+    revoked file is left as it is: a revoke that cannot be recorded must still
+    cut access, and writing over a directory would fail after the store write.
     """
     async with _lock:
         records = _read(store)
@@ -203,9 +210,19 @@ async def revoke(store: Path, name: str) -> bool:
         revoked_path = store.with_name(REVOKED)
         revoked = _read_revoked(revoked_path)
         if revoked is None:
-            os.replace(revoked_path, revoked_path.with_name(REVOKED + ".broken"))  # noqa: PTH105  Path has no atomic replace of a str
-            revoked = []
+            try:
+                os.replace(revoked_path, revoked_path.with_name(REVOKED + ".broken"))  # noqa: PTH105  Path has no atomic replace of a str
+                revoked = []
+            except OSError as error:
+                logger.warning(
+                    "Not recording the revoke of %s: %s cannot be set aside (%s)",
+                    name,
+                    revoked_path,
+                    type(error).__name__,
+                )
         _write(store, [record for record in records if record.name != name])
+        if revoked is None:
+            return True
 
         moment = datetime.now(UTC)
         _write(

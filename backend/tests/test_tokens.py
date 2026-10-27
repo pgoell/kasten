@@ -140,3 +140,18 @@ async def test_mint_revoke_and_listing_on_an_unreadable_store_leave_it_alone(
 
     assert store.read_bytes() == before
     assert not (tmp_path / tokens.REVOKED).exists()
+
+
+async def test_a_broken_store_error_quotes_no_digest(tmp_path: Path) -> None:
+    # The error escapes `listing` into a traceback in the log, so its text
+    # must not carry the tail of the file, which holds a digest.
+    store = tmp_path / "tokens.json"
+    await tokens.mint(store, "laptop")
+    whole = store.read_bytes()
+    store.write_bytes(whole[:-3])
+    held = json.loads(whole)[0]["digest"]
+
+    with pytest.raises(ValidationError) as raised:
+        await tokens.listing(store)
+
+    assert held[-12:] not in str(raised.value)
