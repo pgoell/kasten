@@ -20,9 +20,9 @@ const { fetchLog, fetchNote, searchFood, readBarcode } = vi.hoisted(() => ({
   readBarcode: vi.fn(),
 }));
 
-vi.mock("@/lib/food-api", () => ({ fetchLog, searchFood, readBarcode }));
-vi.mock("@/lib/my-foods", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/my-foods")>()),
+vi.mock("@/lib/log/food-api", () => ({ fetchLog, searchFood, readBarcode }));
+vi.mock("@/lib/log/my-foods", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/log/my-foods")>()),
   fetchMyFoods: async () => ({ foods: [], broken: [] }),
   addMyFood: vi.fn(),
 }));

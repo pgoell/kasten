@@ -7,8 +7,8 @@
 import { StateEffect } from "@codemirror/state";
 import type { EditorView } from "@codemirror/view";
 import { shiftDay } from "@/lib/clock";
-import { fetchLog, type LogDay } from "@/lib/food-api";
-import { MEALS, type Meal, type MealGroup } from "@/lib/log-day";
+import { fetchLog, type LogDay } from "@/lib/log/food-api";
+import { MEALS, type Meal, type MealGroup } from "@/lib/log/log-day";
 
 /** A food line of a meal, as yesterday holds it: the meal and the text exactly. */
 export interface YesterdayLine {

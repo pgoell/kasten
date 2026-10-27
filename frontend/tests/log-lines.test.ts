@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import cases from "@/lib/log-cases.json";
-import { amountLine, drinkTotals, foodLine, parseDrink, parseFood } from "@/lib/log-lines";
+import cases from "@/lib/log/log-cases.json";
+import { amountLine, drinkTotals, foodLine, parseDrink, parseFood } from "@/lib/log/log-lines";
 
 interface Row {
   id: string;

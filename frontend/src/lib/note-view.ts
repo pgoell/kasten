@@ -25,7 +25,7 @@ import type { EditorCommands } from "@/lib/key-bindings";
 import { keyboardUnasked } from "@/lib/last-input";
 import { livePreview } from "@/lib/live/live-preview";
 import { timeSeek } from "@/lib/live/live-preview-times";
-import { logCard } from "@/lib/log-card";
+import { logCard } from "@/lib/log/log-card";
 import { graphHandler, noteHead, type Outline, readMode } from "@/lib/note-head";
 import { noteLanguage } from "@/lib/note-language";
 import { relationCompletions, vaultRelations } from "@/lib/ontology";

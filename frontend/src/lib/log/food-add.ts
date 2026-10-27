@@ -3,7 +3,7 @@
  * to the foods note. The panel opens it and hears back the food once saved.
  */
 
-import { addMyFood, cleanName, type MyFood } from "@/lib/my-foods";
+import { addMyFood, cleanName, type MyFood } from "@/lib/log/my-foods";
 
 /** A barcode as Open Food Facts and the foods note take it. */
 export const BARCODE = /^[0-9]{8,14}$/;

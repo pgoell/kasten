@@ -6,9 +6,9 @@
  * the pane read the note is refused, not written over.
  */
 
-import { GRAMS_END } from "@/lib/food-search";
-import { kindLine, type LogKind } from "@/lib/log-kinds";
-import { amountLine, foodLine, parseFood, tenth } from "@/lib/log-lines";
+import { GRAMS_END } from "@/lib/log/food-search";
+import { kindLine, type LogKind } from "@/lib/log/log-kinds";
+import { amountLine, foodLine, parseFood, tenth } from "@/lib/log/log-lines";
 import { periodicNote } from "@/lib/periodic";
 
 /** A line of a note, counted from one as `GET /api/log` counts it. */

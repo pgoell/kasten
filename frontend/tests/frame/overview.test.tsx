@@ -36,8 +36,8 @@ vi.mock("@/lib/api", async (importOriginal) => {
   };
 });
 
-vi.mock("@/lib/food-api", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/food-api")>()),
+vi.mock("@/lib/log/food-api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/log/food-api")>()),
   fetchLog: async () => [],
 }));
 

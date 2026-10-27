@@ -26,14 +26,14 @@ import {
 } from "@codemirror/view";
 import { foodSheetCleanup } from "@/components/food-sheet";
 import { shiftDay } from "@/lib/clock";
-import { type SheetHooks, stopFoodSheet, syncFoodSheet } from "@/lib/log-card-food";
+import { type SheetHooks, stopFoodSheet, syncFoodSheet } from "@/lib/log/log-card-food";
 import {
   askLatest,
   earlierWords,
   forgetLatest,
   type Latest,
   latestArrived,
-} from "@/lib/log-card-latest";
+} from "@/lib/log/log-card-latest";
 import {
   button,
   focusInPlace,
@@ -44,7 +44,7 @@ import {
   tailOf,
   topBlock,
   undoWords,
-} from "@/lib/log-card-view";
+} from "@/lib/log/log-card-view";
 import {
   askFor,
   asking,
@@ -56,7 +56,7 @@ import {
   refuse,
   rememberAmount,
   showQuestion,
-} from "@/lib/log-card-weight";
+} from "@/lib/log/log-card-weight";
 import {
   askYesterday,
   type Copy,
@@ -64,11 +64,17 @@ import {
   forgetYesterday,
   type Yesterday,
   yesterdayArrived,
-} from "@/lib/log-card-yesterday";
-import { askLogConfig, logConfig, subscribeLogConfig } from "@/lib/log-config";
-import { foodEntries, groupByMeal, type MealGroup } from "@/lib/log-day";
-import { DEFAULT_CONFIG, kindLine, kindTotal, type LogConfig, type LogKind } from "@/lib/log-kinds";
-import { type DrinkTotals, drinkTotals, LOG_HEADING, logLines } from "@/lib/log-lines";
+} from "@/lib/log/log-card-yesterday";
+import { askLogConfig, logConfig, subscribeLogConfig } from "@/lib/log/log-config";
+import { foodEntries, groupByMeal, type MealGroup } from "@/lib/log/log-day";
+import {
+  DEFAULT_CONFIG,
+  kindLine,
+  kindTotal,
+  type LogConfig,
+  type LogKind,
+} from "@/lib/log/log-kinds";
+import { type DrinkTotals, drinkTotals, LOG_HEADING, logLines } from "@/lib/log/log-lines";
 import { appendUnderEdit } from "@/lib/note-section";
 import { dailyDate } from "@/lib/periodic";
 import { notePath } from "@/lib/todo/todo-commands";
@@ -511,7 +517,7 @@ function closeFood(view: EditorView): void {
 
 export const logCard: Extension = [cardField, registry, foodSheetCleanup];
 
-export { reloadLogConfig } from "@/lib/log-config";
+export { reloadLogConfig } from "@/lib/log/log-config";
 
 /** Whether the view shows a card, which only a daily note with one does. */
 export function cardShown(view: EditorView): boolean {

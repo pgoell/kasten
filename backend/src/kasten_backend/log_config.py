@@ -1,8 +1,8 @@
 """The log config note, `99 Misc/01 Config/log.md`, read the way the card reads it.
 
 The note names the kinds of your own and their daily goals. The grammar is in
-`docs/reference/log-format.md`, and its cases are `frontend/src/lib/log-config-cases.json`,
-which the frontend and backend tests both run. `frontend/src/lib/log-kinds.ts` is the
+`docs/reference/log-format.md`, and its cases are `frontend/src/lib/log/log-config-cases.json`,
+which the frontend and backend tests both run. `frontend/src/lib/log/log-kinds.ts` is the
 other reader, so a rule changed here changes there too.
 """
 

@@ -17,7 +17,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { commands, page } from "vitest/browser";
 import { shiftDay } from "@/lib/clock";
-import type { LogDay } from "@/lib/food-api";
+import type { LogDay } from "@/lib/log/food-api";
 import { periodicNote } from "@/lib/periodic";
 import { applyTheme, PALETTE_KEY, THEME_KEY, type Theme } from "@/lib/theme";
 import { routeTree } from "@/routeTree.gen";
@@ -206,8 +206,8 @@ const logAt = (index: number, date: string): LogDay => {
   return state.noMacros ? withoutMacros(kept) : kept;
 };
 
-vi.mock("@/lib/food-api", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/food-api")>()),
+vi.mock("@/lib/log/food-api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/log/food-api")>()),
   fetchLog: async (from: string, to: string): Promise<LogDay[]> => {
     if (from === to && state.emptyToday) return [];
     const days: LogDay[] = [];

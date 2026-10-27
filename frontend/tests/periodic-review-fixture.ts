@@ -1,6 +1,6 @@
 import { EditorView } from "@codemirror/view";
 import type { LineHit, TodoHit } from "@/lib/api";
-import type { LogDay } from "@/lib/food-api";
+import type { LogDay } from "@/lib/log/food-api";
 import { periodicNote } from "@/lib/periodic";
 import type { ModelUseLine } from "@/lib/review-api";
 import type { WrittenNote } from "@/lib/review-year";

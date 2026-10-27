@@ -6,7 +6,7 @@
 
 import { fetchNote, NoteMissing } from "@/lib/api";
 import { LOG_NOTE } from "@/lib/layout";
-import { type LogConfig, parseConfig } from "@/lib/log-kinds";
+import { type LogConfig, parseConfig } from "@/lib/log/log-kinds";
 
 /** The last good config, or null before the first answer. */
 let config: LogConfig | null = null;

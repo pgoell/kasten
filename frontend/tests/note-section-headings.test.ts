@@ -1,4 +1,4 @@
-import { drinkTotals } from "@/lib/log-lines";
+import { drinkTotals } from "@/lib/log/log-lines";
 import { appendUnder } from "@/lib/note-section";
 
 const HEADINGS = ["## Log", "## Done", "## Time", "## TODOs"];

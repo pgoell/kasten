@@ -3,8 +3,8 @@ import { EditorState, type Extension } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { type Forecast, fetchNote, fetchWeather, NoteMissing } from "@/lib/api";
-import { fetchLog, type LogDay } from "@/lib/food-api";
-import { logCard, reloadLogConfig } from "@/lib/log-card";
+import { fetchLog, type LogDay } from "@/lib/log/food-api";
+import { logCard, reloadLogConfig } from "@/lib/log/log-card";
 import { notePath } from "@/lib/todo/todo-commands";
 import { weatherCard } from "@/lib/weather-card";
 
@@ -13,7 +13,7 @@ vi.mock("@/lib/api", async (importOriginal) => ({
   fetchNote: vi.fn(),
   fetchWeather: vi.fn(),
 }));
-vi.mock("@/lib/food-api", () => ({
+vi.mock("@/lib/log/food-api", () => ({
   searchFood: vi.fn(),
   readBarcode: vi.fn(),
   fetchLog: vi.fn(),

@@ -1,7 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { type RefObject, useEffect } from "react";
 import { LOG_NOTE, MODEL_USE_FOLDER } from "@/lib/layout";
-import { reloadLogConfig } from "@/lib/log-card";
+import { reloadLogConfig } from "@/lib/log/log-card";
 import { dailyDate, weeklyWeek, yearlyYear } from "@/lib/periodic";
 import { pressEcho } from "@/lib/todo/todo-press-echo";
 import type { useAutosave } from "@/lib/use-autosave";

@@ -4,8 +4,8 @@
  * test does not drift with the machine it runs on.
  */
 
-import { overMax } from "@/lib/log-day";
-import type { Goal } from "@/lib/log-kinds";
+import { overMax } from "@/lib/log/log-day";
+import type { Goal } from "@/lib/log/log-kinds";
 
 const GROUPED = new Intl.NumberFormat("en-US", { maximumFractionDigits: 1 });
 

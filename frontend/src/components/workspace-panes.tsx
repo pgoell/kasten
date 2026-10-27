@@ -26,6 +26,7 @@ import { VideoPane } from "@/components/video-pane";
 import { isWholePane, WholePane } from "@/components/whole-pane";
 import type { SearchHit } from "@/lib/api";
 import type { TreeCommands } from "@/lib/key-bindings";
+import type { LogActions } from "@/lib/log/use-log-actions";
 import { openGraphBeside, openNoteBeside } from "@/lib/pane-contents";
 import {
   activeTab,
@@ -42,7 +43,6 @@ import type { SaveStatus, useAutosave } from "@/lib/use-autosave";
 import type { BufferSync } from "@/lib/use-buffer-sync";
 import type { GuardedWrites } from "@/lib/use-guarded-writes";
 import type { Listings } from "@/lib/use-listings";
-import type { LogActions } from "@/lib/use-log-actions";
 import { makeNote, type NoteOpening } from "@/lib/use-note-opening";
 import { useRsvpAsked } from "@/lib/use-rsvp";
 

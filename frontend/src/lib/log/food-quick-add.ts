@@ -3,8 +3,8 @@
  * food line with no words. For a meal eaten with no food to name.
  */
 
-import { MAX_KCAL, MEALS, make, mealByHour, NUMBER } from "@/lib/food-math";
-import { foodLine } from "@/lib/log-lines";
+import { MAX_KCAL, MEALS, make, mealByHour, NUMBER } from "@/lib/log/food-math";
+import { foodLine } from "@/lib/log/log-lines";
 
 export interface QuickAddHooks {
   /** Shows why nothing was added, or clears it with "". */

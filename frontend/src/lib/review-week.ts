@@ -6,11 +6,11 @@
 
 import type { LineHit, TodoHit } from "@/lib/api";
 import { shiftDay } from "@/lib/clock";
-import type { LogDay } from "@/lib/food-api";
-import type { LogConfig, LogKind } from "@/lib/log-kinds";
-import { tenth } from "@/lib/log-lines";
-import { hasFood, within } from "@/lib/log-streak";
-import { valueOn } from "@/lib/log-weight";
+import type { LogDay } from "@/lib/log/food-api";
+import type { LogConfig, LogKind } from "@/lib/log/log-kinds";
+import { tenth } from "@/lib/log/log-lines";
+import { hasFood, within } from "@/lib/log/log-streak";
+import { valueOn } from "@/lib/log/log-weight";
 import { noteSectionOf } from "@/lib/note-section";
 import { type Bar, barsOf, doneCounts, reviewCounts } from "@/lib/overview";
 import { byText, doneTodos, inRange } from "@/lib/review-year";

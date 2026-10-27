@@ -1,6 +1,6 @@
 """The log config note, read by `kasten_backend.log_config` and through `GET /api/log`.
 
-The row tests run the shared cases in `frontend/src/lib/log-config-cases.json`, the way
+The row tests run the shared cases in `frontend/src/lib/log/log-config-cases.json`, the way
 `frontend/tests/log-kinds.test.ts` runs them. They import the module inside their
 bodies, so on a branch without it they fail for that reason alone and the endpoint
 tests at the bottom of the file still reach their own assertions.
@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     from httpx import AsyncClient
 
 CASES = json.loads(
-    (Path(__file__).parents[2] / "frontend/src/lib/log-config-cases.json").read_text(
+    (Path(__file__).parents[2] / "frontend/src/lib/log/log-config-cases.json").read_text(
         encoding="utf-8"
     )
 )

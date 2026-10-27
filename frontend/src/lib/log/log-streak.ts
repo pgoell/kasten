@@ -4,8 +4,8 @@
  * review. Kept out of the pane's components so the overview can read it without drawing the pane.
  */
 
-import type { LogDay } from "@/lib/food-api";
-import type { Goal } from "@/lib/log-kinds";
+import type { LogDay } from "@/lib/log/food-api";
+import type { Goal } from "@/lib/log/log-kinds";
 
 /** Whether a day's kcal is within its goal: a ceiling at or under it, a floor at or over it. */
 export function within(kcal: number, goal: Goal): boolean {

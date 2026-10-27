@@ -5,8 +5,8 @@
  * so the meal groups add up to the totals the card shows.
  */
 
-import type { Goal } from "@/lib/log-kinds";
-import { type Food, logLines, parseFood, tenth } from "@/lib/log-lines";
+import type { Goal } from "@/lib/log/log-kinds";
+import { type Food, logLines, parseFood, tenth } from "@/lib/log/log-lines";
 
 /** The meals a food line can name, in the order the card shows them. */
 export const MEALS = ["breakfast", "lunch", "dinner", "snack"] as const;

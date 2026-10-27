@@ -1,5 +1,5 @@
 import type { LineHit, TodoHit } from "@/lib/api";
-import type { LogDay } from "@/lib/food-api";
+import type { LogDay } from "@/lib/log/food-api";
 import {
   minutesWords,
   monthCounts,

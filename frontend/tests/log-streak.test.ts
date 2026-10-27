@@ -1,6 +1,6 @@
-import type { LogDay } from "@/lib/food-api";
-import type { Goal } from "@/lib/log-kinds";
-import { streakOf } from "@/lib/log-streak";
+import type { LogDay } from "@/lib/log/food-api";
+import type { Goal } from "@/lib/log/log-kinds";
+import { streakOf } from "@/lib/log/log-streak";
 
 type Entry = LogDay["entries"][number];
 

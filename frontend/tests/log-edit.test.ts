@@ -1,6 +1,6 @@
 import { expect, it } from "vitest";
-import { editedLine, removeLine, replaceLine } from "@/lib/log-edit";
-import type { LogKind } from "@/lib/log-kinds";
+import { editedLine, removeLine, replaceLine } from "@/lib/log/log-edit";
+import type { LogKind } from "@/lib/log/log-kinds";
 
 const tea: LogKind = { mark: "🍵", name: "tea", tap: 1, unit: "cup" };
 

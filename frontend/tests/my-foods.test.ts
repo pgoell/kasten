@@ -7,7 +7,7 @@ import {
   myFoodLine,
   parseMyFood,
   parseMyFoods,
-} from "@/lib/my-foods";
+} from "@/lib/log/my-foods";
 
 vi.mock("@/lib/api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/api")>()),

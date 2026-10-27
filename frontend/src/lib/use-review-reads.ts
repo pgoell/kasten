@@ -15,9 +15,9 @@ import {
   type TodoHit,
 } from "@/lib/api";
 import { shiftDay } from "@/lib/clock";
-import { fetchLog, type LogDay } from "@/lib/food-api";
 import { LOG_NOTE } from "@/lib/layout";
-import { DEFAULT_CONFIG, type LogConfig, parseConfig } from "@/lib/log-kinds";
+import { fetchLog, type LogDay } from "@/lib/log/food-api";
+import { DEFAULT_CONFIG, type LogConfig, parseConfig } from "@/lib/log/log-kinds";
 import { periodicNote } from "@/lib/periodic";
 import { readRetry } from "@/lib/read-retry";
 import { fetchGithub, fetchModelUse, fetchWrittenNotes, type ModelUseLine } from "@/lib/review-api";

@@ -7,9 +7,9 @@
 import { Fragment, type RefObject } from "react";
 import type { Line } from "@/components/log-trends";
 import { share } from "@/components/log-trends";
-import { overMax } from "@/lib/log-day";
-import type { Goal } from "@/lib/log-kinds";
-import { goalPhrase, grouped } from "@/lib/log-words";
+import { overMax } from "@/lib/log/log-day";
+import type { Goal } from "@/lib/log/log-kinds";
+import { goalPhrase, grouped } from "@/lib/log/log-words";
 
 /** The meals a food line names, in the order the pane groups them. `""` is no meal. */
 export const MEALS = ["breakfast", "lunch", "dinner", "snack", ""] as const;

@@ -6,11 +6,11 @@
  */
 
 import { WeightLine } from "@/components/charts";
-import type { LogDay } from "@/lib/food-api";
-import { overMax } from "@/lib/log-day";
-import type { LogKind } from "@/lib/log-kinds";
-import { latestOn, meanOf, valueOn, type Weight, weightOf } from "@/lib/log-weight";
-import { goalPhrase, grouped } from "@/lib/log-words";
+import type { LogDay } from "@/lib/log/food-api";
+import { overMax } from "@/lib/log/log-day";
+import type { LogKind } from "@/lib/log/log-kinds";
+import { latestOn, meanOf, valueOn, type Weight, weightOf } from "@/lib/log/log-weight";
+import { goalPhrase, grouped } from "@/lib/log/log-words";
 
 interface WeightProps {
   kinds: LogKind[];

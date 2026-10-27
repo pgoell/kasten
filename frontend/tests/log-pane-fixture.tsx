@@ -2,8 +2,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render } from "@testing-library/react";
 import { LogPane } from "@/components/log-pane";
 import { shiftDay } from "@/lib/clock";
-import type { LogDay } from "@/lib/food-api";
-import type { LogActions } from "@/lib/use-log-actions";
+import type { LogDay } from "@/lib/log/food-api";
+import type { LogActions } from "@/lib/log/use-log-actions";
 import { stubCommands } from "./stub-commands";
 
 /** The day the pane is given as today. */

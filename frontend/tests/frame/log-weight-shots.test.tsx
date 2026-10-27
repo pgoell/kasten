@@ -18,8 +18,8 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { commands, page } from "vitest/browser";
 import { shiftDay } from "@/lib/clock";
-import type { LogDay } from "@/lib/food-api";
-import { logCard } from "@/lib/log-card";
+import type { LogDay } from "@/lib/log/food-api";
+import { logCard } from "@/lib/log/log-card";
 import { periodicNote } from "@/lib/periodic";
 import { applyTheme, PALETTE_KEY, THEME_KEY, type Theme } from "@/lib/theme";
 import { notePath } from "@/lib/todo/todo-commands";
@@ -143,8 +143,8 @@ vi.mock("@/lib/trash-api", async (original) => ({
   fetchTrash: async () => [],
 }));
 
-vi.mock("@/lib/food-api", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/food-api")>()),
+vi.mock("@/lib/log/food-api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/log/food-api")>()),
   fetchLog: async (from: string, to: string): Promise<LogDay[]> => {
     if (!state.fixture) return [];
     const days: LogDay[] = [];

@@ -17,12 +17,12 @@ import {
   WeightTiles,
 } from "@/components/log-weight";
 import { shiftDay } from "@/lib/clock";
-import type { LogDay } from "@/lib/food-api";
-import { overMax } from "@/lib/log-day";
-import type { FoodField, Goal, LogConfig, LogKind } from "@/lib/log-kinds";
-import { tenth } from "@/lib/log-lines";
-import { hasFood, streakOf, within } from "@/lib/log-streak";
-import { grouped } from "@/lib/log-words";
+import type { LogDay } from "@/lib/log/food-api";
+import { overMax } from "@/lib/log/log-day";
+import type { FoodField, Goal, LogConfig, LogKind } from "@/lib/log/log-kinds";
+import { tenth } from "@/lib/log/log-lines";
+import { hasFood, streakOf, within } from "@/lib/log/log-streak";
+import { grouped } from "@/lib/log/log-words";
 
 /** A day of the log as `GET /api/log` answers it, and one of its lines. */
 export type Day = LogDay;

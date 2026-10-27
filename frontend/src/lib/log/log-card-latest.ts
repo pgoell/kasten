@@ -9,8 +9,8 @@
 import { StateEffect } from "@codemirror/state";
 import type { EditorView } from "@codemirror/view";
 import { shiftDay } from "@/lib/clock";
-import { fetchLog, type LogDay } from "@/lib/food-api";
-import type { LogKind } from "@/lib/log-kinds";
+import { fetchLog, type LogDay } from "@/lib/log/food-api";
+import type { LogKind } from "@/lib/log/log-kinds";
 
 /** The latest value a kind logged before the day, with the day it was logged. */
 export interface Earlier {

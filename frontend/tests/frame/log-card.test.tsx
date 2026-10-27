@@ -7,7 +7,7 @@ import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { page } from "vitest/browser";
 import { fetchNote, NoteMissing } from "@/lib/api";
-import { logCard } from "@/lib/log-card";
+import { logCard } from "@/lib/log/log-card";
 import { notePath } from "@/lib/todo/todo-commands";
 import { shot } from "./shots";
 import "@/styles/app.css";
@@ -22,7 +22,7 @@ beforeEach(() => {
   vi.mocked(fetchNote).mockRejectedValue(new NoteMissing("99 Misc/01 Config/log.md"));
 });
 
-vi.mock("@/lib/food-api", () => ({
+vi.mock("@/lib/log/food-api", () => ({
   searchFood: async () => [
     {
       code: "5000159461122",

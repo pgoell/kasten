@@ -11,8 +11,8 @@ import "@fontsource-variable/jetbrains-mono/index.css";
 import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { commands, page } from "vitest/browser";
-import type { Food, LogDay } from "@/lib/food-api";
-import { logCard } from "@/lib/log-card";
+import type { Food, LogDay } from "@/lib/log/food-api";
+import { logCard } from "@/lib/log/log-card";
 import { applyTheme, PALETTE_KEY, THEME_KEY, type Theme } from "@/lib/theme";
 import { notePath } from "@/lib/todo/todo-commands";
 import { COARSE, NARROW, stubMatchMedia } from "../match-media";
@@ -110,16 +110,16 @@ vi.mock("@/lib/api", async (importOriginal) => {
   };
 });
 
-vi.mock("@/lib/food-api", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/food-api")>()),
+vi.mock("@/lib/log/food-api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/log/food-api")>()),
   searchFood: async () => OFF,
   // A pick reads its food again by barcode, so the read answers from the same two hits.
   readBarcode: async (code: string) => OFF.find((food) => food.code === code) ?? OFF[0],
   fetchLog: async () => [YESTERDAY_DAY],
 }));
 
-vi.mock("@/lib/my-foods", async (importOriginal) => {
-  const real = await importOriginal<typeof import("@/lib/my-foods")>();
+vi.mock("@/lib/log/my-foods", async (importOriginal) => {
+  const real = await importOriginal<typeof import("@/lib/log/my-foods")>();
   return { ...real, fetchMyFoods: async () => real.parseMyFoods(FOODS) };
 });
 

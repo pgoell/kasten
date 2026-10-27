@@ -15,9 +15,9 @@ import {
   type Nutrients,
   positive,
   servingValues,
-} from "@/lib/food-math";
-import type { FoodGoals, Goal } from "@/lib/log-kinds";
-import { type DrinkTotals, foodLine, tenth } from "@/lib/log-lines";
+} from "@/lib/log/food-math";
+import type { FoodGoals, Goal } from "@/lib/log/log-kinds";
+import { type DrinkTotals, foodLine, tenth } from "@/lib/log/log-lines";
 
 export interface ServingHooks {
   /** Shows why the form logged nothing, or clears it with "". */

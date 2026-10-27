@@ -13,8 +13,9 @@ import { fetchAssets, fetchFiles, fetchNote, NoteMissing } from "@/lib/api";
 import { heldText } from "@/lib/held-text";
 import type { TreeCommands } from "@/lib/key-bindings";
 import { READING_NOTE } from "@/lib/layout";
-import { askOnCard, openFoodSearch } from "@/lib/log-card";
-import { drinkTarget, logDrinkInVault, logDrinkInView } from "@/lib/log-write";
+import { askOnCard, openFoodSearch } from "@/lib/log/log-card";
+import { drinkTarget, logDrinkInVault, logDrinkInView } from "@/lib/log/log-write";
+import { paneView, useFoodWait } from "@/lib/log/use-food-wait";
 import { noteName } from "@/lib/note-path";
 import {
   clearFocused,
@@ -41,7 +42,6 @@ import {
 } from "@/lib/panes";
 import { type Period, periodicNote } from "@/lib/periodic";
 import { isPerson } from "@/lib/person";
-import { paneView, useFoodWait } from "@/lib/use-food-wait";
 import { askRsvp } from "@/lib/use-rsvp";
 import { wholePaneOpeners } from "@/lib/whole-pane-openers";
 import { splitTarget, wikiLinkPath, wikiLinkTargets } from "@/lib/wikilink";

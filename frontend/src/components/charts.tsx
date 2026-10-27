@@ -5,8 +5,8 @@
  */
 
 import { shiftDay } from "@/lib/clock";
-import { overMax, share } from "@/lib/log-day";
-import type { Goal } from "@/lib/log-kinds";
+import { overMax, share } from "@/lib/log/log-day";
+import type { Goal } from "@/lib/log/log-kinds";
 
 const WIDTH = 300;
 const HEIGHT = 80;

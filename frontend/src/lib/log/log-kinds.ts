@@ -8,7 +8,7 @@
  * `docs/reference/log-format.md`, and `log-config-cases.json` holds its cases.
  */
 
-import { amountLine, type DrinkKind, type DrinkTotals, logLines, tenth } from "@/lib/log-lines";
+import { amountLine, type DrinkKind, type DrinkTotals, logLines, tenth } from "@/lib/log/log-lines";
 
 export interface Goal {
   type: "floor" | "ceiling";

@@ -5,9 +5,9 @@ Obsidian and `cat` show all of it, and every answer is read from the notes:
 nothing is stored, so nothing can fall behind them.
 
 The format is `docs/reference/log-format.md`, and its cases are
-`frontend/src/lib/log-cases.json`, which the tests run through the endpoint.
+`frontend/src/lib/log/log-cases.json`, which the tests run through the endpoint.
 The parser sits here because the sums are made here. The daily note's card
-reads the drink lines of the open buffer with `frontend/src/lib/log-lines.ts`,
+reads the drink lines of the open buffer with `frontend/src/lib/log/log-lines.ts`,
 held to the same cases, so a tap counts before the save.
 """
 

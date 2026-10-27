@@ -1,9 +1,9 @@
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { LogTrends } from "@/components/log-trends";
 import { NoteMissing } from "@/lib/api";
-import type { LogDay } from "@/lib/food-api";
 import { applyLayout } from "@/lib/layout";
-import { parseConfig } from "@/lib/log-kinds";
+import type { LogDay } from "@/lib/log/food-api";
+import { parseConfig } from "@/lib/log/log-kinds";
 import { noteBase } from "@/lib/note-base";
 import { hashed } from "./digests";
 import { defineFoliateFake } from "./foliate-fake";
@@ -130,8 +130,8 @@ vi.mock("@/lib/api", () => ({
   NoteExists: class NoteExists extends Error {},
   NoteMissing: class NoteMissing extends Error {},
 }));
-vi.mock("@/lib/food-api", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/food-api")>()),
+vi.mock("@/lib/log/food-api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/log/food-api")>()),
   fetchLog,
 }));
 vi.mock("@/lib/move-api", () => ({ renameNote, moveFolder }));

@@ -1,9 +1,9 @@
 import { render, screen, within } from "@testing-library/react";
 import { LogTrends } from "@/components/log-trends";
 import { shiftDay } from "@/lib/clock";
-import type { LogDay } from "@/lib/food-api";
-import { parseConfig } from "@/lib/log-kinds";
-import { streakOf } from "@/lib/log-streak";
+import type { LogDay } from "@/lib/log/food-api";
+import { parseConfig } from "@/lib/log/log-kinds";
+import { streakOf } from "@/lib/log/log-streak";
 import { weekTiles } from "@/lib/review-week";
 import { CONFIG_NOTE, loggedOn } from "./log-pane-fixture";
 

@@ -2,7 +2,7 @@
 type: Reference
 title: Log format
 description: How a daily note logs water, coffee, alcohol and food as lines under ## Log, every kind and its fields, the config note that sets the card's kinds and daily goals, what does not parse, how a day adds up, and the table of cases the parser is tested against.
-resource: frontend/src/lib/log-cases.json
+resource: frontend/src/lib/log/log-cases.json
 tags: [vault, log, format, backend]
 status: stable
 ---
@@ -291,21 +291,21 @@ serving step. It writes the name without field markers, `🏷` and line breaks,
 the serving and figures to a tenth. Two foods with the same name both list.
 Nothing edits or removes a line but you, in the note.
 
-`frontend/src/lib/my-foods.ts` reads and writes the note, and `food-add.ts` holds the add form. The backend does not
+`frontend/src/lib/log/my-foods.ts` reads and writes the note, and `food-add.ts` holds the add form. The backend does not
 read it.
 
 ## Two parsers
 
 The backend reads the lines and parses them, in `backend/src/kasten_backend/log.py`,
 and `GET /api/log` answers with totals from it. The card reads the drink and
-food lines of the open buffer with `frontend/src/lib/log-lines.ts`, so a tap
+food lines of the open buffer with `frontend/src/lib/log/log-lines.ts`, so a tap
 counts at once rather than after the save. Both read every row of the table
 below, food included, and the card shows the food totals too. Nothing is stored
 in Postgres: every answer is read from the notes.
 
-The config note has two readers: `frontend/src/lib/log-kinds.ts` for the card,
+The config note has two readers: `frontend/src/lib/log/log-kinds.ts` for the card,
 and `backend/src/kasten_backend/log_config.py` for `GET /api/log`. Both run the
-same table, `frontend/src/lib/log-config-cases.json`, so they cannot part ways
+same table, `frontend/src/lib/log/log-config-cases.json`, so they cannot part ways
 unnoticed. `log-cases.json` is unchanged.
 
 `foodLine` in that module writes the line the card's food search logs. It
@@ -315,7 +315,7 @@ the line parses back to the same words and fields.
 
 ## The cases
 
-`frontend/src/lib/log-cases.json` holds one row per case: a line and the entry
+`frontend/src/lib/log/log-cases.json` holds one row per case: a line and the entry
 it parses to, or `null` for a plain bullet. The parser runs the whole table in
 its tests. A change to the format is a change to that table first, and a later
 reader or writer of the format runs the same rows.

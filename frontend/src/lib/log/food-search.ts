@@ -9,16 +9,16 @@
 
 import { NO_CAMERA, startCamera, torchButton } from "@/lib/barcode-camera";
 import { shiftDay } from "@/lib/clock";
-import { addForm } from "@/lib/food-add";
-import { type Food, fetchLog, readBarcode, searchFood } from "@/lib/food-api";
-import { type Choice, make, recentFoods } from "@/lib/food-math";
-import { quickAddForm } from "@/lib/food-quick-add";
-import { servingForm } from "@/lib/food-serving";
-import type { FoodGoals } from "@/lib/log-kinds";
-import { type DrinkTotals, tenth } from "@/lib/log-lines";
-import { fetchMyFoods, type MyFood, myChoice } from "@/lib/my-foods";
+import { addForm } from "@/lib/log/food-add";
+import { type Food, fetchLog, readBarcode, searchFood } from "@/lib/log/food-api";
+import { type Choice, make, recentFoods } from "@/lib/log/food-math";
+import { quickAddForm } from "@/lib/log/food-quick-add";
+import { servingForm } from "@/lib/log/food-serving";
+import type { FoodGoals } from "@/lib/log/log-kinds";
+import { type DrinkTotals, tenth } from "@/lib/log/log-lines";
+import { fetchMyFoods, type MyFood, myChoice } from "@/lib/log/my-foods";
 
-export { type Choice, GRAMS_END } from "@/lib/food-math";
+export { type Choice, GRAMS_END } from "@/lib/log/food-math";
 
 /** How long the query waits for the typing to stop before it is sent. */
 const PAUSE_MS = 400;

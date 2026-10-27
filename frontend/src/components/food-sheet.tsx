@@ -11,7 +11,7 @@ import { ViewPlugin } from "@codemirror/view";
 import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
 import { Sheet } from "@/components/sheet";
-import type { FoodPanel } from "@/lib/food-search";
+import type { FoodPanel } from "@/lib/log/food-search";
 import { NARROW } from "@/lib/use-viewport";
 
 /** What hosts a sheet: an editor, or a pane that is a plain element. */

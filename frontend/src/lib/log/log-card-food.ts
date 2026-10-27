@@ -6,9 +6,9 @@
 
 import type { EditorView } from "@codemirror/view";
 import { hideFoodSheet, showFoodSheet } from "@/components/food-sheet";
-import { type FoodPanel, foodPanel } from "@/lib/food-search";
-import type { FoodGoals } from "@/lib/log-kinds";
-import type { DrinkTotals } from "@/lib/log-lines";
+import { type FoodPanel, foodPanel } from "@/lib/log/food-search";
+import type { FoodGoals } from "@/lib/log/log-kinds";
+import type { DrinkTotals } from "@/lib/log/log-lines";
 import { dailyDate } from "@/lib/periodic";
 import { notePath } from "@/lib/todo/todo-commands";
 

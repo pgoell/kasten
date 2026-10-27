@@ -2,7 +2,7 @@
 type: Reference
 title: "Save path orderings: the log card and the palette's log commands"
 description: The orders in which a tap on a daily note's log card, its Undo, a food logged from the card's search, and the palette's Log entries, one per kind, can meet the note's write queue or the vault, what must hold in each, whether getting it wrong loses a logged line, which heading a written line lands under, what happens when the note ends inside a fence nobody closed, when a food search answer is dropped, and when a tap meets the card's kinds from the config note, or the config note arrives late or not at all, and when the food search saves a food of your own, and when a quick add, a copy of yesterday's meal or a closing food sheet meets the note.
-resource: frontend/src/lib/log-card.ts
+resource: frontend/src/lib/log/log-card.ts
 tags: [editor, saving, autosave, frontend, tests, log]
 status: stable
 ---

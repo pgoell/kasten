@@ -4,7 +4,7 @@ import { EditorView } from "@codemirror/view";
 import { vim } from "@replit/codemirror-vim";
 import { fireEvent } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import { logCard } from "@/lib/log-card";
+import { logCard } from "@/lib/log/log-card";
 import { notePath } from "@/lib/todo/todo-commands";
 import { vimKeys, vimModeField, vimModeState } from "@/lib/vim-mode";
 

@@ -3,9 +3,9 @@ import { act, renderHook } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { beforeEach, expect, it, vi } from "vitest";
 import { dropText, holdText, resetHeld } from "@/lib/held-text";
-import { dayNote } from "@/lib/log-edit";
+import { dayNote } from "@/lib/log/log-edit";
+import { useLogActions } from "@/lib/log/use-log-actions";
 import { noteBase } from "@/lib/note-base";
-import { useLogActions } from "@/lib/use-log-actions";
 import { useNoteWrites } from "@/lib/use-note-writes";
 
 // The same wire-level fake as log-write.test.ts: the real api code runs, and only

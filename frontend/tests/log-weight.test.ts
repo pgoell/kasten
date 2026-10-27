@@ -1,6 +1,6 @@
-import type { LogDay } from "@/lib/food-api";
-import type { LogKind } from "@/lib/log-kinds";
-import { averagesOf, latestOn, meanOf, valueOn, weightOf } from "@/lib/log-weight";
+import type { LogDay } from "@/lib/log/food-api";
+import type { LogKind } from "@/lib/log/log-kinds";
+import { averagesOf, latestOn, meanOf, valueOn, weightOf } from "@/lib/log/log-weight";
 
 const WEIGHT: LogKind = { mark: "⚖", name: "weight", unit: "kg", last: true };
 

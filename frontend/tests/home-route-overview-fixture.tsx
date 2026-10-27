@@ -1,5 +1,5 @@
-import type { LogDay } from "@/lib/food-api";
 import { ARCHIVE, IMAGE_FOLDER, INBOX, type Layout, PERIODIC } from "@/lib/layout";
+import type { LogDay } from "@/lib/log/food-api";
 import { periodicNote } from "@/lib/periodic";
 import { renderApp, settle } from "./home-route-fixture";
 

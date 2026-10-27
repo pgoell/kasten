@@ -10,7 +10,7 @@ import { EditorView } from "@codemirror/view";
 import { vim } from "@replit/codemirror-vim";
 import { page } from "vitest/browser";
 import { fetchNote, NoteMissing } from "@/lib/api";
-import { logCard } from "@/lib/log-card";
+import { logCard } from "@/lib/log/log-card";
 import { paletteEntries } from "@/lib/palette";
 import { notePath } from "@/lib/todo/todo-commands";
 import { stubCommands } from "../stub-commands";
@@ -21,8 +21,8 @@ vi.mock("@/lib/api", async (importOriginal) => ({
   fetchNote: vi.fn(),
 }));
 
-vi.mock("@/lib/food-api", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/food-api")>()),
+vi.mock("@/lib/log/food-api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/log/food-api")>()),
   fetchLog: async () => [],
 }));
 

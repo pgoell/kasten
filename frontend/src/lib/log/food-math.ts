@@ -4,8 +4,8 @@
  * and its forms read these, so a serving reads the same wherever it is shown.
  */
 
-import type { Food, LogDay } from "@/lib/food-api";
-import { tenth } from "@/lib/log-lines";
+import type { Food, LogDay } from "@/lib/log/food-api";
+import { tenth } from "@/lib/log/log-lines";
 
 export const MEALS = ["breakfast", "lunch", "dinner", "snack"] as const;
 

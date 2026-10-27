@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import cases from "@/lib/log-config-cases.json";
+import cases from "@/lib/log/log-config-cases.json";
 import {
   DEFAULT_CONFIG,
   type FoodGoals,
@@ -10,8 +10,8 @@ import {
   parseConfig,
   parseKindLine,
   tapLine,
-} from "@/lib/log-kinds";
-import { DEFAULT_LINE, drinkTotals } from "@/lib/log-lines";
+} from "@/lib/log/log-kinds";
+import { DEFAULT_LINE, drinkTotals } from "@/lib/log/log-lines";
 
 interface ConfigRow {
   id: string;

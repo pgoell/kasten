@@ -9,9 +9,9 @@
  */
 
 import { shiftDay } from "@/lib/clock";
-import type { LogDay } from "@/lib/food-api";
-import type { LogKind } from "@/lib/log-kinds";
-import { tenth } from "@/lib/log-lines";
+import type { LogDay } from "@/lib/log/food-api";
+import type { LogKind } from "@/lib/log/log-kinds";
+import { tenth } from "@/lib/log/log-lines";
 
 /** The dates from `from` for `range` days, oldest first. */
 export function rangeDates(from: string, range: number): string[] {

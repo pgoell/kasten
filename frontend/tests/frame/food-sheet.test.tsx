@@ -7,9 +7,9 @@
 import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { commands, page } from "vitest/browser";
-import { type Food, fetchLog, readBarcode, searchFood } from "@/lib/food-api";
-import { logCard } from "@/lib/log-card";
-import { fetchMyFoods } from "@/lib/my-foods";
+import { type Food, fetchLog, readBarcode, searchFood } from "@/lib/log/food-api";
+import { logCard } from "@/lib/log/log-card";
+import { fetchMyFoods } from "@/lib/log/my-foods";
 import { notePath } from "@/lib/todo/todo-commands";
 import "@/styles/app.css";
 import { centreOf, nextFrame, pointer, wait } from "./sheet-fixture";
@@ -18,13 +18,13 @@ vi.mock("@/lib/api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/api")>()),
   fetchNote: vi.fn(() => Promise.reject(new Error("no config in this frame"))),
 }));
-vi.mock("@/lib/food-api", () => ({
+vi.mock("@/lib/log/food-api", () => ({
   searchFood: vi.fn(),
   readBarcode: vi.fn(),
   fetchLog: vi.fn(),
 }));
-vi.mock("@/lib/my-foods", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/my-foods")>()),
+vi.mock("@/lib/log/my-foods", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/log/my-foods")>()),
   fetchMyFoods: vi.fn(),
   addMyFood: vi.fn(),
 }));

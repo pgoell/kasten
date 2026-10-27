@@ -2,7 +2,7 @@
 type: Reference
 title: "Save path orderings: the log card's weight kind"
 description: The orders in which a weight written from the Log card's Weight button, a press that asks for the number, a refused amount, a palette Log weight, a second weigh-in and its Undo, and the read of the 30 days before the note can meet the note's buffer, what must hold in each, and whether getting it wrong loses a typed line.
-resource: frontend/src/lib/log-card-weight.ts
+resource: frontend/src/lib/log/log-card-weight.ts
 tags: [editor, saving, autosave, frontend, tests, log]
 status: stable
 ---

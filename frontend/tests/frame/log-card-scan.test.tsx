@@ -7,13 +7,13 @@
 import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { page } from "vitest/browser";
-import { readBarcode } from "@/lib/food-api";
-import { logCard } from "@/lib/log-card";
+import { readBarcode } from "@/lib/log/food-api";
+import { logCard } from "@/lib/log/log-card";
 import { notePath } from "@/lib/todo/todo-commands";
 import { shot } from "./shots";
 import "@/styles/app.css";
 
-vi.mock("@/lib/food-api", () => ({
+vi.mock("@/lib/log/food-api", () => ({
   searchFood: async () => [],
   readBarcode: vi.fn(async () => ({
     code: "8413000065504",

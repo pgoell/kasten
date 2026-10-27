@@ -7,9 +7,9 @@
  * "over" in words, and a met floor says so with a tick.
  */
 
-import { type Meal, type MealGroup, overMax, share } from "@/lib/log-day";
-import { type FoodGoals, type Goal, type LogKind, tapLine } from "@/lib/log-kinds";
-import type { DrinkTotals, Food } from "@/lib/log-lines";
+import { type Meal, type MealGroup, overMax, share } from "@/lib/log/log-day";
+import { type FoodGoals, type Goal, type LogKind, tapLine } from "@/lib/log/log-kinds";
+import type { DrinkTotals, Food } from "@/lib/log/log-lines";
 
 /** An element with its class and, when given, its text. */
 function make<K extends keyof HTMLElementTagNameMap>(

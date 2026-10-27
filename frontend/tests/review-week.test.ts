@@ -1,6 +1,6 @@
 import type { TodoHit } from "@/lib/api";
-import type { LogDay } from "@/lib/food-api";
-import { DEFAULT_CONFIG, type LogConfig } from "@/lib/log-kinds";
+import type { LogDay } from "@/lib/log/food-api";
+import { DEFAULT_CONFIG, type LogConfig } from "@/lib/log/log-kinds";
 import {
   carriedOver,
   doneIn,

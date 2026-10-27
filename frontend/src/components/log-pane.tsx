@@ -11,12 +11,12 @@ import { type Day, foodTotal, type Line, LogTrends, totalOf } from "@/components
 import { hintOf, WeightRows, weightButton } from "@/components/log-weight";
 import { fetchNote, NoteMissing } from "@/lib/api";
 import { shiftDay } from "@/lib/clock";
-import { fetchLog } from "@/lib/food-api";
-import { type FoodPanel, foodPanel } from "@/lib/food-search";
 import type { EditorCommands } from "@/lib/key-bindings";
 import { LOG_NOTE } from "@/lib/layout";
-import { foodButton, quickButton } from "@/lib/log-card-view";
-import { editedLine } from "@/lib/log-edit";
+import { fetchLog } from "@/lib/log/food-api";
+import { type FoodPanel, foodPanel } from "@/lib/log/food-search";
+import { foodButton, quickButton } from "@/lib/log/log-card-view";
+import { editedLine } from "@/lib/log/log-edit";
 import {
   DEFAULT_CONFIG,
   type FoodField,
@@ -24,11 +24,11 @@ import {
   kindLine,
   type LogKind,
   parseConfig,
-} from "@/lib/log-kinds";
-import type { DrinkTotals } from "@/lib/log-lines";
-import { rangeDates } from "@/lib/log-weight";
+} from "@/lib/log/log-kinds";
+import type { DrinkTotals } from "@/lib/log/log-lines";
+import { rangeDates } from "@/lib/log/log-weight";
+import type { LogActions } from "@/lib/log/use-log-actions";
 import { useLeader } from "@/lib/use-leader";
-import type { LogActions } from "@/lib/use-log-actions";
 import { useViewport } from "@/lib/use-viewport";
 
 type Range = 7 | 30 | 90;
@@ -155,7 +155,7 @@ export function LogPane({ commands, onOpen, focusSignal, today, actions, onNotic
         .sort(byLine),
     })),
   ].filter((group) => group.lines.length > 0);
-  // The cursor walks the rows in the order they are drawn.
+  // The cursor walks the rows as drawn.
   const rows = groups.flatMap((group) => group.lines);
   const at = Math.max(0, Math.min(cursor, rows.length - 1));
   const row = rows[at];

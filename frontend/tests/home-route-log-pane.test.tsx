@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, screen, within } from "@testing-library/react";
 import { NoteMissing } from "@/lib/api";
-import type { LogDay } from "@/lib/food-api";
 import { ARCHIVE, applyLayout, IMAGE_FOLDER, INBOX, type Layout, PERIODIC } from "@/lib/layout";
+import type { LogDay } from "@/lib/log/food-api";
 import { noteBase } from "@/lib/note-base";
 import { periodicNote } from "@/lib/periodic";
 import { hashed } from "./digests";
@@ -110,8 +110,8 @@ vi.mock("@/lib/api", () => ({
   NoteExists: class NoteExists extends Error {},
   NoteMissing: class NoteMissing extends Error {},
 }));
-vi.mock("@/lib/food-api", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/food-api")>()),
+vi.mock("@/lib/log/food-api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/log/food-api")>()),
   fetchLog,
 }));
 vi.mock("@/lib/move-api", () => ({ renameNote, moveFolder }));

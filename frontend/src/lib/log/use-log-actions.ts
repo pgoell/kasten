@@ -9,8 +9,8 @@ import {
   removeLine,
   replaceLine,
   restoreLine,
-} from "@/lib/log-edit";
-import { LOG_HEADING } from "@/lib/log-lines";
+} from "@/lib/log/log-edit";
+import { LOG_HEADING } from "@/lib/log/log-lines";
 import { appendUnder } from "@/lib/note-section";
 import type { GuardedWrites } from "@/lib/use-guarded-writes";
 

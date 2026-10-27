@@ -4,10 +4,10 @@
  * the pane itself stays the place that wires the reads to the cards.
  */
 
-import { overMax } from "@/lib/log-day";
-import type { Goal } from "@/lib/log-kinds";
-import type { Weight } from "@/lib/log-weight";
-import { grouped } from "@/lib/log-words";
+import { overMax } from "@/lib/log/log-day";
+import type { Goal } from "@/lib/log/log-kinds";
+import type { Weight } from "@/lib/log/log-weight";
+import { grouped } from "@/lib/log/log-words";
 
 /** A count with its noun: `1 day`, `5 days`. */
 export function plural(count: number, noun: string): string {

@@ -5,7 +5,7 @@ import { vim } from "@replit/codemirror-vim";
 import { fireEvent } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fetchNote, NoteMissing } from "@/lib/api";
-import { logCard, reloadLogConfig } from "@/lib/log-card";
+import { logCard, reloadLogConfig } from "@/lib/log/log-card";
 import { notePath } from "@/lib/todo/todo-commands";
 import { vimKeys, vimModeField, vimModeState } from "@/lib/vim-mode";
 

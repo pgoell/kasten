@@ -4,22 +4,22 @@ import { EditorView } from "@codemirror/view";
 import { vim } from "@replit/codemirror-vim";
 import { fireEvent } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { type Food, fetchLog, type LogDay, readBarcode, searchFood } from "@/lib/food-api";
-import { logCard } from "@/lib/log-card";
-import { fetchMyFoods } from "@/lib/my-foods";
+import { type Food, fetchLog, type LogDay, readBarcode, searchFood } from "@/lib/log/food-api";
+import { logCard } from "@/lib/log/log-card";
+import { fetchMyFoods } from "@/lib/log/my-foods";
 import { notePath } from "@/lib/todo/todo-commands";
 import { vimModeField, vimModeState } from "@/lib/vim-mode";
 import { stubMatchMedia } from "./match-media";
 
 const camera = vi.hoisted(() => ({ stop: vi.fn() }));
 
-vi.mock("@/lib/food-api", () => ({
+vi.mock("@/lib/log/food-api", () => ({
   searchFood: vi.fn(),
   readBarcode: vi.fn(),
   fetchLog: vi.fn(),
 }));
-vi.mock("@/lib/my-foods", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/my-foods")>()),
+vi.mock("@/lib/log/my-foods", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/log/my-foods")>()),
   fetchMyFoods: vi.fn(),
   addMyFood: vi.fn(),
 }));

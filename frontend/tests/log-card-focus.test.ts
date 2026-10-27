@@ -2,15 +2,15 @@ import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { fetchNote } from "@/lib/api";
-import { fetchLog } from "@/lib/food-api";
-import { logCard } from "@/lib/log-card";
+import { fetchLog } from "@/lib/log/food-api";
+import { logCard } from "@/lib/log/log-card";
 import { notePath } from "@/lib/todo/todo-commands";
 
 vi.mock("@/lib/api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/api")>()),
   fetchNote: vi.fn(),
 }));
-vi.mock("@/lib/food-api", () => ({
+vi.mock("@/lib/log/food-api", () => ({
   searchFood: vi.fn(),
   readBarcode: vi.fn(),
   fetchLog: vi.fn(),

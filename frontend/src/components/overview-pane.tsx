@@ -12,14 +12,14 @@ import {
   type TodoHit,
 } from "@/lib/api";
 import { shiftDay } from "@/lib/clock";
-import { fetchLog, type LogDay } from "@/lib/food-api";
 import type { EditorCommands } from "@/lib/key-bindings";
 import { LOG_NOTE } from "@/lib/layout";
-import { overMax } from "@/lib/log-day";
-import { DEFAULT_CONFIG, type LogConfig, parseConfig } from "@/lib/log-kinds";
-import { hasFood, streakOf } from "@/lib/log-streak";
-import { rangeDates, weightOf } from "@/lib/log-weight";
-import { goalPhrase, grouped } from "@/lib/log-words";
+import { fetchLog, type LogDay } from "@/lib/log/food-api";
+import { overMax } from "@/lib/log/log-day";
+import { DEFAULT_CONFIG, type LogConfig, parseConfig } from "@/lib/log/log-kinds";
+import { hasFood, streakOf } from "@/lib/log/log-streak";
+import { rangeDates, weightOf } from "@/lib/log/log-weight";
+import { goalPhrase, grouped } from "@/lib/log/log-words";
 import {
   type Bar,
   barsOf,

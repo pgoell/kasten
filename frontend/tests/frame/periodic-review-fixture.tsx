@@ -15,7 +15,7 @@ import type { Mock } from "vitest";
 import { commands, page } from "vitest/browser";
 import { type LineHit, NoteMissing, type TodoHit } from "@/lib/api";
 import { readClock, shiftDay } from "@/lib/clock";
-import type { LogDay } from "@/lib/food-api";
+import type { LogDay } from "@/lib/log/food-api";
 import { periodicNote } from "@/lib/periodic";
 import { startPress } from "@/lib/press";
 import type { ModelUseLine } from "@/lib/review-api";

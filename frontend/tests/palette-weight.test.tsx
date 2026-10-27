@@ -3,8 +3,8 @@ import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { fetchNote } from "@/lib/api";
-import { logCard } from "@/lib/log-card";
-import { parseConfig } from "@/lib/log-kinds";
+import { logCard } from "@/lib/log/log-card";
+import { parseConfig } from "@/lib/log/log-kinds";
 import { paletteEntries } from "@/lib/palette";
 import { notePath } from "@/lib/todo/todo-commands";
 import { stubCommands } from "./stub-commands";
@@ -13,7 +13,7 @@ vi.mock("@/lib/api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/api")>()),
   fetchNote: vi.fn(),
 }));
-vi.mock("@/lib/food-api", () => ({
+vi.mock("@/lib/log/food-api", () => ({
   searchFood: vi.fn(),
   readBarcode: vi.fn(),
   fetchLog: vi.fn(async () => []),

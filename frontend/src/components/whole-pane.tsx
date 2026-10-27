@@ -7,9 +7,9 @@ import { type AgentRow, TodoPane } from "@/components/todo-pane";
 import type { SearchHit } from "@/lib/api";
 import { readClock } from "@/lib/clock";
 import type { TreeCommands } from "@/lib/key-bindings";
+import type { LogActions } from "@/lib/log/use-log-actions";
 import type { Pane } from "@/lib/panes";
 import type { TodoActions } from "@/lib/todo/use-todo-actions";
-import type { LogActions } from "@/lib/use-log-actions";
 import type { NoteOpening } from "@/lib/use-note-opening";
 
 export interface WholePaneProps {

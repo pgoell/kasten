@@ -6,8 +6,8 @@
 
 import { StateEffect } from "@codemirror/state";
 import type { EditorView } from "@codemirror/view";
-import { focusInPlace } from "@/lib/log-card-view";
-import { kindLine, type LogKind } from "@/lib/log-kinds";
+import { focusInPlace } from "@/lib/log/log-card-view";
+import { kindLine, type LogKind } from "@/lib/log/log-kinds";
 
 /** The mark of the last kind the card asks a number for, or null once the question is taken back. */
 export const asking = StateEffect.define<string | null>();

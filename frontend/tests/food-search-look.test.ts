@@ -5,23 +5,23 @@ import { EditorView } from "@codemirror/view";
 import { fireEvent } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { fetchNote, NoteMissing } from "@/lib/api";
-import { type Food, fetchLog, type LogDay, readBarcode, searchFood } from "@/lib/food-api";
-import { logCard, reloadLogConfig } from "@/lib/log-card";
-import { parseFood } from "@/lib/log-lines";
-import { fetchMyFoods, type MyFood } from "@/lib/my-foods";
+import { type Food, fetchLog, type LogDay, readBarcode, searchFood } from "@/lib/log/food-api";
+import { logCard, reloadLogConfig } from "@/lib/log/log-card";
+import { parseFood } from "@/lib/log/log-lines";
+import { fetchMyFoods, type MyFood } from "@/lib/log/my-foods";
 import { notePath } from "@/lib/todo/todo-commands";
 
 vi.mock("@/lib/api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/api")>()),
   fetchNote: vi.fn(),
 }));
-vi.mock("@/lib/food-api", () => ({
+vi.mock("@/lib/log/food-api", () => ({
   searchFood: vi.fn(),
   readBarcode: vi.fn(),
   fetchLog: vi.fn(),
 }));
-vi.mock("@/lib/my-foods", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/my-foods")>()),
+vi.mock("@/lib/log/my-foods", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/log/my-foods")>()),
   fetchMyFoods: vi.fn(),
   addMyFood: vi.fn(),
 }));

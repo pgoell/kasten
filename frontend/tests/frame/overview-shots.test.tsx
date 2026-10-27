@@ -17,7 +17,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { commands, page } from "vitest/browser";
 import type { LineHit, TodoHit } from "@/lib/api";
 import { readClock, shiftDay } from "@/lib/clock";
-import type { LogDay } from "@/lib/food-api";
+import type { LogDay } from "@/lib/log/food-api";
 import { applyTheme, PALETTE_KEY, THEME_KEY, type Theme } from "@/lib/theme";
 import { routeTree } from "@/routeTree.gen";
 import { COARSE, NARROW, stubMatchMedia } from "../match-media";
@@ -191,8 +191,8 @@ vi.mock("@/lib/api", async (importOriginal) => {
   };
 });
 
-vi.mock("@/lib/food-api", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/food-api")>()),
+vi.mock("@/lib/log/food-api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/log/food-api")>()),
   fetchLog: async (from: string, to: string): Promise<LogDay[]> => {
     if (state.empty) return [];
     const days: LogDay[] = [];

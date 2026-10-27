@@ -8,9 +8,9 @@ import { editorCommands } from "@/lib/editor-commands";
 import { toggleMark } from "@/lib/format-commands";
 import type { EditorCommands } from "@/lib/key-bindings";
 import { LEADER, spelled, TAB_KEYS } from "@/lib/leader-keys";
-import { askOnCard, openFoodSearch } from "@/lib/log-card";
-import { DEFAULT_CONFIG, type LogKind, tapLine } from "@/lib/log-kinds";
-import { logDrinkInView } from "@/lib/log-write";
+import { askOnCard, openFoodSearch } from "@/lib/log/log-card";
+import { DEFAULT_CONFIG, type LogKind, tapLine } from "@/lib/log/log-kinds";
+import { logDrinkInView } from "@/lib/log/log-write";
 import { pickPalette, toggleTheme } from "@/lib/theme";
 import { toggleVim } from "@/lib/vim-setting";
 

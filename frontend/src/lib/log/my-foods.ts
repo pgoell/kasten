@@ -8,10 +8,10 @@
  */
 
 import { createNote, fetchNote, NoteMissing, updateNote } from "@/lib/api";
-import type { Choice } from "@/lib/food-search";
 import { FOODS_NOTE } from "@/lib/layout";
-import type { BrokenLine } from "@/lib/log-kinds";
-import { parseFood, tenth } from "@/lib/log-lines";
+import type { Choice } from "@/lib/log/food-search";
+import type { BrokenLine } from "@/lib/log/log-kinds";
+import { parseFood, tenth } from "@/lib/log/log-lines";
 
 /** The four nutrients, null where the line gives none. */
 export interface Nutrients {

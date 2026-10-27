@@ -1,4 +1,4 @@
-import { drinkTarget, logDrinkInVault } from "@/lib/log-write";
+import { drinkTarget, logDrinkInVault } from "@/lib/log/log-write";
 import { noteBase } from "@/lib/note-base";
 import { periodicNote } from "@/lib/periodic";
 

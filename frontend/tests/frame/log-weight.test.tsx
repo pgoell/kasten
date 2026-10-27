@@ -14,8 +14,8 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { commands, page } from "vitest/browser";
 import { shiftDay } from "@/lib/clock";
-import type { LogDay } from "@/lib/food-api";
-import { logCard } from "@/lib/log-card";
+import type { LogDay } from "@/lib/log/food-api";
+import { logCard } from "@/lib/log/log-card";
 import { periodicNote } from "@/lib/periodic";
 import { notePath } from "@/lib/todo/todo-commands";
 import { routeTree } from "@/routeTree.gen";
@@ -113,8 +113,8 @@ vi.mock("@/lib/trash-api", async (original) => ({
   fetchTrash: async () => [],
 }));
 
-vi.mock("@/lib/food-api", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/food-api")>()),
+vi.mock("@/lib/log/food-api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/log/food-api")>()),
   // Every third day in a range has no weigh-in; the range's first day is index 0.
   fetchLog: async (from: string, to: string): Promise<LogDay[]> => {
     if (!state.history) return [];
