@@ -71,6 +71,14 @@ exists. The host is pinned by the pattern, so the widening reaches ChatGPT and
 nowhere else.
 """
 
+CHALLENGE = re.compile(r"[A-Za-z0-9_-]{43,128}")
+"""The shape RFC 7636 gives a challenge, matched whole.
+
+Base64url with no padding, which is all an S256 challenge can be. Anything else
+could never match a verifier, and non-ASCII text stored here once made the
+exchange raise a 500 (#1228).
+"""
+
 LIFETIME = 60.0
 """Seconds a code is worth anything. The exchange follows the redirect at once."""
 
@@ -261,7 +269,7 @@ async def authorize(
     if not _permitted(redirect_uri):
         raise HTTPException(status_code=400, detail="That is not an address kasten sends codes to")
 
-    if code_challenge_method != "S256" or not code_challenge:
+    if code_challenge_method != "S256" or CHALLENGE.fullmatch(code_challenge) is None:
         raise HTTPException(status_code=400, detail="This issues codes to S256 clients")
 
     now = time.monotonic()
@@ -302,7 +310,9 @@ async def token(
     if (
         time.monotonic() > expiry
         or issued_for != redirect_uri
-        or not secrets.compare_digest(challenged, presented)
+        # Bytes, because `compare_digest` raises on non-ASCII text and a 500 is
+        # not a refusal a client acts on (#1228).
+        or not secrets.compare_digest(challenged.encode("utf-8"), presented.encode("ascii"))
     ):
         return JSONResponse({"error": "invalid_grant"}, status_code=400)
 

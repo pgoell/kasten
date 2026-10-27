@@ -142,8 +142,10 @@ widening reaches ChatGPT and nowhere else.
 Anything else is a `400` rendered here and never sent on as an error redirect:
 redirecting to an address just judged untrusted is the hole being refused, and
 the host in question may carry a session cookie for its whole parent domain. A
-missing `code_challenge`, or a `code_challenge_method` other than `S256`, is
-refused the same way, so `plain` does not work here.
+`code_challenge` that is missing or not RFC 7636 shape (43 to 128 characters of
+`A-Z`, `a-z`, `0-9`, `-` and `_`, the base64url with no padding that S256
+gives), or a `code_challenge_method` other than `S256`, is refused the same way,
+so `plain` does not work here.
 
 ### POST /agent/oauth/token
 
