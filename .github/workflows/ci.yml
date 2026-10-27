@@ -13,8 +13,37 @@ permissions:
   contents: read
 
 jobs:
+  # A placeholder pull request opens on an empty commit, and an empty commit
+  # can land on main: nothing in either needs checking. Path filters would not
+  # do, as the tests read docs/ too, and a workflow-level filter would leave
+  # the required Lint and Test pending forever. A skipped job counts as passed.
+  changes:
+    name: Changes
+    runs-on: ubuntu-latest
+    outputs:
+      changed: ${{ steps.diff.outputs.changed }}
+    steps:
+      - id: diff
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          # Compare from the merge base, so a pull request counts only its own
+          # commits. A push that opens the branch has no commit before it.
+          if [ "$BASE" = 0000000000000000000000000000000000000000 ]; then
+            files=1
+          else
+            files=$(gh api "repos/$GITHUB_REPOSITORY/compare/$BASE...$HEAD" --jq '.files | length')
+          fi
+          echo "changed=$([ "$files" -gt 0 ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+
   lint:
     name: Lint
+    needs: changes
+    # `!cancelled()` so a failed gate runs the checks, not skips them into a pass.
+    if: ${{ !cancelled() && needs.changes.outputs.changed != 'false' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -28,6 +57,8 @@ jobs:
 
   test:
     name: Test
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.changed != 'false' }}
     runs-on: ubuntu-latest
     services:
       # Mirrors compose.yaml so backend/.env.example resolves without overrides.
@@ -60,6 +91,8 @@ jobs:
 
   perf:
     name: Perf
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.changed != 'false' }}
     runs-on: ubuntu-latest
     # No Postgres service: the frame gate mounts React over a synthetic vault
     # and never reaches the backend, let alone the database.
