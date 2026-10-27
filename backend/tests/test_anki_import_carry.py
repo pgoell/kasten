@@ -33,10 +33,12 @@ async def test_carry_writes_anki_schedules_and_is_off_by_default(
 ) -> None:
     await client.post("/api/anki", content=reviewed("Off"))
     await client.post("/api/anki", params={"carry": "true"}, content=reviewed("Off", more=True))
-    await client.post("/api/anki", params={"carry": "true"}, content=reviewed("On"))
-
     folder = vault / "03 Flashcards"
     off = unhashed((folder / "Off.md").read_text(encoding="utf-8"))
+    # Since #1138 the same Anki cards in a second deck's note are refused, so Off.md goes first.
+    (folder / "Off.md").unlink()
+    await client.post("/api/anki", params={"carry": "true"}, content=reviewed("On"))
+
     on = unhashed((folder / "On.md").read_text(encoding="utf-8"))
     # A card already in the note keeps the schedule kasten gave it, none here;
     # only the one the merge added takes Anki's.

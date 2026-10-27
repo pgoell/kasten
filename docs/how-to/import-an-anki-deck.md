@@ -206,8 +206,10 @@ it would add them to it a second time. Join those notes into
 ```
 
 Join the parts back into that note, import, and split it again if you want it
-split. A note under the deck's tag holding only cards you wrote yourself does
-not count, and nor does one in the archive folder, which the review skips.
+split. A deck renamed in Anki is refused the same way, its cards being in the
+note of its old name: rename that note to the new name, then import. A note
+under the deck's tag holding only cards you wrote yourself does not count, and
+nor does one in the archive folder, which the review skips.
 
 ## How a note becomes cards
 
