@@ -18,7 +18,16 @@
 
 services:
   backend-dev:
-    image: ghcr.io/astral-sh/uv:python3.14-bookworm-slim
+    # The stock uv image, plus the ca-certificates fix backend/Dockerfile makes:
+    # its bundle still trusts emSign ECC Root CA - G3, which Mozilla dropped.
+    # Drop the build once the image ships it.
+    build:
+      context: .
+      dockerfile_inline: |
+        FROM ghcr.io/astral-sh/uv:python3.14-bookworm-slim
+        RUN apt-get update \
+            && apt-get install --only-upgrade -y ca-certificates \
+            && rm -rf /var/lib/apt/lists/*
     container_name: kasten-backend-dev
     working_dir: /app
     # Run as you, not root. This container writes into the bind-mounted vault,
@@ -76,10 +85,10 @@ services:
       # Where shell-dev reaches the API.
       - kasten-shell-dev
 
-  # The one dev service with a `build` section, and the only one that needs it:
-  # there is no reload loop to bind-mount a tree into, so a Dockerfile change
-  # has no other way to be tested before a release ships it. `dev:up` passes
-  # `--build`, which rebuilds this image and leaves the other two alone.
+  # Built from shell/Dockerfile, not a stock image: there is no reload loop to
+  # bind-mount a tree into, so a Dockerfile change has no other way to be
+  # tested before a release ships it. `dev:up` passes `--build`, which rebuilds
+  # this image and the two small ones above.
   shell-dev:
     build:
       context: .
@@ -118,7 +127,14 @@ services:
       - kasten-shell-dev
 
   frontend-dev:
-    image: oven/bun:1.3.8-alpine
+    # The stock bun image, plus the ca-certificates fix frontend/Dockerfile
+    # makes for the same dropped root. Both packages, or the trigger rebuilds
+    # the old bundle.
+    build:
+      context: .
+      dockerfile_inline: |
+        FROM oven/bun:1.3.8-alpine
+        RUN apk upgrade --no-cache ca-certificates ca-certificates-bundle
     container_name: kasten-frontend-dev
     working_dir: /app/frontend
     user: "${DEV_UID:-1000}:${DEV_GID:-1000}"

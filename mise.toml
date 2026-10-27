@@ -54,14 +54,15 @@ description = "Start the hosted dev environment (db + reload servers)"
 # them as root, leaving the non-root containers unable to write.
 #
 # The binary copies matter for the same kind of reason: the dev backend runs
-# the stock uv image, which has neither jj nor rg in it, and the backend shells
+# the stock uv image (plus ca-certificates), which has neither jj nor rg in it, and the backend shells
 # out to jj on every save and to rg on every search. Both release builds are
 # static musl, so mise's copies run in the container as they do on the host.
 # Production is the other path entirely, and installs both in backend/Dockerfile.
 #
-# `--build` is for shell-dev, the one dev service built from a Dockerfile.
-# Without it a Dockerfile edit stays invisible until the image is deleted by
-# hand. The other two run stock images and rebuild nothing.
+# `--build` is for shell-dev, built from shell/Dockerfile. Without it a
+# Dockerfile edit stays invisible until the image is deleted by hand. The other
+# two are stock images plus a ca-certificates upgrade, so their rebuild is a
+# cache hit.
 run = [
   "mkdir -p .container/venv .container/node_modules .container/bin vault",
   "cp -f \"$(mise which jj)\" .container/bin/jj",
