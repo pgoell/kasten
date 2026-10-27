@@ -7,6 +7,8 @@
 
 import "./html-take-api";
 import { commands as browser, page, userEvent } from "vitest/browser";
+import { takenQuote } from "@/lib/html-take";
+import { periodicNote } from "@/lib/periodic";
 import {
   api,
   ask,
@@ -184,9 +186,11 @@ it("at 390x844 with touch, the button sits below the selection and a tap takes i
 
   // The whole list and the whole quote, so a second dump says what it was, and a
   // Share later line, which links the same story, is not taken for the take.
+  const passage = { text: "Yankee", heading: "Second story", anchor: "2026-10-07-evals-02" };
   await expect
     .poll(() => api.dumps)
-    .toEqual([`> Yankee\n>\n> [[${PATH}#2026-10-07-evals-02|Second story]]`]);
+    .toEqual([takenQuote(PATH, passage, periodicNote("daily", new Date()).path)]);
+  expect(api.dumps[0]).toContain(`[[${PATH}#2026-10-07-evals-02|Second story]]`);
 });
 
 it("at 390 with touch, the toast goes to the top clear of a low passage", async () => {
