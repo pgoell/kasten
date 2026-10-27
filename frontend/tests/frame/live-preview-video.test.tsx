@@ -197,6 +197,27 @@ it("#953 A5 the note's player writes where it paused, and reopening starts there
   await expect.poll(() => argsOf(sent, "setPlaybackRate")).toEqual([1.5]);
 });
 
+it("#953 A5 a pause on another video the frame moved to writes nothing under the link's id", async () => {
+  const at = mount(NOTE);
+  const frame = await frameIn(at);
+  send(frame.contentWindow, { event: "infoDelivery", info: { playerState: 1, currentTime: 30 } });
+  send(frame.contentWindow, { event: "infoDelivery", info: { playerState: 2, currentTime: 40 } });
+  expect.soft(watchedAt(at.state.doc.toString(), ID)).toBe(40);
+
+  // The frame moved on to a suggested video and was paused two minutes in.
+  const other = "zyxwvutsrqp";
+  const moved = { video_id: other };
+  send(frame.contentWindow, {
+    event: "infoDelivery",
+    info: { playerState: 1, currentTime: 120, videoData: moved },
+  });
+  send(frame.contentWindow, {
+    event: "infoDelivery",
+    info: { playerState: 2, currentTime: 120, videoData: moved },
+  });
+  expect(watchedAt(at.state.doc.toString(), ID)).toBe(40);
+});
+
 it("#953 A6 the note's player writes the second the pane reads back from the note", async () => {
   const at = mount(NOTE);
   const frame = await frameIn(at);
@@ -294,6 +315,30 @@ it("#953 I5 deleting the link from the note ends its player", async () => {
   at.dispatch({ changes: { from: start, to: start + LINK.length } });
   expect(frame.isConnected).toBe(false);
   expect.soft(at.dom.querySelector(".cm-video-frame")).toBeNull();
+});
+
+it("#953 I5 deleting the embed ends its player while a plain link to the same video stays", async () => {
+  const doc = [
+    "---",
+    "title: Talk",
+    `source: https://youtu.be/${ID}`,
+    "---",
+    "",
+    LINK,
+    "",
+    `[rec](https://youtu.be/${ID})`,
+    "",
+    ...Array.from({ length: 200 }, (_, index) => `filler line ${index}`),
+  ].join("\n");
+  const at = mount(doc);
+  const frame = await frameIn(at);
+  scrollTo(at, "bottom");
+  await expect.poll(() => at.contentDOM.querySelector(".cm-video")).toBeNull();
+  expect.soft(frame.isConnected).toBe(true);
+
+  const start = doc.indexOf(LINK);
+  at.dispatch({ changes: { from: start, to: start + LINK.length } });
+  expect(frame.isConnected).toBe(false);
 });
 
 it("#953 I7 a read-only view of the note never writes it", async () => {

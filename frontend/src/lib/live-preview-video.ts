@@ -1,7 +1,9 @@
+import { ensureSyntaxTree } from "@codemirror/language";
 import { EditorState } from "@codemirror/state";
 import { type EditorView, ViewPlugin, type ViewUpdate } from "@codemirror/view";
 import { writeWatched } from "@/lib/buffer-writes";
-import { noteVideos, PLAYER } from "@/lib/video";
+import { linkAddress } from "@/lib/link-reference";
+import { PLAYER, videoId } from "@/lib/video";
 import { applyVideoSettings, learnVideoSettings } from "@/lib/video-settings";
 
 /**
@@ -31,6 +33,25 @@ interface Box {
   top: number;
   width: number;
   height: number;
+}
+
+/**
+ * The videos the note draws as an image, read off the syntax tree. A link the
+ * note only names, in its frontmatter or as a plain link, is not drawn and does
+ * not keep its player (I5). Null while the tree is still parsing.
+ */
+function embeddedVideos(state: EditorState): Set<string> | null {
+  const tree = ensureSyntaxTree(state, state.doc.length, 1000);
+  if (tree === null) return null;
+  const ids = new Set<string>();
+  tree.iterate({
+    enter: (node) => {
+      if (node.name !== "Image") return;
+      const id = videoId(linkAddress(node.node, state.doc) ?? "");
+      if (id !== null) ids.add(id);
+    },
+  });
+  return ids;
 }
 
 /** A message's JSON, or null for one that is not JSON. */
@@ -66,11 +87,15 @@ class VideoLayer {
     // Only a change to the text can remove a link, and a removed link ends its
     // player (I5). A player whose placeholder is merely off screen keeps going.
     if (update.docChanged) {
-      const videos = new Set(noteVideos(update.state.doc.toString()));
-      for (const [id, player] of this.players) {
-        if (videos.has(id)) continue;
-        player.frame.remove();
-        this.players.delete(id);
+      const videos = embeddedVideos(update.state);
+      // A tree still parsing names no video it has not read yet, so nothing is
+      // ended on its word.
+      if (videos !== null) {
+        for (const [id, player] of this.players) {
+          if (videos.has(id)) continue;
+          player.frame.remove();
+          this.players.delete(id);
+        }
       }
     }
     this.measure();
@@ -102,7 +127,7 @@ class VideoLayer {
     frame.className = "cm-video-frame";
     frame.src = url;
     frame.title = "video";
-    frame.allow = "autoplay; fullscreen; picture-in-picture";
+    frame.allow = "fullscreen; picture-in-picture";
     frame.allowFullscreen = true;
     // Hidden until the measure places it over its placeholder, so it never shows
     // at the layer's corner.
@@ -190,14 +215,26 @@ class VideoLayer {
       return;
     }
     if (kind === "infoDelivery" && typeof info === "object" && info !== null) {
-      this.delivered(found, info as { currentTime?: unknown; playerState?: unknown });
+      this.delivered(
+        found,
+        info as { currentTime?: unknown; playerState?: unknown; videoData?: unknown },
+      );
     }
   };
 
   /** What one info delivery says about a player's position and state. */
-  private delivered(player: Player, info: { currentTime?: unknown; playerState?: unknown }): void {
-    const { currentTime, playerState } = info;
-    if (typeof currentTime === "number" && currentTime > 0) player.seconds = currentTime;
+  private delivered(
+    player: Player,
+    info: { currentTime?: unknown; playerState?: unknown; videoData?: unknown },
+  ): void {
+    const { currentTime, playerState, videoData } = info;
+    // A frame moved to another video, such as a suggestion picked on the end
+    // screen, reports that video's position. None of it is the link's.
+    const named = (videoData as { video_id?: unknown } | undefined)?.video_id;
+    const elsewhere = typeof named === "string" && named !== player.id;
+    if (!elsewhere && typeof currentTime === "number" && currentTime > 0) {
+      player.seconds = currentTime;
+    }
     if (typeof playerState !== "number") return;
     if (playerState === 1 || playerState === 3) {
       player.running = true;
@@ -207,6 +244,7 @@ class VideoLayer {
     // writes nothing more, and an ended one writes once (I2).
     if (!player.running) return;
     player.running = false;
+    if (elsewhere) return;
     const seconds = playerState === 0 ? 0 : player.seconds;
     if (playerState === 0) player.seconds = 0;
     // A read-only view is a preview of the note: it shows the player and never
