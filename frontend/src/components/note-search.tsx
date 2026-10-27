@@ -2,7 +2,7 @@ import { Fragment, useEffect, useId, useRef, useState } from "react";
 import { ContentSearch } from "@/components/content-search";
 import { SearchPreview } from "@/components/search-preview";
 import { SearchRow } from "@/components/search-row";
-import type { Mention } from "@/lib/api";
+import type { Mention, SearchHit } from "@/lib/api";
 import {
   BACKDROP,
   BODY,
@@ -19,7 +19,8 @@ import { isMention, type SearchMode, useSearchHits } from "@/lib/use-search-hits
 
 interface NoteSearchProps {
   /** Called with the note to open and the line the match sits on. */
-  onOpen: (path: string, line: number) => void;
+  /** `hit` is the search hit Enter took, whose `place` says where in a file it is. */
+  onOpen: (path: string, line: number, hit?: SearchHit) => void;
   onClose: () => void;
   /**
    * The note to show what links to, instead of searching what is typed.
@@ -182,7 +183,7 @@ function LineSearch({
     const hit = found[index];
     if (hit === undefined) return;
     opening.current = true;
-    onOpen(hit.path, hit.line);
+    onOpen(hit.path, hit.line, isMention(hit) ? undefined : hit);
   }
 
   /** Why the last link was not written, which the line under the list says. */

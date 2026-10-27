@@ -129,14 +129,15 @@ export function openImageInFocused(layout: Layout, path: string): Layout {
  *
  * `opened` goes on from the count the pane already holds when it is showing
  * this same pdf, so a second click on the row moves it and the pane turns back
- * to page 1 from wherever the reader scrolled to. Starting it at 1 every time
+ * to page 1 from wherever the reader scrolled to. `page` is where a search hit
+ * in the pdf opens it. Starting it at 1 every time
  * would leave the field unchanged and the pane where it was.
  */
-export function openPdfInFocused(layout: Layout, path: string): Layout {
+export function openPdfInFocused(layout: Layout, path: string, page?: number): Layout {
   const { pdf } = focusedPane(layout);
   const opened = (pdf?.path === path ? pdf.opened : 0) + 1;
 
-  return fillFocused(layout, { pdf: { path, page: undefined, opened } });
+  return fillFocused(layout, { pdf: { path, page, opened } });
 }
 
 /**
