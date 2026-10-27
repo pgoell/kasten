@@ -1,5 +1,6 @@
 """The token store: what it hands out once, what it keeps, and who may read it."""
 
+import json
 from typing import TYPE_CHECKING
 
 import pytest
@@ -85,3 +86,31 @@ async def test_revoking_drops_the_token(client: AsyncClient, agent_vault: Path, 
 
     assert response.status_code == 204
     assert (await client.get("/api/tokens")).json() == []
+
+
+async def test_revoked_file_stays_bounded_across_reconnects(tmp_path: Path) -> None:
+    # Every OAuth reconnect revokes and mints the same name, so the file would
+    # otherwise grow by one record per reconnect for good.
+    store = tmp_path / "tokens.json"
+
+    for _ in range(tokens.REVOKED_KEPT + 10):
+        await tokens.mint(store, "claude")
+        await tokens.revoke(store, "claude")
+
+    revoked = json.loads((tmp_path / tokens.REVOKED).read_text(encoding="utf-8"))
+    assert len(revoked) == tokens.REVOKED_KEPT
+
+
+async def test_mint_and_revoke_on_a_broken_store_leave_it_alone(tmp_path: Path) -> None:
+    # The store is strict: a broken one raises before anything is written, so a
+    # revoke cannot half-move a token out of a file it could not read.
+    store = tmp_path / "tokens.json"
+    store.write_text("{", encoding="utf-8")
+
+    with pytest.raises(json.JSONDecodeError):
+        await tokens.mint(store, "laptop")
+    with pytest.raises(json.JSONDecodeError):
+        await tokens.revoke(store, "laptop")
+
+    assert store.read_text(encoding="utf-8") == "{"
+    assert not (tmp_path / tokens.REVOKED).exists()

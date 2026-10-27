@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { TodoPane } from "@/components/todo-pane";
 import type { EditorCommands } from "@/lib/key-bindings";
 import { boardHooks, renderPane as renderBoardPane } from "./todo-board-pane-fixture";
@@ -47,8 +47,9 @@ function renderWatched(hits: Hit[]) {
     onRefile: vi.fn(),
   };
   const commands = new Proxy({} as EditorCommands, { get: () => () => undefined });
+  const client = new QueryClient();
   render(
-    <QueryClientProvider client={new QueryClient()}>
+    <QueryClientProvider client={client}>
       <TodoPane
         commands={commands}
         onOpen={vi.fn()}
@@ -59,13 +60,22 @@ function renderWatched(hits: Hit[]) {
       />
     </QueryClientProvider>,
   );
-  return writes;
+  const loaded = () =>
+    act(async () => {
+      await client.ensureQueryData({
+        queryKey: ["todos", false],
+        queryFn: () => vi.mocked(fetchTodos)(false),
+      });
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+  return { writes, loaded };
 }
 
 describe("the todo pane's guards", () => {
   it("#811 A9 c flips between list and board", async () => {
     const pane = renderBoardPane();
-    await waitFor(() => expect(document.querySelector("[data-row]")).not.toBeNull());
+    await pane.loaded();
+    expect(document.querySelector("[data-row]")).not.toBeNull();
 
     pane.press("c");
     await waitFor(() => expect(pane.cards().length).toBeGreaterThan(0));
@@ -76,10 +86,9 @@ describe("the todo pane's guards", () => {
   });
 
   it("#811 A11 folding, filtering, the toggle and c write nothing", async () => {
-    const writes = renderWatched(HITS);
-    await waitFor(() =>
-      expect(screen.getByRole("button", { name: /^Done this week/ })).toBeTruthy(),
-    );
+    const { writes, loaded } = renderWatched(HITS);
+    await loaded();
+    expect(screen.getByRole("button", { name: /^Done this week/ })).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: /^Done this week/ }));
     fireEvent.change(screen.getByLabelText("filter todos"), { target: { value: "buy" } });

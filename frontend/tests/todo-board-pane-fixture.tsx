@@ -144,6 +144,20 @@ export function renderPane({ hits = BOARD, focusSignal = 0, archive = false } = 
         .map((one) => one.textContent),
     filter: () => screen.getByLabelText("filter todos") as HTMLInputElement,
     answer: (next: typeof BOARD) => act(() => client.setQueryData(["todos", archive], next)),
+    /**
+     * Once the pane has its first todos: the query settled, then react-query's
+     * hand-off to its observers, which it puts on a timeout of 0 when the fetch
+     * settles, so one more timeout of 0 lands after it. Waits on that state
+     * rather than on `waitFor`'s second, which a busy host outruns.
+     */
+    loaded: () =>
+      act(async () => {
+        await client.ensureQueryData({
+          queryKey: ["todos", archive],
+          queryFn: () => vi.mocked(fetchTodos)(archive),
+        });
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      }),
     press: (key: string) => fireEvent.keyDown(panel(), { key }),
   };
 }

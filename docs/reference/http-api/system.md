@@ -202,5 +202,14 @@ the revoked token makes after that is still recorded, with the outcome
 minted later under the same name, such as a reconnect through OAuth. This list
 leaves the revoked token out.
 
+`tokens-revoked.json` keeps the last 50 records, in the order they were
+revoked; a revoke drops the older ones. Dropping one cannot let its token back
+in, since only `tokens.json` admits a bearer: a token whose record is gone is
+refused as unknown, and only the action log stops naming it. A
+`tokens-revoked.json` that is not a JSON list of records does not open the
+gate either: every bearer `tokens.json` does not hold gets a 401, and the
+backend logs a warning with the path. The next revoke moves that file to
+`tokens-revoked.json.broken` and starts a fresh one.
+
 A name the store has not got is a `404`.
 

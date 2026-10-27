@@ -17,6 +17,7 @@ from backend.tests.conftest import JJ, descriptions
 from kasten_backend.agent_mcp import INSTRUCTIONS
 from kasten_backend.config import get_settings
 from kasten_backend.main import app
+from kasten_backend.tokens import REVOKED
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -102,6 +103,21 @@ async def test_no_bearer_is_refused(client: AsyncClient, agent_vault: Path) -> N
 
     response = await client.post(
         ENDPOINT, json=call("read_note", {"path": "borges.md"}), headers=RPC
+    )
+
+    assert response.status_code == 401
+
+
+async def test_mcp_refuses_with_401_on_a_broken_revoked_file(
+    client: AsyncClient, agent_vault: Path
+) -> None:
+    (agent_vault / "borges.md").write_text("# borges\n")
+    get_settings().tokens_path.with_name(REVOKED).write_text("{", encoding="utf-8")
+
+    response = await client.post(
+        ENDPOINT,
+        json=call("read_note", {"path": "borges.md"}),
+        headers={"Authorization": "Bearer kasten_junk", **RPC},
     )
 
     assert response.status_code == 401

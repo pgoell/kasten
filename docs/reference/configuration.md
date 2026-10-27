@@ -208,6 +208,8 @@ A revoked token's record moves out of this file into `tokens-revoked.json`,
 beside it, so a request that token makes later can still be named in the action
 log. Both files sit in the same directory and are written the same way.
 
+`tokens-revoked.json` keeps the last 50 records; [revoking a token](/reference/http-api/system.md) says why that, or a broken file, cannot let one back in.
+
 ## KASTEN_ACTIVITY_TIMEOUT_SECONDS
 
 The most a recording insert may take, in seconds, before its row is dropped

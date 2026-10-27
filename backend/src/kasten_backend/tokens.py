@@ -10,20 +10,25 @@ the secret is 256 bits of `secrets` output, so the digest is not brute-forceable
 and argon2 would defend nothing here while costing a hash on every request.
 
 A revoked token moves to `tokens-revoked.json` beside this file, so a request it
-makes is named as revoked in the activity log and refused. Last use lives in
-Postgres, in `token_action`: see `token_activity.py`.
+makes is named as revoked in the activity log and refused. That file keeps only
+the last `REVOKED_KEPT` revokes. A secret pruned from it is refused as a stranger
+would be, since only `tokens.json` admits a bearer and nothing moves a record
+back. Last use lives in Postgres, in `token_action`: see `token_activity.py`.
 """
 
 import asyncio
 import hashlib
 import json
+import logging
 import os
 import secrets
 import tempfile
 from datetime import UTC, datetime
 from pathlib import Path
 
-from pydantic import BaseModel
+from pydantic import BaseModel, TypeAdapter, ValidationError
+
+logger = logging.getLogger(__name__)
 
 PREFIX = "kasten_"
 """What every secret starts with, so a leaked one is greppable and scannable."""
@@ -65,12 +70,28 @@ class _Revoked(_Record):
     revoked: datetime
 
 
+_REVOKED_LIST = TypeAdapter(list[_Revoked])
+
+
 REVOKED = "tokens-revoked.json"
 """The file revoked tokens move to, beside the store.
 
 A file of its own rather than a `revoked` field on each record: an older backend
 reading `tokens.json` ignores unknown fields, so a field there would let a
 revoked token back in on rollback.
+"""
+
+REVOKED_KEPT = 50
+"""How many revoked records the file keeps, in revoke order; older ones are dropped.
+
+Dropping one cannot let its token back in. Only `tokens.json` admits a bearer,
+`revoke` takes the digest out of it before it writes the revoked file, and
+nothing moves a record back. A pruned secret is unknown, so it is refused with
+401. The revoked file only decides whether a refusal is named as revoked in the
+activity log.
+
+Without the cap, every OAuth reconnect, which revokes and then mints the same
+name, would add a record for good.
 """
 
 
@@ -91,6 +112,23 @@ def _read[R: _Record](store: Path, model: type[R]) -> list[R]:
         return []
 
     return [model.model_validate(record) for record in json.loads(store.read_text("utf-8"))]
+
+
+def _read_revoked(path: Path) -> list[_Revoked] | None:
+    """Every revoked record the file holds, or None when the file is there and cannot be read.
+
+    Lenient where `_read` is strict. The file only names refusals, so a broken
+    one must not refuse an active bearer or fail a revoke. The log names the
+    path and never the content, which holds digests.
+    """
+    if not path.is_file():
+        return []
+
+    try:
+        return _REVOKED_LIST.validate_json(path.read_bytes())
+    except ValidationError:
+        logger.warning("Ignoring %s: it is not a list of revoked tokens", path)
+        return None
 
 
 def _write(target: Path, records: list[BaseModel]) -> None:
@@ -132,9 +170,13 @@ async def mint(store: Path, name: str) -> Minted:
 async def revoke(store: Path, name: str) -> bool:
     """Move the token called `name` to the revoked file, and say whether there was one.
 
-    The active file is written first. A crash between the two writes then leaves
-    the token refused and unrecorded, which is safe; the other order would leave
-    it active.
+    Both files are read before either is written, so a broken store raises with
+    nothing changed. The active file is written first. A crash between the two
+    writes then leaves the token refused and unrecorded, which is safe; the other
+    order would leave it active.
+
+    A broken revoked file is set aside as `.broken` and started again. Its
+    records only name refusals, so losing them costs a log line, not access.
     """
     async with _lock:
         records = _read(store, _Record)
@@ -142,15 +184,20 @@ async def revoke(store: Path, name: str) -> bool:
         if not gone:
             return False
 
+        revoked_path = store.with_name(REVOKED)
+        revoked = _read_revoked(revoked_path)
         _write(store, [record for record in records if record.name != name])
+        if revoked is None:
+            os.replace(revoked_path, revoked_path.with_name(REVOKED + ".broken"))  # noqa: PTH105  Path has no atomic replace of a str
+            revoked = []
+
         moment = datetime.now(UTC)
-        revoked = _read(store.with_name(REVOKED), _Revoked)
         _write(
-            store.with_name(REVOKED),
+            revoked_path,
             [
                 *revoked,
                 *(_Revoked(**record.model_dump(), revoked=moment) for record in gone),
-            ],
+            ][-REVOKED_KEPT:],
         )
 
     return True
@@ -165,6 +212,9 @@ async def listing(store: Path) -> list[Token]:
 async def identify(store: Path, secret: str) -> tuple[str, bool] | None:
     """The name behind `secret`, and whether it was revoked; None when neither file holds it.
 
+    A revoked file that cannot be read holds nothing, so a revoked secret there is
+    refused as unknown, which is the same 401.
+
     `compare_digest` rather than `==`, so the comparison does not leak how much
     of a guess was right through how long it took to refuse.
     """
@@ -174,7 +224,11 @@ async def identify(store: Path, secret: str) -> tuple[str, bool] | None:
             if secrets.compare_digest(record.digest, presented):
                 return record.name, False
 
-        for record in _read(store.with_name(REVOKED), _Revoked):
+        revoked = _read_revoked(store.with_name(REVOKED))
+        if revoked is None:
+            return None
+
+        for record in revoked:
             if secrets.compare_digest(record.digest, presented):
                 return record.name, True
 
