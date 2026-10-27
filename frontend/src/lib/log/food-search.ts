@@ -7,8 +7,8 @@
  * and `food-quick-add.ts`, so each file stays small enough to read whole.
  */
 
-import { NO_CAMERA, startCamera, torchButton } from "@/lib/barcode-camera";
 import { shiftDay } from "@/lib/clock";
+import { NO_CAMERA, startCamera, torchButton } from "@/lib/log/barcode-camera";
 import { addForm } from "@/lib/log/food-add";
 import { type Food, fetchLog, readBarcode, searchFood } from "@/lib/log/food-api";
 import { type Choice, make, recentFoods } from "@/lib/log/food-math";

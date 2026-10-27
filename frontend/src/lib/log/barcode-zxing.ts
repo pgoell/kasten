@@ -15,7 +15,7 @@ import {
   NotFoundException,
   RGBLuminanceSource,
 } from "@zxing/library";
-import type { Format } from "@/lib/barcode";
+import type { Format } from "@/lib/log/barcode";
 
 const NAMES = new Map<BarcodeFormat, Format>([
   [BarcodeFormat.EAN_13, "ean_13"],

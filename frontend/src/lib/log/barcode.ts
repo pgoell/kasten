@@ -57,7 +57,7 @@ function readOf(text: string, format: string): string {
 // A dynamic import `.claude/CLAUDE.md` allows, as it does pdf.js, KaTeX and mermaid:
 // zxing is heavy and only a scan needs it, so a page that never scans does not load it.
 // Forgotten when it fails, so the next scan asks again.
-const loadZxing = loadOnce(() => import("@/lib/barcode-zxing"));
+const loadZxing = loadOnce(() => import("@/lib/log/barcode-zxing"));
 
 /**
  * The decoder this device can run: BarcodeDetector where it reads all four formats,

@@ -6,7 +6,7 @@
  * stream is stopped on every path that ends a scan.
  */
 
-import { type Decoder, decoderFor } from "@/lib/barcode";
+import { type Decoder, decoderFor } from "@/lib/log/barcode";
 
 export const NO_CAMERA = "No camera here; type the barcode instead";
 
