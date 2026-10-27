@@ -5,10 +5,10 @@ import { vim } from "@replit/codemirror-vim";
 import { fireEvent } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fetchNote, NoteMissing } from "@/lib/api";
+import { vimKeys, vimModeState } from "@/lib/editor/vim-mode";
 import { fetchLog, type LogDay } from "@/lib/log/food-api";
 import { logCard, reloadLogConfig } from "@/lib/log/log-card";
 import { notePath } from "@/lib/todo/todo-commands";
-import { vimKeys, vimModeState } from "@/lib/vim-mode";
 
 vi.mock("@/lib/api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/api")>()),

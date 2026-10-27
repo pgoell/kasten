@@ -2,10 +2,10 @@ import { type Extension, StateEffect } from "@codemirror/state";
 import type { EditorView } from "@codemirror/view";
 import { vim } from "@replit/codemirror-vim";
 import { act } from "@testing-library/react";
+import { vimKeys } from "@/lib/editor/vim-mode";
 import { imagePaths } from "@/lib/image";
 import { livePreview } from "@/lib/live/live-preview";
 import { notePath } from "@/lib/todo/todo-commands";
-import { vimKeys } from "@/lib/vim-mode";
 import { vaultPaths } from "@/lib/wikilink";
 import { ABOVE, liveHooks, mount, plain } from "./live-preview-fixture";
 

@@ -7,11 +7,11 @@ import type {} from "@vitest/browser-playwright";
 import { createRoot, type Root } from "react-dom/client";
 import { cdp, page } from "vitest/browser";
 import { Editor } from "@/components/editor";
-import { kastenTheme } from "@/lib/editor-theme";
+import { kastenTheme } from "@/lib/editor/editor-theme";
+import { vimKeys } from "@/lib/editor/vim-mode";
 import { imagePaths } from "@/lib/image";
 import { livePreview } from "@/lib/live/live-preview";
 import { noteLanguage } from "@/lib/note-language";
-import { vimKeys } from "@/lib/vim-mode";
 import { vaultPaths } from "@/lib/wikilink";
 import "@/styles/app.css";
 

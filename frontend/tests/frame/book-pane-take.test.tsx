@@ -8,7 +8,7 @@
 import "./html-take-api";
 import { renderHook } from "@testing-library/react";
 import { commands as browser, page, userEvent } from "vitest/browser";
-import { useVim } from "@/lib/vim-setting";
+import { useVim } from "@/lib/editor/vim-setting";
 import plainUrl from "../fixtures/plain.epub?url";
 import { located, rootToken, sections } from "./book-pane-fixture";
 import {

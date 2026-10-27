@@ -2,7 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { memo, type ReactNode, useContext, useRef } from "react";
 import { Editor } from "@/components/editor";
 import { fetchNote, type TodoHit } from "@/lib/api";
-import type { FileTarget } from "@/lib/editor-follow";
+import type { FileTarget } from "@/lib/editor/editor-follow";
 import type { EmbedSource } from "@/lib/embed";
 import type { EditorCommands } from "@/lib/key-bindings";
 import { Leaving, useBlurWhenLeaving, useLeaving } from "@/lib/leaving";

@@ -1,12 +1,12 @@
 import { Facet } from "@codemirror/state";
 import type { EditorView } from "@codemirror/view";
 import { type CM5EditorInterface, Vim } from "@replit/codemirror-vim";
-import { takeVaultText } from "@/lib/buffer-writes";
-import { toHtml, toSlack } from "@/lib/copy-as";
-import { follow } from "@/lib/editor-follow";
+import { takeVaultText } from "@/lib/editor/buffer-writes";
+import { toHtml, toSlack } from "@/lib/editor/copy-as";
+import { follow } from "@/lib/editor/editor-follow";
+import { lineUpEdited } from "@/lib/editor/table-lineup";
 import { noticeHandler } from "@/lib/image";
 import { type CopyFormat, viewCommands } from "@/lib/palette";
-import { lineUpEdited } from "@/lib/table-lineup";
 
 type SaveHandler = (doc: string) => void;
 /** Answers with the vault's text, or with null when the reload was refused. */

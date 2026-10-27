@@ -1,7 +1,7 @@
 import type { Text } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
+import { readPosition, writePosition } from "@/lib/editor/positions";
 import { belowFrontmatter } from "@/lib/frontmatter-language";
-import { readPosition, writePosition } from "@/lib/positions";
 
 /**
  * Where one mount of a note keeps its cursor and its scroll, and writes them back.

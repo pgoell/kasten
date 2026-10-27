@@ -7,7 +7,7 @@ import {
   type Text,
 } from "@codemirror/state";
 import { Decoration } from "@codemirror/view";
-import { editingMode, type VimMode } from "@/lib/vim-mode";
+import { editingMode, type VimMode } from "@/lib/editor/vim-mode";
 
 /** An empty replacement: the range is in the document but not on the screen. */
 export const HIDDEN = Decoration.replace({});

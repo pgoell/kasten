@@ -1,4 +1,4 @@
-import { readPosition, writePosition } from "@/lib/positions";
+import { readPosition, writePosition } from "@/lib/editor/positions";
 
 const KEY = "kasten.positions.1";
 

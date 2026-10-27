@@ -91,7 +91,7 @@ Teams reads no markup out of text but keeps the formatting of pasted HTML, so
 
 In both, a wikilink becomes the name of the note and a highlight becomes its
 text. The status bar says `Copied for Slack`, or why nothing was copied.
-`frontend/src/lib/copy-as.ts` does the rewriting, walking the parse the editor
+`frontend/src/lib/editor/copy-as.ts` does the rewriting, walking the parse the editor
 renders from.
 
 ## Tables

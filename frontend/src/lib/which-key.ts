@@ -1,5 +1,5 @@
 import type { EditorView } from "@codemirror/view";
-import { LEADER_EDITS } from "@/lib/buffer-keys";
+import { LEADER_EDITS } from "@/lib/editor/buffer-keys";
 import type { EditorCommands } from "@/lib/key-bindings";
 import { leaderAction, leaderPrefix } from "@/lib/leader-keys";
 

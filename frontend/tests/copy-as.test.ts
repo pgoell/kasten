@@ -1,4 +1,4 @@
-import { toHtml, toSlack } from "@/lib/copy-as";
+import { toHtml, toSlack } from "@/lib/editor/copy-as";
 
 describe("toSlack", () => {
   it("spells emphasis the way Slack reads it", () => {

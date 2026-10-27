@@ -2,7 +2,7 @@ import type { StateEffect } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { act, fireEvent, render } from "@testing-library/react";
 import { Editor } from "@/components/editor";
-import { setPreview } from "@/lib/note-view";
+import { setPreview } from "@/lib/editor/note-view";
 import { deleteCurrentLine } from "./editor-fixture";
 
 const DOC = ["| a | longer |", "| - | - |", "| xx | b |", "", "after"].join("\n");

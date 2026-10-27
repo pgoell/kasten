@@ -1,7 +1,14 @@
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
-import { BOLD, formatDocument, HIGHLIGHT, ITALIC, STRIKE, toggleMark } from "@/lib/format-commands";
+import {
+  BOLD,
+  formatDocument,
+  HIGHLIGHT,
+  ITALIC,
+  STRIKE,
+  toggleMark,
+} from "@/lib/editor/format-commands";
 import { Highlight } from "@/lib/markdown-highlight";
 
 /** A view with the same markdown parser the editor uses, and nothing else. */

@@ -12,8 +12,8 @@ import {
 } from "@codemirror/state";
 import type { EditorView } from "@codemirror/view";
 import type { SyntaxNode } from "@lezer/common";
-import { fromVault } from "@/lib/buffer-writes";
-import { lineUpChanges, type TableRun, tableAt } from "@/lib/table";
+import { fromVault } from "@/lib/editor/buffer-writes";
+import { lineUpChanges, type TableRun, tableAt } from "@/lib/editor/table";
 
 /**
  * Tables the reader typed into, lined up once the reader is done with them.

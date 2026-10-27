@@ -9,8 +9,8 @@ import { EditorState, type Extension } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { vim } from "@replit/codemirror-vim";
 import { basicSetup } from "codemirror";
-import { kastenTheme } from "@/lib/editor-theme";
-import { vimModeState } from "@/lib/vim-mode";
+import { kastenTheme } from "@/lib/editor/editor-theme";
+import { vimModeState } from "@/lib/editor/vim-mode";
 import "@/styles/app.css";
 
 let view: EditorView | undefined;

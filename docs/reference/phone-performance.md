@@ -108,7 +108,7 @@ within about 9% of each other.
 
 Times in ms. The forced layouts per run, by caller:
 
-- Both, tab and open: the editor being built, `src/lib/note-view.ts` (4, about
+- Both, tab and open: the editor being built, `src/lib/editor/note-view.ts` (4, about
   10 ms), CodeMirror's own measure (2 or 3) and the note head,
   `src/lib/note-head.ts` (1, about 2 ms).
 - 0.85.0, tab and open: its tab strip, `src/components/pane-layout.tsx:370`

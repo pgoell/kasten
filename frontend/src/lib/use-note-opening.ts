@@ -9,7 +9,7 @@ import {
   useState,
 } from "react";
 import { createNote, fetchNote, NoteExists, type SearchHit } from "@/lib/api";
-import type { FileTarget } from "@/lib/editor-follow";
+import type { FileTarget } from "@/lib/editor/editor-follow";
 import { queryEmbedSource } from "@/lib/embed";
 import { bookNoteOf, fileKind } from "@/lib/file-kind";
 import { encodePath } from "@/lib/note-path";

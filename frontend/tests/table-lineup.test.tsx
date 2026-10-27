@@ -1,7 +1,7 @@
 import { Transaction } from "@codemirror/state";
 import { act, fireEvent, render } from "@testing-library/react";
 import { Editor } from "@/components/editor";
-import { takeVaultText } from "@/lib/buffer-writes";
+import { takeVaultText } from "@/lib/editor/buffer-writes";
 import { runExCommand } from "./editor-fixture";
 import {
   content,

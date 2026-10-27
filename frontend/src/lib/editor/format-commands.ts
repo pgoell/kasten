@@ -2,7 +2,7 @@ import { syntaxTree } from "@codemirror/language";
 import type { ChangeSpec, EditorState, SelectionRange } from "@codemirror/state";
 import type { EditorView } from "@codemirror/view";
 import type { SyntaxNode } from "@lezer/common";
-import { alignTable, tableAt } from "@/lib/table";
+import { alignTable, tableAt } from "@/lib/editor/table";
 
 export interface MarkSpec {
   open: string;

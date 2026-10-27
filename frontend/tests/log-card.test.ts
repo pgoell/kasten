@@ -4,9 +4,9 @@ import { EditorView } from "@codemirror/view";
 import { vim } from "@replit/codemirror-vim";
 import { fireEvent } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
+import { vimKeys, vimModeField, vimModeState } from "@/lib/editor/vim-mode";
 import { logCard } from "@/lib/log/log-card";
 import { notePath } from "@/lib/todo/todo-commands";
-import { vimKeys, vimModeField, vimModeState } from "@/lib/vim-mode";
 
 const DAILY = "01 Periodic/00 Daily/2026-10-20.md";
 const OTHER = "02 Projects/Plan.md";

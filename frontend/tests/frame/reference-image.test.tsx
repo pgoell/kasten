@@ -14,7 +14,7 @@ import { getCM, vim } from "@replit/codemirror-vim";
 // For its types alone: the provider is what gives `cdp()` a typed `send`.
 import type {} from "@vitest/browser-playwright";
 import { cdp, page } from "vitest/browser";
-import { kastenTheme } from "@/lib/editor-theme";
+import { kastenTheme } from "@/lib/editor/editor-theme";
 import { imagePaths } from "@/lib/image";
 import { livePreview } from "@/lib/live/live-preview";
 import { noteLanguage } from "@/lib/note-language";

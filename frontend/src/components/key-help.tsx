@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Sheet } from "@/components/sheet";
-import { FOLLOW, FORMAT, INDENT, LEADER_EDITS, readable } from "@/lib/buffer-keys";
+import { FOLLOW, FORMAT, INDENT, LEADER_EDITS, readable } from "@/lib/editor/buffer-keys";
+import { useVim } from "@/lib/editor/vim-setting";
 import { FINANCE_PANE } from "@/lib/finance-keys";
 import { trapTab } from "@/lib/focus-trap";
 import {
@@ -18,7 +19,6 @@ import { closeOnBackdrop, HEADER_ROW, INPUT, LABEL, PANEL, STATUS } from "@/lib/
 import { READER, RSVP_KEYS } from "@/lib/reader-keys";
 import { useViewport } from "@/lib/use-viewport";
 import { VIDEO_PANE } from "@/lib/video-keys";
-import { useVim } from "@/lib/vim-setting";
 
 interface Group {
   title: string;

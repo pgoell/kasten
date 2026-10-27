@@ -1,7 +1,7 @@
 import { EditorView } from "@codemirror/view";
 import { act, fireEvent, render } from "@testing-library/react";
 import { Editor } from "@/components/editor";
-import { toggleVim } from "@/lib/vim-setting";
+import { toggleVim } from "@/lib/editor/vim-setting";
 import { deleteCurrentLine } from "./editor-fixture";
 
 describe("Editor reopening a note where it was left (#495)", () => {

@@ -7,7 +7,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { useState } from "react";
 import { CommandPalette } from "@/components/command-palette";
 import { readClock } from "@/lib/clock";
-import { editorCommands } from "@/lib/editor-commands";
+import { editorCommands } from "@/lib/editor/editor-commands";
 import { logCard } from "@/lib/log/log-card";
 import { parseConfig } from "@/lib/log/log-kinds";
 import { INSERTS, paletteEntries, slashCompletions, writeInsert } from "@/lib/palette";

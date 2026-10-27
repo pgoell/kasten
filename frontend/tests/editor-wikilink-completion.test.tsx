@@ -3,7 +3,7 @@ import { EditorView } from "@codemirror/view";
 import { getCM } from "@replit/codemirror-vim";
 import { act, fireEvent, render } from "@testing-library/react";
 import { Editor } from "@/components/editor";
-import { vimModeField } from "@/lib/vim-mode";
+import { vimModeField } from "@/lib/editor/vim-mode";
 
 describe("Editor wikilink completion", () => {
   it("completes the name before an alias and keeps the alias, in vim mode", async () => {

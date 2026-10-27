@@ -10,11 +10,11 @@
 import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { page } from "vitest/browser";
-import { kastenTheme } from "@/lib/editor-theme";
+import { kastenTheme } from "@/lib/editor/editor-theme";
+import { vimKeys } from "@/lib/editor/vim-mode";
 import { imagePaths } from "@/lib/image";
 import { livePreview } from "@/lib/live/live-preview";
 import { noteLanguage } from "@/lib/note-language";
-import { vimKeys } from "@/lib/vim-mode";
 import { vaultPaths } from "@/lib/wikilink";
 import { shot } from "./shots";
 import "@/styles/app.css";

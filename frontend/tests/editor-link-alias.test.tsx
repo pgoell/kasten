@@ -1,6 +1,6 @@
 import { act, fireEvent, render } from "@testing-library/react";
 import { Editor } from "@/components/editor";
-import { toggleVim } from "@/lib/vim-setting";
+import { toggleVim } from "@/lib/editor/vim-setting";
 import { deleteCurrentLine } from "./editor-fixture";
 import { finishParsing } from "./parsing";
 

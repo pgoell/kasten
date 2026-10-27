@@ -7,6 +7,7 @@ import {
   type Transaction,
 } from "@codemirror/state";
 import { Decoration, type DecorationSet, EditorView } from "@codemirror/view";
+import { setVimMode, vimKeys, vimModeField, vimModeState } from "@/lib/editor/vim-mode";
 import { embedSource } from "@/lib/embed";
 import { imagePaths } from "@/lib/image";
 import { Callouts, foldClicks, folds, toggleFold } from "@/lib/live/live-preview-callouts";
@@ -33,7 +34,6 @@ import { drawTable } from "@/lib/live/live-preview-tables";
 import { drawTime, linkedVideos } from "@/lib/live/live-preview-times";
 import { videoLayer } from "@/lib/live/live-preview-video";
 import { watchPresses } from "@/lib/presses";
-import { setVimMode, vimKeys, vimModeField, vimModeState } from "@/lib/vim-mode";
 import { vaultPaths } from "@/lib/wikilink";
 
 const HEADING = /^ATXHeading([1-6])$/;

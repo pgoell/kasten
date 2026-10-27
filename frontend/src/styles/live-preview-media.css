@@ -51,7 +51,7 @@
 /* `![[note]]`, another note drawn in this one. The bar and the well make it read
    as quoted rather than as more of this note, the bar matching the blockquote's.
    The nested editor's own background goes, or the editor theme in
-   lib/editor-theme.ts would paint a second panel over the well. */
+   lib/editor/editor-theme.ts would paint a second panel over the well. */
 .cm-embed {
   display: block;
   max-width: 100%;

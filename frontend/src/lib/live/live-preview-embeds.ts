@@ -1,7 +1,7 @@
 import { EditorState, type Extension } from "@codemirror/state";
 import { Decoration, EditorView, WidgetType } from "@codemirror/view";
 import type { SyntaxNode } from "@lezer/common";
-import { kastenTheme } from "@/lib/editor-theme";
+import { kastenTheme } from "@/lib/editor/editor-theme";
 import { EMBED_DEPTH, type EmbedSource, embedDepth, embedSource } from "@/lib/embed";
 import { imagePaths } from "@/lib/image";
 import { HIDDEN, type Walk } from "@/lib/live/live-preview-hidden";

@@ -9,7 +9,7 @@ import {
   type ViewUpdate,
 } from "@codemirror/view";
 import { useEffect, useRef } from "react";
-import { kastenTheme } from "@/lib/editor-theme";
+import { kastenTheme } from "@/lib/editor/editor-theme";
 import { renderedMarkdown } from "@/lib/live/live-preview";
 import { opensFor } from "@/lib/live/live-preview-callouts";
 import { noteLanguage } from "@/lib/note-language";

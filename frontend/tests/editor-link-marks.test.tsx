@@ -1,6 +1,6 @@
 import { act, fireEvent, render } from "@testing-library/react";
 import { Editor } from "@/components/editor";
-import { toggleVim } from "@/lib/vim-setting";
+import { toggleVim } from "@/lib/editor/vim-setting";
 import { finishParsing, renderStarved } from "./parsing";
 
 describe("Editor following a link inside bold or another mark (#432)", () => {

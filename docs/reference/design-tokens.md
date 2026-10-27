@@ -17,7 +17,7 @@ is not a colour sits on `:root` alone.
 
 `app.css` imports the file and hands the colours to Tailwind as `k-*` and
 `tg-*`, so `bg-k-paper` or `text-k-muted` in a component is the token itself.
-The editor's CodeMirror theme (`lib/editor-theme.ts`) and the live preview's
+The editor's CodeMirror theme (`lib/editor/editor-theme.ts`) and the live preview's
 styles name the tokens with `var()`, and follow a switch on their own. The
 graph and the terminal draw on a canvas, which cannot read a variable, so they
 read the tokens' values and read them again on every switch.

@@ -7,11 +7,11 @@
 
 import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
+import { vimKeys } from "@/lib/editor/vim-mode";
 import { imagePaths } from "@/lib/image";
 import { livePreview } from "@/lib/live/live-preview";
 import { drawMermaid, drawnMermaid } from "@/lib/live/mermaid";
 import { noteLanguage } from "@/lib/note-language";
-import { vimKeys } from "@/lib/vim-mode";
 import { vaultPaths } from "@/lib/wikilink";
 
 // Spied, so a test can wait on the drawing a widget asked for.

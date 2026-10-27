@@ -5,21 +5,25 @@ import { Compartment, EditorState, type Extension, type Text } from "@codemirror
 import { EditorView, keymap, lineNumbers } from "@codemirror/view";
 import { vim } from "@replit/codemirror-vim";
 import { basicSetup } from "codemirror";
-import { backticks } from "@/lib/backticks";
-import { FORMAT } from "@/lib/buffer-keys";
-import { fromVault } from "@/lib/buffer-writes";
-import { editorCommands, forwardCommands, leaderPanel } from "@/lib/editor-commands";
-import { byName, reloadHandler, save, saveHandler } from "@/lib/editor-ex";
+import { backticks } from "@/lib/editor/backticks";
+import { FORMAT } from "@/lib/editor/buffer-keys";
+import { fromVault } from "@/lib/editor/buffer-writes";
+import { editorCommands, forwardCommands, leaderPanel } from "@/lib/editor/editor-commands";
+import { byName, reloadHandler, save, saveHandler } from "@/lib/editor/editor-ex";
 import {
   type FileTarget,
   followHandler,
   followOnClick,
   followOnTap,
   highlightHandler,
-} from "@/lib/editor-follow";
-import { kastenTheme } from "@/lib/editor-theme";
+} from "@/lib/editor/editor-follow";
+import { kastenTheme } from "@/lib/editor/editor-theme";
+import { toggleMark } from "@/lib/editor/format-commands";
+import { moveCell } from "@/lib/editor/table";
+import { tableLineup } from "@/lib/editor/table-lineup";
+import { tableSource } from "@/lib/editor/table-source";
+import { vimKeys } from "@/lib/editor/vim-mode";
 import { type EmbedSource, embedSource } from "@/lib/embed";
-import { toggleMark } from "@/lib/format-commands";
 import { imageCompletions, imagePaste, imagePaths, noticeHandler } from "@/lib/image";
 import type { EditorCommands } from "@/lib/key-bindings";
 import { keyboardUnasked } from "@/lib/last-input";
@@ -31,13 +35,9 @@ import { noteLanguage } from "@/lib/note-language";
 import { relationCompletions, vaultRelations } from "@/lib/ontology";
 import { slashCompletions } from "@/lib/palette";
 import { periodicReview, type ReviewSource, reviewSource } from "@/lib/review/periodic-review";
-import { moveCell } from "@/lib/table";
-import { tableLineup } from "@/lib/table-lineup";
-import { tableSource } from "@/lib/table-source";
 import { tagCompletions, vaultTags } from "@/lib/tag";
 import { type CycleHandler, idElsewhere, notePath, todoCycled } from "@/lib/todo/todo-commands";
 import { todoCompletions } from "@/lib/todo/todo-suggest";
-import { vimKeys } from "@/lib/vim-mode";
 import { weatherCard } from "@/lib/weather-card";
 import { vaultPaths, wikiLinkCompletions } from "@/lib/wikilink";
 

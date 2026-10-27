@@ -1,5 +1,5 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react";
-import { toggleVim } from "@/lib/vim-setting";
+import { toggleVim } from "@/lib/editor/vim-setting";
 import { COARSE, NARROW, stubMatchMedia } from "./match-media";
 import { boardHooks, boardPane, CHART, DAILY, renderPane } from "./todo-board-pane-fixture";
 import { pressFocused } from "./todo-pane-fixture";

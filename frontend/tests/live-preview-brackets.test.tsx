@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import type { Extension } from "@codemirror/state";
 import type { EditorView } from "@codemirror/view";
 import { vim } from "@replit/codemirror-vim";
-import { kastenTheme } from "@/lib/editor-theme";
+import { kastenTheme } from "@/lib/editor/editor-theme";
 import { imagePaths } from "@/lib/image";
 import { livePreview } from "@/lib/live/live-preview";
 import { vaultPaths } from "@/lib/wikilink";

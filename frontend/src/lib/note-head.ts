@@ -13,7 +13,7 @@ import {
   ViewPlugin,
   type ViewUpdate,
 } from "@codemirror/view";
-import { followHandler } from "@/lib/editor-follow";
+import { followHandler } from "@/lib/editor/editor-follow";
 import { belowFrontmatter } from "@/lib/frontmatter-language";
 import { noteBody, readField } from "@/lib/note-frontmatter";
 import { type Outline, outlinePlugin, proseLines } from "@/lib/note-outline";

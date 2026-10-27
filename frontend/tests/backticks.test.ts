@@ -1,6 +1,6 @@
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { EditorState } from "@codemirror/state";
-import { backticks, fenceAt } from "@/lib/backticks";
+import { backticks, fenceAt } from "@/lib/editor/backticks";
 
 const FENCE = "```\n\n```";
 

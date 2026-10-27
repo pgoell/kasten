@@ -8,7 +8,7 @@ import { EditorView } from "@codemirror/view";
 import { act, fireEvent, type RenderResult, render, waitFor } from "@testing-library/react";
 import { Editor } from "@/components/editor";
 import { NotePreview } from "@/components/note-preview";
-import { kastenTheme } from "@/lib/editor-theme";
+import { kastenTheme } from "@/lib/editor/editor-theme";
 import { renderedMarkdown } from "@/lib/live/live-preview";
 import { loadKatex } from "@/lib/math";
 import { noteLanguage } from "@/lib/note-language";
