@@ -1259,8 +1259,9 @@ export interface paths {
          * Read Token Actions
          * @description The newest requests one token made, newest first, at most fifty.
          *
-         *     503 rather than an empty list when no database answers, since an empty list
-         *     would say the token had done nothing.
+         *     Every row under the name, the revoked ones included and marked so. 503 rather
+         *     than an empty list when no database answers, since an empty list would say the
+         *     token had done nothing.
          */
         get: operations["read_token_actions_api_tokens__name__actions_get"];
         put?: never;

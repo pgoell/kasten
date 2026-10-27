@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "kasten",
-    "version": "0.124.1"
+    "version": "0.125.0"
   },
   "paths": {
     "/agent/notes/{path}": {
@@ -2410,7 +2410,7 @@
     "/api/tokens/{name}/actions": {
       "get": {
         "summary": "Read Token Actions",
-        "description": "The newest requests one token made, newest first, at most fifty.\n\n503 rather than an empty list when no database answers, since an empty list\nwould say the token had done nothing.",
+        "description": "The newest requests one token made, newest first, at most fifty.\n\nEvery row under the name, the revoked ones included and marked so. 503 rather\nthan an empty list when no database answers, since an empty list would say the\ntoken had done nothing.",
         "operationId": "read_token_actions_api_tokens__name__actions_get",
         "parameters": [
           {
