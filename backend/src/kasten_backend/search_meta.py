@@ -110,8 +110,10 @@ def tags_of(text: str) -> list[str]:
 _held: dict[str, tuple[int, int, list[str]]] = {}
 """The tags each note was last parsed to, with the stamp it had then, by absolute path.
 
-One entry per note the written notes have read, pruned to the live notes on each
-read, so the cache is never bigger than the vault. Parsing a note holding `<!--`
+One entry per note the written notes or a search have read. The written notes
+prune it to the live notes outside the archive on each read, so it holds at most
+the vault and the notes gone since that read; a search only adds, because its
+hits are not the whole vault. Parsing a note holding `<!--`
 takes the slow path through `code_spans`, which is most of a flashcard note's
 cost. An edit changes the file's modification time or its size, so an entry whose
 stamp no longer matches is parsed again and never served.
@@ -152,13 +154,16 @@ def forget_except(root: Path, paths: list[str]) -> None:
 def _read_all(root: Path, paths: list[str]) -> dict[str, tuple[str | None, list[str] | None]]:
     meta: dict[str, tuple[str | None, list[str] | None]] = {}
     for path in paths:
+        # Stamped before the read, as the written notes do: an edit in between is then
+        # seen as a change on the next search rather than kept under the new stamp.
+        moment = stamp(root, path)
         try:
             text = read_note(root, path)
         except UnicodeDecodeError, OSError:
             # A note the client cannot open is still dated by its name and its file.
             text = None
         day = day_of(root, path, text)
-        meta[path] = (day, None if text is None else tags_of(text))
+        meta[path] = (day, None if text is None else cached_tags(root, path, text, moment))
     return meta
 
 

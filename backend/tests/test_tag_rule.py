@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from kasten_backend import mentions, tags, todos
+from kasten_backend.config import get_settings
 from kasten_backend.graph import read_graph
 from kasten_backend.graph_query import query_graph
 from kasten_backend.tags import find_tags
@@ -18,6 +19,7 @@ from kasten_backend.vault import read_note
 
 if TYPE_CHECKING:
     import pytest
+    from httpx import AsyncClient
 
 CASES = json.loads(
     (Path(__file__).parents[2] / "frontend/src/lib/tag-cases.json").read_text(encoding="utf-8")
@@ -211,3 +213,27 @@ def test_i5_name_inside_a_digit_first_tag_is_no_mention() -> None:
     text = "see #2026-10-13-x"
 
     assert mentions.mentions_in("a.md", text, mentions.matcher(["x"]), ["x"]) == []
+
+
+async def test_1238_a3_search_answers_the_tags_of_the_table_cold_and_warm(
+    client: AsyncClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Every case through `GET /api/search`, twice, so the cached answer is held to the table too.
+
+    The word searched for goes on a line of its own at the end, where it cannot
+    change a case's tags: a note the line falls into a comment or fence of keeps
+    its tags, and the second check names any case where it does not.
+    """
+    answers: dict[str, list[list[str] | None]] = {}
+    for case in CASES:
+        root = tmp_path / case["id"]
+        write(root, "note.md", case["text"] + "\nkastenneedle\n")
+        monkeypatch.setenv("KASTEN_VAULT_PATH", str(root))
+        get_settings.cache_clear()
+        answers[case["id"]] = []
+        for _ in range(2):
+            response = await client.get("/api/search", params={"q": "kastenneedle"})
+            hits = response.json()
+            answers[case["id"]].append(hits[0]["tags"] if hits else None)
+
+    assert answers == {case["id"]: [sorted(set(case["tags"]))] * 2 for case in CASES}
