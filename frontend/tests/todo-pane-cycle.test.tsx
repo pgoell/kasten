@@ -1,4 +1,3 @@
-import { waitFor } from "@testing-library/react";
 import { paneHooks, renderPane, TODOS } from "./todo-pane-fixture";
 
 // The doubles, the same in every todo-pane file: see todo-pane-fixture.tsx.
@@ -15,7 +14,8 @@ paneHooks();
 describe("the todo pane", () => {
   it("cycles the row under the cursor on x", async () => {
     const pane = renderPane();
-    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+    await pane.loaded();
+    expect(pane.rows()).toHaveLength(6);
 
     pane.press("j");
     pane.press("x");
@@ -27,7 +27,8 @@ describe("the todo pane", () => {
 
   it("sets the state a shifted key names on the row under the cursor", async () => {
     const pane = renderPane();
-    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+    await pane.loaded();
+    expect(pane.rows()).toHaveLength(6);
 
     pane.press("B");
 
@@ -38,7 +39,8 @@ describe("the todo pane", () => {
 
   it("sets a row to waiting on W", async () => {
     const pane = renderPane();
-    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+    await pane.loaded();
+    expect(pane.rows()).toHaveLength(6);
 
     pane.press("W");
 
@@ -47,7 +49,8 @@ describe("the todo pane", () => {
 
   it("sets a row to review on V", async () => {
     const pane = renderPane();
-    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+    await pane.loaded();
+    expect(pane.rows()).toHaveLength(6);
 
     pane.press("V");
 
@@ -56,7 +59,8 @@ describe("the todo pane", () => {
 
   it("keeps the bare x walking the cycle", async () => {
     const pane = renderPane();
-    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+    await pane.loaded();
+    expect(pane.rows()).toHaveLength(6);
 
     pane.press("x");
 

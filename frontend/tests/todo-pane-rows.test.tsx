@@ -1,4 +1,3 @@
-import { waitFor } from "@testing-library/react";
 import { PRIORITY_SYMBOL } from "@/lib/todo";
 import { paneHooks, renderPane } from "./todo-pane-fixture";
 
@@ -20,7 +19,8 @@ describe("the todo pane", () => {
       { path: "a.md", line: 2, text: "- [ ] call the dentist 📅 2026-08-14" },
     ]);
 
-    await waitFor(() => expect(pane.rows()).toHaveLength(1));
+    await pane.loaded();
+    expect(pane.rows()).toHaveLength(1);
     expect(pane.texts().join()).not.toContain("buy milk");
   });
 
@@ -29,7 +29,8 @@ describe("the todo pane", () => {
       { path: "a.md", line: 1, text: "- [ ] buy milk 📅 2026-08-14 🛫 2026-08-10" },
     ]);
 
-    await waitFor(() => expect(pane.rows()).toHaveLength(1));
+    await pane.loaded();
+    expect(pane.rows()).toHaveLength(1);
     expect(pane.texts()[0]).toContain("buy milk");
   });
 
@@ -38,7 +39,8 @@ describe("the todo pane", () => {
       { path: "a.md", line: 1, text: "- [ ] buy milk 📅 2026-08-14 ⏳ 2026-08-10" },
     ]);
 
-    await waitFor(() => expect(pane.rows()).toHaveLength(1));
+    await pane.loaded();
+    expect(pane.rows()).toHaveLength(1);
     // Each heading carries its row count beside the name (#811 A2).
     expect(pane.headings()).toEqual(["Today 1"]);
   });
@@ -46,7 +48,8 @@ describe("the todo pane", () => {
   it("draws one heading per section that has rows, in order", async () => {
     const pane = renderPane();
 
-    await waitFor(() => expect(pane.rows().length).toBeGreaterThan(0));
+    await pane.loaded();
+    expect(pane.rows().length).toBeGreaterThan(0);
     // Each group carries its row count (#811 A2), and the folded Done this week
     // heading comes last (#811 A3): its chevron is the leading glyph.
     expect(pane.headings()).toEqual([
@@ -65,7 +68,8 @@ describe("the todo pane", () => {
       { path: "a.md", line: 2, text: "- [ ] waiting on the API" },
     ]);
 
-    await waitFor(() => expect(pane.rows()).toHaveLength(2));
+    await pane.loaded();
+    expect(pane.rows()).toHaveLength(2);
     // Each heading carries its row count beside the name (#811 A2).
     expect(pane.headings()).toEqual(["Overdue 1", "No date 1"]);
   });
@@ -73,7 +77,8 @@ describe("the todo pane", () => {
   it("leaves out what is finished and what was never a todo", async () => {
     const pane = renderPane();
 
-    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+    await pane.loaded();
+    expect(pane.rows()).toHaveLength(6);
     expect(pane.texts().join()).not.toContain("read the spec");
     expect(pane.texts().join()).not.toContain("09:12");
   });
@@ -86,7 +91,8 @@ describe("the todo pane", () => {
       { path: "a.md", line: 4, text: "  - [ ] find the number 📅 2026-08-10 ⏬" },
     ]);
 
-    await waitFor(() => expect(pane.rows()).toHaveLength(4));
+    await pane.loaded();
+    expect(pane.rows()).toHaveLength(4);
     // No priority sits between medium and low, so the tax beats the milk. The
     // part travels with the dentist however low it is.
     const [first, second, third, fourth] = pane.texts();
@@ -104,7 +110,8 @@ describe("the todo pane", () => {
       { path: "a.md", line: 4, text: "- [ ] review the draft #client 📅 2026-08-10 ⏫" },
     ]);
 
-    await waitFor(() => expect(pane.rows()).toHaveLength(4));
+    await pane.loaded();
+    expect(pane.rows()).toHaveLength(4);
     const [first, second, third, fourth] = pane.texts();
     expect(first).toContain("review the draft");
     expect(second).toContain("tidy the wiki");
@@ -119,14 +126,16 @@ describe("the todo pane", () => {
       { path: "a.md", line: 3, text: "- [ ] file the tax 📅 2026-08-10" },
     ]);
 
-    await waitFor(() => expect(pane.rows()).toHaveLength(3));
+    await pane.loaded();
+    expect(pane.rows()).toHaveLength(3);
     expect(pane.texts().map((text) => text.includes("◆"))).toEqual([true, true, false]);
   });
 
   it("draws the priority a row carries, and nothing where it carries none", async () => {
     const pane = renderPane();
 
-    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+    await pane.loaded();
+    expect(pane.rows()).toHaveLength(6);
     // Two glyphs on the row and one on the list: `⏫` beside the dentist, and
     // nothing at all beside the one waiting on the API.
     expect((pane.rows()[0] as HTMLElement).textContent).toContain("⏫");
@@ -142,7 +151,8 @@ describe("the todo pane", () => {
       { path: "a.md", line: 2, text: "- [ ] renew the passport 📅 2027-03-01" },
     ]);
 
-    await waitFor(() => expect(pane.rows()).toHaveLength(2));
+    await pane.loaded();
+    expect(pane.rows()).toHaveLength(2);
     expect(pane.texts()[0]).toContain("08-14");
     expect(pane.texts()[0]).not.toContain("2026-08-14");
     expect(pane.texts()[1]).toContain("2027-03-01");

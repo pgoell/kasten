@@ -19,7 +19,8 @@ describe("the todo pane", () => {
       { path: "a.md", line: 2, text: "  - [ ] check the numbers" },
       { path: "a.md", line: 3, text: "- [ ] file the tax 📅 2026-08-10" },
     ]);
-    await waitFor(() => expect(pane.rows()).toHaveLength(3));
+    await pane.loaded();
+    expect(pane.rows()).toHaveLength(3);
 
     pane.type("#client");
     expect(pane.texts().join()).not.toContain("file the tax");
@@ -32,7 +33,8 @@ describe("the todo pane", () => {
 
   it("narrows the list to the rows carrying every term", async () => {
     const pane = renderPane();
-    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+    await pane.loaded();
+    expect(pane.rows()).toHaveLength(6);
 
     pane.type("#kasten !high");
 
@@ -47,7 +49,8 @@ describe("the todo pane", () => {
       { path: "a.md", line: 1, text: "- [ ] see (#next)" },
       { path: "a.md", line: 2, text: "- [ ] buy milk" },
     ]);
-    await waitFor(() => expect(pane.rows()).toHaveLength(2));
+    await pane.loaded();
+    expect(pane.rows()).toHaveLength(2);
 
     pane.type("#next");
 

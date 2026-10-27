@@ -1,4 +1,3 @@
-import { waitFor } from "@testing-library/react";
 import { paneHooks, renderPane, TODOS } from "./todo-pane-fixture";
 
 // The doubles, the same in every todo-pane file: see todo-pane-fixture.tsx.
@@ -15,7 +14,8 @@ paneHooks();
 describe("the todo pane", () => {
   it("starts or stops the timer on the row under the cursor on t", async () => {
     const pane = renderPane();
-    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+    await pane.loaded();
+    expect(pane.rows()).toHaveLength(6);
 
     pane.press("j");
     pane.press("t");
@@ -25,7 +25,8 @@ describe("the todo pane", () => {
 
   it("does nothing on t with no row to press it on", async () => {
     const pane = renderPane([]);
-    await waitFor(() => expect(pane.rows()).toHaveLength(0));
+    await pane.loaded();
+    expect(pane.rows()).toHaveLength(0);
 
     pane.press("t");
 
@@ -57,7 +58,8 @@ describe("the todo pane", () => {
     const pane = renderPane(RUNNING);
 
     // Four rows and not seven: a session line is not a row of its own.
-    await waitFor(() => expect(pane.rows()).toHaveLength(4));
+    await pane.loaded();
+    expect(pane.rows()).toHaveLength(4);
     expect(pane.footer()).toContain("3 running");
     expect(pane.texts()[0]).toContain("▶");
     expect(pane.texts()[1]).toContain("▶");
@@ -66,7 +68,8 @@ describe("the todo pane", () => {
 
   it("names the day of a session left open on an earlier one", async () => {
     const pane = renderPane(RUNNING);
-    await waitFor(() => expect(pane.rows()).toHaveLength(4));
+    await pane.loaded();
+    expect(pane.rows()).toHaveLength(4);
 
     // A timer nobody stopped yesterday, which is what the day beside the mark
     // is there to say.
@@ -77,7 +80,8 @@ describe("the todo pane", () => {
 
   it("counts nothing running where nothing is", async () => {
     const pane = renderPane();
-    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+    await pane.loaded();
+    expect(pane.rows()).toHaveLength(6);
 
     expect(pane.footer()).not.toContain("running");
   });
@@ -90,7 +94,8 @@ describe("the todo pane", () => {
       { path: "a.md", line: 4, text: "- [ ] read the spec 📅 2026-08-10" },
     ]);
 
-    await waitFor(() => expect(pane.rows()).toHaveLength(4));
+    await pane.loaded();
+    expect(pane.rows()).toHaveLength(4);
     expect(pane.texts()[0]).toContain("⏱ 1h20m / 2h");
     expect(pane.texts()[1]).toContain("⏱ 1h20m");
     expect(pane.texts()[1]).not.toContain("/");

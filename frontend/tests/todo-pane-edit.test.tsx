@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen } from "@testing-library/react";
 import { paneHooks, renderPane, TODOS } from "./todo-pane-fixture";
 
 // The doubles, the same in every todo-pane file: see todo-pane-fixture.tsx.
@@ -15,7 +15,8 @@ paneHooks();
 describe("the todo pane", () => {
   it("opens the add prompt on a", async () => {
     const pane = renderPane();
-    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+    await pane.loaded();
+    expect(pane.rows()).toHaveLength(6);
 
     pane.press("a");
 
@@ -26,7 +27,8 @@ describe("the todo pane", () => {
 
   it("opens the same prompt on s, bound to the row under the cursor", async () => {
     const pane = renderPane();
-    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+    await pane.loaded();
+    expect(pane.rows()).toHaveLength(6);
 
     pane.press("j");
     pane.press("s");
@@ -39,7 +41,8 @@ describe("the todo pane", () => {
 
   it("turns the row under the cursor into its own line on i", async () => {
     const pane = renderPane();
-    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+    await pane.loaded();
+    expect(pane.rows()).toHaveLength(6);
 
     pane.press("j");
     pane.press("i");
@@ -53,7 +56,8 @@ describe("the todo pane", () => {
   it("hands the edited line back on enter, and draws a row again", async () => {
     const edited = "- [/] wire up the pane 📅 2026-08-10 ⏳ 2026-08-09 ⏫ #kasten";
     const pane = renderPane();
-    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+    await pane.loaded();
+    expect(pane.rows()).toHaveLength(6);
 
     pane.press("j");
     pane.press("i");
@@ -68,7 +72,8 @@ describe("the todo pane", () => {
 
   it("writes nothing on escape, and gives the keys back to the row", async () => {
     const pane = renderPane();
-    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+    await pane.loaded();
+    expect(pane.rows()).toHaveLength(6);
 
     (pane.cursor() as HTMLElement).focus();
     pane.press("i");
@@ -87,7 +92,8 @@ describe("the todo pane", () => {
 
   it("keeps the list's keys off the line being edited", async () => {
     const pane = renderPane();
-    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+    await pane.loaded();
+    expect(pane.rows()).toHaveLength(6);
 
     pane.press("i");
     // `x` cycles a row and `a` opens the add prompt. In here they are letters.
@@ -100,7 +106,8 @@ describe("the todo pane", () => {
 
   it("offers the fields the line has not got, under the line being edited", async () => {
     const pane = renderPane();
-    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+    await pane.loaded();
+    expect(pane.rows()).toHaveLength(6);
 
     pane.press("i");
 
@@ -119,7 +126,8 @@ describe("the todo pane", () => {
 
   it("writes the field a hint names, and offers the days it takes next", async () => {
     const pane = renderPane();
-    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+    await pane.loaded();
+    expect(pane.rows()).toHaveLength(6);
 
     pane.press("i");
     pane.take("⏳ scheduled");
@@ -138,7 +146,8 @@ describe("the todo pane", () => {
 
   it("keeps the list's keys off a hint", async () => {
     const pane = renderPane();
-    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+    await pane.loaded();
+    expect(pane.rows()).toHaveLength(6);
 
     pane.press("i");
     // Tab reaches the hints, and a key pressed on one bubbles to the pane. The
@@ -150,7 +159,8 @@ describe("the todo pane", () => {
 
   it("does nothing on i with no row to press it on", async () => {
     const pane = renderPane([]);
-    await waitFor(() => expect(pane.rows()).toHaveLength(0));
+    await pane.loaded();
+    expect(pane.rows()).toHaveLength(0);
 
     pane.press("i");
 

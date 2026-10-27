@@ -20,7 +20,8 @@ function rowOf(pane: ReturnType<typeof renderPane>, words: string) {
 describe("the todo pane", () => {
   it("moves the cursor down on j and up on k", async () => {
     const pane = renderPane();
-    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+    await pane.loaded();
+    expect(pane.rows()).toHaveLength(6);
     expect(pane.cursor()?.textContent).toContain("call the dentist");
 
     pane.press("j");
@@ -32,7 +33,8 @@ describe("the todo pane", () => {
 
   it("opens the note the todo is on with enter", async () => {
     const pane = renderPane();
-    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+    await pane.loaded();
+    expect(pane.rows()).toHaveLength(6);
 
     pane.press("j");
     pane.press("Enter");
@@ -47,7 +49,8 @@ describe("the todo pane", () => {
     // is mounted all along and must not steal the focus from under the editor.
     const pane = renderPane(TODOS, 1);
 
-    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+    await pane.loaded();
+    expect(pane.rows()).toHaveLength(6);
     expect(pane.cursor()).toHaveFocus();
   });
 
@@ -57,7 +60,8 @@ describe("the todo pane", () => {
     // it to whatever replaced the row, so without this the pane goes deaf to
     // every key after the first thing you tick off.
     const pane = renderPane(TODOS, 1);
-    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+    await pane.loaded();
+    expect(pane.rows()).toHaveLength(6);
     expect(pane.cursor()).toHaveFocus();
 
     pane.answer(TODOS.filter((hit) => !hit.text.includes("call the dentist")));
@@ -73,7 +77,8 @@ describe("the todo pane", () => {
 
   it("moves the focus to the filter line on /", async () => {
     const pane = renderPane();
-    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+    await pane.loaded();
+    expect(pane.rows()).toHaveLength(6);
 
     pane.press("/");
 
@@ -82,7 +87,8 @@ describe("the todo pane", () => {
 
   it("keeps the filter applied once escape hands the list back the focus", async () => {
     const pane = renderPane();
-    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+    await pane.loaded();
+    expect(pane.rows()).toHaveLength(6);
 
     pane.press("/");
     pane.type("#kasten");
@@ -97,7 +103,8 @@ describe("the todo pane", () => {
 
   it("takes the letters of a filter rather than reading them as keys", async () => {
     const pane = renderPane();
-    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+    await pane.loaded();
+    expect(pane.rows()).toHaveLength(6);
 
     pane.press("/");
     // `j` and `k` are the list's own keys, and in the input they are letters.
@@ -108,7 +115,8 @@ describe("the todo pane", () => {
 
   it("names only the keys this phase binds", async () => {
     const pane = renderPane();
-    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+    await pane.loaded();
+    expect(pane.rows()).toHaveLength(6);
 
     expect(pane.footer()).toContain("x cycle");
     expect(pane.footer()).toContain("a add");
@@ -125,7 +133,8 @@ describe("the todo pane", () => {
 
   it("closes the pane on q", async () => {
     const pane = renderPane();
-    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+    await pane.loaded();
+    expect(pane.rows()).toHaveLength(6);
 
     pane.press("q");
 
@@ -139,7 +148,8 @@ describe("the todo pane", () => {
     // table and not the other is how they used to reach a tab from a note and
     // nothing at all from in here.
     const pane = renderPane();
-    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+    await pane.loaded();
+    expect(pane.rows()).toHaveLength(6);
 
     pane.press(" ");
     pane.press("3");
@@ -149,7 +159,8 @@ describe("the todo pane", () => {
 
   it("still resolves a leader sequence from inside the list", async () => {
     const pane = renderPane();
-    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+    await pane.loaded();
+    expect(pane.rows()).toHaveLength(6);
 
     pane.press(" ");
     pane.press("c");
@@ -160,7 +171,8 @@ describe("the todo pane", () => {
 
   it("#773 A1 enter on a focused row that is not the cursor opens that row", async () => {
     const pane = renderPane();
-    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+    await pane.loaded();
+    expect(pane.rows()).toHaveLength(6);
     rowOf(pane, "buy milk").focus();
 
     pressFocused("Enter");
@@ -170,7 +182,8 @@ describe("the todo pane", () => {
 
   it("#773 A1 enter on a focused header button presses it, not the cursor row's open", async () => {
     const pane = renderPane();
-    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+    await pane.loaded();
+    expect(pane.rows()).toHaveLength(6);
     screen.getByRole("button", { name: "d done" }).focus();
 
     pressFocused("Enter");
@@ -181,7 +194,8 @@ describe("the todo pane", () => {
 
   it("#773 A2 space on a focused row that is not the cursor opens that row and starts no leader", async () => {
     const pane = renderPane();
-    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+    await pane.loaded();
+    expect(pane.rows()).toHaveLength(6);
     rowOf(pane, "buy milk").focus();
 
     pressFocused(" ");
@@ -193,7 +207,8 @@ describe("the todo pane", () => {
 
   it("#773 I1 enter on the cursor row opens its note, and space on it still starts the leader", async () => {
     const pane = renderPane();
-    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+    await pane.loaded();
+    expect(pane.rows()).toHaveLength(6);
     const cursor = pane.cursor() as HTMLElement;
     cursor.focus();
 

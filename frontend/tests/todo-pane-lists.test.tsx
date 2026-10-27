@@ -24,7 +24,8 @@ describe("the todo pane", () => {
 
   it("shows one next action per top level todo on n", async () => {
     const pane = renderPane(NESTED);
-    await waitFor(() => expect(pane.rows()).toHaveLength(4));
+    await pane.loaded();
+    expect(pane.rows()).toHaveLength(4);
 
     pane.press("n");
 
@@ -38,7 +39,8 @@ describe("the todo pane", () => {
 
   it("opens the next action's own line rather than the root's", async () => {
     const pane = renderPane(NESTED);
-    await waitFor(() => expect(pane.rows()).toHaveLength(4));
+    await pane.loaded();
+    expect(pane.rows()).toHaveLength(4);
 
     pane.press("n");
     await waitFor(() => expect(pane.rows()).toHaveLength(2));
@@ -51,7 +53,8 @@ describe("the todo pane", () => {
 
   it("swaps the done list for the next actions rather than showing both", async () => {
     const pane = renderPane(NESTED);
-    await waitFor(() => expect(pane.rows()).toHaveLength(4));
+    await pane.loaded();
+    expect(pane.rows()).toHaveLength(4);
 
     pane.press("d");
     await waitFor(() => expect(pane.rows()).toHaveLength(1));
@@ -63,7 +66,8 @@ describe("the todo pane", () => {
 
   it("puts the full list back on a second n", async () => {
     const pane = renderPane(NESTED);
-    await waitFor(() => expect(pane.rows()).toHaveLength(4));
+    await pane.loaded();
+    expect(pane.rows()).toHaveLength(4);
 
     pane.press("n");
     await waitFor(() => expect(pane.rows()).toHaveLength(2));
@@ -74,7 +78,8 @@ describe("the todo pane", () => {
 
   it("swaps the list for the last seven days of finished work on d", async () => {
     const pane = renderPane();
-    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+    await pane.loaded();
+    expect(pane.rows()).toHaveLength(6);
 
     pane.press("d");
 
@@ -95,7 +100,8 @@ describe("the todo pane", () => {
 
   it("puts the open list back on a second d", async () => {
     const pane = renderPane();
-    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+    await pane.loaded();
+    expect(pane.rows()).toHaveLength(6);
 
     pane.press("d");
     await waitFor(() => expect(pane.rows()).toHaveLength(2));

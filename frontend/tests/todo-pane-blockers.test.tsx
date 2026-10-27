@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { screen } from "@testing-library/react";
 import { paneHooks, renderPane, TODOS, TWINS } from "./todo-pane-fixture";
 
 // The doubles, the same in every todo-pane file: see todo-pane-fixture.tsx.
@@ -15,7 +15,8 @@ paneHooks();
 describe("the todo pane, picking what blocks a todo", () => {
   it("turns the list into a picker on b, and hands both rows over on enter", async () => {
     const pane = renderPane();
-    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+    await pane.loaded();
+    expect(pane.rows()).toHaveLength(6);
 
     pane.press("b");
     expect(pane.picking()).toContain("pick what blocks: call the dentist #health");
@@ -32,7 +33,8 @@ describe("the todo pane, picking what blocks a todo", () => {
 
   it("gives the list back on escape and writes nothing", async () => {
     const pane = renderPane();
-    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+    await pane.loaded();
+    expect(pane.rows()).toHaveLength(6);
 
     pane.press("b");
     pane.press("Escape");
@@ -43,7 +45,8 @@ describe("the todo pane, picking what blocks a todo", () => {
 
   it("does not let a todo block itself, and stays a picker", async () => {
     const pane = renderPane();
-    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+    await pane.loaded();
+    expect(pane.rows()).toHaveLength(6);
 
     pane.press("b");
     pane.press("Enter");
@@ -57,7 +60,8 @@ describe("the todo pane, picking what blocks a todo", () => {
       { path: "a.md", line: 1, text: "- [b] write the docs ⛔ kt-c0ffee" },
       { path: "a.md", line: 2, text: "- [ ] ship the release 🆔 kt-c0ffee" },
     ]);
-    await waitFor(() => expect(pane.rows()).toHaveLength(2));
+    await pane.loaded();
+    expect(pane.rows()).toHaveLength(2);
 
     pane.press("b");
     pane.press("j");
@@ -68,7 +72,8 @@ describe("the todo pane, picking what blocks a todo", () => {
 
   it("keeps every key that acts on a row off the picker", async () => {
     const pane = renderPane();
-    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+    await pane.loaded();
+    expect(pane.rows()).toHaveLength(6);
 
     pane.press("b");
     for (const key of ["x", "X", "t", "a", "s", "i", "d", "q"]) pane.press(key);
@@ -86,7 +91,8 @@ describe("the todo pane, picking what blocks a todo", () => {
       { path: "a.md", line: 1, text: "- [ ] write the docs" },
       { path: "a.md", line: 2, text: "- [ ] ship the release 🛫 2026-09-01" },
     ]);
-    await waitFor(() => expect(pane.rows()).toHaveLength(1));
+    await pane.loaded();
+    expect(pane.rows()).toHaveLength(1);
 
     pane.press("b");
 
@@ -95,7 +101,8 @@ describe("the todo pane, picking what blocks a todo", () => {
 
   it("picks nothing for a finished todo", async () => {
     const pane = renderPane();
-    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+    await pane.loaded();
+    expect(pane.rows()).toHaveLength(6);
 
     pane.press("d");
     pane.press("b");
@@ -111,7 +118,8 @@ describe("the todo pane, picking what blocks a todo", () => {
       { path: "a.md", line: 4, text: "- [ ] tag it ⛔ kt-000002" },
       { path: "a.md", line: 5, text: "- [x] cut the branch ✅ 2026-08-01 🆔 kt-000002" },
     ]);
-    await waitFor(() => expect(pane.rows()).toHaveLength(4));
+    await pane.loaded();
+    expect(pane.rows()).toHaveLength(4);
 
     const [ship, docs, post, tag] = pane.texts();
     expect(ship).toContain("→ 2");
@@ -125,7 +133,8 @@ describe("the todo pane, picking what blocks a todo", () => {
 
   it("#541 A1 holds a row on an id two todos carry, though the done twin is listed last", async () => {
     const pane = renderPane(TWINS);
-    await waitFor(() => expect(pane.rows()).toHaveLength(2));
+    await pane.loaded();
+    expect(pane.rows()).toHaveLength(2);
 
     const [ship, docs] = pane.texts();
     expect(docs).toContain("⛔ kt-aaaaaa");

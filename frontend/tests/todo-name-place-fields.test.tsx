@@ -80,7 +80,8 @@ describe("#1021 the name place in the pane", () => {
   it("#1021 A5 the pane i on a waiting row with an estimate that takes the 👤 puts the cursor after the wait stamp", async () => {
     const line = "- [w] a ⏲ 👤 2026-10-25 👤 2026-10-25";
     const pane = renderPane([{ path: "a.md", line: 1, text: line }]);
-    await waitFor(() => expect(pane.rows()).toHaveLength(1));
+    await pane.loaded();
+    expect(pane.rows()).toHaveLength(1);
 
     pane.press("i");
 
@@ -92,7 +93,8 @@ describe("#1021 the name place in the pane", () => {
   it("#1021 A6 the pane i on a waiting row with a worked time that takes the 👤 puts the cursor after the wait stamp", async () => {
     const line = "- [w] a ⏱ 👤 2026-10-25 👤 2026-10-25";
     const pane = renderPane([{ path: "a.md", line: 1, text: line }]);
-    await waitFor(() => expect(pane.rows()).toHaveLength(1));
+    await pane.loaded();
+    expect(pane.rows()).toHaveLength(1);
 
     pane.press("i");
 
@@ -104,7 +106,8 @@ describe("#1021 the name place in the pane", () => {
   it("#1021 A7 the pane i on a waiting row with an id that takes the 👤 puts the cursor after the wait stamp", async () => {
     const line = "- [w] a 🆔 👤 2026-10-25 👤 2026-10-25";
     const pane = renderPane([{ path: "a.md", line: 1, text: line }]);
-    await waitFor(() => expect(pane.rows()).toHaveLength(1));
+    await pane.loaded();
+    expect(pane.rows()).toHaveLength(1);
 
     pane.press("i");
 
@@ -116,7 +119,8 @@ describe("#1021 the name place in the pane", () => {
   it("#1021 A8 the pane i on a waiting row with a blocker that takes the 👤 puts the cursor after the wait stamp", async () => {
     const line = "- [w] a ⛔ 👤 2026-10-25 👤 2026-10-25";
     const pane = renderPane([{ path: "a.md", line: 1, text: line }]);
-    await waitFor(() => expect(pane.rows()).toHaveLength(1));
+    await pane.loaded();
+    expect(pane.rows()).toHaveLength(1);
 
     pane.press("i");
 
@@ -157,8 +161,9 @@ describe("#1021 the name place with vim off and by touch", () => {
     stubMatchMedia({ [NARROW]: true, [COARSE]: true });
     const line = "- [w] a ⏲ 👤 2026-10-25 👤 2026-10-25";
     const name = "a 2026-10-25";
-    renderPane([{ path: "a.md", line: 1, text: line }]);
-    await waitFor(() => expect(screen.getByLabelText(`more for ${name}`)).toBeInTheDocument());
+    const pane = renderPane([{ path: "a.md", line: 1, text: line }]);
+    await pane.loaded();
+    expect(screen.getByLabelText(`more for ${name}`)).toBeInTheDocument();
 
     fireEvent.click(screen.getByLabelText(`more for ${name}`));
     fireEvent.click(screen.getByLabelText(`edit ${name}`));

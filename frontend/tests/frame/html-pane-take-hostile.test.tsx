@@ -161,7 +161,9 @@ it("at 390x844 with touch, the button sits below the selection and a tap takes i
   render(mounted, [PATH], true);
   const frame = frameOf(mounted, 0);
   await ready(frame);
-  await userEvent.click(frame);
+  // On the words, not the frame's middle: at 390 that lies a few px from the second
+  // story's Share later button, which with another font is under it and saves a dump (#1213).
+  await userEvent.click(inFrame(frame).getByTestId("p2"));
 
   await ask(frame, { probe: "touchSelect", range: ["p2", 0, "p2", 6] }, "selected");
   const { rect } = (await ask(frame, { probe: "selection" }, "selection")) as {
@@ -180,8 +182,11 @@ it("at 390x844 with touch, the button sits below the selection and a tap takes i
 
   await userEvent.click(button);
 
-  await expect.poll(() => api.dumps.length).toBe(1);
-  expect(api.dumps[0]).toContain(`[[${PATH}#2026-10-07-evals-02|Second story]]`);
+  // The whole list and the whole quote, so a second dump says what it was, and a
+  // Share later line, which links the same story, is not taken for the take.
+  await expect
+    .poll(() => api.dumps)
+    .toEqual([`> Yankee\n>\n> [[${PATH}#2026-10-07-evals-02|Second story]]`]);
 });
 
 it("at 390 with touch, the toast goes to the top clear of a low passage", async () => {
@@ -226,7 +231,8 @@ it("at 390 with touch, a high passage keeps the toast at the foot", async () => 
   render(mounted, [PATH], true);
   const frame = frameOf(mounted, 0);
   await ready(frame);
-  await userEvent.click(frame);
+  // On the words, for the Share later button the first touch test gives.
+  await userEvent.click(inFrame(frame).getByTestId("p1"));
 
   await ask(frame, { probe: "touchSelect", range: ["p1", 0, "p1", 6] }, "selected");
   const { rect } = (await ask(frame, { probe: "selection" }, "selection")) as {

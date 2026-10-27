@@ -16,7 +16,8 @@ paneHooks();
 describe("the todo pane", () => {
   it("puts the first view's terms in the filter line on v", async () => {
     const pane = renderPane();
-    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+    await pane.loaded();
+    expect(pane.rows()).toHaveLength(6);
 
     pane.press("v");
 
@@ -31,7 +32,8 @@ describe("the todo pane", () => {
 
   it("walks to the next view on a second v", async () => {
     const pane = renderPane();
-    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+    await pane.loaded();
+    expect(pane.rows()).toHaveLength(6);
 
     pane.press("v");
     pane.press("v");
@@ -43,7 +45,8 @@ describe("the todo pane", () => {
 
   it("gives the whole list back one press past the last view", async () => {
     const pane = renderPane();
-    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+    await pane.loaded();
+    expect(pane.rows()).toHaveLength(6);
 
     // One press per view the defaults hold, which lands on the last of them.
     pane.press("v");
@@ -60,7 +63,8 @@ describe("the todo pane", () => {
 
   it("takes the name out of the header when the line is typed into", async () => {
     const pane = renderPane();
-    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+    await pane.loaded();
+    expect(pane.rows()).toHaveLength(6);
 
     pane.press("v");
     await waitFor(() => expect(pane.view()).toBe("today"));
@@ -73,7 +77,8 @@ describe("the todo pane", () => {
   it("says so and narrows nothing where the vault answers with no views", async () => {
     fetchNote.mockRejectedValueOnce(new Error("GET /api/files/… failed with 404"));
     const pane = renderPane();
-    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+    await pane.loaded();
+    expect(pane.rows()).toHaveLength(6);
 
     pane.press("v");
 
@@ -84,7 +89,8 @@ describe("the todo pane", () => {
   it("writes the views note on the first v in a vault with none", async () => {
     fetchFiles.mockResolvedValue(["projects/kasten.md"]);
     const pane = renderPane();
-    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+    await pane.loaded();
+    expect(pane.rows()).toHaveLength(6);
 
     pane.press("v");
 
@@ -97,7 +103,8 @@ describe("the todo pane", () => {
   it("sends one create however fast the second v comes", async () => {
     fetchFiles.mockResolvedValue(["projects/kasten.md"]);
     const pane = renderPane();
-    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+    await pane.loaded();
+    expect(pane.rows()).toHaveLength(6);
 
     pane.press("v");
     pane.press("v");
@@ -108,7 +115,8 @@ describe("the todo pane", () => {
 
   it("writes nothing where the vault already holds the note", async () => {
     const pane = renderPane();
-    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+    await pane.loaded();
+    expect(pane.rows()).toHaveLength(6);
 
     pane.press("v");
 
@@ -120,7 +128,8 @@ describe("the todo pane", () => {
     fetchFiles.mockResolvedValue(["projects/kasten.md"]);
     createNote.mockRejectedValueOnce(new Error("POST /api/files/… failed with 500"));
     const pane = renderPane();
-    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+    await pane.loaded();
+    expect(pane.rows()).toHaveLength(6);
 
     pane.press("v");
 
@@ -131,7 +140,8 @@ describe("the todo pane", () => {
   it("says so for a note holding no line it can read", async () => {
     fetchNote.mockResolvedValue("# Todo views\n\nNone written yet.\n");
     const pane = renderPane();
-    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+    await pane.loaded();
+    expect(pane.rows()).toHaveLength(6);
 
     pane.press("v");
 
