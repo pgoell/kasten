@@ -253,6 +253,38 @@ async def test_a_file_that_will_not_extract_gives_no_hits_and_no_error(
     assert [hit["path"] for hit in hits] == ["note.md"]
 
 
+async def test_an_epub_with_damaged_compressed_bytes_gives_no_hits_and_no_error(
+    client: AsyncClient, vault: Path
+) -> None:
+    book = bytearray(epub([xhtml("<p>a needle in the book</p>")]))
+    # The first member's deflated bytes start after its 30 byte header and name;
+    # the mimetype comes first, so damage the container that follows it.
+    at = book.index(b"META-INF/container.xml") + len("META-INF/container.xml")
+    for index in range(at + 2, at + 12):
+        book[index] ^= 0xFF
+    put(vault, "broken.epub", bytes(book))
+    put(vault, "paper.pdf", pdf([["a needle on a page"]]))
+    put(vault, "note.md", "a needle in a note\n")
+
+    hits = await search(client, "needle")
+
+    assert [hit["path"] for hit in hits] == ["note.md", "paper.pdf"]
+
+
+async def test_no_file_hit_comes_back_once_the_notes_fill_the_cap(
+    client: AsyncClient, vault: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    cap = 2
+    monkeypatch.setattr("kasten_backend.search.MOST_HITS", cap)
+    monkeypatch.setattr(search_route, "MOST_HITS", cap)
+    put(vault, "note.md", "derived one\nderived two\nderived three\n")
+    put(vault, "paper.pdf", pdf([["derived a"]]))
+
+    hits = await search(client, "derived")
+
+    assert [hit["path"] for hit in hits] == ["note.md", "note.md"]
+
+
 async def test_a_blank_query_answers_nothing_and_extracts_nothing(
     client: AsyncClient, vault: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

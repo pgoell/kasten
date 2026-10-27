@@ -15,6 +15,7 @@ import posixpath
 import tempfile
 import xml.etree.ElementTree as ET
 import zipfile
+import zlib
 from functools import lru_cache
 from html.parser import HTMLParser
 from pathlib import Path
@@ -263,6 +264,11 @@ def _extract(path: Path) -> Extracted:
     except (
         pypdfium2.PdfiumError,
         zipfile.BadZipFile,
+        # A member whose deflated bytes are damaged, compressed some way zipfile
+        # does not read, or encrypted.
+        zlib.error,
+        NotImplementedError,
+        RuntimeError,
         KeyError,
         ValueError,
         UnicodeDecodeError,

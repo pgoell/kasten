@@ -94,8 +94,13 @@ async def search_files(
     await file_text.refresh(root, cache, skip)
 
     notes = await search_vault(root, q, skip)
-    texts = await scan_vault(
-        cache, literal_matcher(q), MOST_HITS - len(notes), skip, listing=TEXT_LISTING
+    room = MOST_HITS - len(notes)
+    # No scan at all once the notes fill the cap: `scan_vault` stops when it
+    # reaches its cap, and a cap of nothing is never reached.
+    texts = (
+        await scan_vault(cache, literal_matcher(q), room, skip, listing=TEXT_LISTING)
+        if room > 0
+        else []
     )
 
     # A file dated by its note, as the note's own lines are; with no note, by its name or its file.

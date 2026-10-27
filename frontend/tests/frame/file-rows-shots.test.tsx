@@ -145,7 +145,7 @@ for (const [label, size] of [
   for (const theme of ["light", "dark"] as const) {
     it.skipIf(!SHOTS)(
       `finder-files-${label}-${theme}`,
-      () => shoot(`finder-files-${label}-${theme}`, size, theme, finder, "ha"),
+      () => shoot(`finder-files-${label}-${theme}`, size, theme, finder, "e"),
       300_000,
     );
     it.skipIf(!SHOTS)(
