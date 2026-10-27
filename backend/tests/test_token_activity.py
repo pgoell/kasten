@@ -8,6 +8,7 @@ table's, and the answers are what a token holder and the browser see.
 import asyncio
 import hashlib
 import logging
+from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import text
@@ -239,3 +240,63 @@ async def test_no_row_carries_a_secret_or_a_query(
         assert "zebrasecret" not in answer
     rows = await actions(client)
     assert [row["path"] for row in rows] == ["/agent/search"]
+
+
+async def test_a_reminted_name_ignores_the_old_secrets_calls_for_last_use(
+    client: AsyncClient, agent_vault: Path, bearer: dict[str, str], activity: AsyncEngine
+) -> None:
+    await client.delete("/api/tokens/laptop")
+    minted = await client.post("/api/tokens", json={"name": "laptop"})
+    fresh = {"Authorization": f"Bearer {minted.json()['secret']}"}
+
+    old_refused = await client.get("/agent/notes", headers=bearer)
+
+    assert old_refused.status_code == 401
+    listed = (await client.get("/api/tokens")).json()
+    laptop = next(entry for entry in listed if entry["name"] == "laptop")
+    assert laptop.get("last_used") is None
+
+    new_read = await client.get("/agent/notes", headers=fresh)
+
+    assert new_read.status_code == 200
+    listed = (await client.get("/api/tokens")).json()
+    laptop = next(entry for entry in listed if entry["name"] == "laptop")
+    assert laptop.get("last_used") is not None
+    assert datetime.fromisoformat(laptop["last_used"]) >= datetime.fromisoformat(laptop["created"])
+
+
+async def test_a_long_path_is_cut_to_1024_characters(
+    client: AsyncClient, agent_vault: Path, bearer: dict[str, str], activity: AsyncEngine
+) -> None:
+    await client.get(f"/agent/notes/{'a' * 3000}.md", headers=bearer)
+
+    rows = await actions(client)
+    assert len(rows[0]["path"]) == 1024
+    assert len(rows[0]["note"]) == 1024
+
+
+async def test_the_cloudflare_address_wins_over_the_forwarded_hops(
+    client: AsyncClient, agent_vault: Path, bearer: dict[str, str], activity: AsyncEngine
+) -> None:
+    headers = {
+        **bearer,
+        "Cf-Connecting-Ip": "192.0.2.44",
+        "X-Forwarded-For": "192.0.2.44, 172.70.1.1",
+    }
+
+    await client.get("/agent/notes", headers=headers)
+
+    rows = await actions(client)
+    assert rows[0]["client"] == "192.0.2.44"
+
+
+async def test_the_actions_answer_503_when_the_database_hangs(
+    client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("KASTEN_ACTIVITY_TIMEOUT_SECONDS", "0.2")
+    get_settings.cache_clear()
+    monkeypatch.setattr(db, "session_factory", Hung)
+
+    response = await client.get(ACTIONS)
+
+    assert response.status_code == 503
