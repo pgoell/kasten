@@ -75,6 +75,11 @@ one note cannot overwrite each other. A video wound back to the start, or played
 to its end, drops out of the mapping rather than storing a zero, so it opens at
 the start next time.
 
+Only the linked video writes its entry. A player that moves on to another video,
+such as a suggestion picked on YouTube's end screen, writes nothing while it
+plays that one, in the pane or in the note, and closing the pane then writes
+nothing either. Back on the linked video, it writes again.
+
 ### Speed and captions
 
 Every player, in the pane or in a note, takes the speed and captions you last
