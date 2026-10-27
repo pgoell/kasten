@@ -3,12 +3,17 @@ import { type Dispatch, type RefObject, type SetStateAction, useCallback, useRef
 import { createNote, fetchNote, type SearchHit, type TodoHit, updateNote } from "@/lib/api";
 import { readClock } from "@/lib/clock";
 import { heldText } from "@/lib/held-text";
-import type { TodoState } from "@/lib/todo";
-import { agentTodoIn, cycleTodoAside, cycleTodoInVault, toggleTimerInVault } from "@/lib/todo-api";
-import type { TodoCycle } from "@/lib/todo-commands";
-import { blockTodoInVault, editTodoInVault } from "@/lib/todo-line-edits";
-import { beginPress, endPress } from "@/lib/todo-press-echo";
-import { fileUnderTodos, lineOf, projectNote, refileOf } from "@/lib/todo-refile";
+import type { TodoState } from "@/lib/todo/todo";
+import {
+  agentTodoIn,
+  cycleTodoAside,
+  cycleTodoInVault,
+  toggleTimerInVault,
+} from "@/lib/todo/todo-api";
+import type { TodoCycle } from "@/lib/todo/todo-commands";
+import { blockTodoInVault, editTodoInVault } from "@/lib/todo/todo-line-edits";
+import { beginPress, endPress } from "@/lib/todo/todo-press-echo";
+import { fileUnderTodos, lineOf, projectNote, refileOf } from "@/lib/todo/todo-refile";
 import type { GuardedWrites } from "@/lib/use-guarded-writes";
 
 export type TodoActions = ReturnType<typeof useTodoActions>;

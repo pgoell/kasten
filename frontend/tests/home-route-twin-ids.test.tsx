@@ -6,7 +6,7 @@ import { readClock } from "@/lib/clock";
 import { noteBase } from "@/lib/note-base";
 import type { PdfRenderer } from "@/lib/pdf-view";
 import { periodicNote } from "@/lib/periodic";
-import type { TodoState } from "@/lib/todo";
+import type { TodoState } from "@/lib/todo/todo";
 import { hashed } from "./digests";
 import { defineFoliateFake } from "./foliate-fake";
 import { act, outside, pageHooks, renderApp, settle, theRoute, VAULT } from "./home-route-fixture";

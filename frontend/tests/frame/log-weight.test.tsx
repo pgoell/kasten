@@ -17,7 +17,7 @@ import { shiftDay } from "@/lib/clock";
 import type { LogDay } from "@/lib/food-api";
 import { logCard } from "@/lib/log-card";
 import { periodicNote } from "@/lib/periodic";
-import { notePath } from "@/lib/todo-commands";
+import { notePath } from "@/lib/todo/todo-commands";
 import { routeTree } from "@/routeTree.gen";
 import { COARSE, NARROW, stubMatchMedia } from "../match-media";
 import "@/styles/app.css";

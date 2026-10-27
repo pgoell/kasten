@@ -1,4 +1,4 @@
-import { formatTodo } from "@/lib/todo";
+import { formatTodo } from "@/lib/todo/todo";
 import { EXAMPLE, parsed } from "./todo-fixture";
 
 describe("formatTodo", () => {

@@ -10,7 +10,7 @@ import { commands, page } from "vitest/browser";
 import { type Food, fetchLog, readBarcode, searchFood } from "@/lib/food-api";
 import { logCard } from "@/lib/log-card";
 import { fetchMyFoods } from "@/lib/my-foods";
-import { notePath } from "@/lib/todo-commands";
+import { notePath } from "@/lib/todo/todo-commands";
 import "@/styles/app.css";
 import { centreOf, nextFrame, pointer, wait } from "./sheet-fixture";
 

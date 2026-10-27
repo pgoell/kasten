@@ -1,5 +1,5 @@
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
-import { DEFAULT_VIEWS, parseViews } from "@/lib/todo-view";
+import { DEFAULT_VIEWS, parseViews } from "@/lib/todo/todo-view";
 import { toggleVim } from "@/lib/vim-setting";
 import { COARSE, NARROW, stubMatchMedia } from "./match-media";
 import { boardHooks, renderPane, TAP } from "./todo-board-pane-fixture";

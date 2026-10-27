@@ -21,6 +21,7 @@ import type { Outline as OutlineState } from "@/lib/note-head";
 import type { Pane } from "@/lib/panes";
 import { indexAt } from "@/lib/rsvp";
 import { markdownWords } from "@/lib/rsvp-sources";
+import type { TodoActions } from "@/lib/todo/use-todo-actions";
 import type { useAutosave } from "@/lib/use-autosave";
 import type { BufferSync } from "@/lib/use-buffer-sync";
 import { paneView } from "@/lib/use-food-wait";
@@ -29,7 +30,6 @@ import type { Listings } from "@/lib/use-listings";
 import type { NoteOpening } from "@/lib/use-note-opening";
 import { usePaneWide } from "@/lib/use-pane-wide";
 import { type RsvpAsk, useRsvpAsk } from "@/lib/use-rsvp";
-import type { TodoActions } from "@/lib/use-todo-actions";
 
 type Autosave = ReturnType<typeof useAutosave>;
 

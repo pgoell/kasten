@@ -12,7 +12,7 @@ import {
   personDone,
   personTodos,
 } from "@/lib/person";
-import { PRIORITY_SYMBOL, STATE_SYMBOL } from "@/lib/todo";
+import { PRIORITY_SYMBOL, STATE_SYMBOL } from "@/lib/todo/todo";
 import { plainLinks } from "@/lib/wikilink";
 
 interface PersonCardProps {

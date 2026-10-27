@@ -2,7 +2,7 @@
 type: Reference
 title: Todo format
 description: The line a todo is written on, every field it carries, the seven states, the cycle, the done log, the time log, the tag that marks client work, the tag that hands a todo to the agent worker, the terms that filter one, and the note that saves them.
-resource: frontend/src/lib/todo.ts
+resource: frontend/src/lib/todo/todo.ts
 tags: [vault, todos, format, frontend]
 status: stable
 ---

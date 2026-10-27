@@ -8,7 +8,7 @@ import { type Food, fetchLog, type LogDay, readBarcode, searchFood } from "@/lib
 import { logCard } from "@/lib/log-card";
 import { drinkTotals } from "@/lib/log-lines";
 import { addMyFood, fetchMyFoods } from "@/lib/my-foods";
-import { notePath } from "@/lib/todo-commands";
+import { notePath } from "@/lib/todo/todo-commands";
 import { vimKeys, vimModeField, vimModeState } from "@/lib/vim-mode";
 
 vi.mock("@/lib/food-api", () => ({

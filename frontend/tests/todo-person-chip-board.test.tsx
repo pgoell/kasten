@@ -1,5 +1,5 @@
 import { fireEvent, waitFor } from "@testing-library/react";
-import { DEFAULT_VIEWS, VIEWS_NOTE } from "@/lib/todo-view";
+import { DEFAULT_VIEWS, VIEWS_NOTE } from "@/lib/todo/todo-view";
 import { COARSE, NARROW, stubMatchMedia } from "./match-media";
 import { boardHooks, boardPane, DAILY } from "./todo-board-pane-fixture";
 

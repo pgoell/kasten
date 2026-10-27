@@ -2,7 +2,7 @@
 type: Reference
 title: Repeats, the done log and the time log
 description: The recurrence rules a todo repeats on, the done log that records a finished todo in the daily note, and the time log that records the sessions a todo was worked in.
-resource: frontend/src/lib/todo.ts
+resource: frontend/src/lib/todo/todo.ts
 tags: [vault, todos, format, frontend]
 status: stable
 ---

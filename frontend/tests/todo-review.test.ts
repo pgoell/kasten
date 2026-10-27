@@ -1,4 +1,4 @@
-import { isOpen, parseTodo, patchLine, setStateOn, type TodoState } from "@/lib/todo";
+import { isOpen, parseTodo, patchLine, setStateOn, type TodoState } from "@/lib/todo/todo";
 import { FRESH, parsed, press, TODAY } from "./todo-fixture";
 
 describe("a todo waiting for review", () => {

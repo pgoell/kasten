@@ -12,7 +12,7 @@ import { logCard } from "@/lib/log-card";
 import { parseConfig } from "@/lib/log-kinds";
 import { INSERTS, paletteEntries, slashCompletions, writeInsert } from "@/lib/palette";
 import { periodicNote } from "@/lib/periodic";
-import { notePath, todoCycled } from "@/lib/todo-commands";
+import { notePath, todoCycled } from "@/lib/todo/todo-commands";
 import { stubCommands } from "./stub-commands";
 
 vi.mock("@/lib/food-api", () => ({

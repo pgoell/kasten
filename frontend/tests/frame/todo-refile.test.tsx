@@ -8,7 +8,7 @@ import { createRoot } from "react-dom/client";
 import { page } from "vitest/browser";
 import { TodoPane } from "@/components/todo-pane";
 import type { TodoHit } from "@/lib/api";
-import { DEFAULT_VIEWS } from "@/lib/todo-view";
+import { DEFAULT_VIEWS } from "@/lib/todo/todo-view";
 import { COARSE, NARROW, stubMatchMedia } from "../match-media";
 import { stubCommands } from "../stub-commands";
 import { shot } from "./shots";

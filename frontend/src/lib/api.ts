@@ -2,7 +2,7 @@ import { client, postFile, reason, refused } from "@/lib/api-client";
 import type { components } from "@/lib/api-types";
 import { applyLayout, type Layout } from "@/lib/layout";
 import { noteBase } from "@/lib/note-base";
-import { pressWrote } from "@/lib/todo-press-echo";
+import { pressWrote } from "@/lib/todo/todo-press-echo";
 
 /** One note as the vault holds it: where it lives, and what is in it. */
 export type Note = components["schemas"]["Note"];
@@ -128,7 +128,7 @@ export async function importAnki(
 /**
  * The same import from a link: an AnkiWeb shared-deck page or a plain `.apkg`.
  *
- * The backend fetches it, so a phone never has to download the deck only to
+ * The backend fetches it, so a phone never downloads the deck only to
  * upload it again, and the answer is the one `importAnki` gets.
  */
 export async function importAnkiLink(url: string, carry: boolean): Promise<AnkiImport> {

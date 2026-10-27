@@ -3,7 +3,7 @@ import { useMemo } from "react";
 import type { TodoHit } from "@/lib/api";
 import { noteBase } from "@/lib/note-base";
 import type { PdfRenderer } from "@/lib/pdf-view";
-import type { TodoState } from "@/lib/todo";
+import type { TodoState } from "@/lib/todo/todo";
 import { digestOf } from "@/lib/vault-events";
 import { hashed } from "./digests";
 import { defineFoliateFake, FakeView, lastView, resetFoliateFake } from "./foliate-fake";

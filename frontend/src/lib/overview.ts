@@ -7,8 +7,8 @@
 
 import type { LineHit, TodoHit } from "@/lib/api";
 import { readClock, shiftDay } from "@/lib/clock";
-import { isOpen, parseTodo } from "@/lib/todo";
-import { sectionOf } from "@/lib/todo-view";
+import { isOpen, parseTodo } from "@/lib/todo/todo";
+import { sectionOf } from "@/lib/todo/todo-view";
 
 const DAY_MS = 86_400_000;
 

@@ -4,7 +4,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { fetchNote } from "@/lib/api";
 import { fetchLog } from "@/lib/food-api";
 import { logCard } from "@/lib/log-card";
-import { notePath } from "@/lib/todo-commands";
+import { notePath } from "@/lib/todo/todo-commands";
 
 vi.mock("@/lib/api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/api")>()),

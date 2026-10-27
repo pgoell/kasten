@@ -1,5 +1,5 @@
-import { parseTodo, type Todo } from "@/lib/todo";
-import type { Closed } from "@/lib/todo-blocked";
+import { parseTodo, type Todo } from "@/lib/todo/todo";
+import type { Closed } from "@/lib/todo/todo-blocked";
 
 /** The day every test below is written against, so no assertion expires. */
 export const TODAY = "2026-08-10";

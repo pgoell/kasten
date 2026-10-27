@@ -3,9 +3,9 @@ import { Decoration, WidgetType } from "@codemirror/view";
 import type { SyntaxNode } from "@lezer/common";
 import { readClock } from "@/lib/clock";
 import type { Walk } from "@/lib/live-preview-hidden";
-import { masked, parseTodo } from "@/lib/todo";
-import { DUE } from "@/lib/todo-fields";
-import { descendants, type Placed, progressOf, treeOf } from "@/lib/todo-view";
+import { masked, parseTodo } from "@/lib/todo/todo";
+import { DUE } from "@/lib/todo/todo-fields";
+import { descendants, type Placed, progressOf, treeOf } from "@/lib/todo/todo-view";
 
 /** How far one level of list nesting shifts a rendered item, in `em`. */
 const BULLET_INDENT = 1.6;

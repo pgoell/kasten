@@ -17,9 +17,9 @@ import type { MoveMode } from "@/lib/move";
 import { flush as flushOutbox, keep } from "@/lib/outbox";
 import { mapPanes, openInFocused, openTerminalInFocused } from "@/lib/pane-contents";
 import type { Layout } from "@/lib/panes";
-import { parseTodo } from "@/lib/todo";
-import { addTodoInVault } from "@/lib/todo-api";
-import { addSubtaskInVault } from "@/lib/todo-line-edits";
+import { parseTodo } from "@/lib/todo/todo";
+import { addTodoInVault } from "@/lib/todo/todo-api";
+import { addSubtaskInVault } from "@/lib/todo/todo-line-edits";
 
 export type Prompts = ReturnType<typeof usePrompts>;
 

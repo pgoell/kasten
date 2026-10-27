@@ -37,6 +37,7 @@ import {
   type Layout,
   tabPanes,
 } from "@/lib/panes";
+import type { TodoActions } from "@/lib/todo/use-todo-actions";
 import type { SaveStatus, useAutosave } from "@/lib/use-autosave";
 import type { BufferSync } from "@/lib/use-buffer-sync";
 import type { GuardedWrites } from "@/lib/use-guarded-writes";
@@ -44,7 +45,6 @@ import type { Listings } from "@/lib/use-listings";
 import type { LogActions } from "@/lib/use-log-actions";
 import { makeNote, type NoteOpening } from "@/lib/use-note-opening";
 import { useRsvpAsked } from "@/lib/use-rsvp";
-import type { TodoActions } from "@/lib/use-todo-actions";
 
 type Autosave = ReturnType<typeof useAutosave>;
 

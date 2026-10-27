@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import type { SearchHit } from "@/lib/api";
-import type { TodoState } from "@/lib/todo";
+import type { TodoState } from "@/lib/todo/todo";
 
 /**
  * The lines of every listed todo in the hit's note with its very words, the

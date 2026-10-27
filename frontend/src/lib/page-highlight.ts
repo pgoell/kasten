@@ -1,7 +1,7 @@
 import { updateNote } from "@/lib/api";
 import { addHighlight } from "@/lib/highlight";
 import { quoteParagraphs } from "@/lib/html-take";
-import { newId } from "@/lib/todo";
+import { newId } from "@/lib/todo/todo";
 
 /**
  * Write a passage from a vault page under `## Highlights` of a note, in the

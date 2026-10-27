@@ -1,6 +1,6 @@
 import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { cycleLine, parseTodo, setStateOn, type TodoState } from "@/lib/todo";
+import { cycleLine, parseTodo, setStateOn, type TodoState } from "@/lib/todo/todo";
 
 // Off unless KASTEN_LIVE_COPY names a read-only copy of a live vault, because
 // the walk reads a vault nobody here owns. KASTEN_LIVE_OUT is where the JSON of

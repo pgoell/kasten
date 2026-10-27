@@ -11,7 +11,7 @@ import "@fontsource-variable/instrument-sans/index.css";
 import "@fontsource-variable/jetbrains-mono/index.css";
 import { commands } from "vitest/browser";
 import { applyTheme, PALETTE_KEY, THEME_KEY, type Theme } from "@/lib/theme";
-import { DEFAULT_VIEWS } from "@/lib/todo-view";
+import { DEFAULT_VIEWS } from "@/lib/todo/todo-view";
 import { FILES, HITS, mount, mountCard, PEOPLE } from "./person-chip-fixture";
 import { shot } from "./shots";
 

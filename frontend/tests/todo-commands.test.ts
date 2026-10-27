@@ -2,7 +2,12 @@ import { history, undo } from "@codemirror/commands";
 import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { periodicNote } from "@/lib/periodic";
-import { cycleTodoAtCursor, idElsewhere, notePath, stampIdAtCursor } from "@/lib/todo-commands";
+import {
+  cycleTodoAtCursor,
+  idElsewhere,
+  notePath,
+  stampIdAtCursor,
+} from "@/lib/todo/todo-commands";
 
 /** A bare view over `doc`, the cursor at `anchor`. No note path, so no log line is written. */
 function open(doc: string, anchor: number) {

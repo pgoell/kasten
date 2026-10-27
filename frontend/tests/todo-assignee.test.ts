@@ -2,10 +2,17 @@ import { EditorView } from "@codemirror/view";
 import { fireEvent, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, vi } from "vitest";
 import cases from "@/lib/person-field-cases.json";
-import { cycleLine, formatTodo, nameAt, parseTodo, setStateOn, type TodoState } from "@/lib/todo";
-import { cycleTodoAtCursor } from "@/lib/todo-commands";
-import { expandShorthand } from "@/lib/todo-shorthand";
-import { cycleLines } from "@/lib/todo-write";
+import {
+  cycleLine,
+  formatTodo,
+  nameAt,
+  parseTodo,
+  setStateOn,
+  type TodoState,
+} from "@/lib/todo/todo";
+import { cycleTodoAtCursor } from "@/lib/todo/todo-commands";
+import { expandShorthand } from "@/lib/todo/todo-shorthand";
+import { cycleLines } from "@/lib/todo/todo-write";
 import { open } from "./keybindings-fixture";
 import { FRESH } from "./todo-fixture";
 import { paneHooks, renderPane } from "./todo-pane-fixture";

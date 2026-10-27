@@ -7,8 +7,8 @@ import type { EmbedSource } from "@/lib/embed";
 import type { EditorCommands } from "@/lib/key-bindings";
 import { Leaving, useBlurWhenLeaving, useLeaving } from "@/lib/leaving";
 import type { Outline } from "@/lib/note-head";
-import { parseTodo } from "@/lib/todo";
-import type { TodoCycle } from "@/lib/todo-commands";
+import { parseTodo } from "@/lib/todo/todo";
+import type { TodoCycle } from "@/lib/todo/todo-commands";
 
 interface NoteEditorProps {
   /** Vault-relative path of the note to open. */

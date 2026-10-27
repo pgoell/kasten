@@ -5,9 +5,9 @@
  * comes back, or the sentence the foot shows when it writes nothing.
  */
 
-import { parseTodo, todoTagsOn, wordsEnd } from "@/lib/todo";
-import { descendants, inherited, isClient, type Placed, treeOf } from "@/lib/todo-view";
-import { pressedLine } from "@/lib/todo-write";
+import { parseTodo, todoTagsOn, wordsEnd } from "@/lib/todo/todo";
+import { descendants, inherited, isClient, type Placed, treeOf } from "@/lib/todo/todo-view";
+import { pressedLine } from "@/lib/todo/todo-write";
 
 /** The tag the agent worker picks a todo up by. */
 export const AGENT = "#agent";

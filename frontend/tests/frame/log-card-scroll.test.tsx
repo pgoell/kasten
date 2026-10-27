@@ -12,7 +12,7 @@ import { page } from "vitest/browser";
 import { fetchNote, NoteMissing } from "@/lib/api";
 import { logCard } from "@/lib/log-card";
 import { paletteEntries } from "@/lib/palette";
-import { notePath } from "@/lib/todo-commands";
+import { notePath } from "@/lib/todo/todo-commands";
 import { stubCommands } from "../stub-commands";
 import "@/styles/app.css";
 

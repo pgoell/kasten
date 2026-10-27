@@ -1,9 +1,9 @@
 import type { RefObject } from "react";
 import type { BoardKeys } from "@/components/todo-board";
 import type { EditorCommands } from "@/lib/key-bindings";
-import type { TodoState } from "@/lib/todo";
+import type { TodoState } from "@/lib/todo/todo";
+import type { Mode } from "@/lib/todo/use-todo-rows";
 import { useLeader } from "@/lib/use-leader";
-import type { Mode } from "@/lib/use-todo-rows";
 
 /**
  * The state each shifted key names. `p` for in progress, `d` being spent; `v`

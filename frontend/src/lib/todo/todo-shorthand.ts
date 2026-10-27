@@ -12,10 +12,10 @@
  */
 
 import { shiftDay } from "@/lib/clock";
-import { type Todo, type TodoState, wordTags } from "@/lib/todo";
-import type { TodoPriority } from "@/lib/todo-fields";
-import { formatRecurrence, parseRecurrence } from "@/lib/todo-recur";
-import { parseDuration } from "@/lib/todo-time";
+import { type Todo, type TodoState, wordTags } from "@/lib/todo/todo";
+import type { TodoPriority } from "@/lib/todo/todo-fields";
+import { formatRecurrence, parseRecurrence } from "@/lib/todo/todo-recur";
+import { parseDuration } from "@/lib/todo/todo-time";
 
 export type DueWindow = "today" | "overdue" | "week";
 

@@ -3,7 +3,7 @@ import { act, fireEvent, render, screen, waitFor, within } from "@testing-librar
 import { TodoPane } from "@/components/todo-pane";
 import { createNote, fetchFiles, fetchNote, fetchTodos, type TodoHit } from "@/lib/api";
 import type { EditorCommands } from "@/lib/key-bindings";
-import { DEFAULT_VIEWS, VIEWS_NOTE } from "@/lib/todo-view";
+import { DEFAULT_VIEWS, VIEWS_NOTE } from "@/lib/todo/todo-view";
 
 const TODAY = "2026-08-10";
 export const DAILY = "01 Periodic/00 Daily/2026-08-10.md";

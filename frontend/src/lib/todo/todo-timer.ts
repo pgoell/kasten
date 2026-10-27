@@ -7,16 +7,16 @@
 
 import { appendUnder } from "@/lib/note-section";
 import { dailyDate } from "@/lib/periodic";
-import { parseTodo, patchLine, type Todo } from "@/lib/todo";
-import { withoutBlockId } from "@/lib/todo-fields";
+import { parseTodo, patchLine, type Todo } from "@/lib/todo/todo";
+import { withoutBlockId } from "@/lib/todo/todo-fields";
 import {
   formatDuration,
   formatSession,
   minutesBetween,
   parseSession,
   type Session,
-} from "@/lib/todo-time";
-import type { Write } from "@/lib/todo-write";
+} from "@/lib/todo/todo-time";
+import type { Write } from "@/lib/todo/todo-write";
 
 /** The heading the time log lives under, made on first write as `## Done` is. */
 const TIME = "## Time";

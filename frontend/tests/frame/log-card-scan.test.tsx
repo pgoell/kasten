@@ -9,7 +9,7 @@ import { EditorView } from "@codemirror/view";
 import { page } from "vitest/browser";
 import { readBarcode } from "@/lib/food-api";
 import { logCard } from "@/lib/log-card";
-import { notePath } from "@/lib/todo-commands";
+import { notePath } from "@/lib/todo/todo-commands";
 import { shot } from "./shots";
 import "@/styles/app.css";
 

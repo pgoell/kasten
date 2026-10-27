@@ -6,8 +6,8 @@
  */
 
 import { appendUnder } from "@/lib/note-section";
-import { parseTodo } from "@/lib/todo";
-import { laneName } from "@/lib/todo-board";
+import { parseTodo } from "@/lib/todo/todo";
+import { laneName } from "@/lib/todo/todo-board";
 
 /** Where a new todo lands, and so where a refiled one does. */
 const TODOS = "## TODOs";

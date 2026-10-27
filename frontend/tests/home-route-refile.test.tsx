@@ -5,7 +5,7 @@ import type { TodoHit } from "@/lib/api";
 import { holdText } from "@/lib/held-text";
 import { noteBase } from "@/lib/note-base";
 import type { PdfRenderer } from "@/lib/pdf-view";
-import type { TodoState } from "@/lib/todo";
+import type { TodoState } from "@/lib/todo/todo";
 import { hashed } from "./digests";
 import { defineFoliateFake } from "./foliate-fake";
 import { act, pageHooks, renderApp, settle, theRoute, VAULT } from "./home-route-fixture";

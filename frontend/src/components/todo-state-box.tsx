@@ -1,4 +1,4 @@
-import type { TodoState } from "@/lib/todo";
+import type { TodoState } from "@/lib/todo/todo";
 
 /**
  * The order the seven states are listed in, in the legend and on the board's

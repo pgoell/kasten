@@ -1,4 +1,4 @@
-import { PRIORITY_SYMBOL } from "@/lib/todo";
+import { PRIORITY_SYMBOL } from "@/lib/todo/todo";
 import { paneHooks, renderPane } from "./todo-pane-fixture";
 
 // The doubles, the same in every todo-pane file: see todo-pane-fixture.tsx.

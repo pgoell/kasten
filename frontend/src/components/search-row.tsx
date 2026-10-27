@@ -1,6 +1,6 @@
 import type { Mention, SearchHit } from "@/lib/api";
 import { ROW, TAP } from "@/lib/overlay-styles";
-import { parseTodo, STATE_SYMBOL } from "@/lib/todo";
+import { parseTodo, STATE_SYMBOL } from "@/lib/todo/todo";
 import { isMention } from "@/lib/use-search-hits";
 
 /** One row of the list, and beside it a `link` button for an unlinked mention. */

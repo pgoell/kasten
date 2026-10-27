@@ -1,4 +1,4 @@
-import { dropOf, pinnedBy, type Spot } from "@/lib/todo-drag";
+import { dropOf, pinnedBy, type Spot } from "@/lib/todo/todo-drag";
 
 const FDE = "02 Projects/FDE";
 const KASTEN = "02 Projects/Kasten";

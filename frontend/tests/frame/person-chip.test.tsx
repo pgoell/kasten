@@ -6,7 +6,7 @@
  */
 
 import { commands, page } from "vitest/browser";
-import { DEFAULT_VIEWS } from "@/lib/todo-view";
+import { DEFAULT_VIEWS } from "@/lib/todo/todo-view";
 import {
   chipNamed,
   click,

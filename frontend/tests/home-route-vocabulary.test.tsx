@@ -6,7 +6,7 @@ import type { TodoHit } from "@/lib/api";
 import { noteBase } from "@/lib/note-base";
 import { ONTOLOGY_NOTE, relationCompletions } from "@/lib/ontology";
 import type { PdfRenderer } from "@/lib/pdf-view";
-import type { TodoState } from "@/lib/todo";
+import type { TodoState } from "@/lib/todo/todo";
 import { hashed } from "./digests";
 import { defineFoliateFake, resetFoliateFake } from "./foliate-fake";
 import {

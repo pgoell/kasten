@@ -5,7 +5,7 @@ import type { TodoHit } from "@/lib/api";
 import { heldText, holdText } from "@/lib/held-text";
 import { noteBase } from "@/lib/note-base";
 import type { PdfRenderer } from "@/lib/pdf-view";
-import type { TodoState } from "@/lib/todo";
+import type { TodoState } from "@/lib/todo/todo";
 import { defineFoliateFake } from "./foliate-fake";
 import {
   act,

@@ -1,4 +1,4 @@
-import type { Mode, Row } from "@/lib/use-todo-rows";
+import type { Mode, Row } from "@/lib/todo/use-todo-rows";
 
 /**
  * The count of what is drawn, and the keys this phase binds. A coarse pointer

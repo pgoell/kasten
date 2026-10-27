@@ -21,11 +21,11 @@
 
 import type { CompletionContext, CompletionResult } from "@codemirror/autocomplete";
 import { readClock } from "@/lib/clock";
-import { PRIORITY_SYMBOL, parseTodo, type Todo } from "@/lib/todo";
-import type { TodoPriority } from "@/lib/todo-fields";
-import { offeredRules, parseRecurrence } from "@/lib/todo-recur";
-import { expandShorthand, readDate, readEvery } from "@/lib/todo-shorthand";
-import { parseDuration } from "@/lib/todo-time";
+import { PRIORITY_SYMBOL, parseTodo, type Todo } from "@/lib/todo/todo";
+import type { TodoPriority } from "@/lib/todo/todo-fields";
+import { offeredRules, parseRecurrence } from "@/lib/todo/todo-recur";
+import { expandShorthand, readDate, readEvery } from "@/lib/todo/todo-shorthand";
+import { parseDuration } from "@/lib/todo/todo-time";
 
 export interface Suggestion {
   /** What it is called, which is what a part-typed word is matched against. */

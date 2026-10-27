@@ -7,7 +7,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { type Food, fetchLog, type LogDay, readBarcode, searchFood } from "@/lib/food-api";
 import { logCard } from "@/lib/log-card";
 import { fetchMyFoods } from "@/lib/my-foods";
-import { notePath } from "@/lib/todo-commands";
+import { notePath } from "@/lib/todo/todo-commands";
 import { vimModeField, vimModeState } from "@/lib/vim-mode";
 import { stubMatchMedia } from "./match-media";
 

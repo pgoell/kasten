@@ -10,9 +10,9 @@ import {
   PANEL_NARROW,
   STATUS,
 } from "@/lib/overlay-styles";
-import { formatTodo } from "@/lib/todo";
-import { expandShorthand } from "@/lib/todo-shorthand";
-import { shorthandSuggestions } from "@/lib/todo-suggest";
+import { formatTodo } from "@/lib/todo/todo";
+import { expandShorthand } from "@/lib/todo/todo-shorthand";
+import { shorthandSuggestions } from "@/lib/todo/todo-suggest";
 
 interface TodoPromptProps {
   /** Called with what was typed, once Enter takes it. */

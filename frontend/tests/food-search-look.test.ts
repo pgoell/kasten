@@ -9,7 +9,7 @@ import { type Food, fetchLog, type LogDay, readBarcode, searchFood } from "@/lib
 import { logCard, reloadLogConfig } from "@/lib/log-card";
 import { parseFood } from "@/lib/log-lines";
 import { fetchMyFoods, type MyFood } from "@/lib/my-foods";
-import { notePath } from "@/lib/todo-commands";
+import { notePath } from "@/lib/todo/todo-commands";
 
 vi.mock("@/lib/api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/api")>()),

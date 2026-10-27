@@ -7,8 +7,8 @@
  */
 
 import { shiftDay } from "@/lib/clock";
-import { parseTodo, type Todo } from "@/lib/todo";
-import { endsOfWords } from "@/lib/todo-fields";
+import { parseTodo, type Todo } from "@/lib/todo/todo";
+import { endsOfWords } from "@/lib/todo/todo-fields";
 import { wikiLinkPath, wikiLinkTargets } from "@/lib/wikilink";
 
 export type Column = "open" | "doing" | "review" | "waiting" | "blocked" | "done" | "rejected";

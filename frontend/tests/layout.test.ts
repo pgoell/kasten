@@ -13,7 +13,7 @@ import {
 import { bookNote, importedNote } from "@/lib/note-path";
 import { ONTOLOGY_NOTE } from "@/lib/ontology";
 import { dailyDate, periodicNote } from "@/lib/periodic";
-import { VIEWS_NOTE } from "@/lib/todo-view";
+import { VIEWS_NOTE } from "@/lib/todo/todo-view";
 import { wikiLinkPath } from "@/lib/wikilink";
 
 /**

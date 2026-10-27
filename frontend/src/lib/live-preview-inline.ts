@@ -4,7 +4,7 @@ import type { SyntaxNode } from "@lezer/common";
 import { linkAddress, unescaped } from "@/lib/link-reference";
 import { HIDDEN, type Walk } from "@/lib/live-preview-hidden";
 import { readRelation } from "@/lib/relation";
-import { parseTodo } from "@/lib/todo";
+import { parseTodo } from "@/lib/todo/todo";
 import { splitTarget, vaultPaths, wikiLinkLands } from "@/lib/wikilink";
 
 /**

@@ -23,7 +23,7 @@ import {
   readTagged,
   sameFields,
   type TodoPriority,
-} from "@/lib/todo-fields";
+} from "@/lib/todo/todo-fields";
 
 export type TodoState = "open" | "doing" | "done" | "blocked" | "waiting" | "review" | "rejected";
 

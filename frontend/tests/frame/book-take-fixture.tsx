@@ -12,7 +12,7 @@ import { updateNote } from "@/lib/api";
 import type { FoliateView } from "@/lib/foliate-view";
 import { addHighlight, type Passage } from "@/lib/highlight";
 import { quoteParagraphs } from "@/lib/html-take";
-import { newId } from "@/lib/todo";
+import { newId } from "@/lib/todo/todo";
 import "@/styles/app.css";
 import { clickInside, located, sections } from "./book-pane-fixture";
 import type { Mounted } from "./html-take-fixture";

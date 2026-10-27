@@ -14,7 +14,7 @@ import { page } from "vitest/browser";
 import { StatusBar } from "@/components/status-bar";
 import { TodoPane } from "@/components/todo-pane";
 import type { SearchHit } from "@/lib/api";
-import { DEFAULT_VIEWS } from "@/lib/todo-view";
+import { DEFAULT_VIEWS } from "@/lib/todo/todo-view";
 import { COARSE, NARROW, stubMatchMedia } from "../match-media";
 import { stubCommands } from "../stub-commands";
 import { shot } from "./shots";

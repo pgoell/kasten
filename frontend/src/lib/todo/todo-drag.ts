@@ -6,8 +6,8 @@
  * has no stored order, so no position is written.
  */
 
-import type { TodoState } from "@/lib/todo";
-import type { Column } from "@/lib/todo-board";
+import type { TodoState } from "@/lib/todo/todo";
+import type { Column } from "@/lib/todo/todo-board";
 
 /** A cell of the board: the lane's id, `""` for "No project" or "No kind", and the column. */
 export interface Spot {

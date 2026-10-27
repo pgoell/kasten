@@ -13,7 +13,7 @@ import {
 } from "@/lib/link-reference";
 import { noteSectionOf } from "@/lib/note-section";
 import { NOTE, repeats, watchPresses } from "@/lib/presses";
-import { notePath } from "@/lib/todo-commands";
+import { notePath } from "@/lib/todo/todo-commands";
 import { splitTarget, wikiLinkAt } from "@/lib/wikilink";
 
 /**

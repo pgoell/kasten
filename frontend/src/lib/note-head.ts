@@ -20,7 +20,7 @@ import { type Outline, outlinePlugin, proseLines } from "@/lib/note-outline";
 import { noteName } from "@/lib/note-path";
 import { type Relation, readRelation } from "@/lib/relation";
 import { tagsOf } from "@/lib/tag-rule";
-import { notePath } from "@/lib/todo-commands";
+import { notePath } from "@/lib/todo/todo-commands";
 
 export type { Outline, OutlineHeading } from "@/lib/note-outline";
 

@@ -1,4 +1,4 @@
-import type { TodoState } from "@/lib/todo";
+import type { TodoState } from "@/lib/todo/todo";
 import {
   type CycleInput,
   cycleTodoWrites,
@@ -6,7 +6,7 @@ import {
   doneLogWrites,
   dropDone,
   type LogInput,
-} from "@/lib/todo-write";
+} from "@/lib/todo/todo-write";
 import {
   DAILY,
   DAILY_PATH,

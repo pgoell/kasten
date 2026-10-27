@@ -1,4 +1,4 @@
-import { isOpen, newId } from "@/lib/todo";
+import { isOpen, newId } from "@/lib/todo/todo";
 import { parsed } from "./todo-fixture";
 
 describe("isOpen", () => {

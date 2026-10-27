@@ -1,4 +1,4 @@
-import { agentPress } from "@/lib/todo-agent";
+import { agentPress } from "@/lib/todo/todo-agent";
 import { TODAY, todo } from "./todo-write-fixture";
 
 describe("#617 a hash in a span or an address is no tag", () => {

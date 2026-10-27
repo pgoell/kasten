@@ -8,7 +8,7 @@ import { rowSpans, type Span } from "@/lib/live-preview-table-cells";
 import { repeats } from "@/lib/presses";
 import { type Align, alignsOf, isRow } from "@/lib/table";
 import { isCodeToken, isDashes, isNumericColumn } from "@/lib/table-kinds";
-import { notePath } from "@/lib/todo-commands";
+import { notePath } from "@/lib/todo/todo-commands";
 
 /**
  * The scroll place of each table that was drawn, kept per editor and keyed by

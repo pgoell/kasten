@@ -1,6 +1,6 @@
 import { CompletionContext } from "@codemirror/autocomplete";
 import { EditorState } from "@codemirror/state";
-import { lineSuggestions, shorthandSuggestions, todoCompletions } from "@/lib/todo-suggest";
+import { lineSuggestions, shorthandSuggestions, todoCompletions } from "@/lib/todo/todo-suggest";
 
 /** A Monday, so `readDate` sends `monday` a week out and `tomorrow` to Tuesday. */
 const TODAY = "2026-08-10";

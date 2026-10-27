@@ -8,9 +8,9 @@
  */
 
 import { shiftDay } from "@/lib/clock";
-import { isOpen, type Todo } from "@/lib/todo";
+import { isOpen, type Todo } from "@/lib/todo/todo";
 // The type alone, so this module loads nothing from todo-blocked.
-import type { Closed } from "@/lib/todo-blocked";
+import type { Closed } from "@/lib/todo/todo-blocked";
 import { plainLinks } from "@/lib/wikilink";
 
 export type Section = "overdue" | "today" | "week" | "later" | "none";

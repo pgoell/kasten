@@ -19,14 +19,14 @@ import {
 } from "@/lib/api";
 import { noteBase } from "@/lib/note-base";
 import { periodicNote } from "@/lib/periodic";
-import { isOpen, newId, parseTodo, type TodoState } from "@/lib/todo";
-import { agentPress } from "@/lib/todo-agent";
-import { applyBlocked, type Closed, closedAmong } from "@/lib/todo-blocked";
-import type { TodoCycle } from "@/lib/todo-commands";
-import { lineOf } from "@/lib/todo-refile";
-import { expandShorthand } from "@/lib/todo-shorthand";
-import { parseSession } from "@/lib/todo-time";
-import { type SessionHit, timerWrites } from "@/lib/todo-timer";
+import { isOpen, newId, parseTodo, type TodoState } from "@/lib/todo/todo";
+import { agentPress } from "@/lib/todo/todo-agent";
+import { applyBlocked, type Closed, closedAmong } from "@/lib/todo/todo-blocked";
+import type { TodoCycle } from "@/lib/todo/todo-commands";
+import { lineOf } from "@/lib/todo/todo-refile";
+import { expandShorthand } from "@/lib/todo/todo-shorthand";
+import { parseSession } from "@/lib/todo/todo-time";
+import { type SessionHit, timerWrites } from "@/lib/todo/todo-timer";
 import {
   addTodoWrites,
   cycleTodoWrites,
@@ -34,7 +34,7 @@ import {
   otherTodoWithId,
   pressedLine,
   type Write,
-} from "@/lib/todo-write";
+} from "@/lib/todo/todo-write";
 
 /**
  * Today's daily note, and its text, which every write here lands in or beside.

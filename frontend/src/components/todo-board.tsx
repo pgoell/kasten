@@ -3,21 +3,21 @@ import { BoardCard, SET } from "@/components/board-card";
 import { HEADING, LaneHeading } from "@/components/board-lane-heading";
 import { BoardPicker } from "@/components/board-picker";
 import type { SearchHit, TodoHit } from "@/lib/api";
-import type { Todo, TodoState } from "@/lib/todo";
-import type { Closed } from "@/lib/todo-blocked";
+import type { Todo, TodoState } from "@/lib/todo/todo";
+import type { Closed } from "@/lib/todo/todo-blocked";
 import {
   COLUMN_HEADING,
   COLUMNS,
   type Column,
   projectChoices,
   withProjectLink,
-} from "@/lib/todo-board";
-import { dropOf, pinnedBy } from "@/lib/todo-drag";
-import type { Placed } from "@/lib/todo-view";
-import { useBoardFolds } from "@/lib/use-board-folds";
-import { cardKey, useBoardLanes } from "@/lib/use-board-lanes";
-import { useCardDrag } from "@/lib/use-card-drag";
-import { useColumnSwipe } from "@/lib/use-column-swipe";
+} from "@/lib/todo/todo-board";
+import { dropOf, pinnedBy } from "@/lib/todo/todo-drag";
+import type { Placed } from "@/lib/todo/todo-view";
+import { useBoardFolds } from "@/lib/todo/use-board-folds";
+import { cardKey, useBoardLanes } from "@/lib/todo/use-board-lanes";
+import { useCardDrag } from "@/lib/todo/use-card-drag";
+import { useColumnSwipe } from "@/lib/todo/use-column-swipe";
 
 /** One todo the board draws, as the pane read it: the tree's todo, not the line's. */
 export interface Card {

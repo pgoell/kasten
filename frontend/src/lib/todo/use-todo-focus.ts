@@ -1,5 +1,5 @@
 import { type RefObject, useCallback, useEffect, useRef } from "react";
-import { nameAt } from "@/lib/todo";
+import { nameAt } from "@/lib/todo/todo";
 
 /**
  * Where the focus of a todo pane lives: on the pane while it has no row, on the

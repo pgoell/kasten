@@ -14,7 +14,7 @@ import { commands, page } from "vitest/browser";
 import type { Food, LogDay } from "@/lib/food-api";
 import { logCard } from "@/lib/log-card";
 import { applyTheme, PALETTE_KEY, THEME_KEY, type Theme } from "@/lib/theme";
-import { notePath } from "@/lib/todo-commands";
+import { notePath } from "@/lib/todo/todo-commands";
 import { COARSE, NARROW, stubMatchMedia } from "../match-media";
 import { shot } from "./shots";
 import "@/styles/app.css";

@@ -3,9 +3,9 @@ import { cardTags, deckName, deckTags, withoutTags } from "@/lib/deck-tag";
 import { noteLanguage } from "@/lib/note-language";
 import { parseCards } from "@/lib/srs";
 import cases from "@/lib/tag-cases.json";
-import { parseTodo, tagsOf } from "@/lib/todo";
-import { expandShorthand, matchesFilter, parseFilter } from "@/lib/todo-shorthand";
-import { parseViews } from "@/lib/todo-view";
+import { parseTodo, tagsOf } from "@/lib/todo/todo";
+import { expandShorthand, matchesFilter, parseFilter } from "@/lib/todo/todo-shorthand";
+import { parseViews } from "@/lib/todo/todo-view";
 
 // docs/reference/tag-format.md: every reader runs the whole table, a reader of
 // one line the cases of one line. One expect per reader, so a run on main shows

@@ -1,4 +1,4 @@
-import { parseTodo, type Todo } from "@/lib/todo";
+import { parseTodo, type Todo } from "@/lib/todo/todo";
 import {
   COLUMNS,
   columnOf,
@@ -7,8 +7,8 @@ import {
   onBoard,
   projectChoices,
   withProjectLink,
-} from "@/lib/todo-board";
-import { pinnedBy } from "@/lib/todo-drag";
+} from "@/lib/todo/todo-board";
+import { pinnedBy } from "@/lib/todo/todo-drag";
 
 /** The day every test below is written against, so no assertion expires. */
 const TODAY = "2026-10-16";

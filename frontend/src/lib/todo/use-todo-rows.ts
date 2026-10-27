@@ -3,12 +3,12 @@ import type { SearchHit, TodoHit } from "@/lib/api";
 import { shiftDay } from "@/lib/clock";
 import { rankLines } from "@/lib/fuzzy";
 import { dailyDate } from "@/lib/periodic";
-import { isOpen, parseTodo, type Todo, type TodoState } from "@/lib/todo";
-import { type Closed, closedAmong } from "@/lib/todo-blocked";
-import { kindOf, onBoard } from "@/lib/todo-board";
-import type { TodoPriority } from "@/lib/todo-fields";
-import { matchesFilter, parseFilter } from "@/lib/todo-shorthand";
-import { parseSession, type Session } from "@/lib/todo-time";
+import { isOpen, parseTodo, type Todo, type TodoState } from "@/lib/todo/todo";
+import { type Closed, closedAmong } from "@/lib/todo/todo-blocked";
+import { kindOf, onBoard } from "@/lib/todo/todo-board";
+import type { TodoPriority } from "@/lib/todo/todo-fields";
+import { matchesFilter, parseFilter } from "@/lib/todo/todo-shorthand";
+import { parseSession, type Session } from "@/lib/todo/todo-time";
 import {
   dependentsOf,
   descendants,
@@ -24,7 +24,7 @@ import {
   sectionOf,
   treeOf,
   waiting,
-} from "@/lib/todo-view";
+} from "@/lib/todo/todo-view";
 
 /** One line the vault answered with, read once. A line is one or the other. */
 interface Read {

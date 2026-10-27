@@ -25,7 +25,7 @@ import {
   weekTiles,
 } from "@/lib/review-week";
 import { minutesWords } from "@/lib/review-year";
-import { parseTodo } from "@/lib/todo";
+import { parseTodo } from "@/lib/todo/todo";
 import { useWeekReads, type WeekReads, weekDates } from "@/lib/use-review-reads";
 
 type WeekOf = NonNullable<ReturnType<typeof weeklyWeek>>;

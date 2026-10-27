@@ -15,7 +15,7 @@ import { linkMention, mentionLinkText } from "@/lib/mention-link";
 import { noteBase } from "@/lib/note-base";
 import { readField, setField } from "@/lib/note-frontmatter";
 import { bookType } from "@/lib/note-path";
-import { newId } from "@/lib/todo";
+import { newId } from "@/lib/todo/todo";
 import { useBookmark } from "@/lib/use-bookmark";
 import { useNoteWrites } from "@/lib/use-note-writes";
 import { setWatched } from "@/lib/video";

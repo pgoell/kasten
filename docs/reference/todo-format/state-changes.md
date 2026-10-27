@@ -2,7 +2,7 @@
 type: Reference
 title: States, blockers and parts
 description: The seven states, the cycle that walks a line through them, the keys that set one, the parts a todo carries under it, the dependencies that hold one back, and the waiting state that names who it waits on.
-resource: frontend/src/lib/todo.ts
+resource: frontend/src/lib/todo/todo.ts
 tags: [vault, todos, format, frontend]
 status: stable
 ---

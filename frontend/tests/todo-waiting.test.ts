@@ -1,4 +1,4 @@
-import { formatTodo, isOpen, nameAt, setStateOn, type TodoState } from "@/lib/todo";
+import { formatTodo, isOpen, nameAt, setStateOn, type TodoState } from "@/lib/todo/todo";
 import { FRESH, parsed, press, TODAY } from "./todo-fixture";
 
 describe("a todo waiting on somebody", () => {

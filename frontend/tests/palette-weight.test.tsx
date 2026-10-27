@@ -6,7 +6,7 @@ import { fetchNote } from "@/lib/api";
 import { logCard } from "@/lib/log-card";
 import { parseConfig } from "@/lib/log-kinds";
 import { paletteEntries } from "@/lib/palette";
-import { notePath } from "@/lib/todo-commands";
+import { notePath } from "@/lib/todo/todo-commands";
 import { stubCommands } from "./stub-commands";
 
 vi.mock("@/lib/api", async (importOriginal) => ({

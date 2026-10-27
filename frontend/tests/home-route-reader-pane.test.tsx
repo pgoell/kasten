@@ -3,7 +3,7 @@ import { useMemo } from "react";
 import type { TodoHit } from "@/lib/api";
 import { noteBase } from "@/lib/note-base";
 import type { PdfRenderer } from "@/lib/pdf-view";
-import type { TodoState } from "@/lib/todo";
+import type { TodoState } from "@/lib/todo/todo";
 import { defineFoliateFake, lastView } from "./foliate-fake";
 import { act, clicked, pageHooks, renderApp, settle, theRoute } from "./home-route-fixture";
 

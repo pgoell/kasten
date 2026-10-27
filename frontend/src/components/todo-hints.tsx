@@ -1,4 +1,4 @@
-import type { Suggestions } from "@/lib/todo-suggest";
+import type { Suggestions } from "@/lib/todo/todo-suggest";
 
 interface TodoHintsProps {
   /** What can go in, read by the caller in its own spelling. Null draws nothing. */

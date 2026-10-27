@@ -71,7 +71,7 @@ import { DEFAULT_CONFIG, kindLine, kindTotal, type LogConfig, type LogKind } fro
 import { type DrinkTotals, drinkTotals, LOG_HEADING, logLines } from "@/lib/log-lines";
 import { appendUnderEdit } from "@/lib/note-section";
 import { dailyDate } from "@/lib/periodic";
-import { notePath } from "@/lib/todo-commands";
+import { notePath } from "@/lib/todo/todo-commands";
 import { cardLine } from "@/lib/weather-card";
 
 /**

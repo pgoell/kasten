@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { COLUMNS } from "@/lib/todo-board";
+import { COLUMNS } from "@/lib/todo/todo-board";
 
 /**
  * Where Rejected sits in the columns. It is folded on a desktop by default, the

@@ -17,7 +17,7 @@ import {
   setVim,
 } from "@/lib/note-view";
 import type { ReviewSource } from "@/lib/periodic-review";
-import type { CycleHandler } from "@/lib/todo-commands";
+import type { CycleHandler } from "@/lib/todo/todo-commands";
 import { useVim } from "@/lib/vim-setting";
 
 /**

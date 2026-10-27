@@ -17,7 +17,7 @@ import { kastenTheme } from "@/lib/editor-theme";
 import { imagePaths } from "@/lib/image";
 import { livePreview } from "@/lib/live-preview";
 import { noteLanguage } from "@/lib/note-language";
-import { DEFAULT_VIEWS } from "@/lib/todo-view";
+import { DEFAULT_VIEWS } from "@/lib/todo/todo-view";
 import { vimKeys } from "@/lib/vim-mode";
 import { vaultPaths } from "@/lib/wikilink";
 import { COARSE, NARROW, stubMatchMedia } from "../match-media";

@@ -1,4 +1,4 @@
-import { patchLine, setStateOn, type TodoState } from "@/lib/todo";
+import { patchLine, setStateOn, type TodoState } from "@/lib/todo/todo";
 import { FRESH, parsed, press, TODAY } from "./todo-fixture";
 
 describe("a marker typed with the variation selector", () => {

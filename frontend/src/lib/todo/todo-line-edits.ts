@@ -8,10 +8,10 @@
 
 import { fetchNote, fetchTodos, type SearchHit, saveNote, updateNote } from "@/lib/api";
 import { noteBase } from "@/lib/note-base";
-import { isOpen, newId, parseTodo, patchLine } from "@/lib/todo";
-import { blockLine, type Closed, closedAmong, unblockedEdit } from "@/lib/todo-blocked";
-import { expandShorthand } from "@/lib/todo-shorthand";
-import { insertSubtask, otherTodoWithId } from "@/lib/todo-write";
+import { isOpen, newId, parseTodo, patchLine } from "@/lib/todo/todo";
+import { blockLine, type Closed, closedAmong, unblockedEdit } from "@/lib/todo/todo-blocked";
+import { expandShorthand } from "@/lib/todo/todo-shorthand";
+import { insertSubtask, otherTodoWithId } from "@/lib/todo/todo-write";
 
 /**
  * Put one edited line back where the row found it, exactly as it was left.

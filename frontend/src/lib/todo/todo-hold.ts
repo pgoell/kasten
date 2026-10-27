@@ -1,7 +1,7 @@
 import type { TodoHit } from "@/lib/api";
-import { parseTodo, wordTags } from "@/lib/todo";
-import { AGENT } from "@/lib/todo-agent";
-import { type Row, rowKey } from "@/lib/use-todo-rows";
+import { parseTodo, wordTags } from "@/lib/todo/todo";
+import { AGENT } from "@/lib/todo/todo-agent";
+import { type Row, rowKey } from "@/lib/todo/use-todo-rows";
 
 /** A row the order is held by: what it is, and the row as it was last drawn. */
 export interface HeldRow {

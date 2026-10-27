@@ -1,5 +1,5 @@
-import { formatTodo, parseTodo, type Todo } from "@/lib/todo";
-import { formatRecurrence, nextDate, nextOccurrence, parseRecurrence } from "@/lib/todo-recur";
+import { formatTodo, parseTodo, type Todo } from "@/lib/todo/todo";
+import { formatRecurrence, nextDate, nextOccurrence, parseRecurrence } from "@/lib/todo/todo-recur";
 
 /** The day every test below is written against, so no assertion expires. */
 const TODAY = "2026-08-10";

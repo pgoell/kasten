@@ -4,7 +4,7 @@ import { vim } from "@replit/codemirror-vim";
 import { act } from "@testing-library/react";
 import { imagePaths } from "@/lib/image";
 import { livePreview } from "@/lib/live-preview";
-import { notePath } from "@/lib/todo-commands";
+import { notePath } from "@/lib/todo/todo-commands";
 import { vimKeys } from "@/lib/vim-mode";
 import { vaultPaths } from "@/lib/wikilink";
 import { ABOVE, liveHooks, mount, plain } from "./live-preview-fixture";

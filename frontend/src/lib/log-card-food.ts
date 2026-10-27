@@ -10,7 +10,7 @@ import { type FoodPanel, foodPanel } from "@/lib/food-search";
 import type { FoodGoals } from "@/lib/log-kinds";
 import type { DrinkTotals } from "@/lib/log-lines";
 import { dailyDate } from "@/lib/periodic";
-import { notePath } from "@/lib/todo-commands";
+import { notePath } from "@/lib/todo/todo-commands";
 
 /** What the sheet asks of the card: a line to write, a close, and today's food for the preview. */
 export interface SheetHooks {

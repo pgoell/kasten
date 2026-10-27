@@ -8,8 +8,8 @@
 import type { LineHit, TodoHit } from "@/lib/api";
 import type { LogDay } from "@/lib/food-api";
 import { dayOf, reviewCounts, writtenCounts } from "@/lib/overview";
-import { parseTodo, type Todo } from "@/lib/todo";
-import { parseDuration } from "@/lib/todo-time";
+import { parseTodo, type Todo } from "@/lib/todo/todo";
+import { parseDuration } from "@/lib/todo/todo-time";
 
 /** One note `GET /api/written/notes` answers, with the day it counts on. */
 export interface WrittenNote {

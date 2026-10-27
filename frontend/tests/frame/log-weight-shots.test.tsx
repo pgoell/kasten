@@ -22,7 +22,7 @@ import type { LogDay } from "@/lib/food-api";
 import { logCard } from "@/lib/log-card";
 import { periodicNote } from "@/lib/periodic";
 import { applyTheme, PALETTE_KEY, THEME_KEY, type Theme } from "@/lib/theme";
-import { notePath } from "@/lib/todo-commands";
+import { notePath } from "@/lib/todo/todo-commands";
 import { routeTree } from "@/routeTree.gen";
 import { COARSE, NARROW, stubMatchMedia } from "../match-media";
 import { wait } from "./sheet-fixture";

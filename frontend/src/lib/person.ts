@@ -16,7 +16,7 @@
 
 import type { SearchHit } from "@/lib/api";
 import { readField } from "@/lib/note-frontmatter";
-import { isOpen, parseTodo, type Todo } from "@/lib/todo";
+import { isOpen, parseTodo, type Todo } from "@/lib/todo/todo";
 import { wikiLinkPath, wikiLinkTargets } from "@/lib/wikilink";
 
 /** The frontmatter type a person note carries. The ontology note lists it too. */

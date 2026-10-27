@@ -3,12 +3,12 @@ import { chipNote, PersonChip } from "@/components/person-chip";
 import type { Card } from "@/components/todo-board";
 import { wordsOf } from "@/components/todo-row";
 import type { SearchHit, TodoHit } from "@/lib/api";
-import { isOpen, PRIORITY_SYMBOL, type Todo, type TodoState } from "@/lib/todo";
-import type { Closed } from "@/lib/todo-blocked";
-import { columnOf } from "@/lib/todo-board";
-import { type Placed, waitsFor } from "@/lib/todo-view";
-import { cardKey } from "@/lib/use-board-lanes";
-import type { CardDrag } from "@/lib/use-card-drag";
+import { isOpen, PRIORITY_SYMBOL, type Todo, type TodoState } from "@/lib/todo/todo";
+import type { Closed } from "@/lib/todo/todo-blocked";
+import { columnOf } from "@/lib/todo/todo-board";
+import { type Placed, waitsFor } from "@/lib/todo/todo-view";
+import { cardKey } from "@/lib/todo/use-board-lanes";
+import type { CardDrag } from "@/lib/todo/use-card-drag";
 
 /** The state each shifted key names, as the list's own table spells it. */
 export const SET: Record<string, TodoState> = {

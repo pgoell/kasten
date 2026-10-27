@@ -1,5 +1,5 @@
-import { parseTodo, type Todo } from "@/lib/todo";
-import { closedAmong } from "@/lib/todo-blocked";
+import { parseTodo, type Todo } from "@/lib/todo/todo";
+import { closedAmong } from "@/lib/todo/todo-blocked";
 import {
   DEFAULT_VIEWS,
   dependentsOf,
@@ -16,7 +16,7 @@ import {
   waiting,
   waitOf,
   waitsFor,
-} from "@/lib/todo-view";
+} from "@/lib/todo/todo-view";
 
 /** The day every test below is written against, so no assertion expires. */
 const TODAY = "2026-08-10";

@@ -1,7 +1,7 @@
 import { ChangedOnDisk, NoteExists, NoteMissing } from "@/lib/api";
 import { noteBase } from "@/lib/note-base";
 import { periodicNote } from "@/lib/periodic";
-import { cycleTodoAside } from "@/lib/todo-api";
+import { cycleTodoAside } from "@/lib/todo/todo-api";
 import { todoApiHooks } from "./todo-api-fixture";
 
 // Standing in for the module rather than for `fetch`, the way the pane's tests

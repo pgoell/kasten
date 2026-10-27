@@ -2,7 +2,7 @@
 type: Reference
 title: Tags, projects and views
 description: The tags that mark client work and hand a todo to the agent worker, the terms that filter the todo pane, the saved views, the agent note, and the five steps that file a todo under a project.
-resource: frontend/src/lib/todo.ts
+resource: frontend/src/lib/todo/todo.ts
 tags: [vault, todos, format, frontend]
 status: stable
 ---

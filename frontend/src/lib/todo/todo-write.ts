@@ -20,11 +20,11 @@ import {
   setStateOn,
   type Todo,
   type TodoState,
-} from "@/lib/todo";
-import { blockedLines, type Closed } from "@/lib/todo-blocked";
-import { withoutBlockId } from "@/lib/todo-fields";
-import { nextOccurrence } from "@/lib/todo-recur";
-import { descendants, type Node, type Placed, treeOf } from "@/lib/todo-view";
+} from "@/lib/todo/todo";
+import { blockedLines, type Closed } from "@/lib/todo/todo-blocked";
+import { withoutBlockId } from "@/lib/todo/todo-fields";
+import { nextOccurrence } from "@/lib/todo/todo-recur";
+import { descendants, type Node, type Placed, treeOf } from "@/lib/todo/todo-view";
 
 /** One note as a write: where it goes and the whole of its new text. */
 export interface Write {

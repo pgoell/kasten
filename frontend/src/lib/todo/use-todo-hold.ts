@@ -7,9 +7,9 @@ import {
   identities,
   sameOrder,
   snapshot,
-} from "@/lib/todo-hold";
-import { heldFold } from "@/lib/todo-scope";
-import { type Mode, type Row, rowKey } from "@/lib/use-todo-rows";
+} from "@/lib/todo/todo-hold";
+import { heldFold } from "@/lib/todo/todo-scope";
+import { type Mode, type Row, rowKey } from "@/lib/todo/use-todo-rows";
 
 /**
  * The order the pane draws its rows in while a press holds it.

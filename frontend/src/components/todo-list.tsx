@@ -5,9 +5,9 @@ import { TodoRow } from "@/components/todo-row";
 import { TodoStateBox } from "@/components/todo-state-box";
 import type { SearchHit, TodoHit } from "@/lib/api";
 import { useEntrance } from "@/lib/stagger";
-import { cycleLine, parseTodo } from "@/lib/todo";
-import { lineSuggestions } from "@/lib/todo-suggest";
-import { type Row, type RowFacts, rowKey } from "@/lib/use-todo-rows";
+import { cycleLine, parseTodo } from "@/lib/todo/todo";
+import { lineSuggestions } from "@/lib/todo/todo-suggest";
+import { type Row, type RowFacts, rowKey } from "@/lib/todo/use-todo-rows";
 
 /** How far one step of nesting shifts a row, in `rem`, past the list's own padding. */
 const STEP = 1.1;

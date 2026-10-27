@@ -11,7 +11,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fetchLog, type LogDay, readBarcode, searchFood } from "@/lib/food-api";
 import { logCard } from "@/lib/log-card";
 import { addMyFood, fetchMyFoods, type MyFood } from "@/lib/my-foods";
-import { notePath } from "@/lib/todo-commands";
+import { notePath } from "@/lib/todo/todo-commands";
 import { vimModeField, vimModeState } from "@/lib/vim-mode";
 
 vi.mock("@/lib/food-api", () => ({

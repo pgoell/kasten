@@ -1,4 +1,4 @@
-import { parseTodo } from "@/lib/todo";
+import { parseTodo } from "@/lib/todo/todo";
 import {
   applyBlocked,
   blockedLines,
@@ -6,7 +6,7 @@ import {
   type Closed,
   closedAmong,
   unblockedEdit,
-} from "@/lib/todo-blocked";
+} from "@/lib/todo/todo-blocked";
 import { todo } from "./todo-write-fixture";
 
 /** A vault where one blocker is done and one is still open. */

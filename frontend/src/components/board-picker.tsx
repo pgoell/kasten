@@ -1,5 +1,5 @@
 import { ROW } from "@/lib/overlay-styles";
-import type { projectChoices } from "@/lib/todo-board";
+import type { projectChoices } from "@/lib/todo/todo-board";
 
 /** The project picker a `p` opens over the board, for the card named by `title`. */
 export function BoardPicker({

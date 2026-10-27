@@ -1,5 +1,5 @@
 import { STATE_ORDER, TodoStateBox } from "@/components/todo-state-box";
-import type { TodoState } from "@/lib/todo";
+import type { TodoState } from "@/lib/todo/todo";
 
 /**
  * The count per state, each beside the box that draws it, so a box on a row

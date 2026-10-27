@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fetchNote, NoteMissing } from "@/lib/api";
 import { fetchLog, type LogDay } from "@/lib/food-api";
 import { logCard, reloadLogConfig } from "@/lib/log-card";
-import { notePath } from "@/lib/todo-commands";
+import { notePath } from "@/lib/todo/todo-commands";
 import { vimKeys, vimModeState } from "@/lib/vim-mode";
 
 vi.mock("@/lib/api", async (importOriginal) => ({

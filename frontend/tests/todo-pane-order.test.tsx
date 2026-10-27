@@ -5,7 +5,7 @@ import { TodoPane } from "@/components/todo-pane";
 import { fetchFiles } from "@/lib/api";
 import type { EditorCommands } from "@/lib/key-bindings";
 import { periodicNote } from "@/lib/periodic";
-import { useTodoActions } from "@/lib/use-todo-actions";
+import { useTodoActions } from "@/lib/todo/use-todo-actions";
 import { useVaultEvents } from "@/lib/use-vault-events";
 import { digestOf, type VaultEvent } from "@/lib/vault-events";
 import { COARSE, NARROW, stubMatchMedia } from "./match-media";

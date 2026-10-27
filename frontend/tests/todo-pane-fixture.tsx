@@ -3,7 +3,7 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 import { TodoPane } from "@/components/todo-pane";
 import { createNote, fetchFiles, fetchNote, fetchTodos } from "@/lib/api";
 import type { EditorCommands } from "@/lib/key-bindings";
-import { DEFAULT_VIEWS, VIEWS_NOTE } from "@/lib/todo-view";
+import { DEFAULT_VIEWS, VIEWS_NOTE } from "@/lib/todo/todo-view";
 
 /**
  * The setup every todo-pane test file shares.

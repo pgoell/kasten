@@ -1,9 +1,9 @@
 import { chipNote, PersonChip } from "@/components/person-chip";
 import { TodoStateBox } from "@/components/todo-state-box";
-import { isOpen, PRIORITY_SYMBOL, type Todo } from "@/lib/todo";
-import { laneName } from "@/lib/todo-board";
-import { isClient, waitOf, waitsFor } from "@/lib/todo-view";
-import { type Row, type RowFacts, rowKey } from "@/lib/use-todo-rows";
+import { isOpen, PRIORITY_SYMBOL, type Todo } from "@/lib/todo/todo";
+import { laneName } from "@/lib/todo/todo-board";
+import { isClient, waitOf, waitsFor } from "@/lib/todo/todo-view";
+import { type Row, type RowFacts, rowKey } from "@/lib/todo/use-todo-rows";
 
 /** What a row of client work carries, beside its priority. */
 const CLIENT_MARK = "◆";

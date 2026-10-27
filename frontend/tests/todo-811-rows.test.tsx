@@ -4,9 +4,9 @@ import { TodoList } from "@/components/todo-list";
 import { TodoRow } from "@/components/todo-row";
 import { STATE_ORDER, TodoStateBox } from "@/components/todo-state-box";
 import type { TodoHit } from "@/lib/api";
-import { parseTodo, type Todo } from "@/lib/todo";
-import { namedTodos } from "@/lib/todo-view";
-import { type Row, type RowFacts, rowKey } from "@/lib/use-todo-rows";
+import { parseTodo, type Todo } from "@/lib/todo/todo";
+import { namedTodos } from "@/lib/todo/todo-view";
+import { type Row, type RowFacts, rowKey } from "@/lib/todo/use-todo-rows";
 
 /**
  * The rows, the list, the legend and the state boxes of #811, drawn from plain

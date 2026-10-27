@@ -1,8 +1,8 @@
 import { EditorView } from "@codemirror/view";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, vi } from "vitest";
-import { nameAt } from "@/lib/todo";
-import { cycleTodoAtCursor } from "@/lib/todo-commands";
+import { nameAt } from "@/lib/todo/todo";
+import { cycleTodoAtCursor } from "@/lib/todo/todo-commands";
 import { open, TODAY } from "./keybindings-fixture";
 import { COARSE, NARROW, stubMatchMedia } from "./match-media";
 import { paneHooks, renderPane } from "./todo-pane-fixture";

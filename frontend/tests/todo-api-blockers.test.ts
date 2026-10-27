@@ -1,7 +1,7 @@
 import { noteBase } from "@/lib/note-base";
 import { periodicNote } from "@/lib/periodic";
-import { cycleTodoInVault } from "@/lib/todo-api";
-import { blockTodoInVault } from "@/lib/todo-line-edits";
+import { cycleTodoInVault } from "@/lib/todo/todo-api";
+import { blockTodoInVault } from "@/lib/todo/todo-line-edits";
 import { todoApiHooks } from "./todo-api-fixture";
 
 // Standing in for the module rather than for `fetch`, the way the pane's tests

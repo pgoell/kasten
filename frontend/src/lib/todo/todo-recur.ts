@@ -8,7 +8,7 @@
  */
 
 import { shiftDay } from "@/lib/clock";
-import type { Todo } from "@/lib/todo";
+import type { Todo } from "@/lib/todo/todo";
 
 /**
  * The days a rule names, where it names any.

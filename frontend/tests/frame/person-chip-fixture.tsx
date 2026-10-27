@@ -12,7 +12,7 @@ import { cdp, page } from "vitest/browser";
 import { PersonFooter } from "@/components/person-card";
 import { TodoPane } from "@/components/todo-pane";
 import type { TodoHit } from "@/lib/api";
-import { VIEWS_NOTE } from "@/lib/todo-view";
+import { VIEWS_NOTE } from "@/lib/todo/todo-view";
 import { COARSE, NARROW, stubMatchMedia } from "../match-media";
 import { stubCommands } from "../stub-commands";
 import "@/styles/app.css";

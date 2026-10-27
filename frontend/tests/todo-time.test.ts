@@ -4,7 +4,7 @@ import {
   minutesBetween,
   parseDuration,
   parseSession,
-} from "@/lib/todo-time";
+} from "@/lib/todo/todo-time";
 
 const CLOSED = "- 09:12-10:32 wire up the pane [[projects/kasten]] kt-3f9a2c";
 const OPEN = "- 14:03-      wire up the pane [[projects/kasten]] kt-3f9a2c";

@@ -13,7 +13,7 @@ import { createNote, NoteExists, updateNote } from "@/lib/api";
 import { LOG_HEADING } from "@/lib/log-lines";
 import { appendUnder, appendUnderEdit } from "@/lib/note-section";
 import { periodicNote } from "@/lib/periodic";
-import { notePath } from "@/lib/todo-commands";
+import { notePath } from "@/lib/todo/todo-commands";
 
 /**
  * Log a drink into the buffer when the view holds today's daily note. False,

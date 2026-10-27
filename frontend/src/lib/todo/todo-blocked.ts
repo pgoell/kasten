@@ -5,7 +5,7 @@
  * lines that must change come out.
  */
 
-import { isOpen, parseTodo, patchLine, type Todo } from "@/lib/todo";
+import { isOpen, parseTodo, patchLine, type Todo } from "@/lib/todo/todo";
 
 /**
  * Whether a blocker is closed, or nothing where the caller cannot see it.

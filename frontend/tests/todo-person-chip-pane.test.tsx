@@ -3,7 +3,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { TodoPane } from "@/components/todo-pane";
 import type { SearchHit } from "@/lib/api";
 import type { EditorCommands } from "@/lib/key-bindings";
-import { DEFAULT_VIEWS, VIEWS_NOTE } from "@/lib/todo-view";
+import { DEFAULT_VIEWS, VIEWS_NOTE } from "@/lib/todo/todo-view";
 import { COARSE, NARROW, stubMatchMedia } from "./match-media";
 import { paneHooks } from "./todo-pane-fixture";
 

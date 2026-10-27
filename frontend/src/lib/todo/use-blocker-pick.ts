@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { SearchHit } from "@/lib/api";
-import { isOpen, parseTodo } from "@/lib/todo";
-import { rowKey } from "@/lib/use-todo-rows";
+import { isOpen, parseTodo } from "@/lib/todo/todo";
+import { rowKey } from "@/lib/todo/use-todo-rows";
 
 /**
  * The picker a `b` press opens: the list becomes the choice of what blocks the

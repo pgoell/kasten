@@ -14,8 +14,8 @@ import { valueOn } from "@/lib/log-weight";
 import { noteSectionOf } from "@/lib/note-section";
 import { type Bar, barsOf, doneCounts, reviewCounts } from "@/lib/overview";
 import { byText, doneTodos, inRange } from "@/lib/review-year";
-import { isOpen, parseTodo } from "@/lib/todo";
-import { minutesBetween, parseSession } from "@/lib/todo-time";
+import { isOpen, parseTodo } from "@/lib/todo/todo";
+import { minutesBetween, parseSession } from "@/lib/todo/todo-time";
 
 /**
  * The minutes of the closed sessions under `## Time` in one daily note. A session still

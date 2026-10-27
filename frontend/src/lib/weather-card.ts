@@ -17,7 +17,7 @@ import { Decoration, type DecorationSet, EditorView, WidgetType } from "@codemir
 import { type Forecast, fetchWeather } from "@/lib/api";
 import { readClock } from "@/lib/clock";
 import { dailyDate } from "@/lib/periodic";
-import { notePath } from "@/lib/todo-commands";
+import { notePath } from "@/lib/todo/todo-commands";
 
 const SVG = "http://www.w3.org/2000/svg";
 

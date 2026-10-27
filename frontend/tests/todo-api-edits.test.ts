@@ -1,7 +1,7 @@
 import { noteBase } from "@/lib/note-base";
 import { periodicNote } from "@/lib/periodic";
-import { addTodoInVault } from "@/lib/todo-api";
-import { addSubtaskInVault, editTodoInVault } from "@/lib/todo-line-edits";
+import { addTodoInVault } from "@/lib/todo/todo-api";
+import { addSubtaskInVault, editTodoInVault } from "@/lib/todo/todo-line-edits";
 import { todoApiHooks } from "./todo-api-fixture";
 
 // Standing in for the module rather than for `fetch`, the way the pane's tests

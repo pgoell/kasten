@@ -8,7 +8,7 @@ import {
   STRIKE,
 } from "@/lib/format-commands";
 import { toggleImageAtCursor } from "@/lib/image";
-import { agentTodoAtCursor, cycleTodoAtCursor, stampIdAtCursor } from "@/lib/todo-commands";
+import { agentTodoAtCursor, cycleTodoAtCursor, stampIdAtCursor } from "@/lib/todo/todo-commands";
 import { writeTranscript } from "@/lib/transcript";
 
 /**

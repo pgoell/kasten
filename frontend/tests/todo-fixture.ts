@@ -1,4 +1,4 @@
-import { cycleLine, parseTodo, type Todo } from "@/lib/todo";
+import { cycleLine, parseTodo, type Todo } from "@/lib/todo/todo";
 
 /** The day the press lands on, and the id it brings with it. */
 export const TODAY = "2026-08-10";

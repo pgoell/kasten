@@ -1,6 +1,6 @@
-import { blockLine } from "@/lib/todo-blocked";
-import { closeSessions, type TimerInput, timerWrites } from "@/lib/todo-timer";
-import type { Write } from "@/lib/todo-write";
+import { blockLine } from "@/lib/todo/todo-blocked";
+import { closeSessions, type TimerInput, timerWrites } from "@/lib/todo/todo-timer";
+import type { Write } from "@/lib/todo/todo-write";
 import { DAILY, DAILY_PATH, FRESH_DAILY, NOTE, NOTE_PATH, TODAY } from "./todo-write-fixture";
 
 /** Today's note with a todo of its own, on line 6, and no time log yet. */

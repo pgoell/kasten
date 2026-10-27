@@ -1,4 +1,4 @@
-import { setStateOn, type TodoState } from "@/lib/todo";
+import { setStateOn, type TodoState } from "@/lib/todo/todo";
 import { FRESH, parsed, press, TODAY } from "./todo-fixture";
 
 describe("a state change keeps the line", () => {

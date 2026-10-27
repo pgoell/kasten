@@ -3,8 +3,8 @@ import type { ReactNode } from "react";
 import { fetchTodos, type TodoHit } from "@/lib/api";
 import { readClock } from "@/lib/clock";
 import { noteName } from "@/lib/note-path";
-import { isOpen, parseTodo, STATE_SYMBOL, type Todo, type TodoState } from "@/lib/todo";
-import { sectionOf } from "@/lib/todo-view";
+import { isOpen, parseTodo, STATE_SYMBOL, type Todo, type TodoState } from "@/lib/todo/todo";
+import { sectionOf } from "@/lib/todo/todo-view";
 import { useRecentNotes } from "@/lib/use-recent-notes";
 import { useReviewWaiting } from "@/lib/use-review-waiting";
 

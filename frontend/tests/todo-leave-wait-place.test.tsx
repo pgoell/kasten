@@ -1,9 +1,9 @@
 import { EditorView } from "@codemirror/view";
 import { fireEvent } from "@testing-library/react";
 import { afterEach } from "vitest";
-import { cycleTodoAtCursor } from "@/lib/todo-commands";
-import { patchFields, readFields } from "@/lib/todo-fields";
-import { cycleLines } from "@/lib/todo-write";
+import { cycleTodoAtCursor } from "@/lib/todo/todo-commands";
+import { patchFields, readFields } from "@/lib/todo/todo-fields";
+import { cycleLines } from "@/lib/todo/todo-write";
 import { open } from "./keybindings-fixture";
 import { TODAY, UNKNOWN } from "./todo-write-fixture";
 

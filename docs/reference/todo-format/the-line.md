@@ -2,7 +2,7 @@
 type: Reference
 title: The line and its fields
 description: The line a todo is written on, every field it carries, the field order, and the two ways a field gets written, the editor's colon list and the add prompt's shorthand.
-resource: frontend/src/lib/todo.ts
+resource: frontend/src/lib/todo/todo.ts
 tags: [vault, todos, format, frontend]
 status: stable
 ---

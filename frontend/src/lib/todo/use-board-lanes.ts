@@ -1,8 +1,8 @@
 import { useMemo } from "react";
 import type { SearchHit, TodoHit } from "@/lib/api";
-import type { Todo } from "@/lib/todo";
-import { COLUMNS, columnOf, KINDS, kindOf, laneName } from "@/lib/todo-board";
-import type { Placed } from "@/lib/todo-view";
+import type { Todo } from "@/lib/todo/todo";
+import { COLUMNS, columnOf, KINDS, kindOf, laneName } from "@/lib/todo/todo-board";
+import type { Placed } from "@/lib/todo/todo-view";
 
 /** The key a board card is known by, `path:line`. */
 export function cardKey(hit: SearchHit): string {
