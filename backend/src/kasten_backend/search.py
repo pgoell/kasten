@@ -30,6 +30,19 @@ match set rather than the first slice of it, and a cap this size is the whole
 match set for anything but the most common word in the vault.
 """
 
+LONGEST_TEXT = 65_536
+"""How many characters of a matching line come back at most (#1244).
+
+rg prints a line whole, and a paragraph of a note or of an html page folded into
+one line has no length it must stay under. The cut is set at 64 Ki characters,
+which no line the pipe reader could read before reaches, so every line that came
+back then comes back unchanged. It holds for every reader of lines, which is
+the cost: a link, tag or todo past this point of one line is not seen.
+"""
+
+_KEPT = 4 * LONGEST_TEXT + 4_096
+"""Bytes kept of a line rg prints: its path, number and `LONGEST_TEXT` characters of 4 bytes."""
+
 
 class Hit(NamedTuple):
     """One matching line: where it lives, which line it is, and what it says."""
@@ -172,13 +185,19 @@ async def scan_vault(
     # type checker cannot see from here.
     stdout = cast("asyncio.StreamReader", process.stdout)
     try:
-        async for raw in stdout:
+        while raw := await _line(stdout):
             # `--null` puts a NUL after the filename, which is the one byte a
             # path cannot contain. Splitting on the colon alone would break on
             # any note whose name has one.
             path, _, rest = raw.decode("utf-8", "replace").rstrip("\n").partition("\0")
             number, _, text = rest.partition(":")
-            hits.append(Hit(path=str(Path(path).relative_to(root)), line=int(number), text=text))
+            hits.append(
+                Hit(
+                    path=str(Path(path).relative_to(root)),
+                    line=int(number),
+                    text=text[:LONGEST_TEXT],
+                )
+            )
             if len(hits) == cap:
                 break
     finally:
@@ -194,6 +213,27 @@ async def scan_vault(
         # returns (#1242). Reading the rest is what resumes it.
         await process.communicate()
     return hits
+
+
+async def _line(stdout: asyncio.StreamReader) -> bytes:
+    """The next line rg prints, cut to `_KEPT` bytes, or nothing at its end.
+
+    Not `readline`, which raises on a line past the reader's 64 KiB limit and,
+    past twice that, also throws away the start of the line, so its tail came
+    back as a line of its own (#1244). `readuntil` leaves the buffer as it was,
+    and what it could not take is read and dropped here instead.
+    """
+    kept = bytearray()
+    while True:
+        try:
+            part = await stdout.readuntil(b"\n")
+        except asyncio.LimitOverrunError as long:
+            part = await stdout.readexactly(long.consumed)
+        except asyncio.IncompleteReadError as end:
+            return bytes(kept + end.partial[: _KEPT - len(kept)])
+        kept += part[: _KEPT - len(kept)]
+        if part.endswith(b"\n"):
+            return bytes(kept)
 
 
 def literal_matcher(query: str) -> tuple[str, ...]:

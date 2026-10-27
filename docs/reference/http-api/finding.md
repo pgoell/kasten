@@ -126,6 +126,12 @@ are the best of the match set rather than the head of it, and 2,000 is the
 whole match set for anything but the most common word in a vault. The cap
 covers note and file hits together, and note hits come first.
 
+A hit's `text` is at most 65,536 characters: a longer line, such as a long
+paragraph of an html page, which the text cache folds into one line, comes
+back cut to its first 65,536. The todo list, cards, tags and the graph read
+lines through the same scan, so they do not see what lies past that point of
+one line (#1244).
+
 Each hit also carries `date` and `tags`, which the search histogram counts and
 filters by. Both belong to the hit's note and not to the line. `date` is the
 day the note counts on, taken from the first of these that holds:
