@@ -17,11 +17,11 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from starlette.requests import ClientDisconnect
 
-from kasten_backend import agent, files, vcs
+from kasten_backend import agent, files, token_activity, vcs
 from kasten_backend.agent_finance_routes import router as finance_router
 from kasten_backend.config import Settings, get_settings
 from kasten_backend.graph import MOST_DEPTH, Graph, GraphError
-from kasten_backend.tokens import verify
+from kasten_backend.tokens import identify
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -49,10 +49,16 @@ async def require_token(
     if not header.startswith(BEARER):
         raise HTTPException(status_code=401, detail=REFUSED)
 
-    name = await verify(settings.tokens_path, header.removeprefix(BEARER))
-    if name is None:
+    found = await identify(settings.tokens_path, header.removeprefix(BEARER))
+    if found is None:
         raise HTTPException(status_code=401, detail=REFUSED)
 
+    name, revoked = found
+    if revoked:
+        token_activity.named(name, revoked=True)
+        raise HTTPException(status_code=401, detail=REFUSED)
+
+    token_activity.named(name, note=request.path_params.get("path"))
     held = vcs.writer.set(name)
     try:
         yield name

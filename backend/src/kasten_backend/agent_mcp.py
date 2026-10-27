@@ -9,7 +9,7 @@ a `write_note` from `vault.py` and resolves it as a global inside `PUT
 /api/files`; a tool of a colliding name defined there would silently redirect
 the browser's own save.
 
-Three things about the wiring are load-bearing and each has a test:
+Four things about the wiring are load-bearing and each has a test:
 
 * The endpoint answers at exactly `/agent/mcp`. The SDK's app owns `/mcp`
   internally, so it is mounted at `/agent` and the inner path supplies the rest.
@@ -23,6 +23,9 @@ Three things about the wiring are load-bearing and each has a test:
   a dependency does not reach a mounted app. It sets and resets `vcs.writer` the
   way `require_token` does; without that, every MCP write, which is the primary
   surface, would land in `jj log` as a browser edit with the suite still green.
+* A tool call is named in the activity log by overriding `call_tool` on the
+  server (`_Recorded`). The middleware sees only the path, and the tool name and
+  its `path` argument exist nowhere else in the request.
 
 The wrapper also decides the method set, and `POST` is the whole of it.
 Streamable HTTP names three: `POST` carries every exchange, `DELETE` ends a
@@ -43,19 +46,20 @@ from typing import TYPE_CHECKING, Any
 from mcp.server import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 from mcp.server.transport_security import TransportSecuritySettings
-from mcp.types import ToolAnnotations
+from mcp.types import CallToolResult, InputRequiredResult, ToolAnnotations
 from starlette.responses import JSONResponse
 
-from kasten_backend import agent, agent_mcp_finance, files, vcs
+from kasten_backend import agent, agent_mcp_finance, files, token_activity, vcs
 from kasten_backend.agent_oauth import challenge
 from kasten_backend.agent_routes import BEARER, REFUSED
 from kasten_backend.config import DEFAULTS, get_settings
 from kasten_backend.graph import MOST_DEPTH, GraphError
-from kasten_backend.tokens import verify
+from kasten_backend.tokens import identify
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
 
+    from mcp.server.mcpserver.context import Context
     from starlette.types import ASGIApp, Receive, Scope, Send
 
 PATH = "/mcp"
@@ -307,14 +311,16 @@ def _gate(inner: ASGIApp) -> ASGIApp:
         headers = dict(scope["headers"])
         host = headers.get(b"host", b"").decode("latin-1")
         header = headers.get(b"authorization", b"").decode("latin-1")
-        name = (
-            await verify(get_settings().tokens_path, header.removeprefix(BEARER))
+        found = (
+            await identify(get_settings().tokens_path, header.removeprefix(BEARER))
             if header.startswith(BEARER)
             else None
         )
+        if found is not None:
+            token_activity.named(found[0], revoked=found[1])
         # Before the method check, so a caller with no token learns nothing
-        # about what this endpoint accepts.
-        if name is None:
+        # about what this endpoint accepts. A revoked token gets the same answer.
+        if found is None or found[1]:
             await JSONResponse(
                 {"detail": REFUSED},
                 status_code=401,
@@ -333,7 +339,7 @@ def _gate(inner: ASGIApp) -> ASGIApp:
             )(scope, receive, send)
             return
 
-        held = vcs.writer.set(name)
+        held = vcs.writer.set(found[0])
         try:
             await inner(scope, receive, send)
         finally:
@@ -342,13 +348,41 @@ def _gate(inner: ASGIApp) -> ASGIApp:
     return gated
 
 
+class _Recorded(MCPServer):
+    """The server, with each tool call named in the activity log.
+
+    Overridden at the one method every `tools/call` passes through. The SDK turns a
+    tool's exception into an error result inside its own handler, so the call's
+    failure is read off the result as well as off a raise.
+    """
+
+    async def call_tool(
+        self,
+        name: str,
+        arguments: dict[str, Any],
+        context: Context[Any, Any] | None = None,
+    ) -> CallToolResult | InputRequiredResult:
+        token_activity.called(name, arguments)
+        answered = False
+        try:
+            result = await super().call_tool(name, arguments, context)
+            answered = True
+        finally:
+            if not answered:
+                token_activity.failed()
+
+        if isinstance(result, CallToolResult) and result.is_error:
+            token_activity.failed()
+        return result
+
+
 def build() -> tuple[ASGIApp, MCPServer]:
     """The streamable-HTTP app wrapped in the bearer check, and the server behind it.
 
     The server comes back too because its session manager exists only after this
     call, and the lifespan is what enters it.
     """
-    server: MCPServer = MCPServer(
+    server: MCPServer = _Recorded(
         name="kasten",
         version=version("kasten-backend"),
         instructions=instructions() + REDUNDANT,

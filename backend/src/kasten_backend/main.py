@@ -10,7 +10,7 @@ from fastapi import Depends, FastAPI
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from kasten_backend import agent_mcp, food, log, uploads
+from kasten_backend import agent_mcp, food, log, token_activity, uploads
 from kasten_backend.agent import ConflictError, EmptyCaptureError, TooLargeError
 from kasten_backend.agent_oauth import router as oauth_router
 from kasten_backend.agent_routes import note_changed, nothing_to_capture, refused, too_large
@@ -219,6 +219,12 @@ app.add_middleware(FinanceGuard)
 
 The gate is registered here rather than in a router because it has to see every
 request, the ones the routes above do not answer included.
+"""
+app.add_middleware(token_activity.Recorder)
+"""Added last, so it is the outermost layer and records the status the client got.
+
+Whatever layer answered, the row carries that answer's status, not one an inner
+layer rewrote on the way out.
 """
 
 

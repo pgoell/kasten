@@ -25,6 +25,13 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+psycopg://kasten:kasten@localhost:5434/kasten_dev"
     """Async SQLAlchemy URL for the derived index, finance and RSVP places. Never holds notes."""
 
+    activity_timeout_seconds: float = 2.0
+    """How long one token-activity row may take to write before it is dropped.
+
+    Bounded so a slow database cannot hold a connection open after the answer has
+    already gone out.
+    """
+
     herdr_sessions_path: Path = Path("/herdr-home/.config/herdr/sessions")
     """Where the shell container keeps one directory per named herdr session.
 

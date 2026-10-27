@@ -1,14 +1,21 @@
-"""Routes that mint, list and revoke the agent tokens the MCP endpoint checks."""
+"""Routes that mint, list and revoke the agent tokens, and show what each one did."""
 
+import asyncio
+import logging
+from datetime import datetime  # noqa: TC003  pydantic reads the annotation at runtime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Response
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
+from sqlalchemy.exc import OperationalError, SQLAlchemyError
 
+from kasten_backend import db, token_activity
 from kasten_backend.config import Settings, get_settings
 from kasten_backend.tokens import Minted, Token, listing, mint, revoke
 
 router = APIRouter()
+
+logger = logging.getLogger(__name__)
 
 
 class TokenName(BaseModel):
@@ -17,14 +24,75 @@ class TokenName(BaseModel):
     name: str
 
 
+class TokenUse(Token):
+    """One token as the list shows it, with the time of its newest request."""
+
+    last_used: datetime | None = None
+
+
+class TokenActionRead(BaseModel):
+    """One request a token made, as the activity list shows it.
+
+    Named `TokenAction` in the schema, which is the name the API reference uses.
+    """
+
+    model_config = ConfigDict(title="TokenAction", from_attributes=True)
+
+    at: datetime
+    client: str | None
+    method: str
+    path: str
+    tool: str | None
+    note: str | None
+    status: int
+    outcome: str
+
+
 @router.get("/api/tokens")
-async def read_tokens(settings: Annotated[Settings, Depends(get_settings)]) -> list[Token]:
-    """Every agent token the store holds, by name and creation date.
+async def read_tokens(settings: Annotated[Settings, Depends(get_settings)]) -> list[TokenUse]:
+    """Every agent token the store holds, by name, creation date and last use.
 
     Never a digest and never a secret. Only the digest is kept at all, so there
     is no way back to a secret from here even by mistake.
+
+    The list still answers when no database does: `last_used` is then null, and
+    a warning says why.
     """
-    return await listing(settings.tokens_path)
+    tokens = await listing(settings.tokens_path)
+    try:
+        async with asyncio.timeout(settings.activity_timeout_seconds):
+            async with db.session_factory() as session:
+                last = await token_activity.last_uses(session)
+    except (SQLAlchemyError, OSError, TimeoutError) as error:
+        logger.warning("Could not read the last use of the tokens: %s", type(error).__name__)
+        last = {}
+
+    return [
+        TokenUse(name=token.name, created=token.created, last_used=last.get(token.name))
+        for token in tokens
+    ]
+
+
+@router.get("/api/tokens/{name}/actions")
+async def read_token_actions(name: str) -> list[TokenActionRead]:
+    """The newest requests one token made, newest first, at most fifty.
+
+    503 rather than an empty list when no database answers, since an empty list
+    would say the token had done nothing.
+    """
+    try:
+        async with db.session_factory() as session:
+            rows = await token_activity.recent(session, name)
+    except OperationalError as error:
+        # The driver's reason for the failed connect, with no statement in it.
+        logger.warning("No database answers for the token activity: %s", error.orig)
+        raise HTTPException(
+            status_code=503,
+            detail="No database answers at KASTEN_DATABASE_URL, where the token activity is "
+            "kept. See docs/reference/configuration.md.",
+        ) from error
+
+    return [TokenActionRead.model_validate(row) for row in rows]
 
 
 @router.post("/api/tokens", status_code=201)
