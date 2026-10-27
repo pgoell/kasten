@@ -99,17 +99,20 @@ A kept element keeps its geometry and presentation attributes. `class` and any
 `on…` event handler go. `href` stays only as `#id`, and `url(...)` only as
 `url(#id)`, each naming an element in the same block. Ids are renamed for each
 block, so two blocks with the same marker id each keep their own, and a
-reference reaches only its own block.
+reference reaches only its own block. A second element with an id already in
+the block loses its id.
 
 The root svg loses `transform`, `x` and `y`, and the picture stays inside its
-box, so it cannot cover the note or the app. A `use` that points at another
-`use`, or at a group holding one, is dropped, since each level multiplies the
-copies.
+box, so it cannot cover the note or the app. An element a reference points at, a `use` target or what a `url(#id)` names,
+loses its own references, and so does everything under it. So a `use` of a group
+of `use`s, a mask inside a mask, or a symbol whose shapes fill with a gradient
+draws without the inner reference, since each level would multiply the work.
 
 A `style` attribute keeps only presentation properties, such as fill, stroke and
 font. A value may call only `url(#id)`, `translate`, `rotate`, `scale`, `skew`,
-`matrix`, `rgb`, `rgba`, `hsl` and `hsla`. Any other function, such as `var()`
-or `element()`, drops its value.
+`matrix`, `rgb`, `rgba`, `hsl`, `hsla`, `oklch`, `oklab`, `lab`, `lch`, `hwb`,
+`color-mix`, `calc` and `light-dark`. Any other function, such as `var()` or
+`element()`, drops its value.
 
 `currentColor` takes the theme's ink colour, so a picture drawn in it follows
 light and dark. Other colours stay as written.
