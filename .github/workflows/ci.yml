@@ -140,7 +140,10 @@ jobs:
   record:
     name: Record the tested tree
     needs: [lint, test, perf]
-    if: github.event_name == 'pull_request' && needs.lint.result == 'success' && needs.test.result == 'success' && needs.perf.result == 'success'
+    # `!cancelled()` in place of the implied `success()`, which would skip this
+    # job because the gate upstream is always skipped on a pull request. The
+    # three results below are what must hold.
+    if: ${{ !cancelled() && github.event_name == 'pull_request' && needs.lint.result == 'success' && needs.test.result == 'success' && needs.perf.result == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - id: tree
