@@ -228,6 +228,9 @@ describe("the workspace across a reload", () => {
 
   const selectedTab = () => screen.getByRole("tab", { selected: true }).textContent;
 
+  // First in the file, so it pays the cold mount, and with timers faked none of
+  // it is waiting: all of it is work. 0.6 s idle, 3.8 s alone at load 47 on 16
+  // cores, over 5 s inside the full suite at load 34 (#1206).
   it("workspace: A1 A2 A4 A7 the splits, tabs, focus and zoom made by keys come back", async () => {
     const app = await renderApp();
     await settle();
@@ -260,7 +263,7 @@ describe("the workspace across a reload", () => {
     await settle();
     expect(again.panes()).toBe(2);
     expect(again.focusedPane()).toBe(1);
-  });
+  }, 15_000);
 
   it("workspace: A7 I4 a phone's note opened by a tap comes back, under its own key", async () => {
     stubMatchMedia({ [NARROW]: true, [COARSE]: true });

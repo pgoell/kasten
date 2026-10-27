@@ -24,7 +24,8 @@ describe("the todo pane", () => {
       { path: "a.md", line: 4, text: "  - [ ] write it" },
     ]);
 
-    await waitFor(() => expect(pane.rows()).toHaveLength(2));
+    await pane.loaded();
+    expect(pane.rows()).toHaveLength(2);
     expect(pane.texts()[0]).toContain("2/3");
     expect(pane.texts()[1]).not.toContain("/");
   });
