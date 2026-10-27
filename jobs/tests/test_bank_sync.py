@@ -154,7 +154,7 @@ def test_a_tan_to_type_fails_a_headless_run(tmp_path: Path) -> None:
 
 
 def test_a_camt_fetch_resumed_after_a_tan_is_parsed(tmp_path: Path) -> None:
-    # python-fints 5.0.0 hands back the raw (booked, pending) streams here.
+    # python-fints 5.0.1 hands back the raw (booked, pending) streams here.
     kasten = FakeKasten([account(1, GIRO)])
     client = FakeClient({GIRO: Tan(then=([CAMT], []))})
 
