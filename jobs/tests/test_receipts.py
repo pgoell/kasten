@@ -1,23 +1,26 @@
 """The receipt job: PDFs from the labelled mails to kasten, and each unread receipt read by Claude.
 
 Against a fake mailbox, a fake kasten that keeps receipts by their bytes,
-and the Anthropic SDK on a mock transport, so no request leaves the box.
+and a fake `subprocess.run` in place of `claude -p`, so nothing leaves the box.
 """
 
 import base64
 import hashlib
 import json
+import subprocess
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-import anthropic
 import httpx
-import httpx2
+import pytest
 
 from kasten_jobs import receipts
 from kasten_jobs.gmail import Attachment, Gmail
 from kasten_jobs.kasten_api import KastenApi
-from kasten_jobs.receipt_reader import ClaudeReader, reading
+from kasten_jobs.receipt_reader import SCHEMA, ClaudeReader, SetupError, reading
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 PDF = b"%PDF-1.4 invoice"
 QUERY = 'label:"Receipt" has:attachment filename:pdf newer_than:30d'
@@ -134,33 +137,59 @@ def test_gmail_hands_over_inline_and_fetched_pdfs_and_nothing_else() -> None:
     assert found == [Attachment("small.pdf", PDF), Attachment("Rechnung.PDF", PDF + b"big")]
 
 
-def answer(text: str, stop: str = "end_turn") -> dict[str, Any]:
+def answer(output: dict[str, Any] | None, stop: str = "end_turn") -> dict[str, Any]:
+    """Claude Code's `--output-format json` result, as a successful run prints it."""
     return {
-        "id": "msg_1",
-        "type": "message",
-        "role": "assistant",
-        "model": "claude-sonnet-5-5",
-        "content": [{"type": "text", "text": text}],
+        "type": "result",
+        "subtype": "success",
+        "is_error": False,
         "stop_reason": stop,
-        "stop_sequence": None,
-        "usage": {"input_tokens": 10, "output_tokens": 10},
+        "terminal_reason": "completed",
+        "api_error_status": None,
+        "result": json.dumps(output),
+        "structured_output": output,
     }
 
 
-def claude(respond: Any, sent: list[dict[str, Any]]) -> ClaudeReader:
-    """A reader whose SDK answers from `respond` (status and JSON) and keeps each body sent."""
+def failure(status: int | None, text: str) -> dict[str, Any]:
+    """The result Claude Code prints when the API call fails."""
+    return {
+        "type": "result",
+        "subtype": "success",
+        "is_error": True,
+        "stop_reason": "stop_sequence",
+        "terminal_reason": "api_error",
+        "api_error_status": status,
+        "result": text,
+    }
 
-    def handle(request: httpx2.Request) -> httpx2.Response:
-        sent.append(json.loads(request.content))
-        status, body = respond()
-        return httpx2.Response(status, json=body)
 
-    client = anthropic.Anthropic(
-        api_key="test",
-        http_client=httpx2.Client(transport=httpx2.MockTransport(handle)),
-        max_retries=0,
-    )
-    return ClaudeReader(client)
+@dataclass
+class FakeClaude:
+    """`subprocess.run` for `claude -p`: answers from `replies` and keeps what each run saw."""
+
+    replies: Iterator[dict[str, Any] | str | type[BaseException]]
+    runs: list[dict[str, Any]] = field(default_factory=list)
+
+    def __call__(self, command: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        cwd = kwargs["cwd"]
+        files = {p.name: p.read_bytes() for p in cwd.iterdir()}
+        self.runs.append({"command": command, "files": files, **kwargs})
+        reply = next(self.replies)
+        if isinstance(reply, type):
+            raise subprocess.TimeoutExpired(command, kwargs["timeout"])
+        if isinstance(reply, str):
+            return subprocess.CompletedProcess(command, 1, reply, "boom")
+        code = 1 if reply["is_error"] else 0
+        return subprocess.CompletedProcess(command, code, json.dumps(reply), "")
+
+
+TOKEN = "sk-ant-oat01-test"  # noqa: S105  a fake, never sent
+
+
+def claude(*replies: dict[str, Any] | str | type[BaseException]) -> tuple[ClaudeReader, FakeClaude]:
+    fake = FakeClaude(iter(replies))
+    return ClaudeReader(TOKEN, run=fake), fake
 
 
 READ = {
@@ -173,9 +202,11 @@ READ = {
 }
 
 
-def test_a_receipt_goes_to_claude_whole_and_comes_back_as_a_reading() -> None:
-    sent: list[dict[str, Any]] = []
-    reader = claude(lambda: (200, answer(json.dumps(READ))), sent)
+def test_a_receipt_goes_to_claude_code_whole_and_comes_back_as_a_reading(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "would-bill-the-api")
+    reader, fake = claude(answer(READ))
 
     found = reader.read(PDF, "application/pdf")
 
@@ -186,14 +217,30 @@ def test_a_receipt_goes_to_claude_whole_and_comes_back_as_a_reading() -> None:
         "labour": "300.00",
         "form_line": "handwerker",
     }
-    [body] = sent
-    assert body["model"] == "claude-sonnet-5-5"
-    assert body["fallbacks"] == "default"
-    assert body["output_config"]["format"]["type"] == "json_schema"
-    assert "thinking" not in body
-    document = body["messages"][0]["content"][0]
-    assert document["type"] == "document"
-    assert base64.b64decode(document["source"]["data"]) == PDF
+    [run] = fake.runs
+    command = run["command"]
+    assert command[:3] == ["claude", "-p", "Read the receipt at ./receipt.pdf."]
+    assert command[command.index("--model") + 1] == "claude-sonnet-5-5"
+    assert json.loads(command[command.index("--json-schema") + 1]) == SCHEMA
+    assert command[command.index("--tools") + 1] == "Read"
+    assert "--restricted" in command
+    assert run["files"] == {"receipt.pdf": PDF}
+    # The folder and the home are gone once the run is done.
+    assert not run["cwd"].exists()
+    env = run["env"]
+    assert env["CLAUDE_CODE_OAUTH_TOKEN"] == TOKEN
+    assert env["DISABLE_AUTOUPDATER"] == "1"
+    assert "ANTHROPIC_API_KEY" not in env
+    assert env["HOME"] != str(run["cwd"])
+
+
+def test_a_photo_goes_by_its_own_name() -> None:
+    reader, fake = claude(answer(READ), answer(READ))
+
+    reader.read(b"png", "image/png")
+    reader.read(b"jpg", "image/jpeg")
+
+    assert [r["files"] for r in fake.runs] == [{"receipt.png": b"png"}, {"receipt.jpg": b"jpg"}]
 
 
 def test_what_does_not_parse_is_left_out_and_no_receipt_says_so() -> None:
@@ -209,13 +256,17 @@ def test_what_does_not_parse_is_left_out_and_no_receipt_says_so() -> None:
     assert "error" in reading({**READ, "is_receipt": False})
 
 
-def test_a_decline_and_three_cut_off_replies_end_as_readings_never_sent_again() -> None:
+def test_a_decline_and_three_unusable_replies_end_as_readings_never_sent_again() -> None:
     unread = [{"id": n, "media_type": "application/pdf"} for n in (1, 2, 3)]
     kasten = FakeKasten(unread=unread)
-    cut = answer('{"is_', "max_tokens")
-    replies = iter([answer("", "refusal"), cut, cut, cut, cut, answer(json.dumps(READ))])
-    sent: list[dict[str, Any]] = []
-    reader = claude(lambda: (200, next(replies)), sent)
+    reader, fake = claude(
+        answer(None, "refusal"),
+        "",  # Claude Code died before it printed anything.
+        answer(None),  # A result with no structured output.
+        failure(None, "Something odd") | {"terminal_reason": "completed"},
+        "not json",
+        answer(READ),
+    )
 
     counts = receipts.read_all(kasten.api(), reader)
     again = receipts.read_all(kasten.api(), reader)
@@ -223,9 +274,9 @@ def test_a_decline_and_three_cut_off_replies_end_as_readings_never_sent_again() 
     assert counts == {"read": 1, "unreadable": 2, "skipped": 0, "stopped": 0}
     assert kasten.readings[1] == {"error": "The model declined to read this file"}
     assert kasten.readings[2] == {"error": "No usable answer in 3 tries"}
-    # 3: one cut-off, then an answer, in the same run.
+    # 3: one reply that is no JSON, then an answer, in the same run.
     assert kasten.readings[3]["amount"] == "476.00"
-    assert len(sent) == 6
+    assert len(fake.runs) == 6
     assert again == {"read": 0, "unreadable": 0, "skipped": 0, "stopped": 0}
     assert not receipts.failed(counts)
 
@@ -234,18 +285,53 @@ def test_a_file_the_api_refuses_is_done_and_a_busy_api_stops_the_run() -> None:
     kasten = FakeKasten(
         unread=[{"id": n, "media_type": "application/pdf"} for n in (1, 2, 3)], gone={1}
     )
-    bad = {"type": "error", "error": {"type": "invalid_request_error", "message": "bad pdf"}}
-    busy = {"type": "error", "error": {"type": "overloaded_error", "message": "busy"}}
-    replies = iter([(400, bad), (529, busy)])
-    reader = claude(lambda: next(replies), [])
+    reader, _ = claude(
+        failure(400, "API Error: 400 bad pdf"), failure(429, "Claude usage limit reached")
+    )
 
     counts = receipts.read_all(kasten.api(), reader)
 
-    # 1: its file is gone; 2: the API refused the file; 3: the API was busy.
+    # 1: its file is gone; 2: the API refused the file; 3: the limit was reached.
     assert counts == {"read": 0, "unreadable": 1, "skipped": 1, "stopped": 1}
-    assert kasten.readings == {2: {"error": "The reader could not take this file: bad pdf"}}
+    assert kasten.readings == {
+        2: {"error": "The reader could not take this file: API Error: 400 bad pdf"}
+    }
     assert 3 not in kasten.readings
     assert receipts.failed(counts)
+
+
+def test_a_hung_claude_code_and_no_network_stop_the_run() -> None:
+    for reply in (subprocess.TimeoutExpired, failure(None, "Connection error")):
+        kasten = FakeKasten(unread=[{"id": 1, "media_type": "application/pdf"}])
+        reader, _ = claude(reply)
+
+        counts = receipts.read_all(kasten.api(), reader)
+
+        assert counts["stopped"] == 1
+        assert kasten.readings == {}
+
+
+def test_a_missing_or_bad_token_or_model_fails_the_run_loudly() -> None:
+    for reply in (
+        failure(None, "Not logged in · Please run /login"),
+        failure(401, "Failed to authenticate. API Error: 401 OAuth access token is invalid."),
+        failure(404, "There's an issue with the selected model (claude-bogus-9)."),
+    ):
+        kasten = FakeKasten(unread=[{"id": 1, "media_type": "application/pdf"}])
+        reader, _ = claude(reply)
+
+        with pytest.raises(SetupError):
+            receipts.read_all(kasten.api(), reader)
+        assert kasten.readings == {}
+
+
+def test_read_without_a_token_fails_before_it_calls_anything(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("CLAUDE_CODE_OAUTH_TOKEN", raising=False)
+    monkeypatch.setenv("KASTEN_API", "http://kasten.invalid")
+
+    assert receipts.main(["read"]) == 1
 
 
 def test_only_a_stopped_run_fails() -> None:

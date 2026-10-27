@@ -35,7 +35,8 @@ the default, or `mail`).
 
 The type is read off the first bytes, never the name or the header: anything
 but PDF, JPEG and PNG is a `422`, and so are an empty file, one over 20 MB, a
-photo over 7 MB (the Messages API takes an image of up to 10 MB in base64) and
+photo over 7 MB (the reader's Claude Code hands it to the Messages API, which
+takes an image of up to 10 MB in base64) and
 a `transaction_id` that names no booking. A body over 20 MB and a bit is
 refused with a `413` before it is read: at once when its `Content-Length`
 says so, else once that many bytes have come. The same bytes again answer the
