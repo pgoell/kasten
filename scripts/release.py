@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Publish the next release, its number computed from the commits.
 
-A release is one command on main, with no version bump pull request. The
+A release is one command at the tip of origin/main, with no version bump pull request. The
 version lives in the tag, so this script reads the Conventional Commits since
 the last X.Y.Z tag, picks the bump they call for, and creates the GitHub
 release at HEAD. Publishing the release is what deploys it.

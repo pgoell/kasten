@@ -152,8 +152,8 @@ fails. See
 |---|---|
 | `release` | Publish the next release, its number computed from the Conventional Commits since the last `X.Y.Z` tag. `-- --dry-run` prints the number and creates nothing |
 
-`release` refuses unless it runs on a clean `main` that is at the tip of
-`origin/main`. See [Cut a release](/how-to/cut-a-release.md).
+`release` fetches, then refuses unless HEAD is the tip of `origin/main` and
+the tree is clean, on `main` or detached in a worktree. See [Cut a release](/how-to/cut-a-release.md).
 
 ## Repo automation
 
