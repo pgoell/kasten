@@ -16,6 +16,9 @@ Version = tuple[int, int, int]
 
 TAG = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$")
 SUBJECT = re.compile(r"^(\w+)(\([^)]*\))?(!)?: ")
+# GitHub's revert button writes `Revert "feat: x"`, not a Conventional Commit.
+# Undoing shipped code changes what runs, so it is a patch like `revert:`.
+GITHUB_REVERT = re.compile(r'^Revert "')
 BREAKING_FOOTER = re.compile(r"^BREAKING[ -]CHANGE:", re.MULTILINE)
 PATCH_TYPES = {"fix", "perf", "refactor", "build", "revert"}
 
@@ -55,6 +58,8 @@ def commit_messages(last: Version | None) -> list[str]:
 def bump_for(message: str) -> int:
     """Return how far one commit message bumps the version."""
     subject = message.splitlines()[0]
+    if GITHUB_REVERT.match(subject):
+        return PATCH
     match = SUBJECT.match(subject)
     if match is None:
         return NONE

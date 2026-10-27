@@ -63,7 +63,7 @@ gh run watch
 ```
 
 The workflow checks the tag first. It must be `X.Y.Z`, with no `v`, no suffix and
-no leading zeros, and above every earlier release tag. If it is not, the workflow
+no leading zeros, and the next patch, minor or major after the last release tag. If it is not, the workflow
 stops before anything is built or pushed. See
 [When the tag check fails](#when-the-tag-check-fails).
 

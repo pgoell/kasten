@@ -112,8 +112,8 @@ app = FastAPI(title="kasten", version=version("kasten-backend"), lifespan=lifesp
 
 Two copies of it drifted apart once already: the release was cut, the tag moved
 and this string did not, so `/docs` reported a version behind the code serving
-it. `pyproject.toml` is the one place it lives now, and the deploy workflow
-refuses a release whose tag disagrees with it.
+it. The release tag is the one place it lives now: the backend image build
+writes it into the package, and the source tree says 0.0.0.
 """
 
 app.include_router(oauth_router)

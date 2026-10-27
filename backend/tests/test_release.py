@@ -101,6 +101,16 @@ def test_fix_is_a_patch_release(tmp_path: Path) -> None:
     assert result.stdout == "0.4.3\n"
 
 
+def test_github_revert_is_a_patch_release(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+    commit(repo, 'Revert "feat: add thing (#5)" (#6)')
+
+    result = run_release(tmp_path, repo, "--dry-run")
+
+    assert result.returncode == 0
+    assert result.stdout == "0.4.3\n"
+
+
 def test_perf_alone_is_a_patch_release(tmp_path: Path) -> None:
     repo = make_repo(tmp_path)
     commit(repo, "perf: a")

@@ -40,7 +40,7 @@ def test_tag_above_the_last_release_passes(tmp_path: Path) -> None:
     result = run(tmp_path, "0.10.1")
 
     assert result.returncode == 0
-    assert result.stdout == "0.10.1 is a release number above 0.10.0\n"
+    assert result.stdout == "0.10.1 is the next release after 0.10.0\n"
 
 
 def test_first_release_passes(tmp_path: Path) -> None:
@@ -80,7 +80,7 @@ def test_tag_not_above_the_last_release_is_refused(tmp_path: Path, existing: str
     result = run(tmp_path, tag)
 
     assert result.returncode == 1
-    assert f"::error::{tag} is not above {existing}" in result.stdout
+    assert f"::error::{tag} is not the next release after {existing}" in result.stdout
 
 
 def test_other_tag_shapes_are_ignored(tmp_path: Path) -> None:
@@ -90,3 +90,22 @@ def test_other_tag_shapes_are_ignored(tmp_path: Path) -> None:
 
     assert result.returncode == 0
     assert result.stdout == "0.1.0 is a release number, the first release\n"
+
+
+@pytest.mark.parametrize("tag", ["0.10.3", "0.12.0", "2.0.0", "0.1000.0"])
+def test_tag_that_skips_a_release_is_refused(tmp_path: Path, tag: str) -> None:
+    repo_with_tags(tmp_path, "0.10.1", tag)
+
+    result = run(tmp_path, tag)
+
+    assert result.returncode == 1
+    assert "::error::" in result.stdout
+
+
+@pytest.mark.parametrize("tag", ["0.10.2", "0.11.0", "1.0.0"])
+def test_next_patch_minor_or_major_passes(tmp_path: Path, tag: str) -> None:
+    repo_with_tags(tmp_path, "0.10.1", tag)
+
+    result = run(tmp_path, tag)
+
+    assert result.returncode == 0

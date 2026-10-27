@@ -1,4 +1,4 @@
-"""Check that a release tag is a plain X.Y.Z number above every earlier release.
+"""Check that a release tag is a plain X.Y.Z number, the next after the last release.
 
 The deploy workflow runs this on the tag before anything is built. The tag is
 the version the backend reports, because the image build writes it into the
@@ -57,11 +57,18 @@ def main() -> int:
         return 0
 
     last_number, last = earlier[-1]
-    if number <= last_number:
-        print(f"::error::{tag} is not above {last}, the last release.")
+    major, minor, patch = last_number
+    # Only the next patch, minor or major: a typo such as 0.1260.0 would
+    # otherwise become the floor every later release is measured against.
+    following = {(major, minor, patch + 1), (major, minor + 1, 0), (major + 1, 0, 0)}
+    if number not in following:
+        print(
+            f"::error::{tag} is not the next release after {last}: "
+            f"expected one of {', '.join(sorted('.'.join(map(str, n)) for n in following))}."
+        )
         return 1
 
-    print(f"{tag} is a release number above {last}")
+    print(f"{tag} is the next release after {last}")
     return 0
 
 

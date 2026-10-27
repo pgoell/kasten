@@ -25,7 +25,7 @@ def repo_at(root: Path, head: str, *, commit: str | None = None) -> Path:
 
 def test_names_the_commit_the_tree_is_on(tmp_path: Path) -> None:
     # Development bind-mounts the repo and runs the source, where the version in
-    # `pyproject.toml` is the last release and says nothing about the code.
+    # `pyproject.toml` is the 0.0.0 placeholder and says nothing about the code.
     root = repo_at(tmp_path, "ref: refs/heads/main", commit=COMMIT)
 
     assert build_id(root) == "4d1f6a2"

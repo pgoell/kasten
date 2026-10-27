@@ -35,10 +35,11 @@ jobs:
           # diffs this release against the one before it, and neither the tag
           # list nor the range exists in a shallow clone.
           fetch-depth: 0
-      # The tag is the version the backend reports, so a malformed or lower one
+      # The tag is the version the backend reports, so a malformed one, or one that
+      # is not the next patch, minor or major,
       # stops here, before anything is built or pushed. The checkout already has
       # every tag (fetch-depth 0).
-      - name: Check the tag is a release number above the last
+      - name: Check the tag is the next release number
         env:
           TAG: ${{ github.event.release.tag_name }}
         run: |
@@ -71,17 +72,18 @@ jobs:
           # The release before this one, which is what the tag's parent is
           # described by. Empty on the first release ever, and then everything
           # is built because there is nothing to compare against.
-          previous=$(git describe --tags --abbrev=0 "$TAG^" 2>/dev/null || true)
+          # Release tags alone, the shape the tag check enforces: another tag in
+          # between would name no image to copy.
+          previous=$(git describe --tags --abbrev=0 --match '[0-9]*.[0-9]*.[0-9]*' "$TAG^" 2>/dev/null || true)
 
           build=()
           for component in backend frontend shell; do
             image="ghcr.io/$OWNER/kasten-$component"
 
             # What goes into each image, as the Dockerfiles copy it. The
-            # backend takes the root lockfile and project file too. It carries
-            # the host jobs as well.
+            # backend has no entry: it is built on every release, below.
             case "$component" in
-              backend) sources="backend jobs pyproject.toml uv.lock" ;;
+              backend) sources="" ;;
               frontend) sources="frontend" ;;
               shell) sources="shell" ;;
             esac
@@ -237,8 +239,8 @@ jobs:
     needs: [plan, build, images]
     # `always()` lets a workflow_dispatch redeploy run even though the skipped
     # jobs above would otherwise block it. A failed or cancelled job above
-    # still stops the deploy. A skipped one does not, because `build` and
-    # `images` skip on a release whose every image was copied.
+    # still stops the deploy. A skipped one does not; on a release `build`
+    # and `images` always run, since the backend is built every time.
     if: always() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled')
     runs-on: ubuntu-latest
     # Nothing of this repo runs on the VPS. The job sends the tag over SSH, and
