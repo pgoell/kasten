@@ -39,11 +39,36 @@ jobs:
           fi
           echo "changed=$([ "$files" -gt 0 ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
 
+  # With strict branch protection a squash merge lands the tree its pull
+  # request's last run tested, so the push run on main would repeat nine
+  # minutes of work. This job skips Lint, Test and Perf only when the script
+  # finds a successful pull request run that recorded this exact tree (see
+  # `record` below); in any doubt, or if this job fails, they run in full. Its
+  # summary is main's record of which run it relied on.
+  gate:
+    name: Main gate
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: read
+    outputs:
+      skip: ${{ steps.decide.outputs.skip }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: scripts
+      - id: decide
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/ci_main_gate.py
+
   lint:
     name: Lint
-    needs: changes
+    needs: [changes, gate]
     # `!cancelled()` so a failed gate runs the checks, not skips them into a pass.
-    if: ${{ !cancelled() && needs.changes.outputs.changed != 'false' }}
+    if: ${{ !cancelled() && needs.changes.outputs.changed != 'false' && needs.gate.outputs.skip != 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -57,8 +82,8 @@ jobs:
 
   test:
     name: Test
-    needs: changes
-    if: ${{ !cancelled() && needs.changes.outputs.changed != 'false' }}
+    needs: [changes, gate]
+    if: ${{ !cancelled() && needs.changes.outputs.changed != 'false' && needs.gate.outputs.skip != 'true' }}
     runs-on: ubuntu-latest
     services:
       # Mirrors compose.yaml so backend/.env.example resolves without overrides.
@@ -91,8 +116,8 @@ jobs:
 
   perf:
     name: Perf
-    needs: changes
-    if: ${{ !cancelled() && needs.changes.outputs.changed != 'false' }}
+    needs: [changes, gate]
+    if: ${{ !cancelled() && needs.changes.outputs.changed != 'false' && needs.gate.outputs.skip != 'true' }}
     runs-on: ubuntu-latest
     # No Postgres service: the frame gate mounts React over a synthetic vault
     # and never reaches the backend, let alone the database.
@@ -107,3 +132,27 @@ jobs:
         run: frontend/node_modules/.bin/playwright install chromium --with-deps
       - name: Frame gate
         run: mise run fe:frame
+
+  # Names an artifact after the tree this run checked out, once Lint, Test and
+  # Perf have all passed, so the gate of the push run on main can find it. The
+  # tree, not the commit: the squash commit on main differs from the merge ref
+  # tested here, but with strict branch protection its tree is the same.
+  record:
+    name: Record the tested tree
+    needs: [lint, test, perf]
+    if: github.event_name == 'pull_request' && needs.lint.result == 'success' && needs.test.result == 'success' && needs.perf.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - id: tree
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tree=$(gh api "repos/$GITHUB_REPOSITORY/git/commits/$GITHUB_SHA" --jq .tree.sha)
+          echo "tree=$tree" >> "$GITHUB_OUTPUT"
+          echo "$GITHUB_SHA" > tested-commit.txt
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ci-tested-tree-${{ steps.tree.outputs.tree }}
+          path: tested-commit.txt
+          retention-days: 30

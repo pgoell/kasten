@@ -21,6 +21,15 @@ request can merge into main. A pull request or push to main that changes no file
 such as a placeholder on an empty commit, skips them both, and a skipped job
 counts as passed.
 
+A push to main skips Lint, Test and Perf too when the pull request it merged
+already passed them on the same tree. Each pull request run that passes all
+three uploads an artifact named `ci-tested-tree-<tree hash>`, and the push run's
+`Main gate` job, `scripts/ci_main_gate.py`, looks for it. It skips only for a
+single-commit push of a merged pull request whose newest CI run passed Lint,
+Test and Perf and recorded this tree; anything else, an API error included,
+runs them in full. Its summary names the run it relied on or why it did not
+skip.
+
 ## The hooks
 
 Lefthook runs some of this for you, from `.config/lefthook.yaml`:
