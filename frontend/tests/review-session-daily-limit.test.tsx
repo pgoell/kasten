@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { ReviewSession } from "@/components/review-session";
 import * as api from "@/lib/api";
-import type { Deck, Limits } from "@/lib/review";
+import type { Deck, Limits } from "@/lib/review/review";
 import { shownCard } from "./review-card";
 
 describe("ReviewSession under a daily limit", () => {

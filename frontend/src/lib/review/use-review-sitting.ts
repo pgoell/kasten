@@ -1,21 +1,21 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ChangedOnDisk } from "@/lib/api";
 import { soundsIn } from "@/lib/audio";
-import { appendStub, setSuspended, writeSchedule } from "@/lib/card-write";
 import { readClock } from "@/lib/clock";
 import { readNotes } from "@/lib/read-retry";
-import type { Deck, Limits } from "@/lib/review";
-import { cardsOf, type Seat, seatsFor } from "@/lib/review-queue";
-import type { Card, Rating, Schedule } from "@/lib/srs";
+import { appendStub, setSuspended, writeSchedule } from "@/lib/review/card-write";
+import type { Deck, Limits } from "@/lib/review/review";
+import { cardsOf, type Seat, seatsFor } from "@/lib/review/review-queue";
+import type { Card, Rating, Schedule } from "@/lib/review/srs";
 import {
   answeredToday,
   nextSchedule,
   writeNoteSchedule,
   writeNoteSuspended,
-} from "@/lib/srs-schedule";
-import { soundsShowing } from "@/lib/use-card-sounds";
-import { useReviewLimits } from "@/lib/use-review-limits";
-import { useSittingWrites } from "@/lib/use-sitting-writes";
+} from "@/lib/review/srs-schedule";
+import { soundsShowing } from "@/lib/review/use-card-sounds";
+import { useReviewLimits } from "@/lib/review/use-review-limits";
+import { useSittingWrites } from "@/lib/review/use-sitting-writes";
 
 /** What the sitting refuses an undo with when the note moved on since the step. */
 const MOVED_ON = "The note changed since that step, so it was not undone.";

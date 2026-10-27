@@ -21,11 +21,16 @@
  */
 
 import type { ReviewLimits, SearchHit } from "@/lib/api";
-import { type Divided, divide, parks, suspended } from "@/lib/card-line";
-import { deckPath, withoutTags } from "@/lib/deck-tag";
 import { noteName } from "@/lib/note-path";
-import { parseCards } from "@/lib/srs";
-import { answeredToday, learning, readNoteSchedule, readNoteSuspended } from "@/lib/srs-schedule";
+import { type Divided, divide, parks, suspended } from "@/lib/review/card-line";
+import { deckPath, withoutTags } from "@/lib/review/deck-tag";
+import { parseCards } from "@/lib/review/srs";
+import {
+  answeredToday,
+  learning,
+  readNoteSchedule,
+  readNoteSuspended,
+} from "@/lib/review/srs-schedule";
 
 /** One deck as the overview draws it. */
 export interface Deck {

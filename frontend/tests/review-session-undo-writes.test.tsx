@@ -3,7 +3,7 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { ReviewSession } from "@/components/review-session";
 import * as api from "@/lib/api";
 import { noteBase } from "@/lib/note-base";
-import type { Deck } from "@/lib/review";
+import type { Deck } from "@/lib/review/review";
 import { shownCard } from "./review-card";
 import { DECK } from "./review-session-fixture";
 

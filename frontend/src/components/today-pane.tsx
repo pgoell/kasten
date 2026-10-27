@@ -3,10 +3,10 @@ import type { ReactNode } from "react";
 import { fetchTodos, type TodoHit } from "@/lib/api";
 import { readClock } from "@/lib/clock";
 import { noteName } from "@/lib/note-path";
+import { useReviewWaiting } from "@/lib/review/use-review-waiting";
 import { isOpen, parseTodo, STATE_SYMBOL, type Todo, type TodoState } from "@/lib/todo/todo";
 import { sectionOf } from "@/lib/todo/todo-view";
 import { useRecentNotes } from "@/lib/use-recent-notes";
-import { useReviewWaiting } from "@/lib/use-review-waiting";
 
 /** The states that are work somebody has started and not finished, and not due today. */
 const LOOP_STATES: ReadonlySet<TodoState> = new Set(["doing", "waiting", "blocked"]);

@@ -2,7 +2,7 @@
 type: Reference
 title: Flashcard format
 description: The two ways a card is written and the cloze, the comment holding its schedule, the tags that put a note and a single card in a deck, how a deck sits inside another, the frontmatter a whole note under review carries, the keys a sitting takes, its Undo and Center, and the daily limits on new cards and reviews.
-resource: frontend/src/lib/srs.ts
+resource: frontend/src/lib/review/srs.ts
 tags: [vault, review, flashcards, format, frontend]
 status: stable
 ---

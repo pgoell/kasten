@@ -3,7 +3,7 @@ import { useState } from "react";
 import { ReviewDecks } from "@/components/review-decks";
 import { ReviewParked } from "@/components/review-parked";
 import { ReviewSession } from "@/components/review-session";
-import type { Deck } from "@/lib/review";
+import type { Deck } from "@/lib/review/review";
 
 export const Route = createFileRoute("/review")({
   component: Review,

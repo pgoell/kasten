@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { fetchNote, fetchReviewLimits } from "@/lib/api";
 import { DECKS_NOTE } from "@/lib/layout";
 import { readRetry, retryable } from "@/lib/read-retry";
-import type { Limits } from "@/lib/review";
+import type { Limits } from "@/lib/review/review";
 
 /** No default, which is what an unset setting means and what a failed read falls back on. */
 const NONE = { new_per_day: null, reviews_per_day: null };

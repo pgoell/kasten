@@ -4,9 +4,9 @@ import { ReviewSession } from "@/components/review-session";
 import * as api from "@/lib/api";
 import { readClock, shiftDay } from "@/lib/clock";
 import { noteBase } from "@/lib/note-base";
-import { type Deck, decksFrom, type Limits } from "@/lib/review";
-import { parseCards } from "@/lib/srs";
-import { answeredToday, readNoteSchedule } from "@/lib/srs-schedule";
+import { type Deck, decksFrom, type Limits } from "@/lib/review/review";
+import { parseCards } from "@/lib/review/srs";
+import { answeredToday, readNoteSchedule } from "@/lib/review/srs-schedule";
 import { shownCard } from "./review-card";
 import { DECK } from "./review-session-fixture";
 

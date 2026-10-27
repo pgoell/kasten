@@ -1,12 +1,12 @@
-import { sameAnswer } from "@/lib/card-text";
-import { setSuspended, writeSchedule } from "@/lib/card-write";
+import { sameAnswer } from "@/lib/review/card-text";
+import { setSuspended, writeSchedule } from "@/lib/review/card-write";
 import {
   nextSchedule,
   readNoteSchedule,
   readNoteSuspended,
   writeNoteSchedule,
   writeNoteSuspended,
-} from "@/lib/srs-schedule";
+} from "@/lib/review/srs-schedule";
 import { NOTE, only } from "./srs-fixture";
 
 describe("nextSchedule", () => {

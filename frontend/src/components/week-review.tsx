@@ -14,8 +14,8 @@ import { rangeDates, weightOf } from "@/lib/log/log-weight";
 import { grouped } from "@/lib/log/log-words";
 import { goalWords, plural } from "@/lib/overview-words";
 import type { weeklyWeek } from "@/lib/periodic";
-import type { ReviewSource } from "@/lib/periodic-review";
-import { deckNotes } from "@/lib/review";
+import type { ReviewSource } from "@/lib/review/periodic-review";
+import { deckNotes } from "@/lib/review/review";
 import {
   cardsPerDay,
   carriedOver,
@@ -23,10 +23,10 @@ import {
   kcalPerDay,
   todosPerDay,
   weekTiles,
-} from "@/lib/review-week";
-import { minutesWords } from "@/lib/review-year";
+} from "@/lib/review/review-week";
+import { minutesWords } from "@/lib/review/review-year";
+import { useWeekReads, type WeekReads, weekDates } from "@/lib/review/use-review-reads";
 import { parseTodo } from "@/lib/todo/todo";
-import { useWeekReads, type WeekReads, weekDates } from "@/lib/use-review-reads";
 
 type WeekOf = NonNullable<ReturnType<typeof weeklyWeek>>;
 

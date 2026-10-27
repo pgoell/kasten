@@ -61,10 +61,10 @@ import {
   SR,
   suspended,
   withoutAnkiId,
-} from "@/lib/card-line";
-import { side, typedTarget } from "@/lib/card-text";
-import { commentsAndCode } from "@/lib/deck-parse";
-import { cardTags, deckName, deckTags, onlyTags, withoutTags } from "@/lib/deck-tag";
+} from "@/lib/review/card-line";
+import { side, typedTarget } from "@/lib/review/card-text";
+import { commentsAndCode } from "@/lib/review/deck-parse";
+import { cardTags, deckName, deckTags, onlyTags, withoutTags } from "@/lib/review/deck-tag";
 
 /** How well a card went, in the four steps Anki asks for. */
 export type Rating = "again" | "hard" | "good" | "easy";

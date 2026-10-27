@@ -4,7 +4,7 @@ import { shiftDay } from "@/lib/clock";
 import type { LogDay } from "@/lib/log/food-api";
 import { parseConfig } from "@/lib/log/log-kinds";
 import { streakOf } from "@/lib/log/log-streak";
-import { weekTiles } from "@/lib/review-week";
+import { weekTiles } from "@/lib/review/review-week";
 import { CONFIG_NOTE, loggedOn } from "./log-pane-fixture";
 
 /** A day of drinks only: one water line and no food line, so no food day. */

@@ -8,7 +8,7 @@ import {
   sessionMinutes,
   todosPerDay,
   weekTiles,
-} from "@/lib/review-week";
+} from "@/lib/review/review-week";
 
 // The week of 2026-10-19 (a Monday) to 2026-10-25 (a Sunday).
 const FROM = "2026-10-19";

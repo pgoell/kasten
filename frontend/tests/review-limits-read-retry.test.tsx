@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { ReviewDecks } from "@/components/review-decks";
 import { ReviewSession } from "@/components/review-session";
 import * as api from "@/lib/api";
-import type { Deck } from "@/lib/review";
+import type { Deck } from "@/lib/review/review";
 
 const DECKS = "99 Misc/01 Config/decks.md";
 const NO_DEFAULTS: api.ReviewLimits = { new_per_day: null, reviews_per_day: null };

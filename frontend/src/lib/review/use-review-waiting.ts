@@ -2,8 +2,8 @@ import { useQueries, useQuery } from "@tanstack/react-query";
 import { fetchCards, fetchNote } from "@/lib/api";
 import { readClock } from "@/lib/clock";
 import { readRetry } from "@/lib/read-retry";
-import { deckNotes, decksFrom } from "@/lib/review";
-import { useReviewLimits } from "@/lib/use-review-limits";
+import { deckNotes, decksFrom } from "@/lib/review/review";
+import { useReviewLimits } from "@/lib/review/use-review-limits";
 
 /** How far under another deck this one sits, as the review pane counts it. */
 function depthOf(name: string): number {

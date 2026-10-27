@@ -4,7 +4,7 @@ import { ReviewSession } from "@/components/review-session";
 import * as api from "@/lib/api";
 import { readClock } from "@/lib/clock";
 import { noteBase } from "@/lib/note-base";
-import { type Deck, decksFrom } from "@/lib/review";
+import { type Deck, decksFrom } from "@/lib/review/review";
 import { shownCard } from "./review-card";
 import { DECK } from "./review-session-fixture";
 

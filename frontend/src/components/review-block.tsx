@@ -3,7 +3,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { WeekReview } from "@/components/week-review";
 import { YearReview } from "@/components/year-review";
 import { weeklyWeek, yearlyYear } from "@/lib/periodic";
-import type { ReviewSource } from "@/lib/periodic-review";
+import type { ReviewSource } from "@/lib/review/periodic-review";
 
 /** Which review a note's path asks for, or nothing for a path neither names. */
 function ReviewFor({ path, open }: { path: string; open: ReviewSource["open"] }) {

@@ -4,10 +4,10 @@ import { ReviewImport } from "@/components/review-import";
 import { fetchCards, fetchNote } from "@/lib/api";
 import { readClock } from "@/lib/clock";
 import { readRetry } from "@/lib/read-retry";
-import { type Deck, deckNotes, decksFrom } from "@/lib/review";
-import { dayWords } from "@/lib/review-days";
+import { type Deck, deckNotes, decksFrom } from "@/lib/review/review";
+import { dayWords } from "@/lib/review/review-days";
+import { useReviewLimits } from "@/lib/review/use-review-limits";
 import { useEntrance } from "@/lib/stagger";
-import { useReviewLimits } from "@/lib/use-review-limits";
 
 /**
  * The decks unfolded by hand, per browser.

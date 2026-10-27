@@ -1,5 +1,5 @@
-import { type Deck, decksFrom } from "@/lib/review";
-import { seatsFor } from "@/lib/review-queue";
+import { type Deck, decksFrom } from "@/lib/review/review";
+import { seatsFor } from "@/lib/review/review-queue";
 import { note, TODAY } from "./review-fixture";
 
 describe("decksFrom with daily limits", () => {

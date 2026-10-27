@@ -3,7 +3,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-libra
 import { ReviewSession } from "@/components/review-session";
 import * as api from "@/lib/api";
 import { readClock } from "@/lib/clock";
-import type { Deck } from "@/lib/review";
+import type { Deck } from "@/lib/review/review";
 import { stubMatchMedia } from "./match-media";
 import { shownCard } from "./review-card";
 

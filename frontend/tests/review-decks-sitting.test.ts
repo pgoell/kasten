@@ -1,8 +1,8 @@
-import { inDeck } from "@/lib/deck-tag";
 import { noteName } from "@/lib/note-path";
-import { type Deck, type DeckNote, decksFrom, parkedNotes } from "@/lib/review";
-import { parseCards } from "@/lib/srs";
-import { readNoteSchedule, readNoteSuspended } from "@/lib/srs-schedule";
+import { inDeck } from "@/lib/review/deck-tag";
+import { type Deck, type DeckNote, decksFrom, parkedNotes } from "@/lib/review/review";
+import { parseCards } from "@/lib/review/srs";
+import { readNoteSchedule, readNoteSuspended } from "@/lib/review/srs-schedule";
 import { hits, one, TODAY } from "./review-fixture";
 
 /**

@@ -3,6 +3,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ExamQuestion, ExamScore } from "@/components/exam-sheet";
 import { createNote, fetchNote } from "@/lib/api";
 import { readClock } from "@/lib/clock";
+import type { EditorCommands } from "@/lib/key-bindings";
+import { heldModifier, leaderAction, leaderPrefix } from "@/lib/leader-keys";
+import { LABEL, STATUS } from "@/lib/overlay-styles";
 import {
   type Answers,
   type Exam,
@@ -11,11 +14,8 @@ import {
   parseExam,
   resultNote,
   resultPath,
-} from "@/lib/exam";
-import type { EditorCommands } from "@/lib/key-bindings";
-import { heldModifier, leaderAction, leaderPrefix } from "@/lib/leader-keys";
-import { LABEL, STATUS } from "@/lib/overlay-styles";
-import { LENGTHS, useExamTimer } from "@/lib/use-exam-timer";
+} from "@/lib/review/exam";
+import { LENGTHS, useExamTimer } from "@/lib/review/use-exam-timer";
 import { beginLeader, paneOpener } from "@/lib/which-key";
 
 /** One button of the touch row: a thumb high, and as wide as its share of the row. */

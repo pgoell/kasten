@@ -30,7 +30,7 @@ import { graphHandler, noteHead, type Outline, readMode } from "@/lib/note-head"
 import { noteLanguage } from "@/lib/note-language";
 import { relationCompletions, vaultRelations } from "@/lib/ontology";
 import { slashCompletions } from "@/lib/palette";
-import { periodicReview, type ReviewSource, reviewSource } from "@/lib/periodic-review";
+import { periodicReview, type ReviewSource, reviewSource } from "@/lib/review/periodic-review";
 import { moveCell } from "@/lib/table";
 import { tableLineup } from "@/lib/table-lineup";
 import { tableSource } from "@/lib/table-source";

@@ -1,5 +1,5 @@
 import type { SearchHit } from "@/lib/api";
-import type { DeckNote } from "@/lib/review";
+import type { DeckNote } from "@/lib/review/review";
 
 export const TODAY = "2026-08-13";
 

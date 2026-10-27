@@ -5,8 +5,8 @@ import { readClock } from "@/lib/clock";
 import { rangeDates, weightOf } from "@/lib/log/log-weight";
 import { grouped } from "@/lib/log/log-words";
 import { plural } from "@/lib/overview-words";
-import { deckNotes } from "@/lib/review";
-import type { ModelUseLine } from "@/lib/review-api";
+import { deckNotes } from "@/lib/review/review";
+import type { ModelUseLine } from "@/lib/review/review-api";
 import {
   costWords,
   monthUse,
@@ -14,7 +14,7 @@ import {
   projectUse,
   tokenWords,
   unpricedTokens,
-} from "@/lib/review-model-use";
+} from "@/lib/review/review-model-use";
 import {
   minutesWords,
   monthCounts,
@@ -24,8 +24,8 @@ import {
   type WrittenNote,
   yearNumbers,
   yearRange,
-} from "@/lib/review-year";
-import { useYearReads, type YearReads } from "@/lib/use-review-reads";
+} from "@/lib/review/review-year";
+import { useYearReads, type YearReads } from "@/lib/review/use-review-reads";
 
 /** The year review, drawn in the yearly note: this year to today, a past year over all of it. */
 export function YearReview({ year }: { year: number }) {

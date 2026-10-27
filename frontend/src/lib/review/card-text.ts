@@ -1,4 +1,4 @@
-import { colons, unescaped } from "@/lib/card-line";
+import { colons, unescaped } from "@/lib/review/card-line";
 
 /** A ruby's reading and the parentheses around it, which are no part of the word. */
 const READING = /<(rt|rp)\b[^>]*>.*?<\/\1>/g;

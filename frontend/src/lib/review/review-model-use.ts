@@ -4,8 +4,8 @@
  * Pure, as `review-year.ts` is, so each rule is checked on plain input.
  */
 
-import type { ModelUseLine } from "@/lib/review-api";
-import { byText } from "@/lib/review-year";
+import type { ModelUseLine } from "@/lib/review/review-api";
+import { byText } from "@/lib/review/review-year";
 
 /** The tokens one line's messages used: its four counts added. */
 export function tokensOf(line: ModelUseLine): number {

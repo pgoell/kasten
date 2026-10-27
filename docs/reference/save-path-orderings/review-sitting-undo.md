@@ -2,7 +2,7 @@
 type: Reference
 title: Save path orderings: the review sitting's writes and undo
 description: The orders in which the review sitting's writes and undo can meet the write queue of its own rating, jot and suspend writes, including a write the restart drops and goes again and the parked list's reads around its writes, what must hold in each, and whether getting it wrong loses typed text.
-resource: frontend/src/lib/use-sitting-writes.ts
+resource: frontend/src/lib/review/use-sitting-writes.ts
 tags: [editor, saving, autosave, frontend, tests]
 status: stable
 ---
@@ -14,7 +14,7 @@ Part of [save path orderings](/reference/save-path-orderings.md). The columns ar
 ## The review sitting's undo
 
 The review sitting writes each rating, suspend and jot through a write queue of
-its own, `frontend/src/lib/use-sitting-writes.ts`, one note at a time, each
+its own, `frontend/src/lib/review/use-sitting-writes.ts`, one note at a time, each
 write naming as its base what the vault answered for the write before it. Undo
 takes back the last rating or suspend by writing the note's text from before
 that step, naming as its base the text the step sent, which the queue turns

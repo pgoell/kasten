@@ -1,4 +1,4 @@
-import { daysBetween, dayWords, intervalWords } from "@/lib/review-days";
+import { daysBetween, dayWords, intervalWords } from "@/lib/review/review-days";
 
 // 2026-10-24 is a Saturday, the day every case below is counted from.
 const TODAY = "2026-10-24";

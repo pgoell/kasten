@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen } from "@testing-library/react";
 import { ReviewPane } from "@/components/review-pane";
 import * as api from "@/lib/api";
-import { deckNotes } from "@/lib/review";
+import { deckNotes } from "@/lib/review/review";
 import { stubCommands } from "./stub-commands";
 
 /** Two decks with cards waiting, and one with nothing, which cannot be picked. */

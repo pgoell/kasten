@@ -5,7 +5,7 @@ import { ReviewPane } from "@/components/review-pane";
 import { ReviewSession } from "@/components/review-session";
 import * as api from "@/lib/api";
 import { readRetry } from "@/lib/read-retry";
-import type { Deck } from "@/lib/review";
+import type { Deck } from "@/lib/review/review";
 import { shownCard } from "./review-card";
 import { HITS, serveNotes } from "./review-pane-fixture";
 import { stubCommands } from "./stub-commands";

@@ -1,5 +1,5 @@
 import { afterEach, expect, it, vi } from "vitest";
-import { gradeTick } from "@/lib/haptic";
+import { gradeTick } from "@/lib/review/haptic";
 
 afterEach(() => {
   vi.unstubAllGlobals();

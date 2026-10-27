@@ -1,4 +1,4 @@
-import { deckNotes, parkedNotes } from "@/lib/review";
+import { deckNotes, parkedNotes } from "@/lib/review/review";
 import { hits } from "./review-fixture";
 
 describe("deckNotes", () => {

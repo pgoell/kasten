@@ -18,8 +18,8 @@ import { readClock, shiftDay } from "@/lib/clock";
 import type { LogDay } from "@/lib/log/food-api";
 import { periodicNote } from "@/lib/periodic";
 import { startPress } from "@/lib/press";
-import type { ModelUseLine } from "@/lib/review-api";
-import type { WrittenNote } from "@/lib/review-year";
+import type { ModelUseLine } from "@/lib/review/review-api";
+import type { WrittenNote } from "@/lib/review/review-year";
 import { routeTree } from "@/routeTree.gen";
 import { COARSE, NARROW, stubMatchMedia } from "../match-media";
 import {

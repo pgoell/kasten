@@ -12,7 +12,7 @@ import {
   SR,
   suspended,
   withoutToken,
-} from "@/lib/card-line";
+} from "@/lib/review/card-line";
 
 describe("a cloze line", () => {
   const LINE = "The capital of {{c1::France}} is {{c2::Paris::a city}}.";

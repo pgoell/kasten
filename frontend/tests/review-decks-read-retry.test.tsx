@@ -3,7 +3,7 @@ import { act, render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { ReviewDecks } from "@/components/review-decks";
 import * as api from "@/lib/api";
-import { useReviewWaiting } from "@/lib/use-review-waiting";
+import { useReviewWaiting } from "@/lib/review/use-review-waiting";
 
 /** One deck with one new card in it, so the overview counts one card to go. */
 const HITS = [

@@ -3,7 +3,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { ReviewSession } from "@/components/review-session";
 import * as api from "@/lib/api";
 import { readClock } from "@/lib/clock";
-import type { Deck } from "@/lib/review";
+import type { Deck } from "@/lib/review/review";
 import { shownCard } from "./review-card";
 
 // The day the sitting reads as today, so the due dates below fall on it.

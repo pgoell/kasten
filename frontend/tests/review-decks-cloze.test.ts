@@ -1,6 +1,6 @@
-import { setSuspended } from "@/lib/card-write";
-import { decksFrom } from "@/lib/review";
-import { parseCards } from "@/lib/srs";
+import { setSuspended } from "@/lib/review/card-write";
+import { decksFrom } from "@/lib/review/review";
+import { parseCards } from "@/lib/review/srs";
 import { one, TODAY } from "./review-fixture";
 
 /** What the sitting would count off the same note, by `parseCards`. */

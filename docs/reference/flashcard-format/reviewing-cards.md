@@ -2,7 +2,7 @@
 type: Reference
 title: Reviewing cards
 description: The sitting and the keys it takes, its Undo and Center, the parked screen, typing the answer, parking and filing a card away, the schedule kasten writes, and the daily limits on new cards and reviews.
-resource: frontend/src/lib/srs.ts
+resource: frontend/src/lib/review/srs.ts
 tags: [vault, review, flashcards, format, frontend]
 status: stable
 ---

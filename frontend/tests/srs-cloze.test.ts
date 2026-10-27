@@ -1,5 +1,5 @@
-import { setSuspended, writeSchedule } from "@/lib/card-write";
-import { type Card, parseCards } from "@/lib/srs";
+import { setSuspended, writeSchedule } from "@/lib/review/card-write";
+import { type Card, parseCards } from "@/lib/review/srs";
 import { only } from "./srs-fixture";
 
 describe("parseCards on a cloze", () => {

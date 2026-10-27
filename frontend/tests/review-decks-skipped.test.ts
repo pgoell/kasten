@@ -1,4 +1,4 @@
-import { decksFrom } from "@/lib/review";
+import { decksFrom } from "@/lib/review/review";
 import { one, TODAY } from "./review-fixture";
 
 describe("#660 decksFrom on a deck tag inside a comment", () => {

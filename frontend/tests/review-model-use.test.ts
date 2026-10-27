@@ -1,11 +1,11 @@
-import type { ModelUseLine } from "@/lib/review-api";
+import type { ModelUseLine } from "@/lib/review/review-api";
 import {
   costWords,
   monthUse,
   projectUse,
   tokenWords,
   unpricedTokens,
-} from "@/lib/review-model-use";
+} from "@/lib/review/review-model-use";
 
 function line(over: Partial<ModelUseLine>): ModelUseLine {
   return {

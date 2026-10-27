@@ -15,8 +15,8 @@ import {
   useRef,
   useState,
 } from "react";
-import { stampOf, swipeGrade, tiltOf } from "@/lib/card-swipe";
-import { gradeTick } from "@/lib/haptic";
+import { stampOf, swipeGrade, tiltOf } from "@/lib/review/card-swipe";
+import { gradeTick } from "@/lib/review/haptic";
 import { axis, type Sample, SLOP, speed } from "@/lib/sheet-math";
 import { afterRelease, SPRINGS, Spring } from "@/lib/spring";
 

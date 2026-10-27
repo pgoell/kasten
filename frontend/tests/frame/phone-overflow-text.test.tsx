@@ -18,7 +18,7 @@ import { ReviewSession } from "@/components/review-session";
 import { fetchCards, fetchNote, fetchReviewLimits, NoteMissing } from "@/lib/api";
 import { openInFocused } from "@/lib/pane-contents";
 import { emptyLayout, splitFocused } from "@/lib/panes";
-import type { Deck } from "@/lib/review";
+import type { Deck } from "@/lib/review/review";
 import { COARSE, NARROW, stubMatchMedia } from "../match-media";
 import {
   mount,

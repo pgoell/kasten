@@ -2,7 +2,7 @@
 type: Reference
 title: Exam format
 description: The note a practice exam is written in, every part it can carry, the two shapes a question takes, the two places an answer goes, what a sitting scores, and where the result note lands.
-resource: frontend/src/lib/exam.ts
+resource: frontend/src/lib/review/exam.ts
 tags: [vault, exams, format, frontend]
 status: stable
 ---

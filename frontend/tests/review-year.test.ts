@@ -8,7 +8,7 @@ import {
   type WrittenNote,
   yearNumbers,
   yearRange,
-} from "@/lib/review-year";
+} from "@/lib/review/review-year";
 
 const FDE = "02 Projects/FDE";
 const KASTEN = "02 Projects/Kasten";

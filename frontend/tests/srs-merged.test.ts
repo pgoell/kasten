@@ -1,5 +1,5 @@
-import { setSuspended, writeSchedule } from "@/lib/card-write";
-import { parseCards } from "@/lib/srs";
+import { setSuspended, writeSchedule } from "@/lib/review/card-write";
+import { parseCards } from "@/lib/review/srs";
 import { only } from "./srs-fixture";
 
 describe("#678 two ? cards with no blank line between them are one card", () => {

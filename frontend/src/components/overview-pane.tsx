@@ -42,7 +42,7 @@ import {
   weightWords,
 } from "@/lib/overview-words";
 import { readRetry } from "@/lib/read-retry";
-import { deckNotes } from "@/lib/review";
+import { deckNotes } from "@/lib/review/review";
 import { useEntrance } from "@/lib/stagger";
 import { useLeader } from "@/lib/use-leader";
 

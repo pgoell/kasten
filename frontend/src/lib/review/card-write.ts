@@ -6,8 +6,8 @@ import {
   SUSPEND_TOKEN,
   withoutHeadToken,
   withoutToken,
-} from "@/lib/card-line";
-import type { Card, Schedule } from "@/lib/srs";
+} from "@/lib/review/card-line";
+import type { Card, Schedule } from "@/lib/review/srs";
 
 /** `next` written as the comment that goes in the note, named by its number on a cloze. */
 function comment(next: Schedule, cloze: number | null = null): string {

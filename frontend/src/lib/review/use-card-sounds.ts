@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from "react";
 import { soundsIn } from "@/lib/audio";
-import type { Card } from "@/lib/srs";
+import type { Card } from "@/lib/review/srs";
 
 /**
  * Start a sound, letting a refusal go by in silence.

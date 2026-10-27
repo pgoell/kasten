@@ -1,4 +1,4 @@
-import { decksFrom } from "@/lib/review";
+import { decksFrom } from "@/lib/review/review";
 import { note, TODAY } from "./review-fixture";
 
 describe("decksFrom on a nested deck tag", () => {

@@ -13,8 +13,8 @@ import { createRoot, type Root } from "react-dom/client";
 import { commands, page } from "vitest/browser";
 import { ReviewSession } from "@/components/review-session";
 import { readClock } from "@/lib/clock";
-import type { Deck } from "@/lib/review";
-import { nextSchedule } from "@/lib/srs-schedule";
+import type { Deck } from "@/lib/review/review";
+import { nextSchedule } from "@/lib/review/srs-schedule";
 import "@/styles/app.css";
 
 // The writes the sitting makes, counted here; the note is answered, not stored.

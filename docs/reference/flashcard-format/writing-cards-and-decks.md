@@ -2,7 +2,7 @@
 type: Reference
 title: Writing cards and decks
 description: How a card is written in a note, on one line, over several lines or as a cloze, how the tags put it in a deck, how decks nest, and how a whole note is kept for review.
-resource: frontend/src/lib/srs.ts
+resource: frontend/src/lib/review/srs.ts
 tags: [vault, review, flashcards, format, frontend]
 status: stable
 ---

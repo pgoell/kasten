@@ -1,6 +1,6 @@
 import { useId } from "react";
-import { intervalWords } from "@/lib/review-days";
-import type { Rating } from "@/lib/srs";
+import { intervalWords } from "@/lib/review/review-days";
+import type { Rating } from "@/lib/review/srs";
 
 /** The four ratings, in the order they are drawn and keyed. */
 const RATINGS: { rating: Rating; label: string }[] = [

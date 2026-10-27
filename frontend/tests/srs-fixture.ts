@@ -1,4 +1,4 @@
-import { type Card, parseCards } from "@/lib/srs";
+import { type Card, parseCards } from "@/lib/review/srs";
 
 /** The one card the text holds. A test naming a card and getting none is the failure. */
 export function only(text: string, at = 0): Card {

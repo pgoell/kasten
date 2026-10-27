@@ -2,15 +2,15 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { NotePreview } from "@/components/note-preview";
 import { BUTTON, ReviewAnswer, ReviewSource } from "@/components/review-answer";
 import { SwipeCard } from "@/components/review-swipe";
-import { unescaped } from "@/lib/card-line";
-import { sameAnswer } from "@/lib/card-text";
 import { shiftDay } from "@/lib/clock";
 import { noteName } from "@/lib/note-path";
-import type { Deck } from "@/lib/review";
-import { daysBetween, dayWords } from "@/lib/review-days";
-import type { Rating } from "@/lib/srs";
-import { soundsShowing, useCardSounds } from "@/lib/use-card-sounds";
-import { useReviewSitting } from "@/lib/use-review-sitting";
+import { unescaped } from "@/lib/review/card-line";
+import { sameAnswer } from "@/lib/review/card-text";
+import type { Deck } from "@/lib/review/review";
+import { daysBetween, dayWords } from "@/lib/review/review-days";
+import type { Rating } from "@/lib/review/srs";
+import { soundsShowing, useCardSounds } from "@/lib/review/use-card-sounds";
+import { useReviewSitting } from "@/lib/review/use-review-sitting";
 
 /**
  * Where the typing toggle is kept, which is the browser and not the vault.

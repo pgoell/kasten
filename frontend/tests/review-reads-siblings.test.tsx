@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { ReviewParked } from "@/components/review-parked";
 import { ReviewSession } from "@/components/review-session";
 import * as api from "@/lib/api";
-import type { Deck } from "@/lib/review";
+import type { Deck } from "@/lib/review/review";
 
 const SR = "<!--SR:!2026-08-20,4,270-->";
 const A = `#flashcards/aws\n\nQ A?::answer A !suspended ${SR}\n`;

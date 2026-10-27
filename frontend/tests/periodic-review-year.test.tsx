@@ -148,7 +148,7 @@ vi.mock("@/lib/log/food-api", async (importOriginal) => ({
 vi.mock("@/lib/move-api", () => ({ renameNote, moveFolder }));
 vi.mock("@/lib/trash-api", () => ({ deleteNote, fetchTrash, restoreEntry, deleteImage }));
 vi.mock("@/lib/history-api", () => ({ fetchHistory, fetchHistoryText }));
-vi.mock("@/lib/review-api", () => ({ fetchWrittenNotes, fetchGithub, fetchModelUse }));
+vi.mock("@/lib/review/review-api", () => ({ fetchWrittenNotes, fetchGithub, fetchModelUse }));
 vi.mock("foliate-js/view.js", () => ({}));
 vi.mock("@/lib/outbox", () => ({
   keep: vi.fn(),

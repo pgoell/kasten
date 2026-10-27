@@ -3,7 +3,7 @@ import { render, screen } from "@testing-library/react";
 import { ReviewSession } from "@/components/review-session";
 import * as api from "@/lib/api";
 import { readClock, shiftDay } from "@/lib/clock";
-import type { Deck } from "@/lib/review";
+import type { Deck } from "@/lib/review/review";
 
 // The day the sitting reads as today, so the due dates below fall on it.
 const TODAY = readClock(new Date()).date;

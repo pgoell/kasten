@@ -16,7 +16,7 @@ import {
   setPreview,
   setVim,
 } from "@/lib/note-view";
-import type { ReviewSource } from "@/lib/periodic-review";
+import type { ReviewSource } from "@/lib/review/periodic-review";
 import type { CycleHandler } from "@/lib/todo/todo-commands";
 import { useVim } from "@/lib/vim-setting";
 

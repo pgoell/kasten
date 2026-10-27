@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { cardTags, deckName, deckTags, withoutTags } from "@/lib/deck-tag";
 import { noteLanguage } from "@/lib/note-language";
-import { parseCards } from "@/lib/srs";
+import { cardTags, deckName, deckTags, withoutTags } from "@/lib/review/deck-tag";
+import { parseCards } from "@/lib/review/srs";
 import cases from "@/lib/tag-cases.json";
 import { parseTodo, tagsOf } from "@/lib/todo/todo";
 import { expandShorthand, matchesFilter, parseFilter } from "@/lib/todo/todo-shorthand";

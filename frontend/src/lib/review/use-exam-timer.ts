@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { Exam, Grade } from "@/lib/exam";
+import type { Exam, Grade } from "@/lib/review/exam";
 
 /**
  * How long a timer runs when no number was typed before `t`.

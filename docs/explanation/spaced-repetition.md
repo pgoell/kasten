@@ -2,7 +2,7 @@
 type: Explanation
 title: Spaced repetition
 description: Why a card's schedule lives in the note, why the format was borrowed rather than invented, why a deck is a tag rather than a note, why a deck nests, why the review has two front ends, and why a daily limit counts off the schedule.
-resource: frontend/src/lib/srs.ts
+resource: frontend/src/lib/review/srs.ts
 tags: [design, vault, review, flashcards]
 status: stable
 ---

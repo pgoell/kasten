@@ -20,8 +20,13 @@ import { fetchLog, type LogDay } from "@/lib/log/food-api";
 import { DEFAULT_CONFIG, type LogConfig, parseConfig } from "@/lib/log/log-kinds";
 import { periodicNote } from "@/lib/periodic";
 import { readRetry } from "@/lib/read-retry";
-import { fetchGithub, fetchModelUse, fetchWrittenNotes, type ModelUseLine } from "@/lib/review-api";
-import type { WrittenNote } from "@/lib/review-year";
+import {
+  fetchGithub,
+  fetchModelUse,
+  fetchWrittenNotes,
+  type ModelUseLine,
+} from "@/lib/review/review-api";
+import type { WrittenNote } from "@/lib/review/review-year";
 
 /**
  * What one read answered: its data, or the sentence its failure is said in. While it is

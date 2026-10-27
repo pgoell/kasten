@@ -1,4 +1,4 @@
-import { stampOf, swipeGrade, TILT, tiltOf } from "@/lib/card-swipe";
+import { stampOf, swipeGrade, TILT, tiltOf } from "@/lib/review/card-swipe";
 
 const WIDTH = 390;
 // Written out here, not read from GRADE_AT, so a change to the constant is caught.

@@ -3,7 +3,7 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { ReviewSession } from "@/components/review-session";
 import * as api from "@/lib/api";
-import type { Deck } from "@/lib/review";
+import type { Deck } from "@/lib/review/review";
 import { shownCard } from "./review-card";
 import { renderPane } from "./review-pane-fixture";
 

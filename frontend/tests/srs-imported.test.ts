@@ -1,6 +1,6 @@
-import { sameAnswer } from "@/lib/card-text";
-import { setSuspended, writeSchedule } from "@/lib/card-write";
-import { parseCards } from "@/lib/srs";
+import { sameAnswer } from "@/lib/review/card-text";
+import { setSuspended, writeSchedule } from "@/lib/review/card-write";
+import { parseCards } from "@/lib/review/srs";
 import { only } from "./srs-fixture";
 
 describe("parseCards on an imported question holding `::`", () => {

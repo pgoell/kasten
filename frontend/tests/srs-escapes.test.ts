@@ -1,5 +1,5 @@
-import { sameAnswer } from "@/lib/card-text";
-import { parseCards } from "@/lib/srs";
+import { sameAnswer } from "@/lib/review/card-text";
+import { parseCards } from "@/lib/review/srs";
 import { only } from "./srs-fixture";
 
 describe("a literal &#58; the import wrote escaped (#340)", () => {

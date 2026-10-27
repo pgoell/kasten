@@ -19,7 +19,7 @@ import { createRoot } from "react-dom/client";
 import { commands, page } from "vitest/browser";
 import { ReviewSession } from "@/components/review-session";
 import { readRetry } from "@/lib/read-retry";
-import type { Deck } from "@/lib/review";
+import type { Deck } from "@/lib/review/review";
 import { shot } from "./shots";
 import "@/styles/app.css";
 
