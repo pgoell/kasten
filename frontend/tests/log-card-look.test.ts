@@ -5,8 +5,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { type Forecast, fetchNote, fetchWeather, NoteMissing } from "@/lib/api";
 import { fetchLog, type LogDay } from "@/lib/log/food-api";
 import { logCard, reloadLogConfig } from "@/lib/log/log-card";
+import { weatherCard } from "@/lib/note/weather-card";
 import { notePath } from "@/lib/todo/todo-commands";
-import { weatherCard } from "@/lib/weather-card";
 
 vi.mock("@/lib/api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/api")>()),

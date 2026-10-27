@@ -1,7 +1,7 @@
 import { EditorView } from "@codemirror/view";
 import { act, render } from "@testing-library/react";
 import { Editor } from "@/components/editor";
-import type { Outline } from "@/lib/note-head";
+import type { Outline } from "@/lib/note/note-head";
 
 const PATH = "02 Projects/Kasten/Reader.md";
 // The fenced `#` line is code, and the closing hashes of the last heading are not its words.

@@ -2,9 +2,9 @@ import { type KeyboardEvent, useEffect, useLayoutEffect, useRef, useState } from
 import { KindIcon, paneKind } from "@/components/kind-icons";
 import { focusedOf, tabLabel } from "@/components/tab-label";
 import type { HeldRow } from "@/lib/held-text";
+import type { SaveStatus } from "@/lib/note/use-autosave";
 import { activeTab, isEmptyTab, type Layout, panesOf, type Tab } from "@/lib/panes";
 import { Spring } from "@/lib/spring";
-import type { SaveStatus } from "@/lib/use-autosave";
 import { TAB_MAX_WIDTH, useTabGeometry } from "@/lib/use-tab-geometry";
 import { useViewport } from "@/lib/use-viewport";
 

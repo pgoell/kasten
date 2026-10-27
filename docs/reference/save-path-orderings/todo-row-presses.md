@@ -2,7 +2,7 @@
 type: Reference
 title: Save path orderings: presses on a todo row
 description: The orders in which a state key, a timer press, a log write or a blocker press on a todo row can meet a write that landed since the list was read, twins, a copied 🆔 or a queued press, what must hold in each, and whether getting it wrong loses a todo's state or log.
-resource: frontend/src/lib/use-autosave.ts
+resource: frontend/src/lib/note/use-autosave.ts
 tags: [editor, saving, autosave, frontend, tests, todos]
 status: stable
 ---

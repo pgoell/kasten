@@ -2,7 +2,7 @@
 type: Reference
 title: Save path orderings: moving a todo between notes
 description: The orders in which a todo pane's refile with m, and a card dropped on another project lane, can meet the write queue of two notes, what must hold in each, and whether getting it wrong loses a todo.
-resource: frontend/src/lib/use-autosave.ts
+resource: frontend/src/lib/note/use-autosave.ts
 tags: [editor, saving, autosave, frontend, tests, todos]
 status: stable
 ---

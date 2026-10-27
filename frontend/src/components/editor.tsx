@@ -16,7 +16,7 @@ import type { EmbedSource } from "@/lib/embed";
 import type { EditorCommands } from "@/lib/key-bindings";
 import { keyboardUnasked } from "@/lib/last-input";
 import { Leaving } from "@/lib/leaving";
-import type { Outline } from "@/lib/note-head";
+import type { Outline } from "@/lib/note/note-head";
 import type { ReviewSource } from "@/lib/review/periodic-review";
 import type { CycleHandler } from "@/lib/todo/todo-commands";
 
@@ -76,7 +76,7 @@ interface EditorProps {
    *
    * Its own list beside the other three, and absent offers nothing the way
    * theirs does. Read off a note in the vault, so the vocabulary is edited by
-   * editing that note rather than by shipping a release.
+   * editing that note, not by shipping a release.
    */
   relations?: string[];
   /**

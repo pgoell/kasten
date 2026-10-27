@@ -2,7 +2,7 @@
 type: Reference
 title: Save path orderings: rename, delete and :e
 description: The orders in which a rename, a delete, a discard with :e! and a :e can meet one note's write queue, what must hold in each, and whether getting it wrong loses typed text.
-resource: frontend/src/lib/use-autosave.ts
+resource: frontend/src/lib/note/use-autosave.ts
 tags: [editor, saving, autosave, frontend, tests]
 status: stable
 ---

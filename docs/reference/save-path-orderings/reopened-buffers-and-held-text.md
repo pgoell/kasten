@@ -2,7 +2,7 @@
 type: Reference
 title: Save path orderings: reopened buffers and held text
 description: The orders in which a note reopened while its write is in the air, and a page that dies or hides after that, can meet the write queue and the keepalive, what must hold in each, and whether getting it wrong loses typed text.
-resource: frontend/src/lib/use-autosave.ts
+resource: frontend/src/lib/note/use-autosave.ts
 tags: [editor, saving, autosave, frontend, tests]
 status: stable
 ---

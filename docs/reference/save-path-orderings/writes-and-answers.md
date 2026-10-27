@@ -2,7 +2,7 @@
 type: Reference
 title: Save path orderings: writes and their answers
 description: The orders in which a write, its answer, a reload and a refetch can meet one note's write queue, what must hold in each, and whether getting it wrong loses typed text.
-resource: frontend/src/lib/use-autosave.ts
+resource: frontend/src/lib/note/use-autosave.ts
 tags: [editor, saving, autosave, frontend, tests]
 status: stable
 ---

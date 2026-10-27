@@ -2,7 +2,7 @@
 type: Reference
 title: Save path orderings: agent tags and the editor's todo shortcut
 description: The orders in which the todo pane's @ or the phone strip's agent tag a todo, and the editor's todo shortcut edits the buffer, can meet the write queue, what must hold in each, and whether getting it wrong loses a todo's tag.
-resource: frontend/src/lib/use-autosave.ts
+resource: frontend/src/lib/note/use-autosave.ts
 tags: [editor, saving, autosave, frontend, tests, todos]
 status: stable
 ---

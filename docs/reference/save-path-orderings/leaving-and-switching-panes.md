@@ -2,7 +2,7 @@
 type: Reference
 title: Save path orderings: leaving a note and switching panes
 description: The orders in which a flush on leaving a note, an unmount, and a focus moved to another pane can meet the write queue, what must hold in each, and whether getting it wrong loses typed text.
-resource: frontend/src/lib/use-autosave.ts
+resource: frontend/src/lib/note/use-autosave.ts
 tags: [editor, saving, autosave, frontend, tests]
 status: stable
 ---

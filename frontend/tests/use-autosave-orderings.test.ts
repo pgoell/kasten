@@ -3,8 +3,8 @@ import { act, cleanup, renderHook } from "@testing-library/react";
 import { createElement, type ReactNode } from "react";
 import { ChangedOnDisk } from "@/lib/api";
 import { resetHeld } from "@/lib/held-text";
+import { forgetQueues, useAutosave } from "@/lib/note/use-autosave";
 import { noteBase } from "@/lib/note-base";
-import { forgetQueues, useAutosave } from "@/lib/use-autosave";
 
 // The orderings of docs/reference/save-path-orderings/ (the pages of the table,
 // each row numbered as in save-path-orderings.md) that no test in

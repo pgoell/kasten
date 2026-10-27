@@ -2,7 +2,7 @@
 type: Reference
 title: Save path orderings: live conflicts and leaving the route
 description: The orders in which a conflict that clears itself, a chunk reload, and a leave of the editor route can meet the write queue, what must hold in each, and whether getting it wrong loses typed text.
-resource: frontend/src/lib/use-autosave.ts
+resource: frontend/src/lib/note/use-autosave.ts
 tags: [editor, saving, autosave, frontend, tests]
 status: stable
 ---

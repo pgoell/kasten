@@ -3,7 +3,7 @@ import { Editor } from "@/components/editor";
 import { StatusBar } from "@/components/status-bar";
 import { ChangedOnDisk } from "@/lib/api";
 import { resetHeld, unstamped } from "@/lib/held-text";
-import { forgetQueues } from "@/lib/use-autosave";
+import { forgetQueues } from "@/lib/note/use-autosave";
 import { digestOf } from "@/lib/vault-events";
 import { renderNote, serveVault } from "./note-editor-fixture";
 

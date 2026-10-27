@@ -2,7 +2,7 @@
 type: Reference
 title: Save path orderings: panels, history restores and CRLF notes
 description: The orders in which the backlinks panel, the history pane and the line endings of a CRLF note can meet the write queue, what must hold in each, and whether getting it wrong loses typed text.
-resource: frontend/src/lib/use-autosave.ts
+resource: frontend/src/lib/note/use-autosave.ts
 tags: [editor, saving, autosave, frontend, tests]
 status: stable
 ---

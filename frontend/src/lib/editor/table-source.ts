@@ -8,7 +8,7 @@ import {
   type ViewUpdate,
 } from "@codemirror/view";
 import { isRow } from "@/lib/editor/table";
-import { readMode } from "@/lib/note-head";
+import { readMode } from "@/lib/note/note-head";
 
 /**
  * A table's source, marked where live preview does not draw it.

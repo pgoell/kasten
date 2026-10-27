@@ -30,7 +30,8 @@ import { keyboardUnasked } from "@/lib/last-input";
 import { livePreview } from "@/lib/live/live-preview";
 import { timeSeek } from "@/lib/live/live-preview-times";
 import { logCard } from "@/lib/log/log-card";
-import { graphHandler, noteHead, type Outline, readMode } from "@/lib/note-head";
+import { graphHandler, noteHead, type Outline, readMode } from "@/lib/note/note-head";
+import { weatherCard } from "@/lib/note/weather-card";
 import { noteLanguage } from "@/lib/note-language";
 import { relationCompletions, vaultRelations } from "@/lib/ontology";
 import { slashCompletions } from "@/lib/palette";
@@ -38,7 +39,6 @@ import { periodicReview, type ReviewSource, reviewSource } from "@/lib/review/pe
 import { tagCompletions, vaultTags } from "@/lib/tag";
 import { type CycleHandler, idElsewhere, notePath, todoCycled } from "@/lib/todo/todo-commands";
 import { todoCompletions } from "@/lib/todo/todo-suggest";
-import { weatherCard } from "@/lib/weather-card";
 import { vaultPaths, wikiLinkCompletions } from "@/lib/wikilink";
 
 /**

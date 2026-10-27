@@ -1,5 +1,4 @@
 import { ChangedOnDisk } from "@/lib/api";
-import type { Buffer } from "@/lib/held-buffer";
 import {
   dropText,
   type Held,
@@ -9,6 +8,7 @@ import {
   movedTo,
   sameText,
 } from "@/lib/held-text";
+import type { Buffer } from "@/lib/note/held-buffer";
 import {
   answered,
   dropped,
@@ -20,7 +20,7 @@ import {
   saves,
   visit,
   writing,
-} from "@/lib/save-queue";
+} from "@/lib/note/save-queue";
 
 /** What a write of the buffer sent, and the state it was sent in. */
 interface Sent {

@@ -14,8 +14,8 @@ import {
   saveNote,
 } from "@/lib/api";
 import { resetHeld, unstamped } from "@/lib/held-text";
+import { forgetQueues } from "@/lib/note/use-autosave";
 import { noteBase } from "@/lib/note-base";
-import { forgetQueues } from "@/lib/use-autosave";
 import { digestOf, type VaultEvent } from "@/lib/vault-events";
 import { routeTree } from "@/routeTree.gen";
 import { hashed } from "./digests";

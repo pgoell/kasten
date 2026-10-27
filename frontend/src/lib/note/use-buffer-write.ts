@@ -1,6 +1,6 @@
 import { useCallback } from "react";
-import type { Buffer } from "@/lib/held-buffer";
 import { dropText, type Held } from "@/lib/held-text";
+import type { Buffer } from "@/lib/note/held-buffer";
 import {
   dropped,
   enqueue,
@@ -12,8 +12,8 @@ import {
   sentUnder,
   visit,
   writing,
-} from "@/lib/save-queue";
-import { answer } from "@/lib/write-answer";
+} from "@/lib/note/save-queue";
+import { answer } from "@/lib/note/write-answer";
 
 /** The buffer's writes to the note open: a write, a save and a save that refuses a conflict, and a revert. */
 export function useBufferWrite(

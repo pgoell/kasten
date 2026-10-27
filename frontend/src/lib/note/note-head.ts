@@ -15,14 +15,14 @@ import {
 } from "@codemirror/view";
 import { followHandler } from "@/lib/editor/editor-follow";
 import { belowFrontmatter } from "@/lib/frontmatter-language";
+import { type Outline, outlinePlugin, proseLines } from "@/lib/note/note-outline";
 import { noteBody, readField } from "@/lib/note-frontmatter";
-import { type Outline, outlinePlugin, proseLines } from "@/lib/note-outline";
 import { noteName } from "@/lib/note-path";
 import { type Relation, readRelation } from "@/lib/relation";
 import { tagsOf } from "@/lib/tag-rule";
 import { notePath } from "@/lib/todo/todo-commands";
 
-export type { Outline, OutlineHeading } from "@/lib/note-outline";
+export type { Outline, OutlineHeading } from "@/lib/note/note-outline";
 
 /**
  * Whether live preview is on, which is what Read means. The preview compartment

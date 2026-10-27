@@ -27,6 +27,9 @@ import { isWholePane, WholePane } from "@/components/whole-pane";
 import type { SearchHit } from "@/lib/api";
 import type { TreeCommands } from "@/lib/key-bindings";
 import type { LogActions } from "@/lib/log/use-log-actions";
+import type { SaveStatus, useAutosave } from "@/lib/note/use-autosave";
+import type { BufferSync } from "@/lib/note/use-buffer-sync";
+import { makeNote, type NoteOpening } from "@/lib/note/use-note-opening";
 import { openGraphBeside, openNoteBeside } from "@/lib/pane-contents";
 import {
   activeTab,
@@ -39,11 +42,8 @@ import {
   tabPanes,
 } from "@/lib/panes";
 import type { TodoActions } from "@/lib/todo/use-todo-actions";
-import type { SaveStatus, useAutosave } from "@/lib/use-autosave";
-import type { BufferSync } from "@/lib/use-buffer-sync";
 import type { GuardedWrites } from "@/lib/use-guarded-writes";
 import type { Listings } from "@/lib/use-listings";
-import { makeNote, type NoteOpening } from "@/lib/use-note-opening";
 import { useRsvpAsked } from "@/lib/use-rsvp";
 
 type Autosave = ReturnType<typeof useAutosave>;

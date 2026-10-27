@@ -12,8 +12,8 @@ import {
   unseenOf,
   visit,
   writing,
-} from "@/lib/save-queue";
-import type { SaveStatus } from "@/lib/use-autosave";
+} from "@/lib/note/save-queue";
+import type { SaveStatus } from "@/lib/note/use-autosave";
 
 /** The per-visit refs and stable functions of one `useAutosave` hook, shared by its sub-hooks. */
 export interface Buffer {

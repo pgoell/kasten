@@ -4,7 +4,7 @@ import { Clock } from "@/components/status-clock";
 import { StatusDetail } from "@/components/status-detail";
 import { BUILD } from "@/lib/build";
 import { lineDiff } from "@/lib/diff";
-import type { SaveStatus } from "@/lib/use-autosave";
+import type { SaveStatus } from "@/lib/note/use-autosave";
 
 /** How long the refusal flash lasts. The same 400ms `--animate-flash` names. */
 const FLASH_MS = 400;

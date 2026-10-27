@@ -1,7 +1,7 @@
 import { useCallback, useEffect } from "react";
-import { type Buffer, wasLeftAloft } from "@/lib/held-buffer";
 import { dropText, type Held, heldText, heldTexts, landedAs, sameText } from "@/lib/held-text";
-import { inAir, missed, queued, reloads, reloadsOf, visit, writing } from "@/lib/save-queue";
+import { type Buffer, wasLeftAloft } from "@/lib/note/held-buffer";
+import { inAir, missed, queued, reloads, reloadsOf, visit, writing } from "@/lib/note/save-queue";
 
 /** What the buffer takes in from the vault and the held store, as the vault's text comes and goes. */
 export function useVaultReads(

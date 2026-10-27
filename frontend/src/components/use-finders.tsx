@@ -6,10 +6,10 @@ import type { PaneMoves } from "@/components/use-pane-moves";
 import { visible } from "@/lib/archive";
 import { fileKind } from "@/lib/file-kind";
 import type { TreeCommands } from "@/lib/key-bindings";
+import type { NoteOpening } from "@/lib/note/use-note-opening";
 import { openBookInFocused } from "@/lib/pane-contents";
 import type { GuardedWrites } from "@/lib/use-guarded-writes";
 import type { Listings } from "@/lib/use-listings";
-import type { NoteOpening } from "@/lib/use-note-opening";
 import { outgoingLinks } from "@/lib/wikilink";
 
 export type Finders = ReturnType<typeof useFinders>;

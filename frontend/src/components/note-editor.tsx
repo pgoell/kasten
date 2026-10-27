@@ -6,7 +6,7 @@ import type { FileTarget } from "@/lib/editor/editor-follow";
 import type { EmbedSource } from "@/lib/embed";
 import type { EditorCommands } from "@/lib/key-bindings";
 import { Leaving, useBlurWhenLeaving, useLeaving } from "@/lib/leaving";
-import type { Outline } from "@/lib/note-head";
+import type { Outline } from "@/lib/note/note-head";
 import { parseTodo } from "@/lib/todo/todo";
 import type { TodoCycle } from "@/lib/todo/todo-commands";
 

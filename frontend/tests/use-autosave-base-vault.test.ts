@@ -1,8 +1,8 @@
 import { act } from "@testing-library/react";
 import { ChangedOnDisk } from "@/lib/api";
 import { heldText } from "@/lib/held-text";
+import { forgetQueues } from "@/lib/note/use-autosave";
 import { noteBase } from "@/lib/note-base";
-import { forgetQueues } from "@/lib/use-autosave";
 import { eachPage, idle, pagehide, renderAutosave, settled } from "./autosave-fixture";
 
 const { saveNote, fetchNote } = vi.hoisted(() => ({ saveNote: vi.fn(), fetchNote: vi.fn() }));

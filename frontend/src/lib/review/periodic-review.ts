@@ -13,9 +13,9 @@ import { Decoration, type DecorationSet, EditorView, WidgetType } from "@codemir
 import type { QueryClient } from "@tanstack/react-query";
 import type { Root } from "react-dom/client";
 import { mountReview } from "@/components/review-block";
+import { cardLine } from "@/lib/note/weather-card";
 import { weeklyWeek, yearlyYear } from "@/lib/periodic";
 import { notePath } from "@/lib/todo/todo-commands";
-import { cardLine } from "@/lib/weather-card";
 
 /** What the review reads with and opens notes with, handed in where the editor is built. */
 export interface ReviewSource {

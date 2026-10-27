@@ -1,8 +1,8 @@
 import { act } from "@testing-library/react";
 import { ChangedOnDisk } from "@/lib/api";
 import { heldText, holdText } from "@/lib/held-text";
+import { forgetQueues } from "@/lib/note/use-autosave";
 import { noteBase } from "@/lib/note-base";
-import { forgetQueues } from "@/lib/use-autosave";
 import {
   eachPage,
   heldRows,

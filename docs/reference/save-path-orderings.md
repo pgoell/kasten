@@ -2,7 +2,7 @@
 type: Reference
 title: Save path orderings
 description: Every order in which a write, its answer, a reload, a refetch, a hide, a pane switch, a rename, a delete and :e can meet one note's write queue, and the review sitting's undo and its retried writes can meet its own, what must hold in each, whether getting it wrong loses typed text, and the test that holds it.
-resource: frontend/src/lib/use-autosave.ts
+resource: frontend/src/lib/note/use-autosave.ts
 tags: [editor, saving, autosave, frontend, tests]
 status: stable
 ---
@@ -10,7 +10,7 @@ status: stable
 # Save path orderings
 
 The editor writes a note back to the vault through one hook,
-`frontend/src/lib/use-autosave.ts`, whose parts sit beside it: the page's
+`frontend/src/lib/note/use-autosave.ts`, whose parts sit beside it: the page's
 write queue in `save-queue.ts`, a write's answer in `write-answer.ts`, the
 writes themselves in `use-buffer-write.ts`, held text against the buffer in
 `held-buffer.ts`, and what the buffer takes from the vault in

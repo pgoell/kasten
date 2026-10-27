@@ -1,4 +1,4 @@
-import type { SaveStatus } from "@/lib/use-autosave";
+import type { SaveStatus } from "@/lib/note/use-autosave";
 
 // Any smaller and the arrowheads close up into blobs at this stroke width.
 const ICON = "size-4 shrink-0";

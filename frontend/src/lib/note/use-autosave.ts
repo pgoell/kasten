@@ -1,10 +1,10 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { type Buffer, forgetAloft, useHeldBuffer } from "@/lib/held-buffer";
 import { type Held, holdText } from "@/lib/held-text";
-import { forgetWrites, heldAt, resendLeft, saves, visit, writing } from "@/lib/save-queue";
-import { useBufferWrite } from "@/lib/use-buffer-write";
-import { useVaultReads } from "@/lib/vault-reads";
+import { type Buffer, forgetAloft, useHeldBuffer } from "@/lib/note/held-buffer";
+import { forgetWrites, heldAt, resendLeft, saves, visit, writing } from "@/lib/note/save-queue";
+import { useBufferWrite } from "@/lib/note/use-buffer-write";
+import { useVaultReads } from "@/lib/note/vault-reads";
 
 /** Long enough that a sentence is one write, short enough to forget about. */
 const QUIET_MS = 800;
