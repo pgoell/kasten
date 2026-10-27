@@ -62,6 +62,15 @@ class Settings(BaseSettings):
     nothing is left out of anything.
     """
 
+    text_cache_path: Path = Path(tempfile.gettempdir()) / "kasten-text"
+    """Where the text of the pdf, epub and html files is kept for search to read.
+
+    Outside the vault, so nothing written here reaches the notes, and rebuildable
+    from the files themselves, so losing it costs one extraction per book. In the
+    container it lives in the container's own temp folder, which is emptied on
+    each release, and that is the reason it is not a folder beside the vault.
+    """
+
     inbox_path: str = "00 Inbox"
     """The folder a note with nowhere else to go is made in.
 

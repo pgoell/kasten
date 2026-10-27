@@ -8,13 +8,15 @@ import {
   useMemo,
   useState,
 } from "react";
-import { createNote, fetchNote, NoteExists } from "@/lib/api";
+import { createNote, fetchNote, NoteExists, type SearchHit } from "@/lib/api";
 import type { FileTarget } from "@/lib/editor-follow";
 import { queryEmbedSource } from "@/lib/embed";
+import { bookNoteOf, fileKind } from "@/lib/file-kind";
 import { encodePath } from "@/lib/note-path";
 import { noteSectionOf } from "@/lib/note-section";
 import {
   openBookBeside,
+  openBookInFocused,
   openHtmlInFocused,
   openImageInFocused,
   openInFocused,
@@ -27,6 +29,9 @@ import type { Listings } from "@/lib/use-listings";
 import { namesAFile, pdfPage, splitTarget, wikiLinkPath } from "@/lib/wikilink";
 
 export type NoteOpening = ReturnType<typeof useNoteOpening>;
+
+/** Where a search hit found its line in a file, which is what the opener goes to. */
+type FilePlace = NonNullable<SearchHit["place"]>;
 
 /**
  * Make the note at `path`, with `body` as its text, and cache what was written.
@@ -195,6 +200,48 @@ export function useNoteOpening({
   );
 
   /**
+   * Open a pdf, epub or html file from the finder or a search hit.
+   *
+   * Each kind opens the way the app already opens it: a pdf at its page over
+   * the focused pane, an html page at its heading, and an epub through its note
+   * in the book pane over the focused pane. An epub with no note has no reader
+   * to go through, so it opens in a tab of its own, as a followed link does.
+   * `text` is the line a search hit found, which the reader seeks once the
+   * book is open; without a note there is no reader to seek.
+   */
+  const openFile = useCallback(
+    async (path: string, place?: FilePlace | null, text?: string): Promise<void> => {
+      const kind = fileKind(path);
+      if (kind === "html") {
+        await openHtmlInPane(path, place?.anchor ?? undefined);
+        return;
+      }
+      if (kind === "pdf") {
+        if (!(await saveFirst())) return;
+
+        setLayout((previous) => openPdfInFocused(previous, path, place?.page ?? undefined));
+        setFocusSignal((previous) => previous + 1);
+        return;
+      }
+      if (kind !== "epub") return;
+
+      const note = bookNoteOf(path);
+      if (!data?.includes(note)) {
+        window.open(`/api/assets/${encodePath(path)}`, "_blank");
+        return;
+      }
+      if (!(await saveFirst())) return;
+
+      // Armed only once the move is taken: a refused move leaves no reader to
+      // seek in, and a seek left standing would jump the next one opened.
+      if (moveTo((previous) => openBookInFocused(previous, note)) && text !== undefined) {
+        setSeek({ note, quote: [text] });
+      }
+    },
+    [data, saveFirst, setLayout, setFocusSignal, moveTo, openHtmlInPane],
+  );
+
+  /**
    * Open the note a `[[link]]` names, making it if the vault has none.
    *
    * The listing is what turns a name into a path, so the resolving happens
@@ -352,6 +399,7 @@ export function useNoteOpening({
     openHtmlInPane,
     openImageInPane,
     openPdfFromTree,
+    openFile,
     follow,
     openPassage,
     openPeriodic,

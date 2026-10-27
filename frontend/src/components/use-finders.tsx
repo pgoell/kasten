@@ -3,10 +3,13 @@ import { useMemo, useState } from "react";
 import { NoteFinder } from "@/components/note-finder";
 import { NoteSearch } from "@/components/note-search";
 import type { PaneMoves } from "@/components/use-pane-moves";
+import { visible } from "@/lib/archive";
+import { fileKind } from "@/lib/file-kind";
 import type { TreeCommands } from "@/lib/key-bindings";
 import { openBookInFocused } from "@/lib/pane-contents";
 import type { GuardedWrites } from "@/lib/use-guarded-writes";
 import type { Listings } from "@/lib/use-listings";
+import type { NoteOpening } from "@/lib/use-note-opening";
 import { outgoingLinks } from "@/lib/wikilink";
 
 export type Finders = ReturnType<typeof useFinders>;
@@ -24,25 +27,39 @@ export function useFinders({
   saveFirst,
   moves,
   openInPane,
+  openFile,
   linkMentionOf,
   week,
   onWeek,
   toggleArchive,
 }: {
-  listings: Pick<Listings, "data" | "shown" | "assets" | "archive">;
+  listings: Pick<Listings, "data" | "shown" | "assets" | "html" | "archive">;
   panePath: string | undefined;
   saveFirst: () => Promise<boolean>;
   moves: Pick<PaneMoves, "moveTo" | "refocusPane">;
   openInPane: (path: string, line?: number) => Promise<boolean>;
+  openFile: NoteOpening["openFile"];
   linkMentionOf: GuardedWrites["linkMentionOf"];
   /** The week the search narrows to, from the URL. */
   week: string | undefined;
   onWeek: (week: string | undefined) => void;
   toggleArchive: () => void;
 }) {
-  const { data, shown, assets, archive } = listings;
+  const { data, shown, assets, html, archive } = listings;
   const { moveTo, refocusPane } = moves;
   const queryClient = useQueryClient();
+  // The pdfs, epubs and pages the finder lists beside the notes, archive
+  // filtered the way the notes are. Images are in the same listing and drop out.
+  const files = useMemo(
+    () =>
+      visible(
+        [...(assets ?? LOADING), ...(html ?? LOADING)].filter(
+          (path) => fileKind(path) !== undefined,
+        ),
+        archive,
+      ),
+    [assets, html, archive],
+  );
   // A flag and not a path, unlike the prompt: the finder ranks the whole vault
   // and has nothing to start from.
   const [finderOpen, setFinderOpen] = useState(false);
@@ -120,14 +137,17 @@ export function useFinders({
           // worth showing wherever it points, archive included.
           paths={linksOut ?? shown}
           outgoing={linksOut !== null}
+          files={linksOut === null ? files : undefined}
+          vaultNotes={data}
           onOpen={(path) => {
             setFinderOpen(false);
             setLinksOut(null);
-            // No line: the finder opens a note, not a place in one, and a
-            // stale `line` left behind would drop the cursor somewhere the
-            // previous search happened to point at. `openInFocused` writes the
-            // pane whole, which is what drops it.
-            void openInPane(path);
+            // A file opens as its kind does. A note gets no line: the finder
+            // opens a note, not a place in one, and a stale `line` left behind
+            // would drop the cursor somewhere the previous search pointed at.
+            // `openInFocused` writes the pane whole, which is what drops it.
+            if (fileKind(path) === undefined) void openInPane(path);
+            else void openFile(path);
           }}
           onClose={() => {
             setFinderOpen(false);
@@ -171,11 +191,14 @@ export function useFinders({
           onLink={
             backlinksOf === undefined ? undefined : (mention) => linkMentionOf(backlinksOf, mention)
           }
-          onOpen={(path, hitLine) => {
+          onOpen={(path, hitLine, hit) => {
             closeSearch();
             setBacklinksOf(undefined);
             setTodosOpen(false);
-            void openInPane(path, hitLine);
+            // A hit in a pdf, epub or html names its place in the file, and the
+            // file opens there. A note's line goes to the note as it always has.
+            if (hit?.place) void openFile(path, hit.place, hit.text);
+            else void openInPane(path, hitLine);
           }}
           onClose={() => {
             closeSearch();

@@ -296,7 +296,9 @@ async def test_the_weekly_counts_match_a_walk_of_the_dev_vault(
     client: AsyncClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     # `the` is common enough to make the histogram worth looking at, and rare
-    # enough that the answer is under the cap, which would otherwise cut it short.
+    # enough that the notes' lines are under the cap, which would otherwise cut
+    # them short. The dev vault's pdf, epub and html files fill the rest of the
+    # answer, after the notes, and are counted by the walk of notes nowhere.
     word = "the"
     monkeypatch.setenv("KASTEN_VAULT_PATH", str(DEV_VAULT))
     get_settings.cache_clear()
@@ -305,10 +307,11 @@ async def test_the_weekly_counts_match_a_walk_of_the_dev_vault(
     response = await client.get("/api/search", params={"q": word})
 
     assert response.status_code == 200
-    assert len(response.json()) < MOST_HITS
+    notes = [hit for hit in response.json() if hit["place"] is None]
+    assert len(notes) < MOST_HITS
 
     found: Counter[tuple[int, int]] = Counter()
-    for hit in response.json():
+    for hit in notes:
         day = name_date(hit["path"])
         if day is None:
             continue

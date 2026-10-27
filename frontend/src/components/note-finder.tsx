@@ -2,6 +2,7 @@ import { skipToken, useQuery } from "@tanstack/react-query";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { NotePreview } from "@/components/note-preview";
 import { fetchNote } from "@/lib/api";
+import { bookNoteOf, type FileKind, fileKind } from "@/lib/file-kind";
 import { noteCandidates, rankCandidates } from "@/lib/fuzzy";
 import { noteName } from "@/lib/note-path";
 import {
@@ -46,6 +47,18 @@ interface NoteFinderProps {
    * way it does for notes.
    */
   books?: string[];
+  /**
+   * The vault's pdfs, epubs and html pages, listed beside the notes and ranked
+   * with them. Only the note finder takes these: the outgoing links and the
+   * book finder list notes alone.
+   */
+  files?: string[];
+  /**
+   * Every note in the vault, the archive included. An epub's preview says
+   * whether its note is there to read it through, and this is the list that
+   * answers, the same one the opener asks.
+   */
+  vaultNotes?: string[];
 }
 
 /** Rows the list will mount. Beyond this, another keystroke narrows faster than a scroll. */
@@ -87,6 +100,16 @@ function withBooks(paths: string[], books: string[]): string[] {
   return paths.filter((path) => path.endsWith(".md") && epubs.has(`${path.slice(0, -3)}.epub`));
 }
 
+/**
+ * What a file's preview says it opens as. A file is opened, not read here, so
+ * the preview names the place it goes instead of its text.
+ */
+function fileOpens(kind: FileKind, noted: boolean): string {
+  if (kind === "pdf") return "pdf, opens in the pdf pane";
+  if (kind === "html") return "html, opens as a page";
+  return noted ? "epub, opens in the reader" : "epub, opens in a new tab";
+}
+
 /** The folder a book sits in, and nothing for one at the vault's root. */
 function folderOf(path: string): string {
   const slash = path.lastIndexOf("/");
@@ -124,7 +147,15 @@ function previewText(status: "pending" | "error"): string {
  * preview: an epub's note says little the name does not, and the reader is
  * where the book is.
  */
-export function NoteFinder({ paths, onOpen, onClose, outgoing = false, books }: NoteFinderProps) {
+export function NoteFinder({
+  paths,
+  onOpen,
+  onClose,
+  outgoing = false,
+  books,
+  files,
+  vaultNotes,
+}: NoteFinderProps) {
   const book = books !== undefined;
   const [query, setQuery] = useState("");
   /** Which note Enter would open. */
@@ -143,10 +174,13 @@ export function NoteFinder({ paths, onOpen, onClose, outgoing = false, books }: 
   // site would be a new array every time and undo all of this. The books are
   // picked out in a memo of their own for the same reason, and the note finder
   // keeps `paths` itself, so its candidates follow the very array handed over.
-  const listed = useMemo(
-    () => (books === undefined ? paths : withBooks(paths, books)),
-    [paths, books],
-  );
+  const listed = useMemo(() => {
+    if (books !== undefined) return withBooks(paths, books);
+    // Files join the notes so one ranking covers both, and a file's name
+    // ranks the way a note's does.
+    return files === undefined ? paths : [...paths, ...files];
+  }, [paths, books, files]);
+  const noted = useMemo(() => new Set(vaultNotes), [vaultNotes]);
   const candidates = useMemo(() => noteCandidates(listed), [listed]);
   // Ranked over the whole vault and cut afterwards, so the rows on screen are
   // the best of it rather than the first slice of it. An empty query matches
@@ -173,8 +207,11 @@ export function NoteFinder({ paths, onOpen, onClose, outgoing = false, books }: 
   const { narrow } = useViewport();
   const previewing = !narrow && !book;
 
+  // A file is never read as a note, so a file row holds no read either.
+  const kind = highlighted === undefined ? undefined : fileKind(highlighted);
+
   useEffect(() => {
-    if (!previewing || highlighted === undefined) {
+    if (!previewing || highlighted === undefined || fileKind(highlighted) !== undefined) {
       setReading(undefined);
       return;
     }
@@ -312,39 +349,51 @@ export function NoteFinder({ paths, onOpen, onClose, outgoing = false, books }: 
               aria-label={book ? "Books" : "Notes"}
               className={book ? "w-full overflow-auto py-1" : LIST}
             >
-              {notes.map((path, index) => (
-                <button
-                  key={path}
-                  id={`${listId}-${index}`}
-                  type="button"
-                  role="option"
-                  aria-selected={index === cursor}
-                  // Out of the tab order, because the focus stays in the input
-                  // and the highlight is how the list says what Enter would
-                  // open. A click still lands here, and opens the same note.
-                  tabIndex={-1}
-                  onClick={() => accept(path)}
-                  className={`${ROW} ${TAP} ${book ? "flex gap-3" : "truncate"} ${
-                    index === cursor ? "bg-k-surface text-k-accent" : "text-k-ink"
-                  }`}
-                >
-                  {book ? (
-                    // The folder, so the subfolders of a books folder read as
-                    // groups. Dimmer, because the name is what is looked for,
-                    // and the one that gives way: a folder runs from the
-                    // vault's root, and sharing the row out evenly clipped a
-                    // four-letter name to two on a phone.
-                    <>
-                      <span className="max-w-full shrink-0 truncate">{noteName(path)}</span>
-                      <span className="ml-auto min-w-0 truncate text-k-muted">
-                        {folderOf(path)}
-                      </span>
-                    </>
-                  ) : (
-                    path
-                  )}
-                </button>
-              ))}
+              {notes.map((path, index) => {
+                const rowKind = fileKind(path);
+                return (
+                  <button
+                    key={path}
+                    id={`${listId}-${index}`}
+                    type="button"
+                    role="option"
+                    aria-selected={index === cursor}
+                    // Out of the tab order, because the focus stays in the input
+                    // and the highlight is how the list says what Enter would
+                    // open. A click still lands here, and opens the same note.
+                    tabIndex={-1}
+                    onClick={() => accept(path)}
+                    className={`${ROW} ${TAP} ${book || rowKind !== undefined ? "flex gap-3" : "truncate"} ${
+                      index === cursor ? "bg-k-surface text-k-accent" : "text-k-ink"
+                    }`}
+                  >
+                    {book ? (
+                      // The folder, so the subfolders of a books folder read as
+                      // groups. Dimmer, because the name is what is looked for,
+                      // and the one that gives way: a folder runs from the
+                      // vault's root, and sharing the row out evenly clipped a
+                      // four-letter name to two on a phone.
+                      <>
+                        <span className="max-w-full shrink-0 truncate">{noteName(path)}</span>
+                        <span className="ml-auto min-w-0 truncate text-k-muted">
+                          {folderOf(path)}
+                        </span>
+                      </>
+                    ) : rowKind === undefined ? (
+                      path
+                    ) : (
+                      // The kind at the end, dimmed like a book's folder: the name is
+                      // what is looked for, and the kind only says what Enter opens.
+                      <>
+                        <span className="min-w-0 truncate">{path}</span>
+                        <span className="ml-auto shrink-0 text-k-muted">
+                          {rowKind.toUpperCase()}
+                        </span>
+                      </>
+                    )}
+                  </button>
+                );
+              })}
             </div>
           )}
 
@@ -360,7 +409,11 @@ export function NoteFinder({ paths, onOpen, onClose, outgoing = false, books }: 
             // label of its own and leaves the pane something a screen reader
             // can reach but not name.
             <section aria-label="Preview" data-testid="preview" className={PANE}>
-              {note.status === "success" ? (
+              {kind !== undefined && highlighted !== undefined ? (
+                <p className={PANE_MESSAGE}>
+                  {fileOpens(kind, noted.has(bookNoteOf(highlighted)))}
+                </p>
+              ) : note.status === "success" ? (
                 // Keyed on the path so opening another note builds a fresh
                 // view rather than reconfiguring this one.
                 <NotePreview key={reading} text={note.data} />

@@ -33,8 +33,9 @@ at all.
 
 ## GET /api/search
 
-Finds every line in the vault holding `q`, ignoring case. Takes `q` and an
-optional `archive`, and answers with at most 2,000 matches.
+Finds every line in the vault holding `q`, ignoring case, in its notes and in
+its pdf, epub and html files. Takes `q` and an optional `archive`, and answers
+with at most 2,000 matches.
 
 ```json
 [
@@ -43,14 +44,56 @@ optional `archive`, and answers with at most 2,000 matches.
     "line": 4,
     "text": "Postgres holds a derived index.",
     "date": "2026-10-07",
-    "tags": ["#kasten"]
+    "tags": ["#kasten"],
+    "place": null
+  },
+  {
+    "path": "reading/Expectant.pdf",
+    "line": 212,
+    "text": "The first trimester brings the most change.",
+    "date": "2026-09-18",
+    "tags": ["#pregnancy"],
+    "place": { "kind": "pdf", "label": "page 3", "page": 3, "anchor": null }
   }
 ]
 ```
 
-Nothing is indexed and Postgres is not consulted. `rg` reads the notes on every
-query, which over a 10,000 note vault costs about 17ms and cannot go stale,
-because the files it reads are the source of truth themselves.
+`place` is `null` for a line in a note. A line in a pdf, epub or html file
+gets an object:
+
+* `kind` is `pdf`, `epub` or `html`.
+* `label` is the place as the client shows it: `page 3` for a pdf; `Chapter 2, 41%`
+  for an epub, the chapter and how far into the book's text the line lies; for an
+  html page, the nearest heading above the line, or the page's `<title>`, or `top`
+  before any heading.
+* `page` is the pdf page, counted from 1, and `null` otherwise.
+* `anchor` is the `id` of the html heading, or `null`.
+
+A file hit's `path` is the file's vault path. Its `line` counts the lines of the
+extracted text. That number orders and keys the hits, and the client never shows it.
+
+Notes are read by `rg` on every query, as they always were. Over a 10,000 note
+vault that costs about 17ms, and it cannot go stale, because the files it reads
+are the source of truth themselves. Postgres is not consulted.
+
+A pdf, epub or html file has its text extracted first, which is slow for a long
+book. That text is kept in a cache outside the vault. The cache holds one text
+file for each file, with the file's places beside the text, and `rg` reads it in
+the same query as the notes. An entry is keyed by the file's path, its
+modification time and its size. Before each query, a changed file is extracted
+again, and the entry of a deleted file is dropped. The cache is never written
+into the vault, and it can be deleted at any time: the next search extracts
+again. A release empties it too, so the first search after one extracts every
+file again. Where it lives is set by
+[`KASTEN_TEXT_CACHE_PATH`](/reference/configuration.md#kasten_text_cache_path).
+
+Some files give no text. A scanned pdf with no text layer gives no hits, because
+its pages are pictures and nothing reads them yet (OCR is tracked in #951). A
+file that cannot be read gives no hits and does not fail the query. Extraction
+reads at most 1,000,000 characters of a file, and the rest is not searched.
+pdf text comes through pypdfium2. On a copy of the live vault, 612 notes beside
+19 pdfs (310 MB), 12 epubs and 75 html pages, the first search after a release
+takes about 3.2s, extracting every file, and each search after it about 50ms.
 
 The match is literal. `q` is not a regex, so `index.` finds the end of a
 sentence rather than any five letters followed by one more, and a half-typed
@@ -60,27 +103,28 @@ measurably useless over prose. Ranking the answer is the client's job, and
 [The note search](/reference/editor-keys/finding.md#the-note-search) is where that
 happens.
 
-Search sees exactly what `GET /api/files` lists, and this is the property to
-keep. Markdown only, hidden files and directories skipped, and a `.gitignore`
-inside the vault deliberately ignored, because git being told to overlook a
+Search sees the notes `GET /api/files` lists, and the pdf, epub and html files
+in the vault. Hidden files and directories are skipped, and a `.gitignore`
+inside the vault is deliberately ignored, because git being told to overlook a
 file says nothing about whether the note exists. A vault directory that does
 not exist reads as an empty one.
 
-A blank or whitespace-only `q` answers with nothing rather than everything. An
-empty literal matches every line there is, which would make the query nobody
-has finished typing the most expensive one the vault can answer.
+A blank or whitespace-only `q` answers with nothing rather than everything, and
+extracts nothing. An empty literal matches every line there is, which would make
+the query nobody has finished typing the most expensive one the vault can answer.
 
 `archive` defaults to false, which walks past the folder
 [KASTEN_ARCHIVE_PATH](/reference/configuration.md#kasten_archive_path) names.
 This matters more than it looks next to the cap below: an archive that grows
 without bound would eventually push live notes out of the answer rather than
-merely lengthening it. `archive=true` walks it.
+merely lengthening it. `archive=true` walks it. The same holds for a file in it.
 
 The cap of 2,000 is about what crosses the wire, not what the machine can do:
 `rg` reads the whole vault in about the same time whatever the cap. Because the
 client ranks everything it is handed and cuts afterwards, the rows on screen
 are the best of the match set rather than the head of it, and 2,000 is the
-whole match set for anything but the most common word in a vault.
+whole match set for anything but the most common word in a vault. The cap
+covers note and file hits together, and note hits come first.
 
 Each hit also carries `date` and `tags`, which the search histogram counts and
 filters by. Both belong to the hit's note and not to the line. `date` is the
@@ -108,6 +152,11 @@ need a `jj annotate` of each note on each query. `created` comes before the
 modification time because the histogram counts when things were written, and a
 note edited today would otherwise count as written today. `date` is None when
 the note can no longer be read.
+
+A file's hit takes the date and the tags of the note beside the file, such as
+`x.md` beside `x.pdf`. A file with no note takes its date from its name by the
+first rule, or else from its modification time, and it has no tags: `tags` is
+an empty list.
 
 `tags` is every tag the note holds, each with its hash and sorted, read as
 `GET /api/tags` reads them: inline tags and the frontmatter's `tags` field.

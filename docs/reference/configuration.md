@@ -245,6 +245,11 @@ may declare between them, and the asset finish copies the joined file into the
 vault rather than moving it, because the two sit on different filesystems in
 the container.
 
+## KASTEN_TEXT_CACHE_PATH
+
+Text search takes from pdf, epub and html files. Outside the vault, safe to
+delete. Default `/tmp/kasten-text`.
+
 ## KASTEN_RECEIPTS_PATH
 
 The folder the finance receipts are kept in, each file named by its hash. See

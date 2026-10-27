@@ -138,10 +138,10 @@ into the finder has to name a path, and the finder never writes.
 
 | Key | Does |
 | --- | --- |
-| any character | Narrow the list to the notes the query reads into |
+| any character | Narrow the list to the notes and files the query reads into |
 | Down / Ctrl+j / Ctrl+n / Tab | Move the highlight down one row |
 | Up / Ctrl+k / Ctrl+p / Shift+Tab | Move the highlight up one row |
-| Enter | Open the highlighted note |
+| Enter | Open the highlighted note or file |
 | Escape | Close, and hand the focus back |
 
 A click or a tap on a row opens it, as Enter on it would. In a window narrower
@@ -157,13 +157,15 @@ panel and not bring it back.
 Ctrl+j and Ctrl+k are vim's `j` and `k`. A bare `j` or `k` is a letter of a
 name, so it types into the filter.
 
-The list ranks every note in the vault, then shows the best twenty. The query
+The list ranks every note and file in the vault, then shows the best twenty. The query
 reads as a subsequence, so `kap` finds `projects/kasten/api-design.md`. A run of
 letters scores above the same letters scattered, a letter opening a folder name
 scores above one buried in it, and a letter landing in the note's own name
 scores above one that only matched the folder, so `arch` finds
 `kasten/architecture.md` before `archive/march.md`. Typing a folder still
 narrows, which is what `kasten/arch` is for.
+
+The list also holds the vault's pdf, epub and html files, beside the notes, whatever the case of the suffix. Each file row carries its kind on the row, `PDF`, `EPUB` or `HTML`. A note beside a file of the same name, such as `x.md` beside `x.pdf`, is two rows, because the note and the file open differently. Enter, or a tap, opens a pdf in the pdf pane at page 1, over the focused pane. An html file opens in the page pane, and an epub opens in the reader through its note, or in a new tab when it has no note. The preview of a file row says what the file is and where Enter opens it, and it does not read the file as a note. The archive rule applies to files too: a file in the archive stays out of the list unless `<leader>a` is on.
 
 Beside the list sits the note under the highlight, rendered the way the editor
 renders it: headings sized, lists drawn, marks hidden. The pane shows the note
@@ -192,8 +194,8 @@ phone, the palette row `Find a book` opens the finder.
 
 ## The note search
 
-`<leader>fg` and the tree's `s` open search over what is written in the notes,
-rather than over their names. Telescope spells the pair this way, `find_files`
+`<leader>fg` and the tree's `s` open search over what is written in the notes and
+files, rather than over their names. Telescope spells the pair this way, `find_files`
 and `live_grep`, which is where `ff` and `fg` come from. Nothing typed here has
 to name a path, and search never writes.
 
@@ -202,7 +204,7 @@ to name a path, and search never writes.
 | any character | Narrow to the lines holding the query |
 | Down / Ctrl+n / Tab | Move the highlight down one row |
 | Up / Ctrl+p / Shift+Tab | Move the highlight up one row |
-| Enter | Open the note on the line the match is on |
+| Enter | Open the note or file on the line the match is on |
 | Escape | Close, and hand the focus back |
 | Click a bar | Narrow the results to that week, or clear it |
 | Click a folder or a tag | Narrow to it, or clear it |
@@ -235,6 +237,8 @@ the note's title and path, in the order of each note's best line. Each line
 shows its number and its text, with every place the query occurs in the accent.
 Enter opens the note with the cursor on the highlighted line, centred rather
 than scrolled just barely into view.
+
+A pdf, epub or html file is searched for its lines as a note is. Its lines group under the file's name, with its kind beside the name. Each row shows where in the file the line is, in place of a line number: `page 3` for a pdf, the chapter and how far into the book as a percent for an epub, as in `Chapter 2, 41%`, and the nearest heading above the line for an html page. Enter opens a pdf at that page. It opens an html page at that heading when the heading has an id, and at the top when it has none. An epub opens in the reader at the line, through its note, or in a new tab when it has no note. The preview shows the place and the line. The folder and tag filters, the archive switch and the histogram count a file's lines the way they count a note's.
 
 The vault answers with at most 2,000 lines. When a query reaches that, the
 status line says the counts are of the first 2,000 lines.

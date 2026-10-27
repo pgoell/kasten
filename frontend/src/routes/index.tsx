@@ -256,11 +256,12 @@ function Home() {
   const { playSignal } = paneCommands;
   const files = useFileTransfer({ data, pane, saveFirst, openInPane, setNotice });
   const finders = useFinders({
-    listings: { data, shown, assets, archive },
+    listings: { data, shown, assets, html, archive },
     panePath: pane.path,
     saveFirst,
     moves: { moveTo, refocusPane },
     openInPane,
+    openFile: opening.openFile,
     linkMentionOf: guarded.linkMentionOf,
     week,
     onWeek: (next) =>

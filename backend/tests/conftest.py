@@ -66,6 +66,8 @@ def startup_vault(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[P
     # joins its pieces in the box's shared temp folder or wipes another's.
     monkeypatch.setenv("KASTEN_UPLOAD_PATH", str(tmp_path / "uploads"))
     monkeypatch.setenv("KASTEN_RECEIPTS_PATH", str(tmp_path / "receipts"))
+    # The text cache of pdf, epub and html files, never the box's shared temp folder.
+    monkeypatch.setenv("KASTEN_TEXT_CACHE_PATH", str(tmp_path / "text-cache"))
     get_settings.cache_clear()
 
     yield root
@@ -263,7 +265,12 @@ async def activity(
 
 
 def _serve_vault(root: Path) -> Iterator[Path]:
-    app.dependency_overrides[get_settings] = lambda: Settings(vault_path=root)
+    # Beside the vault, not in it: the cache must not put files in the vault, and
+    # the override ignores the environment, so the cache is named here too.
+    cache = root.parent / "text-cache"
+    app.dependency_overrides[get_settings] = lambda: Settings(
+        vault_path=root, text_cache_path=cache
+    )
 
     yield root
 

@@ -56,9 +56,12 @@ export function SearchPreview({ hit }: { hit: SearchHit | undefined }) {
   // will not have to fetch when Enter opens it. Keyed on the path alone, so
   // walking between two hits of one note re-centres the pane rather than
   // reading the note again.
+  // A file hit is read from its extracted text, which the hit already carries,
+  // so the file itself is never asked for as a note.
   const note = useQuery({
     queryKey: ["note", reading?.path],
-    queryFn: reading === undefined ? skipToken : () => fetchNote(reading.path),
+    queryFn:
+      reading === undefined || reading.place != null ? skipToken : () => fetchNote(reading.path),
     staleTime: 30_000,
     // A preview nobody asked for is not worth three attempts and a backoff.
     retry: false,
@@ -73,6 +76,17 @@ export function SearchPreview({ hit }: { hit: SearchHit | undefined }) {
       : undefined;
 
   if (reading === undefined) return null;
+
+  // A file hit's pane says where the line is and what it says. The place is the
+  // page or chapter, which no note text can show for a pdf or an epub.
+  if (reading.place != null) {
+    return (
+      <section aria-label="Preview" data-testid="preview" className={PANE}>
+        <p className="px-3 pt-2 font-mono text-k-12 text-k-muted">{reading.place.label}</p>
+        <p className="px-3 py-2 font-sans text-k-13 text-k-ink">{reading.text}</p>
+      </section>
+    );
+  }
 
   return (
     // A labelled <section> rather than a bare <pre>, which takes no

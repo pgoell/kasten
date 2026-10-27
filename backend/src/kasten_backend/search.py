@@ -130,9 +130,16 @@ async def notes_holding(root: Path, *texts: str, skip: str | None = None) -> lis
 
 
 async def scan_vault(
-    root: Path, matcher: Sequence[str], cap: int, skip: str | None = None
+    root: Path,
+    matcher: Sequence[str],
+    cap: int,
+    skip: str | None = None,
+    listing: Sequence[str] = SEEN_BY_THE_LISTING,
 ) -> list[Hit]:
     """Every line rg matches, up to `cap`. `matcher` carries the pattern and its flags.
+
+    `listing` is which files rg reads: the markdown notes by default, the cache
+    of extracted text for a search of the book and page files.
 
     Every reader of lines goes through here, so the two cannot drift into
     reporting a hit differently. What a reader chooses is the pattern, how it is
@@ -151,7 +158,7 @@ async def scan_vault(
         "--null",
         # A reader has to see exactly what `GET /api/files` lists, and these are
         # where rg would otherwise disagree with it.
-        *SEEN_BY_THE_LISTING,
+        *listing,
         *skipping(skip),
         *matcher,
         # `--` so a path starting with a dash is a path and not a flag.
@@ -184,6 +191,18 @@ async def scan_vault(
     return hits
 
 
+def literal_matcher(query: str) -> tuple[str, ...]:
+    """The rg flags that find `query` as a literal, ignoring case.
+
+    A literal, so `index.` finds the end of a sentence and a half-typed
+    `[[like` is a query rather than an error. Nothing here is a regex, and the
+    client is what makes the result feel fuzzy. `-e` so a query starting with
+    a dash is a query and not a flag. Shared so the notes and the extracted text
+    are searched with one matcher.
+    """
+    return ("--fixed-strings", "--ignore-case", "-e", query)
+
+
 async def search_vault(root: Path, query: str, skip: str | None = None) -> list[Hit]:
     """Every line in the vault containing `query`, ignoring case, up to `MOST_HITS`.
 
@@ -197,9 +216,4 @@ async def search_vault(root: Path, query: str, skip: str | None = None) -> list[
     if not query.strip():
         return []
 
-    # A literal, so `index.` finds the end of a sentence and a half-typed
-    # `[[like` is a query rather than an error. Nothing here is a regex, and the
-    # client is what makes the result feel fuzzy. `-e` so a query starting with
-    # a dash is a query and not a flag.
-    matcher = ("--fixed-strings", "--ignore-case", "-e", query)
-    return await scan_vault(root, matcher, MOST_HITS, skip)
+    return await scan_vault(root, literal_matcher(query), MOST_HITS, skip)

@@ -65,10 +65,15 @@ function plural(count: number, word: string): string {
   return `${count} ${word}${count === 1 ? "" : "s"}`;
 }
 
-/** One line of a note: its number in mono, and the line with the term in the accent. */
+/**
+ * One line of a note: its number in mono, and the line with the term in the accent.
+ * A file hit shows its place in the number's column instead, since a page or a
+ * chapter means nothing as a line of the extracted text.
+ */
 function LineRow({
   id,
   line,
+  place,
   text,
   term,
   selected,
@@ -76,6 +81,7 @@ function LineRow({
 }: {
   id: string;
   line: number;
+  place: SearchHit["place"];
   text: string;
   term: string;
   selected: boolean;
@@ -95,7 +101,11 @@ function LineRow({
       // (the 12 px of padding) lines up with the gutter's edge.
       className={`k-row -ml-3 w-[calc(100%+0.75rem)] cursor-pointer px-3 py-[3px] text-left text-k-13 ${TAP} flex gap-3 ${selected ? "bg-k-surface" : ""}`}
     >
-      <span className="w-10 shrink-0 pt-px text-left font-mono text-k-12 text-k-muted">{line}</span>
+      <span
+        className={`${place ? "max-w-[40%] truncate" : "w-10"} shrink-0 pt-px text-left font-mono text-k-12 text-k-muted`}
+      >
+        {place ? place.label : line}
+      </span>
       <span className="min-w-0 flex-1 break-words font-sans text-k-ink">
         {runsAt(text, term).map((run) => (
           <Fragment key={run.start}>
@@ -108,8 +118,8 @@ function LineRow({
 }
 
 interface ContentSearchProps {
-  /** Called with the note to open and the line the match sits on. */
-  onOpen: (path: string, line: number) => void;
+  /** Called with the note to open, the line the match sits on, and the hit when it is a file's. */
+  onOpen: (path: string, line: number, hit?: SearchHit) => void;
   onClose: () => void;
   /** Whether the archive is in the answer, which the route holds. */
   archive: boolean;
@@ -212,7 +222,7 @@ export function ContentSearch({
     const hit = found[index];
     if (hit === undefined) return;
     opening.current = true;
-    onOpen(hit.path, hit.line);
+    onOpen(hit.path, hit.line, hit);
   }
 
   /** A folder or a tag: the one chosen clears on a second press, and the other is left alone. */
@@ -390,6 +400,10 @@ export function ContentSearch({
                 <div id={listId} role="listbox" aria-label="Matching lines">
                   {groups.map((group, at) => {
                     const note = group.name ?? "";
+                    // A file's hits all carry the same kind, so the first one names the group's.
+                    const first = found[group.rows[0] ?? -1];
+                    const kind =
+                      first !== undefined && !isMention(first) ? first.place?.kind : undefined;
                     return (
                       // biome-ignore lint/a11y/useSemanticElements: a <fieldset> groups form controls, and these are the options of a listbox.
                       <div
@@ -400,7 +414,14 @@ export function ContentSearch({
                         style={{ "--i": at } as CSSProperties}
                       >
                         <div className="pt-3">
-                          <div className="font-serif text-k-19 text-k-ink">{noteName(note)}</div>
+                          <div className="font-serif text-k-19 text-k-ink">
+                            {noteName(note)}
+                            {kind !== undefined && (
+                              <span className="ml-2 font-sans text-k-12 text-k-muted">
+                                {kind.toUpperCase()}
+                              </span>
+                            )}
+                          </div>
                           <div className="font-mono text-k-12 text-k-muted">{note}</div>
                         </div>
                         {group.rows.map((index) => {
@@ -412,6 +433,7 @@ export function ContentSearch({
                               key={`${hit.path}:${hit.line}`}
                               id={`${listId}-${row}`}
                               line={hit.line}
+                              place={isMention(hit) ? undefined : hit.place}
                               text={hit.text}
                               term={typed}
                               selected={row === cursor}
