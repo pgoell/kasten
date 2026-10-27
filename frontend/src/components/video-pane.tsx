@@ -88,6 +88,11 @@ export function VideoPane({
   const [view, setView] = useState(false);
   /** The keys of an unfinished leader sequence, starting with the space. */
   const [pending, setPending] = useState("");
+  // Esc leaving full screen sends the page no key, so a leader started there
+  // would still be waiting, unseen, for the next key. It is dropped instead.
+  useEffect(() => {
+    if (!full) setPending("");
+  }, [full]);
 
   const { data: text, isPending } = useQuery({
     queryKey: ["note", note],
@@ -182,6 +187,10 @@ export function VideoPane({
 
       if (run) {
         event.preventDefault();
+        // Typed blind in full screen, a sequence would open its picker or move
+        // the focus to a pane the browser is not drawing, and the next keys
+        // would land there unseen. So full screen ends first.
+        if (full) toggleFull();
         run();
       }
       return;

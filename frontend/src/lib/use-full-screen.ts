@@ -22,14 +22,18 @@ export function useFullScreen(
   // Followed rather than set by the toggle, because Esc leaves full screen in
   // the browser and no key event says so. The focus goes into the box while it
   // is full screen, since the rest of the pane is not on screen then. It comes
-  // back to the pane only when this box was the one full screen, not for
-  // another pane's.
+  // back to the pane only when this box was the one full screen and the focus
+  // is still in it: a leader action may have moved it on, and another pane's
+  // box may have taken it, and neither is this box's to take back.
   useEffect(() => {
     let was = false;
     function follow() {
       const now = box.current !== null && document.fullscreenElement === box.current;
+      const focused = document.activeElement;
+      const stayed =
+        focused === null || focused === document.body || box.current?.contains(focused);
       if (now) box.current?.focus();
-      else if (was) pane.current?.focus();
+      else if (was && stayed) pane.current?.focus();
       was = now;
       setFull(now);
     }

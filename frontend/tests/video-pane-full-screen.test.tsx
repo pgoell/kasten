@@ -266,6 +266,41 @@ describe("the video pane's own full screen", () => {
     expect.soft(request).toHaveBeenCalledTimes(1);
   });
 
+  it("#914 R1 Space then Esc in full screen drops the unseen leader, so k after it plays the video", () => {
+    const { pane, sent, commands } = renderPane();
+
+    fireEvent.keyDown(pane, { key: "f" });
+    fireEvent.keyDown(document.activeElement as Element, { key: " " });
+    // Esc is the browser's and reaches the page only as the change.
+    becomes(null);
+    fireEvent.keyDown(document.activeElement as Element, { key: "k" });
+
+    expect.soft(request).toHaveBeenCalledTimes(1);
+    expect.soft(funcsOf(sent)).toEqual(["playVideo"]);
+    expect.soft(commands.paneUp).not.toHaveBeenCalled();
+  });
+
+  it("#914 R2 a leader sequence typed full screen leaves full screen before it runs, and the focus stays where it went", () => {
+    const { pane, commands } = renderPane();
+    const elsewhere = document.createElement("button");
+    document.body.append(elsewhere);
+    // A move to another pane, as `Space h` is: the focus goes outside the box.
+    commands.closeNote.mockImplementation(() => elsewhere.focus());
+
+    fireEvent.keyDown(pane, { key: "f" });
+    fireEvent.keyDown(document.activeElement as Element, { key: " " });
+    fireEvent.keyDown(document.activeElement as Element, { key: "q" });
+
+    expect.soft(request).toHaveBeenCalledTimes(1);
+    expect.soft(exit).toHaveBeenCalledTimes(1);
+    expect.soft(commands.closeNote).toHaveBeenCalledTimes(1);
+    expect
+      .soft(exit.mock.invocationCallOrder[0] ?? Number.POSITIVE_INFINITY)
+      .toBeLessThan(commands.closeNote.mock.invocationCallOrder[0] ?? 0);
+    expect.soft(document.activeElement).toBe(elsewhere);
+    elsewhere.remove();
+  });
+
   it("#914 I5 Ctrl f and Cmd f are left to the browser, and a bare f goes full screen", () => {
     const { pane } = renderPane();
 
