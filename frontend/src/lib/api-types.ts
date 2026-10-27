@@ -1269,6 +1269,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/tokens/{name}/actions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["read_token_actions_api_tokens__name__actions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/finance/accounts": {
         parameters: {
             query?: never;
@@ -5730,18 +5746,27 @@ export interface components {
             /** Shared */
             shared: boolean;
         };
-        /**
-         * Token
-         * @description One token as anything but the mint may see it.
-         */
-        Token: {
-            /** Name */
-            name: string;
+        /** TokenAction */
+        TokenAction: {
             /**
-             * Created
+             * At
              * Format: date-time
              */
-            created: string;
+            at: string;
+            /** Client */
+            client: string | null;
+            /** Method */
+            method: string;
+            /** Path */
+            path: string;
+            /** Tool */
+            tool: string | null;
+            /** Note */
+            note: string | null;
+            /** Status */
+            status: number;
+            /** Outcome */
+            outcome: string;
         };
         /**
          * TokenName
@@ -5750,6 +5775,21 @@ export interface components {
         TokenName: {
             /** Name */
             name: string;
+        };
+        /** TokenUse */
+        TokenUse: {
+            /** Name */
+            name: string;
+            /**
+             * Created
+             * Format: date-time
+             */
+            created: string;
+            /**
+             * Last Used
+             * Format: date-time
+             */
+            last_used?: string | null;
         };
         /**
          * Totals
@@ -7545,7 +7585,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Token"][];
+                    "application/json": components["schemas"]["TokenUse"][];
                 };
             };
         };
@@ -7600,6 +7640,37 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_token_actions_api_tokens__name__actions_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TokenAction"][];
+                };
             };
             /** @description Validation Error */
             422: {
