@@ -1,9 +1,11 @@
 """The token store: what it hands out once, what it keeps, and who may read it."""
 
 import json
+import os
 from typing import TYPE_CHECKING
 
 import pytest
+from pydantic import ValidationError
 
 from kasten_backend import tokens
 
@@ -107,10 +109,34 @@ async def test_mint_and_revoke_on_a_broken_store_leave_it_alone(tmp_path: Path) 
     store = tmp_path / "tokens.json"
     store.write_text("{", encoding="utf-8")
 
-    with pytest.raises(json.JSONDecodeError):
+    with pytest.raises(ValidationError):
         await tokens.mint(store, "laptop")
-    with pytest.raises(json.JSONDecodeError):
+    with pytest.raises(ValidationError):
         await tokens.revoke(store, "laptop")
 
     assert store.read_text(encoding="utf-8") == "{"
+    assert not (tmp_path / tokens.REVOKED).exists()
+
+
+@pytest.mark.skipif(os.geteuid() == 0, reason="root reads a file whatever its mode")
+async def test_mint_revoke_and_listing_on_an_unreadable_store_leave_it_alone(
+    tmp_path: Path,
+) -> None:
+    # Only `identify` is lenient. Here a read that failed and returned nothing
+    # would write a store of one token, or of none, over every token there is.
+    store = tmp_path / "tokens.json"
+    await tokens.mint(store, "laptop")
+    before = store.read_bytes()
+    store.chmod(0)
+    try:
+        with pytest.raises(PermissionError):
+            await tokens.mint(store, "phone")
+        with pytest.raises(PermissionError):
+            await tokens.revoke(store, "laptop")
+        with pytest.raises(PermissionError):
+            await tokens.listing(store)
+    finally:
+        store.chmod(0o600)
+
+    assert store.read_bytes() == before
     assert not (tmp_path / tokens.REVOKED).exists()

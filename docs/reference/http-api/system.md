@@ -206,10 +206,15 @@ leaves the revoked token out.
 revoked; a revoke drops the older ones. Dropping one cannot let its token back
 in, since only `tokens.json` admits a bearer: a token whose record is gone is
 refused as unknown, and only the action log stops naming it. A
-`tokens-revoked.json` that is not a JSON list of records does not open the
+`tokens-revoked.json` the backend cannot read (a permission error, a directory
+in its place, bad JSON, or anything but a list of records) does not open the
 gate either: every bearer `tokens.json` does not hold gets a 401, and the
 backend logs a warning with the path. The next revoke moves that file to
-`tokens-revoked.json.broken` and starts a fresh one.
+`tokens-revoked.json.broken` and starts a fresh one; when that move fails, the
+revoke fails with `tokens.json` unchanged.
+
+A `tokens.json` the backend cannot read refuses every bearer with a 401 and a
+logged warning. Minting, revoking and listing raise on it and write nothing.
 
 A name the store has not got is a `404`.
 

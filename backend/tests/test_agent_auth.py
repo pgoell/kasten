@@ -7,6 +7,7 @@ vault.
 
 import json
 import logging
+import os
 from typing import TYPE_CHECKING
 
 import pytest
@@ -16,6 +17,7 @@ from kasten_backend.config import get_settings
 from kasten_backend.tokens import revoke
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
     from pathlib import Path
 
     from httpx import AsyncClient
@@ -189,3 +191,169 @@ async def test_a_broken_revoked_file_still_lets_an_active_bearer_through(
     response = await client.get("/agent/notes/index.md", headers=bearer)
 
     assert response.status_code == 200
+
+
+ROOT = os.geteuid() == 0
+"""Root reads a file whatever its mode, so `chmod 000` takes nothing away from it."""
+
+
+def unreadable(path: Path) -> None:
+    """Make `path` a file this process cannot open, and prove it does fail."""
+    path.write_text("[]", encoding="utf-8")
+    path.chmod(0)
+    with pytest.raises(PermissionError):
+        path.read_bytes()
+
+
+@pytest.fixture
+def give_back(agent_vault: Path) -> Iterator[None]:
+    """Give both token files their mode back, so the cleanup of `tmp_path` can remove them."""
+    yield
+    store = get_settings().tokens_path
+    for path in (store, store.with_name(tokens.REVOKED)):
+        if path.is_file():
+            path.chmod(0o600)
+
+
+@pytest.mark.skipif(ROOT, reason="root reads a file whatever its mode")
+async def test_an_unreadable_revoked_file_refuses_an_unknown_bearer_with_401(
+    client: AsyncClient, agent_vault: Path, give_back: None
+) -> None:
+    # A permission error answers the same as no file at all, not a 500.
+    (agent_vault / "index.md").write_text("# index")
+    unreadable(revoked_file())
+
+    response = await client.get(
+        "/agent/notes/index.md", headers={"Authorization": "Bearer kasten_junk"}
+    )
+
+    assert response.status_code == 401
+
+
+@pytest.mark.skipif(ROOT, reason="root reads a file whatever its mode")
+async def test_an_unreadable_revoked_file_refuses_a_revoked_bearer_with_401(
+    client: AsyncClient, agent_vault: Path, token: str, give_back: None
+) -> None:
+    (agent_vault / "index.md").write_text("# index")
+    await revoke(get_settings().tokens_path, "laptop")
+    revoked_file().chmod(0)
+
+    response = await client.get(
+        "/agent/notes/index.md", headers={"Authorization": f"Bearer {token}"}
+    )
+
+    assert response.status_code == 401
+
+
+@pytest.mark.skipif(ROOT, reason="root reads a file whatever its mode")
+async def test_an_unreadable_revoked_file_is_logged_by_path_alone(
+    client: AsyncClient,
+    agent_vault: Path,
+    token: str,
+    give_back: None,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    (agent_vault / "index.md").write_text("# index")
+    await revoke(get_settings().tokens_path, "laptop")
+    revoked_file().chmod(0)
+    caplog.set_level(logging.WARNING, logger="kasten_backend.tokens")
+
+    await client.get("/agent/notes/index.md", headers={"Authorization": f"Bearer {token}"})
+
+    assert any("tokens-revoked.json" in record.getMessage() for record in caplog.records)
+    assert token not in caplog.text
+    assert tokens.digest(token) not in caplog.text
+
+
+@pytest.mark.skipif(ROOT, reason="root reads a file whatever its mode")
+@pytest.mark.parametrize("kind", ["permission", "directory"])
+async def test_revoke_on_an_unreadable_revoked_file_completes(
+    client: AsyncClient, agent_vault: Path, token: str, give_back: None, kind: str
+) -> None:
+    # A directory in the file's place is unreadable too. Main read it as no
+    # file, wrote `tokens.json` and then failed to write over the directory.
+    if kind == "permission":
+        unreadable(revoked_file())
+    else:
+        revoked_file().mkdir()
+
+    response = await client.delete("/api/tokens/laptop")
+
+    assert response.status_code == 204
+    store = get_settings().tokens_path
+    assert json.loads(store.read_text(encoding="utf-8")) == []
+    fresh = json.loads(revoked_file().read_text(encoding="utf-8"))
+    assert [record["name"] for record in fresh] == ["laptop"]
+    assert revoked_file().with_name(tokens.REVOKED + ".broken").exists()
+
+
+@pytest.mark.skipif(ROOT, reason="root reads a file whatever its mode")
+async def test_a_failed_rename_of_a_broken_revoked_file_leaves_the_store_alone(
+    agent_vault: Path, token: str, give_back: None
+) -> None:
+    # The rename runs before the first write, so when it fails the token is
+    # still where it was and nothing is half-moved.
+    store = get_settings().tokens_path
+    before = store.read_bytes()
+    revoked_file().write_text("{", encoding="utf-8")
+    aside = revoked_file().with_name(tokens.REVOKED + ".broken")
+    aside.mkdir()
+    (aside / "keep").write_text("x", encoding="utf-8")
+
+    with pytest.raises(OSError, match="tokens-revoked"):
+        await revoke(store, "laptop")
+
+    assert store.read_bytes() == before
+    assert revoked_file().read_text(encoding="utf-8") == "{"
+
+
+@pytest.mark.skipif(ROOT, reason="root reads a file whatever its mode")
+async def test_an_unreadable_revoked_file_still_lets_an_active_bearer_through(
+    client: AsyncClient, agent_vault: Path, bearer: dict[str, str], give_back: None
+) -> None:
+    # Only `tokens.json` admits a bearer, and a revoked token is never in it, so
+    # the revoked file cannot decide who gets in and is never read for this one.
+    (agent_vault / "index.md").write_text("# index")
+    unreadable(revoked_file())
+
+    response = await client.get("/agent/notes/index.md", headers=bearer)
+
+    assert response.status_code == 200
+
+
+@pytest.mark.skipif(ROOT, reason="root reads a file whatever its mode")
+async def test_an_unreadable_store_refuses_every_bearer_with_401(
+    client: AsyncClient,
+    agent_vault: Path,
+    bearer: dict[str, str],
+    give_back: None,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    # A valid bearer too: a file that cannot be read admits nobody.
+    (agent_vault / "index.md").write_text("# index")
+    get_settings().tokens_path.chmod(0)
+    caplog.set_level(logging.WARNING, logger="kasten_backend.tokens")
+
+    valid = await client.get("/agent/notes/index.md", headers=bearer)
+    junk = await client.get(
+        "/agent/notes/index.md", headers={"Authorization": "Bearer kasten_junk"}
+    )
+
+    assert valid.status_code == 401
+    assert junk.status_code == 401
+    assert any("tokens.json" in record.getMessage() for record in caplog.records)
+    assert bearer["Authorization"].removeprefix("Bearer ") not in caplog.text
+
+
+@pytest.mark.parametrize("junk", [b"{", b"[1]", b"1", b"null", b"\xff"])
+async def test_a_broken_store_refuses_a_bearer_with_401(
+    client: AsyncClient, agent_vault: Path, junk: bytes
+) -> None:
+    (agent_vault / "index.md").write_text("# index")
+    get_settings().tokens_path.write_bytes(junk)
+
+    response = await client.get(
+        "/agent/notes/index.md", headers={"Authorization": "Bearer kasten_junk"}
+    )
+
+    assert response.status_code == 401

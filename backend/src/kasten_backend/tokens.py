@@ -70,7 +70,15 @@ class _Revoked(_Record):
     revoked: datetime
 
 
+_RECORDS = TypeAdapter(list[_Record])
 _REVOKED_LIST = TypeAdapter(list[_Revoked])
+
+_UNREADABLE = (OSError, ValidationError)
+"""Every way reading a token file fails: the file system's errors, and pydantic's.
+
+`validate_json` turns bad JSON, bad UTF-8 and the wrong shape alike into a
+`ValidationError`, so these two cover every broken file.
+"""
 
 
 REVOKED = "tokens-revoked.json"
@@ -100,18 +108,21 @@ def digest(secret: str) -> str:
     return hashlib.sha256(secret.encode("utf-8")).hexdigest()
 
 
-def _read[R: _Record](store: Path, model: type[R]) -> list[R]:
+def _read(store: Path) -> list[_Record]:
     """Every record the file holds, or none at all.
 
     A missing file is an empty store, which is what makes a box with no tokens
     refuse every bearer rather than fail to start. There is no state in which
     that absence opens the gate: the caller matches a digest, and no digest
     matches nothing.
+
+    Strict: a file that is there and cannot be read raises. Returning nothing
+    instead would let `mint` and `revoke` write over every token the file holds.
     """
-    if not store.is_file():
+    if not store.exists():
         return []
 
-    return [model.model_validate(record) for record in json.loads(store.read_text("utf-8"))]
+    return _RECORDS.validate_json(store.read_bytes())
 
 
 def _read_revoked(path: Path) -> list[_Revoked] | None:
@@ -119,15 +130,19 @@ def _read_revoked(path: Path) -> list[_Revoked] | None:
 
     Lenient where `_read` is strict. The file only names refusals, so a broken
     one must not refuse an active bearer or fail a revoke. The log names the
-    path and never the content, which holds digests.
+    path and the kind of failure, never the error's text: pydantic's quotes the
+    input, which holds digests.
+
+    `exists` rather than `is_file`, so a directory in its place counts as
+    unreadable and `revoke` sets it aside before writing anything.
     """
-    if not path.is_file():
+    if not path.exists():
         return []
 
     try:
         return _REVOKED_LIST.validate_json(path.read_bytes())
-    except ValidationError:
-        logger.warning("Ignoring %s: it is not a list of revoked tokens", path)
+    except _UNREADABLE as error:
+        logger.warning("Ignoring %s: it cannot be read (%s)", path, type(error).__name__)
         return None
 
 
@@ -156,7 +171,7 @@ async def mint(store: Path, name: str) -> Minted:
     A name a revoked token held is free again: only the active file is checked.
     """
     async with _lock:
-        records = _read(store, _Record)
+        records = _read(store)
         if any(record.name == name for record in records):
             raise ValueError(f"There is already a token called {name}")
 
@@ -175,21 +190,22 @@ async def revoke(store: Path, name: str) -> bool:
     writes then leaves the token refused and unrecorded, which is safe; the other
     order would leave it active.
 
-    A broken revoked file is set aside as `.broken` and started again. Its
+    A broken revoked file is set aside as `.broken` and started again, before
+    the first write, so a rename that fails leaves the store as it was. Its
     records only name refusals, so losing them costs a log line, not access.
     """
     async with _lock:
-        records = _read(store, _Record)
+        records = _read(store)
         gone = [record for record in records if record.name == name]
         if not gone:
             return False
 
         revoked_path = store.with_name(REVOKED)
         revoked = _read_revoked(revoked_path)
-        _write(store, [record for record in records if record.name != name])
         if revoked is None:
             os.replace(revoked_path, revoked_path.with_name(REVOKED + ".broken"))  # noqa: PTH105  Path has no atomic replace of a str
             revoked = []
+        _write(store, [record for record in records if record.name != name])
 
         moment = datetime.now(UTC)
         _write(
@@ -206,21 +222,28 @@ async def revoke(store: Path, name: str) -> bool:
 async def listing(store: Path) -> list[Token]:
     """Every token the store holds, without the digests."""
     async with _lock:
-        return [Token(name=record.name, created=record.created) for record in _read(store, _Record)]
+        return [Token(name=record.name, created=record.created) for record in _read(store)]
 
 
 async def identify(store: Path, secret: str) -> tuple[str, bool] | None:
     """The name behind `secret`, and whether it was revoked; None when neither file holds it.
 
-    A revoked file that cannot be read holds nothing, so a revoked secret there is
-    refused as unknown, which is the same 401.
+    A token file that cannot be read holds nothing. An unreadable `tokens.json`
+    refuses every bearer, and an unreadable revoked file refuses a revoked
+    secret as unknown: the same 401 either way, never a 500 and never a way in.
 
     `compare_digest` rather than `==`, so the comparison does not leak how much
     of a guess was right through how long it took to refuse.
     """
     presented = digest(secret)
     async with _lock:
-        for record in _read(store, _Record):
+        try:
+            records = _read(store)
+        except _UNREADABLE as error:
+            logger.warning("Refusing every bearer: %s cannot be read (%s)", store, type(error).__name__)
+            return None
+
+        for record in records:
             if secrets.compare_digest(record.digest, presented):
                 return record.name, False
 

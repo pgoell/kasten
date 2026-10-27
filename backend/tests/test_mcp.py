@@ -7,6 +7,7 @@ whether the writer's name reaches the change the write makes.
 """
 
 import json
+import os
 from typing import TYPE_CHECKING, Any
 
 import pytest
@@ -119,6 +120,28 @@ async def test_mcp_refuses_with_401_on_a_broken_revoked_file(
         json=call("read_note", {"path": "borges.md"}),
         headers={"Authorization": "Bearer kasten_junk", **RPC},
     )
+
+    assert response.status_code == 401
+
+
+@pytest.mark.skipif(os.geteuid() == 0, reason="root reads a file whatever its mode")
+@pytest.mark.parametrize("which", ["tokens.json", REVOKED])
+async def test_mcp_refuses_with_401_on_an_unreadable_token_file(
+    client: AsyncClient, agent_vault: Path, token: str, which: str
+) -> None:
+    (agent_vault / "borges.md").write_text("# borges\n")
+    path = get_settings().tokens_path.with_name(which)
+    if not path.exists():
+        path.write_text("[]", encoding="utf-8")
+    path.chmod(0)
+    try:
+        response = await client.post(
+            ENDPOINT,
+            json=call("read_note", {"path": "borges.md"}),
+            headers={"Authorization": "Bearer kasten_junk", **RPC},
+        )
+    finally:
+        path.chmod(0o600)
 
     assert response.status_code == 401
 
