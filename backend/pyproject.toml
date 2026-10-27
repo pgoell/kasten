@@ -1,9 +1,9 @@
 [project]
 name = "kasten-backend"
-# The number the next release carries, and the only place it is written. The
-# deploy workflow refuses a release whose tag says something else. See
-# docs/how-to/cut-a-release.md.
-version = "0.125.0"
+# A placeholder that is never bumped. The release number is the git tag, and the
+# backend image build writes it in (KASTEN_VERSION in backend/Dockerfile). Dev
+# and the tests report this 0.0.0. See docs/how-to/cut-a-release.md.
+version = "0.0.0"
 description = "kasten HTTP backend (FastAPI) over a markdown vault"
 license = "AGPL-3.0-only"
 authors = [

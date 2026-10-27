@@ -61,7 +61,8 @@ given below.
 ## Which one you are looking at, and what it is running
 
 The bar at the foot of the window says. Prod reads `0.8.0`, the release the
-three images ship under, which the backend takes off its own installed package.
+three images ship under, which the image build writes into the backend's
+installed package.
 Dev reads `be d99325a fe d99325a`, the commit each of those two services was
 started on.
 

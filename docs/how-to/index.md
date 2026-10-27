@@ -9,7 +9,7 @@ on its code.
 * [Back up and restore](back-up-and-restore.md): the three things a self-hosted kasten holds, a nightly tar or a jj push, and the restore
 * [Capture from your phone](capture-from-your-phone.md): send a thought into today's dump from a phone, and share links and text into it from other apps on Android
 * [Connect an agent](connect-an-agent.md): mint and revoke a token, then connect Claude Code, codex, Claude Desktop, claude.ai, chatgpt.com, another MCP client or curl, or install the skill where MCP is off
-* [Cut a release](cut-a-release.md): pick the next version from the commits, bump it, tag it and watch it deploy
+* [Cut a release](cut-a-release.md): run `mise run release` on a clean `main`, which picks the version from the commits and publishes it, then watch it deploy
 * [Deploy to the VPS](deploy-to-the-vps.md): the maintainer's own deployment, as a worked example: bootstrap dev and prod on the box, on amd64 or arm64, deploy day to day, open the chat route, and prove the shell is still behind its gate
 * [Import from Firefly III](import-from-firefly-iii.md): a one-off, bring Firefly III's history into kasten once from a one-shot container, count first with a dry run, and check a second run changes nothing
 * [Import an Anki deck](import-an-anki-deck.md): turn an .apkg export into markdown notes, and know what does not survive the trip

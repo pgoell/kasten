@@ -31,6 +31,12 @@ COPY backend/ backend/
 # kasten-migrate-prod does. See docs/how-to/run-the-bank-sync.md.
 COPY jobs/ jobs/
 
+# The release tag is the version. The deploy workflow passes it here, and a build
+# without it reports the 0.0.0 placeholder in pyproject.toml. The ARG sits after
+# the copies so the layers above stay cached when only the version changes.
+ARG KASTEN_VERSION=0.0.0
+RUN uv version --frozen --package kasten-backend "$KASTEN_VERSION"
+
 # --no-editable installs both packages as real wheels rather than .pth
 # editable installs. Editable entries point at /app/*/src, which does not
 # exist in the runtime stage, so imports would fail there.

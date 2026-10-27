@@ -172,13 +172,12 @@ itself when `bun.lock` changes; `mise run dev:restart` after a change to
 `uv.lock`, `mise run dev:logs` when something looks wrong,
 `mise run dev:status` to see what is up.
 
-**Prod.** Cut a GitHub release, following [Cut a release](cut-a-release.md):
-pick the version off the commits, bump `backend/pyproject.toml`, then tag. The
-workflow checks the tag against that version and stops there if they disagree,
-then builds each changed image twice, for amd64 on `ubuntu-latest` and for
-arm64 on `ubuntu-24.04-arm`, tags the pair with the release tag and `latest`,
-pushes to GHCR, and sends the tag to the box over SSH. The deploy script there
-pulls, runs migrations as a one-shot container, restarts the services, and
+**Prod.** On a clean, up to date `main`, run `mise run release` ([Cut a
+release](cut-a-release.md)). The workflow checks the tag first and stops before
+any build if it is not a new `X.Y.Z`, then builds each changed image twice, for
+amd64 on `ubuntu-latest` and for arm64 on `ubuntu-24.04-arm`, tags the pair with
+the release tag and `latest`, pushes to GHCR, and sends the tag to the box
+over SSH. The deploy script there pulls, runs migrations as a one-shot container, restarts the services, and
 waits for the backend healthcheck.
 
 **Rollback.** Run the `Deploy production` workflow by hand with the `tag` input

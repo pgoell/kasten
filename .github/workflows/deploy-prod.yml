@@ -35,18 +35,15 @@ jobs:
           # diffs this release against the one before it, and neither the tag
           # list nor the range exists in a shallow clone.
           fetch-depth: 0
-      # The backend reports this number at `/docs` and on every schema it
-      # serves, so a tag that disagrees with it ships a build lying about which
-      # release it is. Cheaper to stop here than to find out from the API later.
-      - name: Check the tag against the backend version
+      # The tag is the version the backend reports, so a malformed or lower one
+      # stops here, before anything is built or pushed. The checkout already has
+      # every tag (fetch-depth 0).
+      - name: Check the tag is a release number above the last
+        env:
+          TAG: ${{ github.event.release.tag_name }}
         run: |
           set -euo pipefail
-          version=$(sed -n 's/^version = "\(.*\)"$/\1/p' backend/pyproject.toml)
-          tag='${{ github.event.release.tag_name }}'
-          if [ "$tag" != "$version" ]; then
-            echo "::error::Release $tag, but backend/pyproject.toml says $version. Bump it on main, then retag."
-            exit 1
-          fi
+          python3 scripts/check_release_tag.py "$TAG"
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
       - uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
         with:
@@ -81,16 +78,19 @@ jobs:
             image="ghcr.io/$OWNER/kasten-$component"
 
             # What goes into each image, as the Dockerfiles copy it. The
-            # backend takes the root lockfile and project file too, which is
-            # also what makes every release rebuild it: the version bump lands
-            # there. It carries the host jobs as well.
+            # backend takes the root lockfile and project file too. It carries
+            # the host jobs as well.
             case "$component" in
               backend) sources="backend jobs pyproject.toml uv.lock" ;;
               frontend) sources="frontend" ;;
               shell) sources="shell" ;;
             esac
 
-            if [ -z "$previous" ]; then
+            # The backend is never copied. Its version is written in at build
+            # time, so a copy would report the previous tag.
+            if [ "$component" = backend ]; then
+              reason="its version is the tag, written in at build time"
+            elif [ -z "$previous" ]; then
               reason="no earlier release to compare against"
             elif ! git diff --quiet "$previous" "$TAG" -- $sources; then
               reason="$sources changed since $previous"
@@ -157,6 +157,9 @@ jobs:
           context: .
           file: ${{ matrix.component }}/Dockerfile
           platforms: linux/${{ matrix.arch }}
+          # The backend writes this into its package version, so the image
+          # reports the release it ships under.
+          build-args: ${{ matrix.component == 'backend' && format('KASTEN_VERSION={0}', github.event.release.tag_name) || '' }}
           labels: ${{ steps.meta.outputs.labels }}
           outputs: type=image,name=ghcr.io/${{ github.repository_owner }}/kasten-${{ matrix.component }},push-by-digest=true,name-canonical=true,push=true
           # The amd64 leg keeps the cache scope the single-arch build used, so

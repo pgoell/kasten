@@ -146,6 +146,15 @@ to the gate. It prints nothing when it passes and the list of clones when it
 fails. See
 [Get past the copy check](/how-to/run-the-checks.md#get-past-the-copy-check).
 
+## Release
+
+| Task | What it does |
+|---|---|
+| `release` | Publish the next release, its number computed from the Conventional Commits since the last `X.Y.Z` tag. `-- --dry-run` prints the number and creates nothing |
+
+`release` refuses unless it runs on a clean `main` that is at the tip of
+`origin/main`. See [Cut a release](/how-to/cut-a-release.md).
+
 ## Repo automation
 
 | Task | What it does |

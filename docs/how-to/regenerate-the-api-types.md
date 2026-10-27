@@ -19,7 +19,9 @@ mise run fe:types
 ```
 
 That dumps the schema from `kasten_backend.main` to `frontend/openapi.json`,
-then generates `frontend/src/lib/api-types.ts` from it. Commit both files.
+then generates `frontend/src/lib/api-types.ts` from it. Commit both files. The
+schema's `info.version` is pinned to `0.0.0` by `scripts/dump_openapi.py`, so a
+release never changes `frontend/openapi.json`.
 
 Check the result with:
 

@@ -181,6 +181,14 @@ run = "bash scripts/apply-github-settings.sh"
 description = "Diff live branch protection against .github/branch-protection.json, check security settings"
 run = "bash scripts/apply-github-settings.sh --check"
 
+# ─── Release ────────────────────────────────────────────────────────────────
+
+# The version comes from the tag, not a file: the script reads the commits since
+# the last X.Y.Z tag. See docs/how-to/cut-a-release.md.
+[tasks.release]
+description = "Publish the next release, its number computed from the commits since the last tag (--dry-run prints it only)"
+run = "python3 scripts/release.py"
+
 # ─── Lint & format ──────────────────────────────────────────────────────────
 
 [tasks.lint]
