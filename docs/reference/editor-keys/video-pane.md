@@ -44,16 +44,21 @@ same brackets around a vault path draw a picture. Every address shape the pane
 reads is read here too, and anything else in the brackets is a picture or the
 source it was written as.
 
-It opens at the position the note remembers, so a clip you got halfway through
-in the pane picks up where it stopped. It writes none back: `watching:` moves
-for the pane's player alone, and an embed you watched to the end still says
-where the pane left it.
+It opens at the position the note remembers, and writes its own back when you
+pause it, into the same `watching:` entry the pane writes. So a clip you got
+halfway through in the pane picks up there in the note, and the other way round.
+The note's player writes into its own buffer, as the pane does for the focused
+note, and never from a read-only preview.
+
+Scrolled out of view and back, it is the same player, still playing or still
+paused. The player lies over the note rather than in it: CodeMirror drops a
+line's drawing once it leaves the screen, and a frame dropped with it would stop
+and load again on the way back.
 
 The line hands its source back when the cursor reaches it, which is the rule
-every rendered construct here follows. On this one it costs more than brackets:
-the frame goes with the text, so clicking into that line stops the video. The
-pane is the answer to that, and `<leader>v` is what stops and starts it without
-the cursor going anywhere near.
+every rendered construct here follows. The player hides while the source shows
+and keeps playing; moving the cursor off brings the same player back. Deleting
+the link ends it.
 
 ### Where you got to
 
@@ -66,8 +71,18 @@ watching: {iDulhoQ2pro: 77, TQQlZhbC5ps: 118}
 Written whenever the player stops, and read when it opens, so `<leader>gv`
 tomorrow starts where you stopped today. Keyed by the video's own id and not by
 where the link sits, so reordering the note moves nothing and two lectures in
-one note cannot overwrite each other. A video wound back to the start drops out
-of the mapping rather than storing a zero.
+one note cannot overwrite each other. A video wound back to the start, or played
+to its end, drops out of the mapping rather than storing a zero, so it opens at
+the start next time.
+
+### Speed and captions
+
+Every player, in the pane or in a note, takes the speed and captions you last
+used in this browser. They are kept in `localStorage` under `kasten.video.1`,
+`{"rate": 1.5, "captions": true}`, and not in the vault, so each browser keeps
+its own. A speed is set on the player once it reports ready; captions on open
+the player with `cc_load_policy=1`. Captions are read off what the player
+reports when its caption track changes.
 
 Flow style, on one line, because the client writes frontmatter a line at a time.
 It is ordinary YAML and the backend reads it as the same mapping.

@@ -1,4 +1,5 @@
 import { readField, setField } from "@/lib/note-frontmatter";
+import { readVideoSettings } from "@/lib/video-settings";
 
 /**
  * The video a note is written about, found in the note.
@@ -61,9 +62,14 @@ export function noteVideos(text: string): string[] {
  *
  * `start` is whole seconds, which is all the parameter takes. A zero is left
  * off rather than written, so a video nobody has watched carries no position.
+ *
+ * `cc_load_policy=1` turns captions on at load while this browser keeps them on.
+ * It is a load-time setting: a player that is already up keeps what it has, and
+ * the player's own captions button changes it from there.
  */
 export function playerUrl(id: string, start = 0): string {
-  return `${PLAYER}/embed/${id}?enablejsapi=1${start > 0 ? `&start=${Math.floor(start)}` : ""}`;
+  const captions = readVideoSettings().captions ? "&cc_load_policy=1" : "";
+  return `${PLAYER}/embed/${id}?enablejsapi=1${start > 0 ? `&start=${Math.floor(start)}` : ""}${captions}`;
 }
 
 /**

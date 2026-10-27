@@ -52,6 +52,13 @@ position a note remembers is written into the note while you watch, so a widget
 compared by the `start=` it was built with would be a new widget on every write
 and would remount the frame under a video that is playing.
 
+That is not enough on its own, because CodeMirror keeps a widget's drawing only
+while its line is near the screen, and a frame taken out of the page and put
+back loads again from the start. So the widget draws an empty box of the
+player's size, and the frame lives in a layer of its own over the note, laid over
+that box whenever it is drawn and hidden, still playing, while it is not. Only
+the link leaving the note ends the frame.
+
 A fenced code block needs none of that. Every line of it takes a line
 decoration, which paints the block's surface and sets it in the monospaced
 face, and the highlighting inside comes from whichever parser the language

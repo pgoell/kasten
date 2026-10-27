@@ -10,7 +10,7 @@ describe("live preview", () => {
       <Editor initialDoc={"notes\n\n![](https://youtu.be/iDulhoQ2pro)\n"} />,
     );
 
-    const frame = container.querySelector("iframe.cm-video");
+    const frame = container.querySelector("iframe.cm-video-frame");
     expect(frame?.getAttribute("src")).toContain("/embed/iDulhoQ2pro");
     // The brackets and the address stand in for the frame, so neither is left
     // on the screen beside it.
@@ -28,7 +28,7 @@ describe("live preview", () => {
     // stop short of the line under the frontmatter; the frame lands when the
     // parse catches up.
     await waitFor(() =>
-      expect(container.querySelector("iframe.cm-video")?.getAttribute("src")).toContain(
+      expect(container.querySelector("iframe.cm-video-frame")?.getAttribute("src")).toContain(
         "start=312",
       ),
     );
@@ -38,7 +38,7 @@ describe("live preview", () => {
     // `<>` around it, the way CommonMark writes an address with a space.
     const { container } = renderEditor(<Editor initialDoc={"![shot](<99 Misc/shot.png>)\n"} />);
 
-    expect(container.querySelector("iframe.cm-video")).toBeNull();
+    expect(container.querySelector("iframe.cm-video-frame")).toBeNull();
     expect(container.querySelector("img.cm-image")?.getAttribute("alt")).toBe("shot");
     expect(container.querySelector("img.cm-image")?.getAttribute("src")).toBe(
       "/api/assets/99 Misc/shot.png",

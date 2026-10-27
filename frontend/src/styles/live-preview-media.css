@@ -19,16 +19,33 @@
   vertical-align: middle;
 }
 
-/* The player a `![](youtube link)` is drawn as. 16:9 because that is the shape
-   the player wants, and the note's column is the width, so the frame is as wide
+/* The space a `![](youtube link)` is drawn in. 16:9 because that is the shape
+   the player wants, and the note's column is the width, so the space is as wide
    as the text it sits in rather than as wide as the window. `block` and not the
-   picture's `inline-block`: a video is never half a sentence. */
+   picture's `inline-block`: a video is never half a sentence. The player itself
+   lies over this, in the layer below. */
 .cm-video {
   display: block;
   width: 100%;
   aspect-ratio: 16 / 9;
   border: 0;
   border-radius: 3px;
+}
+
+/* The layer the players sit in, one per editor, on the scroller so it scrolls
+   with the text. Clicks pass through it, and each player takes its own. */
+.cm-video-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+}
+
+.cm-video-frame {
+  position: absolute;
+  border: 0;
+  border-radius: 3px;
+  pointer-events: auto;
 }
 
 /* `![[note]]`, another note drawn in this one. The bar and the well make it read

@@ -1,5 +1,6 @@
 import { type RefObject, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { PLAYER } from "@/lib/video";
+import { applyVideoSettings, learnVideoSettings } from "@/lib/video-settings";
 
 /**
  * What the player reports while it is playing or about to be.
@@ -104,6 +105,12 @@ export function useVideoPlayer({
   const [details, setDetails] = useState<Record<string, Detail>>({});
   /** The video the state above is about, to tell when it has changed. */
   const about = useRef<string | undefined>(undefined);
+  /**
+   * Set when the player reports it has ended, which writes the start back into
+   * the note. Until it runs again nothing is written for this video, or closing
+   * the pane would put its duration back over that start.
+   */
+  const ended = useRef(false);
 
   // The new frame has played none of it yet, and reporting the old video's
   // second against the new video's id is the one way this could write a
@@ -112,6 +119,7 @@ export function useVideoPlayer({
     about.current = id;
     second.current = 0;
     runningNow.current = false;
+    ended.current = false;
     setAt(0);
     setRunning(false);
   }
@@ -130,12 +138,17 @@ export function useVideoPlayer({
   });
 
   const report = useCallback(() => {
-    if (id !== undefined && second.current > 0) onWatchedRef.current(id, second.current);
+    if (id !== undefined && second.current > 0 && !ended.current) {
+      onWatchedRef.current(id, second.current);
+    }
   }, [id]);
 
   useEffect(() => {
     function heard(event: MessageEvent) {
       if (event.origin !== PLAYER || typeof event.data !== "string") return;
+      // A message from another frame on the page is not this player's. A null
+      // source is let through, since the tests' synthetic MessageEvents carry none.
+      if (event.source !== null && event.source !== frame.current?.contentWindow) return;
 
       let message: unknown;
       try {
@@ -145,6 +158,11 @@ export function useVideoPlayer({
         // take: the error handled here is a string from the player's origin
         // that is not JSON, and ignoring the message is the whole handling.
         return;
+      }
+
+      learnVideoSettings(message);
+      if ((message as { event?: unknown }).event === "onReady") {
+        applyVideoSettings((func, args) => command(frame.current, func, args));
       }
 
       const info = (message as Delivery).info;
@@ -168,6 +186,13 @@ export function useVideoPlayer({
       const was = runningNow.current;
       runningNow.current = RUNNING.has(info.playerState);
       setRunning(runningNow.current);
+      if (runningNow.current) ended.current = false;
+      // An ended video starts from the beginning next time, so its entry goes
+      // rather than its end. Written once: the player may say `ended` again.
+      if (info.playerState === 0 && id !== undefined && !ended.current) {
+        ended.current = true;
+        onWatchedRef.current(id, 0);
+      }
       // The edge and not the state: a player streams its state while it plays,
       // and reporting on each one would restart the wait forever and never
       // write. Stopping is the moment worth writing, and it happens once.
@@ -176,7 +201,7 @@ export function useVideoPlayer({
 
     window.addEventListener("message", heard);
     return () => window.removeEventListener("message", heard);
-  }, [report, id]);
+  }, [report, id, frame]);
 
   // Nothing happens before the frame is up, which is the render where the pane
   // has no source yet.

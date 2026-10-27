@@ -7,6 +7,7 @@ import { imagePaths, imageSource } from "@/lib/image";
 import { linkAddress, unescaped, urlLinkAt } from "@/lib/link-reference";
 import { HIDDEN, type Walk } from "@/lib/live-preview-hidden";
 import { plainBrackets } from "@/lib/live-preview-inline";
+import { hidePlaceholder, showPlaceholder } from "@/lib/live-preview-video";
 import { encodePath } from "@/lib/note-path";
 import { repeats } from "@/lib/presses";
 import { playerUrl, videoId, watchedAt } from "@/lib/video";
@@ -215,14 +216,21 @@ class Sound extends WidgetType {
  * quoted in the middle of a note reads as the clip rather than as an address,
  * and it plays where it sits.
  *
- * Nothing is written back. The frame carries `enablejsapi=1` because
- * `playerUrl` writes it for the pane, but no subscription is taken out here, so
- * `watching:` moves only for the video the pane is playing.
+ * The frame is not built here. CodeMirror drops a widget's DOM when its line
+ * scrolls out of the rendered range, and a frame built in it would be destroyed
+ * and built again, loading from the start each time. This leaves a sized
+ * placeholder, and `live-preview-video.ts` keeps one frame per video in a layer
+ * over it, so the player goes on through a scroll.
+ *
+ * The frame's `enablejsapi=1` comes from `playerUrl`, as the pane's does. The
+ * player is a subscriber of its own, so the note's `watching:` moves for it as
+ * it moves for the pane's (#953).
  *
  * ponytail: the cursor on the line hands the source back, the way it does for
- * a picture, so clicking into the line stops a video mid-play. The upgrade is
- * to keep the widget and reveal the brackets around it, which is a second
- * rendering of the construct rather than the one every other one here uses.
+ * a picture, so clicking into the line hides the video. It keeps playing, out
+ * of sight. The upgrade is to keep the widget and reveal the brackets around
+ * it, which is a second rendering of the construct rather than the one every
+ * other one here uses.
  */
 class Player extends WidgetType {
   private readonly id: string;
@@ -239,25 +247,24 @@ class Player extends WidgetType {
    *
    * The pane writes where you got to into the note, so the note changes while
    * you watch and the `start=` this was built with changes with it. Comparing
-   * the URL would call that a different widget and remount the frame under a
-   * video that is playing. Where it opens is read once, and the player owns
-   * where it is after that.
+   * the URL would call that a different widget and rebuild the placeholder under
+   * a video that is playing. Where it opens is read once, when its frame opens,
+   * and the player owns where it is after that.
    */
   override eq(other: Player): boolean {
     return other.id === this.id;
   }
 
-  toDOM(): HTMLElement {
-    const frame = document.createElement("iframe");
-    frame.className = "cm-video";
-    frame.src = this.url;
-    frame.title = "video";
-    // The same one thing the pane hands over, and for the same reason: a talk
-    // followed properly is watched full width. No camera, no clipboard, no
-    // autoplay it was not told to start.
-    frame.allow = "fullscreen; picture-in-picture";
-    frame.allowFullscreen = true;
-    return frame;
+  toDOM(view: EditorView): HTMLElement {
+    const placeholder = document.createElement("div");
+    placeholder.className = "cm-video";
+    placeholder.dataset.videoId = this.id;
+    showPlaceholder(view, placeholder, this.id, this.url);
+    return placeholder;
+  }
+
+  override destroy(dom: HTMLElement): void {
+    hidePlaceholder(dom);
   }
 }
 
@@ -287,9 +294,10 @@ export function drawImage(walk: Walk, node: SyntaxNode, revealed: boolean): void
   // Neither a video nor an image that can load, drawn as its own source
   // for the reason `drawnImage` gives.
   if (media === null) return;
-  // The position the note remembers, so a clip picked up again opens where
-  // the pane left it. Read here rather than held, the widget's `eq` being
-  // what stops a later position remounting the frame.
+  // The position the note remembers, read when the widget is made. That is
+  // where a clip's frame opens, the first time it is drawn. After that the
+  // frame is the player's own, and a later position written into the note
+  // changes nothing on screen: the widget's `eq` ignores it.
   const widget: WidgetType =
     media.kind === "video"
       ? new Player(media.id, watchedAt(state.doc.toString(), media.id))

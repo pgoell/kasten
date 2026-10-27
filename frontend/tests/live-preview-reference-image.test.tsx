@@ -143,7 +143,7 @@ describe("a reference image (#547)", () => {
 
     expect({
       video: view.dom
-        .querySelector("iframe.cm-video")
+        .querySelector("iframe.cm-video-frame")
         ?.getAttribute("src")
         ?.includes("/embed/iDulhoQ2pro"),
       sound: view.dom.querySelector("audio.cm-audio")?.getAttribute("src"),

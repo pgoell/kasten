@@ -54,6 +54,24 @@ describe("the player URL", () => {
   it("rounds down, the parameter taking whole seconds", () => {
     expect(playerUrl(ONE, 312.9)).toContain("start=312");
   });
+
+  it("#953 A4 carries cc_load_policy=1 while captions are kept on", () => {
+    localStorage.setItem("kasten.video.1", JSON.stringify({ captions: true }));
+
+    expect(playerUrl(ONE)).toBe(
+      `https://www.youtube.com/embed/${ONE}?enablejsapi=1&cc_load_policy=1`,
+    );
+  });
+
+  it("#953 I8 opens at YouTube's defaults while storage throws, without an error", () => {
+    const denied = () => {
+      throw new DOMException("denied", "SecurityError");
+    };
+    vi.spyOn(Storage.prototype, "getItem").mockImplementation(denied);
+
+    expect(playerUrl(ONE, 0)).toBe(`https://www.youtube.com/embed/${ONE}?enablejsapi=1`);
+    vi.restoreAllMocks();
+  });
 });
 
 describe("the position a note remembers", () => {

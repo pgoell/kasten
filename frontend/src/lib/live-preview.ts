@@ -20,6 +20,7 @@ import { drawBlockMath, drawInlineMath } from "@/lib/live-preview-math";
 import { drawSvg } from "@/lib/live-preview-svg";
 import { drawTable } from "@/lib/live-preview-tables";
 import { drawTime, linkedVideos } from "@/lib/live-preview-times";
+import { videoLayer } from "@/lib/live-preview-video";
 import { watchPresses } from "@/lib/presses";
 import { setVimMode, vimKeys, vimModeField, vimModeState } from "@/lib/vim-mode";
 import { vaultPaths } from "@/lib/wikilink";
@@ -321,7 +322,7 @@ export function livePreview(): Extension {
   // The picture's and the table's follows read the presses too, and a view
   // may be mounted without the editor that would watch them.
   watchPresses();
-  return [vimModeState(), folds, live, foldClicks, nudgeSelection, rethemes];
+  return [vimModeState(), folds, live, foldClicks, nudgeSelection, rethemes, videoLayer];
 }
 
 /**
@@ -338,5 +339,5 @@ export function livePreview(): Extension {
 export function renderedMarkdown(): Extension {
   // For the reason `livePreview` watches them: a preview may be the only view.
   watchPresses();
-  return [vimModeField, folds, live, foldClicks, rethemes];
+  return [vimModeField, folds, live, foldClicks, rethemes, videoLayer];
 }
