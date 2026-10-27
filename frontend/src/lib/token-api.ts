@@ -5,7 +5,7 @@ import type { components } from "@/lib/api-types";
 export type TokenUse = components["schemas"]["TokenUse"];
 
 /** One request a token made: when, what it asked for and what the vault answered. */
-export type TokenAction = components["schemas"]["TokenAction"];
+export type TokenAction = components["schemas"]["TokenActionRead"];
 
 /** One agent token as it is handed over, secret and all, exactly once. */
 export type Minted = components["schemas"]["Minted"];

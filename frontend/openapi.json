@@ -2350,7 +2350,7 @@
     "/api/tokens": {
       "get": {
         "summary": "Read Tokens",
-        "description": "Every agent token the store holds, by name and creation date.\n\nNever a digest and never a secret. Only the digest is kept at all, so there\nis no way back to a secret from here even by mistake.",
+        "description": "Every agent token the store holds, by name, creation date and last use.\n\nNever a digest and never a secret. Only the digest is kept at all, so there\nis no way back to a secret from here even by mistake.\n\nThe list still answers when no database does: `last_used` is then null, and\na warning says why.",
         "operationId": "read_tokens_api_tokens_get",
         "responses": {
           "200": {
@@ -2359,7 +2359,7 @@
               "application/json": {
                 "schema": {
                   "items": {
-                    "$ref": "#/components/schemas/Token"
+                    "$ref": "#/components/schemas/TokenUse"
                   },
                   "type": "array",
                   "title": "Response Read Tokens Api Tokens Get"
@@ -2390,6 +2390,50 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Minted"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tokens/{name}/actions": {
+      "get": {
+        "summary": "Read Token Actions",
+        "description": "The newest requests one token made, newest first, at most fifty.\n\n503 rather than an empty list when no database answers, since an empty list\nwould say the token had done nothing.",
+        "operationId": "read_token_actions_api_tokens__name__actions_get",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TokenActionRead"
+                  },
+                  "title": "Response Read Token Actions Api Tokens  Name  Actions Get"
                 }
               }
             }
@@ -13585,25 +13629,76 @@
         "title": "TodoHit",
         "description": "One todo line, or one running session line, and the project it belongs to."
       },
-      "Token": {
+      "TokenActionRead": {
         "properties": {
-          "name": {
-            "type": "string",
-            "title": "Name"
-          },
-          "created": {
+          "at": {
             "type": "string",
             "format": "date-time",
-            "title": "Created"
+            "title": "At"
+          },
+          "client": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client"
+          },
+          "method": {
+            "type": "string",
+            "title": "Method"
+          },
+          "path": {
+            "type": "string",
+            "title": "Path"
+          },
+          "tool": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tool"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "status": {
+            "type": "integer",
+            "title": "Status"
+          },
+          "outcome": {
+            "type": "string",
+            "title": "Outcome"
           }
         },
         "type": "object",
         "required": [
-          "name",
-          "created"
+          "at",
+          "client",
+          "method",
+          "path",
+          "tool",
+          "note",
+          "status",
+          "outcome"
         ],
-        "title": "Token",
-        "description": "One token as anything but the mint may see it."
+        "title": "TokenAction",
+        "description": "One request a token made, as the activity list shows it.\n\nNamed `TokenAction` in the schema, which is the name the API reference uses."
       },
       "TokenName": {
         "properties": {
@@ -13618,6 +13713,38 @@
         ],
         "title": "TokenName",
         "description": "What a mint is asked for: a name to tell one token from another."
+      },
+      "TokenUse": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "created": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created"
+          },
+          "last_used": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Used"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "created"
+        ],
+        "title": "TokenUse",
+        "description": "One token as the list shows it, with the time of its newest request."
       },
       "Totals": {
         "properties": {

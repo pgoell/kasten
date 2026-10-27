@@ -1218,10 +1218,13 @@ export interface paths {
         };
         /**
          * Read Tokens
-         * @description Every agent token the store holds, by name and creation date.
+         * @description Every agent token the store holds, by name, creation date and last use.
          *
          *     Never a digest and never a secret. Only the digest is kept at all, so there
          *     is no way back to a secret from here even by mistake.
+         *
+         *     The list still answers when no database does: `last_used` is then null, and
+         *     a warning says why.
          */
         get: operations["read_tokens_api_tokens_get"];
         put?: never;
@@ -1239,6 +1242,29 @@ export interface paths {
          *     retype it and has to know which it was.
          */
         post: operations["create_token_api_tokens_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tokens/{name}/actions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Token Actions
+         * @description The newest requests one token made, newest first, at most fifty.
+         *
+         *     503 rather than an empty list when no database answers, since an empty list
+         *     would say the token had done nothing.
+         */
+        get: operations["read_token_actions_api_tokens__name__actions_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1264,22 +1290,6 @@ export interface paths {
          *     `openapi-typescript` turns that into a body for a response that has none.
          */
         delete: operations["delete_token_api_tokens__name__delete"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/tokens/{name}/actions": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["read_token_actions_api_tokens__name__actions_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -5746,8 +5756,13 @@ export interface components {
             /** Shared */
             shared: boolean;
         };
-        /** TokenAction */
-        TokenAction: {
+        /**
+         * TokenAction
+         * @description One request a token made, as the activity list shows it.
+         *
+         *     Named `TokenAction` in the schema, which is the name the API reference uses.
+         */
+        TokenActionRead: {
             /**
              * At
              * Format: date-time
@@ -5776,7 +5791,10 @@ export interface components {
             /** Name */
             name: string;
         };
-        /** TokenUse */
+        /**
+         * TokenUse
+         * @description One token as the list shows it, with the time of its newest request.
+         */
         TokenUse: {
             /** Name */
             name: string;
@@ -5785,10 +5803,7 @@ export interface components {
              * Format: date-time
              */
             created: string;
-            /**
-             * Last Used
-             * Format: date-time
-             */
+            /** Last Used */
             last_used?: string | null;
         };
         /**
@@ -7623,35 +7638,6 @@ export interface operations {
             };
         };
     };
-    delete_token_api_tokens__name__delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                name: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     read_token_actions_api_tokens__name__actions_get: {
         parameters: {
             query?: never;
@@ -7669,8 +7655,37 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["TokenAction"][];
+                    "application/json": components["schemas"]["TokenActionRead"][];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_token_api_tokens__name__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
