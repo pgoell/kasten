@@ -35,8 +35,9 @@ The vault note "MacWhisper 15.7.1 overview" took build 1571 apart (strings,
 Swift type metadata and imports, nothing run). For YouTube it found a
 `DownloadMedia.MediaDownloadClient` module, the Swift package `YouTubeKit`,
 the host `youtube.com/youtubei/v1` and InnerTube client IDs. Every input,
-YouTube included, is then decoded to 16 kHz mono, cut by the Silero VAD and
-handed to the engine you picked: whisper.cpp on the Mac, WhisperKit, the paid
+YouTube included, is then decoded to 16 kHz mono and handed to the engine you
+picked, each with its own voice detection (whisper.cpp runs the bundled
+Silero VAD, Parakeet always uses VAD, WhisperKit has a switch of its own): whisper.cpp on the Mac, WhisperKit, the paid
 Argmax engines (Parakeet, Qwen3-ASR), or one of about 18 cloud APIs.
 
 [YouTubeKit](https://github.com/alexeichhorn/YouTubeKit) "allows to extract
@@ -64,9 +65,11 @@ ffmpeg converts it, or faster-whisper decodes it itself through PyAV.
 
 Three things make this harder than it was:
 
-* **A JavaScript runtime.** Since 2025.11.12 yt-dlp needs one (Deno first,
-  then Node, QuickJS or Bun) for full YouTube support; without it "formats may
-  be limited" ([#15012](https://github.com/yt-dlp/yt-dlp/issues/15012)).
+* **A JavaScript runtime.** Since 2025.11.12 yt-dlp needs one for full
+  YouTube support; without it "format availability will be limited, and
+  severely so in some cases"
+  ([#15012](https://github.com/yt-dlp/yt-dlp/issues/15012)). Only Deno is on
+  by default; Node, QuickJS and Bun must be turned on by hand.
 * **PO tokens.** YouTube asks some clients for a Proof of Origin token.
   Without one, requests may fail with 403 or lead to IP or account blocks. The
   [PO Token Guide](https://github.com/yt-dlp/yt-dlp/wiki/PO-Token-Guide) no
@@ -105,7 +108,9 @@ or something like it on such a CPU:
 * NVIDIA [Parakeet TDT 0.6B v3](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3)
   through [onnx-asr](https://github.com/istupakov/onnx-asr) or
   [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx): not Whisper, 25
-  European languages including German, needs VAD to cut long audio.
+  European languages including German. The model takes up to 24 minutes at
+  once (its card), but onnx-asr feeds it 20 to 30 s clips, so long audio
+  needs VAD there ([onnx-asr README](https://github.com/istupakov/onnx-asr)).
 
 The models worth naming, by English word error rate on the Open ASR
 Leaderboard ([paper](https://arxiv.org/html/2510.06961v3),
@@ -132,7 +137,7 @@ the faster-whisper README
 |---|---|---|---|
 | This CPU, faster-whisper int8, batch 8 | small | about 6 | README: 51 s for 13 min on a 12700K, times 60/13, times 1.5 |
 | This CPU, faster-whisper int8 | small | about 12 | README: 1 min 42 s for 13 min, same scaling |
-| This CPU, either engine | large-v3-turbo | about 35 to 45, low confidence | [whisper.cpp bench #89](https://github.com/ggml-org/whisper.cpp/issues/89): large encoder 16.9 s per 30 s window on a Ryzen 9 3900X (same Zen 2 core), 2022 code |
+| This CPU, whisper.cpp | large-v3-turbo | about 35 to 45, low confidence | [whisper.cpp bench #89](https://github.com/ggml-org/whisper.cpp/issues/89): large encoder alone, 16.9 s per 30 s window, 8 threads on a Ryzen 9 3900X (same Zen 2 core), 2022 code; turbo keeps that encoder |
 | This CPU, onnx-asr | Parakeet v3 | about 3 | onnx-asr README: 36 times real time on a Ryzen 9800X3D, scaled by PassMark (1.79 times) |
 | A GPU, faster-whisper | large-v2 (turbo is faster) | at most 1.3 | README: 17 s for 13 min on an RTX 3070 Ti |
 | Groq API | large-v3-turbo | about 0.3, plus upload | [Groq](https://console.groq.com/docs/speech-to-text): 216 times real time |
@@ -154,14 +159,15 @@ user's call. Prices in USD unless marked, from each provider's own page.
 | [OpenAI](https://developers.openai.com/api/docs/pricing) gpt-4o-mini-transcribe | 0.003 a minute | 0.18 | 1.80 | 7.20 | 25 MB |
 | OpenAI whisper-1 | 0.006 a minute | 0.36 | 3.60 | 14.40 | 25 MB |
 | [Deepgram](https://deepgram.com/pricing) Nova-3, multilingual | 0.0052 a minute | 0.31 | 3.12 | 12.48 | 2 GB |
-| [RunPod](https://www.runpod.io/product/serverless) serverless L4 | 0.69 a GPU hour | 0.015 to 0.027 | 0.15 to 0.27 | 0.60 to 1.06 | none |
+| [RunPod](https://www.runpod.io/product/serverless) serverless L4 | 0.69 a GPU hour | 0.015 to 0.026 | 0.15 to 0.26 | 0.60 to 1.06 | none |
 | [Modal](https://modal.com/pricing) L4 | 0.000222 a second | 0.017 to 0.031 | 0.17 to 0.31 | 0.69 to 1.23 | none |
-| [Hetzner GEX45](https://www.hetzner.com/dedicated-rootserver/matrix-gpu/) | €214 a month, €209 setup | | €214 | €214 | none |
+| [Hetzner GEX45](https://www.hetzner.com/dedicated-rootserver/matrix-gpu/) | €214 a month, €209 setup, before VAT | | €214 | €214 | none |
 
-The GPU rows take the 78 s of GPU time per hour worked out above; the higher
+The GPU rows take the 78 s of GPU time per hour worked out above, which
+assumes an L4 is no slower than the RTX 3070 Ti of that benchmark; the higher
 figure adds a guessed 60 s cold start. Modal's Starter plan includes $30 a
 month, more than either volume. A YouTube hour at 60 to 70 MB is over
-OpenAI's and Groq's free tier limit, so it would be cut into pieces or
+OpenAI's 25 MB limit and Groq's free tier limit, so it would be cut into pieces or
 re-encoded to about 32 kbps (about 14 MB).
 
 With an API the audio leaves the server. OpenAI does not train on API data by
@@ -194,15 +200,20 @@ may not:
 
 > access the Service using any automated means (such as robots, botnets or
 > scrapers) except (a) in the case of public search engines, in accordance
-> with YouTube's robots.txt file
+> with YouTube's robots.txt file; or (b) with YouTube's prior written
+> permission
 
-Downloading audio to transcribe it breaks the first and third, personal use
-or not. PO tokens and cookies to get past a bot check likely break the
-second. `<leader>cv` already sits under the third, since youtube-transcript-api
-scrapes the caption endpoint, so the step is from one breach to two. The
-German version of the terms, which applies to a user living in Germany, has
-the same clauses. In practice the risk is a blocked IP or a banned account,
-and this page gives no view on German copyright law.
+Under those terms, which fall under California law, downloading audio to
+transcribe it breaks the first and third. PO tokens and cookies to get past a
+bot check likely break the second. `<leader>cv` already sits under the third,
+since youtube-transcript-api scrapes the caption endpoint.
+
+A user living in Germany gets
+[other terms](https://www.youtube.com/static?template=terms&hl=en&gl=DE)
+(5 January 2022) under German law, and they add "as permitted by applicable
+law" to the download and automated access clauses. So whether a download for
+one's own use breaks them turns on German law, on which this page gives no
+view. Either way the practical risk is a blocked IP or a banned account.
 
 ## Licenses
 
@@ -255,7 +266,8 @@ about 3 minutes an hour, or turbo at 35 to 45, both free on this server, and
 Groq at $0.04 an hour is a fallback cheaper than any proxy. The weak link is
 the download. From a Hetzner IP it is the step most likely to fail, the step
 that needs the most moving parts (a JS runtime, a token server, perhaps
-cookies or a proxy), and the step that breaks YouTube's terms twice over.
+cookies or a proxy), and the step YouTube's terms forbid, unless German law
+permits it.
 
 The build is worth doing only after two short trials the user runs or
 approves, since this task could download nothing: does yt-dlp with Deno fetch
