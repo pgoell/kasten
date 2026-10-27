@@ -52,9 +52,9 @@ lost, and that is the price of an editor a finger can use: an on-screen
 keyboard has no Escape to get back to it. The gutter counts from the top there,
 a distance from the cursor being a number only a counted motion wants.
 
-A table, a mermaid diagram and a `$$` math block are the exception to the whole
-of this section: each flips on the cursor being in it and on no mode at all,
-and each flips as a block rather than a line.
+A table, a mermaid diagram, a `$$` math block and an inline `<svg>` block are
+the exception to the whole of this section: each flips on the cursor being in
+it and on no mode at all, and each flips as a block rather than a line.
 [The three blocks](/explanation/live-preview/the-three-blocks.md) says why they had to.
 
 One construct is a mark the rendering has to leave alone. `- [/] task` parses

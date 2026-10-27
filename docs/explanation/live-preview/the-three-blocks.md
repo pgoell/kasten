@@ -142,11 +142,11 @@ with a table would otherwise be a pane full of pipes. The read-only facet is
 what tells the two apart, `EditorView.editable` being a view-level thing this
 code cannot see.
 
-A ```` ```mermaid ```` block and a `$$` math block are drawn by the table's
-rule, and for the table's reasons. Each is one block widget standing in for
-its lines, a diagram or a formula, so `j` and `k` step over it the same way and
-only the cursor arriving by position can open it; half a diagram drawn and half
-of it source would be neither, as with a table. Inline `$x$` is a construct
-inside a line, so it reveals by the mode like bold does.
+A ```` ```mermaid ```` block, a `$$` math block and an inline `<svg>` block are
+drawn by the table's rule, and for the table's reasons. Each is one block widget
+standing in for its lines, a diagram, a formula or a picture, so `j` and `k` step
+over it the same way and only the cursor arriving by position can open it; half
+a diagram drawn and half of it source would be neither, as with a table. Inline
+`$x$` is a construct inside a line, so it reveals by the mode like bold does.
 [Math and diagrams](/reference/math-and-diagrams.md) states the syntax, the
-errors and where each one is drawn.
+errors, where each one is drawn and what an inline svg keeps.

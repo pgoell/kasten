@@ -1,7 +1,7 @@
 ---
 type: Reference
 title: Math and diagrams
-description: The math and mermaid syntax live preview draws, the dollar rules, what ends a math block, when the source shows, what an error looks like, where they draw and where they stay source, and the limits on a diagram.
+description: The math, mermaid and inline svg syntax live preview draws, the dollar rules, what ends a math block, when the source shows, what an error looks like, where they draw and where they stay source, the limits on a diagram, and what an inline svg keeps.
 resource: frontend/src/lib/math.ts
 tags: [vault, format, frontend, editor]
 status: stable
@@ -9,8 +9,9 @@ status: stable
 
 # Math and diagrams
 
-Live preview draws math with KaTeX and ```` ```mermaid ```` blocks with
-mermaid. The note keeps the source; only the screen changes.
+Live preview draws math with KaTeX, ```` ```mermaid ```` blocks with mermaid,
+and an inline `<svg>` block as its picture. The note keeps the source; only the
+screen changes.
 
 ## Inline math
 
@@ -70,9 +71,51 @@ graph LR
 The language is read without case, so `Mermaid` and `MERMAID` draw too. Any
 diagram mermaid knows can go in the block.
 
+## Inline svg
+
+An `<svg>` block draws as its picture. The block runs from an `<svg` that
+starts a line to a `</svg>` that ends one. It draws in any of three shapes:
+
+* On one line.
+* With the open tag alone on its first line, and the content and `</svg>` below
+  it.
+* With the open tag spread over several lines.
+
+```markdown
+<svg viewBox="0 0 10 10"><circle cx="5" cy="5" r="4" fill="currentColor"/></svg>
+```
+
+Inside a list item, a `>` quote or the middle of a paragraph, the block stays
+source. A blank line inside the block splits it, and it stays source.
+
+Before it draws, kasten rebuilds the svg from an allow list. Only these elements
+survive: svg, g, defs, symbol, use, path, rect, circle, ellipse, line, polyline,
+polygon, text, tspan, textPath, title, desc, marker, linearGradient,
+radialGradient, stop, clipPath, mask and pattern. Any other element goes, with
+everything inside it. That drops script, style, foreignObject, a, image, the
+animation elements and filters.
+
+A kept element keeps its geometry and presentation attributes. `class` and any
+`on…` event handler go. `href` stays only as `#id`, naming an element in the same
+block. `url(...)` stays only as `url(#id)`, naming an element in the same block.
+A `style` attribute keeps only presentation properties, such as fill, stroke and
+font, so it cannot place the picture over the app.
+
+`currentColor` takes the theme's ink colour, so a picture drawn in it follows
+light and dark. Other colours stay as written.
+
+A block with nothing left to draw shows a short message and its source. On a
+phone the picture shrinks to the note's width.
+
+The cursor inside the block shows the source in any mode, as a mermaid block, a
+table and a `$$` block do. A click on the picture puts the cursor there.
+
+The allow list covers the inline svg block only. Mermaid diagrams and HTML pages
+are unchanged.
+
 ## When the source shows
 
-A math block and a diagram follow the table's rule: the cursor in the block,
+A math block, a diagram and an inline svg follow the table's rule: the cursor in the block,
 in any mode, shows the whole block as source, and the cursor anywhere else
 draws it. `j` and `k` step over a drawn block; a click, `w`, a search or a line
 jump puts the cursor in it. [The three blocks](/explanation/live-preview/the-three-blocks.md#the-three-blocks)

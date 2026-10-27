@@ -17,6 +17,7 @@ import { drawImage } from "@/lib/live-preview-images";
 import { drawInline, drawLink, drawRuby, INLINE, markRelation } from "@/lib/live-preview-inline";
 import { Lists } from "@/lib/live-preview-lists";
 import { drawBlockMath, drawInlineMath } from "@/lib/live-preview-math";
+import { drawSvg } from "@/lib/live-preview-svg";
 import { drawTable } from "@/lib/live-preview-tables";
 import { drawTime, linkedVideos } from "@/lib/live-preview-times";
 import { watchPresses } from "@/lib/presses";
@@ -65,6 +66,7 @@ function build(state: EditorState): Live {
       const isEscape = node.name === "Escape";
       const isInlineMath = node.name === "InlineMath";
       const isBlockMath = node.name === "BlockMath";
+      const isHtml = node.name === "HTMLBlock" || node.name === "Paragraph";
       const isRuby =
         node.name === "HTMLTag" && state.doc.sliceString(node.from, node.to) === "<ruby>";
       if (
@@ -83,7 +85,8 @@ function build(state: EditorState): Live {
         !isTable &&
         !isTag &&
         !isInlineMath &&
-        !isBlockMath
+        !isBlockMath &&
+        !isHtml
       ) {
         return;
       }
@@ -102,6 +105,10 @@ function build(state: EditorState): Live {
       }
 
       if (isFence) return drawFence(walk, node.node);
+
+      // A paragraph that is not an svg has nothing of its own to decorate, so it
+      // is left to its children as it was before this check.
+      if (isHtml) return drawSvg(walk, node.node);
 
       if (isTable) {
         drawTable(walk, node.node);

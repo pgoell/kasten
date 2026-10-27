@@ -205,12 +205,28 @@
   height: auto;
 }
 
+/* A raw svg in the note, drawn the same way (#952). Its colour is the text's,
+   because currentColor reads `color`, so the ink token shows through it. */
+.cm-svg-block {
+  padding: 0.35em 0;
+  color: var(--k-ink);
+}
+
+.cm-svg-block > svg {
+  display: block;
+  margin: 0 auto;
+  max-width: 100%;
+  height: auto;
+}
+
 /* A diagram mermaid could not read: the message, and the source under it on
    the surface a code block wears. Both monospaced and kept to their lines,
    because mermaid points at the column it stopped in with a row of dashes, and
    wrapped anywhere, because its list of expected tokens is one long word. */
 .cm-mermaid-error,
-.cm-mermaid-source {
+.cm-mermaid-source,
+.cm-svg-error,
+.cm-svg-source {
   margin: 0;
   padding: 0 0.75em;
   font-family: var(--font-mono);
@@ -219,10 +235,12 @@
   overflow-wrap: anywhere;
 }
 
-.cm-mermaid-error {
+.cm-mermaid-error,
+.cm-svg-error {
   color: var(--k-danger);
 }
 
-.cm-mermaid-source {
+.cm-mermaid-source,
+.cm-svg-source {
   background: var(--k-inset);
 }
