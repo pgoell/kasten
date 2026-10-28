@@ -7,7 +7,7 @@ hands out.
 
 The skills folder is the one hidden path a token holder reaches, and only as
 the fixed prefix from the setting. The caller's path is resolved with that
-folder as its base through `_resolve_inside`, the rule every note goes through,
+folder as its base through `resolve_folder_path`, the rule every note goes through,
 so `..` cannot climb to the rest of `.claude`, a hidden file inside a skill
 stays hidden and a link out is refused. Nothing here writes: a written skill is
 code the chat pane runs with every permission, which is the danger reading
@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING
 from pydantic import BaseModel
 
 from kasten_backend.frontmatter import description
-from kasten_backend.vault import _list_files, _resolve_inside
+from kasten_backend.vault import resolve_folder_path
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -71,7 +71,7 @@ def _read(folder: Path, relative: str) -> SkillRead | None:
     Read as bytes and decoded, so a file that is not UTF-8 is refused rather than
     raised on, and a NUL marks a binary that happens to decode.
     """
-    path = _resolve_inside(folder, relative)
+    path = resolve_folder_path(folder, relative)
     if path is None or not path.is_file() or path.suffix.lower() not in SUFFIXES:
         return None
 
@@ -92,9 +92,9 @@ def _read(folder: Path, relative: str) -> SkillRead | None:
 async def list_skills(settings: Settings) -> list[Skill]:
     """Every folder under the skills path holding a readable SKILL.md, with its files.
 
-    Each file is read on the way, because the walk lists a linked file by its
-    name: a link out, a file over the cap or a binary would otherwise be named
-    and then refused.
+    Each file is read on the way, so the listing names only what a read hands
+    out: the walk sees a link out, a hidden file, a file over the cap and a
+    binary too. `rglob` follows no linked folder, so it cannot walk out.
     """
     folder = _root(settings)
     if folder is None:
@@ -102,7 +102,7 @@ async def list_skills(settings: Settings) -> list[Skill]:
 
     read = {
         path: found
-        for path in _list_files(folder, SUFFIXES, ignore_case=True)
+        for path in sorted(p.relative_to(folder).as_posix() for p in folder.rglob("*"))
         if (found := _read(folder, path)) is not None
     }
     return [

@@ -411,6 +411,8 @@ async def test_the_schema_describes_the_agent_routes(
         "/agent/graph",
         "/agent/files/{path}",
         "/agent/files/{path}/fetch",
+        "/agent/skills",
+        "/agent/skills/{path}",
         "/agent/openapi.json",
         "/agent/finance/budget",
         "/agent/finance/budget/free",
@@ -428,7 +430,7 @@ async def test_the_schema_describes_the_agent_routes(
 async def test_the_schema_names_no_route_a_token_cannot_reach(
     client: AsyncClient, bearer: dict[str, str]
 ) -> None:
-    # The point of the prefix is that the audit is a list of eight things. A
+    # The point of the prefix is that the audit is a list of ten things. A
     # schema handing a token holder the map of the twenty-seven routes it cannot
     # reach would give that away for nothing.
     schema = (await client.get("/agent/openapi.json", headers=bearer)).json()

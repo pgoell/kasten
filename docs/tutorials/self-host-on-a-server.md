@@ -174,8 +174,7 @@ claude mcp add --transport http kasten https://notes.example.com/agent/mcp \
   --header "Authorization: Bearer kasten_xxxxxxxx"
 ```
 
-Start Claude Code and type `/mcp`. `kasten` is listed as connected, with eight
-tools.
+Start Claude Code and type `/mcp`. `kasten` is listed as connected, with its tools.
 
 Ask it:
 

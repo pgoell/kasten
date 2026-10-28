@@ -9,21 +9,19 @@ status: stable
 
 # Configuration
 
-Settings are read from the environment and from a `.env` file in the
-directory the process starts in, in that order of precedence. `mise run dev`
-starts at the repo root and reads `./.env`; the `db:` tasks start in
+Settings come from the environment, then from a `.env` file in the directory
+the process starts in. `mise run dev` starts at the repo root and reads `./.env`; the `db:` tasks start in
 `backend/` and read `backend/.env`. Every field takes the `KASTEN_` prefix.
 Unknown variables are ignored.
 
-Every value below is already the default, so a fresh clone runs without a
-`.env` file at all. `backend/.env.example` exists to give your own overrides an
-obvious home.
+Every value below is already the default. `backend/.env.example` shows
+how to write your own overrides.
 
 The backend image changes three of them. It sets `KASTEN_VAULT_PATH=/vault`,
 `KASTEN_TOKENS_PATH=/agent-data/tokens.json` and
 `KASTEN_RECEIPTS_PATH=/receipts`, the mount points `deploy/compose.yaml` uses,
-because the relative defaults would resolve under `/app` inside the container
-and vanish with it. An env file still wins over all three.
+since the relative defaults would vanish under `/app` in the container. An env
+file still wins over all three.
 
 > **Warning: an existing vault.** At every startup the backend writes
 > `type: Note` into the frontmatter of every note that has no `type`, in one jj
@@ -87,6 +85,7 @@ editor, and the startup notes and the agent instructions spell them as set.
 | `KASTEN_IMAGES_PATH` | `99 Misc/02 Assets/01 Images` | an image pasted or dropped into a note |
 | `KASTEN_CONFIG_PATH` | `99 Misc/01 Config` | `reading-this-vault.md`, `todo-views.md` and `reading-now.md`, and the ontology and three agent guides in `01 Agents` under it |
 | `KASTEN_ARCHIVE_PATH` | `98 Archive` | see [its own section](#kasten_archive_path) |
+| `KASTEN_SKILLS_PATH` | `.claude/skills` | the skills the agent's `list_skills`, `read_skill` and `GET /agent/skills` read, never write. A missing folder lists none |
 | `KASTEN_SHARE_FOLDER` | `05 Shared` | the [shared lists](/explanation/shared-lists.md), one note a list, and all the `/share/` routes reach |
 | `KASTEN_SHARE_PEOPLE` | `{}` | [who writes](/reference/http-api/shared-lists.md#who-is-writing) a shared list |
 

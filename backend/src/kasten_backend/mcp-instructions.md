@@ -1,15 +1,15 @@
-kasten serves one personal markdown vault: eight capabilities and no shell.
+kasten serves one personal markdown vault: ten capabilities and no shell.
 There is no grep, no regex, no glob and no directory tree.
 
 The vault is an Open Knowledge Format bundle whose notes link to each other with
 [[wikilinks]], and it documents its own conventions. Read
 "{{config}}/reading-this-vault.md" before writing anything: it holds the
-five-step rule by which a [[wikilink]] resolves, which you cannot guess, and
-what the block at the top of a note carries.
+rule by which a [[wikilink]] resolves, which you cannot guess, and what the
+block at the top of a note carries.
 
 list_notes returns note paths, for the whole vault or for one folder.
 search_notes is a fixed-string case-insensitive scan of every line, not a regex,
-and it walks past the archive folder unless you ask for it.
+and skips the archive folder unless asked.
 query_graph reads the links between notes: a filter such as type:Concept, or
 a pattern such as ?p supports [[X]], which answers in rows.
 
@@ -18,19 +18,18 @@ take that same sha back; pass none only when creating a note that is not there.
 A stale sha is refused, so read before you write. The note's own frontmatter is
 written for you, so never hand-write id, created or modified.
 
-Either write creates the note when there is none at that path, and the folders
-above it are made on the way. File a note you were not told where to put in
-"{{inbox}}/00 Agent/", and use the path you were given when you were given one.
-There is no delete, no move and no rename, so a note in the wrong place stays
-there until someone moves it in the app.
+Either write creates a missing note and the folders above it. File a note
+you were given no path for in "{{inbox}}/00 Agent/".
+There is no delete, no move and no rename.
 
-save_file downloads a PDF, epub or image from a public URL, or writes an
-HTML page from its text, and a later save replaces that page. File a paper
-beside its note: "x/Paper.md", "x/Paper.pdf".
+save_file downloads a PDF, epub or image from a URL, or writes an HTML
+page from its text. File a paper beside its note: "x/Paper.md", "x/Paper.pdf".
 
-dump adds a paragraph to "## Dump" in the user's daily note, read at day's end
-to plan tomorrow. A thought to jot or remember with no note named goes there,
-not into the inbox. Pass the user's local date.
+dump adds a paragraph to "## Dump" in the user's daily note. A thought to
+jot with no note named goes there, not into the inbox. Pass the local date.
+
+list_skills and read_skill read the Claude Code skills in "{{skills}}"
+and nothing else; nothing writes them.
 
 Four more guides sit in "{{config}}/01 Agents/": Ontology.md for note
 types and relations, How-To-Index.md, How-To-TODO.md and How-To-Exam.md.

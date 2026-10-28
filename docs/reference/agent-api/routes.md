@@ -31,8 +31,7 @@ no others. That is deliberate rather than tidy. A token holder cannot reach
 anything under `/api/`, and handing one the map of those thirty-five routes
 would give it away for nothing.
 
-An agent over MCP needs none of this: `tools/list` describes the same eight
-capabilities and the finance reads with the same argument shapes, less the raw
+An agent over MCP needs none of this: `tools/list` describes the same ten capabilities and the finance reads with the same argument shapes, less the raw
 upload, which no tool call can carry.
 
 ## GET /agent/notes
@@ -326,6 +325,42 @@ This is the way in for claude.ai and chatgpt.com, which have no shell. A file
 there with no public address, a PDF attached to the chat among them, has no way
 into the vault: the model sees its text and never its bytes. A page the model
 writes has no such trouble: `save_file` takes its text as `content`.
+
+## GET /agent/skills
+
+Lists the Claude Code skills in the skills folder, which `KASTEN_SKILLS_PATH`
+sets and which is `.claude/skills` in the vault by default. A skill is a folder
+holding a `SKILL.md`. Each comes with its description, read from that file's
+frontmatter, and its files, relative to the skills folder.
+
+```json
+[{ "name": "triage-inbox", "description": "Sort the inbox.", "files": ["triage-inbox/SKILL.md", "triage-inbox/kasten.sh"] }]
+```
+
+A missing folder lists none, and a file that the read below would refuse is
+never listed. The MCP tool is `list_skills`, with no arguments.
+
+## GET /agent/skills/{path}
+
+Reads one file of one skill. `path` is relative to the skills folder, as
+`triage-inbox/kasten.sh` is. The answer is the path and the content, with no
+digest, since nothing writes a skill.
+
+```json
+{ "path": "triage-inbox/kasten.sh", "content": "#!/bin/sh\n..." }
+```
+
+Only text files count: `.md`, `.sh`, `.py`, `.json`, `.yaml`, `.yml` and `.txt`,
+UTF-8 with no NUL, at most 256 KiB. Hidden files, `..`, absolute paths and links
+out of the skills folder are refused, and so is a file that is not there. Every
+refusal reads as absent:
+
+| Status | Means |
+| --- | --- |
+| `404` | `{"detail": "No such skill file"}`, for a missing file and a refused one alike |
+
+The MCP tool is `read_skill`, taking `path`. A refusal is a tool error with the
+same sentence.
 
 ## The finance reads
 

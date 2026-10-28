@@ -1,4 +1,4 @@
-"""The MCP surface: the same eight capabilities, over JSON-RPC at one endpoint.
+"""The MCP surface: the same ten capabilities, over JSON-RPC at one endpoint.
 
 The tests here go through the whole application rather than calling the tools,
 because every hazard this slice has is in the wiring: where the endpoint answers,
@@ -326,6 +326,8 @@ async def test_the_reading_tools_say_so(
         "search_notes": True,
         "query_graph": True,
         "read_guide": True,
+        "list_skills": True,
+        "read_skill": True,
         "save_note": False,
         "append_note": False,
         "dump": False,
@@ -385,7 +387,7 @@ async def test_the_guide_reaches_a_client_that_drops_them(
 async def test_the_guide_touches_no_note(
     client: AsyncClient, agent_vault: Path, bearer: dict[str, str]
 ) -> None:
-    # An eighth tool and not an eighth capability. What comes back is the string
+    # An extra tool and not an extra capability. What comes back is the string
     # compiled into the server, whole, so no read of the vault stands behind it.
     response = await client.post(ENDPOINT, json=call("read_guide", {}), headers={**bearer, **RPC})
 

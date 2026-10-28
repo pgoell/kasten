@@ -1,4 +1,4 @@
-"""The same eight capabilities, served as MCP tools at `/agent/mcp`, and the finance reads.
+"""The same ten capabilities, served as MCP tools at `/agent/mcp`, and the finance reads.
 
 Thin wrappers over `agent.py` and nothing else; the finance reads are in
 `agent_mcp_finance.py`. The rules about what an agent
@@ -49,7 +49,7 @@ from mcp.server.transport_security import TransportSecuritySettings
 from mcp.types import CallToolResult, InputRequiredResult, ToolAnnotations
 from starlette.responses import JSONResponse
 
-from kasten_backend import agent, agent_mcp_finance, files, page_store, token_activity, vcs
+from kasten_backend import agent, agent_mcp_finance, files, page_store, skills, token_activity, vcs
 from kasten_backend.agent_oauth import challenge
 from kasten_backend.agent_routes import BEARER, REFUSED
 from kasten_backend.config import DEFAULTS, get_settings
@@ -125,6 +125,26 @@ async def read_note(path: str) -> dict[str, Any]:
     found = await agent.read_note(get_settings(), path)
     if found is None:
         raise ToolError("No such note")
+
+    return found.model_dump()
+
+
+async def list_skills() -> list[dict[str, Any]]:
+    """The Claude Code skills in the vault's skills folder, each with its description and files.
+
+    Read only.
+    """
+    return [found.model_dump() for found in await skills.list_skills(get_settings())]
+
+
+async def read_skill(path: str) -> dict[str, Any]:
+    """Read one skill file, such as `close-day/SKILL.md`, relative to the skills folder.
+
+    Read only: nothing writes a skill.
+    """
+    found = await skills.read_skill(get_settings(), path)
+    if found is None:
+        raise ToolError("No such skill file")
 
     return found.model_dump()
 
@@ -253,18 +273,31 @@ TOOLS = (
     dump,
     save_file,
     read_guide,
+    list_skills,
+    read_skill,
     *agent_mcp_finance.TOOLS,
 )
-"""The eight, in the order the reference page lists them, the guide, and the finance reads.
+"""The ten, in the order the reference page lists them, the guide, and the finance reads.
 
-`read_guide` is a ninth tool and not a ninth capability. It reads a string
-compiled into the image, never the vault, so the audit this prefix exists for is
-still a list of eight things. The finance reads sit beside the eight, argued
-for in docs/explanation/the-agent-boundary/finance-reads.md.
+`read_guide` is an extra tool and not a capability. It reads a string compiled
+into the image, never the vault, so the audit this prefix exists for is still a
+list of ten things. The two skills reads are argued for in
+docs/explanation/the-agent-boundary.md, the finance reads beside them in
+docs/explanation/the-agent-boundary/finance-reads.md.
 """
 
 READING = (
-    frozenset({"list_notes", "read_note", "search_notes", "query_graph", "read_guide"})
+    frozenset(
+        {
+            "list_notes",
+            "read_note",
+            "search_notes",
+            "query_graph",
+            "read_guide",
+            "list_skills",
+            "read_skill",
+        }
+    )
     | agent_mcp_finance.READING
 )
 """Which of the tools only read, told to the client as `readOnlyHint`.

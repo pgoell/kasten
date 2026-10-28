@@ -12,7 +12,7 @@ import pytest
 
 from backend.tests.test_mcp import ENDPOINT, RPC, call, payload
 from kasten_backend import files
-from kasten_backend.agent_mcp import instructions
+from kasten_backend.agent_mcp import REDUNDANT, instructions
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -176,6 +176,20 @@ async def test_the_mcp_tool_refuses_a_url_for_an_html_path(
 
 def test_the_instructions_stay_under_the_claude_code_cut() -> None:
     assert len(instructions().encode()) < 2048
+
+
+def test_the_served_instructions_stay_under_the_claude_code_cut() -> None:
+    # What the field carries is the text and the line telling a client not to
+    # call `read_guide`, and Claude Code cuts the whole of it at 2 KiB.
+    assert len((instructions() + REDUNDANT).encode()) < 2048
+
+
+def test_the_instructions_name_the_skills_tools() -> None:
+    text = instructions()
+
+    assert "list_skills and read_skill" in text
+    assert '".claude/skills"' in text
+    assert "nothing writes them" in text
 
 
 def test_the_instructions_name_the_html_way_in() -> None:

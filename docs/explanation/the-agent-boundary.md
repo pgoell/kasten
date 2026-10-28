@@ -1,7 +1,7 @@
 ---
 type: Explanation
 title: The agent boundary
-description: Why a token reaches eight capabilities and the finance reads under /agent/ rather than the thirty-five routes the browser uses, what it cannot do, and what a leaked one now exposes.
+description: Why a token reaches ten capabilities and the finance reads under /agent/ rather than the thirty-five routes the browser uses, what it cannot do, and what a leaked one now exposes.
 tags: [agent, tokens, security, api]
 status: stable
 ---
@@ -45,27 +45,26 @@ It did not survive review, and the reasons are worth keeping written down:
 
 An allowlist has none of those properties, because the dangerous routes are
 never reachable rather than reachable-and-blocked. That is the whole argument
-for a separate prefix: the audit is a list of eight things, not a list of
+for a separate prefix: the audit is a list of ten things, not a list of
 twenty-four things with exceptions.
 
 ## What a token grants
 
-Eight capabilities on the vault, listed in
+Ten capabilities on the vault, listed in
 [the Agent API](/reference/agent-api.md): list, read, search, graph, save,
-append, dump and file. Beside them, the finance reads, argued for
-[below](#why-the-finance-reads-are-acceptable).
+append, dump, file, and the two skill reads. Beside them, the finance reads,
+argued for [below](#why-the-finance-reads-are-acceptable).
 
 There is no delete, no move, no rename and no folder operation. The shell
 container keeps the knife, and that makes the honest claim about this feature
 "search, read, create and edit" rather than "file and reorganise". If a real
 agent task turns out to be blocked on filing, that is the moment to revisit it.
 
-There is no Anki import, no trash and no terminal. Each is named individually
-above because each is a specific hazard rather than a route that happened to be
-left out. The asset upload and the page fetch were on that list too, until the
-eighth capability below took a narrow piece of each.
+There is no Anki import, no trash and no terminal. Each is a specific hazard,
+named above on purpose. The asset upload and the page fetch were on that list
+too, until the eighth capability below took a narrow piece of each.
 
-Every token grants all eight. There are no scopes, no read-only tokens and no
+Every token grants all ten. There are no scopes, no read-only tokens and no
 expiry, which is a cut made for effort rather than a considered design. What a
 token does have is a name and a revoke button, and that is the thing a single
 environment variable cannot buy at any price: losing a laptop costs one revoke
@@ -112,8 +111,8 @@ gets the answer the graph pane would draw.
 
 `file` puts one PDF, epub, image or HTML page into the vault, from the bytes in the
 request or from a public URL the server downloads. It is the first capability
-that adds something a leaked token could not already do, and the list above
-named both of its halves as hazards, so it has to argue its way in.
+that adds something a leaked token could not already do, so it has to argue
+its way in.
 
 What it buys is the documents that belong beside the notes. A paper an agent
 found, a report it was handed, a scan it made: until now each had to go
@@ -161,9 +160,15 @@ The finance reads are the first capability that reaches data no note holds:
 the finance pane's summaries, single bookings with their raw bank records, and
 the accounts, categories and payees. They only read, and the summaries are the
 pane's own figures. The cost was accepted on purpose: **a leaked token exposes
-every transaction**, and nothing undoes a read. The whole argument, and why a
+every transaction**, and nothing undoes a read. The argument, and why a
 backend with no database exposes nothing more, is in
 [Finance reads past the boundary](/explanation/the-agent-boundary/finance-reads.md).
+
+## Why the skill reads are acceptable
+
+They only read, since a written skill is code the chat pane runs with every
+permission. [Skills read past the boundary](/explanation/the-agent-boundary/skills.md)
+has the rest.
 
 ## Why the write is conditional in one direction
 
@@ -213,19 +218,19 @@ itself.
 
 claude.ai and chatgpt.com have no field for a header. A token minted at
 `/tokens` cannot be given to either product, because the box you would paste it
-into does not exist. What both have instead is a Connect button that finds an
-authorization server, sends you through it and carries whatever it issues. An
-authorization server is the only door those two products have.
+into does not exist. Both have instead a Connect button that finds an
+authorization server and carries what it issues. That server is the only door
+they have.
 
 What that server issues is an ordinary row in the same `tokens.json`, named for
 the product's host. The gate calls the same `verify`, `/tokens` revokes it with
 the same button, and a second Connect from the same product revokes the old row
 before minting the new one. So this is a second way to obtain a token and not a
-second thing a token reaches. The eight capabilities are still eight, there is one
+second thing a token reaches. The ten capabilities are still ten, there is one
 gate, one store and one verification path, and nothing in the gate can tell an
 OAuth grant from a string typed into a terminal. The protocol asks for two
 things the store does not keep: the metadata names one scope, `kasten:notes`,
-which covers all eight capabilities and narrows nothing, and the token response
+which covers all ten capabilities and narrows nothing, and the token response
 states ten years as the lifetime of a token that ends when it is revoked.
 
 Claude Code and codex still carry the header, and none of this touches them.

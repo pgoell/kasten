@@ -17,7 +17,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from starlette.requests import ClientDisconnect
 
-from kasten_backend import agent, files, page_store, token_activity, vcs
+from kasten_backend import agent, files, page_store, skills, token_activity, vcs
 from kasten_backend.agent_finance_routes import router as finance_router
 from kasten_backend.config import Settings, get_settings
 from kasten_backend.graph import MOST_DEPTH, Graph, GraphError
@@ -99,6 +99,24 @@ async def search_notes(
     return await agent.search_notes(settings, q, archive)
 
 
+@router.get("/skills")
+async def list_skills(settings: Annotated[Settings, Depends(get_settings)]) -> list[skills.Skill]:
+    """List the Claude Code skills in the skills folder, with their files."""
+    return await skills.list_skills(settings)
+
+
+@router.get("/skills/{path:path}")
+async def read_skill(
+    path: str, settings: Annotated[Settings, Depends(get_settings)]
+) -> skills.SkillRead:
+    """Read one skill file, relative to the skills folder."""
+    found = await skills.read_skill(settings, path)
+    if found is None:
+        raise HTTPException(status_code=404, detail="No such skill file")
+
+    return found
+
+
 @router.get("/graph")
 async def graph(
     settings: Annotated[Settings, Depends(get_settings)],
@@ -118,13 +136,13 @@ async def graph(
 async def schema(request: Request) -> dict[str, Any]:
     """This prefix, described as OpenAPI, for a caller with no MCP client.
 
-    An agent over MCP discovers the eight capabilities from `tools/list`. One
+    An agent over MCP discovers the ten capabilities from `tools/list`. One
     holding a token and a curl has nothing to read, because `/openapi.json` at
     the root is behind oauth2-proxy and describes the browser's API rather than
     this one.
 
     Built from this router's own routes rather than by filtering the whole
-    application's schema, so it names the eight and pulls in only the models they
+    application's schema, so it names the ten and pulls in only the models they
     reference. A token holder cannot reach anything under `/api/`, and handing
     one the map of those routes would give it away for nothing.
     """

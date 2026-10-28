@@ -7,7 +7,7 @@ description: Read, search and write notes in the user's kasten vault over its RE
 
 kasten serves one personal markdown vault. This skill reaches it with curl and
 a bearer token, for a machine where the kasten MCP server cannot be used. The
-routes are the same eight capabilities the MCP tools offer, the finance reads,
+routes are the same ten capabilities the MCP tools offer, the finance reads,
 and one more way in for a file: its bytes, straight off this machine's disk.
 
 ## Auth
@@ -196,6 +196,23 @@ the shared one, and an own saving account is in neither.
 | `transactions` | a page of bookings: `month` or `from`/`to`, `scope`, `account`, `category`, `payee`, `text`, `limit` (100, at most 500), `after` (the page's `next`) |
 | `transactions/{id}` | one booking whole, and where it counts |
 | `lookup` | every account, category and payee by id |
+
+### Read a skill
+
+The Claude Code skills in the vault's `.claude/skills` folder. Read only: no
+route writes one. The list answers `[{"name", "description", "files"}]`, one per
+folder holding a `SKILL.md`:
+
+```sh
+curl -sS --fail-with-body -H "Authorization: Bearer $KASTEN_TOKEN" "$KASTEN_AGENT/skills"
+```
+
+A file of one skill, its path relative to that folder:
+
+```sh
+curl -sS --fail-with-body -H "Authorization: Bearer $KASTEN_TOKEN" \
+  --variable 'p=triage-inbox/kasten.sh' --expand-url "$KASTEN_AGENT/skills/{{p:url}}"
+```
 
 ## Write
 
