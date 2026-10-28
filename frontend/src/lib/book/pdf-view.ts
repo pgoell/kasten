@@ -358,21 +358,30 @@ export function showPdf(
   if (options?.pinch) {
     const clamp = (value: number) => Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, value));
     let start = 1;
+    // Where the fingers were last, which the point under them goes back to after the rounding.
+    let last: BoxPoint = { x: 0, y: 0 };
     listenForPinch(box, {
       ready: () => file !== null && !hidden,
       begin(at) {
         start = zoom;
+        last = at;
         pinching = under(at);
       },
       move(scale, at) {
         if (pinching === null) return;
+        last = at;
         resize(clamp(start * scale));
         pin(pinching.slot, pinching.fx, pinching.fy, at);
       },
       end() {
+        if (pinching === null) return;
+        const { slot, fx, fy } = pinching;
         pinching = null;
         // A whole percent, which the readout shows and the buttons step from.
+        // The gaps between pages do not grow with the zoom, so far down a long
+        // pdf even that small step moves the page: it is pinned again.
         resize(Math.round(zoom * 100) / 100);
+        pin(slot, fx, fy, last);
         repaint();
         // Every slot again, so the ones the pinch brought into view are drawn
         // and the ones it pushed out are freed.

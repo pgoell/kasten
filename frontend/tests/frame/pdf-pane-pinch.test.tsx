@@ -280,6 +280,27 @@ describe("the pdf pane zooms under fingers", () => {
     touch("touchend", [], [{ x: 110, y: 210 }]);
   });
 
+  it("a pinch to an off-step zoom on a later page keeps the point under the fingers", async () => {
+    await phone();
+    box().scrollTop = slot(2).offsetTop - 100;
+    // Page two, the last one there being too near the end to scroll to its place.
+    // The point of page two under the fingers, in px of the page at 151 %; within a px
+    // of where it was, the scroll being whole px.
+    const at = (point: Point) => {
+      const page = slot(2).getBoundingClientRect();
+      const { x, y } = inPage(point);
+      return { x: ((x - page.left) / page.width) * 613, y: ((y - page.top) / page.height) * 793 };
+    };
+    const before = at(MIDDLE);
+
+    // 1.514 times the spread, which the readout rounds to 151 %.
+    pinch(MIDDLE, 100, 151.4);
+
+    await vi.waitFor(() => expect(readout()).toBe("151%"));
+    expect(Math.abs(at(MIDDLE).x - before.x)).toBeLessThan(1);
+    expect(Math.abs(at(MIDDLE).y - before.y)).toBeLessThan(1);
+  });
+
   it("a theme switch after a pinch keeps the zoom and the place", async () => {
     await phone();
     pinch(MIDDLE, 100, 200);
