@@ -80,6 +80,10 @@ One feature, one branch, one pull request. Never commit a feature to `main`:
 cut a branch from it, build the feature there, and open a pull request when it
 is done. The branch ends when the pull request lands.
 
+CI on a pull request takes 7 to 12 minutes, longer than a foreground Bash
+call may run. Watch it with `gh pr checks <n> --watch` as
+`run_in_background: true`; you hear when it ends.
+
 [Cut a release](../docs/how-to/cut-a-release.md).
 
 ## Coding standards
