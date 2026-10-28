@@ -30,6 +30,7 @@ from uuid import UUID  # noqa: TC003  pydantic reads the annotation at runtime
 from pydantic import BaseModel
 
 from kasten_backend.change import vault_change, vault_write
+from kasten_backend.file_search import FilePlace, search_files
 from kasten_backend.folders import create_note
 from kasten_backend.frontmatter import reserved, stamp
 from kasten_backend.graph_query import query_graph
@@ -71,6 +72,14 @@ class Hit(BaseModel):
     path: str
     line: int
     text: str
+
+    place: FilePlace | None = None
+    """Where in a pdf, an epub or an html file the line sits, for a hit in one.
+
+    Left unset for a line of a note, so that hit is dumped as `path`, `line` and
+    `text` alone, as it was before files were searched. For a file hit, `line`
+    counts lines of its extracted text, not of the file.
+    """
 
 
 class Save(BaseModel):
@@ -269,14 +278,22 @@ async def list_notes(settings: Settings, folder: str = "") -> list[str]:
 async def search_notes(settings: Settings, query: str, archive: bool = False) -> list[Hit]:
     """Every line in the vault holding `query`, ignoring case, up to the same cap.
 
-    The archive folder is walked past unless it is asked for, and its name comes
-    off the settings rather than a literal `98 Archive`, which is one vault's
-    filing convention and not kasten's.
+    The notes first, then the lines of the pdf, epub and html files, read the way
+    `GET /api/search` reads them. The archive folder is walked past unless it is
+    asked for, and its name comes off the settings rather than a literal
+    `98 Archive`, which is one vault's filing convention and not kasten's.
     """
+    if not query.strip():
+        return []
     skip = None if archive else settings.archive_path
-    hits = await search_vault(settings.vault_path, query, skip)
+    notes = await search_vault(settings.vault_path, query, skip)
+    files = await search_files(
+        settings.vault_path, settings.text_cache_path, query, len(notes), skip
+    )
 
-    return [Hit(path=hit.path, line=hit.line, text=hit.text) for hit in hits]
+    return [Hit(path=hit.path, line=hit.line, text=hit.text) for hit in notes] + [
+        Hit(path=hit.path, line=hit.line, text=hit.text, place=hit.place) for hit in files
+    ]
 
 
 async def graph(

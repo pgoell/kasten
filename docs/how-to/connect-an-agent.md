@@ -115,9 +115,10 @@ claude mcp add --transport http kasten https://notes.example.com/agent/mcp \
 Check it with `/mcp` inside Claude Code. The eight tools are `list_notes`,
 `read_note`, `search_notes`, `query_graph`, `save_note`, `append_note`,
 `dump` and `save_file`, and a ninth, `read_guide`, hands back how the vault is
-filed. Claude
-Code reads a server's instructions at the handshake, so it holds that text
-already and those instructions tell it to skip the call.
+filed. `search_notes` also finds lines in the vault's pdf, epub and html
+files, and answers each with the place it sits. Claude Code reads a server's
+instructions at the handshake, so it holds that text already and those
+instructions tell it to skip the call.
 
 `save_file` takes a public URL, because a tool call cannot carry a file. To file
 a PDF, an epub or an image from your own disk, Claude Code sends the bytes with

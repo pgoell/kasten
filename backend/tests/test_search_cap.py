@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING
 import pytest
 
 from kasten_backend import history, todos
-from kasten_backend.routes.search import TEXT_LISTING
+from kasten_backend.file_search import TEXT_LISTING
 from kasten_backend.search import MOST_HITS, literal_matcher, scan_vault
 
 if TYPE_CHECKING:

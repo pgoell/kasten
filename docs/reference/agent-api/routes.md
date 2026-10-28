@@ -54,7 +54,8 @@ with an empty list. Every refusal here reads as absent.
 
 ## GET /agent/search
 
-Finds every line in the vault holding `q`, ignoring case, up to 2,000 matches.
+Finds every line holding `q`, ignoring case, up to 2,000 matches. It searches
+the notes and the vault's pdf, epub and html files.
 
 ```
 GET /agent/search?q=forking&archive=false
@@ -67,8 +68,24 @@ GET /agent/search?q=forking&archive=false
 The match is literal rather than a regex or a fuzzy one, the same rg pass
 `GET /api/search` makes. `line` is 1-based.
 
-The archive folder is walked past unless `archive=true`. Which folder that is
-comes from `KASTEN_ARCHIVE_PATH` rather than a hardcoded `98 Archive`, so a
+Notes come first, then file hits, and both count toward the one cap. A note's
+hit is the three fields above. A file hit adds `place`:
+
+```json
+[{ "path": "papers/loan.pdf", "line": 3, "text": "the Grundschuld", "place": { "kind": "pdf", "label": "page 2", "page": 2, "anchor": null } }]
+```
+
+`kind` is `pdf`, `epub` or `html`. `label` is what to cite: `page 3` for a pdf,
+`Chapter 2, 41%` for an epub, the heading above the line for an html page.
+`page` is the pdf page, and `null` for the others. `anchor` is the html
+heading's id, and `null` for the others. A file hit's `line` counts lines of the
+file's extracted text, not lines of the file. File hits read the same text cache
+as `GET /api/search`. The first search after a release waits until the cache has
+extracted every file in the vault. A file that will not extract gives no hit
+and no error. `read_note` does not open these files, so cite the path and label.
+
+The archive folder and its files are walked past unless `archive=true`. Which
+folder that is comes from `KASTEN_ARCHIVE_PATH` rather than a hardcoded `98 Archive`, so a
 vault that files things differently is searched correctly. A blank `q` answers
 with nothing rather than with everything.
 

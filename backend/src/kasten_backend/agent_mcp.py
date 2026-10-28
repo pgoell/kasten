@@ -130,10 +130,18 @@ async def read_note(path: str) -> dict[str, Any]:
 
 
 async def search_notes(query: str, archive: bool = False) -> list[dict[str, Any]]:
-    """Every line in the vault holding `query`, ignoring case."""
+    """Every line in the vault holding `query`, ignoring case: notes, then pdf, epub and html.
+
+    A note's hit is `path`, `line` and `text`. A hit in a file adds `place`:
+    `kind` (pdf, epub or html), `label` (`page 3`, `Chapter 2, 41%` or the
+    heading above the line), `page` (the pdf page, else null) and `anchor` (the
+    html heading's id, else null). Its `line` counts lines of the file's
+    extracted text, and read_note does not open the file, so cite its path and label.
+    """
     hits = await agent.search_notes(get_settings(), query, archive)
 
-    return [hit.model_dump() for hit in hits]
+    # Unset rather than null, so a note's hit answers as it did before files were searched.
+    return [hit.model_dump(exclude_unset=True) for hit in hits]
 
 
 async def save_note(path: str, content: str, sha: str | None = None) -> dict[str, Any]:

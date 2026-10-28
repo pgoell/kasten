@@ -13,8 +13,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from backend.tests.book_files import epub, pdf, xhtml
-from kasten_backend import file_text
-from kasten_backend.routes import search as search_route
+from kasten_backend import file_search, file_text
 
 if TYPE_CHECKING:
     import pytest
@@ -276,7 +275,7 @@ async def test_no_file_hit_comes_back_once_the_notes_fill_the_cap(
 ) -> None:
     cap = 2
     monkeypatch.setattr("kasten_backend.search.MOST_HITS", cap)
-    monkeypatch.setattr(search_route, "MOST_HITS", cap)
+    monkeypatch.setattr(file_search, "MOST_HITS", cap)
     put(vault, "note.md", "derived one\nderived two\nderived three\n")
     put(vault, "paper.pdf", pdf([["derived a"]]))
 
@@ -305,7 +304,7 @@ async def test_notes_come_first_and_the_total_is_capped(
 ) -> None:
     cap = 3
     monkeypatch.setattr("kasten_backend.search.MOST_HITS", cap)
-    monkeypatch.setattr(search_route, "MOST_HITS", cap)
+    monkeypatch.setattr(file_search, "MOST_HITS", cap)
     put(vault, "note.md", "derived one\nderived two\n")
     put(vault, "paper.pdf", pdf([["derived a", "derived b", "derived c"]]))
 

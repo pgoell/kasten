@@ -89,11 +89,12 @@ async def list_notes(
     return await agent.list_notes(settings, folder)
 
 
-@router.get("/search")
+# Unset rather than null, so a note's hit answers as it did before files were searched.
+@router.get("/search", response_model_exclude_unset=True)
 async def search_notes(
     q: str, settings: Annotated[Settings, Depends(get_settings)], archive: bool = False
 ) -> list[agent.Hit]:
-    """Find every line in the vault holding `q`, ignoring case."""
+    """Find every line in the vault holding `q`, ignoring case, in notes and pdf, epub and html."""
     return await agent.search_notes(settings, q, archive)
 
 
