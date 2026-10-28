@@ -6,13 +6,16 @@ Obsidian but served as a web page.
 ## Design rules
 
 The vault is a directory of `.md` files. That directory is the source of truth.
-Postgres holds a derived index only (documents, links, tags, full-text), and you
-must be able to drop the schema and rebuild it from the vault. Nothing that only
-exists in the database is allowed to matter.
+Postgres may hold a derived index only, one you can drop and rebuild from the
+vault, and nothing that only exists in the database is allowed to matter. It
+holds no index today: search, backlinks and tags read the notes.
 
 One exception: money. The `finance` schema is a system of record, see
-[Finance in Postgres](docs/explanation/finance-in-postgres.md). RSVP reading
-places sit there too; losing them loses only where each run stopped.
+[Finance in Postgres](docs/explanation/finance-in-postgres.md). Two small tables
+outside it do not rebuild from the vault either: `rsvp_places`, whose loss costs
+only where each RSVP run stopped, and `token_action`, whose loss costs the
+request record each agent token shows on `/tokens`. See
+[The vault and the derived index](docs/explanation/vault-and-derived-index.md).
 
 ## Stack
 

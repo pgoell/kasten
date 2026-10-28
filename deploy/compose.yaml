@@ -36,9 +36,10 @@ services:
     env_file:
       - .env.prod
     volumes:
-      # The vault is the only irreplaceable state in this system. A bind mount
-      # to a host path, never a named volume, so it survives every container
-      # and image change and stays readable over ssh and by git.
+      # The vault holds the notes, which nothing can rebuild. A bind mount to a
+      # host path, never a named volume, so it survives every container and
+      # image change and stays readable over ssh and by git. The other state
+      # that matters, finance, lives in the shared Postgres.
       - ${KASTEN_DATA_DIR:-/home/pascal/kasten-data}/vault:/vault
       # The shell container's home, read-only, so `/api/terminals` can name the
       # herdr sessions a terminal pane could attach to. A listing and nothing
@@ -130,7 +131,7 @@ services:
 volumes:
   # Whatever the agents write about themselves: a login, a history, settings
   # they were given inside the container. Kept off the host's home on purpose,
-  # and off the vault, which is the only irreplaceable thing here.
+  # and off the vault, which holds the notes.
   kasten-shell-home:
 
 networks:

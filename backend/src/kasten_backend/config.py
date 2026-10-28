@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     )
 
     database_url: str = "postgresql+psycopg://kasten:kasten@localhost:5434/kasten_dev"
-    """Async SQLAlchemy URL for the derived index, finance and RSVP places. Never holds notes."""
+    """Async SQLAlchemy URL for finance, RSVP places and the token record. Never holds notes."""
 
     activity_timeout_seconds: float = 2.0
     """How long one token-activity row may take to write before it is dropped.

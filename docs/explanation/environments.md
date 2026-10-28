@@ -80,15 +80,15 @@ The shell is not in the reading. It reports to nobody, and giving it a route of
 its own would be plumbing for a container you look at rather than through.
 `docker ps` names the image tag it is on.
 
-## The vault is the only irreplaceable thing here
+## Nothing rebuilds the vault
 
 Postgres holds no index of the vault yet, and any index it comes to hold must
 rebuild from the vault at any time, which is the whole point of
 [The vault and the derived index](/explanation/vault-and-derived-index.md). The
-vault cannot be rebuilt from anything. The one exception is the `finance`
-schema, which is a record of its own, see
-[Finance in Postgres](/explanation/finance-in-postgres.md). Two tables outside
-`finance` do not rebuild either: `rsvp_places`, whose loss costs only where
+vault cannot be rebuilt from anything. Three things in Postgres do not rebuild
+either. The `finance` schema is a record of its own, see
+[Finance in Postgres](/explanation/finance-in-postgres.md), and two tables
+outside it are small: `rsvp_places`, whose loss costs only where
 each RSVP run stopped, and `token_action`, whose loss costs the request record
 each agent token shows on `/tokens`. Three consequences follow, and all three
 are deployment decisions rather than code:

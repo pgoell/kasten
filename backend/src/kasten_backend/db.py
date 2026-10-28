@@ -1,10 +1,11 @@
 """Database engine, session factory and the declarative base.
 
-Postgres holds a derived index (documents, links, tags, full-text), which
-rebuilds from the vault, and two things that do not: the `finance` schema, the
-one system of record kept outside the vault (see
-docs/explanation/finance-in-postgres.md), and the RSVP reading places in
-`rsvp.py`, whose loss costs only where each run stopped.
+Postgres holds no index of the vault. It holds the `finance` schema, the one
+system of record kept outside the vault (see
+docs/explanation/finance-in-postgres.md), and two tables that do not rebuild
+from the vault either: the RSVP reading places in `rsvp.py`, whose loss costs
+only where each run stopped, and the agent token record in `token_activity.py`,
+whose loss costs what `/tokens` shows of each token's use.
 """
 
 import logging
@@ -25,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 
 class Base(DeclarativeBase):
-    """Declarative base for every table, index, finance and RSVP alike."""
+    """Declarative base for every table: finance, RSVP places and the token record."""
 
 
 engine = create_async_engine(

@@ -1,7 +1,7 @@
 """Reading the markdown vault off disk.
 
 The vault is the source of truth, so everything here goes straight to the
-filesystem. Postgres holds a derived index and never answers these questions.
+filesystem. Postgres holds no index of the vault and never answers these questions.
 """
 
 import os

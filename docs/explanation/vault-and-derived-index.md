@@ -76,8 +76,9 @@ The next run starts at the top of the file. See
 
 ## The agent token record
 
-The `token_action` table holds one row for each request an agent token makes:
-when, from where, what it asked for and what it got back. It came with #1197;
+The `token_action` table holds one row for each request an agent token makes
+under `/agent/`, except the sign-in under `/agent/oauth/`: when, from where,
+what it asked for and what it got back. It came with #1197;
 until then `rsvp_places` was the only table outside `finance` the vault could
 not rebuild. A row is never written to the vault, so that no agent reading
 notes can search it, and rows older than 90 days are deleted.

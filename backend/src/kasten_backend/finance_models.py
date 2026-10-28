@@ -1,7 +1,7 @@
 """The finance tables: accounts, balances, bookings, splits, and what sorts them into categories.
 
 Every table lives in the `finance` schema and is the only copy of what it
-holds, unlike the derived index. See docs/explanation/finance-in-postgres.md.
+holds: none of it rebuilds from the vault. See docs/explanation/finance-in-postgres.md.
 """
 
 import datetime as dt  # noqa: TC003  SQLAlchemy reads the annotation at runtime
