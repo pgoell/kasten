@@ -16,13 +16,13 @@ import { imagePaths } from "@/lib/image";
 import { livePreview } from "@/lib/live/live-preview";
 import { readField } from "@/lib/note-frontmatter";
 import { noteLanguage } from "@/lib/note-language";
-import { PLAYER, watchedAt } from "@/lib/video";
+import { PLAYER, watchedAt } from "@/lib/video/video";
 import { vaultPaths } from "@/lib/wikilink";
 import "@/styles/app.css";
 import { shot } from "./shots";
 
-vi.mock("@/lib/video", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/video")>()),
+vi.mock("@/lib/video/video", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/video/video")>()),
   playerUrl: (id: string, start = 0) => `about:blank#${id}@${Math.floor(start)}`,
 }));
 

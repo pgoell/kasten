@@ -8,7 +8,7 @@ import {
   timestamp,
   transcriptEdit,
   transcriptSection,
-} from "@/lib/transcript";
+} from "@/lib/video/transcript";
 
 // The fetch is the one thing here that leaves the browser, and YouTube behind
 // it. What these tests own is what the note ends up holding, not the HTTP.

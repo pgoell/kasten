@@ -1,5 +1,5 @@
 import { CLOCK, clockOf } from "@/components/video-transcript";
-import { videoTakes } from "@/lib/video-notes";
+import { videoTakes } from "@/lib/video/video-notes";
 
 /** The takes of this video in the note, each with its time as a button that seeks. */
 export function VideoTakes({

@@ -3,8 +3,8 @@ import { EditorState } from "@codemirror/state";
 import { type EditorView, ViewPlugin, type ViewUpdate } from "@codemirror/view";
 import { writeWatched } from "@/lib/editor/buffer-writes";
 import { drawnImage } from "@/lib/live/live-preview-images";
-import { namedVideo, PLAYER } from "@/lib/video";
-import { applyVideoSettings, learnVideoSettings } from "@/lib/video-settings";
+import { namedVideo, PLAYER } from "@/lib/video/video";
+import { applyVideoSettings, learnVideoSettings } from "@/lib/video/video-settings";
 
 /**
  * The players of a note's videos, one iframe each, held outside the text.

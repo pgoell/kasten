@@ -17,7 +17,7 @@ the editor does without it.
 Three files in `frontend/src/lib` hold these bindings as tables: the leader in
 `leader-keys.ts`, the keys that act inside the buffer in `editor/buffer-keys.ts`, and
 the terminal, tree and pane keys in `key-bindings.ts`, `reader-keys.ts` and
-`video-keys.ts`. Both the registrations
+`video/video-keys.ts`. Both the registrations
 and the which-key panel and key help are built from them. A test fails if a table names a
 command the app does not provide.
 

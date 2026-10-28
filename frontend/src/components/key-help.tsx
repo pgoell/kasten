@@ -18,7 +18,7 @@ import { LEADER, LEADER_COLUMNS, spelled, TAB_DIGITS, TAB_KEYS } from "@/lib/lea
 import { closeOnBackdrop, HEADER_ROW, INPUT, LABEL, PANEL, STATUS } from "@/lib/overlay-styles";
 import { READER, RSVP_KEYS } from "@/lib/reader-keys";
 import { useViewport } from "@/lib/use-viewport";
-import { VIDEO_PANE } from "@/lib/video-keys";
+import { VIDEO_PANE } from "@/lib/video/video-keys";
 
 interface Group {
   title: string;

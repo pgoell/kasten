@@ -10,10 +10,10 @@ import type { EditorCommands } from "@/lib/key-bindings";
 import { heldModifier, leaderAction, leaderPrefix } from "@/lib/leader-keys";
 import { readField } from "@/lib/note-frontmatter";
 import { noteName } from "@/lib/note-path";
-import { useFullScreen } from "@/lib/use-full-screen";
-import { useVideoPlayer } from "@/lib/use-video-player";
-import { noteVideos, PLAYER, playerUrl, watchedAt } from "@/lib/video";
-import { noteChapters, watchUrl } from "@/lib/video-notes";
+import { useFullScreen } from "@/lib/video/use-full-screen";
+import { useVideoPlayer } from "@/lib/video/use-video-player";
+import { noteVideos, PLAYER, playerUrl, watchedAt } from "@/lib/video/video";
+import { noteChapters, watchUrl } from "@/lib/video/video-notes";
 import { beginLeader, paneOpener } from "@/lib/which-key";
 
 interface VideoPaneProps {

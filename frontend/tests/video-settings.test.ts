@@ -1,4 +1,4 @@
-import { keepVideoSettings, readVideoSettings } from "@/lib/video-settings";
+import { keepVideoSettings, readVideoSettings } from "@/lib/video/video-settings";
 
 const denied = () => {
   throw new DOMException("denied", "SecurityError");

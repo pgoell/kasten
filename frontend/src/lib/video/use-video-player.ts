@@ -1,6 +1,6 @@
 import { type RefObject, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { namedVideo, nonEmpty, PLAYER } from "@/lib/video";
-import { applyVideoSettings, learnVideoSettings } from "@/lib/video-settings";
+import { namedVideo, nonEmpty, PLAYER } from "@/lib/video/video";
+import { applyVideoSettings, learnVideoSettings } from "@/lib/video/video-settings";
 
 /**
  * What the player reports while it is playing or about to be.

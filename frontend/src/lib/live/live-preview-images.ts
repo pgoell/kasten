@@ -10,7 +10,7 @@ import { plainBrackets } from "@/lib/live/live-preview-inline";
 import { hidePlaceholder, showPlaceholder } from "@/lib/live/live-preview-video";
 import { encodePath } from "@/lib/note-path";
 import { repeats } from "@/lib/presses";
-import { playerUrl, videoId, watchedAt } from "@/lib/video";
+import { playerUrl, videoId, watchedAt } from "@/lib/video/video";
 import { resolveIn } from "@/lib/wikilink";
 
 /**

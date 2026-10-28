@@ -9,7 +9,7 @@ import {
 } from "@/lib/editor/format-commands";
 import { toggleImageAtCursor } from "@/lib/image";
 import { agentTodoAtCursor, cycleTodoAtCursor, stampIdAtCursor } from "@/lib/todo/todo-commands";
-import { writeTranscript } from "@/lib/transcript";
+import { writeTranscript } from "@/lib/video/transcript";
 
 /**
  * The keys that act inside the editor's buffer rather than on the window.

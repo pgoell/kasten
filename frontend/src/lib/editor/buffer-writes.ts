@@ -1,6 +1,6 @@
 import { Annotation, Transaction } from "@codemirror/state";
 import type { EditorView } from "@codemirror/view";
-import { setWatched } from "@/lib/video";
+import { setWatched } from "@/lib/video/video";
 
 /**
  * Marks the transaction that puts the vault's own text in.

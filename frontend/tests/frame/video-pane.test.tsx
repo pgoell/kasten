@@ -76,8 +76,8 @@ vi.mock("@/lib/graph/graph-api", async (importOriginal) => ({
   fetchGraph: vi.fn(),
 }));
 
-vi.mock("@/lib/video", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/video")>()),
+vi.mock("@/lib/video/video", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/video/video")>()),
   playerUrl: () => "about:blank",
 }));
 

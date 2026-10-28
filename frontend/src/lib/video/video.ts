@@ -1,5 +1,5 @@
 import { readField, setField } from "@/lib/note-frontmatter";
-import { readVideoSettings } from "@/lib/video-settings";
+import { readVideoSettings } from "@/lib/video/video-settings";
 
 /**
  * The video a note is written about, found in the note.

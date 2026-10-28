@@ -8,8 +8,8 @@
  */
 
 import { highlightBlocks } from "@/lib/highlight";
-import { TRANSCRIPT_HEADING, timestamp } from "@/lib/transcript";
-import { PLAYER } from "@/lib/video";
+import { TRANSCRIPT_HEADING, timestamp } from "@/lib/video/transcript";
+import { PLAYER } from "@/lib/video/video";
 
 /** A time in a video and the words at it: a chapter, or a transcript paragraph. */
 export interface Timed {

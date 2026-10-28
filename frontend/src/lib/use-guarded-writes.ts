@@ -18,7 +18,7 @@ import { bookType } from "@/lib/note-path";
 import { newId } from "@/lib/todo/todo";
 import { useBookmark } from "@/lib/use-bookmark";
 import { useNoteWrites } from "@/lib/use-note-writes";
-import { setWatched } from "@/lib/video";
+import { setWatched } from "@/lib/video/video";
 
 export type GuardedWrites = ReturnType<typeof useGuardedWrites>;
 

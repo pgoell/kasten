@@ -14,9 +14,9 @@ import type { Passage } from "@/lib/highlight";
 import { type Anchor, low, placeFor } from "@/lib/page-selection";
 import { VIDEO_REFUSED } from "@/lib/page-undo";
 import { usePressGuard } from "@/lib/take-button";
-import { timestamp } from "@/lib/transcript";
 import { useViewport } from "@/lib/use-viewport";
-import { currentAt, timeLink, transcriptParagraphs } from "@/lib/video-notes";
+import { timestamp } from "@/lib/video/transcript";
+import { currentAt, timeLink, transcriptParagraphs } from "@/lib/video/video-notes";
 
 /** The time at the start of a paragraph, the way the note writes it, bar the brackets. */
 export function clockOf(seconds: number): string {
