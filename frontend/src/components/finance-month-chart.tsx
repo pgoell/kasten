@@ -1,6 +1,6 @@
 import { type ReactNode, useState } from "react";
 import { BalanceLine, Bars } from "@/components/charts";
-import { monthName } from "@/lib/finance-words";
+import { monthName } from "@/lib/finance/finance-words";
 
 /**
  * A figure per month as bars, or as a balance line, with the month pointed at read out above it

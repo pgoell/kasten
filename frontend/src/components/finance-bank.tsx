@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
-import { fetchSync, requestPull, type SyncStatus } from "@/lib/finance-budget-api";
+import { fetchSync, requestPull, type SyncStatus } from "@/lib/finance/finance-budget-api";
 
 /** How often the status is read again while a "pull now" waits for the bank job. */
 const POLL_MS = 5000;

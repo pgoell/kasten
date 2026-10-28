@@ -1,6 +1,6 @@
 import { MonthChart } from "@/components/finance-month-chart";
-import type { Trend } from "@/lib/finance-budget-api";
-import { euros, monthName } from "@/lib/finance-words";
+import type { Trend } from "@/lib/finance/finance-budget-api";
+import { euros, monthName } from "@/lib/finance/finance-words";
 
 /**
  * Spending per month over the trend's months, one bar each, in the log pane's bar chart. The

@@ -3,7 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-li
 import { amountOf } from "@/components/finance-budget-tab";
 import { madeOf } from "@/components/finance-overview";
 import { FinancePane } from "@/components/finance-pane";
-import { euros } from "@/lib/finance-words";
+import { euros } from "@/lib/finance/finance-words";
 import { stubCommands } from "./stub-commands";
 
 const api = vi.hoisted(() => ({
@@ -23,21 +23,21 @@ const api = vi.hoisted(() => ({
   fetchCategoryDrill: vi.fn(),
 }));
 
-vi.mock("@/lib/finance-api", () => ({
+vi.mock("@/lib/finance/finance-api", () => ({
   fetchCategories: api.fetchCategories,
   fetchToSort: api.fetchToSort,
   sortByHand: api.sortByHand,
   sortPayee: api.sortPayee,
 }));
 // The goals card on the overview; its own tests are in finance-plans-tab.test.tsx.
-vi.mock("@/lib/finance-plans-api", () => ({
+vi.mock("@/lib/finance/finance-plans-api", () => ({
   fetchGoals: () => Promise.resolve({ goals: [], accounts: [] }),
 }));
 // The drilldowns' own tests are in finance-drill.test.tsx; here only the way in.
-vi.mock("@/lib/finance-drill-api", () => ({
+vi.mock("@/lib/finance/finance-drill-api", () => ({
   fetchCategoryDrill: api.fetchCategoryDrill,
 }));
-vi.mock("@/lib/finance-budget-api", () => ({
+vi.mock("@/lib/finance/finance-budget-api", () => ({
   fetchBudget: api.fetchBudget,
   fetchFree: api.fetchFree,
   fetchTrend: api.fetchTrend,

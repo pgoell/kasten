@@ -2,8 +2,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { type RefObject, useState } from "react";
 import { Meter, statusWords } from "@/components/finance-meter";
 import type { TabKeys } from "@/components/finance-sort-bar";
-import { type BudgetCategory, fetchBudget, writeLimit } from "@/lib/finance-budget-api";
-import { categoryColour, euros, monthName, percent, shiftMonth } from "@/lib/finance-words";
+import { type BudgetCategory, fetchBudget, writeLimit } from "@/lib/finance/finance-budget-api";
+import { categoryColour, euros, monthName, percent, shiftMonth } from "@/lib/finance/finance-words";
 
 const KINDS = [
   { kind: "fixed", name: "Fixed" },

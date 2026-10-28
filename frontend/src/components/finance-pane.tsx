@@ -9,11 +9,11 @@ import { SpanBar, useSpan } from "@/components/finance-span-bar";
 import { FinanceTax } from "@/components/finance-tax-tab";
 import { FinanceToSort } from "@/components/finance-to-sort";
 import { FinanceTransactions } from "@/components/finance-transactions";
-import type { DrillStep } from "@/lib/finance-drill-api";
-import { FINANCE_TABS, type FinanceTab } from "@/lib/finance-keys";
-import { monthName } from "@/lib/finance-words";
+import type { DrillStep } from "@/lib/finance/finance-drill-api";
+import { FINANCE_TABS, type FinanceTab } from "@/lib/finance/finance-keys";
+import { monthName } from "@/lib/finance/finance-words";
+import { useCategorySort } from "@/lib/finance/use-category-sort";
 import type { EditorCommands } from "@/lib/key-bindings";
-import { useCategorySort } from "@/lib/use-category-sort";
 import { useLeader } from "@/lib/use-leader";
 
 export interface FinancePaneProps {

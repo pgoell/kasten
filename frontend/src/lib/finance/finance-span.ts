@@ -5,7 +5,7 @@
  * "so far" and compares with the same months a year before, not with whole ones.
  */
 
-import { monthName, shiftMonth } from "@/lib/finance-words";
+import { monthName, shiftMonth } from "@/lib/finance/finance-words";
 
 export type SpanKind = "month" | "quarter" | "year" | "custom";
 

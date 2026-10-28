@@ -6,7 +6,7 @@
 
 import { client, reason, refused } from "@/lib/api-client";
 import type { components } from "@/lib/api-types";
-import { answer } from "@/lib/finance-drill-api";
+import { answer } from "@/lib/finance/finance-drill-api";
 
 export type TaxYear = components["schemas"]["YearOut"];
 export type TaxEntry = components["schemas"]["EntryOut"];

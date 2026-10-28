@@ -3,7 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { amountOf, positive } from "@/components/finance-budget-tab";
 import { madeOf } from "@/components/finance-overview";
 import { FinancePane } from "@/components/finance-pane";
-import { euros } from "@/lib/finance-words";
+import { euros } from "@/lib/finance/finance-words";
 import { stubCommands } from "./stub-commands";
 
 const api = vi.hoisted(() => ({
@@ -19,15 +19,15 @@ const api = vi.hoisted(() => ({
   fetchBudget: vi.fn(),
 }));
 
-vi.mock("@/lib/finance-plans-api", async (actual) => ({
-  ...(await actual<typeof import("@/lib/finance-plans-api")>()),
+vi.mock("@/lib/finance/finance-plans-api", async (actual) => ({
+  ...(await actual<typeof import("@/lib/finance/finance-plans-api")>()),
   ...api,
 }));
-vi.mock("@/lib/finance-api", () => ({
+vi.mock("@/lib/finance/finance-api", () => ({
   fetchCategories: () => Promise.resolve([]),
   fetchToSort: () => Promise.resolve({ total: 0, bookings: [] }),
 }));
-vi.mock("@/lib/finance-budget-api", () => ({
+vi.mock("@/lib/finance/finance-budget-api", () => ({
   fetchBudget: api.fetchBudget,
   fetchAccounts: () => Promise.resolve([]),
   fetchSync: () => Promise.reject(new Error("no sync here")),

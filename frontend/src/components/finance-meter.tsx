@@ -1,5 +1,5 @@
-import type { BudgetCategory } from "@/lib/finance-budget-api";
-import { euros } from "@/lib/finance-words";
+import type { BudgetCategory } from "@/lib/finance/finance-budget-api";
+import { euros } from "@/lib/finance/finance-words";
 
 type Status = BudgetCategory["status"];
 

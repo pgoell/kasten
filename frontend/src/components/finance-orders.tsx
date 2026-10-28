@@ -1,12 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
-import type { BookingDrill } from "@/lib/finance-drill-api";
+import type { BookingDrill } from "@/lib/finance/finance-drill-api";
 import {
   type Charge,
   fetchUnmatchedOrders,
   type Order,
   statusWords,
-} from "@/lib/finance-orders-api";
-import { money } from "@/lib/finance-words";
+} from "@/lib/finance/finance-orders-api";
+import { money } from "@/lib/finance/finance-words";
 
 const SOURCES: Record<string, string> = { amazon: "Amazon", paypal: "PayPal" };
 

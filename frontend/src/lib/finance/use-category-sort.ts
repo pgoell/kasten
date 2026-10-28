@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { type Category, fetchCategories, sortByHand, sortPayee } from "@/lib/finance-api";
-import { CATEGORY_KEYS } from "@/lib/finance-keys";
+import { type Category, fetchCategories, sortByHand, sortPayee } from "@/lib/finance/finance-api";
+import { CATEGORY_KEYS } from "@/lib/finance/finance-keys";
 
 /** What sorting needs of a row: its booking, its split if it is one, and the booking's payee. */
 export interface SortRow {

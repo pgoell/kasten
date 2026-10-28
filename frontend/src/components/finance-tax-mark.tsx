@@ -13,8 +13,8 @@ import {
   receiptUrl,
   uploadReceipt,
   writeMark,
-} from "@/lib/finance-tax-api";
-import { money } from "@/lib/finance-words";
+} from "@/lib/finance/finance-tax-api";
+import { money } from "@/lib/finance/finance-words";
 
 /** What the files a receipt may be; the backend checks the bytes again. */
 const ACCEPT = "application/pdf,image/jpeg,image/png,.pdf,.jpg,.jpeg,.png";

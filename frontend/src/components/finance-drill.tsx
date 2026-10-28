@@ -3,7 +3,7 @@ import { DrillAccount, DrillScope } from "@/components/finance-drill-accounts";
 import { DrillBooking } from "@/components/finance-drill-booking";
 import type { DrillProps } from "@/components/finance-drill-parts";
 import { DrillCategory, DrillPayee } from "@/components/finance-drill-spending";
-import type { DrillStep } from "@/lib/finance-drill-api";
+import type { DrillStep } from "@/lib/finance/finance-drill-api";
 
 /**
  * The trail as breadcrumbs, `October 2026 › Dining › REWE`: the month leads back to the tab, and

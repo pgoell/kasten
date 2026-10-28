@@ -9,15 +9,15 @@ import {
   Waiting,
 } from "@/components/finance-drill-parts";
 import { MonthChart } from "@/components/finance-month-chart";
-import { sortPayee } from "@/lib/finance-api";
+import { sortPayee } from "@/lib/finance/finance-api";
 import {
   type CategoryDrill,
   fetchCategoryDrill,
   fetchPayeeDrill,
   type PayeeDrill,
   writePayeeRule,
-} from "@/lib/finance-drill-api";
-import { euros, monthName, monthOf } from "@/lib/finance-words";
+} from "@/lib/finance/finance-drill-api";
+import { euros, monthName, monthOf } from "@/lib/finance/finance-words";
 
 /** How often a plan falls due, in words. */
 function every(months: number | null | undefined): string {

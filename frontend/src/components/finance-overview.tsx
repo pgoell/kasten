@@ -15,10 +15,10 @@ import {
   fetchRange,
   fetchTrend,
   type Range,
-} from "@/lib/finance-budget-api";
-import type { Scope } from "@/lib/finance-drill-api";
-import type { Span } from "@/lib/finance-span";
-import { euros, monthName, monthOf, percent, shiftMonth } from "@/lib/finance-words";
+} from "@/lib/finance/finance-budget-api";
+import type { Scope } from "@/lib/finance/finance-drill-api";
+import type { Span } from "@/lib/finance/finance-span";
+import { euros, monthName, monthOf, percent, shiftMonth } from "@/lib/finance/finance-words";
 
 /** The parts free to spend is made of, in the order the line under it names them. */
 const PARTS: { key: "fixed" | "flexible" | "non_monthly"; word: string }[] = [

@@ -17,15 +17,15 @@ const tax = vi.hoisted(() => ({
   patchReceipt: vi.fn(),
 }));
 
-vi.mock("@/lib/finance-tax-api", async (original) => ({
-  ...(await original<typeof import("@/lib/finance-tax-api")>()),
+vi.mock("@/lib/finance/finance-tax-api", async (original) => ({
+  ...(await original<typeof import("@/lib/finance/finance-tax-api")>()),
   ...tax,
 }));
-vi.mock("@/lib/finance-api", () => ({
+vi.mock("@/lib/finance/finance-api", () => ({
   fetchCategories: async () => [],
   fetchToSort: async () => ({ total: 0, bookings: [] }),
 }));
-vi.mock("@/lib/finance-budget-api", () => ({
+vi.mock("@/lib/finance/finance-budget-api", () => ({
   fetchBudget: () => new Promise(() => {}),
   fetchFree: () => new Promise(() => {}),
   fetchTrend: () => new Promise(() => {}),
@@ -215,8 +215,9 @@ describe("a proposal on a booking already marked or on the shared account", () =
   });
 
   it("#1040 replaces a mark the booking holds only when you say so", async () => {
-    const { MarkHeldError } =
-      await vi.importActual<typeof import("@/lib/finance-tax-api")>("@/lib/finance-tax-api");
+    const { MarkHeldError } = await vi.importActual<typeof import("@/lib/finance/finance-tax-api")>(
+      "@/lib/finance/finance-tax-api",
+    );
     tax.fetchReceiptsToSort.mockResolvedValue(queued(false));
     tax.confirmReceipt.mockRejectedValueOnce(new MarkHeldError("Already marked 400.00"));
     const ask = vi.spyOn(window, "confirm").mockReturnValue(false);

@@ -11,8 +11,8 @@ import {
   patchReceipt,
   type ReceiptToSort,
   receiptUrl,
-} from "@/lib/finance-tax-api";
-import { money } from "@/lib/finance-words";
+} from "@/lib/finance/finance-tax-api";
+import { money } from "@/lib/finance/finance-words";
 
 type Candidate = ReceiptToSort["candidates"][number];
 

@@ -5,8 +5,8 @@ import { GoalBar, GoalForm, NotReserved } from "@/components/finance-goals";
 import { MoveLeftover } from "@/components/finance-leftover";
 import { PlanForm, scheduleName } from "@/components/finance-plan-form";
 import type { TabKeys } from "@/components/finance-sort-bar";
-import { type Category, fetchCategories } from "@/lib/finance-api";
-import { type Account, fetchAccounts, fetchBudget } from "@/lib/finance-budget-api";
+import { type Category, fetchCategories } from "@/lib/finance/finance-api";
+import { type Account, fetchAccounts, fetchBudget } from "@/lib/finance/finance-budget-api";
 import {
   adding,
   assignGoal,
@@ -26,8 +26,8 @@ import {
   undoAssign,
   writeGoal,
   writePlan,
-} from "@/lib/finance-plans-api";
-import { euros, money, monthName, monthOf } from "@/lib/finance-words";
+} from "@/lib/finance/finance-plans-api";
+import { euros, money, monthName, monthOf } from "@/lib/finance/finance-words";
 
 /** The keys proposals take, one each in the order they are listed. */
 const PROPOSAL_KEYS = "123456789";

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Sheet } from "@/components/sheet";
 import { FOLLOW, FORMAT, INDENT, LEADER_EDITS, readable } from "@/lib/editor/buffer-keys";
 import { useVim } from "@/lib/editor/vim-setting";
-import { FINANCE_PANE } from "@/lib/finance-keys";
+import { FINANCE_PANE } from "@/lib/finance/finance-keys";
 import { trapTab } from "@/lib/focus-trap";
 import {
   ANYWHERE,

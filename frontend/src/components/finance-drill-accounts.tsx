@@ -8,8 +8,8 @@ import {
   Waiting,
 } from "@/components/finance-drill-parts";
 import { MonthChart } from "@/components/finance-month-chart";
-import { fetchAccountDrill, fetchScope, type Scope } from "@/lib/finance-drill-api";
-import { euros, monthName, monthOf } from "@/lib/finance-words";
+import { fetchAccountDrill, fetchScope, type Scope } from "@/lib/finance/finance-drill-api";
+import { euros, monthName, monthOf } from "@/lib/finance/finance-words";
 
 /**
  * One scope, mine or household: the month's parts as the sankey has them and what was left, the

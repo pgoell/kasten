@@ -1,8 +1,8 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { positive } from "@/components/finance-budget-tab";
-import { fetchGoals, moveLeftover } from "@/lib/finance-plans-api";
-import { money } from "@/lib/finance-words";
+import { fetchGoals, moveLeftover } from "@/lib/finance/finance-plans-api";
+import { money } from "@/lib/finance/finance-words";
 
 /**
  * "Move into a goal": a goal and an amount of what the limits left over, all of it at first.

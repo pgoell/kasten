@@ -6,7 +6,7 @@
 
 import { client, reason } from "@/lib/api-client";
 import type { components } from "@/lib/api-types";
-import type { Span } from "@/lib/finance-span";
+import type { Span } from "@/lib/finance/finance-span";
 
 export type ScopeDrill = components["schemas"]["ScopeDrillOut"];
 export type AccountDrill = components["schemas"]["AccountDrillOut"];

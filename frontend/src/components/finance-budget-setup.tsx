@@ -2,8 +2,8 @@ import { useQuery } from "@tanstack/react-query";
 import { type RefObject, useState } from "react";
 import { type DrillProps, useWrite, Waiting } from "@/components/finance-drill-parts";
 import type { TabKeys } from "@/components/finance-sort-bar";
-import { fetchSetup, type Setup, writeLimits } from "@/lib/finance-budget-api";
-import { euros, monthName, monthOf } from "@/lib/finance-words";
+import { fetchSetup, type Setup, writeLimits } from "@/lib/finance/finance-budget-api";
+import { euros, monthName, monthOf } from "@/lib/finance/finance-words";
 
 const KINDS: Record<string, string> = {
   fixed: "Fixed",

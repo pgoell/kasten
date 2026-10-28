@@ -13,18 +13,23 @@ const { fetchCategories, fetchToSort, sortByHand, sortPayee, fetchUnmatchedOrder
   }),
 );
 
-vi.mock("@/lib/finance-api", () => ({ fetchCategories, fetchToSort, sortByHand, sortPayee }));
-vi.mock("@/lib/finance-orders-api", async (original) => ({
-  ...(await original<typeof import("@/lib/finance-orders-api")>()),
+vi.mock("@/lib/finance/finance-api", () => ({
+  fetchCategories,
+  fetchToSort,
+  sortByHand,
+  sortPayee,
+}));
+vi.mock("@/lib/finance/finance-orders-api", async (original) => ({
+  ...(await original<typeof import("@/lib/finance/finance-orders-api")>()),
   fetchUnmatchedOrders,
 }));
 // The receipt queue under the to-sort list; its own tests are in finance-tax.test.tsx.
-vi.mock("@/lib/finance-tax-api", async (original) => ({
-  ...(await original<typeof import("@/lib/finance-tax-api")>()),
+vi.mock("@/lib/finance/finance-tax-api", async (original) => ({
+  ...(await original<typeof import("@/lib/finance/finance-tax-api")>()),
   fetchReceiptsToSort: async () => [],
 }));
 // The overview and the bank card read these as the pane opens; the to-sort list needs none.
-vi.mock("@/lib/finance-budget-api", () => ({
+vi.mock("@/lib/finance/finance-budget-api", () => ({
   fetchBudget: () => new Promise(() => {}),
   fetchFree: () => new Promise(() => {}),
   fetchTrend: () => new Promise(() => {}),

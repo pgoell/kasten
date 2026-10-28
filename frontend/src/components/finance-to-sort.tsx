@@ -3,8 +3,8 @@ import { type RefObject, useState } from "react";
 import { UnmatchedOrders } from "@/components/finance-orders";
 import { ReceiptsToSort } from "@/components/finance-receipts";
 import { BookingList, SortBar, sortKeys, type TabKeys } from "@/components/finance-sort-bar";
-import { fetchToSort, type ToSort } from "@/lib/finance-api";
-import type { CategorySort } from "@/lib/use-category-sort";
+import { fetchToSort, type ToSort } from "@/lib/finance/finance-api";
+import type { CategorySort } from "@/lib/finance/use-category-sort";
 
 /** One thing to sort: a booking without splits, or one split of a booking. */
 interface Row {

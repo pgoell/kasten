@@ -1,6 +1,6 @@
-import { CATEGORY_KEYS } from "@/lib/finance-keys";
-import { categoryColour, money } from "@/lib/finance-words";
-import type { CategorySort, SortRow } from "@/lib/use-category-sort";
+import { CATEGORY_KEYS } from "@/lib/finance/finance-keys";
+import { categoryColour, money } from "@/lib/finance/finance-words";
+import type { CategorySort, SortRow } from "@/lib/finance/use-category-sort";
 
 /** A key handler a tab of the finance pane hands the frame; true when it took the key. */
 export type TabKeys = (key: string) => boolean;

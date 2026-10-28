@@ -20,14 +20,14 @@ const api = vi.hoisted(() => ({
   writePayeeRule: vi.fn(),
 }));
 
-vi.mock("@/lib/finance-api", () => ({
+vi.mock("@/lib/finance/finance-api", () => ({
   fetchCategories: api.fetchCategories,
   fetchToSort: never,
   sortByHand: api.sortByHand,
   sortPayee: api.sortPayee,
 }));
-vi.mock("@/lib/finance-plans-api", () => ({ fetchGoals: never }));
-vi.mock("@/lib/finance-budget-api", () => ({
+vi.mock("@/lib/finance/finance-plans-api", () => ({ fetchGoals: never }));
+vi.mock("@/lib/finance/finance-budget-api", () => ({
   fetchBudget: never,
   fetchFree: never,
   fetchTrend: never,
@@ -39,7 +39,7 @@ vi.mock("@/lib/finance-budget-api", () => ({
   requestPull: never,
   writeLimit: never,
 }));
-vi.mock("@/lib/finance-drill-api", () => ({
+vi.mock("@/lib/finance/finance-drill-api", () => ({
   fetchScope: api.fetchScope,
   fetchAccountDrill: api.fetchAccountDrill,
   fetchCategoryDrill: api.fetchCategoryDrill,

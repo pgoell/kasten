@@ -9,7 +9,7 @@
 
 import { client, reason } from "@/lib/api-client";
 import type { components } from "@/lib/api-types";
-import type { Span } from "@/lib/finance-span";
+import type { Span } from "@/lib/finance/finance-span";
 
 export type Budget = components["schemas"]["BudgetOut"];
 export type BudgetCategory = components["schemas"]["BudgetCategoryOut"];

@@ -1,15 +1,15 @@
 import { useQuery } from "@tanstack/react-query";
 import { type RefObject, useState } from "react";
 import type { TabKeys } from "@/components/finance-sort-bar";
-import type { DrillStep } from "@/lib/finance-drill-api";
+import type { DrillStep } from "@/lib/finance/finance-drill-api";
 import {
   fetchTaxYear,
   lineCsvUrl,
   lineLabel,
   receiptsZipUrl,
   type TaxEntry,
-} from "@/lib/finance-tax-api";
-import { money } from "@/lib/finance-words";
+} from "@/lib/finance/finance-tax-api";
+import { money } from "@/lib/finance/finance-words";
 
 /** A marked booking as one line of a list, which opens the booking. */
 function EntryButton({

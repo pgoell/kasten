@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { amountOf, positive } from "@/components/finance-budget-tab";
-import type { Category } from "@/lib/finance-api";
-import type { Account } from "@/lib/finance-budget-api";
-import type { PlanIn } from "@/lib/finance-plans-api";
+import type { Category } from "@/lib/finance/finance-api";
+import type { Account } from "@/lib/finance/finance-budget-api";
+import type { PlanIn } from "@/lib/finance/finance-plans-api";
 
 /** The schedules the form offers, as `every_months`; null falls due once. */
 export const SCHEDULES: { every: number | null; label: string }[] = [
