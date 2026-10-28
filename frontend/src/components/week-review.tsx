@@ -12,7 +12,7 @@ import type { LineHit, TodoHit } from "@/lib/api";
 import { readClock } from "@/lib/clock";
 import { rangeDates, weightOf } from "@/lib/log/log-weight";
 import { grouped } from "@/lib/log/log-words";
-import { goalWords, plural } from "@/lib/overview-words";
+import { goalWords, plural } from "@/lib/overview/overview-words";
 import type { weeklyWeek } from "@/lib/periodic";
 import type { ReviewSource } from "@/lib/review/periodic-review";
 import { deckNotes } from "@/lib/review/review";

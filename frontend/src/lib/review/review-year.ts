@@ -7,7 +7,7 @@
 
 import type { LineHit, TodoHit } from "@/lib/api";
 import type { LogDay } from "@/lib/log/food-api";
-import { dayOf, reviewCounts, writtenCounts } from "@/lib/overview";
+import { dayOf, reviewCounts, writtenCounts } from "@/lib/overview/overview";
 import { parseTodo, type Todo } from "@/lib/todo/todo";
 import { parseDuration } from "@/lib/todo/todo-time";
 

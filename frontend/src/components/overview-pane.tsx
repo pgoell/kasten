@@ -30,7 +30,7 @@ import {
   todoTally,
   writtenCounts,
   yearTally,
-} from "@/lib/overview";
+} from "@/lib/overview/overview";
 import {
   fortnightCaption,
   fortnightLabel,
@@ -40,7 +40,7 @@ import {
   todayWords,
   weightLabel,
   weightWords,
-} from "@/lib/overview-words";
+} from "@/lib/overview/overview-words";
 import { readRetry } from "@/lib/read-retry";
 import { deckNotes } from "@/lib/review/review";
 import { useEntrance } from "@/lib/stagger";

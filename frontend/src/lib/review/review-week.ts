@@ -12,7 +12,7 @@ import { tenth } from "@/lib/log/log-lines";
 import { hasFood, within } from "@/lib/log/log-streak";
 import { valueOn } from "@/lib/log/log-weight";
 import { noteSectionOf } from "@/lib/note-section";
-import { type Bar, barsOf, doneCounts, reviewCounts } from "@/lib/overview";
+import { type Bar, barsOf, doneCounts, reviewCounts } from "@/lib/overview/overview";
 import { byText, doneTodos, inRange } from "@/lib/review/review-year";
 import { isOpen, parseTodo } from "@/lib/todo/todo";
 import { minutesBetween, parseSession } from "@/lib/todo/todo-time";

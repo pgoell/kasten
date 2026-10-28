@@ -4,7 +4,7 @@ import type { TodoHit } from "@/lib/api";
 import { readClock } from "@/lib/clock";
 import { rangeDates, weightOf } from "@/lib/log/log-weight";
 import { grouped } from "@/lib/log/log-words";
-import { plural } from "@/lib/overview-words";
+import { plural } from "@/lib/overview/overview-words";
 import { deckNotes } from "@/lib/review/review";
 import type { ModelUseLine } from "@/lib/review/review-api";
 import {
