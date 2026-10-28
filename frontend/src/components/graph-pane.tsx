@@ -155,7 +155,10 @@ export function GraphPane({
       onHover: (hover) => {
         if (opening.current.vault) setHovered(hover?.node.path ?? null);
       },
-      onZoom: (scale) => setZoom(Math.round(scale * 100)),
+      // Only the touch row shows it, and a render per zoom frame costs a mouse for nothing.
+      onZoom: (scale) => {
+        if (opening.current.coarse) setZoom(Math.round(scale * 100));
+      },
     });
     canvas.current = made;
 

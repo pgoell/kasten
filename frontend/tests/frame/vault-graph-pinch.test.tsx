@@ -200,6 +200,7 @@ describe("#992 the vault graph zooms under fingers on a phone", () => {
 
   it("#992 A2 two fingers zoom about the pinch point, the app stays unzoomed, and the zoom stops at the phone's closest", async () => {
     const { host } = await phone();
+    await still();
     const before = view().k;
     const at = { x: 120, y: 150 };
     const under = graphAt(host, at);

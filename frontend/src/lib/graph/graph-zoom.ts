@@ -50,9 +50,13 @@ export function zoomsOf(graph: ForceGraph<DrawnNode, DrawnLink>, coarse: () => b
   const fitted = () => {
     const box = graph.getGraphBbox();
     if (box === null) return null;
-    const k = Math.min(
-      (graph.width() - FIT_PADDING * 2) / (box.x[1] - box.x[0]),
-      (graph.height() - FIT_PADDING * 2) / (box.y[1] - box.y[0]),
+    // Kept above nought as `zoomToFit` keeps it, for a box narrower than the padding.
+    const k = Math.max(
+      1e-12,
+      Math.min(
+        (graph.width() - FIT_PADDING * 2) / (box.x[1] - box.x[0]),
+        (graph.height() - FIT_PADDING * 2) / (box.y[1] - box.y[0]),
+      ),
     );
     if (coarse()) graph.minZoom(k * LEAST_OF_FIT).maxZoom(Math.max(MOST_ZOOM, k));
     return { k, x: (box.x[0] + box.x[1]) / 2, y: (box.y[0] + box.y[1]) / 2 };
