@@ -13,8 +13,9 @@ interface Place {
  * `loads` keys the frame: a new frame loads the page afresh and, unlike a new
  * `src` on the old one, leaves no entry in the browser's history. The scroll the
  * page last reported goes back to it once it has loaded, and so does the focus
- * where the frame held it, and `forget` drops what the old page held. Each place carries its path, so a pane moved to
- * another page does not hand that page the last one's scroll.
+ * where the frame held it; `forget` drops what the old page held at the swap.
+ * Each place carries its path, so a pane moved to another page does not hand
+ * that page the last one's scroll.
  */
 export function usePageReload(
   path: string,
