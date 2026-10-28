@@ -1,0 +1,88 @@
+{
+  "lines": [
+    {
+      "name": "plain",
+      "line": "- [x] Milch ✅ 2026-10-28 🆔 kt-abc123",
+      "path": "05 Shared/Einkauf.md",
+      "daily": "01 Periodic/00 Daily/2026-10-28.md",
+      "today": "2026-10-28",
+      "logged": "- ✅ 2026-10-28 Milch [[05 Shared/Einkauf]] kt-abc123"
+    },
+    {
+      "name": "assignee and tags",
+      "line": "- [x] Milch #bio 👤 [[Anna]] ✅ 2026-10-28 🆔 kt-abc123",
+      "path": "05 Shared/Einkauf.md",
+      "daily": "01 Periodic/00 Daily/2026-10-28.md",
+      "today": "2026-10-28",
+      "logged": "- ✅ 2026-10-28 Milch #bio [[05 Shared/Einkauf]] kt-abc123"
+    },
+    {
+      "name": "block id last",
+      "line": "- [x] Brot ✅ 2026-10-28 🆔 kt-abc123 ^b1",
+      "path": "05 Shared/Einkauf.md",
+      "daily": "01 Periodic/00 Daily/2026-10-28.md",
+      "today": "2026-10-28",
+      "logged": "- ✅ 2026-10-28 Brot [[05 Shared/Einkauf]] kt-abc123"
+    },
+    {
+      "name": "due date and priority",
+      "line": "- [x] Käse 📅 2026-10-30 ⏫ ✅ 2026-10-28 🆔 kt-abc123",
+      "path": "05 Shared/Einkauf.md",
+      "daily": "01 Periodic/00 Daily/2026-10-28.md",
+      "today": "2026-10-28",
+      "logged": "- ✅ 2026-10-28 Käse [[05 Shared/Einkauf]] kt-abc123"
+    },
+    {
+      "name": "a link and a code span",
+      "line": "- [x] [[Rezept]] für `Brot` ✅ 2026-10-28 🆔 kt-abc123",
+      "path": "05 Shared/Einkauf.md",
+      "daily": "01 Periodic/00 Daily/2026-10-28.md",
+      "today": "2026-10-28",
+      "logged": "- ✅ 2026-10-28 [[Rezept]] für `Brot` [[05 Shared/Einkauf]] kt-abc123"
+    }
+  ],
+  "placements": [
+    {
+      "name": "no done section",
+      "note": "# Day\n\n## TODOs\n- [ ] a\n",
+      "line": "- ✅ 2026-10-28 x",
+      "written": "# Day\n\n## TODOs\n- [ ] a\n\n## Done\n- ✅ 2026-10-28 x\n"
+    },
+    {
+      "name": "done before another section",
+      "note": "## Done\n- ✅ a\n\n## Dump\nthought\n",
+      "line": "- ✅ 2026-10-28 x",
+      "written": "## Done\n- ✅ a\n- ✅ 2026-10-28 x\n\n## Dump\nthought\n"
+    },
+    {
+      "name": "done last without a final newline",
+      "note": "## Done\n- ✅ a",
+      "line": "- ✅ 2026-10-28 x",
+      "written": "## Done\n- ✅ a\n- ✅ 2026-10-28 x"
+    },
+    {
+      "name": "done heading only in a fence",
+      "note": "```\n## Done\n```\n",
+      "line": "- ✅ 2026-10-28 x",
+      "written": "```\n## Done\n```\n\n## Done\n- ✅ 2026-10-28 x\n"
+    },
+    {
+      "name": "note ends in an unclosed fence",
+      "note": "## TODOs\n```\ncode\n",
+      "line": "- ✅ 2026-10-28 x",
+      "written": "## TODOs\n```\ncode\n```\n\n## Done\n- ✅ 2026-10-28 x\n"
+    },
+    {
+      "name": "done heading with trailing spaces",
+      "note": "## Done  \n- ✅ a\n",
+      "line": "- ✅ 2026-10-28 x",
+      "written": "## Done  \n- ✅ a\n- ✅ 2026-10-28 x\n"
+    },
+    {
+      "name": "empty note",
+      "note": "",
+      "line": "- ✅ 2026-10-28 x",
+      "written": "\n\n## Done\n- ✅ 2026-10-28 x\n"
+    }
+  ]
+}

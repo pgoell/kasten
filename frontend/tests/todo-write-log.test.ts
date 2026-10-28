@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import { appendUnder } from "@/lib/note-section";
 import type { TodoState } from "@/lib/todo/todo";
 import {
   type CycleInput,
@@ -299,5 +302,32 @@ describe("doneLogWrites", () => {
     const now = todo("- [/] buy milk");
 
     expect(doneLogWrites(logged({ was, now }))).toEqual([]);
+  });
+});
+
+describe("the done lines the server writes too (#726)", () => {
+  // A tick in the lists app writes its done log line on the server, off a copy
+  // of `doneLine` and `appendUnder` in `done_log.py`. Both sides read this file,
+  // so editing one copy and not the other fails a test on the side left behind.
+  const fixture = JSON.parse(
+    readFileSync(path.join(import.meta.dirname, "fixtures/done-lines.json"), "utf8"),
+  ) as {
+    lines: {
+      name: string;
+      line: string;
+      path: string;
+      daily: string;
+      today: string;
+      logged: string;
+    }[];
+    placements: { name: string; note: string; line: string; written: string }[];
+  };
+
+  it.each(fixture.lines)("doneLine writes the line the server writes: $name", (found) => {
+    expect(doneLine(todo(found.line), found.path, found.daily, found.today)).toBe(found.logged);
+  });
+
+  it.each(fixture.placements)("appendUnder places it where the server does: $name", (found) => {
+    expect(appendUnder(found.note, "## Done", found.line)).toBe(found.written);
   });
 });

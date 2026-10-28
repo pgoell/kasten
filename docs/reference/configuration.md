@@ -307,10 +307,10 @@ It also bounds the `Origin` check on the
 [consent `POST`](/reference/agent-api/oauth.md#get-and-post-apioauthauthorize):
 `https://{value}` is accepted there as well as the request's own host.
 
-## KASTEN_SHARE_HOST
+## The shared lists
 
-The `Host` of the shared lists app, `liste.pgoell.com` on the box; empty, the
-default, turns the check off. There the backend answers `404` outside `/share/`, before any route runs. That is the [second lock](/explanation/shared-lists.md#two-locks).
+`KASTEN_SHARE_HOST` and `KASTEN_SHARE_LOGS_DONE` set the lists app's host and
+whether its ticks reach the done log: [The shared lists](/reference/configuration/shared-lists.md).
 
 ## KASTEN_HERDR_SESSIONS_PATH
 

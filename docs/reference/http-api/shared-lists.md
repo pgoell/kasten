@@ -11,7 +11,7 @@ status: stable
 
 The eight routes under `/share/`. They sit outside `/api/`, so the count on
 [the HTTP API page](/reference/http-api.md) leaves them out. On the share host,
-set by [`KASTEN_SHARE_HOST`](/reference/configuration.md#kasten_share_host), they
+set by [`KASTEN_SHARE_HOST`](/reference/configuration/shared-lists.md#kasten_share_host), they
 are the only paths the backend answers. The reasoning is in
 [Shared lists](/explanation/shared-lists.md).
 
@@ -117,6 +117,17 @@ A tick whose line is already in the asked state, or is not an item, answers
 carrying `🔁`, or on a line with indented parts under it, answers `422`
 `{"detail": "Tick this one in kasten"}` and writes nothing: kasten's own cycle
 writes the next occurrence and ticks the parts.
+
+A tick to done also writes the done log line the todo pane writes, `- ✅ <today>
+<words> [[<list>]] <id>`, under `## Done` in today's daily note, making the note
+where the vault has none. The words are the item's without its fields, so an
+assignee goes and tags stay: `- [ ] Milch #bio 👤 [[Anna]]` logs
+`- ✅ <today> Milch #bio [[05 Shared/Einkauf]] kt-…`. An id a `- ✅` line names
+anywhere outside the archive gets no second line. An untick drops every `- ✅`
+line naming the item's id, wherever it stands. The list is written first and the
+daily note after it; [the share tick orderings](/reference/save-path-orderings/share-tick.md)
+say what a failure between them leaves. `KASTEN_SHARE_LOGS_DONE=false` turns the
+log write off.
 
 ## POST /share/lists/{name}/assign
 

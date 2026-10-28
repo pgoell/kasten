@@ -120,8 +120,8 @@ def _close(text: str, fence: str, *, frontmatter: bool = True) -> str:
     return closed
 
 
-def _section(text: str) -> tuple[int | None, int]:
-    """The line `## Dump` is read from, or None, and the line its section ends at.
+def _section(text: str, heading: str = DUMP) -> tuple[int | None, int]:
+    """The line `heading` is read from, or None, and the line its section ends at.
 
     The first live line that is the heading. The section ends at the next live
     heading at its level or above, or at the note's end. A `## Dump` after a fence
@@ -131,7 +131,7 @@ def _section(text: str) -> tuple[int | None, int]:
     lines = text.split("\n")
     live = _live(text)
     at = next(
-        (index for index, line in enumerate(lines) if live[index] and line.rstrip() == DUMP),
+        (index for index, line in enumerate(lines) if live[index] and line.rstrip() == heading),
         None,
     )
     if at is None:
@@ -189,3 +189,35 @@ def append_dump(text: str, capture: str) -> str:
     rest = lines[end:]
 
     return "\n".join([*written, "", *rest] if rest else [*written, ""])
+
+
+def append_under(text: str, heading: str, line: str) -> str:
+    """`text` with `line` at the end of `heading`'s section, made at the end where there is none.
+
+    `appendUnder` in `note-section.ts` is the other copy, which the todo pane
+    writes its done log through: a list line straight under the last one, and
+    the blank line before the next heading left where it is.
+    `frontend/tests/fixtures/done-lines.json` holds the placements both copies
+    must produce. A note ending in a fence nobody closed gets its closer first
+    when the line would land inside it, as `append_dump` does.
+    """
+    at, end = _section(text, heading)
+    lines = text.split("\n")
+    fence = _open_fence(text, lines)
+    if fence is not None and (at is None or end == len(lines)):
+        text = _close(text, fence)
+        lines = text.split("\n")
+        at, end = _section(text, heading)
+
+    if at is None:
+        return f"{text.rstrip(chr(10))}\n\n{heading}\n{line}\n"
+
+    while end > at + 1 and lines[end - 1].strip() == "":
+        end -= 1
+
+    # Nothing follows the section, so the line goes on the end with a newline in
+    # front of it rather than behind.
+    if end == len(lines):
+        return f"{text}\n{line}"
+
+    return "\n".join([*lines[:end], line, *lines[end:]])

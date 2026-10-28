@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field
 
-from kasten_backend import agent, todo_fields, vault
+from kasten_backend import agent, done_log, todo_fields, vault
 
 if TYPE_CHECKING:
     from kasten_backend.config import Settings
@@ -239,7 +239,7 @@ def _undone(rest: str) -> str:
     return (rest[: found.start()].rstrip() + rest[found.end() :]).rstrip()
 
 
-def _ticked(rest: str) -> str:
+def _ticked(rest: str, today: date) -> str:
     """The words of an item as a done one: its done date and an id, a block id last.
 
     An item that reads an id keeps it and gets its date before it, so the id does
@@ -251,7 +251,7 @@ def _ticked(rest: str) -> str:
     block = TRAILING_BLOCK_ID.search(rest)
     tail = "" if block is None else block[0]
     rest = rest[: len(rest) - len(tail)]
-    done = f"✅ {date.today().isoformat()}"
+    done = f"✅ {today.isoformat()}"
     found = todo_fields.ID.search(todo_fields.mask(rest))
     if found is not None:
         return f"{rest[: found.start()].rstrip()} {done} {rest[found.start() :]}{tail}"
@@ -394,12 +394,25 @@ async def tick(settings: Settings, name: str, line: int, done: bool, sha: str) -
     if done and _kasten_owns(lines, line, rest):
         raise TickInKastenError(TICK_IN_KASTEN)
 
+    # One day for the stamp on the line and the daily note the log line goes in.
+    today = date.today()
     if done:
-        lines[line] = f"- [x] {_ticked(rest)}{eol}"
+        rest = _ticked(rest, today)
+        lines[line] = f"- [x] {rest}{eol}"
     else:
         lines[line] = f"- [ ] {_undone(rest)}{eol}"
 
-    return await _save(settings, name, "\n".join(lines), sha)
+    saved = await _save(settings, name, "\n".join(lines), sha)
+    # The list first, then the log: a write that fails between them leaves the
+    # item ticked with no log line, which is what a tick wrote before #726.
+    if saved is not None and settings.share_logs_done:
+        path = f"{settings.share_folder}/{name}.md"
+        if done:
+            await done_log.log(settings, path, rest, today)
+        else:
+            await done_log.unlog(settings, path, rest)
+
+    return saved
 
 
 async def assign(

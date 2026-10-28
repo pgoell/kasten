@@ -217,6 +217,13 @@ class Settings(BaseSettings):
     filing convention.
     """
 
+    share_logs_done: bool = True
+    """Whether a tick through the lists app writes the done log line a tick in the todo pane writes.
+
+    On, a shopping item ticked in the app shows in the day's `## Done` like any
+    todo. `KASTEN_SHARE_LOGS_DONE=false` leaves the tick to its own list.
+    """
+
     share_host: str = ""
     """The `Host` the shared lists app is served on, or empty for none.
 

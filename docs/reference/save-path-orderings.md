@@ -72,3 +72,4 @@ The table splits by theme. Rows keep their numbers on every page, so "As 82" poi
 * [The log card's weight kind](/reference/save-path-orderings/log-weight.md): rows L21 to L26.
 * [The log pane's sheet and quick buttons](/reference/save-path-orderings/log-pane.md): rows L21 and L22.
 * [The dump capture](/reference/save-path-orderings/dump-capture.md): rows D1 to D4.
+* [The share tick and the done log](/reference/save-path-orderings/share-tick.md): rows S1 to S6.
