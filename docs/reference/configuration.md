@@ -41,7 +41,7 @@ and vanish with it. An env file still wins over all three.
 postgresql+psycopg://kasten:kasten@localhost:5434/kasten_dev
 ```
 
-The SQLAlchemy URL for the index, `finance` and RSVP places, never notes.
+The SQLAlchemy URL for `finance`, RSVP places and token logs, never notes.
 
 Alembic, [finance](/reference/http-api/finance.md) and
 [`/api/rsvp`](/reference/http-api/rsvp.md) read it, the routes per request, with

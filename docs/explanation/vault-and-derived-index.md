@@ -11,7 +11,7 @@ status: stable
 kasten has one design rule, and the rest of the system falls out of it.
 
 > The vault is a directory of `.md` files, and that directory is the source of
-> truth. Postgres holds a derived index only. You must be able to drop the
+> truth. Postgres may hold a derived index only. You must be able to drop the
 > schema and rebuild it from the vault. Nothing that only exists in the
 > database is allowed to matter.
 
