@@ -1,0 +1,118 @@
+#!/usr/bin/env bash
+# Fail when an authored file passes 5000 tokens (bytes/4); checks the given
+# paths, or every tracked file.
+set -euo pipefail
+
+LIMIT=5000
+
+# Globs for files no person or agent writes by hand, as git pathspec globs.
+EXCLUDES=(
+  # lockfiles
+  '**/mise.lock' '**/package-lock.json' '**/yarn.lock' '**/pnpm-lock.yaml'
+  '**/bun.lockb' '**/uv.lock' '**/poetry.lock' '**/Pipfile.lock'
+  '**/Cargo.lock' '**/Gemfile.lock' '**/composer.lock' '**/go.sum'
+  '**/flake.lock'
+  # binaries
+  '**/*.png' '**/*.jpg' '**/*.jpeg' '**/*.gif' '**/*.webp' '**/*.ico'
+  '**/*.woff' '**/*.woff2' '**/*.ttf' '**/*.otf' '**/*.pdf'
+  # license texts
+  '**/LICENSE*' '**/NOTICE'
+)
+
+# A repo adds its own globs in .file-size-excludes at its root: one per line,
+# "#" starts a comment line, blank lines are skipped. A missing file adds none.
+top=$(git rev-parse --show-toplevel)
+if [ -f "$top/.file-size-excludes" ]; then
+  while IFS= read -r glob || [ -n "$glob" ]; do
+    glob=${glob%$'\r'}
+    glob=${glob#"${glob%%[![:space:]]*}"}
+    glob=${glob%"${glob##*[![:space:]]}"}
+    case $glob in '' | '#'*) continue ;; esac
+    EXCLUDES+=("$glob")
+  done <"$top/.file-size-excludes"
+fi
+
+# The "top" magic anchors excludes at the repo root while arguments resolve
+# against the caller's directory.
+pathspecs=()
+for glob in "${EXCLUDES[@]}"; do pathspecs+=(":(top,exclude,glob)$glob"); done
+
+# Files, not process substitutions, so a git failure stops the script.
+list=$(mktemp)
+sizes=$(mktemp)
+index=$(mktemp)
+trap 'rm -f "$list" "$sizes" "$index"' EXIT
+
+# "literal" makes a "*" or a leading ":" in a file name match only itself.
+args=()
+for arg in "$@"; do args+=(":(literal)$arg"); done
+if [ "${#args[@]}" -eq 0 ]; then
+  args=(':(top)')
+  # A bare run (pre-push, CI) judges what is committed, not what is staged,
+  # so it reads HEAD's tree into a throwaway index. With arguments
+  # (pre-commit) or before the first commit, the real index is sized.
+  if git rev-parse -q --verify HEAD >/dev/null; then
+    export GIT_INDEX_FILE=$index
+    git read-tree HEAD
+  fi
+fi
+# git 2.43 drops a leading "**/" exclude when all arguments share a folder
+# prefix. ".git" at the root is never tracked, so this matches nothing and
+# only clears that prefix.
+args+=(':(top,literal).git')
+
+# Records "mode sha stage<TAB>path": the staged copy is what the commit carries.
+git ls-files -s -z --full-name -- "${args[@]}" "${pathspecs[@]}" >"$list"
+
+paths=()
+shas=()
+while IFS= read -r -d '' record; do
+  meta=${record%%$'\t'*}
+  # Skip symlinks and submodules; a path deleted from the worktree but still
+  # staged is sized.
+  case $meta in 120000\ * | 160000\ *) continue ;; esac
+  rest=${meta#* }
+  shas+=("${rest%% *}")
+  paths+=("${record#*$'\t'}")
+done <"$list"
+if [ "${#shas[@]}" -eq 0 ]; then exit 0; fi
+
+printf '%s\n' "${shas[@]}" | git cat-file --batch-check='%(objectsize)' >"$sizes"
+
+failed=0
+i=0
+while IFS= read -r bytes; do
+  path=${paths[$i]}
+  i=$((i + 1))
+  tokens=$((bytes / 4))
+  if [ "$tokens" -gt "$LIMIT" ]; then
+    echo "file-size: $path is ~$tokens tokens (bytes/4); the limit is $LIMIT." >&2
+    failed=1
+  fi
+done <"$sizes"
+
+if [ "$failed" -eq 0 ]; then exit 0; fi
+
+printf '%s\n' \
+  '' \
+  'Big files cost agents: they read them in pieces and lose track. Do not fix this' \
+  'by cutting the file into parts by line count, or by moving code into' \
+  'pass-through wrappers, barrel files or a utils grab bag. That gives many' \
+  'shallow modules, and a reader then has to open all of them.' \
+  '' \
+  'Split along a deep module instead (John Ousterhout, "A Philosophy of Software' \
+  'Design"): a module whose interface is small next to what it hides.' \
+  '1. List what the file does. Find a group of functions that share state or' \
+  '   knowledge the rest of the file does not need.' \
+  '2. Move that group into its own module behind a few functions. Callers should' \
+  '   not need to know how it works inside.' \
+  "3. Check: if the new module's interface is nearly as big as its body, or every" \
+  '   caller still reaches into its details, you picked the wrong line. Try again.' \
+  '- Tests: split by the behaviour or module under test, one file per unit,' \
+  '  shared fixtures in one helper.' \
+  '- Docs: split by topic into a folder with an index page that links them.' \
+  '- Data (word lists, fixtures): move it into a data file and add it to the' \
+  '  exclude list, if no person or agent edits it by hand.' \
+  '- Skills: a SKILL.md over the limit moves step detail into references/ and' \
+  '  links it from the step that needs it.' >&2
+exit 1

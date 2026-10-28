@@ -113,9 +113,10 @@ container has no mise, so run that line there instead, as
 
 | Task | What it does |
 |---|---|
-| `lint` | ruff, ty, Biome on both JavaScript trees, `tsc`, the file-size and the copy check. The pre-commit gate and CI's Lint job |
+| `lint` | ruff, ty, Biome on both JavaScript trees, `tsc`, the file-size, folder-size and copy checks. The pre-commit gate and CI's Lint job |
 | `lint:py` | Backend and host job lint, format check and type check |
-| `lint:size` | Check every tracked file against the 5,000-token limit |
+| `lint:size` | Check every file committed at HEAD against the 5,000-token limit |
+| `lint:fanout` | Fail when a folder holds more than seven entries and grew past its line in `.fan-out-baseline` |
 | `lint:dup` | Fail when more than 1% of `frontend/src`, `backend/src` and `jobs/src` is copied code (jscpd) |
 | `fe:lint` | Biome on the frontend |
 | `shell:lint` | Biome on `shell/chat`, with the frontend's binary and rules |
@@ -134,11 +135,14 @@ build it drags in is what makes the gate two seconds rather than a third of
 one, which is the price of the frontend being gated the way the backend
 already was.
 
-`lint:size` runs `scripts/file_size.py` with no arguments, so it checks every
-tracked file. Pre-commit runs `lint`, so a commit fails while any tracked file is
-over 5,000 tokens, staged or not. Pre-commit also runs the script on the staged
-files, which names a staged file over the limit on its own. See
-[The file size limit](/explanation/file-size-limit.md).
+`lint:size` runs `scripts/structure/check-file-size` with no arguments, so it
+checks every file committed at HEAD. `lint:fanout` runs
+`scripts/structure/check-fan-out --all`, which checks every folder against the
+seven-entry limit and the baseline in `.fan-out-baseline`. Pre-commit runs
+`lint`, so a commit fails while a file committed at HEAD is over 5,000 tokens or
+a folder grows past its baseline line. Pre-commit also runs both checks on the
+staged files, which names a staged file or folder over a limit on its own. See
+[File and folder limits](/explanation/file-size-limit.md).
 
 `lint:dup` runs jscpd with `.jscpd.json` at the root. jscpd alone takes about
 6 s, but `lint` runs its parts side by side, so the copy check adds about 2.5 s

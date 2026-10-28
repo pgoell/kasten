@@ -1,17 +1,19 @@
 # Git hooks. Installed by `mise run install`.
 #
-# pre-commit stays fast (lint, format, the file-size and the copy check). Anything slow
+# pre-commit stays fast (lint, format, the file-size, fan-out and copy checks). Anything slow
 # enough to make you reach for --no-verify belongs in pre-push instead.
 
 pre-commit:
   commands:
     lint:
       run: mise run lint
-    # The narrower staged-files check. It predates the whole-repo one in
-    # `mise run lint` above, and stays so a staged file over the limit is named
-    # on its own. With nothing staged lefthook skips this command.
+    # The staged-files checks. `mise run lint` above sizes what HEAD holds, so
+    # these are the ones that see what this commit adds. With nothing staged
+    # lefthook skips them.
     file-size:
-      run: python3 scripts/file_size.py {staged_files}
+      run: scripts/structure/check-file-size {staged_files}
+    fan-out:
+      run: scripts/structure/check-fan-out {staged_files}
 
 pre-push:
   commands:

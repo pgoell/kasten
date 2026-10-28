@@ -125,5 +125,5 @@ issue filed.
 ## Related
 
 * [Code quality checks](/explanation/code-quality-checks.md): what each check catches and why the review exists beside them
-* [The file size limit](/explanation/file-size-limit.md): what a deep module is, and why a file is split along one
+* [File and folder limits](/explanation/file-size-limit.md): what a deep module is, and why a file or folder is split along one
 * [Run the checks](/how-to/run-the-checks.md): the lints this review does not replace

@@ -8,8 +8,8 @@ status: stable
 
 # Code quality checks
 
-The [file size limit](/explanation/file-size-limit.md) keeps every file small
-enough for an agent to read in one pass. It says nothing about whether the code
+The [file and folder limits](/explanation/file-size-limit.md) keep every file small
+enough for an agent to read in one pass, and every folder short enough to scan. It says nothing about whether the code
 inside is any good. Four more checks look at that: two complexity lints, a copy
 check and a review of one area at a time. The commands are in
 [Run the checks](/how-to/run-the-checks.md); this page says why each exists.

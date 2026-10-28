@@ -1,0 +1,37 @@
+# Folders over the fan-out limit, as "<folder> <count>". A folder fails
+# when it grows past its count. check-fan-out --update-baseline only
+# lowers or drops lines; to raise one, edit this file by hand.
+backend/src/kasten_backend 107
+backend/src/kasten_backend/routes 26
+backend/tests 175
+docs 8
+docs/assets/shared-lists 15
+docs/explanation 27
+docs/how-to 32
+docs/how-to/images 11
+docs/reference 42
+docs/reference/editor-keys 20
+docs/reference/http-api 23
+docs/reference/save-path-orderings 16
+frontend 21
+frontend/src 8
+frontend/src/components 133
+frontend/src/lib 114
+frontend/src/lib/book 18
+frontend/src/lib/editor 17
+frontend/src/lib/finance 11
+frontend/src/lib/graph 9
+frontend/src/lib/live 17
+frontend/src/lib/log 29
+frontend/src/lib/note 12
+frontend/src/lib/review 25
+frontend/src/lib/todo 34
+frontend/src/lists 8
+frontend/src/styles 25
+frontend/tests 599
+frontend/tests/fixtures 10
+frontend/tests/fixtures/barcodes 10
+frontend/tests/frame 180
+jobs/src/kasten_jobs 15
+jobs/tests 10
+scripts 8

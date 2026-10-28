@@ -1,0 +1,12 @@
+# Files no person or agent writes by hand, on top of the defaults in
+# scripts/structure/check-file-size. One git glob per line.
+# lockfile (text; the defaults name only bun.lockb)
+**/bun.lock
+# generated from the backend's OpenAPI schema
+frontend/openapi.json
+frontend/src/lib/api-types.ts
+# the dev vault's /api/graph answer, saved by curl for the graph frames
+frontend/tests/frame/vault-graph-dev.json
+# binaries the defaults do not name
+**/*.epub
+**/*.svg

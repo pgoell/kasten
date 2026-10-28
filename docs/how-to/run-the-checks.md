@@ -11,7 +11,7 @@ status: stable
 Everything CI runs, you can run:
 
 ```sh
-mise run lint         # ruff, ty, biome, file size, copies
+mise run lint         # ruff, ty, biome, file size, folder size, copies
 mise run test         # backend pytest and frontend vitest
 mise run fe:typecheck # builds the frontend, then tsc --noEmit
 ```
@@ -35,7 +35,7 @@ skip.
 Lefthook runs some of this for you, from `.config/lefthook.yaml`:
 
 * `pre-commit` runs `mise run lint`, which stays fast on purpose, and the file
-  size check on the staged files.
+  size and folder size checks on the staged files.
 * `pre-push` runs `mise run test` and `mise run fe:typecheck`.
 
 Anything slow enough to make you reach for `--no-verify` belongs in pre-push,
@@ -99,27 +99,41 @@ raising the threshold. To see the clones while it passes:
 frontend/node_modules/.bin/jscpd
 ```
 
-## Find files over the size limit
+## Find files and folders over the limits
 
 An authored file should stay under 5,000 tokens, counted as bytes divided by
-four (20 KB). To list every tracked file over it:
+four (20 KB). A folder should hold about seven entries, files and folders alike.
+To list every file over the first limit, which is every file committed at HEAD:
 
 ```sh
-python3 scripts/file_size.py
+scripts/structure/check-file-size
 ```
 
-To check particular files, pass their paths:
+To check particular files, pass their paths. The check then sizes the staged
+copy of each:
 
 ```sh
-python3 scripts/file_size.py docs/log.md frontend/src/routes/index.tsx
+scripts/structure/check-file-size docs/log.md frontend/src/routes/index.tsx
 ```
 
-The pre-commit hook runs `mise run lint`, and its `lint:size` checks every
-tracked file as it stands in the working tree. A commit fails while any tracked
-file is over the limit, staged or not. The hook also runs the check on the staged
-files, which names a staged file over the limit on its own. CI's Lint job runs
-`mise run lint` too. The [file size limit](/explanation/file-size-limit.md)
-page says why the limit exists and how to split a file that is over it.
+To list every folder over the second limit:
+
+```sh
+scripts/structure/check-fan-out --all
+```
+
+Globs for files that no one writes by hand are in `.file-size-excludes`.
+Folders that are lists by design are in `.fan-out-excludes`. Folders over the
+limit today are in `.fan-out-baseline`, and a folder may only shrink there.
+Run `scripts/structure/check-fan-out --update-baseline` after a folder shrinks to
+lower its line. Do not raise a line to pass.
+
+The pre-commit hook runs `mise run lint`, whose `lint:size` and `lint:fanout`
+check the whole repo, and it runs both checks on the staged files, which names a
+staged file or folder over a limit on its own. CI's Lint job runs `mise run lint`
+too. Claude Code also runs both checks after each edit it makes. The
+[file and folder limits](/explanation/file-size-limit.md) page says why the
+limits exist and how to split a file or folder that is over one.
 
 ## When the hook hangs with no output
 

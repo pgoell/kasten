@@ -1,0 +1,6 @@
+# Folders that are a list by design. One git glob per line, with a comment
+# above each that says why.
+# one dated page per day of changes
+docs/log/**
+# one file per migration, in the order Alembic writes them
+backend/alembic/versions

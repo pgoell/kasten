@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+# Canonical copy: plugins/structure/skills/setting-up-the-checks/assets/structure-hook
+# in pgoell/pgoell-claude-tools. Every other copy stays byte-identical to it.
+#
+# Claude Code PostToolUse hook for Edit, Write and MultiEdit. Reads the hook
+# JSON on stdin and runs check-file-size and check-fan-out, which sit beside
+# this script, on tool_input.file_path. Exit 2 shows their message to Claude;
+# exit 0 says nothing. A file outside a git repo, or ignored by git, passes.
+set -uo pipefail
+
+dir=$(cd "$(dirname "$0")" && pwd)
+input=$(cat)
+if command -v jq >/dev/null; then
+  file=$(jq -r '.tool_input.file_path // empty' <<<"$input")
+elif ! file=$(mise exec -- jq -r '.tool_input.file_path // empty' <<<"$input"); then
+  echo 'structure-hook: needs jq on PATH or through mise' >&2
+  exit 1
+fi
+if [ -z "$file" ] || [ ! -f "$file" ]; then exit 0; fi
+cd "$(dirname "$file")" || exit 0
+git rev-parse --show-toplevel >/dev/null 2>&1 || exit 0
+name=$(basename "$file")
+
+# check-file-size sizes the staged copy. Stage the file into a throwaway copy
+# of the index, so the size on disk counts and the real index stays as it was.
+index=$(mktemp)
+trap 'rm -f "$index"' EXIT
+real=$(git rev-parse --git-path index)
+if [ -f "$real" ]; then cp "$real" "$index"; else rm -f "$index"; fi
+export GIT_INDEX_FILE=$index
+git add -- ":(literal)$name" 2>/dev/null || exit 0
+
+failed=0
+size=$("$dir/check-file-size" "$name" 2>&1 >/dev/null) || failed=1
+fan=$("$dir/check-fan-out" "$name" 2>&1 >/dev/null) || failed=1
+if [ "$failed" -eq 0 ]; then exit 0; fi
+if [ -n "$size" ] && [ -n "$fan" ]; then size=$size$'\n\n'; fi
+echo "$size$fan" >&2
+exit 2

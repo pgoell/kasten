@@ -1,0 +1,159 @@
+#!/usr/bin/env bash
+# Canonical copy: plugins/structure/skills/setting-up-the-checks/assets/check-fan-out
+# in pgoell/pgoell-claude-tools. Every other copy stays byte-identical to it.
+#
+# Fail when a folder holds more than LIMIT entries (files and folders).
+#   check-fan-out <path>...        checks the folders above each path
+#   check-fan-out --all            checks every folder
+#   check-fan-out --update-baseline
+#                                  lowers or drops lines in .fan-out-baseline,
+#                                  never raises or adds one; a missing file is
+#                                  written from today's overages
+# Entries come from git: tracked plus untracked, never ignored. The repo root
+# and names that start with "." (and all below them) are skipped.
+set -euo pipefail
+
+LIMIT=7
+
+if [ "$#" -eq 0 ]; then
+  echo 'usage: check-fan-out <path>... | --all | --update-baseline' >&2
+  exit 2
+fi
+
+top=$(git rev-parse --show-toplevel)
+prefix=$(git rev-parse --show-prefix)
+
+# Files, not process substitutions, so a git failure stops the script.
+want=$(mktemp)
+list=$(mktemp)
+out=$(mktemp)
+trap 'rm -f "$want" "$list" "$out"' EXIT
+
+mode=check
+case $1 in
+  --all) mode=all ;;
+  --update-baseline) mode=update ;;
+  *)
+    # Every folder above each path, as a path from the repo root. Paths
+    # outside the repo are skipped.
+    for arg in "$@"; do
+      case $arg in
+        "$top"/*) path=${arg#"$top"/} ;;
+        /*) continue ;;
+        *) path=$prefix${arg#./} ;;
+      esac
+      while [ "${path%/*}" != "$path" ]; do
+        path=${path%/*}
+        echo "$path"
+      done
+    done >"$want"
+    ;;
+esac
+
+git -C "$top" ls-files -z --cached --others --exclude-standard >"$list"
+
+# Baseline lines are "<folder> <count>"; exclude lines are git globs ("*"
+# stays in one folder, "**" crosses folders). In both files "#" starts a
+# comment line and blank lines are skipped.
+fresh=1
+if [ -f "$top/.fan-out-baseline" ]; then fresh=0; fi
+tr '\0' '\n' <"$list" | awk -v mode="$mode" -v limit="$LIMIT" -v want="$want" -v fresh="$fresh" \
+  -v base="$top/.fan-out-baseline" -v excl="$top/.fan-out-excludes" '
+function trim(s) { sub(/^[ \t\r]+/, "", s); sub(/[ \t\r]+$/, "", s); return s }
+function glob2re(g) {
+  gsub(/[.+(){}|$]/, "[&]", g)
+  gsub(/\*\*\//, "%%A%%", g)
+  gsub(/\*\*/, "%%B%%", g)
+  gsub(/\*/, "[^/]*", g)
+  gsub(/\?/, "[^/]", g)
+  gsub(/%%A%%/, "(.*/)?", g)
+  gsub(/%%B%%/, ".*", g)
+  return "^" g "$"
+}
+function excluded(d,   i) {
+  for (i = 1; i <= nex; i++) if (d ~ ex[i]) return 1
+  return 0
+}
+BEGIN {
+  while ((getline line < excl) > 0) {
+    line = trim(line)
+    if (line != "" && line !~ /^#/) ex[++nex] = glob2re(line)
+  }
+  while ((getline line < base) > 0) {
+    line = trim(line)
+    if (line == "" || line ~ /^#/) continue
+    n = line; sub(/.* /, "", n)
+    p = line; sub(/ [^ ]*$/, "", p)
+    baseline[p] = n + 0
+  }
+  while ((getline line < want) > 0) wanted[line] = 1
+}
+{
+  n = split($0, part, "/")
+  dir = ""
+  for (i = 1; i <= n; i++) {
+    if (substr(part[i], 1, 1) == ".") break
+    if (i > 1 && !((dir, part[i]) in seen)) { seen[dir, part[i]] = 1; count[dir]++ }
+    dir = (i == 1) ? part[i] : dir "/" part[i]
+  }
+}
+END {
+  if (mode == "update") {
+    if (fresh) {
+      for (d in count) if (count[d] > limit && !excluded(d)) print d " " count[d]
+      exit
+    }
+    close(base)
+    while ((getline line < base) > 0) {
+      t = trim(line)
+      if (t == "" || t ~ /^#/) { print line; continue }
+      p = t; sub(/ [^ ]*$/, "", p)
+      if (count[p] > limit && !excluded(p))
+        print p " " (count[p] < baseline[p] ? count[p] : baseline[p])
+    }
+    exit
+  }
+  for (d in count) {
+    if (mode == "check" && !(d in wanted)) continue
+    if (count[d] <= limit || excluded(d)) continue
+    if (d in baseline && count[d] <= baseline[d]) continue
+    msg = "fan-out: " d " holds " count[d] " entries; the limit is " limit
+    if (d in baseline) msg = msg " and its baseline is " baseline[d]
+    print msg "."
+  }
+}' >"$out"
+
+if [ "$mode" = update ]; then
+  # A new file comes out of an unordered loop, so sort it.
+  if [ "$fresh" -eq 1 ]; then
+    printf '%s\n' '# Folders over the fan-out limit, as "<folder> <count>". A folder fails' \
+      '# when it grows past its count. check-fan-out --update-baseline only' \
+      '# lowers or drops lines; to raise one, edit this file by hand.'
+    LC_ALL=C sort "$out"
+  else
+    cat "$out"
+  fi >"$list"
+  cp "$list" "$top/.fan-out-baseline"
+  exit 0
+fi
+
+if [ ! -s "$out" ]; then exit 0; fi
+
+LC_ALL=C sort "$out" >&2
+printf '%s\n' \
+  '' \
+  'A folder with many entries makes agents and people read the whole list to' \
+  'find one thing. Do not fix this by moving files into folders picked at' \
+  'random or by size, or into a bucket such as utils/, helpers/, common/ or' \
+  'misc/. That only moves the long list somewhere else.' \
+  '' \
+  'Group by concept instead: find the entries that serve one idea and move them' \
+  'into a subfolder named after it. Make that subfolder a deep module (John' \
+  'Ousterhout, "A Philosophy of Software Design"): one entry point with a small' \
+  'interface, the rest hidden behind it. Then fix the imports and links.' \
+  '' \
+  'If no grouping fits (a log of dated files, one file per item of a list), add' \
+  'the folder to .fan-out-excludes at the repo root, with a comment line above' \
+  'it that says why. Raising its number in .fan-out-baseline by hand is not a' \
+  'fix.' >&2
+exit 1

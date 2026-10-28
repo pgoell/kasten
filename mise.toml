@@ -192,13 +192,13 @@ run = "python3 scripts/release.py"
 # ─── Lint & format ──────────────────────────────────────────────────────────
 
 [tasks.lint]
-description = "Run the fast linters, both type checkers, the file-size and the copy check (pre-commit gate)"
+description = "Run the fast linters, both type checkers, the file-size, fan-out and copy checks (pre-commit gate)"
 # `fe:typecheck` is in here rather than left to CI because the two halves of the
 # repo have to be gated alike: `lint:py` type-checks the backend, and without
 # this the frontend was the half where a type error reached the branch. It
 # brings `fe:build` with it, which is what emits the gitignored route tree, and
 # the pair costs about two seconds.
-depends = ["lint:py", "lint:size", "lint:dup", "fe:lint", "fe:typecheck", "shell:lint"]
+depends = ["lint:py", "lint:size", "lint:fanout", "lint:dup", "fe:lint", "fe:typecheck", "shell:lint"]
 
 [tasks."lint:py"]
 description = "Lint, format-check and type-check the backend and the host jobs"
@@ -210,9 +210,18 @@ run = [
 
 [tasks."lint:size"]
 description = "Check every tracked file against the 5,000-token limit"
-# No arguments, so every tracked file is checked, not only the staged ones. The
-# cap and its reason are in docs/explanation/file-size-limit.md.
-run = "python3 scripts/file_size.py"
+# No arguments, so every file committed at HEAD is checked, not only the staged
+# ones. The cap and its reason are in docs/explanation/file-size-limit.md; the
+# script is the structure plugin's, kept byte-identical, and kasten's own
+# excludes are in .file-size-excludes.
+run = "scripts/structure/check-file-size"
+
+[tasks."lint:fanout"]
+description = "Check that no folder holds more than 7 entries, past its line in .fan-out-baseline"
+# Today's big folders are in .fan-out-baseline and may only shrink; lists by
+# design are in .fan-out-excludes. The reason is in
+# docs/explanation/file-size-limit.md.
+run = "scripts/structure/check-fan-out --all"
 
 [tasks."lint:dup"]
 description = "Fail when more than 1% of frontend/src, backend/src and jobs/src is copied code (jscpd)"
