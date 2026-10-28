@@ -2,7 +2,8 @@
  * Pictures of the pdf pane (#788), to look at by eye: a page with text and a
  * picture, the header row, the thumbnail column, and a take's toast and mark, in
  * light and dark, at 1440 by 900 and at 414 by 896 with touch, and the page at
- * 414 at fit width and pinched to 200 % (#991).
+ * 414 at fit width and pinched to 200 % (#991), and at 1440 zoomed to 144 % by
+ * two notches of ctrl+wheel (#1285).
  *
  * Skipped unless VITE_KASTEN_SHOTS=1; pictures land in node_modules/.cache/kasten-shots.
  */
@@ -101,7 +102,7 @@ async function shootPane(
   name: string,
   size: Size,
   theme: Theme,
-  part: "page" | "header" | "thumbs" | "take" | "zoomed",
+  part: "page" | "header" | "thumbs" | "take" | "zoomed" | "wheeled",
 ) {
   const mounted = await setUp();
   try {
@@ -136,6 +137,29 @@ async function shootPane(
         expect(slot.style.width).toBe("200%");
       });
     }
+    // Two notches of ctrl+wheel over page one's text, as a desktop reader zooms in.
+    if (part === "wheeled") {
+      window.getSelection()?.removeAllRanges();
+      const box = mounted.host.querySelector("[data-pdf-box]") as HTMLElement;
+      const rect = box.getBoundingClientRect();
+      for (const _ of [1, 2])
+        box.dispatchEvent(
+          new WheelEvent("wheel", {
+            deltaY: -100,
+            ctrlKey: true,
+            clientX: rect.left + 120,
+            clientY: rect.top + 120,
+            bubbles: true,
+            cancelable: true,
+          }),
+        );
+      await vi.waitFor(() => {
+        const slot = mounted.host.querySelector('[data-pdf-page="1"]') as HTMLElement;
+        const canvas = slot.querySelector("canvas") as HTMLCanvasElement;
+        expect(slot.style.width).toBe("144%");
+        expect(canvas.width).toBe(Math.floor(slot.clientWidth * window.devicePixelRatio));
+      });
+    }
     if (part === "take") {
       await vi.waitFor(() => expect(takeButton(mounted)).not.toBeNull());
       await userEvent.keyboard("y");
@@ -145,7 +169,7 @@ async function shootPane(
     await document.fonts.ready;
     await nextFrame();
     const element =
-      part === "page" || part === "zoomed"
+      part === "page" || part === "zoomed" || part === "wheeled"
         ? mounted.host.querySelector("[data-pdf-box]")
         : part === "header"
           ? mounted.host.querySelector("[data-pdf-pane] header")
@@ -175,6 +199,9 @@ for (const theme of ["light", "dark"] as const) {
     shootPane(`pdf-thumbs-${suffix}`, DESKTOP, theme, "thumbs"),
   );
   shotTest(`pdf-take-${suffix}`, () => shootPane(`pdf-take-${suffix}`, DESKTOP, theme, "take"));
+  shotTest(`pdf-wheeled-${suffix}`, () =>
+    shootPane(`pdf-wheeled-${suffix}`, DESKTOP, theme, "wheeled"),
+  );
   shotTest(`pdf-fit-${TOUCH.width}-${theme}`, () =>
     shootPane(`pdf-fit-${TOUCH.width}-${theme}`, TOUCH, theme, "page"),
   );

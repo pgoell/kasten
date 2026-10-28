@@ -309,7 +309,16 @@ percent) and 200 percent around the tapped point. The pinch, the buttons and the
 `+` and `-` keys share one zoom value, from 50 to 300 percent. A pinch can stop
 at any value, such as 137 percent, which the header shows as a whole percent.
 The buttons then step from there to the next stop. The page redraws sharp once
-the fingers lift. A mouse works as before.
+the fingers lift.
+
+On a desktop, ctrl+wheel (cmd+wheel on a Mac) over the page zooms it about the
+pointer, and so does a trackpad pinch, which Chrome, Edge and Firefox send as
+ctrl+wheel and Safari as gesture events. The browser does not zoom the app over
+the page. A mouse notch zooms by a fifth at most; a trackpad follows the
+fingers. That zoom shares the value and the 50 to 300 percent of the buttons,
+and the page redraws sharp once the wheel stops. A wheel without ctrl scrolls
+the pages. Over the header, and anywhere outside the pdf pane, ctrl+wheel and
+ctrl or cmd with `+`, `-` and `0` are the browser's, which zooms the whole app.
 
 From 900 px of pane width a column of page thumbnails sits on the left, drawn
 as the pages come into view. The page on screen has an accent ring, and a click

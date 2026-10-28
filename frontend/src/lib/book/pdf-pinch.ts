@@ -1,7 +1,9 @@
 /**
  * Two fingers and a double tap on the pdf pane's box (#991), read off touch
  * events and handed to the view as zooms about a point. A mouse sends no touch
- * events, so the desktop is left as it was.
+ * events, so on a desktop ctrl+wheel and a trackpad's pinch are read here too
+ * and handed over as zooms of the same kind (#1285), never as the browser's
+ * zoom of the whole app.
  *
  * The box's `touch-action: pan-x pan-y` (pdf-pane.css) keeps the browser from
  * zooming the whole app under two fingers while one finger still scrolls
@@ -27,7 +29,12 @@ export interface Pinched {
   end(): void;
   /** A second tap at `at` soon after a first near it. */
   doubleTap(at: BoxPoint): void;
+  /** One turn of ctrl+wheel, `factor` times the zoom about `at`; the view ends the zoom once they stop. */
+  wheel(factor: number, at: BoxPoint): void;
 }
+
+/** The most one turn of ctrl+wheel zooms by, which a mouse notch of 100 px or three lines reaches. */
+export const WHEEL_STEP = 1.2;
 
 /** How long and how far apart two taps may be to make a double tap. */
 const DOUBLE_TAP_MS = 300;
@@ -37,7 +44,7 @@ const TAP_SLOP_PX = 10;
 
 /** Listens on `box` until it is dropped, the box being made new for every open. */
 export function listenForPinch(box: HTMLElement, view: Pinched): void {
-  const point = (touch: Touch): BoxPoint => {
+  const point = (touch: { clientX: number; clientY: number }): BoxPoint => {
     const rect = box.getBoundingClientRect();
     return { x: touch.clientX - rect.left, y: touch.clientY - rect.top };
   };
@@ -119,4 +126,63 @@ export function listenForPinch(box: HTMLElement, view: Pinched): void {
   };
   box.addEventListener("touchend", lifted);
   box.addEventListener("touchcancel", lifted);
+
+  // Safari's trackpad pinch, gesture events with `scale` counted from where it
+  // began, which no other browser sends. An iPhone sends them under a touch
+  // pinch too, which already has the zoom, so they are dropped while one runs.
+  type Gesture = Event & { scale: number; clientX: number; clientY: number };
+  let gesture = false;
+  const gestured = (handle: (event: Gesture) => void) => (event: Event) => {
+    event.preventDefault();
+    handle(event as Gesture);
+  };
+  box.addEventListener(
+    "gesturestart",
+    gestured((event) => {
+      if (!view.ready() || spread !== null) return;
+      gesture = true;
+      view.begin(point(event));
+    }),
+    { passive: false },
+  );
+  box.addEventListener(
+    "gesturechange",
+    gestured((event) => {
+      if (gesture) view.move(event.scale, point(event));
+    }),
+    { passive: false },
+  );
+  box.addEventListener(
+    "gestureend",
+    gestured(() => {
+      if (!gesture) return;
+      gesture = false;
+      view.end();
+    }),
+    { passive: false },
+  );
+
+  // ctrl+wheel, which is also how Chrome, Edge and Firefox send a trackpad
+  // pinch, and cmd+wheel on a Mac. A trackpad's pixels are the fingers' own
+  // scale, e to the minus a hundredth of them, as Chrome makes them; one turn
+  // is held to `WHEEL_STEP`, so a mouse notch zooms by a step and not to a limit.
+  const most = 100 * Math.log(WHEEL_STEP);
+  box.addEventListener(
+    "wheel",
+    (event) => {
+      if (!event.ctrlKey && !event.metaKey) return;
+      // Cancelled while the pdf opens too, or the browser zooms the app.
+      event.preventDefault();
+      if (!view.ready() || spread !== null || gesture) return;
+      const px =
+        event.deltaY *
+        (event.deltaMode === WheelEvent.DOM_DELTA_LINE
+          ? 16
+          : event.deltaMode === WheelEvent.DOM_DELTA_PAGE
+            ? box.clientHeight
+            : 1);
+      view.wheel(Math.exp(-Math.max(-most, Math.min(most, px)) / 100), point(event));
+    },
+    { passive: false },
+  );
 }

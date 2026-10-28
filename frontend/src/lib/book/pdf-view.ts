@@ -101,6 +101,8 @@ export const ZOOM_MIN = 0.5;
 export const ZOOM_MAX = 3;
 /** Where a double tap at fit width goes: a phone's A4 page at about 88 % of its print size. */
 export const READING_ZOOM = 2;
+/** How long after a ctrl+wheel the zoom waits for the next before it is rounded and drawn. */
+const WHEEL_SETTLE_MS = 150;
 
 /** Calling it frees everything, as `showPdf`'s return did before. */
 export interface PdfView {
@@ -158,6 +160,10 @@ export function showPdf(
   let zoom = options?.zoom ?? 1;
   // The page and the point on it that sat between the fingers, while a pinch is under way.
   let pinching: { slot: HTMLElement; fx: number; fy: number } | null = null;
+  // Where the fingers or the pointer were last, which the point under them goes back to after the rounding.
+  let last: BoxPoint = { x: 0, y: 0 };
+  // The wait after a ctrl+wheel for the next one, which ends its zoom when it runs out.
+  let settle: ReturnType<typeof setTimeout> | undefined;
 
   const failed = () => {
     if (gone) return;
@@ -343,7 +349,32 @@ export function showPdf(
     box.scrollTop = slot.offsetTop + fy * slot.offsetHeight - at.y;
   };
 
+  // Ends a pinch or a wheel zoom: the zoom is rounded, the pages drawn at it and the pane told.
+  const settled = () => {
+    clearTimeout(settle);
+    settle = undefined;
+    if (pinching === null) return;
+    const { slot, fx, fy } = pinching;
+    pinching = null;
+    // A whole percent, which the readout shows and the buttons step from.
+    // The gaps between pages do not grow with the zoom, so far down a long
+    // pdf even that small step moves the page: it is pinned again.
+    resize(Math.round(zoom * 100) / 100);
+    pin(slot, fx, fy, last);
+    repaint();
+    // Every slot again, so the ones the pinch brought into view are drawn
+    // and the ones it pushed out are freed.
+    if (observer !== null) {
+      observer.disconnect();
+      for (const slot of numbers.keys()) observer.observe(slot);
+    }
+    options?.onZoom?.(zoom);
+  };
+
   const setZoom = (next: number, at?: BoxPoint) => {
+    // A button pressed while a wheel zoom waits for its next turn ends that zoom
+    // first, so it cannot pin a stale point after the button's.
+    if (settle !== undefined) settled();
     if (file === null || hidden || at === undefined) {
       resize(next);
       if (file !== null && !hidden) place();
@@ -358,11 +389,10 @@ export function showPdf(
   if (options?.pinch) {
     const clamp = (value: number) => Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, value));
     let start = 1;
-    // Where the fingers were last, which the point under them goes back to after the rounding.
-    let last: BoxPoint = { x: 0, y: 0 };
     listenForPinch(box, {
       ready: () => file !== null && !hidden,
       begin(at) {
+        settled();
         start = zoom;
         last = at;
         pinching = under(at);
@@ -373,27 +403,21 @@ export function showPdf(
         resize(clamp(start * scale));
         pin(pinching.slot, pinching.fx, pinching.fy, at);
       },
-      end() {
-        if (pinching === null) return;
-        const { slot, fx, fy } = pinching;
-        pinching = null;
-        // A whole percent, which the readout shows and the buttons step from.
-        // The gaps between pages do not grow with the zoom, so far down a long
-        // pdf even that small step moves the page: it is pinned again.
-        resize(Math.round(zoom * 100) / 100);
-        pin(slot, fx, fy, last);
-        repaint();
-        // Every slot again, so the ones the pinch brought into view are drawn
-        // and the ones it pushed out are freed.
-        if (observer !== null) {
-          observer.disconnect();
-          for (const slot of numbers.keys()) observer.observe(slot);
-        }
-        options.onZoom?.(zoom);
-      },
+      end: settled,
       doubleTap(at) {
         setZoom(zoom === 1 ? READING_ZOOM : 1, at);
         options.onZoom?.(zoom);
+      },
+      // About the pointer where it is now, the mouse being free to move between
+      // notches, and from the zoom now, so a wheel turned back at a limit zooms
+      // back at once. The pages are drawn once the turns stop.
+      wheel(factor, at) {
+        last = at;
+        pinching = under(at);
+        resize(clamp(zoom * factor));
+        pin(pinching.slot, pinching.fx, pinching.fy, at);
+        clearTimeout(settle);
+        settle = setTimeout(settled, WHEEL_SETTLE_MS);
       },
     });
   }
@@ -408,6 +432,7 @@ export function showPdf(
 
   const dispose = () => {
     gone = true;
+    clearTimeout(settle);
     observer?.disconnect();
     resizer?.disconnect();
     for (const slot of numbers.keys()) free(slot);
