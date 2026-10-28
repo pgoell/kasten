@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useRef, useState } from "react";
-import { type AnkiImport, importAnki, importAnkiLink } from "@/lib/api";
+import { type AnkiImport, importAnki, importAnkiLink } from "@/lib/anki-import";
 import { whenKeysUp } from "@/lib/last-input";
 
 /** The line under the import row, one for a file and a link alike. */

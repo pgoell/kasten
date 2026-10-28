@@ -1,8 +1,14 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { ReviewDecks } from "@/components/review-decks";
+import * as anki from "@/lib/anki-import";
 import * as api from "@/lib/api";
 import { HITS, seededClient, serveNotes } from "./review-pane-fixture";
+
+// The polled import runs on fake timers; every test after it gets the real ones back.
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 describe("ReviewDecks reading the deck notes", () => {
   beforeEach(() => {
@@ -61,7 +67,7 @@ describe("ReviewDecks reading the deck notes", () => {
   it("imports without Anki's schedule unless asked, and counts what the merge did", async () => {
     vi.spyOn(api, "fetchCards").mockResolvedValue(HITS);
     serveNotes(HITS);
-    const imported = vi.spyOn(api, "importAnki").mockResolvedValue({
+    const imported = vi.spyOn(anki, "importAnki").mockResolvedValue({
       notes: ["Anki/AWS.md"],
       cards: 120,
       media: 2,
@@ -87,6 +93,111 @@ describe("ReviewDecks reading the deck notes", () => {
     fireEvent.click(carry);
     fireEvent.change(screen.getByLabelText("Import an Anki deck"), { target: { files: [deck] } });
     expect(imported).toHaveBeenLastCalledWith(deck, true, expect.any(Function));
+  });
+
+  /**
+   * A backend taking a deck in parts whose finish answers 202, and whose polls answer `polls` in turn.
+   *
+   * Nothing is mocked above `fetch`, so the import runs through `api.ts` and its
+   * poll, which waits on fake timers.
+   */
+  function parts(polls: { status: number; body: unknown }[]) {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string, init?: RequestInit) => {
+        const json = (status: number, body: unknown) => ({
+          ok: status < 300,
+          status,
+          headers: new Headers({ "content-type": "application/json" }),
+          json: async () => body,
+        });
+        if (url === "/api/uploads") return json(201, { id: "u1" });
+        if (init?.method === "PUT") return json(201, {});
+        if (url === "/api/anki?upload=u1") return json(202, { upload: "u1" });
+        const poll = polls.shift();
+        if (poll === undefined) throw new Error(`unexpected ${init?.method} ${url}`);
+        return json(poll.status, poll.body);
+      }),
+    );
+  }
+
+  /** Let the import's poll timer fire, with the promises it waits on settled. */
+  async function tick(ms: number) {
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(ms);
+    });
+  }
+
+  function pickBigDeck() {
+    render(
+      <QueryClientProvider client={seededClient(HITS)}>
+        <ReviewDecks onPick={vi.fn()} onParked={vi.fn()} />
+      </QueryClientProvider>,
+    );
+    screen.getByRole("button", { name: /^alpha/ });
+    // Over one 10 MiB piece, so the deck goes up in parts and the finish is a 202 to poll.
+    fireEvent.change(screen.getByLabelText("Import an Anki deck"), {
+      target: { files: [new File([new Uint8Array(10 * 1024 * 1024 + 1)], "polled.apkg")] },
+    });
+  }
+
+  it("#688 the import line shows the polled outcome and refreshes the deck list", async () => {
+    vi.useFakeTimers();
+    vi.spyOn(api, "fetchCards").mockResolvedValue(HITS);
+    serveNotes(HITS);
+    const client = seededClient(HITS);
+    const invalidate = vi.spyOn(client, "invalidateQueries");
+    parts([
+      { status: 202, body: { upload: "u1" } },
+      {
+        status: 200,
+        body: {
+          notes: ["Anki/AWS.md"],
+          cards: 120,
+          media: 0,
+          added: 5,
+          updated: 3,
+          kept: 110,
+          removed: 2,
+        },
+      },
+    ]);
+    render(
+      <QueryClientProvider client={client}>
+        <ReviewDecks onPick={vi.fn()} onParked={vi.fn()} />
+      </QueryClientProvider>,
+    );
+    screen.getByRole("button", { name: /^alpha/ });
+    const cards = vi.mocked(api.fetchCards).mock.calls.length;
+    fireEvent.change(screen.getByLabelText("Import an Anki deck"), {
+      target: { files: [new File([new Uint8Array(10 * 1024 * 1024 + 1)], "polled.apkg")] },
+    });
+
+    await tick(0);
+    expect(screen.getByText("Importing…")).toBeInTheDocument();
+    await tick(2000);
+    expect(screen.getByText("Importing…")).toBeInTheDocument();
+    await tick(2000);
+
+    expect(
+      screen.getByText("1 deck, 120 cards: 5 added, 3 updated, 110 kept, 2 removed in Anki"),
+    ).toBeInTheDocument();
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ["cards"] });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ["files"] });
+    expect(vi.mocked(api.fetchCards).mock.calls.length).toBeGreaterThan(cards);
+  });
+
+  it("#688 the import line shows the reason of a polled import that failed", async () => {
+    vi.useFakeTimers();
+    vi.spyOn(api, "fetchCards").mockResolvedValue(HITS);
+    serveNotes(HITS);
+    parts([{ status: 500, body: { detail: "The import failed: The disk is full" } }]);
+    pickBigDeck();
+
+    await tick(0);
+    await tick(2000);
+
+    expect(screen.getByText("The import failed: The disk is full")).toBeInTheDocument();
   });
 
   it("#517 A5 the Anki import is a bordered button behind one Import entry", () => {
@@ -135,7 +246,7 @@ describe("ReviewDecks reading the deck notes", () => {
   it("#517 I8 closing and opening Import keeps the last import's line and the tick", async () => {
     vi.spyOn(api, "fetchCards").mockResolvedValue(HITS);
     serveNotes(HITS);
-    vi.spyOn(api, "importAnki").mockResolvedValue({
+    vi.spyOn(anki, "importAnki").mockResolvedValue({
       notes: ["Anki/AWS.md"],
       cards: 120,
       media: 0,
@@ -190,7 +301,7 @@ describe("ReviewDecks importing a large deck (#521)", () => {
 
   it("#521 A4 the import line says how much is up, then that the deck is importing", () => {
     let progress: ((sent: number, total: number) => void) | undefined;
-    vi.spyOn(api, "importAnki").mockImplementation((_file, _carry, onProgress) => {
+    vi.spyOn(anki, "importAnki").mockImplementation((_file, _carry, onProgress) => {
       progress = onProgress;
       return new Promise(() => {});
     });

@@ -107,42 +107,6 @@ export async function fetchTodos(archive = false): Promise<TodoHit[]> {
   return data;
 }
 
-/** What one imported `.apkg` turned into, and what the merge did to the deck notes. */
-export type AnkiImport = components["schemas"]["AnkiImport"];
-
-/**
- * Turn an Anki export into notes in the vault, merged into the ones it made before.
- *
- * `carry` asks for Anki's schedule to come along with the cards.
- */
-export async function importAnki(
-  file: Blob,
-  carry: boolean,
-  onProgress?: (sent: number, total: number) => void,
-): Promise<AnkiImport> {
-  const response = await postFile(carry ? "/api/anki?carry=true" : "/api/anki", file, onProgress);
-  if (!response.ok) throw await refused(response, "POST /api/anki");
-  return (await response.json()) as AnkiImport;
-}
-
-/**
- * The same import from a link: an AnkiWeb shared-deck page or a plain `.apkg`.
- *
- * The backend fetches it, so a phone never downloads the deck only to
- * upload it again, and the answer is the one `importAnki` gets.
- */
-export async function importAnkiLink(url: string, carry: boolean): Promise<AnkiImport> {
-  // Plain `fetch` to match `importAnki`, whose refusal handling this shares:
-  // the detail is the sentence the import line shows.
-  const response = await fetch(carry ? "/api/anki/link?carry=true" : "/api/anki/link", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ url }),
-  });
-  if (!response.ok) throw await refused(response, "POST /api/anki/link");
-  return (await response.json()) as AnkiImport;
-}
-
 /**
  * Every line in the vault that could be part of a flashcard.
  *
@@ -570,6 +534,6 @@ export async function uploadAsset(
   file: Blob,
   onProgress?: (sent: number, total: number) => void,
 ): Promise<void> {
-  const response = await postFile(`/api/assets/${encodeURIComponent(path)}`, file, onProgress);
+  const { response } = await postFile(`/api/assets/${encodeURIComponent(path)}`, file, onProgress);
   if (!response.ok) throw await refused(response, `POST /api/assets/${path}`);
 }

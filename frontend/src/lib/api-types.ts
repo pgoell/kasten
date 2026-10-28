@@ -57,9 +57,49 @@ export interface paths {
         };
         /**
          * Search Notes
-         * @description Find every line in the vault holding `q`, ignoring case.
+         * @description Find every line in the vault holding `q`, ignoring case, in notes and pdf, epub and html.
          */
         get: operations["search_notes_agent_search_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/agent/skills": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Skills
+         * @description List the Claude Code skills in the skills folder, with their files.
+         */
+        get: operations["list_skills_agent_skills_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/agent/skills/{path}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Skill
+         * @description Read one skill file, relative to the skills folder.
+         */
+        get: operations["read_skill_agent_skills__path__get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -99,13 +139,13 @@ export interface paths {
          * Schema
          * @description This prefix, described as OpenAPI, for a caller with no MCP client.
          *
-         *     An agent over MCP discovers the eight capabilities from `tools/list`. One
+         *     An agent over MCP discovers the ten capabilities from `tools/list`. One
          *     holding a token and a curl has nothing to read, because `/openapi.json` at
          *     the root is behind oauth2-proxy and describes the browser's API rather than
          *     this one.
          *
          *     Built from this router's own routes rather than by filtering the whole
-         *     application's schema, so it names the eight and pulls in only the models they
+         *     application's schema, so it names the ten and pulls in only the models they
          *     reference. A token holder cannot reach anything under `/api/`, and handing
          *     one the map of those routes would give it away for nothing.
          */
@@ -389,7 +429,7 @@ export interface paths {
         put?: never;
         /**
          * Upload File
-         * @description Put the raw body into the vault at `path` as a book or an image, never over one there.
+         * @description Put the raw body at `path`: a book or an image never overwrites, a page replaces.
          *
          *     Raw rather than multipart, as `POST /api/assets/{path}` takes it, so `curl
          *     --data-binary @paper.pdf` is the whole client. `openapi_extra` because the
@@ -1019,6 +1059,10 @@ export interface paths {
          *     comes back, which is what makes the finder feel fuzzy without asking a
          *     subsequence match to mean something over prose, where it matches everything.
          *
+         *     The notes come first and then the lines of the pdf, epub and html files, read
+         *     from the text cache, which is brought up to date before the search. A blank
+         *     query answers nothing and extracts nothing.
+         *
          *     `archive` walks the archive folder too. Off by default, because what is
          *     filed away is not usually what is being looked for, and the cap on what
          *     comes back means an archive left in would eventually push live notes out of
@@ -1176,9 +1220,35 @@ export interface paths {
          *     Only on a card the import adds: one already in the note keeps kasten's.
          *
          *     `upload` names a file sent in pieces through `/api/uploads`, read in place
-         *     of the body, which is then empty.
+         *     of the body, which is then empty. Its import runs on past the request: an
+         *     answer within `anki_imports.ANSWER_BUDGET_SECONDS` is the one above, a slower one is a
+         *     202, and `GET /api/anki/imports/{upload}` answers for it after.
          */
         post: operations["import_anki_api_anki_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/anki/imports/{upload}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Anki Import
+         * @description What the finish of `upload` would answer now: 202 while it runs, else its outcome.
+         *
+         *     The counts with a 200, or the refusal with the status and sentence the
+         *     finish gives it. A 404 for an import this process never ran, a restart
+         *     being the likely cause: it forgets every import and wipes every upload.
+         */
+        get: operations["anki_import_api_anki_imports__upload__get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -3384,6 +3454,14 @@ export interface components {
             removed: number;
         };
         /**
+         * AnkiImporting
+         * @description An import still running past the answer budget, to be asked after by its upload.
+         */
+        AnkiImporting: {
+            /** Upload */
+            upload: string;
+        };
+        /**
          * Append
          * @description A line to add, and the digest of the note the caller read, when it read one.
          */
@@ -4424,6 +4502,7 @@ export interface components {
             line: number;
             /** Text */
             text: string;
+            place?: components["schemas"]["FilePlace"] | null;
         };
         /**
          * Hour
@@ -5598,6 +5677,28 @@ export interface components {
             categories: components["schemas"]["SetupCategoryOut"][];
         };
         /**
+         * Skill
+         * @description One skill: its folder name, the description off its SKILL.md, and its files.
+         */
+        Skill: {
+            /** Name */
+            name: string;
+            /** Description */
+            description: string;
+            /** Files */
+            files: string[];
+        };
+        /**
+         * SkillRead
+         * @description One skill file. No sha: nothing can write it back.
+         */
+        SkillRead: {
+            /** Path */
+            path: string;
+            /** Content */
+            content: string;
+        };
+        /**
          * SplitIn
          * @description One part of a booking.
          */
@@ -6242,6 +6343,57 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Hit"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_skills_agent_skills_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Skill"][];
+                };
+            };
+        };
+    };
+    read_skill_agent_skills__path__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                path: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SkillRead"];
                 };
             };
             /** @description Validation Error */
@@ -7556,6 +7708,55 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AnkiImport"];
+                };
+            };
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnkiImporting"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    anki_import_api_anki_imports__upload__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                upload: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnkiImport"];
+                };
+            };
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnkiImporting"];
                 };
             };
             /** @description Validation Error */

@@ -113,19 +113,38 @@ async function uploadInParts(
   return id;
 }
 
+/** What a file POST answers: the response, and the upload it went through when it went in parts. */
+export interface Posted {
+  response: Response;
+  upload?: string;
+}
+
+/** Finish an upload by its id: the route reads the file from the upload, not the body. */
+function finish(url: string, upload: string): Promise<Response> {
+  return fetch(`${url}${url.includes("?") ? "&" : "?"}upload=${upload}`, { method: "POST" });
+}
+
 /**
  * POST `file` to `url`: as the body when it fits one piece, else in pieces.
  *
  * Plain `fetch`, because the endpoints take raw bytes and the generated client
  * documents a body it will not let us send. The raw file rather than a
  * multipart part: one file and no fields, so nothing has to parse a boundary.
+ *
+ * `kept` is an upload that already holds the whole file, from an earlier try
+ * that failed after it was sent. Passing it finishes that upload and sends no
+ * piece again. The upload the file went through comes back either way, so a
+ * caller can keep it for the next try.
  */
 export async function postFile(
   url: string,
   file: Blob,
   onProgress?: (sent: number, total: number) => void,
-): Promise<Response> {
-  if (file.size <= PIECE_BYTES) return fetch(url, { method: "POST", body: file });
-  const id = await uploadInParts(file, onProgress);
-  return fetch(`${url}${url.includes("?") ? "&" : "?"}upload=${id}`, { method: "POST" });
+  kept?: string,
+): Promise<Posted> {
+  if (kept !== undefined) return { response: await finish(url, kept), upload: kept };
+  if (file.size <= PIECE_BYTES)
+    return { response: await fetch(url, { method: "POST", body: file }) };
+  const upload = await uploadInParts(file, onProgress);
+  return { response: await finish(url, upload), upload };
 }

@@ -24,6 +24,7 @@ from kasten_backend.guide import write_guide
 from kasten_backend.okf import prepare
 from kasten_backend.routes import (
     anki,
+    anki_imports,
     assets,
     finance,
     finance_budget,
@@ -106,6 +107,9 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
             yield
     finally:
         sweeping.cancel()
+        # After the requests have closed, so an import past its answer is the
+        # only thing left to stop, and it undoes its writes as it goes.
+        await anki_imports.stop()
 
 
 app = FastAPI(title="kasten", version=version("kasten-backend"), lifespan=lifespan)

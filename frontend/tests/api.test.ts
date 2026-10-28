@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { fetchBook, importAnki, importAnkiLink, UPLOAD_LIMIT_BYTES, uploadAsset } from "@/lib/api";
+import { importAnki, importAnkiLink } from "@/lib/anki-import";
+import { fetchBook, UPLOAD_LIMIT_BYTES, uploadAsset } from "@/lib/api";
 
 const FILES = readFileSync(
   path.join(import.meta.dirname, "../../backend/src/kasten_backend/files.py"),
@@ -17,14 +18,18 @@ function backendCap(): number {
 /** One piece, the most a single request carries. */
 const PIECE = 10 * 1024 * 1024;
 
+/** One answer from the backend: a lost connection, a status, or a status with its body. */
+type Reply = "drop" | number | { status: number; body: unknown };
+
 /**
  * The backend behind the upload routes, and every request sent to it in order.
  *
- * Each entry of `pieces` answers one PUT in turn: "drop" as a lost connection,
- * a number as that status. Past the last entry a PUT lands. A request reads as
- * its method, its URL and what it carried.
+ * `pieces` answers each PUT in turn, `finishes` each POST that is not an upload,
+ * and `polls` each GET of an import: "drop" as a lost connection, a number as
+ * that status, an object as that status with that body. Past the end of a list
+ * the request lands. A request reads as its method, its URL and what it carried.
  */
-function uploads(pieces: ("drop" | number)[] = []) {
+function uploads(pieces: Reply[] = [], finishes: Reply[] = [], polls: Reply[] = []) {
   const sent: string[] = [];
   vi.stubGlobal(
     "fetch",
@@ -32,25 +37,50 @@ function uploads(pieces: ("drop" | number)[] = []) {
       const body = init?.body;
       const carried =
         body instanceof Blob ? ` ${body.size} bytes` : typeof body === "string" ? ` ${body}` : "";
-      sent.push(`${init?.method} ${url}${carried}`);
+      sent.push(`${init?.method ?? "GET"} ${url}${carried}`);
       if (url === "/api/uploads") {
         return { ok: true, status: 201, json: async () => ({ id: "u1" }) };
       }
-      const answer = init?.method === "PUT" ? pieces.shift() : undefined;
-      // What `fetch` itself throws when the connection drops.
-      if (answer === "drop") throw new TypeError("Failed to fetch");
-      if (answer !== undefined && answer >= 300) {
-        return {
-          ok: false,
-          status: answer,
-          headers: new Headers({ "content-type": "application/json" }),
-          json: async () => ({ detail: `The backend answered ${answer}` }),
-        };
-      }
-      return { ok: true, status: 201, json: async () => ({}) };
+      if (init?.method === "PUT") return reply(pieces.shift());
+      if (url.startsWith("/api/anki/imports/")) return reply(polls.shift());
+      return init?.method === "POST" ? reply(finishes.shift()) : reply(undefined);
     }),
   );
   return sent;
+}
+
+/** What `fetch` answers with for one `Reply`, which is the answer to a request that landed when none. */
+function reply(answer: Reply | undefined) {
+  // What `fetch` itself throws when the connection drops.
+  if (answer === "drop") throw new TypeError("Failed to fetch");
+  if (typeof answer === "object") {
+    return {
+      ok: answer.status < 300,
+      status: answer.status,
+      headers: new Headers({ "content-type": "application/json" }),
+      json: async () => answer.body,
+    };
+  }
+  // A bare 5xx is Cloudflare's HTML page, which names no reason.
+  if (answer !== undefined && answer >= 500) {
+    return {
+      ok: false,
+      status: answer,
+      headers: new Headers({ "content-type": "text/html" }),
+      json: async () => {
+        throw new SyntaxError("Unexpected token '<'");
+      },
+    };
+  }
+  if (answer !== undefined && answer >= 300) {
+    return {
+      ok: false,
+      status: answer,
+      headers: new Headers({ "content-type": "application/json" }),
+      json: async () => ({ detail: `The backend answered ${answer}` }),
+    };
+  }
+  return { ok: true, status: 201, json: async () => ({}) };
 }
 
 describe("fetchBook", () => {
@@ -239,7 +269,19 @@ describe("uploadAsset", () => {
 describe("importAnki", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.useRealTimers();
   });
+
+  /** The counts a deck that landed reports, the same ones the summary line is built from. */
+  const LANDED = {
+    notes: ["Anki/AWS.md"],
+    cards: 120,
+    media: 2,
+    added: 5,
+    updated: 3,
+    kept: 110,
+    removed: 2,
+  };
 
   it("asks for Anki's schedule only when told to", async () => {
     const posting = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) });
@@ -268,6 +310,149 @@ describe("importAnki", () => {
       `PUT /api/uploads/u1/0 ${PIECE} bytes`,
       "PUT /api/uploads/u1/1 1 bytes",
       "POST /api/anki?carry=true&upload=u1",
+    ]);
+  });
+
+  it("#688 a finish that answers 202 polls until the import reports its counts", async () => {
+    vi.useFakeTimers();
+    const sent = uploads(
+      [],
+      [{ status: 202, body: { upload: "u1" } }],
+      [
+        { status: 202, body: { upload: "u1" } },
+        { status: 200, body: LANDED },
+      ],
+    );
+
+    const done = importAnki(new Blob(["apkg"]), false);
+    await vi.runAllTimersAsync();
+
+    await expect(done).resolves.toEqual(LANDED);
+    expect(sent).toEqual([
+      "POST /api/anki 4 bytes",
+      "GET /api/anki/imports/u1",
+      "GET /api/anki/imports/u1",
+    ]);
+  });
+
+  it("#688 a polled import that was refused rejects with the backend's sentence", async () => {
+    vi.useFakeTimers();
+    uploads(
+      [],
+      [{ status: 202, body: { upload: "u1" } }],
+      [{ status: 422, body: { detail: "That page holds no shared deck" } }],
+    );
+
+    const done = importAnki(new Blob(["apkg"]), false).catch((error: unknown) => error);
+    await vi.runAllTimersAsync();
+
+    expect(await done).toEqual(new Error("That page holds no shared deck"));
+  });
+
+  it("#688 a polled import the backend forgot rejects with a sentence, not a stuck line", async () => {
+    vi.useFakeTimers();
+    const sentence = "No such import. The backend may have restarted: import the file again.";
+    uploads(
+      [],
+      [{ status: 202, body: { upload: "u1" } }],
+      [{ status: 404, body: { detail: sentence } }],
+    );
+
+    const done = importAnki(new Blob(["apkg"]), false).catch((error: unknown) => error);
+    await vi.runAllTimersAsync();
+
+    expect(await done).toEqual(new Error(sentence));
+  });
+
+  it("#688 a polled import that failed rejects with its reason, not a lost touch", async () => {
+    vi.useFakeTimers();
+    const sent = uploads(
+      [],
+      [{ status: 202, body: { upload: "u1" } }],
+      [{ status: 500, body: { detail: "The import failed: The disk is full" } }],
+    );
+
+    const done = importAnki(new Blob(["apkg"]), false).catch((error: unknown) => error);
+    await vi.runAllTimersAsync();
+
+    expect(await done).toEqual(new Error("The import failed: The disk is full"));
+    expect(sent).toHaveLength(2);
+  });
+
+  it("#688 a poll that drops or gets a 5xx tries again and then gives up with a sentence", async () => {
+    vi.useFakeTimers();
+    // Two failures and then an answer: the import is still there, so the line waits on.
+    const recovering = uploads(
+      [],
+      [{ status: 202, body: { upload: "u1" } }],
+      ["drop", 502, { status: 200, body: LANDED }],
+    );
+    const recovered = importAnki(new Blob(["apkg"]), false);
+    await vi.runAllTimersAsync();
+    await expect(recovered).resolves.toEqual(LANDED);
+    expect(recovering).toHaveLength(4);
+
+    // Five failures in a row and the line gives up, once, rather than polling on.
+    const failing = uploads(
+      [],
+      [{ status: 202, body: { upload: "u1" } }],
+      ["drop", 502, "drop", 503, "drop", { status: 200, body: LANDED }],
+    );
+    const lost = importAnki(new Blob(["apkg"]), false).catch((error: unknown) => error);
+    await vi.runAllTimersAsync();
+
+    expect(await lost).toEqual(
+      new Error("Lost touch with the import; reload the deck list to see whether it landed"),
+    );
+    expect(failing).toHaveLength(6);
+  });
+
+  it("#688 importing the same file after a failure finishes the kept upload without sending it again", async () => {
+    const deck = new File([new Uint8Array(PIECE + 1)], "kept-refused.apkg", { lastModified: 1 });
+    const sent = uploads(
+      [],
+      [
+        { status: 422, body: { detail: "That deck has no cards" } },
+        { status: 201, body: LANDED },
+      ],
+    );
+
+    await expect(importAnki(deck, false)).rejects.toThrow("That deck has no cards");
+    await expect(importAnki(deck, false)).resolves.toEqual(LANDED);
+
+    expect(sent).toEqual([
+      `POST /api/uploads {"size":${PIECE + 1}}`,
+      `PUT /api/uploads/u1/0 ${PIECE} bytes`,
+      "PUT /api/uploads/u1/1 1 bytes",
+      "POST /api/anki?upload=u1",
+      "POST /api/anki?upload=u1",
+    ]);
+  });
+
+  it("#688 a kept upload the backend no longer has is sent again in parts", async () => {
+    const deck = new File([new Uint8Array(PIECE + 1)], "kept-gone.apkg", { lastModified: 2 });
+    const sent = uploads(
+      [],
+      [
+        { status: 422, body: { detail: "That deck has no cards" } },
+        { status: 404, body: { detail: "No such upload" } },
+        { status: 201, body: LANDED },
+      ],
+    );
+
+    await expect(importAnki(deck, false)).rejects.toThrow("That deck has no cards");
+    await expect(importAnki(deck, false)).resolves.toEqual(LANDED);
+
+    expect(sent).toEqual([
+      `POST /api/uploads {"size":${PIECE + 1}}`,
+      `PUT /api/uploads/u1/0 ${PIECE} bytes`,
+      "PUT /api/uploads/u1/1 1 bytes",
+      "POST /api/anki?upload=u1",
+      "POST /api/anki?upload=u1",
+      `POST /api/uploads {"size":${PIECE + 1}}`,
+      `PUT /api/uploads/u1/0 ${PIECE} bytes`,
+      "PUT /api/uploads/u1/1 1 bytes",
+      "POST /api/anki?upload=u1",
     ]);
   });
 });

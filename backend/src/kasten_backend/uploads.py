@@ -200,6 +200,41 @@ async def finished(key: str) -> AsyncIterator[Path]:
             _drop(key)
 
 
+@asynccontextmanager
+async def taken(key: str) -> AsyncIterator[Path]:
+    """The joined file of upload `key`, gone once the block ends well and kept if it raises.
+
+    For the Anki import, whose refusal or failure the reader may answer by
+    finishing the same upload again: what took minutes to send stays for that.
+    A file that never reached the block, unknown, gone or short, is dropped as
+    `finished` drops it. One kept has its mtime set to now, so the sweep gives
+    the retry a full `UPLOAD_IDLE_SECONDS` from the failure, not from the last
+    piece. The lock is held throughout, so the sweep skips it meanwhile.
+    """
+    upload = _find(key)
+    async with upload.lock:
+        if _uploads.get(key) is not upload:
+            raise RefusedError(404, "No such upload")
+        if not upload.path.is_file():
+            _drop(key)
+            raise RefusedError(404, "No such upload")
+        if upload.path.stat().st_size != upload.size:
+            _drop(key)
+            raise RefusedError(409, "That upload is not finished")
+        landed = False
+        try:
+            yield upload.path
+            landed = True
+        finally:
+            if landed:
+                _drop(key)
+            else:
+                # A cancel keeps it too: shutdown cancels an import, and `wipe`
+                # at the next start clears what this keeps.
+                with contextlib.suppress(OSError):
+                    upload.path.touch()
+
+
 async def read(path: Path) -> AsyncIterator[bytes]:
     """`path` a slice at a time, for `store`, which takes a stream and not a file.
 

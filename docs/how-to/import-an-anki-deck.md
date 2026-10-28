@@ -34,6 +34,18 @@ The line under the buttons says what arrived: how many decks and cards, how many
 the import added, updated and kept, how many Anki no longer has, and how many
 image and sound files came with them.
 
+A big deck can take longer than the browser waits on one request. The import
+then runs on in the backend, and the line keeps asking until it ends. It shows
+the counts when the import lands. When kasten refuses the import, the line shows
+the refusal's sentence, such as the one that names the notes a card already sits
+in. When the import fails for another reason, the line shows that reason.
+
+A refused or failed import keeps the file on the server. Pick the same `.apkg`
+again, and kasten finishes that file without sending it again. When the kept
+file is gone, after an hour with nothing done to it, kasten sends the file
+again. A restart of the backend forgets every import, so the file goes up again
+then too.
+
 ## From a link
 
 Beside **Choose an .apkg file**, the field takes a link instead of a file. Paste

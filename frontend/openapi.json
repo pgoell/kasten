@@ -153,7 +153,7 @@
           "agent"
         ],
         "summary": "Search Notes",
-        "description": "Find every line in the vault holding `q`, ignoring case.",
+        "description": "Find every line in the vault holding `q`, ignoring case, in notes and pdf, epub and html.",
         "operationId": "search_notes_agent_search_get",
         "parameters": [
           {
@@ -187,6 +187,75 @@
                     "$ref": "#/components/schemas/Hit"
                   },
                   "title": "Response Search Notes Agent Search Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/agent/skills": {
+      "get": {
+        "tags": [
+          "agent"
+        ],
+        "summary": "List Skills",
+        "description": "List the Claude Code skills in the skills folder, with their files.",
+        "operationId": "list_skills_agent_skills_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Skill"
+                  },
+                  "type": "array",
+                  "title": "Response List Skills Agent Skills Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/agent/skills/{path}": {
+      "get": {
+        "tags": [
+          "agent"
+        ],
+        "summary": "Read Skill",
+        "description": "Read one skill file, relative to the skills folder.",
+        "operationId": "read_skill_agent_skills__path__get",
+        "parameters": [
+          {
+            "name": "path",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Path"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SkillRead"
                 }
               }
             }
@@ -292,7 +361,7 @@
           "agent"
         ],
         "summary": "Schema",
-        "description": "This prefix, described as OpenAPI, for a caller with no MCP client.\n\nAn agent over MCP discovers the eight capabilities from `tools/list`. One\nholding a token and a curl has nothing to read, because `/openapi.json` at\nthe root is behind oauth2-proxy and describes the browser's API rather than\nthis one.\n\nBuilt from this router's own routes rather than by filtering the whole\napplication's schema, so it names the eight and pulls in only the models they\nreference. A token holder cannot reach anything under `/api/`, and handing\none the map of those routes would give it away for nothing.",
+        "description": "This prefix, described as OpenAPI, for a caller with no MCP client.\n\nAn agent over MCP discovers the ten capabilities from `tools/list`. One\nholding a token and a curl has nothing to read, because `/openapi.json` at\nthe root is behind oauth2-proxy and describes the browser's API rather than\nthis one.\n\nBuilt from this router's own routes rather than by filtering the whole\napplication's schema, so it names the ten and pulls in only the models they\nreference. A token holder cannot reach anything under `/api/`, and handing\none the map of those routes would give it away for nothing.",
         "operationId": "schema_agent_openapi_json_get",
         "responses": {
           "200": {
@@ -1051,7 +1120,7 @@
           "agent"
         ],
         "summary": "Upload File",
-        "description": "Put the raw body into the vault at `path` as a book or an image, never over one there.\n\nRaw rather than multipart, as `POST /api/assets/{path}` takes it, so `curl\n--data-binary @paper.pdf` is the whole client. `openapi_extra` because the\nbody is read off the request, which FastAPI cannot see to describe.",
+        "description": "Put the raw body at `path`: a book or an image never overwrites, a page replaces.\n\nRaw rather than multipart, as `POST /api/assets/{path}` takes it, so `curl\n--data-binary @paper.pdf` is the whole client. `openapi_extra` because the\nbody is read off the request, which FastAPI cannot see to describe.",
         "operationId": "upload_file_agent_files__path__post",
         "parameters": [
           {
@@ -1942,7 +2011,7 @@
     "/api/search": {
       "get": {
         "summary": "Search Files",
-        "description": "Find every line in the vault containing `q`, ignoring case.\n\nA literal match, not a regex and not a fuzzy one. The client ranks what\ncomes back, which is what makes the finder feel fuzzy without asking a\nsubsequence match to mean something over prose, where it matches everything.\n\n`archive` walks the archive folder too. Off by default, because what is\nfiled away is not usually what is being looked for, and the cap on what\ncomes back means an archive left in would eventually push live notes out of\nthe answer rather than merely lengthening it.",
+        "description": "Find every line in the vault containing `q`, ignoring case.\n\nA literal match, not a regex and not a fuzzy one. The client ranks what\ncomes back, which is what makes the finder feel fuzzy without asking a\nsubsequence match to mean something over prose, where it matches everything.\n\nThe notes come first and then the lines of the pdf, epub and html files, read\nfrom the text cache, which is brought up to date before the search. A blank\nquery answers nothing and extracts nothing.\n\n`archive` walks the archive folder too. Off by default, because what is\nfiled away is not usually what is being looked for, and the cap on what\ncomes back means an archive left in would eventually push live notes out of\nthe answer rather than merely lengthening it.",
         "operationId": "search_files_api_search_get",
         "parameters": [
           {
@@ -2242,7 +2311,7 @@
     "/api/anki": {
       "post": {
         "summary": "Import Anki",
-        "description": "Turn an Anki export into one markdown note per deck.\n\nThe bytes come as the raw body rather than as a multipart form, the way\n`POST /api/assets/{path}` takes a book: one file, no fields beside it, and\nno dependency on a form parser for a request that carries nothing to parse.\n\nA deck already imported is merged into its note by `merge`, which keeps\nevery schedule in it, since that is a note you may have answered fifty\ncards in. One imported before the cards carried their Anki ids is refused\ninstead, there being no telling its cards apart. A deck whose cards another\nnote already holds is refused too, since merging would add them a second time.\n\n`carry` writes Anki's schedule onto every card Anki has in review, as the\ncomment a rating would leave, so the review picks up where Anki left off.\nOnly on a card the import adds: one already in the note keeps kasten's.\n\n`upload` names a file sent in pieces through `/api/uploads`, read in place\nof the body, which is then empty.",
+        "description": "Turn an Anki export into one markdown note per deck.\n\nThe bytes come as the raw body rather than as a multipart form, the way\n`POST /api/assets/{path}` takes a book: one file, no fields beside it, and\nno dependency on a form parser for a request that carries nothing to parse.\n\nA deck already imported is merged into its note by `merge`, which keeps\nevery schedule in it, since that is a note you may have answered fifty\ncards in. One imported before the cards carried their Anki ids is refused\ninstead, there being no telling its cards apart. A deck whose cards another\nnote already holds is refused too, since merging would add them a second time.\n\n`carry` writes Anki's schedule onto every card Anki has in review, as the\ncomment a rating would leave, so the review picks up where Anki left off.\nOnly on a card the import adds: one already in the note keeps kasten's.\n\n`upload` names a file sent in pieces through `/api/uploads`, read in place\nof the body, which is then empty. Its import runs on past the request: an\nanswer within `anki_imports.ANSWER_BUDGET_SECONDS` is the one above, a slower one is a\n202, and `GET /api/anki/imports/{upload}` answers for it after.",
         "operationId": "import_anki_api_anki_post",
         "parameters": [
           {
@@ -2282,6 +2351,66 @@
                 }
               }
             }
+          },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnkiImporting"
+                }
+              }
+            },
+            "description": "Accepted"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/anki/imports/{upload}": {
+      "get": {
+        "summary": "Anki Import",
+        "description": "What the finish of `upload` would answer now: 202 while it runs, else its outcome.\n\nThe counts with a 200, or the refusal with the status and sentence the\nfinish gives it. A 404 for an import this process never ran, a restart\nbeing the likely cause: it forgets every import and wipes every upload.",
+        "operationId": "anki_import_api_anki_imports__upload__get",
+        "parameters": [
+          {
+            "name": "upload",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Upload"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnkiImport"
+                }
+              }
+            }
+          },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnkiImporting"
+                }
+              }
+            },
+            "description": "Accepted"
           },
           "422": {
             "description": "Validation Error",
@@ -7351,6 +7480,20 @@
         "title": "AnkiImport",
         "description": "What one `.apkg` turned into."
       },
+      "AnkiImporting": {
+        "properties": {
+          "upload": {
+            "type": "string",
+            "title": "Upload"
+          }
+        },
+        "type": "object",
+        "required": [
+          "upload"
+        ],
+        "title": "AnkiImporting",
+        "description": "An import still running past the answer budget, to be asked after by its upload."
+      },
       "Append": {
         "properties": {
           "text": {
@@ -10137,6 +10280,16 @@
           "text": {
             "type": "string",
             "title": "Text"
+          },
+          "place": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FilePlace"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
@@ -13176,6 +13329,52 @@
         ],
         "title": "SetupOut",
         "description": "Every spending category's limit on one screen, with the income it is set against."
+      },
+      "Skill": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "files": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Files"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "description",
+          "files"
+        ],
+        "title": "Skill",
+        "description": "One skill: its folder name, the description off its SKILL.md, and its files."
+      },
+      "SkillRead": {
+        "properties": {
+          "path": {
+            "type": "string",
+            "title": "Path"
+          },
+          "content": {
+            "type": "string",
+            "title": "Content"
+          }
+        },
+        "type": "object",
+        "required": [
+          "path",
+          "content"
+        ],
+        "title": "SkillRead",
+        "description": "One skill file. No sha: nothing can write it back."
       },
       "SplitIn": {
         "properties": {

@@ -88,8 +88,20 @@ The body is counted as it arrives. Past the upload cap it is refused with 413
 at the chunk that crosses it, and nothing after that chunk is read.
 
 With `?upload=<id>` and no body, it imports the file sent in pieces through
-[`POST /api/uploads`](/reference/http-api/assets-and-books.md#post-apiuploads) instead, and deletes that upload
-whether the import lands or is refused.
+[`POST /api/uploads`](/reference/http-api/assets-and-books.md#post-apiuploads) instead. It waits 20 seconds for the
+import. If the import ends by then, it answers as above: 201 with the counts, or
+the refusal with its status and sentence. If the import still runs, it answers
+202 `{"upload": "<id>"}`, and the import carries on in the backend. Ask
+[`GET /api/anki/imports/{upload}`](#get-apiankiimportsupload) how it ends.
+
+A landed import deletes its upload. A refused or failed one keeps it, so
+finishing the same id again retries without sending the file again. A second
+finish of an id whose import still runs joins that import and starts no second
+one. A finish after it landed answers the same counts again.
+
+On shutdown the backend cancels a running import, and the import takes back what
+it wrote, the media and the notes, so no half-written deck note stays. A hard
+kill can still leave a new deck's note cut short.
 
 ```json
 {
@@ -233,6 +245,18 @@ such a file has nothing left to ask and is left out.
   without a member name.
 
 [Import an Anki deck](/how-to/import-an-anki-deck.md) is the runbook.
+
+## GET /api/anki/imports/{upload}
+
+Reads how an import started by `POST /api/anki?upload=<id>` is doing. The id is
+the upload's, the one the finish named.
+
+| Status | Means |
+| --- | --- |
+| `202` | `{"upload": "<id>"}`: the import still runs |
+| `200` | The counts of the `201` answer above: the import landed |
+| the refusal's own status | Its `{"detail": ...}`: the import was refused. A failure outside the refusals answers `500` with the error's reason |
+| `404` | `No such import. The backend may have restarted: import the file again.` The backend does not know the id. A restart forgets every import and wipes every upload |
 
 ## POST /api/anki/link
 

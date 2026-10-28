@@ -1,9 +1,13 @@
 """Routes that import an Anki deck, from a file or a shared link, as one note per deck."""
 
 import asyncio
+from functools import partial
 from typing import TYPE_CHECKING, Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import (
+    JSONResponse,  # noqa: TC002  FastAPI reads the return annotation at runtime
+)
 from pydantic import BaseModel
 
 from kasten_backend import ankiweb, files, uploads
@@ -15,6 +19,8 @@ from kasten_backend.config import Settings, get_settings
 from kasten_backend.files import store
 from kasten_backend.folders import create_note
 from kasten_backend.frontmatter import reserved, stamp
+from kasten_backend.routes import anki_imports
+from kasten_backend.routes.anki_imports import AnkiImporting
 from kasten_backend.search import SearchError, notes_holding
 from kasten_backend.vault import (
     relative_path,
@@ -70,13 +76,18 @@ class AnkiImport(BaseModel):
     """Cards the note holds and the export no longer does, left in the note."""
 
 
-@router.post("/api/anki", status_code=201)
+@router.post(
+    "/api/anki",
+    status_code=201,
+    response_model=AnkiImport,
+    responses={202: {"model": AnkiImporting}},
+)
 async def import_anki(
     request: Request,
     settings: Annotated[Settings, Depends(get_settings)],
     carry: bool = False,
     upload: str | None = None,
-) -> AnkiImport:
+) -> AnkiImport | JSONResponse:
     """Turn an Anki export into one markdown note per deck.
 
     The bytes come as the raw body rather than as a multipart form, the way
@@ -94,7 +105,9 @@ async def import_anki(
     Only on a card the import adds: one already in the note keeps kasten's.
 
     `upload` names a file sent in pieces through `/api/uploads`, read in place
-    of the body, which is then empty.
+    of the body, which is then empty. Its import runs on past the request: an
+    answer within `anki_imports.ANSWER_BUDGET_SECONDS` is the one above, a slower one is a
+    202, and `GET /api/anki/imports/{upload}` answers for it after.
     """
     if upload is None:
         # Counted as it arrives, so an over-cap body is refused before the rest
@@ -110,10 +123,32 @@ async def import_anki(
             pieces.append(chunk)
         body = b"".join(pieces)
     else:
-        async with uploads.finished(upload) as joined:
-            # In a thread, as `read_apkg` is below: up to 1 GiB off the disk.
-            body = await asyncio.to_thread(joined.read_bytes)
+        work = partial(_from_upload, upload, settings, carry=carry)
+        return await anki_imports.answer(upload, anki_imports.started(upload, work))
     return await _import_bytes(body, settings, carry=carry, limit=files.UPLOAD_LIMIT_BYTES)
+
+
+async def _from_upload(key: str, settings: Settings, *, carry: bool) -> AnkiImport:
+    """Import the file of upload `key`, kept on disk if the import does not land."""
+    async with uploads.taken(key) as joined:
+        # In a thread, as `read_apkg` is below: up to 1 GiB off the disk.
+        body = await asyncio.to_thread(joined.read_bytes)
+        return await _import_bytes(body, settings, carry=carry, limit=files.UPLOAD_LIMIT_BYTES)
+
+
+@router.get(
+    "/api/anki/imports/{upload}",
+    response_model=AnkiImport,
+    responses={202: {"model": AnkiImporting}},
+)
+async def anki_import(upload: str) -> JSONResponse:
+    """What the finish of `upload` would answer now: 202 while it runs, else its outcome.
+
+    The counts with a 200, or the refusal with the status and sentence the
+    finish gives it. A 404 for an import this process never ran, a restart
+    being the likely cause: it forgets every import and wipes every upload.
+    """
+    return anki_imports.outcome(upload)
 
 
 class DeckLink(BaseModel):

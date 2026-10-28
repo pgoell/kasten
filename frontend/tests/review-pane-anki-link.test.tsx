@@ -1,6 +1,7 @@
 import { QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { ReviewDecks } from "@/components/review-decks";
+import * as anki from "@/lib/anki-import";
 import * as api from "@/lib/api";
 import { HITS, renderPane, seededClient, serveNotes } from "./review-pane-fixture";
 
@@ -41,7 +42,7 @@ describe("ReviewDecks importing from a link", () => {
   }
 
   it("A1 imports the pasted link and shows the line a file import shows", async () => {
-    const imported = vi.spyOn(api, "importAnkiLink").mockResolvedValue(DONE);
+    const imported = vi.spyOn(anki, "importAnkiLink").mockResolvedValue(DONE);
     const { field, button } = await renderDecks();
 
     fireEvent.change(field, { target: { value: LINK } });
@@ -52,7 +53,7 @@ describe("ReviewDecks importing from a link", () => {
   });
 
   it("A2 carries Anki's schedule on a link import when ticked", async () => {
-    const imported = vi.spyOn(api, "importAnkiLink").mockResolvedValue(DONE);
+    const imported = vi.spyOn(anki, "importAnkiLink").mockResolvedValue(DONE);
     const { field, button } = await renderDecks();
 
     fireEvent.click(screen.getByRole("checkbox", { name: "Carry Anki's schedule" }));
@@ -64,7 +65,7 @@ describe("ReviewDecks importing from a link", () => {
   });
 
   it("A10 imports on Enter in the field, the way a desk would", async () => {
-    const imported = vi.spyOn(api, "importAnkiLink").mockResolvedValue(DONE);
+    const imported = vi.spyOn(anki, "importAnkiLink").mockResolvedValue(DONE);
     const { field } = await renderDecks();
 
     fireEvent.change(field, { target: { value: LINK } });
@@ -86,7 +87,7 @@ describe("ReviewDecks importing from a link", () => {
   });
 
   it("I2 sends nothing for an empty or blank field", async () => {
-    const imported = vi.spyOn(api, "importAnkiLink").mockResolvedValue(DONE);
+    const imported = vi.spyOn(anki, "importAnkiLink").mockResolvedValue(DONE);
     const { field, button } = await renderDecks();
 
     fireEvent.click(button);
@@ -98,7 +99,7 @@ describe("ReviewDecks importing from a link", () => {
 
   it("I2 sends a link that is not a URL to the backend and shows its message", async () => {
     const imported = vi
-      .spyOn(api, "importAnkiLink")
+      .spyOn(anki, "importAnkiLink")
       .mockRejectedValue(new Error("Only https links"));
     const { field } = await renderDecks();
     const form = field.form as HTMLFormElement;
@@ -116,7 +117,7 @@ describe("ReviewDecks importing from a link", () => {
 
   it("I3 imports once on a double tap, saying it is importing", async () => {
     // Never settles, so the import is still running at every assertion.
-    const imported = vi.spyOn(api, "importAnkiLink").mockReturnValue(new Promise(() => {}));
+    const imported = vi.spyOn(anki, "importAnkiLink").mockReturnValue(new Promise(() => {}));
     const { field, button } = await renderDecks();
 
     fireEvent.change(field, { target: { value: LINK } });
@@ -148,7 +149,7 @@ describe("ReviewDecks importing from a link", () => {
 
   it("I5 keeps the link after a failure and clears it after a success", async () => {
     const imported = vi
-      .spyOn(api, "importAnkiLink")
+      .spyOn(anki, "importAnkiLink")
       .mockRejectedValueOnce(new Error("AnkiWeb did not answer"))
       .mockResolvedValueOnce(DONE);
     const { field, button } = await renderDecks();
@@ -166,7 +167,7 @@ describe("ReviewDecks importing from a link", () => {
 
   it("A7 shows a refusal's detail word for word", async () => {
     const detail = "That page is not an AnkiWeb shared deck, and the link is not an .apkg";
-    vi.spyOn(api, "importAnkiLink").mockRejectedValue(new Error(detail));
+    vi.spyOn(anki, "importAnkiLink").mockRejectedValue(new Error(detail));
     const { field, button } = await renderDecks();
 
     fireEvent.change(field, { target: { value: LINK } });
