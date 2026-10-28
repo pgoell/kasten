@@ -22,7 +22,8 @@ LINT = str(REPO / ".venv/bin/lint-imports")
 PYPROJECT = REPO / "pyproject.toml"
 IGNORE = shutil.ignore_patterns("__pycache__", "fonts")
 # Built in parts so this file never holds the text the dynamic-import grep bans.
-NOQA = "noqa: TID" + "251"
+# Split, so the count of the rule's mentions does not find this file.
+RULE = "TID" + "251"
 BUILTIN = "__imp" + "ort__("
 
 
@@ -159,14 +160,14 @@ def test_a_new_dynamic_import_fails_ruff(tmp_path: Path) -> None:
         text=True,
         check=False,
     ).stdout
-    assert "TID251" in out
+    assert RULE in out
     assert "runpy" in out
     assert "No dynamic imports" in out
 
 
 def test_the_accepted_dynamic_imports_stay_at_2() -> None:
     found = subprocess.run(  # noqa: S603
-        ["git", "grep", "-n", NOQA, "--", "*.py"],  # noqa: S607
+        ["git", "grep", "-n", RULE, "--", "*.py"],  # noqa: S607
         cwd=REPO,
         capture_output=True,
         text=True,
@@ -175,9 +176,21 @@ def test_the_accepted_dynamic_imports_stay_at_2() -> None:
     assert len(found.splitlines()) == 2, found
 
 
+def test_no_per_file_ignore_or_global_ignore_drops_tid251() -> None:
+    # The count above finds a noqa however it is spelled; a per-file or global
+    # ignore would hide a new dynamic import without one, so the config is read too.
+    lint = tomllib.loads((REPO / "pyproject.toml").read_text(encoding="utf-8"))["tool"]["ruff"][
+        "lint"
+    ]
+    for codes in lint.get("per-file-ignores", {}).values():
+        assert not any(RULE.startswith(code) for code in codes), codes
+    assert not any(RULE.startswith(code) for code in lint.get("ignore", [])), lint
+
+
 def test_a_builtin___import___fails_the_grep(tmp_path: Path) -> None:
     tasks = tomllib.loads((REPO / "mise.toml").read_text(encoding="utf-8"))["tasks"]
     command = tasks["lint:imports"]["run"][2]
+    assert "__imp" + "ort__" in command
     git(tmp_path, "init", "-q")
     (tmp_path / "bad.py").write_text(f'x = {BUILTIN}"os")\n', encoding="utf-8")
     git(tmp_path, "add", ".")

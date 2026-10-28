@@ -111,9 +111,12 @@ and no two sibling modules import each other. dependency-cruiser reads
 `frontend/.dependency-cruiser.cjs` over `src`, `sw` and `scripts`: no cycles,
 `lib` never imports `components` or `routes`, `components` never imports
 `routes`, the lists app and the notebook stay apart, and no dynamic `import()`.
-In Python, ruff's `TID251` bans `importlib.import_module`, `importlib.reload`,
-the `importlib.util` loaders and `runpy`, and a `git grep` bans the builtin
-`__import__`. `frontend/tests` is not scanned: vitest's mock-then-`await
+dependency-cruiser cannot follow an `import()` of a variable or a template, or
+`import.meta.glob`, so a `git grep` bans those. In Python, ruff's `TID251` bans
+`importlib.import_module`, `importlib.reload`, the `importlib.util` loaders,
+`importlib.machinery`, `pkgutil` and `runpy`, and a `git grep` bans the builtin
+`__import__`. The frontend's root config files (`vite.config.ts` and the like)
+are not scanned. `frontend/tests` is not scanned: vitest's mock-then-`await
 import` is how a test loads a module fresh.
 
 Each failure names the rule and the fix. Fix the import. The breaches that were

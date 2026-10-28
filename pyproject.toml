@@ -79,6 +79,9 @@ ban-relative-imports = "all"
 "importlib.util.spec_from_file_location" = { msg = "import the module at the top of the file; see .claude/CLAUDE.md, No dynamic imports" }
 "importlib.util.module_from_spec" = { msg = "import the module at the top of the file; see .claude/CLAUDE.md, No dynamic imports" }
 runpy = { msg = "import the module at the top of the file; see .claude/CLAUDE.md, No dynamic imports" }
+"importlib.util.find_spec" = { msg = "import the module at the top of the file; see .claude/CLAUDE.md, No dynamic imports" }
+"importlib.machinery" = { msg = "import the module at the top of the file; see .claude/CLAUDE.md, No dynamic imports" }
+pkgutil = { msg = "import the module at the top of the file; see .claude/CLAUDE.md, No dynamic imports" }
 
 [tool.ruff.lint.isort]
 known-first-party = ["kasten_backend", "kasten_jobs"]

@@ -4,7 +4,9 @@ The first tests run the committed config against the real frontend, so a rule
 dropped from .dependency-cruiser.cjs, or a stale known-violation entry, fails
 here. Each probe copies the frontend's source into tmp_path, adds one offender
 and checks that the rule it breaks fails the run. node_modules is symlinked, so
-the copy needs no install and the real tree is never touched.
+the copy needs no install and the real tree is never touched; the copy's config
+keeps the symlink's path, or the accepted KaTeX entries would not match and
+every probe would fail for the wrong reason.
 """
 
 import json
@@ -14,7 +16,9 @@ import tomllib
 from collections import Counter
 from typing import TYPE_CHECKING
 
-from backend.tests.structure.repo import REPO, run
+import pytest
+
+from backend.tests.structure.repo import REPO, git, run
 
 if TYPE_CHECKING:
     import subprocess
@@ -50,15 +54,17 @@ def probe(tmp_path: Path, files: dict[str, str]) -> subprocess.CompletedProcess[
     for name in COPIED:
         shutil.copy(FRONTEND / name, frontend / name)
     (frontend / "node_modules").symlink_to(FRONTEND / "node_modules")
+    with (frontend / ".dependency-cruiser.cjs").open("a", encoding="utf-8") as config:
+        config.write("module.exports.options.preserveSymlinks = true;\n")
     for name, source in files.items():
         (frontend / name).write_text(source, encoding="utf-8")
     return run(frontend, *lint_command())
 
 
-def assert_fails(result: subprocess.CompletedProcess[str], rule: str) -> None:
+def assert_fails(result: subprocess.CompletedProcess[str], rule: str, offender: str) -> None:
     output = result.stdout + result.stderr
     assert result.returncode != 0, output
-    assert rule in output, output
+    assert f"{rule}: {offender}" in output, output
 
 
 def rule_names(violations: list[dict]) -> Counter[str]:
@@ -93,6 +99,12 @@ def test_the_rules_scan_src_sw_and_scripts() -> None:
     assert lint_command()[1:4] == ["src", "sw", "scripts"]
 
 
+def test_an_untouched_copy_passes(tmp_path: Path) -> None:
+    # The control for every probe below: without the offender, the copy is clean.
+    result = probe(tmp_path, {})
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
 def test_a_new_cycle_fails(tmp_path: Path) -> None:
     result = probe(
         tmp_path,
@@ -101,7 +113,7 @@ def test_a_new_cycle_fails(tmp_path: Path) -> None:
             "src/lib/zz-probe-b.ts": 'import "./zz-probe-a";\nexport const b = 2;\n',
         },
     )
-    assert_fails(result, "no-circular")
+    assert_fails(result, "no-circular", "src/lib/zz-probe-")
 
 
 def test_lib_importing_a_component_fails(tmp_path: Path) -> None:
@@ -109,7 +121,7 @@ def test_lib_importing_a_component_fails(tmp_path: Path) -> None:
         tmp_path,
         {"src/lib/zz-probe.ts": 'import "@/components/editor";\nexport const probe = 1;\n'},
     )
-    assert_fails(result, "lib-not-up")
+    assert_fails(result, "lib-not-up", "src/lib/zz-probe.ts")
 
 
 def test_a_component_importing_a_route_fails(tmp_path: Path) -> None:
@@ -117,7 +129,7 @@ def test_a_component_importing_a_route_fails(tmp_path: Path) -> None:
         tmp_path,
         {"src/components/zz-probe.tsx": 'import "@/routes/index";\nexport const probe = 1;\n'},
     )
-    assert_fails(result, "components-not-routes")
+    assert_fails(result, "components-not-routes", "src/components/zz-probe.tsx")
 
 
 def test_the_lists_app_importing_lib_fails(tmp_path: Path) -> None:
@@ -125,7 +137,7 @@ def test_the_lists_app_importing_lib_fails(tmp_path: Path) -> None:
         tmp_path,
         {"src/lists/zz-probe.ts": 'import "@/lib/fuzzy";\nexport const probe = 1;\n'},
     )
-    assert_fails(result, "lists-apart")
+    assert_fails(result, "lists-apart", "src/lists/zz-probe.ts")
 
 
 def test_the_notebook_importing_the_lists_app_fails(tmp_path: Path) -> None:
@@ -133,7 +145,7 @@ def test_the_notebook_importing_the_lists_app_fails(tmp_path: Path) -> None:
         tmp_path,
         {"src/lib/zz-probe.ts": 'import "@/lists/lists-store";\nexport const probe = 1;\n'},
     )
-    assert_fails(result, "notebook-not-lists")
+    assert_fails(result, "notebook-not-lists", "src/lib/zz-probe.ts")
 
 
 def test_a_new_dynamic_import_fails(tmp_path: Path) -> None:
@@ -141,7 +153,7 @@ def test_a_new_dynamic_import_fails(tmp_path: Path) -> None:
         tmp_path,
         {"src/lib/zz-probe.ts": 'export const x = () => import("@/lib/fuzzy");\n'},
     )
-    assert_fails(result, "no-dynamic-import")
+    assert_fails(result, "no-dynamic-import", "src/lib/zz-probe.ts → src/lib/fuzzy.ts")
 
 
 def test_a_new_dynamic_import_beside_an_accepted_one_fails(tmp_path: Path) -> None:
@@ -151,7 +163,7 @@ def test_a_new_dynamic_import_beside_an_accepted_one_fails(tmp_path: Path) -> No
         tmp_path,
         {"src/lib/math.ts": math + '\nexport const later = () => import("@/lib/fuzzy");\n'},
     )
-    assert_fails(result, "no-dynamic-import")
+    assert_fails(result, "no-dynamic-import", "src/lib/math.ts → src/lib/fuzzy.ts")
 
 
 def test_a_dynamic_import_in_the_service_worker_fails(tmp_path: Path) -> None:
@@ -159,4 +171,25 @@ def test_a_dynamic_import_in_the_service_worker_fails(tmp_path: Path) -> None:
         tmp_path,
         {"sw/zz-probe.ts": 'export const x = () => import("@/lib/fuzzy");\n'},
     )
-    assert_fails(result, "no-dynamic-import")
+    assert_fails(result, "no-dynamic-import", "sw/zz-probe.ts → src/lib/fuzzy.ts")
+
+
+@pytest.mark.parametrize(
+    "source",
+    ['const n = "./fuzzy";\nimport(n);\n', "import(`./${n}`);\n", 'import.meta.glob("./*.ts");\n'],
+    ids=["a variable", "a template", "a glob"],
+)
+def test_a_dynamic_import_dependency_cruiser_cannot_follow_fails_the_grep(
+    tmp_path: Path, source: str
+) -> None:
+    tasks = tomllib.loads((REPO / "mise.toml").read_text(encoding="utf-8"))["tasks"]
+    (command,) = [step for step in tasks["lint:imports"]["run"] if "import\\.meta" in step]
+    git(tmp_path, "init", "-q")
+    (tmp_path / "frontend/src").mkdir(parents=True)
+    (tmp_path / "frontend/src/zz-probe.ts").write_text(source, encoding="utf-8")
+    (tmp_path / "frontend/src/ok.ts").write_text('import("./fuzzy");\n', encoding="utf-8")
+    git(tmp_path, "add", ".")
+    result = run(tmp_path, "bash", "-c", command)
+    assert result.returncode != 0, result.stdout + result.stderr
+    assert "zz-probe.ts" in result.stdout
+    assert "ok.ts" not in result.stdout
