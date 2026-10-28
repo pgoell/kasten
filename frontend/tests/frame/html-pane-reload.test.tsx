@@ -188,6 +188,26 @@ describe.each(KINDS)("$name", ({ phone, vim }) => {
     await expect.poll(() => scrolls.at(-1), { timeout: 4000 }).toBe(y);
   });
 
+  // A page whose html box is the window's height grows in its body, which the
+  // page script watches as well as html, so the restored scroll still lands.
+  it("a page in a window-high html box whose body grows after its load opens at the reader's scroll", async () => {
+    await browser.servePage(PATH, report("old"));
+    render([PATH], { phone });
+    await ready(frameOf(mounted, 0));
+    const y = await scrollBy(frameOf(mounted, 0), 900);
+
+    const boxed = pageOf(
+      "boxed body",
+      `<p id="p1">Late.</p><div id="late"></div><script>addEventListener("load", () => setTimeout(() => { document.getElementById("late").style.height = "4000px"; }, 300));</script>${WHICH}`,
+      "<style>html{height:100%}</style>",
+    );
+    await rewrite(PATH, boxed, 0);
+
+    await expect
+      .poll(async () => (await ask(frameOf(mounted, 0), { probe: "scroll", by: 0 }, "scroll")).y)
+      .toBe(y);
+  });
+
   // A log that follows its own tail scrolls to the end on each append. The pane must not
   // pull it back to the scroll it restored.
   it("a page that scrolls itself to its end on each append is not pulled back to the restored scroll", async () => {

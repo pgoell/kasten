@@ -207,9 +207,11 @@
     target = null;
     up.postMessage({ kasten: "scroll", top: position() }, "*");
   };
-  // A page whose html box is the screen's height grows inside its body, so both
-  // are watched. A browser without ResizeObserver lands what it can at once and
-  // lets go by time; the rest of this script runs either way.
+  // A page whose html box is the window's height grows in its body, so both are
+  // watched. When body is held to that height too, the content overflows a box
+  // that never resizes, and only the time limit lets go. A browser without
+  // ResizeObserver lands what it can at once and lets go by time; the rest of
+  // this script runs either way.
   if (typeof Observer === "function") {
     const watch = new Observer(settle);
     watch.observe(document.documentElement);
