@@ -135,7 +135,8 @@ dimensions) is the fastest choice, at 50.8 on German [Q3].
 ## bge-m3 measured on the VPS
 
 Run on 2026-10-28 on the VPS, beside the live services: bge-m3's own fp32
-ONNX export (`onnx/` in `BAAI/bge-m3` [L2]) under onnxruntime 1.31.1, 8 of
+ONNX export (`onnx/` in `BAAI/bge-m3` [L2]) under onnxruntime 1.31.1 on Python 3.12 (it ships wheels for the
+backend's 3.14 too), 8 of
 the 16 threads, at `nice 19`. The load average stood at 8 to 10 from the
 other containers throughout, so an idle machine would do somewhat better.
 The pieces are real vault text outside the flashcards, cut to a fixed length.
@@ -187,7 +188,7 @@ What this means for kasten:
   ripgrep search keeps working. At 512 the vault makes about 4,000 to 5,000
   pieces, 46 MB in pgvector.
 * **Keeping up is cheap.** Saving a median note (≈1,050 tokens, three pieces)
-  re-embeds in about 2 s. A busy week's 0.38M changed tokens is under ten
+  re-embeds in 2 to 3 s. A busy week's 0.38M changed tokens is about ten
   minutes of work, less with re-embeds driven by a hash of each piece.
 * **No vector index is needed** at this size: the exact scan takes 11 ms.
   HNSW pays off past tens of thousands of pieces.
@@ -290,14 +291,17 @@ Three things decide it:
    published German retrieval score here; no API publishes one.
 2. **Speed.** Measured on the VPS, a bge-m3 query answers in about 56 ms,
    and the first pass over the vault without flashcards takes about 51
-   minutes at 512-token pieces.
+   minutes at 512-token pieces. Speed answers whether bge-m3 is usable, not
+   why to pick it: it is the slowest of the three, and at 512-token pieces
+   its 8,192-token window no longer counts. The choice over e5-base rests on
+   German alone.
 3. **Where the text goes.** A local model keeps every note on the VPS. Every
    API sends it to another company, and for Voyage that means training by
    default.
 
 The VPS has 44 GiB available, so bge-m3's 2.2 GB at 512-token pieces is
 affordable. Its first pass runs once, in the background, and a saved note
-re-embeds in about 2 s. If that hour or that RAM is too much, OpenAI's
+re-embeds in 2 to 3 s. If that hour or that RAM is too much, OpenAI's
 3-small costs a few cents a month (**MONEY**, $0.02 per 1M tokens) and gives
 up the German edge and the privacy.
 
