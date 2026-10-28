@@ -188,7 +188,7 @@ def _records(client: FinTS3PinTanClient, account: SEPAAccount, pull: AccountPull
     if isinstance(response, NeedTANResponse):
         response = approve_tan(client, response, interactive=False, sleep=sleep)
     # A CAMT fetch resumed after a TAN skips get_transactions' parsing in
-    # python-fints 5.0.0 and hands back the raw (booked, pending) streams.
+    # python-fints 5.0.1 and hands back the raw (booked, pending) streams.
     if isinstance(response, tuple):
         booked, _pending = response
         response = [Transaction(record) for stream in booked for record in camt053_to_dict(stream)]
