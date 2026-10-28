@@ -1,4 +1,4 @@
-import { shareLine, sourceOf, storyOf } from "@/lib/html-share";
+import { shareLine, sourceOf, storyOf } from "@/lib/html/html-share";
 
 const PAGE = "01 Periodic/05 Newspaper/2026-10-26.html";
 const DAILY = "01 Periodic/00 Daily/2026-10-26.md";
