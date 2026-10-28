@@ -116,8 +116,9 @@ or none at all, gets the scripts and nothing about colour or fonts. It shows its
 own fallback, which follows the system.
 
 Anything that is not a readable `.html` file inside the vault is a `404`, on
-the rules the note read follows. There is no write: a page gets into the vault
-from a terminal or an agent with a shell.
+the rules the note read follows. There is no write here: a page gets into the vault
+from a terminal, or from an agent through
+[`POST /agent/files/{path}`](/reference/agent-api/routes.md#post-agentfilespath).
 
 ## GET /api/kasten-theme.css
 

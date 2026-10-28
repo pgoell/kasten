@@ -24,7 +24,8 @@ above it are made on the way. File a note you were not told where to put in
 There is no delete, no move and no rename, so a note in the wrong place stays
 there until someone moves it in the app.
 
-save_file downloads a PDF, epub or image from a public URL. File a paper
+save_file downloads a PDF, epub or image from a public URL, or writes an
+HTML page from its text, and a later save replaces that page. File a paper
 beside its note: "x/Paper.md", "x/Paper.pdf".
 
 dump adds a paragraph to "## Dump" in the user's daily note, read at day's end

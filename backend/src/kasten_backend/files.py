@@ -3,6 +3,8 @@
 One implementation behind three callers: `POST /api/assets/{path}` in the
 browser, `POST /agent/files/{path}` for a token holder with a shell, and the
 MCP tool `save_file`, which has no way to carry bytes and hands a URL instead.
+A page of HTML, the one file a write may replace, is `page_store.py`'s, on the
+cap, the temp and the refusals here.
 The rules about what may land, where, and how big, live here once. The AnkiWeb
 deck fetch lives in `ankiweb.py`, on the reader and the address check here.
 

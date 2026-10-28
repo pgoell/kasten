@@ -110,7 +110,7 @@ gets the answer the graph pane would draw.
 
 ## Why an eighth capability is acceptable
 
-`file` puts one PDF, epub or image into the vault, from the bytes in the
+`file` puts one PDF, epub, image or HTML page into the vault, from the bytes in the
 request or from a public URL the server downloads. It is the first capability
 that adds something a leaked token could not already do, and the list above
 named both of its halves as hazards, so it has to argue its way in.
@@ -130,6 +130,14 @@ path it named. Nothing is overwritten: a taken path is refused, decided by the
 filesystem rather than by a check in front of it, so a bad token can add and
 never replace.
 
+An HTML page is the one exception (#975). An edition or a report an agent
+rebuilds the same day has to land over the first, so a second write to the same
+`.html` path replaces the page. A bad token can therefore rewrite a page, and
+never a note, a book or an image: the replace answers to the `.html` suffix
+alone. jj tracks pages, so the old page stays in the vault's history. The page
+it writes runs under the sandbox every vault page runs under, in an origin of
+its own, so its script reads nothing of kasten's.
+
 The fetch's hazard was the network. A server that downloads what it is told
 can be told to read the box itself. The download goes through the checks
 `GET /api/fetch` already makes: `http` or `https`, every address the name
@@ -144,7 +152,8 @@ third and a model types it a few characters per token, so the ceiling is tens
 of kilobytes. claude.ai and chatgpt.com have no shell to send bytes with, so a
 URL is the only form a document can reach them in. A file attached to a chat
 there has no URL and still cannot come in; the model sees its text, never its
-bytes.
+bytes. A page is the exception, being text a model writes: `save_file` takes it
+as `content`.
 
 ## Why the finance reads are acceptable
 

@@ -88,11 +88,13 @@ lists it. A sound is left out so that `![](` completes pictures only.
 """
 
 HTML_SUFFIX = ".html"
-"""What a page of HTML beside the notes ends in, which the vault shows and never takes.
+"""What a page of HTML beside the notes ends in, which the vault shows and an agent may write.
 
-Not a row of `ASSET_MAGIC`, whose keys are what an upload accepts. A page is
-written by something with a shell, a research run above all, and the browser
-only reads it. `.htm` is left out the way `.markdown` is.
+Not a row of `ASSET_MAGIC`, whose keys are what the browser's upload accepts and
+which an upload never overwrites. A page is written by a research run with a
+shell, or by an agent through `POST /agent/files` and the MCP `save_file`, which
+`page_store.store_page` lets replace one already there. The browser only reads it.
+`.htm` is left out the way `.markdown` is.
 """
 
 _NAME_LIMIT_BYTES = 255
@@ -286,14 +288,28 @@ def resolve_asset(root: Path, relative: str) -> Path | None:
     return path
 
 
+def resolve_html_path(root: Path, relative: str) -> Path | None:
+    """Return the real path of a legal HTML page location under `root`, or None.
+
+    `resolve_asset_path` for a page, which an agent writes. The suffix is
+    lowered the way `resolve_html` lowers it, so a page the pane shows is one an
+    agent may replace.
+    """
+    path = _resolve_inside(root, relative)
+    if path is None or path.suffix.lower() != HTML_SUFFIX:
+        return None
+
+    return path
+
+
 def resolve_html(root: Path, relative: str) -> Path | None:
     """Return the real path of one HTML page under `root`, or None when there is none.
 
     `resolve_asset` for the one suffix that is not an asset, `is_file` included
     for the reason it gives there.
     """
-    path = _resolve_inside(root, relative)
-    if path is None or path.suffix.lower() != HTML_SUFFIX or not path.is_file():
+    path = resolve_html_path(root, relative)
+    if path is None or not path.is_file():
         return None
 
     return path

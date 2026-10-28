@@ -250,10 +250,12 @@ like every other agent write.
 
 ## POST /agent/files/{path}
 
-Puts one PDF, epub or image into the vault at `path`, and never over a file
-already there. The body is the file itself, raw, as
+Puts one PDF, epub, image or HTML page into the vault at `path`. A PDF, epub or
+image is never written over a file already there, but a page is: a second write
+to the same `.html` path replaces it. For a PDF, epub or image the body is the
+file itself, raw, as
 [`POST /api/assets/{path}`](/reference/http-api/assets-and-books.md#post-apiassetspath) takes
-it, and the two run the same function.
+it, and the two run the same function. That route refuses `.html`.
 
 ```sh
 curl -s -X POST -H "Authorization: Bearer $KASTEN_TOKEN" \
@@ -264,33 +266,49 @@ curl -s -X POST -H "Authorization: Bearer $KASTEN_TOKEN" \
 { "path": "20 Literature/DDIA.pdf" }
 ```
 
+A page goes the same way, with an `.html` path:
+
+```sh
+curl -s -X POST -H "Authorization: Bearer $KASTEN_TOKEN" \
+  --data-binary @report.html "$KASTEN_AGENT/files/30%20Resources/report.html"
+```
+
+```json
+{ "path": "30 Resources/report.html" }
+```
+
 `path` ends in `.pdf`, `.epub`, `.png`, `.jpg`, `.jpeg`, `.gif`, `.webp`, `.mp3`,
-`.m4a`, `.ogg` or `.wav`, and
-the bytes must start the way that suffix says. A PDF or an epub filed at a
+`.m4a`, `.ogg`, `.wav` or `.html` (in any case), and
+the bytes must start the way that suffix says. An `.html` body starts with `<`
+once blanks and an optional UTF-8 byte order mark are skipped. A PDF or an epub filed at a
 note's path with the suffix swapped is the file the reader opens beside that
 note, which [The file beside a note](/explanation/books-in-the-vault.md)
 explains.
 
 | Status | Means |
 | --- | --- |
-| `201` | The file is at `path` |
+| `201` | The file is at `path`. A page replaces the one already at a `.html` path |
 | `400` | `The vault will not take that path`, or `That file is not what its name says` |
-| `409` | `Something is already there` |
+| `409` | `Something is already there`: a PDF, epub, image or sound at a taken path, or a folder at an `.html` path |
 | `413` | `That file is over the 100 MiB limit` |
 
-There is no overwrite and no delete. A file sent to the wrong path stays there
-until someone removes it from the browser (an image) or the shell (a book).
+Only a page overwrites. The replace is atomic: the bytes go to a hidden temporary
+file that is renamed over the old page, and the change lands as one jj change, so
+the old page stays in the vault's history. There is no delete here. A file sent
+to the wrong path stays there until someone removes it from the browser (an
+image) or the shell (a book or a page).
 
-No MCP tool carries bytes. A tool call is JSON the model writes, so a file would
+No MCP tool carries a PDF, epub or image. A tool call is JSON the model writes, so a file would
 have to travel as base64 the model types out, which fails long before a paper's
 size. An agent with a shell, Claude Code among them, sends the file with this
 route instead, and the bytes go from disk to the vault without passing through
-the model.
+the model. An HTML page is text, so `save_file` takes it as `content` instead.
 
 ## POST /agent/files/{path}/fetch
 
 Downloads the file at a public `url` into the vault at `path`, by way of the
-upload above. The MCP tool is `save_file`, taking `path` and `url`.
+upload above. The MCP tool is `save_file`, taking `path` and `url`. A `.html` path is not
+taken here.
 
 ```json
 { "url": "https://arxiv.org/pdf/2404.16130" }
@@ -306,7 +324,8 @@ anything is opened.
 
 This is the way in for claude.ai and chatgpt.com, which have no shell. A file
 there with no public address, a PDF attached to the chat among them, has no way
-into the vault: the model sees its text and never its bytes.
+into the vault: the model sees its text and never its bytes. A page the model
+writes has no such trouble: `save_file` takes its text as `content`.
 
 ## The finance reads
 

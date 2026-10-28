@@ -17,11 +17,12 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from starlette.requests import ClientDisconnect
 
-from kasten_backend import agent, files, token_activity, vcs
+from kasten_backend import agent, files, page_store, token_activity, vcs
 from kasten_backend.agent_finance_routes import router as finance_router
 from kasten_backend.config import Settings, get_settings
 from kasten_backend.graph import MOST_DEPTH, Graph, GraphError
 from kasten_backend.tokens import identify
+from kasten_backend.vault import HTML_SUFFIX
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -201,14 +202,17 @@ async def fetch_file(
 async def upload_file(
     path: str, request: Request, settings: Annotated[Settings, Depends(get_settings)]
 ) -> Filed | JSONResponse:
-    """Put the raw body into the vault at `path` as a book or an image, never over one there.
+    """Put the raw body at `path`: a book or an image never overwrites, a page replaces.
 
     Raw rather than multipart, as `POST /api/assets/{path}` takes it, so `curl
     --data-binary @paper.pdf` is the whole client. `openapi_extra` because the
     body is read off the request, which FastAPI cannot see to describe.
     """
+    # Picked by the suffix alone, lowered the way the vault lowers it; each
+    # side checks the whole path again, so this choice grants nothing.
+    write = page_store.store_page if path.lower().endswith(HTML_SUFFIX) else files.store
     try:
-        landed = await files.store(settings.vault_path, path, request.stream())
+        landed = await write(settings.vault_path, path, request.stream())
     except ClientDisconnect:
         # Nobody is left to read an answer. Caught so a hang-up is not a
         # traceback; `store` has already taken the temp away.

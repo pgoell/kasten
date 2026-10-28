@@ -49,7 +49,7 @@ from mcp.server.transport_security import TransportSecuritySettings
 from mcp.types import CallToolResult, InputRequiredResult, ToolAnnotations
 from starlette.responses import JSONResponse
 
-from kasten_backend import agent, agent_mcp_finance, files, token_activity, vcs
+from kasten_backend import agent, agent_mcp_finance, files, page_store, token_activity, vcs
 from kasten_backend.agent_oauth import challenge
 from kasten_backend.agent_routes import BEARER, REFUSED
 from kasten_backend.config import DEFAULTS, get_settings
@@ -170,22 +170,42 @@ async def dump(text: str, date: date) -> dict[str, Any]:
         raise ToolError(str(empty)) from empty
 
 
-async def save_file(path: str, url: str) -> dict[str, Any]:
-    """Download a PDF, an epub or an image from a public `url` into the vault at `path`.
+async def save_file(
+    path: str, url: str | None = None, content: str | None = None
+) -> dict[str, Any]:
+    """Save a file into the vault at `path`. Pass `url` or `content`, never both.
 
-    `path` ends in .pdf, .epub, .png, .jpg, .jpeg, .gif or .webp, and the bytes
-    must be that format. A file filed beside a note is the note's path with the
-    suffix swapped, `20 Literature/DDIA.md` beside `20 Literature/DDIA.pdf`,
-    and the app opens it in the reader next to the note. Never overwrites: a
-    taken path is refused. Up to 100MiB. A file you hold only as an attachment
-    has no URL and cannot come in this way.
+    `url` downloads a PDF, epub, image or sound from a public address. `path`
+    ends in .pdf, .epub, .png, .jpg, .jpeg, .gif, .webp, .mp3, .m4a, .ogg or
+    .wav, and the bytes must be that format. A file filed beside a note is the
+    note's path with the suffix swapped, `20 Literature/DDIA.md` beside
+    `20 Literature/DDIA.pdf`, and the app opens it in the reader next to the
+    note. A file you hold only as an attachment has no URL and cannot come in
+    this way.
+
+    `content` is an HTML page's text, and `path` ends in .html. A later save to
+    the same .html path replaces the page. Every other path is never
+    overwritten: a taken path is refused. Up to 100MiB either way.
     """
+    root = get_settings().vault_path
     try:
-        landed = await files.download(get_settings().vault_path, path, url)
+        if url is not None and content is None:
+            landed = await files.download(root, path, url)
+        elif content is not None and url is None:
+            landed = await page_store.store_page(root, path, _page(content))
+        else:
+            raise ToolError(
+                "Pass url for a PDF, epub, image or sound, or content for an .html page"
+            )
     except files.RefusedError as refused:
         raise ToolError(str(refused)) from refused
 
     return {"path": landed}
+
+
+async def _page(text: str) -> AsyncIterator[bytes]:
+    """The page's text as the one chunk `page_store.store_page` reads."""
+    yield text.encode()
 
 
 async def query_graph(

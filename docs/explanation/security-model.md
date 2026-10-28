@@ -163,7 +163,7 @@ the public internet, and opens the socket to the address it checked rather
 than looking the name up again. Every redirect hop connects the same way. The
 route is behind the gate, so the person asking is you; the check stops a page
 you clip from sending the server somewhere else. `POST /agent/files/{path}/fetch`
-and the MCP tool `save_file` download through the same connection.
+and the MCP tool `save_file`, for a URL, download through the same connection.
 
 ## What the backend says at startup
 
@@ -192,6 +192,10 @@ the app around it. In the header and not only on the frame, so a page opened
 straight from its address is held the same way. `connect-src 'none'` closes
 the last gap, a blind `POST` that would land wherever the browser still sends
 the cookie. What is left is the page drawing itself, which is the point.
+
+A page an agent writes, through `POST /agent/files/{path}` or `save_file`, gets
+the same sandbox and policy. So a token holder can plant script, and it runs in
+the page's own opaque origin, never kasten's.
 
 Only kasten may frame the page or the app: `HTML_POLICY` and the app's own
 policy both end in `frame-ancestors 'self'`. Without it, another site could
