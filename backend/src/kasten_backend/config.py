@@ -208,6 +208,15 @@ class Settings(BaseSettings):
     hostname Caddy serves.
     """
 
+    skills_path: str = ".claude/skills"
+    """The folder holding the Claude Code skills, which `list_skills` and `read_skill` read.
+
+    Relative to the vault, and the one hidden path an agent may read: the rest of
+    `.claude` and every other dotfile stay out of reach. Nothing writes here
+    through kasten. A setting for the same reason `archive_path` is one: where the
+    skills sit is one vault's convention, not kasten's.
+    """
+
     share_folder: str = "05 Shared"
     """The one folder the `/share` routes reach, the shared lists living in it.
 
@@ -323,6 +332,7 @@ class Settings(BaseSettings):
             "periodic": self.periodic_path,
             "config": self.config_path,
             "archive": self.archive_path,
+            "skills": self.skills_path,
         }
         for name, folder in folders.items():
             text = text.replace(f"{{{{{name}}}}}", folder)

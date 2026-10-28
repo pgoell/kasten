@@ -130,6 +130,19 @@ def created(content: str) -> str | None:
     return line.partition(":")[2].strip().strip("\"'") or None
 
 
+def description(content: str) -> str:
+    """The block's `description` field as it is written, quotes stripped, or empty.
+
+    What a skill's SKILL.md says it is for. A single line, as `created` is read.
+    """
+    block, _ = _split(content)
+    line = _line("description", block)
+    if line is None:
+        return ""
+
+    return line.partition(":")[2].strip().strip("\"'")
+
+
 def _list(content: str, name: str) -> list[str]:
     """The values the block's field `name` holds, in the order it holds them.
 

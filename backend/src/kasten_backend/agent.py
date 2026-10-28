@@ -11,7 +11,8 @@ the archive folder is a setting and a capability that hardcoded `98 Archive`
 would break the moment a vault filed things differently.
 
 Deliberately few things and not the thirty-one `/api/*` serves. The eighth,
-filing a book or an image, lives in `files.py` beside the browser's upload. There is no
+filing a book or an image, lives in `files.py` beside the browser's upload. The
+ninth and tenth, reading the Claude Code skills, live in `skills.py`. There is no
 delete, no move and no folder operation: a move rewrites wikilinks across the
 whole vault, and getting that wrong from outside the box is a vault-wide edit.
 The shell container keeps the knife.
