@@ -217,6 +217,14 @@ the canvas is about 118vw high, at most 70% of the screen height, and the panel
 below it takes the full width; the pane scrolls as one. On a touch screen a tap
 on a note picks it into the card, and Open or a second tap opens it.
 
+On a touch screen the vault graph settles at a zoom where names read: the
+larger of the fit and 180 %, where names draw solid, about the note with the
+most links. Two fingers zoom about the point between them, from half the fit to
+400 %, where the smallest dot is a finger wide; one finger on the background
+pans. The touch row shows the zoom right of `fit`, and `fit` or a double tap on
+the background brings the whole vault back. A mouse and its wheel zoom as
+before, with no such limits.
+
 ### Around a note
 
 Around a note each dot is larger the more edges it has, coloured by its `type`

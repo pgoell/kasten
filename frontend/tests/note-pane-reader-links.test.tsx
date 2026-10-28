@@ -110,6 +110,8 @@ const canvas = vi.hoisted(() => ({
   update: vi.fn(),
   resize: vi.fn(),
   fit: vi.fn(),
+  view: vi.fn(),
+  screenOf: vi.fn(),
   cluster: vi.fn(),
   destroy: vi.fn(),
 }));

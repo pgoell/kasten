@@ -1,6 +1,7 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { GraphPanel, type PanelCard } from "@/components/graph-panel";
+import { GraphTouchRow } from "@/components/graph-touch-row";
 import { isNotePath, PLAIN, TYPE_COLOURS } from "@/lib/graph/graph";
 import { fetchGraph } from "@/lib/graph/graph-api";
 import { drawGraph, type GraphCanvas } from "@/lib/graph/graph-canvas";
@@ -41,6 +42,9 @@ const SETTLE = 250;
 const DEPTH = 1;
 const MOST_DEPTH = 5;
 
+/** How soon a second tap on the background has to follow the first to fit, as a double tap. */
+const DOUBLE_TAP_MS = 300;
+
 /**
  * The notes as a graph, in a pane.
  *
@@ -78,6 +82,10 @@ export function GraphPane({
   // The canvas reads the pick through this ref, so a second tap sees the first
   // at once, before the render that the state change asks for.
   const pick = useRef<string | null>(null);
+  /** The zoom as a whole percent, shown in the touch row. React skips an unchanged one. */
+  const [zoom, setZoom] = useState<number | null>(null);
+  /** When a finger last tapped the background, for the double tap that fits. */
+  const blankTap = useRef(Number.NEGATIVE_INFINITY);
   const vault = around === undefined;
 
   // The handlers the canvas calls, read through a ref so the canvas is made
@@ -129,6 +137,15 @@ export function GraphPane({
         else opening.current.onOpen(node.path);
       },
       onBlank: () => {
+        // A double tap on a note would be its pick and its open, so only the
+        // background takes one, and a finger's alone: a mouse has the f key.
+        if (opening.current.coarse) {
+          const now = performance.now();
+          if (now - blankTap.current < DOUBLE_TAP_MS) {
+            blankTap.current = Number.NEGATIVE_INFINITY;
+            canvas.current?.fit();
+          } else blankTap.current = now;
+        }
         setAsked(null);
         setHovered(null);
         pick.current = null;
@@ -138,6 +155,7 @@ export function GraphPane({
       onHover: (hover) => {
         if (opening.current.vault) setHovered(hover?.node.path ?? null);
       },
+      onZoom: (scale) => setZoom(Math.round(scale * 100)),
     });
     canvas.current = made;
 
@@ -338,41 +356,12 @@ export function GraphPane({
         )}
       </header>
 
-      {/* The three keys that are not the filter, for a screen with no keys. */}
       {coarse && (
-        <nav aria-label="graph moves" className={`flex border-b border-k-rule px-1 ${LABEL}`}>
-          <button
-            type="button"
-            tabIndex={-1}
-            onClick={() => canvas.current?.fit()}
-            className="min-h-11 flex-1 uppercase"
-          >
-            fit
-          </button>
-          {/* A graph of the whole vault has no centre to reach out from. */}
-          {around !== undefined && (
-            <>
-              <button
-                type="button"
-                tabIndex={-1}
-                aria-label="one link nearer"
-                onClick={() => deeper(-1)}
-                className="min-h-11 flex-1 uppercase"
-              >
-                depth -
-              </button>
-              <button
-                type="button"
-                tabIndex={-1}
-                aria-label="one link further"
-                onClick={() => deeper(1)}
-                className="min-h-11 flex-1 uppercase"
-              >
-                depth +
-              </button>
-            </>
-          )}
-        </nav>
+        <GraphTouchRow
+          zoom={zoom}
+          onFit={() => canvas.current?.fit()}
+          onDeeper={around === undefined ? undefined : deeper}
+        />
       )}
 
       {error !== null && (

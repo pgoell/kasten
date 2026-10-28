@@ -40,6 +40,7 @@ import {
 } from "@/lib/graph/graph-clusters";
 import type { GraphMode } from "@/lib/graph/graph-mode";
 import { areasOf, paintDiscs, paintNames, ringed } from "@/lib/graph/graph-paint";
+import { FINGER, FIT_PADDING, type GraphView, NAMES_FULL, zoomsOf } from "@/lib/graph/graph-zoom";
 import { onThemeChange } from "@/lib/theme";
 
 export interface GraphCanvasHandlers {
@@ -53,6 +54,8 @@ export interface GraphCanvasHandlers {
   onHover?: (hovered: { node: DrawnNode; x: number; y: number } | null) => void;
   /** The engine stopped: the drawn notes, where they settled, in every mode. */
   onSettle?: (nodes: readonly DrawnNode[]) => void;
+  /** The zoom changed, by a gesture, a fit or the first zoom: the scale, 1 being a graph unit per CSS px. */
+  onZoom?: (scale: number) => void;
 }
 
 export interface GraphCanvas {
@@ -62,6 +65,10 @@ export interface GraphCanvas {
   resize(width: number, height: number): void;
   /** Zoom and pan until every note is on screen. */
   fit(): void;
+  /** Where the view stands now. */
+  view(): GraphView;
+  /** Where a drawn note is on screen, in CSS px inside the box, or null when it is not drawn. */
+  screenOf(path: string): { x: number; y: number } | null;
   /**
    * Group the notes by folder or by tag, or back to the type colours with null.
    * The drawing keeps its canvas: the notes move from where they are to their spots.
@@ -70,9 +77,8 @@ export interface GraphCanvas {
   destroy(): void;
 }
 
-/** The zoom at which names begin to show, and the zoom at which they are solid. */
+/** The zoom at which names begin to show; they are solid at `NAMES_FULL`. */
 const NAMES_FROM = 0.9;
-const NAMES_FULL = 1.8;
 
 /** How much a note outside the lit neighbourhood keeps of its colour. */
 const DIMMED = 0.15;
@@ -82,15 +88,6 @@ const DIMMED = 0.15;
  * page and vanishes, so a plain link is the muted grey at half strength.
  */
 const PLAIN_LINK = 0.5;
-
-/**
- * The least a note's hit area measures across on a touch screen, in CSS pixels.
- *
- * The smallest target WCAG 2.2 allows, and no more: a touch that lands in a
- * hit area drags that note, so every pixel given to tapping is taken from
- * panning and pinching, and a zoomed-out vault is mostly notes.
- */
-const FINGER = 24;
 
 /**
  * How far from a note's middle a press still counts as on it, in graph units.
@@ -256,6 +253,30 @@ export function drawGraph(
     paintNames(ctx, areasOf(spotList, groups), scale, colour);
   };
 
+  // The hit areas. force-graph paints them on a shadow canvas at most every
+  // 800 ms, so a tap soon after a pinch or a pan read the areas of the view
+  // before it and missed its note. Handing the painter over again paints them
+  // at once, which the end of every zoom does.
+  const paintArea = (
+    node: DrawnNode,
+    paint: string,
+    ctx: CanvasRenderingContext2D,
+    scale: number,
+  ) => {
+    ctx.fillStyle = paint;
+    ctx.beginPath();
+    ctx.arc(
+      node.x ?? 0,
+      node.y ?? 0,
+      radial
+        ? radialHitRadius(dotOf(node), handlers.coarse())
+        : hitRadius(node.degree, scale, handlers.coarse()),
+      0,
+      2 * Math.PI,
+    );
+    ctx.fill();
+  };
+
   const graph = new ForceGraph<DrawnNode, DrawnLink>(element)
     .backgroundColor(background())
     .nodeId("path")
@@ -326,20 +347,7 @@ export function drawGraph(
       }
       ctx.globalAlpha = 1;
     })
-    .nodePointerAreaPaint((node, paint, ctx, scale) => {
-      ctx.fillStyle = paint;
-      ctx.beginPath();
-      ctx.arc(
-        node.x ?? 0,
-        node.y ?? 0,
-        radial
-          ? radialHitRadius(dotOf(node), handlers.coarse())
-          : hitRadius(node.degree, scale, handlers.coarse()),
-        0,
-        2 * Math.PI,
-      );
-      ctx.fill();
-    })
+    .nodePointerAreaPaint(paintArea)
     .linkColor((link) => {
       const on = lit === null || (lit.has(endOf(link.source)) && lit.has(endOf(link.target)));
       const plain = link.relation === null;
@@ -399,10 +407,13 @@ export function drawGraph(
     .onEngineStop(() => {
       if (fitPending) {
         fitPending = false;
-        graph.zoomToFit(400, 40);
+        if (handlers.coarse()) zooms.readable(400, drawing.nodes);
+        else graph.zoomToFit(400, FIT_PADDING);
       }
       handlers.onSettle?.(drawing.nodes);
     });
+
+  const zooms = zoomsOf(graph, handlers.coarse);
 
   // What force-graph sets by default, kept so cluster(null) can put it back.
   const defaults = {
@@ -426,6 +437,10 @@ export function drawGraph(
       .onZoom((transform) => {
         if (transform.k !== 1) graph.zoom(1);
       });
+  } else {
+    graph
+      .onZoom((transform) => handlers.onZoom?.(transform.k))
+      .onZoomEnd(() => graph.nodePointerAreaPaint(paintArea));
   }
 
   // A theme switch changes no node, so the canvas repaints on the next frame
@@ -461,8 +476,10 @@ export function drawGraph(
       recentre();
     },
     fit() {
-      graph.zoomToFit(300, 40);
+      zooms.fit(300);
     },
+    view: zooms.view,
+    screenOf: (path) => zooms.screenOf(drawing.nodes, path),
     cluster(next) {
       // A radial drawing is fixed on its rings, so it never takes a cluster mode.
       if (radial) return;
