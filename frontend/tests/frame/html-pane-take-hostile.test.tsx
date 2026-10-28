@@ -28,7 +28,7 @@ import {
   takeButton,
   tearDown,
 } from "./html-take-fixture";
-import { HOSTILE, page as htmlPage, NEWS, POPUP } from "./html-take-pages";
+import { FORGER, HOSTILE, page as htmlPage, NEWS, POPUP } from "./html-take-pages";
 
 const PATH = "take-hostile.html";
 const FIRST = `[[${PATH}#2026-10-07-evals-01|First story]]`;
@@ -280,4 +280,140 @@ it("at 390 with touch, a tall passage that ends just past the middle keeps the t
     spans: rect.top < h / 2 && rect.bottom > h / 2,
     clear: at.bottom <= words.top || at.top >= words.bottom,
   }).toEqual({ spans: true, clear: true });
+});
+
+describe("forged y messages (#877)", () => {
+  const daily = () => periodicNote("daily", new Date()).path;
+  const SECOND = { text: "Yankee", heading: "Second story", anchor: "2026-10-07-evals-02" };
+
+  it("a forged y after the reader's mouse selection, with no key pressed, takes nothing", async () => {
+    await browser.servePage(PATH, NEWS);
+    render(mounted, [PATH]);
+    const frame = frameOf(mounted, 0);
+    await ready(frame);
+    await select(frame, ["p1", 0, "p1", 5]);
+    await expect.poll(() => buttonParts(mounted)[2]).toBe("First story");
+
+    await ask(frame, { probe: "forge", count: 5 }, "forged");
+
+    // A real `y` over the next passage: the dump holds that one alone, so the forged ones took nothing.
+    await select(frame, ["p2", 0, "p2", 6]);
+    await expect.poll(() => buttonParts(mounted)[2]).toBe("Second story");
+    await userEvent.keyboard("y");
+    await expect.poll(() => api.dumps.some((dump) => dump.includes("Second story"))).toBe(true);
+    expect(api.dumps).toEqual([takenQuote(PATH, SECOND, daily())]);
+  });
+
+  it("a page posting many y messages after one real y takes once per press, focus bounced or not", async () => {
+    await browser.servePage(PATH, FORGER);
+    render(mounted, [PATH]);
+    const frame = frameOf(mounted, 0);
+    await ready(frame);
+    await select(frame, ["p1", 0, "p1", 5]);
+    await expect.poll(() => buttonParts(mounted)[2]).toBe("First story");
+
+    await userEvent.keyboard("y");
+    await expect.poll(() => heardFrom("forgedAll")).toBe(true);
+    await expect.poll(() => api.dumps.length).toBeGreaterThan(0);
+
+    // One more real press, of a passage the reader picks: it takes, and the forged
+    // selections and `y` messages between the two presses took nothing.
+    await select(frame, ["p2", 0, "p2", 6]);
+    await expect.poll(() => buttonParts(mounted)[2]).toBe("Second story");
+    await userEvent.keyboard("y");
+    await expect.poll(() => api.dumps.some((dump) => dump.includes("Second story"))).toBe(true);
+    expect({
+      dumps: api.dumps.length,
+      forged: api.dumps.filter((dump) => dump.includes("Forged")).length,
+    }).toEqual({ dumps: 2, forged: 0 });
+  });
+
+  it("at 390x844 with touch, a forged y after a touch selection takes nothing and the tap takes", async () => {
+    await page.viewport(390, 844);
+    await browser.emulateMedia({ touch: true });
+    await browser.servePage(PATH, NEWS);
+    render(mounted, [PATH], true);
+    const frame = frameOf(mounted, 0);
+    await ready(frame);
+    await userEvent.click(inFrame(frame).getByTestId("p1"));
+    await ask(frame, { probe: "touchSelect", range: ["p1", 0, "p1", 5] }, "selected");
+    await expect.poll(() => buttonParts(mounted)[2]).toBe("First story");
+
+    await ask(frame, { probe: "forge", count: 5 }, "forged");
+
+    await userEvent.click(inFrame(frame).getByTestId("p2"));
+    await ask(frame, { probe: "touchSelect", range: ["p2", 0, "p2", 6] }, "selected");
+    await expect.poll(() => buttonParts(mounted)[2]).toBe("Second story");
+    await userEvent.click(takeButton(mounted) as HTMLElement);
+    await expect.poll(() => api.dumps.some((dump) => dump.includes("Second story"))).toBe(true);
+    expect(api.dumps).toEqual([takenQuote(PATH, SECOND, daily())]);
+  });
+
+  it("a page that bounces the focus after a take button press and posts y takes nothing", async () => {
+    await browser.servePage(PATH, NEWS);
+    render(mounted, [PATH]);
+    const frame = frameOf(mounted, 0);
+    await ready(frame);
+    await select(frame, ["p2", 0, "p2", 6]);
+    await expect.poll(() => buttonParts(mounted)[2]).toBe("Second story");
+    await userEvent.click(takeButton(mounted) as HTMLElement);
+    await expect.poll(() => api.dumps.length).toBe(1);
+
+    await ask(frame, { probe: "bounce" }, "bounced");
+
+    await select(frame, ["p1", 0, "p1", 5]);
+    await expect.poll(() => buttonParts(mounted)[2]).toBe("First story");
+    await userEvent.keyboard("y");
+    await expect.poll(() => api.dumps.some((dump) => dump.includes("First story"))).toBe(true);
+    expect(api.dumps.filter((dump) => dump.includes("Forged"))).toEqual([]);
+  });
+
+  it("a click on Share later right after a selection still saves the story", async () => {
+    await browser.servePage(PATH, NEWS);
+    render(mounted, [PATH]);
+    const frame = frameOf(mounted, 0);
+    await ready(frame);
+    await select(frame, ["p2", 0, "p2", 6]);
+    await expect.poll(() => buttonParts(mounted)[2]).toBe("Second story");
+
+    await userEvent.click(inFrame(frame).getByRole("button", { name: "Share later" }).nth(1));
+
+    await expect.poll(() => api.dumps.some((dump) => dump.includes("#share"))).toBe(true);
+  });
+
+  it("Shift with an arrow key grows a selection and y takes it, twice in one visit", async () => {
+    await browser.servePage(PATH, NEWS);
+    render(mounted, [PATH]);
+    const frame = frameOf(mounted, 0);
+    await ready(frame);
+    await select(frame, ["p1", 0, "p1", 4]);
+    await userEvent.keyboard("{Shift>}{ArrowRight}{/Shift}");
+    await expect.poll(() => buttonParts(mounted)[2]).toBe("First story");
+    await userEvent.keyboard("y");
+    await expect.poll(() => api.dumps.length).toBe(1);
+    await select(frame, ["p2", 0, "p2", 5]);
+    await userEvent.keyboard("{Shift>}{ArrowRight}{/Shift}");
+    await expect.poll(() => buttonParts(mounted)[2]).toBe("Second story");
+    await userEvent.keyboard("y");
+
+    await expect.poll(() => api.dumps.length).toBe(2);
+    expect(api.dumps[0]).toContain("> Alpha");
+    expect(api.dumps[1]).toContain("> Yankee");
+  });
+
+  it("Space from the page still opens the which-key panel after a take", async () => {
+    await browser.servePage(PATH, NEWS);
+    render(mounted, [PATH]);
+    const frame = frameOf(mounted, 0);
+    await ready(frame);
+    await select(frame, ["p1", 0, "p1", 5]);
+    await expect.poll(() => takeButton(mounted) !== null).toBe(true);
+    await userEvent.keyboard("y");
+    await expect.poll(() => api.dumps.length).toBe(1);
+
+    await userEvent.keyboard(" ");
+    await expect.poll(panelOf).not.toBeNull();
+    await userEvent.keyboard("{Escape}");
+    await expect.poll(panelOf).toBeNull();
+  });
 });

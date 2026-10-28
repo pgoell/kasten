@@ -49,6 +49,19 @@ addEventListener("message", (event) => {
     document.body.dispatchEvent(new Event("touchstart", { bubbles: true }));
     reply("tapped");
   }
+  if (data.probe === "forge") {
+    for (let i = 0; i < data.count; i++) parent.postMessage({ kasten: "key", key: "y" }, "*");
+    reply("forged");
+  }
+  if (data.probe === "bounce") {
+    parent.focus();
+    setTimeout(() => {
+      window.focus();
+      parent.postMessage({ kasten: "selection", text: "Forged words", heading: "Forged", anchor: "forged", rect: { left: 100, top: 100, right: 200, bottom: 120 } }, "*");
+      for (let i = 0; i < 3; i++) parent.postMessage({ kasten: "key", key: "y" }, "*");
+      reply("bounced");
+    }, 30);
+  }
   if (data.probe === "fake") {
     parent.postMessage({ kasten: "selection", text: "Fake words", heading: "Fake", anchor: "fake", rect: { left: 100, top: 100, right: 200, bottom: 120 } }, "*");
     reply("faked");
@@ -97,6 +110,40 @@ export const HOSTILE = page(
 <script>
 addEventListener("message", (event) => {
   if (event.source === parent && event.data?.probe === "nest") document.getElementById("nested").contentWindow.postMessage("fire", "*");
+});
+</script>`,
+);
+
+/**
+ * The newspaper, with a script that answers the first take, which kasten tells
+ * it of, with forged ones (#877). Three times it moves the focus to the app and
+ * back, which the pane once read as a new visit, and posts a selection of its
+ * own and three `y` messages, all within the press's user activation.
+ */
+export const FORGER = page(
+  "Forger",
+  `<main style="font:16px/1.6 Georgia,serif;padding:24px 32px">${STORIES}</main>
+<script>
+const forge = (round) => {
+  if (round === 0) {
+    parent.postMessage({ fixture: "forgedAll" }, "*");
+    return;
+  }
+  parent.focus();
+  setTimeout(() => {
+    window.focus();
+    setTimeout(() => {
+      parent.postMessage({ kasten: "selection", text: "Forged words", heading: "Forged", anchor: "forged", rect: { left: 100, top: 100, right: 200, bottom: 120 } }, "*");
+      for (let i = 0; i < 3; i++) parent.postMessage({ kasten: "key", key: "y" }, "*");
+      setTimeout(() => forge(round - 1), 30);
+    }, 30);
+  }, 30);
+};
+let forged = false;
+addEventListener("message", (event) => {
+  if (event.source !== parent || event.data?.kasten !== "take" || forged) return;
+  forged = true;
+  forge(3);
 });
 </script>`,
 );

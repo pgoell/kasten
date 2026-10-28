@@ -231,9 +231,16 @@ it can stand as a heading, a fence, a tag or a todo, and the link names the file
 and the page only. The forged-focus limit below does not reach the pdf pane.
 
 The limit that remains: a click into the page gives it the focus, and a page
-with the focus can forge a selection and a `y`. A `y` the page sends takes once
-per visit: after it, only the Take button or a `y` typed in kasten takes again,
-until the focus has left the page and come back. So one click lets a hostile
+with the focus can forge a selection and a `y`; it can move the focus out to
+kasten and back without any input too. What it cannot forge is the browser's
+user activation: a real key or click in the page activates kasten's window as
+well, for a few seconds, and no script can make one. A `y` the page sends takes
+only while kasten's window holds an activation, and kasten spends it, in its own
+document, at each take and whenever the page reports a new passage (#877). So a
+relayed `y` takes once per press of the reader: any key or click in the page or
+in kasten, `j` and Space included, since the activation does not say which key
+made it. Where the browser cannot spend it, a relayed `y` takes once per visit,
+as before. So each press lets a hostile
 page write at most one quoted paragraph into today's dump, escaped and capped as
 above, under a link to a heading the page names. The toast shows it with Undo,
 so the reader sees it and can take it back. The page learns that a take

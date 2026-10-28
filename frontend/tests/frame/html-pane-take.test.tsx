@@ -135,7 +135,7 @@ it("two takes stay marked after a theme switch and a scroll", async () => {
   await expect.poll(() => api.dumps.length).toBe(1);
   await select(frame, ["p2", 0, "p2", 6]);
   await expect.poll(() => takeButton(mounted) !== null).toBe(true);
-  // The button, not a second `y`: a `y` the page relays takes once per visit (security review).
+  // The button this time: a take from it marks the passage as `y` does.
   await userEvent.click(takeButton(mounted) as HTMLButtonElement);
   await expect.poll(() => api.dumps.length).toBe(2);
 
@@ -368,3 +368,62 @@ it.each([["on"], ["off"]])(
     await expect.poll(() => api.notes[RECENT[7] as string] ?? "").toContain("## Highlights");
   },
 );
+
+describe("a second y in the same visit (#877)", () => {
+  const daily = () => periodicNote("daily", new Date()).path;
+  const FIRST = { text: "Alpha", heading: "First story", anchor: "2026-10-07-evals-01" };
+  const SECOND = { text: "Yankee", heading: "Second story", anchor: "2026-10-07-evals-02" };
+
+  it("select, y, select another, y in the same visit takes twice", async () => {
+    await browser.servePage(NEWS_PATH, NEWS);
+    render(mounted, [NEWS_PATH]);
+    const frame = frameOf(mounted, 0);
+    await ready(frame);
+
+    await select(frame, ["p1", 0, "p1", 5]);
+    await expect.poll(() => buttonParts(mounted)[2]).toBe("First story");
+    await userEvent.keyboard("y");
+    await expect.poll(() => api.dumps.length).toBe(1);
+    await select(frame, ["p2", 0, "p2", 6]);
+    await expect.poll(() => buttonParts(mounted)[2]).toBe("Second story");
+    await userEvent.keyboard("y");
+
+    await expect
+      .poll(() => api.dumps)
+      .toEqual([takenQuote(NEWS_PATH, FIRST, daily()), takenQuote(NEWS_PATH, SECOND, daily())]);
+  });
+
+  it("the take button and a y typed in kasten still take beside two relayed takes", async () => {
+    await browser.servePage(NEWS_PATH, NEWS);
+    render(mounted, [NEWS_PATH]);
+    const frame = frameOf(mounted, 0);
+    await ready(frame);
+
+    await select(frame, ["p1", 0, "p1", 5]);
+    await expect.poll(() => buttonParts(mounted)[2]).toBe("First story");
+    await userEvent.keyboard("y");
+    await expect.poll(() => api.dumps.length).toBe(1);
+    await select(frame, ["p2", 0, "p2", 6]);
+    await expect.poll(() => buttonParts(mounted)[2]).toBe("Second story");
+    await userEvent.keyboard("y");
+    await expect.poll(() => api.dumps.length).toBe(2);
+
+    await select(frame, ["p1", 6, "p1", 11]);
+    await expect.poll(() => takeButton(mounted) !== null).toBe(true);
+    await userEvent.click(takeButton(mounted) as HTMLButtonElement);
+    await expect.poll(() => api.dumps.length).toBe(3);
+
+    // Out of the page and into kasten, where the `y` is the pane's own key.
+    await select(frame, ["p2", 7, "p2", 11]);
+    await expect.poll(() => takeButton(mounted) !== null).toBe(true);
+    mounted.host.querySelector<HTMLElement>("[data-html-pane]")?.focus();
+    expect(document.activeElement).not.toBe(frame);
+    await userEvent.keyboard("y");
+
+    await expect.poll(() => api.dumps.length).toBe(4);
+    expect(api.dumps.slice(2)).toEqual([
+      takenQuote(NEWS_PATH, { ...FIRST, text: "bravo" }, daily()),
+      takenQuote(NEWS_PATH, { ...SECOND, text: "zulu" }, daily()),
+    ]);
+  });
+});

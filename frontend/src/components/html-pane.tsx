@@ -10,13 +10,14 @@ import { fileOf, type PagePassage, pageLink } from "@/lib/html-take";
 import type { EditorCommands } from "@/lib/key-bindings";
 import { heldModifier, leaderAction, leaderPrefix } from "@/lib/leader-keys";
 import { encodePath } from "@/lib/note-path";
-import { type Anchor, low, placeFor, selectionOf } from "@/lib/page-selection";
+import { type Anchor, low, placeFor, samePassage, selectionOf } from "@/lib/page-selection";
 import { findQuote } from "@/lib/rsvp/rsvp";
 import { textWords } from "@/lib/rsvp/rsvp-sources";
 import { type RsvpAsk, useRsvpAsk } from "@/lib/rsvp/use-rsvp";
 import { usePressGuard } from "@/lib/take-button";
 import { currentPalette, currentTheme, onThemeChange } from "@/lib/theme";
 import { useViewport } from "@/lib/use-viewport";
+import { spendActivation } from "@/lib/user-activation";
 import { beginLeader, paneOpener } from "@/lib/which-key";
 
 /** The passage held, and where its button goes, or null where it has no place. */
@@ -105,7 +106,7 @@ export function HtmlPane({
    */
   const shared = useRef(new Map<number, string>());
   const saving = useRef(new Set<string>());
-  /** Whether the page's relayed `y` has taken in this visit: one per visit, see `takeAsReader`. */
+  /** A relayed `y` took this visit, where no activation is spent. */
   const relayedTaken = useRef(false);
   const { pressing, press } = usePressGuard(() => {
     if (lost.current) {
@@ -324,11 +325,12 @@ export function HtmlPane({
           return;
         }
         // A selection counts only while the page holds the focus, so a page in
-        // the background cannot put a button on the reader's pane.
+        // the background cannot put a button on the pane.
         if (document.activeElement !== frame.current) return;
-        // A new selection is a new press's own business, not the last one's collapse.
+        // A new selection is a new press's business, not the last one's collapse.
         lost.current = false;
         const { text, heading, anchor, rect } = selection;
+        if (!samePassage(heldRef.current?.passage, selection)) spendActivation();
         const at =
           rect === null || frame.current === null || wrapper.current === null
             ? null
@@ -349,17 +351,16 @@ export function HtmlPane({
       }
 
       // A key counts only while the frame holds the focus, so a page in the
-      // background cannot open the panel or take the focus from the pane.
+      // background cannot open the panel or take the focus.
       if (kasten !== "key" || document.activeElement !== frame.current) return;
-      // A page's `y` takes once per visit. The user activation only narrows it:
-      // a click in the page gives the window one too, so it proves no keypress.
+      // A page's `y` takes once per press (`spendActivation`).
       if (key === "y") {
         if (
           heldRef.current !== null &&
           !relayedTaken.current &&
           navigator.userActivation?.isActive !== false
         ) {
-          relayedTaken.current = true;
+          relayedTaken.current = !spendActivation();
           void takeRef.current();
         }
         return;

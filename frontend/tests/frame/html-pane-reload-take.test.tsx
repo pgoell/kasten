@@ -94,3 +94,26 @@ it("after a take and a reload, the page's y takes a passage of the new page", as
   await expect.poll(() => api.dumps.length).toBe(2);
   expect(api.dumps[1]).toContain("bravo");
 });
+
+it("after a reload, two passages taken with y in the new page are both taken", async () => {
+  await browser.servePage(PATH, report("old"));
+  renderPanes(mounted, [PATH], {});
+  await ready(frameOf(mounted, 0));
+  await select(frameOf(mounted, 0), ["p1", 0, "p1", 5]);
+  await expect.poll(() => takeButton(mounted)).not.toBeNull();
+  await userEvent.keyboard("y");
+  await expect.poll(() => api.dumps.length).toBe(1);
+
+  await rewrite(mounted, PATH, report("new"), 0);
+  const frame = frameOf(mounted, 0);
+  await select(frame, ["p1", 0, "p1", 5]);
+  await expect.poll(() => takeButton(mounted)).not.toBeNull();
+  await userEvent.keyboard("y");
+  await expect.poll(() => api.dumps.length).toBe(2);
+  await select(frame, ["p1", 6, "p1", 11]);
+  await expect.poll(() => takeButton(mounted)).not.toBeNull();
+  await userEvent.keyboard("y");
+
+  await expect.poll(() => api.dumps.length).toBe(3);
+  expect(api.dumps[2]).toContain("> bravo");
+});

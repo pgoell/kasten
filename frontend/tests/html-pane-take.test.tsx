@@ -376,68 +376,6 @@ describe("taking a passage out of an html page", () => {
     expect(takeButton()).not.toBeNull();
   });
 
-  it("a page that relays y twice in one visit takes only once", async () => {
-    const sent = answering();
-    const { frame } = renderPane();
-
-    frame.focus();
-    fromPage(frame.contentWindow, selection());
-    yFromPage(frame);
-    await screen.findByRole("status");
-    fromPage(frame.contentWindow, selection({ text: "A second, forged passage." }));
-    yFromPage(frame);
-    await settled(() => dumpsSent(sent).length >= 2);
-
-    expect(dumpsSent(sent)).toHaveLength(1);
-  });
-
-  it("a new visit to the page lets a relayed y take again", async () => {
-    const sent = answering();
-    const { frame } = renderPane();
-
-    frame.focus();
-    fromPage(frame.contentWindow, selection());
-    yFromPage(frame);
-    await screen.findByRole("status");
-    fromPage(frame.contentWindow, selection({ text: "A second, forged passage." }));
-    yFromPage(frame);
-    await settled(() => dumpsSent(sent).length >= 2);
-    expect(dumpsSent(sent)).toHaveLength(1);
-
-    // The reader leaves the frame and comes back into it, which is a new visit.
-    frame.focus();
-    window.dispatchEvent(new Event("blur"));
-    fromPage(frame.contentWindow, selection({ text: "A third passage." }));
-    yFromPage(frame);
-    await settled(() => dumpsSent(sent).length >= 2);
-
-    expect(dumpsSent(sent)).toHaveLength(2);
-    await screen.findByText("A third passage.");
-  });
-
-  it("the take button still takes after a relayed take", async () => {
-    const sent = answering();
-    const { frame } = renderPane();
-
-    frame.focus();
-    fromPage(frame.contentWindow, selection());
-    yFromPage(frame);
-    await screen.findByRole("status");
-    fromPage(frame.contentWindow, selection({ text: "A second, forged passage." }));
-    yFromPage(frame);
-    await settled(() => dumpsSent(sent).length >= 2);
-    expect(dumpsSent(sent)).toHaveLength(1);
-
-    // The reader's own press takes what is held, whatever the page relayed.
-    const button = takeButton();
-    expect(button).not.toBeNull();
-    fireEvent.click(button as HTMLElement);
-    await settled(() => dumpsSent(sent).length >= 2);
-
-    expect(dumpsSent(sent)).toHaveLength(2);
-    await screen.findByText("A second, forged passage.");
-  });
-
   it("Undo with no network says so in the toast", async () => {
     answering();
     fetchNote.mockResolvedValueOnce(NOTE).mockRejectedValueOnce(new TypeError("Failed to fetch"));

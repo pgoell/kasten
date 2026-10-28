@@ -15,6 +15,14 @@ export interface Selection {
 }
 
 /**
+ * Whether `next` reports the passage `was` holds, as a scroll or the mouseup
+ * before a click on Share later sends it again (#877): only a new one spends.
+ */
+export function samePassage(was: Omit<Selection, "rect"> | undefined, next: Selection): boolean {
+  return was?.text === next.text && was.heading === next.heading && was.anchor === next.anchor;
+}
+
+/**
  * The gap a button keeps under a selection on a touch screen. The phone draws
  * its own copy menu above the words and the handles below them, so the button
  * sits clear of both.
