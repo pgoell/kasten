@@ -41,6 +41,10 @@ def utc_today() -> date:
     return datetime.now(UTC).date()
 
 
+NOW = datetime(2026, 8, 10, 12, tzinfo=UTC)
+# Pinned so a run that crosses midnight sees one day, not two (#1315).
+
+
 def calendar(counts: dict[str, int]) -> dict:
     """GitHub's GraphQL answer for a user whose calendar holds these days."""
     days = [{"date": day, "contributionCount": count} for day, count in counts.items()]
@@ -207,9 +211,11 @@ async def test_807_i8_a_read_over_the_hour_old_asks_again(
     served: Callable[..., None],
     github: Callable[[Answer], list],
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     served()
-    today = utc_today()
+    monkeypatch.setattr("kasten_backend.github._now", lambda: NOW)
+    today = NOW.date()
     days = [(today - timedelta(days=back)).isoformat() for back in (2, 1, 0)]
     params = {"from": days[0], "to": days[-1]}
     seen = github(lambda request: httpx.Response(200, json=calendar(dict.fromkeys(days, 1))))
@@ -218,7 +224,7 @@ async def test_807_i8_a_read_over_the_hour_old_asks_again(
     # Put the last read two hours back in the file, as an hour's wait would.
     cache = tmp_path / CACHE_NAME
     stored = json.loads(cache.read_text(encoding="utf-8"))
-    stored["read"] = (datetime.now(UTC) - timedelta(hours=2)).isoformat()
+    stored["read"] = (NOW - timedelta(hours=2)).isoformat()
     cache.write_text(json.dumps(stored), encoding="utf-8")
 
     r = await client.get("/api/github", params=params)
@@ -394,10 +400,14 @@ async def test_807_a6_nothing_is_written_in_the_vault(
 
 
 async def test_807_i8_a_week_ahead_asks_once_for_the_days_read(
-    client: AsyncClient, served: Callable[..., None], github: Callable[[Answer], list]
+    client: AsyncClient,
+    served: Callable[..., None],
+    github: Callable[[Answer], list],
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     served()
-    today = utc_today()
+    monkeypatch.setattr("kasten_backend.github._now", lambda: NOW)
+    today = NOW.date()
     monday = today - timedelta(days=today.weekday())
     sunday = monday + timedelta(days=6)
     # GitHub's calendar stops at today, so the days after it are never in the file.

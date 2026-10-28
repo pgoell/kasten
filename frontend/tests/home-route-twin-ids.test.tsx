@@ -163,6 +163,18 @@ vi.mock("@/components/file-explorer", async (importOriginal) => {
 
 pageHooks();
 
+// The app stamps the day when a press runs, so a run crossing midnight would
+// see the next day while a read taken at the top of a block saw this one (#1315).
+const NOW = new Date(2026, 7, 10, 12);
+
+beforeEach(() => {
+  vi.setSystemTime(NOW);
+});
+
+afterEach(() => {
+  vi.useRealTimers();
+});
+
 describe("the route", () => {
   theRoute();
 
@@ -333,7 +345,7 @@ describe("the route", () => {
 
     describe("#538 two quick presses into done in one note", () => {
       const TWO = "two.md";
-      const daily = periodicNote("daily", new Date()).path;
+      const daily = periodicNote("daily", NOW).path;
       const LOGGED = [
         expect.stringMatching(/^- ✅ \S+ a \[\[two\]\] kt-aaaaaa$/),
         expect.stringMatching(/^- ✅ \S+ b \[\[two\]\] kt-bbbbbb$/),
@@ -421,7 +433,7 @@ describe("the route", () => {
 
     it("#534 A4 B3 <leader>x in today's note on a todo whose 🆔 another note carries moves only its line", async () => {
       // Today's own note, where the log line and the dependent are buffer edits.
-      const daily = periodicNote("daily", new Date()).path;
+      const daily = periodicNote("daily", NOW).path;
       const text = "- [/] a 🆔 kt-aaaaaa\n- [b] c ⛔ kt-aaaaaa\n\n## Done\n";
       const notes: Record<string, string> = {
         ...VAULT,
@@ -456,7 +468,7 @@ describe("the route", () => {
 
       const view = EditorView.findFromDOM(document.querySelector(".cm-editor") as HTMLElement);
       expect(view?.state.doc.toString()).toBe(
-        `- [x] a ✅ ${readClock(new Date()).date} 🆔 kt-aaaaaa\n- [b] c ⛔ kt-aaaaaa\n\n## Done\n`,
+        `- [x] a ✅ ${readClock(NOW).date} 🆔 kt-aaaaaa\n- [b] c ⛔ kt-aaaaaa\n\n## Done\n`,
       );
       expect(app.notice()).toBe(
         "Nothing moved: 🆔 kt-aaaaaa is on another todo too: projects/x.md line 1",

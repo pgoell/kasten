@@ -33,8 +33,21 @@ vi.mock("@/lib/api", async (importOriginal) => {
 
 todoApiHooks();
 
+// The code stamps today's date at the write, after the test has read it. A run
+// that crosses local midnight would see another day and the two would disagree
+// (#1315), so the clock is pinned for every test and restored after it.
+const NOW = new Date(2026, 7, 10, 12);
+
+beforeEach(() => {
+  vi.setSystemTime(NOW);
+});
+
+afterEach(() => {
+  vi.useRealTimers();
+});
+
 describe("#538 two presses in flight on the ## Done log", () => {
-  const daily = periodicNote("daily", new Date()).path;
+  const daily = periodicNote("daily", NOW).path;
   const PATH = "projects/kasten.md";
   const DOC = "- [/] a 🆔 kt-aaaaaa\n- [/] b 🆔 kt-bbbbbb";
   const INTO_A = {
@@ -258,7 +271,7 @@ describe("#538 two presses in flight on the ## Done log", () => {
   });
 
   it("#538 B2 a press that never answers holds the next one back only so long", async () => {
-    vi.useFakeTimers();
+    vi.useFakeTimers({ now: NOW });
     try {
       // Press a's guard asks the vault, which never answers.
       fetchTodos.mockReturnValueOnce(new Promise(() => {}));

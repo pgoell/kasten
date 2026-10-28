@@ -6,6 +6,7 @@
  */
 
 import "./html-take-api";
+import { vi } from "vitest";
 import { commands as browser, page, userEvent } from "vitest/browser";
 import { takenQuote } from "@/lib/html-take";
 import { periodicNote } from "@/lib/periodic";
@@ -50,14 +51,19 @@ const LOW = htmlPage(
   `<main style="font:16px/1.6 Georgia,serif;padding:24px 32px"><div style="height:560px"></div><p id="p1">${LOW_TEXT}</p><div style="height:1600px"></div></main>`,
 );
 
+/** Fixed local noon, so a run that crosses midnight reads the same day twice (#1315). */
+const NOW = new Date(2026, 7, 10, 12);
+
 let mounted: Mounted;
 
 beforeEach(async () => {
+  vi.setSystemTime(NOW);
   mounted = await setUp();
 });
 
 afterEach(async () => {
   await tearDown(mounted);
+  vi.useRealTimers();
 });
 
 it("a nested frame posting a selection and y takes nothing", async () => {

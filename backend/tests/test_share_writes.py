@@ -2,12 +2,12 @@
 
 import hashlib
 import re
-from datetime import date
 from typing import TYPE_CHECKING
 
 import pytest
 
 if TYPE_CHECKING:
+    from datetime import date
     from pathlib import Path
 
     from httpx import AsyncClient
@@ -161,7 +161,9 @@ async def test_blank_text_answers_422(client: AsyncClient, folder: Path) -> None
     assert response.status_code == 422
 
 
-async def test_tick_done_writes_the_done_mark_and_an_id(client: AsyncClient, folder: Path) -> None:
+async def test_tick_done_writes_the_done_mark_and_an_id(
+    client: AsyncClient, folder: Path, pinned_day: date
+) -> None:
     sha = put(folder, BLOCK + "- [ ] Milch\n")
 
     response = await client.post(
@@ -169,13 +171,13 @@ async def test_tick_done_writes_the_done_mark_and_an_id(client: AsyncClient, fol
     )
 
     written = (folder / "Einkauf.md").read_text(encoding="utf-8")
-    today = date.today().isoformat()
+    today = pinned_day.isoformat()
     assert response.status_code == 200
     assert re.search(rf"^- \[x\] Milch ✅ {today} 🆔 kt-[0-9a-f]{{6}}$", written, re.MULTILINE)
 
 
 async def test_1051_tick_stamps_an_id_when_the_words_hold_a_bare_id_sign(
-    client: AsyncClient, folder: Path
+    client: AsyncClient, folder: Path, pinned_day: date
 ) -> None:
     sha = put(folder, BLOCK + "- [ ] a 🆔 ⛔ kt-1 more\n")
 
@@ -184,7 +186,7 @@ async def test_1051_tick_stamps_an_id_when_the_words_hold_a_bare_id_sign(
     )
 
     written = (folder / "Einkauf.md").read_text(encoding="utf-8")
-    today = date.today().isoformat()
+    today = pinned_day.isoformat()
     assert response.status_code == 200
     assert re.search(
         rf"^- \[x\] a 🆔 ⛔ kt-1 more ✅ {today} 🆔 kt-[0-9a-f]{{6}}$", written, re.MULTILINE
@@ -192,7 +194,7 @@ async def test_1051_tick_stamps_an_id_when_the_words_hold_a_bare_id_sign(
 
 
 async def test_1051_tick_keeps_the_id_the_line_reads_after_a_bare_id_sign(
-    client: AsyncClient, folder: Path
+    client: AsyncClient, folder: Path, pinned_day: date
 ) -> None:
     sha = put(folder, BLOCK + "- [ ] a 🆔 ⛔ kt-1 🆔\N{VARIATION SELECTOR-16} kt-000002\n")
 
@@ -201,7 +203,7 @@ async def test_1051_tick_keeps_the_id_the_line_reads_after_a_bare_id_sign(
     )
 
     written = (folder / "Einkauf.md").read_text(encoding="utf-8")
-    today = date.today().isoformat()
+    today = pinned_day.isoformat()
     assert response.status_code == 200
     assert body_of(written) == (
         f"\n- [x] a 🆔 ⛔ kt-1 ✅ {today} 🆔\N{VARIATION SELECTOR-16} kt-000002\n"
@@ -209,7 +211,7 @@ async def test_1051_tick_keeps_the_id_the_line_reads_after_a_bare_id_sign(
 
 
 async def test_1051_tick_stamps_an_id_after_a_trailing_bare_id_sign(
-    client: AsyncClient, folder: Path
+    client: AsyncClient, folder: Path, pinned_day: date
 ) -> None:
     sha = put(folder, BLOCK + "- [ ] a 🆔\n")
 
@@ -218,13 +220,13 @@ async def test_1051_tick_stamps_an_id_after_a_trailing_bare_id_sign(
     )
 
     written = (folder / "Einkauf.md").read_text(encoding="utf-8")
-    today = date.today().isoformat()
+    today = pinned_day.isoformat()
     assert response.status_code == 200
     assert re.search(rf"^- \[x\] a 🆔 ✅ {today} 🆔 kt-[0-9a-f]{{6}}$", written, re.MULTILINE)
 
 
 async def test_1051_tick_stamps_an_id_when_the_id_sits_in_a_link_or_code_span(
-    client: AsyncClient, folder: Path
+    client: AsyncClient, folder: Path, pinned_day: date
 ) -> None:
     sha = put(folder, BLOCK + "- [ ] see [[🆔 kt-1]] and `🆔 kt-2`\n")
 
@@ -233,7 +235,7 @@ async def test_1051_tick_stamps_an_id_when_the_id_sits_in_a_link_or_code_span(
     )
 
     written = (folder / "Einkauf.md").read_text(encoding="utf-8")
-    today = date.today().isoformat()
+    today = pinned_day.isoformat()
     assert response.status_code == 200
     assert re.search(
         rf"^- \[x\] see \[\[🆔 kt-1\]\] and `🆔 kt-2` ✅ {today} 🆔 kt-[0-9a-f]{{6}}$",
@@ -381,7 +383,9 @@ async def test_read_cuts_recurrence_waiting_and_block_ids(
     ]
 
 
-async def test_1058_tick_keeps_a_trailing_block_id_last(client: AsyncClient, folder: Path) -> None:
+async def test_1058_tick_keeps_a_trailing_block_id_last(
+    client: AsyncClient, folder: Path, pinned_day: date
+) -> None:
     sha = put(folder, BLOCK + "- [ ] Brot ^abc\n")
 
     response = await client.post(
@@ -389,7 +393,7 @@ async def test_1058_tick_keeps_a_trailing_block_id_last(client: AsyncClient, fol
     )
 
     written = (folder / "Einkauf.md").read_text(encoding="utf-8")
-    today = date.today().isoformat()
+    today = pinned_day.isoformat()
     assert response.status_code == 200
     assert re.search(rf"^- \[x\] Brot ✅ {today} 🆔 kt-[0-9a-f]{{6}} \^abc$", written, re.MULTILINE)
 
@@ -413,7 +417,7 @@ async def test_1058_untick_keeps_the_id_and_the_block_id(client: AsyncClient, fo
 
 
 async def test_1056_tick_keeps_a_bare_done_sign_among_the_words(
-    client: AsyncClient, folder: Path
+    client: AsyncClient, folder: Path, pinned_day: date
 ) -> None:
     sha = put(folder, BLOCK + "- [ ] Haken ✅ kaufen\n")
 
@@ -422,7 +426,7 @@ async def test_1056_tick_keeps_a_bare_done_sign_among_the_words(
     )
 
     written = (folder / "Einkauf.md").read_text(encoding="utf-8")
-    today = date.today().isoformat()
+    today = pinned_day.isoformat()
     assert response.status_code == 200
     assert re.search(
         rf"^- \[x\] Haken ✅ kaufen ✅ {today} 🆔 kt-[0-9a-f]{{6}}$", written, re.MULTILINE
@@ -430,7 +434,7 @@ async def test_1056_tick_keeps_a_bare_done_sign_among_the_words(
 
 
 async def test_1056_tick_keeps_a_done_date_inside_a_code_span(
-    client: AsyncClient, folder: Path
+    client: AsyncClient, folder: Path, pinned_day: date
 ) -> None:
     sha = put(folder, BLOCK + "- [ ] see `✅ 2026-01-01`\n")
 
@@ -439,7 +443,7 @@ async def test_1056_tick_keeps_a_done_date_inside_a_code_span(
     )
 
     written = (folder / "Einkauf.md").read_text(encoding="utf-8")
-    today = date.today().isoformat()
+    today = pinned_day.isoformat()
     assert response.status_code == 200
     assert re.search(
         rf"^- \[x\] see `✅ 2026-01-01` ✅ {today} 🆔 kt-[0-9a-f]{{6}}$", written, re.MULTILINE
@@ -477,7 +481,7 @@ async def test_1056_untick_keeps_a_done_date_inside_a_code_span(
 
 
 async def test_1058_tick_keeps_the_id_before_a_trailing_block_id(
-    client: AsyncClient, folder: Path
+    client: AsyncClient, folder: Path, pinned_day: date
 ) -> None:
     sha = put(folder, BLOCK + "- [ ] Haken ✅ kaufen 🆔 kt-000001 ^abc\n")
 
@@ -485,7 +489,7 @@ async def test_1058_tick_keeps_the_id_before_a_trailing_block_id(
         "/share/lists/Einkauf/tick", json={"line": 6, "done": True, "sha": sha}
     )
 
-    today = date.today().isoformat()
+    today = pinned_day.isoformat()
     assert response.status_code == 200
     assert body_of((folder / "Einkauf.md").read_text(encoding="utf-8")) == (
         f"\n- [x] Haken ✅ kaufen ✅ {today} 🆔 kt-000001 ^abc\n"
@@ -493,7 +497,7 @@ async def test_1058_tick_keeps_the_id_before_a_trailing_block_id(
 
 
 async def test_1058_tick_keeps_crlf_and_the_block_id_last(
-    client: AsyncClient, folder: Path
+    client: AsyncClient, folder: Path, pinned_day: date
 ) -> None:
     sha = put(folder, (BLOCK + "- [ ] Brot ^abc\n").replace("\n", "\r\n"))
 
@@ -502,7 +506,7 @@ async def test_1058_tick_keeps_crlf_and_the_block_id_last(
     )
 
     written = (folder / "Einkauf.md").read_bytes().decode("utf-8")
-    today = date.today().isoformat()
+    today = pinned_day.isoformat()
     assert response.status_code == 200
     assert re.search(
         rf"^- \[x\] Brot ✅ {today} 🆔 kt-[0-9a-f]{{6}} \^abc\r$", written, re.MULTILINE

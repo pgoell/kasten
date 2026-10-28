@@ -33,6 +33,18 @@ function slashAt(doc: string) {
 const table = INSERTS.find((insert) => insert.label === "Table");
 const heading = INSERTS.find((insert) => insert.label === "Heading 2");
 
+// The palette stamps the day when a row runs, so a run crossing midnight would
+// see the next day while a read taken at the top of a block saw this one (#1315).
+const NOW = new Date(2026, 7, 10, 12);
+
+beforeEach(() => {
+  vi.setSystemTime(NOW);
+});
+
+afterEach(() => {
+  vi.useRealTimers();
+});
+
 describe("the slash menu", () => {
   it("opens on a slash at the start of a line", () => {
     expect(slashAt("first\n/ta")?.from).toBe(7);
@@ -202,7 +214,7 @@ describe("the palette", () => {
 
   it("writes and reports nothing from a tapped done row on a done todo, no vim in the editor", () => {
     const tap = (path: string) => {
-      const note = `- [x] a ✅ ${readClock(new Date()).date}`;
+      const note = `- [x] a ✅ ${readClock(NOW).date}`;
       const cycled = vi.fn();
       const view = new EditorView({
         state: EditorState.create({
@@ -219,7 +231,7 @@ describe("the palette", () => {
     };
 
     // Today's note, where the log would land in this buffer.
-    const today = tap(periodicNote("daily", new Date()).path);
+    const today = tap(periodicNote("daily", NOW).path);
     expect(today.doc).toBe(today.note);
     // Any other note, where the route would be told to write it.
     const other = tap("kasten.md");
@@ -252,7 +264,7 @@ describe("the drink entries", () => {
     entry.run();
   }
 
-  const today = periodicNote("daily", new Date()).path;
+  const today = periodicNote("daily", NOW).path;
 
   it("lists the three drinks with no editor open", () => {
     const labels = paletteEntries(stubCommands(), null).map((entry) => entry.label);
@@ -337,7 +349,7 @@ it("#621 the palette's Log food opens the food search on a daily note", () => {
   const view = new EditorView({
     state: EditorState.create({
       doc: "# 2026-10-20 Tuesday\n\n## Log\n- 💧 500 ml",
-      extensions: [notePath.of(periodicNote("daily", new Date()).path), logCard],
+      extensions: [notePath.of(periodicNote("daily", NOW).path), logCard],
     }),
   });
   const entry = paletteEntries(stubCommands(), view).find((row) => row.label === "Log food");
@@ -356,7 +368,7 @@ it("#621 Log food from the palette leaves the focus in the food query", async ()
   const view = new EditorView({
     state: EditorState.create({
       doc: "# 2026-10-20 Tuesday\n\n## Log\n- 💧 500 ml",
-      extensions: [notePath.of(periodicNote("daily", new Date()).path), logCard],
+      extensions: [notePath.of(periodicNote("daily", NOW).path), logCard],
     }),
     parent: document.body.appendChild(document.createElement("div")),
   });

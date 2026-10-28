@@ -2,7 +2,6 @@ import { EditorView } from "@codemirror/view";
 import { fireEvent, screen } from "@testing-library/react";
 import { afterEach } from "vitest";
 import { NoteMissing, type TodoHit } from "@/lib/api";
-import { readClock } from "@/lib/clock";
 import { noteBase } from "@/lib/note-base";
 import { parseTodo, patchLine, type Todo } from "@/lib/todo/todo";
 import { blockLine } from "@/lib/todo/todo-blocked";
@@ -12,7 +11,7 @@ import { cycleLines } from "@/lib/todo/todo-write";
 import { hashed } from "./digests";
 import { defineFoliateFake } from "./foliate-fake";
 import { pageHooks, renderApp, settle, theRoute, VAULT } from "./home-route-fixture";
-import { open } from "./keybindings-fixture";
+import { open, TODAY as PINNED_DAY, pinClock } from "./keybindings-fixture";
 import { COARSE, NARROW, stubMatchMedia } from "./match-media";
 import { TODAY, UNKNOWN } from "./todo-write-fixture";
 
@@ -132,7 +131,7 @@ afterEach(() => {
  * way here rather than written in, which failed every day after it was (#1093).
  */
 const DONE_LINE = new RegExp(
-  `^- \\[x\\] a 🔁 every week 📅 2026-10-20 ✅ ${readClock(new Date()).date} 🆔 kt-[0-9a-f]+ more$`,
+  `^- \\[x\\] a 🔁 every week 📅 2026-10-20 ✅ ${PINNED_DAY} 🆔 kt-[0-9a-f]+ more$`,
 );
 
 /** The line with one field of its todo changed, every other byte kept. */
@@ -141,6 +140,9 @@ function edited(line: string, change: Partial<Todo>): string {
   if (todo === null) throw new Error(`not a todo: ${line}`);
   return patchLine(line, { ...todo, ...change });
 }
+
+// The code stamps the date at the keypress, so the clock is held on `PINNED_DAY`.
+pinClock();
 
 describe("#1030 a recurrence stops at a cut field", () => {
   it("#1030 A1a readFields on a recurrence with a due date after it reads the rule and keeps the words", () => {

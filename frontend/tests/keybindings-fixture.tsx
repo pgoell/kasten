@@ -3,8 +3,28 @@ import { Editor } from "@/components/editor";
 import { readClock } from "@/lib/clock";
 import type { EditorCommands } from "@/lib/key-bindings";
 
+/** Noon on a fixed day, where `pinClock` holds the clock. */
+export const NOW = new Date(2026, 7, 10, 12);
+
 /** Read from the same helper the command reads it from, so this cannot expire. */
-export const TODAY = readClock(new Date()).date;
+export const TODAY = readClock(NOW).date;
+
+/**
+ * Hold the clock at `NOW` for every test in the file that calls it.
+ *
+ * A command stamps the date it reads at the keypress. A test that read today
+ * once before then fails when midnight falls between the two (#1315), so a
+ * file that compares against `TODAY` pins the clock to the day it names. Only
+ * `Date` is held; timers run as they would.
+ */
+export function pinClock() {
+  beforeEach(() => {
+    vi.setSystemTime(NOW);
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+}
 
 export function stubCommands() {
   return {

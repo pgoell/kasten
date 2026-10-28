@@ -3,7 +3,7 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, vi } from "vitest";
 import { nameAt } from "@/lib/todo/todo";
 import { cycleTodoAtCursor } from "@/lib/todo/todo-commands";
-import { open, TODAY } from "./keybindings-fixture";
+import { open, pinClock, TODAY } from "./keybindings-fixture";
 import { COARSE, NARROW, stubMatchMedia } from "./match-media";
 import { paneHooks, renderPane } from "./todo-pane-fixture";
 
@@ -21,6 +21,9 @@ afterEach(() => {
   vi.unstubAllGlobals();
   localStorage.removeItem("kasten.vim");
 });
+
+// The code stamps the date at the keypress, so the clock is held on `TODAY`.
+pinClock();
 
 describe("#1018 the name place past a span in the editor", () => {
   it("#1018 A1 Space s w past a code span holding the stamp puts the cursor after the stamp it wrote", () => {

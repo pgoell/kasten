@@ -32,8 +32,21 @@ vi.mock("@/lib/api", async (importOriginal) => {
 
 todoApiHooks();
 
+// The code stamps today's date at the write, after the test has read it. A run
+// that crosses local midnight would see another day and the two would disagree
+// (#1315), so the clock is pinned for every test and restored after it.
+const NOW = new Date(2026, 7, 10, 12);
+
+beforeEach(() => {
+  vi.setSystemTime(NOW);
+});
+
+afterEach(() => {
+  vi.useRealTimers();
+});
+
 describe("toggleTimerInVault", () => {
-  const daily = periodicNote("daily", new Date()).path;
+  const daily = periodicNote("daily", NOW).path;
   const clock = { date: dailyDate(daily) ?? "", time: "14:03" };
 
   it("#529 A1 a timer press finds its todo by its words where a line above shifted it", async () => {

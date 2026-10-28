@@ -37,7 +37,10 @@ vi.mock("@/lib/outbox", async (importOriginal) => {
 
 const PATH = "30 Research/report.pdf";
 const WORDS = "Two words here.";
-const DAILY = periodicNote("daily", new Date()).path;
+// The take stamps the day when it runs, so a run crossing midnight would see
+// the next day while a read taken at the top of the file saw this one (#1315).
+const NOW = new Date(2026, 7, 10, 12);
+const DAILY = periodicNote("daily", NOW).path;
 const QUOTE = pdfQuote(PATH, 2, WORDS, DAILY);
 const NOTE = `## Dump\n\n${QUOTE}\n`;
 /** Where the viewer's highlight keeps the take's ranges, by the name the stylesheet paints. */
@@ -164,6 +167,7 @@ function dropped(): Promise<void> {
 let savedRects: PropertyDescriptor | undefined;
 
 beforeEach(async () => {
+  vi.setSystemTime(NOW);
   stubMatchMedia({});
   await reset();
   await dropped();
@@ -181,6 +185,7 @@ beforeEach(async () => {
 
 afterEach(() => {
   cleanup();
+  vi.useRealTimers();
   pdf = null;
   if (savedRects) Object.defineProperty(Range.prototype, "getClientRects", savedRects);
   else delete (Range.prototype as { getClientRects?: unknown }).getClientRects;

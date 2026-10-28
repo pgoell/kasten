@@ -15,7 +15,7 @@ import { hostLeader, type LeaderOpener } from "@/lib/which-key";
 import { draw } from "./book-pane-fixture";
 import { press, renderTree } from "./file-explorer-fixture";
 import { defineFoliateFake } from "./foliate-fake";
-import { open, stubCommands, TODAY } from "./keybindings-fixture";
+import { open, pinClock, stubCommands, TODAY } from "./keybindings-fixture";
 import { renderPane as renderLog } from "./log-pane-fixture";
 import { renderPane as renderReview } from "./review-pane-fixture";
 import { renderPane as renderTodo } from "./todo-pane-fixture";
@@ -91,6 +91,9 @@ function runFrom(opener: LeaderOpener, typed: string) {
   if (action === null) throw new Error(`${typed} names nothing`);
   action();
 }
+
+// The code stamps the date at the keypress, so the clock is held on `TODAY`.
+pinClock();
 
 describe("the which-key panel", () => {
   it("Space in normal mode hands the leader to the panel", () => {

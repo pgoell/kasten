@@ -6,8 +6,11 @@ import { readClock } from "@/lib/clock";
 import type { Deck } from "@/lib/review/review";
 import { shownCard } from "./review-card";
 
+// The sitting reads the day when it runs, so a run crossing midnight would see
+// the next day while a read taken at the top of the file saw this one (#1315).
+const NOW = new Date(2026, 7, 10, 12);
 // The day the sitting reads as today, so the due dates below fall on it.
-const TODAY = readClock(new Date()).date;
+const TODAY = readClock(NOW).date;
 
 const DECK: Deck = {
   name: "aws",
@@ -57,8 +60,13 @@ function reveal() {
 }
 
 beforeEach(() => {
+  vi.setSystemTime(NOW);
   localStorage.clear();
   vi.restoreAllMocks();
+});
+
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 it("#790 A2 the question names the deck and the count, and Show the answer carries a Space hint", async () => {

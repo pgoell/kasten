@@ -30,8 +30,12 @@ const TAKING: Taking = {
   top: false,
 };
 
+// The take stamps the day when it runs, so a run crossing midnight would see
+// the next day while a read taken at the top of the file saw this one (#1315).
+const NOW = new Date(2026, 7, 10, 12);
+
 /** The dump the take writes, and the daily note's text with it in its `## Dump`. */
-const DAILY = periodicNote("daily", new Date()).path;
+const DAILY = periodicNote("daily", NOW).path;
 const QUOTE = quoteBlock(TAKING.text, TAKING.linkIn(DAILY));
 const NOTE = `## Dump\n\n${QUOTE}\n`;
 const REFUSED = "The daily note changed since, so Undo left it as it is";
@@ -100,6 +104,7 @@ function takeIt() {
 }
 
 beforeEach(async () => {
+  vi.setSystemTime(NOW);
   await reset();
   await dropped();
   fetchNote.mockResolvedValue("");
@@ -110,6 +115,7 @@ beforeEach(async () => {
 
 afterEach(() => {
   cleanup();
+  vi.useRealTimers();
   dump = null;
   vi.unstubAllGlobals();
   vi.resetAllMocks();
@@ -126,7 +132,7 @@ describe("the dump take a pane shares", () => {
 
     expect({ marked: onMarked.mock.calls, sent: dumpsSent(sent) }).toEqual({
       marked: [[1]],
-      sent: [{ text: QUOTE, date: readClock(new Date()).date, id: expect.any(String) }],
+      sent: [{ text: QUOTE, date: readClock(NOW).date, id: expect.any(String) }],
     });
     // The toast is the last thing a take does, so it is awaited before the test ends.
     await screen.findByRole("status");

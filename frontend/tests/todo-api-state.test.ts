@@ -32,11 +32,24 @@ vi.mock("@/lib/api", async (importOriginal) => {
 
 todoApiHooks();
 
+// The code stamps today's date at the write, after the test has read it. A run
+// that crosses local midnight would see another day and the two would disagree
+// (#1315), so the clock is pinned for every test and restored after it.
+const NOW = new Date(2026, 7, 10, 12);
+
+beforeEach(() => {
+  vi.setSystemTime(NOW);
+});
+
+afterEach(() => {
+  vi.useRealTimers();
+});
+
 describe("cycleTodoInVault", () => {
   it("writes no second log line ticking a review todo whose day already logged it", async () => {
     // An agent moved the todo back from done to review, and the line its first
     // tick wrote is still under today's `## Done`.
-    const daily = periodicNote("daily", new Date()).path;
+    const daily = periodicNote("daily", NOW).path;
     const line = "- [r] a 🆔 kt-aaaaaa";
     const log = "## Done\n- ✅ 2026-08-10 a [[projects/kasten]] kt-aaaaaa\n";
     const notes: Record<string, string> = { "projects/kasten.md": `${line}\n`, [daily]: log };
@@ -69,7 +82,7 @@ describe("cycleTodoInVault", () => {
     async (_, mark) => {
       // It was done once, then moved back by hand or by an agent, and the line its
       // first tick wrote is still under today's `## Done`.
-      const daily = periodicNote("daily", new Date()).path;
+      const daily = periodicNote("daily", NOW).path;
       const line = `- [${mark}] a 🆔 kt-aaaaaa`;
       const log = "## Done\n- ✅ 2026-08-10 a [[projects/kasten]] kt-aaaaaa\n";
       const notes: Record<string, string> = { "projects/kasten.md": `${line}\n`, [daily]: log };
@@ -96,7 +109,7 @@ describe("cycleTodoInVault", () => {
   );
 
   it("writes one log line setting a blocked todo done that no day has logged", async () => {
-    const daily = periodicNote("daily", new Date()).path;
+    const daily = periodicNote("daily", NOW).path;
     const line = "- [b] a 🆔 kt-aaaaaa";
     const notes: Record<string, string> = {
       "projects/kasten.md": `${line}\n`,
@@ -121,7 +134,7 @@ describe("cycleTodoInVault", () => {
   });
 
   it("drops the log line blocking a done todo", async () => {
-    const daily = periodicNote("daily", new Date()).path;
+    const daily = periodicNote("daily", NOW).path;
     const line = "- [x] a ✅ 2026-08-10 🆔 kt-aaaaaa";
     const log = "## Done\n- ✅ 2026-08-10 a [[projects/kasten]] kt-aaaaaa\n";
     const notes: Record<string, string> = { "projects/kasten.md": `${line}\n`, [daily]: log };
@@ -206,7 +219,7 @@ describe("cycleTodoInVault", () => {
 
 describe("cycleTodoAside", () => {
   it("#534 A4 a <leader>x into done whose 🆔 stands on another todo line logs nothing and unblocks nothing", async () => {
-    const daily = periodicNote("daily", new Date()).path;
+    const daily = periodicNote("daily", NOW).path;
     const notes: Record<string, string> = {
       "projects/other.md": "- [ ] a 🆔 kt-aaaaaa\n",
       "deps.md": "- [b] c ⛔ kt-aaaaaa\n",
@@ -255,7 +268,7 @@ describe("cycleTodoAside", () => {
 
   it("#534 B2 a <leader>x whose twin the buffer no longer holds is not refused", async () => {
     // The disk still holds the twin; the buffer changed its id an autosave ago.
-    const daily = periodicNote("daily", new Date()).path;
+    const daily = periodicNote("daily", NOW).path;
     fetchTodos.mockResolvedValue([
       {
         path: "projects/kasten.md",

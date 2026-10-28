@@ -396,6 +396,8 @@ export default defineConfig({
           // comment above warns about.
           sequence: { groupOrder: 2 },
           include: ["tests/frame/**/*.test.tsx"],
+          // Inert unless a run asks the clock to cross midnight (#1315).
+          setupFiles: ["./scripts/cross-midnight.ts"],
           // Chromium raises "ResizeObserver loop completed with undelivered
           // notifications" as a window error, and vitest counts one of those
           // as a failed run. foliate's paginator columnises to the box it is

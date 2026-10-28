@@ -6,10 +6,10 @@ import { readClock } from "@/lib/clock";
 import { pageLink, takenQuote } from "@/lib/html-take";
 import { noteBase } from "@/lib/note-base";
 import { reset } from "@/lib/outbox";
+import { periodicNote } from "@/lib/periodic";
 import { hostLeader } from "@/lib/which-key";
 import {
   answering,
-  DAILY,
   dropped,
   dumpsSent,
   fromPage,
@@ -42,7 +42,14 @@ vi.mock("@/lib/api", () => {
 // The take goes through the real outbox, which keeps the dump in IndexedDB.
 // Its stand-in is the one the capture route's tests use.
 
+// The take stamps the day when it runs, so a run crossing midnight would see
+// the next day while a read taken at the top of the file saw this one (#1315).
+const NOW = new Date(2026, 7, 10, 12);
+// The fixture's daily path is read when the fixture loads, so it is this file's own.
+const DAILY = periodicNote("daily", NOW).path;
+
 beforeEach(async () => {
+  vi.setSystemTime(NOW);
   localStorage.clear();
   stubMatchMedia({});
   await reset();
@@ -80,7 +87,7 @@ describe("taking a passage out of an html page", () => {
 
     await screen.findByRole("status");
     expect(dumpsSent(sent)).toEqual([
-      { text: QUOTE, date: readClock(new Date()).date, id: expect.any(String) },
+      { text: QUOTE, date: readClock(NOW).date, id: expect.any(String) },
     ]);
   });
 
@@ -411,7 +418,7 @@ describe("saving a story to share later", () => {
     anchor: "s1",
     source: "https://news.example/one",
   };
-  const today = () => readClock(new Date()).date;
+  const today = () => readClock(NOW).date;
   const LINE = () =>
     `- [ ] share [Results](https://news.example/one) ([[${PATH}#s1|in the paper]]) #share ➕ ${today()}`;
 

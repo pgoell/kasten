@@ -1,4 +1,5 @@
 import "@testing-library/jest-dom/vitest";
+import "../scripts/cross-midnight";
 
 // A test that ends with a key down and no keyup would leave the next test's
 // picker waiting for a key that never comes up. Losing focus lets it go.

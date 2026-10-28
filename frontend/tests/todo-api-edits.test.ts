@@ -33,6 +33,19 @@ vi.mock("@/lib/api", async (importOriginal) => {
 
 todoApiHooks();
 
+// The code stamps today's date at the write, after the test has read it. A run
+// that crosses local midnight would see another day and the two would disagree
+// (#1315), so the clock is pinned for every test and restored after it.
+const NOW = new Date(2026, 7, 10, 12);
+
+beforeEach(() => {
+  vi.setSystemTime(NOW);
+});
+
+afterEach(() => {
+  vi.useRealTimers();
+});
+
 const NOTE = ["# Kasten", "", "- [ ] call the dentist 📅 2026-08-14 🆔 kt-3f9a2c", ""].join("\n");
 
 const HIT = {
@@ -125,7 +138,7 @@ describe("addTodoInVault", () => {
   });
 
   it("names the daily note it read as the base of its write", async () => {
-    const daily = periodicNote("daily", new Date()).path;
+    const daily = periodicNote("daily", NOW).path;
     fetchNote.mockResolvedValue("# Today\n");
 
     await addTodoInVault("call the dentist", "2026-08-06", [daily]);

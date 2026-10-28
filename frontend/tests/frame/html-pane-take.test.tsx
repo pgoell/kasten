@@ -7,6 +7,7 @@
  */
 
 import "./html-take-api";
+import { vi } from "vitest";
 import { commands as browser, page, userEvent } from "vitest/browser";
 import { takenQuote } from "@/lib/html-take";
 import { noteName } from "@/lib/note-path";
@@ -35,6 +36,9 @@ const PLAIN_PATH = "take-plain.html";
 const LEFT_PATH = "take-list-left.html";
 const RIGHT_PATH = "take-list-right.html";
 
+/** Fixed local noon, so a run that crosses midnight reads the same day twice (#1315). */
+const NOW = new Date(2026, 7, 10, 12);
+
 /** Eight notes with names long enough to wrap in a short pane, newest first. */
 const RECENT = Array.from(
   { length: 8 },
@@ -45,11 +49,13 @@ const RECENT = Array.from(
 let mounted: Mounted;
 
 beforeEach(async () => {
+  vi.setSystemTime(NOW);
   mounted = await setUp();
 });
 
 afterEach(async () => {
   await tearDown(mounted);
+  vi.useRealTimers();
 });
 
 /** Drags from the second story's heading onto its first paragraph, as a reader does. */

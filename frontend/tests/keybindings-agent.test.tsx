@@ -1,6 +1,9 @@
 import { fireEvent, render } from "@testing-library/react";
 import { Editor } from "@/components/editor";
-import { open, stubCommands, TODAY } from "./keybindings-fixture";
+import { open, pinClock, stubCommands, TODAY } from "./keybindings-fixture";
+
+// The code stamps the date at the keypress, so the clock is held on `TODAY`.
+pinClock();
 
 describe("#523 the agent key", () => {
   /**

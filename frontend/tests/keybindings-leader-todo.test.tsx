@@ -2,9 +2,11 @@ import { undoDepth } from "@codemirror/commands";
 import { EditorView } from "@codemirror/view";
 import { fireEvent } from "@testing-library/react";
 import { periodicNote } from "@/lib/periodic";
-import { open, stubCommands, TODAY } from "./keybindings-fixture";
+import { NOW, open, pinClock, stubCommands, TODAY } from "./keybindings-fixture";
 
 describe("the leader key", () => {
+  pinClock();
+
   it("makes a todo of the line under the cursor on space then x", () => {
     const { editor, doc } = open("plain");
 
@@ -204,7 +206,7 @@ describe("the leader key", () => {
     const { editor, doc } = open(
       "- [/] wire up the pane 🆔 kt-3f9a2c",
       stubCommands(),
-      periodicNote("daily", new Date()).path,
+      periodicNote("daily", NOW).path,
     );
 
     fireEvent.keyDown(editor, { key: " " });
@@ -230,7 +232,7 @@ describe("the leader key", () => {
 
   it("logs nothing for leader s x on a done todo in today's own note, however often", () => {
     const note = `- [x] a ✅ ${TODAY}`;
-    const { editor, doc } = open(note, stubCommands(), periodicNote("daily", new Date()).path);
+    const { editor, doc } = open(note, stubCommands(), periodicNote("daily", NOW).path);
 
     for (const _ of [1, 2]) {
       fireEvent.keyDown(editor, { key: " " });
@@ -286,7 +288,7 @@ describe("the leader key", () => {
   });
 
   it("logs one line for leader s x on an open todo in today's own note", () => {
-    const { editor, doc } = open("- [ ] a", stubCommands(), periodicNote("daily", new Date()).path);
+    const { editor, doc } = open("- [ ] a", stubCommands(), periodicNote("daily", NOW).path);
 
     fireEvent.keyDown(editor, { key: " " });
     fireEvent.keyDown(editor, { key: "s" });
@@ -311,5 +313,17 @@ describe("the leader key", () => {
     fireEvent.keyDown(editor, { key: "x" });
 
     expect(doc()).toBe(`- [ ] plain ➕ ${TODAY}`);
+  });
+});
+
+describe("the clock after the leader key's tests", () => {
+  // `pinClock` above holds `Date` for that block alone; a later test must read
+  // the real clock, or a pin would hide a stamp from the wrong day (#1315).
+  it("#1315 reads a running clock again once the pinned block is done", () => {
+    // A pinned clock stands still; a released one moves within a few ms.
+    const first = Date.now();
+    const start = performance.now();
+    while (Date.now() === first && performance.now() - start < 100) {}
+    expect(Date.now()).toBeGreaterThan(first);
   });
 });

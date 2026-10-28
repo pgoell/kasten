@@ -99,8 +99,10 @@ async function advance(ms: number) {
 
 /** The day the pane is drawn for. Nothing here is dated, so it decides no order. */
 const TODAY = "2026-08-10";
+/** The pinned clock, as a press stamps by it (#1315). */
+const NOW = new Date(2026, 7, 10, 12);
 /** Today's daily note as the app names it, which a press's done log writes into. */
-const DAILY = periodicNote("daily", new Date()).path;
+const DAILY = periodicNote("daily", NOW).path;
 const NAMES = ["alpha", "bravo", "charlie", "delta", "echo", "foxtrot", "golf", "hotel", "kilo"];
 
 /** The stream the route opens, driven by the test. */
@@ -232,7 +234,7 @@ async function mount() {
 
 describe("the todo pane holds the order it is drawn in while a press is made", () => {
   beforeEach(() => {
-    vi.useFakeTimers();
+    vi.useFakeTimers({ now: NOW });
     vi.stubGlobal("EventSource", FakeStream);
     vault.answers = 0;
     vault.refuse = false;

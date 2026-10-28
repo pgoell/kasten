@@ -14,19 +14,23 @@ import os
 import re
 import shutil
 from collections.abc import Awaitable, Callable
-from datetime import date
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
+from backend.tests.conftest import PINNED_DAY
 from kasten_backend import share
 from kasten_backend.config import Settings
+
+if TYPE_CHECKING:
+    from datetime import date
 
 COPY = os.environ.get("KASTEN_LIVE_COPY", "")
 OUT = os.environ.get("KASTEN_LIVE_OUT", "")
 
 PEOPLE = {"pascal@example.test": "Pascal", "alicia@example.test": "Alicia"}
-TODAY = date.today().isoformat()
+TODAY = PINNED_DAY.isoformat()
 COUNT = itertools.count()
 
 Step = Callable[[Settings, str], Awaitable[object]]
@@ -128,7 +132,7 @@ async def outcome(base: Path, name: str, raw: bytes, *steps: Step) -> object:
 
 
 @pytest.mark.skipif(not (COPY and OUT), reason="KASTEN_LIVE_COPY and KASTEN_LIVE_OUT are not set")
-async def test_live_copy_every_list_write(tmp_path: Path) -> None:
+async def test_live_copy_every_list_write(tmp_path: Path, pinned_day: date) -> None:
     shared = tmp_path / "vault" / "05 Shared"
     shared.mkdir(parents=True)
     for note in sorted((Path(COPY) / "05 Shared").iterdir()):

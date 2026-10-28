@@ -11,6 +11,9 @@ import { DECK } from "./review-session-fixture";
 describe("ReviewSession undoing the last step (#600)", () => {
   const TWO = "#flashcards/aws\n\nWhat is a VPC?::A private cloud\n\nWhat is S3?::Storage\n";
   const MOVED_ON = "The note changed since that step, so it was not undone.";
+  // The sitting reads the day when it runs, so a run crossing midnight would see
+  // the next day while a read taken at the top of the block saw this one (#1315).
+  const NOW = new Date(2026, 7, 10, 12);
 
   /**
    * The sitting over a vault holding one note, and `decks.md`.
@@ -73,6 +76,11 @@ describe("ReviewSession undoing the last step (#600)", () => {
     localStorage.clear();
     vi.restoreAllMocks();
     vi.useRealTimers();
+    vi.setSystemTime(NOW);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("#600 A5 Undo takes back a rating: the old text goes back and the card comes back revealed, first", async () => {
@@ -133,7 +141,7 @@ describe("ReviewSession undoing the last step (#600)", () => {
 
   it("#600 A8 an undone rating gives the card back its place under the daily limit", async () => {
     const limits = { note: "aws: 1 new\n", defaults: { new_per_day: null, reviews_per_day: null } };
-    const today = readClock(new Date()).date;
+    const today = readClock(NOW).date;
     const row = (text: string) =>
       decksFrom([{ path: "decks/aws.md", text }], today, limits).find(
         (deck) => deck.name === "aws",
@@ -239,7 +247,7 @@ describe("ReviewSession undoing the last step (#600)", () => {
     await rate("Good");
     const rated = vault.disk;
     saved.mockRejectedValue(new TypeError("Failed to fetch"));
-    vi.useFakeTimers();
+    vi.useFakeTimers({ now: NOW });
 
     const undo = undoButton();
     expect(undo).not.toBeNull();
@@ -295,7 +303,7 @@ describe("ReviewSession undoing the last step (#600)", () => {
     await shownCard();
     const landing = saved.getMockImplementation();
     saved.mockRejectedValue(new TypeError("Failed to fetch"));
-    vi.useFakeTimers();
+    vi.useFakeTimers({ now: NOW });
     await rate("Good");
     // The network is down for the whole minute of tries, then it is back.
     await act(async () => {

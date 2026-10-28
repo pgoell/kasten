@@ -2,6 +2,7 @@ import os
 import shutil
 import subprocess
 import sys
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -400,3 +401,55 @@ def answer(monkeypatch: pytest.MonkeyPatch) -> Callable[[Callable], None]:
         monkeypatch.setattr(files, "_PublicTransport", lambda: httpx.MockTransport(handler))
 
     return use
+
+
+class _Tomorrow(date):
+    """A `date` whose today is the day after the real one, for #1315."""
+
+    @classmethod
+    def today(cls) -> date:
+        return date.today() + timedelta(days=1)
+
+
+@pytest.fixture(autouse=True)
+def cross_midnight(monkeypatch: pytest.MonkeyPatch) -> None:
+    """With `KASTEN_CROSS_MIDNIGHT` set, the code's clock runs a day ahead of the test's.
+
+    That is what a run sees when midnight falls between the moment a test reads
+    today and the moment the code stamps it, so a test that compares the two
+    without pinning the clock fails under it. Only `frontend/scripts/cross-midnight.sh`
+    sets it. A test that pins its own clock patches after this and wins.
+    """
+    if not os.environ.get("KASTEN_CROSS_MIDNIGHT"):
+        return
+    monkeypatch.setattr("kasten_backend.share.date", _Tomorrow)
+    monkeypatch.setattr("kasten_backend.routes.web.date", _Tomorrow)
+    # GitHub counts days in UTC, so its clock turns at the next UTC midnight.
+    tomorrow = datetime.now(UTC).date() + timedelta(days=1)
+    turned = datetime.combine(tomorrow, datetime.min.time(), UTC)
+    monkeypatch.setattr("kasten_backend.github._now", lambda: turned + timedelta(seconds=1))
+
+
+PINNED_DAY = date(2026, 8, 10)
+"""The day `pinned_day` holds the code's clock on."""
+
+
+class _Pinned(date):
+    """A `date` whose today is `PINNED_DAY`."""
+
+    @classmethod
+    def today(cls) -> date:
+        return PINNED_DAY
+
+
+@pytest.fixture
+def pinned_day(monkeypatch: pytest.MonkeyPatch) -> date:
+    """Hold the day the share code stamps on `PINNED_DAY`, and return it.
+
+    The code reads today when it writes, so a test that read it before fails
+    when midnight falls between the two (#1315). Asked for by name, it runs
+    after `cross_midnight` and wins over it.
+    """
+    monkeypatch.setattr("kasten_backend.share.date", _Pinned)
+    monkeypatch.setattr("kasten_backend.routes.web.date", _Pinned)
+    return PINNED_DAY
