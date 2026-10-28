@@ -6,9 +6,9 @@ from pathlib import Path  # noqa: TC003  pytest's tmp_path annotation
 
 from kasten_jobs.bookings import to_bookings, transfer_prefix
 
-from .fake_fints import GIRO, SAVING, FakeClient, record
-from .fake_kasten import FakeKasten, account
-from .test_bank_sync import run
+from .fake_fints import GIRO, SAVING, FakeClient, record  # noqa: TID252
+from .fake_kasten import FakeKasten, account  # noqa: TID252
+from .test_bank_sync import run  # noqa: TID252
 
 STRANGER = "DE89370400440532013000"
 

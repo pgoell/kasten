@@ -6,7 +6,7 @@ from decimal import Decimal
 from kasten_jobs import orders_amazon, orders_paypal
 from kasten_jobs.mail_text import german_date, html_lines
 
-from .order_mails import (
+from .order_mails import (  # noqa: TID252
     CONFIRMATION,
     DAY,
     DIGITAL,

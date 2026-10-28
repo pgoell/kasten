@@ -34,6 +34,11 @@ covers. The `PLR` limits are ruff's defaults. They were left alone because
 nine of the ten backend functions over them when the rules came in read
 better split (the tenth, a test builder, keeps a `noqa`), and a limit raised to let today's code pass would catch nothing.
 
+**Relative imports** (`TID252` in ruff, set to ban all of them). An absolute
+import names the package, so a reader and a grep find where a name comes from,
+and a file moved to another folder keeps its imports working or fails loudly.
+Ruff's default bans only `..` imports, which kasten never had.
+
 **Frontend complexity** (`noExcessiveCognitiveComplexity` in Biome). The same
 question for TypeScript, scored a different way: cognitive complexity adds a
 point for every branch and loop, and one more for each level it is nested in.

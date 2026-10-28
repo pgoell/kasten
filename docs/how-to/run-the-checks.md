@@ -52,13 +52,16 @@ tests included, to these limits, all set in the root `pyproject.toml`:
 * `PLR0911`, `PLR0912`, `PLR0915`: at most 6 returns, 12 branches and 50
   statements.
 * `PLR0913`: at most 5 arguments, keyword-only ones included.
+* `TID252`: no relative import, the sibling kind (`from .x import y`)
+  included; import by the package name.
 
 When one fires, make the function simpler rather than silencing it: lift a
 closure or a loop with a job of its own into a module function, give each
 branch of a long `elif` chain its own method, or pass two values that travel
 together as one tuple. Use `# noqa` only where the function reads better whole,
 with a comment above it saying why, as `apkg` in `backend/tests/anki_build.py`
-has.
+has. The 12 relative imports in the job and finance tests that were there when
+the ban came in carry a `# noqa: TID252` each, and a new one fails.
 
 ## Get a frontend function past the complexity rule
 

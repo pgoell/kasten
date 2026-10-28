@@ -5,9 +5,9 @@ from typing import TYPE_CHECKING
 
 from kasten_jobs import order_sync, orders_amazon
 
-from .fake_kasten import FakeKasten
-from .order_mails import DIGITAL, SHOP_PAYMENT, amazon_mail, paypal_mail
-from .test_order_sync import mailbox
+from .fake_kasten import FakeKasten  # noqa: TID252
+from .order_mails import DIGITAL, SHOP_PAYMENT, amazon_mail, paypal_mail  # noqa: TID252
+from .test_order_sync import mailbox  # noqa: TID252
 
 if TYPE_CHECKING:
     import pytest

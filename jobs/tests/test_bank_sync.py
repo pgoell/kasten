@@ -12,8 +12,8 @@ from kasten_jobs import bank_sync, fints_bank
 from kasten_jobs.bank_sync import Settings
 from kasten_jobs.fints_bank import DECOUPLED_POLL_MAX, Bank
 
-from .fake_fints import CAMT, GIRO, SAVING, FakeClient, Tan, record
-from .fake_kasten import FakeKasten, account
+from .fake_fints import CAMT, GIRO, SAVING, FakeClient, Tan, record  # noqa: TID252
+from .fake_kasten import FakeKasten, account  # noqa: TID252
 
 if TYPE_CHECKING:
     from fints.client import FinTS3PinTanClient

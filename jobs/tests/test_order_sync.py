@@ -14,8 +14,8 @@ from kasten_jobs import order_sync, orders_amazon
 from kasten_jobs.gmail import Gmail, GmailAuthError, Mail, to_mail
 from kasten_jobs.kasten_api import ORDER_BATCH
 
-from .fake_kasten import FakeKasten
-from .order_mails import (
+from .fake_kasten import FakeKasten  # noqa: TID252
+from .order_mails import (  # noqa: TID252
     CONFIRMATION,
     DIGITAL,
     DISPATCH,

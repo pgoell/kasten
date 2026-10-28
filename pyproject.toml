@@ -65,6 +65,11 @@ select = [
 [tool.ruff.lint.mccabe]
 max-complexity = 10
 
+[tool.ruff.lint.flake8-tidy-imports]
+# The default, "parents", bans `from ..x` but lets `from .x` through, and every
+# relative import kasten had was the sibling kind. Imports name the package.
+ban-relative-imports = "all"
+
 [tool.ruff.lint.isort]
 known-first-party = ["kasten_backend", "kasten_jobs"]
 

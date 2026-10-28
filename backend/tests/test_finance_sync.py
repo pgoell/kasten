@@ -10,7 +10,7 @@ from sqlalchemy.pool import NullPool
 from kasten_backend import finance_sync
 from kasten_backend.config import get_settings
 
-from .finance_rows import GIRO, SAVING, account, booking, post
+from .finance_rows import GIRO, SAVING, account, booking, post  # noqa: TID252
 
 if TYPE_CHECKING:
     from httpx import AsyncClient
