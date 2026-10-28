@@ -82,8 +82,8 @@ its own would be plumbing for a container you look at rather than through.
 
 ## The vault is the only irreplaceable thing here
 
-Postgres holds a derived index and can be rebuilt from the vault at any time,
-which is the whole point of
+Postgres holds no index of the vault yet, and any index it comes to hold must
+rebuild from the vault at any time, which is the whole point of
 [The vault and the derived index](/explanation/vault-and-derived-index.md). The
 vault cannot be rebuilt from anything. The one exception is the `finance`
 schema, which is a record of its own, see
