@@ -83,10 +83,10 @@ the same query as the notes. An entry is keyed by the file's path, its
 modification time and its size. Before each query, a changed file is extracted
 again, and the entry of a deleted file is dropped. No query rewrites an entry
 while another reads it, so a hit's line and its place always come from one
-extraction; two searches of the files take turns over the cache. The cache is never written
-into the vault, and it can be deleted at any time: the next search extracts
-again. A release empties it too, so the first search after one extracts every
-file again. Where it lives is set by
+extraction; two searches of the files take turns over the cache. The cache is
+never written into the vault, and it can be deleted at any time: the next
+search extracts again. A release empties it too, so the first search after one
+extracts every file again. Where it lives is set by
 [`KASTEN_TEXT_CACHE_PATH`](/reference/configuration.md#kasten_text_cache_path).
 
 Some files give no text. A scanned pdf with no text layer gives no hits, because

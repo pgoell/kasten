@@ -290,6 +290,12 @@ pdfium is not thread safe, and two cold queries would otherwise extract one book
 
 async def refresh(root: Path, cache: Path, skip: str | None) -> None:
     """Bring the cache into step with the book and page files in the vault."""
+    # Shielded: a search whose client goes away is cancelled, but its thread
+    # writes on, and the lock must stay held until that thread is done.
+    await asyncio.shield(_refresh_locked(root, cache, skip))
+
+
+async def _refresh_locked(root: Path, cache: Path, skip: str | None) -> None:
     async with _lock:
         await asyncio.to_thread(_refresh, root, cache, skip)
 

@@ -8,6 +8,7 @@ names is where the reader opens, and that the vault itself is left as it was.
 import asyncio
 import json
 import os
+import threading
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
@@ -419,3 +420,52 @@ async def test_a_search_whose_notes_fill_the_cap_still_brings_the_cache_up_to_da
     assert [hit["path"] for hit in hits] == ["note.md"]
     text = (cache_of(vault) / "paper.pdf.txt").read_text(encoding="utf-8")
     assert text == "derived a"
+
+
+async def test_a_cancelled_search_holds_the_cache_until_its_extraction_is_written(
+    client: AsyncClient, vault: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    put(vault, "paper.pdf", pdf([["a"], ["b", "needle"]]))
+    loop = asyncio.get_running_loop()
+    release = threading.Event()
+    entered: asyncio.Future[None] = loop.create_future()
+    overlapped: asyncio.Future[None] = loop.create_future()
+    contended: asyncio.Future[None] = loop.create_future()
+    calls: list[Path] = []
+
+    # Not pdfium: two extractions at once, which a lock let go would allow, crash it.
+    lines = file_text.Extracted(
+        ["a", "b", "needle"],
+        [file_text.Place("page 1", 1), file_text.Place("page 2", 2), file_text.Place("page 2", 2)],
+    )
+
+    def blocking_extract(path: Path) -> file_text.Extracted:
+        calls.append(path)
+        if len(calls) == 1:
+            loop.call_soon_threadsafe(entered.set_result, None)
+            release.wait()
+        else:
+            loop.call_soon_threadsafe(lambda: overlapped.done() or overlapped.set_result(None))
+        return lines
+
+    class SpyLock(asyncio.Lock):
+        async def acquire(self) -> Literal[True]:
+            if self.locked() and not contended.done():
+                contended.set_result(None)
+            return await super().acquire()
+
+    monkeypatch.setattr(file_text, "_extract", blocking_extract)
+    monkeypatch.setattr(file_text, "_lock", SpyLock())
+
+    first = asyncio.create_task(search(client, "needle"))
+    await entered
+    first.cancel()
+    second = asyncio.create_task(search(client, "needle"))
+    # A lock let go on the cancel lets the second search in beside the first's
+    # thread, which is still writing; a held one makes it wait.
+    await asyncio.wait({overlapped, contended}, return_when=asyncio.FIRST_COMPLETED)
+    still_writing = not overlapped.done()
+    release.set()
+
+    assert still_writing
+    assert [hit["place"]["page"] for hit in await second] == [2]
