@@ -26,7 +26,8 @@ the whole directory and the history comes along.
 
 Two things need no backup. Caddy's `caddy-data` volume holds certificates,
 which Caddy fetches again. And there is no database: the self-host stack runs no
-Postgres, so finance is off and RSVP keeps no reading places.
+Postgres, so finance is off, RSVP keeps no reading places and kasten records
+no agent token's requests.
 
 The token file holds digests, never secrets, so a copy of it leaks nothing. The
 vault is plain markdown, so a copy of it is your notes in the clear; encrypt the

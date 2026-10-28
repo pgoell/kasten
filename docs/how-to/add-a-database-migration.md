@@ -66,7 +66,7 @@ This destroys the volume and every row in it. That is safe here, and only here:
 the notes live in `vault/`, the dev database's finance rows and agent token
 record are test data, and a lost RSVP place only means the next run starts at the
 top. Never point this at production, where the finance rows are the only copy
-and the reading places are real.
+and the reading places and agent token record are real.
 
 ## Related
 

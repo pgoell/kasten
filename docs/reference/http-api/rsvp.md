@@ -72,5 +72,5 @@ equal to `words` is the place of a run that read to the end.
 
 ## Related
 
-* [The vault and the derived index](/explanation/vault-and-derived-index.md): why this is the one table the vault cannot rebuild
+* [The vault and the derived index](/explanation/vault-and-derived-index.md): why this is one of the two tables outside `finance` the vault cannot rebuild
 * [Configuration](/reference/configuration.md#kasten_database_url): the database these routes reach

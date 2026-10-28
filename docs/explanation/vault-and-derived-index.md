@@ -17,9 +17,9 @@ kasten has one design rule, and the rest of the system falls out of it.
 
 The rule has one exception, money. The `finance` schema is a system of record
 and does not rebuild from the vault; [Finance in Postgres](/explanation/finance-in-postgres.md)
-says why. RSVP reading places bend it too, in a small way, as
-[below](#rsvp-reading-places). Everything else here holds for the rest of
-Postgres.
+says why. Two small tables bend it too, the RSVP reading places and the
+agent token record, as [below](#rsvp-reading-places). Everything else here
+holds for the rest of Postgres.
 
 ## What that buys you
 
@@ -33,7 +33,8 @@ That is backup and file history in one, and it costs nothing, because the vault
 is already plain text. Nobody has to write a database dump job.
 
 **The database is disposable.** `db:reset` throws away every row and you lose
-no notes, only the RSVP reading places described below. That makes schema work
+no notes, only the RSVP reading places and the agent token record described
+below. That makes schema work
 cheap and takes the fear out of migrations.
 
 **Two writers are possible.** Editing a file on disk and editing it through the
@@ -59,8 +60,9 @@ Anything you cannot recover that way has to go into a file.
 
 ## RSVP reading places
 
-The `rsvp_places` table, from migration `0006`, is the one thing in Postgres
-outside `finance` that the vault cannot rebuild. It holds, for each file an RSVP run stopped in, the word it stopped at,
+Outside `finance`, Postgres holds two tables the vault cannot rebuild:
+`rsvp_places`, from migration `0006`, and `token_action`, from migration `0012`
+([below](#the-agent-token-record)). The `rsvp_places` table holds, for each file an RSVP run stopped in, the word it stopped at,
 the length of the word list then, and a few words to find the place again.
 
 It lives in the database and not in the note's frontmatter because a run saves
@@ -71,6 +73,19 @@ The rule bends here because the loss is small, unlike finance's. Drop the table 
 where each run stopped, and nothing else: no note, no link, no word you wrote.
 The next run starts at the top of the file. See
 [HTTP API: RSVP](/reference/http-api/rsvp.md).
+
+## The agent token record
+
+The `token_action` table holds one row for each request an agent token makes:
+when, from where, what it asked for and what it got back. It came with #1197;
+until then `rsvp_places` was the only table outside `finance` the vault could
+not rebuild. A row is never written to the vault, so that no agent reading
+notes can search it, and rows older than 90 days are deleted.
+
+Drop the table and you lose the request record each token shows on `/tokens`:
+when it was last used and what it did. The tokens themselves live in
+`tokens.json` and keep working. See
+[What kasten records](/how-to/connect-an-agent.md#what-kasten-records).
 
 ## What follows from it
 

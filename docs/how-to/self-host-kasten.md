@@ -13,7 +13,9 @@ frontend, the shell, and Caddy in front of them doing TLS and the login gate.
 There is no database to run; the backend reads and writes the vault. The
 features that need Postgres, [finance](/reference/http-api/finance.md) and
 the [RSVP reading place](/reference/http-api/rsvp.md), are off here, and their
-routes answer `503`.
+routes answer `503`. The [agent token record](/how-to/connect-an-agent.md#what-kasten-records)
+is off too: `GET /api/tokens` gives every token a `last_used` of `null`, and
+`GET /api/tokens/{name}/actions` answers `503`.
 
 You need a Linux machine with Docker and the compose plugin (2.24 or later), on
 amd64 or arm64. arm64 images exist from the first release after 0.29.0.
