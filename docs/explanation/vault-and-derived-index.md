@@ -1,7 +1,7 @@
 ---
 type: Explanation
 title: The vault and the derived index
-description: Why the notes live on disk and Postgres is allowed to hold nothing that matters.
+description: Why the notes live on disk, and Postgres holds nothing a note needs.
 tags: [design, vault, database, data-model]
 status: stable
 ---
@@ -28,14 +28,18 @@ kasten stops being maintained, or you stop liking it, you open the same files in
 Obsidian, in vim, in anything. There is no export step because there is nothing
 to export from.
 
-**Backup is a solved problem.** Make the vault a git repository and push it.
-That is backup and file history in one, and it costs nothing, because the vault
-is already plain text. Nobody has to write a database dump job.
+**Backup is a solved problem for notes.** Make the vault a git repository and
+push it. That is backup and file history in one, and it costs nothing, because
+the vault is already plain text. The notes need no database dump job; the
+`finance` schema does, and has one, as
+[Finance in Postgres](/explanation/finance-in-postgres.md#what-backing-up-now-means)
+says.
 
-**The database is disposable.** `db:reset` throws away every row and you lose
-no notes, only the RSVP reading places and the agent token record described
-below. That makes schema work
-cheap and takes the fear out of migrations.
+**The database is disposable, for notes.** `db:reset` throws away every row and
+you lose no notes. You do lose the `finance` rows, which nothing rebuilds, and
+the RSVP reading places and the agent token record described below. On a dev
+database those are test data, so schema work stays cheap there and migrations
+lose their fear.
 
 **Two writers are possible.** Editing a file on disk and editing it through the
 web page are the same operation, because the file is the thing. Sync tools,

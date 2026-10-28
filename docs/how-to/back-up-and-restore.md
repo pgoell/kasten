@@ -162,4 +162,4 @@ store did not come back.
 
 * [Recover an earlier version of a note](/how-to/recover-an-earlier-version.md): read back one note from the history, without a restore
 * [Upgrade kasten](/how-to/upgrade-kasten.md): take a backup first
-* [The vault and the derived index](/explanation/vault-and-derived-index.md): why the vault is the only thing that cannot be rebuilt
+* [The vault and the derived index](/explanation/vault-and-derived-index.md): why the vault cannot be rebuilt, and what in Postgres cannot be either
