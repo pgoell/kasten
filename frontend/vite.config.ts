@@ -24,6 +24,7 @@ import {
   hideResizeObserver,
   serveFile,
   servePage,
+  serveSlowly,
   unservePages,
 } from "./tests/frame/serve-page.ts";
 import { mouseDrag, touchDrag, touches, wheel } from "./tests/frame/touch-input.ts";
@@ -426,6 +427,7 @@ export default defineConfig({
               mouseDrag,
               serveFile,
               servePage,
+              serveSlowly,
               touchDrag,
               touches,
               unservePages,

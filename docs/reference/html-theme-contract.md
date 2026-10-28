@@ -62,7 +62,7 @@ A rewrite of the page reloads it (#1277), and two more messages keep its place:
 - The page script posts `{kasten: 'scroll', top}` once a frame while the window scrolls. `top` is the document's scroll in the frame's own pixels. A scroller inside the page posts nothing.
 - When the vault sends a `page` event for the pane's own path, the pane loads the page again in a new frame and, once it has loaded, posts `{kasten: 'scroll', top}` with the last `top` it heard. The page script scrolls there at once and, while the page is too short for it, again each time the page's `html` or `body` box resizes. Content that overflows a box held to the window's height, as on a page with `html, body { height: 100% }`, resizes neither, so such a page lands where it can at load. It posts no scroll of its own meanwhile. It stops when the scroll lands, when the reader wheels, touches, presses a key or a pointer, or 1.5 seconds after the message, and then posts where the page stands. A browser without `ResizeObserver` scrolls once and waits out the same time. A page that never scrolled gets no such message, so a link to a heading opens at the heading again.
 
-The reload adds no entry to the browser's history, a selection and its take button go with the old page, and a frame that held the focus holds it again. A rewrite of another page leaves this one as it is.
+The reload adds no entry to the browser's history, a selection and its take button go with the old page's frame, before the new page loads, and a frame that held the focus holds it again. A rewrite of another page leaves this one as it is.
 
 ## Fallback layer
 

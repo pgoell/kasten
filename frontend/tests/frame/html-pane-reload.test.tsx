@@ -6,13 +6,17 @@
  */
 
 import "./html-take-api";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { flushSync } from "react-dom";
 import { commands as browser, page, userEvent } from "vitest/browser";
-import { HtmlPane } from "@/components/html-pane";
-import { Toolbar } from "@/components/toolbar";
-import { WhichKey } from "@/components/which-key";
-import { pageWritten } from "@/lib/html/page-written";
+import {
+  late,
+  renderPanes,
+  report,
+  rewrite as rewriteIn,
+  SLOW,
+  swap as swapIn,
+  titleOf,
+  WHICH,
+} from "./html-pane-reload-fixture";
 import {
   api,
   ask,
@@ -23,7 +27,6 @@ import {
   ready,
   select,
   setUp,
-  takeButton,
   tearDown,
 } from "./html-take-fixture";
 import { page as pageOf } from "./html-take-pages";
@@ -33,19 +36,6 @@ const OTHER = "reload-other.html";
 /** A page served with no ResizeObserver, to see the page script run without one. */
 const NO_OBSERVER = "no-observer.html";
 
-/** Answers which version of the page is drawn, by its title. */
-const WHICH = `<script>addEventListener("message", (event) => {
-  if (event.source === parent && event.data?.probe === "which") parent.postMessage({ fixture: "which", title: document.title }, "*");
-});</script>`;
-
-/** A page tall enough to scroll, with a heading far down for a link to name. */
-function report(title: string): string {
-  return pageOf(
-    title,
-    `<p id="p1">Alpha bravo charlie delta echo.</p><div style="height:1500px"></div><h2 id="far">Far</h2><div style="height:3000px"></div>${WHICH}`,
-  );
-}
-
 /** The scrolls the pane's frames reported, newest last. */
 const scrolls: number[] = [];
 window.addEventListener("message", (event: MessageEvent) => {
@@ -53,6 +43,11 @@ window.addEventListener("message", (event: MessageEvent) => {
 });
 
 let mounted: Mounted;
+const render = (paths: string[], options: { phone?: boolean; anchor?: string }) =>
+  renderPanes(mounted, paths, options);
+const swap = (path: string, html: string, index: number) => swapIn(mounted, path, html, index);
+const rewrite = (path: string, html: string, index: number) =>
+  rewriteIn(mounted, path, html, index);
 
 beforeEach(async () => {
   mounted = await setUp();
@@ -63,47 +58,11 @@ afterEach(async () => {
   await tearDown(mounted);
 });
 
-/** One pane per path, the phone's toolbar when asked, and the heading a link named. */
-function render(paths: string[], { phone = false, anchor }: { phone?: boolean; anchor?: string }) {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  flushSync(() =>
-    mounted.root.render(
-      <QueryClientProvider client={client}>
-        <div className="flex h-dvh flex-col">
-          <div className="flex min-h-0 flex-1">
-            {paths.map((path, index) => (
-              // biome-ignore lint/suspicious/noArrayIndexKey: keyed by place, so a pane moved to another page keeps its HtmlPane, as the app's does
-              <div key={index} data-pane className="min-w-0 flex-1">
-                <HtmlPane path={path} anchor={anchor} commands={mounted.spy} onFocus={() => {}} />
-              </div>
-            ))}
-          </div>
-          {phone && <Toolbar commands={mounted.spy} split={paths.length > 1} />}
-          <WhichKey phone={phone} />
-        </div>
-      </QueryClientProvider>,
-    ),
-  );
-}
-
-async function titleOf(frame: HTMLIFrameElement): Promise<unknown> {
-  return (await ask(frame, { probe: "which" }, "which")).title;
-}
-
 /** Scrolls the page by `by` and waits until the pane has heard where it landed. */
 async function scrollBy(frame: HTMLIFrameElement, by: number): Promise<number> {
   const { y } = await ask(frame, { probe: "scroll", by }, "scroll");
   await expect.poll(() => scrolls.at(-1)).toBe(y);
   return y as number;
-}
-
-/** Rewrites the page on disk and tells the panes, then waits for the new frame's script. */
-async function rewrite(path: string, html: string, index: number) {
-  await browser.servePage(path, html);
-  const before = frameOf(mounted, index);
-  pageWritten(path);
-  await expect.poll(() => frameOf(mounted, index)).not.toBe(before);
-  await ready(frameOf(mounted, index));
 }
 
 /** A page that scrolls, but less than the long page did. */
@@ -366,34 +325,6 @@ it("after a reload, Space, ? and Escape from the page reach kasten without a new
     .toBe(mounted.host.querySelector("[data-html-pane]"));
 });
 
-it("after a take and a reload, the page's y takes a passage of the new page", async () => {
-  await browser.servePage(PATH, report("old"));
-  render([PATH], {});
-  await ready(frameOf(mounted, 0));
-  await select(frameOf(mounted, 0), ["p1", 0, "p1", 5]);
-  await userEvent.keyboard("y");
-  await expect.poll(() => api.dumps.length).toBe(1);
-
-  await rewrite(PATH, report("new"), 0);
-  await select(frameOf(mounted, 0), ["p1", 6, "p1", 11]);
-  await userEvent.keyboard("y");
-
-  await expect.poll(() => api.dumps.length).toBe(2);
-  expect(api.dumps[1]).toContain("bravo");
-});
-
-it("a reload drops the old page's held passage and its take button", async () => {
-  await browser.servePage(PATH, report("old"));
-  render([PATH], {});
-  await ready(frameOf(mounted, 0));
-  await select(frameOf(mounted, 0), ["p1", 0, "p1", 5]);
-  await expect.poll(() => takeButton(mounted)).not.toBeNull();
-
-  await rewrite(PATH, report("new"), 0);
-
-  expect(takeButton(mounted)).toBeNull();
-});
-
 it("a reload of a page opened at a heading keeps the reader's scroll, not the heading's", async () => {
   await browser.servePage(PATH, report("old"));
   render([PATH], { anchor: "far" });
@@ -478,12 +409,10 @@ it("a reload does not take the focus from where the reader went while it loaded"
   await userEvent.click(frameOf(mounted, 0));
   const field = mounted.host.appendChild(document.createElement("input"));
 
-  await browser.servePage(PATH, report("new"));
-  const before = frameOf(mounted, 0);
-  pageWritten(PATH);
+  await browser.serveSlowly(SLOW, 1500);
+  const loaded = await swap(PATH, late("new"), 0);
   field.focus();
-  await expect.poll(() => frameOf(mounted, 0)).not.toBe(before);
-  await ready(frameOf(mounted, 0));
+  await loaded();
   expect(await titleOf(frameOf(mounted, 0))).toBe("new");
 
   expect(document.activeElement).toBe(field);

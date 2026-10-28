@@ -14,6 +14,7 @@ declare module "vitest/browser" {
     servePage: (path: string, html: string) => Promise<void>;
     serveFile: (path: string, file: string) => Promise<void>;
     hideResizeObserver: (path: string) => Promise<void>;
+    serveSlowly: (path: string, ms: number) => Promise<void>;
     unservePages: () => Promise<void>;
     touchDrag: (points: { x: number; y: number }[]) => Promise<void>;
     touches: (frames: { id: number; x: number; y: number }[][]) => Promise<void>;

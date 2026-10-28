@@ -13,13 +13,14 @@ interface Place {
  * `loads` keys the frame: a new frame loads the page afresh and, unlike a new
  * `src` on the old one, leaves no entry in the browser's history. The scroll the
  * page last reported goes back to it once it has loaded, and so does the focus
- * where the frame held it. Each place carries its path, so a pane moved to
+ * where the frame held it, and `forget` drops what the old page held. Each place carries its path, so a pane moved to
  * another page does not hand that page the last one's scroll.
  */
 export function usePageReload(
   path: string,
   frame: RefObject<HTMLIFrameElement | null>,
   relayedTaken: RefObject<boolean>,
+  forget: () => void,
 ) {
   const [loads, setLoads] = useState(0);
   const pathRef = useRef(path);
@@ -43,6 +44,10 @@ export function usePageReload(
    */
   const restore = useRef<Place | null>(null);
   const refocus = useRef(false);
+  const forgetRef = useRef(forget);
+  useLayoutEffect(() => {
+    forgetRef.current = forget;
+  });
 
   // Where the page has scrolled to, as its script reports it, from this pane's
   // frame only. Heard whatever has the focus: a wheel scrolls a page without it.
@@ -65,6 +70,9 @@ export function usePageReload(
         refocus.current ||= document.activeElement === frame.current;
         // A new page is a new visit, so the page's own `y` takes once more.
         relayedTaken.current = false;
+        // The old page goes with its frame, so what it held goes now: the new page
+        // runs its script, draws and takes presses well before its load (#1293).
+        forgetRef.current();
         setLoads((count) => count + 1);
       }),
     [frame, relayedTaken],

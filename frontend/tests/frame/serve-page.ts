@@ -87,7 +87,22 @@ export const hideResizeObserver: BrowserCommand<[string]> = async ({ context }, 
   );
 };
 
+/**
+ * Serves an empty image at `pagePath` after `ms`, so a page that shows it parses and
+ * runs its script long before its `load`, as a page with large images does.
+ */
+export const serveSlowly: BrowserCommand<[string, number]> = async ({ context }, pagePath, ms) => {
+  await context.route(
+    (url) => url.pathname === `/api/html/${encodeURI(pagePath)}`,
+    async (route) => {
+      await new Promise((done) => setTimeout(done, ms));
+      return route.fulfill({ status: 200, contentType: "image/gif", body: "" });
+    },
+  );
+};
+
 /** Stops serving the pages `servePage` routed, so the next test starts with none. */
 export const unservePages: BrowserCommand<[]> = async ({ context }) => {
-  await context.unrouteAll();
+  // A late answer `serveSlowly` still owes a frame the test has removed has nowhere to go.
+  await context.unrouteAll({ behavior: "ignoreErrors" });
 };

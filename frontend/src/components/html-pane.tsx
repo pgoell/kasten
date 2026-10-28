@@ -140,8 +140,8 @@ export function HtmlPane({
   const dumpForget = dump.forget;
 
   /**
-   * What a page change or a reload leaves behind: the selection taken from the
-   * old words, the press over them and the toast about them.
+   * What a page change or a reload leaves behind: the old words' selection, the
+   * press over them and their toast.
    */
   const forget = useCallback(() => {
     lost.current = false;
@@ -174,7 +174,7 @@ export function HtmlPane({
     commandsRef.current = commands;
   });
 
-  const reload = usePageReload(path, frame, relayedTaken);
+  const reload = usePageReload(path, frame, relayedTaken, forget);
 
   useEffect(() => {
     if (focusSignal) panel.current?.focus();
