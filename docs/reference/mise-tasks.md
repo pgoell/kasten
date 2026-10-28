@@ -113,10 +113,11 @@ container has no mise, so run that line there instead, as
 
 | Task | What it does |
 |---|---|
-| `lint` | ruff, ty, Biome on both JavaScript trees, `tsc`, the file-size, folder-size and copy checks. The pre-commit gate and CI's Lint job |
+| `lint` | ruff, ty, Biome on both JavaScript trees, `tsc`, the file-size, folder-size, copy and import checks. The pre-commit gate and CI's Lint job |
 | `lint:py` | Backend and host job lint, format check and type check |
 | `lint:size` | Check every file committed at HEAD against the 5,000-token limit |
 | `lint:fanout` | Fail when a folder holds more than seven entries and grew past its line in `.fan-out-baseline` |
+| `lint:imports` | Fail on an import that breaks a boundary (import-linter, dependency-cruiser) or a new dynamic import |
 | `lint:dup` | Fail when more than 1% of `frontend/src`, `backend/src` and `jobs/src` is copied code (jscpd) |
 | `fe:lint` | Biome on the frontend |
 | `shell:lint` | Biome on `shell/chat`, with the frontend's binary and rules |

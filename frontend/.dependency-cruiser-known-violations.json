@@ -1,0 +1,463 @@
+[
+  {
+    "type": "dependency",
+    "from": "src/lib/book/foliate-view.ts",
+    "to": "src/components/book-contents.tsx",
+    "unresolvedTo": "@/components/book-contents",
+    "dependencyTypes": ["undetermined", "import", "type-only"],
+    "rule": {
+      "severity": "error",
+      "name": "lib-not-up"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/lib/book/use-book-view.ts",
+    "to": "src/components/book-contents.tsx",
+    "unresolvedTo": "@/components/book-contents",
+    "dependencyTypes": ["undetermined", "import"],
+    "rule": {
+      "severity": "error",
+      "name": "lib-not-up"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/lib/log/log-card-food.ts",
+    "to": "src/components/food-sheet.tsx",
+    "unresolvedTo": "@/components/food-sheet",
+    "dependencyTypes": ["undetermined", "import"],
+    "rule": {
+      "severity": "error",
+      "name": "lib-not-up"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/lib/log/log-card.ts",
+    "to": "src/components/food-sheet.tsx",
+    "unresolvedTo": "@/components/food-sheet",
+    "dependencyTypes": ["undetermined", "import"],
+    "rule": {
+      "severity": "error",
+      "name": "lib-not-up"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/lib/review/periodic-review.ts",
+    "to": "src/components/review-block.tsx",
+    "unresolvedTo": "@/components/review-block",
+    "dependencyTypes": ["undetermined", "import"],
+    "rule": {
+      "severity": "error",
+      "name": "lib-not-up"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/lib/todo/use-todo-keys.ts",
+    "to": "src/components/todo-board.tsx",
+    "unresolvedTo": "@/components/todo-board",
+    "dependencyTypes": ["undetermined", "import", "type-only"],
+    "rule": {
+      "severity": "error",
+      "name": "lib-not-up"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/lib/use-pane-commands.ts",
+    "to": "src/components/use-pane-moves.ts",
+    "unresolvedTo": "@/components/use-pane-moves",
+    "dependencyTypes": ["undetermined", "import", "type-only"],
+    "rule": {
+      "severity": "error",
+      "name": "lib-not-up"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/lib/whole-pane-openers.ts",
+    "to": "src/components/use-pane-moves.ts",
+    "unresolvedTo": "@/components/use-pane-moves",
+    "dependencyTypes": ["undetermined", "import", "type-only"],
+    "rule": {
+      "severity": "error",
+      "name": "lib-not-up"
+    }
+  },
+  {
+    "type": "cycle",
+    "from": "src/components/board-card.tsx",
+    "to": "src/components/todo-board.tsx",
+    "unresolvedTo": "@/components/todo-board",
+    "dependencyTypes": ["undetermined", "import", "type-only"],
+    "rule": {
+      "severity": "error",
+      "name": "no-circular"
+    },
+    "cycle": [
+      {
+        "name": "src/components/todo-board.tsx",
+        "dependencyTypes": ["undetermined", "import", "type-only"]
+      },
+      {
+        "name": "src/components/board-card.tsx",
+        "dependencyTypes": ["undetermined", "import"]
+      }
+    ]
+  },
+  {
+    "type": "cycle",
+    "from": "src/components/review-block.tsx",
+    "to": "src/components/week-review.tsx",
+    "unresolvedTo": "@/components/week-review",
+    "dependencyTypes": ["undetermined", "import"],
+    "rule": {
+      "severity": "error",
+      "name": "no-circular"
+    },
+    "cycle": [
+      {
+        "name": "src/components/week-review.tsx",
+        "dependencyTypes": ["undetermined", "import"]
+      },
+      {
+        "name": "src/lib/review/periodic-review.ts",
+        "dependencyTypes": ["undetermined", "import", "type-only"]
+      },
+      {
+        "name": "src/components/review-block.tsx",
+        "dependencyTypes": ["undetermined", "import"]
+      }
+    ]
+  },
+  {
+    "type": "cycle",
+    "from": "src/components/review-block.tsx",
+    "to": "src/lib/review/periodic-review.ts",
+    "unresolvedTo": "@/lib/review/periodic-review",
+    "dependencyTypes": ["undetermined", "import", "type-only"],
+    "rule": {
+      "severity": "error",
+      "name": "no-circular"
+    },
+    "cycle": [
+      {
+        "name": "src/lib/review/periodic-review.ts",
+        "dependencyTypes": ["undetermined", "import", "type-only"]
+      },
+      {
+        "name": "src/components/review-block.tsx",
+        "dependencyTypes": ["undetermined", "import"]
+      }
+    ]
+  },
+  {
+    "type": "cycle",
+    "from": "src/lib/book/pdf-view.ts",
+    "to": "src/lib/book/pdfjs-renderer.ts",
+    "unresolvedTo": "@/lib/book/pdfjs-renderer",
+    "dependencyTypes": ["undetermined", "import"],
+    "rule": {
+      "severity": "error",
+      "name": "no-circular"
+    },
+    "cycle": [
+      {
+        "name": "src/lib/book/pdfjs-renderer.ts",
+        "dependencyTypes": ["undetermined", "import"]
+      },
+      {
+        "name": "src/lib/book/pdf-view.ts",
+        "dependencyTypes": ["undetermined", "import", "type-only"]
+      }
+    ]
+  },
+  {
+    "type": "cycle",
+    "from": "src/lib/highlight.ts",
+    "to": "src/lib/html-take.ts",
+    "unresolvedTo": "@/lib/html-take",
+    "dependencyTypes": ["undetermined", "import"],
+    "rule": {
+      "severity": "error",
+      "name": "no-circular"
+    },
+    "cycle": [
+      {
+        "name": "src/lib/html-take.ts",
+        "dependencyTypes": ["undetermined", "import"]
+      },
+      {
+        "name": "src/lib/highlight.ts",
+        "dependencyTypes": ["undetermined", "import"]
+      }
+    ]
+  },
+  {
+    "type": "cycle",
+    "from": "src/lib/live/live-preview-images.ts",
+    "to": "src/lib/live/live-preview-video.ts",
+    "unresolvedTo": "@/lib/live/live-preview-video",
+    "dependencyTypes": ["undetermined", "import"],
+    "rule": {
+      "severity": "error",
+      "name": "no-circular"
+    },
+    "cycle": [
+      {
+        "name": "src/lib/live/live-preview-video.ts",
+        "dependencyTypes": ["undetermined", "import"]
+      },
+      {
+        "name": "src/lib/live/live-preview-images.ts",
+        "dependencyTypes": ["undetermined", "import"]
+      }
+    ]
+  },
+  {
+    "type": "cycle",
+    "from": "src/lib/log/barcode-zxing.ts",
+    "to": "src/lib/log/barcode.ts",
+    "unresolvedTo": "@/lib/log/barcode",
+    "dependencyTypes": ["undetermined", "import", "type-only"],
+    "rule": {
+      "severity": "error",
+      "name": "no-circular"
+    },
+    "cycle": [
+      {
+        "name": "src/lib/log/barcode.ts",
+        "dependencyTypes": ["undetermined", "import", "type-only"]
+      },
+      {
+        "name": "src/lib/log/barcode-zxing.ts",
+        "dependencyTypes": ["undetermined", "dynamic-import"]
+      }
+    ]
+  },
+  {
+    "type": "cycle",
+    "from": "src/lib/log/food-add.ts",
+    "to": "src/lib/log/my-foods.ts",
+    "unresolvedTo": "@/lib/log/my-foods",
+    "dependencyTypes": ["undetermined", "import"],
+    "rule": {
+      "severity": "error",
+      "name": "no-circular"
+    },
+    "cycle": [
+      {
+        "name": "src/lib/log/my-foods.ts",
+        "dependencyTypes": ["undetermined", "import"]
+      },
+      {
+        "name": "src/lib/log/food-search.ts",
+        "dependencyTypes": ["undetermined", "import", "type-only"]
+      },
+      {
+        "name": "src/lib/log/food-add.ts",
+        "dependencyTypes": ["undetermined", "import"]
+      }
+    ]
+  },
+  {
+    "type": "cycle",
+    "from": "src/lib/log/food-search.ts",
+    "to": "src/lib/log/my-foods.ts",
+    "unresolvedTo": "@/lib/log/my-foods",
+    "dependencyTypes": ["undetermined", "import"],
+    "rule": {
+      "severity": "error",
+      "name": "no-circular"
+    },
+    "cycle": [
+      {
+        "name": "src/lib/log/my-foods.ts",
+        "dependencyTypes": ["undetermined", "import"]
+      },
+      {
+        "name": "src/lib/log/food-search.ts",
+        "dependencyTypes": ["undetermined", "import", "type-only"]
+      }
+    ]
+  },
+  {
+    "type": "cycle",
+    "from": "src/lib/note/held-buffer.ts",
+    "to": "src/lib/note/use-autosave.ts",
+    "unresolvedTo": "@/lib/note/use-autosave",
+    "dependencyTypes": ["undetermined", "import", "type-only"],
+    "rule": {
+      "severity": "error",
+      "name": "no-circular"
+    },
+    "cycle": [
+      {
+        "name": "src/lib/note/use-autosave.ts",
+        "dependencyTypes": ["undetermined", "import", "type-only"]
+      },
+      {
+        "name": "src/lib/note/held-buffer.ts",
+        "dependencyTypes": ["undetermined", "import"]
+      }
+    ]
+  },
+  {
+    "type": "cycle",
+    "from": "src/lib/note/use-autosave.ts",
+    "to": "src/lib/note/use-buffer-write.ts",
+    "unresolvedTo": "@/lib/note/use-buffer-write",
+    "dependencyTypes": ["undetermined", "import"],
+    "rule": {
+      "severity": "error",
+      "name": "no-circular"
+    },
+    "cycle": [
+      {
+        "name": "src/lib/note/use-buffer-write.ts",
+        "dependencyTypes": ["undetermined", "import"]
+      },
+      {
+        "name": "src/lib/note/held-buffer.ts",
+        "dependencyTypes": ["undetermined", "import", "type-only"]
+      },
+      {
+        "name": "src/lib/note/use-autosave.ts",
+        "dependencyTypes": ["undetermined", "import", "type-only"]
+      }
+    ]
+  },
+  {
+    "type": "cycle",
+    "from": "src/lib/note/use-autosave.ts",
+    "to": "src/lib/note/vault-reads.ts",
+    "unresolvedTo": "@/lib/note/vault-reads",
+    "dependencyTypes": ["undetermined", "import"],
+    "rule": {
+      "severity": "error",
+      "name": "no-circular"
+    },
+    "cycle": [
+      {
+        "name": "src/lib/note/vault-reads.ts",
+        "dependencyTypes": ["undetermined", "import"]
+      },
+      {
+        "name": "src/lib/note/held-buffer.ts",
+        "dependencyTypes": ["undetermined", "import"]
+      },
+      {
+        "name": "src/lib/note/use-autosave.ts",
+        "dependencyTypes": ["undetermined", "import", "type-only"]
+      }
+    ]
+  },
+  {
+    "type": "cycle",
+    "from": "src/lib/note/use-buffer-write.ts",
+    "to": "src/lib/note/write-answer.ts",
+    "unresolvedTo": "@/lib/note/write-answer",
+    "dependencyTypes": ["undetermined", "import"],
+    "rule": {
+      "severity": "error",
+      "name": "no-circular"
+    },
+    "cycle": [
+      {
+        "name": "src/lib/note/write-answer.ts",
+        "dependencyTypes": ["undetermined", "import"]
+      },
+      {
+        "name": "src/lib/note/held-buffer.ts",
+        "dependencyTypes": ["undetermined", "import", "type-only"]
+      },
+      {
+        "name": "src/lib/note/use-autosave.ts",
+        "dependencyTypes": ["undetermined", "import", "type-only"]
+      },
+      {
+        "name": "src/lib/note/use-buffer-write.ts",
+        "dependencyTypes": ["undetermined", "import"]
+      }
+    ]
+  },
+  {
+    "type": "cycle",
+    "from": "src/lists/lists-store.ts",
+    "to": "src/lists/lists-view.ts",
+    "unresolvedTo": "./lists-view",
+    "dependencyTypes": ["local", "import"],
+    "rule": {
+      "severity": "error",
+      "name": "no-circular"
+    },
+    "cycle": [
+      {
+        "name": "src/lists/lists-view.ts",
+        "dependencyTypes": ["local", "import"]
+      },
+      {
+        "name": "src/lists/lists-store.ts",
+        "dependencyTypes": ["local", "import", "type-only"]
+      }
+    ]
+  },
+  {
+    "type": "dependency",
+    "from": "src/lib/book/pdfjs-renderer.ts",
+    "to": "foliate-pdfjs",
+    "unresolvedTo": "foliate-pdfjs",
+    "dependencyTypes": ["unknown"],
+    "rule": {
+      "severity": "error",
+      "name": "no-dynamic-import"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/lib/live/mermaid.ts",
+    "to": "mermaid",
+    "unresolvedTo": "mermaid",
+    "dependencyTypes": ["unknown"],
+    "rule": {
+      "severity": "error",
+      "name": "no-dynamic-import"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/lib/log/barcode.ts",
+    "to": "src/lib/log/barcode-zxing.ts",
+    "unresolvedTo": "@/lib/log/barcode-zxing",
+    "dependencyTypes": ["undetermined", "dynamic-import"],
+    "rule": {
+      "severity": "error",
+      "name": "no-dynamic-import"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/lib/math.ts",
+    "to": "node_modules/katex/dist/katex.js",
+    "unresolvedTo": "katex",
+    "dependencyTypes": ["npm", "dynamic-import"],
+    "rule": {
+      "severity": "error",
+      "name": "no-dynamic-import"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/lib/math.ts",
+    "to": "node_modules/katex/dist/katex.min.css",
+    "unresolvedTo": "katex/dist/katex.min.css",
+    "dependencyTypes": ["npm", "dynamic-import"],
+    "rule": {
+      "severity": "error",
+      "name": "no-dynamic-import"
+    }
+  }
+]

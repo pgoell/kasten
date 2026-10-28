@@ -95,6 +95,8 @@ call may run. Watch it with `gh pr checks <n> --watch` as
   does to pick a book's format. One exception: a heavy third-party bundle
   loaded on demand, as pdf.js is for a pdf embed (#327) and KaTeX and mermaid
   are for math and diagrams (#423), with a comment at the import saying why.
+  `mise run lint` enforces it (`lint:imports`), with the allowed bundles in
+  `frontend/.dependency-cruiser-known-violations.json`.
 - **Comments explain why.** The code already says what it does. A comment earns
   its place by recording the constraint, the surprise or the reason for a
   choice that looks odd. Match the density of the surrounding file.
@@ -122,4 +124,6 @@ call may run. Watch it with `gh pr checks <n> --watch` as
   under 5,000 tokens.
 - `mise run lint`, pre-commit and an editor hook check both. The folder baseline
   in `.fan-out-baseline` may only go down: never raise a number there to pass.
+- `lint:imports` holds the import boundaries; today's breaches are listed and
+  only new ones fail: [Run the checks](../docs/how-to/run-the-checks.md#get-past-the-import-checks).
 - Why, and the excludes: [File and folder limits](../docs/explanation/file-size-limit.md).

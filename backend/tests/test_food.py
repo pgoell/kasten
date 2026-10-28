@@ -39,7 +39,7 @@ def food_module() -> Any:
     reach the module only through this, and the endpoints answer the rest.
     """
     try:
-        return importlib.import_module("kasten_backend.food")
+        return importlib.import_module("kasten_backend.food")  # noqa: TID251 absent until food lands
     except ModuleNotFoundError:
         return None
 

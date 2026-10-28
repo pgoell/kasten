@@ -102,6 +102,35 @@ raising the threshold. To see the clones while it passes:
 frontend/node_modules/.bin/jscpd
 ```
 
+## Get past the import checks
+
+`lint:imports` runs three checks. import-linter reads the contracts in
+`[tool.importlinter]` of the root `pyproject.toml`: the jobs never import the
+backend, only `main` imports `kasten_backend.routes`, nothing imports `main`,
+and no two sibling modules import each other. dependency-cruiser reads
+`frontend/.dependency-cruiser.cjs` over `src`, `sw` and `scripts`: no cycles,
+`lib` never imports `components` or `routes`, `components` never imports
+`routes`, the lists app and the notebook stay apart, and no dynamic `import()`.
+In Python, ruff's `TID251` bans `importlib.import_module`, `importlib.reload`,
+the `importlib.util` loaders and `runpy`, and a `git grep` bans the builtin
+`__import__`. `frontend/tests` is not scanned: vitest's mock-then-`await
+import` is how a test loads a module fresh.
+
+Each failure names the rule and the fix. Fix the import. The breaches that were
+there when the checks came in are accepted, so only new ones fail: 19
+`ignore_imports` lines in `pyproject.toml`, 27 entries in
+`frontend/.dependency-cruiser-known-violations.json` (with the four heavy
+bundles `.claude/CLAUDE.md` allows) and two `# noqa: TID251`. When you fix one,
+drop its line, or refresh the frontend list:
+
+```sh
+cd frontend && node_modules/.bin/depcruise src sw scripts --config .dependency-cruiser.cjs --output-type baseline > .dependency-cruiser-known-violations.json
+bunx biome format --write .dependency-cruiser-known-violations.json
+```
+
+A stale `ignore_imports` line fails import-linter, and a test fails when the
+frontend list differs from a fresh run, so neither list can hide a new breach.
+
 ## Find files and folders over the limits
 
 An authored file should stay under 5,000 tokens, counted as bytes divided by

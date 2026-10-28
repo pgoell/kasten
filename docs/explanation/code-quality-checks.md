@@ -51,6 +51,14 @@ nothing today. It is there to fail the day a copy is pasted instead of a
 function written, which is how two copies of a fix drift apart. The threshold
 of 1% leaves room for the clones there are and very little more.
 
+**Import boundaries** (`lint:imports`, import-linter and dependency-cruiser).
+Which module may import which. A file can pass every size and complexity check
+and still reach into another module's inside or import upwards, and then no
+module can change alone. The rules follow the layers kasten already has: routes
+above the backend's modules, `lib` below `components`, the jobs outside the
+backend. A dynamic `import()` hides an edge from these tools and from a reader,
+so it is banned too, except for the heavy bundles loaded on demand.
+
 **An area review** ([Review an area for deep modules](/how-to/review-an-area-for-deep-modules.md)).
 The split between files. No lint sees it, because every file and function in a
 badly split area can pass each check on its own.

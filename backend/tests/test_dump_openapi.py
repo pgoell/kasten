@@ -4,7 +4,7 @@ The dumped schema is committed, so it must not carry the release number.
 """
 
 import json
-import runpy
+import runpy  # noqa: TID251 the script runs in-process, as it would as __main__
 from pathlib import Path
 from typing import TYPE_CHECKING
 

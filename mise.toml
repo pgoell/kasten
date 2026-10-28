@@ -198,7 +198,7 @@ description = "Run the fast linters, both type checkers, the file-size, fan-out 
 # this the frontend was the half where a type error reached the branch. It
 # brings `fe:build` with it, which is what emits the gitignored route tree, and
 # the pair costs about two seconds.
-depends = ["lint:py", "lint:size", "lint:fanout", "lint:dup", "fe:lint", "fe:typecheck", "shell:lint"]
+depends = ["lint:py", "lint:size", "lint:fanout", "lint:dup", "lint:imports", "fe:lint", "fe:typecheck", "shell:lint"]
 
 [tasks."lint:py"]
 description = "Lint, format-check and type-check the backend and the host jobs"
@@ -230,6 +230,19 @@ description = "Fail when more than 1% of frontend/src, backend/src and jobs/src 
 # quiet run prints nothing; only a failure runs it again to list the clones.
 # Limits and paths are in .jscpd.json.
 run = "frontend/node_modules/.bin/jscpd --silent >/dev/null 2>&1 || frontend/node_modules/.bin/jscpd"
+
+[tasks."lint:imports"]
+description = "Check the import boundaries (import-linter, dependency-cruiser) and ban dynamic imports"
+# The contracts are [tool.importlinter] in pyproject.toml and
+# frontend/.dependency-cruiser.cjs; today's breaches are listed there and in
+# frontend/.dependency-cruiser-known-violations.json, so only new ones fail.
+# Ruff's banned-api (TID251) covers importlib and runpy but cannot see the
+# builtin `__import__`, hence the git grep. Together they take under 2 s.
+run = [
+  "uv run lint-imports --no-cache --no-logo",
+  "cd frontend && node_modules/.bin/depcruise src sw scripts --config .dependency-cruiser.cjs --ignore-known .dependency-cruiser-known-violations.json --output-type err-long",
+  "! git grep -nE '\\b__import__\\(' -- '*.py' || { echo 'Dynamic import: import the module at the top of the file (.claude/CLAUDE.md, \"No dynamic imports\").'; exit 1; }",
+]
 
 [tasks.fmt]
 description = "Auto-format everything"
