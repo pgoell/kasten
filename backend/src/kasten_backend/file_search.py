@@ -55,33 +55,34 @@ async def search_files(
     """Every line of the files' text holding `query`, in the room `notes` hits leave under the cap.
 
     The cache is brought up to date first, so a cold cache costs the whole
-    extraction before the answer. The caller checks the query is not blank.
+    extraction before the answer, and held still until every hit has its
+    place. The caller checks the query is not blank.
     """
-    await file_text.refresh(root, cache, skip)
-    room = MOST_HITS - notes
-    # No scan at all once the notes fill the cap: `scan_vault` stops when it
-    # reaches its cap, and a cap of nothing is never reached.
-    if room <= 0:
-        return []
-    texts = await scan_vault(cache, literal_matcher(query), room, skip, listing=TEXT_LISTING)
+    async with file_text.fresh(root, cache, skip):
+        room = MOST_HITS - notes
+        # No scan at all once the notes fill the cap: `scan_vault` stops when it
+        # reaches its cap, and a cap of nothing is never reached.
+        if room <= 0:
+            return []
+        texts = await scan_vault(cache, literal_matcher(query), room, skip, listing=TEXT_LISTING)
 
-    found = []
-    for hit in texts:
-        path = hit.path.removesuffix(".txt")
-        place = file_text.place_of(cache, path, hit.line)
-        if place is None:
-            continue
-        found.append(
-            FileHit(
-                path=path,
-                line=hit.line,
-                text=hit.text,
-                place=FilePlace(
-                    kind=KINDS[Path(path).suffix.lower()],
-                    label=place.label,
-                    page=place.page,
-                    anchor=place.anchor,
-                ),
+        found = []
+        for hit in texts:
+            path = hit.path.removesuffix(".txt")
+            place = file_text.place_of(cache, path, hit.line)
+            if place is None:
+                continue
+            found.append(
+                FileHit(
+                    path=path,
+                    line=hit.line,
+                    text=hit.text,
+                    place=FilePlace(
+                        kind=KINDS[Path(path).suffix.lower()],
+                        label=place.label,
+                        page=place.page,
+                        anchor=place.anchor,
+                    ),
+                )
             )
-        )
-    return found
+        return found

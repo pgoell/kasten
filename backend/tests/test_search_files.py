@@ -10,7 +10,7 @@ import json
 import os
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 from backend.tests.book_files import epub, pdf, xhtml
 from kasten_backend import file_search, file_text
@@ -353,3 +353,69 @@ async def test_an_upper_case_suffix_is_listed_and_searched(
 
     assert hit["path"] == "Plan.PDF"
     assert hit["place"]["kind"] == "pdf"
+
+
+async def test_a_refresh_cannot_rewrite_an_entry_between_the_scan_and_the_place_of_another_search(
+    client: AsyncClient, vault: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The needle is line 3 in both versions, on page 2 of the first and page 1 of
+    # the second, so a line of the old txt read with the new json names page 1.
+    put(vault, "paper.pdf", pdf([["a"], ["b", "needle"]]))
+    await search(client, "needle")
+    loop = asyncio.get_running_loop()
+    scanned, go = asyncio.Event(), asyncio.Event()
+    written: asyncio.Future[None] = loop.create_future()
+    contended: asyncio.Future[None] = loop.create_future()
+
+    real_scan = file_search.scan_vault
+
+    async def scan_then_pause(*args: Any, **kwargs: Any) -> Any:
+        found = await real_scan(*args, **kwargs)
+        if not scanned.is_set():
+            scanned.set()
+            await go.wait()
+        return found
+
+    class SpyLock(asyncio.Lock):
+        async def acquire(self) -> Literal[True]:
+            if self.locked() and not contended.done():
+                contended.set_result(None)
+            return await super().acquire()
+
+    real_write = file_text._write
+
+    def write_then_tell(*args: Any) -> None:
+        real_write(*args)
+        loop.call_soon_threadsafe(lambda: written.done() or written.set_result(None))
+
+    monkeypatch.setattr(file_search, "scan_vault", scan_then_pause)
+    monkeypatch.setattr(file_text, "_lock", SpyLock())
+    monkeypatch.setattr(file_text, "_write", write_then_tell)
+
+    first = asyncio.create_task(search(client, "needle"))
+    await scanned.wait()
+    put(vault, "paper.pdf", pdf([["a", "b", "needle"], ["c"]]))
+    second = asyncio.create_task(search(client, "needle"))
+    # On a reader that drops the lock before its scan the second search rewrites
+    # the entry here; on one that holds it, the second search queues behind it.
+    await asyncio.wait({written, contended}, return_when=asyncio.FIRST_COMPLETED)
+    go.set()
+
+    assert [hit["place"]["page"] for hit in await first] == [2]
+    assert [hit["place"]["page"] for hit in await second] == [1]
+
+
+async def test_a_search_whose_notes_fill_the_cap_still_brings_the_cache_up_to_date(
+    client: AsyncClient, vault: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    cap = 1
+    monkeypatch.setattr("kasten_backend.search.MOST_HITS", cap)
+    monkeypatch.setattr(file_search, "MOST_HITS", cap)
+    put(vault, "note.md", "derived\n")
+    put(vault, "paper.pdf", pdf([["derived a"]]))
+
+    hits = await search(client, "derived")
+
+    assert [hit["path"] for hit in hits] == ["note.md"]
+    text = (cache_of(vault) / "paper.pdf.txt").read_text(encoding="utf-8")
+    assert text == "derived a"

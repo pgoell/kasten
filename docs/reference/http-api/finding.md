@@ -81,7 +81,9 @@ book. That text is kept in a cache outside the vault. The cache holds one text
 file for each file, with the file's places beside the text, and `rg` reads it in
 the same query as the notes. An entry is keyed by the file's path, its
 modification time and its size. Before each query, a changed file is extracted
-again, and the entry of a deleted file is dropped. The cache is never written
+again, and the entry of a deleted file is dropped. No query rewrites an entry
+while another reads it, so a hit's line and its place always come from one
+extraction; two searches of the files take turns over the cache. The cache is never written
 into the vault, and it can be deleted at any time: the next search extracts
 again. A release empties it too, so the first search after one extracts every
 file again. Where it lives is set by
