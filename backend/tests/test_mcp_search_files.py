@@ -5,6 +5,7 @@ promise is that an agent finds what the app's own search finds, from the same
 cache, and that a note's hit answers exactly as it did before files were read.
 """
 
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from backend.tests.book_files import epub, pdf, xhtml
@@ -12,8 +13,6 @@ from backend.tests.test_mcp import ENDPOINT, RPC, call, payload
 from kasten_backend import file_search, file_text
 
 if TYPE_CHECKING:
-    from pathlib import Path
-
     import pytest
     from httpx import AsyncClient
 
@@ -256,3 +255,15 @@ async def test_the_search_notes_description_names_file_hits_and_their_place(
 
     for word in ("pdf", "epub", "html", "place", "page", "label", "anchor"):
         assert word in description
+
+
+def test_the_curl_skill_names_file_hits_and_their_place() -> None:
+    # The guide a curl agent reads for `/agent/search`; without the line it
+    # follows a pdf's path to a note read and takes the 404 for a missing note.
+    skill = (
+        Path(__file__).resolve().parents[2] / "plugins/kasten/skills/vault/SKILL.md"
+    ).read_text(encoding="utf-8")
+    search = skill[skill.index("### Search") : skill.index("### Query the graph")]
+
+    for word in ("pdf", "epub", "html", "`place`", "label", "404"):
+        assert word in search

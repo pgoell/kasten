@@ -81,7 +81,7 @@ hit is the three fields above. A file hit adds `place`:
 heading's id, and `null` for the others. A file hit's `line` counts lines of the
 file's extracted text, not lines of the file. File hits read the same text cache
 as `GET /api/search`. The first search after a release waits until the cache has
-extracted every file in the vault. A file that will not extract gives no hit
+extracted every file it walks, the archive's only with `archive=true`. A file that will not extract gives no hit
 and no error. `read_note` does not open these files, so cite the path and label.
 
 The archive folder and its files are walked past unless `archive=true`. Which

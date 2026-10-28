@@ -118,6 +118,13 @@ hits: `[{"path": "…", "line": 3, "text": "…"}]`, `line` 1-based. It walks pa
 the archive folder; add `-d archive=true` to include it. A blank `q` answers
 `[]`.
 
+Notes come first, then lines of the vault's pdf, epub and html files. A file
+hit adds `place`: `{"kind": "pdf", "label": "page 2", "page": 2, "anchor":
+null}`, where `kind` is `pdf`, `epub` or `html`, `label` is what to cite (the
+page, the chapter or the heading), `page` is the pdf page and `anchor` the html
+heading's id. Its `line` counts lines of the extracted text. A file is not a
+note: `GET /agent/notes/<path>` answers 404 for it, so cite its path and label.
+
 ### Query the graph
 
 The notes and the links between them, `name:: [[target]]` relations included.
