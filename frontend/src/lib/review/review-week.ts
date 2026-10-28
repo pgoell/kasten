@@ -108,14 +108,23 @@ export function kcalPerDay(days: LogDay[], _config: LogConfig, dates: string[]):
   });
 }
 
-/** The todos done on each of `dates`, a day with none standing at zero. */
-export function todosPerDay(todos: TodoHit[], dates: string[]): Bar[] {
-  return barsOf(dates, doneCounts(todos));
+/**
+ * The days of `dates` up to `today`. A day still to come gets no bar, as a stub there would
+ * read as a day with nothing done rather than one not yet lived. `dates` run oldest first,
+ * so the days kept keep their index.
+ */
+function begun(dates: string[], today: string): string[] {
+  return dates.filter((date) => date <= today);
 }
 
-/** The flashcard reviews on each of `dates`, a day with none standing at zero. */
-export function cardsPerDay(cards: LineHit[], dates: string[]): Bar[] {
-  return barsOf(dates, reviewCounts(cards));
+/** The todos done on each of `dates` up to `today`, a day with none standing at zero. */
+export function todosPerDay(todos: TodoHit[], dates: string[], today: string): Bar[] {
+  return barsOf(begun(dates, today), doneCounts(todos));
+}
+
+/** The flashcard reviews on each of `dates` up to `today`, a day with none standing at zero. */
+export function cardsPerDay(cards: LineHit[], dates: string[], today: string): Bar[] {
+  return barsOf(begun(dates, today), reviewCounts(cards));
 }
 
 /** The todos ticked done in the range, oldest first. */

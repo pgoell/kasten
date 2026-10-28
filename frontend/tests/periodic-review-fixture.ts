@@ -236,9 +236,7 @@ export function docText(): string {
 
 /** The label of the chart drawn under a section's heading, or the empty string if none. */
 export function labelIn(heading: string): string {
-  const section = [...document.querySelectorAll<HTMLElement>(".review-section")].find(
-    (each) => each.querySelector(".review-heading")?.textContent === heading,
-  );
+  const section = sectionNamed(heading);
   return section?.querySelector("svg")?.getAttribute("aria-label") ?? "";
 }
 
@@ -257,8 +255,47 @@ export function reviewText(): string {
 
 /** The section of the review under `heading`, as its text, or the empty string if none. */
 export function sectionText(heading: string): string {
-  const section = [...document.querySelectorAll<HTMLElement>(".review-section")].find(
+  const section = sectionNamed(heading);
+  return section?.textContent ?? "";
+}
+
+/**
+ * The bars of the chart under `heading`, each as the slot it stands in, worked out from its x
+ * and the chart's width, and whether it is the one-unit stub of a logged zero.
+ */
+export function barsIn(heading: string, slots: number): { slot: number; zero: boolean }[] {
+  const section = sectionNamed(heading);
+  const width = Number(section?.querySelector("svg")?.getAttribute("viewBox")?.split(" ")[2]);
+  return [...(section?.querySelectorAll("rect") ?? [])].map((rect) => ({
+    slot: Math.floor(Number(rect.getAttribute("x")) / (width / slots)),
+    zero: rect.classList.contains("log-chart-zero"),
+  }));
+}
+
+/** The section under `heading`, or undefined while the review has not drawn it. */
+export function sectionNamed(heading: string): HTMLElement | undefined {
+  return [...document.querySelectorAll<HTMLElement>(".review-section")].find(
     (each) => each.querySelector(".review-heading")?.textContent === heading,
   );
-  return section?.textContent ?? "";
+}
+
+/** The model use section, which holds the table and the words under it. */
+function modelUseSection(): HTMLElement | undefined {
+  return sectionNamed("Model use");
+}
+
+/** The rows of the model use table, each as its cells' words. */
+export function modelUseRows(): string[][] {
+  return [
+    ...(modelUseSection()?.querySelectorAll<HTMLTableRowElement>(".review-table tbody tr") ?? []),
+  ].map((row) => [...row.children].map((cell) => cell.textContent ?? ""));
+}
+
+/** The bar heights of each model use chart, tokens first, one number per month as drawn. */
+export function modelUseBars(): number[][] {
+  return ["Tokens per month", "Cost per month"].map((heading) =>
+    [...(sectionNamed(heading)?.querySelectorAll("rect") ?? [])].map((rect) =>
+      Number(rect.getAttribute("height")),
+    ),
+  );
 }

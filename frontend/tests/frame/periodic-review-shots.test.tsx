@@ -263,3 +263,27 @@ picture("shot week-kcal-no-food-light-desktop", () =>
 picture("shot week-kcal-no-food-dark-desktop", () =>
   kcalSectionShot(DESKTOP, "dark", "week-kcal-no-food-dark-desktop"),
 );
+
+// #1015: the months and days still to come draw no bar, on a phone at 414 in both themes.
+const PHONE_414 = { ...TOUCH, name: "touch-414", width: 414, height: 896 };
+// Each picture starts at the first chart with bars to come, so the empty slots are in view.
+for (const [kind, route, title, chart] of [
+  ["year", YEAR_ROUTE, "Year in review", "Notes per month"],
+  ["week", WEEK_ROUTE, "Week in review", "kcal per day"],
+] as const) {
+  for (const theme of ["light", "dark"] as const) {
+    picture(`shot phone414-${kind}-${theme}`, async () => {
+      const mounted = await mountLook(PHONE_414, route, { theme });
+      try {
+        await drawnTitle(mounted.host, title);
+        [...mounted.host.querySelectorAll(".review-heading")]
+          .find((heading) => heading.textContent === chart)
+          ?.scrollIntoView({ block: "start" });
+        await wait(300);
+        expect(await shot(mounted.host, `phone414-${kind}-${theme}`)).toBe(414);
+      } finally {
+        await unmount(mounted);
+      }
+    });
+  }
+}

@@ -69,7 +69,7 @@ function WeekBody({
       <GitHubLine reads={reads} />
       <div className="review-charts">
         <Kcal reads={reads} dates={dates} todayIndex={todayIndex} />
-        <Todos reads={reads} dates={dates} todayIndex={todayIndex} />
+        <Todos reads={reads} dates={dates} today={today} todayIndex={todayIndex} />
       </div>
       <Rows
         heading="Done"
@@ -94,6 +94,7 @@ function WeekBody({
       <Flashcards
         cards={cards}
         dates={dates}
+        today={today}
         todayIndex={todayIndex}
         error={reads.cards.error}
         pending={reads.cards.pending}
@@ -238,13 +239,15 @@ function Kcal({
 function Todos({
   reads,
   dates,
+  today,
   todayIndex,
 }: {
   reads: WeekReads;
   dates: string[];
+  today: string;
   todayIndex: number;
 }) {
-  const bars = todosPerDay(reads.todos.data, dates);
+  const bars = todosPerDay(reads.todos.data, dates, today);
   const total = bars.reduce((sum, bar) => sum + bar.amount, 0);
   if (reads.todos.error !== undefined) {
     return (
@@ -314,12 +317,14 @@ function Rows({
 function Flashcards({
   cards,
   dates,
+  today,
   todayIndex,
   error,
   pending,
 }: {
   cards: LineHit[];
   dates: string[];
+  today: string;
   todayIndex: number;
   error: string | undefined;
   pending: boolean;
@@ -338,7 +343,7 @@ function Flashcards({
       </Section>
     );
   }
-  const bars = cardsPerDay(cards, dates);
+  const bars = cardsPerDay(cards, dates, today);
   const total = bars.reduce((sum, bar) => sum + bar.amount, 0);
   return (
     <Section heading="Flashcards">

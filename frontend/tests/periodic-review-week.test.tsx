@@ -6,6 +6,7 @@ import { defineFoliateFake } from "./foliate-fake";
 import { FakeEventSource, pageHooks, renderApp, settle, VAULT } from "./home-route-fixture";
 import { DEFAULT_LAYOUT } from "./home-route-overview-fixture";
 import {
+  barsIn,
   CONFIG,
   LOG_CONFIG,
   labelIn,
@@ -350,5 +351,54 @@ describe("the week review on the weekly note", () => {
       document.querySelector<HTMLElement>(".cm-content") as HTMLElement,
     );
     expect(view?.state.doc.lineAt(view.state.selection.main.head).number).toBe(3);
+  });
+
+  it("#1015 A2 on a Wednesday the todos and flashcards per day draw no bar for Thursday to Sunday", async () => {
+    vi.setSystemTime(new Date(2026, 9, 21, 9, 0));
+    await openNote(WEEK_NOTE);
+
+    expect(barsIn("Todos per day", 7).map((bar) => bar.slot)).toEqual([0, 1, 2]);
+    expect(barsIn("Flashcards", 7).map((bar) => bar.slot)).toEqual([0, 1, 2]);
+  });
+
+  it("#1015 A3 today and the days before it with nothing done still draw the logged-zero stub", async () => {
+    vi.setSystemTime(new Date(2026, 9, 21, 9, 0));
+    await openNote(WEEK_NOTE);
+
+    // A todo was done on Tuesday only, and no card was rated by Wednesday.
+    expect(barsIn("Todos per day", 7)).toEqual([
+      { slot: 0, zero: true },
+      { slot: 1, zero: false },
+      { slot: 2, zero: true },
+    ]);
+    expect(barsIn("Flashcards", 7).every((bar) => bar.zero)).toBe(true);
+  });
+
+  it("#1015 A4 a past week draws a bar for each of its seven days, as before", async () => {
+    await openNote(PAST_WEEK_NOTE);
+
+    expect(barsIn("Todos per day", 7)).toHaveLength(7);
+    expect(barsIn("Flashcards", 7)).toHaveLength(7);
+  });
+
+  it("#1015 I2 on the Sunday the week's seven days each draw a bar, Sunday included", async () => {
+    await openNote(WEEK_NOTE);
+
+    expect(barsIn("Todos per day", 7).map((bar) => bar.slot)).toEqual([0, 1, 2, 3, 4, 5, 6]);
+    expect(barsIn("Flashcards", 7).map((bar) => bar.slot)).toEqual([0, 1, 2, 3, 4, 5, 6]);
+  });
+
+  it("#1015 I3 at 23:30 local on Wednesday Thursday has no bar", async () => {
+    vi.setSystemTime(new Date(2026, 9, 21, 23, 30));
+    await openNote(WEEK_NOTE);
+
+    expect(barsIn("Todos per day", 7)).toHaveLength(3);
+  });
+
+  it("#1015 I3 at 00:30 local on Thursday Thursday draws its bar", async () => {
+    vi.setSystemTime(new Date(2026, 9, 22, 0, 30));
+    await openNote(WEEK_NOTE);
+
+    expect(barsIn("Todos per day", 7).map((bar) => bar.slot)).toEqual([0, 1, 2, 3]);
   });
 });

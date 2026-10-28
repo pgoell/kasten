@@ -161,7 +161,7 @@ describe("the week's tiles", () => {
       loggedDays: 0,
       weightChange: null,
     });
-    expect(todosPerDay([], [FROM])).toEqual([{ index: 0, amount: 0 }]);
+    expect(todosPerDay([], [FROM], FROM)).toEqual([{ index: 0, amount: 0 }]);
     expect(carriedOver([], FROM, TO, "2026-10-22")).toEqual([]);
   });
 });

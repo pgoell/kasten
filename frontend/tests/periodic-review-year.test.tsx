@@ -5,12 +5,15 @@ import { defineFoliateFake } from "./foliate-fake";
 import { FakeEventSource, pageHooks, renderApp, settle, stream, VAULT } from "./home-route-fixture";
 import { DEFAULT_LAYOUT } from "./home-route-overview-fixture";
 import {
+  barsIn,
   CARDS,
   CONFIG,
   docText,
   LAST_YEAR_NOTE,
   LOG_CONFIG,
   labelIn,
+  modelUseBars,
+  modelUseRows,
   NEXT_YEAR_NOTE,
   NOW,
   reviewText,
@@ -201,33 +204,8 @@ function projectRows(): string[][] {
   );
 }
 
-/** The section under `heading`, or undefined while the review has not drawn it. */
-function sectionNamed(heading: string): HTMLElement | undefined {
-  return [...document.querySelectorAll<HTMLElement>(".review-section")].find(
-    (each) => each.querySelector(".review-heading")?.textContent === heading,
-  );
-}
-
-/** The model use section, which holds the table and the words under it. */
-function modelUseSection(): HTMLElement | undefined {
-  return sectionNamed("Model use");
-}
-
-/** The rows of the model use table, each as its cells' words. */
-function modelUseRows(): string[][] {
-  return [
-    ...(modelUseSection()?.querySelectorAll<HTMLTableRowElement>(".review-table tbody tr") ?? []),
-  ].map((row) => [...row.children].map((cell) => cell.textContent ?? ""));
-}
-
-/** The bar heights of each model use chart, tokens first, one number per month as drawn. */
-function modelUseBars(): number[][] {
-  return ["Tokens per month", "Cost per month"].map((heading) =>
-    [...(sectionNamed(heading)?.querySelectorAll("rect") ?? [])].map((rect) =>
-      Number(rect.getAttribute("height")),
-    ),
-  );
-}
+/** The slots of January to October, the months begun by NOW. */
+const TO_OCTOBER = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
 
 describe("the year review on the yearly note", () => {
   beforeEach(() => {
@@ -441,10 +419,11 @@ describe("the year review on the yearly note", () => {
     expect(labelIn("Tokens per month")).toBe("tokens per month in 2026, 1.6M in all");
     expect(sectionText("Tokens per month")).toContain("tokens per month, 1.6M in all");
     expect(sectionText("Cost per month")).toContain("cost per month, $1,205.05 in all");
-    // Twelve bars a chart. January has nothing in it, so it is the one-unit stub; October is the top.
+    // A bar a month up to October, today's month. January has nothing in it, so it is the
+    // one-unit stub; October is the top.
     const [tokenBars = [], costBars = []] = modelUseBars();
-    expect(tokenBars).toHaveLength(12);
-    expect(costBars).toHaveLength(12);
+    expect(tokenBars).toHaveLength(10);
+    expect(costBars).toHaveLength(10);
     expect(tokenBars[0]).toBe(1);
     expect(tokenBars[1]).toBeGreaterThan(0);
     expect(tokenBars[9]).toBe(Math.max(...tokenBars));
@@ -506,5 +485,45 @@ describe("the year review on the yearly note", () => {
     await settle();
 
     expect(fetchModelUse.mock.calls.length).toBeGreaterThan(before);
+  });
+
+  it("#1015 A1 the notes per month draw no bar for November and December, the months after today", async () => {
+    await openNote(YEAR_NOTE);
+
+    expect(barsIn("Notes per month", 12).map((bar) => bar.slot)).toEqual(TO_OCTOBER);
+  });
+
+  it("#1015 A3 today's month and those before it with no note still draw the zero stub", async () => {
+    fetchWritten.mockResolvedValue(["2026-01-05"]);
+    await openNote(YEAR_NOTE);
+
+    const bars = barsIn("Notes per month", 12);
+    expect(bars).toHaveLength(10);
+    expect(bars.filter((bar) => bar.zero).map((bar) => bar.slot)).toEqual([
+      1, 2, 3, 4, 5, 6, 7, 8, 9,
+    ]);
+  });
+
+  it("#1015 A4 a past year draws a bar for each of its twelve months, as before", async () => {
+    await openNote(LAST_YEAR_NOTE);
+
+    expect(barsIn("Notes per month", 12)).toHaveLength(12);
+  });
+
+  it("#1015 A5 tokens and cost per month draw no bar for the months after today", async () => {
+    fetchModelUse.mockResolvedValue(YEAR_MODEL_USE);
+    await openNote(YEAR_NOTE);
+
+    expect(barsIn("Tokens per month", 12).map((bar) => bar.slot)).toEqual(TO_OCTOBER);
+    expect(barsIn("Cost per month", 12).map((bar) => bar.slot)).toEqual(TO_OCTOBER);
+  });
+
+  it("#1015 I2 on December 31 the year's twelve months each draw a bar, the last one included", async () => {
+    vi.setSystemTime(new Date(2026, 11, 31, 12, 0));
+    fetchModelUse.mockResolvedValue(YEAR_MODEL_USE);
+    await openNote(YEAR_NOTE);
+
+    expect(barsIn("Notes per month", 12).map((bar) => bar.slot)).toEqual([...TO_OCTOBER, 10, 11]);
+    expect(barsIn("Cost per month", 12)).toHaveLength(12);
   });
 });

@@ -115,7 +115,17 @@ export function projectRows(
 }
 
 /**
- * The notes written in each month of `year` up to `to`, twelve numbers from January. A note
+ * How many months of the year `to` falls in have begun by `to`: 10 for an October day. A chart
+ * draws a bar for these and none for a month still to come, which a logged zero would misread
+ * as a month with nothing in it.
+ */
+export function monthsBegun(to: string): number {
+  return Number(to.slice(5, 7));
+}
+
+/**
+ * The notes written in each month of `year` up to `to`, one number a month from January to
+ * `to`'s month, so a month still to come has none. A note
  * counts on the day `dayOf` gives it, so an instant near midnight lands in the reader's month.
  * `to` is the last day counted, so a note made ahead (tomorrow's daily note) is left out the
  * way Notes made leaves it out.
@@ -128,7 +138,7 @@ export function monthCounts(written: string[], year: number, to: string): number
     counts.set(month, (counts.get(month) ?? 0) + count);
   }
   return Array.from(
-    { length: 12 },
+    { length: monthsBegun(to) },
     (_, index) => counts.get(`${year}-${String(index + 1).padStart(2, "0")}`) ?? 0,
   );
 }

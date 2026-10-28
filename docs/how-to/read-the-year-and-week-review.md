@@ -69,8 +69,10 @@ See [GitHub](#github) below.
 
 ### Notes per month
 
-One bar for each month, January to December, with the notes written in it. The
-current month is drawn at full strength, and the other months are lighter. A
+One bar for each month, January to December, with the notes written in it. A month
+with no note draws a stub, and a month still to come draws no bar, so this year's chart
+ends at the current month. The current month is drawn at full strength, and the other
+months are lighter. A
 note counts on its day by the rule in
 [What counts as a note written](/how-to/read-the-overview.md#what-counts-as-a-note-written),
 the same rule the overview uses. The caption gives the total, as
@@ -80,7 +82,8 @@ the same rule the overview uses. The caption gives the total, as
 
 One bar for each month, January to December, for the tokens Claude Code,
 codex and grok used in it. A second set of bars shows the cost of those tokens in US
-dollars, at list prices. Under them, a table has one row for each project, with
+dollars, at list prices. As on Notes per month, a month still to come draws no bar.
+Under them, a table has one row for each project, with
 its tokens and cost for the year, tokens being input, output, cache write and
 cache read together. When some tokens had no price, a line under the table gives
 them, since the cost leaves them out.
@@ -169,8 +172,9 @@ draws a stub. The goal is a dashed line. Today's bar is at full strength.
 
 ### Todos per day
 
-One bar for each day, the todos ticked done that day, by their `✅` date. The
-caption gives the total.
+One bar for each day, the todos ticked done that day, by their `✅` date. A day with
+none draws a stub, and a day after today draws no bar. "Today" is the browser's local
+date. The caption gives the total.
 
 ### Done
 
@@ -188,8 +192,8 @@ section says `Nothing carried over into today.`
 
 ### Flashcards
 
-One bar for each day, the cards in a deck rated that day. Each card counts on the
-day of its last rating, as in the year review. The caption says
+One bar for each day, the cards in a deck rated that day; a day after today draws no
+bar. Each card counts on the day of its last rating, as in the year review. The caption says
 `N cards rated this week, last rating only`.
 
 ## GitHub

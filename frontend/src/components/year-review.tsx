@@ -18,6 +18,7 @@ import {
 import {
   minutesWords,
   monthCounts,
+  monthsBegun,
   type ProjectRow,
   projectRows,
   topTags,
@@ -94,6 +95,7 @@ function YearBody({
         />
         <ModelUse
           year={year}
+          to={to}
           today={today}
           lines={reads.modelUse.data}
           error={reads.modelUse.error}
@@ -276,12 +278,14 @@ function Months({
 
 function ModelUse({
   year,
+  to,
   today,
   lines,
   error,
   pending,
 }: {
   year: number;
+  to: string;
   today: string;
   lines: ModelUseLine[];
   error: string | undefined;
@@ -313,6 +317,8 @@ function ModelUse({
   const cost = months.reduce((sum, month) => sum + (month.cost ?? 0), 0);
   const priced = lines.some((line) => line.cost !== null);
   const unpriced = unpricedTokens(lines);
+  // A month still to come gets no bar, as on Notes per month; the totals still count every line.
+  const begun = months.slice(0, monthsBegun(to));
   // The same month marking as Notes per month: this year's current month at full strength.
   const todayIndex = today.startsWith(`${year}-`) ? Number(today.slice(5, 7)) - 1 : undefined;
   return (
@@ -322,7 +328,7 @@ function ModelUse({
         <Section heading="Tokens per month">
           <Bars
             label={`tokens per month in ${year}, ${tokenWords(tokens)} in all`}
-            points={months.map((month, index) => ({ index, amount: month.tokens }))}
+            points={begun.map((month, index) => ({ index, amount: month.tokens }))}
             slots={12}
             todayIndex={todayIndex}
           />
@@ -333,7 +339,7 @@ function ModelUse({
           {priced ? (
             <Bars
               label={`cost per month in ${year}, ${costWords(cost)} in all`}
-              points={months.map((month, index) => ({ index, amount: month.cost ?? 0 }))}
+              points={begun.map((month, index) => ({ index, amount: month.cost ?? 0 }))}
               slots={12}
               todayIndex={todayIndex}
             />
