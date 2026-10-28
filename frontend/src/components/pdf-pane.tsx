@@ -125,6 +125,10 @@ export function PdfPane({
         onFile: setFile,
         onPage: setCurrent,
         onText: take.onText,
+        pinch: true,
+        // The pinch and the double tap move the same zoom the buttons do, so
+        // the readout and the next step follow them.
+        onZoom: (next) => setZoom(Math.round(next * 100)),
       },
     );
     view.current = next;

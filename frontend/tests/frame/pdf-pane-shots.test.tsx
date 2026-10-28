@@ -1,7 +1,8 @@
 /**
  * Pictures of the pdf pane (#788), to look at by eye: a page with text and a
  * picture, the header row, the thumbnail column, and a take's toast and mark, in
- * light and dark, at 1440 by 900 and at 414 by 896 with touch.
+ * light and dark, at 1440 by 900 and at 414 by 896 with touch, and the page at
+ * 414 at fit width and pinched to 200 % (#991).
  *
  * Skipped unless VITE_KASTEN_SHOTS=1; pictures land in node_modules/.cache/kasten-shots.
  */
@@ -77,12 +78,30 @@ function selectSpan(span: Element) {
   selection.addRange(range);
 }
 
+/** Two fingers on `box` 100 px apart about a point on page one's text, spread to 200. */
+function spread(box: HTMLElement) {
+  const rect = box.getBoundingClientRect();
+  const x = rect.left + 120;
+  const y = rect.top + 120;
+  const fingers = (gap: number) =>
+    [x - gap / 2, x + gap / 2].map(
+      (clientX, identifier) => new Touch({ identifier, target: box, clientX, clientY: y }),
+    );
+  const send = (type: string, touches: Touch[], changed = touches) =>
+    box.dispatchEvent(
+      new TouchEvent(type, { touches, changedTouches: changed, bubbles: true, cancelable: true }),
+    );
+  send("touchstart", fingers(100));
+  for (const gap of [100, 125, 150, 175, 200]) send("touchmove", fingers(gap));
+  send("touchend", [], fingers(200));
+}
+
 /** One picture of the pane at `size` and `theme`, of the part of it the name asks for. */
 async function shootPane(
   name: string,
   size: Size,
   theme: Theme,
-  part: "page" | "header" | "thumbs" | "take",
+  part: "page" | "header" | "thumbs" | "take" | "zoomed",
 ) {
   const mounted = await setUp();
   try {
@@ -105,6 +124,18 @@ async function shootPane(
         { timeout: 20_000 },
       );
     }
+    // Two fingers spread to twice their gap over the page, the way #991's reader
+    // zooms in on a phone, and the page drawn again at the zoom they landed on.
+    if (part === "zoomed") {
+      window.getSelection()?.removeAllRanges();
+      spread(mounted.host.querySelector("[data-pdf-box]") as HTMLElement);
+      await vi.waitFor(() => {
+        const slot = mounted.host.querySelector('[data-pdf-page="1"]') as HTMLElement;
+        const canvas = slot.querySelector("canvas") as HTMLCanvasElement;
+        expect(canvas.width).toBe(Math.floor(slot.clientWidth * window.devicePixelRatio));
+        expect(slot.style.width).toBe("200%");
+      });
+    }
     if (part === "take") {
       await vi.waitFor(() => expect(takeButton(mounted)).not.toBeNull());
       await userEvent.keyboard("y");
@@ -114,7 +145,7 @@ async function shootPane(
     await document.fonts.ready;
     await nextFrame();
     const element =
-      part === "page"
+      part === "page" || part === "zoomed"
         ? mounted.host.querySelector("[data-pdf-box]")
         : part === "header"
           ? mounted.host.querySelector("[data-pdf-pane] header")
@@ -144,6 +175,12 @@ for (const theme of ["light", "dark"] as const) {
     shootPane(`pdf-thumbs-${suffix}`, DESKTOP, theme, "thumbs"),
   );
   shotTest(`pdf-take-${suffix}`, () => shootPane(`pdf-take-${suffix}`, DESKTOP, theme, "take"));
+  shotTest(`pdf-fit-${TOUCH.width}-${theme}`, () =>
+    shootPane(`pdf-fit-${TOUCH.width}-${theme}`, TOUCH, theme, "page"),
+  );
+  shotTest(`pdf-zoomed-${TOUCH.width}-${theme}`, () =>
+    shootPane(`pdf-zoomed-${TOUCH.width}-${theme}`, TOUCH, theme, "zoomed"),
+  );
   shotTest(`pdf-take-${TOUCH.width}-${theme}`, () =>
     shootPane(`pdf-take-${TOUCH.width}-${theme}`, TOUCH, theme, "take"),
   );

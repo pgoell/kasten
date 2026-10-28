@@ -8,17 +8,12 @@
  */
 
 import { Facet } from "@codemirror/state";
-import { type Matrix, restoreImages } from "@/lib/book/pdf-images";
+import { type BoxPoint, listenForPinch } from "@/lib/book/pdf-pinch";
+import { pdfjsRenderer } from "@/lib/book/pdfjs-renderer";
 
-/**
- * Where the pdf.js files sit, which `vite.config.ts` decides and stages.
- *
- * The one copy outside that file, and it has to agree with it. A document whose
- * fonts need predefined character maps, which is most CJK, draws the wrong
- * glyphs without the two folders under it, and the book pane's seek reads the
- * wrong text: `gf` would answer that a passage you can see is not in the book.
- */
-export const PDFJS_BASE = "/pdfjs/";
+// pdf.js itself, kept in its own file; named here too, where the pane and the
+// seek have always found it.
+export { PDFJS_BASE, pdfjsRenderer } from "@/lib/book/pdfjs-renderer";
 
 /** The colours a page is drawn in on a dark ground: the paper and the ink. */
 export interface PageColors {
@@ -54,143 +49,6 @@ export interface PdfOpening {
 export interface PdfRenderer {
   open(url: string): PdfOpening;
 }
-
-/** The little of pdf.js this draws with. */
-interface Pdfjs {
-  GlobalWorkerOptions: { workerSrc: string };
-  /** The operator codes of a page's operator list, by name. */
-  OPS: Record<string, number>;
-  TextLayer: new (options: {
-    textContentSource: ReadableStream;
-    container: HTMLElement;
-    viewport: PdfjsViewport;
-  }) => { render(): Promise<void> };
-  getDocument(options: {
-    url: string;
-    cMapUrl: string;
-    standardFontDataUrl: string;
-    isEvalSupported: boolean;
-  }): {
-    promise: Promise<{
-      numPages: number;
-      getPage(page: number): Promise<PdfjsPage>;
-    }>;
-    destroy(): Promise<void>;
-  };
-}
-
-interface PdfjsViewport {
-  width: number;
-  height: number;
-  transform: Matrix;
-}
-
-interface PdfjsPage {
-  getViewport(options: { scale: number }): PdfjsViewport;
-  render(options: {
-    canvasContext: CanvasRenderingContext2D;
-    viewport: PdfjsViewport;
-    pageColors?: PageColors;
-  }): { promise: Promise<void> };
-  getOperatorList(): Promise<{ fnArray: number[]; argsArray: unknown[][] }>;
-  streamTextContent(): ReadableStream;
-  getTextContent(): Promise<{ items: { str?: string; hasEOL?: boolean }[] }>;
-}
-
-/**
- * pdf.js, opened the way foliate opens its own (`pdf.js:120-127`).
- *
- * Exported for the pdf pane, which holds no editor state to read the facet off.
- *
- * The worker is set the way foliate sets it, once, against the same staged
- * file, so whichever of the two opens a pdf first the worker resolves in the
- * build. A URL rather than the bytes, so pdf.js asks
- * for the ranges it needs and a long pdf's first page does not wait on its last.
- * `isEvalSupported` is off because the policy in `csp.ts` has no `'unsafe-eval'`.
- */
-export const pdfjsRenderer: PdfRenderer = {
-  open(url) {
-    let task: ReturnType<Pdfjs["getDocument"]> | null = null;
-    let gone = false;
-    const file = (async () => {
-      // A dynamic import, which `.claude/CLAUDE.md` allows, as it does KaTeX's
-      // and mermaid's: a static one put pdf.js, 118 kB gzipped, on every editor page
-      // whether or not a note held a pdf (#327). Loaded for its side effect,
-      // `globalThis.pdfjsLib`; the vendored build exports nothing. The same
-      // file foliate's own `pdf.js` imports, through the alias in
-      // `vite.config.ts`, so the reader and this share one copy.
-      await import("foliate-pdfjs");
-      // An embed that left while pdf.js loaded opens nothing, so no task is
-      // left behind with nobody to free it.
-      if (gone) throw new Error("pdf embed closed before pdf.js loaded");
-      const pdfjs = (globalThis as { pdfjsLib?: Pdfjs }).pdfjsLib as Pdfjs;
-      pdfjs.GlobalWorkerOptions.workerSrc ||= `${PDFJS_BASE}pdf.worker.mjs`;
-      task = pdfjs.getDocument({
-        url,
-        cMapUrl: `${PDFJS_BASE}cmaps/`,
-        standardFontDataUrl: `${PDFJS_BASE}standard_fonts/`,
-        isEvalSupported: false,
-      });
-      return task.promise;
-    })();
-    return {
-      file: file.then((pdf) => {
-        // Set by the time a page is asked for, because the file has loaded.
-        const lib = (globalThis as { pdfjsLib?: Pdfjs }).pdfjsLib as Pdfjs;
-        return {
-          pages: pdf.numPages,
-          async page(number) {
-            const page = await pdf.getPage(number);
-            const { width, height } = page.getViewport({ scale: 1 });
-            return {
-              width,
-              height,
-              async draw(canvas, scale, colors) {
-                const viewport = page.getViewport({ scale });
-                canvas.width = Math.floor(viewport.width);
-                canvas.height = Math.floor(viewport.height);
-                const canvasContext = canvas.getContext("2d");
-                if (canvasContext === null) return;
-                await page.render({ canvasContext, viewport, pageColors: colors }).promise;
-                if (colors !== undefined)
-                  await restoreImages(page, lib.OPS, canvasContext, viewport);
-              },
-              async content() {
-                return (await page.getTextContent()).items;
-              },
-              async text(container, scale) {
-                // What pdf.js sizes its text layer with, which foliate sets on the
-                // document the same way.
-                container.style.setProperty("--total-scale-factor", String(scale));
-                container.style.setProperty("--scale-round-x", "1px");
-                container.style.setProperty("--scale-round-y", "1px");
-                const layer = new lib.TextLayer({
-                  textContentSource: page.streamTextContent(),
-                  container,
-                  viewport: page.getViewport({ scale }),
-                });
-                await layer.render();
-                // The end of the text, which a drag past the last word selects
-                // up to, as pdf.js's own viewer and foliate both add it.
-                const end = document.createElement("div");
-                end.className = "endOfContent";
-                container.append(end);
-                container.onpointerdown = () => container.classList.add("selecting");
-                container.onpointerup = () => container.classList.remove("selecting");
-              },
-            };
-          },
-        };
-      }),
-      // The task and not the document: the document's own `destroy` is this
-      // one, and a task freed before its document landed takes its worker with it.
-      destroy: () => {
-        gone = true;
-        void task?.destroy();
-      },
-    };
-  },
-};
 
 /** Frees a canvas's bitmap at once, which dropping the reference would not do. */
 function shrink(canvas: HTMLCanvasElement): void {
@@ -232,15 +90,28 @@ export interface ShowOptions {
   onPage?: (page: number) => void;
   /** A page's text layer finished drawing (also after every redraw), for the take marks. */
   onText?: (page: number, layer: HTMLElement) => void;
+  /** Two fingers zoom the page and a double tap toggles fit width and `READING_ZOOM` (#991). */
+  pinch?: boolean;
+  /** The zoom a pinch or a double tap landed on, once the fingers are off. */
+  onZoom?: (zoom: number) => void;
 }
+
+/** The narrowest and widest a pinch takes the page, as a share of the box: the zoom buttons' ends. */
+export const ZOOM_MIN = 0.5;
+export const ZOOM_MAX = 3;
+/** Where a double tap at fit width goes: a phone's A4 page at about 88 % of its print size. */
+export const READING_ZOOM = 2;
 
 /** Calling it frees everything, as `showPdf`'s return did before. */
 export interface PdfView {
   (): void;
   /** Draws the drawn pages again, in the colours read now. */
   redraw(): void;
-  /** Sets the page width as a share of the box, and draws the drawn pages at it. */
-  setZoom(zoom: number): void;
+  /**
+   * Sets the page width as a share of the box, and draws the drawn pages at it.
+   * With `at`, the point of the page under `at` stays there; without, the page at the top does.
+   */
+  setZoom(zoom: number, at?: BoxPoint): void;
   /** Scrolls the box to page `number`, counted from one. */
   goTo(page: number): void;
 }
@@ -285,6 +156,8 @@ export function showPdf(
   // chose, so no scroll counts until the resizer has put the box back on its place.
   let hidden = false;
   let zoom = options?.zoom ?? 1;
+  // The page and the point on it that sat between the fingers, while a pinch is under way.
+  let pinching: { slot: HTMLElement; fx: number; fy: number } | null = null;
 
   const failed = () => {
     if (gone) return;
@@ -390,7 +263,10 @@ export function showPdf(
             const number = numbers.get(entry.target);
             if (number === undefined) continue;
             if (!entry.isIntersecting) free(entry.target);
-            else if (!canvases.has(entry.target)) paint(pdf, entry.target as HTMLElement, number);
+            // Not while fingers pinch: every move is another zoom, and pdf.js
+            // would draw each one. The pages are drawn once the fingers are off.
+            else if (!canvases.has(entry.target) && pinching === null)
+              paint(pdf, entry.target as HTMLElement, number);
           }
         },
         // A screen ahead, so the next page is drawn before it is scrolled to.
@@ -441,12 +317,77 @@ export function showPdf(
       measured();
     }, failed);
 
-  const setZoom = (next: number) => {
+  const resize = (next: number) => {
     zoom = next;
     for (const slot of numbers.keys()) (slot as HTMLElement).style.width = `${next * 100}%`;
-    if (file !== null && !hidden) place();
+  };
+
+  // The slot under `at` and where in it `at` falls, as shares of its width and height.
+  const under = (at: BoxPoint) => {
+    const x = box.scrollLeft + at.x;
+    const y = box.scrollTop + at.y;
+    const slots = [...numbers.keys()] as HTMLElement[];
+    let slot = slots[0] as HTMLElement;
+    for (const one of slots) if (one.offsetTop <= y) slot = one;
+    return {
+      slot,
+      fx: (x - slot.offsetLeft) / slot.offsetWidth,
+      fy: (y - slot.offsetTop) / slot.offsetHeight,
+    };
+  };
+
+  // Scrolls so the point `fx`, `fy` of `slot` sits under `at`. The scroll
+  // listener then reads the page at the top off it, as after any scroll.
+  const pin = (slot: HTMLElement, fx: number, fy: number, at: BoxPoint) => {
+    box.scrollLeft = slot.offsetLeft + fx * slot.offsetWidth - at.x;
+    box.scrollTop = slot.offsetTop + fy * slot.offsetHeight - at.y;
+  };
+
+  const setZoom = (next: number, at?: BoxPoint) => {
+    if (file === null || hidden || at === undefined) {
+      resize(next);
+      if (file !== null && !hidden) place();
+    } else {
+      const { slot, fx, fy } = under(at);
+      resize(next);
+      pin(slot, fx, fy, at);
+    }
     repaint();
   };
+
+  if (options?.pinch) {
+    const clamp = (value: number) => Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, value));
+    let start = 1;
+    listenForPinch(box, {
+      ready: () => file !== null && !hidden,
+      begin(at) {
+        start = zoom;
+        pinching = under(at);
+      },
+      move(scale, at) {
+        if (pinching === null) return;
+        resize(clamp(start * scale));
+        pin(pinching.slot, pinching.fx, pinching.fy, at);
+      },
+      end() {
+        pinching = null;
+        // A whole percent, which the readout shows and the buttons step from.
+        resize(Math.round(zoom * 100) / 100);
+        repaint();
+        // Every slot again, so the ones the pinch brought into view are drawn
+        // and the ones it pushed out are freed.
+        if (observer !== null) {
+          observer.disconnect();
+          for (const slot of numbers.keys()) observer.observe(slot);
+        }
+        options.onZoom?.(zoom);
+      },
+      doubleTap(at) {
+        setZoom(zoom === 1 ? READING_ZOOM : 1, at);
+        options.onZoom?.(zoom);
+      },
+    });
+  }
 
   const goTo = (number: number) => {
     if (file === null || number < 1 || number > numbers.size) return;

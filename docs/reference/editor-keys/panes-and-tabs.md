@@ -291,6 +291,15 @@ beside it.
 The zoom steps are 50, 75, 100, 125, 150, 200 and 300 percent. A button greys
 out at the end it cannot pass.
 
+On a touch screen, two fingers pinch the page larger or smaller around the point
+between them, so the browser never zooms the whole app over the page. One finger
+pans a zoomed page both ways. A double tap toggles between fit width (100
+percent) and 200 percent around the tapped point. The pinch, the buttons and the
+`+` and `-` keys share one zoom value, from 50 to 300 percent. A pinch can stop
+at any value, such as 137 percent, which the header shows as a whole percent.
+The buttons then step from there to the next stop. The page redraws sharp once
+the fingers lift. A mouse works as before.
+
 From 900 px of pane width a column of page thumbnails sits on the left, drawn
 as the pages come into view. The page on screen has an accent ring, and a click
 on a thumbnail goes to that page. The width is the pane's own, so a split

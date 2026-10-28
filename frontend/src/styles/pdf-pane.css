@@ -2,8 +2,11 @@
    pane's box, so the embed in a note keeps the look `live-preview-media.css`
    gives it, except the thumbnails' edge, which sits in the column beside the box. */
 
+/* One finger scrolls either way and two are the pane's own pinch (#991), so the
+   browser never zooms the whole app over a page. */
 [data-pdf-box] {
   overflow-x: auto;
+  touch-action: pan-x pan-y;
   background: var(--k-bg);
 }
 
