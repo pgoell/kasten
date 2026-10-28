@@ -20,6 +20,7 @@ from kasten_backend import agent, todo_fields, vault
 
 if TYPE_CHECKING:
     from kasten_backend.config import Settings
+    from kasten_backend.events import VaultEvent
 
 ITEM = re.compile(r"^- \[([ xX])\] (.*?)(\r?)$")
 """A top-level task line: its state, its words and the line ending an edit keeps.
@@ -122,6 +123,15 @@ def inside(settings: Settings, path: str) -> bool:
     name stays off the stream too.
     """
     return PurePosixPath(path).parent == PurePosixPath(settings.share_folder)
+
+
+def passes(settings: Settings, event: VaultEvent) -> bool:
+    """Whether `/share/events` tells the share host of this change.
+
+    A change to a list, and a `page` never: an html page in the share folder is
+    no list, and its name and digest are not the share host's business.
+    """
+    return event.change != "page" and inside(settings, event.path)
 
 
 def names(settings: Settings) -> list[str]:

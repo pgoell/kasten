@@ -68,8 +68,9 @@ function render(paths: string[], { phone = false, anchor }: { phone?: boolean; a
       <QueryClientProvider client={client}>
         <div className="flex h-dvh flex-col">
           <div className="flex min-h-0 flex-1">
-            {paths.map((path) => (
-              <div key={path} data-pane className="min-w-0 flex-1">
+            {paths.map((path, index) => (
+              // biome-ignore lint/suspicious/noArrayIndexKey: keyed by place, so a pane moved to another page keeps its HtmlPane, as the app's does
+              <div key={index} data-pane className="min-w-0 flex-1">
                 <HtmlPane path={path} anchor={anchor} commands={mounted.spy} onFocus={() => {}} />
               </div>
             ))}
@@ -224,4 +225,68 @@ it("a reload of a page opened at a heading keeps the reader's scroll, not the he
   await expect
     .poll(async () => (await ask(frameOf(mounted, 0), { probe: "scroll", by: 0 }, "scroll")).y)
     .toBe(y);
+});
+
+it("two rewrites in a row, the first one short, still end at the reader's scroll", async () => {
+  await browser.servePage(PATH, report("old"));
+  render([PATH], {});
+  await ready(frameOf(mounted, 0));
+  const y = await scrollBy(frameOf(mounted, 0), 900);
+
+  await rewrite(PATH, pageOf("short", `<p id="p1">Short.</p>${WHICH}`), 0);
+  await rewrite(PATH, report("new"), 0);
+
+  expect(await titleOf(frameOf(mounted, 0))).toBe("new");
+  await expect
+    .poll(async () => (await ask(frameOf(mounted, 0), { probe: "scroll", by: 0 }, "scroll")).y)
+    .toBe(y);
+});
+
+it("a page grown after its load still opens at the reader's scroll", async () => {
+  await browser.servePage(PATH, report("old"));
+  render([PATH], {});
+  await ready(frameOf(mounted, 0));
+  const y = await scrollBy(frameOf(mounted, 0), 900);
+
+  const grows = `<p id="p1">Late.</p><div id="late"></div><script>addEventListener("load", () => setTimeout(() => { document.getElementById("late").style.height = "4000px"; }, 300));</script>${WHICH}`;
+  await rewrite(PATH, pageOf("grows", grows), 0);
+
+  await expect
+    .poll(async () => (await ask(frameOf(mounted, 0), { probe: "scroll", by: 0 }, "scroll")).y)
+    .toBe(y);
+});
+
+it("a page left and opened again at its top reloads at its top", async () => {
+  await browser.servePage(PATH, report("old"));
+  await browser.servePage(OTHER, report("other"));
+  render([PATH], {});
+  await ready(frameOf(mounted, 0));
+  await scrollBy(frameOf(mounted, 0), 900);
+  render([OTHER], {});
+  await expect.poll(async () => titleOf(frameOf(mounted, 0))).toBe("other");
+  render([PATH], {});
+  await expect.poll(async () => titleOf(frameOf(mounted, 0))).toBe("old");
+
+  await rewrite(PATH, report("new"), 0);
+
+  expect(await titleOf(frameOf(mounted, 0))).toBe("new");
+  expect((await ask(frameOf(mounted, 0), { probe: "scroll", by: 0 }, "scroll")).y).toBe(0);
+});
+
+it("a reload does not take the focus from where the reader went while it loaded", async () => {
+  await browser.servePage(PATH, report("old"));
+  render([PATH], {});
+  await ready(frameOf(mounted, 0));
+  await userEvent.click(frameOf(mounted, 0));
+  const field = mounted.host.appendChild(document.createElement("input"));
+
+  await browser.servePage(PATH, report("new"));
+  const before = frameOf(mounted, 0);
+  pageWritten(PATH);
+  field.focus();
+  await expect.poll(() => frameOf(mounted, 0)).not.toBe(before);
+  await ready(frameOf(mounted, 0));
+  expect(await titleOf(frameOf(mounted, 0))).toBe("new");
+
+  expect(document.activeElement).toBe(field);
 });

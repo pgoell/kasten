@@ -14,6 +14,7 @@
   const getSelection = window.getSelection.bind(window);
   const requestFrame = window.requestAnimationFrame.bind(window);
   const scrollTo = window.scrollTo.bind(window);
+  const Observer = window.ResizeObserver;
   const registry = window.CSS && "highlights" in window.CSS ? window.CSS.highlights : null;
 
   // A text field keeps its keys, so typing a space or a question mark in a
@@ -181,13 +182,35 @@
   // only: a scroll event on an element does not bubble here, and which of a
   // page's own scrollers the reader meant is not the pane's to guess. Read off
   // the document, since a page's own `var scrollY` replaces the window's.
+  //
+  // A scroll the pane gives back is held until the page is tall enough for it:
+  // a page whose images or script fill it in after the load is short at first,
+  // and a scroll clipped to that would be reported and lost (#1277). Held until
+  // it lands or the reader moves the page, and nothing is reported meanwhile.
+  const position = () => document.scrollingElement?.scrollTop ?? 0;
+  let target = null;
+  const settle = () => {
+    if (target === null) return;
+    scrollTo({ top: target, behavior: "instant" });
+    if (Math.abs(position() - target) < 1) target = null;
+  };
+  new Observer(settle).observe(document.documentElement);
+  for (const type of ["wheel", "touchstart", "keydown", "pointerdown"]) {
+    window.addEventListener(
+      type,
+      () => {
+        target = null;
+      },
+      { capture: true, passive: true },
+    );
+  }
   let scrollQueued = false;
   window.addEventListener("scroll", () => {
     if (scrollQueued) return;
     scrollQueued = true;
     requestFrame(() => {
       scrollQueued = false;
-      up.postMessage({ kasten: "scroll", top: document.scrollingElement?.scrollTop ?? 0 }, "*");
+      if (target === null) up.postMessage({ kasten: "scroll", top: position() }, "*");
     });
   });
 
@@ -313,7 +336,9 @@
     [
       "scroll",
       (data) => {
-        if (typeof data.top === "number") scrollTo({ top: data.top, behavior: "instant" });
+        if (typeof data.top !== "number") return;
+        target = data.top;
+        settle();
       },
     ],
     // innerText and not textContent: it ends each block with a line break and

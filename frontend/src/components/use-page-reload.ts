@@ -23,10 +23,20 @@ export function usePageReload(
 ) {
   const [loads, setLoads] = useState(0);
   const pathRef = useRef(path);
-  useLayoutEffect(() => {
-    pathRef.current = path;
-  });
   const last = useRef<Place | null>(null);
+  /**
+   * Whether the frame holds the page at `path`. Off from a move to another page
+   * until its load, so a report the old page posted late is not filed under the
+   * new one: the frame's window is the same object across a new `src`.
+   */
+  const live = useRef(true);
+  useLayoutEffect(() => {
+    if (pathRef.current === path) return;
+    pathRef.current = path;
+    last.current = null;
+    restore.current = null;
+    live.current = false;
+  });
   /**
    * The scroll to give the next load, taken when the rewrite is heard: by the
    * load the new page may have jumped to a heading and reported that instead.
@@ -40,7 +50,7 @@ export function usePageReload(
     function onMessage(event: MessageEvent) {
       if (event.source === null || event.source !== frame.current?.contentWindow) return;
       const data = event.data as { kasten?: unknown; top?: unknown } | null;
-      if (data?.kasten !== "scroll" || typeof data.top !== "number") return;
+      if (data?.kasten !== "scroll" || typeof data.top !== "number" || !live.current) return;
       last.current = { path: pathRef.current, top: data.top };
     }
     window.addEventListener("message", onMessage);
@@ -64,15 +74,16 @@ export function usePageReload(
     loads,
     /** The frame's load: the scroll and the focus a reload took away go back. */
     loaded() {
+      live.current = true;
       const place = restore.current;
       restore.current = null;
       if (place !== null && place.path === pathRef.current) {
         frame.current?.contentWindow?.postMessage({ kasten: "scroll", top: place.top }, "*");
       }
-      if (refocus.current) {
-        refocus.current = false;
-        frame.current?.focus();
-      }
+      // Not where the reader has gone on to another pane while the page loaded.
+      const free = document.activeElement === null || document.activeElement === document.body;
+      if (refocus.current && free) frame.current?.focus();
+      refocus.current = false;
     },
   };
 }

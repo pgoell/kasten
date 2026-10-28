@@ -217,7 +217,7 @@ async def stream_events(settings: Annotated[Settings, Depends(get_settings)]) ->
                     return
 
                 for event in events:
-                    if share.inside(settings, event.path):
+                    if share.passes(settings, event):
                         yield format_sse(event)
         finally:
             watching.cancel()
