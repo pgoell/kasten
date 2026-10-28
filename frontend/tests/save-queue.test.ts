@@ -60,7 +60,7 @@ describe("save queue", () => {
     const files = readdirSync(src, { recursive: true, encoding: "utf8" }).filter(
       (file) => /\.tsx?$/.test(file) && !file.endsWith("save-queue.ts"),
     );
-    const imports = /import\s*\{([^}]*)\}\s*from\s*"@\/lib\/note\/save-queue"/g;
+    const imports = /import\s*\{([^}]*)\}\s*from\s*"(?:@\/lib\/note\/|\.\/)save-queue"/g;
     const reached = files.flatMap((file) =>
       [...readFileSync(join(src, file), "utf8").matchAll(imports)]
         .flatMap((match) => (match[1] ?? "").split(",").map((name) => name.trim()))
@@ -68,6 +68,12 @@ describe("save queue", () => {
         .map((name) => `${file}: ${name}`),
     );
     expect(reached).toEqual([]);
+    const whole = files.filter((file) =>
+      /import\s*\*\s*as\s*\w+\s*from\s*"[^"]*save-queue"/.test(
+        readFileSync(join(src, file), "utf8"),
+      ),
+    );
+    expect(whole).toEqual([]);
   });
 
   it("enqueue stamps the write record and hands it on whole", async () => {
@@ -246,10 +252,13 @@ describe("save queue", () => {
     queue.open();
     queue.reload("a.md");
     queue.drop("a.md");
+    queue.miss("a.md");
+    // Stamped as the first write after the reset would read it, were it kept.
     const held = { content: "H", reason: "", conflicted: false };
-    queue.markHeld(held);
+    queue.markHeld(held, { seq: 1, visit: 0 });
     queue.enqueue(asked(), client);
     queue.forget();
+    const invalidate = vi.spyOn(client, "invalidateQueries");
     expect([queue.visit, queue.sends, queue.reloadsOf("a.md")]).toEqual([0, 0, 0]);
     expect([queue.busy("a.md"), queue.air("a.md"), queue.follow("a.md")]).toEqual([
       false,
@@ -258,7 +267,9 @@ describe("save queue", () => {
     ]);
     expect(queue.settled("a.md")).toBe(true);
     const write = queue.enqueue(asked(), client).write;
-    expect(queue.kept(write)).toBe(true);
+    expect(write.kept).toBe(0);
     expect(queue.newerHeld(held, write)).toBe(false);
+    queue.answered("a.md", client);
+    expect(invalidate).not.toHaveBeenCalled();
   });
 });

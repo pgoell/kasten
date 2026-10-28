@@ -157,7 +157,7 @@ export function useBufferWrite(
       // what the reader threw away, its event putting it back on the clean
       // screen (#311). So the vault's text goes out behind it, an ordinary
       // write in the queue that names its answer: refused, somebody wrote
-      // since, and their text stands. It takes the entry's place in `inAir`,
+      // since, and their text stands. It takes the entry's place in the air,
       // so a hide resends the vault's text and not the thrown-away one. That
       // text and the one sent stay in `stale`, so a slow read of either is
       // declined while the restore is in the air.
