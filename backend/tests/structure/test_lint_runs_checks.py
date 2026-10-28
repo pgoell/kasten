@@ -53,6 +53,7 @@ def test_the_scripts_are_committed_executable() -> None:
     assert set(modes) == {
         "scripts/structure/check-fan-out",
         "scripts/structure/check-file-size",
+        "scripts/structure/editor-hook",
         "scripts/structure/structure-hook",
     }
     assert set(modes.values()) == {"100755"}

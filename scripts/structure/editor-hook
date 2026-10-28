@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# kasten's guard in front of structure-hook, which stays byte-identical to the
+# structure plugin's copy. The hook judges a file by the git repo it sits in,
+# and vault/ is a colocated jj repo with its own .git: there it would fan-out
+# check thousands of notes with no baseline and tell the agent to regroup them.
+# So run the hook only for a file whose repo carries the checks itself (this
+# checkout or one of its worktrees), and run that repo's copy, which matches its
+# baseline. Anything else passes in silence.
+set -uo pipefail
+
+input=$(cat)
+if command -v jq >/dev/null; then
+  file=$(jq -r '.tool_input.file_path // empty' <<<"$input")
+else
+  file=$(mise exec -- jq -r '.tool_input.file_path // empty' <<<"$input") || exit 0
+fi
+dir=$(dirname "$file")
+[ -n "$file" ] && [ -d "$dir" ] || exit 0
+top=$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null) || exit 0
+[ -x "$top/scripts/structure/structure-hook" ] || exit 0
+exec "$top/scripts/structure/structure-hook" <<<"$input"

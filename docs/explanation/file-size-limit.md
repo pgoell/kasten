@@ -25,8 +25,8 @@ it without a second read. The cap keeps every file small enough for that.
 
 A token is roughly four bytes of English or code. Counting bytes needs no
 tokenizer, so the check needs no install and gives the same answer on every
-machine. It compares bytes, not the rounded token count, so a file of 20,001
-bytes is over the limit even though it rounds down to 5,000 tokens. The number
+machine. It rounds bytes/4 down before it compares, so a file passes up to
+20,003 bytes and fails from 20,004. The number
 is a guard, not a measure. It is close enough to catch a file that is too big,
 and cheap enough to run on every commit.
 
