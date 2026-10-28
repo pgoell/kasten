@@ -2,7 +2,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { type Held, holdText } from "@/lib/held-text";
 import { type Buffer, forgetAloft, useHeldBuffer } from "@/lib/note/held-buffer";
-import { forgetWrites, heldAt, resendLeft, saves, visit, writing } from "@/lib/note/save-queue";
+import { saveQueue } from "@/lib/note/save-queue";
 import { useBufferWrite } from "@/lib/note/use-buffer-write";
 import { useVaultReads } from "@/lib/note/vault-reads";
 
@@ -17,7 +17,7 @@ export type SaveStatus = "saved" | "unsaved" | "saving" | "error" | "conflict";
 
 /** Forget every write of the page, as a new page starts with none. For tests. */
 export function forgetQueues(): void {
-  forgetWrites();
+  saveQueue.forget();
   forgetAloft();
 }
 
@@ -124,7 +124,7 @@ export function useAutosave(
    * by name, so a clause here would be a second answer to a question already
    * answered.
    */
-  const isWriting = useCallback((note: string) => writing.current.has(note), []);
+  const isWriting = useCallback((note: string) => saveQueue.busy(note), []);
 
   const change = useCallback(
     (doc: string) => {
@@ -169,7 +169,7 @@ export function useAutosave(
           base: lastBase(path),
         };
         holdText(path, entry, taken.current);
-        heldAt.current.set(entry, { seq: saves.current, visit: visit.current });
+        saveQueue.markHeld(entry);
         if (timer.current) clearTimeout(timer.current);
         timer.current = null;
         pending.current = null;
@@ -199,7 +199,7 @@ export function useAutosave(
   // vault gave.
   useEffect(() => {
     const hide = () => {
-      resendLeft(path);
+      saveQueue.resendLeft(path);
       if (path === undefined) return;
       // The text held is sent again with keepalive, and the quiet write
       // landing after all drops the held copy.

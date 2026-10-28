@@ -11,7 +11,8 @@ status: stable
 
 The editor writes a note back to the vault through one hook,
 `frontend/src/lib/note/use-autosave.ts`, whose parts sit beside it: the page's
-write queue in `save-queue.ts`, a write's answer in `write-answer.ts`, the
+write queue in `save-queue.ts`, one object whose methods are the only way to
+its maps, a write's answer in `write-answer.ts`, the
 writes themselves in `use-buffer-write.ts`, held text against the buffer in
 `held-buffer.ts`, and what the buffer takes from the vault in
 `vault-reads.ts`. Every write to a note goes through one

@@ -9,54 +9,11 @@ import {
   sameText,
 } from "@/lib/held-text";
 import type { Buffer } from "@/lib/note/held-buffer";
-import {
-  answered,
-  dropped,
-  heldAt,
-  type Queueing,
-  reloads,
-  reloadsOf,
-  Skipped,
-  saves,
-  visit,
-  writing,
-} from "@/lib/note/save-queue";
-
-/** What a write of the buffer sent, and the state it was sent in. */
-interface Sent {
-  to: string;
-  content: string;
-  seq: number;
-  sent: number;
-  loaded: number;
-  opened: number;
-  kept: number;
-  carried: Held | null;
-  base: string | undefined;
-  wasConflicted: boolean;
-  keepalive: boolean;
-  leaving: boolean;
-  restoring: boolean;
-}
+import { type Queueing, Skipped, saveQueue } from "@/lib/note/save-queue";
 
 /** What a write's answer does to the buffer, the cache and the held store, once the vault answers. */
 export function answer(
   buffer: Buffer,
-  {
-    to,
-    content,
-    seq,
-    sent,
-    loaded,
-    opened,
-    kept,
-    carried,
-    base,
-    wasConflicted,
-    keepalive,
-    leaving,
-    restoring,
-  }: Sent,
   queueing: Queueing,
   takeFailed: (note: string, held: Held) => boolean,
 ): Promise<boolean> {
@@ -72,19 +29,21 @@ export function answer(
     pending,
     shownRef,
   } = buffer;
-  const { request, mine, prior, since, reread } = queueing;
+  const { write, request, mine, prior, since, reread } = queueing;
+  const { to, content, seq, sent, loaded, opened, carried, base, wasConflicted } = write;
+  const { keepalive, leaving, restoring } = write;
   // Whether this note's buffer took the vault's text in since this went out.
-  const reloaded = () => reloadsOf(reloads.current, to) !== loaded;
+  const reloaded = () => saveQueue.reloadsOf(to) !== loaded;
   // The flush on the way out of a note answers here with that note's
   // closure, after the hook already follows the next one: its slots, its
   // status and its pending text are that one's.
-  const here = () => visit.current === opened;
+  const here = () => saveQueue.visit === opened;
   // Whether the buffer on screen was typed on this write's text: the visit
   // that sent it, or one reopened on it since, which moves the visit here.
-  const followedHere = () => mine.visit === visit.current;
+  const followedHere = () => mine.visit === saveQueue.visit;
   return request.then(
     (note) => {
-      answered(to, queryClient);
+      saveQueue.answered(to, queryClient);
       // A held entry goes when this write carried it: its own text, or
       // text typed on top of the entry the buffer had taken when this was
       // sent. An entry the buffer never showed, held by a flush that failed
@@ -131,7 +90,7 @@ export function answer(
       // replace it there, and the keys typed next would go onto it. That
       // write's own answer is the one the cache wants. Counted for this
       // note alone: `answered` has already taken this write off.
-      if (pending.current === null && reverts.current === sent && !writing.current.has(to)) {
+      if (pending.current === null && reverts.current === sent && !saveQueue.busy(to)) {
         queryClient.setQueryData(["note", to], note.content);
         if (here()) setStatus("saved");
       }
@@ -144,14 +103,14 @@ export function answer(
       // returns early on a write that failed after a `:e!`, and a count
       // lowered under it would leak for the life of the page, leaving that
       // note reading as busy and never written to again.
-      answered(to, queryClient);
+      saveQueue.answered(to, queryClient);
       // Never sent: the buffer holds the vault's text, and this was thrown away.
       if (failure instanceof Skipped) return false;
       // The vault's own text, which nobody typed: nothing to hold or to
       // retry. Refused, somebody wrote since, and their event reloads the
       // clean buffer once nothing is in the air (#311).
       if (restoring) {
-        if (here() && pending.current === null && !writing.current.has(to)) {
+        if (here() && pending.current === null && !saveQueue.busy(to)) {
           setStatus("saved");
         }
         return false;
@@ -175,10 +134,9 @@ export function answer(
       // One held on another visit was typed on other text, and stays
       // beside this.
       const now = movedTo(to, since);
-      const newer = heldTexts(now).some((entry) => {
-        const at = heldAt.current.get(entry);
-        return entry.content !== content && at?.visit === opened && at.seq >= seq;
-      });
+      const newer = heldTexts(now).some(
+        (entry) => entry.content !== content && saveQueue.newerHeld(entry, write),
+      );
       // Not once the buffer took other text since this went out: the hide's
       // entry was typed on that, not on this, and this text is on screen
       // nowhere and held nowhere else (#297).
@@ -202,7 +160,7 @@ export function answer(
           !wasConflicted &&
           reverts.current === sent &&
           !reloaded() &&
-          !writing.current.has(to)
+          !saveQueue.busy(to)
         ) {
           queryClient.setQueryData(["note", to], text);
         }
@@ -212,11 +170,7 @@ export function answer(
       const settle = () => {
         // The leave's own text is not the vault's after all: what was there
         // goes back, unless a later write or the checks below put more.
-        if (
-          leaving &&
-          !writing.current.has(to) &&
-          queryClient.getQueryData(["note", to]) === content
-        ) {
+        if (leaving && !saveQueue.busy(to) && queryClient.getQueryData(["note", to]) === content) {
           if (prior === undefined)
             queryClient.removeQueries({ queryKey: ["note", to], exact: true });
           else queryClient.setQueryData(["note", to], prior);
@@ -226,12 +180,7 @@ export function answer(
           return;
         }
         void reread().then((text) => {
-          if (
-            followedHere() &&
-            text !== undefined &&
-            (dropped.current.get(to) ?? 0) === kept &&
-            !reloaded()
-          ) {
+          if (followedHere() && text !== undefined && saveQueue.kept(write) && !reloaded()) {
             onDisk.current = text;
           }
           put(text);
@@ -239,7 +188,7 @@ export function answer(
       };
       // Its own send count: a write sent after this one and failing first
       // holds newer text, which this must not replace either.
-      heldAt.current.set(held, { seq, visit: opened });
+      saveQueue.markHeld(held, { seq, visit: opened });
       // A later write, of another visit too, was typed on this text and
       // carries it: held, this older text would be offered as a conflict
       // with it, and `:w` there would lose the newer. That write's own
@@ -273,7 +222,7 @@ export function answer(
       // kept in `pending`, a leave or `:w` would write it over the newer.
       // Not when the buffer took other text since: the later write was
       // typed on that, and this text is on screen nowhere.
-      if (saves.current !== seq && !reloaded()) return false;
+      if (!saveQueue.isNewest(write) && !reloaded()) return false;
 
       // Held as well as kept, because `here()` is also true for the flush
       // as the route unmounts, when this hook is gone and `pending` with it.
@@ -290,7 +239,7 @@ export function answer(
       const elsewhere =
         reloaded() || (pending.current === null && doc !== undefined && !sameText(doc, content));
       if (elsewhere) {
-        if (pending.current === null && !writing.current.has(to)) setStatus("saved");
+        if (pending.current === null && !saveQueue.busy(to)) setStatus("saved");
         return false;
       }
       // The buffer holds this text, so it is the entry the bar leaves out.

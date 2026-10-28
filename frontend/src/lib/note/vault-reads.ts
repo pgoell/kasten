@@ -1,7 +1,7 @@
 import { useCallback, useEffect } from "react";
 import { dropText, type Held, heldText, heldTexts, landedAs, sameText } from "@/lib/held-text";
 import { type Buffer, wasLeftAloft } from "@/lib/note/held-buffer";
-import { inAir, missed, queued, reloads, reloadsOf, visit, writing } from "@/lib/note/save-queue";
+import { saveQueue } from "@/lib/note/save-queue";
 
 /** What the buffer takes in from the vault and the held store, as the vault's text comes and goes. */
 export function useVaultReads(
@@ -51,7 +51,7 @@ export function useVaultReads(
       // before it would compare against the old one (`follow`). Only while
       // that write is the newest: text typed over it since is queued behind
       // it, and taking the older entry would land over that unasked.
-      const air = inAir.current.get(note);
+      const air = saveQueue.air(note);
       if (
         wasLeftAloft(held) &&
         landedAs(held.content, text) &&
@@ -63,7 +63,7 @@ export function useVaultReads(
         if (!opening.current) follow(note, held);
         return true;
       }
-      if (writing.current.has(note)) return undefined;
+      if (saveQueue.busy(note)) return undefined;
       // Every entry the vault holds by now has landed, whichever write it was.
       for (const entry of heldTexts(note)) {
         if (landedAs(entry.content, text)) dropText(note, entry);
@@ -138,17 +138,9 @@ export function useVaultReads(
       // names the write's answer (#303). Other text is somebody else's, and
       // goes in as a reload (#297, #298). Not after `:e!`, which took the note
       // out of the air.
-      const air = path === undefined ? undefined : inAir.current.get(path);
-      if (pending.current === null && path !== undefined && air !== undefined) {
-        if (landedAs(air.content, text)) {
-          const queue = queued.current.get(path);
-          if (queue !== undefined) queue.visit = visit.current;
-          return true;
-        }
-        if (air.stale.some((each) => landedAs(each, text))) {
-          missed.current.add(path);
-          return false;
-        }
+      if (pending.current === null && path !== undefined) {
+        const stale = saveQueue.staleRead(path, text);
+        if (stale !== undefined) return stale;
       }
       // Taken into the buffer, so the vault under it is this text now, and the
       // next write names it as its base.
@@ -158,7 +150,7 @@ export function useVaultReads(
         // shows as well, and that replaces nothing.
         const doc = shownRef.current?.();
         if (path !== undefined && doc !== undefined && !sameText(doc, text)) {
-          reloads.current.set(path, reloadsOf(reloads.current, path) + 1);
+          saveQueue.reload(path);
         }
         return true;
       }
@@ -217,8 +209,8 @@ export function useVaultReads(
    * buffer keeps its words over any other.
    */
   const reconcile = useCallback((): boolean => {
-    if (path !== undefined && writing.current.has(path)) {
-      missed.current.add(path);
+    if (path !== undefined && saveQueue.busy(path)) {
+      saveQueue.miss(path);
       return false;
     }
     return pending.current === null || conflicted.current;
@@ -231,7 +223,7 @@ export function useVaultReads(
   // and `restore` never change.
   // biome-ignore lint/correctness/useExhaustiveDependencies: `pane` is the trigger, and is not read.
   useEffect(() => {
-    visit.current += 1;
+    saveQueue.open();
     // A note whose editor stayed mounted while the focus was in another pane
     // asks nothing on the way back, so `allowReload` never sees its held text.
     // Taken here against the note the cache holds, and only when that editor
@@ -249,7 +241,7 @@ export function useVaultReads(
     // Not the text a write still in the air sent, which the leave put there:
     // a buffer that never took it was typed on the text under it, and names
     // that. One that takes it follows the write's answer (`allowReload`, #303).
-    const air = path === undefined ? undefined : inAir.current.get(path);
+    const air = path === undefined ? undefined : saveQueue.air(path);
     onDisk.current =
       air !== undefined && cached !== undefined && sameText(cached, air.content)
         ? (air.base ?? null)
@@ -267,8 +259,7 @@ export function useVaultReads(
       doc !== undefined &&
       sameText(doc, air.content)
     ) {
-      const queue = queued.current.get(path);
-      if (queue !== undefined) queue.visit = visit.current;
+      saveQueue.follow(path);
     }
     if (path !== undefined && cached !== undefined && held && doc !== undefined) {
       if (sameText(doc, held.content)) restore(path, cached);

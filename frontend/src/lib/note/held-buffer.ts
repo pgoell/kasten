@@ -1,18 +1,8 @@
 import type { QueryClient } from "@tanstack/react-query";
 import { type Dispatch, type RefObject, type SetStateAction, useCallback, useEffect } from "react";
 import { type Held, heldTexts, holdText, sameText } from "@/lib/held-text";
-import {
-  heldAt,
-  inAir,
-  queued,
-  reloads,
-  reloadsOf,
-  saves,
-  sentUnder,
-  unseenOf,
-  visit,
-  writing,
-} from "@/lib/note/save-queue";
+import { heldOf, sentUnder, unseenOf } from "@/lib/note/in-air";
+import { saveQueue } from "@/lib/note/save-queue";
 import type { SaveStatus } from "@/lib/note/use-autosave";
 
 /** The per-visit refs and stable functions of one `useAutosave` hook, shared by its sub-hooks. */
@@ -109,7 +99,7 @@ export function useHeldBuffer(buffer: Buffer) {
       if (
         openRef.current !== note ||
         pending.current !== null ||
-        writing.current.has(note) ||
+        saveQueue.busy(note) ||
         doc === undefined ||
         !sameText(doc, held.content)
       ) {
@@ -133,18 +123,17 @@ export function useHeldBuffer(buffer: Buffer) {
    */
   const follow = useCallback(
     (note: string, held: Held) => {
-      const queue = queued.current.get(note);
+      const queue = saveQueue.follow(note);
       if (queue === undefined) return;
-      queue.visit = visit.current;
-      const at = visit.current;
-      const loaded = reloadsOf(reloads.current, note);
+      const at = saveQueue.visit;
+      const loaded = saveQueue.reloadsOf(note);
       // A `:e!` since put the vault's text under the buffer, and queued the
       // write that answers for it.
       const sent = reverts.current;
       void Promise.all([queue.link, queue.ok]).then(([text, ok]) => {
         if (
-          visit.current !== at ||
-          reloadsOf(reloads.current, note) !== loaded ||
+          saveQueue.visit !== at ||
+          saveQueue.reloadsOf(note) !== loaded ||
           reverts.current !== sent
         ) {
           return;
@@ -175,10 +164,9 @@ export function useHeldBuffer(buffer: Buffer) {
    */
   const holdOwn = useCallback(
     (note: string, reason: string): Held | undefined => {
-      const loaded = reloadsOf(reloads.current, note);
-      const queue = queued.current.get(note);
-      const follows = queue?.visit === visit.current && queue.loaded === loaded;
-      const air = inAir.current.get(note);
+      const loaded = saveQueue.reloadsOf(note);
+      const follows = saveQueue.follows(note);
+      const air = saveQueue.air(note);
       const fresh = air?.loaded === loaded && !air.restoring ? air : undefined;
       // A buffer reopened on the text under that write, which it does not
       // follow, shows other text: a keepalive would land this unseen (#314). Held
@@ -192,22 +180,9 @@ export function useHeldBuffer(buffer: Buffer) {
       // its own write, still waiting behind the one it never took.
       const offScreen = follows ? unseenOf(fresh) : fresh;
       if (offScreen !== undefined) {
-        const out = offScreen.sent?.loaded === offScreen.loaded ? offScreen.sent : undefined;
-        const under =
-          out === undefined
-            ? offScreen.base
-            : out.content === offScreen.content
-              ? (offScreen.named ?? offScreen.base)
-              : out.content;
-        const entry: Held = {
-          content: offScreen.content,
-          reason,
-          conflicted: conflicted.current,
-          base: offScreen.base,
-          after: under !== offScreen.base ? under : undefined,
-        };
+        const { entry } = heldOf(offScreen, reason, conflicted.current);
         holdText(note, entry);
-        heldAt.current.set(entry, { seq: saves.current, visit: offScreen.visit });
+        saveQueue.markHeld(entry, { seq: saveQueue.sends, visit: offScreen.visit });
         if (!follows && pending.current === null) return undefined;
       }
       const content = pending.current ?? fresh?.content;
@@ -229,7 +204,7 @@ export function useHeldBuffer(buffer: Buffer) {
       };
       holdText(note, entry, taken.current);
       // After every write already in the air, which a failing one reads.
-      heldAt.current.set(entry, { seq: saves.current, visit: visit.current });
+      saveQueue.markHeld(entry);
       return entry;
     },
     [lastBase, pending, conflicted, taken],

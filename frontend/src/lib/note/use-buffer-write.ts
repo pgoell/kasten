@@ -1,18 +1,7 @@
 import { useCallback } from "react";
 import { dropText, type Held } from "@/lib/held-text";
 import type { Buffer } from "@/lib/note/held-buffer";
-import {
-  dropped,
-  enqueue,
-  inAir,
-  queued,
-  reloads,
-  reloadsOf,
-  saves,
-  sentUnder,
-  visit,
-  writing,
-} from "@/lib/note/save-queue";
+import { saveQueue } from "@/lib/note/save-queue";
 import { answer } from "@/lib/note/write-answer";
 
 /** The buffer's writes to the note open: a write, a save and a save that refuses a conflict, and a revert. */
@@ -57,73 +46,31 @@ export function useBufferWrite(
       // Reaching this at all is the reader deciding to overwrite: the timer stops
       // short of it while the note stands conflicted, and `:w` does not.
       conflicted.current = false;
-      saves.current += 1;
-      const seq = saves.current;
-      const sent = reverts.current;
-      const loaded = reloadsOf(reloads.current, path);
       setStatus("saving");
       setReason(undefined);
       const to = path;
-      const kept = dropped.current.get(to) ?? 0;
-      const opened = visit.current;
-      // Read before the line below replaces it: the keepalive names the last
-      // write that went out, which lands first and is what it finds on disk.
-      // Not a write queued behind that one, which never left, and dies with
-      // the page (#310). Only when this buffer follows the queue, as a quiet
-      // write's `follows` reads it: a buffer reopened on the text under that
-      // write, or reloaded since, was typed on that text, and naming the
-      // write's would land over it unasked.
-      const air = inAir.current.get(to);
-      const ahead = queued.current.get(to);
-      const follows = ahead?.visit === opened && ahead.loaded === loaded;
-      const before = follows ? sentUnder(air, loaded) : undefined;
-      writing.current.set(to, (writing.current.get(to) ?? 0) + 1);
-      // The held entry this write carries, read now and not at the answer: a
-      // flush on leaving answers after the visit, and with it `taken`, is gone,
-      // and an entry held while this was in the air is newer text it never
-      // carried.
-      const carried = taken.current;
-      // What the vault held under the buffer as far as this visit knows now,
-      // which a held copy of this text keeps to tell on reopening whether
-      // somebody else wrote the note since.
-      const base = lastBase(to);
-      const queueing = enqueue({
-        to,
-        content,
-        keepalive,
-        leaving,
-        restoring,
-        base,
-        opened,
-        loaded,
-        kept,
-        wasConflicted,
-        air,
-        ahead,
-        follows,
-        before,
-        queryClient,
-      });
-      return answer(
-        buffer,
+      const queueing = saveQueue.enqueue(
         {
           to,
           content,
-          seq,
-          sent,
-          loaded,
-          opened,
-          kept,
-          carried,
-          base,
-          wasConflicted,
           keepalive,
           leaving,
           restoring,
+          wasConflicted,
+          // What the vault held under the buffer as far as this visit knows
+          // now, which a held copy of this text keeps to tell on reopening
+          // whether somebody else wrote the note since.
+          base: lastBase(to),
+          sent: reverts.current,
+          // The held entry this write carries, read now and not at the
+          // answer: a flush on leaving answers after the visit, and with it
+          // `taken`, is gone, and an entry held while this was in the air is
+          // newer text it never carried.
+          carried: taken.current,
         },
-        queueing,
-        takeFailed,
+        queryClient,
       );
+      return answer(buffer, queueing, takeFailed);
     },
     [
       path,
@@ -161,8 +108,8 @@ export function useBufferWrite(
     // Rename and delete must not race a write in the air (#306): the key
     // waits for the note's queue, the write just made included, and refuses
     // when any write in it did not land.
-    const queue = path === undefined ? undefined : queued.current.get(path);
-    return Promise.all([mine, queue?.ok ?? true]).then(([landed, all]) => landed && all);
+    const queue = path === undefined ? true : saveQueue.settled(path);
+    return Promise.all([mine, queue]).then(([landed, all]) => landed && all);
   }, [save, path, conflicted]);
 
   /**
@@ -183,13 +130,13 @@ export function useBufferWrite(
       // A write in the air counts as unwritten text too (#291): `write` empties
       // `pending` as it goes out, and once thrown away here its failure would
       // hold nothing.
-      const busy = path !== undefined && writing.current.has(path);
+      const busy = path !== undefined && saveQueue.busy(path);
       if ((pending.current !== null || busy) && !force) return false;
 
       pending.current = null;
       conflicted.current = false;
       reverts.current += 1;
-      if (path !== undefined) dropped.current.set(path, (dropped.current.get(path) ?? 0) + 1);
+      if (path !== undefined) saveQueue.drop(path);
       // The caller put the vault's text in the cache before asking, and that is
       // what the buffer holds now. Kept here and not read off the cache later,
       // which a route write's refetch moves under a buffer that declined it.
@@ -214,16 +161,15 @@ export function useBufferWrite(
       // so a hide resends the vault's text and not the thrown-away one. That
       // text and the one sent stay in `stale`, so a slow read of either is
       // declined while the restore is in the air.
-      const thrown = inAir.current.get(path);
-      if (busy && onDisk.current !== null) {
-        pending.current = onDisk.current;
-        void write(false, false, true);
-        const restore = inAir.current.get(path);
-        if (thrown !== undefined) restore?.stale.push(thrown.content);
-        if (thrown?.sent !== undefined) restore?.stale.push(thrown.sent.content);
-      } else {
-        inAir.current.delete(path);
-      }
+      saveQueue.revert(
+        path,
+        busy && onDisk.current !== null
+          ? () => {
+              pending.current = onDisk.current;
+              void write(false, false, true);
+            }
+          : undefined,
+      );
       return true;
     },
     [
