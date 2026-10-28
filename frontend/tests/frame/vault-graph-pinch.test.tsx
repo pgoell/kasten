@@ -26,12 +26,12 @@ import {
   blank,
   boxIn,
   canvasOf,
-  drawnNotes,
   fingers,
   fitted,
   graphAt,
   hubs,
   inPage,
+  loneNotes,
   MOST_ZOOM,
   made,
   middleOf,
@@ -291,7 +291,7 @@ describe("#1286 a pinch that meets a note zooms the vault graph on a phone", () 
     // The shadow canvas paints the hit areas at most every 800 ms while frames draw.
     await new Promise((done) => setTimeout(done, 900));
 
-    const [moved] = drawnNotes(host).filter(
+    const [moved] = loneNotes(host).filter(
       ({ at }) => blank({ x: at.x + 60, y: at.y }) && at.x < 300,
     );
     const target = need(moved, "a note with room to its right");
@@ -378,6 +378,52 @@ describe("#1286 a pinch that meets a note zooms the vault graph on a phone", () 
   });
 });
 
+describe("#1286 review: a pinch after a drag, and a thumb outside the graph", () => {
+  it("#1286 B1 a second finger after a one-finger drag ends the drag where it was, and a lift with no move taps nothing", async () => {
+    const { host, onOpen } = await phone();
+    await still();
+    const [one, two] = twoNotes(host);
+    const was = placeOf(host, one.path);
+    const dragged = [1, 2, 3].map((step) => [{ id: 0, x: one.at.x + step * 10, y: one.at.y }]);
+    const held = need(dragged.at(-1)?.[0], "first finger's last spot");
+
+    await fingers(host, [[{ id: 0, ...one.at }], ...dragged, [held, { id: 1, ...two.at }]]);
+
+    // The note kept the drag up to the second finger, and the pinch took it no further.
+    expect(placeOf(host, one.path).x - was.x).toBeGreaterThan(15 / view().k);
+    await untilStill(host);
+    await new Promise((done) => setTimeout(done, 900));
+    expect(onOpen).not.toHaveBeenCalled();
+    // Had the lift picked the second note, one tap on it now would open it.
+    await tap(host, need(canvasOf().screenOf(two.path), two.path));
+    await new Promise((done) => setTimeout(done, 400));
+    expect(onOpen).not.toHaveBeenCalled();
+  });
+
+  it("#1286 B2 a thumb resting on the touch row is no pinch finger: one finger on a note still drags it", async () => {
+    const { host } = await phone();
+    await still();
+    const [note] = loneNotes(host).filter(({ at }) => at.x < 300);
+    const target = need(note, "a note with room to its right");
+    const was = placeOf(host, target.path);
+    const row = need(readout(host), "readout").getBoundingClientRect();
+    const box = boxIn(host).getBoundingClientRect();
+    const thumb = {
+      id: 0,
+      x: row.left + row.width / 2 - box.left,
+      y: row.top + row.height / 2 - box.top,
+    };
+    const drag = [1, 2, 3, 4, 5, 6].map((step) => [
+      thumb,
+      { id: 1, x: target.at.x + step * 10, y: target.at.y },
+    ]);
+
+    await fingers(host, [[thumb], [thumb, { id: 1, ...target.at }], ...drag, [thumb]]);
+
+    expect(placeOf(host, target.path).x - was.x).toBeGreaterThan(30 / view().k);
+  });
+});
+
 describe("#1286 the vault graph on a desktop", () => {
   for (const vim of ["on", "off"] as const) {
     it(`#1286 A4 with vim ${vim}, a mouse drag on a desktop still moves a note`, async () => {
@@ -388,7 +434,7 @@ describe("#1286 the vault graph on a desktop", () => {
       await untilCounted(host);
       await untilStill(host);
       await still();
-      const [target] = drawnNotes(host).filter(({ at }) => blank({ x: at.x + 60, y: at.y }));
+      const [target] = loneNotes(host).filter(({ at }) => blank({ x: at.x + 60, y: at.y }));
       const note = need(target, "a note with room to its right");
       const was = placeOf(host, note.path);
 

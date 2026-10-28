@@ -176,7 +176,7 @@ export function blank(at: Point): boolean {
   });
 }
 
-/** A background point 70 to 110 px from `from`, with the room past it a spread needs clear too. */
+/** A background point 70 to 110 px from `from`, clear of every note's hit area. */
 export function clearNear(host: HTMLElement, from: Point): Point | null {
   const rect = boxIn(host).getBoundingClientRect();
   for (const reach of [80, 70, 90, 100, 110])
@@ -195,27 +195,33 @@ export function backgroundNear(host: HTMLElement, from: Point): Point {
 
 /** A note with a clear background point near it. */
 export function noteWithBackground(host: HTMLElement): { path: string; at: Point; empty: Point } {
-  for (const note of drawnNotes(host)) {
+  for (const note of loneNotes(host)) {
     const empty = clearNear(host, note.at);
     if (empty !== null) return { ...note, empty };
   }
   throw new Error("no note with background beside it");
 }
 
-/** Two notes 70 to 160 px apart, each clear of every other note's hit area. */
-export function twoNotes(
-  host: HTMLElement,
-): [{ path: string; at: Point }, { path: string; at: Point }] {
+/** The drawn notes clear of every other note's hit area, so a finger on one takes that one. */
+export function loneNotes(host: HTMLElement): { path: string; at: Point }[] {
   const notes = drawnNotes(host);
-  const alone = (one: { path: string; at: Point }) =>
+  return notes.filter((one) =>
     notes.every(
       (other) =>
         other.path === one.path || Math.hypot(other.at.x - one.at.x, other.at.y - one.at.y) > CLEAR,
-    );
+    ),
+  );
+}
+
+/** Two lone notes 70 to 160 px apart. */
+export function twoNotes(
+  host: HTMLElement,
+): [{ path: string; at: Point }, { path: string; at: Point }] {
+  const notes = loneNotes(host);
   for (const a of notes)
     for (const b of notes) {
       const apart = Math.hypot(a.at.x - b.at.x, a.at.y - b.at.y);
-      if (a.path < b.path && apart > 70 && apart < 160 && alone(a) && alone(b)) return [a, b];
+      if (a.path < b.path && apart > 70 && apart < 160) return [a, b];
     }
   throw new Error("no two notes apart");
 }

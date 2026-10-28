@@ -252,7 +252,10 @@ pane, and a click on a hollow ring makes the note the way following its link
 would.
 
 A finger does the same: one finger on the background pans, one on a note drags
-it, two pinch to zoom, and a tap opens the note. A tap on a hollow ring asks
+it, two pinch to zoom, and a tap opens the note. A second finger turns a note's
+drag into the pinch, the note staying where the first finger left it, and a
+finger on a note in a pinch zooms like any other; a pinch lifted without a
+move is no tap. A tap on a hollow ring asks
 before it makes the note. On a touch screen a note
 answers a tap within 12 pixels of its middle however far out the zoom is, where
 a mouse has to be on the dot. A row under the header carries `fit`, which is

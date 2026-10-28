@@ -26,6 +26,13 @@ export function radialHitRadius(dot: number, coarse: boolean): number {
   return coarse ? Math.max(drawn, FINGER / 2) : drawn;
 }
 
+/** What `pinchOverDrag` gives the canvas back. */
+export interface PinchOverDrag {
+  /** Whether the touch going on, or the last one, had two fingers in the box: then its lift is no tap. */
+  pinched(): boolean;
+  stop(): void;
+}
+
 /**
  * A second finger makes a pinch, whatever the fingers are on (#1286).
  *
@@ -37,7 +44,12 @@ export function radialHitRadius(dot: number, coarse: boolean): number {
  * first: its own touchend listener is called with the fingers already down,
  * as if they had lifted. The note stays where the first finger left it. While
  * two fingers or more are down no finger can take a note, so a finger on a
- * note in a pinch is a pinch finger, until every finger has lifted.
+ * note in a pinch is a pinch finger, until a lone finger starts a new touch.
+ *
+ * Only fingers in the box count: a thumb resting on the touch row above it is
+ * no pinch finger, and its lift never reaches the box. The drag's end tells
+ * force-graph no drag happened, so a pinch lifted without a move would be a
+ * tap on whatever the last finger landed on; `pinched` lets the canvas drop it.
  *
  * Listened for in the capture phase on the box, so this runs before both
  * listeners on the canvas inside it.
@@ -45,31 +57,38 @@ export function radialHitRadius(dot: number, coarse: boolean): number {
 export function pinchOverDrag(
   element: HTMLElement,
   graph: ForceGraph<DrawnNode, DrawnLink>,
-): () => void {
+): PinchOverDrag {
+  let pinched = false;
   const canvas = element.querySelector("canvas");
-  if (canvas === null) return () => {};
+  if (canvas === null) return { pinched: () => false, stop: () => {} };
   const endDrag = select(canvas).on("touchend.drag");
   const listening = new AbortController();
   const options = { capture: true, signal: listening.signal };
   element.addEventListener(
     "touchstart",
     (event) => {
-      if (event.touches.length < 2) return;
-      graph.enableNodeDrag(false);
+      const inside = [...event.touches].filter(
+        (one) => one.target instanceof Node && element.contains(one.target),
+      );
+      pinched = inside.length > 1;
+      graph.enableNodeDrag(!pinched);
       // force-graph marks the canvas from a drag's start to its end.
-      if (!canvas.classList.contains("grabbable")) return;
+      if (!pinched || !canvas.classList.contains("grabbable")) return;
       const landing = new Set([...event.changedTouches].map((one) => one.identifier));
-      const held = [...event.touches].filter((one) => !landing.has(one.identifier));
+      const held = inside.filter((one) => !landing.has(one.identifier));
       // d3-drag's touchend reads no more of its event than these two.
       const lift = { changedTouches: held, stopImmediatePropagation() {} };
       endDrag?.call(canvas, lift as unknown as TouchEvent, undefined);
     },
     options,
   );
-  const lifted = (event: TouchEvent) => {
-    if (event.touches.length === 0) graph.enableNodeDrag(true);
-  };
-  element.addEventListener("touchend", lifted, options);
-  element.addEventListener("touchcancel", lifted, options);
-  return () => listening.abort();
+  // A mouse after a pinch, on a screen that has both, clicks as it always did.
+  element.addEventListener(
+    "pointerdown",
+    (event) => {
+      if (event.pointerType !== "touch") pinched = false;
+    },
+    options,
+  );
+  return { pinched: () => pinched, stop: () => listening.abort() };
 }
