@@ -404,10 +404,12 @@ def _spans(places: list[Place]) -> list[list[object]]:
 
 
 @lru_cache(maxsize=32)
-def _load(json_path: str, _mtime_ns: int, _size: int) -> tuple[list[int], list[Place]]:
+def _load(json_path: str, _inode: int, _mtime_ns: int, _size: int) -> tuple[list[int], list[Place]]:
     """The spans of one entry, parsed once.
 
-    Its stamp is in the key, so a rewritten entry is read again.
+    Its stamp is in the key, so a rewritten entry is read again. The inode is
+    there because two writes in one mtime tick can leave jsons of one size,
+    and `_replace` gives every write a new inode.
     """
     try:
         entry = json.loads(Path(json_path).read_text(encoding="utf-8"))
@@ -424,6 +426,6 @@ def place_of(cache: Path, path: str, line: int) -> Place | None:
         status = json_path.stat()
     except OSError:
         return None
-    starts, places = _load(str(json_path), status.st_mtime_ns, status.st_size)
+    starts, places = _load(str(json_path), status.st_ino, status.st_mtime_ns, status.st_size)
     index = bisect.bisect_right(starts, line) - 1
     return places[index] if index >= 0 else None
