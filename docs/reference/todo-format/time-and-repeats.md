@@ -84,6 +84,26 @@ The copy is open and carries no `✅`, no `❌`, no `🆔` and no `⏱`: those n
 the instance that was finished, which the done log links to. The `➕` stays,
 that being the recurrence's own birthday.
 
+The copy brings the todo's parts along (#802), so a routine keeps its steps.
+Every todo indented under the ticked one comes back under the copy at the indent
+it carries as typed, open, whatever state it ended in. A part drops what the
+copy drops, and its `👤` as well: who took a step this round says nothing about
+the next. Its `^block` id goes too. Its dates move by the parent's number of
+days, and a part that recurs itself keeps its `🔁` but writes no copy of its
+own. The parts under the ticked line stay ticked, the history of the round. A
+plain bullet or a line of prose under the todo is no part and stays where it is:
+
+```markdown
+- [ ] japanese practice 📅 2026-08-11 🔁 every day
+  - [ ] Kaishi cards
+  - [ ] one Speak lesson
+- [x] japanese practice 📅 2026-08-10 🔁 every day ✅ 2026-08-10 🆔 kt-c11d88
+  - [x] Kaishi cards ✅ 2026-08-10
+  - [x] one Speak lesson ✅ 2026-08-10
+```
+
+A recurring todo closed with `❌` instead of ticked writes no copy and no parts.
+
 A recurring todo carrying no date at all is ticked like any other and writes no
 copy. There is nothing to count from, and a copy with no date is the same todo
 written twice.

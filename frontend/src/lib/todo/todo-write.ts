@@ -24,7 +24,7 @@ import {
 } from "@/lib/todo/todo";
 import { blockedLines, type Closed } from "@/lib/todo/todo-blocked";
 import { withoutBlockId } from "@/lib/todo/todo-fields";
-import { nextOccurrence } from "@/lib/todo/todo-recur";
+import { nextOccurrence, nextPart, nextShift } from "@/lib/todo/todo-recur";
 import { descendants, type Node, type Placed, treeOf } from "@/lib/todo/todo-view";
 
 /** One note as a write: where it goes and the whole of its new text. */
@@ -298,6 +298,16 @@ function nodeAt(lines: string[], line: number): Node | null {
 }
 
 /**
+ * A fresh line in place of `typed`: a new line, so written in the field order,
+ * but at the indent `typed` carries as typed and without its block id, which
+ * names the one line it is on.
+ */
+function copyLine(typed: string, todo: Todo): string {
+  const indent = /^[ \t]*/.exec(typed)?.[0] ?? "";
+  return `${indent}${formatTodo({ ...todo, indent: 0, text: withoutBlockId(todo.text) })}`;
+}
+
+/**
  * Every line of this note one press rewrites, keyed by line number.
  *
  * One map rather than three passes of edits, so no two rules can claim a line
@@ -366,12 +376,16 @@ export function cycleLines({
   // where it is with its `✅`, and the note carries the history in place.
   if (was !== null && was.state !== "done" && now?.state === "done") {
     const fresh = nextOccurrence(was, today);
-    // A new line, so written in the field order, but at the indent the ticked
-    // one carries as typed.
-    if (fresh !== null) {
-      const indent = /^[ \t]*/.exec(before)?.[0] ?? "";
-      const text = withoutBlockId(fresh.text);
-      moved.set(line, `${indent}${formatTodo({ ...fresh, indent: 0, text })}\n${cycled}`);
+    const shift = nextShift(was, today);
+    if (fresh !== null && shift !== null) {
+      // Each part comes along open, in the order and at the indent it has
+      // now, so a routine keeps its steps. The ticked parts stay under the
+      // ticked line as the history of this round.
+      const node = nodeAt(lines, line);
+      const parts = (node === null ? [] : descendants(node)).map((part) =>
+        copyLine(lines[part.line - 1] ?? "", nextPart(part.todo, shift)),
+      );
+      moved.set(line, [copyLine(before, fresh), ...parts, cycled].join("\n"));
     }
   }
 

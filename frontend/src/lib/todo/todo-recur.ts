@@ -301,6 +301,16 @@ function daysBetween(from: string, to: string): number {
  * the gaps between due, scheduled and start survive the period.
  */
 export function nextOccurrence(todo: Todo, today: string): Todo | null {
+  const shift = nextShift(todo, today);
+  return shift === null ? null : nextCopy(todo, shift);
+}
+
+/**
+ * How many days a tick of `todo` moves its dates, or null where it writes no
+ * copy. The parts ride along by the same number, so a step due the day after
+ * its routine still is one round later.
+ */
+export function nextShift(todo: Todo, today: string): number | null {
   const rule = parseRecurrence(todo.recurrence ?? "");
   if (rule === null) return null;
 
@@ -308,9 +318,11 @@ export function nextOccurrence(todo: Todo, today: string): Todo | null {
   if (anchor === undefined) return null;
 
   const next = nextDate(rule.whenDone ? today : anchor, rule);
-  if (next === null) return null;
+  return next === null ? null : daysBetween(anchor, next);
+}
 
-  const shift = daysBetween(anchor, next);
+/** `todo` written one round on: open, its dates `shift` days later, its stamps gone. */
+function nextCopy(todo: Todo, shift: number): Todo {
   const move = (date: string | undefined) =>
     date === undefined ? undefined : shiftDay(date, shift);
 
@@ -327,5 +339,20 @@ export function nextOccurrence(todo: Todo, today: string): Todo | null {
     cancelled: undefined,
     id: undefined,
     worked: undefined,
+  };
+}
+
+/**
+ * A part of a recurring todo as the next round's copy carries it: the copy's
+ * own rule, and no `👤` either. Who took a step or was waited on this round
+ * says nothing about the next. A part's own `🔁` stays as written; the part
+ * moves with its parent and never writes a copy of its own.
+ */
+export function nextPart(part: Todo, shift: number): Todo {
+  return {
+    ...nextCopy(part, shift),
+    assignee: undefined,
+    waitingSince: undefined,
+    waitingOn: undefined,
   };
 }

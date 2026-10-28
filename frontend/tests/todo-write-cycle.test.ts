@@ -152,7 +152,8 @@ describe("cycleLines", () => {
     const note = ["- [/] water the plants 🔁 every week 📅 2026-08-10", "  - [ ] the fern"];
     const moved = cycle(note, 1);
 
-    expect(moved.get(1)?.split("\n")).toHaveLength(2);
+    // The copy, the part it carries (#802), and the ticked line.
+    expect(moved.get(1)?.split("\n")).toHaveLength(3);
     expect(moved.get(2)).toBe(`  - [x] the fern ✅ ${TODAY}`);
   });
 
