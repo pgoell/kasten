@@ -42,6 +42,48 @@ export const touchDrag: BrowserCommand<[Point[]]> = async (context, points) => {
   await session.detach();
 };
 
+/** A finger of `touches`: the same `id` from the frame it goes down in to the one it lifts in. */
+interface Finger extends Point {
+  id: number;
+}
+
+/**
+ * Several fingers, frame by frame: each frame lists the fingers down, so a frame
+ * with one more puts a finger down, one with fewer lifts the ones it leaves out,
+ * and one with the same moves them. Every finger still down is lifted at the end.
+ */
+export const touches: BrowserCommand<[Finger[][]]> = async (context, frames) => {
+  const at = await offset(context);
+  const session = await context.context.newCDPSession(context.page);
+  const send = (type: "touchStart" | "touchMove" | "touchEnd", points: Finger[]) =>
+    session.send("Input.dispatchTouchEvent", {
+      type,
+      touchPoints: points.map(({ id, x, y }) => ({ id, x: x + at.x, y: y + at.y })),
+    });
+  let previous: Finger[] = [];
+  for (const frame of frames) {
+    // An end lifts the fingers it names, and the rest stay down.
+    const lifted = previous.filter((finger) => !frame.some((one) => one.id === finger.id));
+    if (lifted.length > 0) await send("touchEnd", lifted);
+    else await send(frame.length > previous.length ? "touchStart" : "touchMove", frame);
+    previous = frame;
+  }
+  if (previous.length > 0) await send("touchEnd", []);
+  await session.detach();
+};
+
+/** The mouse's left button down at the first point, through every other, and up at the last. */
+export const mouseDrag: BrowserCommand<[Point[]]> = async (context, points) => {
+  const at = await offset(context);
+  const { mouse } = context.page;
+  const [first, ...rest] = points;
+  if (first === undefined) return;
+  await mouse.move(first.x + at.x, first.y + at.y);
+  await mouse.down();
+  for (const point of rest) await mouse.move(point.x + at.x, point.y + at.y);
+  await mouse.up();
+};
+
 /** A mouse wheel over a point, `dy` px down. */
 export const wheel: BrowserCommand<[Point, number]> = async (context, point, dy) => {
   const at = await offset(context);

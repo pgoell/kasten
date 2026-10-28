@@ -26,7 +26,7 @@ import {
   servePage,
   unservePages,
 } from "./tests/frame/serve-page.ts";
-import { touchDrag, wheel } from "./tests/frame/touch-input.ts";
+import { mouseDrag, touchDrag, touches, wheel } from "./tests/frame/touch-input.ts";
 
 const BACKEND = process.env.KASTEN_DEV_BACKEND ?? "http://localhost:8000";
 // The chat runner, which in production Caddy reaches in the shell container.
@@ -423,9 +423,11 @@ export default defineConfig({
             commands: {
               emulateMedia,
               hideResizeObserver,
+              mouseDrag,
               serveFile,
               servePage,
               touchDrag,
+              touches,
               unservePages,
               wheel,
             },

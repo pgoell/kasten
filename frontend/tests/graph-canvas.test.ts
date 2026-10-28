@@ -5,7 +5,8 @@
 
 import type { DrawnNode } from "@/lib/graph/graph";
 import { radiusOf } from "@/lib/graph/graph";
-import { drawGraph, type GraphCanvasHandlers, hitRadius } from "@/lib/graph/graph-canvas";
+import { drawGraph, type GraphCanvasHandlers } from "@/lib/graph/graph-canvas";
+import { hitRadius } from "@/lib/graph/graph-touch";
 
 // Each setter is kept by name, with the arguments of its last call, and every
 // call answers the graph, as the library's setters do.

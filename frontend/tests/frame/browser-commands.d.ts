@@ -16,6 +16,8 @@ declare module "vitest/browser" {
     hideResizeObserver: (path: string) => Promise<void>;
     unservePages: () => Promise<void>;
     touchDrag: (points: { x: number; y: number }[]) => Promise<void>;
+    touches: (frames: { id: number; x: number; y: number }[][]) => Promise<void>;
+    mouseDrag: (points: { x: number; y: number }[]) => Promise<void>;
     wheel: (point: { x: number; y: number }, dy: number) => Promise<void>;
   }
 }
