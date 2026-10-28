@@ -273,3 +273,52 @@ async def test_read_note_still_answers_no_such_note_for_a_skill(
     assert payload(mcp.text)["result"]["isError"] is True
     assert "No such note" in mcp.text
     assert API_KEY not in rest.text + mcp.text
+
+
+async def test_a_skills_folder_linked_to_a_hidden_vault_folder_is_empty(
+    client: AsyncClient, agent_vault: Path, bearer: dict[str, str]
+) -> None:
+    # Inside the vault and still refused: a link to `.jj` would hand out the
+    # jj repo, which the dotfile rule keeps from every other read.
+    jj = agent_vault / ".jj"
+    (jj / "x").mkdir(parents=True)
+    (jj / "x" / "SKILL.md").write_text(skill_md("x", API_KEY))
+    (agent_vault / ".claude").mkdir()
+    (agent_vault / ".claude" / "skills").symlink_to(jj)
+
+    listing = await client.get("/agent/skills", headers=bearer)
+
+    assert listing.status_code == 200
+    assert listing.json() == []
+    await refused_over_rest(client, bearer, "x/SKILL.md")
+    await refused_over_mcp(client, bearer, "x/SKILL.md")
+
+
+async def test_an_unreadable_skill_file_is_absent_and_the_rest_still_lists(
+    client: AsyncClient, agent_vault: Path, bearer: dict[str, str]
+) -> None:
+    skills_folder = build_layout(agent_vault)
+    locked = skills_folder / "close-day" / "locked.md"
+    locked.write_text(API_KEY)
+    locked.chmod(0)
+
+    listing = await client.get("/agent/skills", headers=bearer)
+
+    assert listing.status_code == 200
+    assert "close-day/locked.md" not in listed_files(listing.json(), "close-day")
+    assert "close-day/SKILL.md" in listed_files(listing.json(), "close-day")
+    await refused_over_rest(client, bearer, "close-day/locked.md")
+    await refused_over_mcp(client, bearer, "close-day/locked.md")
+
+
+async def test_a_hidden_link_to_a_skill_file_lists_by_the_file_it_reads(
+    client: AsyncClient, agent_vault: Path, bearer: dict[str, str]
+) -> None:
+    skills_folder = build_layout(agent_vault)
+    (skills_folder / "close-day" / ".hid.md").symlink_to(skills_folder / "close-day" / "SKILL.md")
+
+    listing = await client.get("/agent/skills", headers=bearer)
+
+    # A read through the link answers with the file it lands on, which the
+    # listing already names, so the hidden name is never handed out.
+    assert listed_files(listing.json(), "close-day") == ["close-day/SKILL.md"]

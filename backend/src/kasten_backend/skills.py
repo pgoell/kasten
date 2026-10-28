@@ -54,12 +54,13 @@ class SkillRead(BaseModel):
 def _root(settings: Settings) -> Path | None:
     """The real skills folder, or None when it is missing or leads out of the vault.
 
-    A `.claude` that is a link out of the vault resolves outside it and is
-    refused, so the listing is empty rather than a walk of somewhere else.
+    A link anywhere on the way is refused, not only one out of the vault: a
+    `.claude/skills` linked to `.jj` resolves inside the vault and would serve
+    the jj repo, which the dotfile rule keeps from every other read.
     """
     base = settings.vault_path.resolve()
-    folder = (base / settings.skills_path).resolve()
-    if not folder.is_dir() or not folder.is_relative_to(base):
+    folder = base / settings.skills_path
+    if folder.resolve() != folder or not folder.is_dir() or not folder.is_relative_to(base):
         return None
 
     return folder
@@ -75,12 +76,13 @@ def _read(folder: Path, relative: str) -> SkillRead | None:
     if path is None or not path.is_file() or path.suffix.lower() not in SUFFIXES:
         return None
 
-    if path.stat().st_size > MOST_BYTES:
-        return None
-
+    # An unreadable file is absent, not an error: one of them would otherwise
+    # take down every listing.
     try:
+        if path.stat().st_size > MOST_BYTES:
+            return None
         text = path.read_bytes().decode("utf-8")
-    except UnicodeDecodeError:
+    except OSError, UnicodeDecodeError:
         return None
 
     if "\0" in text:
@@ -93,18 +95,24 @@ async def list_skills(settings: Settings) -> list[Skill]:
     """Every folder under the skills path holding a readable SKILL.md, with its files.
 
     Each file is read on the way, so the listing names only what a read hands
-    out: the walk sees a link out, a hidden file, a file over the cap and a
-    binary too. `rglob` follows no linked folder, so it cannot walk out.
+    out, and by the path the read answers with: the walk sees a link out, a
+    file over the cap and a binary too, and a hidden link to a skill file would
+    otherwise be named by its hidden name. `rglob` follows no linked folder, so
+    it cannot walk out; a hidden part is dropped before anything is read.
     """
     folder = _root(settings)
     if folder is None:
         return []
 
+    walked = (p.relative_to(folder) for p in folder.rglob("*"))
     read = {
-        path: found
-        for path in sorted(p.relative_to(folder).as_posix() for p in folder.rglob("*"))
+        found.path: found
+        for path in sorted(
+            p.as_posix() for p in walked if not any(part.startswith(".") for part in p.parts)
+        )
         if (found := _read(folder, path)) is not None
     }
+    read = dict(sorted(read.items()))
     return [
         Skill(
             name=path.partition("/")[0],

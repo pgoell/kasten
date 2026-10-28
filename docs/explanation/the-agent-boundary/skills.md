@@ -29,7 +29,8 @@ The skills folder is the one hidden path a token reaches, and only as the
 prefix in `KASTEN_SKILLS_PATH`. A caller names a path inside the folder, such
 as `triage-inbox/kasten.sh`, and never the prefix itself. The path resolves
 with the folder as its base, so `..` cannot climb to `.claude/settings.json`,
-the jj repo, `.trash` or `tokens.json`.
+the jj repo or `.trash`. A skills folder that is itself a link, even to a
+folder inside the vault, lists none and reads none.
 
 ## What a skill file may be
 
