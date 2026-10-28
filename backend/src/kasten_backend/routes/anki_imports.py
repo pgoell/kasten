@@ -45,6 +45,8 @@ class AnkiImporting(BaseModel):
 class _Import:
     task: asyncio.Task[tuple[int, Any]]
     """Ends in the status and body the finish answers, never in a raise."""
+    settings: object
+    """What the import was asked to do beside the upload, Anki's schedule or not."""
     ended: float | None = None
     """When the task ended, by `time.monotonic`, so a stale outcome can be let go."""
 
@@ -58,21 +60,35 @@ read it and a second finish of a landed upload answers its counts again.
 """
 
 
-def started(key: str, work: Callable[[], Awaitable[BaseModel]]) -> _Import:
+def started(key: str, work: Callable[[], Awaitable[BaseModel]], settings: object) -> _Import:
     """The import of upload `key`: the one running or landed, else `work` started.
 
     Found and registered with no await between, so a second finish arriving
     while the first one runs joins it rather than importing the deck again.
     One refused or failed is started afresh, from the upload `taken` kept.
+
+    `settings` tells two finishes apart beyond the upload: one asking for
+    Anki's schedule cannot join one that runs without it and answer counts it
+    never asked for. While that one runs it is refused; once it landed this
+    starts afresh, and finds the upload gone.
     """
     now = time.monotonic()
     for old, ran in list(_imports.items()):
         if ran.ended is not None and now - ran.ended > uploads.UPLOAD_IDLE_SECONDS:
             del _imports[old]
     ran = _imports.get(key)
-    if ran is not None and (not ran.task.done() or ran.task.result()[0] < HTTPStatus.BAD_REQUEST):
+    if ran is not None and not ran.task.done() and ran.settings != settings:
+        raise HTTPException(
+            status_code=409,
+            detail="That file is already importing with other settings. Wait for it to end.",
+        )
+    if (
+        ran is not None
+        and ran.settings == settings
+        and (not ran.task.done() or ran.task.result()[0] < HTTPStatus.BAD_REQUEST)
+    ):
         return ran
-    ran = _Import(asyncio.create_task(_outcome(key, work)))
+    ran = _Import(asyncio.create_task(_outcome(key, work)), settings)
 
     def ended(_task: asyncio.Task[tuple[int, Any]]) -> None:
         ran.ended = time.monotonic()

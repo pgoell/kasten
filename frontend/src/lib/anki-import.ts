@@ -33,31 +33,47 @@ function keyOf(file: Blob): string | undefined {
     : undefined;
 }
 
-/** The sentence a JSON body carries as `detail`, or undefined for a body that carries none. */
-async function detailOf(response: Response): Promise<string | undefined> {
+/** What one ask of a running import came back with, besides the counts and a refusal. */
+const RUNNING = "running";
+
+/**
+ * The JSON body of an answer, or undefined when it has none that parses.
+ *
+ * A proxy's own 401 or a Cloudflare page is HTML, and a body that claims JSON
+ * and does not parse is no answer either, so neither is read as the import's.
+ */
+async function jsonOf(response: Response): Promise<unknown> {
   if (!response.headers.get("content-type")?.includes("json")) return undefined;
-  const { detail } = (await response.json()) as { detail?: unknown };
-  return typeof detail === "string" ? detail : undefined;
+  try {
+    return await response.json();
+  } catch (error: unknown) {
+    if (error instanceof SyntaxError) return undefined;
+    throw error;
+  }
 }
 
 /**
- * One ask of an import: its answer, or undefined when the ask was lost.
+ * One ask of an import: its counts, `RUNNING`, or undefined when the ask was lost.
  *
- * A `TypeError` is a dropped connection, which says nothing about the import. A
- * 5xx is lost too unless it carries a JSON `detail`: a failed import answers 500
- * with its reason, while Cloudflare's own 502 or 524 is HTML and says nothing.
+ * A refusal, a failure or the backend's 404 is the import's outcome only when it
+ * carries a JSON `detail`, and it is thrown as that sentence. Anything else that
+ * is not an answer (a dropped connection, a proxy's 401, a 429, a bare 5xx) says
+ * nothing about the import, so it is a lost ask.
  */
-async function askImport(url: string): Promise<Response | undefined> {
+async function askImport(url: string): Promise<AnkiImport | typeof RUNNING | undefined> {
   let response: Response;
   try {
     response = await fetch(url);
   } catch (error: unknown) {
+    // A `TypeError` is a dropped connection.
     if (error instanceof TypeError) return undefined;
     throw error;
   }
-  if (response.status < 500) return response;
-  const reason = await detailOf(response);
-  if (reason !== undefined) throw new Error(reason);
+  if (response.status === 202) return RUNNING;
+  const body = await jsonOf(response);
+  if (response.ok) return body === undefined ? undefined : (body as AnkiImport);
+  const detail = (body as { detail?: unknown } | undefined)?.detail;
+  if (typeof detail === "string") throw new Error(detail);
   return undefined;
 }
 
@@ -67,15 +83,13 @@ async function awaitImport(upload: string): Promise<AnkiImport> {
   let lost = 0;
   for (;;) {
     await new Promise((resolve) => setTimeout(resolve, POLL_MS));
-    const response = await askImport(url);
-    if (response === undefined) {
+    const asked = await askImport(url);
+    if (asked === undefined) {
       if (++lost === POLL_TRIES) throw new Error(LOST_TOUCH);
       continue;
     }
     lost = 0;
-    if (response.status === 202) continue;
-    if (!response.ok) throw await refused(response, `GET ${url}`);
-    return (await response.json()) as AnkiImport;
+    if (asked !== RUNNING) return asked;
   }
 }
 
@@ -103,20 +117,19 @@ export async function importAnki(
   const url = carry ? "/api/anki?carry=true" : "/api/anki";
   const key = keyOf(file);
   const kept = key === undefined ? undefined : keptUploads.get(key);
+  // Kept the moment the parts are in, so a finish that is lost still leaves the next try its upload.
+  const onUploaded =
+    key === undefined ? undefined : (upload: string) => keptUploads.set(key, upload);
 
-  let posted = await postFile(url, file, onProgress, kept);
-  if (key !== undefined && kept !== undefined && posted.response.status === 404) {
+  let response = await postFile(url, file, onProgress, kept, onUploaded);
+  if (key !== undefined && kept !== undefined && response.status === 404) {
     // The backend has let the upload go, so the file has to go up again in full.
     keptUploads.delete(key);
-    posted = await postFile(url, file, onProgress);
+    response = await postFile(url, file, onProgress, undefined, onUploaded);
   }
 
-  const { response, upload } = posted;
-  const imported = await settle(response).catch((error: unknown) => {
-    // Only a file that went through parts has an upload to keep.
-    if (key !== undefined && upload !== undefined) keptUploads.set(key, upload);
-    throw error;
-  });
+  const imported = await settle(response);
+  // Only a landed import lets its upload go; a refused or lost one is kept for the retry.
   if (key !== undefined) keptUploads.delete(key);
   return imported;
 }

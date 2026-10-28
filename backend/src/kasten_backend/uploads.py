@@ -57,6 +57,8 @@ class _Upload:
     """Where each piece received so far begins in the temp."""
     lock: asyncio.Lock = field(default_factory=asyncio.Lock)
     """Held for a piece and for the finish, so two requests cannot interleave bytes."""
+    kept: bool = False
+    """Whole and kept by `taken` after its use failed, for a retry that may never come."""
 
 
 _uploads: dict[str, _Upload] = {}
@@ -121,6 +123,13 @@ def start(folder: Path, size: int) -> str:
     sweep()
     # After the sweep, so an upload abandoned an hour ago holds no room.
     room = files.OPEN_LIMIT_BYTES
+    # A file kept for a retry gives way to one being sent: the retry can send
+    # it again, and before the retry was kept a finished upload held no room.
+    for old, waiting in list(_uploads.items()):
+        if sum(upload.size for upload in _uploads.values()) + size <= room:
+            break
+        if waiting.kept and not waiting.lock.locked():
+            _drop(old)
     if sum(upload.size for upload in _uploads.values()) + size > room:
         raise RefusedError(507, f"Too much is already uploading: {amount(room)} at once")
 
@@ -231,6 +240,7 @@ async def taken(key: str) -> AsyncIterator[Path]:
             else:
                 # A cancel keeps it too: shutdown cancels an import, and `wipe`
                 # at the next start clears what this keeps.
+                upload.kept = True
                 with contextlib.suppress(OSError):
                     upload.path.touch()
 

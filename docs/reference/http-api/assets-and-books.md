@@ -172,7 +172,7 @@ place of a body: `POST /api/anki?upload=<id>` or
 An upload idle for an hour is deleted, by a sweep the backend runs every ten
 minutes and by each call here, so a file nobody finished is gone within about
 seventy minutes. Idle counts from its last piece, or from a refused or failed
-`POST /api/anki?upload=` finish that kept it. One whose temp file something
+`POST /api/anki?upload=` finish that kept it. A kept upload gives up its room to a new one that would not fit beside it. One whose temp file something
 else deleted, or the backend cannot read, counts as gone too, and its id
 answers 404. What has arrived is held in the backend's memory, and a restart
 forgets it and empties the folder.

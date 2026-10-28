@@ -534,6 +534,6 @@ export async function uploadAsset(
   file: Blob,
   onProgress?: (sent: number, total: number) => void,
 ): Promise<void> {
-  const { response } = await postFile(`/api/assets/${encodeURIComponent(path)}`, file, onProgress);
+  const response = await postFile(`/api/assets/${encodeURIComponent(path)}`, file, onProgress);
   if (!response.ok) throw await refused(response, `POST /api/assets/${path}`);
 }

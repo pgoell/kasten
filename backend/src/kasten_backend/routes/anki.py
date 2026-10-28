@@ -124,7 +124,9 @@ async def import_anki(
         body = b"".join(pieces)
     else:
         work = partial(_from_upload, upload, settings, carry=carry)
-        return await anki_imports.answer(upload, anki_imports.started(upload, work))
+        return await anki_imports.answer(
+            upload, anki_imports.started(upload, work, {"carry": carry})
+        )
     return await _import_bytes(body, settings, carry=carry, limit=files.UPLOAD_LIMIT_BYTES)
 
 

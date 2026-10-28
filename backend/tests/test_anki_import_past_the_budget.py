@@ -15,7 +15,7 @@ from asgi_lifespan import LifespanManager
 from httpx import ASGITransport, AsyncClient
 
 from backend.tests.anki_build import BASIC, CAT_EXPORT, apkg
-from kasten_backend import uploads
+from kasten_backend import files, uploads
 from kasten_backend.main import app
 from kasten_backend.routes import anki as anki_routes
 from kasten_backend.routes import anki_imports
@@ -257,3 +257,42 @@ async def test_a_restart_mid_import_leaves_no_half_written_deck(
     assert finish.status_code == 202
     assert partway != []
     assert files_in(vault) == []
+
+
+async def test_a_finish_asking_for_the_schedule_does_not_join_one_without_it(
+    client: AsyncClient, vault: Path, gate: Gate
+) -> None:
+    key = await send(client, FRENCH)
+
+    first = await client.post("/api/anki", params={"upload": key})
+    carried = await client.post("/api/anki", params={"upload": key, "carry": "true"})
+    gate.open.set()
+    await ended(key)
+    after = await client.post("/api/anki", params={"upload": key, "carry": "true"})
+
+    assert first.status_code == 202
+    assert carried.status_code == 409
+    assert carried.json() == {
+        "detail": "That file is already importing with other settings. Wait for it to end."
+    }
+    assert after.status_code == 404
+    assert gate.calls == 1
+
+
+async def test_an_upload_kept_after_a_failure_gives_way_to_a_new_one(
+    client: AsyncClient, vault: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    held = Gate(fail=[OSError("The disk is full")])
+    held.open.set()
+    monkeypatch.setattr(anki_routes, "read_apkg", held)
+    key = await send(client, FRENCH)
+    failed = await client.post("/api/anki", params={"upload": key})
+    # Room for one file of this size and no more.
+    monkeypatch.setattr(files, "OPEN_LIMIT_BYTES", len(FRENCH) + 1)
+
+    started = await client.post("/api/uploads", json={"size": len(FRENCH)})
+    gone = await client.post("/api/anki", params={"upload": key})
+
+    assert failed.status_code == 500
+    assert started.status_code == 201
+    assert gone.status_code == 404
