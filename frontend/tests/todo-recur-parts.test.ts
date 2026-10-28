@@ -2,6 +2,7 @@ import { history, undo } from "@codemirror/commands";
 import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import type { TodoState } from "@/lib/todo/todo";
+import type { Closed } from "@/lib/todo/todo-blocked";
 import { cycleTodoAtCursor } from "@/lib/todo/todo-commands";
 import { cycleLines } from "@/lib/todo/todo-write";
 import { TODAY, UNKNOWN } from "./todo-write-fixture";
@@ -175,6 +176,30 @@ describe("#802 the next copy of a recurring todo with parts", () => {
       "  a note on it",
       "  - a plain bullet",
       `  - [x] part ✅ ${TODAY}`,
+    ]);
+  });
+
+  it("#802 R1 a carried part still waiting on an open todo comes back blocked", () => {
+    const note = [
+      "- [ ] routine 📅 2026-08-10 🔁 every week",
+      "  - [b] cook ⛔ kt-zzzzzz",
+      "  - [b] eat ⛔ kt-yyyyyy",
+      "- [ ] shop 🆔 kt-zzzzzz",
+    ];
+    const closed: Closed = (id) => id === "kt-yyyyyy" || undefined;
+    const moved = cycleLines({
+      lines: note,
+      line: 1,
+      today: TODAY,
+      id: "kt-3f9a2c",
+      closed,
+      state: "done",
+    });
+
+    expect(moved.get(1)?.split("\n").slice(0, 3)).toEqual([
+      "- [ ] routine 📅 2026-08-17 🔁 every week",
+      "  - [b] cook ⛔ kt-zzzzzz",
+      "  - [ ] eat ⛔ kt-yyyyyy",
     ]);
   });
 

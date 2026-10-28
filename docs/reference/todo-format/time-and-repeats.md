@@ -86,7 +86,8 @@ that being the recurrence's own birthday.
 
 The copy brings the todo's parts along (#802), so a routine keeps its steps.
 Every todo indented under the ticked one comes back under the copy at the indent
-it carries as typed, open, whatever state it ended in. A part drops what the
+it carries as typed, open, whatever state it ended in; a part whose `⛔` still
+names an open todo comes back blocked. A part drops what the
 copy drops, and its `👤` as well: who took a step this round says nothing about
 the next. Its `^block` id goes too. Its dates move by the parent's number of
 days, and a part that recurs itself keeps its `🔁` but writes no copy of its

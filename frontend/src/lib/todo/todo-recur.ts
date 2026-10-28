@@ -322,7 +322,7 @@ export function nextShift(todo: Todo, today: string): number | null {
 }
 
 /** `todo` written one round on: open, its dates `shift` days later, its stamps gone. */
-function nextCopy(todo: Todo, shift: number): Todo {
+export function nextCopy(todo: Todo, shift: number): Todo {
   const move = (date: string | undefined) =>
     date === undefined ? undefined : shiftDay(date, shift);
 

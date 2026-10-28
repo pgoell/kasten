@@ -102,7 +102,8 @@ Today's date below is the day you are doing this, `YYYY-MM-DD`.
    copy above it, one period on. Move every date it carries by the same number
    of days, and drop the `✅`, the `🆔` and the `⏱` from the copy.
    If it has parts, write each one again under the copy, in the same order and
-   at the same indent: box `[ ]` whatever state it ended in, dates moved by the
+   at the same indent: box `[ ]` whatever state it ended in (`[b]` while a
+   `⛔` on it names a todo still open), dates moved by the
    parent's number of days, and no `✅`, `❌`, `🆔`, `⏱`, `👤` or `^block` id.
    A part keeps its own `🔁` but gets no copy of its own. The parts ticked in
    step 3 stay under the finished line. Prose or a plain bullet under the todo
@@ -241,7 +242,9 @@ The next copy is counted off the due date, or the scheduled date, or the start
 date, whichever the todo has first. `when done` counts off the day it was
 ticked. The parts of the todo come along under the copy, open, their dates
 moved by the same number of days, as step 4 of
-[Completing a todo](#completing-a-todo) says. A month rule counts calendar months and clamps to the last day of a
+[Completing a todo](#completing-a-todo) says.
+
+A month rule counts calendar months and clamps to the last day of a
 month too short for it: the thirty-first of January one month on is the
 twenty-eighth of February. A recurring todo carrying no date at all writes no
 copy.

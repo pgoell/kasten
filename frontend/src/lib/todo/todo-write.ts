@@ -24,7 +24,7 @@ import {
 } from "@/lib/todo/todo";
 import { blockedLines, type Closed } from "@/lib/todo/todo-blocked";
 import { withoutBlockId } from "@/lib/todo/todo-fields";
-import { nextOccurrence, nextPart, nextShift } from "@/lib/todo/todo-recur";
+import { nextCopy, nextPart, nextShift } from "@/lib/todo/todo-recur";
 import { descendants, type Node, type Placed, treeOf } from "@/lib/todo/todo-view";
 
 /** One note as a write: where it goes and the whole of its new text. */
@@ -375,9 +375,8 @@ export function cycleLines({
   // insertion and a replacement at one position order. The completed line stays
   // where it is with its `✅`, and the note carries the history in place.
   if (was !== null && was.state !== "done" && now?.state === "done") {
-    const fresh = nextOccurrence(was, today);
     const shift = nextShift(was, today);
-    if (fresh !== null && shift !== null) {
+    if (shift !== null) {
       // Each part comes along open, in the order and at the indent it has
       // now, so a routine keeps its steps. The ticked parts stay under the
       // ticked line as the history of this round.
@@ -385,7 +384,11 @@ export function cycleLines({
       const parts = (node === null ? [] : descendants(node)).map((part) =>
         copyLine(lines[part.line - 1] ?? "", nextPart(part.todo, shift)),
       );
-      moved.set(line, [copyLine(before, fresh), ...parts, cycled].join("\n"));
+      // A part whose `⛔` still waits on an open todo comes back blocked, not
+      // open. The press has closed the parent, so its own id reads closed.
+      const resolve: Closed = (blocker) => (blocker === now.id ? !isOpen(now) : closed(blocker));
+      for (const [at, insert] of blockedLines(parts, resolve)) parts[at - 1] = insert;
+      moved.set(line, [copyLine(before, nextCopy(was, shift)), ...parts, cycled].join("\n"));
     }
   }
 
