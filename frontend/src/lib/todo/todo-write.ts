@@ -10,6 +10,7 @@
  * This is the one module that knows that.
  */
 
+import { noteBody } from "@/lib/note-frontmatter";
 import { appendUnder, type Edit, fencedLines } from "@/lib/note-section";
 import {
   cycleLine,
@@ -99,9 +100,14 @@ function namesInLog(line: string, id: string): boolean {
   return (ids.at(-1) ?? words.at(-1)) === id;
 }
 
-/** The lines of `text` naming `id` in the log, a line in a code fence never among them. */
+/**
+ * The lines of `text` naming `id` in the log, a line in a code fence never among them.
+ * Fences are found in the body alone, as `appendUnder` finds them, so a fence the
+ * frontmatter seems to open hides nothing below it.
+ */
 function loggedLines(lines: string[], id: string): Set<number> {
-  const { coded } = fencedLines(lines);
+  const above = lines.length - noteBody(lines.join("\n")).split("\n").length;
+  const coded = new Set([...fencedLines(lines.slice(above)).coded].map((at) => at + above));
   return new Set(
     lines.flatMap((line, index) => (!coded.has(index) && namesInLog(line, id) ? [index] : [])),
   );

@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING
 from kasten_backend import agent, periodic, search, todo_fields, todos, vault
 from kasten_backend.change import vault_change, vault_write
 from kasten_backend.folders import create_note
+from kasten_backend.frontmatter import body_start
 from kasten_backend.periodic import append_under
 
 if TYPE_CHECKING:
@@ -22,7 +23,15 @@ if TYPE_CHECKING:
 
     from kasten_backend.config import Settings
 
-__all__ = ["DONE", "append_under", "done_line", "drop_done", "log", "unlog"]
+__all__ = [
+    "DONE",
+    "append_under",
+    "done_line",
+    "drop_done",
+    "log",
+    "other_todo_with_id",
+    "unlog",
+]
 
 DONE = "## Done"
 """The heading the done log lives under, made on first write."""
@@ -87,7 +96,10 @@ def _fenced(lines: list[str]) -> set[int]:
 def drop_done(text: str, id_: str) -> str | None:
     """Drop every `- ✅` line naming `id_`, none in a fence. None where the note holds none."""
     lines = text.split("\n")
-    coded = _fenced(lines)
+    # The body alone, as `append_under` reads it: a fence the frontmatter seems
+    # to open hides nothing below it.
+    above = text[: body_start(text)].count("\n")
+    coded = {at + above for at in _fenced(lines[above:])}
     kept = [line for at, line in enumerate(lines) if at in coded or not _names(line, id_)]
     return None if len(kept) == len(lines) else "\n".join(kept)
 

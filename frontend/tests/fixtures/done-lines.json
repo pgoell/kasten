@@ -187,6 +187,12 @@
       "note": "- ✅ 2026-10-01 Milch kt-abc123\n```\n- ✅ 2026-10-01 Milch kt-abc123\n```\n",
       "id": "kt-abc123",
       "kept": "```\n- ✅ 2026-10-01 Milch kt-abc123\n```\n"
+    },
+    {
+      "name": "a fence in the frontmatter",
+      "note": "---\nnote: |\n  ```\n---\n## Done\n- ✅ 2026-10-01 Milch kt-abc123\n",
+      "id": "kt-abc123",
+      "kept": "---\nnote: |\n  ```\n---\n## Done\n"
     }
   ]
 }
