@@ -1,7 +1,7 @@
 ---
 type: Explanation
 title: Semantic search models
-description: Which embedding model could give kasten search by meaning and "notes like this one", local on the VPS's CPU or a paid API, what each costs in RAM, time or money for the live vault, how each reads German, and what pgvector needs; ends with the choice pgoell has to make.
+description: Which embedding model could give kasten search by meaning and "notes like this one", local on the VPS's CPU or a paid API, what each costs in RAM, time or money for the live vault, how each reads German, and what pgvector needs, with bge-m3's query and indexing speed measured on the VPS; ends with the choice pgoell has to make.
 tags: [search, embeddings, pgvector, research]
 status: draft
 ---
@@ -16,7 +16,10 @@ to pgoell and asks for a short comparison first. This page is that
 comparison. Nothing here is built.
 
 Figures come in two kinds. **Cited** ones link their source. **Estimated**
-ones say so and show the sum. No model was downloaded or run on the VPS.
+ones say so and show the sum. **Measured** ones come from bge-m3 run on the
+VPS, after pgoell asked how fast its queries and indexing would be; they are
+in [bge-m3 measured on the VPS](#bge-m3-measured-on-the-vps). The other
+models were not run.
 
 ## What kasten does today
 
@@ -91,6 +94,10 @@ German, English and Japanese.
 | MMTEB, multilingual mean | 57.0 [Q1] | 59.6 [Q2] | 61.2 [L3] |
 | German retrieval, MIRACL `de` nDCG@10 | 53.0 [Q3] | **57.6** [Q3] | 56.6 [Q3] |
 
+The time and RAM rows are estimates for all three. For bge-m3,
+[the measurement on the VPS](#bge-m3-measured-on-the-vps) replaces them:
+51 minutes and 2.2 GB without flashcards at 512-token pieces.
+
 **License.** e5 and bge-m3 state MIT on their cards; bge-m3's repo has no
 LICENSE file, so the card header is the only statement. EmbeddingGemma is
 gated behind Google's Gemma terms, which bind every use to a prohibited use
@@ -124,6 +131,68 @@ as a rough order, not a ranking.
 of the lot, 64.3 [Q2], but a lower German score (54.2 [Q3]) than bge-m3 and
 the highest cost on a CPU. `multilingual-e5-small` (118M parameters, 384
 dimensions) is the fastest choice, at 50.8 on German [Q3].
+
+## bge-m3 measured on the VPS
+
+Run on 2026-10-28 on the VPS, beside the live services: bge-m3's own fp32
+ONNX export (`onnx/` in `BAAI/bge-m3` [L2]) under onnxruntime 1.31.1, 8 of
+the 16 threads, at `nice 19`. The load average stood at 8 to 10 from the
+other containers throughout, so an idle machine would do somewhat better.
+The pieces are real vault text outside the flashcards, cut to a fixed length.
+Nothing went into kasten or its database.
+
+**Model.** Loading takes 1.8 s and 1.6 GB of RAM. In the backend it would load
+once at start.
+
+**A query.** A typed query is 9 to 14 tokens.
+
+| Step | p50 | p95 |
+|---|---|---|
+| Tokenize | 0.02 ms | |
+| Embed with bge-m3 (200 runs, German and English) | 45 ms | 53 ms |
+| Nearest 20 of 3,500 pieces, pgvector exact scan | 11 ms | 17 ms |
+| Nearest 20 of 3,500 pieces, pgvector HNSW | 1.1 ms | 1.2 ms |
+| Nearest 20 of 3,500 pieces, numpy in the backend | 3 ms | 7 ms |
+| **Whole query, embed and exact scan** | **≈56 ms** | **≈70 ms** |
+
+So a search by meaning answers in well under a tenth of a second, and the
+model, not the vector search, takes most of it. The vector search used a
+throwaway `pgvector/pgvector:pg17` container (pgvector 0.8.7, 4 CPUs) with
+random unit vectors: their count and width set the time, not their content.
+Ten times the pieces (35,000) still answers in 157 ms exact or 3.7 ms with
+HNSW, whose build then takes 172 s and 461 MB.
+
+**Indexing.** The bge-m3 tokenizer counts 2.08M tokens outside the
+flashcards, more than the 1.7M estimated above. Throughput falls as pieces
+grow, because attention costs grow with the square of their length:
+
+| Piece length | Batch | Tokens a second | Whole vault without flashcards | Peak RAM |
+|---|---|---|---|---|
+| 512 | 8 | 676 | **51 min** | 2.2 GB |
+| 1,024 | 4 | 533 | 65 min | 3.1 GB |
+| 2,048 | 2 | 375 | 1.5 h | 4.3 GB |
+| 8,192 | 1 | 149 | 3.9 h | 13 GB |
+
+Each row ran 32,000 to 49,000 tokens and the vault time extrapolates from
+it; the 8,192 row rests on four pieces, so read it as rough. The estimate
+above (1.0 to 3.1 h) was too slow for short pieces and about right for whole
+notes.
+
+What this means for kasten:
+
+* **Use 512-token pieces.** Feeding bge-m3 whole notes of up to 8,192 tokens
+  is four times slower a token and needs six times the RAM. Short pieces also
+  point a hit at the part of a note that matched.
+* **The first pass is about an hour,** once, in the background, while
+  ripgrep search keeps working. At 512 the vault makes about 4,000 to 5,000
+  pieces, 46 MB in pgvector.
+* **Keeping up is cheap.** Saving a median note (≈1,050 tokens, three pieces)
+  re-embeds in about 2 s. A busy week's 0.38M changed tokens is under ten
+  minutes of work, less with re-embeds driven by a hash of each piece.
+* **No vector index is needed** at this size: the exact scan takes 11 ms.
+  HNSW pays off past tens of thousands of pieces.
+
+The two benchmark scripts and their raw output are in a comment on #1260.
 
 ## Paid APIs
 
@@ -193,8 +262,8 @@ What it would take:
   data and keeps up with rows that change, where IVFFlat must be built after
   the data is in [V2]. HNSW indexes `vector` up to 2,000 dimensions and
   `halfvec` up to 4,000, so 3-large's 3,072 needs `halfvec` [V2]. At this
-  vault's size (a few thousand rows) an exact scan with no index may be fast
-  enough; measure first.
+  vault's size an exact scan with no index is fast enough: 11 ms over 3,500
+  rows, measured in [bge-m3 measured on the VPS](#bge-m3-measured-on-the-vps).
 
 ## What kasten would need
 
@@ -202,10 +271,11 @@ What it would take:
   piece's text, the vector. Dropping it and rebuilding from the vault gives
   the same rows, as [the one rule](/explanation/vault-and-derived-index.md)
   asks.
-* **Pieces.** A model reads only so many tokens. At 512 (e5) a median note
-  becomes two or three pieces and 382 notes need splitting; at 8,192
-  (bge-m3, OpenAI, Mistral) only the 55 longest notes do. Split by heading,
-  then by length.
+* **Pieces.** A model reads only so many tokens. At 512 a median note
+  becomes two or three pieces and 382 notes need splitting; at 8,192 only
+  the 55 longest notes do. On the VPS's CPU bge-m3 should still get 512:
+  whole notes run four times slower a token. Split by heading, then by
+  length.
 * **The event path.** Re-embed after a write through the API, after a file
   change seen by the watcher (Obsidian, jj, the shell), and once on startup
   for anything whose hash differs. The startup sweep makes the other two
@@ -218,21 +288,21 @@ Three things decide it:
 
 1. **German.** The vault's prose is German and English. bge-m3 has the best
    published German retrieval score here; no API publishes one.
-2. **Input length.** The 90th percentile note is ≈7,700 tokens. An 8,192
-   token model takes nearly every note whole; a 512 token one cuts most of
-   them up.
+2. **Speed.** Measured on the VPS, a bge-m3 query answers in about 56 ms,
+   and the first pass over the vault without flashcards takes about 51
+   minutes at 512-token pieces.
 3. **Where the text goes.** A local model keeps every note on the VPS. Every
    API sends it to another company, and for Voyage that means training by
    default.
 
-The VPS has 44 GiB available, so 3 to 4 GB for bge-m3 is affordable. Its first
-pass over the vault without flashcards is an estimated 1 to 3 hours, once, in
-the background; one note takes a few seconds. If those hours or that RAM are
-too much, OpenAI's 3-small costs a few cents a month (**MONEY**, $0.02 per
-1M tokens) and gives up the German edge and the privacy.
+The VPS has 44 GiB available, so bge-m3's 2.2 GB at 512-token pieces is
+affordable. Its first pass runs once, in the background, and a saved note
+re-embeds in about 2 s. If that hour or that RAM is too much, OpenAI's
+3-small costs a few cents a month (**MONEY**, $0.02 per 1M tokens) and gives
+up the German edge and the privacy.
 
-**Recommended: local `BAAI/bge-m3`, run under onnxruntime, flashcards left
-out.**
+**Recommended: local `BAAI/bge-m3`, run under onnxruntime on 512-token
+pieces, flashcards left out.**
 
 **pgoell's choice:** one embedding model, local or API. Answer in this shape:
 
