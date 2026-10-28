@@ -59,7 +59,9 @@ class TickInKastenError(Exception):
     """A tick the share path refuses, because kasten has more to write than a tick does.
 
     The route answers it with 422, so the lists app shows the item is still open
-    and tells the person to tick it in kasten, which writes the rest.
+    and tells the person to tick it in kasten, which writes the rest. An untick
+    of an id another todo carries too is refused the same way, with the pane's
+    words for it (`done_log.other_todo_with_id`).
     """
 
 
@@ -393,6 +395,11 @@ async def tick(settings: Settings, name: str, line: int, done: bool, sha: str) -
     rest, eol = match.group(2), match.group(3)
     if done and _kasten_owns(lines, line, rest):
         raise TickInKastenError(TICK_IN_KASTEN)
+    path = f"{settings.share_folder}/{name}.md"
+    if not done and settings.share_logs_done:
+        twin = await done_log.other_todo_with_id(settings, path, lines, line, rest)
+        if twin is not None:
+            raise TickInKastenError(twin)
 
     # One day for the stamp on the line and the daily note the log line goes in.
     today = date.today()
@@ -406,7 +413,6 @@ async def tick(settings: Settings, name: str, line: int, done: bool, sha: str) -
     # The list first, then the log: a write that fails between them leaves the
     # item ticked with no log line, which is what a tick wrote before #726.
     if saved is not None and settings.share_logs_done:
-        path = f"{settings.share_folder}/{name}.md"
         if done:
             await done_log.log(settings, path, rest, today)
         else:

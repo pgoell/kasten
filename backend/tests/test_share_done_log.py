@@ -240,3 +240,91 @@ async def test_726_the_daily_write_names_the_share_person_in_history(
 
     path = f"01 Periodic/00 Daily/{date.today().isoformat()}.md"
     assert f"agent(share:Pascal): {path}" in descriptions(versioned_agent_vault)
+
+
+@pytest.mark.parametrize("case", CASES["drops"], ids=[case["name"] for case in CASES["drops"]])
+def test_1301_drop_done_matches_the_todo_pane_cases(case: dict[str, str]) -> None:
+    assert done_log.drop_done(case["note"], case["id"]) == case["kept"]
+
+
+def older_day(vault: Path, text: str) -> Path:
+    """An older daily note holding `text`, which an untick has to visit to find a line."""
+    note = daily(vault, date(2026, 10, 1))
+    note.parent.mkdir(parents=True)
+    note.write_text(text, encoding="utf-8")
+    return note
+
+
+async def test_1301_untick_keeps_a_log_line_of_another_todo_naming_the_id(
+    client: AsyncClient, folder: Path
+) -> None:
+    text = "## Done\n- ✅ 2026-10-01 fixed kt-000001 [[X]] kt-999999\n"
+    note = older_day(folder.parent, text)
+    put(folder, "- [x] Brot ✅ 2026-10-01 🆔 kt-000001\n")
+
+    response = await tick(client, folder, "Brot", done=False)
+
+    assert response.status_code == 200
+    assert note.read_text(encoding="utf-8") == text
+
+
+async def test_1301_untick_keeps_a_fenced_log_line(client: AsyncClient, folder: Path) -> None:
+    text = "```\n- ✅ 2026-10-01 Brot kt-000001\n```\n"
+    note = older_day(folder.parent, text)
+    put(folder, "- [x] Brot ✅ 2026-10-01 🆔 kt-000001\n")
+
+    await tick(client, folder, "Brot", done=False)
+
+    assert note.read_text(encoding="utf-8") == text
+
+
+async def test_1301_untick_drops_its_own_line_with_words_after_the_id(
+    client: AsyncClient, folder: Path
+) -> None:
+    older_day(folder.parent, "## Done\n- ✅ 2026-10-01 Brot kt-000001 -> its 2026.11.13\n")
+    put(folder, "- [x] Brot ✅ 2026-10-01 🆔 kt-000001\n")
+
+    await tick(client, folder, "Brot", done=False)
+
+    assert logged(folder.parent, date(2026, 10, 1)) == []
+
+
+async def test_1301_tick_logs_an_id_that_stands_only_in_another_log_line(
+    client: AsyncClient, folder: Path
+) -> None:
+    older_day(folder.parent, "## Done\n- ✅ 2026-10-01 fixed kt-000001 [[X]] kt-999999\n")
+    put(folder, "- [ ] Brot 🆔 kt-000001\n")
+
+    await tick(client, folder, "Brot")
+
+    assert [line for line in logged(folder.parent) if line.endswith(" kt-000001")] != []
+
+
+@pytest.mark.parametrize(
+    ("twin", "where"),
+    [
+        (None, "05 Shared/Einkauf.md line 2"),
+        ("02 Projects/Other.md", "02 Projects/Other.md line 1"),
+    ],
+    ids=["in the list", "in another note"],
+)
+async def test_1301_untick_refuses_an_id_two_todos_carry_and_writes_nothing(
+    client: AsyncClient, folder: Path, twin: str | None, where: str
+) -> None:
+    log = "## Done\n- ✅ 2026-10-01 Brot kt-000001\n"
+    note = older_day(folder.parent, log)
+    copy = "- [x] Brot ✅ 2026-10-01 🆔 kt-000001\n"
+    if twin is None:
+        text = copy + copy
+    else:
+        text = copy
+        (folder.parent / twin).parent.mkdir(parents=True)
+        (folder.parent / twin).write_text("- [ ] Brot 🆔 kt-000001\n", encoding="utf-8")
+    put(folder, text)
+
+    response = await tick(client, folder, "Brot", done=False)
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == f"🆔 kt-000001 is on another todo too: {where}"
+    assert (folder / "Einkauf.md").read_text(encoding="utf-8") == text
+    assert note.read_text(encoding="utf-8") == log

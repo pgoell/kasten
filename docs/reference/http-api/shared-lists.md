@@ -124,7 +124,12 @@ where the vault has none. The words are the item's without its fields, so an
 assignee goes and tags stay: `- [ ] Milch #bio 👤 [[Anna]]` logs
 `- ✅ <today> Milch #bio [[05 Shared/Einkauf]] kt-…`. An id a `- ✅` line names
 anywhere outside the archive gets no second line. An untick drops every `- ✅`
-line naming the item's id, wherever it stands. The list is written first and the
+line naming the item's id, wherever it stands. A line names the id when the id
+is its last `kt-` word, or its last word where it has none, and the line stands
+outside a code fence, so a log line of another todo whose words mention the id
+stays. An untick of an id another todo line carries too, in the list or in
+another note, answers `422` `{"detail": "🆔 <id> is on another todo too: <note>
+line <n>"}` and writes nothing, as the todo pane refuses it. The list is written first and the
 daily note after it; [the share tick orderings](/reference/save-path-orderings/share-tick.md)
 say what a failure between them leaves. `KASTEN_SHARE_LOGS_DONE=false` turns the
 log write off.

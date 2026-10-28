@@ -44,7 +44,7 @@ function contentColumn(marker: RegExpExecArray): number {
  * long as the one that opened it, which is CommonMark's rule. A backtick fence's
  * info string holds no backtick, so a line of inline ```x``` opens nothing.
  */
-function fencedLines(lines: string[]): {
+export function fencedLines(lines: string[]): {
   coded: Set<number>;
   openFrom: number | null;
   openRun: string | null;

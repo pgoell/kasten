@@ -10,7 +10,7 @@
  * This is the one module that knows that.
  */
 
-import { appendUnder, type Edit } from "@/lib/note-section";
+import { appendUnder, type Edit, fencedLines } from "@/lib/note-section";
 import {
   cycleLine,
   formatTodo,
@@ -83,20 +83,40 @@ export function doneLine(todo: Todo, notePath: string, dailyPath: string, today:
   return parts.join(" ");
 }
 
-/** Whether a line is the log's, and names this todo. One reader, two callers. */
+/**
+ * Whether a line is the log's, and names this todo. One reader, two callers.
+ *
+ * The id a log line names is its last `kt-` word, or its last word where it has
+ * none, for a hand-written `🆔`. `doneLine` writes the id last, so a `kt-` in
+ * the words is a todo the words talk about (#1301); a word typed after the id
+ * by hand is why it is not simply the last word. `done_log._names` reads it the
+ * same way, and `fixtures/done-lines.json` holds both to it.
+ */
 function namesInLog(line: string, id: string): boolean {
-  return line.trimStart().startsWith(LOGGED) && line.includes(id);
+  if (!line.trimStart().startsWith(LOGGED)) return false;
+  const words = line.split(/\s+/).filter((word) => word !== "");
+  const ids = words.filter((word) => word.startsWith("kt-"));
+  return (ids.at(-1) ?? words.at(-1)) === id;
+}
+
+/** The lines of `text` naming `id` in the log, a line in a code fence never among them. */
+function loggedLines(lines: string[], id: string): Set<number> {
+  const { coded } = fencedLines(lines);
+  return new Set(
+    lines.flatMap((line, index) => (!coded.has(index) && namesInLog(line, id) ? [index] : [])),
+  );
 }
 
 /** Every `- ✅` line naming `id`, as the edit that takes it out. Newest last. */
 export function doneLineEdits(text: string, id: string): Edit[] {
   const edits: Edit[] = [];
+  const lines = text.split("\n");
+  const named = loggedLines(lines, id);
   let offset = 0;
 
-  for (const line of text.split("\n")) {
+  for (const [index, line] of lines.entries()) {
     // The newline goes with the line, or taking one out leaves a blank behind.
-    if (namesInLog(line, id))
-      edits.push({ from: offset, to: offset + line.length + 1, insert: "" });
+    if (named.has(index)) edits.push({ from: offset, to: offset + line.length + 1, insert: "" });
     offset += line.length + 1;
   }
 
@@ -106,8 +126,8 @@ export function doneLineEdits(text: string, id: string): Edit[] {
 /** Drop every `- ✅` line naming `id`. Null where the note holds none. */
 export function dropDone(text: string, id: string): string | null {
   const lines = text.split("\n");
-  const kept = lines.filter((line) => !namesInLog(line, id));
-  return kept.length === lines.length ? null : kept.join("\n");
+  const named = loggedLines(lines, id);
+  return named.size === 0 ? null : lines.filter((_, index) => !named.has(index)).join("\n");
 }
 
 /**

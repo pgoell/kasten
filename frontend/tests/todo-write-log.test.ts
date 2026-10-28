@@ -6,6 +6,7 @@ import {
   type CycleInput,
   cycleTodoWrites,
   doneLine,
+  doneLineEdits,
   doneLogWrites,
   dropDone,
   type LogInput,
@@ -321,6 +322,7 @@ describe("the done lines the server writes too (#726)", () => {
       logged: string;
     }[];
     placements: { name: string; note: string; line: string; written: string }[];
+    drops: { name: string; note: string; id: string; kept: string | null }[];
   };
 
   it.each(fixture.lines)("doneLine writes the line the server writes: $name", (found) => {
@@ -329,5 +331,57 @@ describe("the done lines the server writes too (#726)", () => {
 
   it.each(fixture.placements)("appendUnder places it where the server does: $name", (found) => {
     expect(appendUnder(found.note, "## Done", found.line)).toBe(found.written);
+  });
+
+  it.each(fixture.drops)("dropDone drops what the server drops: $name", (found) => {
+    expect(dropDone(found.note, found.id)).toBe(found.kept);
+  });
+
+  it.each(fixture.drops)("doneLineEdits takes out what dropDone does: $name", (found) => {
+    let text = found.note;
+    for (const edit of doneLineEdits(found.note, found.id).reverse())
+      text = text.slice(0, edit.from) + edit.insert + text.slice(edit.to);
+    expect(text).toBe(found.kept ?? found.note);
+  });
+});
+
+describe("an untick drops only the line that logs the id (#1301)", () => {
+  const untick = (dailyText: string) =>
+    doneLogWrites(
+      logged({
+        was: todo("- [x] Milch ✅ 2026-10-01 🆔 kt-abc123"),
+        now: todo("- [ ] Milch 🆔 kt-abc123"),
+        logged: { [DAILY_PATH]: dailyText },
+      }),
+    );
+
+  it("keeps a log line of another todo whose words mention the id", () => {
+    const other = "- ✅ 2026-10-01 fixed kt-abc123 [[X]] kt-999999";
+
+    expect(untick(`## Done\n${other}\n`)).toEqual([]);
+  });
+
+  it("keeps a log line inside a code fence", () => {
+    expect(untick("```\n- ✅ 2026-10-01 Milch kt-abc123\n```\n")).toEqual([]);
+  });
+
+  it("still drops the todo's own line, one with words after its id too", () => {
+    const writes = untick(
+      "## Done\n- ✅ 2026-10-01 Milch kt-abc123\n- ✅ 2026-10-09 ask kt-abc123 -> its 2026.11.13\n",
+    );
+
+    expect(writes).toEqual([{ path: DAILY_PATH, text: "## Done\n" }]);
+  });
+
+  it("logs a tick whose id stands only in another todo's log words", () => {
+    const writes = doneLogWrites(
+      logged({
+        was: todo("- [ ] Milch 🆔 kt-abc123"),
+        now: todo("- [x] Milch ✅ 2026-08-10 🆔 kt-abc123"),
+        logged: { "old.md": "- ✅ 2026-10-01 fixed kt-abc123 [[X]] kt-999999\n" },
+      }),
+    );
+
+    expect(writes.map((write) => write.path)).toEqual([DAILY_PATH]);
   });
 });

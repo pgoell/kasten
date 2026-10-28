@@ -90,5 +90,103 @@
       "line": "- ✅ 2026-10-28 x",
       "written": "# T\n\n## Done\n- ✅ a\n- ✅ 2026-10-28 x\n\n### Sub\nx\n\n## Next\n"
     }
+  ],
+  "drops": [
+    {
+      "name": "its own line",
+      "note": "## Done\n- ✅ 2026-10-01 Milch kt-abc123\n- ✅ 2026-10-01 Brot kt-999999\n",
+      "id": "kt-abc123",
+      "kept": "## Done\n- ✅ 2026-10-01 Brot kt-999999\n"
+    },
+    {
+      "name": "another todo's words mention the id",
+      "note": "## Done\n- ✅ 2026-10-01 fixed kt-abc123 [[X]] kt-999999\n",
+      "id": "kt-abc123",
+      "kept": null
+    },
+    {
+      "name": "two ids, the last one logs",
+      "note": "## Done\n- ✅ 2026-10-01 fixed kt-abc123 [[X]] kt-999999\n",
+      "id": "kt-999999",
+      "kept": "## Done\n"
+    },
+    {
+      "name": "a second id in brackets",
+      "note": "- ✅ 2026-10-01 filed (AZDIR-256657, kt-81a1fd), done kt-2bdcbf\n",
+      "id": "kt-81a1fd",
+      "kept": null
+    },
+    {
+      "name": "words after the id",
+      "note": "- ✅ 2026-10-09 ask [[A]] for the date [[B/Next Steps]] kt-9b824e -> its 2026.11.13\n",
+      "id": "kt-9b824e",
+      "kept": ""
+    },
+    {
+      "name": "the id inside a longer word",
+      "note": "- ✅ 2026-10-01 Milch kt-abc1234\n",
+      "id": "kt-abc123",
+      "kept": null
+    },
+    {
+      "name": "a hand-written id last",
+      "note": "- ✅ 2026-10-01 Milch foo\n",
+      "id": "foo",
+      "kept": ""
+    },
+    {
+      "name": "an indented log line",
+      "note": "- [ ] a\n  - ✅ 2026-10-01 Milch kt-abc123\n",
+      "id": "kt-abc123",
+      "kept": "- [ ] a\n"
+    },
+    {
+      "name": "crlf line endings",
+      "note": "- ✅ 2026-10-01 Milch kt-abc123\r\n- ✅ 2026-10-01 Brot kt-999999\r\n",
+      "id": "kt-abc123",
+      "kept": "- ✅ 2026-10-01 Brot kt-999999\r\n"
+    },
+    {
+      "name": "the todo line itself",
+      "note": "- [x] Milch ✅ 2026-10-01 🆔 kt-abc123\n",
+      "id": "kt-abc123",
+      "kept": null
+    },
+    {
+      "name": "a backtick fence",
+      "note": "```md\n- ✅ 2026-10-01 Milch kt-abc123\n```\n",
+      "id": "kt-abc123",
+      "kept": null
+    },
+    {
+      "name": "a tilde fence",
+      "note": "~~~\n- ✅ 2026-10-01 Milch kt-abc123\n~~~\n",
+      "id": "kt-abc123",
+      "kept": null
+    },
+    {
+      "name": "a fence nobody closed",
+      "note": "```\n- ✅ 2026-10-01 Milch kt-abc123\n",
+      "id": "kt-abc123",
+      "kept": null
+    },
+    {
+      "name": "a closer shorter than the opener",
+      "note": "````\n```\n- ✅ 2026-10-01 Milch kt-abc123\n````\n",
+      "id": "kt-abc123",
+      "kept": null
+    },
+    {
+      "name": "inline backticks open no fence",
+      "note": "```x```\n- ✅ 2026-10-01 Milch kt-abc123\n",
+      "id": "kt-abc123",
+      "kept": "```x```\n"
+    },
+    {
+      "name": "its own line beside a fenced copy",
+      "note": "- ✅ 2026-10-01 Milch kt-abc123\n```\n- ✅ 2026-10-01 Milch kt-abc123\n```\n",
+      "id": "kt-abc123",
+      "kept": "```\n- ✅ 2026-10-01 Milch kt-abc123\n```\n"
+    }
   ]
 }

@@ -11,7 +11,7 @@ thing that fails when one copy is edited and not the other.
 import re
 from typing import TYPE_CHECKING
 
-from kasten_backend import agent, periodic, search, todo_fields, vault
+from kasten_backend import agent, periodic, search, todo_fields, todos, vault
 from kasten_backend.change import vault_change, vault_write
 from kasten_backend.folders import create_note
 from kasten_backend.periodic import append_under
@@ -50,15 +50,45 @@ def done_line(rest: str, note_path: str, daily_path: str, today: str) -> str:
     return " ".join(parts)
 
 
+FENCE = re.compile(r"^ {0,3}(`{3,}|~{3,})(.*)")
+"""The run that opens or closes a fenced block, and what follows it, as `note-section.ts` has it."""
+
+
 def _names(line: str, id_: str) -> bool:
-    """Whether a line is the log's and names this id, as `namesInLog` reads it."""
-    return line.lstrip().startswith(LOGGED) and id_ in line
+    """Whether a line is the log's and names this id, as `namesInLog` reads it.
+
+    Its last `kt-` word, or its last word where it has none (#1301).
+    """
+    if not line.lstrip().startswith(LOGGED):
+        return False
+    words = line.split()
+    ids = [word for word in words if word.startswith("kt-")]
+    return (ids or words)[-1] == id_
+
+
+def _fenced(lines: list[str]) -> set[int]:
+    """The lines in a fenced block, fences included, as `fencedLines` finds them."""
+    coded: set[int] = set()
+    run: str | None = None
+    for index, line in enumerate(lines):
+        match = FENCE.match(line)
+        if run is None:
+            if match is not None and (match[1][0] == "~" or "`" not in match[2]):
+                run = match[1]
+                coded.add(index)
+            continue
+        fence = None if match is None else match[1]
+        if fence is not None and fence[0] == run[0] and len(fence) >= len(run):
+            run = None if line.strip() == fence else run
+        coded.add(index)
+    return coded
 
 
 def drop_done(text: str, id_: str) -> str | None:
-    """Drop every `- ✅` line naming `id_`. None where the note holds none."""
+    """Drop every `- ✅` line naming `id_`, none in a fence. None where the note holds none."""
     lines = text.split("\n")
-    kept = [line for line in lines if not _names(line, id_)]
+    coded = _fenced(lines)
+    kept = [line for at, line in enumerate(lines) if at in coded or not _names(line, id_)]
     return None if len(kept) == len(lines) else "\n".join(kept)
 
 
@@ -134,6 +164,41 @@ async def log(settings: Settings, note_path: str, rest: str, today: date) -> Non
         lambda text: None if drop_done(text, id_) is not None else append_under(text, DONE, line),
         fresh=periodic.daily_note(today, settings.periodic_path),
     )
+
+
+def _carries(line: str, id_: str) -> bool:
+    """Whether `line` is a todo whose `🆔` is `id_`, as `parseTodo(line)?.id` reads it."""
+    found = todos.LINE.fullmatch(line.removesuffix("\r"))
+    return found is not None and _id(found[2] or "") == id_
+
+
+async def other_todo_with_id(
+    settings: Settings, note_path: str, lines: list[str], line: int, rest: str
+) -> str | None:
+    """What the pane's `otherTodoWithId` answers for the item on `line`, or None.
+
+    An untick drops log lines by id, and a pasted copy of the item carries the
+    same id, so the share untick refuses as the pane does rather than drop the
+    line the other todo is logged by. `lines` is the list as the untick read it.
+    """
+    id_ = _id(rest)
+    if id_ is None:
+        return None
+    others = [
+        f"{note_path} line {at + 1}"
+        for at, found in enumerate(lines)
+        if at != line and _carries(found, id_)
+    ]
+    for path in await _holding(settings, id_, note_path):
+        others += [
+            f"{path} line {at + 1}"
+            for at, found in enumerate(_text(settings, path).split("\n"))
+            if _carries(found, id_)
+        ]
+    if not others:
+        return None
+    more = f", and {len(others) - 1} more" if len(others) > 1 else ""
+    return f"🆔 {id_} is on another todo too: {others[0]}{more}"
 
 
 async def unlog(settings: Settings, note_path: str, rest: str) -> None:
