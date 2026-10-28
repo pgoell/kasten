@@ -58,7 +58,7 @@ Only the state folder is, read-write, because each run writes the state back.
 
 If the Firefly importer ran on this box, its state is already a login: reuse
 it rather than run setup. The job builds its client from the same product id,
-mode, BLZ and login, on python-fints 5.0.0 as the importer did, so the bank
+mode, BLZ and login, on python-fints 5.0.1 as the importer did, so the bank
 sees the same client. The importer must stay stopped from here on: two clients
 writing one bank's state fall out of step with the bank.
 
