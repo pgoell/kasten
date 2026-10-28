@@ -17,8 +17,8 @@ import {
   resume,
   settingsOf,
   type Word,
-} from "@/lib/rsvp";
-import { fetchRsvp, saveRsvp } from "@/lib/rsvp-api";
+} from "@/lib/rsvp/rsvp";
+import { fetchRsvp, saveRsvp } from "@/lib/rsvp/rsvp-api";
 
 /** Where the settings live, one set per device: a phone reads slower than a desk. */
 const SETTINGS_KEY = "kasten.rsvp";

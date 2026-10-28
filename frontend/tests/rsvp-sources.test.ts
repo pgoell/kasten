@@ -6,7 +6,7 @@ import {
   rangeAt,
   sectionWords,
   textWords,
-} from "@/lib/rsvp-sources";
+} from "@/lib/rsvp/rsvp-sources";
 
 /** The words as text, a paragraph's end written as `¶` after its word. */
 function read(words: { text: string; paragraph: boolean }[]): string {

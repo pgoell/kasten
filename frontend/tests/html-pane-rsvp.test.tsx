@@ -1,9 +1,9 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { HtmlPane } from "@/components/html-pane";
-import type { RsvpAsk } from "@/lib/use-rsvp";
+import type { RsvpAsk } from "@/lib/rsvp/use-rsvp";
 import { stubCommands } from "./stub-commands";
 
-vi.mock("@/lib/rsvp-api", () => ({
+vi.mock("@/lib/rsvp/rsvp-api", () => ({
   fetchRsvp: () => Promise.resolve(null),
   saveRsvp: () => Promise.resolve({}),
 }));

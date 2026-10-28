@@ -14,7 +14,7 @@ import {
   settingsOf,
   type Word,
   wordsOf,
-} from "@/lib/rsvp";
+} from "@/lib/rsvp/rsvp";
 
 function plain(text: string): Word[] {
   return wordsOf([{ text, from: 0 }], 0);

@@ -42,7 +42,7 @@ import {
 } from "@/lib/panes";
 import { type Period, periodicNote } from "@/lib/periodic";
 import { isPerson } from "@/lib/person";
-import { askRsvp } from "@/lib/use-rsvp";
+import { askRsvp } from "@/lib/rsvp/use-rsvp";
 import { wholePaneOpeners } from "@/lib/whole-pane-openers";
 import { splitTarget, wikiLinkPath, wikiLinkTargets } from "@/lib/wikilink";
 

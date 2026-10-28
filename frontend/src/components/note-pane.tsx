@@ -23,13 +23,13 @@ import type { useAutosave } from "@/lib/note/use-autosave";
 import type { BufferSync } from "@/lib/note/use-buffer-sync";
 import type { NoteOpening } from "@/lib/note/use-note-opening";
 import type { Pane } from "@/lib/panes";
-import { indexAt } from "@/lib/rsvp";
-import { markdownWords } from "@/lib/rsvp-sources";
+import { indexAt } from "@/lib/rsvp/rsvp";
+import { markdownWords } from "@/lib/rsvp/rsvp-sources";
+import { type RsvpAsk, useRsvpAsk } from "@/lib/rsvp/use-rsvp";
 import type { TodoActions } from "@/lib/todo/use-todo-actions";
 import type { GuardedWrites } from "@/lib/use-guarded-writes";
 import type { Listings } from "@/lib/use-listings";
 import { usePaneWide } from "@/lib/use-pane-wide";
-import { type RsvpAsk, useRsvpAsk } from "@/lib/use-rsvp";
 
 type Autosave = ReturnType<typeof useAutosave>;
 

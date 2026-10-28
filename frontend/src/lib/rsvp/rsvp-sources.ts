@@ -13,7 +13,7 @@ import { parseCallout } from "@/lib/callout";
 import { Highlight } from "@/lib/markdown-highlight";
 import { MathSyntax } from "@/lib/math";
 import { noteBody } from "@/lib/note-frontmatter";
-import { type Run, type Word, wordsOf } from "@/lib/rsvp";
+import { type Run, type Word, wordsOf } from "@/lib/rsvp/rsvp";
 import { Tag } from "@/lib/tag";
 import { WikiLink } from "@/lib/wikilink";
 

@@ -14,8 +14,8 @@ import { type FoliateView, pdfLayer } from "@/lib/book/foliate-view";
 import { readPdf } from "@/lib/book/use-book-seek";
 import { readField } from "@/lib/note-frontmatter";
 import { noteName } from "@/lib/note-path";
-import { findQuote, firstOf, indexAt, type RsvpSource, type Word } from "@/lib/rsvp";
-import { offsetOf, pdfWords, rangeAt, sectionWords } from "@/lib/rsvp-sources";
+import { findQuote, firstOf, indexAt, type RsvpSource, type Word } from "@/lib/rsvp/rsvp";
+import { offsetOf, pdfWords, rangeAt, sectionWords } from "@/lib/rsvp/rsvp-sources";
 
 /** What foliate answers for a cfi: the section, and how to find the place in its document. */
 interface Resolved {

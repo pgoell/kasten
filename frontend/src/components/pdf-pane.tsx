@@ -12,10 +12,10 @@ import {
 import type { EditorCommands } from "@/lib/key-bindings";
 import { heldModifier, leaderAction, leaderPrefix } from "@/lib/leader-keys";
 import { encodePath } from "@/lib/note-path";
-import { findQuote, firstOf, type Word } from "@/lib/rsvp";
-import { pdfWords } from "@/lib/rsvp-sources";
+import { findQuote, firstOf, type Word } from "@/lib/rsvp/rsvp";
+import { pdfWords } from "@/lib/rsvp/rsvp-sources";
+import { type RsvpAsk, useRsvpAsk } from "@/lib/rsvp/use-rsvp";
 import { onThemeChange } from "@/lib/theme";
-import { type RsvpAsk, useRsvpAsk } from "@/lib/use-rsvp";
 import { beginLeader, paneOpener } from "@/lib/which-key";
 
 interface PdfPaneProps {

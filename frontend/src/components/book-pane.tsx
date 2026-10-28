@@ -16,7 +16,7 @@ import { useBookView } from "@/lib/book/use-book-view";
 import type { Passage } from "@/lib/highlight";
 import type { EditorCommands } from "@/lib/key-bindings";
 import { BOOK_SUFFIXES, noteName } from "@/lib/note-path";
-import { type RsvpAsk, useRsvpAsk } from "@/lib/use-rsvp";
+import { type RsvpAsk, useRsvpAsk } from "@/lib/rsvp/use-rsvp";
 import { useViewport } from "@/lib/use-viewport";
 
 /** The reading measure the text is set at, in px (`--k-measure`). */

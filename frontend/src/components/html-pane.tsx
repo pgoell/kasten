@@ -10,11 +10,11 @@ import { heldModifier, leaderAction, leaderPrefix } from "@/lib/leader-keys";
 import { encodePath } from "@/lib/note-path";
 import { postLook } from "@/lib/page-look";
 import { type Anchor, low, placeFor, selectionOf } from "@/lib/page-selection";
-import { findQuote } from "@/lib/rsvp";
-import { textWords } from "@/lib/rsvp-sources";
+import { findQuote } from "@/lib/rsvp/rsvp";
+import { textWords } from "@/lib/rsvp/rsvp-sources";
+import { type RsvpAsk, useRsvpAsk } from "@/lib/rsvp/use-rsvp";
 import { usePressGuard } from "@/lib/take-button";
 import { currentPalette, currentTheme, onThemeChange } from "@/lib/theme";
-import { type RsvpAsk, useRsvpAsk } from "@/lib/use-rsvp";
 import { useViewport } from "@/lib/use-viewport";
 import { beginLeader, paneOpener } from "@/lib/which-key";
 

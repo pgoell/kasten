@@ -20,7 +20,7 @@ import { BookPane } from "@/components/book-pane";
 import { HtmlPane } from "@/components/html-pane";
 import { PdfPane } from "@/components/pdf-pane";
 import type { FoliateView } from "@/lib/book/foliate-view";
-import type { RsvpAsk } from "@/lib/use-rsvp";
+import type { RsvpAsk } from "@/lib/rsvp/use-rsvp";
 import "@/styles/app.css";
 import contentsUrl from "../fixtures/contents.pdf?url";
 import plainUrl from "../fixtures/plain.epub?url";
@@ -37,7 +37,7 @@ vi.mock("@/lib/api", async (importOriginal) => ({
   fetchBook,
   fetchNote,
 }));
-vi.mock("@/lib/rsvp-api", () => ({ fetchRsvp, saveRsvp }));
+vi.mock("@/lib/rsvp/rsvp-api", () => ({ fetchRsvp, saveRsvp }));
 
 // pdf.js and foliate load on the first draw, which runs past vitest's 15 s.
 vi.setConfig({ testTimeout: 40_000 });
