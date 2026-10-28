@@ -44,17 +44,17 @@ Measured read only on 2026-10-28 with `rg --files`, `wc` and `find`:
 
 | | Notes | Words | Bytes | Tokens (estimate) |
 |---|---|---|---|---|
-| Whole vault | 606 | 1,938,549 | 16.3 MB | ≈5.0M |
+| Whole vault | 606 | 1,938,549 | 16.3 MB | ≈4.9M |
 | Kanji flashcards (`04 Ressources/05 Flashcards`) | 29 | 965,508 | 9.4 MB | ≈3.1M |
 | Everything else | 577 | 973,041 | 6.9 MB | ≈1.7M |
 
 Tokens are estimated, not counted: bytes divided by four for the German and
 English prose, and one token per character (three bytes) for the Japanese.
-Each vendor's tokenizer will land somewhat off. Outside the flashcards the
+Each vendor's tokenizer will land somewhat off, so the times and costs below use a round 5.0M for the whole vault. Outside the flashcards the
 median note is 4.2 KB (≈1,050 tokens) and the 90th percentile 30.7 KB (≈7,700
 tokens); 382 notes run past 512 tokens and 55 past 8,192.
 
-The 29 flashcard notes hold about 60% of the tokens, and they are lists of
+The 29 flashcard notes hold about 64% of the tokens, and they are lists of
 kanji: what a reader looks up there is a character, which ripgrep already
 finds. This page gives every time and cost for the whole vault and for the
 vault without them, and the recommendation leaves them out.
@@ -84,7 +84,7 @@ German, English and Japanese.
 | Size, fp32 | 1.11 GB [L5] | 2.27 GB [L5] | 1.21 GB [L5] |
 | Dimensions | 768 [L1] | 1024 [L2] | 768, cut to 512/256/128 [L3] |
 | Input limit | 512 tokens [L1] | 8,192 tokens [L2] | 2,048 tokens [L3] |
-| RAM at run time (estimate) | 1.5 to 2 GB | 3 to 4 GB | 1.7 to 2.2 GB |
+| RAM at run time (estimate) | 1.8 to 2.5 GB | 3 to 4 GB | 1.9 to 2.6 GB |
 | Whole vault, 5.0M tokens (estimate) | 53 min to 2.6 h | 3.0 to 9.0 h | 1.1 to 3.3 h |
 | Without flashcards, 1.7M (estimate) | 18 to 53 min | 1.0 to 3.1 h | 22 min to 1.1 h |
 | One median note, 1,050 tokens (estimate) | 0.7 to 2.0 s | 2.3 to 6.8 s | 0.8 to 2.5 s |
@@ -99,7 +99,7 @@ with any copy [L4]. That is not an open license.
 
 **How the times were estimated.** No published benchmark runs these models
 on a Ryzen with a stated text length, so every time above comes from
-arithmetic: about two floating point operations per parameter per token, plus
+arithmetic: about two floating point operations per non-embedding parameter per token (the vocabulary table is a lookup), plus
 attention, gives ≈190 MFLOP a token for e5-base, ≈240 for EmbeddingGemma and
 ≈650 for bge-m3. The 3700X peaks near 920 GFLOPS in fp32; the estimate
 assumes 100 to 300 GFLOPS in practice. A measured run of the larger
@@ -114,6 +114,11 @@ under onnxruntime from an ONNX export. The CPU torch wheel for Python 3.14 is
 a 184 MB download [R1], several times that installed; onnxruntime is 24 MB
 [R2]. An ONNX bge-m3 export exists in fp32 [R3]; its author found that int8
 cost quality and ships fp32 only.
+
+**A caveat on the German scores.** bge-m3 and multilingual-e5 list MIRACL's
+training data among their fine-tuning sets [L1][Q7], which may favour them on
+this test, and bge-m3 leads EmbeddingGemma by one point. Read the German row
+as a rough order, not a ranking.
 
 **Dropped:** `Qwen/Qwen3-Embedding-0.6B` (Apache-2.0) has the best MMTEB mean
 of the lot, 64.3 [Q2], but a lower German score (54.2 [Q3]) than bge-m3 and
@@ -145,8 +150,10 @@ for the whole vault, $0.20 a month.
 change the text of that note again, plus every search query.
 
 * **OpenAI** does not train on API data. It keeps it up to 30 days for abuse
-  monitoring. EU processing exists but needs a zero retention agreement and
-  costs 10% more [P1][P8].
+  monitoring. EU processing exists for both text-embedding-3 models and needs an
+  approved retention control (zero retention or modified abuse
+  monitoring); the 10% surcharge applies only to models released from
+  March 2026, so not to these [P1][P8].
 * **Mistral** hosts in the EU by default [P9]. Its data processing addendum
   allows training on customer data unless the customer opts out, so the
   opt-out has to be switched on [P10].
@@ -218,7 +225,7 @@ Three things decide it:
    API sends it to another company, and for Voyage that means training by
    default.
 
-The VPS has 44 GiB free, so 3 to 4 GB for bge-m3 is affordable. Its first
+The VPS has 44 GiB available, so 3 to 4 GB for bge-m3 is affordable. Its first
 pass over the vault without flashcards is an estimated 1 to 3 hours, once, in
 the background; one note takes a few seconds. If those hours or that RAM are
 too much, OpenAI's 3-small costs a few cents a month (**MONEY**, $0.02 per
@@ -250,6 +257,7 @@ Local models and quality:
 * [Q3] [MTEB results repository](https://github.com/embeddings-benchmark/results), `MIRACLRetrievalHardNegatives`, `de` subset, per model
 * [Q4] [Qwen3 embedding on CPU, measured](https://lilting.ch/en/articles/qwen3-embedding-qdrant-cpu-benchmark)
 * [Q6] [MTEB leaderboard](https://huggingface.co/spaces/mteb/leaderboard)
+* [Q7] [M3-Embedding paper](https://arxiv.org/abs/2402.03216), fine-tuning data
 * [R1] [PyTorch CPU wheels](https://download.pytorch.org/whl/cpu/torch/)
 * [R2] [onnxruntime on PyPI](https://pypi.org/project/onnxruntime/)
 * [R3] [bge-m3 ONNX export](https://huggingface.co/Sophia-AI/bge-m3-onnx)
