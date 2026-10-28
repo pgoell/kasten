@@ -44,8 +44,8 @@ postgresql+psycopg://kasten:kasten@localhost:5434/kasten_dev
 The SQLAlchemy URL for `finance`, RSVP places and token logs, never notes.
 
 Alembic, [finance](/reference/http-api/finance.md),
-[`/api/rsvp`](/reference/http-api/rsvp.md) and token records read it, the
-routes per request, with a 5 s timeout. With none they fail, the rest runs;
+[`/api/rsvp`](/reference/http-api/rsvp.md) and token records use it, per
+request, with a 5 s or 2 s timeout. With none, `503` or null; the rest runs;
 the [self-host stack](/how-to/self-host-kasten.md) ships none.
 
 Dev points at kasten's compose Postgres on host port 5434. It

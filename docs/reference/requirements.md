@@ -21,8 +21,8 @@ What a machine needs to run [the self-host stack](/how-to/self-host-kasten.md).
 | Git | to fetch `deploy/selfhost/`. Nothing else in the repository is needed |
 
 No Postgres, no Python and no node on the host. jj, rg and git are inside the
-images. Without Postgres the finance routes answer `503`, and nothing else
-needs it.
+images. Without Postgres the finance and RSVP routes and a token's actions answer
+`503`, and the token list shows no last use.
 
 ## Ports
 

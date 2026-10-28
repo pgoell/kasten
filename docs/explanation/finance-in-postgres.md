@@ -94,9 +94,10 @@ slow rebuild, so:
 - `db:reset` on a dev database loses that database's finance rows. Dev rows are
   test data, and the reset stays safe there. It was never safe against prod.
 - Prod's `finance` schema is in the nightly offsite dump of `kasten_prod`, as
-  the whole database is. The vault gets an hourly local backup as well; the
-  finance rows get theirs with #1033, before the first real data is loaded, so
-  a bad edit will cost at most an hour rather than a day.
+  the whole database is. The vault gets an hourly local backup as well, and
+  the finance rows get an hourly dump of their own
+  ([Back up and restore](/how-to/back-up-and-restore.md#the-finance-dump-on-the-maintainers-server)),
+  so a bad edit costs at most an hour rather than a day.
 - Receipts are files, not rows: `~/kasten-data/finance/receipts/` holds them
   by their hash, beside the vault and not in it, and the database holds each
   one's hash and booking. The nightly offsite backup of the home directory
