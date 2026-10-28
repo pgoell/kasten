@@ -129,7 +129,9 @@ export function listenForPinch(box: HTMLElement, view: Pinched): void {
 
   // Safari's trackpad pinch, gesture events with `scale` counted from where it
   // began, which no other browser sends. An iPhone sends them under a touch
-  // pinch too, which already has the zoom, so they are dropped while one runs.
+  // pinch too, which has the zoom, and starts one as soon as the first finger
+  // is down, before the second's touchstart: so they are dropped while any
+  // finger is on the box.
   type Gesture = Event & { scale: number; clientX: number; clientY: number };
   let gesture = false;
   const gestured = (handle: (event: Gesture) => void) => (event: Event) => {
@@ -139,7 +141,7 @@ export function listenForPinch(box: HTMLElement, view: Pinched): void {
   box.addEventListener(
     "gesturestart",
     gestured((event) => {
-      if (!view.ready() || spread !== null) return;
+      if (!view.ready() || spread !== null || touch !== null) return;
       gesture = true;
       view.begin(point(event));
     }),

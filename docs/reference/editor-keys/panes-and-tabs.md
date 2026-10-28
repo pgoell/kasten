@@ -317,8 +317,8 @@ ctrl+wheel and Safari as gesture events. The browser does not zoom the app over
 the page. A mouse notch zooms by a fifth at most; a trackpad follows the
 fingers. That zoom shares the value and the 50 to 300 percent of the buttons,
 and the page redraws sharp once the wheel stops. A wheel without ctrl scrolls
-the pages. Over the header, and anywhere outside the pdf pane, ctrl+wheel and
-ctrl or cmd with `+`, `-` and `0` are the browser's, which zooms the whole app.
+the pages. Over the header and the thumbnails, and anywhere outside the pdf
+pane, ctrl+wheel and ctrl or cmd with `+`, `-` and `0` are the browser's, which zooms the whole app.
 
 From 900 px of pane width a column of page thumbnails sits on the left, drawn
 as the pages come into view. The page on screen has an accent ring, and a click

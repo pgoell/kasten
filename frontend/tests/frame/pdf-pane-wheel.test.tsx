@@ -221,6 +221,29 @@ describe("the pdf pane zooms under ctrl+wheel on a desktop", () => {
     expect(slot().style.width).toBe("125%");
   });
 
+  it("a button pressed before a wheel zoom settles leaves the readout and the page agreeing", async () => {
+    await desktop();
+
+    wheel(POINTER, -100);
+    await userEvent.click(zoomIn());
+    await new Promise((resolve) => setTimeout(resolve, 300));
+
+    expect(readout()).toBe("125%");
+    expect(slot().style.width).toBe("125%");
+  });
+
+  it("a scroll straight after ctrl+wheel is kept once the zoom settles", async () => {
+    await desktop();
+
+    wheel(POINTER, -100);
+    const top = box().scrollTop;
+    await browser.wheel(inPage(POINTER), 400);
+    await vi.waitFor(() => expect(readout()).toBe("120%"));
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    expect(box().scrollTop).toBeGreaterThan(top + 100);
+  });
+
   it("after ctrl+wheel the page is drawn again at the new zoom, sharp", async () => {
     await desktop();
     const fit = box().clientWidth;
@@ -311,15 +334,19 @@ describe("the pdf pane zooms under ctrl+wheel on a desktop", () => {
     await drawn();
     const middle = { x: 150, y: 200 };
 
-    // iOS sends both: the fingers' touches and, after them, a gesture of the same pinch.
-    touch("touchstart", fingers(middle, 100));
+    // iOS sends both, in Apple's order: the first finger, the gesture, then the
+    // second finger; the gesture ends before the touches. The gesture's scale is
+    // made to differ, so a second take of the pinch would show in the zoom.
+    const [one, two] = fingers(middle, 100) as [Point, Point];
+    touch("touchstart", [one]);
     gesture("gesturestart", 1, middle);
+    touch("touchstart", [one, two]);
     for (let step = 1; step <= 5; step += 1) {
       touch("touchmove", fingers(middle, 100 + step * 20));
-      gesture("gesturechange", 1 + step * 0.2, middle);
+      gesture("gesturechange", 1 + step * 0.1, middle);
     }
+    gesture("gestureend", 1.5, middle);
     touch("touchend", [], fingers(middle, 200));
-    gesture("gestureend", 2, middle);
 
     await vi.waitFor(() => expect(readout()).toBe("200%"));
     await new Promise((resolve) => setTimeout(resolve, 300));

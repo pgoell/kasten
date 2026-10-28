@@ -164,6 +164,8 @@ export function showPdf(
   let last: BoxPoint = { x: 0, y: 0 };
   // The wait after a ctrl+wheel for the next one, which ends its zoom when it runs out.
   let settle: ReturnType<typeof setTimeout> | undefined;
+  // The scroll the last wheel turn left, so a scroll made before its zoom ends is kept.
+  let wheeled: { left: number; top: number } | null = null;
 
   const failed = () => {
     if (gone) return;
@@ -349,32 +351,39 @@ export function showPdf(
     box.scrollTop = slot.offsetTop + fy * slot.offsetHeight - at.y;
   };
 
-  // Ends a pinch or a wheel zoom: the zoom is rounded, the pages drawn at it and the pane told.
-  const settled = () => {
+  // Ends a pinch or a wheel zoom: the zoom is rounded, the pages drawn at it and
+  // the pane told. `quiet` only lets go of it, for a zoom set straight after,
+  // which draws and tells the pane itself.
+  const settled = (quiet = false) => {
     clearTimeout(settle);
     settle = undefined;
+    const moved =
+      wheeled !== null && (box.scrollLeft !== wheeled.left || box.scrollTop !== wheeled.top);
+    wheeled = null;
     if (pinching === null) return;
     const { slot, fx, fy } = pinching;
     pinching = null;
     // A whole percent, which the readout shows and the buttons step from.
     // The gaps between pages do not grow with the zoom, so far down a long
-    // pdf even that small step moves the page: it is pinned again.
+    // pdf even that small step moves the page: it is pinned again, unless the
+    // reader scrolled since the last wheel turn, a scroll that pin would undo.
     resize(Math.round(zoom * 100) / 100);
-    pin(slot, fx, fy, last);
-    repaint();
+    if (!moved) pin(slot, fx, fy, last);
+    if (!quiet) repaint();
     // Every slot again, so the ones the pinch brought into view are drawn
     // and the ones it pushed out are freed.
     if (observer !== null) {
       observer.disconnect();
       for (const slot of numbers.keys()) observer.observe(slot);
     }
-    options?.onZoom?.(zoom);
+    if (!quiet) options?.onZoom?.(zoom);
   };
 
   const setZoom = (next: number, at?: BoxPoint) => {
     // A button pressed while a wheel zoom waits for its next turn ends that zoom
-    // first, so it cannot pin a stale point after the button's.
-    if (settle !== undefined) settled();
+    // first, so it cannot pin a stale point after the button's; the button's
+    // zoom is the one the pane holds, so the wheel's is not reported over it.
+    if (settle !== undefined) settled(true);
     if (file === null || hidden || at === undefined) {
       resize(next);
       if (file !== null && !hidden) place();
@@ -403,7 +412,7 @@ export function showPdf(
         resize(clamp(start * scale));
         pin(pinching.slot, pinching.fx, pinching.fy, at);
       },
-      end: settled,
+      end: () => settled(),
       doubleTap(at) {
         setZoom(zoom === 1 ? READING_ZOOM : 1, at);
         options.onZoom?.(zoom);
@@ -416,6 +425,7 @@ export function showPdf(
         pinching = under(at);
         resize(clamp(zoom * factor));
         pin(pinching.slot, pinching.fx, pinching.fy, at);
+        wheeled = { left: box.scrollLeft, top: box.scrollTop };
         clearTimeout(settle);
         settle = setTimeout(settled, WHEEL_SETTLE_MS);
       },
