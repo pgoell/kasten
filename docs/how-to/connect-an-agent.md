@@ -77,9 +77,9 @@ of a name the store does not hold `404`. The shapes are in
 ## What kasten records
 
 Every request a token makes under `/agent/`, except the sign-in under
-`/agent/oauth/`, writes one row to the `token_action` table in Postgres: the time, the token's name, the client's address, the MCP tool or the
-HTTP method and path, the note path the request named, the status, and the
-outcome. The outcome is `ok`, or `error` when the status is `400` or worse or a
+`/agent/oauth/`, writes one row to the `token_action` table in Postgres: the
+time, the token's name, the client's address, the MCP tool or the HTTP method
+and path, the note path the request named, the status, and the outcome. The outcome is `ok`, or `error` when the status is `400` or worse or a
 tool reports a failure, or `revoked` when the token has been revoked.
 
 The client's address is the `Cf-Connecting-Ip` header when one is sent, else the

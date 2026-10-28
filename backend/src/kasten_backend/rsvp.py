@@ -1,9 +1,9 @@
 """Where an RSVP run stopped in each vault file, kept in Postgres.
 
 The place lives here rather than in the note's frontmatter because a run saves
-on every pause, and a frontmatter write is a jj change each time. It is the one
-table that is not rebuilt from the vault: losing it loses reading places and
-nothing else.
+on every pause, and a frontmatter write is a jj change each time. Like `finance`
+and the token record, it is not rebuilt from the vault: losing it loses reading
+places and nothing else.
 """
 
 from datetime import datetime  # noqa: TC003  SQLAlchemy reads `Mapped[...]` at runtime
