@@ -240,8 +240,11 @@ document, at each take and whenever the page reports a new passage (#877). So a
 relayed `y` takes once per press of the reader: any key or click in the page or
 in kasten, `j` and Space included, since the activation does not say which key
 made it. Where the browser cannot spend it, a relayed `y` takes once per visit,
-as before. So each press lets a hostile
-page write at most one quoted paragraph into today's dump, escaped and capped as
+as before, and that is weaker: a page that moves the focus out and back starts
+a new visit, so it can take again while the last press's activation lasts, about
+5 s, or with no press at all in a browser that has no `navigator.userActivation`.
+Where the spend works, each press lets a hostile page write at most one quoted
+paragraph into today's dump, escaped and capped as
 above, under a link to a heading the page names. The toast shows it with Undo,
 so the reader sees it and can take it back. The page learns that a take
 happened, which it could send out, and nothing of the vault. Text in the dump
