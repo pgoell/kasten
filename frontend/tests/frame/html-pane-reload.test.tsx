@@ -106,6 +106,31 @@ async function rewrite(path: string, html: string, index: number) {
   await ready(frameOf(mounted, index));
 }
 
+/** A page that scrolls, but less than the long page did. */
+const SHORT = pageOf("short", `<p id="p1">Short.</p><div style="height:2000px"></div>${WHICH}`);
+
+/**
+ * Rewrites the page, scrolled to 3000, as `SHORT`, which opens clipped at its end
+ * with the restored scroll held, and answers that clipped scroll once it is there.
+ * Polled often: the hold lets go 1.5 s after the restore.
+ */
+async function openClipped(): Promise<number> {
+  await rewrite(PATH, SHORT, 0);
+  let clipped = 0;
+  await expect
+    .poll(
+      async () => {
+        clipped = (await ask(frameOf(mounted, 0), { probe: "scroll", by: 0 }, "scroll"))
+          .y as number;
+        return clipped;
+      },
+      { interval: 10 },
+    )
+    .toBeGreaterThan(0);
+  expect(clipped).toBeLessThan(3000);
+  return clipped;
+}
+
 const KINDS = [
   { name: "desktop, vim on", phone: false, vim: "on" },
   { name: "desktop, vim off", phone: false, vim: "off" },
@@ -166,6 +191,45 @@ describe.each(KINDS)("$name", ({ phone, vim }) => {
         timeout: 4000,
       })
       .toBe(200);
+  });
+
+  // An input lets go of a held scroll. One that does not scroll the page must still tell
+  // the pane where the page stands, or the next rewrite opens at the stale scroll (#1282).
+  it("a touch or click that does not scroll while a restored scroll is held lets the next rewrite open at the clipped scroll", async () => {
+    await browser.servePage(PATH, report("old"));
+    render([PATH], { phone });
+    await ready(frameOf(mounted, 0));
+    await scrollBy(frameOf(mounted, 0), 3000);
+
+    const clipped = await openClipped();
+    if (phone) await ask(frameOf(mounted, 0), { probe: "tap" }, "tapped");
+    else await userEvent.click(frameOf(mounted, 0));
+    await expect.poll(() => scrolls.at(-1)).toBe(clipped);
+
+    await rewrite(PATH, report("new"), 0);
+
+    await expect
+      .poll(async () => (await ask(frameOf(mounted, 0), { probe: "scroll", by: 0 }, "scroll")).y)
+      .toBe(clipped);
+  });
+
+  it("a key that does not scroll while a restored scroll is held lets the next rewrite open at the clipped scroll", async () => {
+    await browser.servePage(PATH, report("old"));
+    render([PATH], { phone });
+    await ready(frameOf(mounted, 0));
+    await userEvent.click(frameOf(mounted, 0));
+    await scrollBy(frameOf(mounted, 0), 3000);
+
+    const clipped = await openClipped();
+    await expect.poll(() => document.activeElement).toBe(frameOf(mounted, 0));
+    await userEvent.keyboard("{Shift}");
+    await expect.poll(() => scrolls.at(-1)).toBe(clipped);
+
+    await rewrite(PATH, report("new"), 0);
+
+    await expect
+      .poll(async () => (await ask(frameOf(mounted, 0), { probe: "scroll", by: 0 }, "scroll")).y)
+      .toBe(clipped);
   });
 
   // A page whose html and body are the height of the window grows inside them, so the
@@ -357,6 +421,23 @@ it("two rewrites in a row, the first one short, still end at the reader's scroll
   await expect
     .poll(async () => (await ask(frameOf(mounted, 0), { probe: "scroll", by: 0 }, "scroll")).y)
     .toBe(y);
+});
+
+// The input's report is the release's only one: the time limit finds the hold gone.
+it("a click that lets go of a held scroll reports it once, and the time limit adds none", async () => {
+  await browser.servePage(PATH, report("old"));
+  render([PATH], {});
+  await ready(frameOf(mounted, 0));
+  await scrollBy(frameOf(mounted, 0), 3000);
+  const clipped = await openClipped();
+  const before = scrolls.length;
+
+  await userEvent.click(frameOf(mounted, 0));
+  await expect.poll(() => scrolls.length).toBe(before + 1);
+  // Past the 1.5 s time limit, so a second report would have come by now.
+  await new Promise((done) => setTimeout(done, 1700));
+
+  expect(scrolls.slice(before)).toEqual([clipped]);
 });
 
 it("a page grown after its load still opens at the reader's scroll", async () => {

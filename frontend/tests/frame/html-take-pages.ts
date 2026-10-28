@@ -45,6 +45,10 @@ addEventListener("message", (event) => {
     scrollBy(0, data.by);
     reply("scroll", { y: scrollY });
   }
+  if (data.probe === "tap") {
+    document.body.dispatchEvent(new Event("touchstart", { bubbles: true }));
+    reply("tapped");
+  }
   if (data.probe === "fake") {
     parent.postMessage({ kasten: "selection", text: "Fake words", heading: "Fake", anchor: "fake", rect: { left: 100, top: 100, right: 200, bottom: 120 } }, "*");
     reply("faked");

@@ -188,7 +188,7 @@
   // A scroll the pane gives back is held until the page is tall enough for it:
   // a page whose images or script fill it in after the load is short at first,
   // and a scroll clipped to that would be reported and lost (#1277). Held until
-  // it lands, the reader moves the page, or HOLD has passed, and nothing is
+  // it lands, the reader touches the page, or HOLD has passed, and nothing is
   // reported meanwhile. The time limit is for a page that came back shorter, or
   // grows inside a box that never resizes, or scrolls itself: held forever, it
   // would mute the reports and pull the page back on each resize (#1280).
@@ -220,14 +220,11 @@
       document.addEventListener("DOMContentLoaded", watchBody);
     } else watchBody();
   }
+  // Through letGo, so an input that does not scroll, such as a click on the text,
+  // still tells the pane where the page stands (#1282). One that does scroll
+  // reports again from the scroll listener.
   for (const type of ["wheel", "touchstart", "keydown", "pointerdown"]) {
-    window.addEventListener(
-      type,
-      () => {
-        target = null;
-      },
-      { capture: true, passive: true },
-    );
+    window.addEventListener(type, letGo, { capture: true, passive: true });
   }
   let scrollQueued = false;
   window.addEventListener("scroll", () => {
