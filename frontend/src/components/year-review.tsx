@@ -39,24 +39,19 @@ export function YearReview({ year }: { year: number }) {
       {range === null ? (
         <Words>{`${year} has not started.`}</Words>
       ) : (
-        <YearBody year={year} from={range.from} to={range.to} today={today} />
+        <YearBody year={year} from={range.from} to={range.to} />
       )}
     </div>
   );
 }
 
-function YearBody({
-  year,
-  from,
-  to,
-  today,
-}: {
-  year: number;
-  from: string;
-  to: string;
-  today: string;
-}) {
+function YearBody({ year, from, to }: { year: number; from: string; to: string }) {
   const reads = useYearReads(from, to);
+  // Read here, as the week review does: a read coming back draws this body again, so with the
+  // review open into a new month that month gets its bar. This year's charts end at today, read
+  // now; `to` is the today of the first draw.
+  const today = readClock(new Date()).date;
+  const end = to.slice(0, 4) === today.slice(0, 4) ? today : to;
   const decks = new Set(deckNotes(reads.cards.data));
   const cards = reads.cards.data.filter((hit) => decks.has(hit.path));
   const todos = reads.todos.data;
@@ -87,7 +82,7 @@ function YearBody({
         <GitHub year={year} to={to} reads={reads} />
         <Months
           year={year}
-          to={to}
+          to={end}
           today={today}
           written={reads.written.data}
           error={reads.written.error}
@@ -95,7 +90,7 @@ function YearBody({
         />
         <ModelUse
           year={year}
-          to={to}
+          to={end}
           today={today}
           lines={reads.modelUse.data}
           error={reads.modelUse.error}

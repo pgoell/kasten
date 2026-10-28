@@ -526,4 +526,21 @@ describe("the year review on the yearly note", () => {
     expect(barsIn("Notes per month", 12).map((bar) => bar.slot)).toEqual([...TO_OCTOBER, 10, 11]);
     expect(barsIn("Cost per month", 12)).toHaveLength(12);
   });
+
+  it("#1015 B1 with the review open into November a model use line of November draws its bar", async () => {
+    vi.setSystemTime(new Date(2026, 9, 31, 23, 50));
+    await openNote(YEAR_NOTE);
+    expect(barsIn("Notes per month", 12)).toHaveLength(10);
+
+    vi.setSystemTime(new Date(2026, 10, 1, 0, 10));
+    fetchModelUse.mockResolvedValue(YEAR_MODEL_USE);
+    stream().send({
+      path: "99 Misc/01 Config/Model use/2026-11.md",
+      change: "written",
+      digest: "ab12cd34",
+    });
+    await settle();
+
+    expect(barsIn("Tokens per month", 12)).toHaveLength(11);
+  });
 });

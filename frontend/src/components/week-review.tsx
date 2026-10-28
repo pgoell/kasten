@@ -41,22 +41,17 @@ export function WeekReview({ week, open }: { week: WeekOf; open: ReviewSource["o
       {week.monday > today ? (
         <Words>This week has not started.</Words>
       ) : (
-        <WeekBody week={week} today={today} open={open} />
+        <WeekBody week={week} open={open} />
       )}
     </div>
   );
 }
 
-function WeekBody({
-  week,
-  today,
-  open,
-}: {
-  week: WeekOf;
-  today: string;
-  open: ReviewSource["open"];
-}) {
+function WeekBody({ week, open }: { week: WeekOf; open: ReviewSource["open"] }) {
   const reads = useWeekReads(week.monday, week.sunday);
+  // Read here, not passed down: the block is drawn once and never remounted, and a read coming
+  // back draws this body again, so with the review open past midnight the new day gets its bar.
+  const today = readClock(new Date()).date;
   const dates = weekDates(week.monday);
   const todayIndex = dates.indexOf(today);
   const decks = new Set(deckNotes(reads.cards.data));

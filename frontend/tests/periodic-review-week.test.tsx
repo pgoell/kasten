@@ -3,7 +3,7 @@ import { NoteMissing } from "@/lib/api";
 import { applyLayout } from "@/lib/layout";
 import { hashed } from "./digests";
 import { defineFoliateFake } from "./foliate-fake";
-import { FakeEventSource, pageHooks, renderApp, settle, VAULT } from "./home-route-fixture";
+import { FakeEventSource, pageHooks, renderApp, settle, stream, VAULT } from "./home-route-fixture";
 import { DEFAULT_LAYOUT } from "./home-route-overview-fixture";
 import {
   barsIn,
@@ -400,5 +400,24 @@ describe("the week review on the weekly note", () => {
     await openNote(WEEK_NOTE);
 
     expect(barsIn("Todos per day", 7).map((bar) => bar.slot)).toEqual([0, 1, 2, 3]);
+  });
+
+  it("#1015 B1 with the review open past midnight a todo done on the new day draws its bar", async () => {
+    vi.setSystemTime(new Date(2026, 9, 21, 23, 50));
+    fetchTodos.mockResolvedValue(WEEK_TODOS.slice(0, 1));
+    await openNote(WEEK_NOTE);
+    expect(barsIn("Todos per day", 7)).toHaveLength(3);
+
+    vi.setSystemTime(new Date(2026, 9, 22, 0, 10));
+    fetchTodos.mockResolvedValue(WEEK_TODOS);
+    stream().send({ path: "00 Inbox/tasks.md", change: "written", digest: "ab12cd34" });
+    await settle();
+
+    expect(barsIn("Todos per day", 7)).toEqual([
+      { slot: 0, zero: true },
+      { slot: 1, zero: false },
+      { slot: 2, zero: true },
+      { slot: 3, zero: false },
+    ]);
   });
 });
