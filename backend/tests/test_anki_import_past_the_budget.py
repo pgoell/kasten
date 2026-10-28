@@ -296,3 +296,36 @@ async def test_an_upload_kept_after_a_failure_gives_way_to_a_new_one(
     assert failed.status_code == 500
     assert started.status_code == 201
     assert gone.status_code == 404
+
+
+async def test_a_finish_with_another_carry_after_landing_leaves_the_poll_its_counts(
+    client: AsyncClient, vault: Path, gate: Gate
+) -> None:
+    key = await send(client, FRENCH)
+    await client.post("/api/anki", params={"upload": key})
+    gate.open.set()
+    await ended(key)
+
+    carried = await client.post("/api/anki", params={"upload": key, "carry": "true"})
+    polled = await client.get(f"/api/anki/imports/{key}")
+
+    assert carried.status_code == 404
+    assert polled.status_code == 200
+    assert polled.json() == COUNTS
+
+
+async def test_kept_uploads_stay_when_dropping_them_would_not_make_room(
+    client: AsyncClient, vault: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    held = Gate(fail=[OSError("The disk is full")])
+    held.open.set()
+    monkeypatch.setattr(anki_routes, "read_apkg", held)
+    key = await send(client, FRENCH)
+    await client.post("/api/anki", params={"upload": key})
+    monkeypatch.setattr(files, "OPEN_LIMIT_BYTES", len(FRENCH) + 10)
+
+    refused = await client.post("/api/uploads", json={"size": len(FRENCH) + 20})
+    again = await client.post("/api/anki", params={"upload": key})
+
+    assert refused.status_code == 507
+    assert again.status_code == 201

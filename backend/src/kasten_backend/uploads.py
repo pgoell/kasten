@@ -125,10 +125,13 @@ def start(folder: Path, size: int) -> str:
     room = files.OPEN_LIMIT_BYTES
     # A file kept for a retry gives way to one being sent: the retry can send
     # it again, and before the retry was kept a finished upload held no room.
-    for old, waiting in list(_uploads.items()):
-        if sum(upload.size for upload in _uploads.values()) + size <= room:
-            break
-        if waiting.kept and not waiting.lock.locked():
+    # Only when that is enough: a kept file dropped for a 507 anyway is lost for nothing.
+    spare = [key for key, held in _uploads.items() if held.kept and not held.lock.locked()]
+    live = sum(upload.size for key, upload in _uploads.items() if key not in spare)
+    if live + size <= room:
+        for old in spare:
+            if sum(upload.size for upload in _uploads.values()) + size <= room:
+                break
             _drop(old)
     if sum(upload.size for upload in _uploads.values()) + size > room:
         raise RefusedError(507, f"Too much is already uploading: {amount(room)} at once")

@@ -69,8 +69,8 @@ def started(key: str, work: Callable[[], Awaitable[BaseModel]], settings: object
 
     `settings` tells two finishes apart beyond the upload: one asking for
     Anki's schedule cannot join one that runs without it and answer counts it
-    never asked for. While that one runs it is refused; once it landed this
-    starts afresh, and finds the upload gone.
+    never asked for. While that one runs it is refused; once it landed the
+    upload is gone, and the answer says so.
     """
     now = time.monotonic()
     for old, ran in list(_imports.items()):
@@ -82,11 +82,11 @@ def started(key: str, work: Callable[[], Awaitable[BaseModel]], settings: object
             status_code=409,
             detail="That file is already importing with other settings. Wait for it to end.",
         )
-    if (
-        ran is not None
-        and ran.settings == settings
-        and (not ran.task.done() or ran.task.result()[0] < HTTPStatus.BAD_REQUEST)
-    ):
+    landed = ran is not None and ran.task.done() and ran.task.result()[0] < HTTPStatus.BAD_REQUEST
+    if ran is not None and ran.settings != settings and landed:
+        # Left in place, so a poll of the landed import still reads its counts.
+        raise HTTPException(status_code=404, detail="No such upload")
+    if ran is not None and ran.settings == settings and (not ran.task.done() or landed):
         return ran
     ran = _Import(asyncio.create_task(_outcome(key, work)), settings)
 

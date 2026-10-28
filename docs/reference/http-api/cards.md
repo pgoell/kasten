@@ -97,7 +97,7 @@ the refusal with its status and sentence. If the import still runs, it answers
 A landed import deletes its upload. A refused or failed one keeps it, so
 finishing the same id again retries without sending the file again. A second
 finish of an id whose import still runs joins that import and starts no second
-one. One that asks for another `carry` while it runs is refused with 409. A finish after it landed answers the same counts again.
+one. One that asks for another `carry` while it runs is refused with 409. A finish after it landed answers the same counts again, or 404 "No such upload" when it asks for another `carry`.
 
 On shutdown the backend cancels a running import, and the import takes back what
 it wrote, the media and the notes, so no half-written deck note stays. A hard

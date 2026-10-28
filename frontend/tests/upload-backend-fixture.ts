@@ -75,5 +75,10 @@ function reply(answer: Reply | undefined) {
       json: async () => ({ detail: `The backend answered ${answer}` }),
     };
   }
-  return { ok: true, status: 201, json: async () => ({}) };
+  return {
+    ok: true,
+    status: 201,
+    headers: new Headers({ "content-type": "application/json" }),
+    json: async () => ({}),
+  };
 }
