@@ -20,7 +20,12 @@ import { buildId } from "./build-id.ts";
 import { devPolicy } from "./src/lib/csp.ts";
 import { serviceWorker } from "./sw/plugin.ts";
 import { emulateMedia } from "./tests/frame/emulate-media.ts";
-import { serveFile, servePage, unservePages } from "./tests/frame/serve-page.ts";
+import {
+  hideResizeObserver,
+  serveFile,
+  servePage,
+  unservePages,
+} from "./tests/frame/serve-page.ts";
 
 const BACKEND = process.env.KASTEN_DEV_BACKEND ?? "http://localhost:8000";
 // The chat runner, which in production Caddy reaches in the shell container.
@@ -414,7 +419,7 @@ export default defineConfig({
             screenshotFailures: false,
             provider: playwright({ contextOptions: { viewport: { width: 1440, height: 900 } } }),
             instances: [{ browser: "chromium" }],
-            commands: { emulateMedia, serveFile, servePage, unservePages },
+            commands: { emulateMedia, hideResizeObserver, serveFile, servePage, unservePages },
           },
         },
       },

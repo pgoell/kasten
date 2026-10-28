@@ -14,6 +14,8 @@
   const getSelection = window.getSelection.bind(window);
   const requestFrame = window.requestAnimationFrame.bind(window);
   const scrollTo = window.scrollTo.bind(window);
+  const setTimer = window.setTimeout.bind(window);
+  const clearTimer = window.clearTimeout.bind(window);
   const Observer = window.ResizeObserver;
   const registry = window.CSS && "highlights" in window.CSS ? window.CSS.highlights : null;
 
@@ -186,15 +188,36 @@
   // A scroll the pane gives back is held until the page is tall enough for it:
   // a page whose images or script fill it in after the load is short at first,
   // and a scroll clipped to that would be reported and lost (#1277). Held until
-  // it lands or the reader moves the page, and nothing is reported meanwhile.
+  // it lands, the reader moves the page, or HOLD has passed, and nothing is
+  // reported meanwhile. The time limit is for a page that came back shorter, or
+  // grows inside a box that never resizes, or scrolls itself: held forever, it
+  // would mute the reports and pull the page back on each resize (#1280).
+  const HOLD = 1500;
   const position = () => document.scrollingElement?.scrollTop ?? 0;
   let target = null;
+  let holding = 0;
   const settle = () => {
     if (target === null) return;
     scrollTo({ top: target, behavior: "instant" });
     if (Math.abs(position() - target) < 1) target = null;
   };
-  new Observer(settle).observe(document.documentElement);
+  // The page stands where it is now, which the pane has not heard while it held.
+  const letGo = () => {
+    if (target === null) return;
+    target = null;
+    up.postMessage({ kasten: "scroll", top: position() }, "*");
+  };
+  // A page whose html box is the screen's height grows inside its body, so both
+  // are watched. A browser without ResizeObserver lands what it can at once and
+  // lets go by time; the rest of this script runs either way.
+  if (typeof Observer === "function") {
+    const watch = new Observer(settle);
+    watch.observe(document.documentElement);
+    const watchBody = () => document.body && watch.observe(document.body);
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", watchBody);
+    } else watchBody();
+  }
   for (const type of ["wheel", "touchstart", "keydown", "pointerdown"]) {
     window.addEventListener(
       type,
@@ -339,6 +362,8 @@
         if (typeof data.top !== "number") return;
         target = data.top;
         settle();
+        clearTimer(holding);
+        holding = setTimer(letGo, HOLD);
       },
     ],
     // innerText and not textContent: it ends each block with a line break and

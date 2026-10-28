@@ -13,6 +13,7 @@ declare module "vitest/browser" {
     }) => Promise<void>;
     servePage: (path: string, html: string) => Promise<void>;
     serveFile: (path: string, file: string) => Promise<void>;
+    hideResizeObserver: (path: string) => Promise<void>;
     unservePages: () => Promise<void>;
   }
 }

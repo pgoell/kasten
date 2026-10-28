@@ -73,6 +73,20 @@ export const serveFile: BrowserCommand<[string, string]> = async (command, pageP
   await routePage(command, pagePath, file);
 };
 
+/**
+ * Hides `ResizeObserver` from the page at `pagePath` before its script runs, for a
+ * browser without one. Keyed by pathname, since an init script runs in every frame
+ * of the context and cannot be removed.
+ */
+export const hideResizeObserver: BrowserCommand<[string]> = async ({ context }, pagePath) => {
+  await context.addInitScript(
+    ({ p }: { p: string }) => {
+      if (location.pathname === p) Reflect.deleteProperty(window, "ResizeObserver");
+    },
+    { p: `/api/html/${encodeURI(pagePath)}` },
+  );
+};
+
 /** Stops serving the pages `servePage` routed, so the next test starts with none. */
 export const unservePages: BrowserCommand<[]> = async ({ context }) => {
   await context.unrouteAll();

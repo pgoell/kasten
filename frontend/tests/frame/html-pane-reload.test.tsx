@@ -17,6 +17,7 @@ import {
   api,
   ask,
   frameOf,
+  heardFrom,
   type Mounted,
   panelOf,
   ready,
@@ -29,6 +30,8 @@ import { page as pageOf } from "./html-take-pages";
 
 const PATH = "reload-report.html";
 const OTHER = "reload-other.html";
+/** A page served with no ResizeObserver, to see the page script run without one. */
+const NO_OBSERVER = "no-observer.html";
 
 /** Answers which version of the page is drawn, by its title. */
 const WHICH = `<script>addEventListener("message", (event) => {
@@ -132,6 +135,100 @@ describe.each(KINDS)("$name", ({ phone, vim }) => {
     await expect
       .poll(async () => (await ask(frameOf(mounted, 0), { probe: "scroll", by: 0 }, "scroll")).y)
       .toBe(y);
+  });
+
+  // The restored scroll is past the new page's end, so the pane holds it. A scroll the
+  // page makes itself is no reader's input, so the pane hears it only once the hold lets go.
+  it("a page rewritten shorter than its restored scroll, then scrolled and grown, stays put and restores the new scroll on the next rewrite", async () => {
+    await browser.servePage(PATH, report("old"));
+    render([PATH], { phone });
+    await ready(frameOf(mounted, 0));
+    await scrollBy(frameOf(mounted, 0), 3000);
+
+    const grow = `<div id="grow" style="height:1500px"></div><script>addEventListener("message", (event) => {
+      if (event.source !== parent || event.data?.probe !== "grow") return;
+      document.getElementById("grow").style.height = "6000px";
+      requestAnimationFrame(() => requestAnimationFrame(() => parent.postMessage({ fixture: "grown" }, "*")));
+    });</script>${WHICH}`;
+    await rewrite(PATH, pageOf("short", grow), 0);
+
+    const { y: at } = await ask(frameOf(mounted, 0), { probe: "scroll", by: 0 }, "scroll");
+    await ask(frameOf(mounted, 0), { probe: "scroll", by: 200 - (at as number) }, "scroll");
+    await expect.poll(() => scrolls.at(-1), { timeout: 4000 }).toBe(200);
+
+    await ask(frameOf(mounted, 0), { probe: "grow" }, "grown");
+    expect((await ask(frameOf(mounted, 0), { probe: "scroll", by: 0 }, "scroll")).y).toBe(200);
+
+    await rewrite(PATH, report("new"), 0);
+
+    await expect
+      .poll(async () => (await ask(frameOf(mounted, 0), { probe: "scroll", by: 0 }, "scroll")).y, {
+        timeout: 4000,
+      })
+      .toBe(200);
+  });
+
+  // A page whose html and body are the height of the window grows inside them, so the
+  // pane's observer on html never sees the change.
+  it("a page in a full-height html box that grows after its load reports its scroll again", async () => {
+    await browser.servePage(PATH, report("old"));
+    render([PATH], { phone });
+    await ready(frameOf(mounted, 0));
+    await scrollBy(frameOf(mounted, 0), 900);
+
+    const boxed = pageOf(
+      "boxed",
+      `<div id="late"></div><script>addEventListener("load", () => setTimeout(() => { document.getElementById("late").style.height = "4000px"; parent.postMessage({ fixture: "grew" }, "*"); }, 300));</script>${WHICH}`,
+      "<style>html,body{height:100%;margin:0}</style>",
+    );
+    await rewrite(PATH, boxed, 0);
+    await expect.poll(() => heardFrom("grew"), { timeout: 4000 }).toBe(true);
+
+    const { y } = await ask(frameOf(mounted, 0), { probe: "scroll", by: 300 }, "scroll");
+    await expect.poll(() => scrolls.at(-1), { timeout: 4000 }).toBe(y);
+  });
+
+  // A log that follows its own tail scrolls to the end on each append. The pane must not
+  // pull it back to the scroll it restored.
+  it("a page that scrolls itself to its end on each append is not pulled back to the restored scroll", async () => {
+    await browser.servePage(PATH, report("old"));
+    render([PATH], { phone });
+    await ready(frameOf(mounted, 0));
+    await scrollBy(frameOf(mounted, 0), 900);
+
+    const append = `<script>addEventListener("message", (event) => {
+      if (event.source !== parent || event.data?.probe !== "append") return;
+      document.body.appendChild(document.createElement("div")).style.height = "5000px";
+      scrollTo(0, document.documentElement.scrollHeight);
+      requestAnimationFrame(() => requestAnimationFrame(() => parent.postMessage({
+        fixture: "appended",
+        y: scrollY,
+        end: document.documentElement.scrollHeight - innerHeight,
+      }, "*")));
+    });</script>${WHICH}`;
+    const count = scrolls.length;
+    await rewrite(PATH, pageOf("log", `<p id="p1">First line.</p>${append}`), 0);
+    await expect.poll(() => scrolls.length, { timeout: 4000 }).toBeGreaterThan(count);
+
+    const { y, end } = await ask(frameOf(mounted, 0), { probe: "append" }, "appended");
+    expect(y).toBe(end);
+  });
+
+  // The page script must still say hello, take a passage and open the leader on a
+  // browser with no ResizeObserver.
+  it("without ResizeObserver the page script still sends Space to kasten and takes a passage", async () => {
+    await browser.hideResizeObserver(NO_OBSERVER);
+    await browser.servePage(NO_OBSERVER, report("no observer"));
+    render([NO_OBSERVER], { phone });
+    await ready(frameOf(mounted, 0));
+
+    await select(frameOf(mounted, 0), ["p1", 0, "p1", 5]);
+    await userEvent.keyboard("y");
+    await expect.poll(() => api.dumps.length).toBe(1);
+
+    await userEvent.click(frameOf(mounted, 0));
+    await userEvent.keyboard(" ");
+    await expect.poll(panelOf).not.toBeNull();
   });
 });
 
