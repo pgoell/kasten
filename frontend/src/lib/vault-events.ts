@@ -9,7 +9,8 @@
 export interface VaultEvent {
   /** Vault-relative path, or "" on a `listing` event, which names none. */
   path: string;
-  change: "written" | "removed" | "listing";
+  /** `page` is an html page written, which is not a note (#1277). */
+  change: "written" | "removed" | "listing" | "page";
   digest: string | null;
 }
 
@@ -26,7 +27,7 @@ export async function digestOf(text: string): Promise<string> {
 }
 
 /** The kinds this build acts on. A backend saying anything else is ignored. */
-const KINDS: ReadonlySet<string> = new Set(["written", "removed", "listing"]);
+const KINDS: ReadonlySet<string> = new Set(["written", "removed", "listing", "page"]);
 
 /** One SSE payload, or null when it is not an event this build understands. */
 export function parseVaultEvent(data: string): VaultEvent | null {

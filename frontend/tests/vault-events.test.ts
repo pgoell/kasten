@@ -23,6 +23,14 @@ describe("parseVaultEvent", () => {
     });
   });
 
+  it("reads a page that was written, which is no note", () => {
+    expect(parseVaultEvent('{"path": "r/a.html", "change": "page", "digest": "abc"}')).toEqual({
+      path: "r/a.html",
+      change: "page",
+      digest: "abc",
+    });
+  });
+
   it("refuses a kind it does not know", () => {
     // A newer backend saying something this build has no answer for. Quiet is
     // the right answer: the client acts on the kinds it understands and lets

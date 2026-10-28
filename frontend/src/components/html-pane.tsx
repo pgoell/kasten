@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { Rsvp } from "@/components/rsvp";
 import { TakeButton } from "@/components/take-button-view";
 import { useDumpTake } from "@/components/use-dump-take";
+import { usePageReload } from "@/components/use-page-reload";
 import { readClock } from "@/lib/clock";
 import { type Story, shareLine, storyOf } from "@/lib/html/html-share";
 import { postLook } from "@/lib/html/page-look";
@@ -172,6 +173,8 @@ export function HtmlPane({
   useLayoutEffect(() => {
     commandsRef.current = commands;
   });
+
+  const reload = usePageReload(path, frame, relayedTaken);
 
   useEffect(() => {
     if (focusSignal) panel.current?.focus();
@@ -455,6 +458,7 @@ export function HtmlPane({
       {/* The wrapper the take button is placed in, so its place is the frame's own. */}
       <div ref={wrapper} className="relative flex min-h-0 flex-1 flex-col">
         <iframe
+          key={`frame-${reload.loads}`}
           ref={frame}
           src={framed}
           title={path}
@@ -463,6 +467,7 @@ export function HtmlPane({
           onLoad={() => {
             forget();
             postLook(frame.current);
+            reload.loaded();
           }}
           // No `allow-same-origin`: with it and `allow-scripts` together a page
           // could lift its own sandbox off and run as kasten.

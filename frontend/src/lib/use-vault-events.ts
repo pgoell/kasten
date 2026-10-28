@@ -1,5 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { type RefObject, useEffect } from "react";
+import { pageWritten } from "@/lib/html/page-written";
 import { LOG_NOTE, MODEL_USE_FOLDER } from "@/lib/layout";
 import { reloadLogConfig } from "@/lib/log/log-card";
 import type { useAutosave } from "@/lib/note/use-autosave";
@@ -101,6 +102,14 @@ export function useVaultEvents(
     stream.onmessage = (message) => {
       const event = parseVaultEvent(message.data);
       if (event === null) return;
+
+      // An html page rewritten goes to the panes showing it and nowhere else.
+      // It is not a note, so none of the note caches below can hold it, and the
+      // same change sends a `listing` that asks for the file lists again.
+      if (event.change === "page") {
+        pageWritten(event.path);
+        return;
+      }
 
       // A note on screen is holding text the vault has moved past, so the query
       // behind it refetches and the editor takes what comes back. Which panes

@@ -57,6 +57,13 @@ Sharing a story uses three:
 
 The pane acts on a `share` only while the frame holds the focus and the window has just had a click or a key, and only once per story while the page is open. A page could post one itself, so the toast shows each share with its Undo.
 
+A rewrite of the page reloads it (#1277), and two more messages keep its place:
+
+- The page script posts `{kasten: 'scroll', top}` once a frame while the window scrolls. `top` is the document's scroll in the frame's own pixels. A scroller inside the page posts nothing.
+- When the vault sends a `page` event for the pane's own path, the pane loads the page again in a new frame and, once it has loaded, posts `{kasten: 'scroll', top}` with the last `top` it heard. The page script scrolls there at once. A page that never scrolled gets no such message, so a link to a heading opens at the heading again.
+
+The reload adds no entry to the browser's history, a selection and its take button go with the old page, and a frame that held the focus holds it again. A rewrite of another page leaves this one as it is.
+
 ## Fallback layer
 
 A file opened outside kasten has no kasten stylesheet, so it carries a copy of the tokens in a layer named `kasten-fallback`. Rules outside a layer win over rules inside one, so inside kasten the injected file wins. The light set sits on `:root`. The dark set sits under `prefers-color-scheme: dark` when `data-theme` is not light, and under `[data-theme=dark]`.

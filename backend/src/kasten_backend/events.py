@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING, Literal
 
 from watchfiles import Change, awatch
 
-from kasten_backend.vault import SUFFIX
+from kasten_backend.vault import HTML_SUFFIX, SUFFIX
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -26,15 +26,20 @@ forty. Well under the editor's quiet period, so a note the user is not typing
 into reloads before the next autosave would have fired.
 """
 
-ChangeKind = Literal["written", "removed", "listing"]
+ChangeKind = Literal["written", "removed", "listing", "page"]
 """What happened, in the client's words rather than watchfiles'.
 
-Three kinds, and no fourth for a note that is new. Told apart from a write it
+Four kinds, and no fifth for a note that is new. Told apart from a write it
 would be a lie: a save renames a temp file over the note, Linux reports a move
 into place, and watchfiles calls that an addition, so a note kasten has held for
 weeks would arrive as new on every save. Whether a note is new is a question
 about what the client already holds, and the client holds the file list to
 answer it with.
+
+`page` is the one kind for a file that is no note: an html page the pane shows.
+It rides beside the `listing` its write also sends, because a page is still
+not a note and the file list still has to be reread. The page itself is what
+the pane reloads, so it is named, and only when it is there to read.
 """
 
 
@@ -142,9 +147,19 @@ def to_events(root: Path, changes: set[tuple[Change, str]]) -> list[VaultEvent]:
 
     Notes sorted by path, because a set has no order and two clients reading one
     batch have to be told the same story.
+
+    An html page that is written gets a `page` after the notes, with its digest,
+    so the pane showing it can tell that its own file changed. A page that is
+    gone or will not open gets none: there is nothing left to reload, and the
+    listing already covers the removal.
     """
     inside = {changed for _change, changed in changes if is_inside(root, changed)}
     notes = {changed for changed in inside if is_watchable(root, changed)}
+    pages = {
+        changed
+        for changed in inside - notes
+        if Path(changed).suffix.lower() == HTML_SUFFIX and not Path(changed).is_dir()
+    }
 
     events = []
 
@@ -161,6 +176,14 @@ def to_events(root: Path, changes: set[tuple[Change, str]]) -> list[VaultEvent]:
                 digest=digest,
             )
         )
+
+    for changed in sorted(pages):
+        page = Path(changed)
+        digest = _digest(page)
+        if digest is not None:
+            events.append(
+                VaultEvent(path=page.relative_to(root).as_posix(), change="page", digest=digest)
+            )
 
     return events
 

@@ -323,6 +323,40 @@ def test_to_events_asks_for_no_listing_when_only_notes_changed(tmp_path: Path) -
     assert LISTING not in to_events(tmp_path, {(Change.modified, str(note))})
 
 
+def test_to_events_names_a_written_page(tmp_path: Path) -> None:
+    text = "<h1>report</h1>\n"
+    page = write(tmp_path, "reports/report.html", text)
+
+    assert to_events(tmp_path, {(Change.modified, str(page))}) == [
+        LISTING,
+        VaultEvent(
+            path="reports/report.html",
+            change="page",
+            digest=hashlib.sha256(text.encode()).hexdigest(),
+        ),
+    ]
+
+
+def test_to_events_names_a_page_whose_suffix_is_in_capitals(tmp_path: Path) -> None:
+    page = write(tmp_path, "Report.HTML", "<h1>report</h1>\n")
+
+    assert [event.change for event in to_events(tmp_path, {(Change.added, str(page))})] == [
+        "listing",
+        "page",
+    ]
+
+
+def test_to_events_names_no_page_that_is_gone(tmp_path: Path) -> None:
+    assert to_events(tmp_path, {(Change.deleted, str(tmp_path / "report.html"))}) == [LISTING]
+
+
+def test_to_events_names_no_page_for_a_folder_whose_name_ends_in_html(tmp_path: Path) -> None:
+    folder = tmp_path / "notes.html"
+    folder.mkdir()
+
+    assert to_events(tmp_path, {(Change.added, str(folder))}) == [LISTING]
+
+
 def test_to_events_puts_the_listing_before_the_notes(tmp_path: Path) -> None:
     note = write(tmp_path, "kasten.md", "derived index\n")
     (tmp_path / "projects").mkdir()

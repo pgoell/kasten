@@ -13,6 +13,7 @@
   const FOLLOWING = Node.DOCUMENT_POSITION_FOLLOWING;
   const getSelection = window.getSelection.bind(window);
   const requestFrame = window.requestAnimationFrame.bind(window);
+  const scrollTo = window.scrollTo.bind(window);
   const registry = window.CSS && "highlights" in window.CSS ? window.CSS.highlights : null;
 
   // A text field keeps its keys, so typing a space or a question mark in a
@@ -175,6 +176,21 @@
     true,
   );
 
+  // The page's own scroll, posted once a frame, so a reload of the page after a
+  // rewrite puts the reader back where they were (#1277). The window's scroll
+  // only: a scroll event on an element does not bubble here, and which of a
+  // page's own scrollers the reader meant is not the pane's to guess. Read off
+  // the document, since a page's own `var scrollY` replaces the window's.
+  let scrollQueued = false;
+  window.addEventListener("scroll", () => {
+    if (scrollQueued) return;
+    scrollQueued = true;
+    requestFrame(() => {
+      scrollQueued = false;
+      up.postMessage({ kasten: "scroll", top: document.scrollingElement?.scrollTop ?? 0 }, "*");
+    });
+  });
+
   // Marks go into one Highlight and their style into a constructed sheet, so the
   // page's markup is never touched. `taken` maps each take's id to its range, so
   // an untake removes its own mark and not the newest one.
@@ -293,6 +309,13 @@
     ["untake", (data) => untake(data.id)],
     ["shared", (data) => markShared(data.anchor, true)],
     ["unshared", (data) => markShared(data.anchor, false)],
+    // Instant, so a page that scrolls smoothly does not glide from its top.
+    [
+      "scroll",
+      (data) => {
+        if (typeof data.top === "number") scrollTo({ top: data.top, behavior: "instant" });
+      },
+    ],
     // innerText and not textContent: it ends each block with a line break and
     // leaves out what the page hides, which is the page as it reads.
     [
