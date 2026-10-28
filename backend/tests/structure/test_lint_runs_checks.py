@@ -14,6 +14,7 @@ import shutil
 import subprocess
 import sys
 import tomllib
+from collections import Counter
 from typing import TYPE_CHECKING
 
 import pytest
@@ -86,15 +87,24 @@ def test_nothing_outside_the_log_names_the_old_script() -> None:
 
 NOQA = "# noqa: TID252"
 RUFF = [sys.executable, "-m", "ruff", "check", "--no-cache"]
-ACCEPTED_RELATIVE_IMPORTS = 12  # the count when the ban came in; new ones import by package name
+# The relative imports there when the ban came in, as ruff counts them: one hit per name.
+ACCEPTED_RELATIVE_IMPORTS = {
+    "backend/tests/test_finance_sync.py": 5,
+    "jobs/tests/test_bank_sync.py": 8,
+    "jobs/tests/test_bookings.py": 7,
+    "jobs/tests/test_order_mails.py": 12,
+    "jobs/tests/test_order_sync.py": 8,
+    "jobs/tests/test_order_sync_failures.py": 6,
+}
 RULE_LINE = re.compile(r":\d+:\d+: [A-Z]+\d+ ")
 PATHS = [
     "backend/src/kasten_backend/new.py",
     "jobs/src/kasten_jobs/new.py",
+    # Tests and alembic have per-file-ignores, so offenders there must still fail.
     "backend/tests/test_new.py",
     "jobs/tests/test_new.py",
     "backend/alembic/versions/new.py",
-    "scripts/new.py",  # tests and alembic have per-file-ignores, so offenders there must still fail
+    "scripts/new.py",
 ]
 
 
@@ -188,7 +198,9 @@ def test_no_per_file_ignore_drops_the_structure_rules() -> None:
 
 
 def test_the_accepted_relative_imports_do_not_grow() -> None:
-    # --ignore-noqa, so neither a bare noqa nor a file-wide ruff noqa can hide a new one.
+    # --ignore-noqa, so neither a bare noqa nor a file-wide ruff noqa can hide a new one. Ruff
+    # reports one hit per imported name, so a name added to an accepted line counts as growth,
+    # and an exact match catches a lower count from a config that loosens the rule.
     out = subprocess.run(  # noqa: S603
         [*RUFF, "--ignore-noqa", "--select", "TID252", "--output-format", "concise", "."],
         cwd=REPO,
@@ -196,11 +208,33 @@ def test_the_accepted_relative_imports_do_not_grow() -> None:
         text=True,
         check=False,
     ).stdout
-    lines = {line.rsplit(":", 2)[0] for line in out.splitlines() if " TID252 " in line}
-    assert len(lines) <= ACCEPTED_RELATIVE_IMPORTS, (
-        f"{len(lines)} lines hold a relative import, {ACCEPTED_RELATIVE_IMPORTS} were accepted "
-        "when the ban came in; a new one must import by package name: " + ", ".join(sorted(lines))
+    found = Counter(line.split(":", 1)[0] for line in out.splitlines() if " TID252 " in line)
+    assert found == ACCEPTED_RELATIVE_IMPORTS, (
+        "relative imports differ from the ones accepted when the ban came in; a new one must "
+        "import by package name, and a fixed one comes off ACCEPTED_RELATIVE_IMPORTS"
     )
+
+
+def test_no_other_ruff_config_or_exclude_loosens_the_rules() -> None:
+    configs = subprocess.run(
+        ["git", "ls-files", "*ruff.toml", "*pyproject.toml"],  # noqa: S607
+        cwd=REPO,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.split()
+    with_ruff = [
+        name
+        for name in configs
+        if name.endswith("ruff.toml")
+        or "ruff" in tomllib.loads((REPO / name).read_text(encoding="utf-8")).get("tool", {})
+    ]
+    assert with_ruff == ["pyproject.toml"]
+    ruff_config = tomllib.loads((REPO / "pyproject.toml").read_text(encoding="utf-8"))["tool"][
+        "ruff"
+    ]
+    assert "exclude" not in ruff_config
+    assert ruff_config.get("extend-exclude") == ["backend/alembic/script.py.mako"]
 
 
 def test_the_repo_passes_ruff() -> None:
