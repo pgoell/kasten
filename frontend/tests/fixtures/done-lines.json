@@ -83,6 +83,12 @@
       "note": "",
       "line": "- ✅ 2026-10-28 x",
       "written": "\n\n## Done\n- ✅ 2026-10-28 x\n"
+    },
+    {
+      "name": "a subheading under done",
+      "note": "# T\n\n## Done\n- ✅ a\n\n### Sub\nx\n\n## Next\n",
+      "line": "- ✅ 2026-10-28 x",
+      "written": "# T\n\n## Done\n- ✅ a\n- ✅ 2026-10-28 x\n\n### Sub\nx\n\n## Next\n"
     }
   ]
 }

@@ -39,6 +39,9 @@ Not every heading: a `###` written inside the dump is part of what was dumped.
 `log.py` ends a `## Log` section by the same rule.
 """
 
+ANY_HEADING = re.compile(r"^#{1,6} ")
+"""Where a section `append_under` writes ends: any heading, as `sectionEnd` in `note-section.ts`."""
+
 
 def daily_path(day: date, periodic: str = DEFAULTS.periodic_path) -> str:
     """Where the note for `day` lives, relative to the vault root."""
@@ -120,7 +123,9 @@ def _close(text: str, fence: str, *, frontmatter: bool = True) -> str:
     return closed
 
 
-def _section(text: str, heading: str = DUMP) -> tuple[int | None, int]:
+def _section(
+    text: str, heading: str = DUMP, ends: re.Pattern[str] = SECTION_END
+) -> tuple[int | None, int]:
     """The line `heading` is read from, or None, and the line its section ends at.
 
     The first live line that is the heading. The section ends at the next live
@@ -137,11 +142,7 @@ def _section(text: str, heading: str = DUMP) -> tuple[int | None, int]:
     if at is None:
         return None, len(lines)
     end = next(
-        (
-            index
-            for index in range(at + 1, len(lines))
-            if live[index] and SECTION_END.match(lines[index])
-        ),
+        (index for index in range(at + 1, len(lines)) if live[index] and ends.match(lines[index])),
         len(lines),
     )
     return at, end
@@ -201,13 +202,13 @@ def append_under(text: str, heading: str, line: str) -> str:
     must produce. A note ending in a fence nobody closed gets its closer first
     when the line would land inside it, as `append_dump` does.
     """
-    at, end = _section(text, heading)
+    at, end = _section(text, heading, ANY_HEADING)
     lines = text.split("\n")
     fence = _open_fence(text, lines)
     if fence is not None and (at is None or end == len(lines)):
         text = _close(text, fence)
         lines = text.split("\n")
-        at, end = _section(text, heading)
+        at, end = _section(text, heading, ANY_HEADING)
 
     if at is None:
         return f"{text.rstrip(chr(10))}\n\n{heading}\n{line}\n"

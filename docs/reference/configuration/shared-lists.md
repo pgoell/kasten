@@ -1,7 +1,7 @@
 ---
 type: Reference
 title: "Configuration: the shared lists"
-description: The two settings of the shared lists app, the host it is served on and whether its ticks write the done log line.
+description: Two settings of the shared lists app, the host it is served on and whether its ticks write the done log line. KASTEN_SHARE_FOLDER stays in the main table.
 resource: backend/src/kasten_backend/config.py
 tags: [config, share]
 status: stable
