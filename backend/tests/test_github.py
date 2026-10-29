@@ -41,8 +41,8 @@ def utc_today() -> date:
     return datetime.now(UTC).date()
 
 
-NOW = datetime(2026, 8, 10, 12, tzinfo=UTC)
 # Pinned so a run that crosses midnight sees one day, not two (#1315).
+NOW = datetime(2026, 8, 10, 12, tzinfo=UTC)
 
 
 def calendar(counts: dict[str, int]) -> dict:

@@ -11,7 +11,9 @@ import { shownCard } from "./review-card";
 import { DECK } from "./review-session-fixture";
 
 describe("ReviewSession rating a new card again (#816)", () => {
-  const TODAY = readClock(new Date()).date;
+  // The rating stamps the day it reads at the press, so the clock is pinned (#1315).
+  const NOW = new Date(2026, 7, 10, 12);
+  const TODAY = readClock(NOW).date;
   const TOMORROW = shiftDay(TODAY, 1);
   const ONE_NEW = "aws: 1 new\n";
   const TWO_NEW = "#flashcards/aws\n\nWhat is a VPC?::A private cloud\n\nWhat is S3?::Storage\n";
@@ -66,7 +68,12 @@ describe("ReviewSession rating a new card again (#816)", () => {
     await act(async () => {});
   }
 
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   beforeEach(() => {
+    vi.setSystemTime(NOW);
     localStorage.clear();
     vi.restoreAllMocks();
   });

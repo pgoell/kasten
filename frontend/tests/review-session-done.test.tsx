@@ -6,7 +6,9 @@ import { readClock, shiftDay } from "@/lib/clock";
 import type { Deck } from "@/lib/review/review";
 
 // The day the sitting reads as today, so the due dates below fall on it.
-const TODAY = readClock(new Date()).date;
+// The sitting reads the clock when it counts the day, so it is pinned (#1315).
+const NOW = new Date(2026, 7, 10, 12);
+const TODAY = readClock(NOW).date;
 
 const DECK: Deck = {
   name: "aws",
@@ -47,6 +49,11 @@ function renderSitting(text: string, deck: Deck = DECK, limits = "") {
 beforeEach(() => {
   localStorage.clear();
   vi.restoreAllMocks();
+  vi.setSystemTime(NOW);
+});
+
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 it("#790 A4 the done screen counts the cards answered today, whichever sitting answered them", async () => {
