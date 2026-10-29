@@ -150,6 +150,16 @@ def test_a_licence_outside_the_allowlist_fails_naming_the_package(tmp_path: Path
     assert any("npm mixed" in e for e in result.errors)
 
 
+def test_a_package_from_git_is_never_looked_up_on_pypi(tmp_path: Path) -> None:
+    # PyPI has a project of the same name and version under a licence that passes.
+    pypi(tmp_path, "forked", "1.0", license_expression="MIT")
+    uv = '\n[[package]]\nname = "forked"\nversion = "1.0"\nsource = { git = "https://x" }\n'
+    result = run_check(tmp_path, uv=uv)
+    assert result.returncode == 1
+    assert "| pypi forked | git | ? |" in result.summary
+    assert any("pypi forked: no licence" in e for e in result.errors)
+
+
 def test_a_licence_it_cannot_read_fails_naming_the_package(tmp_path: Path) -> None:
     pypi(tmp_path, "vague", "1.0", license="BSD-3-Clause, Apache-2.0, dependency licenses")
     # No npm document at all: the registry answers 404.

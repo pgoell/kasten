@@ -23,10 +23,12 @@ import urllib.request
 from pathlib import Path
 
 NOT_FOUND = 404
+# The non-registry sources uv.lock writes.
+SOURCES = {"git", "url", "path", "directory"}
 UV_LOCK = "uv.lock"
 BUN_LOCK = "frontend/bun.lock"
-ALLOWED = {"mit", "bsd", "apache-2.0", "isc", "postgresql", "mpl-2.0"}
-ALLOWLIST = "MIT, BSD, Apache-2.0, ISC, PostgreSQL, MPL-2.0"
+ALLOWLIST = ("MIT", "BSD", "Apache-2.0", "ISC", "PostgreSQL", "MPL-2.0")
+ALLOWED = {name.lower() for name in ALLOWLIST}
 # The way past a licence the check cannot read or does not allow: a code owner
 # reads it and adds "<kind> <name>": "<why>" here, in the pull request that adds it.
 ACCEPTED: dict[str, str] = {}
@@ -70,13 +72,15 @@ def at_base(base: str, path: str) -> str:
 
 
 def uv_packages(text: str) -> dict[str, str]:
-    """Map each registry package in uv.lock to its version."""
+    """Map each package in uv.lock to its version, or to its source when not a registry."""
     if not text:
         return {}
     packages = tomllib.loads(text).get("package", [])
     # The workspace's own members are editable or virtual, not from a registry.
+    # A git, url or path source keeps the source as its version, so PyPI is never
+    # asked about a project that only shares its name.
     return {
-        p["name"]: p["version"]
+        p["name"]: p["version"] if "registry" in p.get("source", {}) else ", ".join(p["source"])
         for p in packages
         if not {"editable", "virtual"} & set(p.get("source", {}))
     }
@@ -132,6 +136,8 @@ def pypi_licence(info: dict) -> str | None:
 
 def pypi(registry: str, name: str, version: str) -> tuple[str | None, str]:
     """Return the locked version's licence and the latest release's date."""
+    if version in SOURCES:
+        return None, "unknown"
     pinned = fetch(f"{registry}/{name}/{version}/json")
     latest = fetch(f"{registry}/{name}/json")
     licence = pypi_licence(pinned["info"]) if pinned else None
@@ -182,7 +188,7 @@ def check(rows: list[tuple[str, str, str, str | None, str]]) -> list[str]:
             verdict = "yes"
         else:
             verdict = "no"
-            errors.append(f"{kind} {name}: licence {licence} is not one of {ALLOWLIST}")
+            errors.append(f"{kind} {name}: licence {licence} is not one of {', '.join(ALLOWLIST)}")
         lines.append(f"| {kind} {name} | {version} | {licence or '?'} | {date} | {verdict} |")
     if not rows:
         lines[2:] = ["This pull request adds no package to uv.lock or frontend/bun.lock."]

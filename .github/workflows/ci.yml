@@ -149,7 +149,12 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - run: python3 .github/deps/new_dependencies.py "$(git merge-base "origin/$GITHUB_BASE_REF" HEAD)"
+      # The base in a variable of its own, so a failed merge-base stops the step
+      # instead of passing an empty base, which git would read as the index.
+      - run: |
+          set -euo pipefail
+          base=$(git merge-base "origin/$GITHUB_BASE_REF" HEAD)
+          python3 .github/deps/new_dependencies.py "$base"
 
   # Names an artifact after the tree this run checked out, once Lint, Test and
   # Perf have all passed, so the gate of the push run on main can find it. The
