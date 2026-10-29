@@ -205,10 +205,12 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
-      # The scrub below runs each command in bubblewrap, which the runner image
-      # lacks and whose user namespaces Ubuntu's AppArmor blocks by default.
+          persist-credentials: false
+      # The scrub below runs each command in Claude Code's sandbox, which needs
+      # bubblewrap and socat, neither on the runner image, and user namespaces,
+      # which Ubuntu's AppArmor blocks by default.
       - run: |
-          sudo apt-get install -y -qq bubblewrap
+          sudo apt-get install -y -qq bubblewrap socat
           sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
       # Out of the checkout, where the reviewer's git cannot write over it.
       - run: cp .github/review/round.sh .github/review/context.sh "$RUNNER_TEMP/"
@@ -237,6 +239,8 @@ jobs:
         uses: anthropics/claude-code-action@d70510b174a1244958df0b03166a54912811f3e6 # v1.0.264
         env:
           # Strips the tokens from the environment of every command it runs.
+          # Files are another matter: the action writes a token into
+          # .git/config, so the reviewer may not read .git.
           CLAUDE_CODE_SUBPROCESS_ENV_SCRUB: 1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
@@ -244,7 +248,8 @@ jobs:
           prompt: ${{ steps.prompt.outputs.text }}
           claude_args: >-
             --model claude-opus-5-5
-            --allowedTools "Read(./**),Write(./.review/summary.md),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git grep:*),Bash(git ls-files:*),mcp__github_inline_comment__create_inline_comment"
+            --disallowedTools "Read(./.git/**)"
+            --allowedTools "Read(./**),Write(./.review/summary.md),Edit(./.review/summary.md),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git grep:*),Bash(git ls-files:*),mcp__github_inline_comment__create_inline_comment"
       - if: steps.round.outputs.stop == 'false'
         run: |
           if [ -s .review/summary.md ]; then
