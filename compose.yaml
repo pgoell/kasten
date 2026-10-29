@@ -6,7 +6,10 @@ name: kasten
 
 services:
   db:
-    image: postgres:17-alpine
+    # Postgres with pgvector and pg_textsearch, the image prod's shared
+    # container builds from pgoell/server-infra.
+    build: deploy/postgres
+    image: kasten-postgres:17
     environment:
       POSTGRES_USER: kasten
       POSTGRES_PASSWORD: kasten
