@@ -1,7 +1,7 @@
 ---
 type: Explanation
 title: Code quality checks
-description: What each check beyond the file size limit catches, why its limit sits where it does, why the frontend's list of exempt files only shrinks, and why a person still reviews one area at a time.
+description: What each check beyond the file size limit catches, why its limit sits where it does, why the frontend's list of exempt files only shrinks, why a person still reviews one area at a time, and why the review of each pull request runs in CI.
 tags: [design, lint, refactor]
 status: stable
 ---
@@ -92,8 +92,35 @@ The review runs when an area keeps producing bugs, or a file in it reaches
 in as `refactor` issues rather than straight into code, so that someone decides
 which are worth the change before any is built.
 
+## Why the review runs in CI
+
+Agents write most of kasten's pull requests, and the issue loop merges a score
+of them a day. A review inside the loop reached only the loop's own pull
+requests, and only while its rules said so. In CI it reads every pull request
+the same way, whoever opened it, and the same files carry to another repo.
+
+It follows the process Anthropic's Claude Code team describes: an AI review and
+a security review on every pull request, findings as threads that must be
+answered before the merge, tags that keep a bug the base branch already had
+from blocking the author, and a person only where the change is risky. Three
+choices keep it from costing more than it saves:
+
+- **The rounds stop.** An agent author and an agent reviewer can cycle all
+  night, each round finding one more old bug. After the first round a review
+  reads only the new commits, and after three it stops and asks for a rethink.
+- **The change sets the risk, not the author.** The Human gate reads the paths
+  a pull request touches, from the base branch, so a pull request cannot take
+  itself off the list.
+- **A person's approval is a label.** The loop pushes as pgoell, and GitHub does
+  not let an author approve their own pull request. A push removes the label,
+  so an approval covers only the commits that were read.
+
+The security review runs Claude Code with its own prompt, not Anthropic's
+security review action, which takes only an API key and is billed apart from
+the plan the other review runs on.
+
 ## Related
 
 * [The file size limit](/explanation/file-size-limit.md): the first check, and what a deep module is
 * [Review an area for deep modules](/how-to/review-an-area-for-deep-modules.md): the review, step by step
-* [Run the checks](/how-to/run-the-checks.md): the commands, and how to get past each check
+* [Run the checks](/how-to/run-the-checks.md): the commands, how to get past each check, and how to answer the CI review

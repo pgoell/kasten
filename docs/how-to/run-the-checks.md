@@ -1,7 +1,7 @@
 ---
 type: How-to Guide
 title: Run the checks
-description: Run the linters, tests and type checks, and get past the two ways the git hooks go wrong.
+description: Run the linters, tests and type checks, answer the CI review, approve a held pull request, and get past the two ways the git hooks go wrong.
 tags: [testing, lint, git-hooks, ci]
 status: stable
 ---
@@ -221,6 +221,35 @@ docker compose -f compose.yaml -f compose.dev.yml up -d frontend-dev
 Recreate the directory yourself before starting the container, as above. It is
 a bind mount, so Docker creates it as root if it is missing, and the container
 runs as uid 1000 and cannot then write to it.
+
+## Answer the review on a pull request
+
+Every pull request from this repo gets two Claude reviews in CI, `Review` and
+`Security`, beside Lint and Test. Each posts its findings as threads on the
+lines they name, tagged Important, Pre-existing or Nit, and a summary comment.
+`REVIEW.md` at the root of the repo says what they look for.
+
+1. Fix each Important finding with a test, or resolve its thread with one
+   sentence on why it is not a bug. Main takes no merge while a thread is open.
+2. Open an issue for each Pre-existing finding, and resolve the thread with
+   its link. Fix a Nit or resolve it, as you see fit.
+3. Push. Each review reads only the commits since its last round. After three
+   rounds it stops and says so in its round comment: rethink the change rather
+   than push a fourth fix.
+
+A pull request from a fork or from Dependabot gets no review, as its run sees
+no token: read it yourself. A run that fails, say on the plan's usage limit,
+counts no round; rerun it.
+
+## Approve a held pull request
+
+The `Human gate` check holds a pull request that touches a path on
+`.github/review/risk-paths`, or carries the `hold` label. Its summary lists the
+paths. To let it merge, read it and add the `approved` label yourself: only the
+repository owner's label counts, and the next push takes it off again.
+
+While the pilot runs, the gate only reports: `ENFORCE: false` in
+`.github/workflows/human-gate.yml` keeps it from blocking anything.
 
 If pnpm built that tree, `.container/pnpm-store` is beside it holding a few
 hundred megabytes that nothing reads any more. Delete it whenever you notice.

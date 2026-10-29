@@ -28,7 +28,7 @@ on its code.
 * [Collect receipts](collect-receipts.md): get tax receipts in from the finance pane, the phone and Gmail, set up the receipt job that reads each one with headless Claude Code on your subscription, confirm what kasten proposes, and read and export the tax year
 * [Run the order sync](run-the-order-sync.md): set up the PayPal and Amazon order mail job with a read-only Gmail login in `~/.config/kasten`, check what it reads, start it on a systemd timer, and read the orders no booking holds yet
 * [Run the bank sync](run-the-bank-sync.md): set up the bank sync on the server with its env file and FinTS state in `~/.config/kasten`, log in to each bank once, start it on systemd timers, ask for a pull now, and read the status
-* [Run the checks](run-the-checks.md): run the linters, tests and type checks, and get past the two ways the git hooks go wrong
+* [Run the checks](run-the-checks.md): run the linters, tests and type checks, answer the CI review, approve a held pull request, and get past the two ways the git hooks go wrong
 * [Self-host kasten](self-host-kasten.md): run kasten on one machine of your own, amd64 or arm64, behind basic auth, oauth2-proxy or Tailscale
 * [Run a skill from the chat pane](run-a-skill-from-the-chat-pane.md): open the chat pane, start `/close-day` or `/process-meeting`, answer a question, read a tool call, stop a run and start a new session, at a desk and on a phone
 * [Troubleshoot a self-hosted kasten](troubleshoot-self-hosting.md): why the stack will not start, get a certificate, let you in, save a note, open a terminal or connect the chat pane

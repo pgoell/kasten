@@ -1,0 +1,18 @@
+# Paths that hold a pull request for pgoell, one bash glob per line ("*"
+# crosses folders). The Human gate reads this file from the base branch, so a
+# pull request cannot take its own paths off the list.
+.github/*
+.claude/*
+.config/*
+deploy/*
+shell/*
+jobs/*
+compose*.y*ml
+mise.toml
+REVIEW.md
+scripts/apply-github-settings.sh
+scripts/release.py
+backend/alembic/*
+backend/src/kasten_backend/agent_oauth.py
+backend/src/kasten_backend/tokens.py
+backend/src/kasten_backend/files.py
