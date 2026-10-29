@@ -18,6 +18,8 @@
 # Reads KIND, PR, BASE_SHA, HEAD_SHA and GH_TOKEN from the environment, and
 # ROUND, FROM, COMMENT_ID and SKIP for record.
 set -euo pipefail
+# So a failed command inside $(...) stops the script too.
+shopt -s inherit_errexit
 
 MAX_ROUNDS=3
 MAX_SKIP_LINES=100
@@ -26,11 +28,18 @@ marker="<!-- kasten-review:$KIND"
 # Prints the first changed file a pattern in .github/CODEOWNERS matches, so the
 # risky paths have one list. Read from the base branch, as GitHub reads it, so
 # a pull request cannot shorten the list for itself. A `*` here also matches a
-# `/`, which can only call a path risky that is not.
+# `/`, which can only call a path risky that is not. Every doubt fails toward
+# running: a file that cannot be read stops the script, and an empty list
+# calls the push risky.
 risky_path() {
-  local file pattern patterns
-  mapfile -t patterns < <(git show "origin/$GITHUB_BASE_REF:.github/CODEOWNERS" | sed -E 's/#.*//; s/[[:space:]].*//; /^$/d')
-  while read -r file; do
+  local owners file pattern patterns files
+  owners=$(git show "origin/$GITHUB_BASE_REF:.github/CODEOWNERS")
+  mapfile -t patterns < <(sed -E 's/#.*//; s/[[:space:]].*//; /^$/d' <<<"$owners")
+  if [ "${#patterns[@]}" -eq 0 ]; then echo "(no pattern in .github/CODEOWNERS)"; return; fi
+  # NUL-separated, as git quotes a name with a tab, a quote or a byte above
+  # 0x7f, and no glob would match the quoted form.
+  mapfile -d '' -t files < <(git diff -z --name-only --no-renames "$1" "$HEAD_SHA")
+  for file in "${files[@]}"; do
     for pattern in "${patterns[@]}"; do
       # Unquoted on purpose: the pattern is a glob.
       # shellcheck disable=SC2053
@@ -40,7 +49,7 @@ risky_path() {
         *) [[ $file == $pattern || $file == */$pattern ]] ;;
       esac && { echo "$file"; return; }
     done
-  done < <(git diff --name-only --no-renames "$1" "$HEAD_SHA")
+  done
   return 0
 }
 
