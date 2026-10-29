@@ -229,19 +229,28 @@ hundred megabytes that nothing reads any more. Delete it whenever you notice.
 
 Every pull request from this repo gets two Claude reviews in CI, `Review` and
 `Security`, once Lint and Test pass; a pull request that fails either gets no
-round. Each posts its findings as threads on the lines they name, and a summary
-comment. `Review` tags its findings Important, Design, Pre-existing or Nit;
-`Security` posts only Important ones.
-`REVIEW.md` at the root of the repo says what they look for.
+round. Only Important findings become threads on the lines they name, and main
+takes no merge while a thread is open. Design, Pre-existing and Nit findings
+from `Review` are lines in its summary comment, and nothing waits on them.
+`REVIEW.md` at the root of the repo says what they look for, and the review
+also reads the issues the pull request closes or is part of, when pgoell wrote
+them.
 
-1. Fix each Important finding with a test, or resolve its thread with one
-   sentence on why it is not a bug. Main takes no merge while a thread is open.
-2. Make each Design change, or resolve its thread with the reason the code
-   should stay as it is. Open an issue for each Pre-existing finding, and resolve the thread with
-   its link. Fix a Nit or resolve it, as you see fit.
+1. Answer each Important thread with a reply whose first word says what you
+   did, then resolve it: `Fixed` (with a test), `Rejected` (it is not a bug,
+   and why), `Intentional` (it is meant so, and why) or `Didn't matter`.
+2. Read the summary. Make the Design changes you agree with, open an issue for
+   each Pre-existing line, and leave the rest.
 3. Push. Each review reads only the commits since its last round. After three
    rounds it stops and says so in its round comment: rethink the change rather
    than push a fourth fix.
+
+To see how the findings were answered, run
+`python3 .github/review/outcomes.py [days] [sample size]`. It counts the
+Important threads of pull requests merged in the last 7 days by the first word
+of their answer, counts pull requests by rounds, and lists 5 whose summaries
+held Design points. An agent fixes whatever it is told, so read those 5
+yourself to judge whether the Design points were worth making.
 
 A pull request from a fork or from Dependabot gets no review, as its run sees
 no token: read it yourself. A run that fails, say on the plan's usage limit,

@@ -108,7 +108,14 @@ choices keep it from costing more than it saves:
 - **It reviews design as well as bugs.** The lints count; the review asks
   whether the change hides work behind a small interface or spreads one task
   over files, the questions of [the area review](/how-to/review-an-area-for-deep-modules.md),
-  asked of the diff only.
+  asked of the diff only. Each point must name what would show it, and taste
+  with no rule behind it is no finding.
+- **Only bugs block.** An agent author fixes every thread it is given, so a
+  blocking design point would cost a commit and a CI run whether it mattered or
+  not, and its fix rate would say nothing. Design, Pre-existing and Nit
+  findings go in the summary; only Important ones are threads, and they take
+  the first of the ten places. A person reads a sample of the Design points to
+  judge whether they earn their keep.
 - **The rounds stop.** An agent author and an agent reviewer can cycle all
   night, each round finding one more old bug. After the first round a review
   reads only the new commits, and after three it stops and asks for a rethink.
