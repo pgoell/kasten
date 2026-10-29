@@ -1,22 +1,8 @@
-"""Keeping the pieces index in step with the vault: on startup, and on every change after.
+"""Keeps the pieces index in step with the vault: a sweep on startup, then the watcher.
 
-The index is derived data, so the vault decides and this follows. On startup a
-sweep compares every note's sha256 with the one the index last read it at, and
-indexes only the notes that differ. After that the backend's own watcher, which
-runs whether or not a browser is open, reports each note written or removed,
-whoever wrote it: the API, Obsidian, jj, the shell. A folder move reports no
-note at all, only a `listing`, and is answered with another sweep.
-
-A note's pieces are matched to rows already stored by the sha256 of their text,
-across every note. So a save re-embeds only the pieces whose text changed, and a
-folder move re-embeds nothing: the title and headings in front of each piece are
-the same at the new path. A note renamed has a new title in front of every
-piece, and those are embedded again.
-
-The model runs on a thread of its own (`embed.model_thread`), so a note being
-embedded never holds a request up. Notes go one at a time, and a note the
-watcher reports goes before the rest of a sweep, so a save made during the first
-hour of indexing is in the index seconds later.
+Pieces match stored rows by the sha256 of their text, so a save re-embeds only
+changed pieces and a folder move none. A note the watcher reports goes before
+the rest of a sweep.
 """
 
 import asyncio
@@ -85,10 +71,8 @@ class Indexer:
     async def run(self) -> None:
         """Load the model, sweep, then follow the watcher, until cancelled or something fails.
 
-        A model that will not load, or a database that is down or never
-        migrated, stops the indexer with one warning, not a warning per note,
-        and the backend serves on without it. The next start sweeps again and
-        catches up.
+        A model that will not load or a database that is down stops the indexer with
+        one warning; the backend serves on, and the next start catches up.
         """
         try:
             await self._model_loaded()

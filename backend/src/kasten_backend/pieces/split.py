@@ -1,13 +1,8 @@
-"""The pieces a note is cut into for the semantic index, each embedded and BM25-indexed alone.
+"""Cuts a note into pieces by heading, then into overlapping token windows.
 
-A note is read by its headings first, so a piece knows the part of the note it
-came from. A long section is then cut into windows of tokens that overlap a
-little, so a sentence on a window's edge is whole in one of them. Each piece
-carries its note's title and heading path in front, because a chunk on its own
-("Kosten 120 EUR") says nothing about what it is about.
-
-Headings come from markdown-it, not a regex: a `#` line inside a fenced code
-block is code, and a regex would cut the section there.
+Each piece carries its note's title and heading path in front, as a chunk alone
+says nothing of its subject. Headings come from markdown-it: a `#` in a code
+fence is not a heading.
 """
 
 from collections.abc import Callable
@@ -58,10 +53,8 @@ def split_note(
 def _sections(body: str) -> list[tuple[str, str]]:
     """The body's sections as (heading path, text), the text before the first heading first.
 
-    A section runs from the line after its heading to the line before the next
-    heading, whatever the level. The path is a stack: a heading drops every
-    heading at its level or deeper, so `### C` under `## B` reads `A > B > C`,
-    and the `## D` after it reads `A > D`.
+    A heading drops every heading at its level or deeper from the path, so `### C`
+    under `## B` reads `A > B > C`, and a later `## D` reads `A > D`.
     """
     # Carriage returns become spaces so the parser's line numbers match the split
     # on "\n" below, the same trick code_spans uses.

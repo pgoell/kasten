@@ -1,9 +1,8 @@
-"""bge-m3 on the CPU, through its own ONNX export: token offsets and dense vectors.
+"""bge-m3 on the CPU through its ONNX export: token offsets and dense vectors.
 
-The model is loaded once per process, by the first call that needs it, and only
-ever touched from one thread. That thread runs at the lowest priority the box
-has, and so do the threads onnxruntime starts from it: the box is shared, and an
-hour of first indexing must not slow a request anywhere else.
+Loaded once per process and used from one thread at the lowest priority, with
+onnxruntime's threads too: the box is shared, and first indexing must not slow
+requests.
 """
 
 import os
