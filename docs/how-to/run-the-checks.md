@@ -222,13 +222,16 @@ Recreate the directory yourself before starting the container, as above. It is
 a bind mount, so Docker creates it as root if it is missing, and the container
 runs as uid 1000 and cannot then write to it.
 
+If pnpm built that tree, `.container/pnpm-store` is beside it holding a few
+hundred megabytes that nothing reads any more. Delete it whenever you notice.
+
 ## Answer the review on a pull request
 
 Every pull request from this repo gets two Claude reviews in CI, `Review` and
 `Security`, once Lint and Test pass; a pull request that fails either gets no
-round. Each posts its findings as threads on the
-lines they name, tagged Important, Design, Pre-existing or Nit, and a summary
-comment.
+round. Each posts its findings as threads on the lines they name, and a summary
+comment. `Review` tags its findings Important, Design, Pre-existing or Nit;
+`Security` posts only Important ones.
 `REVIEW.md` at the root of the repo says what they look for.
 
 1. Fix each Important finding with a test, or resolve its thread with one
@@ -253,9 +256,6 @@ repository owner's label counts, and the next push takes it off again.
 
 While the pilot runs, the gate only reports: `ENFORCE: false` in
 `.github/workflows/human-gate.yml` keeps it from blocking anything.
-
-If pnpm built that tree, `.container/pnpm-store` is beside it holding a few
-hundred megabytes that nothing reads any more. Delete it whenever you notice.
 
 ## Related
 

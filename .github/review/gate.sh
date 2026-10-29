@@ -8,7 +8,7 @@
 # this job's check: a `pull_request_target` run's check does not sit on the pull
 # request's head, and a status does, so a new push starts pending.
 #
-# Reads PR, EVENT, OWNER, ENFORCE and GH_TOKEN from the environment.
+# Reads PR, EVENT, HEAD_SHA, OWNER, ENFORCE and GH_TOKEN from the environment.
 set -euo pipefail
 
 repo=$GITHUB_REPOSITORY
@@ -24,6 +24,12 @@ mapfile -t globs < <(grep -vE '^\s*(#|$)' "$here/risk-paths")
 # A rename counts from both ends, so moving a file off a risky path is risky.
 mapfile -t files < <(gh api --paginate "repos/$repo/pulls/$PR/files" --jq '.[] | .filename, (.previous_filename // empty)')
 head=$(gh api "repos/$repo/pulls/$PR" --jq .head.sha)
+# A run whose event a newer push has passed would judge the new commit by old
+# labels and files; the run for that push owns its status.
+if [ "$head" != "$HEAD_SHA" ]; then
+  echo "The head moved on to $head; the run for that push decides." >>"$GITHUB_STEP_SUMMARY"
+  exit 0
+fi
 
 hits=()
 for f in "${files[@]}"; do

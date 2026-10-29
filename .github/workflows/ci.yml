@@ -260,7 +260,8 @@ jobs:
           fi
       # Only after a review that ran to the end, so a failed run is redone in
       # full by its rerun and not counted as a round.
-      - env:
+      - if: steps.round.outputs.rerun == 'false'
+        env:
           ROUND: ${{ steps.round.outputs.round }}
           FROM: ${{ steps.round.outputs.from }}
           COMMENT_ID: ${{ steps.round.outputs.comment_id }}

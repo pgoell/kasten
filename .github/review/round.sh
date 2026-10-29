@@ -6,7 +6,7 @@
 # review stops and asks the author to rethink, so an agent author and an agent
 # reviewer cannot cycle all night.
 #
-#   round.sh plan    writes round, from, comment_id and stop to $GITHUB_OUTPUT
+#   round.sh plan    writes round, from, comment_id, stop and rerun to $GITHUB_OUTPUT
 #   round.sh record  writes the marker comment for this round
 #
 # Reads KIND, PR, BASE_SHA, HEAD_SHA and GH_TOKEN from the environment, and
@@ -24,11 +24,15 @@ case $1 in
     round=1
     from=$BASE_SHA
     comment_id=
+    rerun=false
     if [ -n "$found" ]; then
       comment_id=${found%%$'\t'*}
       last_sha=$(sed -nE 's/.*sha=([0-9a-f]{40}).*/\1/p' <<<"$found")
       last_round=$(sed -nE 's/.*round=([0-9]+).*/\1/p' <<<"$found")
       round=$((last_round + 1))
+      # A rerun on a commit a finished round already covered has nothing new
+      # to read, and must not use up a round.
+      if [ "$last_sha" = "$HEAD_SHA" ]; then rerun=true; fi
       # A force push can drop the commit the last round covered: then this
       # round reads the whole pull request again, and still counts.
       if git merge-base --is-ancestor "$last_sha" "$HEAD_SHA" 2>/dev/null; then
@@ -36,12 +40,13 @@ case $1 in
       fi
     fi
     stop=false
-    if [ "$round" -gt "$MAX_ROUNDS" ]; then stop=true; fi
+    if [ "$round" -gt "$MAX_ROUNDS" ] || [ "$rerun" = true ]; then stop=true; fi
     {
       echo "round=$round"
       echo "from=$from"
       echo "comment_id=$comment_id"
       echo "stop=$stop"
+      echo "rerun=$rerun"
     } >>"$GITHUB_OUTPUT"
     ;;
   record)

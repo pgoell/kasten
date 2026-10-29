@@ -27,6 +27,7 @@ jobs:
       - env:
           PR: ${{ github.event.pull_request.number }}
           EVENT: ${{ github.event.action }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           OWNER: ${{ github.repository_owner }}
           GH_TOKEN: ${{ github.token }}
           # false while the pilot runs: the check reports and blocks nothing.
