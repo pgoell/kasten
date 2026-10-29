@@ -34,7 +34,7 @@ def test_a_dense_file_fails(make_repo: Callable[..., Path]) -> None:
     result = run(root, *CHECK)
     assert result.returncode == 1
     assert "comments: backend/src/a.py is 23% comment lines; the limit is 20%." in result.stderr
-    assert "history goes in the commit message" in result.stderr
+    assert "do not move it or raise a baseline" in result.stderr
 
 
 def test_a_small_or_sparse_file_passes(make_repo: Callable[..., Path]) -> None:

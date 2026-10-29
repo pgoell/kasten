@@ -204,10 +204,8 @@ DOC_HEADER = f"""\
 # check-comments --update-baseline only lowers or drops lines; never raise one.
 """
 FIX = """
-Cut the comment, do not move it: history goes in the commit message and docs/,
-and a comment or docstring is one or two lines that record a constraint, a
-surprise or an issue number. Delete what a good name or the docs already say.
-docs/how-to/run-the-checks.md says more. Never raise a baseline by hand.
+Cut the comment; do not move it or raise a baseline.
+docs/how-to/run-the-checks.md#get-past-the-comment-checks says what to keep.
 """
 
 

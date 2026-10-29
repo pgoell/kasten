@@ -117,8 +117,9 @@ text, in its summary, where nothing waits on it.
 
 The check is kasten's own, not a copy from the structure plugin like the
 file-size and fan-out checks, because its limits come from kasten's code. Its
-TypeScript side is a small lexer, not a parser: a line of JSX text that starts
-with `//` reads as a comment, which is rare enough to accept.
+TypeScript side is a small lexer, not a parser: in JSX text, a line that starts
+with `//` reads as a comment, and a `/*` turns every line up to the next `*/`
+into one. No file does either today.
 
 ## Why a review by a person
 
