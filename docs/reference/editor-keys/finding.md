@@ -199,6 +199,15 @@ files, rather than over their names. Telescope spells the pair this way, `find_f
 and `live_grep`, which is where `ff` and `fg` come from. Nothing typed here has
 to name a path, and search never writes.
 
+`<leader>fm`, or the palette row "Find by meaning" with vim off and on a phone,
+opens the ranked search: notes by their words and by their meaning, best first,
+each with the piece that matched best and its heading path
+([`GET /api/ranked`](/reference/http-api/finding.md#get-apiranked)). It takes
+the finder's keys: arrows, Tab, ctrl n/p/j/k, Enter and Escape, or a tap. The
+line underneath says how much of the index answered: "index holds 481 of 625
+notes, still filling" during the first indexing, and "by words only" while the
+model loads.
+
 | Key | Does |
 | --- | --- |
 | any character | Narrow to the lines holding the query |

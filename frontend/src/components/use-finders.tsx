@@ -1,6 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { NoteFinder } from "@/components/note-finder";
+import { MeaningFinder } from "@/components/finder/meaning-finder";
+import { NoteFinder } from "@/components/finder/note-finder";
 import { NoteSearch } from "@/components/note-search";
 import type { PaneMoves } from "@/components/use-pane-moves";
 import { visible } from "@/lib/archive";
@@ -80,6 +81,9 @@ export function useFinders({
   // Apart from `finderOpen` though the panel is the same: the outgoing links
   // share that flag's onOpen, and this one opens a book where that opens a note.
   const [bookFinderOpen, setBookFinderOpen] = useState(false);
+  // Its own panel: it asks the backend's ranked search, where the finder ranks
+  // a listing already in hand.
+  const [meaningOpen, setMeaningOpen] = useState(false);
   // The note whose backlinks are on screen, and undefined while none are. The
   // path and not a flag: the panel asks the vault for that note's name, and
   // the note in the focused pane can change under a panel that is already open.
@@ -92,7 +96,13 @@ export function useFinders({
   const commands = useMemo<
     Pick<
       TreeCommands,
-      "findNote" | "searchNotes" | "findTodos" | "findBook" | "showBacklinks" | "showLinksOut"
+      | "findNote"
+      | "searchNotes"
+      | "findTodos"
+      | "findBook"
+      | "findMeaning"
+      | "showBacklinks"
+      | "showLinksOut"
     >
   >(
     () => ({
@@ -106,6 +116,8 @@ export function useFinders({
       // The same, and for the same reason. The save is asked when a book is
       // picked, below where the panel is drawn.
       findBook: () => setBookFinderOpen(true),
+      // The same, and for the same reason.
+      findMeaning: () => setMeaningOpen(true),
       // The one command that needs a note open, because what it shows is what
       // links to that note. With an empty pane there is nothing to ask about,
       // and doing nothing is how the key says so.
@@ -153,6 +165,16 @@ export function useFinders({
             setFinderOpen(false);
             setLinksOut(null);
           }}
+        />
+      )}
+      {meaningOpen && (
+        <MeaningFinder
+          archive={archive}
+          onOpen={(path) => {
+            setMeaningOpen(false);
+            void openInPane(path);
+          }}
+          onClose={() => setMeaningOpen(false)}
         />
       )}
       {bookFinderOpen && (

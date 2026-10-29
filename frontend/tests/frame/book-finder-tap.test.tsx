@@ -16,7 +16,7 @@ import type {} from "@vitest/browser-playwright";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { cdp, page } from "vitest/browser";
-import { NoteFinder } from "@/components/note-finder";
+import { NoteFinder } from "@/components/finder/note-finder";
 import { shot } from "./shots";
 import "@/styles/app.css";
 

@@ -14,7 +14,7 @@ import { fireEvent, waitFor } from "@testing-library/react";
 import { act, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { commands, page } from "vitest/browser";
-import { NoteFinder } from "@/components/note-finder";
+import { NoteFinder } from "@/components/finder/note-finder";
 import { NoteSearch } from "@/components/note-search";
 import type { SearchHit } from "@/lib/api";
 import { applyTheme, PALETTE_KEY, THEME_KEY, type Theme } from "@/lib/theme";

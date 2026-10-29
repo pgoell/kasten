@@ -175,6 +175,23 @@ export async function searchNotes(query: string, archive = false): Promise<Searc
   return data;
 }
 
+/** The ranked search's answer: notes best first, and how much of the index stood behind them. */
+export type RankedAnswer = components["schemas"]["RankedAnswer"];
+export type RankedHit = components["schemas"]["RankedHit"];
+
+/** The notes best matching `query` by its words and its meaning, from the pieces index. */
+export async function rankedSearch(query: string, archive = false): Promise<RankedAnswer> {
+  const { data, response } = await client.GET("/api/ranked", {
+    params: { query: { q: query, archive } },
+  });
+
+  if (!data) {
+    throw new Error(`GET /api/ranked failed with ${response.status}`);
+  }
+
+  return data;
+}
+
 /**
  * A line naming a note in plain words, and where on the line the words are.
  *

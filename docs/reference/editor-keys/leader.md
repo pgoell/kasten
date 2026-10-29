@@ -43,6 +43,7 @@ the page's script passes Space on.
 | --- | --- |
 | `<leader>ff` | Open the note finder |
 | `<leader>fg` | Open search over note content |
+| `<leader>fm` | Open the ranked search, by words and by meaning |
 | `<leader>fb` | Open the book finder |
 | `<leader>ft` | Open the todo overlay |
 | `<leader>a` | Show or hide the archive in the tree, the finder, search and the todos |
