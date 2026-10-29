@@ -6,7 +6,7 @@
 # review stops and asks the author to rethink, so an agent author and an agent
 # reviewer cannot cycle all night.
 #
-#   round.sh plan    writes round, from, comment_id, stop and rerun to $GITHUB_OUTPUT
+#   round.sh plan    writes round, from, comment_id, stop, rerun and max to $GITHUB_OUTPUT
 #   round.sh record  writes the marker comment for this round
 #
 # Reads KIND, PR, BASE_SHA, HEAD_SHA and GH_TOKEN from the environment, and
@@ -47,6 +47,7 @@ case $1 in
       echo "comment_id=$comment_id"
       echo "stop=$stop"
       echo "rerun=$rerun"
+      echo "max=$MAX_ROUNDS"
     } >>"$GITHUB_OUTPUT"
     ;;
   record)

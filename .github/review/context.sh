@@ -19,7 +19,8 @@ trusted="[\"github-actions[bot]\", \"$OWNER\"]"
     grep -oiE '(closes|fixes|resolves|part of) #[0-9]+' | grep -oE '[0-9]+' | sort -u); do
     echo
     gh api "repos/$GITHUB_REPOSITORY/issues/$n" \
-      --jq "if (.user.login | IN(${trusted}[])) then \"## Issue #$n: \" + .title + \"\n\n\" + (.body // \"\") else \"## Issue #$n (by someone else, not shown)\" end"
+      --jq "if (.user.login | IN(${trusted}[])) then \"## Issue #$n: \" + .title + \"\n\n\" + (.body // \"\") else \"## Issue #$n (by someone else, not shown)\" end" ||
+      echo "## Issue #$n (not found)"
   done
   echo
   echo "## Earlier review threads"

@@ -253,7 +253,7 @@ held Design points. An agent fixes whatever it is told, so read those 5
 yourself to judge whether the Design points were worth making.
 
 A pull request from a fork or from Dependabot gets no review, as its run sees
-no token: read it yourself. A run that fails, say on the plan's usage limit,
+no token: read it yourself. A draft gets none until it is marked ready. A run that fails, say on the plan's usage limit,
 counts no round; rerun it.
 
 ## Approve a held pull request

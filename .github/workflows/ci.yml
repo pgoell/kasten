@@ -1,7 +1,10 @@
 name: CI
 
 on:
+  # `ready_for_review` beside the defaults, so a draft marked ready gets the
+  # reviews it skipped while a draft.
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
   push:
     branches: [main]
 
@@ -227,10 +230,11 @@ jobs:
         env:
           FROM: ${{ steps.round.outputs.from }}
           ROUND: ${{ steps.round.outputs.round }}
+          MAX: ${{ steps.round.outputs.max }}
         run: |
           {
             echo 'text<<PROMPT_END'
-            echo "Round $ROUND of 3. FROM: $FROM. HEAD: $HEAD_SHA."
+            echo "Round $ROUND of $MAX. FROM: $FROM. HEAD: $HEAD_SHA."
             echo
             sed -e "s|{FROM}|$FROM|g" ".github/review/$KIND.md"
             echo 'PROMPT_END'
