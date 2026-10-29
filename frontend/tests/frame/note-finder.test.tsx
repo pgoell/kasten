@@ -192,7 +192,7 @@ const RANKS_PER_KEYSTROKE = 1;
 
 describe("one keystroke in the note finder", () => {
   // The default five seconds does not cover eighteen keystrokes over a vault
-  // this size, and the point of the slice is the number, not a fast run.
+  // this size; the counts gate it, and the cost is only printed.
   it("renders only the visible notes per keystroke at 10,000 notes", async () => {
     const { cost, commit, onOpen, counts, tops, rankings } = await measure(10000);
 

@@ -82,7 +82,7 @@ def test_a_nested_repo_without_the_checks_stays_silent(make_repo: Callable[..., 
         assert (result.returncode, result.stderr) == (0, ""), name
 
 
-def test_one_run_on_this_repo_takes_well_under_a_second() -> None:
+def test_one_run_on_this_repo_uses_little_cpu() -> None:
     # The hook runs after every edit, so it must not make editing slow. Its CPU
     # time is counted, not its wall time, since a loaded box stretches the clock.
     target = REPO / "backend/src/kasten_backend/main.py"

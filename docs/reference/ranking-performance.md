@@ -73,7 +73,7 @@ and Chromium beside the jsdom pool slowed both: the home route's warm-up took
 
 ## What the gates assert
 
-Each threshold is six times what the gate measures today: three for a real
+Each time threshold is six times what the gate measures today: three for a real
 regression, and two again for the runner being about half this machine's
 speed. Three alone would leave 1.5x of headroom where the gate actually runs,
 which one noisy minute turns red.
@@ -87,8 +87,7 @@ which one noisy minute turns red.
 | `rankCandidates` over notes, empty query | `tests/perf/ranking.test.ts` | 10,000 candidates already derived | 1.207 ms | 7.2 ms |
 | `rankCandidates` over notes, one letter | `tests/perf/ranking.test.ts` | the same, query `a` | 3.681 ms | 22 ms |
 | `rankCandidates` over notes, typed query | `tests/perf/ranking.test.ts` | the same, query `notes` | 3.484 ms | 21 ms |
-| the prompt keystroke's commit | `tests/frame/note-prompt.test.tsx` | 10,000 notes in Chromium | 2.5 ms | 15 ms |
-| the finder keystroke's commit | `tests/frame/note-finder.test.tsx` | 10,000 notes in Chromium | 6.7 ms | 40 ms |
+| rankings per keystroke, either surface | `tests/frame/note-prompt.test.tsx`, `tests/frame/note-finder.test.tsx` | `rankCandidates` calls, 10,000 notes in Chromium | 1 | 1, exact |
 | rows mounted, either surface | `tests/frame/*.test.tsx` | options in the listbox | 20 | 20, exact |
 | wasted editor renders | `tests/note-editor.test.tsx` | renders per keystroke burst | 0 | 0, exact |
 
@@ -106,8 +105,9 @@ subsequence scan that runs in front of it.
 The 50,000-note measurements are logged and assert nothing. At that size the
 finder's keystroke reads about 21 ms and does drop its frame.
 
-The gated frame number is the synchronous commit, not a `requestAnimationFrame`
-window. React flushes the change event synchronously, so when
+The frame tests print the synchronous commit, not a `requestAnimationFrame`
+window, and gate on none of it: a loaded box stretched the 15 ms and 40 ms
+commit gates past their mark (#1346), so they count rankings and rows instead. React flushes the change event synchronously, so when
 `input.dispatchEvent` returns the new rows are already in the DOM and only the
 paint is outstanding.
 

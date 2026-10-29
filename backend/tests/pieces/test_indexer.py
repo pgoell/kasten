@@ -37,9 +37,8 @@ SKIP = "04 Ressources/05 Flashcards"
 class FakeModel:
     """Whitespace tokens and a vector from the text's hash; counts what it embeds."""
 
-    def __init__(self, delay: float = 0.0) -> None:
+    def __init__(self) -> None:
         self.embedded: list[str] = []
-        self.delay = delay
 
     def offsets(self, text: str) -> list[tuple[int, int]]:
         return [(match.start(), match.end()) for match in re.finditer(r"\S+", text)]
@@ -48,7 +47,6 @@ class FakeModel:
         if any("BOOM" in piece for piece in texts):
             message = "the model refuses this piece"
             raise ValueError(message)
-        time.sleep(self.delay)
         self.embedded.extend(texts)
         return [_vector(body) for body in texts]
 

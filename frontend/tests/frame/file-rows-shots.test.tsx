@@ -120,6 +120,7 @@ async function shoot(
       PATIENCE,
     );
     // The finder previews the second row, a pdf, so the file preview shows.
+    // Search mounts no preview in this fixture, so it waits on its rows alone.
     if (name.startsWith("finder") && !size.coarse) {
       fireEvent.keyDown(input, { key: "ArrowDown" });
       await waitFor(
