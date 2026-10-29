@@ -7,18 +7,18 @@ on:
   pull_request_target:
     types: [opened, reopened, synchronize, ready_for_review, labeled, unlabeled]
 
-concurrency:
-  group: human-gate-${{ github.event.pull_request.number }}
-  cancel-in-progress: true
+# No concurrency group: a run cancelled by the next event could skip taking the
+# label off after a push. Each run reads the head and labels live.
 
 permissions:
   contents: read
   pull-requests: write
   issues: write
+  statuses: write
 
 jobs:
   gate:
-    name: Human gate
+    name: Gate
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

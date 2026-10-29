@@ -7,8 +7,16 @@
 deploy/*
 shell/*
 jobs/*
+plugins/*
+.claude-plugin/*
+*Dockerfile*
 compose*.y*ml
 mise.toml
+pyproject.toml
+*/pyproject.toml
+uv.lock
+*/package.json
+*/bun.lock
 REVIEW.md
 scripts/apply-github-settings.sh
 scripts/release.py
