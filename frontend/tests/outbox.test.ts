@@ -184,7 +184,9 @@ describe("the outbox", () => {
     // a dump lands then and a flush is asked for, after the read that ends it.
     let empties = 0;
     let late: Promise<State> | undefined;
+    let heard = false;
     subscribe((state) => {
+      heard = true;
       if (state.waiting.length > 0 || late !== undefined) return;
       empties += 1;
       if (empties < 2) return;
@@ -194,7 +196,9 @@ describe("the outbox", () => {
         .add({ id: "late", text: "late", date: "2026-10-16", typedAt: Date.now() + 1 });
       late = flush();
     });
-    await new Promise((resolve) => setTimeout(resolve, 20));
+    // The first call is subscribe's own read, which must land before any
+    // flush starts, or it would count as an empty store.
+    await vi.waitFor(() => expect(heard).toBe(true));
 
     await flush();
     const state = await late;

@@ -120,8 +120,13 @@ async function shoot(
       PATIENCE,
     );
     // The finder previews the second row, a pdf, so the file preview shows.
-    if (name.startsWith("finder") && !size.coarse) fireEvent.keyDown(input, { key: "ArrowDown" });
-    await new Promise((resolve) => setTimeout(resolve, 200));
+    if (name.startsWith("finder") && !size.coarse) {
+      fireEvent.keyDown(input, { key: "ArrowDown" });
+      await waitFor(
+        () => expect(host.querySelector('[data-testid="preview"]')?.textContent).toContain("opens"),
+        PATIENCE,
+      );
+    }
     await Promise.all(document.getAnimations().map((animation) => animation.finished));
 
     const dialog = host.querySelector<HTMLElement>('[role="dialog"]') as HTMLElement;

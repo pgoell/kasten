@@ -4,7 +4,7 @@ It guards the plugin's structure-hook, so every test goes through it.
 """
 
 import json
-import time
+import resource
 from typing import TYPE_CHECKING
 
 from backend.tests.structure.repo import REPO, git, run, write
@@ -83,12 +83,13 @@ def test_a_nested_repo_without_the_checks_stays_silent(make_repo: Callable[..., 
 
 
 def test_one_run_on_this_repo_takes_well_under_a_second() -> None:
-    # The hook runs after every edit, so it must not make editing slow. About
-    # 0.1 s here; the bound leaves room for a loaded CI runner.
+    # The hook runs after every edit, so it must not make editing slow. Its CPU
+    # time is counted, not its wall time, since a loaded box stretches the clock.
     target = REPO / "backend/src/kasten_backend/main.py"
-    start = time.monotonic()
+    before = resource.getrusage(resource.RUSAGE_CHILDREN)
     result = edit(REPO, target)
-    elapsed = time.monotonic() - start
+    after = resource.getrusage(resource.RUSAGE_CHILDREN)
+    cpu = (after.ru_utime + after.ru_stime) - (before.ru_utime + before.ru_stime)
 
     assert result.returncode == 0, result.stderr
-    assert elapsed < 2, f"editor-hook took {elapsed:.2f}s"
+    assert cpu < 2, f"editor-hook used {cpu:.2f}s of CPU"

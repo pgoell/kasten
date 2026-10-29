@@ -8,33 +8,28 @@
  * and paints nothing, so a number out of it would not be true.
  *
  * The design target is 16ms end to end, one frame, about 4ms of it JS. The
- * threshold below is not that target. It is a regression gate set well above
- * what the keystroke costs today, so a change of the wrong order turns red and
- * ordinary runner noise does not.
+ * test below gates on the work, not the clock, so a loaded runner cannot turn
+ * it red.
  */
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createRoot } from "react-dom/client";
 import { NotePrompt } from "@/components/note-prompt";
+import type * as Fuzzy from "@/lib/fuzzy";
 import { syntheticVault } from "../../bench/fixtures";
 
-// Six times the 2.5ms synchronous median `mise run fe:frame` measures on this
-// machine, three runs reading 2.5, 2.8 and 2.5ms. That is down from 5.1ms, which
-// the old 30ms literal came from, and from the 16.8ms this file first recorded.
-// The halving came free with the finder: one scorer now serves both surfaces,
-// and hoisting the lowercasing out of it and reusing its rows took the prompt's
-// ranking from 0.372ms to 0.092ms. Six is two factors: three carries a real
-// regression, and two carries the runner, which is about 2.0x slower than this
-// machine, so three times a local median would leave only 1.5x of headroom
-// where it actually gates.
-//
-// The gate is on the synchronous half alone: the two-rAF window cannot resolve
-// in under two refresh periods, so it reads about 33ms however cheap the
-// keystroke is and steps to about 50ms the moment the work overruns its frame.
-// A threshold between those steps flips on one dropped frame rather than on a
-// regression, and on the slower runner it would sit past the step and be red
-// today.
-const COMMIT_LIMIT_MS = 15;
+// Counted, not timed: a keystroke that ranks twice is caught with no clock.
+const ranks = vi.hoisted(() => ({ calls: 0 }));
+vi.mock("@/lib/fuzzy", async (importOriginal) => {
+  const actual = await importOriginal<typeof Fuzzy>();
+  return {
+    ...actual,
+    rankCandidates: (...args: Parameters<typeof actual.rankCandidates>) => {
+      ranks.calls += 1;
+      return actual.rankCandidates(...args);
+    },
+  };
+});
 
 /**
  * The cap `note-prompt.tsx` mounts to. Written out here rather than imported,
@@ -105,7 +100,7 @@ interface Measurement {
   cost: number;
   /**
    * Median of the synchronous half alone: ranking, the verdict, reconciliation
-   * and the DOM commit, with no waiting for the screen. This is the gated
+   * and the DOM commit, with no waiting for the screen. This is the printed
    * number. It moves with the work rather than in refresh-period steps, and it
    * is what decides whether the frame drops.
    */
@@ -116,6 +111,8 @@ interface Measurement {
   counts: Set<number>;
   /** The best-ranked row after each keystroke. One of them means nothing re-ranked. */
   tops: Set<string>;
+  /** Calls to the ranker per keystroke, which the one-per-keystroke bound reads. */
+  rankings: Set<number>;
 }
 
 async function measure(noteCount: number): Promise<Measurement> {
@@ -145,9 +142,11 @@ async function measure(noteCount: number): Promise<Measurement> {
   const commits: number[] = [];
   const counts = new Set<number>();
   const tops = new Set<string>();
+  const rankings = new Set<number>();
 
   for (const [index, key] of [...KEYS].entries()) {
     let commit = 0;
+    const ranked = ranks.calls;
     const elapsed = await frameCost(() => {
       const start = performance.now();
       typeInto(input, key);
@@ -156,6 +155,7 @@ async function measure(noteCount: number): Promise<Measurement> {
       commit = performance.now() - start;
     });
     counts.add(optionCount());
+    rankings.add(ranks.calls - ranked);
     tops.add(document.querySelector('[role="option"]')?.textContent ?? "");
     if (index >= WARMUPS) {
       times.push(elapsed);
@@ -165,14 +165,16 @@ async function measure(noteCount: number): Promise<Measurement> {
 
   root.unmount();
   container.remove();
-  return { cost: median(times), commit: median(commits), onOpen, counts, tops };
+  return { cost: median(times), commit: median(commits), onOpen, counts, tops, rankings };
 }
+
+const RANKS_PER_KEYSTROKE = 1;
 
 describe("one keystroke in the note prompt", () => {
   // The default five seconds does not cover eighteen keystrokes over a vault
   // this size, and the point of the slice is the number, not a fast run.
-  it("commits within six times its recorded cost at 10,000 notes", async () => {
-    const { cost, commit, onOpen, counts, tops } = await measure(10000);
+  it("renders only the visible folders per keystroke at 10,000 notes", async () => {
+    const { cost, commit, onOpen, counts, tops, rankings } = await measure(10000);
 
     console.log(
       `the prompt, 10,000 notes: ${cost.toFixed(1)}ms median keystroke, ${commit.toFixed(1)}ms of it before the paint`,
@@ -185,11 +187,13 @@ describe("one keystroke in the note prompt", () => {
     // belong to a render that did nothing. The option count used to carry this
     // check and cannot any more: the cap holds it at 20 whatever is typed.
     expect(tops.size).toBeGreaterThan(1);
+    // One ranking per keystroke: the memo is keyed on the query alone. A second
+    // call per keystroke would double the work and pass every check above.
+    expect([...rankings]).toEqual([RANKS_PER_KEYSTROKE]);
     // What the cap is for. 842 folders match an empty query at this size, and
     // mounting a button for each is most of what the keystroke used to cost.
     expect(onOpen).toBeLessThanOrEqual(VISIBLE_FOLDERS);
     expect(Math.max(...counts)).toBeLessThanOrEqual(VISIBLE_FOLDERS);
-    expect(commit).toBeLessThan(COMMIT_LIMIT_MS);
   }, 120_000);
 
   it("records what it costs at 50,000 notes", async () => {

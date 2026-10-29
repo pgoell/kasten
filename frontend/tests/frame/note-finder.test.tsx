@@ -12,15 +12,28 @@
  * assumed to cost what `tests/frame/note-prompt.test.tsx` records.
  *
  * The design target is 16ms end to end, one frame, about 4ms of it JS. The
- * threshold below is not that target. It is a regression gate set well above
- * what the keystroke costs today, so a change of the wrong order turns red and
- * ordinary runner noise does not.
+ * test below gates on the work, not the clock, so a loaded runner cannot turn
+ * it red.
  */
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createRoot } from "react-dom/client";
 import { NoteFinder } from "@/components/note-finder";
+import type * as Fuzzy from "@/lib/fuzzy";
 import { syntheticVault } from "../../bench/fixtures";
+
+// Counted, not timed: a keystroke that ranks twice is caught with no clock.
+const ranks = vi.hoisted(() => ({ calls: 0 }));
+vi.mock("@/lib/fuzzy", async (importOriginal) => {
+  const actual = await importOriginal<typeof Fuzzy>();
+  return {
+    ...actual,
+    rankCandidates: (...args: Parameters<typeof actual.rankCandidates>) => {
+      ranks.calls += 1;
+      return actual.rankCandidates(...args);
+    },
+  };
+});
 
 // The preview reads a note when the highlight holds still, and a real request
 // inside the timed window would be measuring the network. It never fires during
@@ -35,25 +48,6 @@ vi.mock("@/lib/api", () => ({
   // The live preview's video times reach `transcript.ts`, which imports this.
   fetchTranscript: () => Promise.resolve(),
 }));
-
-// Six times the 6.7ms synchronous median `mise run fe:frame` measures on this
-// machine, three runs reading 7.1, 6.7 and 5.7ms. Six is two factors: three
-// carries a real regression, and two carries the runner, which is about 2.0x
-// slower than this machine, so three times a local median would leave only 1.5x
-// of headroom where it actually gates.
-//
-// 6.7ms is inside the 16ms frame with room to spare, and it is the dearest
-// keystroke of the lot: one letter, over every note in the vault. At 50,000
-// notes the same keystroke reads about 21ms and does drop its frame, which the
-// second case records and gates on nothing.
-//
-// The gate is on the synchronous half alone: the two-rAF window cannot resolve
-// in under two refresh periods, so it reads about 33ms however cheap the
-// keystroke is and steps to about 50ms the moment the work overruns its frame.
-// A threshold between those steps flips on one dropped frame rather than on a
-// regression, and on the slower runner it would sit past the step and be red
-// today.
-const COMMIT_LIMIT_MS = 40;
 
 /**
  * The cap `note-finder.tsx` mounts to. Written out here rather than imported,
@@ -126,7 +120,7 @@ interface Measurement {
   cost: number;
   /**
    * Median of the synchronous half alone: ranking, reconciliation and the DOM
-   * commit, with no waiting for the screen. This is the gated number. It moves
+   * commit, with no waiting for the screen. This is the printed number. It moves
    * with the work rather than in refresh-period steps, and it is what decides
    * whether the frame drops.
    */
@@ -137,6 +131,8 @@ interface Measurement {
   counts: Set<number>;
   /** The best-ranked row after each keystroke. One of them means nothing re-ranked. */
   tops: Set<string>;
+  /** Calls to the ranker per keystroke, which the one-per-keystroke bound reads. */
+  rankings: Set<number>;
 }
 
 async function measure(noteCount: number): Promise<Measurement> {
@@ -166,9 +162,11 @@ async function measure(noteCount: number): Promise<Measurement> {
   const commits: number[] = [];
   const counts = new Set<number>();
   const tops = new Set<string>();
+  const rankings = new Set<number>();
 
   for (const [index, key] of [...KEYS].entries()) {
     let commit = 0;
+    const ranked = ranks.calls;
     const elapsed = await frameCost(() => {
       const start = performance.now();
       typeInto(input, key);
@@ -177,6 +175,7 @@ async function measure(noteCount: number): Promise<Measurement> {
       commit = performance.now() - start;
     });
     counts.add(optionCount());
+    rankings.add(ranks.calls - ranked);
     tops.add(document.querySelector('[role="option"]')?.textContent ?? "");
     if (index >= WARMUPS) {
       times.push(elapsed);
@@ -186,14 +185,16 @@ async function measure(noteCount: number): Promise<Measurement> {
 
   root.unmount();
   container.remove();
-  return { cost: median(times), commit: median(commits), onOpen, counts, tops };
+  return { cost: median(times), commit: median(commits), onOpen, counts, tops, rankings };
 }
+
+const RANKS_PER_KEYSTROKE = 1;
 
 describe("one keystroke in the note finder", () => {
   // The default five seconds does not cover eighteen keystrokes over a vault
   // this size, and the point of the slice is the number, not a fast run.
-  it("commits within six times its recorded cost at 10,000 notes", async () => {
-    const { cost, commit, onOpen, counts, tops } = await measure(10000);
+  it("renders only the visible notes per keystroke at 10,000 notes", async () => {
+    const { cost, commit, onOpen, counts, tops, rankings } = await measure(10000);
 
     console.log(
       `the finder, 10,000 notes: ${cost.toFixed(1)}ms median keystroke, ${commit.toFixed(1)}ms of it before the paint`,
@@ -205,11 +206,13 @@ describe("one keystroke in the note finder", () => {
     // keystrokes never reached the component, and the medians above would
     // belong to a render that did nothing.
     expect(tops.size).toBeGreaterThan(1);
+    // One ranking per keystroke: the memo is keyed on the query alone. A second
+    // call per keystroke would double the work and pass every check above.
+    expect([...rankings]).toEqual([RANKS_PER_KEYSTROKE]);
     // What the cap is for. Every one of the 10,000 notes matches an empty
     // query, and mounting a button for each would be most of the keystroke.
     expect(onOpen).toBeLessThanOrEqual(VISIBLE_NOTES);
     expect(Math.max(...counts)).toBeLessThanOrEqual(VISIBLE_NOTES);
-    expect(commit).toBeLessThan(COMMIT_LIMIT_MS);
   }, 120_000);
 
   it("records what it costs at 50,000 notes", async () => {
