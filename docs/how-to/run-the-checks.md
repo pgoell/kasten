@@ -11,7 +11,7 @@ status: stable
 Everything CI runs, you can run:
 
 ```sh
-mise run lint         # ruff, ty, biome, file size, folder size, copies, API contract
+mise run lint         # ruff, ty, biome, file size, folder size, comments, copies, API contract
 mise run test         # backend pytest and frontend vitest
 mise run fe:typecheck # builds the frontend, then tsc --noEmit
 ```
@@ -112,6 +112,36 @@ raising the threshold. To see the clones while it passes:
 ```sh
 frontend/node_modules/.bin/jscpd
 ```
+
+## Get past the comment checks
+
+`lint:comments` runs `scripts/structure/check-comments` over `frontend/src`,
+`backend/src` and `jobs/src`, generated `api-types.ts` and `routeTree.gen.ts`
+left out. It fails in two ways:
+
+* `<file> is N% comment lines`: a file of 20 lines or more is over 20% lines
+  that hold only a comment, and over its line in `.comment-ratio-baseline`.
+  Docstrings and JSDoc blocks are left out of both sides of the share, and a
+  comment after code on the same line counts as code.
+* `<file> has N docstrings or JSDoc blocks over 6 lines`: the file holds more
+  of them than its line in `.long-docstring-baseline`, or any with no line.
+  The count includes the `/**` and `*/` lines, so a body of five lines between
+  them is already too long.
+
+Fix the comment, not the count. Delete history (it goes in the commit message
+or `docs/`), the code read back in prose, and anything a name or a doc already
+says. Cut what is left to one or two lines that record a constraint, a
+surprise or an issue number. A docstring says what a caller needs. Moving the
+text to another comment or a new file is not a fix, and neither is raising a
+baseline.
+
+When a file gets better, lower its lines in both baselines:
+
+```sh
+uv run python scripts/structure/check-comments --update-baseline
+```
+
+It only lowers or drops lines; a file that was not on a baseline stays off it.
 
 ## Get past the import checks
 
@@ -288,4 +318,4 @@ pass: branch protection does not hold admins, and only pgoell is one.
 ## Related
 
 * [mise tasks](/reference/mise-tasks.md): every command, including the narrower ones
-* [Code quality checks](/explanation/code-quality-checks.md): why the complexity rules and the copy check exist, and why their limits sit where they do
+* [Code quality checks](/explanation/code-quality-checks.md): why the complexity rules, the comment checks and the copy check exist, and why their limits sit where they do

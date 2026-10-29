@@ -1,7 +1,7 @@
 ---
 type: Explanation
 title: Code quality checks
-description: What each check beyond the file size limit catches, why its limit sits where it does, why the frontend's list of exempt files only shrinks, why a person still reviews one area at a time, and why the review of each pull request runs in CI.
+description: What each check beyond the file size limit catches, why its limit sits where it does, why the frontend's list of exempt files only shrinks, why comments are held short, why a person still reviews one area at a time, and why the review of each pull request runs in CI.
 tags: [design, lint, refactor]
 status: stable
 ---
@@ -59,6 +59,11 @@ above the backend's modules, `lib` below `components`, the jobs outside the
 backend. A dynamic `import()` hides an edge from these tools and from a reader,
 so it is banned too, except for the heavy bundles loaded on demand.
 
+**Comments** (`lint:comments`, `scripts/structure/check-comments`). A file
+over 20% comment lines may not get denser, and a file may not gain a
+docstring or JSDoc block over six lines. Both counts sit in a baseline that
+only goes down. The section below says why.
+
 **An area review** ([Review an area for deep modules](/how-to/review-an-area-for-deep-modules.md)).
 The split between files. No lint sees it, because every file and function in a
 badly split area can pass each check on its own.
@@ -77,6 +82,43 @@ holds more files than its `MAX_FILES`, so adding a file means raising a number
 in a test, in a diff a reviewer reads. A file comes off when its functions pass,
 and the same commit lowers the number. The limit is never raised to take a file
 off.
+
+## Why comments are held short
+
+Agents write most of kasten, and an agent explains as it goes: how the file
+came to be, the code read back in prose, a doc page told again. The old rule
+told a comment to match the density of the file around it, so a dense file
+bred more. On 29 October 2026, 50 files in `frontend/src`, `backend/src` and
+`jobs/src` were over 20% comment lines, and 412 files held 1,220 docstrings and
+JSDoc blocks over six lines.
+
+A long comment costs on every read. An agent reads it whole each time it opens
+the file, against the file's 5,000 tokens, and no test sees it go stale. A
+history is wrong the day the code changes; the commit message keeps it beside
+the diff it explains, and `docs/` keeps the reasons that outlive one commit.
+
+The two counts measure different things. Comments inside a function are noise
+in proportion to the code around them, so the first check counts their share.
+A docstring or a JSDoc block is what an editor shows a caller, so the second
+counts its length. `frontend/src/lib/overlay-styles.ts` shows why both are
+needed: 2% of its lines are comments, and it holds six JSDoc blocks over six
+lines, one of them an 18-line story of the file.
+
+The limits come from that day's code. 20% is where the densest tenth of files
+over 20 lines starts; across the repo the share is about 10%. A file under 20
+lines is left out, as one comment there is a large share. Six lines leaves
+room for a docstring of two lines and a short list of arguments. Both
+baselines work like the frontend's list above: fixing every file in one pull
+request would hold up everything else, so today's files may only get better.
+
+A count cannot tell a constraint from a story. So `REVIEW.md` asks the CI
+review to name the bloated comments on a diff's lines and give the shorter
+text, in its summary, where nothing waits on it.
+
+The check is kasten's own, not a copy from the structure plugin like the
+file-size and fan-out checks, because its limits come from kasten's code. Its
+TypeScript side is a small lexer, not a parser: a `//` in JSX text reads as a
+comment, which is rare enough to accept.
 
 ## Why a review by a person
 
@@ -145,3 +187,4 @@ the plan the other review runs on.
 * [The file size limit](/explanation/file-size-limit.md): the first check, and what a deep module is
 * [Review an area for deep modules](/how-to/review-an-area-for-deep-modules.md): the review, step by step
 * [Run the checks](/how-to/run-the-checks.md): the commands, how to get past each check, and how to answer the CI review
+* [Get past the comment checks](/how-to/run-the-checks.md#get-past-the-comment-checks): what to cut when `lint:comments` fails

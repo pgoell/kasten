@@ -30,8 +30,12 @@ must name what would show it, so the author can check it:
 - Code in the wrong home: name the module the feature lives in and why the
   code belongs there.
 - A file cut at a line count to fit the size limit: name the commit that cut it.
-- A rule of `.claude/CLAUDE.md` broken: a bare catchall, a dynamic import, a
-  comment that says what instead of why. Quote the rule.
+- A rule of `.claude/CLAUDE.md` broken: a bare catchall, a dynamic import.
+  Quote the rule.
+- Comment bloat on the diff's lines, docstrings and JSDoc included: history
+  told in prose, the code restated, a doc or another comment repeated, a long
+  comment where one line would do. Name the lines and give the shorter text.
+  In the summary, never a thread.
 
 Taste with no rule behind it is not a finding.
 

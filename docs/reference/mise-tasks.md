@@ -113,10 +113,11 @@ container has no mise, so run that line there instead, as
 
 | Task | What it does |
 |---|---|
-| `lint` | ruff, ty, Biome on both JavaScript trees, `tsc`, the file-size, folder-size, copy, import and API contract checks. The pre-commit gate and CI's Lint job |
+| `lint` | ruff, ty, Biome on both JavaScript trees, `tsc`, the file-size, folder-size, comment, copy, import and API contract checks. The pre-commit gate and CI's Lint job |
 | `lint:py` | Backend and host job lint, format check and type check |
 | `lint:size` | Check every file committed at HEAD against the 5,000-token limit |
 | `lint:fanout` | Fail when a folder holds more than seven entries and grew past its line in `.fan-out-baseline` |
+| `lint:comments` | Fail when a file gets denser in comments than `.comment-ratio-baseline` allows, or gains a docstring over 6 lines past `.long-docstring-baseline` |
 | `lint:imports` | Fail on an import that breaks a boundary (import-linter, dependency-cruiser) or a new dynamic import |
 | `lint:openapi` | Fail when the dumped OpenAPI schema differs from `frontend/openapi.json`; the fix is `fe:types` |
 | `lint:dup` | Fail when more than 1% of `frontend/src`, `backend/src` and `jobs/src` is copied code (jscpd) |
@@ -145,6 +146,11 @@ seven-entry limit and the baseline in `.fan-out-baseline`. Pre-commit runs
 a folder grows past its baseline line. Pre-commit also runs both checks on the
 staged files, which names a staged file or folder over a limit on its own. See
 [File and folder limits](/explanation/file-size-limit.md).
+
+`lint:comments` runs `scripts/structure/check-comments` with no arguments,
+which reads every source file under `frontend/src`, `backend/src` and
+`jobs/src` as it stands in the working tree. See
+[Get past the comment checks](/how-to/run-the-checks.md#get-past-the-comment-checks).
 
 `lint:dup` runs jscpd with `.jscpd.json` at the root. jscpd alone takes about
 6 s, but `lint` runs its parts side by side, so the copy check adds about 2.5 s

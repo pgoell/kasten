@@ -97,9 +97,12 @@ call may run. Watch it with `gh pr checks <n> --watch` as
   are for math and diagrams (#423), with a comment at the import saying why.
   `mise run lint` enforces it (`lint:imports`), with the allowed bundles in
   `frontend/.dependency-cruiser-known-violations.json`.
-- **Comments explain why.** The code already says what it does. A comment earns
-  its place by recording the constraint, the surprise or the reason for a
-  choice that looks odd. Match the density of the surrounding file.
+- **Comments explain why, in a line or two.** The code already says what it
+  does. A comment or docstring is one or two lines and records a constraint, a
+  surprise or a link such as an issue number. A docstring says what a caller
+  needs, not how the code got here. History goes in the commit message and
+  `docs/`, never the code. Leave out what a good name or the docs already say.
+  `lint:comments` stops a file from getting denser.
 - **SHA-pin every GitHub Action.** Every `uses:`, `actions/*` and `github/*`
   included, pins a full commit SHA with a trailing `# vX.Y.Z`; only a local
   `./` path goes without. The action's owner must be on

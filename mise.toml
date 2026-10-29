@@ -192,13 +192,13 @@ run = "python3 scripts/release.py"
 # ─── Lint & format ──────────────────────────────────────────────────────────
 
 [tasks.lint]
-description = "Run the fast linters, both type checkers, the file-size, fan-out and copy checks (pre-commit gate)"
+description = "Run the fast linters, both type checkers, the file-size, fan-out, comment and copy checks (pre-commit gate)"
 # `fe:typecheck` is in here rather than left to CI because the two halves of the
 # repo have to be gated alike: `lint:py` type-checks the backend, and without
 # this the frontend was the half where a type error reached the branch. It
 # brings `fe:build` with it, which is what emits the gitignored route tree, and
 # the pair costs about two seconds.
-depends = ["lint:py", "lint:size", "lint:fanout", "lint:dup", "lint:imports", "lint:openapi", "fe:lint", "fe:typecheck", "shell:lint"]
+depends = ["lint:py", "lint:size", "lint:fanout", "lint:comments", "lint:dup", "lint:imports", "lint:openapi", "fe:lint", "fe:typecheck", "shell:lint"]
 
 [tasks."lint:py"]
 description = "Lint, format-check and type-check the backend and the host jobs"
@@ -222,6 +222,11 @@ description = "Check that no folder holds more than 7 entries, past its line in 
 # design are in .fan-out-excludes. The reason is in
 # docs/explanation/file-size-limit.md.
 run = "scripts/structure/check-fan-out --all"
+
+[tasks."lint:comments"]
+description = "Check that no file gets denser in comments or gains a docstring over 6 lines, past .comment-ratio-baseline and .long-docstring-baseline"
+# The rule is in .claude/CLAUDE.md, the reason in docs/explanation/code-quality-checks.md.
+run = "uv run python scripts/structure/check-comments"
 
 [tasks."lint:dup"]
 description = "Fail when more than 1% of frontend/src, backend/src and jobs/src is copied code (jscpd)"

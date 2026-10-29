@@ -1,0 +1,268 @@
+#!/usr/bin/env python3
+"""Fail when a source file gets denser in comments or gains a docstring over 6 lines.
+
+With --update-baseline, lower or drop lines in both baselines; never raise or add one.
+"""
+
+import ast
+import re
+import subprocess
+import sys
+import tokenize
+from io import StringIO
+from pathlib import Path
+
+SOURCES = ("frontend/src/", "backend/src/", "jobs/src/")
+SKIP = {"frontend/src/lib/api-types.ts", "frontend/src/routeTree.gen.ts"}
+SUFFIXES = (".py", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs")
+RATIO_LIMIT = 20  # percent of a file's lines that are comments, docstrings left out
+MIN_LINES = 20  # in a smaller file one comment is a large share
+DOC_LIMIT = 6  # lines in one docstring or JSDoc block
+RATIO_BASELINE = ".comment-ratio-baseline"
+DOC_BASELINE = ".long-docstring-baseline"
+
+# A "/" after one of these starts a regex literal, not a division.
+REGEX_AFTER = set("(,=:[!&|?{};+-*%<>~^") | {"", "return", "typeof", "case", "do", "else"}
+REGEX_AFTER |= {"in", "of", "new", "delete", "void", "throw", "yield", "await", "instanceof"}
+WORD = re.compile(r"[A-Za-z0-9_$]+")
+SKIPPED_TOKENS = {
+    tokenize.NL,
+    tokenize.NEWLINE,
+    tokenize.INDENT,
+    tokenize.DEDENT,
+    tokenize.ENDMARKER,
+    tokenize.COMMENT,
+}
+
+
+class Lines:
+    """Which lines of a file hold code, comments and docstrings."""
+
+    def __init__(self, text: str) -> None:
+        self.blank = {n for n, t in enumerate(text.splitlines(), 1) if not t.strip()}
+        self.count = len(text.splitlines())
+        self.code: set[int] = set()
+        self.comment: set[int] = set()
+        self.doc: set[int] = set()
+        self.long_docs = 0
+
+    def add_doc(self, first: int, last: int) -> None:
+        self.doc.update(range(first, last + 1))
+        if last - first + 1 > DOC_LIMIT:
+            self.long_docs += 1
+
+    def ratio(self) -> tuple[int, int]:
+        """Return the percent of comment-only lines and the number of lines it is out of."""
+        lines = set(range(1, self.count + 1)) - self.blank - self.doc
+        comments = (self.comment & lines) - self.code
+        return (100 * len(comments) // len(lines) if lines else 0), len(lines)
+
+
+def scan_python(text: str) -> Lines:
+    lines = Lines(text)
+    for node in ast.walk(ast.parse(text)):
+        if isinstance(node, ast.Module | ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef):
+            first = node.body[0] if node.body else None
+            value = first.value if isinstance(first, ast.Expr) else None
+            if isinstance(value, ast.Constant) and isinstance(value.value, str):
+                lines.add_doc(value.lineno, value.end_lineno or value.lineno)
+    for tok in tokenize.generate_tokens(StringIO(text).readline):
+        if tok.type == tokenize.COMMENT:
+            lines.comment.add(tok.start[0])
+        elif tok.type not in SKIPPED_TOKENS:
+            lines.code.update(range(tok.start[0], tok.end[0] + 1))
+    lines.code -= lines.doc
+    return lines
+
+
+def string_end(text: str, i: int) -> int:
+    j = i + 1
+    while j < len(text) and text[j] not in (text[i], "\n"):
+        j += 2 if text[j] == "\\" else 1
+    return j + 1
+
+
+def template_end(text: str, i: int) -> tuple[int, bool]:
+    """Return where a template literal's text ends, and whether a ${ ended it."""
+    j = i
+    while j < len(text):
+        if text[j] == "\\":
+            j += 2
+        elif text[j] == "`":
+            return j + 1, False
+        elif text.startswith("${", j):
+            return j + 2, True
+        else:
+            j += 1
+    return j, False
+
+
+def regex_end(text: str, i: int) -> int:
+    j, in_class = i + 1, False
+    while j < len(text) and text[j] != "\n":
+        if text[j] == "\\":
+            j += 1
+        elif text[j] in "[]":
+            in_class = text[j] == "["
+        elif text[j] == "/" and not in_class:
+            return j + 1
+        j += 1
+    return j
+
+
+def comment_end(text: str, i: int) -> int:
+    if text.startswith("//", i):
+        end = text.find("\n", i)
+    else:
+        end = text.find("*/", i + 2)
+        end = end + 2 if end >= 0 else end
+    return end if end >= 0 else len(text)
+
+
+def token_end(text: str, i: int, braces: list[int], prev: str) -> tuple[int, str]:
+    """Return where the code token at i ends, and what the next "/" should be read after."""
+    c = text[i]
+    if c in "'\"":
+        return string_end(text, i), "x"
+    if c == "`" or (c == "}" and braces and braces[-1] == 0):
+        if c == "}":
+            braces.pop()
+        j, opened = template_end(text, i + 1)
+        if opened:
+            braces.append(0)
+        return j, "(" if opened else "x"
+    if c == "/" and prev in REGEX_AFTER:
+        return regex_end(text, i), "x"
+    if match := WORD.match(text, i):
+        return match.end(), match.group()
+    if braces and c in "{}":
+        braces[-1] += 1 if c == "{" else -1
+    return i + 1, c
+
+
+def scan_script(text: str) -> Lines:
+    """A lexer just good enough to tell comments from strings, templates and regexes."""
+    lines = Lines(text)
+    i, line, prev = 0, 1, ""
+    braces: list[int] = []  # open "{" inside each template literal's ${ }
+    while i < len(text):
+        if text[i].isspace():
+            line += text[i] == "\n"
+            i += 1
+            continue
+        # A JSX comment, {/* ... */}: its braces are not code.
+        jsx = text.startswith("{/*", i)
+        i += jsx
+        if text.startswith(("//", "/*"), i):
+            j = comment_end(text, i)
+            j += jsx and text.startswith("}", j)
+            last = line + text.count("\n", i, j - 1)
+            if text.startswith("/**", i) and not text.startswith("/**/", i):
+                lines.add_doc(line, last)
+            else:
+                lines.comment.update(range(line, last + 1))
+        else:
+            j, prev = token_end(text, i, braces, prev)
+            lines.code.update(range(line, line + text.count("\n", i, j) + 1))
+        line += text.count("\n", i, j)
+        i = j
+    return lines
+
+
+def scan(path: str) -> Lines:
+    text = Path(path).read_text(encoding="utf-8")
+    return scan_python(text) if path.endswith(".py") else scan_script(text)
+
+
+def read_baseline(name: str) -> dict[str, int] | None:
+    if not Path(name).exists():
+        return None
+    found = {}
+    for raw in Path(name).read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if line and not line.startswith("#"):
+            path, _, number = line.rpartition(" ")
+            found[path] = int(number)
+    return found
+
+
+def write_baseline(name: str, header: str, today: dict[str, int], old: dict[str, int] | None):
+    if old is not None:
+        today = {p: min(n, old[p]) for p, n in today.items() if p in old}
+    body = "".join(f"{p} {n}\n" for p, n in sorted(today.items()))
+    Path(name).write_text(header + body, encoding="utf-8")
+
+
+RATIO_HEADER = f"""\
+# Files over {RATIO_LIMIT}% comment lines, as "<file> <percent>", docstrings and JSDoc left out.
+# A file fails when it gets denser than its percent.
+# check-comments --update-baseline only lowers or drops lines; never raise one.
+"""
+DOC_HEADER = f"""\
+# Files with docstrings or JSDoc blocks over {DOC_LIMIT} lines, as "<file> <count>".
+# A file fails when it gains one.
+# check-comments --update-baseline only lowers or drops lines; never raise one.
+"""
+FIX = """
+Cut the comment, do not move it: history goes in the commit message and docs/,
+and a comment or docstring is one or two lines that record a constraint, a
+surprise or an issue number. Delete what a good name or the docs already say.
+docs/how-to/run-the-checks.md says more. Never raise a baseline by hand.
+"""
+
+
+def main() -> int:
+    top = subprocess.run(
+        ["git", "rev-parse", "--show-toplevel"],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
+    listed = subprocess.run(
+        ["git", "ls-files", "--cached", "--others", "--exclude-standard", "--", *SOURCES],
+        cwd=top,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.split("\n")
+    files = [p for p in listed if p.endswith(SUFFIXES) and p not in SKIP and Path(top, p).exists()]
+
+    ratios, docs = {}, {}
+    for path in files:
+        lines = scan(f"{top}/{path}")
+        percent, size = lines.ratio()
+        if size >= MIN_LINES and percent > RATIO_LIMIT:
+            ratios[path] = percent
+        if lines.long_docs:
+            docs[path] = lines.long_docs
+
+    ratio_base = read_baseline(f"{top}/{RATIO_BASELINE}")
+    doc_base = read_baseline(f"{top}/{DOC_BASELINE}")
+    if sys.argv[1:] == ["--update-baseline"]:
+        write_baseline(f"{top}/{RATIO_BASELINE}", RATIO_HEADER, ratios, ratio_base)
+        write_baseline(f"{top}/{DOC_BASELINE}", DOC_HEADER, docs, doc_base)
+        return 0
+
+    failures = []
+    for path, percent in sorted(ratios.items()):
+        allowed = (ratio_base or {}).get(path, RATIO_LIMIT)
+        if percent > allowed:
+            failures.append(
+                f"comments: {path} is {percent}% comment lines; the limit is {RATIO_LIMIT}%"
+                + (f" and its baseline is {allowed}%." if allowed > RATIO_LIMIT else ".")
+            )
+    for path, count in sorted(docs.items()):
+        allowed = (doc_base or {}).get(path, 0)
+        if count > allowed:
+            failures.append(
+                f"comments: {path} has {count} docstrings or JSDoc blocks over {DOC_LIMIT} lines;"
+                f" its baseline is {allowed}."
+            )
+    if not failures:
+        return 0
+    print("\n".join(failures), FIX, sep="\n", file=sys.stderr)
+    return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())
