@@ -225,7 +225,8 @@ runs as uid 1000 and cannot then write to it.
 ## Answer the review on a pull request
 
 Every pull request from this repo gets two Claude reviews in CI, `Review` and
-`Security`, beside Lint and Test. Each posts its findings as threads on the
+`Security`, once Lint and Test pass; a pull request that fails either gets no
+round. Each posts its findings as threads on the
 lines they name, tagged Important, Pre-existing or Nit, and a summary comment.
 `REVIEW.md` at the root of the repo says what they look for.
 
