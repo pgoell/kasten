@@ -68,7 +68,7 @@ async def test_807_a11_review_reads_time_on_the_vault_copy(
         print(f"{name} items={items} median={statistics.median(timings):.1f}ms p90={p90:.1f}ms")
 
 
-# The largest deck of the live vault, an imported Anki deck; any note path works.
+# A placeholder; set it to the largest deck to time a real one.
 DECK = os.environ.get("KASTEN_TIMING_DECK", "99 Misc/01 Config/decks.md")
 BOARD_RUNS = 20
 

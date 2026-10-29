@@ -95,7 +95,7 @@ const LONGTASK_BUDGET = 2;
 const FIRST_COMMIT_BUDGET = 6;
 const FIRST_LONGTASK_BUDGET = 3;
 
-// Measured: first draw 54 cards, 4 commits, 1 long task (95 ms). Scroll of 2090 px
+// Measured: first draw 54 cards, 4 commits, 1 long task (97 ms). Scroll of 2090 px
 // in 60 frames: 0 commits, 0 long tasks, worst frame gap 16.8 ms (printed only).
 // Budgets: scroll commits at most 1, long tasks at most 2, a little above the measured
 // 0. They prove the scroll does no React work and no long task on this board, so a
@@ -183,8 +183,7 @@ it("A3 #1321 draws and scrolls the todo board at phone width within its commit a
         ? [`longtasks ${scrolled.tasks} > ${LONGTASK_BUDGET}`]
         : []),
     ];
-    // The browser's console does not reach the terminal here, so the measured lines
-    // ride on the failure message too.
+    // The counts ride on the failure message too, so a breach shows what it measured.
     const timing = [
       `first-draw: cards=${cards} commits=${first.commits} longtasks=${first.tasks}`,
       `scroll: commits=${scrolled.commits} longtasks=${scrolled.tasks} longtask-ms=${scrolled.taskMs.toFixed(1)} worst-frame-gap-ms=${worstGap.toFixed(1)}`,

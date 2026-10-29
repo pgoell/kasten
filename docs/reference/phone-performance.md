@@ -302,13 +302,14 @@ listing of the notes, and at 75 ms it is not the slow part.
 
 ### The frames
 
-Two frame cases in `frontend/tests/frame/timing/` draw each at 390 by 844 px
+Three frame cases, in `todo-board-timing.test.tsx` and `review-timing.test.tsx`
+under `frontend/tests/frame/timing/`, draw each at 390 by 844 px
 with touch, on synthetic fixtures of the live vault's size, and count React
 commits (a `Profiler`) and long tasks (a `longtask` observer). They gate on
 counts, never on time, since a loaded box slows every task at once and a count
 does not move with it. The longest frame gap is printed only. Run them with
-`mise run fe:frame`; a passing run prints nothing, so set a budget to -1 to
-read the counts.
+`mise run fe:frame`; each prints its counts as `TIMING` lines through
+`console.error`, the level this runner shows.
 
 On 2026-10-29, desktop Chromium without CPU throttling, load 1.8:
 

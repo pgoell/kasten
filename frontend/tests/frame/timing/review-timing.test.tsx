@@ -124,7 +124,7 @@ async function reveal(screen: HTMLElement): Promise<void> {
   await expect.poll(() => screen.querySelector('button[data-rating="good"]')).not.toBeNull();
 }
 
-// Budget: 6 commits and 3 long tasks. Measured 4 commits and 1 long task (64 ms) on
+// Budget: 6 commits and 3 long tasks. Measured 4 commits and 1 long task (71 ms) on
 // the first open. The room over the measure absorbs a loaded box's extra task; a
 // second commit per card on open would blow past it.
 it("A4 #1321 opens a 1500-card deck at phone width within its commit and long-task budget", async () => {
@@ -134,7 +134,7 @@ it("A4 #1321 opens a 1500-card deck at phone width within its commit and long-ta
     .poll(() => screen.querySelector('[data-testid="review-card"] .cm-line'), { timeout: 30_000 })
     .not.toBeNull();
   const tasks = takeLongTasks();
-  console.log(
+  console.error(
     `TIMING review open cards=${CARDS} commits=${commits} longtasks=${tasks.count} longtask-ms=${tasks.ms} frame-gap-max-ms=${frameGap()}`,
   );
   expect.soft(commits).toBeLessThanOrEqual(6);
@@ -170,7 +170,7 @@ it("A4 #1321 steps through 20 cards at phone width within its commit and long-ta
       `TIMING review step=${step} commits=${made} longtasks=${tasks.count} longtask-ms=${tasks.ms}`,
     );
   }
-  console.log(
+  console.error(
     `TIMING review 20-steps commits=${totalCommits} longtasks=${totalLongTasks} worst-step-commits=${worstStep} frame-gap-max-ms=${frameGap()}`,
   );
   expect.soft(totalCommits).toBeLessThanOrEqual(48);
