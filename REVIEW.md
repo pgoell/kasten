@@ -14,18 +14,40 @@ before it reads the diff. Keep it short: every line costs a review.
 - A doc in `docs/` says something the code no longer does.
 - A migration that cannot run against the live database, or cannot go back.
 
+## Design
+
+Look at how the change is built as well as whether it works. The lints see
+one function or one file; they miss these, which
+`docs/how-to/review-an-area-for-deep-modules.md` explains at length:
+
+- A shallow module: a new file, function or component that only passes calls
+  on, or takes a pile of props to hand them down, and hides no work.
+- One task spread thin: the change touches many files to do one thing, or two
+  files it changes always change together and should be one.
+- A list written out twice: a second copy of something another file already
+  holds (kinds of pane, routes, settings), which must now be kept the same by
+  hand. Name every copy.
+- Code in the wrong home: put where the arguments happened to be, not where
+  the feature lives.
+- A file cut at a line count to fit the size limit, not along a module.
+- Breaking the rules in `.claude/CLAUDE.md`: a bare catchall, a dynamic import,
+  a comment that says what instead of why.
+- Code that does not read like its neighbours: another idiom, naming or comment
+  density than the file around it.
+
 ## What not to flag
 
-- Style, naming and formatting: ruff, Biome, ty and tsc already run.
+- Formatting and the rules ruff, Biome, ty and tsc already enforce.
 - Files under `docs/log/` and `backend/alembic/versions/` for being many.
 - A missing test where the PR body names the test that covers the line.
-- Taste. If it works, is tested and reads like its neighbours, let it be.
+- A design point about code the diff does not touch; the area review takes those.
 
 ## How to report
 
 - Every finding names a file and a line in the diff. Do not guess a file name.
 - Tag each finding, first word of the comment:
   - **Important**: a bug this diff brings in, or a gap against the linked issue.
+  - **Design**: a point from the list above, with the change you would make.
   - **Pre-existing**: a bug the base branch already has. It does not block this PR.
   - **Nit**: worth a look, safe to ignore.
 - Name the class of bug, so the author fixes every place it occurs, not one line.

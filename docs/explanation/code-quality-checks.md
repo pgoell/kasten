@@ -105,6 +105,10 @@ answered before the merge, tags that keep a bug the base branch already had
 from blocking the author, and a person only where the change is risky. Three
 choices keep it from costing more than it saves:
 
+- **It reviews design as well as bugs.** The lints count; the review asks
+  whether the change hides work behind a small interface or spreads one task
+  over files, the questions of [the area review](/how-to/review-an-area-for-deep-modules.md),
+  asked of the diff only.
 - **The rounds stop.** An agent author and an agent reviewer can cycle all
   night, each round finding one more old bug. After the first round a review
   reads only the new commits, and after three it stops and asks for a rethink.

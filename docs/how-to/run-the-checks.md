@@ -227,12 +227,14 @@ runs as uid 1000 and cannot then write to it.
 Every pull request from this repo gets two Claude reviews in CI, `Review` and
 `Security`, once Lint and Test pass; a pull request that fails either gets no
 round. Each posts its findings as threads on the
-lines they name, tagged Important, Pre-existing or Nit, and a summary comment.
+lines they name, tagged Important, Design, Pre-existing or Nit, and a summary
+comment.
 `REVIEW.md` at the root of the repo says what they look for.
 
 1. Fix each Important finding with a test, or resolve its thread with one
    sentence on why it is not a bug. Main takes no merge while a thread is open.
-2. Open an issue for each Pre-existing finding, and resolve the thread with
+2. Make each Design change, or resolve its thread with the reason the code
+   should stay as it is. Open an issue for each Pre-existing finding, and resolve the thread with
    its link. Fix a Nit or resolve it, as you see fit.
 3. Push. Each review reads only the commits since its last round. After three
    rounds it stops and says so in its round comment: rethink the change rather

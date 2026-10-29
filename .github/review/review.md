@@ -7,10 +7,12 @@ Read the diff of the commits this round covers with `git diff {FROM}...HEAD`, an
 read the code around it as far as you need: the callers of a changed function,
 the tests that cover it, the docs page that describes it. Check that the change
 does what the pull request says, fits the code around it, and breaks nothing
-that worked. For a bug fix, check it fixes the cause and not one symptom.
+that worked. For a bug fix, check it fixes the cause and not one symptom. Then
+read it again for how it is built, by the Design list in REVIEW.md.
 
-Report at most 10 findings. Only report a finding you can back with a line of
-code and a way to see it go wrong; leave out what you only suspect. Post each one
+Report at most 10 findings. Back a bug with a line of code and a way to see it
+go wrong, and a design point with the files it concerns and the change you
+would make; leave out what you only suspect. Post each one
 as an inline comment on its line, with confirmed=true, tagged as REVIEW.md says.
 Do not repeat a finding an earlier thread raised.
 
