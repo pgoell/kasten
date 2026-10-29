@@ -1,7 +1,7 @@
 ---
 type: Explanation
 title: Semantic search models
-description: Which embedding model could give kasten search by meaning and "notes like this one", local on the VPS's CPU or a paid API, what each costs in RAM, time or money for the live vault, how each reads German, and what pgvector needs, with bge-m3's query and indexing speed measured on the VPS; ends with the choice pgoell has to make.
+description: Which embedding model gives kasten search by meaning and "notes like this one", local or a paid API, what each costs for the live vault and how each reads German; pgoell picked local bge-m3 and BM25, and the page ends with what kasten would build and which BM25 extension Postgres needs.
 tags: [search, embeddings, pgvector, research]
 status: draft
 ---
@@ -11,15 +11,15 @@ status: draft
 [#954](https://github.com/pgoell/kasten/issues/954) wants search by meaning
 in the finder and for agents, and a "notes like this one" list beside the
 backlinks. Both need an embedding model: it turns a note into a vector, and
-notes whose vectors lie close mean similar things. The issue leaves the model
-to pgoell and asks for a short comparison first. This page is that
-comparison. Nothing here is built.
+notes whose vectors lie close mean similar things. The issue asked for a short
+comparison before pgoell picked a model. This page is that comparison and
+pgoell's answer: local bge-m3, and a hybrid search with BM25. Nothing here
+is built.
 
 Figures come in two kinds. **Cited** ones link their source. **Estimated**
 ones say so and show the sum. **Measured** ones come from bge-m3 run on the
-VPS, after pgoell asked how fast its queries and indexing would be; they are
-in [bge-m3 measured on the VPS](#bge-m3-measured-on-the-vps). The other
-models were not run.
+VPS, in [bge-m3 and pgvector on the VPS](/explanation/models-on-the-vps/bge-m3-and-pgvector-on-the-vps.md).
+The other models were not run.
 
 ## What kasten does today
 
@@ -95,7 +95,7 @@ German, English and Japanese.
 | German retrieval, MIRACL `de` nDCG@10 | 53.0 [Q3] | **57.6** [Q3] | 56.6 [Q3] |
 
 The time and RAM rows are estimates for all three. For bge-m3,
-[the measurement on the VPS](#bge-m3-measured-on-the-vps) replaces them:
+[the measurement on the VPS](/explanation/models-on-the-vps/bge-m3-and-pgvector-on-the-vps.md) replaces them:
 51 minutes and 2.2 GB without flashcards at 512-token pieces.
 
 **License.** e5 and bge-m3 state MIT on their cards; bge-m3's repo has no
@@ -131,69 +131,6 @@ as a rough order, not a ranking.
 of the lot, 64.3 [Q2], but a lower German score (54.2 [Q3]) than bge-m3 and
 the highest cost on a CPU. `multilingual-e5-small` (118M parameters, 384
 dimensions) is the fastest choice, at 50.8 on German [Q3].
-
-## bge-m3 measured on the VPS
-
-Run on 2026-10-28 on the VPS, beside the live services: bge-m3's own fp32
-ONNX export (`onnx/` in `BAAI/bge-m3` [L2]) under onnxruntime 1.31.1 on Python 3.12 (it ships wheels for the
-backend's 3.14 too), 8 of
-the 16 threads, at `nice 19`. The load average stood at 8 to 10 from the
-other containers throughout, so an idle machine would do somewhat better.
-The pieces are real vault text outside the flashcards, cut to a fixed length.
-Nothing went into kasten or its database.
-
-**Model.** Loading takes 1.8 s and 1.6 GB of RAM. In the backend it would load
-once at start.
-
-**A query.** A typed query is 9 to 14 tokens.
-
-| Step | p50 | p95 |
-|---|---|---|
-| Tokenize | 0.02 ms | |
-| Embed with bge-m3 (200 runs, German and English) | 45 ms | 53 ms |
-| Nearest 20 of 3,500 pieces, pgvector exact scan | 11 ms | 17 ms |
-| Nearest 20 of 3,500 pieces, pgvector HNSW | 1.1 ms | 1.2 ms |
-| Nearest 20 of 3,500 pieces, numpy in the backend | 3 ms | 7 ms |
-| **Whole query, embed and exact scan** | **≈56 ms** | **≈70 ms** |
-
-So a search by meaning answers in well under a tenth of a second, and the
-model, not the vector search, takes most of it. The vector search used a
-throwaway `pgvector/pgvector:pg17` container (pgvector 0.8.7, 4 CPUs) with
-random unit vectors: their count and width set the time, not their content.
-Ten times the pieces (35,000) still answers in 157 ms exact or 3.7 ms with
-HNSW, whose build then takes 172 s and 461 MB.
-
-**Indexing.** The bge-m3 tokenizer counts 2.08M tokens outside the
-flashcards, more than the 1.7M estimated above. Throughput falls as pieces
-grow, because attention costs grow with the square of their length:
-
-| Piece length | Batch | Tokens a second | Whole vault without flashcards | Peak RAM |
-|---|---|---|---|---|
-| 512 | 8 | 676 | **51 min** | 2.2 GB |
-| 1,024 | 4 | 533 | 65 min | 3.1 GB |
-| 2,048 | 2 | 375 | 1.5 h | 4.3 GB |
-| 8,192 | 1 | 149 | 3.9 h | 13 GB |
-
-Each row ran 32,000 to 49,000 tokens and the vault time extrapolates from
-it; the 8,192 row rests on four pieces, so read it as rough. The estimate
-above (1.0 to 3.1 h) was too slow for short pieces and about right for whole
-notes.
-
-What this means for kasten:
-
-* **Use 512-token pieces.** Feeding bge-m3 whole notes of up to 8,192 tokens
-  is four times slower a token and needs six times the RAM. Short pieces also
-  point a hit at the part of a note that matched.
-* **The first pass is about an hour,** once, in the background, while
-  ripgrep search keeps working. At 512 the vault makes about 4,000 to 5,000
-  pieces, 46 MB in pgvector.
-* **Keeping up is cheap.** Saving a median note (≈1,050 tokens, three pieces)
-  re-embeds in 2 to 3 s. A busy week's 0.38M changed tokens is about ten
-  minutes of work, less with re-embeds driven by a hash of each piece.
-* **No vector index is needed** at this size: the exact scan takes 11 ms.
-  HNSW pays off past tens of thousands of pieces.
-
-The two benchmark scripts and their raw output are in a comment on #1260.
 
 ## Paid APIs
 
@@ -237,85 +174,93 @@ launch post gives 3-small a MIRACL mean of 44.0 over its languages [P12],
 well under bge-m3's German 57.6. Before choosing an API, check its German
 tasks on the MMTEB leaderboard [Q6].
 
-## pgvector on the shared postgres
+## Why bge-m3
 
-kasten_prod lives in the shared `postgres` container, defined in
-`~/Code/server-infra/docker-compose.yml` as `postgres:17-alpine` (PostgreSQL
-17.11). That image does not ship pgvector: `pg_available_extensions` has no
-`vector` row today. Dev runs the same image from this repo's `compose.yaml`.
-This page changes neither.
-
-What it would take:
-
-* **Version.** pgvector 0.8.7, released 2026-10-01, supports PostgreSQL 13
-  and up [V1][V2].
-* **Image.** Either `pgvector/pgvector:pg17`, which is Debian and glibc
-  [V3], or an image `FROM postgres:17-alpine` that builds pgvector from
-  source (`make`, `make install`) [V2]. Moving the existing data directory
-  from alpine (musl) to Debian (glibc) changes how text sorts under a libc
-  collation, so every such text index needs a `REINDEX` first, or a lookup
-  can miss rows that are there [V4]. The alpine build keeps the data
-  directory as it is. The change goes through the server-infra repo, and the
-  dev compose here needs the same image.
-* **Extension.** `CREATE EXTENSION vector;` once in kasten_prod [V2].
-* **Column and index.** `vector(1024)` for bge-m3 or Mistral, `vector(1536)`
-  for OpenAI. An HNSW index with `vector_cosine_ops`: it needs no training
-  data and keeps up with rows that change, where IVFFlat must be built after
-  the data is in [V2]. HNSW indexes `vector` up to 2,000 dimensions and
-  `halfvec` up to 4,000, so 3-large's 3,072 needs `halfvec` [V2]. At this
-  vault's size an exact scan with no index is fast enough: 11 ms over 3,500
-  rows, measured in [bge-m3 measured on the VPS](#bge-m3-measured-on-the-vps).
+German decides it: the vault's prose is German and English, and bge-m3 has
+the best published German retrieval score here; no API publishes one. A
+local model also keeps every note on the VPS. Speed only says it is usable:
+a query takes about 56 ms and the first pass without flashcards about 51
+minutes at 512-token pieces, in 2.2 GB of the VPS's 44 GiB available. The
+fallback is OpenAI's 3-small, a few cents a month (**MONEY**, $0.02 per 1M
+tokens), without the German edge or the privacy.
 
 ## What kasten would need
 
-* **A table that can be thrown away:** note path, piece number, a hash of the
-  piece's text, the vector. Dropping it and rebuilding from the vault gives
-  the same rows, as [the one rule](/explanation/vault-and-derived-index.md)
-  asks.
-* **Pieces.** A model reads only so many tokens. At 512 a median note
-  becomes two or three pieces and 382 notes need splitting; at 8,192 only
-  the 55 longest notes do. On the VPS's CPU bge-m3 should still get 512:
-  whole notes run four times slower a token. Split by heading, then by
-  length.
-* **The event path.** Re-embed after a write through the API, after a file
-  change seen by the watcher (Obsidian, jj, the shell), and once on startup
-  for anything whose hash differs. The startup sweep makes the other two
-  safe to miss.
+pgoell approved local bge-m3 on #1260 (2026-10-28) and answered the open
+points on 2026-10-29: "I'd like to go with bm25, otherwise i agree with all
+suggestions and the 64 token overlap". So the plan is:
+
+* **Pieces.** Split each note by heading, then by length to about 512
+  tokens, with a 64-token overlap between neighbouring pieces. At 512 a
+  median note becomes two or three pieces.
+* **A prefix.** Before embedding, each piece gets the note's title and its
+  heading path in front (`Steuer 2025 > Kapitalerträge > Freibetrag`), so a
+  piece cut out of its note still says what it is about.
+* **What stays.** The fuzzy path finder and the ripgrep exact search stay as
+  they are.
+* **A new ranked search, hybrid.** BM25 full text and bge-m3 vectors over the
+  same pieces, each giving a ranked list, fused by reciprocal rank fusion
+  (each piece scores the sum of `1 / (60 + rank)` over the lists). BM25
+  finds the exact word, a name or a number; the vectors find the meaning.
+* **"Notes like this one"** uses the vectors only: the note's own pieces
+  against everyone else's.
+* **bge-m3's sparse weights** (its third output, one weight a token) stay an
+  option, not a plan. BM25 covers the same ground with less to build.
+* **A table that can be thrown away:** note path, piece number, heading path,
+  a hash of the piece's text, its text for BM25, the vector. Dropping it and
+  rebuilding from the vault gives the same rows, as
+  [the one rule](/explanation/vault-and-derived-index.md) asks.
+* **The event path.** Re-index a note's pieces after a write through the
+  API, after a file change seen by the watcher (Obsidian, jj, the shell), and
+  once on startup for anything whose hash differs. The startup sweep makes
+  the other two safe to miss.
 * **The flashcards** stay out by path until someone asks for them.
 
-## Recommendation
+### BM25 in Postgres
 
-Three things decide it:
+Postgres's own `ts_rank` counts matches but is not BM25: it knows nothing of
+how rare a word is across the vault or how long a piece is. BM25 needs an
+extension. Prod today runs `postgres:17-alpine` (PostgreSQL 17.11, musl) in
+the shared `postgres` container from `~/Code/server-infra/docker-compose.yml`,
+with no pgvector and no BM25 extension; dev runs the same image from this
+repo's `compose.yaml`. Every license below was read from the project's
+LICENSE file.
 
-1. **German.** The vault's prose is German and English. bge-m3 has the best
-   published German retrieval score here; no API publishes one.
-2. **Speed.** Measured on the VPS, a bge-m3 query answers in about 56 ms,
-   and the first pass over the vault without flashcards takes about 51
-   minutes at 512-token pieces. Speed answers whether bge-m3 is usable, not
-   why to pick it: it is the slowest of the three, and at 512-token pieces
-   its 8,192-token window no longer counts. The choice over e5-base rests on
-   German alone.
-3. **Where the text goes.** A local model keeps every note on the VPS. Every
-   API sends it to another company, and for Voyage that means training by
-   default.
+| | pg_textsearch | ParadeDB pg_search | VectorChord-BM25 | plpgsql_bm25 |
+|---|---|---|---|---|
+| License | PostgreSQL License [B1] | **AGPL-3.0** [B4]; paid Enterprise adds index replication [B5] | **AGPLv3 or ELv2**, your pick of two restrictive ones [B8]; its tokenizer is Apache-2.0 [B9] | Unlicense, public domain [B11] |
+| PG17, beside pgvector | Yes, PG 17 and 18; preload [B2] | Yes, PG 15 to 18; preload; needs pgvector since 0.25 [B6] | Yes, PG 14 to 18 [B10] | Yes, plain SQL functions [B11] |
+| Prod image change | Off alpine to Debian, or a source build on alpine (plain C `make`, untried on musl) [B2] | Off alpine: `paradedb/paradedb` is `FROM postgres:17-trixie` with pgvector 0.8.6 [B7] | Off alpine: glibc packages and the `vchord-suite` image only [B10] | None |
+| German and English | Postgres text configs, one per index: `german`, `english`, `simple` [B2] | Snowball stemmers for both, stopwords for both at once, ICU tokenizer [B6] | Tested on English only; no German stopword list built in [B9] | German stopwords, no stemming [B11] |
+| Cost per note save | Write goes to a memtable, spills into segments merged in line; REINDEX if update-heavy work fragments it [B2][B3] | Mutable segment of 1,000 rows, background merges, 15 MB `work_mem` a write [B6] | Growing segment, sealed later; merges not documented [B10] | Rebuild on change (unverified) [B11] |
+| Maintained | v1.5.1, 2026-10-02, active [B1] | v0.26.3, 2026-10-22, very active [B4] | 0.3.0, 2025-12-15; tokenizer quiet since 2025-09 [B8][B9] | Small one-person project [B11] |
 
-The VPS has 44 GiB available, so bge-m3's 2.2 GB at 512-token pieces is
-affordable. Its first pass runs once, in the background, and a saved note
-re-embeds in 2 to 3 s. If that hour or that RAM is too much, OpenAI's
-3-small costs a few cents a month (**MONEY**, $0.02 per 1M tokens) and gives
-up the German edge and the privacy.
+Also looked at: PGroonga is PostgreSQL-licensed and the only one with an
+alpine image, but scores by TF-IDF, not BM25 [B12]; ZomboDB is archived and
+needs Elasticsearch.
 
-**Recommended: local `BAAI/bge-m3`, run under onnxruntime on 512-token
-pieces, flashcards left out.**
+**Pick: pg_textsearch.** It is the one real BM25 index under a permissive
+license with no paid tier, it is maintained, it runs on PG17 beside pgvector,
+and it uses the stemmers Postgres already has for German and English.
+ParadeDB tokenises better, but it is AGPL with a paid tier, and its write
+path is heavier than one user needs. VectorChord-BM25 is AGPL or ELv2 and
+only tested on English. plpgsql_bm25 needs no image change but would rebuild
+on every save. Costs no money.
 
-**pgoell's choice:** one embedding model, local or API. Answer in this shape:
+What the pick asks of prod, in the server-infra repo, not here:
 
-* `954: local BAAI/bge-m3` (recommended)
-* `954: local intfloat/multilingual-e5-base` (smaller, faster, weaker German)
-* `954: API openai/text-embedding-3-small` (**MONEY**, $0.02 per 1M tokens)
-* `954: API mistral/mistral-embed` (**MONEY**, $0.10 per 1M tokens, EU hosted)
-
-Add `+ flashcards` to embed the kanji notes as well.
+* **An image** with pgvector and pg_textsearch: a source build of both
+  `FROM postgres:17-alpine` keeps the data directory as it is; if
+  pg_textsearch will not build on musl, `pgvector/pgvector:pg17` (Debian)
+  plus pg_textsearch, and then a `REINDEX` of every text index in every
+  database on the container before use, since glibc sorts text differently
+  from musl ([bge-m3 and pgvector on the VPS](/explanation/models-on-the-vps/bge-m3-and-pgvector-on-the-vps.md#pgvector-on-the-shared-postgres)).
+* **`shared_preload_libraries = 'pg_textsearch'`**, which takes a restart of
+  the shared container and so a short stop for every database on it.
+* **Two BM25 indexes** on the pieces' text, one `german` and one `english`,
+  queried side by side and fed into the same fusion as the vectors. That
+  needs no language guess per piece, and the vault mixes both inside one
+  note.
 
 ## Sources
 
@@ -351,9 +296,17 @@ Paid APIs:
 * [P11] [Voyage FAQ](https://docs.voyageai.com/docs/faq)
 * [P12] [OpenAI, new embedding models](https://openai.com/index/new-embedding-models-and-api-updates/)
 
-pgvector:
+BM25 in Postgres:
 
-* [V1] [pgvector changelog](https://github.com/pgvector/pgvector/blob/master/CHANGELOG.md)
-* [V2] [pgvector README](https://github.com/pgvector/pgvector)
-* [V3] [pgvector image tags](https://hub.docker.com/r/pgvector/pgvector/tags?name=pg17) and [its Dockerfile](https://github.com/pgvector/pgvector/blob/master/Dockerfile)
-* [V4] [PostgreSQL wiki, locale data changes](https://wiki.postgresql.org/wiki/Locale_data_changes)
+* [B1] [pg_textsearch LICENSE](https://github.com/timescale/pg_textsearch/blob/main/LICENSE) and [releases](https://github.com/timescale/pg_textsearch/releases)
+* [B2] [pg_textsearch README](https://github.com/timescale/pg_textsearch)
+* [B3] [pg_textsearch ARCHITECTURE.md](https://github.com/timescale/pg_textsearch/blob/main/ARCHITECTURE.md)
+* [B4] [ParadeDB LICENSE](https://github.com/paradedb/paradedb/blob/main/LICENSE) and [releases](https://github.com/paradedb/paradedb/releases)
+* [B5] [ParadeDB Enterprise](https://www.paradedb.com/docs/operate/deploy/enterprise)
+* [B6] ParadeDB docs: [install](https://www.paradedb.com/docs/operate/deploy/self-hosted/extension), [stemming](https://www.paradedb.com/docs/reference/token-filters/stemming), [stopwords](https://www.paradedb.com/docs/reference/token-filters/stopwords), [writes](https://www.paradedb.com/docs/operate/performance-tuning/writes)
+* [B7] [ParadeDB Dockerfile for PG17](https://github.com/paradedb/paradedb/blob/main/docker/Dockerfile.paradedb-17)
+* [B8] [VectorChord-BM25 LICENSE](https://github.com/tensorchord/VectorChord-bm25/blob/main/LICENSE) and [releases](https://github.com/tensorchord/VectorChord-bm25/releases)
+* [B9] [pg_tokenizer LICENSE](https://github.com/tensorchord/pg_tokenizer.rs/blob/main/LICENSE) and [docs](https://github.com/tensorchord/pg_tokenizer.rs/tree/main/docs)
+* [B10] [VectorChord-BM25 README](https://github.com/tensorchord/VectorChord-bm25) and [VectorChord images](https://github.com/tensorchord/VectorChord-images)
+* [B11] [plpgsql_bm25](https://github.com/jankovicsandras/plpgsql_bm25)
+* [B12] [PGroonga images](https://github.com/pgroonga/docker)
