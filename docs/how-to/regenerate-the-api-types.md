@@ -32,6 +32,20 @@ mise run fe:typecheck
 A route you changed but did not regenerate shows up here as a type error in
 whatever calls it.
 
+## When Lint says the API changed
+
+`frontend/openapi.json` is the API contract's snapshot. `mise run lint`, and so
+the pre-commit hook and CI's Lint job, runs `lint:openapi`, which dumps the
+schema and diffs it against that file. When they differ it prints the diff and:
+
+```text
+The API changed: run `mise run fe:types` and commit frontend/openapi.json and frontend/src/lib/api-types.ts.
+```
+
+Do that, in the same pull request as the route change, so the reviewer sees the
+contract change as a diff of `frontend/openapi.json`. Never edit the file by
+hand to make the check pass: the types would no longer match it.
+
 ## Why the generator runs through bunx
 
 `openapi-typescript` builds its output with the TypeScript compiler API and

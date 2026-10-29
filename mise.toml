@@ -198,7 +198,7 @@ description = "Run the fast linters, both type checkers, the file-size, fan-out 
 # this the frontend was the half where a type error reached the branch. It
 # brings `fe:build` with it, which is what emits the gitignored route tree, and
 # the pair costs about two seconds.
-depends = ["lint:py", "lint:size", "lint:fanout", "lint:dup", "lint:imports", "fe:lint", "fe:typecheck", "shell:lint"]
+depends = ["lint:py", "lint:size", "lint:fanout", "lint:dup", "lint:imports", "lint:openapi", "fe:lint", "fe:typecheck", "shell:lint"]
 
 [tasks."lint:py"]
 description = "Lint, format-check and type-check the backend and the host jobs"
@@ -230,6 +230,13 @@ description = "Fail when more than 1% of frontend/src, backend/src and jobs/src 
 # quiet run prints nothing; only a failure runs it again to list the clones.
 # Limits and paths are in .jscpd.json.
 run = "frontend/node_modules/.bin/jscpd --silent >/dev/null 2>&1 || frontend/node_modules/.bin/jscpd"
+
+[tasks."lint:openapi"]
+description = "Fail when the backend's OpenAPI schema differs from the committed frontend/openapi.json"
+# The committed schema is the API contract's snapshot, so a change to a route's
+# shape shows in the pull request as a diff of it. Dumping takes about 4 s, run
+# beside the other linters.
+run = "uv run --directory backend python ../scripts/dump_openapi.py | diff -u frontend/openapi.json - || { echo 'The API changed: run `mise run fe:types` and commit frontend/openapi.json and frontend/src/lib/api-types.ts.'; exit 1; }"
 
 [tasks."lint:imports"]
 description = "Check the import boundaries (import-linter, dependency-cruiser) and ban dynamic imports"

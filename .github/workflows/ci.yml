@@ -136,6 +136,26 @@ jobs:
       - name: Frame gate
         run: mise run fe:frame
 
+  # Lists the packages this pull request adds to the lockfiles, with licence and
+  # latest release, and fails on a licence outside the allowlist. Registry
+  # metadata only, so it needs no secrets and runs for forks and Dependabot too.
+  # Not behind `changes`: an empty pull request adds no package and passes.
+  dependencies:
+    name: Dependencies
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      # The base in a variable of its own, so a failed merge-base stops the step
+      # instead of passing an empty base, which git would read as the index.
+      - run: |
+          set -euo pipefail
+          base=$(git merge-base "origin/$GITHUB_BASE_REF" HEAD)
+          python3 .github/deps/new_dependencies.py "$base"
+
   # Names an artifact after the tree this run checked out, once Lint, Test and
   # Perf have all passed, so the gate of the push run on main can find it. The
   # tree, not the commit: the squash commit on main differs from the merge ref

@@ -11,7 +11,7 @@ import sys
 from pathlib import Path
 from typing import Any, NamedTuple
 
-SCRIPT = Path(__file__).parents[2] / "scripts" / "ci_main_gate.py"
+SCRIPT = Path(__file__).parents[3] / "scripts" / "ci_main_gate.py"
 REPO = "owner/repo"
 SHA = "c1"
 COMMITS = f"repos/{REPO}/commits/{SHA}"
