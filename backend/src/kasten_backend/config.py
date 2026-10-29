@@ -108,6 +108,22 @@ class Settings(BaseSettings):
     note in one jj change, and a sync tool beside it will copy that everywhere.
     """
 
+    embed_model_dir: Path | None = None
+    """The folder holding bge-m3's ONNX export, or None to keep the pieces index off.
+
+    `model.onnx`, its `model.onnx_data` and `tokenizer.json`, as
+    `fetch-bge-m3.sh` in server-infra lays them out. Off by default: the model
+    is 2.2 GB and 2 GB of RAM, which a dev checkout or a test run should not pay
+    for without asking.
+    """
+
+    pieces_skip: str = ""
+    """A folder the pieces index leaves out, or empty for none.
+
+    The flashcards, on the one vault that runs it: a deck is hundreds of
+    one-line cards, which would crowd every search and cost an hour to embed.
+    """
+
     flashcards_path: str = "03 Flashcards"
     """The folder an imported Anki deck is written into.
 

@@ -29,7 +29,9 @@ def test_migration_0012_goes_up_down_and_up(scratch_database: str) -> None:
 
     try:
         alembic(scratch_database, "downgrade", "0011")
-        assert tables(scratch_database) == at_head - {"public.token_action"}
+        # Going below 0012 takes 0013's pieces tables down with it.
+        later = {"public.token_action", "public.pieces", "public.piece_notes"}
+        assert tables(scratch_database) == at_head - later
     finally:
         alembic(scratch_database, "upgrade", "head")
 

@@ -82,8 +82,9 @@ its own would be plumbing for a container you look at rather than through.
 
 ## Nothing rebuilds the vault
 
-Postgres holds no index of the vault yet, and any index it comes to hold must
-rebuild from the vault at any time, which is the whole point of
+Postgres holds one index of the vault, the
+[pieces index](/explanation/models-on-the-vps/the-pieces-index.md), and it rebuilds from the vault at
+any time, which is the whole point of
 [The vault and the derived index](/explanation/vault-and-derived-index.md). The
 vault cannot be rebuilt from anything. Three things in Postgres do not rebuild
 either. The `finance` schema is a record of its own, see

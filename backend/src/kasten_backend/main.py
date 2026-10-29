@@ -22,6 +22,7 @@ from kasten_backend.files import RefusedError
 from kasten_backend.finance_guard import FinanceGuard
 from kasten_backend.guide import write_guide
 from kasten_backend.okf import prepare
+from kasten_backend.pieces import indexer
 from kasten_backend.routes import (
     anki,
     anki_imports,
@@ -99,6 +100,9 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     await purge_trash(settings.vault_path, settings.trash_days)
     uploads.wipe(settings.upload_path)
     sweeping = asyncio.create_task(uploads.sweeping(settings.upload_sweep_seconds))
+    # After the backfill and the guides, so the first sweep reads the vault as
+    # this start leaves it rather than embedding notes about to change.
+    indexing = indexer.start(settings)
     try:
         # A mounted sub-application does not run its own lifespan, and the MCP
         # session manager is single-use, so the endpoint is built here and
@@ -107,6 +111,8 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
             yield
     finally:
         sweeping.cancel()
+        if indexing is not None:
+            indexing.cancel()
         # After the requests have closed, so an import past its answer is the
         # only thing left to stop, and it undoes its writes as it goes.
         await anki_imports.stop()

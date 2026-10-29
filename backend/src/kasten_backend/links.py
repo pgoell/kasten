@@ -18,7 +18,7 @@ That is `splitTarget` taking the heading and the alias off `[[name#heading|alias
 then `wikiLinkPath` finding the note the name is. `names_a_file` and
 `named_path` are the half of `wikiLinkPath` that tells a file from a note. Two
 copies of one rule is the cost of the editor resolving a link without asking the
-server, so the cases live once, in `backend/tests/link_paths.json`, and both
+server, so the cases live once, in `backend/tests/fixtures/link_paths.json`, and both
 test suites read them.
 """
 

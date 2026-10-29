@@ -118,5 +118,6 @@ slow rebuild, so:
   kasten records that a pull was asked for, and the job, polling every
   minute, does the pull. So bank logins never reach the backend, and a bank
   that hangs on a TAN holds up a job, not a request.
-- **No index of the vault in the same schema.** The derived index, when it
-  comes, stays outside `finance` and stays disposable.
+- **No index of the vault in the same schema.** The
+  [pieces index](/explanation/models-on-the-vps/the-pieces-index.md) sits outside `finance` and
+  stays disposable.

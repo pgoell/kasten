@@ -12,7 +12,9 @@ status: draft
 compares embedding models for #954 and says what kasten would build. This
 page holds the two parts it rests on: bge-m3 measured on the VPS after
 pgoell asked how fast its queries and indexing would be, and what pgvector
-needs on the shared postgres. Nothing here is built.
+needs on the shared postgres. Nothing here is built. #1326 built the pieces
+table and indexer on an alpine source build, with no move to Debian: see
+[The pieces index](/explanation/models-on-the-vps/the-pieces-index.md).
 
 ## bge-m3 measured on the VPS
 
