@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # Writes .review/context.md: the pull request's title and body, the issues it
 # closes or is part of, and the earlier review threads, keeping only text by
-# this workflow's bot and the owner.
+# this workflow's bot, the owner and the pull request's author. The review runs
+# only on a branch of this repo, so the author can push here: the issue loop's
+# bot account, whose body and answers the reviewer must read.
 # Anyone may comment on a public pull request; a stranger's comment must not
 # reach the reviewer as if it were part of the task.
 #
@@ -9,7 +11,8 @@
 set -euo pipefail
 
 mkdir -p .review
-trusted="[\"github-actions[bot]\", \"$OWNER\"]"
+author=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR" --jq .user.login)
+trusted="[\"github-actions[bot]\", \"$OWNER\", \"$author\"]"
 {
   gh api "repos/$GITHUB_REPOSITORY/pulls/$PR" \
     --jq "if (.user.login | IN(${trusted}[])) then \"# \" + .title + \"\n\n\" + (.body // \"\") else \"# \" + .title end"

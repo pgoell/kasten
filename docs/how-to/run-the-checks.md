@@ -234,8 +234,8 @@ round. Only Important findings become threads on the lines they name, and main
 takes no merge while a thread is open. Design, Pre-existing and Nit findings
 from `Review` are lines in its summary comment, and nothing waits on them.
 `REVIEW.md` at the root of the repo says what they look for, and the review
-also reads the issues the pull request closes or is part of, when pgoell wrote
-them.
+also reads the issues the pull request closes or is part of, when pgoell or the
+pull request's author wrote them.
 
 1. Answer each Important thread with a reply whose first word says what you
    did, then resolve it: `Fixed` (with a test), `Rejected` (it is not a bug,
