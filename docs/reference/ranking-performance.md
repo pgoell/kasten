@@ -22,8 +22,8 @@ is about 2.0x slower, which is why the gates carry the multiplier they do.
 
 | Surface | Bar | Gated |
 | --- | --- | --- |
-| Prompt keystroke at 10,000 notes | 16 ms end to end, about 4 ms of it JS | yes |
-| Finder keystroke at 10,000 notes | 16 ms end to end, about 4 ms of it JS | yes |
+| Prompt keystroke at 10,000 notes | 16 ms end to end, about 4 ms of it JS | no, recorded; the rankings and rows it does are counted |
+| Finder keystroke at 10,000 notes | 16 ms end to end, about 4 ms of it JS | no, recorded; the rankings and rows it does are counted |
 | Either at 50,000 notes | under 100 ms end to end | no, recorded |
 | Editor keystroke | no wasted re-renders, asserted as a count | yes, exact |
 | `GET /api/files`, `buildTree`, load and first paint | none | no, recorded |
@@ -278,7 +278,7 @@ for it.
 frames cannot resolve in under two refresh periods, about 33.3 ms at 60Hz, so
 that number reads 33.3 ms however cheap the keystroke is and steps to about
 50 ms once the work overruns its frame. It is logged as context and asserted on
-by nothing. The commit figure is the gated one.
+by nothing. The commit figure is the one to read, and it is logged too.
 
 **An agent-driven run sees no logged numbers.** Vitest picks `MinimalReporter`
 when `std-env` detects `CLAUDECODE`, `CLAUDE_CODE` or `AI_AGENT`, and that
