@@ -24,7 +24,7 @@ import type { ReviewLimits, SearchHit } from "@/lib/api";
 import { noteName } from "@/lib/note-path";
 import { type Divided, divide, parks, suspended } from "@/lib/review/card-line";
 import { deckPath, withoutTags } from "@/lib/review/deck-tag";
-import { parseCards } from "@/lib/review/srs";
+import { type Card, parseCards } from "@/lib/review/srs";
 import {
   answeredToday,
   learning,
@@ -116,17 +116,22 @@ function limitsIn(note: string): Map<string, DeckLimit> {
   for (const line of note.split("\n")) {
     const [, name, value] = LIMIT_LINE.exec(line.trim()) ?? [];
     if (name === undefined || value === undefined) continue;
-    const limit: DeckLimit = {};
-    let read = true;
-    for (const half of value.split(",")) {
-      const [, count, kind] = LIMIT_HALF.exec(half.trim()) ?? [];
-      if (count === undefined) read = false;
-      else if (kind === "new") limit.fresh = Number(count);
-      else limit.due = Number(count);
-    }
-    if (read) decks.set(name.trim(), limit);
+    const limit = limitIn(value);
+    if (limit !== null) decks.set(name.trim(), limit);
   }
   return decks;
+}
+
+/** The limit a line's value sets, null where any half of it fails to read. */
+function limitIn(value: string): DeckLimit | null {
+  const limit: DeckLimit = {};
+  for (const half of value.split(",")) {
+    const [, count, kind] = LIMIT_HALF.exec(half.trim()) ?? [];
+    if (count === undefined) return null;
+    if (kind === "new") limit.fresh = Number(count);
+    else limit.due = Number(count);
+  }
+  return limit;
 }
 
 /**
@@ -193,6 +198,91 @@ function earlier(one: string | null, two: string | null): string | null {
   return one < two ? one : two;
 }
 
+/** Answered today, per deck: reviews done, new cards introduced, and cards in learning. */
+type Answered = { due: number; fresh: number; learning: number };
+
+/** Adds `deck` into the row held under `key`, or holds it there. */
+function merge(decks: Map<string, Deck>, key: string, deck: Deck): void {
+  const held = decks.get(key);
+  if (held === undefined) {
+    decks.set(key, deck);
+    return;
+  }
+  held.due += deck.due;
+  held.fresh += deck.fresh;
+  held.parked += deck.parked;
+  held.next = earlier(held.next, deck.next);
+  for (const note of deck.notes) if (!held.notes.includes(note)) held.notes.push(note);
+}
+
+/** The row of a note tagged `#review`, which is itself the card. */
+function wholeNoteDeck(note: string, name: string, text: string, today: string): Deck {
+  const due = readNoteSchedule(text)?.due;
+  // The whole-note twin of the token on a card's line, and exclusive the same
+  // way: a parked note is one the sitting will not ask, whatever date it carries.
+  const held = readNoteSuspended(text);
+  const waiting = !held && due !== undefined;
+  return {
+    name,
+    notes: [note],
+    due: waiting && due <= today ? 1 : 0,
+    fresh: !held && due === undefined ? 1 : 0,
+    parked: held ? 1 : 0,
+    whole: true,
+    next: waiting && due > today ? due : null,
+  };
+}
+
+/** The row one card adds to `deck`. */
+function cardDeck(deck: string, note: string, card: Card, today: string): Deck {
+  // Parked first, and exclusive: a parked card is one the sitting will not ask,
+  // whatever date it is carrying.
+  const live = card.parked === null;
+  const due = live && card.held !== null ? card.held.due : null;
+  return {
+    name: deck,
+    notes: [note],
+    due: due !== null && due <= today ? 1 : 0,
+    fresh: live && card.held === null ? 1 : 0,
+    parked: live ? 0 : 1,
+    whole: false,
+    next: due !== null && due > today ? due : null,
+  };
+}
+
+/** Counts `card` into `deck`'s answers today. */
+function tally(answered: Map<string, Answered>, deck: string, card: Card, today: string): void {
+  const count = answered.get(deck) ?? { due: 0, fresh: 0, learning: 0 };
+  answered.set(deck, count);
+  // A parked card counts against no limit, the way it is asked in no sitting.
+  if (card.parked !== null) return;
+  const done = answeredToday(card.held, today);
+  if (done === "review") count.due += 1;
+  if (done === "new") count.fresh += 1;
+  // Its new slot was spent on its first answer, so a second asking spends none,
+  // of either limit.
+  if (learning(card.held)) count.learning += 1;
+}
+
+/** Cuts each deck's `due` and `fresh` to what today's limits leave. */
+function applyLimits(decks: Map<string, Deck>, answered: Map<string, Answered>, limits: Limits) {
+  const set = limitsIn(limits.note ?? "");
+  for (const [key, deck] of answered) {
+    const held = decks.get(key);
+    // A whole note is keyed apart and never here: it is one thing to re-read,
+    // and a limit on it would be a limit of one.
+    if (held === undefined) continue;
+    const limit = limitOf(key, set, limits.defaults);
+    if (limit.due !== null) {
+      const reviews = held.due - deck.learning;
+      held.due = deck.learning + Math.max(0, Math.min(reviews, limit.due - deck.due));
+    }
+    if (limit.fresh !== null) {
+      held.fresh = Math.max(0, Math.min(held.fresh, limit.fresh - deck.fresh));
+    }
+  }
+}
+
 /**
  * Every deck the notes hold, sorted by name.
  *
@@ -206,23 +296,7 @@ export function decksFrom(notes: DeckNote[], today: string, limits?: Limits): De
   // Keyed by name, so one tag in three notes is one deck. A whole note is keyed
   // by its path instead: it is not a tag, and nothing should merge with it.
   const decks = new Map<string, Deck>();
-  /**
-   * Per deck, the cards answered today: reviews done and new cards introduced,
-   * and the cards in learning, which no limit holds back.
-   */
-  const answered = new Map<string, { due: number; fresh: number; learning: number }>();
-  const bump = (key: string, deck: Deck) => {
-    const held = decks.get(key);
-    if (held === undefined) {
-      decks.set(key, deck);
-      return;
-    }
-    held.due += deck.due;
-    held.fresh += deck.fresh;
-    held.parked += deck.parked;
-    held.next = earlier(held.next, deck.next);
-    for (const note of deck.notes) if (!held.notes.includes(note)) held.notes.push(note);
-  };
+  const answered = new Map<string, Answered>();
 
   for (const { path: note, text } of notes) {
     const name = noteName(note);
@@ -234,74 +308,23 @@ export function decksFrom(notes: DeckNote[], today: string, limits?: Limits): De
     // specific claim: `#review` says ask me this note, and a note that says
     // which parts of itself to ask has already answered that.
     if (asked.length === 0) {
-      if (!REVIEW_TAG.test(text)) continue;
-      const due = readNoteSchedule(text)?.due;
-      // The whole-note twin of the token on a card's line, and exclusive the
-      // same way: a parked note is one the sitting will not ask, whatever date
-      // it carries.
-      const held = readNoteSuspended(text);
-      bump(`note:${note}`, {
-        name,
-        notes: [note],
-        due: !held && due !== undefined && due <= today ? 1 : 0,
-        fresh: !held && due === undefined ? 1 : 0,
-        parked: held ? 1 : 0,
-        whole: true,
-        next: !held && due !== undefined && due > today ? due : null,
-      });
+      if (REVIEW_TAG.test(text))
+        merge(decks, `note:${note}`, wholeNoteDeck(note, name, text, today));
       continue;
     }
 
     for (const card of asked) {
-      // A parked card counts against no limit, the way it is asked in no sitting.
-      const done = card.parked === null ? answeredToday(card.held, today) : null;
       // Every deck above the one named counts the card too, the way `inDeck`
       // asks it in a sitting of any of them, and the Set is what keeps a card
       // tagged `databases` and `databases/postgres` counted once in the parent.
       for (const deck of new Set(card.decks.flatMap(deckPath))) {
-        const tally = answered.get(deck) ?? { due: 0, fresh: 0, learning: 0 };
-        if (done === "review") tally.due += 1;
-        if (done === "new") tally.fresh += 1;
-        // Its new slot was spent on its first answer, so a second asking spends
-        // none, of either limit.
-        if (card.parked === null && learning(card.held)) tally.learning += 1;
-        answered.set(deck, tally);
-        bump(deck, {
-          name: deck,
-          notes: [note],
-          // Parked first, and exclusive: a parked card is one the sitting will
-          // not ask, whatever date it is carrying.
-          due: card.parked === null && card.held !== null && card.held.due <= today ? 1 : 0,
-          fresh: card.parked === null && card.held === null ? 1 : 0,
-          parked: card.parked !== null ? 1 : 0,
-          whole: false,
-          next:
-            card.parked === null && card.held !== null && card.held.due > today
-              ? card.held.due
-              : null,
-        });
+        tally(answered, deck, card, today);
+        merge(decks, deck, cardDeck(deck, note, card, today));
       }
     }
   }
 
-  if (limits !== undefined) {
-    const set = limitsIn(limits.note ?? "");
-    for (const [key, deck] of answered) {
-      const held = decks.get(key);
-      // A whole note is keyed apart and never here: it is one thing to re-read,
-      // and a limit on it would be a limit of one.
-      if (held === undefined) continue;
-      const limit = limitOf(key, set, limits.defaults);
-      if (limit.due !== null) {
-        const reviews = held.due - deck.learning;
-        held.due = deck.learning + Math.max(0, Math.min(reviews, limit.due - deck.due));
-      }
-      if (limit.fresh !== null) {
-        held.fresh = Math.max(0, Math.min(held.fresh, limit.fresh - deck.fresh));
-      }
-    }
-  }
-
+  if (limits !== undefined) applyLimits(decks, answered, limits);
   return [...decks.values()].sort((one, two) => one.name.localeCompare(two.name));
 }
 

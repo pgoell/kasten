@@ -79,10 +79,12 @@ the ban came in carry a `# noqa: TID252` each, and a new one fails.
 Biome, in `fe:lint` and `shell:lint`, fails any function with a cognitive
 complexity over 15 (`noExcessiveCognitiveComplexity`, set in
 `frontend/biome.jsonc`). Each `if`, loop, `catch` and `? :` adds one, plus one
-for every level of nesting it sits in; a run of `&&` or `||` adds one.
+for every level of nesting it sits in; a run of `&&` or `||` adds one. A
+function declared inside a component starts one level in, so its every `if`
+costs two; a function at module level does not.
 
-The 111 files that failed when the rule came in sit on a list in the last
-`overrides` entry of `frontend/biome.jsonc`, which turns the rule off for them.
+The files that failed when the rule came in and are not fixed yet sit on a
+list in the last `overrides` entry of `frontend/biome.jsonc`, which turns the rule off for them.
 That list only shrinks. When the rule fires on your function, split it: return
 early instead of nesting, and lift a branch or a loop body into a function of
 its own. Never add a file to the list or raise the limit;

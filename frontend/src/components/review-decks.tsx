@@ -176,11 +176,7 @@ export function ReviewDecks({ onPick, onParked, archive = false }: ReviewDecksPr
   // its count, so it is never folded away while it has cards.
   const first = shown.find((deck) => deck.due + deck.fresh > 0);
   const going = top.filter((deck) => deck.due + deck.fresh > 0).length;
-  const parkedWords = parked > 0 ? ` ${parked} parked.` : "";
-  const summary =
-    waiting > 0
-      ? `${waiting} ${waiting === 1 ? "card" : "cards"} to go today in ${going} ${going === 1 ? "deck" : "decks"}.${parkedWords}`
-      : `Nothing to go today.${parkedWords}`;
+  const summary = summaryOf(waiting, going, parked);
 
   return (
     <div className="flex h-full flex-col bg-k-bg font-sans text-k-ink">
@@ -225,80 +221,17 @@ export function ReviewDecks({ onPick, onParked, archive = false }: ReviewDecksPr
                     Nothing due
                   </li>
                 )}
-                <li
-                  key={keyOf(deck)}
-                  className={`flex items-center gap-1 ${entering(keyOf(deck)) ? "k-enter" : ""}`}
-                  style={
-                    entering(keyOf(deck)) ? ({ "--i": index } as React.CSSProperties) : undefined
-                  }
-                >
-                  {/* Beside the row and not inside it: a button in a button is no
-                  valid page, and a parent with nothing to offer is a disabled
-                  row that still has to fold. */}
-                  {!deck.whole && parents.has(deck.name) ? (
-                    <button
-                      type="button"
-                      data-fold={deck.name}
-                      aria-expanded={unfolded.has(deck.name)}
-                      aria-label={`${unfolded.has(deck.name) ? "fold" : "unfold"} ${deck.name}`}
-                      onClick={() => toggleFold(deck.name)}
-                      className="flex min-h-11 min-w-11 shrink-0 items-center justify-center text-k-muted hover:text-k-accent"
-                    >
-                      {unfolded.has(deck.name) ? "▾" : "▸"}
-                    </button>
-                  ) : (
-                    // As wide as the toggle, so every name starts on one line. A
-                    // list with no folds at all needs no gutter.
-                    parents.size > 0 && <span aria-hidden="true" className="min-w-11 shrink-0" />
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => onPick(deck)}
-                    disabled={deck.due + deck.fresh === 0}
-                    data-deck={deck.name}
-                    // A deck under another is drawn indented and by its last part,
-                    // the way the contents of a book are: `decksFrom` names every
-                    // deck above one it finds, so the row it belongs under is
-                    // always there and the full path would only repeat it.
-                    style={{ paddingLeft: `${0.75 + depthOf(deck.name) * 0.75}rem` }}
-                    className="k-row flex min-h-11 min-w-0 flex-1 items-center gap-3 rounded border border-k-rule px-3 py-2 text-left hover:border-k-accent disabled:opacity-50"
-                  >
-                    <span className="min-w-0 flex-1 truncate text-k-15">
-                      {depthOf(deck.name) > 0 && <span className="text-k-muted">/ </span>}
-                      {leafOf(deck.name)}
-                    </span>
-                    {/* A deck with nothing to go shows no `0 due` and `0 new`: those
-                    counts are what the name competes with on a narrow screen, and a
-                    row with nothing to go says when it is next due instead. */}
-                    {deck.due + deck.fresh > 0 && (
-                      <>
-                        <span
-                          className={`shrink-0 text-k-13 ${deck.due > 0 ? "text-k-accent" : "text-k-muted"}`}
-                        >
-                          {deck.due} due
-                        </span>
-                        <span className="shrink-0 text-k-13 text-k-muted">{deck.fresh} new</span>
-                      </>
-                    )}
-                    {/* Only where there are any. A deck of nothing but parked cards
-                    lands disabled on the rule above, and a bare `0 new` would
-                    leave no way to find out why. */}
-                    {deck.parked > 0 && (
-                      <span className="shrink-0 text-k-13 text-k-muted opacity-60">
-                        {deck.parked} parked
-                      </span>
-                    )}
-                    {/* Where a deck has nothing to go, when it is next due, so the
-                    row says why it cannot be sat and when it can. */}
-                    {deck.due + deck.fresh === 0 && (
-                      <span className="shrink-0 text-k-13 text-k-muted">
-                        {deck.next === null
-                          ? "nothing scheduled"
-                          : `due ${dayWords(deck.next, today)}`}
-                      </span>
-                    )}
-                  </button>
-                </li>
+                <DeckRow
+                  deck={deck}
+                  index={index}
+                  today={today}
+                  entering={entering(keyOf(deck))}
+                  parent={!deck.whole && parents.has(deck.name)}
+                  gutter={parents.size > 0}
+                  unfolded={unfolded.has(deck.name)}
+                  onFold={() => toggleFold(deck.name)}
+                  onPick={() => onPick(deck)}
+                />
               </Fragment>
             ))}
           </ul>
@@ -326,5 +259,105 @@ export function ReviewDecks({ onPick, onParked, archive = false }: ReviewDecksPr
         </div>
       </div>
     </div>
+  );
+}
+
+/** `3 cards to go today in 2 decks. 1 parked.`, the line under the heading. */
+function summaryOf(waiting: number, going: number, parked: number): string {
+  const parkedWords = parked > 0 ? ` ${parked} parked.` : "";
+  if (waiting === 0) return `Nothing to go today.${parkedWords}`;
+  const cards = waiting === 1 ? "card" : "cards";
+  return `${waiting} ${cards} to go today in ${going} ${going === 1 ? "deck" : "decks"}.${parkedWords}`;
+}
+
+interface DeckRowProps {
+  deck: Deck;
+  index: number;
+  today: string;
+  entering: boolean;
+  /** Whether the deck has others under it, and so a fold toggle. */
+  parent: boolean;
+  /** Whether any row has a toggle, which every other row leaves room for. */
+  gutter: boolean;
+  unfolded: boolean;
+  onFold: () => void;
+  onPick: () => void;
+}
+
+function DeckRow(props: DeckRowProps) {
+  const { deck, index, today, entering, parent, gutter, unfolded, onFold, onPick } = props;
+  return (
+    <li
+      className={`flex items-center gap-1 ${entering ? "k-enter" : ""}`}
+      style={entering ? ({ "--i": index } as React.CSSProperties) : undefined}
+    >
+      {/* Beside the row and not inside it: a button in a button is no valid page,
+      and a parent with nothing to offer is a disabled row that still has to fold. */}
+      {parent ? (
+        <button
+          type="button"
+          data-fold={deck.name}
+          aria-expanded={unfolded}
+          aria-label={`${unfolded ? "fold" : "unfold"} ${deck.name}`}
+          onClick={onFold}
+          className="flex min-h-11 min-w-11 shrink-0 items-center justify-center text-k-muted hover:text-k-accent"
+        >
+          {unfolded ? "▾" : "▸"}
+        </button>
+      ) : (
+        // As wide as the toggle, so every name starts on one line. A list with
+        // no folds at all needs no gutter.
+        gutter && <span aria-hidden="true" className="min-w-11 shrink-0" />
+      )}
+      <button
+        type="button"
+        onClick={onPick}
+        disabled={deck.due + deck.fresh === 0}
+        data-deck={deck.name}
+        // A deck under another is drawn indented and by its last part, the way
+        // the contents of a book are: `decksFrom` names every deck above one it
+        // finds, so the row it belongs under is always there.
+        style={{ paddingLeft: `${0.75 + depthOf(deck.name) * 0.75}rem` }}
+        className="k-row flex min-h-11 min-w-0 flex-1 items-center gap-3 rounded border border-k-rule px-3 py-2 text-left hover:border-k-accent disabled:opacity-50"
+      >
+        <span className="min-w-0 flex-1 truncate text-k-15">
+          {depthOf(deck.name) > 0 && <span className="text-k-muted">/ </span>}
+          {leafOf(deck.name)}
+        </span>
+        <DeckCounts deck={deck} today={today} />
+      </button>
+    </li>
+  );
+}
+
+function DeckCounts({ deck, today }: { deck: Deck; today: string }) {
+  const toGo = deck.due + deck.fresh > 0;
+  return (
+    <>
+      {/* A deck with nothing to go shows no `0 due` and `0 new`: those counts are
+      what the name competes with on a narrow screen, and a row with nothing to
+      go says when it is next due instead. */}
+      {toGo && (
+        <>
+          <span className={`shrink-0 text-k-13 ${deck.due > 0 ? "text-k-accent" : "text-k-muted"}`}>
+            {deck.due} due
+          </span>
+          <span className="shrink-0 text-k-13 text-k-muted">{deck.fresh} new</span>
+        </>
+      )}
+      {/* Only where there are any. A deck of nothing but parked cards lands
+      disabled on the rule above, and a bare `0 new` would leave no way to find
+      out why. */}
+      {deck.parked > 0 && (
+        <span className="shrink-0 text-k-13 text-k-muted opacity-60">{deck.parked} parked</span>
+      )}
+      {/* Where a deck has nothing to go, when it is next due, so the row says why
+      it cannot be sat and when it can. */}
+      {!toGo && (
+        <span className="shrink-0 text-k-13 text-k-muted">
+          {deck.next === null ? "nothing scheduled" : `due ${dayWords(deck.next, today)}`}
+        </span>
+      )}
+    </>
   );
 }

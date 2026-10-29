@@ -347,6 +347,48 @@ function matching(block: string[], id: string, section: string, keyed?: Keyed): 
   }));
 }
 
+/** The question a block of options asks, null where it lists none. */
+function choice(
+  block: string[],
+  open: { id: string; pick: number },
+  section: string,
+  keyed?: Keyed,
+): Question | null {
+  const options: Option[] = [];
+  let firstOption = block.length;
+  let inlineAt = -1;
+
+  block.forEach((line, index) => {
+    const found = OPTION.exec(line);
+    if (found !== null) {
+      if (options.length === 0) firstOption = index;
+      options.push({
+        letter: (found[1] ?? found[2] ?? "").toUpperCase(),
+        text: (found[3] ?? "").trim(),
+      });
+      return;
+    }
+    // Only after the options: a stem is free to contain the word "answer",
+    // and taking the first match anywhere in the block would read a question
+    // about answers as its own answer.
+    if (inlineAt === -1 && options.length > 0 && INLINE.test(line)) inlineAt = index;
+  });
+  if (options.length === 0) return null;
+
+  const inline = inlineAt === -1 ? null : INLINE.exec(block[inlineAt] ?? "");
+  return {
+    id: open.id,
+    section,
+    stem: tidy(block.slice(0, firstOption)),
+    options,
+    pick: open.pick,
+    // Inline wins. It sits with the question, so it is the one a reader
+    // edits, and a key at the back that disagrees is the stale copy.
+    correct: inline !== null ? lettersOf(inline[1] ?? "") : (keyed?.correct ?? []),
+    rationale: inline !== null ? tidy(block.slice(inlineAt + 1)) : (keyed?.rationale ?? ""),
+  };
+}
+
 /**
  * The exam a note holds, or nothing where it holds none.
  *
@@ -368,47 +410,12 @@ export function parseExam(text: string): Exam | null {
 
   const close = (until: number) => {
     if (open === null) return;
-
     const block = body.slice(open.from, until);
-    const options: Option[] = [];
-    let firstOption = block.length;
-    let inlineAt = -1;
-
-    block.forEach((line, index) => {
-      const found = OPTION.exec(line);
-      if (found !== null) {
-        if (options.length === 0) firstOption = index;
-        options.push({
-          letter: (found[1] ?? found[2] ?? "").toUpperCase(),
-          text: (found[3] ?? "").trim(),
-        });
-        return;
-      }
-      // Only after the options: a stem is free to contain the word "answer",
-      // and taking the first match anywhere in the block would read a question
-      // about answers as its own answer.
-      if (inlineAt === -1 && options.length > 0 && INLINE.test(line)) inlineAt = index;
-    });
-
-    if (options.length === 0) {
-      const rows = matching(block, open.id, section, key.get(open.id));
-      if (rows.length === 0) skipped += 1;
-      else questions.push(...rows);
-    } else {
-      const inline = inlineAt === -1 ? null : INLINE.exec(block[inlineAt] ?? "");
-      const keyed = key.get(open.id);
-      questions.push({
-        id: open.id,
-        section,
-        stem: tidy(block.slice(0, firstOption)),
-        options,
-        pick: open.pick,
-        // Inline wins. It sits with the question, so it is the one a reader
-        // edits, and a key at the back that disagrees is the stale copy.
-        correct: inline !== null ? lettersOf(inline[1] ?? "") : (keyed?.correct ?? []),
-        rationale: inline !== null ? tidy(block.slice(inlineAt + 1)) : (keyed?.rationale ?? ""),
-      });
-    }
+    const keyed = key.get(open.id);
+    const asked = choice(block, open, section, keyed);
+    const rows = asked !== null ? [asked] : matching(block, open.id, section, keyed);
+    if (rows.length === 0) skipped += 1;
+    else questions.push(...rows);
     open = null;
   };
 

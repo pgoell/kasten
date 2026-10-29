@@ -31,6 +31,19 @@ type Screen = { at: "decks" } | { at: "sitting"; deck: Deck } | { at: "parked" }
 /** `1` to `4`, in the order the buttons are drawn. */
 const KEYED: Record<string, Rating> = { "1": "again", "2": "hard", "3": "good", "4": "easy" };
 
+/** What `ReviewSession` hands up for the keys to press. */
+interface Controls {
+  showing: boolean;
+  shown: boolean;
+  revealed: boolean;
+  reveal: () => void;
+  rate: (rating: Rating) => void;
+  suspend: () => void;
+  capture: () => void;
+  replay: () => void;
+  undo: () => void;
+}
+
 /**
  * The review at a desk, with the keys a keyboard expects.
  *
@@ -52,17 +65,7 @@ const KEYED: Record<string, Rating> = { "1": "again", "2": "hard", "3": "good", 
 export function ReviewPane({ commands, onClose, onOpen, focusSignal }: ReviewPaneProps) {
   const [screen, setScreen] = useState<Screen>({ at: "decks" });
   const [pending, setPending] = useState("");
-  const controls = useRef<{
-    showing: boolean;
-    shown: boolean;
-    revealed: boolean;
-    reveal: () => void;
-    rate: (rating: Rating) => void;
-    suspend: () => void;
-    capture: () => void;
-    replay: () => void;
-    undo: () => void;
-  } | null>(null);
+  const controls = useRef<Controls | null>(null);
   const panel = useRef<HTMLElement>(null);
   // A ref and not the leader's `pending`: `za` handed to `leaderAction` would
   // run whatever `<leader>a` is.
@@ -86,6 +89,44 @@ export function ReviewPane({ commands, onClose, onOpen, focusSignal }: ReviewPan
     if (document.activeElement === document.body) panel.current?.focus();
   }, [screen]);
 
+  function onLeaderKey(event: React.KeyboardEvent) {
+    const sequence = pending + event.key;
+    const wanted = sequence.slice(1);
+    const run = leaderAction(wanted, commands);
+    // A leader key can be more than one letter, so a sequence that still
+    // prefixes one waits for the rest instead of being dropped.
+    setPending(!run && leaderPrefix(wanted) ? sequence : "");
+    if (!run) return;
+    event.preventDefault();
+    run();
+  }
+
+  /** Runs `key` on the screen showing. True where the pane took it. */
+  function onPaneKey(key: string): boolean {
+    // `za` folds, the way it folds in vim. A `z` followed by anything else is
+    // dropped and the key after it runs as itself, so a stray `z` costs no `j`.
+    const zed = zee.current;
+    zee.current = screen.at === "decks" && key === "z";
+    if (screen.at === "decks" && decksKey(key, zed, panel.current, setScreen)) return true;
+    if (screen.at === "parked" && parkedKey(key, panel.current)) return true;
+
+    // Back to the decks, which is the `← Decks` button, the way out of one deck
+    // into another and the way off the parked list. `q` closes the pane from
+    // any screen, so leaving a sitting and leaving the review are two keys.
+    if (screen.at !== "decks" && key === "h") {
+      setScreen({ at: "decks" });
+      return true;
+    }
+
+    // The leader on every screen, a card on it or not, so the other panes stay
+    // one Space away mid-sitting. Enter is the review's own key.
+    if (key === " ") {
+      if (!beginLeader(paneOpener(commands))) setPending(key);
+      return true;
+    }
+    return cardKey(key, controls.current, panel.current, onClose);
+  }
+
   function onKeyDown(event: React.KeyboardEvent) {
     const { key } = event;
 
@@ -96,17 +137,7 @@ export function ReviewPane({ commands, onClose, onOpen, focusSignal }: ReviewPan
     // The leader still works inside the pane, the way it does inside the exam,
     // so the other panes stay reachable mid-session.
     if (pending) {
-      const sequence = pending + key;
-      const wanted = sequence.slice(1);
-      const run = leaderAction(wanted, commands);
-      // A leader key can be more than one letter, so a sequence that still
-      // prefixes one waits for the rest instead of being dropped.
-      setPending(!run && leaderPrefix(wanted) ? sequence : "");
-
-      if (run) {
-        event.preventDefault();
-        run();
-      }
+      onLeaderKey(event);
       return;
     }
 
@@ -119,151 +150,10 @@ export function ReviewPane({ commands, onClose, onOpen, focusSignal }: ReviewPan
     if (target.tagName === "INPUT" || target.tagName === "TEXTAREA") return;
 
     // A held key repeats, and each repeat would answer the card again. The first
-    // press did the work, so the repeats of the answering keys do nothing. This
-    // comes before anything else the pane does with a key, so a repeat is
-    // consumed here whatever the focus is on.
-    if (event.repeat && (key === " " || key === "Enter" || KEYED[key] !== undefined)) {
-      event.preventDefault();
-      return;
-    }
-
-    // `za` folds, the way it folds in vim. A `z` followed by anything else is
-    // dropped and the key after it runs as itself, so a stray `z` costs no `j`.
-    if (zee.current) {
-      zee.current = false;
-      if (screen.at === "decks" && key === "a") {
-        fold(panel.current);
-        event.preventDefault();
-        return;
-      }
-    }
-    if (screen.at === "decks" && key === "z") {
-      zee.current = true;
-      event.preventDefault();
-      return;
-    }
-
-    // The overview is showing. The browser moves the focus between buttons on
-    // Tab and nothing else, so `j` and `k` do it here, and `l` presses the one
-    // focused the way Enter on a focused button already does.
-    if (screen.at === "decks" && (key === "j" || key === "k" || key === "l")) {
-      walk(panel.current, deckStops(panel.current), key);
-      event.preventDefault();
-      return;
-    }
-
-    // The same walk over a different selector. `data-parked` and not
-    // `data-deck`, so neither screen's keys can reach the other's rows.
-    if (screen.at === "parked" && (key === "j" || key === "k")) {
-      walk(
-        panel.current,
-        [...(panel.current?.querySelectorAll<HTMLButtonElement>("button[data-parked]") ?? [])],
-        key,
-      );
-      event.preventDefault();
-      return;
-    }
-
-    // The focused row's own controls, pressed rather than reimplemented, the
-    // way `l` presses the focused deck. `u` reaches the put-back button beside
-    // the row, which an unanswered row does not draw.
-    if (screen.at === "parked" && (key === "u" || key === "o")) {
-      const row = document.activeElement as HTMLButtonElement | null;
-      if (row?.dataset.parked !== undefined) {
-        if (key === "o") row.click();
-        else {
-          row.closest("li")?.querySelector<HTMLButtonElement>("button[data-unpark]")?.click();
-          // The row goes with the card, taking the focus to the body with it,
-          // and every key after this one would reach nothing.
-          panel.current?.focus();
-        }
-      }
-      event.preventDefault();
-      return;
-    }
-
-    if (screen.at === "decks" && key === "p") {
-      setScreen({ at: "parked" });
-      event.preventDefault();
-      return;
-    }
-
-    // Back to the decks, which is the `← Decks` button, the way out of one deck
-    // into another and the way off the parked list. `q` closes the pane from
-    // any screen, so leaving a sitting and leaving the review are two keys.
-    if (screen.at !== "decks" && key === "h") {
-      setScreen({ at: "decks" });
-      event.preventDefault();
-      return;
-    }
-
-    // Enter on a focused row presses it, as `l` and `o` do. Left to the Enter
-    // below, the key is stopped there and the browser's click on the row is
-    // cancelled with it.
-    const focused = document.activeElement as HTMLButtonElement | null;
-    if (key === "Enter" && screen.at === "decks" && focused?.dataset.deck !== undefined) {
-      walk(panel.current, deckStops(panel.current), "l");
-      event.preventDefault();
-      return;
-    }
-    if (key === "Enter" && screen.at === "parked" && focused?.dataset.parked !== undefined) {
-      focused.click();
-      event.preventDefault();
-      return;
-    }
-
-    // The leader on every screen, a card on it or not, so the other panes stay
-    // one Space away mid-sitting. Enter is the review's own key.
-    if (key === " ") {
-      if (beginLeader(paneOpener(commands))) {
-        event.preventDefault();
-        return;
-      }
-      setPending(key);
-      event.preventDefault();
-      return;
-    }
-
-    const rating = KEYED[key];
-    if (rating !== undefined) controls.current?.rate(rating);
-    // Once the answer is revealed, the same key grades it Good: the default
-    // button, so a reader who knows the answer goes through the card in two
-    // presses. A whole note is shown from the start with nothing to reveal, so
-    // its Enter does nothing rather than grading a card nobody has looked at.
-    // With a button or link under the focus, its own Enter is the one that
-    // answers, so the pane grades nothing and only stops the key.
-    else if (key === "Enter") {
-      const focused = document.activeElement;
-      const onControl =
-        (focused instanceof HTMLButtonElement || focused instanceof HTMLAnchorElement) &&
-        panel.current?.contains(focused) === true;
-      // Try again is the one button a sitting draws with no card up, and its own
-      // Enter presses it, so the pane lets that key through for it alone. Any
-      // other focused control keeps its Enter stopped, as it always was.
-      if (
-        focused instanceof HTMLElement &&
-        focused.dataset.reread !== undefined &&
-        !controls.current?.showing &&
-        panel.current?.contains(focused) === true
-      ) {
-        return;
-      }
-      if (controls.current?.revealed) {
-        if (!onControl) controls.current.rate("good");
-      } else if (!controls.current?.shown) controls.current?.reveal();
-    }
-    // Before the reveal as well as after it, because a card you want out of the
-    // deck is one you have recognised from its question alone.
-    else if (key === "s") controls.current?.suspend();
-    else if (key === "n") controls.current?.capture();
-    // The side showing, so the front before the reveal and the back after it.
-    else if (key === "r") controls.current?.replay();
-    // The parked screen's `u` returned above, so this one is the sitting's.
-    else if (key === "u") controls.current?.undo();
-    else if (key === "q") onClose();
-    else return;
-
-    event.preventDefault();
+    // press did the work, so the repeats of the answering keys do nothing,
+    // whatever the focus is on.
+    const answers = key === " " || key === "Enter" || KEYED[key] !== undefined;
+    if ((event.repeat && answers) || onPaneKey(key)) event.preventDefault();
   }
 
   return (
@@ -294,6 +184,100 @@ export function ReviewPane({ commands, onClose, onOpen, focusSignal }: ReviewPan
       )}
     </section>
   );
+}
+
+/** The overview's keys, `zed` being whether a `z` came before. True where `key` is one. */
+function decksKey(
+  key: string,
+  zed: boolean,
+  panel: HTMLElement | null,
+  setScreen: (screen: Screen) => void,
+): boolean {
+  if (zed && key === "a") fold(panel);
+  else if (key === "z") return true;
+  // The browser moves the focus between buttons on Tab and nothing else, so `j`
+  // and `k` do it here, and `l` presses the one focused the way Enter on a
+  // focused button already does.
+  else if (key === "j" || key === "k" || key === "l") walk(panel, deckStops(panel), key);
+  else if (key === "p") setScreen({ at: "parked" });
+  // Enter on a focused row presses it, as `l` does. Left to the sitting's Enter,
+  // the key is stopped there and the browser's click on the row with it.
+  else if (key === "Enter" && focusedButton()?.dataset.deck !== undefined) {
+    walk(panel, deckStops(panel), "l");
+  } else return false;
+  return true;
+}
+
+/** The parked list's keys. True where `key` is one. */
+function parkedKey(key: string, panel: HTMLElement | null): boolean {
+  // The same walk over a different selector. `data-parked` and not
+  // `data-deck`, so neither screen's keys can reach the other's rows.
+  if (key === "j" || key === "k") {
+    walk(
+      panel,
+      [...(panel?.querySelectorAll<HTMLButtonElement>("button[data-parked]") ?? [])],
+      key,
+    );
+    return true;
+  }
+  const row = focusedButton();
+  const onRow = row?.dataset.parked !== undefined;
+  // The focused row's own controls, pressed rather than reimplemented, the way
+  // `l` presses the focused deck. `u` reaches the put-back button beside the
+  // row, which an unanswered row does not draw.
+  if (key === "u" && onRow) {
+    row?.closest("li")?.querySelector<HTMLButtonElement>("button[data-unpark]")?.click();
+    // The row goes with the card, taking the focus to the body with it, and
+    // every key after this one would reach nothing.
+    panel?.focus();
+  } else if ((key === "o" || key === "Enter") && onRow) row?.click();
+  // Taken with no row too, so the sitting's `u` never runs here.
+  return key === "u" || key === "o" || (key === "Enter" && onRow);
+}
+
+/** A sitting's keys. True where the pane takes `key`. */
+function cardKey(
+  key: string,
+  controls: Controls | null,
+  panel: HTMLElement | null,
+  onClose: () => void,
+): boolean {
+  const rating = KEYED[key];
+  if (rating !== undefined) controls?.rate(rating);
+  else if (key === "Enter") return enterOnCard(controls, panel);
+  // Before the reveal as well as after it, because a card you want out of the
+  // deck is one you have recognised from its question alone.
+  else if (key === "s") controls?.suspend();
+  else if (key === "n") controls?.capture();
+  // The side showing, so the front before the reveal and the back after it.
+  else if (key === "r") controls?.replay();
+  else if (key === "u") controls?.undo();
+  else if (key === "q") onClose();
+  else return false;
+  return true;
+}
+
+/**
+ * Enter in a sitting reveals, and once the answer is revealed grades it Good. A
+ * whole note shows with nothing to reveal, so its Enter does nothing, and a
+ * focused button or link answers its own Enter. False where the key goes through.
+ */
+function enterOnCard(controls: Controls | null, panel: HTMLElement | null): boolean {
+  const focused = document.activeElement;
+  const inPane = focused instanceof HTMLElement && panel?.contains(focused) === true;
+  // Try again is the one button a sitting draws with no card up, and its own
+  // Enter presses it, so the pane lets that key through for it alone.
+  if (inPane && focused.dataset.reread !== undefined && !controls?.showing) return false;
+  const onControl =
+    inPane && (focused instanceof HTMLButtonElement || focused instanceof HTMLAnchorElement);
+  if (controls?.revealed) {
+    if (!onControl) controls.rate("good");
+  } else if (!controls?.shown) controls?.reveal();
+  return true;
+}
+
+function focusedButton(): HTMLButtonElement | null {
+  return document.activeElement as HTMLButtonElement | null;
 }
 
 /**

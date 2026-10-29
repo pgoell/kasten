@@ -171,6 +171,27 @@ export function SwipeCard({
     };
   }
 
+  /** Whether a drag not yet decided is a swipe, taking the pointer where it is. */
+  function decide(held: Gesture, dx: number, dy: number, pointer: number): boolean {
+    // A press on a control is the control's: its own sideways drag, a seek bar say, is not a swipe.
+    if (held.onControl) {
+      held.dead = true;
+      return false;
+    }
+    // axis() calls a vertical win "scroll", so the arguments are swapped to make its "drag" the sideways one.
+    const verdict = axis(dy, dx);
+    if (verdict === "pending") return false;
+    // Vertical is the page's. The rest of this gesture is left to scrolling.
+    if (verdict === "scroll" || !latest.current.swipe) {
+      held.dead = true;
+      return false;
+    }
+    held.decided = true;
+    root.current?.setPointerCapture(pointer);
+    width.current = widthOf();
+    return true;
+  }
+
   function onPointerMove(event: ReactPointerEvent<HTMLDivElement>) {
     const held = gesture.current;
     if (!held || held.dead || event.pointerId !== held.pointer) return;
@@ -185,24 +206,7 @@ export function SwipeCard({
       void spring.to(0, SPRINGS.sheetClose);
       return;
     }
-    if (!held.decided) {
-      // A press on a control is the control's: its own sideways drag, a seek bar say, is not a swipe.
-      if (held.onControl) {
-        held.dead = true;
-        return;
-      }
-      // axis() calls a vertical win "scroll", so the arguments are swapped to make its "drag" the sideways one.
-      const verdict = axis(dy, dx);
-      if (verdict === "pending") return;
-      // Vertical is the page's. The rest of this gesture is left to scrolling.
-      if (verdict === "scroll" || !latest.current.swipe) {
-        held.dead = true;
-        return;
-      }
-      held.decided = true;
-      root.current?.setPointerCapture(event.pointerId);
-      width.current = widthOf();
-    }
+    if (!held.decided && !decide(held, dx, dy, event.pointerId)) return;
     held.samples.push({ t: performance.now(), y: event.clientX });
     spring.set(held.start + dx);
   }

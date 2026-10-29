@@ -212,6 +212,154 @@ function oneLine(line: string): Divided | null {
   return halves;
 }
 
+/** What both passes of `parseCards` share while they read one note. */
+interface Reading {
+  lines: string[];
+  code: boolean[];
+  unclosed: boolean[];
+  taken: boolean[];
+  cards: Card[];
+  /** The decks each card names at its own head, in the order they are pushed. */
+  owned: string[][];
+  /** Lines whose tags a card took, which are therefore not the note's. */
+  claimed: Set<number>;
+}
+
+/**
+ * Whether line `at` ends a card. A blank line, heading or tags inside code is the
+ * fence's and ends none (#675), except in a fence nobody closed (#680).
+ */
+function ends(r: Reading, at: number): boolean {
+  return (!r.code[at] || r.unclosed[at] === true) && breaks(r.lines[at]);
+}
+
+/** Whether line `at` holds a schedule, which ends a card in code too, being its last line. */
+function schedules(r: Reading, at: number): boolean {
+  const line = r.lines[at] ?? "";
+  return SR.test(line) || CLOZE_SR.test(line);
+}
+
+/** Whether the second pass reads line `at` as a one-line card, so outside code as there. */
+function inlineAt(r: Reading, at: number): boolean {
+  return !r.code[at] && oneLine(r.lines[at] ?? "") !== null;
+}
+
+/** Pushes `asked`, each with the tags its own line `at` names, null for none. */
+function push(r: Reading, asked: Card[], at: number | null): void {
+  const own = (at === null ? null : cardTags(r.lines[at] ?? "")) ?? [];
+  if (own.length > 0 && at !== null) r.claimed.add(at);
+  // One entry per card pushed, `owned` being read by the cards' index.
+  for (const card of asked) {
+    r.owned.push(own);
+    r.cards.push(card);
+  }
+}
+
+/**
+ * The first line of the front over the `?` at `at`, and whether it is a cloze. It
+ * runs back to a blank line or heading, outside code. A mark directly over the `?`
+ * is the whole front; further up it ends the front as a cloze of its own, the one
+ * reading `review.ts` can make. A one-line card ends it too (#683).
+ */
+function frontOf(r: Reading, at: number): { from: number; cloze: boolean } {
+  if (!ends(r, at - 1) && holdsCloze(r.lines[at - 1])) return { from: at - 1, cloze: true };
+  let from = at;
+  while (
+    !ends(r, from - 1) &&
+    !holdsCloze(r.lines[from - 1]) &&
+    !schedules(r, from - 1) &&
+    !inlineAt(r, from - 1)
+  )
+    from--;
+  return { from, cloze: false };
+}
+
+/**
+ * The last line of the back under the `?` at `at`. The token ends it in code
+ * too, as the schedule does, so `setSuspended` still parks a card in an open fence.
+ */
+function backOf(r: Reading, at: number): number {
+  let to = at;
+  while (!ends(r, to + 1) && !schedules(r, to + 1) && !parks(r.lines[to + 1])) to++;
+  return to;
+}
+
+/** Reads the card whose `?` is line `at`, if it is one. */
+function readAsked(r: Reading, at: number): void {
+  // A `?` with nothing over it is a line of prose, not a card missing its question.
+  const { from, cloze } = frontOf(r, at);
+  if (from === at) return;
+  // A `?` with nothing under it is no card, except under a cloze, whose `?` it
+  // stays with an empty back: `review.ts`, seeing the matched lines alone, reads
+  // the cloze's dates under it the same way.
+  let to = backOf(r, at);
+  if (to === at && !cloze) return;
+
+  const { lines } = r;
+  // The import's id sits on the back's last line, and is no part of the answer.
+  const back = withoutAnkiId(lines.slice(at + 1, to + 1).join("\n")).trim();
+  // The schedule or the token on the line under the back takes it into the
+  // card's span, so `setSuspended` has a line to write on. A cloze's comments do
+  // the same for a cloze alone: a plain card would never find its own under them.
+  const under = lines[to + 1] ?? "";
+  const schedule = readSchedule(under);
+  const parked: Parked | null = parks(under) ? "suspended" : null;
+  if (schedule !== null || parked !== null || (cloze && CLOZE_SR.test(under))) to++;
+  for (let mark = from; mark <= to; mark++) r.taken[mark] = true;
+
+  // A card's own tags sit at the head of the line directly above the `?`. Over a
+  // longer front they are prose's, and `review.ts` hands them to the note too.
+  const head = from === at - 1 ? from : null;
+  if (cloze) {
+    const span = { from, to, inline: false, parked };
+    push(r, clozeCards(lines[from] ?? "", back, lines[to] ?? "", span), head);
+    return;
+  }
+  const card: Card = {
+    from,
+    to,
+    // The card's own tags are format, not question, so they come off the front.
+    front: side(withoutTags(lines.slice(from, at).join("\n")).trim()),
+    back: side(back),
+    inline: false,
+    decks: [],
+    held: schedule,
+    parked,
+    cloze: null,
+    target: null,
+  };
+  push(r, [card], head);
+}
+
+/** Reads line `at` as a one-line card or cloze, if it is one. */
+function readInline(r: Reading, at: number, line: string): void {
+  // Before the divider: `{{c1::Paris}}` holds a `::` that divides nothing,
+  // and a cloze is never a question waiting on its answer.
+  if (holdsCloze(line)) {
+    const parked = suspended(line) ? "suspended" : null;
+    push(r, clozeCards(line, "", line, { from: at, to: at, inline: true, parked }), at);
+    return;
+  }
+  const halves = oneLine(line);
+  if (halves === null) return;
+  // The token first: a card carrying it was parked on purpose, and a card
+  // parked on purpose before it was ever answered has both shapes at once.
+  const unanswered = halves.back === "" ? "unanswered" : null;
+  const card: Card = {
+    from: at,
+    to: at,
+    front: side(withoutTags(halves.front).trim()),
+    back: side(halves.back),
+    inline: true,
+    decks: [],
+    held: readSchedule(line),
+    parked: suspended(line) ? "suspended" : unanswered,
+    cloze: null,
+    target: null,
+  };
+  push(r, [card], at);
+}
+
 /**
  * Every card the note holds, in the order they are written.
  *
@@ -222,152 +370,24 @@ function oneLine(line: string): Divided | null {
 export function parseCards(text: string, note = ""): Card[] {
   const lines = text.split("\n");
   const { uncommented, code, unclosed } = commentsAndCode(text);
-  const taken = lines.map(() => false);
-  const cards: Card[] = [];
-  /** The decks each card names at its own head, in the order they are pushed. */
-  const owned: string[][] = [];
-  /** Lines whose tags a card took, which are therefore not the note's. */
-  const claimed = new Set<number>();
-  // obsidian-spaced-repetition reads a fence whole, so a blank line, a heading
-  // or tags inside code is the fence's and ends no card (#675). Not in a fence
-  // nobody closed, which runs to the end of the note: there the card above it
-  // would read the schedule of a card hidden under it and a rating overwrite it (#680).
-  const ends = (at: number) => (!code[at] || unclosed[at]) && breaks(lines[at]);
-  // A schedule ends a card in code too: it is the card's last line, so neither
-  // walk crosses one into the card above or a second line under it.
-  const schedules = (at: number) => SR.test(lines[at] ?? "") || CLOZE_SR.test(lines[at] ?? "");
-  // A line the second pass reads as a one-line card, so outside code as there.
-  const inline = (at: number) => !code[at] && oneLine(lines[at] ?? "") !== null;
+  const r: Reading = {
+    lines,
+    code,
+    unclosed,
+    taken: lines.map(() => false),
+    cards: [],
+    owned: [],
+    claimed: new Set<number>(),
+  };
 
+  // A `?` a card above already took is part of that card's back, not a card of
+  // its own: obsidian-spaced-repetition splits at blank lines only and the first
+  // `?` divides, and a second card here would share the first's schedule (#678).
   for (const [at, line] of lines.entries()) {
-    // A `?` a card above already took is part of that card's back, not a card
-    // of its own: obsidian-spaced-repetition splits at blank lines only and the
-    // first `?` divides, and a second card here would share the first's lines
-    // and read and write its schedule (#678).
-    if (code[at] || taken[at] || line.trim() !== "?") continue;
-
-    // The front runs back to the blank line or heading above it, outside code.
-    // A `?` with nothing over it is a line of prose, not a card missing its question.
-    // A line holding a mark ends it too: directly over the `?` it is the whole
-    // front, the cloze this card asks, and further up it is a cloze of its own,
-    // which is the one reading `review.ts` can make off the matched lines.
-    // A one-line card ends it as well, schedule or none: obsidian-spaced-repetition
-    // asks such a line as a card of its own and starts the front under it, so
-    // directly over the `?` it leaves the `?` with nothing above it (#683).
-    const cloze = !ends(at - 1) && holdsCloze(lines[at - 1]);
-    let from = cloze ? at - 1 : at;
-    if (!cloze) {
-      while (
-        !ends(from - 1) &&
-        !holdsCloze(lines[from - 1]) &&
-        !schedules(from - 1) &&
-        !inline(from - 1)
-      )
-        from--;
-    }
-    if (from === at) continue;
-
-    // The back runs down the same way. The token ends it in code too, as the
-    // schedule does, so a fence nobody closed keeps its one schedule and the
-    // token `setSuspended` writes there still parks the card.
-    let to = at;
-    while (!ends(to + 1) && !schedules(to + 1) && !parks(lines[to + 1])) to++;
-    // A `?` with nothing under it is no card, except under a cloze, whose `?`
-    // it stays with an empty back. `review.ts` sees the matched lines alone and
-    // cannot tell a blank line under the `?` from a back of plain text, so both
-    // readers take the `?` as the cloze's and read its dates under it.
-    if (to === at && !cloze) continue;
-
-    // The import's id sits on the back's last line, and is no part of the answer.
-    const back = withoutAnkiId(lines.slice(at + 1, to + 1).join("\n")).trim();
-    // The schedule sits on its own line under the back, where the plugin puts
-    // it, and the token sits at the head of that same line. Either one takes
-    // the line into the card's span, so `setSuspended` has a line to write on.
-    // A cloze's comments do the same for a cloze and nothing else: a plain
-    // card would splice its own comment under them and never find it again.
-    const under = lines[to + 1] ?? "";
-    const schedule = readSchedule(under);
-    const held = parks(under);
-    if (schedule !== null || held || (cloze && CLOZE_SR.test(under))) to++;
-
-    // A card's own tags sit at the head of its first line, and that line is
-    // the one directly above the `?`. A front running over two lines is prose
-    // the tags at the top of it are no part of, and `review.ts`, reading the
-    // matched lines alone, cannot tell that case from any other line of prose,
-    // so both readers hand those to the note rather than disagreeing.
-    const own = (from === at - 1 ? cardTags(lines[from] ?? "") : null) ?? [];
-    if (own.length > 0) claimed.add(from);
-    for (let mark = from; mark <= to; mark++) taken[mark] = true;
-
-    if (cloze) {
-      const asked = clozeCards(lines[from] ?? "", back, lines[to] ?? "", {
-        from,
-        to,
-        inline: false,
-        parked: held ? "suspended" : null,
-      });
-      // One entry per card pushed, `owned` being read by the cards' index.
-      for (const card of asked) {
-        owned.push(own);
-        cards.push(card);
-      }
-      continue;
-    }
-
-    owned.push(own);
-    cards.push({
-      from,
-      to,
-      // The card's own tags are part of the format and not part of the
-      // question, so they come off the front before it is ever asked.
-      front: side(withoutTags(lines.slice(from, at).join("\n")).trim()),
-      back: side(back),
-      inline: false,
-      decks: [],
-      held: schedule,
-      parked: held ? "suspended" : null,
-      cloze: null,
-      target: null,
-    });
+    if (!code[at] && !r.taken[at] && line.trim() === "?") readAsked(r, at);
   }
-
   for (const [at, line] of lines.entries()) {
-    if (code[at] || taken[at]) continue;
-
-    // Before the divider: `{{c1::Paris}}` holds a `::` that divides nothing,
-    // and a cloze is never a question waiting on its answer.
-    if (holdsCloze(line)) {
-      const own = cardTags(line) ?? [];
-      if (own.length > 0) claimed.add(at);
-      const parked = suspended(line) ? "suspended" : null;
-      for (const card of clozeCards(line, "", line, { from: at, to: at, inline: true, parked })) {
-        owned.push(own);
-        cards.push(card);
-      }
-      continue;
-    }
-
-    const halves = oneLine(line);
-    if (halves === null) continue;
-
-    const own = cardTags(line) ?? [];
-    if (own.length > 0) claimed.add(at);
-    owned.push(own);
-
-    cards.push({
-      from: at,
-      to: at,
-      front: side(withoutTags(halves.front).trim()),
-      back: side(halves.back),
-      inline: true,
-      decks: [],
-      held: readSchedule(line),
-      // The token first: a card carrying it was parked on purpose, and a card
-      // parked on purpose before it was ever answered has both shapes at once.
-      parked: suspended(line) ? "suspended" : halves.back === "" ? "unanswered" : null,
-      cloze: null,
-      target: null,
-    });
+    if (!code[at] && !r.taken[at]) readInline(r, at, line);
   }
 
   // Last, and before the sort, `owned` running in the order the cards were
@@ -375,12 +395,12 @@ export function parseCards(text: string, note = ""): Card[] {
   // than replace: a card about two things is asked in both decks.
   const noteDecks = uncommented
     .split("\n")
-    .flatMap((line, at) => (code[at] || claimed.has(at) ? [] : deckTags(line)));
-  for (const [at, card] of cards.entries()) {
+    .flatMap((line, at) => (code[at] || r.claimed.has(at) ? [] : deckTags(line)));
+  for (const [at, card] of r.cards.entries()) {
     card.decks = [
-      ...new Set([...noteDecks, ...(owned[at] ?? [])].map((tag) => deckName(tag, note))),
+      ...new Set([...noteDecks, ...(r.owned[at] ?? [])].map((tag) => deckName(tag, note))),
     ];
   }
 
-  return cards.sort((one, two) => one.from - two.from);
+  return r.cards.sort((one, two) => one.from - two.from);
 }
