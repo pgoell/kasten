@@ -3,8 +3,8 @@
  *
  * The gates count the work ranking does: candidates scored, and table cells
  * filled per query. A clock would measure the box the suite runs on, so no
- * test here asserts a time. Each one prints its median, which `mise run
- * fe:bench` records beside it, so a regression still shows in the log.
+ * test here asserts a time. Each one prints its median, so a regression
+ * still shows in the log.
  */
 
 import {

@@ -17,7 +17,7 @@ import { THEME_KEY } from "@/lib/theme";
 // paragraph and `#photo2`, the same opaque png, for the case after a turn.
 import coverUrl from "../fixtures/cover.epub?url";
 import { stubCommands } from "../stub-commands";
-import { drawn as paneDrawn } from "./book-pane-fixture";
+import { drawn } from "./book-pane-fixture";
 // The app's own stylesheet, because the pane is sized by Tailwind's `h-full`
 // and a paginator with nothing to columnise into draws no page.
 import "@/styles/app.css";
@@ -57,9 +57,6 @@ document.addEventListener(
   },
   true,
 );
-
-/** Wait for the rest of `draw` to run: the view's `data-ready`, then a still layout. */
-export const drawn = paneDrawn;
 
 /** One property of one element of a section, as the section computes it. */
 export function computed(
