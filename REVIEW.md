@@ -38,6 +38,8 @@ Taste with no rule behind it is not a finding.
 ## What not to flag
 
 - Formatting and the rules ruff, Biome, ty and tsc already enforce.
+- A schema change without regenerated types, or a new package's licence:
+  `lint:openapi` and the `Dependencies` check catch both.
 - Files under `docs/log/` and `backend/alembic/versions/` for being many.
 - A missing test where the PR body names the test that covers the line.
 - A design point about code the diff does not touch; the area review takes those.

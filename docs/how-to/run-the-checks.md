@@ -11,7 +11,7 @@ status: stable
 Everything CI runs, you can run:
 
 ```sh
-mise run lint         # ruff, ty, biome, file size, folder size, copies
+mise run lint         # ruff, ty, biome, file size, folder size, copies, API contract
 mise run test         # backend pytest and frontend vitest
 mise run fe:typecheck # builds the frontend, then tsc --noEmit
 ```
@@ -30,6 +30,16 @@ single-commit push of a merged pull request whose newest CI run passed Lint,
 Test and Perf and recorded this tree; anything else, an API error included,
 runs them in full. Its summary names the run it relied on or why it did not
 skip.
+
+A pull request also runs `Dependencies`, a required check that lists the
+packages it adds to `uv.lock` and `frontend/bun.lock` against the merge base,
+with each one's licence and latest release date, in the job summary. It reads
+the licence from the registry's metadata (PyPI's JSON API, the npm registry),
+never from a README, and fails on a licence outside MIT, BSD, Apache-2.0, ISC,
+PostgreSQL and MPL-2.0, or one it cannot read, naming the package. To get a
+package past it whose licence you have read and accept, add it to `ACCEPTED`
+in `.github/deps/new_dependencies.py` with the reason; that file is a code
+owner's path, so pgoell reviews the line.
 
 ## The hooks
 

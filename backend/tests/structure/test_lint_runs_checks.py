@@ -45,12 +45,15 @@ def test_the_ci_lint_job_runs_both_checks_on_the_whole_repo() -> None:
     runs = [tasks.get(name, {}).get("run") for name in reached(tasks, "lint")]
     for run in RUNS:
         assert run in runs, f"mise.toml: no task reached from [tasks.lint] runs `{run}`"
+    # The API contract check is in Lint by way of the task, so it runs locally too.
+    assert "lint:openapi" in reached(tasks, "lint")
 
 
 def test_the_required_checks_keep_their_names() -> None:
     ci = (REPO / ".github/workflows/ci.yml").read_text(encoding="utf-8")
     assert "\n  lint:\n    name: Lint\n" in ci
     assert "\n  test:\n    name: Test\n" in ci
+    assert "\n  dependencies:\n    name: Dependencies\n" in ci
 
 
 def test_the_scripts_are_committed_executable() -> None:
