@@ -16,7 +16,8 @@ This page states the bar that work is held to, the three harnesses that measure
 it, and the numbers each one recorded.
 
 Every figure here comes from one machine, a 16-thread desktop. `ubuntu-latest`
-is about 2.0x slower, which is why the gates carry the multiplier they do.
+is about 2.0x slower, so the ranking gates count work and do not time it. See
+[What the gates assert](#what-the-gates-assert).
 
 ## The bar
 
@@ -73,35 +74,46 @@ and Chromium beside the jsdom pool slowed both: the home route's warm-up took
 
 ## What the gates assert
 
-Each threshold is six times what the gate measures today: three for a real
-regression, and two again for the runner being about half this machine's
-speed. Three alone would leave 1.5x of headroom where the gate actually runs,
-which one noisy minute turns red.
+The ranking gates count work, not time. A clock measures the box it runs on,
+and `ubuntu-latest` is about 2.0x slower than this one, so a time gate would
+fail there with no change to the code. `score()` in `fuzzy.ts` keeps two counts
+for the test: candidates scored, and table cells filled. Each test runs its call
+once after its timing runs, reads the counts, and checks them against a bound the
+test computes from the same candidates. The medians still print in the test
+log, and no gate reads them.
 
-| Gate | File | Measures | Achieved | Threshold |
-| --- | --- | ---: | ---: | ---: |
-| `rankFolders`, empty query | `tests/perf/ranking.test.ts` | 10,000 paths, 842 folders | 4.650 ms | 28 ms |
-| `rankFolders`, typed query | `tests/perf/ranking.test.ts` | the same, query `notes` | 4.791 ms | 29 ms |
-| `rankCandidates` over folders | `tests/perf/ranking.test.ts` | 842 candidates already derived | 0.092 ms | 0.6 ms |
-| `noteCandidates` | `tests/perf/ranking.test.ts` | preparing 10,000 notes | 0.683 ms | 4.1 ms |
-| `rankCandidates` over notes, empty query | `tests/perf/ranking.test.ts` | 10,000 candidates already derived | 1.207 ms | 7.2 ms |
-| `rankCandidates` over notes, one letter | `tests/perf/ranking.test.ts` | the same, query `a` | 3.681 ms | 22 ms |
-| `rankCandidates` over notes, typed query | `tests/perf/ranking.test.ts` | the same, query `notes` | 3.484 ms | 21 ms |
-| the prompt keystroke's commit | `tests/frame/note-prompt.test.tsx` | 10,000 notes in Chromium | 2.5 ms | 15 ms |
-| the finder keystroke's commit | `tests/frame/note-finder.test.tsx` | 10,000 notes in Chromium | 6.7 ms | 40 ms |
-| rows mounted, either surface | `tests/frame/*.test.tsx` | options in the listbox | 20 | 20, exact |
-| wasted editor renders | `tests/note-editor.test.tsx` | renders per keystroke burst | 0 | 0, exact |
+The bounds are the same for every test. Candidates at most the length of the
+list the call ranks. Cells at most the sum, over the candidates whose lowercased
+path holds the query in order, of the query's length times the path's length.
+For the empty query that sum is 0, and for preparing notes both counts are 0.
 
-Read the rows in pairs. `rankFolders` and `rankNotes` each walk every path in
-the vault to derive their candidates, which no keystroke pays: both surfaces
-derive once per vault and call `rankCandidates` per keystroke. So rows three
-through seven are what typing actually costs, and rows one and two are what
-opening the list costs once.
+| Gate | File | Query | Counts and bound |
+| --- | --- | --- | --- |
+| `rankFolders`, empty query | `tests/perf/ranking.test.ts` | empty | candidates at most the folder count, cells at most 0 |
+| `rankFolders`, typed query | `tests/perf/ranking.test.ts` | `notes` | candidates at most the folder count, cells at most the oracle |
+| `rankCandidates` over folders | `tests/perf/ranking.test.ts` | empty | candidates at most the folder count, cells at most 0 |
+| `noteCandidates` | `tests/perf/ranking.test.ts` | none | no candidates or cells, one candidate per note returned |
+| `rankCandidates` over notes, empty query | `tests/perf/ranking.test.ts` | empty | candidates at most the note count, cells at most 0 |
+| `rankCandidates` over notes, one letter | `tests/perf/ranking.test.ts` | `a` | candidates at most the note count, cells at most the oracle |
+| `rankCandidates` over notes, typed query | `tests/perf/ranking.test.ts` | `notes` | candidates at most the note count, cells at most the oracle |
+
+The typed folder gate also checks that `folderCandidates` lists each folder
+once. The bound counts the list it gets, so a repeated folder would raise the
+bound and the count together and pass without that check.
 
 The dearest keystroke the finder answers is the first letter typed, not a long
 query. One letter rejects almost nothing, so nearly every note pays for the
 scoring table, where a longer query throws most of the vault out on the cheap
 subsequence scan that runs in front of it.
+
+The other gates still count or time a frame, and keep their thresholds:
+
+| Gate | File | Measures | Achieved | Threshold |
+| --- | --- | ---: | ---: | ---: |
+| the prompt keystroke's commit | `tests/frame/note-prompt.test.tsx` | 10,000 notes in Chromium | 2.5 ms | 15 ms |
+| the finder keystroke's commit | `tests/frame/note-finder.test.tsx` | 10,000 notes in Chromium | 6.7 ms | 40 ms |
+| rows mounted, either surface | `tests/frame/*.test.tsx` | options in the listbox | 20 | 20, exact |
+| wasted editor renders | `tests/note-editor.test.tsx` | renders per keystroke burst | 0 | 0, exact |
 
 The 50,000-note measurements are logged and assert nothing. At that size the
 finder's keystroke reads about 21 ms and does drop its frame.
@@ -179,7 +191,7 @@ Deriving the folders costs 51 times what ranking them does at 10,000 notes,
 two memos the way it does. Notes are the other way round, 0.890 ms to prepare
 against 1.263 ms to rank, because a note carries no deduplication and no set.
 
-These means run below what the gates measure for the same code. A hot loop
+These means run below the medians the perf test prints for the same code. A hot loop
 amortises garbage collection across its iterations, and one keystroke pays for
 it in full.
 
