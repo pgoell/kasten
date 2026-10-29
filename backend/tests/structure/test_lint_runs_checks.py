@@ -1,12 +1,6 @@
-"""CI's Lint job runs the structure checks on the whole repo.
+"""CI's Lint job runs each structure check on the whole repo; pre-commit sees staged files only.
 
-CI's lint job runs `mise run lint`, and lint must reach the bare file-size run,
-the `--all` fan-out run and the comment check, the modes that check the whole repo. The
-pre-commit hook only sees staged files, so without these an oversized file or
-folder could merge. The ci.yml checks read the text rather than parsing YAML,
-because the backend env has no YAML parser as a direct dependency. The ruff
-structure rules (complexity, argument count, relative imports) get the same
-proof: each must still fail on new growth, against the repo's real pyproject.toml.
+ci.yml is read as text, as the backend env has no YAML parser among its direct dependencies.
 """
 
 import re
