@@ -21,8 +21,8 @@ ARG PG_TEXTSEARCH_VERSION=v1.5.1
 # superuser.
 #
 # The preload goes into the sample config, which initdb copies into a new data
-# directory. A data directory that already exists keeps its own config, so prod
-# passes the same setting on its command line.
+# directory. A data directory that already exists keeps its own config, so
+# prod and dev (compose.yaml) pass the same setting on their command line too.
 RUN apk add --no-cache --virtual .build git build-base \
  && git clone --depth 1 --branch "$PGVECTOR_VERSION" https://github.com/pgvector/pgvector.git /tmp/pgvector \
  && make -C /tmp/pgvector with_llvm=no OPTFLAGS="" install \
