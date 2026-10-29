@@ -9,8 +9,8 @@ Closes #
 ## Risk
 
 <!-- low or high, and why. High: CI, deploy, containers, migrations, auth, the
-shell and chat runners, agent settings. The Human gate check reads the paths
-itself; say here what it cannot see. -->
+shell and chat runners, agent settings. `.github/CODEOWNERS` holds those
+paths for pgoell's review; say here what it cannot see. -->
 
 ## How to revert
 

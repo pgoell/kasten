@@ -119,12 +119,18 @@ choices keep it from costing more than it saves:
 - **The rounds stop.** An agent author and an agent reviewer can cycle all
   night, each round finding one more old bug. After the first round a review
   reads only the new commits, and after three it stops and asks for a rethink.
-- **The change sets the risk, not the author.** The Human gate reads the paths
-  a pull request touches, from the base branch, so a pull request cannot take
-  itself off the list.
-- **A person's approval is a label.** The loop pushes as pgoell, and GitHub does
-  not let an author approve their own pull request. A push removes the label,
-  so an approval covers only the commits that were read.
+- **The change sets the risk, not the author.** `.github/CODEOWNERS` names the
+  risky paths, and a pull request touching one waits for pgoell's review.
+  GitHub reads the file from the base branch, so a pull request cannot take
+  itself off the list, and a push dismisses the approval, so it covers only
+  the commits that were read.
+- **The loop pushes as a bot.** Its implementer runs with the token of a
+  second account, a classic one with the `repo` scope and no `workflow`
+  scope, so GitHub refuses any push of it that changes `.github/workflows`. A
+  prompt-injected agent can then neither edit CI nor forge a check, and pgoell
+  can approve its pull requests, which GitHub does not let an author do. A
+  first try held risky pull requests with a commit status, but any workflow in
+  a pull request can post one; a code owner's review it cannot.
 
 The security review runs Claude Code with its own prompt, not Anthropic's
 security review action, which takes only an API key and is billed apart from

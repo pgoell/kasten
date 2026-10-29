@@ -1,0 +1,28 @@
+# The paths whose pull requests wait for pgoell's review: CI and the review
+# itself, deploy and containers, agent settings, migrations, auth, and the
+# dependency files. Branch protection requires a code owner's approval, which no
+# workflow can forge, and GitHub reads this file from the base branch, so a pull
+# request cannot take itself off the list. A push dismisses the approval.
+/.github/ @pgoell
+/.claude/ @pgoell
+/.config/ @pgoell
+/.claude-plugin/ @pgoell
+/deploy/ @pgoell
+/shell/ @pgoell
+/jobs/ @pgoell
+/plugins/ @pgoell
+Dockerfile* @pgoell
+/compose*.yml @pgoell
+/compose*.yaml @pgoell
+/mise.toml @pgoell
+pyproject.toml @pgoell
+uv.lock @pgoell
+package.json @pgoell
+bun.lock @pgoell
+/REVIEW.md @pgoell
+/scripts/apply-github-settings.sh @pgoell
+/scripts/release.py @pgoell
+/backend/alembic/ @pgoell
+/backend/src/kasten_backend/agent_oauth.py @pgoell
+/backend/src/kasten_backend/tokens.py @pgoell
+/backend/src/kasten_backend/files.py @pgoell

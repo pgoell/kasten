@@ -17,8 +17,8 @@ mise run fe:typecheck # builds the frontend, then tsc --noEmit
 ```
 
 CI runs the same three in two jobs, Lint and Test. Both must pass before a pull
-request can merge into main, and so must the `Review`, `Security` and `Human gate`
-checks below. A pull request or push to main that changes no file,
+request can merge into main, and so must the `Review` and `Security` checks
+below. A pull request or push to main that changes no file,
 such as a placeholder on an empty commit, skips them both, and a skipped job
 counts as passed.
 
@@ -255,21 +255,21 @@ yourself to judge whether the Design points were worth making.
 
 A pull request from a fork or from Dependabot gets no review, as its run sees
 no token: read it yourself. A draft gets none until it is marked ready. A run
-that fails, say on the plan's usage limit, counts no round; rerun it. `Review`,
-`Security` and `Human gate` are required checks, so a failed run blocks the
-merge until it passes.
+that fails, say on the plan's usage limit, counts no round; rerun it. `Review`
+and `Security` are required checks, so a failed run blocks the merge until it
+passes.
 
 ## Approve a held pull request
 
-The `Human gate` check holds a pull request that touches a path on
-`.github/review/risk-paths`, or carries the `hold` label. Its summary lists the
-paths. To let it merge, read it and add the `approved` label yourself: only the
-repository owner's label counts, and the next push takes it off again.
+A pull request that touches a path in `.github/CODEOWNERS` waits for pgoell's
+approving review. Read it and approve it in GitHub, or `gh pr review N
+--approve`. A push dismisses the approval, so approve again after one. The
+issue loop pushes as its bot account, so its pull requests can be approved;
+a Dependabot pull request touches a lock file and waits too.
 
-A Dependabot pull request touches a lock file, so it always waits for you. Its
-own runs may not post the gate's status, as GitHub gives them a read-only token;
-your label starts a run that can. To make the gate report and not block, set
-`ENFORCE: false` in `.github/workflows/human-gate.yml`.
+A risky pull request of your own you cannot approve, as GitHub does not let an
+author approve their own. Merge it with `gh pr merge N --admin` once the checks
+pass: branch protection does not hold admins, and only pgoell is one.
 
 ## Related
 
