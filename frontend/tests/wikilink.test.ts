@@ -188,7 +188,10 @@ describe("wikiLinkPath", () => {
   it("answers what the backend's link_path answers for the shared cases", () => {
     // The table the backend's tests read too, so the two rules cannot drift.
     const table = JSON.parse(
-      readFileSync(path.join(import.meta.dirname, "../../backend/tests/link_paths.json"), "utf8"),
+      readFileSync(
+        path.join(import.meta.dirname, "../../backend/tests/fixtures/link_paths.json"),
+        "utf8",
+      ),
     ) as { suffixes: string[]; paths: string[]; cases: { target: string; path: string }[] };
 
     expect(new Set(FILE_SUFFIXES)).toEqual(new Set(table.suffixes));

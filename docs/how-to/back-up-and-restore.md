@@ -158,6 +158,63 @@ set it again. Books and documents come back from the tar, not from here.
 Then open the notebook and check a note you know. Mint new tokens if the token
 store did not come back.
 
+## Rebuild the pieces index
+
+The pieces index needs no backup.
+
+The [pieces index](/explanation/models-on-the-vps/the-pieces-index.md) is derived from the vault, so
+you can empty it and the backend fills it again. The rebuilt rows match the old
+ones. Rebuild when the index looks wrong, or after a change to how notes are split
+or which model embeds them.
+
+The backend embeds only when `KASTEN_EMBED_MODEL_DIR` is set. Without it, nothing
+refills the index. See [Configuration](/reference/configuration.md#kasten_embed_model_dir).
+
+### Dev, after a pull
+
+The dev Postgres image now has pgvector and pg_textsearch. After you pull, run this
+once, then apply the migration that makes the tables:
+
+```sh
+docker compose build db && docker compose up -d db
+mise run db:migrate
+```
+
+### Empty the index
+
+Deleting the rows of `piece_notes` empties `pieces` too, since the two cascade.
+
+On prod:
+
+```sh
+docker exec postgres psql -U postgres -d kasten_prod -c "DELETE FROM piece_notes"
+docker restart kasten-backend-prod
+```
+
+On dev:
+
+```sh
+docker compose exec db psql -U kasten -d kasten_dev -c "DELETE FROM piece_notes"
+```
+
+Then restart the dev backend with `mise run dev`.
+
+### Watch it refill
+
+At start, the backend finds no note in `piece_notes` and embeds every note. On the
+live vault that takes about 80 minutes. The backend serves requests meanwhile.
+
+To count the notes done so far, on prod:
+
+```sh
+docker exec postgres psql -U postgres -d kasten_prod -c "SELECT count(*) FROM piece_notes"
+```
+
+A backend log line that begins `The pieces index stays off` or `The pieces index
+stops` says the indexer has stopped. A line that begins `The pieces index skips`
+names one note that failed. The [explanation](/explanation/models-on-the-vps/the-pieces-index.md#when-it-stops)
+says what the next start does.
+
 ## Related
 
 * [Recover an earlier version of a note](/how-to/recover-an-earlier-version.md): read back one note from the history, without a restore

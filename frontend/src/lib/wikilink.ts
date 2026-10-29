@@ -29,7 +29,7 @@ const SUFFIX = ".md";
  * What a link's name ends in when it names a file and not a note: a page of
  * HTML, or an asset the vault serves (`ASSET_MAGIC` on the backend). A link
  * names one by its full file name. The backend's `FILE_SUFFIXES` is this list,
- * and `backend/tests/link_paths.json` holds both to it.
+ * and `backend/tests/fixtures/link_paths.json` holds both to it.
  */
 export const FILE_SUFFIXES = [
   ".html",

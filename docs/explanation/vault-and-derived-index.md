@@ -53,10 +53,14 @@ database: full-text search, the backlinks pointing at a note, every note
 carrying a tag. An index of the vault would be for those, and would hold
 documents, links, tags and search vectors, all derived.
 
-None of that is in Postgres today. A search runs ripgrep over the notes on
-every query, which at 10,000 notes takes under 20ms and cannot go stale. The
-backlinks panel is a search for the note's name, and the tag list reads the
-notes too. See [What is not decided yet](#what-is-not-decided-yet).
+Postgres holds one such index now: the [pieces index](/explanation/models-on-the-vps/the-pieces-index.md),
+the first derived index kasten has. It cuts each note into pieces, with a
+bge-m3 vector and a BM25 index for each. It passes the test: drop it, rebuild
+it from the vault, and the rows come out the same. No search reads it yet.
+Search still runs ripgrep over the notes on every query, which at 10,000 notes
+takes under 20ms and cannot go stale. The backlinks panel is a search for the
+note's name, and the tag list reads the notes too. See
+[What is not decided yet](#what-is-not-decided-yet).
 
 The test for whether something belongs in the database is simple. Outside
 `finance` and the two tables below, if losing it would lose information, it
@@ -104,8 +108,8 @@ when it was last used and what it did. The tokens themselves live in
 
 ## What is not decided yet
 
-How the index gets rebuilt: on startup, on a file watcher, on a command, or on
-a schedule. Nothing indexes anything today, so the question has not had to be
-answered. The rule above constrains the answer, though. Whatever does the
-indexing must be able to run from an empty database against a full vault and
-arrive at the same state.
+Whether search, backlinks and tags move into the index. The pieces index
+answers how it gets rebuilt: a sweep on startup, then the file watcher, as
+[The pieces index](/explanation/models-on-the-vps/the-pieces-index.md) says. The rule above still
+applies to whatever comes next. Whatever does the indexing must be able to run
+from an empty database against a full vault and arrive at the same state.

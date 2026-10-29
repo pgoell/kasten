@@ -22,6 +22,7 @@ on its code.
 * [Log food from a phone](log-food-from-a-phone.md): scan a food's barcode with the phone camera and log it on today's note, and what to do when the camera is refused or the barcode is unknown
 * [Read the overview](read-the-overview.md): open the overview of scores and streaks, read its eight cards, open the pane behind one, and know the streak rules and what counts as a note written
 * [Read the year and week review](read-the-year-and-week-review.md): read the year review on a yearly note and the week review on a weekly one, know what each section counts and how each number is worked out, and switch on the GitHub section
+* [Rebuild the pieces index](back-up-and-restore.md#rebuild-the-pieces-index): empty the index of the vault's note pieces and let the backend embed the vault again, on dev or on prod
 * [Recover an earlier version of a note](recover-an-earlier-version.md): read back or restore a note as it was before a save overwrote it, from the history pane or with jj
 * [Regenerate the API types](regenerate-the-api-types.md): rebuild the frontend's TypeScript types after changing a backend endpoint
 * [Review an area for deep modules](review-an-area-for-deep-modules.md): list one area's files and who imports them, ask of each whether it hides work or only passes calls on, and file what should merge or move as refactor issues

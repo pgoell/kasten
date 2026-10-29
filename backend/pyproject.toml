@@ -24,10 +24,14 @@ dependencies = [
     # rather than a production discovery. The SDK renamed its server class
     # between major versions and moved the option names with it.
     "mcp==2.2.0",
+    "numpy>=2.3",
+    "onnxruntime>=1.23",
+    "pgvector>=0.4",
     "psycopg[binary]>=3.3",
     "pydantic-settings>=2.7",
     "pypdfium2>=4.30",
     "sqlalchemy[asyncio]>=2.0.35",
+    "tokenizers>=0.22",
     "watchfiles>=1.0",
     "youtube-transcript-api>=1.2",
 ]

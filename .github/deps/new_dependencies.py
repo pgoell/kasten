@@ -31,7 +31,11 @@ ALLOWLIST = ("MIT", "BSD", "Apache-2.0", "ISC", "PostgreSQL", "MPL-2.0")
 ALLOWED = {name.lower() for name in ALLOWLIST}
 # The way past a licence the check cannot read or does not allow: a code owner
 # reads it and adds "<kind> <name>": "<why>" here, in the pull request that adds it.
-ACCEPTED: dict[str, str] = {}
+ACCEPTED: dict[str, str] = {
+    # Both read from the project's own LICENSE file on 2026-10-29.
+    "pypi numpy": "BSD-3-Clause, with bundled 0BSD, Zlib and CC0-1.0 code",
+    "pypi protobuf": "BSD-3-Clause; PyPI's metadata names none",
+}
 
 # Trove classifiers, as PyPI lists them under "License :: OSI Approved :: ".
 CLASSIFIERS = {

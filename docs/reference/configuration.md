@@ -1,7 +1,7 @@
 ---
 type: Reference
 title: Configuration
-description: Every backend setting, its default, where the values come from, what the shell container reads for its commit identity, the uid it runs as and its first-start install of Claude Code, the variables the compose files read, and the self-host stack's own.
+description: Every backend setting and its default, where values come from, what the shell container reads, the compose files' variables, and the self-host stack's own.
 resource: backend/src/kasten_backend/config.py
 tags: [config, environment, backend]
 status: stable
@@ -14,18 +14,16 @@ the process starts in. `mise run dev` starts at the repo root and reads `./.env`
 `backend/` and read `backend/.env`. Every field takes the `KASTEN_` prefix.
 Unknown variables are ignored.
 
-Every value below is already the default. `backend/.env.example` shows
-how to write your own overrides.
+Every value below is the default. `backend/.env.example` shows how to
+override one.
 
 The backend image changes three of them. It sets `KASTEN_VAULT_PATH=/vault`,
 `KASTEN_TOKENS_PATH=/agent-data/tokens.json` and
 `KASTEN_RECEIPTS_PATH=/receipts`, the mount points `deploy/compose.yaml` uses,
-since the relative defaults would vanish under `/app` in the container. An env
-file still wins over all three.
+since relative defaults would land under `/app`. An env file still wins.
 
-> **Warning: an existing vault.** At every startup the backend writes
-> `type: Note` into the frontmatter of every note that has no `type`, in one jj
-> change. On a vault kasten made, that is what keeps it an
+> **Warning: an existing vault.** Each startup writes `type: Note` into every
+> note with no `type`, in one jj change. On a vault kasten made, that is what keeps it an
 > [OKF bundle](/explanation/okf-in-the-vault.md). On a vault you already keep in
 > Obsidian or another tool, it rewrites most of your notes on the first boot,
 > and a sync tool will carry that rewrite to every device. Set
@@ -49,6 +47,15 @@ the [self-host stack](/how-to/self-host-kasten.md) ships none.
 Dev points at kasten's compose Postgres on host port 5434. It
 cannot use the shared `postgres` container on the VPS: that one publishes no
 host port, and the dev backend runs on the host.
+
+## KASTEN_EMBED_MODEL_DIR
+
+bge-m3's ONNX folder. Set, the
+[pieces index](/explanation/models-on-the-vps/the-pieces-index.md) runs; unset by default.
+
+## KASTEN_PIECES_SKIP
+
+A folder the pieces index leaves out.
 
 ## KASTEN_ARCHIVE_PATH
 

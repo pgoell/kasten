@@ -6,7 +6,7 @@ import pytest
 from kasten_backend.links import FILE_SUFFIXES, link_path, relink, split_target
 from kasten_backend.search import SearchError, notes_holding
 
-LINK_PATHS = json.loads((Path(__file__).parent / "link_paths.json").read_text())
+LINK_PATHS = json.loads((Path(__file__).parent / "fixtures" / "link_paths.json").read_text())
 """The cases `wikiLinkPath` in the frontend is tested against too, so the two copies agree."""
 
 

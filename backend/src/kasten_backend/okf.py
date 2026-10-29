@@ -50,7 +50,7 @@ INDEX_GUIDE_PATH = f"{DEFAULTS.config_path}/{INDEX_GUIDE}"
 STARTUP_NOTES = {
     READER: (Path(__file__).parent / "reading-this-vault.md").read_text(encoding="utf-8"),
     ONTOLOGY: (Path(__file__).parent / "ontology.md").read_text(encoding="utf-8"),
-    INDEX_GUIDE: (Path(__file__).parent / "how-to-index.md").read_text(encoding="utf-8"),
+    INDEX_GUIDE: (Path(__file__).parent / "guides" / "how-to-index.md").read_text(encoding="utf-8"),
 }
 """The notes the bundle cannot be read or written without, and the text each arrives as.
 

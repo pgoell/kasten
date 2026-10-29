@@ -38,8 +38,8 @@ EXAM_GUIDE_PATH = f"{DEFAULTS.config_path}/{EXAM_GUIDE}"
 # string is markdown nobody can read in a diff, and both of these are the length
 # of a documentation page.
 GUIDES = {
-    TODO_GUIDE: (Path(__file__).parent / "how-to-todo.md").read_text(encoding="utf-8"),
-    EXAM_GUIDE: (Path(__file__).parent / "how-to-exam.md").read_text(encoding="utf-8"),
+    TODO_GUIDE: (Path(__file__).parent / "guides" / "how-to-todo.md").read_text(encoding="utf-8"),
+    EXAM_GUIDE: (Path(__file__).parent / "guides" / "how-to-exam.md").read_text(encoding="utf-8"),
 }
 """Each guide by its place inside the config folder, as a template `Settings.fill` reads."""
 

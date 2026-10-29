@@ -6,7 +6,14 @@ name: kasten
 
 services:
   db:
-    image: postgres:17-alpine
+    # Postgres with pgvector and pg_textsearch, the image prod's shared
+    # container builds from pgoell/server-infra.
+    build: deploy/postgres
+    image: kasten-postgres:17
+    # pg_textsearch must load at server start. The image's sample config only
+    # reaches a new data directory, and a dev volume made before this image
+    # keeps its own config.
+    command: ["postgres", "-c", "shared_preload_libraries=pg_textsearch"]
     environment:
       POSTGRES_USER: kasten
       POSTGRES_PASSWORD: kasten

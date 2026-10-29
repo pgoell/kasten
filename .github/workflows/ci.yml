@@ -88,23 +88,26 @@ jobs:
     needs: [changes, gate]
     if: ${{ !cancelled() && needs.changes.outputs.changed != 'false' && needs.gate.outputs.skip != 'true' }}
     runs-on: ubuntu-latest
-    services:
-      # Mirrors compose.yaml so backend/.env.example resolves without overrides.
-      postgres:
-        image: postgres:17-alpine
-        env:
-          POSTGRES_USER: kasten
-          POSTGRES_PASSWORD: kasten
-          POSTGRES_DB: kasten_dev
-        ports:
-          - 5434:5432
-        options: >-
-          --health-cmd "pg_isready -U kasten -d kasten_dev"
-          --health-interval 2s
-          --health-timeout 2s
-          --health-retries 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # Not a `services:` container: those take an image from a registry and
+      # no build, and this one is built here from deploy/postgres, the file
+      # dev uses and prod's copy follows. Port and credentials mirror
+      # compose.yaml, so backend/.env.example resolves without overrides.
+      # pg_isready over TCP, because the entrypoint's first server, the one
+      # that runs the init, listens on the socket only and then stops.
+      - name: Start Postgres with pgvector and pg_textsearch
+        run: |
+          docker build -q -t kasten-postgres deploy/postgres
+          docker run -d --name postgres -p 5434:5432 \
+            -e POSTGRES_USER=kasten -e POSTGRES_PASSWORD=kasten -e POSTGRES_DB=kasten_dev \
+            kasten-postgres
+          for _ in $(seq 60); do
+            docker exec postgres pg_isready -h 127.0.0.1 -U kasten -d kasten_dev -q && exit 0
+            sleep 1
+          done
+          docker logs postgres
+          exit 1
       - uses: ./.github/actions/setup-mise
       # Proves the Alembic wiring against a real database, which the unit
       # tests deliberately do not touch.

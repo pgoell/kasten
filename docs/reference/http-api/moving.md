@@ -85,7 +85,7 @@ the two part: the editor puts the note it is about to make in the inbox, and a
 rename leaves the name where it stands, there being no note to follow. The rule is written
 out twice, in `backend/src/kasten_backend/links.py` and in
 `frontend/src/lib/wikilink.ts`, which is what the editor resolving a link
-without asking the server costs. `backend/tests/link_paths.json` holds the cases
+without asking the server costs. `backend/tests/fixtures/link_paths.json` holds the cases
 both test suites read, so the two copies cannot drift apart unnoticed.
 
 The rewrite runs before the note is moved, because a bare name only names the

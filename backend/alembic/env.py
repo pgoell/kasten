@@ -18,6 +18,9 @@ from kasten_backend import (  # noqa: F401  (registers the finance, rsvp and tok
 )
 from kasten_backend.config import get_settings
 from kasten_backend.db import Base
+from kasten_backend.pieces import (
+    models as pieces_models,  # noqa: F401  (registers the pieces tables)
+)
 
 if TYPE_CHECKING:
     from sqlalchemy.engine import Connection
