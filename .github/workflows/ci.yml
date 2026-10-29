@@ -172,18 +172,14 @@ jobs:
   # around it do the rest with the token.
   review:
     name: ${{ matrix.name }}
-    # After Lint and Test, so no round goes on code its own tests reject. A
-    # skipped job counts as passed, so a fork or a Dependabot pull request
-    # (whose runs see neither the token nor write access) does not wait forever
-    # on a required check; pgoell reads those by hand. `!cancelled()` because
-    # the gate upstream is always skipped on a pull request.
+    # The job always runs and its first step decides, as a matrix job skipped by
+    # its `if:` never expands: it reports one check named `${{ matrix.name }}`,
+    # and the required Review and Security would wait forever. So a fork or a
+    # Dependabot pull request (whose runs see neither the token nor write
+    # access), a draft, or a run whose Lint or Test did not pass passes here
+    # with no round; pgoell reads the first two by hand.
     needs: [lint, test]
-    if: >-
-      !cancelled() && github.event_name == 'pull_request' &&
-      needs.lint.result == 'success' && needs.test.result == 'success' &&
-      github.event.pull_request.head.repo.full_name == github.repository &&
-      github.event.pull_request.user.login != 'dependabot[bot]' &&
-      !github.event.pull_request.draft
+    if: ${{ !cancelled() && github.event_name == 'pull_request' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
@@ -204,7 +200,18 @@ jobs:
       OWNER: ${{ github.repository_owner }}
       GH_TOKEN: ${{ github.token }}
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - id: decide
+        env:
+          RUN: >-
+            ${{ needs.lint.result == 'success' && needs.test.result == 'success' &&
+            github.event.pull_request.head.repo.full_name == github.repository &&
+            github.event.pull_request.user.login != 'dependabot[bot]' &&
+            !github.event.pull_request.draft }}
+        run: |
+          echo "run=$RUN" >> "$GITHUB_OUTPUT"
+          if [ "$RUN" != true ]; then echo "No round: a fork, Dependabot, a draft, or Lint or Test did not pass." >> "$GITHUB_STEP_SUMMARY"; fi
+      - if: steps.decide.outputs.run == 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
@@ -212,14 +219,18 @@ jobs:
       # The scrub below runs each command in Claude Code's sandbox, which needs
       # bubblewrap and socat, neither on the runner image, and user namespaces,
       # which Ubuntu's AppArmor blocks by default.
-      - run: |
+      - if: steps.decide.outputs.run == 'true'
+        run: |
           sudo apt-get install -y -qq bubblewrap socat
           sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
       # Out of the checkout, where the reviewer's git cannot write over it.
-      - run: cp .github/review/round.sh .github/review/context.sh "$RUNNER_TEMP/"
+      - if: steps.decide.outputs.run == 'true'
+        run: cp .github/review/round.sh .github/review/context.sh "$RUNNER_TEMP/"
       - id: base
+        if: steps.decide.outputs.run == 'true'
         run: echo "sha=$(git merge-base "origin/$GITHUB_BASE_REF" HEAD)" >> "$GITHUB_OUTPUT"
       - id: round
+        if: steps.decide.outputs.run == 'true'
         env:
           BASE_SHA: ${{ steps.base.outputs.sha }}
         run: bash "$RUNNER_TEMP/round.sh" plan

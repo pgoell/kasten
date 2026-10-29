@@ -17,7 +17,8 @@ mise run fe:typecheck # builds the frontend, then tsc --noEmit
 ```
 
 CI runs the same three in two jobs, Lint and Test. Both must pass before a pull
-request can merge into main. A pull request or push to main that changes no file,
+request can merge into main, and so must the `Review`, `Security` and `Human gate`
+checks below. A pull request or push to main that changes no file,
 such as a placeholder on an empty commit, skips them both, and a skipped job
 counts as passed.
 
