@@ -78,8 +78,10 @@ def startup_vault(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[P
 
 @pytest.fixture
 async def client() -> AsyncIterator[AsyncClient]:
+    # The default 5s bound measures the box's load and the suite's gc, not the app,
+    # so the test waits for the startup it needs.
     async with (
-        LifespanManager(app),
+        LifespanManager(app, startup_timeout=None, shutdown_timeout=None),
         AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as http_client,
     ):
         yield http_client
