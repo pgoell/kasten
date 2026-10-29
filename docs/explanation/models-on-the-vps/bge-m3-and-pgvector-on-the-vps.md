@@ -46,7 +46,8 @@ Ten times the pieces (35,000) still answers in 157 ms exact or 3.7 ms with
 HNSW, whose build then takes 172 s and 461 MB.
 
 **Indexing.** The bge-m3 tokenizer counts 2.08M tokens outside the
-flashcards, more than the 1.7M estimated above. Throughput falls as pieces
+flashcards, more than the 1.7M estimated in
+[Local models](/explanation/models-on-the-vps/semantic-search-models.md#local-models). Throughput falls as pieces
 grow, because attention costs grow with the square of their length:
 
 | Piece length | Batch | Tokens a second | Whole vault without flashcards | Peak RAM |
@@ -58,7 +59,7 @@ grow, because attention costs grow with the square of their length:
 
 Each row ran 32,000 to 49,000 tokens and the vault time extrapolates from
 it; the 8,192 row rests on four pieces, so read it as rough. The estimate
-above (1.0 to 3.1 h) was too slow for short pieces and about right for whole
+in Local models (1.0 to 3.1 h) was too slow for short pieces and about right for whole
 notes.
 
 What this means for kasten:

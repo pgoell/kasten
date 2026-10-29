@@ -16,7 +16,7 @@ comparison before pgoell picked a model. This page is that comparison and
 pgoell's answer: local bge-m3, and a hybrid search with BM25. Nothing here
 is built.
 
-Figures come in two kinds. **Cited** ones link their source. **Estimated**
+Figures come in three kinds. **Cited** ones link their source. **Estimated**
 ones say so and show the sum. **Measured** ones come from bge-m3 run on the
 VPS, in [bge-m3 and pgvector on the VPS](/explanation/models-on-the-vps/bge-m3-and-pgvector-on-the-vps.md).
 The other models were not run.
@@ -179,10 +179,10 @@ tasks on the MMTEB leaderboard [Q6].
 German decides it: the vault's prose is German and English, and bge-m3 has
 the best published German retrieval score here; no API publishes one. A
 local model also keeps every note on the VPS. Speed only says it is usable:
-a query takes about 56 ms and the first pass without flashcards about 51
-minutes at 512-token pieces, in 2.2 GB of the VPS's 44 GiB available. The
-fallback is OpenAI's 3-small, a few cents a month (**MONEY**, $0.02 per 1M
-tokens), without the German edge or the privacy.
+a query takes about 56 ms, the first pass without flashcards about 51
+minutes, in 2.2 GB. It does not pick bge-m3 over e5-base: bge-m3 is the
+slowest of the three, and at 512-token pieces its 8,192-token window no
+longer counts. It runs under onnxruntime, not torch.
 
 ## What kasten would need
 
@@ -235,9 +235,8 @@ LICENSE file.
 | Cost per note save | Write goes to a memtable, spills into segments merged in line; REINDEX if update-heavy work fragments it [B2][B3] | Mutable segment of 1,000 rows, background merges, 15 MB `work_mem` a write [B6] | Growing segment, sealed later; merges not documented [B10] | Rebuild on change (unverified) [B11] |
 | Maintained | v1.5.1, 2026-10-02, active [B1] | v0.26.3, 2026-10-22, very active [B4] | 0.3.0, 2025-12-15; tokenizer quiet since 2025-09 [B8][B9] | Small one-person project [B11] |
 
-Also looked at: PGroonga is PostgreSQL-licensed and the only one with an
-alpine image, but scores by TF-IDF, not BM25 [B12]; ZomboDB is archived and
-needs Elasticsearch.
+Also looked at: PGroonga has an alpine image but scores by TF-IDF, not
+BM25 [B12]; ZomboDB is archived and needs Elasticsearch.
 
 **Pick: pg_textsearch.** It is the one real BM25 index under a permissive
 license with no paid tier, it is maintained, it runs on PG17 beside pgvector,
@@ -258,9 +257,8 @@ What the pick asks of prod, in the server-infra repo, not here:
 * **`shared_preload_libraries = 'pg_textsearch'`**, which takes a restart of
   the shared container and so a short stop for every database on it.
 * **Two BM25 indexes** on the pieces' text, one `german` and one `english`,
-  queried side by side and fed into the same fusion as the vectors. That
-  needs no language guess per piece, and the vault mixes both inside one
-  note.
+  each queried by name with `to_bm25query`, fed into the same fusion as the vectors. That
+  needs no language guess per piece; the vault mixes both in one note.
 
 ## Sources
 
@@ -303,7 +301,7 @@ BM25 in Postgres:
 * [B3] [pg_textsearch ARCHITECTURE.md](https://github.com/timescale/pg_textsearch/blob/main/ARCHITECTURE.md)
 * [B4] [ParadeDB LICENSE](https://github.com/paradedb/paradedb/blob/main/LICENSE) and [releases](https://github.com/paradedb/paradedb/releases)
 * [B5] [ParadeDB Enterprise](https://www.paradedb.com/docs/operate/deploy/enterprise)
-* [B6] ParadeDB docs: [install](https://www.paradedb.com/docs/operate/deploy/self-hosted/extension), [stemming](https://www.paradedb.com/docs/reference/token-filters/stemming), [stopwords](https://www.paradedb.com/docs/reference/token-filters/stopwords), [writes](https://www.paradedb.com/docs/operate/performance-tuning/writes)
+* [B6] ParadeDB: [install](https://www.paradedb.com/docs/operate/deploy/self-hosted/extension), [stem](https://www.paradedb.com/docs/reference/token-filters/stemming), [stop](https://www.paradedb.com/docs/reference/token-filters/stopwords), [writes](https://www.paradedb.com/docs/operate/performance-tuning/writes)
 * [B7] [ParadeDB Dockerfile for PG17](https://github.com/paradedb/paradedb/blob/main/docker/Dockerfile.paradedb-17)
 * [B8] [VectorChord-BM25 LICENSE](https://github.com/tensorchord/VectorChord-bm25/blob/main/LICENSE) and [releases](https://github.com/tensorchord/VectorChord-bm25/releases)
 * [B9] [pg_tokenizer LICENSE](https://github.com/tensorchord/pg_tokenizer.rs/blob/main/LICENSE) and [docs](https://github.com/tensorchord/pg_tokenizer.rs/tree/main/docs)
