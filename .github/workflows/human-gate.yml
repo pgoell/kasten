@@ -30,6 +30,7 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           OWNER: ${{ github.repository_owner }}
           GH_TOKEN: ${{ github.token }}
-          # false while the pilot runs: the check reports and blocks nothing.
-          ENFORCE: false
+          # true: a high-risk pull request fails the gate until pgoell approves;
+          # false makes the gate report only.
+          ENFORCE: true
         run: bash .github/review/gate.sh
