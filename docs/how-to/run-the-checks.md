@@ -244,7 +244,11 @@ pull request's author wrote them.
    each Pre-existing line, and leave the rest.
 3. Push. Each review reads only the commits since its last round. After three
    rounds it stops and says so in its round comment: rethink the change rather
-   than push a fourth fix.
+   than push a fourth fix. After round 1, `Security` runs only when the new
+   commits change more than 100 lines or touch a path in `.github/CODEOWNERS`;
+   otherwise it passes, and its round comment says it skipped and why. A
+   skipped push counts no round, and the next `Security` round reads its
+   commits too.
 
 To see how the findings were answered, run
 `python3 .github/review/outcomes.py [days] [sample size]`. It counts the

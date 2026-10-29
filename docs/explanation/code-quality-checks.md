@@ -119,6 +119,10 @@ choices keep it from costing more than it saves:
 - **The rounds stop.** An agent author and an agent reviewer can cycle all
   night, each round finding one more old bug. After the first round a review
   reads only the new commits, and after three it stops and asks for a rethink.
+  The security review skips a later round whose commits change at most 100
+  lines and no path in `.github/CODEOWNERS`, as a fix push is a few lines and
+  rereading it would spend plan usage for little; the next round it runs reads
+  the skipped commits too.
 - **The change sets the risk, not the author.** `.github/CODEOWNERS` names the
   risky paths, and a pull request touching one waits for pgoell's review.
   GitHub reads the file from the base branch, so a pull request cannot take

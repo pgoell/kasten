@@ -6,15 +6,43 @@
 # review stops and asks the author to rethink, so an agent author and an agent
 # reviewer cannot cycle all night.
 #
-#   round.sh plan    writes round, from, comment_id, stop, rerun and max to $GITHUB_OUTPUT
+# Security reads every line on round 1 but a later round only when the new
+# commits are big or touch a risky path, as a fix push is a few lines and
+# rereading it costs plan usage for nothing. A skipped round counts no round
+# and leaves the marker where it was, so the next round that runs reads the
+# skipped commits too.
+#
+#   round.sh plan    writes round, from, comment_id, stop, rerun, skip and max to $GITHUB_OUTPUT
 #   round.sh record  writes the marker comment for this round
 #
 # Reads KIND, PR, BASE_SHA, HEAD_SHA and GH_TOKEN from the environment, and
-# ROUND, FROM and COMMENT_ID for record.
+# ROUND, FROM, COMMENT_ID and SKIP for record.
 set -euo pipefail
 
 MAX_ROUNDS=3
+MAX_SKIP_LINES=100
 marker="<!-- kasten-review:$KIND"
+
+# Prints the first changed file a pattern in .github/CODEOWNERS matches, so the
+# risky paths have one list. Read from the base branch, as GitHub reads it, so
+# a pull request cannot shorten the list for itself. A `*` here also matches a
+# `/`, which can only call a path risky that is not.
+risky_path() {
+  local file pattern patterns
+  mapfile -t patterns < <(git show "origin/$GITHUB_BASE_REF:.github/CODEOWNERS" | sed -E 's/#.*//; s/[[:space:]].*//; /^$/d')
+  while read -r file; do
+    for pattern in "${patterns[@]}"; do
+      # Unquoted on purpose: the pattern is a glob.
+      # shellcheck disable=SC2053
+      case $pattern in
+        /*/) [[ $file == "${pattern#/}"* ]] ;;
+        /*) [[ $file == ${pattern#/} || $file == ${pattern#/}/* ]] ;;
+        *) [[ $file == $pattern || $file == */$pattern ]] ;;
+      esac && { echo "$file"; return; }
+    done
+  done < <(git diff --name-only --no-renames "$1" "$HEAD_SHA")
+  return 0
+}
 
 case $1 in
   plan)
@@ -41,22 +69,40 @@ case $1 in
     fi
     stop=false
     if [ "$round" -gt "$MAX_ROUNDS" ] || [ "$rerun" = true ]; then stop=true; fi
+    skip=
+    if [ "$KIND" = security ] && [ "$round" -gt 1 ] && [ "$stop" = false ]; then
+      # A binary file counts no lines, but any file can still be risky.
+      lines=$(git diff --numstat "$from" "$HEAD_SHA" | awk '{ n += ($1 == "-" ? 0 : $1 + $2) } END { print n + 0 }')
+      risky=$(risky_path "$from")
+      if [ "$lines" -le "$MAX_SKIP_LINES" ] && [ -z "$risky" ]; then
+        skip="the new commits change $lines lines (the limit is $MAX_SKIP_LINES) and no path in .github/CODEOWNERS"
+        stop=true
+      fi
+    fi
     {
       echo "round=$round"
       echo "from=$from"
       echo "comment_id=$comment_id"
       echo "stop=$stop"
       echo "rerun=$rerun"
+      echo "skip=$skip"
       echo "max=$MAX_ROUNDS"
     } >>"$GITHUB_OUTPUT"
     ;;
   record)
-    if [ "$ROUND" -gt "$MAX_ROUNDS" ]; then
+    sha=$HEAD_SHA
+    if [ -n "${SKIP:-}" ]; then
+      # The marker stays on the commit the last round covered, and its round.
+      # shellcheck disable=SC2153 # FROM comes from the environment.
+      sha=$FROM
+      ROUND=$((ROUND - 1))
+      text="**${KIND^}** skipped \`${FROM:0:7}..${HEAD_SHA:0:7}\`: $SKIP. It counts no round, and the next round reads these commits too."
+    elif [ "$ROUND" -gt "$MAX_ROUNDS" ]; then
       text="**${KIND^}**: $MAX_ROUNDS rounds are done and this push brought round $ROUND. No more rounds run on this pull request. Stop fixing line by line: rethink the approach, or ask pgoell."
     else
       text="**${KIND^}** round $ROUND of $MAX_ROUNDS covered \`${FROM:0:7}..${HEAD_SHA:0:7}\`."
     fi
-    body="$marker sha=$HEAD_SHA round=$ROUND -->
+    body="$marker sha=$sha round=$ROUND -->
 $text"
     if [ -n "$COMMENT_ID" ]; then
       gh api -X PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" -f body="$body" >/dev/null
