@@ -280,4 +280,5 @@ jobs:
           ROUND: ${{ steps.round.outputs.round }}
           FROM: ${{ steps.round.outputs.from }}
           COMMENT_ID: ${{ steps.round.outputs.comment_id }}
+          SKIP: ${{ steps.round.outputs.skip }}
         run: bash "$RUNNER_TEMP/round.sh" record

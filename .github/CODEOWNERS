@@ -2,7 +2,9 @@
 # itself, deploy and containers, agent settings, migrations, auth, and the
 # dependency files. Branch protection requires a code owner's approval, which no
 # workflow can forge, and GitHub reads this file from the base branch, so a pull
-# request cannot take itself off the list. A push dismisses the approval.
+# request cannot take itself off the list. A push dismisses the approval. The
+# security review reads this list too: it reruns on a later push that touches
+# one of these paths (.github/review/round.sh).
 /.github/ @pgoell
 /.claude/ @pgoell
 /.config/ @pgoell
@@ -24,5 +26,9 @@ bun.lock @pgoell
 /scripts/release.py @pgoell
 /backend/alembic/ @pgoell
 /backend/src/kasten_backend/agent_oauth.py @pgoell
+/backend/src/kasten_backend/agent_routes.py @pgoell
+/backend/src/kasten_backend/agent_mcp.py @pgoell
+/backend/src/kasten_backend/routes/share.py @pgoell
+/backend/src/kasten_backend/routes/tokens.py @pgoell
 /backend/src/kasten_backend/tokens.py @pgoell
 /backend/src/kasten_backend/files.py @pgoell
