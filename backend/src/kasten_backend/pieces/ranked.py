@@ -115,6 +115,9 @@ async def ranked_notes(
     pieces = {path: (heading, text) for path, heading, text in rows.tuples()}
     found = []
     for path, (_, score) in best.items():
+        # The indexer may have rewritten or dropped the piece since the lists ran.
+        if path not in pieces:
+            continue
         heading, text = pieces[path]
         # The text after the prefix line the indexer put in front for the model.
         chunk = text.partition("\n\n")[2] or text

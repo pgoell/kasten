@@ -73,13 +73,10 @@ async def ranked_search(
     meaning = vector is not None if query else running is not None and running.ready
     try:
         indexed = await session.scalar(select(func.count()).select_from(PieceNote)) or 0
-        found = (
-            await ranked_notes(session, query, vector, None if archive else settings.archive_path)
-            if query
-            else []
-        )
     except ProgrammingError:
         # No pieces table: a database the migration has not reached.
         return RankedAnswer(hits=[], meaning=False, indexed=0, notes=notes)
+    skip = None if archive else settings.archive_path
+    found = await ranked_notes(session, query, vector, skip) if query else []
     hits = [RankedHit(path=n.path, heading=n.heading, text=n.text, score=n.score) for n in found]
     return RankedAnswer(hits=hits, meaning=meaning, indexed=indexed, notes=notes)

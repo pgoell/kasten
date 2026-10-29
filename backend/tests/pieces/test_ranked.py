@@ -22,6 +22,7 @@ from sqlalchemy.pool import NullPool
 from kasten_backend.config import Settings, get_settings
 from kasten_backend.db import get_session
 from kasten_backend.main import app
+from kasten_backend.pieces import ranked
 from kasten_backend.pieces.embed import DIMENSIONS, model_thread
 from kasten_backend.pieces.indexer import Indexer
 from kasten_backend.pieces.ranked import bm25_select, fuse
@@ -183,6 +184,28 @@ async def test_each_note_comes_once_with_counts(client: AsyncClient, indexed: In
     # Both counts take the archive in: the indexer reads it, only the search leaves it out.
     assert answer["indexed"] == len(NOTES)
     assert answer["notes"] == len(NOTES)
+
+
+async def test_a_piece_the_indexer_drops_mid_search_is_skipped(
+    client: AsyncClient,
+    indexed: Indexer,
+    sessions: async_sessionmaker[AsyncSession],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # The note goes between the list queries and the read of its piece's text.
+    nearest = ranked._nearest
+
+    async def then_drop(*args: object) -> list[tuple[str, int]]:
+        found = await nearest(*args)  # ty: ignore[invalid-argument-type]
+        async with sessions() as other, other.begin():
+            await other.execute(sql("DELETE FROM piece_notes WHERE path = 'Haus.md'"))
+        return found
+
+    monkeypatch.setattr(ranked, "_nearest", then_drop)
+
+    answer = await _ask(client, "Haus")
+
+    assert "Haus.md" not in [hit["path"] for hit in answer["hits"]]
 
 
 async def test_the_archive_stays_out_unless_asked(client: AsyncClient, indexed: Indexer) -> None:
