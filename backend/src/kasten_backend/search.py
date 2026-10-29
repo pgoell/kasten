@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, NamedTuple, cast
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Callable, Sequence
 
 MOST_HITS = 2_000
 """How many matching lines come back at most.
@@ -98,6 +98,23 @@ class SearchError(RuntimeError):
     """
 
 
+def relative_to_root(root: Path) -> Callable[[str], str]:
+    """Strips `root` from paths rg prints, since rg is handed `str(root)`.
+
+    The prefix comes off as a string. A Path and `relative_to` per hit was most
+    of a cards read (#1353). Anything else, such as under a root of `/`, takes
+    the old way, so the answer matches.
+    """
+    prefix = f"{root}/"
+
+    def relative(path: str) -> str:
+        if path.startswith(prefix):
+            return path[len(prefix) :]
+        return str(Path(path).relative_to(root))
+
+    return relative
+
+
 async def notes_holding(root: Path, *texts: str, skip: str | None = None) -> list[str]:
     """Every note in the vault whose text contains one of `texts`, ignoring case.
 
@@ -138,8 +155,9 @@ async def notes_holding(root: Path, *texts: str, skip: str | None = None) -> lis
     if process.returncode is not None and process.returncode > 1:
         raise SearchError(stderr.decode(errors="replace").strip())
 
+    relative = relative_to_root(root)
     found = stdout.decode("utf-8", "replace").split("\0")
-    return [str(Path(path).relative_to(root)) for path in found if path]
+    return [relative(path) for path in found if path]
 
 
 async def scan_vault(
@@ -181,6 +199,7 @@ async def scan_vault(
         stderr=asyncio.subprocess.DEVNULL,
     )
     hits = []
+    relative = relative_to_root(root)
     # `stdout=PIPE` above is what makes this a reader and not None, which the
     # type checker cannot see from here.
     stdout = cast("asyncio.StreamReader", process.stdout)
@@ -193,7 +212,7 @@ async def scan_vault(
             number, _, text = rest.partition(":")
             hits.append(
                 Hit(
-                    path=str(Path(path).relative_to(root)),
+                    path=relative(path),
                     line=int(number),
                     text=text[:LONGEST_TEXT],
                 )
