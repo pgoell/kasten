@@ -1,4 +1,6 @@
-import time
+import subprocess
+import sys
+from pathlib import Path
 
 from backend.tests.anki_build import basic_deck, mark, unhashed
 from kasten_backend.anki_note import as_note
@@ -76,14 +78,20 @@ def test_679_a6_a_tab_after_a_list_or_quote_marker_still_escapes_the_fence() -> 
 def test_679_b1_a_line_of_many_quote_markers_and_no_fence_returns_at_once() -> None:
     # Each `> ` could match two ways, the space after `>` or the next marker's
     # indent, so a line ending in no fence must not try every split.
+    # A child process, since `re` cannot be stopped from inside; the timeout is
+    # a hang ceiling, as in test_b1 of test_anki_plain_cloze.
     side = "> " * 40 + "x"
-    deck = basic_deck((side, "b"))
+    expected = f"#flashcards/x\n\n{side}::b{mark(1)}\n"
+    code = (
+        "from backend.tests.anki_build import basic_deck, unhashed\n"
+        "from kasten_backend.anki_note import as_note\n"
+        f"text = unhashed(as_note(basic_deck(({side!r}, 'b'))))\n"
+        f"assert text == {expected!r}, text\n"
+    )
 
-    start = time.perf_counter()
-    text = unhashed(as_note(deck))
-    elapsed = time.perf_counter() - start
-
-    assert (text == f"#flashcards/x\n\n{side}::b{mark(1)}\n", elapsed < 1) == (True, True)
+    subprocess.run(  # noqa: S603
+        [sys.executable, "-c", code], check=True, timeout=60, cwd=Path(__file__).parents[2]
+    )
 
 
 def test_679_i4_a_list_item_or_quote_with_no_fence_stays_unescaped() -> None:
