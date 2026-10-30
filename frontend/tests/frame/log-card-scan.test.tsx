@@ -7,11 +7,19 @@
 import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { page } from "vitest/browser";
+import { fetchNote, NoteMissing } from "@/lib/api";
 import { readBarcode } from "@/lib/log/food-api";
 import { logCard } from "@/lib/log/log-card";
 import { notePath } from "@/lib/todo/todo-commands";
 import { shot } from "./shots";
 import "@/styles/app.css";
+
+// The card reads log.md and foods.md through the dev proxy. A backend that holds them open
+// fills Chromium's six connections per host, and a later picture fetch waits forever (#1371).
+vi.mock("@/lib/api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/api")>()),
+  fetchNote: vi.fn(),
+}));
 
 vi.mock("@/lib/log/food-api", () => ({
   searchFood: async () => [],
@@ -51,6 +59,7 @@ type Camera = {
 
 beforeEach(() => {
   vi.mocked(readBarcode).mockClear();
+  vi.mocked(fetchNote).mockRejectedValue(new NoteMissing("99 Misc/01 Config/log.md"));
 });
 
 /**
