@@ -39,6 +39,18 @@ const DECK: Deck = {
   next: null,
 };
 
+// Counts the sha256 of the deck note on this thread; a worker loads its own copy, which this does not reach.
+vi.mock("@noble/hashes/sha2.js", async (original) => {
+  const sha2 = await original<typeof import("@noble/hashes/sha2.js")>();
+  return {
+    ...sha2,
+    sha256: (bytes: Uint8Array) => {
+      if (bytes.length > 100_000) mainHashes += 1;
+      return sha2.sha256(bytes);
+    },
+  };
+});
+
 vi.mock("@/lib/api", async (original) => ({
   ...(await original<typeof import("@/lib/api")>()),
   fetchNote: (path: string) =>
@@ -58,6 +70,7 @@ let root: Root | undefined;
 let host: HTMLElement | undefined;
 let commits = 0;
 let saves = 0;
+let mainHashes = 0;
 let longTasks: PerformanceEntry[] = [];
 let observer: PerformanceObserver | undefined;
 let parse: ReturnType<typeof vi.spyOn>;
@@ -66,6 +79,7 @@ beforeEach(async () => {
   localStorage.clear();
   commits = 0;
   saves = 0;
+  mainHashes = 0;
   longTasks = [];
   observer = new PerformanceObserver((list) => longTasks.push(...list.getEntries()));
   observer.observe({ type: "longtask" });
@@ -235,4 +249,15 @@ it("A4 #1379 grades 20 cards with no card parse on the main thread", async () =>
   const opened = mainParses();
   for (let step = 1; step <= 20; step++) await grade(screen, step);
   expect(mainParses() - opened).toBe(0);
+}, 120_000);
+
+// A count, not the long task's ms: each grade's write hashed the 1 MB note here, one long task of
+// 65 to 107 ms a grade at a 4x CPU slowdown. A worker hashes the base instead (#1384).
+it("A1 #1384 grades 20 cards with no hash of the deck note on the main thread", async () => {
+  const screen = mount();
+  await expect
+    .poll(() => screen.querySelector('[data-testid="review-card"] .cm-line'), { timeout: 30_000 })
+    .not.toBeNull();
+  for (let step = 1; step <= 20; step++) await grade(screen, step);
+  expect(mainHashes).toBe(0);
 }, 120_000);
