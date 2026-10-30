@@ -1,9 +1,6 @@
 /**
- * The calls the finance pane makes: the categories, the bookings still to sort, and the
- * two writes that sort one, by hand or for its whole payee.
- *
- * Kept apart from `api.ts`, which is past the size a reader can take in one go. The
- * backend's answers are the ones `routes/finance_sorting.py` gives.
+ * The finance pane's calls for sorting bookings, by hand or for a whole payee.
+ * Kept apart from `api.ts`, which is past the size a reader can take in one go.
  */
 
 import { client, reason } from "@/lib/api-client";

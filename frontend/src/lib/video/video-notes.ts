@@ -1,10 +1,6 @@
 /**
- * What a video's note says about the video: its chapters, its transcript and
- * the takes that point back into it. Pure, so the note's text is the only input
- * and the tests can hold the answers exact.
- *
- * Every time is read the way the note writes it, so a link a reader clicks and
- * a line the pane highlights agree on the same second.
+ * What a video's note says: its chapters, transcript and the takes that point back into it. Pure,
+ * so the note's text is the only input. Times are read as the note writes them, so links and highlights agree.
  */
 
 import { highlightBlocks } from "@/lib/highlight";
@@ -99,12 +95,8 @@ export function noteChapters(note: string): Timed[] {
 }
 
 /**
- * The transcript's paragraphs under `## Transcript`, each with the second it
- * opens on and the rest of its words. The italic line saying which captions
- * these are has no stamp, so it goes the way any other unstamped line does.
- *
- * A paragraph is what sits between two blank lines, the way `transcriptSection`
- * writes them, so a line break inside one is a word break here.
+ * The transcript's paragraphs under `## Transcript`, each with its opening second and its words.
+ * A paragraph is what sits between blank lines, so a line break inside one is a word break here.
  */
 export function transcriptParagraphs(note: string): Timed[] {
   const paragraphs: string[][] = [[]];
@@ -158,12 +150,8 @@ export function timeLink(id: string, seconds: number): string {
 }
 
 /**
- * The takes in the note that point at `video`, in the note's order. A take is
- * a highlight block whose anchor line opens with a time link to this video. A
- * link with no `&t=` is the video's start, second 0.
- *
- * The quote is the block's own words, with the take's escape read back, so a
- * quote the page wrote with brackets in it comes out as the book has it.
+ * The takes in the note that point at `video`, in order: a highlight block whose anchor line opens
+ * with a time link to it, where no `&t=` means second 0. The quote's escapes are read back.
  */
 export function videoTakes(note: string, video: string): VideoTake[] {
   const lines = note.split("\n");

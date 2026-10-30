@@ -1,15 +1,6 @@
 /**
- * The graph drawn on a canvas, force-directed, the way Obsidian's is.
- *
- * A thin layer over `force-graph`, which owns the simulation, the zoom, the
- * drag and the hit testing, by finger as by mouse: one finger pans or drags a
- * note, two pinch, a tap opens. What is here is the look: each note a dot sized by
- * its links and coloured by its type, a typed relation drawn in colour with an
- * arrow and a plain link as a faint line, names that fade in as you zoom, and
- * a hover that lights up one note's neighbourhood and dims the rest.
- *
- * Its own module so the pane can be tested without a canvas: jsdom has none,
- * and a test replaces this file rather than the library under it.
+ * The graph on a canvas, with `force-graph` owning the simulation, zoom and hit testing.
+ * Its own module so tests can swap it out, since jsdom has no canvas.
  */
 
 import ForceGraph from "force-graph";
@@ -117,11 +108,8 @@ function themed(variable: string): string {
 }
 
 /**
- * A hex colour at a fraction of its strength, for the links a dimmed note keeps.
- *
- * Canvas takes a colour as a string, and force-graph hands one back to it as
- * the link colour, so the alpha has to be written into the string. The tokens
- * are hex, so this reads the digits and leaves the rest to the browser.
+ * A hex colour at a fraction of its strength. Canvas wants the alpha inside the string,
+ * and the theme tokens are hex, so only the digits are rewritten.
  */
 function faded(hex: string, alpha: number): string {
   const n = Number.parseInt(hex.slice(1), 16);

@@ -1,11 +1,6 @@
 /**
- * The app's own `@font-face` rules for the families a book is set in, for the book's frame.
- *
- * A face is a rule in one of the app's stylesheets, and the book is its own
- * document, which none of them reach. So the rules are copied across, the ones
- * for the families named. Each url is made absolute first: a relative url in the
- * frame resolves against the frame's own address, which is `blob:` and holds no
- * font.
+ * The app's `@font-face` rules for the book's families, copied into its frame, which reaches
+ * none of the app's stylesheets. Urls are made absolute: relative ones resolve against `blob:`.
  */
 
 /** A family name as a stylesheet's `font-family` list gives it: no quotes, no case. */

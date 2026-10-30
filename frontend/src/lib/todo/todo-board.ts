@@ -1,9 +1,6 @@
 /**
- * How the board reads a todo: which column it sits in, which kind lane, and
- * whether it is a card at all. Its project lane comes from the backend.
- *
- * Pure, as `todo-view.ts` is, so the rules the design settled are tested as
- * functions over strings and the pane only draws what these answer.
+ * How the board reads a todo: its column, kind lane, and whether it is a card. Pure, so
+ * the pane only draws what these answer. The project lane comes from the backend.
  */
 
 import { shiftDay } from "@/lib/clock";
@@ -99,11 +96,8 @@ export function projectChoices(paths: string[]): { folder: string; name: string;
 }
 
 /**
- * The line with a link to the project added to its words.
- *
- * Into the words and not at the end of the line: obsidian-tasks reads the
- * fields back from the end, and a link after them would hide the due date.
- * Null when the line is already filed there, so a second press writes nothing.
+ * The line with a project link added into its words, not at the end: obsidian-tasks reads
+ * the fields from the end, so a link there would hide the due date. Null when already there.
  */
 export function withProjectLink(
   line: string,

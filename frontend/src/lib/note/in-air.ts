@@ -1,22 +1,11 @@
 import type { Held } from "@/lib/held-text";
 
-// The last text sent to each note while any write to it is in the air. A
-// write empties `pending` as it goes out, and a plain fetch is cancelled with
-// the page, so this is the only copy a hide can find of a quiet write's text.
-// With the `reloads` count it left with: after a reload, text typed on is
-// typed on the reload's text, and not on this. With the base it was typed on
-// and the text it named once sent, so a hide after the note was left can
-// hold and resend it for that note (#302). `stale` gathers the base and the
-// named text of every write to the note still in the air, the earlier ones
-// too: a read answering with one of them is from before a write (#304).
-// `sent` is the text and `reloads` count of the newest write to the note
-// that went out: a write still queued behind it was never sent, and a hide
-// typed behind the queue finds that text on disk, not the queued one's
-// (#310). `restoring` marks the write `:e!` queued with the vault's own
-// text, which nobody typed and a hide neither holds nor sends (#311).
-// `unseen` is the write ahead that a buffer reopened on the text under it
-// never took: a write of that buffer replaces it here and inherits its
-// `sent`, which is then text the buffer was not typed on (#317).
+// The last text sent to each note while a write to it is in the air. A hide
+// holds and resends it from here, since a plain fetch dies with the page (#302).
+// `stale` keeps every such write's base and named text: a read may answer with one (#304).
+// `sent` is the newest write that went out. A write queued behind it never reached the vault (#310).
+// `restoring` marks a `:e!` write that nobody typed, so a hide neither holds nor sends it (#311).
+// `unseen` is the write ahead that a reopened buffer never took (#317).
 export interface InAir {
   content: string;
   loaded: number;

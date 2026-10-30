@@ -55,16 +55,7 @@ const ANY_SR = new RegExp(`${SR.source}|${CLOZE_SR.source}`);
 
 /**
  * `text` with this card parked or put back, every other line byte-identical.
- *
- * A line splice, the way `writeSchedule` is one and for the same reason, and it
- * follows the same two shapes. On a one-line card the token goes before the
- * comment where there is one and on the end of the line where there is not. On
- * a card written over several lines it goes at the head of the schedule's line,
- * or on a line spliced in under the back where the card has no schedule yet.
- *
- * The token and the schedule are orthogonal. Parking a card never touches the
- * three numbers, so putting it back returns it on the date it already held, and
- * the round trip leaves the note as it was byte for byte.
+ * The token and the schedule are separate, so putting a card back keeps its date.
  */
 export function setSuspended(text: string, card: Card, on: boolean): string {
   const lines = text.split("\n");
@@ -101,16 +92,8 @@ export function setSuspended(text: string, card: Card, on: boolean): string {
 }
 
 /**
- * `text` with `question` written at the end as a card waiting for its answer.
- *
- * Appends and never inserts. A card added at the end is last in line order, so
- * every ordinal a running sitting already holds still addresses the card it
- * did; an insert in the middle would renumber the cards under it, which is the
- * rule `review-queue.ts` states.
- *
- * A deck tag typed at the head of the question needs nothing here. `cardTags`
- * reads a tag at the head of a card line, so
- * `#flashcards/terraform What is a moved block?` files itself.
+ * `text` with `question` appended as a card waiting for its answer. Appending, not
+ * inserting, keeps the ordinals a running sitting holds. A deck tag at the head needs nothing here.
  */
 export function appendStub(text: string, question: string): string {
   return `${text.replace(/\n*$/, "")}\n\n${question}::\n`;

@@ -8,13 +8,7 @@ import { applyVideoSettings, learnVideoSettings } from "@/lib/video/video-settin
 
 /**
  * The players of a note's videos, one iframe each, held outside the text.
- *
- * CodeMirror keeps a widget's DOM only while its line is near the screen, so a
- * frame built inside the widget was destroyed on scrolling away and built again
- * on the way back, and every new frame loads from the start. Here the frame
- * lives in a layer on the scroller and is never removed while its link stands:
- * the widget leaves a sized placeholder behind, and the frame is moved over it.
- * A frame whose placeholder is gone keeps playing, hidden.
+ * A frame built in the widget would reload each time its line scrolled away, so it lives in a layer on the scroller.
  */
 
 /** One video in the note: its frame, and what the frame last said. */
@@ -149,11 +143,8 @@ class VideoLayer {
   }
 
   /**
-   * Places each frame over the first connected placeholder of its video, and
-   * hides the frames of videos with none on the screen.
-   *
-   * The reads happen before the writes, so the measure does not interleave a
-   * layout with a style change on each frame.
+   * Places each frame over the first connected placeholder of its video.
+   * Frames with no placeholder on screen are hidden. Reads run before writes, to avoid layout thrash.
    */
   private measure(): void {
     if (this.destroyed) return;

@@ -1,9 +1,6 @@
 /**
- * The impure half of a write: read what the press needs, and send what it says.
- *
- * `todo-write.ts` holds the rules and touches nothing. This holds the reads and
- * the writes and holds no rule, which is what keeps the rules testable with no
- * server in front of them.
+ * The impure half of a write: the reads and writes, with no rules. That keeps the
+ * rules in `todo-write.ts` testable with no server in front of them.
  */
 
 import {
@@ -37,11 +34,8 @@ import {
 } from "@/lib/todo/todo-write";
 
 /**
- * Today's daily note, and its text, which every write here lands in or beside.
- *
- * The clock is read here rather than off the caller's `today`, `periodicNote`
- * wanting a date. Both come from the same wall clock one render apart. `known`
- * is what the caller has already read, so a note in hand is not asked for twice.
+ * Today's daily note and its text, which every write here lands in or beside. `known`
+ * is a note the caller has read already, so it is not asked for twice.
  */
 async function dailyNote(
   paths: string[],
@@ -58,11 +52,8 @@ async function dailyNote(
 }
 
 /**
- * Send each write, one note at a time.
- *
- * `read` is the text each write was worked out from, and names its base: a
- * note that moved since is refused with `ChangedOnDisk` rather than written
- * over, and the press fails the way any other failed write does.
+ * Send each write, one note at a time. `read` is the text each write was worked out
+ * from; a note that moved since is refused with `ChangedOnDisk`, never written over.
  */
 async function send(writes: Write[], paths: string[], read: Record<string, string>): Promise<void> {
   for (const write of writes) {
@@ -90,15 +81,8 @@ export async function addTodoInVault(input: string, today: string, paths: string
 }
 
 /**
- * Point every dependent of the todo that just moved at its new state.
- *
- * One `GET /api/todos` answers both halves of the question: which lines name
- * this id, and whether each other blocker they name is closed. Only the notes
- * holding a dependent are read and only the ones that change are written, which
- * is how `links.py` narrows a vault-wide rewrite and for the same reason.
- *
- * No `paths` and no `send`: a dependent lives in a note the vault already
- * holds, so every write here is a save and none of them can be a create.
+ * Point every dependent of a todo that just moved at its new state. Only the notes that
+ * change are written, as `links.py` does.
  */
 async function writeBackBlocked(
   blockerId: string,
@@ -123,25 +107,8 @@ async function writeBackBlocked(
 }
 
 /**
- * The notes a `<leader>x` moves besides the one it was typed into.
- *
- * The buffer already carries the cycled line and autosave writes it, so this
- * writes the `## Done` log and the dependents living in other notes. It reads
- * the vault only for a press that enters or leaves done or moves a blocker,
- * which is three presses out of six.
- *
- * A write to the note the key was typed into is dropped: the buffer owns that
- * note, and a `PUT` over it would land on text somebody is still typing. The
- * dependents in there travelled with the press for the same reason.
- *
- * The log goes through `updateNote`, which reads each note again on a refusal
- * and works the line out afresh. Two quick presses read today's note at once,
- * and a write naming that read as its base would refuse the second (#538).
- *
- * Presses run one after the other, in the order they were made. A reopen whose
- * read came before the first press's save would find no line to drop, and the
- * line would land after it and stay; and `## Done` keeps the order of the keys,
- * whichever answers come back first. A failed press does not hold up the next.
+ * The notes a `<leader>x` moves besides the one it was typed into. Presses run in the
+ * order made, and a write that is refused re-reads its note first (#538).
  */
 export function cycleTodoAside(
   path: string,
@@ -166,12 +133,8 @@ export function cycleTodoAside(
 let asideTurns: Promise<unknown> = Promise.resolve();
 
 /**
- * How long a press waits on the one before it, then goes on its own.
- *
- * The api client sets no timeout, so a press whose answer never comes would
- * otherwise hold every later press until the page reloads. Ten seconds is far
- * past any answer the vault gives on a working line; past it the order is lost
- * for that pair, which is what a press did before it waited at all.
+ * How long a press waits on the one before it, then goes on alone. The api client has
+ * no timeout, so a lost answer would otherwise hold every later press until reload.
  */
 const ASIDE_WAIT_MS = 10_000;
 
@@ -267,19 +230,8 @@ function sameTodo(text: string, hit: SearchHit): boolean {
 }
 
 /**
- * The line the row's todo sits on now, or null where the note no longer says.
- *
- * The row's own line, by its words where a write since has shifted it: a card
- * held through a drag, or a key pressed just after an agent wrote above it,
- * would otherwise press whatever todo sits at that number now. Short of that,
- * the row's line where it is still this todo with only its state and stamps
- * moved on: a second press before the list redraws, whose first press rewrote
- * the line the row still holds the old words of.
- *
- * Twins, lines with the same words in one note, go by rank instead: the second
- * of two listed is the second of two found. Words cannot tell them apart, so
- * after a shift both readings above land on the wrong twin, and where their
- * number changed nothing says which the row meant.
+ * The line the row's todo sits on now, or null where the note no longer says. Lines
+ * shift with each write, so the words decide; twins, which share words, go by rank.
  */
 function rowLine(text: string, hit: SearchHit, twins?: number[]): number | null {
   if (twins !== undefined && twins.length > 1) {
@@ -291,15 +243,8 @@ function rowLine(text: string, hit: SearchHit, twins?: number[]): number | null 
 }
 
 /**
- * The note as `@` on the row leaves it, and the line it wrote, or why it leaves
- * the note as it is.
- *
- * Of the note's text rather than the vault: the route reads and saves it inside
- * its write queue, with the guards a note open to type in needs, as `m` does.
- * The row is found the way a state press finds it, so `@` never tags another
- * todo, and one line is all that changes. A second press before the list
- * redraws comes with the line the first wrote, which the route kept: the words
- * changed, and nothing in the note can tell this todo from another of them.
+ * The note as `@` leaves it, and the line it wrote. Runs inside the route's write queue,
+ * and a second press keeps that line, since twins cannot be told apart.
  */
 export function agentTodoIn(
   text: string,
@@ -394,13 +339,8 @@ export async function cycleTodoInVault(
 }
 
 /**
- * Start a session on one todo, or close the ones it has running.
- *
- * One narrow pass rather than the vault-wide scan: `searchNotes(id)` answers
- * with every line naming this todo, which is the whole of its log, and only the
- * notes holding an open session are then read. A todo carrying no id is
- * unambiguously a start, and nothing can name it, so it asks the vault nothing
- * at all beyond its own note and today's.
+ * Start a session on one todo, or close the ones it has running. Reads only the notes
+ * naming its id, not the vault. A todo with no id is always a start.
  */
 export async function toggleTimerInVault(
   hit: SearchHit,

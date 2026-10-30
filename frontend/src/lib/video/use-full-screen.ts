@@ -1,11 +1,8 @@
 import { type RefObject, useEffect, useState } from "react";
 
 /**
- * Full screen for one box inside a pane, with the focus kept where the keys are read.
- *
- * `box` is what goes full screen and `pane` is where the focus lives otherwise.
- * The box must sit inside the pane, so a key pressed in the box bubbles up to
- * the pane's own handler.
+ * Full screen for one box in a pane. The box must sit inside the pane, so keys
+ * pressed in it bubble up to the pane's handler.
  */
 export function useFullScreen(
   box: RefObject<HTMLElement | null>,
@@ -13,18 +10,12 @@ export function useFullScreen(
 ) {
   /** Whether the box is the document's full-screen element. */
   const [full, setFull] = useState(false);
-  // Safari on an iPhone has no full screen for a box, only for its own video
-  // element, which a cross-origin frame does not hand out. There the caller
-  // draws no button and its key does nothing, rather than a control that does
-  // nothing.
+  // Safari on an iPhone has no full screen for a box, only for its video, so the
+  // caller draws no button there.
   const canFull = document.fullscreenEnabled === true;
 
-  // Followed rather than set by the toggle, because Esc leaves full screen in
-  // the browser and no key event says so. The focus goes into the box while it
-  // is full screen, since the rest of the pane is not on screen then. It comes
-  // back to the pane only when this box was the one full screen and the focus
-  // is still in it: a leader action may have moved it on, and another pane's
-  // box may have taken it, and neither is this box's to take back.
+  // Followed, not set by the toggle: Esc leaves full screen with no key event.
+  // Focus returns to the pane only if this box was full and focus stayed in it.
   useEffect(() => {
     let was = false;
     function follow() {

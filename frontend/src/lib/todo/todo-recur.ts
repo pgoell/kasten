@@ -1,10 +1,6 @@
 /**
- * A recurrence read off a line, and the copy a tick of it writes.
- *
- * The obsidian-tasks grammar cut to what kasten writes back: `every day`,
- * `every 3 weeks`, the days a week or a month rule names, and the `when done`
- * suffix. A rule this cannot read stays on the line as text, which is what
- * makes a typo visible rather than lost.
+ * A recurrence read off a line, and the copy a tick writes: the obsidian-tasks grammar, cut
+ * to what kasten writes back. An unreadable rule stays as text, so a typo shows.
  */
 
 import { shiftDay } from "@/lib/clock";
@@ -78,12 +74,8 @@ function readMonthDay(text: string): RecurrenceOn | null {
 }
 
 /**
- * `every week`, `every 3 days`, `every weekday`, `every 2 weeks on Friday`,
- * `every month on the 15th`, each with or without `when done`. Null where it
- * does not parse.
- *
- * Read without regard to case or to how many spaces stand between the words,
- * since obsidian-tasks reads it that way and the line was typed by hand.
+ * Parse a rule's text, ignoring case and spacing, since obsidian-tasks does and the line is
+ * typed by hand. Null where it does not parse.
  */
 export function parseRecurrence(text: string): Recurrence | null {
   const words = text
@@ -148,13 +140,8 @@ export function formatRecurrence(rule: Recurrence): string {
 }
 
 /**
- * The rules worth offering for a todo counted from `date`, as text.
- *
- * The four plain periods and `every weekday` always, then the ones that name
- * the day `date` is: its weekday, its day of the month, and which of that
- * weekday in the month it is. A rule naming the day the todo already has is
- * the one somebody means, and seven weekdays times every shape would be a
- * list nobody reads.
+ * The rules to offer for a todo counted from `date`, as text. Plain periods always, then
+ * only those naming `date`'s own day, since those are the ones anybody means.
  */
 export function offeredRules(date: string): string[] {
   const [year = 0, month = 1, day = 1] = date.split("-").map(Number);
@@ -203,12 +190,8 @@ function weekdayOf(date: string): number {
 }
 
 /**
- * The first of the named weekdays after `date`, in a week the rule counts.
- *
- * The weeks are counted from the one `date` is in, Monday first, so `every 2
- * weeks on Friday` counted from a Wednesday lands two days on and from a
- * Friday fourteen. That is how rrule, the library obsidian-tasks counts with,
- * reads an interval of weeks.
+ * The first named weekday after `date`. Weeks count from the one `date` is in, Monday
+ * first, as rrule does, which is what obsidian-tasks uses.
  */
 function nextWeekday(date: string, every: number, days: number[]): string {
   const monday = shiftDay(date, -((weekdayOf(date) + 6) % 7));
@@ -245,19 +228,8 @@ function dayIn(year: number, month: number, on: RecurrenceOn): number | null {
 const PERIODS = 48;
 
 /**
- * The next date a rule lands on after `date`. Null where it never does.
- *
- * A rule naming its days lands on the first of them after `date`, so the date
- * a todo carried need not be one of them. A month lacking the day named is
- * passed over rather than clamped: `on the 31st` means the thirty-first, which
- * is what obsidian-tasks takes it to mean, and `on the last` is the way to say
- * the end of the month.
- *
- * A rule naming none counts whole periods. It is built from calendar parts
- * rather than by adding milliseconds, the way `periodic.ts` builds its own,
- * and clamped to the last day of the month where the day does not exist: the
- * thirty-first of January one month on is the twenty-eighth of February, not
- * the third of March.
+ * The next date a rule lands on after `date`, or null where it never does. A month lacking
+ * a named day is skipped; whole periods clamp to the month's last day instead.
  */
 export function nextDate(date: string, rule: Recurrence): string | null {
   const [year = 0, month = 1, day = 1] = date.split("-").map(Number);
@@ -293,12 +265,8 @@ function daysBetween(from: string, to: string): number {
 }
 
 /**
- * The fresh copy a tick of a recurring todo writes above the completed line.
- *
- * Null where the todo does not recur, where its rule never lands again, or
- * where it carries no date to count from: there would be nothing to count
- * from, and a copy with no date is the same todo written twice. Every date it does carry moves by the same number of days, so
- * the gaps between due, scheduled and start survive the period.
+ * The fresh copy a tick writes above the completed line, or null where the todo does not
+ * recur, its rule never lands again, or it has no date. Every date moves by the same days.
  */
 export function nextOccurrence(todo: Todo, today: string): Todo | null {
   const shift = nextShift(todo, today);

@@ -7,14 +7,8 @@ import { Tag } from "@/lib/tag";
 import { WikiLink } from "@/lib/wikilink";
 
 /**
- * No inline parse of a paragraph that holds no deck tag or no `<!--`, which is
- * most of a deck note and was most of the time the editor's parse took (#669).
- * A deck tag opens with `#flashcards`, `deck-tag.ts`'s `DECK_TAG`.
- *
- * What `commentsAndCode` takes from inside a paragraph is its comments, and those only to
- * hide the deck tags in them, so a paragraph without both has nothing to give.
- * Code is a block and the block parse stays whole. A paragraph holding both is
- * parsed as the editor parses it, code spans and all.
+ * No inline parse of a paragraph lacking a deck tag or a `<!--`, which is most of a deck note (#669).
+ * A paragraph with both is parsed as the editor parses it, code spans and all.
  */
 const Untagged: MarkdownConfig = {
   parseInline: [
@@ -55,19 +49,8 @@ export interface CommentsAndCode {
 }
 
 /**
- * The note's comments and code blocks, as the editor finds them.
- *
- * The editor's parser and not a line at a time, because a comment may run over
- * several lines and a reader of one line cannot tell a tag inside one from a
- * tag outside it. It is the parser that knows a `~~~` fence, a fence nobody
- * closed, one inside a list item or quote, and an indented block from a line
- * that goes on with a paragraph or item (#664). One parse for both, a deck note
- * being long enough for a second to show.
- *
- * Comments and code only: the parser also hides tags in an HTML block such as
- * `<img>`, which runs on to the blank line, and a deck tag under one is a deck
- * the note always had. The newlines stay, so a line's index is the one card
- * detection gave it.
+ * The note's comments and code blocks as the editor's parser finds them. A line at a time
+ * cannot tell a tag inside a comment from one outside it (#664). Comments and code only.
  */
 export function commentsAndCode(text: string): CommentsAndCode {
   let uncommented = "";

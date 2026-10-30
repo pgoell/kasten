@@ -1,14 +1,6 @@
 /**
- * A session line, which is one line of a `## Time` section read into a record
- * and written back out.
- *
- * The same bargain `todo.ts` strikes for a task line: the line is the whole
- * record, so a session is spelled where you can read it, correct it by typing
- * and see it in Obsidian. The log is what a worked total is summed from, and
- * `⏱` on the task line is kasten's summary of it rather than a second record.
- *
- * Durations live here too, because `⏲ 2h` and `⏱ 1h20m` are one spelling read
- * twice and the arithmetic on them belongs beside the log it comes from.
+ * A session line, one line of a `## Time` section, read into a record and written back.
+ * The line is the record, so durations (`⏲ 2h`, `⏱ 1h20m`) live here beside it.
  */
 
 export interface Session {
@@ -100,11 +92,7 @@ function clock(time: string): number {
 }
 
 /**
- * The minutes from one clock to the other, floored at zero.
- *
- * An end before its start can only be typed, and a negative interval taken into
- * a total would be a number nobody can account for. Zero is visible on the line
- * that caused it.
+ * Minutes from `start` to `end`, floored at zero, since an end before its start can only be typed.
  */
 export function minutesBetween(start: string, end: string): number {
   return Math.max(0, clock(end) - clock(start));

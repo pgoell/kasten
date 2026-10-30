@@ -5,12 +5,7 @@ import { loadKatex } from "@/lib/math";
 
 /**
  * A formula, `$x$` inline or `$$x$$` as a block, drawn by KaTeX.
- *
- * The source stands in the box until KaTeX lands, and a formula KaTeX cannot
- * read stays its source in the warning colour, the parse error on hover,
- * rather than a blank. KaTeX draws the rest in whatever colour it sits in.
- * The box changes size when the drawing lands, so it asks for a measure the
- * way a picture does.
+ * A formula KaTeX cannot read stays as its source, in the warning colour.
  */
 class Formula extends WidgetType {
   private readonly source: string;

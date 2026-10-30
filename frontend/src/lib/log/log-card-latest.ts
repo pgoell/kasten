@@ -1,9 +1,6 @@
 /**
- * The latest value of each kind that keeps its last value, read from the 30 days
- * before a daily note, as the Log card shows it on a day with no value of its own.
- * The card holds the answer and draws it; this owns the read and what counts as
- * the latest. Read only where the config has such a kind, so a vault without one
- * asks for nothing more than yesterday.
+ * The latest value of each kind that keeps its last value, read from the 30 days before a daily note.
+ * Read only where the config has such a kind, so a vault without one asks for nothing more than yesterday.
  */
 
 import { StateEffect } from "@codemirror/state";

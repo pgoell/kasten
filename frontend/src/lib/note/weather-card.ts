@@ -1,14 +1,6 @@
 /**
- * The day's weather, drawn under a daily note's title and its row of links.
- *
- * One strip per town: sky icons every three hours, the temperature as a line,
- * the chance of rain as bars on a band of its own, night shaded from sunset to
- * sunrise. Two measures, two bands, because one chart with two scales reads as
- * whichever scale the eye lands on first.
- *
- * Nothing is written into the note. The forecast is fetched when the note opens
- * and the note's text is the same with or without it, so a daily note older
- * than Open-Meteo's reach simply has no card.
+ * The day's weather under a daily note's title: a strip per town with sky icons, the temperature line, and rain as bars on their own band.
+ * Two measures get two bands, since one chart with two scales reads as whichever scale the eye meets first. Nothing is written into the note.
  */
 
 import type { EditorState, Extension, Text } from "@codemirror/state";
@@ -324,13 +316,8 @@ export function townRow(forecast: Forecast, now: number | null): HTMLElement {
 const arrived = StateEffect.define<{ date: string; forecasts: Forecast[] }>();
 
 /**
- * The card for one day: empty while the forecast is on its way, drawn once it
- * is in state.
- *
- * The forecast travels through an effect rather than being drawn into the
- * element the fetch started from, because CodeMirror measures a block widget
- * when it mounts and not after. A card that grew later left the line numbers
- * beside it where the empty card had put them.
+ * The card for one day: empty while the forecast is on its way, drawn once it is in state.
+ * It travels through an effect, since CodeMirror measures a block widget when it mounts, and a card that grew later left the line numbers misplaced.
  */
 class WeatherCard extends WidgetType {
   private readonly date: string;

@@ -1,10 +1,6 @@
 /**
- * What the graph pane draws, worked out from what `GET /api/graph` answers.
- *
- * Nothing here reads the query: the backend is the one parser of it. This is
- * the drawing's arithmetic, kept apart from the canvas so it can be tested
- * without one: which colour a type is, how big a note is drawn, and how a new
- * answer takes over the positions the last one had settled into.
+ * What the graph pane draws, from `GET /api/graph`, kept apart from the canvas so it can be tested alone.
+ * Nothing here reads the query: the backend is the one parser of it.
  */
 
 import type { components } from "@/lib/api-types";
@@ -13,11 +9,8 @@ export type GraphNode = components["schemas"]["GraphNode"];
 export type GraphEdge = components["schemas"]["GraphEdge"];
 
 /**
- * One note as the canvas holds it.
- *
- * The simulation writes `x`, `y` and the velocities onto the object itself,
- * which is why a redraw hands back the same object for a note it drew before:
- * a fresh one would start at the origin and the whole drawing would jump.
+ * One note as the canvas holds it. The simulation writes its position onto the object, so a redraw
+ * must hand back the same object, or the drawing jumps to the origin.
  */
 export interface DrawnNode extends GraphNode {
   /** How many edges touch it in this drawing, which sets its size. */
@@ -47,14 +40,8 @@ export interface Drawing {
 }
 
 /**
- * The colour of each type the ontology names, as a theme variable.
- *
- * The types in `99 Misc/01 Config/01 Agents/Ontology.md`, each on a tag slot of
- * the theme. Each slot takes the hue the type had under One Dark, so the graph
- * reads as it did; which tag gets which slot will come from config (#782), and
- * until then the type names the slot. A type the ontology does not name is
- * drawn like a plain note: the list is what somebody decided the vocabulary
- * is, and inventing a colour for a typo would dress it up.
+ * The colour of each ontology type, as a theme tag slot, each keeping its old One Dark hue until
+ * config picks the slots (#782). A type the ontology does not name draws plain, so a typo gets no colour.
  */
 export const TYPE_COLOURS: Record<string, string> = {
   Concept: "--tg-4",
@@ -74,12 +61,8 @@ export function colourOf(node: Pick<GraphNode, "type">): string {
 }
 
 /**
- * The colour of a note's first tag, as one of the ten tag slots.
- *
- * The palettes of #778 set `--tg-1` to `--tg-10`, so a tag takes a slot by its
- * hash rather than by its place in a list: the same tag keeps its colour across
- * notes and across palettes. Only the first tag counts, so a note's colour does
- * not change when a second tag is added. Lowercased, so `Rust` and `rust` match.
+ * A note's colour is its first tag's slot, taken from a hash so a tag keeps its colour across palettes (#778).
+ * Lowercased, so `Rust` and `rust` match. A second tag never recolours a note.
  */
 export function tagColourOf(node: Pick<GraphNode, "tags">): string {
   const first = node.tags[0];
@@ -120,11 +103,8 @@ export function endOf(end: string | DrawnNode): string {
 }
 
 /**
- * The answer, as objects the canvas can take, keeping every note it had.
- *
- * A note in both the last drawing and this one keeps its object, position and
- * all, so narrowing a filter takes notes away and moves nothing else. The
- * edges are new objects every time, the simulation reading them afresh.
+ * The answer as objects the canvas can take. A note in both drawings keeps its object and position,
+ * so narrowing a filter moves nothing else. Edges are new each time, for the simulation to read.
  */
 export function mergeDrawing(previous: Drawing, nodes: GraphNode[], edges: GraphEdge[]): Drawing {
   const held = new Map(previous.nodes.map((node) => [node.path, node]));
@@ -180,14 +160,8 @@ function byPath(a: string, b: string): number {
 }
 
 /**
- * Each note's place in a radial drawing, in unit radii: the centre at the
- * origin and each ring one unit further out.
- *
- * A note's ring is its distance from the centre, edges counted either way
- * round. A ring's notes are spread evenly from the top and run clockwise on
- * screen, since y grows downwards. Ring 1 is ordered by path. A note further
- * out is ordered by the first note it links to on the ring in, so a second step
- * sits beside its parent. A note no edge reaches goes on the outermost ring.
+ * Each note's place in a radial drawing, in unit radii, with the centre at the origin.
+ * A note sits beside the first note it links to inward. One no edge reaches goes on the outermost ring.
  */
 export function radialLayout(
   nodes: GraphNode[],

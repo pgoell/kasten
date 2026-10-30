@@ -1,12 +1,6 @@
 /**
- * The Log card under a daily note's title, beside the weather: the kcal left today,
- * the macros as rings, a button per kind that writes a line under `## Log`, the
- * day's food by meal, and an undo for the last tap. The food search is a sheet
- * the card shows over the page, from `food-sheet.tsx`.
- *
- * A tap is one change to the buffer being typed into, so undo, the history and
- * the cursor treat it as typing. Nothing is written beside the note: the totals
- * are read off the open text, the same lines `GET /api/log` adds up.
+ * The Log card under a daily note's title. A tap is one change to the buffer, so undo treats it as typing.
+ * Nothing is written beside the note: the totals are read off the open text, as `GET /api/log` adds them up.
  */
 
 import { isolateHistory } from "@codemirror/commands";

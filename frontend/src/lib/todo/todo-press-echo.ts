@@ -1,14 +1,8 @@
 import { digestOf } from "@/lib/vault-events";
 
 /**
- * The vault's echo of a todo press, which the pane does not need to hear twice.
- *
- * A press writes one or more notes and then asks for the todo list once, after
- * the last write. `/api/events` then reports each of those writes too, and
- * every report would ask for the list again: a second and third fetch of a list
- * the press already read. So an event is the echo of a press only when its
- * digest is the digest of a text the press wrote to that path. A text typed
- * into the same note by anybody else carries another digest and still asks.
+ * The vault's echo of a todo press, which the pane need not hear twice. An event is an echo
+ * only when its digest matches a text this press wrote; anybody else's edit still asks.
  */
 
 /** How long after a press the echo of its writes may still arrive. */

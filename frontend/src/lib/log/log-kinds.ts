@@ -1,11 +1,6 @@
 /**
- * The kinds the log config note names, and what a tap on each one writes.
- *
- * The note is `99 Misc/01 Config/log.md`. Each `- ` line at column 0 names a kind
- * by its mark, and says what one tap logs and whether it has a goal. 💧, ☕ and 🍺
- * are the built-in kinds the card has always had; any other mark is a kind of the
- * user's own, counted by `parseKindLine`. The grammar is in
- * `docs/reference/log-format.md`, and `log-config-cases.json` holds its cases.
+ * The kinds the log config note names, and what a tap on each writes. The note is `99 Misc/01 Config/log.md`.
+ * The grammar is in `docs/reference/log-format.md`. 💧, ☕ and 🍺 are built in; any other mark is parsed by `parseKindLine`.
  */
 
 import { amountLine, type DrinkKind, type DrinkTotals, logLines, tenth } from "@/lib/log/log-lines";

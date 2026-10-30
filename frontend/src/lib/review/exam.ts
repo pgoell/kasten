@@ -1,44 +1,6 @@
 /**
- * Reading a practice exam out of a note, and writing down how a sitting went.
- *
- * An exam is a note and the note is the whole record, the way a todo is a line
- * and the line is the whole record. Nothing marks a note as an exam: this reads
- * one and answers with nothing where there is no exam there, which is the same
- * bargain `parseTodo` makes with a line that is not a todo. A marker would be a
- * second rule to remember for whoever writes you a fresh exam, and it would buy
- * an invariant this parser already establishes by finding questions.
- *
- * The format is deliberately not the Claude certification format. That is one
- * exam series among however many you sit next, so the only two rules are a
- * question heading and lettered options under it:
- *
- * ```markdown
- * ### Question 3
- *
- * Which cast does Terraform refuse?
- *
- * - A. string to number
- * - B. list to set
- *
- * Correct: A
- *
- * Terraform converts between these implicitly, bar this one.
- * ```
- *
- * Everything past that is optional and has more than one accepted spelling,
- * because a format nobody can remember is a format that silently drops a
- * question. Answers go inline as above or in a key at the back keyed by
- * question number; a heading between questions groups the ones under it,
- * whether it calls itself a domain, a section, a topic or nothing at all.
- *
- * The one other shape is scenario matching, a row of scenarios sharing one
- * option set, which `ccar-p` writes five of. Each row is read as its own
- * question over the shared options, so everything past this parser, the pane,
- * the grading and the result note, works on the one kind of question it always
- * did.
- *
- * The vault's four Claude practice exams parse under these rules unchanged,
- * which is the point: the rules were read off them rather than imposed on them.
+ * Reads a practice exam out of a note, and writes down how a sitting went.
+ * Nothing marks a note as an exam: one with no question headings reads as no exam at all.
  */
 
 /** One option of one question: the letter you press, and what it says. */
@@ -61,20 +23,13 @@ export interface Question {
   stem: string;
   options: Option[];
   /**
-   * How many letters to pick, off a `select TWO` or `choose 3` in the heading.
-   *
-   * A count rather than a `single | multiple` flag, because the heading says a
-   * number and the pane shows it. One where the heading says nothing, which is
-   * the common case and the harmless guess: the answer still decides the score.
+   * How many letters to pick, from `select TWO` or `choose 3` in the heading. Where the
+   * heading says nothing it is one, the harmless guess. A count, not a flag, since the pane shows it.
    */
   pick: number;
   /**
    * The letters the answer names, empty where the note never answers it.
-   *
-   * Empty is not "no correct answer", it is "not scorable here". A key that
-   * never names the question, or that names an option the question does not
-   * carry, leaves this empty and grading leaves the question out rather than
-   * marking every sitting wrong on it.
+   * Empty means not scorable, not wrong: grading leaves such a question out.
    */
   correct: string[];
   /** What the note says under the answer, up to the next question or heading. */
@@ -88,11 +43,7 @@ export interface Exam {
   questions: Question[];
   /**
    * How many question headings held nothing this could ask.
-   *
-   * Not a rounding error to hide: a question with neither lettered options nor
-   * a scenario matching block under it cannot be asked, and dropping it in
-   * silence would make a short sitting look like the whole note. The pane says
-   * the number out loud so the note is still worth opening.
+   * Shown in the pane, not hidden, so a short sitting never passes for the whole note.
    */
   skipped: number;
 }
@@ -293,14 +244,8 @@ function readKey(lines: string[]): Map<string, Keyed> {
 }
 
 /**
- * The questions a scenario matching block holds, one for each of its rows.
- *
- * A row is its own question over the shared option set: one letter to pick and
- * one line in the score. Splitting them here is what lets the pane, the grading
- * and the result note go on knowing a single kind of question.
- *
- * Nothing where the block is not one, which is a question heading with neither
- * rows nor an option set under it.
+ * The questions a scenario matching block holds, one for each row, over its shared option set.
+ * Splitting here lets the pane, grading and result note handle one kind of question.
  */
 function matching(block: string[], id: string, section: string, keyed?: Keyed): Question[] {
   const rows: string[] = [];
@@ -349,11 +294,7 @@ function matching(block: string[], id: string, section: string, keyed?: Keyed): 
 
 /**
  * The exam a note holds, or nothing where it holds none.
- *
- * A question with no options under it is not one. That is what keeps a heading
- * like `## Question Formats`, which every one of the vault's Claude exams
- * carries in its preamble, out of the list, and it is why a note of ordinary
- * prose parses as no exam rather than as an empty one.
+ * A heading with no options under it is no question, which keeps `## Question Formats` out.
  */
 export function parseExam(text: string): Exam | null {
   const lines = withoutFrontmatter(text);
@@ -471,11 +412,7 @@ export function gradeExam(exam: Exam, answers: Answers): Grade {
 
 /**
  * Where a sitting's result note goes: a folder beside the exam, named for it.
- *
- * One note per sitting rather than one note appended to, because a create needs
- * no read and cannot lose a sitting to a write that raced it. The folder keeps
- * them together, and it is made on the way the way every other create makes its
- * folders.
+ * One note per sitting, not appended, so a create needs no read and cannot lose a sitting to a racing write.
  */
 export function resultPath(exam: string, date: string, time: string): string {
   const stem = exam.replace(/\.md$/, "");
@@ -489,11 +426,7 @@ function percent(right: number, asked: number): number {
 
 /**
  * The result note's text, without frontmatter, which the backend stamps.
- *
- * What is worth keeping is what was missed. The score is a number you glance at
- * and the section breakdown says where to study; the missed questions carry the
- * stem, the answer and the rationale so the note is worth rereading without the
- * exam open beside it.
+ * Keeps the missed questions with stem, answer and rationale, so the note reads without the exam open.
  */
 export function resultNote(exam: Exam, path: string, grade: Grade, when: string): string {
   const stem = path.replace(/\.md$/, "");

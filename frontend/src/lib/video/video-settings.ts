@@ -36,13 +36,8 @@ export function keepVideoSettings(change: VideoSettings): void {
 }
 
 /**
- * Learn from one parsed player message: onPlaybackRateChange (number > 0) keeps
- * `rate`; apiInfoDelivery with a `captions` key keeps `captions`. Anything else:
- * nothing.
- *
- * The rate is learnt only from the change event. The first info delivery reports
- * 1 before the kept rate is applied, and reading that would overwrite the rate
- * the person chose.
+ * Learn from one player message: a rate change sets `rate`, a `captions` info delivery sets `captions`.
+ * Rate comes only from the change event, since the first info delivery reports 1 before the kept rate applies.
  */
 export function learnVideoSettings(message: unknown): void {
   if (typeof message !== "object" || message === null) return;

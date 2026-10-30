@@ -1,10 +1,6 @@
 /**
- * The PDF take's link, quote and the marks a page's text layer keeps.
- *
- * A PDF page is drawn again when it scrolls away and back, so a mark held as a
- * `Range` would point into a text layer that is gone. The mark is kept as
- * character offsets into the layer's text instead, and a new layer gets its
- * `Range` back from those offsets.
+ * The PDF take's link, quote and the marks a text layer keeps, as character offsets.
+ * A page is drawn again when it scrolls back, so a `Range` would point into a layer that is gone.
  */
 
 import { aliasOf, fileLink, fileOf, quoteBlock } from "@/lib/html-take";
@@ -13,11 +9,8 @@ import { aliasOf, fileLink, fileOf, quoteBlock } from "@/lib/html-take";
 const TAKEN = "kasten-taken";
 
 /**
- * `[[<path>#page=<page>|<file>, page <page>]]`, the link back to the page, or the
- * markdown form `fileLink` picks for a path with a bracket, bar or hash in it.
- *
- * The file name goes through the same alias escape a heading does, so a name
- * with a bracket or a bar in it cannot close the link. The path is Kasten's own.
+ * `[[<path>#page=<page>|<file>, page <page>]]`, the link back to the page, or the markdown
+ * form `fileLink` picks for a path with a bracket, bar or hash. The file name is alias-escaped.
  */
 export function pdfLink(path: string, page: number, from: string): string {
   return fileLink(path, `page=${page}`, `${aliasOf(fileOf(path))}, page ${page}`, from);
@@ -38,12 +31,8 @@ export function oneLine(text: string): string {
 }
 
 /**
- * Where `range` sits in the text of `layer`, as character offsets, or null when
- * the two do not meet. Only the text the range covers counts, so a range that
- * runs past the layer is clipped to it.
- *
- * The walk is over the layer's text nodes in order, which is the order the text
- * reads in. Offsets are UTF-16 units, the unit a `Range` counts in.
+ * Where `range` sits in the text of `layer`, as UTF-16 offsets, or null when the two do not meet.
+ * Only the covered text counts, so a range running past the layer is clipped to it.
  */
 export function offsetsIn(layer: Element, range: Range): { start: number; end: number } | null {
   const walker = document.createTreeWalker(layer, NodeFilter.SHOW_TEXT);

@@ -22,11 +22,8 @@ export const timeSeek = Facet.define<SeekHandler, SeekHandler | undefined>({
 });
 
 /**
- * The videos the note links, read once for a rebuild rather than once per time.
- *
- * A note of a thousand stamps would otherwise read its whole text a thousand
- * times on each rebuild. Read the first time a stamp asks, so a note with no
- * stamps reads nothing.
+ * The videos the note links, read once per rebuild, not once per stamp.
+ * A note of a thousand stamps would otherwise read its whole text a thousand times.
  */
 export function linkedVideos(state: EditorState): () => string[] {
   let videos: string[] | undefined;
@@ -90,11 +87,7 @@ class TimeButton extends WidgetType {
 
 /**
  * The button a node stands for, or null when it is no time.
- *
- * Two shapes: a transcript's bare `[mm:ss]`, and a take's `[mm:ss](youtube&t=Ns)`.
- * Both need a video in the note, since a button with no player to drive does
- * nothing. A take's video must be one the note links, so a link to some other
- * video stays an ordinary link.
+ * A take's video must be one the note links, or the link stays an ordinary link.
  */
 function timeOf(state: EditorState, node: SyntaxNode, linked: () => string[]): TimeButton | null {
   const text = state.doc.sliceString(node.from, node.to);
@@ -122,11 +115,7 @@ function timeOf(state: EditorState, node: SyntaxNode, linked: () => string[]): T
 
 /**
  * Draws the time as a button over its source, off the cursor's line.
- *
- * Called ahead of the ordinary link, so a take's link is drawn as the button and
- * not as a link with a click that opens the address. Returns whether it drew.
- * Hidden the way a ruby is, so the cursor cannot rest inside the source the
- * button stands for.
+ * Runs ahead of the ordinary link, so a take's link is not drawn as a link that opens the address.
  */
 export function drawTime(
   walk: Walk,

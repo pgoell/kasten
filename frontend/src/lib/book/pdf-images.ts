@@ -37,12 +37,8 @@ function multiply(x: Matrix, y: Matrix): Matrix {
 }
 
 /**
- * The canvas boxes, `[x, y, width, height]`, a page's raster images cover.
- *
- * An image fills the unit square under the matrix it is painted with, so the
- * corners of that square, carried through the matrix, bound it. A stencil mask
- * is left out: it is painted in the fill colour, as text is, and the colours
- * should change it.
+ * The canvas boxes, `[x, y, width, height]`, of a page's raster images. The corners of the unit
+ * square, carried through the paint matrix, bound each image. A stencil mask is left out: it takes the fill colour.
  */
 export function imageBoxes(
   ops: Record<string, number>,
@@ -152,12 +148,8 @@ export function imageBoxes(
 }
 
 /**
- * Puts a page's raster images back as printed, after a draw in page colours.
- *
- * pdf.js's colours go over the whole canvas, pictures included, and a photo
- * should keep its colours in the dark. So the page is drawn again plain, and
- * each image's box is copied over from that; a box takes whatever else lies in
- * it too, which a picture over text does not show.
+ * Puts a page's raster images back as printed, after a draw in page colours. pdf.js's colours go
+ * over pictures too, so the page is drawn again plain and each image's box copied over from it.
  */
 export async function restoreImages(
   page: ImagePage,

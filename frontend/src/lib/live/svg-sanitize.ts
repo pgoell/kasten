@@ -1,12 +1,6 @@
 /**
  * Inline `<svg>` blocks, cleaned before the page draws them (#952).
- *
- * A note is text an agent may have written, so the picture keeps only what
- * paints shapes and text, plus the refs between them. The tree is rebuilt from
- * allow lists instead of cut in place: a block list misses the next element a
- * browser adds, and a string cleaned then parsed again is one more place to get
- * wrong. The lists are MDN's SVG element and presentation attribute references,
- * pruned to static drawing; cross-checked against DOMPurify's svg profile.
+ * Rebuilt from allow lists, not cut in place: a block list misses the next element a browser adds.
  */
 
 const SVG = "http://www.w3.org/2000/svg";

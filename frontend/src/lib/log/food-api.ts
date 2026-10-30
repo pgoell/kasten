@@ -1,9 +1,6 @@
 /**
- * The calls the card's food search makes: Open Food Facts through the backend, and
- * the log's days for the foods a person logged before.
- *
- * Kept apart from `api.ts`, which is past the size a reader can take in one go. The
- * backend's answers are the ones `food.py` and `log.py` give.
+ * The calls the card's food search makes: Open Food Facts through the backend, and the foods logged before.
+ * Kept apart from `api.ts`, which is past the size a reader can take in one go.
  */
 
 import { client, reason } from "@/lib/api-client";

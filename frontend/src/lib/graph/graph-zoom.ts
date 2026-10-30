@@ -17,21 +17,14 @@ export interface GraphView {
 export const NAMES_FULL = 1.8;
 
 /**
- * The least a note's hit area measures across on a touch screen, in CSS pixels.
- *
- * The smallest target WCAG 2.2 allows, and no more: a touch that lands in a
- * hit area drags that note, so every pixel given to tapping is taken from
- * panning and pinching, and a zoomed-out vault is mostly notes.
+ * The smallest hit area a touch gets, in CSS pixels: the least WCAG 2.2 allows.
+ * Any more would take touches from panning and pinching, since a touch in a hit area drags that note.
  */
 export const FINGER = 24;
 
 /**
- * The touch screen's zoom limits, worked out from the fit each time it is.
- *
- * Out to half the fit, so a pinch can shrink the whole vault a little and no
- * further, where it used to fall to a speck. In to where the smallest dot,
- * `radiusOf(0)` across twice, is a finger wide; past that a pinch only spreads
- * the notes apart, and a small vault whose fit is already closer keeps its fit.
+ * Touch zoom limits, worked out from the fit each time. Out to half the fit, so a pinch cannot
+ * shrink the vault to a speck. In to a finger-wide dot; a small vault keeps its fit if that is closer.
  */
 const LEAST_OF_FIT = 0.5;
 const MOST_ZOOM = FINGER / (2 * radiusOf(0));

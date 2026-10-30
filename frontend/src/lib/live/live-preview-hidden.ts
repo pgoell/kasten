@@ -32,11 +32,7 @@ export function isLineRevealed(state: EditorState, line: Line): boolean {
 
 /**
  * Whether a construct the cursor is inside shows its source.
- *
- * What the inline constructs go by, rather than the line rule above. A line of
- * prose can carry a dozen of them, and unmasking all twelve to edit one word
- * puts asterisks and tildes across the line you are reading while you write it.
- * The one the cursor is in is the one whose marks are worth seeing.
+ * Only the construct the cursor is in unmasks; unmasking a whole line of marks is noisy.
  */
 export function isNodeRevealed(state: EditorState, from: number, to: number): boolean {
   if (!revealsSource(editingMode(state))) return false;
@@ -45,15 +41,7 @@ export function isNodeRevealed(state: EditorState, from: number, to: number): bo
 
 /**
  * Whether a block the cursor is inside shows its source, in any mode.
- *
- * The cursor in it is what shows the source, in any mode, and not the mode alone
- * the way every other construct here works. `j` and `k` step over the whole
- * widget, CodeMirror moving by what is on the screen, so a rule waiting for
- * insert mode would leave the table nothing could open. What does reach in is
- * `w`, a search, a line jump and a click, all of which move by document position.
- *
- * A read-only view has no cursor to go in and a selection sitting at offset
- * zero, so a note that opens with a table would show its pipes.
+ * Not mode alone: `j` and `k` step over a whole widget, so insert mode would leave a table nothing could open.
  */
 export function isBlockRevealed(state: EditorState, from: number, to: number): boolean {
   return (
@@ -71,11 +59,7 @@ export class Walk {
   readonly hidden: Range<Decoration>[] = [];
   /**
    * How far the table being walked reaches, or -1 outside one.
-   *
-   * A cell's marks stay on the screen, because a table's columns are lined up
-   * by counting characters and hiding two of them shortens the cell by two.
-   * The walk is depth-first and in document order, so one number is enough:
-   * everything inside the table is entered before anything after it.
+   * Cells keep their marks: columns line up by counting characters.
    */
   tableEnd = -1;
   /** How far a table or ruby widget already reaches, the walk going on past it. */
@@ -105,27 +89,8 @@ export class Walk {
 }
 
 /**
- * Walks a position off any character that is not on the screen.
- *
- * The shape is `skipAtomicRanges` from @codemirror/view, which does this for
- * `EditorView.atomicRanges`. Vim never consults that facet, so the same walk
- * has to happen here, with one rule tightened. CodeMirror lets the cursor rest
- * on either edge of an atomic range, because both edges paint in the same
- * place. That is fine for motion and wrong for editing: resting on `from` means
- * `x` deletes a character nobody can see. So a position counts as bad when
- * `from <= pos < to`, and only `to` is a landing spot.
- *
- * `direction` flips at most once, from backward to forward, when the hidden run
- * starts a line and there is nothing to its left to retreat to. Each direction
- * moves `pos` monotonically, so the walk cannot cycle.
- *
- * A folded callout's body runs the other way round. It starts at the end of
- * the title, which is where the cursor belongs, and every position after that
- * up to the body's end is bad: the end of its last line paints at the end of
- * the title too, and `dd` there deletes a line nobody can see. Forward lands
- * on the line under the box, backward and at the end of the note on the
- * title. A move up from far along the line under it lands at the body's end,
- * and the general rule would send it back down, the run starting a line.
+ * Walks a position off hidden text, as `skipAtomicRanges` does, since vim ignores atomicRanges.
+ * Only `to` is a landing spot: resting on `from` lets `x` delete a character nobody sees.
  */
 function skipHidden(start: number, bias: number, hidden: RangeSet<Decoration>, doc: Text): number {
   let pos = start;

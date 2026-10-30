@@ -16,12 +16,8 @@ import { fromVault } from "@/lib/editor/buffer-writes";
 import { lineUpChanges, type TableRun, tableAt } from "@/lib/editor/table";
 
 /**
- * Tables the reader typed into, lined up once the reader is done with them.
- *
- * A table is lined up when the cursor leaves it and when the note is saved, not
- * on every keystroke: the padding would move under the cursor while typing. Only
- * the tables the reader's own edits touched are lined up, so a note that was
- * ragged when it opened is written as it was, and the other tables in it too.
+ * Lines up the tables the reader typed into, when the cursor leaves them and on save, not on every
+ * keystroke, since the padding would move under the cursor. Other tables are left as they were.
  */
 
 /** The user event the line-up's own edits carry, so they are not taken for typing. */
@@ -38,12 +34,8 @@ const forget = StateEffect.define<{ id: number; at: number }>();
 let seq = 0;
 
 /**
- * A table the reader typed into: its id, the position of its first line, and its
- * text as it was before the typing.
- *
- * The text is how the line-up knows a table was changed and changed back. Undo,
- * or typing a character and deleting it again, leaves the table as it was, and
- * there is nothing to line up.
+ * An edited table: its id, the position of its first line, and its text before the typing.
+ * Undo or a typed-then-deleted character restores that text, which then has nothing to line up.
  */
 interface Mark {
   id: number;
@@ -57,13 +49,8 @@ function textOf(doc: Text, run: TableRun): string {
 }
 
 /**
- * The tables a change of the reader's touches, measured in the document before
- * it, with their first line mapped into the document after.
- *
- * A deletion or a replacement touches a table when it reaches into the table's
- * lines. An insertion touches one when it lands inside them, or on an edge without
- * making a line: an Enter at the end of the last row, or a line deleted just above
- * the head, leaves the table as it was.
+ * The tables a change touches, measured before it. A deletion or replacement touches a table its
+ * lines reach into; an insertion only when it lands inside them, not on an edge.
  */
 function touchedBy(
   tr: Transaction,
@@ -100,12 +87,8 @@ function touchedBy(
 }
 
 /**
- * The tables a change puts a character into, measured in the document after it.
- *
- * A row pasted under a table, or a copy of its last row, is text the table did not
- * have before the change, so `touchedBy` cannot see it. The mark's text is empty,
- * which no table reads as unchanged: the table is lined up when the reader leaves
- * it. An Enter at the end of a row puts in only a newline, which opens no row.
+ * The tables a change puts a character into, measured after it. A pasted row is text `touchedBy`
+ * cannot see, so the mark's empty text counts as changed; an Enter at a row's end puts in no row.
  */
 function openedBy(tr: Transaction, fromB: number, toB: number): Mark[] {
   const doc = tr.newDoc;
@@ -120,12 +103,8 @@ function openedBy(tr: Transaction, fromB: number, toB: number): Mark[] {
 }
 
 /**
- * The ids of the marks whose whole table the change deletes, measured in the
- * document before it.
- *
- * `MapMode.TrackDel` does not report a deletion that starts on the position, so a
- * table cut out from its first line, a `dap` for one, is checked here. Only a
- * deletion over the whole table counts: one over its first character is an edit.
+ * The ids of the marks whose whole table the change deletes, measured before it. `TrackDel` does not
+ * report a deletion starting on the position, so a `dap` from a table's first line is checked here.
  */
 function lostIn(tr: Transaction, marks: Mark[]): Set<number> {
   const lost = new Set<number>();
@@ -181,15 +160,8 @@ const edited = StateField.define<Mark[]>({
 });
 
 /**
- * Whether a transaction is the reader's own edit.
- *
- * Vim's edits carry no user event, so the history decides: the vault's text, a
- * held note put back and the watched stamp all say they stay off the undo stack,
- * which is also how none of them is ever typing. The line-up's own edit is
- * named by its user event.
- *
- * An undo or a redo is not typing either. Undoing the line-up puts the ragged
- * text back, and that text must stay ragged, or `u` could never keep it.
+ * Whether a transaction is the reader's own typing. Vim's edits carry no user event, so the history decides:
+ * the vault's text, a held note and the watched stamp stay off the undo stack. Undo and redo are not typing.
  */
 function isTyping(tr: Transaction): boolean {
   return (
@@ -203,13 +175,8 @@ function isTyping(tr: Transaction): boolean {
 }
 
 /**
- * The run of the table that opens at `first`, when the syntax tree reads it as a
- * table of the note itself.
- *
- * A pipe line in a fence, a quote or a list item is text to the tree, and
- * lining it up would rewrite what the writer meant as code or as a list. The
- * lines alone cannot tell those apart, so the tree is asked. Null when the tree
- * has not parsed that far, which leaves the table as it is.
+ * The run of the table opening at `first`, when the syntax tree reads it as a table of this note.
+ * A pipe line in a fence, quote or list is text to the tree, so it is not lined up. Null if unparsed.
  */
 function readable(state: EditorState, first: number): Readable | null {
   const tree = ensureSyntaxTree(state, state.doc.length, 500);
@@ -245,12 +212,8 @@ function cut(run: TableRun, doc: Text, end: number): TableRun {
 }
 
 /**
- * Lines up the edited table the cursor is leaving.
- *
- * The line-up is appended to the transaction that moved the cursor out, with
- * `sequential` so its changes are against the document that transaction made.
- * Its own undo step, so `u` puts back the ragged text and keeps what was typed.
- * A table that is already square gets no change at all, only the forgetting.
+ * Lines up the edited table the cursor is leaving, as its own undo step, so `u` puts back the ragged text.
+ * Appended with `sequential`, so its changes are against the document the cursor move made.
  */
 const lineUpOnLeave = EditorState.transactionFilter.of((tr) => {
   const marks = tr.startState.field(edited);

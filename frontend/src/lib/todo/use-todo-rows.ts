@@ -48,17 +48,8 @@ export interface Row {
 }
 
 /**
- * Where each row of one group sits: a step in under whatever it hangs off, or
- * back at the edge naming it.
- *
- * Read inside the group rather than off the todo's own indent, because a part
- * can land in a group its parent is not in: a `📅` of its own puts it there,
- * and a parent that is done is not on this list at all. Drawing such a row
- * indented would hang it off whichever row happens to sit above it, which is a
- * lie about the note. So it goes back to the edge and names its parent instead.
- *
- * One pass is enough: a part is always further down its note than what holds
- * it, and the rows of a group keep the order the vault answered in.
+ * Where each row of one group sits: a step in under its parent, or back at the edge naming it. Read inside the group, since a part can land in another group than its parent.
+ * Indenting such a part would hang it off whichever row sits above, so it goes to the edge.
  */
 function nest(rows: Row[]): Row[] {
   const depth = new Map<string, number>();
@@ -83,14 +74,8 @@ const RANK: Record<TodoPriority, number> = { highest: 0, high: 1, medium: 2, low
 const NORMAL = 3;
 
 /**
- * One group's rows, the important work first.
- *
- * What sorts is not the rows but the run each one heads: a part whose parent is
- * in this group joins the run above it, so it travels with what holds it
- * whatever its own priority says, and `nest` still meets a parent before its
- * children. Between two runs of one priority, client work goes first: it is a
- * tiebreak and never lifts a run over a higher priority. Stable, so the order
- * the vault answered in decides what is left.
+ * One group's rows, the important work first. Sorts runs, not rows: a part joins the run above its parent, so it travels with it.
+ * Client work breaks ties between runs of one priority and never lifts a run over a higher priority. Stable, so the vault order decides the rest.
  */
 function byPriority(rows: Row[]): Row[] {
   const here = new Set(rows.map((row) => rowKey(row.hit)));
@@ -170,11 +155,8 @@ function scoped(
 }
 
 /**
- * How far back `d` reaches, in days.
- *
- * Seven, and read the way `due:<7d` is read, so the seventh day back is already
- * out. A list reaching to the beginning of the vault is not one anybody reads
- * to the end of.
+ * How far back `d` reaches, in days: seven, read as `due:<7d` is, so the seventh day back is already out.
+ * A list reaching to the start of the vault is not one anyone reads to the end.
  */
 const DONE_DAYS = 7;
 
@@ -190,13 +172,8 @@ export interface RowFacts {
 }
 
 /**
- * Every open todo the vault holds, grouped by when it is due.
- *
- * A third thing a pane can hold, beside a note and a terminal. It asks the
- * vault once and narrows what came back, the way the todo overlay does and for
- * the same reason: what there is to do is a set the vault decides, and the
- * filter line was never choosing the rows. The two share a query key, so
- * opening one after the other reads one answer.
+ * Every open todo the vault holds, grouped by due date. A third thing a pane can hold, beside a note and a terminal.
+ * It asks the vault once and narrows the answer, as the todo overlay does: the filter line never chose the rows, and the two share a query key.
  */
 export function useTodoRows(o: {
   data: TodoHit[] | undefined;
@@ -310,13 +287,8 @@ export function useTodoRows(o: {
   }, [parsed]);
 
   /**
-   * Which todos have a session running, and the day of the oldest one, keyed by
-   * id.
-   *
-   * The pane sums nothing: the `⏱` on the task line is what a row draws, and
-   * these lines are read for one thing only, which rows are going and since
-   * when. A session outside a daily note is left out for the reason a stop
-   * leaves it alone, nothing saying which day it belongs to.
+   * Which todos have a session running, and the day of the oldest, keyed by id.
+   * The pane sums nothing. A session outside a daily note is left out, as a stop leaves it, since nothing says which day it belongs to.
    */
   const running = useMemo(() => {
     const since = new Map<string, string>();

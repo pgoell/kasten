@@ -327,13 +327,8 @@ function partsOf(view: EditorView, d: Drawn, toggle: () => void): HTMLElement[] 
 }
 
 /**
- * Draws the header above the note, as a child of the scroller and not of the
- * content, so the content's text is the note's own and the header scrolls with it.
- *
- * The header is absolute at the top of the scroller, which is positioned, and the
- * content's top padding grows by its height so the first line starts below it.
- * Its inner DOM is rebuilt only when what it shows changes, and its clicks are
- * outside the content, which CodeMirror leaves alone.
+ * Draws the header above the note, as a child of the scroller so it scrolls with the text.
+ * Its inner DOM is rebuilt only when what it shows changes, and its clicks sit outside the content, which CodeMirror leaves alone.
  */
 class HeadPlugin {
   private readonly view: EditorView;
@@ -495,12 +490,8 @@ const headTheme = EditorView.theme({
 });
 
 /**
- * The note's header and outline, as one extension.
- *
- * The header is drawn beside the content by a view plugin, so the text of the note
- * is never the header's. Read hides the frontmatter, except while the cursor is in
- * it, the way live preview shows the markup of the line under the cursor. That is
- * a block decoration, which only a field may make.
+ * The note's header and outline as one extension. The header is a view plugin beside the content, so the note's text is never the header's.
+ * Read hides the frontmatter except while the cursor is in it. That is a block decoration, which only a field may make.
  */
 export function noteHead(o: {
   toggle: () => void;

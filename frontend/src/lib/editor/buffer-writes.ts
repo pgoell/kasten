@@ -3,33 +3,14 @@ import type { EditorView } from "@codemirror/view";
 import { setWatched } from "@/lib/video/video";
 
 /**
- * Marks the transaction that puts the vault's own text in.
- *
- * The listener below reports every other change, and reporting this one would
- * have the note saved back: that stamps a new date, which is another change to
- * the vault, which reloads here, which saves again. A note nobody touched would
- * rewrite itself once a second.
+ * Marks the transaction that puts the vault's own text in. Saving it back would
+ * stamp a new date, which reloads the note, which saves again.
  */
 export const fromVault = Annotation.define<boolean>();
 
 /**
- * Put the vault's text in the buffer, replacing only the span that differs.
- *
- * Never the whole document. CodeMirror maps positions through a change, so
- * everything outside the span comes through where it was: the cursor stays on
- * the words it sat on, and an undo of an edit the reader made puts the text
- * back where they made it. Replaced whole, both collapse to the one point the
- * replacement leaves, which is what a reload used to cost. Nothing is asked of
- * the selection here for the same reason: mapping keeps it, and naming it would
- * flatten it.
- *
- * The vault's own writes are what make this cheap. An agent appends, an editor
- * rewrites a paragraph, and kasten's `modified` stamp moves one line of the
- * frontmatter.
- *
- * `allowed` is asked at the last moment, even when there is no change to make,
- * and a no leaves the note as it stands and the vault as it stands. Absent means
- * nobody is holding text the change could take off the screen.
+ * Puts the vault's text in, replacing only the differing span so the cursor and
+ * undo keep their place. A `false` from `allowed` leaves the note as it is.
  */
 export function takeVaultText(
   view: EditorView,
@@ -42,10 +23,7 @@ export function takeVaultText(
     from += 1;
   }
 
-  // Both ends stop at `from`, so the tail cannot walk back into the head it
-  // already matched: "aaa" grown to "aaaaa" shares its whole length with itself
-  // either way round, and subtracting both would delete text that is still
-  // there.
+  // The tail stops at `from`, so it cannot match text the head already took.
   let to = current.length;
   let insertTo = text.length;
   while (to > from && insertTo > from && current[to - 1] === text[insertTo - 1]) {
@@ -53,21 +31,14 @@ export function takeVaultText(
     insertTo -= 1;
   }
 
-  // Asked even when the text is already on screen: equal text is still an
-  // answer the autosave needs, since the vault coming to hold the buffer's
-  // text settles a conflict or a held entry over it.
+  // Asked even when nothing changes: the autosave needs the answer.
   if (allowed?.(text) === false) return;
-  // Nothing left after the trim is the text already on screen, which is what
-  // mounting looks like from here: the note opens on the same query data the
-  // reload prop carries. A change holding nothing is still a transaction.
+  // Nothing left after the trim is the text already on screen, as on mount.
   if (from === to && from === insertTo) return;
 
   view.dispatch({
     changes: { from, to, insert: text.slice(from, insertTo) },
-    // Off the undo stack as well as off the save path. Undoing a write nobody
-    // here made would put the text from before it back, and that revert carries
-    // no annotation, so autosave would send it to the vault: one `u`
-    // overwriting whatever the other writer had just done.
+    // Off the undo stack and the save path: an undo here would send old text to the vault.
     annotations: [fromVault.of(true), Transaction.addToHistory.of(false)],
   });
 }
@@ -78,10 +49,7 @@ export function writeWatched(view: EditorView, mark: { id: string; seconds: numb
   const wanted = setWatched(held, mark.id, mark.seconds);
   if (wanted === held) return;
 
-  // The smallest change that gets there, rather than replacing the document.
-  // A whole-document replace maps the cursor to nowhere in particular and
-  // would move it out from under whoever is typing; this touches the
-  // frontmatter block alone, so a cursor below it does not move at all.
+  // The smallest change, not a whole-document replace, which would move the cursor.
   let from = 0;
   while (held[from] === wanted[from]) from += 1;
   let tail = 0;
@@ -94,8 +62,7 @@ export function writeWatched(view: EditorView, mark: { id: string; seconds: numb
 
   view.dispatch({
     changes: { from, to: held.length - tail, insert: wanted.slice(from, wanted.length - tail) },
-    // Nobody typed this, so `u` must not undo it. An edit in the history would
-    // also put the position back the moment you undid a sentence.
+    // Nobody typed this, so `u` must not undo it.
     annotations: Transaction.addToHistory.of(false),
   });
 }

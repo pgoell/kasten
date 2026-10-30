@@ -1,9 +1,6 @@
 /**
- * What a card dropped on the board asks the vault to do (#397).
- *
- * Pure, so the rules read and test apart from the pointer that carries the
- * card. A drop answers with a state or a project and nothing else: the board
- * has no stored order, so no position is written.
+ * What a card dropped on the board asks the vault to do (#397). The board has no stored
+ * order, so a drop writes a state or a project, never a position.
  */
 
 import type { TodoState } from "@/lib/todo/todo";

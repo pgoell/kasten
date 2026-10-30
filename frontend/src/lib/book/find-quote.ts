@@ -1,11 +1,6 @@
 /**
- * Where a note's quotes sit in a section of the book.
- *
- * A highlight is found again by searching the section on screen for the words
- * it quotes, which is the whole anchor. foliate's own search would do it and
- * costs five thousand times as much on the same section, measured: it slides a
- * grapheme window and asks an `Intl.Collator` at every position, while this
- * builds one collapsed string per document and calls `indexOf`.
+ * Where a note's quotes sit in a section, found by searching the section for their words.
+ * Measured about five thousand times cheaper than foliate's own search, which asks a collator at every position.
  */
 
 import { textWalker } from "foliate-js/text-walker.js";
@@ -41,12 +36,8 @@ interface Haystack {
 }
 
 /**
- * One string out of the whole document, every run of whitespace one space.
- *
- * `\s` and not a hand written class: that is what the writer collapses a quote
- * with and what foliate collapses the book with, non-breaking space in both.
- * The leading run is dropped, and the trailing one never shows: both ends of a
- * quote are non-whitespace, `collapse` having trimmed them.
+ * One string of a whole document, each run of whitespace one space. `\s`, not a hand-written
+ * class, since the note's writer and foliate both collapse with it, non-breaking space included.
  */
 function haystackOf(strings: string[]): Haystack {
   const characters: string[] = [];
@@ -69,12 +60,8 @@ function haystackOf(strings: string[]): Haystack {
 }
 
 /**
- * Where `quote`'s paragraphs run in `text`, as a half open pair, or null.
- *
- * The one rule for what it means for something to hold a quote. `locate` below
- * turns the answer into a range for drawing, and `holdsQuote` asks the question
- * of a page nothing has drawn yet, and the point of the shared function is that
- * `gf` cannot take you somewhere the draw pass then refuses to mark.
+ * Where `quote`'s paragraphs run in `text`, as a start and end pair, or null. The one rule
+ * for holding a quote: `gf` cannot send you somewhere the draw pass then refuses to mark.
  */
 function span(text: string, quote: string[]): [number, number] | null {
   let from = -1;
@@ -98,12 +85,8 @@ function span(text: string, quote: string[]): [number, number] | null {
 }
 
 /**
- * Whether `text` holds every paragraph of `quote`, in the order the note has them.
- *
- * For a page whose words can be had without drawing it, which is a pdf's:
- * `findQuotes` needs a document and a pdf page has none until it is rendered.
- * The text is collapsed here rather than by the caller, so the caller may hand
- * over whatever the format gave it.
+ * Whether `text` holds every paragraph of `quote`, in order. For a pdf page whose words can be
+ * had without drawing it. Collapsed here, so the caller may pass the text as the format gave it.
  */
 export function holdsQuote(text: string, quote: string[]): boolean {
   return span(collapse(text), quote) !== null;
@@ -144,14 +127,8 @@ function locate(haystack: Haystack, quote: string[], makeRange: MakeRange): Rang
 }
 
 /**
- * Where each quote sits in `doc`, in the order asked, null for one it does not hold.
- *
- * Every quote at once, and the signature is what keeps the walk single: the
- * document is walked once, one string is built out of its text nodes, and every
- * quote is looked for in that one string. Measured on the biggest section of a
- * real book, 3.0ms for two hundred quotes in one walk against 638ms for two
- * hundred walks, so a friendlier `findQuote(doc, quote)` is not what this
- * exports.
+ * Where each quote sits in `doc`, in the order asked, or null for one it does not hold.
+ * One walk: 3ms for two hundred quotes, against 638ms walking once per quote.
  */
 export function findQuotes(doc: Document, quotes: string[][]): Array<Range | null> {
   const walk = textWalker as TextWalker;
@@ -166,12 +143,8 @@ export function findQuotes(doc: Document, quotes: string[][]): Array<Range | nul
 }
 
 /**
- * Where each passage sits in `doc`, given as the note holds it, null for one the
- * book does not hold in either form.
- *
- * Read back first, which is what a passage taken now is, and as written second,
- * which is what a passage taken before the escape is. Both are asked in the one
- * walk `findQuotes` makes.
+ * Where each passage sits in `doc`, as the note holds it, or null for one the book does not hold.
+ * Tries the read-back form first, then the as-written form for a passage taken before the escape.
  */
 export function findWritten(doc: Document, written: string[][]): Array<Range | null> {
   const found = findQuotes(doc, [...written.map(readBack), ...written]);

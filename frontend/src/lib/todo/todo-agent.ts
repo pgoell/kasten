@@ -41,13 +41,8 @@ function agentTags(line: string): number[] {
 }
 
 /**
- * What `@` makes of line `at` (counting from one) of `lines`: the line to write,
- * or the sentence for the foot when it writes nothing.
- *
- * Only the tag moves. Written in at the end of the words rather than through
- * `patchLine`, whose rebuild would put the tag after any words typed past the
- * fields; taken out with the one space before it. A plain line becomes an open
- * todo first, the way the state keys make one.
+ * Only the tag moves. It goes in at the end of the words, not through `patchLine`,
+ * which would put it after any words typed past the fields.
  */
 export function agentPress(
   lines: string[],

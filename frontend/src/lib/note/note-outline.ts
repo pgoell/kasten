@@ -27,11 +27,8 @@ const FENCE = /^ {0,3}(`{3,}|~{3,})/;
 const READING_LINE = 24;
 
 /**
- * The lines from `first` on that are not inside a fenced block, numbered as the
- * editor numbers them.
- *
- * A `#` line inside a fence is code, and a `[[` or `#tag` inside one is no
- * link or tag: every reader of the body skips the same lines.
+ * The lines from `first` on that are not inside a fenced block, numbered as the editor numbers them.
+ * A `#` or `[[` inside a fence is code, not a heading or link, and every reader of the body skips the same lines.
  */
 export function proseLines(doc: Text, first: number): { line: number; text: string }[] {
   const lines: { line: number; text: string }[] = [];

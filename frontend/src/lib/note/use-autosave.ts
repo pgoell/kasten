@@ -22,25 +22,10 @@ export function forgetQueues(): void {
 }
 
 /**
- * Writes one note back to the vault as it is edited.
- *
- * Text goes out once the typing stops, or at once on `save()`. Nothing is
- * written until the document changes, so opening a note never touches disk,
- * and nothing is written at all while no note is open.
- *
- * Every write names its base, the vault's text under the buffer, and the vault
- * refuses one it has moved past. That refusal is the only conflict check: the
- * client guesses nothing about whose write an event was. A refused note stops
- * the automatic write, and the reader breaks the tie with `:w`.
- *
- * `shown` reads the document the focused editor has on screen, or undefined
- * when there is none. See the effect run on each opening.
- *
- * `pane` names the focused pane. One hook follows whichever pane has the
- * focus, and two panes on one note hold two buffers: a move between them is
- * a leave and an opening, as a move to another note is, or the second pane's
- * typing would replace the first's text in `pending` and drop held text the
- * first showed as written.
+ * Writes one note back to the vault as it is edited, once typing stops or on `save()`.
+ * The vault refuses a write whose base it has moved past: that refusal is the only conflict check.
+ * A move between two panes on one note is a leave and an opening, or the second pane's typing would
+ * replace the first's `pending` text.
  */
 export function useAutosave(
   path: string | undefined,
@@ -52,9 +37,7 @@ export function useAutosave(
   shownRef.current = shown;
   const openRef = useRef(path);
   openRef.current = path;
-  // What the vault answered the failed write with, kept for the bar to show on
-  // hover. `error` says a write did not land; only this says whether that was
-  // the proxy, the disk or a bad path, which is what decides the next move.
+  // The vault's answer to a failed write, for the bar's hover: only this says why it failed.
   const [reason, setReason] = useState<string | undefined>(undefined);
   const pending = useRef<string | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -101,37 +84,24 @@ export function useAutosave(
     }),
     [take, queryClient, lastBase],
   );
-  // Effect order follows hook call order, and React runs cleanups in declaration
-  // order. The unmount hold in `useHeldBuffer` goes first, before the leave
-  // flush, which empties `pending`; the leave flush then goes before the hide.
+  // Cleanups run in declaration order: `useHeldBuffer`'s unmount hold goes before the leave flush,
+  // which empties `pending`, and the leave flush goes before the hide.
   const { takeFailed, follow, holdOwn } = useHeldBuffer(buffer);
   const { write, save, saveFirst, revert } = useBufferWrite(buffer, path, takeFailed);
 
-  /**
-   * Whether the vault has moved past the buffer, for the keys that must refuse.
-   *
-   * A reading off the ref rather than off `status`: everything the route builds
-   * out of this would take `status` into its dependencies, and one of those is
-   * the command table the editor's memo is keyed on.
-   */
+  /** Whether the vault has moved past the buffer. A ref read, so the editor's command memo does not rebuild. */
   const isConflicted = useCallback(() => conflicted.current, []);
 
   /**
-   * Whether text for `note` is already on its way to the vault.
-   *
-   * The map alone, and no reading of `pending`: pending text belongs to the note
-   * this hook follows, and the route's own first guard already refuses that note
-   * by name, so a clause here would be a second answer to a question already
-   * answered.
+   * Whether text for `note` is on its way to the vault. The map alone, since `pending`
+   * belongs to the note this hook follows, which the route already refuses by name.
    */
   const isWriting = useCallback((note: string) => saveQueue.busy(note), []);
 
   const change = useCallback(
     (doc: string) => {
       pending.current = doc;
-      // Typing settles nothing while the note stands conflicted: the vault
-      // still holds text this buffer never saw, and reading `unsaved` would
-      // promise a write the timer below no longer makes.
+      // Typing settles nothing while conflicted: `unsaved` would promise a write the timer no longer makes.
       if (!conflicted.current) setStatus("unsaved");
       if (timer.current) clearTimeout(timer.current);
       timer.current = setTimeout(() => {
@@ -141,21 +111,10 @@ export function useAutosave(
     [save],
   );
 
-  // React runs a cleanup with the render's own closure, so opening another
-  // note writes what is pending to the note it was typed into, not to the one
-  // that just replaced it. Unmounting flushes for the same reason. Nobody is
-  // left to hear how the write went, so the promise is dropped on purpose.
-  //
-  // A conflicted note is held and not written, the way the hide below holds
-  // it: flushing would put the reader's text over the other writer's with
-  // nobody asked, and only `:w` gets to make that call. Its entry is marked
-  // conflicted so the next opening shows the conflict and waits for the
-  // reader. The held store is then the only copy of the text. `write` would
-  // clear `pending` and the flag on its way out; nothing goes out here, so
-  // they are cleared by hand, or the next note inherits them: `restore`
-  // refuses while `pending` is set, and so does the opening's reset of the
-  // status. A cleanup re-run on a new `path` is exactly the leave, and so is
-  // one on a new `pane`: the pane left holds its own buffer of the note.
+  // Cleanups run with the render's own closure, so a leave writes to the note it was typed in.
+  // Nobody hears the outcome, so the promise is dropped. A conflicted note is held, not written:
+  // only `:w` may decide over the other writer's text. Its entry is marked conflicted, and the flag
+  // and `pending` are cleared by hand, since nothing else clears them. A re-run on a new `path` or `pane` is the leave too.
   // biome-ignore lint/correctness/useExhaustiveDependencies: `pane` is the trigger, and is not read.
   useEffect(
     () => () => {
@@ -182,33 +141,19 @@ export function useAutosave(
     [path, pane, write, take, lastBase],
   );
 
-  // A reload or a closed tab unmounts nothing, so the flush above never runs
-  // for them, and the quiet period's text goes with the page. A phone sending
-  // the app to the background fires no `pagehide` at all, only the
-  // visibility change, and may never come back to fire anything else.
-  //
-  // The text is held before anything is sent: a keepalive write can still be
-  // refused (over 64 KiB, no network, or the vault moved past its base) with
-  // nobody left to hear it, and the held copy is what the next opening offers.
-  // A landed write drops it, and one that landed after the page was gone is
-  // recognised then by `landedAs`. A conflicted note is held and not written,
-  // as on leaving: the reader decides on return.
-  //
-  // Held text reopened and not touched since is left as it is: the reader has
-  // not said to write it, and the entry already holds it, with the reason the
-  // vault gave.
+  // A reload or a closed tab runs no cleanup, and a phone sent to the background fires no `pagehide`.
+  // Hold before sending: a keepalive write may be refused with nobody left to hear it.
+  // A conflicted note is held, not written. Held text not touched since reopening is left alone.
   useEffect(() => {
     const hide = () => {
       saveQueue.resendLeft(path);
       if (path === undefined) return;
-      // The text held is sent again with keepalive, and the quiet write
-      // landing after all drops the held copy.
+      // The quiet write landing after all drops the held copy.
       const entry = holdOwn(path, "Not yet written when the page was hidden");
       if (entry === undefined) return;
       take(entry);
       if (conflicted.current) return;
-      // In `pending` only to be sent: a held in-flight text put there would
-      // outlive its own write landing, and leave the note reading unsaved.
+      // Only to be sent: a held text left in `pending` would outlive its write and read unsaved.
       pending.current = entry.content;
       void write(true);
     };
@@ -223,8 +168,7 @@ export function useAutosave(
     };
   }, [path, write, take, holdOwn]);
 
-  // Declared last, so its opening effect runs after the leave flush and the hide,
-  // which both still count as the visit they leave.
+  // Declared last, so its opening effect runs after the leave flush and the hide, which still count as the visit they leave.
   const { allowReload, reconcile } = useVaultReads(buffer, path, pane, follow);
 
   return {

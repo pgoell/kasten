@@ -54,15 +54,8 @@ export function useBookTurns(o: {
 }): BookTurns {
   const { wrapper, viewRef, ready, coarse, holding } = o;
   /**
-   * The turn `h`, `l` or a tap near an edge asked for before the book was
-   * ready, made once it is.
-   *
-   * `init` opens a book with no bookmark through the paginator's own `next()`,
-   * which holds its turn lock for 100ms after the first page has drawn
-   * (`paginator.js:1060-1071`), and a turn asked for under that lock returns
-   * having done nothing and said nothing (#370, #372). One and not a queue: the
-   * same lock is what keeps a held key from turning a page per repeat. A tap
-   * parks its side and not a direction, for the reason `tap` turns by side.
+   * The turn `h`, `l` or an edge tap asked for before the book was ready, made once it is. `init` holds
+   * the paginator's turn lock for 100ms, so a turn asked under it is lost (#370, #372). One turn, not a queue: the lock also stops a held key.
    */
   const parkedTurn = useRef<Parked | null>(null);
   // Read through a ref so `tap` keeps one identity for the life of the pane.
@@ -80,11 +73,8 @@ export function useBookTurns(o: {
   );
 
   /**
-   * `j` and `k`. A flowing book scrolls by `SCROLL_STEP` on its renderer, and a
-   * pdf or a pre-paginated epub turns its page, as `h` and `l` do there.
-   *
-   * A parked scroll stays a scroll, so it lands as one step on a flowing book
-   * and not as a page: `release` decides by the book, as this does.
+   * `j` and `k`. A flowing book scrolls by `SCROLL_STEP`; a pdf or pre-paginated epub turns its page instead.
+   * A parked scroll stays a scroll, so `release` decides by the book, as this does.
    */
   const scroll = useCallback(
     (direction: "down" | "up") => {
@@ -101,26 +91,8 @@ export function useBookTurns(o: {
   );
 
   /**
-   * Turn the page for a tap near either edge, on a touch screen alone.
-   *
-   * A swipe already turns a flowing book, the paginator following the finger
-   * and snapping to a page (`paginator.js:568-574, :831-865`). The renderer a
-   * pdf and a pre-paginated epub get listens for no touch at all
-   * (`fixed-layout.js`), so there this is the only way to turn one.
-   *
-   * By side and not by the `prev` and `next` that `h` and `l` call: the
-   * swipe follows the finger, so in a book read right to left the left edge
-   * is the way forward, and `goLeft` and `goRight` ask the book which it is
-   * (`view.js:519-524`).
-   *
-   * `click` and not `pointerdown`: a swipe and a long press end in no click,
-   * so neither turns a page on its way to doing something else.
-   *
-   * Measured against the pane and not the document. The paginator widens its
-   * iframe to the whole columnised chapter, so the document's own width says
-   * nothing about where on the page a tap fell. The ratio undoes the css
-   * scale a pre-paginated epub's frame carries (`fixed-layout.js:143`), which
-   * the event's coordinates are inside of; it is 1 everywhere else.
+   * Turn the page for a tap near either edge, on a touch screen alone. Only a pdf and a pre-paginated epub
+   * need it, since a flowing book swipes. Taps are by side, not `prev` and `next`, as `goLeft` and `goRight` ask the book which way is forward.
    */
   const tap = useCallback(
     (event: MouseEvent) => {

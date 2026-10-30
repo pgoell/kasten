@@ -124,11 +124,8 @@ export function monthsBegun(to: string): number {
 }
 
 /**
- * The notes written in each month of `year` up to `to`, one number a month from January to
- * `to`'s month, so a month still to come has none. A note
- * counts on the day `dayOf` gives it, so an instant near midnight lands in the reader's month.
- * `to` is the last day counted, so a note made ahead (tomorrow's daily note) is left out the
- * way Notes made leaves it out.
+ * Notes written per month, January to `to`'s month. `to` is the last day counted, so a note made ahead is left out.
+ * A note counts on the day `dayOf` gives it, so an instant near midnight lands in the reader's month.
  */
 export function monthCounts(written: string[], year: number, to: string): number[] {
   const counts = new Map<string, number>();

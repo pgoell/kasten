@@ -1,13 +1,6 @@
 /**
- * One press, and the notes it writes.
- *
- * Pure: no server, no editor and no clock, which is what lets a rule about
- * three notes at once be tested with a string per note. `todo-api.ts` is the
- * impure half that reads what these need and sends what they answer.
- *
- * Ticking a todo done can move two notes, the todo's own and the daily note
- * holding the log, and un-ticking one can move any note the log line landed in.
- * This is the one module that knows that.
+ * One press, and the notes it writes. Pure: no server, editor or clock, so a rule across three notes is a test over strings.
+ * `todo-api.ts` is the impure half. Ticking done moves two notes, the todo's and the daily log, and un-ticking can move any.
  */
 
 import { noteBody } from "@/lib/note-frontmatter";
@@ -69,12 +62,7 @@ const TODOS = "## TODOs";
 const LOGGED = "- ✅";
 
 /**
- * The line the done log carries: what was finished, where it lives, and its id.
- *
- * Not a checkbox, and that is the whole reason it is spelled this way:
- * `GET /api/todos` matches the shape of a checkbox line, so a `- [x]` here
- * would put every finished todo in the pane twice, once as itself and once as
- * its own log entry, with nothing on either line to tell them apart.
+ * The line the done log carries. Not a checkbox, or `GET /api/todos` would list each finished todo twice.
  */
 export function doneLine(todo: Todo, notePath: string, dailyPath: string, today: string): string {
   const parts = [LOGGED, today, withoutBlockId(todo.text)];
@@ -85,13 +73,8 @@ export function doneLine(todo: Todo, notePath: string, dailyPath: string, today:
 }
 
 /**
- * Whether a line is the log's, and names this todo. One reader, two callers.
- *
- * The id a log line names is its last `kt-` word, or its last word where it has
- * none, for a hand-written `🆔`. `doneLine` writes the id last, so a `kt-` in
- * the words is a todo the words talk about (#1301); a word typed after the id
- * by hand is why it is not simply the last word. `done_log._names` reads it the
- * same way, and `fixtures/done-lines.json` holds both to it.
+ * Whether a line is the log's and names this todo. The id is its last `kt-` word, or its last word where there is none (#1301).
+ * `done_log._names` reads it the same way; `fixtures/done-lines.json` holds both to it.
  */
 function namesInLog(line: string, id: string): boolean {
   if (!line.trimStart().startsWith(LOGGED)) return false;
@@ -138,10 +121,7 @@ export function dropDone(text: string, id: string): string | null {
 
 /**
  * The one note the add prompt writes: today's, with the todo under `## TODOs`.
- *
- * A list of one, so the caller sends what this answers the way it sends what
- * `cycleTodoWrites` answers. A daily note the vault does not hold yet arrives
- * here as `periodicNote`'s body, which already carries the heading.
+ * A daily note not yet in the vault arrives with its heading already in `periodicNote`'s body.
  */
 export function addTodoWrites({ dailyPath, dailyText, todo }: AddInput): Write[] {
   return [{ path: dailyPath, text: appendUnder(dailyText, TODOS, formatTodo(todo)) }];
@@ -151,13 +131,8 @@ export function addTodoWrites({ dailyPath, dailyText, todo }: AddInput): Write[]
 const STEP = 2;
 
 /**
- * The note with `todo` written in as a part of the todo on `line`. Null where
- * that line is not one, as `dropDone` is null where nothing moved.
- *
- * A part is an indent and nothing else, so the whole of this is where the line
- * goes and how far in. It goes after the parts the parent already has rather
- * than straight under it, which is where a list you are adding to grows, and one
- * step past the parent's own indent however deep that already runs.
+ * The note with `todo` written in as a part of the todo on `line`. Null where that line is not one, as `dropDone` is null where nothing moved.
+ * A part is an indent only: it goes after the parts the parent already has, one step past the parent's indent.
  */
 export function insertSubtask(text: string, line: number, todo: Todo): string | null {
   const lines = text.split("\n");
@@ -189,14 +164,8 @@ export interface LogInput {
 }
 
 /**
- * Every note the `## Done` log moves, and nothing else.
- *
- * Its own function because the two keys that cycle a todo need different halves
- * of a press. The pane's `x` writes the todo's note itself; `<leader>x` edits
- * the buffer and leaves that note to autosave, so it needs this half alone.
- *
- * A press that touches neither end of done answers nothing, which is what lets
- * the caller skip reading the vault for four presses out of six.
+ * Every note the `## Done` log moves, and nothing else. Split out because `x` writes the todo's own note, while `<leader>x` leaves that note to autosave.
+ * A press that touches neither end of done answers nothing, so the caller can skip the vault read.
  */
 export function doneLogWrites(input: LogInput): Write[] {
   const { was, now, path, dailyPath, dailyText, logged, today } = input;
@@ -308,11 +277,8 @@ function copyLine(typed: string, todo: Todo): string {
 }
 
 /**
- * Every line of this note one press rewrites, keyed by line number.
- *
- * One map rather than three passes of edits, so no two rules can claim a line
- * and hand CodeMirror an overlapping change. A value may hold a newline, which
- * is how the recurrence copy arrives above the line it belongs to.
+ * Every line of this note one press rewrites, keyed by line number. One map, so no two rules can claim a line and hand CodeMirror overlapping changes.
+ * A value may hold a newline, for a recurrence copy above its line.
  */
 export function cycleLines({
   lines,
@@ -439,18 +405,8 @@ export interface LineHit {
 }
 
 /**
- * Where else `id` stands on a todo line, as the sentence a refused press says.
- * Null where the pressed todo is the only one carrying it.
- *
- * Sessions, log lines and dependents name the id without carrying it, and none
- * of them parses to a todo with this id, so none counts. A press goes by id to
- * find its sessions and its dependents, and a pasted copy of the line would
- * share both: neither line can be told from the other, so the press refuses
- * rather than guess, and re-stamping one would break whatever names the id.
- *
- * `text` is the pressed note as the press just read it, or the buffer it was
- * typed into, and its other lines win over the hits for that note, which can
- * lag a write behind.
+ * Where else `id` stands on a todo line, as the sentence a refused press says. Null where the pressed todo is the only one carrying it.
+ * A pasted copy shares the id, so the press refuses rather than guess. The pressed note's own lines win over the hits, which can lag a write.
  */
 export function otherTodoWithId(
   id: string,

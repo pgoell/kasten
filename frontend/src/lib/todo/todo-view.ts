@@ -1,10 +1,6 @@
 /**
- * How a list of todos reads: which group a row belongs to, and which rows are
- * not work yet.
- *
- * Pure, and shared rather than owned by the pane, because the editor reads the
- * same rules. `sectionOf` lived in `todo-pane.tsx` while the pane was the only
- * caller; the dates and the tree gave it three more.
+ * How a list of todos reads: which group a row belongs to, and which rows are not work yet.
+ * Pure, and shared with the editor so both read the same rules.
  */
 
 import { shiftDay } from "@/lib/clock";
@@ -27,12 +23,8 @@ export const HEADING: Record<Section, string> = {
 };
 
 /**
- * Which group a row belongs to.
- *
- * Off the scheduled date where there is one and off the due date otherwise: a
- * task due Friday and scheduled Tuesday is Tuesday's work. A due date in the
- * past wins over both and lands the row in Overdue. ISO dates sort as strings,
- * which is the whole of the maths.
+ * Which group a row belongs to: the scheduled date, else the due date. A due date in the past wins over both and lands in Overdue.
+ * ISO dates sort as strings, so comparing them is the whole of the date maths.
  */
 export function sectionOf(todo: Todo, today: string): Section {
   if (todo.due !== undefined && todo.due < today) return "overdue";
@@ -61,11 +53,8 @@ export interface Node extends Placed {
 }
 
 /**
- * The forest one note's todos make, read off nothing but their indents.
- *
- * A todo is a child of the nearest todo above it carrying a smaller indent.
- * Prose between two todos ends nothing: the pane is handed todo lines and never
- * sees that prose, and the editor has to read the same tree it does.
+ * The forest one note's todos make, read off the indents: a todo is the child of the nearest todo above it with a smaller indent.
+ * Prose between todos ends nothing, so the editor reads the same tree as the pane.
  */
 export function treeOf(placed: Placed[]): Node[] {
   const roots: Node[] = [];
@@ -86,11 +75,7 @@ export function treeOf(placed: Placed[]): Node[] {
 }
 
 /**
- * The tag that says a todo is client work, which sorts ahead of internal work.
- *
- * A fixed tag, as `#next` is, rather than a setting: a vault that never writes
- * it sees nothing change, and a name per vault would have to reach the agents
- * that plan from the same lines as well as this pane.
+ * The tag that marks client work, which sorts ahead of internal work. Fixed, not a setting, because the agents plan from the same lines.
  */
 export const CLIENT = "#client";
 
@@ -100,22 +85,8 @@ export function isClient(todo: Todo): boolean {
 }
 
 /**
- * The forest with each part's missing dates and priority filled in from the
- * todo that holds it.
- *
- * When to act on a part and how much it matters are questions about the work
- * the parent names, so a part that spells neither is due when its parent is.
- * Anything it spells for itself wins, and that is the whole of the override.
- *
- * Read here rather than written into the note: the line goes on saying only
- * what somebody typed on it, and a parent's date moving moves every part with
- * it. Deliberately not inside `treeOf`, which the cascade tick reads and writes
- * its nodes back out of, where a filled field would land on a part's own line.
- *
- * The other fields say something about one line rather than about the work:
- * `🆔` names it, `➕ ✅ ❌` stamp what happened to it, `⏲` and `⏱` measure it,
- * `⛔` waits on something and `🔁` copies it. Passing any of those down would
- * say of five lines what was written of one.
+ * The forest with each part's missing dates and priority filled from its parent. Only those pass down: the other fields describe one line.
+ * Read here, not written into the note, so a moved parent date moves every part. Not in `treeOf`, which writes its nodes back out.
  */
 export function inherited(roots: Node[], from?: Todo): Node[] {
   return roots.map((node) => {
@@ -149,12 +120,8 @@ export function descendants(node: Node): Node[] {
 const NEXT = "#next";
 
 /**
- * The one thing that could be done next under `node`.
- *
- * `#next` on any descendant wins. Otherwise it is the first open leaf, depth
- * first. A todo with no children is its own next action. Null where nothing
- * under it can be started, which is every part done, rejected or waiting on a
- * start date that has not arrived.
+ * The one thing to do next under `node`: a `#next` descendant wins, else the first open leaf, depth first.
+ * A todo with no children is its own next action. Null when nothing under it can start yet.
  */
 export function nextActionOf(node: Node, today: string): Node | null {
   const startable = [node, ...descendants(node)].filter(
@@ -201,13 +168,8 @@ export interface View {
 const VIEW = /^- ([^:]+):[ \t]*(\S.*)$/;
 
 /**
- * The views a note holds, in the order it holds them.
- *
- * A line that does not fit is skipped rather than reported: the note is edited
- * by hand, so it is half written most of the times this reads it, and a heading
- * or a paragraph in it is not a mistake. `[^:]+` cannot cross a colon, so the
- * split lands on the first one and a filter carrying its own, `due:<7d`,
- * survives on the right of it.
+ * The views a note holds, in order. A line that does not fit is skipped, not reported: the note is hand-edited and often half written.
+ * The name is split on its first colon, so a filter like `due:<7d` keeps its own.
  */
 export function parseViews(text: string): View[] {
   const views: View[] = [];
@@ -231,13 +193,8 @@ export function progressOf(node: Node): { closed: number; total: number } | null
 }
 
 /**
- * What a `[w]` row says about its wait: who it is on and how many days it has
- * run. Null for any other state, and for a wait that names neither.
- *
- * The days come first, as the date does on the line, so a narrow row that cuts
- * this short cuts the name and keeps the number. The name loses its brackets
- * and its path for the reason a person card's rows do, and the days are whole
- * ones, read in UTC as `shiftDay` reads them.
+ * What a `[w]` row says about its wait: who it is on and the days it has run. Null for other states, and for a wait naming neither.
+ * The days come first so a narrow row cuts the name and keeps the number.
  */
 export function waitOf(todo: Todo, today: string): string | null {
   if (todo.state !== "waiting") return null;
@@ -261,15 +218,8 @@ export function namedTodos(todos: Todo[]): Map<string, Todo> {
 }
 
 /**
- * The words of every blocker a todo still waits for.
- *
- * A closed blocker holds nothing and is left out. One no note holds reads as
- * open, as it does to the cascade, and is named by its id, there being no
- * words to name it by.
- *
- * An id two todos carry is held and named by its id too: which twin the `⛔`
- * meant cannot be told, so neither one's words or state may stand for it, and
- * the write path leaves such a row `[b]`.
+ * The words of every open blocker a todo still waits for. A blocker no note holds, or that two todos carry, is named by its id.
+ * Two todos carrying one id could be either, so neither's words or state may stand for it.
  */
 export function waitsFor(todo: Todo, named: Map<string, Todo>, closed: Closed): string[] {
   const held: string[] = [];
@@ -283,10 +233,7 @@ export function waitsFor(todo: Todo, named: Map<string, Todo>, closed: Closed): 
 
 /**
  * The open todos waiting for each open todo, keyed by the blocker's id.
- *
- * Open on both sides: a finished todo waits for nothing, and nothing waits for
- * a finished one. An id two todos carry counts as open, as `waitsFor` holds it:
- * which twin was meant cannot be told.
+ * An id two todos carry counts as open, since which twin was meant cannot be told.
  */
 export function dependentsOf(todos: Todo[], closed: Closed): Map<string, Todo[]> {
   const named = namedTodos(todos);

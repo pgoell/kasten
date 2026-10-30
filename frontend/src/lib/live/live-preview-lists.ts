@@ -12,10 +12,7 @@ const BULLET_INDENT = 1.6;
 
 /**
  * Today, read once when the module loads.
- *
- * ponytail: a tab left open across midnight keeps yesterday's idea of overdue
- * until it reloads. The upgrade is a facet carrying the date through the
- * editor, which is more machinery than one colour is worth.
+ * ponytail: a tab open across midnight keeps yesterday's date until it reloads.
  */
 const TODAY = readClock(new Date()).date;
 
@@ -24,10 +21,7 @@ const BOX_WIDTH = 4;
 
 /**
  * How many lists a list item sits inside.
- *
- * The spaces that nest an item are hidden along with its `-`, so nothing in
- * the text carries the nesting any more and the indent has to be drawn from
- * the depth instead.
+ * The nesting spaces are hidden, so the indent is drawn from this depth.
  */
 function listDepth(node: SyntaxNode): number {
   let depth = 0;

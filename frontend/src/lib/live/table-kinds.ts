@@ -1,9 +1,6 @@
 /**
  * What a table cell holds, read off its text, for the way the table draws it.
- *
- * Pure functions on the text the cell shows, so the drawing and the tests read
- * one rule. A column is numeric when every cell that says something is a number,
- * which lets a column of words with one stray number stay words.
+ * A column is numeric only when every filled cell is a number, so a stray number keeps words as words.
  */
 
 /** A sign, the true minus included, since a table copied out of a spreadsheet has it. */

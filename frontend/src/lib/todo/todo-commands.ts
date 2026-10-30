@@ -31,23 +31,16 @@ export interface TodoCycle {
 export type CycleHandler = (cycle: TodoCycle) => void;
 
 /**
- * Carries the callback that follows a press into the vault.
- *
- * A facet for the reason `saveHandler` is one: vim registers this key once for
- * the whole module and cannot close over one view's props. Not a member of
- * `editorCommands` either, because that table is the one a leader sequence
- * names a command in and every member of it takes nothing.
+ * Carries the callback a press uses to reach the vault. A facet, not an `editorCommands`
+ * member, since vim registers the key once for every view and cannot close over props.
  */
 export const todoCycled = Facet.define<CycleHandler, CycleHandler | undefined>({
   combine: (handlers) => handlers[0],
 });
 
 /**
- * The path of the note this view holds, or nothing for a view holding no note.
- *
- * Read to tell today's daily note from every other note. A todo living there
- * logs itself into this very buffer, which is the one write that cannot go
- * through the vault: it would land on text somebody is still typing.
+ * The path of the note this view holds, or nothing. Tells today's daily note apart, since a
+ * todo there logs into this buffer, the one write that cannot go through the vault.
  */
 export const notePath = Facet.define<string, string | undefined>({
   combine: (paths) => paths[0],
@@ -90,21 +83,8 @@ function logEdits(doc: string, before: string, after: string, path: string | und
 }
 
 /**
- * Cycle the line the cursor is on, in the buffer, so `u` undoes it.
- *
- * The clock and the id are read here rather than in `todo.ts`, which is what
- * keeps that module a function over strings and its tests free of both.
- *
- * The buffer is only half of a press for a todo living anywhere else: entering
- * or leaving done also moves a `- ✅` line in today's note, so the line is
- * reported on the way out and the route writes that half. A todo already in
- * today's note is the case the route cannot write, this being the buffer being
- * typed into, so both halves go in one transaction here and `u` takes back
- * both.
- *
- * `want` is the state a key named, and nothing where the key walks the cycle.
- * Everything past the line itself is the same either way: a parent takes its
- * parts into done however the press got there.
+ * Cycle the cursor's line in the buffer, so `u` undoes it. A todo in today's note has both
+ * halves go in this transaction; one elsewhere leaves the second half to the route.
  */
 export function cycleTodoAtCursor(view: EditorView, want?: TodoState): void {
   const { state } = view;

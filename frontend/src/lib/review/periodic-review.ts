@@ -1,11 +1,6 @@
 /**
- * The year review on a yearly note and the week review on a weekly one, drawn as a block
- * inside the note under its title. Nothing is written into the file: the block is a
- * decoration, and the text the editor holds is the text on disk.
- *
- * A block widget and not a React column above the editor, so the review scrolls with the
- * note and sits where the reader's own text starts. The React tree is mounted in the
- * widget's element, which is why the query client and the opener come in through a facet.
+ * The year review on a yearly note and the week review on a weekly one, drawn as a block under
+ * the title and never written to the file. A block widget, not a column above the editor, so it scrolls with the note.
  */
 
 import { type EditorState, type Extension, Facet, StateField, type Text } from "@codemirror/state";

@@ -8,15 +8,8 @@
 import { isOpen, parseTodo, patchLine, type Todo } from "@/lib/todo/todo";
 
 /**
- * Whether a blocker is closed, or nothing where the caller cannot see it.
- *
- * Nothing reads as still open, so a dependent is never opened on a guess. The
- * buffer builds this from the document it holds; the vault writer builds it
- * from every todo the vault holds.
- *
- * `"twinned"` is an id two todos carry. Neither can be told from the other, so
- * whether it is closed has no answer, and reading it as open would block a
- * dependent nobody asked to move.
+ * Whether a blocker is closed. Nothing, where the caller cannot see it, reads as open,
+ * so a dependent is never opened on a guess. `"twinned"` has no answer either.
  */
 export type Closed = (id: string) => boolean | "twinned" | undefined;
 
@@ -35,17 +28,8 @@ export function closedAmong(todos: Todo[]): Closed {
 }
 
 /**
- * Every `⛔` line in `lines` whose state kasten owns and whose blockers
- * disagree with it, keyed by line number.
- *
- * `⛔` on a line means kasten owns the choice between `[ ]` and `[b]` there.
- * `[/]`, `[x]` and `[-]` are never touched, so a state set by hand cannot be
- * destroyed by a blocker moving.
- *
- * A line whose other blockers are all closed is not touched where one more is
- * twinned: one twin may be open and the other closed, and either state written
- * here would be a guess at which one the `⛔` meant. An open blocker beside it
- * holds the line whichever twin was meant.
+ * Each `⛔` line whose state disagrees with its blockers, keyed by line number. Only
+ * `[ ]` and `[b]` move. A line with a twinned blocker is left alone unless another is open.
  */
 export function blockedLines(lines: string[], closed: Closed): Map<number, string> {
   const moved = new Map<number, string>();
@@ -77,12 +61,8 @@ export function applyBlocked(text: string, closed: Closed): string | null {
 }
 
 /**
- * `line` naming one more blocker, in the state its blockers now call for.
- *
- * Null where the line is no todo or names `id` already. The state is
- * `blockedLines`' own choice, so a line this writes and a line a blocker's
- * press rewrites cannot disagree: open becomes blocked under a blocker still
- * open, and doing, waiting, done and rejected keep the state they have.
+ * `line` with one more blocker, in the state `blockedLines` calls for. Null where it is
+ * no todo or already names `id`. Open turns blocked under an open blocker; others keep theirs.
  */
 export function blockLine(line: string, id: string, closed: Closed): string | null {
   const todo = parseTodo(line);
@@ -93,12 +73,8 @@ export function blockLine(line: string, id: string, closed: Closed): string | nu
 }
 
 /**
- * An edited line, opened where the edit took the last `⛔` off a blocked todo.
- *
- * Deleting the `⛔` is how a dependency is taken back, and nothing would move
- * the line afterwards: the cascade runs off a blocker's press and finds the
- * dependents by their `⛔`. A `[b]` that never carried one waits on something
- * outside the vault, and stays as it was typed.
+ * An edited line, opened where the edit took the last `⛔` off a blocked todo, since
+ * nothing else would move it. A `[b]` that never had one waits outside the vault and stays.
  */
 export function unblockedEdit(before: string, after: string): string {
   const was = parseTodo(before);

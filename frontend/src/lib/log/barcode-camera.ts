@@ -1,10 +1,4 @@
-/**
- * The camera a barcode scan holds: the rear camera's stream on a video, the decoder
- * reading its frames, and every track stopped the moment the scan ends.
- *
- * The food panel keeps its button and its words. The camera's rules live here, so a
- * stream is stopped on every path that ends a scan.
- */
+/** The camera a barcode scan holds. Every track stops on every path that ends a scan. */
 
 import { type Decoder, decoderFor } from "@/lib/log/barcode";
 

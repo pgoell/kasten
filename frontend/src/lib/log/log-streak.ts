@@ -18,11 +18,8 @@ export function hasFood(day: LogDay): boolean {
 }
 
 /**
- * The logged days in a row, counted back from the day shown: within the kcal goal when
- * there is one. A day with no log, or over the goal, ends the run. A day with no food line
- * counts as a day with no log, so drinks alone do not pass for a day within the goal. Today,
- * while it has no food line yet, is skipped instead, so a day still being written does not
- * end it.
+ * The logged days in a row, counted back from the day shown, within the kcal goal when there is one.
+ * A day with no food line ends the run, so drinks alone do not pass. Today is skipped until it has one.
  */
 export function streakOf(
   dates: string[],

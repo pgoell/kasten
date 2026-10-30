@@ -1,11 +1,6 @@
 /**
- * The drink and food lines of a daily note's `## Log`: what a tap writes, what
- * the card's food search logs, and what the lines already there add up to.
- *
- * The format is `docs/reference/log-format.md`, and the backend's parser in
- * `log.py` is the one `GET /api/log` answers from. This reads the same lines
- * off the open buffer, so a tap shows in the totals at once rather than after
- * the save and the index; `log-cases.json` holds both to the same rows.
+ * The drink and food lines of a daily note's `## Log`: what a tap writes, and what the lines already there add up to.
+ * The open buffer is read, so a tap shows in the totals at once. `log-cases.json` holds it to the backend parser in `log.py`.
  */
 
 import { masked } from "@/lib/tag-rule";

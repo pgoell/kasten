@@ -33,11 +33,8 @@ function enclosing(state: EditorState, at: number, node: string) {
 }
 
 /**
- * Adds or removes one pair of marks around the cursor or the selection.
- *
- * With nothing selected it takes the word under the cursor, and on a blank line
- * it opens an empty pair and sits between the halves so you can type into it.
- * Returns whether it changed the document.
+ * Adds or removes one pair of marks around the selection, or the word under the cursor.
+ * On a blank line it opens an empty pair with the cursor between. Returns whether it changed the document.
  */
 export function toggleMark(view: EditorView, spec: MarkSpec): boolean {
   const { state } = view;
@@ -77,17 +74,8 @@ const HEADING = /^#{1,6}\s/;
 const BULLET = /^(\s*)[*+](\s)/;
 
 /**
- * Tidies the whole note: trailing whitespace, blank runs, headings and bullets.
- *
- * Line by line rather than through the syntax tree, because every rule here is
- * about a line's own shape and the tree would only make the same reading
- * longer. A table is the one block that is not about a line's own shape, and
- * `table.ts` reads it whole. The frontmatter is YAML and a fence holds whatever
- * it holds, so both are stepped over untouched.
- *
- * It writes a change per line rather than replacing the document, which is what
- * keeps the cursor where it was: CodeMirror maps it through the changes.
- * Returns whether anything moved.
+ * Tidies the note line by line, one change per line, so CodeMirror maps the cursor through them.
+ * Frontmatter and fences are stepped over; tables are left to table.ts. Returns whether anything moved.
  */
 export function formatDocument(view: EditorView): boolean {
   const { doc } = view.state;

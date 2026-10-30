@@ -1,16 +1,6 @@
 /**
- * A todo, which is one line of a note read into a record and written back out.
- *
- * The line is the whole record: the vault holds no todo table and never will,
- * so every field a todo carries is spelled on the line beside it, in the
- * vocabulary the obsidian-tasks plugin already reads. A field this does not
- * know stays in the words, where the person who typed it can see it.
- *
- * A new line is written in the one field order `tail` keeps. A line that is
- * already there is patched rather than rebuilt when its state or a field kasten
- * writes changes: the box and the stamps the change adds or drops move, and
- * every other byte stays, so a tab indent still nests a part and a `^block` id
- * stays where links find it.
+ * A todo: one line of a note, read into a record and written back out.
+ * The line is the whole record, so every field is spelled on it, and a patched line keeps every other byte.
  */
 
 import { masked, SPANS, tagsOf, wordTags } from "@/lib/tag-rule";
@@ -60,12 +50,8 @@ const BOX: Record<TodoState, string> = {
 };
 
 /**
- * How each state is drawn where a list is drawn rather than edited.
- *
- * Here rather than in the panel that first wanted it, because the pane wants
- * the same seven and a second copy would be seven characters to keep in step by
- * hand. `.cm-todo-*` in `styles/live-preview-lists.css` is the third copy and cannot be this one:
- * the editor draws its symbol in a `::before`, which no module can reach.
+ * How each state is drawn where a list is drawn. A second copy would be seven symbols to keep in step.
+ * The editor's copy in `styles/live-preview-lists.css` is a `::before`, which no module can reach.
  */
 export const STATE_SYMBOL: Record<TodoState, string> = {
   open: "☐",
@@ -164,14 +150,8 @@ function joinParts(todo: Todo): string {
 const BARE_MARKER = /(?:🔁|🏁|⏲|⏱|🆔|⛔)️?(?=[ \t]+\S)/gu;
 
 /**
- * `tail` with the fields written straight after a bare one-word marker in the
- * words, as `⛔ 📅 2026-10-20 more`. Those fields are read before every one-word
- * field and end at their own value, so each one stops the marker from taking the
- * words after it; written after the words, `⛔ more` would read `more` as the
- * blocker. The one-word `⏲`, `⏱` and `🆔` come after them, so a bare `⏲` before an
- * id stays words, but only on a line the dated fields alone do not fix. A blocker
- * is not in the pool: moving one would also mean rebuilding the rest of
- * `blockedBy`. Null where no place reads back as `fields`.
+ * `tail` with the dated fields put straight after a bare one-word marker, so `⛔ 📅 2026-10-20 more` does not read `more` as the blocker.
+ * A blocker is not in the pool, since moving one would rebuild `blockedBy`. Null where no place reads back as `fields`.
  */
 function insideWords(todo: Todo, fields: Fields): string | null {
   // The dated fields and priority are tried alone first, as they always were, so a
@@ -217,11 +197,7 @@ export function formatTodo(todo: Todo): string {
 }
 
 /**
- * Where the words of a todo line end: before its first field that parses, else
- * before a trailing `^blockid`, else at the line's end. An offset into the
- * whole line, so a tag written there leaves every other byte where it was, and
- * a space or the line's end always follows it.
- *
+ * Where the words of a todo line end: before its first field that parses, else before a trailing `^blockid`, else at the end.
  * Only fields that parse count, as for a stamp: `📅 friday` is words.
  */
 export function wordsEnd(line: string): number {
@@ -244,13 +220,8 @@ export function wordsEnd(line: string): number {
 }
 
 /**
- * `line` in the state and with the stamps `want` carries, every other byte
- * kept: the indent as typed, the words, a `^block` id at the end and each field
- * where it sits. `boxed` false writes the line out of the cycle, with neither
- * bullet nor box.
- *
- * Exported for `todo-write.ts`, whose cascade and dependents change state the
- * way a press does, and whose `⛔` pick, timer and unblock write a field.
+ * `line` in the state with the stamps `want` carries, every other byte kept.
+ * Exported for `todo-write.ts`, which changes state the way a press does.
  */
 export function patchLine(line: string, want: Todo, boxed = true): string {
   const todo = LINE.exec(line);
@@ -271,11 +242,7 @@ export function patchLine(line: string, want: Todo, boxed = true): string {
 }
 
 /**
- * Where the name goes on a waiting line that names nobody: the offset just
- * past the date its `👤` carries. Null on any other line.
- *
- * The key that sets the state cannot know who the todo waits on, and the dated
- * `👤` sits ahead of the other fields, so the place to type the name is mid-line.
+ * Where the name goes on a waiting line that names nobody: just past its dated `👤`, since the state key cannot know who the todo waits on.
  * Both places a line is edited put the cursor here.
  */
 export function nameAt(line: string): number | null {
@@ -315,18 +282,8 @@ function proseOf(line: string, todo: Todo): string {
 }
 
 /**
- * One step round the cycle.
- *
- * The walk is the work: open, doing, done, and out to a plain line again.
- * Blocked, waiting, review and rejected are things that happen to work rather
- * than steps in it, so none is on the walk and each is set by a key of its own. That is
- * also what puts done last: a list of open work loses the row at the end of the
- * walk rather than in the middle of it, where the two states past it were once
- * unreachable from the pane.
- *
- * `today` and `id` are passed in rather than read here, so a press is a
- * function over a string and its test needs no clock. `id` is used only when a
- * todo enters done carrying none: a todo nothing refers to never gets one.
+ * One step round the cycle: open, doing, done, then a plain line. Blocked, waiting, review and rejected are set by their own keys, never walked to.
+ * `today` and `id` come in so a press is a function over a string. `id` is used only when a todo enters done with none.
  */
 export function cycleLine(line: string, today: string, id: string): string {
   const todo = parseTodo(line);
@@ -369,15 +326,8 @@ export function cycleLine(line: string, today: string, id: string): string {
 }
 
 /**
- * Put one line in the state a key named, from wherever it was.
- *
- * The stamps are the cycle's, because a state is worth the same whichever key
- * wrote it: entering done stamps the date and an id, entering rejected stamps
- * its own date, and leaving either drops the stamp it wrote. Entering waiting
- * stamps the day the wait began after any assignee, and leaving it drops the
- * dated `👤` with its name: it says who the todo waits on, and it no longer
- * waits. The assignee stays in every state. A line already in that state comes
- * back untouched, so the caller can tell a press that changed nothing.
+ * Put one line in the state a key named. Entering done stamps the date and an id, and leaving drops that stamp.
+ * Leaving waiting drops the dated `👤`, since the todo no longer waits. A line already in that state comes back untouched.
  */
 export function setStateOn(line: string, state: TodoState, today: string, id: string): string {
   const todo = parseTodo(line) ?? todoOf(line, today);
@@ -399,11 +349,8 @@ export function setStateOn(line: string, state: TodoState, today: string, id: st
 }
 
 /**
- * `prefix` and six hex characters. From the platform, because an id goes to disk.
- *
- * The default is the todo's own, which is every caller but the highlight's:
- * one source of randomness in the app beats a second copy of three lines of
- * `crypto.getRandomValues` in whichever module mints the next kind of id.
+ * `prefix` and six hex characters, from the platform because an id goes to disk.
+ * One randomness source for the app, so every module mints ids the same way.
  */
 export function newId(prefix = "kt-"): string {
   const bytes = crypto.getRandomValues(new Uint8Array(3));

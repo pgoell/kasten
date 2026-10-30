@@ -13,11 +13,9 @@ export interface PageListeners {
 }
 
 /**
- * What the pane does with a page as it arrives and as it is watched.
- *
- * `arrived` runs before the page is recorded, so a passage held in a section
- * that has just left the tree is forgotten first. `watch` answers the observer
- * to disconnect when the page leaves.
+ * `arrived` runs before the page is recorded, so a passage in a section that
+ * has just left the tree is forgotten first. `watch` returns the observer to
+ * disconnect when the page leaves.
  */
 export interface PageHooks {
   arrived(doc: Document): void;
@@ -26,12 +24,9 @@ export interface PageHooks {
 
 /**
  * Track every page the book shows, from its `load` until the page leaves.
- *
- * Registered before the book opens, so the first section's document does
- * not slip past. Keys pressed inside foliate's iframe reach neither this
- * wrapper nor the window, an event not crossing a document boundary, and a
- * click inside it fires no focus event on any ancestor either. This is the
- * only seam: foliate builds both iframes behind closed shadow roots.
+ * Registered before the book opens, so the first section is not missed. Keys
+ * and clicks in foliate's iframe reach no ancestor, and foliate builds the
+ * frames behind closed shadow roots, so this is the only seam.
  */
 export function trackPages(
   view: FoliateView,
@@ -49,10 +44,8 @@ export function trackPages(
   function onLoad(event: Event) {
     const { doc, index } = (event as CustomEvent<{ doc: Document; index: number }>).detail;
     doc.addEventListener("keydown", listeners.keydown);
-    // Two listeners for two ways in, and neither covers the other. A
-    // paragraph cannot hold focus, so a real click fires `pointerdown`,
-    // `mousedown` and `click` here and nothing else; Tab into one of the
-    // book's links fires only `focusin`.
+    // Two ways in, and neither covers the other: a click fires no focus event,
+    // and Tab into a link fires no pointer event.
     doc.addEventListener("pointerdown", listeners.report);
     doc.addEventListener("focusin", listeners.report);
     doc.addEventListener("selectionchange", listeners.selectionchange);
@@ -68,18 +61,9 @@ export function trackPages(
   view.addEventListener("load", onLoad);
 
   /**
-   * Drop the pages that have gone, which nothing else here would.
-   *
-   * A fixed-layout book builds a new frame and a new document for every turn
-   * and calls `replaceChildren` on the old ones (`fixed-layout.js:167`), where
-   * a flowing book loads a section at a time and has a few dozen at most. So
-   * this list is the difference between a reader that holds two pages and one
-   * that holds every page you have read, each with its own canvas, which for
-   * a long pdf is hundreds of megabytes. `defaultView` is null on a document
-   * whose frame has left the tree, and is the only way to ask.
-   *
-   * The listeners are not taken off, and do not need to be: they were added to
-   * a document that is going away with them.
+   * Drop the pages that have gone, which nothing else here would. A fixed-layout
+   * book builds a document per turn, each with a canvas, so without this a long
+   * pdf keeps hundreds of megabytes. `defaultView` is null once the frame has left the tree.
    */
   function forgetPagesThatLeft() {
     for (let at = sections.length - 1; at >= 0; at -= 1) {
@@ -100,26 +84,14 @@ export function trackPages(
   /** Where in the book the page is, as the note is to name it. */
   function chapterOf(doc: Document): string {
     const label = view.lastLocation?.tocItem?.label;
-    // `trim` and not foliate's own normaliser, which strips ASCII whitespace
-    // alone (`epub.js:64-67`) while the nav path falls back to a raw `title`
-    // attribute nothing normalises. A label of one non-breaking space is
-    // truthy to the library and empty here, which is what keeps the chapter
-    // line from being a bare caret.
+    // `trim`: foliate's normaliser keeps a lone non-breaking space, which
+    // would leave the chapter line a bare caret.
     if (label !== undefined && label !== null && label.trim() !== "") return label;
-    // The book's own words or a number, and never the section document's
-    // `<title>`: a great many books put the book's title in every chapter
-    // file, so that fallback would write the same wrong words throughout.
-    //
-    // A pdf's outline is used above wherever there is one, so this is the
-    // only line that has to know what it is reading, and a pdf has pages
-    // where a book has sections.
-    //
-    // The number comes off the page the words are on and not off the view,
-    // which is the same thing in a pane showing one page and not in a pane
-    // showing a spread: nothing relocates when you select on the facing page,
-    // so the view still names the other one. `lastLocation` is the fallback
-    // for a flowing book, whose documents `load` reports the same way but
-    // whose sections and pages are not the same count.
+    // The book's words or a number, never the section's `<title>`: many books
+    // put the book's title in every chapter file. A pdf has pages where a book
+    // has sections, so this line alone must know which it reads.
+    // The number comes off the page the words are on, not the view: selecting
+    // on a facing page does not relocate the view. `lastLocation` is the fallback.
     if (pdfLayer(doc) === null) return `Section ${(view.lastLocation?.section?.current ?? 0) + 1}`;
     return `Page ${(pageOf(doc) ?? view.lastLocation?.section?.current ?? 0) + 1}`;
   }

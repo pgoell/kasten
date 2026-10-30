@@ -25,12 +25,8 @@ const LIMITS_UNREAD = "The daily limits could not be read: ";
 const NOTE_UNREAD = "The note could not be read: ";
 
 /**
- * The schedule a rating writes for the card on screen.
- *
- * One place for it, because the write and the interval the button shows must
- * never disagree. A card new at the start keeps answering as a first answer until
- * it leaves the queue. Anki's learning steps do the same, setting the first gap
- * from the last answer, and `answeredToday` then still reads the card as new.
+ * The schedule a rating writes, so the write and the interval the button shows never disagree.
+ * A card new at the start keeps answering as a first answer until it leaves the queue, as Anki's learning steps do.
  */
 function scheduleFor(seat: Seat, held: Card, rating: Rating, today: string): Schedule {
   return nextSchedule(seat.fresh ? null : held.held, rating, today);
@@ -38,10 +34,7 @@ function scheduleFor(seat: Seat, held: Card, rating: Rating, today: string): Sch
 
 /**
  * The last rating or suspend, held so Undo can take it back.
- *
- * The whole queue and not the one seat: `again` moved the seat to the back and
- * a suspend took a cloze's siblings out with it, so only the queue as it stood
- * puts every seat back where it was.
+ * Undo restores the whole queue, not one seat, since `again` moves a seat to the back and a suspend takes a cloze's siblings out.
  */
 interface Step {
   note: string;
@@ -55,19 +48,8 @@ interface Step {
 }
 
 /**
- * The state and the scheduling of one sitting: the notes it reads, the queue,
- * and every rating, suspend, undo and jot written back to the note.
- *
- * Every note the deck draws from is read once, at the start, and every rating
- * is written straight back to the note the card is in. That is a `PUT` per
- * answer, which is what the todo pane already does per press, and it means a
- * session interrupted halfway keeps the answers it got rather than losing them
- * the way a sitting of an exam does.
- *
- * The queue holds a note and an ordinal into its cards rather than the cards
- * themselves. Writing a schedule can insert a line, which moves every card
- * under it, but it can never add or remove a card, so card three stays card
- * three and the ordinals survive a rewrite that the line numbers do not.
+ * The state and scheduling of one sitting. Every rating is written straight back to its note, so a sitting cut short keeps its answers.
+ * The queue holds a note and an ordinal, not the cards: a write can insert a line but never add or remove a card, so ordinals survive.
  */
 export function useReviewSitting(
   deck: Deck,
@@ -242,12 +224,8 @@ export function useReviewSitting(
   );
 
   /**
-   * Park the card on screen and move on, without rating it.
-   *
-   * The card leaves the queue and keeps its seat in the note, which is the
-   * property the ordinals depend on: `setSuspended` splices a token and never
-   * adds or removes a card, so every seat behind this one still addresses the
-   * card it did before.
+   * Park the card on screen and move on, without rating it. It keeps its seat in the note, which the ordinals depend on:
+   * `setSuspended` splices a token and never adds or removes a card.
    */
   const suspend = useCallback(() => {
     if (texts === null || seat === undefined || undoing || flying.current) return;
@@ -278,14 +256,8 @@ export function useReviewSitting(
   }, [cards, deck, done, play, queue, seat, texts, typed, undoing, write, flying.current]);
 
   /**
-   * Take back the last rating or suspend: the note's old text, and the card on
-   * screen again, revealed, at the head of the queue.
-   *
-   * The write names what the step sent as its base, which the write queue turns
-   * into what the vault answered for it. Anything written over the note since,
-   * a jot of this sitting's own included, leaves that base stale and the vault
-   * refuses, so an undo never erases newer text. The card comes back only once
-   * the write has landed. One step: the step goes whatever came of it.
+   * Take back the last rating or suspend. The card comes back, revealed, only once the note's old text has landed.
+   * The write is sent against the base the step named, so anything written since makes the vault refuse and an undo never erases newer text.
    */
   const undo = useCallback(() => {
     if (step === null || undoing || flying.current) return;
@@ -304,15 +276,8 @@ export function useReviewSitting(
   }, [step, undoing, write, flying.current]);
 
   /**
-   * Write what was jotted at the end of the note the card on screen came from.
-   *
-   * The end, and never the middle: a card appended is last in line order, so
-   * the ordinals the queue is holding all still address the cards they did.
-   * Nothing about the sitting moves, which is the point of writing it here
-   * rather than stopping to open the note.
-   *
-   * Returns whether the question was written, so the caller closes its line
-   * only then.
+   * Write what was jotted to the end of the card's note, never the middle, so the queue's ordinals still hold.
+   * Returns whether the question was written, so the caller closes its line only then.
    */
   function jot(note: string, question: string): boolean {
     // Kept in the line while an undo is out: written behind it, the jot would

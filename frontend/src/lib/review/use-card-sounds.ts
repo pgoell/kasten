@@ -3,15 +3,8 @@ import { soundsIn } from "@/lib/audio";
 import type { Card } from "@/lib/review/srs";
 
 /**
- * Start a sound, letting a refusal go by in silence.
- *
- * A phone refuses a sound no tap asked for, which is the first card of every
- * sitting, and a sound whose source changed under it while it loaded rejects
- * as aborted. Neither is worth a word on the screen: the Replay button is
- * right there. A file that cannot play, deleted from the vault or in a format
- * the browser lacks, never ends, so `skip` moves on to the side's next sound
- * the way `ended` would. Those three are every way the spec lets `play()`
- * reject; anything else is a fault and goes on up.
+ * Start a sound, letting a refusal go by in silence: a phone refuses an untapped sound, and Replay is there.
+ * A file that cannot play never ends, so `skip` moves on as `ended` would. Any other rejection is a fault and goes on up.
  */
 function start(player: HTMLAudioElement, skip: () => void): void {
   player.play().catch((error: unknown) => {
@@ -32,23 +25,16 @@ export function soundsShowing(card: Card, revealed: boolean): string[] {
 }
 
 /**
- * The sitting's sound: one player, and the card's sides played in order.
- *
- * `play` is called from inside the tap or key that turned the card wherever
- * there is one, because a phone refuses `play()` that does not start
- * synchronously in a gesture. `playFirst` plays the first card of the sitting,
- * once.
+ * The sitting's one player, with the card's sides played in order. `play` runs inside the tap or key that turned the card,
+ * as a phone refuses a `play()` that does not start synchronously in a gesture.
  */
 export function useCardSounds(): {
   play(sources: string[]): void;
   playFirst(card: Card | undefined): void;
 } {
   /**
-   * The one player of the sitting, made on the first sound and kept.
-   *
-   * One element reused rather than one per card, and never the player the
-   * preview draws: a phone lets an element play without a tap once a tap has
-   * started it, which is what lets the second of two sounds follow the first.
+   * One element for the whole sitting, never the preview's.
+   * A phone lets an element play untapped once a tap has started it, so the second sound follows the first.
    */
   const player = useRef<HTMLAudioElement | null>(null);
   /** The sounds of the side showing that wait behind the one playing. */
@@ -59,11 +45,8 @@ export function useCardSounds(): {
   const started = useRef(false);
 
   /**
-   * Go on from the sound `from` to the next one waiting, on its end or failure.
-   *
-   * Only from the sound the player is still on: a missing file both rejects
-   * its `play()` and fires `error`, and the second of those must not skip the
-   * sound the first one moved on to.
+   * Only from the sound the player is still on. A missing file both rejects `play()` and fires `error`,
+   * so the second of those must not skip the sound the first one moved on to.
    */
   const onward = useCallback((from: string | null) => {
     const made = player.current;
@@ -76,11 +59,8 @@ export function useCardSounds(): {
   }, []);
 
   /**
-   * Play a side's sounds in order, stopping whatever was playing.
-   *
-   * Called from inside the tap or key that turned the card wherever there is
-   * one, because a phone refuses `play()` that does not start synchronously in
-   * a gesture. An empty list is the stop.
+   * Play a side's sounds in order, stopping what was playing. An empty list is the stop.
+   * Called from the tap or key that turned the card, since a phone refuses a `play()` not started in a gesture.
    */
   const play = useCallback(
     (sources: string[]) => {

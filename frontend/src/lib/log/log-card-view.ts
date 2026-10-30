@@ -1,10 +1,6 @@
 /**
- * The DOM the Log card draws: the kcal figure and the macro rings above its
- * buttons, a quick button per kind, the entries by meal, and the raw-lines fold.
- *
- * Each builder takes data and returns an element, and the card in `log-card.ts`
- * says what a press does. Colour is never the only sign: a passed max goal says
- * "over" in words, and a met floor says so with a tick.
+ * The DOM the Log card draws. Each builder takes data and returns an element; `log-card.ts` says what a press does.
+ * Colour is never the only sign: a passed max says "over", and a met floor shows a tick.
  */
 
 import { type Meal, type MealGroup, overMax, share } from "@/lib/log/log-day";

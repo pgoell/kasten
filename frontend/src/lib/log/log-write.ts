@@ -1,10 +1,6 @@
 /**
- * Where a drink from the palette lands. Today's note in the focused pane goes to
- * its buffer, which owns the text and which autosave writes. Any other note goes
- * to the vault, unless today's note is held or being saved: a write then would
- * land over text somebody typed, so the drink is refused.
- *
- * `log-lines.ts` holds what a tap writes.
+ * Where a drink from the palette lands. Today's note in the focused pane goes to its buffer. Any other note goes to the vault,
+ * unless today's note is held or being saved: a write then would land over typed text, so the drink is refused.
  */
 
 import { isolateHistory } from "@codemirror/commands";
@@ -16,11 +12,8 @@ import { periodicNote } from "@/lib/periodic";
 import { notePath } from "@/lib/todo/todo-commands";
 
 /**
- * Log a drink into the buffer when the view holds today's daily note. False,
- * with nothing written, for any other note.
- *
- * One change, so one undo takes the line back. Nothing is asked first: undo is
- * the way out.
+ * Log a drink into the buffer when the view holds today's note. False, with nothing written, for any other note.
+ * One change, so one undo takes the line back.
  */
 export function logDrinkInView(view: EditorView, line: string): boolean {
   if (view.state.facet(notePath) !== periodicNote("daily", new Date()).path) return false;
@@ -36,13 +29,8 @@ export function logDrinkInView(view: EditorView, line: string): boolean {
 export type DrinkTarget = "buffer" | "vault" | { why: string };
 
 /**
- * Where a drink goes: into the buffer when today's note is the focused pane's,
- * else into the vault.
- *
- * A vault write over today's note is refused while the buffer still holds text
- * the vault refused, or while a save of the note is in the air: either would
- * land over text somebody typed. A note in the focused pane is never written
- * through the vault, since its buffer owns the text.
+ * Where a drink goes: into the buffer when today's note is the focused pane's, else into the vault.
+ * A vault write over today's note is refused while the buffer holds text the vault refused, or a save is in the air.
  */
 export function drinkTarget({
   today,
@@ -73,16 +61,9 @@ let drinkTurns: Promise<unknown> = Promise.resolve();
 const TAP_WAIT_MS = 10_000;
 
 /**
- * Log a drink into today's note in the vault, making the note and its `## Log`
- * where there are none.
- *
- * Taps run one at a time. A read that came before an earlier tap's save would
- * not see that tap's line, and the later save would drop it. A failed tap does
- * not hold up the next.
- *
- * `stillOk` is asked again where the write is made, since a tap can wait in the
- * queue for a while. A refusal rejects with `Nothing logged: <why>` and writes
- * nothing.
+ * Log a drink into today's note in the vault, making the note and its `## Log` if there are none.
+ * Taps run one at a time: a read before an earlier tap's save would miss its line, and the later save would drop it.
+ * `stillOk` is asked again where the write is made. A refusal rejects with `Nothing logged: <why>`.
  */
 export function logDrinkInVault(
   line: string,

@@ -35,13 +35,8 @@ export function side(text: string): string {
 }
 
 /**
- * `target` as somebody types it: an imported `<ruby>漢字<rt>かんじ</rt></ruby>`
- * is the word `漢字`, the reading drawn over it being a hint and not the answer.
- *
- * An imported `a&#58;&#58;b` is `a::b` too, and `a\\-b` is `a\-b`, as `colons` and `unescaped` give them.
- * A code span is its text as written, since nobody types the backticks (#346),
- * and keeps its backslashes, as markdown reads no escape there, all but
- * `bareComments`'s.
+ * `target` as somebody types it: a ruby reading is a hint and not the answer, and an
+ * imported `a&#58;&#58;b` is `a::b`. A code span keeps its text and backslashes (#346).
  */
 export function typedTarget(target: string): string {
   return colons(target.replace(READING, "").replace(RUBY_TAG, "")).replace(
@@ -52,16 +47,8 @@ export function typedTarget(target: string): string {
 }
 
 /**
- * Whether what was typed counts as the card's answer.
- *
- * Forgiving on everything that is not the answer: case, the space around and
- * inside it, and a full stop the card's author typed and you did not. Not
- * forgiving on a word, because a card whose answer is nearly right is a card
- * you are about to rate yourself, and this only says which way to lean.
- *
- * ponytail: no edit distance. A typo you can see is a typo you can rate `hard`,
- * and a threshold that called `Store` close enough to `Storage` would be worse
- * than the strict answer, not better.
+ * Whether typed text counts as the answer. Forgiving on case, spacing and a stray full stop,
+ * strict on words. No edit distance: a fuzzy match would call `Store` close to `Storage`.
  */
 export function sameAnswer(typed: string, back: string): boolean {
   const plain = (text: string) =>

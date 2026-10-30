@@ -9,11 +9,8 @@ export interface RsvpAsk {
 }
 
 /**
- * The last press and the pane it was made in.
- *
- * The press is the route's and the text is the pane's, the way `<leader>gl`
- * asks a pane for its graph. Kept here rather than in the route's state: the
- * panes read it through `useRsvpAsked`, and nothing between needs to carry it.
+ * The last press and the pane it was made in. Kept here rather than in route state, since the panes
+ * read it through `useRsvpAsked`.
  */
 let asked: { pane: string } & RsvpAsk = { pane: "", here: false, signal: 0 };
 const listeners = new Set<() => void>();

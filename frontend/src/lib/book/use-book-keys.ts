@@ -22,32 +22,22 @@ export function useBookKeys(o: {
   openContents: () => void;
 }): (event: KeyboardEvent) => void {
   const { wrapper, viewRef, commands, contentsOpen, turn, scroll, take, openContents } = o;
-  // Read through a ref, the way `terminal-pane.tsx` reads the same prop. The
-  // view is built in one effect keyed on the bytes, and naming these in its
-  // dependencies would rebuild it every time the route's memo took a new
-  // identity, which is on every vault write.
-  //
-  // Written in a layout effect, which runs in the commit's own task, so a key
-  // heard between the commit and the passive effects runs the new command.
+  // Read through a ref: naming these in the view effect's dependencies would rebuild the view on every vault write.
+  // A layout effect, so a key pressed before the passive effects still runs the new command.
   const commandsRef = useRef(commands);
   useLayoutEffect(() => {
     commandsRef.current = commands;
   });
 
   /**
-   * Every key the reader answers, whichever document it was pressed in.
-   *
-   * The modifiers are compared for equality rather than tested for truth, the
-   * way `terminal-pane.tsx` compares them: Chrome spends `Ctrl+H` on its
-   * history window, and a handler reading `event.key` alone would turn that
-   * into a page turn.
+   * Every key the reader answers, whichever document it was pressed in. Modifiers
+   * are compared for equality, not truth: a bare `event.key` read would turn
+   * Ctrl+H, Chrome's history key, into a page turn.
    */
   const onKeyDown = useCallback(
     (event: KeyboardEvent) => {
-      // The contents render inside the wrapper, whose listener is a native one,
-      // while React delegates every event from the root container above it. So a
-      // key pressed in the contents reaches this handler first, and without this
-      // `q` in there closes the reader and `l` turns a page behind the panel.
+      // Keys pressed in the contents reach this native listener first, so without
+      // this `q` closes the reader and `l` turns a page behind the panel.
       if (contentsOpen.current) return;
 
       const chord =
@@ -57,8 +47,7 @@ export function useBookKeys(o: {
         event.metaKey === TERMINAL_CHORD.metaKey;
 
       if (chord) {
-        // From `TERMINAL` rather than a table of this pane's own, so retuning a
-        // chord retunes both panes.
+        // From `TERMINAL`, so retuning a chord retunes both panes.
         const binding = TERMINAL.find((row) => row.key === event.key);
         if (binding === undefined) return;
         event.preventDefault();
@@ -66,9 +55,7 @@ export function useBookKeys(o: {
         return;
       }
 
-      // `?` is shift and `/`, so it is read ahead of the modifier check. This
-      // handler is the only one a section frame's keys reach, the window's
-      // listener never sees them.
+      // `?` is shift and `/`, so it is read before the modifier check.
       if (event.key === "?" && !event.ctrlKey && !event.altKey && !event.metaKey) {
         event.preventDefault();
         commandsRef.current.showHelp();
@@ -77,11 +64,8 @@ export function useBookKeys(o: {
 
       if (event.ctrlKey || event.shiftKey || event.altKey || event.metaKey) return;
 
-      // The book has a leader now because the redesign's epic (#776) wants one in
-      // every page, PDF, book and video alike. Space turns no page here: the
-      // turns are `l` and `h`, so Space is free to open the panel.
-      // The wrapper and not the focused element: that is the foliate host, which
-      // takes no focus, so the panel would hand back a focus nothing can hold.
+      // Leader on every page (#776). Space turns no page here, so it opens the panel.
+      // The wrapper and not the focused element: the foliate host takes no focus.
       if (event.key === " ") {
         if (beginLeader(paneOpener(commandsRef.current, wrapper.current))) {
           event.preventDefault();
@@ -90,34 +74,28 @@ export function useBookKeys(o: {
       }
       if (event.key === "l" || event.key === "h") turn(event.key === "l" ? "next" : "prev");
       else if (event.key === "j" || event.key === "k") scroll(event.key === "j" ? "down" : "up");
-      // Put the selection away in every document on screen, and give the keys
-      // back to Kasten. The focus is in the book's own frame, which the app's
-      // keys do not reach, so it moves to the wrapper, where they do.
+      // Clear the selection in every document and hand the keys back to Kasten.
+      // The book's frame holds the focus, which the app's keys do not reach.
       else if (event.key === "Escape") {
         for (const { doc } of viewRef.current?.renderer?.getContents?.() ?? [])
           doc.getSelection()?.removeAllRanges();
         wrapper.current?.focus();
       } else if (event.key === "q") commandsRef.current.closeNote();
-      // vim's own key for writing what you are looking at out to a file, said
-      // bare the way `q` is, so the reader does it in one press.
+      // vim's key for writing out a file, said bare like `q`.
       else if (event.key === "w") commandsRef.current.exportNote();
-      // Nothing selected is nothing to take, the way `t` on a book still opening
-      // is nothing to draw.
+      // Nothing selected is nothing to take.
       else if (event.key === "y") void take();
       else if (event.key === "t") openContents();
       else return;
 
       event.preventDefault();
-      // `take` and `openContents` are the only names here that are not refs,
-      // and each is a `useCallback` with no dependencies of its own, so this
-      // handler's identity is still fixed for the life of the pane and the view
-      // effect naming it rebuilds nothing.
+      // `take` and `openContents` are the only non-refs here. Each is a no-dependency
+      // `useCallback`, so this handler's identity stays fixed for the life of the pane.
     },
     [contentsOpen, take, openContents, turn, scroll, viewRef, wrapper],
   );
 
-  // On the wrapper as well as on every section, and in an effect of its own so
-  // it survives a book that never opened: the error panel answers `q` too.
+  // Its own effect, so it survives a book that never opened: the error panel answers `q` too.
   useEffect(() => {
     const element = wrapper.current;
     element?.addEventListener("keydown", onKeyDown);

@@ -42,12 +42,8 @@ export function useTodoActions({
 }) {
   const queryClient = useQueryClient();
   /**
-   * The two lists a todo write moves, asked for again rather than left to
-   * `/api/events`.
-   *
-   * The stream is the belt and this the braces: the row you just pressed should
-   * redraw off the write it asked for. `["files"]` with it, because both writes
-   * can make today's daily note.
+   * The two lists a todo write moves, asked again here rather than left to `/api/events`.
+   * `["files"]` too, since both writes can make today's daily note.
    */
   const todosWritten = useCallback(() => {
     void queryClient.invalidateQueries({ queryKey: ["todos"] });
@@ -55,11 +51,8 @@ export function useTodoActions({
   }, [queryClient]);
 
   /**
-   * A pane press has settled, its writes all landed or not.
-   *
-   * The list is asked once here, even when a write failed after an earlier one
-   * landed: the echoes of the landed writes are muted by `endPress`, so nothing
-   * else would redraw the row they changed.
+   * A pane press has settled. The list is asked even if a write failed after an earlier one landed,
+   * since `endPress` mutes the echoes of the landed writes and nothing else would redraw them.
    */
   const settled = useCallback(() => {
     todosWritten();
@@ -67,12 +60,8 @@ export function useTodoActions({
   }, [todosWritten]);
 
   /**
-   * Follow a `<leader>x` into the vault, from the editor.
-   *
-   * The buffer already carries every line of this note the press moved and
-   * autosave writes them, so this moves the `## Done` log and the dependents
-   * living in other notes. It reads nothing at all for a press that neither
-   * touches an end of done nor moves a blocker, which is half of them.
+   * Follow a `<leader>x` into the vault. The buffer already carries the note's own lines, so this moves only the `## Done` log and dependents.
+   * It reads nothing for a press that touches neither end of done nor moves a blocker.
    */
   const logCycledTodo = useCallback(
     (path: string, cycle: TodoCycle) => {
@@ -88,12 +77,8 @@ export function useTodoActions({
   );
 
   /**
-   * Walk one todo on, in the vault, from the pane's `x`, or set the state a key
-   * named or a card was dropped on.
-   *
-   * A refused write says so: a dropped card goes back to the column it left,
-   * since the board draws the vault, and without a notice the drop would look
-   * ignored. A line the write can no longer find writes nothing and says so too.
+   * Walk one todo on in the vault, from the pane's `x` or a card drop, or set the state a key named.
+   * A refused write says so, since a dropped card goes back to the column it left. A line no longer found writes nothing, and says so too.
    */
   const cycleTodo = useCallback(
     (hit: SearchHit, state?: TodoState, twins?: number[]) => {
@@ -107,12 +92,8 @@ export function useTodoActions({
   );
 
   /**
-   * Start or stop a session on the pane's `t`.
-   *
-   * The whole clock, not just the day: a session line carries the time, and
-   * reading it here keeps the pane and the rules below it functions of strings.
-   * A refused write says so, as a state's does: a row whose line has moved
-   * under it would otherwise look like a press that did nothing.
+   * Start or stop a session on the pane's `t`, on the whole clock: the session line carries the time.
+   * A refused write says so: a row whose line moved would otherwise look like a press that did nothing.
    */
   const toggleTimer = useCallback(
     (hit: SearchHit, twins?: number[]) => {
@@ -126,15 +107,8 @@ export function useTodoActions({
   );
 
   /**
-   * Hand one todo to the agent worker, or take it back, from the pane's `@`.
-   *
-   * In the note's queue with `m`'s guards, asked before and again inside the
-   * write, for `m`'s reasons: the press was made in the pane, not in the note,
-   * and an editor holding it would save its own copy over the tag. The rule
-   * reads the note as the write finds it, so a second press before the list
-   * redraws sees the first's tag and takes it off again: it goes by the line
-   * the first wrote, kept in `agentLines`, because the row still shows the
-   * words from before.
+   * Hand one todo to the agent worker, or take it back, from the pane's `@`. Guarded as `m` is, asked before and again inside the write:
+   * an editor holding the note would save its own copy over the tag. The rule goes by `agentLines`, since a row still shows the words from before.
    */
   const agentLines = useRef(new Map<string, { listing: number; line: string }>());
   const tagTodo = useCallback(
@@ -227,11 +201,7 @@ export function useTodoActions({
   );
 
   /**
-   * Put an edited line back in its note, from the pane's `e`.
-   *
-   * No clock: the line is written as it was typed, so there is no date for
-   * kasten to stamp on it. The pane has already put the row back and taken the
-   * keys with it; this is only the write.
+   * Put an edited line back in its note, from the pane's `e`. No clock: the line is written as typed, so kasten stamps no date on it.
    */
   const editTodo = useCallback(
     (hit: SearchHit, line: string) => {
@@ -262,16 +232,8 @@ export function useTodoActions({
   );
 
   /**
-   * Move one todo, and every line under it, into its project's note, from the
-   * pane's `m`, or into the project of the lane a card was dropped on.
-   *
-   * The project's note is written first and the note the todo left second, so
-   * a write failing between the two leaves the todo in both and never in none.
-   * Each in its note's queue, with `linkMentionOf`'s guards asked before and
-   * again inside the write, for its reasons: the press was made in the pane,
-   * not in either note. The project is the backend's, so the todo lands in the
-   * lane the board draws it in. A drop names the lane's instead, which is how
-   * a card in "No project" gets one: the same path, so a drop is no second move.
+   * Move one todo and the lines under it into its project's note, from the pane's `m` or a card dropped on a lane.
+   * Written first into the new note, then out of the old, so a failure leaves it in both, never neither.
    */
   const moveTodo = useCallback(
     async (hit: TodoHit, lane?: string) => {

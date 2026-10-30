@@ -73,31 +73,20 @@ export interface NoteListings {
 }
 
 /**
- * Holds live preview so `<leader>p` can swap it out.
- *
- * A compartment rather than a rebuilt view: rebuilding throws away the undo
- * history and the cursor, and turning the rendering off is not meant to cost
- * either. One instance for the module is right, because a compartment is only
- * an identity, and each state configures it separately.
+ * Holds live preview, so `<leader>p` can swap it out. A compartment, not a rebuilt view,
+ * which would lose the undo history and the cursor.
  */
 const preview = new Compartment();
 
 /**
- * Holds vim, so the setting can take it out and put it back.
- *
- * A compartment for the reason the one above is, and one more: a remount reads
- * the note out of the query cache, which the autosave is a second behind, so
- * rebuilding the view on a toggle would drop what was typed in that second.
+ * Holds vim, so the setting can take it out and put it back. Rebuilding would drop text
+ * typed in the autosave's second of lag.
  */
 const modal = new Compartment();
 
 /**
- * vim's `number relativenumber`: the line the cursor sits on names itself and
- * the rest count the distance to it, which is the number `10j` and `d5k` are
- * reached for with. basicSetup's own `lineNumbers()` carries no config, so
- * this adds a formatter to the gutter already there rather than a second one
- * beside it. It redraws when the cursor changes line because
- * `highlightActiveLineGutter`, also basicSetup's, moves its marker then.
+ * vim's `number relativenumber`. Adds a formatter to basicSetup's gutter rather than a second one,
+ * and it redraws on a line change because `highlightActiveLineGutter` moves its marker then.
  */
 const relativeNumbers = lineNumbers({
   formatNumber: (line, state) => {
@@ -107,11 +96,8 @@ const relativeNumbers = lineNumbers({
 });
 
 /**
- * The formatting chords as plain bindings, for the editor without vim.
- *
- * `FORMAT` spells each key for vim, `<C-S-H>`, and CodeMirror wants
- * `Ctrl-Shift-h`. Without these ctrl+i falls through to basicSetup, which
- * selects the enclosing syntax node on it.
+ * The formatting chords as plain bindings, for the editor without vim. CodeMirror wants
+ * `Ctrl-Shift-h` where `FORMAT` has `<C-S-H>`, and without these ctrl+i selects a syntax node.
  */
 const formatKeys = keymap.of(
   FORMAT.map(({ key, spec }) => ({
@@ -135,20 +121,14 @@ function modalKeys(on: boolean): Extension {
 }
 
 /**
- * Holds the vault listing, which the route refreshes as notes come and go.
- *
- * A compartment for the reason the one above is: the listing changes while a
- * note is open, and rebuilding the view to tell it so would throw away the undo
- * history and the cursor.
+ * Holds the vault listing, which changes while a note is open. A compartment, not a rebuild,
+ * which would drop the undo history and the cursor.
  */
 const vault = new Compartment();
 
 /**
- * The four listings the vault carries, in the shape the compartment holds them.
- *
- * One compartment for all of them, and therefore one place that spells this out.
- * Any of them absent is not an empty vault: it is a view that was told nothing,
- * which offers nothing and calls no link dead.
+ * The four vault listings. Any one absent is a view told nothing, which offers nothing and calls
+ * no link dead; it is not an empty vault.
  */
 function listings(
   paths: string[] | undefined,

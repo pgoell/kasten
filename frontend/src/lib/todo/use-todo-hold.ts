@@ -12,13 +12,8 @@ import { heldFold } from "@/lib/todo/todo-scope";
 import { type Mode, type Row, rowKey } from "@/lib/todo/use-todo-rows";
 
 /**
- * The order the pane draws its rows in while a press holds it.
- *
- * The open groups and the Done this week fold each keep their own hold, since
- * the fold is no group the open list holds. A press on a row keeps every other
- * row where it was, so a todo checked off does not pull the rows under it up
- * while the reader is aiming at the next one. `release` lets the hold go, so
- * the list is drawn fresh the next time.
+ * The order the pane draws its rows in while a press holds it. A press keeps every other row where it was,
+ * so a row checked off does not pull the rows under it up while the reader aims at the next one.
  */
 export function useTodoHold(o: {
   data: TodoHit[] | undefined;

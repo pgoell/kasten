@@ -1,10 +1,6 @@
 /**
- * A book read word by word: an epub out of the section documents foliate
- * builds, a pdf read as a book out of its bytes, and the place moved between a
- * word and a cfi, which is what the book's `reading:` holds.
- *
- * The book pane hands over its view and gets an `RsvpSource` back; nothing
- * outside this module knows a cfi is how a word and a book place meet.
+ * A book read word by word, moving between a word and a cfi, which is what the book's `reading:` holds.
+ * The pane hands over its view and gets an `RsvpSource`; nothing outside knows a cfi joins a word and a place.
  */
 
 import type { RefObject } from "react";
@@ -61,11 +57,8 @@ function bookPdfWords(bytes: ArrayBuffer, keep: () => boolean): Promise<Word[]> 
 }
 
 /**
- * The word a cfi points at: the book's `reading:` or a place on screen.
- *
- * Resolved in a document built for the purpose, the one the words were read out
- * of, since a cfi is a path through the section's markup and finds the same
- * node in either. A pdf's sections build no document, so its cfi names a page.
+ * The word a cfi points at, resolved in a document built for the purpose: a cfi is a path through the markup.
+ * A pdf's sections build no document, so its cfi names a page.
  */
 async function wordAtCfi(view: FoliateView, cfi: string, words: Word[]): Promise<number> {
   const resolved = (await view.resolveCFI?.(cfi)) as Resolved | undefined;

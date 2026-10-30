@@ -127,11 +127,8 @@ function spansIn(state: EditorState, parent: SyntaxNode, from: number, to: numbe
 }
 
 /**
- * One row's columns, counted off its walls rather than off its cells.
- *
- * An empty cell has no node, so `| a |  | c |` carries two cells and three
- * columns. The walls are what say which column a cell is in, and the last one
- * closes a column only when the row ends with it.
+ * One row's columns, counted off its walls rather than its cells.
+ * An empty cell has no node, so the walls say which column a cell is in.
  */
 export function rowSpans(state: EditorState, row: SyntaxNode): Span[][] {
   const cells: Span[][] = [];

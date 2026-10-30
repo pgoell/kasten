@@ -45,13 +45,8 @@ export function editingMode(state: EditorState): VimMode {
 }
 
 /**
- * Mirrors vim's mode into the editor state.
- *
- * Vim keeps its mode on `cm.state.vim.mode`, a mutable property of an object
- * hanging off the view. State-level code cannot see it, and both the decoration
- * field and the selection filter need to. The only supported way to observe a
- * change is the `vim-mode-change` event, so this plugin turns each one into an
- * effect.
+ * Mirrors vim's mode into the editor state. Vim keeps it on a mutable property of its view object,
+ * which state-level code cannot see, so each `vim-mode-change` event becomes an effect.
  */
 const bridge = ViewPlugin.fromClass(
   class {

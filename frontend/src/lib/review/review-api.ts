@@ -1,12 +1,6 @@
 /**
- * The reads only the review blocks make: the notes written in a range, GitHub's
- * contributions, and the model use. Typed from the generated schema, and kept apart from
- * `api.ts` because that file is at its size limit.
- *
- * Plain `fetch`, not the generated client, on purpose: `openapi-fetch` takes the global
- * `fetch` when it is made, so a test that stubs `fetch` after import never sees its calls
- * and the frame runs would reach the dev backend. A plain call looks the global up on each
- * request, which is the seam the frame tests stub, as they stub it for `fetchWritten`.
+ * The reads only the review blocks make, typed from the generated schema. Kept out of `api.ts`,
+ * which is at its size limit.
  */
 
 import type { components } from "@/lib/api-types";
