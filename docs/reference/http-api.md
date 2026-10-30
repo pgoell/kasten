@@ -30,7 +30,7 @@ including the check that refuses a cross-site `POST` with a `403`.
 * [Moving](/reference/http-api/moving.md): give a note or folder a new path, and preview what a move rewrites
 * [Trash and history](/reference/http-api/trash-and-history.md): delete into the trash, restore, and read a note's jj history
 * [Assets and books](/reference/http-api/assets-and-books.md): images, sounds, books and the chunked uploads
-* [Finding](/reference/http-api/finding.md): search, tags, mentions, the link graph and the folder layout
+* [Finding](/reference/http-api/finding.md): search, tags, mentions, notes like this one, the link graph and the folder layout
 * [Todos](/reference/http-api/todos.md): the route that lists every todo and its project
 * [Log](/reference/http-api/log.md): the day's water, coffee, alcohol and food, and their totals
 * [Food](/reference/http-api/food.md): search Open Food Facts for a food, or read one by its barcode

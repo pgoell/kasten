@@ -15,9 +15,6 @@ from typing import TYPE_CHECKING
 import pytest
 from sqlalchemy import text as sql
 from sqlalchemy.dialects import postgresql
-from sqlalchemy.exc import OperationalError
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-from sqlalchemy.pool import NullPool
 
 from kasten_backend.config import Settings, get_settings
 from kasten_backend.db import get_session
@@ -33,6 +30,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from httpx import AsyncClient
+    from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 GROUPS = [{"hund", "welpe", "puppy", "dog"}, {"steuer", "tax", "finanzamt"}]
 """Words the fake model reads as one meaning each: a text holding one points that way."""
@@ -60,30 +58,6 @@ def _vector(body: str) -> list[float]:
         if words & group:
             vector[axis] = 1.0
     return vector
-
-
-@pytest.fixture
-async def sessions() -> AsyncIterator[async_sessionmaker[AsyncSession]]:
-    engine = create_async_engine(get_settings().database_url, poolclass=NullPool)
-    try:
-        async with engine.connect() as connection:
-            present = await connection.scalar(sql("SELECT to_regclass('public.pieces')"))
-    except OperationalError:
-        await engine.dispose()
-        pytest.skip("No database answers at KASTEN_DATABASE_URL")
-    if present is None:
-        await engine.dispose()
-        pytest.skip("No pieces table in the database: run `mise run db:migrate`")
-    factory = async_sessionmaker(engine, expire_on_commit=False)
-    await _empty(factory)
-    yield factory
-    await _empty(factory)
-    await engine.dispose()
-
-
-async def _empty(factory: async_sessionmaker[AsyncSession]) -> None:
-    async with factory() as session, session.begin():
-        await session.execute(sql("DELETE FROM piece_notes"))
 
 
 NOTES = {

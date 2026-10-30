@@ -7,9 +7,10 @@ note takes its best piece's score.
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from pgvector.sqlalchemy import Vector
 from sqlalchemy import ColumnElement, Float, Select, func, literal, select, true, tuple_
-from sqlalchemy.orm import aliased
 
+from kasten_backend.pieces.embed import DIMENSIONS
 from kasten_backend.pieces.models import Piece
 
 if TYPE_CHECKING:
@@ -98,13 +99,21 @@ async def similar_notes(
 
     A note scores `1 - cosine distance` of its nearest pair. A note with no pieces has none.
     """
-    mine = aliased(Piece)
-    distance = func.min(Piece.embedding.cosine_distance(mine.embedding)).label("distance")
-    pairs = (
-        select(Piece.path, Piece.n, distance)
-        .join(mine, mine.path == path)
+    # Materialized, each vector is read out of TOAST once rather than once a pair:
+    # 40 s down to under 2 s for a note of 171 pieces on a copy of the live index.
+    normal = func.l2_normalize(Piece.embedding, type_=Vector(DIMENSIONS)).label("vector")
+    mine = select(normal).where(Piece.path == path).cte("mine").prefix_with("MATERIALIZED")
+    others = (
+        select(Piece.path, Piece.n, normal)
         .where(Piece.path != path, _outside(archive))
-        .group_by(Piece.path, Piece.n)
+        .cte("others")
+        .prefix_with("MATERIALIZED")
+    )
+    distance = func.min(others.c.vector.cosine_distance(mine.c.vector)).label("distance")
+    pairs = (
+        select(others.c.path, others.c.n, distance)
+        .join(mine, true())
+        .group_by(others.c.path, others.c.n)
         .subquery()
     )
     best = (

@@ -203,6 +203,39 @@ so `indexed` below `notes` means the first indexing still runs. A blank `q`
 answers no hits and embeds nothing, but still the counts. A database without
 the pieces table answers no hits and `indexed` 0.
 
+## GET /api/similar
+
+Finds the notes like one note by meaning, at most ten, nearest first: the
+"Notes like this one" list of the margin. Takes `path`, the note's vault path,
+and an optional `archive`, which takes the archive folder in as
+`GET /api/mentions` does. It reads only the stored bge-m3 vectors of the pieces
+index, no BM25 and no model, so it answers while the model loads. Each other
+note scores the cosine similarity of its nearest pair of pieces, one of the
+note's own against one of its; the note itself is never a hit.
+
+```json
+{
+  "hits": [
+    {
+      "path": "pets/Rex.md",
+      "heading": "Rex > Spaziergang",
+      "text": "Der Hund zieht an der Leine.",
+      "score": 0.91
+    }
+  ],
+  "read": true,
+  "indexed": 481,
+  "notes": 625
+}
+```
+
+`heading` and `text` are the nearest piece's, as in `GET /api/ranked`. `read`
+is false while the index has not read the note, or for a path that is no note;
+then `hits` is empty, never an error. `indexed` and `notes` count as in
+`GET /api/ranked`. A database without the pieces table answers no hits, `read`
+false and `indexed` 0. A note of 171 pieces takes 1.5 s against the live
+index's 6,562 pieces; one of five pieces, 0.2 s.
+
 ## GET /api/mentions
 
 Finds the unlinked mentions of one note: every place another note names it in
