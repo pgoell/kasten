@@ -21,10 +21,8 @@ export async function fetchHistory(path: string): Promise<History> {
 }
 
 /**
- * The whole text of the note as change `commit` left it.
- *
- * `path` is the one the change lists, which is not the note's path now when a
- * move came after it.
+ * The whole note as change `commit` left it. `path` is the name that change lists,
+ * not necessarily the note's path now.
  */
 export async function fetchHistoryText(path: string, commit: string): Promise<string> {
   const { data, response } = await client.GET("/api/history/version", {

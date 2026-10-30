@@ -1,15 +1,6 @@
 /**
- * The panes, splits and tabs a device had open, kept across a reload (#495).
- *
- * In this browser's storage and never in the vault, the way Obsidian keeps
- * `workspace.json` beside `workspace-mobile.json`: a phone and a desktop want
- * different arrangements of the same notes, and the vault is the notes. One
- * key per kind of pointer, so a phone and a laptop on one account never take
- * each other's layout, and a version in each key, so a shape this code no
- * longer reads is thrown away rather than half drawn.
- *
- * What a pane holds is saved, never the text in it: that is the vault's, and
- * text not yet written is `held-text.ts`'s.
+ * The panes, splits and tabs a device had open, kept across a reload (#495). Kept in browser
+ * storage, never the vault: a phone and a desktop want different layouts of the same notes.
  */
 
 import { type Layout, type PaneNode, reidLayout } from "@/lib/panes";
@@ -24,8 +15,7 @@ export interface Workspace {
 
 const keyFor = (coarse: boolean) => (coarse ? COARSE_KEY : FINE_KEY);
 
-// A blocked or full storage throws a `DOMException` on any touch, as
-// `vim-setting.ts` says. Each touch below reads that as nothing kept.
+// Blocked or full storage throws a DOMException on any touch; each reads that as nothing kept.
 function touch<T>(work: () => T, otherwise: T): T {
   try {
     return work();
@@ -36,12 +26,8 @@ function touch<T>(work: () => T, otherwise: T): T {
 }
 
 /**
- * The pane as it is worth keeping.
- *
- * `line` and `jump` belong to the open that set them, and a reload is not that
- * open again. The pdf's `opened` counts this page's opens, so the replacer
- * below drops it and a load starts it at 1; its `page` stays, being where the
- * reader was sent.
+ * The pane as it is worth keeping. `line` and `jump` belong to one open, so a reload drops
+ * them. The pdf's `opened` is dropped on save and set to 1 on load.
  */
 function keptNode(node: PaneNode): PaneNode {
   if ("dir" in node) return { ...node, children: node.children.map(keptNode) };
@@ -163,12 +149,8 @@ function withOpened(node: PaneNode): PaneNode {
 }
 
 /**
- * What this device had open, under ids of this page, or null with nothing to
- * restore.
- *
- * Anything that is not exactly the shape `saveWorkspace` writes, from a broken
- * write, another version or another app, is removed and read as nothing: a
- * layout half understood would draw a window nobody had open.
+ * What this device had open, or null. Anything not exactly the shape `saveWorkspace` writes is
+ * removed: a half-understood layout would draw a window nobody had open.
  */
 export function loadWorkspace(coarse: boolean): Workspace | null {
   const key = keyFor(coarse);

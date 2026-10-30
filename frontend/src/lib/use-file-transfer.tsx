@@ -16,11 +16,8 @@ import type { Pane } from "@/lib/panes";
 export type FileTransfer = ReturnType<typeof useFileTransfer>;
 
 /**
- * Hand the browser a file, under a name of our choosing.
- *
- * A click on an anchor nothing renders, which is what a download is when the
- * reader asked for one rather than followed a link. The name carries no
- * folders, because a download names a file and not a path.
+ * Hands the browser a file by clicking an unrendered anchor. The name is a file name,
+ * not a path, so it carries no folders.
  */
 function download(name: string, href: string): void {
   const link = document.createElement("a");
@@ -31,12 +28,8 @@ function download(name: string, href: string): void {
 }
 
 /**
- * The open note as a file, under the name the vault gave it.
- *
- * An object URL: the bytes are here already and no request goes out for them.
- * Revoked in the same turn as the click. The browser has read the URL by the
- * time `click` returns, and a URL left alive holds the note's whole text in
- * memory until the tab closes.
+ * The open note as a file. The URL is revoked in the same turn: a live one holds the
+ * note's text in memory until the tab closes.
  */
 function downloadNote(path: string, text: string): void {
   const url = URL.createObjectURL(new Blob([text], { type: "text/markdown" }));
@@ -46,22 +39,14 @@ function downloadNote(path: string, text: string): void {
 }
 
 /**
- * A book or a picture, fetched from the address that already serves it.
- *
- * No blob, unlike the note above: these bytes are on disk and not in the page,
- * and asking for them only to wrap them in an object URL would hold a whole
- * epub in memory to save a request the browser is about to make anyway.
- * Encoded the way the image pane spells its `src`: the paths carry spaces, `#`
- * and `?`, and the slashes are real slashes.
+ * A book or picture, fetched from the address that serves it. No blob: that would hold a
+ * whole epub in memory for a request the browser makes anyway.
  */
 function downloadAsset(path: string): void {
   download(path.slice(path.lastIndexOf("/") + 1), `/api/assets/${encodePath(path)}`);
 }
 
-/**
- * Every way a file goes in or out of the vault from the keys: the book and
- * markdown pickers, and the download of what the pane is showing.
- */
+/** Every file moved in or out of the vault from the keys: the pickers and the download. */
 export function useFileTransfer({
   data,
   pane,
@@ -76,25 +61,13 @@ export function useFileTransfer({
   setNotice: Dispatch<SetStateAction<string | undefined>>;
 }) {
   const queryClient = useQueryClient();
-  // The browser's own file picker, which is a hidden input and a click on it.
   const picker = useRef<HTMLInputElement>(null);
-  // A second one for markdown. Two inputs rather than one taking both suffixes,
-  // because `accept` is what the picker opens on and a single list would show
-  // the reader every epub in the folder they came to find a note in.
+  // Two inputs, not one: accept filters the picker's view, so one list would show every epub too.
   const notePicker = useRef<HTMLInputElement>(null);
 
   /**
-   * Put the file the picker just handed back into the vault, with its note.
-   *
-   * The book keeps its own name and lands in the inbox, rather than taking the
-   * name of whatever note was in the pane: that threw the title away and
-   * pinned the book to a note about something else. The note beside it is
-   * what makes it readable at all, the pair being a convention rather than a
-   * record, and opening it is the only thing on screen that says the upload
-   * worked.
-   *
-   * The book goes up before the note is made, so a refusal leaves no orphan
-   * note behind.
+   * Uploads the picked book into the inbox under its own name, beside the note that makes it
+   * readable. The book goes up first, so a refusal leaves no orphan note.
    */
   const chooseBook = useCallback(
     async (event: ChangeEvent<HTMLInputElement>) => {
@@ -107,9 +80,7 @@ export function useFileTransfer({
         return;
       }
 
-      // Checked here rather than left to the backend, which would refuse the
-      // upload when it opens, before a piece goes: this names the limit
-      // without the round trip, and the backend's 413 is the backstop.
+      // Checked here to name the limit without a round trip; the backend's 413 is the backstop.
       if (file.size > UPLOAD_LIMIT_BYTES) {
         setNotice("That file is over the 1 GiB upload limit");
         return;
@@ -118,16 +89,12 @@ export function useFileTransfer({
       try {
         await uploadAsset(filed.book, file);
       } catch (error: unknown) {
-        // A typed `unknown` and not an untyped catch. A `fetch` rejects with
-        // no response at all on a dropped connection or a suspended tab, and
-        // there is no status to name, so the last arm is a sentence.
+        // Typed unknown: a fetch that never gets a response has no status to name.
         setNotice(error instanceof Error ? error.message : "The upload failed");
         return;
       }
 
-      // The `listing` event the upload fires invalidates `["files"]` alone, so
-      // a reader already sitting on "no sidecar" would never notice this one.
-      // Keyed on the note, which is what the reader asks the vault about.
+      // The listing event does not refresh the book query, so invalidate it here.
       void queryClient.invalidateQueries({ queryKey: ["book", filed.note] });
 
       const made = (data ?? []).includes(filed.note)
@@ -144,22 +111,8 @@ export function useFileTransfer({
   );
 
   /**
-   * Put every markdown file the picker handed back into the inbox.
-   *
-   * One file at a time, each create awaited before the next goes out, rather
-   * than a batch of them in flight together: every create takes its own jj
-   * change, and several racing the repo would leave changes naming notes they
-   * did not write.
-   *
-   * Nothing is overwritten. A name the inbox already holds comes back as a
-   * refusal from the create, which stops that one file and none of the others.
-   * An import that quietly replaced a note would be the only command in this
-   * app that loses text, and the file is still on disk to be renamed and
-   * picked again.
-   *
-   * The first file that lands opens in the focused pane, which is the only
-   * thing on screen that says the import worked. What the rest of them are
-   * called is the tree's to show.
+   * Puts each picked markdown file into the inbox, one at a time: every create takes its own
+   * jj change. Never overwrites; the first file to land opens in the focused pane.
    */
   const chooseNotes = useCallback(
     async (event: ChangeEvent<HTMLInputElement>) => {
@@ -178,10 +131,7 @@ export function useFileTransfer({
           queryClient.setQueryData(["note", made.path], made.content);
           first ??= made.path;
         } catch (error: unknown) {
-          // A typed `unknown` for the reason the book's upload takes one: a
-          // `fetch` that never reached the backend rejects with no status to
-          // name. The first refusal is the sentence the bar carries, and the
-          // rest of the batch still goes in behind it.
+          // Typed unknown, as in the upload. Only the first refusal is shown; the batch goes on.
           refused ??= error instanceof Error ? error.message : "The import failed";
         }
       }
@@ -197,27 +147,19 @@ export function useFileTransfer({
 
   const commands = useMemo<Pick<TreeCommands, "uploadBook" | "importNotes" | "exportNote">>(
     () => ({
-      // Needs no note in the pane: the book keeps its own name and brings its
-      // own note, so there is nothing here to be beside.
+      // Needs no note in the pane: the book brings its own note.
       uploadBook: () => {
         const input = picker.current;
         if (input === null) return;
 
         setNotice(undefined);
-        // Blanked before the click. An input keeps the file you last chose and
-        // choosing the same one again may fire no `change` at all, which is
-        // the retry after a failed upload silently doing nothing.
+        // Blanked so choosing the same file again still fires change: a retry after a failure.
         input.value = "";
-        // Nothing awaited in front of the click. A file picker needs transient
-        // user activation and an `await` gives the browser a turn in which it
-        // expires. The click waits only for the key to come up, which stays
-        // inside the activation window, so the picker opens and the pointer
-        // is back (#692). jsdom models none of that, so an `await` here
-        // passes every test in this repo and opens nothing on the box.
+        // No await before the click: the picker needs user activation, which an await
+        // lets expire (#692). jsdom does not model this, so tests cannot catch it.
         whenKeysUp(() => input.click());
       },
-      // The same picker, one input over, and the same reason for needing no
-      // note in the pane: the files bring their own names.
+      // Same as uploadBook, for the markdown input. The files bring their own names.
       importNotes: () => {
         const input = notePicker.current;
         if (input === null) return;
@@ -226,35 +168,21 @@ export function useFileTransfer({
         input.value = "";
         whenKeysUp(() => input.click());
       },
-      // Whatever the pane is holding, not the note alone: a picture and a book
-      // are files the vault has and the reader is looking at, and a key called
-      // "download this" that answers only in one pane out of four is a key the
-      // reader has to remember the shape of.
-      //
-      // The two assets go out untouched and unsaved, nothing here having edited
-      // them. The note is saved first the way `showLinksOut` is, and it reads
-      // the text back out of the same cache: a file holding the note as it
-      // stood before the last keystroke says something the note does not. A
-      // write that was refused still downloads, on the older text, because the
-      // copy in hand is worth more than the one that was not taken.
+      // Downloads whatever the pane holds, not just a note. The note is saved first and read
+      // from the cache; if the save is refused, the older text still downloads.
       exportNote: async () => {
         if (pane.image !== undefined) {
           downloadAsset(pane.image);
           return;
         }
         if (pane.book !== undefined) {
-          // Out of the cache the reader filled, because the pane's own field
-          // is the note and only the vault knows which file is beside it. A
-          // reader whose fetch has not landed has nothing to download, and a
-          // reader showing "nothing to read beside" is that same case.
+          // Only the vault knows the file beside the note, so it comes from the cache.
           const beside = queryClient.getQueryData<BookBeside>(["book", pane.book]);
           if (beside !== undefined) downloadAsset(beside.path);
           return;
         }
 
-        // The exam beside the note: the pane holds the note's path and the
-        // cache holds its text under the same key, an exam being a way of
-        // reading a note rather than a file of its own.
+        // An exam is a way of reading the note, so it shares the note's cache key.
         const note = pane.path ?? pane.exam;
         if (note === undefined) return;
 
@@ -267,11 +195,8 @@ export function useFileTransfer({
 
   const element = (
     <>
-      {/* Last in the markup and always mounted, so `<leader>cb` has something
-          to click and no open prompt has this in front of its own input.
-          `accept` filters the picker's default view and stops nothing, the
-          user being free to switch it to all files, which is why the backend
-          looks at the bytes. */}
+      {/* Always mounted, so `<leader>cb` has something to click. `accept` only filters the
+          default view, so the backend checks the bytes. */}
       <input
         ref={picker}
         type="file"

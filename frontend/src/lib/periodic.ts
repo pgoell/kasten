@@ -1,15 +1,7 @@
 /**
- * The notes named for a stretch of time rather than for a subject.
- *
- * Five of them, each holding the one below it: a day sits in a week, a week in
- * a month, a month in a quarter, a quarter in a year. A leader key opens the
- * one covering today and this says where it lives and what it starts with.
- *
- * The links are written whether or not the notes on either side exist yet.
- * Tomorrow's note is a note nobody has written, which the editor draws dotted
- * and `gf` turns into a note, so one key made yesterday's chain and the same
- * key walks it. Nothing goes back to rewrite the note behind: a note this made
- * already carries both directions.
+ * The notes named for a stretch of time: a day sits in a week, a week in a month, a month in a
+ * quarter, a quarter in a year. Links are written whether or not the notes exist; the editor draws
+ * a missing one dotted and `gf` creates it, so one key walks the chain it made.
  */
 
 import { isoWeek, readClock, shiftDay } from "@/lib/clock";
@@ -17,10 +9,7 @@ import { PERIODIC } from "@/lib/layout";
 
 export type Period = "daily" | "weekly" | "monthly" | "quarterly" | "yearly";
 
-/**
- * Where each kind lives inside the periodic folder `layout.ts` names. The
- * numbers order the folders the way the vault does.
- */
+/** The folder each kind lives in, under the periodic folder. The numbers keep the vault's order. */
 const FOLDER: Record<Period, string> = {
   daily: "00 Daily",
   weekly: "01 Weekly",
@@ -34,13 +23,7 @@ function folder(period: Period): string {
   return `${PERIODIC}/${FOLDER[period]}`;
 }
 
-/**
- * The day a daily note is named for, or nothing where the path is not one.
- *
- * The reverse of the name above, and built off the same table so the two cannot
- * drift. A session left open is closed at the end of the day its note stands
- * for, and a note not named for a day cannot say which day that is.
- */
+/** The day a daily note is named for, or null where the path is not one. */
 export function dailyDate(path: string): string | null {
   const inside = insideFolder("daily", path);
   if (inside === null) return null;
@@ -48,22 +31,15 @@ export function dailyDate(path: string): string | null {
 }
 
 /**
- * The part of a path after the folder one kind lives in, or null where the path is
- * not in that folder.
- *
- * The prefix is compared as text rather than put in the pattern: a folder is
- * whatever the vault calls it, and a `.` or a `(` in one is not regex.
+ * The part of `path` after one kind's folder, or null where it is not inside. Compared as text,
+ * since a folder name may hold a `.` or `(` that a pattern would read as regex.
  */
 function insideFolder(period: Period, path: string): string | null {
   const prefix = `${folder(period)}/`;
   return path.startsWith(prefix) ? path.slice(prefix.length) : null;
 }
 
-/**
- * The year a yearly note is named for, or null where the path is not `YYYY.md` in
- * the yearly folder. Read back off the name as `dailyDate` reads a day, so the year
- * review draws on the note it is for and on no other.
- */
+/** The year a yearly note is named for, or null where the path is not `YYYY.md` in that folder. */
 export function yearlyYear(path: string): number | null {
   const inside = insideFolder("yearly", path);
   const found = inside === null ? null : /^(\d{4})\.md$/.exec(inside);
@@ -71,13 +47,8 @@ export function yearlyYear(path: string): number | null {
 }
 
 /**
- * The ISO week a weekly note is named for, with its Monday and Sunday as `YYYY-MM-DD`,
- * or null where the path is not `YYYY-Www.md` in the weekly folder or its year has no
- * such week.
- *
- * Counted off 4 January, which week 1 of every ISO year holds, so week 1 starts on the
- * Monday on or before it. A week belongs to the year its Thursday falls in, which is
- * the check that refuses `W00` and a `W53` in a year of 52 weeks.
+ * The ISO week a weekly note is named for, with its Monday and Sunday, or null where the name is
+ * not a real week of that year. The Thursday check refuses `W00` and a `W53` in a 52-week year.
  */
 export function weeklyWeek(
   path: string,
@@ -107,12 +78,8 @@ function pad(value: number): string {
 }
 
 /**
- * The day one step of `period` away, forwards or back.
- *
- * Built from calendar parts rather than by adding milliseconds, so the hour a
- * daylight saving change takes away cannot land the answer on the day before.
- * The larger periods step to the first of a month because only the year, the
- * month and the quarter are read back off them.
+ * The day one step of `period` away. Built from calendar parts, since adding milliseconds can land
+ * on the day before across a daylight saving change. Larger periods step to the 1st of the month.
  */
 function step(period: Period, date: Date, by: number): Date {
   const year = date.getFullYear();
@@ -139,7 +106,6 @@ function thursday(date: Date): Date {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate() + 4 - weekday);
 }
 
-/** What the note is called, which is the whole of its filename. */
 function name(period: Period, date: Date): string {
   switch (period) {
     case "daily":
@@ -157,7 +123,6 @@ function name(period: Period, date: Date): string {
   }
 }
 
-/** A `[[link]]` to one periodic note, spelled as the path it is. */
 function link(period: Period, date: Date): string {
   return `[[${folder(period)}/${name(period, date)}]]`;
 }
@@ -165,29 +130,22 @@ function link(period: Period, date: Date): string {
 /** Where the note covering `now` lives, and the text it starts life with. */
 export function periodicNote(period: Period, now: Date): { path: string; body: string } {
   const above = ABOVE[period];
-  // The weekday, because a date alone says nothing about which day it was and
-  // the vault's daily notes have carried it from the start.
+  // The weekday: the vault's daily notes have always carried it.
   const heading =
     period === "daily" ? `${name(period, now)} ${readClock(now).weekday}` : name(period, now);
 
   const nav = [link(period, step(period, now, -1))];
   if (above !== null) {
-    // The month over a week is the month of that week's Thursday, for the
-    // reason the week itself is counted from one: the days on either side of
-    // New Year belong to the week, and so to the month, on the other side.
+    // A week's month is that of its Thursday, as ISO counts weeks by Thursday.
     nav.push(link(above, period === "weekly" ? thursday(now) : now));
   }
   nav.push(link(period, step(period, now, 1)));
 
-  // Only the day gets a section, and only this one: the add prompt writes here,
-  // and a heading nothing was put under is clutter on every week you did not
-  // use it. `## Done` and `## Time` are made by the writes that fill them.
+  // Only the day gets a TODOs section, the add prompt's target. Empty headings would clutter
+  // every unused week; `## Done` and `## Time` come with their writes.
   const todos = period === "daily" ? "\n## TODOs\n" : "";
 
-  // The block and the blank line after it belong to the template rather than to
-  // the caller. The backend reads a block only where the fence is the first
-  // line, so a caller putting anything in front leaves `type` in the body as
-  // prose and the note with no type at all.
+  // The backend reads the block only at the first line, so the template keeps the fence there.
   return {
     path: `${folder(period)}/${name(period, now)}.md`,
     body: `---\ntype: Periodic Note\n---\n\n# ${heading}\n\n${nav.join(" | ")}\n${todos}`,

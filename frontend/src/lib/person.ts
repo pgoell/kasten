@@ -1,17 +1,7 @@
 /**
- * What the vault holds about one person, read off the lines that link them.
- *
- * A person is a note like any other, marked `type: Person` in its frontmatter.
- * Nothing else records who they are, so everything here starts from one
- * question: does this line carry a `[[link]]` that resolves to their note. A
- * name in prose does not count. Two colleagues share a first name, a surname is
- * a word, and a card that guessed would put another person's work on this one's
- * page, which is the one failure worth ruling out by construction.
- *
- * The cost is that only lines written with a link are found. The vocabulary is
- * `[[Name]]` in the todo itself, which the done log then carries with it: the
- * log copies the todo's words, so linking a person once makes them show in both
- * halves of the card.
+ * What the vault holds about one person, read off the lines that link them. A person is a note
+ * with `type: Person`. Only a `[[link]]` counts: a bare name could be another person sharing it,
+ * and a guessed match would put their work on this card.
  */
 
 import type { SearchHit } from "@/lib/api";
@@ -28,11 +18,8 @@ export function isPerson(text: string): boolean {
 }
 
 /**
- * Whether a line links the person, rather than only mentioning them.
- *
- * Each target is resolved against the vault listing for the reason the
- * backlinks panel resolves its own: `[[Max Bosch]]` and `[[03 Areas/08
- * People/Max Bosch]]` are one note, and a second Max in another folder is not.
+ * Whether a line links the person. Targets resolve against the vault listing as the backlinks
+ * panel does, so `[[Max Bosch]]` and the full path to the same note both match.
  */
 function links(text: string, person: string, paths: string[]): boolean {
   return wikiLinkTargets(text).some((target) => wikiLinkPath(target, paths) === person);
@@ -45,12 +32,8 @@ export interface PersonTodo {
 }
 
 /**
- * Every open todo naming them, the soonest due first.
- *
- * Fed the answer to `GET /api/todos`, which matches the shape of a checkbox and
- * nothing else, so the parse is what tells a todo from a line that looks like
- * one. Undated todos come last rather than first: a list sorted by when work is
- * due has nowhere else to put the work that is due whenever.
+ * Every open todo naming them, soonest due first and undated last. Fed `GET /api/todos` hits, so
+ * the parse is what tells a todo from a line that only looks like a checkbox.
  */
 export function personTodos(hits: SearchHit[], person: string, paths: string[]): PersonTodo[] {
   const found: PersonTodo[] = [];
@@ -68,8 +51,7 @@ export function personTodos(hits: SearchHit[], person: string, paths: string[]):
 /** The date a meeting note's filename opens with, which is the day it happened. */
 const MEETING = /^(\d{4}-\d{2}-\d{2}) /;
 
-/** One meeting they were in: the note, the day its name says it happened, and
- * the line that named them, which is where opening it lands. */
+/** A meeting they were in: its note, the date in its name, and the line that named them. */
 export interface Meeting {
   path: string;
   date: string;
@@ -77,15 +59,8 @@ export interface Meeting {
 }
 
 /**
- * The meetings they were in, most recent first.
- *
- * A meeting is a note whose filename opens with a date, which is the convention
- * every meeting note in the vault already follows and the only thing that dates
- * one: `created` and `modified` are file stamps, and a meeting written up two
- * days later carries the day it was written, not the day it was held.
- *
- * One note counts once however many times it links the person, the attendee
- * line and the summary naming them both.
+ * The meetings they were in, most recent first, one per note. The date comes from the filename,
+ * since `created` and `modified` are file stamps, not the day the meeting was held.
  */
 export function meetings(
   hits: SearchHit[],
@@ -107,8 +82,7 @@ export function meetings(
 }
 
 /**
- * A line of the done log, which is `- ✅ <date> <words>` and deliberately not a
- * checkbox. `todo-write.ts` writes it and says why it is spelled this way.
+ * A done-log line, `- ✅ <date> <words>`, deliberately not a checkbox. `todo-write.ts` says why.
  */
 const LOGGED = /^[ \t]*- ✅[ \t]+(\d{4}-\d{2}-\d{2})[ \t]+(.*)$/;
 

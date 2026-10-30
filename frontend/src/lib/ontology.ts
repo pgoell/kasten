@@ -1,9 +1,6 @@
 /**
- * The vault's own vocabulary, read off the note that holds it.
- *
- * A note rather than a config file or a schema, so nothing validates a relation
- * and an unknown name works: it groups under its own spelling and nobody has to
- * ship a release to add one. What this reads is what the completion offers.
+ * The vault's own relation names, read off its ontology note. An unknown name still works:
+ * nothing validates the note, so a new relation needs no release.
  */
 
 import type { CompletionContext, CompletionResult } from "@codemirror/autocomplete";
@@ -19,19 +16,9 @@ const SECTION = /^## +(.+?)[ \t\r]*$/;
 const ENTRY = /^- ([^:]+):/;
 
 /**
- * The relation names the note lists under `## Relations`, in the order it lists them.
- *
- * A line it cannot read is skipped rather than reported, the way `parseViews`
- * skips one: the note is edited by hand, so it is half written most of the times
- * this reads it, and a paragraph in the middle of it is not a mistake.
- *
- * The heading is tracked, or the six type names would be offered as relations.
- * A second `## ` heading of any name ends the section, which is what stops the
- * types being read when they are written under the relations rather than over.
- *
- * A trailing `\r` is allowed on the heading. The backfill keeps the line endings
- * it finds, so a note edited on Windows stays that way, and the section would
- * otherwise end before it began.
+ * The relation names listed under `## Relations`, in order. Unreadable lines are skipped,
+ * since the note is edited by hand. Any other `## ` heading ends the section.
+ * A `\r` on a heading is allowed, for a note with Windows line endings.
  */
 export function relationNames(text: string): string[] {
   const names: string[] = [];
@@ -53,10 +40,8 @@ export function relationNames(text: string): string[] {
 }
 
 /**
- * Every relation name the vault's ontology note lists, carried on the editor state.
- *
- * Null and not an empty vocabulary, for the reason `vaultTags` is: a view that
- * was told nothing offers nothing, rather than claiming the vault names none.
+ * Every relation name the ontology note lists. Null, not empty, when unread, as `vaultTags`
+ * is: an empty list would claim the vault names none.
  */
 export const vaultRelations = Facet.define<string[], string[] | null>({
   combine: (values) => values[0] ?? null,
@@ -66,32 +51,19 @@ export const vaultRelations = Facet.define<string[], string[] | null>({
 const TYPED = /^ {0,3}(?:- )?([a-z-]*)$/;
 
 /**
- * The vocabulary, offered where a relation line can begin.
- *
- * That position is rule 1 of the grammar and nothing else: the head of a line,
- * after up to three spaces and an optional `- `. Mid-line it offers nothing,
- * because `see dep` is prose and a relation cannot start there.
- *
- * Taking one inserts the separator and its space. The space is not optional in
- * the grammar, and typing it is the thing this exists to save.
- *
- * The names come off the note and from nowhere else. A hardcoded table would
- * drift from the note the moment somebody edits it, and completing off the
- * names already written in the vault would spread a typo instead of catching it.
+ * The vocabulary, offered only at a line head, where a relation can start. The names come from
+ * the note alone: a table would drift, and names already in the vault would spread a typo.
  */
 export function relationCompletions(context: CompletionContext): CompletionResult | null {
   const relations = context.state.facet(vaultRelations);
-  // An empty vocabulary answers nothing rather than an empty result. CodeMirror
-  // promotes any result it is handed to an active one and reuses it while
-  // `validFor` holds, so a source that answered while the note was still in
-  // flight would go on offering nothing for the rest of the word.
+  // Null, not an empty result: CodeMirror reuses a result while `validFor` holds, so an
+  // early empty one would offer nothing for the rest of the word.
   if (relations === null || relations.length === 0) return null;
 
   const line = context.state.doc.lineAt(context.pos);
   const typed = TYPED.exec(line.text.slice(0, context.pos - line.from));
   if (typed?.[1] === undefined) return null;
-  // An empty line is every line before it is anything, so this waits for a
-  // letter the way `tagCompletions` waits for one after a hash.
+  // A bare line waits for a letter, as `tagCompletions` does, unless asked for.
   if (typed[1] === "" && !context.explicit) return null;
 
   return {

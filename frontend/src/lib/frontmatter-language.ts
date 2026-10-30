@@ -19,8 +19,7 @@ import { styleTags, tags } from "@lezer/highlight";
 
 const data = defineLanguageFacet();
 
-// The node names are yamlFrontmatter's, so its DashLine styling and anything
-// reading the tree for them keep working.
+// The node names are yamlFrontmatter's, so its DashLine styling keeps matching them.
 const Document = NodeType.define({
   id: 0,
   name: "Document",
@@ -52,13 +51,9 @@ function lineEnd(input: Input, from: number): number {
 }
 
 /**
- * Where the block ends: the end of its opening line, and the start and end of
- * its closing one. Null when there is no block, as `frontmatter.py` reads it.
- *
- * Read a line at a time rather than as one string, because this runs on every
- * keystroke and most notes open with a block: a closed one costs its own lines.
- * No closer starting before `reach` reads as no block, so an unclosed `---`
- * costs no more than the stretch the editor asked to have parsed.
+ * Where the block ends: the end of its opening line, and the start and end of its closer, or null
+ * when there is no block. Read a line at a time, since this runs on every keystroke. A closer
+ * starting past `reach` reads as no block, so an unclosed `---` costs only the parsed stretch.
  */
 function block(input: Input, reach: number): { open: number; from: number; to: number } | null {
   const length = input.length;
@@ -75,9 +70,8 @@ function block(input: Input, reach: number): { open: number; from: number; to: n
 }
 
 /**
- * Where the text under the block starts: past its closing line, or 0 when
- * there is no block. The editor opens a note there, and asks here so that it
- * draws the line the highlighting draws.
+ * Where the body starts: past the closer, or 0 with no block. The editor and the highlighting
+ * both ask here, so they draw the same line.
  */
 export function belowFrontmatter(doc: string): number {
   const input: Input = {
@@ -89,10 +83,7 @@ export function belowFrontmatter(doc: string): number {
   return block(input, doc.length)?.to ?? 0;
 }
 
-/**
- * The note's outer tree up to `reach`: a block and the body under it, or only
- * a body.
- */
+/** The note's outer tree up to `reach`: a block and the body under it, or only a body. */
 function outline(input: Input, reach: number): Tree {
   // Most notes start with some other text, and need no read past it.
   const found = input.read(0, Math.min(input.length, 3)) === "---" ? block(input, reach) : null;
@@ -114,16 +105,9 @@ function outline(input: Input, reach: number): Tree {
 }
 
 /**
- * Decides block or no block over the whole note on every parse, instead of
- * yamlFrontmatter's grammar, which reads a `---` with no partner as a block
- * running to the end. Whole, rather than incremental, because the closing
- * line changes what line 1 is: a lezer block parser would keep the rule it
- * read there while the closer is typed lower down. Only this outline is
- * redone; parseMixed hands the yaml and markdown parsers their old trees.
- *
- * The outline is built on the first advance, not here, so a `stopAt` the
- * editor sends first bounds it: a tree that claimed the whole note would make
- * the editor treat a long note as parsed when markdown stopped at the viewport.
+ * Decides block or no block over the whole note on every parse, since a closer typed lower down
+ * changes what line 1 is. yamlFrontmatter reads an unpaired `---` as a block to the end, so it is
+ * not used. Built on the first advance, not here, so a `stopAt` sent first bounds the read.
  */
 class Outline implements PartialParse {
   parsedPos = 0;
@@ -169,10 +153,9 @@ class NoteParser extends Parser {
 }
 
 /**
- * `content` under a YAML frontmatter, read the way Obsidian and
- * `frontmatter.py` read one: line 1 is `---` with nothing but spaces or tabs
- * after it, and the next line that is `---` once trimmed closes it. With no
- * such line there is no block, and line 1 is a horizontal rule.
+ * The YAML frontmatter block at the top of `content`, read as Obsidian and `frontmatter.py` read
+ * it: line 1 is `---` with only blanks after, and the next `---` line closes it.
+ * No closer, no block.
  */
 export function frontmatter(content: LanguageSupport): LanguageSupport {
   return new LanguageSupport(

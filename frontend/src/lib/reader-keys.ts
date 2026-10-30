@@ -1,10 +1,5 @@
-/**
- * What the readers answer, display only: the pane over a page, a pdf or a
- * book, and the RSVP reader over any of them and a note. The help panel draws
- * both; the keys themselves are resolved by the panes and by `rsvp.tsx`.
- */
+/** Display only, drawn by the help panel. The panes and `rsvp.tsx` resolve the keys. */
 
-/** What the reader pane answers, in a page, a PDF or a book. */
 export const READER: readonly { key: string; label: string }[] = [
   { key: "l", label: "Turn to the next page" },
   { key: "h", label: "Turn back to the page before" },
@@ -15,7 +10,7 @@ export const READER: readonly { key: string; label: string }[] = [
   { key: "Space", label: "Show the leader keys" },
 ];
 
-/** What the RSVP reader answers, opened by `Space r r` or `Space r h`. */
+/** Opened by `Space r r` or `Space r h`. */
 export const RSVP_KEYS: readonly { key: string; label: string }[] = [
   { key: "Space", label: "Play or pause" },
   { key: "h / l", label: "Back or forward a sentence" },

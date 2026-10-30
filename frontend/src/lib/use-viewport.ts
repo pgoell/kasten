@@ -1,13 +1,12 @@
 import { useCallback, useSyncExternalStore } from "react";
 
 /**
- * Below Tailwind's `md`, spelled the way Tailwind 4 spells the breakpoint, so
- * this and an `md:` class cannot disagree at a fractional width or a root font
- * size that is not 16px. 48rem is 768px at the default.
+ * Below Tailwind's `md`, written as Tailwind 4 writes it, so it agrees with `md:` at any root
+ * font size.
  */
 export const NARROW = "(width < 48rem)";
 
-/** A finger rather than a mouse. The primary pointer only: a laptop with a touch screen stays fine. */
+/** A finger rather than a mouse, judged by the primary pointer only. */
 export const COARSE = "(pointer: coarse)";
 
 function useMediaQuery(query: string): boolean {
@@ -23,10 +22,8 @@ function useMediaQuery(query: string): boolean {
 }
 
 /**
- * The one answer to "is this a phone?", as two facts a caller picks between.
- *
- * Kept apart because they are not one question: a narrow desktop window wants
- * the small layout and keeps its keyboard, and a tablet is wide and has none.
+ * Two facts, not one answer to "is this a phone?": a narrow desktop window wants the small
+ * layout and keeps its keyboard, and a tablet is wide and has none.
  */
 export function useViewport(): {
   /** The window is narrower than Tailwind's `md` breakpoint. */

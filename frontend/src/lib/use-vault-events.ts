@@ -15,10 +15,7 @@ function listingOf(paths: string[] | undefined): string | undefined {
   return paths?.slice().sort().join("\n");
 }
 
-/**
- * The daily notes in a listing, sorted and joined, so two answers compare with
- * `!==`. Undefined where there is no listing to read.
- */
+/** The daily notes in a listing, sorted and joined for `!==`. Undefined without a listing. */
 function dailySet(paths: string[] | undefined): string | undefined {
   return paths
     ?.filter((path) => dailyDate(path) !== null)
@@ -26,10 +23,7 @@ function dailySet(paths: string[] | undefined): string | undefined {
     .join("\n");
 }
 
-/**
- * Keep the caches the route reads in step with the vault, by the event stream
- * the backend holds open for the life of the page.
- */
+/** Keeps the caches the route reads in step with the vault, over the page's event stream. */
 export function useVaultEvents(
   focusedNote: RefObject<
     { path: string | undefined } & Pick<Autosave, "reconcile" | "isWriting" | "isConflicted">
@@ -37,30 +31,13 @@ export function useVaultEvents(
   onDeclined: () => void,
 ): void {
   const queryClient = useQueryClient();
-  // The vault is the source of truth, so a note written by an agent or an ssh
-  // session is as real as one written here. `/api/events` says what moved and
-  // the tree refetches itself.
-  //
-  // Opened by hand rather than through `openapi-fetch`: the endpoint answers
-  // with a `StreamingResponse`, which carries no schema, so `api-types.ts` has
-  // no entry to generate a client from. Nothing retries either, because
-  // `EventSource` reconnects on its own.
-  //
-  // `queryClient` never changes identity, so this opens one stream for the
-  // life of the page rather than one per note you read.
+  // Opened by hand: a StreamingResponse has no schema for openapi-fetch. One stream per page.
   useEffect(() => {
     const stream = new EventSource("/api/events");
-    // A move of the daily folder sends a `listing`, which names no path, so the
-    // event cannot say the log is stale. The answer can: when `/api/files` comes
-    // back with other daily notes than the last answer did, the log asks again.
-    // Asked of the cache, not by awaiting the listing's own invalidation, because
-    // that refetch joins one already in the air (`cancelRefetch` off), and that
-    // one may have walked the vault before the move. The answer that carries the
-    // move can then come from a later fetch than the one being awaited.
+    // A daily-folder move sends a `listing` without a path, so the answer must say the
+    // log is stale. Read the cache, not the refetch, which may join a walk older than the move.
     let dailies = dailySet(queryClient.getQueryData<string[]>(["files"]));
-    // The overview's Writing and This year count each note by its day, so a note made, removed or
-    // moved (the archive included) asks them again. The app's own creates land in the listing
-    // before their vault event does, so the listing is where the change shows.
+    // The overview counts notes by day; the listing shows a made, removed or moved note first.
     let listed = listingOf(queryClient.getQueryData<string[]>(["files"]));
     const unsubscribe = queryClient.getQueryCache().subscribe((cacheEvent) => {
       if (cacheEvent.type !== "updated" || cacheEvent.action.type !== "success") return;
@@ -78,22 +55,8 @@ export function useVaultEvents(
       }
       listed = nowListed;
     });
-    // Every open, the first one included. A stream that went down and came
-    // back missed whatever the vault did in between: the backend replays
-    // nothing and `EventSource` reconnects without saying it ever stopped,
-    // which a sleeping laptop or a backend restart guarantees. Asking for the
-    // listing on each open closes that hole by construction. Do not trim it
-    // back to the reconnects, because there is no way to tell them apart here
-    // and the gap comes back with the optimisation. The log is the same: it adds
-    // up daily notes the stream may have missed being written, and a listing that
-    // keeps the same daily notes (#796) does not ask it again, so the open asks it.
-    //
-    // At mount this usually beats the query's own first fetch, and with
-    // `cancelRefetch` off it joins that fetch rather than replacing it, so the
-    // redundant open costs nothing and the first paint waits on one walk of
-    // the vault rather than two. The log's first open joins its own first fetch
-    // the same way. log.md is missed the same way, so the store the palette and the
-    // cards read is asked again on the open too.
+    // Every open, the first included: a reconnect can miss writes the backend never replays.
+    // At mount this joins the query's first fetch (cancelRefetch off), so it costs nothing.
     stream.onopen = () => {
       queryClient.invalidateQueries({ queryKey: ["files"] }, { cancelRefetch: false });
       queryClient.invalidateQueries({ queryKey: ["log"] }, { cancelRefetch: false });
@@ -103,30 +66,17 @@ export function useVaultEvents(
       const event = parseVaultEvent(message.data);
       if (event === null) return;
 
-      // An html page rewritten goes to the panes showing it and nowhere else.
-      // It is not a note, so none of the note caches below can hold it, and the
-      // same change sends a `listing` that asks for the file lists again.
+      // A rewritten html page goes to the panes showing it only: no note cache holds it.
       if (event.change === "page") {
         pageWritten(event.path);
         return;
       }
 
-      // A note on screen is holding text the vault has moved past, so the query
-      // behind it refetches and the editor takes what comes back. Which panes
-      // hold the note is not asked: `invalidateQueries` refetches the queries
-      // somebody is observing and only marks the rest stale, which is what a
-      // note in a background tab wants anyway. A `removed` needs no refetch,
-      // there being nothing left to read, and the pane keeps what it has. A
-      // `listing` names no note at all.
-      //
-      // The focused pane is asked first, and it is the only pane that can be
-      // asked: it is the one the keys reach, so it is the only one that can be
-      // holding text nobody has written yet. A refusal there means the reader's
-      // own edits are on screen and the reload would take them off it.
+      // A note on screen may hold text the vault moved past, so its query refetches. The focused
+      // pane is asked first: a refusal means it holds unsaved edits a reload would wipe.
       if (event.change === "written") {
         const { path, reconcile, isConflicted } = focusedNote.current;
-        // `reconcile` says yes to a conflicted note too (#269), whose bar's
-        // diff still wants the vault read again.
+        // reconcile also says yes for a conflicted note (#269), whose diff needs a fresh read.
         const conflicted = event.path === path && isConflicted();
         if (event.path !== path || reconcile()) {
           queryClient.invalidateQueries(
@@ -137,91 +87,42 @@ export function useVaultEvents(
         } else {
           onDeclined();
         }
-        // A todo written by an agent or over ssh reaches the pane without a
-        // reload. Ahead of the early return below, which fires for a write to
-        // a note the tree already draws, and that is most writes. `cancelRefetch`
-        // off for the reason the two invalidations beside it have it off.
-        // Not for the echo of a press in the pane: the press asks once after its
-        // last write, and its own echoes would ask again for every row it moved.
-        // The echo is told by the digest, so a text typed into the same note by
-        // somebody else still asks. The answer comes a turn later, which is why
-        // the check is a promise and not a branch.
+        // Todos reach the pane without a reload, but not the echo of its own press (the digest
+        // tells it apart). The answer comes a turn later, hence the promise.
         void pressEcho(event.path, event.digest).then((echo) => {
           if (echo) return;
           queryClient.invalidateQueries({ queryKey: ["todos"] }, { cancelRefetch: false });
         });
-        // A link or a relation is a line of a note, so any write can move an
-        // edge. Only a graph on screen is asked again, the rest marked stale.
+        // Any write can move a link, so the graph asks again; background graphs just go stale.
         queryClient.invalidateQueries({ queryKey: ["graph"] }, { cancelRefetch: false });
       } else {
-        // A folder moved or a note deleted changes no todo line, but it can
-        // change the project the backend files one under: a link that lands in
-        // the folder, or the folder the note sits in. The board's lanes are
-        // that answer, so they would stay on the old folder until the next write.
+        // A moved folder or deleted note changes no todo line, but can change its project.
         queryClient.invalidateQueries({ queryKey: ["todos"] }, { cancelRefetch: false });
       }
 
-      // A write to a note the tree already draws changes no row, and this is
-      // the test that stands in for the `added` kind the backend deliberately
-      // has none of. Read out of the cache rather than off `data` above: the
-      // listing is already in there, and depending on it here would close and
-      // reopen the stream every time it changed.
-      //
-      // The listing read here can be known-wrong, and it is left that way. An
-      // external delete invalidates, and if the note comes back before that
-      // refetch answers, the `written` tests against the array from before it
-      // and returns early, so the refetch lands without the note and the tree
-      // stays short a row until the next event that changes the listing. It
-      // takes two debounce windows inside one `/api/files` round trip, which is
-      // narrow on local disk and heals itself. Dropping the early return would
-      // close it and refetch the whole listing on every autosave instead, and
-      // what that listing costs is the subject of
-      // docs/reference/ranking-performance.md.
-      //
-      // `cancelRefetch` off for the reason it is off above, and here it is the
-      // one that decides what a busy vault costs. An agent writing forty notes
-      // sends one batch, which arrives as forty-one messages and forty-one
-      // tasks, each testing against a listing the refetch has not replaced yet.
-      // On the default every one of them would cancel the last and start again,
-      // and because `fetchFiles` carries no `AbortSignal` the server walks the
-      // whole vault forty-one times regardless. Off, the first walk answers all
-      // of them, which is what the backend's own debounce is for.
+      // The early return skips writes to notes the tree already draws, standing in for the
+      // missing `added` kind. Its listing can be stale; dropping it refetches per autosave.
 
-      // A `listing` is the backend saying something that is not a note changed,
-      // which is the only thing that can change the images: one pasted here or
-      // dropped in over a terminal, a folder moved, a book uploaded. Keyed on
-      // the kind rather than invalidated beside the listing below, so a vault
-      // somebody is writing notes in does not walk itself twice per save for an
-      // answer that cannot have changed. Above the early return because it is
-      // not that return's business, though a `listing` never reaches it.
+      // Only a `listing` changes images (a paste, a dropped file, a folder move, a book).
+      // Keyed on the kind, so an autosaving vault does not walk twice per save.
       if (event.change === "listing") {
         queryClient.invalidateQueries({ queryKey: ["images"] }, { cancelRefetch: false });
         queryClient.invalidateQueries({ queryKey: ["html"] }, { cancelRefetch: false });
         queryClient.invalidateQueries({ queryKey: ["assets"] }, { cancelRefetch: false });
       }
 
-      // A tag is a word inside a note, so any write can change the vocabulary,
-      // including the writes the early return below walks past. It costs one rg
-      // pass over the matches, which is the shape of scan the review pane
-      // already runs per rating, and a completion that cannot offer the tag you
-      // invented an hour ago would not be worth having.
+      // Any write can add a tag, even one the early return skips. One rg pass is the price.
       queryClient.invalidateQueries({ queryKey: ["tags"] }, { cancelRefetch: false });
 
-      // The log pane's totals are read off the daily notes, and its kinds and goals
-      // off log.md, so a write to one of those, or its removal, asks the log again.
-      // Keyed on the path because the log is not only read while its pane is up,
-      // and every autosave of another note sends an event that must not walk the
-      // whole log.
+      // The log's totals come from daily notes, its kinds and goals from log.md. Keyed on the path,
+      // so other autosaves do not walk the whole log.
       if (
         (event.change === "written" || event.change === "removed") &&
         (dailyDate(event.path) !== null || event.path === LOG_NOTE)
       ) {
         queryClient.invalidateQueries({ queryKey: ["log"] }, { cancelRefetch: false });
       }
-      // The review's notes carry tags and projects, which another note's write can change, so a
-      // write or removal asks them again, the open note's own autosave included: a tag typed into
-      // the note on screen must reach the review in the other pane. Not a yearly or weekly note: those
-      // are the review's own notes, typed into every second, and the review asks nothing as they are.
+      // Review notes carry tags and projects other notes change. Yearly and weekly are skipped.
       if (
         (event.change === "written" || event.change === "removed") &&
         yearlyYear(event.path) === null &&
@@ -229,8 +130,7 @@ export function useVaultEvents(
       ) {
         queryClient.invalidateQueries({ queryKey: ["written-notes"] }, { cancelRefetch: false });
       }
-      // The collector writes its monthly notes from outside kasten, so the backend's watcher is the
-      // only thing that says a month's lines changed. A removal asks again too, for the lines it took.
+      // The collector writes monthly notes from outside kasten; only the watcher sees them change.
       if (
         (event.change === "written" || event.change === "removed") &&
         event.path.startsWith(`${MODEL_USE_FOLDER}/`)
@@ -238,13 +138,11 @@ export function useVaultEvents(
         queryClient.invalidateQueries({ queryKey: ["model-use"] }, { cancelRefetch: false });
       }
       const paths = queryClient.getQueryData<string[]>(["files"]);
-      // A removal refetches no note, so the readers of log.md would keep the text
-      // it had. A write does reach its note query above.
+      // A removal refetches no note, so log.md readers keep stale text. A write reaches it above.
       if (event.change === "removed" && event.path === LOG_NOTE) {
         queryClient.invalidateQueries({ queryKey: ["note", LOG_NOTE] }, { cancelRefetch: false });
       }
-      // The palette and the cards read log.md through their own store, which the
-      // note's query does not feed, so a write or removal asks that store again.
+      // The palette and cards read log.md through their own store, not the note query.
       if ((event.change === "written" || event.change === "removed") && event.path === LOG_NOTE) {
         reloadLogConfig();
       }

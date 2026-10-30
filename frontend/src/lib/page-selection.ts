@@ -15,32 +15,26 @@ export interface Selection {
 }
 
 /**
- * Whether `next` reports the passage `was` holds, as a scroll or the mouseup
- * before a click on Share later sends it again (#877): only a new one spends.
+ * Whether `next` repeats the passage `was` already sent. A scroll or a mouseup before
+ * Share can send it again (#877).
  */
 export function samePassage(was: Omit<Selection, "rect"> | undefined, next: Selection): boolean {
   return was?.text === next.text && was.heading === next.heading && was.anchor === next.anchor;
 }
 
-/**
- * The gap a button keeps under a selection on a touch screen. The phone draws
- * its own copy menu above the words and the handles below them, so the button
- * sits clear of both.
- */
+/** Gap under a touch selection, clear of the phone's handles and copy menu. */
 const BELOW_GAP = 32;
 
 /**
- * A message's selection, checked field by field, or null for anything else. A
- * page's message is data this pane does not trust, so nothing is read before it
- * is known to be the right shape.
+ * A page message's selection, or null for anything else. The message is untrusted data,
+ * so every field is checked before it is read.
  */
 export function selectionOf(data: Record<string, unknown>): Selection | null {
   const { text, heading, anchor, rect } = data;
   if (typeof text !== "string" || typeof heading !== "string" || typeof anchor !== "string") {
     return null;
   }
-  // The page's script keeps to these lengths, but a forged message skips the
-  // script, so the pane holds them too.
+  // The page's script keeps to these lengths, but a forged message skips it.
   const words = {
     text: clip(text, TEXT_MAX),
     heading: clip(heading, HEADING_MAX),
@@ -59,7 +53,7 @@ const TEXT_MAX = 10000;
 const HEADING_MAX = 300;
 const ANCHOR_MAX = 200;
 
-/** `value` cut to `max` code points, which is how the script counts them too. */
+/** `value` cut to `max` code points, counted as the script counts them. */
 function clip(value: string, max: number): string {
   return Array.from(value).slice(0, max).join("");
 }
@@ -80,18 +74,16 @@ export interface Anchor {
 }
 
 /**
- * Whether the passage's middle sits in the lower half of the frame, where a toast
- * at the foot would cover the words just taken (#885). A take with no place keeps
- * the foot.
+ * Whether the passage's middle is in the lower half of the frame, where a toast at the
+ * foot would cover the words (#885). No place keeps the foot.
  */
 export function low(at: Anchor | null): boolean {
   return at !== null && at.middle > at.box.height / 2;
 }
 
 /**
- * Where the button goes for a selection, in the wrapper's own px, before it is
- * fitted to the wrapper. Above the words with a fine pointer, where the mouse
- * is; below them on a touch screen, clear of the phone's own menu.
+ * Where the button goes, in the wrapper's px, before fitting. Above the words for a mouse,
+ * below them on touch.
  */
 export function placeFor(
   frame: Element,
@@ -112,12 +104,8 @@ export function placeFor(
 }
 
 /**
- * The button's left and top, with its whole box inside the wrapper. The button
- * is centred on `x` by its own transform, and hangs above `y` or below it, so
- * the limits are its half width on each side and its full height on one side.
- *
- * `size` is the button as drawn, which only the pane can measure, so this runs
- * on the measured size and not on a guess.
+ * The button's left and top, with its whole box inside the wrapper. `size` is the button
+ * as the pane measured it, not a guess.
  */
 export function fitButton(at: Anchor, size: { width: number; height: number }) {
   const { x, y, above, box } = at;

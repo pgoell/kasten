@@ -1,13 +1,8 @@
 /**
- * Drop the lists app's worker and caches. #740: a browser that opened the lists
- * app on the main host before #739 still holds its worker at scope `/` and its
- * `lists-*` cache. The main app never loads on the share host, so the share
- * host's worker is never reached from here.
+ * Drop the lists app's worker and caches, left by #740 on browsers that opened it before #739.
  */
 async function dropListsWorker(): Promise<void> {
-  // Offline, the lists worker is what serves the page, and /sw.js cannot install
-  // to take over. Dropping it now would leave no worker for the next offline start,
-  // so the cleanup waits for an online load.
+  // Offline, the lists worker serves the page: dropping it leaves none for the next start.
   if (!navigator.onLine) return;
   for (const registration of await navigator.serviceWorker.getRegistrations()) {
     const worker = registration.active ?? registration.waiting ?? registration.installing;
@@ -21,13 +16,7 @@ async function dropListsWorker(): Promise<void> {
 }
 
 /**
- * Register the worker that lets the installed app open offline.
- *
- * Production builds only: the dev server emits no `/sw.js`, and a worker there
- * would answer hot reloads from a cache. Registered on `load` so its precache
- * does not compete with the first paint. A refusal costs the offline start and
- * nothing else, so it is logged and the app goes on. The lists cleanup runs
- * first and its failure is logged too, so it never blocks the registration.
+ * Register the offline worker. Production only: a dev worker would answer hot reloads from a cache.
  */
 export function registerServiceWorker(): void {
   if (!import.meta.env.PROD || !("serviceWorker" in navigator)) return;

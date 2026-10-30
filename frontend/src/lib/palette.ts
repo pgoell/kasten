@@ -15,18 +15,13 @@ import { logDrinkInView } from "@/lib/log/log-write";
 import { pickPalette, toggleTheme } from "@/lib/theme";
 
 /**
- * The commands you reach by name rather than by key: the palette behind
- * `<leader>:`, and the `/` menu while writing.
- *
- * Nothing here is a second list of commands. Every row is read from the tables
- * in `key-bindings.ts`, plus `INSERTS` below, which no key reaches, and `EX`
- * and the vim toggle, which no leader key does, so a new leader binding shows
- * up in both places with no edit here.
+ * The commands reached by name, not key: the `<leader>:` palette and the `/` menu. Rows come
+ * from `key-bindings.ts`, plus `INSERTS` and `EX`, so a new binding shows up with no edit.
  */
 
 export interface Insert {
   label: string;
-  /** CodeMirror snippet syntax: `${}` is where the cursor lands, `${name}` a field Tab walks to. */
+  /** CodeMirror snippet syntax: `${}` is the cursor, `${name}` a field Tab walks to. */
   template: string;
   /** Whether it starts a line of its own, so typed mid-line it begins a new one. */
   block: boolean;
@@ -42,8 +37,7 @@ export const INSERTS: readonly Insert[] = [
   { label: "Numbered list", template: "1. ${}", block: true },
   { label: "Quote", template: "> ${}", block: true },
   { label: "Code block", template: "```${language}\n${}\n```", block: true },
-  // Two columns and one row, which is the smallest table that reads as one.
-  // Tab walks the cells from there, `moveCell` adding rows as it goes.
+  // Two columns and one row, the smallest table that reads as one. Tab adds rows via `moveCell`.
   {
     label: "Table",
     template: "| ${1:Column} | ${2:Column} |\n| --- | --- |\n| ${3} |  |",
@@ -64,12 +58,8 @@ export function writeInsert(view: EditorView, insert: Insert, from: number, to: 
 export type CopyFormat = "md" | "slack" | "teams";
 
 /**
- * What vim's own keys reach on a view: the ex prompt's commands and `gf`.
- *
- * `lib/editor/editor-ex.ts` holds the handlers these run and provides this (as
- * `byName`), because the view reads this module for the `/` menu and an
- * import back would be a circle.
- * Absent on a view that is not a note's editor, which lists none of them.
+ * What vim's keys reach on a view: the ex commands and `gf`. `lib/editor/editor-ex.ts` provides
+ * these, since importing back here is a cycle. Absent on a view that is no note's editor.
  */
 export interface ViewCommands {
   write(view: EditorView): void;
@@ -84,12 +74,7 @@ export const viewCommands = Facet.define<ViewCommands, ViewCommands | undefined>
   combine: (handlers) => handlers[0],
 });
 
-/**
- * The commands vim spells at its prompt or with a key of its own, by name.
- *
- * With vim off there is no prompt and no normal mode, and the palette is the
- * one way left to each of these.
- */
+/** Commands vim spells at its prompt or on its own key. With vim off, only the palette has them. */
 const EX: readonly {
   keys: string;
   label: string;
@@ -136,13 +121,8 @@ export interface PaletteEntry {
 }
 
 /**
- * Everything the palette can run.
- *
- * `view` is the editor the palette opened over, or null when it opened over a
- * pane holding no buffer. Without one, only the route's commands are listed:
- * the rest write into a note and there is none to write into.
- *
- * `kinds` is what the log config note names, one `Log <name>` row each.
+ * Everything the palette can run. Without `view` (a pane with no buffer) only the route's
+ * commands are listed, since the rest write into a note. `kinds` gives one `Log <name>` row each.
  */
 export function paletteEntries(
   commands: EditorCommands,
@@ -160,18 +140,14 @@ export function paletteEntries(
       keys: spelled(key),
       run: () => commands.goToTab(index),
     })),
-    // No key: a leader sequence is a vim mapping, and one that turned vim off
-    // could not turn it back on. The drinks run with or without an editor: over
-    // today's own note they land in its buffer, anywhere else in the vault.
-    // Each writes the line its kind taps as, so a kind's own amount reaches the
-    // note the way the config note sets it.
+    // No key: a leader sequence is a vim mapping, which could not turn vim back on.
+    // A drink lands in today's note: its buffer when this editor holds it, else the vault.
     ...kinds.map((kind) => {
       const line = tapLine(kind);
       return {
         label: `Log ${kind.name}`,
         run: () => {
-          // A kind that keeps its last value has no line without a number. Over a daily
-          // note's card it asks there; anywhere else today's note is opened and asks there.
+          // No line: the kind keeps its last value. Ask on a daily note's card, else today's note.
           if (line === null) {
             if (view === null || !askOnCard(view, kind.mark)) commands.logWeight?.(kind.mark);
             return;
@@ -181,8 +157,7 @@ export function paletteEntries(
         },
       };
     }),
-    // Over a daily note's card the search opens there. Anywhere else the command
-    // opens today's note first, the way the drinks reach it from any pane.
+    // On a daily note's card the search opens there; elsewhere today's note opens first.
     {
       label: "Log food",
       run: () => {
@@ -205,8 +180,7 @@ export function paletteEntries(
     ...INSERTS.map((insert) => ({
       label: insert.label,
       run: () => {
-        // Insert mode first: a snippet selects its first field, and vim reads a
-        // selection made in normal mode as visual mode.
+        // Insert mode first: vim would read a snippet's selected field in normal mode as visual.
         const cm = getCM(view);
         if (cm && !cm.state.vim?.insertMode) Vim.handleKey(cm, "i", "mapping");
         const at = view.state.selection.main.head;
@@ -234,15 +208,9 @@ export function paletteEntries(
 const TYPED = /(?:^|\s)\/\w*$/;
 
 /**
- * The `/` menu: every insert, edit and command, offered as you write.
- *
- * Only after whitespace or at a line's start, so a path or a URL typed into the
- * note opens nothing. CodeMirror ranks the labels against what follows the
- * slash, the way it ranks `[[`, and choosing one takes the slash back out.
- *
- * The result starts past the slash, because CodeMirror matches everything from
- * `from` against each label and no label holds a slash. So every `apply` below
- * reaches one character back to take it out.
+ * The `/` menu: inserts, edits and commands, offered as you write. Only after whitespace or at a
+ * line's start, so a typed path or URL opens nothing.
+ * The result starts past the slash, so each `apply` below reaches one character back to remove it.
  */
 export function slashCompletions(context: CompletionContext): CompletionResult | null {
   const typed = context.matchBefore(TYPED);
@@ -261,8 +229,7 @@ export function slashCompletions(context: CompletionContext): CompletionResult |
   return {
     from,
     options: [
-      // Boosted so an empty `/` lists the markdown first, which is what a menu
-      // opened mid-sentence is most often for.
+      // Boosted, so a bare `/` lists the markdown first.
       ...INSERTS.map((insert) => ({
         label: insert.label,
         type: "text",
