@@ -1,11 +1,7 @@
 """Fetching an Anki deck from a link, including the AnkiWeb page that links to one.
 
-AnkiWeb draws a shared deck's page in JavaScript, so a server is handed a shell
-with no link in it, or a page with a link to the `.apkg`. This module hides
-that: which answer is a page and not a file, which link on the page is the
-download, and the stricter fetch an import makes. The connection, its address
-check and its caps are `files.py`'s, and this reads them through `files` at
-call time, so a test that lowers one there reaches the fetch here.
+AnkiWeb draws a shared deck's page in JavaScript, so this reads that page for its `.apkg` link.
+The connection and its caps are `files.py`'s, read at call time, so a test can lower them.
 """
 
 import asyncio
@@ -22,11 +18,9 @@ ONLY_HTTPS = "Only https links"
 NO_BROWSER = (
     "AnkiWeb's page needs a browser: open it there, press Download, and import the .apkg here"
 )
-"""What an AnkiWeb page offering no download link is refused with.
+"""What an AnkiWeb page with no download link is refused with.
 
-AnkiWeb renders a shared deck's page in JavaScript, so what a server is given
-is a shell with no link in it. The way round is AnkiWeb's private API or its
-captcha, and kasten takes neither.
+AnkiWeb draws the page in JavaScript, and kasten takes neither its private API nor its captcha.
 """
 
 _CHALLENGES = (b"captcha", b"cf-challenge", b"challenge-platform")
@@ -37,16 +31,11 @@ _HREF = re.compile(rb"""href\s*=\s*["']([^"']+)["']""", re.IGNORECASE)
 
 
 async def fetch_deck(url: str) -> bytes:
-    """The bytes of the Anki export `url` names, a plain `.apkg` or an AnkiWeb deck page.
+    """The bytes of the Anki export `url` names: a `.apkg`, or the file an AnkiWeb page offers.
 
-    Stricter than `download`: https only, on every hop, since a deck is never a
-    page that has only http, and a link that drops to http on the way is one a
-    stranger on the wire could swap. The address is `_PublicOnly`'s to check,
-    as there. An AnkiWeb page is read for the download it offers, which is then
-    fetched through the same checks; nothing is put together from the deck's id.
-
-    Every upstream refusal is a 502 for the reason `/api/fetch` gives one, and
-    a body that is not a zip is a 400, the status the file import gives it.
+    https only on every hop, since a link that drops to http can be swapped on the wire. The
+    address is checked as `download` checks it. Upstream refusals are 502s, and a body that is
+    not a zip is a 400.
     """
     try:
         start = httpx.URL(url)
@@ -89,10 +78,8 @@ async def _only_https(request: httpx.Request) -> None:
 async def _deck_body(client: httpx.AsyncClient, url: str) -> tuple[httpx.URL, bytes]:
     """Where `url` ended up and what it answered, once the answer is worth reading.
 
-    Gone is judged first, since a site's own 404 page may load a captcha
-    script for a form on it. The body is read before the rest is judged,
-    because a challenge comes with a 403 and is told apart from a login only
-    by what it says.
+    A 404 is judged first, since a site's own 404 page may load a captcha script. The body is
+    read before the rest, since a challenge comes with a 403 and is told apart by its words.
     """
     response = await files.open_public(client, url)
     status = response.status_code
@@ -124,8 +111,8 @@ async def _deck_body(client: httpx.AsyncClient, url: str) -> tuple[httpx.URL, by
 async def _capped(response: httpx.Response) -> bytes:
     """The body, counted as it arrives and given up on the moment it passes the cap.
 
-    Not `store`, which writes to disk: an import reads the export from memory.
-    `content-length` plays no part, for the reason `ASSET_LIMIT_BYTES` gives.
+    Not `store`, which writes to disk: an import reads the export from memory, and
+    `content-length` is ignored, as `ASSET_LIMIT_BYTES` explains.
     """
     body = bytearray()
     async for chunk in response.aiter_bytes():

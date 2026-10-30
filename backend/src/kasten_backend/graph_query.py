@@ -1,11 +1,8 @@
 """The query language the graph pane, `GET /api/graph` and the agent's `query_graph` share.
 
-One parser for every caller, so the pane sends what was typed and draws what
-comes back. This module hides the token rules, the filter and pattern forms,
-and the join that answers a pattern. A filter narrows the drawing:
-`type:Concept -tag:#draft`. A pattern asks the graph a question and answers in
-rows: `?paper supports [[GraphRAG]]; ?paper type:Source`. A `?variable`
-anywhere is what makes a query a pattern.
+One parser for every caller, so the pane sends what was typed and draws what comes back. Filters
+such as `type:Concept -tag:#draft` narrow the graph. A `?variable` anywhere makes a query a
+pattern, which answers in rows: `?paper supports [[GraphRAG]]; ?paper type:Source`.
 """
 
 import re
@@ -32,16 +29,15 @@ if TYPE_CHECKING:
 MOST_ROWS = 500
 """How many rows a pattern answers with at most.
 
-What a person reads or an agent's context holds, not what the matcher can
-find. An answer that reaches it says so, and a narrower pattern is the fix.
+Past this a person cannot read the answer and an agent's context cannot hold it, so an answer
+that reaches it says so.
 """
 
 MOST_BINDINGS = 100_000
 """How many partial answers a pattern may hold between two clauses.
 
-Two clauses that share no variable multiply, and three of them over a large
-vault is billions of rows. The matcher refuses past this rather than holding
-the event loop while it counts them.
+Two clauses sharing no variable multiply, and three over a large vault is billions of rows. Past
+this the matcher refuses, rather than hold the event loop while it counts.
 """
 
 NAME = re.compile(r"[a-z][a-z-]*")
@@ -390,9 +386,8 @@ def _pattern(graph: Vault, tokens: list[_Token], resolve: Callable[[str], str]) 
     pending = list(clauses)
     while pending and bindings:
         known = set(bindings[0][0])
-        # The clause with the most places already fixed goes next, the first
-        # written among equals. A clause naming a note walks that note's edges
-        # rather than the whole vault's.
+        # The clause with the most places fixed goes next, the first written among equals. A clause
+        # naming a note walks that note's edges, not the whole vault's.
         clause = max(pending, key=lambda c: _bound(c, known))
         pending.remove(clause)
         bindings = _step(clause, graph, bindings)
@@ -434,10 +429,8 @@ async def query_graph(
 ) -> Graph:
     """The graph a query draws: the whole vault, a note's neighbourhood, a filter or a pattern.
 
-    `around` names a note and `depth` how many links out from it to reach,
-    which is the local graph. The neighbourhood is taken first and the query
-    applied inside it, and the note itself stays drawn whatever the filter says,
-    the way Obsidian's local graph keeps its centre.
+    With `around`, the query runs inside the note's `depth`-link neighbourhood, and
+    the note stays drawn whatever the filter says, as Obsidian's local graph does.
     """
     graph = await read_graph(root, skip)
     tokens = _tokens(query)

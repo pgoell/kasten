@@ -1,9 +1,6 @@
-"""What the finance routes do to the tables: upsert, ingest, link transfers, split.
+"""The finance routes' writes: upsert, ingest, transfer links and splits.
 
-Kasten stores and shows; jobs on the host gather (the bank sync, the order
-mails, the receipt reader) and write through the routes in `routes/finance.py`.
-So every write here is safe to repeat: a job that runs twice changes nothing.
-Nothing here commits. The route that calls it does, once per request.
+Every write here is safe to repeat. Nothing here commits: the route does, once per request.
 """
 
 import uuid
@@ -95,10 +92,9 @@ async def _check_accounts(session: AsyncSession, ids: set[int]) -> None:
 async def upsert_account(
     session: AsyncSession, fields: dict[str, Any], sent: dict[str, Any]
 ) -> Account:
-    """Make the account from `fields` by its name, or update the one with that name from `sent`.
+    """Make or update the account by name, changing only the fields `sent` names.
 
-    `sent` is only what the request named, so a job that posts an account by
-    name alone leaves its IBAN and shared flag as they are.
+    So a job posting an account by name alone keeps its IBAN and shared flag.
     """
     statement = (
         insert(Account)
@@ -109,17 +105,15 @@ async def upsert_account(
     try:
         return (await session.scalars(statement)).one()
     except IntegrityError as error:
-        # The name is the conflict the upsert handles, so the other unique
-        # column is the only way here.
+        # The name is the conflict the upsert handles, so the other unique column is the only way.
         msg = f"Another account holds the IBAN {fields.get('iban')}"
         raise TakenIbanError(msg) from error
 
 
 async def store_balances(session: AsyncSession, rows: list[dict[str, Any]]) -> int:
-    """Keep each balance the bank reported, the latest report for a day winning.
+    """Keep each bank balance, the latest pull of a day winning.
 
-    A second pull on the same day sees bookings the first did not, so its
-    balance is the truer one, and the earlier figure is replaced.
+    A later pull sees bookings an earlier one did not, so its balance is the truer one.
     """
     # One statement cannot update the same row twice, so two reports for one
     # day in a batch are folded first, the later one winning.
@@ -138,10 +132,10 @@ async def store_balances(session: AsyncSession, rows: list[dict[str, Any]]) -> i
 
 
 async def insert_transactions(session: AsyncSession, rows: list[dict[str, Any]]) -> list[int]:
-    """Insert the bookings the table does not hold yet, and hand back their ids.
+    """Insert the bookings not yet held, and return their ids.
 
-    A booking already there by its account and source key is left exactly as
-    it is, so a window that overlaps the last one costs nothing.
+    A booking already held by account and source key is left as it is, so a window
+    that overlaps the last one costs nothing.
     """
     if not rows:
         return []
@@ -163,18 +157,9 @@ async def insert_transactions(session: AsyncSession, rows: list[dict[str, Any]])
 async def link_transfers(session: AsyncSession) -> int:
     """Give each move between two own accounts one shared transfer group, and count the pairs.
 
-    A booking pairs with one on the account whose IBAN is its counterparty
-    IBAN, of the opposite amount and the same currency, booked within
-    `TRANSFER_WINDOW_DAYS`, whose own counterparty IBAN is either missing or
-    the first booking's account. Only bookings not yet linked are read, the
-    whole table and not one batch, since the two halves often arrive in
-    different pulls. Run twice, the second run finds nothing to do.
-
-    The pairing is greedy, nearest first: three bookings of one amount in a
-    week can pair so that a fourth is left out where another order would have
-    paired it. Accepted, since a move between own accounts of the same amount
-    twice in five days is rare, and a booking left unlinked only counts as
-    spending until it is fixed by hand.
+    Pairs are greedy, nearest first, so three equal moves in a week can leave one unlinked.
+    That one then counts as spending until it is fixed by hand. The whole table is read,
+    not one batch, since the two halves often come in different pulls.
     """
     await session.execute(select(func.pg_advisory_xact_lock(LINK_LOCK)))
     named, twin = aliased(Transaction), aliased(Transaction)
@@ -209,8 +194,7 @@ async def link_transfers(session: AsyncSession) -> int:
             continue
         used.update((first, second))
         pair = (first, second)
-        # Both halves or neither: the lock makes a linked half impossible here,
-        # and the guard keeps a half-linked pair impossible if it ever is not.
+        # Both halves or neither; the lock and the guard keep a half-linked pair out.
         other = aliased(Transaction)
         linked = await session.scalars(
             update(Transaction)
@@ -247,11 +231,10 @@ class Filters:
 
 
 def _matching(statement: Any, filters: Filters) -> Any:
-    """The bookings that pass every filter given.
+    """The bookings that pass every filter.
 
-    A booking is in a category when it or one of its splits is. The text is
-    looked for in the purpose, the counterparty and the payee's name, case
-    ignored, as plain text rather than a pattern.
+    Text is matched plainly, ignoring case, in the purpose, counterparty and payee name.
+    A booking is in a category when it or one of its splits is.
     """
     if filters.account is not None:
         statement = statement.where(Transaction.account_id == filters.account)
@@ -295,11 +278,10 @@ async def list_transactions(
     limit: int,
     newest_first: bool = False,
 ) -> list[Transaction]:
-    """At most `limit` bookings that match, oldest first or newest first, each with its splits.
+    """At most `limit` matching bookings, oldest first or newest first, each with its splits.
 
-    `after` is the id of the last booking a reader has. The order is booking
-    date then id, and ids do not follow booking dates (an import fills in the
-    past), so the cursor resumes from that booking's place in the order.
+    `after` is the last booking a reader has. Ids do not follow booking dates (an import
+    fills in the past), so the cursor resumes at that booking's place in date order.
     """
     statement = _matching(select(Transaction).options(selectinload(Transaction.splits)), filters)
     key = tuple_(Transaction.booking_date, Transaction.id)
@@ -316,11 +298,10 @@ async def list_transactions(
 
 
 async def _is_move(session: AsyncSession, booking: Transaction) -> bool:
-    """Whether a booking is a move between own accounts, its other half in or not yet.
+    """Whether a booking is a move between own accounts, with its other half in or not.
 
-    The budget reads a booking whose counterparty IBAN is another own account's
-    as a move even before its twin comes, so splitting either would turn the
-    move into spending.
+    The budget counts it as a move even before its twin comes, so splitting it would
+    make it spending.
     """
     if booking.transfer_group is not None:
         return True
@@ -337,13 +318,10 @@ async def _is_move(session: AsyncSession, booking: Transaction) -> bool:
 async def replace_splits(
     session: AsyncSession, transaction_id: int, parts: list[dict[str, Any]]
 ) -> Transaction | None:
-    """Put `parts` in place of the booking's splits, or None for no such booking.
+    """Put `parts` in place of the booking's splits; None when there is no such booking.
 
-    The parts must add up to the booking's amount, or nothing is written: the
-    splits are what a budget counts in place of the booking, and a set that
-    does not add up would count money twice or not at all. An empty list
-    removes the splits, and the booking counts whole again. The parts may
-    differ in sign, as an order with a credit or a refunded item does.
+    The parts must add up to the booking's amount or nothing is written, since the budget
+    counts the splits instead. An empty list removes them. Parts may differ in sign.
     """
     # Locked, so two writers of one booking's splits take turns: each would
     # otherwise delete the splits it read and add its own, leaving both sets.

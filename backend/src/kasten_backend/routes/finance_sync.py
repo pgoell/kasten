@@ -1,10 +1,7 @@
 """The sync routes: "pull now", the runs the bank job records, and the status they add up to.
 
-Kasten never talks to a bank (decided 2026-10-25). The job on the host polls
-`GET /api/finance/sync` every minute, starts a run when a request is open, and
-finishes it with what it fetched. The status is what the finance pane and
-agents show: the last good pull per account, the last run's outcome, and the
-days since a run last succeeded. Same gate and same 503 as `routes/finance.py`.
+Kasten never talks to a bank. The host job polls `GET /api/finance/sync`, starts a run
+when one is requested, and finishes it with what it fetched.
 """
 
 from datetime import UTC, date, datetime, timedelta
@@ -77,9 +74,8 @@ class AccountFetch(BaseModel):
 
     @model_validator(mode="after")
     def _a_real_window(self) -> Self:
-        # The next window starts from `fetched_through`, so a window in the
-        # future would skip days for good. "Today" is read a day wide: the job
-        # counts days on the box's clock, ahead of UTC in Berlin after midnight.
+        # The next window starts from `fetched_through`, so a future one would skip days.
+        # "Today" is a day wide: the job's clock runs ahead of UTC after midnight in Berlin.
         if self.fetched_from > self.fetched_through:
             msg = "`fetched_from` is after `fetched_through`"
             raise ValueError(msg)

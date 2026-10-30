@@ -1,12 +1,8 @@
 """The hour-by-hour weather a daily note draws under its title.
 
-Open-Meteo answers it: free, no key, and one request carries every place. The
-browser cannot ask it directly, the app's `connect-src 'self'` refusing any other
-origin, so the backend asks and hands the day back trimmed to what the card
-draws.
-
-Nothing is written. The forecast is read when a note opens, which is why a daily
-note older than Open-Meteo's reach shows no card rather than a stale one.
+Open-Meteo answers it. The backend asks, since the browser's `connect-src 'self'` refuses
+any other origin. Nothing is written: a daily note older than Open-Meteo's reach shows no
+card rather than a stale one.
 """
 
 import time
@@ -26,8 +22,7 @@ FUTURE_DAYS = 15
 CACHE_SECONDS = 30 * 60
 """How long one day's answer is kept before Open-Meteo is asked again.
 
-Every daily note that opens asks, and a note is opened many times in a day.
-Open-Meteo updates its models hourly, so half an hour loses nothing worth seeing.
+Every note open asks, and Open-Meteo updates hourly, so half an hour loses nothing.
 """
 
 TIMEOUT_SECONDS = 10.0

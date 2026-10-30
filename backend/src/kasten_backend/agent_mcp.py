@@ -1,40 +1,8 @@
-"""The same ten capabilities, served as MCP tools at `/agent/mcp`, and the finance reads.
+"""The MCP tools at `/agent/mcp`: thin wrappers over `agent.py`, defined nowhere in `routes/`.
 
-Thin wrappers over `agent.py` and nothing else; the finance reads are in
-`agent_mcp_finance.py`. The rules about what an agent
-may do live there, so the two surfaces cannot drift into disagreeing about them.
-
-The tools live here and never in `routes/notes.py`. That module already imports
-a `write_note` from `vault.py` and resolves it as a global inside `PUT
-/api/files`; a tool of a colliding name defined there would silently redirect
-the browser's own save.
-
-Four things about the wiring are load-bearing and each has a test:
-
-* The endpoint answers at exactly `/agent/mcp`. The SDK's app owns `/mcp`
-  internally, so it is mounted at `/agent` and the inner path supplies the rest.
-  Mounting it at `/agent/mcp` would nest the endpoint a level deeper and answer
-  the documented URL with a 307 that many clients will not follow on a POST.
-* A mounted sub-application does not run its own lifespan. The session manager
-  is entered by the lifespan in `main.py`, or the first request is a 500. It is
-  single-use, so the app is built on the way in and each entry builds a fresh
-  one.
-* The bearer check is an ASGI wrapper rather than a FastAPI dependency, because
-  a dependency does not reach a mounted app. It sets and resets `vcs.writer` the
-  way `require_token` does; without that, every MCP write, which is the primary
-  surface, would land in `jj log` as a browser edit with the suite still green.
-* A tool call is named in the activity log by overriding `call_tool` on the
-  server (`_Recorded`). The middleware sees only the path, and the tool name and
-  its `path` argument exist nowhere else in the request.
-
-The wrapper also decides the method set, and `POST` is the whole of it.
-Streamable HTTP names three: `POST` carries every exchange, `DELETE` ends a
-session this configuration does not have, and `GET` opens a standalone
-server-to-client SSE stream. The SDK answers `DELETE` with a 405 already, but it
-accepts a `GET` and holds the stream open even when stateless, where each
-request gets a fresh transport and nothing will ever be written to it. On an
-endpoint reachable from the internet that is a connection held open for nothing,
-so it is refused here rather than left to the SDK.
+Mounted at `/agent`, since the SDK's app owns `/mcp`. At `/agent/mcp` it would answer
+307, which many clients will not follow on POST. Only POST is served: a GET would
+hold an SSE stream open for nothing.
 """
 
 from contextlib import asynccontextmanager
@@ -65,24 +33,13 @@ if TYPE_CHECKING:
 PATH = "/mcp"
 """The endpoint inside the SDK's own app, which the `/agent` mount completes."""
 
-# Read off the package rather than spelled in Python, the way `guide.py` and
-# `okf.py` read theirs: prose in a Python string is prose nobody can read in a
-# diff.
+# Read off the package, not spelled in Python: prose in a string is unreadable in a diff.
 TEMPLATE = (Path(__file__).parent / "mcp-instructions.md").read_text(encoding="utf-8").strip()
 """What a model is told about this vault before it calls anything, folders unnamed.
 
-Two channels carry it, because no one channel reaches every client. The
-`instructions` field below is dropped by claude.ai and Claude Desktop and read
-by Claude Code, codex and ChatGPT. `tools/list` is dropped by nobody, which is
-why `read_guide` hands the same text back on request.
-
-Claude Code truncates a server's instructions at 2KiB, mid-word and silently, so
-this stays well inside it, and what a client needs first, the shape of the vault
-and the limits of the tools, is in the opening lines.
-
-`plugins/kasten/skills/vault/SKILL.md` tells the same rules to an agent with no
-MCP client, spelled in routes rather than tool names. A change here belongs
-there too: nothing reads one off the other.
+No channel reaches every client, so `instructions` and `read_guide` carry the same text.
+Claude Code cuts instructions at 2KiB, so the key facts go first. Keep
+`plugins/kasten/skills/vault/SKILL.md` in step: nothing reads one off the other.
 """
 
 INSTRUCTIONS = DEFAULTS.fill(TEMPLATE)
@@ -101,17 +58,13 @@ REDUNDANT = (
 )
 """The one line the tool's own answer must never carry.
 
-Only the `instructions` field gets it. A client reading this already holds the
-text, and a client calling `read_guide` by definition does not, so telling the
-second one to skip the call it just made would be nonsense.
+Only the `instructions` field gets it: a `read_guide` caller has not read the text yet.
 """
 
 _serving: list[ASGIApp] = []
 """What the lifespan built, or nothing when the process is not serving.
 
-A list rather than a rebound module global so the mount below can be a plain
-function: it reads this on every request, and the app it reads is a different
-object after every lifespan entry.
+A list, not a rebound global, so `mounted` can stay a plain function that reads it per request.
 """
 
 
@@ -277,13 +230,10 @@ TOOLS = (
     read_skill,
     *agent_mcp_finance.TOOLS,
 )
-"""The ten, in the order the reference page lists them, the guide, and the finance reads.
+"""The ten capabilities, the guide and the finance reads, in the order the reference lists them.
 
-`read_guide` is an extra tool and not a capability. It reads a string compiled
-into the image, never the vault, so the audit this prefix exists for is still a
-list of ten things. The two skills reads are argued for in
-docs/explanation/the-agent-boundary.md, the finance reads beside them in
-docs/explanation/the-agent-boundary/finance-reads.md.
+`read_guide` is an extra tool, not a capability: it reads a string baked into the image,
+never the vault. See docs/explanation/the-agent-boundary.md and its finance-reads page.
 """
 
 READING = (
@@ -300,11 +250,9 @@ READING = (
     )
     | agent_mcp_finance.READING
 )
-"""Which of the tools only read, told to the client as `readOnlyHint`.
+"""Which tools only read, told to the client as `readOnlyHint`.
 
-chatgpt.com treats a tool without it as a write and asks you to confirm every
-call, so an unannotated `read_note` turns a search across the vault into one
-button press per note.
+Without it chatgpt.com asks you to confirm every call, so a search would need one press per note.
 """
 
 
@@ -333,12 +281,9 @@ async def _written(write: Any) -> dict[str, Any]:
 
 
 def _security(host: str) -> TransportSecuritySettings:
-    """The SDK's DNS-rebinding protection, told which `Host` this vault answers to.
+    """The SDK's DNS-rebinding protection, set to the `Host` this vault answers to.
 
-    Explicit in both directions rather than left to the default. Passing None
-    makes the SDK auto-enable a localhost-only allowlist, which answers 421 to
-    every request arriving through Caddy; disabling the protection outright
-    would drop a supported layer for no reason.
+    Passing None would make the SDK allow only localhost, so every request through Caddy gets a 421.
     """
     if not host:
         return TransportSecuritySettings(enable_dns_rebinding_protection=False)
@@ -346,11 +291,8 @@ def _security(host: str) -> TransportSecuritySettings:
     return TransportSecuritySettings(
         enable_dns_rebinding_protection=True,
         allowed_hosts=[host, f"{host}:*"],
-        # The browser products call from their own backends, where the SDK's
-        # check passes on an absent `Origin` rather than a matching one. These
-        # three are for the case where one is sent: the `Host` allowlist above
-        # already pins the vault, so naming them costs nothing and the failure
-        # they prevent is a 403 on every tool call with a valid token in hand.
+        # Browser products send no `Origin`, so the check passes. Naming these stops a
+        # 403 on every tool call when one is sent.
         allowed_origins=[
             f"https://{host}",
             f"http://{host}",
@@ -362,7 +304,11 @@ def _security(host: str) -> TransportSecuritySettings:
 
 
 def _gate(inner: ASGIApp) -> ASGIApp:
-    """`inner`, behind the same bearer check the `/agent/` routes carry."""
+    """`inner`, behind the bearer check the `/agent/` routes carry.
+
+    An ASGI wrapper rather than a dependency, because a dependency does not reach a mounted app.
+    It sets `vcs.writer` as `require_token` does, so MCP writes are not logged as browser edits.
+    """
 
     async def gated(scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http":
@@ -379,15 +325,13 @@ def _gate(inner: ASGIApp) -> ASGIApp:
         )
         if found is not None:
             token_activity.named(found[0], revoked=found[1])
-        # Before the method check, so a caller with no token learns nothing
-        # about what this endpoint accepts. A revoked token gets the same answer.
+        # Before the method check, so a caller with no token learns nothing about this endpoint.
         if found is None or found[1]:
             await JSONResponse(
                 {"detail": REFUSED},
                 status_code=401,
-                # The one thing that turns this refusal into a sign-in. A
-                # browser product has no field for a header, so this header is
-                # how it learns there is an authorization server at all.
+                # The one thing that turns this refusal into a sign-in. A browser product has no
+                # field for it, so this header is how it learns there is an authorization server.
                 headers={"WWW-Authenticate": challenge(host, scope.get("scheme") == "https")},
             )(scope, receive, send)
             return
@@ -412,9 +356,8 @@ def _gate(inner: ASGIApp) -> ASGIApp:
 class _Recorded(MCPServer):
     """The server, with each tool call named in the activity log.
 
-    Overridden at the one method every `tools/call` passes through. The SDK turns a
-    tool's exception into an error result inside its own handler, so the call's
-    failure is read off the result as well as off a raise.
+    Overridden at `call_tool`, the one method every call passes. The SDK turns a
+    raised error into an error result, so failure is read off the result too.
     """
 
     async def call_tool(
@@ -438,10 +381,9 @@ class _Recorded(MCPServer):
 
 
 def build() -> tuple[ASGIApp, MCPServer]:
-    """The streamable-HTTP app wrapped in the bearer check, and the server behind it.
+    """The streamable-HTTP app behind the bearer check, and the server behind it.
 
-    The server comes back too because its session manager exists only after this
-    call, and the lifespan is what enters it.
+    The server is returned too: its session manager exists only after this call.
     """
     server: MCPServer = _Recorded(
         name="kasten",
@@ -449,15 +391,12 @@ def build() -> tuple[ASGIApp, MCPServer]:
         instructions=instructions() + REDUNDANT,
     )
     for tool in TOOLS:
-        # The SDK's model is snake_case with a camelCase alias, so this is
-        # `readOnlyHint` on the wire, which is where the test reads it.
+        # Snake_case here, `readOnlyHint` on the wire, which is where the test reads it.
         server.add_tool(tool, annotations=ToolAnnotations(read_only_hint=tool.__name__ in READING))
 
     inner = server.streamable_http_app(
         streamable_http_path=PATH,
-        # Stateless, so there is no session to keep and a POST carries the whole
-        # exchange. JSON rather than a stream for the same reason: every one of
-        # these answers in one message.
+        # Stateless and JSON: each POST carries a whole exchange, and every answer is one message.
         stateless_http=True,
         json_response=True,
         transport_security=_security(get_settings().agent_host),
@@ -479,10 +418,9 @@ async def serving() -> AsyncIterator[None]:
 
 
 async def mounted(scope: Scope, receive: Receive, send: Send) -> None:
-    """What `main.py` mounts at `/agent`: whatever the lifespan built, or nothing yet.
+    """What `main.py` mounts at `/agent`: what the lifespan built, or nothing yet.
 
-    A stable object, because a mount is registered once and the app behind it is
-    a different one after every lifespan entry.
+    The mount is registered once, but the app behind it changes on every lifespan entry.
     """
     if not _serving:
         await JSONResponse({"detail": "The agent endpoint is not running"}, status_code=503)(

@@ -1,16 +1,8 @@
 """Every tag written in the vault, for the completion that offers one and for the graph.
 
-Two rg passes. One matches every span and every hash that could open a tag, and
-each match is read by `todos.word_tags`, as the board reads a todo's words. The
-other names the notes that may hold a fence, a comment over several lines,
-indented code, or a frontmatter with a hash or a `tags` field in it. Those are
-read whole by `todos.tags_in` instead, because only a whole note says where a
-block opens and closes, and the line pass reads one line at a time. Most notes
-carry a frontmatter of an id and dates and none of the rest, so they stay on
-the line pass. Either way the reader is the one the
-board, the graph and the mentions use, so completion offers no tag the editor
-would not read as one. The notes are the source of truth, so nothing here is
-indexed and nothing here can go stale.
+Two rg passes: one matches each tag-like span, the other names the notes that need a
+whole-note read (a fence, a multi-line comment, indented code, a frontmatter tag). Both
+feed the readers the board uses, so no tag is offered that the editor would not read.
 """
 
 import asyncio
@@ -24,20 +16,16 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 MOST_TAGS = 100_000
-"""How many tags are read at most, each time one is written counting once.
+"""How many tags are read at most. A backstop against a generated file, like `MOST_CARDS`.
 
-A vault holding a hundred notes about one thing hits this with a vocabulary of
-ten words. It is a backstop against a generated file, the way `MOST_CARDS` is,
-and not a limit on how many tags a person may own.
+Not a limit on how many tags a person may own.
 """
 
 MOST_MATCHES = 2_000_000
 """How many spans and could-be tags the line pass reads at most.
 
-Its own backstop and far above `MOST_TAGS`, because most of what it matches is
-links and code, which are no tags. Stopping it at `MOST_TAGS` would kill rg
-part way through a parallel walk, and which notes lost their tags would differ
-from one call to the next.
+Far above `MOST_TAGS`, since most matches are links and code. A cap near `MOST_TAGS`
+would stop rg part way through a parallel walk, so which notes lost their tags would vary.
 """
 
 
@@ -49,9 +37,8 @@ def _read(root: Path, paths: list[str]) -> dict[str, set[str]]:
         try:
             text = read_note(root, path)
         except UnicodeDecodeError, OSError:
-            # A note that is not UTF-8 is one the client cannot open either, and
-            # one deleted or locked since rg named it is one it cannot reach;
-            # neither should empty every other note's tags.
+            # A note the client cannot open, or that rg named and then lost, must not empty
+            # the other notes' tags.
             continue
         # None when the note went between rg naming it and this reading it.
         if text is None:
@@ -69,29 +56,23 @@ _RUN = r"#[\p{L}\p{N}_/-]+"
 _SPAN_OR_TAG = rf"(?:{todo_fields.SPANS.pattern})(?:{_RUN})?|(?:^|[^\p{{L}}\p{{N}}_/]){_RUN}"
 """A span or what could be a tag, the span tried first at each place, as rg alternates.
 
-A superset of the rule, numbers alone included, which `todos.word_tags` then
-narrows on each match. The character in front of the hash is consumed rather
-than looked behind, because rg's engine has no lookbehind. A span is consumed
-whole, so no hash inside one comes back on its own, and a tag straight after a
-span rides along with it, the span masked to no word in front of the hash.
+A superset of the rule, which `todos.word_tags` narrows on each match. rg has no
+lookbehind, so the character before a hash is consumed. A span is consumed whole, so no
+hash inside one matches alone.
 """
 
 _LINE_PASS = rf"{todos.COMMENT_OPENING}|({_SPAN_OR_TAG})"
 """`_SPAN_OR_TAG`, and first a comment opening the line, which takes the line.
 
-rg's `^` is a line's start, so the first alternative matches only there, and
-`--replace '${1}'` prints it as nothing: no hash on that line is a tag. Each
-other match comes back whole, and `todos.word_tags` reads it as the words it
-is, since a match starting `<!--` in the middle of a line, its tag riding
-along, opens no block.
+rg's `^` matches only a line's start, and `--replace '${1}'` prints the comment as
+nothing, so no hash on that line is a tag. Any other match goes to `todos.word_tags`.
 """
 
 FENCE = r"```|~~~"
 """Three backticks or tildes anywhere on a line: a superset of a fence opening.
 
-A note holding one is read whole instead, since only the whole note says where
-the fence ends. Unanchored, so a fence in a list item or a blockquote is caught
-too, and the cost of a wrong guess is one note read rather than a wrong tag.
+Unanchored, so a fence in a list item or a blockquote is caught too. A wrong guess costs
+one whole-note read, not a wrong tag.
 """
 
 BLOCK = (
@@ -101,39 +82,31 @@ BLOCK = (
 )
 """A frontmatter holding a hash or a `tags` field before its closing fence.
 
-Line 1 opens it and the first line of three dashes closes it, as
-`frontmatter.py` reads the block; a line merely starting with them closes it
-here too, which only costs a note read whole. One that never closes matches
-as well, and the reading whole then finds no block. A block with no hash in
-it carries nothing the line pass could take for a tag, so most notes, whose
-block holds an id and two dates, stay on the line pass.
+A closing line that merely starts with three dashes also matches, which only costs a
+whole-note read. A block with no hash carries no tag the line pass could take, so most
+notes, with an id and two dates, stay on the line pass.
 """
 
 OPEN_COMMENT = r"<!--(?:[^-\n]|-[^-\n]|--+[^->\n])*-*$"
 """A comment still open at the end of its line.
 
-One closed on its line the line pass masks, and it skips the whole line of
-one that opens the line, as `_LINE_PASS` says.
+One closed on its line the line pass masks; one opening a line takes the whole line.
 """
 
 MARKS = rf"{BLOCK}|{FENCE}|{OPEN_COMMENT}|^(?: {{4}}|\t)[^\n]*#"
 """What says a note's lines cannot be read one at a time.
 
-A frontmatter with a hash or a tags field in it, a fence, a comment over
-several lines, and a hash as far in as code is: only the whole note says where
-each of those starts and ends. Matched over the whole note, since the block is
-several lines, and replaced by one character, so a long line comes back short.
-Not by none: rg 14 then prints no line for a match of this pattern, where it
-prints one for a fence alone.
+Only the whole note says where a block, fence or comment starts and ends. The match is
+replaced by one character, not none: rg 14 prints no line for a match of this pattern
+replaced by none, where it prints one for a fence alone.
 """
 
 
 def field_tags(text: str) -> set[str]:
     """The tags the frontmatter's `tags` field names, each with its hash, by the tag rule.
 
-    Obsidian reads a tag in the block from that field alone, written with a hash
-    or without, so `tags: [a, b/c]` carries `#a` and `#b/c`, and `tags: [1984]`
-    none, as `#1984` would carry none in the text.
+    Obsidian reads a `tags` value with or without a hash: `tags: [a, b/c]` carries `#a`
+    and `#b/c`, and `tags: [1984]` carries none, as `#1984` would not in the text.
     """
     found = set()
     for value in frontmatter.tags(text):
@@ -145,10 +118,8 @@ def field_tags(text: str) -> set[str]:
 
 async def tags_by_note(root: Path, skip: str | None = None) -> dict[str, set[str]]:
     """The tags of every note under `root` outside the `skip` folder that holds one."""
-    # Only the matches come back, so a line past the 64 KiB a stream reader
-    # takes, a pasted inline SVG, cannot stop either scan. The second answers
-    # one line per note to read, rather than a line per fence: a hit is most of
-    # what a scan costs in Python.
+    # Only matches come back, so a line past a stream reader's 64 KiB limit cannot stop a scan.
+    # The second scan answers one line per note, since each hit costs Python time.
     matches, marks = await asyncio.gather(
         scan_vault(
             root,
@@ -178,9 +149,7 @@ async def tags_by_note(root: Path, skip: str | None = None) -> dict[str, set[str
 async def find_tags(root: Path) -> list[str]:
     """Every tag under `root`, once each, sorted.
 
-    The archive is walked too, unlike every other scan here. What is filed away
-    is out of a search because it is not what is being looked for; a tag is a
-    word you are trying to spell the same way you spelled it last time, and the
-    note that taught you the spelling being archived does not unteach it.
+    The archive is walked too, unlike other scans here: a tag is a spelling you reuse, and
+    the note that taught it does not unteach it when archived.
     """
     return sorted(set().union(*(await tags_by_note(root)).values()))

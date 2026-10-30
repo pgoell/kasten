@@ -1,17 +1,8 @@
 """The notes as a graph: every note a node, every link between two an edge.
 
-Built from the vault on every request, the way search, todos and tags are, and
-for the same reason: the files are the source of truth, and a graph held
-anywhere else is one that can disagree with them. Two rg passes read the lines
-holding a link and the frontmatter fences with the `type` between them, and at
-10,000 notes that is tens of milliseconds. The tags come from `tags.py`, which
-reads them the way every other part of the backend does, a note that may hold
-a fenced block read whole.
-
-One query language serves the graph pane's filter box, `GET /api/graph` and the
-agent's `query_graph`, and `graph_query.py` is its only reader. The pane sends
-what was typed and draws what comes back, so there is one parser rather than one
-per language, and the reference page is `docs/reference/graph-query.md`.
+Built on every request, like search and todos, since a graph held elsewhere can disagree with
+the files. `graph_query.py` is the one reader of the query language, shared by the graph pane,
+`GET /api/graph` and the agent's `query_graph`.
 """
 
 import asyncio
@@ -34,9 +25,8 @@ if TYPE_CHECKING:
 MOST_LINES = 200_000
 """How many lines one of the two scans reads at most.
 
-A backstop against a generated file rather than a limit on a vault: the
-10,000 note vault the ranking is measured on holds about 50,000 lines with a
-link on them.
+A backstop against a generated file, not a vault limit: the 10,000 note benchmark holds about
+50,000 linked lines.
 """
 
 MOST_DEPTH = 5
@@ -48,10 +38,8 @@ WIKILINK = re.compile(r"\[\[([^\[\]\n]+)\]\]")
 RELATION = re.compile(r"^ {0,3}(?:- )?([a-z][a-z-]*):: [ \t]*\[\[([^\[\]\n]+)\]\]")
 """`name:: [[target]]`, the rule `frontend/src/lib/relation.ts` reads.
 
-A copy of that one, for the reason `code_spans.py` holds a copy of the link rule:
-the editor draws a relation without asking the server, and the graph is built
-without asking the editor. `docs/reference/relation-format.md` is what both
-answer to, and the tests on both sides describe the same lines.
+A copy, since the editor draws a relation without asking the server, and the graph is built
+without asking the editor. `docs/reference/relation-format.md` is what both answer to.
 """
 
 TYPE = re.compile(r"^type:\s*(.*?)\s*$")
@@ -131,11 +119,9 @@ def _under(path: str, folder: str | None) -> bool:
 def resolver(paths: list[str]) -> Callable[[str], str]:
     """`links.link_path` over one listing, with the names looked up once.
 
-    The same answer `link_path` gives, and a test holds them to it. The listing
-    is walked once here rather than once per link, which is the difference
-    between a millisecond and a minute at 10,000 notes and 50,000 links.
-    `paths` arrives sorted, so the first note of a name is the one a bare
-    `[[name]]` resolves to, the root's before a folder's.
+    The same answer `link_path` gives, which a test holds it to. The listing is walked once here,
+    not once per link. `paths` arrives sorted, so a bare `[[name]]` resolves to the first note of
+    that name, the root's before a folder's.
     """
     known = set(paths)
     by_name: dict[str, str] = {}
@@ -154,10 +140,8 @@ def resolver(paths: list[str]) -> Callable[[str], str]:
 def link_target(written: str) -> str | None:
     """The note a link's text names, or None when it names no note.
 
-    Obsidian's alias and heading are cut off by `links.split_target`, so
-    `[[Louise Nong|Louise]]` and `[[Plan#Risks]]` are links to `Louise Nong` and
-    `Plan`. A link to a heading of its own note, `[[#Risks]]`, names no other
-    note, and an embed of a file, `![[plan.pdf]]`, names a file rather than a note.
+    `links.split_target` cuts off an alias and a heading, so `[[Plan#Risks]]` names `Plan`. A link
+    to a heading of its own note, and an embed of a file such as `![[plan.pdf]]`, name no note.
     """
     name = split_target(written).name
     if not name or names_a_file(name):
@@ -168,9 +152,8 @@ def link_target(written: str) -> str | None:
 def _types(hits: Iterable[tuple[str, int, str]]) -> dict[str, str]:
     """Each note's `type`, read off the fences and the type lines rg found.
 
-    A `type:` counts only between a fence on line 1 and the fence closing it,
-    which is where `frontmatter.py` reads the block. The same words in the body
-    of a note are prose.
+    `type:` counts only between a fence on line 1 and the fence closing it, as `frontmatter.py`
+    reads it. The same words in a body are prose.
     """
     by_note: dict[str, list[tuple[int, str]]] = defaultdict(list)
     for path, line, text in hits:
@@ -194,19 +177,16 @@ def _types(hits: Iterable[tuple[str, int, str]]) -> dict[str, str]:
 async def read_graph(root: Path, skip: str | None = None) -> Vault:
     """Every note under `root` outside the `skip` folder, and every link between them.
 
-    A link to a note that is there but skipped is dropped rather than drawn as a
-    note nobody wrote: the note exists, it is only filed away. A link to a note
-    that is nowhere is kept, and its target is a node marked `missing`, which is
-    how the graph shows what the vault has promised and not yet written.
+    A link to a skipped note is dropped: the note exists, only filed away. A link to a note that is
+    nowhere is kept as a `missing` node, showing what the vault has promised and not written.
     """
     paths = list_markdown_files(root)
     resolve = resolver(paths)
 
     links, fences, tags = await asyncio.gather(
         scan_vault(root, ("--fixed-strings", "-e", "[["), MOST_LINES, skip),
-        # Three per note is the opening fence, the type and the closing fence
-        # of any block that holds a type, and the scan stops reading a note
-        # there rather than walking every horizontal rule in its body.
+        # Three per note: the opening fence, the type and the closing fence. The scan then stops
+        # at a note's block rather than walking every horizontal rule in its body.
         scan_vault(
             root, ("--max-count", "3", "-e", r"^---\s*$", "-e", r"^type:"), MOST_LINES, skip
         ),

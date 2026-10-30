@@ -1,17 +1,8 @@
 """The budget's ledger: every booking and split put in a budget month, a scope and a part.
 
-The budget reads two scopes. Household is every shared account; mine is every
-account of the owner's own that is not a saving account (giro, card, cash). A
-saving account of the owner's own is in neither: what moves into it from mine
-counts as saved, and its own bookings (interest) count nowhere.
-
-Each booking counts once, in the part its category's kind or its transfer twin
-gives it. A move from mine into the shared account is a fixed cost on mine and
-income on household, the same amount, so nothing counts twice; a move between
-two accounts of one scope is no money at all. See docs/reference/budget-model.md.
-
-Pure: the loader in `finance_budget_reads` hands this the rows, so the rules
-are tested without a database.
+Household is every shared account; mine is the owner's accounts that are not saving
+accounts. A saving account of the owner's is in neither, so money moved into it counts
+as saved. Pure: `finance_budget_reads` loads the rows. See docs/reference/budget-model.md.
 """
 
 import datetime as dt
@@ -58,11 +49,8 @@ class Category:
 class Line:
     """Bookings or splits summed by the fields that decide where they count.
 
-    `late` is a booking made after the salary cutoff day. `twin_account` is
-    the account of a transfer's other half, None for every other booking.
-    `reserved` is a booking that paid a plan's bill out of its reserve.
-    `payee` is the booking's payee, a split's being its booking's; the budget
-    never reads it, the drilldowns do.
+    `late`: made after the salary cutoff day. `twin_account`: a transfer's other account, else None.
+    `reserved`: paid a plan's bill from its reserve. `payee`: read by the drilldowns only.
     """
 
     month: dt.date
@@ -79,11 +67,8 @@ class Line:
 class Month:
     """One scope's money in one budget month, each part as a positive figure.
 
-    `income` is by income category, `spent` by spending category. `other_scope`
-    is what moved to the other scope: a cost on mine, income on household.
-    `from_reserve` is spending a plan's reserve paid, by category (None for
-    a booking not sorted yet), kept out of `spent` so free to spend does not
-    count the bill a second time. `saved_into` is `saved` by saving account.
+    `income` and `spent` are by category. `other_scope` is the move to the other scope.
+    `from_reserve` is spending a plan's reserve paid, kept out of `spent` so the bill counts once.
     """
 
     income: dict[int, Decimal] = field(default_factory=lambda: defaultdict(Decimal))
@@ -128,8 +113,7 @@ class Ledger:
         self.lines, self.accounts, self.categories = lines, accounts, categories
         self._months: dict[tuple[dt.date, Scope], Month] = defaultdict(Month)
         self.first: dt.date | None = None
-        # The first month each category, and each scope's move to the other, had money,
-        # so an average starts there rather than counting the months before as zero.
+        # Averages start at each one's first month with money, not count earlier months as zero.
         self.since: dict[int | Scope, dt.date] = {}
         for line in lines:
             self._add(line, accounts)
@@ -191,8 +175,7 @@ class Ledger:
     def only(self, keep: Callable[[Line], bool]) -> Ledger:
         """A ledger of the lines `keep` takes, sorted by the same rules.
 
-        Each line counts on its own, so the parts of a part ledger add up to the
-        whole: what a payee or an account gave each part of the month. The
+        Each line counts on its own, so the parts of a part ledger add up to the whole. The
         averages start from the part's own first month.
         """
         return Ledger([line for line in self.lines if keep(line)], self.accounts, self.categories)
@@ -222,8 +205,7 @@ class Ledger:
     def history(self, month: dt.date, count: int, key: int | Scope | None = None) -> list[dt.date]:
         """The up to `count` whole months before `month` that the history reaches.
 
-        With `key`, from the first month that category, or that scope's move to
-        the other, had money: a category made last month averages over one month.
+        With `key`, from the first month that category or that move had money.
         """
         first = self.first if key is None else self.since.get(key)
         if first is None:

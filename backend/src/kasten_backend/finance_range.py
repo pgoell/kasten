@@ -1,13 +1,8 @@
 """Spans of months, how they compare, and the figures the budget setup starts from.
 
-A span is the months from one to another, each read as over, as the sankey
-reads a month: a scope's or a category's span is its months added up, so a
-span's figures are the drilldowns' months summed and nothing new is counted.
-It compares with the same months a year before, and with the 6 whole months
-before it, averaged and taken as many times as the span has months.
-docs/reference/budget-model.md states it.
-
-Pure, so the rules are tested without a database.
+A span's figures are its months' drilldown figures added up, so nothing new is counted.
+It compares with the same months a year before, and with the 6 whole months before it,
+averaged and taken as many times as the span has months.
 """
 
 from dataclasses import dataclass, fields, replace
@@ -80,8 +75,8 @@ def _scaled(row: ScopeMonth, by: Decimal) -> ScopeMonth:
 class Compared[T]:
     """A span's figures, the same months a year before, and the 6 months before at that length.
 
-    `last_year` is None when the history does not reach back to it, and
-    `average` when the history holds no whole month before the span.
+    `last_year` is None when history does not reach back to it; `average` when no whole month
+    precedes the span.
     """
 
     now: T
@@ -118,8 +113,7 @@ def scope_compared(
 def _reaches(first: dt.date | None, months: list[dt.date]) -> bool:
     """Whether a history starting in `first` holds every one of the months.
 
-    A year before that the history holds only in part would read as a whole
-    span against a part of one.
+    Part of a year would read as a whole span against a part of one.
     """
     return first is not None and months[0] >= first
 
@@ -169,11 +163,9 @@ def available_in(
 ) -> Decimal | None:
     """What the limits made available over the months, None where no month had a limit.
 
-    The first month's `available`, its limit less the overspend carried into
-    it and never below zero, as the budget tab gives it; then each later
-    month's limit whole. An overspend inside the span is spending the span
-    already counts, so taking it off the next month's limit too would count it
-    twice. A month with no limit adds nothing.
+    The first month is its `available`, the limit less any overspend carried in, never below
+    zero. Each later month is its whole limit. An overspend inside the span is spending the
+    span already counts, so the next limit does not take it off again.
     """
     limits = [limit_in(rows, at) for at in months[1:]]
     first = step_of(ledger, rows, category, months[0]).available
@@ -186,10 +178,8 @@ def available_in(
 class SetupRow:
     """One spending category on the budget setup: its limit now and what to start from.
 
-    `planned` is what its monthly plans cost: a plan that reserves sets its
-    bill aside through the reserve, and one due once is no monthly cost, so
-    neither is in it. `suggested` is the larger of that and the average
-    rounded up to the euro, as free to spend counts a planned cost.
+    `planned` is its monthly plans' cost, not counting a reserving plan or one due once.
+    `suggested` is the larger of that and the average, rounded up to the euro.
     """
 
     id: int

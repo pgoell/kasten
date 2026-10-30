@@ -1,14 +1,8 @@
 """A file sent in pieces, joined on disk until the route that uses it finishes it.
 
-Cloudflare refuses a request body over 100MB, and drops a request it has not
-answered within 100 seconds, so the browser cuts a big file and sends it a
-piece at a time. `POST /api/anki?upload=` and `POST /api/assets/{path}?upload=`
-then read the joined file in place of a body.
-
-What has arrived is kept in memory, not in a table: the backend runs one
-uvicorn worker (the Dockerfile's `CMD` names no `--workers`), so every piece
-reaches the process that holds its upload. A restart forgets them all, and
-`wipe` at startup clears the folder to match.
+Cloudflare refuses a body over 100MB and drops a request unanswered for 100 seconds, so
+the browser sends a big file a piece at a time. Pieces are kept in memory, not a table:
+the backend runs one uvicorn worker, so every piece reaches the process holding it.
 """
 
 import asyncio
@@ -30,15 +24,13 @@ if TYPE_CHECKING:
 UPLOAD_IDLE_SECONDS = 3600
 """How long an upload may go without a piece before a sweep deletes it.
 
-Read off the temp's mtime, which the last piece written sets, so a slow upload
-that is still sending survives however long it takes in all.
+Read off the temp's mtime, which the last piece sets, so a slow upload still sending survives.
 """
 
 UPLOAD_SWEEP_SECONDS = 600
 """How often the sweep started at startup looks for idle uploads.
 
-So a file nobody finished is gone within seventy minutes even when no upload
-follows it. `POST /api/uploads` sweeps too, on the way.
+So an unfinished file is gone within seventy minutes even when nothing follows it.
 """
 
 _ID = re.compile(r"[0-9a-f]{32}")
@@ -123,9 +115,8 @@ def start(folder: Path, size: int) -> str:
     sweep()
     # After the sweep, so an upload abandoned an hour ago holds no room.
     room = files.OPEN_LIMIT_BYTES
-    # A file kept for a retry gives way to one being sent: the retry can send
-    # it again, and before the retry was kept a finished upload held no room.
-    # Only when that is enough: a kept file dropped for a 507 anyway is lost for nothing.
+    # A kept file gives way to one being sent, since its retry can send it again. It goes only
+    # when that makes room: dropped for a 507 anyway, it would be lost for nothing.
     spare = [key for key, held in _uploads.items() if held.kept and not held.lock.locked()]
     live = sum(upload.size for key, upload in _uploads.items() if key not in spare)
     if live + size <= room:
@@ -155,10 +146,8 @@ def _find(key: str) -> _Upload:
 async def write(key: str, n: int, chunks: AsyncIterator[bytes]) -> None:
     """Write piece `n` of the upload `key`: the next one, or the last one again.
 
-    The last one again is a resend from a client whose answer got lost, and it
-    replaces that piece. A piece that runs past the declared size, or whose
-    body breaks off, leaves the temp cut back to where it began, so the same
-    `n` sent again lands whole.
+    The last one again replaces that piece, a resend after a lost answer. A piece that runs
+    past the declared size, or breaks off, is cut back so the same `n` sent again lands whole.
     """
     upload = _find(key)
     async with upload.lock:
@@ -216,12 +205,8 @@ async def finished(key: str) -> AsyncIterator[Path]:
 async def taken(key: str) -> AsyncIterator[Path]:
     """The joined file of upload `key`, gone once the block ends well and kept if it raises.
 
-    For the Anki import, whose refusal or failure the reader may answer by
-    finishing the same upload again: what took minutes to send stays for that.
-    A file that never reached the block, unknown, gone or short, is dropped as
-    `finished` drops it. One kept has its mtime set to now, so the sweep gives
-    the retry a full `UPLOAD_IDLE_SECONDS` from the failure, not from the last
-    piece. The lock is held throughout, so the sweep skips it meanwhile.
+    For the Anki import, whose failed upload the reader may finish again, so the minutes spent
+    sending it are kept. A kept file's mtime is set to now, so the retry gets a full idle window.
     """
     upload = _find(key)
     async with upload.lock:
@@ -251,12 +236,8 @@ async def taken(key: str) -> AsyncIterator[Path]:
 async def read(path: Path) -> AsyncIterator[bytes]:
     """`path` a slice at a time, for `store`, which takes a stream and not a file.
 
-    Through `store` rather than a link or a rename into the vault: the temp
-    sits on another filesystem in the container, where both fail with `EXDEV`,
-    and `store` holds the never-overwrite rule, the content check and the cap.
-
-    Each read in a worker thread, so a 1 GiB copy hands the loop over between
-    slices and every other request is answered while it runs.
+    Through `store`, not a link or rename: the temp sits on another filesystem, where both
+    fail with `EXDEV`. Each read runs in a worker thread, so other requests are served meanwhile.
     """
     with path.open("rb") as source:
         while chunk := await asyncio.to_thread(source.read, READ_BYTES):

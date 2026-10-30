@@ -1,19 +1,8 @@
-"""Finding every line the vault holds that could be part of a flashcard.
+"""Finding the vault lines that could be part of a flashcard.
 
-One rg pass over the notes, the same way `todos.py` reads them and for the same
-reason: the files are the source of truth, so nothing here is indexed and
-nothing here can go stale.
-
-The backend does not parse a card. It finds the candidate lines and hands them
-over whole, because the browser has to parse the format anyway to draw a card
-and two parsers in two languages drift. That division is what lets one endpoint
-answer both halves of the feature: a deck of cards and a whole note marked for
-review are different things to `srs.ts` and the same five patterns here.
-
-Nothing here skips code either. The client reads each deck note whole and asks
-the editor's markdown parser where its code blocks and comments are, which no
-line pattern could tell it: a fence of tildes, an indented block, a fence in a
-list item or a quote.
+One rg pass, as `todos.py` does. The backend hands over candidate lines whole and the
+browser parses the card format, since two parsers would drift. Code is not skipped:
+the client asks the editor's markdown parser where code blocks are.
 """
 
 from typing import TYPE_CHECKING
@@ -26,51 +15,37 @@ if TYPE_CHECKING:
     from kasten_backend.search import Hit
 
 MOST_CARDS = 100_000
-"""How many matching lines come back at most.
+"""How many matching lines come back at most: a backstop, not a card limit.
 
-The number `MOST_TODOS` is, for the reason it is that number: a backstop against
-one generated file with a million `::` in it, not a limit on how many cards a
-person is willing to own. An imported Anki deck is a real four-figure case, so a
-cap set where reading stops being pleasant would be reached by a deck somebody
-actually has.
+A generated file can hold a million `::`. A real imported Anki deck can reach four
+figures, so the cap sits far above that.
 """
 
 CARD_LINE = r"::|^[ \t]*\?[ \t]*$"
-"""A card written on one line, or the `?` dividing one written over several.
+"""A card on one line, or the `?` dividing one written over several.
 
-`::` is deliberately loose. It matches `std::vector` and a YAML flow mapping too,
-and the note's deck tag is what keeps those out of the queue rather than a
-cleverer pattern here: a note nobody tagged holds no cards whatever is in it, so
-the false positives cost a line in the answer and never a card on screen.
+`::` is deliberately loose, matching `std::vector` too. The deck tag keeps those out
+of the queue, not a cleverer pattern.
 """
 
 SCHEDULE_LINE = r"<!--SR:(?:c\d+)?!"
-"""The comment holding a card's schedule, wherever it sits, or a cloze number's.
+"""The comment holding a card's schedule, or a cloze number's.
 
-On the end of a one-line card, so the same line matches `CARD_LINE` as well and
-rg reports it once, or on a line of its own under a longer card's back. That is
-what makes the count work out: every card matches exactly once through
-`CARD_LINE`, and every line of schedules exactly once through this. A cloze
-keeps one comment per number, `<!--SR:c1!`, all of them on one line.
+On a one-line card it shares a line with `CARD_LINE`. rg reports a line once, so the
+count still matches the cards.
 """
 
 PARKED_LINE = r"^[ \t]*!suspended"
 """The token parking a card written over several lines.
 
-Anchored, because `the account was !suspended for a week` is a sentence and not
-a card. A card written on one line needs no branch of its own: the token sits
-after the answer and the line already matches `CARD_LINE` on its `::`. This one
-is for the `?` form, whose token sits on the schedule's line, and for a `?` card
-parked before its first answer, whose line holds the token and no comment.
+Anchored, since `the account was !suspended for a week` is a sentence. A one-line card
+needs no branch: its token sits after the `::`.
 """
 
 NOTE_LINE = r"#flashcards|#review|^sr-due:|^sr-suspended:"
-"""What marks a note as a deck, and the two fields of a note that is itself the card.
+"""What marks a note as a deck, and the two fields of a note that is itself a card.
 
-`#flashcards` and `#flashcards/aws` are both matched by the first branch, the
-deck name being the client's to read off the tag. `sr-due` and `sr-suspended`
-are anchored because they are frontmatter fields, and unanchored ones would
-match the words in prose.
+`sr-due` and `sr-suspended` are anchored, since unanchored they would match words in prose.
 """
 
 CARD_PATTERN = f"{CARD_LINE}|{SCHEDULE_LINE}|{PARKED_LINE}|{NOTE_LINE}"
@@ -79,10 +54,8 @@ CARD_PATTERN = f"{CARD_LINE}|{SCHEDULE_LINE}|{PARKED_LINE}|{NOTE_LINE}"
 async def find_cards(root: Path, skip: str | None = None) -> list[Hit]:
     """Every line under `root` that could be part of a card, up to `MOST_CARDS`.
 
-    `skip` names a folder to walk past, which is how a deck moved into the
-    archive leaves the review queue. That is the whole of archiving here: no
-    field, no flag and no key of its own, because a deck you are finished with
-    is a note you are finished with.
+    `skip` names a folder to walk past, so a deck moved into the archive leaves the queue.
+    Archiving needs no field of its own.
     """
     # `-e` so the pattern, which opens with a caret and holds a dash, is a
     # pattern and not a flag.

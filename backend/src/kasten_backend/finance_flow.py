@@ -1,10 +1,7 @@
 """Where a month's money went: the streams from income through mine and household to each category.
 
-Read off free to spend, as the month would stand once it is over: every line
-counts what happened so far and nothing is estimated. So the flow follows every
-rule free to spend does (the salary cutoff, moves between the scopes, splits,
-refunds, ignore, plans' reserves), and each scope's money in, less its money
-out, is its free to spend for a month that is over. docs/reference/budget-model.md states it.
+Read off free to spend, so each line counts what happened and nothing is estimated.
+Rules: docs/reference/budget-model.md.
 """
 
 from collections import defaultdict
@@ -107,8 +104,7 @@ class _Builder:
     def money_out(self, scope: str, kind: str, part: Part | None, amount: Decimal) -> None:
         """Money out of a scope by a kind, and on to its category when it has one.
 
-        A negative amount, a refund larger than the month's spending or savings
-        drawn on, comes in as a source of its own.
+        A negative amount, a refund larger than the spending, comes in as a source of its own.
         """
         category = None if part is None else part.category_id
         name = KINDS[kind] if part is None else part.name
@@ -142,7 +138,7 @@ class _Builder:
                 self.money_out(
                     scope, "into_household" if part.category_id is None else kind, part, part.so_far
                 )
-        # A plan's share into its reserve, and a bill's cost past it, as free to spend counts them.
+        # Reserve shares and bills past their reserve, counted as free to spend does.
         self.money_out(scope, "reserved", None, free.reserved + free.shortfall)
         self.money_out(scope, "saved", None, free.saved)
         self.money_out(scope, "unsorted", None, free.unsorted)
@@ -157,8 +153,7 @@ class _Builder:
 def _fold(builder: _Builder, total: Decimal) -> dict[str, str]:
     """Where each small category or income goes: "Other <kind>" or "Other income".
 
-    A stream folds only when at least two of its group would, so "Other" never
-    stands for a single named line.
+    A stream folds only when at least two of its group would, so "Other" never stands alone.
     """
     sizes: dict[str, Decimal] = defaultdict(lambda: ZERO)
     group_of: dict[str, str] = {}
@@ -214,10 +209,9 @@ def _centres(links: list[Link], at: dict[str, float], *, from_source: bool) -> d
 
 
 def _order(nodes: dict[str, Node], links: list[Link]) -> list[Node]:
-    """Each column top down so streams mostly run straight: mine's above household's.
+    """Each column top down, so streams mostly run straight: mine above household.
 
-    Mine and household are placed first; the kinds, then the categories, by
-    the place of what flows into them, and the sources by where they flow.
+    Mine and household go first, then kinds and categories by what flows into them, then sources.
     """
     columns: dict[int, list[Node]] = defaultdict(list)
     for node in nodes.values():
@@ -237,15 +231,12 @@ def month_flow(
 ) -> Flow:
     """Where `month`'s money went in both scopes, from what happened so far.
 
-    With `plans`, the reserves' shares go out as `Reserved`, as free to spend
-    takes them, and a bill a reserve paid stays out of its category. With
-    `last`, the months from `month` to `last` as one: each scope's lines
-    summed over them, so what is left over is what the span kept in all.
+    With `plans`, reserve shares go out as `Reserved`, and a bill a reserve paid stays out of
+    its category. With `last`, the months from `month` to `last` are summed as one.
     """
     months = [month]
     while months[-1] < (last or month):
         months.append(add_months(months[-1], 1))
-    # Read as a month that is over, so each line counts what happened and nothing is estimated.
     frees: dict[Scope, Free] = {
         s: joined([free_to_spend(ledger, s, at, add_months(at, 1), plans) for at in months])
         for s in SCOPES

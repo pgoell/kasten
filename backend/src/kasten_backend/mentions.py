@@ -1,14 +1,7 @@
 """Finding the notes that name a note in plain text without linking to it.
 
-Obsidian's unlinked mentions: the note's title, which is its file name, and
-each of its aliases, matched whole and ignoring case, anywhere a link could be
-written. Text that is already a link, code and the block at the top of a note
-are not places a link would go, so a name there is not a mention.
-
-rg finds the notes that hold one of the names at all, and Python reads those
-few to find where, because rg's word boundary is not the one wanted here and
-what counts as code or a link is decided by the readers `code_spans.py` and
-`links.py` already have.
+Obsidian's unlinked mentions: the title and each alias, matched whole and ignoring case, outside
+links, code, tags and frontmatter. rg finds candidate notes; Python reads those few.
 """
 
 import asyncio
@@ -29,10 +22,8 @@ if TYPE_CHECKING:
 MOST_MENTIONS = 1_000
 """How many mentions come back at most.
 
-Unlike search, nothing ranks these afterwards, so the cap is the list the pane
-shows. A note called `Notes` or `Week` can be named on most lines of a large
-vault, and past a thousand rows the list stops being something anyone reads
-down, while every row beyond it is a line read in Python on the server.
+Nothing ranks these afterwards, so the cap is the list the pane shows. A name like `Notes` can sit
+on most lines of a large vault, and past a thousand rows nobody reads down the list.
 """
 
 
@@ -62,12 +53,8 @@ def names(path: str, content: str) -> list[str]:
 def matcher(ordered: list[str]) -> re.Pattern[str]:
     r"""One pattern for every name, each its own group so a match says which name it was.
 
-    The boundary is no letter or digit on either side, not `\b`. `\b` wants a
-    word character at the name's own edge, so `C++` could never be matched at
-    all. An underscore does not count as a letter, or `_Borges_`, which is
-    emphasis, would hide its name. Not ASCII either, or `Müller` would end at
-    the `ü` and match inside `Müllers`. `ordered` comes longest first, so a
-    longer name wins where two start at the same spot.
+    The boundary is no letter or digit, not `\\b`, which never matches `C++`. An underscore is not a
+    letter, so emphasis like `_Borges_` does not hide the name. `ordered` runs longest first.
     """
     groups = "|".join(f"({re.escape(name)})" for name in ordered)
     return re.compile(rf"(?<![^\W_])(?:{groups})(?![^\W_])", re.IGNORECASE)
@@ -132,9 +119,8 @@ def scan(root: Path, candidates: list[str], found: list[str], cap: int) -> list[
     pattern = matcher(ordered)
     result: list[Mention] = []
     for path in candidates:
-        # Read the way `GET /api/files` reads it, `\r\n` turned into `\n`,
-        # because the client links a mention by finding `text` on that line of
-        # the note it was served, and offsets into anything else miss.
+        # Read as `GET /api/files` reads it, with `\r\n` as `\n`: the client finds `text` on
+        # that line, so offsets into anything else miss.
         try:
             text = read_note(root, path)
         except UnicodeDecodeError:

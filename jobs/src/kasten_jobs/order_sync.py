@@ -1,11 +1,8 @@
 """The order mail job: read recent PayPal and Amazon mails and send kasten the orders in them.
 
-Kasten stores each order by its id and matches its charges to the bank
-bookings; the job only gathers. It reads the last `ORDER_SYNC_DAYS` of mail
-every run and sends every order it finds, so a run that fails or a day
-missed costs nothing: an order sent again changes nothing. It never writes
-to the mailbox. See docs/how-to/run-the-order-sync.md and
-docs/reference/order-sync.md.
+Kasten matches each order's charges to the bank bookings; the job only gathers.
+A missed run costs nothing: an order sent again changes nothing. See
+docs/how-to/run-the-order-sync.md and docs/reference/order-sync.md.
 """
 
 import argparse
@@ -84,15 +81,14 @@ def _sender(mail: Mail) -> str:
 
 
 PARSE_ERRORS = (ValueError, ArithmeticError, IndexError, KeyError, UnicodeError)
-"""What a parser raises on a mail in a shape it did not expect, such as an amount it cannot read."""
+"""What a parser raises on a mail in a shape it did not expect."""
 
 
 def read(mailbox: Mailbox, query: str, found: Found) -> None:
     """Parse every mail the search finds into `found`.
 
-    A mail in no known shape is passed over. One that Gmail will not hand
-    over, or that breaks a parser, is skipped and counted, so one odd mail
-    never costs the run.
+    A mail Gmail will not hand over, or that breaks a parser, is skipped and
+    counted, so one odd mail never costs the run.
     """
     for message_id in mailbox.search(query):
         if message_id in found.seen:
@@ -148,8 +144,7 @@ def _refunded(refund: Refund, payments: dict[str, Payment]) -> Payment | None:
 def complete(mailbox: Mailbox, found: Found) -> None:
     """Fetch what the window left out: a shipment's confirmation, a refund's payment.
 
-    Both came earlier than what names them, so they fall out of the window
-    first.
+    Both came earlier than what names them, so the search window cut them off.
     """
     for order_id in {s.order_id for s in found.shipments} - found.confirmations.keys():
         read(mailbox, f'from:{orders_amazon.CONFIRMATION} "{order_id}"', found)

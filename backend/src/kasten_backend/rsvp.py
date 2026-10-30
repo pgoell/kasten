@@ -1,9 +1,7 @@
 """Where an RSVP run stopped in each vault file, kept in Postgres.
 
-The place lives here rather than in the note's frontmatter because a run saves
-on every pause, and a frontmatter write is a jj change each time. Like `finance`
-and the token record, it is not rebuilt from the vault: losing it loses reading
-places and nothing else.
+Kept here, not in the note's frontmatter, because a run saves on every pause and each
+frontmatter write is a jj change. Losing this table loses reading places and nothing else.
 """
 
 from datetime import datetime  # noqa: TC003  SQLAlchemy reads `Mapped[...]` at runtime
@@ -49,9 +47,8 @@ async def read(session: AsyncSession, path: str) -> RsvpPlace | None:
 async def save(session: AsyncSession, path: str, word: int, words: int, anchor: str) -> RsvpPlace:
     """Write the place for `path` over whatever was there, and return the row.
 
-    One upsert rather than a read and a write, so two devices pausing at once
-    cannot both insert. `updated` is set by hand on the update: the server
-    default only fires on an insert.
+    One upsert, not a read then a write, so two devices pausing at once cannot both insert.
+    `updated` is set by hand on the update, since the server default fires only on insert.
     """
     statement = (
         insert(RsvpPlace)

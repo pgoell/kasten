@@ -1,12 +1,8 @@
 """The GitHub contributions the review draws, read once a day and kept outside the vault.
 
-GitHub's GraphQL answers how many contributions a user made on each day of a
-range, and the review asks for the days it shows. A day already read is kept in
-a JSON file beside the agent tokens. A day read on a later day is settled and is
-not read again. Any other day is read again once the last read is an hour old.
-
-The token goes to GitHub in the `Authorization` header and nowhere else. The
-browser gets day counts and never the login or the token.
+GitHub answers how many contributions a user made each day. A settled day, one read on a later
+day, is kept for good; others are read again after an hour. The token goes to GitHub in the
+`Authorization` header and nowhere else.
 """
 
 import asyncio
@@ -37,8 +33,8 @@ MOST_DAYS = 366
 REREAD_SECONDS = 60 * 60
 """How long a read is kept before GitHub is asked again for the days of the range.
 
-Long enough that a page opened twice does not ask twice, short enough that
-today's count is not stale by the time anyone looks.
+Long enough that a page opened twice does not ask twice, short enough that today's count is
+not stale.
 """
 
 TIMEOUT_SECONDS = 10.0
@@ -65,8 +61,10 @@ class Cache(BaseModel):
 
 
 _lock = asyncio.Lock()
-"""Held across the load, the ask and the save, so two reads at once cannot each save a merge
-of the file they loaded and drop the other's days. One backend process, one lock."""
+"""Held across the load, the ask and the save, so two reads cannot drop each other's days.
+
+One backend process, one lock.
+"""
 
 
 def _client() -> httpx.AsyncClient:
@@ -82,9 +80,8 @@ def _now() -> datetime:
 def _today() -> date:
     """Today in UTC, the day `_ask` bounds its days by.
 
-    A day is settled only once it has ended in UTC, the zone GitHub's calendar is
-    read in. The server's own zone would count a day as ended hours early, and a
-    short count would then be kept for good.
+    A day counts as settled only once it has ended in UTC, GitHub's calendar zone. The server's own
+    zone would end a day hours early, and a short count would then be kept for good.
     """
     return _now().date()
 
@@ -107,10 +104,9 @@ def _load(path: Path, user: str) -> Cache | None:
 
 
 def _save(path: Path, cache: Cache) -> None:
-    """Replace the cache file with `cache`, atomically, written the way the tokens file is.
+    """Replace the cache file with `cache`, atomically, the way the tokens file is written.
 
-    A temp name from `mkstemp` in the same folder, then `replace` over the target,
-    so a reader sees the old file or the new one and never half of either.
+    A temp file beside it, then `replace`, so a reader sees the old file or the new, never half.
     """
     path.parent.mkdir(parents=True, exist_ok=True)
     handle, temporary = tempfile.mkstemp(dir=path.parent, prefix=".github", suffix=".tmp")
@@ -160,8 +156,7 @@ class _Answer(BaseModel):
 def _counts(body: object, first: date, last: date) -> dict[str, int]:
     """The count of each day from `first` to `last` in GitHub's answer.
 
-    GitHub answers a login it does not know, or a token it refuses, with a 200
-    that carries `errors` and no user, so both are read here.
+    A login it does not know, or a refused token, comes back as a 200 with `errors` and no user.
     """
     try:
         answer = _Answer.model_validate(body)
@@ -205,14 +200,9 @@ async def contributions(
 ) -> dict[str, int]:
     """The contributions `user` made on each day from `first` to `last`, keyed by `YYYY-MM-DD`.
 
-    A day after today is not read yet, so it is neither asked for nor held, and a
-    day after today that GitHub has no count for is left out of the answer. The
-    cache answers when every day of the range up to today is held, and each of
-    them is either settled or was read less than an hour ago. Otherwise GitHub is
-    asked once for the range and the answer is merged into the cache.
-
-    A read that fails answers the days the cache holds, with one warning that
-    names no token. With none of the range cached, `GitHubUnavailableError` is raised.
+    The cache answers when every day up to today is held, settled or read under an hour ago.
+    Otherwise GitHub is asked once and the answer merged in. A failed read answers from the
+    cache, and with none held raises `GitHubUnavailableError`.
     """
     async with _lock:
         return await _contributions(user, token, cache, first, last)

@@ -1,15 +1,7 @@
 """Firefly's Auto-categorize triggers turned into kasten rules, and the ones that do not turn.
 
-Firefly matched an account name or a description as a substring. Kasten's
-`payee` rule matches from the start of a word of the cleaned payee key, so a
-fragment such as `Lebensversic` still sorts `Lebensversicherung`, and its
-`text_contains` rule a substring of the purpose, which is Firefly's
-description. So an account trigger becomes a payee rule and a description
-trigger a text rule. Firefly's source and destination triggers both become
-payee rules: kasten tells them apart by the category's kind, an income rule
-sorting only money in, and lets one pattern sort each side. Where the two
-still differ, the import's hand step puts Firefly's category back on the
-history.
+Source and destination triggers both become payee rules, told apart by the rule's
+side; where they still differ, the import's hand step puts the category back.
 """
 
 import re
@@ -37,7 +29,7 @@ KIND = {
     "Travel": "non_monthly",
     "Gifts (given)": "non_monthly",
 }
-"""Each Firefly category's kind; every other one is `flexible`. The owner changes them in kasten."""
+"""Each Firefly category's kind; the others are `flexible`. The owner may change them in kasten."""
 
 KINDS = {
     "destination_account_contains": "payee",
@@ -49,8 +41,7 @@ KINDS = {
 def clean_pattern(kind: str, pattern: str) -> str:
     """The pattern as kasten stores it, the same as `finance_sorting.clean_pattern`.
 
-    Computed here so a second import finds its rules among kasten's and posts
-    none again.
+    Kept the same so a second import finds its rules and posts none again.
     """
     lowered = pattern.lower()
     if kind == "payee":
@@ -60,10 +51,9 @@ def clean_pattern(kind: str, pattern: str) -> str:
 
 @dataclass(frozen=True)
 class Rule:
-    """A kasten rule to post: its kind, its pattern as stored, its category's name, and its side.
+    """A kasten rule to post: its kind, its stored pattern, its category's name and side.
 
-    `side` is the bookings kasten lets the rule sort: `in` for an income
-    category, `out` for the rest. A pattern is unique per kind and side.
+    `in` for an income category, `out` for the rest. A pattern is unique per kind and side.
     """
 
     kind: str
@@ -84,10 +74,9 @@ class Translation:
 
 
 def translate(triggers: list[Trigger], kinds: Mapping[str, str] = KIND) -> Translation:
-    """Each trigger as a rule, in Firefly's order, the first of two clashing patterns winning.
+    """Each trigger as a rule, in Firefly's order; of two clashing patterns the first wins.
 
-    `kinds` gives each category's kind, from which a rule's side follows; a
-    category it does not name is `flexible`.
+    A category `kinds` does not name is `flexible`.
     """
     out = Translation()
     made: dict[tuple[str, str, str], str] = {}

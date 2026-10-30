@@ -1,14 +1,11 @@
-// Kasten's half of a page shown in its frame (#785). The backend puts it at
-// the start of the page, before any page code, so it runs first. It does
-// nothing unless kasten is the parent: a page opened in a tab of its own keeps
-// every key.
+// Kasten's half of a page shown in its frame (#785), run before any page code.
+// It does nothing unless kasten is the parent.
 (() => {
   // Read before any page code runs: a page's own `var parent = ...` replaces
   // `window.parent`, a replaceable attribute, and would cut this script off.
   const up = window.parent;
   if (up === window) return;
-  // The same goes for the globals the selection and marks use: a page's own
-  // top-level `const Node` or `function getSelection` would shadow them.
+  // Likewise a page's own `const Node` or `function getSelection` would shadow these.
   const ELEMENT = Node.ELEMENT_NODE;
   const FOLLOWING = Node.DOCUMENT_POSITION_FOLLOWING;
   const getSelection = window.getSelection.bind(window);
@@ -19,34 +16,26 @@
   const Observer = window.ResizeObserver;
   const registry = window.CSS && "highlights" in window.CSS ? window.CSS.highlights : null;
 
-  // A text field keeps its keys, so typing a space or a question mark in a
-  // page's own form stays typing.
+  // A text field keeps its keys.
   const TYPING = "input, textarea, select, [contenteditable]:not([contenteditable='false'])";
-  // A control the page presses with a space keeps that space, so Space on it
-  // is the page's. `?` and Escape stay kasten's there.
+  // A control the page presses with Space keeps it; `?` and Escape stay kasten's.
   const PRESSABLE =
     "button, summary, [role='button'], [role='checkbox'], [role='radio'], [role='switch'], [role='tab'], [role='menuitem'], [role='menuitemcheckbox'], [role='menuitemradio'], [role='option'], [role='treeitem'], video, audio";
-  // The element the key went to, read off the path: at a window listener, a
-  // field inside an open shadow root is reported as its host. A closed root
-  // still shows its host, which is as far as this can see.
+  // Read off the path: at a window listener, a field in an open shadow root
+  // reports as its host.
   const targetOf = (event) => event.composedPath()[0];
   // Not `instanceof Element`, which reads the global `Element`: a page can
   // declare its own, and `closest` is the part this needs anyway.
   const within = (target, selector) =>
     typeof target?.closest === "function" && target.closest(selector) !== null;
-  // `y` goes to kasten only over a selection, where it takes the passage. With
-  // none it is the page's letter, so a page's own `y` shortcut keeps working.
+  // `y` goes to kasten only over a selection; with none it is the page's letter.
   const hasSelection = () => {
     const selection = getSelection();
     return !selection.isCollapsed && selection.toString() !== "";
   };
 
-  // Runs in the capture phase on the window, which is the first place a key
-  // reaches, so it wins against listeners on the document and on the elements
-  // in both phases, and against window listeners in the bubble phase or added
-  // after it. This script runs before any page code, so its window capture
-  // listener is registered before any the page adds, and a page cannot stop
-  // Space on the window before it gets here.
+  // Window capture phase, registered before any page code, so no page listener
+  // sees these keys first.
   window.addEventListener(
     "keydown",
     (event) => {
@@ -64,11 +53,8 @@
     true,
   );
 
-  // Bubble phase, and decided in a task after the dispatch, so a page that
-  // handles `j` or `k` and calls preventDefault keeps it and is not scrolled a
-  // second time. The script runs before the page's code, so a handler the page
-  // adds later runs after this one; the task sees what every handler decided,
-  // whatever order they were added in.
+  // Decided in a task after the dispatch, so a page that handles `j` or `k` and
+  // calls preventDefault is not scrolled a second time.
   window.addEventListener("keydown", (event) => {
     if (event.shiftKey || event.ctrlKey || event.altKey) return;
     if (event.metaKey || (event.key !== "j" && event.key !== "k")) return;
@@ -78,24 +64,21 @@
     }, 0);
   });
 
-  // The story a passage sits in: a newspaper article, a section or a card, or the
-  // whole page when there is none.
+  // The story a passage sits in; the whole page when there is none.
   const CONTAINER = "article, section, [class~='card']";
   const HEADINGS = "h1, h2, h3, h4, h5, h6";
   const MOVES = ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End"];
   // The last non-empty selection posted, kept as a range so a take can mark it.
   let held = null;
 
-  // Whether `node` is above `start`: it holds the start point, or the start
-  // follows it in document order.
+  // `node` holds `start` or comes before it in document order.
   const above = (node, start) =>
     node.contains(start) || (node.compareDocumentPosition(start) & FOLLOWING) !== 0;
   const squash = (text) => text.replace(/\s+/g, " ").trim();
   // Cut by characters, not UTF-16 units, so a surrogate pair is never split.
   const clip = (text, length) => Array.from(text).slice(0, length).join("");
 
-  // A selection takes its heading and story id from where it starts, so one
-  // that runs across two articles reads as the first of them.
+  // A selection across two articles reads as the one it starts in.
   const describe = (range, text) => {
     const node = range.startContainer;
     // A range can start at the document itself, which has no parent element.
@@ -103,9 +86,8 @@
       (node.nodeType === ELEMENT ? node : node.parentElement) ?? document.documentElement;
     const root = start.closest(CONTAINER) ?? document;
     const heading = [...root.querySelectorAll(HEADINGS)].filter((h) => above(h, start)).at(-1);
-    // The newspaper prints each story's id as a link, which the page itself
-    // carries; an id on the page is the next best answer.
-    // Only inside a story: on the whole page the first id printed is another story's.
+    // The newspaper's story-id link, only inside a story: on the whole page the
+    // first one printed is another story's.
     const sid =
       root === document
         ? undefined
@@ -137,8 +119,7 @@
     up.postMessage({ kasten: "selection", ...describe(range, text) }, "*");
   };
 
-  // Many events in one frame, such as a drag on a touch screen or a scroll, post
-  // once, after the frame, with the selection as it is then.
+  // Many events in one frame post once, after it.
   let queued = false;
   const later = () => {
     if (queued) return;
@@ -150,13 +131,11 @@
   };
 
   window.addEventListener("mouseup", post);
-  // Shift with an arrow key or Home or End grows the selection without the mouse,
-  // and the keyup is the one event that says it has changed.
+  // A keyboard-grown selection says it changed only on keyup.
   window.addEventListener("keyup", (event) => {
     if (event.shiftKey && MOVES.includes(event.key)) post();
   });
-  // A finger moves a touch selection with no mouseup, so it is posted as it
-  // changes. Only pointerdown says which device made the selection.
+  // A touch selection has no mouseup; only pointerdown says it was touch.
   let touch = false;
   window.addEventListener(
     "pointerdown",
@@ -169,8 +148,7 @@
     if (getSelection().toString() === "") post();
     else if (touch) later();
   });
-  // A scroll moves the passage on screen, so the pane gets its new rect. The
-  // capture phase catches a scroller inside the page as well as the window.
+  // Capture phase, so a scroller inside the page moves the rect too.
   window.addEventListener(
     "scroll",
     () => {
@@ -179,19 +157,8 @@
     true,
   );
 
-  // The page's own scroll, posted once a frame, so a reload of the page after a
-  // rewrite puts the reader back where they were (#1277). The window's scroll
-  // only: a scroll event on an element does not bubble here, and which of a
-  // page's own scrollers the reader meant is not the pane's to guess. Read off
-  // the document, since a page's own `var scrollY` replaces the window's.
-  //
-  // A scroll the pane gives back is held until the page is tall enough for it:
-  // a page whose images or script fill it in after the load is short at first,
-  // and a scroll clipped to that would be reported and lost (#1277). Held until
-  // it lands, the reader touches the page, or HOLD has passed, and nothing is
-  // reported meanwhile. The time limit is for a page that came back shorter, or
-  // grows inside a box that never resizes, or scrolls itself: held forever, it
-  // would mute the reports and pull the page back on each resize (#1280).
+  // The window's scroll, kept across a reload (#1277). A restored scroll is held
+  // until the page grows tall enough, the reader touches it, or HOLD (#1280).
   const HOLD = 1500;
   const position = () => document.scrollingElement?.scrollTop ?? 0;
   let target = null;
@@ -201,17 +168,12 @@
     scrollTo({ top: target, behavior: "instant" });
     if (Math.abs(position() - target) < 1) target = null;
   };
-  // The page stands where it is now, which the pane has not heard while it held.
   const letGo = () => {
     if (target === null) return;
     target = null;
     up.postMessage({ kasten: "scroll", top: position() }, "*");
   };
-  // A page whose html box is the window's height grows in its body, so both are
-  // watched. When body is held to that height too, the content overflows a box
-  // that never resizes, and only the time limit lets go. A browser without
-  // ResizeObserver lands what it can at once and lets go by time; the rest of
-  // this script runs either way.
+  // A page whose html box is the window's height grows in its body.
   if (typeof Observer === "function") {
     const watch = new Observer(settle);
     watch.observe(document.documentElement);
@@ -220,9 +182,7 @@
       document.addEventListener("DOMContentLoaded", watchBody);
     } else watchBody();
   }
-  // Through letGo, so an input that does not scroll, such as a click on the text,
-  // still tells the pane where the page stands (#1282). One that does scroll
-  // reports again from the scroll listener.
+  // An input that does not scroll still reports the position (#1282).
   for (const type of ["wheel", "touchstart", "keydown", "pointerdown"]) {
     window.addEventListener(type, letGo, { capture: true, passive: true });
   }
@@ -236,9 +196,7 @@
     });
   });
 
-  // Marks go into one Highlight and their style into a constructed sheet, so the
-  // page's markup is never touched. `taken` maps each take's id to its range, so
-  // an untake removes its own mark and not the newest one.
+  // A Highlight and a constructed sheet leave the page's markup untouched.
   const MARK = "kasten-taken";
   const MARK_STYLE = `::highlight(${MARK}) { background-color: var(--k-mark, rgba(249,157,27,.22)); text-decoration: underline; text-decoration-thickness: 1px; text-decoration-color: var(--k-accent, currentColor); }`;
   let highlight = null;
@@ -252,13 +210,11 @@
       sheet.replaceSync(MARK_STYLE);
       document.adoptedStyleSheets = [...document.adoptedStyleSheets, sheet];
     }
-    // A copy of the range, so the same passage taken twice is two marks and
-    // untake removes one of them.
+    // A copy, so the same passage taken twice is two marks.
     const mark = held.cloneRange();
     highlight.add(mark);
     taken.set(id, mark);
-    // The selection painted over the new mark until a click elsewhere, so it is
-    // cleared as the book clears its own. The empty selection it causes posts the pane's clear.
+    // The selection would paint over the new mark.
     getSelection().removeAllRanges();
   };
   const untake = (id) => {
@@ -268,14 +224,8 @@
     taken.delete(id);
   };
 
-  // Each newspaper story gets a Share later button beside its printed id. It sits
-  // in a shadow root, so the page's styles do not reach its insides and a
-  // selection or the page's text never takes in its label. The root is open so
-  // the key listener's path reaches the button and Space presses it. Closing it
-  // would keep nothing from the page, which can post a share of its own anyway.
-  // The story's source
-  // is the link the paper marks `a.src`, or else the first link in the story
-  // that leaves the page's own host.
+  // A shadow root keeps page styles and selections off the button; it is open so
+  // Space reaches it.
   const SHARE = "Share later";
   const SAVED = "Saved to share";
   const SHARE_STYLE = `button { font: 11px/1.4 system-ui, sans-serif; color: var(--k-muted, #6b6b66); background: transparent; border: 1px solid var(--k-rule, #d8d8d2); border-radius: 4px; padding: 1px 6px; margin-inline-start: 8px; cursor: pointer; vertical-align: middle; } button:hover, button:focus-visible { color: var(--k-accent, currentColor); } button:disabled { cursor: default; color: var(--k-accent, currentColor); } @media (pointer: coarse) { button { min-height: 32px; padding: 4px 10px; } }`;
@@ -320,7 +270,6 @@
       buttons.set(anchor, button);
     }
   };
-  // The script runs before the page is parsed, so the stories are there only later.
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", addShareButtons);
   } else addShareButtons();
@@ -331,14 +280,10 @@
     button.disabled = saved;
   };
 
-  // A page that opts in takes the theme and the palette from kasten. An answer
-  // that lands before the meta is parsed is dropped: the backend already wrote
-  // both into `<html>` at serve time, and the pane posts again on the frame's
-  // load, so nothing is lost.
+  // An answer before the meta is parsed is dropped; the pane posts again on load.
   const THEMES = ["light", "dark"];
   const PALETTES = ["poel", "russet", "peach", "pansy"];
-  // The backend's test for the opt-in, so both agree: name and content trimmed
-  // and lowercased, and a meta inside a noscript does not count.
+  // Matches the opt-in test in `html_page.py`; change both together.
   const optedIn = () =>
     [...document.querySelectorAll("meta")].some(
       (meta) =>
@@ -346,9 +291,7 @@
         (meta.getAttribute("name") ?? "").trim().toLowerCase() === "kasten-theme" &&
         (meta.getAttribute("content") ?? "").trim().toLowerCase() === "tokens",
     );
-  // What every page answers, opted in or not: marks, share buttons and the
-  // page's words for RSVP. A Map and not an object, so a `kasten` of
-  // "constructor" finds nothing.
+  // A Map, so a `kasten` of "constructor" finds nothing.
   const EVERY_PAGE = new Map([
     ["take", (data) => take(data.id)],
     ["untake", (data) => untake(data.id)],
@@ -365,8 +308,7 @@
         holding = setTimer(letGo, HOLD);
       },
     ],
-    // innerText and not textContent: it ends each block with a line break and
-    // leaves out what the page hides, which is the page as it reads.
+    // innerText leaves out what the page hides.
     [
       "text",
       () =>

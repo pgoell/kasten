@@ -1,10 +1,7 @@
 """The bank sync job: pull each bank over FinTS and write the bookings through kasten.
 
-`poll` runs every minute and ends at once unless a "pull now" waits; `pull`
-is the one scheduled attempt a day; `check` fails when no run has succeeded
-for a week; `setup <bank>` is the one-time login by hand. Every run is
-recorded in kasten, and a failed one exits 1 so a systemd `OnFailure=` can
-alert. See docs/how-to/run-the-bank-sync.md and docs/reference/bank-sync.md.
+A failed run exits 1 so a systemd `OnFailure=` can alert. See
+docs/how-to/run-the-bank-sync.md and docs/reference/bank-sync.md.
 """
 
 import argparse
@@ -89,16 +86,9 @@ def _spelled(iban: str | None) -> str:
 def window_start(row: dict[str, Any] | None, today: date, settings: Settings) -> date:
     """Where an account's window starts.
 
-    `overlap_days` before the last good window ended, so a booking the bank
-    posts late still comes in; else, on a first pull, `overlap_days` before
-    the newest booking stored (the Firefly history), since Firefly kept the
-    value date and the bank picks by booking date; else `first_days` back.
-
-    The overlap also keeps the occurrence index of the source key honest. The
-    bank selects a window by booking date and the key holds the value date,
-    so twins (same value date, amount, reference and purpose) are counted
-    right only while one window sees all of them: they must be booked within
-    the overlap of each other. Two weeks is far more than banks take.
+    The overlap keeps the occurrence index of the source key honest: twins
+    (same value date, amount, reference and purpose) are counted right only
+    while one window sees all of them, so they must be booked within the overlap.
     """
     if row and row["last_good_through"]:
         return date.fromisoformat(row["last_good_through"]) - timedelta(settings.overlap_days)
@@ -123,8 +113,7 @@ class Run:
     def since_for(self, bank: Bank, iban: str) -> date | None:
         """Where the window of the account with this IBAN starts, or None to leave it out.
 
-        An IBAN in `skip_ibans` is left out quietly. One no kasten account
-        holds is left out and fails the run, naming it.
+        An IBAN in `skip_ibans` is left out quietly; one no kasten account holds fails the run.
         """
         spelled = _spelled(iban)
         if spelled in self.settings.skip_ibans:
@@ -138,8 +127,7 @@ class Run:
 
 
 def _refusal(error: httpx.HTTPError) -> str:
-    # The answer's body says what kasten refused; it holds bookings at most,
-    # never a login. Cut short, since a 422 can echo a whole batch back.
+    # Cut short: a 422 can echo a whole batch back. The body never holds a login.
     if isinstance(error, httpx.HTTPStatusError):
         return f"kasten answered {error.response.status_code}: {error.response.text[:500]}"
     return f"kasten unreachable: {error}"
@@ -195,8 +183,7 @@ def pull(  # noqa: PLR0913  the trigger, and what the tests swap out
 ) -> int:
     """Start a run, pull every bank, record the outcome, and answer the exit code.
 
-    0 when every account came in, or when another run had the start; 1 when
-    anything failed.
+    0 when every account came in or another run had the start; 1 when anything failed.
     """
     started = api.start_run(trigger)
     if started is None:
@@ -216,8 +203,7 @@ def pull(  # noqa: PLR0913  the trigger, and what the tests swap out
         )
         finished = True
     finally:
-        # Not a catch: whatever broke still propagates and fails the job, but
-        # kasten hears the run ended rather than waiting out the timeout.
+        # Not a catch: the error still propagates, but kasten hears the run ended.
         if not finished:
             stopped = {"outcome": "failed", "error": "the job stopped; see its log"}
             api.finish_run(started["id"], {**stopped, "accounts": run.accounts})

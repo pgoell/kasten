@@ -17,10 +17,9 @@ from kasten_backend.finance_models import SCHEMA, Account, Amount, Category, Pay
 class Plan(Base):
     """An expected booking: rent on the 1st, insurance once a year, a known trip in March.
 
-    `every_months` is the months between two dates it falls due, 1 for
-    monthly and 12 for yearly; none for a plan that falls due once, on
-    `start_date`. Every later date keeps the day of `start_date`, or the last
-    day of a shorter month.
+    `every_months` is the months between due dates: 1 for monthly, 12 for yearly, none for a
+    plan that falls due once on `start_date`. Later dates keep `start_date`'s day, or the
+    month's last day if shorter.
     """
 
     __tablename__ = "plan"

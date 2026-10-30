@@ -1,9 +1,7 @@
 """One Anki field as the markdown a card line holds, with the cloze marks and code spans it keeps.
 
-`plain` is the entry: it reads a field's HTML through `anki_markdown`, then
-tidies the lines so each one reads back as the text it was. The cloze marks
-and code spans it reads on the way are here too, since the note writer and the
-re-import read the same marks in a card's text.
+`plain` reads a field's HTML through `anki_markdown`, then tidies the lines so each one
+reads back as the text it was. The note writer and the re-import read the same marks.
 """
 
 import html
@@ -18,12 +16,9 @@ if TYPE_CHECKING:
 _CLOZE = re.compile(r"\{\{c\d+::((?:(?!\{\{c\d+::).)*?)(?:::(?:(?!\{\{c\d+::).)*?)?\}\}", re.DOTALL)
 """One cloze deletion holding no other, with the hint the author may have written after it.
 
-The hint is part of the match and not of the group, so the highlight a note of
-another type gets drops it: Anki shows marks there as typed, and a mark kept
-would make kasten ask a card Anki never did. Holding no opener, it is the
-innermost mark, so an empty `{{c2::}}` inside `{{c1::a {{c2::}}}}` cannot end
-the outer one at its `}}` (#333); a lone brace it takes, as `_MARK` does not.
-Across lines too, or a mark over two would keep its `::` in a Basic field.
+Innermost, so an empty `{{c2::}}` in `{{c1::a {{c2::}}}}` cannot end the outer mark (#333).
+The hint is in the match but not the group, which is why a highlight drops it.
+It matches across lines too.
 """
 _OPEN = re.compile(r"\{\{c\d+::")
 """A cloze mark's opener, which `plain` closes when the field never does."""
@@ -33,23 +28,14 @@ _MARK = re.compile(
 )
 """A cloze mark kasten reads: `MARK` in `card-line.ts`, character for character.
 
-Groups 1, 2 and 5 are the number, the answer and the hint. Each item is taken
-whole through a lookahead, which `re` never backtracks into, so a line of code
-spans after an opener never closed does not take twice as long per span. Narrower
-than `_CLOZE`, taking no brace and no empty text, so a MathJax
-`{{c1::\\(x^{2}\\)}}` is a mark to Anki and not to kasten. A code span in the answer or hint is read
-whole, so a `::` inside it is no hint (#346); a lone backtick is text. `[0-9]`
-because Python's `\\d` takes digits JavaScript's does not. A nested mark,
-`{{c1::a {{c2::b}}}}`, is read innermost first, each inner mark held by a
-placeholder the outer one's text takes, as `marks` does. A match opening
-inside a code span is no mark, which `reads_mark` sees to.
+Each item is a lookahead, so an unclosed opener does not backtrack. Narrower than `_CLOZE`:
+a MathJax `{{c1::\\(x^{2}\\)}}` is a mark to Anki, not to kasten. A code span is read whole (#346).
 """
 _SPANS = re.compile(r"\\.|(`+)(?!`).*?(?<!`)\1(?!`)|`+", re.DOTALL)
 """An escape pair, a code span, or a backtick run that closes none, leftmost first.
 
-`ESCAPES` in `card-line.ts` less its `&#58;`: a code span runs to the next run
-of its own length, as CommonMark reads one, an unclosed run is text, and `` \\` ``
-opens nothing.
+`ESCAPES` in `card-line.ts` less its `&#58;`. A code span closes at a run of its own
+length, as CommonMark reads one, and `\\`` opens nothing.
 """
 _COLON = re.compile(rf"{_SPANS.pattern}|&#58;", re.DOTALL)
 """`_SPANS` and the text `&#58;`, which `_Markdown` escapes outside code once it is whole."""
@@ -74,22 +60,9 @@ _ONLY_TAGS = re.compile(r"(?:#[^\W\d][\w/-]*[ \t]*)+")
 def plain(field: str, links: Mapping[str, str] | None = None, *, cloze: bool = False) -> str:
     """One Anki field as markdown, a line for each line the field shows (#234).
 
-    `markdown` gives the formatting a card can hold. No line is blank, since
-    `srs.ts` ends a `?` card at a blank line, and a line any reader would take
-    for part of the format, a heading, a lone `?`, a line of tags, the parking
-    token, a schedule comment, carries a backslash so it reads as the text it
-    was. An image or a sound whose name `links` maps becomes `![](link)`, and
-    any other is dropped.
-
-    A cloze mark stays as it is with its hint where `cloze` says the field is a
-    cloze note's text and kasten reads the mark, and is otherwise a
-    `==highlight==`: a mark kasten does not read would leave its `::` to split
-    the line as a card. Whether kasten reads it is decided on the text as it
-    shows, so an entity brace such as `&#123;` breaks a mark as a typed one
-    does. Inside another mark, one kasten does not read is its text alone. A
-    cloze note's text is one line whatever it holds,
-    since `srs.ts` reads the line over a `?` as the cloze and a line above it
-    holding a mark as another.
+    No line is blank, since `srs.ts` ends a `?` card at one. A line a reader would take
+    for format carries a backslash, so it reads as the text it was. A cloze mark stays
+    where `cloze` says kasten reads it, and is a `==highlight==` otherwise.
     """
     held: list[str] = []
 
@@ -113,28 +86,21 @@ def plain(field: str, links: Mapping[str, str] | None = None, *, cloze: bool = F
     bare: dict[int, str] = {}
 
     def inside(mark: re.Match[str]) -> str:
-        # An inner mark kasten reads stays held, and holds no brace; one it
-        # does not is the text Anki shows, since a highlight's `====` would be
-        # part of the outer answer and its brace would leave no mark.
+        # An inner mark kasten reads stays held. One it does not is the text Anki shows, so
+        # a highlight's `====` stays inside the outer answer.
         return bare.get(int(mark[1]), mark[0])
 
     def keep(match: re.Match[str]) -> str:
-        # Out of the parse and flat, so `{{c2::<b>France</b>}}` asks `France`,
-        # which is what a typed answer is held against. Ruby stays, and
-        # `srs.ts` takes the reading off before comparing. Flat before the
-        # test, so `&#123;` is the brace it shows and breaks the mark as one
-        # typed does (#333); held inner marks are put back after.
+        # Flat and out of the parse, so `{{c2::<b>France</b>}}` asks `France`. Ruby stays, and
+        # `srs.ts` takes its reading off first. Flat before the test, so `&#123;` breaks a mark
+        # as it would when typed (#333).
         flat = _flat(KEPT.sub(inside, match[0]))
         answer = _flat(KEPT.sub(inside, match[1]))
         hint = match[0][match.end(1) - match.start() : -2]
         if cloze and ("::" in answer or (hint and answer.endswith(":"))):
-            # Anki divides answer from hint only at a `::` typed in the field,
-            # so a decoded `&#58;&#58;` is answer to it and would be a hint to
-            # kasten (#335). Encoded before held inner marks go back, whose own
-            # `::` stays. A schedule comment and the import's marker lose
-            # `_flat`'s backslash first: their `&#58;` already keeps a reader
-            # from taking them, and `\&#58;` would show as the text `&#58;`
-            # (#351, #356).
+            # Anki splits answer from hint only at a typed `::`, so a decoded `&#58;&#58;`
+            # would be a hint to kasten (#335). Schedule comments drop `_flat`'s
+            # backslash (#351, #356).
             answer = (
                 answer.replace("<!--SR\\:", "<!--SR:")
                 .replace("<!--anki\\:", "<!--anki:")
@@ -142,8 +108,7 @@ def plain(field: str, links: Mapping[str, str] | None = None, *, cloze: bool = F
             )
             opener = match[0][: match.start(1) - match.start()]
             flat = f"{opener}{answer}{_flat(KEPT.sub(inside, hint))}}}}}"
-        # The form the mark takes where it sat in code: its text in code of
-        # its own and verbatim, so no `&#58;` either, since `_MARK` reads a
+        # The form the mark takes in code: its text verbatim, no `&#58;`, since `_MARK` reads a
         # code span whole and a `::` in it is no hint (#346).
         opener = match[0][: match.start(1) - match.start()]
         shown = _verbatim(KEPT.sub(inside, match[1]))
@@ -174,9 +139,8 @@ def plain(field: str, links: Mapping[str, str] | None = None, *, cloze: bool = F
 
 def _verbatim(text: str) -> str:
     """`text` as a code span, the form `plain` gives a kept mark that sat in code."""
-    # The import's marker and a schedule comment keep their backslash in
-    # code too, as `_escaped` gives it: `srs.ts` reads a schedule in a code
-    # span as anywhere else on the line (#351).
+    # The import's marker and a schedule comment keep their backslash in code too, as
+    # `_escaped` gives it, so `srs.ts` reads a schedule in code as anywhere else (#351).
     shown = _shown(text)
     return ticked(shown.replace("<!--SR:", "<!--SR\\:").replace("<!--anki:", "<!--anki\\:"))
 
@@ -184,8 +148,7 @@ def _verbatim(text: str) -> str:
 def _settle(marks: list[str], mark: str, text: str, *, cloze: bool) -> bool:
     """Add a cloze mark to `marks` as `mark` if kasten reads it, else as a highlight of `text`.
 
-    Either way the inner marks it holds by place in `marks` go back in. True
-    for the mark kept as a cloze.
+    Either way the inner marks it holds go back in. True for the mark kept as a cloze.
     """
 
     def put(inner: re.Match[str]) -> str:
@@ -201,11 +164,8 @@ def _settle(marks: list[str], mark: str, text: str, *, cloze: bool) -> bool:
 def _colon(found: re.Match[str]) -> str:
     """A `_COLON` match as written: the text `&#58;` escaped, the rest as it stands.
 
-    Anki shows a field's `&amp;#58;` as the text `&#58;`, which a card shows as
-    a colon (#335) unless the backslash says it is text (#340). Over the parsed
-    line rather than each run of text, so one a tag splits is whole (#348),
-    and past code spans, which a reader leaves alone (#343). The import's own
-    `&#58;` is held in a mark until after.
+    Anki shows `&amp;#58;` as the text `&#58;`, which a card shows as a colon (#335) unless
+    escaped (#340). Applied to the parsed line, so a tag cannot split it (#348).
     """
     return "\\&#58;" if found[0] == "&#58;" else found[0]
 
@@ -213,9 +173,7 @@ def _colon(found: re.Match[str]) -> str:
 def marks(text: str, keep: Callable[[re.Match[str]], str]) -> str:
     """`text` with every `_MARK` replaced by what `keep` makes of it, innermost first.
 
-    A replacement holds no brace, so an outer mark whose text held a whole
-    inner one now matches, as Anki reads nesting since 2.1.56 (#254). A lone
-    brace still stops it. Each pass shrinks the text, so the loop ends.
+    A replacement holds no brace, so an outer mark around a whole inner one now matches (#254).
     """
     count = 1
     while count:
@@ -260,13 +218,9 @@ def _shown(text: str) -> str:
 def _flat(text: str) -> str:
     """`text` as one line, every tag but ruby's stripped: how a cloze mark is written.
 
-    A backslash is doubled, as `_Markdown` doubles it outside code, before any
-    written here. The token is escaped here as `_Markdown` escapes it in the
-    rest of the field, since `suspended()` in `card-line.ts` reads it inside a
-    mark too, and so are the import's marker and a schedule comment, as
-    `_escaped` escapes them, since `readSchedule` in `srs.ts` reads a comment
-    in an answer as the card's own (#351). So is the text `&#58;`, as `_colon`
-    escapes it, before `plain` writes its own colons so.
+    Escapes what `_Markdown` escapes elsewhere in the field, and the import's marker, the
+    schedule comments and the text `&#58;`, which `suspended()` in `card-line.ts` and
+    `readSchedule` in `srs.ts` would otherwise read as the card's own (#351).
     """
     # Ruby's tags held out bare, with private-use marks, so the strip passes them by.
     text = _RUBY_TAG.sub(lambda tag: f"{tag[1]}{tag[2].lower()}\ue012", text)
@@ -280,11 +234,9 @@ def _flat(text: str) -> str:
 def _escaped(line: str) -> str:
     """`line` with a backslash where a reader would take it for the format rather than text.
 
-    Each is a line `srs.ts` ends a `?` card on or reads as a divider, as
-    `ends_card` lists them. The schedule comment takes its backslash inside,
-    since `SR` in `card-line.ts` matches anywhere on a line and a backslash
-    before the `<` would leave one whole. The import's marker does the same,
-    or a re-import would take the text for a card it wrote.
+    The lines `ends_card` lists. A schedule comment takes its backslash inside (`SR` in
+    `card-line.ts` matches anywhere), and so does the import's marker, so a re-import does
+    not take the text for a card it wrote.
     """
     if (
         line == "?"
@@ -299,8 +251,8 @@ def _escaped(line: str) -> str:
 def ends_card(line: str) -> bool:
     """Whether `srs.ts` `breaks()` would end a `?` card on `line`, so it cannot be a side of one.
 
-    A line of a side here is stripped, so blank means empty. The schedule `srs.ts`
-    also stops a back at is checked apart, since it stops no front.
+    A side's lines are stripped, so blank means empty. A back's schedule line is checked
+    apart, since it stops no front.
     """
     return (
         not line

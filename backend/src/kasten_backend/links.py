@@ -1,25 +1,8 @@
-"""Pointing `[[wikilinks]]` at a note that has moved.
+"""Pointing `[[wikilinks]]` and markdown links at a note that has moved.
 
-A link names a note rather than a place, so a bare `[[borges]]` follows the note
-between folders on its own and there is nothing here for it to answer. A link
-that spelled the path out does not follow, and a rename that changed the note's
-name breaks both. This is what keeps the vault's links pointing where they were
-written to point.
-
-A markdown link is the other kind, and it follows a move too. A plain
-`[text](path)` is read relative to the file it sits in, so it breaks when its
-target moves and when the file holding it moves, and an `index.md` is made of
-nothing else. An embed, `![alt](path)`, is read from the vault root, the way the
-editor draws it, so only its target moving breaks it.
-
-The rule a target is read by is the frontend's, in `frontend/src/lib/wikilink.ts`,
-and the two have to agree: the note `gf` opens is the note a rename here follows.
-That is `splitTarget` taking the heading and the alias off `[[name#heading|alias]]`,
-then `wikiLinkPath` finding the note the name is. `names_a_file` and
-`named_path` are the half of `wikiLinkPath` that tells a file from a note. Two
-copies of one rule is the cost of the editor resolving a link without asking the
-server, so the cases live once, in `backend/tests/fixtures/link_paths.json`, and both
-test suites read them.
+A bare `[[name]]` follows its note between folders; a spelled-out path does not. The rule a
+target is read by is the frontend's `wikiLinkPath`. Both copies run the cases in
+`backend/tests/fixtures/link_paths.json`, so they cannot drift.
 """
 
 import posixpath
@@ -51,8 +34,8 @@ FILE_SUFFIXES = (HTML_SUFFIX, *ASSET_MAGIC)
 MARKDOWN_LINK = re.compile(r'(!?\[[^\]\n]*\]\()([^)\s]+)((?:\s+"[^"\n]*")?\))')
 """One `[text](href)` or `![alt](href)`, with an optional title after the href.
 
-The href holds no space, which is why the index guide asks for `%20`: a raw
-space ends the link for every reader, so it ends it here too.
+The href holds no space, so the index guide asks for `%20`: a raw space ends the link for
+every reader.
 """
 
 SCHEME = re.compile(r"^[a-zA-Z][a-zA-Z0-9+.-]*:")
@@ -70,10 +53,9 @@ class Target(NamedTuple):
 def split_target(target: str) -> Target:
     """`target` taken apart the way the editor's `splitTarget` takes it.
 
-    The bar is taken first, so an alias may carry a hash or a slash and still be
-    an alias. An empty name is a link to a heading of the note it sits in. In a
-    table a bare bar ends the cell, so a link there writes the bar escaped, and the
-    backslash is the table's, not the name's.
+    The bar is taken first, so an alias may carry a hash or a slash. An empty name is a link to a
+    heading of the note it sits in. In a table a bare bar ends the cell, so the backslash before it
+    is the table's, not the name's.
     """
     named, bar, alias = target.partition("|")
     if bar:
@@ -85,9 +67,8 @@ def split_target(target: str) -> Target:
 def names_a_file(name: str) -> bool:
     """Whether a link's name, already split, names a page or an asset rather than a note.
 
-    Ignoring case, the way a bare name is looked up, so `[[Plan.PDF]]` is the
-    pdf and not a note called `Plan.PDF.md`. Only the last segment counts, so a
-    folder with a dot in it names no file.
+    Ignoring case, as a bare name is looked up. Only the last segment counts, so a folder with a
+    dot in it names no file.
     """
     return name.rsplit("/", 1)[-1].lower().endswith(FILE_SUFFIXES)
 
@@ -95,8 +76,8 @@ def names_a_file(name: str) -> bool:
 def named_path(name: str) -> str:
     """The path a link's name spells: the file as written, or the note with `.md` on.
 
-    The one rule `link_path` and the graph's `resolver` both read, so the note a
-    rename follows is the note the graph draws an edge to.
+    The one rule `link_path` and the graph's `resolver` both read, so a rename follows the note the
+    graph draws.
     """
     if names_a_file(name) or name.endswith(SUFFIX):
         return name
@@ -106,16 +87,9 @@ def named_path(name: str) -> str:
 def link_path(target: str, paths: list[str]) -> str:
     """The vault path `[[target]]` names, whether or not a note is there.
 
-    Only the name counts: `[[borges#Ficciones|his]]` names what `[[borges]]` does.
-    A name with a slash in it is a path and is taken at its word. A bare name
-    is looked for anywhere in the vault, ignoring case, so `[[borges]]` names
-    `reading/borges.md` from any note. `paths` arrives sorted, so a note of that
-    name at the vault root wins over one in a folder.
-
-    A name nothing answers to comes back as it was written, where the editor's
-    copy answers `<inbox>/<name>.md`. That is a rule about where a note is made
-    and not about which note a link names: what this feeds is a mapping keyed by
-    notes that exist, which a path nothing answers to is not in either way.
+    Only the name counts, so `[[borges#Ficciones|his]]` names what `[[borges]]` does. A bare name is
+    looked for anywhere in the vault, ignoring case, with a root note winning over a folder's.
+    A name nothing answers to comes back as written.
     """
     # A page or an asset is named by its whole file name, so `[[report.html]]`
     # and `[[report]]` are two files.
@@ -135,10 +109,8 @@ def _name(path: str) -> str:
 def _respell(name: str, new: str) -> str:
     """`name`, a link's name, written for a note now at `new`, keeping the spelling it had.
 
-    A path stays a path and a name stays a name, which is what leaves
-    `[[borges]]` alone when only the folder changed. The `.md` goes either way:
-    a link is read the same with or without it, and one spelling is enough. A
-    page keeps its `.html`, which is the only thing telling it from a note.
+    A path stays a path and a name a name, so `[[borges]]` is left alone when only the folder
+    changed. The `.md` goes either way; a page keeps its `.html`, which tells it from a note.
     """
     stem = new.removesuffix(SUFFIX)
     return stem if "/" in name else stem.rsplit("/", 1)[-1]
@@ -147,10 +119,9 @@ def _respell(name: str, new: str) -> str:
 def relink(text: str, moves: dict[str, str], paths: list[str]) -> str:
     """`text` with every link naming a note in `moves` naming where it lands.
 
-    A mapping rather than one pair, because a folder's move is one rewrite over
-    many notes. Doing it as one pass per note moved would read the vault once
-    per note in the subtree, and a link would be resolved against a listing that
-    a previous pass had already made wrong.
+    A mapping, not one pair, so a folder's move is one rewrite over many notes. Note by note,
+    each pass would read the vault again and resolve links against a listing a previous pass had
+    made wrong.
     """
     code = code_spans(text)
 
@@ -204,14 +175,8 @@ def _split(href: str) -> tuple[str, str] | None:
 def markdown_target(href: str, here: str, *, embed: bool = False) -> str | None:
     """The vault path `href` names from a file in folder `here`, or None.
 
-    An `embed`, the `![](href)` form, is read from the vault root and `here`
-    plays no part: the editor draws it from `/api/assets/<href>`, and a paste
-    and the Anki import write it that way. A plain link is read from `here`,
-    which is what an `index.md` entry relies on.
-
-    None for an href outside the vault, including one that climbs above its
-    root. A folder comes back without its trailing slash, the way `moved`
-    spells one.
+    An embed, `![](href)`, is read from the vault root, as the editor draws it. A plain link is
+    read from `here`. An href that climbs above the root is None.
     """
     split = _split(href)
     if split is None:
@@ -234,20 +199,9 @@ def relink_markdown(
 ) -> str:
     """`text`, held by the file at `before` and soon at `after`, with `move`'s `old` at `new`.
 
-    Two things move a plain relative link, and either one rewrites it: its
-    target moving, and the file holding it moving to another folder. A link
-    between two files that move together is untouched, which is what keeps a
-    moved folder's own index working. An embed is read from the vault root, so
-    only its target moving rewrites it, and it is written as a vault path.
-
-    `moves` is where each file a move takes lands, when that is not where
-    `old` at `new` says: the books a note carries. A book held back is not in
-    it, so a link to one still points where it stays. A target it does not
-    hold lands by `moved`, which is how a link to a folder follows the folder.
-
-    A link that still lands where it did keeps its spelling. One that changes
-    is written the short way from the new folder, or from the root for an
-    embed, keeping a trailing slash and a leading `./` where it had them.
+    A relative link is rewritten when its target or its file moves to another folder, but not when
+    both move together. An embed is read from the vault root, so only its target matters. `moves`
+    holds where each file lands, where that differs from `moved`.
     """
     old, new = move
     here = posixpath.dirname(before)
@@ -281,29 +235,8 @@ def relink_markdown(
 async def plan_move(root: Path, old: str, new: str, *, folder: bool) -> dict[str, str]:
     """Every file a move of `old` to `new` rewrites, by its path today, and its text after.
 
-    Worked out against the vault as it stands before the move, not after. A
-    bare `[[borges]]` is resolved against the listing, and it only names the
-    note while the note is still where the links were written to find it. The
-    move writes the plan and the preview only counts it.
-
-    `paths` is read once and handed to every note, because resolving a bare
-    name needs the full listing, and a folder's move is one pass over many
-    notes rather than one pass per note: a link resolved against a listing a
-    previous pass had already changed would resolve wrong.
-
-    The trailing slash keeps `readings.md` out of a move of `reading/`: a folder
-    is a whole path segment, and a prefix match without it would take the notes
-    whose name merely starts the same way.
-
-    rg's answer rather than the whole vault, for the reason search uses rg: a
-    scan written here would read every note on every move and hold the event
-    loop for all of it. The name is what narrows the read. Every link to the
-    thing moving holds it: a bare `[[borges]]` is the name, a path ends in it,
-    and a markdown link spells it raw, with its spaces escaped, or the way
-    the editor's encodeURI does, accents and all. A folder's
-    name narrows the same way, because a path into the folder runs through it.
-    The files moving are read whatever they hold, because their own links can
-    break by their moving.
+    Planned against the vault as it stands: a bare `[[borges]]` names its note only where it is
+    now. The `old/` prefix keeps `readings.md` out of a move of `reading`.
     """
     paths = list_markdown_files(root)
     if folder:
@@ -313,26 +246,22 @@ async def plan_move(root: Path, old: str, new: str, *, folder: bool) -> dict[str
         moves = {old: new}
         name = _name(old)
 
-    # The editor writes a link with encodeURI, which escapes an accented letter
-    # too, so `Bücher` reaches the file as `B%C3%BCcher` and neither the raw
-    # name nor `encode_href` would find it. These are the characters encodeURI leaves alone that
-    # `quote` would escape; the editor escapes `#` and `?` after it.
+    # The editor writes links with encodeURI, so `Bücher` arrives as `B%C3%BCcher`, which
+    # neither the raw name nor `encode_href` finds. These are the characters encodeURI keeps
+    # and `quote` escapes.
     uri = quote(name, safe=";,/?:@&=+$!*'()#").replace("#", "%23").replace("?", "%3F")
     candidates = set(moves)
     for needle in {name, encode_href(name), uri}:
         candidates.update(await notes_holding(root, needle))
 
-    # The pages and assets in a moving folder move with it, and a `[[link]]`
-    # that spelled one's path follows. Added after the candidates: a file is
-    # read by the browser, never rewritten here. They are in the listing too,
-    # or a bare `[[plan.pdf]]` would name nothing a move could take anywhere.
+    # Pages and assets in a moving folder move with it, and a `[[link]]` spelling one's path
+    # follows. They join after the candidates, since a bare `[[plan.pdf]]` must name them.
     files = list_html(root) + list_assets(root)
     if folder:
         moves |= {file: moved(file, old, new) for file in files if file.startswith(f"{old}/")}
     else:
-        # A note's books go with it, unless their landing is taken, and asking
-        # the function the move asks is what keeps a held-back book's links
-        # where the book still is.
+        # A note's books go with it, unless their landing is taken. Asking the function the
+        # move asks keeps a held-back book's links where the book still is.
         books = books_beside(root / old, root / new)
         moves |= {
             book.relative_to(root).as_posix(): to.relative_to(root).as_posix() for book, to in books
@@ -366,9 +295,7 @@ def _plan(
 async def relink_move(root: Path, old: str, new: str, *, folder: bool) -> None:
     """Rewrite every link a move of `old` to `new` would break. Call it before the move.
 
-    The paths written to are the ones the files have now. Inside a moving
-    folder that is the old one, which is why this runs first: after the rename
-    none of them is there.
+    The paths written are the ones the files have now: inside a moving folder, the old ones.
     """
     _write(root, await plan_move(root, old, new, folder=folder))
 

@@ -89,10 +89,8 @@ async def list_vault_assets(settings: Annotated[Settings, Depends(get_settings)]
 
 HTML_POLICY = "; ".join(
     [
-        # An origin of its own that is nobody's, so a script in the page reads no
-        # cookie and no storage of kasten's. In the header and not only on the
-        # `<iframe>`, so a page opened straight from its address in a tab of its
-        # own is held the same way.
+        # Its own origin, so a script in the page reads no kasten cookie or storage.
+        # In the header and not only the `<iframe>`, so a page opened in its own tab is held too.
         "sandbox allow-scripts allow-popups allow-popups-to-escape-sandbox",
         "default-src 'none'",
         # A research page draws its charts and its slides with inline script, and
@@ -102,16 +100,13 @@ HTML_POLICY = "; ".join(
         "img-src 'self' data: blob: https:",
         "font-src data: https:",
         "media-src data: https:",
-        # The sandbox stops the page reading kasten, and this stops it writing:
-        # a `no-cors` POST to `/api/assets` carries no answer back but lands all
-        # the same wherever the browser still sends the cookie.
+        # The sandbox stops the page reading kasten; this stops it writing.
+        # A `no-cors` POST lands wherever the browser still sends the cookie.
         "connect-src 'none'",
         "form-action 'none'",
         "base-uri 'none'",
-        # Only kasten frames a page, so another site cannot draw one under its own
-        # and catch the keys the page posts to its parent (#870). `'self'` is
-        # matched against the address the page came from, not the opaque origin
-        # the sandbox gives it, so the pane's frame passes.
+        # Only kasten frames a page, so no other site can frame one and catch its keys (#870).
+        # `'self'` matches the page's address, not the opaque sandbox origin, so the pane passes.
         "frame-ancestors 'self'",
     ]
 )

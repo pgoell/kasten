@@ -1,11 +1,8 @@
 """Read one receipt with Claude: its date, total, payee, the labour share, and a tax line.
 
-The file goes to headless Claude Code (`claude -p`), which runs on the
-owner's Claude subscription through `CLAUDE_CODE_OAUTH_TOKEN`. Claude Code
-reads the file with its Read tool, confined to a fresh folder holding only
-the receipt, and answers JSON in a fixed schema. Nothing here decides
-anything: kasten proposes a booking and a mark from what comes back, and the
-owner confirms. See docs/reference/receipt-jobs.md.
+The file goes to headless Claude Code (`claude -p`) on the owner's subscription,
+confined to a fresh folder holding only the receipt. Kasten proposes a booking
+from the answer, and the owner confirms. See docs/reference/receipt-jobs.md.
 """
 
 import datetime as dt
@@ -101,8 +98,7 @@ LARGEST = Decimal(10) ** 12
 def _amount(text: object) -> str | None:
     """A positive amount to the cent, as kasten takes it, or None for what reads as none.
 
-    `NaN`, `Infinity` and anything of 10^12 or more read as none: kasten keeps
-    amounts in `numeric(14,2)` and would refuse them.
+    `NaN`, `Infinity` and 10^12 or more read as none: kasten's `numeric(14,2)` cannot hold them.
     """
     if not isinstance(text, str):
         return None
@@ -127,8 +123,7 @@ def _date(text: object) -> str | None:
 def reading(answer: dict[str, Any]) -> dict[str, Any]:
     """The model's JSON as `PUT /api/finance/receipts/{id}/reading` takes it.
 
-    A field that does not parse is left out rather than sent wrong; kasten
-    proposes nothing from what it lacks.
+    A field that does not parse is left out rather than sent wrong.
     """
     if not answer.get("is_receipt"):
         return {"error": "Not a receipt or invoice, the reader says"}
@@ -146,9 +141,8 @@ def reading(answer: dict[str, Any]) -> dict[str, Any]:
 def _env(home: Path, token: str) -> dict[str, str]:
     """Claude Code's environment, built from nothing so no other key leaks in.
 
-    `ANTHROPIC_API_KEY` in particular would win over the token and bill the
-    API account. HOME is a fresh folder: the container user has no home of
-    its own, and Claude Code writes its config there.
+    `ANTHROPIC_API_KEY` would win over the token and bill the API account. HOME is
+    a fresh folder: the container user has no home of its own.
     """
     return {
         "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
@@ -168,8 +162,8 @@ FILE_FAULTS = ("image_error", "prompt_too_long")
 def _answer(done: subprocess.CompletedProcess[str]) -> dict[str, Any] | None:
     """The schema's JSON from Claude Code's result, None for a decline, or the error it names.
 
-    Every error that is not the file's own stops the run and leaves the
-    receipt unread, so a broken setup never turns the queue into error readings.
+    Every error that is not the file's own stops the run and leaves the receipt
+    unread, so a broken setup never turns the queue into error readings.
     """
     try:
         result = json.loads(done.stdout)

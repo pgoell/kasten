@@ -1,7 +1,6 @@
-"""The `/share/` routes the shared lists app reads and ticks through, and the gate on its host.
+"""The `/share/` routes the shared lists app reads and ticks through, and its host's gate.
 
-What a list is and how an edit lands is `share.py`. This file is the HTTP surface
-over it, plus the one rule that keeps the share host to these routes.
+What a list is and how an edit lands is in `kasten_backend/share.py`.
 """
 
 import asyncio
@@ -35,8 +34,7 @@ RECONNECT_SECONDS = 30.0
 def person_of(settings: Settings, request: Request) -> str | None:
     """The person the proxy's sign-in address stands for, or None when no listed address came.
 
-    Only the header `oauth2-proxy-liste` sends is trusted, and an address the
-    settings do not list is no person, so it writes as `share` and has no "Ich".
+    Only the header `oauth2-proxy-liste` sends is trusted; an unlisted address writes as `share`.
     """
     email = request.headers.get("x-auth-request-email")
     return None if email is None else settings.share_people.get(email.strip().lower())
@@ -52,9 +50,7 @@ async def as_share(
 ) -> AsyncIterator[None]:
     """Name every write under these routes after its person, or `share`, and reset the name.
 
-    A yield dependency for the reason `require_token` is one: without the reset the
-    name leaks into the next request, and a save made by the notebook afterwards
-    would be recorded in the history as the lists app's.
+    A yield dependency, like `require_token`: without the reset the name leaks to the next request.
     """
     person = person_of(settings, request)
     held = vcs.writer.set("share" if person is None else f"share:{person}")
@@ -228,14 +224,9 @@ async def stream_events(settings: Annotated[Settings, Depends(get_settings)]) ->
 class ShareGate:
     """Answer the share host with 404 for every path outside `/share/`, before any route runs.
 
-    The lists app is served on a public hostname, and that hostname must not reach
-    the notebook's API, the agent or the docs. Settings are read per request rather
-    than injected, because middleware sits outside dependency injection.
-
-    Pure ASGI rather than `app.middleware("http")`. That one wraps the receive
-    channel, so a client that drops its connection mid-upload reaches the upload
-    route as an error the route does not catch, and it buffers a streamed response
-    such as `/api/events` on its way out.
+    The lists app's hostname is public, so it must not reach the notebook's API, agent or docs.
+    Pure ASGI, not `app.middleware("http")`: that wraps the receive channel, so a dropped
+    upload reaches its route as an error and it buffers streamed responses.
     """
 
     def __init__(self, app: ASGIApp) -> None:

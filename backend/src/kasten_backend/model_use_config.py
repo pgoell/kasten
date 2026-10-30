@@ -1,9 +1,7 @@
-"""The config note of the model-use collector: its prices and its project folders.
+"""The config note of the model-use collector: its prices and project folders.
 
-Only the `- ` lines under `## Prices` and `## Projects` are read; every other line
-is free text, so the note can say where its prices came from. A `- ` line there
-that breaks the format is named rather than guessed at, so a typo in one price
-never quietly prices a model at nothing.
+Only the `- ` lines under `## Prices` and `## Projects` are read. A broken one is named
+in the report, not guessed at, so a typo never quietly prices a model at nothing.
 """
 
 import re
@@ -115,8 +113,7 @@ def read_config(text: str) -> Config:
 def project_of(cwd: str, folders: list[tuple[str, str]]) -> str:
     """The project of a folder: the longest mapped folder holding it, else its last name.
 
-    A folder with no last name, `/` for one, counts under the folder as written, so
-    the message is not dropped.
+    A bare `/` has no last name, so it counts as written and the message is not dropped.
     """
     trimmed = cwd.rstrip("/")
     held = [
@@ -132,9 +129,8 @@ def project_of(cwd: str, folders: list[tuple[str, str]]) -> str:
 def _takes(model: str, row_model: str) -> bool:
     """Whether a row named `row_model` prices `model`: the same name, or that name and a date.
 
-    A dated id such as `claude-haiku-4-5-20251001` takes its name's row. Any other
-    suffix is a model of its own, `claude-opus-5-6` for one, and has no row until a
-    line names it.
+    Any other suffix is a model of its own, such as `claude-opus-5-6`, with no row until
+    a line names it.
     """
     if model == row_model:
         return True
@@ -147,11 +143,8 @@ def _takes(model: str, row_model: str) -> bool:
 def price_of(model: str, fast: bool, prompt: int, prices: list[Price]) -> Price | None:
     """The row that prices one message, or None when no row can take it.
 
-    The model is found first: the row named the same, else the longest name that
-    a `-` follows in the id, so `claude-haiku-4-5` prices `claude-haiku-4-5-20251001`.
-    Then the kind. A fast message takes only a fast row and never falls back to a
-    plain one. A plain message takes the `over` row with the highest N below its
-    prompt, else the plain row.
+    A fast message takes only a fast row, never a plain one. A plain message takes
+    the `over` row with the highest N below its prompt, else the plain row.
     """
     names = [row.model for row in prices if _takes(model, row.model)]
     if not names:

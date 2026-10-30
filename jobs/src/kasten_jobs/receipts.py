@@ -1,13 +1,8 @@
-"""The receipt job: collect PDF receipts from Gmail, and read every receipt kasten holds unread.
+"""The receipt job: collect PDF receipts from Gmail, and read the unread ones with Claude.
 
-`mail` sends kasten each PDF attached to a mail under the `Receipt` label;
-kasten keeps each file once by its hash, so every run sends the whole window
-again and changes nothing it already has. `read` reads each unread receipt
-with headless Claude Code on the owner's subscription and sends kasten
-what it found; kasten proposes a booking and a tax mark from it, which the
-owner confirms in the finance pane. `run` does both. It never writes to
-the mailbox. See docs/how-to/collect-receipts.md and
-docs/reference/receipt-jobs.md.
+`mail` sends kasten each PDF under the `Receipt` label; kasten keeps each file once,
+by its hash. `read` has Claude read each unread receipt. The mailbox is never written.
+See docs/how-to/collect-receipts.md and docs/reference/receipt-jobs.md.
 """
 
 import argparse
@@ -90,8 +85,7 @@ def query(label: str, days: int) -> str:
 def collect(api: KastenApi, mailbox: Mailbox, label: str, days: int) -> dict[str, int]:
     """Send kasten every PDF of the labelled mails of the last `days`; count what it did.
 
-    A mail Gmail will not hand over is skipped and counted; one that fails
-    never costs the run.
+    A mail Gmail will not hand over is skipped and counted, never costing the run.
     """
     counts = {"new": 0, "known": 0, "refused": 0, "skipped": 0}
     for message_id in mailbox.search(query(label, days)):
@@ -128,8 +122,7 @@ STOP = (BusyError,)
 def _reading(reader: Reader, data: bytes, media_type: str) -> dict[str, Any]:
     """What the receipt says, or a reading with `error` once it cannot be read.
 
-    A receipt that ends with an error reading is never sent to the API again,
-    so a file it refuses costs one call, not one an hour.
+    An error reading is never sent to the API again, so a refused file costs one call.
     """
     for attempt in range(1, TRIES + 1):
         try:
@@ -159,9 +152,8 @@ def _sent(api: KastenApi, receipt_id: int, reading: dict[str, Any]) -> dict[str,
 def read_all(api: KastenApi, reader: Reader) -> dict[str, int]:
     """Read every unread receipt, oldest first, and send kasten each reading.
 
-    A bad token or a model that is not there raises `SetupError`, failing the
-    run before it reads anything. A busy or unreachable API ends the run; see
-    `STOP`.
+    A bad token or a missing model raises `SetupError` before anything is read.
+    A busy or unreachable API ends the run; see `STOP`.
     """
     counts = {"read": 0, "unreadable": 0, "skipped": 0, "stopped": 0}
     after: int | None = None

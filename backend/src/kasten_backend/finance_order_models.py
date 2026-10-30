@@ -1,9 +1,8 @@
 """The order tables: PayPal and Amazon orders from the order mails, and the bookings they paid.
 
-A job reads the order mails and sends what it found; kasten matches each
-charge to the bank booking that paid it and splits that booking into the
-charge's items. No order ever makes a booking of its own. See
-docs/reference/http-api/finance-orders.md.
+A job sends what the order mails hold. Kasten matches each charge to the bank booking
+that paid it and splits that booking into the charge's items.
+See docs/reference/http-api/finance-orders.md.
 """
 
 import datetime as dt  # noqa: TC003  SQLAlchemy reads the annotation at runtime
@@ -85,9 +84,8 @@ class ShopOrder(Base):
 class OrderCharge(Base):
     """One payment for an order, or one refund, and the bank booking it matched.
 
-    Amazon charges each shipment on its own, so an Amazon order has a charge
-    per shipment; a PayPal payment is one charge. Amounts are positive: what
-    was paid, or what came back. A booking pays at most one charge.
+    Amazon charges each shipment on its own; a PayPal payment is one charge. Amounts are
+    positive: what was paid, or what came back. A booking pays at most one charge.
     """
 
     __tablename__ = "order_charge"

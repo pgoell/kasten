@@ -1,9 +1,6 @@
 """The goal routes: saving goals, each a reserved share of one own saving account's balance.
 
-Beside the other finance routes, under the same prefix and gate. The goals
-in one account may together reserve no more than its latest bank balance;
-docs/reference/budget-model.md says how a goal's monthly contribution comes
-off free to spend.
+The goals in one account may together reserve no more than its latest bank balance.
 """
 
 import datetime as dt  # noqa: TC003  pydantic reads the annotation at runtime

@@ -1,13 +1,8 @@
 """Today's daily note, and the section of it the day's loose thoughts collect in.
 
-The note is the one `<leader>gd` makes, which `frontend/src/lib/periodic.ts`
-builds. That module owns all five periodic notes, and the key, the todo prompt
-and the week's arithmetic all read it, so it stays where it is and the day's
-template is mirrored here rather than moved. The capture route makes the note
-on the server with nothing but a date in hand, so the server needs a copy.
-`frontend/tests/fixtures/daily-notes.json` holds the text both copies must
-produce and a test on each side reads it, which is the cheapest thing that
-fails when one copy is edited and not the other.
+The note is the one `<leader>gd` makes, built by `frontend/src/lib/periodic.ts`. The
+server needs its own copy of the day's template for the capture route, so
+`frontend/tests/fixtures/daily-notes.json` holds the text both copies must produce.
 """
 
 import re
@@ -35,8 +30,8 @@ DUMP = "## Dump"
 SECTION_END = re.compile(r"^#{1,2} ")
 """A heading at the dump's own level or above, which is where the dump stops.
 
-Not every heading: a `###` written inside the dump is part of what was dumped.
-`log.py` ends a `## Log` section by the same rule.
+Not every heading: a `###` inside the dump is part of what was dumped. `log.py` ends a
+`## Log` section by the same rule.
 """
 
 ANY_HEADING = re.compile(r"^#{1,6} ")
@@ -66,11 +61,10 @@ FENCE_LINE = re.compile(r"^ {0,3}(`{3,}|~{3,})")
 
 
 def _live(text: str) -> list[bool]:
-    """Per line of `text`, whether the line is the note's own text and not frontmatter or code.
+    """Per line of `text`, whether it is the note's own text and not frontmatter or code.
 
-    Each line is judged by its start offset, as `log.py` judges its lines. The
-    fences are found in the body alone, so a fence the frontmatter seems to open
-    hides nothing below it.
+    Fences are found in the body alone, so a fence the frontmatter seems to open hides
+    nothing below it.
     """
     body = body_start(text)
     spans = [(start + body, end + body) for start, end in code_spans(text[body:])]
@@ -85,12 +79,9 @@ def _live(text: str) -> list[bool]:
 def _open_fence(text: str, lines: list[str], *, frontmatter: bool = True) -> str | None:
     """The run of the fence that runs to the note's end, such as "```", or None.
 
-    markdown-it decides which line opens a fence, so `code_spans` is asked rather
-    than the lines read one by one: a backtick run with a backtick after it opens
-    nothing, and a four-backtick span is no closer for a three-backtick fence. The
-    span holding the note's last character is the fence; a closing line after its
-    opener means it was closed after all. A capture has no frontmatter to skip, so
-    it is read with `frontmatter=False`.
+    `code_spans` decides which line opens a fence, not a line-by-line read: markdown-it
+    rules a backtick run with a backtick after it opens nothing. A capture has no
+    frontmatter to skip, hence `frontmatter=False`.
     """
     body = body_start(text) if frontmatter else 0
     last = len(text) - 1 - body
@@ -112,10 +103,8 @@ def _open_fence(text: str, lines: list[str], *, frontmatter: bool = True) -> str
 def _close(text: str, fence: str, *, frontmatter: bool = True) -> str:
     """`text` with a closing line for `fence` after its last character, if that line closes it.
 
-    The closer repeats the opener's run, so a four-backtick fence needs four. It
-    goes on a line after the text, which is kept whole. It is kept only when the
-    fence really closes: a bare line at column 0 does not close an inline span or
-    a fence inside a list item, and would open a new fence instead.
+    A bare line at column 0 does not close an inline span or a fence in a list item, so
+    the line is left out then rather than opening a new fence.
     """
     closed = f"{text}{fence}\n" if text.endswith("\n") else f"{text}\n{fence}"
     if _open_fence(closed, closed.split("\n"), frontmatter=frontmatter) is not None:
@@ -128,10 +117,7 @@ def _section(
 ) -> tuple[int | None, int]:
     """The line `heading` is read from, or None, and the line its section ends at.
 
-    The first live line that is the heading. The section ends at the next live
-    heading at its level or above, or at the note's end. A `## Dump` after a fence
-    nobody closed would sit where the readers see code, so `append_dump` closes
-    that fence first.
+    The section ends at the next live heading at its level or above, or at the note's end.
     """
     lines = text.split("\n")
     live = _live(text)
@@ -151,19 +137,8 @@ def _section(
 def append_dump(text: str, capture: str) -> str:
     """`text` with `capture` as a paragraph of its own at the end of `## Dump`.
 
-    The dump is prose, so a capture is a paragraph rather than a list item, a
-    blank line apart from the one before it. A note with no dump gets one at its
-    end, which is where the ritual writes it by hand at 17:00. A section that
-    follows the dump keeps the blank line in front of its heading: `/close-day`
-    writes one there, and a capture pushed under the gap would read as its.
-
-    The heading and its end are found the way `log.py` finds `## Log`: a line in
-    the frontmatter or in a fence is neither, so a dump written in code is not the
-    section.
-
-    A capture never lands inside a fence and never leaves one open. A note ending
-    in a fence nobody closed gets its closer first, unless the fence starts after
-    the dump, and a capture that opens a fence gets its own closer.
+    The capture is a paragraph, not a list item, and never lands inside a fence. A
+    fence nobody closed at the note's end is closed first.
     """
     capture_fence = _open_fence(capture, capture.split("\n"), frontmatter=False)
     if capture_fence is not None:
@@ -184,8 +159,7 @@ def append_dump(text: str, capture: str) -> str:
     while last > at + 1 and lines[last - 1].strip() == "":
         last -= 1
 
-    # A dump holding nothing yet takes the capture straight under its heading,
-    # the way the ritual writes the first line of one.
+    # An empty dump takes the capture straight under its heading, as the ritual writes it.
     written = [*lines[:last], *([""] if last > at + 1 else []), capture]
     rest = lines[end:]
 
@@ -195,12 +169,9 @@ def append_dump(text: str, capture: str) -> str:
 def append_under(text: str, heading: str, line: str) -> str:
     """`text` with `line` at the end of `heading`'s section, made at the end where there is none.
 
-    `appendUnder` in `note-section.ts` is the other copy, which the todo pane
-    writes its done log through: a list line straight under the last one, and
-    the blank line before the next heading left where it is.
-    `frontend/tests/fixtures/done-lines.json` holds the placements both copies
-    must produce. A note ending in a fence nobody closed gets its closer first
-    when the line would land inside it, as `append_dump` does.
+    `appendUnder` in `note-section.ts` is the other copy, and
+    `frontend/tests/fixtures/done-lines.json` holds the placements both must produce.
+    A fence nobody closed at the end gets its closer first, as in `append_dump`.
     """
     at, end = _section(text, heading, ANY_HEADING)
     lines = text.split("\n")

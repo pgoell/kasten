@@ -1,9 +1,8 @@
 """The text of the pdf, epub and html files beside the notes, kept in a cache for search.
 
-ripgrep reads text, not pdfs or epubs, so each file is turned into a text file
-once, in a cache outside the vault. On each query the cache is brought into step
-with the vault: a file changed since its entry was made is extracted again, and
-the entry of a file that is gone is dropped. The vault never gets a new file.
+ripgrep reads text, not pdfs or epubs, so each file is extracted once into a cache outside
+the vault. Each query brings the cache into step: a changed file is extracted again, and
+the entry of a removed file is dropped. The vault never gets a new file.
 """
 
 import asyncio
@@ -32,8 +31,8 @@ if TYPE_CHECKING:
 MOST_CHARS = 1_000_000
 """How many characters of text are kept per file; the rest of a file is not searched.
 
-A cap on the work one file can cost, a book of a thousand pages being a few
-million characters. Read at call time so a test can make it smaller.
+Caps the work one file can cost: a book of a thousand pages is a few million characters.
+Read at call time so a test can make it smaller.
 """
 
 KINDS = (".pdf", ".epub", ".html")
@@ -208,8 +207,8 @@ def _pdf_text(path: Path) -> Extracted:
 
 def _epub_text(path: Path) -> Extracted:
     with zipfile.ZipFile(path) as book:
-        # The standard library parser, as the brief asks: the files are the user's own, not
-        # strangers', so the entity-expansion attacks defusedxml guards against do not apply.
+        # The standard library parser is enough: the files are the user's own, so the
+        # entity-expansion attacks defusedxml guards against do not apply.
         container = ET.fromstring(book.read("META-INF/container.xml"))  # noqa: S314
         rootfile = container.find(f".//{_CONTAINER_NS}rootfile")
         if rootfile is None:
@@ -251,11 +250,9 @@ def _html_text(path: Path) -> Extracted:
 
 
 def _extract(path: Path) -> Extracted:
-    """The text of one file, or nothing at all when the file will not read.
+    """The text of one file, or nothing when the file will not read.
 
-    A file that fails to read is an empty entry, not an error: the search answers
-    with its other hits, and the entry keeps the file from being tried again on
-    every query.
+    An unreadable file is an empty entry, not an error, so it is not tried again on every query.
     """
     try:
         suffix = path.suffix.lower()
@@ -284,7 +281,7 @@ def _extract(path: Path) -> Extracted:
 _lock = asyncio.Lock()
 """One extraction at a time.
 
-pdfium is not thread safe, and two cold queries would otherwise extract one book twice at once.
+pdfium is not thread safe, and two cold queries would extract one book twice at once.
 """
 
 
@@ -304,11 +301,9 @@ async def _refresh_locked(root: Path, cache: Path, skip: str | None) -> None:
 async def fresh(root: Path, cache: Path, skip: str | None) -> AsyncIterator[None]:
     """Bring the cache into step, then hold it still while the caller reads it.
 
-    A reader scans an entry's txt and then looks up its json, and an entry is
-    rewritten one half at a time, so a rewrite in between would pair a new line
-    with an old place (#1271). The writers' lock is held over the read. A
-    refresh that gets in before it is taken is harmless: it finishes both
-    halves first, and the read sees the newer entry whole.
+    A reader scans an entry's txt, then its json. A rewrite between the two would pair a new
+    line with an old place (#1271). The lock covers the read, and a refresh that starts earlier
+    finishes both halves first.
     """
     await refresh(root, cache, skip)
     async with _lock:
@@ -407,9 +402,9 @@ def _spans(places: list[Place]) -> list[list[object]]:
 def _load(json_path: str, _inode: int, _mtime_ns: int, _size: int) -> tuple[list[int], list[Place]]:
     """The spans of one entry, parsed once.
 
-    Its stamp is in the key, so a rewritten entry is read again. The inode is
-    there because two writes in one mtime tick can leave jsons of one size,
-    and `_replace` gives every write a new inode.
+    Keyed on its stamp, so a rewritten entry is read again. The inode is there because two
+    writes in one mtime tick can leave jsons of one size, and `_replace` gives each write a
+    new inode.
     """
     try:
         entry = json.loads(Path(json_path).read_text(encoding="utf-8"))
