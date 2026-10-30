@@ -1077,6 +1077,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/ranked": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Ranked Search
+         * @description The notes best matching `q` by its words and by its meaning, at most twenty.
+         *
+         *     A blank query answers no notes and embeds nothing. `archive` takes the
+         *     archive folder in, as the line search does.
+         */
+        get: operations["ranked_search_api_ranked_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/github": {
         parameters: {
             query?: never;
@@ -5276,6 +5299,34 @@ export interface components {
             household: components["schemas"]["ScopeComparedOut"];
         };
         /**
+         * RankedAnswer
+         * @description The ranked notes, and how much of the index stood behind them.
+         */
+        RankedAnswer: {
+            /** Hits */
+            hits: components["schemas"]["RankedHit"][];
+            /** Meaning */
+            meaning: boolean;
+            /** Indexed */
+            indexed: number;
+            /** Notes */
+            notes: number;
+        };
+        /**
+         * RankedHit
+         * @description A note the ranked search found, with its best piece.
+         */
+        RankedHit: {
+            /** Path */
+            path: string;
+            /** Heading */
+            heading: string;
+            /** Text */
+            text: string;
+            /** Score */
+            score: number;
+        };
+        /**
          * ReadingIn
          * @description What the receipt reader found, or why it found nothing.
          */
@@ -7518,6 +7569,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SearchHit"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ranked_search_api_ranked_get: {
+        parameters: {
+            query: {
+                q: string;
+                archive?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RankedAnswer"];
                 };
             };
             /** @description Validation Error */

@@ -48,6 +48,8 @@ export interface EditorCommands {
   findTodos(): void;
   /** Open the book finder, which lists every note with an epub beside it. */
   findBook(): void;
+  /** Open the ranked search, which finds notes by their words and by their meaning. */
+  findMeaning(): void;
   /** Put the todo list in the focused pane, replacing whatever was there. The next three alike. */
   openTodos(): void;
   /** The log pane. */

@@ -2,12 +2,7 @@ import { STATE_ORDER, TodoStateBox } from "@/components/todo-state-box";
 import type { TodoState } from "@/lib/todo/todo";
 
 /**
- * The count per state, each beside the box that draws it, so a box on a row
- * reads without the words. The state's name is the box's label and the row's
- * title, so a reader who does not know a box can point at it.
- *
- * Wraps where the width ends and never scrolls sideways: a phone at 390 px
- * takes it in two lines.
+ * The count per state, beside the box that draws it. Wraps rather than scrolls sideways.
  */
 export function TodoLegend({ counts }: { counts: Record<TodoState, number> }) {
   return (

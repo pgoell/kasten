@@ -1,13 +1,8 @@
 /**
- * Obsidian's callouts: a blockquote whose first line opens with `[!type]`.
- *
- * `> [!warning]- Mind the gap` is a warning, folded shut, titled "Mind the
- * gap". The type is read without regard to case, as Obsidian reads it, and an
- * alias is drawn as the type it stands for. A type Obsidian does not know is
- * still a callout, drawn as a note, which is what Obsidian does with one.
+ * Obsidian's callouts: a blockquote whose first line opens with `[!type]`. Case is
+ * ignored, an alias draws as its type, and an unknown type draws as a note.
  */
 
-/** The types Obsidian ships, each with the aliases it answers to. */
 const TYPES: Record<string, string[]> = {
   note: [],
   abstract: ["summary", "tldr"],
@@ -30,7 +25,6 @@ const KIND = new Map<string, string>(
   ),
 );
 
-/** `[!type]`, the fold sign and the title, as Obsidian reads the first line. */
 const HEADER = /^\[!([^\]\s]+)\]([+-]?)[ \t]*(.*)$/;
 
 export interface Callout {
@@ -44,7 +38,7 @@ export interface Callout {
   title: string;
   /** Whether the title was written, rather than made from the type. */
   titled: boolean;
-  /** How many characters `[!type]` and the fold sign and the spaces after them take. */
+  /** Characters before the title: `[!type]`, the fold sign and the spaces. */
   length: number;
 }
 

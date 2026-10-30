@@ -81,6 +81,7 @@ export function Harness({
         searchNotes: onSearchNotes ?? (() => {}),
         findTodos: () => {},
         findBook: () => {},
+        findMeaning: () => {},
         openTodos: () => {},
         showBacklinks: () => {},
         showLinksOut: () => {},

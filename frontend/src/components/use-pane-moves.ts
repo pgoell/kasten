@@ -29,50 +29,23 @@ export function usePaneMoves({
   const [refused, setRefused] = useState(0);
 
   /**
-   * Hand the keys back to the pane a prompt was opened over.
-   *
-   * The prompt gives the focus back to the element it took it from, and a write
-   * that moves the row it was taken from leaves that element detached: the
-   * browser then holds the focus on the body and the pane is deaf to every key
-   * after it. This is the signal the pane already answers to when a key moves
-   * to it, and it lands after the prompt's own handback.
+   * Hand keys back to the pane a prompt opened over. A write that moved its row can detach the
+   * element the focus returns to, leaving the pane deaf to keys.
    */
   const refocusPane = useCallback(
     () => setFocusSignal((previous) => previous + 1),
     [setFocusSignal],
   );
 
-  /**
-   * Decline a key where the reader can see it: the bar's one reading flashes.
-   *
-   * Answers null, which is what a refused reload hands back. A dozen keys and
-   * one form of `:e` come through here, and a key that does nothing and says
-   * nothing reads as a key that is broken.
-   */
+  /** Flash the bar's reading to decline a key the reader can see. Answers null, as a refused reload does. */
   const refuse = useCallback(() => {
     setRefused((previous) => previous + 1);
     return null;
   }, []);
 
   /**
-   * Rearrange the panes, and hand the focus to whichever one we arrived at.
-   *
-   * Refused while the open note stands conflicted. Every one of these moves the
-   * focused pane, which moves the note the autosave follows, and its cleanup
-   * writes what is waiting to the note being left: the overwrite `saveFirst`
-   * declines on every path that asks, arriving here with nobody asked.
-   *
-   * Every key that moves the focus comes through here. The one thing that moves
-   * it without doing so is a click into another pane, which the pane layout
-   * reports once the browser has already moved it, and which is deliberately
-   * left alone below.
-   *
-   * `closeNote` reaches this after a save, by which point there is no conflict
-   * left to catch it.
-   *
-   * It answers whether it moved. Sixteen callers ignore that, and `openPassage`
-   * is the one that cannot: a passage armed for a key that was refused would
-   * jump a reader that is already open.
+   * Rearrange the panes and focus the one arrived at. Refused while the open note is conflicted,
+   * since moving focus moves the autosave's note. Answers whether it moved, which `openPassage` needs.
    */
   const moveTo = useCallback(
     (update: (previous: Layout) => Layout) => {
@@ -89,11 +62,8 @@ export function usePaneMoves({
   );
 
   /**
-   * Move to the pane in one direction on screen, staying put at the edge.
-   *
-   * The boxes are read before the layout is touched rather than inside the
-   * update, which React is free to run more than once. Nothing happens with no
-   * pane that way, so the focus is not raised for a key that moved nothing.
+   * Move focus to the pane one way on screen, staying put at the edge. The boxes are read before
+   * the layout update, which React may run twice.
    */
   const focusToward = useCallback(
     (dir: Direction) => {
@@ -105,20 +75,9 @@ export function usePaneMoves({
   );
 
   /**
-   * Trade places with the pane in one direction, standing still at the edge.
-   *
-   * The same question `focusToward` asks, answered off the same boxes, and the
-   * answer swaps the two panes rather than moving the focus. Through `moveTo`
-   * like every other change to the layout: React blurs an element it moves
-   * between two parents, and the signal that call raises is what puts the
-   * cursor back in the pane you are still in.
-   *
-   * Written first, which no move of the focus has to do. The autosave follows
-   * the focused pane's note, and a swap leaves that note where it was, so
-   * nothing flushes it: the hook's cleanup fires on a change of path and this
-   * changes none. A swap between two splits builds the editor again from the
-   * vault's copy, and without this the line typed in the last second is the
-   * one the rebuild would drop.
+   * Trade places with the pane one way, standing still at the edge. Goes through `moveTo`, and writes
+   * the note first: a swap rebuilds the editor from the vault's copy and would drop a line typed in
+   * the last second.
    */
   const swapToward = useCallback(
     async (dir: Direction) => {

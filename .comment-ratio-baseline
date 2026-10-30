@@ -1,31 +1,8 @@
 # Files over 20% comment lines, as "<file> <percent>", docstrings and JSDoc left out.
 # A file fails when it gets denser than its percent.
 # check-comments --update-baseline only lowers or drops lines; never raise one.
-backend/src/kasten_backend/db.py 22
 backend/src/kasten_backend/page_script.js 26
-frontend/src/components/editor.tsx 26
-frontend/src/components/note-finder.tsx 26
-frontend/src/components/note-prompt.tsx 24
-frontend/src/components/review-pane.tsx 21
-frontend/src/components/search-preview.tsx 30
-frontend/src/components/search-row.tsx 24
-frontend/src/components/terminal-pane.tsx 28
-frontend/src/components/todo-row.tsx 21
-frontend/src/components/use-finders.tsx 27
-frontend/src/components/use-prompts.tsx 23
+frontend/src/components/finder/note-finder.tsx 26
+frontend/src/components/use-finders.tsx 26
 frontend/src/lib/book/use-book-view.ts 39
-frontend/src/lib/clip.ts 23
-frontend/src/lib/csp.ts 59
-frontend/src/lib/highlight.ts 21
 frontend/src/lib/leader-keys.ts 46
-frontend/src/lib/move.ts 21
-frontend/src/lib/use-bookmark.ts 21
-frontend/src/lib/use-file-transfer.tsx 25
-frontend/src/lib/use-guarded-writes.ts 30
-frontend/src/lib/use-keyboard-inset.ts 26
-frontend/src/lib/use-listings.ts 33
-frontend/src/lib/use-search-hits.ts 23
-frontend/src/lib/use-tab-geometry.ts 24
-frontend/src/lib/use-tree-drawer.ts 36
-frontend/src/lib/use-vault-events.ts 50
-frontend/src/lib/vault-events.ts 29

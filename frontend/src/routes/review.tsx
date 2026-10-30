@@ -13,18 +13,10 @@ export const Route = createFileRoute("/review")({
 type Screen = { at: "decks" } | { at: "sitting"; deck: Deck } | { at: "parked" };
 
 /**
- * The review, on a page of its own, sized for a phone.
- *
- * A route rather than a pane, and both rather than either. The app proper is a
- * grid of panes driven by a leader key and a vim mode, none of which a phone
- * has: no escape key, no split, no `<leader>gs`. Reviewing is the one thing
- * worth doing in a queue at a bus stop, so it gets a screen that is only
- * buttons, and `/review` is a URL you can put on a home screen.
- *
- * The two shells share all three halves of the interface. This one adds a
- * viewport and where a note opens, and nothing else, which is the property to
- * keep: a rule that lived here and not in the pane would be a rule that applies
- * on a phone and not at a desk.
+ * The review on a page of its own, sized for a phone. A route rather than a pane, since a phone
+ * has no leader key, no vim and no split.
+ * It shares all three halves of the interface with the pane: a rule that lived only here would
+ * hold on a phone and not at a desk.
  */
 function Review() {
   const [screen, setScreen] = useState<Screen>({ at: "decks" });

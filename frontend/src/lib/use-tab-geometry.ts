@@ -11,18 +11,12 @@ import { SPRINGS, type Spring } from "@/lib/spring";
 import { foldTabs } from "@/lib/tab-fold";
 
 /**
- * The widest a tab draws, in px: the `max-w-[200px]` class on the tab in tab-strip.tsx,
- * and the `w-[200px]` the bar under the active tab is drawn at before its scale.
- *
- * Tailwind needs those classes as literals, so the three are kept in step by hand.
+ * The widest a tab draws, in px. Tailwind needs literal classes, so the 200s in tab-strip.tsx
+ * are kept in step by hand.
  */
 export const TAB_MAX_WIDTH = 200;
 
-/**
- * The room the "N more" button keeps at the right of the tabs, in px.
- *
- * Kept in step with the button's own `w-[88px]`, so a tab is never drawn under it.
- */
+/** Room kept at the right for the "N more" button, in px. Matches its `w-[88px]`. */
 const MORE = 88;
 
 function same(a: readonly number[], b: readonly number[]): boolean {
@@ -40,12 +34,8 @@ export interface TabGeometry {
 }
 
 /**
- * The fold of a tab strip and the placement of its bar under the active tab.
- *
- * One ResizeObserver measures the row and every tab, so a switch of the active
- * tab reads no geometry: the fold and the bar are worked out from the widths the
- * observer stored. `motion` is the bar's springs, placed here and painted by the
- * strip.
+ * The fold of a tab strip and the placement of its bar under the active tab. One ResizeObserver
+ * stores the widths, so switching tabs reads no geometry. `motion` is the bar's springs.
  */
 export function useTabGeometry(
   list: RefObject<HTMLDivElement | null>,
@@ -55,34 +45,28 @@ export function useTabGeometry(
   labels: string,
   fold: boolean,
 ): TabGeometry {
-  // Whether the bar has been drawn since it last appeared, so its first place is
-  // a jump and not a glide in from the left edge.
+  // Until the bar is drawn, its first place is a jump, not a glide in from the left.
   const placed = useRef(false);
   const [hidden, setHidden] = useState<readonly number[]>([]);
   const [cap, setCap] = useState<number>();
   const [open, setOpen] = useState(false);
-  // Read by the observer's callback, which is made again only per set of tabs and
-  // so would keep the value it was made with.
+  // A ref, since the observer's callback would otherwise keep the value it was made with.
   const folding = useRef(fold);
   folding.current = fold;
 
-  // What the observer measured, written only by its callback. Each tab's natural
-  // width is kept by element, so it follows the tab and not its index.
+  // Each tab's natural width, keyed by element so it follows the tab, not its index.
   const [natural] = useState(() => new WeakMap<HTMLElement, number>());
   const room = useRef(0);
-  // Set by the observer's first callback. Until then the fold's layout effect measures
-  // the DOM itself on every change: that is the first layout, and jsdom's observer never reports.
+  // Set by the observer's first callback. Until then the layout effect measures the DOM itself,
+  // since jsdom's observer never reports.
   const reported = useRef(false);
   // The live observer, so the fold can observe the active tab again on its own.
   const observerRef = useRef<ResizeObserver | null>(null);
-  // The observer is made again when the tabs change, so it reads the active tab from here.
+  // The observer outlives renders, so it reads the active tab from here.
   const activeNow = useRef(active);
 
-  // Reads the row and its tabs into the refs. A tab whose width reaches a cap the fold
-  // gave it is read again without the cap, or the cap would shape the fold that set it
-  // (R18), and a tab that was narrower before it became active (R6) or whose label grew
-  // (R5) would keep its old width. The class's own cap is not the fold's: no tab is wider
-  // than it, so a tab at that width is read as it is, without a lift.
+  // A tab read at a cap the fold gave it would shape that fold, so it is re-read without the cap.
+  // The class's own cap is not the fold's, so a tab under TAB_MAX_WIDTH is read as it is.
   const measure = (row: HTMLElement) => {
     room.current = row.clientWidth;
     for (const tab of row.querySelectorAll<HTMLElement>("[data-tab]")) {
@@ -104,25 +88,21 @@ export function useTabGeometry(
     const sizes = [...row.querySelectorAll<HTMLElement>("[data-tab]")].map(
       (tab) => natural.get(tab) ?? 0,
     );
-    // No room at all is a strip not laid out (hidden, or no layout as in
-    // jsdom), where folding would hide every tab but the active one for nothing.
+    // No room means no layout (hidden, or jsdom): folding then would hide tabs for nothing.
     if (room.current === 0 || !folding.current) return [];
     return foldTabs(sizes, room.current, at, MORE).hidden;
   };
 
   const apply = (next: readonly number[]) => {
     setHidden((previous) => (same(previous, next) ? previous : next));
-    // The room a tab shown beside the button may take, so a folded-in active tab
-    // is cut by its own ellipsis rather than running under the button.
+    // Room for the active tab beside the button, so it ellipsises rather than running under it.
     setCap(Math.max(0, room.current - MORE));
-    // With nothing folded there is no list to open, and one that was open must
-    // not come back by itself when the window narrows again.
+    // No folded tabs, no list: an open one must not reappear on its own when narrowing again.
     if (next.length === 0) setOpen(false);
   };
 
-  // The bar under the active tab. Once the observer has reported it is placed from
-  // the stored widths, and before that from the tab's own offsets. A folded tab is
-  // absolute, so it takes no room in the row and is left out of the bar's left edge.
+  // The bar under the active tab: from the stored widths once reported, else the tab's offsets.
+  // Folded tabs are absolute, so they are left out of the bar's x.
   const place = (row: HTMLElement, at: number, folded: readonly number[]) => {
     const tabs = [...row.querySelectorAll<HTMLElement>("[data-tab]")];
     const tab = tabs[at];
@@ -154,14 +134,13 @@ export function useTabGeometry(
     const sizes: number[] = [];
     for (const element of tabs) {
       const size = natural.get(element);
-      // A newly observed element gets its first report once it has a size, so a 0 by 0
-      // element may get none. The bar waits for that report.
+      // A new element reports only once it has a size, so the bar waits for that report.
       if (size === undefined) return undefined;
       sizes.push(size);
     }
     const own = sizes[at];
     if (own === undefined) return undefined;
-    // A folded tab is absolute, so it takes no room in the row and is left out.
+    // Folded tabs are absolute, so they take no room.
     const x = sizes
       .slice(0, at)
       .reduce((sum, size, index) => sum + (folded.includes(index) ? 0 : size), 0);
@@ -170,9 +149,7 @@ export function useTabGeometry(
     return { x, width: Number.isNaN(limit) ? own : Math.min(own, limit) };
   };
 
-  // The fold follows the width of the tabs and of the row they sit in. It is set
-  // here, before paint, so a tab switch never shows a strip that has not folded.
-  // A tab that is folded keeps its width, being hidden rather than removed.
+  // Set before paint so a tab switch never shows an unfolded strip; folded tabs keep their width.
   // biome-ignore lint/correctness/useExhaustiveDependencies: all four are the trigger, and tabIds and labels are not read.
   useLayoutEffect(() => {
     const row = list.current;
@@ -180,10 +157,8 @@ export function useTabGeometry(
     activeNow.current = active;
     if (!reported.current) measure(row);
     apply(foldOf(row, active));
-    // A capped tab's box does not change when its label grows, so the observer would
-    // not hear of it. Disconnecting and observing every element again makes each one
-    // report afresh, the active tab included. unobserve is left out: the stubs of other
-    // test files have only observe and disconnect.
+    // A capped tab's box ignores a grown label, so re-observe every element to make each report.
+    // No unobserve: test stubs lack it.
     const observer = observerRef.current;
     if (observer !== null) {
       observer.disconnect();
@@ -194,9 +169,7 @@ export function useTabGeometry(
     }
   }, [active, tabIds, labels, fold]);
 
-  // The bar follows the active tab once the fold has been applied, so it is
-  // placed after the render that folds, and not in the effect above where the
-  // tabs before the active one could still be in the old places.
+  // Placed after the render that folds, not in the effect above, which would see old tab positions.
   // biome-ignore lint/correctness/useExhaustiveDependencies: all four are the trigger, and none of them is read.
   useLayoutEffect(() => {
     const row = list.current;
@@ -207,10 +180,8 @@ export function useTabGeometry(
     place(row, active, hidden);
   }, [active, tabIds, labels, hidden]);
 
-  // One observer serves the fold and the bar. It watches the row and every tab, and
-  // is made again when the set of tabs changes, since a new tab is a new element.
-  // Its callback runs after layout and before paint, so a fold it sets lands in the
-  // frame being drawn.
+  // One observer for the fold and the bar, remade when the tabs change. Its callback runs
+  // before paint, so a fold it sets lands in the frame being drawn.
   // biome-ignore lint/correctness/useExhaustiveDependencies: made again per set of tabs, and what it calls reads only refs and state setters.
   useLayoutEffect(() => {
     const row = list.current;
@@ -220,8 +191,7 @@ export function useTabGeometry(
       reported.current = true;
       measure(row);
       const next = foldOf(row, activeNow.current);
-      // A state set outside React waits for a task, which runs after the paint, so
-      // the fold is flushed here to reach this frame.
+      // A state set outside React waits for a task, after the paint, so flush it here.
       flushSync(() => apply(next));
       place(row, activeNow.current, next);
     });

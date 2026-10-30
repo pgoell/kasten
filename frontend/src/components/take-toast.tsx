@@ -31,12 +31,8 @@ interface TakeToastProps {
 }
 
 /**
- * The note at the foot of a page pane that says what a take did, and offers to
- * undo it or to put the passage into a note of the reader's choosing.
- *
- * It fades on its own after a few seconds, but not while the pointer is on it
- * or its list of notes is open, since a reader who is reading it should not
- * lose it under them.
+ * The note at the foot of a page pane that says what a take did, with undo and a way to put the
+ * passage into a note. It fades after a few seconds, but not while the pointer is on it or its list is open.
  */
 export function TakeToast({
   title,

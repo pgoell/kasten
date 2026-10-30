@@ -59,12 +59,8 @@ interface TodoBoardProps {
 }
 
 /**
- * The todo pane's `c`: the same cards in columns by state and lanes by kind or
- * by project.
- *
- * It holds no keys of its own. The pane hands it each key after a leader
- * sequence has had its chance, so `<leader>` and `q` read the same here as
- * they do over the list.
+ * The todo pane's `c` view: cards in columns by state and lanes by kind or project.
+ * No keys of its own: the pane passes each one on after the leader has had its chance.
  */
 export function TodoBoard({
   ref,

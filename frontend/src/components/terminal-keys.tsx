@@ -1,9 +1,6 @@
 /**
- * The keys a phone keyboard does not have, as a row under the terminal.
- *
- * The row sends what a hardware key would send and nothing else: the bytes
- * are worked out here, and `terminal-pane.tsx` puts them on the same path a
- * typed key takes.
+ * The keys a phone keyboard lacks, as a row under the terminal. The bytes are worked out
+ * here; terminal-pane.tsx sends them down the same path a typed key takes.
  */
 
 export type TerminalKey =
@@ -46,13 +43,8 @@ const CTRL_PUNCTUATION: Partial<Record<TerminalKey, string>> = {
 };
 
 /**
- * The bytes one key of the row sends.
- *
- * `application` is DECCKM, which vim, less and fzf turn on: the arrows then
- * start with SS3 rather than CSI, and a program that asked for one prints
- * letters when handed the other. A Ctrl arrow is the CSI form with modifier 5
- * in either mode. Ctrl changes nothing about Esc and Tab on a keyboard, so it
- * changes nothing here.
+ * The bytes one key sends. In application cursor mode (DECCKM, which vim, less and fzf set)
+ * the arrows start with SS3, not CSI. A Ctrl arrow is always the CSI form.
  */
 export function keyBytes(
   key: Exclude<TerminalKey, "Ctrl">,
@@ -70,11 +62,8 @@ export function keyBytes(
 }
 
 /**
- * What a typed character becomes with the row's Ctrl armed.
- *
- * Letters only, which is `Ctrl+C`, `Ctrl+D`, `Ctrl+R` and the rest of what a
- * shell binds. Anything else, a pasted run or an escape sequence included,
- * goes through as it came.
+ * What a typed character becomes with the row's Ctrl armed. Letters only; anything else,
+ * a pasted run included, goes through as it came.
  */
 export function withCtrl(data: string): string {
   return /^[a-zA-Z]$/.test(data) ? String.fromCharCode(data.charCodeAt(0) & 0x1f) : data;

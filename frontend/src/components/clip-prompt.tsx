@@ -20,16 +20,8 @@ interface ClipPromptProps {
 }
 
 /**
- * Paste a web address, and Enter puts the page in the inbox as a note.
- *
- * No list under the input, unlike every other overlay: there is nothing to
- * offer. What sits there instead is the one line saying what is happening,
- * because a clip is the only thing kasten does that waits on somebody else's
- * server, and a prompt that looks asleep for four seconds reads as broken.
- *
- * A failure keeps the prompt open carrying the reason. The address is still in
- * the input, which is where it has to be: half of these are a mistyped path or
- * a page that wants a login, and both are fixed by editing what was pasted.
+ * No list under the input: a clip waits on another server, so the status line is the only feedback.
+ * A failure keeps the address in the input, so a mistyped path can be edited.
  */
 export function ClipPrompt({ onClip, onClose }: ClipPromptProps) {
   const [input, setInput] = useState("");

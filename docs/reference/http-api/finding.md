@@ -170,6 +170,39 @@ an empty list.
 `GET /api/tags` reads them: inline tags and the frontmatter's `tags` field.
 `tags` is None when the note can no longer be read.
 
+## GET /api/ranked
+
+Finds the notes best matching `q` by its words and by its meaning, at most
+twenty, best first. Takes `q` and an optional `archive`, which takes the
+archive folder in as `GET /api/search` does. It reads the pieces index: BM25
+through the `german` and the `english` index, and the bge-m3 vectors, each a
+list of 50 pieces, fused by reciprocal rank fusion (a piece scores the sum of
+`1 / (60 + rank)` over the lists it is in). A note takes its best piece.
+
+```json
+{
+  "hits": [
+    {
+      "path": "pets/Bello.md",
+      "heading": "Bello > Morgens",
+      "text": "Mein Hund bellt jeden Morgen am Zaun.",
+      "score": 0.0328
+    }
+  ],
+  "meaning": true,
+  "indexed": 481,
+  "notes": 625
+}
+```
+
+`heading` is the best piece's heading path, empty before the note's first
+heading, and `text` its first 240 characters. `meaning` is false while the
+model loads, with no model configured, or when it fails: the words rank alone
+then. `indexed` counts the notes the index holds and `notes` those it takes in,
+so `indexed` below `notes` means the first indexing still runs. A blank `q`
+answers no hits and embeds nothing, but still the counts. A database without
+the pieces table answers no hits and `indexed` 0.
+
 ## GET /api/mentions
 
 Finds the unlinked mentions of one note: every place another note names it in

@@ -1,10 +1,6 @@
 /**
- * What the chat runner says, and what the chat pane makes of it.
- *
- * Pure: no `EventSource`, no DOM. `chat-pane.tsx` owns the stream and the
- * markup, and this owns the reading of it, so a run can be tested as a list of
- * events without mounting anything. The other end is `shell/chat/runner.mjs`,
- * and the two have to agree on the events below.
+ * What the chat runner says, and what the chat pane makes of it. Pure: no `EventSource`, no DOM,
+ * so a run can be tested as a list of events. `shell/chat/runner.mjs` must agree on these events.
  */
 
 export interface ChatOption {
@@ -61,8 +57,8 @@ export interface ChatState {
   /** The text block now arriving, a few words at a time. */
   streaming: string;
   /**
-   * Turns sent and not yet finished. A count and not a flag, because a message
-   * sent during a run is queued behind it, and the first `done` is not the end.
+   * Turns sent and not yet finished. A count, not a flag: a message sent mid-run queues,
+   * so the first `done` is not the end.
    */
   running: number;
 }
@@ -77,16 +73,15 @@ export function reduce(state: ChatState, event: ChatEvent): ChatState {
   });
 
   switch (event.type) {
-    // First on every connection, with the whole log inside it. So a pane that
-    // reconnects swaps what it had for the run so far in one step, and a form
-    // half filled in is still on screen afterwards to be finished.
+    // First on every connection, with the whole log: a reconnect swaps in the run so far,
+    // and a half-filled form stays on screen.
     case "reset":
       return event.log.reduce(reduce, EMPTY);
     case "user":
       return { ...add({ kind: "user", text: event.text }), running: state.running + 1 };
     case "delta":
       return { ...state, streaming: state.streaming + event.text };
-    // The whole block, which takes the place of the pieces that led up to it.
+    // The whole block, replacing the streamed pieces before it.
     case "text":
       return add({ kind: "text", text: event.text });
     case "tool":
@@ -115,7 +110,7 @@ export function reduce(state: ChatState, event: ChatEvent): ChatState {
       const next = event.error === undefined ? state : add({ kind: "error", text: event.error });
       return { ...next, streaming: "", running: Math.max(0, state.running - 1) };
     }
-    // The session itself ended, and whatever was queued behind it with it.
+    // The session ended, and whatever was queued behind it with it.
     case "error":
       return { ...add({ kind: "error", text: event.text }), running: 0 };
   }
@@ -125,10 +120,8 @@ export function reduce(state: ChatState, event: ChatEvent): ChatState {
 const TELLING = ["command", "file_path", "skill", "pattern", "url", "query", "description"];
 
 /**
- * One line for a tool call while it is folded: the command, the file, the skill.
- *
- * A guess at which field matters, since every tool names its own. A tool with
- * none of these shows its name alone, and the whole input is one tap away.
+ * One line for a folded tool call, from the first telling field. A guess: every tool names
+ * its own fields, and a tool with none shows its name alone.
  */
 export function toolLine(input: unknown): string {
   if (typeof input !== "object" || input === null) return "";
@@ -147,11 +140,8 @@ export interface Pick {
 }
 
 /**
- * The answers a form holds, or nothing while a question still has none.
- *
- * Keyed by the question's text and joined with `", "`, which is the shape the
- * tool reads. Typed text stands beside the picked labels as one more answer,
- * never as the word "Other".
+ * The answers a form holds, or undefined while a question has none. Keyed by question text,
+ * joined with `", "` as the tool reads them. Typed text is one more answer, never "Other".
  */
 export function answersFor(
   questions: ChatQuestion[],
@@ -168,11 +158,8 @@ export function answersFor(
 }
 
 /**
- * Say something to the runner. Whether it took it is the answer.
- *
- * JSON on purpose, and not only because the runner parses it: the runner
- * refuses any other content type, which is what keeps a form on another site
- * from posting here. See `fromOwnPage` in `shell/chat/runner.mjs`.
+ * Says something to the runner; the answer is whether it took it. JSON on purpose: the runner
+ * refuses other content types, which keeps a form on another site from posting here.
  */
 export async function postChat(
   path: "send" | "answer" | "stop" | "new",
@@ -186,8 +173,7 @@ export async function postChat(
     });
     return response.ok;
   } catch (error: unknown) {
-    // What `fetch` throws when there is no network or no server, which to the
-    // person who pressed the button is one more way of not having been heard.
+    // fetch throws a TypeError with no network; the caller reads that as not heard.
     if (error instanceof TypeError) return false;
     throw error;
   }

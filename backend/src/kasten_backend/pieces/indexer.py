@@ -8,6 +8,7 @@ the rest of a sweep.
 import asyncio
 import hashlib
 import logging
+from concurrent.futures import ThreadPoolExecutor
 from typing import TYPE_CHECKING
 
 from sqlalchemy import delete, select
@@ -23,7 +24,6 @@ from kasten_backend.vault import list_markdown_files
 
 if TYPE_CHECKING:
     from collections.abc import Callable
-    from concurrent.futures import ThreadPoolExecutor
     from pathlib import Path
 
     from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -56,6 +56,9 @@ class Indexer:
         self._thread = thread
         self._skip = skip.strip("/")
         self._model: Embedder | None = None
+        # A search's own thread on the same model: on the indexer's, a query
+        # waited 12.7 s behind the first fill's batches.
+        self._query_thread = ThreadPoolExecutor(max_workers=1, thread_name_prefix="query")
         self._changed: dict[str, None] = {}
         """Notes the watcher reported, in the order it did. A dict for an ordered set."""
         self._backlog: dict[str, None] = {}
@@ -203,6 +206,28 @@ class Indexer:
                 ]
                 await session.execute(insert(Piece), rows)
 
+    @property
+    def ready(self) -> bool:
+        """Whether the model has loaded, so a query can be embedded."""
+        return self._model is not None
+
+    async def embed_query(self, text: str) -> list[float] | None:
+        """The vector of a search query, or None while the model loads or once it failed.
+
+        Never loads the model: a request waits for no load. onnxruntime runs one
+        session from two threads, so the query waits for no indexing batch.
+        """
+        if self._model is None:
+            return None
+        loop = asyncio.get_running_loop()
+        try:
+            vectors = await loop.run_in_executor(self._query_thread, self._model.embed, [text])
+        # RuntimeError: the thread was shut down.
+        except (RuntimeError, ValueError, *MODEL_ERRORS) as error:
+            logger.warning("A search goes by words alone, the model fails: %s", error)
+            return None
+        return vectors[0]
+
     async def _model_loaded(self) -> Embedder:
         """The model, built on its own thread the first time a note needs it."""
         if self._model is None:
@@ -211,12 +236,17 @@ class Indexer:
         return self._model
 
 
+running: Indexer | None = None
+"""The indexer `start` began, which the ranked search asks for query vectors; None with no model."""
+
+
 def start(settings: Settings) -> asyncio.Task[None] | None:
     """Run the pieces index in the background, or None when no model is configured."""
+    global running  # noqa: PLW0603  one indexer a process, set once at startup
     folder = settings.embed_model_dir
     if folder is None:
         return None
-    indexer = Indexer(
+    indexer = running = Indexer(
         settings.vault_path,
         session_factory,
         lambda: BgeM3(folder),

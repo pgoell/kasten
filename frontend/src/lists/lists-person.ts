@@ -6,11 +6,8 @@
 const WHOLE_LINK = /^\[\[([^\]|#]+)(?:#[^\]|]*)?(?:\|[^\]]*)?\]\]$/;
 
 /**
- * The person an assignee names: the last path segment of its link, so `[[03 Areas/08
- * People/Pascal|P]]` and `[[Pascal]]` are both Pascal. Anything else is the trimmed
- * text, so a plain `Alicia` is itself. The path and the alias are taken off the way
- * #809's chip takes them, so "Ich" and the chip's name agree with the person card on
- * which note is meant.
+ * The person an assignee names: the last path segment of its link, with any alias dropped as
+ * #809's chip drops it, so both name the same note. Plain text is itself.
  */
 export function personOf(assignee: string | null): string | null {
   if (assignee === null) return null;

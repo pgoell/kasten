@@ -29,17 +29,8 @@ interface TodoPromptProps {
 }
 
 /**
- * Type a todo in shorthand, and Enter puts it in today's note.
- *
- * The line under the input is what the vault is about to get, read out of what
- * has been typed by the same two functions that will write it. So a `due:` that
- * is not a date shows as words rather than vanishing, and the spelling of a
- * priority is checked before it lands on disk rather than after.
- *
- * Its own component rather than a mode of `note-prompt.tsx`, for the reason the
- * terminal prompt is: that one is built around note paths end to end, through
- * `describeNotePath`, `folderCandidates` and `noteAfterPrompt`. A todo is not a
- * path.
+ * Type a todo in shorthand, and Enter puts it in today's note. The preview under the input
+ * runs the same parsers as the write, so what it shows is what lands.
  */
 export function TodoPrompt({ onAdd, onClose, today, under }: TodoPromptProps) {
   const [input, setInput] = useState("");

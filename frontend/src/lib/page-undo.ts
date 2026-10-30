@@ -21,7 +21,7 @@ export const BOOK_REFUSED = "The book's note changed since, so Undo left it as i
 /** The same for a video's note, whose take is a highlight block of the video's own. */
 export const VIDEO_REFUSED = "The video's note changed since, so Undo left it as it is";
 
-/** `note` without the take's text, or null when the take is not in it exactly as it was written. */
+/** `note` without the take's text, or null when the text is not there as written. */
 type Without = (note: string, quote: string) => string | null;
 
 /** How an Undo ended: taken back, left alone, or failed with a reason to show. */
@@ -31,9 +31,8 @@ export type UndoOutcome =
   | { state: "failed"; message: string };
 
 /**
- * The take's Undo, if the daily note still holds the take's line, or nothing.
- * Read after the dump has landed, so a note the send has not written yet is not
- * offered an Undo it cannot make.
+ * The take's Undo, or undefined when the note no longer holds its line. Read only after the
+ * dump lands, so a send still in flight is not offered an Undo it cannot make.
  */
 export async function undoFor(
   path: string,
@@ -50,10 +49,8 @@ export async function undoFor(
 }
 
 /**
- * Take the take's text back out of its note (the dump line, or a book's
- * highlight block, as `without` says), if the note has not changed since the
- * take. It is read again first and written under the base it was read with, so
- * a write that landed in between is refused, not overwritten.
+ * Takes the take's text out of its note, unless the note changed since the take. A write that
+ * lands in between is refused, not overwritten.
  */
 export async function undoPassage(
   undo: Undo,

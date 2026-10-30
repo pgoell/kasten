@@ -46,18 +46,9 @@ interface HtmlPaneProps {
 }
 
 /**
- * One HTML page out of the vault, drawn the way it draws itself.
- *
- * What a research run leaves beside its notes: a report with its own styles
- * and a deck with its own script. The image pane's shape with a frame where
- * the `<img>` was. The frame is sandboxed here and again by the policy
- * `GET /api/html` sends, which is the one that also holds a page opened in a
- * tab of its own.
- *
- * Keys typed inside the page are the page's, a deck's arrows above all. The
- * page script sends Space, `?` and Escape up to here, so the leader and the key
- * help still reach the panel from inside it. A click outside the frame takes
- * the keys back, the way it does from a book.
+ * One HTML page out of the vault. The frame is sandboxed here and again by the
+ * policy `GET /api/html` sends. Keys typed inside are the page's, so the page
+ * script forwards Space, `?` and Escape up to the panel.
  */
 export function HtmlPane({
   path,

@@ -21,11 +21,8 @@ interface TakeButtonProps {
 }
 
 /**
- * The take button over a selection.
- *
- * It is measured as drawn, since the fit depends on its width and height and
- * only the DOM knows them. The layout effect runs on every render, and sets
- * state only when the size changed, so it settles after one more render.
+ * The take button over a selection. It is measured as drawn, since the fit needs its size and only
+ * the DOM knows it. The layout effect sets state only on a change, so it settles in one more render.
  */
 export function TakeButton({ at, label, press, onTake }: TakeButtonProps) {
   const button = useRef<HTMLButtonElement>(null);

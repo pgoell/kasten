@@ -22,6 +22,13 @@ mise run db:migrate
 mise run db:revision -- -m "add tags table"
 ```
 
+`db:up` builds the image from `deploy/postgres/Dockerfile` only when the box has
+none yet. On a box whose container still runs plain `postgres:17-alpine`, or
+after a change to that Dockerfile, run `docker compose up -d --build db` once:
+it swaps the container and keeps the `kasten_pgdata` volume, every database in
+it included. Without pgvector, migration 0013 fails with `extension "vector" is
+not available`.
+
 `db:revision` compares your SQLAlchemy models against the live dev database and
 writes the difference to a new file under `backend/alembic/versions/`.
 

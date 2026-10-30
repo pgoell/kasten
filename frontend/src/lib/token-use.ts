@@ -8,11 +8,8 @@ const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;
 
 /**
- * How long ago `at` was, in the words the tokens page uses.
- *
- * Read against `now` rather than the clock, so the page and its tests agree on
- * what "3 min ago" means. Anything under a minute says "just now", because a
- * count of seconds moves on every render and reads as noise.
+ * How long ago `at` was, in the tokens page's words, read against `now` so tests agree. Under a
+ * minute says "just now": a seconds count moves on every render and reads as noise.
  */
 export function lastUse(at: string | null, now: Date): string {
   if (at === null) return "never";
@@ -25,10 +22,8 @@ export function lastUse(at: string | null, now: Date): string {
 }
 
 /**
- * Whether a token has gone unused for `UNUSED_DAYS`.
- *
- * A token that was never used is judged by its creation date instead, so one
- * minted last week and not yet connected does not show as unused.
+ * Whether a token has gone unused for `UNUSED_DAYS`. A never-used token is judged by its creation
+ * date, so one minted last week and not yet connected does not show as unused.
  */
 export function unused(token: TokenUse, now: Date): boolean {
   const since = token.last_used ?? token.created;

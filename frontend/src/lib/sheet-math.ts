@@ -1,8 +1,4 @@
-/**
- * The arithmetic of a bottom sheet dragged by a finger: when a drag starts, how
- * fast it was moving on release, and whether that release closes the sheet.
- * Pure, so the gesture can be tested without a screen.
- */
+/** The arithmetic of a finger-dragged bottom sheet. Pure, so tests need no screen. */
 
 import { FLICK_SPEED } from "./spring";
 
@@ -53,7 +49,7 @@ export function speed(samples: readonly Sample[], now: number): number {
   return dt > 0 ? ((last.y - first.y) / dt) * 1000 : 0;
 }
 
-/** Whether a drag so far is a vertical drag of the sheet, or a sideways gesture to leave alone. */
+/** Vertical drag, sideways scroll, or pending until the finger has moved SLOP px. */
 export function axis(dx: number, dy: number): "pending" | "drag" | "scroll" {
   const x = Math.abs(dx);
   const y = Math.abs(dy);

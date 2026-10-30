@@ -13,12 +13,8 @@ const ROW =
   "k-row flex w-full items-center gap-1 rounded-sm py-[3px] pr-2 text-left text-[13px] pointer-coarse:min-h-11";
 
 /**
- * The keyboard cursor, drawn the way vim draws its own.
- *
- * A hollow outline while the tree is idle, filled in and brighter once it holds
- * the focus, in the same red as the block cursor in the editor. The vim package
- * makes exactly this distinction for the same reason: a cursor you are about to
- * type at should not look like one you left behind.
+ * The keyboard cursor, drawn as vim draws its own: hollow while idle, filled and brighter once
+ * focused, so a cursor left behind does not look live.
  */
 const CURSOR = [
   "outline-1 -outline-offset-1 outline-k-accent/45",

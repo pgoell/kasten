@@ -1,7 +1,7 @@
 ---
 type: Reference
 title: Phone performance
-description: The script that traces a tab switch, a note open and typing on a phone, what it measures and how, and the numbers of 0.98.5 against 0.85.0.
+description: The script that traces a tab switch, a note open and typing on a phone, what it measures and how, and the numbers of 0.98.5 against 0.85.0, and what the flashcard review and the todo board cost on a copy of the live vault.
 resource: frontend/e2e/phone-trace.ts
 tags: [performance, mobile, frontend, testing]
 status: stable
@@ -227,3 +227,119 @@ Means, in ms:
 
 Style on a tab switch rises by about 37 ms: that is the hidden pane's boxes
 coming down in the frame, work the removal did before.
+
+## The flashcard review and the todo board
+
+pgoell found the flashcard review and the todo board slow, and nothing measured
+them (#1321). This section states what measures them now, what the numbers were on
+2026-10-29, and which path is slow and why. The box serves prod and other
+projects, so every number carries the one-minute load average it was taken at.
+
+### What measured them before
+
+Nothing with a number:
+
+- The rest of this page and
+  [Ranking performance](/reference/ranking-performance.md) named neither todos
+  nor cards.
+- The frame gate's generated vault (`frontend/tests/frame/vault-graph-fixture.tsx`,
+  2000 notes) holds no todo and no card, and the phone trace's stub vault of
+  eight notes answers neither `/api/todos` nor `/api/cards`.
+- The frame tests that draw the board or a review (`todo-board-*.test.tsx`,
+  `review-swipe.test.tsx`, `review-try-again.test.tsx` and the rest) mount them
+  on three to ten rows and check behaviour, with no budget.
+- `test_807_a11_review_reads_time_on_the_vault_copy` in
+  `backend/tests/test_review_timing.py` times `/api/todos` and
+  `/api/cards` among the periodic review's reads, median and p90 over 30 calls,
+  with no load beside them.
+
+### The live vault's shape
+
+Counted on the copy, archive left out as the views leave it out:
+
+| What | Count |
+| --- | --- |
+| notes | 630 |
+| todo lines `/api/todos` answers | 982, 161 of them open |
+| most todo lines in one note | 45 |
+| deck notes (`#flashcards` or `#review`) | 31 |
+| card lines in them | 9,350 |
+| the largest deck | 1,501 cards in one note of 1 MB, an imported Anki deck |
+
+The frame cases below build synthetic fixtures of that size.
+
+### The reads
+
+`test_1321_a2_board_and_review_reads_time_on_the_vault_copy` in
+`backend/tests/test_review_timing.py` calls each read 3 times to warm up,
+then 20 times, and prints p50, p95 and the load. It only reads, and it is off
+unless pointed at a copy:
+
+```sh
+cd backend
+KASTEN_TIMING=1 KASTEN_TIMING_VAULT=<copy> KASTEN_TIMING_DECK="<deck note path>" \
+  uv run pytest tests/test_review_timing.py -s -k 1321
+```
+
+On 2026-10-29, on a copy of the live vault:
+
+| Read | Who calls it | Answer | p50 | p95 | Load |
+| --- | --- | --- | --- | --- | --- |
+| `GET /api/cards` | review, deck list | 9,357 lines | 203.4 ms | 245.3 ms | 1.69 |
+| `GET /api/todos` | board | 982 lines | 75.3 ms | 114.5 ms | 1.66 |
+| `GET /api/files` | board filter | 624 paths | 7.0 ms | 7.0 ms | 1.69 |
+| `GET /api/files/{deck}` | review, the 1 MB deck | 1,022,918 bytes | 4.1 ms | 4.2 ms | 1.69 |
+| `GET /api/files/…/todo-views.md` | board | 339 bytes | 0.8 ms | 0.8 ms | 1.69 |
+| `GET /api/files/…/decks.md` | review | 415 bytes | 0.8 ms | 0.8 ms | 1.69 |
+| `GET /api/review/limits` | review | 43 bytes | 0.4 ms | 0.4 ms | 1.69 |
+
+`rg` with the cards pattern and flags returns the same 9,357 lines in 10 ms
+(load 1.50). A cProfile of `find_cards` puts about 90% of the rest in
+`pathlib.Path.relative_to`, called once per line at
+`backend/src/kasten_backend/search.py:196`: #1353. `find_todos` alone takes
+21 ms (load 1.57); the rest of the todo read is `projects_of` and a second
+listing of the notes, and at 75 ms it is not the slow part.
+
+### The frames
+
+Three frame cases, in `todo-board-timing.test.tsx` and `review-timing.test.tsx`
+under `frontend/tests/frame/timing/`, draw each at 390 by 844 px
+with touch, on synthetic fixtures of the live vault's size, and count React
+commits (a `Profiler`) and long tasks (a `longtask` observer). They gate on
+counts, never on time, since a loaded box slows every task at once and a count
+does not move with it. The longest frame gap is printed only. Run them with
+`mise run fe:frame`; each prints its counts as `TIMING` lines through
+`console.error`, the level this runner shows.
+
+On 2026-10-29, desktop Chromium without CPU throttling, load 1.8:
+
+| Step | Commits | Long tasks | Frame gap |
+| --- | --- | --- | --- |
+| board, first draw of 982 lines (54 cards) | 4 | 1, 97 ms | |
+| board, scroll of 2,090 px over 60 frames | 0 | 0 | 16.8 ms |
+| review, open of the 1,500-card deck | 4 | 1, 71 ms | 87 ms |
+| review, 20 cards revealed and graded | 40, 2 a card | 0 | |
+
+| Case | Budget | What it proves |
+| --- | --- | --- |
+| `A3 #1321 draws and scrolls the todo board at phone width within its commit and long-task budget` | first draw 6 commits and 3 long tasks; scroll 1 commit and 2 long tasks | a draw that renders once per line, or a scroll that renders at all, fails |
+| `A4 #1321 opens a 1500-card deck at phone width within its commit and long-task budget` | 6 commits, 3 long tasks | a commit per card on open fails |
+| `A4 #1321 steps through 20 cards at phone width within its commit and long-task budget` | 48 commits, 3 long tasks | a card drawn twice a grade (60) fails |
+
+Each budget was shown to bind: set to -1, each case fails on its counts.
+
+### What is slow
+
+Scrolling the board and stepping through cards cost nothing worth a fix. Three
+things are slow, each its own issue:
+
+- `GET /api/cards`, 203 ms at p50 for 10 ms of `rg`: `Path.relative_to` per
+  line (#1353).
+- The review's open of a large deck, one 71 ms long task, near 280 ms on a
+  phone CPU four times slower. It parsed the 1 MB note three times; it now
+  parses it once (#1354), which leaves 0 or 1 long task of about 52 ms on this
+  desktop. Moving that one parse off the main thread is #1359.
+- The board's first draw, one 97 ms long task, near 390 ms on such a phone.
+  The task was the todo pane's first render of the list, not the parse; the
+  pane now renders its rows in a deferred pass, with no long task left on this
+  desktop (#1355).

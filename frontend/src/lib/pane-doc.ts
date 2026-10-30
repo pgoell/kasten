@@ -1,12 +1,8 @@
 import { EditorView } from "@codemirror/view";
 
 /**
- * The editor in pane `id` that is on screen, if it has one.
- *
- * A pane whose note is changing keeps the old note's editor on the page for a
- * task, hidden and marked `data-leaving` (note-editor.tsx). While the new note
- * loads that is the only editor the pane has, so a lookup that took the first
- * one would reach the old note. Those are skipped here.
+ * The on-screen editor in pane `id`, skipping the old note's `data-leaving` copy
+ * that the pane keeps while a new note loads.
  */
 export function paneEditor(id: string): HTMLElement | null {
   const editors = document.querySelectorAll<HTMLElement>(`[data-pane="${id}"] .cm-editor`);

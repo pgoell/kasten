@@ -1,5 +1,5 @@
-import { waitFor } from "@testing-library/react";
-import { paneHooks, renderPane } from "./todo-pane-fixture";
+import { act, waitFor } from "@testing-library/react";
+import { paneHooks, renderPane, TODOS } from "./todo-pane-fixture";
 
 // The doubles, the same in every todo-pane file: see todo-pane-fixture.tsx.
 const { fetchTodos, fetchNote, fetchFiles, createNote } = vi.hoisted(() => ({
@@ -109,4 +109,23 @@ describe("the todo pane", () => {
 
     await waitFor(() => expect(pane.rows()).toHaveLength(6));
   });
+});
+
+// Counted in commits, not milliseconds, so a loaded box cannot pass or fail it.
+it("#1355 A1 the rows of the first todos answer draw in a commit after the one the fetch forces", async () => {
+  let answer: (hits: typeof TODOS) => void = () => {};
+  const pending = new Promise<typeof TODOS>((resolve) => (answer = resolve));
+  // The rows each commit leaves on screen, read as the commit lands.
+  const drawn: number[] = [];
+  renderPane(pending, 0, () => drawn.push(document.querySelectorAll("[data-row]").length));
+  await waitFor(() => expect(fetchTodos).toHaveBeenCalled());
+  const before = drawn.length;
+
+  await act(async () => answer(TODOS));
+  await waitFor(() => expect(document.querySelectorAll("[data-row]")).toHaveLength(6));
+
+  // The urgent commit the answer forces draws no row; a later one draws them all.
+  const after = drawn.slice(before);
+  expect(after[0]).toBe(0);
+  expect(after.at(-1)).toBe(6);
 });

@@ -12,20 +12,9 @@ const HASH = 35;
 const LINK_TEXT = /^[^\]\n]*\][([]/;
 
 /**
- * `#tag`, the way Obsidian writes one, by the rule in `tag-rule.ts` that the
- * todo pane and the decks read by too.
- *
- * A parser extension rather than a regex over the text, so the hash inside a
- * code span, a fenced block or a URL is left alone: inline parsers are never
- * asked about a range another parser has already taken. A link's text is the
- * exception, parsed inline before the `](` that makes it a link, so a hash
- * is refused while a `[` stands open and the next `]` opens an address or a
- * reference. A bracket that makes no link, `see [ #x` or `[[a #z`, keeps the
- * tag, as `tagsOf` does.
- *
- * Nothing is hidden and nothing stands in for the hash. A tag is what somebody
- * typed, so `live-preview.ts` colours it and leaves it on the screen whichever
- * mode the editor is in.
+ * `#tag` as Obsidian writes it, by the rule in `tag-rule.ts`. Inline, so code spans and URLs are
+ * never seen by it. A link's text parses before its `](`, so a `#` in an open `[` is refused.
+ * Nothing is hidden: the typed tag stays on screen, coloured by `live-preview.ts`.
  */
 export const Tag: MarkdownConfig = {
   defineNodes: ["Tag"],
@@ -45,24 +34,13 @@ export const Tag: MarkdownConfig = {
 };
 
 /**
- * Every tag the vault holds, carried on the editor state.
- *
- * A tag is a word you are trying to spell the way you spelled it last time, and
- * nothing in one note knows how the others spell it. The route has the
- * vocabulary and reconfigures this as notes are written.
- *
- * Null and not an empty vault, for the reason `vaultPaths` is: a view that was
- * told nothing offers nothing, rather than claiming the vault has no tags.
+ * Every tag in the vault. Null, not empty, when unset: no tags would claim the vault has none.
  */
 export const vaultTags = Facet.define<string[], string[] | null>({
   combine: (values) => values[0] ?? null,
 });
 
-/**
- * What has been typed into an open `#`, which is what a completion completes.
- * Any run of tag characters, numbers alone too, so `#1` already offers `#1on1`
- * though it draws no tag yet.
- */
+/** What is typed after an open `#`: any tag characters, so `#1` already offers `#1on1`. */
 const TYPED = new RegExp(`#${TAG_CHARS}*`, "u");
 
 /** Where a hash is code, which the parser never draws as a tag. */
@@ -78,15 +56,8 @@ function inCode(context: CompletionContext, pos: number): boolean {
 }
 
 /**
- * Every tag in the vault, offered on an open `#`.
- *
- * The whole vocabulary every time, unranked, for the reason `wikiLinkCompletions`
- * hands over the whole listing: CodeMirror scores the labels against what has
- * been typed and keeps the best. The labels carry their hash, so the range
- * starts at the hash too and `#db` is scored against `#dbt` whole.
- *
- * Registered on the markdown language, so it joins the one `autocompletion`
- * `basicSetup` already mounted rather than fighting it.
+ * Every tag, offered on an open `#`. Unranked: CodeMirror scores the labels itself.
+ * The labels carry their hash, so the range starts at the hash too.
  */
 export function tagCompletions(context: CompletionContext): CompletionResult | null {
   const tags = context.state.facet(vaultTags);
@@ -98,10 +69,7 @@ export function tagCompletions(context: CompletionContext): CompletionResult | n
   if (GLUED.test(context.state.sliceDoc(open.from - 1, open.from))) return null;
   if (inCode(context, open.to)) return null;
 
-  // A hash alone at the start of a line is a heading being opened, which is
-  // what that key is mostly reached for. One letter tells the two apart, and
-  // the vault's own convention writes `#flashcards/aws` there, so this waits
-  // for the letter rather than refusing the line.
+  // A lone `#` at line start is often a heading; `#flashcards/aws` is a tag: wait for a letter.
   const line = context.state.doc.lineAt(open.from);
   const alone = open.text.length === 1 && line.text.slice(0, open.from - line.from).trim() === "";
   if (alone && !context.explicit) return null;

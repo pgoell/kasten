@@ -1,16 +1,7 @@
 /**
- * How the window is divided, and what is open in each division.
- *
- * A tab holds a tree: panes at the leaves, splits above them. A split is a row
- * or a column of any number of children, not a pair, which is what keeps three
- * panes side by side even thirds instead of a half and two quarters. Splitting
- * inserts beside the focused pane and `normalize` flattens the result back into
- * its parent whenever the two divide the same way.
- *
- * Everything here is pure and returns a new layout. The route holds one of
- * these in state and the keys are these functions; nothing in this file knows
- * about React, the vault or the URL, which is what makes the arrangement
- * testable without rendering anything.
+ * How the window is divided into tabs and panes. A tab holds a tree: panes at the leaves, splits
+ * above them, each split holding any number of children. Everything here is pure and returns a new
+ * layout; nothing in this file knows React, the vault or the URL.
  */
 
 /** One pane, and whichever note is open in it. */
@@ -21,151 +12,72 @@ export interface Pane {
   /** Line the editor opens on, which only a search hit names. */
   line?: number;
   /**
-   * How many times the pane was opened at `line`.
-   *
-   * A second open at the line the pane already holds changes nothing else, and
-   * the cursor has moved off it since: this is what tells the editor to go back.
+   * How many times the pane was opened at `line`. A repeat open still sends the cursor back,
+   * since the cursor may have moved off the line.
    */
   jump?: number;
   /**
-   * The herdr session it holds, absent unless this is a terminal pane.
-   *
-   * A pane holds a note or a terminal, never both. A comment rather than a
-   * discriminated union: a union would rewrite every `pane.path` read site to
-   * buy an invariant one branch in the route already holds, and it would cost
-   * `mapPanes` the property that a terminal pane is skipped by a moved note
-   * with no code at all, because following a move keys on `path`.
+   * The herdr session it holds, absent unless this is a terminal pane. Not a union, since that
+   * would rewrite every `pane.path` read for an invariant the route already keeps.
    */
   term?: string;
-  /**
-   * Set on a pane holding the todo list, absent on every other.
-   *
-   * A third field beside `path` and `term` for the reason `term` is a third
-   * field: a union would rewrite every `pane.path` read site to buy an
-   * invariant one branch in the route already holds.
-   */
+  /** Set on the todo list pane, absent otherwise. A field of its own, not a union, as `term` is. */
   todos?: boolean;
-  /**
-   * Set on a pane holding the log, absent on every other.
-   *
-   * A fifteenth optional field for the reason `todos` is the second, written out
-   * above. A boolean because the log opens on today and moves by day from there,
-   * so the pane holds no note to name.
-   */
+  /** Set on the log pane, absent otherwise. A boolean: the log opens on today and moves by day. */
   log?: boolean;
   /** The overview's pane. */
   overview?: boolean;
   /** The finance pane's. */
   finance?: boolean;
   /**
-   * The literature note whose book this pane is reading, absent otherwise.
-   *
-   * The note's path, not the book's: the note is the handle, and the reader
-   * swaps the suffix to find the epub. A fourth optional field for the reason
-   * `term` and `todos` are the third and the second, written out above.
+   * The literature note whose book this pane reads, absent otherwise. The note's path, since the
+   * reader swaps its suffix to find the epub.
    */
   book?: string;
-  /**
-   * The note whose practice exam this pane is sitting, absent otherwise.
-   *
-   * A fifth optional field for the reason `book` is the fourth, written out
-   * above. It carries the note's path rather than a parsed exam: the pane reads
-   * the note itself, so nothing here has to know what an exam is.
-   */
+  /** The note whose practice exam this pane sits, absent otherwise. The note's path. */
   exam?: string;
-  /**
-   * Set on a pane holding the review, absent on every other.
-   *
-   * A seventh optional field for the reason `todos` is the second, written out
-   * above. A boolean and not a deck, because the pane opens on the deck list
-   * and picks its own deck from there, the way the todo pane opens on the whole
-   * list rather than on a note.
-   */
+  /** Set on the review pane, absent otherwise. A boolean: the pane picks its own deck. */
   review?: boolean;
   /**
-   * The image this pane is showing, absent otherwise.
-   *
-   * The image's own path and not a note's, which is where this parts company
-   * with `book` and `exam`: an image is referenced by any number of notes and
-   * belongs to none of them, so there is no note to hold it by. A sixth
-   * optional field for the reason `book` is the fourth, written out above.
+   * The image this pane shows, absent otherwise. Its own path, not a note's: any number of notes
+   * reference an image and none owns it.
    */
   image?: string;
   /**
-   * The pdf this pane is showing, and the page it opened at, absent otherwise.
-   *
-   * The pdf's own path, for the reason `image` holds the image's: any number of
-   * notes name a pdf and none owns it. A thirteenth optional field for the
-   * reason `book` is the fourth, written out above.
-   *
-   * `opened` counts the opens, the way `jump` counts a note's: a second open
-   * at the page the pane holds changes nothing else, and the reader may have
-   * scrolled off it since. The pane reopens at `page` whenever this moves.
+   * The pdf this pane shows and the page it opened at, absent otherwise. Its own path, since any
+   * number of notes name a pdf. `opened` counts opens, as `jump` does, so a repeat still moves it.
    */
   pdf?: { path: string; page?: number; opened: number };
-  /**
-   * The HTML page this pane is showing, absent otherwise.
-   *
-   * The page's own path, for the reason `image` holds the image's: nothing
-   * pairs a page with a note. An eleventh optional field for the reason `book`
-   * is the fourth, written out above.
-   */
+  /** The HTML page this pane shows, absent otherwise. Its own path: no note owns a page. */
   html?: string;
   /** The heading a followed link named, where the page opens. Absent otherwise. */
   anchor?: string;
   /**
-   * The note whose video this pane is playing, absent otherwise.
-   *
-   * The note's path and not the address, which is where this follows `book` and
-   * `exam` rather than `image`: the link lives in the note, so the pane holds
-   * the handle and a folder move that rewrites `path` carries the player with
-   * it. An eighth optional field for the reason `book` is the fourth.
+   * The note whose video this pane plays, absent otherwise. The note's path, not the address, so a
+   * folder move that rewrites `path` carries the player with it.
    */
   video?: string;
   /**
-   * The person note this pane is showing the card for, absent otherwise.
-   *
-   * The person's own note path, following `book` and `video` rather than
-   * `image`: the card is read off that note and everything linking to it, so a
-   * folder move that rewrites `path` carries the card with it. A ninth optional
-   * field for the reason `book` is the fourth.
+   * The person note this pane shows the card for, absent otherwise. The note's path, so a move
+   * carries the card with it.
    */
   person?: string;
-  /**
-   * The note whose jj history this pane lists, absent otherwise.
-   *
-   * The note's path, following `person`: the pane reads the history and the
-   * note's text by it, so a move that rewrites it carries the pane along. A
-   * fourteenth optional field for the reason `book` is the fourth.
-   */
+  /** The note whose jj history this pane lists, absent otherwise. Its path, so moves carry it. */
   history?: string;
   /**
-   * Set on a pane holding the graph, absent on every other.
-   *
-   * `around` names the note a local graph is drawn around, and is absent on
-   * the graph of the whole vault. An object rather than the path alone, so the
-   * whole vault has a value that is not an empty string standing for nothing.
-   * A tenth optional field for the reason `book` is the fourth.
+   * Set on the graph pane, absent otherwise. `around` names the note a local graph is drawn around,
+   * and is absent for the whole vault. An object, so no empty string stands in for nothing.
    */
   graph?: { around?: string };
-  /**
-   * Set on a pane holding the chat, absent on every other.
-   *
-   * A boolean and not a session name, which is where this parts company with
-   * `term`: the runner holds one session, and every chat pane is a view of it.
-   * A twelfth optional field for the reason `todos` is the second, written out
-   * above.
-   */
+  /** Set on the chat pane, absent otherwise. A boolean: every chat pane views one session. */
   chat?: boolean;
 }
 
 /** A row or a column of panes, or of further splits. */
 export interface Split {
   /**
-   * Its own id, for the same reason a pane has one: React keys the tree off
-   * these. Without it a split would be keyed by its position, and dividing one
-   * pane would re-key its neighbour, throwing away the CodeMirror view in it
-   * along with the cursor and the undo history of a note nobody touched.
+   * Its own id, as a pane has. Without one React would key a split by position, and dividing a pane
+   * would re-key its neighbour and throw away that editor's cursor and undo history.
    */
   id: string;
   /** `row` sets its children side by side, `col` stacks them. */
@@ -181,13 +93,8 @@ export interface Tab {
   /** Which pane in this tab has the focus, by id. Each tab keeps its own. */
   focus: string;
   /**
-   * Whether the focused pane is drawn on its own, the rest of the tab hidden
-   * behind it.
-   *
-   * Per tab, the way the focus is, so zooming one says nothing about another.
-   * A flag rather than the pane's id, because the pane drawn alone is always
-   * the focused one: every move of the focus puts the tab back the way it was,
-   * which is what tmux's own zoom does.
+   * Whether the focused pane is drawn alone, the rest hidden. Per tab, as the focus is. A flag:
+   * the zoomed pane is always the focused one, and any focus move clears it.
    */
   zoom?: boolean;
 }
@@ -198,9 +105,8 @@ export interface Layout {
   active: number;
 }
 
-// A counter rather than `crypto.randomUUID`. These ids never leave the browser
-// and never outlive the page, so all they have to be is different from each
-// other, and a counter reads the same in a test failure every time.
+// A counter, not `crypto.randomUUID`: these ids never leave the page, and a counter reads the same
+// in a test failure.
 let made = 0;
 
 function nextId(kind: string): string {
@@ -213,13 +119,8 @@ export function isSplit(node: PaneNode): node is Split {
 }
 
 /**
- * Read an index the compiler cannot trust, and say so loudly if it is empty.
- *
- * `noUncheckedIndexedAccess` is on, and the invariants that make each of these
- * safe are structural rather than typed: a layout always holds a tab, a tab
- * always ends in a pane, and the focus always names one of them. Standing a
- * made-up tab or pane in would draw a window nobody asked for and hide the bug
- * that got here; this names it instead.
+ * Reads an index the compiler cannot trust, and throws if it is empty. The invariants behind each
+ * call (a tab, a pane, a focus) are structural, so a made-up value would only hide the bug.
  */
 function must<T>(value: T | undefined, what: string): T {
   if (value === undefined) throw new Error(`kasten: no ${what}`);
@@ -232,12 +133,8 @@ export function panesOf(node: PaneNode): Pane[] {
 }
 
 /**
- * Straighten a tree after an insert or a removal.
- *
- * Two jobs, and both are about keeping the tree the smallest one that draws
- * this arrangement. A split holding one child is that child. A split inside a
- * split dividing the same way is one split, which is what makes a third pane in
- * a row a third of the width rather than a quarter.
+ * Keeps the tree minimal: a split with one child is that child, and a same-direction split inside
+ * another merges into it, so a third pane in a row gets a third of the width.
  */
 function normalize(node: PaneNode): PaneNode {
   if (!isSplit(node)) return node;
@@ -281,11 +178,8 @@ function replaceLeaf(node: PaneNode, target: string, next: Pane): PaneNode {
 }
 
 /**
- * Write what the focused pane holds, replacing whatever it held.
- *
- * The pane is written whole under its own id, so nothing the last thing left
- * behind, a line or a page, survives into the next. Every opener in
- * `pane-contents.ts` ends here, which keeps the tree's shape this file's alone.
+ * Writes what the focused pane holds, replacing whatever it held. The pane is written whole under
+ * its id, so a line or a page from the last thing never survives into the next.
  */
 export function fillFocused(layout: Layout, content: Omit<Pane, "id">): Layout {
   const tab = activeTab(layout);
@@ -330,12 +224,8 @@ function without(node: PaneNode, target: string): PaneNode | null {
 }
 
 /**
- * Close the focused pane, and the tab with it when it was the last one there.
- *
- * The second half of what `<leader>q` does: the route empties a pane holding a
- * note first, and this runs once there is nothing left in it. The layout comes
- * back untouched on the last pane of the last tab, because an app with nothing
- * on screen is not a state worth being able to reach.
+ * Closes the focused pane, and its tab when it was the last there. The layout comes back untouched
+ * on the last pane of the last tab, so the app is never left with nothing on screen.
  */
 export function removeFocused(layout: Layout): Layout {
   const tab = activeTab(layout);
@@ -351,8 +241,7 @@ export function removeFocused(layout: Layout): Layout {
 
   const root = normalize(stripped);
   const remaining = panesOf(root);
-  // Whichever pane slid into the closed one's place, or the last one when the
-  // closed pane was at the end. Landing back at the start would be a jump.
+  // The pane that slid into the closed one's place; landing at the start would be a jump.
   const landed = must(remaining[Math.min(at, remaining.length - 1)], "pane after the close");
 
   return withTab(layout, { ...tab, root, focus: landed.id, zoom: false });
@@ -370,11 +259,8 @@ export function nextPane(layout: Layout): Layout {
 }
 
 /**
- * Move to one pane by id, which is what a click in it does.
- *
- * The same layout comes back when that pane already has the focus. Every focus
- * event inside a pane reports it, and a new object for each one would put the
- * route in a render loop over a change that never happened.
+ * Moves to one pane by id, as a click does. Returns the same layout when that pane already has
+ * focus, since every focus event reports it and a new object would loop the render.
  */
 export function focusPane(layout: Layout, id: string): Layout {
   const tab = activeTab(layout);
@@ -382,18 +268,9 @@ export function focusPane(layout: Layout, id: string): Layout {
 }
 
 /**
- * Trade places with another pane, the arrangement itself standing still.
- *
- * Each leaf carries its id and what it holds with it, so the focus needs no
- * moving: the pane you were in is the pane you are in, and it is somewhere
- * else on screen. React keys a pane by that id, so two panes of one split keep
- * the editors they hold, cursor and undo history and all; a swap across two
- * splits builds them again, there being no way to move a subtree between two
- * parents without React unmounting it.
- *
- * The route names the other pane, having read the boxes on screen the way it
- * reads them to move the focus. A pane of another tab, or the focused one
- * itself, is nothing to swap with.
+ * Trades places with another pane of this tab, the arrangement otherwise standing still. The focus
+ * stays on the same pane, now elsewhere. React keys panes by id, so a swap within one split keeps
+ * its editors, while a swap across splits rebuilds them.
  */
 export function swapPanes(layout: Layout, id: string): Layout {
   const tab = activeTab(layout);
@@ -402,8 +279,7 @@ export function swapPanes(layout: Layout, id: string): Layout {
   const there = panes.find((pane) => pane.id === id);
   if (here === undefined || there === undefined || here.id === there.id) return layout;
 
-  // An arrow rather than a declaration, so the compiler keeps what the guard
-  // above proved about the two panes: a declaration is hoisted past it.
+  // An arrow, not a hoisted declaration, so TypeScript keeps the narrowing from the guard above.
   const swap = (node: PaneNode): PaneNode => {
     if (isSplit(node)) return { ...node, children: node.children.map(swap) };
     if (node.id === here.id) return there;
@@ -414,11 +290,8 @@ export function swapPanes(layout: Layout, id: string): Layout {
 }
 
 /**
- * Draw the focused pane on its own, or put the tab back the way it was.
- *
- * Nothing is closed and nothing moves: the other panes are still there, still
- * holding what they held, and every function that moves the focus turns this
- * off again on its way past.
+ * Draws the focused pane alone, or puts the tab back. Nothing closes or moves, and any focus
+ * move turns zoom off.
  */
 export function toggleZoom(layout: Layout): Layout {
   const tab = activeTab(layout);
@@ -446,7 +319,7 @@ export function goToTab(layout: Layout, index: number): Layout {
   return index < layout.tabs.length ? { ...layout, active: index } : layout;
 }
 
-/** What a pane can hold. A pane holding none of these is empty, and the Today screen shows in it. */
+/** Each kind a pane can hold. A pane with none of them is empty and shows Today. */
 const HOLDS = [
   "path",
   "term",
@@ -468,10 +341,8 @@ const HOLDS = [
 ] as const;
 
 /**
- * Whether a tab is one pane holding nothing: the tab Today goes to.
- *
- * The same rule `NotePane` draws Today by, a pane with no note and none of the
- * other kinds, so the button and the screen agree on what an empty tab is.
+ * Whether a tab is one pane holding nothing, the tab Today goes to. `NotePane` draws Today by the
+ * same rule, so the button and the screen agree.
  */
 export function isEmptyTab(tab: Tab): boolean {
   const root = tab.root;
@@ -479,11 +350,8 @@ export function isEmptyTab(tab: Tab): boolean {
 }
 
 /**
- * Close one tab, the active index following the tab that was active.
- *
- * When the active tab is the one closed, the tab sliding into its place takes
- * the index, or the last tab when the closed one was at the end. Closing the
- * last tab leaves an empty one, the same as a window that never had a note.
+ * Closes one tab, keeping the active index on the tab that was active. Closing the last tab leaves
+ * an empty one.
  */
 export function closeTab(layout: Layout, index: number): Layout {
   if (layout.tabs.length === 1) return emptyLayout();
@@ -500,12 +368,8 @@ export function homeTab(layout: Layout): Layout {
 }
 
 /**
- * The same layout under ids made on this page, the focus of each tab following
- * its pane.
- *
- * A saved layout carries the ids of the page that saved it, and that page's
- * counter is not this one's: kept, the next split here could mint an id a
- * restored pane already has, and React would draw two panes as one.
+ * The same layout under ids minted on this page, each tab's focus following its pane. A saved
+ * layout carries another page's ids, and keeping them could give a split an id a pane has.
  */
 export function reidLayout(layout: Layout): Layout {
   return {

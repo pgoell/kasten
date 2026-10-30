@@ -24,12 +24,8 @@ interface TabStripProps {
 }
 
 /**
- * Whether a tab has text that is not in the vault yet.
- *
- * Two sources, both the app's own. Any pane on a note whose text is held counts,
- * because held text is what has not been written. The focused pane of the active
- * tab counts while the autosave says it is not saved, since the autosave follows
- * that pane alone.
+ * Whether a tab has text not yet in the vault. Held text counts on any of its panes. The
+ * focused pane of the active tab counts while the autosave says unsaved, since autosave follows that pane alone.
  */
 export function isUnsaved(
   tab: Tab,
@@ -66,11 +62,8 @@ export function resetStripEntrance(): void {
 }
 
 /**
- * The strip naming the open tabs, under the top bar and always drawn.
- *
- * Today sits first as the home button, outside the numbered tabs, and then the
- * open tabs. Tabs that do not fit go behind "N more" at the right, and the active
- * tab is always drawn, so the strip never shows a tab the user cannot see.
+ * The strip of open tabs, under the top bar. Today is the home button, outside the numbered
+ * tabs. Tabs that do not fit fold behind "N more"; the active tab is always drawn.
  */
 export function TabStrip({
   layout,

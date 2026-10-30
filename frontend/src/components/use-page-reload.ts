@@ -8,14 +8,8 @@ interface Place {
 }
 
 /**
- * The html pane's page loaded again when the vault says it was rewritten (#1277).
- *
- * `loads` keys the frame: a new frame loads the page afresh and, unlike a new
- * `src` on the old one, leaves no entry in the browser's history. The scroll the
- * page last reported goes back to it once it has loaded, and so does the focus
- * where the frame held it; `forget` drops what the old page held at the swap.
- * Each place carries its path, so a pane moved to another page does not hand
- * that page the last one's scroll.
+ * Reload the html pane's page when the vault rewrites it (#1277). A new frame keyed by `loads`
+ * leaves no history entry, unlike a new `src`. The last scroll and focus are restored after load.
  */
 export function usePageReload(
   path: string,

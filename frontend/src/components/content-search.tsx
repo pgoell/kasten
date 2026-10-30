@@ -133,12 +133,8 @@ interface ContentSearchProps {
 }
 
 /**
- * The search page: a query field over a column of filters, a histogram of the
- * weeks the lines were written in, and the lines grouped by note.
- *
- * The filters and the week narrow the lines and never the numbers that name
- * them. The column and the histogram count the whole answer, less only the
- * choices that do not concern them, so a bar's count is the list it opens.
+ * Filters and the week narrow the lines, never the counts that name them, so a
+ * histogram bar's count is the list it opens.
  */
 export function ContentSearch({
   onOpen,

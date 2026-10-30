@@ -191,11 +191,8 @@ export function WorkspacePanes({
   );
 
   /**
-   * Open a note beside the pdf it belongs to, making the note first if the vault
-   * has none.
-   *
-   * The making is `makeNote`, the step `follow` takes for a `[[link]]` to a
-   * missing note. A refused path says so in the bar and leaves the pdf alone.
+   * Open a note beside its pdf, making the note first if the vault has none. A refused path shows
+   * in the bar and leaves the pdf alone.
    */
   async function noteBeside(path: string) {
     let note = path;
