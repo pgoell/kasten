@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useMemo, useRef, useState } from "react";
+import { useDeferredValue, useMemo, useRef, useState } from "react";
 import { type BoardKeys, TodoBoard } from "@/components/todo-board";
 import { TodoFooter } from "@/components/todo-footer";
 import { TodoHeader } from "@/components/todo-header";
@@ -169,7 +169,15 @@ export function TodoPane({
   const { coarse } = useViewport();
   const armed = useArmed();
 
-  const { data } = useQuery({ queryKey: ["todos", archive], queryFn: () => fetchTodos(archive) });
+  const { data: answer } = useQuery({
+    queryKey: ["todos", archive],
+    queryFn: () => fetchTodos(archive),
+  });
+  // The query hands its answer over as an urgent render, which drew a vault's
+  // thousand lines in one long task (#1355). Deferred, React renders the rows in
+  // a pass that yields, and every reader below takes this one value so the
+  // held order and the twins never run a commit ahead of the rows.
+  const data = useDeferredValue(answer);
   const narrowing = useTodoFilter();
   const blocker = useBlockerPick(onBlock);
   // A blocker is picked off the open list, whichever list `b` was pressed on.
