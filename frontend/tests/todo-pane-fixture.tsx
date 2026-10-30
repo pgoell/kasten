@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, fireEvent, render, screen } from "@testing-library/react";
+import { Profiler } from "react";
 import { TodoPane } from "@/components/todo-pane";
 import { createNote, fetchFiles, fetchNote, fetchTodos } from "@/lib/api";
 import type { EditorCommands } from "@/lib/key-bindings";
@@ -82,9 +83,17 @@ function buttons() {
   );
 }
 
-export function renderPane(hits = TODOS, focusSignal = 0) {
+/**
+ * `hits` may be a fetch still pending, and `onCommit` runs on each commit the
+ * pane makes, for a test that counts the commits an answer brings.
+ */
+export function renderPane(
+  hits: typeof TODOS | Promise<typeof TODOS> = TODOS,
+  focusSignal = 0,
+  onCommit = () => {},
+) {
   // The rows carry no `project`, as on main, where the fake was an untyped vi.fn.
-  (fetchTodos as ReturnType<typeof vi.fn>).mockResolvedValue(hits);
+  (fetchTodos as ReturnType<typeof vi.fn>).mockReturnValue(Promise.resolve(hits));
   const onOpen = vi.fn();
   const onCycle = vi.fn();
   const onAdd = vi.fn();
@@ -98,21 +107,23 @@ export function renderPane(hits = TODOS, focusSignal = 0) {
 
   render(
     <QueryClientProvider client={client}>
-      <TodoPane
-        commands={commands}
-        onOpen={onOpen}
-        onCycle={onCycle}
-        onAdd={onAdd}
-        onSubtask={onSubtask}
-        onEdit={onEdit}
-        onBlock={onBlock}
-        onTimer={onTimer}
-        onAgent={vi.fn()}
-        onRefile={onRefile}
-        onNotice={() => {}}
-        focusSignal={focusSignal}
-        today={TODAY}
-      />
+      <Profiler id="pane" onRender={onCommit}>
+        <TodoPane
+          commands={commands}
+          onOpen={onOpen}
+          onCycle={onCycle}
+          onAdd={onAdd}
+          onSubtask={onSubtask}
+          onEdit={onEdit}
+          onBlock={onBlock}
+          onTimer={onTimer}
+          onAgent={vi.fn()}
+          onRefile={onRefile}
+          onNotice={() => {}}
+          focusSignal={focusSignal}
+          today={TODAY}
+        />
+      </Profiler>
     </QueryClientProvider>,
   );
 

@@ -64,6 +64,15 @@ export function noteCandidates(paths: string[]): Candidate[] {
   });
 }
 
+// The work the scorer does, counted for the perf gates. A gate on the clock
+// would measure the box it runs on, so it gates on these instead.
+export const work = { candidates: 0, cells: 0 };
+
+export function resetWork(): void {
+  work.candidates = 0;
+  work.cells = 0;
+}
+
 const NONE = Number.NEGATIVE_INFINITY;
 const SLASH = "/".charCodeAt(0);
 
@@ -101,6 +110,7 @@ function grow(size: number) {
  * `Array.from` on every candidate is too dear to be the way out of it.
  */
 function score(candidate: Candidate, query: string): number {
+  work.candidates += 1;
   const { lower, nameAt } = candidate;
   const length = lower.length;
 
@@ -115,6 +125,7 @@ function score(candidate: Candidate, query: string): number {
     if (at === -1) return NONE;
     at += 1;
   }
+  work.cells += query.length * length;
 
   grow(length);
   let row = scratchA;
