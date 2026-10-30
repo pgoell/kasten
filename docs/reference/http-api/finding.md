@@ -177,7 +177,9 @@ twenty, best first. Takes `q` and an optional `archive`, which takes the
 archive folder in as `GET /api/search` does. It reads the pieces index: BM25
 through the `german` and the `english` index, and the bge-m3 vectors, each a
 list of 50 pieces, fused by reciprocal rank fusion (a piece scores the sum of
-`1 / (60 + rank)` over the lists it is in). A note takes its best piece.
+`1 / (60 + rank)` over the lists it is in). The vector list holds only pieces
+nearer than cosine distance 0.5, so a query that matches no word and no
+meaning answers no hits. A note takes its best piece.
 
 ```json
 {

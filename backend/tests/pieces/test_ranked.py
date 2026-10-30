@@ -32,8 +32,15 @@ if TYPE_CHECKING:
     from httpx import AsyncClient
     from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-GROUPS = [{"hund", "welpe", "puppy", "dog"}, {"steuer", "tax", "finanzamt"}]
-"""Words the fake model reads as one meaning each: a text holding one points that way."""
+GROUPS = [
+    {"hund", "welpe", "puppy", "dog"},
+    {"steuer", "tax", "finanzamt"},
+    {"vulkan", "volcano"},
+]
+"""Words the fake model reads as one meaning each: a text holding one points that way.
+
+No note holds the last group, so a query from it lies far from every note.
+"""
 
 
 class ConceptModel:
@@ -148,6 +155,25 @@ async def test_a_note_sharing_only_a_meaning_ranks(client: AsyncClient, indexed:
 
     assert answer["hits"][0]["path"] == "Bello.md"
     assert answer["meaning"] is True
+
+
+async def test_a_query_with_only_faint_meanings_answers_no_notes(
+    client: AsyncClient, indexed: Indexer
+) -> None:
+    # Every piece lies past the floor, 0.90 or more, and no word matches (#1341).
+    answer = await _ask(client, "volcano")
+
+    assert answer["hits"] == []
+    assert answer["meaning"] is True
+
+
+async def test_a_word_hit_stays_though_its_meaning_is_far(
+    client: AsyncClient, indexed: Indexer
+) -> None:
+    # Quittung.md's vector lies 0.90 from the query's, past the floor; its word holds it.
+    answer = await _ask(client, "Quittung")
+
+    assert answer["hits"][0]["path"] == "Quittung.md"
 
 
 async def test_each_note_comes_once_with_counts(client: AsyncClient, indexed: Indexer) -> None:

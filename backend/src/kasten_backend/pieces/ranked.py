@@ -24,6 +24,12 @@ K = 60
 DEPTH = 50
 """How many pieces each list hands to the fusion."""
 
+FARTHEST = 0.5
+"""The cosine distance from which a piece is no vector hit, so a query the vault lacks finds none.
+
+Measured on a copy of the live index (#1341): real hits reach 0.503, noise starts at 0.509.
+"""
+
 INDEXES = ("pieces_text_german", "pieces_text_english")
 """The two BM25 indexes, one a stemmer: a mixed vault needs no language guess."""
 
@@ -78,10 +84,11 @@ async def _bm25(
 async def _nearest(
     session: AsyncSession, vector: list[float], archive: str | None
 ) -> list[tuple[str, int]]:
+    distance = Piece.embedding.cosine_distance(vector)
     rows = await session.execute(
         select(Piece.path, Piece.n)
-        .where(_outside(archive))
-        .order_by(Piece.embedding.cosine_distance(vector))
+        .where(_outside(archive), distance < FARTHEST)
+        .order_by(distance)
         .limit(DEPTH)
     )
     return list(rows.tuples())

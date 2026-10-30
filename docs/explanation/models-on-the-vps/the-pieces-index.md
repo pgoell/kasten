@@ -26,6 +26,16 @@ fusion sums `1 / (60 + rank)` over the lists a piece is in, and a note takes its
 best piece. A word both stemmers match counts twice; that is the price of
 guessing no language.
 
+The vector list takes only pieces nearer than cosine distance 0.5, so a query
+the vault does not answer lists no notes instead of twenty faint ones (#1341).
+On a copy of the live index (6,562 pieces, 2026-10-31) the real hits of 16
+queries lay at 0.29 to 0.50 and the nearest piece of 12 queries about nothing
+in the vault at 0.51 to 0.66, so the floor cuts through a thin band. A lone
+German compound pays for it: `Flitterwochen` sits 0.54 from the honeymoon notes
+and finds none, while `Japan Flitterwochen` finds them by its words. A BM25 hit
+stays whatever its distance. Notes like this one take no floor: they rank the
+ten nearest, however near.
+
 The query is embedded on a thread of its own over the indexer's loaded model,
 never on the event loop. It once shared the indexer's thread and waited 12.7 s
 behind the first fill's batches; onnxruntime runs one session from two threads,
