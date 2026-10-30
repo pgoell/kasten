@@ -102,6 +102,17 @@ needs no backend restart: saves made in the outage reach the index. Saves the
 watcher reports in the meantime wait in memory, and a backend shutdown ends the
 wait at once.
 
+A vault watcher that fails, at an inotify limit or with the vault folder gone, does
+not stop it either. The indexer logs one line, starts the watcher again after the
+same wait, and sweeps after each start, so a save no watcher saw still reaches the
+index, at most a minute late while the fault lasts. A sweep that finds no vault
+folder drops nothing, so a remount re-embeds nothing. A watcher fault of any other
+kind ends the indexer with its error line.
+
+A log line about a database error names the driver's first line only: the
+statement, its values and Postgres's failing row would put a note's text and
+vectors in the log.
+
 ## Where the model runs
 
 The indexer runs only when `KASTEN_EMBED_MODEL_DIR` names a folder that holds

@@ -19,6 +19,7 @@ from sqlalchemy.exc import (
     StatementError,
 )
 from sqlalchemy.exc import TimeoutError as PoolTimeout
+from watchfiles._rust_notify import WatchfilesRustInternalError
 
 from kasten_backend.db import session_factory
 from kasten_backend.events import watch_vault
@@ -38,7 +39,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# Seconds between tries while the database is gone, doubling up to the cap.
+# Seconds between tries while the database or the watcher is gone, doubling up to the cap.
 FIRST_WAIT = 1.0
 LONGEST_WAIT = 60.0
 
@@ -114,22 +115,43 @@ class Indexer:
         except (OSError, *MODEL_ERRORS) as error:
             logger.warning("The pieces index stays off, its model will not load: %s", error)
             return
-        watching = asyncio.create_task(self._watch())
+        # The watcher first, so it is up before the first sweep lists the vault.
+        tasks = (asyncio.create_task(self._watch()), asyncio.create_task(self._work()))
         try:
-            await self._work()
+            done, _ = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+            for task in done:
+                task.result()
         except SQLAlchemyError as error:
             logger.warning("The pieces index stops, its database fails: %s", _cause(error))
         finally:
-            watching.cancel()
+            for task in tasks:
+                task.cancel()
             self._thread.shutdown(wait=False, cancel_futures=True)
 
     async def _watch(self) -> None:
-        async for events in watch_vault(self._root):
-            for event in events:
-                if event.change == "listing":
-                    self._sweep = True
-                elif event.change in ("written", "removed"):
-                    self._changed[event.path] = None
+        """Follow the vault, starting the watcher again after a fault such as an inotify limit."""
+        tries = 0
+        while True:
+            fault: object = "the vault folder is gone"
+            try:
+                async for events in watch_vault(self._root):
+                    if tries:
+                        logger.warning("The pieces index follows saves again after %d tries", tries)
+                        tries = 0
+                    for event in events:
+                        if event.change == "listing":
+                            self._sweep = True
+                        elif event.change in ("written", "removed"):
+                            self._changed[event.path] = None
+                    self._wake.set()
+            except (OSError, WatchfilesRustInternalError) as error:
+                fault = error
+            if not tries:
+                logger.warning("The pieces index restarts its watcher, which fails: %s", fault)
+            await self._wait(min(FIRST_WAIT * 2 ** min(tries, 6), LONGEST_WAIT))
+            tries += 1
+            # The sweep runs once the new watcher is up, and finds the saves none saw.
+            self._sweep = True
             self._wake.set()
 
     async def _work(self) -> None:
@@ -168,6 +190,9 @@ class Indexer:
         Gone notes drop after the stale are read: a folder move reuses the old
         path's vectors.
         """
+        if not await asyncio.to_thread(self._root.is_dir):
+            # A vault that is gone would drop every note, and a remount re-embed them all.
+            return
         paths = [path for path in list_markdown_files(self._root) if not self.skipped(path)]
         async with self._sessions() as session:
             rows = await session.execute(select(PieceNote.path, PieceNote.digest))
