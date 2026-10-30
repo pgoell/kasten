@@ -336,7 +336,8 @@ things are slow, each its own issue:
 - `GET /api/cards`, 203 ms at p50 for 10 ms of `rg`: `Path.relative_to` per
   line (#1353).
 - The review's open of a large deck, one 71 ms long task, near 280 ms on a
-  phone CPU four times slower: likely the markdown parse of the whole 1 MB
-  note (#1354).
+  phone CPU four times slower. It parsed the 1 MB note three times; it now
+  parses it once (#1354), which leaves 0 or 1 long task of about 52 ms on this
+  desktop. Moving that one parse off the main thread is #1359.
 - The board's first draw, one 97 ms long task, near 390 ms on such a phone:
   likely the client parse of all 982 lines in one task (#1355).
