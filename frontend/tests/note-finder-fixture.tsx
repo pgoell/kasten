@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen } from "@testing-library/react";
-import { NoteFinder } from "@/components/note-finder";
+import { NoteFinder } from "@/components/finder/note-finder";
 
 // Sorted the way the backend serves it.
 export const PATHS = [

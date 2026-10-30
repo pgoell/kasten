@@ -283,7 +283,9 @@ describe("a code span is code (#346, #347)", () => {
     const start = performance.now();
 
     expect(clozeNumbers(line)).toEqual([]);
-    expect(performance.now() - start).toBeLessThan(100);
+    // Backtracking, not counted: 30 spans would run for days, a linear read
+    // takes well under a millisecond, and a loaded run is far below 5 seconds.
+    expect(performance.now() - start).toBeLessThan(5_000);
   });
 
   it("B2 divides no line at a :: inside a code span", () => {

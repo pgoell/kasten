@@ -99,7 +99,7 @@ describe("KeyHelp", () => {
     // The six columns, written out: a key moved to another column fails here
     // even though it still has a name above it.
     const groups: Record<string, string[]> = {
-      Find: ["ff", "fg", "fb", "ft", "a", ":", "?"],
+      Find: ["ff", "fg", "fm", "fb", "ft", "a", ":", "?"],
       Create: ["cf", "cd", "cw", "cm", "cb", "ci", "cv", "cc", "cs"],
       "Go to": [
         "gd",

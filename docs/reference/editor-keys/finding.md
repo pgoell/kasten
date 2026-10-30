@@ -261,3 +261,23 @@ The line underneath says `type to search every note` before anything is typed,
 `reading the vault` while a scan is out, and `no notes match` when the vault
 holds nothing that matches. See [GET /api/search](/reference/http-api.md) for
 what the backend does and does not look at.
+
+## The ranked search
+
+`<leader>fm`, or the palette row "Find by meaning" with vim off and on a phone,
+opens the ranked search: notes by their words and by their meaning, best first,
+each with the piece that matched best and its heading path
+([`GET /api/ranked`](/reference/http-api/finding.md#get-apiranked)). It is one
+column with no preview, no filters and no archive button; it follows the
+tree's archive toggle.
+
+| Key | Action |
+| --- | --- |
+| `Down`, `Ctrl+n`, `Ctrl+j`, `Tab` | Highlight the next note |
+| `Up`, `Ctrl+p`, `Ctrl+k`, `Shift+Tab` | Highlight the previous note |
+| `Enter`, or a click or tap on a row | Open the note at its top |
+| `Escape` | Close |
+
+The line underneath says how much of the index answered: "index holds 481 of
+625 notes, still filling" during the first indexing, "by words only" while the
+model loads, and "searching" while an answer is on its way.

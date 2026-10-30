@@ -24,7 +24,7 @@ import type { ReviewLimits, SearchHit } from "@/lib/api";
 import { noteName } from "@/lib/note-path";
 import { type Divided, divide, parks, suspended } from "@/lib/review/card-line";
 import { deckPath, withoutTags } from "@/lib/review/deck-tag";
-import { parseCards } from "@/lib/review/srs";
+import { type Card, parseCards } from "@/lib/review/srs";
 import {
   answeredToday,
   learning,
@@ -77,6 +77,8 @@ export interface Deck {
 export interface DeckNote {
   path: string;
   text: string;
+  /** Cards parsed from `text` already, so it is not parsed twice (#1354). */
+  cards?: Card[];
 }
 
 /**
@@ -224,11 +226,11 @@ export function decksFrom(notes: DeckNote[], today: string, limits?: Limits): De
     for (const note of deck.notes) if (!held.notes.includes(note)) held.notes.push(note);
   };
 
-  for (const { path: note, text } of notes) {
+  for (const { path: note, text, cards } of notes) {
     const name = noteName(note);
     // A card in no deck is a `::` in a note nobody tagged, which the sitting
     // drops the same way.
-    const asked = parseCards(text, name).filter((card) => card.decks.length > 0);
+    const asked = (cards ?? parseCards(text, name)).filter((card) => card.decks.length > 0);
 
     // A note carrying both is read as a deck of cards. The cards are the more
     // specific claim: `#review` says ask me this note, and a note that says
