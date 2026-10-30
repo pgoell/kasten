@@ -1,7 +1,7 @@
 """Ranked search over the pieces: BM25 per stemmer and the bge-m3 vectors, fused by rank.
 
-Each list ranks pieces; reciprocal rank fusion sums `1 / (K + rank)` over the
-lists a piece is in, and a note then takes its best piece's score.
+Reciprocal rank fusion sums `1 / (K + rank)` over the lists a piece is in; a
+note takes its best piece's score.
 """
 
 from dataclasses import dataclass
@@ -54,9 +54,8 @@ def _outside(archive: str | None) -> ColumnElement[bool]:
 
 def bm25_select(query: str, index: str, archive: str | None) -> Select[tuple[str, int, float]]:
     """The pieces matching `query` through one BM25 index, best first."""
-    # Both inline, quoted by the dialect: pg_textsearch sees which index a query
-    # names only in constants, and with a parameter the planner may scan the
-    # other index, which pg_textsearch then refuses.
+    # Both inline: pg_textsearch sees which index a query names only in constants,
+    # and with a parameter the planner may scan the other index, which it refuses.
     asked = func.to_bm25query(
         literal(query.replace("\x00", ""), literal_execute=True),
         literal(index, literal_execute=True),
@@ -119,7 +118,7 @@ async def ranked_notes(
         if path not in pieces:
             continue
         heading, text = pieces[path]
-        # The text after the prefix line the indexer put in front for the model.
+        # Drop the title line the indexer put in front for the model.
         chunk = text.partition("\n\n")[2] or text
         found.append(RankedNote(path, heading, chunk[:SNIPPET], score))
     return found

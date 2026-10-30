@@ -1,8 +1,7 @@
 """Keeps the pieces index in step with the vault: a sweep on startup, then the watcher.
 
-Pieces match stored rows by the sha256 of their text, so a save re-embeds only
-changed pieces and a folder move none. A note the watcher reports goes before
-the rest of a sweep.
+Pieces match stored rows by the sha256 of their text, so a folder move re-embeds
+nothing.
 """
 
 import asyncio
@@ -56,11 +55,10 @@ class Indexer:
         self._thread = thread
         self._skip = skip.strip("/")
         self._model: Embedder | None = None
-        # A search's own thread on the same model: on the indexer's, a query
-        # waited 12.7 s behind the first fill's batches.
+        # Not the indexer's thread: a query waited 12.7 s behind the first fill.
         self._query_thread = ThreadPoolExecutor(max_workers=1, thread_name_prefix="query")
         self._changed: dict[str, None] = {}
-        """Notes the watcher reported, in the order it did. A dict for an ordered set."""
+        """Notes the watcher reported, in order; a dict as an ordered set."""
         self._backlog: dict[str, None] = {}
         """Notes a sweep found stale, read after every note in `_changed`."""
         self._sweep = True
@@ -74,8 +72,8 @@ class Indexer:
     async def run(self) -> None:
         """Load the model, sweep, then follow the watcher, until cancelled or something fails.
 
-        A model that will not load or a database that is down stops the indexer with
-        one warning; the backend serves on, and the next start catches up.
+        A model or database that fails stops the indexer with one warning; the
+        backend serves on.
         """
         try:
             await self._model_loaded()
@@ -117,9 +115,8 @@ class Indexer:
     async def _stale(self) -> None:
         """Queue every note whose bytes differ from the index's, and drop the notes gone.
 
-        The gone are dropped after the stale are read, not before: a folder move
-        is both, and the pieces under the old path are the vectors the new path
-        takes over.
+        Gone notes drop after the stale are read: a folder move reuses the old
+        path's vectors.
         """
         paths = [path for path in list_markdown_files(self._root) if not self.skipped(path)]
         async with self._sessions() as session:
@@ -142,9 +139,8 @@ class Indexer:
     async def index(self, path: str) -> None:
         """Bring one note's pieces in line with its file: new, changed, unchanged or gone.
 
-        A note that fails, a model error or a row the database refuses, is
-        logged and left for the next sweep, and the rest go on. A database that
-        fails as a whole is raised for `run` to stop on.
+        A failing note is logged and left for the next sweep; a failing database
+        is raised for `run` to stop on.
         """
         try:
             await self._index(path)
@@ -156,9 +152,8 @@ class Indexer:
     async def _index(self, path: str) -> None:
         """Read, embed what is new, then write in one transaction.
 
-        The model runs between two sessions, not inside one, so a long note
-        holds no connection while it embeds. Nothing else writes these tables:
-        this worker is the only one, and it reads one note at a time.
+        The model runs between two sessions, so a long note holds no connection
+        while it embeds.
         """
         data = None if self.skipped(path) else await asyncio.to_thread(self._read, path)
         if data is None:

@@ -63,11 +63,9 @@ logger = logging.getLogger(__name__)
 
 
 def warn_unsafe(settings: Settings) -> None:
-    """Say at startup what this setup leaves open, without refusing to start.
+    """Warn at startup about what this setup leaves open, without refusing to start.
 
-    Warnings rather than errors, because both are what dev from a fresh
-    checkout runs with. On a server either one is a gap nothing else would
-    point out until it mattered.
+    Dev from a fresh checkout runs with these gaps, so they stay warnings.
     """
     if not settings.agent_host:
         logger.warning(
@@ -84,57 +82,41 @@ def warn_unsafe(settings: Settings) -> None:
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
-    """Give the vault its guides and its types, and empty what the trash has held too long.
+    """Write the vault's guides and types, and purge old trash.
 
-    The settings are read rather than injected: there is no request to depend
-    on, and the vault the process serves is the vault this writes into.
+    The settings are read here because no request exists to inject them.
     """
     settings = get_settings()
     warn_unsafe(settings)
-    # Before the guide, whose write takes a jj snapshot. A book already sitting
-    # in the vault would be swept into it.
+    # Before the guide, whose jj snapshot would sweep in a book already in the vault.
     write_ignores(settings.vault_path)
     await write_guide(settings.vault_path)
-    # After the guides and before the purge: the backfill inside this reads the
-    # vault, and it should read one that is finished being written to.
+    # After the guides, so the backfill reads a vault that has finished writing.
     await prepare(settings.vault_path)
     await purge_trash(settings.vault_path, settings.trash_days)
     uploads.wipe(settings.upload_path)
     sweeping = asyncio.create_task(uploads.sweeping(settings.upload_sweep_seconds))
-    # After the backfill and the guides, so the first sweep reads the vault as
-    # this start leaves it rather than embedding notes about to change.
+    # After the backfill and guides, so the first index sees the vault as this start leaves it.
     indexing = indexer.start(settings)
     try:
-        # A mounted sub-application does not run its own lifespan, and the MCP
-        # session manager is single-use, so the endpoint is built here and
-        # rebuilt on every entry rather than once at import.
+        # A mounted app skips its own lifespan, and the MCP session manager is
+        # single-use, so it is rebuilt on every entry.
         async with agent_mcp.serving():
             yield
     finally:
         sweeping.cancel()
         if indexing is not None:
             indexing.cancel()
-        # After the requests have closed, so an import past its answer is the
-        # only thing left to stop, and it undoes its writes as it goes.
+        # After requests close, so only a running import is left to stop.
         await anki_imports.stop()
 
 
 app = FastAPI(title="kasten", version=version("kasten-backend"), lifespan=lifespan)
-"""The number is read off the installed package rather than written here.
-
-Two copies of it drifted apart once already: the release was cut, the tag moved
-and this string did not, so `/docs` reported a version behind the code serving
-it. The release tag is the one place it lives now: the backend image build
-writes it into the package, and the source tree says 0.0.0.
-"""
+"""Version comes from the installed package, so it cannot drift from the release tag."""
 
 app.include_router(oauth_router)
-"""The authorization server the browser products connect through.
-
-Above the mount, and that is the whole of why the order here matters: a mount
-matches by prefix, so `/agent/oauth/token` registered below it would resolve to
-the MCP app, meet the bearer check and answer 401 to the one caller that cannot
-have a token yet. See `agent_oauth.py`.
+"""Must stay above the `/agent` mount: a mount matches by prefix, so the token route
+would reach the bearer check and answer 401.
 """
 
 app.include_router(agent_router)
@@ -143,35 +125,22 @@ app.add_exception_handler(TooLargeError, too_large)
 app.add_exception_handler(EmptyCaptureError, nothing_to_capture)
 app.add_exception_handler(RefusedError, refused)
 app.mount("/agent", agent_mcp.mounted)
-"""The MCP endpoint, at exactly `/agent/mcp`.
+"""Mounted at `/agent`, not `/agent/mcp`: the SDK app owns `/mcp`, so a deeper mount would redirect.
 
-Mounted after the router above, so every path it names is matched by a route
-before this is reached. Mounted at `/agent` rather than at `/agent/mcp` because
-the SDK's app owns `/mcp` internally: the deeper mount would answer the
-documented URL with a redirect.
-"""
-"""The one prefix reached without an oauth2-proxy session in front of it.
-
-Gated by the router's own bearer dependency instead. See `agent_routes.py` and
-docs/explanation/the-agent-boundary.md.
+After the router above, so its routes match first. Bearer-gated, not behind oauth2-proxy.
 """
 
 KEEPALIVE_SECONDS = 30.0
-"""How long a quiet stream waits before writing a line that says nothing.
+"""How long a quiet stream waits before writing a keepalive line.
 
-Long enough to cost nothing, short enough to beat an idle timeout on either
-proxy in front of it. The line itself is `KEEPALIVE`, over in `events.py` with
-the rest of the wire format.
+Short enough to beat the idle timeout of either proxy in front.
 """
 
 RECONNECT_SECONDS = 30.0
-"""How long the client waits before opening the stream again after it closes.
+"""How long the client waits before reconnecting after the stream closes.
 
-The browser's own default is about three seconds, and a stream that closes the
-moment it opens turns that into a loop: the client relists the vault on every
-connection, so a missing vault directory or a watcher that cannot start would
-cost twenty relists a minute for as long as the condition holds. This makes it
-two. It matches `KEEPALIVE_SECONDS` by coincidence rather than by need.
+The browser's default is about three seconds, and a stream that closes at once
+would make the client relist the vault in a tight loop.
 """
 
 
@@ -229,17 +198,9 @@ app.include_router(share.router)
 app.include_router(rsvp.router)
 app.add_middleware(share.ShareGate)
 app.add_middleware(FinanceGuard)
-"""The shared lists, and the gate that keeps the share host to them.
-
-The gate is registered here rather than in a router because it has to see every
-request, the ones the routes above do not answer included.
-"""
+"""Added on the app, not a router, so these see requests no route answers."""
 app.add_middleware(token_activity.Recorder)
-"""Added last, so it is the outermost layer and records the status the client got.
-
-Whatever layer answered, the row carries that answer's status, not one an inner
-layer rewrote on the way out.
-"""
+"""Added last, so outermost: the row keeps the status the client got, not an inner rewrite."""
 
 
 @app.get("/api/events")
@@ -264,16 +225,10 @@ async def stream_events(settings: Annotated[Settings, Depends(get_settings)]) ->
     """
 
     async def report() -> AsyncIterator[str]:
-        # Before the watcher is even asked for, because both of the ways this
-        # stream closes early close it before anything else could be written,
-        # and those are the two that make the number matter.
+        # Sent first, so a stream that closes early still tells the client when to retry.
         yield format_retry(RECONNECT_SECONDS)
 
-        # The watcher fills a queue from a task of its own rather than being
-        # read directly, so the wait below can time out without touching it.
-        # Cancelling a generator's `__anext__` is what a timeout does, and
-        # `awatch` answers that by ending, which would trade a live watcher for
-        # every keepalive written.
+        # Its own task: a timeout cancels `__anext__`, which would end the watcher.
         batches: asyncio.Queue[list[VaultEvent] | None] = asyncio.Queue()
 
         async def collect() -> None:
@@ -281,12 +236,8 @@ async def stream_events(settings: Annotated[Settings, Depends(get_settings)]) ->
                 async for events in watch_vault(settings.vault_path):
                     batches.put_nowait(events)
             finally:
-                # Every way out of the watcher has to end up here, a raise as
-                # much as a return. A stream that keeps writing keepalives over
-                # a watcher that died looks healthier than one that closed, and
-                # `EventSource` reconnects from closed and never from this. The
-                # silence would be exactly the loss this endpoint exists to
-                # prevent, and an exhausted inotify limit is enough to cause it.
+                # Also on a raise. EventSource reconnects only from a closed stream,
+                # so keepalives over a dead watcher would hide the failure.
                 batches.put_nowait(None)
 
         watching = asyncio.create_task(collect())
@@ -299,9 +250,7 @@ async def stream_events(settings: Annotated[Settings, Depends(get_settings)]) ->
                     continue
 
                 if events is None:
-                    # Awaited rather than dropped, so a watcher that fell over
-                    # says why in the log on its way out. It raises here, which
-                    # closes the stream just as returning would.
+                    # Awaited so a failed watcher logs why it died.
                     await watching
                     return
 

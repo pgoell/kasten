@@ -1,12 +1,6 @@
-"""Database engine, session factory and the declarative base.
+"""Database engine, session factory and the declarative base for Postgres.
 
-Postgres holds the `finance` schema, the one system of record kept outside the
-vault (see docs/explanation/finance-in-postgres.md), and two tables that do not
-rebuild from the vault either: the RSVP reading places in `rsvp.py`, whose loss
-costs only where each run stopped, and the agent token record in
-`token_activity.py`, whose loss costs what `/tokens` shows of each token's use.
-It also holds the pieces index, a derived index of the vault that `indexer.py`
-rebuilds from the notes (see docs/explanation/models-on-the-vps/the-pieces-index.md).
+Finance is kept outside the vault, see docs/explanation/finance-in-postgres.md.
 """
 
 import logging
@@ -32,19 +26,14 @@ logger = logging.getLogger(__name__)
 
 
 class Base(DeclarativeBase):
-    """Declarative base for every table: finance, RSVP places, tokens and the pieces index."""
+    """Declarative base for every table."""
 
 
 def make_engine(url: str) -> AsyncEngine:
     """The engine every session comes from; tests build theirs here too."""
     return create_async_engine(
         url,
-        # Nothing connects at startup; the first request that needs the database
-        # does: finance, RSVP, the token list or a token's actions, or any `/agent/`
-        # request a token makes, whose row the token record writes. A host that
-        # drops packets rather than refusing would otherwise hold a finance or RSVP
-        # request for the system's TCP timeout before it could answer 503; the
-        # token record has its own shorter timeout.
+        # Short, so a host that drops packets fails fast, not at the TCP timeout.
         connect_args={"connect_timeout": 5},
         # A postgres restart closes pooled connections; unpinged, one goes out and 500s (#1327).
         pool_pre_ping=True,
@@ -57,18 +46,15 @@ session_factory = async_sessionmaker(engine, expire_on_commit=False)
 
 
 async def get_session() -> AsyncIterator[AsyncSession]:
-    """FastAPI dependency yielding a connected session that closes with the request.
+    """FastAPI dependency: a connected session, closed with the request.
 
-    The connection is opened here rather than at the first query, so a 503
-    means only that no database answered. A timeout or a deadlock later in the
-    request is a different failure and stays a 500.
+    Connecting here makes a 503 mean only that no database answered.
     """
     async with session_factory() as session:
         try:
             await session.connection()
         except OperationalError as error:
-            # The driver's reason for the failed connect: host, port and cause,
-            # no statement and no parameters, since none was sent.
+            # Logs the driver's error only: no statement, since none was sent.
             logger.warning("No database answers at KASTEN_DATABASE_URL: %s", error.orig)
             raise HTTPException(
                 status_code=503,
