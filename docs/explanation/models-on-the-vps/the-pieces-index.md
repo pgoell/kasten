@@ -33,8 +33,8 @@ queries lay at 0.29 to 0.50 and the nearest piece of 12 queries about nothing
 in the vault at 0.51 to 0.66, so the floor cuts through a thin band. A lone
 German compound pays for it: `Flitterwochen` sits 0.54 from the honeymoon notes
 and finds none, while `Japan Flitterwochen` finds them by its words. A BM25 hit
-stays whatever its distance. Notes like this one take no floor: they rank the
-ten nearest, however near.
+stays whatever its distance. `GET /api/similar`, behind the margin's list of
+notes like the open one, takes no floor: it ranks the ten nearest, however far.
 
 The query is embedded on a thread of its own over the indexer's loaded model,
 never on the event loop. It once shared the indexer's thread and waited 12.7 s

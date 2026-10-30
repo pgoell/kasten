@@ -25,10 +25,7 @@ DEPTH = 50
 """How many pieces each list hands to the fusion."""
 
 FARTHEST = 0.5
-"""The cosine distance from which a piece is no vector hit, so a query the vault lacks finds none.
-
-Measured on a copy of the live index (#1341): real hits reach 0.503, noise starts at 0.509.
-"""
+"""Cosine distance from which a piece is no vector hit (#1341); measured in the-pieces-index.md."""
 
 INDEXES = ("pieces_text_german", "pieces_text_english")
 """The two BM25 indexes, one a stemmer: a mixed vault needs no language guess."""
