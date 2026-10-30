@@ -9,6 +9,7 @@
  * carry a schedule, the rest are new.
  */
 
+import { Parser } from "@lezer/common";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Profiler } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -50,6 +51,7 @@ let host: HTMLElement | undefined;
 let commits = 0;
 let longTasks: PerformanceEntry[] = [];
 let observer: PerformanceObserver | undefined;
+let parse: ReturnType<typeof vi.spyOn>;
 
 beforeEach(async () => {
   localStorage.clear();
@@ -57,6 +59,7 @@ beforeEach(async () => {
   longTasks = [];
   observer = new PerformanceObserver((list) => longTasks.push(...list.getEntries()));
   observer.observe({ type: "longtask" });
+  parse = vi.spyOn(Parser.prototype, "parse");
   vi.spyOn(Element.prototype, "setPointerCapture").mockImplementation(() => {});
   await page.viewport(390, 844);
   await commands.emulateMedia({ touch: true });
@@ -118,6 +121,13 @@ function mount(): HTMLElement {
   return div;
 }
 
+/** The lezer parses of the 1 MB deck on this thread; the card's editor parses only its own text. */
+function mainParses(): number {
+  return parse.mock.calls.filter(
+    ([input]: unknown[]) => typeof input === "string" && input.length > 100_000,
+  ).length;
+}
+
 /** Shows the answer the way a click on the footer does. */
 async function reveal(screen: HTMLElement): Promise<void> {
   (screen.querySelector("footer button") as HTMLButtonElement).click();
@@ -139,6 +149,16 @@ it("A4 #1321 opens a 1500-card deck at phone width within its commit and long-ta
   );
   expect.soft(commits).toBeLessThanOrEqual(6);
   expect.soft(tasks.count).toBeLessThanOrEqual(3);
+}, 60_000);
+
+// A count, not the long task's ms: main parsed the deck here once, 51 ms at 1x and 141 ms at a
+// 4x CPU slowdown, one long task each. The worker takes the parse off this thread (#1359).
+it("A4 #1359 opens a 1500-card deck with no card parse on the main thread", async () => {
+  const screen = mount();
+  await expect
+    .poll(() => screen.querySelector('[data-testid="review-card"] .cm-line'), { timeout: 30_000 })
+    .not.toBeNull();
+  expect(mainParses()).toBe(0);
 }, 60_000);
 
 // Budget: 48 commits and 3 long tasks over 20 steps. Measured 40 commits (2 a step) and

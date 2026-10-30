@@ -28,7 +28,7 @@ frontend/src/lib/review 25
 frontend/src/lib/todo 34
 frontend/src/lists 8
 frontend/src/styles 25
-frontend/tests 599
+frontend/tests 594
 frontend/tests/fixtures 10
 frontend/tests/fixtures/barcodes 10
 frontend/tests/frame 180

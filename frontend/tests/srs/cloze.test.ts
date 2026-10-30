@@ -1,6 +1,6 @@
 import { setSuspended, writeSchedule } from "@/lib/review/card-write";
 import { type Card, parseCards } from "@/lib/review/srs";
-import { only } from "./srs-fixture";
+import { only } from "./fixture";
 
 describe("parseCards on a cloze", () => {
   const CLOZE = "#flashcards/geo\n\nThe capital of {{c1::France}} is {{c2::Paris::a city}}.\n";

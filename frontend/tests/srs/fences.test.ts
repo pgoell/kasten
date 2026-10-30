@@ -1,6 +1,6 @@
 import { setSuspended, writeSchedule } from "@/lib/review/card-write";
 import { parseCards } from "@/lib/review/srs";
-import { only } from "./srs-fixture";
+import { only } from "./fixture";
 
 describe("#660 a schedule comment on its own line opens no comment block", () => {
   it("#660 I2 a deck tag under a schedule line still names its deck", () => {

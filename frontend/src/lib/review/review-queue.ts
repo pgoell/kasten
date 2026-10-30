@@ -82,7 +82,37 @@ export function cardsOf(deck: Deck, texts: Map<string, string>): Map<string, Car
  */
 const read = new WeakMap<Map<string, string>, { deck: Deck; cards: Map<string, Card[]> }>();
 
-function cardsRead(deck: Deck, texts: Map<string, string>): Map<string, Card[]> {
+/**
+ * Parses the deck in a worker and holds its cards for `cardsOf`, so a 1 MB deck's open is no long task on a phone (#1359).
+ * Where the worker cannot start or fails it holds nothing, and `cardsOf` parses on the main thread as before.
+ */
+export function readAside(
+  deck: Deck,
+  texts: Map<string, string>,
+  signal: AbortSignal,
+): Promise<void> {
+  // A whole note is never parsed for cards.
+  if (deck.whole || typeof Worker === "undefined") return Promise.resolve();
+  const worker = new Worker(new URL("./deck-parse/worker.ts", import.meta.url), {
+    type: "module",
+  });
+  return new Promise((done) => {
+    const end = () => {
+      worker.terminate();
+      done();
+    };
+    signal.addEventListener("abort", end);
+    worker.onmessage = ({ data }: MessageEvent<[string, Card[]][]>) => {
+      read.set(texts, { deck, cards: new Map(data) });
+      end();
+    };
+    worker.onerror = end;
+    worker.onmessageerror = end;
+    worker.postMessage({ deck, texts: [...texts] });
+  });
+}
+
+export function cardsRead(deck: Deck, texts: Map<string, string>): Map<string, Card[]> {
   return new Map(
     [...texts].map(([note, text]) => {
       if (deck.whole) {

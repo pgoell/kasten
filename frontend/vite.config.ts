@@ -329,6 +329,9 @@ export default defineConfig({
   preview: {
     proxy: PROXY,
   },
+  // The deck parse's worker (#1359) reaches math.ts, whose lazy KaTeX loader brings a
+  // stylesheet. The default iife inlines it, and its `document` throws in a worker.
+  worker: { format: "es" },
   build: {
     rollupOptions: {
       input: {
