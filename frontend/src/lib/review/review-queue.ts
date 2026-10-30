@@ -11,12 +11,8 @@ export interface Seat {
   /** Its ordinal among the cards of that note, counting the ones other decks ask. */
   at: number;
   /**
-   * Whether the card had no schedule when the sitting began, so its first answer
-   * is still to come.
-   *
-   * The sitting's own memory: `again` and undo carry the same seat objects, so
-   * the flag survives both. The vault cannot hold it, because
-   * obsidian-spaced-repetition reads only the three numbers.
+   * No schedule when the sitting began, so the first answer is still to come.
+   * Kept in memory, since the vault stores only the three numbers obsidian-spaced-repetition reads.
    */
   fresh?: boolean;
 }
@@ -35,33 +31,26 @@ export function seatsFor(
   today: string,
   limits: Limits,
 ): Seat[] {
-  // Due first, then the ones nobody has answered, each in its note's
-  // order and the notes in path order. The scan finds the notes in no
-  // fixed order, so sorting by path is what keeps a split deck's queue
-  // the same from one reload to the next. Nothing is shuffled: a deck
-  // written in an order was written in that order on purpose, and an
-  // import arrives in the order Anki held.
+  // Due first, then unanswered, each in its note's order. Notes sort by path so
+  // a split deck's queue holds across reloads. Nothing is shuffled.
   const parsed = cardsOf(deck, texts);
   const seats = [...parsed]
     .sort(([one], [two]) => (one < two ? -1 : one > two ? 1 : 0))
     .flatMap(([note, cards]) => cards.map((card, at) => ({ note, at, card })));
-  // A parked card keeps its seat and its ordinal and is never asked. It
-  // has to keep them: the queue addresses a card by its ordinal, so a
-  // card taken out of the array renumbers the ones behind it.
+  // Parked cards stay in the array: the queue addresses a card by its ordinal,
+  // so removing one would renumber the cards behind it.
   const asked = seats.filter(({ card }) => card.parked === null);
-  // A card in learning first, because the row counts it outside the limit and
-  // the slice below must not cut it for a review the limit let in.
+  // Learning cards first, since the row counts them outside the limit and the
+  // slice below must not cut them.
   const due = asked
     .filter(({ card }) => isDue(card, today))
     .sort((one, two) => Number(learning(two.card.held)) - Number(learning(one.card.held)));
   const fresh = asked.filter(({ card }) => card.held === null);
-  // The deck's row as the overview counts it, off the same notes and the
-  // same limits, so the sitting asks exactly what the row promised. A
-  // whole note has no row here and no limit.
+  // The overview's row, from the same notes and limits, so the sitting asks what
+  // the row promised. A whole note has no row and no limit.
   const row = deck.whole
     ? undefined
-    : // The deck's own cards, not the note's: only this row is read, and a card
-      // counts in it exactly when `inDeck` asks it here, so it comes out the same.
+    : // The cards filed to this deck, which is how the row counts them.
       decksFrom(
         [...texts].map(([path, text]) => ({ path, text, cards: parsed.get(path) })),
         today,
@@ -76,17 +65,8 @@ export function seatsFor(
 }
 
 /**
- * What this deck asks out of each note, which is either its cards or itself.
- *
- * The one place the two kinds part company. A `#review` note becomes a single
- * card whose front is the note and whose back is nothing, so the queue, the
- * rating and the writing downstream are the same code for both, and only the
- * lines here know there was ever a difference.
- *
- * A note's cards are filtered to this deck's, because a note holding two decks
- * is the whole point of a card carrying a tag of its own: sitting `dbt` asks
- * the one card in the stored procedures note that says it is about dbt, and
- * none of the others.
+ * What this deck asks out of each note: its cards, or the note itself as one card.
+ * Cards are filtered to this deck, since one note can hold cards for several decks.
  */
 export function cardsOf(deck: Deck, texts: Map<string, string>): Map<string, Card[]> {
   const held = read.get(texts);
@@ -97,9 +77,8 @@ export function cardsOf(deck: Deck, texts: Map<string, string>): Map<string, Car
 }
 
 /**
- * The last read per texts map. The sitting builds its queue and draws its card off
- * the same map, and a second parse of a 1 MB deck is a long task (#1354). Every
- * write makes a new map, so a held read is never stale.
+ * Last read per texts map, so the queue and the drawn card share one parse of a
+ * 1 MB deck (#1354). Every write makes a new map, so a held read is never stale.
  */
 const read = new WeakMap<Map<string, string>, { deck: Deck; cards: Map<string, Card[]> }>();
 

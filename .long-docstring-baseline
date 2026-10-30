@@ -108,10 +108,6 @@ backend/src/kasten_backend/uploads.py 4
 backend/src/kasten_backend/vault.py 7
 backend/src/kasten_backend/vcs.py 3
 backend/src/kasten_backend/weather.py 1
-frontend/src/lib/book/use-book-view.ts 1
-frontend/src/lib/editor/editor-commands.ts 2
-frontend/src/lib/review/review-queue.ts 2
-frontend/src/lib/review/review.ts 9
 jobs/src/kasten_jobs/bank_sync.py 2
 jobs/src/kasten_jobs/bookings.py 4
 jobs/src/kasten_jobs/fints_bank.py 1

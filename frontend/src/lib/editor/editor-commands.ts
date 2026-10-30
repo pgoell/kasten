@@ -8,19 +8,14 @@ import { LEADER, TAB_KEYS } from "@/lib/leader-keys";
 import { beginLeader, editorOpener } from "@/lib/which-key";
 
 /**
- * Carries the app's commands on the editor state.
- *
- * Vim registers its mappings once for the whole module and cannot close over
- * one view's props, so the commands have to be reachable from the view the key
- * was typed into. This is the same trick `saveHandler` plays for `:w`.
+ * Vim maps once per module, so the commands ride the editor state instead.
  */
 export const editorCommands = Facet.define<EditorCommands, EditorCommands | undefined>({
   combine: (handlers) => handlers[0],
 });
 
 /**
- * Each one calls `get` when the key runs rather than closing over the prop, so
- * a re-render never has to rebuild the view to refresh a callback.
+ * Each command calls `get` when run, so a re-render never rebuilds the view.
  */
 export function forwardCommands(get: () => EditorCommands | undefined): Extension {
   return editorCommands.of({
@@ -33,8 +28,7 @@ export function forwardCommands(get: () => EditorCommands | undefined): Extensio
     focusTree: () => get()?.focusTree(),
     revealTree: () => get()?.revealTree(),
     createNote: (startPath) => get()?.createNote(startPath),
-    // No path: the editor holds one note, and the route already knows
-    // which. The tree is the caller that names one.
+    // No path: the route already knows which note the editor holds.
     renameNote: (startPath) => get()?.renameNote(startPath),
     deleteNote: (startPath) => get()?.deleteNote(startPath),
     restoreDeleted: () => get()?.restoreDeleted(),
@@ -96,22 +90,15 @@ export function forwardCommands(get: () => EditorCommands | undefined): Extensio
 }
 
 /**
- * Space opens the which-key panel from a note, ahead of vim reading it.
- *
- * Vim reads its keys in a plugin's keydown, and a plugin's handlers run before
- * any `domEventHandlers` facet, so a `Prec.highest` one would hear the space
- * only after vim had started `<Space>…` with it. A capture listener on the
- * editor's own element is the one place that comes first. It stands down while
- * vim is partway through a command, so `f<Space>`, `r<Space>`, `d<Space>`,
- * `3<Space>` and `"a<Space>` are still vim's, and in insert and visual mode.
+ * The capture listener runs before vim's keydown and stands down mid-command.
+ * So `f<Space>` and `3<Space>` stay vim's, and so do insert and visual mode.
  */
 export const leaderPanel = ViewPlugin.define((view) => {
   function onKeyDown(event: KeyboardEvent) {
     if (event.key !== " " || event.ctrlKey || event.altKey || event.metaKey || event.shiftKey) {
       return;
     }
-    // Vim's `:` and `/` prompts are panels inside `view.dom`, with their own input,
-    // and a space typed into one is the prompt's text, not the leader.
+    // A space typed in vim's `:` or `/` prompt is its text, not the leader.
     if (!view.contentDOM.contains(event.target as Node)) return;
     const vim = getCM(view)?.state.vim;
     if (!vim || vim.insertMode || vim.visualMode) return;
@@ -136,13 +123,10 @@ export const leaderPanel = ViewPlugin.define((view) => {
   return { destroy: () => view.dom.removeEventListener("keydown", onKeyDown, true) };
 });
 
-// Vim ships `<Space>` bound to `l`, and its dispatcher takes a full match over
-// a partial one, so `<Space>b` can never begin a sequence while the built-in
-// stands. `unmap` matches on `context === ctx`, and the built-in carries no
-// context, so passing none is what removes it. The declared type overstates
-// the requirement by demanding a string.
+// Vim's built-in `<Space>` (bound to `l`) would shadow `<Space>b`. Its context is
+// none, so unmapping passes none; the typed signature wrongly demands a string.
 (Vim.unmap as (lhs: string, ctx?: string) => void)("<Space>");
-// Visual mode gets its move-right back by hand, the leader being normal only.
+// The leader is normal only, so visual mode keeps its move-right here.
 Vim.map("<Space>", "l", "visual");
 
 for (const { key, command } of LEADER) {
@@ -153,8 +137,7 @@ for (const { key, command } of LEADER) {
   Vim.mapCommand(`<Space>${key}`, "action", name, {}, { context: "normal" });
 }
 
-// Their own loop, because these write to the buffer rather than reaching a
-// command on the route, so what they need is the view the key was typed into.
+// Separate loop: these write to the buffer and need the key's view, not a route command.
 for (const { key, run } of LEADER_EDITS) {
   const name = `kastenEdit:${key}`;
   Vim.defineAction(name, (cm: CodeMirrorV) => {
@@ -163,9 +146,7 @@ for (const { key, run } of LEADER_EDITS) {
   Vim.mapCommand(`<Space>${key}`, "action", name, {}, { context: "normal" });
 }
 
-// Their own loop, because the commands above take nothing and this one takes
-// the tab to go to. Folding the number into `LEADER` would mean every action
-// in that loop being called with an argument all but ten of them ignore.
+// Separate loop: these take a tab index that the other actions would ignore.
 TAB_KEYS.forEach((key, index) => {
   const name = `kastenTab:${index}`;
   Vim.defineAction(name, (cm: CodeMirrorV) => {
@@ -178,8 +159,7 @@ for (const { key, spec } of FORMAT) {
   const name = `kastenFormat:${spec.node}`;
   Vim.defineAction(name, (cm: CodeMirrorV, _args, vim) => {
     toggleMark(cm.cm6, spec);
-    // An operator applied to a selection ends the selection. Formatting is an
-    // action rather than an operator, so it has to say so itself.
+    // Operators end a visual selection, but this action is not one, so exit it here.
     if (vim.visualMode) Vim.exitVisualMode(cm);
   });
   for (const context of ["insert", "visual"]) {
