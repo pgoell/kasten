@@ -17,7 +17,6 @@ import {
   computed,
   darkPage,
   drawBook,
-  drawn,
   keepMounted,
   loaded,
   type Mounted,
@@ -26,6 +25,7 @@ import {
   sections,
   turnTo,
 } from "./book-cover-fixture";
+import { drawn } from "./book-pane-fixture";
 import { shot } from "./shots";
 
 const { fetchBook, fetchNote } = vi.hoisted(() => ({ fetchBook: vi.fn(), fetchNote: vi.fn() }));
