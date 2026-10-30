@@ -54,8 +54,7 @@ async def test_a_search_that_reaches_the_cap_answers_rather_than_hangs(
     assert response.status_code == 200
     hits = response.json()
     assert len(hits) == MOST_HITS
-    # rg's order across notes is its threads' and was never fixed, but each
-    # note's lines come whole and in order: the first ones of that note.
+    # Results are ordered by path, and lines within each note stay in order.
     by_note: dict[str, list[int]] = {}
     for hit in hits:
         by_note.setdefault(hit["path"], []).append(hit["line"])
@@ -78,6 +77,23 @@ async def test_at_the_cap_the_hits_are_the_first_lines_rg_prints(
         ("japan.md", number) for number in range(1, MOST_HITS + 1)
     ]
     assert [hit["text"] for hit in hits] == numbered(MOST_HITS).splitlines()
+
+
+async def test_a_capped_search_keeps_the_same_files_and_lines(
+    client: AsyncClient, vault: Path
+) -> None:
+    (vault / "a.md").write_text(numbered(1_500), encoding="utf-8")
+    (vault / "b.md").write_text(numbered(1_500), encoding="utf-8")
+
+    async with asyncio.timeout(LIMIT):
+        response = await client.get("/api/search", params={"q": "japanese"})
+
+    hits = response.json()
+    assert len(hits) == MOST_HITS
+    assert [(hit["path"], hit["line"]) for hit in hits] == [
+        *(("a.md", number) for number in range(1, 1_501)),
+        *(("b.md", number) for number in range(1, 501)),
+    ]
 
 
 async def test_under_the_cap_every_matching_line_comes_back(

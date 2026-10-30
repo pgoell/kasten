@@ -13,7 +13,6 @@
 import {
   chapterOne,
   computed,
-  drawn,
   keepMounted,
   loaded,
   type Mounted,
@@ -22,6 +21,7 @@ import {
   turnTo,
   WHITE,
 } from "./book-cover-fixture";
+import { drawn } from "./book-pane-fixture";
 
 const { fetchBook, fetchNote } = vi.hoisted(() => ({ fetchBook: vi.fn(), fetchNote: vi.fn() }));
 // The module is replaced whole, so every name the route and the editor import

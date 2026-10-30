@@ -1,5 +1,6 @@
 import { fireEvent, screen, within } from "@testing-library/react";
-import { pageHooks, renderApp, settle, theRoute } from "./home-route-fixture";
+import { hashed } from "./digests";
+import { FakeEventSource, pageHooks, renderApp, settle, theRoute } from "./home-route-fixture";
 
 // The doubles, the same in every home-route file: see home-route-fixture.tsx.
 const {
@@ -99,6 +100,51 @@ vi.mock("@/lib/outbox", () => ({
 }));
 
 pageHooks();
+
+// First in the file, so its first test is the one that meets what the warm-up left.
+describe("the page around a test that timed out (#1337)", () => {
+  theRoute();
+
+  it("the warm-up mount leaves no page, no stored layout and no calls for the first test", () => {
+    expect(document.body.innerHTML).toBe("");
+    expect(localStorage.getItem("kasten.workspace.1")).toBeNull();
+    expect(localStorage.getItem("kasten.positions.1")).toBeNull();
+    expect(FakeEventSource.last).toBeUndefined();
+    expect(fetchFiles).not.toHaveBeenCalled();
+    expect(fetchNote).not.toHaveBeenCalled();
+    expect(fetchTodos).not.toHaveBeenCalled();
+  });
+
+  // A body that runs out of time goes on running: vitest fails it but cannot
+  // stop it. Held here until the next test lets it go, the way a loaded box
+  // holds one past its timeout and into the test after it.
+  let wake: () => void = () => {};
+  const woken = new Promise<void>((resolve) => {
+    wake = resolve;
+  });
+
+  it.fails("a test held past its timeout fails by the timeout", { timeout: 1000 }, async () => {
+    const app = await renderApp();
+    await settle();
+    await woken;
+    await hashed();
+    await settle();
+    app.click("index.md");
+    await settle();
+  });
+
+  it("the test after one that timed out mounts the route and opens a note", async () => {
+    // The orphan above wakes inside this test and reaches for `act` beside it.
+    wake();
+    await settle();
+    const app = await renderApp();
+    await settle();
+    app.click("index.md");
+    await settle();
+
+    expect(app.text()).toBe("the index note");
+  });
+});
 
 describe("the top bar", () => {
   theRoute();

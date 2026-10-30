@@ -9,9 +9,12 @@
 
 import type { Root } from "react-dom/client";
 import { userEvent } from "vitest/browser";
+import type { FoliateView } from "@/lib/book/foliate-view";
 // Three chapters and a nav holding three entries, the third nested under the
 // second, for the cases that walk a real list of chapters.
 import contentsUrl from "../fixtures/contents.epub?url";
+// Not a zip at all, handed over as the epub beside the note.
+import notBookUrl from "../fixtures/daily-notes.json?url";
 import { COARSE, stubMatchMedia } from "../match-media";
 import { clickInside, drawBook, drawn, located, sections, trackMounted } from "./book-pane-fixture";
 
@@ -288,5 +291,94 @@ describe("the reader over a real book", () => {
     // chapter one.
     await vi.waitFor(() => expect(sections.at(-1)?.title).toBe("Two"), { timeout: 10_000 });
     expect(container.querySelector("[role='dialog']")).toBeNull();
+  }, 30_000);
+});
+
+/** The pane's host, which the view is appended to. */
+function host(container: HTMLElement): HTMLElement {
+  return (container.querySelector("foliate-view") as HTMLElement).parentElement as HTMLElement;
+}
+
+/** Where the view stood the moment the mark landed, read by an observer in that same task. */
+function placeWhenMarked(container: HTMLElement): Promise<string | undefined> {
+  return new Promise((resolve) => {
+    const observer = new MutationObserver(() => {
+      const marked = container.querySelector("[data-ready]");
+      if (marked === null) return;
+      observer.disconnect();
+      const view = marked.querySelector("foliate-view") as FoliateView | null;
+      resolve(view?.lastLocation?.cfi);
+    });
+    observer.observe(container, {
+      attributes: true,
+      subtree: true,
+      attributeFilter: ["data-ready"],
+    });
+  });
+}
+
+describe("the book view's ready mark", () => {
+  beforeEach(() => {
+    located.length = 0;
+    sections.length = 0;
+  });
+
+  afterEach(() => {
+    mounted?.root.unmount();
+    mounted?.container.remove();
+    mounted = null;
+  });
+
+  it("marks its host data-ready once the open ends, with the bookmark already landed", async () => {
+    const { container } = await drawBook(`---\nreading: ${CHAPTER_TWO}\n---\n`);
+    const cfi = await placeWhenMarked(container);
+
+    expect(cfi).toMatch(/^epubcfi\(\/6\/4!/);
+    expect(host(container).hasAttribute("data-ready")).toBe(true);
+    expect(container.querySelectorAll("[data-ready]")).toHaveLength(1);
+  }, 30_000);
+
+  it("drops the mark when the pane closes, so the next open starts unmarked", async () => {
+    const { container } = await drawBook();
+    await vi.waitFor(() => expect(container.querySelector("[data-ready]")).not.toBeNull(), {
+      timeout: 30_000,
+    });
+    const element = host(container);
+
+    mounted?.root.unmount();
+
+    expect(element.hasAttribute("data-ready")).toBe(false);
+    const { container: next } = await drawBook();
+    expect(next.querySelector("[data-ready]")).toBeNull();
+    await vi.waitFor(() => expect(next.querySelector("[data-ready]")).not.toBeNull(), {
+      timeout: 30_000,
+    });
+  }, 60_000);
+
+  it("never marks a book that fails to open", async () => {
+    const { container } = await drawBook("", notBookUrl);
+    await vi.waitFor(() => expect(container.querySelector('[role="alert"]')).not.toBeNull(), {
+      timeout: 30_000,
+    });
+
+    expect(container.querySelector("[data-ready]")).toBeNull();
+  }, 30_000);
+
+  it("changes nothing in how the book looks: no style reads the mark, and the host keeps its class", async () => {
+    const { container } = await drawBook();
+    await vi.waitFor(() => expect(container.querySelector("foliate-view")).not.toBeNull());
+    const element = host(container);
+    const before = element.className;
+    await vi.waitFor(() => expect(element.hasAttribute("data-ready")).toBe(true), {
+      timeout: 30_000,
+    });
+
+    expect(element.className).toBe(before);
+    expect(element.getAttribute("style")).toBeNull();
+    const selectors = [...document.styleSheets].flatMap((sheet) =>
+      [...sheet.cssRules].map((rule) => (rule as CSSStyleRule).selectorText ?? ""),
+    );
+    expect(selectors.length).toBeGreaterThan(0);
+    expect(selectors.filter((selector) => selector.includes("data-ready"))).toEqual([]);
   }, 30_000);
 });
