@@ -1,9 +1,4 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, render, waitFor } from "@testing-library/react";
-import { Profiler } from "react";
-import { TodoPane } from "@/components/todo-pane";
-import type { SearchHit } from "@/lib/api";
-import type { EditorCommands } from "@/lib/key-bindings";
+import { act, waitFor } from "@testing-library/react";
 import { paneHooks, renderPane, TODOS } from "./todo-pane-fixture";
 
 // The doubles, the same in every todo-pane file: see todo-pane-fixture.tsx.
@@ -118,40 +113,16 @@ describe("the todo pane", () => {
 
 // Counted in commits, not milliseconds, so a loaded box cannot pass or fail it.
 it("#1355 A1 the rows of the first todos answer draw in a commit after the one the fetch forces", async () => {
-  let answer: (hits: SearchHit[]) => void = () => {};
-  vi.mocked(fetchTodos).mockReturnValue(new Promise((resolve) => (answer = resolve)));
+  let answer: (hits: typeof TODOS) => void = () => {};
+  const pending = new Promise<typeof TODOS>((resolve) => (answer = resolve));
   // The rows each commit leaves on screen, read as the commit lands.
   const drawn: number[] = [];
-
-  render(
-    <QueryClientProvider client={new QueryClient()}>
-      <Profiler
-        id="pane"
-        onRender={() => drawn.push(document.querySelectorAll("[data-row]").length)}
-      >
-        <TodoPane
-          commands={{} as EditorCommands}
-          onOpen={vi.fn()}
-          onCycle={vi.fn()}
-          onAdd={vi.fn()}
-          onSubtask={vi.fn()}
-          onEdit={vi.fn()}
-          onBlock={vi.fn()}
-          onTimer={vi.fn()}
-          onAgent={vi.fn()}
-          onRefile={vi.fn()}
-          onNotice={vi.fn()}
-          focusSignal={0}
-          today="2026-08-10"
-        />
-      </Profiler>
-    </QueryClientProvider>,
-  );
+  renderPane(pending, 0, () => drawn.push(document.querySelectorAll("[data-row]").length));
   await waitFor(() => expect(fetchTodos).toHaveBeenCalled());
   const before = drawn.length;
 
   await act(async () => answer(TODOS));
-  await waitFor(() => expect(document.querySelectorAll("[data-row]").length).toBeGreaterThan(0));
+  await waitFor(() => expect(document.querySelectorAll("[data-row]")).toHaveLength(6));
 
   // The urgent commit the answer forces draws no row; a later one draws them all.
   const after = drawn.slice(before);

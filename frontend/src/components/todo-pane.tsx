@@ -173,10 +173,8 @@ export function TodoPane({
     queryKey: ["todos", archive],
     queryFn: () => fetchTodos(archive),
   });
-  // The query hands its answer over as an urgent render, which drew a vault's
-  // thousand lines in one long task (#1355). Deferred, React renders the rows in
-  // a pass that yields, and every reader below takes this one value so the
-  // held order and the twins never run a commit ahead of the rows.
+  // Deferred, so a thousand-line answer renders in a pass that yields (#1355);
+  // every reader takes this one value, so the hold and twins keep step with the rows.
   const data = useDeferredValue(answer);
   const narrowing = useTodoFilter();
   const blocker = useBlockerPick(onBlock);
