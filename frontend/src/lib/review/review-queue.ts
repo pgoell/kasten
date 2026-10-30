@@ -92,10 +92,15 @@ export function readAside(
   signal: AbortSignal,
 ): Promise<void> {
   // A whole note is never parsed for cards.
-  if (deck.whole || typeof Worker === "undefined") return Promise.resolve();
-  const worker = new Worker(new URL("./deck-parse/worker.ts", import.meta.url), {
-    type: "module",
-  });
+  if (deck.whole || signal.aborted || typeof Worker === "undefined") return Promise.resolve();
+  let worker: Worker;
+  try {
+    worker = new Worker(new URL("./deck-parse/worker.ts", import.meta.url), { type: "module" });
+  } catch (error) {
+    // A page whose policy refuses workers throws a SecurityError here.
+    if (error instanceof DOMException) return Promise.resolve();
+    throw error;
+  }
   return new Promise((done) => {
     const end = () => {
       worker.terminate();
@@ -108,7 +113,12 @@ export function readAside(
     };
     worker.onerror = end;
     worker.onmessageerror = end;
-    worker.postMessage({ deck, texts: [...texts] });
+    try {
+      worker.postMessage({ deck, texts: [...texts] });
+    } catch (error) {
+      if (!(error instanceof DOMException)) throw error;
+      end();
+    }
   });
 }
 
