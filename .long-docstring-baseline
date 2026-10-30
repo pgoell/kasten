@@ -110,12 +110,8 @@ backend/src/kasten_backend/vcs.py 3
 backend/src/kasten_backend/weather.py 1
 frontend/src/components/finder/note-finder.tsx 6
 frontend/src/components/todo-pane.tsx 7
-frontend/src/lib/api.ts 15
 frontend/src/lib/book/use-book-view.ts 1
 frontend/src/lib/editor/editor-commands.ts 2
-frontend/src/lib/fuzzy.ts 5
-frontend/src/lib/key-bindings.ts 14
-frontend/src/lib/leader-keys.ts 6
 frontend/src/lib/review/review-queue.ts 2
 frontend/src/lib/review/review.ts 9
 jobs/src/kasten_jobs/bank_sync.py 2
