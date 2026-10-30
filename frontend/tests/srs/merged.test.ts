@@ -1,6 +1,6 @@
 import { setSuspended, writeSchedule } from "@/lib/review/card-write";
 import { parseCards } from "@/lib/review/srs";
-import { only } from "./srs-fixture";
+import { only } from "./fixture";
 
 describe("#678 two ? cards with no blank line between them are one card", () => {
   /** Two `?` cards with no blank line between them, neither answered yet. */

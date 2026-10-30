@@ -5,7 +5,7 @@ import { readClock } from "@/lib/clock";
 import { readNotes } from "@/lib/read-retry";
 import { appendStub, setSuspended, writeSchedule } from "@/lib/review/card-write";
 import type { Deck, Limits } from "@/lib/review/review";
-import { cardsOf, type Seat, seatsFor } from "@/lib/review/review-queue";
+import { cardsOf, readAside, type Seat, seatsFor } from "@/lib/review/review-queue";
 import type { Card, Rating, Schedule } from "@/lib/review/srs";
 import {
   answeredToday,
@@ -109,15 +109,18 @@ export function useReviewSitting(
     // whole deck, and the latch above keeps later limits from rebuilding it.
     if (limits === undefined) return;
     let live = true;
+    const aside = new AbortController();
     // All of them before any of them is asked. A deck spanning three notes is
     // three reads at the start rather than one on the card that first needs it,
     // so the queue is the whole sitting from the first question and the count
     // in the header does not climb as you go. Each read tries again while the
     // backend restarts, and the foot says it is reading until one answers.
+    // The foot says it is reading the deck until the parse is in too.
     void readNotes(deck.notes, () => live).then(
-      (read) => {
-        if (!live) return;
+      async (read) => {
         const texts = new Map(read);
+        await readAside(deck, texts, aside.signal);
+        if (!live) return;
         setTexts(texts);
         setQueue(seatsFor(deck, texts, today, limits));
       },
@@ -132,6 +135,7 @@ export function useReviewSitting(
     );
     return () => {
       live = false;
+      aside.abort();
     };
   }, [deck, today, limits, tries]);
 

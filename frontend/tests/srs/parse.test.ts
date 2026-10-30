@@ -1,6 +1,6 @@
 import { appendStub } from "@/lib/review/card-write";
 import { parseCards, readSchedule } from "@/lib/review/srs";
-import { NOTE, only } from "./srs-fixture";
+import { NOTE, only } from "./fixture";
 
 describe("parseCards", () => {
   it("reads a card written on one line", () => {
