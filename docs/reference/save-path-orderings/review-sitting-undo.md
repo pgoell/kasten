@@ -1,7 +1,7 @@
 ---
 type: Reference
 title: Save path orderings: the review sitting's writes and undo
-description: Which line a grade writes to, and the orders in which the review sitting's writes and undo can meet the write queue of its own rating, jot and suspend writes, including a write the restart drops and goes again and the parked list's reads around its writes, what must hold in each, and whether getting it wrong loses typed text.
+description: Which line a grade writes to, and the orders in which the review sitting's writes and undo can meet the write queue of its own rating, jot and suspend writes, including the base each write names, a write the restart drops and goes again, and the parked list's reads around its writes, what must hold in each, and whether getting it wrong loses typed text.
 resource: frontend/src/lib/review/use-sitting-writes.ts
 tags: [editor, saving, autosave, frontend, tests]
 status: stable
@@ -46,6 +46,19 @@ A rating writes its schedule to the line the sitting's cards name for the card. 
 | G4 | G lands; the answer adds lines (a first stamp of `id` and `created`). | The note is parsed again, and the next grade lands on its line. | no | `#1379 I2 a stamp that adds lines is read again, and the next grade lands on its line` |
 | G5 | The note is edited elsewhere while the sitting is open; G. | G is refused, the note is read and parsed again, as before, and the next grade lands on its line in the edited text. | no | `#1379 A6 a note edited under the open sitting is read again, and the next grade lands on its line` |
 | G6 | G lands; Undo lands; G again. | The undo puts back the cards from before G with no parse, and the next grade lands on its line. | no | `#1379 I1 an undo after a grade puts the cards back, and the next grade lands on its line` |
+
+## The base a write names
+
+Each write's base is the sha256 of the text the vault holds under it: the vault's answer to the write before it, or the text the sitting read. A worker hashes it, so a grade on a 1 MB deck is no long task on a phone (#1384); the write leaves once the hash is back, as late after the tap as the hash took on the main thread before. The page keeps one hash worker. Where none can start (no `Worker`, or a policy that refuses one) the hash runs on the main thread, as before. A worker that fails is dropped, the hashes it held run on the main thread, and the next write starts a new one. A hash that throws on the main thread fails the write as any failure does: the foot says why and the note is read again. The writes and their order are as above. H is a write's hash. The tests are in `frontend/tests/frame/timing/review-base-worker.test.tsx`.
+
+| # | Ordering | Must hold | Loses typed text if wrong | Test |
+|---|---|---|---|---|
+| H1 | G, then G on every later card, in one sitting, the vault stamping each answer. | Each base is the hash of the vault's text, so each lands; the texts sent equal those of a main-thread hash. | no | `#1384 A2 A5 every grade in a sitting names the vault's text, and writes what a main-thread hash writes` |
+| H2 | G1 out; G2 before G1 lands. | G2's hash waits behind G1 and names G1's answer; both land. | no | `#1384 A3 a second grade before the first write lands waits, and names its answer` |
+| H3 | G lands; the note changes outside the sitting; G. | Refused, `409`, as before; the note is read again, the next G names the re-read text and lands, and the outside change stays. | yes | `#1384 A4 a note changed outside the sitting refuses the grade, and the grade after the re-read lands` |
+| H4 | No worker can start, or it fails while H is out. | H runs on the main thread, and the write lands. | no | `#1384 A6 a worker that cannot start leaves the hash to the main thread, and the grades land`, `#1384 A6 a worker that fails mid-sitting leaves the hash to the main thread, and the grades land` |
+| H5 | H out; the sitting unmounts. | The write still goes and lands. | no | `#1384 I1 a write whose hash is out when the sitting unmounts still lands` |
+| H6 | H out; Undo. | U waits behind G and names G's answer; both land. | no | `#1384 I4 an undo pressed while the grade's hash is out waits, and names the grade's answer` |
 
 ## A write the restart drops
 

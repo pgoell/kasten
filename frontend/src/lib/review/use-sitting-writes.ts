@@ -1,7 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { type Dispatch, type SetStateAction, useCallback, useRef } from "react";
 import { fetchNote, type Note, saveNote } from "@/lib/api";
-import { noteBase } from "@/lib/note-base";
+import { noteBaseAside } from "@/lib/note-base";
 import { BACKOFF, retryable } from "@/lib/read-retry";
 import { answered } from "@/lib/review/review-queue";
 
@@ -25,18 +25,11 @@ export function useSittingWrites(
         const answers = landed.current.get(note) ?? new Map<string, string>();
         landed.current.set(note, answers);
 
-        // The base is computed once, so every try names the same text.
-        const base = noteBase(answers.get(prev) ?? prev);
-        let written: Note;
-        for (let attempt = 0; ; attempt++) {
-          try {
-            written = await saveNote(note, next, false, base);
-            break;
-          } catch (error) {
-            if (!retryable(error) || attempt === BACKOFF.length) throw error;
-            await new Promise((wake) => setTimeout(wake, BACKOFF[attempt]));
-          }
-        }
+        // A string where no worker runs, sent with no await so the write still leaves with the tap.
+        const hashing = noteBaseAside(answers.get(prev) ?? prev);
+        const written = await (typeof hashing === "string"
+          ? saved(note, next, hashing)
+          : hashing.then((base) => saved(note, next, base)));
         answers.set(next, written.content);
         // Only while `next` is still what the screen holds: a change made while
         // this was out has moved the note on already.
@@ -69,4 +62,16 @@ export function useSittingWrites(
     },
     [queryClient, setFailed, setTexts],
   );
+}
+
+/** One write, sent again while the backend restarts. The base is computed once, so every try names the same text. */
+async function saved(note: string, next: string, base: string): Promise<Note> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await saveNote(note, next, false, base);
+    } catch (error) {
+      if (!retryable(error) || attempt === BACKOFF.length) throw error;
+      await new Promise((wake) => setTimeout(wake, BACKOFF[attempt]));
+    }
+  }
 }
