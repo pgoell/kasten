@@ -113,13 +113,39 @@ export async function clickInside(pane: Element, doc: Document, selector: string
 }
 
 /**
- * Wait for the rest of `draw` to run, which the `load` event is in the middle of.
- *
- * The anchor is resolved after the section has loaded, so a case asserting that
- * no error panel was drawn has to let the failure arrive before it says so.
+ * Wait for the rest of `draw` to run, without a clock (#1348): the view's
+ * `data-ready`, then, for a widen or a turn past the open, a layout that reads
+ * the same over three frames, as the paginator re-lays out from its observer.
+ * A book that fails to open never sets the mark, so a no-error case fails here.
  */
-export function drawn(): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, 300));
+export async function drawn(): Promise<void> {
+  await vi.waitFor(() => expect(document.querySelector("[data-ready]")).not.toBeNull(), {
+    timeout: 30_000,
+  });
+  let previous = "";
+  let still = 0;
+  while (still < 3) {
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+    const now = layout();
+    still = now === previous ? still + 1 : 0;
+    previous = now;
+  }
+}
+
+/** Every box the paginator moves, as one string, so two reads that agree mean nothing moved. */
+function layout(): string {
+  const view = document.querySelector("foliate-view") as
+    | (HTMLElement & { renderer?: { getContents?: () => { doc: Document }[] } })
+    | null;
+  const docs = view?.renderer?.getContents?.() ?? [];
+  return JSON.stringify([
+    view?.getBoundingClientRect(),
+    ...docs.map(({ doc }) => [
+      doc.defaultView?.frameElement?.getBoundingClientRect(),
+      doc.documentElement.scrollWidth,
+      doc.documentElement.scrollHeight,
+    ]),
+  ]);
 }
 
 /** One property of one element of a chapter, as the chapter computes it. */

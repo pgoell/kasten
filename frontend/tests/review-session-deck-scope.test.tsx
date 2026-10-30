@@ -1,9 +1,29 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { ReviewSession } from "@/components/review-session";
 import * as api from "@/lib/api";
-import type { Deck } from "@/lib/review/review";
+import { type Deck, decksFrom } from "@/lib/review/review";
+import { cardsOf } from "@/lib/review/review-queue";
 import { shownCard } from "./review-card";
+import { DECK } from "./review-session-fixture";
+
+/**
+ * How often a sitting parses its deck note (#1354). A count and not a time: a
+ * 1 MB deck took one long task to open because the note was parsed three times,
+ * and a loaded box moves a time but never a count.
+ */
+const parses = vi.hoisted(() => ({ count: 0 }));
+
+vi.mock("@/lib/review/srs", async (original) => {
+  const srs = await original<typeof import("@/lib/review/srs")>();
+  return {
+    ...srs,
+    parseCards: (...args: Parameters<typeof srs.parseCards>) => {
+      parses.count += 1;
+      return srs.parseCards(...args);
+    },
+  };
+});
 
 describe("ReviewSession on a whole note", () => {
   const NOTE_DECK: Deck = {
@@ -206,5 +226,77 @@ describe("ReviewSession on a parent deck", () => {
     );
 
     expect(await shownCard()).toHaveTextContent("What is MVCC?");
+  });
+});
+
+const TWO_NEW = "#flashcards/aws\n\nWhat is a VPC?::A private cloud\n\nWhat is S3?::Storage\n";
+
+function renderSitting() {
+  vi.spyOn(api, "fetchNote").mockResolvedValue(TWO_NEW);
+  vi.spyOn(api, "saveNote").mockImplementation(async (path, content) => ({ path, content }));
+  vi.spyOn(api, "fetchReviewLimits").mockResolvedValue({
+    new_per_day: null,
+    reviews_per_day: null,
+  });
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  render(
+    <QueryClientProvider client={client}>
+      <ReviewSession deck={{ ...DECK, fresh: 2 }} onLeave={vi.fn()} />
+    </QueryClientProvider>,
+  );
+}
+
+describe("ReviewSession parsing its deck (#1354)", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    vi.restoreAllMocks();
+    parses.count = 0;
+  });
+
+  it("#1354 opening a deck parses its note once", async () => {
+    renderSitting();
+    expect(await shownCard()).toHaveTextContent("What is a VPC?");
+    expect(parses.count).toBe(1);
+  });
+
+  it("#1354 a rating parses the note's new text, and the next card is read off it", async () => {
+    renderSitting();
+    await shownCard();
+    fireEvent.click(screen.getByRole("button", { name: "Show the answer" }));
+    fireEvent.click(screen.getByRole("button", { name: "Good" }));
+    await waitFor(() => expect(screen.getByTestId("review-card")).toHaveTextContent("What is S3?"));
+    // The open, the text the rating made, and the text the write answered with,
+    // which lands as a new map. Main parsed the open three times, so five.
+    await waitFor(() => expect(api.saveNote).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(parses.count).toBe(3));
+  });
+
+  it("#1354 the deck's row off its own cards is the row off the note's text", () => {
+    // Two decks, a nested one, a parked card and a schedule due: every count a row has.
+    const text = [
+      "#flashcards/aws",
+      "",
+      "What is a VPC?::A private cloud <!--SR:!2026-01-01,4,250-->",
+      "",
+      "What is S3?::Storage",
+      "",
+      "What is IAM?::Identity #flashcards/aws/iam",
+      "",
+      "What is a join?::Rows together #flashcards/sql",
+      "",
+      "What is a view?:: #flashcards/sql",
+      "",
+    ].join("\n");
+    const texts = new Map([["decks/aws.md", text]]);
+    const limits = { note: "aws: 1 new\n", defaults: { new_per_day: null, reviews_per_day: null } };
+    for (const name of ["aws", "aws/iam", "sql"]) {
+      const deck = { ...DECK, name };
+      const own = cardsOf(deck, texts).get("decks/aws.md");
+      const row = (cards?: typeof own) =>
+        decksFrom([{ path: "decks/aws.md", text, cards }], "2026-08-10", limits).find(
+          (each) => !each.whole && each.name === name,
+        );
+      expect(row(own)).toEqual(row());
+    }
   });
 });

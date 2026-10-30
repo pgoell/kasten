@@ -9,18 +9,23 @@ Two writers at once are not tested here: the advisory lock in
 what keep them apart, and a test of that would race the scheduler.
 """
 
+from pathlib import Path
 from typing import TYPE_CHECKING
 
+import psycopg
 import pytest
-from sqlalchemy import select
+from sqlalchemy import event, select, text
 from sqlalchemy.exc import OperationalError
-from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker, create_async_engine
+from sqlalchemy.pool import NullPool
 
 from backend.tests.finance_rows import GIRO, account, booking, post
 from kasten_backend import db, finance
 from kasten_backend.finance_models import BalanceSnapshot
 
 if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
+
     from httpx import AsyncClient
     from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -231,3 +236,71 @@ async def test_a_database_failure_after_the_connect_is_not_a_503(
     # Not caught as a missing database, so it reaches the client as the error it is.
     with pytest.raises(OperationalError):
         await finance_client.get("/api/finance/accounts")
+
+
+# A pooled connection the server closed, as a postgres restart does (#1327). The shared
+# postgres serves prod, so a second connection ends the pooled one on the scratch database,
+# and a `do_connect` listener stands in for a database still down.
+
+
+@pytest.fixture
+async def pooled(
+    scratch_database: str, monkeypatch: pytest.MonkeyPatch
+) -> AsyncIterator[AsyncEngine]:
+    """An engine built as the app builds its own, holding one connection the server closed."""
+    engine = db.make_engine(scratch_database)
+    monkeypatch.setattr(db, "session_factory", async_sessionmaker(engine, expire_on_commit=False))
+    async with engine.connect() as connection:
+        pid = await connection.scalar(text("SELECT pg_backend_pid()"))
+    killer = create_async_engine(scratch_database, poolclass=NullPool)
+    async with killer.connect() as connection:
+        # The timeout waits until the backend is gone, so the pool holds a dead socket.
+        ended = await connection.scalar(
+            text("SELECT pg_terminate_backend(:pid, 5000)"), {"pid": pid}
+        )
+        assert ended
+    await killer.dispose()
+    yield engine
+    await engine.dispose()
+
+
+def refuse(*_args: object) -> None:
+    raise psycopg.OperationalError("connection refused")
+
+
+async def test_after_the_server_closes_a_pooled_connection_finance_answers_200(
+    client: AsyncClient, pooled: AsyncEngine
+) -> None:
+    assert (await client.get("/api/finance/accounts")).status_code == 200
+
+
+async def test_while_the_database_refuses_connects_finance_answers_503_not_500(
+    client: AsyncClient, pooled: AsyncEngine
+) -> None:
+    event.listen(pooled.sync_engine, "do_connect", refuse)
+
+    response = await client.get("/api/finance/accounts")
+
+    event.remove(pooled.sync_engine, "do_connect", refuse)
+    assert response.status_code == 503
+
+
+async def test_once_the_database_takes_connects_again_finance_answers_200(
+    client: AsyncClient, pooled: AsyncEngine
+) -> None:
+    event.listen(pooled.sync_engine, "do_connect", refuse)
+    assert (await client.get("/api/finance/accounts")).status_code == 503
+    event.remove(pooled.sync_engine, "do_connect", refuse)
+
+    assert (await client.get("/api/finance/accounts")).status_code == 200
+
+
+def test_only_db_py_builds_an_engine() -> None:
+    src = Path(__file__).parents[1] / "src"
+    builders = {
+        path.relative_to(src).as_posix()
+        for path in src.rglob("*.py")
+        if "create_engine(" in (source := path.read_text(encoding="utf-8"))
+        or "create_async_engine(" in source
+    }
+    assert builders == {"kasten_backend/db.py"}
