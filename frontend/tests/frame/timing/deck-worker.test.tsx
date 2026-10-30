@@ -199,6 +199,28 @@ it("#1359 I3 with no Worker the sitting parses on the main thread and opens", as
   expect(mainParses()).toBe(1);
 });
 
+it("#1359 I3 a Worker that throws as it starts leaves the parse to the main thread", async () => {
+  vi.stubGlobal(
+    "Worker",
+    class {
+      constructor() {
+        throw new DOMException("Workers are refused", "SecurityError");
+      }
+    },
+  );
+  await opened(mount());
+  expect(mainParses()).toBe(1);
+});
+
+it("#1359 I7 a sitting closed before the parse begins starts no worker", async () => {
+  Silent.made = [];
+  vi.stubGlobal("Worker", Silent);
+  const closed = new AbortController();
+  closed.abort();
+  await readAside(DECK, new Map([["decks/big.md", BIG]]), closed.signal);
+  expect(Silent.made).toHaveLength(0);
+});
+
 it("#1359 I4 a parse that fails in the worker falls back to the main-thread parse", async () => {
   class Failing extends Silent {
     override postMessage() {
