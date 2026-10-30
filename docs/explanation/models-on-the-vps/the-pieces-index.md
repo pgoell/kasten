@@ -90,9 +90,14 @@ of every piece.
 ## When it stops
 
 A note that fails, on a model error or a row the database refuses, is logged and
-skipped until the next sweep. A model that will not load, or a database that fails,
-stops the indexer with one warning, and the backend keeps serving. The next start
-sweeps again and catches up.
+skipped until the next sweep. A model that will not load, or a database fault such as
+a missing table, stops the indexer with one warning, and the backend keeps serving.
+The next start sweeps again and catches up.
+
+A lost database connection does not stop it. The indexer waits, retrying after 1
+second and doubling up to 60, then sweeps. So a Postgres restart needs no backend
+restart: saves made in the outage reach the index. Saves the watcher reports in the
+meantime wait in memory, and a backend shutdown ends the wait at once.
 
 ## Where the model runs
 

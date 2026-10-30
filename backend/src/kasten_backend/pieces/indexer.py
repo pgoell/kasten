@@ -22,7 +22,7 @@ from kasten_backend.pieces.split import split_note
 from kasten_backend.vault import list_markdown_files
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Awaitable, Callable
     from pathlib import Path
 
     from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -31,6 +31,17 @@ if TYPE_CHECKING:
     from kasten_backend.pieces.embed import Embedder
 
 logger = logging.getLogger(__name__)
+
+# Seconds between tries while the database is gone, doubling up to the cap.
+FIRST_WAIT = 1.0
+LONGEST_WAIT = 60.0
+
+
+def _lost(error: OperationalError) -> bool:
+    """Whether `error` is a lost or refused connection, which waiting cures."""
+    state = getattr(error.orig, "sqlstate", None)
+    # 08: connection exception; 57P01-03: the server shut down or is starting.
+    return state is None or state.startswith("08") or state in ("57P01", "57P02", "57P03")
 
 
 def _sha(data: bytes) -> str:
@@ -54,6 +65,8 @@ class Indexer:
         self._load = load
         self._thread = thread
         self._skip = skip.strip("/")
+        self._wait: Callable[[float], Awaitable[None]] = asyncio.sleep
+        """The pause between tries; a test swaps it to count them."""
         self._model: Embedder | None = None
         # Not the indexer's thread: a query waited 12.7 s behind the first fill.
         self._query_thread = ThreadPoolExecutor(max_workers=1, thread_name_prefix="query")
@@ -72,8 +85,8 @@ class Indexer:
     async def run(self) -> None:
         """Load the model, sweep, then follow the watcher, until cancelled or something fails.
 
-        A model or database that fails stops the indexer with one warning; the
-        backend serves on.
+        A model that fails, or a database query that fails for another reason than
+        a lost connection, stops the indexer with one warning; the backend serves on.
         """
         try:
             await self._model_loaded()
@@ -99,18 +112,34 @@ class Indexer:
             self._wake.set()
 
     async def _work(self) -> None:
+        tries = 0
         while True:
             await self._wake.wait()
             self._wake.clear()
-            while self._changed or self._backlog or self._sweep:
-                if self._sweep:
-                    self._sweep = False
-                    await self._stale()
-                    continue
-                queue = self._changed or self._backlog
-                path = next(iter(queue))
-                del queue[path]
-                await self.index(path)
+            try:
+                while self._changed or self._backlog or self._sweep:
+                    if self._sweep:
+                        self._sweep = False
+                        await self._stale()
+                    else:
+                        queue = self._changed or self._backlog
+                        path = next(iter(queue))
+                        del queue[path]
+                        await self.index(path)
+                    if tries:
+                        logger.warning("The pieces index resumes after %d tries", tries)
+                        tries = 0
+            except OperationalError as error:
+                if not _lost(error):
+                    raise
+                if not tries:
+                    logger.warning("The pieces index waits for its database: %s", error.orig)
+                # A bounded exponent: 2**1024 overflows a float, some 17 hours in.
+                await self._wait(min(FIRST_WAIT * 2 ** min(tries, 6), LONGEST_WAIT))
+                tries += 1
+                # The sweep finds the note that failed and any save the watcher missed.
+                self._sweep = True
+                self._wake.set()
 
     async def _stale(self) -> None:
         """Queue every note whose bytes differ from the index's, and drop the notes gone.
@@ -139,12 +168,16 @@ class Indexer:
     async def index(self, path: str) -> None:
         """Bring one note's pieces in line with its file: new, changed, unchanged or gone.
 
-        A failing note is logged and left for the next sweep; a failing database
-        is raised for `run` to stop on.
+        A failing note is logged and left for the next sweep; a lost connection or
+        a schema fault is raised for `run` to wait or stop on.
         """
         try:
             await self._index(path)
-        except OperationalError, ProgrammingError:
+        except OperationalError as error:
+            if _lost(error):
+                raise
+            logger.warning("The pieces index skips %s: %s", path, error.orig)
+        except ProgrammingError:
             raise
         except (SQLAlchemyError, ValueError, *MODEL_ERRORS) as error:
             logger.warning("The pieces index skips %s: %s", path, error)
