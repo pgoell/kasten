@@ -23,6 +23,7 @@ from kasten_backend.finance_guard import FinanceGuard
 from kasten_backend.guide import write_guide
 from kasten_backend.okf import prepare
 from kasten_backend.pieces import indexer
+from kasten_backend.pieces import route as pieces_route
 from kasten_backend.routes import (
     anki,
     anki_imports,
@@ -206,6 +207,7 @@ app.include_router(listing.router)
 app.include_router(web.router)
 app.include_router(queries.router)
 app.include_router(search.router)
+app.include_router(pieces_route.router)
 app.include_router(github.router)
 app.include_router(model_use.router)
 app.include_router(log.router)

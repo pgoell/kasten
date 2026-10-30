@@ -131,7 +131,7 @@ frontend/src/components/local-graph.tsx 1
 frontend/src/components/log-trends.tsx 1
 frontend/src/components/move-confirm.tsx 1
 frontend/src/components/note-editor.tsx 1
-frontend/src/components/note-finder.tsx 6
+frontend/src/components/finder/note-finder.tsx 6
 frontend/src/components/note-preview.tsx 2
 frontend/src/components/note-prompt.tsx 2
 frontend/src/components/note-search.tsx 3

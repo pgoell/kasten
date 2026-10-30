@@ -87,6 +87,9 @@ export const LEADER: readonly LeaderBinding[] = [
   // name, so it sits beside the note and the line rather than under `g`, which
   // is where the pane holding the same list lives.
   { key: "ft", label: "Find a todo", command: "findTodos" },
+  // `m` for meaning: the ranked search, which finds a note by what it is about
+  // as well as by its words. Beside `fg`, which finds the literal line.
+  { key: "fm", label: "Find by meaning", command: "findMeaning" },
   // `g` for go and `a` for at a glance: the overview of the week's numbers. `o`
   // is spent on the links out, so the word overview does not give the letter.
   { key: "ga", label: "Open the overview", command: "openOverview" },
@@ -251,7 +254,7 @@ export const TAB_DIGITS = "tab digits";
  * needs an entry, and a test fails until it has one.
  */
 export const LEADER_COLUMNS: readonly { title: string; keys: readonly string[] }[] = [
-  { title: "Find", keys: ["ff", "fg", "fb", "ft", "a", ":", "?"] },
+  { title: "Find", keys: ["ff", "fg", "fm", "fb", "ft", "a", ":", "?"] },
   { title: "Create", keys: ["cf", "cd", "cw", "cm", "cb", "ci", "cv", "cc", "cs"] },
   {
     title: "Go to",

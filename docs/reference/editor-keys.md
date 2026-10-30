@@ -38,7 +38,7 @@ does not provide.
 * [Images](/reference/editor-keys/images.md): pasting, drawing and toggling images.
 * [Saving and reloading](/reference/editor-keys/saving.md): writing and rereading a note, and the changed-on-disk states.
 * [Getting notes into the vault](/reference/editor-keys/capture.md): web pages, markdown files, thoughts into today's dump, newspaper stories saved to share later, and taking a note out.
-* [Finding and dating notes](/reference/editor-keys/finding.md): the note prompt, the note finder, the note search and the periodic notes.
+* [Finding and dating notes](/reference/editor-keys/finding.md): the note prompt, the note finder, the note search, the ranked search and the periodic notes.
 * [Todos in the editor](/reference/editor-keys/todos.md): cycling and stamping a todo, and the todo overlay.
 * [The review pane](/reference/editor-keys/review-pane.md): the keys for a flashcard sitting, folds, parking and undo.
 * [The todo list](/reference/editor-keys/todo-pane.md): the todo pane, its rows and groups, and its key table.

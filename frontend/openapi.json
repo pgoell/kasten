@@ -2062,6 +2062,56 @@
         }
       }
     },
+    "/api/ranked": {
+      "get": {
+        "summary": "Ranked Search",
+        "description": "The notes best matching `q` by its words and by its meaning, at most twenty.\n\nA blank query answers no notes and embeds nothing. `archive` takes the\narchive folder in, as the line search does.",
+        "operationId": "ranked_search_api_ranked_get",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Q"
+            }
+          },
+          {
+            "name": "archive",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Archive"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RankedAnswer"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/github": {
       "get": {
         "summary": "Read Github",
@@ -12188,6 +12238,67 @@
         ],
         "title": "RangeOut",
         "description": "Both scopes over a span of months."
+      },
+      "RankedAnswer": {
+        "properties": {
+          "hits": {
+            "items": {
+              "$ref": "#/components/schemas/RankedHit"
+            },
+            "type": "array",
+            "title": "Hits"
+          },
+          "meaning": {
+            "type": "boolean",
+            "title": "Meaning"
+          },
+          "indexed": {
+            "type": "integer",
+            "title": "Indexed"
+          },
+          "notes": {
+            "type": "integer",
+            "title": "Notes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "hits",
+          "meaning",
+          "indexed",
+          "notes"
+        ],
+        "title": "RankedAnswer",
+        "description": "The ranked notes, and how much of the index stood behind them."
+      },
+      "RankedHit": {
+        "properties": {
+          "path": {
+            "type": "string",
+            "title": "Path"
+          },
+          "heading": {
+            "type": "string",
+            "title": "Heading"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "score": {
+            "type": "number",
+            "title": "Score"
+          }
+        },
+        "type": "object",
+        "required": [
+          "path",
+          "heading",
+          "text",
+          "score"
+        ],
+        "title": "RankedHit",
+        "description": "A note the ranked search found, with its best piece."
       },
       "ReadingIn": {
         "properties": {
