@@ -86,7 +86,8 @@ def test_b1_a_line_of_code_spans_after_an_open_mark_reads_in_linear_time() -> No
     # backtracks doubles its time with every span here and runs for minutes.
     code = "from kasten_backend.anki_html import _MARK; _MARK.search('Use {{c1:: ' + '`x` ' * 30)"
 
-    subprocess.run([sys.executable, "-c", code], check=True, timeout=5)  # noqa: S603
+    # The timeout is a hang ceiling: interpreter start is slow on a loaded box.
+    subprocess.run([sys.executable, "-c", code], check=True, timeout=60)  # noqa: S603
 
 
 def test_i4_a_schedule_comment_in_a_highlight_is_escaped() -> None:

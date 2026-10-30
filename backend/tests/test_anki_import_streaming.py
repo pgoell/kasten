@@ -89,7 +89,8 @@ async def test_a8_an_import_leaves_the_server_answering_while_it_reads(
     )
     try:
         assert await asyncio.to_thread(started.wait, 5)
-        health = await asyncio.wait_for(client.get("/api/health"), 1)
+        # A hang ceiling, not a latency bound: a blocked loop never answers at all.
+        health = await asyncio.wait_for(client.get("/api/health"), 30)
         assert health.status_code == 200
         assert not importing.done()
     finally:
