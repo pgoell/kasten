@@ -99,11 +99,10 @@ class SearchError(RuntimeError):
 
 
 def relative_to_root(root: Path) -> Callable[[str], str]:
-    """Strips `root` from paths rg prints, since rg is handed `str(root)`.
+    """Strips `root` from paths rg prints, as a string (#1353).
 
-    The prefix comes off as a string. A Path and `relative_to` per hit was most
-    of a cards read (#1353). Anything else, such as under a root of `/`, takes
-    the old way, so the answer matches.
+    rg is handed `str(root)`, so every path starts with it. A path without the
+    prefix, such as under a root of `/`, falls back to `relative_to`.
     """
     prefix = f"{root}/"
 
