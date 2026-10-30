@@ -18,7 +18,7 @@ export type Finders = ReturnType<typeof useFinders>;
 /** What a list prop gets while its query loads, for the reason the route's copy gives. */
 const LOADING: string[] = [];
 
-/** The vault lookups (notes, links, books, search, todos) and the panels that open what they find. */
+/** The vault lookups (notes, links, books, search, todos) and the panels that open hits. */
 export function useFinders({
   listings,
   panePath,
@@ -150,8 +150,8 @@ export function useFinders({
           books={assets ?? LOADING}
           onOpen={(note) => {
             setBookFinderOpen(false);
-            // Saves first, as openTodos does: the unmounted editor would take unsaved text.
-            // A failed save asks the pane to take focus: the finder hands none back once a row is taken.
+            // Saves first: the unmounted editor would take unsaved text. A failed save asks the
+            // pane to take focus, as the finder hands none back once a row is taken.
             void (async () => {
               if (await saveFirst()) moveTo((previous) => openBookInFocused(previous, note));
               else refocusPane();

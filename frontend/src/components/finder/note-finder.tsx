@@ -30,14 +30,14 @@ interface NoteFinderProps {
   /** Called with the note to open. */
   onOpen: (path: string) => void;
   onClose: () => void;
-  /** Set when `paths` is one note's links, not the vault: it changes the title and the empty hint. */
+  /** Set when `paths` is one note's links, not the vault: changes the title and empty hint. */
   outgoing?: boolean;
   /**
-   * The vault's assets, which makes this the book finder over the notes in `paths` with an epub beside them.
-   * `paths` still decides what is listed, so the archive stays out.
+   * The vault's assets, which makes this the book finder over the notes in `paths` with an epub
+   * beside them. `paths` still decides what is listed, so the archive stays out.
    */
   books?: string[];
-  /** The vault's pdfs, epubs and html pages, ranked with the notes. Only the note finder takes these. */
+  /** The vault's pdfs, epubs and html pages, ranked with the notes; only the note finder. */
   files?: string[];
   /** Every note, archive included. An epub's preview checks this list, as the opener does. */
   vaultNotes?: string[];
@@ -46,10 +46,10 @@ interface NoteFinderProps {
 /** Rows the list will mount. Beyond this, another keystroke narrows faster than a scroll. */
 const VISIBLE_NOTES = 20;
 
-/** The highlight must hold this long before its note is read, so a held ctrl+n skips rows without reading them. */
+/** The highlight holds this long before its note is read, so a held ctrl+n reads no rows. */
 const PREVIEW_DELAY_MS = 80;
 
-/** What the line under the list says. An empty list has two causes: nothing to list, or a query that matches none. */
+/** The line under the list. An empty list has two causes: nothing to list, or no match. */
 function hint(listed: number, matches: number, outgoing: boolean, book: boolean): string {
   if (listed === 0) {
     if (book) return "the vault has no books";
@@ -60,8 +60,8 @@ function hint(listed: number, matches: number, outgoing: boolean, book: boolean)
 }
 
 /**
- * The notes in `paths` with an epub beside them, paired as `resolve_book` pairs them on the backend,
- * suffix and case alike. A pdf is a document rather than a book (`note-path.ts`), so it stays out.
+ * The notes in `paths` with an epub beside them, paired as the backend's `resolve_book` does,
+ * suffix and case alike. A pdf is a document, not a book (`note-path.ts`), so it stays out.
  */
 function withBooks(paths: string[], books: string[]): string[] {
   const epubs = new Set(books);
@@ -82,16 +82,16 @@ function folderOf(path: string): string {
 }
 
 /**
- * What the pane says when it has no note. An unreadable note still opens from its row, since the editor
- * answers that. An empty note is not an error, and a spinner that never stops is worse.
+ * What the pane says when it has no note. An unreadable note still opens from its row, since the
+ * editor answers that. An empty note is not an error, and a spinner that never stops is worse.
  */
 function previewText(status: "pending" | "error"): string {
   return status === "error" ? "could not read this note" : "reading the note";
 }
 
 /**
- * Type a few letters of a name, and Enter opens the highlighted row. Here the list is the answer and the input
- * only filters it, so this is no mode of the note prompt. `outgoing` shortens the list; `books` drops the preview.
+ * Type a few letters of a name; Enter opens the highlighted row. The list is the answer and the
+ * input only filters it, unlike the note prompt. `outgoing` shortens it; `books` drops the preview.
  */
 export function NoteFinder({
   paths,
@@ -112,8 +112,8 @@ export function NoteFinder({
   const listId = useId();
 
   const typed = query.trim();
-  // Candidates follow the vault, not the query, so they are keyed on `paths` alone. That needs the caller
-  // to pass the same array each render: a listing re-made at the call site would redo all of this.
+  // Candidates follow the vault, not the query, so they are keyed on `paths` alone. The caller
+  // must pass the same array each render, or every keystroke prepares the vault again.
   const listed = useMemo(() => {
     if (books !== undefined) return withBooks(paths, books);
     // Files join the notes so one ranking covers both.
@@ -121,13 +121,13 @@ export function NoteFinder({
   }, [paths, books, files]);
   const noted = useMemo(() => new Set(vaultNotes), [vaultNotes]);
   const candidates = useMemo(() => noteCandidates(listed), [listed]);
-  // Ranked over the whole vault, then cut: an empty query matches all of it, and a button per note is most of the cost.
-  // Books go uncut: a shelf is tens of books, and one past the cut could only be found by its exact name.
+  // Ranked over the whole vault, then cut: an empty query matches every note, and a button each
+  // is most of the cost. Books go uncut: a shelf is tens, and one past the cut would be lost.
   const notes = useMemo(() => {
     const ranked = rankCandidates(candidates, typed);
     return book ? ranked : ranked.slice(0, VISIBLE_NOTES);
   }, [candidates, typed, book]);
-  // A fresh listing can shorten the list under the highlight; typing puts the highlight back on the first row.
+  // A fresh listing can shorten the list under the highlight; typing resets it to the first row.
   const cursor = Math.min(active, Math.max(notes.length - 1, 0));
   const highlighted = notes[cursor];
 
@@ -150,12 +150,12 @@ export function NoteFinder({
     return () => clearTimeout(timer);
   }, [highlighted, previewing]);
 
-  // The same key `NoteEditor` reads, so an open note is already cached and Enter does not fetch it again.
-  // `skipToken` says there is nothing to ask for without lying to the types about the path.
+  // The same key `NoteEditor` reads, so an open note is already cached and Enter does not fetch it
+  // again. `skipToken` says there is nothing to ask for without lying to the types about the path.
   const note = useQuery({
     queryKey: ["note", reading],
     queryFn: reading === undefined ? skipToken : () => fetchNote(reading),
-    // Walking back up must not re-read. Staleness is per observer, so opening still fetches afresh in `NoteEditor`.
+    // Walking back up must not re-read; staleness is per observer, so `NoteEditor` still fetches.
     staleTime: 30_000,
     // A preview nobody asked for gets no retries; opening the row asks properly.
     retry: false,
@@ -181,15 +181,15 @@ export function NoteFinder({
   }
 
   function onKeyDown(event: React.KeyboardEvent) {
-    // Tab walks the list, since nothing completes; Enter opens the highlight whatever the input says.
-    // Ctrl+J and Ctrl+K are vim's j and k; bare keys are letters of a name.
+    // Tab walks the list, since nothing completes; Enter opens the highlight whatever the input
+    // says. Ctrl+J and Ctrl+K are vim's j and k; bare keys are letters of a name.
     const tab = event.key === "Tab";
     const ctrl = (key: string) => event.ctrlKey && event.key === key;
     const down = event.key === "ArrowDown" || (tab && !event.shiftKey) || ctrl("n") || ctrl("j");
     const up = event.key === "ArrowUp" || (tab && event.shiftKey) || ctrl("p") || ctrl("k");
 
     if (down || up) {
-      // Prevent before the empty check: arrows would move the caret, and on an empty list Tab would leave for good.
+      // Prevent before the empty check: arrows would move the caret, and Tab would leave for good.
       event.preventDefault();
       if (notes.length === 0) return;
       setActive(down ? Math.min(cursor + 1, notes.length - 1) : Math.max(cursor - 1, 0));
@@ -212,7 +212,7 @@ export function NoteFinder({
   }
 
   return (
-    // The dialog reads the keys, so they still land after a click moves focus to a row or the backdrop.
+    // The dialog reads the keys, so they still land after a click moves focus to a row or backdrop.
     <div
       role="dialog"
       aria-modal="true"
@@ -246,10 +246,11 @@ export function NoteFinder({
           />
         </div>
 
-        {/* A fixed height, so the pane does not jump as the list narrows. Books have no pane and take what they need. */}
+        {/* A fixed height, so the pane does not jump as the list narrows. Books have no pane and
+            take what they need. */}
         <div className={book ? "flex min-h-0" : BODY}>
           {notes.length > 0 && (
-            // A div, not a list: a listbox is not a list of items to a screen reader, so marking both says it twice.
+            // A div, not a list: a screen reader would announce a listbox marked as both twice.
             <div
               id={listId}
               role="listbox"
@@ -265,7 +266,7 @@ export function NoteFinder({
                     type="button"
                     role="option"
                     aria-selected={index === cursor}
-                    // Out of the tab order: focus stays in the input, and a click opens the same note.
+                    // Out of the tab order: focus stays in the input; a click still opens it.
                     tabIndex={-1}
                     onClick={() => accept(path)}
                     className={`${ROW} ${TAP} ${book || rowKind !== undefined ? "flex gap-3" : "truncate"} ${
@@ -273,7 +274,8 @@ export function NoteFinder({
                     }`}
                   >
                     {book ? (
-                      // The folder, dimmed. It gives way first: an even split clipped short names on a phone.
+                      // The folder, dimmed. It gives way first: an even split clipped short names
+                      // on a phone.
                       <>
                         <span className="max-w-full shrink-0 truncate">{noteName(path)}</span>
                         <span className="ml-auto min-w-0 truncate text-k-muted">
@@ -298,8 +300,8 @@ export function NoteFinder({
           )}
 
           {previewing && highlighted !== undefined && (
-            // Rendered as the editor renders it, so the preview matches what opening shows; each mount drops a frame.
-            // The delay above keeps that to rows you stop on. A labelled section, as a bare pre cannot be named.
+            // Rendered as the editor does, at a dropped frame per mount that the delay keeps to
+            // rows you stop on. A labelled section, as a bare pre cannot be named.
             <section aria-label="Preview" data-testid="preview" className={PANE}>
               {kind !== undefined && highlighted !== undefined ? (
                 <p className={PANE_MESSAGE}>

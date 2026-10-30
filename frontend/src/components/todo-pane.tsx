@@ -82,9 +82,8 @@ interface TodoPaneProps {
 }
 
 /**
- * Every open todo the vault holds, grouped by when it is due. It shares a query key
- * with the todo overlay, so both read one answer. A pending leader sequence resolves
- * first, but `<leader>x` is left out: there is no buffer here, and bare `x` acts on a row.
+ * Every open todo the vault holds, grouped by when it is due; shares the todo overlay's query key.
+ * A pending leader sequence resolves first, but `<leader>x` is left out: bare `x` acts on a row.
  */
 export function TodoPane({
   commands,
@@ -182,8 +181,7 @@ export function TodoPane({
     idle: board || blocker.picking !== null,
   });
 
-  // The row that is an input, or undefined. The effect below keys on this name,
-  // so typing in the row does not move the cursor.
+  // The key alone, so typing in the row (a new `line`) does not re-run the focus effect.
   const editingKey = editing?.key;
 
   const { held, focusList } = useTodoFocus({
@@ -237,10 +235,8 @@ export function TodoPane({
   }
 
   /**
-   * Refocuses the cursor after a click, by mouse only: a kept focus on the button
-   * makes Space and Enter click it again. A row may unmount here, and the dropped
-   * effects carry on. Nothing runs while a row is an input or a picker is up, since
-   * an input has no blur to close it and a picker's keys would misfire.
+   * Refocuses the cursor after a mouse click, so Space and Enter do not click again.
+   * Inert while a row is an input or a picker is up.
    */
   function strip(run: () => void) {
     if (editing !== null || blocker.picking !== null) return;
@@ -366,7 +362,7 @@ export function TodoPane({
         held.current = inside;
         if (!inside) release();
       }}
-      // Focusable but not a tab stop: the cursor row is one, and this holds focus when no row exists.
+      // Focusable but not a tab stop: the cursor row is one; this holds focus until a row exists.
       tabIndex={-1}
       onKeyDown={onKeyDown}
       onPointerDown={armed.disarmElsewhere}
