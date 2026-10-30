@@ -1,22 +1,10 @@
 import { type RefObject, useEffect, useState } from "react";
 
 /**
- * Keep a box clear of an on-screen keyboard that covers the page.
- *
- * Every iOS keyboard does: the layout keeps its height, and only the visual
- * viewport says how much of it is still in sight. Whatever of the box lies
- * under the keyboard is padded away, so what the box holds shrinks into the
- * part that shows. Where the keyboard shrinks the layout instead, as the
- * viewport meta asks of Android, nothing is covered and this pads nothing.
- *
- * The same number goes out as `--keyboard`, for what is drawn `fixed` inside
- * the box: padding does not reach it and a custom property does.
- *
- * One box, the frame of the page. A second reader inside the first would
- * measure after the first had already made room, and find nothing covered.
- *
- * Returns whether a keyboard is up, for what must change while it is, such as a
- * split giving its focused pane the whole height to type in.
+ * Pads a box clear of an on-screen keyboard: iOS keeps the layout height, so only the visual
+ * viewport shows what is in sight. Also sets `--keyboard`, which reaches `fixed` children.
+ * One box only: a second reader would measure after the first had made room.
+ * Returns whether a keyboard is up.
  */
 export function useKeyboardInset(box: RefObject<HTMLElement | null>, on: boolean): boolean {
   const [up, setUp] = useState(false);
@@ -27,15 +15,8 @@ export function useKeyboardInset(box: RefObject<HTMLElement | null>, on: boolean
 
     const clear = () => {
       const { bottom } = element.getBoundingClientRect();
-      // The visual viewport shows the layout from `offsetTop` down for
-      // `height` of its pixels. With no keyboard it would show
-      // `clientHeight / scale` of them, less under a zoom and all of them
-      // without one. What lies between the two feet is what the keyboard
-      // hides, as far as the box reaches: panned to its foot, the box has
-      // nothing left under the keys. So a zoom alone covers nothing wherever
-      // the reader pans, and a keyboard under a zoom covers what it does
-      // there. Safari zooms by itself on the focus of a small input, stays
-      // zoomed and pans to the input, so both are a phone's ordinary state.
+      // The visual viewport shows `height` pixels from `offsetTop`, which without a keyboard is
+      // the whole clientHeight / scale. A zoom alone covers nothing, as Safari zooms on focus.
       const shown = document.documentElement.clientHeight / viewport.scale;
       const covered = Math.min(shown, bottom - viewport.offsetTop) - viewport.height;
       const pixels = Math.max(0, Math.round(covered));

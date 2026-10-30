@@ -1,7 +1,7 @@
 import { client, reason } from "@/lib/api-client";
 import type { components } from "@/lib/api-types";
 
-/** One agent token as the store may be read: a name, when it was made and when it last answered. */
+/** An agent token as the vault lists it: its name, creation time and last use. */
 export type TokenUse = components["schemas"]["TokenUse"];
 
 /** One request a token made: when, what it asked for and what the vault answered. */
@@ -35,10 +35,8 @@ export async function fetchTokenActions(name: string): Promise<TokenAction[]> {
 }
 
 /**
- * Mint one agent token and hand back the only copy of its secret.
- *
- * The refusal is put in front of the person who typed the name, the way a clip's
- * is: a taken name is the one failure here they can do something about.
+ * Mints one agent token and returns its only copy of the secret. The refusal reason is shown
+ * to the typist: a taken name is the one failure they can fix.
  */
 export async function createToken(name: string): Promise<Minted> {
   const { data, error, response } = await client.POST("/api/tokens", { body: { name } });

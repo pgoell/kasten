@@ -1,10 +1,6 @@
 /**
- * `![[note]]`, one note drawn inside another.
- *
- * What the widget in `live-preview-embeds.ts` needs from outside the editor: a way to
- * read the note it shows and to open it, and how deep in a chain of embeds it
- * sits. The parsing of the target is in `wikilink.ts`, beside the rule that
- * resolves it, and the slicing of a section in `note-section.ts`.
+ * `![[note]]`, one note drawn inside another. The widget in `live-preview-embeds.ts` needs a way
+ * to read and open the note, and how deep it sits in a chain of embeds.
  */
 
 import { Facet } from "@codemirror/state";
@@ -26,17 +22,13 @@ export interface EmbedSource {
    * changes. Returns what stops the calls.
    */
   watch(path: string, listener: (text: string | null) => void): () => void;
-  /** Opens the note in the focused pane, at a 1-based line when given; a pdf beside it at that page. */
+  /** Opens the note in the focused pane at a 1-based line; a pdf opens at its page. */
   open(path: string, line?: number): void;
 }
 
 /**
- * The source, carried on the editor state.
- *
- * Null by default, and the difference from a source that answers null matters
- * the way it does for `vaultPaths`: a view nobody told how to read the vault,
- * which the finder's preview pane is, shows the embed as its source rather
- * than calling every note it names missing.
+ * Null by default, which differs from a source that answers null: a view with no vault reader,
+ * like the finder's preview, shows the embed as a source rather than calling every note missing.
  */
 export const embedSource = Facet.define<EmbedSource, EmbedSource | null>({
   combine: (values) => values[0] ?? null,
@@ -48,26 +40,16 @@ export const embedDepth = Facet.define<number, number>({
 });
 
 /**
- * How deep embeds nest before the next one is drawn as a stub.
- *
- * A note that embeds a note that embeds it would otherwise draw itself without
- * end. A cap rather than a check for a repeated path, because a cap also stops a
- * long honest chain from building views nobody scrolls to.
+ * How deep embeds nest before the next draws as a stub. A self-embedding note would otherwise draw
+ * forever, and the cap also spares a long honest chain views nobody scrolls to.
  */
 export const EMBED_DEPTH = 3;
 
 /**
- * A source that reads each note through the query cache.
- *
- * The key is the one the note's own pane reads, `["note", path]`, and that is
- * the whole of keeping an embed current: the route refetches that key when the
- * vault reports a write, which reaches every key somebody observes, and the
- * autosave puts the note it wrote straight into it. An embed of the note open
- * beside it changes as you type there, a save later, with no wiring of its own.
- *
- * No retry, because a note that is not there answers 404 and asking twice more
- * only delays the stub. `open` goes to whoever built this, which is the route:
- * only it knows which pane is focused.
+ * Reads each note through the query cache under `["note", path]`, the key the note's own pane uses.
+ * That shared key keeps an embed current: a vault write refetches it, and autosaves land in it.
+ * No retry, since a missing note answers 404 and retrying only delays the stub. `open` is the
+ * route's, since only it knows the focused pane.
  */
 export function queryEmbedSource(
   client: QueryClient,
@@ -78,12 +60,10 @@ export function queryEmbedSource(
     watch(path, listener) {
       const queryKey = ["note", path];
       const hash = hashKey(queryKey);
-      // The observer reports every change of its result, fetching flags and
-      // all, and the widget redraws on each call, so only a new answer passes.
+      // The observer fires on every state change, fetch flags included; only a new text passes.
       let last: string | null | undefined;
       const report = (result: QueryObserverResult<string>) => {
-        // A refetch that fails keeps the text it had: a dropped connection is
-        // no reason to call a note on screen missing.
+        // A failed refetch keeps the old text: a dropped connection is no cause to call it missing.
         const text = result.data ?? (result.status === "error" ? null : undefined);
         if (text === undefined || text === last) return;
         last = text;
@@ -96,16 +76,13 @@ export function queryEmbedSource(
           retry: false,
         });
         const stop = observer.subscribe(report);
-        // A note already in the cache is no change, so the observer says
-        // nothing about it until it is read again.
+        // A cached note fires nothing on subscribe, so report it now.
         report(observer.getCurrentResult());
         return stop;
       };
       let stopObserver: (() => void) | null = arm();
-      // Trashing a note removes its query, and an observer stays on the query
-      // it was built with: it would hear nothing more and the embed would go
-      // on drawing the trashed body. So the cache is watched for that removal,
-      // and for the key coming back, which is the note restored and read again.
+      // Trashing removes the query, but an observer stays on its old query and the embed would keep
+      // the trashed body. So the cache is watched for that removal, and for the key coming back.
       const stopCache = client.getQueryCache().subscribe((event) => {
         if (event.query.queryHash !== hash) return;
         if (event.type === "removed" && stopObserver) {
@@ -123,10 +100,8 @@ export function queryEmbedSource(
         stopCache();
       };
     },
-    // A pdf goes to kasten's own pdf view and not a browser tab, a phone's
-    // viewer ignoring `#page` (#353). Any other file goes where `gf` sends
-    // one, a tab of its own: the route's `open` reads every path as a note and
-    // would open the file's bytes as text.
+    // A pdf goes to kasten's own viewer, since phone viewers ignore `#page` (#353). Other files
+    // get a tab, since `open` would read their bytes as note text.
     open(path, line) {
       if (path.toLowerCase().endsWith(".pdf")) openPdf(path, line);
       else if (namesAFile(path)) window.open(`/api/assets/${encodePath(path)}`, "_blank");

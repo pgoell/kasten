@@ -1,9 +1,6 @@
 /**
- * The springs of the redesign, and the motion they drive.
- *
- * A spring is a response time and a damping, which is how Apple's
- * `Spring(response:dampingRatio:)` states one. The numbers here are the tokens
- * in `kasten-theme.css`, and a test holds them equal.
+ * The redesign's springs, each a response time and a damping. A test holds these equal to the
+ * tokens in `kasten-theme.css`.
  */
 
 export interface SpringConfig {
@@ -34,11 +31,8 @@ export function afterRelease(config: SpringConfig, velocity: number): SpringConf
 }
 
 /**
- * Where a spring is `t` seconds after it starts from `from` moving at
- * `velocity`, heading for `target`, and how fast it is moving then.
- *
- * The velocity is the derivative of the position, worked out by hand rather
- * than by differencing two frames, so a frame that comes late costs nothing.
+ * Where a spring is `t` seconds after it starts from `from` moving at `velocity`, heading for
+ * `target`, and how fast it moves then. Solved in closed form, so a late frame costs nothing.
  */
 export function springAt(
   from: number,
@@ -173,8 +167,7 @@ export class Spring {
     const run = this.run;
     if (!run) return;
     this.handle = null;
-    // A frame can be stamped before `to` read the clock, so a negative elapsed
-    // time would run the spring backwards: it starts where it began instead.
+    // A frame can be stamped before `to` read the clock; clamp so the spring never runs backwards.
     const elapsed = Math.max(0, (now - run.at) / 1000);
     const at = springAt(run.from, run.velocity, run.target, run.config, elapsed);
     // Close enough to stop: snap to the target so it rests exactly on it.

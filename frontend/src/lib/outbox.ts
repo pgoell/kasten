@@ -1,21 +1,8 @@
 /**
- * Dumps typed on this device that the vault does not have yet.
- *
- * A thought is written to IndexedDB before anything tries to send it, so a
- * phone with no signal, or an app closed on a train, loses nothing: the record
- * is the thought until a 2xx says the daily note has it. Only then does it go.
- *
- * Each record carries the id the server dedupes on, made once at typing. A
- * send whose answer is lost looks here exactly like one that never left, so
- * the record stays and goes again; the id is what stops that second send from
- * writing a second paragraph. It also carries the date read at typing, so a
- * dump typed before midnight and sent after lands in the day it belongs to.
- *
- * The sends go one at a time, oldest first, and stop at the first that fails
- * in a way a later try can pass, so the dump keeps the order it was typed in.
- * A dump the vault itself refuses stays, with the vault's reason, and the ones
- * after it go on: no later try will change that answer, and holding every
- * later thought behind it would be the loss this exists to prevent.
+ * Dumps typed here that the vault does not have yet. Each is written to IndexedDB before a send and
+ * removed on a 2xx, so a lost signal loses nothing. Id and date, set at typing, make resends safe.
+ * Sends go oldest first and stop at a failure a later try can pass. A vault refusal stays with its
+ * reason, and the rest go on, since no retry would change it.
  */
 
 export interface Dump {
@@ -26,21 +13,13 @@ export interface Dump {
   date: string;
   /** The order key. Milliseconds, bumped past the last one kept in this page. */
   typedAt: number;
-  /**
-   * The vault's reason, where its last answer was a 4xx no retry will change.
-   * Held by this page alone and never stored, so a reload forgets it until the
-   * next send asks again.
-   */
+  /** The vault's reason for a 4xx no retry will change. In memory only, so a reload asks again. */
   refused?: string;
 }
 
 /**
- * Why the last pass stopped.
- *
- * `sign-in` is oauth2-proxy: its 302 to the login page, which `redirect:
- * "manual"` turns into an opaque redirect, or its 401 once a cookie has gone.
- * Neither reaches kasten, so neither is the vault refusing anything. `server`
- * is a 5xx, a 408 or a 429, which a later try may well get past.
+ * Why the last pass stopped. `sign-in` is oauth2-proxy's redirect or 401, never a vault refusal.
+ * `server` is a 5xx, 408 or 429, which a later try may pass.
  */
 export type Failure =
   | { kind: "offline" }
@@ -114,14 +93,11 @@ async function announce(): Promise<State> {
 }
 
 /**
- * Write a typed dump to the device, resolving once it is safely there.
- *
- * Sending is the caller's next step, `flush`, and not this one's: a thought is
- * only as safe as the write that holds it, so the write comes first and alone.
+ * Writes a typed dump to the device, resolving once it is safe there. Sending is the caller's
+ * next step, `flush`.
  */
 export async function keep(text: string, date: string): Promise<Dump> {
-  // Two dumps kept in one millisecond would otherwise tie, and a tie leaves
-  // their order to the random ids.
+  // Same-millisecond dumps would tie, leaving their order to the random ids.
   lastTyped = Math.max(Date.now(), lastTyped + 1);
   const dump = { id: crypto.randomUUID(), text, date, typedAt: lastTyped };
   const transaction = (await open()).transaction(STORE, "readwrite");
@@ -150,10 +126,8 @@ async function pass(): Promise<void> {
   for (const dump of await waiting()) {
     let response: Response;
     try {
-      // Raw fetch and not the openapi client: an opaque redirect has status 0
-      // and no body, and the client has nothing to say about one. `manual`
-      // keeps oauth2-proxy's 302 from being followed to a login page whose 200
-      // would read as the dump having landed.
+      // Raw fetch: the client sees an opaque redirect as status 0. `manual` stops a login page's
+      // 200 from counting as a landed dump.
       response = await fetch("/api/dump", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -162,8 +136,7 @@ async function pass(): Promise<void> {
         credentials: "same-origin",
       });
     } catch (error) {
-      // No signal, or the answer lost on the way back. Either way the record
-      // stays, and the id makes the next try safe.
+      // Offline, or the answer was lost: the record stays, and its id makes a retry safe.
       if (!(error instanceof TypeError)) throw error;
       failure = { kind: "offline" };
       return;
@@ -189,8 +162,7 @@ async function pass(): Promise<void> {
     await remove(dump.id);
     await announce();
   }
-  // Reached with nothing left to try, which another tab's flush can also
-  // cause, so an old failure no longer describes anything.
+  // Nothing left to send, which another tab's flush can also cause, so the old failure is stale.
   failure = null;
 }
 
@@ -214,12 +186,8 @@ function rerun(): Promise<State> {
 }
 
 /**
- * Send every waiting dump, one sender per page.
- *
- * A call while a flush runs gets the next pass, which starts once the running
- * one has ended, never the running one itself: a dump kept after that pass
- * read the store is in none of its sends, and the caller is waiting to hear
- * whether it went. Every call made during one run shares that next pass.
+ * Send every waiting dump, one sender per page. A call made during a run gets the next pass, not
+ * the running one, since a dump kept after the running pass read the store is in none of its sends.
  */
 export function flush(): Promise<State> {
   if (running === null) {
@@ -228,21 +196,15 @@ export function flush(): Promise<State> {
     });
     return running;
   }
-  // On a rejection too: the error reaches whoever awaited the running pass,
-  // and the dumps still owe a pass of their own.
+  // Also on rejection: the error goes to the running pass's caller, and the dumps still owe a pass.
   queued ??= running.then(rerun, rerun);
   return queued;
 }
 
-/**
- * Hear the waiting list and the last failure, now and at every change.
- *
- * Returns the unsubscribe.
- */
+/** Hears the waiting list and last failure now and at each change. Returns the unsubscribe. */
 export function subscribe(listener: (state: State) => void): () => void {
   listeners.add(listener);
-  // The read can land after an unsubscribe or a reset, and a listener that
-  // sets component state must not hear it once its page is gone (#426).
+  // The read can land after unsubscribing; a stale listener must not hear it (#426).
   void waiting().then((list) => {
     if (listeners.has(listener)) listener({ waiting: list, failure });
   });
@@ -252,10 +214,8 @@ export function subscribe(listener: (state: State) => void): () => void {
 }
 
 /**
- * Send what waits now, and again whenever the signal or the page comes back.
- *
- * No Background Sync: Chrome alone has it, and a dump waiting for the app to be
- * opened again is the same wait iOS gives everything. Safe to call twice.
+ * Send what waits now, and again when the signal or the page returns. No Background Sync: only
+ * Chrome has it, and iOS waits for the app to open anyway. Safe to call twice.
  */
 export function start(): void {
   if (started !== null) return;
@@ -269,8 +229,7 @@ export function start(): void {
     window.removeEventListener("online", onOnline);
     document.removeEventListener("visibilitychange", onVisible);
   };
-  // Asked so the browser does not clear the store under storage pressure. A
-  // refusal changes nothing here: the store works the same either way.
+  // Asks the browser to keep the store under storage pressure; a refusal changes nothing here.
   void navigator.storage?.persist?.();
   void flush();
 }

@@ -1,30 +1,15 @@
 /**
- * Turning a web page into a note.
- *
- * The reading is defuddle's, kepano's own extractor and the one behind
- * Obsidian's web clipper, so a page arrives in the vault looking the way the
- * same page would arriving in an Obsidian vault. This module does the rest:
- * what the note is called, where it lives and what its frontmatter says.
- *
- * It runs here rather than on the backend because defuddle reads a DOM and the
- * browser is where the DOM is. The backend's part is the fetch alone, which
- * cannot happen here: a page from another origin is one the browser will ask
- * for and refuse to let a script read.
+ * Turns a web page into a note: its title, path and frontmatter. The reading is defuddle's,
+ * the extractor behind Obsidian's clipper, so a page looks as it would in Obsidian. It runs
+ * in the browser because defuddle needs a DOM; the backend only does the fetch.
  */
 
-// `/full` rather than the bare import, which is the extractor without the
-// markdown conversion: the browser build leaves that out and the note wants it.
-//
-// ponytail: it doubles the route chunk, 203 kB gzipped to 407 kB, for a key
-// most sessions never press. A dynamic import would keep it off the first
-// load, and this repo does not take those. Split the route if the first paint
-// starts to hurt.
+// `/full` adds the markdown conversion the note needs. It doubles the route chunk (203 to
+// 407 kB gzipped); a dynamic import would avoid that, but this repo bans them for this.
 import Defuddle from "defuddle/full";
 import { createNote, fetchPage, type Note } from "@/lib/api";
 import { INBOX } from "@/lib/layout";
 import { safeName } from "@/lib/note-path";
-
-// A clipping lands in the inbox, the one folder for things not yet filed.
 
 /** What the note is called, off the page's title, with the site as the fallback. */
 function noteName(title: string, url: string): string {
@@ -35,8 +20,7 @@ function noteName(title: string, url: string): string {
 
 /** One frontmatter line, or nothing at all where the page named no such thing. */
 function field(name: string, value: string): string {
-  // JSON's own quoting is YAML's double-quoted scalar, which is what keeps a
-  // colon in a title or an author from ending the value early.
+  // JSON quoting is valid YAML double-quoted, so a colon in a title cannot end the value.
   return value === "" ? "" : `${name}: ${JSON.stringify(value)}\n`;
 }
 
@@ -47,19 +31,10 @@ export interface Clipping {
 }
 
 /**
- * Read one page's markup into the note it should become.
- *
- * `url` is where the page was finally read from, redirects followed, because
- * that is what its relative links are relative to. It is written into the
- * frontmatter as `resource`, which is the field Open Knowledge Format reads as
- * a note's canonical address, and it is the one field of the three that is
- * always there: a clipping that cannot say where it came from is a quotation
- * with no citation. Clippings written before this carry `source` instead, and
- * nothing rewrites them.
- *
- * The title is the note's name and its heading both. defuddle leaves it out of
- * the content it extracts, holding it as metadata instead, so a note without
- * this line would open on its first paragraph.
+ * Reads one page's markup into the note it should become. `url` is the final URL after
+ * redirects, since relative links resolve against it. It is written as `resource`, the
+ * field Open Knowledge Format reads as a note's address. Older clippings carry `source`.
+ * The title is also the heading: defuddle keeps it out of the content.
  */
 export function clipPage(html: string, url: string): Clipping {
   const parsed = new Defuddle(new DOMParser().parseFromString(html, "text/html"), {
@@ -68,8 +43,7 @@ export function clipPage(html: string, url: string): Clipping {
   }).parse();
 
   const name = noteName(parsed.title, url);
-  // `type` is written plainly rather than through `field`, every clipping being
-  // a source whatever the page turned out to hold.
+  // Plain, not via field(): every clipping is a Source, whatever the page holds.
   const front = `---\ntype: Source\n${field("resource", url)}${field(
     "author",
     parsed.author,
@@ -82,19 +56,8 @@ export function clipPage(html: string, url: string): Clipping {
 }
 
 /**
- * Read one page off the internet and put it in the inbox, unless it is there.
- *
- * The whole of an import bar what happens on screen afterwards, which is the
- * one part the two callers do differently: `<leader>cw` opens the note in a
- * pane, and the capture page, which has no panes, says where it went.
- *
- * A page clipped twice is one note. `paths` is the vault's listing, read by
- * the caller, and a note already at the path is answered with `null` in place
- * of the note this made. Opening what is there beats both a second copy under
- * a name with a number after it and a refusal over a note the reader would
- * have to go and find.
- *
- * Nothing is caught. What throws is what the caller puts on screen.
+ * Reads a page off the internet into the inbox. `paths` is the vault listing the caller
+ * read: a page already there is not clipped again, and `made` is null. Errors propagate.
  */
 export async function importPage(
   url: string,

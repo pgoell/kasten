@@ -1,32 +1,10 @@
 /**
- * The look a panel over the app wears, in one table.
- *
- * It started with three: the note prompt, the note finder and the note search
- * are the same object seen three ways, a box over the editor, a labelled input
- * at the top, a list under it, and a line at the bottom saying what the list is
- * not saying. They have to read as one thing, and they drifted once already,
- * search growing wider than the finder when its rows gained a path and a line
- * number. Since then the exam pane, the todo pane, the key help and the book's
- * contents have all borrowed part of it, some of them for a footer or a list
- * that is over nothing at all.
- *
- * So take what fits and leave the rest, rather than reading the whole table as
- * one look. Classes and not a component: what the readers do not share is the
- * wiring, each having its own ids, refs, key handling and aria plumbing, and a
- * component taking all of that as props would be longer than the markup it
- * replaced.
+ * The look of a panel over the app. Readers take the classes they need; wiring stays theirs.
  */
 
 /**
- * The dark sheet over the whole window, for a panel that belongs over all of it.
- *
- * Padded at the foot by what an on-screen keyboard covers, which the route's
- * frame measures and hands down as `--keyboard`. The panel is capped at the
- * room left, so its input and its first rows stay in sight above the keys.
- * Without a keyboard the home indicator's inset is the floor, and a phone on
- * its side keeps the panel off its notch and rounded corners: 90vw of one
- * leaves less beside it than the 47px they take (#355). `15vh` already
- * clears the notch at the top.
+ * The dark sheet over the window. Padded at the foot for an on-screen keyboard, and at the sides
+ * for a phone's notch: 90vw would leave less than the 47px notch takes (#355).
  */
 export const BACKDROP =
   "fixed inset-0 z-20 flex items-start justify-center bg-black/50 pt-[15vh] pr-[env(safe-area-inset-right)] pb-[max(var(--keyboard,0px),env(safe-area-inset-bottom))] pl-[env(safe-area-inset-left)] focus:outline-none";
@@ -37,21 +15,8 @@ let pressed: EventTarget | null = null;
 let released = false;
 
 /**
- * The way out by touch: a press and release on the sheet itself, and not on
- * the panel over it, closes what the sheet is under. Spread onto the sheet.
- *
- * The click closes and not the press. A sheet gone on the press leaves the
- * release and the click to whatever lay under it, a todo's state button being
- * one such thing, and the browser's own step of the press would take the
- * focus off the opener the unmount had just handed it back to.
- *
- * Both ends of the press have to be on the sheet. A selection dragged out of
- * the input and let go over the sheet, and a press on the sheet let go inside
- * the panel, each end in a click on the sheet as well, the sheet being what
- * the two ends have in common, and neither is a tap outside.
- *
- * `holding` is a draft the panel would lose. A stray tap in the gutter beside
- * a prompt, 19px of it on a phone, then closes nothing; Escape still does.
+ * Closes on a press and release on the sheet itself. Acts on the click, not the press, so the
+ * release never reaches what lies under. Spread onto the sheet. `holding` keeps a draft.
  */
 export function closeOnBackdrop(onClose: () => void, holding = false) {
   type Press = { target: EventTarget; currentTarget: EventTarget };
@@ -75,21 +40,10 @@ export function closeOnBackdrop(onClose: () => void, holding = false) {
 /** The panel itself, bar its width. Pair with one of the two below. */
 export const PANEL = "flex flex-col rounded-md border border-k-rule bg-k-paper font-mono shadow-xl";
 
-/**
- * The prompt's width: one column, so it needs room for a path and no more.
- *
- * Its height is the content's, capped, because a prompt with three folders
- * under it should not draw a box with nothing in the bottom half.
- */
+/** The prompt's width: one column, with height following the content up to a cap. */
 export const PANEL_NARROW = "max-h-[min(70vh,100%)] w-[min(36rem,90vw)]";
 
-/**
- * The finder's and the search's width: a list and a preview pane side by side.
- *
- * Sized for the wider of the two. A search row carries a path, a line number
- * and the line itself, and the finder is no worse for the room now that its
- * pane renders the note rather than printing it.
- */
+/** The finder's and search's width: a list beside a preview, sized for a search row. */
 export const PANEL_WIDE = "max-h-full w-[min(72rem,94vw)]";
 
 /** The row holding the label and the input, 44px under a finger like any other target. */
@@ -99,54 +53,31 @@ export const HEADER_ROW =
 /** The word in the corner saying which overlay this is. */
 export const LABEL = "text-[11px] tracking-wider text-k-muted uppercase";
 
-/**
- * The input, which carries no border of its own: the header's is the line.
- *
- * 16px under a finger. Safari on a phone zooms the whole page in when an input
- * drawn any smaller takes the focus, and does not zoom back out.
- */
+/** 16px on touch: Safari zooms into a smaller input and does not zoom back out. */
 export const INPUT =
   "min-w-0 flex-1 bg-transparent text-[13px] text-k-ink outline-none pointer-coarse:text-base";
 
 /**
- * The body of a two-column overlay.
- *
- * A fixed height rather than one the content sets, so the panel does not jump
- * about as the list narrows under it. It gives way only where the sheet has
- * less room than that, which is a phone with its keyboard up.
+ * A fixed height, so the panel does not jump as the list narrows.
+ * Gives way only on a phone with its keyboard up.
  */
 export const BODY = "flex h-[min(26rem,55vh)] min-h-0";
 
-/**
- * The list side of a two-column overlay.
- *
- * The whole of it below `md`: half of a phone is 183px, which shows neither a
- * path nor a note.
- */
+/** The list side: full width below `md`, where half a phone is too narrow for a path. */
 export const LIST = "w-full shrink-0 overflow-auto py-1 md:w-1/2";
 
-/**
- * The pane beside it, which holds a rendered note and scrolls itself.
- *
- * Not drawn below `md`, and by its two readers rather than by a class here: a
- * hidden pane would still mount an editor for every row the highlight stops on.
- */
+/** The pane beside the list. Its readers skip it below `md`, else each row mounts an editor. */
 export const PANE = "min-w-0 flex-1 border-l border-k-rule text-[12px]";
 
 /** What the pane says when it has no note to show, only a reason. */
 export const PANE_MESSAGE = "px-3 py-2 text-k-muted";
 
-/** One row of a list, bar the colours that say whether it is highlighted. */
+/** One list row, bar the highlight colours. */
 // `k-row` takes a press as a tint rather than a shrink; see `app.css`.
 export const ROW = "k-row w-full cursor-pointer px-3 py-[3px] text-left text-[13px]";
 
 /**
- * The height a finger needs, for a row or a button that is pressed.
- *
- * Apart from `ROW` so a list picks it up one at a time: a row that only the
- * keyboard moves through gains nothing from being 44px tall. `items-center`
- * does nothing to a row that is not a flex box and centres the one that is,
- * a button centring its own text either way.
+ * The height a finger needs. Apart from `ROW`, so a row only the keyboard reaches stays short.
  */
 export const TAP = "pointer-coarse:min-h-11 pointer-coarse:items-center";
 

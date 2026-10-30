@@ -1,11 +1,4 @@
-/**
- * The weeks the search histogram counts lines into, and the dates that place a
- * line in one of them.
- *
- * Weeks are ISO weeks named the way the weekly notes are, so a bar and the note
- * behind it carry the same name. The counting is `isoWeek`'s, which reads the
- * calendar day of a `YYYY-MM-DD` rather than the instant it parses to.
- */
+/** The weeks the search histogram counts lines into, named as the weekly notes name them. */
 
 import { isoWeek } from "@/lib/clock";
 
@@ -41,11 +34,8 @@ function keyOf(day: Date): WeekKey {
 }
 
 /**
- * The ISO week of a date, or nothing where the string is neither.
- *
- * A `YYYY-MM-DD` is the day it names, whatever the zone. An instant with an
- * offset is read as the reader's own day: the server cannot know the zone, so a
- * late Sunday in UTC is Monday in Berlin, and the bar it counts in is the Berlin one.
+ * The ISO week of a date, or undefined. A `YYYY-MM-DD` is its named day; an instant is read
+ * in the reader's zone, since the server cannot know it.
  */
 export function weekOf(date: string): WeekKey | undefined {
   const found = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
@@ -54,9 +44,7 @@ export function weekOf(date: string): WeekKey | undefined {
     return Number.isNaN(at.getTime()) ? undefined : keyOf(at);
   }
   const [year, month, day] = found.slice(1).map(Number) as [number, number, number];
-  // Built from local parts, the way `isoWeek` reads its date. Reading back the
-  // parts catches the days a calendar does not have, such as February the 30th,
-  // which the Date constructor would otherwise roll into March.
+  // Reading the parts back catches days a calendar lacks, such as February the 30th.
   const at = new Date(year, month - 1, day);
   if (at.getFullYear() !== year || at.getMonth() !== month - 1 || at.getDate() !== day) {
     return undefined;
@@ -65,10 +53,8 @@ export function weekOf(date: string): WeekKey | undefined {
 }
 
 /**
- * The last `count` weeks, oldest first, with the week holding `now` last.
- *
- * Stepped back a week at a time from `now`'s own day, so a year boundary needs no
- * case of its own: each step lands on a day `isoWeek` already knows how to name.
+ * The last `count` weeks, oldest first, with the week holding `now` last. Stepping back by
+ * days needs no case for a year boundary.
  */
 export function lastWeeks(now: Date, count: number = WEEKS): WeekKey[] {
   const weeks: WeekKey[] = [];
@@ -85,10 +71,8 @@ export function weekNumber(week: WeekKey): number {
 }
 
 /**
- * The week a value names, or nothing where it names none.
- *
- * The week has to exist in its year: a year has 53 weeks only when it is one of
- * the long years, and the last of them always holds the 28th of December.
+ * The week a value names, or undefined. Week 53 exists only in a long year; the 28th of
+ * December always falls in the year's last week.
  */
 export function parseWeek(value: unknown): WeekKey | undefined {
   if (typeof value !== "string") return undefined;
@@ -100,16 +84,10 @@ export function parseWeek(value: unknown): WeekKey | undefined {
   return week <= weeksInYear ? value : undefined;
 }
 
-/**
- * The Monday to Sunday a week covers, in words.
- *
- * Written with the word `to` rather than a dash, so the range reads the same
- * whatever the dash would have joined.
- */
+/** The Monday to Sunday a week covers, joined with the word "to" and no dash. */
 export function weekRange(week: WeekKey): string {
   const year = Number(week.slice(0, 4));
-  // The first week of a year is the one holding its 4th of January, so counting
-  // from that Monday gives the Monday of any week in the year.
+  // The first week holds 4 January, so counting from its Monday reaches any week in the year.
   const jan4 = new Date(year, 0, 4);
   const firstMonday = 4 - ((jan4.getDay() || 7) - 1);
   const monday = new Date(year, 0, firstMonday + (weekNumber(week) - 1) * 7);

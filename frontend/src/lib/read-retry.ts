@@ -4,9 +4,8 @@ import { fetchNote } from "@/lib/api";
 export const BACKOFF = [1000, 2000, 4000, 8000, 15000, 15000, 15000];
 
 /**
- * A request that failed because the backend is down or restarting: a gateway
- * answer, or no answer, which fetch reports as a `TypeError`. The API puts the
- * status of a failed request in `cause`.
+ * A request the backend dropped while down or restarting: a gateway status in `cause`, or a
+ * `TypeError` from fetch with no answer.
  */
 export function retryable(error: unknown): boolean {
   if (error instanceof TypeError) return true;
@@ -17,23 +16,15 @@ export function retryable(error: unknown): boolean {
   );
 }
 
-/**
- * How a `cards` read tries again after the backend drops it. Every query under a
- * `cards` key spreads this, so the observers of one key agree on it. A read that
- * runs out of tries keeps the last answer it had.
- */
+/** Retry policy for `cards` queries, so every observer of one key agrees. */
 export const readRetry = {
-  // TanStack counts the failures so far, from 0, so `<` makes 1 + BACKOFF.length tries.
+  // Failures count from 0, so this makes 1 + BACKOFF.length tries.
   retry: (failures: number, error: unknown) => retryable(error) && failures < BACKOFF.length,
-  // `retry` never asks past the end of BACKOFF, so `?? 0` only satisfies the type.
+  // Never asked past the end of BACKOFF; `?? 0` is for the type only.
   retryDelay: (attempt: number) => BACKOFF[attempt] ?? 0,
 };
 
-/**
- * Reads a note, trying again while the backend restarts, as `useSittingWrites` tries a write.
- * The parked list and the sitting both read through `readNotes`, so they retry alike. `live` says
- * whether the effect that asked still stands, so a read it has left stops before its next try.
- */
+/** Reads a note, retrying while the backend restarts. `live` returning false stops the retries. */
 export async function readNote(note: string, live: () => boolean): Promise<string> {
   for (let attempt = 0; ; attempt++) {
     try {
@@ -46,10 +37,7 @@ export async function readNote(note: string, live: () => boolean): Promise<strin
   }
 }
 
-/**
- * Reads every note at once, as `readNote` reads one. The first note that fails for good fails
- * them all, so the others stop before their next try rather than retrying a batch already lost.
- */
+/** Reads every note at once. The first failure for good stops the rest before their next try. */
 export async function readNotes(
   notes: readonly string[],
   live: () => boolean,

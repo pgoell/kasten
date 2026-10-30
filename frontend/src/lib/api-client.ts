@@ -1,44 +1,31 @@
 /**
- * The one typed connection to the backend, how a refusal reads, and how a file
- * body gets there. Every module that calls the backend goes through `client`,
- * and the refusal and upload helpers are shared so each answers the same way.
+ * The typed connection to the backend, the refusal reader and the file upload. Every module
+ * calls the backend through `client`.
  */
 
 import createClient from "openapi-fetch";
 import type { paths } from "@/lib/api-types";
 
-/**
- * Calls into the backend, typed from its OpenAPI schema.
- *
- * Run `mise run fe:types` after changing a route to regenerate `api-types.ts`.
- */
+/** Typed from the OpenAPI schema; after a route changes, run `mise run fe:types`. */
 export const client = createClient<paths>();
 
 /**
- * What the backend said went wrong, or nothing where it said nothing.
- *
- * Every other call here reports its own status code, which is all a reader of
- * the console needs. A clip and a transcript are the two whose failure is put
- * in front of the person who pressed the key, and `detail` is the sentence
- * written for them.
+ * What the backend said went wrong, or null. Only a clip and a transcript show this
+ * sentence to the person; other calls report their status code.
  */
 export function reason(error: { detail?: unknown } | undefined): string | null {
   if (typeof error?.detail === "string") return error.detail;
-  // A refusal with a code for the page to branch on carries its sentence beside it.
+  // A coded refusal carries its sentence in `message`.
   const coded = error?.detail as { message?: unknown } | null | undefined;
   if (typeof coded?.message === "string") return coded.message;
-  // A body the route's model refused comes as FastAPI's list of what failed; its first says why.
+  // FastAPI's validation list: its first entry says why.
   const first = Array.isArray(error?.detail) ? (error.detail[0] as { msg?: unknown }) : undefined;
   return typeof first?.msg === "string" ? first.msg.replace(/^Value error, /, "") : null;
 }
 
 /**
- * The error a refused upload throws, worded for the line that shows it.
- *
- * The content type asked rather than the parse wrapped in a `try`: an upload's
- * refusal can come from something other than kasten. Cloudflare sits in front
- * of production with a body limit of its own and answers an oversize request
- * with an HTML page, which `.json()` throws on and which names no limit.
+ * The error a refused upload throws. Cloudflare can answer an oversize body with an HTML
+ * page, so the content type is checked rather than parsing inside a `try`.
  */
 export async function refused(response: Response, label: string): Promise<Error> {
   const detail =
@@ -55,11 +42,8 @@ export async function refused(response: Response, label: string): Promise<Error>
 }
 
 /**
- * The most one request carries; a bigger file goes up in pieces this size.
- *
- * Cloudflare refuses a body over 100MB, and it drops a request it has not
- * answered within 100 seconds. 10 MiB clears both on a 1 Mbit/s phone link,
- * which sends it in about 84 seconds.
+ * The most one request carries; bigger files go up in pieces this size. Cloudflare refuses
+ * a body over 100MB and drops one unanswered for 100 seconds. 10 MiB clears both on a phone.
  */
 const PIECE_BYTES = 10 * 1024 * 1024;
 
@@ -78,8 +62,7 @@ async function sendPiece(url: string, piece: Blob): Promise<void> {
       continue;
     }
     if (response.ok) return;
-    // A 4xx is the backend saying no, and asking again would get the same no.
-    // The backend cuts a resent piece back, so a retry after a 5xx is safe.
+    // A 4xx is a no that a retry repeats. A resent piece replaces the old, so a 5xx may retry.
     if (response.status < 500 || tries === PIECE_TRIES) {
       throw await refused(response, `PUT ${url}`);
     }
@@ -87,10 +70,8 @@ async function sendPiece(url: string, piece: Blob): Promise<void> {
 }
 
 /**
- * Send `file` to the backend in pieces, in order, and answer the upload's id.
- *
- * The id is what the route that uses the file is handed in place of a body.
- * `onProgress` hears how many bytes are in after each piece.
+ * Sends `file` in pieces, in order, and answers the upload's id, which the route takes in place
+ * of a body. `onProgress` hears the bytes in after each piece.
  */
 async function uploadInParts(
   file: Blob,
@@ -119,17 +100,9 @@ function finish(url: string, upload: string): Promise<Response> {
 }
 
 /**
- * POST `file` to `url`: as the body when it fits one piece, else in pieces.
- *
- * Plain `fetch`, because the endpoints take raw bytes and the generated client
- * documents a body it will not let us send. The raw file rather than a
- * multipart part: one file and no fields, so nothing has to parse a boundary.
- *
- * `kept` is an upload that already holds the whole file, from an earlier try
- * that failed after it was sent. Passing it finishes that upload and sends no
- * piece again. `onUploaded` hears the id of a new upload as soon as its last
- * piece is in, before the finish, so a finish that is lost still leaves the
- * caller the id to finish next time.
+ * POSTs `file` to `url`: as the body if it fits one piece, else in pieces, with plain `fetch`
+ * (the generated client will not send a raw body). `kept` is an upload that already holds the
+ * whole file, so only the finish is sent. `onUploaded` gets a new id once its last piece is in.
  */
 export async function postFile(
   url: string,

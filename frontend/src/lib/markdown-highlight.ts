@@ -6,17 +6,9 @@ const EQUALS = 61;
 const HighlightDelim = { resolve: "Highlight", mark: "HighlightMark" };
 
 /**
- * `==highlighted==`, which no markdown flavour we load parses.
- *
- * Obsidian's notes use it and the toggle command needs a node to recognise, so
- * it has to be a real parser extension rather than a decoration rule. The nodes
- * carry no style of their own: `live-preview-inline.ts` classes them like every other
- * inline construct.
- *
- * A delimiter opens only when a non-space follows it and closes only when a
- * non-space precedes it, which is what keeps `a == b` out of it. The GFM
- * strikethrough rule this follows adds punctuation cases too, and those are
- * left out until a note needs them.
+ * `==highlighted==`, which no markdown flavour we load parses. It is a parser extension rather than
+ * a decoration, so the toggle command has a node to recognise. A delimiter opens only before a
+ * non-space and closes only after one, which keeps `a == b` out of it.
  */
 export const Highlight: MarkdownConfig = {
   defineNodes: ["Highlight", "HighlightMark"],

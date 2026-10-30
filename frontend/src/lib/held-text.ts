@@ -1,9 +1,8 @@
 import { useSyncExternalStore } from "react";
 
 /**
- * A list of entries per path. A new key and not the old one under a new shape:
- * a tab of the build before, still open after the deploy, reads its key as one
- * entry per path, and a list there would throw in it.
+ * A new key, not the old shape under the same one: a tab of the build before still reads it as
+ * one entry per path, and a list would throw there.
  */
 const HELD_KEY = "kasten.held.2";
 /** One entry per path, which that build wrote. Read in and removed. */
@@ -17,21 +16,18 @@ export interface Held {
   /** Whether the note stood conflicted, which it does again when reopened. */
   conflicted: boolean;
   /**
-   * The vault's text the buffer was based on, when it was known. A vault that
-   * has moved past it by the reopening means somebody else wrote the note
-   * meanwhile. Absent from entries stored before this was kept.
+   * The vault text the buffer was based on. If the vault has moved past it, someone else wrote
+   * the note. Absent from entries stored before this was kept.
    */
   base?: string;
   /**
-   * The text of a write still in the air that the held text was typed behind,
-   * and which its own write named. Either that write landed and the vault
-   * holds this, or it never arrived and the vault still holds `base`: both
-   * mean nobody else wrote. Absent where no such write was in the air.
+   * The text of a write still in the air when this was typed. Either it landed (the vault holds
+   * this) or not (the vault holds `base`), so nobody else wrote. Absent when none was in the air.
    */
   after?: string;
 }
 
-/** One held entry as the bar lists it, the entry itself carried by identity. */
+/** A held entry as the bar lists it. `entry` is kept by identity. */
 export interface HeldRow {
   path: string;
   reason: string;
@@ -40,16 +36,9 @@ export interface HeldRow {
 }
 
 /**
- * Every held text by note path, oldest first, for the life of the page and
- * past it. A list and not one entry: a failed write that replaced an entry
- * would lose text the buffer never showed, so every text stays until it is
- * written or dropped.
- *
- * Module-level rather than in the autosave hook, because the hook is the thing
- * that goes away: a flush on leaving the route fails after it has unmounted,
- * and a write on `pagehide` fails after the page has. Mirrored to
- * `localStorage` for that second case, read lazily on first touch so a test
- * or a reload sees what the last page left.
+ * Held text by note path, oldest first, for the page's life and past it. A list, so a failed
+ * write cannot lose text the buffer never showed. Module level, since a flush on leaving the
+ * route or on pagehide outlives the hook that made it. Mirrored to `localStorage`.
  */
 let store: Map<string, Held[]> | null = null;
 let snapshot: HeldRow[] = [];
@@ -62,21 +51,15 @@ function parse<T>(raw: string | null): Record<string, T> {
   try {
     return JSON.parse(raw) as Record<string, T>;
   } catch (error) {
-    // Somebody else's value under the key, or a half-written one. Nothing in
-    // it can be trusted to be anybody's text.
+    // Someone else's value, or a half-written one: nothing in it is trusted as text.
     if (!(error instanceof SyntaxError)) throw error;
     return {};
   }
 }
 
 /**
- * A browser with site data blocked throws a `SecurityError` on any touch of
- * `localStorage`, and a full one a `QuotaExceededError` on a write. Either way
- * the map in memory still holds the text for as long as the page lives, which
- * is everything but the reload.
- *
- * The old key is read every time and not once: a tab of the old build may
- * write it again after this one moved it over.
+ * Reads storage, merging the old key in on every read: a tab of the old build may write it again.
+ * Blocked or full storage (a DOMException) reads as null; the map in memory still holds the text.
  */
 function read(): Record<string, Held[]> | null {
   let raw: string | null;
@@ -109,12 +92,9 @@ function same(a: Held, b: Held): boolean {
 }
 
 /**
- * Take the map from storage again, which other tabs write to as well.
- *
- * Read before every change and not only once: each change writes the whole
- * map, and one built from an old read would wipe what another tab held since.
- * An entry that has not changed keeps its object, because the autosave tells
- * the entry its buffer took from a later one by identity.
+ * Takes the map from storage again, since other tabs write it too. Read before every change: each
+ * change writes the whole map, so an old read would wipe what another tab held. Unchanged entries
+ * keep their object, since autosave tells entries apart by identity.
  */
 function sync(): Map<string, Held[]> {
   const stored = read();
@@ -133,9 +113,8 @@ function sync(): Map<string, Held[]> {
         }),
       );
     }
-    // Storage refused the last write, so what it lacks may be text held only
-    // here. Kept until a write goes through, at the cost of bringing back an
-    // entry another tab dropped meanwhile, which is the cheaper way to be wrong.
+    // Storage refused the last write, so keep text held only here until one goes through, even if
+    // another tab dropped it. That error is the cheaper one.
     if (unwritten) {
       for (const [path, entries] of before) {
         const at = store.get(path) ?? [];
@@ -168,27 +147,21 @@ function changed(held: Map<string, Held[]>): void {
   try {
     if (held.size === 0) localStorage.removeItem(HELD_KEY);
     else localStorage.setItem(HELD_KEY, JSON.stringify(Object.fromEntries(held)));
-    // Only once the new key holds its entries, and on every write: the next
-    // read merges the old key in again, and would bring back what this dropped.
+    // Remove the old key only after the new one is written, or the next read merges it back.
     localStorage.removeItem(OLD_KEY);
     unwritten = false;
   } catch (error) {
     if (!(error instanceof DOMException)) throw error;
     unwritten = true;
   }
-  // A new array only here, because `useSyncExternalStore` compares by identity
-  // and a fresh one per read would render forever.
+  // A new array only on change: useSyncExternalStore compares by identity and would loop.
   snapshot = list(held);
   for (const listener of listeners) listener();
 }
 
 /**
- * Keep `entry` as text `path` holds until it is written or dropped.
- *
- * In the place of `replacing`, the entry the buffer showed and typed on, when
- * it is still listed. Else in the place of an entry of the same text, which is
- * the hide and the failure of one write holding it twice. Else beside the
- * rest: an entry the buffer never showed is still nowhere else.
+ * Keeps `entry` as text `path` holds until it is written or dropped. It replaces `replacing` (the
+ * entry the buffer showed) when still listed, else one with the same text, else is appended.
  */
 export function holdText(path: string, entry: Held, replacing?: Held | null): void {
   const held = sync();
@@ -201,27 +174,19 @@ export function holdText(path: string, entry: Held, replacing?: Held | null): vo
   changed(held);
 }
 
-/**
- * Forget `entry` of `path`'s held text, or all of it with no entry: it was
- * written, or the reader threw it away.
- */
+/** Forget `entry` of `path`'s held text, or all of it when there is no entry. */
 export function dropText(path: string, entry?: Held): void {
   const held = sync();
   const left = entry ? (held.get(path) ?? []).filter((each) => each !== entry) : [];
   if (left.length > 0) held.set(path, left);
   else held.delete(path);
-  // Written and announced even when there was nothing to delete: the read
-  // above may have brought another tab's change the list has not shown yet.
+  // Write even with nothing to delete: the read above may have pulled in another tab's change.
   changed(held);
 }
 
 /**
- * Carry held text along a move, `to` answering each path's new one or nothing.
- *
- * The map is keyed by path, so text held for a note that is then moved would
- * stay listed under a path the vault no longer has, and opening the note at
- * its new one would never offer it again. Onto a path that holds text too,
- * after that text: both stay listed, each still to be dealt with.
+ * Carries held text along a move: `to` gives each path's new one, or nothing. Text moved onto a
+ * path that holds text goes after it. Keyed by path, it would stay under a path the vault lost.
  */
 export function moveHeld(to: (path: string) => string | undefined): void {
   moves.push(to);
@@ -231,20 +196,15 @@ export function moveHeld(to: (path: string) => string | undefined): void {
     return next === undefined || next === path ? [] : [{ path, next, entries }];
   });
   if (moving.length === 0) return;
-  // Every source taken out first, so a folder move whose paths land on each
-  // other's carries each list once.
+  // Take every source out first, so paths that land on each other's move each list once.
   for (const { path } of moving) held.delete(path);
   for (const { next, entries } of moving) held.set(next, [...(held.get(next) ?? []), ...entries]);
   changed(held);
 }
 
 /**
- * Every move `moveHeld` carried, for the life of the page.
- *
- * A write in the air answers after its note may have moved, and the text it
- * holds or drops belongs under the path the note has now, where `moveHeld`
- * already put the entry it carried. The write counts the moves as it goes out
- * and plays the later ones over its path when it answers.
+ * Every move `moveHeld` carried, for the page's life. A write in the air answers after its note
+ * may have moved, so it replays the later moves over its own path.
  */
 const moves: ((path: string) => string | undefined)[] = [];
 
@@ -259,15 +219,10 @@ export function movedTo(path: string, since: number): string {
 }
 
 /**
- * The entry a note offers: the oldest of those typed into the note whose
- * vault text is `vault`, or the oldest of all while that text is not known.
- * One answer for the autosave, the editor opening on it and the pane deciding
- * about a reload, so all three mean the same text.
- *
- * Held text is kept by path, and a path outlives its note: an entry of a note
- * deleted, or moved away by a build that carried no held text, waits there for
- * whatever note comes to hold the path next. Offered to that note, it would
- * read as a conflict with the note's own text and `:w` would write it over.
+ * The entry a note offers: the oldest typed into the note whose vault text is `vault`, or the
+ * oldest of all while that is unknown. The autosave, the editor and the reload check share this.
+ * Paths outlive notes, so an entry left by a deleted note would otherwise reach the next note at
+ * that path, and `:w` would write it over.
  */
 export function heldText(path: string, vault?: string): Held | undefined {
   const entries = heldTexts(path);
@@ -275,10 +230,9 @@ export function heldText(path: string, vault?: string): Held | undefined {
 }
 
 /**
- * Whether `entry` was typed into the note whose vault text is `vault`, by the
- * frontmatter `id` each carries, which a move keeps and a new note gets new.
- * From the text and not a field, so entries stored before this was asked
- * answer too. Text with no id on either side says nothing, and belongs.
+ * Whether `entry` was typed into the note whose vault text is `vault`, by the frontmatter `id`
+ * (kept on a move, new for a new note). Read from the text, so older entries answer too. No id
+ * on either side counts as a match.
  */
 function belongsTo(entry: Held, vault: string): boolean {
   // The base first: the reader may have edited the `id` line in the text.
@@ -298,10 +252,7 @@ export function heldTexts(path: string): readonly Held[] {
   return load().get(path) ?? [];
 }
 
-/**
- * Another tab held or let go of text. The browser tells every tab but the one
- * that wrote, so the bar here follows a note held over there.
- */
+/** Another tab changed held text; the browser tells every tab but the writer. */
 function storage(event: StorageEvent) {
   if (event.key !== HELD_KEY && event.key !== OLD_KEY && event.key !== null) return;
   sync();
@@ -322,10 +273,7 @@ function current() {
   return snapshot;
 }
 
-/**
- * Every held entry, its note, why, and whether it was left standing conflicted
- * rather than refused, re-rendering when one is held or let go.
- */
+/** Every held entry with its note and why. Re-renders when one is held or let go. */
 export function useHeld(): readonly HeldRow[] {
   return useSyncExternalStore(subscribe, current);
 }
@@ -339,12 +287,8 @@ export function resetHeld(): void {
 }
 
 /**
- * Whether two texts are the same note once the `modified` line is set aside.
- *
- * The backend stamps `modified` on every `PUT`, so the vault's copy of text we
- * sent never equals what was sent. A keepalive write that landed after the page
- * was gone leaves exactly that pair behind, and offering it again would be
- * offering the reader their own words as a quarrel.
+ * Whether two texts are the same note with the `modified` line set aside. The backend stamps
+ * `modified` on every PUT, and a keepalive write that landed after the page left this pair.
  */
 export function sameText(a: string, b: string): boolean {
   return unstamped(a) === unstamped(b);
@@ -366,11 +310,9 @@ function parts(text: string): { block: string[]; rest: string } | undefined {
 }
 
 /**
- * Whether held text landed as the vault's `vault`: the same note once
- * `modified` is set aside, or what `stamp` makes of it on the way in, which is
- * an `id`, `created` or `type` line ahead of the block where it has none, and a
- * whole block where there is none. One way only: a held copy that set one of
- * those lines and finds another value there did not land.
+ * Whether held text landed as the vault's `vault`: the same once `modified` is set aside, or as
+ * `stamp` leaves it, adding `id`, `created` or `type` lines or a whole block. One way only: a
+ * held line that the vault holds another value for did not land.
  */
 export function landedAs(held: string, vault: string): boolean {
   if (sameText(held, vault)) return true;
