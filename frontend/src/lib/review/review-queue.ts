@@ -41,7 +41,8 @@ export function seatsFor(
   // the same from one reload to the next. Nothing is shuffled: a deck
   // written in an order was written in that order on purpose, and an
   // import arrives in the order Anki held.
-  const seats = [...cardsOf(deck, texts)]
+  const parsed = cardsOf(deck, texts);
+  const seats = [...parsed]
     .sort(([one], [two]) => (one < two ? -1 : one > two ? 1 : 0))
     .flatMap(([note, cards]) => cards.map((card, at) => ({ note, at, card })));
   // A parked card keeps its seat and its ordinal and is never asked. It
@@ -59,8 +60,10 @@ export function seatsFor(
   // whole note has no row here and no limit.
   const row = deck.whole
     ? undefined
-    : decksFrom(
-        [...texts].map(([path, text]) => ({ path, text })),
+    : // The deck's own cards, not the note's: only this row is read, and a card
+      // counts in it exactly when `inDeck` asks it here, so it comes out the same.
+      decksFrom(
+        [...texts].map(([path, text]) => ({ path, text, cards: parsed.get(path) })),
         today,
         limits,
       ).find((each) => !each.whole && each.name === deck.name);
@@ -86,6 +89,21 @@ export function seatsFor(
  * none of the others.
  */
 export function cardsOf(deck: Deck, texts: Map<string, string>): Map<string, Card[]> {
+  const held = read.get(texts);
+  if (held?.deck === deck) return held.cards;
+  const cards = cardsRead(deck, texts);
+  read.set(texts, { deck, cards });
+  return cards;
+}
+
+/**
+ * The last read per texts map. The sitting builds its queue and draws its card off
+ * the same map, and a second parse of a 1 MB deck is a long task (#1354). Every
+ * write makes a new map, so a held read is never stale.
+ */
+const read = new WeakMap<Map<string, string>, { deck: Deck; cards: Map<string, Card[]> }>();
+
+function cardsRead(deck: Deck, texts: Map<string, string>): Map<string, Card[]> {
   return new Map(
     [...texts].map(([note, text]) => {
       if (deck.whole) {

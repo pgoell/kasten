@@ -169,6 +169,9 @@ async def scan_vault(
         "--with-filename",
         "--no-heading",
         "--null",
+        # The cap makes rg's traversal order decide which hits survive.
+        "--sort",
+        "path",
         # A reader has to see exactly what `GET /api/files` lists, and these are
         # where rg would otherwise disagree with it.
         *listing,

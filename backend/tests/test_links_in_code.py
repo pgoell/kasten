@@ -1,9 +1,9 @@
-import gc
-import time
+import sys
 from typing import TYPE_CHECKING
 
 import pytest
 
+import kasten_backend.code_spans as spans_module
 from kasten_backend.code_spans import code_spans
 from kasten_backend.links import relink, relink_markdown
 
@@ -11,6 +11,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from httpx import AsyncClient
+    from markdown_it.token import Token
 
 
 @pytest.mark.parametrize(
@@ -205,26 +206,71 @@ def test_reads_a_carriage_return_as_no_line_break() -> None:
     assert relink(text, {"x.md": "y.md"}, ["x.md"]) == "a\r```\n[[y]]\n```\n[[x]]\n```\n"
 
 
-def test_reads_code_of_a_long_note_full_of_fences_in_time() -> None:
-    # The note is parsed once, and in blocks only, for the same event loop.
+def test_reads_code_of_a_long_note_full_of_fences_in_time(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Parsed once, in blocks only, each line read once: counted, so no load can fail it.
     text = "para `c` [[x]]\n\n```py\n[[x]]\n```\n\n> ```\n> q\n> ```\n- item\n\n" * 1000
-    # A full collection of the suite's heap takes about half a second on its
-    # own, and one that falls inside the window fails the parse for the rest of
-    # the suite's garbage. Collected first, the counters start again from zero.
-    gc.collect()
-    began = time.perf_counter()
+    parses: list[int] = []
+    scans: list[int] = []
+    parse = spans_module.FENCES.parse
+    inline_code = spans_module._inline_code
+
+    def counting_parse(src: str) -> list[Token]:
+        parses.append(1)
+        return parse(src)
+
+    def counting_inline_code(line: str) -> list[tuple[int, int]]:
+        scans.append(1)
+        return inline_code(line)
+
+    monkeypatch.setattr(spans_module.FENCES, "parse", counting_parse)
+    monkeypatch.setattr(spans_module, "_inline_code", counting_inline_code)
 
     code_spans(text)
 
-    assert time.perf_counter() - began < 0.5
+    assert len(parses) == 1
+    assert "inline" not in spans_module.FENCES.get_active_rules()["core"]
+    assert len(scans) <= len(text.split("\n"))
 
 
-def test_relinks_a_long_note_full_of_code_in_time() -> None:
+def test_relinks_a_long_note_full_of_code_in_time(monkeypatch: pytest.MonkeyPatch) -> None:
     # One scan of every span per link held the event loop 27s on this note.
-    text = "text `code` [[x]] more\n" * 20000
-    began = time.perf_counter()
+    # Counted rather than timed, so a loaded box cannot fail it: each link may
+    # search the spans, never walk them, and the backtick walk stays linear.
+    class Counted(list[tuple[int, int]]):
+        reads = 0
 
-    relink(text, {"x.md": "y.md"}, ["x.md"])
-    code_spans("`a``b" * 20000)
+        def __getitem__(self, index):
+            Counted.reads += 1
+            return super().__getitem__(index)
 
-    assert time.perf_counter() - began < 2
+        def __iter__(self):
+            for span in super().__iter__():
+                Counted.reads += 1
+                yield span
+
+    monkeypatch.setattr("kasten_backend.links.code_spans", lambda text: Counted(code_spans(text)))
+    links = 20000
+
+    relink("text `code` [[x]] more\n" * links, {"x.md": "y.md"}, ["x.md"])
+
+    assert Counted.reads <= links * (links.bit_length() + 2)
+
+    lines = 0
+
+    def tally(frame, event, arg):
+        nonlocal lines
+        if event == "line":
+            lines += 1
+        return tally
+
+    def trace(frame, event, arg):
+        return tally if frame.f_code.co_filename == spans_module.__file__ else None
+
+    runs = 4000
+    sys.settrace(trace)
+    try:
+        code_spans("`a``b" * (runs // 2))
+    finally:
+        sys.settrace(None)
+
+    assert lines <= 10 * runs
