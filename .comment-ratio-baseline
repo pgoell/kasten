@@ -2,4 +2,3 @@
 # A file fails when it gets denser than its percent.
 # check-comments --update-baseline only lowers or drops lines; never raise one.
 backend/src/kasten_backend/page_script.js 26
-frontend/src/lib/book/use-book-view.ts 39
