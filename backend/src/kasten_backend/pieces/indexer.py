@@ -12,11 +12,16 @@ from typing import TYPE_CHECKING
 
 from sqlalchemy import delete, select
 from sqlalchemy.dialects.postgresql import insert
-from sqlalchemy.exc import DBAPIError, OperationalError, ProgrammingError, SQLAlchemyError
+from sqlalchemy.exc import (
+    OperationalError,
+    ProgrammingError,
+    SQLAlchemyError,
+    StatementError,
+)
 from sqlalchemy.exc import TimeoutError as PoolTimeout
 
 from kasten_backend.db import session_factory
-from kasten_backend.events import watch_vault
+from kasten_backend.events import WATCH_ERRORS, watch_vault
 from kasten_backend.pieces.embed import MODEL_ERRORS, BgeM3, model_thread
 from kasten_backend.pieces.models import Piece, PieceNote
 from kasten_backend.pieces.split import split_note
@@ -33,7 +38,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# Seconds between tries while the database is gone, doubling up to the cap.
+# Seconds between tries while the database or the watcher is gone, doubling up to the cap.
 FIRST_WAIT = 1.0
 LONGEST_WAIT = 60.0
 
@@ -50,9 +55,14 @@ def _passing(error: SQLAlchemyError) -> bool:
     return state is None or state.startswith("08") or state in ("57P01", "57P02", "57P03", "53300")
 
 
-def _cause(error: SQLAlchemyError) -> object:
-    """What to log of `error`: the driver's message, not the statement and its values."""
-    return error.orig if isinstance(error, DBAPIError) else error
+def _cause(error: SQLAlchemyError) -> str:
+    """What to log of `error`: the driver's first line, never the statement, its values or the row.
+
+    Postgres puts the failing row, a note's text and vector, in a second `DETAIL:` line.
+    """
+    cause = error.orig if isinstance(error, StatementError) else error
+    lines = str(cause).splitlines() if cause is not None else []
+    return lines[0] if lines else type(error).__name__
 
 
 def _sha(data: bytes) -> str:
@@ -104,23 +114,41 @@ class Indexer:
         except (OSError, *MODEL_ERRORS) as error:
             logger.warning("The pieces index stays off, its model will not load: %s", error)
             return
-        watching = asyncio.create_task(self._watch())
+        # The watcher first, so it is up before the first sweep lists the vault.
+        tasks = (asyncio.create_task(self._watch()), asyncio.create_task(self._work()))
         try:
-            await self._work()
+            done, _ = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+            for task in done:
+                task.result()
         except SQLAlchemyError as error:
             logger.warning("The pieces index stops, its database fails: %s", _cause(error))
         finally:
-            watching.cancel()
+            for task in tasks:
+                task.cancel()
             self._thread.shutdown(wait=False, cancel_futures=True)
 
     async def _watch(self) -> None:
-        async for events in watch_vault(self._root):
-            for event in events:
-                if event.change == "listing":
-                    self._sweep = True
-                elif event.change in ("written", "removed"):
-                    self._changed[event.path] = None
-            self._wake.set()
+        """Follow the vault, starting the watcher again after a fault such as an inotify limit."""
+        tries = 0
+        while True:
+            fault: object = "the vault folder is gone"
+            try:
+                async for events in watch_vault(self._root):
+                    if tries:
+                        logger.warning("The pieces index follows saves again after %d tries", tries)
+                        tries = 0
+                    for event in events:
+                        if event.change == "listing":
+                            self._sweep = True
+                        elif event.change in ("written", "removed"):
+                            self._changed[event.path] = None
+                    self._wake.set()
+            except WATCH_ERRORS as error:
+                fault = error
+            if not tries:
+                logger.warning("The pieces index restarts its watcher, which fails: %s", fault)
+            # The sweep runs once the new watcher is up, and finds the saves none saw.
+            tries = await self._retry(tries)
 
     async def _work(self) -> None:
         tries = 0
@@ -145,12 +173,16 @@ class Indexer:
                     raise
                 if not tries:
                     logger.warning("The pieces index waits for its database: %s", _cause(error))
-                # A bounded exponent: 2**1024 overflows a float, some 17 hours in.
-                await self._wait(min(FIRST_WAIT * 2 ** min(tries, 6), LONGEST_WAIT))
-                tries += 1
                 # The sweep finds the note that failed and any save the watcher missed.
-                self._sweep = True
-                self._wake.set()
+                tries = await self._retry(tries)
+
+    async def _retry(self, tries: int) -> int:
+        """Wait out the `tries`-th fault, ask for a sweep, and return the count with this one."""
+        # A bounded exponent: 2**1024 overflows a float, some 17 hours in.
+        await self._wait(min(FIRST_WAIT * 2 ** min(tries, 6), LONGEST_WAIT))
+        self._sweep = True
+        self._wake.set()
+        return tries + 1
 
     async def _stale(self) -> None:
         """Queue every note whose bytes differ from the index's, and drop the notes gone.
@@ -158,6 +190,9 @@ class Indexer:
         Gone notes drop after the stale are read: a folder move reuses the old
         path's vectors.
         """
+        if not await asyncio.to_thread(self._root.is_dir):
+            # A vault that is gone would drop every note, and a remount re-embed them all.
+            return
         paths = [path for path in list_markdown_files(self._root) if not self.skipped(path)]
         async with self._sessions() as session:
             rows = await session.execute(select(PieceNote.path, PieceNote.digest))
@@ -184,13 +219,13 @@ class Indexer:
         """
         try:
             await self._index(path)
-        except (OperationalError, PoolTimeout) as error:
+        except ProgrammingError:
+            raise
+        except SQLAlchemyError as error:
             if _passing(error):
                 raise
             logger.warning("The pieces index skips %s: %s", path, _cause(error))
-        except ProgrammingError:
-            raise
-        except (SQLAlchemyError, ValueError, *MODEL_ERRORS) as error:
+        except (ValueError, *MODEL_ERRORS) as error:
             logger.warning("The pieces index skips %s: %s", path, error)
 
     async def _index(self, path: str) -> None:
