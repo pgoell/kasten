@@ -12,11 +12,14 @@ from typing import TYPE_CHECKING
 import psycopg
 import psycopg.errors
 import pytest
-from sqlalchemy.exc import OperationalError, ProgrammingError
+from sqlalchemy.exc import OperationalError, ProgrammingError, ResourceClosedError
+from sqlalchemy.exc import TimeoutError as PoolTimeout
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 
 from backend.tests.pieces.test_indexer import FakeModel, _make, _rows, _settled, _until, _write
+from kasten_backend.config import Settings
+from kasten_backend.pieces import indexer
 from kasten_backend.pieces.embed import model_thread
 from kasten_backend.pieces.indexer import Indexer
 
@@ -188,7 +191,7 @@ async def test_the_wait_doubles_to_a_cap_starts_over_after_a_recovery_and_logs_t
 
 
 async def test_shutdown_ends_while_waiting_to_retry(
-    tmp_path: Path, sessions: async_sessionmaker[AsyncSession]
+    tmp_path: Path, sessions: async_sessionmaker[AsyncSession], caplog: pytest.LogCaptureFixture
 ) -> None:
     flaky = Flaky(sessions)
     flaky.failures = 10**6
@@ -202,10 +205,13 @@ async def test_shutdown_ends_while_waiting_to_retry(
     made._wait = wait
     running = asyncio.create_task(made.run())
     await asyncio.wait_for(waiting.wait(), 10)
-    running.cancel()
-    await asyncio.wait_for(asyncio.gather(running, return_exceptions=True), 5)
+    caplog.clear()
+    with caplog.at_level(logging.INFO):
+        running.cancel()
+        await asyncio.wait_for(asyncio.gather(running, return_exceptions=True), 5)
     assert running.cancelled()
     assert made._thread._shutdown
+    assert caplog.text == ""
 
 
 @pytest.mark.parametrize(
@@ -213,6 +219,7 @@ async def test_shutdown_ends_while_waiting_to_retry(
     [
         ProgrammingError("SELECT 1", {}, psycopg.errors.UndefinedTable("no table pieces")),
         _failing(psycopg.errors.DatabaseDropped("the database is gone")),
+        ResourceClosedError("This result object is closed."),
     ],
 )
 async def test_a_fault_that_is_not_a_lost_connection_stops_without_retry(
@@ -234,6 +241,8 @@ async def test_a_fault_that_is_not_a_lost_connection_stops_without_retry(
     with caplog.at_level(logging.WARNING):
         await asyncio.wait_for(made.run(), 10)
     assert "its database fails" in caplog.text
+    assert str(getattr(error, "orig", error)) in caplog.text
+    assert "SELECT 1" not in caplog.text
     assert waits == []
 
 
@@ -302,3 +311,93 @@ async def test_a_day_long_outage_keeps_the_wait_at_the_cap(
         assert set(waits[6:]) == {60}
     finally:
         running.cancel()
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        PoolTimeout("QueuePool limit of size 5 overflow 10 reached"),
+        _failing(psycopg.errors.TooManyConnections("sorry, too many clients already")),
+    ],
+)
+async def test_a_full_pool_or_server_waits_and_resumes(
+    tmp_path: Path,
+    sessions: async_sessionmaker[AsyncSession],
+    caplog: pytest.LogCaptureFixture,
+    error: Exception,
+) -> None:
+    flaky = Flaky(sessions)
+    flaky.error = error
+    waits: list[float] = []
+
+    async def wait(seconds: float) -> None:
+        waits.append(seconds)
+        await asyncio.sleep(0)
+
+    made = Indexer(tmp_path, flaky, FakeModel, model_thread())  # ty: ignore[invalid-argument-type]
+    made._wait = wait
+    running = asyncio.create_task(made.run())
+    try:
+        await _warm(made, tmp_path, sessions)
+        with caplog.at_level(logging.WARNING):
+            flaky.failures = 1
+            await _until(_saving(tmp_path, sessions, "after.md"))
+        assert waits == [1]
+        assert caplog.text.count("waits for its database") == 1
+        assert "stops" not in caplog.text
+        assert not running.done()
+    finally:
+        running.cancel()
+
+
+async def test_a_full_pool_while_a_note_indexes_waits_instead_of_skipping(
+    tmp_path: Path, sessions: async_sessionmaker[AsyncSession], caplog: pytest.LogCaptureFixture
+) -> None:
+    _write(tmp_path, "a.md", "words")
+    flaky = Flaky(sessions)
+    made = _make(FakeModel(), tmp_path, flaky)  # ty: ignore[invalid-argument-type]
+    await made._model_loaded()
+    flaky.failures = 1
+    flaky.error = PoolTimeout("QueuePool limit of size 5 overflow 10 reached")
+    with caplog.at_level(logging.WARNING), pytest.raises(PoolTimeout):
+        await made.index("a.md")
+    assert "skips" not in caplog.text
+
+
+async def _fails() -> None:
+    message = "a bug in the indexer"
+    raise RuntimeError(message)
+
+
+async def _returns() -> None:
+    return
+
+
+async def _hangs() -> None:
+    await asyncio.Event().wait()
+
+
+@pytest.mark.parametrize(
+    ("run", "said"),
+    [(_fails, "ends on an error"), (_returns, "has stopped"), (_hangs, "")],
+)
+async def test_the_task_says_in_the_log_how_it_ended(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    run,
+    said: str,
+) -> None:
+    monkeypatch.setattr(Indexer, "run", lambda _self: run())
+    monkeypatch.setattr(indexer, "running", None)
+    with caplog.at_level(logging.INFO):
+        task = indexer.start(Settings(embed_model_dir=tmp_path))
+        assert task is not None
+        await asyncio.sleep(0)
+        task.cancel()
+        await asyncio.gather(task, return_exceptions=True)
+        await asyncio.sleep(0)
+    if said:
+        assert said in caplog.text
+    else:
+        assert caplog.text == ""

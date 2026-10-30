@@ -12,7 +12,8 @@ from typing import TYPE_CHECKING
 
 from sqlalchemy import delete, select
 from sqlalchemy.dialects.postgresql import insert
-from sqlalchemy.exc import OperationalError, ProgrammingError, SQLAlchemyError
+from sqlalchemy.exc import DBAPIError, OperationalError, ProgrammingError, SQLAlchemyError
+from sqlalchemy.exc import TimeoutError as PoolTimeout
 
 from kasten_backend.db import session_factory
 from kasten_backend.events import watch_vault
@@ -37,11 +38,21 @@ FIRST_WAIT = 1.0
 LONGEST_WAIT = 60.0
 
 
-def _lost(error: OperationalError) -> bool:
-    """Whether `error` is a lost or refused connection, which waiting cures."""
+def _passing(error: SQLAlchemyError) -> bool:
+    """Whether waiting cures `error`: a lost or refused connection, or a full pool or server."""
+    if isinstance(error, PoolTimeout):
+        return True
+    if not isinstance(error, OperationalError):
+        return False
     state = getattr(error.orig, "sqlstate", None)
-    # 08: connection exception; 57P01-03: the server shut down or is starting.
-    return state is None or state.startswith("08") or state in ("57P01", "57P02", "57P03")
+    # 08: connection exception; 57P01-03: the server shut down or is starting;
+    # 53300: too many connections, for a moment after a restart.
+    return state is None or state.startswith("08") or state in ("57P01", "57P02", "57P03", "53300")
+
+
+def _cause(error: SQLAlchemyError) -> object:
+    """What to log of `error`: the driver's message, not the statement and its values."""
+    return error.orig if isinstance(error, DBAPIError) else error
 
 
 def _sha(data: bytes) -> str:
@@ -86,7 +97,7 @@ class Indexer:
         """Load the model, sweep, then follow the watcher, until cancelled or something fails.
 
         A model that fails, or a database query that fails for another reason than
-        a lost connection, stops the indexer with one warning; the backend serves on.
+        one waiting cures, stops the indexer with one warning; the backend serves on.
         """
         try:
             await self._model_loaded()
@@ -96,8 +107,8 @@ class Indexer:
         watching = asyncio.create_task(self._watch())
         try:
             await self._work()
-        except (OperationalError, ProgrammingError) as error:
-            logger.warning("The pieces index stops, its database fails: %s", error.orig)
+        except SQLAlchemyError as error:
+            logger.warning("The pieces index stops, its database fails: %s", _cause(error))
         finally:
             watching.cancel()
             self._thread.shutdown(wait=False, cancel_futures=True)
@@ -129,11 +140,11 @@ class Indexer:
                     if tries:
                         logger.warning("The pieces index resumes after %d tries", tries)
                         tries = 0
-            except OperationalError as error:
-                if not _lost(error):
+            except (OperationalError, PoolTimeout) as error:
+                if not _passing(error):
                     raise
                 if not tries:
-                    logger.warning("The pieces index waits for its database: %s", error.orig)
+                    logger.warning("The pieces index waits for its database: %s", _cause(error))
                 # A bounded exponent: 2**1024 overflows a float, some 17 hours in.
                 await self._wait(min(FIRST_WAIT * 2 ** min(tries, 6), LONGEST_WAIT))
                 tries += 1
@@ -168,15 +179,15 @@ class Indexer:
     async def index(self, path: str) -> None:
         """Bring one note's pieces in line with its file: new, changed, unchanged or gone.
 
-        A failing note is logged and left for the next sweep; a lost connection or
+        A failing note is logged and left for the next sweep; a fault waiting cures or
         a schema fault is raised for `run` to wait or stop on.
         """
         try:
             await self._index(path)
-        except OperationalError as error:
-            if _lost(error):
+        except (OperationalError, PoolTimeout) as error:
+            if _passing(error):
                 raise
-            logger.warning("The pieces index skips %s: %s", path, error.orig)
+            logger.warning("The pieces index skips %s: %s", path, _cause(error))
         except ProgrammingError:
             raise
         except (SQLAlchemyError, ValueError, *MODEL_ERRORS) as error:
@@ -281,4 +292,16 @@ def start(settings: Settings) -> asyncio.Task[None] | None:
         model_thread(),
         settings.pieces_skip,
     )
-    return asyncio.create_task(indexer.run())
+    task = asyncio.create_task(indexer.run())
+    task.add_done_callback(_ended)
+    return task
+
+
+def _ended(task: asyncio.Task[None]) -> None:
+    """Log how the task ended on its own: nothing awaits it, so an error would go unseen."""
+    if task.cancelled():
+        return
+    if error := task.exception():
+        logger.error("The pieces index ends on an error", exc_info=error)
+    else:
+        logger.info("The pieces index has stopped")

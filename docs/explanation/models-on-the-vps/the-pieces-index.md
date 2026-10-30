@@ -89,15 +89,18 @@ of every piece.
 
 ## When it stops
 
-A note that fails, on a model error or a row the database refuses, is logged and
-skipped until the next sweep. A model that will not load, or a database fault such as
-a missing table, stops the indexer with one warning, and the backend keeps serving.
-The next start sweeps again and catches up.
+A note that fails on a model error or a row the database refuses is logged and
+skipped until the next sweep. A model that will not load, or any other database
+error such as a missing table, stops the indexer with one warning, and the backend
+keeps serving. Any other error that ends it logs an error line with its
+traceback, and a shutdown logs nothing. The next start sweeps again and catches up.
 
-A lost database connection does not stop it. The indexer waits, retrying after 1
-second and doubling up to 60, then sweeps. So a Postgres restart needs no backend
-restart: saves made in the outage reach the index. Saves the watcher reports in the
-meantime wait in memory, and a backend shutdown ends the wait at once.
+A lost database connection, a full connection pool or too many connections (which
+shows for a moment after a Postgres restart) does not stop it. The indexer waits,
+retrying after 1 second and doubling up to 60, then sweeps. So a Postgres restart
+needs no backend restart: saves made in the outage reach the index. Saves the
+watcher reports in the meantime wait in memory, and a backend shutdown ends the
+wait at once.
 
 ## Where the model runs
 
