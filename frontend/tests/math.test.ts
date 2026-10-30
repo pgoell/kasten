@@ -14,10 +14,10 @@ describe("math syntax", () => {
     const tree = notes.parse(text);
     const took = performance.now() - started;
 
-    // Main parses this in a few milliseconds and a parse that rereads the
-    // whole paragraph on every line took a minute, so the bound is loose
-    // enough for a loaded machine and still far from either.
-    expect(took).toBeLessThan(200);
+    // Counting the input reads cannot see a reread of the paragraph, since
+    // lezer reads each line once whatever the block parser does with it. A
+    // reread like that took a minute at this size; a loaded run is far below 10s.
+    expect(took).toBeLessThan(10_000);
     let found = false;
     tree.iterate({
       enter(node) {

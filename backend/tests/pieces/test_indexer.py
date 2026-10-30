@@ -10,6 +10,7 @@ import asyncio
 import hashlib
 import logging
 import re
+import threading
 import time
 from typing import TYPE_CHECKING
 
@@ -36,9 +37,8 @@ SKIP = "04 Ressources/05 Flashcards"
 class FakeModel:
     """Whitespace tokens and a vector from the text's hash; counts what it embeds."""
 
-    def __init__(self, delay: float = 0.0) -> None:
+    def __init__(self) -> None:
         self.embedded: list[str] = []
-        self.delay = delay
 
     def offsets(self, text: str) -> list[tuple[int, int]]:
         return [(match.start(), match.end()) for match in re.finditer(r"\S+", text)]
@@ -47,9 +47,26 @@ class FakeModel:
         if any("BOOM" in piece for piece in texts):
             message = "the model refuses this piece"
             raise ValueError(message)
-        time.sleep(self.delay)
         self.embedded.extend(texts)
         return [_vector(body) for body in texts]
+
+
+class WatchedModel(FakeModel):
+    """Embeds only once the event loop has run while it waits, on the thread it notes."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.thread: int | None = None
+        self.waiting = threading.Event()
+        self.ticked = threading.Event()
+        self.heard = False
+
+    def embed(self, texts: list[str]) -> list[list[float]]:
+        self.thread = threading.get_ident()
+        self.waiting.set()
+        # Run on the loop, this wait blocks the very loop that would end it.
+        self.heard = self.ticked.wait(30)
+        return super().embed(texts)
 
 
 def _vector(body: str) -> list[float]:
@@ -272,16 +289,17 @@ async def test_embedding_never_blocks_the_event_loop(
     tmp_path: Path, sessions: async_sessionmaker[AsyncSession]
 ) -> None:
     _write(tmp_path, "slow.md", "slow words")
-    made = _make(FakeModel(delay=1.0), tmp_path, sessions)
+    model = WatchedModel()
+    made = _make(model, tmp_path, sessions)
     await made._model_loaded()
     work = asyncio.create_task(made.index("slow.md"))
-    worst = 0.0
     while not work.done():
-        start = time.monotonic()
         await asyncio.sleep(0.01)
-        worst = max(worst, time.monotonic() - start)
+        if model.waiting.is_set():
+            model.ticked.set()
     await work
-    assert worst < 0.2
+    assert model.thread != threading.get_ident()
+    assert model.heard
     assert len(await _rows(sessions)) == 1
 
 
