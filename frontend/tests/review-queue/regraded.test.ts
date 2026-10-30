@@ -36,6 +36,7 @@ const SHAPES: Record<string, string> = {
     "# Note\n\n#flashcards/aws A::one\n\n#flashcards/aws\nFront\n?\nBack\n\nB::two #flashcards/aws\n",
   "tag in a comment":
     "#flashcards/aws\n\nA::one\n\n<!-- #flashcards/other -->\nB::two\n\nC::three #flashcards/aws\n",
+  "trailing spaces": "#flashcards/aws\n\nA::one   \n\nThe ==sky== is blue.  \n\nB::two\t\n",
   frontmatter:
     "---\ntags: [x]\nmodified: 2026-10-30\n---\n#flashcards/aws\n\nFront\n?\nBack\n\nA::one\n",
 };

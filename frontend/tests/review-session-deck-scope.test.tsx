@@ -231,8 +231,8 @@ describe("ReviewSession on a parent deck", () => {
 
 const TWO_NEW = "#flashcards/aws\n\nWhat is a VPC?::A private cloud\n\nWhat is S3?::Storage\n";
 
-function renderSitting() {
-  vi.spyOn(api, "fetchNote").mockResolvedValue(TWO_NEW);
+function renderSitting(note = TWO_NEW) {
+  vi.spyOn(api, "fetchNote").mockResolvedValue(note);
   vi.spyOn(api, "saveNote").mockImplementation(async (path, content) => ({ path, content }));
   vi.spyOn(api, "fetchReviewLimits").mockResolvedValue({
     new_per_day: null,
@@ -260,7 +260,12 @@ describe("ReviewSession parsing its deck (#1354)", () => {
   });
 
   it("#1379 a rating shifts the cards it holds rather than parse the note, and the next card is read off them", async () => {
-    renderSitting();
+    renderSitting(`---\nmodified: 2026-10-30T00:00:00\n---\n${TWO_NEW}`);
+    // The vault restamps `modified`, so its answer is not the text sent.
+    vi.mocked(api.saveNote).mockImplementation(async (path, content) => ({
+      path,
+      content: content.replace(/^modified: .*$/m, "modified: 2026-10-30T00:00:01"),
+    }));
     await shownCard();
     fireEvent.click(screen.getByRole("button", { name: "Show the answer" }));
     fireEvent.click(screen.getByRole("button", { name: "Good" }));

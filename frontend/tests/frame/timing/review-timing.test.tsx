@@ -20,11 +20,14 @@ import "@/styles/app.css";
 
 const CARDS = 1500;
 const FILLER = "Synthetic filler for a timing fixture, not an answer anyone wrote. ".repeat(9);
-const BIG = `#flashcards/big\n\n${Array.from({ length: CARDS }, (_, index) => {
-  const n = index + 1;
-  const schedule = n % 3 === 0 ? "" : " <!--SR:!2026-08-20,4,270-->";
-  return `Question ${n}::Answer ${n}. ${FILLER}${schedule}`;
-}).join("\n\n")}\n`;
+const BIG = `---\nmodified: 2026-10-30T00:00:00\n---\n#flashcards/big\n\n${Array.from(
+  { length: CARDS },
+  (_, index) => {
+    const n = index + 1;
+    const schedule = n % 3 === 0 ? "" : " <!--SR:!2026-08-20,4,270-->";
+    return `Question ${n}::Answer ${n}. ${FILLER}${schedule}`;
+  },
+).join("\n\n")}\n`;
 
 const DECK: Deck = {
   name: "big",
@@ -42,9 +45,11 @@ vi.mock("@/lib/api", async (original) => ({
     path === "decks/big.md"
       ? Promise.resolve(BIG)
       : Promise.reject(new Error(`GET /api/files/${path} failed with 404`)),
+  // The vault restamps `modified` on every save, so its answer never equals what was sent.
   saveNote: (path: string, content: string) => {
     saves += 1;
-    return Promise.resolve({ path, content });
+    const stamped = content.replace(/^modified: .*$/m, `modified: 2026-10-30T00:00:${saves}`);
+    return Promise.resolve({ path, content: stamped });
   },
   fetchReviewLimits: () => Promise.reject(new Error("GET /api/review/limits failed with 404")),
 }));

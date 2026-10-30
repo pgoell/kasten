@@ -99,6 +99,7 @@ describe("ReviewSession grades to the card's line (#1379)", () => {
     await waitFor(() => expect(marked(vault.disk)).toBe(after3));
 
     expect(saved).toHaveBeenCalledTimes(3);
+    expect(await screen.findByText("3 answered today in aws.")).toBeInTheDocument();
   });
 
   it("#1379 A5 a second grade before the first write lands goes to the second card's line", async () => {
