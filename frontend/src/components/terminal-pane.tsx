@@ -17,16 +17,9 @@ import {
 import { useViewport } from "@/lib/use-viewport";
 
 /**
- * The theme's colours, read off the same tokens the editor is painted from.
- *
- * Read rather than repeated, so the palette stays in `kasten-theme.css` and a
- * terminal pane cannot drift from the note pane beside it. `getPropertyValue`
- * keeps the leading space a declaration is written with, hence the trim.
- *
- * The ANSI slots the tokens name are the ones they stand for, and the rest are
- * left to xterm's defaults: the token file has no values for them, and inventing
- * them is a design decision nobody asked for. `brightBlack` is the one bright
- * slot named: shells draw dimmed text in it, and the muted token is that grey.
+ * The theme's colours, read from the tokens the editor paints with, so a pane cannot drift
+ * from the note beside it. The ANSI slots the tokens do not name keep xterm's defaults.
+ * Shells dim text in `brightBlack`, which is the muted grey.
  */
 function kastenTheme(): ITheme {
   const style = getComputedStyle(document.documentElement);
@@ -60,11 +53,8 @@ interface TerminalPaneProps {
 }
 
 /**
- * A shell in a pane: one xterm terminal on one WebSocket to ttyd.
- *
- * The socket and the terminal are built together and torn down together, so
- * the effect keys on the session name and nothing else. Everything on the wire
- * is `ttyd.ts`, which is where the format is tested.
+ * One xterm terminal on one WebSocket to ttyd. The two are built and torn down together,
+ * so the effect keys on the session name alone.
  */
 export function TerminalPane({
   session,
@@ -74,26 +64,17 @@ export function TerminalPane({
 }: TerminalPaneProps) {
   const host = useRef<HTMLDivElement>(null);
   const termRef = useRef<Terminal | null>(null);
-  // Read through a ref, the way `editor.tsx` reads the same prop. The terminal
-  // and its socket are built in one effect keyed on `session`, and naming
-  // `commands` in that effect's dependencies would rebuild both every time the
-  // route's memo took a new identity. It takes one on every `data` change, and
-  // the `EventSource` invalidates `data` on every vault write, so an agent
-  // writing notes in a terminal would tear down its own socket and lose its
-  // scrollback.
-  //
-  // Written in a layout effect, which runs in the commit's own task, so a
-  // chord pressed between the commit and the passive effects runs the new
-  // commands rather than the ones before.
+  // Read through a ref: a new `commands` identity on every vault write would rebuild the
+  // terminal and lose its scrollback. Set in a layout effect, so a chord pressed right after
+  // commit runs the new commands.
   const commandsRef = useRef(commands);
   useLayoutEffect(() => {
     commandsRef.current = commands;
   });
 
   const { coarse } = useViewport();
-  // The key row's Ctrl, armed for one key. The state paints the button and the
-  // ref is what the terminal's own handler reads, since that handler is built
-  // once per session and would otherwise hold the first render's answer.
+  // The row's Ctrl, armed for one key. The ref is what the terminal's own handler reads, since
+  // that handler is built once per session.
   const [ctrl, setCtrl] = useState(false);
   const ctrlRef = useRef(false);
 
@@ -105,7 +86,6 @@ export function TerminalPane({
       cursorBlink: true,
       theme: kastenTheme(),
       fontFamily: getComputedStyle(document.documentElement).getPropertyValue("--font-mono").trim(),
-      // The size the app sets everything monospaced in.
       fontSize: 13,
       // xterm's ANSI defaults are pale for a dark ground, so 4.5:1 darkens them on a light one.
       minimumContrastRatio: 4.5,
@@ -113,13 +93,8 @@ export function TerminalPane({
     termRef.current = term;
     term.open(element);
 
-    // The leader is the space bar and a shell must receive the space bar, so
-    // the only keys kasten takes back are these. `false` stops xterm handing
-    // the event to the PTY; `true` lets every other key through untouched.
-    //
-    // The modifiers are compared for equality rather than tested for truth: a
-    // handler that fired on ctrl and shift while ignoring alt would eat chords
-    // the shell wants.
+    // Only these chords come back to kasten; the shell needs every other key, and `false` stops
+    // xterm sending them on. Modifiers compare by equality, or a chord would eat one the shell wants.
     term.attachCustomKeyEventHandler((event) => {
       if (event.type !== "keydown") return true;
       const held =
@@ -139,8 +114,7 @@ export function TerminalPane({
 
     const fit = new FitAddon();
     term.loadAddon(fit);
-    // `fit()` measures the container, and a pane that has not been laid out yet
-    // measures as nothing. After the first paint rather than in this tick.
+    // A pane not yet laid out measures as nothing, so fit after the first paint.
     const painted = requestAnimationFrame(() => fit.fit());
     const watching = new ResizeObserver(() => fit.fit());
     watching.observe(element);
@@ -153,26 +127,18 @@ export function TerminalPane({
       opened = true;
       socket.send(encodeAuth(term.cols, term.rows));
     };
-    // `close` and not `error`: a failed handshake fires both, and only `close`
-    // also fires when a shell that was running ends. There is no reconnect;
-    // reopening the pane is the retry, and the message says so.
+    // `close`, not `error`: only `close` also fires when a running shell ends. There is no
+    // reconnect; reopening the pane is the retry.
     socket.onclose = (event) => term.write(closedMessage(opened, event.code));
     socket.onmessage = (message) => {
       const decoded = decodeServer(message.data as ArrayBuffer);
-      // Only output for now. A title or a preferences blob is ttyd telling the
-      // page about itself, and this pane is painted by the app rather than by
-      // the server.
+      // Output only: ttyd's title and preference messages are not the shell's.
       if (decoded.kind === "output") term.write(decoded.bytes);
     };
 
-    // Ctrl is spent here on the next thing typed, and on nothing that starts
-    // with an escape. xterm answers the program through this same event: a
-    // focus report, a mouse report, a reply to a query. With reporting on, the
-    // tap that raises the keyboard sends one, and it would otherwise take the
-    // Ctrl meant for the letter after it. A letter typed on a phone keyboard
-    // never starts with an escape; the row's own keys can, and spend Ctrl in
-    // `onKey`. A bracketed paste and an arrow from a hardware keyboard start
-    // with one too and leave Ctrl armed, which a tap on Ctrl undoes.
+    // Ctrl is spent on the next typed key, but not on an escape sequence: focus and mouse reports
+    // start with one, and a phone's letter never does. A bracketed paste or arrow keeps Ctrl armed,
+    // which a tap on Ctrl undoes.
     const typing = term.onData((typed) => {
       let data = typed;
       if (ctrlRef.current && !typed.startsWith("\x1b")) {
@@ -182,13 +148,11 @@ export function TerminalPane({
       }
       if (socket.readyState === WebSocket.OPEN) socket.send(encodeInput(data));
     });
-    // Tell the PTY what `fit()` just decided, or a rewrapped terminal draws at
-    // one width over a shell still writing at another.
+    // Tell the PTY the size fit() chose, or a rewrapped terminal draws at the wrong width.
     const resizing = term.onResize(({ cols, rows }) => {
       if (socket.readyState === WebSocket.OPEN) socket.send(encodeResize(cols, rows));
     });
-    // xterm takes a new theme on its options while the session runs, so the
-    // shell repaints in place rather than when the pane is next opened.
+    // Repaints the open shell now, not when the pane is next opened.
     const retheming = onThemeChange(() => {
       term.options.theme = kastenTheme();
     });
@@ -199,13 +163,10 @@ export function TerminalPane({
       watching.disconnect();
       resizing.dispose();
       typing.dispose();
-      // Our own close is not news, and the terminal it would write to is
-      // disposed a line below.
+      // Our own close is not news: the terminal it would write to is disposed below.
       socket.onclose = null;
-      // StrictMode mounts, cleans up and mounts again in dev, and two live
-      // sockets are two herdr clients on one session mirroring each other. A
-      // socket still opening cannot be closed, so it is closed the moment it
-      // opens instead.
+      // StrictMode mounts twice in dev, and two live sockets are two herdr clients mirroring
+      // one session. A socket still opening is closed the moment it opens.
       if (socket.readyState === WebSocket.CONNECTING) {
         socket.onopen = () => socket.close();
       } else {
@@ -213,26 +174,20 @@ export function TerminalPane({
       }
       term.dispose();
       termRef.current = null;
-      // Ctrl was armed for this shell, and the pane may be about to hold
-      // another: the route swaps `session` without remounting.
+      // Ctrl was armed for this shell, not the next one the route swaps in.
       ctrlRef.current = false;
       setCtrl(false);
     };
   }, [session]);
 
-  // Mount included, the way `Editor` reads the same prop: a freshly split pane
-  // is created focused and its first render is the only chance it gets to say
-  // so. A pane that is not the focused one is handed 0 and stays put.
+  // Also on mount, as Editor does it: a new split starts focused, and only
+  // its first render can say so.
   useEffect(() => {
     if (focusSignal) termRef.current?.focus();
   }, [focusSignal]);
 
-  // Coming back to the tab, the same way `Editor` does it and for the same
-  // reason: the browser lands on the body when the page had nothing focused as
-  // you left it. Without this a terminal pane never revives, because the
-  // editors in the other panes are the only things claiming the focus back, and
-  // the shell then drops every key until you click into it. `focused` is what
-  // keeps the panes from racing each other for it.
+  // Coming back to the tab, the browser lands on the body when nothing had focus. Without
+  // this the shell drops every key until clicked. `focused` stops the panes racing.
   useEffect(() => {
     function onWindowFocus() {
       const active = document.activeElement;
@@ -243,8 +198,7 @@ export function TerminalPane({
     return () => window.removeEventListener("focus", onWindowFocus);
   }, [focused]);
 
-  // The row is gone with the finger, and Ctrl with nothing showing it armed
-  // would turn the next letter into a surprise.
+  // The row is gone with the finger, so Ctrl must not stay armed unseen.
   useEffect(() => {
     if (!coarse) {
       ctrlRef.current = false;
@@ -263,14 +217,12 @@ export function TerminalPane({
     const bytes = keyBytes(key, ctrlRef.current, term.modes.applicationCursorKeysMode);
     ctrlRef.current = false;
     setCtrl(false);
-    // `input` and not the socket: it fires `onData`, so the key takes the path
-    // a typed one takes and scrolls the terminal to the prompt.
+    // `input`, not the socket: it fires onData, so a key scrolls to the prompt like a typed one.
     term.input(bytes);
   }
 
-  // No border of its own: `pane-layout.tsx` draws that already. No room made
-  // for an on-screen keyboard either: the route's frame shrinks above one, the
-  // host with it, and the `ResizeObserver` refits.
+  // No border of its own, as pane-layout draws one. No room for an on-screen keyboard either:
+  // the frame shrinks above one and the ResizeObserver refits.
   return (
     <div className="flex h-full w-full flex-col">
       <div ref={host} className="min-h-0 w-full flex-1" />

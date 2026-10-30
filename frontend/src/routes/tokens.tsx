@@ -16,17 +16,9 @@ export const Route = createFileRoute("/tokens")({
 });
 
 /**
- * The agent tokens, on a page of its own.
- *
- * A standalone route on the `/review` precedent: its own URL, no pane, no
- * leader key and no entry in the editor keys. A screen visited a few times a
- * year is a URL you type, and a binding for it would be a key nobody remembers.
- *
- * It shows a secret exactly once, in local state that a refresh loses, because
- * only digests are kept and there is no way back to one. There is no rename, no
- * scope and no expiry. Usage comes from the action log in Postgres, which keeps
- * every request a token makes for 90 days: each token's last use, and its recent
- * actions behind an Actions button. The revoke is the whole point of naming them.
+ * The agent tokens, on a page of its own: no pane and no leader key, since a screen visited a few
+ * times a year needs no binding. A secret is shown once, in local state, because only digests are kept.
+ * Usage comes from the action log in Postgres, which keeps each request for 90 days.
  */
 function Tokens() {
   const [name, setName] = useState("");
@@ -68,11 +60,8 @@ function Tokens() {
   });
 
   /**
-   * The line that connects a client to this vault, with the secret already in it.
-   *
-   * Built off `window.location.origin` rather than a setting, so the endpoint is
-   * whatever hostname you are reading this on and nothing has to be configured
-   * anywhere for it to be right.
+   * The line that connects a client to this vault, with the secret in it.
+   * Built off `window.location.origin`, so the endpoint is right on whatever host this page is read from.
    */
   function connectLine(secret: string): string {
     return `claude mcp add --transport http kasten ${window.location.origin}/agent/mcp --header "Authorization: Bearer ${secret}"`;

@@ -34,14 +34,8 @@ const DEPTHS = [
 const ROW = `k-margin-note k-row flex items-center ${INSET} rounded-[var(--k-radius-4)] pointer-coarse:min-h-11 text-left text-k-15 text-k-ink`;
 
 /**
- * The note's local graph and the three lists under it, for the right margin and
- * the side sheet alike.
- *
- * Nothing is asked until this is drawn, which is why the margin renders it only
- * once the pane is wide, and the sheet only once it is open.
- *
- * A failed read shows the same plain lines as an empty one: the margin is beside
- * the note, and a graph that will not load should not put an error in the reader's way.
+ * The note's local graph and its three lists. A failed read shows the same plain
+ * lines as an empty one: the margin sits beside the note.
  */
 export function LocalGraph({ path, archive, onOpen, onFollow }: LocalGraphProps) {
   const [depth, setDepth] = useState<1 | 2>(1);

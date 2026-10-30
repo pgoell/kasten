@@ -30,11 +30,8 @@ interface GraphPaneProps {
 }
 
 /**
- * How long typing has to stop before the query is asked.
- *
- * The backend reads the whole vault per answer, which is tens of milliseconds,
- * and a half-typed pattern is usually one it cannot read. Asking per keystroke
- * would draw an error under every letter of `?paper`.
+ * Waits for typing to stop: the backend reads the whole vault per answer, and a
+ * half-typed pattern is usually one it cannot read.
  */
 const SETTLE = 250;
 
@@ -46,12 +43,8 @@ const MOST_DEPTH = 5;
 const DOUBLE_TAP_MS = 300;
 
 /**
- * The notes as a graph, in a pane.
- *
- * A filter line at the top, which is the query language the backend reads, and
- * the canvas under it. A pattern answers in rows as well, drawn as a table under
- * the canvas, each note in it a click away. Around a note it is the local graph,
- * and `+` and `-` reach further out or pull back in.
+ * The notes as a graph in a pane. A pattern also answers in rows, a table under
+ * the canvas.
  */
 export function GraphPane({
   around,

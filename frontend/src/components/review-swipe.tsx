@@ -1,11 +1,7 @@
 /**
- * A flashcard a finger can grade. A touch tap on it reveals the answer, and a
- * sideways swipe grades it: right is Good, left is Again. The grade buttons
- * stay beside it, so the swipe is an extra and never the only way.
- *
- * The card moves by `transform` and the stamps by `opacity`, both written
- * straight to the DOM from the spring's frames, as the sheet does. A mouse or a
- * pen is ignored, so selecting text on a desktop keeps working.
+ * A flashcard a finger can grade: a tap reveals the answer, a sideways swipe grades it.
+ * The grade buttons stay beside it, so the swipe is never the only way.
+ * A mouse or a pen is ignored, so selecting text on a desktop keeps working.
  */
 
 import {

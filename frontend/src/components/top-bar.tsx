@@ -2,12 +2,8 @@ import type { TreeCommands } from "@/lib/key-bindings";
 import { useViewport } from "@/lib/use-viewport";
 
 /**
- * The strip across the top of the window: the wordmark, the three places a
- * reader goes from anywhere, the note field and New note.
- *
- * Every control runs a command the keys already run, so the bar teaches
- * nothing new. The commands are called inside arrow functions, because
- * `createNote` takes a path and a click would hand it the event.
+ * The strip across the top: every control runs a command the keys already run.
+ * Arrow functions, since `createNote` takes a path and a click would pass it the event.
  */
 export function TopBar({
   commands,

@@ -49,13 +49,7 @@ function leaderGroups(): Group[] {
   }));
 }
 
-/**
- * The groups that match the filter, with the rows that match inside them.
- *
- * A group whose title matches keeps every row, so `tab` shows the Tabs group
- * whole. A group left with no rows is dropped, and the column holding it can
- * then say that nothing matches.
- */
+/** A group whose title matches keeps every row. A group left empty is dropped. */
 function narrow(groups: Group[], query: string): Group[] {
   const wanted = query.toLowerCase();
   return groups.flatMap((group) => {
@@ -121,16 +115,8 @@ function Table({ title, keys }: Group) {
 }
 
 /**
- * The whole key map, on one panel behind `<leader>?`.
- *
- * Everything on it is read from `key-bindings.ts` and `leader-keys.ts`, the same
- * tables the registrations are built from, so a key cannot appear here and be
- * missing from the editor.
- *
- * Two columns from the `md` breakpoint, the leader keys and the rest, each one
- * a stack of groups: the map is a hundred-odd keys and the point of the panel is
- * answering a question at a glance. The filter field narrows both at once, so a
- * reader typing `tab` sees every key that has one wherever it lives.
+ * Read from `key-bindings.ts` and `leader-keys.ts`, the tables the registrations
+ * are built from, so a key cannot show here and be missing from the editor.
  */
 export function KeyHelp({ onClose }: { onClose: () => void }) {
   const panel = useRef<HTMLDivElement>(null);

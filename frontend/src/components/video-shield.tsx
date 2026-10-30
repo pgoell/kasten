@@ -6,11 +6,8 @@ interface VideoShieldProps {
 }
 
 /**
- * The transparent button over the player's frame: a click or tap plays or pauses.
- *
- * A click on the frame itself would take the browser's focus, which the layout
- * never hears about, so the shield covers the frame and a click lands on the
- * pane instead. YouTube's own full-screen button sits under the shield too.
+ * Transparent button over the frame: a click or tap plays or pauses. A click on the frame itself
+ * would take browser focus, which the layout never hears about.
  */
 export function VideoShield({ running, onPress }: VideoShieldProps) {
   return (

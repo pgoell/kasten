@@ -42,22 +42,17 @@ const CONTENTS_FROM = HOST_FOR_MEASURE + CONTENTS_WIDTH;
 const NOTE_FROM = CONTENTS_FROM + NOTE_WIDTH;
 
 /**
- * The button drawn over a selection, which is the mouse's half of `y`.
- *
- * The transform puts its middle over the middle of the words and its bottom
- * edge on their top, so the placement is one rule rather than "above and to the
- * left". `h-6` is 24px and the label makes it about 40px wide, which is what
- * `INSET` in `use-book-take.ts` is measured against.
+ * The button drawn over a selection, the mouse's half of `y`. The transform puts its
+ * middle over the words' middle and its bottom edge on their top. `h-6` is 24px and
+ * the label makes it about 40px wide, which `INSET` in `use-book-take.ts` is measured against.
  */
 const TAKE =
   "absolute flex h-6 -translate-x-1/2 -translate-y-full items-center rounded border border-k-rule bg-k-paper px-2 font-sans text-k-ink text-xs";
 
 /**
- * A button in the footer, which is where a finger finds what a key does.
- *
- * `min-h-11` is the 44px a fingertip needs. The footer and not the page for
- * `Take` as well: the phone draws its own copy menu over a selection and its
- * handles under it, which is where the mouse's button floats.
+ * A button in the footer, where a finger finds what a key does. `min-h-11` is the 44px a
+ * fingertip needs. `Take` lives here too: the phone draws its own copy menu over a
+ * selection, and that is where the mouse's button floats.
  */
 const TOUCH = "min-h-11 rounded border border-k-muted px-3 font-sans text-k-ink text-xs";
 
@@ -103,11 +98,8 @@ interface BookPaneProps {
 }
 
 /**
- * One book in one pane, read beside the note it belongs to.
- *
- * Nothing stores the book's path: it is the note's with the suffix swapped, so
- * a folder move carries the pair and a rename of the note alone orphans the
- * book, which this says out loud.
+ * One book in one pane, read beside the note it belongs to. The path is not stored: it is
+ * the note's with the suffix swapped, so renaming the note alone orphans the book.
  */
 export function BookPane({
   note,
@@ -135,11 +127,9 @@ export function BookPane({
   /** A passage the note column asked to seek, which the route's `seek` yields to once it is newer. */
   const [picked, setPicked] = useState<{ quote: string[] } | undefined>(undefined);
   /**
-   * Whether the book has been navigated, which `view.book` does not say.
-   *
-   * `open()` assigns the book before it navigates anywhere
-   * (`view.js:233-237`), so a seek testing that would jump and then have
-   * `init` land the bookmark on top of the passage.
+   * Whether the book has been navigated, which `view.book` does not say. `open()` assigns the
+   * book before it navigates, so a seek testing only the book would jump, and then `init`
+   * would land the bookmark on top of the passage.
    */
   const ready = useRef(false);
   /** The book's chapters over the page, or null while the reader has the keys. */
@@ -219,12 +209,9 @@ export function BookPane({
   });
 
   /**
-   * Put the contents away, and the cursor back on the pane.
-   *
-   * The wrapper and not whatever held the focus before: both of foliate's
-   * shadow roots are closed, so that was the `<foliate-view>` host, and
-   * focusing it puts the cursor on the element rather than back inside the
-   * chapter. The wrapper answers every key the section document does.
+   * Put the contents away, and the cursor back on the pane. The wrapper, not whatever held the
+   * focus: both of foliate's shadow roots are closed, so that was the `<foliate-view>` host,
+   * and focusing it puts the cursor on the element, not inside the chapter.
    */
   function closeContents() {
     contentsOpen.current = false;

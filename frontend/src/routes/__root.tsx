@@ -7,11 +7,8 @@ export const Route = createRootRoute({
 });
 
 /**
- * Every page, under one request for the vault's folders.
- *
- * Asked here and not waited for: `layout.ts` starts on the defaults, so a vault
- * on the default layout renders exactly as it would without the answer, and
- * one with its own folders has them before anyone can press a key that files.
+ * Every page, under one request for the vault's folders. Asked without waiting:
+ * `layout.ts` starts on the defaults until the answer comes.
  */
 function Root() {
   useQuery({

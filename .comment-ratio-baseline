@@ -1,18 +1,9 @@
 # Files over 20% comment lines, as "<file> <percent>", docstrings and JSDoc left out.
 # A file fails when it gets denser than its percent.
 # check-comments --update-baseline only lowers or drops lines; never raise one.
-backend/src/kasten_backend/db.py 22
 backend/src/kasten_backend/page_script.js 26
-frontend/src/components/editor.tsx 26
 frontend/src/components/finder/note-finder.tsx 26
-frontend/src/components/note-prompt.tsx 24
-frontend/src/components/review-pane.tsx 21
-frontend/src/components/search-preview.tsx 30
-frontend/src/components/search-row.tsx 24
-frontend/src/components/terminal-pane.tsx 28
-frontend/src/components/todo-row.tsx 21
-frontend/src/components/use-finders.tsx 27
-frontend/src/components/use-prompts.tsx 23
+frontend/src/components/use-finders.tsx 26
 frontend/src/lib/book/book-pages.ts 25
 frontend/src/lib/book/use-book-highlights.ts 21
 frontend/src/lib/book/use-book-keys.ts 32

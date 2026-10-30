@@ -23,12 +23,8 @@ interface PersonPaneProps {
 const LABEL = "shrink-0 text-[11px] tracking-wide text-k-muted uppercase";
 
 /**
- * One person's card, in a pane beside the note you are writing.
- *
- * The same card the person's own note carries at its foot, put where it can
- * stay while you work somewhere else. A pane and not an overlay for that one
- * reason: an overlay is something you dismiss, and what is open on this person
- * is worth keeping on screen next to the note that made you ask.
+ * One person's card in a pane beside the note you write. A pane, not an overlay, so it
+ * stays on screen while you work and needs no dismissing.
  */
 export function PersonPane({
   person,

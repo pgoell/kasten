@@ -54,11 +54,8 @@ const STEP_BUTTON =
 
 /**
  * One text, one chunk at a time, in one spot: rapid serial visual presentation.
- *
- * One component for every pane that reads, over the pane it was opened in. The
- * pane hands it a source and nothing else, so a note, a page, a pdf and a book
- * play the same way and keep their place the same way, in the backend's
- * `rsvp_places` table, keyed by the file's path.
+ * Every pane that reads uses this. The pane passes a source only, and the place is kept
+ * in the backend's `rsvp_places` table, keyed by the file's path.
  */
 export function Rsvp({
   source,

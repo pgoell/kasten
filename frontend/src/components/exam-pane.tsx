@@ -33,34 +33,16 @@ interface ExamPaneProps {
 }
 
 /**
- * Taking one of the vault's practice exams, one question at a time.
- *
- * The note is the source of truth and this never writes to it. What a sitting
- * leaves behind is a separate note beside the exam, so the same exam can be sat
- * again tomorrow and the two results sit next to each other.
- *
- * Answers live in React state until the sitting is graded, so a reload loses a
- * sitting in progress. That is the deliberate simplification: writing every
- * press to disk would be a note rewritten sixty times per exam to buy a resume
- * nobody has yet wanted.
- *
- * ponytail: no shuffle. The questions come in the note's order, which keeps a
- * section together and makes the per-section score legible as you go. Add one
- * if re-sitting the same exam starts feeling like recall rather than knowledge.
+ * The note is the source of truth and this never writes to it. Answers live in
+ * React state, so a reload loses a sitting in progress. Questions keep the note's
+ * order, so a section stays together.
  */
 export function ExamPane({ note, commands, onOpen, focusSignal }: ExamPaneProps) {
   const [at, setAt] = useState(0);
   const [answers, setAnswers] = useState<Answers>({});
   /** Whether `r` has been pressed on the question showing, cleared by moving off it. */
   const [shown, setShown] = useState(false);
-  /**
-   * Which button of the touch row has been tapped once and waits for a second.
-   *
-   * A thumb lands a button wide of where it aimed, `finish` writes a result
-   * note and `close` drops the sitting, so those two ask before they act. Any
-   * other move takes the question back. The keys do not ask: nobody presses
-   * `g` by landing beside `t`.
-   */
+  /** Finish and close need a second tap, since a thumb lands wide. Keys do not ask. */
   const [armed, setArmed] = useState<"finish" | "close" | null>(null);
   /** Whether the touch row is showing the timer's lengths in place of its moves. */
   const [lengths, setLengths] = useState(false);

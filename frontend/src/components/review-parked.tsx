@@ -34,12 +34,8 @@ interface ReviewParkedProps {
 
 /**
  * Every card the review is holding back, and why.
- *
- * The notes are read whole rather than counted off the scan's lines, which is
- * the one place this screen costs more than the overview. It has to: putting a
- * card back means editing the line it is written on and writing the note, and
- * the front of a card written over several lines is not among the lines the
- * scan matched.
+ * Notes are read whole, not counted off the scan: putting a card back edits its line,
+ * and a multi-line front is not among the lines the scan matched.
  */
 export function ReviewParked({ onLeave, onOpen, archive = false }: ReviewParkedProps) {
   const [texts, setTexts] = useState<Map<string, string> | null>(null);
@@ -217,12 +213,8 @@ function tally(counts: Map<string, number>, note: string, by: number) {
 }
 
 /**
- * The rows the notes describe, in the order the notes were named.
- *
- * Two filters. A card in no deck at all is no card, which is `review.ts`'s own
- * rule, so a stray `::` in a note nobody tagged never arrives as an unanswered
- * row. And a note reviewed as one thing yields no cards from `parseCards`, so a
- * parked one is read off its frontmatter and drawn under its own name.
+ * The rows the notes describe, in the order the notes were named. A card in no deck is no card,
+ * and a whole note yields none from `parseCards`, so a parked one is read off its frontmatter.
  */
 function rowsOf(texts: Map<string, string>): ParkedRow[] {
   return [...texts].flatMap(([note, text]) => {

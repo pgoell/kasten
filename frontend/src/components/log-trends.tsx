@@ -1,11 +1,6 @@
 /**
- * The log pane's trends over the days a range covers, ending on the day shown: a
- * summary row, one small chart per kind and per food field, the weight slot, the
- * macro split and the week table. Plain SVG and HTML at the width it is given, so
- * it reads the same at 390px.
- *
- * The helpers at the top are the pane's too: they say what a day adds up to and
- * how a total stands against its goal, so the pane and the charts agree.
+ * The log pane's trends for a range ending on the day shown. Plain SVG and HTML at
+ * the width given, so it reads the same at 390px.
  */
 
 import { Bars } from "@/components/charts";

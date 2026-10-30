@@ -54,31 +54,20 @@ export function usePrompts({
 }) {
   const { moveTo, refocusPane } = moves;
   const queryClient = useQueryClient();
-  // What the prompt is doing and where it starts, and null while it is closed.
-  // One piece of state for both, because a create opening on the vault root
-  // starts at "" and that still has to read as open.
+  // One state for both: a create on the vault root starts at "" and still reads as open.
   const [prompt, setPrompt] = useState<{ mode: PromptMode; startPath: string } | null>(null);
-  // A drop in the tree waiting for the reader to say yes.
   const [moving, setMoving] = useState<{
     mode: MoveMode;
     startPath: string;
     target: string;
   } | null>(null);
   const [terminalPrompt, setTerminalPrompt] = useState(false);
-  // A flag like the terminal's: what the prompt takes is typed, not picked, so
-  // there is nothing to open it on.
+  // Typed, not picked, so there is nothing to open it on.
   const [clipPrompt, setClipPrompt] = useState(false);
-  // Whether the todo prompt is open, and the row it opened on where `s` opened
-  // it. The todo is typed out rather than picked, so the parent is the whole of
-  // what this holds: it decides which note the line lands in.
+  // The row `s` opened on, which decides which note the typed todo lands in.
   const [todoPrompt, setTodoPrompt] = useState<{ parent?: SearchHit } | null>(null);
-  // A flag like the clip's: the thought is typed, and today's note is the only
-  // place it can go.
   const [dumpPrompt, setDumpPrompt] = useState(false);
-  // The sessions the prompt offers. Asked for only while it is open: they
-  // change when something outside the browser starts one, and nothing else on
-  // screen reads them, so there is no reason to hold a copy the rest of the
-  // time. A failure answers with none, which the prompt draws as a bare input.
+  // Asked for only while open: the sessions change outside the browser, and nothing else reads them.
   const { data: terminals } = useQuery({
     queryKey: ["terminals"],
     queryFn: fetchTerminals,
@@ -86,17 +75,8 @@ export function usePrompts({
   });
 
   /**
-   * Read a web page and put it in the inbox, then open the note it became.
-   *
-   * Not through `follow`, which is the other place a note is made and opened
-   * together: that one is about a link with nothing behind it and puts the
-   * cursor where you would start typing, while this one has the whole note in
-   * hand already and nothing to type. `importPage` is the import itself, which
-   * the capture page runs too.
-   *
-   * Nothing is caught. What throws here is what the prompt puts on screen, and
-   * it is the only thing that can: the reader is looking at the address that
-   * failed and is the one who can fix it.
+   * Read a web page into the inbox, then open the note it became. Nothing is caught:
+   * the prompt shows what throws, so the reader sees the address that failed.
    */
   const clip = useCallback(
     async (url: string) => {
@@ -113,37 +93,17 @@ export function usePrompts({
     [data, queryClient, openInPane],
   );
 
-  /**
-   * Point every pane at where a move put the note it was showing.
-   *
-   * A rename is read across every pane of every tab, not just the one in front
-   * of you: one note can be open in several panes at once, and all of them are
-   * looking at the file that just moved. `noteAfterPrompt` answers undefined
-   * for a pane holding something the move did not touch. The prompt and a drop
-   * in the tree both land here.
-   */
+  /** Point every pane at where a move put its note, in every tab: one note can sit in several panes. */
   const followMove = useCallback(
     (mode: MoveMode, startPath: string, path: string) => {
-      // Held text goes too, it being kept by path: left under the old one, the
-      // bar would list a note the vault no longer has, and opening it at the
-      // new one would never offer the text again.
+      // Held text is kept by path, so it moves with the note or the bar lists a note that is gone.
       moveHeld((held) => noteAfterPrompt(mode, startPath, path, held));
       setLayout((previous) =>
         mapPanes(previous, (shown) => {
           const next = noteAfterPrompt(mode, startPath, path, shown.path);
-          // A reader follows both now. A folder move carries everything under
-          // it, and a note's move carries the book beside it, so a reader left
-          // on the old note would be holding a pair that has been broken.
-          // `pane.book` is the note's path rather than the epub's, the pane
-          // swapping the suffix itself, which is why this is the same question
-          // `next` asks one line up.
-          //
-          // The vault leaves the book behind in one case, a target whose own
-          // sidecar path is taken, and the reader then draws "No book at ..."
-          // over a book still at the old path. Not worth a field on the answer
-          // to tell apart.
+          // A move carries the note's book and history along, so they follow the note.
+          // The vault leaves a book behind when its new sidecar path is taken; the reader shows "No book at ...".
           const book = noteAfterPrompt(mode, startPath, path, shown.book) ?? shown.book;
-          // A history pane follows its note for the same reason.
           const history = noteAfterPrompt(mode, startPath, path, shown.history) ?? shown.history;
           const moved = next === undefined ? shown : { ...shown, path: next };
           const read = book === shown.book ? moved : { ...moved, book };
@@ -155,16 +115,8 @@ export function usePrompts({
   );
 
   /**
-   * Put the typed todo under `## TODOs` in today's note, from the pane's `a`, or
-   * beside the row `s` opened on as a part of it.
-   *
-   * One callback for both, because the prompt is one prompt: the row it opened
-   * on is the whole of the difference, and it decides which note the line lands
-   * in.
-   *
-   * The clock is read here rather than in the prompt, so a prompt left open
-   * over midnight writes the day it was taken on. The prompt shuts before the
-   * write lands: it is asking for one line, and it has that line.
+   * Write the typed todo under `## TODOs` in today's note, from pane `a` or beside row `s`.
+   * The clock is read here, so a prompt left open over midnight writes the day it was taken on.
    */
   const addTodo = useCallback(
     (input: string) => {
@@ -185,17 +137,7 @@ export function usePrompts({
   );
 
   /**
-   * Put a typed thought in the `## Dump` of today's note, from `<leader>cd`.
-   *
-   * The day is read here rather than when the prompt opened, for the reason
-   * `addTodo` reads it here. The backend makes the note and the section where
-   * the vault has neither, and an editor holding the note hears about the
-   * write through the event stream like any other change on disk, so nothing
-   * here touches a cache.
-   *
-   * The thought goes through the outbox `/capture` uses, kept on the device
-   * before it is sent, so a laptop on a train loses it no more than a phone
-   * does. The notice says which of the two it got to: the vault, or the wait.
+   * Put a typed thought in the `## Dump` of today's note. The day is read here, as in `addTodo`.
    */
   const capture = useCallback(
     (text: string) => {

@@ -14,13 +14,9 @@ import {
 } from "@/lib/overlay-styles";
 
 /**
- * What a herdr session may be called here.
- *
- * herdr keeps a named session in a directory of its own, so the name lands on
- * a filesystem path, and anything needing percent-encoding raises a question
- * about how libwebsockets hands `?arg=` fragments to the command. Narrower
- * than either needs, and on screen in the prompt so the rule is where the
- * person typing can read it.
+ * The names a herdr session may take. Narrower than herdr needs: a name lands on a filesystem
+ * path, and percent-encoding in `?arg=` is an open question for libwebsockets. The rule is on
+ * screen so the person typing can read it.
  */
 export const SESSION_NAME = /^[A-Za-z0-9_-]{1,64}$/;
 
@@ -35,18 +31,10 @@ interface TerminalPromptProps {
 }
 
 /**
- * Name the herdr session a pane attaches to, and Enter attaches to it.
- *
- * The list under the input is the sessions that already exist, ranked against
- * what has been typed, so a name half remembered is one Tab away. It offers
- * rather than restricts: a name nothing answers to is still taken, and starts
- * a session. Which of them are running is deliberately not shown, because
- * `herdr --session` attaches to a stopped one and starts a missing one alike,
- * and the backend only lists a directory.
- *
- * Its own component rather than a fourth mode on `note-prompt.tsx`, which is
- * built around note paths end to end through `describeNotePath`,
- * `folderCandidates` and `noteAfterPrompt`. A session name is not a path.
+ * Names the herdr session a pane attaches to, and Enter attaches. The list offers existing
+ * sessions without restricting: a new name starts one. Running state is left off, since
+ * `herdr --session` attaches to a stopped session and starts a missing one alike.
+ * Its own component, not a fourth mode on `note-prompt.tsx`: that one is built around note paths.
  */
 export function TerminalPrompt({ sessions, onOpen, onClose }: TerminalPromptProps) {
   const [input, setInput] = useState("");
