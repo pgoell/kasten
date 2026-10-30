@@ -1,10 +1,6 @@
 /**
- * What a video's note says about the video: its chapters, its transcript and
- * the takes that point back into it. Pure, so the note's text is the only input
- * and the tests can hold the answers exact.
- *
- * Every time is read the way the note writes it, so a link a reader clicks and
- * a line the pane highlights agree on the same second.
+ * What a video's note says: its chapters, transcript and the takes that point back into it. Pure,
+ * so the note's text is the only input. Times are read as the note writes them, so links and highlights agree.
  */
 
 import { highlightBlocks } from "@/lib/highlight";
@@ -57,10 +53,8 @@ function sectionLines(note: string, heading: string): string[] {
 }
 
 /**
- * `[mm:ss]`, `mm:ss`, `[h:mm:ss]` or `h:mm:ss` (YouTube's `0:00` too) to
- * seconds, or null for anything else. The brackets are optional and must come
- * in a pair. Minutes and seconds take two digits after the first field, and the
- * minutes are below an hour only when hours are given.
+ * A time such as `mm:ss` or `[h:mm:ss]` to seconds, or null. Brackets are optional but must pair.
+ * Minutes and seconds take two digits after the first field; minutes stay under an hour only with hours.
  */
 export function parseTime(stamp: string): number | null {
   const inner = stamp.startsWith("[") && stamp.endsWith("]") ? stamp.slice(1, -1) : stamp;
@@ -80,9 +74,8 @@ export function parseTime(stamp: string): number | null {
 }
 
 /**
- * The chapters the note lists under `## Chapters`, in the note's order. A line
- * that is not a chapter is skipped, and so is one with no title, which is what
- * a line half-typed in the editor looks like while it is being written.
+ * The chapters the note lists under `## Chapters`, in order. A line with no title is skipped, as a line
+ * half-typed in the editor looks like while it is written.
  */
 export function noteChapters(note: string): Timed[] {
   const chapters: Timed[] = [];
@@ -99,12 +92,8 @@ export function noteChapters(note: string): Timed[] {
 }
 
 /**
- * The transcript's paragraphs under `## Transcript`, each with the second it
- * opens on and the rest of its words. The italic line saying which captions
- * these are has no stamp, so it goes the way any other unstamped line does.
- *
- * A paragraph is what sits between two blank lines, the way `transcriptSection`
- * writes them, so a line break inside one is a word break here.
+ * The transcript's paragraphs under `## Transcript`, each with its opening second and its words.
+ * A paragraph is what sits between blank lines, so a line break inside one is a word break here.
  */
 export function transcriptParagraphs(note: string): Timed[] {
   const paragraphs: string[][] = [[]];
@@ -127,9 +116,8 @@ export function transcriptParagraphs(note: string): Timed[] {
 }
 
 /**
- * The index of the last item that starts at or before `second`, or -1 before
- * the first. The list is in ascending order, which is how both readers above
- * build it, so the last match is the one on screen.
+ * The index of the last item starting at or before `second`, or -1. The list is ascending, as both readers build it,
+ * so the last match is the one on screen.
  */
 export function currentAt(list: Timed[], second: number): number {
   let at = -1;
@@ -140,9 +128,8 @@ export function currentAt(list: Timed[], second: number): number {
 }
 
 /**
- * The address of a video, opened at the whole second when there is one to
- * open at. Below a second the bare address is the start, which is where the
- * link should go.
+ * The address of a video, opened at its whole second. Below one second the bare address is the start,
+ * which is where the link should go.
  */
 export function watchUrl(id: string, seconds: number): string {
   const start = seconds >= 1 ? `&t=${Math.floor(seconds)}s` : "";
@@ -158,12 +145,8 @@ export function timeLink(id: string, seconds: number): string {
 }
 
 /**
- * The takes in the note that point at `video`, in the note's order. A take is
- * a highlight block whose anchor line opens with a time link to this video. A
- * link with no `&t=` is the video's start, second 0.
- *
- * The quote is the block's own words, with the take's escape read back, so a
- * quote the page wrote with brackets in it comes out as the book has it.
+ * The takes in the note that point at `video`, in order: a highlight block whose anchor line opens
+ * with a time link to it, where no `&t=` means second 0. The quote's escapes are read back.
  */
 export function videoTakes(note: string, video: string): VideoTake[] {
   const lines = note.split("\n");

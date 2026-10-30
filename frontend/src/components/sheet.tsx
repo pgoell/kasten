@@ -1,16 +1,7 @@
 /**
- * A bottom sheet: a solid panel that rises from the foot of the screen over a
- * scrim, and goes down by a flick, a drag past halfway, Esc or a tap on the scrim.
- *
- * The panel moves by `transform` and the scrim by `opacity`, and both are
- * written straight to the DOM from the spring's frames. A drag runs at the
- * frame rate that way, and never waits on a render. The panel is solid paper
- * with no blur behind it, since a sheet is read, and a blur would smear the
- * note under it into something worse than a dimmed one.
- *
- * With `side` it is the desktop side sheet instead: a 540 px panel at the right
- * edge of the nearest positioned ancestor. It slides on a plain ease-out, with
- * no spring and no drag.
+ * A bottom sheet over a scrim, or with `side` a 540 px desktop panel at the right edge.
+ * The panel moves by `transform` straight to the DOM from the spring's frames, so a drag never waits on a render.
+ * The panel is solid, not blurred: a sheet is read, and a blur would smear the note under it.
  */
 
 import {

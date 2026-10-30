@@ -1,11 +1,6 @@
 /**
- * The kinds the log config note names, and what a tap on each one writes.
- *
- * The note is `99 Misc/01 Config/log.md`. Each `- ` line at column 0 names a kind
- * by its mark, and says what one tap logs and whether it has a goal. 💧, ☕ and 🍺
- * are the built-in kinds the card has always had; any other mark is a kind of the
- * user's own, counted by `parseKindLine`. The grammar is in
- * `docs/reference/log-format.md`, and `log-config-cases.json` holds its cases.
+ * The kinds the log config note names, and what a tap on each writes. The note is `99 Misc/01 Config/log.md`.
+ * The grammar is in `docs/reference/log-format.md`. 💧, ☕ and 🍺 are built in; any other mark is parsed by `parseKindLine`.
  */
 
 import { amountLine, type DrinkKind, type DrinkTotals, logLines, tenth } from "@/lib/log/log-lines";
@@ -69,9 +64,8 @@ const BUILTINS = new Map<string, DrinkKind>([
 const FIELD_MARKS = new Set(["🔥", "🥩", "🍞", "🧈"]);
 
 /**
- * A kind line: the mark with its U+FE0F dropped, the name up to the colon, then a tap or
- * `last`, each with an optional unit, then an optional goal. The mark is astral, so the
- * `u` flag. The lookahead keeps the word `last` from reading as a unit.
+ * A kind line: the mark with its U+FE0F dropped, the name up to the colon, then a tap or `last`, each with an optional unit, then an optional goal.
+ * The mark is astral, so the `u` flag; the lookahead keeps `last` from reading as a unit.
  */
 const KIND_LINE = new RegExp(
   `^- (?<mark>\\p{So})️?[ \\t]+(?<name>[^:]+):[ \\t]*(?:(?<tap>${NUMBER})(?:[ \\t]+(?<unit>[A-Za-z]+))?|(?:(?!last\\b)(?<lastUnit>[A-Za-z]+)[ \\t]*,[ \\t]*)?(?<last>last))(?:[ \\t]*,[ \\t]*(?<sense>min|max)[ \\t]+(?<goal>${NUMBER}))?[ \\t]*$`,
@@ -197,10 +191,8 @@ export function tapLine(kind: LogKind): string | null {
 }
 
 /**
- * The line a tap writes for `typed` under `kind`, or why `typed` is no amount of
- * that kind. The empty amount is the default line, or on a last kind a request for
- * the amount; a kind of your own takes a bare number with its unit added, or a number
- * with its own unit.
+ * The line a tap writes for `typed` under `kind`, or why `typed` is no amount of that kind.
+ * The empty amount is the default line, or a request for the amount on a last kind.
  */
 export function kindLine(kind: LogKind, typed: string): string | { why: string; ask?: true } {
   const text = typed.trim();
@@ -235,9 +227,8 @@ export function parseKindLine(kind: LogKind, line: string): number | null {
 }
 
 /**
- * The day's total for `kind`. The built-in kinds read their totals; a last kind takes
- * its last line's amount, or null with none; a kind of your own sums its lines under
- * `## Log`, rounded once as the other totals are.
+ * The day's total for `kind`. A last kind takes its last line's amount, or null with none.
+ * A kind of your own sums its lines under `## Log`, rounded once as the other totals are.
  */
 export function kindTotal(kind: LogKind, text: string, totals: DrinkTotals): number | null {
   if (kind.builtin === "water") return totals.water.ml;

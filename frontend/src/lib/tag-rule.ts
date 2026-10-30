@@ -1,23 +1,12 @@
 /**
- * The one rule every reader in the frontend reads a `#tag` by, which
- * `docs/reference/tag-format.md` states and `tag-cases.json` tests.
- *
- * Its own module, and one that imports nothing, so the editor's parser, the todo
- * pane and the flashcard decks can share it. `todo.ts` and `deck-tag.ts` once
- * kept copies of the editor's pattern rather than pull CodeMirror in with
- * `tag.ts`, and the copies drifted apart.
+ * The one rule every frontend reader uses for a `#tag`, as `docs/reference/tag-format.md` states
+ * and `tag-cases.json` tests. It imports nothing, so the parser, todos and decks can share it.
  */
 
 /** What a tag is made of: a letter, a number, `_`, `-` or `/`. */
 export const TAG_CHARS = String.raw`[\p{L}\p{N}_/-]`;
 
-/**
- * `#` and a run of tag characters holding at least one that is not a number.
- *
- * Numbers alone make no tag, so `#1984` and `#½` stay words while `#1on1` and
- * `#2026-10-13-x` are tags. Any other character ends the run, so `(#next).`
- * carries `#next`.
- */
+/** `#` and tag characters holding at least one non-number: `#1984` is words, `#1on1` a tag. */
 export const TAG_SOURCE = String.raw`#(?=${TAG_CHARS}*[\p{L}_/-])${TAG_CHARS}+`;
 
 /** The tag a text opens with, for a reader that already stands on the hash. */
@@ -32,20 +21,14 @@ const TAGS = new RegExp(TAG_SOURCE, "gu");
 export const GLUED = /[\p{L}\p{N}_/]$/u;
 
 /**
- * A link, a markdown link, a code span and an HTML comment closed on its line:
- * a hash inside one is no tag, and a todo's field marker inside one is no
- * field. `todo_fields.SPANS` in the backend is the same pattern.
- * Global, so use it through `matchAll` or `replace` only, never `exec`.
+ * Links, code spans and same-line HTML comments, where a hash is no tag. Global, so use it
+ * through `matchAll` or `replace` only, never `exec`. `todo_fields.SPANS` is the same pattern.
  */
 export const SPANS = /\[\[[^[\]\n]+\]\]|\[[^\]\n]*\]\([^)\n]*\)|`[^`\n]*`|<!--[^\n]*?-->/g;
 
 /**
- * `SPANS` and, first, a comment opening the line, for a reader holding a whole
- * line. A `<!--` that opens the line, three spaces in front at most, opens an
- * HTML block by CommonMark, and the block takes the whole line, `-->` or not,
- * so the editor draws no tag after it. Not in `SPANS`: a todo's words open with
- * `<!--` only after the box, which opens the paragraph, so there it is a
- * comment and no more. `todos.LINE_SPANS` in the backend is the same pattern.
+ * `SPANS`, plus a comment opening the line: CommonMark makes that an HTML block, so no tag
+ * follows it. Not in `SPANS`, since a todo's words after its box are a plain comment.
  */
 const LINE_SPANS = new RegExp(String.raw`^ {0,3}<!--[^\n]*|${SPANS.source}`, "g");
 
@@ -55,11 +38,8 @@ function blanked(text: string, spans: RegExp): string {
 }
 
 /**
- * `text` with every span blanked to the same length, so a marker inside one
- * matches nothing and every offset still lines up with the text. The filler
- * keeps the spaces and is a no-break space: no field, tag or block id reads it,
- * and neither `\S` nor `[ \t]` takes it, so a marker straight before a span has
- * no value and stays words rather than reading the span's first word.
+ * `text` with every span blanked to the same length, so offsets still line up. The filler is a
+ * no-break space, which `\S` and `[ \t]` skip, so a marker before a span stays words.
  */
 export function masked(text: string): string {
   return blanked(text, SPANS);
@@ -76,12 +56,8 @@ function tagsOn(mask: string, text: string): { tag: string; at: number }[] {
 }
 
 /**
- * Every tag one line carries and where it starts. Found on the mask, so a hash
- * in a link, a code span or a comment opening the line is text, and read off
- * the text.
- *
- * A line at a time, so it knows nothing of fences: a reader of a whole note
- * skips the fenced lines itself, as `srs.ts` does.
+ * Every tag on one line and where it starts. A line at a time, so fences are unknown here:
+ * a reader of a whole note skips fenced lines itself, as `srs.ts` does.
  */
 export function tagsOf(text: string): { tag: string; at: number }[] {
   return tagsOn(blanked(text, LINE_SPANS), text);

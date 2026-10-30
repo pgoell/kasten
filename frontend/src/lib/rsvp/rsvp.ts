@@ -1,12 +1,6 @@
 /**
- * Reading a text one word at a time in one spot, RSVP: the words and what the
- * player needs to know about them, with nothing about where they came from.
- *
- * Every source, a note, a page, a pdf and a book, hands its text over as runs
- * (`rsvp-sources.ts`), and everything after that is here and the same for all
- * four: where a sentence and a paragraph end, what a chunk is, which letter the
- * eye fixes on, how long a chunk stays up, and where a saved place lands once
- * the text under it has changed.
+ * RSVP reading: the words and what the player needs to know of them, not where they came from.
+ * Every source hands over runs (`rsvp-sources.ts`); everything after that is the same for all four.
  */
 
 /** One word of the text, in reading order, and where it sits in its source. */
@@ -23,18 +17,14 @@ export interface Word {
 }
 
 /**
- * Text the way a source hands it over: a stretch of its own characters starting
- * at `from`, or a paragraph break, which no word runs across.
- *
- * A word may run across two stretches, which is what `**bo**ld` is once its
- * marks are dropped, so the stretches are read as one stream.
+ * Text as a source hands it over: a stretch of its own characters from `from`, or a paragraph break.
+ * A word may span two stretches (`**bo**ld`), so they are read as one stream.
  */
 export type Run = { text: string; from: number } | "break";
 
 /**
- * Words ending in a full stop that end no sentence. Short on purpose: a list
- * that guesses wrong pauses where it should not, which costs less than a
- * sentence that runs into the next.
+ * Words ending in a full stop that end no sentence. Kept short on purpose: a wrong pause costs less than
+ * a sentence running into the next.
  */
 const ABBREVIATIONS = new Set([
   "mr.",
@@ -65,11 +55,8 @@ function endsSentence(word: string): boolean {
 }
 
 /**
- * The words of `runs`, each marked where a sentence or a paragraph ends.
- *
- * A paragraph ends at a break, at the end of the text, and at a blank line.
- * `lines` makes any line end one too, which is how `innerText` spells the end of
- * a block: one newline between two of them, where markdown needs two.
+ * The words of `runs`, each marked where a sentence or a paragraph ends. A paragraph also ends at
+ * a blank line; `lines` makes every line end one, as `innerText` spells a block's end.
  */
 export function wordsOf(runs: Iterable<Run>, section: number, lines = false): Word[] {
   const words: Word[] = [];
@@ -127,9 +114,8 @@ export function wordsOf(runs: Iterable<Run>, section: number, lines = false): Wo
 }
 
 /**
- * Where the chunk starting at `start` ends, exclusive: up to `size` words, and
- * never past the end of a sentence, so a chunk does not hold the end of one and
- * the start of the next.
+ * Where the chunk at `start` ends, exclusive: up to `size` words, never past a sentence end.
+ * A chunk must not hold the end of one sentence and the start of the next.
  */
 export function chunkEnd(words: readonly Word[], start: number, size: number): number {
   let end = start;
@@ -141,10 +127,8 @@ export function chunkEnd(words: readonly Word[], start: number, size: number): n
 }
 
 /**
- * The letter the eye fixes on, counted in code points from the word's start.
- *
- * A little left of the middle, the way the RSVP readers place it, and counted
- * over the letters alone, so the quote in front of a word does not move it.
+ * The letter the eye fixes on, counted in code points from the word's start, a little left of the middle.
+ * Counted over the letters alone, so a quote mark in front of a word does not move it.
  */
 export function orp(word: string): number {
   const letters = Array.from(word);
@@ -158,13 +142,8 @@ export function orp(word: string): number {
 }
 
 /**
- * The fixed letter of a chunk, `text` being its words joined by single spaces.
- *
- * One word keeps `orp`. Two or three take the letter nearest the middle of the
- * whole chunk: the reading letter of the first word would leave the rest of
- * the chunk hanging off to the right, and the eye has to travel to read it.
- * A space or a stop in the middle gives way to the nearest letter, the left
- * one first on a tie.
+ * The fixed letter of a chunk. One word keeps its `orp`; a longer chunk takes the letter nearest
+ * its middle, since the first word's letter would leave the rest hanging to the right.
  */
 export function chunkFix(text: string): number {
   if (!text.includes(" ")) return orp(text);
@@ -219,11 +198,8 @@ export function settingsOf(raw: unknown): RsvpSettings {
 }
 
 /**
- * How long the chunk `start` to `end` stays on screen, in ms.
- *
- * One word's time per word, and the pause on top where the chunk ends a
- * clause, a sentence or a paragraph: the eye needs the break a reader's voice
- * would take there.
+ * How long the chunk from `start` to `end` stays on screen, in ms: one word's time per word, plus a pause
+ * where it ends a clause, a sentence or a paragraph, as a reader's voice would.
  */
 export function delay(
   words: readonly Word[],
@@ -250,9 +226,8 @@ function startOf(words: readonly Word[], index: number, unit: Unit): number {
 }
 
 /**
- * Where `h` and `H` go: the start of the sentence or paragraph being read, or
- * of the one before when the reader is already at the start, the way a
- * player's back button restarts the track before it skips to the last.
+ * Where `h` and `H` go: the start of this sentence or paragraph, or of the one before when already at its start,
+ * as a player's back button restarts the track before it skips.
  */
 export function back(words: readonly Word[], index: number, unit: Unit): number {
   const start = startOf(words, index, unit);
@@ -290,14 +265,8 @@ export function placeAt(words: readonly Word[], index: number): Place {
 }
 
 /**
- * Where a saved place lands in `words`, which may not be the list it was saved
- * from.
- *
- * The same text answers the saved index as it stands. A changed one answers the
- * occurrence of the saved words nearest the saved index, so an edit above the
- * place moves it by the words the edit added and no further; and a text that no
- * longer holds those words starts at the top rather than at a word that only
- * happens to share the index.
+ * Where a saved place lands in `words`, which may differ from the list it was saved from. The same text
+ * gives the saved index; a changed one gives the nearest occurrence of the saved words, or the top if none.
  */
 export function resume(place: Place | null, words: readonly Word[]): number {
   if (place === null || words.length === 0) return 0;
@@ -348,11 +317,8 @@ export function firstOf(words: readonly Word[], section: number): number {
 }
 
 /**
- * Where a selected passage starts, looked for from word `from` on and then from
- * the top, or null where the text does not hold it.
- *
- * A selection may cut a word at either end, so its first word need only end the
- * word it is matched against and its last need only begin one.
+ * Where a selected passage starts, searched from word `from` on and then from the top, or null.
+ * A selection may cut a word at either end, so its first and last words need only partly match.
  */
 export function findQuote(words: readonly Word[], quote: string, from = 0): number | null {
   const wanted = quote

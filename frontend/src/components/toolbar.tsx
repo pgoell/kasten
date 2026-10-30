@@ -3,11 +3,8 @@ import { LABEL } from "@/lib/overlay-styles";
 import { leaderFromFocus } from "@/lib/use-key-help-key";
 
 /**
- * The commands a thumb reaches for, in the order they are drawn.
- *
- * Each names a command the leader already reaches and nothing else, so the
- * row adds no behaviour of its own. `name` is what a screen reader says, the
- * word on the button being cut to what fits eight across a phone.
+ * The thumb row's commands. Each is a leader command with no behaviour of its own.
+ * `name` is what a screen reader says, since the button shows a cut word.
  */
 const BUTTONS: readonly { command: LeaderCommand; label: string; name: string }[] = [
   { command: "toggleTree", label: "files", name: "File tree" },
@@ -18,7 +15,6 @@ const BUTTONS: readonly { command: LeaderCommand; label: string; name: string }[
   // The pane and not the overlay `findTodos` opens: the pane is the one with
   // buttons a finger can cycle and add with. The overlay is a palette row.
   { command: "openTodos", label: "todos", name: "Open the todo pane" },
-  // Logging a meal is a thumb job, the same as the todos.
   { command: "openLog", label: "log", name: "Open the log" },
   // The reason the chat exists: a skill started with a thumb. Eight across a
   // 360px phone is 45px each, one over the 44 a button has to be. Nine at 44px
@@ -39,12 +35,8 @@ interface ToolbarProps {
 }
 
 /**
- * The row along the bottom edge of a phone, standing in for the leader key.
- *
- * It stays on screen while the keyboard is up. The palette lists a note's
- * inserts and edits only when it opens over that note's editor, so the button
- * has to be reachable while the editor holds the focus, and hiding the row
- * whenever something is being typed into would hide it at exactly that moment.
+ * The row along a phone's bottom edge, standing in for the leader key. It stays up while
+ * the keyboard is open: the palette opens over an editor, so the button must stay reachable there.
  */
 export function Toolbar({ commands, split, inert }: ToolbarProps) {
   const buttons = split
@@ -56,15 +48,13 @@ export function Toolbar({ commands, split, inert }: ToolbarProps) {
       role="toolbar"
       aria-label="Commands"
       inert={inert}
-      // Always the foot of the page where it is drawn, so it takes the home
-      // indicator's inset.
+      // Always the page foot where drawn, so it takes the home indicator's inset.
       className={`safe-foot flex shrink-0 flex-wrap gap-px border-k-rule border-t bg-k-paper ${LABEL}`}
     >
       <button
         type="button"
         aria-label="Show the leader keys"
-        // The same press handling as the rest: out of the tab order and deaf to
-        // the press that would focus it, so the panel opens over the editor.
+        // Same press handling as the rest, so the panel opens over the editor.
         tabIndex={-1}
         onPointerDown={(event) => event.preventDefault()}
         onMouseDown={(event) => event.preventDefault()}

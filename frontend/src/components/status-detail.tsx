@@ -1,12 +1,8 @@
 import type { DiffLine } from "@/lib/diff";
 
 /**
- * The changed lines of a diff and one line either side, each other run of
- * unchanged lines folded into one that says how many.
- *
- * A whole note under the bar would be the note again, and the two lines that
- * differ would be as hard to find in it as they were in the editor. A run of
- * one is shown rather than folded: the fold would take as much room.
+ * The changed lines and one either side, with each other run folded into a count. A whole
+ * note under the bar would be the note again. A run of one stays: a fold would take as much room.
  */
 function folded(diff: readonly DiffLine[]): (DiffLine | { skip: number })[] {
   const changed = (at: number) => (diff[at]?.op ?? " ") !== " ";

@@ -1,10 +1,6 @@
 /**
- * The words of each kind of text kasten reads, in reading order, for RSVP.
- * `rsvp-book.ts` walks a whole book with the section reader here.
- *
- * Four sources and one shape: each turns its text into runs (`Run` in
- * `rsvp.ts`) and every word keeps where it came from, so a saved place, the
- * cursor and the book's `reading:` can all be turned into a word and back.
+ * The words of each text kind kasten reads, in reading order, for RSVP. Each source turns its text
+ * into runs (`Run` in `rsvp.ts`), and every word keeps its place so it maps back to one.
  */
 
 import type { SyntaxNode } from "@lezer/common";
@@ -61,9 +57,8 @@ const UNREAD_BLOCKS = new Set([
 const CONTAINERS = new Set(["Document", "Blockquote", "BulletList", "OrderedList", "ListItem"]);
 
 /**
- * A note's words, from its source and not from the editor's DOM, which holds
- * only the lines on screen. Each word's offset is in the whole note, front
- * matter included, which is what the editor's cursor counts in.
+ * A note's words, read from its source and not the editor's DOM, which holds only the lines on screen.
+ * Offsets count the whole note, front matter included, as the editor's cursor does.
  */
 export function markdownWords(text: string): Word[] {
   const body = noteBody(text);
@@ -157,13 +152,8 @@ export interface PdfItem {
 }
 
 /**
- * One pdf page's words.
- *
- * The items joined with nothing between them, the rule `use-book-seek.ts`
- * follows, and a line end where pdf.js says a line ended, so the last word of
- * one line and the first of the next are two words. A word broken by a hyphen
- * at a line end is joined again. The page ends a paragraph: a pdf says nothing
- * of where its own paragraphs are.
+ * One pdf page's words. Items join with nothing between them, and a line end is a word break,
+ * so a word hyphenated at a line end is joined again. A pdf has no paragraph marks, so a page ends one.
  */
 export function pageWords(items: readonly PdfItem[], page: number): Word[] {
   const runs: Run[] = [];

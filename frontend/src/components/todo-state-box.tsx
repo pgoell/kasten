@@ -15,12 +15,8 @@ export const STATE_ORDER: TodoState[] = [
 ];
 
 /**
- * A state drawn as a box of its own, one look per state, so the states read
- * apart at a glance without the words. Every colour is a token class: the
- * theme sets them, and the box follows the switch between light and dark.
- *
- * Static, so nothing here transitions. A state changing under the finger is
- * drawn by the next render, not by a fade between two boxes.
+ * A state drawn as its own box, so states read apart without the words. Colours are token
+ * classes, so the box follows light and dark. Static: a state change redraws, not fades.
  */
 export function TodoStateBox({ state }: { state: TodoState }) {
   return (

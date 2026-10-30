@@ -1,9 +1,6 @@
 /**
- * Where each note's cursor and scroll stood when it was last left, per device.
- *
- * In `localStorage` and never the vault: a phone and a laptop read the same
- * note in different places, and neither is the other's business. Only the
- * path and three numbers go in, never a line of the note.
+ * Where each note's cursor and scroll stood when last left, per device. Kept in localStorage,
+ * never the vault. Only the path and three numbers are stored, never a line of the note.
  */
 
 const KEY = "kasten.positions.1";
@@ -19,9 +16,8 @@ export interface Position {
 }
 
 /**
- * A list of pairs and not an object. `JSON.parse` puts an integer-like key
- * such as `"2024"` ahead of every other, so an object would lose the order the
- * cap drops the oldest by.
+ * A list of pairs, not an object: `JSON.parse` puts integer-like keys such as "2024" first,
+ * so an object would lose the order the cap drops the oldest by.
  */
 type Entry = [string, Position];
 

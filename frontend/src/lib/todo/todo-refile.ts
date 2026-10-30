@@ -1,8 +1,6 @@
 /**
- * The refile key's two notes: the todo out of one, into its project's.
- *
- * Pure over strings, as `todo-write.ts` is. The route reads the notes, sends
- * what these answer, and owns the order the two writes go in.
+ * The refile key's two notes: the todo out of one, into its project's. Pure over strings,
+ * as `todo-write.ts` is. The route reads the notes and owns the order the two writes go in.
  */
 
 import { appendUnder } from "@/lib/note-section";
@@ -30,13 +28,8 @@ function indentOf(line: string): string {
 }
 
 /**
- * The line the row read, which a write landing since may have shifted: `line`
- * where it still says `text`, else the one line that does. Null where none
- * does, or several, since then which todo the row meant is a guess.
- *
- * Only a root todo is looked for. Its project hangs on its own line and its
- * note, which the line found shares; a part's hangs on the todo above it, and
- * the same words under another parent can be another project's todo.
+ * The line the row read, or where a write has shifted it, the one line still saying `text`.
+ * Only root todos are searched: a part's words can repeat under another parent.
  */
 export function lineOf(text: string, line: number, want: string): number | null {
   const lines = text.split("\n");
@@ -47,13 +40,8 @@ export function lineOf(text: string, line: number, want: string): number | null 
 }
 
 /**
- * The move of the todo on `line` into `project`, or null where that line is
- * not a todo.
- *
- * The block is the todo and every line indented deeper than it, prose and
- * plain bullets as much as parts: they are what the todo says about itself. A
- * blank line inside the block goes with it; one after it stays. What stays
- * behind is not a checkbox, or Tasks would count the todo twice.
+ * Move of the todo on `line` into `project`, or null where it is no todo. The block is the
+ * todo and its deeper-indented lines; what stays must not be a checkbox, or Tasks counts it twice.
  */
 export function refileOf(text: string, line: number, project: string): Refile | null {
   const lines = text.split("\n");
@@ -90,16 +78,8 @@ export function refileOf(text: string, line: number, project: string): Refile | 
 }
 
 /**
- * The project's note with the block under `## TODOs`, or null where the note
- * holds this very block already: the todo carries a `🆔` and the note holds
- * every line of the block, in a row, as they stand.
- *
- * Null is what lets a second press finish a move whose first press copied the
- * todo and then found its note changed. Anything short of that appends: the
- * same words can be another todo, a recurring one's earlier copy, and a copy
- * whose parts changed since is not the todo now. The source is taken out once
- * the target has landed, so a wrong null loses the todo, where a wrong copy
- * only doubles it.
+ * The project's note with the block under `## TODOs`, or null if it already holds the block
+ * whole, so a second press can finish a move. A wrong null loses the todo; a wrong copy only doubles it.
  */
 export function fileUnderTodos(text: string, block: string): string | null {
   const want = block.split("\n");

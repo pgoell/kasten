@@ -13,13 +13,7 @@ import { soundsShowing, useCardSounds } from "@/lib/review/use-card-sounds";
 import { useReviewSitting } from "@/lib/review/use-review-sitting";
 
 /**
- * Where the typing toggle is kept, which is the browser and not the vault.
- *
- * It is a preference about how you like to be asked, not a fact about the
- * notes, so it has no business in a file. The archive toggle makes the opposite
- * call and is deliberately not persisted at all; the difference is that
- * forgetting the archive is safe and forgetting this one is a small annoyance
- * on every card.
+ * The typing toggle is kept in the browser, not the vault: it is a preference, not a fact about the notes.
  */
 const TYPING_KEY = "kasten.review.typing";
 
@@ -31,11 +25,7 @@ interface ReviewSessionProps {
   /** Leave the session, which is the back button and the pane's `q`. */
   onLeave: () => void;
   /**
-   * Handed the callbacks a shell may want to put its own keys over.
-   *
-   * The pane binds `space` and `1` to `4` to these; the phone route binds
-   * nothing, its buttons being the whole interface. Neither shell holds a rule
-   * about scheduling, which is what keeps the two from drifting.
+   * Callbacks a shell may bind its own keys over. The phone route binds none.
    */
   onControls?: (
     controls: {
@@ -67,11 +57,7 @@ interface ReviewSessionProps {
 }
 
 /**
- * One deck, one card at a time.
- *
- * The sitting's state and scheduling live in `useReviewSitting`, and the
- * sounds in `useCardSounds`. This holds what is left: the typing and centre
- * toggles, the capture line, and the screen.
+ * One deck, one card at a time. The sitting's state is in `useReviewSitting`; this holds the rest.
  */
 export function ReviewSession({ deck, onLeave, onControls, onOpen }: ReviewSessionProps) {
   const [typing, setTyping] = useState(() => localStorage.getItem(TYPING_KEY) === "on");

@@ -2,17 +2,8 @@ import type { ChangeSpec, Text } from "@codemirror/state";
 import type { EditorView } from "@codemirror/view";
 
 /**
- * A pipe table, read off its lines and drawn back with the columns lined up.
- *
- * Line by line rather than through the syntax tree, so `formatDocument` and the
- * tab keys share one reading of what a table is. The parser knows the same
- * thing, but only for as much of the note as it has parsed, and only in a shape
- * that hands back nodes when what both callers want is cells.
- *
- * ponytail: a fence holding a table is a table to this reading.
- * `formatDocument` tracks fences itself and never asks, so only tab is fooled,
- * and it moves the cursor rather than writing. Ask the tree if a note ever
- * teaches markdown.
+ * A pipe table, read off its lines so `formatDocument` and tab share one reading of it.
+ * ponytail: a fence holding a table reads as one too, which only tab falls for.
  */
 
 /** Which side of its column a cell's text sits on, read off the dashes. */
@@ -30,9 +21,8 @@ const DASHES = /^:?-+:?$/;
 const MIN_WIDTH = 3;
 
 /**
- * What pads a cell: spaces and tabs only. `trim()` would also take a no-break
- * or an ideographic space, which the writer typed as text and which must come
- * through a line-up as it went in.
+ * What pads a cell: spaces and tabs only. `trim()` would also take a no-break or ideographic space,
+ * which the writer typed as text and must come through a line-up as it went in.
  */
 const PADDING = /^[ \t]+|[ \t]+$/g;
 
@@ -51,11 +41,8 @@ export function isRow(text: string): boolean {
 }
 
 /**
- * Whether a line is the row of dashes under a head.
- *
- * Read with `trim()`, not the padding `cellsOf` takes: the tree reads a no-break
- * or an ideographic space beside a dash as whitespace, so the row is a divider
- * there too.
+ * Whether a line is the dash row under a head. Read with `trim()`: the tree counts a no-break or
+ * ideographic space beside a dash as whitespace, so the row is a divider there too.
  */
 function isDivider(text: string): boolean {
   const cells = text
@@ -68,11 +55,8 @@ function isDivider(text: string): boolean {
 }
 
 /**
- * How wide a cell draws, in characters.
- *
- * ponytail: code points, so one CJK glyph counts as one column when it occupies
- * two, and a table of Japanese lines up on paper and not on the screen. An East
- * Asian width table is the upgrade, when a note needs it.
+ * How wide a cell draws, in characters. ponytail: code points, so a CJK glyph that takes two columns
+ * on screen counts as one. An East Asian width table is the upgrade.
  */
 function widthOf(text: string): number {
   return [...text].length;
@@ -88,10 +72,8 @@ function alignOf(cell: string): Align {
 }
 
 /**
- * Where each column's text sits, read off a table's row of dashes.
- *
- * For the live preview, which draws the table rather than lining its source up
- * and so needs the alignment on its own.
+ * Where each column's text sits, read off a table's dash row, for the live preview,
+ * which draws the table rather than lining its source up.
  */
 export function alignsOf(divider: string): Align[] {
   return cellsOf(divider).map(alignOf);
@@ -104,12 +86,8 @@ export interface TableRun {
 }
 
 /**
- * The table the given line sits in, or null when it sits in none.
- *
- * The dashes say where the table starts. Walking up from a pipe alone would
- * swallow the paragraph above one, since a line of prose is allowed to carry a
- * `|`, so the header is the line above the first row of dashes and the run
- * begins there.
+ * The table the line sits in, or null. Starts from the dash row, since walking up from a pipe alone
+ * would take in the prose above, which may hold a `|`.
  */
 export function tableAt(doc: Text, at: number): TableRun | null {
   if (!isRow(doc.line(at).text)) return null;
@@ -188,9 +166,7 @@ function drawCells(grid: Grid, widths: number[], index: number): string[] {
 
 /**
  * Every row drawn to the same column widths, so the walls line up on screen.
- *
- * The lines are not one length in UTF-16 once a cell holds an astral character,
- * so `moveCell` measures the lines it walks past rather than assuming a width.
+ * Lines are not one UTF-16 length once a cell holds an astral character, so `moveCell` measures them.
  */
 function draw(grid: Grid, widths: number[]): string {
   return grid.rows
@@ -205,12 +181,8 @@ export function alignTable(doc: Text, run: TableRun): string {
 }
 
 /**
- * The edits that take a table's lines to where `alignTable` draws them.
- *
- * Kept as small as they can be. A line that differs only in spaces gets spaces
- * put in or taken out, so a cursor in a cell still sits on the character it sat
- * on. Any other difference replaces only the middle of the line, so the text of
- * a cell, its escapes and its dashes come through as they were typed.
+ * The edits that take a table's lines to where `alignTable` draws them, kept as small as they can be,
+ * so a cursor in a cell stays on its character.
  */
 export function lineUpChanges(doc: Text, run: TableRun): ChangeSpec[] {
   const changes: ChangeSpec[] = [];
@@ -273,14 +245,8 @@ function columnAt(text: string, at: number): number {
 }
 
 /**
- * Moves the cursor one cell along, lining the table up on the way.
- *
- * `step` is 1 for the next cell and -1 for the one before. Returns false when
- * the cursor is not in a table, or is in the first cell of one and going back,
- * which is what leaves tab to indent the way it does everywhere else.
- *
- * The table is rewritten on every press rather than only on `<leader>=`, so a
- * cell that has just been typed into is squared up before the cursor leaves it.
+ * Moves the cursor one cell along, lining the table up on the way. Returns false outside a table, or in
+ * the first cell going back, which leaves tab to indent. Rewritten on every press, so a new cell is squared up.
  */
 export function moveCell(view: EditorView, step: 1 | -1): boolean {
   const { state } = view;

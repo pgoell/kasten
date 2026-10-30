@@ -15,11 +15,8 @@ interface PaneLayoutProps {
   /** Whether the tab has more than one pane, which is when saying so is worth it. */
   divided: boolean;
   /**
-   * The pane drawn on its own, or null while the whole tab is drawn.
-   *
-   * The rest are hidden rather than taken down, so a zoom costs nothing: the
-   * editors keep their cursors and their unwritten text, a terminal keeps its
-   * socket, and a video keeps playing where it was.
+   * The pane drawn on its own, or null while the whole tab is drawn. The rest stay
+   * mounted and hidden, so a zoom keeps every cursor, unwritten text and video position.
    */
   zoomed?: string | null;
   /**
@@ -54,23 +51,8 @@ const SLIDE = 36;
 const REDUCED = "(prefers-reduced-motion: reduce)";
 
 /**
- * One tab's panes, drawn flat from the tree that arranges them.
- *
- * Every pane is a direct child of one container, keyed by its id, in a box worked
- * out from the tree: each split gives its children equal shares of its own box
- * along its direction, which is what flex gave, three panes in a row being thirds
- * rather than a half and two quarters. Nothing here measures anything.
- *
- * The tree is never drawn, so it can change around a pane without remounting it
- * (#935). React keeps an editor only while its element and key stay the same, and
- * a nested split is a container that would be taken down and built again when a
- * pane moved into it. A split, a fold or a swap moves a pane's box and leaves its
- * node where it is.
- *
- * The rules between panes are the container's own background showing through a
- * two pixel gap, so dividing the window costs no elements to draw lines with.
- * The rules are neutral, so the accent is left for the focus: a shown pane
- * names itself in a header row and marks the focused one with a line at its top.
+ * One tab's panes, flat in one container and keyed by id. The tree is never drawn,
+ * so a split or a move keeps each pane's node and state (#935).
  */
 export function PaneLayout({
   node,
@@ -135,12 +117,8 @@ export function PaneLayout({
 }
 
 /**
- * Give every pane under this node its box, each split dividing its own box among
- * its children along its direction. The list comes out in `panesOf` order.
- *
- * On a narrow window every split is stacked whatever its stored direction, a
- * side-by-side pair being strips nobody can read. The tree keeps its direction,
- * so the pair is side by side again when the window widens.
+ * Give every pane under this node its box. On a narrow window every split stacks,
+ * and the stored direction returns when the window widens.
  */
 function place(node: PaneNode, box: Box, dir: Split["dir"], narrow: boolean, out: Placed[]) {
   if (!isSplit(node)) {
@@ -262,11 +240,8 @@ function PaneLeaf({
 }
 
 /**
- * A pane made after the layout first drew slides in from its side and fades in as it comes.
- *
- * Once, on mount, and only for a pane `PaneLayout` calls fresh: a pane that is
- * merely moved or redrawn is not new. Transform and opacity alone, so the
- * browser does the work and nothing is laid out again for each frame.
+ * Slides a fresh pane in from its side and fades it in, once, on mount. Transform
+ * and opacity only, so no frame lays anything out.
  */
 function useSlideIn(element: RefObject<HTMLDivElement | null>, fresh: boolean, enter: "x" | "y") {
   // A layout effect, so the pane is already at its start when the browser paints.
@@ -311,12 +286,8 @@ function useSlideIn(element: RefObject<HTMLDivElement | null>, fresh: boolean, e
 }
 
 /**
- * Where every pane sits on screen, read at the moment a direction key is pressed.
- *
- * Here rather than in the route because this file writes the attribute they are
- * found by, and reading rather than watching because the answer is only wanted
- * on a keystroke: a `ResizeObserver` would keep a copy of the layout up to date
- * all day for the handful of times anybody asks.
+ * Where every pane sits, read on a direction key. Read, not watched: a
+ * `ResizeObserver` would keep the layout current all day for a few key presses.
  */
 export function paneRects(): PaneRect[] {
   return [...document.querySelectorAll<HTMLElement>("[data-pane]")].map((element) => {

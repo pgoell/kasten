@@ -27,17 +27,8 @@ export type PromptMode = "create" | "rename" | "folder";
 
 /**
  * The note the editor should show once the prompt lands, or undefined to stay.
- *
- * A create always opens what it made: there was nothing to leave. A rename only
- * follows the note that was open, and then it must, because `?note=` would
- * otherwise point at a path the vault no longer has. Renaming any other note,
- * which is what the file tree does with its cursor on a row you are not
- * editing, leaves the editor where it is.
- *
- * A folder move follows the same rule read one level up. The open note has a
- * new path if it sat inside the folder, and that path is the folder's new one
- * with the rest of the old path on the end. Nothing else about the note
- * changed, so this is worked out here rather than asked of the vault.
+ * A rename or folder move follows only the open note: `?note=` would
+ * otherwise name a path the vault no longer has.
  */
 export function noteAfterPrompt(
   mode: PromptMode,
@@ -105,20 +96,14 @@ function hint(
   switch (verdict.kind) {
     case "blocked":
       return verdict.reason;
-    // The one verdict the modes read differently. A create opens the note that
-    // is there; a move onto one would overwrite it, and the vault refuses that,
-    // so the prompt says so before the request rather than after. The path it
-    // started on is not a collision, and Enter closes on it.
+    // The one verdict the modes read differently: a move onto a note would overwrite it.
     case "open":
       if (mode === "create") return "already exists, Enter opens it";
       if (verdict.path === startPath) return "";
       return mode === "folder" ? "a folder is already there" : "a note is already there";
     case "create":
-      // How far a folder move reaches is the thing the input does not spell
-      // out, and the one worth knowing before Enter.
       if (mode === "folder") return `moves ${moves} note${moves === 1 ? "" : "s"}`;
-      // A folder the vault does not have yet is the same kind of surprise for a
-      // note: the one thing the write does beyond what was typed.
+      // A new folder is the one thing the write does beyond what was typed.
       return verdict.newFolder ? `creates folder ${verdict.newFolder}` : "";
     case "empty":
       return "";
@@ -128,23 +113,17 @@ function hint(
 /** Where the name sits inside a path, so a rename opens with it selected. */
 function nameRange(path: string, mode: PromptMode): [number, number] {
   const start = path.lastIndexOf("/") + 1;
-  // A folder has a name and not a name and a suffix, so the whole segment is
-  // selected. `2026.05` is one folder name, not `2026` with something after it.
+  // `2026.05` is one folder name, so a folder's whole segment is selected.
   if (mode === "folder") return [start, path.length];
 
   const dot = path.lastIndexOf(".");
-  // The folder and the suffix are what a rename usually keeps, so neither is
-  // selected. A name with no suffix is selected to its end.
+  // The folder and the suffix are what a rename keeps, so only the name is selected.
   return [start, dot > start ? dot : path.length];
 }
 
 /**
- * Type where the note goes, and Enter puts it there.
- *
- * The list underneath ranks the vault's folders against what has been typed,
- * and the line under that says what Enter will do, which is the same verdict
- * Enter obeys. Notes are not ranked: the tree is how you open one, and the
- * prompt has the one job.
+ * Type where the note goes, and Enter puts it there. Only folders are ranked,
+ * since the tree is how you open a note.
  */
 export function NotePrompt({ mode, paths, startPath, openNote, onOpen, onClose }: NotePromptProps) {
   const [input, setInput] = useState(startPath);
@@ -161,17 +140,10 @@ export function NotePrompt({ mode, paths, startPath, openNote, onOpen, onClose }
   const queryClient = useQueryClient();
 
   const typed = input.trim();
-  // Two memos rather than one, because the folder set follows the vault and not
-  // the query. Keyed on `paths` alone it survives every keystroke, which takes
-  // walking 10,000 paths for 842 folders off the typing path entirely. That
-  // asks one thing of the caller: hand over the same array each render. The
-  // route passes what the query cache holds, and a listing filtered or sorted
-  // at the call site would be a new array every time and undo all of this.
+  // Keyed on `paths` alone, so typing does not rebuild the folder set. The caller
+  // must pass the same array each render, or this undoes it.
   const prefixes = useMemo(() => folderCandidates(paths), [paths]);
-  // A folder cannot go inside itself, so neither it nor anything under it is a
-  // place this move can land, and completing to one would only be a way to type
-  // a refusal faster. Off the keystroke path with the derivation above, because
-  // the mode and the folder both hold still while the prompt is open.
+  // A folder cannot move into itself, so its subtree is no place to land.
   const candidates = useMemo(
     () =>
       mode === "folder"
@@ -179,16 +151,11 @@ export function NotePrompt({ mode, paths, startPath, openNote, onOpen, onClose }
         : prefixes,
     [prefixes, mode, startPath],
   );
-  // Ranked over every folder and cut afterwards, so the rows on screen are the
-  // best of the vault rather than the first slice of it. An empty query matches
-  // everything, so without the cut a keystroke reconciles one button per folder
-  // in the vault, which is most of what it costs.
+  // Cut after ranking, so the rows are the vault's best, not its first slice.
   const folders = useMemo(
     () => rankCandidates(candidates, typed).slice(0, VISIBLE_FOLDERS),
     [candidates, typed],
   );
-  // How far a folder move reaches, for the hint. Same shape as the filter
-  // above, and the same reason it costs nothing per keystroke.
   const moves = useMemo(
     () => (mode === "folder" ? paths.filter((p) => p.startsWith(`${startPath}/`)).length : 0),
     [paths, mode, startPath],
@@ -201,18 +168,8 @@ export function NotePrompt({ mode, paths, startPath, openNote, onOpen, onClose }
   // Typing cannot: it puts the highlight back on the first row.
   const cursor = Math.min(active, Math.max(folders.length - 1, 0));
 
-  // The input takes the focus so the keys reach it rather than whatever was
-  // focused when it opened, and hands it back on the way out. Restoring what
-  // held it beats naming the editor: the same prompt opens from the file tree,
-  // and closing there belongs back in the tree.
-  //
-  // Opening a note is the exception. The editor that mounts behind the prompt
-  // takes the focus only when nobody holds it, so handing it back there leaves
-  // a new note you have to click before you can write in it.
-  //
-  // A rename opens on the whole path and selects the name inside it, so the
-  // common edit is one word of typing and the folder is still there to change.
-  // A create has no name to select and leaves the caret where it lands.
+  // The input takes the focus and hands it back on the way out, to whoever held it.
+  // Not when a note opens: the editor behind takes focus only when nobody holds it.
   useEffect(() => {
     const opener = document.activeElement;
     field.current?.focus();
@@ -227,9 +184,7 @@ export function NotePrompt({ mode, paths, startPath, openNote, onOpen, onClose }
 
   function accept() {
     if (verdict.kind === "open") {
-      // A create opens the note that is already there. Neither rename can land
-      // on something taken, and the path it started on is nothing to do, so
-      // Enter just closes.
+      // A rename onto a taken path does nothing; onto its own path, it closes.
       if (mode !== "create") {
         if (verdict.path === startPath) onClose();
         return;
@@ -240,15 +195,12 @@ export function NotePrompt({ mode, paths, startPath, openNote, onOpen, onClose }
     }
     // `empty` and `blocked` name nothing, and the hint line already says so.
     if (verdict.kind !== "create") return;
-    // Enter repeats while it is held, and each repeat would be another request.
-    // The vault refuses the duplicates, but only the first answer opens a note.
+    // A held Enter repeats, and each repeat would be another request.
     if (sending.current) return;
     sending.current = true;
     const target = verdict.path;
 
-    // The prompt stays open with the typed path still in it, so a write that
-    // bounced off a stale listing or a dead network costs no typing, and the
-    // guard lifts so the next Enter tries again.
+    // A refused write keeps the typed path, and the guard lifts so Enter retries.
     function refused() {
       sending.current = false;
       setFailed(true);
@@ -256,9 +208,7 @@ export function NotePrompt({ mode, paths, startPath, openNote, onOpen, onClose }
 
     /** The tail all three writes share, once the cache holds what the vault does. */
     function landed(path: string) {
-      // Only where the editor is about to take the focus itself. A folder
-      // renamed from the tree with nothing of it open leaves the focus in the
-      // tree, which is where the next key belongs.
+      // Only where the editor takes focus itself, so a tree rename keeps it in the tree.
       opening.current = noteAfterPrompt(mode, startPath, path, openNote) !== undefined;
       queryClient.invalidateQueries({ queryKey: ["files"] });
       onOpen(path);
@@ -266,9 +216,7 @@ export function NotePrompt({ mode, paths, startPath, openNote, onOpen, onClose }
 
     if (mode === "create") {
       void createNote(target).then((note) => {
-        // The vault's spelling of the path, not the typed one, from here on.
-        // The text comes from the answer rather than from the cache, so a
-        // create saves the editor a read of a file it already knows.
+        // The vault's spelling of the path, and its text, which saves the editor a read.
         queryClient.setQueryData(["note", note.path], note.content);
         landed(note.path);
       }, refused);
@@ -280,14 +228,10 @@ export function NotePrompt({ mode, paths, startPath, openNote, onOpen, onClose }
 
   /** Fold a folder into the input, which is what Tab and a click on a row do. */
   function pick(folder: string) {
-    // The whole input was the query the folder was ranked against, so the
-    // folder stands in for all of it. Its trailing slash leaves the caret where
-    // the note name goes.
+    // The folder stands in for the whole query. Its slash leaves the caret where the name goes.
     setInput(folder);
     setActive(0);
     setFailed(false);
-    // A click leaves the focus on the row it landed on, and the name is typed
-    // next.
     field.current?.focus();
   }
 
@@ -297,11 +241,9 @@ export function NotePrompt({ mode, paths, startPath, openNote, onOpen, onClose }
 
     if (down || up) {
       if (folders.length === 0) return;
-      // Without this the arrows take the caret to one end of the input, which
-      // is where the browser sends them when nothing else does.
+      // Without this the arrows move the caret to one end of the input.
       event.preventDefault();
-      // The failure named the path that was tried, and the highlight moving is
-      // the start of naming another one.
+      // Moving the highlight starts naming another path, so the failure clears.
       setFailed(false);
       setActive(down ? Math.min(cursor + 1, folders.length - 1) : Math.max(cursor - 1, 0));
       return;
@@ -309,8 +251,7 @@ export function NotePrompt({ mode, paths, startPath, openNote, onOpen, onClose }
 
     switch (event.key) {
       case "Tab": {
-        // Before the empty list bows out: the browser's own tab would take the
-        // focus off the dialog, and every key that closes it goes with it.
+        // Prevented even with no folder, or the browser's Tab would leave the dialog.
         event.preventDefault();
         const folder = folders[cursor];
         if (folder) pick(folder);
@@ -325,15 +266,12 @@ export function NotePrompt({ mode, paths, startPath, openNote, onOpen, onClose }
         onClose();
         break;
       default:
-        // Everything else is typing, and belongs to the input.
         return;
     }
   }
 
   return (
-    // The dialog reads the keys, not the input, so they still land once a click
-    // has moved the focus to a row or to the backdrop. Its own tabIndex is what
-    // lets it hold the focus in that case.
+    // Keys land on the dialog, not the input, so a click elsewhere cannot lose them.
     <div
       role="dialog"
       aria-modal="true"
@@ -368,8 +306,7 @@ export function NotePrompt({ mode, paths, startPath, openNote, onOpen, onClose }
         </div>
 
         {folders.length > 0 && (
-          // A div rather than a list, because a listbox is not a list of items
-          // to a screen reader and marking it as both says it twice.
+          // A div, not a list: a listbox read as a list says it twice.
           <div id={listId} role="listbox" aria-label="Folders" className="overflow-auto py-1">
             {folders.map((folder, index) => (
               <button
@@ -378,9 +315,7 @@ export function NotePrompt({ mode, paths, startPath, openNote, onOpen, onClose }
                 type="button"
                 role="option"
                 aria-selected={index === cursor}
-                // Out of the tab order, because the focus stays in the input
-                // and the highlight is how the list says where Tab would go. A
-                // click still lands here, and takes the folder Tab would take.
+                // Out of the tab order: focus stays in the input, and a click takes the folder Tab would.
                 tabIndex={-1}
                 onClick={() => pick(folder)}
                 className={`${ROW} ${TAP} ${
@@ -393,8 +328,7 @@ export function NotePrompt({ mode, paths, startPath, openNote, onOpen, onClose }
           </div>
         )}
 
-        {/* An <output> rather than a <p role="status">: same announcement, and
-            the element carries it without the attribute. */}
+        {/* An <output>, not a <p role="status">: the element announces without the attribute. */}
         <output className={STATUS}>
           {failed ? REFUSED[mode] : hint(verdict, mode, startPath, moves)}
         </output>

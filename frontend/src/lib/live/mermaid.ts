@@ -1,10 +1,6 @@
 /**
  * ```` ```mermaid ```` blocks, drawn as diagrams.
- *
- * The widget that holds a diagram is in `live-preview-fences.ts`; this is what draws
- * it. Agents write these into notes, so a diagram is text kasten did not write:
- * mermaid runs at its strict level, which drops `click` handlers and passes
- * every label through DOMPurify.
+ * Agents write these, so mermaid runs at its strict level, which drops `click` handlers and passes labels through DOMPurify.
  */
 
 import type { Mermaid } from "mermaid";
@@ -25,10 +21,8 @@ const loadMermaid = loadOnce(async (): Promise<Mermaid> => {
 });
 
 /**
- * Mermaid's config is one global, so each draw sets its theme and renders
- * before the next draw starts. Two draws of one source in two themes at once
- * then each get their own theme (#835). A draw that throws still ends its
- * turn, so the chain never stops.
+ * Mermaid's config is one global, so each draw sets its theme and renders alone.
+ * Draws queue, so two themes of one source keep their own (#835), and a throw never stops the queue.
  */
 let turn: Promise<unknown> = Promise.resolve();
 function inTurn<T>(work: () => Promise<T>): Promise<T> {
@@ -47,11 +41,7 @@ type Entry = { drawing: Promise<Drawing>; done?: Drawing };
 
 /**
  * The sources drawn lately, per theme, least recently used first.
- *
- * Keyed by the theme and the text, so a block scrolled back into view or a note
- * opened again shows its diagram at once, and an undo brings back the drawing
- * it undid. A switch of theme draws the diagram again in the new theme. A
- * diagram on screen is held (`holdMermaid`) and never evicted.
+ * A diagram on screen is held (`holdMermaid`) and never evicted.
  */
 const cache = new Map<string, Entry>();
 /** How many widgets hold each key on screen. */

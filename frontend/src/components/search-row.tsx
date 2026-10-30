@@ -19,9 +19,7 @@ export function SearchRow({
   onOpen(): void;
   onLink(): void;
 }) {
-  // Null on every mode but todos, and on a todo line the filter above cannot
-  // hand back, which is why the row still draws the line it was given rather
-  // than nothing at all.
+  // Null off todos mode, and on a line the filter cannot parse, which then draws its raw text.
   const todo = todos ? parseTodo(hit.text) : null;
   const option = (
     <button
@@ -29,43 +27,34 @@ export function SearchRow({
       type="button"
       role="option"
       aria-selected={selected}
-      // Out of the tab order: the focus stays in the input, and the highlight
-      // is how the list says what Enter would open.
+      // Out of the tab order: focus stays in the input, and the highlight says what Enter opens.
       tabIndex={-1}
       onClick={onOpen}
-      // `min-w-0` lets the row shrink below its path beside a mention's
-      // `link` button, which a long path would otherwise push off a phone.
+      // `min-w-0` lets the path shrink beside the link button, or a long path pushes it off a phone.
       className={`${ROW} ${TAP} flex min-w-0 gap-3 ${selected ? "bg-k-surface" : ""}`}
     >
       <span
-        // Capped below `md`, where a long path alone is wider than the list
-        // and would push the line it found off the side.
+        // Capped below `md`, where a long path alone is wider than the list.
         className={`shrink-0 truncate max-md:max-w-[45%] ${selected ? "text-k-accent" : "text-k-muted"}`}
       >
         {hit.path}:{hit.line}
       </span>
-      {/* The line itself never wraps: one row per hit is what makes the list
-          countable at a glance. */}
       <span className="min-w-0 flex-1 truncate text-k-ink">
         {todo === null ? hit.text : `${STATE_SYMBOL[todo.state]} ${todo.text}`}
       </span>
-      {/* Out of the truncation, so a long todo loses its words rather than
-          the date they are due on. */}
+      {/* Outside the truncation, so a long todo loses words, not its due date. */}
       {todo?.due !== undefined && <span className="shrink-0 text-k-muted">📅 {todo.due}</span>}
     </button>
   );
   if (!isMention(hit)) return option;
-  // Beside the row and not inside it: a button in a button is no markup a
-  // browser keeps, and a click inside would reach the row and open the note
-  // too.
+  // Beside the row, not inside it: a click inside a button would reach the row too.
   return (
     <div className="flex">
       {option}
       <button
         type="button"
         tabIndex={-1}
-        // The press would move the focus here, and the keys belong to the
-        // input: Tab and Ctrl+Enter have to go on working after a tap.
+        // The press would move focus here, and the keys belong to the input.
         onMouseDown={(event) => event.preventDefault()}
         onClick={onLink}
         className={`${TAP} flex shrink-0 cursor-pointer px-3 text-[11px] text-k-accent hover:bg-k-surface`}

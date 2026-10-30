@@ -3,11 +3,8 @@ import type { EditorState, Extension } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 
 /**
- * The set @codemirror/autocomplete closes by default, with the backtick added.
- *
- * Markdown ships no `closeBrackets` data of its own, so the default set is what
- * the editor was using, and a backtick was not in it. Repeated here rather than
- * imported because the package does not export it.
+ * Markdown ships no closeBrackets data, so this backtick is added to the default set.
+ * Copied here because the package does not export it.
  */
 const BRACKETS = ["(", "[", "{", "'", '"', "`"];
 
@@ -22,16 +19,8 @@ export interface Fence {
 }
 
 /**
- * The fence a third backtick should open, or null when it is not one.
- *
- * `closeBrackets` answers the first backtick with a pair and skips over the
- * second, which leaves the third opening a pair of its own and four backticks
- * sitting on the line. Three backticks means a fenced block, so that keystroke
- * is claimed here and the block written instead.
- *
- * The line has to hold the pair and nothing else, with the cursor at the end of
- * it. That is narrow on purpose: it is the one arrangement the two earlier
- * keystrokes produce, and it cannot be reached by a backtick typed mid-sentence.
+ * The fence a third backtick opens, or null. closeBrackets would otherwise leave four
+ * backticks on the line. Only the bare pair at the end of a line is claimed.
  */
 export function fenceAt(state: EditorState, pos: number): Fence | null {
   const line = state.doc.lineAt(pos);
@@ -45,12 +34,7 @@ export function fenceAt(state: EditorState, pos: number): Fence | null {
   };
 }
 
-/**
- * Backticks that close themselves, singly and in threes.
- *
- * Must be installed ahead of `basicSetup`, whose `closeBrackets` would
- * otherwise answer the third backtick first.
- */
+/** Installed ahead of `basicSetup`, whose `closeBrackets` would answer the third backtick first. */
 export function backticks(): Extension {
   return [
     markdownLanguage.data.of({ closeBrackets: { brackets: BRACKETS } }),

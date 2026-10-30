@@ -40,17 +40,8 @@ const HEADING = `${LABEL} px-3 pt-2 pb-1`;
 const CARD_ROW = `${ROW} flex items-center gap-3 hover:bg-k-surface pointer-coarse:min-h-11`;
 
 /**
- * What the vault knows about one person, gathered onto a card.
- *
- * Two questions of the vault and no new endpoint: every open todo, which the
- * todo pane asks for anyway, and every line carrying the person's name, which
- * is what the backlinks panel asks for. Both share their query key with the
- * panel that asked first, so opening a card next to the todo pane costs one
- * scan rather than two, and `lib/person.ts` does the reading.
- *
- * Drawn in two places, the pane behind `<leader>gp` and the foot of the person's
- * own note, which is why it takes the paths and the archive rather than reading
- * them from somewhere: neither is a thing a card should know how to find.
+ * What the vault knows about one person, gathered onto a card. The queries share keys
+ * with the todo pane and backlinks panel, so a card beside them costs no extra scan.
  */
 export function PersonCard({ person, paths, archive = false, onOpen }: PersonCardProps) {
   const name = noteName(person);
@@ -185,13 +176,8 @@ interface PersonFooterProps {
 }
 
 /**
- * The card under the note it is about, and nothing at all under any other note.
- *
- * It asks for the note itself rather than being told what kind of note it is,
- * because the answer is in the frontmatter and the editor above has already
- * fetched it: this reads the same cache entry and costs no request. Which is
- * also why the type can change under it. Write `type: Person` into a note and
- * the card appears when the autosave lands, with nothing to press.
+ * The card under a `type: Person` note, and nothing under any other. It reads the
+ * editor's cached note, so it costs no request, and the card appears on the next autosave.
  */
 export function PersonFooter({ path, paths, archive, onOpen }: PersonFooterProps) {
   const note = useQuery({ queryKey: ["note", path], queryFn: () => fetchNote(path), retry: false });

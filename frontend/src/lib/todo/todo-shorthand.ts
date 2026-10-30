@@ -1,14 +1,6 @@
 /**
- * One small language, read twice.
- *
- * The pane's filter line and the add prompt take the same words, so `#kasten`
- * means the same thing wherever it is typed. As a filter the words pick todos
- * out of a list; as instructions they build one. A word that is not a term is
- * neither, so it stays in the text, which is what makes a mistyped date visible
- * rather than lost.
- *
- * Today is passed in as `YYYY-MM-DD` rather than read from a clock here, so
- * every function below is a function over strings.
+ * One small language, read twice: the filter line picks todos, the add prompt builds one.
+ * A word that is not a term stays in the text, so a typo shows.
  */
 
 import { shiftDay } from "@/lib/clock";
@@ -148,10 +140,8 @@ export function matchesFilter(todo: Todo, filter: Filter, today: string): boolea
 }
 
 /**
- * What was written after `due:`, as a date, or nothing where it is not one.
- *
- * Exported because `todo-suggest.ts` offers the same words the other way round:
- * this reads `tomorrow` as a date, and that offers `tomorrow` as one.
+ * What was written after `due:`, as a date, or nothing where it is not one. Exported for
+ * `todo-suggest.ts`, which offers the same words the other way round.
  */
 export function readDate(value: string, today: string): string | undefined {
   if (value === "today") return today;
@@ -171,10 +161,8 @@ export function readDate(value: string, today: string): string | undefined {
 }
 
 /**
- * The date itself, or nothing where the calendar has no such day.
- *
- * Read back rather than only tested for NaN: `2026-02-30` parses, silently, as
- * the second of March, and a date nobody typed is worse on disk than no date.
+ * The date itself, or nothing where the calendar has no such day. Read back, not only
+ * tested for NaN: `2026-02-30` parses silently as 2 March, which is worse on disk than no date.
  */
 function real(day: string): string | undefined {
   const at = new Date(`${day}T00:00:00Z`);
@@ -193,15 +181,8 @@ const DATE_TERMS: Record<string, "due" | "scheduled" | "start"> = {
 const COUNT = /^(\d+)(?=[a-z])/;
 
 /**
- * `week`, `3months` or `month-on-the-15th` as the rule a `🔁` carries, or
- * nothing where it is not one.
- *
- * A word cannot hold the spaces obsidian-tasks writes the rule with, so a
- * hyphen stands for each, and the number may be written against its unit. Read
- * through the parser that will act on it and written back in its spelling, so
- * `every:week-on-mon,thu` lands as `every week on Monday, Thursday` and a rule
- * nothing can count from stays in the words rather than sitting on the line
- * saying nothing.
+ * A word as a `🔁` rule, such as `week` or `month-on-the-15th`, or nothing. Hyphens stand
+ * for spaces, since a word cannot hold them. A rule nothing can count from stays as text.
  */
 export function readEvery(value: string): string | undefined {
   // A hyphen with nothing after it is a rule still being typed, and the parser
@@ -213,17 +194,8 @@ export function readEvery(value: string): string | undefined {
 }
 
 /**
- * The same terms read as instructions: `due:08-14` sets a date rather than
- * picking one.
- *
- * State terms are not instructions here, a fresh todo being open by definition,
- * so `/doing` stays in the words where it was typed. So does anything after
- * `due:` that is not a date, for the reason `todo.ts` keeps a marker it cannot
- * read: a mistyped field the reader can see is one they can fix.
- *
- * `sched:`, `start:`, `est:` and `every:` are instructions and nothing else:
- * there is nothing useful to filter on in any of them, so `parseFilter` leaves
- * all four in the words it ranks.
+ * The same terms as instructions: `due:08-14` sets a date rather than picking one. State
+ * terms stay in the words, a new todo being open already, and so does a `due:` that is no date.
  */
 export function expandShorthand(input: string, today: string): Todo {
   let priority: TodoPriority | undefined;

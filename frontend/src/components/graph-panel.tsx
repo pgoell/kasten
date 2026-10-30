@@ -46,13 +46,8 @@ function folderOf(path: string): string {
 }
 
 /**
- * The side panel of the vault graph: what is drawn, how to read it, the grouping
- * toggle, the tags, and the note the pointer or a finger is on.
- *
- * It sits beside the canvas from 640 px, and under it below that, where its
- * container query takes the full width, and on a touch screen its whole height
- * with the pane scrolling as one: a capped panel would cut its rows off where a
- * finger has to reach them. A mouse pane keeps the 45 % cap.
+ * Sits beside the canvas from 640 px and under it below. On a touch screen it takes
+ * its whole height, since a capped panel would cut off rows a finger has to reach.
  */
 export function GraphPanel({
   notes,

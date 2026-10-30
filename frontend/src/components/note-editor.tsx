@@ -76,16 +76,8 @@ interface NoteEditorProps {
 const MESSAGE = "flex h-full items-center justify-center px-4 text-sm text-k-muted";
 
 /**
- * One note from the vault, open in the editor.
- *
- * The `key` is what makes opening a second note replace the first one's text.
- * The editor reads its document once, on mount, and a note that is already in
- * the cache arrives with no loading gap to remount across.
- *
- * Memoised because the save status lives above this component and the first
- * keystroke of an edit moves it, which re-rendered this whole subtree for a
- * reading only the status bar shows. None of these props change while a note
- * is typed into, so the memo turns that into nothing at all.
+ * One note from the vault. The editor reads its document once, on mount, so the
+ * `key` is what swaps notes. Memoised so the save status above does not re-render it.
  */
 export const NoteEditor = memo(function NoteEditor({
   path,

@@ -20,11 +20,7 @@ interface ReviewPaneProps {
 }
 
 /**
- * Which of the three screens is showing.
- *
- * One nullable deck used to answer this, and a third screen reached with a null
- * deck would silently inherit the overview's keys. Naming the screen is what
- * stops `j` walking the decks behind a list that is not the decks.
+ * Which of the three screens is showing. Naming it stops `j` walking the decks behind a list that is not the decks.
  */
 type Screen = { at: "decks" } | { at: "sitting"; deck: Deck } | { at: "parked" };
 
@@ -32,22 +28,9 @@ type Screen = { at: "decks" } | { at: "sitting"; deck: Deck } | { at: "parked" }
 const KEYED: Record<string, Rating> = { "1": "again", "2": "hard", "3": "good", "4": "easy" };
 
 /**
- * The review at a desk, with the keys a keyboard expects.
- *
- * Every rule about cards, scheduling and writing lives in `ReviewSession`, and
- * this adds keys over the callbacks that component already exposes. That is the
- * whole of the pane: the phone route renders the same two components with no
- * keys at all, so a rule cannot be true at a desk and false on a phone.
- *
- * On the overview `j` and `k` walk the decks, `l` starts the sitting and `p`
- * opens the parked list, where `j` and `k` walk the rows instead. `h` goes back
- * to the decks from either of the other two screens. None of these is needed on
- * the phone, where a thumb taps the row and the `← Decks` button.
- *
- * `q` closes and `Escape` is deliberately not bound, which is the one place
- * this diverges from the other panes. The keys here are an accelerator over
- * buttons that are always there, and a binding that only works on hardware the
- * phone lacks is a binding the phone must never need.
+ * The review at a desk, with the keys a keyboard expects. Every rule lives in `ReviewSession`;
+ * this only adds keys over its callbacks, so a rule cannot be true at a desk and false on a phone.
+ * `q` closes, and `Escape` is deliberately not bound: the keys are an accelerator over buttons that are always there.
  */
 export function ReviewPane({ commands, onClose, onOpen, focusSignal }: ReviewPaneProps) {
   const [screen, setScreen] = useState<Screen>({ at: "decks" });
@@ -64,23 +47,19 @@ export function ReviewPane({ commands, onClose, onOpen, focusSignal }: ReviewPan
     undo: () => void;
   } | null>(null);
   const panel = useRef<HTMLElement>(null);
-  // A ref and not the leader's `pending`: `za` handed to `leaderAction` would
-  // run whatever `<leader>a` is.
+  // A ref, not the leader's `pending`: `za` handed to `leaderAction` would run whatever `<leader>a` is.
   const zee = useRef(false);
 
   const onControls = useCallback((given: typeof controls.current) => {
     controls.current = given;
   }, []);
 
-  // A freshly split pane is created focused and its first render is the only
-  // chance it gets to say so. An unfocused pane is handed 0 and stays put.
+  // A new pane is created focused, and its first render is the only chance to say so.
   useEffect(() => {
     if (focusSignal) panel.current?.focus();
   }, [focusSignal]);
 
-  // A clicked deck row or Start button goes with the screen it was on, taking
-  // the focus to the body, and no key would reach the pane until a second click
-  // on the card. `l` puts it back itself; this covers the mouse.
+  // A clicked row takes the focus to the body, and no key reaches the pane until a second click.
   // biome-ignore lint/correctness/useExhaustiveDependencies: runs on each new screen
   useEffect(() => {
     if (document.activeElement === document.body) panel.current?.focus();
@@ -89,18 +68,15 @@ export function ReviewPane({ commands, onClose, onOpen, focusSignal }: ReviewPan
   function onKeyDown(event: React.KeyboardEvent) {
     const { key } = event;
 
-    // A modifier holds itself down before the key it is held for arrives, and
-    // a pending sequence that read it as a key would drop the sequence there.
+    // A held modifier would drop a pending sequence, so it is ignored.
     if (heldModifier(key)) return;
 
-    // The leader still works inside the pane, the way it does inside the exam,
-    // so the other panes stay reachable mid-session.
+    // The leader still works inside the pane, so the other panes stay reachable.
     if (pending) {
       const sequence = pending + key;
       const wanted = sequence.slice(1);
       const run = leaderAction(wanted, commands);
-      // A leader key can be more than one letter, so a sequence that still
-      // prefixes one waits for the rest instead of being dropped.
+      // A leader key can be more than one letter, so a prefix waits for the rest.
       setPending(!run && leaderPrefix(wanted) ? sequence : "");
 
       if (run) {
@@ -112,23 +88,17 @@ export function ReviewPane({ commands, onClose, onOpen, focusSignal }: ReviewPan
 
     if (event.ctrlKey || event.altKey || event.metaKey) return;
 
-    // A field has the keyboard, so the pane stands down: `1` is a digit in a
-    // question and `space` is a space in one, not a rating and not the reveal.
-    // The leader above still runs, which is the one thing that has to.
+    // A field has the keyboard, so the pane stands down. The leader still runs.
     const target = event.target as HTMLElement;
     if (target.tagName === "INPUT" || target.tagName === "TEXTAREA") return;
 
-    // A held key repeats, and each repeat would answer the card again. The first
-    // press did the work, so the repeats of the answering keys do nothing. This
-    // comes before anything else the pane does with a key, so a repeat is
-    // consumed here whatever the focus is on.
+    // A held key repeats, and a repeat must not answer the card again.
     if (event.repeat && (key === " " || key === "Enter" || KEYED[key] !== undefined)) {
       event.preventDefault();
       return;
     }
 
-    // `za` folds, the way it folds in vim. A `z` followed by anything else is
-    // dropped and the key after it runs as itself, so a stray `z` costs no `j`.
+    // `za` folds, the way vim does. Any other key after a `z` runs as itself.
     if (zee.current) {
       zee.current = false;
       if (screen.at === "decks" && key === "a") {
@@ -143,17 +113,14 @@ export function ReviewPane({ commands, onClose, onOpen, focusSignal }: ReviewPan
       return;
     }
 
-    // The overview is showing. The browser moves the focus between buttons on
-    // Tab and nothing else, so `j` and `k` do it here, and `l` presses the one
-    // focused the way Enter on a focused button already does.
+    // On the overview `j` and `k` move the focus, since the browser moves it on Tab only.
     if (screen.at === "decks" && (key === "j" || key === "k" || key === "l")) {
       walk(panel.current, deckStops(panel.current), key);
       event.preventDefault();
       return;
     }
 
-    // The same walk over a different selector. `data-parked` and not
-    // `data-deck`, so neither screen's keys can reach the other's rows.
+    // `data-parked`, not `data-deck`, so neither screen's keys reach the other's rows.
     if (screen.at === "parked" && (key === "j" || key === "k")) {
       walk(
         panel.current,
@@ -164,17 +131,14 @@ export function ReviewPane({ commands, onClose, onOpen, focusSignal }: ReviewPan
       return;
     }
 
-    // The focused row's own controls, pressed rather than reimplemented, the
-    // way `l` presses the focused deck. `u` reaches the put-back button beside
-    // the row, which an unanswered row does not draw.
+    // Presses the focused row's own controls, so `u` reaches the put-back button.
     if (screen.at === "parked" && (key === "u" || key === "o")) {
       const row = document.activeElement as HTMLButtonElement | null;
       if (row?.dataset.parked !== undefined) {
         if (key === "o") row.click();
         else {
           row.closest("li")?.querySelector<HTMLButtonElement>("button[data-unpark]")?.click();
-          // The row goes with the card, taking the focus to the body with it,
-          // and every key after this one would reach nothing.
+          // The row goes with the card, so the keys after this one would reach nothing.
           panel.current?.focus();
         }
       }
@@ -188,18 +152,14 @@ export function ReviewPane({ commands, onClose, onOpen, focusSignal }: ReviewPan
       return;
     }
 
-    // Back to the decks, which is the `← Decks` button, the way out of one deck
-    // into another and the way off the parked list. `q` closes the pane from
-    // any screen, so leaving a sitting and leaving the review are two keys.
+    // `←Decks` is the way out of one deck into another and off the parked list. `q` closes the pane.
     if (screen.at !== "decks" && key === "h") {
       setScreen({ at: "decks" });
       event.preventDefault();
       return;
     }
 
-    // Enter on a focused row presses it, as `l` and `o` do. Left to the Enter
-    // below, the key is stopped there and the browser's click on the row is
-    // cancelled with it.
+    // Enter on a focused row presses it. Left to the Enter below, the browser's click is cancelled.
     const focused = document.activeElement as HTMLButtonElement | null;
     if (key === "Enter" && screen.at === "decks" && focused?.dataset.deck !== undefined) {
       walk(panel.current, deckStops(panel.current), "l");
@@ -212,8 +172,7 @@ export function ReviewPane({ commands, onClose, onOpen, focusSignal }: ReviewPan
       return;
     }
 
-    // The leader on every screen, a card on it or not, so the other panes stay
-    // one Space away mid-sitting. Enter is the review's own key.
+    // The leader works on every screen, so the other panes stay one Space away mid-sitting.
     if (key === " ") {
       if (beginLeader(paneOpener(commands))) {
         event.preventDefault();
@@ -226,20 +185,14 @@ export function ReviewPane({ commands, onClose, onOpen, focusSignal }: ReviewPan
 
     const rating = KEYED[key];
     if (rating !== undefined) controls.current?.rate(rating);
-    // Once the answer is revealed, the same key grades it Good: the default
-    // button, so a reader who knows the answer goes through the card in two
-    // presses. A whole note is shown from the start with nothing to reveal, so
-    // its Enter does nothing rather than grading a card nobody has looked at.
-    // With a button or link under the focus, its own Enter is the one that
-    // answers, so the pane grades nothing and only stops the key.
+    // Once the answer is revealed, the same key grades Good, the default button.
+    // A focused button or link takes its own Enter, so the pane grades nothing then.
     else if (key === "Enter") {
       const focused = document.activeElement;
       const onControl =
         (focused instanceof HTMLButtonElement || focused instanceof HTMLAnchorElement) &&
         panel.current?.contains(focused) === true;
-      // Try again is the one button a sitting draws with no card up, and its own
-      // Enter presses it, so the pane lets that key through for it alone. Any
-      // other focused control keeps its Enter stopped, as it always was.
+      // Try again is the one button drawn with no card up, so its Enter presses it.
       if (
         focused instanceof HTMLElement &&
         focused.dataset.reread !== undefined &&
@@ -252,8 +205,7 @@ export function ReviewPane({ commands, onClose, onOpen, focusSignal }: ReviewPan
         if (!onControl) controls.current.rate("good");
       } else if (!controls.current?.shown) controls.current?.reveal();
     }
-    // Before the reveal as well as after it, because a card you want out of the
-    // deck is one you have recognised from its question alone.
+    // Parking is allowed before the reveal too, since a card is often recognised from its question.
     else if (key === "s") controls.current?.suspend();
     else if (key === "n") controls.current?.capture();
     // The side showing, so the front before the reveal and the back after it.
@@ -270,8 +222,7 @@ export function ReviewPane({ commands, onClose, onOpen, focusSignal }: ReviewPan
     <section
       ref={panel}
       data-review-pane
-      // Focusable but out of the tab order, the way the todo pane and the exam
-      // pane take the cursor.
+      // Focusable but out of the tab order, the way the todo and exam panes take the cursor.
       tabIndex={-1}
       onKeyDown={onKeyDown}
       aria-label="review"
@@ -297,13 +248,8 @@ export function ReviewPane({ commands, onClose, onOpen, focusSignal }: ReviewPan
 }
 
 /**
- * Where `j` and `k` stop on the overview: every row that can be sat, and the
- * fold toggle of a row that cannot.
- *
- * A daily limit can leave a parent with nothing to offer above a subdeck that
- * has cards, and a walk over enabled rows alone would never reach the toggle
- * that shows that subdeck. In the order drawn, so the toggle sits where its row
- * does.
+ * Where `j` and `k` stop on the overview: every row that can be sat, and the fold toggle of a row that cannot.
+ * A daily limit can leave a parent with nothing to offer, so its toggle must stay reachable.
  */
 function deckStops(panel: HTMLElement | null): HTMLButtonElement[] {
   const buttons = panel?.querySelectorAll<HTMLButtonElement>(
@@ -318,11 +264,8 @@ function deckStops(panel: HTMLElement | null): HTMLButtonElement[] {
 }
 
 /**
- * Move the focus between rows, or press the one focused.
- *
- * Two screens draw a list of buttons and neither is in the tab order, so the
- * walk is the same and only the rows differ. Neither wraps: the first and the
- * last are where the list ends, which is what tells you so without looking.
+ * Move the focus between rows, or press the one focused. Neither list wraps:
+ * the first and last are where the list ends.
  */
 function walk(panel: HTMLElement | null, rows: HTMLButtonElement[], key: string): void {
   const at = rows.indexOf(document.activeElement as HTMLButtonElement);
@@ -330,8 +273,7 @@ function walk(panel: HTMLElement | null, rows: HTMLButtonElement[], key: string)
     rows[at]?.click();
     // A fold toggle stays where it is, and so does the cursor on it.
     if (rows[at]?.dataset.fold !== undefined) return;
-    // The row it pressed goes with the overview, taking the focus to the body
-    // with it, and no key of the sitting would reach the pane after that.
+    // The row it pressed goes with the overview, so no key of the sitting reaches the pane.
     panel?.focus();
     return;
   }
@@ -340,19 +282,14 @@ function walk(panel: HTMLElement | null, rows: HTMLButtonElement[], key: string)
 }
 
 /**
- * Fold or unfold the deck under the cursor by pressing its toggle.
- *
- * On a deck with nothing under it, the deck above is folded instead, the way
- * vim's `za` inside a fold closes the fold around it. The row the cursor was on
- * goes with that fold, so the cursor moves up to the parent's row, or to the
- * parent's toggle where a row with nothing to offer cannot take the focus.
+ * Fold or unfold the deck under the cursor by pressing its toggle. With nothing under the cursor,
+ * the deck above is folded instead, as vim's `za` does.
  */
 function fold(panel: HTMLElement | null): void {
   const focused = document.activeElement as HTMLElement | null;
   const name = focused?.dataset.deck ?? focused?.dataset.fold;
   if (panel === null || name === undefined) return;
-  // By the attribute's value rather than a selector built from it, which a
-  // deck name holding a quote would break.
+  // By the attribute's value, not a selector built from it, which a quote in the name would break.
   const find = (attribute: "deck" | "fold", wanted: string) =>
     [...panel.querySelectorAll<HTMLButtonElement>(`button[data-${attribute}]`)].find(
       (button) => button.dataset[attribute] === wanted,

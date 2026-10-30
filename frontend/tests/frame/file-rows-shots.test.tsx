@@ -14,7 +14,7 @@ import { fireEvent, waitFor } from "@testing-library/react";
 import { act, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { commands, page } from "vitest/browser";
-import { NoteFinder } from "@/components/note-finder";
+import { NoteFinder } from "@/components/finder/note-finder";
 import { NoteSearch } from "@/components/note-search";
 import type { SearchHit } from "@/lib/api";
 import { applyTheme, PALETTE_KEY, THEME_KEY, type Theme } from "@/lib/theme";
@@ -120,8 +120,14 @@ async function shoot(
       PATIENCE,
     );
     // The finder previews the second row, a pdf, so the file preview shows.
-    if (name.startsWith("finder") && !size.coarse) fireEvent.keyDown(input, { key: "ArrowDown" });
-    await new Promise((resolve) => setTimeout(resolve, 200));
+    // Search mounts no preview in this fixture, so it waits on its rows alone.
+    if (name.startsWith("finder") && !size.coarse) {
+      fireEvent.keyDown(input, { key: "ArrowDown" });
+      await waitFor(
+        () => expect(host.querySelector('[data-testid="preview"]')?.textContent).toContain("opens"),
+        PATIENCE,
+      );
+    }
     await Promise.all(document.getAnimations().map((animation) => animation.finished));
 
     const dialog = host.querySelector<HTMLElement>('[role="dialog"]') as HTMLElement;

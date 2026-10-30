@@ -18,9 +18,7 @@ import { splitTarget, wikiLinkAt } from "@/lib/wikilink";
 
 /**
  * A file a markdown link names, its path decoded and its `#` part as written.
- *
- * Passed beside the target so the route opens a page or pdf the way a
- * wikilink to it does, at the anchor or page, without parsing the name again.
+ * Passed beside the target so the route opens it at the anchor or page, without parsing the name again.
  */
 export interface FileTarget {
   path: string;
@@ -32,33 +30,24 @@ type FollowHandler = (target: string, file?: FileTarget) => void;
 type HighlightHandler = (quote: string[]) => void;
 
 /**
- * Carries the follow callback, for the reason `saveHandler` carries the other.
- *
- * A facet and not one of `editorCommands`: that table is the one a leader
- * sequence names a command in, and this command is reached by `gf` and carries
- * a note's name with it.
+ * Carries the follow callback. A facet, not an `editorCommands` entry: that table names
+ * no arguments, and `gf` carries the note's name.
  */
 export const followHandler = Facet.define<FollowHandler, FollowHandler | undefined>({
   combine: (handlers) => handlers[0],
 });
 
 /**
- * Carries the highlight callback, for the reason `saveHandler` carries the other.
- *
- * A second facet rather than a second meaning on the first: what a highlight
- * names is a passage in a book and not a note's path, so the two callbacks
- * carry different things.
+ * Carries the highlight callback. A second facet, since a highlight names a passage in a book,
+ * not a note's path.
  */
 export const highlightHandler = Facet.define<HighlightHandler, HighlightHandler | undefined>({
   combine: (handlers) => handlers[0],
 });
 
 /**
- * Follow `[[target]]`: to the route, or for `[[#heading]]` within this note.
- *
- * A heading of the note on screen is found in the text on screen. The vault
- * and the query cache hold the last save, and the line typed since moves the
- * heading the link means.
+ * Follows `[[target]]` to the route, or `[[#heading]]` within this note. The heading is found in
+ * the text on screen, since the query cache holds only the last save.
  */
 function followLink(view: EditorView, target: string) {
   const { name, heading } = splitTarget(target);
@@ -77,10 +66,8 @@ function followLink(view: EditorView, target: string) {
 }
 
 /**
- * Open the file a markdown link names, the way a wikilink to it opens.
- *
- * The address is read from the folder of this note, so a note with no path
- * (the empty pane's) and an address that climbs above the vault follow nothing.
+ * Opens the file a markdown link names, relative to this note's folder.
+ * A note with no path, or an address climbing above the vault, follows nothing.
  */
 function followFile(view: EditorView, file: FileLink): void {
   const note = view.state.facet(notePath);
@@ -90,11 +77,8 @@ function followFile(view: EditorView, file: FileLink): void {
 }
 
 /**
- * The quote of the highlight block line `at` sits in, or null outside one.
- *
- * Read from the run of lines around `at` that could belong to a block and not
- * from the whole note, which Enter off a link would otherwise copy on every
- * press (#638). A prose line reads nothing past itself.
+ * The quote of the highlight block `at` sits in, or null. Reads only the lines around `at`,
+ * since the whole note would be copied on every Enter off a link (#638).
  */
 function highlightNear(doc: Text, at: number): string[] | null {
   if (!mayBeHighlightLine(doc.line(at).text)) return null;
@@ -106,13 +90,8 @@ function highlightNear(doc: Text, at: number): string[] | null {
 }
 
 /**
- * Open what the cursor's line names, vim's own go-to-file.
- *
- * Two readers, in this order. A `[[link]]` under the cursor is a link even
- * inside a quote line, and a highlight block is the second meaning `gf` gains:
- * the block names a passage in a book, and the cursor may sit on any of its
- * lines. Neither, and this answers false the way it always did, which is what
- * keeps `<CR>` moving down.
+ * Opens what the cursor's line names, vim's go-to-file. A `[[link]]` wins, even in a quote;
+ * then a highlight block. Otherwise false, so `<CR>` still moves down.
  */
 export function follow(view: EditorView): boolean {
   const { doc, selection } = view.state;
@@ -146,11 +125,8 @@ Vim.defineAction("kastenFollowLink", (cm: { cm6: EditorView }) => follow(cm.cm6)
 Vim.mapCommand("gf", "action", "kastenFollowLink", {}, { context: "normal" });
 
 /**
- * Enter follows the link too, and moves the way vim moves off one.
- *
- * A mapping takes the key whether or not the action did anything, and vim
- * reads a bare `<CR>` as `j^`, so a line holding no link would lose the motion
- * to a key that did nothing. Handing those two keys back is what keeps it.
+ * Enter follows the link and moves the way vim does. The mapping takes the key whether or not
+ * it acted, so a line with no link hands `<CR>` back to vim's `j^`.
  */
 Vim.defineAction("kastenFollowLinkOrDown", (cm: CM5EditorInterface) => {
   if (follow(cm.cm6)) return;
@@ -160,22 +136,8 @@ Vim.defineAction("kastenFollowLinkOrDown", (cm: CM5EditorInterface) => {
 Vim.mapCommand("<CR>", "action", "kastenFollowLinkOrDown", {}, { context: "normal" });
 
 /**
- * Ctrl+click, or cmd+click, follows a link the way every browser opens one.
- *
- * The element decides, not the coordinates: the rendered link is a span of its
- * own, so a click that landed on it is a click on the link, and one that landed
- * in the space after the line is not. `posAtDOM` needs no layout for that,
- * which a test in jsdom also needs. The plain click is left alone, because
- * putting the cursor in a link is how the link gets edited.
- *
- * A markdown link to an address opens it in a new tab, so the note stays open
- * behind it.
- *
- * A double-click follows once, on its first press (#569). The second is still
- * kept from CodeMirror, which would select a word in the link and put the
- * cursor there. The browser counts any press close to the one before as its
- * second, so a press is a repeat only when the press before it followed the
- * same (#572).
+ * Ctrl+click or cmd+click follows the rendered link, as a browser does. A double-click follows
+ * on its first press (#569); a press is a repeat only when the one before followed the same link (#572).
  */
 export function followOnClick(): Extension {
   watchPresses();
@@ -220,9 +182,7 @@ function wikiLinkNode(state: EditorState, pos: number, side: -1 | 1): SyntaxNode
 
 /**
  * The rendered `[text](url)` or reference link under the pointer, if it opens in a tab.
- *
- * None in a drawn table: `posAtDOM` there answers the block's start, which is
- * another cell's link (#565), and the block opens a cell's address itself.
+ * None in a drawn table: `posAtDOM` answers the block's start there, another cell's link (#565).
  */
 function urlUnder(event: Event, view: EditorView): UrlLink | null {
   const node = linkNodeUnder(event, view);
@@ -243,11 +203,8 @@ function linkNodeUnder(event: Event, view: EditorView): SyntaxNode | null {
 }
 
 /**
- * The note the rendered link under the pointer names, or null off one.
- *
- * The nearest link span, not the target itself: inside bold or another mark
- * the text sits in a span of its own nested in the link's (#432). In a drawn
- * table the span carries its target, `posAtDOM` answering the block's start.
+ * The nearest link span under the pointer, or null. Not the target: a mark inside a link nests
+ * its own span (#432), and in a drawn table the span carries the target.
  */
 function linkUnder(event: Event, view: EditorView): string | null {
   const element =
@@ -259,9 +216,7 @@ function linkUnder(event: Event, view: EditorView): string | null {
 
 /**
  * Where the rendered `[[link]]` under the pointer starts and ends, off a drawn table.
- *
- * Looking forwards only: the span starts past the hidden `[[`, or past the
- * alias bar, so the position is always inside the link.
+ * Looks forwards only, past the hidden `[[` or the alias bar, so the position is inside the link.
  */
 function wikiLinkRangeUnder(event: Event, view: EditorView): SyntaxNode | null {
   const element = event.target instanceof HTMLElement ? event.target.closest(".cm-wikilink") : null;
@@ -270,18 +225,8 @@ function wikiLinkRangeUnder(event: Event, view: EditorView): SyntaxNode | null {
 }
 
 /**
- * A tap follows a link, a finger having no ctrl to hold.
- *
- * Read on the way down and acted on at the click, because the two halves are
- * known at different moments. A finger that lands on a link and drags is
- * scrolling, and only the click says it did not. By the click the browser has
- * put the cursor in the link, which shows its brackets and redraws it, so what
- * the finger landed on has to be read before that.
- *
- * A link the cursor is already in is one being edited, and a tap in it moves
- * the cursor as a tap anywhere else does. The way into a link is from beside
- * it. A markdown link to an address opens in a new tab, as on ctrl+click. A
- * double tap follows once, as a double-click does.
+ * A tap follows a link. It is read on touch-down, because a drag from a link is a scroll, and acted on
+ * at the click. A link the cursor is already in is edited, not followed.
  */
 export function followOnTap(): Extension {
   let landed: string | null = null;

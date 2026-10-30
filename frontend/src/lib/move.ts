@@ -5,12 +5,8 @@ import { moveFolder, renameNote } from "@/lib/move-api";
 export type MoveMode = "rename" | "folder";
 
 /**
- * Move a note or a folder, leave the cache holding what the vault does, and
- * answer with the path it landed on.
- *
- * One function for the two places a move starts, the prompt and a drop in the
- * tree, so the cache cannot be kept one way after a rename and another way
- * after a drag.
+ * Moves a note or folder and fixes the cache to match the vault, for the prompt and
+ * tree drops alike. Returns the path it landed on.
  */
 export async function moveAndCache(
   queryClient: QueryClient,
@@ -20,10 +16,8 @@ export async function moveAndCache(
 ): Promise<string> {
   if (mode === "folder") {
     const folder = await moveFolder(from, to);
-    // Every note under the folder is at a new path, and the answer carries no
-    // text to move with them. They are dropped rather than remapped: the vault
-    // is the only thing that knows what is in a note, and a copy left stale by
-    // a write outside kasten must not survive the move.
+    // The answer has no note text, so cached notes under the folder are dropped,
+    // not remapped: a copy edited outside kasten must not survive the move.
     const moved = `${from}/`;
     queryClient.removeQueries({
       queryKey: ["note"],
@@ -33,21 +27,16 @@ export async function moveAndCache(
   }
 
   const note = await renameNote(from, to);
-  // The text comes from the answer rather than from the cache, so the rename
-  // carries the note across without trusting a copy that may be stale.
+  // Take the text from the answer, not from a cached copy that may be stale.
   queryClient.setQueryData(["note", note.path], note.content);
-  // The note is not at the old path any more, so a cache entry there would
-  // answer for a note the vault no longer has.
+  // The old path is gone; a cache entry there would answer for a missing note.
   queryClient.removeQueries({ queryKey: ["note", from] });
   return note.path;
 }
 
 /**
- * Where a drop of `path` on folder `folder` puts it, `""` being the vault root,
- * or undefined when the drop moves nothing.
- *
- * Nothing for a drop where it already sits, and nothing for a folder dropped
- * on itself or on a folder inside it, which the vault would refuse anyway.
+ * Where a drop of `path` on `folder` puts it (`""` is the vault root), or undefined
+ * when it moves nothing. A folder dropped into itself is nothing; the vault refuses it.
  */
 export function dropTarget(path: string, mode: MoveMode, folder: string): string | undefined {
   const name = path.slice(path.lastIndexOf("/") + 1);

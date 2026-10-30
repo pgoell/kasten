@@ -14,19 +14,15 @@ import { useViewport } from "@/lib/use-viewport";
 const PREVIEW_DELAY_MS = 80;
 
 /**
- * How many lines either side of the hit the pane shows.
- *
- * A window rather than the whole note, so a 10,000 line note costs what a
- * short one does. Wider than the pane is tall, so there is room to scroll
- * around the match without there being a note's worth of rows behind it.
+ * Lines either side of the hit the pane shows. A window, so a 10,000 line note
+ * costs what a short one does.
  */
 const CONTEXT_LINES = 30;
 
 /** The lines around `line`, and the number the first of them carries. */
 function windowAround(text: string, line: number): { lines: string[]; from: number } {
   const all = text.split("\n");
-  // Lines count from one and arrays from zero, and this is the only place the
-  // two meet.
+  // Lines count from one and arrays from zero: this is the only place the two meet.
   const at = line - 1;
   const from = Math.max(0, at - CONTEXT_LINES);
   return { lines: all.slice(from, at + CONTEXT_LINES + 1), from };
@@ -34,13 +30,10 @@ function windowAround(text: string, line: number): { lines: string[]; from: numb
 
 /** The pane beside the list, reading the note around the highlighted hit. */
 export function SearchPreview({ hit }: { hit: SearchHit | undefined }) {
-  // The hit the pane is reading for, which trails the highlight rather than
-  // following it. The hit itself and not its position, because a fresh answer
-  // renumbers the list and a position would then point at another line.
+  // Trails the highlight, and holds the hit itself: a fresh answer renumbers the rows.
   const [reading, setReading] = useState<SearchHit>();
 
-  // Nothing is read in a narrow window, which has no pane to show it in, and
-  // with nothing read the pane below is not mounted either.
+  // Nothing is read in a narrow window, which has no pane to show it in.
   const { narrow } = useViewport();
 
   useEffect(() => {
@@ -52,12 +45,8 @@ export function SearchPreview({ hit }: { hit: SearchHit | undefined }) {
     return () => clearTimeout(timer);
   }, [hit, narrow]);
 
-  // The key `NoteEditor` reads, on purpose: a note read here is one the editor
-  // will not have to fetch when Enter opens it. Keyed on the path alone, so
-  // walking between two hits of one note re-centres the pane rather than
-  // reading the note again.
-  // A file hit is read from its extracted text, which the hit already carries,
-  // so the file itself is never asked for as a note.
+  // Keyed on the path alone, as NoteEditor reads it: Enter then opens a note already fetched.
+  // A file hit is read from the text it carries, so the file is never asked for as a note.
   const note = useQuery({
     queryKey: ["note", reading?.path],
     queryFn:
@@ -67,9 +56,7 @@ export function SearchPreview({ hit }: { hit: SearchHit | undefined }) {
     retry: false,
   });
 
-  // Worked out here rather than in the markup, which has no room to say what
-  // `from` is for. Undefined covers both the note still being read and the
-  // note refusing to be read; the pane tells those two apart on its own.
+  // Undefined while the note loads or refuses: the pane tells those two apart.
   const context =
     reading !== undefined && note.status === "success"
       ? windowAround(note.data, reading.line)
@@ -77,8 +64,7 @@ export function SearchPreview({ hit }: { hit: SearchHit | undefined }) {
 
   if (reading === undefined) return null;
 
-  // A file hit's pane says where the line is and what it says. The place is the
-  // page or chapter, which no note text can show for a pdf or an epub.
+  // The place is the page or chapter, which no note text can show for a pdf or epub.
   if (reading.place != null) {
     return (
       <section aria-label="Preview" data-testid="preview" className={PANE}>
@@ -89,14 +75,10 @@ export function SearchPreview({ hit }: { hit: SearchHit | undefined }) {
   }
 
   return (
-    // A labelled <section> rather than a bare <pre>, which takes no
-    // label of its own and leaves the pane something a screen reader
-    // can reach but not name.
+    // A labelled section, since a bare pre cannot be named for a screen reader.
     <section aria-label="Preview" data-testid="preview" className={PANE}>
       {context !== undefined ? (
-        // Keyed on the note and the line, so walking to another hit
-        // builds a fresh view centred on it rather than leaving this
-        // one where it was.
+        // Keyed on note and line, so walking to another hit builds a fresh view centred on it.
         <NotePreview
           key={`${reading.path}:${reading.line}`}
           text={context.lines.join("\n")}
@@ -105,8 +87,7 @@ export function SearchPreview({ hit }: { hit: SearchHit | undefined }) {
         />
       ) : (
         <p className={PANE_MESSAGE}>
-          {/* An empty note is empty, not still loading, and a spinner
-              that never stops is the worse of the two lies. */}
+          {/* An empty note is empty, not still loading: a spinner that never stops lies. */}
           {note.status === "error" ? "could not read this note" : "reading the note"}
         </p>
       )}

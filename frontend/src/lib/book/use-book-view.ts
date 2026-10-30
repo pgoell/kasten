@@ -289,8 +289,9 @@ export function useBookView(o: {
         }
         // Last, and after the `cancelled` check: the bookmark has landed by
         // now, so a passage parked while the book was opening goes on top of
-        // it rather than under it.
+        // it rather than under it. `data-ready` is that moment where a test sees it.
         ready.current = true;
+        element?.setAttribute("data-ready", "");
         const parked = resumeSeek();
         release(view, parked);
       } catch (error_) {
@@ -318,6 +319,7 @@ export function useBookView(o: {
       // The next view opens a book of its own, so a passage the last one was
       // ready for is not a passage this one is.
       ready.current = false;
+      element.removeAttribute("data-ready");
       forget();
       closeView(view);
       view.remove();

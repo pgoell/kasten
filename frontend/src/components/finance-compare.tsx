@@ -60,11 +60,8 @@ function Against({
 }
 
 /**
- * A scope's span against the same months a year before and the 6 months before it, a row per
- * part that is not zero in any of the three, then what was left. With no history a year
- * before, that column reads "no data"; with no month before the span, the average "none yet".
- * A span that ends in the month still running says "so far", since that month holds only the
- * days gone.
+ * Compares a span with the same months a year before and the 6 months before it.
+ * "no data" and "none yet" stand in for a missing base; "so far" marks a running month.
  */
 export function CompareTable({
   scope,

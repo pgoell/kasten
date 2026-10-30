@@ -6,24 +6,14 @@ import type { Rating, Schedule } from "@/lib/review/srs";
 const NEW_EASE = 250;
 
 /**
- * How low the ease can sink.
- *
- * A card answered `again` twenty times would otherwise reach an ease of zero
- * and an interval that can never grow, which is a card the algorithm has given
- * up on rather than one it is still learning. 130 is Anki's floor.
+ * Stops a card answered `again` many times from sinking to an ease that never grows its interval.
+ * 130 is Anki's floor.
  */
 const LEAST_EASE = 130;
 
 /**
- * Where the card goes next, by SM-2.
- *
- * ponytail: SM-2 rather than FSRS. FSRS predicts recall better and is a weight
- * table and a few hundred lines; SM-2 is these twenty and holds exactly the
- * three numbers the comment already carries. Swap it when the reviews start
- * feeling mistimed rather than because the newer one exists.
- *
- * No fuzz, so a deck imported on one day comes back on one day. Add it when
- * that bunching is actually felt.
+ * ponytail: SM-2 rather than FSRS, as it holds exactly the three numbers the comment carries. Swap when reviews feel mistimed.
+ * No fuzz, so a deck imported on one day comes back on one day. Add it when that bunching is felt.
  */
 export function nextSchedule(held: Schedule | null, rating: Rating, today: string): Schedule {
   // A card nobody has answered, or one still in learning, has no interval to
@@ -66,28 +56,15 @@ export function nextSchedule(held: Schedule | null, rating: Rating, today: strin
 
 /**
  * Whether the card was answered `again` on its first answer and not passed since.
- *
- * A gap of 0 is a state SM-2 never writes otherwise, its floor being 1, so the
- * three numbers carry it without a fourth.
+ * A gap of 0 is a state SM-2 never writes otherwise, its floor being 1.
  */
 export function learning(held: Schedule | null): boolean {
   return held !== null && held.interval === 0;
 }
 
 /**
- * What answering the card today was, read off its schedule, or null where nothing did.
- *
- * The comment holds three numbers and no history, and obsidian-spaced-repetition
- * reads those three, so a fourth was not an option. What is there is enough:
- * every rating above writes a due date of today plus the interval, so a card
- * whose two agree was answered today. A first answer always lands on the
- * starting ease with a gap of 0, 1 or 4, which is what tells a card introduced
- * today from a review done today.
- *
- * Read off the vault, so a reload or a second device counts the same. The cost
- * is two mistakes, both rare: a review that lands back on the starting ease
- * with a gap of 1 or 4 reads as new, and so does a card left in learning
- * yesterday and passed today.
+ * What answering the card today was, or null. Read off the schedule, so a reload or second device counts the same.
+ * A first answer has the starting ease and a gap of 0, 1 or 4, which marks it new. A rare review like that, or a card learned yesterday and passed today, reads as new too.
  */
 export function answeredToday(held: Schedule | null, today: string): "new" | "review" | null {
   if (held === null || held.due !== shiftDay(today, held.interval)) return null;
@@ -95,16 +72,8 @@ export function answeredToday(held: Schedule | null, today: string): "new" | "re
 }
 
 /**
- * The schedule of a note that is itself the card, off its frontmatter.
- *
- * A whole note marked `#review` has no `::` to hang a comment on, so its three
- * numbers go in the block at the top, under the names
- * obsidian-spaced-repetition gives them. That is the only difference between a
- * note and a card here; everything downstream of this treats the two the same.
- *
- * A note carrying `sr-due` and nothing else reads as a card scheduled by hand,
- * which is a real thing to type into a note and worth taking at its word rather
- * than ignoring for want of two fields nobody would write out.
+ * A whole note marked `#review` has no `::`, so its three numbers go in the frontmatter under the names obsidian-spaced-repetition gives them.
+ * A note with `sr-due` alone reads as a card scheduled by hand, which is worth taking at its word.
  */
 export function readNoteSchedule(text: string): Schedule | null {
   const due = readField(text, "sr-due");
@@ -124,25 +93,15 @@ export function writeNoteSchedule(text: string, next: Schedule): string {
 }
 
 /**
- * Whether a note that is itself the card is parked.
- *
- * The whole-note twin of the token on a card's line. A note reviewed as one
- * thing has no line to hang a marker on, so the marker goes in the block where
- * its schedule already lives, beside `sr-due`.
- *
- * True for the literal word and nothing else, which is what keeps a note that
- * carries the key for some other reason out of the parked list.
+ * The whole-note twin of a card's token. A note has no line for a marker, so it sits beside `sr-due`.
+ * Only the literal word counts, which keeps a note with that key for another reason out of the parked list.
  */
 export function readNoteSuspended(text: string): boolean {
   return readField(text, "sr-suspended") === "true";
 }
 
 /**
- * `text` with the note parked or put back.
- *
- * Put back writes `false` rather than taking the key out, because
- * `note-frontmatter.ts` exports no delete and inventing one for this field
- * alone is a larger change than a line reading `sr-suspended: false` costs.
+ * `text` with the note parked or put back. Put back writes `false` rather than removing the key, since `note-frontmatter.ts` has no delete.
  */
 export function writeNoteSuspended(text: string, on: boolean): string {
   return setField(text, "sr-suspended", on ? "true" : "false");

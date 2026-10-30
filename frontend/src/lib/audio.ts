@@ -1,9 +1,6 @@
 /**
- * `![](word.mp3)`, the sound an Anki import writes where the deck said `[sound:]`.
- *
- * Written as an image because that is the one markdown construct that names a
- * file to load in place, and an image whose suffix is a sound's is no picture
- * anybody could mean. The editor draws it as a player and the review plays it.
+ * `![](word.mp3)`, the sound an Anki import writes for `[sound:]`. An image, because that is
+ * the one markdown form that loads a file in place. The editor plays it, and so does the review.
  */
 
 import { imageSource } from "@/lib/image";
@@ -14,12 +11,7 @@ export const AUDIO_SUFFIXES = [".mp3", ".ogg", ".m4a", ".wav"];
 /** Every `![alt](address)` in a run of markdown, the address in the group. */
 const IMAGE = /!\[[^\]\n]*\]\(\s*<?([^\s()<>]+)>?[^)\n]*\)/g;
 
-/**
- * Whether an `![](address)` names a sound.
- *
- * The path alone, off the query and the fragment, and decoded, so the suffix is
- * read as the file is named rather than as the link spells it.
- */
+/** Whether an `![](address)` names a sound, by the suffix of its decoded path. */
 export function isAudio(address: string): boolean {
   const path = address.replace(/[?#].*$/, "");
   let name = path;
@@ -34,10 +26,7 @@ export function isAudio(address: string): boolean {
 }
 
 /**
- * The sounds one side of a card names, as URLs a player loads, in order.
- *
- * In order because Anki plays a side's sounds one after the other, and a card
- * written as a word and then its sentence is asked in that order.
+ * The sound URLs one side of a card names, in order. Anki plays them in that order.
  */
 export function soundsIn(markdown: string): string[] {
   return [...markdown.matchAll(IMAGE)]

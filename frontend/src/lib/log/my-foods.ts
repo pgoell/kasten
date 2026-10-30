@@ -1,10 +1,6 @@
 /**
- * Foods of your own: the ones Open Food Facts lacks, kept one per line in
- * `99 Misc/01 Config/foods.md` so they can be read and fixed by hand.
- *
- * A line is `- <name>: <serving> g, 🏷 <barcode>, 🔥 <kcal> 🥩 <g> 🍞 <g> 🧈 <g>`,
- * the figures per 100 g as a label prints them. The serving (100 g when left
- * out) and the barcode are optional; at least one field is required.
+ * Foods of your own, one per line in `99 Misc/01 Config/foods.md`, so they can be read and fixed by hand.
+ * The figures are per 100 g. The serving (100 g when left out) and the barcode are optional.
  */
 
 import { createNote, fetchNote, NoteMissing, updateNote } from "@/lib/api";

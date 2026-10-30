@@ -7,12 +7,8 @@ import { type Matrix, restoreImages } from "@/lib/book/pdf-images";
 import type { PageColors, PdfRenderer } from "@/lib/book/pdf-view";
 
 /**
- * Where the pdf.js files sit, which `vite.config.ts` decides and stages.
- *
- * The one copy outside that file, and it has to agree with it. A document whose
- * fonts need predefined character maps, which is most CJK, draws the wrong
- * glyphs without the two folders under it, and the book pane's seek reads the
- * wrong text: `gf` would answer that a passage you can see is not in the book.
+ * Where the pdf.js files sit, which `vite.config.ts` decides and stages. This is the one copy outside it,
+ * and it must agree: without the CMap folders CJK draws wrong glyphs, and `gf` misses passages.
  */
 export const PDFJS_BASE = "/pdfjs/";
 
@@ -59,15 +55,8 @@ interface PdfjsPage {
 }
 
 /**
- * pdf.js, opened the way foliate opens its own (`pdf.js:120-127`).
- *
- * Exported for the pdf pane, which holds no editor state to read the facet off.
- *
- * The worker is set the way foliate sets it, once, against the same staged
- * file, so whichever of the two opens a pdf first the worker resolves in the
- * build. A URL rather than the bytes, so pdf.js asks
- * for the ranges it needs and a long pdf's first page does not wait on its last.
- * `isEvalSupported` is off because the policy in `csp.ts` has no `'unsafe-eval'`.
+ * pdf.js, opened the way foliate opens its own, and exported for the pdf pane, which has no editor state.
+ * A URL, not bytes, so a long pdf's first page does not wait on its last. `isEvalSupported` is off: `csp.ts` has no `'unsafe-eval'`.
  */
 export const pdfjsRenderer: PdfRenderer = {
   open(url) {

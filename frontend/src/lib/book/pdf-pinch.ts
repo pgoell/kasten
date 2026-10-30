@@ -1,14 +1,6 @@
 /**
- * Two fingers and a double tap on the pdf pane's box (#991), read off touch
- * events and handed to the view as zooms about a point. A mouse sends no touch
- * events, so on a desktop ctrl+wheel and a trackpad's pinch are read here too
- * and handed over as zooms of the same kind (#1285), never as the browser's
- * zoom of the whole app.
- *
- * The box's `touch-action: pan-x pan-y` (pdf-pane.css) keeps the browser from
- * zooming the whole app under two fingers while one finger still scrolls
- * natively; the two-finger moves are cancelled here too, for a browser that
- * does not honour it. The listeners are not passive, or the cancel is ignored.
+ * Two-finger pinch and double tap on the pdf box (#991), read off touch events and handed to the view as zooms.
+ * A mouse's ctrl+wheel and trackpad pinch become zooms too (#1285). The listeners are not passive, or the cancel is ignored.
  */
 
 /** A point in the box, in CSS px from its top left corner. */

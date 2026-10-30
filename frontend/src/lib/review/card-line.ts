@@ -1,30 +1,20 @@
 /**
- * What makes a line a card the sitting will ask.
- *
- * The sibling of `deck-tag.ts`. `srs.ts` reads a card's line with these, and
- * `review.ts` picks the notes holding a parked line with them, so a rule about
- * a card's line is written once here. Which lines are code is not one line's
- * question: `srs.ts` asks the editor's parser.
+ * The sibling of `deck-tag.ts`: `srs.ts` and `review.ts` read a card's line
+ * through these, so the rule is written once here.
  */
 
 /** What parks a finished card by hand, written beside its schedule. */
 export const SUSPEND_TOKEN = "!suspended";
 
 /**
- * The token, at the head of a line or after a space, and whole.
- *
- * Whole so `!suspendedly` is a word and not a marker, and after a space so a
- * card asking what the token means keeps its answer. An answer that really does
- * end in the literal text is the one false positive left, and it is one the
- * author typed on purpose.
+ * The token at the head of a line or after a space, and whole, so
+ * `!suspendedly` is a word. The one false positive is an answer typed to end in it.
  */
 const TOKEN = /(?:^|\s)!suspended(?!\S)/g;
 
 /**
  * Where each code span in `text` starts and ends, as `ESCAPES` reads them.
- *
- * A code span is code everywhere (#346, #347): nothing inside one is read as
- * a mark or the token, as the preview draws it verbatim.
+ * Nothing inside a code span is read as a mark or the token (#346, #347).
  */
 function codeSpans(text: string): [number, number][] {
   return [...text.matchAll(ESCAPES)]
@@ -51,11 +41,8 @@ export function suspended(text: string): boolean {
 }
 
 /**
- * Whether the line is the token's own, which parks the card written above it.
- *
- * Stricter than `suspended`, and a different question. A card written over
- * several lines carries the token at the head of the line under its back, so a
- * line that opens with it belongs to that card and is no part of the answer.
+ * Whether the line is the token's own, parking the card above it. Stricter than
+ * `suspended`: a line opening with the token is the card's, never part of its answer.
  */
 export function parks(line: string | undefined): boolean {
   return line?.trimStart().startsWith(SUSPEND_TOKEN) ?? false;
@@ -65,12 +52,8 @@ export function parks(line: string | undefined): boolean {
 const HEAD_TOKEN = /^([ \t]*)!suspended[ \t]*/;
 
 /**
- * `line` with the token it opens taken off, the indent kept.
- *
- * The twin of `withoutToken` and a different job. That one takes the token out
- * of an answer, so it eats the space before it; this one takes it off the line
- * it owns, so it eats the space after it and what is left is the schedule, or
- * nothing at all.
+ * `line` with the token it opens taken off, the indent kept. Unlike `withoutToken`,
+ * which eats the space before the token, this eats the space after it.
  */
 export function withoutHeadToken(line: string): string {
   return line.replace(HEAD_TOKEN, "$1");
@@ -84,34 +67,20 @@ export function withoutToken(text: string): string {
 }
 
 /**
- * The comment holding a card's schedule, wherever on the line it sits.
- *
- * Here rather than in `srs.ts` because both readers have to take it off a back
- * before showing one, and two copies of this expression is two chances to
- * disagree about what a card's answer is. `!` is obsidian-spaced-repetition's
- * and is matched rather than assumed, so a comment written without one is left
- * alone instead of read as a card nobody has answered.
+ * The comment holding a card's schedule, anywhere on the line. Kept here so both readers
+ * strip it alike. The `!` is matched, not assumed, so a comment without it is no card.
  */
 export const SR = /<!--SR:!(\d{4}-\d{2}-\d{2}),(\d+),(\d+)-->/;
 
 /**
- * A cloze's schedule, one per number and named by it: `<!--SR:c1!…-->`.
- *
- * The name sits between the colon and the `!`, which is what keeps the two
- * comments apart in both directions: `SR` wants the `!` straight after the
- * colon, and this wants a number before it. A cloze line can then carry its
- * numbers' comments in any order, and a plain card beside it never reads one.
+ * A cloze's schedule, one per number: `<!--SR:c1!…-->`. The name before the `!` keeps it
+ * apart from `SR`, which wants the `!` straight after the colon.
  */
 export const CLOZE_SR = /<!--SR:c(\d+)!(\d{4}-\d{2}-\d{2}),(\d+),(\d+)-->/;
 
 /**
- * The Anki note and template an imported card came from, and a hash of the lines
- * the import wrote: `<!--anki:NID:ORD:HHHHHHHH-->`.
- *
- * Written by the import at the end of the card's last line, so a second import
- * of the same deck finds the card to update rather than adding it again, and
- * leaves alone one edited since. Whole, digits and eight lowercase hex only, so
- * an answer that merely mentions the comment keeps it.
+ * The Anki note and template an import wrote at a card's last line, with a hash of
+ * the lines it wrote. Whole, so an answer that only mentions the comment keeps it.
  */
 export const ANKI_ID = /<!--anki:\d+:\d+:[0-9a-f]{8}-->/;
 
@@ -127,39 +96,23 @@ export function withoutAnkiId(text: string): string {
 const CLOZE_SRS = new RegExp(CLOZE_SR.source, "g");
 
 /**
- * The comment of one number, the `!` after it what keeps `c1` off `c12`.
- *
- * Built per number rather than read off `CLOZE_SR`, because a rating rewrites
- * its own comment and no other, and a replace has to find that one.
+ * The comment of one number. The `!` after it keeps `c1` off `c12`.
+ * Built per number, not read off `CLOZE_SR`, so a replace finds that one comment.
  */
 export function clozeComment(cloze: number): RegExp {
   return new RegExp(`<!--SR:c${cloze}!(\\d{4}-\\d{2}-\\d{2}),(\\d+),(\\d+)-->`);
 }
 
 /**
- * One cloze mark, `{{c1::text}}` or `{{c1::text::hint}}`, holding no other.
- *
- * No brace inside, so a lone `{` or `}` makes it no mark, which keeps MathJax's
- * `{{c1::\(x^{2}\)}}` text. A nested mark is read by `parse`, innermost first,
- * each one swapped for a `HOLE` this admits as text. Lazy, so the second `::`
- * is the hint's and a mark ends at the first `}}`. The hint may be empty, so
- * `{{c1::A::}}` hides `A` rather than `A::`, and asks it as `[...]`. It holds
- * no hole, so `{{c1::a::{{c2::b}}}}` keeps `b` in the text where c2 can ask it.
- * A code span in the answer or hint is read whole, so `{{c1::`a::b`}}` hides
- * `` `a::b` `` rather than splitting it at a hint (#346); a lone backtick is
- * text. The import's `_MARK` is the same, less the hole. Each item, a span, a
- * backtick run or a character, is taken whole through a lookahead's capture,
- * which JavaScript never backtracks into: a line of many spans after an open
- * mark would otherwise take time doubling with each span.
+ * One cloze mark, `{{c1::text}}` or `{{c1::text::hint}}`. No brace inside, so MathJax
+ * text survives. Code spans read whole (#346); the lookahead stops backtracking.
  */
 const MARK =
   /\{\{c(\d+)::((?:(?=((`+)(?!`)[^{}]*?(?<!`)\4(?!`)|`+|[^{}`]))\3)+?)(?:::((?:(?=((`+)(?!`)[^{}]*?(?<!`)\7(?!`)|`+|[^{}`]))\6)*?))?\}\}/g;
 
 /**
  * Where a mark already read stood: its index between two private-use characters.
- *
- * Private use so no note types one by accident. One that does is read as text
- * unless its index names a mark, and then it reads as that mark.
+ * Private use so no note types one by accident; an unknown index reads as text.
  */
 const HOLE = /(\d+)/;
 
@@ -181,12 +134,8 @@ function pieces(text: string, marks: Mark[]): Piece[] {
 }
 
 /**
- * The line as text and marks, a mark holding any marks nested in it.
- *
- * Innermost first: each pass reads the marks holding no unread one, as Anki
- * 2.1.56 does, and an outer mark becomes one only once all inside it are. A
- * line is then a cloze exactly when it was before nesting was read. Each pass
- * shortens the line, so a deep line takes many passes and never hangs.
+ * The line as text and marks, a mark holding any marks nested in it, read innermost first.
+ * Each pass shortens the line, so a deep one takes many passes and never hangs.
  */
 function parse(line: string): Piece[] {
   const marks: Mark[] = [];
@@ -231,10 +180,8 @@ function everyMark(found: Piece[]): Mark[] {
 }
 
 /**
- * The outermost marks of one number, a mark inside one of them being part of its text.
- *
- * Outermost because Anki hides the whole span of the number asked, so a mark of
- * the same number inside it is hidden with it rather than asked again.
+ * The outermost marks of one number. A same-number mark inside one is hidden with it.
+ * Anki hides the whole span asked, so the inner mark is not asked again.
  */
 function asked(found: Piece[], cloze: number): Mark[] {
   return found.flatMap((piece) => {
@@ -244,11 +191,8 @@ function asked(found: Piece[], cloze: number): Mark[] {
 }
 
 /**
- * The numbers the line's marks carry, ascending and each once.
- *
- * Ascending because the session addresses a card by its ordinal among its
- * note's cards, and a line's cards sort by the line alone: the order they are
- * pushed in is the order they keep, so it has to be the same on every read.
+ * The numbers the line's marks carry, ascending and each once. The session addresses a card
+ * by its ordinal in its note, so the order must match on every read.
  */
 export function clozeNumbers(line: string): number[] {
   const found = new Set(everyMark(parse(line)).map((mark) => mark.cloze));
@@ -266,10 +210,8 @@ function bare(line: string): string {
 }
 
 /**
- * `line` with one number's marks drawn by `hidden` and every other number's as its text.
- *
- * A mark of another number is opened and drawn in turn, so c2 inside c1 is
- * still asked on c2's card; one of this number is drawn whole, its text plain.
+ * `line` with one number's marks drawn by `hidden`, every other number's as text.
+ * Other numbers are opened in turn, so c2 inside c1 is still asked on its own card.
  */
 function drawn(line: string, cloze: number, hidden: (text: string, hint?: string) => string) {
   const draw = (found: Piece[]): string =>
@@ -284,9 +226,7 @@ function drawn(line: string, cloze: number, hidden: (text: string, hint?: string
 
 /**
  * The question this number asks: its text hidden as `[...]`, or as `[hint]`.
- *
- * The brackets escaped, because a front is markdown and the preview reads a
- * bare `[...]` as a link, hiding the brackets that make it read as a blank.
+ * Brackets escaped, since the preview reads a bare `[...]` as a link.
  */
 export function clozeQuestion(line: string, cloze: number): string {
   // `||` and not `??`: an empty hint is no hint.
@@ -299,13 +239,8 @@ export function clozePlain(line: string): string {
 }
 
 /**
- * What `colons` and `unescaped` read, leftmost first: `\&#58;`, any other escape
- * pair, a code span, a backtick run that closes none, and a bare `&#58;`.
- *
- * One pass, so an escape pair is read before what follows it: `\\&#58;` is an
- * escaped backslash and then a colon, and `` \` `` opens no code span. A code
- * span runs to the next backtick run of its own length, as CommonMark reads
- * one, and an unclosed run is taken whole so it is never read again shorter.
+ * What `colons` and `unescaped` read, leftmost first, in one pass so an escape pair is
+ * read before what follows it. A code span closes on a backtick run of its own length.
  */
 const ESCAPES = /\\&#58;|\\[\s\S]|(`+)(?!`)[\s\S]*?(?<!`)\1(?!`)|`+|&#58;/g;
 
@@ -313,14 +248,8 @@ const ESCAPES = /\\&#58;|\\[\s\S]|(`+)(?!`)[\s\S]*?(?<!`)\1(?!`)|`+|&#58;/g;
 const ESCAPED = /^\\[!-/:-@[-`{-~]$/;
 
 /**
- * `text` with `&#58;` read as the colon markdown shows for it, and `\&#58;` as the text `&#58;`.
- *
- * The import writes a cloze answer's colons as `&#58;` where a typed `::`
- * would split the answer at a hint (#335). The preview draws no entity, so a
- * card decodes it before the preview sees it, a hand-written one too. A field
- * whose text was `&#58;` the import writes `\&#58;`, markdown's escape (#340).
- * Every other escape stays for the preview to read, and a code span stays as
- * written, since the preview draws it verbatim (#342, #343).
+ * `text` with `&#58;` read as the colon it stands for, and `\&#58;` as the text `&#58;`.
+ * The import writes it so a typed `::` cannot split a cloze at its hint (#335, #340).
  */
 export function colons(text: string): string {
   return text.replace(ESCAPES, (found) =>
@@ -330,11 +259,7 @@ export function colons(text: string): string {
 
 /**
  * A card side `colons` has read, with markdown's escapes taken off, as text.
- *
- * For where a side is compared or shown as text and never drawn, so nothing
- * else reads the `\\` or `\*` the import writes. No `&#58;` is decoded here,
- * `colons` having done that once: a second pass would read the text `&#58;`
- * as a colon. A code span keeps its backslashes, as the preview shows them.
+ * Not decoded again here, so a second pass cannot read the text `&#58;` as a colon.
  */
 export function unescaped(text: string): string {
   return text.replace(ESCAPES, (found) => (ESCAPED.test(found) ? found.slice(1) : found));
@@ -359,17 +284,8 @@ export interface Divided {
 }
 
 /**
- * A card written on one line, split at its divider.
- *
- * The first `::` divides it, so an answer holding one of its own keeps it. The
- * schedule, the token and the Anki id come off the back, all being the format
- * around the card rather than part of the answer. A `::` inside a code span is
- * code and divides nothing, so `` `{{c1::x}}` `` is no card at all.
- *
- * An empty back comes back empty rather than as null. A question with no answer
- * under it is a card somebody wrote to answer later, which is a state and not a
- * non-card, and telling the two apart is the whole reason both readers call
- * this instead of each deciding for themselves.
+ * A card written on one line, split at its first `::`. The schedule, token and Anki id
+ * come off the back first. An empty back stays empty, not null: a question with no answer is a card waiting.
  */
 export function divide(line: string): Divided | null {
   const spans = codeSpans(line);

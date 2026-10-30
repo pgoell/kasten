@@ -24,11 +24,7 @@ interface NoteSearchProps {
   onClose: () => void;
   /**
    * The note to show what links to, instead of searching what is typed.
-   *
-   * The same panel either way: a list of lines from the vault, ranked against
-   * the input, and Enter opens the note on the line. Only where the lines come
-   * from differs, which is why this is a mode of the search rather than a
-   * fourth overlay repeating it.
+   * Only the source of the lines differs, so this is a mode, not an overlay.
    */
   backlinksOf?: string;
   /** Every path in the vault, which is what turns a link's name into a path. */
@@ -68,14 +64,7 @@ const LABEL_OF: Record<SearchMode, { input: string; dialog: string }> = {
 const UNTYPED_KEY = "\u0000";
 
 /**
- * What the line under the list says, and nothing where it has nothing to say.
- *
- * Nothing typed is not the same as nothing found, and neither is a scan still
- * running. Saying "no notes match" while the answer is on its way is the lie
- * worth going to this length to avoid.
- *
- * Backlinks and todos skip the first of those: neither query was ever waiting to
- * be typed, so there is no state where nothing has been asked.
+ * What the line under the list says. A scan still running is not "no matches".
  */
 function hint(pending: boolean, matches: number, mode: SearchMode): string {
   if (pending) return "reading the vault";
@@ -85,32 +74,10 @@ function hint(pending: boolean, matches: number, mode: SearchMode): string {
 }
 
 /**
- * Type a few words, and Enter opens the note on the line they are on.
- *
- * Two stages, and the split is the whole design. The backend finds the lines
- * holding the query literally, which is the part a browser cannot do without
- * every note in it. This side ranks what came back, which is the part that has
- * to answer per keystroke. A subsequence match is what makes the finder feel
- * fuzzy over note names, and it means nothing over prose: it reads into most
- * of a vault whatever you type. So it never chooses the lines here, only their
- * order, and a literal match chooses which lines it is given.
- *
- * That split is also why typing narrows without waiting. The lines in hand are
- * ranked against the live query while the scan for it is still running, so the
- * list keeps tightening between answers rather than freezing until the next.
- *
- * `backlinksOf` turns the same panel around: the vault is asked once, for the
- * note's own name, and typing only ranks what came back. That works because the
- * two stages already split this way. What links to a note is a fixed set the
- * vault decides, and the input was never choosing the lines here anyway.
- *
- * `todos` is that mode read once more, off `/api/todos`. What the vault holds
- * to do is a fixed set for the same reason, so there is no debounce here and no
- * scan per keystroke.
- *
- * The search itself is a page of its own, `ContentSearch`, with a histogram and
- * a column of filters beside the lines. It asks the same question and ranks the
- * same way, so only what it draws differs from the two lists below.
+ * Type a few words, and Enter opens the note on the line they are on. The backend
+ * finds the lines holding the query literally, and this side only ranks them, so
+ * typing narrows while the scan runs. A fuzzy match over prose would read into
+ * most of a vault, so it orders the lines and never picks them.
  */
 export function NoteSearch(props: NoteSearchProps) {
   if (props.todos !== true && props.backlinksOf === undefined) {

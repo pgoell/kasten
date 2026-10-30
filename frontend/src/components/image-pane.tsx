@@ -11,13 +11,7 @@ interface ImagePaneProps {
   commands: EditorCommands;
   /** Raised when the pane this sits in has been moved to. See `Editor`. */
   focusSignal?: number;
-  /**
-   * Move this image into the trash, which empties the pane.
-   *
-   * A callback and not a member of `commands`: every leader command takes
-   * nothing, and the image this deletes is the one the pane is holding. The
-   * tree's own `d` reaches the same delete through `TreeCommands`.
-   */
+  /** Trashes the image the pane holds. A callback, not a leader command, since those take nothing. */
   onDelete: () => void;
 }
 
@@ -44,14 +38,7 @@ const FITTED: Zoom = { scale: 1, x: 0, y: 0 };
 /** Never below fitted, there being nothing around a picture to see more of. */
 const MAX_SCALE = 8;
 
-/**
- * The zoom with its offset held inside the box, `size` being the box's width
- * and height.
- *
- * A picture `scale` times the box hangs over each side by half of what it
- * grew, and that is as far as it may move: any further and the box shows
- * empty space, and far enough further it shows nothing to drag back.
- */
+/** Keeps the zoomed picture's offset within the box, so no empty space shows at an edge. */
 function bounded({ scale, x, y }: Zoom, size: Point): Zoom {
   const most = { x: ((scale - 1) * size.x) / 2, y: ((scale - 1) * size.y) / 2 };
   return {
@@ -62,15 +49,8 @@ function bounded({ scale, x, y }: Zoom, size: Point): Zoom {
 }
 
 /**
- * Where one move of the pointers on the picture leaves it.
- *
- * `before` and `after` are the same pointers either side of the move, and
- * `centre` is the middle of the box, which is where the fitted picture's own
- * middle sits and so what its transform is measured from. `size` is the box's
- * width and height, which the offset is kept within. One pointer drags a
- * picture that has been zoomed into. Two pinch it: the scale follows the
- * distance between them and the point under their midpoint stays under it,
- * which makes a pinch that moves a pan as well.
+ * Where one pointer move leaves the picture. One pointer drags a zoomed picture;
+ * two pinch, scaling by their distance and keeping the point under their midpoint fixed.
  */
 export function gesture(
   zoom: Zoom,
@@ -113,30 +93,15 @@ export function gesture(
 }
 
 /**
- * One image out of the vault, shown whole.
- *
- * The simplest pane there is: an `<img>` fitted to the box, and the path above
- * it. No editing and no next image, because the tree is what walks the folder.
- * A pinch zooms and a drag moves the zoomed picture, a phone having no other
- * way to read a screenshot's small print; no key does either.
- *
- * Its own pane rather than a preview under the tree. A pane already has a size
- * worth looking at a screenshot in, and it costs nothing: `panesOf`, the splits
- * and every key that moves between panes work on this the moment the layout
- * carries an `image`.
+ * One image out of the vault, shown whole. No editing and no next image, because
+ * the tree walks the folder. A pinch zooms and a drag moves it, since a phone has
+ * no other way to read a screenshot's small print.
  */
 export function ImagePane({ path, commands, focusSignal, onDelete }: ImagePaneProps) {
   const panel = useRef<HTMLElement>(null);
   /** The keys of an unfinished leader sequence, starting with the space. */
   const [pending, setPending] = useState("");
-  /**
-   * The path whose picture would not load, rather than a flag saying one did not.
-   *
-   * The pane is not remounted when another row of the tree is clicked, so a flag
-   * would carry the last failure onto the next image and draw "No image at" over
-   * a picture that is there. Holding the path answers the question the drawing
-   * actually asks, and no effect has to reset anything.
-   */
+  /** The path that failed to load. A flag would carry over to the next image, since the pane is not remounted. */
   const [failed, setFailed] = useState<string>();
   /** The image whose delete button was tapped once, so another image starts unasked. */
   const [armed, setArmed] = useState<string>();

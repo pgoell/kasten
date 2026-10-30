@@ -1,16 +1,7 @@
 /**
- * The folders the editor files into or looks in, as this vault names them.
- *
- * The backend owns them, as `KASTEN_*_PATH` settings, and `GET /api/layout`
- * hands them over once when the app starts. Until it answers, and in every test
- * that does not ask, these hold the defaults, which are the backend's defaults
- * too. A vault on the default layout therefore never sees a difference between
- * before and after the answer.
- *
- * Exported as `let` bindings rather than one object, because ES modules keep a
- * re-exported binding live: `ARCHIVE` in `archive.ts` and `IMAGE_FOLDER` in
- * `image.ts` read the new value the moment `applyLayout` runs, and no caller of
- * either had to change. Every reader reads one at call time, never at import.
+ * The folders the editor files into or looks in, as this vault names them. The backend owns them
+ * and `GET /api/layout` hands them over at startup. Until then, and in tests, the defaults hold.
+ * Exported as `let`, so a re-export reads the new value once `applyLayout` runs: read at call time.
  */
 
 import type { components } from "@/lib/api-types";
@@ -47,7 +38,10 @@ export let LOG_NOTE = "99 Misc/01 Config/log.md";
 /** The note holding foods of your own, which the food search lists before Open Food Facts. */
 export let FOODS_NOTE = "99 Misc/01 Config/foods.md";
 
-/** The folder of the collector's monthly model-use notes. It is written from outside kasten, so a write there is an event. */
+/**
+ * The folder of the collector's monthly model-use notes. Written from outside kasten, so a write
+ * there is an event.
+ */
 export let MODEL_USE_FOLDER = "99 Misc/01 Config/Model use";
 
 /** Take the folders the backend named, from here on. */

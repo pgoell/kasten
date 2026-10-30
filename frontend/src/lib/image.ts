@@ -1,10 +1,6 @@
 /**
- * `![](path)`, the one thing in a note that is not text.
- *
- * Four pieces: where a pasted image lands, the listing an open `![](` completes
- * against, the key that writes the pair of brackets, and the paste that puts an
- * image in the vault. The rendering is not here, `live-preview-images.ts` drawing every
- * decoration the editor has, and neither is the request, `api.ts` owning those.
+ * `![](path)`, the one non-text thing in a note. Pasting, completion and the toggle are here.
+ * Drawing is `live-preview-images.ts`; the request is `api.ts`.
  */
 
 import {
@@ -21,27 +17,15 @@ import { IMAGE_FOLDER } from "@/lib/layout";
 import { encodePath } from "@/lib/note-path";
 
 /**
- * Where a pasted image is written.
- *
- * One folder for the lot of them rather than one beside each note. An image is
- * referenced by path and moves with nothing, so a note that moves would leave a
- * broken reference behind if the two travelled together, and the sidecar
- * convention a book gets does not stretch to the several images one note holds.
- * Which folder is `KASTEN_IMAGES_PATH`, held in `layout.ts`.
+ * One folder for all pasted images, not one beside each note: a moved note would strand its
+ * references. Set by `KASTEN_IMAGES_PATH` in `layout.ts`.
  */
 export { IMAGE_FOLDER };
 
 /** What a pasted image is called, minus the suffix its type names. */
 const NAMED = /^image\//;
 
-/**
- * Every image in the vault, carried on the editor state.
- *
- * The note listing's opposite number, and separate from it for the reason
- * `/api/images` is separate from `/api/files`: an image is not a note. Null is
- * the default rather than an empty vault, so a view that was told nothing offers
- * nothing, which is what the finder's preview pane is.
- */
+/** Every image in the vault. Null, not empty, when unset. */
 export const imagePaths = Facet.define<string[], string[] | null>({
   combine: (values) => values[0] ?? null,
 });
@@ -50,26 +34,15 @@ export const imagePaths = Facet.define<string[], string[] | null>({
 type NoticeHandler = (message: string) => void;
 
 /**
- * Carries the callback a refused paste is reported through.
- *
- * A facet for the reason `saveHandler` is one: the paste handler is registered
- * once for the whole module and cannot close over one view's props. The upload
- * is the only thing the editor does that the vault can refuse without a key
- * having been pressed, so this is the only message it has to pass up.
+ * Where a refused paste is reported. A facet: the paste handler is registered once for the module.
  */
 export const noticeHandler = Facet.define<NoticeHandler, NoticeHandler | undefined>({
   combine: (handlers) => handlers[0],
 });
 
 /**
- * The URL of the image an `![](path)` names, or null for one that cannot load.
- *
- * A vault path goes through the assets route, and an `https:` address is taken
- * as it stands, `img-src` allowing both. Any other scheme would draw a broken
- * image where the source at least says what was meant: `img-src` refuses it, or
- * the browser blocks it as mixed content. The path is already percent-encoded,
- * the toggle and the completion both writing it that way, so it goes into the
- * URL as it stands.
+ * The URL an `![](path)` loads, or null for another scheme. Vault paths use the assets route.
+ * Paths are already percent-encoded, so they go in as they stand.
  */
 export function imageSource(url: string): string | null {
   if (/^https:\/\//i.test(url)) return url;
@@ -87,24 +60,16 @@ function enclosing(state: EditorState, pos: number, side: -1 | 1) {
 }
 
 /**
- * The `![](path)` or `[](path)` the cursor sits in, or null outside both.
- *
- * Both ways round the position, the way `wikiLinkAt` reads a link: a rendered
- * image is a replaced range the cursor cannot enter, so the cursor asking about
- * one is always beside it rather than inside it.
+ * The `![](path)` or `[](path)` the cursor sits in. Looks both ways, since a rendered image is a
+ * replaced range the cursor never enters.
  */
 function linkAt(state: EditorState, pos: number) {
   return enclosing(state, pos, 1) ?? enclosing(state, pos, -1);
 }
 
 /**
- * Turn the link under the cursor into an image and back, or start a new one.
- *
- * The whole difference between a link and an image is the `!`, so the toggle is
- * one character in and one character out. With the cursor on neither, there is
- * nothing to toggle and the key writes the empty pair instead, leaving the
- * cursor where the path goes and the completion list already open: that is the
- * only way to an image that does not involve typing four brackets by hand.
+ * Turns the link under the cursor into an image and back, or starts one: one `!` in or out.
+ * With no link, writes `![]()` and opens the completion list at the path.
  */
 export function toggleImageAtCursor(view: EditorView): void {
   const { state } = view;
@@ -123,7 +88,7 @@ export function toggleImageAtCursor(view: EditorView): void {
   const skeleton = "![]()";
   view.dispatch({
     changes: { from: cursor, insert: skeleton },
-    // Between the parens, which is what the completion below completes into.
+    // Between the parens, where the completion below writes.
     selection: EditorSelection.cursor(cursor + skeleton.length - 1),
   });
   startCompletion(view);
@@ -133,13 +98,7 @@ export function toggleImageAtCursor(view: EditorView): void {
 const TYPED = /!\[[^[\]\n]*\]\([^()\n]*/;
 
 /**
- * Every image in the vault, offered inside an open `![](`.
- *
- * Labelled by filename and applied as the whole path, so the list reads as the
- * names you gave the pictures while the note gets the path the backend answers
- * to. Unranked for the reason `wikiLinkCompletions` is: CodeMirror scores the
- * labels against what has been typed, which is the fuzzy match the finder does
- * by hand and one this does not have to write.
+ * Every image, offered in an open `![](`. Labelled by filename, applied as the path. Unranked.
  */
 export function imageCompletions(context: CompletionContext): CompletionResult | null {
   const paths = context.state.facet(imagePaths);
@@ -149,14 +108,11 @@ export function imageCompletions(context: CompletionContext): CompletionResult |
   if (!open) return null;
 
   return {
-    // Past the `](`, which is in the document already: what a completion
-    // replaces is the path alone.
+    // Replaces the path alone: the `](` is already in the document.
     from: open.from + open.text.indexOf("](") + 2,
     options: paths.map((path) => ({
       label: path.slice(path.lastIndexOf("/") + 1),
-      // Encoded here rather than on the way out, so what the note holds is a
-      // legal markdown destination: a space in `99 Misc` ends one that is not,
-      // and a raw `#` or `?` would turn the rest of the name into a fragment.
+      // Encoded here, so the note holds a legal destination: a space or `#` would end or split it.
       apply: encodePath(path),
       detail: path.slice(0, path.lastIndexOf("/")),
       type: "text",
@@ -166,18 +122,8 @@ export function imageCompletions(context: CompletionContext): CompletionResult |
 }
 
 /**
- * The name an image is filed under: today, eight hex digits, and the type.
- *
- * The clipboard hands over `image.png` for every image ever copied and the vault
- * overwrites nothing, so the name has to be one nothing else can claim. The date
- * is for whoever browses the folder later; the digits are what make it unique.
- *
- * The suffix comes off the MIME type, so `image/png` files as `.png`. A type the
- * backend does not hold a magic for is refused there rather than sorted out
- * here, which is one list of formats instead of two.
- *
- * Exported for the reader, which files a figure out of a book the same way: one
- * naming rule for everything that lands in `IMAGE_FOLDER`.
+ * Today's date, eight hex digits and the type. The clipboard always calls a screenshot `image.png`,
+ * so the digits make it unique. The book reader names its figures this way too.
  */
 export function filedName(type: string): string {
   const unique = crypto.randomUUID().slice(0, 8);
@@ -185,13 +131,8 @@ export function filedName(type: string): string {
 }
 
 /**
- * Put a pasted image in the vault and write the reference to it.
- *
- * The upload goes first and the text is written when it lands, so a refusal
- * leaves the note as it was rather than holding a reference to nothing. The
- * insertion goes wherever the cursor is by then rather than where it was: the
- * round trip is one user's local network away, and a position saved across it
- * would be the wrong one the moment anything else was typed.
+ * Uploads a pasted image, then writes the reference, so a refusal leaves the note alone.
+ * The insert goes where the cursor is by then, not where it was.
  */
 async function fileImage(view: EditorView, file: File, name: string): Promise<void> {
   const path = `${IMAGE_FOLDER}/${name}`;
@@ -199,9 +140,7 @@ async function fileImage(view: EditorView, file: File, name: string): Promise<vo
   try {
     await uploadAsset(path, file);
   } catch (error: unknown) {
-    // A typed `unknown` and not an untyped catch, the way `chooseBook` in the
-    // route catches: a `fetch` rejects with no response at all on a dropped
-    // connection, and there is no status to name.
+    // Typed `unknown`, as `chooseBook` does: a dropped connection has no status to name.
     view.state.facet(noticeHandler)?.(
       error instanceof Error ? error.message : "The image did not go in",
     );
@@ -212,15 +151,8 @@ async function fileImage(view: EditorView, file: File, name: string): Promise<vo
 }
 
 /**
- * The clipboard's image, filed in the vault and referenced in the note.
- *
- * Pasted text is left alone: CodeMirror's own paste is what puts it in, and
- * `clipboardData.files` is empty for it. A screenshot is the case this is for,
- * and every browser hands that over as one `image/png` file.
- *
- * Nothing here awaits: a DOM handler says whether it took the event and cannot
- * wait for a round trip to answer. So the upload is started, the event is taken,
- * and the text arrives when it arrives.
+ * Files a pasted image and references it. Text is left to CodeMirror. The handler must answer
+ * at once, so the upload runs after it.
  */
 export function imagePaste() {
   return EditorView.domEventHandlers({

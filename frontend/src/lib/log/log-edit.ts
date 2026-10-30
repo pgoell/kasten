@@ -1,9 +1,6 @@
 /**
- * Changing one line of a day's `## Log` from the log pane: what the line reads as
- * once changed, and the note's text with it put in place.
- *
- * A line is found by its number and checked by its text. A line that moved since
- * the pane read the note is refused, not written over.
+ * Changing one line of a day's `## Log` from the log pane. A line is found by its number and checked by its text,
+ * so a line that moved since the pane read the note is refused, not written over.
  */
 
 import { GRAMS_END } from "@/lib/log/food-search";
@@ -116,9 +113,8 @@ function foodEdit(
 }
 
 /**
- * The text of an entry's line once the pane's edit is applied, or why the edit is
- * no amount of that kind. `kind` is the log config's kind of your own, given when
- * the entry is one.
+ * The text of an entry's line once the pane's edit is applied, or why the edit is no amount of that kind.
+ * `kind` is the log config's kind of your own, given when the entry is one.
  */
 export function editedLine(
   entry: { text: string; kind: string },

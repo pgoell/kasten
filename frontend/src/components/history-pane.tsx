@@ -33,12 +33,8 @@ function when(time: string): string {
 }
 
 /**
- * A note's jj changes beside it, one shown as a diff against the note now, and
- * a key that writes that change back.
- *
- * The note's text is read under the key the editor reads it by, so a save
- * anywhere, the restore included, redraws the diff with no plumbing of its
- * own; the list sits under that key too, so the vault's events reach it.
+ * The text is read under the editor's key, so a save, restore included, redraws
+ * the diff with no wiring of its own.
  */
 export function HistoryPane({ note, commands, focusSignal, onRestore }: HistoryPaneProps) {
   const panel = useRef<HTMLElement>(null);

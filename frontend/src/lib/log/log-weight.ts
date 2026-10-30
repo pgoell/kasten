@@ -1,11 +1,6 @@
 /**
- * What a last kind (weight, say) reads over a range: its value on each day, the 7-day
- * average, the first and last weigh-ins and the change between them. Pure, so the pane's
- * rows, line, tile and column read the same numbers.
- *
- * A day's value is the total `GET /api/log` gives its last kind, null on a day with no
- * line of it. The averages and the change stay inside the range, so no fetch is needed
- * before it.
+ * A last kind's value over a range: each day's value, the 7-day average, and the change between the first and last weigh-ins.
+ * Pure, so the pane's rows, line, tile and column read the same numbers. A day's value is null where `GET /api/log` has no line.
  */
 
 import { shiftDay } from "@/lib/clock";

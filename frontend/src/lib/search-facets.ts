@@ -1,8 +1,6 @@
 /**
- * The folders and tags a search result can be narrowed by, and the narrowing.
- *
- * Counts are lines, because a hit is one line: a note with three matching lines
- * under `#reading` is three in that tag's count, the way the list shows them.
+ * The folders and tags a search result can be narrowed by. Counts are lines: a hit is one line, so
+ * three matching lines under `#reading` count three in its tag.
  */
 
 import type { SearchHit } from "@/lib/api";
@@ -55,13 +53,9 @@ export function filterHits(hits: SearchHit[], filters: Filters): SearchHit[] {
 }
 
 /**
- * `text` cut into runs, each saying whether it is the term.
- *
- * The term is matched as text, the way the backend's search matches it
- * (`rg --fixed-strings --ignore-case`), so a `.` in it is a dot. The match runs
- * on the text's own UTF-16 offsets, which a case-folded copy of the text would
- * not keep: lowercasing can change a string's length, and then the runs would
- * drift off the words they mark.
+ * `text` cut into runs, each saying whether it is the term. The term is matched as text, as the
+ * backend's `rg --fixed-strings --ignore-case` matches it. Offsets are the text's own UTF-16,
+ * since a case-folded copy can change length and drift off the words it marks.
  */
 export function termRuns(text: string, term: string): { text: string; term: boolean }[] {
   if (term.trim() === "") return [{ text, term: false }];

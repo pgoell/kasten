@@ -1,9 +1,6 @@
 /**
- * The tags of a graph answer, counted for the tag list, and the answer with the
- * hidden tags taken out of it for the canvas.
- *
- * Tags are matched by their lowercased key, the way `tagVariable` reads them, so
- * `Rust` and `rust` are one tag in the list and one tag on the canvas.
+ * The tags of a graph answer, counted for the tag list, and the answer with hidden tags removed for the canvas.
+ * Tags match by lowercased key, so `Rust` and `rust` are one tag.
  */
 
 import type { GraphEdge, GraphNode } from "@/lib/graph/graph";
@@ -36,11 +33,8 @@ export function tagCounts(nodes: GraphNode[]): TagCount[] {
 }
 
 /**
- * The answer as the canvas should draw it with the hidden tags gone.
- *
- * A note keeps its shown tags in their order, so its first shown tag fills its
- * dot. A note that had tags and has none shown leaves, with every link to it. A
- * note that never had a tag stays. The answer itself is not touched.
+ * The answer as the canvas should draw it, hidden tags gone. A note with tags and none shown leaves,
+ * with its links. Shown tags keep their order, so the first one fills the dot.
  */
 export function withoutTags(
   nodes: GraphNode[],

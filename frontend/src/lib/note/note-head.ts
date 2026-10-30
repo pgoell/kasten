@@ -25,9 +25,8 @@ import { notePath } from "@/lib/todo/todo-commands";
 export type { Outline, OutlineHeading } from "@/lib/note/note-outline";
 
 /**
- * Whether live preview is on, which is what Read means. The preview compartment
- * holds this beside the rendering, so it reads true exactly when the rendering
- * is, and a toggle of either is a toggle of both.
+ * Whether live preview is on, which is what Read means. The preview compartment holds this beside the rendering.
+ * So it reads true exactly when the rendering is, and a toggle of either toggles both.
  */
 export const readMode = Facet.define<boolean, boolean>({
   combine: (values) => values[0] ?? false,
@@ -35,9 +34,7 @@ export const readMode = Facet.define<boolean, boolean>({
 
 /**
  * Carries the Graph button's press, for the reason `followHandler` carries the follow.
- *
- * Absent, the header draws no Graph button: a view that was not told how to open
- * a graph has none to offer.
+ * Absent, the header draws no Graph button, since nothing can open a graph.
  */
 export const graphHandler = Facet.define<() => void, (() => void) | undefined>({
   combine: (handlers) => handlers[0],
@@ -327,13 +324,8 @@ function partsOf(view: EditorView, d: Drawn, toggle: () => void): HTMLElement[] 
 }
 
 /**
- * Draws the header above the note, as a child of the scroller and not of the
- * content, so the content's text is the note's own and the header scrolls with it.
- *
- * The header is absolute at the top of the scroller, which is positioned, and the
- * content's top padding grows by its height so the first line starts below it.
- * Its inner DOM is rebuilt only when what it shows changes, and its clicks are
- * outside the content, which CodeMirror leaves alone.
+ * Draws the header above the note, as a child of the scroller so it scrolls with the text.
+ * Its inner DOM is rebuilt only when what it shows changes, and its clicks sit outside the content, which CodeMirror leaves alone.
  */
 class HeadPlugin {
   private readonly view: EditorView;
@@ -495,12 +487,8 @@ const headTheme = EditorView.theme({
 });
 
 /**
- * The note's header and outline, as one extension.
- *
- * The header is drawn beside the content by a view plugin, so the text of the note
- * is never the header's. Read hides the frontmatter, except while the cursor is in
- * it, the way live preview shows the markup of the line under the cursor. That is
- * a block decoration, which only a field may make.
+ * The note's header and outline as one extension. The header is a view plugin beside the content, so the note's text is never the header's.
+ * Read hides the frontmatter except while the cursor is in it. That is a block decoration, which only a field may make.
  */
 export function noteHead(o: {
   toggle: () => void;
@@ -535,9 +523,8 @@ function hiding(state: EditorState, frontEnd: number): Hiding {
 }
 
 /**
- * Whether Read hides the block in `state`. Only while every selection starts below
- * the frontmatter: a selection that starts in the block shows the YAML, so a line
- * selection from the top does too.
+ * Whether Read hides the frontmatter in `state`: only while every selection starts below it.
+ * A selection starting in the block shows the YAML, so a line selection from the top does too.
  */
 function hidesBlock(state: EditorState, frontEnd: number): boolean {
   return (

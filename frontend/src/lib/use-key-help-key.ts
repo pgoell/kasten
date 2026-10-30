@@ -4,9 +4,8 @@ import type { EditorCommands } from "@/lib/key-bindings";
 import { beginLeader, editorOpener, paneOpener } from "@/lib/which-key";
 
 /**
- * Whether a key typed here belongs to the text in front of it. A note's editor
- * is one, so `?` in a note stays vim's own: a backward search in normal mode, a
- * question mark in insert mode. Everywhere else `?` asks for the key help.
+ * Whether a key typed here belongs to the text in front of it. In a note's editor `?` stays vim's
+ * own (a backward search, or a question mark), and everywhere else it asks for the key help.
  */
 function isTyping(target: EventTarget | null): boolean {
   if (!(target instanceof Element)) return false;
@@ -18,9 +17,8 @@ function isTyping(target: EventTarget | null): boolean {
 }
 
 /**
- * Whether the key help is up, and a `?` outside a text field raises it. Bubble
- * phase on the window, so a panel or a field that handles `?` itself (and calls
- * preventDefault) keeps it. Only a key nothing else took opens help.
+ * Whether the key help is up, and a `?` outside a text field raises it. Bubble phase on the window,
+ * so a panel that handles `?` and calls preventDefault keeps it.
  */
 export function useKeyHelp() {
   const [helpOpen, setHelpOpen] = useState(false);
@@ -38,9 +36,8 @@ export function useKeyHelp() {
 }
 
 /**
- * Opens the which-key panel from the toolbar's space button. The focus is where
- * the reader last typed, which is the editor when one is focused. The toolbar's
- * buttons never take it, so it is not moved here.
+ * Opens the which-key panel from the toolbar's space button. Focus stays where the reader last
+ * typed, since the toolbar's buttons never take it.
  */
 export function leaderFromFocus(commands: EditorCommands) {
   const focused = document.activeElement;

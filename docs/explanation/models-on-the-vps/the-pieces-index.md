@@ -13,8 +13,32 @@ into pieces, and each piece has a bge-m3 vector and a BM25 index beside its text
 [Semantic search models](/explanation/models-on-the-vps/semantic-search-models.md)
 picked the models and the BM25 extension, and
 [bge-m3 and pgvector on the VPS](/explanation/models-on-the-vps/bge-m3-and-pgvector-on-the-vps.md)
-measured them. No search reads the index yet. The ranked search comes in a later
-part of [#954](https://github.com/pgoell/kasten/issues/954).
+measured them. The ranked search reads it
+([`GET /api/ranked`](/reference/http-api/finding.md#get-apiranked), and the
+finder on `<leader>fm`); "notes like this one" comes in a later part of
+[#954](https://github.com/pgoell/kasten/issues/954).
+
+## How the ranked search reads it
+
+Three lists of 50 pieces each: BM25 through the `german` index, BM25 through the
+`english` one, and the nearest vectors by cosine distance. Reciprocal rank
+fusion sums `1 / (60 + rank)` over the lists a piece is in, and a note takes its
+best piece. A word both stemmers match counts twice; that is the price of
+guessing no language.
+
+The query is embedded on a thread of its own over the indexer's loaded model,
+never on the event loop. It once shared the indexer's thread and waited 12.7 s
+behind the first fill's batches; onnxruntime runs one session from two threads,
+and a query now took 85 to 160 ms while the dev vault was still filling. Until the
+model has loaded, the words rank alone and the answer says so. pg_textsearch
+sees which index a query names only when the query and the index name are
+constants in the SQL and the scan is not inside a subquery, so the backend
+writes both inline, quoted by SQLAlchemy.
+
+On a copy of the live index (6,321 pieces of 585 notes, 2026-10-29), a query
+took about 300 ms with the model idle: 80 to 140 ms to embed, 140 to 230 ms of
+SQL, most of that the vector scan, which has no HNSW index. Words alone took 6
+to 56 ms.
 
 ## What is in it
 

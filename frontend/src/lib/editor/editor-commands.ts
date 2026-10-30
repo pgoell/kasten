@@ -42,6 +42,7 @@ export function forwardCommands(get: () => EditorCommands | undefined): Extensio
     searchNotes: () => get()?.searchNotes(),
     findTodos: () => get()?.findTodos(),
     findBook: () => get()?.findBook(),
+    findMeaning: () => get()?.findMeaning(),
     openTodos: () => get()?.openTodos(),
     openLog: () => get()?.openLog(),
     openOverview: () => get()?.openOverview(),

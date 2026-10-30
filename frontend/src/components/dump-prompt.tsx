@@ -19,16 +19,8 @@ interface DumpPromptProps {
 }
 
 /**
- * Type one thought, and Enter puts it in the `## Dump` of today's note.
- *
- * The todo prompt's shape and keys, and its own component rather than that one
- * with a flag: what makes the todo prompt is the shorthand, its preview and its
- * hints, and a thought has none of the three. What is left is an input and two
- * keys, which is less than the props a shared component would need.
- *
- * The prompt shuts on Enter rather than waiting for the vault. A thought is
- * caught the moment it is typed; the write is the caller's, and so is saying
- * whether it landed.
+ * Its own component, not the todo prompt with a flag: a thought has no shorthand,
+ * preview or hints. The write is the caller's, so the prompt shuts on Enter without waiting.
  */
 export function DumpPrompt({ onCapture, onClose, today }: DumpPromptProps) {
   const [input, setInput] = useState("");

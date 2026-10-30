@@ -1,22 +1,6 @@
 /**
- * What can still be written on a todo line, offered while it is being written.
- *
- * Every field a todo carries is a glyph, and no glyph is on a keyboard, so the
- * line is far harder to write than it is to read. This answers with the fields
- * the line has not got yet, and with the values for the ones that take one, off
- * nothing but the text before the cursor.
- *
- * One table of fields, read by the three places a todo is written.
- * `todoCompletions` wraps the line reading as a CodeMirror source for the
- * editor, the todo pane draws the same answers as buttons under the row it is
- * editing, and the add prompt draws them in the shorthand's own spelling.
- * Today is passed in rather than read here, so the whole of it is a function
- * over strings, the way `todo-shorthand.ts` takes its own.
- *
- * Four fields are deliberately not offered. `➕`, `✅` and `❌` are kasten's own
- * stamps, and a done date written by hand is one the done log knows nothing
- * about. `🆔` has a key of its own, `<leader>i`. And a `⛔` names another todo's
- * id, which nothing here can see: the todo pane's `b` writes it.
+ * The fields a todo line has not got yet, offered while it is written, from the text before
+ * the cursor alone. `➕`, `✅` and `❌` are kasten's own stamps; `🆔` and `⛔` have their own keys.
  */
 
 import type { CompletionContext, CompletionResult } from "@codemirror/autocomplete";
@@ -43,11 +27,8 @@ export interface Suggestions {
 }
 
 /**
- * One field, in both spellings a todo is written in.
- *
- * The line is the glyph the vault holds; the shorthand is the word the add
- * prompt takes. One table rather than two, so a field cannot be offered in one
- * place and forgotten in the other.
+ * One field in both spellings: the glyph on a line, the word in the add prompt. One table,
+ * so a field cannot be offered in one place and forgotten in the other.
  */
 interface Field {
   name: string;
@@ -62,12 +43,8 @@ interface Field {
 }
 
 /**
- * A field written in two steps: the marker, then the value asked for next.
- *
- * On a line the space goes in with the glyph, so what is typed while choosing
- * the value stands off it the way it will once it is chosen. In the shorthand
- * the colon does that job and there is no space to write. Either way the value
- * replaces everything from the end of the marker.
+ * A field written in two steps: the marker, then the value. On a line the space goes in with
+ * the glyph; in the shorthand the colon does that job. The value replaces all after the marker.
  */
 function marker(name: string, hint: string, term: string, on: (todo: Todo) => boolean): Field {
   return { name, hint, line: `${hint} `, short: `${term}:`, on };
@@ -162,10 +139,8 @@ function values(long: boolean, today: string, pad: string): Suggestion[] {
 }
 
 /**
- * The rules that follow a `🔁`, counted from the date the todo carries or from
- * today, and narrowed to what has been typed. `spell` turns a rule into what
- * the caller writes, and what is typed is matched against that, so each place
- * narrows in its own spelling.
+ * The rules that follow a `🔁`, counted from the todo's date or from today, narrowed to what
+ * is typed. Each is matched in the spelling its caller writes, so each place narrows its own.
  */
 function rules(todo: Todo, today: string, typed: string, spell: (rule: string) => string) {
   const wanted = typed.toLowerCase();
@@ -196,13 +171,8 @@ function narrow(from: number, options: Suggestion[], typed: string): Suggestions
 }
 
 /**
- * What can go in at the end of a todo line, or nothing where there is nothing
- * to offer.
- *
- * `prompted` is the caller saying it wants the fields whether or not a colon
- * asked for them: the pane draws them under every line it edits, and
- * `ctrl-space` in the editor is the same request. Without it the list waits to
- * be opened, so typing a todo is typing a todo.
+ * What can go at the end of a todo line, or nothing. `prompted` asks for the fields even
+ * without a colon, as the pane and `ctrl-space` do; otherwise typing a todo stays typing a todo.
  */
 export function lineSuggestions(
   before: string,
@@ -256,14 +226,8 @@ export function lineSuggestions(
 }
 
 /**
- * The same answers for the add prompt, which takes the shorthand rather than
- * the line.
- *
- * Always offered, and never narrowed: the prompt draws them under a single
- * short input, where a list of what is left to write is the whole point and
- * there is no prose for them to interrupt. What has been typed is read by
- * `expandShorthand`, so a field is off the list once its own term is on the
- * input, whichever way round the two were written.
+ * The same answers for the add prompt, which takes the shorthand. Always offered and never
+ * narrowed: a field drops off once its own term is on the input, whichever way round.
  */
 export function shorthandSuggestions(before: string, today: string): Suggestions | null {
   const term = TERM.exec(before);
@@ -294,13 +258,8 @@ export function shorthandSuggestions(before: string, today: string): Suggestions
 }
 
 /**
- * The same answers as a CodeMirror completion, on the line the cursor is on.
- *
- * Registered on the markdown language beside `wikiLinkCompletions`, so it joins
- * the one autocompletion `basicSetup` already mounted rather than fighting it.
- *
- * The list is narrowed above and `filter` is off, because the range starts at
- * the colon: CodeMirror would match `:due` against the labels and keep nothing.
+ * The same answers as a CodeMirror completion, on the cursor's line. Registered beside
+ * `wikiLinkCompletions`. `filter` is off, since the range starts at the colon and would match nothing.
  */
 export function todoCompletions(context: CompletionContext): CompletionResult | null {
   const line = context.state.doc.lineAt(context.pos);

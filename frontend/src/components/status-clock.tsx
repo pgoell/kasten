@@ -4,11 +4,8 @@ import { type Clock as ClockReading, readClock } from "@/lib/clock";
 const MINUTE_MS = 60_000;
 
 /**
- * The date and time at the foot of the window.
- *
- * The tick is lined up with the wall clock rather than set going a minute at a
- * time from mount, so the minute changes on screen when it changes on the
- * clock instead of up to a minute later. One re-render a minute, not sixty.
+ * The date and time at the foot of the window. Ticks on the wall clock's minute, so the
+ * minute changes on screen when it changes on the clock: one render a minute.
  */
 export function Clock({ crowded }: { crowded: boolean }) {
   const [now, setNow] = useState<ClockReading>(() => readClock(new Date()));

@@ -4,15 +4,9 @@ import { useCallback, useEffect, useRef } from "react";
 const WAIT_MS = 60_000;
 
 /**
- * When a reading position is written, and nothing about what is written.
- *
- * The scheduler alone: it holds no rule about focus or about the listing, those
- * living in the `write` it is handed. `write` answers whether the vault took the
- * position, and a no leaves it waiting for the next chance. It is written not to
- * throw, and a throw costs one position rather than the note.
- *
- * Everything is keyed by note path, so two readers on two notes do not share a
- * timer and two panes reading one note share one.
+ * When a reading position is written, not what is written. `write` answers whether the vault took
+ * the position, and false leaves it for the next chance. It must not throw, or a position is lost.
+ * Keyed by note path, so two readers on one note share a timer.
  */
 export function useBookmark(write: (note: string, cfi: string) => Promise<boolean>): {
   /** The reader in `note` turned to `cfi`. Starts the wait again. */
@@ -34,9 +28,8 @@ export function useBookmark(write: (note: string, cfi: string) => Promise<boolea
   const send = useCallback(
     (note: string) => {
       const cfi = pending.current.get(note);
-      // Nothing to say, or nothing new to say, or the note is already busy
-      // saying it. Added to the set before anything is awaited, so two calls in
-      // one tick cannot both get through.
+      // Nothing new to say, or the note is already being written. Added before any await, so two
+      // calls in one tick cannot both pass.
       if (cfi === undefined || cfi === sent.current.get(note)) return;
       if (writing.current.has(note)) return;
       writing.current.add(note);
@@ -49,9 +42,7 @@ export function useBookmark(write: (note: string, cfi: string) => Promise<boolea
           // Only where nothing newer arrived while this was out.
           if (pending.current.get(note) === cfi) pending.current.delete(note);
         },
-        // A two-arm `then` rather than a promise about code in another module:
-        // a `write` that broke its contract and threw would otherwise gate that
-        // note for the life of the page.
+        // A two-arm `then`: a `write` that throws would gate its note for the page's life.
         () => {
           writing.current.delete(note);
         },
@@ -83,24 +74,18 @@ export function useBookmark(write: (note: string, cfi: string) => Promise<boolea
 
   const flush = useCallback(
     (note: string) => {
-      // Doing nothing at all, and leaving that note's timer standing. A page
-      // turn during a write armed a fresh timer, and clearing a timer this call
-      // cannot replace strands that turn for good; sending again when the write
-      // lands is the other wrong answer, and it writes at request speed for as
-      // long as turns keep landing during writes.
+      // Leave the timer standing: clearing one this call cannot replace strands that turn for good.
+      // Sending again on landing would write at request speed while turns keep landing.
       if (writing.current.has(note)) return;
       clear(note);
-      // ponytail: a flush whose write the guards then refuse is terminal, the
-      // timer being gone and the pane with it. Opening the book again and
-      // turning a page is the way out; a retry needs somewhere to live that
-      // outlives the pane.
+      // ponytail: a flush the guards refuse is terminal, the timer and pane gone. Reopening the
+      // book is the way out; a retry needs somewhere to live that outlives the pane.
       send(note);
     },
     [clear, send],
   );
 
-  // Every timer, on the way out. Not a flush: the page is going away, and
-  // losing a minute of position to a closed tab is a documented cost.
+  // On the way out, no flush: a closed tab losing a minute of position is a documented cost.
   useEffect(() => {
     const live = timers.current;
     return () => {

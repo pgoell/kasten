@@ -11,23 +11,13 @@ import { isRow } from "@/lib/editor/table";
 import { readMode } from "@/lib/note/note-head";
 
 /**
- * A table's source, marked where live preview does not draw it.
- *
- * Read draws a table as a grid, and live preview marks the source only while the
- * cursor is in the table. Edit has live preview off, so nothing marks the lines,
- * and the same classes give Edit the same face. The cursor's row is marked in
- * both modes, so the reader can see which row is theirs.
- *
- * Its own plugin and not part of live preview, which sits in the preview
- * compartment and is gone when preview is off.
+ * Marks a table's source where live preview does not draw it, so Edit and Read show the same face.
+ * Its own plugin, since live preview sits in a compartment that goes when preview is off.
  */
 
 /**
- * The lines of each table in the ranges, first and last, both inside the table.
- *
- * Only the ranges on screen are walked. A note of many tables would otherwise
- * ask the tree for all of them on every keystroke, and the lines off screen are
- * drawn when they scroll in.
+ * The lines of each table in the ranges, both inside the table. Only the ranges on screen are walked,
+ * since asking the tree for every table on each keystroke would be slow.
  */
 function tables(
   state: EditorState,

@@ -4,15 +4,8 @@ import type { HeldRow } from "@/lib/todo/todo-hold";
 import { type Row, rowKey } from "@/lib/todo/use-todo-rows";
 
 /**
- * The Done this week rows as the pane draws them while a press holds the order.
- *
- * `held` is the fold as it was drawn when the press came, or null while no
- * press holds it. A held row stays where it was: one still finished is drawn as
- * the vault answers it now, and one that left the fold is drawn struck from the
- * line the vault holds, so a second press still lands on the row it was on. A
- * held row whose line is no longer a todo keeps the row as it was drawn. Rows
- * in `kept` are drawn by the open list, which holds them struck, so they are
- * not drawn twice. Rows the hold has not seen go at the end.
+ * The Done this week rows as drawn while a press holds the order. A held row keeps its
+ * place, struck if it left the fold, so a second press still lands on it.
  */
 export function heldFold(
   held: HeldRow[] | null,

@@ -31,33 +31,24 @@ export interface TodoCycle {
 export type CycleHandler = (cycle: TodoCycle) => void;
 
 /**
- * Carries the callback that follows a press into the vault.
- *
- * A facet for the reason `saveHandler` is one: vim registers this key once for
- * the whole module and cannot close over one view's props. Not a member of
- * `editorCommands` either, because that table is the one a leader sequence
- * names a command in and every member of it takes nothing.
+ * Carries the callback a press uses to reach the vault. A facet, not an `editorCommands`
+ * member, since vim registers the key once for every view and cannot close over props.
  */
 export const todoCycled = Facet.define<CycleHandler, CycleHandler | undefined>({
   combine: (handlers) => handlers[0],
 });
 
 /**
- * The path of the note this view holds, or nothing for a view holding no note.
- *
- * Read to tell today's daily note from every other note. A todo living there
- * logs itself into this very buffer, which is the one write that cannot go
- * through the vault: it would land on text somebody is still typing.
+ * The path of the note this view holds, or nothing. Tells today's daily note apart, since a
+ * todo there logs into this buffer, the one write that cannot go through the vault.
  */
 export const notePath = Facet.define<string, string | undefined>({
   combine: (paths) => paths[0],
 });
 
 /**
- * Whether an id stands on a todo line in another note, as far as the page's
- * listing of the vault says. The press is synchronous and cannot ask the vault,
- * and a listing it does not hold answers no: the route asks the vault afresh
- * before it writes anything beyond the buffer.
+ * Whether an id names a todo line in another note, by the page's vault listing; no listing
+ * answers no. The route asks the vault again before it writes past the buffer.
  */
 export const idElsewhere = Facet.define<
   (id: string) => boolean,
@@ -67,10 +58,8 @@ export const idElsewhere = Facet.define<
 });
 
 /**
- * The log's half of a press, when the note holding the todo is today's own.
- *
- * Empty for every other note, where the route writes the log through the vault
- * instead, and empty for a press that touches neither end of done.
+ * The log's half of a press, when the note holding the todo is today's own. Empty for
+ * other notes, where the route writes the log, and for a press touching neither end of done.
  */
 function logEdits(doc: string, before: string, after: string, path: string | undefined): Edit[] {
   const now = parseTodo(after);
@@ -90,21 +79,8 @@ function logEdits(doc: string, before: string, after: string, path: string | und
 }
 
 /**
- * Cycle the line the cursor is on, in the buffer, so `u` undoes it.
- *
- * The clock and the id are read here rather than in `todo.ts`, which is what
- * keeps that module a function over strings and its tests free of both.
- *
- * The buffer is only half of a press for a todo living anywhere else: entering
- * or leaving done also moves a `- ✅` line in today's note, so the line is
- * reported on the way out and the route writes that half. A todo already in
- * today's note is the case the route cannot write, this being the buffer being
- * typed into, so both halves go in one transaction here and `u` takes back
- * both.
- *
- * `want` is the state a key named, and nothing where the key walks the cycle.
- * Everything past the line itself is the same either way: a parent takes its
- * parts into done however the press got there.
+ * Cycle the cursor's line in the buffer, so `u` undoes it. A todo in today's note has both
+ * halves go in this transaction; one elsewhere leaves the second half to the route.
  */
 export function cycleTodoAtCursor(view: EditorView, want?: TodoState): void {
   const { state } = view;
@@ -186,10 +162,8 @@ export function cycleTodoAtCursor(view: EditorView, want?: TodoState): void {
 }
 
 /**
- * Stamp an id on the todo under the cursor, so something else can name it.
- *
- * The spec's second stamp, the one entering done is not. A `⛔` is written by
- * hand and needs an id to name, and an open todo has none until this.
+ * Stamp an id on the todo under the cursor, so something else can name it. A `⛔` written
+ * by hand needs one, and an open todo has none until this.
  */
 export function stampIdAtCursor(view: EditorView): void {
   const { state } = view;
@@ -203,9 +177,8 @@ export function stampIdAtCursor(view: EditorView): void {
 }
 
 /**
- * Write `patched` over `line`, replacing only the span that differs, so the
- * cursor and the rest of the line map through the change untouched and one `u`
- * takes it back.
+ * Write `patched` over `line`, replacing only the span that differs. The cursor and the
+ * rest of the line map through the change, and one `u` takes it back.
  */
 function replaceLine(view: EditorView, line: Line, patched: string): void {
   let start = 0;
@@ -228,9 +201,8 @@ function replaceLine(view: EditorView, line: Line, patched: string): void {
 }
 
 /**
- * Hand the todo under the cursor to the agent worker, or take it back: `#agent`
- * on or off the line, and nothing else moved. A press that writes nothing says
- * why at the foot, as the pane's `@` does.
+ * Hand the todo under the cursor to the agent worker, or take it back: `#agent` on or
+ * off the line, nothing else moved. A press that writes nothing says why at the foot.
  */
 export function agentTodoAtCursor(view: EditorView): void {
   const { state } = view;

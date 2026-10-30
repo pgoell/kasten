@@ -8,20 +8,14 @@ import { FOLDED, HIDDEN, isNodeRevealed, type Walk } from "@/lib/live/live-previ
 export const toggleFold = StateEffect.define<number>();
 
 /**
- * Positions a callout folded shut by its `-` opens for.
- *
- * The search pane marks the line a hit sits on, and a hit inside a shut body
- * would mark a line nobody can see. A click still shuts it again.
+ * Opens a callout folded shut by its `-` when the search lands inside it.
+ * Otherwise the search would mark a line nobody can see. A click still shuts it.
  */
 export const opensFor = Facet.define<number>();
 
 /**
  * A click on a written title flips the fold, as one on the chevron does.
- *
- * The title is text in the document rather than a widget, so CodeMirror would
- * put the cursor in it, and with vim off that shows the callout's source
- * rather than opening it. The mark carries the callout's `>`. A link in the
- * title is left to do what a click on a link does anywhere else.
+ * Otherwise a cursor in the title would show the callout's source, not open it.
  */
 function foldingTitle(target: EventTarget | null): Element | null {
   if (!(target instanceof Element) || target.closest(".cm-link, .cm-wikilink")) return null;
@@ -43,12 +37,8 @@ export const foldClicks = EditorView.domEventHandlers({
 });
 
 /**
- * The callouts whose fold a click has flipped from what their sign says.
- *
- * View state and not text: Obsidian folds by click without touching the file,
- * so a click here changes nothing undo could take back. Each is kept by the
- * position of its `>`, mapped through every edit so typing elsewhere leaves
- * the fold as it was.
+ * The callouts a click has folded against their sign, kept by their `>`.
+ * View state, not text, so undo never takes a click back.
  */
 export const folds = StateField.define<readonly number[]>({
   create: () => [],
@@ -71,11 +61,7 @@ export const folds = StateField.define<readonly number[]>({
 
 /**
  * Makes `dom` flip the fold of the callout at `from`.
- *
- * The widget's default `ignoreEvent` keeps CodeMirror from handling the press,
- * and the `preventDefault` keeps the browser from putting a caret there. With
- * vim off the editor is always in insert mode, so a cursor landing in the
- * callout would show its source rather than open it.
+ * The press must not reach CodeMirror, or a cursor here shows the source.
  */
 function flipsFold(dom: HTMLElement, view: EditorView, from: number): void {
   dom.addEventListener("mousedown", (event) => event.preventDefault());
@@ -93,10 +79,8 @@ function chevron(open: boolean): HTMLElement {
 }
 
 /**
- * What stands in for `> [!type]-`: the icon and, when none is written, the
- * title made from the type, with the chevron after it on a callout that folds.
- *
- * The icon's glyph and colour are in CSS, read off the kind class on the line.
+ * What stands in for `> [!type]-`: the icon, or the title made from the type.
+ * The icon's glyph and colour are in CSS, read off the kind class.
  */
 class CalloutHead extends WidgetType {
   private readonly title: string | null;
@@ -176,10 +160,7 @@ export class Callouts {
   private readonly callouts: Box[] = [];
   /**
    * Every `>`, hidden and classed after the walk.
-   *
-   * A line's marks come by before the callout that owns the line is found: in
-   * `> > [!tip]` the outer quote's mark is entered ahead of the inner quote,
-   * and the parser hangs the marks of later lines under the paragraph inside.
+   * A line's marks come before the callout that owns it, as in `> > [!tip]`.
    */
   private readonly quotes: { from: number; to: number; line: Line; revealed: boolean }[] = [];
   /** The `[!type]` of the callout last entered, which the parser reads as a link. */
@@ -198,11 +179,8 @@ export class Callouts {
   }
 
   /**
-   * A quote whose first line opens with `[!type]` is a callout, drawn as a
-   * box with the type's icon and colour. Read here at the quote rather than
-   * at its marks, the first line deciding for every line under it. The
-   * walk goes on in, so the title's own constructs and a callout nested
-   * inside are decorated as they would be anywhere.
+   * A quote whose first line opens with `[!type]` is a callout, drawn as a box.
+   * Read at the quote, so the first line decides for every line under it.
    */
   enter(walk: Walk, node: SyntaxNode): void {
     const { state, decorations, hidden } = walk;

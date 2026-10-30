@@ -1,10 +1,6 @@
 /**
- * The fields a todo line carries after its box: how each one is spelled, how
- * it is read off the words, and how one is stamped in or out with every other
- * byte of the line kept.
- *
- * `todo.ts` owns the line and its state; this module owns what the words after
- * the box say.
+ * The fields a todo line carries after its box: how each is spelled, read and stamped.
+ * `todo.ts` owns the line and its state; this owns what the words after the box say.
  */
 
 import { masked, SPANS, wordTags } from "@/lib/tag-rule";
@@ -141,9 +137,8 @@ interface Found {
 }
 
 /**
- * The first match of `pattern` on `mask` that carries a value. A `👤` with
- * neither a date nor a name says nothing, and is words like any other marker
- * whose value does not parse.
+ * The first match of `pattern` on `mask` that carries a value. A bare `👤` with no date
+ * or name is read as words, like any marker whose value does not parse.
  */
 function find(pattern: RegExp, text: string, mask: string): Found | null {
   const found = pattern.exec(mask);
@@ -161,14 +156,8 @@ export function readFields(rest: string): Fields {
 }
 
 /**
- * `readFields`, where each tag starts in `rest`, and where the wait's own match
- * ends in `rest`. A tag is read on the words once the fields are out, so
- * `📅 2026-10-20#agent` carries one and `🆔 kt-a,#agent` none; `origin` keeps each
- * kept character's offset in `rest` so `@` can find that same tag on the line.
- * `waitEnd` is that match's end, so a `👤` another field holds as its value
- * never stands in for the wait. `places` gives each field's
- * own match the same way, so a write over a stamp lands on the one the line
- * reads back and not on a `👤` an earlier field holds as its value.
+ * Where each tag and field starts in `rest`, so a write lands on the stamp the line reads
+ * back. Tags count only once the fields are out: `🆔 kt-a,#agent` carries none.
  */
 export function readTagged(rest: string): {
   fields: Fields;
@@ -255,13 +244,8 @@ export function readTagged(rest: string): {
 }
 
 /**
- * Where words may end on a line: before each field marker outside a span,
- * before a trailing `^blockid`, and at the end of the line.
- *
- * Exported for the board, whose `p` puts a link there. A stamp tries the same
- * places, so both writes leave a line's fields where they were, but passes
- * `fields`, the offsets of the fields that parse: a stamp in front of
- * `📅 friday` would split words that read as one.
+ * Where words may end on a line, so a stamp or a link leaves the fields where they were.
+ * A stamp also passes `fields`, so `📅 friday` is not split.
  */
 export function endsOfWords(line: string, fields?: number[]): number[] {
   const spans = [...line.matchAll(SPANS)].map((m) => [m.index, m.index + m[0].length]);
@@ -296,10 +280,8 @@ export function fieldStarts(rest: string): number[] {
 }
 
 /**
- * The fields a state change or a field write puts on or takes off, each
- * spelled as `tail` spells it. In `ORDER`'s sequence, so a stop writing `⏱` and
- * `🆔` together finds the one when it places the other. `⛔` is not here: a
- * line carries it more than once, and this loop writes one value per field.
+ * The fields a state change or field write puts on or takes off, each spelled as `tail`.
+ * In `ORDER`'s sequence, so `⏱` and `🆔` find each other. `⛔` is left out: a line can carry several.
  */
 const STAMPS: {
   pattern: RegExp;

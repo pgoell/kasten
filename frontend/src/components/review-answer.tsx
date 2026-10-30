@@ -28,11 +28,8 @@ const GRADE: Record<Rating, string> = {
 };
 
 /**
- * A tap target big enough for a thumb.
- *
- * 44px is the smallest square Apple and Google both call reachable, and the
- * whole point of this screen is that it works on a phone. Every button here
- * carries it, including the ones a desktop would be happy to draw smaller.
+ * A tap target big enough for a thumb. 44px is the smallest square Apple and Google
+ * both call reachable, and every button here carries it.
  */
 export const BUTTON =
   "min-h-11 rounded border border-k-rule px-4 py-2 text-k-13 text-k-ink " +
@@ -40,10 +37,7 @@ export const BUTTON =
 
 /**
  * The footer under a card: the reveal, the typed answer, or the four ratings.
- *
- * The quiet links are the sitting's own, parking and the new question, and they
- * show on both sides. A whole note is always on its answer side, so a mouse
- * could not park it if they went with the reveal.
+ * The quiet links show on both sides, since a whole note is always on its answer side and must stay parkable.
  */
 export function ReviewAnswer({
   shown,
@@ -164,11 +158,8 @@ export function ReviewAnswer({
 }
 
 /**
- * Where the card came from, under its back: the note and line it is in, and how
- * long ago it was last answered.
- *
- * The link is the one way out to the source, which the card does not show. The
- * line is left off a whole note, which has no line to go to.
+ * Where the card came from, under its back: the note, the line, and how long ago it was answered.
+ * The line is left off a whole note, which has no line to go to.
  */
 export function ReviewSource({
   name,

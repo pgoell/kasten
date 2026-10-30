@@ -1,11 +1,6 @@
 /**
- * The vault graph's clusters, worked out without a canvas: which place or tag
- * each note belongs to, where each cluster's spot is, and the forces that pull
- * the notes to them. The canvas draws what this says and runs the forces.
- *
- * Folders mode gives each top folder a spot, a project's own folder under a
- * `…Projects` folder one of its own. Tags mode gives each tag a spot, and a note
- * counts towards every tag it carries.
+ * The clusters of the vault graph: each note's place or tag, each cluster's spot, and the forces
+ * that pull notes to them. The canvas draws and runs what this gives.
  */
 
 import type { DrawnLink, DrawnNode, GraphNode } from "@/lib/graph/graph";
@@ -158,11 +153,8 @@ export function anchorOf(
 }
 
 /**
- * A start position for every note that has none: round its spot in a small
- * spiral, the j-th note of a spot a little further out, and a note with no
- * spot on a ring just outside the farthest spot. The spiral is by spot, so no
- * two notes share a point, and a fresh canvas starts every note in the same
- * place.
+ * A start position for each note: a small spiral per spot, so no two notes share a point.
+ * A fresh canvas must not start every note in one place.
  */
 export function seedPositions(nodes: DrawnNode[], mode: GraphMode, spots: Map<string, Spot>): void {
   let farthest = 0;
@@ -192,11 +184,8 @@ export function seedPositions(nodes: DrawnNode[], mode: GraphMode, spots: Map<st
 }
 
 /**
- * A cluster's area on the canvas: the middle of its members and a radius that
- * holds most of them. The radius is the 75th percentile of the members' distances
- * from the middle, plus a margin, so one stray note does not swell the area over
- * the others, and it is never past 0.45 of the gap to a neighbouring spot, so two
- * neighbours' areas do not cover each other's names.
+ * A cluster's area: the members' middle and a radius at their 75th percentile, so one stray note
+ * does not swell it. Capped at 0.45 of the gap to a neighbour, so two areas do not cover names.
  */
 export function areaOf(
   members: readonly { x?: number; y?: number }[],
@@ -212,10 +201,8 @@ export function areaOf(
 }
 
 /**
- * Where each area's name sits, as the baseline of its text, in the order given.
- * A name sits just above its area; when its box would print on a name already
- * placed, it moves up one `line` at a time until it is clear. A box is `half` wide
- * either side of the name's centre and `height` tall above its baseline.
+ * Where each area's name sits, as its text baseline, in the order given. A name moves up one `line`
+ * at a time until it is clear of names already placed; a box is `half` wide either side and `height` tall.
  */
 export function nameBaselines(
   names: readonly { x: number; y: number; half: number }[],
@@ -250,14 +237,8 @@ export function nameBaselines(
 }
 
 /**
- * The Fruchterman-Reingold forces that replace the default layout in a cluster
- * mode. Repulsion is not here: the canvas sets force-graph's own charge to
- * `CHARGE`, which is the `k²/d` term.
- *
- * `attract` pulls the two ends of each link together, `d/K` per tick scaled by
- * `ATTRACT`, so a note's links keep its neighbours near. `anchor` pulls each note
- * to its spot. `gravity` pulls every note to the middle, so a loose note rings the
- * clusters instead of drifting off the edge.
+ * The Fruchterman-Reingold forces for cluster mode. Repulsion is force-graph's own charge (`CHARGE`),
+ * so `gravity` is what stops loose notes drifting off the edge.
  */
 export function clusterForces(mode: GraphMode, spots: Map<string, Spot>): ClusterForces {
   const attracting = mode === "tags" ? TAGS_ATTRACT : ATTRACT;

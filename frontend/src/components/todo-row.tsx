@@ -9,11 +9,8 @@ import { type Row, type RowFacts, rowKey } from "@/lib/todo/use-todo-rows";
 const CLIENT_MARK = "◆";
 
 /**
- * The mark a row with a timer going carries, and nothing where none is.
- *
- * The day comes with it where the session was opened on an earlier one, which
- * is how a timer nobody stopped is drawn as unstopped. The year is left off:
- * every other date on a row is cut the same way.
+ * The mark on a row whose timer is running. A start on an earlier day shows that day,
+ * which is how a timer nobody stopped reads.
  */
 function timerMark(day: string | undefined, today: string): string | null {
   if (day === undefined) return null;
@@ -54,12 +51,9 @@ const CURSOR = [
 ].join(" ");
 
 /**
- * One row of the list: the line as a button that opens its note.
- *
- * Two lines: the words, and under them a meta line in the smaller, muted face
- * that says what else the todo carries. The date is at the right, in the
- * danger colour once it is past. The row sits on the pane's ground and never
- * on a surface: `--k-danger` reads 4.34:1 on `--k-surface`, short of 4.5.
+ * One row of the list: the line as a button that opens its note. The date turns the
+ * danger colour once past. The row sits on the pane's ground, not a surface:
+ * `--k-danger` reads 4.34:1 on `--k-surface`, short of 4.5.
  */
 export function TodoRow({
   row,
@@ -98,7 +92,6 @@ export function TodoRow({
   const dependents =
     todo.id !== undefined && isOpen(todo) ? facts.links.dependents.get(todo.id) : undefined;
   const progress = facts.progress.get(key);
-  // A row with nothing for its meta line draws none, so a bare todo is one line.
   // A row the answer left no project on reads as none, undefined as null.
   const meta =
     hit.project != null ||
@@ -117,8 +110,7 @@ export function TodoRow({
       type="button"
       data-row={key}
       tabIndex={cursor ? 0 : -1}
-      // A tap is Enter by finger, and takes the row as Enter does. A chip
-      // on the row takes its own press: the person's note, not the todo's.
+      // A tap is Enter by finger. A chip on the row takes its own press.
       onClick={(event) => {
         const note = chipNote(event.target);
         if (note === null) onClick();
@@ -130,10 +122,7 @@ export function TodoRow({
         ...(coarse ? { paddingLeft: 0 } : indent),
         ...(enter === undefined ? {} : ({ "--i": enter } as React.CSSProperties)),
       }}
-      // A blocked row is drawn muted rather than gathered under a
-      // heading of its own: its state is written on the line, and
-      // the date group is still where the work belongs. A waiting
-      // row is held the same way, by a person rather than a todo.
+      // Blocked and waiting rows stay in their date group, with the state written on the line.
       className={`k-row flex w-full min-w-0 max-w-[52rem] cursor-pointer items-start gap-2 px-3 py-[3px] text-left font-sans ${muted ? "text-k-muted" : "text-k-ink"} ${cursor ? CURSOR : ""} ${coarse ? "min-h-11" : ""} ${enter === undefined ? "" : "k-enter"}`}
     >
       {/* On touch the state button in front of the row carries the box instead. */}
