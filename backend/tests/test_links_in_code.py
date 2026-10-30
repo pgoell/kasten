@@ -1,6 +1,4 @@
-import gc
 import sys
-import time
 from typing import TYPE_CHECKING
 
 import pytest
@@ -13,6 +11,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from httpx import AsyncClient
+    from markdown_it.token import Token
 
 
 @pytest.mark.parametrize(
@@ -207,18 +206,30 @@ def test_reads_a_carriage_return_as_no_line_break() -> None:
     assert relink(text, {"x.md": "y.md"}, ["x.md"]) == "a\r```\n[[y]]\n```\n[[x]]\n```\n"
 
 
-def test_reads_code_of_a_long_note_full_of_fences_in_time() -> None:
-    # The note is parsed once, and in blocks only, for the same event loop.
+def test_reads_code_of_a_long_note_full_of_fences_in_time(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Parsed once, in blocks only, each line read once: counted, so no load can fail it.
     text = "para `c` [[x]]\n\n```py\n[[x]]\n```\n\n> ```\n> q\n> ```\n- item\n\n" * 1000
-    # A full collection of the suite's heap takes about half a second on its
-    # own, and one that falls inside the window fails the parse for the rest of
-    # the suite's garbage. Collected first, the counters start again from zero.
-    gc.collect()
-    began = time.perf_counter()
+    parses: list[int] = []
+    scans: list[int] = []
+    parse = spans_module.FENCES.parse
+    inline_code = spans_module._inline_code
+
+    def counting_parse(src: str) -> list[Token]:
+        parses.append(1)
+        return parse(src)
+
+    def counting_inline_code(line: str) -> list[tuple[int, int]]:
+        scans.append(1)
+        return inline_code(line)
+
+    monkeypatch.setattr(spans_module.FENCES, "parse", counting_parse)
+    monkeypatch.setattr(spans_module, "_inline_code", counting_inline_code)
 
     code_spans(text)
 
-    assert time.perf_counter() - began < 0.5
+    assert len(parses) == 1
+    assert "inline" not in spans_module.FENCES.get_active_rules()["core"]
+    assert len(scans) <= len(text.split("\n"))
 
 
 def test_relinks_a_long_note_full_of_code_in_time(monkeypatch: pytest.MonkeyPatch) -> None:
