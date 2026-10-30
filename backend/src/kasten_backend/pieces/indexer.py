@@ -32,9 +32,9 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+# Seconds between tries while the database is gone, doubling up to the cap.
 FIRST_WAIT = 1.0
 LONGEST_WAIT = 60.0
-"""Seconds between tries while the database is gone, doubling up to the cap."""
 
 
 def _lost(error: OperationalError) -> bool:
@@ -134,7 +134,8 @@ class Indexer:
                     raise
                 if not tries:
                     logger.warning("The pieces index waits for its database: %s", error.orig)
-                await self._wait(min(FIRST_WAIT * 2**tries, LONGEST_WAIT))
+                # A bounded exponent: 2**1024 overflows a float, some 17 hours in.
+                await self._wait(min(FIRST_WAIT * 2 ** min(tries, 6), LONGEST_WAIT))
                 tries += 1
                 # The sweep finds the note that failed and any save the watcher missed.
                 self._sweep = True

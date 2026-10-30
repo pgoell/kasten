@@ -280,3 +280,25 @@ async def test_no_database_at_startup_is_retried(
     assert waits == [1, 2, 4]
     assert caplog.text.count("waits for its database") == 1
     await engine.dispose()
+
+
+async def test_a_day_long_outage_keeps_the_wait_at_the_cap(
+    tmp_path: Path, sessions: async_sessionmaker[AsyncSession]
+) -> None:
+    flaky = Flaky(sessions)
+    flaky.failures = 1500
+    waits: list[float] = []
+
+    async def wait(seconds: float) -> None:
+        waits.append(seconds)
+
+    made = Indexer(tmp_path, flaky, FakeModel, model_thread())  # ty: ignore[invalid-argument-type]
+    made._wait = wait
+    running = asyncio.create_task(made.run())
+    try:
+        await _until(lambda: _true(flaky.failures == 0 and len(waits) == 1500), 60)
+        await _until(lambda: _settled(made))
+        assert not running.done()
+        assert set(waits[6:]) == {60}
+    finally:
+        running.cancel()
