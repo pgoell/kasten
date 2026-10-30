@@ -23,8 +23,8 @@ is about 2.0x slower, so the ranking gates count work and do not time it. See
 
 | Surface | Bar | Gated |
 | --- | --- | --- |
-| Prompt keystroke at 10,000 notes | 16 ms end to end, about 4 ms of it JS | yes |
-| Finder keystroke at 10,000 notes | 16 ms end to end, about 4 ms of it JS | yes |
+| Prompt keystroke at 10,000 notes | 16 ms end to end, about 4 ms of it JS | no, recorded; the rankings and rows it does are counted |
+| Finder keystroke at 10,000 notes | 16 ms end to end, about 4 ms of it JS | no, recorded; the rankings and rows it does are counted |
 | Either at 50,000 notes | under 100 ms end to end | no, recorded |
 | Editor keystroke | no wasted re-renders, asserted as a count | yes, exact |
 | `GET /api/files`, `buildTree`, load and first paint | none | no, recorded |
@@ -106,20 +106,20 @@ query. One letter rejects almost nothing, so nearly every note pays for the
 scoring table, where a longer query throws most of the vault out on the cheap
 subsequence scan that runs in front of it.
 
-The other gates still count or time a frame, and keep their thresholds:
+The other gates count a frame's work, each an exact count:
 
 | Gate | File | Measures | Achieved | Threshold |
 | --- | --- | ---: | ---: | ---: |
-| the prompt keystroke's commit | `tests/frame/note-prompt.test.tsx` | 10,000 notes in Chromium | 2.5 ms | 15 ms |
-| the finder keystroke's commit | `tests/frame/note-finder.test.tsx` | 10,000 notes in Chromium | 6.7 ms | 40 ms |
+| rankings per keystroke, either surface | `tests/frame/note-prompt.test.tsx`, `tests/frame/note-finder.test.tsx` | `rankCandidates` calls, 10,000 notes in Chromium | 1 | 1, exact |
 | rows mounted, either surface | `tests/frame/*.test.tsx` | options in the listbox | 20 | 20, exact |
 | wasted editor renders | `tests/note-editor.test.tsx` | renders per keystroke burst | 0 | 0, exact |
 
 The 50,000-note measurements are logged and assert nothing. At that size the
 finder's keystroke reads about 21 ms and does drop its frame.
 
-The gated frame number is the synchronous commit, not a `requestAnimationFrame`
-window. React flushes the change event synchronously, so when
+The frame tests print the synchronous commit, not a `requestAnimationFrame`
+window, and gate on none of it: a loaded box stretched the 15 ms and 40 ms
+commit gates past their mark (#1346), so they count rankings and rows instead. React flushes the change event synchronously, so when
 `input.dispatchEvent` returns the new rows are already in the DOM and only the
 paint is outstanding.
 
@@ -290,7 +290,7 @@ for it.
 frames cannot resolve in under two refresh periods, about 33.3 ms at 60Hz, so
 that number reads 33.3 ms however cheap the keystroke is and steps to about
 50 ms once the work overruns its frame. It is logged as context and asserted on
-by nothing. The commit figure is the gated one.
+by nothing. The commit figure is the one to read, and it is logged too.
 
 **An agent-driven run sees no logged numbers.** Vitest picks `MinimalReporter`
 when `std-env` detects `CLAUDECODE`, `CLAUDE_CODE` or `AI_AGENT`, and that
