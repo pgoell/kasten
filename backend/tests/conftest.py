@@ -2,6 +2,7 @@ import os
 import shutil
 import subprocess
 import sys
+from contextlib import contextmanager
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -13,7 +14,7 @@ from asgi_lifespan import LifespanManager
 from httpcore._backends.anyio import AnyIOBackend
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import create_engine, text
-from sqlalchemy.engine import make_url
+from sqlalchemy.engine import URL, make_url
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
@@ -193,25 +194,29 @@ def bearer(token: str) -> dict[str, str]:
 
 def alembic(url: str, *args: str) -> None:
     """Run alembic against `url`, the way the app reads its database: from the environment."""
-    subprocess.run(  # noqa: S603
-        [sys.executable, "-m", "alembic", *args],
-        cwd=BACKEND,
-        env={**os.environ, "KASTEN_DATABASE_URL": url},
-        check=True,
-        capture_output=True,
-    )
+    try:
+        subprocess.run(  # noqa: S603
+            [sys.executable, "-m", "alembic", *args],
+            cwd=BACKEND,
+            env={**os.environ, "KASTEN_DATABASE_URL": url},
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except subprocess.CalledProcessError as error:
+        # The output is captured to keep a passing run quiet, and the error's
+        # message leaves it out, so a failure would not say what went wrong.
+        output = f"{error.stdout}{error.stderr}"
+        raise RuntimeError(f"alembic {' '.join(args)} failed:\n{output}") from error
 
 
-@pytest.fixture(scope="session")
-def scratch_database() -> Iterator[str]:
-    """A database of this run's own, migrated to head, for the tests that write rows.
+@contextmanager
+def migrated_database(url: URL, name: str) -> Iterator[str]:
+    """Database `name` beside `url`'s, migrated to head, dropped on the way out.
 
-    `kasten_dev` is shared with other checkouts, and a 0012 applied there would
-    break their upgrade, so the row tests never touch it. The name carries the
-    process id, so two runs at once do not share one.
+    Dropped too when the migration fails, or every failing run would leave one
+    behind (#1336).
     """
-    url = make_url(Settings().database_url)
-    name = f"kasten_scratch_{os.getpid()}"
     maintenance = create_engine(
         url.set(database="postgres", drivername="postgresql+psycopg"),
         isolation_level="AUTOCOMMIT",
@@ -224,14 +229,27 @@ def scratch_database() -> Iterator[str]:
         maintenance.dispose()
         pytest.skip("No database answers at KASTEN_DATABASE_URL")
 
-    scratch = url.set(database=name).render_as_string(hide_password=False)
-    alembic(scratch, "upgrade", "head")
+    try:
+        scratch = url.set(database=name).render_as_string(hide_password=False)
+        alembic(scratch, "upgrade", "head")
+        yield scratch
+    finally:
+        with maintenance.connect() as connection:
+            connection.execute(text(f"DROP DATABASE IF EXISTS {name} WITH (FORCE)"))
+        maintenance.dispose()
 
-    yield scratch
 
-    with maintenance.connect() as connection:
-        connection.execute(text(f"DROP DATABASE {name} WITH (FORCE)"))
-    maintenance.dispose()
+@pytest.fixture(scope="session")
+def scratch_database() -> Iterator[str]:
+    """A database of this run's own, migrated to head, for the tests that write rows.
+
+    `kasten_dev` is shared with other checkouts, and a 0012 applied there would
+    break their upgrade, so the row tests never touch it. The name carries the
+    process id, so two runs at once do not share one.
+    """
+    url = make_url(Settings().database_url)
+    with migrated_database(url, f"kasten_scratch_{os.getpid()}") as scratch:
+        yield scratch
 
 
 @pytest.fixture
