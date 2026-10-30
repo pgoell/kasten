@@ -5,4 +5,3 @@ backend/src/kasten_backend/page_script.js 26
 frontend/src/components/finder/note-finder.tsx 26
 frontend/src/components/use-finders.tsx 26
 frontend/src/lib/book/use-book-view.ts 39
-frontend/src/lib/leader-keys.ts 46
