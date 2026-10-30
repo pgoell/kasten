@@ -7,17 +7,28 @@ catch.
 """
 
 import os
+import subprocess
 from collections import Counter
 from datetime import UTC, date, datetime
-from pathlib import Path
-from typing import TYPE_CHECKING
+from pathlib import Path, PurePath
+from typing import TYPE_CHECKING, Any
 
 import pytest
 
+from kasten_backend.cards import find_cards
 from kasten_backend.config import get_settings
-from kasten_backend.search import MOST_HITS
+from kasten_backend.search import (
+    MOST_HITS,
+    SEEN_BY_THE_LISTING,
+    notes_holding,
+    relative_to_root,
+    scan_vault,
+)
+from kasten_backend.todos import find_todos
 
 if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable, Sequence
+
     from httpx import AsyncClient
 
 
@@ -322,3 +333,136 @@ async def test_the_weekly_counts_match_a_walk_of_the_dev_vault(
 
     assert expected
     assert found == expected
+
+
+# The shortcut that strips the vault off each path rg prints (#1353). It has to
+# give what `Path.relative_to` gives, on names that would trip a naive split and
+# on each way a root can be written, and the readers must not go back to one
+# `relative_to` per hit, which these count rather than time.
+
+LITERAL = "marker"
+
+BODY = "card marker::answer\n- [ ] marker todo\n"
+"""One card line and one todo line, both holding `LITERAL`."""
+
+NAMES = [
+    "plain.md",
+    "with space.md",
+    "ünïcödé ñ.md",
+    "日本語.md",
+    "brackets [x].md",
+    "pipe | bar.md",
+    "hash #tag.md",
+    "sub dir [1]/#deep|note.md",
+]
+
+
+def rg_paths(root: Path) -> list[str]:
+    """The path of every line rg prints for `LITERAL`, read from rg and not from this code."""
+    raw = subprocess.run(  # noqa: S603
+        [  # noqa: S607
+            "rg",
+            "--line-number",
+            "--with-filename",
+            "--no-heading",
+            "--null",
+            *SEEN_BY_THE_LISTING,
+            "-e",
+            LITERAL,
+            "--",
+            str(root),
+        ],
+        capture_output=True,
+        check=True,
+    )
+    return [line.partition("\0")[0] for line in raw.stdout.decode("utf-8").split("\n") if line]
+
+
+def root_as(form: str, tmp_path: Path, vault: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    if form == "absolute":
+        return vault
+    if form == "trailing_slash":
+        # `Path` drops the slash, so this is the absolute form in practice. It stays
+        # because a caller could still build the root this way.
+        return Path(f"{vault}/")
+    if form == "symlink":
+        link = tmp_path / "link"
+        link.symlink_to(vault, target_is_directory=True)
+        return link
+    if form == "relative":
+        monkeypatch.chdir(tmp_path)
+        return Path("vault")
+    monkeypatch.chdir(vault)
+    return Path()
+
+
+@pytest.mark.parametrize("form", ["absolute", "trailing_slash", "symlink", "relative", "dot"])
+async def test_1353_a4_paths_match_relative_to_for_awkward_names(
+    form: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    vault = tmp_path / "vault"
+    for name in NAMES:
+        write(vault, name, BODY)
+    root = root_as(form, tmp_path, vault, monkeypatch)
+
+    found = rg_paths(root)
+    assert len(found) == 2 * len(NAMES)
+
+    relative = relative_to_root(root)
+    for path in found:
+        assert relative(path) == str(Path(path).relative_to(root))
+
+    expected = [str(Path(path).relative_to(root)) for path in found]
+    assert sorted(set(expected)) == sorted(NAMES)
+
+    # Order is not compared: rg prints files from several threads, so two runs can
+    # disagree on which note comes first.
+    hits = await scan_vault(root, ("-e", LITERAL), 1000)
+    assert sorted(hit.path for hit in hits) == sorted(expected)
+
+    holding = await notes_holding(root, LITERAL)
+    assert sorted(holding) == sorted(set(expected))
+
+
+def test_1353_a6_root_of_slash_falls_back_to_relative_to() -> None:
+    # Under `/` the prefix is `//`, which no path starts with, so the old
+    # expression runs. It has to still give the same answer.
+    relative = relative_to_root(Path("/"))
+
+    assert relative("/etc/hosts") == "etc/hosts"
+    assert relative("/etc/hosts") == str(Path("/etc/hosts").relative_to(Path("/")))
+
+
+@pytest.mark.parametrize(
+    "reader",
+    [
+        pytest.param(find_cards, id="cards"),
+        pytest.param(find_todos, id="todos"),
+        pytest.param(lambda root: scan_vault(root, ("-e", LITERAL), 1000), id="scan_vault"),
+        pytest.param(lambda root: notes_holding(root, LITERAL), id="notes_holding"),
+    ],
+)
+async def test_1353_a1_readers_call_relative_to_no_times(
+    reader: Callable[[Path], Awaitable[Sequence[Any]]],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    vault = tmp_path / "vault"
+    for folder in range(5):
+        for note in range(10):
+            write(vault, f"folder {folder}/note {note}.md", BODY)
+
+    calls = 0
+    original = PurePath.relative_to
+
+    def counting(self: PurePath, *args: Any, **kwargs: Any) -> Any:
+        nonlocal calls
+        calls += 1
+        return original(self, *args, **kwargs)
+
+    monkeypatch.setattr(PurePath, "relative_to", counting)
+
+    found = await reader(vault)
+
+    assert len(found) >= 50
+    assert calls == 0
