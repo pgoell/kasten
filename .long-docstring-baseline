@@ -21,13 +21,3 @@ backend/src/kasten_backend/routes/share.py 1
 backend/src/kasten_backend/routes/tokens.py 2
 backend/src/kasten_backend/routes/web.py 3
 backend/src/kasten_backend/search.py 7
-frontend/src/components/finder/note-finder.tsx 6
-frontend/src/components/todo-pane.tsx 7
-frontend/src/lib/api.ts 15
-frontend/src/lib/book/use-book-view.ts 1
-frontend/src/lib/editor/editor-commands.ts 2
-frontend/src/lib/fuzzy.ts 5
-frontend/src/lib/key-bindings.ts 14
-frontend/src/lib/leader-keys.ts 6
-frontend/src/lib/review/review-queue.ts 2
-frontend/src/lib/review/review.ts 9

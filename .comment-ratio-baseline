@@ -1,7 +1,3 @@
 # Files over 20% comment lines, as "<file> <percent>", docstrings and JSDoc left out.
 # A file fails when it gets denser than its percent.
 # check-comments --update-baseline only lowers or drops lines; never raise one.
-frontend/src/components/finder/note-finder.tsx 26
-frontend/src/components/use-finders.tsx 26
-frontend/src/lib/book/use-book-view.ts 39
-frontend/src/lib/leader-keys.ts 46

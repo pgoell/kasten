@@ -1,13 +1,9 @@
 import type { MoveMode } from "@/lib/move";
 
 /**
- * The commands the route supplies, and the keys outside the editor.
- *
- * `EditorCommands` is the vocabulary every key table names a command in: the
- * leader in `leader-keys.ts`, the terminal chords and the file tree here. The
- * keys that act inside the editor's buffer are in `buffer-keys.ts`. The tables
- * at the foot are display only, read by the help panel behind `<leader>?` and
- * the reference page in `docs/`, so both describe every key a pane answers.
+ * The commands the route supplies, and the keys outside the editor. The keys in
+ * the buffer are in `buffer-keys.ts`. The tables at the foot are display only,
+ * read by the help panel and the reference page in `docs/`.
  */
 
 /** What the leader keys reach for. The route supplies these. */
@@ -20,23 +16,15 @@ export interface EditorCommands {
   openPalette(): void;
   focusTree(): void;
   /**
-   * Unfold the tree down to the note the focused pane holds, and put the tree's
-   * cursor on its row.
-   *
-   * `focusTree` leaves the cursor where it was, which is right after you have
-   * walked the tree and wrong after you have not: a note reached by the finder,
-   * a wikilink or a backlink is somewhere the tree has never heard of, and the
-   * panel goes on pointing at whatever row it opened on.
+   * Unfold the tree to the focused pane's note and move its cursor there. The
+   * cursor of `focusTree` stays put, which is wrong for a note reached by a link.
    */
   revealTree(): void;
   /** The folder the prompt opens on, which only the file tree knows. */
   createNote(startPath?: string): void;
   /** The note to rename, which the tree knows and the editor leaves to the route. */
   renameNote(startPath?: string): void;
-  /**
-   * Move a note into the vault's trash. The tree names one, the editor means
-   * the one in the focused pane.
-   */
+  /** Move a note into the trash. The tree names it, the editor means the focused pane's. */
   deleteNote(startPath?: string): void;
   /** Put the last deleted note or folder back where it was. */
   restoreDeleted(): void;
@@ -63,30 +51,18 @@ export interface EditorCommands {
   /** Show what the open note links to, which is that pair read the other way. */
   showLinksOut(): void;
   /**
-   * Open the note covering today at that grain, making it if the vault has none.
-   *
-   * Five members rather than one taking a period, because a `LeaderBinding`
-   * names a command taking nothing, and five one-line rows in `LEADER` cost
-   * less than the second table and the second vim loop the argument would
-   * need. `periodic.ts` holds everything the five have in common.
+   * Open today's note at that grain, making it if the vault has none. One member
+   * per grain, since a `LeaderBinding` takes no argument. `periodic.ts` has the rest.
    */
   openDaily(): void;
   /**
-   * Log one line, such as `- 💧 250 ml`, into today's note under `## Log`, made
-   * there if the note has none. Reached by name from the palette only, which takes
-   * it in the buffer when the note is open, so no key is bound to it.
+   * Log one line, such as `- 💧 250 ml`, under `## Log` in today's note, made if
+   * missing. Palette only, so no key is bound.
    */
   logDrink(line: string): void;
-  /**
-   * Open the food search on today's card, opening today's note in the focused
-   * pane first when it is not there. Reached by name from the palette only, the
-   * way `logDrink` is.
-   */
+  /** Open the food search on today's card, opening today's note first if needed. Palette only. */
   logFood(): void;
-  /**
-   * Ask on today's card for the number the kind `mark` keeps as its last value, opening
-   * today's note first where it is not there. Reached by name from the palette only.
-   */
+  /** Ask on today's card for a `mark` value, opening today's note first if needed. Palette only. */
   logWeight?(mark: string): void;
   openWeekly(): void;
   openMonthly(): void;
@@ -95,37 +71,17 @@ export interface EditorCommands {
   /** Read the focused pane's note's book in a pane beside it. */
   openBook(): void;
   /**
-   * Read the book `READING_NOTE` links, in the focused pane, at its note's place.
-   *
-   * Needs no note open: the config note names the book, so the key works from
-   * any pane. A config note that names nothing readable says why at the foot
-   * of the window rather than doing nothing, the reader having asked for one
-   * book in particular.
+   * Read the book `READING_NOTE` links, in the focused pane. Needs no note open.
+   * A config note naming no readable book says why at the foot of the window.
    */
   openReadingBook(): void;
-  /**
-   * Show the card for the person whose note the focused pane holds, beside it.
-   *
-   * Needs a person's note open, the way `openBook` needs a note with a book. A
-   * press anywhere else does nothing: a card about a note that is not a person
-   * is three empty lists.
-   */
+  /** Show the focused note's person card beside it. Does nothing for a note that is not a person. */
   openPerson(): void;
-  /**
-   * List the jj changes of the focused pane's note, in a pane beside it.
-   *
-   * Needs a note open, the way `openBook` does. A press anywhere else does
-   * nothing: there is no note whose history to list.
-   */
+  /** List the jj changes of the focused note, beside it. Does nothing without a note open. */
   openHistory(): void;
   /** Put the graph of the whole vault in the focused pane. */
   openGraph(): void;
-  /**
-   * Draw the graph around the focused pane's note, beside it.
-   *
-   * Needs a note open, the way `openBook` does. A press anywhere else does
-   * nothing: there is no note to draw around.
-   */
+  /** Draw the graph around the focused note, beside it. Does nothing without a note open. */
   openLocalGraph(): void;
   /** Play the video the focused pane's note links, in a pane beside it. */
   openVideo(): void;
@@ -168,11 +124,7 @@ export interface EditorCommands {
   paneDown(): void;
   paneUp(): void;
   paneRight(): void;
-  /**
-   * Trade places with the pane in that direction on screen, or stand still at
-   * the edge. Each pane carries what it holds with it, so this rearranges the
-   * window without opening or closing anything.
-   */
+  /** Swap with the pane in that direction, or stay at the edge. Nothing opens or closes. */
   movePaneLeft(): void;
   movePaneDown(): void;
   movePaneUp(): void;
@@ -186,43 +138,22 @@ export interface EditorCommands {
 }
 
 /**
- * What the file tree reaches for, which is the leader's commands and one more.
- *
- * `renameFolder` sits out of `EditorCommands` because that interface is the
- * table a `LeaderBinding` names a command in, and no leader sequence names this
- * one. The tree is the only place that can point at a folder, so the tree is
- * the only place the command exists, and its key is a bare `r`.
+ * The leader's commands and one more. `renameFolder` sits out of `EditorCommands`
+ * because no leader sequence can name a folder; only the tree can point at one.
  */
 export interface TreeCommands extends EditorCommands {
   renameFolder(startPath: string): void;
   /** Move a folder into the trash, and every note under it with it. */
   deleteFolder(startPath: string): void;
-  /**
-   * Move an image into the trash.
-   *
-   * Out here with the two above rather than in `EditorCommands`, and for the
-   * same reason: a leader sequence names a command taking nothing, and the row
-   * the tree's cursor is on is the only thing that can name an image. The image
-   * pane deletes the one it is showing through a callback of its own.
-   */
+  /** Move an image into the trash. Only the tree's cursor row can name one, so it sits out here. */
   deleteImage(startPath: string): void;
-  /**
-   * Move a note or a folder to `target`, once the reader has confirmed it.
-   *
-   * What a drop in the tree reaches for. Out here for the reason the three
-   * above are: only the tree can name both ends of it.
-   */
+  /** Move a note or folder to `target` once confirmed. Only the tree names both ends. */
   moveRow(startPath: string, mode: MoveMode, target: string): void;
 }
 
 /**
- * The commands a leader sequence can name, which is every one taking no
- * argument.
- *
- * `goToTab` is the exception and is left out: it names a tab by number, and the
- * ten keys that reach it are `TAB_KEYS` rather than rows of this table. Saying
- * so here is what lets the file tree run any binding it resolves by calling it
- * with nothing.
+ * Every command a leader sequence can name, each taking no argument. `goToTab` is
+ * out: `TAB_KEYS` reaches it by number, and the file tree calls any binding with nothing.
  */
 export type LeaderCommand = Exclude<
   keyof EditorCommands,
@@ -230,18 +161,10 @@ export type LeaderCommand = Exclude<
 >;
 
 /**
- * The modifiers a terminal chord is held with, in one place so retuning the
- * whole set is one edit.
- *
- * ctrl and shift because a terminal cannot transmit most of those chords, so
- * taking them costs the shell nothing. That is a reason to expect them to
- * work, not evidence that they are comfortable. Expect to change this.
- *
- * ponytail: the chord is a guess and one week of real use decides it. Changing
- * this or the table below carries `terminal-pane.tsx`, `key-help.tsx` and
- * `key-help.test.tsx` with it, all three deriving from these two exports. One
- * place does not follow and has to be edited by hand: the chord table in
- * `docs/reference/editor-keys/terminal.md`, which is prose that no code reads.
+ * Ctrl and Shift, which a terminal cannot send most chords with, so the shell loses nothing.
+ * ponytail: a guess that one week of use decides. Changing it also means `terminal-pane.tsx`,
+ * `key-help.tsx`, `key-help.test.tsx`, and by hand the chord table in
+ * `docs/reference/editor-keys/terminal.md`.
  */
 export const TERMINAL_CHORD = {
   ctrlKey: true,
@@ -252,21 +175,15 @@ export const TERMINAL_CHORD = {
 
 export interface TerminalBinding {
   /**
-   * `KeyboardEvent.key` while `TERMINAL_CHORD` is held, which for a letter is
-   * the uppercase one: shift is down. `FORMAT` in `buffer-keys.ts` carries the same trap.
+   * `KeyboardEvent.key` under `TERMINAL_CHORD`: uppercase for a letter, as shift is down.
+   * `FORMAT` in `buffer-keys.ts` has the same trap.
    */
   key: string;
   label: string;
   command: LeaderCommand;
 }
 
-/**
- * What a chord reaches inside a focused terminal, before the PTY sees it.
- *
- * The leader is the space bar and a shell must receive the space bar, so
- * nothing kasten owns can reach into a focused terminal as a leader sequence.
- * These are the way out of one.
- */
+/** Chords that act inside a focused terminal, since the leader (space) must reach the shell. */
 export const TERMINAL: readonly TerminalBinding[] = [
   { key: "H", label: "Move to the pane on the left", command: "paneLeft" },
   { key: "J", label: "Move to the pane below", command: "paneDown" },
@@ -275,69 +192,43 @@ export const TERMINAL: readonly TerminalBinding[] = [
   { key: "O", label: "Move to the next pane", command: "nextPane" },
   // The leader cannot reach the palette from here, so it gets a chord too.
   { key: "P", label: "Run a command by name", command: "openPalette" },
-  // `closeNote` rather than a command of its own: it takes what a pane holds
-  // out of it and removes the pane once it holds nothing, so this is one step
-  // in from `<leader>q` on a note. Emptying rather than removing is what gives
-  // a window holding only a terminal a way back to an editor, there being no
-  // chord that splits. It does not kill the herdr session, because closing the
-  // socket detaches a client and `herdr --session` reattaches to whatever is
-  // still running in there.
+  // closeNote, not a command of its own. It empties the pane and removes it only
+  // once empty, which keeps an editor reachable. It leaves the herdr session
+  // running: closing the socket detaches, and `herdr --session` reattaches.
   { key: "Q", label: "Take the terminal out of the pane", command: "closeNote" },
 ];
 
-/**
- * What the keys do inside the file tree.
- *
- * Display only. The panel resolves its keys by name in one switch, so there is
- * nothing here for it to read; this exists so the help panel and the reference
- * page describe the same tree the code implements.
- */
+/** Display only: the panel resolves its keys in one switch, so this feeds the help panel. */
 export const TREE: readonly { key: string; label: string }[] = [
   { key: "j / k", label: "Move the cursor down or up" },
   { key: "h", label: "Collapse the folder, or go to its parent" },
   { key: "l", label: "Expand the folder, or open the note" },
   { key: "Enter", label: "Open the note under the cursor" },
   { key: "gg / G", label: "Go to the first or last row" },
-  // Bare letters, not leader sequences: the tree's own keys are single presses.
-  // `<leader>cf` and `<leader>rf` still reach these from anywhere, and `r` is
-  // the only way to a folder, which is a thing only the tree can point at.
+  // Bare letters: the tree's own keys are single presses. `<leader>cf` and
+  // `<leader>rf` reach these from anywhere too.
   { key: "c", label: "New note in the folder the cursor is in" },
   { key: "f", label: "Find a note by name" },
   // `s` and not `g`: `g` opens `gg` here, so it cannot be a command of its own.
   { key: "s", label: "Search every note's content" },
   { key: "r", label: "Rename the note or folder under the cursor" },
-  // `d` for delete, and it reaches a folder the way `r` does, the tree being
-  // the one place that can point at one.
+  // Reaches a folder as `r` does: only the tree can point at one.
   { key: "d", label: "Delete the note or folder under the cursor" },
   { key: "q", label: "Close the file tree" },
   { key: "Escape", label: "Back to the editor" },
 ];
 
 /**
- * What the keys do inside the todo pane.
- *
- * Display only, the way `TREE` is: the pane resolves its own keys in one
- * switch. It lists the whole set the phase arrives at, so the reference page
- * and the help panel describe one pane rather than each other.
- */
-/**
  * The screens reached by typing their address rather than by pressing a key.
- *
- * Not bindings, and on the panel for exactly that reason: a screen nothing
- * links to and no key opens is one the app never mentions, and a URL you have
- * to read the documentation to learn is a URL you do not have.
+ * Listed here because no key or link opens them, so the panel is the only place they are named.
  */
 export const SCREENS: readonly { key: string; label: string }[] = [
-  // The two screens with a URL and nothing else: no key, no link, no row in
-  // the tree. Both are worth having and neither is worth a leader key, being
-  // visited a few times a year, so the help panel is where they are named.
-  // Without this the app says nowhere at all that `/tokens` exists.
   { key: "/tokens", label: "Mint and revoke the tokens an agent reaches the vault with" },
   { key: "/review", label: "The review, on a page of its own, sized for a phone" },
-  // `<leader>cd` reaches the same dump from the app. This is the way in from a
-  // phone, and the page Android's share sheet opens.
+  // The phone route, and the page Android's share sheet opens. `<leader>cd` does the same.
   { key: "/capture", label: "Capture a thought into today's dump, sized for a phone" },
 ];
+/** Display only, the way `TREE` is: the pane resolves its keys in one switch. */
 export const TODO_PANE: readonly { key: string; label: string }[] = [
   { key: "j / k", label: "Move the cursor down or up" },
   { key: "Enter", label: "Open the note the todo is in" },
@@ -352,8 +243,7 @@ export const TODO_PANE: readonly { key: string; label: string }[] = [
   { key: "n", label: "Show one next action per task" },
   { key: "v", label: "Show the next saved view, or all todos again" },
   { key: "c", label: "Turn the list into the board, and back" },
-  // The keys only the board takes. The panel draws one flat list, so the label
-  // says where they work.
+  // Board-only keys. The panel draws one flat list, so the labels say where they work.
   { key: "g", label: "On the board: lanes by kind, or by project" },
   { key: "h / l", label: "On the board: the column to the left, or to the right" },
   { key: "p", label: "On the board: pick a project for the card" },
@@ -394,11 +284,8 @@ export const LOG_PANE: readonly { key: string; label: string }[] = [
 ];
 
 /**
- * How a terminal chord reads on screen, `Ctrl Shift H`, built from `TERMINAL_CHORD`
- * so a retune moves every label that spells one.
- *
- * `readable` in `buffer-keys.ts` rewrites vim's spellings and leaves a bare `"H"`
- * alone, which is what a terminal chord is written as, so this is the second one.
+ * How a terminal chord reads on screen, from `TERMINAL_CHORD`. `readable` in
+ * `buffer-keys.ts` leaves a bare `"H"` alone, so this is the second spelling.
  */
 export function chordLabel(key: string): string {
   const held = [

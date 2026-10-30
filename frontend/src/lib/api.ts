@@ -25,12 +25,7 @@ export type Transcript = components["schemas"]["Transcript"];
 /** One town's day of weather, hour by hour, as Open-Meteo forecast it. */
 export type Forecast = components["schemas"]["Forecast"];
 
-/**
- * What the backend is running: the release, or its commit in development.
- *
- * The frontend's own half of the reading is a build-time constant in
- * `build.ts`, so this is the one call the status bar needs.
- */
+/** The backend's release, or its commit in development; the frontend's half is a build-time constant in `build.ts`. */
 export async function fetchVersion(): Promise<string> {
   const { data, response } = await client.GET("/api/version");
 
@@ -41,12 +36,7 @@ export async function fetchVersion(): Promise<string> {
   return data.backend;
 }
 
-/**
- * The folders this vault files into, which from here on every reader uses.
- *
- * Applied in here rather than by whoever asked, so the layout is in place
- * before the query hands the answer to anything that renders.
- */
+/** Applied here, not by the caller, so the layout is in place before the answer reaches a renderer. */
 export async function fetchLayout(): Promise<Layout> {
   const { data, response } = await client.GET("/api/layout");
 
@@ -70,12 +60,7 @@ export async function fetchFiles(): Promise<string[]> {
 }
 
 /**
- * Every herdr session a terminal pane could attach to, named and sorted.
- *
- * A listing of the shell container's session directory, so it says what exists
- * rather than what is running. Empty when that container is not up, or when
- * the backend was started without its volume, and the prompt still takes a
- * name typed by hand.
+ * What the shell container's session directory holds, not what runs. Empty when that container is down; the prompt still takes a typed name.
  */
 export async function fetchTerminals(): Promise<string[]> {
   const { data, response } = await client.GET("/api/terminals");
@@ -88,12 +73,7 @@ export async function fetchTerminals(): Promise<string[]> {
 }
 
 /**
- * Every todo line and every time session line the vault holds.
- *
- * Candidate lines, not todos. The backend matches the shape of a checkbox and
- * reads only what the project needs, so reading the state, the dates and
- * whether a line is still open is this side's job, done by the same parser the
- * editor draws with.
+ * Candidate lines, not todos. The backend matches the checkbox shape, and this side reads the state and dates with the same parser the editor draws with.
  */
 export async function fetchTodos(archive = false): Promise<TodoHit[]> {
   const { data, response } = await client.GET("/api/todos", {
@@ -108,11 +88,7 @@ export async function fetchTodos(archive = false): Promise<TodoHit[]> {
 }
 
 /**
- * Every line in the vault that could be part of a flashcard.
- *
- * Candidate lines, in search's shape. `review.ts` picks the notes worth reading
- * off them and `srs.ts` parses those notes, so nothing about the format is
- * known on this side of the wire.
+ * Candidate lines in search's shape. `review.ts` picks the notes and `srs.ts` parses them, so nothing about the format is known here.
  */
 export async function fetchCards(archive = false): Promise<LineHit[]> {
   const { data, response } = await client.GET("/api/cards", {
@@ -157,11 +133,7 @@ export async function fetchReviewLimits(): Promise<ReviewLimits> {
 }
 
 /**
- * Every line in the vault holding `query`, as the backend found them.
- *
- * A literal match and nothing more. Ranking these is the caller's job, which
- * is what lets a keystroke narrow the answer already in hand rather than wait
- * for the next one.
+ * A literal match, unranked. The caller ranks, so a keystroke narrows the answer already in hand.
  */
 export async function searchNotes(query: string, archive = false): Promise<SearchHit[]> {
   const { data, response } = await client.GET("/api/search", {
@@ -193,19 +165,12 @@ export async function rankedSearch(query: string, archive = false): Promise<Rank
 }
 
 /**
- * A line naming a note in plain words, and where on the line the words are.
- *
- * `start` and `end` count UTF-16 code units into `text`, which is what
- * `slice` counts, so the backend's offsets need no translating here. `name` is
- * the title or alias of the note that matched.
+ * A line naming a note in plain words. `start` and `end` count UTF-16 code units, as `slice` does.
  */
 export type Mention = components["schemas"]["Mention"];
 
 /**
- * Every line outside `path` naming it without linking to it.
- *
- * The backend has already passed over links, code, frontmatter, the note
- * itself and the archive, so what comes back is each candidate for a link.
+ * Every line outside `path` naming it unlinked. The backend has already passed over links, code, frontmatter and the archive.
  */
 export async function fetchMentions(path: string, archive = false): Promise<Mention[]> {
   const { data, response } = await client.GET("/api/mentions", {
@@ -220,11 +185,7 @@ export async function fetchMentions(path: string, archive = false): Promise<Ment
 }
 
 /**
- * A read refused because no note is at that path.
- *
- * A class of its own, because the `## Done` log reads it as a day with no note
- * yet, which holds no line to drop. The message is the one every other failed
- * read says, so a notice reads the same.
+ * A read refused because no note is there. The `## Done` log reads it as a day with no note yet.
  */
 export class NoteMissing extends Error {
   constructor(path: string) {
@@ -249,11 +210,7 @@ export async function fetchNote(path: string): Promise<string> {
 }
 
 /**
- * A create refused because a note is already at that path.
- *
- * A class of its own, because the `## Done` log reads it as a press just before
- * having made today's note, and writes into that note instead. The message is
- * the one every other failed create says, so a notice reads the same.
+ * A create refused because a note is already there. The `## Done` log writes into that note instead.
  */
 export class NoteExists extends Error {
   constructor(path: string) {
@@ -262,13 +219,7 @@ export class NoteExists extends Error {
 }
 
 /**
- * Make a note, and answer with the note the vault wrote.
- *
- * `content` is what goes under the frontmatter block, and it is empty for every
- * note a reader is about to write themselves. A caller that already knows the
- * text passes it here rather than saving over the note it just made: that save
- * is a second event on `/api/events`, and one arriving into an editor already
- * being typed into reads as another writer.
+ * `content` goes under the frontmatter, and is empty for a note the reader writes. Passing it here beats saving after: a second save is a second `/api/events` event, which reads as another writer.
  */
 export async function createNote(path: string, content = ""): Promise<Note> {
   const { data, response } = await client.POST("/api/files/{path}", {
@@ -281,20 +232,13 @@ export async function createNote(path: string, content = ""): Promise<Note> {
     throw new Error(`POST /api/files/${path} failed with ${response.status}`);
   }
 
-  // The whole note rather than the path alone, so a caller that writes and one
-  // that moves seed their cache from the same answer. The path in it is the
-  // vault's spelling, not the one that was typed: `daily/./note.md` comes back
-  // as `daily/note.md`, and that is what belongs in `?note=`.
+  // The whole note, so writers and movers seed one cache from one answer.
+  // The path is the vault's spelling: `daily/./note.md` comes back as `daily/note.md`, which `?note=` takes.
   pressWrote(data.path, data.content);
   return data;
 }
 
-/**
- * A save refused because somebody else wrote the note since its base.
- *
- * A class of its own, because the autosave reads it as a conflict and every
- * other failure as a write to try again.
- */
+/** A save refused because someone wrote the note since its base. The autosave reads it as a conflict. */
 export class ChangedOnDisk extends Error {
   constructor() {
     super("Changed on disk");
@@ -302,25 +246,10 @@ export class ChangedOnDisk extends Error {
 }
 
 /**
- * Write one note back to the vault, over the note that is already there.
- *
- * The note that comes back is what landed on disk, not what was sent: `PUT`
- * stamps a fresh `modified` on the way through. Callers that cache the text
- * have to cache this one, or their copy is a stamp behind the vault from the
- * moment the write returns.
- *
- * `keepalive` is for the write on the way out of the page, which the browser
- * would otherwise cancel with the page. It caps the body at 64 KiB and rejects
- * above that, which the caller has to read as a write that did not land.
- *
- * `base` is the sha256 of the text the caller believes is on disk, `modified`
- * set aside (`unstamped`), and makes the write conditional: a vault that has
- * moved past it refuses with `ChangedOnDisk`. Without one the write lands
- * whatever is there.
- *
- * `restoredFrom` is the jj change id the text was read from, which only the
- * history pane's restore sends: the backend then records the write as a change
- * of its own, so the text it replaced stays in the change below.
+ * Answers the note as it landed: `PUT` stamps a fresh `modified`, so cache this copy, not the text sent.
+ * `keepalive` is for a write on page exit. It caps the body at 64 KiB and rejects above, which the caller reads as not landed.
+ * `base` (the sha256 of the text read) makes the write conditional: a vault past it refuses with `ChangedOnDisk`.
+ * `restoredFrom` (a jj change id) comes only from the history restore, which keeps the replaced text in a change.
  */
 export async function saveNote(
   path: string,
@@ -350,14 +279,7 @@ export async function saveNote(
 }
 
 /**
- * Read one note, change it, and write it back over exactly the text read.
- *
- * The write names what it read as its base, so a save landing between the read
- * and the write is refused rather than written over. On a refusal the note is
- * read again and `change` runs again on the new text: it checks its own
- * preconditions, and answers null where there is now nothing to write. Three
- * tries, then the last `ChangedOnDisk` goes to the caller, a note somebody is
- * typing into being one this write should not chase.
+ * Retries on `ChangedOnDisk` up to three tries, re-running `change` on the fresh text. `change` answering null means nothing to write.
  */
 export async function updateNote(
   path: string,
@@ -376,15 +298,7 @@ export async function updateNote(
 }
 
 /**
- * Read one web page through the backend, which is the only thing that can.
- *
- * The browser will ask another origin for a page and refuse to let a script
- * read the answer, so the request goes out from the server. What comes back is
- * markup and the address it finally came from; making a note of it happens
- * here, in `clip.ts`.
- *
- * The message is the backend's own words rather than a status code: this is
- * one of the two calls whose failure is read by the person who asked for it.
+ * Fetched by the backend, since the browser would refuse another origin's page. The failure is the backend's own sentence, which the asker reads.
  */
 export async function fetchPage(url: string): Promise<Page> {
   const { data, error, response } = await client.GET("/api/fetch", {
@@ -398,13 +312,7 @@ export async function fetchPage(url: string): Promise<Page> {
   return data;
 }
 
-/**
- * The captions of one YouTube video, read by the backend off YouTube.
- *
- * The other call whose failure is read by the person who asked, so it throws
- * the backend's sentence: that the video has no transcript, or that YouTube
- * would not hand it over.
- */
+/** Throws the backend's sentence (no transcript, or YouTube refused), which the asker reads. */
 export async function fetchTranscript(id: string): Promise<Transcript> {
   const { data, error, response } = await client.GET("/api/transcripts/{video_id}", {
     params: { path: { video_id: id } },
@@ -417,12 +325,7 @@ export async function fetchTranscript(id: string): Promise<Transcript> {
   return data;
 }
 
-/**
- * The weather on one day for every town the backend names.
- *
- * Empty for a day Open-Meteo has nothing for, which the backend answers with a
- * 404: a daily note that old draws no card, and that is not a failure.
- */
+/** Empty for a day Open-Meteo has nothing for: the backend answers 404, which is no failure. */
 export async function fetchWeather(date: string): Promise<Forecast[]> {
   const { data, response } = await client.GET("/api/weather", {
     params: { query: { date } },
@@ -486,24 +389,8 @@ export interface BookBeside {
 }
 
 /**
- * Read whatever the reader can open beside `note`, whole.
- *
- * The note's path and not the file's, because the file's is not a thing the
- * client knows: the pair is a convention, two suffixes now answer to it, and
- * the vault is what resolves which. A client probing instead would spend a 404
- * on every pdf it opened and would hold a second copy of an ordering the
- * backend already has.
- *
- * Plain `fetch` rather than the generated client, for the reason the route
- * opens its `EventSource` by hand: with `response_class=FileResponse` and no
- * hand written `responses={...}` block, FastAPI documents a 200 carrying no
- * content schema at all, so `openapi-fetch` has no typed body to hand back and
- * would buy nothing. Adding that block to please a client that wants bytes is
- * boilerplate in the endpoint.
- *
- * `encodeURIComponent` spells a slash `%2F`, which uvicorn unquotes before
- * starlette routes. Every note read in this app already relies on that, the
- * generated client encoding its path parameters the same way.
+ * Takes the note's path, since the backend resolves the file beside it. Plain `fetch`: FastAPI documents no body schema for this 200, so the generated client has nothing typed to return.
+ * `encodeURIComponent` sends a slash as `%2F`, which the server unquotes before routing.
  */
 export async function fetchBook(note: string): Promise<BookBeside> {
   const response = await fetch(`/api/books/${encodeURIComponent(note)}`);
@@ -512,40 +399,22 @@ export async function fetchBook(note: string): Promise<BookBeside> {
     throw new Error(`GET /api/books/${note} failed with ${response.status}`);
   }
 
-  // The header and not a guess off the length or the bytes: the reader names
-  // the file in its own failure message and downloads it under that name, and
-  // both would otherwise be a second copy of the vault's ordering. A missing
-  // header is a backend that changed under this one, so it reads as no book
-  // rather than as a book called nothing.
+  // Names the file from the header, not a guess: a missing header means the backend changed under this one.
   const named = response.headers.get("X-Book-Path");
   if (named === null) {
     throw new Error(`GET /api/books/${note} answered without naming the file`);
   }
 
-  // Percent-encoded on the way out, because a header is latin-1 on the wire and
-  // a vault holds notes called `Grundzüge`. The backend encodes; this is the
-  // other half of that one rule.
+  // Percent-encoded on the wire, since headers are latin-1 and vault names like `Grundzüge` are not.
   return { path: decodeURIComponent(named), blob: await response.blob() };
 }
 
 /**
- * The most this will send, checked before a byte goes out.
- *
- * The other copy is `UPLOAD_LIMIT_BYTES` in
- * `backend/src/kasten_backend/files.py`, and the direction is what matters:
- * this one must never exceed that one, because a client that lets through what
- * the server refuses sends a gigabyte to be told no. `api.test.ts` reads the
- * backend's copy off disk and holds the two together.
+ * Mirrors `UPLOAD_LIMIT_BYTES` in `backend/src/kasten_backend/files.py`, and must never exceed it. `api.test.ts` holds the two together.
  */
 export const UPLOAD_LIMIT_BYTES = 1024 * 1024 * 1024;
 
-/**
- * Put one book or image at `path`, which is the file's path and not the note's.
- *
- * One function for both, the endpoint being one endpoint: what the vault will
- * take is a table of suffixes on the backend, and a second copy of it here
- * would be a second place to edit when a format arrives.
- */
+/** Books and images share one endpoint, so one function. The backend's suffix table is the only copy of what is accepted. */
 export async function uploadAsset(
   path: string,
   file: Blob,
