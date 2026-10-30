@@ -16,16 +16,16 @@ import {
 } from "@/lib/overlay-styles";
 
 interface MeaningFinderProps {
-  /** Whether the archive folder is searched too, as the tree's toggle says. */
+  /** Also search the archive folder, as the tree's toggle does. */
   archive: boolean;
   onOpen: (path: string) => void;
   onClose: () => void;
 }
 
-/** How long typing holds still before the backend is asked: each ask embeds the query. */
+/** Each ask embeds the query, so wait for typing to pause first. */
 const SETTLE_MS = 150;
 
-/** The line under the list: how much of the index answered, and why a list is empty. */
+/** The status line: how much of the index answered, and why a list is empty. */
 export function rankedHint(
   answer: RankedAnswer | undefined,
   typed: string,
@@ -45,10 +45,7 @@ export function rankedHint(
   return parts.join("; ");
 }
 
-/**
- * Which way a key walks the list: the note finder's keys, for its reasons. Tab
- * and ctrl j/k walk, bare letters belong to the query.
- */
+/** Walk keys, matching the note finder. Bare letters belong to the query. */
 function stepOf(event: React.KeyboardEvent): -1 | 0 | 1 {
   const tab = event.key === "Tab";
   const ctrl = (key: string) => event.ctrlKey && event.key === key;
@@ -57,7 +54,7 @@ function stepOf(event: React.KeyboardEvent): -1 | 0 | 1 {
   return 0;
 }
 
-/** The note finder's keys over the backend's ranked list; a row shows the piece that matched best. */
+/** The note finder's keys over the ranked list; each row shows its best-matching piece. */
 export function MeaningFinder({ archive, onOpen, onClose }: MeaningFinderProps) {
   const [query, setQuery] = useState("");
   const [settled, setSettled] = useState("");
@@ -72,10 +69,8 @@ export function MeaningFinder({ archive, onOpen, onClose }: MeaningFinderProps) 
     return () => clearTimeout(timer);
   }, [typed]);
 
-  // Asked with a blank query too: the answer then holds no notes but says how
-  // far the index has got, which the line underneath shows before any typing.
-  // The key holds the query, so an answer to an older one never shows as the
-  // newer one's; the previous list stays up only until the next arrives.
+  // Asked with a blank query too, so the hint shows index progress before typing.
+  // The key holds the query, so an old answer never shows as the new one's.
   const ranked = useQuery({
     queryKey: ["ranked", settled, archive],
     queryFn: () => rankedSearch(settled, archive),
@@ -167,7 +162,6 @@ export function MeaningFinder({ archive, onOpen, onClose }: MeaningFinderProps) 
                   index === cursor ? "bg-k-surface text-k-accent" : "text-k-ink"
                 }`}
               >
-                {/* The name, then the heading the best piece sits under, dimmer. */}
                 <span className="flex gap-3">
                   <span className="max-w-full shrink-0 truncate">{noteName(hit.path)}</span>
                   <span className="ml-auto min-w-0 truncate text-k-muted">{hit.heading}</span>

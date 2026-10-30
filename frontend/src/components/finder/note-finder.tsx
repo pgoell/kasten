@@ -30,55 +30,26 @@ interface NoteFinderProps {
   /** Called with the note to open. */
   onOpen: (path: string) => void;
   onClose: () => void;
-  /**
-   * Whether `paths` is what one note links to rather than the whole vault.
-   *
-   * The list is the same list either way, so this only changes what the panel
-   * calls itself and what it says about an empty one: a vault with nothing in
-   * it and a note that links nowhere are not the same emptiness.
-   */
+  /** Set when `paths` is one note's links, not the vault: changes the title and empty hint. */
   outgoing?: boolean;
   /**
-   * The vault's assets, which makes this the book finder.
-   *
-   * The rows are then the notes in `paths` with an epub beside them, and
-   * opening one hands over the note's path, which is what the book pane takes.
-   * `paths` still decides what is listed at all, so the archive stays out the
-   * way it does for notes.
+   * The vault's assets, which makes this the book finder over the notes in `paths` with an epub
+   * beside them. `paths` still decides what is listed, so the archive stays out.
    */
   books?: string[];
-  /**
-   * The vault's pdfs, epubs and html pages, listed beside the notes and ranked
-   * with them. Only the note finder takes these: the outgoing links and the
-   * book finder list notes alone.
-   */
+  /** The vault's pdfs, epubs and html pages, ranked with the notes. The book finder ignores it. */
   files?: string[];
-  /**
-   * Every note in the vault, the archive included. An epub's preview says
-   * whether its note is there to read it through, and this is the list that
-   * answers, the same one the opener asks.
-   */
+  /** Every note, archive included. An epub's preview checks this list, as the opener does. */
   vaultNotes?: string[];
 }
 
 /** Rows the list will mount. Beyond this, another keystroke narrows faster than a scroll. */
 const VISIBLE_NOTES = 20;
 
-/**
- * How long the highlight holds still before its note is read.
- *
- * A held ctrl+n walks a row per repeat, and every row it passes through would
- * otherwise be a request for a note nobody is looking at. Short enough that
- * stopping on a row feels like the text was already there.
- */
+/** The highlight holds this long before its note is read, so a held ctrl+n skips rows unread. */
 const PREVIEW_DELAY_MS = 80;
 
-/**
- * What the line under the list says, and nothing where it has nothing to say.
- *
- * An empty list has two reasons and they are not the same problem: a vault with
- * nothing in it yet, and a query that reads into none of what is there.
- */
+/** The line under the list. An empty list has two causes: nothing to list, or no match. */
 function hint(listed: number, matches: number, outgoing: boolean, book: boolean): string {
   if (listed === 0) {
     if (book) return "the vault has no books";
@@ -89,21 +60,15 @@ function hint(listed: number, matches: number, outgoing: boolean, book: boolean)
 }
 
 /**
- * The notes in `paths` with an epub beside them.
- *
- * The same pairing as `resolve_book` on the backend, suffix and case alike, so
- * `Plan.EPUB` is no book of `Plan.md` here either. A pdf pairs there too but is
- * a document rather than a book (`note-path.ts`), and stays out.
+ * The notes in `paths` with an epub beside them, paired as the backend's `resolve_book` does,
+ * suffix and case alike. A pdf is a document, not a book (`note-path.ts`), so it stays out.
  */
 function withBooks(paths: string[], books: string[]): string[] {
   const epubs = new Set(books);
   return paths.filter((path) => path.endsWith(".md") && epubs.has(`${path.slice(0, -3)}.epub`));
 }
 
-/**
- * What a file's preview says it opens as. A file is opened, not read here, so
- * the preview names the place it goes instead of its text.
- */
+/** A file is opened, not read, so its preview names where it goes rather than its text. */
 function fileOpens(kind: FileKind, noted: boolean): string {
   if (kind === "pdf") return "pdf, opens in the pdf pane";
   if (kind === "html") return "html, opens as a page";
@@ -117,35 +82,16 @@ function folderOf(path: string): string {
 }
 
 /**
- * Why the pane has no note to show, which is the only thing left for it to say.
- *
- * A note the vault holds but cannot be read is worth saying out loud, and it is
- * no reason to stop the row being opened: the editor gives its own answer, and
- * it is the one that matters. An empty note is not one of these, being empty
- * rather than missing, and a spinner that never stops is the worse of the two
- * lies.
+ * What the pane says when it has no note. An unreadable note still opens from its row, since the
+ * editor answers that. An empty note is not an error, and a spinner that never stops is worse.
  */
 function previewText(status: "pending" | "error"): string {
   return status === "error" ? "could not read this note" : "reading the note";
 }
 
 /**
- * Type a few letters of a note's name, and Enter opens it.
- *
- * The other way round from the note prompt, which is why it is a component of
- * its own rather than a fourth mode of that one. There the input is the answer
- * and the list completes it; here the list is the answer and the input only
- * filters it. Enter takes the highlighted row whatever the input says, so
- * nothing typed here has to name a path, and nothing here ever writes.
- *
- * `outgoing` is the same panel over a shorter list: the notes one note links
- * to. Nothing about ranking, previewing or opening a note changes when the
- * list is twelve notes rather than the vault, which is why that is a mode of
- * this rather than a panel of its own.
- *
- * `books` is the same again over the notes that have a book, without the
- * preview: an epub's note says little the name does not, and the reader is
- * where the book is.
+ * Type a few letters of a name; Enter opens the highlighted row. The list is the answer and the
+ * input only filters it, unlike the note prompt. `outgoing` shortens it; `books` drops the preview.
  */
 export function NoteFinder({
   paths,
@@ -166,44 +112,29 @@ export function NoteFinder({
   const listId = useId();
 
   const typed = query.trim();
-  // Two memos rather than one, because the candidate set follows the vault and
-  // not the query. Keyed on `paths` alone it survives every keystroke, which
-  // takes preparing 10,000 paths off the typing path entirely. That asks one
-  // thing of the caller: hand over the same array each render. The route passes
-  // what the query cache holds, and a listing filtered or sorted at the call
-  // site would be a new array every time and undo all of this. The books are
-  // picked out in a memo of their own for the same reason, and the note finder
-  // keeps `paths` itself, so its candidates follow the very array handed over.
+  // Candidates follow the vault, not the query, so they are keyed on `paths` alone. The caller
+  // must pass the same array each render, or every keystroke prepares the vault again.
   const listed = useMemo(() => {
     if (books !== undefined) return withBooks(paths, books);
-    // Files join the notes so one ranking covers both, and a file's name
-    // ranks the way a note's does.
+    // Files join the notes so one ranking covers both.
     return files === undefined ? paths : [...paths, ...files];
   }, [paths, books, files]);
   const noted = useMemo(() => new Set(vaultNotes), [vaultNotes]);
   const candidates = useMemo(() => noteCandidates(listed), [listed]);
-  // Ranked over the whole vault and cut afterwards, so the rows on screen are
-  // the best of it rather than the first slice of it. An empty query matches
-  // everything, so without the cut a keystroke reconciles one button per note
-  // in the vault, which is most of what it would cost.
-  // Books go uncut: a shelf is tens, not thousands, and a book past the cut
-  // would be one only its name could find.
+  // Ranked over the whole vault, then cut: an empty query matches every note, and a button each
+  // is most of the cost. Books go uncut: a shelf is tens, and one past the cut would be lost.
   const notes = useMemo(() => {
     const ranked = rankCandidates(candidates, typed);
     return book ? ranked : ranked.slice(0, VISIBLE_NOTES);
   }, [candidates, typed, book]);
-  // A fresh listing from the tree can shorten the list under the highlight.
-  // Typing cannot: it puts the highlight back on the first row.
+  // A fresh listing can shorten the list under the highlight; typing resets it to the first row.
   const cursor = Math.min(active, Math.max(notes.length - 1, 0));
   const highlighted = notes[cursor];
 
-  // The path the preview is reading, which trails the highlight rather than
-  // following it. Held apart from `highlighted` because that is what makes
-  // walking the list cost one read instead of one per row.
+  // Trails the highlight, so walking the list costs one read, not one per row.
   const [reading, setReading] = useState<string>();
 
-  // Nothing is read in a narrow window, which has no pane to show it in, nor
-  // for a book, which has none at all.
+  // No preview in a narrow window or for a book: neither has a pane for one.
   const { narrow } = useViewport();
   const previewing = !narrow && !book;
 
@@ -219,31 +150,19 @@ export function NoteFinder({
     return () => clearTimeout(timer);
   }, [highlighted, previewing]);
 
-  // The key `NoteEditor` reads, on purpose: a note that is open is already here
-  // and costs nothing to show, and a note read here is one the editor will not
-  // have to fetch when Enter opens it. `skipToken` is how a query with nothing
-  // to ask for says so without lying to the types about the path.
+  // The same key `NoteEditor` reads, so an open note is already cached and Enter does not fetch it
+  // again. `skipToken` says there is nothing to ask for without lying to the types about the path.
   const note = useQuery({
     queryKey: ["note", reading],
     queryFn: reading === undefined ? skipToken : () => fetchNote(reading),
-    // Walking back up the list must not re-read what was read on the way down.
-    // Staleness is per observer, so this buys the pane its quiet and leaves
-    // `NoteEditor` to fetch the note afresh when Enter actually opens it, which
-    // is the read that has to be right.
+    // Walking back up must not re-read; staleness is per observer, so `NoteEditor` still fetches.
     staleTime: 30_000,
-    // A preview nobody asked for is not worth three attempts and a backoff. The
-    // pane says it could not read the note, and opening the row asks properly.
+    // A preview nobody asked for gets no retries; opening the row asks properly.
     retry: false,
   });
 
-  // The input takes the focus so the keys reach it rather than whatever was
-  // focused when it opened, and hands it back on the way out. Restoring what
-  // held it beats naming the editor: the same finder opens from the file tree,
-  // and closing there belongs back in the tree.
-  //
-  // Opening a note is the exception. The editor that mounts behind the finder
-  // takes the focus only when nobody holds it, so handing it back there leaves
-  // a note you have to click before you can write in it.
+  // Restore the opener's focus on close, since the file tree opens this finder too.
+  // Not when a note opens: the editor takes focus only when nobody holds it.
   useEffect(() => {
     const opener = document.activeElement;
     field.current?.focus();
@@ -255,28 +174,22 @@ export function NoteFinder({
 
   /** Open the highlighted note, which is the only thing Enter and a click do. */
   function accept(path: string | undefined) {
-    // Nothing ranked means nothing to open, and the line underneath already
-    // says which of the two reasons it is.
+    // Nothing ranked, nothing to open: the hint line says why.
     if (path === undefined) return;
     opening.current = true;
     onOpen(path);
   }
 
   function onKeyDown(event: React.KeyboardEvent) {
-    // Tab walks the list rather than completing anything, the way it does in a
-    // terminal fuzzy finder. There is nothing here to complete: Enter opens the
-    // row under the highlight whatever the input says. Ctrl+J and Ctrl+K are
-    // vim's j and k; bare, they are letters of a name and belong to the input.
+    // Tab walks the list, since nothing completes; Enter opens the highlight whatever the input
+    // says. Ctrl+J and Ctrl+K are vim's j and k; bare keys are letters of a name.
     const tab = event.key === "Tab";
     const ctrl = (key: string) => event.ctrlKey && event.key === key;
     const down = event.key === "ArrowDown" || (tab && !event.shiftKey) || ctrl("n") || ctrl("j");
     const up = event.key === "ArrowUp" || (tab && event.shiftKey) || ctrl("p") || ctrl("k");
 
     if (down || up) {
-      // Without this the arrows take the caret to one end of the input, which
-      // is where the browser sends them when nothing else does, and Tab takes
-      // the focus out of the panel. Prevented before the empty list is checked,
-      // because an empty list is where Tab would leave and not come back.
+      // Prevent before the empty check: arrows would move the caret, and Tab would leave for good.
       event.preventDefault();
       if (notes.length === 0) return;
       setActive(down ? Math.min(cursor + 1, notes.length - 1) : Math.max(cursor - 1, 0));
@@ -299,9 +212,7 @@ export function NoteFinder({
   }
 
   return (
-    // The dialog reads the keys, not the input, so they still land once a click
-    // has moved the focus to a row or to the backdrop. Its own tabIndex is what
-    // lets it hold the focus in that case.
+    // The dialog reads the keys, so they still land after a click moves focus to a row or backdrop.
     <div
       role="dialog"
       aria-modal="true"
@@ -335,14 +246,11 @@ export function NoteFinder({
           />
         </div>
 
-        {/* A fixed height rather than one the content sets, so the pane does not
-            jump about as the list narrows under it. Books have no pane, so
-            their list takes the height it needs, capped by the panel. */}
+        {/* A fixed height, so the pane does not jump as the list narrows. Books have no pane and
+            take what they need. */}
         <div className={book ? "flex min-h-0" : BODY}>
           {notes.length > 0 && (
-            // A div rather than a list, because a listbox is not a list of items
-            // to a screen reader and marking it as both says it twice. A book's
-            // list has the panel to itself, there being no pane beside it.
+            // A div, not a list: a screen reader would announce a listbox marked as both twice.
             <div
               id={listId}
               role="listbox"
@@ -358,9 +266,7 @@ export function NoteFinder({
                     type="button"
                     role="option"
                     aria-selected={index === cursor}
-                    // Out of the tab order, because the focus stays in the input
-                    // and the highlight is how the list says what Enter would
-                    // open. A click still lands here, and opens the same note.
+                    // Out of the tab order: focus stays in the input; a click still opens it.
                     tabIndex={-1}
                     onClick={() => accept(path)}
                     className={`${ROW} ${TAP} ${book || rowKind !== undefined ? "flex gap-3" : "truncate"} ${
@@ -368,11 +274,8 @@ export function NoteFinder({
                     }`}
                   >
                     {book ? (
-                      // The folder, so the subfolders of a books folder read as
-                      // groups. Dimmer, because the name is what is looked for,
-                      // and the one that gives way: a folder runs from the
-                      // vault's root, and sharing the row out evenly clipped a
-                      // four-letter name to two on a phone.
+                      // The folder, dimmed. It gives way first: an even split clipped short names
+                      // on a phone.
                       <>
                         <span className="max-w-full shrink-0 truncate">{noteName(path)}</span>
                         <span className="ml-auto min-w-0 truncate text-k-muted">
@@ -382,8 +285,7 @@ export function NoteFinder({
                     ) : rowKind === undefined ? (
                       path
                     ) : (
-                      // The kind at the end, dimmed like a book's folder: the name is
-                      // what is looked for, and the kind only says what Enter opens.
+                      // The kind, dimmed like a book's folder: it only says what Enter opens.
                       <>
                         <span className="min-w-0 truncate">{path}</span>
                         <span className="ml-auto shrink-0 text-k-muted">
@@ -398,24 +300,15 @@ export function NoteFinder({
           )}
 
           {previewing && highlighted !== undefined && (
-            // Rendered the way the editor renders it, so the pane shows the
-            // note as opening it will. It used to be plain text, on the
-            // grounds that this pane is for telling two notes apart rather
-            // than for reading one, and two notes with their syntax showing
-            // are harder to tell apart, not easier. The cost is one dropped
-            // frame per mount, and the delay above makes that once per row you
-            // stop on rather than once per row you pass.
-            // A labelled <section> rather than a bare <pre>, which takes no
-            // label of its own and leaves the pane something a screen reader
-            // can reach but not name.
+            // Rendered as the editor renders it, so it matches what opening shows; the delay keeps
+            // the dropped frame per mount to rows you stop on. A section, as a pre cannot be named.
             <section aria-label="Preview" data-testid="preview" className={PANE}>
               {kind !== undefined && highlighted !== undefined ? (
                 <p className={PANE_MESSAGE}>
                   {fileOpens(kind, noted.has(bookNoteOf(highlighted)))}
                 </p>
               ) : note.status === "success" ? (
-                // Keyed on the path so opening another note builds a fresh
-                // view rather than reconfiguring this one.
+                // Keyed on the path, so opening another note builds a fresh view.
                 <NotePreview key={reading} text={note.data} />
               ) : (
                 <p className={PANE_MESSAGE}>{previewText(note.status)}</p>
@@ -424,8 +317,7 @@ export function NoteFinder({
           )}
         </div>
 
-        {/* An <output> rather than a <p role="status">: same announcement, and
-            the element carries it without the attribute. */}
+        {/* An <output>: a live status with no role attribute needed. */}
         <output className={STATUS}>{hint(listed.length, notes.length, outgoing, book)}</output>
       </div>
     </div>

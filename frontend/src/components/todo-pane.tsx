@@ -30,75 +30,47 @@ interface TodoPaneProps {
   commands: EditorCommands;
   onOpen: (path: string, line: number) => void;
   /**
-   * Walk the row's todo one step on, in the vault, or put it in the state a
-   * key named.
-   *
-   * The hit rather than the todo: the write reads the note off disk again, and
-   * the path and the line are how it finds the line to cycle.
+   * Cycles the row's todo in the vault, or sets the state a key named. Takes the
+   * hit, not the todo: the write re-reads the note and finds the line by its path and line.
    */
   onCycle: (hit: SearchHit, state?: TodoState, twins?: number[]) => void;
   /** Open the prompt that writes a todo into today's note. */
   onAdd: () => void;
-  /**
-   * Open that same prompt on a row, so what it takes lands as a part of it.
-   *
-   * The hit for the reason `onCycle` takes one: the part is written into the
-   * note the parent lives in, beside the line it hangs off.
-   */
+  /** Opens the add prompt on a row, so the part lands in the parent's note beside its line. */
   onSubtask: (hit: SearchHit) => void;
   /**
-   * Put the line the row was read from back in its note, edited.
-   *
-   * The hit for the reason `onCycle` takes one, and the line beside it because
-   * this is the one press that carries text: what the reader left in the input
-   * is what the vault gets.
+   * Puts the row's line back in its note, edited. The one press that carries text:
+   * what the input holds is what the vault gets.
    */
   onEdit: (hit: SearchHit, line: string) => void;
   /**
-   * Say that the first row's todo waits for the second's.
-   *
-   * Two hits, each for the reason `onCycle` takes one: the write puts a `⛔`
-   * on one line and may put an id on the other.
+   * Says the first row's todo waits for the second's. The write puts a `⛔` on one
+   * line and may put an id on the other.
    */
   onBlock: (hit: SearchHit, blocker: SearchHit) => void;
   /**
-   * Whether the archive is on the list, which the route holds and one key flips.
-   *
-   * In the query key as well as the request, so the two readings are two cached
-   * answers rather than one that goes stale on a toggle. The search panel keys
-   * its own todo query the same way, which is what keeps the pane and the
-   * overlay reading one answer.
+   * Whether the archive is on the list. It sits in the query key, so a toggle reads
+   * its own cached answer; the search panel keys the same way, so both agree.
    */
   archive?: boolean;
   /**
-   * Start a session on the row's todo, or close the ones it has running.
-   *
-   * The hit for the reason `onCycle` takes one: the write reads the note off
-   * disk again, and the path and the line are how it finds the task line.
+   * Starts a session on the row's todo, or closes the ones running. The write
+   * finds the task line by the hit's path and line.
    */
   onTimer: (hit: SearchHit, twins?: number[]) => void;
   /**
-   * Tag the row's todo `#agent` for the worker, or take the tag back off.
-   *
-   * The hit for the reason `onCycle` takes one: the write reads the note off
-   * disk again, and the path and the line are how it finds the task line.
+   * Tags the row's todo `#agent` for the worker, or takes the tag off. The write
+   * finds the task line by the hit's path and line.
    */
   onAgent: (hit: SearchHit, twins?: number[]) => void;
   /**
-   * Where this pane puts the row `@` would act on, or null where `@` would do
-   * nothing, for the palette's entry of that key to read as it opens.
-   *
-   * A ref and not a callback, so a move of the cursor renders nothing else.
-   * The route hands it only to the focused pane, which is the one the palette
-   * opens over.
+   * The row `@` would act on, or null where it does nothing, for the palette to read as it opens.
+   * A ref, not a callback, so a cursor move renders nothing; only the focused pane gets it.
    */
   cursorRow?: { current: AgentRow | null };
   /**
-   * Move the row's todo, with its parts, into its project's note.
-   *
-   * The `TodoHit` rather than a bare hit, because the project it moves to is
-   * the one the backend answered with, never one worked out here. A board
-   * card dropped on a project's lane names that project instead.
+   * Moves the row's todo and its parts into its project's note. A TodoHit, so the
+   * project is the backend's answer; a board drop passes its lane's project instead.
    */
   onRefile: (hit: TodoHit, project?: string) => void;
   /** Say why a card dropped on the board moved nothing. */
@@ -110,18 +82,8 @@ interface TodoPaneProps {
 }
 
 /**
- * Every open todo the vault holds, grouped by when it is due.
- *
- * A third thing a pane can hold, beside a note and a terminal. It asks the
- * vault once and narrows what came back, the way the todo overlay does and for
- * the same reason: what there is to do is a set the vault decides, and the
- * filter line was never choosing the rows. The two share a query key, so
- * opening one after the other reads one answer.
- *
- * The keys are resolved the way `file-explorer.tsx` resolves its own, a pending
- * sequence first, so the leader reaches everything from in here. `<leader>x` is
- * not among them, which is right: there is no buffer under this cursor, and the
- * bare `x` is the key that will act on a row.
+ * Every open todo the vault holds, grouped by when it is due; shares the todo overlay's query key.
+ * A pending leader sequence resolves first, but `<leader>x` is left out: bare `x` acts on a row.
  */
 export function TodoPane({
   commands,
@@ -147,25 +109,21 @@ export function TodoPane({
   /** `c`: the todos drawn as a board rather than as the list. */
   const [board, setBoard] = useState(false);
   /**
-   * The Done this week fold under the open list: folded at the start, so the
-   * list reads as what is left to do. Its rows are walked by `j` and `k` only
-   * while it is open.
+   * The Done this week fold, closed at the start so the list reads as what is left.
+   * `j` and `k` walk its rows only while it is open.
    */
   const [doneOpen, setDoneOpen] = useState(false);
   /** The board's keys, which the handler below hands it in board mode. */
   const boardKeys = useRef<BoardKeys>(null);
   /**
-   * The row being edited and the line as it now stands, or null while none is.
-   *
-   * The key rather than the hit: the row it belongs to is looked up at the
-   * press, and holding the text here is what lets the input be the row itself.
+   * The row being edited and its line as it stands, or null. The key, not the hit:
+   * the row is looked up at each press, and the text here is the input itself.
    */
   const [editing, setEditing] = useState<{ key: string; line: string } | null>(null);
   const panel = useRef<HTMLElement>(null);
   const filter = useRef<HTMLInputElement>(null);
   const draft = useRef<HTMLInputElement>(null);
-  // A finger has no keys at all, so a touch screen draws each of them as a
-  // button: the add, the state, the views and what `⋯` opens under a row.
+  // A finger has no keys, so a touch screen draws each of them as a button.
   const { coarse } = useViewport();
   const armed = useArmed();
 
@@ -173,8 +131,8 @@ export function TodoPane({
     queryKey: ["todos", archive],
     queryFn: () => fetchTodos(archive),
   });
-  // Deferred, so a thousand-line answer renders in a pass that yields (#1355);
-  // every reader takes this one value, so the hold and twins keep step with the rows.
+  // Deferred so a long answer renders in yielding passes (#1355). Every reader takes
+  // this value, so the hold and twins keep step with the rows.
   const data = useDeferredValue(answer);
   const narrowing = useTodoFilter();
   const blocker = useBlockerPick(onBlock);
@@ -223,9 +181,7 @@ export function TodoPane({
     idle: board || blocker.picking !== null,
   });
 
-  // The row that has become an input, or nothing while every row is a row. Its
-  // own name because the effect below turns on which row it is: typing is not a
-  // reason to move the cursor inside it again.
+  // The key alone, so typing in the row (a new `line`) does not re-run the focus effect.
   const editingKey = editing?.key;
 
   const { held, focusList } = useTodoFocus({
@@ -262,9 +218,8 @@ export function TodoPane({
   }
 
   /**
-   * A kind chip: the list and the board narrow to that kind. The cursor goes
-   * back to the top, as it does when the filter line is typed in, since the rows
-   * under it may now be other rows.
+   * A kind chip narrows the list and board. The cursor goes to the top, as it does
+   * on a typed filter, since the rows under it may now differ.
    */
   function pickKind(next: string | null) {
     narrowing.setKind(next);
@@ -280,17 +235,8 @@ export function TodoPane({
   }
 
   /**
-   * A click on the strip, then the focus back on the cursor. A browser leaves
-   * the focus on the clicked button, which draws the cursor unfocused and
-   * turns Space and Enter into another click. The row or card handed it may
-   * unmount at once, as `c` does to the list, and the `dropped` effects carry
-   * it on from there. The refocus is by mouse only: a finger brings no keys to
-   * catch.
-   *
-   * Nothing at all, by mouse or by finger, while a row is an input or the list
-   * is a picker. The input has no blur to close it, so the edit would outlive
-   * its row and deafen the pane, and the picker would stay up over a list or a
-   * board its Enter and Escape no longer mean what it says.
+   * Refocuses the cursor after a mouse click, so Space and Enter do not click again.
+   * Inert while a row is an input or a picker is up.
    */
   function strip(run: () => void) {
     if (editing !== null || blocker.picking !== null) return;
@@ -299,15 +245,13 @@ export function TodoPane({
   }
 
   /**
-   * `i`: the row becomes its line. By the row's own key, so a tap need not move the cursor.
-   *
-   * Not while another row is being edited. The keys are off then, and a tap
-   * that got through would drop that row's draft unwritten.
+   * `i`: the row becomes its line, by the row's own key so a tap need not move the cursor.
+   * Not while another row is edited: a tap that got through would drop that draft unwritten.
    */
   function edit(hit: SearchHit) {
     if (editing !== null) return;
-    // An edited line can change its words, which a held row would take for a new
-    // todo and put at the end of its group, so the list is drawn fresh instead.
+    // An edited line may change its words, and a held row would take it as a new todo
+    // at the group's end, so the list is drawn fresh.
     release();
     setEditing({ key: rowKey(hit), line: hit.text });
   }
@@ -319,8 +263,8 @@ export function TodoPane({
   }
 
   /**
-   * `b`: the picker opens over the list. The picker lists the todos the list
-   * hides, so the order held for the list is let go rather than taking them in.
+   * `b`: the picker opens over the list. It lists the todos the list hides, so the
+   * held order is let go rather than taking them in.
    */
   function block(hit: SearchHit) {
     if (!blocker.block(hit)) return;
@@ -334,8 +278,7 @@ export function TodoPane({
     else blocker.pick(hit);
   }
 
-  // A state picked out of an open strip is meant, so one tap sets it, as the
-  // shifted keys do, with no question asked.
+  // A state picked from an open strip is meant, so one tap sets it, as the shifted keys do.
   const actions = (hit: TodoHit): [string, () => void][] => [
     ...Object.values(SET).map((state): [string, () => void] => [state, () => onCycle(hit, state)]),
     ["timer", () => onTimer(hit)],
@@ -346,8 +289,7 @@ export function TodoPane({
     ["agent", () => onAgent(hit)],
   ];
 
-  // What each key does here. Each act checks the row it needs, so a key that
-  // binds no row (`a`, `d`, `n`) reaches the pane without one.
+  // Each act checks the row it needs, so a key binding no row (`a`, `d`, `n`) works with none.
   const act: TodoKeyActions = {
     toggleBoard,
     down: () => setActive(Math.min(cursor + 1, rows.length - 1)),
@@ -397,8 +339,7 @@ export function TodoPane({
     act,
   });
 
-  // The fold is a group of its own, so an open list with only finished rows
-  // still has a fold to draw rather than a message over nothing.
+  // The fold is a group of its own, so a list of only finished rows still draws it.
   const empty =
     groupRows.length === 0 && facts.doneWeek.length === 0
       ? listed === "done"
@@ -407,25 +348,21 @@ export function TodoPane({
       : null;
 
   return (
-    // The handler sits on the pane, not the rows: the keys act on the row the
-    // cursor is on, which is not always the one holding focus.
+    // On the pane, not the rows: keys act on the cursor's row, which may not hold focus.
     <section
       ref={panel}
       aria-label="Todos"
       onFocus={() => {
         held.current = true;
       }}
-      // Only a move onto something outside gives the keys up. A row that
-      // unmounts fires no blur at all, which is exactly the case above.
-      // Leaving the pane lets the order go, so the list is drawn fresh the next
-      // time the reader is in it.
+      // A move outside gives the keys up; a row that unmounts fires no blur at all.
+      // Leaving lets the order go, so the list is drawn fresh on return.
       onBlur={(event) => {
         const inside = panel.current?.contains(event.relatedTarget) === true;
         held.current = inside;
         if (!inside) release();
       }}
-      // Focusable, but not in the tab order: the cursor row is the tab stop,
-      // and this is where the focus rests before a row exists to hold it.
+      // Focusable but not a tab stop: the cursor row is one; this holds focus until a row exists.
       tabIndex={-1}
       onKeyDown={onKeyDown}
       onPointerDown={armed.disarmElsewhere}
