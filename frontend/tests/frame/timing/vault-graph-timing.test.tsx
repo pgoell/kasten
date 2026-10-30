@@ -10,8 +10,14 @@
 
 import type { Graph } from "@/lib/graph/graph-api";
 import { drawGraph, type GraphCanvas } from "@/lib/graph/graph-canvas";
-import { need } from "./reader-fixture";
-import { boxOf, DEV_ANSWER, LARGE, registerVaultFixture, signatureOf } from "./vault-graph-fixture";
+import { need } from "../reader-fixture";
+import {
+  boxOf,
+  DEV_ANSWER,
+  LARGE,
+  registerVaultFixture,
+  signatureOf,
+} from "../vault-graph-fixture";
 
 registerVaultFixture();
 
