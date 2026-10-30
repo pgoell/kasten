@@ -41,7 +41,6 @@ class RankedAnswer(BaseModel):
     indexed: int
     """Notes the index holds. Below `notes` while the first indexing runs."""
     notes: int
-    """Notes in the vault the index takes in."""
 
 
 def get_indexer() -> Indexer | None:
