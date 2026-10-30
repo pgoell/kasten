@@ -1,13 +1,8 @@
 """The `index.md` in each folder, kept in step with what the folder holds.
 
-A folder kasten makes gets a listing the moment it is made, which `folders.py`
-writes. What lives here is the rest: carrying a note's entry from one folder's
-index to another's when the note moves between them, and giving every folder
-already in the vault the listing it never got.
-
-An entry is a bullet holding a markdown link, the shape the index guide asks
-for. Whatever follows the link on that line is a description someone wrote, and
-it travels with the entry.
+`folders.py` writes a new folder's listing. This module carries a moved note's entry between
+folders' indexes, and backfills folders that never got one. An entry is a bullet with a
+markdown link; any text after the link is someone's description and travels with it.
 """
 
 import posixpath
@@ -53,9 +48,9 @@ def has_entry(root: Path, path: str) -> bool:
 def carries(root: Path, old: str, new: str) -> str | None:
     """The index a move of `old` to `new` adds an entry to, or None when it adds none.
 
-    None when the move stays in its folder, when the thing moving is an index or
-    a log itself, and when its old folder's index never listed it: an index is
-    curated, and an entry nobody wrote is not one to invent at the other end.
+    None when the move stays in its folder, when the thing moving is an index or log, and when its
+    old folder's index never listed it. An index is curated, so no entry is invented at the other
+    end.
     """
     if posixpath.dirname(old) == posixpath.dirname(new) or reserved(old):
         return None
@@ -63,14 +58,11 @@ def carries(root: Path, old: str, new: str) -> str | None:
 
 
 def rehome_entry(root: Path, old: str, new: str) -> None:
-    """Take the entry for what moved out of its old folder's index and put it in the new one's.
+    """Move the entry for what moved from its old folder's index to the new one's.
 
-    Run after the move and after the links were rewritten, so the entry in the
-    old index already points at `new`, from the wrong folder. It is cut there,
-    respelled from the new folder and written in. The new folder's index is
-    made if it has none, from what the folder holds now, which includes the
-    thing that moved, so its plain line is dropped for the one that carries a
-    description rather than listed twice.
+    Run after the move and the link rewrite, so the old index already points at `new`. The entry is
+    respelled from the new folder and written in. A new index is made from what the folder holds,
+    which lists the moved thing: its plain line is dropped for the one with the description.
     """
     if posixpath.dirname(old) == posixpath.dirname(new) or reserved(old):
         return
@@ -103,8 +95,8 @@ def rehome_entry(root: Path, old: str, new: str) -> None:
 def drop_entries(root: Path, folders: list[Path]) -> None:
     """Take the entry for each of `folders`, which a move emptied, out of its parent's index.
 
-    Only the outermost one has a parent left to hold an index; the rest went
-    with it, so a missing index is the common case and not a mistake.
+    Only the outermost has a parent left to hold an index, so a missing index is the common case,
+    not a mistake.
     """
     base = root.resolve()
     for folder in folders:
@@ -122,12 +114,9 @@ def drop_entries(root: Path, folders: list[Path]) -> None:
 async def backfill(root: Path) -> list[str]:
     """Give every folder in the vault that has no `index.md` one. Returns what was written.
 
-    Hidden folders are skipped without being walked into, which keeps `.trash`
-    and the jj repo out, and the vault root is skipped because OKF makes its
-    index optional. One jj change for the pass, and none when nothing needed one.
-
-    Not run at startup. A folder whose index you deleted would get it back on
-    every boot, and that would make deleting one impossible.
+    Hidden folders are not walked, which keeps `.trash` and the jj repo out, and the root is
+    skipped as OKF makes its index optional. Not run at startup: a deleted index would come back on
+    every boot.
     """
     async with vault_write():
         missing = _unlisted(root)
@@ -158,9 +147,8 @@ def _write_listings(root: Path, folders: list[Path]) -> list[str]:
 
 
 if __name__ == "__main__":
-    # The one implementation, reached from a terminal, the way the type backfill
-    # is. The vault is an argument, so this reaches the dev vault and a
-    # container's alike.
+    # Reached from a terminal, as the type backfill is. The vault is an argument, so the dev vault
+    # and a container's both work.
     import asyncio
     import sys
 

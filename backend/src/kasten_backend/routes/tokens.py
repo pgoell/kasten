@@ -76,8 +76,7 @@ async def read_tokens(settings: Annotated[Settings, Depends(get_settings)]) -> l
 def _since(last: dict[str, datetime], token: Token) -> datetime | None:
     """`token`'s last use, unless it falls before the token was made.
 
-    The OAuth reconnect revokes a name and mints it again, so rows under that name
-    can belong to the old secret. Those are older than the new token's `created`.
+    The OAuth reconnect reuses a name, so older rows can belong to the old secret.
     """
     used = last.get(token.name)
     return used if used is not None and used >= token.created else None

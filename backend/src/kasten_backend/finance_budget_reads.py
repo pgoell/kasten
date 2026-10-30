@@ -1,8 +1,7 @@
 """What the budget reads from the tables, and the two settings it writes.
 
-The bookings come out summed by month, account, category and transfer twin,
-a few hundred rows for years of history, and `finance_ledger` sorts them into
-the budget's parts. Nothing here commits.
+Bookings come out summed by month, account, category and transfer twin, and
+`finance_ledger` sorts them into the budget's parts. Nothing here commits.
 """
 
 from typing import TYPE_CHECKING
@@ -32,12 +31,9 @@ async def cutoff_day(session: AsyncSession) -> int:
 async def _lines(session: AsyncSession, cutoff: int, transaction: int | None = None) -> list[Line]:
     """Every booking without splits and every split, summed by what decides where it counts.
 
-    Money in and money out are summed apart, since money in with no category
-    counts nowhere and money out with none counts as unsorted. A transfer
-    carries its twin's account, or the own account its counterparty IBAN names.
-    A booking that paid a reserving plan's bill is marked, since the reserve
-    paid it and free to spend must not count it again. With `transaction`,
-    that one booking's lines only, as the booking drilldown says where it counts.
+    Money in and money out are summed apart. A transfer carries its twin's account.
+    A booking that paid a reserving plan's bill is marked, since the reserve paid it.
+    With `transaction`, only that booking's lines.
     """
     booking, twin, own = tables.Transaction, aliased(tables.Transaction), aliased(tables.Account)
     split = tables.TransactionSplit
@@ -65,9 +61,8 @@ async def _lines(session: AsyncSession, cutoff: int, transaction: int | None = N
             twin,
             and_(twin.transfer_group == booking.transfer_group, twin.id != booking.id),
         )
-        # A half whose twin is not in yet (the halves often come in different
-        # pulls) still names an own account's IBAN, and counts as a move to it
-        # rather than as spending that the twin, once in, would count again.
+        # A half whose twin is not in yet still names an own account: a move, not spending that
+        # the twin would count again.
         .outerjoin(
             own,
             and_(
@@ -113,10 +108,7 @@ async def _lines(session: AsyncSession, cutoff: int, transaction: int | None = N
 
 
 async def ledger(session: AsyncSession, transaction: int | None = None) -> Ledger:
-    """Every booking in the budget's terms, with the accounts and categories it reads.
-
-    With `transaction`, that one booking alone.
-    """
+    """Every booking in the budget's terms, or with `transaction` that one booking alone."""
     accounts = {
         row.id: Account(row.shared, row.kind)
         for row in await session.scalars(select(tables.Account))

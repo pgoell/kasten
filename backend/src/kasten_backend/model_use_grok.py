@@ -1,10 +1,7 @@
 """The grok session files, read into the same messages as Claude Code's and codex's.
 
-grok keeps a session at `<sessions>/<folder>/<session>/updates.jsonl`, where the
-folder is the session's working folder, percent-encoded. Each prompt ends in a
-`turn_completed` update whose `usage.modelUsage` holds the turn's counts per model.
-`model_use_sessions` hands a file here when its first record is a JSON-RPC
-notification, an object with a `method` and a `params` object.
+A session is `<sessions>/<folder>/<session>/updates.jsonl`, the folder percent-encoded.
+Each prompt ends in a `turn_completed` update whose `usage.modelUsage` counts per model.
 """
 
 import json

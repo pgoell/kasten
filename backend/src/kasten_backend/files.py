@@ -1,17 +1,8 @@
 """Putting a book or an image into the vault, from a body or from the internet.
 
-One implementation behind three callers: `POST /api/assets/{path}` in the
-browser, `POST /agent/files/{path}` for a token holder with a shell, and the
-MCP tool `save_file`, which has no way to carry bytes and hands a URL instead.
-A page of HTML, the one file a write may replace, is `page_store.py`'s, on the
-cap, the temp and the refusals here.
-The rules about what may land, where, and how big, live here once. The AnkiWeb
-deck fetch lives in `ankiweb.py`, on the reader and the address check here.
-
-No HTTP framework. A refusal is a `RefusedError` carrying the status it earns,
-which the routers in `routes/` raise up to, the handler `main.py` registers
-answers for every route, and the MCP tool turns into a tool error, so all
-three refuse in the same words.
+Three callers share it: the browser's `POST /api/assets/{path}`, the agent's
+`POST /agent/files/{path}`, and the MCP tool `save_file`, which takes a URL. A refusal is a
+`RefusedError`, so all three refuse in the same words.
 """
 
 import asyncio
@@ -24,9 +15,8 @@ from typing import TYPE_CHECKING
 import httpcore
 import httpx
 
-# From the module rather than off `httpcore`, which binds the name to a stub
-# when anyio is missing and so types it as a union of the two. anyio is a
-# FastAPI dependency and always here.
+# Imported from the module: `httpcore` binds this name to a stub when anyio is missing,
+# which types it as a union of the two.
 from httpcore._backends.anyio import AnyIOBackend
 
 from kasten_backend.change import vault_change, vault_write
@@ -39,21 +29,15 @@ if TYPE_CHECKING:
 ASSET_LIMIT_BYTES = 100 * 1024 * 1024
 """The most of one file fetched by link, or sent by a token holder, before giving up.
 
-One cap for every kind, because the cap is about what a request may cost and
-not about what a format usually weighs. It is counted off the bytes as they
-arrive rather than read off `content-length`, for the reason `PAGE_LIMIT_BYTES`
-is: a header is a claim. A download is what it guards most, since no proxy in
-front of kasten sees one at all.
+Counted off the bytes as they arrive, not `content-length`, since a header is a claim.
+A download is what it guards most: no proxy in front of kasten sees one.
 """
 
 UPLOAD_LIMIT_BYTES = 1024 * 1024 * 1024
 """The most of one file the browser may put into the vault or import as a deck.
 
-Higher than `ASSET_LIMIT_BYTES` because a 106MB Anki deck is one file that
-cannot be split, and the browser sends a big file in pieces through
-`uploads.py`, so Cloudflare's own 100MB body limit no longer stands in the way.
-Anki's reader allows 1 GiB a member already. `api.ts` holds the client's copy,
-which is checked before a byte is sent and must never exceed this one.
+Higher than `ASSET_LIMIT_BYTES`, since a 106MB Anki deck cannot be split and uploads go in
+pieces through `uploads.py`. `api.ts` holds the client's copy, which must never exceed this.
 """
 
 PAGE_FAILED = 400
@@ -72,26 +56,23 @@ httpx's own default, spelled out because the refusal names it.
 PAGE_TIMEOUT_SECONDS = 20.0
 """How long a page has to answer before the reader is told it did not.
 
-httpx applies it to each step, the connect and every read, and not to the
-whole transfer, so a 90MB download that keeps arriving is not cut off.
+Applied to each step, the connect and every read, not the whole transfer, so a 90MB download
+that keeps arriving is not cut off.
 """
 
 PAGE_AGENT = "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0"
 """What this calls itself when it asks for a page.
 
-A browser's string rather than kasten's, because a great many sites answer an
-unfamiliar agent with a challenge page or a 403, and the page being asked for
-is one the reader is sitting in front of and could have opened in a tab. It is
-a request for one page, made by hand, not a crawl.
+A browser's string, since many sites answer an unfamiliar agent with a challenge or a 403.
+The page is one the reader is sitting in front of, asked for by hand, not a crawl.
 """
 
 
 OPEN_LIMIT_BYTES = 4 * UPLOAD_LIMIT_BYTES
 """The most the uploads open at once may declare between them.
 
-What bounds the disk the temps take: a client that opens upload after upload
-and never finishes one fills the temp folder up to this and no further, for
-the hour until the sweep takes them.
+What bounds the disk the temps take. A client that never finishes an upload fills the temp
+folder up to this, for the hour until the sweep takes them.
 """
 
 
@@ -114,18 +95,17 @@ def too_big(limit: int) -> str:
 DECK_TIMEOUT_SECONDS = 120.0
 """How long fetching a deck from a link may take, start to finish, every hop included.
 
-Over the whole fetch rather than each step, which `PAGE_TIMEOUT_SECONDS` is:
-a server dripping one byte every nineteen seconds meets every per-step limit
-and would hold the request open for as long as it liked. Two minutes moves
-the cap's 100MB on any line a deck is worth fetching over.
+Over the whole fetch, not each step: a server dripping one byte every nineteen seconds meets
+every per-step limit and would hold the request open. Two minutes moves the 100MB cap on any
+line a deck is worth fetching over.
 """
 
 
 class RefusedError(Exception):
     """A file or a page this will not take, and the status the refusal earns.
 
-    Its own class with the status on it, because three surfaces answer it and two
-    of them are not HTTP: the MCP tool reads the sentence and drops the number.
+    The status rides on the class because two of the three surfaces are not HTTP: the MCP tool
+    reads the sentence and drops the number.
     """
 
     def __init__(self, status: int, detail: str) -> None:
@@ -143,14 +123,9 @@ async def _addresses(host: str) -> list[str]:
 async def _public_address(host: str) -> str:
     """The address to open for `host`, once every address it has is on the internet.
 
-    The backend sits on the docker network beside Postgres, the shell and
-    whatever else the box runs, none of which expects a request from it. Every
-    address the name resolves to is checked, not only the one opened, so a name
-    with one private address among public ones is refused whole. An IPv4
-    address hidden in an IPv6 one is checked as the IPv4 address it is.
-    `is_global` leaves out loopback, private, link-local, shared (CGNAT and
-    Tailscale) and reserved space, and multicast is refused on its own because
-    some of it counts as global.
+    Every address the name resolves to is checked, not only the one opened, so one private
+    address among public ones refuses the name. An IPv4 address inside an IPv6 one is checked
+    as IPv4. `is_global` leaves out private and shared space, and multicast is refused on its own.
     """
     try:
         found = await _addresses(host)
@@ -170,14 +145,9 @@ async def _public_address(host: str) -> str:
 class _PublicOnly(httpcore.AsyncNetworkBackend):
     """Opens a socket to the address it checked, and to nothing else.
 
-    The check lives in the connect rather than in front of the request. Checked
-    in front, httpx resolved the name a second time to connect, and a name that
-    answered a public address the first time and `127.0.0.1` the second walked
-    past it. Here there is one lookup, and the socket opens on the address that
-    lookup checked. Every redirect hop connects through here too, so a public
-    page pointing back at the box meets the same refusal with no loop of its
-    own. TLS still verifies the certificate against the hostname: httpcore
-    hands `start_tls` the origin's name, never the address.
+    The check lives in the connect: checked in front of the request, httpx resolves the name a
+    second time, and a name could answer public, then `127.0.0.1`. TLS still verifies the
+    certificate against the hostname, as httpcore hands `start_tls` the origin's name.
     """
 
     def __init__(self) -> None:
@@ -207,10 +177,9 @@ class _PublicOnly(httpcore.AsyncNetworkBackend):
 class _PublicTransport(httpx.AsyncHTTPTransport):
     """httpx's own transport, connecting through `_PublicOnly`.
 
-    The pool is replaced after `super().__init__` because httpx builds it there
-    and takes no network backend of its own. Passing a transport also turns off
-    the proxies httpx would read off the environment, which is wanted: through a
-    proxy the address checked would be the proxy's and never the page's.
+    The pool is swapped after `super().__init__`, since httpx builds its own there and takes no
+    network backend. The transport also drops the environment's proxies, which is wanted: through
+    one, the checked address would be the proxy's.
     """
 
     def __init__(self) -> None:
@@ -224,10 +193,8 @@ class _PublicTransport(httpx.AsyncHTTPTransport):
 def reader() -> httpx.AsyncClient:
     """The client every fetch out of the box goes through: `/api/fetch`, `download`, `ankiweb`.
 
-    A function rather than a client built at each call site, so there is one
-    place that decides how kasten reaches the internet, and one seam a test
-    replaces to answer for the internet. It follows no redirects: httpx reads
-    every 3xx body whole into memory on the way past, where no cap sees it, so
+    One place that decides how kasten reaches the internet, and one seam a test replaces. It
+    follows no redirects: httpx reads every 3xx body whole into memory where no cap sees it, so
     `open_public` follows them by hand.
     """
     return httpx.AsyncClient(
@@ -240,13 +207,9 @@ def reader() -> httpx.AsyncClient:
 async def open_public(client: httpx.AsyncClient, url: str) -> httpx.Response:
     """Open `url` as a stream, redirects followed. The caller closes what comes back.
 
-    http and https and nothing else, checked before anything is opened:
-    `file://` would read this container's disk. A later hop to another scheme
-    is the transport's to refuse. The address is `_PublicOnly`'s to check, on
-    every hop.
-
-    Each redirect is closed with its body unread, so the only body anybody
-    reads is the last one, and the caller reads it through its cap.
+    http and https only: `file://` would read this container's disk. A later hop to another
+    scheme is the transport's to refuse. Each redirect is closed unread, so the only body read
+    is the last, through the caller's cap.
     """
     try:
         request = client.build_request("GET", url)
@@ -270,8 +233,8 @@ async def open_public(client: httpx.AsyncClient, url: str) -> httpx.Response:
 def temporary_name(name: str) -> str:
     """The hidden name `store` streams `name` into before linking it into place.
 
-    Fourteen bytes longer than `name`, so a name near the filesystem's limit
-    fits as itself and not as its temp; the Anki reader asks this to skip one.
+    Fourteen bytes longer than `name`, so a name near the filesystem's limit still fits as itself.
+    The Anki reader asks this to skip one.
     """
     return f".{name}.{secrets.token_hex(4)}.tmp"
 
@@ -286,46 +249,28 @@ async def store(
 ) -> str:
     """Put the bytes `chunks` yields at `path`, never over a file already there.
 
-    `limit` is the cap, `ASSET_LIMIT_BYTES` when None. None rather than that
-    constant as the default, which would bind it once at import where a test
-    lowering the cap could not reach it.
-
-    Answers with the vault-relative path that landed. Every refusal leaves the
-    path as it found it, a free one with no temp beside it. An exception the
-    iterator raises, a client hanging up mid-body or a download breaking off,
-    propagates after the same cleanup.
-
-    `held` is for a caller already inside `vault_write` and its own
-    `vault_change`, the Anki import writing a deck's media beside its notes.
-    The lock is not re-entrant, so taking it again here would deadlock.
+    `limit` is the cap, `ASSET_LIMIT_BYTES` when None, so a test can lower it. Every refusal, and
+    any error mid-stream, leaves the path as it found it. `held` is for a caller already inside
+    `vault_write`, since the lock is not re-entrant.
     """
     asset = resolve_asset_path(root, path)
     if asset is None:
         raise RefusedError(400, "The vault will not take that path")
     relative = relative_path(root, asset)
-    # A courtesy in front of the guarantee, not the guarantee itself. It is
-    # here so you learn the path is taken before you send 30MB; the `os.link`
-    # below is what actually refuses an overwrite. Deleting this would cost the
-    # early answer, and trusting it would cost the promise.
+    # Answers before the body is sent. `os.link` below is what actually refuses an overwrite.
     if asset.exists():
         raise RefusedError(409, "Something is already there")
 
-    # The way `create_note` makes them, and for the reason its docstring gives:
-    # a note's folder can vanish between picking the file and sending it, and
-    # opening a file under a missing parent raises rather than answers.
+    # As `create_note` does: the folder can vanish mid-upload, and opening under a
+    # missing parent raises.
     asset.parent.mkdir(parents=True, exist_ok=True)
 
-    # Eight random hex characters rather than a fixed name. Two uploads aimed
-    # at one path would otherwise interleave their bytes into one temp, and the
-    # winner's cleanup would unlink the name the loser is still writing behind.
-    # Opened `"xb"` rather than through `tempfile.mkstemp`: mkstemp creates the
-    # file 0600 and the hard link below publishes that mode, so every book
-    # would land readable by its owner alone in a vault whose whole point is
-    # being readable without kasten. Hidden and `.tmp`, so the listing, the
-    # watcher and jj all skip whatever a crash leaves behind.
+    # Random, so two uploads aimed at one path cannot share a temp and unlink each other's.
+    # Opened `"xb"`, not by mkstemp: its 0600 mode would survive the link and hide every book from
+    # the other readers of the vault. Hidden and `.tmp`, so the listing, the watcher and jj skip
+    # whatever a crash leaves.
     temporary = asset.with_name(temporary_name(asset.name))
-    # Opened above the `try`, so the `finally` can only ever unlink a file this
-    # call made.
+    # Opened above the `try`, so the `finally` only ever unlinks a file this call made.
     cap = ASSET_LIMIT_BYTES if limit is None else limit
     output = temporary.open("xb")
     try:
@@ -334,53 +279,40 @@ async def store(
             head = b""
             async for chunk in chunks:
                 size += len(chunk)
-                # Before the write, so an over-cap body is refused rather than
-                # landing on the disk first.
+                # Before the write, so an over-cap body is refused rather than landing on
+                # disk first.
                 if size > cap:
                     raise RefusedError(413, too_big(cap))
                 if len(head) < HEAD_BYTES:
                     head = (head + chunk)[:HEAD_BYTES]
                 output.write(chunk)
 
-        # A usability check and never a security one. The shell pane drops a
-        # file straight into the vault without coming near this, so nothing
-        # downstream can rely on it having run. It earns its place because
-        # there is no delete for a book: a PDF or a half-copied file sent by
-        # mistake would squat on the sidecar path until you open a terminal,
-        # and a URL that answers with a login page rather than the paper would
-        # do the same. Compared after the stream rather than the moment the
-        # fourth byte arrives. Refusing early would save something real, a 90MB
-        # PDF renamed `.epub` streaming whole before the 400, and the flat check
-        # wins anyway because one user moves seconds of data. The suffix is
-        # what picks the bytes: `resolve_asset_path` above answers for the
-        # names in `ASSET_MAGIC` and no others, lowered the way it lowers
-        # them, so the lookup cannot miss.
+        # A usability check, never a security one: the shell drops files into the vault
+        # past this, so nothing downstream relies on it. It stays because there is no
+        # delete for a book, and a mistaken file would squat on its path. Checked after
+        # the stream: refusing at the fourth byte would save a 90MB stream, which one
+        # user can afford.
         if not fits(asset.suffix.lower(), head):
             raise RefusedError(400, "That file is not what its name says")
 
-        # A link and not an `os.replace`, though `write_note` replaces in the
-        # next module over. Replace overwrites, and no delete and no history
-        # means an overwritten book is gone for good. A link creates the target
-        # or raises, and the filesystem decides which, so no window exists in
-        # which two requests both believe the path is free.
+        # A link, not `os.replace`: replace would overwrite, and with no delete or
+        # history an overwritten book is gone. A link creates the target or raises, so
+        # two requests cannot both find it free.
         try:
-            # The lock covers the link and nothing before it. Holding it across
-            # the stream above would serialise every browser save behind one
-            # slow upload.
+            # The lock covers the link only: held across the stream, one slow upload
+            # would stall every save.
             if held:
                 os.link(temporary, asset)
             else:
                 async with vault_write(), vault_change(root, relative):
                     os.link(temporary, asset)
         except FileExistsError as taken:
-            # Around the link alone, so it cannot swallow the temp's own
-            # `open("xb")` colliding, which means something else entirely and
-            # should stay a 500.
+            # Around the link alone: a collision on the temp's own `open("xb")` is
+            # something else, and stays a 500.
             raise RefusedError(409, "Something is already there") from taken
     finally:
-        # Every path out, the successful one included: after the link the temp
-        # is a second name for a file the target now also names, so unlinking
-        # it leaves the book whole.
+        # Every path out: after the link the temp is a second name for the book, so
+        # unlinking it is safe.
         temporary.unlink(missing_ok=True)
 
     return relative
@@ -389,13 +321,9 @@ async def store(
 async def download(root: Path, path: str, url: str) -> str:
     """Put the file at `url` into the vault at `path`, by way of `store`.
 
-    For a caller that holds a link and not the bytes, which is every MCP client:
-    a tool call is JSON a model writes, and a model cannot write out a PDF. The
-    address meets the same checks `GET /api/fetch` makes, every hop of it, and
-    the bytes the same checks an upload meets, the cap and the magic included.
-
-    The path is checked before anything is opened, so a typo costs nothing on
-    the wire.
+    For a caller holding a link, not the bytes, which is every MCP client: a model cannot write out
+    a PDF. The address meets the checks `GET /api/fetch` makes, and the bytes meet an upload's cap
+    and magic. The path is checked before anything opens, so a typo costs nothing on the wire.
     """
     if resolve_asset_path(root, path) is None:
         raise RefusedError(400, "The vault will not take that path")

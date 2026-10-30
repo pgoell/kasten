@@ -1,11 +1,8 @@
 """The receipt store: files kept by their hash beside the vault, and the booking each belongs to.
 
-A receipt arrives from the pane, from `/capture` or from the mail job, as
-bytes. Its type is read off its first bytes, never the name or the header it
-came with. The same bytes sent again are the one receipt, so a job may send
-every mail it sees on every run. The receipt reader job reads it later; kasten
-then proposes the booking it paid and a tax mark, and nothing is linked or
-marked until the owner confirms.
+A receipt's type is read from its first bytes, never its name or header. The same bytes sent
+again are one receipt, so a job may resend every mail on every run. Nothing is linked until
+the owner confirms the booking.
 """
 
 import asyncio
@@ -94,8 +91,8 @@ async def store(  # noqa: PLR0913  each fact about the file is its own argument
 ) -> Stored:
     """Keep the file by its hash, and link it to the booking when one is named.
 
-    A file already kept is answered as it is, and linked when it belongs to no
-    booking yet; one that belongs to another booking is refused.
+    A file already kept is linked if it has no booking yet.
+    One on another booking is refused.
     """
     if not data:
         msg = "The file is empty"
@@ -122,8 +119,7 @@ async def store(  # noqa: PLR0913  each fact about the file is its own argument
         return await _deleted_again(
             session, root, gone, data, source=source, transaction_id=transaction_id
         )
-    # Before the row, so a row never names a file that is not there. The same
-    # bytes written twice are the same file.
+    # Written before the row, so a row never names a missing file.
     await asyncio.to_thread(_write, root, relative, data)
     # ON CONFLICT, so two sends of one file at once make one row, not an error.
     made = await session.scalar(
@@ -160,8 +156,8 @@ async def _deleted_again(  # noqa: PLR0913  the receipt and the send that names 
 ) -> Stored:
     """A deleted receipt sent again: the mail job is ignored, the owner gets it back.
 
-    The mail job sends its whole window on every run, so a receipt deleted in
-    the pane would otherwise come back within the hour.
+    The mail job resends its whole window each run, so a deleted receipt would return
+    within the hour.
     """
     if source == "mail":
         return Stored(receipt, created=False)
@@ -185,8 +181,8 @@ async def link(session: AsyncSession, receipt: Receipt, transaction_id: int) -> 
 async def remove(session: AsyncSession, receipt: Receipt) -> str:
     """Delete the receipt, and answer its file's path for the caller to delete once committed.
 
-    The row stays, marked deleted and on no booking, so the same bytes sent by
-    the mail job again are known; see `_deleted_again`.
+    The row stays, marked deleted and on no booking, so a resent copy is known.
+    See `_deleted_again`.
     """
     receipt.deleted = True
     receipt.transaction_id = None

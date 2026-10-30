@@ -1,11 +1,8 @@
 """The `/agent/finance/` routes: the pane's finance reads, behind the token check.
 
-The summaries are the pane's own route functions mounted a second time, so a
-token holder gets the browser's answer to the same question, in the same
-shape, and `docs/reference/http-api/finance-*.md` describes both. Every route
-here is a GET; an agent writes nothing to finance. `agent_routes.py` includes
-this router into its own, so the token check in front of the rest of
-`/agent/` is in front of these too, and `/agent/openapi.json` names them.
+The summaries are the pane's route functions mounted again, so a token holder gets the
+browser's answer in the same shape. Every route is a GET: an agent writes nothing to finance.
+`agent_routes.py` includes this router, which is how the token check reaches it.
 """
 
 from typing import Annotated, Literal

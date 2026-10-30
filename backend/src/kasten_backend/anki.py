@@ -1,27 +1,8 @@
 """Reading an Anki `.apkg` export into decks of front-and-back cards.
 
-An `.apkg` is a zip around an sqlite database, so the whole reader is standard
-library: `zipfile`, `sqlite3`, and `compression.zstd` for the collection Anki
-writes today. A dependency would buy nothing a few queries do not.
-
-This module is the archive and its limits: the zip, the members read out of it,
-and the media map. What the collection holds is `anki_collection`, which renders
-each card through `anki_template`, and a field's HTML becomes markdown in
-`anki_html`. A card is what Anki shows, not what the note holds. A note has as
-many fields as its note type declares, and each card row names one of the
-type's templates; the question is that template's front rendered over the note's
-fields, the answer its back. A cloze note type is the exception and keeps its
-first two fields, the text with its marks and the Back Extra, because kasten
-reads Anki's cloze marks itself and asks one card per number from the one line
-(#233).
-
-Media is carried. The image or sound a field names lives in the zip under a
-numbered name that only the export's `media` map translates, a JSON object in
-the legacy export and zstd-compressed protobuf in the latest. A file the vault
-would take becomes `![](path)` in the card, the path being where `import_anki`
-writes it beside the deck's note; one it would not, or one the zip lacks, is
-dropped from the text, since a note rendering a broken image is worse than a
-card without it. Reading stays pure: the deck hands the bytes to its caller.
+The archive is a zip around sqlite. `anki_collection` renders each card, `anki_html`
+turns fields into markdown, and a cloze type keeps its first two fields (#233).
+Media becomes `![](path)` when the vault would take it, else it is dropped.
 """
 
 import io
@@ -44,9 +25,8 @@ from kasten_backend.vault import AUDIO_SUFFIXES, IMAGE_SUFFIXES, fits, legal_nam
 COLLECTION_MEMBERS = ("collection.anki21b", "collection.anki21", "collection.anki2")
 """The collection an export may hold, newest first.
 
-An export written by a recent Anki holds several of these at once, the older
-ones being a stub kept so an older Anki opening the file says so rather than
-crashing. Reading them in this order is what keeps the stub out.
+Recent exports hold several at once. The older ones are stubs, so an old Anki says so
+rather than crashing. This order keeps the stub out.
 """
 
 ZSTD_MEMBER = "collection.anki21b"
@@ -55,31 +35,27 @@ ZSTD_MEMBER = "collection.anki21b"
 ZSTD_MAGIC = b"\x28\xb5\x2f\xfd"
 """What a zstd frame starts with.
 
-The latest export compresses its media map and every media file, the legacy
-one neither, and nothing else in the zip says which form a member is in.
+The latest export compresses its media map and media files, the legacy one neither.
 """
 
 MEMBER_LIMIT_BYTES = 1024 * 1024 * 1024
 """The most one member may unpack to, through the zip and zstd both.
 
-A gibibyte, since the upload is capped at a hundred mebibytes and a collection
-of text compresses some five times over: a real deck stays well under it, and a
-bomb is stopped there rather than at the end of memory.
+A gibibyte: uploads are capped at 100 MiB and text compresses about five times over, so a
+real deck stays far under it and a bomb is stopped here.
 """
 
 TOTAL_LIMIT_BYTES = 2 * 1024 * 1024 * 1024
-"""The most every member read may unpack to together, collection, media map and media.
+"""The most every member read may unpack to together.
 
-The import holds all of it in memory at once, which is why the sum and not only
-each member needs a cap.
+The import holds all of it in memory, so the sum needs a cap, not only each member.
 """
 
 MEMBER_COUNT_LIMIT = 50_000
 """The most members an export may hold.
 
-A real deck holds a member per image and sound, a few thousand in a big one.
-Fifty thousand in a hundred mebibytes is two kibibytes each, less than any
-picture worth carrying.
+A big deck holds a member per image and sound, a few thousand. Fifty thousand is about two
+KiB each, less than any picture worth carrying.
 """
 
 _CHUNK_BYTES = 1024 * 1024
@@ -91,9 +67,8 @@ MEDIA_SUFFIXES = (*IMAGE_SUFFIXES, *AUDIO_SUFFIXES)
 _LINK_SAFE = "/;,@&=+$!*'"
 """What `media_path` leaves unescaped: `encodeURI`'s reserved set less `#` and `?`.
 
-That is `encodePath` in `note-path.ts`, less `:` and the parens besides. A `::`
-in a link would split the card line, a lone paren would end the link early, and
-the server decodes all three back.
+That is `encodePath` in `note-path.ts` less `:` and the parens. A `::` would split the card
+line, and a lone paren would end the link early.
 """
 
 _NAME_LIMIT_BYTES = 255
@@ -108,21 +83,8 @@ def media_path(folder: str, deck: str, name: str) -> str:
 def read_apkg(data: bytes, folder: str = "", *, carry: bool = False) -> list[Deck]:
     """Every deck `data` holds, sorted by name and without the empty ones.
 
-    `folder` is where the deck notes go. A card links each image and sound it
-    can carry at `media_path`, and its deck holds the bytes for the caller to
-    write there. With `carry`, a card holds its `reviews`, which `as_note` and
-    `merge` write as schedules.
-
-    Raises:
-        ValueError: `data` is not a zip, or holds no collection, or holds one
-            zstd or sqlite refuses to read, or one whose decks, note types or
-            note fields cannot be read, or a media map that cannot be read; or
-            one past `MEMBER_COUNT_LIMIT` members, or whose collection or
-            media map unpacks past `MEMBER_LIMIT_BYTES`, or whose members read
-            unpack past `TOTAL_LIMIT_BYTES` together; or one with a member zip
-            cannot read, corrupt, encrypted or in a method it lacks, or a
-            directory in a zip version past what it reads, or a member name
-            flagged utf-8 that does not decode.
+    `folder` is where the deck notes go. Each card links the media it can carry under
+    `media_path`, and `carry` keeps each card's `reviews`. A bad export raises `ValueError`.
     """
     try:
         _count_members(data)
@@ -175,8 +137,7 @@ def read_apkg(data: bytes, folder: str = "", *, carry: bool = False) -> list[Dec
 class _Budget:
     """What the members of one export may still unpack to, out of `TOTAL_LIMIT_BYTES`.
 
-    Both layers count, the bytes the zip inflates and the bytes zstd makes of
-    them, since the import holds each in memory.
+    Both the inflated zip bytes and the zstd output count, since the import holds each.
     """
 
     def __init__(self) -> None:
@@ -194,15 +155,8 @@ class _Budget:
 def _member(bundle: zipfile.ZipFile, name: str, budget: _Budget, cap: int) -> bytes:
     """The member `name` inflated, a chunk at a time, stopped one byte past `cap`.
 
-    Never `bundle.read`, and never trusting the size the zip states: a deflate
-    bomb states what it likes, and only counting what comes out stops it.
-
-    Raises:
-        ValueError: zipfile cannot read the member, for each way it says so:
-            a bad header or CRC, a stream cut short, an encryption or method it
-            lacks, or bytes that deflate, lzma, bzip2 (as `OSError`) or zstd
-            refuse, or a local header name flagged utf-8 that does not decode.
-            `budget`'s own refusal passes through as it is.
+    Never `bundle.read`: a deflate bomb states whatever size it likes, so only counting the
+    output stops it. Each way zipfile fails becomes `ValueError`; `budget`'s refusal passes.
     """
     out = bytearray()
     try:
@@ -231,11 +185,7 @@ def _member(bundle: zipfile.ZipFile, name: str, budget: _Budget, cap: int) -> by
 
 
 def _opened(data: bytes) -> zipfile.ZipFile:
-    """`data` opened as a zip, its directory read.
-
-    Raises:
-        ValueError: a central entry flagged utf-8 holds a name that does not decode.
-    """
+    """`data` opened as a zip, refused if a member name flagged utf-8 does not decode."""
     try:
         return zipfile.ZipFile(io.BytesIO(data))
     except UnicodeDecodeError as error:
@@ -243,19 +193,13 @@ def _opened(data: bytes) -> zipfile.ZipFile:
 
 
 def _count_members(data: bytes) -> None:
-    """Refuse `data` past `MEMBER_COUNT_LIMIT` members before zipfile reads its directory.
+    """Refuse `data` past `MEMBER_COUNT_LIMIT` members before zipfile builds its directory.
 
-    zipfile builds an object for every entry before anything can count them,
-    and a hundred mebibytes of empty entries is some two million. The end
-    record's count comes first, then the entries themselves up to the cap,
-    since zipfile reads the directory by its size and a record may understate
-    the count. Bytes that are no zip, or a directory that breaks off, are left
-    for zipfile to refuse in its own words.
+    zipfile makes an object per entry, and a hundred mebibytes of empty entries is about two
+    million. So this counts the entries itself, up to the cap, first.
     """
-    # `_EndRecData` is private, so typeshed leaves it out, but it has not
-    # changed in decades; it finds the record behind a comment and resolves
-    # zip64. Its fields 4, 5 and 9 are zipfile's `_ECD_ENTRIES_TOTAL`,
-    # `_ECD_SIZE` and `_ECD_LOCATION`.
+    # `_EndRecData` is private and missing from typeshed, but it is stable: it finds the
+    # record and resolves zip64. Fields 4, 5 and 9 are the entry count, size and location.
     end = zipfile._EndRecData(io.BytesIO(data))  # ty: ignore[unresolved-attribute]
     if end is None:
         return
@@ -263,9 +207,8 @@ def _count_members(data: bytes) -> None:
     too_many = f"Anki export too large: it holds more than {MEMBER_COUNT_LIMIT} files"
     if count > MEMBER_COUNT_LIMIT:
         raise ValueError(too_many)
-    # Where zipfile starts too: the directory's size before the record, which
-    # also allows for any bytes prepended to the zip. For zip64 the location
-    # is already the zip64 record's, which `_EndRecData` moves it to.
+    # Where zipfile starts too, allowing for prepended bytes. For zip64, `_EndRecData` has
+    # already moved the location to the zip64 record.
     at = stop - size
     for _ in range(MEMBER_COUNT_LIMIT + 1):
         if at < 0 or at + 46 > stop or data[at : at + 4] != b"PK\x01\x02":
@@ -278,14 +221,8 @@ def _count_members(data: bytes) -> None:
 def _unzstd(blob: bytes, budget: _Budget, cap: int) -> bytes:
     """Every frame of `blob` decompressed, stopped one byte past `cap` or what `budget` has left.
 
-    A decompressor stops at the end of its frame and leaves the rest in
-    `unused_data`, where `zstd.decompress` would go on, so each further frame
-    takes a fresh one under what is left of the same cap.
-
-    Raises:
-        zstd.ZstdError: `blob` is not zstd, or a frame is cut short, which a
-            decompressor given `max_length` reports by not reaching `eof`
-            rather than by raising.
+    A decompressor stops at the end of each frame and leaves the rest in `unused_data`, so
+    each further frame takes a fresh one. A frame cut short raises `zstd.ZstdError`.
     """
     out = bytearray()
     while True:
@@ -352,14 +289,10 @@ def _media_index(bundle: zipfile.ZipFile, budget: _Budget) -> dict[str, str]:
 def _media_file(
     bundle: zipfile.ZipFile, index: dict[str, str], name: str, budget: _Budget
 ) -> tuple[str, bytes] | None:
-    """The file a field names as `name`, by its name in the vault and its bytes, or None.
+    """The file a field names as `name`, by its vault name and bytes, or None.
 
-    None for a file the vault would refuse as `store` would: a name that is not
-    one plain file name the vault holds (hidden, or too long once its temp's
-    fourteen bytes are added), a suffix it takes no image or sound under, a body over
-    the cap or not what its suffix says. None too for one the zip lacks. What it
-    reads counts against `budget` all the same, so many files each under the
-    cap still refuse the export once together they pass `TOTAL_LIMIT_BYTES`.
+    None for a file `store` would refuse, or for one the zip lacks. What it reads still
+    counts against `budget`, so many small files can exhaust it.
     """
     # Anki percent-encodes an `<img src>` in some versions, never the map.
     if name not in index:

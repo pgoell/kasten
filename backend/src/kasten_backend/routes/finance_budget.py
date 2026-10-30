@@ -1,9 +1,6 @@
 """The budget routes: a month's budget, free to spend, its flow, the trend, limits and settings.
 
-Beside the other finance routes, under the same prefix and gate. The reads
-take the month and the reader's today, since pace and "so far" depend on the
-day and the server's clock sits in UTC. docs/reference/budget-model.md says
-how every figure is worked out.
+The reads take the reader's today: pace depends on the day, and the server clock is UTC.
 """
 
 import datetime as dt

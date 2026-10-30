@@ -1,10 +1,8 @@
 """The bank side of the sync: FinTS with PIN/TAN and a decoupled (push) TAN.
 
-Ported from the Firefly importer's `fints_pull.py`, which ran DKB (the DKB
-app) and PSD (VR SecureGo plus). Both banks ask for a TAN on every login
-under PSD2 for direct FinTS access, so every pull waits for a push approval
-on the phone. The client state blob (`deconstruct`) carries the chosen TAN
-method and the bank's parameters between runs, and `setup` writes it once.
+PSD2 asks for a TAN on every direct FinTS login, so every pull waits for a push
+approval on the phone. The client state blob (`deconstruct`) keeps the TAN
+method and the bank's parameters between runs; `setup` writes it once.
 """
 
 import logging
@@ -93,10 +91,8 @@ def _load_state(path: Path) -> bytes | None:
 
 
 def _save_state(path: Path, data: bytes) -> None:
-    # Written beside the old one and moved over it, so a job killed mid-write
-    # leaves the old state whole rather than a torn one the bank refuses.
-    # `mkstemp` makes the file 600 before the blob goes in: it holds the
-    # bank's session parameters.
+    # Written beside the old file and moved over it, so a kill mid-write keeps the
+    # old state whole. `mkstemp` makes it 600: it holds the bank's session parameters.
     path.parent.mkdir(parents=True, exist_ok=True)
     handle, temp = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.")
     try:
@@ -143,8 +139,8 @@ def _resolve_initial_tan(client: FinTS3PinTanClient, *, interactive: bool, sleep
 def pick_decoupled_method(mechanisms: dict[str, Any]) -> str | None:
     """The code of a push TAN method among the bank's, or None.
 
-    `allowed_format is None` marks a decoupled method in practice, there being
-    no TAN to type; the names are the fallback.
+    `allowed_format is None` marks a push method, there being no TAN to type.
+    The names are the fallback.
     """
     for code, mechanism in mechanisms.items():
         if getattr(mechanism, "allowed_format", "x") is None:
@@ -227,9 +223,7 @@ def fetch(
 ) -> list[AccountPull]:
     """Pull each of the bank's accounts from the day `since_for` names for its IBAN.
 
-    An account `since_for` answers None for gets no fetch. A failed account is
-    a pull with an error, and the others go on, as in the importer. A failed
-    login raises.
+    A failed account is a pull with an error, and the others go on. A failed login raises.
     """
     log.info("[%s] Connecting", bank.name)
     client = make(bank, _load_state(bank.state_path))

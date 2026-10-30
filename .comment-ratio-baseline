@@ -1,4 +1,3 @@
 # Files over 20% comment lines, as "<file> <percent>", docstrings and JSDoc left out.
 # A file fails when it gets denser than its percent.
 # check-comments --update-baseline only lowers or drops lines; never raise one.
-backend/src/kasten_backend/page_script.js 26

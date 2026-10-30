@@ -1,15 +1,8 @@
 """The YAML block a note carries at the top.
 
-Four fields are kasten's: `id`, which names the note when its path cannot,
-`created`, `modified`, and `type`, which says what kind of thing the note is.
-Everything else in the block belongs to whoever wrote it and comes through a
-save unread, because the vault is the source of truth and this is the one place
-the server writes words the user did not type.
-
-Read and written as lines rather than parsed as YAML. A parser would have to
-give the block back as text afterwards, and a round trip through one reorders
-keys, requotes strings and drops comments: the note would come off disk changed
-in ways nobody asked for. Three keys are worth a regex; the rest is copied.
+Four fields are kasten's: `id`, `created`, `modified` and `type`. Everything else is copied
+through a save unread. Read as lines, not parsed: a YAML round trip reorders keys, requotes
+strings and drops comments.
 """
 
 import re
@@ -22,33 +15,29 @@ FENCE = "---"
 DEFAULT_TYPE = "Note"
 """What a note is when no writer has said otherwise.
 
-Open Knowledge Format wants a `type` on every concept document, and this is the
-honest answer for a note somebody typed into an empty buffer. A writer that
-knows better says so itself, and `stamp` never argues with a type already there.
+Open Knowledge Format wants a `type` on every concept document. A writer that knows better says
+so, and `stamp` never overrides a type already there.
 """
 
 RESERVED = frozenset({"index.md", "log.md"})
 """The filenames Open Knowledge Format gives a shape of its own.
 
-One is a listing of the bundle and the other is its history, and neither is a
-concept document. Kasten writes no block into either, so the bytes that arrive
-are the bytes on disk, and a file named this way never gets an id.
+A listing and a history, neither a concept document. Kasten writes no block into them, so they
+never get an id.
 """
 
 _KEY = re.compile(r"^([A-Za-z_][\w-]*)\s*:")
 """A field's name, at the top level of the block.
 
-Anchored, so an indented line is part of the field above it rather than a field.
-That is what carries a list or a nested mapping through untouched.
+Anchored, so an indented line belongs to the field above it. That carries a list or a nested
+mapping through untouched.
 """
 
 
 def reserved(path: str) -> bool:
     """Whether OKF reserves this filename, so kasten writes no block into it.
 
-    The last component, not the whole path: `folder/index.md` is a listing of
-    that folder the way `index.md` is a listing of the vault, and asking whether
-    the whole path is in `RESERVED` would exempt only the root.
+    Only the last component counts: `folder/index.md` is a listing too, like the vault's own.
     """
     return path.rsplit("/", 1)[-1] in RESERVED
 
@@ -67,9 +56,8 @@ def _line(name: str, block: list[str]) -> str | None:
 def _split(content: str) -> tuple[list[str], list[str]]:
     """The block's lines and the note's, as two lists of lines.
 
-    No block, or an opening fence with no partner, means every line is the
-    note's: three dashes alone are a horizontal rule, and reading one as a block
-    that never ends would swallow the note under it.
+    No block, or an opening fence with no partner, means every line is the note's. A lone `---`
+    is a horizontal rule, and read as an open block it would swallow the note under it.
     """
     lines = content.split("\n")
     end = _closing(lines)
@@ -82,8 +70,8 @@ def _split(content: str) -> tuple[list[str], list[str]]:
 def _closing(lines: list[str]) -> int | None:
     """Which line closes the block, or None when there is no block.
 
-    Only a fence at the very start opens one, spaces or tabs after it: ` ---`
-    is a horizontal rule to Obsidian and to the editor, and so it is here.
+    Only a fence at the very start opens one, with spaces or tabs after it. ` ---` is a rule to
+    Obsidian and the editor, so it is one here too.
     """
     if lines[0].rstrip(" \t\r") != FENCE:
         return None
@@ -94,8 +82,7 @@ def _closing(lines: list[str]) -> int | None:
 def body_start(content: str) -> int:
     """Where the note's own text begins: the offset after the block's closing fence, or 0.
 
-    Not read off `_split`, which hands back no lines both for a note with no
-    block and for an empty one, and the second still has two fences to skip.
+    Not from `_split`, which gives no lines both for a note with no block and for an empty one.
     """
     lines = content.split("\n")
     end = _closing(lines)
@@ -118,9 +105,7 @@ def tags(content: str) -> list[str]:
 def created(content: str) -> str | None:
     """The block's `created` field as it is written, or None when the block has none.
 
-    A single value rather than a list, so it is read off the line as written.
-    Quotes are stripped because a writer may quote a timestamp, and nothing else
-    is, so the caller decides what the text means.
+    Quotes are stripped, since a writer may quote a timestamp. Nothing else is.
     """
     block, _ = _split(content)
     line = _line("created", block)
@@ -144,11 +129,10 @@ def description(content: str) -> str:
 
 
 def _list(content: str, name: str) -> list[str]:
-    """The values the block's field `name` holds, in the order it holds them.
+    """The values the block's field `name` holds, in order.
 
-    Obsidian's three spellings: a flow list `name: [a, b]`, a block list of
-    `- a` lines under the key, and one bare string. Read as lines like the rest
-    of this module, so a quoted value loses its quotes and nothing more.
+    Obsidian's three spellings: a flow list, a block list of `- a` lines under the key, and one
+    bare string. Read as lines, so a quoted value loses its quotes and nothing more.
     """
     block, _ = _split(content)
     index = next((i for i, line in enumerate(block) if _key(line) == name), None)
@@ -177,10 +161,8 @@ def _list(content: str, name: str) -> list[str]:
 def with_type(content: str) -> str:
     """`content` with `type: Note` written where its block has none, and nothing else changed.
 
-    Not `stamp`, and the difference is the point: `stamp` rewrites `modified`,
-    which over a whole vault would date every note today. It mints no id and no
-    creation date either, because a note written before kasten has a real
-    creation date and this is not it. Both arrive on the note's next save.
+    Not `stamp`, which rewrites `modified`: over a vault that would date every note today. It
+    mints no id or creation date either, since a note written before kasten has a real one.
     """
     block, body = _split(content)
     if _line("type", block) is not None:
@@ -192,20 +174,9 @@ def with_type(content: str) -> str:
 def stamp(content: str, previous: str = "", *, now: datetime | None = None) -> str:
     """`content` with its block written: an id, a creation date, a type and this moment.
 
-    `previous` is the note as it stands on disk, and it is where the id, the
-    creation date and the type come from when the text being written carries
-    none of them. An id is what an ontology will hang off, so it has to survive
-    a client that does not know the block is there and a user who deletes it:
-    both send the note back without one, and minting a second id would leave the
-    note nameable two ways. Every other field is the user's, and one they
-    dropped stays dropped.
-
-    `modified` is rewritten where it stands, which leaves the fields around it
-    in the order they were written in.
-
-    UTC, and ISO 8601 to the second. The vault outlives the machine's timezone,
-    and a note saved twice a second apart is one note, not two versions worth
-    telling apart.
+    `previous` is the note on disk. The id, creation date and type come from it when the text
+    lacks them, so an id survives a client that drops the block. Every other field is the user's.
+    UTC, to the second, as the vault outlives the machine's timezone.
     """
     when = (now or datetime.now(UTC)).isoformat(timespec="seconds")
     block, body = _split(content)
@@ -229,13 +200,9 @@ def stamp(content: str, previous: str = "", *, now: datetime | None = None) -> s
 def unstamped(content: str) -> str:
     """`content` with the block's `modified` lines left out, and nothing else changed.
 
-    What a save's base is a hash of. Every save restamps `modified`, so a client
-    that sent a text and has not heard back cannot know the line that landed;
-    leaving it out lets that client name the note all the same.
-
-    A copy of `unstamped` in frontend/src/lib/held-text.ts, byte for byte, and
-    looser about the fence than `_split` on purpose: the two sides hash the
-    same text only while they cut it the same way.
+    What a save's base hashes. A client that has not heard back cannot know the restamped
+    `modified` line, so leaving it out lets it still name the note. A copy lives in
+    frontend/src/lib/held-text.ts, byte for byte, and must cut the fence as this does.
     """
     if not content.startswith("---\n"):
         return content
@@ -253,12 +220,9 @@ _OPENING = ("id", "created", "type")
 def bases(content: str) -> list[str]:
     """Every text a save's base may hash to over `content`, `unstamped(content)` first.
 
-    A client that sent a text and has not heard back names that text, not the
-    one `stamp` made of it. Where the sent text lacked an id, a creation date or
-    a type, the disk holds those lines at the head of the block, and where it
-    had no block at all, the disk holds one. So the candidates set aside each
-    run of leading lines `stamp` could have written, and the whole block when
-    nothing but `modified` stays. The body is never set aside.
+    A client names the text it sent, not the one `stamp` made of it. Where that text lacked
+    `id`, `created` or `type`, the disk holds them at the head of the block, so each run of
+    leading lines `stamp` could write is set aside, and the whole block when only `modified` is.
     """
     found = [unstamped(content)]
     block, body = _split(content)

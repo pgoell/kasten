@@ -1,11 +1,8 @@
 """The done log: the `- ✅` line a tick writes under `## Done` in today's daily note.
 
-The todo pane writes it in the browser, through `doneLine` and `doneLogWrites`
-in `frontend/src/lib/todo/todo-write.ts`. The lists app ticks on the share host,
-which reaches no `/api/*` route, so the server holds a copy for that one caller.
-`frontend/tests/fixtures/done-lines.json` holds the lines and placements both
-copies must produce, and a test on each side reads it, which is the cheapest
-thing that fails when one copy is edited and not the other.
+The browser writes the same line through `doneLine` in `frontend/src/lib/todo/todo-write.ts`.
+The share host reaches no `/api/*` route, so the server keeps a copy for that caller.
+The fixture `frontend/tests/fixtures/done-lines.json` holds what both copies must produce.
 """
 
 import re
@@ -46,8 +43,7 @@ BLOCK_ID = re.compile(r"(?:^|[ \t]+)\^[A-Za-z0-9_-]+$")
 def done_line(rest: str, note_path: str, daily_path: str, today: str) -> str:
     """The log line for a ticked item: its words, a link to its note, and its id.
 
-    `rest` is the line after `- [x] `. The words are what the field reader
-    leaves, so an assignee and every field go and tags stay, as in the pane.
+    `rest` is the line after `- [x] `. Fields go and tags stay, as in the pane.
     """
     parts = [LOGGED, today, BLOCK_ID.sub("", todo_fields.words(rest).strip())]
     # A note pointing at itself records nothing.
@@ -113,13 +109,11 @@ def _id(rest: str) -> str | None:
 async def _rewrite(
     settings: Settings, path: str, change: Callable[[str], str | None], fresh: str | None = None
 ) -> None:
-    """Write one note as `change` makes it from the text on disk, read and written under one hold.
+    """Write one note as `change` makes it from the text on disk, under one hold.
 
-    For a write worked out from the note as it stands, such as the done log line
-    a share tick adds to today's note: a browser save landing between a read and
-    a write would otherwise be written over. `change` answers None to leave the
-    note as it is. A note the vault does not hold starts from `fresh`, and is
-    left unmade without one.
+    Read and write happen under one lock, so a browser save landing between them is not
+    written over. `change` answers None to leave the note alone. A note the vault does not
+    hold starts from `fresh`, and is left unmade without one.
     """
     note = vault.resolve_path(settings.vault_path, path)
     if note is None:
@@ -154,12 +148,10 @@ async def _holding(settings: Settings, id_: str, note_path: str) -> list[str]:
 
 
 async def log(settings: Settings, note_path: str, rest: str, today: date) -> None:
-    """Write the done log line for the item `rest` in today's note, unless one names it already.
+    """Write the done log line for the item `rest` in today's note, unless one names it.
 
-    The pane skips an id a `- ✅` line names anywhere, so ticking twice leaves one
-    line rather than a pile, and so does this. Today's note is checked again
-    under the lock the write takes, and is made as `<leader>gd` makes it where
-    the vault has none.
+    The pane skips an id a `- ✅` line names anywhere, so ticking twice leaves one line.
+    Today's note is checked again under the write's lock.
     """
     id_ = _id(rest)
     if id_ is None:
@@ -189,9 +181,8 @@ async def other_todo_with_id(
 ) -> str | None:
     """What the pane's `otherTodoWithId` answers for the item on `line`, or None.
 
-    An untick drops log lines by id, and a pasted copy of the item carries the
-    same id, so the share untick refuses as the pane does rather than drop the
-    line the other todo is logged by. `lines` is the list as the untick read it.
+    An untick drops log lines by id, and a pasted copy carries the same id, so the share untick
+    refuses as the pane does. `lines` is the list as the untick read it.
     """
     id_ = _id(rest)
     if id_ is None:

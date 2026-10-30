@@ -1,11 +1,7 @@
 """The finance routes: what the host jobs write through, and what the browser and agents read.
 
-Under `/api/finance/`, behind the same gate as every other `/api/` route and
-with no lock of their own. Agents read everything (decided 2026-10-25), and a
-job on the host reaches the backend over the docker network, inside the trust
-zone docs/explanation/security-model.md describes. The routes connect to
-Postgres when they are asked, never at startup, so a backend without a
-database runs everything else and answers these with a 503 (`db.get_session`).
+Under `/api/finance/`, behind the same gate as `/api/` and with no lock of their own.
+Without a database they answer 503 (`db.get_session`), and the backend still starts.
 """
 
 import uuid  # noqa: TC003  pydantic reads the annotation at runtime
@@ -34,8 +30,7 @@ Money = Annotated[Decimal, Field(max_digits=14, decimal_places=2)]
 def _spelled_as_stored(iban: str | None) -> str | None:
     """An IBAN without its spaces and in capitals, or None for an empty one.
 
-    Banks print it in groups of four and jobs pass it on as they got it, and
-    transfer linking compares IBANs as text.
+    Transfer linking compares IBANs as text, and banks print them in groups of four.
     """
     if iban is None:
         return None
@@ -45,12 +40,7 @@ def _spelled_as_stored(iban: str | None) -> str | None:
 Iban = Annotated[str | None, AfterValidator(_spelled_as_stored)]
 
 MAX_BATCH = 1000
-"""The most bookings or balances one post may carry.
-
-One insert binds thirteen values a booking, and Postgres takes 65,535 binds a
-statement, so this keeps a batch well inside one statement. A first import
-sends its history in several posts.
-"""
+"""The most bookings or balances one post may carry, so one insert stays under 65,535 binds."""
 
 PAGE = 500
 """How many bookings a read answers with when it names no `limit`."""
@@ -233,10 +223,9 @@ def _month_range(month: str) -> tuple[date, date]:
 def booking_span(
     month: str | None, start: str | None, end: str | None
 ) -> tuple[date | None, date | None]:
-    """The first and last booking day a list asks for, from a `month` or a `from` and `to`.
+    """The first and last booking day a list asks for: a `month`, or a `from` and `to`.
 
-    `month` stands for a `from` and `to` around one month, so the two cannot
-    come with it. The agent's page of bookings reads its span here too.
+    The agent's page of bookings reads its span here too.
     """
     if month is not None and (start is not None or end is not None):
         raise HTTPException(status_code=400, detail="`month` comes without `from` and `to`")

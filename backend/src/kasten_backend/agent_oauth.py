@@ -1,32 +1,8 @@
 """The authorization server claude.ai and chatgpt.com reach the vault through.
 
-Neither browser product has a field for a header, so the token minted at
-`/tokens` cannot be given to either one. Both instead discover an authorization
-server, send the user through it, and carry what it issues. This is that server,
-and it is small because there is one user and no secret to keep: authorization
-code with PKCE, and nothing else.
-
-What it issues is an ordinary row in `tokens.json`, so the gate in
-`agent_mcp.py` cannot tell an OAuth grant from a token typed into a terminal and
-does not try. `/tokens` revokes both with the same button, and `jj log` names
-both the same way. There is one verification path in this vault and this adds no
-second one.
-
-The three paths are split across two prefixes on purpose, and Caddy is why:
-
-* `/.well-known/*` and `/agent/oauth/token` are fetched by a machine that has no
-  session and no way to get one. They must reach this with no `oauth2_auth` in
-  front, or a connector gets a redirect to a sign-in page where it expected
-  either a document or a plain 404.
-* `/api/oauth/authorize` is opened by your browser, and `oauth2_auth` in front of
-  it is what proves who you are. There is no login form here because
-  oauth2-proxy already asked, and building a second one would mean a second
-  password to lose.
-
-`main.py` registers this router above `app.mount("/agent", ...)`. A mount matches
-by prefix, so registered below it `/agent/oauth/token` resolves to the MCP app,
-meets the bearer check, and answers 401 to the one caller who by definition has
-no token yet.
+Issues an ordinary `tokens.json` row, so the bearer gate treats a grant like a typed token.
+Caddy leaves `/.well-known/*` and `/agent/oauth/token` without `oauth2_auth`. Register this
+router above `app.mount("/agent")` in `main.py`, or the mount answers its 401 first.
 """
 
 import base64
@@ -65,18 +41,15 @@ REDIRECTS = frozenset(
 PER_APP = re.compile(r"https://chatgpt\.com/connector/oauth/[A-Za-z0-9_-]{1,64}")
 """chatgpt.com's other callback, whose last segment is minted with the app.
 
-It hands out this shape rather than the fixed one above unless the authorization
-server proves itself with RFC 9207, and the id is not knowable before the app
-exists. The host is pinned by the pattern, so the widening reaches ChatGPT and
-nowhere else.
+It sends this shape, not the fixed one above, unless the server proves itself with
+RFC 9207. The pattern pins the host, so the widening reaches ChatGPT only.
 """
 
 CHALLENGE = re.compile(r"[A-Za-z0-9_-]{43,128}")
 """The shape RFC 7636 gives a challenge, matched whole.
 
-Base64url with no padding, which is all an S256 challenge can be. Anything else
-could never match a verifier, and non-ASCII text stored here once made the
-exchange raise a 500 (#1228).
+Anything else could never match a verifier, and non-ASCII text here once made the
+exchange a 500 (#1228).
 """
 
 LIFETIME = 60.0
@@ -85,8 +58,7 @@ LIFETIME = 60.0
 GRANT = 315_360_000
 """Ten years, in seconds, and honest: a token here expires when it is revoked.
 
-Stated rather than left out. A client that has to guess prompts you to reconnect
-on a schedule of its own choosing.
+Stated, not left out: a client that has to guess prompts you to reconnect on its own schedule.
 """
 
 _codes: dict[str, tuple[str, str, float]] = {}
@@ -105,10 +77,8 @@ no generated client calls any of this.
 def origin(request: Request) -> str:
     """The issuer, which every client compares as an exact string.
 
-    `KASTEN_AGENT_HOST` first. The container runs uvicorn without
-    `--forwarded-allow-ips`, so anything built from the request in production
-    says `http` where the world sees `https`, and one wrong word there fails
-    every comparison downstream.
+    `KASTEN_AGENT_HOST` first: uvicorn runs without `--forwarded-allow-ips`, so a URL built
+    from the request says `http` where the world sees `https`.
     """
     named = get_settings().agent_host
 
@@ -118,9 +88,8 @@ def origin(request: Request) -> str:
 def challenge(host: str, secure: bool) -> str:
     """The `WWW-Authenticate` value the MCP endpoint refuses with.
 
-    Called from an ASGI wrapper rather than a route, so it takes the two things
-    it needs rather than a request. This one header is what turns a refusal into
-    a sign-in: without it a client has nowhere to look and stops.
+    Called from an ASGI wrapper, so it takes the host and scheme, not a request. Without
+    this header a client has nowhere to sign in.
     """
     named = get_settings().agent_host
     root = f"https://{named}" if named else f"{'https' if secure else 'http'}://{host}"
@@ -136,18 +105,9 @@ def _permitted(redirect_uri: str) -> bool:
 def _same_origin(request: Request) -> bool:
     """Whether the consent POST came from kasten's own page and not another site's.
 
-    `SameSite=Lax` on oauth2-proxy's cookie already turns a cross-site POST away
-    in front of this, but only behind oauth2-proxy. Behind basic auth the
-    browser resends the credentials to any site that posts here, so the check
-    has to live in kasten too.
-
-    `Sec-Fetch-Site` first, because the browser sets it and no page can. When it
-    is there it settles the question, and the `Origin` is not compared: a dev
-    proxy that rewrites `Host` would make that comparison fail on the real
-    consent page. A browser old enough to send no `Sec-Fetch-Site` still sends
-    `Origin` on a POST, and that is held to the `Host` it reached, or to
-    `KASTEN_AGENT_HOST`. A request with neither came from no browser, which is
-    not who this guards against.
+    `Sec-Fetch-Site` settles it when present, since no page can set it. Without it, an
+    `Origin` must match the `Host` it reached, or `KASTEN_AGENT_HOST`. A request with
+    neither came from no browser. Behind basic auth nothing else stops a cross-site POST.
     """
     site = request.headers.get("sec-fetch-site")
     if site is not None:
@@ -241,10 +201,8 @@ async def consent(
     if not _permitted(redirect_uri):
         raise HTTPException(status_code=400, detail="That is not an address kasten sends codes to")
 
-    # A page whose whole job is one button is the page another site would frame
-    # to steer a click (#870). Nothing of kasten's frames it, and an epub chapter
-    # may frame any URL of kasten's under the app's `frame-src 'self'`, hence
-    # `'none'` rather than `'self'`.
+    # Frame-blocking stops a site steering a click on this page (#870). `'self'` would
+    # let an epub chapter frame it, so `'none'`.
     response.headers["Content-Security-Policy"] = "frame-ancestors 'none'"
 
     fields = "".join(
@@ -335,13 +293,9 @@ async def token(
     ):
         return JSONResponse({"error": "invalid_grant"}, status_code=400)
 
-    # Named for the product rather than for the grant, so `/tokens` says which
-    # one holds what and `jj log` names the writer of every note that arrives
-    # through it. A second Connect from the same product is a reconnect, so the
-    # old row goes first: `mint` refuses a name the store already holds.
-    # ponytail: revoke then mint is two locks rather than one, so two exchanges
-    # for the same product landing together would make one of them a 500. One
-    # user pressing Connect twice at once is not a case worth a third lock for.
+    # Named for the product, so `/tokens` and `jj log` say who wrote what. A reconnect
+    # revokes the old row first, since `mint` refuses a name already held.
+    # ponytail: revoke then mint is two locks, so racing exchanges for one product could 500.
     name = urlsplit(issued_for).hostname or "connector"
     await revoke(settings.tokens_path, name)
     minted = await mint(settings.tokens_path, name)

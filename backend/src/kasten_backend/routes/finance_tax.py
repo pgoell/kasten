@@ -1,9 +1,7 @@
 """The tax routes: a booking's mark, the tax year's totals, and its exports.
 
-The year goes by booking date, the day the money was paid (§11 EStG). The
-Tax tab, the exports and the agent's `tax_year_summary` all read
-`finance_tax.year_summary`. docs/reference/http-api/finance-tax.md has the
-shapes and the money rules.
+The year goes by booking date, the day the money was paid (§11 EStG). Every reader
+uses `finance_tax.year_summary`.
 """
 
 import datetime as dt  # noqa: TC003  pydantic reads the annotation at runtime

@@ -44,10 +44,9 @@ if TYPE_CHECKING:
 router = APIRouter()
 
 EXTRA_DAY = timedelta(days=1)
-"""How far past each end of `from` and `to` a written day may fall and still be answered.
+"""How far past `from` and `to` a written day may fall and still be answered.
 
-An instant is a different local day for the reader, so the client drops what
-falls outside its own days. The extra day each side is what it works from.
+An instant can be another day in the reader's zone, so the client drops the extra days.
 """
 
 
@@ -173,10 +172,9 @@ async def list_mentions(
 
 
 def history_path(root: Path, path: str) -> str:
-    """The vault's own spelling of a note path, or a 404 for one it would not take.
+    """The vault's spelling of a note path, or a 404 for one it would not take.
 
-    The note need not exist now: the history pane reads it at the path it had
-    before a move.
+    The note need not exist: the history pane reads it at the path it had before a move.
     """
     note = resolve_path(root, path)
     if note is None or not plain(path):
@@ -339,8 +337,7 @@ def _dated(
 ) -> list[tuple[str, str, str | None, tuple[int, int] | None]]:
     """Each of `paths` that counts on a day in the range, with its day, text and stamp.
 
-    The text is read once here, so the day and the tags of a note come off the
-    same read. Only the notes in the range go on to be parsed for tags.
+    The text is read once, so a note's day and tags come off the same read.
     """
     low, high = _bounds(first, last)
     found: list[tuple[str, str, str | None, tuple[int, int] | None]] = []

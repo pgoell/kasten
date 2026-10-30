@@ -1,32 +1,8 @@
 """PayPal and Amazon orders: store what the order mail job sends, and match each charge.
 
-The bank booking stays the one transaction. A charge that matches one
-splits it into the charge's items, so the budget counts each item in its
-own category and nothing twice. The rules that keep it so:
-
-- An order is stored by its source and order id; sending it again changes
-  nothing. A charge already matched is never rewritten by a later send.
-- A charge whose items do not add up to it is never matched (`items_off`).
-- A charge matches a booking of the opposite amount (a refund, the same
-  amount) booked from `EARLY_DAYS` before to `LATE_DAYS` after it, or up to
-  `NAMED_LATE_DAYS` when it names the order id, whose purpose or
-  counterparty names the source, which is not a move between own accounts
-  and which no other charge holds. Amazon's debits start with the order id,
-  and only one naming it matches. PayPal's name the shop twice ("Shop B.V.,
-  Ihr Einkauf bei Shop"): one naming the merchant beats one naming no shop;
-  one naming another shop, or in no PayPal debit's shape, never matches. Two of the best kind
-  leave the charge `ambiguous`, never guessed, unless both name the order
-  id: two shipments of one amount, either right.
-- A booking the owner split or sorted by hand is linked but left as it is
-  (`kept`); the booking view shows the order's items beside it. Splits the
-  owner later removes or rewrites stay so (`unsplit`, `kept`).
-- A discount or credit is shared out over the items it came off, so no part
-  is money in on a booking of money out.
-- A refund is linked to its own booking and never split.
-- Amazon refunds come with no mail the job reads, so a booking of money in
-  that names a stored Amazon order id becomes that order's refund.
-
-Nothing here commits.
+A matched charge splits its bank booking into the charge's items, so the budget counts
+each item once, and the booking stays the one transaction. A refund is linked, never split.
+Sending an order again changes nothing. Nothing here commits.
 """
 
 from dataclasses import dataclass
@@ -117,10 +93,8 @@ def _fill(charge: OrderCharge, sent: dict[str, Any]) -> None:
 def _merge(order: ShopOrder, sent: dict[str, Any]) -> bool:
     """Bring what was sent into a stored order; whether anything changed.
 
-    A charge not sent stays, since the job reads only recent mail and an old
-    shipment falls out of its window. A matched charge stays as it is. A send
-    with no total is one whose order confirmation the job did not find, and
-    its day a stand-in, so a stored total and day stay.
+    A charge not sent stays, since the job reads only recent mail. A matched charge stays as
+    it is. A send with no total keeps the stored total and day.
     """
     changed = False
     guessed = sent["total"] is None and order.total is not None
@@ -224,11 +198,8 @@ async def _candidates(session: AsyncSession, charge: OrderCharge) -> list[Candid
 def net(items: Sequence[OrderItem]) -> list[tuple[str, Decimal]]:
     """The items with each discount or credit shared out over the others, cents exact.
 
-    A discount kept as a part of its own would be money in on a booking of
-    money out: no spending rule sorts it, and the budget skips money in not
-    sorted, so the items would count more than was paid. Each item takes a
-    share of the discounts by its amount; the cents left by rounding go to
-    the largest items first, so the parts still add up to the charge.
+    A discount kept as a part of its own would be money in on a booking of money out, which no
+    rule sorts. Cents left by rounding go to the largest items, so the parts add up.
     """
     paid = [(item.text, int(item.amount * 100)) for item in items if item.amount > 0]
     credit = sum(int(item.amount * 100) for item in items if item.amount < 0)
@@ -248,8 +219,7 @@ def net(items: Sequence[OrderItem]) -> list[tuple[str, Decimal]]:
 async def unsplit_by_hand(session: AsyncSession, booking_id: int, *, removed: bool) -> None:
     """Mark the charge whose items split a booking once the owner rewrites that booking's splits.
 
-    `unsplit` when the owner took the splits away, `kept` when they wrote
-    their own, so the matcher never splits it again and the pane says why.
+    `unsplit` when the owner removed the splits, `kept` when they wrote their own.
     """
     await session.execute(
         update(OrderCharge)
@@ -261,8 +231,7 @@ async def unsplit_by_hand(session: AsyncSession, booking_id: int, *, removed: bo
 async def _split(session: AsyncSession, charge: OrderCharge, booking_id: int) -> str:
     """Split the booking into the charge's items, unless the owner split or sorted it by hand.
 
-    A booking with splits of any kind counts as split by hand: a charge
-    matched before holds its booking, so no split here came from an order.
+    Splits already there were made by hand, since a matched charge already holds its booking.
     """
     if charge.kind == "refund":
         return "linked"
@@ -323,11 +292,10 @@ async def _amazon_refunds(session: AsyncSession, ids: Sequence[int] | None) -> i
 
 
 async def match(session: AsyncSession, ids: Sequence[int] | None = None) -> int:
-    """Match each charge that waits to its booking; how many matched.
+    """Match each waiting charge to its booking; how many matched.
 
-    With `ids`, the bookings a batch just brought in, only the charges whose
-    window could hold one of them are tried. Charges go oldest first, so of
-    two that could take one booking the older one does.
+    With `ids`, only the charges whose window could hold one of the new bookings are tried.
+    Charges go oldest first, so the older one takes a booking both could take.
     """
     await finance_sorting.lock(session)
     waiting = (
@@ -351,8 +319,7 @@ async def match(session: AsyncSession, ids: Sequence[int] | None = None) -> int:
         waiting = waiting.where(OrderCharge.charged_on.between(first, last))
     matched = await _amazon_refunds(session, ids)
     charges = list(await session.scalars(waiting))
-    # Twice: first only bookings that name their order id, so an older charge
-    # cannot take a booking that names another order; then the rest.
+    # Two passes: named bookings first, so an older charge cannot take another order's.
     for named in (True, False):
         for charge in charges:
             if charge.transaction_id is not None:
@@ -374,8 +341,7 @@ async def match(session: AsyncSession, ids: Sequence[int] | None = None) -> int:
 def _loaded() -> Any:
     """Orders with their charges and items, read afresh.
 
-    A refund made from a booking that names its order is not in the charges
-    of that order as the session already holds it.
+    A refund made from a booking that names its order is not in the session's copy.
     """
     return (
         select(ShopOrder)

@@ -1,13 +1,8 @@
 """The finance reads, served as MCP tools beside the vault's eight.
 
-Thin wrappers over the pane's own route functions and `agent_finance.py`, the
-same ones `/agent/finance/*` serves, so a tool answers what the pane shows. All
-of them only read.
-
-The MCP instructions are a few bytes short of the 2KiB Claude Code keeps, so
-what a model needs to read finance right is in these docstrings, which every
-client reads off `tools/list`. The rules common to all of them are in
-`free_to_spend`'s, the one a model asking about money calls first.
+Thin wrappers over the pane's route functions, so a tool answers what the pane shows.
+All of them only read. Their docstrings are what models read, since the MCP
+instructions are close to the 2KiB Claude Code keeps.
 """
 
 import logging
@@ -43,9 +38,8 @@ UNREADABLE = "Finance could not be read just now; the server log says why"
 async def _read(read: Callable[[AsyncSession], Awaitable[BaseModel]]) -> dict[str, Any]:
     """One read on its own session, as JSON, its refusals as tool errors.
 
-    A refusal is an `HTTPException` because the reads are the routes'. The
-    503 of a backend with no database is one of them, so a tool says what a
-    route says: finance is not there.
+    A refusal is an `HTTPException` because the reads are the routes'. The 503 of a
+    backend with no database is one, so a tool says what a route says.
     """
     try:
         async with agent_finance.session() as session:

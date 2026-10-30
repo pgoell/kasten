@@ -1,23 +1,8 @@
 """Taking a note out of the vault without losing it.
 
-A delete moves the note into `.trash/` and leaves it there. Nothing under a
-dot-directory is listed, searched, resolved from a URL or reported on
-`/api/events`, so the vault stops holding the note the moment it moves, and the
-text is still on disk for as long as the retention allows.
-
-The trash mirrors the vault: a note keeps its path and its leaf takes the moment
-it was deleted, `00 Inbox/borges.md@2026-08-11T14-03-02.481337`. That name is the whole
-record. It says where the note came from, so a restore needs nothing else to put
-it back, it says when it went, so the purge needs no timer file, and it cannot
-collide with a note deleted from the same path a second time.
-
-A deleted folder is one entry, not one per note under it, because a folder is
-moved in one rename and comes back the same way.
-
-jj holds the history either way, and that is not what this is for: the vault may
-be a plain directory with no jj on the box, so getting a note back cannot need a
-repo. What jj adds on top is free, since the move is a write like any other and
-is recorded like one.
+A delete moves the note to `.trash/`, a dot-directory nothing lists. Its leaf takes the
+moment it was deleted, so the name says where to restore to and when it went. A folder
+is one entry, not one per note under it.
 """
 
 import re
@@ -43,20 +28,14 @@ inside, so one bind mount carries the notes and the way back to them.
 STAMP = "%Y-%m-%dT%H-%M-%S.%f"
 """How the moment is spelled in the name. UTC, the way the frontmatter is.
 
-Dashes rather than colons in the time. A colon is legal on the filesystems
-kasten runs on and a nuisance in every shell that has to name the file.
-
-Down to the microsecond, unlike the frontmatter's seconds, because this is what
-orders the list: two notes deleted in the same second are two rows, and
-`<leader>u` takes the first of them. The dot is ISO 8601's own separator for
-what follows the seconds.
+Dashes, not colons: a colon is legal here but a nuisance in every shell. Down to the
+microsecond, since this orders the list and `<leader>u` takes the first row.
 """
 
 STAMPED = re.compile(r"@(\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}\.\d{6})$")
 """The stamp on the end of an entry's leaf, which is what makes it an entry.
 
-Searched rather than matched, and anchored at the end, so a note called
-`mail@work.md` keeps its name and is still told apart from what was deleted.
+Anchored at the end, so a note called `mail@work.md` is still told apart from a delete.
 """
 
 
@@ -84,10 +63,8 @@ def _stamped(name: str) -> datetime | None:
 def _walk(directory: Path, prefix: str) -> Iterator[Entry]:
     """Every entry at or under `directory`, which is `prefix` inside the trash.
 
-    A stamped name is an entry and is not walked into: a deleted folder is one
-    entry, and the notes under it went with it rather than on their own. An
-    unstamped directory is a folder the trash kept to hold an entry's path, so
-    it is walked. An unstamped file is not ours and is left alone.
+    A stamped name is an entry and is not walked into, so a deleted folder counts once.
+    An unstamped directory holds an entry's path and is walked; an unstamped file is left alone.
     """
     for child in sorted(directory.iterdir()):
         when = _stamped(child.name)
@@ -104,8 +81,7 @@ def _walk(directory: Path, prefix: str) -> Iterator[Entry]:
 def list_trash(root: Path) -> list[Entry]:
     """Everything the trash holds, newest first.
 
-    Newest first because the one thing anyone wants back is usually the last
-    thing they deleted, and `<leader>u` takes the first row without asking.
+    `<leader>u` takes the first row, so the last thing deleted is the one to find.
     """
     trash = root / TRASH
     if not trash.is_dir():
@@ -117,15 +93,8 @@ def list_trash(root: Path) -> list[Entry]:
 def resolve_entry(root: Path, entry: str) -> Entry | None:
     """One entry the trash holds, read off its name, or None when it holds none.
 
-    The entry arrives from a URL and is therefore hostile, so it goes through
-    the vault's own rule for a legal location, read against the trash as the
-    root: `..`, an absolute path and a link out of it are all refused there
-    already. The folder spelling of that rule, because an entry is a note or a
-    folder and this is the one that does not ask which.
-
-    What comes back is the canonical spelling rather than the URL's, the way a
-    note's is, so the path a restore writes to cannot be talked into a
-    roundabout one.
+    The entry comes from a URL, so it is resolved as a legal location inside the trash. The
+    result is the canonical spelling, so a restore cannot be talked into a roundabout path.
     """
     path = resolve_folder_path(root / TRASH, entry)
     if path is None or not path.exists():
@@ -140,11 +109,9 @@ def resolve_entry(root: Path, entry: str) -> Entry | None:
 
 
 def _move(source: Path, target: Path) -> None:
-    """Move one path over to another, making the folders on the way.
+    """Move one path over to another, making the folders on the way. Sync, as writes are.
 
-    Sync, the way every other write in kasten is: a `Path` method blocks, and
-    the calls that block belong outside the coroutines that would hold the loop
-    while they ran.
+    Calls that block belong outside the coroutines, so they never hold the event loop.
     """
     target.parent.mkdir(parents=True, exist_ok=True)
     source.rename(target)
@@ -163,11 +130,8 @@ async def move_to_trash(
 ) -> Entry:
     """Move one note or folder out of the vault, and say where it went.
 
-    The folder it emptied goes with it, the way a move's does: a folder here is
-    the prefix of the notes under it and an empty one is a row nothing shows.
-
-    Recorded as its own jj change, named after the entry rather than the note,
-    so a delete never amends the change holding the edit before it.
+    The folder it emptied goes too, since an empty folder is a row nothing shows. The
+    jj change is named after the entry, so a delete never amends the change before it.
     """
     when = now or datetime.now(UTC)
     entry = Entry(
@@ -187,11 +151,8 @@ async def move_to_trash(
 async def restore(root: Path, found: Entry) -> None:
     """Move one entry `resolve_entry` returned back where it was deleted from.
 
-    The caller has already refused a path that is taken, and the folders on the
-    way back are made here, because the delete took the empty ones with it.
-
-    The trash folders the entry leaves behind go too, so the trash does not
-    fill with directories holding nothing.
+    The caller refuses a taken path. Folders on the way back are made here, and the trash
+    folders the entry leaves are pruned, so the trash does not fill with empty directories.
     """
     source = root / TRASH / found.entry
 
@@ -203,13 +164,8 @@ async def restore(root: Path, found: Entry) -> None:
 async def purge_trash(root: Path, days: int) -> None:
     """Drop what the trash has held for longer than `days`, and nothing else.
 
-    This is the one place in kasten that removes a note for good, and it runs at
-    startup rather than on a timer: a delete is the moment the trash grows, and
-    a process that has not restarted for a month is not a reason to hold the
-    event loop for a scan nobody asked for.
-
-    ponytail: the trash therefore keeps a little longer than the setting says on
-    a long-running process. Move it onto the delete path if that ever matters.
+    The one place kasten removes a note for good, run at startup, not on a timer.
+    ponytail: a long-running process keeps its trash a little longer than the setting says.
     """
     trash = root / TRASH
     cutoff = datetime.now(UTC) - timedelta(days=days)

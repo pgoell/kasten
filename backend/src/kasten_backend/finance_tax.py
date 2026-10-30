@@ -1,10 +1,8 @@
 """Tax marks and the tax year: which bookings count on which line of the return, and how much.
 
-German employee taxes, by the year a booking was paid in (§11 EStG), which is
-its booking date. A mark on money out adds its tax amount to its line; a mark
-on money in, such as an employer paying a work cost back, takes it off, since
-a cost paid back is no cost. The Tax tab, its exports and the agent's
-`tax_year_summary` all read `year_summary`, so they agree by construction.
+German employee taxes, by booking date (§11 EStG). A mark on money out adds to its line; one on
+money in, such as an employer repaying a work cost, takes it off. The Tax tab, its exports and
+`tax_year_summary` all read `year_summary`.
 """
 
 import datetime as dt
@@ -73,9 +71,8 @@ def check_mark(
 ) -> Decimal:
     """The tax amount a mark of `line` on this booking takes, or why it may not have one.
 
-    No amount means the whole booking, except on the shared account, where
-    only the owner's share counts and only the owner knows it, and on a §35a
-    line, where only the labour counts and the invoice says how much that is.
+    No amount means the whole booking, except on the shared account, where only the owner's
+    share counts and only the owner knows it, and on a §35a line, where only the labour counts.
     """
     if booking.transfer_group is not None:
         msg = "A move between own accounts is no cost: mark the booking that paid the bill"
@@ -210,10 +207,8 @@ async def entries(session: AsyncSession, year: int) -> list[Entry]:
 async def money_back(session: AsyncSession, year: int) -> list[Transaction]:
     """Money in of the year with no mark that looks like a marked cost paid back.
 
-    Either the refund of an order a marked booking paid, or money in sorted
-    into an ignore category that also holds a marked cost of the year, the
-    way a work hotel and its reimbursement share one. Shown, never counted:
-    the owner marks it on the cost's line or leaves it.
+    Either the refund of an order a marked booking paid, or money in sorted into an `ignore`
+    category that holds a marked cost of the year. Shown, never counted.
     """
     marked = select(TaxMark.transaction_id)
     paid = aliased(OrderCharge)

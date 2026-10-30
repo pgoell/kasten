@@ -1,9 +1,8 @@
 """The tax tables: a booking's tax mark, and the receipts kept beside the vault.
 
-A tax mark puts one booking on one line of the German tax return, with the
-amount that counts there. A receipt is a file in `settings.receipts_path`,
-known here by its hash; it belongs to a booking once someone says so. See
-docs/reference/http-api/finance-tax.md.
+A tax mark puts one booking on one line of the return, with the amount that counts there.
+A receipt is a file in `settings.receipts_path`, known by its hash.
+See docs/reference/http-api/finance-tax.md.
 """
 
 import datetime as dt  # noqa: TC003  SQLAlchemy reads the annotation at runtime
@@ -59,10 +58,9 @@ def _one_of(column: str, values: tuple[str, ...], name: str) -> CheckConstraint:
 class TaxMark(Base):
     """A booking on one line of the return, and the amount that counts there.
 
-    One a booking. The tax amount is never above the booking's own amount, and
-    a mark on money in (a refund, an employer paying a work cost back) takes
-    its amount off the line in the year it came. Whether the receipt is there
-    is not stored: it is there when a receipt names the booking.
+    One mark a booking, never above its amount. A mark on money in takes its amount off the
+    line in its year. Whether a receipt exists is not stored: it does when a receipt
+    names the booking.
     """
 
     __tablename__ = "tax_mark"
@@ -78,8 +76,7 @@ class TaxMark(Base):
     )
     form_line: Mapped[str] = mapped_column(Text)
     tax_amount: Mapped[Decimal] = mapped_column(Amount)
-    # False when the line needs no receipt kept, such as a pension fund's
-    # yearly statement standing in for each payment.
+    # False when no receipt is needed, such as a pension fund's yearly statement.
     receipt_needed: Mapped[bool] = mapped_column(server_default=text("true"))
     note: Mapped[str | None] = mapped_column(Text)
 
@@ -113,8 +110,7 @@ class Receipt(Base):
     )
     # Out of the to-sort queue with no booking: not a receipt for tax.
     dismissed: Mapped[bool] = mapped_column(server_default=text("false"))
-    # Deleted by the owner: the file is gone, and the row stays so the mail
-    # job's next send of the same bytes is known and not kept again.
+    # Deleted by the owner: the row stays, so the mail job's resend is not kept again.
     deleted: Mapped[bool] = mapped_column(server_default=text("false"))
     # What the receipt reader job found. `read_at` set means it is done with
     # this one, `read_error` saying why it found nothing.

@@ -126,27 +126,19 @@ async def move_file(
         relative = relative_path(settings.vault_path, target)
 
         async with vault_change(settings.vault_path, relative):
-            # Before the move, because a bare `[[borges]]` only names this note
-            # while the note is still where the links were written to find it.
-            # Inside the jj bracket, because the rewritten links are part of the
-            # move rather than an edit that happened to follow it.
+            # Before the move, since a bare `[[borges]]` names this note only where it still is.
+            # Inside the jj bracket, so the rewritten links belong to the move.
             await relink_move(settings.vault_path, source, relative, folder=False)
             rename_note(note, target)
-            # A file exempt from the block because of what it was called is a
-            # note again under any other name, so it is stamped where it lands.
-            # Inside the bracket, so the rewrite is part of the move. The other
-            # direction is not handled and must not be: a note renamed onto a
-            # reserved name keeps the block it had, because deleting it would
-            # delete an id and a creation date the note owns, and converting the
-            # body is a job for a person.
+            # A file exempt by its name is a note under any other, so it is stamped where it lands.
+            # Renamed onto a reserved name, a note keeps its block: deleting it would lose its id.
             if reserved(source) and not reserved(relative):
                 write_note(target, stamp(target.read_text(encoding="utf-8")))
             # After the note and before the prune, so a folder the pair has both
             # left is one the prune can take.
             move_asset_beside(note, target)
-            # After the links, which is what points the old index's entry at
-            # the new path, and before the prune, which would take an index
-            # left holding nothing along with its folder.
+            # After the links, which point the old index's entry at the new path.
+            # Before the prune, which would take an index left holding nothing with its folder.
             rehome_entry(settings.vault_path, source, relative)
             # A folder the move emptied is gone, and so is the line naming it.
             drop_entries(settings.vault_path, prune_empty_folders(settings.vault_path, note.parent))
@@ -195,10 +187,8 @@ async def move_folder(
         # The trailing slash is what tells one of these apart from a note's
         # change in `jj log`, where the two would otherwise read the same.
         async with vault_change(settings.vault_path, f"{relative}/"):
-            # Before the move, the way a note's rewrite is, and for one reason
-            # more: the notes holding these links are often the ones inside the
-            # folder, and after the rename none of them is at the path the
-            # rewrite would write to.
+            # Before the move, as a note's rewrite is, since links here often sit inside the folder.
+            # After a rename none of them is at the path the rewrite would write to.
             source = relative_path(settings.vault_path, folder)
             await relink_move(settings.vault_path, source, relative, folder=True)
             rename_folder(folder, target)

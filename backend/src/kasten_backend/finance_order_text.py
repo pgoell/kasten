@@ -1,8 +1,8 @@
 """How a bank booking's text names a PayPal or Amazon order, and which booking a charge takes.
 
-Amazon's direct debits start with the order id. PayPal's name the shop twice,
-the legal name before the comma and the shop's own after "Ihr Einkauf bei".
-`finance_orders` reads the bookings; this ranks them and picks one.
+Amazon's direct debits start with the order id. PayPal's name the shop twice: the legal
+name before the comma, and the shop's own after "Ihr Einkauf bei". `finance_orders` reads
+the bookings; this ranks them and picks one.
 """
 
 import re
@@ -35,9 +35,8 @@ _NOISE = frozenset(
 def shop_name(name: str) -> str:
     """A shop's name as it is compared: casefolded, legal forms dropped, only letters and digits.
 
-    `Takeaway.com Payments B.V.` and `Takeaway.comPayments B.V.` are both
-    `takeawaycompayments`; a name PayPal cut short, `Google Payment Irela...`,
-    is the start of the whole one.
+    `Takeaway.com Payments B.V.` and `Takeaway.comPayments B.V.` both give `takeawaycompayments`.
+    A name PayPal cut short is the start of the whole one.
     """
     words = (re.sub(r"[^\w]|_", "", word) for word in name.casefold().split())
     return "".join(word for word in words if word not in _NOISE)
@@ -50,8 +49,8 @@ SHORT = 4
 def same_shop(merchant: str, named: str) -> bool:
     """Whether two names are one shop: one the start of the other, as PayPal cuts names short.
 
-    The start, never anywhere inside, so `Otto GmbH` is not `Lotto24 AG`; and
-    a name under `SHORT` letters only when the two are equal.
+    Only the start counts, so `Otto GmbH` is not `Lotto24 AG`. A name under `SHORT` letters
+    matches only when equal.
     """
     mine, theirs = shop_name(merchant), shop_name(named)
     short, long = sorted((mine, theirs), key=len)
@@ -83,9 +82,8 @@ OTHER = -1
 def choose(candidates: Sequence[Candidate]) -> tuple[str, int | None]:
     """The booking a charge matches, or why none: `waiting`, or `ambiguous` for a tie.
 
-    Two bookings that both name the order id are two shipments of one order
-    at the same amount, so either is right: the older is taken, and the other
-    is left for the next shipment.
+    Two bookings that both name the order id are two shipments at one amount, so either is
+    right: the older is taken.
     """
     fits = [c for c in candidates if c.rank > OTHER]
     if not fits:
@@ -100,11 +98,9 @@ def choose(candidates: Sequence[Candidate]) -> tuple[str, int | None]:
 def rank(text: str, purpose: str, order: ShopOrder) -> int:
     """How well a booking's lowercased text names the order.
 
-    `NAMED` for the order id. An Amazon debit always starts with its order
-    id, so one without this order's is `OTHER`. A PayPal debit is 1 when
-    either name it gives the shop is the merchant's, 0 when it gives none
-    (money sent to a person), and `OTHER` when it names another shop or is
-    in no shape a PayPal debit takes, such as a card payment.
+    `NAMED` for the order id. An Amazon debit starts with its id, so another order's is `OTHER`.
+    A PayPal debit is 1 when a name it gives is the merchant's, 0 when it names none, and
+    `OTHER` when it names another shop or is no PayPal debit, such as a card payment.
     """
     if order.order_key.lower() in text:
         return NAMED

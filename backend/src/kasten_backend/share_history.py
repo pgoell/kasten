@@ -1,11 +1,8 @@
 """Who ticked each done item of a shared list, read back from the note's jj history.
 
-A save under `/share/` is named in the history after its person, as
-`agent(share:Alicia): 05 Shared/Einkauf.md`. This walks the note's latest
-changes and finds, per item, the version whose patch turned the item done: that
-version names the ticker and its committer time is the tick's. Read through
-`history._read`, so the walk writes no operation, and a jj that fails or is
-missing answers no ticks rather than an error.
+A save under `/share/` is named after its person in the history. The walk finds, per item, the
+version whose patch turned it done: it names the ticker and gives the tick's time. A jj that
+fails or is missing answers no ticks, not an error.
 """
 
 import json
@@ -23,7 +20,7 @@ VERSIONS = 30
 """How many of the note's latest changes the walk reads, newest first."""
 
 CACHE_SIZE = 8
-"""How many (note, digest, `@`) answers are kept, so a read with no save since costs one jj call."""
+"""How many (note, digest, `@`) answers are kept, so a read with no save costs one jj call."""
 
 MARK = "KTVERSION "
 """What opens a version's header line.
@@ -49,7 +46,7 @@ class Tick(NamedTuple):
 
 
 class _Version(NamedTuple):
-    """One version of the note: its writer and time, and the done items it takes off and puts on."""
+    """One version: its writer, its time, and the done items it takes off and puts on."""
 
     who: str | None
     when: str
@@ -103,9 +100,8 @@ def _versions(output: str, path: str) -> list[_Version]:
 def _ticks(versions: list[_Version]) -> dict[str, Tick]:
     """The tick of each item: the newest version that turns it done without it being done before.
 
-    Versions come newest first, so the first one to name an item is its latest
-    tick, which is the one a re-tick after an untick leaves. An edit of a done
-    item is no tick, since the item is done on both sides of its patch.
+    Versions come newest first, so the first to name an item is its latest tick, which a re-tick
+    after an untick leaves. An edit of a done item is no tick: it is done on both sides.
     """
     found: dict[str, Tick] = {}
     for version in versions:
@@ -145,11 +141,8 @@ async def _ticks_of(root: Path, path: str, digest: str) -> dict[str, Tick]:
 async def attach(settings: Settings, found: share.Checklist) -> share.Checklist:
     """The list with `ticked_by` and `ticked_at` set on every done item the history can name.
 
-    The digest and the keys come from `found` itself, which was built from one
-    read of the note, so a write between two reads cannot shift a line onto
-    another item. A list with no done item, a vault with no history and a note
-    with a name jj cannot spell all answer the list as it is, with no jj call. A
-    jj that fails, is missing or prints what this cannot read answers the same.
+    The digest and keys come from `found`, one read of the note, so a write between reads cannot
+    shift a line onto another item. Anything jj cannot answer for leaves the list as it is.
     """
     done = [item for item in found.items if item.done]
     if not done or found.sha is None or not vcs.is_versioned(settings.vault_path):

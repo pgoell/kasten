@@ -1,8 +1,7 @@
 """The monthly notes the collector writes, and the reading of them the year review does.
 
-One note per month, `<config>/Model use/YYYY-MM.md`. The collector owns a note
-only when its frontmatter carries `generator: kasten-model-use`; a note at the
-path without it belongs to someone else and is never written.
+One note per month, `<config>/Model use/YYYY-MM.md`. The collector owns a note only when
+its frontmatter carries `generator: kasten-model-use`; any other note is never written.
 """
 
 from datetime import date, datetime, timedelta
@@ -128,10 +127,8 @@ def _render(front: list[str], body: list[str]) -> str:
 def _usage_entries(body: list[str], fresh: list[Usage]) -> list[tuple[Usage, str]]:
     """The usage lines to write, as (usage, text), sorted by day, tool, model and project.
 
-    A day and tool the run counted has its old lines replaced by the fresh ones, so
-    a codex run leaves a day's Claude Code lines alone. Any other body line keeps its
-    text, so it is written back byte for byte: a day with no message in the source
-    keeps what it had.
+    A day and tool the run counted has its old lines replaced. Any other body line is kept
+    byte for byte, so a day with no message in the source keeps what it had.
     """
     counted = {(usage.day, usage.tool) for usage in fresh}
     entries = []
@@ -156,13 +153,11 @@ def _body(month: str, entries: list[tuple[Usage, str]], foreign: list[str]) -> l
 
 
 def write_month(path: Path, month: str, fresh: list[Usage], now: datetime) -> str:
-    """Write a month's note with the `fresh` lines, one day at a time (see `_usage_entries`).
+    """Write a month's note with the `fresh` lines, and return what happened to it.
 
-    Returns `written`, `unchanged` or `left alone`, or an empty string when there is
-    nothing to write and no note to write it into. A note that is not ours, or does
-    not decode as UTF-8, is left alone. Everything the collector did not write stays,
-    frontmatter included. A write goes to a hidden file beside the note and is renamed
-    over it, so a broken run leaves the old note.
+    Returns `left alone` for a note that is not ours or not UTF-8, `unchanged` for the same
+    bytes, `written` otherwise, or "" when there is no note and nothing to write. The write
+    goes to a hidden file renamed over the note, so a broken run keeps the old one.
     """
     try:
         text = path.read_text(encoding="utf-8") if path.is_file() else None

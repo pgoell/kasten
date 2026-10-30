@@ -1,11 +1,8 @@
 """Amazon order mails: the order confirmation and the dispatch mail, as amazon.de sends them.
 
-Amazon charges each shipment on its own, so the dispatch mail is the charge:
-its items and its total. The confirmation gives the order's date and total,
-and for a digital order (Kindle, Prime Video), which ships nothing, the one
-charge. On this account amazon.de writes physical orders in English
-("Order #", "Quantity: 2", "11.99 EUR", the unit price) and digital ones in
-German ("Bestellnr.", "Gesamtsumme: EUR 9,70").
+Amazon charges each shipment on its own, so the dispatch mail is the charge. A
+digital order (Kindle, Prime Video) ships nothing, so its confirmation holds the
+one charge. amazon.de writes physical orders in English and digital ones in German.
 """
 
 import re
@@ -33,7 +30,7 @@ Item = tuple[str, Decimal]
 
 @dataclass(frozen=True)
 class Confirmation:
-    """An order as its confirmation states it; `items` only for a digital order, its one charge."""
+    """An order as its confirmation states it; `items` only for a digital order's one charge."""
 
     order_id: str
     day: date
@@ -89,15 +86,14 @@ def _digital(mail: Mail, lines: list[str]) -> Confirmation | None:
     if found is None or total is None:
         return None
     amount = german_amount(total.group(1))
-    # The title stands on the line before its seller. The prices listed are
-    # before tax, so the order's items share its total as one line.
+    # The prices listed are before tax, so the one item carries the total.
     titles = [lines[at - 1] for at, line in enumerate(lines) if line.startswith("Verkauft von:")]
     text = "; ".join(titles) or "Amazon digital order"
     return Confirmation(found.group(0), mail.day, amount, [(text, amount)])
 
 
 def parse_confirmation(mail: Mail) -> list[Confirmation]:
-    """The orders an order confirmation names: one, or one per order id when it names several."""
+    """The orders a confirmation names: one, or one per order id when it names several."""
     lines = lines_of(mail.text)
     if any(line.startswith("Bestellnr.") for line in lines):
         digital = _digital(mail, lines)

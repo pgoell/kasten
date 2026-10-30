@@ -110,9 +110,8 @@ async def import_anki(
     202, and `GET /api/anki/imports/{upload}` answers for it after.
     """
     if upload is None:
-        # Counted as it arrives, so an over-cap body is refused before the rest
-        # is read rather than held whole in RAM. The cap is read here, not bound
-        # at import, so a test lowering it reaches this.
+        # Counted as it arrives, so an over-cap body is refused before it is held in RAM.
+        # Read here, not at import, so a test lowering the cap reaches this.
         limit = files.UPLOAD_LIMIT_BYTES
         pieces: list[bytes] = []
         size = 0
@@ -222,9 +221,8 @@ def _read_all(root: Path, paths: list[str]) -> dict[str, str]:
     """The text of each note in `paths` that is still there, read in turn."""
     texts: dict[str, str] = {}
     for path in paths:
-        # A note that is not UTF-8 still holds its ASCII markers, so it is read
-        # with replacement rather than skipped, and only a note gone since rg
-        # listed it is left out.
+        # Read with replacement, not skipped, since the ASCII markers still count.
+        # Only a note gone since rg listed it is left out.
         try:
             texts[path] = (root / path).read_text(encoding="utf-8", errors="replace")
         except FileNotFoundError:
@@ -233,11 +231,7 @@ def _read_all(root: Path, paths: list[str]) -> dict[str, str]:
 
 
 async def _import_bytes(body: bytes, settings: Settings, *, carry: bool, limit: int) -> AnkiImport:
-    """Import the export `body`, the one implementation behind a file and a link.
-
-    One, so the merge, its refusals and the summary are the same words
-    whichever way the deck arrived. `limit` is the cap for that way.
-    """
+    """Import the export `body`, the one path behind a file and a link; `limit` caps that way."""
     if len(body) > limit:
         raise HTTPException(status_code=413, detail=files.too_big(limit))
 
@@ -251,9 +245,7 @@ async def _import_bytes(body: bytes, settings: Settings, *, carry: bool, limit: 
     # The whole import under one lock, so a deck found free by the precheck
     # cannot be taken by another writer before the loop below reaches it.
     async with vault_write():
-        # Every path resolved and every collision found before anything is
-        # written, so an export whose fourth deck is refused leaves the first
-        # three unwritten rather than half-importing and reporting a failure.
+        # Every path and collision is found before any write, so a refused deck writes nothing.
         # Outside the change, so a refused import leaves none behind.
         targets: list[tuple[Path, str, str | None]] = []
         media: list[tuple[str, bytes]] = []
@@ -324,15 +316,9 @@ async def _import_bytes(body: bytes, settings: Settings, *, carry: bool, limit: 
 async def _write_import(
     root: Path, media: list[tuple[str, bytes]], targets: list[tuple[Path, str, str | None]]
 ) -> None:
-    """Write an import's media and then its notes, each new or over the text it had.
+    """Write an import's media, then its notes, each new or merged over its old text.
 
-    The media first, through the checks an upload meets; `read_apkg` made them
-    already, so none refuses and no note links a missing file. A target holding
-    the note's old text is a merge, written over it; one holding None is new.
-    A write failing partway takes back what this import put down, removing what
-    it made and putting back what it merged into, so the retry is not refused
-    by its own leftovers: a `finally` rather than a catch, since every failure
-    gets the same answer. The caller holds the lock and the change.
+    A failure partway takes back what this import wrote, so a retry is not refused by its leftovers.
     """
     landed: list[Path] = []
     merged: list[tuple[Path, str]] = []

@@ -1,10 +1,7 @@
-"""The one-shot import of Firefly III's history into kasten, through the finance routes only.
+"""The one-shot import of Firefly III's history into kasten, through the finance routes.
 
-Reads Firefly read-only, then makes the categories, the rules, the accounts and
-the bookings, runs the rules once, and sets by hand every category Firefly
-holds that the rules do not give. Every step looks before it writes, so a
-second run changes nothing. See docs/how-to/import-from-firefly-iii.md and
-docs/reference/firefly-import.md.
+Every step looks before it writes, so a second run changes nothing. See
+docs/how-to/import-from-firefly-iii.md and docs/reference/firefly-import.md.
 """
 
 import argparse
@@ -72,13 +69,9 @@ class Booking:
 def bookings(ff: Firefly, ids: dict[int, int]) -> list[Booking]:
     """A booking per journal on each asset account it touches, so a transfer gives two.
 
-    `ids` maps a Firefly asset account to its kasten id. The key is a prefix
-    plus `:n`, the journal's place among those on the same account with the
-    same prefix, by date and then id. The prefix is Firefly's `external_id` as
-    it stands, never recomputed, except for a move to or from another own
-    account, which takes `bookings.transfer_prefix` as the bank sync builds
-    it: Firefly spells a transfer's amount three ways. A journal with no
-    `external_id` is keyed by its id.
+    The key is the prefix plus `:n`, the journal's place among same-prefix ones.
+    The prefix is Firefly's `external_id` (or `firefly:<id>`), except a move between
+    own accounts, which takes `bookings.transfer_prefix` as the bank sync builds it.
     """
     own = {spelled(ff.accounts[i].iban) for i in ids if ff.accounts[i].iban}
     seen: Counter[tuple[int, str]] = Counter()
@@ -187,10 +180,8 @@ def run(ff: Firefly, api: KastenApi) -> Report:
         if name not in categories:
             categories[name] = api.post_category(name, KIND.get(name, "flexible"))["id"]
             c["categories created"] += 1
-    # Rules before bookings, so each rule's run over every booking is cheap
-    # and the ingest sorts the bookings as they come in.
-    # A rule's side follows its category's kind in kasten, which the owner
-    # may have changed since a first run.
+    # Rules before bookings, so each rule's run over every booking is cheap.
+    # A rule's side follows the category's kind as kasten holds it now.
     rows = api.categories()
     kinds = {row["name"]: row["kind"] for row in rows}
     side = {row["id"]: "in" if row["kind"] == "income" else "out" for row in rows}
@@ -211,8 +202,7 @@ def run(ff: Firefly, api: KastenApi) -> Report:
 def _by_hand(api: KastenApi, made: list[Booking], categories: dict[str, int], c: dict) -> None:
     """Set Firefly's category by hand wherever the rules gave another or none.
 
-    Where Firefly had none and a rule gives one, the rule's stays: kasten has
-    no "none by hand", and sorting that backlog is what the rules are for.
+    Where Firefly had none and a rule gives one, the rule's stays: kasten has no "none by hand".
     """
     rows = {(row["account_id"], row["source_key"]): row for row in api.bookings()}
     for name in ("set by hand", "already as in Firefly", "on a transfer", "sorted by a rule only"):

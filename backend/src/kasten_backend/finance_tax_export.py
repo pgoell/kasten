@@ -1,9 +1,8 @@
 """The tax year's exports: a CSV of one line's bookings, and a ZIP of the year's receipts.
 
-Both read `finance_tax.entries`, the list the Tax tab totals, so an export
-never holds a booking the tab does not count. A receipt in the ZIP is named
-`YYYY-MM-DD_payee_amount.ext` by the booking it paid, and the CSV names the
-same file, so the two are read side by side.
+Both read `finance_tax.entries`, the list the Tax tab totals, so an export never holds
+a booking the tab does not count. A receipt in the ZIP is named `YYYY-MM-DD_payee_amount.ext`
+by its booking, and the CSV names the same file.
 """
 
 import asyncio
@@ -76,8 +75,7 @@ FORMULA = ("=", "+", "-", "@", "\t", "\r")
 def cell(text: str) -> str:
     """A text cell a spreadsheet will not run: one that starts like a formula gets a `'`.
 
-    Payees and purposes come from the bank, so anyone who sends money writes
-    them. Amounts are kasten's own and stay numbers.
+    Payees and purposes come from the bank, where anyone who pays can write them.
     """
     return f"'{text}" if text.startswith(FORMULA) else text
 

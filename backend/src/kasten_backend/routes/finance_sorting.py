@@ -1,8 +1,6 @@
 """The finance routes that sort bookings: categories, payees, rules, the hand, the to-sort list.
 
-Beside `routes/finance.py` under the same prefix and the same gate, in a file
-of their own for size. The order rules fire in is in `finance_sorting`. Every
-write that could change what a rule gives runs the rules over every booking
+Every write that could change what a rule gives runs the rules over every booking
 before it commits, so nothing shown is stale.
 """
 
@@ -253,11 +251,8 @@ async def _refuse_overlap(
 ) -> None:
     """A 409 when another rule of a kind and pattern sorts the same side as one of `rules`.
 
-    The unique constraint holds kind, pattern and side apart, and `both` is a
-    side of its own there; an ignore rule `hotel` beside a spending rule
-    `hotel` would sort the same money out two ways, so it is refused here.
-    `leaving` names the rules the write changes, which do not clash with
-    themselves.
+    `both` is a side of its own, so an ignore `hotel` beside a spending `hotel` is refused.
+    `leaving` names the rules the write changes, which do not clash with themselves.
     """
     for kind, pattern, side in rules:
         clash = await session.scalar(

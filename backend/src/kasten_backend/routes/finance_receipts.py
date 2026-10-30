@@ -1,11 +1,7 @@
 """The receipt routes: keep a file, share one from the phone, read it, sort it, serve it back.
 
-Receipts live in `settings.receipts_path`, never in the vault, and these
-routes are the only way to one, behind the same gate as the rest of `/api/`.
-The pane drops files on a booking, `/capture` hands over what the phone
-shared, the mail job posts PDF attachments, and the receipt reader job reads
-each one and sends back what it found. Kasten proposes a booking and a tax
-mark from that, and links or marks nothing until `confirm`.
+Receipts live in `settings.receipts_path`, never in the vault. Kasten links or marks
+nothing until `confirm`.
 """
 
 import datetime as dt
@@ -114,10 +110,10 @@ class ConfirmIn(BaseModel):
 
 
 def conflict(code: str, message: str) -> HTTPException:
-    """A 409 whose `detail` names which conflict it is, so the pane can tell them apart.
+    """A 409 whose `detail` names the conflict, so the pane can tell them apart.
 
-    `receipt_linked`: the receipt is on another booking. `mark_exists`: the
-    booking holds a mark that a confirm would replace.
+    `receipt_linked`: the receipt is on another booking. `mark_exists`: a confirm would
+    replace the booking's mark.
     """
     return HTTPException(status_code=409, detail={"code": code, "message": message})
 

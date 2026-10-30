@@ -1,17 +1,8 @@
 """Finding every todo in the vault, by reading the vault, and the project each is in.
 
-One rg pass over the notes, the same way search reads them and for the same
-reason: the files are the source of truth, so nothing here is indexed and
-nothing here can go stale.
-
-The backend hands each line over whole and serves no state or field, because
-the editor has to parse a line anyway and two parsers in two languages drift.
-The one thing it works out is the project, which needs a line's indent, its
-tags and its links: an agent reading the endpoint then sees the lane the board
-draws, without a copy of the rule of its own. To find the words the tags and
-links are read from, it takes the fields off the way the editor does, a port of
-`readFields` kept as narrow as that job. Links are read by `links.py`, whose
-rule both sides test against one file of cases.
+One rg pass over the notes, as search reads them, so nothing here is indexed or goes stale.
+The backend hands each line over whole and serves no state, since the editor parses a line
+too and two parsers drift. It works out only the project, from indent, tags and links.
 """
 
 import re
@@ -34,36 +25,23 @@ if TYPE_CHECKING:
 MOST_TODOS = 100_000
 """How many matching lines come back at most.
 
-A backstop against one generated file with a million list items in it, not a
-limit on how much work a person is willing to read. 5,000 said the second while
-doing the first: it is a judgment about reading, and reaching it truncates
-silently, so the client draws a shorter list than the vault holds with nothing
-on screen to say so. A short list is worse than a long one, so the number now
-sits where nothing written by hand reaches it.
+A backstop against one generated file, not a limit on work a person reads. Reaching it
+truncates silently, so the cap sits where nothing written by hand reaches it.
 """
 
 TODO_LINE = r"^[ \t]*- \[[ /xXbwr-]\]([ \t]|$)"
 """A checkbox list item at any indent, in any of the seven states.
 
-`X` is in the class because another editor may write it and the frontend reads
-it as done. `R` is not, because nothing writes it and the frontend reads
-`[R]` as no todo. `[` is not either, which is what keeps `- [[borges]]` out. The `- ` anchor
-is what keeps an ordered list item out. The `-` sits last in the class, where a
-character class reads it as itself rather than as a range.
+`X` is in the class because the frontend reads it as done. `R` and `[` are not: nothing
+writes `R`, and `[` keeps out `- [[borges]]`. The `- ` anchor keeps out an ordered item.
+The `-` sits last in the class, so it is a dash, not a range.
 """
 
 SESSION_LINE = r"^[ \t]*- [0-9]{2}:[0-9]{2}-([ \t]|$)"
 """One line of a `## Time` section, running: a start time and no end.
 
-The scan answers one view, and that view wants to know which rows are running.
-A closed session tells it nothing the task line does not already carry, its
-total being written there on every stop, and the closed ones are the only lines
-in this feature that pile up. So the end time is out of the pattern rather than
-optional in it, which keeps a response refetched on every write to the vault as
-small as the number of timers actually going.
-
-A stop reads the closed ones another way, through `GET /api/search` on the
-todo's id: one narrow pass at the press, for one todo.
+Closed sessions are left out so a response refetched on each vault write stays small. A
+stop reads them through `GET /api/search` on the todo's id instead.
 """
 
 TODO_PATTERN = f"{TODO_LINE}|{SESSION_LINE}"
@@ -72,10 +50,8 @@ TODO_PATTERN = f"{TODO_LINE}|{SESSION_LINE}"
 async def find_todos(root: Path, skip: str | None = None) -> list[Hit]:
     """Every todo line and every time session line the vault holds, up to `MOST_TODOS`.
 
-    `skip` names a folder to walk past, which is how the archive stays off the
-    todo list by default. A finished project's open checkboxes are the clearest
-    case of work that is not work: they are true of the note and false of the
-    week, and left in they are the rows that make the pane not worth opening.
+    `skip` names a folder to walk past: the archive, by default. A finished project's open
+    checkboxes are true of the note and false of the week, so they are left out.
     """
     # `-e` so the pattern, which opens with a caret and holds a dash, is a
     # pattern and not a flag.
@@ -85,23 +61,19 @@ async def find_todos(root: Path, skip: str | None = None) -> list[Hit]:
 PROJECT_ROOTS = ("02 Projects", "03 Areas")
 """The folders whose subfolders are projects.
 
-Fixed rather than a setting: a vault without them sees every todo in no
-project, and a rule per vault would have to reach every reader of the lines.
-Areas count because client work lives there; resources do not, or every
-reading list would be a project.
+Fixed, not a setting, since a per-vault rule would reach every reader of the lines. Areas
+count because client work lives there; resources do not, or every reading list would be a project.
 """
 
 LINK_ROOT = "02 Projects"
 """The one root a link or a tag files a todo under.
 
-Not areas: a daily todo names people far more often than projects, and the
-people live in `03 Areas/08 People`. A tag would have to spell an area's
-number, `06 Allianz Direct`, which nobody types.
+Not areas: a daily todo names people far more often than projects, and the people live in
+`03 Areas/08 People`. A tag would have to spell an area's number, which nobody types.
 """
 
-# Every Unicode number, `\p{N}`, which `re` cannot name. `\d` is only the
-# decimal digits, so `Ⅳ`, `½` and `²` would pass for a tag's non-number. One
-# walk over the code points at import, a fraction of a second.
+# Every Unicode number, `\p{N}`, which `re` cannot name. `\d` only covers decimal digits,
+# so `Ⅳ`, `½` and `²` would pass as a tag's non-number. One walk at import.
 _NUMBERS = re.escape(
     "".join(c for c in map(chr, range(sys.maxunicode + 1)) if unicodedata.category(c)[0] == "N")
 )
@@ -109,10 +81,8 @@ _NUMBERS = re.escape(
 TAG = re.compile(r"(?<![\w/])#(?=[\w/-]*(?:[^\W" + _NUMBERS + r"]|[/-]))[\w/-]+")
 """`#tag` by the rule in `docs/reference/tag-format.md`.
 
-`\\w` is a letter, a number or `_`, as `[\\p{L}\\p{N}_]` is. The lookahead wants
-one character of the run that is no number, so `#1on1` is a tag and `#1984`
-none. A lookbehind keeps `note#2x` and `a.io/p#x` out. Run it on text with
-every span masked, as `tags_in` does, or a hash in code or a link reads as one.
+The lookahead wants one character of the run that is no number, so `#1on1` is a tag and
+`#1984` is none. Run it on text with spans masked, or a hash in code reads as one.
 """
 
 LINE = re.compile(
@@ -120,28 +90,23 @@ LINE = re.compile(
 )
 """A todo as the editor's `parseTodo` takes one, the words after the box captured.
 
-Narrower than `TODO_LINE`: the editor's `.` matches no `\\r`, U+2028 or
-U+2029, so a line holding one is no todo there, and so it is none here either,
-neither filed nor anybody's parent. rg matches it all the same.
+Narrower than `TODO_LINE`: the editor's `.` matches no carriage return, U+2028 or U+2029,
+so a line holding one is no todo here either. rg matches it all the same.
 """
 
 COMMENT_OPENING = r"^ {0,3}<!--[^\n]*"
 LINE_SPANS = re.compile(f"{COMMENT_OPENING}|{SPANS.pattern}")
 """`SPANS` and, first, a comment opening the line, for a reader holding a whole line.
 
-A `<!--` that opens the line, three spaces in front at most, opens an HTML
-block by CommonMark, and the block takes the whole line, `-->` or not, so the
-editor draws no tag after it. Not in `SPANS`: a todo's words open with `<!--`
-only after the box, which opens the paragraph, so there it is a comment and no
-more. The editor's `LINE_SPANS` in `tag-rule.ts` is the same pattern.
+A `<!--` opening a line starts an HTML block, which takes the whole line, so no tag after
+it counts. Not in `SPANS`: a todo's `<!--` after its box is a plain comment.
 """
 
 
 def word_tags(text: str) -> list[tuple[int, int]]:
     """Where `text`, which opens no line, holds a tag, as `(start, end)` offsets.
 
-    The words after a todo's box, or a span rg matched in the middle of a line,
-    where a `<!--` in front is a comment and opens no block.
+    A `<!--` in front here is a comment, not an HTML block, so it opens nothing.
     """
     return [found.span() for found in TAG.finditer(mask(text))]
 
@@ -149,8 +114,7 @@ def word_tags(text: str) -> list[tuple[int, int]]:
 def line_tags(text: str) -> list[tuple[int, int]]:
     """Where one line holds a tag, as `(start, end)` offsets, its spans and links masked.
 
-    A line on its own is no fence, so a line opening with three backticks
-    keeps its tags, as the editor's `tagsOf` reads them.
+    A line on its own is no fence, so a line opening with three backticks keeps its tags.
     """
     return [found.span() for found in TAG.finditer(blank(text, LINE_SPANS))]
 
@@ -165,10 +129,9 @@ COMMENT_LINE = re.compile(r"^ {0,3}<!--", re.MULTILINE)
 def _comment_blocks(text: str, base: str) -> list[tuple[int, int]]:
     """Where `text` holds an HTML block that a `COMMENT_LINE` opens, read on `base`.
 
-    `base` is `text` with its code blanked to spaces, so a `<!--` in code opens
-    nothing. By CommonMark the block runs to the end of the first line holding
-    `-->`, the opener's own line counting, so `<!-- x --> #a` hides `#a`. One
-    never closed runs to the end of the note.
+    `base` is `text` with code blanked, so a `<!--` in code opens nothing. The block runs
+    to the end of the first line holding `-->`, so `<!-- x --> #a` hides `#a`; one never
+    closed runs to the end of the note.
     """
     blocks: list[tuple[int, int]] = []
     end = 0
@@ -205,17 +168,13 @@ def _blanked(text: str, spans: list[tuple[int, int]], filler: str) -> str:
 def tags_in(text: str) -> list[tuple[int, int]]:
     """Where a whole note holds a tag, as `(start, end)` offsets.
 
-    `GET /api/tags`, the graph and the mentions all read a note's tags here, and
-    the todos read a line's through `line_tags`, so none of them can call a hash
-    a tag that another does not. The frontmatter, HTML comments, the HTML blocks
-    a `<!--` opening a line starts, and code, fenced, indented or inline, are
-    blanked first, the offsets kept.
+    Every reader of tags goes through here or `line_tags`, so none calls a hash a tag that
+    another does not. Frontmatter, comments and code are blanked first.
     """
     body = body_start(text)
     hidden = [(0, body)] if body else []
-    # Most notes hold no fence, comment or indented hash, and for those the
-    # parse `code_spans` makes is skipped: it is most of the time a vault's
-    # tags take.
+    # Most notes hold no fence, comment or indented hash, so the parse is skipped:
+    # it is most of the time a vault's tags take.
     if "```" in text or "~~~" in text or "<!--" in text or INDENTED.search(text, body):
         # The block as spaces, which the parser reads as blank lines, so an
         # indented line under it opens code as it does under a blank line.
@@ -252,9 +211,8 @@ def _spoken(name: str) -> str:
 def project_by_tag(tags: list[str], folders: dict[str, str]) -> str | None:
     """The folder the first `#p/x` in `tags` that names one names, in the order given.
 
-    A tag naming nothing is passed over, as a link to a missing note is: a typo
-    would otherwise make a project nobody made. `#p/x/y` names `x`, a project
-    being one folder deep. `folders` is what `project_folders` makes.
+    A tag naming nothing is passed over, as a link to a missing note is, so a typo does
+    not make a project nobody made. `#p/x/y` names `x`: a project is one folder deep.
     """
     for tag in tags:
         if tag[1:3].lower() != "p/":
@@ -288,9 +246,8 @@ def _link_project(text: str, paths: list[str]) -> str | None:
 def project_folders(paths: list[str]) -> dict[str, str]:
     """Each project folder something is filed in, keyed by the name a `#p/x` tag spells.
 
-    Public because the written notes name a note's project the same way, and a
-    second map would drift from this one. Only folders something is filed in: an
-    empty one is no project to name.
+    Public so the written notes name projects the same way, rather than by a second map
+    that could drift. Only folders with a filed note appear.
     """
     folders: dict[str, str] = {}
     for path in paths:
@@ -303,13 +260,9 @@ def project_folders(paths: list[str]) -> dict[str, str]:
 def projects_of(hits: list[Hit], paths: list[str]) -> list[str | None]:
     """The project of each hit, in the order of `hits`, against the notes in `paths`.
 
-    For a todo, the first of: a `#p/x` tag on it or on the nearest todo it is a
-    part of; the note's project folder; the first link on it into a project;
-    the project of the todo it is a part of. A session line is no todo, so it
-    has none and is no todo's parent.
-
-    A part is a child of the nearest todo above it with a smaller indent, as
-    the editor's `treeOf` reads one, prose between the two ending nothing.
+    For a todo, the first of: a `#p/x` tag on it or on its parent, the note's project
+    folder, the first link into a project, the parent's project. A parent is the nearest
+    todo above with a smaller indent, prose between them or not. A session line has none.
     """
     folders = project_folders(paths)
 

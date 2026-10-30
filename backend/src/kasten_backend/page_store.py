@@ -1,10 +1,8 @@
 """Putting a page of HTML into the vault, over the page already there.
 
-`files.store` for the one file a write may replace: an edition an agent rebuilds
-the same day lands over the first. Two callers, `POST /agent/files/{path}` with
-a `.html` path and the MCP tool `save_file` handed `content`. The cap, the temp
-name and the refusals are `files.py`'s, read off the module at each call so a
-test lowering the cap reaches this too.
+`files.store` for the one file a write may replace: an edition an agent rebuilds the
+same day lands over the first. The cap is read off `files.py` at each call, so a test
+that lowers it reaches here too.
 """
 
 from typing import TYPE_CHECKING
@@ -20,19 +18,15 @@ if TYPE_CHECKING:
 PAGE_HEAD_BYTES = 1024
 """How much of a page's head `looks_like_html` reads for its first `<`.
 
-More than `vault.HEAD_BYTES`, because a page may open on blank lines or indentation
-where a format's magic sits at byte zero.
+More than `vault.HEAD_BYTES`: a page may open on blank lines or indentation.
 """
 
 
 def looks_like_html(head: bytes) -> bool:
     """Whether a page's head opens on a tag, after a UTF-8 byte order mark and blank space.
 
-    The page's stand-in for `ASSET_MAGIC`, and like it a usability check and
-    never a security one: the policy `GET /api/html` serves every page under is
-    what holds a page's script. It catches the mistakes worth catching, a
-    markdown note, a PDF or an empty body sent to a `.html` path. A tag rather
-    than `<!doctype html`, so a fragment of a page still lands.
+    A usability check, never a security one: the policy `GET /api/html` serves pages under
+    is what holds a page's script. A tag, not `<!doctype html`, so a fragment still lands.
     """
     return head.removeprefix(b"\xef\xbb\xbf").lstrip().startswith(b"<")
 
@@ -42,11 +36,9 @@ async def store_page(
 ) -> str:
     """Put the page `chunks` yields at `path`, replacing a page already there.
 
-    `store` for the one file an agent may write twice: an edition rebuilt the
-    same day lands over the first. The cap and the path checks are `store`'s,
-    and the suffix keeps the replace off a note and off a book, which
-    `resolve_html_path` answers for `.html` alone. Every refusal leaves the old
-    page whole, since nothing touches it before the rename.
+    The one file an agent may write twice: an edition rebuilt the same day lands over
+    the first. Every refusal leaves the old page whole, since nothing touches it before
+    the rename.
     """
     page = resolve_html_path(root, path)
     if page is None:
@@ -78,10 +70,8 @@ async def store_page(
         if not looks_like_html(head):
             raise files.RefusedError(400, "That file is not what its name says")
 
-        # A rename and not the link `store` makes, because replacing is the
-        # point. It swaps the whole file in one step, so a reader sees the old
-        # page or the new one and never half of either, and the jj change it
-        # sits in keeps the old one in the vault's history.
+        # A rename, not the link `store` makes, because replacing is the point. A reader
+        # sees the old page or the new one, never half of either.
         try:
             async with vault_write(), vault_change(root, relative):
                 temporary.replace(page)

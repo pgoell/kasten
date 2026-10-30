@@ -1,12 +1,7 @@
 """The `/agent/` routes and the bearer check in front of every one of them.
 
-This prefix is the one Caddy block with no `oauth2_auth`, so the check below is
-the entire trust boundary between a stranger and the vault. It hangs off the
-router's constructor rather than off each route, which makes every route under
-it gated by construction: a route added later cannot forget.
-
-Nothing here decides what a capability does. That is `agent.py`, which the MCP
-tools call too.
+The check hangs off the router's constructor, so every route under it is gated by
+construction. This prefix has no `oauth2_auth` in Caddy: this check is the whole trust boundary.
 """
 
 from typing import TYPE_CHECKING, Annotated, Any
@@ -39,12 +34,8 @@ async def require_token(
 ) -> AsyncIterator[str]:
     """Refuse anyone without a token in the store, and name the one who has it.
 
-    A yield dependency because `vcs.writer` has to be reset. Without the reset
-    the name leaks across requests in an in-process ASGI test, and a browser save
-    following an agent save would be recorded as an agent write.
-
-    Nothing is held between requests, so a revoked token is refused on the very
-    next one rather than when a cache expires.
+    A yield, so `vcs.writer` is reset after each request. Without the reset, a browser
+    save after an agent save would be recorded as an agent write.
     """
     header = request.headers.get("Authorization", "")
     if not header.startswith(BEARER):
@@ -250,9 +241,7 @@ def _written(landed: agent.NoteRead | None) -> agent.NoteRead:
 async def note_changed(_request: Request, error: Exception) -> JSONResponse:
     """Answer a refused write with the digest the caller needs to re-read and retry.
 
-    Registered on the app in `main.py`, an exception handler belonging to the
-    application rather than to a router. The body is the one the MCP tool error
-    carries word for word, so both surfaces refuse in the same words.
+    Registered app-wide in `main.py`. The body is the MCP tool error's text, word for word.
     """
     # Narrowed rather than annotated. Starlette types every handler's second
     # argument as `Exception`, and this one is registered for one class.
@@ -267,10 +256,9 @@ async def too_large(_request: Request, error: Exception) -> JSONResponse:
 
 
 async def refused(_request: Request, error: Exception) -> JSONResponse:
-    """Answer a file or a page refused by `files.py`, with the status it earned.
+    """Answer a file or page refused by `files.py`, with the status it earned.
 
-    Registered on the app, so `POST /api/assets` and `POST /agent/files` refuse
-    in the same words.
+    Registered app-wide, so `POST /api/assets` and `POST /agent/files` refuse alike.
     """
     status = error.status if isinstance(error, files.RefusedError) else 500
 
@@ -280,7 +268,6 @@ async def refused(_request: Request, error: Exception) -> JSONResponse:
 async def nothing_to_capture(_request: Request, error: Exception) -> JSONResponse:
     """Answer a dump handed no words, with the status a malformed body gets.
 
-    Registered on the app, like the two above, so `POST /api/dump` and `POST
-    /agent/dump` refuse in the same words.
+    Registered app-wide, so `POST /api/dump` and `POST /agent/dump` refuse alike.
     """
     return JSONResponse(status_code=422, content={"detail": str(error)})

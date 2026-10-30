@@ -1,7 +1,7 @@
 """The finance tables: accounts, balances, bookings, splits, and what sorts them into categories.
 
-Every table lives in the `finance` schema and is the only copy of what it
-holds: none of it rebuilds from the vault. See docs/explanation/finance-in-postgres.md.
+Every table lives in the `finance` schema and is the only copy of what it holds.
+See docs/explanation/finance-in-postgres.md.
 """
 
 import datetime as dt  # noqa: TC003  SQLAlchemy reads the annotation at runtime
@@ -56,8 +56,7 @@ SIDES = ("in", "out", "both")
 def side_of(kind: str) -> str:
     """The side a rule of a category of this kind sorts.
 
-    An `ignore` rule sorts both, so a work hotel and its reimbursement land in
-    the one category and cancel out.
+    An `ignore` rule sorts both, so a work hotel and its reimbursement land in one category.
     """
     if kind == "income":
         return "in"
@@ -110,18 +109,15 @@ class Category(Base):
     id: Mapped[int] = mapped_column(Identity(), primary_key=True)
     name: Mapped[str] = mapped_column(Text, unique=True)
     kind: Mapped[str] = mapped_column(Text)
-    # An income category whose bookings count for the next month when they land
-    # after the cutoff day. A budget setting, written by `PUT /budget/settings`.
+    # Money in after the cutoff day counts next month. Set by `PUT /budget/settings`.
     salary: Mapped[bool] = mapped_column(server_default=text("false"))
 
 
 class Payee(Base):
     """A counterparty under its cleaned name, with the category its bookings take by default.
 
-    `key` is what bookings are matched by: the counterparty name lowercased,
-    every run of characters that are not letters or digits made one space, and
-    trimmed (`finance_sorting.payee_key`). `name` is the first spelling seen,
-    for showing.
+    `key` is what bookings are matched by: the lowercased name with each run of other
+    characters made one space (`finance_sorting.payee_key`). `name` is the first spelling seen.
     """
 
     __tablename__ = "payee"
@@ -148,18 +144,14 @@ class Rule(Base):
     kind: Mapped[str] = mapped_column(Text)
     pattern: Mapped[str] = mapped_column(Text)
     category_id: Mapped[int] = mapped_column(ForeignKey(Category.id, ondelete="CASCADE"))
-    # Which bookings the rule sorts: `in` (money in) for an income category,
-    # `both` for an ignore category, `out` for any other. Kept from the
-    # category's kind by the routes, so a pattern may name Salary for money in
-    # and Dining for money out.
+    # Which side it sorts: `in`, `out`, or `both` for ignore. The routes set it from the kind.
     side: Mapped[str] = mapped_column(Text)
 
 
 class BalanceSnapshot(Base):
     """The balance the bank reported for an account on one day.
 
-    Stored as the bank said it, never summed from bookings, so a gap in the
-    bookings shows as a mismatch rather than a wrong balance.
+    Stored as the bank said it, never summed, so a gap in the bookings shows as a mismatch.
     """
 
     __tablename__ = "balance_snapshot"
@@ -175,9 +167,7 @@ class Transaction(Base):
 
     __tablename__ = "transaction"
     __table_args__ = (
-        # The source key carries an occurrence index, so two identical bookings
-        # on one day are two keys and both survive, and a job that sends the
-        # same booking again is refused by this and nothing else.
+        # An occurrence index: two identical bookings on one day stay two keys.
         UniqueConstraint("account_id", "source_key", name="transaction_account_source_key"),
         Index("transaction_account_booking_date", "account_id", "booking_date"),
         # The budget finds each transfer's twin by its group; most bookings have none.
@@ -212,8 +202,7 @@ class Transaction(Base):
     )
     transfer_group: Mapped[uuid.UUID | None] = mapped_column(UUID)
     payee_id: Mapped[int | None] = mapped_column(ForeignKey(Payee.id))
-    # No `ondelete`: deleting a category clears its bookings first, both columns
-    # at once, which a `SET NULL` here could not do.
+    # No `ondelete`: deleting a category clears its bookings first, both columns at once.
     category_id: Mapped[int | None] = mapped_column(ForeignKey(Category.id))
     category_set_by: Mapped[str | None] = mapped_column(Text)
 
@@ -226,8 +215,8 @@ class Transaction(Base):
 class TransactionSplit(Base):
     """One part of a booking, such as one item of an order paid in one charge.
 
-    The parts of a booking add up to its amount. The database cannot say so
-    across rows, so `finance.replace_splits` refuses a set that does not.
+    The parts add up to the booking's amount. The database cannot check that across rows,
+    so `finance.replace_splits` does.
     """
 
     __tablename__ = "transaction_split"

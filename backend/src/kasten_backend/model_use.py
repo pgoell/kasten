@@ -1,10 +1,6 @@
 """Write Claude Code, codex and grok tokens and cost per day, model and project into monthly notes.
 
-`python -m kasten_backend.model_use <source> <vault> [--from] [--to] [--config]`
-reads every session file under `<source>`, Claude Code's, codex's and grok's alike, and
-prices each message at the config
-note's rows, and writes the months the days from `--from` to `--to` touch. The
-format is in docs/reference/model-use-format.md.
+The note format is in docs/reference/model-use-format.md.
 """
 
 import argparse
