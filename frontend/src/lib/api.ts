@@ -164,6 +164,22 @@ export async function rankedSearch(query: string, archive = false): Promise<Rank
   return data;
 }
 
+/** The notes nearest one note by meaning, and whether the index has read that note yet. */
+export type SimilarAnswer = components["schemas"]["SimilarAnswer"];
+
+/** Notes like `path`, by the stored vectors of its pieces; the note itself is never one. */
+export async function fetchSimilar(path: string, archive = false): Promise<SimilarAnswer> {
+  const { data, response } = await client.GET("/api/similar", {
+    params: { query: { path, archive } },
+  });
+
+  if (!data) {
+    throw new Error(`GET /api/similar failed with ${response.status}`);
+  }
+
+  return data;
+}
+
 /**
  * A line naming a note in plain words. `start` and `end` count UTF-16 code units, as `slice` does.
  */

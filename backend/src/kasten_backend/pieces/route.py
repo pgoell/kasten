@@ -14,7 +14,7 @@ from kasten_backend.db import get_session
 from kasten_backend.pieces import indexer
 from kasten_backend.pieces.indexer import Indexer  # noqa: TC001  FastAPI reads it at runtime
 from kasten_backend.pieces.models import PieceNote
-from kasten_backend.pieces.ranked import ranked_notes
+from kasten_backend.pieces.ranked import ranked_notes, similar_notes
 from kasten_backend.vault import list_markdown_files
 
 router = APIRouter()
@@ -79,3 +79,40 @@ async def ranked_search(
     found = await ranked_notes(session, query, vector, skip) if query else []
     hits = [RankedHit(path=n.path, heading=n.heading, text=n.text, score=n.score) for n in found]
     return RankedAnswer(hits=hits, meaning=meaning, indexed=indexed, notes=notes)
+
+
+class SimilarAnswer(BaseModel):
+    """The notes nearest one note by meaning, and how much of the index stood behind them."""
+
+    hits: list[RankedHit]
+    """Nearest first; `score` is the cosine similarity of the nearest pair of pieces."""
+    read: bool
+    """Whether the index has read the note yet. False answers no hits."""
+    indexed: int
+    notes: int
+
+
+@router.get("/api/similar")
+async def similar(
+    path: str,
+    settings: Annotated[Settings, Depends(get_settings)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+    running: Annotated[Indexer | None, Depends(get_indexer)],
+    archive: bool = False,
+) -> SimilarAnswer:
+    """Notes like `path`, at most ten, by the stored vectors of its pieces alone.
+
+    Needs no model, so it answers while bge-m3 loads. `archive` takes the
+    archive folder in, as the mentions do.
+    """
+    notes = await asyncio.to_thread(_vault_notes, settings, running)
+    try:
+        indexed = await session.scalar(select(func.count()).select_from(PieceNote)) or 0
+    except ProgrammingError:
+        # No pieces table: a database the migration has not reached.
+        return SimilarAnswer(hits=[], read=False, indexed=0, notes=notes)
+    read = await session.get(PieceNote, path) is not None
+    skip = None if archive else settings.archive_path
+    found = await similar_notes(session, path, skip) if read else []
+    hits = [RankedHit(path=n.path, heading=n.heading, text=n.text, score=n.score) for n in found]
+    return SimilarAnswer(hits=hits, read=read, indexed=indexed, notes=notes)

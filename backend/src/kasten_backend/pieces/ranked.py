@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from sqlalchemy import ColumnElement, Float, Select, func, literal, select, true, tuple_
+from sqlalchemy.orm import aliased
 
 from kasten_backend.pieces.models import Piece
 
@@ -85,6 +86,45 @@ async def _nearest(
     return list(rows.tuples())
 
 
+def _chunk(text: str) -> str:
+    # Drop the title line the indexer put in front for the model.
+    return (text.partition("\n\n")[2] or text)[:SNIPPET]
+
+
+async def similar_notes(
+    session: AsyncSession, path: str, archive: str | None, limit: int = 10
+) -> list[RankedNote]:
+    """The notes whose pieces lie nearest any piece of `path`, nearest first, `path` left out.
+
+    A note scores `1 - cosine distance` of its nearest pair. A note with no pieces has none.
+    """
+    mine = aliased(Piece)
+    distance = func.min(Piece.embedding.cosine_distance(mine.embedding)).label("distance")
+    pairs = (
+        select(Piece.path, Piece.n, distance)
+        .join(mine, mine.path == path)
+        .where(Piece.path != path, _outside(archive))
+        .group_by(Piece.path, Piece.n)
+        .subquery()
+    )
+    best = (
+        select(pairs.c.path, pairs.c.n, pairs.c.distance)
+        .distinct(pairs.c.path)
+        .order_by(pairs.c.path, pairs.c.distance)
+        .subquery()
+    )
+    rows = await session.execute(
+        select(best.c.path, Piece.heading, Piece.text, best.c.distance)
+        .join(Piece, (Piece.path == best.c.path) & (Piece.n == best.c.n))
+        .order_by(best.c.distance, best.c.path)
+        .limit(limit)
+    )
+    return [
+        RankedNote(found, heading, _chunk(text), 1 - distance)
+        for found, heading, text, distance in rows.tuples()
+    ]
+
+
 async def ranked_notes(
     session: AsyncSession,
     query: str,
@@ -118,7 +158,5 @@ async def ranked_notes(
         if path not in pieces:
             continue
         heading, text = pieces[path]
-        # Drop the title line the indexer put in front for the model.
-        chunk = text.partition("\n\n")[2] or text
-        found.append(RankedNote(path, heading, chunk[:SNIPPET], score))
+        found.append(RankedNote(path, heading, _chunk(text), score))
     return found
