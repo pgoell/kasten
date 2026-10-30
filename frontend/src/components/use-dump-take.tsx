@@ -17,13 +17,9 @@ export interface Taking extends ToastTaking {
 }
 
 /**
- * The one dump write path of a take out of a vault page, whichever pane it
- * comes from: kept on the device, sent by the outbox, undone out of the daily
- * note if it landed, and put into a note of the reader's choice.
- *
- * `onMarked` is called once the words are safe on the device, which is the only
- * point at which the selection may be called taken. `onUnmarked` is called when
- * the take's Undo has taken the dump line back out. Each is given the take's id.
+ * The one dump write path for a take out of a vault page. `onMarked` fires once the words are
+ * safe on the device, the only point the selection may be called taken. `onUnmarked` fires when
+ * Undo takes the dump line back out.
  */
 export function useDumpTake(o: {
   archive: boolean;
@@ -31,11 +27,8 @@ export function useDumpTake(o: {
   onUnmarked: (id: number) => void;
 }): {
   /**
-   * Keep it on the device, mark it (onMarked) once kept, send it, show the toast.
-   * A take the pane forgot (a new document came meanwhile) is still kept and sent,
-   * but it is not marked and gets no toast. A failure to keep still shows its
-   * error, and then returns true, so the pane does not hold the old passage over
-   * the new document. Otherwise false when it was not kept; the toast says why.
+   * Keep the take on the device, mark it, send it and toast. Returns true after a failed keep too,
+   * so the pane does not hold the old passage over a new document; false when it was not kept.
    */
   take(taking: Taking): Promise<boolean>;
   /** Drop the toast (a new document in the pane). */

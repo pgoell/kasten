@@ -31,11 +31,8 @@ interface VideoPaneProps {
    */
   playSignal?: number;
   /**
-   * Called with where the player got to, whenever it stops.
-   *
-   * The pane cannot write it: the note is somebody's open buffer and this pane
-   * is not it. The route takes the number from here and puts it where a note
-   * that is open can take it without losing what you have typed.
+   * Called with where the player stopped. The pane cannot write it, since the note is another buffer.
+   * The route writes it where an open note can take it.
    */
   onWatched: (id: string, seconds: number) => void;
   /** Whether the recent notes list of the take toast includes archived notes. */
@@ -54,16 +51,8 @@ function plain(value: string | undefined): string | undefined {
 }
 
 /**
- * The video a note is about, playing beside the note.
- *
- * The point of the pane is that it is a pane: the player keeps its place while
- * the note scrolls under your typing, which an embed drawn into the note itself
- * cannot do. Everything that makes that work is the layout's already,
- * `<leader>l` to reach it and `<leader>q` to put it away.
- *
- * The note is the source of truth and this never writes to it, the way the exam
- * pane reads its note. The read shares the editor's own query, so opening the
- * player beside a note already on screen fetches nothing.
+ * The video a note is about, playing beside the note. The note is the source of truth and this
+ * never writes to it. The read shares the editor's query, so it fetches nothing new.
  */
 export function VideoPane({
   note,
@@ -123,13 +112,8 @@ export function VideoPane({
   });
 
   /**
-   * The URL the frame was given, held rather than recomputed.
-   *
-   * It has to be held. The position is written back into the note, so the note
-   * changes while you watch, and a URL derived from the note on every render
-   * would carry a new `start=` each time and remount the frame under you. The
-   * position is a place to open at, read once, and the player owns where it is
-   * after that.
+   * The frame's URL, held rather than recomputed: the position is written back into the note, so a
+   * derived URL would remount the frame on each write.
    */
   const opened = useRef<{ id: string; url: string }>(null);
   /** A second asked for by a switch to this video, which its next open takes in place of the remembered one. */

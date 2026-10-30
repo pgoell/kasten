@@ -10,11 +10,8 @@ import { useReviewLimits } from "@/lib/review/use-review-limits";
 import { useEntrance } from "@/lib/stagger";
 
 /**
- * The decks unfolded by hand, per browser.
- *
- * The open ones and not the folded ones, because folded is where every deck
- * below the top level starts: an imported Anki tree of two hundred subdecks
- * would otherwise open as two hundred rows.
+ * The decks the user unfolded by hand, per browser. Only the open ones are kept,
+ * since every deck below the top level starts folded.
  */
 const FOLDS_KEY = "kasten.review.folds.1";
 
@@ -75,11 +72,7 @@ interface ReviewDecksProps {
 
 /**
  * Every deck the vault holds, and how much of each is waiting.
- *
- * The scan says which notes are decks, and then each of those is read whole: a
- * vault of forty deck notes costs one `rg` pass and forty GETs. The counts are
- * worth that because they come off `parseCards`, the parser the sitting asks
- * from, so a deck can never promise a card its sitting will not ask.
+ * The counts come off `parseCards`, the parser the sitting asks from, so a deck never promises a card its sitting will not ask.
  */
 export function ReviewDecks({ onPick, onParked, archive = false }: ReviewDecksProps) {
   const [unfolded, setUnfolded] = useState(readUnfolded);

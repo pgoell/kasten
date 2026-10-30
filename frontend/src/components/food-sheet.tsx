@@ -1,9 +1,6 @@
 /**
- * The food search in the shared sheet: the right panel with a scrim on a desktop,
- * the bottom sheet on a phone. One host per owner, kept inside the owner's DOM
- * so the sheet is positioned against it. The panel element is moved in once and
- * reused, never rebuilt, so a redraw or a tap while the sheet is open keeps its
- * query, its serving and its focus.
+ * The food search sheet: a side panel on desktop, a bottom sheet on a phone.
+ * The panel is moved in once and never rebuilt, so a redraw keeps its query and focus.
  */
 
 import type { Extension } from "@codemirror/state";

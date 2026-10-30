@@ -10,15 +10,8 @@ interface TodoHintsProps {
 }
 
 /**
- * The fields a todo has not got yet, each a press away.
- *
- * Under the input rather than over it: in the pane the row is one line of a
- * list, and a panel floating above the rows below it would cover the work it is
- * about. Tab reaches the buttons in the order they are drawn, Enter takes the
- * one it is on, and a click does the same, so this needs no keys of its own.
- *
- * The editor has no need of it, CodeMirror drawing its own completion list off
- * the same answers.
+ * The fields a todo has not got yet, as buttons under the input rather than over it,
+ * so they do not cover the rows. Tab and Enter work on them with no keys of their own.
  */
 export function TodoHints({ found, line, onTake }: TodoHintsProps) {
   if (found === null) return null;

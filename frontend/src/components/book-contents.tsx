@@ -2,22 +2,17 @@ import { useEffect, useRef, useState } from "react";
 import { HEADER_ROW, LABEL, PANEL, ROW, STATUS } from "@/lib/overlay-styles";
 
 /**
- * The dark sheet, over the pane rather than over the window.
- *
- * `BACKDROP` with `absolute` for `fixed` and `p-4` for `pt-[15vh]`: the reader
- * sits beside a note you are meant to keep seeing, and `15vh` of a window is
- * the wrong measure once the sheet is the size of a pane.
+ * The dark sheet, over the pane rather than the window. `absolute` and `p-4` stand in
+ * for `fixed` and `pt-[15vh]`: `15vh` of a window is the wrong measure once the sheet
+ * is only the size of a pane.
  */
 const SHEET =
   "absolute inset-0 z-10 flex items-start justify-center bg-black/50 p-4 focus:outline-none";
 
 /**
- * The panel, bounded by the pane it sits in.
- *
- * Not `PANEL_NARROW`, which measures itself against the viewport
- * (`overlay-styles.ts:29`) and would draw wider than a narrow pane and spill
- * over the note. `max-h-full` keeps it inside the sheet, the pane's wrapper
- * hiding no overflow of its own.
+ * The panel, bounded by the pane it sits in. Not `PANEL_NARROW`, which measures the
+ * viewport and would spill over the note in a narrow pane. `max-h-full` keeps it
+ * inside the sheet.
  */
 const CONTENTS_PANEL = `${PANEL} w-full max-w-[36rem] max-h-full`;
 
@@ -27,11 +22,9 @@ const CONTENTS_LIST = "min-h-0 flex-1 overflow-auto py-1";
 /** As much of foliate's own toc item as the walk reads. */
 export interface TocItem {
   /**
-   * Stamped on the item by foliate's `assignIDs` (`progress.js:2-10`), which
-   * `TOCProgress.init` runs over the very array `book.toc` holds. So this is
-   * the same number `lastLocation.tocItem` hands back, and it is what the
-   * cursor's starting row is found by. A label or an href could not do the job:
-   * a book is free to repeat either.
+   * Stamped by foliate's `assignIDs` on the array `book.toc` holds, and the same number
+   * `lastLocation.tocItem` returns. The cursor's starting row is found by it, since a
+   * book may repeat a label or an href.
    */
   id?: number;
   label?: string | null;
@@ -50,16 +43,10 @@ export interface TocRow {
 }
 
 /**
- * The publisher's contents as one flat list, in reading order.
- *
- * A depth-first walk, which is what `flatten` in `progress.js:12-16` does with
- * the same tree, written out here because that function is module-local.
- *
- * An entry the book named nowhere and labelled nothing gets no row, and its
- * children still get theirs at the depth they were found at: the nav parser
- * answers that shape for an `<li>` holding only a nested `<ol>`
- * (`epub.js:318-328`), so pruning there would take a whole part of the book off
- * the list.
+ * The publisher's contents as one flat list, in reading order. A depth-first walk,
+ * written here because `flatten` in `progress.js` is module-local. A nameless entry
+ * gets no row, but its children keep theirs at their depth: pruning the parent would
+ * drop a whole part of the book.
  */
 export function tocRows(toc: TocItem[] | null | undefined): TocRow[] {
   const rows: TocRow[] = [];
@@ -88,12 +75,9 @@ interface BookContentsProps {
 }
 
 /**
- * The book's chapters over the page, walked with `j`, `k`, Enter and Escape.
- *
- * A component of its own rather than markup inside the pane, because none of
- * what it decides has anything to do with foliate: it is an array and a cursor.
- * There is nothing to type, so the dialog itself takes the focus, which is also
- * what pulls the cursor out of the book's iframe and lets `j` reach React.
+ * The book's chapters over the page, walked with `j`, `k`, Enter and Escape. A component
+ * of its own: what it decides is an array and a cursor, with nothing to type. The dialog
+ * takes the focus, which pulls the cursor out of the book's iframe so `j` reaches React.
  */
 export function BookContents({ rows, start, onGo, onClose }: BookContentsProps) {
   const [active, setActive] = useState(start);

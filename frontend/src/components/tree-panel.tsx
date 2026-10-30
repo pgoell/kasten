@@ -82,13 +82,8 @@ interface TreePanelProps {
 }
 
 /**
- * The panel the file tree sits in, which folds away to a narrow rail.
- *
- * Below `md` the panel is a drawer over the page instead: 256px beside a note
- * leaves 134px of a phone for the note. The rail stays in the row either way,
- * so the page under the drawer does not move when it opens. A phone draws no
- * rail at all: the toolbar along its bottom edge opens the drawer, and 45px
- * of rail is an eighth of the note's width.
+ * The panel the file tree sits in. Below `md` it is a drawer over the page, since a 256px panel
+ * would leave a phone 134px of note. The rail stays in the row, so the page does not move when it opens.
  */
 export function TreePanel({ open, onOpenChange, onNewNote, children }: TreePanelProps) {
   const { narrow, coarse } = useViewport();

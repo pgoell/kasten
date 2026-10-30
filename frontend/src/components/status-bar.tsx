@@ -29,16 +29,8 @@ const SAVE_FIX: Partial<Record<SaveStatus, string>> = {
 };
 
 /**
- * The same two ways out as buttons, under the sentence that names them.
- *
- * A phone has no ex prompt to type `:w` at: vim is off under a finger, and on
- * it has no Escape to reach normal mode with. The palette's `Write the note`
- * row lists only over a focused editor, and the tap that opened this sentence
- * took the focus off it.
- *
- * `:e!` is the same call under both readings but not the same loss: after a
- * conflict it gives up your text for somebody else's, after a failed write
- * it gives up text the vault never saw. The button names what goes.
+ * The same two ways out as buttons, for a phone with no ex prompt. The drop names what goes:
+ * your text after a conflict, text the vault never saw after a failed write.
  */
 const SAVE_ACTIONS: Partial<Record<SaveStatus, Record<"write" | "takeVault", string>>> = {
   error: { write: "Write my text", takeVault: "Drop my text" },
@@ -77,16 +69,8 @@ function noteName(path: string) {
 }
 
 /**
- * What is running, which is one reading in production and two in development.
- *
- * Production ships the three images under one release tag, so the backend's
- * version is the whole answer and no bundle carries a commit. Development
- * moves them separately: uvicorn reloads the tree under it, while the bundle in
- * front of you was stamped when the dev server last started, so a tab left open
- * across a rebase says so here rather than by behaving strangely.
- *
- * The shell is not in it. That container reports to nobody, and stamping it
- * would be a route of its own for a service you look at rather than through.
+ * Production ships one release tag, so the backend's version answers alone. Development also shows
+ * the bundle, since a tab left open across a rebase can run older code than the backend.
  */
 function Version({ backend }: { backend: string }) {
   return (
@@ -107,63 +91,32 @@ interface StatusBarProps {
   /** What the vault answered a failed write with, shown under the reading. */
   reason?: string;
   /**
-   * Raised each time a key was refused, which flashes the reading below.
-   *
-   * The number itself says nothing; that it changed is the whole message. The
-   * element is keyed on it, so a fresh one replaces the old and starts the
-   * animation again. That is what keeps the timing in CSS and out of here:
-   * nothing to schedule, nothing to clear, and no timer left running when the
-   * bar unmounts.
+   * Raised on each refused key. Only that it changed matters: the element is keyed on it, so each
+   * change mounts a fresh element and restarts the CSS animation, with no timer to clear.
    */
   flash?: number;
   /**
-   * Whether the archive is in what the four lookups answer with.
-   *
-   * Shown because it is a mode, and a mode with nothing on screen saying so is
-   * the one you forget you are in: a note missing from the finder would read as
-   * a note missing from the vault. It sits in the left column, which the layout
-   * has always kept empty for the save ring's sake.
+   * Shown because a mode with nothing on screen is the one you forget you are in. A note missing
+   * from the finder would otherwise read as missing from the vault.
    */
   archive?: boolean;
-  /**
-   * One sentence about something that just failed, or nothing to say.
-   *
-   * Not `reason`, which belongs to the save: that one is tied to `status` and
-   * is carried only in the save element's `title`. This is for a failure with
-   * no ring to hang off, an upload above all, and the left column is where it
-   * fits because the footer is mounted whatever the focused pane holds.
-   */
+  /** One sentence about a failure with no save sign to hang off, such as an upload. */
   notice?: string;
-  /**
-   * What the backend answered for itself, and nothing until it has.
-   *
-   * A prop rather than a lookup of its own: the bar is rendered bare in its
-   * tests and holds no query client, and the route already owns every other
-   * call the footer draws from.
-   */
+  /** What the backend answered for itself. A prop, since the bar holds no query client. */
   version?: string;
   /**
-   * Whether the tab is drawn as one pane over the rest of them.
-   *
-   * Shown for the reason `archive` is: it is a mode, and a zoomed tab holding
-   * four panes looks exactly like a tab holding one. Without a word here the
-   * direction keys would read as broken rather than as having nowhere to go.
+   * Shown because a zoomed tab of four panes looks like a tab of one. Without a word here the
+   * direction keys would read as broken.
    */
   zoom?: boolean;
   /**
-   * Which pane of how many is drawn, as "1/2", where only one of them is.
-   *
-   * A narrow window draws a tab's focused pane alone, and unlike a zoom nobody
-   * asked for that, so a split looks exactly like a single note. Absent
-   * wherever every pane is on screen to be counted.
+   * "1/2" where only one pane is drawn. A narrow window draws one pane unasked, so a split would
+   * otherwise look like a single note.
    */
   pane?: string;
   /**
-   * Whether the explorer drawer is open over the page.
-   *
-   * The bar is under the backdrop then. Tab never landed here, nothing in
-   * the bar being in the tab order; this takes it away from a screen reader,
-   * which would otherwise read out a page the sheet has covered.
+   * Set while the explorer drawer covers the page. Takes the bar out of the tab order and away
+   * from a screen reader, which would otherwise read the covered page.
    */
   inert?: boolean;
   /**
@@ -174,24 +127,13 @@ interface StatusBarProps {
    */
   foot?: boolean;
   /**
-   * The notes other than the open one whose text the vault refused, each with
-   * what it answered.
-   *
-   * Apart from `status`, which speaks for the open note alone. That text is
-   * kept until it is written or dropped, and leaving its note is no reason to
-   * stop saying so: a save in the next note says nothing about the last.
-   *
-   * A `conflicted` one was left standing "Changed on disk" rather than refused,
-   * and is listed apart: its way out is a choice between two texts, not a retry.
+   * Other notes whose text the vault refused, each with its reason. Kept until written or dropped,
+   * even after leaving the note. A `conflicted` one is listed apart, since its way out is a choice.
    */
   held?: readonly HeldNote[];
   /**
-   * The vault's text and the reader's, for the open note standing conflicted.
-   *
-   * A function and not the two strings: the route would have to read the
-   * buffer on every render to pass them, and they are wanted only while the
-   * detail is open on a conflict. Read then, each render, so the diff follows
-   * the reader's edits toward a merge.
+   * The vault's text and the reader's, for a conflicted open note. A function, so the route does
+   * not read the buffer on every render. Read each render, so the diff follows the edits.
    */
   conflict?: () => { vault: string; mine: string } | undefined;
   /** Write the buffer over the vault, which is `:w`. */

@@ -21,12 +21,9 @@ import type { ReviewSource } from "@/lib/review/periodic-review";
 import type { CycleHandler } from "@/lib/todo/todo-commands";
 
 /**
- * Whether nobody on the page holds the focus.
- *
- * The editor takes it in that case and only that case. The file tree and the
- * key map panel are focusable too, and neither is the editor's to take: opening
- * a note from the tree remounts the editor, and grabbing the focus there would
- * end a walk down the tree after the first note.
+ * Whether nobody on the page holds the focus. The editor takes it only then:
+ * the tree and key map are focusable too, and a remount on opening a note
+ * there would end a walk down the tree after the first one.
  */
 function nothingFocused(): boolean {
   const active = document.activeElement;
@@ -48,20 +45,14 @@ interface EditorProps {
   /** Whether markdown is rendered. Held by the route, so it outlives a remount. */
   preview?: boolean;
   /**
-   * Every note in the vault, for completing a `[[` and for telling a link to a
-   * note that exists from one to a note that does not.
-   *
-   * Absent means the listing is not known here, which is not the same as an
-   * empty vault: nothing is offered and no link is called dead.
+   * Every note in the vault, for completing a `[[` and for spotting dead links.
+   * Absent means the listing is not known here, which is not an empty vault.
    */
   paths?: string[];
   /**
-   * Every image in the vault, for completing the path in an open `![](`.
-   *
-   * Absent offers nothing, the way an absent `paths` does. Its own list because
-   * an image is not a note: it is never linked to with `[[`, and a note that
-   * does not exist yet is an invitation where an image that does not exist yet
-   * is a mistake.
+   * Every image in the vault, for completing the path in an open `![](`. Its own
+   * list: an image is never linked with `[[`, and a missing image is a mistake
+   * where a missing note is only an invitation.
    */
   images?: string[];
   /**
@@ -72,19 +63,14 @@ interface EditorProps {
    */
   tags?: string[];
   /**
-   * Every relation name the vault's ontology note lists, for completing one.
-   *
-   * Its own list beside the other three, and absent offers nothing the way
-   * theirs does. Read off a note in the vault, so the vocabulary is edited by
-   * editing that note, not by shipping a release.
+   * Every relation name the ontology note lists, for completing one. Read off that
+   * note, so editing it changes the vocabulary without a release.
    */
   relations?: string[];
   /**
-   * Line to open on, counting from one. Absent starts at the top.
-   *
-   * Not folded into `initialDoc`'s read-once rule: a second search hit can
-   * name another line of the note already open, and that moves the cursor
-   * without rebuilding anything.
+   * Line to open on, counting from one. Absent starts at the top. Not folded into
+   * `initialDoc`'s read-once rule: a second search hit can name another line of the
+   * note already open, and that moves the cursor without a rebuild.
    */
   startLine?: number;
   /**
@@ -93,41 +79,25 @@ interface EditorProps {
    */
   jump?: number;
   /**
-   * Raised when the app wants this editor to take the focus, and 0 while it
-   * does not.
-   *
-   * A counter and not a flag, the way the file tree's is: moving to a pane and
-   * back is two requests for the focus and both have to read as a change. The
-   * route raises it for a key that moved the focus and leaves it alone for a
-   * click, which has already put the focus where it belongs.
+   * Raised when the app wants this editor to take the focus; 0 while it does not.
+   * A counter, not a flag: moving to a pane and back are two requests that must both
+   * read as a change. The route raises it for a key, not for a click.
    */
   focusSignal?: number;
   /**
-   * A video position to put in this note's frontmatter, or absent for none.
-   *
-   * Into the buffer and not into the vault. The note this belongs to is almost
-   * always the pane you are typing in, and a write that read the vault's copy
-   * and saved it back would put your unsaved paragraph on the floor. An edit to
-   * the buffer is an edit like any other: the autosave carries it out the way
-   * it carries out a sentence you typed.
+   * A video position for this note's frontmatter, or absent for none. Written into
+   * the buffer, not the vault: the vault's copy would overwrite your unsaved text.
    */
   mark?: { id: string; seconds: number };
   /**
-   * Whether the pane this sits in is the focused one.
-   *
-   * Read only on the way back into the tab, below. Every pane mounts one of
-   * these, so without it they all race for the focus and the winner is
-   * arbitrary.
+   * Whether the pane this sits in is the focused one. Every pane mounts one of these,
+   * so without this check they all race for the focus.
    */
   focused?: boolean;
   /**
-   * Asked immediately before the vault's text goes in, and can refuse.
-   *
-   * The buffer picks up unsaved text of its own between the vault reporting a
-   * write and the read of it arriving here, so whoever holds that text is asked
-   * at the last moment rather than the first, and handed the text so it can
-   * tell a write of its own from somebody else's. Absent means nobody is
-   * holding any, which is what an editor with no note behind it is.
+   * Asked just before the vault's text goes in, and can refuse. The buffer may pick
+   * up unsaved text between the vault's write and this read, so the holder is asked
+   * at the last moment. Absent means nobody holds any.
    */
   allowReload?: (text: string) => boolean;
   /**
@@ -151,11 +121,8 @@ interface EditorProps {
   /** The note this holds, which tells today's own note from every other. */
   path?: string;
   /**
-   * How a `![[note]]` reads the note it draws and opens it.
-   *
-   * Absent draws every embed as its source, the way an absent `paths` calls no
-   * link dead: a view nobody told how to read the vault cannot say a note is
-   * missing. Read at mount for whether there is one, through the ref after.
+   * How a `![[note]]` reads the note it draws and opens. Absent draws every embed as
+   * its source, so a view told nothing cannot call a note missing.
    */
   embeds?: EmbedSource;
   /** What a periodic note's review block reads with. Absent, no block is drawn. */
@@ -180,11 +147,8 @@ interface EditorProps {
 }
 
 /**
- * A CodeMirror 6 markdown editor.
- *
- * The EditorView owns the document. Never mirror the text into React state:
- * re-rendering the tree on every keystroke is where CodeMirror-in-React
- * performance dies.
+ * A CodeMirror 6 markdown editor. The EditorView owns the document: never mirror
+ * the text into React state, or every keystroke re-renders the tree.
  */
 export function Editor({
   initialDoc,
@@ -219,17 +183,12 @@ export function Editor({
   const host = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const leaving = useContext(Leaving);
-  // The position's writer, kept so a view that was taken off the page can be
-  // watched again when it comes back before it is taken down.
+  // The position's writer, kept so a view taken off the page can be watched again.
   const positionRef = useRef<ReturnType<typeof notePosition> | null>(null);
   const detachRef = useRef<(() => void) | null>(null);
   const vimOn = useVim();
-  // What the view was last configured with, which the mount reads and the
-  // toggle below compares against.
   const vimOnRef = useRef(vimOn);
-  // Every prop lives in a ref so the mount effect depends on nothing. Rebuilding
-  // the view throws away undo history and cursor position, so it must happen
-  // exactly once: to open a different note, remount with a `key`.
+  // The mount runs once: rebuilding would throw away undo history and the cursor.
   const initialDocRef = useRef(initialDoc);
   const startLineRef = useRef(startLine);
   const focusedRef = useRef(focused);
@@ -238,8 +197,7 @@ export function Editor({
   const imagesRef = useRef(images);
   const tagsRef = useRef(tags);
   const relationsRef = useRef(relations);
-  // The callbacks the view calls, held in one ref the view reads at the moment
-  // it calls one, so a re-render never has to rebuild the view to refresh one.
+  // Read when the view calls, so a re-render never rebuilds the view to refresh one.
   const latest = useRef<NoteViewLatest>({
     commands,
     onChange,
@@ -258,9 +216,7 @@ export function Editor({
     onSeek,
   });
 
-  // Skipped while leaving, so the view on its way out calls nothing: the
-  // callbacks it would reach are the new note's. Back on screen, the deps
-  // include `leaving`, so they are put back in.
+  // Not while leaving: the view on its way out must not reach the new note's callbacks.
   useEffect(() => {
     if (leaving) return;
     latest.current = {
@@ -303,13 +259,10 @@ export function Editor({
     const parent = host.current;
     if (!parent) return;
 
-    // Where this note was left, unless the open names a line: a search hit or
-    // a URL says where to read, and the effect further down puts the cursor
-    // there. Read and not restored only to be moved, which would scroll twice.
+    // Restored only when the open names no line: a named one moves the cursor, and a
+    // restore too would scroll twice.
     const position = notePosition(path, startLineRef.current !== undefined);
-    // The text as CodeMirror holds it, which is not the string handed in when
-    // that has `\r\n` line ends: the editor keeps a `\n` alone, and every
-    // offset below counts in its text.
+    // CodeMirror holds the text with `\r\n` folded to `\n`, so offsets count its text.
     const doc = EditorState.create({ doc: initialDocRef.current }).doc;
 
     const view = createNoteView({
@@ -329,12 +282,8 @@ export function Editor({
       position: position.listener,
     });
     viewRef.current = view;
-    // A freshly loaded page focuses nothing, and the first thing typed at it
-    // goes nowhere. The editor is what the page is for, so it takes the focus.
-    // Not after a tap on a phone, for the reason the signal below gives. Only
-    // the focused pane's, as on the way back into the tab: a restored tab
-    // mounts every pane at once, and the first to mount would take the focus,
-    // which the route follows to that pane and which turns its zoom off.
+    // A fresh page focuses nothing, so the first keystroke goes nowhere: take the focus.
+    // Only the focused pane, and not after a phone tap: see the signal below.
     if (focusedRef.current && !keyboardUnasked() && nothingFocused()) view.focus();
 
     positionRef.current = position;
@@ -345,25 +294,15 @@ export function Editor({
       viewRef.current = null;
       view.destroy();
     };
-    // The path alone, because a facet holds the value it was built with and
-    // this is the one that carries one. It never fires twice: `note-editor.tsx`
-    // keys this component on the path, so a second note is a second view.
+    // Path alone: note-editor.tsx keys this view on it, so the effect never fires twice.
   }, [path]);
 
-  // Leaving is kept on the page for a task after the next frame, and the view
-  // in it must not touch the note the new tab shows. So its callbacks go, and
-  // its cursor and scroll are written now: a new editor of the same note, in
-  // the tab that just opened, reads them in its mount effect.
-  //
-  // The focus goes too, so the new editor can take it (`nothingFocused` in
-  // editor.tsx). A view that comes back before it is taken down watches its
-  // position again.
+  // Leaving keeps this view a task longer, so it drops its callbacks and writes its
+  // cursor and scroll now for the new editor to read (`nothingFocused` in editor.tsx).
   useLayoutEffect(() => {
     const view = viewRef.current;
     if (!leaving) {
-      // A new position, not the one the view was made with: that one has shown its
-      // scroll already, so its `reveal` would do nothing. This one reads what the
-      // leave just wrote and puts the scroll back once the pane has its size again.
+      // A new position: the made one has shown its scroll already, so its reveal does nothing.
       if (view && detachRef.current === null) {
         const position = notePosition(path, false);
         positionRef.current = position;
@@ -377,8 +316,7 @@ export function Editor({
     if (view?.hasFocus) view.contentDOM.blur();
   }, [leaving, path]);
 
-  // The setting moved, in this pane or another. The cursor, the text and the
-  // undo history all stay.
+  // Reconfigure, do not rebuild: a rebuild would lose the cursor and the undo history.
   useEffect(() => {
     if (vimOnRef.current === vimOn) return;
     vimOnRef.current = vimOn;
@@ -386,42 +324,25 @@ export function Editor({
     if (view) setVim(view, vimOn);
   }, [vimOn]);
 
-  // Declared after the mount effect so the view exists by the time this runs,
-  // which is what lets one effect serve both cases: opening a note on a line,
-  // and moving to another line of the note already open.
+  // Declared after the mount effect, so the view exists by the time this runs.
   // biome-ignore lint/correctness/useExhaustiveDependencies: `jump` is the trigger and not read. A second open at the same line is what moves the cursor back to it.
   useEffect(() => {
     const view = viewRef.current;
     if (!view || startLine === undefined) return;
 
-    // The note can be edited between a scan finding the line and a click
-    // opening it, and CodeMirror throws on a line past the end rather than
-    // clamping, so a stale hit would take the editor down with it.
+    // The note can shrink between a scan and a click, and CodeMirror throws past its end.
     const { doc } = view.state;
     const line = doc.line(Math.min(startLine, doc.lines));
     view.dispatch({
       selection: { anchor: line.from },
-      // Centred rather than merely brought on screen: a match landing hard
-      // against the top or bottom edge is a match you cannot read around.
+      // Centred, so a match at an edge is not one you cannot read around.
       effects: EditorView.scrollIntoView(line.from, { y: "center" }),
     });
   }, [startLine, jump]);
 
-  // The vault is the source of truth, so text written to the open note by an
-  // agent or an ssh session belongs on screen. One transaction and not a
-  // remount: `key={path}` above only changes when another note is opened, and
-  // rebuilding here would throw away the undo history and the cursor over an
-  // edit the reader did not make.
-  //
-  // The guard is asked here and not when the vault reported the write, because
-  // the two are not the same moment: the read takes a round trip, and the
-  // reader can type into a buffer that was clean when it went out. It is handed
-  // the text, so the answer to a write of our own can be told from somebody
-  // else's and only one of the two is worth reporting.
-  // Not while leaving: the view on its way out has no `allowReload` to ask, and a
-  // missing one counts as allowed, which would put the vault's text over the held
-  // text it still shows. Back on screen it takes the vault's text then, asking
-  // the refreshed callbacks (the refresh effect above runs first).
+  // Vault text written to the open note elsewhere goes in as one transaction, not a remount,
+  // so undo history and the cursor survive. The guard is asked here, not at the write,
+  // since the reader may have typed since. Not while leaving: a missing allowReload counts as allowed.
   useEffect(() => {
     const view = viewRef.current;
     if (!view || reloadDoc === undefined || leaving) return;
@@ -429,21 +350,13 @@ export function Editor({
     takeVaultText(view, reloadDoc, latest.current.allowReload);
   }, [reloadDoc, leaving]);
 
-  // Runs on mount as well as on every raise, which is what a freshly split pane
-  // needs: it is created focused, and its first render is the only chance it
-  // gets to say so. A pane that is not the focused one is handed 0 and stays put.
-  //
-  // Not after a tap on a phone, where the focus is what raises the on-screen
-  // keyboard: a tap that moved to a pane or opened a note did not ask to type
-  // in it, and half the screen would go to keys nobody reached for. A tap on
-  // the text does ask. An editor that already holds the focus keeps it either
-  // way. `keyboardUnasked` says why a wide touch screen is left out.
+  // Also on mount: a freshly split pane is created focused, and its first render is its one chance.
+  // Not after a phone tap, which would raise the on-screen keyboard for a tap that did not ask.
   useEffect(() => {
     if (focusSignal && !keyboardUnasked()) viewRef.current?.focus();
   }, [focusSignal]);
 
-  // A position, written where the note keeps them. `mark` is a new object per
-  // report, so this fires once per stop rather than once per render.
+  // `mark` is a new object per report, so this fires once per stop, not once per render.
   useEffect(() => {
     const view = viewRef.current;
     if (mark === undefined || view === null) return;
@@ -451,17 +364,11 @@ export function Editor({
     writeWatched(view, mark);
   }, [mark]);
 
-  // Coming back to the tab lands on the body when the page had nothing focused
-  // when you left it, and the cursor is dead again until you click.
-  //
-  // Only the focused pane's editor revives itself. Every pane mounts one of
-  // these and they would otherwise all race, which is invisible between two
-  // notes and wrong beside a terminal: a terminal pane loses every time, and
-  // the shell then drops every key until you click back into it.
+  // Coming back to the tab lands on the body if nothing was focused, and the cursor is dead.
+  // Only the focused pane revives itself: the rest would race, and a terminal loses and drops keys.
   useEffect(() => {
     function onWindowFocus() {
-      // Nor on a phone that was last tapped: coming back to the tab is not
-      // asking to type either.
+      // Nor on a phone that was last tapped: coming back to the tab is not asking to type.
       if (focused && !keyboardUnasked() && nothingFocused()) viewRef.current?.focus();
     }
 
@@ -469,11 +376,8 @@ export function Editor({
     return () => window.removeEventListener("focus", onWindowFocus);
   }, [focused]);
 
-  // Swapping the extension out is all this takes: the same `livePreview()`
-  // pieces come back by identity, so nothing below them is rebuilt. The view is
-  // built with this preview already, so the mount skips it: a reconfigure there
-  // would carry a scroll snapshot taken before the open centred its line, and
-  // that snapshot would put the note back at the top (#950).
+  // Swapping the extension keeps the same `livePreview()` pieces, so nothing below is rebuilt.
+  // The mount skips it: a reconfigure would carry a scroll taken before the open centred (#950).
   useEffect(() => {
     if (renderedRef.current === rendered) return;
     renderedRef.current = rendered;
@@ -481,13 +385,8 @@ export function Editor({
     if (view) setPreview(view, rendered);
   }, [rendered]);
 
-  // A note written elsewhere is a link in this note that has just come to life,
-  // so the listing goes in whenever the route hands over a new one. The images,
-  // the tags and the relation names ride along in the same compartment: all four
-  // are the vault saying what it holds.
-  //
-  // The view is built with the listings of its first render, so the mount skips
-  // them: a reconfigure there costs a phone a full style pass over the new note (#972).
+  // A new note in the vault makes a link live, so the listings go in whenever the route hands one over.
+  // The mount skips them: a reconfigure there costs a phone a full style pass (#972).
   const listedRef = useRef({ paths, images, tags, relations });
   useEffect(() => {
     const listed = listedRef.current;

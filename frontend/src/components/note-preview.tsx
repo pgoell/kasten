@@ -31,13 +31,7 @@ interface NotePreviewProps {
 /** Paints the line a search hit sits on, so the eye lands on it. */
 const HIT = Decoration.line({ class: "cm-searchHit" });
 
-/**
- * A cloze gap, `\[...\]` or `\[hint\]`, marked over its text rather than replaced.
- *
- * A mark and not a widget, so the brackets stay in the DOM where the text reads
- * them. The escapes are the ones `clozeQuestion` writes, which the preview would
- * otherwise read as a link.
- */
+/** A cloze gap, marked over its text: a mark, not a widget, so the brackets stay in the DOM. */
 const GAP = Decoration.mark({ class: "review-gap", attributes: { "data-gap": "" } });
 const gapFinder = new MatchDecorator({ regexp: /\\\[.*?\\\]/g, decoration: GAP });
 const GAPS = ViewPlugin.fromClass(
@@ -56,16 +50,8 @@ const GAPS = ViewPlugin.fromClass(
 );
 
 /**
- * A note, rendered the way the editor renders it, with nothing to type into.
- *
- * The same decorations the editor mounts, so the pane shows the note as
- * opening it will show it rather than as a second, plainer document. That is
- * the whole reason this is CodeMirror and not a `<pre>`: the rendering already
- * exists, and any other one would drift from it.
- *
- * Uneditable rather than merely read-only, because an uneditable view takes no
- * focus. The dialog above owns the arrows and Enter, and a pane that could be
- * typed into would swallow them.
+ * A note as the editor renders it, in CodeMirror so it cannot drift from the editor.
+ * Uneditable, not read-only: a pane that takes focus would swallow the dialog's keys.
  */
 export function NotePreview({ text, firstLine, markLine, gaps }: NotePreviewProps) {
   const host = useRef<HTMLDivElement>(null);

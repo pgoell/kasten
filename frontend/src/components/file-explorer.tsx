@@ -19,14 +19,7 @@ import { beginLeader, paneOpener } from "@/lib/which-key";
 interface FileExplorerProps {
   /** Vault-relative paths of every note, as served by `GET /api/files`. */
   paths: string[];
-  /**
-   * Vault-relative paths of every image, as served by `GET /api/images`.
-   *
-   * Their own prop rather than rows in `paths`, which is what the finder, the
-   * search and every wikilink resolve against: the tree is the one place an
-   * image belongs beside a note, because it is the one place that shows the
-   * vault as it sits on disk.
-   */
+  /** Its own prop, not rows in `paths`: the tree is where an image sits beside its note. */
   images?: string[];
   /** Vault-relative paths of every HTML page, as served by `GET /api/html`. Rows the way `images` are. */
   html?: string[];
@@ -300,13 +293,7 @@ export function FileExplorer({
     else commands.deleteNote(node.path);
   }
 
-  /**
-   * The vim keys, resolved in the order vim resolves them.
-   *
-   * A pending sequence comes first, because `gg` and a leader sequence both
-   * mean the press is not a command of its own. Anything unrecognised is left
-   * alone rather than swallowed, so the browser keeps its own shortcuts.
-   */
+  /** A pending sequence resolves first. Unknown keys are left for the browser's own shortcuts. */
   function onKeyDown(event: React.KeyboardEvent) {
     const { key } = event;
 

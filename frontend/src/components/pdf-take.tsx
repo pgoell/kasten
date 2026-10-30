@@ -111,11 +111,8 @@ function anchorFor(
 }
 
 /**
- * The take from a PDF's selection, the way the HTML pane takes from its page:
- * the button over the words, `y`, and the mark the take leaves on the pages.
- *
- * `box` holds the pages (each slot is `data-pdf-page`, with its text layer in
- * it), and `wrapper` is the box the button and the toast sit in.
+ * The take from a PDF selection, as the HTML pane does it. `box` holds the pages,
+ * each a `data-pdf-page` slot with its text layer, and `wrapper` holds the button.
  */
 export function usePdfTake(o: {
   path: string;

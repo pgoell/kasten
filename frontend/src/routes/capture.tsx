@@ -70,11 +70,8 @@ interface Sent {
 const KEPT = 5;
 
 /**
- * Where the box's text waits between keystrokes and Send.
- *
- * A phone closes a backgrounded app without asking, and a half-typed thought
- * is as much the user's as a sent one. localStorage and not the outbox: it is
- * one string, wanted back synchronously on the first render.
+ * The box's text, kept between keystrokes. A phone closes a backgrounded app without asking,
+ * and a half-typed thought is still the user's. localStorage, not the outbox: it is one string.
  */
 const DRAFT_KEY = "kasten-capture-draft";
 
@@ -103,18 +100,8 @@ function storeDraft(text: string) {
 /**
  * Today's dump, on a page of its own, sized for a phone.
  *
- * A route rather than a pane, on the `/review` precedent: a phone has no
- * leader key, no vim and no panes, and the thought that arrives at a bus stop
- * is the one this is for. `<leader>cd` is the same capture at a desk.
- *
- * The list under the button is this page's own memory and nothing more. It is
- * not the dump read back: the dump is in the daily note, and what the list
- * answers is whether the last send landed.
- *
- * Send writes the thought to the outbox on the phone first and sends it
- * after, so a thought typed with no signal waits there, listed as waiting,
- * until the signal comes back. Nothing on this page asks the network to
- * mount, which is what lets it open offline at all.
+ * Send writes the thought to the outbox first and sends it after, so a thought typed with no
+ * signal waits there until it lands. Nothing here asks the network to mount, which lets it open offline.
  */
 function Capture() {
   const shared = Route.useSearch();
@@ -194,11 +181,8 @@ function Capture() {
   }
 
   /**
-   * Keep the thought on the phone, then send it.
-   *
-   * The box empties once the outbox has it, not once the vault does: from
-   * there the thought is safe through no signal and a closed app, and the
-   * waiting list is where it shows until it lands.
+   * Keep the thought on the phone, then send it. The box empties once the outbox has it,
+   * not once the vault does.
    */
   function sendDump() {
     if (sending || typed === "") return;

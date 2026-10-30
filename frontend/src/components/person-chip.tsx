@@ -14,11 +14,8 @@ export function personNote(assignee: string, paths: string[]): string | null {
 }
 
 /**
- * The person note a press landed on, or null where it hit no chip with one.
- *
- * The row and the card around a chip are buttons, and a button cannot hold
- * another, so the chip has no handler. Its press comes up to the row, which asks
- * here first and opens the note when there is one.
+ * The person note a press landed on, or null. The chip has no handler: a button cannot
+ * hold another, so the press comes up to the row, which asks here first.
  */
 export function chipNote(target: EventTarget | null): string | null {
   if (!(target instanceof Element)) return null;

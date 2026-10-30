@@ -19,13 +19,7 @@ interface CommandPaletteProps {
   onClose: () => void;
 }
 
-/**
- * Type a few letters of what you want done, and Enter does it.
- *
- * The finder's shape over commands rather than notes: the list is the answer
- * and the input only narrows it. Each row prints the key that does the same,
- * so reaching for the palette is also how the keys get learned.
- */
+/** The finder's shape over commands: the input only narrows the list, and each row prints its key. */
 export function CommandPalette({ entries, onClose }: CommandPaletteProps) {
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);

@@ -35,11 +35,8 @@ function summary(rewrites: string[] | undefined, failed: boolean): string {
 }
 
 /**
- * Asks before a drop in the tree moves anything, and says how far it reaches.
- *
- * A drag is easy to make by accident and a move rewrites notes you are not
- * looking at, so the files it would rewrite are listed first, the way the
- * vault counts them. Enter moves, Escape or a click outside does not.
+ * Asks before a tree drop moves anything, listing the files it would rewrite. A drag
+ * is easy to make by accident, so Enter moves and Escape or a click outside does not.
  */
 export function MoveConfirm({ mode, startPath, target, onMoved, onClose }: MoveConfirmProps) {
   const queryClient = useQueryClient();

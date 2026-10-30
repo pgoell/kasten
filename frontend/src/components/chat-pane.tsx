@@ -32,20 +32,7 @@ interface ChatPaneProps {
   focusSignal?: number;
 }
 
-/**
- * A chat with Claude Code in the vault: the terminal pane's agent without the
- * terminal.
- *
- * The session is not here. It lives in the runner in the shell container, and
- * this draws what the runner's stream says: every connection begins with the
- * whole run so far, so a reload, a second pane and a phone all see the one
- * session. Everything read off the stream is `chat.ts`, which is where that is
- * tested.
- *
- * Tools run without asking. The one thing a run stops for is a question, drawn
- * as a form. Why that is no wider a door than the terminal pane is in
- * docs/explanation/security-model.md.
- */
+/** The session lives in the runner. This draws its stream, which replays the whole run on each connect. */
 export function ChatPane({ commands, focusSignal }: ChatPaneProps) {
   const panel = useRef<HTMLElement>(null);
   const box = useRef<HTMLTextAreaElement>(null);

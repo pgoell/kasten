@@ -1,13 +1,7 @@
 import { type Ref, useEffect, useImperativeHandle, useRef } from "react";
 import { type PdfFile, pageColors } from "@/lib/book/pdf-view";
 
-/**
- * The pane width from which the thumbnail column is drawn.
- *
- * Below it the pages are the whole pane, and a column of thumbnails would leave
- * the page too narrow to read. Measured on the pane itself, not the window, so a
- * split pane narrows its own column.
- */
+/** Pane width from which the thumbnail column draws. Measured on the pane, not the window. */
 export const THUMBS_FROM = 900;
 
 /** The column's width in CSS pixels, which a thumbnail is drawn at, times the pixel ratio. */
@@ -38,12 +32,8 @@ function free(canvas: HTMLCanvasElement) {
 }
 
 /**
- * Draws page `number` into a canvas of its own, and shows it in `slot` once drawn.
- *
- * pdf.js refuses a second render onto a canvas that is still rendering, so each
- * draw takes a new one. A draw started while another is in flight makes that one
- * unwanted, and it is freed when it lands. The slot keeps the canvas it shows
- * until the new one is ready, so a redraw never blanks the thumbnail.
+ * Draws page `number` onto a fresh canvas and shows it in `slot` once drawn. pdf.js
+ * refuses a second render onto a busy canvas, and the slot keeps the old one until the new is ready.
  */
 function paint(
   file: PdfFile,

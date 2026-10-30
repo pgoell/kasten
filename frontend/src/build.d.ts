@@ -1,9 +1,6 @@
 /**
- * The commit `vite.config.ts` stamped into this bundle, empty without a repo.
- *
- * Declared here and not in `lib/build.ts`, which reads it. esbuild refuses to
- * substitute an identifier the file itself declares, so a `declare const`
- * beside the export leaves the literal `__BUILD__` in the served module and
- * the browser throws a `ReferenceError` on it.
+ * The commit `vite.config.ts` stamps into the bundle, empty without a repo.
+ * Declared here, not in `lib/build.ts`: esbuild refuses to substitute an identifier
+ * its own file declares, so the browser would throw a `ReferenceError` on `__BUILD__`.
  */
 declare const __BUILD__: string;

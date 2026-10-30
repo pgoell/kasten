@@ -1,11 +1,9 @@
 const DARK = "(prefers-color-scheme: dark)";
 
 /**
- * Sets `data-theme` from the phone's colour scheme now, and again on each change, and
- * sets the browser bar to the page colour. Returns the function that stops following.
- *
- * The lists page reads the phone's scheme and not the main app's stored choice, which
- * lives under another address and is not this page's to read.
+ * Set `data-theme` and the browser bar colour from the phone's scheme, now and on each change.
+ * Returns the stop function. Reads the phone's scheme, not the app's stored choice, which lives
+ * under another address.
  */
 export function followScheme(): () => void {
   const dark = matchMedia(DARK);

@@ -47,12 +47,8 @@ const BUTTON =
   "inline-flex shrink-0 items-center justify-center px-1 text-[13px] text-k-link hover:text-k-accent focus-visible:text-k-accent active:text-k-accent disabled:text-k-muted pointer-coarse:min-h-11 pointer-coarse:min-w-11";
 
 /**
- * One pdf out of the vault, drawn with pdf.js and opened at a page.
- *
- * Where a followed `![[plan.pdf#page=3]]` or `[[plan.pdf#page=3]]` lands
- * (#353). The browser's own viewer was where it went before, and a phone's
- * viewer ignores `#page`: the tap opened page 1. This draws the pages the way
- * the embed in the note does, with `showPdf`, in a box as tall as the pane.
+ * One pdf out of the vault, drawn with pdf.js so `#page=N` opens the page (#353).
+ * A phone's own viewer ignores `#page`.
  */
 export function PdfPane({
   path,
