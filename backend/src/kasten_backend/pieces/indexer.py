@@ -19,10 +19,9 @@ from sqlalchemy.exc import (
     StatementError,
 )
 from sqlalchemy.exc import TimeoutError as PoolTimeout
-from watchfiles._rust_notify import WatchfilesRustInternalError
 
 from kasten_backend.db import session_factory
-from kasten_backend.events import watch_vault
+from kasten_backend.events import WATCH_ERRORS, watch_vault
 from kasten_backend.pieces.embed import MODEL_ERRORS, BgeM3, model_thread
 from kasten_backend.pieces.models import Piece, PieceNote
 from kasten_backend.pieces.split import split_note
@@ -144,15 +143,12 @@ class Indexer:
                         elif event.change in ("written", "removed"):
                             self._changed[event.path] = None
                     self._wake.set()
-            except (OSError, WatchfilesRustInternalError) as error:
+            except WATCH_ERRORS as error:
                 fault = error
             if not tries:
                 logger.warning("The pieces index restarts its watcher, which fails: %s", fault)
-            await self._wait(min(FIRST_WAIT * 2 ** min(tries, 6), LONGEST_WAIT))
-            tries += 1
             # The sweep runs once the new watcher is up, and finds the saves none saw.
-            self._sweep = True
-            self._wake.set()
+            tries = await self._retry(tries)
 
     async def _work(self) -> None:
         tries = 0
@@ -177,12 +173,16 @@ class Indexer:
                     raise
                 if not tries:
                     logger.warning("The pieces index waits for its database: %s", _cause(error))
-                # A bounded exponent: 2**1024 overflows a float, some 17 hours in.
-                await self._wait(min(FIRST_WAIT * 2 ** min(tries, 6), LONGEST_WAIT))
-                tries += 1
                 # The sweep finds the note that failed and any save the watcher missed.
-                self._sweep = True
-                self._wake.set()
+                tries = await self._retry(tries)
+
+    async def _retry(self, tries: int) -> int:
+        """Wait out the `tries`-th fault, ask for a sweep, and return the count with this one."""
+        # A bounded exponent: 2**1024 overflows a float, some 17 hours in.
+        await self._wait(min(FIRST_WAIT * 2 ** min(tries, 6), LONGEST_WAIT))
+        self._sweep = True
+        self._wake.set()
+        return tries + 1
 
     async def _stale(self) -> None:
         """Queue every note whose bytes differ from the index's, and drop the notes gone.
@@ -219,13 +219,11 @@ class Indexer:
         """
         try:
             await self._index(path)
-        except (OperationalError, PoolTimeout) as error:
-            if _passing(error):
-                raise
-            logger.warning("The pieces index skips %s: %s", path, _cause(error))
         except ProgrammingError:
             raise
         except SQLAlchemyError as error:
+            if _passing(error):
+                raise
             logger.warning("The pieces index skips %s: %s", path, _cause(error))
         except (ValueError, *MODEL_ERRORS) as error:
             logger.warning("The pieces index skips %s: %s", path, error)

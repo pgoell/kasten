@@ -216,7 +216,7 @@ its database` says the connection dropped, and the indexer retries on its own. A
 that begins `The pieces index resumes` says it reconnected, and after how many tries.
 A line that begins `The pieces index restarts its watcher` says the vault watcher
 failed and the indexer starts it again on its own; `The pieces index follows saves
-again` says it is back. A line that begins `The pieces index skips` names one note
+again` says it is back, and comes with the first save after it. A line that begins `The pieces index skips` names one note
 that failed. The
 [explanation](/explanation/models-on-the-vps/the-pieces-index.md#when-it-stops)
 says what the next start does.
