@@ -318,14 +318,15 @@ On 2026-10-29, desktop Chromium without CPU throttling, load 1.8:
 | board, first draw of 982 lines (54 cards) | 4 | 1, 97 ms | |
 | board, scroll of 2,090 px over 60 frames | 0 | 0 | 16.8 ms |
 | review, open of the 1,500-card deck | 4 | 1, 71 ms | 87 ms |
-| review, 20 cards revealed and graded | 40, 2 a card | 0 | |
+| review, 20 cards revealed and graded | 40, 2 a card; 80, 4 a card, once the write's landing is counted (#1380) | 0 | |
 
 | Case | Budget | What it proves |
 | --- | --- | --- |
 | `A3 #1321 draws and scrolls the todo board at phone width within its commit and long-task budget` | first draw 6 commits and 3 long tasks; scroll 1 commit and 2 long tasks | a draw that renders once per line, or a scroll that renders at all, fails |
 | `A4 #1321 opens a 1500-card deck at phone width within its commit and long-task budget` | 6 commits, 3 long tasks | a commit per card on open fails |
 | `A4 #1359 opens a 1500-card deck with no card parse on the main thread` | 0 parses of the deck by lezer on the main thread | a parse back on the main thread (1) fails |
-| `A4 #1321 steps through 20 cards at phone width within its commit and long-task budget` | 48 commits, 3 long tasks | a card drawn twice a grade (60) fails |
+| `A4 #1321 steps through 20 cards at phone width within its commit and long-task budget` | 88 commits, 3 long tasks, each step counted until its write lands and the page is idle (#1380) | a card drawn twice a grade (100) fails |
+| `A4 #1379 grades 20 cards with no card parse on the main thread` | 0 parses of the deck by lezer on the main thread | a grade that parses again (40 on main) fails |
 
 Each budget was shown to bind: set to -1, each case fails on its counts.
 
@@ -341,8 +342,11 @@ things are slow, each its own issue:
   parses it once (#1354), which leaves 0 or 1 long task of about 52 ms on this
   desktop. That parse now runs in a worker (#1359). Measured on 2026-10-30 at a 4x
   CPU slowdown through the DevTools protocol, the open went from 1 parse and one
-  141 ms long task on the main thread to none of either. A grade still parses the
-  note twice on the main thread, about 145 and 78 ms at that slowdown (#1379).
+  141 ms long task on the main thread to none of either. A grade parsed the
+  note twice on the main thread, about 145 and 78 ms at that slowdown; it now
+  shifts the cards it holds and parses nothing (#1379). One long task of about
+  85 ms a grade is left at 4x, mostly the sha256 of the note the write names as
+  its base (#1384).
 - The board's first draw, one 97 ms long task, near 390 ms on such a phone.
   The task was the todo pane's first render of the list, not the parse; the
   pane now renders its rows in a deferred pass, with no long task left on this

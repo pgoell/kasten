@@ -3,6 +3,7 @@ import { type Dispatch, type SetStateAction, useCallback, useRef } from "react";
 import { fetchNote, type Note, saveNote } from "@/lib/api";
 import { noteBase } from "@/lib/note-base";
 import { BACKOFF, retryable } from "@/lib/read-retry";
+import { answered } from "@/lib/review/review-queue";
 
 /**
  * Writes for a screen that reads its notes once and saves them many times. Each names as its base `prev`, or the vault's answer to an earlier write,
@@ -39,9 +40,7 @@ export function useSittingWrites(
         answers.set(next, written.content);
         // Only while `next` is still what the screen holds: a change made while
         // this was out has moved the note on already.
-        setTexts((was) =>
-          was?.get(note) === next ? new Map(was).set(note, written.content) : was,
-        );
+        setTexts((was) => (was?.get(note) === next ? answered(was, note, written.content) : was));
         void queryClient.invalidateQueries({ queryKey: ["cards"] });
       };
 
