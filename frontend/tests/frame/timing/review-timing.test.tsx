@@ -39,18 +39,6 @@ const DECK: Deck = {
   next: null,
 };
 
-// Counts the sha256 of the deck note on this thread; a worker loads its own copy, which this does not reach.
-vi.mock("@noble/hashes/sha2.js", async (original) => {
-  const sha2 = await original<typeof import("@noble/hashes/sha2.js")>();
-  return {
-    ...sha2,
-    sha256: (bytes: Uint8Array) => {
-      if (bytes.length > 100_000) mainHashes += 1;
-      return sha2.sha256(bytes);
-    },
-  };
-});
-
 vi.mock("@/lib/api", async (original) => ({
   ...(await original<typeof import("@/lib/api")>()),
   fetchNote: (path: string) =>
@@ -70,20 +58,20 @@ let root: Root | undefined;
 let host: HTMLElement | undefined;
 let commits = 0;
 let saves = 0;
-let mainHashes = 0;
 let longTasks: PerformanceEntry[] = [];
 let observer: PerformanceObserver | undefined;
 let parse: ReturnType<typeof vi.spyOn>;
+let encode: ReturnType<typeof vi.spyOn>;
 
 beforeEach(async () => {
   localStorage.clear();
   commits = 0;
   saves = 0;
-  mainHashes = 0;
   longTasks = [];
   observer = new PerformanceObserver((list) => longTasks.push(...list.getEntries()));
   observer.observe({ type: "longtask" });
   parse = vi.spyOn(Parser.prototype, "parse");
+  encode = vi.spyOn(TextEncoder.prototype, "encode");
   vi.spyOn(Element.prototype, "setPointerCapture").mockImplementation(() => {});
   await page.viewport(390, 844);
   await commands.emulateMedia({ touch: true });
@@ -152,6 +140,16 @@ function mainParses(): number {
   ).length;
 }
 
+/**
+ * The deck note's sha256 on this thread, counted by the UTF-8 encode it hashes. A spy, not a
+ * module mock: vitest would rewrite the worker's import of a mocked module too, and break it.
+ */
+function mainHashes(): number {
+  return encode.mock.calls.filter(
+    ([input]: unknown[]) => typeof input === "string" && input.length > 100_000,
+  ).length;
+}
+
 /** Once `writes` saves have gone out and the page has been idle since, so a grade's tail is counted. */
 async function settled(writes: number): Promise<void> {
   await expect.poll(() => saves).toBe(writes);
@@ -204,9 +202,9 @@ it("A4 #1359 opens a 1500-card deck with no card parse on the main thread", asyn
 }, 60_000);
 
 // Budget: 88 commits and 3 long tasks over 20 steps, each step counted until its write has
-// landed and the page is idle (#1380). Measured 80 commits (4 a step) and 0 long tasks at 1x.
-// At a 4x CPU slowdown main had 40, two a step of the deck's two parses; now 20, one a step,
-// mostly the write's sha256 of the 1 MB note. 88 leaves a commit of room every other step.
+// landed and the page is idle (#1380). Measured 60 commits (3 a step) and 0 long tasks at 1x.
+// At a 4x CPU slowdown there were 40, then 20 once a grade stopped parsing (#1379), one a step
+// of the write's sha256 of the 1 MB note; now 1, the hash worker's start (#1384).
 it("A4 #1321 steps through 20 cards at phone width within its commit and long-task budget", async () => {
   const screen = mount();
   await expect
@@ -259,5 +257,5 @@ it("A1 #1384 grades 20 cards with no hash of the deck note on the main thread", 
     .poll(() => screen.querySelector('[data-testid="review-card"] .cm-line'), { timeout: 30_000 })
     .not.toBeNull();
   for (let step = 1; step <= 20; step++) await grade(screen, step);
-  expect(mainHashes).toBe(0);
+  expect(mainHashes()).toBe(0);
 }, 120_000);
