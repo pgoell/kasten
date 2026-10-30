@@ -17,7 +17,14 @@ from sqlalchemy.exc import TimeoutError as PoolTimeout
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 
-from backend.tests.pieces.test_indexer import FakeModel, _make, _rows, _settled, _until, _write
+from backend.tests.pieces.indexer.test_indexer import (
+    FakeModel,
+    _make,
+    _rows,
+    _settled,
+    _until,
+    _write,
+)
 from kasten_backend.config import Settings
 from kasten_backend.pieces import indexer
 from kasten_backend.pieces.embed import model_thread

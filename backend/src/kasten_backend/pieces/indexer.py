@@ -12,7 +12,12 @@ from typing import TYPE_CHECKING
 
 from sqlalchemy import delete, select
 from sqlalchemy.dialects.postgresql import insert
-from sqlalchemy.exc import DBAPIError, OperationalError, ProgrammingError, SQLAlchemyError
+from sqlalchemy.exc import (
+    OperationalError,
+    ProgrammingError,
+    SQLAlchemyError,
+    StatementError,
+)
 from sqlalchemy.exc import TimeoutError as PoolTimeout
 
 from kasten_backend.db import session_factory
@@ -50,9 +55,14 @@ def _passing(error: SQLAlchemyError) -> bool:
     return state is None or state.startswith("08") or state in ("57P01", "57P02", "57P03", "53300")
 
 
-def _cause(error: SQLAlchemyError) -> object:
-    """What to log of `error`: the driver's message, not the statement and its values."""
-    return error.orig if isinstance(error, DBAPIError) else error
+def _cause(error: SQLAlchemyError) -> str:
+    """What to log of `error`: the driver's first line, never the statement, its values or the row.
+
+    Postgres puts the failing row, a note's text and vector, in a second `DETAIL:` line.
+    """
+    cause = error.orig if isinstance(error, StatementError) else error
+    lines = str(cause).splitlines() if cause is not None else []
+    return lines[0] if lines else type(error).__name__
 
 
 def _sha(data: bytes) -> str:
@@ -190,7 +200,9 @@ class Indexer:
             logger.warning("The pieces index skips %s: %s", path, _cause(error))
         except ProgrammingError:
             raise
-        except (SQLAlchemyError, ValueError, *MODEL_ERRORS) as error:
+        except SQLAlchemyError as error:
+            logger.warning("The pieces index skips %s: %s", path, _cause(error))
+        except (ValueError, *MODEL_ERRORS) as error:
             logger.warning("The pieces index skips %s: %s", path, error)
 
     async def _index(self, path: str) -> None:
