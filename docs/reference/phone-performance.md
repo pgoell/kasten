@@ -339,5 +339,7 @@ things are slow, each its own issue:
   phone CPU four times slower. It parsed the 1 MB note three times; it now
   parses it once (#1354), which leaves 0 or 1 long task of about 52 ms on this
   desktop. Moving that one parse off the main thread is #1359.
-- The board's first draw, one 97 ms long task, near 390 ms on such a phone:
-  likely the client parse of all 982 lines in one task (#1355).
+- The board's first draw, one 97 ms long task, near 390 ms on such a phone.
+  The task was the todo pane's first render of the list, not the parse; the
+  pane now renders its rows in a deferred pass, with no long task left on this
+  desktop (#1355).
