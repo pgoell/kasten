@@ -37,7 +37,7 @@ interface NoteFinderProps {
    * beside them. `paths` still decides what is listed, so the archive stays out.
    */
   books?: string[];
-  /** The vault's pdfs, epubs and html pages, ranked with the notes; only the note finder. */
+  /** The vault's pdfs, epubs and html pages, ranked with the notes. The book finder ignores it. */
   files?: string[];
   /** Every note, archive included. An epub's preview checks this list, as the opener does. */
   vaultNotes?: string[];
@@ -46,7 +46,7 @@ interface NoteFinderProps {
 /** Rows the list will mount. Beyond this, another keystroke narrows faster than a scroll. */
 const VISIBLE_NOTES = 20;
 
-/** The highlight holds this long before its note is read, so a held ctrl+n reads no rows. */
+/** The highlight holds this long before its note is read, so a held ctrl+n skips rows unread. */
 const PREVIEW_DELAY_MS = 80;
 
 /** The line under the list. An empty list has two causes: nothing to list, or no match. */
@@ -300,8 +300,8 @@ export function NoteFinder({
           )}
 
           {previewing && highlighted !== undefined && (
-            // Rendered as the editor does, at a dropped frame per mount that the delay keeps to
-            // rows you stop on. A labelled section, as a bare pre cannot be named.
+            // Rendered as the editor renders it, so it matches what opening shows; the delay keeps
+            // the dropped frame per mount to rows you stop on. A section, as a pre cannot be named.
             <section aria-label="Preview" data-testid="preview" className={PANE}>
               {kind !== undefined && highlighted !== undefined ? (
                 <p className={PANE_MESSAGE}>
