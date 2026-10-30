@@ -9,8 +9,8 @@ status: stable
 
 # HTTP API
 
-The backend serves one hundred and twenty-nine endpoints under `/api/`.
-Seventy-two read, fifty-six write, and one streams. The interactive schema is at `/docs` while the backend
+The backend serves one hundred and thirty endpoints under `/api/`.
+Seventy-three read, fifty-six write, and one streams. The interactive schema is at `/docs` while the backend
 runs, and the machine-readable one at `/openapi.json`.
 
 The agent's routes sit under `/agent/`, and they are documented on their own page,
@@ -30,7 +30,7 @@ including the check that refuses a cross-site `POST` with a `403`.
 * [Moving](/reference/http-api/moving.md): give a note or folder a new path, and preview what a move rewrites
 * [Trash and history](/reference/http-api/trash-and-history.md): delete into the trash, restore, and read a note's jj history
 * [Assets and books](/reference/http-api/assets-and-books.md): images, sounds, books and the chunked uploads
-* [Finding](/reference/http-api/finding.md): search, tags, mentions, the link graph and the folder layout
+* [Finding](/reference/http-api/finding.md): search, tags, mentions, notes like this one, the link graph and the folder layout
 * [Todos](/reference/http-api/todos.md): the route that lists every todo and its project
 * [Log](/reference/http-api/log.md): the day's water, coffee, alcohol and food, and their totals
 * [Food](/reference/http-api/food.md): search Open Food Facts for a food, or read one by its barcode

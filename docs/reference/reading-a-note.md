@@ -32,7 +32,7 @@ columns sit over it:
 | --- | --- | --- |
 | Left margin | 190 px | The outline: the note's headings, with the one in view marked |
 | Middle | 680 px at most | The header, then the text |
-| Right margin | 256 px | The local graph, then Links, Backlinks and Unlinked mentions |
+| Right margin | 256 px | The local graph, then Links, Backlinks, Unlinked mentions and Notes like this one |
 
 The grid is `1fr minmax(0,680px) 1fr` with a 48 px gap (`--k-space-48`). The
 text is in the middle column, so its left edge and its width do not move when
@@ -118,16 +118,22 @@ on a hollow ring makes the note the way following its link would; a tap asks
 first. The graph does not zoom, pan or drag: it is a picture of where the note
 stands, and the graph pane is the one to explore in.
 
-Under the graph three lists, each with its count:
+Under the graph four lists, each with its count:
 
 - Links: the notes this one links to.
 - Backlinks: the notes that link to this one. A click opens the note at the
   line that links here.
 - Unlinked mentions: lines in other notes that name this note in plain text,
   the same list the backlinks panel shows. A click opens the note at that line.
+- Notes like this one: up to ten notes nearest this one by meaning, from the
+  vectors of the pieces index, each with the heading path of its nearest
+  piece under its name. A click or a tap opens the note.
 
 A list with nothing in it says "No links.", "No backlinks." or "No unlinked
-mentions.", and so does a list whose read fails.
+mentions.", and so does a list whose read fails. Notes like this one says
+"Not in the index yet." until the index has read the note, "No notes like this
+one yet." while the first indexing still runs, and "No notes like this one."
+otherwise; under it, while the index fills, "Index filling: 481 of 625 notes."
 
 ### The Graph button and the sheet
 

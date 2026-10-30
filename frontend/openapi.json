@@ -2112,6 +2112,56 @@
         }
       }
     },
+    "/api/similar": {
+      "get": {
+        "summary": "Similar",
+        "description": "Notes like `path`, at most ten, by the stored vectors of its pieces alone.\n\nNeeds no model, so it answers while bge-m3 loads. `archive` takes the\narchive folder in, as the mentions do.",
+        "operationId": "similar_api_similar_get",
+        "parameters": [
+          {
+            "name": "path",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Path"
+            }
+          },
+          {
+            "name": "archive",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Archive"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SimilarAnswer"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/github": {
       "get": {
         "summary": "Read Github",
@@ -13440,6 +13490,38 @@
         ],
         "title": "SetupOut",
         "description": "Every spending category's limit on one screen, with the income it is set against."
+      },
+      "SimilarAnswer": {
+        "properties": {
+          "hits": {
+            "items": {
+              "$ref": "#/components/schemas/RankedHit"
+            },
+            "type": "array",
+            "title": "Hits"
+          },
+          "read": {
+            "type": "boolean",
+            "title": "Read"
+          },
+          "indexed": {
+            "type": "integer",
+            "title": "Indexed"
+          },
+          "notes": {
+            "type": "integer",
+            "title": "Notes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "hits",
+          "read",
+          "indexed",
+          "notes"
+        ],
+        "title": "SimilarAnswer",
+        "description": "The notes nearest one note by meaning, and how much of the index stood behind them."
       },
       "Skill": {
         "properties": {

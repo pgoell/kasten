@@ -1100,6 +1100,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/similar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Similar
+         * @description Notes like `path`, at most ten, by the stored vectors of its pieces alone.
+         *
+         *     Needs no model, so it answers while bge-m3 loads. `archive` takes the
+         *     archive folder in, as the mentions do.
+         */
+        get: operations["similar_api_similar_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/github": {
         parameters: {
             query?: never;
@@ -5728,6 +5751,20 @@ export interface components {
             categories: components["schemas"]["SetupCategoryOut"][];
         };
         /**
+         * SimilarAnswer
+         * @description The notes nearest one note by meaning, and how much of the index stood behind them.
+         */
+        SimilarAnswer: {
+            /** Hits */
+            hits: components["schemas"]["RankedHit"][];
+            /** Read */
+            read: boolean;
+            /** Indexed */
+            indexed: number;
+            /** Notes */
+            notes: number;
+        };
+        /**
          * Skill
          * @description One skill: its folder name, the description off its SKILL.md, and its files.
          */
@@ -7601,6 +7638,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RankedAnswer"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    similar_api_similar_get: {
+        parameters: {
+            query: {
+                path: string;
+                archive?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SimilarAnswer"];
                 };
             };
             /** @description Validation Error */

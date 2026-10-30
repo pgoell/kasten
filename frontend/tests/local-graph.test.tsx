@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactElement } from "react";
 import { LocalGraph } from "@/components/local-graph";
-import { fetchMentions } from "@/lib/api";
+import { fetchMentions, fetchSimilar } from "@/lib/api";
 import type { DrawnNode } from "@/lib/graph/graph";
 import { fetchGraph } from "@/lib/graph/graph-api";
 import { drawGraph, type GraphCanvasHandlers } from "@/lib/graph/graph-canvas";
@@ -19,7 +19,7 @@ const canvas = vi.hoisted(() => ({
 }));
 vi.mock("@/lib/graph/graph-canvas", () => ({ drawGraph: vi.fn() }));
 vi.mock("@/lib/graph/graph-api", () => ({ fetchGraph: vi.fn() }));
-vi.mock("@/lib/api", () => ({ fetchMentions: vi.fn() }));
+vi.mock("@/lib/api", () => ({ fetchMentions: vi.fn(), fetchSimilar: vi.fn() }));
 
 const NOTE = "index.md";
 const node = (path: string, name: string, missing = false) => ({
@@ -48,6 +48,16 @@ const BORGES_GRAPH = {
   truncated: false,
 };
 const MENTION = { path: "ref.md", line: 7, text: "Ref says", start: 0, end: 3, name: "Ref" };
+/** Two notes like this one: the first has a heading, the second none; the index has read all five notes. */
+const SIMILAR = {
+  hits: [
+    { path: "gamma.md", heading: "Ideas > Drafts", text: "Gamma says", score: 0.9 },
+    { path: "delta.md", heading: "", text: "Delta says", score: 0.5 },
+  ],
+  read: true,
+  indexed: 5,
+  notes: 5,
+};
 
 /** The handlers the canvas was drawn with, from the first drawing. */
 function handlers(): GraphCanvasHandlers {
@@ -87,6 +97,7 @@ describe("the local graph in the margin", () => {
       Promise.resolve(ask.around === "borges.md" ? BORGES_GRAPH : GRAPH),
     );
     vi.mocked(fetchMentions).mockResolvedValue([MENTION]);
+    vi.mocked(fetchSimilar).mockResolvedValue(SIMILAR);
   });
 
   afterEach(() => {
@@ -336,5 +347,78 @@ describe("the local graph in the margin", () => {
       expect(canvas.update).toHaveBeenLastCalledWith(grown.nodes, grown.edges, NOTE),
     );
     expect(drawGraph).toHaveBeenCalledTimes(1);
+  });
+  it("S1 the notes like this one are listed with their count and heading", async () => {
+    renderGraph();
+    await waitFor(() => expect(screen.getByRole("button", { name: /gamma/ })).toBeTruthy());
+
+    expect(screen.getByText(/^Notes like this one/).textContent).toBe("Notes like this one 2");
+    expect(screen.getByText("Ideas > Drafts").className).toContain("text-k-muted");
+    expect(screen.getByRole("button", { name: "delta" })).toBeTruthy();
+  });
+
+  it("S2 a click on a note like this one opens its note", async () => {
+    const { onOpen } = renderGraph();
+    await waitFor(() => expect(screen.getByRole("button", { name: /gamma/ })).toBeTruthy());
+
+    fireEvent.click(screen.getByRole("button", { name: /gamma/ }));
+
+    expect(onOpen).toHaveBeenCalledWith("gamma.md");
+  });
+
+  it("S3 moving to another note shows that note's list, not the last one's", async () => {
+    vi.mocked(fetchSimilar).mockImplementation(async (path) =>
+      path === "borges.md"
+        ? { ...SIMILAR, hits: [{ path: "kafka.md", heading: "", text: "Kafka", score: 0.8 }] }
+        : SIMILAR,
+    );
+    const { move } = renderGraph();
+    await waitFor(() => expect(screen.getByRole("button", { name: /gamma/ })).toBeTruthy());
+
+    move("borges.md");
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "kafka" })).toBeTruthy());
+    expect(screen.queryByRole("button", { name: /gamma/ })).toBeNull();
+    expect(fetchSimilar).toHaveBeenLastCalledWith("borges.md", false);
+  });
+
+  it("S4 a note the index has not read yet says so", async () => {
+    vi.mocked(fetchSimilar).mockResolvedValue({ hits: [], read: false, indexed: 5, notes: 5 });
+    renderGraph();
+
+    await waitFor(() => expect(screen.getByText("Not in the index yet.")).toBeTruthy());
+    expect(screen.getByText(/^Notes like this one/).textContent).toBe("Notes like this one 0");
+  });
+
+  it("S5 no notes like this one, with the index whole, says so", async () => {
+    vi.mocked(fetchSimilar).mockResolvedValue({ hits: [], read: true, indexed: 5, notes: 5 });
+    renderGraph();
+
+    await waitFor(() => expect(screen.getByText("No notes like this one.")).toBeTruthy());
+    expect(screen.queryByText(/^Index filling/)).toBeNull();
+  });
+
+  it("S6 no notes like this one while the index fills says so, and how far it has got", async () => {
+    vi.mocked(fetchSimilar).mockResolvedValue({ hits: [], read: true, indexed: 2, notes: 5 });
+    renderGraph();
+
+    await waitFor(() => expect(screen.getByText("No notes like this one yet.")).toBeTruthy());
+    expect(screen.getByText("Index filling: 2 of 5 notes.")).toBeTruthy();
+  });
+
+  it("S7 a failed read of the notes like this one shows the plain line", async () => {
+    vi.mocked(fetchSimilar).mockRejectedValue(new Error("The index is down"));
+    renderGraph();
+
+    await waitFor(() => expect(screen.getByText("No notes like this one.")).toBeTruthy());
+    expect(screen.getByText(/^Notes like this one/).textContent).toBe("Notes like this one 0");
+  });
+
+  it("S8 the notes like this one draw no count while their answer is on its way", async () => {
+    vi.mocked(fetchSimilar).mockImplementation(() => new Promise(() => {}));
+    renderGraph();
+
+    expect(screen.getByText(/^Notes like this one/).textContent).toBe("Notes like this one");
+    expect(screen.queryByText("No notes like this one.")).toBeNull();
   });
 });

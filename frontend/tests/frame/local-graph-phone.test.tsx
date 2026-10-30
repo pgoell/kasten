@@ -6,7 +6,8 @@
 
 import { waitFor } from "@testing-library/react";
 import { act } from "react";
-import { page } from "vitest/browser";
+import { page, userEvent } from "vitest/browser";
+import { fetchSimilar } from "@/lib/api";
 import { COARSE, NARROW, stubMatchMedia } from "../match-media";
 import {
   graphButton,
@@ -15,7 +16,7 @@ import {
   registerLessonFixture,
   sheet,
 } from "./local-graph-fixture";
-import { PATIENCE, visibleEditor } from "./reader-fixture";
+import { need, PATIENCE, visibleEditor } from "./reader-fixture";
 
 vi.mock("@/lib/api", async (importOriginal) => {
   const real = await importOriginal<typeof import("@/lib/api")>();
@@ -33,6 +34,7 @@ vi.mock("@/lib/api", async (importOriginal) => {
     fetchVersion: async () => "0.8.0",
     fetchWeather: async () => [],
     fetchMentions: vi.fn(),
+    fetchSimilar: vi.fn(),
   };
 });
 
@@ -115,6 +117,39 @@ it("A12 on a phone the Graph button opens the bottom sheet from the foot of the 
 
     await expect.poll(() => Math.round(panel.getBoundingClientRect().bottom)).toBe(844);
     expect(Math.round(panel.getBoundingClientRect().width)).toBe(390);
+  } finally {
+    await act(async () => root.unmount());
+    host.remove();
+  }
+});
+
+it("on a phone the notes like this one sit in the sheet, and a tap on one opens that note", async () => {
+  await page.viewport(390, 844);
+  stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+  vi.mocked(fetchSimilar).mockResolvedValue({
+    hits: [{ path: "Design Notes.md", heading: "Drafts", text: "Design", score: 0.9 }],
+    read: true,
+    indexed: 1,
+    notes: 1,
+  });
+  const host = document.body.appendChild(document.createElement("div"));
+  host.className = "h-dvh bg-k-bg";
+  const root = await mountLesson(host);
+  try {
+    pressSpaceGL(host);
+    await waitFor(() => expect(sheet()).not.toBeNull(), PATIENCE);
+    const panel = sheet() as HTMLElement;
+    await waitFor(() => expect(panel.textContent).toContain("Notes like this one 1"), PATIENCE);
+
+    const row = [...panel.querySelectorAll<HTMLElement>("button")].find((each) =>
+      each.textContent?.includes("Drafts"),
+    );
+    await userEvent.click(need(row, "the row under Drafts"));
+
+    await waitFor(
+      () => expect(host.querySelector(".cm-content")?.textContent).toContain("Design Notes"),
+      PATIENCE,
+    );
   } finally {
     await act(async () => root.unmount());
     host.remove();

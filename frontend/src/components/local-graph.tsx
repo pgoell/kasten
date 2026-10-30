@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { INSET, LABEL } from "@/components/note-margins";
-import { fetchMentions } from "@/lib/api";
+import { fetchMentions, fetchSimilar, type SimilarAnswer } from "@/lib/api";
 import type { DrawnNode } from "@/lib/graph/graph";
 import { fetchGraph } from "@/lib/graph/graph-api";
 import { drawGraph, type GraphCanvas } from "@/lib/graph/graph-canvas";
@@ -33,8 +33,17 @@ const DEPTHS = [
  */
 const ROW = `k-margin-note k-row flex items-center ${INSET} rounded-[var(--k-radius-4)] pointer-coarse:min-h-11 text-left text-k-15 text-k-ink`;
 
+/** The line the notes-like-this-one list shows in place of rows, once its answer is in. */
+function alikeEmptyLine(answer: SimilarAnswer | undefined, failed: boolean): string | null {
+  if (failed) return "No notes like this one.";
+  if (!answer) return null;
+  if (!answer.read) return "Not in the index yet.";
+  if (answer.hits.length > 0) return null;
+  return answer.indexed < answer.notes ? "No notes like this one yet." : "No notes like this one.";
+}
+
 /**
- * The note's local graph and its three lists. A failed read shows the same plain
+ * The note's local graph and its four lists. A failed read shows the same plain
  * lines as an empty one: the margin sits beside the note.
  */
 export function LocalGraph({ path, archive, onOpen, onFollow }: LocalGraphProps) {
@@ -136,6 +145,15 @@ export function LocalGraph({ path, archive, onOpen, onFollow }: LocalGraphProps)
   const mentioned = mentions.data ?? [];
   const graphReady = !answer.isPending;
   const mentionsReady = !mentions.isPending;
+
+  const similar = useQuery({
+    queryKey: ["similar", path, archive],
+    queryFn: () => fetchSimilar(path, archive),
+    retry: false,
+  });
+  const alike = similar.data?.hits ?? [];
+  const similarReady = !similar.isPending;
+  const alikeEmpty = similarReady ? alikeEmptyLine(similar.data, similar.isError) : null;
 
   return (
     <div className="flex flex-col gap-4">
@@ -253,6 +271,29 @@ export function LocalGraph({ path, archive, onOpen, onFollow }: LocalGraphProps)
             <span className="min-w-0 truncate">{noteName(mention.path)}</span>
           </button>
         ))}
+      </section>
+
+      <section className="flex flex-col gap-1">
+        <p className={LABEL}>
+          Notes like this one
+          {similarReady && <span className="tabular-nums"> {alike.length}</span>}
+        </p>
+        {alikeEmpty !== null && <p className={`${INSET} text-k-13 text-k-muted`}>{alikeEmpty}</p>}
+        {alike.map((hit) => (
+          <button key={hit.path} type="button" onClick={() => onOpen(hit.path)} className={ROW}>
+            <span className="flex min-w-0 flex-col">
+              <span className="truncate">{noteName(hit.path)}</span>
+              {hit.heading && (
+                <span className="truncate text-k-13 text-k-muted">{hit.heading}</span>
+              )}
+            </span>
+          </button>
+        ))}
+        {similar.data && similar.data.indexed < similar.data.notes && (
+          <p className={`${INSET} text-k-13 text-k-muted`}>
+            Index filling: {similar.data.indexed} of {similar.data.notes} notes.
+          </p>
+        )}
       </section>
     </div>
   );

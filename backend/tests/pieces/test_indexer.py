@@ -14,21 +14,19 @@ import threading
 import time
 from typing import TYPE_CHECKING
 
-import pytest
 from sqlalchemy import text
-from sqlalchemy.exc import OperationalError
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 
-from kasten_backend.config import Settings, get_settings
+from kasten_backend.config import Settings
 from kasten_backend.pieces import indexer
 from kasten_backend.pieces.embed import DIMENSIONS, model_thread
 from kasten_backend.pieces.indexer import Indexer
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator
     from pathlib import Path
 
+    import pytest
     from sqlalchemy.ext.asyncio import AsyncSession
 
 SKIP = "04 Ressources/05 Flashcards"
@@ -72,25 +70,6 @@ class WatchedModel(FakeModel):
 def _vector(body: str) -> list[float]:
     seed = hashlib.sha256(body.encode()).digest()
     return [seed[i % 32] / 255 for i in range(DIMENSIONS)]
-
-
-@pytest.fixture
-async def sessions() -> AsyncIterator[async_sessionmaker[AsyncSession]]:
-    engine = create_async_engine(get_settings().database_url, poolclass=NullPool)
-    try:
-        async with engine.connect() as connection:
-            present = await connection.scalar(text("SELECT to_regclass('public.pieces')"))
-    except OperationalError:
-        await engine.dispose()
-        pytest.skip("No database answers at KASTEN_DATABASE_URL")
-    if present is None:
-        await engine.dispose()
-        pytest.skip("No pieces table in the database: run `mise run db:migrate`")
-    factory = async_sessionmaker(engine, expire_on_commit=False)
-    await _empty(factory)
-    yield factory
-    await _empty(factory)
-    await engine.dispose()
 
 
 async def _empty(factory: async_sessionmaker[AsyncSession]) -> None:

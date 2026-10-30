@@ -7,8 +7,10 @@ note takes its best piece's score.
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from pgvector.sqlalchemy import Vector
 from sqlalchemy import ColumnElement, Float, Select, func, literal, select, true, tuple_
 
+from kasten_backend.pieces.embed import DIMENSIONS
 from kasten_backend.pieces.models import Piece
 
 if TYPE_CHECKING:
@@ -85,6 +87,53 @@ async def _nearest(
     return list(rows.tuples())
 
 
+def _chunk(text: str) -> str:
+    # Drop the title line the indexer put in front for the model.
+    return (text.partition("\n\n")[2] or text)[:SNIPPET]
+
+
+async def similar_notes(
+    session: AsyncSession, path: str, archive: str | None, limit: int = 10
+) -> list[RankedNote]:
+    """The notes whose pieces lie nearest any piece of `path`, nearest first, `path` left out.
+
+    A note scores `1 - cosine distance` of its nearest pair. A note with no pieces has none.
+    """
+    # Materialized, each vector is read out of TOAST once rather than once a pair:
+    # 40 s down to under 2 s for a note of 171 pieces on a copy of the live index.
+    normal = func.l2_normalize(Piece.embedding, type_=Vector(DIMENSIONS)).label("vector")
+    mine = select(normal).where(Piece.path == path).cte("mine").prefix_with("MATERIALIZED")
+    others = (
+        select(Piece.path, Piece.n, normal)
+        .where(Piece.path != path, _outside(archive))
+        .cte("others")
+        .prefix_with("MATERIALIZED")
+    )
+    distance = func.min(others.c.vector.cosine_distance(mine.c.vector)).label("distance")
+    pairs = (
+        select(others.c.path, others.c.n, distance)
+        .join(mine, true())
+        .group_by(others.c.path, others.c.n)
+        .subquery()
+    )
+    best = (
+        select(pairs.c.path, pairs.c.n, pairs.c.distance)
+        .distinct(pairs.c.path)
+        .order_by(pairs.c.path, pairs.c.distance)
+        .subquery()
+    )
+    rows = await session.execute(
+        select(best.c.path, Piece.heading, Piece.text, best.c.distance)
+        .join(Piece, (Piece.path == best.c.path) & (Piece.n == best.c.n))
+        .order_by(best.c.distance, best.c.path)
+        .limit(limit)
+    )
+    return [
+        RankedNote(found, heading, _chunk(text), 1 - distance)
+        for found, heading, text, distance in rows.tuples()
+    ]
+
+
 async def ranked_notes(
     session: AsyncSession,
     query: str,
@@ -118,7 +167,5 @@ async def ranked_notes(
         if path not in pieces:
             continue
         heading, text = pieces[path]
-        # Drop the title line the indexer put in front for the model.
-        chunk = text.partition("\n\n")[2] or text
-        found.append(RankedNote(path, heading, chunk[:SNIPPET], score))
+        found.append(RankedNote(path, heading, _chunk(text), score))
     return found
