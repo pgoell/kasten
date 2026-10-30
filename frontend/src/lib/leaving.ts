@@ -1,25 +1,17 @@
 import { createContext, type RefObject, useEffect, useLayoutEffect, useRef, useState } from "react";
 
-/**
- * Whether this subtree is on its way out, so the editors in it stop taking keys
- * and let go of the focus before they are taken down.
- */
+/** Whether this subtree is leaving: its editors drop keys and focus before removal. */
 export const Leaving = createContext(false);
 
 /**
- * What was shown under earlier keys and has not been taken down yet, so the
- * part that leaves stays on the page, hidden, for one frame and a task.
- *
- * Taking a subtree down is the costly part of a switch: removing a CodeMirror
- * tree costs more than a task's budget on a phone. So the old one is kept
- * until the new one has painted, and removed in a task of its own.
+ * Earlier keys' content, kept on the page until the new one paints. Removing a CodeMirror tree
+ * costs more than a phone's task budget, so the teardown runs in a task of its own.
  */
 export function useLeaving<T>(key: string, value: T): { key: string; value: T }[] {
   const committed = useRef<{ key: string; value: T } | undefined>(undefined);
   const [seen, setSeen] = useState(key);
   const [leaving, setLeaving] = useState<{ key: string; value: T }[]>([]);
-  // Stored during render, which is React's own pattern for a value that depends on
-  // the previous render: the render is redone at once, before anything paints.
+  // Stored during render, as React advises for state derived from the previous render.
   if (seen !== key) {
     setSeen(key);
     const last = committed.current;
@@ -35,7 +27,7 @@ export function useLeaving<T>(key: string, value: T): { key: string; value: T }[
   useEffect(() => {
     if (leaving.length === 0) return;
     let timer: ReturnType<typeof setTimeout> | undefined;
-    // A frame, so the new one paints first, then a task, so the teardown is a task of its own.
+    // Frame first, so the new one paints before the teardown task.
     const frame = requestAnimationFrame(() => {
       timer = setTimeout(() => setLeaving([]), 0);
     });
@@ -49,11 +41,8 @@ export function useLeaving<T>(key: string, value: T): { key: string; value: T }[
 }
 
 /**
- * Takes the focus off an element that is leaving, if it holds it.
- *
- * The new editor takes the focus only when nothing holds it (`nothingFocused`
- * in editor.tsx), and a `display: none` element keeps the focus until the
- * browser's next style pass, which comes after the new editor's mount effect.
+ * Takes the focus off a leaving element: it keeps focus until the next style pass, after the
+ * new editor mounts and takes focus only when nothing holds it.
  */
 export function useBlurWhenLeaving(element: RefObject<HTMLElement | null>, leaving: boolean) {
   // biome-ignore lint/correctness/useExhaustiveDependencies: the element is a ref that never changes, and the effect is for the change of `leaving` alone.

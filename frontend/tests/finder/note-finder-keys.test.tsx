@@ -1,4 +1,4 @@
-import { PATHS, renderFinder } from "./note-finder-fixture";
+import { PATHS, renderFinder } from "../note-finder-fixture";
 
 // The api module builds its client at import time and captures `fetch` there,
 // so stubbing the global afterwards would never be seen. Standing in for the

@@ -1,8 +1,6 @@
 /**
- * What a typed path means, decided away from the prompt that shows it.
- *
- * The prompt renders the verdict and Enter obeys it, so the whole table of
- * cases answers to a unit test with no DOM in it.
+ * What a typed path means, decided away from the prompt. The prompt shows the verdict and Enter
+ * obeys it, so the table of cases is unit-tested without a DOM.
  */
 
 import { INBOX } from "@/lib/layout";
@@ -16,18 +14,8 @@ export type NotePathVerdict =
 const SUFFIX = ".md";
 
 /**
- * The formats the reader opens, and what the vault does with each.
- *
- * `.epub` first, which is the order the vault resolves a pair in when a note
- * has one of each beside it. `GET /api/books/{note}` reads that same order off
- * its own copy, so the two lists must not disagree about which wins.
- *
- * The folder and the type differ because the files do. An epub is a book and
- * nothing else, while a pdf is as often a paper, a report or a deck, and both
- * `02 Books` and `type: Book` would file one of those under a word that is not
- * true. `Source` is the ontology's own name for something written elsewhere,
- * which is every one of them. Each folder sits inside the inbox, which
- * `layout.ts` names.
+ * The formats the reader opens, in the order the vault prefers them. `GET /api/books/{note}` keeps
+ * the same order, so the two lists agree. A pdf is often a paper or a deck, so it is a `Source`.
  */
 const FORMATS = [
   { suffix: ".epub", folder: "02 Books", type: "Book" },
@@ -38,23 +26,16 @@ const FORMATS = [
 export const BOOK_SUFFIXES = FORMATS.map((format) => format.suffix);
 
 /**
- * What a note holding this file is, which the bookmark writes into its type.
- *
- * Takes the book's path and not the note's, because the note's says nothing:
- * the whole question is which of the pair is sitting beside it, and only the
- * vault knows that.
+ * The type a note holding this book gets. Takes the book's path, since the note's path says
+ * nothing about which format sits beside it.
  */
 export function bookType(book: string): string {
   return FORMATS.find((format) => book.toLowerCase().endsWith(format.suffix))?.type ?? "Book";
 }
 
 /**
- * What a note's name may not carry.
- *
- * The first eight are the characters a path or a filesystem refuses, `/` above
- * all: a name holding one would file the note in a folder nobody asked for.
- * The last four are legal in a filename and illegal inside a `[[link]]`, so a
- * note carrying one could not be linked to by name.
+ * Characters a note name may not carry. The first eight are refused by a path or filesystem, `/`
+ * above all. The last four cannot sit inside a `[[link]]`.
  */
 const ILLEGAL = /[/\\:*?"<>|#^[\]]/g;
 
@@ -62,11 +43,8 @@ const ILLEGAL = /[/\\:*?"<>|#^[\]]/g;
 const NAME_LIMIT = 80;
 
 /**
- * One name from outside the vault, cut down to something the vault will take.
- *
- * A page's headline and a book file's name both arrive from somewhere that has
- * never heard of this vault's rules, and both answer to the same ones. Answers
- * empty where nothing legal is left, which the callers read as "no name".
+ * One name from outside the vault, cut down to one the vault takes. Empty where nothing legal is
+ * left, which callers read as "no name".
  */
 export function safeName(raw: string): string {
   return (
@@ -74,8 +52,7 @@ export function safeName(raw: string): string {
       .replace(ILLEGAL, " ")
       .replace(/\s+/g, " ")
       .slice(0, NAME_LIMIT)
-      // Trailing dots and spaces after the leading ones, because the cut above
-      // can leave either, and a leading dot is a name the vault will not take.
+      // The cut above can leave a trailing dot or space, and a leading dot is refused.
       .replace(/^[.\s]+/, "")
       .replace(/[.\s]+$/, "")
   );
@@ -90,21 +67,8 @@ export interface BookNote {
 }
 
 /**
- * Where the file you just picked belongs, and what its note is called.
- *
- * The file keeps its own name and its own suffix. It used to take the name of
- * whatever note was in the pane, which threw the title away and pinned the book
- * to a note that was about something else. Nothing has to be open for this now.
- *
- * The suffix picks the folder, so an epub and a pdf are filed apart. It also
- * decides whether there is anything to file at all: the name used to have
- * `.epub` appended whatever it arrived as, so picking `Ulysses.pdf` wrote
- * `Ulysses.pdf.epub` and the upload refused it for bytes that did not match a
- * name nobody chose.
- *
- * The pair lands in the inbox rather than at its final home, for the reason a
- * clipping does: filing is a decision, and a folder move carries both halves
- * of the pair at once.
+ * Where the picked file belongs, and what its note is called. The file keeps its own name and
+ * suffix, and the suffix picks the folder. The pair lands in the inbox, since filing is a decision.
  */
 export function bookNote(fileName: string): BookNote | null {
   const lowered = fileName.toLowerCase();
@@ -123,16 +87,8 @@ export function bookNote(fileName: string): BookNote | null {
 }
 
 /**
- * Where a markdown file picked off disk lands, and null where none will do.
- *
- * The file keeps its own name, the way a book does, and lands in the inbox for
- * the reason a book and a clipping do: filing is a decision, and it is not this
- * key's. The suffix comes off before the name is cleaned so `.md` is not what
- * the cut at 80 spends its last characters on, and goes back on afterwards.
- *
- * Nothing here looks at what is in the file. Frontmatter another notebook wrote
- * comes through untouched, the backend's `stamp` adding an `id`, a `created`
- * and a `modified` around whatever fields are already in the block.
+ * Where a markdown file picked off disk lands, or null where none will do. It keeps its own name
+ * in the inbox. The suffix comes off before the cut at 80, so `.md` does not use up the name.
  */
 export function importedNote(fileName: string): string | null {
   const name = safeName(fileName.replace(/\.md$/i, ""));
@@ -146,25 +102,17 @@ export function noteName(path: string): string {
 }
 
 /**
- * A vault path spelled for a URL, or for a markdown destination that becomes one.
- *
- * `encodeURI` with the two characters it leaves raw that cut a URL short: `#`
- * starts a fragment and `?` a query, so `plan #2.pdf` would ask for `plan `.
- * Nothing more than those two, because notes keep the spelling `encodeURI`
- * always wrote: the backend's move finds a link by that spelling, and a `,`
- * written `%2C` would be a link a folder move misses. `%` itself is already
- * `%25` by then, so the two added escapes are never read twice.
+ * A vault path spelled for a URL. `encodeURI` leaves `#` and `?` raw, and they cut a URL short, so
+ * only those two are escaped further. Notes keep `encodeURI`'s spelling, which the backend's move
+ * matches on.
  */
 export function encodePath(path: string): string {
   return encodeURI(path).replaceAll("#", "%23").replaceAll("?", "%3F");
 }
 
 /**
- * The typed path with the slashes tidied.
- *
- * A vault path is relative and its separator is a single slash, so a doubled or
- * leading slash is a typo the vault would swallow anyway. Absorb it here and
- * the prompt names the folder the path really lands in.
+ * Collapse doubled slashes and drop a leading one, so the prompt names the real folder the path
+ * lands in.
  */
 function tidy(input: string): string {
   return input.trim().replace(/\/+/g, "/").replace(/^\//, "");
@@ -176,12 +124,8 @@ function holdsANote(paths: string[], folder: string): boolean {
 }
 
 /**
- * Whether a path lands on a note the vault holds, or inside one.
- *
- * A note cannot be a folder, which `resolve_path` in
- * backend/src/kasten_backend/vault.py refuses for every ancestor of the path.
- * The listing already names the notes, so say it here rather than promise a
- * folder and hand back the vault's 400.
+ * The blocked verdict when a note sits where a folder of the path must go. `resolve_path` in
+ * backend/src/kasten_backend/vault.py refuses that too, so the prompt says it first.
  */
 function noteInTheWay(paths: string[], segments: string[]): NotePathVerdict | null {
   let ancestor = "";
@@ -198,8 +142,7 @@ export function describeNotePath(input: string, paths: string[]): NotePathVerdic
 
   if (typed === "") return { kind: "empty" };
   if (typed.endsWith("/")) return { kind: "blocked", reason: "name the note" };
-  // The same rule the vault applies, said here so the prompt can say it before
-  // the request rather than after the refusal.
+  // The vault's own rule, said here so the prompt can say it before the request.
   if (typed.split("/").some((segment) => segment.startsWith("."))) {
     return { kind: "blocked", reason: "a name cannot start with a dot" };
   }
@@ -213,21 +156,15 @@ export function describeNotePath(input: string, paths: string[]): NotePathVerdic
   if (cut === -1) return { kind: "create", path };
 
   const folder = path.slice(0, cut + 1);
-  // Folders exist only as the prefix of a note, so a folder no path starts with
-  // is one the create would make.
+  // A folder no note sits under is one the create would make.
   if (paths.some((other) => other.startsWith(folder))) return { kind: "create", path };
   return { kind: "create", path, newFolder: folder };
 }
 
 /**
- * What the typed input means when the prompt is moving `source`, a folder.
- *
- * The same verdicts a note's path reads, with the note-shaped rules taken out
- * and the folder-shaped ones put in. No `.md` is added: a folder has a name and
- * not a suffix. A trailing slash names the folder rather than waiting for more,
- * because that is the spelling Tab folds in from the list. `open` means the
- * path is taken, which for a folder is a refusal rather than an invitation,
- * except at `source` itself, where it means there is nothing to do.
+ * What the typed input means when the prompt moves `source`, a folder. The note rules are dropped
+ * and no `.md` is added. A trailing slash names the folder, the spelling Tab folds in. `open` is a
+ * refusal for a folder, except at `source` itself, where there is nothing to do.
  */
 export function describeFolderPath(
   input: string,
@@ -240,14 +177,11 @@ export function describeFolderPath(
   if (typed.split("/").some((segment) => segment.startsWith("."))) {
     return { kind: "blocked", reason: "a name cannot start with a dot" };
   }
-  // Every segment, the last one included: a folder landing inside a note and a
-  // folder landing on one are the same refusal from the vault, and the reason
-  // the second one gives is the more useful of the two.
+  // Only the ancestors are checked here. A folder landing on a note is refused below.
   const blocked = noteInTheWay(paths, typed.split("/").slice(0, -1));
   if (blocked) return blocked;
   if (paths.includes(typed)) return { kind: "blocked", reason: "a note is already there" };
-  // Said before the collision below, because a folder inside itself is the more
-  // exact reason and the vault refuses it on its own grounds.
+  // Before the collision check: a folder inside itself is the more exact refusal.
   if (typed.startsWith(`${source}/`)) {
     return { kind: "blocked", reason: "a folder cannot move inside itself" };
   }

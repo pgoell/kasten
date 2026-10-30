@@ -34,10 +34,8 @@ export async function moveFolder(from: string, to: string): Promise<Folder> {
 }
 
 /**
- * Every file moving `source` to `target` would rewrite, asked before the move.
- *
- * `source` is a note or a folder, whichever the vault holds. Nothing is
- * written: this is what the tree's confirm counts before a drop lands.
+ * Every file a move of `source` to `target` would rewrite, asked before the move. `source` may be a
+ * note or a folder. Nothing is written: the tree's confirm counts these before a drop lands.
  */
 export async function previewMove(source: string, target: string): Promise<string[]> {
   const { data, response } = await client.GET("/api/move-preview", {

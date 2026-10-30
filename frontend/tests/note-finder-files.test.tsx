@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { NoteFinder } from "@/components/note-finder";
+import { NoteFinder } from "@/components/finder/note-finder";
 import { PATHS } from "./note-finder-fixture";
 
 // The finder's own preview asks the api for a note, which is what must not

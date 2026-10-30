@@ -4,12 +4,8 @@ import type { EditorCommands } from "@/lib/key-bindings";
 import { leaderAction, leaderPrefix } from "@/lib/leader-keys";
 
 /**
- * Where a pane hands the space bar once it has read it as the leader.
- *
- * Every pane reads the space itself, the editor through vim and the rest by
- * hand, and each knows things the panel does not: the tree seeds a new note
- * with its cursor's folder, the editor owns the buffer its edits write to. So
- * the pane says what a sequence runs, and the panel only asks.
+ * Where a pane hands Space once it has read it as the leader. Each pane knows what the panel
+ * does not, such as the tree's cursor folder or the editor's buffer, so the pane says what runs.
  */
 export interface LeaderOpener {
   /** What had the focus when Space was pressed. The panel gives it back there. */
@@ -34,11 +30,7 @@ export function hostLeader(next: Host): () => void {
   };
 }
 
-/**
- * Hands the leader to the which-key panel. False where none is mounted (a pane
- * drawn alone, as the tests draw them), and the pane then keeps its own
- * sequence, as before the panel.
- */
+/** Hands the leader to the panel. False when none is mounted; the pane then keeps its own keys. */
 export function beginLeader(opener: LeaderOpener): boolean {
   if (host === null) return false;
   host(opener);

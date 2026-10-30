@@ -90,7 +90,7 @@ describe("the todo pane on the reference page", () => {
  * those two.
  */
 const LEADER_GROUPS: Record<string, string[]> = {
-  Find: ["ff", "fg", "fb", "ft", "a", ":", "?"],
+  Find: ["ff", "fg", "fm", "fb", "ft", "a", ":", "?"],
   Create: ["cf", "cd", "cw", "cm", "cb", "ci", "cv", "cc", "cs"],
   "Go to": [
     "gd",

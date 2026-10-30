@@ -1,9 +1,6 @@
 /**
- * A heading's section in a note: found, and appended to.
- *
- * Pure, and deliberately ignorant of what the line it is handed means. A todo's
- * done log, a time log and a highlight all end up at the end of a section, and
- * the rule for where that end is has nothing to do with any of the three.
+ * A heading's section in a note: found, and appended to. Pure, and ignorant of the line appended,
+ * since where a section ends has nothing to do with what the line is.
  */
 
 import { noteBody } from "@/lib/note-frontmatter";
@@ -14,7 +11,7 @@ const HEADING = /^#{1,6} /;
 /** An ATX heading's level and its title. */
 const TITLED = /^(#{1,6})[ \t]+(.*)$/;
 
-/** The run of backticks or tildes that opens or closes a fenced code block, and what follows it. */
+/** The backtick or tilde run that opens or closes a fence, and what follows it. */
 const FENCE = /^ {0,3}(`{3,}|~{3,})(.*)/;
 
 /** A list marker and the space after it, where the item's content starts. */
@@ -24,9 +21,8 @@ const LIST_MARKER = /^( {0,3})([-*+]|\d{1,9}[.)])( +|$)/;
 const HEADING_LINE = /^#{1,6}( |$)/;
 
 /**
- * The column a list item's content starts at. Five or more spaces after the
- * marker is indented code instead, so the content starts one space after the
- * marker; a marker with nothing after it starts its content one space on.
+ * The column a list item's content starts at. Five or more spaces after the marker is indented
+ * code, so the content starts one space on, as it does for an empty marker.
  */
 function contentColumn(marker: RegExpExecArray): number {
   const [, lead = "", bullet = "", gap = ""] = marker;
@@ -35,14 +31,8 @@ function contentColumn(marker: RegExpExecArray): number {
 }
 
 /**
- * The indices of the lines that are fenced code, fences included, the index of
- * the fence's opening line where a fence nobody closes runs to the end, and the
- * run that opened that fence.
- *
- * A `# comment` in a shell block is code, not a heading: it neither opens a
- * section nor ends one. A fence closes on a run of its own character at least as
- * long as the one that opened it, which is CommonMark's rule. A backtick fence's
- * info string holds no backtick, so a line of inline ```x``` opens nothing.
+ * The indices of fenced code lines, fences included, and the run of a fence nobody closes. A
+ * `# comment` in a shell block is code, not a heading. A fence closes on a run at least as long.
  */
 export function fencedLines(lines: string[]): {
   coded: Set<number>;
@@ -77,12 +67,8 @@ export function fencedLines(lines: string[]): {
 }
 
 /**
- * The section `heading` opens in `text`, and the 1-based line it opens on.
- *
- * What `![[note#heading]]` draws: the heading and everything under it up to the
- * next heading of its own level or higher, a lower one being part of it. The
- * title is matched ignoring case and the space around it, because a link is
- * typed from memory and Obsidian forgives both. Null where no heading matches.
+ * The section `heading` opens in `text`, and the 1-based line it opens on, or null. The section
+ * runs to the next heading of its level or higher. Titles match ignoring case and outer spaces.
  */
 export function sectionOf(text: string, heading: string): { text: string; line: number } | null {
   const lines = text.split("\n");
@@ -103,11 +89,8 @@ export function sectionOf(text: string, heading: string): { text: string; line: 
 }
 
 /**
- * `sectionOf` read off a whole note file rather than its body.
- *
- * The heading is looked for in the body, because a YAML comment reads as a
- * heading to anything that only counts hashes. The line is counted in the
- * whole file, frontmatter and all, since that is the file the editor opens.
+ * `sectionOf` on a whole note file. The heading is searched in the body, since a YAML comment reads
+ * as a heading to anything counting hashes. The line is counted from the top of the file.
  */
 export function noteSectionOf(
   text: string,
@@ -135,11 +118,8 @@ function sectionEnd(lines: string[], at: number, isFenced: (index: number) => bo
 }
 
 /**
- * Whether the fence opened on line `opener` sits in a list item: the first text
- * line above it indented less than the fence is a list marker whose content the
- * fence lines up under, or a paragraph line whose marker is above it. A closer at
- * column 0 would fall out of that item, so such a fence is left as it is. Lines
- * above `floor`, the frontmatter, are not read.
+ * Whether the fence on line `opener` sits in a list item. A closer at column 0 would fall out of
+ * the item, so such a fence is left as it is. Lines above `floor` (the frontmatter) are not read.
  */
 function inListItem(lines: string[], floor: number, opener: number): boolean {
   const indent = (line: string) => line.length - line.trimStart().length;
@@ -151,8 +131,7 @@ function inListItem(lines: string[], floor: number, opener: number): boolean {
   if (index < floor || HEADING_LINE.test(at(index))) return false;
   const first = LIST_MARKER.exec(at(index));
   if (first !== null) return contentColumn(first) <= n;
-  // A line that is no marker is a lazy continuation of the paragraph above it, so
-  // the item's marker can be further up, as long as no blank line comes between.
+  // A lazy continuation line: the item's marker may sit further up, with no blank line between.
   for (index -= 1; index >= floor; index -= 1) {
     const held = at(index);
     if (held.trim() === "" || HEADING_LINE.test(held)) return false;
@@ -163,17 +142,12 @@ function inListItem(lines: string[], floor: number, opener: number): boolean {
 }
 
 /**
- * The edit that puts `line` under `heading`, rather than the text it produces.
- *
- * Offsets because the editor needs them: a todo in today's own note logs itself
- * into the buffer being typed into, and one CodeMirror change over a range is
- * what keeps the undo history and the cursor whole. `appendUnder` is this
- * applied.
+ * The edit that puts `line` under `heading`. Offsets, not text, because one CodeMirror change over
+ * the range keeps the undo history and the cursor whole. `appendUnder` is this applied.
  */
 export function appendUnderEdit(text: string, heading: string, line: string): Edit {
   const lines = text.split("\n");
-  // The readers take a heading with trailing spaces or tabs, and never one in a
-  // fence or the frontmatter, so the writer finds the same one they do.
+  // Match the readers: trailing spaces are allowed, and a fence or frontmatter line never counts.
   const above = lines.length - noteBody(text).split("\n").length;
   const { coded: fenced, openFrom, openRun } = fencedLines(lines.slice(above));
   const isFenced = (index: number) => fenced.has(index - above);
@@ -181,10 +155,7 @@ export function appendUnderEdit(text: string, heading: string, line: string): Ed
     (held, index) => index >= above && !isFenced(index) && held.trimEnd() === heading,
   );
 
-  // The readers count nothing past a fence nobody closes, so a line written there
-  // lands where they never look. Close the fence first when the line would land
-  // inside it: the body ends in it, and the section the line goes in runs to the
-  // end of the note too (or there is no section, so one is made at the end).
+  // The readers count nothing past an unclosed fence, so close it first when the line lands inside.
   if (
     openFrom !== null &&
     openRun !== null &&
@@ -202,8 +173,7 @@ export function appendUnderEdit(text: string, heading: string, line: string): Ed
   }
 
   if (at === -1) {
-    // No section, so it is made at the end, off a blank line from whatever the
-    // note already ends with.
+    // No section: make one at the end, after a blank line.
     const trimmed = text.replace(/\n+$/, "");
     return { from: trimmed.length, to: text.length, insert: `\n\n${heading}\n${line}\n` };
   }
@@ -211,8 +181,7 @@ export function appendUnderEdit(text: string, heading: string, line: string): Ed
   let end = sectionEnd(lines, at, isFenced);
   while (end > at + 1 && (lines[end - 1] ?? "").trim() === "") end -= 1;
 
-  // Nothing follows the section, so the line goes on the end with a newline in
-  // front of it rather than behind.
+  // Nothing follows the section, so the line goes on the end with its newline in front.
   if (end === lines.length) return { from: text.length, to: text.length, insert: `\n${line}` };
 
   let offset = 0;
@@ -221,12 +190,8 @@ export function appendUnderEdit(text: string, heading: string, line: string): Ed
 }
 
 /**
- * Put `line` at the end of `heading`'s section, making the section where there
- * is none.
- *
- * The blank line before the next heading stays where it is: a section is read
- * by eye as much as by this, and a log line pushed under the gap would read as
- * belonging to the heading below.
+ * Put `line` at the end of `heading`'s section, making the section if there is none. The blank line
+ * before the next heading stays put, or the line would read as part of the heading below.
  */
 export function appendUnder(text: string, heading: string, line: string): string {
   const { from, to, insert } = appendUnderEdit(text, heading, line);

@@ -174,21 +174,15 @@ function bookPane(url: string, path: string, onMoved: (cfi: string) => void) {
 }
 
 /**
- * Ask once the book has opened. foliate's element reports where it is once
- * `init` has navigated, and the pane counts the book ready right after, so the
- * wait is on that and then on the rest of the draw, as `drawn` in the book
- * fixture waits. Asking earlier would show "The book is still opening".
+ * Ask once the book has opened, which the view marks on its host with
+ * `data-ready` as it counts the book ready. Asking earlier would show "The book
+ * is still opening".
  */
 async function askWhenOpen(pane: (rsvp: RsvpAsk) => ReactNode) {
   draw(pane, 0);
-  await vi.waitFor(
-    () => {
-      const view = document.querySelector("foliate-view") as FoliateView | null;
-      expect(view?.lastLocation).toBeTruthy();
-    },
-    { timeout: 30_000 },
-  );
-  await new Promise((resolve) => setTimeout(resolve, 300));
+  await vi.waitFor(() => expect(document.querySelector("[data-ready]")).not.toBeNull(), {
+    timeout: 30_000,
+  });
   draw(pane, 1);
 }
 

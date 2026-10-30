@@ -1,12 +1,6 @@
 /**
- * What another app hands the capture page through Android's share sheet.
- *
- * The manifest's `share_target` posts to `/api/finance/receipts/share`, which keeps any files
- * as receipts and opens `/capture?title=…&text=…&url=…`, and
- * which of the three a sharing app fills is up to that app. Chrome sharing a
- * page puts the address in `text` and leaves `url` empty, a note app puts
- * everything in `text`, and some fill `url` alone. So nothing here trusts one
- * field to hold the address.
+ * What Android's share sheet hands the capture page (the manifest's share_target).
+ * Apps fill title, text or url unevenly, so no field is trusted to hold the address.
  */
 
 export interface Shared {
@@ -15,15 +9,12 @@ export interface Shared {
   url?: string;
 }
 
-/** An address as a line of prose holds one: the scheme up to the next space. */
+/** An address in prose runs from its scheme to the next space. */
 const ADDRESS = /https?:\/\/\S+/i;
 
 /**
- * The text the textarea starts holding: every field that says something, once.
- *
- * One per line, so the title reads as the thought's first line and the address
- * as its last. An address already inside `text` is not repeated, which is what
- * Chrome's own share would otherwise do.
+ * Each field that says something, once, one per line: title first, address last.
+ * An address already in `text` is not repeated.
  */
 export function sharedDraft({ title, text, url }: Shared): string {
   const said = [title, text].map((part) => part?.trim() ?? "").filter((part) => part !== "");

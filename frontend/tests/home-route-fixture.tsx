@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryHistory, createRouter, RouterProvider } from "@tanstack/react-router";
-import { cleanup, fireEvent, render, act as rtlAct } from "@testing-library/react";
+import { cleanup, fireEvent, render } from "@testing-library/react";
 import {
   ChangedOnDisk,
   fetchAssets,
@@ -18,10 +18,11 @@ import { forgetQueues } from "@/lib/note/use-autosave";
 import { noteBase } from "@/lib/note-base";
 import { digestOf, type VaultEvent } from "@/lib/vault-events";
 import { routeTree } from "@/routeTree.gen";
-import { hashed } from "./digests";
+import { act, hashed, scopeEachTest } from "./digests";
 import { resetFoliateFake } from "./foliate-fake";
 import { focusedPaneOf } from "./home-route-panes";
 
+export { act } from "./digests";
 export { focusedPaneOf } from "./home-route-panes";
 
 /**
@@ -117,36 +118,6 @@ export function stream(): FakeEventSource {
  * touched: a save to any other lands as it always has.
  */
 export const outside = new Map<string, string>();
-
-/** The running test's signal, which vitest aborts when the test times out. */
-let signal: AbortSignal;
-
-/**
- * `act`, let go of when the test it was called in times out.
- *
- * vitest fails a test that runs out of time but cannot stop it, so the body
- * goes on awaiting while the next test starts. React counts how deep in `act`
- * it is in one place for the whole file, and while the orphan sits inside one,
- * every later `render` is queued for an outer `act` that never ends: one
- * timeout became 119 failures over an empty container. Rejecting on the abort
- * takes the orphan out of its `act` before the next test starts. A signal
- * already aborted is a hook after the timeout, which has to run as it is.
- */
-export function act(callback: () => void): void;
-export function act(callback: () => Promise<void>): Promise<void>;
-export function act(callback: () => void | Promise<void>): void | Promise<void> {
-  const own = signal;
-  return rtlAct(() => {
-    const result = callback();
-    // A synchronous callback cannot outlive its test, and stays synchronous
-    // here so React flushes it before `act` returns, as the call sites expect.
-    if (!(result instanceof Promise) || own.aborted) return result;
-    const aborted = new Promise<never>((_, reject) => {
-      own.addEventListener("abort", () => reject(own.reason), { once: true });
-    });
-    return Promise.race([result, aborted]);
-  });
-}
 
 /**
  * Mount the app over a history that is not a browser.
@@ -334,27 +305,16 @@ export function baseOf(text: string): Promise<string> {
 
 /** The hooks every home-route file registers at top level, before any describe. */
 export function pageHooks() {
-  beforeEach((context) => {
-    signal = context.signal;
+  scopeEachTest();
+
+  beforeEach(() => {
     // The write queue is the page's, and each test is a page of its own.
     forgetQueues();
   });
 
   // Outermost, so it runs after each block's own cleanup, whose unmount flushes
   // can hold text of their own. Held text outlives a mount by design.
-  afterEach(() => {
-    localStorage.removeItem("kasten.held");
-    localStorage.removeItem("kasten.held.2");
-    // Each test is a device of its own, or the layout one test left would be
-    // the layout the next one starts on.
-    localStorage.removeItem("kasten.workspace.1");
-    localStorage.removeItem("kasten.workspace.coarse.1");
-    // And the cursor each note was left at: a test that opens a note and presses
-    // a key at its first line would otherwise press it where another test left.
-    localStorage.removeItem("kasten.positions.1");
-    resetHeld();
-    outside.clear();
-  });
+  afterEach(forgetThePage);
 
   // The route's component is split into a chunk of its own, so the first
   // `router.load()` is where vite transforms `Home` and everything under it. That
@@ -369,7 +329,55 @@ export function pageHooks() {
     await Promise.allSettled(
       Object.values(router.routesById).map((route) => router.loadRouteChunk(route)),
     );
+    await warmUp();
   }, 60_000);
+}
+
+/** What a page leaves behind that outlives its mount, put back for the next one. */
+function forgetThePage() {
+  localStorage.removeItem("kasten.held");
+  localStorage.removeItem("kasten.held.2");
+  // Each test is a device of its own, or the layout one test left would be
+  // the layout the next one starts on.
+  localStorage.removeItem("kasten.workspace.1");
+  localStorage.removeItem("kasten.workspace.coarse.1");
+  // And the cursor each note was left at: a test that opens a note and presses
+  // a key at its first line would otherwise press it where another test left.
+  localStorage.removeItem("kasten.positions.1");
+  resetHeld();
+  outside.clear();
+}
+
+/**
+ * One mount of the route that no test is charged for.
+ *
+ * Loading the chunks is not the whole of a first mount: the first render and the
+ * first editor run code no test has run yet, and
+ * under load 68 that came to 4.2s of the first test's 5s, against 0.5s for the
+ * same steps run again (#1337). The doubles answer just enough for a page, and
+ * go back to blank after, along with every call the mount made on any of them.
+ */
+async function warmUp() {
+  vi.useFakeTimers();
+  vi.stubGlobal("EventSource", FakeEventSource);
+  vi.stubGlobal("scrollTo", () => {});
+  vi.mocked(fetchFiles).mockResolvedValue(Object.keys(VAULT));
+  vi.mocked(fetchNote).mockImplementation(async (path) => {
+    if (!(path in VAULT)) throw new NoteMissing(path);
+    return VAULT[path] as string;
+  });
+  await renderApp("/?note=index.md");
+  await settle();
+  cleanup();
+  await hashed();
+  vi.useRealTimers();
+  vi.unstubAllGlobals();
+  vi.mocked(fetchFiles).mockReset();
+  vi.mocked(fetchNote).mockReset();
+  vi.clearAllMocks();
+  forgetQueues();
+  forgetThePage();
+  FakeEventSource.last = undefined;
 }
 
 /** The hooks of the `the route` block: the fakes, the stream and the page's cleanup. */

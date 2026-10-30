@@ -391,9 +391,7 @@ export default defineConfig({
           // only task that names this project, but a bare `vitest run` collects
           // all three, and Chromium then shares the box with the jsdom pool.
           // Measured under load: the home route's chunk warm-up took 6.2s that
-          // way and 1.5s with this project held to the end. A timing gate here,
-          // the note prompt's 15ms commit, is the number the perf project's
-          // comment above warns about.
+          // way and 1.5s with this project held to the end.
           sequence: { groupOrder: 2 },
           include: ["tests/frame/**/*.test.tsx"],
           // Inert unless a run asks the clock to cross midnight (#1315).

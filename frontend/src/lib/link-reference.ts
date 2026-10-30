@@ -1,11 +1,6 @@
 /**
- * The address a markdown link points at, its own `(url)` or a definition's.
- *
- * The parser reads `[text]`, `[text][]` and `[text][label]` as links whatever
- * the note holds, and a definition `[label]: url` as a `LinkReference` block,
- * but it never joins the two. Live preview, Copy as and the editor's click
- * all ask here, so a reference link draws, copies and opens as the inline
- * link it stands for.
+ * A link's address, its own `(url)` or its label's definition. The parser does not join
+ * the two, so live preview, Copy as and the click all ask here.
  */
 
 import type { SyntaxNode, Tree } from "@lezer/common";
@@ -22,25 +17,19 @@ export function sourceOf(text: string): Source {
 }
 
 /**
- * The blocks a definition can sit in, besides the document. Everything else is
- * a leaf, which holds none, so the scan never walks a paragraph's inline
- * nodes, and the text of a fence defines nothing.
+ * Blocks a definition can sit in, besides the document. Other nodes are leaves, so a fence
+ * or a paragraph defines nothing.
  */
 const HOLDERS = new Set(["Blockquote", "BulletList", "OrderedList", "ListItem"]);
 
-/**
- * A definition on a line of its own, as CommonMark shapes one. A `<url>` may
- * hold `\>` and `\<`, which do not end it (#447).
- */
+/** A definition on its own line. A <url> may hold \> and \< without ending (#447). */
 const DEFINITION = /^ {0,3}\[([^\]]+)\]:[ \t]*(<(?:\\.|[^<>\\\n])*>|\S+)/;
 
 const scanned = new WeakMap<Tree, Map<string, string>>();
 
 /**
- * The address of a `Link` or `Image`: its `(url)`, else, for one with no `(`,
- * the address of the definition its label names. Null when it has none. An
- * image reads a definition as a link does, so `![cat][pic]` draws the picture
- * `![cat](url)` would (#547).
+ * The address of a `Link` or `Image`: its `(url)`, else its label's definition, or null.
+ * An image reads a definition as a link does (#547).
  */
 export function linkAddress(node: SyntaxNode, doc: Source): string | null {
   const url = node.getChild("URL");
@@ -49,8 +38,7 @@ export function linkAddress(node: SyntaxNode, doc: Source): string | null {
   if (marks.length > 2) return null;
   const [open, close] = marks;
   if (!open || !close) return null;
-  // The full form names its label; the shortcut and the collapsed `[text][]`
-  // are their own label.
+  // The full form names its label; `[text][]` and the shortcut use their text.
   const named = node.getChild("LinkLabel");
   const label = normal(
     (named !== null && doc.sliceString(named.from + 1, named.to - 1)) ||
@@ -58,18 +46,15 @@ export function linkAddress(node: SyntaxNode, doc: Source): string | null {
   );
   // `[^1]` is a footnote, which Obsidian never draws as a link.
   if (label.startsWith("^")) return null;
-  // The tree the link belongs to, not one it is mounted in: a markdown fence
-  // is a note of its own and takes no definition from around it.
+  // A fence is a note of its own: it takes no definition from around it.
   let top = node;
   while (!top.type.isTop && top.parent !== null) top = top.parent;
   return definitions(top, doc).get(label) ?? null;
 }
 
 /**
- * Hands `tree` the definitions of `note`. Copy as of a selection parses the
- * selection alone, and its links name definitions anywhere in the note. The
- * selection's own still count for a label the note lacks, as when they sit in
- * a fence the note reads as code.
+ * Gives `tree` the note's definitions, as Copy as parses a selection alone. The selection's
+ * own still count for a label the note lacks, as in a fence the note reads as code.
  */
 export function lendDefinitions(tree: Tree, doc: Source, note: Tree, noteDoc: Source): void {
   const merged = new Map(definitions(note.topNode, noteDoc));
@@ -92,11 +77,8 @@ export interface UrlLink {
 }
 
 /**
- * The `Link` at or above `node` when it opens in a new tab, else null.
- *
- * Only an address with a scheme: a relative one would resolve against kasten's
- * own page, not the vault, and open nothing useful. Never a script, which a
- * note pasted from anywhere can carry and which would run as kasten (#548).
+ * The `Link` at or above `node` when it opens in a new tab, else null. Only a scheme
+ * address: a relative one resolves against kasten, and a script would run here (#548).
  */
 export function urlLinkAt(node: SyntaxNode | null, doc: Source): UrlLink | null {
   for (let up = node; up !== null; up = up.parent) {
@@ -117,12 +99,8 @@ export interface FileLink {
 }
 
 /**
- * The `Link` at or above `node` when it names a page or an asset in the vault, else null.
- *
- * Where a path holds `[`, `]`, `|` or `#`, which a `[[link]]` cannot hold, the
- * take writes this shape instead: a relative address with each segment
- * percent-encoded. It is a separate reader, not a case of `urlLinkAt`, because
- * the live preview asks that one too and must not start following files.
+ * The `Link` at or above `node` when it names a vault page or asset, else null. Separate from
+ * `urlLinkAt`, since live preview asks that one too and must not follow files.
  */
 export function fileLinkAt(node: SyntaxNode | null, doc: Source): FileLink | null {
   for (let up = node; up !== null; up = up.parent) {
@@ -148,12 +126,8 @@ export function fileLinkAt(node: SyntaxNode | null, doc: Source): FileLink | nul
 }
 
 /**
- * The vault path `relative` names from the folder of `note`, or null where it climbs above the root.
- *
- * A plain `[text](path)` is read from the folder the note sits in, as Obsidian
- * and a folder's index read one, so `B/index.md` holding `[r.pdf](r.pdf)` means
- * `B/r.pdf` and not a file of that name elsewhere. Both halves are joined and
- * their `.` and `..` segments taken off, which is where a climb is caught.
+ * The vault path `relative` names from the folder of `note`, or null if it climbs above the root.
+ * A link is read from the note's own folder, as Obsidian reads it.
  */
 export function resolveFrom(note: string, relative: string): string | null {
   // A leading slash is refused, as the backend refuses it, rather than read from the root.
@@ -180,12 +154,8 @@ function definitions(top: SyntaxNode, doc: Source): Map<string, string> {
 
   const found = new Map<string, string>();
   collect(top, doc, found);
-  // CodeMirror parses a long note a slice at a time, so its tree can stop
-  // short of a definition at the end. The rest is read by line until the tree
-  // reaches it, from the start of the line the tree stops in. A fence's own
-  // tree ends short of the note too, and has no rest. A tree that stops inside
-  // an open fence leaves the rest unknown: whether a later line is code or
-  // not turns on where that fence closes, which the parser will soon say.
+  // CodeMirror parses a long note a slice at a time, so the tree can stop short of a
+  // definition. Read the rest by line, unless the tree stops inside a fence.
   if (top.to < doc.length && (top.parent === null || top.parent.type.isTop) && !inFence(top)) {
     let start = top.to;
     while (start > 0 && doc.sliceString(start - 1, start) !== "\n") start--;
@@ -209,8 +179,7 @@ function inFence(top: SyntaxNode): boolean {
  */
 function scanLines(text: string, found: Map<string, string>): void {
   let fence: string | null = null;
-  // Whether a block can start on this line: the first, or after a blank line,
-  // a heading or another definition.
+  // Whether a block can start here: first, or after a blank line, heading or definition.
   let opens = true;
   for (const line of text.split("\n")) {
     const mark = /^ {0,3}(`{3,}|~{3,})/.exec(line)?.[1];
@@ -266,9 +235,8 @@ function unbracket(url: string): string {
 }
 
 /**
- * `text` with markdown's backslash escapes taken off: CommonMark undoes them
- * in an address, `a\)b` being `a)b` (#447), and the import puts them on a
- * ruby's `*`, `_` and `[`.
+ * `text` with markdown's backslash escapes taken off, as CommonMark does in an address (#447).
+ * The import adds them to a ruby's `*`, `_` and `[`.
  */
 export function unescaped(text: string): string {
   return text.replace(/\\([!-/:-@[-`{-~])/g, "$1");

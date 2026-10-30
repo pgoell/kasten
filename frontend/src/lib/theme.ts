@@ -1,6 +1,5 @@
 /**
- * The light and dark theme, set on `<html>` as `data-theme`, and the accent
- * palette, set as `data-palette`.
+ * The light and dark theme on `<html>` as `data-theme`, and the accent palette as `data-palette`.
  */
 
 export const THEME_KEY = "kasten.theme";
@@ -13,21 +12,13 @@ export type Palette = (typeof PALETTES)[number];
 const DARK = "(prefers-color-scheme: dark)";
 const REDUCED = "(prefers-reduced-motion: reduce)";
 
-/**
- * Every part of the page that paints in the theme, told when it moves.
- *
- * The tab that wrote is told here, and the other tabs by the `storage` event,
- * which the browser sends to every tab but the one that wrote.
- */
+/** Told on each switch. This tab is told here; others by the `storage` event. */
 const listeners = new Set<() => void>();
 
 /** Choices the browser refused to store, by key, which hold until the page goes. */
 const unstored = new Map<string, string>();
 
-/**
- * A browser with site data blocked throws a `SecurityError` on any touch of
- * `localStorage`. That reads as no choice made, so the system decides.
- */
+/** Blocked storage throws on any touch; that reads as no choice made, so the system decides. */
 function stored(key: string): string | null {
   const held = unstored.get(key);
   if (held !== undefined) return held;
@@ -51,10 +42,7 @@ function keep(key: string, value: string): void {
   }
 }
 
-/**
- * Runs `update` as a cross-fade where the browser can, and at once for a reader
- * who asked for no motion.
- */
+/** Cross-fades the update where the browser can; at once for a reader who asked for no motion. */
 function show(update: () => void): void {
   if (document.startViewTransition && !matchMedia(REDUCED).matches) {
     document.startViewTransition(update);
@@ -80,10 +68,7 @@ export function currentPalette(): Palette {
   return PALETTES.find((id) => id === value) ?? "poel";
 }
 
-/**
- * Sets `data-theme` and `data-palette`, then the browser bar's colour to the
- * page colour, so the bar matches whichever theme is showing.
- */
+/** Sets the theme and palette, then the browser bar's colour to the page colour. */
 export function applyTheme(): void {
   const root = document.documentElement;
   root.dataset.theme = currentTheme();
@@ -94,10 +79,7 @@ export function applyTheme(): void {
   for (const changed of listeners) changed();
 }
 
-/**
- * Flips the theme and keeps the answer across a reload. The switch cross-fades
- * where the browser can, and is instant for a reader who asked for no motion.
- */
+/** Flips the theme, keeps the choice across a reload, and cross-fades where the browser can. */
 export function toggleTheme(): void {
   keep(THEME_KEY, currentTheme() === "dark" ? "light" : "dark");
   show(applyTheme);
@@ -117,10 +99,7 @@ export function onThemeChange(listener: () => void): () => void {
   };
 }
 
-/**
- * Applies the theme once, then follows the system while no choice is stored,
- * and any switch made in another tab.
- */
+/** Applies the theme, then follows the system while no choice is stored, and other tabs. */
 export function startTheme(): void {
   applyTheme();
   matchMedia(DARK).addEventListener("change", () => {

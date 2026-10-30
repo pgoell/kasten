@@ -48,11 +48,7 @@ import { splitTarget, wikiLinkPath, wikiLinkTargets } from "@/lib/wikilink";
 
 export type PaneCommands = ReturnType<typeof usePaneCommands>;
 
-/**
- * The commands that rearrange the window: what each pane holds, the splits,
- * the moves between panes and the tabs, and the playback signal the video
- * shares with the note.
- */
+/** Commands that rearrange the window: pane contents, splits, moves, tabs and playback. */
 export function usePaneCommands({
   pane,
   setLayout,
@@ -97,45 +93,25 @@ export function usePaneCommands({
   focusedNote: RefObject<{ path: string | undefined; isWriting: (note: string) => boolean }>;
   /** On a phone the local graph is a sheet over the window, not a pane beside the note. */
   sheetGraph?: (note: string) => void;
-  /**
-   * On a desktop the local graph opens over the note in its pane, or beside it
-   * when the margin shows. The pane decides, so this only names the pane asked.
-   */
+  /** On a desktop the local graph opens over its pane, or beside it when the margin shows. */
   sideGraph?: (pane: string) => void;
 }) {
   const { moveTo, focusToward, swapToward } = moves;
   const queryClient = useQueryClient();
-  /**
-   * Raised on every `<leader>v`, which is how the note drives the player.
-   *
-   * The route holds it rather than the pane because the key is pressed in the
-   * note and the frame is in another pane, and a counter is what carries "do it
-   * again" across the two. Only the pane playing this note's video is handed
-   * it; see the render below.
-   */
+  /** Counter, not a flag: each `<leader>v` bumps it, so every press reaches the player. */
   const [playSignal, setPlaySignal] = useState(0);
 
   /**
-   * Open the book `READING_NOTE` links in the focused pane, over what it held.
-   *
-   * The config note is read fresh on every press rather than out of the cache
-   * or the listing: it is a file edited by hand and by agents, and a 404 is
-   * the one answer that says it is not there. Every refusal is checked before
-   * the pane changes, so a note with nothing beside it is a sentence at the
-   * foot of the window and not a reader drawing its own empty panel.
+   * Opens the book `READING_NOTE` links. The note is read fresh on each press: it is
+   * hand-edited, and a 404 is the answer that says it is missing.
    */
   const openReadingBook = useCallback(async () => {
     setNotice(undefined);
 
-    // Saved before anything is read, for two reasons: the book replaces what
-    // the pane holds, as the book finder's does, and the pane may hold the
-    // config note itself, whose new link would otherwise be read as the old.
-    // A failed save keeps the note where it is.
+    // Saved first: the pane may hold the config note, whose new link would read as the old.
     if (!(await saveFirst())) return;
 
-    // The listings through the cache the route's own queries fill, so a press
-    // right after load waits for them rather than refusing over a vault it
-    // has not been told about yet.
+    // Read through the query cache, so a press right after load waits for the listings.
     let text: string;
     let paths: string[];
     let books: string[];
@@ -157,16 +133,14 @@ export function usePaneCommands({
       return;
     }
 
-    // `wikiLinkPath` falls back to the inbox for a name nothing answers to, a
-    // path the listing does not hold, so the listing is what says no note.
+    // wikiLinkPath falls back to the inbox, so the listing is what says no note.
     const note = wikiLinkPath(target, paths);
     if (!note.endsWith(".md") || !paths.includes(note)) {
       setNotice(`[[${target}]] in ${noteName(READING_NOTE)}.md names no note`);
       return;
     }
 
-    // The backend's pairing, suffix and case alike, which `withBooks` in the
-    // book finder follows too. Both suffixes, the reader opening either.
+    // Pairs as the backend does, both suffixes; withBooks in the book finder follows it.
     const stem = note.slice(0, -".md".length);
     if (!books.some((path) => path === `${stem}.epub` || path === `${stem}.pdf`)) {
       setNotice(`Nothing to read beside ${note}`);
@@ -232,25 +206,11 @@ export function usePaneCommands({
     >
   >(
     () => ({
-      // One key walking back out of the window: the note, then the pane it sat
-      // in, then the tab that pane was the last of. A pane holding a note is
-      // only emptied, because closing a note and closing the space it was read
-      // in are two decisions and the key asks them one at a time.
-      //
-      // Only leave a note once the vault has the text. A failed write keeps it
-      // on screen with the warning already in the status bar, because emptying
-      // the pane unmounts the editor and the only copy of the edit goes with it.
-      // A note the vault has moved past is not left either: `saveFirst` refuses
-      // it, and the pane stays open with `Changed on disk` in the bar until
-      // `:w` settles it.
+      // Leave a note only once the vault has its text: emptying the pane unmounts the
+      // editor, which holds the only copy of an unsaved edit. A refused save keeps it open.
       closeNote: async () => {
-        // A terminal and the todo list are taken out of the pane the way a note
-        // is, leaving the pane itself on screen. Without this the key went
-        // straight to removing the pane, which does nothing at all on the last
-        // pane of the last tab, so a window holding one terminal had no way
-        // back to an editor and no way to reach any leader key. Nothing is
-        // lost: closing the socket detaches a client, and the herdr session
-        // goes on running.
+        // Cleared like a note, since removing the last pane of the last tab does nothing.
+        // Closing the socket only detaches a client; the herdr session keeps running.
         if (
           pane.term !== undefined ||
           pane.chat === true ||
@@ -278,17 +238,12 @@ export function usePaneCommands({
         }
         if (await saveFirst()) moveTo(clearFocused);
       },
-      // The whole-pane openers: the todo list, the log, the overview, the review and the chat.
       ...wholePaneOpeners(saveFirst, moveTo),
-      // Saved first for the reason `openTodos` is: the graph replaces what the
-      // pane holds.
+      // Saved first: the graph replaces what the pane holds.
       openGraph: async () => {
         if (await saveFirst()) moveTo(openGraphInFocused);
       },
-      // Nothing is unmounted and nothing needs saving first, the way `openBook`
-      // needs none. A link typed and not yet saved is drawn once the autosave
-      // lands. A phone has no room beside the note, so the graph is a sheet there.
-      // On a desktop the pane asked draws it, over itself or beside itself.
+      // Nothing unmounts, so no saveFirst. A phone has no room beside the note: a sheet there.
       openLocalGraph: () => {
         if (pane.path === undefined) return;
         const note = pane.path;
@@ -302,11 +257,9 @@ export function usePaneCommands({
         }
         moveTo((previous) => openGraphBeside(previous, note));
       },
-      // Five rows for one helper, because a leader binding names a command that
-      // takes nothing. What they have in common is in `periodic.ts`.
+      // Each takes no argument, as a leader binding needs. The shared logic is in periodic.ts.
       openDaily: () => openPeriodic("daily"),
-      // The notice says what landed, or why the vault refused. The line in the
-      // notice is the line without its list dash.
+      // The notice names the line without its list dash, or why the vault refused.
       logDrink: (line) => {
         setNotice(undefined);
         const today = periodicNote("daily", new Date()).path;
@@ -316,10 +269,8 @@ export function usePaneCommands({
           held: heldText(today) !== undefined,
           writing: focusedNote.current.isWriting(today),
         });
-        // Today's note in the focused pane is written in its buffer. Found by the
-        // pane and not the focus: the palette's lookup finds no view when the
-        // focus sits on the body, the toolbar or a card's field, and the vault
-        // write would then land under a note open on screen.
+        // Found by pane, not focus: focus on the body, toolbar or a card finds no view,
+        // and the vault write would land under the open note.
         if (target === "buffer") {
           const editor = paneEditor(pane.id);
           const view = editor ? EditorView.findFromDOM(editor) : null;
@@ -332,9 +283,7 @@ export function usePaneCommands({
           setNotice(`Nothing logged: ${target.why}`);
           return;
         }
-        // Asked again when the queue reaches the write: a tap can wait behind a save,
-        // and the note can be opened or held meanwhile. The focus is read from the
-        // ref, since this closure was made at the press.
+        // Asked again when the queue reaches the write, since a save may have run first.
         const stillOk = () => {
           const now = drinkTarget({
             today,
@@ -351,9 +300,8 @@ export function usePaneCommands({
             setNotice(error instanceof Error ? error.message : "The drink was not logged"),
         );
       },
-      // Today's note in the focused pane is searched in place. Any other note is
-      // left for `openPeriodic`, which makes today's note when there is none, and
-      // the wait `useFoodWait` holds searches it once it is on screen.
+      // Searched in place when today's note is open. Otherwise openPeriodic makes it, and
+      // useFoodWait holds the search until it is on screen.
       logFood: async () => {
         const today = periodicNote("daily", new Date()).path;
         if (pane.path === today) {
@@ -382,60 +330,40 @@ export function usePaneCommands({
       openMonthly: () => openPeriodic("monthly"),
       openQuarterly: () => openPeriodic("quarterly"),
       openYearly: () => openPeriodic("yearly"),
-      // Needs a note in the focused pane, the way `showBacklinks` does: the
-      // book is that note's path with the suffix swapped, and there is nothing
-      // to swap without one. No `saveFirst`, unlike `openTodos`: this splits
-      // rather than replaces, so the editor holding the note stays mounted and
-      // nothing unsaved is unmounted. `moveTo` is what refuses the key while
-      // that note stands conflicted.
+      // No saveFirst: this splits rather than replaces, so nothing unsaved unmounts.
+      // moveTo refuses the key while the note is conflicted.
       openBook: () => {
         if (pane.path === undefined) return;
         const note = pane.path;
         moveTo((previous) => openBookBeside(previous, note));
       },
-      // Written above, for the refusals it carries.
       openReadingBook: () => void openReadingBook(),
-      // Needs a person's note in the focused pane, which is what the type in
-      // its frontmatter says. Read out of the cache the editor filled, so a
-      // `type: Person` typed and not yet saved is not seen until the autosave
-      // lands, the way a link typed into a note is not followed before then.
-      // A press over any other note does nothing, which is how the key says
-      // this one is not about a person.
+      // Reads the cache, so a `type: Person` not yet autosaved is not seen yet.
       openPerson: () => {
         if (pane.path === undefined) return;
         const note = pane.path;
         if (!isPerson(queryClient.getQueryData<string>(["note", note]) ?? "")) return;
         moveTo((previous) => openPersonBeside(previous, note));
       },
-      // Needs a note in the focused pane, and splits rather than replaces, so
-      // no `saveFirst` for `openBook`'s reason. Leaving the note flushes what
-      // was typed, and the restore refuses while that write is out.
+      // No saveFirst, as it splits. Leaving the note flushes what was typed, and the
+      // restore refuses while that write is out.
       openHistory: () => {
         if (pane.path === undefined) return;
         const note = pane.path;
         moveTo((previous) => openHistoryBeside(previous, note));
       },
-      // Needs a note in the focused pane for the reason `openBook` does: the
-      // link is in that note, and the pane reads it out for itself. No
-      // `saveFirst` for the same reason either, this splitting rather than
-      // replacing. A link typed and not yet saved is not found until the
-      // autosave lands, which is the second the typing stops.
+      // No saveFirst, as it splits. A link typed but not yet autosaved is not found yet.
       openVideo: () => {
         if (pane.path === undefined) return;
         const note = pane.path;
         moveTo((previous) => openVideoBeside(previous, note));
       },
-      // No guard and no `moveTo`: this opens nothing, moves nothing and writes
-      // nothing. A press with no player on screen raises a number that no pane
-      // is listening to, which is a key that does nothing rather than one that
-      // has to check first.
+      // No guard: with no player on screen the number reaches no pane, so the key does nothing.
       toggleVideo: () => setPlaySignal((count) => count + 1),
-      // The pane reads its own text, so these only ask it (`use-rsvp.ts`). No
-      // `moveTo` and no `saveFirst`: nothing moves, and a note is read from its buffer.
+      // The pane reads its own text, so these only ask it (`use-rsvp.ts`). No moveTo or saveFirst.
       openRsvp: () => readRsvp(false),
       rsvpFromHere: () => readRsvp(true),
-      // Saved first the way `openTodos` is, and for the same reason: this
-      // replaces the focused pane, so text still waiting would be written to a
+      // Saved first: this replaces the focused pane, and unsaved text would go to a
       // pane the autosave no longer follows.
       openExam: async () => {
         if (pane.path === undefined) return;
@@ -443,9 +371,8 @@ export function usePaneCommands({
         if (await saveFirst()) moveTo((previous) => openExamInFocused(previous, note));
       },
       createTab: () => moveTo(addTab),
-      // A bare `nextPane` and `goToTab` inside these reach the imports, not the
-      // keys they are written beside: an object literal's keys are not names in
-      // the scope its values are written in.
+      // The bare nextPane and goToTab below are the imports, not these keys: an object
+      // literal's keys are not names in scope for its values.
       splitRight: () => moveTo((previous) => splitFocused(previous, "row")),
       splitDown: () => moveTo((previous) => splitFocused(previous, "col")),
       nextPane: () => moveTo(nextPane),
@@ -457,11 +384,8 @@ export function usePaneCommands({
       movePaneDown: () => swapToward("down"),
       movePaneUp: () => swapToward("up"),
       movePaneRight: () => swapToward("right"),
-      // Not through `moveTo`, the way the archive and the preview are not:
-      // this writes nothing, moves no note and moves no focus, so there is
-      // nothing for a conflicted note to refuse. Hiding a pane cannot blur the
-      // one you are typing in either, which is what the signal `moveTo` raises
-      // is for.
+      // Not through moveTo: nothing is written or moved, so a conflicted note has nothing to
+      // refuse. Hiding a pane cannot blur the one you type in.
       zoomPane: () => setLayout(toggleZoom),
       nextTab: () => moveTo((previous) => stepTab(previous, 1)),
       prevTab: () => moveTo((previous) => stepTab(previous, -1)),

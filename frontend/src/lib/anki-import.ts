@@ -8,21 +8,16 @@ export type AnkiImport = components["schemas"]["AnkiImport"];
 const POLL_MS = 2000;
 
 /**
- * Asks of an import in a row that drop or fail before the line gives up.
- *
- * Every ask is 2 s apart, so this is about 10 s of a dead connection, which a
- * phone on a train passes through and comes back from.
+ * Asks of an import in a row that drop or fail before the line gives up. Each ask is 2 s apart, so
+ * this is about 10 s of a dead connection, which a phone on a train passes through.
  */
 const POLL_TRIES = 5;
 
 const LOST_TOUCH = "Lost touch with the import; reload the deck list to see whether it landed";
 
 /**
- * The uploads of files whose import did not land, keyed by the file's name, size and date.
- *
- * Kept so the next import of the same file finishes the upload already on the
- * backend and sends no piece again. A file is keyed only when it is a `File`,
- * since a `Blob` has no name to tell it from another of the same size.
+ * Uploads of imports that did not land, keyed by file name, size and date, so a retry sends
+ * no piece again. A `Blob` is not keyed: it has no name to tell it from another of the same size.
  */
 const keptUploads = new Map<string, string>();
 
@@ -37,10 +32,8 @@ function keyOf(file: Blob): string | undefined {
 const RUNNING = "running";
 
 /**
- * The JSON body of an answer, or undefined when it has none that parses.
- *
- * A proxy's own 401 or a Cloudflare page is HTML, and a body that claims JSON
- * and does not parse is no answer either, so neither is read as the import's.
+ * The JSON body of an answer, or undefined when it has none that parses. A proxy's 401 or a
+ * Cloudflare page is HTML, so neither is read as the import's answer.
  */
 async function jsonOf(response: Response): Promise<unknown> {
   if (!response.headers.get("content-type")?.includes("json")) return undefined;
@@ -53,12 +46,9 @@ async function jsonOf(response: Response): Promise<unknown> {
 }
 
 /**
- * One ask of an import: its counts, `RUNNING`, or undefined when the ask was lost.
- *
- * A refusal, a failure or the backend's 404 is the import's outcome only when it
- * carries a JSON `detail`, and it is thrown as that sentence. Anything else that
- * is not an answer (a dropped connection, a proxy's 401, a 429, a bare 5xx) says
- * nothing about the import, so it is a lost ask.
+ * One ask of an import: its counts, `RUNNING`, or undefined when the ask was lost. A refusal or
+ * failure is the import's outcome only with a JSON `detail`. Anything else (a dropped connection, a
+ * proxy's 401, a 429, a bare 5xx) says nothing about the import.
  */
 async function askImport(url: string): Promise<AnkiImport | typeof RUNNING | undefined> {
   let response: Response;
@@ -105,9 +95,8 @@ async function settle(response: Response): Promise<AnkiImport> {
 }
 
 /**
- * Turn an Anki export into notes in the vault, merged into the ones it made before.
- *
- * `carry` asks for Anki's schedule to come along with the cards.
+ * Turn an Anki export into vault notes, merged into the ones made before. `carry` keeps the
+ * schedule with the cards.
  */
 export async function importAnki(
   file: Blob,
@@ -117,7 +106,7 @@ export async function importAnki(
   const url = carry ? "/api/anki?carry=true" : "/api/anki";
   const key = keyOf(file);
   const kept = key === undefined ? undefined : keptUploads.get(key);
-  // Kept the moment the parts are in, so a finish that is lost still leaves the next try its upload.
+  // Kept as soon as the parts are in, so a lost finish still leaves the next try its upload.
   const onUploaded =
     key === undefined ? undefined : (upload: string) => keptUploads.set(key, upload);
 
@@ -135,14 +124,11 @@ export async function importAnki(
 }
 
 /**
- * The same import from a link: an AnkiWeb shared-deck page or a plain `.apkg`.
- *
- * The backend fetches it, so a phone never downloads the deck only to
- * upload it again, and the answer is the one `importAnki` gets.
+ * The same import from a link: an AnkiWeb shared-deck page or a plain `.apkg`. The backend fetches
+ * it, so a phone never downloads the deck only to upload it again.
  */
 export async function importAnkiLink(url: string, carry: boolean): Promise<AnkiImport> {
-  // Plain `fetch` to match `importAnki`, whose refusal handling this shares:
-  // the detail is the sentence the import line shows.
+  // Plain fetch, as `importAnki` shares its refusal handling: the detail is what the line shows.
   const response = await fetch(carry ? "/api/anki/link?carry=true" : "/api/anki/link", {
     method: "POST",
     headers: { "Content-Type": "application/json" },

@@ -11,11 +11,8 @@ export interface FileNode {
   name: string;
   path: string;
   /**
-   * Set on a row that is an image, an HTML page or a pdf rather than a note.
-   *
-   * A field and not another `kind`, so a folder's contents still sort as one
-   * alphabetical list: images, pages, pdfs and notes sit side by side the way
-   * `ls` shows them, rather than in groups nobody arranged.
+   * Set on an image, HTML page or pdf row, not a note. A field rather than a `kind`, so a folder
+   * still sorts as one list, as `ls` shows it.
    */
   shows?: Shows;
 }
@@ -41,11 +38,8 @@ export interface TreeRow {
 }
 
 /**
- * Every row a reader can see, in display order.
- *
- * The nesting is what the tree renders, but `j` and `k` move down a list, so
- * the keyboard needs the same rows flattened. Collapsed folders keep their
- * children out of it, because a cursor cannot sit on a row nobody can see.
+ * Every row a reader can see, in display order. `j` and `k` walk a flat list, so collapsed folders
+ * keep their children out: the cursor cannot sit on a row nobody sees.
  */
 export function flattenRows(nodes: TreeNode[], expanded: ReadonlySet<string>): TreeRow[] {
   const rows: TreeRow[] = [];
@@ -65,12 +59,8 @@ export function flattenRows(nodes: TreeNode[], expanded: ReadonlySet<string>): T
 }
 
 /**
- * Every folder on the way to `path`, which are the ones that have to be open
- * for it to be on screen.
- *
- * `reading/2026/borges.md` names `reading` and `reading/2026`, spelled the way
- * `buildTree` spells a folder's path, which is without a trailing slash. The
- * note prompt's `startFolder` keeps one; these two are not the same string.
+ * Every folder on the way to `path`, which must be open for it to show. Spelled as `buildTree`
+ * spells a folder: no trailing slash, unlike the note prompt's `startFolder`.
  */
 export function ancestors(path: string | undefined): ReadonlySet<string> {
   const folders = new Set<string>();

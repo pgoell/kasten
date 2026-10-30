@@ -1,4 +1,58 @@
-import { act } from "@testing-library/react";
+import { AsyncLocalStorage } from "node:async_hooks";
+import { act as rtlAct } from "@testing-library/react";
+
+/**
+ * The test a body belongs to, carried through its awaits.
+ *
+ * vitest fails a test that runs out of time but cannot stop it, so the body
+ * goes on while the next test runs. A module variable set in `beforeEach`
+ * names the test running now, not the one that called, so an orphan woken
+ * later read the next test's signal and went into `act` beside it (#1337).
+ * The store follows the body itself, timed out or not.
+ */
+const scope = new AsyncLocalStorage<{ signal: AbortSignal; ended: boolean }>();
+
+/** Wrap each test, its hooks included, in a scope of its own. */
+export function scopeEachTest() {
+  aroundEach(async (runTest, context) => {
+    const own = { signal: context.signal, ended: false };
+    await scope.run(own, runTest);
+    own.ended = true;
+  });
+}
+
+/**
+ * `act`, let go of when the test it was called in times out.
+ *
+ * React counts how deep in `act` it is in one place for the whole file, and
+ * while an orphan sits inside one, every later `render` is queued for an outer
+ * `act` that never ends: one timeout became 119 failures over an empty
+ * container. Rejecting on the abort takes the orphan out of its `act`, and a
+ * body whose test has ended may not start one. A signal already aborted while
+ * the test has not ended is a hook after the timeout, which has to run as it is.
+ * Outside a scope, as in a file that does not ask for one, it is plain `act`.
+ */
+export function act(callback: () => void): void;
+export function act(callback: () => Promise<void>): Promise<void>;
+export function act(callback: () => void | Promise<void>): void | Promise<void> {
+  const own = scope.getStore();
+  if (own?.ended) throw new Error("This test has ended; its body stops here");
+  return rtlAct(() => {
+    const result = callback();
+    // A synchronous callback cannot outlive its test, and stays synchronous
+    // here so React flushes it before `act` returns, as the call sites expect.
+    if (!own || !(result instanceof Promise) || own.signal.aborted) return result;
+    let stop = () => {};
+    const aborted = new Promise<never>((_, reject) => {
+      stop = () => reject(own.signal.reason);
+      own.signal.addEventListener("abort", stop, { once: true });
+    });
+    // Taken off once `act` ends, or every call would leave one on the signal.
+    return Promise.race([result, aborted]).finally(() =>
+      own.signal.removeEventListener("abort", stop),
+    );
+  });
+}
 
 /**
  * Wait for every `crypto.subtle` digest asked for so far, and what they start.

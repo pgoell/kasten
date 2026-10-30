@@ -65,6 +65,7 @@ const INERT: TreeCommands = {
   searchNotes: vi.fn(),
   findTodos: vi.fn(),
   findBook: vi.fn(),
+  findMeaning: vi.fn(),
   openTodos: vi.fn(),
   openLog: vi.fn(),
   openOverview: vi.fn(),
