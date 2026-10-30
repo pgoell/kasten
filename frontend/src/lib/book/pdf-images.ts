@@ -1,8 +1,6 @@
 /**
- * A pdf page's pictures, drawn as printed over a page the dark theme has
- * recoloured. The pdf pane's page colours are pdf.js's own, which go over the
- * whole canvas, pictures included; this puts the pictures back. The pdf view
- * calls it, and holds the rest of the drawing.
+ * A pdf page's pictures, drawn as printed over a page the dark theme has recoloured. pdf.js's page colours
+ * go over the whole canvas, pictures included, so this puts them back. The pdf view calls it.
  */
 
 /** A six-number matrix, `[a, b, c, d, e, f]`, as pdf.js writes them. */

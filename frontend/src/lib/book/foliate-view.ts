@@ -47,10 +47,8 @@ export interface FoliateView extends HTMLElement {
     prev(distance?: number): void;
   };
   /**
-   * Assigned by `open` after it awaits `makeBook`, so absent while one opens.
-   *
-   * A section foliate cannot open carries no `createDocument`, which foliate's
-   * own book walk skips rather than throwing over (`view.js:533`).
+   * Assigned by `open` after it awaits `makeBook`, so absent while one opens. A section foliate
+   * cannot open has no `createDocument`, which its own walk skips (`view.js:533`).
    */
   book?: {
     toc?: TocItem[] | null;

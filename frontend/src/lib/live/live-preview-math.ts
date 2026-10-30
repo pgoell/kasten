@@ -55,9 +55,8 @@ class Formula extends WidgetType {
 }
 
 /**
- * A `$$` block, by the table's rule and for the table's reasons: one
- * widget stands for its lines, `j` and `k` step over it, and the cursor
- * in it in any mode shows the source. A read-only view draws it.
+ * A `$$` block, by the table's rule: one widget stands for its lines.
+ * The cursor in it shows the source, and a read-only view draws it.
  */
 export function drawBlockMath(walk: Walk, node: SyntaxNode): false | undefined {
   const { state, decorations } = walk;

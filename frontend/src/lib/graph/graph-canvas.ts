@@ -87,9 +87,8 @@ const DIMMED = 0.15;
 const PLAIN_LINK = 0.5;
 
 /**
- * The dot radii of a radial drawing, in CSS pixels: the middle note, the first
- * ring and every ring after. Zoom is fixed there, so these are on screen as
- * they are written.
+ * Dot radii of a radial drawing, in CSS pixels: the middle note, the first ring, and each ring after.
+ * Zoom is fixed there, so these are on-screen pixels as written.
  */
 const CENTRE_DOT = 7;
 const RING_ONE_DOT = 5;
@@ -117,9 +116,8 @@ function faded(hex: string, alpha: number): string {
 }
 
 /**
- * A radial drawing is the margin's: the note in the middle, its links on rings
- * around it, filled by first tag, and no names on the canvas. The lists beside
- * the canvas name the notes, so the canvas only shows where they are.
+ * A radial drawing is the margin's: notes on rings, filled by first tag, with no names on the canvas.
+ * The lists beside the canvas name the notes.
  */
 export function drawGraph(
   element: HTMLElement,

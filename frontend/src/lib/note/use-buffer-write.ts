@@ -84,8 +84,7 @@ export function useBufferWrite(
 
   /**
    * Write what is waiting before doing something else, refusing while the vault has moved past the buffer.
-   * Answers whether the vault holds it. A save while the note stands conflicted is `:w`'s overwrite, which a key
-   * pressed for something else must not make on the reader's behalf.
+   * A save while the note is conflicted is `:w`'s overwrite, which a key pressed for something else must not make.
    */
   const saveFirst = useCallback((): Promise<boolean> => {
     if (conflicted.current) return Promise.resolve(false);

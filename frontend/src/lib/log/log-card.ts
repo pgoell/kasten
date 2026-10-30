@@ -377,9 +377,8 @@ function build(state: EditorState, held: Held): Card {
 }
 
 /**
- * The card as an editor extension, a field for the same reason the weather card
- * is one: a block widget changes the height of the document, which CodeMirror
- * takes only from state.
+ * The card as an editor extension, a field like the weather card: a block widget changes the document's height,
+ * which CodeMirror takes only from state.
  */
 const cardField = StateField.define<Card>({
   create: (state) =>

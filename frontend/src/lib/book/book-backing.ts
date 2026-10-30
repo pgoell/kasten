@@ -49,10 +49,8 @@ function canvasPixels(img: HTMLImageElement): Uint8ClampedArray {
 }
 
 /**
- * Whether the image is small enough to sit in a line of text.
- *
- * An icon or a glyph set into a sentence is read against the words around it,
- * so a white box round it would stand out of the line.
+ * Whether the image is small enough to sit in a line of text. An icon set into a sentence
+ * is read against its words, so a white box would stand out of the line.
  */
 function inline(element: Element, view: Window): boolean {
   const height = element.getBoundingClientRect().height;
@@ -60,11 +58,7 @@ function inline(element: Element, view: Window): boolean {
   return height > 0 && height <= font * 1.5;
 }
 
-/**
- * The raster an svg draws through its `<image>`, as an img of its own to read.
- *
- * `backImages` hands over only an svg that holds one.
- */
+/** The raster an svg draws through its `<image>`, read as an img of its own. */
 function raster(svg: SVGSVGElement): HTMLImageElement {
   const image = svg.querySelector("image") as SVGElement;
   const img = svg.ownerDocument.createElement("img");
@@ -118,10 +112,8 @@ function survey(pixels: Uint8ClampedArray): { seeThrough: boolean; visible: numb
 }
 
 /**
- * What the page does for an img, or for an svg drawing a raster through its
- * `<image>`: white behind it, inverted, or nothing.
- *
- * Read through the element's own window, the section living in foliate's iframe.
+ * What the page does for an img, or an svg's `<image>`: white behind it, inverted, or nothing.
+ * Read through the element's own window, since the section lives in foliate's iframe.
  */
 export async function treatmentFor(
   element: HTMLImageElement | SVGSVGElement,
@@ -172,10 +164,8 @@ export async function treatmentFor(
 const turns = new WeakMap<Element, number>();
 
 /**
- * Decide `element` and mark it, unless a newer decision has started meanwhile.
- *
- * Two decisions of one image can finish out of order, one waiting on a load the
- * other did not, and the older one's verdict is for a size or picture gone.
+ * Decide `element` and mark it, unless a newer decision has started. Two decisions of one image
+ * can finish out of order, and the older verdict is for a size or picture already gone.
  */
 function decide(element: HTMLImageElement | SVGSVGElement): void {
   const turn = (turns.get(element) ?? 0) + 1;

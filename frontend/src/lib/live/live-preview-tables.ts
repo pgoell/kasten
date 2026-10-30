@@ -283,9 +283,8 @@ function tableGrid(state: EditorState, table: SyntaxNode, end: number): TableGri
 }
 
 /**
- * The caption under a table: a line starting `Table: ` straight under its last
- * row, with no blank line between. The prefix is hidden where the line is drawn,
- * and shown as written while the cursor is on the line.
+ * The caption under a table: a line starting `Table: ` straight under its last row.
+ * The prefix is hidden where drawn and shown as written while the cursor is on the line.
  */
 const CAPTION = "Table: ";
 
@@ -299,9 +298,8 @@ function drawCaption(walk: Walk, last: number): void {
 }
 
 /**
- * Drawn as a table, and shown as its source while the cursor is in it.
- * The only construct here that flips a whole block at once: one widget
- * stands in for every line of it, so there is no half of a table to show.
+ * Drawn as a table, and shown as source while the cursor is in it.
+ * One widget stands in for every line, so a table is never half shown.
  */
 export function drawTable(walk: Walk, table: SyntaxNode): void {
   const { state, decorations } = walk;

@@ -1,8 +1,6 @@
 /**
- * The `@` press that hands a todo to the agent worker, by its `#agent` tag.
- *
- * Pure over the lines of a note, as `todo-write.ts` is: the line it writes
- * comes back, or the sentence the foot shows when it writes nothing.
+ * The `@` press that hands a todo to the agent worker, by its `#agent` tag. Pure, as
+ * `todo-write.ts` is: it returns the line, or the foot's sentence when nothing is written.
  */
 
 import { parseTodo, todoTagsOn, wordsEnd } from "@/lib/todo/todo";
@@ -14,8 +12,7 @@ export const AGENT = "#agent";
 
 /**
  * Whether the todo on `line` is client work, by its own tag or a todo above it.
- * The pane's reading, `inherited`, so the two places `@` is pressed agree: only
- * a todo passes client down, and prose between is read through.
+ * Read as the pane reads `inherited`, so both places `@` is pressed agree.
  */
 function clientAt(lines: string[], line: number): boolean {
   const placed: Placed[] = [];
@@ -30,9 +27,8 @@ function clientAt(lines: string[], line: number): boolean {
 }
 
 /**
- * Where `line` carries `#agent` as a tag of its own, as offsets. The parser's
- * own reading, so `#agents` and `#agent/x` are other tags, and one in a code
- * span, a link, `https://a.io/p#agent` or a field's value is text.
+ * Offsets of `#agent` as a tag of its own, read by the parser so `#agents` and
+ * `#agent/x` do not count. Code, links and field values are text.
  */
 function agentTags(line: string): number[] {
   return todoTagsOn(line)

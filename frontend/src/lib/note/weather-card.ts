@@ -23,9 +23,8 @@ const RAIN_BASE = 116;
 const RAIN_HEIGHT = 30;
 
 /**
- * One request per day for the life of the tab. Every daily note a pane opens,
- * and every rebuild of the widget, asks for the same answer; the backend keeps
- * its own half hour on top.
+ * One request per day for the life of the tab: every daily note and rebuild asks for the same answer.
+ * The backend keeps its own half hour on top.
  */
 const asked = new Map<string, Promise<Forecast[]>>();
 
@@ -277,9 +276,8 @@ export function drawTown(forecast: Forecast, now: number | null): HTMLElement {
 }
 
 /**
- * One town as a single line, the place, the sky at noon and the range, with the
- * strip under it in a fold that starts closed. The card takes one line, and the
- * day's hours are a tap away.
+ * One town as a single line: the place, the sky at noon and the range, with the day's strip in a fold that starts closed.
+ * The card takes one line, and the day's hours are a tap away.
  */
 export function townRow(forecast: Forecast, now: number | null): HTMLElement {
   const fold = document.createElement("details");
@@ -381,10 +379,8 @@ function build(state: EditorState, forecasts: Forecast[] | null): Card {
 }
 
 /**
- * The card as an editor extension. A field and not a view plugin, because a
- * block widget changes the height of the document and CodeMirror takes those
- * only from state. One instance, so a preview toggled back on finds the same
- * field rather than a second one beside it.
+ * The card as an editor extension. A field, not a view plugin, since a block widget changes the document height and CodeMirror takes that only from state.
+ * One instance, so a preview toggled back on finds the same field rather than a second beside it.
  */
 export const weatherCard: Extension = StateField.define<Card>({
   create: (state) => build(state, null),

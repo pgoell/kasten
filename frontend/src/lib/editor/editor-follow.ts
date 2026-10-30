@@ -18,9 +18,7 @@ import { splitTarget, wikiLinkAt } from "@/lib/wikilink";
 
 /**
  * A file a markdown link names, its path decoded and its `#` part as written.
- *
- * Passed beside the target so the route opens a page or pdf the way a
- * wikilink to it does, at the anchor or page, without parsing the name again.
+ * Passed beside the target so the route opens it at the anchor or page, without parsing the name again.
  */
 export interface FileTarget {
   path: string;
@@ -68,10 +66,8 @@ function followLink(view: EditorView, target: string) {
 }
 
 /**
- * Open the file a markdown link names, the way a wikilink to it opens.
- *
- * The address is read from the folder of this note, so a note with no path
- * (the empty pane's) and an address that climbs above the vault follow nothing.
+ * Opens the file a markdown link names, relative to this note's folder.
+ * A note with no path, or an address climbing above the vault, follows nothing.
  */
 function followFile(view: EditorView, file: FileLink): void {
   const note = view.state.facet(notePath);
@@ -186,9 +182,7 @@ function wikiLinkNode(state: EditorState, pos: number, side: -1 | 1): SyntaxNode
 
 /**
  * The rendered `[text](url)` or reference link under the pointer, if it opens in a tab.
- *
- * None in a drawn table: `posAtDOM` there answers the block's start, which is
- * another cell's link (#565), and the block opens a cell's address itself.
+ * None in a drawn table: `posAtDOM` answers the block's start there, another cell's link (#565).
  */
 function urlUnder(event: Event, view: EditorView): UrlLink | null {
   const node = linkNodeUnder(event, view);
@@ -222,9 +216,7 @@ function linkUnder(event: Event, view: EditorView): string | null {
 
 /**
  * Where the rendered `[[link]]` under the pointer starts and ends, off a drawn table.
- *
- * Looking forwards only: the span starts past the hidden `[[`, or past the
- * alias bar, so the position is always inside the link.
+ * Looks forwards only, past the hidden `[[` or the alias bar, so the position is inside the link.
  */
 function wikiLinkRangeUnder(event: Event, view: EditorView): SyntaxNode | null {
   const element = event.target instanceof HTMLElement ? event.target.closest(".cm-wikilink") : null;

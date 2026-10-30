@@ -84,9 +84,8 @@ function namesInLog(line: string, id: string): boolean {
 }
 
 /**
- * The lines of `text` naming `id` in the log, a line in a code fence never among them.
- * Fences are found in the body alone, as `appendUnder` finds them, so a fence the
- * frontmatter seems to open hides nothing below it.
+ * The lines of `text` naming `id` in the log, never one inside a code fence. Fences are found in the body alone,
+ * as `appendUnder` finds them, so a fence the frontmatter seems to open hides nothing.
  */
 function loggedLines(lines: string[], id: string): Set<number> {
   const above = lines.length - noteBody(lines.join("\n")).split("\n").length;
@@ -219,9 +218,8 @@ export interface CycleLinesInput {
 }
 
 /**
- * Whether the todo on `line` carries an id another todo line in `lines` carries
- * too. Such a press cannot tell whose log line or dependents it moves, so it
- * moves only its own line and what hangs off it. See `otherTodoWithId`.
+ * Whether the todo on `line` carries an id another todo in `lines` carries too. Such a press moves only its own line,
+ * since it cannot tell whose log line or dependents are whose. See `otherTodoWithId`.
  */
 export function twinnedIn(lines: string[], line: number): boolean {
   const id = parseTodo(lines[line - 1] ?? "")?.id;
@@ -234,9 +232,8 @@ function pressed(line: string, today: string, id: string, state?: TodoState): st
 }
 
 /**
- * The line one press writes, or null where the press leaves it as it is, such
- * as `X` on a done todo. Such a press has nothing to write, log or report, and
- * both the pane and the editor stop on the null before they read anything more.
+ * The line one press writes, or null where the press leaves it as is, such as `X` on a done todo.
+ * Both the pane and the editor stop on that null before reading anything more.
  */
 export function pressedLine(
   line: string,
@@ -267,9 +264,8 @@ function nodeAt(lines: string[], line: number): Node | null {
 }
 
 /**
- * A fresh line in place of `typed`: a new line, so written in the field order,
- * but at the indent `typed` carries as typed and without its block id, which
- * names the one line it is on.
+ * A fresh line in place of `typed`: written in the field order, at `typed`'s indent,
+ * but without its block id, which names the line it is on.
  */
 function copyLine(typed: string, todo: Todo): string {
   const indent = /^[ \t]*/.exec(typed)?.[0] ?? "";

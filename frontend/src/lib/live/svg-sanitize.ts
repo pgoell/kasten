@@ -56,9 +56,8 @@ type Deferred = [Element, string, string];
 type Block = { prefix: string; ids: Map<string, Element>; deferred: Deferred[] };
 
 /**
- * The value with its refs moved to the block's prefixed ids, or null when it may
- * not stay. Every `name(` must be a function a drawing needs, and a `url(...)`
- * must be one ref to an id in the block.
+ * The value with its refs moved to the block's prefixed ids, or null if it may not stay.
+ * Every `name(` must be a function a drawing needs, and a `url(...)` one ref in the block.
  */
 function clean(value: string, block: Block): string | null {
   if (UNSAFE.test(value)) return null;
@@ -171,9 +170,8 @@ function stripRefs(el: Element) {
 }
 
 /**
- * A target that some kept ref points at keeps no refs on itself or beneath it.
- * Each ref then draws a picture with no refs in it, so a chain of uses, masks,
- * patterns or markers costs one copy per level, not a tree of copies.
+ * A target that a kept ref points at keeps no refs on itself or beneath it.
+ * So a chain of uses, masks or markers costs one copy per level, not a tree of copies.
  */
 function stripTargets(root: Element) {
   const all = [root, ...Array.from(root.querySelectorAll("*"))];
@@ -213,9 +211,8 @@ function drawsSomething(root: Element): boolean {
 }
 
 /**
- * The one svg in `source`, cleaned, or null when the source is anything but one
- * svg or the cleaned svg has nothing to draw. The page inserts it as a node,
- * never as markup.
+ * The one svg in `source`, cleaned, or null when there is not exactly one or nothing to draw.
+ * The page inserts it as a node, never as markup.
  */
 export function sanitizeSvg(source: string): SVGSVGElement | null {
   const body = new DOMParser().parseFromString(source, "text/html").body;

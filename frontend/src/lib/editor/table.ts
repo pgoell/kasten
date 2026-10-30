@@ -21,9 +21,8 @@ const DASHES = /^:?-+:?$/;
 const MIN_WIDTH = 3;
 
 /**
- * What pads a cell: spaces and tabs only. `trim()` would also take a no-break
- * or an ideographic space, which the writer typed as text and which must come
- * through a line-up as it went in.
+ * What pads a cell: spaces and tabs only. `trim()` would also take a no-break or ideographic space,
+ * which the writer typed as text and must come through a line-up as it went in.
  */
 const PADDING = /^[ \t]+|[ \t]+$/g;
 
@@ -73,10 +72,8 @@ function alignOf(cell: string): Align {
 }
 
 /**
- * Where each column's text sits, read off a table's row of dashes.
- *
- * For the live preview, which draws the table rather than lining its source up
- * and so needs the alignment on its own.
+ * Where each column's text sits, read off a table's dash row, for the live preview,
+ * which draws the table rather than lining its source up.
  */
 export function alignsOf(divider: string): Align[] {
   return cellsOf(divider).map(alignOf);
@@ -169,9 +166,7 @@ function drawCells(grid: Grid, widths: number[], index: number): string[] {
 
 /**
  * Every row drawn to the same column widths, so the walls line up on screen.
- *
- * The lines are not one length in UTF-16 once a cell holds an astral character,
- * so `moveCell` measures the lines it walks past rather than assuming a width.
+ * Lines are not one UTF-16 length once a cell holds an astral character, so `moveCell` measures them.
  */
 function draw(grid: Grid, widths: number[]): string {
   return grid.rows

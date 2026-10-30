@@ -1,8 +1,6 @@
 /**
- * The refile key's two notes: the todo out of one, into its project's.
- *
- * Pure over strings, as `todo-write.ts` is. The route reads the notes, sends
- * what these answer, and owns the order the two writes go in.
+ * The refile key's two notes: the todo out of one, into its project's. Pure over strings,
+ * as `todo-write.ts` is. The route reads the notes and owns the order the two writes go in.
  */
 
 import { appendUnder } from "@/lib/note-section";

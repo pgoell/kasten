@@ -4,10 +4,8 @@ import { readPosition, writePosition } from "@/lib/editor/positions";
 import { belowFrontmatter } from "@/lib/frontmatter-language";
 
 /**
- * Where one mount of a note keeps its cursor and its scroll, and writes them back.
- *
- * One of these per mount: the saved position, the scroll as last seen and the
- * pending write are the state of this view, and a second note is a second one.
+ * Where one mount of a note keeps its cursor and scroll, and writes them back.
+ * Each mount has its own state, so a second note is a second one.
  */
 export function notePosition(path: string | undefined, named: boolean) {
   // Skipped when the open names a line, since the effect below moves the cursor there.

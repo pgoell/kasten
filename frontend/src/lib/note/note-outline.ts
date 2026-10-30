@@ -77,9 +77,7 @@ function currentOf(view: EditorView, headings: OutlineHeading[]): number {
 
 /**
  * The index of the last heading at or above the cursor, or -1 above the first.
- *
- * The cursor is what the reader is writing in, so the section it is in is the
- * one marked when the scroll has not moved it yet.
+ * The cursor's section is marked, not the scroll's, since the cursor is what the reader writes in.
  */
 function cursorCurrentOf(view: EditorView, headings: OutlineHeading[]): number {
   const head = view.state.selection.main.head;
@@ -91,9 +89,8 @@ function cursorCurrentOf(view: EditorView, headings: OutlineHeading[]): number {
 }
 
 /**
- * Reports the outline on every change of its headings or of the heading being
- * read. A class and not a closure so the scroll listener and the update share
- * the last report and the scroller's listener can be removed in `destroy`.
+ * Reports the outline on each change of its headings or of the heading being read.
+ * A class, not a closure, so the scroll listener and the update share the last report and `destroy` can remove the listener.
  */
 class OutlineReporter {
   private readonly view: EditorView;

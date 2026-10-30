@@ -89,9 +89,7 @@ function fnv1a(text: string): number {
 }
 
 /**
- * How big a note is drawn: a little bigger for every link, and less so the
- * more it has, so a daily note linking forty things is large without covering
- * the forty.
+ * Bigger for each link, but less per link the more it has, so a hub does not cover the notes it links to.
  */
 export function radiusOf(degree: number): number {
   return 3 + Math.sqrt(degree) * 1.6;
@@ -138,10 +136,8 @@ export function neighbourhood(links: DrawnLink[], path: string): Set<string> {
 }
 
 /**
- * Whether a row's value is a note rather than a relation's name.
- *
- * A pattern's column holds one or the other, and a note is what a click
- * opens. A path ends in the suffix every note has; a relation's name cannot.
+ * Whether a row's value is a note rather than a relation's name. A note is what a click opens, and a path
+ * ends in the suffix every note has, which a relation's name cannot.
  */
 export function isNotePath(value: string): boolean {
   return value.endsWith(".md");

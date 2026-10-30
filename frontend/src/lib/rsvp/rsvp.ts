@@ -23,9 +23,8 @@ export interface Word {
 export type Run = { text: string; from: number } | "break";
 
 /**
- * Words ending in a full stop that end no sentence. Short on purpose: a list
- * that guesses wrong pauses where it should not, which costs less than a
- * sentence that runs into the next.
+ * Words ending in a full stop that end no sentence. Kept short on purpose: a wrong pause costs less than
+ * a sentence running into the next.
  */
 const ABBREVIATIONS = new Set([
   "mr.",
@@ -115,9 +114,8 @@ export function wordsOf(runs: Iterable<Run>, section: number, lines = false): Wo
 }
 
 /**
- * Where the chunk starting at `start` ends, exclusive: up to `size` words, and
- * never past the end of a sentence, so a chunk does not hold the end of one and
- * the start of the next.
+ * Where the chunk at `start` ends, exclusive: up to `size` words, never past a sentence end.
+ * A chunk must not hold the end of one sentence and the start of the next.
  */
 export function chunkEnd(words: readonly Word[], start: number, size: number): number {
   let end = start;
@@ -129,10 +127,8 @@ export function chunkEnd(words: readonly Word[], start: number, size: number): n
 }
 
 /**
- * The letter the eye fixes on, counted in code points from the word's start.
- *
- * A little left of the middle, the way the RSVP readers place it, and counted
- * over the letters alone, so the quote in front of a word does not move it.
+ * The letter the eye fixes on, counted in code points from the word's start, a little left of the middle.
+ * Counted over the letters alone, so a quote mark in front of a word does not move it.
  */
 export function orp(word: string): number {
   const letters = Array.from(word);
@@ -230,9 +226,8 @@ function startOf(words: readonly Word[], index: number, unit: Unit): number {
 }
 
 /**
- * Where `h` and `H` go: the start of the sentence or paragraph being read, or
- * of the one before when the reader is already at the start, the way a
- * player's back button restarts the track before it skips to the last.
+ * Where `h` and `H` go: the start of this sentence or paragraph, or of the one before when already at its start,
+ * as a player's back button restarts the track before it skips.
  */
 export function back(words: readonly Word[], index: number, unit: Unit): number {
   const start = startOf(words, index, unit);

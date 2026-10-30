@@ -24,9 +24,8 @@ const Untagged: MarkdownConfig = {
 };
 
 /**
- * kasten's markdown under its frontmatter, as `noteLanguage` has it, with
- * `Untagged` in front. One for the module, the parser holding no state between
- * two notes. No code languages: nothing inside code is read.
+ * kasten's markdown under its frontmatter, with `Untagged` in front. One instance: the parser keeps no state.
+ * No code languages: nothing inside code is read.
  */
 const notes = frontmatter(
   markdown({

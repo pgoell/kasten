@@ -22,10 +22,8 @@ export function forgetQueues(): void {
 }
 
 /**
- * Writes one note back to the vault as it is edited, once typing stops or on `save()`.
+ * Writes one note back as it is edited, once typing stops or on `save()`. A move between two panes on one note is a leave and an opening.
  * The vault refuses a write whose base it has moved past: that refusal is the only conflict check.
- * A move between two panes on one note is a leave and an opening, or the second pane's typing would
- * replace the first's `pending` text.
  */
 export function useAutosave(
   path: string | undefined,
@@ -55,9 +53,8 @@ export function useAutosave(
   const queryClient = useQueryClient();
 
   /**
-   * The vault's text under the buffer of `note`, the note open now: what this
-   * visit last learned is on disk, the cache otherwise. Not the cache alone,
-   * which a write is kept out of while typing went on through it.
+   * The vault's text under the buffer of `note`, the note open now: the text this visit last learned, else the cache.
+   * Not the cache alone, which a write is kept out of while typing went through it.
    */
   const lastBase = useCallback(
     (note: string) => onDisk.current ?? queryClient.getQueryData<string>(["note", note]),

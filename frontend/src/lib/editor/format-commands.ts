@@ -17,10 +17,8 @@ export const STRIKE: MarkSpec = { open: "~~", close: "~~", node: "Strikethrough"
 export const HIGHLIGHT: MarkSpec = { open: "==", close: "==", node: "Highlight" };
 
 /**
- * The marked node the cursor sits inside, or null.
- *
- * Walks up from the innermost node rather than searching the tree, so italics
- * nested inside bold answer for themselves and not for their parent.
+ * The marked node the cursor sits inside, or null. Walks up from the innermost node,
+ * so italics inside bold answer for themselves, not their parent.
  */
 function enclosing(state: EditorState, at: number, node: string) {
   let found: SyntaxNode | null = syntaxTree(state).resolveInner(at, 0);

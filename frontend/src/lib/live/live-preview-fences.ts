@@ -18,16 +18,14 @@ export const rethemes = ViewPlugin.define((view) => {
 });
 
 /**
- * The drawing each block on screen wants now, as `${theme}\n${source}`. A draw
- * that lands after a newer switch, or a newer source, finds its key stale and
- * leaves the block alone.
+ * The drawing each block on screen wants now, as the theme and source joined by a newline.
+ * A draw that lands after a newer key finds its key stale and leaves the block alone.
  */
 const wanted = new WeakMap<HTMLElement, string>();
 
 /**
- * The drawing each block holds, so the cache keeps it while the block is on
- * screen. Keyed by the block's DOM: CodeMirror moves a DOM to a new widget
- * without calling `destroy` on the old one.
+ * The drawing each block holds, so the cache keeps it while the block is on screen.
+ * Keyed by the block's DOM: CodeMirror moves a DOM to a new widget without calling `destroy`.
  */
 const holds = new WeakMap<HTMLElement, { key: string; release: () => void }>();
 

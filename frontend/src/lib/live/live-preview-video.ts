@@ -32,9 +32,8 @@ interface Box {
 }
 
 /**
- * The videos the note draws as an image, read off the syntax tree. A link the
- * note only names, in its frontmatter or as a plain link, is not drawn and does
- * not keep its player (I5). Null while the tree is still parsing.
+ * The videos the note draws as an image, read off the syntax tree.
+ * A link only named in frontmatter or as plain text is not drawn (I5). Null while parsing.
  */
 function embeddedVideos(state: EditorState): Set<string> | null {
   const tree = ensureSyntaxTree(state, state.doc.length, 1000);
@@ -191,9 +190,8 @@ class VideoLayer {
   }
 
   /**
-   * Only the frames this layer holds, and only from the origin the player is
-   * served from: a message from the pane's frame or from any other frame on the
-   * page moves nothing here (I1).
+   * Only the frames this layer holds, and only from the player's origin.
+   * A message from any other frame moves nothing here (I1).
    */
   private readonly onMessage = (event: MessageEvent): void => {
     if (event.origin !== PLAYER) return;

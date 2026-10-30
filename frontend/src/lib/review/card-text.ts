@@ -19,9 +19,8 @@ const TYPED = /\\[\s\S]|(`+)(?!`)([\s\S]*?)(?<!`)\1(?!`)|`+/g;
 const ESCAPED_COMMENT = /<!--(SR|anki)\\:/g;
 
 /**
- * `code` with the backslash off each `ESCAPED_COMMENT`, the one escape a code
- * span holds: it is no part of what Anki shows (#356). Outside code markdown
- * takes it off itself, and doing it there would leave a comment drawn as none.
+ * `code` with the backslash off each `ESCAPED_COMMENT`, which is no part of what Anki shows (#356).
+ * Outside code markdown removes it itself; doing it here too would leave a comment drawn as none.
  */
 function bareComments(code: string): string {
   return code.replace(ESCAPED_COMMENT, "<!--$1:");

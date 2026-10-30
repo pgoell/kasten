@@ -18,10 +18,8 @@ function runsBackward(doc: Document, selection: Selection): boolean {
 }
 
 /**
- * The figure a selection holds, as the URL the book carries it at, or null.
- * foliate makes resource URLs `blob:` in the main frame, so `fetch` reads the file
- * the epub shipped, bytes and media type both. `cloneContents` keeps the figure to
- * the selection, so one outside it cannot come along.
+ * The figure a selection holds, as the URL the book carries it at, or null. `fetch` reads the file the
+ * epub shipped, bytes and media type both. `cloneContents` keeps the figure to the selection only.
  */
 function figureIn(range: Range): string | null {
   return range.cloneContents().querySelector("img")?.src ?? null;
@@ -46,10 +44,7 @@ export interface BookTake {
 }
 
 /**
- * The passage a reader takes out of the book, from the selection to the note.
- *
- * Owns the held selection, the button's place and the press on the footer's
- * `Take`. The pane owns the button itself.
+ * The passage a reader takes out of the book, from the selection to the note. The pane owns the button itself.
  */
 export function useBookTake(o: {
   wrapper: RefObject<HTMLDivElement | null>;
@@ -60,9 +55,8 @@ export function useBookTake(o: {
   /** Where to draw the button, or null to draw none. The only part of this that renders. */
   const [at, setAt] = useState<{ x: number; y: number } | null>(null);
   /**
-   * What is selected in the book now, or null. A ref because `onKeyDown` has no
-   * dependencies, so a `y` branch reading state would see the mount value forever.
-   * The passage is decided once, when selected, since its truth can change a second later.
+   * What is selected in the book now, or null. A ref, since `onKeyDown` has no dependencies and a `y`
+   * branch reading state would see the mount value forever. The passage is decided once, when selected.
    */
   const taking = useRef<{
     passage: Passage;
@@ -72,10 +66,8 @@ export function useBookTake(o: {
     backward: boolean;
   } | null>(null);
   /**
-   * The press on the footer's `Take`, which holds the passage through the
-   * collapse a tap outside the frame causes. The book's words live in foliate's
-   * iframe and the button does not, so the `selectionchange` that collapse sends
-   * arrives before the `click`; the guard answers it once the press is over.
+   * The press on the footer's `Take`, which holds the passage through the collapse a tap outside the frame
+   * causes. Its `selectionchange` arrives before the `click`, so the guard answers it once the press is over.
    */
   const { pressing, press } = usePressGuard(() =>
     taking.current?.range.startContainer.ownerDocument?.dispatchEvent(new Event("selectionchange")),
@@ -91,9 +83,8 @@ export function useBookTake(o: {
   });
 
   /**
-   * Report what is selected and put the selection away. The button and `y` share
-   * this path, so there is one answer. The document comes off the range, not a
-   * fourth field on the ref.
+   * Report what is selected and put the selection away. The button and `y` share this path. The document
+   * comes off the range, not a fourth field on the ref.
    */
   const take = useCallback(async () => {
     pressing.current = false;
@@ -142,9 +133,8 @@ export function useBookTake(o: {
   }, []);
 
   /**
-   * Where the button goes for a selection, or null where the iframe is out of reach
-   * (jsdom). Measured at the end the drag finished at: `getClientRects` is in
-   * document order, so that is the last rect forwards and the first backwards.
+   * Where the button goes for a selection, or null where the iframe is out of reach (jsdom). Measured at the end
+   * the drag finished at: `getClientRects` is in document order, so that is the last rect forwards, the first backwards.
    */
   const place = useCallback(
     (range: Range, backward: boolean): { x: number; y: number } | null => {

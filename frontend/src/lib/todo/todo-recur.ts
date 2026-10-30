@@ -7,10 +7,8 @@ import { shiftDay } from "@/lib/clock";
 import type { Todo } from "@/lib/todo/todo";
 
 /**
- * The days a rule names, where it names any.
- *
- * `-1` is the last one: the last day of the month, or the last Friday in it.
- * Weekdays count the way `Date.getUTCDay` does, Sunday being 0.
+ * The days a rule names, where it names any. `-1` is the last one: the last day of the
+ * month, or the last Friday in it. Weekdays count as `Date.getUTCDay` does, Sunday 0.
  */
 export type RecurrenceOn =
   | { kind: "weekdays"; days: number[] }
@@ -220,10 +218,8 @@ function dayIn(year: number, month: number, on: RecurrenceOn): number | null {
 }
 
 /**
- * How many periods a month rule looks through before giving up. A rule naming
- * a day its months never have, `every 12 months on the 30th` counted from a
- * February, would otherwise look for ever. Four leap cycles is past any gap a
- * day that does exist can leave.
+ * How many periods a month rule looks through before giving up. A rule naming a day its
+ * months never have would otherwise search forever. Four leap cycles covers any real gap.
  */
 const PERIODS = 48;
 
@@ -274,9 +270,8 @@ export function nextOccurrence(todo: Todo, today: string): Todo | null {
 }
 
 /**
- * How many days a tick of `todo` moves its dates, or null where it writes no
- * copy. The parts ride along by the same number, so a step due the day after
- * its routine still is one round later.
+ * How many days a tick of `todo` moves its dates, or null where it writes no copy. Parts
+ * move by the same number, so a step due the day after its routine still is one round later.
  */
 export function nextShift(todo: Todo, today: string): number | null {
   const rule = parseRecurrence(todo.recurrence ?? "");
@@ -311,10 +306,8 @@ export function nextCopy(todo: Todo, shift: number): Todo {
 }
 
 /**
- * A part of a recurring todo as the next round's copy carries it: the copy's
- * own rule, and no `👤` either. Who took a step or was waited on this round
- * says nothing about the next. A part's own `🔁` stays as written; the part
- * moves with its parent and never writes a copy of its own.
+ * A part of a recurring todo as the next round's copy carries it: its own rule, no `👤`.
+ * A part's own `🔁` stays as written; the part moves with its parent and never copies itself.
  */
 export function nextPart(part: Todo, shift: number): Todo {
   return {

@@ -96,8 +96,7 @@ export function useVaultReads(
 
   /**
    * Whether the editor may put `text` in, asked when it would. A clean buffer takes anything: that is the reload's job.
-   * A buffer with text in it takes nothing, and its next save names the base it was typed on. It is also where held
-   * text comes back, since this runs before the hook's own effect for a reopened note.
+   * A buffer with text in it takes nothing. Held text also comes back here, before the hook's own effect runs for a reopened note.
    */
   const allowReload = useCallback(
     (text: string): boolean => {
@@ -157,9 +156,8 @@ export function useVaultReads(
   );
 
   /**
-   * Called when the vault reports a write to the open note. Answers whether the caller should reload: yes for a clean
-   * buffer, no for a dirty one. No while a write to the note is in the air (#296), since its answer may be older than
-   * the event. Yes for a conflicted buffer too (#269): only the read shows whether the other writer wrote our text.
+   * Called when the vault reports a write to the open note: yes for a clean buffer, no for a dirty one.
+   * No while a write to the note is in the air (#296), and yes for a conflicted buffer too (#269).
    */
   const reconcile = useCallback((): boolean => {
     if (path !== undefined && saveQueue.busy(path)) {

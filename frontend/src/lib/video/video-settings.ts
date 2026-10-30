@@ -1,8 +1,6 @@
 /**
- * The speed and captions a browser keeps for every player, note and pane alike.
- *
- * Kept per browser and not per note: a speed is a habit of the person watching,
- * and a note that held it would carry one reader's habit to every other.
+ * The speed and captions a browser keeps for every player. Kept per browser, not per note: a speed is a habit
+ * of the person watching, and a note would carry it to every other reader.
  */
 
 /** The browser key, versioned. Shape: {"rate": 1.5, "captions": true}, both optional. */

@@ -2,18 +2,14 @@ import { type RefObject, useCallback, useLayoutEffect, useRef } from "react";
 import type { FoliateView } from "@/lib/book/foliate-view";
 
 /**
- * How much of the pane's width, at each side, a tap turns the page from.
- *
- * A quarter leaves the middle half for what a tap in the text already means:
- * putting a selection away, or nothing.
+ * How much of the pane's width, at each side, a tap turns the page from. A quarter leaves the middle
+ * half for what a tap in the text already means: putting a selection away, or nothing.
  */
 const EDGE = 0.25;
 
 /**
- * How far `j` and `k` move a flowing book, in pixels.
- *
- * The 19 px text at 1.6 leading is about 30 px a line, so three lines is 91. A
- * screen would lose the line the reader was on, and one line is too slow to read by.
+ * How far `j` and `k` move a flowing book, in pixels. Three lines of 19px text at 1.6 leading is 91px:
+ * one line is too slow to read by, and more would lose the line the reader was on.
  */
 const SCROLL_STEP = 91;
 

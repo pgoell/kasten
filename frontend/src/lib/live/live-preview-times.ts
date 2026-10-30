@@ -8,9 +8,7 @@ import { parseTime } from "@/lib/video/video-notes";
 
 /**
  * The seek a time asks for: its second, and the video a take's link names.
- *
- * The id is undefined for a bare `[mm:ss]`, which names no video. The route
- * owns the players, so the note only says which video and where in it.
+ * The id is undefined for a bare `[mm:ss]`, which names no video.
  */
 export type SeekHandler = (seconds: number, id?: string) => void;
 

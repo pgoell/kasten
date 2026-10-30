@@ -2,8 +2,7 @@ import { type RefObject, useCallback, useEffect, useRef } from "react";
 import { nameAt } from "@/lib/todo/todo";
 
 /**
- * Where the focus of a todo pane lives: on the pane while it has no row, on the
- * cursor's row once it has one, and on an input while a row is being typed in.
+ * Where the focus of a todo pane lives: the pane with no row, the cursor's row once there is one, an input while typing.
  * `held` says whether the keys are the pane's, so a redraw can hand them back.
  */
 export function useTodoFocus(o: {
@@ -21,10 +20,7 @@ export function useTodoFocus(o: {
   const held = useRef(false);
 
   /**
-   * Hand the focus back to the list, which is where the keys below act.
-   *
-   * Wrapped because an effect calls it too, and it reads nothing but refs, so
-   * one instance stands for the life of the pane.
+   * Hand the focus back to the list. Reads only refs, so one instance serves the pane's life.
    */
   const focusList = useCallback(() => {
     const element = panel.current;

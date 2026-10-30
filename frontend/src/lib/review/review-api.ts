@@ -12,9 +12,8 @@ type WrittenNote = components["schemas"]["WrittenNote"];
 type Github = components["schemas"]["Contributions"];
 
 /**
- * One day's use of one model in one project, from the collector's monthly notes. `cost` is null
- * where no message of the line had a price, and `unpriced` counts the tokens left out of `cost`.
- * Declared here, not generated, because the route is new and its schema has not been generated yet.
+ * One day's use of one model in one project. `cost` is null where no message had a price.
+ * `unpriced` counts the tokens left out of `cost`. Declared here since the route's schema is not generated yet.
  */
 export interface ModelUseLine {
   day: string;

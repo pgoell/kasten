@@ -20,10 +20,8 @@ interface Held {
 }
 
 /**
- * Every embed on the screen, by the element it drew.
- *
- * `destroy` is handed the DOM and not the widget that built it, and one widget
- * can be drawn twice, so the box is the only key that names one mounting.
+ * Every embed on the screen, keyed by its box.
+ * One widget can be drawn twice, so `destroy` gets the DOM and the box names the mounting.
  */
 const held = new WeakMap<HTMLElement, Held>();
 
@@ -252,9 +250,7 @@ class PdfEmbed extends WidgetType {
 
 /**
  * An embed past `EMBED_DEPTH`, drawn as the name it would have shown.
- *
- * Without its own `cm-embed` class, so the chain of boxes counts what was
- * actually drawn and this reads as where it stopped.
+ * Has no `cm-embed` class, so the count of boxes shows where it stopped.
  */
 class EmbedStub extends WidgetType {
   private readonly label: string;

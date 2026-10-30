@@ -16,11 +16,7 @@ export function familiesOf(value: string): string[] {
     .filter((family) => family !== "");
 }
 
-/**
- * Every `url(...)` in `css` made absolute against `base`.
- *
- * A `data:` url is already absolute and comes back as it was.
- */
+/** Every `url(...)` in `css` made absolute against `base`. A `data:` url is already absolute. */
 export function absoluteUrls(css: string, base: string): string {
   return css.replace(/url\((['"]?)([^'")]+)\1\)/g, (_, _quote: string, url: string) => {
     const href = url.startsWith("data:") ? url : new URL(url, base).href;

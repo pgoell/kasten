@@ -15,10 +15,7 @@ function start(player: HTMLAudioElement, skip: () => void): void {
 }
 
 /**
- * The sounds of the side of a card on screen, its back once that is turned.
- *
- * A whole note keeps its sounds in the front, its back being empty, so it is
- * the front that plays however the reveal was pressed.
+ * The sounds of the card's side on screen. A whole note keeps its sounds in the front, so the front plays however the reveal was pressed.
  */
 export function soundsShowing(card: Card, revealed: boolean): string[] {
   return soundsIn(revealed && card.back !== "" ? card.back : card.front);

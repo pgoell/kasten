@@ -13,9 +13,8 @@ export interface PageListeners {
 }
 
 /**
- * `arrived` runs before the page is recorded, so a passage in a section that
- * has just left the tree is forgotten first. `watch` returns the observer to
- * disconnect when the page leaves.
+ * `arrived` runs before the page is recorded, so a passage in a section that has just left
+ * the tree is forgotten first. `watch` returns the observer to disconnect when the page leaves.
  */
 export interface PageHooks {
   arrived(doc: Document): void;
@@ -23,10 +22,8 @@ export interface PageHooks {
 }
 
 /**
- * Track every page the book shows, from its `load` until the page leaves.
- * Registered before the book opens, so the first section is not missed. Keys
- * and clicks in foliate's iframe reach no ancestor, and foliate builds the
- * frames behind closed shadow roots, so this is the only seam.
+ * Track every page the book shows, from its `load` until the page leaves. Keys and clicks in
+ * foliate's iframe reach no ancestor, and its frames sit behind closed shadow roots, so this is the seam.
  */
 export function trackPages(
   view: FoliateView,
@@ -61,9 +58,8 @@ export function trackPages(
   view.addEventListener("load", onLoad);
 
   /**
-   * Drop the pages that have gone, which nothing else here would. A fixed-layout
-   * book builds a document per turn, each with a canvas, so without this a long
-   * pdf keeps hundreds of megabytes. `defaultView` is null once the frame has left the tree.
+   * Drop the pages that have gone. A fixed-layout book builds a document per turn, each with a canvas,
+   * so a long pdf would keep hundreds of megabytes. `defaultView` is null once the frame has left the tree.
    */
   function forgetPagesThatLeft() {
     for (let at = sections.length - 1; at >= 0; at -= 1) {

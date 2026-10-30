@@ -17,9 +17,7 @@ export const FOLDED = Decoration.replace({});
 
 /**
  * Normal and replace mode read; insert and visual mode write.
- *
- * A mode we do not know renders, so a vim submode nobody thought about hides
- * its marks rather than leaking them.
+ * An unknown mode renders, so a vim submode nobody thought of hides its marks.
  */
 function revealsSource(mode: VimMode): boolean {
   return mode === "insert" || mode === "visual";
@@ -77,9 +75,7 @@ export class Walk {
 
   /**
    * Hides a line-leading mark and the space that separates it from the text.
-   *
-   * The space has to go with it. Hiding `#` alone would leave the heading
-   * indented by one character against every other line in the note.
+   * The space must go too, or the heading sits one character in from the others.
    */
   hideLeader(from: number, markTo: number, line: Line): void {
     let to = markTo;

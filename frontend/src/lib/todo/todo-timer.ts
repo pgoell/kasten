@@ -1,8 +1,6 @@
 /**
  * One press of `t`: the session it starts or stops, and the notes that carry it.
- *
- * Pure, as `todo-write.ts` is. The log lines themselves are read and written by
- * `todo-time.ts`; this module decides which of them a press touches.
+ * The log lines are read and written by `todo-time.ts`.
  */
 
 import { appendUnder } from "@/lib/note-section";
@@ -42,9 +40,8 @@ export interface TimerInput {
    */
   notes: Record<string, string>;
   /**
-   * Every session line naming this todo, as `searchNotes(id)` answered with
-   * them, running and closed alike. Empty for a todo carrying no id, which
-   * nothing can name and so has no sessions.
+   * Every session line naming this todo, running and closed alike. Empty for a todo with no id,
+   * since nothing can name it.
    */
   sessions: SessionHit[];
   today: string;

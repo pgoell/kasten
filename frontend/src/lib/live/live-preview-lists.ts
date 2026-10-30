@@ -33,9 +33,7 @@ function listDepth(node: SyntaxNode): number {
 
 /**
  * `3/5` drawn after a parent's line.
- *
- * A widget rather than a class on the text, there being no text to hang it on:
- * the count is a reading of the lines below and nothing in the document says it.
+ * A widget, since the count is read off the lines below and sits in no text.
  */
 class Progress extends WidgetType {
   private readonly label: string;
@@ -68,9 +66,8 @@ export class Lists {
   private readonly placed: Placed[] = [];
 
   /**
-   * The dot is drawn in CSS, so it has to go the moment the `-` it stands
-   * in for comes back, or the line carries two bullets. An ordered list is
-   * left alone throughout: its number is content, not decoration.
+   * The dot is drawn in CSS, so it goes when the `-` it stands in for returns.
+   * An ordered list is left alone: its number is content, not decoration.
    */
   bullet(walk: Walk, node: SyntaxNode, line: Line, revealed: boolean): void {
     const { decorations } = walk;
@@ -111,10 +108,8 @@ export class Lists {
   }
 
   /**
-   * After the walk, because what a parent counts is the lines under it, which
-   * are read once the whole note has gone by. Pushing out of order is safe:
-   * `Decoration.set` sorts. The count stays while a line shows its source, the
-   * way the overdue red does, standing in for no character either.
+   * After the walk, since a parent's count is the lines under it.
+   * `Decoration.set` sorts, so pushing out of order is safe.
    */
   finish(walk: Walk): void {
     const { state, decorations } = walk;

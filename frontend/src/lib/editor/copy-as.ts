@@ -242,9 +242,8 @@ function block(node: SyntaxNode, source: string, format: Format): string {
 }
 
 /**
- * A quote that opens with `[!type]`, its header as a bold line and the rest
- * as the quote's body, or null when the quote is no callout. Neither chat
- * draws a callout, and `[!warning]-` pasted as it stands reads as noise.
+ * A quote opening `[!type]` as a bold header and body, or null. Neither chat draws callouts,
+ * and `[!warning]-` pasted as it stands reads as noise.
  */
 function callout(node: SyntaxNode, source: string, format: Format): string | null {
   const mark = node.firstChild;

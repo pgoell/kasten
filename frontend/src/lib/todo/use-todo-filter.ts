@@ -7,9 +7,8 @@ import { DEFAULT_VIEWS, parseViews, VIEWS_NOTE } from "@/lib/todo/todo-view";
 export const SHARED_KEY = "kasten.todos.shared";
 
 /**
- * Whether shared lists were shown last time. A browser with site data blocked
- * throws a `SecurityError` on any touch of `localStorage`, and that reads as
- * hidden, the default, as `theme.ts` reads its own choice.
+ * Whether shared lists were shown last time. Blocked site data throws `SecurityError` on any touch of
+ * `localStorage`, which reads as hidden, the default.
  */
 function sharedStored(): boolean {
   try {

@@ -18,9 +18,8 @@ export interface Span {
   /** The picture an `![](path)` or `![[x.png]]` draws, standing in for the text. */
   image?: Pictured;
   /**
-   * The address the link around this span opens in a tab, if it opens one.
-   * Read here because the block cannot read it back: `posAtDOM` inside a block
-   * widget answers the block's own position, not the cell's.
+   * The address the link around this span opens in a tab, if any.
+   * Read here, since `posAtDOM` inside a block widget gives the block's position, not the cell's.
    */
   address?: string;
   /** The note the wikilink this span draws names, as `wikiLinkAt` reads it, for the same reason. */

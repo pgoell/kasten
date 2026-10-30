@@ -56,9 +56,7 @@ export function nextSchedule(held: Schedule | null, rating: Rating, today: strin
 
 /**
  * Whether the card was answered `again` on its first answer and not passed since.
- *
- * A gap of 0 is a state SM-2 never writes otherwise, its floor being 1, so the
- * three numbers carry it without a fourth.
+ * A gap of 0 is a state SM-2 never writes otherwise, its floor being 1.
  */
 export function learning(held: Schedule | null): boolean {
   return held !== null && held.interval === 0;

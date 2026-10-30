@@ -55,9 +55,7 @@ export function useLogActions({
 
   /**
    * One change to a note, or the note made from `body` when the listing lacks it.
-   *
-   * A note made meanwhile (`NoteExists`) is changed instead, as the drink write
-   * does. Answers whether the change landed; a refusal sets its why as the notice.
+   * A note made meanwhile (`NoteExists`) is changed instead, as the drink write does. Answers whether it landed.
    */
   const logWrite = useCallback(
     async (

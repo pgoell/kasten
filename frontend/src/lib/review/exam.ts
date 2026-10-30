@@ -12,9 +12,8 @@ export interface Option {
 /** One question, everything about it the note holds. */
 export interface Question {
   /**
-   * What the note numbers it, `1.1` or `7`, which is how a key at the back
-   * names it back. The heading's own text where it is numbered by nothing, so
-   * two questions are never the same question.
+   * What the note numbers it, `1.1` or `7`, which a key at the back names it by.
+   * Unnumbered, the heading's own text, so two questions are never the same question.
    */
   id: string;
   /** The heading above it, without its number or its weight. Empty where there is none. */
@@ -193,9 +192,7 @@ interface Keyed {
 
 /**
  * Everything a key at the back says, by the question number it names.
- *
- * Read in one pass over the key's lines: an answer line opens a rationale and
- * the next answer line or heading closes it.
+ * One pass: an answer line opens a rationale, closed by the next answer line or heading.
  */
 function readKey(lines: string[]): Map<string, Keyed> {
   const key = new Map<string, Keyed>();
@@ -384,9 +381,7 @@ function same(gave: string[], want: string[]): boolean {
 
 /**
  * How a sitting went, question by question and section by section.
- *
- * A question the note never answered is left out of every count rather than
- * marked wrong, because nothing here can say whether it was right.
+ * A question never answered is left out of every count, not marked wrong: nothing can say it was right.
  */
 export function gradeExam(exam: Exam, answers: Answers): Grade {
   const scorable = exam.questions.filter((question) => question.correct.length > 0);

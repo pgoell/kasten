@@ -201,10 +201,8 @@ export function areaOf(
 }
 
 /**
- * Where each area's name sits, as the baseline of its text, in the order given.
- * A name sits just above its area; when its box would print on a name already
- * placed, it moves up one `line` at a time until it is clear. A box is `half` wide
- * either side of the name's centre and `height` tall above its baseline.
+ * Where each area's name sits, as its text baseline, in the order given. A name moves up one `line`
+ * at a time until it is clear of names already placed; a box is `half` wide either side and `height` tall.
  */
 export function nameBaselines(
   names: readonly { x: number; y: number; half: number }[],

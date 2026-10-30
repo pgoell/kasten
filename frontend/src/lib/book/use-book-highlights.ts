@@ -9,10 +9,8 @@ import { type HighlightBlock, highlightBlocks } from "@/lib/highlight";
 import { onThemeChange } from "@/lib/theme";
 
 /**
- * Throw away every text layer on a pdf page but the newest. pdf.js appends to
- * the layer on each resize, and `findQuotes` takes the first copy, so keep the
- * newest, marked by foliate's `endOfContent`. Out-of-order renders can still
- * leave stale text until the next resize, which is accepted.
+ * Throw away every pdf text layer but the newest, marked by foliate's `endOfContent`. pdf.js appends
+ * on each resize and `findQuotes` takes the first copy. Out-of-order renders can leave stale text until the next resize.
  */
 function pruneLayer(layer: HTMLElement): void {
   const ends = layer.querySelectorAll(":scope > .endOfContent");
@@ -24,9 +22,8 @@ function pruneLayer(layer: HTMLElement): void {
 }
 
 /**
- * Hang an overlay on a pdf page, which foliate builds for flowing books only.
- * It sits inside the text layer so its box is the page's own. Its scale is set
- * in `aimOverlay`, because pdf.js scales the page by `1 / devicePixelRatio`.
+ * Hang an overlay on a pdf page, which foliate builds for flowing books only. It sits inside the text
+ * layer so its box is the page's own. `aimOverlay` sets its scale, since pdf.js scales by `1 / devicePixelRatio`.
  */
 function hangOverlay(layer: HTMLElement): FoliateOverlayer {
   const overlayer = new Overlayer() as unknown as FoliateOverlayer;
@@ -46,10 +43,8 @@ function aimOverlay(overlayer: FoliateOverlayer, doc: Document): void {
 }
 
 /**
- * What pdf.js scaled this page's document by, or 1 before it has. `getComputedStyle`
- * answers `none` with no transform, which `DOMMatrixReadOnly` throws on, and the
- * layer exists before `render` sets the transform. A zero scale is guarded
- * because dividing by it would put the overlay at infinity.
+ * What pdf.js scaled this page's document by, or 1 before it has. `getComputedStyle` answers `none`
+ * with no transform, which `DOMMatrixReadOnly` throws on. A zero scale is guarded: it would put the overlay at infinity.
  */
 function pageScale(doc: Document): number {
   const transform = getComputedStyle(doc.documentElement).transform;
@@ -70,10 +65,8 @@ export interface BookHighlights {
 }
 
 /**
- * Every highlight the note holds, drawn on the pages the book shows.
- *
- * Owns the overlays, what was drawn last time, and the note's highlights. The
- * view hook says when a page is on screen and asks for a repaint.
+ * Every highlight the note holds, drawn on the pages the book shows. The view hook says when a page
+ * is on screen and asks for a repaint.
  */
 export function useBookHighlights(
   note: string,
@@ -100,9 +93,8 @@ export function useBookHighlights(
   const overlays = useRef(new WeakMap<Document, FoliateOverlayer>());
 
   /**
-   * Draw `blocks` on what is on screen, in one walk of each document. An entry
-   * with neither an overlayer nor a text layer is skipped: a book still opening,
-   * a blank spread half, or a pre-paginated epub.
+   * Draw `blocks` on what is on screen, one walk of each document. An entry with neither an overlayer
+   * nor a text layer is skipped: a book still opening, a blank spread half, or a pre-paginated epub.
    */
   const redraw = useCallback(
     (blocks: HighlightBlock[]) => {
@@ -164,9 +156,8 @@ export function useBookHighlights(
   useEffect(() => onThemeChange(repaint), [repaint]);
 
   /**
-   * Watch a pdf page's text layer, the only signal that it is drawable. It fills
-   * after the page loads, with no event at the end, so the layer's children are
-   * the signal for every render.
+   * Watch a pdf page's text layer, the only signal that it is drawable. It fills after the page loads
+   * with no event at the end, so the layer's children are the signal for every render.
    */
   const watchPage = useCallback(
     (doc: Document, view: FoliateView): MutationObserver | undefined => {

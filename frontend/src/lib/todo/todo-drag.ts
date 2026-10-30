@@ -19,10 +19,8 @@ export type Drop =
   | { kind: "refused"; why: string };
 
 /**
- * The write a card carried from `from` to `to` makes.
- *
- * `pinned` is a card a `#p/x` tag files: the backend reads the tag first, so a
- * refile elsewhere would draw the card straight back to the lane it left.
+ * The write a card carried from `from` to `to` makes. `pinned` is a card a `#p/x` tag
+ * files: the backend reads the tag first, so a refile would draw it back to where it left.
  */
 export function dropOf(from: Spot, to: Spot, byProject: boolean, pinned: boolean): Drop {
   const column = from.column !== to.column;

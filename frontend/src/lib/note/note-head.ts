@@ -25,9 +25,8 @@ import { notePath } from "@/lib/todo/todo-commands";
 export type { Outline, OutlineHeading } from "@/lib/note/note-outline";
 
 /**
- * Whether live preview is on, which is what Read means. The preview compartment
- * holds this beside the rendering, so it reads true exactly when the rendering
- * is, and a toggle of either is a toggle of both.
+ * Whether live preview is on, which is what Read means. The preview compartment holds this beside the rendering.
+ * So it reads true exactly when the rendering is, and a toggle of either toggles both.
  */
 export const readMode = Facet.define<boolean, boolean>({
   combine: (values) => values[0] ?? false,
@@ -35,9 +34,7 @@ export const readMode = Facet.define<boolean, boolean>({
 
 /**
  * Carries the Graph button's press, for the reason `followHandler` carries the follow.
- *
- * Absent, the header draws no Graph button: a view that was not told how to open
- * a graph has none to offer.
+ * Absent, the header draws no Graph button, since nothing can open a graph.
  */
 export const graphHandler = Facet.define<() => void, (() => void) | undefined>({
   combine: (handlers) => handlers[0],
@@ -526,9 +523,8 @@ function hiding(state: EditorState, frontEnd: number): Hiding {
 }
 
 /**
- * Whether Read hides the block in `state`. Only while every selection starts below
- * the frontmatter: a selection that starts in the block shows the YAML, so a line
- * selection from the top does too.
+ * Whether Read hides the frontmatter in `state`: only while every selection starts below it.
+ * A selection starting in the block shows the YAML, so a line selection from the top does too.
  */
 function hidesBlock(state: EditorState, frontEnd: number): boolean {
   return (

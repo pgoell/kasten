@@ -163,9 +163,8 @@ export class SaveQueue {
   }
 
   /**
-   * The read rule's stale check on a read of `note` while a write to it is in
-   * the air: true for that write's text, which the buffer now follows; false
-   * for text from before it, read again once the writes answer.
+   * The read rule's stale check on a read of `note` while a write to it is in the air.
+   * True for that write's text, which the buffer now follows; false for text from before it, read again once the writes answer.
    */
   staleRead(note: string, text: string): boolean | undefined {
     const air = this.#inAir.get(note);

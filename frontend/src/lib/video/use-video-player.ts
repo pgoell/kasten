@@ -90,9 +90,8 @@ export function useVideoPlayer({
   /** The video the state above is about, to tell when it has changed. */
   const about = useRef<string | undefined>(undefined);
   /**
-   * Set when the player reports it has ended, which writes the start back into
-   * the note. Until it runs again nothing is written for this video, or closing
-   * the pane would put its duration back over that start.
+   * Set when the player reports it has ended, which writes the start back into the note.
+   * Until it runs again nothing is written for this video, or closing the pane would restore its duration over that start.
    */
   const ended = useRef(false);
   /** The video the player last named, and whether it is another one than `id`. */

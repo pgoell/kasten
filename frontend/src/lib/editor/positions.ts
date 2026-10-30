@@ -16,9 +16,8 @@ export interface Position {
 }
 
 /**
- * A list of pairs and not an object. `JSON.parse` puts an integer-like key
- * such as `"2024"` ahead of every other, so an object would lose the order the
- * cap drops the oldest by.
+ * A list of pairs, not an object: `JSON.parse` puts integer-like keys such as "2024" first,
+ * so an object would lose the order the cap drops the oldest by.
  */
 type Entry = [string, Position];
 

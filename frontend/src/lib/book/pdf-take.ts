@@ -22,9 +22,8 @@ export function pdfQuote(path: string, page: number, text: string, from: string)
 }
 
 /**
- * The selection's text with each line break, and the white space round it, made
- * one space. pdf.js ends each printed line with a break, so the text would quote
- * as one paragraph per line, and a passage is one paragraph.
+ * The selection's text, each line break and the white space round it made one space. pdf.js ends
+ * each printed line with a break, and a passage is one paragraph.
  */
 export function oneLine(text: string): string {
   return text.replace(/\s*[\n\r]\s*/g, " ");
@@ -81,9 +80,8 @@ export function rangeIn(layer: Element, start: number, end: number): Range | nul
 }
 
 /**
- * The one highlight every PDF pane in the document adds its ranges to. The
- * document keeps it under `TAKEN`, so a pane reads it back by the name and not
- * from a module of its own. Null where the browser has no CSS highlights.
+ * The one highlight every PDF pane adds its ranges to, kept under `TAKEN` so a pane reads it back
+ * by name. Null where the browser has no CSS highlights.
  */
 export function takenHighlight(): Highlight | null {
   if (typeof CSS === "undefined" || !("highlights" in CSS)) return null;

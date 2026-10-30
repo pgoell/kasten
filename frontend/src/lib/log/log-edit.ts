@@ -113,9 +113,8 @@ function foodEdit(
 }
 
 /**
- * The text of an entry's line once the pane's edit is applied, or why the edit is
- * no amount of that kind. `kind` is the log config's kind of your own, given when
- * the entry is one.
+ * The text of an entry's line once the pane's edit is applied, or why the edit is no amount of that kind.
+ * `kind` is the log config's kind of your own, given when the entry is one.
  */
 export function editedLine(
   entry: { text: string; kind: string },

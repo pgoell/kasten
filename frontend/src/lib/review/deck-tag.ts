@@ -6,9 +6,8 @@
 import { TAG_CHARS, TAG_SOURCE, tagsOf } from "@/lib/tag-rule";
 
 /**
- * `#flashcards`, and the deck it names after the slash. A tag by `tag-rule.ts`'s
- * rule and no other shape, so `(#flashcards/es)` names `es` and `#flashcardsx`
- * names nothing, as the editor draws them.
+ * `#flashcards`, and the deck it names after the slash, by `tag-rule.ts`'s rule only.
+ * So `(#flashcards/es)` names `es` and `#flashcardsx` names nothing, as the editor draws them.
  */
 const DECK_TAG = /^#flashcards(?:\/(.*))?$/u;
 

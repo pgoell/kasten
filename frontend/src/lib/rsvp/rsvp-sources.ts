@@ -57,9 +57,8 @@ const UNREAD_BLOCKS = new Set([
 const CONTAINERS = new Set(["Document", "Blockquote", "BulletList", "OrderedList", "ListItem"]);
 
 /**
- * A note's words, from its source and not from the editor's DOM, which holds
- * only the lines on screen. Each word's offset is in the whole note, front
- * matter included, which is what the editor's cursor counts in.
+ * A note's words, read from its source and not the editor's DOM, which holds only the lines on screen.
+ * Offsets count the whole note, front matter included, as the editor's cursor does.
  */
 export function markdownWords(text: string): Word[] {
   const body = noteBody(text);

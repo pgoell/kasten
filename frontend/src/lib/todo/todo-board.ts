@@ -11,9 +11,8 @@ import { wikiLinkPath, wikiLinkTargets } from "@/lib/wikilink";
 export type Column = "open" | "doing" | "review" | "waiting" | "blocked" | "done" | "rejected";
 
 /**
- * In the order the board draws them: the walk of the work, then where it ended.
- * Review follows doing because it is where an agent's doing ends, one tick
- * short of done.
+ * The order the board draws them in: the walk of the work, then where it ended.
+ * Review follows doing, since an agent's doing ends one tick short of done.
  */
 export const COLUMNS: readonly Column[] = [
   "open",
@@ -36,9 +35,8 @@ export const COLUMN_HEADING: Record<Column, string> = {
 };
 
 /**
- * The one root `p` offers projects from, the root a link files a todo under on
- * the backend. Not areas: a daily todo names people far more often than
- * projects, and the people live in `03 Areas/08 People`.
+ * The one root `p` offers projects from, the root a link files a todo under.
+ * Not areas: a daily todo names people more often than projects.
  */
 export const LINK_ROOT = "02 Projects";
 
@@ -49,10 +47,8 @@ export const BOARD_DAYS = 7;
 export const KINDS: readonly string[] = ["#client", "#internal", "#private"];
 
 /**
- * The kind of work a todo is: its own tag, else the nearest ancestor's.
- *
- * A part that names no kind is the kind of the work it is part of, as a part
- * already takes `#client` in the list.
+ * The kind of work a todo is: its own tag, else the nearest ancestor's. A part with
+ * no kind takes its parent's, as it already takes `#client` in the list.
  */
 export function kindOf(todo: Todo, ancestors: Todo[]): string | null {
   for (const one of [todo, ...ancestors]) {
@@ -63,9 +59,8 @@ export function kindOf(todo: Todo, ancestors: Todo[]): string | null {
 }
 
 /**
- * Whether a todo is a card. Open work always is; finished work only for the
- * last `BOARD_DAYS`, by the stamp its state wrote. One with no stamp has no
- * day to measure, and an old line typed by hand is the likely case.
+ * Whether a todo is a card. Open work always is; finished work only for the last
+ * `BOARD_DAYS`, by the stamp its state wrote. A stamp-less line has no day to measure.
  */
 export function onBoard(todo: Todo, today: string): boolean {
   const since = shiftDay(today, -BOARD_DAYS);
@@ -135,9 +130,8 @@ export function withProjectLink(
 }
 
 /**
- * Whether the line as written reads as the original with the link at the end
- * of its words: every field the same, and the link last in the text but for a
- * block id, which `parseTodo` leaves in the words.
+ * Whether the line reads as the original with the link last in its words, every field
+ * unchanged. A block id stays in the words, so it may sit after the link.
  */
 function sameButLinked(before: Todo, after: Todo | null, link: string): boolean {
   if (after === null) return false;

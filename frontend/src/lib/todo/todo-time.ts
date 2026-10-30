@@ -22,10 +22,8 @@ const LINE = /^[ \t]*- (\d{2}:\d{2})-(\d{2}:\d{2})?[ \t]*(.*)$/;
 const LINK = /\[\[([^\]]+)\]\]/g;
 
 /**
- * How wide the two clocks are written, which is `09:12-10:32`.
- *
- * A running line is padded out to the same width so the words of an open and a
- * closed session sit at one column and a day's log reads down the page.
+ * How wide the two clocks are written, `09:12-10:32`. A running line is padded to the same width,
+ * so a day's log reads down the page.
  */
 const CLOCKS = 11;
 

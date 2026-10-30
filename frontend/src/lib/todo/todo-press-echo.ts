@@ -66,9 +66,8 @@ export function pressWrote(path: string, content: string): void {
 }
 
 /**
- * Whether a write event for `path` with `digest` is the echo of a press: the
- * digest is one of the texts a press wrote to that path, and the echo window is
- * open, which it is while a press runs or for `ECHO_MS` after.
+ * Whether a write event for `path` with `digest` echoes a press: the digest is one of the
+ * texts a press wrote there, and the echo window is open (a press runs, or `ECHO_MS` after).
  */
 export async function pressEcho(path: string, digest: string | null): Promise<boolean> {
   prune();

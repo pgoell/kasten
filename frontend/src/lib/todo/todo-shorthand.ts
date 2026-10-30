@@ -140,10 +140,8 @@ export function matchesFilter(todo: Todo, filter: Filter, today: string): boolea
 }
 
 /**
- * What was written after `due:`, as a date, or nothing where it is not one.
- *
- * Exported because `todo-suggest.ts` offers the same words the other way round:
- * this reads `tomorrow` as a date, and that offers `tomorrow` as one.
+ * What was written after `due:`, as a date, or nothing where it is not one. Exported for
+ * `todo-suggest.ts`, which offers the same words the other way round.
  */
 export function readDate(value: string, today: string): string | undefined {
   if (value === "today") return today;
@@ -163,10 +161,8 @@ export function readDate(value: string, today: string): string | undefined {
 }
 
 /**
- * The date itself, or nothing where the calendar has no such day.
- *
- * Read back rather than only tested for NaN: `2026-02-30` parses, silently, as
- * the second of March, and a date nobody typed is worse on disk than no date.
+ * The date itself, or nothing where the calendar has no such day. Read back, not only
+ * tested for NaN: `2026-02-30` parses silently as 2 March, which is worse on disk than no date.
  */
 function real(day: string): string | undefined {
   const at = new Date(`${day}T00:00:00Z`);

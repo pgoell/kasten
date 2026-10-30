@@ -24,9 +24,8 @@ export interface Todo extends Fields {
 }
 
 /**
- * `X` is here because another editor writes it. Everything kasten writes is
- * `x`. No `R`: nothing writes one, and obsidian-tasks reads case, so an `[R]`
- * is no todo there either.
+ * `X` is here because another editor writes it. kasten writes only `x`, and `R` is no todo,
+ * since obsidian-tasks reads case.
  */
 const STATES: Record<string, TodoState> = {
   " ": "open",
@@ -79,9 +78,8 @@ const LINE = /^([ \t]*)- \[([ /xXbwr-])\](?:[ \t](.*))?$/;
 const PLAIN = /^([ \t]*)(?:- )?(.*)$/;
 
 /**
- * The spans, the mask and a line's tags live with the tag rule, so the todo
- * pane, saved views and quick add read a tag the way the editor draws one.
- * Exported from here too, where their readers have always found them.
+ * The spans, mask and tags live with the tag rule, so the pane, saved views and quick add read a tag as the editor draws it.
+ * Re-exported here, where their readers have always found them.
  */
 export { masked, SPANS, tagsOf, wordTags };
 

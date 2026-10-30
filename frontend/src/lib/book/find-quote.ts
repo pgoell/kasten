@@ -16,10 +16,8 @@ type MakeRange = (
 ) => Range;
 
 /**
- * What foliate's walker hands the caller, which is all this asks of it.
- *
- * Named here rather than reached for through the library's own types, which it
- * ships none of, the way `lib/book/foliate-view.ts` names `FoliateView`.
+ * What foliate's walker hands the caller. Named here, since foliate ships no types,
+ * the way `lib/book/foliate-view.ts` names `FoliateView`.
  */
 type TextWalker = <T>(
   doc: Document,
@@ -93,20 +91,14 @@ export function holdsQuote(text: string, quote: string[]): boolean {
 }
 
 /**
- * The book's words for a quote as the note holds it: the take's escape read back.
- *
- * A passage written before the escape existed holds the book's own words, so the
- * unescaped form may not be in the book and the written form is tried after it.
+ * The book's words for a quote, the take's escape read back. A passage written before the escape
+ * existed holds the book's own words, so the form as written is tried second.
  */
 function readBack(written: string[]): string[] {
   return written.map(unescapeParagraph);
 }
 
-/**
- * Whether `text` holds a quote as the note wrote it, read back or as written.
- *
- * The pdf's answer for `gf`, the same two forms `findWritten` tries.
- */
+/** Whether `text` holds a quote as the note wrote it, read back or as written, for a pdf's `gf`. */
 export function holdsWritten(text: string, written: string[]): boolean {
   return holdsQuote(text, readBack(written)) || holdsQuote(text, written);
 }

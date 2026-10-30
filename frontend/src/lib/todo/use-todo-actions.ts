@@ -216,10 +216,8 @@ export function useTodoActions({
   );
 
   /**
-   * Write a `⛔` naming the todo picked, from the pane's `b`.
-   *
-   * A refusal says why, as a press's does: a blocker whose id another todo
-   * carries too writes nothing, and the pick would look ignored without it.
+   * Write a `⛔` naming the todo picked, from the pane's `b`. A blocker whose id another todo carries
+   * writes nothing and says so, or the pick would look ignored.
    */
   const blockTodo = useCallback(
     (hit: SearchHit, blocker: SearchHit) => {

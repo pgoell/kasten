@@ -35,9 +35,8 @@ export interface Buffer {
 }
 
 /**
- * The entries held as the editor route unmounted, of writes then in the air.
- * The cache the leave filled reads to the hook mounted next as the vault's
- * text (#382). Each leaves the store when its write answers.
+ * The entries held as the route unmounted, with writes then in the air.
+ * The leave's cache reads to the next hook as the vault's text (#382). Each leaves the store when its write answers.
  */
 let leftAloft = new WeakSet<Held>();
 
@@ -67,9 +66,8 @@ export function useHeldBuffer(buffer: Buffer) {
   } = buffer;
 
   /**
-   * Take the entry a write of `note` held as it failed into a clean buffer
-   * reopened on its text, which nothing else is writing: the screen keeps it,
-   * taken as a failed write is. Answers whether it did.
+   * Take the entry a failed write of `note` held into a clean buffer reopened on its text, which nothing else is writing.
+   * Answers whether it did.
    */
   const takeFailed = useCallback(
     (note: string, held: Held): boolean => {
@@ -94,10 +92,8 @@ export function useHeldBuffer(buffer: Buffer) {
   );
 
   /**
-   * Follow the write to `note` in the air whose text the buffer reopened on,
-   * sent by the hook that went with the route and hears its answer alone
-   * (#387). Landed, its answer is the base; failed, the clean buffer takes
-   * the entry it held, as on a reopen within the route.
+   * Follow the write to `note` in the air whose text the buffer reopened on, and hear its answer alone (#387).
+   * Landed, its answer is the base; failed, the clean buffer takes the entry it held.
    */
   const follow = useCallback(
     (note: string, held: Held) => {
@@ -129,8 +125,7 @@ export function useHeldBuffer(buffer: Buffer) {
   );
 
   /**
-   * Hold the text the page going away would lose: a quiet write in the air, and
-   * what is waiting. Not a reload's text (#306), nor the `:e!` text nobody typed (#311).
+   * Hold the text the page going away would lose: a quiet write in the air, and what is waiting. Not a reload's text (#306), nor the `:e!` text nobody typed (#311).
    * Answers the entry held, or undefined when that text is held already or there is none.
    */
   const holdOwn = useCallback(

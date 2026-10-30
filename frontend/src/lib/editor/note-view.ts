@@ -42,9 +42,8 @@ import { todoCompletions } from "@/lib/todo/todo-suggest";
 import { vaultPaths, wikiLinkCompletions } from "@/lib/wikilink";
 
 /**
- * The callbacks a view calls, held where the view can read them at the moment
- * it calls one. A re-render replaces this, and the view never has to be rebuilt
- * to see the new one.
+ * The callbacks a view calls, held where the view reads them at the moment it calls one.
+ * A re-render replaces them without rebuilding the view.
  */
 export interface NoteViewLatest {
   commands?: EditorCommands;
@@ -112,9 +111,8 @@ const formatKeys = keymap.of(
 );
 
 /**
- * What the compartment holds: vim and the gutter that counts for it, or the
- * word that there is none, which live preview reads as always typing, and the
- * chords vim would have resolved.
+ * What the compartment holds: vim and its gutter, or the word that there is none, which live
+ * preview reads as always typing, plus the chords vim would have resolved.
  */
 function modalKeys(on: boolean): Extension {
   return on ? [vim(), relativeNumbers] : [vimKeys.of(false), formatKeys];

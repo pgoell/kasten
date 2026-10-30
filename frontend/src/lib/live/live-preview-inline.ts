@@ -79,9 +79,8 @@ export function plainBrackets(doc: Text, node: SyntaxNode): Range<Decoration> | 
 }
 
 /**
- * The parser reads each of the four tags as a node of its own, so the ruby is
- * read off the text from its opening one. `drawn` keeps the walk from hiding an
- * escape inside what the widget already stands for.
+ * The parser reads each of the four tags as its own node, so the ruby is read from its opening one.
+ * `drawn` stops the walk hiding an escape inside the widget.
  */
 export function drawRuby(walk: Walk, from: number, line: Line, revealed: boolean): void {
   const { state, decorations, hidden } = walk;

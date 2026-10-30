@@ -54,16 +54,13 @@ let drinkTurns: Promise<unknown> = Promise.resolve();
 
 /**
  * How long a tap waits on the one before it, then goes on its own.
- *
- * The api client sets no timeout, so a save that never answers would otherwise
- * hold every later tap until the page reloads. Same bound as `cycleTodoAside`.
+ * The api client sets no timeout, so a save that never answers would hold every later tap. Same bound as `cycleTodoAside`.
  */
 const TAP_WAIT_MS = 10_000;
 
 /**
  * Log a drink into today's note in the vault, making the note and its `## Log` if there are none.
- * Taps run one at a time: a read before an earlier tap's save would miss its line, and the later save would drop it.
- * `stillOk` is asked again where the write is made. A refusal rejects with `Nothing logged: <why>`.
+ * Taps run one at a time: an earlier save could otherwise drop a later tap's line. `stillOk` is asked again at the write.
  */
 export function logDrinkInVault(
   line: string,

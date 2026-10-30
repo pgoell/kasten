@@ -47,10 +47,8 @@ export const notePath = Facet.define<string, string | undefined>({
 });
 
 /**
- * Whether an id stands on a todo line in another note, as far as the page's
- * listing of the vault says. The press is synchronous and cannot ask the vault,
- * and a listing it does not hold answers no: the route asks the vault afresh
- * before it writes anything beyond the buffer.
+ * Whether an id names a todo line in another note, by the page's vault listing; no listing
+ * answers no. The route asks the vault again before it writes past the buffer.
  */
 export const idElsewhere = Facet.define<
   (id: string) => boolean,
@@ -60,10 +58,8 @@ export const idElsewhere = Facet.define<
 });
 
 /**
- * The log's half of a press, when the note holding the todo is today's own.
- *
- * Empty for every other note, where the route writes the log through the vault
- * instead, and empty for a press that touches neither end of done.
+ * The log's half of a press, when the note holding the todo is today's own. Empty for
+ * other notes, where the route writes the log, and for a press touching neither end of done.
  */
 function logEdits(doc: string, before: string, after: string, path: string | undefined): Edit[] {
   const now = parseTodo(after);
@@ -166,10 +162,8 @@ export function cycleTodoAtCursor(view: EditorView, want?: TodoState): void {
 }
 
 /**
- * Stamp an id on the todo under the cursor, so something else can name it.
- *
- * The spec's second stamp, the one entering done is not. A `⛔` is written by
- * hand and needs an id to name, and an open todo has none until this.
+ * Stamp an id on the todo under the cursor, so something else can name it. A `⛔` written
+ * by hand needs one, and an open todo has none until this.
  */
 export function stampIdAtCursor(view: EditorView): void {
   const { state } = view;
@@ -183,9 +177,8 @@ export function stampIdAtCursor(view: EditorView): void {
 }
 
 /**
- * Write `patched` over `line`, replacing only the span that differs, so the
- * cursor and the rest of the line map through the change untouched and one `u`
- * takes it back.
+ * Write `patched` over `line`, replacing only the span that differs. The cursor and the
+ * rest of the line map through the change, and one `u` takes it back.
  */
 function replaceLine(view: EditorView, line: Line, patched: string): void {
   let start = 0;
@@ -208,9 +201,8 @@ function replaceLine(view: EditorView, line: Line, patched: string): void {
 }
 
 /**
- * Hand the todo under the cursor to the agent worker, or take it back: `#agent`
- * on or off the line, and nothing else moved. A press that writes nothing says
- * why at the foot, as the pane's `@` does.
+ * Hand the todo under the cursor to the agent worker, or take it back: `#agent` on or
+ * off the line, nothing else moved. A press that writes nothing says why at the foot.
  */
 export function agentTodoAtCursor(view: EditorView): void {
   const { state } = view;

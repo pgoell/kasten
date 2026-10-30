@@ -55,9 +55,8 @@ export function useReviewSitting(
   deck: Deck,
   play: (sources: string[]) => void,
   /**
-   * Set while a swiped card is in flight, which the sitting refuses everything
-   * over: the grade the flight ends in is the only write until it lands. A ref, not
-   * state, so a press that lands in the same frame is refused too.
+   * Set while a swiped card is in flight, which refuses everything over it: the flight's grade is the only write until it lands.
+   * A ref, not state, so a press in the same frame is refused too.
    */
   flying: { current: boolean },
 ) {

@@ -35,10 +35,8 @@ export const FIT_PADDING = 40;
 /** The zooms of one canvas's graph; `coarse` says whether a finger points. */
 export function zoomsOf(graph: ForceGraph<DrawnNode, DrawnLink>, coarse: () => boolean) {
   /**
-   * The zoom at which every note is on screen, as `zoomToFit` works it out, and
-   * the box's middle in graph units at that zoom. Under touch the limits follow
-   * it, since force-graph's zoom clamps to them and a fixed least zoom would
-   * keep a big vault from fitting.
+   * The zoom at which every note is on screen, and the box's middle in graph units at that zoom.
+   * Under touch the limits follow it, or a big vault would not fit the least zoom.
    */
   const fitted = () => {
     const box = graph.getGraphBbox();
@@ -64,10 +62,8 @@ export function zoomsOf(graph: ForceGraph<DrawnNode, DrawnLink>, coarse: () => b
       graph.zoom(fit.k, duration);
     },
     /**
-     * A touch screen's first zoom: close enough that the names draw solid, never
-     * further out than the fit, about the note with the most links. A phone's fit
-     * of a big vault draws every note as a speck under a nameless smear, and the
-     * middle of a clustered drawing can be empty space between the areas.
+     * A touch screen's first zoom: close enough for solid names, never past the fit, about the most-linked note.
+     * A fit of a big vault is only specks and a smear, and a clustered drawing's middle is empty.
      */
     readable(duration: number, nodes: readonly DrawnNode[]) {
       const fit = fitted();

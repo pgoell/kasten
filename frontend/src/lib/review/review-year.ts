@@ -1,8 +1,5 @@
 /**
- * The year review's numbers, worked out from what the vault holds over one stretch of
- * days: the todos done and the time on them, the notes written and the projects they
- * sit in, the tags, the flashcards and the log days. Pure, as `overview.ts` is, so the
- * block passes in what the reads answered and each rule here is checked on plain input.
+ * The year review's numbers over one stretch of days. Pure, as `overview.ts` is, so each rule is checked on plain input.
  */
 
 import type { LineHit, TodoHit } from "@/lib/api";
@@ -74,9 +71,7 @@ export interface ProjectRow {
 }
 
 /**
- * One row per project with a todo done in the range or a note written in it, sorted by
- * minutes, then done todos, then notes, all most first, then by name. Todos and notes
- * with no project make no row.
+ * One row per project with a todo done or a note written in the range, most minutes first. Todos and notes with no project make no row.
  */
 export function projectRows(
   todos: TodoHit[],
@@ -115,9 +110,7 @@ export function projectRows(
 }
 
 /**
- * How many months of the year `to` falls in have begun by `to`: 10 for an October day. A chart
- * draws a bar for these and none for a month still to come, which a logged zero would misread
- * as a month with nothing in it.
+ * Months of the year `to` falls in that have begun by `to`, so 10 for an October day. A logged zero would misread a month still to come as empty.
  */
 export function monthsBegun(to: string): number {
   return Number(to.slice(5, 7));
@@ -171,9 +164,7 @@ export interface YearNumbers {
 }
 
 /**
- * The year's numbers over `from` to `to`. Flashcards are a lower bound: `reviewCounts`
- * counts each card once, on the day of its last rating, so a card reviewed earlier in
- * the range and rated again after it is missed.
+ * The year's numbers over `from` to `to`. Flashcards are a lower bound: `reviewCounts` counts each card once, on its last rating, so a card rated early and again later is missed.
  */
 export function yearNumbers(input: {
   todos: TodoHit[];

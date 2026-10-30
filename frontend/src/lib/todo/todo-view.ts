@@ -141,10 +141,8 @@ export function nextActionOf(node: Node, today: string): Node | null {
 export { VIEWS_NOTE } from "@/lib/layout";
 
 /**
- * What the first `v` writes into a vault holding no views note.
- *
- * One view per family of term, so the note a reader opens to change teaches the
- * syntax they are about to write.
+ * What the first `v` writes into a vault with no views note. One view per family of term, so the note teaches
+ * the syntax a reader is about to write.
  */
 export const DEFAULT_VIEWS = `---
 type: Reference

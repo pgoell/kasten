@@ -5,9 +5,8 @@ import { type FoliateView, pdfLayer } from "@/lib/book/foliate-view";
 import { PDFJS_BASE } from "@/lib/book/pdf-view";
 
 /**
- * The little of pdf.js the seek uses: a page's words, reachable without drawing
- * the page. Read off `globalThis`, where foliate's vendored build leaves it, so
- * this is a second reading of the same file, not a second library.
+ * The little of pdf.js the seek uses: a page's words, reachable without drawing the page. Read off
+ * `globalThis`, where foliate's vendored build leaves it, so this is a second reading, not a second library.
  */
 interface Pdfjs {
   getDocument(options: {
@@ -32,9 +31,8 @@ interface Pdfjs {
 type OpenPdf = Awaited<ReturnType<Pdfjs["getDocument"]>["promise"]>;
 
 /**
- * Open `bytes` with pdf.js, hand the document to `read`, and free it. Bytes it
- * will not open answer `otherwise`. A section foliate could not build is also
- * document-less, so the wrong arm is reachable and must end as an honest miss.
+ * Open `bytes` with pdf.js, hand the document to `read`, and free it. Bytes it will not open answer
+ * `otherwise`, since a section foliate could not build is document-less too, so the wrong arm must end as a miss.
  */
 export async function readPdf<T>(
   bytes: ArrayBuffer,
@@ -73,9 +71,8 @@ export async function readPdf<T>(
 }
 
 /**
- * Which page of `bytes` holds `quote`, counting from zero, or -1. Reads the text
- * without drawing any page. The runs join with nothing between them, as the text
- * layer does, so matches agree with the drawn document. `keep` ends the walk early.
+ * Which page of `bytes` holds `quote`, counting from zero, or -1. Reads the text without drawing a page.
+ * The runs join with nothing between them, as the text layer does. `keep` ends the walk early.
  */
 function pdfPageHolding(bytes: ArrayBuffer, quote: string[], keep: () => boolean): Promise<number> {
   return readPdf(
@@ -94,9 +91,8 @@ function pdfPageHolding(bytes: ArrayBuffer, quote: string[], keep: () => boolean
 }
 
 /**
- * Walks the book for a passage the reader asked for, and takes the reader to it.
- * Answers `resumeSeek` once the book is ready, and whether a passage was parked
- * while it opened, since a parked turn waits behind it.
+ * Walks the book for a passage the reader asked for, and takes the reader to it. Answers `resumeSeek`
+ * once the book is ready, saying whether a passage was parked, since a parked turn waits behind it.
  */
 export function useBookSeek(o: {
   seek?: { quote: string[] };
@@ -177,10 +173,8 @@ export function useBookSeek(o: {
   }, [seek, goToQuote]);
 
   /**
-   * Walk for the passage parked while the book opened, once it is ready.
-   *
-   * Answers whether one was parked, which is what decides whether a parked turn
-   * waits behind it.
+   * Walk for the passage parked while the book opened, once it is ready. Answers whether one was parked,
+   * which decides whether a parked turn waits behind it.
    */
   const resumeSeek = useCallback(() => {
     const parked = wanted.current;

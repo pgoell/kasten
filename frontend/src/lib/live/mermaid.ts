@@ -21,10 +21,8 @@ const loadMermaid = loadOnce(async (): Promise<Mermaid> => {
 });
 
 /**
- * Mermaid's config is one global, so each draw sets its theme and renders
- * before the next draw starts. Two draws of one source in two themes at once
- * then each get their own theme (#835). A draw that throws still ends its
- * turn, so the chain never stops.
+ * Mermaid's config is one global, so each draw sets its theme and renders alone.
+ * Draws queue, so two themes of one source keep their own (#835), and a throw never stops the queue.
  */
 let turn: Promise<unknown> = Promise.resolve();
 function inTurn<T>(work: () => Promise<T>): Promise<T> {

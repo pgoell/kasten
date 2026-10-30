@@ -1,7 +1,6 @@
 /**
- * The streak the log pane and the overview count: days in a row within the kcal goal, and
- * the food day that every kcal count reads, shared by the pane, the overview and the week
- * review. Kept out of the pane's components so the overview can read it without drawing the pane.
+ * The streak the log pane and the overview count: days in a row within the kcal goal, shared by the pane, the overview and the week review.
+ * Kept out of the pane's components so the overview can read it without drawing the pane.
  */
 
 import type { LogDay } from "@/lib/log/food-api";

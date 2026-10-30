@@ -26,19 +26,16 @@ export const vimModeField = StateField.define<VimMode>({
 });
 
 /**
- * Whether the view runs vim at all, which the editor says no to by hand.
- *
- * Absent means yes, so every view written before the setting existed reads the
- * field above as it always did.
+ * Whether the view runs vim at all. Absent means yes, so views written before the setting
+ * existed read the field above as they always did.
  */
 export const vimKeys = Facet.define<boolean, boolean>({
   combine: (values) => values[0] ?? true,
 });
 
 /**
- * The mode live preview goes by. An editor without vim is always being typed
- * into, which is what insert mode is, so the line under the cursor shows its
- * source the way it does there.
+ * The mode live preview goes by. Without vim the editor is always typing, which is insert mode,
+ * so the line under the cursor shows its source as it does there.
  */
 export function editingMode(state: EditorState): VimMode {
   return state.facet(vimKeys) ? state.field(vimModeField) : "insert";

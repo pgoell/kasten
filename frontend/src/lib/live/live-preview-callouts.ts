@@ -8,10 +8,8 @@ import { FOLDED, HIDDEN, isNodeRevealed, type Walk } from "@/lib/live/live-previ
 export const toggleFold = StateEffect.define<number>();
 
 /**
- * Positions a callout folded shut by its `-` opens for.
- *
- * The search pane marks the line a hit sits on, and a hit inside a shut body
- * would mark a line nobody can see. A click still shuts it again.
+ * Opens a callout folded shut by its `-` when the search lands inside it.
+ * Otherwise the search would mark a line nobody can see. A click still shuts it.
  */
 export const opensFor = Facet.define<number>();
 
@@ -81,10 +79,8 @@ function chevron(open: boolean): HTMLElement {
 }
 
 /**
- * What stands in for `> [!type]-`: the icon and, when none is written, the
- * title made from the type, with the chevron after it on a callout that folds.
- *
- * The icon's glyph and colour are in CSS, read off the kind class on the line.
+ * What stands in for `> [!type]-`: the icon, or the title made from the type.
+ * The icon's glyph and colour are in CSS, read off the kind class.
  */
 class CalloutHead extends WidgetType {
   private readonly title: string | null;

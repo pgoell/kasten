@@ -39,10 +39,8 @@ import { vaultPaths } from "@/lib/wikilink";
 const HEADING = /^ATXHeading([1-6])$/;
 
 /**
- * What the editor is showing, and which parts of the document it is not.
- *
- * The two travel together because the selection filter has to know where the
- * hidden ranges are, and a filter can only read state.
+ * What the editor shows, and which parts of the document it hides.
+ * The selection filter needs the hidden ranges, and a filter can only read state.
  */
 interface Live {
   decorations: DecorationSet;

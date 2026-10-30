@@ -6,10 +6,8 @@ import { type EditorCommands, TERMINAL, TERMINAL_CHORD } from "@/lib/key-binding
 import { beginLeader, paneOpener } from "@/lib/which-key";
 
 /**
- * The keys the book pane answers, attached to its wrapper.
- *
- * Returns the handler, which the view's own effect also hangs on every section
- * the book shows. It keeps one identity for the life of the pane.
+ * The keys the book pane answers, attached to its wrapper. Returns the handler, which the view's
+ * effect also hangs on every section, and which keeps one identity for the life of the pane.
  */
 export function useBookKeys(o: {
   wrapper: RefObject<HTMLDivElement | null>;
@@ -30,9 +28,8 @@ export function useBookKeys(o: {
   });
 
   /**
-   * Every key the reader answers, whichever document it was pressed in. Modifiers
-   * are compared for equality, not truth: a bare `event.key` read would turn
-   * Ctrl+H, Chrome's history key, into a page turn.
+   * Every key the reader answers, whichever document it was pressed in. Modifiers compare for equality,
+   * since a bare `event.key` read would turn Ctrl+H, Chrome's history key, into a page turn.
    */
   const onKeyDown = useCallback(
     (event: KeyboardEvent) => {

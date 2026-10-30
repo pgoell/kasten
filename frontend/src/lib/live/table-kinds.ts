@@ -7,9 +7,8 @@
 const SIGN = "[+\\-\u2212]?";
 const CURRENCY = "[$€£¥]";
 /**
- * Digits, grouped in threes by a comma, a point, an apostrophe or a space, with
- * at most one decimal separator after them. A date or a version has two separators
- * and its groups are not threes, so it is not a number.
+ * Digits grouped in threes by a comma, point, apostrophe or space, with at most one decimal separator.
+ * A date or version has two separators and its groups are not threes, so it is not a number.
  */
 const DIGITS = "(?:\\d+(?:[.,'  ]\\d{3})+|\\d+)(?:[.,]\\d+)?";
 const NUMBER = new RegExp(`^${SIGN}\\s?${CURRENCY}?\\s?${DIGITS}\\s?${CURRENCY}?\\s?%?$`);
@@ -43,9 +42,7 @@ export function isNumericColumn(texts: string[]): boolean {
 
 /**
  * Whether one token reads as a code name, such as `WH-07` or `DE_BER_3`.
- *
- * A word has no digits and a number has no letters, so neither is code. A date
- * has dashes and digits only, and is left as it is for the same reason.
+ * A word has no digits and a number has no letters, so neither is code.
  */
 export function isCodeToken(text: string): boolean {
   // Three characters or fewer is too short to name anything, `Q3` or `3rd` among them.

@@ -24,9 +24,8 @@ import { lineUpChanges, type TableRun, tableAt } from "@/lib/editor/table";
 const LINE_UP = "format.table";
 
 /**
- * Takes a table's mark out of the set. By id, because a line-up moves the lines
- * of every table after the one it lines up, so a position taken before it is
- * stale; `at` only tells a change in the same transaction which table it is.
+ * Takes a table's mark out by id, since a line-up moves every later table's lines and a
+ * position taken before it goes stale.
  */
 const forget = StateEffect.define<{ id: number; at: number }>();
 
@@ -121,9 +120,7 @@ function lostIn(tr: Transaction, marks: Mark[]): Set<number> {
 
 /**
  * The tables the reader typed into, lined up once the reader is done with them.
- *
- * Each mark is mapped through every change and dropped when its first line is
- * deleted. A transaction that forgets a table does not mark it again.
+ * A mark is dropped when its first line is deleted; a transaction that forgets a table does not re-mark it.
  */
 const edited = StateField.define<Mark[]>({
   create: () => [],
@@ -202,10 +199,8 @@ interface Readable {
 }
 
 /**
- * The run ended at the line the tree ends the table on.
- *
- * A pipe line under the table that the tree gives to a list item, a quote or a
- * heading is not a row, and lining it up would rewrite it as one.
+ * The run ends at the line the tree ends the table on.
+ * A pipe line the tree gives to a list, quote or heading is not a row, so it is not lined up.
  */
 function cut(run: TableRun, doc: Text, end: number): TableRun {
   return { first: run.first, last: Math.min(run.last, doc.lineAt(end).number) };
@@ -268,9 +263,8 @@ const lineUpOnLeave = EditorState.transactionFilter.of((tr) => {
 });
 
 /**
- * Lines up every edited table, for `save`, so the text written is the table as
- * the reader sees it. Nothing to do when the extension is absent or nothing was
- * typed into a table.
+ * Lines up every edited table for `save`, so the text written is the table as the reader sees it.
+ * Does nothing when the extension is absent or no table was typed into.
  */
 export function lineUpEdited(view: EditorView): void {
   const marks = view.state.field(edited, false);

@@ -39,9 +39,8 @@ async function epubWords(view: FoliateView, keep: () => boolean): Promise<Word[]
 }
 
 /**
- * A pdf read as a book: its words out of the bytes, pdf.js parsing each page's
- * text without drawing it, as the seek in `use-book-seek.ts` does. foliate keeps
- * its own document to itself, so this is a second reading of the same file.
+ * A pdf read as a book: its words out of the bytes, parsed without drawing, as the seek in
+ * `use-book-seek.ts` does. foliate keeps its own document private, so this is a second reading.
  */
 function bookPdfWords(bytes: ArrayBuffer, keep: () => boolean): Promise<Word[]> {
   return readPdf(
@@ -101,9 +100,8 @@ async function selectedWord(view: FoliateView, words: Word[]): Promise<number | 
 }
 
 /**
- * The book in a pane as a text to read. Its place is kept under the file's
- * path, the book being what is read, and moves to and from `reading:` by `r`
- * and `R`.
+ * The book in a pane as a text to read. Its place is kept under the file's path, and moves
+ * to and from `reading:` by `r` and `R`.
  */
 export function bookSource(o: {
   viewRef: RefObject<FoliateView | null>;

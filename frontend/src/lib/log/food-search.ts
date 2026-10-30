@@ -72,9 +72,8 @@ function pickButton(
 }
 
 /**
- * The search panel. It is built each time the card opens it, so its answers are
- * dropped when its element is no longer in the page: a search or read that comes
- * back after the panel closed, or after a later search, draws nothing.
+ * The search panel, built each time the card opens it.
+ * Answers are dropped once the element leaves the page, so a late search or read draws nothing.
  */
 export function foodPanel(day: string | null, hooks: PanelHooks): FoodPanel {
   const root = make("div", "cm-log-food");

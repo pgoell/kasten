@@ -53,9 +53,7 @@ export function useRsvpAsked(): { pane: string } & RsvpAsk {
 
 /**
  * Whether the reader is open over this pane, and how it was asked for.
- *
- * The count a mount starts from is seen, not acted on, so a pane remounted with
- * the last press still standing does not open the reader again.
+ * The mount count is seen, not acted on, so a remount with a standing press does not reopen the reader.
  */
 export function useRsvpAsk(ask: RsvpAsk | undefined): {
   open: RsvpAsk | null;

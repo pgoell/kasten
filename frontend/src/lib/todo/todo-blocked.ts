@@ -1,8 +1,6 @@
 /**
  * Which todo a `⛔` holds shut, and the state each line with one settles in.
- *
- * Pure, as `todo-write.ts` is: a closed-or-open answer per id goes in, the
- * lines that must change come out.
+ * Pure, as `todo-write.ts` is: answers go in, the lines to change come out.
  */
 
 import { isOpen, parseTodo, patchLine, type Todo } from "@/lib/todo/todo";
@@ -14,9 +12,8 @@ import { isOpen, parseTodo, patchLine, type Todo } from "@/lib/todo/todo";
 export type Closed = (id: string) => boolean | "twinned" | undefined;
 
 /**
- * A resolver over the todos in hand. An id none of them carries answers
- * nothing, and an id two of them carry answers `"twinned"` rather than going by
- * whichever was listed last.
+ * An id none of the todos carries answers nothing. An id two carry answers
+ * `"twinned"`, not whichever was listed last.
  */
 export function closedAmong(todos: Todo[]): Closed {
   const states = new Map<string, boolean | "twinned">();

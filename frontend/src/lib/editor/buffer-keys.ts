@@ -12,9 +12,8 @@ import { agentTodoAtCursor, cycleTodoAtCursor, stampIdAtCursor } from "@/lib/tod
 import { writeTranscript } from "@/lib/video/transcript";
 
 /**
- * Keys that act inside the buffer, each carrying its own work, since the route
- * has no view to write into. Read `LEADER` in `leader-keys.ts` before adding a
- * leader key: vim fires a complete match without waiting for the next press.
+ * Keys that act inside the buffer, each carrying its own work, since the route has no view to write into.
+ * Read `LEADER` in `leader-keys.ts` before adding a leader key: vim fires a complete match at once.
  */
 
 export interface LeaderEdit {

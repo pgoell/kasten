@@ -14,9 +14,7 @@ const TOKEN = /(?:^|\s)!suspended(?!\S)/g;
 
 /**
  * Where each code span in `text` starts and ends, as `ESCAPES` reads them.
- *
- * A code span is code everywhere (#346, #347): nothing inside one is read as
- * a mark or the token, as the preview draws it verbatim.
+ * Nothing inside a code span is read as a mark or the token (#346, #347).
  */
 function codeSpans(text: string): [number, number][] {
   return [...text.matchAll(ESCAPES)]
@@ -98,10 +96,8 @@ export function withoutAnkiId(text: string): string {
 const CLOZE_SRS = new RegExp(CLOZE_SR.source, "g");
 
 /**
- * The comment of one number, the `!` after it what keeps `c1` off `c12`.
- *
- * Built per number rather than read off `CLOZE_SR`, because a rating rewrites
- * its own comment and no other, and a replace has to find that one.
+ * The comment of one number. The `!` after it keeps `c1` off `c12`.
+ * Built per number, not read off `CLOZE_SR`, so a replace finds that one comment.
  */
 export function clozeComment(cloze: number): RegExp {
   return new RegExp(`<!--SR:c${cloze}!(\\d{4}-\\d{2}-\\d{2}),(\\d+),(\\d+)-->`);
@@ -116,9 +112,7 @@ const MARK =
 
 /**
  * Where a mark already read stood: its index between two private-use characters.
- *
- * Private use so no note types one by accident. One that does is read as text
- * unless its index names a mark, and then it reads as that mark.
+ * Private use so no note types one by accident; an unknown index reads as text.
  */
 const HOLE = /(\d+)/;
 
@@ -186,10 +180,8 @@ function everyMark(found: Piece[]): Mark[] {
 }
 
 /**
- * The outermost marks of one number, a mark inside one of them being part of its text.
- *
- * Outermost because Anki hides the whole span of the number asked, so a mark of
- * the same number inside it is hidden with it rather than asked again.
+ * The outermost marks of one number. A same-number mark inside one is hidden with it.
+ * Anki hides the whole span asked, so the inner mark is not asked again.
  */
 function asked(found: Piece[], cloze: number): Mark[] {
   return found.flatMap((piece) => {
@@ -218,10 +210,8 @@ function bare(line: string): string {
 }
 
 /**
- * `line` with one number's marks drawn by `hidden` and every other number's as its text.
- *
- * A mark of another number is opened and drawn in turn, so c2 inside c1 is
- * still asked on c2's card; one of this number is drawn whole, its text plain.
+ * `line` with one number's marks drawn by `hidden`, every other number's as text.
+ * Other numbers are opened in turn, so c2 inside c1 is still asked on its own card.
  */
 function drawn(line: string, cloze: number, hidden: (text: string, hint?: string) => string) {
   const draw = (found: Piece[]): string =>
@@ -236,9 +226,7 @@ function drawn(line: string, cloze: number, hidden: (text: string, hint?: string
 
 /**
  * The question this number asks: its text hidden as `[...]`, or as `[hint]`.
- *
- * The brackets escaped, because a front is markdown and the preview reads a
- * bare `[...]` as a link, hiding the brackets that make it read as a blank.
+ * Brackets escaped, since the preview reads a bare `[...]` as a link.
  */
 export function clozeQuestion(line: string, cloze: number): string {
   // `||` and not `??`: an empty hint is no hint.

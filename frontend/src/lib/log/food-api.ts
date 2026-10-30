@@ -14,9 +14,7 @@ export type LogDay = components["schemas"]["Day"];
 
 /**
  * The foods Open Food Facts has whose name matches `q`, or the one a barcode names.
- *
- * A refusal is the backend's sentence, such as a search over its rate limit, and
- * the food panel shows it as it is.
+ * A refusal is the backend's own sentence, such as a rate limit, and is shown as it is.
  */
 export async function searchFood(q: string): Promise<Food[]> {
   const { data, error, response } = await client.GET("/api/food/search", {

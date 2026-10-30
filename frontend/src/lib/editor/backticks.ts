@@ -34,12 +34,7 @@ export function fenceAt(state: EditorState, pos: number): Fence | null {
   };
 }
 
-/**
- * Backticks that close themselves, singly and in threes.
- *
- * Must be installed ahead of `basicSetup`, whose `closeBrackets` would
- * otherwise answer the third backtick first.
- */
+/** Installed ahead of `basicSetup`, whose `closeBrackets` would answer the third backtick first. */
 export function backticks(): Extension {
   return [
     markdownLanguage.data.of({ closeBrackets: { brackets: BRACKETS } }),

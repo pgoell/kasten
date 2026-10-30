@@ -139,10 +139,8 @@ function values(long: boolean, today: string, pad: string): Suggestion[] {
 }
 
 /**
- * The rules that follow a `🔁`, counted from the date the todo carries or from
- * today, and narrowed to what has been typed. `spell` turns a rule into what
- * the caller writes, and what is typed is matched against that, so each place
- * narrows in its own spelling.
+ * The rules that follow a `🔁`, counted from the todo's date or from today, narrowed to what
+ * is typed. Each is matched in the spelling its caller writes, so each place narrows its own.
  */
 function rules(todo: Todo, today: string, typed: string, spell: (rule: string) => string) {
   const wanted = typed.toLowerCase();

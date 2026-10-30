@@ -70,9 +70,8 @@ export function askLatest(view: EditorView, day: string): void {
 }
 
 /**
- * What a last kind's button says for a day with no value: its latest value before
- * the day and the day it was logged. Undefined until the read for this day is in,
- * which leaves the button its own words.
+ * What a last kind's button says on a day with no value: its latest value before the day, and when it was logged.
+ * Undefined until this day's read is in, which leaves the button its own words.
  */
 export function earlierWords(
   kind: LogKind,

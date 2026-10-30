@@ -137,9 +137,8 @@ interface Found {
 }
 
 /**
- * The first match of `pattern` on `mask` that carries a value. A `👤` with
- * neither a date nor a name says nothing, and is words like any other marker
- * whose value does not parse.
+ * The first match of `pattern` on `mask` that carries a value. A bare `👤` with no date
+ * or name is read as words, like any marker whose value does not parse.
  */
 function find(pattern: RegExp, text: string, mask: string): Found | null {
   const found = pattern.exec(mask);
@@ -281,10 +280,8 @@ export function fieldStarts(rest: string): number[] {
 }
 
 /**
- * The fields a state change or a field write puts on or takes off, each
- * spelled as `tail` spells it. In `ORDER`'s sequence, so a stop writing `⏱` and
- * `🆔` together finds the one when it places the other. `⛔` is not here: a
- * line carries it more than once, and this loop writes one value per field.
+ * The fields a state change or field write puts on or takes off, each spelled as `tail`.
+ * In `ORDER`'s sequence, so `⏱` and `🆔` find each other. `⛔` is left out: a line can carry several.
  */
 const STAMPS: {
   pattern: RegExp;

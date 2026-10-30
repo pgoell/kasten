@@ -32,10 +32,8 @@ export interface Schedule {
   /** Days between this answer and the next asking. */
   interval: number;
   /**
-   * How fast the interval grows, as a percent. 250 is the starting 2.5.
-   *
-   * A percent rather than a float because it goes to disk in a comment, and
-   * `270` reads back the same everywhere while `2.7000000000000002` does not.
+   * How fast the interval grows, as a percent: 250 is the starting 2.5.
+   * A percent, not a float, because `270` reads back the same on disk and `2.7000000000000002` does not.
    */
   ease: number;
 }
@@ -67,16 +65,12 @@ export interface Card {
   parked: Parked | null;
   /**
    * The number a cloze card asks, or null where the card is no cloze.
-   *
-   * One line holds a card per number, all spanning the same lines, so this is
-   * what tells a rating which of the line's comments is its own.
+   * One line holds a card per number, so this tells a rating which of the line's comments is its own.
    */
   cloze: number | null;
   /**
    * What a typed answer is compared against, where that is not the back.
-   *
-   * A cloze's back is the whole line with its text highlighted, and the answer
-   * somebody types is the hidden text alone.
+   * A cloze's back is the whole line, and the typed answer is the hidden text alone.
    */
   target: string | null;
 }
@@ -97,7 +91,6 @@ function breaks(line: string | undefined): boolean {
 
 /**
  * The three numbers one `<!--SR:!…-->` holds, or null where there is none.
- *
  * `comment` is a cloze number's own, `clozeComment`, where the card is one.
  */
 export function readSchedule(text: string, comment = SR): Schedule | null {

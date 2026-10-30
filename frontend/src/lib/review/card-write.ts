@@ -16,9 +16,7 @@ function comment(next: Schedule, cloze: number | null = null): string {
 
 /**
  * `text` with this card's schedule set, every other line byte-identical.
- *
- * A line splice rather than a rebuild of the note, because the note is the
- * user's and a rating is not licence to reflow it.
+ * A line splice, not a rebuild: the note is the user's, and a rating does not reflow it.
  */
 export function writeSchedule(text: string, card: Card, next: Schedule): string {
   const lines = text.split("\n");

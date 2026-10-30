@@ -122,9 +122,8 @@ function narrow(rows: Row[], line: string, today: string): Row[] {
 }
 
 /**
- * The kind a row is, read the way the board reads a card: its own tag, else the
- * nearest ancestor's. Walked up the forest the way the lanes walk it, so a part
- * the filter hides still takes its parent's kind.
+ * The kind a row is, read as the board reads a card: its own tag, else the nearest ancestor's.
+ * Walked up the forest as the lanes walk it, so a part the filter hides still takes its parent's kind.
  */
 function kindAt(parents: Map<string, Placed>, hit: TodoHit, todo: Todo): string | null {
   const above: Todo[] = [];
@@ -139,9 +138,8 @@ function kindAt(parents: Map<string, Placed>, hit: TodoHit, todo: Todo): string 
 }
 
 /**
- * What a view keeps: the kind the filter names, and the shared lists unless they
- * are hidden, then the filter line. The kind and the shared lists are read off
- * the whole tree before the line narrows anything, so all three hold at once.
+ * What a view keeps: the kind the filter names and the shared lists, read off the whole tree before the line narrows.
+ * So all three hold at once, and the filter line narrows last.
  */
 function scoped(
   rows: Row[],
