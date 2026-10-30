@@ -1,9 +1,7 @@
 """The collection an export holds, read with sqlite into the card sides the reader renders.
 
-It hides the schema: an export older than schema 18 keeps its decks and note
-types as JSON on the `col` row, a newer one in tables whose config is protobuf,
-and both come out as the same decks, note types and rendered cards. The
-protobuf reader is here too, and `media_map` reads the export's media map with it.
+Schema 18 and later keep decks and note types in tables with protobuf config. Older
+exports keep them as JSON on `col`. Both come out as the same decks and cards.
 """
 
 import json
@@ -99,9 +97,7 @@ def rendered(blob: bytes, *, carry: bool) -> list[_Rendered]:
         values = note[1].split(SEPARATOR)
         fields = dict(zip(kind.fields, values + [""] * len(kind.fields), strict=False))
         if kind.cloze:
-            # One line per note, however many deletions it has: the rows differ
-            # only in which number they hide, and kasten asks each number from
-            # the one line.
+            # One line per note, however many deletions it has: kasten asks each number from it.
             if nid in clozed or not kind.templates:
                 continue
             clozed.add(nid)
@@ -127,11 +123,7 @@ def rendered(blob: bytes, *, carry: bool) -> list[_Rendered]:
 def _reviews(db: sqlite3.Connection) -> dict[int, list[Review]]:
     """Every card row in review, by its note, in template order.
 
-    A review card's `due` is a day counted from `col.crt`, when the collection
-    was made, in seconds since the epoch.
-
-    Raises:
-        ValueError: `col` has no row, or a `crt` that is not a whole number.
+    A review card's `due` counts days from `col.crt`, the collection's creation time.
     """
     row = db.execute("SELECT crt FROM col").fetchone()
     # sqlite keeps whatever type a row was written with, so a broken export
@@ -153,9 +145,8 @@ def _deck_names(db: sqlite3.Connection) -> dict[int, str]:
     try:
         rows = db.execute("SELECT id, name FROM decks").fetchall()
     except sqlite3.OperationalError:
-        # Before schema 18 there was no decks table: the whole deck list sat in
-        # one JSON object on the single row of `col`, keyed by deck id, and
-        # nesting was spelled `Certs::AWS` rather than with the separator.
+        # Before schema 18 the deck list sat as JSON on `col`, keyed by deck id, and nesting
+        # was spelled `Certs::AWS` rather than with the separator.
         rows = db.execute("SELECT decks FROM col").fetchall()
         try:
             listing = json.loads(rows[0][0]) if rows else {}
@@ -170,11 +161,7 @@ def _deck_names(db: sqlite3.Connection) -> dict[int, str]:
 
 
 def _note_types(db: sqlite3.Connection) -> dict[int, _NoteType]:
-    """Every note type in the collection against its id.
-
-    Raises:
-        ValueError: the collection holds none, or one that cannot be read.
-    """
+    """Every note type in the collection against its id, or `ValueError` when it has none."""
     try:
         rows = db.execute("SELECT id, name, config FROM notetypes").fetchall()
     except sqlite3.OperationalError:
@@ -229,12 +216,8 @@ def _text(value: object) -> str:
 def media_map(raw: bytes) -> dict[str, str]:
     """The latest export's media map: each file's zip member, by the name a field gives it.
 
-    `raw` is the map once decompressed: Anki's `MediaEntries`, whose entries are
-    numbered by position unless one carries the `legacy_zip_filename` of field 255.
-
-    Raises:
-        ValueError, AttributeError, TypeError: `raw` is not that protobuf, an entry
-            being one way, a field the wrong kind another.
+    `raw` is the decompressed `MediaEntries`. An entry is numbered by position unless it
+    carries `legacy_zip_filename` (field 255).
     """
     index: dict[str, str] = {}
     for number, entry in enumerate(_protobuf(raw).get(1, [])):
@@ -256,13 +239,8 @@ def _string(message: bytes, number: int) -> str:
 def _protobuf(message: bytes) -> dict[int, list[int | bytes]]:
     """The fields of a protobuf `message` by number: a varint as an int, the rest as bytes.
 
-    Anki keeps a note type's kind and a template's front and back in protobuf
-    blobs from schema 18. The wire format is simple enough that a reader is
-    shorter than a dependency on one; a field this reader has no use for is
-    stepped over by its wire type.
-
-    Raises:
-        ValueError: `message` is not well-formed protobuf.
+    The wire format is short enough that a reader beats a dependency. A field this reader
+    has no use for is stepped over by its wire type.
     """
     fields: defaultdict[int, list[int | bytes]] = defaultdict(list)
     at = 0

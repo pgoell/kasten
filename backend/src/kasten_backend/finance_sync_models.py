@@ -1,10 +1,8 @@
 """The sync tables: what "pull now" asks for, and what each run of the bank job did.
 
-Kasten never talks to a bank. The job on the host does, and these rows are how
-the two meet: a request waits here until a run claims it, and a run records
-its outcome and, per account, the window it fetched. The status route reads
-the last good window of each account back, which is where the job starts its
-next one. See docs/how-to/run-the-bank-sync.md.
+Kasten never talks to a bank; the job on the host does. A request waits here until a
+run claims it, and a run records its outcome and each account's fetched window.
+The status route reads back the last good window. See docs/how-to/run-the-bank-sync.md.
 """
 
 import datetime as dt  # noqa: TC003  SQLAlchemy reads the annotation at runtime

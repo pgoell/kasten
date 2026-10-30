@@ -1,12 +1,8 @@
 """The budget's figures for one month: each category against its limit, and free to spend.
 
-Read off a `Ledger`, so the rules are tested without a database. The model,
-with every threshold below, is in docs/reference/budget-model.md; a change
-here changes that page.
-
-A limit is kept per month it takes effect from, so changing it keeps the
-months before as they were. What a category overspends comes off its limit
-the month after, and what it leaves goes to the unreserved figure.
+Built off a `Ledger`, so the rules are tested without a database. The model is in
+docs/reference/budget-model.md. A limit takes effect from its month, and an overspend
+comes off the next month's limit.
 """
 
 import datetime as dt
@@ -97,8 +93,7 @@ class Step:
     def over(self) -> Decimal:
         """What the month spent past its own limit, which the next month's limit loses.
 
-        Against the limit, not what was available, so an overspend is paid back
-        once and never grows month on month.
+        Measured against the limit, not what was available, so an overspend is repaid once.
         """
         return ZERO if self.limit is None else max(ZERO, self.spent - self.limit)
 
@@ -150,10 +145,9 @@ def average_spent(ledger: Ledger, category: int, month: dt.date) -> Decimal | No
 
 
 def limit_average(ledger: Ledger, category: int, month: dt.date) -> Decimal | None:
-    """The average a limit is suggested from: as `average_spent`, but no bill a reserve paid.
+    """The average a limit is suggested from: `average_spent`, without bills a reserve paid.
 
-    A plan's reserve sets that bill's share aside each month already, so a
-    limit raised to cover it would count the bill a second time.
+    Such a bill is already set aside each month, so a limit that counted it would count it twice.
     """
     return ledger.average(
         month,
@@ -178,11 +172,10 @@ def _rounded(amount: Decimal) -> Decimal:
 
 
 def suggest(ledger: Ledger, rows: LimitRows, category: int, month: dt.date) -> Suggestion | None:
-    """A new limit, when the limit in force and the average lay apart the same way 3 months running.
+    """A new limit once the limit in force and the average lie apart 3 months running.
 
-    Each of the 3 whole months before `month` is read with the average as it
-    stood at its end, against the limit in force now, so a limit just changed
-    to fit stops the suggestion at once.
+    Each of the 3 whole months before `month` is read against the limit in force now, with
+    the average as it stood at its end, so a limit just changed stops the suggestion.
     """
     limit = limit_in(rows, month)
     # The category's own history must reach back 3 months, not the ledger's.
@@ -197,18 +190,16 @@ def suggest(ledger: Ledger, rows: LimitRows, category: int, month: dt.date) -> S
         return None
     direction = directions.pop()
     amount = _rounded(limit_average(ledger, category, month) or ZERO)
-    # An average that rounds to nothing is a category not used lately, not one
-    # whose limit should go.
+    # An average that rounds to nothing means not used lately, not a limit to drop.
     if direction is None or amount in (limit, 0):
         return None
     return Suggestion(direction, amount)
 
 
 def status_of(kind: str, step: Step, expected_by_now: Decimal | None) -> Status | None:
-    """Over past the limit; near only for a flexible category, close to it or ahead of the month.
+    """Over past the limit; near only for a flexible category close to it or ahead of the month.
 
-    A fixed or non-monthly cost is paid in one go, so rent at its limit on the
-    first is fine, not near.
+    A fixed or non-monthly cost is paid in one go: rent at its limit on the 1st is fine, not near.
     """
     available = step.available
     if available is None:
@@ -254,9 +245,8 @@ def category_budget(
 class Unreserved:
     """What the limits left at month end: the month before, and every month since limits began.
 
-    `moved` is what the owner moved of it into goals, already off `total`.
-    Apart from a saving account's unreserved, which is its balance less what
-    its goals reserve (`routes/finance_goals.py`).
+    `moved` is what the owner moved into goals, already off `total`. A saving account's
+    unreserved is its balance less its goals (`routes/finance_goals.py`).
     """
 
     last_month: Decimal
@@ -271,10 +261,9 @@ def unreserved(
     today: dt.date,
     moved: Decimal = ZERO,
 ) -> Unreserved:
-    """The leftovers of every whole month before `month` that is over by `today`, less `moved`.
+    """The leftovers of each month before `month` that is over by `today`, less `moved`.
 
-    A month still running has left nothing yet, so a month ahead does not
-    count this one. `moved` is what went into goals by `month`.
+    A month still running has left nothing yet. `moved` is what went into goals by `month`.
     """
     last, total = ZERO, ZERO
     before = min(add_months(month, -1), add_months(today.replace(day=1), -1))
@@ -307,8 +296,7 @@ def budget_of(
 class Trend:
     """Each spending category's spending per month, the months' totals and their limits.
 
-    `limits` is the sum of the limits in force each month, None in a month
-    where no category has one.
+    `limits` is None in a month where no category has one.
     """
 
     months: list[dt.date]
@@ -325,8 +313,7 @@ def trend(ledger: Ledger, limits: Mapping[int, LimitRows], month: dt.date, count
         for category in spending_categories(ledger)
     ]
     totals = [sum((amounts[i] for _, amounts in categories), ZERO) for i in range(count)]
-    # What each month had to spend, as the budget's own figures say, so the trend
-    # and the budget agree on the limits.
+    # The budget's own limits, so the trend and the budget agree.
     in_force = [
         [
             found

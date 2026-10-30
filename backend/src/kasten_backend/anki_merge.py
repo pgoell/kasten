@@ -51,36 +51,17 @@ class _Span:
     inside: bool = False
     """Whether `srs.ts` reads it as part of another card, so it is never rewritten.
 
-    Either a `?` line sits above it with nothing between that ends a back,
-    which makes it part of that `?` card's answer (#684); or it is a `?` card
-    with no state under its marker and a line under that which no back ends
-    at, so `srs.ts` runs its back on and the schedule further down, written
-    for the two as one, is read as its own. Either way the schedule belongs
-    to a card that is not only this one's, and rewriting it would move that
-    schedule or set blank lines through the card.
+    A `?` line above, with nothing ending a back between, makes it that card's answer (#684).
+    Or a `?` card with no state under it and a line below that no back ends at takes the
+    schedule further down as its own.
     """
 
 
 def merge(old: str, deck: Deck) -> Merged | None:
     """The note `old` with `deck` imported into it again, or None when `old` holds no marker.
 
-    A card is found by its marker. One whose lines `card_lines` would write the
-    same now is kept as it stands, and one Anki changed is written anew, the
-    parking token and the schedules a rating left on it carried into its new
-    shape. One edited in kasten since is kept too, whatever Anki did: the edit
-    is the user's, and the marker's hash no longer finding the card says so,
-    save the one change `_rated` reads as a rating's and not the user's. A
-    card the note lacks goes on the end in `as_note`'s layout. One the export
-    lacks stays, since its schedule is history worth more than tidiness, and is
-    only counted. Every line without a marker, the tag line and whatever the
-    user wrote, comes through byte for byte.
-
-    None for a note without a marker, which an import older than the marker
-    wrote: nothing in it says which card is which, so nothing can be merged.
-
-    A note whose first line ends in CRLF, as one saved on Windows may, is read
-    without the CRs, so its hashes match, and written back with CRLF on every
-    line rather than with two endings in one file.
+    Changed cards are rewritten with their parking token and schedules. Edited ones are kept,
+    as is a card the export lacks. Other lines come through byte for byte, CRLF included.
     """
     crlf = old.split("\n", 1)[0].endswith("\r")
     lines = [line.removesuffix("\r") for line in old.split("\n")]
@@ -139,11 +120,9 @@ def marked_cards(text: str) -> set[tuple[int, int]]:
 def _replaced(
     lines: list[str], replaced: dict[int, tuple[_Span, list[str]]]
 ) -> tuple[list[str], int]:
-    """`lines` with each span in `replaced`, keyed by where it starts, swapped for its new lines.
+    """`lines` with each span in `replaced` swapped for its new lines, and how many were.
 
-    Also how many were swapped. A span starting inside one already swapped is
-    left as it is: two cards cannot hold one line, and writing the second
-    would lose part of the first.
+    A span starting inside one already swapped is left alone: two cards cannot share a line.
     """
     out: list[str] = []
     at = applied = 0
@@ -169,12 +148,9 @@ def _replaced(
 def _rated(line: str, span: _Span, card: Card) -> list[str] | None:
     """The schedules a rating wrote inside a line 0.49.2 wrote for `card`, or None.
 
-    0.49.2 wrote a schedule comment in a cloze answer with no backslash, and
-    `srs.ts` read it as the card's own, so a rating rewrote it there and the
-    line, `line` with its marker, no longer hashes to the marker (#356). It is
-    still that line when the import's line, the comment bare as then, hashes
-    to the marker and differs from it in its schedule comments alone. A card
-    of more lines is never such a line: a rating writes under its back.
+    0.49.2 wrote a cloze answer's schedule comment without a backslash, so a rating rewrote
+    it there and the marker stopped matching (#356). The bare form still hashes to the marker
+    and differs only in its schedule comments, and only for a one-line card.
     """
     expected = card_lines(card)
     found = _ANKI_ID.search(line)
@@ -211,14 +187,8 @@ def _start(lines: list[str], at: int, last: str, hashed: str) -> int | None:
 def _spans(lines: list[str]) -> dict[tuple[int, int], _Span]:
     """Every marked card in `lines`, by its Anki note and template.
 
-    A card is the fewest lines ending at its marker that hash to the hash the
-    marker holds: one for a card of one line, more for a `?` card, whose state
-    may sit on the line under its marker, where `srs.ts` splices it. A blank
-    line or `_SPAN_LIMIT` ends the search, since a card holds no blank line,
-    and a card not found by then was edited since and is marked so. The
-    lines around a card, which may be anyone's, never move where it starts
-    or ends; they only say whether `srs.ts` reads it as part of a card around
-    it, which `_Span.inside` holds.
+    A card is the fewest lines ending at its marker that hash to the marker's hash. A blank
+    line or `_SPAN_LIMIT` ends the search, and a card not found by then was edited since.
     """
     spans: dict[tuple[int, int], _Span] = {}
     code = _fenced(lines)
@@ -234,10 +204,8 @@ def _spans(lines: list[str]) -> dict[tuple[int, int], _Span]:
             end, state = at + 1, f"{state} {below}"
         inside = False
         if start is not None:
-            # Up over the lines `srs.ts` runs a back over, inline and cloze
-            # lines among them; any `?` there counts, since a card left stale
-            # is a smaller loss than a schedule taken from the user's card.
-            # A `?` in code is code.
+            # Any `?` above counts: a stale card is a smaller loss than a schedule
+            # taken from the user's card. A `?` in code is code.
             row = start - 1
             while row >= 0 and not _ends_back(lines[row], code[row]) and not inside:
                 inside = not code[row] and lines[row].strip() == "?"
@@ -260,12 +228,10 @@ def _spans(lines: list[str]) -> dict[tuple[int, int], _Span]:
 
 
 def _ends_back(line: str, code: bool) -> bool:
-    """Whether `srs.ts` ends a `?` card's back before `line`, a note's line as it stands.
+    """Whether `srs.ts` ends a `?` card's back before `line`, as the line stands.
 
-    `ends_card` and a schedule comment of either kind anywhere on the line, as
-    `schedules` in `parseCards` reads one. In a closed fence, `code`, only the
-    schedule and the token do: a blank line, a heading or tags there end no
-    card (#675).
+    A schedule comment or the parking token always does. In a closed fence, `code`, a blank
+    line, heading or tags end no card (#675).
     """
     stripped = line.strip()
     held = stripped.startswith("!suspended") or _STATE.search(line) is not None

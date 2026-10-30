@@ -1,16 +1,8 @@
 """What a token holder may read of finance: the pane's own reads, and a page of bookings.
 
-Agents read everything, single bookings included (decided 2026-10-25), and
-only read: no route or tool here writes. Every summary is the pane's route
-function called as it is, from `/agent/finance/*` and from the MCP tools, so an
-agent's figure for a month is the one the pane shows for it by construction.
-That is why this imports from `routes/`, which `agent.py` does not: the pane's
-figures are put together there, and a copy of that assembly here is a second
-budget waiting to disagree with the first.
-
-What is new is the page of bookings. The pane's own list answers up to 5,000
-bookings with each one's raw bank record, which no context window wants, and
-has no scope, which an agent asking about "mine" needs.
+Nothing here writes. The summaries are the pane's route functions, called as they
+are, so an agent's figure matches the pane's. The bookings page is new: the pane's
+list returns up to 5,000 raw bank records and has no scope.
 """
 
 import datetime as dt  # noqa: TC003  pydantic reads the annotation at runtime
@@ -54,11 +46,10 @@ MAX_PAGE = 500
 """The most bookings one page holds."""
 
 sessions: Callable[[], AsyncIterator[AsyncSession]] = db.get_session
-"""Where the MCP tools get a session, which no FastAPI dependency hands them.
+"""The MCP tools' session source: the routes' own dependency, so a backend with no
+database refuses a tool in the routes' words.
 
-The routes' own dependency, so a backend with no database refuses a tool in
-the words it refuses a route in. A module global so the tests can point it at
-the session their rows are in, the way they override the routes' dependency.
+A module global so the tests can point it at the session their rows are in.
 """
 
 
@@ -136,9 +127,7 @@ async def bookings(  # noqa: PLR0913  each filter is its own argument
 ) -> BookingPage:
     """A page of the bookings that pass every filter given, newest first unless told otherwise.
 
-    `month` is by booking date, as the pane's list reads it, not the budget
-    month a salary past the cutoff counts in. It stands for `start` and `end`,
-    so the two cannot come with it.
+    `month` is by booking date, not budget month, and it replaces `start` and `end`.
     """
     first, last = booking_span(month, start, end)
     if not 1 <= limit <= MAX_PAGE:

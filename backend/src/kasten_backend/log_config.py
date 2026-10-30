@@ -1,9 +1,7 @@
 """The log config note, `99 Misc/01 Config/log.md`, read the way the card reads it.
 
-The note names the kinds of your own and their daily goals. The grammar is in
-`docs/reference/log-format.md`, and its cases are `frontend/src/lib/log/log-config-cases.json`,
-which the frontend and backend tests both run. `frontend/src/lib/log/log-kinds.ts` is the
-other reader, so a rule changed here changes there too.
+The grammar is in `docs/reference/log-format.md`. Its cases run in both test suites, and
+`log-kinds.ts` is the other reader, so a rule changed here changes there too.
 """
 
 import re
@@ -31,10 +29,8 @@ KIND_LINE = re.compile(
 )
 """A kind line: the mark, the name up to the colon, then a tap or `last`, and an optional goal.
 
-A tap takes an optional unit. `last` takes an optional unit too, and the lookahead keeps
-the word itself from reading as one. The mark is any one character, and `parse_kind_config`
-asks whether it is a symbol. A character class of symbols cannot be written here, since
-`re` has no Unicode categories.
+The mark is any one character, and `parse_kind_config` asks whether it is a symbol, as `re` has
+no Unicode categories. The lookahead keeps `last` from reading as a unit.
 """
 
 FOOD_LINE = re.compile(r"- 🍽️?[ \t]+([^:]+):(.*)")

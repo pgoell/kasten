@@ -1,8 +1,7 @@
-"""A field's HTML read into markdown, a line at a time, with its code spans and placeholders kept.
+"""A field's HTML read into markdown, a line at a time, with code spans and placeholders kept.
 
-The parser keeps the formatting a card holds and drops every other tag. Its
-output is not tidied: `anki_html` does that, and holds the placeholders this
-module's `KEPT` finds.
+The parser keeps the formatting a card holds and drops every other tag. `anki_html`
+tidies the output and reads the placeholders this module's `KEPT` finds.
 """
 
 import re
@@ -34,8 +33,7 @@ def _ticks(code: str) -> str:
 def ticked(line: str) -> str:
     """`line` as inline code, a span either side of each cloze mark `plain` holds.
 
-    The mark stays out of the code, since kasten reads no mark inside a code
-    span, and goes in as its code form, its text in code of its own (#346).
+    A mark stays out of the code, since kasten reads no mark inside a code span (#346).
     The spaces at either end of a piece stay outside its span.
     """
     parts = KEPT.split(line)
@@ -70,12 +68,8 @@ def markdown(text: str) -> tuple[list[str], set[int]]:
 class _Markdown(HTMLParser):
     """A field's HTML as markdown, a line break apart, and not yet tidied.
 
-    The formatting a card holds and no more: bold, italic, links, inline code,
-    lists and ruby, with every tag past those dropped and its text kept. A
-    `<pre>` is a line of inline code per line rather than a fence, because both
-    readers skip every card inside a fence. Text is escaped where markdown
-    would read it, a backslash included, and the markdown written around it
-    is not. Code is not, since a code span is drawn as it stands.
+    Keeps bold, italic, links, inline code, lists and ruby, and drops every other tag. A
+    `<pre>` is inline code a line at a time, not a fence, since both readers skip cards in a fence.
     """
 
     def __init__(self) -> None:
@@ -200,9 +194,8 @@ class _Markdown(HTMLParser):
             data = re.sub(r"\s+", " ", data)
         # A code span is drawn verbatim, so nothing in it is escaped (#343).
         if self.pre is None and not self.code:
-            # The backslash first and in the same pass, so a lone one Anki
-            # shows is no escape to markdown (#342) and those written here
-            # are not doubled.
+            # The backslash first, in one pass, so a lone one Anki shows is no escape (#342),
+            # and the ones written here are not doubled.
             data = re.sub(r"[\\*_`\[]", r"\\\g<0>", data)
             data = re.sub("={2,}", lambda run: "\\=" * len(run[0]), data)
             # Anywhere, since `suspended()` in `card-line.ts` reads the token

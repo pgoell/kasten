@@ -1,14 +1,7 @@
 """The drilldowns' figures: a scope, a category, a payee, an account and a booking, by month.
 
-Each figure is read off the budget's own ledger, or a part of it
-(`Ledger.only`), so a booking counts in a drilldown exactly where it counts in
-free to spend and the sankey: the salary cutoff, moves between own accounts,
-splits, refunds and `ignore` all hold. A part ledger's figures add up to the
-whole, since each line counts on its own. An account is the one exception: it
-reads its bookings by booking date, as its bank balance does.
-docs/reference/budget-model.md states the rules.
-
-Pure, so the rules are tested without a database.
+Each is read off the budget's ledger, or a part of it (`Ledger.only`), so a booking counts
+where free to spend counts it. An account reads by booking date, as its balance does.
 """
 
 from collections import defaultdict
@@ -34,10 +27,10 @@ def months_to(month: dt.date, count: int) -> list[dt.date]:
 
 @dataclass(frozen=True)
 class ScopeMonth:
-    """One scope's month as it stands once over, each part as the sankey draws it.
+    """One scope's month once over, each part as the sankey draws it.
 
-    `other_scope` is the move between mine and household: a cost on mine, income
-    on household. So `left` is income, plus or less it, less every other part.
+    `other_scope` is the move between mine and household, so `left` is income, plus or
+    less it, less every other part.
     """
 
     month: dt.date
@@ -75,9 +68,9 @@ def scope_month(ledger: Ledger, scope: Scope, month: dt.date, book: Book | None)
 
 @dataclass(frozen=True)
 class Counted:
-    """What one category counted in a month, by scope, and what of it a plan's reserve paid.
+    """What one category counted in a month, by scope, and what a plan's reserve paid of it.
 
-    Money in for an income category, money out for every other; `ignore` counts nothing.
+    Money in for an income category, money out for any other; `ignore` counts nothing.
     """
 
     mine: Decimal = ZERO
@@ -91,10 +84,9 @@ class Counted:
 
 
 def counted(ledger: Ledger, category: int, month: dt.date) -> Counted:
-    """What `category` counted in `month`, on a ledger that holds only its lines or more.
+    """What `category` counted in `month`, on a ledger holding its lines or more.
 
-    `saved` holds a `saving` category's spending, and nothing else here when the
-    ledger is one category's: a move between own accounts has no category.
+    `saved` holds a saving category's spending. A move between accounts has no category.
     """
     kind = ledger.categories[category].kind
     by_scope: dict[Scope, Decimal] = {}
@@ -133,8 +125,7 @@ def category_months(
 ) -> list[CategoryMonth]:
     """Each month's figures, the limit as the budget tab gives it.
 
-    The average is of what the bars show, so an income category's is its
-    money in; a spending category's is the budget's `average`.
+    The average is of what the bars show: money in for income, `average` for spending.
     """
     part = of_category(ledger, category)
     found = []
@@ -191,10 +182,9 @@ def _payee_month(ledger: Ledger, month: dt.date) -> PayeeMonth:
 
 @dataclass(frozen=True)
 class PayeeView:
-    """A payee's months, its average spending and money in, and what each category got of it.
+    """A payee's months, average spending and money in, and what each category got of it.
 
-    `average_received` is for a payee that pays in, such as an employer, whose
-    spending averages nothing.
+    `average_received` is for a payee that pays in, such as an employer.
     """
 
     months: list[PayeeMonth]
@@ -206,9 +196,8 @@ class PayeeView:
 def payee_view(ledger: Ledger, payee: int, months: list[dt.date]) -> PayeeView:
     """A payee's figures over `months`, from its lines alone.
 
-    A move between own accounts counts as the budget counts it, never as
-    spending: nothing between accounts of one scope, saved into an own saving
-    account. The move between mine and household is in none of these figures.
+    A move between own accounts is never spending, as the budget counts it. The move
+    between mine and household is in none of these figures.
     """
     part = ledger.only(lambda line: line.payee == payee)
     categories: dict[int, Decimal] = {}
@@ -228,8 +217,8 @@ def payee_view(ledger: Ledger, payee: int, months: list[dt.date]) -> PayeeView:
 class AccountFlow:
     """An account's bookings in a span of months by booking date: net by category, and transfers.
 
-    `categories` holds None for bookings not sorted yet; `transfers` is by the
-    other own account. Together they add up to what the balance moved.
+    `categories` holds None for bookings not sorted yet. `transfers` is by the other own
+    account. Together they add up to what the balance moved.
     """
 
     categories: dict[int | None, Decimal] = field(default_factory=lambda: defaultdict(Decimal))
@@ -261,11 +250,9 @@ def balance_on(
 ) -> tuple[Decimal, dt.date | None]:
     """An account's balance at the end of `day`, and the bank balance it was counted from.
 
-    From the latest bank balance on or before the day, adding the bookings
-    after it; else from the first one after it, taking away the bookings
-    between. A bank balance holds the bookings of its own day. With none at
-    all, the bookings summed from nothing, and no bank balance named.
-    Both lists are oldest first.
+    Counted from the latest bank balance on or before the day, plus the bookings after
+    it; else from the first one after it, less the bookings between. With no bank
+    balance, the bookings are summed from nothing.
     """
     before = [s for s in snapshots if s[0] <= day]
     if before:
@@ -283,9 +270,9 @@ def booking_months(
     categories: dict[int, Category],
     cutoff: int,
 ) -> set[dt.date]:
-    """The budget months a booking counts in: its own, or the next for a salary after the cutoff.
+    """The budget months a booking counts in: its own, or the next for a salary.
 
-    `parts` is its splits, or the booking whole, each as amount and category.
+    A salary booked after the cutoff day counts in the next month.
     """
     first = day.replace(day=1)
     found = set()

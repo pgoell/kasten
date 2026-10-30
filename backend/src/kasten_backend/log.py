@@ -1,14 +1,7 @@
 """The day's log, read off the `## Log` lines of the daily note and added up.
 
-The line is the record, as a todo is. An entry lives nowhere but its line, so
-Obsidian and `cat` show all of it, and every answer is read from the notes:
-nothing is stored, so nothing can fall behind them.
-
-The format is `docs/reference/log-format.md`, and its cases are
-`frontend/src/lib/log/log-cases.json`, which the tests run through the endpoint.
-The parser sits here because the sums are made here. The daily note's card
-reads the drink lines of the open buffer with `frontend/src/lib/log/log-lines.ts`,
-held to the same cases, so a tap counts before the save.
+Nothing is stored: the line is the record. The format is `docs/reference/log-format.md`, and
+`frontend/src/lib/log/log-cases.json` holds the browser's reader to the same answers.
 """
 
 import re
@@ -50,14 +43,13 @@ _VS = "\N{VARIATION SELECTOR-16}?"
 _NUMBER = r"[0-9]{1,9}(?:[.,][0-9]{1,9})?"
 """A number: up to nine digits, then an optional point or comma and up to nine more.
 
-`[0-9]`, not `\\d`, which takes other digits. The cap keeps a line's arithmetic on
-values a float holds exactly; a longer run is no entry, as the table says.
+`[0-9]`, not the Unicode digit class. The cap keeps the arithmetic exact in a float.
 """
 
 DATE_PATTERN = r"^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
 """The shape of `from` and `to`.
 
-Pydantic's date mode reads `0` as a day, so the route takes the text and reads it.
+Pydantic's date mode would read `0` as a day, so the route reads the text itself.
 """
 
 MAX_STRENGTH = 100
@@ -67,8 +59,7 @@ MAX_STRENGTH = 100
 def _unset(value: object) -> bool:
     """Whether a field is left out of the JSON. Only the fields a config note adds use it.
 
-    They are absent with no config note rather than null, so the answer for a
-    vault without one is the answer the route gave before the note existed.
+    Absent rather than null with no config note, so a vault without one keeps its old answer.
     """
     return value is None
 
@@ -274,8 +265,7 @@ def _mine(text: str, line: int, kinds: Sequence[Kind]) -> Entry | None:
 def parse_line(text: str, line: int, kinds: Sequence[Kind] = ()) -> Entry | None:
     """The entry the line `line` of a note holds, or None for a line that parses to none.
 
-    A kind of your own is tried only after the built-in parsers all fail, so a line
-    keeps the meaning it has always had.
+    A kind of your own is tried only after the built-in parsers fail, so a line keeps its meaning.
     """
     if (entry := _builtin_line(text, line)) is not None:
         return entry
@@ -296,10 +286,10 @@ def _builtin_line(text: str, line: int) -> Entry | None:
 
 
 def _log_lines(text: str) -> list[tuple[int, str]] | None:
-    """The lines under the `## Log` sections of `text`, numbered, or None when there is no section.
+    """The lines under the `## Log` sections of `text`, numbered, or None with no section.
 
-    Each line is judged by its start offset. A fence `code_spans` finds, and the
-    frontmatter `body_start` skips, hold no heading and no entry.
+    Each line is judged by its start offset. A fence `code_spans` finds, and the frontmatter
+    `body_start` skips, hold no heading and no entry.
     """
     body = body_start(text)
     # Fences are found in the body alone, so a fence the frontmatter seems to open
@@ -343,8 +333,8 @@ def _mine_total(kind: Kind, entries: list[Entry]) -> float | None:
 def _totals(entries: list[Entry], kinds: list[Kind] | None) -> Totals:
     """Each kind's sums over `entries`, taken unrounded and rounded once at the end.
 
-    `kinds` is the config's kinds of your own, or None with no config note, which
-    leaves `mine` out of the answer. A last kind takes its last amount, not a sum.
+    `kinds` is the config's kinds of your own, or None with no config note, which leaves `mine`
+    out. A last kind takes its last amount, not a sum.
     """
 
     def total(kind: str, name: str) -> float:
@@ -397,8 +387,7 @@ def _days(folder: Path, first: date, last: date) -> list[date]:
 def _own_kinds(settings: Settings) -> list[Kind] | None:
     """The kinds the config note adds to the built-in ones, or None with no readable note.
 
-    A note that is not there, or not UTF-8, leaves `mine` out of every day, as a
-    missing note does.
+    A note that is missing or not UTF-8 leaves `mine` out of every day, as a missing note does.
     """
     try:
         config_text = vault.read_note(settings.vault_path, f"{settings.config_path}/{CONFIG_NOTE}")

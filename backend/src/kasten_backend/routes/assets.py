@@ -76,12 +76,8 @@ async def write_asset(
     try:
         await store(settings.vault_path, path, request.stream(), limit=limit)
     except ClientDisconnect:
-        # This answer reaches nothing: uvicorn's `send` returns at its
-        # disconnected guard before it writes bytes and before it writes the
-        # access log line. The catch is here for the other path, a propagated
-        # `ClientDisconnect` reaching `run_asgi` and printing a traceback, and a
-        # person closing a tab is not an exception. `store` has already taken
-        # the temp away.
+        # Nothing reads this answer once the client is gone. It is here so a dropped upload
+        # prints no traceback from run_asgi; `store` has already taken the temp away.
         return Response(status_code=499)
 
     return Response(status_code=201)
@@ -173,9 +169,7 @@ async def delete_asset(
             "headers": {
                 "X-Book-Path": {
                     "description": "Where the book that came back sits in the vault.",
-                    # Spelled out so the generated client reads it as a string
-                    # rather than as one that might not be there. Every 200 from
-                    # here carries it.
+                    # Spelled out so the generated client reads a string, present on every 200.
                     "required": True,
                     "schema": {"type": "string"},
                 }

@@ -1,9 +1,8 @@
 """Assembles one page of HTML out of the vault, for the frame and the tab that show it.
 
-The page script goes first, so it runs before any of the page's own code. The
-theme goes where the page's head ends, and only for a page that asks for it.
-HTMLParser finds the tokens, since it knows a comment and a script's text from
-a tag: a `<meta>` inside a comment does not opt a page in.
+The page script goes first, so it runs before the page's own code. The theme goes where the
+head ends, and only for a page that asks for it. HTMLParser finds the tokens, so a `<meta>`
+inside a comment does not opt a page in.
 """
 
 import argparse
@@ -28,11 +27,9 @@ document.addEventListener("click", (event) => {
 """
 """Sends a link to another site into a tab of its own.
 
-The app's `frame-src` holds the frame to kasten's own pages, so a link that
-leaves would load nothing. A `<base target>` would do the same with no script,
-and would also send every `#section` of a page's contents to a new tab.
-Appended rather than put in the head, because anything ahead of the doctype
-drops the page into quirks mode.
+The frame's `frame-src` holds kasten's own pages, so a link that leaves would load nothing. A
+`<base target>` would also send every `#section` to a new tab. Appended, not put in the head:
+anything ahead of the doctype drops the page into quirks mode.
 """
 
 PAGE_SCRIPT = (
@@ -40,11 +37,8 @@ PAGE_SCRIPT = (
 )
 """Hands the keys a page takes to kasten, and goes in ahead of the page.
 
-Read once at import, as `mcp-instructions.md` is. A file beside the package
-rather than a string here, so the script can be read and linted as JavaScript.
-In front of the page's own code, so it takes `window.parent` and its key
-listener before the page does, and a listener the page adds on its capture
-phase runs after this one.
+Read once at import, from a file beside the package so it can be linted as JavaScript. It goes
+in front of the page's code, so its key listener runs before a capture-phase listener the page adds.
 """
 
 THEMES = ("light", "dark")
@@ -103,8 +97,7 @@ _STACK = """
 """
 """The one-column rule for the four marked blocks, under 640 px only.
 
-Kept out of the token file, which the app shares, and given only to a page that
-opts in. A page with no such marked block is not changed by it.
+Kept out of the shared token file, and given only to a page that opts in.
 """
 
 STYLES = (
@@ -186,10 +179,9 @@ def _encoding(label: str | None) -> str | None:
 class _Tokens(HTMLParser):
     """The few tokens of a page that decide where the pieces go, as string offsets.
 
-    HTMLParser reports each token's start as a line and a column, so the offsets
-    are worked out against where each line starts. A comment, the text of a
-    script or style and an attribute value never reach the tag handlers, so a
-    `<meta>` or a `</head>` inside one of them is not seen.
+    HTMLParser reports positions as line and column, so offsets are worked out against each line's
+    start. A comment, a script's text or an attribute value never reaches the tag handlers, so a
+    `<meta>` inside one is not seen.
     """
 
     def __init__(self, page: str) -> None:
@@ -216,10 +208,8 @@ class _Tokens(HTMLParser):
     def _significant(self, doctype: bool = False) -> None:
         """Note the first token that is neither blank, a comment nor a processing instruction.
 
-        A processing instruction (`<?xml ...?>`) and a bogus declaration are
-        comments to a browser, so a doctype may come after them and still be
-        the first thing the parser makes a token of. They have no handler here,
-        so HTMLParser's empty default leaves them out.
+        A processing instruction and a bogus declaration are comments to a browser, so a doctype
+        may come after them. HTMLParser's empty default leaves them out.
         """
         if self.first is None:
             self.first = self._offset()
@@ -269,19 +259,15 @@ def _bytes(text: str) -> bytes:
 def serve_page(raw: bytes, theme: str | None, palette: str | None) -> tuple[bytes, str]:
     """Hand back one page the way the frame gets it: script first, theme if it opted in.
 
-    The script goes right after the doctype, or at the very start when there is
-    none (after a byte order mark, which stays first). A page opts in with the
-    `kasten-theme` meta, and only then does it get the theme and palette on its
-    `<html>` element and the styles before `</head>`. Any other theme or palette
-    means no theme at all, and the page keeps its own fallback. The charset comes
-    back with the bytes, for the header: the page's own meta, or utf-8 without one.
+    The script goes after the doctype, or at the start after a byte order mark. Only a page with
+    the `kasten-theme` meta gets the theme, palette and styles. The charset comes back for the
+    header.
     """
     if raw.startswith((b"\xff\xfe", b"\xfe\xff")):
-        # UTF-16 is not the UTF-8 read below, so nothing can go in front of its
-        # bytes without breaking them. The scripts go at the end in the page's own
-        # byte order, since the browser reads the whole page that way. A page read
-        # mid-write can end mid unit, so an odd byte gets a zero byte first. The
-        # byte order mark decides the encoding, so the header keeps utf-8.
+        # UTF-16 is not the UTF-8 read below, so nothing can go in front of its bytes. The
+        # scripts go at the end, in the page's byte order. An odd byte from a page read mid-write
+        # gets a zero byte first. The byte order mark decides the encoding, so the header keeps
+        # utf-8.
         encoding = "utf-16-le" if raw.startswith(b"\xff\xfe") else "utf-16-be"
         if len(raw) % 2:
             raw += b"\x00"
@@ -301,9 +287,8 @@ def serve_page(raw: bytes, theme: str | None, palette: str | None) -> tuple[byte
             charset,
         )
 
-    # The browser keeps the first value of each attribute it meets, so this
-    # `<html>` is the one that counts: the page's own `<html lang>` joins it, and
-    # a page cannot set `data-theme` itself.
+    # The browser keeps the first value of each attribute, so this `<html>` is the one that counts:
+    # the page's own `<html lang>` joins it, and a page cannot set `data-theme` itself.
     head_at = tokens.head_at if tokens.head_at is not None else tokens.meta_end
     return (
         _bytes(page[:script_at])

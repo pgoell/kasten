@@ -2,7 +2,6 @@
 # A file fails when it gets denser than its percent.
 # check-comments --update-baseline only lowers or drops lines; never raise one.
 backend/src/kasten_backend/db.py 22
-backend/src/kasten_backend/page_script.js 26
 frontend/src/components/editor.tsx 26
 frontend/src/components/note-finder.tsx 26
 frontend/src/components/note-prompt.tsx 24

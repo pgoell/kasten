@@ -1,17 +1,8 @@
 """The Claude Code skills in the vault, read and never written.
 
-The ninth and tenth agent capabilities, `list_skills` and `read_skill`. Kept out
-of `agent.py` and `vault.py` because nothing else needs what is here: one
-folder, its suffixes, its cap and the rule that a file listed is a file a read
-hands out.
-
-The skills folder is the one hidden path a token holder reaches, and only as
-the fixed prefix from the setting. The caller's path is resolved with that
-folder as its base through `resolve_folder_path`, the rule every note goes through,
-so `..` cannot climb to the rest of `.claude`, a hidden file inside a skill
-stays hidden and a link out is refused. Nothing here writes: a written skill is
-code the chat pane runs with every permission, which is the danger reading
-alone does not carry.
+Serves `list_skills` and `read_skill`. Paths resolve inside the skills folder through
+`resolve_folder_path`, so `..`, a hidden file and a link out stay refused. Nothing here
+writes: a written skill is code the chat pane runs with every permission.
 """
 
 from typing import TYPE_CHECKING
@@ -54,9 +45,8 @@ class SkillRead(BaseModel):
 def _root(settings: Settings) -> Path | None:
     """The real skills folder, or None when it is missing or leads out of the vault.
 
-    A link anywhere on the way is refused, not only one out of the vault: a
-    `.claude/skills` linked to `.jj` resolves inside the vault and would serve
-    the jj repo, which the dotfile rule keeps from every other read.
+    A link anywhere on the way is refused, not only one out of the vault: one to `.jj`
+    would serve the jj repo, which the dotfile rule keeps from every other read.
     """
     base = settings.vault_path.resolve()
     folder = base / settings.skills_path
@@ -69,8 +59,7 @@ def _root(settings: Settings) -> Path | None:
 def _read(folder: Path, relative: str) -> SkillRead | None:
     """One file under `folder`, or None when refused or not text.
 
-    Read as bytes and decoded, so a file that is not UTF-8 is refused rather than
-    raised on, and a NUL marks a binary that happens to decode.
+    A NUL marks a binary that happens to decode as UTF-8.
     """
     path = resolve_folder_path(folder, relative)
     if path is None or not path.is_file() or path.suffix.lower() not in SUFFIXES:
@@ -94,11 +83,8 @@ def _read(folder: Path, relative: str) -> SkillRead | None:
 async def list_skills(settings: Settings) -> list[Skill]:
     """Every folder under the skills path holding a readable SKILL.md, with its files.
 
-    Each file is read on the way, so the listing names only what a read hands
-    out, and by the path the read answers with: the walk sees a link out, a
-    file over the cap and a binary too, and a hidden link to a skill file would
-    otherwise be named by its hidden name. `rglob` follows no linked folder, so
-    it cannot walk out; a hidden part is dropped before anything is read.
+    Each file is read on the way, so the listing names only what a read hands out. A
+    hidden part is dropped before anything is read.
     """
     folder = _root(settings)
     if folder is None:
@@ -127,8 +113,7 @@ async def list_skills(settings: Settings) -> list[Skill]:
 async def read_skill(settings: Settings, path: str) -> SkillRead | None:
     """One file of one skill, relative to the skills folder, or None.
 
-    Every refusal reads as absent, the way `read_note`'s does: a probe learns
-    nothing about what is there.
+    Every refusal reads as absent, as `read_note`'s does, so a probe learns nothing.
     """
     folder = _root(settings)
     return None if folder is None else _read(folder, path)

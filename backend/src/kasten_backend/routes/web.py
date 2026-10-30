@@ -27,12 +27,9 @@ from kasten_backend.weather import Forecast, in_reach, read_weather
 router = APIRouter()
 
 PAGE_LIMIT_BYTES = 8 * 1024 * 1024
-"""The most of one web page this will read into memory before giving up.
+"""The most of one web page this reads into memory before giving up.
 
-An article is a few hundred kilobytes and this is twenty times that, so the
-number is not a limit anybody meets by reading. It is there because the other
-end of this request is a stranger, and `content-length` is a claim rather than
-a fact: the bytes are counted as they arrive.
+`content-length` is a claim from a stranger, so the bytes are counted as they arrive.
 """
 
 
@@ -117,29 +114,23 @@ async def fetch_page(url: str) -> Page:
 
 async def _read_page(response: httpx.Response) -> Page:
     """Turn the response a fetch ended at into the page the reader gets."""
-    # Read rather than raised for, so what reaches the reader is the
-    # number and not httpx's paragraph about it. The prompt puts this
-    # sentence on screen.
+    # Read rather than raised for, so the reader sees the number, not httpx's paragraph.
+    # The prompt puts this sentence on screen.
     if response.status_code >= PAGE_FAILED:
         raise HTTPException(status_code=502, detail=f"That page answered {response.status_code}")
 
     if "html" not in response.headers.get("content-type", ""):
         raise HTTPException(status_code=415, detail="That address is not a web page")
 
-    # Streamed rather than read whole, so the count below is the way out
-    # of a page that never ends rather than a look at what has already
-    # been held in memory.
+    # Streamed, so the count below stops a page that never ends.
     body = bytearray()
     async for chunk in response.aiter_bytes():
         body += chunk
         if len(body) > PAGE_LIMIT_BYTES:
             raise HTTPException(status_code=502, detail="That page is too big to read")
 
-    # The header's charset, and utf-8 when it names none. A page that
-    # declares its encoding in a meta tag and not in its headers is read
-    # as utf-8, which is right for almost all of them and legible for
-    # the rest: a replaced character is a typo, a raised decode error is
-    # no note at all.
+    # The header's charset, else utf-8: right for most pages that declare it in a meta tag.
+    # A replaced character is a typo; a raised decode error would be no note at all.
     html = body.decode(response.charset_encoding or "utf-8", errors="replace")
     return Page(url=str(response.url), html=html)
 
@@ -174,9 +165,7 @@ async def fetch_transcript(
             status_code=502, detail="YouTube refused to hand over the transcript"
         ) from error
     except CouldNotRetrieveTranscript as error:
-        # The rest of the library's refusals, an age gate or a video YouTube
-        # will not play among them, are all about the video: nothing kasten
-        # could read, rather than kasten failing to ask.
+        # The library's other refusals (an age gate, say) are about the video, not a failed ask.
         raise HTTPException(status_code=404, detail="That video has no transcript") from error
     if fetched is None:
         raise HTTPException(status_code=404, detail="That video has no transcript")

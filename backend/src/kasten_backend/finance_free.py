@@ -1,14 +1,6 @@
 """Free to spend: what one scope may still spend this month, and the parts it is made of.
 
-    free = income expected - fixed costs - flexible so far - non-monthly so far
-           - unsorted so far - moved to saving - reserved for plans - reserve shortfalls
-           - goals still to move
-
-A bill a plan's reserve paid counts in none of the spending parts: the
-reserve took its share each month before. docs/reference/budget-model.md
-states it in full. Each part is a list of
-lines, so the overview can say what made the number. A month that is over
-counts what happened and estimates nothing.
+Bills a plan's reserve paid count in no spending part. A month that is over counts what happened.
 """
 
 from dataclasses import dataclass, field, replace
@@ -144,9 +136,8 @@ class _Reader:
     ) -> Part:
         """A line counted as what happened, or as its average when that is the better guess.
 
-        With `larger`, the larger of the two (a cost may still come); without,
-        the average only while nothing happened yet (income not yet in). Without
-        `estimate`, what happened and nothing more.
+        With `larger`, the larger of the two. Without it, the average only while nothing happened
+        yet. Without `estimate`, what happened.
         """
         key = self.scope if category is None else category
         so_far, average = figure(self.now), self.average(figure, key)
@@ -162,11 +153,9 @@ def _spent(month: Month) -> dict[int, Decimal]:
 
 
 def expected_income(reader: _Reader) -> list[Part]:
-    """What came in, and for a salary or household's money from mine, its average until it does.
+    """What came in: for a salary, or household's money from mine, its average until it does.
 
-    Only those two come every month; a refund or a one-off payment in another
-    income category counts once it is in. A salary booked after the cutoff
-    day already counts in the next month, by the ledger.
+    Only those two come every month; a one-off in another income category counts once in.
     """
     categories = reader.ledger.categories
     parts = [
@@ -187,12 +176,10 @@ def expected_income(reader: _Reader) -> list[Part]:
 
 
 def planned_fixed(reader: _Reader, book: Book) -> list[Part]:
-    """Each fixed category with a plan in this scope: its cost so far plus its plans to come.
+    """Each fixed category with a plan in this scope: its cost so far plus plans to come.
 
-    Or its average when that is larger, a cost with no plan of its own being
-    likely.
-    A plan that reserves is left out: its bill comes out of the reserve. A
-    month that is over counts what it cost.
+    Or its average, when that is larger. A reserving plan is left out, since its bill comes
+    out of the reserve.
     """
     upcoming: dict[int, Decimal] = {}
     for plan in book.plans:
@@ -217,10 +204,7 @@ def planned_fixed(reader: _Reader, book: Book) -> list[Part]:
 
 
 def alive(plan: Plan, month: dt.date) -> bool:
-    """Whether the budget reads the plan in `month`: in its life, and once it was confirmed.
-
-    A plan that falls due once lives in its month.
-    """
+    """Whether the budget reads the plan in `month`: in its life, and once it was confirmed."""
     start = plan.start.replace(day=1)
     if month < plan.confirmed:
         return False
@@ -232,12 +216,10 @@ def alive(plan: Plan, month: dt.date) -> bool:
 def estimate_fixed(
     reader: _Reader, planned: set[int] | None = None, reserving: set[int] | None = None
 ) -> list[Part]:
-    """Each fixed cost with no plan, the larger of what it cost so far and its average.
+    """Each fixed cost with no plan: the larger of what it cost so far and its average.
 
-    A category in `planned` has its line from `planned_fixed` instead. One in
-    `reserving` has a plan that reserves for it, whose bills sit in its average
-    from before: it counts what it cost so far and no estimate, or the reserve's
-    share would count the bill a second time.
+    A category in `planned` has its line from `planned_fixed`. One in `reserving` counts what
+    it cost so far, with no estimate, since its bills already sit in the average.
     """
     parts = [
         reader.expected(
@@ -262,8 +244,8 @@ def free_to_spend(
 ) -> Free:
     """One scope's free to spend in `month`, as it stands on `today`.
 
-    Goal contributions come off mine only: a goal lives in an own saving
-    account, which money reaches from mine.
+    Goal contributions come off mine only: a goal lives in an own saving account,
+    which money reaches from mine.
     """
     book = Book() if book is None else book
     over = today.replace(day=1) > month
@@ -296,12 +278,10 @@ def free_to_spend(
 
 
 def joined(frees: list[Free]) -> Free:
-    """Several months of one scope, each over, as one: every line and part summed.
+    """Several months of one scope, each over, summed as one.
 
-    A line is a category, or the move between mine and household, and keeps
-    no average; a reserve sums its shares, bills and shortfalls and keeps the
-    last month's balance. No goal is still to move in a month that is over, so
-    the total is the months' totals added up.
+    A line keeps no average. A reserve sums its shares and keeps the last month's balance.
+    No goal is still to move in a month that is over.
     """
     if len(frees) == 1:
         return frees[0]

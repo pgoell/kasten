@@ -1,8 +1,6 @@
 """Reading the markdown vault off disk.
 
-The vault is the source of truth, so everything here goes straight to the
-filesystem. Postgres answers none of these questions; its pieces index is derived
-from what this reads.
+Everything goes straight to the filesystem: Postgres answers none of these questions.
 """
 
 import os
@@ -21,12 +19,8 @@ LONE_LF = re.compile(r"(?<!\r)\n")
 BOOK_SUFFIXES = (".epub", ".pdf")
 """What a book's name ends in, the preferred format first.
 
-Spelled out rather than passed in. kasten reads these two, and nothing here
-promises anything about mobi or cbz.
-
-The order is what settles a note with both beside it. Nothing stops a vault
-holding `DDIA.epub` and `DDIA.pdf`, the vault being a directory anybody may
-copy into, so something has to choose, and the epub is the one that reflows.
+Spelled out, since nothing here promises anything about mobi or cbz. The order settles a
+note with both beside it: the epub, which reflows, wins.
 """
 
 ASSET_MAGIC: dict[str, re.Pattern[bytes]] = {
@@ -44,58 +38,33 @@ ASSET_MAGIC: dict[str, re.Pattern[bytes]] = {
 }
 """What the vault takes beside its notes, and what the head of each one matches.
 
-The keys are the whole rule about which paths `resolve_asset_path` answers to,
-so a new format is one row here. The values belong to the upload, which refuses
-a body disagreeing with the name it arrived under: a usability check and never a
-security one, for the reason `write_asset` spells out.
-
-Patterns rather than prefixes, because a sound does not start one way: an mp3
-opens with an ID3 tag or straight on a frame header, and an m4a's `ftyp` sits
-behind the four bytes of its box size. `fits` matches them at the head.
-
-`.webp` and `.wav` are the loose ones. Both match a RIFF container's four
-bytes, shared with avi and with each other, and the tag that separates them
-sits at byte eight. A short pattern per suffix is worth more than that
-exactness on a check nothing downstream relies on.
-
-Lowercase keys, matched ignoring case: `PHOTO.PNG` and `Plan.PDF` are assets,
-the way Obsidian finds them, because a file copied in over the terminal keeps
-the name its camera or its scanner gave it. The listings and the routes lower
-the suffix first. A note is the exception, `SUFFIX` matching exactly, so
-`NOTES.MD` is still not a note, and so is the book beside one: `resolve_book`
-and `books_beside` swap in a lowercase suffix, so `Plan.PDF` is no book of
-`Plan.md`.
+The keys are the whole rule about which paths `resolve_asset_path` answers to, matched
+ignoring case: `PHOTO.PNG` is an asset. A note is the exception, `SUFFIX` matching exactly.
+The patterns are a usability check, never a security one.
 """
 
 HEAD_BYTES = 8
 """How much of a file's head `fits` reads, which is the furthest any pattern reaches.
 
-The png signature and an m4a's size and `ftyp` are eight bytes each. Typed
-rather than derived, since a pattern's reach is not its length; a row reaching
-further has to widen this by hand, and `fits` cuts the head here so it cannot
-quietly depend on more.
+Typed, not derived: a row reaching further has to widen this by hand.
 """
 
 AUDIO_SUFFIXES = (".m4a", ".mp3", ".ogg", ".wav")
 """What a sound's name ends in: an asset the editor draws as a player."""
 
 IMAGE_SUFFIXES = tuple(sorted(set(ASSET_MAGIC) - set(BOOK_SUFFIXES) - set(AUDIO_SUFFIXES)))
-"""The suffixes `list_images` walks for, which is every asset but the books and sounds.
+"""The suffixes `list_images` walks for: every asset but the books and sounds.
 
-The whole tuple comes out, not the format that happened to be here first. A
-book left in this set is a row in the file tree and a candidate for `![](`
-completion, which is the one thing the vault promises about a book: nothing
-lists it. A sound is left out so that `![](` completes pictures only.
+A book left in this set would be a row in the file tree and a `![](` completion. A sound
+is left out so that `![](` completes pictures only.
 """
 
 HTML_SUFFIX = ".html"
 """What a page of HTML beside the notes ends in, which the vault shows and an agent may write.
 
-Not a row of `ASSET_MAGIC`, whose keys are what the browser's upload accepts and
-which an upload never overwrites. A page is written by a research run with a
-shell, or by an agent through `POST /agent/files` and the MCP `save_file`, which
-`page_store.store_page` lets replace one already there. The browser only reads it.
-`.htm` is left out the way `.markdown` is.
+Not an `ASSET_MAGIC` row, which an upload never overwrites. A page is written by a research
+run or by an agent through `POST /agent/files`, and the browser only reads it. `.htm` is
+left out, as `.markdown` is.
 """
 
 _NAME_LIMIT_BYTES = 255
@@ -114,9 +83,8 @@ def list_markdown_files(root: Path) -> list[str]:
 def list_images(root: Path) -> list[str]:
     """Return every image under `root`, as sorted relative POSIX paths.
 
-    What the editor completes a `![](` against. The same walk the notes come
-    back from rather than a listing of the one folder a paste writes into, so an
-    image dropped in over the terminal completes too.
+    What the editor completes `![](` against. Walked like the notes, so an image dropped in
+    over the terminal completes too.
     """
     return _list_files(root, IMAGE_SUFFIXES, ignore_case=True)
 
@@ -139,26 +107,9 @@ def list_assets(root: Path) -> list[str]:
 def _list_files(root: Path, suffixes: tuple[str, ...], *, ignore_case: bool = False) -> list[str]:
     """Return every file under `root` whose name ends in one of `suffixes`.
 
-    Hidden files and directories are skipped, which keeps `.git` and editor
-    dotfiles out of the tree. A hidden directory is skipped without being walked
-    into, which is most of what this costs on a real vault: the jj repo beside
-    the notes holds thousands of files nothing here would ever show. A vault
-    directory that does not exist reads as an empty one, so a fresh checkout
-    still serves.
-
-    `os.scandir` rather than `rglob`, which is the same walk with a `Path` built
-    per entry and the relative path parsed back out of it three times over. At
-    10,000 notes that was 154ms and this is 14ms, and every caller pays it: the
-    listing is what the tree, the finder and the link rewrite all start from.
-    The prefix is carried down rather than worked out per file, which is what
-    keeps these POSIX paths without a separator to swap afterwards.
-
-    A directory is walked and never listed, the suffix on its name
-    notwithstanding. `resolve_note` refuses one, so a folder called `notes.md`
-    used to be a row in the tree that answered 404 when you opened it.
-
-    `ignore_case` is for the files beside the notes, which `ASSET_MAGIC` says
-    why; the notes walk without it.
+    Hidden entries and their walks are skipped: the jj repo beside the notes holds thousands
+    of files. Links are not followed, so a link cannot loop or list what lies outside the
+    vault. A folder named `notes.md` is walked, never listed.
     """
     if not root.is_dir():
         return []
@@ -170,9 +121,8 @@ def _list_files(root: Path, suffixes: tuple[str, ...], *, ignore_case: bool = Fa
             for entry in entries:
                 if entry.name.startswith("."):
                     continue
-                # Not followed, so a link pointing at an ancestor cannot walk
-                # forever, and a link out of the vault cannot list what is on
-                # the other side. `rglob` declined one for the same reason.
+                # Not followed: a link to an ancestor would loop forever, and a link out of
+                # the vault would list what is on the other side.
                 if entry.is_dir(follow_symlinks=False):
                     walk(entry.path, f"{prefix}{entry.name}/")
                 elif (entry.name.lower() if ignore_case else entry.name).endswith(suffixes):
@@ -194,16 +144,9 @@ def legal_name(part: str) -> bool:
 def _resolve_inside(root: Path, relative: str) -> Path | None:
     """Return the real path of a legal location under `root`, or None.
 
-    `relative` arrives from the URL and is therefore hostile. Both sides are
-    resolved before they are compared, so `..`, an absolute path and a symlink
-    pointing out of the vault all land outside `root` and are refused. Anything
-    the listing would not show is refused too, so the tree and this function
-    agree on what lives in the vault.
-
-    Everything the vault will take, note or folder, passes through here, because
-    several copies of these rules would drift and the loosest copy would be a
-    write. What a note adds on top is its suffix, and `resolve_path` is where
-    that sits.
+    `relative` comes from the URL, so it is hostile. Both sides are resolved before they are
+    compared, which refuses `..`, an absolute path and a symlink out of the vault. Every write
+    goes through here, and the listing's refusals apply too, so the tree agrees with it.
     """
     # Checked before anything touches the filesystem, because an embedded null
     # makes every call raise rather than return.
@@ -216,28 +159,19 @@ def _resolve_inside(root: Path, relative: str) -> Path | None:
     if not path.is_relative_to(base):
         return None
 
-    # The rules about the name alone, so nothing below this asks the filesystem
-    # a question a name has already answered. The length rule sits here rather
-    # than in a catch around the write, which would read a full disk as a bad
-    # path, and refusing before mkdir runs is what keeps a refused note from
-    # leaving its folder behind. No parts at all is the vault root, which is a
-    # path the vault holds rather than one it will move or write.
+    # Name rules only, before any filesystem question: a length check in a catch around the write
+    # would read a full disk as a bad path. No parts means the vault root, which is never written.
     parts = path.relative_to(base).parts
     if not parts or not all(legal_name(part) for part in parts):
         return None
 
-    # A path that is still a link after `resolve` is a link `resolve` could not
-    # follow, which means a loop. Refused here because the write raises on one
-    # rather than refusing; a read already sees it as absent.
+    # Still a link after `resolve` means a loop it could not follow. Refused here, since a
+    # write raises on one; a read already sees it as absent.
     if path.is_symlink():
         return None
 
-    # A note cannot live inside a file, nor inside a link that leads nowhere:
-    # `exists` follows a looping link, gives up and answers False, so asking
-    # after the link itself is what catches one. A link to a real folder is a
-    # folder and passes. Refused where the other rules live, because mkdir
-    # raises on these rather than refusing, and `base` itself is a directory so
-    # including it costs nothing.
+    # A note cannot sit inside a file or a dead link. `exists` says False for a loop, so the
+    # link itself is asked about. `base` is a directory, so including it costs nothing.
     if any(
         not p.is_dir() and (p.exists() or p.is_symlink())
         for p in path.parents
@@ -251,9 +185,7 @@ def _resolve_inside(root: Path, relative: str) -> Path | None:
 def resolve_path(root: Path, relative: str) -> Path | None:
     """Return the real path of a legal note location under `root`, or None.
 
-    A note is a `.md` file, which is the one rule a folder does not share, so it
-    is the one rule that sits out here. Reading, writing and creating all come
-    through this.
+    A note is a `.md` file, the one rule a folder does not share, so it sits here.
     """
     path = _resolve_inside(root, relative)
     if path is None or path.suffix != SUFFIX:
@@ -265,8 +197,7 @@ def resolve_path(root: Path, relative: str) -> Path | None:
 def resolve_asset_path(root: Path, relative: str) -> Path | None:
     """Return the real path of a legal asset location under `root`, or None.
 
-    What `resolve_path` is to a note, read for a book or an image. The suffix is
-    the one rule that differs, and it is the one rule out here.
+    `resolve_path` for a book or an image: the suffix is the one rule that differs.
     """
     path = _resolve_inside(root, relative)
     if path is None or path.suffix.lower() not in ASSET_MAGIC:
@@ -278,9 +209,8 @@ def resolve_asset_path(root: Path, relative: str) -> Path | None:
 def resolve_asset(root: Path, relative: str) -> Path | None:
     """Return the real path of one asset under `root`, or None when there is none.
 
-    The `is_file` is what makes the 404 real. Starlette's `FileResponse` stats
-    the path inside `__call__` and raises for one that is absent and again for
-    one that is not a regular file, which reaches the client as a 500.
+    The `is_file` check makes the 404 real: `FileResponse` raises on a path that is absent or
+    not a regular file, which the client sees as a 500.
     """
     path = resolve_asset_path(root, relative)
     if path is None or not path.is_file():
@@ -292,9 +222,8 @@ def resolve_asset(root: Path, relative: str) -> Path | None:
 def resolve_html_path(root: Path, relative: str) -> Path | None:
     """Return the real path of a legal HTML page location under `root`, or None.
 
-    `resolve_asset_path` for a page, which an agent writes. The suffix is
-    lowered the way `resolve_html` lowers it, so a page the pane shows is one an
-    agent may replace.
+    `resolve_asset_path` for a page an agent writes. The suffix is lowered as `resolve_html`
+    lowers it.
     """
     path = _resolve_inside(root, relative)
     if path is None or path.suffix.lower() != HTML_SUFFIX:
@@ -306,8 +235,7 @@ def resolve_html_path(root: Path, relative: str) -> Path | None:
 def resolve_html(root: Path, relative: str) -> Path | None:
     """Return the real path of one HTML page under `root`, or None when there is none.
 
-    `resolve_asset` for the one suffix that is not an asset, `is_file` included
-    for the reason it gives there.
+    `resolve_asset` for the one suffix that is not an asset, with the same `is_file` check.
     """
     path = resolve_html_path(root, relative)
     if path is None or not path.is_file():
@@ -319,22 +247,9 @@ def resolve_html(root: Path, relative: str) -> Path | None:
 def resolve_book(root: Path, relative: str) -> Path | None:
     """Return the real path of the book beside a note, or None when there is none.
 
-    The one place the pair is worked out. `relative` is the note's path, and a
-    book is that path with the suffix swapped, so the swap happens here and each
-    of `BOOK_SUFFIXES` is asked for in turn until one of them is a file.
-
-    A path that is not a note's is refused rather than swapped, and the
-    difference is not pedantry. `removesuffix` leaves a path it does not end
-    with alone, so without this `GET /api/books/DDIA` would answer with
-    `DDIA.epub`, and `GET /api/books/DDIA.epub` would answer with
-    `DDIA.epub.pdf` wherever somebody had made one: a route documented as taking
-    the note's path would quietly take two other shapes as well.
-
-    The swap is done to the string rather than through `Path.with_suffix`, which
-    raises on a name that has none, and this path arrives from the URL. Nothing
-    else about it is inspected: `resolve_asset` owns every rule about what the
-    vault will answer for, and a second copy of those rules here would be the
-    loose one.
+    `relative` must end in `.md`: `removesuffix` leaves any other path alone, so `DDIA`
+    would otherwise answer with `DDIA.epub`. The swap is on the string, since `with_suffix`
+    raises on a name with none.
     """
     if not relative.endswith(SUFFIX):
         return None
@@ -352,9 +267,7 @@ def resolve_book(root: Path, relative: str) -> Path | None:
 def resolve_folder_path(root: Path, relative: str) -> Path | None:
     """Return the real path of a legal folder location under `root`, or None.
 
-    The same rules a note's path answers to, minus the suffix. A folder is the
-    prefix of a note and carries no name of its own, so nothing here asks what
-    it is called beyond what `_resolve_inside` already refuses.
+    The rules a note's path answers to, minus the suffix.
     """
     return _resolve_inside(root, relative)
 
@@ -362,9 +275,8 @@ def resolve_folder_path(root: Path, relative: str) -> Path | None:
 def resolve_folder(root: Path, relative: str) -> Path | None:
     """Return the real path of one folder under `root`, or None when there is none.
 
-    What `resolve_note` is to a note. A path with a note at it is refused rather
-    than moved: `PATCH /api/files/{path}` is what moves a note, and answering
-    here would be a second way to do it with none of the note's rules.
+    What `resolve_note` is to a note. A note at the path is refused, since moving one is
+    `PATCH /api/files/{path}`'s job.
     """
     path = resolve_folder_path(root, relative)
     if path is None or not path.is_dir():
@@ -376,9 +288,8 @@ def resolve_folder(root: Path, relative: str) -> Path | None:
 def resolve_note(root: Path, relative: str) -> Path | None:
     """Return the real path of one note under `root`, or None when there is none.
 
-    `resolve_path` decides whether the vault will take the path at all. Reading
-    and writing want one thing more, a file actually being there, and creating
-    is the caller that does not.
+    `resolve_path` decides whether the path is legal. Reading and writing need the file to
+    exist too; creating does not.
     """
     path = resolve_path(root, relative)
     if path is None or not path.is_file():
@@ -399,8 +310,7 @@ def relative_path(root: Path, note: Path) -> str:
 def read_note(root: Path, relative: str) -> str | None:
     """Return the text of one note under `root`, or None when there is no such note.
 
-    Every refusal reads as absent. Telling a typo apart from an attempt to climb
-    out is worth nothing to the one user and something to everyone else.
+    Every refusal reads as absent, so a probe cannot tell a typo from an attempt to climb out.
     """
     path = resolve_note(root, relative)
     if path is None:
@@ -412,20 +322,8 @@ def read_note(root: Path, relative: str) -> str | None:
 def move_asset_beside(source: Path, target: Path) -> None:
     """Carry the books beside a note to wherever the note just went.
 
-    The pair is a convention rather than a record, so a note that moves without
-    its book stops having one and the reader draws "No book at ...". Nothing
-    stores the pairing to keep in step; this is what keeps it true.
-
-    A target that already has a book of its own is left alone and the book
-    stays where it was. Refusing the whole move instead would leave a note you
-    cannot move at all, and overwriting is the one thing nothing here does to a
-    book: there is no delete and no history to get one back from.
-
-    Every suffix is carried, and a note with two books beside it has two
-    sidecars rather than one pair. They are weighed one at a time, so a taken
-    landing holds back the format that would have gone there and no other: the
-    epub follows the note while the pdf stays put, and the note ends up read as
-    the epub, which is the one the reader would have picked anyway.
+    The pairing is a convention, not a record, so a note moved without its book loses it.
+    A book already at the target is left alone, since nothing here overwrites a book.
     """
     for book, landing in books_beside(source, target):
         book.rename(landing)
@@ -434,10 +332,8 @@ def move_asset_beside(source: Path, target: Path) -> None:
 def books_beside(source: Path, target: Path) -> list[tuple[Path, Path]]:
     """Each book beside the note at `source` that a move to `target` carries, and where it lands.
 
-    Its own function because the link rewrite asks it before the move and
-    `move_asset_beside` after the note has gone, and the two must agree on which
-    books travel: a link pointed at a book that stayed behind lands on nothing.
-    Neither answer changes in between, the note's rename touching no book.
+    The link rewrite asks before the move and `move_asset_beside` after it, and the two must
+    agree on which books travel.
     """
     pairs = ((source.with_suffix(suffix), target.with_suffix(suffix)) for suffix in BOOK_SUFFIXES)
     return [(book, landing) for book, landing in pairs if book.is_file() and not landing.exists()]
@@ -446,15 +342,9 @@ def books_beside(source: Path, target: Path) -> list[tuple[Path, Path]]:
 def landing(path: Path, content: str) -> str:
     """`content` as `write_note` would put it on disk at `path`.
 
-    A note that already holds a CRLF keeps CRLF: every lone LF in `content`
-    lands as a CRLF. `read_note` hands clients the text with every CRLF turned
-    into an LF, so without this any save of a note written on Windows would
-    rewrite every line of it. A CRLF that arrived stays one rather than gaining
-    a second CR. An LF note, or a path with no file yet, gets `content` as it
-    came.
-
-    Its own function so a bound on what lands can measure this rather than the
-    text before it, which is a byte short per line.
+    A note already holding a CRLF keeps CRLF. `read_note` hands out LF text, so without this
+    a save would rewrite every line of a Windows note. Its own function so a size bound can
+    measure it.
     """
     try:
         crlf = b"\r\n" in path.read_bytes()
@@ -465,17 +355,10 @@ def landing(path: Path, content: str) -> str:
 
 
 def write_note(path: Path, content: str) -> None:
-    """Write `content` over a note `resolve_note` returned.
+    """Write `content` over a note `resolve_note` returned, through a hidden temp file.
 
-    The text goes to a temp file next to the target and is then renamed over
-    it, so a crash halfway through leaves the old note whole rather than half a
-    new one. Same directory, so the rename is atomic. The temp name is hidden
-    and does not end in `.md`, which keeps a leftover out of the listing twice
-    over.
-
-    `newline=""` because the vault is the source of truth: the bytes that
-    arrived are the bytes on disk, with the one exception `landing` makes for a
-    CRLF note.
+    The rename is atomic, so a crash leaves the old note whole. `newline=""` keeps the bytes
+    that arrived, bar the CRLF `landing` adds.
     """
     temporary = path.with_name(f".{path.name}.tmp")
     temporary.write_text(landing(path, content), encoding="utf-8", newline="")

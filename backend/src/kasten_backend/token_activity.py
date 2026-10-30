@@ -1,21 +1,8 @@
 """What each agent token did: one row in Postgres per request it made.
 
-The rows live in `token_action`, not beside `tokens.json` and not in the vault.
-A file would be rewritten on every request and sit where a write per call is a
-cost on the one path agents hit most. In the vault, every row would enter jj
-history for good and sit one `search_notes` call away from any agent reading
-notes. The database already takes the request's other writes, and its rows
-expire on a schedule rather than by hand.
-
-Recording never fails the request. The answer is sent before the row is
-written, and a row that cannot be written is logged and dropped, because an
-agent refused its answer over a bookkeeping failure is worse than a gap in the
-history. The write is bounded by `activity_timeout_seconds` so a slow database
-cannot hold the connection open.
-
-Rows hold paths and tool names only: never a secret, never a header, never a
-query string, never note text. A path can name a note, so it is the one thing
-the history cannot hide, and that is the point of it.
+Not `tokens.json`, rewritten on every request, nor the vault, whose jj history would keep
+every row. A row that cannot be written is logged and dropped, never failing the request.
+Rows hold paths and tool names only: never a secret, header, query string or note text.
 """
 
 import asyncio
@@ -90,9 +77,8 @@ class Action:
 current: ContextVar[Action | None] = ContextVar("token_action", default=None)
 """The request's action, set by `Recorder` before the app runs.
 
-Mutated rather than set again by the readers below: a task the request starts
-copies the context, so a set made there would never reach the middleware, while
-the object itself is shared with every copy.
+Mutated, not set again: a task the request starts copies the context, so a set made there
+would never reach the middleware, but the shared object reaches every copy.
 """
 
 
@@ -134,8 +120,7 @@ def _kept(path: str) -> bool:
 CAP = 1024
 """The most characters of a path, note or tool name a row keeps.
 
-A token holder can send megabytes as any of them, and the row would keep all of it
-for ninety days.
+A token holder can send megabytes as any of them, and the row would keep all of it.
 """
 
 
@@ -147,10 +132,9 @@ def _cut(text: str | None) -> str | None:
 def _client(scope: Scope) -> str | None:
     """The address the request came from, in the order the prod Caddy reads it.
 
-    Caddy's `client_ip_headers Cf-Connecting-Ip X-Forwarded-For` takes the Cloudflare
-    header first. Behind Cloudflare, Caddy appends the Cloudflare edge as the last
-    `X-Forwarded-For` hop, so that hop alone names Cloudflare and not the agent. The
-    peer is the fallback for a request that came without a proxy.
+    Caddy's `client_ip_headers` takes `Cf-Connecting-Ip` first. Behind Cloudflare, Caddy
+    appends the edge as the last `X-Forwarded-For` hop, so that hop names Cloudflare, not
+    the agent. The peer is the fallback for a request that came without a proxy.
     """
     headers = dict(scope.get("headers", []))
     sent = headers.get(b"cf-connecting-ip")
@@ -189,8 +173,7 @@ def _row(scope: Scope, action: Action, token: str, status: int) -> TokenAction:
 class Recorder:
     """ASGI middleware that writes one row for each request an agent token makes.
 
-    Pure ASGI rather than `BaseHTTPMiddleware`, which buffers the body and would
-    hold a streamed answer until it finished.
+    Pure ASGI, since `BaseHTTPMiddleware` buffers a streamed answer until it finishes.
     """
 
     def __init__(self, app: ASGIApp) -> None:
@@ -247,8 +230,7 @@ async def _record(row: TokenAction) -> None:
 async def last_uses(session: AsyncSession) -> dict[str, datetime]:
     """The newest live row's time for each token that has one.
 
-    A revoked row is left out: it is a request the store refused, so it says nothing
-    about a token that is in use.
+    A revoked row is a request the store refused, so it says nothing about a token in use.
     """
     result = await session.execute(
         select(TokenAction.token, func.max(TokenAction.at).label("at"))

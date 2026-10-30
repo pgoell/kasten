@@ -1,10 +1,7 @@
 """The drilldown routes: one scope, account, category, payee or booking, month by month.
 
-Each reads the budget's own ledger (`finance_drill`), so its figures for a
-month are the ones the overview and the sankey give for it. The bookings each
-lists are those that count in the month named, by the salary cutoff, except an
-account's, which go by booking date like its bank balance.
-docs/reference/http-api/finance-drill.md has the shapes.
+Each reads the budget's own ledger, so its months match the overview and the sankey.
+Bookings count by the salary cutoff, except an account's, which go by booking date.
 """
 
 import datetime as dt  # noqa: TC003  pydantic reads the annotation at runtime

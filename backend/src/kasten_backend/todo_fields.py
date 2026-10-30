@@ -1,18 +1,13 @@
 """The field readers of a todo line: the markers its words carry, and the words and assignee left.
 
-Its own module because these are a port of the editor's `readFields` in
-`todo-fields.ts`, held to it by one table of cases. They need no vault, so they
-import nothing from `todos.py`, which reads them.
+A port of the editor's `readFields` in `todo-fields.ts`, held to it by one table of cases.
+It imports nothing from `todos.py`, which reads it.
 """
 
 import re
 
-# The fields `readFields` in the editor's `todo.ts` takes off a todo's words,
-# spelled the same and taken in the same order, because one taken first can
-# change where a free-text one ends. A link inside a field's value is no link
-# the todo is filed by, the words being only what is left. Each marker may
-# carry the variation selector. `[0-9]` and the spelled-out `\^` class because
-# the editor's `\d` and `\w` are ASCII and Python's are not.
+# The fields `readFields` takes off a todo's words, in the editor's order, since one taken first
+# moves where a free-text one ends. `[0-9]` and `\^` stand in for the editor's ASCII `\d` and `\w`.
 _VS = "\N{VARIATION SELECTOR-16}?"
 # Spelled out where it is alone, since ruff takes the glyph for a plus sign.
 _CREATED = "\N{HEAVY PLUS SIGN}"
@@ -25,9 +20,8 @@ _WORD = (
 )
 """The editor's `(\\S+)`, spelled out: Python's `\\s` holds U+0085 and U+001C to
 U+001F, which the editor's does not, and leaves out U+FEFF, which it holds."""
-# A one-word value never starts with a field marker, so a bare `⏲` before `🆔 kt-1`
-# reads the `🆔` as the next field. `👤` is left out on purpose: `⏲ 👤 2026-10-20`
-# reads `👤` as the estimate, as the editor does.
+# A one-word value never starts with a marker, so `⏲` before `🆔 kt-1` takes the `🆔` as the next
+# field. `👤` stays out on purpose: `⏲ 👤 2026-10-20` reads `👤` as the estimate, like the editor.
 _ONE_WORD = r"[ \t]+(?!(?:" + STOP + r"|🔁))" + _WORD
 _DATE = r"[ \t]+([0-9]{4}-[0-9]{2}-[0-9]{2})"
 DONE = re.compile("✅" + _VS + _DATE)
@@ -75,34 +69,29 @@ ASSIGNEE = re.compile(
 SPANS = re.compile(r"\[\[[^\[\]\n]+\]\]|\[[^\]\n]*\]\([^)\n]*\)|`[^`\n]*`|<!--[^\n]*?-->")
 """A link, a markdown link, a code span and an HTML comment closed on its line.
 
-A marker inside one is not a field, nor a tag. The editor's `SPANS` in
-`tag-rule.ts` is the same pattern, and rg reads it too, through `tags.py`.
+A marker inside one is no field, nor a tag. The editor's copy is in `tag-rule.ts`.
 """
 
 
 def blank(text: str, spans: re.Pattern[str]) -> str:
-    """`text` with every one of `spans` blanked to no-break spaces, its spaces and offsets kept."""
+    """`text` with every match of `spans` blanked to no-break spaces, offsets kept."""
     return spans.sub(lambda span: re.sub(r"[^ \t]", "\N{NO-BREAK SPACE}", span[0]), text)
 
 
 def mask(text: str) -> str:
-    """`text` with every span blanked to no-break spaces, its spaces and offsets kept.
+    """`text` with every span blanked to no-break spaces, its offsets kept.
 
-    Public because `tags.py` reads the tag vocabulary through it too, so that
-    completion offers no tag the board and the editor would not read as one.
+    Public so completion offers only tags the board and the editor would read.
     """
     return blank(text, SPANS)
 
 
 def _scan(rest: str) -> tuple[str, str | None, tuple[int, int] | None]:
-    """A todo's words and its assignee: the words with every field out, as `readFields` leaves them.
+    """A todo's words and assignee: the words with every field out, as `readFields` leaves them.
 
-    Each field is found on a copy with every span blanked to a no-break space,
-    so a marker inside a link is no marker and a one-word value cannot run into
-    one, and cut from both. Each cut leaves `_CUT` where it stood, so a value
-    read after it stops there. A match with no value is no field, and only the
-    first match of each is tried, as in the editor; only `⛔` repeats. The
-    assignee is read off `rest`, so its spelling is kept.
+    Fields are found on a copy with every span blanked, so a marker in a link is no marker.
+    Each cut leaves `_CUT` behind, so a value read after it stops there. Only the first
+    match of each pattern is tried, as in the editor, except `⛔`, which repeats.
     """
     text = rest
     masked = mask(rest)
@@ -138,8 +127,7 @@ def assignee(rest: str) -> str | None:
 def assignee_span(rest: str) -> tuple[int, int] | None:
     """Where the assignee's `👤` and value sit in `rest`, as the reader cuts them, or None.
 
-    The span ends where the reader's cut ends the value, so a field glued to the
-    value (`👤 [[Alicia]]📅 …`) is not part of it, and an edit of the assignee
-    keeps that field.
+    The span ends where the cut ends the value, so a field glued to it (`👤 [[Alicia]]📅 …`)
+    is not part of it.
     """
     return _scan(rest)[2]

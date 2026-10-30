@@ -1,15 +1,8 @@
 """The date and the tags of each note a search hit is in, read once per note.
 
-The search histogram counts matching lines per ISO week, so each hit needs the
-day its note counts on. A line's own date would take a `jj annotate` of every
-note on every query, so the note's date stands for its lines instead. It comes
-from the name when the name is dated, then from the block's `created`, which is
-when the note was written, then from the file's modification time.
-
-A dated name gives its calendar day, which needs no zone. The other two give an
-instant with its offset, because `created` is written in UTC and the day it
-falls on depends on whose clock reads it: a note written at 00:30 in Berlin is
-the day before in UTC. The client reads the instant in the reader's own zone.
+A hit takes its note's day, since a line's own date would need a `jj annotate` per query.
+The day is the name's date, else `created`, else the file's mtime. An instant keeps its
+offset, because the day it falls on depends on the reader's zone.
 """
 
 import asyncio
@@ -31,8 +24,7 @@ _SHAPE = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}")
 def _as_date(text: str) -> date | None:
     """The date `text` spells as `YYYY-MM-DD`, or None when it spells none.
 
-    Shape first, because `date.fromisoformat` also reads `2026-W41-3`, and a
-    `created` that said so would be a week's worth of noise rather than a day.
+    Shape first: `date.fromisoformat` also reads `2026-W41-3`, a week, not a day.
     """
     if not _SHAPE.fullmatch(text):
         return None
@@ -48,19 +40,16 @@ _INSTANT = re.compile(
     r"(:[0-9]{2}(\.[0-9]{3})?)?"
     r"(Z|[+-][0-9]{2}:[0-9]{2})?"
 )
-"""The instants a browser's `new Date` reads, which are the ones `created` may pass through as.
+"""The instants a browser's `new Date` reads, which `created` may pass through as.
 
-A week date such as `2026-W43-1T10:00:00+00:00` parses in Python and reads as
-nothing in a browser, so the shape is what decides, and `fromisoformat` only
-checks the numbers are a real time.
+The shape decides, since `fromisoformat` also takes week dates a browser cannot read.
 """
 
 
 def _created(text: str) -> str | None:
     """The block's `created` as written, when a browser can read it as a day or a time.
 
-    With no offset it is the reader's own local time, which is what an imported
-    note means by it. Anything else falls through to the file's own time.
+    Anything else falls through to the file's own time.
     """
     value = frontmatter.created(text)
     if value is None:
@@ -79,8 +68,7 @@ def _created(text: str) -> str | None:
 def day_of(root: Path, path: str, text: str | None) -> str | None:
     """The date a note counts on, as ISO 8601: its name's day, else `created`, else mtime.
 
-    Public because the written route counts notes on the same day, and a second
-    copy of this rule would drift from the one search dates its hits by.
+    Public so the written route uses this rule, not a copy that could drift.
     """
     named = _as_date(path.rsplit("/", 1)[-1][:10])
     if named is not None:
@@ -100,8 +88,7 @@ def day_of(root: Path, path: str, text: str | None) -> str | None:
 def tags_of(text: str) -> list[str]:
     """The note's tags with their hashes, sorted, read the way the tags route reads them.
 
-    Public so the written notes take their tags off the one read of a note they
-    already make, rather than through a second parse of the whole vault.
+    Public so written notes take their tags from the one read of the note they already make.
     """
     found = {text[start:end] for start, end in todos.tags_in(text)} | field_tags(text)
     return sorted(found)
@@ -110,13 +97,9 @@ def tags_of(text: str) -> list[str]:
 _held: dict[str, tuple[int, int, list[str]]] = {}
 """The tags each note was last parsed to, with the stamp it had then, by absolute path.
 
-One entry per note the written notes or a search have read. The written notes
-prune it to the live notes outside the archive on each read, so it holds at most
-the vault and the notes gone since that read; a search only adds, because its
-hits are not the whole vault. Parsing a note holding `<!--`
-takes the slow path through `code_spans`, which is most of a flashcard note's
-cost. An edit changes the file's modification time or its size, so an entry whose
-stamp no longer matches is parsed again and never served.
+Caching matters because a note holding `<!--` is slow to parse. The written notes prune it
+to live notes; a search only adds. An edit changes the mtime or size, so a stale entry is
+never served.
 """
 
 

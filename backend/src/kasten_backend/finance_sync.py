@@ -1,9 +1,7 @@
 """What the sync routes do: record "pull now", start and finish runs, and report the status.
 
-The bank job polls every minute. A poll that finds nothing requested ends
-there, so the route it reads must stay cheap; one that finds a request starts
-a run, which claims every open request at once, since one pull serves them
-all. Nothing here commits. The route that calls it does, once per request.
+The bank job polls every minute, so a poll that finds no request must stay cheap. A request
+starts a run, which claims every open request at once. Nothing here commits.
 """
 
 from datetime import UTC, datetime, timedelta
@@ -70,9 +68,8 @@ async def open_request(session: AsyncSession) -> SyncRequest | None:
 async def start_run(session: AsyncSession, trigger: str) -> tuple[SyncRun, int]:
     """Start a run and claim every open request, answering the run and how many it claimed.
 
-    A run for a request with none left open is refused, as is any run while
-    another starts or runs. A scheduled run claims open requests too, since it
-    pulls what they asked for.
+    A run is refused when no request is open or another run is going. A scheduled run claims
+    open requests too, since it pulls what they asked for.
     """
     if not await session.scalar(select(func.pg_try_advisory_xact_lock(SYNC_LOCK))):
         msg = "Another run is starting"
@@ -131,10 +128,9 @@ def _days_since(moment: datetime | None, now: datetime) -> int | None:
 
 
 async def sync_status(session: AsyncSession) -> dict[str, Any]:
-    """The open request, the last run, the last success, and per account where to start next.
+    """The open request, the last run and the last success, and where each account starts next.
 
-    Per account: the last window fetched without error and when, and the
-    newest booking stored, which is where a first pull starts.
+    Per account: the last window fetched without error, and the newest booking stored.
     """
     now = datetime.now(UTC)
     requested_at = await session.scalar(

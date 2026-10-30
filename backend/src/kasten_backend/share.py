@@ -1,11 +1,8 @@
 """The shared lists: Markdown checklists in one folder, read and ticked from the lists app.
 
-A list is a note directly inside `settings.share_folder`, and nothing else is one.
-Every name a request brings is spelled into a path here, so the check that the
-note sits directly in the folder is the rule the routes depend on.
-
-Edits are plain text on the note's lines. Only the task lines change, and every
-other byte of the note goes back out as it came in.
+A list is a note directly inside `settings.share_folder`, and nothing else is one. Every name
+a request brings is spelled into a path here, so that check is the rule the routes depend on.
+Edits touch only the task lines; every other byte goes back out as it came in.
 """
 
 import re
@@ -25,8 +22,7 @@ if TYPE_CHECKING:
 ITEM = re.compile(r"^- \[([ xX])\] (.*?)(\r?)$")
 """A top-level task line: its state, its words and the line ending an edit keeps.
 
-Only the margin counts, so an indented task under another item is not a list
-item and nothing here ticks it.
+Only the margin counts, so an indented task under another item is not a list item.
 """
 
 ID_MARK = "🆔"
@@ -35,8 +31,7 @@ ID_MARK = "🆔"
 FIELD_MARKS = re.compile(todo_fields.STOP + "|🔁|👤")
 """Where an item's words end: the Tasks fields kasten reads, and the two it adds.
 
-`🔁` (recurrence) and `👤` (the assignee or the wait) are kasten's own fields, not Tasks plugin
-ones, so `todo_fields.STOP` leaves them out and they are listed here.
+`🔁` and `👤` are kasten's own, not Tasks plugin fields, so `todo_fields.STOP` leaves them out.
 """
 
 BLOCK_ID = re.compile(r"\s*\^[A-Za-z0-9_-]+$")
@@ -58,10 +53,8 @@ TICK_IN_KASTEN = "Tick this one in kasten"
 class TickInKastenError(Exception):
     """A tick the share path refuses, because kasten has more to write than a tick does.
 
-    The route answers it with 422, so the lists app shows the item is still open
-    and tells the person to tick it in kasten, which writes the rest. An untick
-    of an id another todo carries too is refused the same way, with the pane's
-    words for it (`done_log.other_todo_with_id`).
+    The route answers 422, so the lists app shows the item still open and tells the person to
+    tick it in kasten. An untick of an id another todo carries is refused the same way.
     """
 
 
@@ -86,8 +79,7 @@ class Item(BaseModel):
     key: str | None = Field(default=None, exclude=True)
     """What names a done item across the history: its `🆔`, else its words. Not sent to the app.
 
-    Taken from the same bytes as the rest of the item, so a who-ticked read never
-    looks the item up in a note that has changed since.
+    Taken from the same bytes as the rest of the item, so it never reads a changed note.
     """
 
 
@@ -104,10 +96,9 @@ class Checklist(BaseModel):
 def resolve_list(settings: Settings, name: str) -> Path | None:
     """The note a list name stands for, or None when the name reaches anywhere else.
 
-    The folder and the note are both resolved and then compared, so a `..`, an
-    absolute path, a nested name and a link in the folder that points out of it
-    all fail the one comparison. A note that does not exist yet still resolves,
-    because a first add creates it.
+    Both the folder and the note are resolved, then compared, so `..`, an absolute path, a
+    nested name and an outward link all fail. A note not yet there still resolves, since a
+    first add creates it.
     """
     folder = vault.resolve_folder_path(settings.vault_path, settings.share_folder)
     note = vault.resolve_path(settings.vault_path, f"{settings.share_folder}/{name}.md")
@@ -118,11 +109,10 @@ def resolve_list(settings: Settings, name: str) -> Path | None:
 
 
 def inside(settings: Settings, path: str) -> bool:
-    """Whether a vault path is a note directly in the share folder.
+    """Whether a vault path is a note directly in the share folder: the `/share/events` filter.
 
-    The filter `/share/events` puts on every change the watcher reports. Direct
-    children only, to match the lists: a note deeper down is no list and its
-    name stays off the stream too.
+    Direct children only, to match the lists. A deeper note is no list, so its name stays off
+    the stream too.
     """
     return PurePosixPath(path).parent == PurePosixPath(settings.share_folder)
 
@@ -139,8 +129,7 @@ def passes(settings: Settings, event: VaultEvent) -> bool:
 def names(settings: Settings) -> list[str]:
     """The names of the lists in the share folder, sorted, or none when it is missing.
 
-    A link in the folder that points out of it is no list, the same as a write to
-    one is refused, so its name is not listed either.
+    A link in the folder that points out of it is no list, so its name is not listed either.
     """
     folder = vault.resolve_folder_path(settings.vault_path, settings.share_folder)
     if folder is None or not folder.is_dir():
@@ -201,9 +190,8 @@ def _read_bytes(note: Path) -> bytes | None:
 def _agree(raw: bytes | None, sha: str | None) -> None:
     """Refuse an edit whose caller read a different list, before the edit is worked out.
 
-    `agent.save_note` checks the same digest again under the lock, which is what
-    closes the race. This one runs first so a stale caller is answered with the
-    current digest and not with a line count that no longer means anything.
+    `agent.save_note` checks the digest again under the lock, which closes the race. This runs
+    first, so a stale caller gets the current digest, not a line count that means nothing.
     """
     current = None if raw is None else agent.digest(raw)
     if sha != current:
@@ -213,9 +201,8 @@ def _agree(raw: bytes | None, sha: str | None) -> None:
 def _kasten_owns(lines: list[str], line: int, rest: str) -> bool:
     """Whether ticking this item here would skip what kasten does with it.
 
-    A recurring item gets its next occurrence written, and an item with parts has
-    them ticked with it. Kasten does both on its own tick, so this path must not
-    do the first half alone and leave the series stopped.
+    Kasten writes a recurring item's next occurrence and ticks its parts with it. This path
+    must not do one of those alone, and leave the series stopped.
     """
     following = lines[line + 1] if line + 1 < len(lines) else ""
 
@@ -231,8 +218,7 @@ def _done(line: str) -> bool:
 def _undone(rest: str) -> str:
     """The words without the done field the line reads, its date and all.
 
-    A bare `✅` among the words, or one in a link or code span, is words and stays,
-    so only the first `✅ <date>` on the masked text goes.
+    Only the first `✅ <date>` on the masked text goes, so a bare `✅` among the words stays.
     """
     found = todo_fields.DONE.search(todo_fields.mask(rest))
     if found is None:
@@ -244,10 +230,8 @@ def _undone(rest: str) -> str:
 def _ticked(rest: str, today: date) -> str:
     """The words of an item as a done one: its done date and an id, a block id last.
 
-    An item that reads an id keeps it and gets its date before it, so the id does
-    not move between edits. The field reader decides what reads one, so a bare
-    `🆔` among the words, or one inside a link or code span, is words and gets a
-    new id. A trailing block id stays last, after the id.
+    An item that reads an id keeps it, with the date before it, so the id survives edits.
+    A new id is made otherwise. A trailing block id stays last.
     """
     rest = _undone(rest)
     block = TRAILING_BLOCK_ID.search(rest)
@@ -270,11 +254,9 @@ NEW_FIELD_AT = re.compile(
 def _assigned(rest: str, assignee: str | None) -> str:
     """The words of an item with its undated `👤` set to `assignee`, or cleared when it is None.
 
-    A switch replaces the value where it stands, and a clear takes the blank
-    before it too. A new one goes in before the first field, then before a
-    trailing block id, then at the end, so the words, tags and fields keep
-    their bytes. The same assignee back in place is the same words, which is how
-    a caller learns there is nothing to write.
+    A switch replaces the value in place, and a clear takes the blank before it. A new one goes
+    before the first field, else a trailing block id, else at the end, so existing bytes stay put.
+    The same assignee again is the same words, which is how a caller learns nothing is to write.
     """
     span = todo_fields.assignee_span(rest)
     if span is None:
@@ -294,8 +276,7 @@ def _assigned(rest: str, assignee: str | None) -> str:
 def _without(rest: str, start: int, end: int) -> str:
     """The words with the assignee's span taken out, and the blank before it when a blank follows.
 
-    A field glued to the span keeps the blank before the span, so the field does
-    not run into the words before it.
+    A field glued to the span keeps the blank before it, so the field does not run into the words.
     """
     head, tail = rest[:start], rest[end:]
     if tail and tail[0] not in " \t":
@@ -366,9 +347,8 @@ async def add(settings: Settings, name: str, text: str, sha: str | None) -> Chec
     else:
         at = len(lines)
 
-    # The line before the new one carries its own ending, so the new line takes a
-    # CRLF only when something follows it. Written this way, a note without a
-    # final newline does not gain a stray carriage return.
+    # The new line takes a CRLF only when something follows it, so a note without a final
+    # newline gains no stray carriage return.
     ending = "\r" if "\r\n" in body and at < len(lines) else ""
     lines.insert(at, f"- [ ] {words}{ending}")
 
@@ -426,9 +406,8 @@ async def assign(
 ) -> Checklist | None:
     """Set or clear the undated `👤` of the task on `line`, or change nothing when it is so already.
 
-    A line that is no task, or is out of range, answers the list as it is, the
-    same as a tick. The caller has already checked that `assignee` is one of the
-    people the app knows, so nothing else is written into the line.
+    A line that is no task, or is out of range, answers the list as it is. The caller has checked
+    that `assignee` is a known person, so nothing else is written into the line.
     """
     note = resolve_list(settings, name)
     if note is None:

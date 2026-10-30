@@ -1,9 +1,7 @@
-"""Anki imports from an upload that run on past the request that started them.
+"""Anki imports that run on past the request which started them.
 
-Cloudflare drops a request it has not answered within 100 seconds, and a deck
-of several hundred MB takes longer than that to unzip and merge. So the finish
-waits a budget for its import and, past it, answers 202 and leaves the import
-running here, where `GET /api/anki/imports/{upload}` reads how it ended.
+Cloudflare drops a request unanswered after 100 seconds, and a big deck takes longer.
+So the finish waits a budget, then answers 202 and leaves the import running.
 """
 
 import asyncio
@@ -26,12 +24,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 ANSWER_BUDGET_SECONDS = 20.0
-"""How long a finish waits for its import before answering 202 and leaving it running.
-
-Well under Cloudflare's 100, so a slow phone link has room; long enough that a
-deck of any usual size still gets its counts or its refusal in the answer to
-the finish itself.
-"""
+"""How long a finish waits for its import before answering 202, under Cloudflare's 100 s."""
 
 
 class AnkiImporting(BaseModel):
@@ -52,25 +45,19 @@ class _Import:
 
 
 _imports: dict[str, _Import] = {}
-"""Every import from an upload this process ran, by upload id.
+"""Every import this process ran, by upload id.
 
-In memory, as the uploads are: one uvicorn worker, and a restart forgets both.
-An outcome stays `uploads.UPLOAD_IDLE_SECONDS` after its end, so the poll can
-read it and a second finish of a landed upload answers its counts again.
+In memory, one worker, so a restart forgets them. An outcome stays
+`uploads.UPLOAD_IDLE_SECONDS` after its end, so the poll can read it.
 """
 
 
 def started(key: str, work: Callable[[], Awaitable[BaseModel]], settings: object) -> _Import:
     """The import of upload `key`: the one running or landed, else `work` started.
 
-    Found and registered with no await between, so a second finish arriving
-    while the first one runs joins it rather than importing the deck again.
-    One refused or failed is started afresh, from the upload `taken` kept.
-
-    `settings` tells two finishes apart beyond the upload: one asking for
-    Anki's schedule cannot join one that runs without it and answer counts it
-    never asked for. While that one runs it is refused; once it landed the
-    upload is gone, and the answer says so.
+    Registered with no await between finding and starting, so a second finish joins the
+    first instead of importing again. `settings` is part of the match: a finish asking
+    for Anki's schedule never joins one that runs without it.
     """
     now = time.monotonic()
     for old, ran in list(_imports.items()):
@@ -99,11 +86,10 @@ def started(key: str, work: Callable[[], Awaitable[BaseModel]], settings: object
 
 
 async def _outcome(key: str, work: Callable[[], Awaitable[BaseModel]]) -> tuple[int, Any]:
-    """Run `work` and end in its answer, the refusals turned into theirs.
+    """Run `work` and return its answer, with its refusals turned into status and body.
 
-    It outlives the request that started it, so a refusal cannot reach the
-    handlers that would answer it: it becomes the status and body they would
-    have written. Anything else becomes a 500 with its reason, logged.
+    It outlives the request, so a refusal cannot reach a handler to answer it.
+    Anything else is a logged 500.
     """
     try:
         done = await work()
@@ -112,9 +98,8 @@ async def _outcome(key: str, work: Callable[[], Awaitable[BaseModel]]) -> tuple[
     except RefusedError as error:
         return error.status, {"detail": str(error)}
     except Exception as error:
-        # The one broad catch here, on purpose: a raise would end the task with
-        # nobody to answer, and the poll would see a 500 with no reason. The
-        # cancel at shutdown is a BaseException and passes.
+        # The one broad catch, on purpose: a raise would end the task with nobody to answer.
+        # The cancel at shutdown is a BaseException and passes.
         logger.exception("The Anki import of upload %s failed", key)
         return HTTPStatus.INTERNAL_SERVER_ERROR, {"detail": f"The import failed: {error}"}
     return HTTPStatus.CREATED, done.model_dump()
@@ -152,10 +137,9 @@ def _running(key: str) -> JSONResponse:
 
 
 async def stop() -> None:
-    """Cancel every import still running and wait while each takes back what it wrote.
+    """Cancel every import still running at shutdown, each taking back what it wrote.
 
-    At shutdown, so a restart mid-import leaves the vault as the import found
-    it: the Anki route's writes undo themselves on the way out, a cancel included.
+    So a restart mid-import leaves the vault as the import found it.
     """
     running = [ran.task for ran in _imports.values() if not ran.task.done()]
     for task in running:

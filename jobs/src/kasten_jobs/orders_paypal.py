@@ -1,18 +1,8 @@
 """PayPal mails in German: a payment's receipt and a refund on its way.
 
-PayPal sends HTML only; its plain part is a line or two. A receipt comes in
-three shapes, each with a 17-character transaction code, the order's key:
-
-- a payment to a shop: "Sie haben 12,99 € EUR an Shop gezahlt", the shop
-  under "Händler", items as text, "Menge: 1" and the line price, then
-  "Zwischensumme", any shipping or tax, and "Gesamtbetrag";
-- a receipt with a table: "Zahlung an" the shop, rows of description, unit
-  price, quantity and amount, then shipping, tax, discount and "Summe";
-- money sent to a person: "Du hast 55,00 € EUR an Name gesendet".
-
-A refund ("Deine Rückzahlung über 13,16 € EUR von Shop wurde veranlasst")
-carries no code. It names the day and amount of the payment it refunds,
-which is how the job finds that payment's order.
+A receipt carries a 17-character transaction code, the order's key. PayPal sends
+HTML only. A refund carries no code: it names the day and amount of the payment
+it refunds, which is how the job finds that payment's order.
 """
 
 import re
@@ -138,12 +128,9 @@ def _extras(lines: list[str], start: int) -> list[Item]:
 
 
 def _items(lines: list[str], merchant: str, total: Decimal) -> list[Item]:
-    """The receipt's lines as it names them.
+    """The receipt's lines as it names them; the merchant's one line when they do not add up.
 
-    Not prefixed with the shop, which would let a rule on the shop beat one
-    on the item; a part no rule names takes the booking's own rule. When the
-    receipt lists none, or its lines do not add up to the total, the payment
-    is one line, the merchant's, for the whole.
+    Not prefixed with the shop, which would let a rule on the shop beat one on the item.
     """
     items, end = _listed(lines)
     if not items:

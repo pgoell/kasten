@@ -1,16 +1,8 @@
 """Two checks in front of every finance write: from kasten's own page, and not too big.
 
-**Own site.** The login in front of kasten is a cookie, which a browser sends
-to any site that posts here. A write whose `Sec-Fetch-Site` says another site
-sent it, or, from a browser too old to send that, whose `Origin` names another
-host, is refused with a `403`. `none` is a navigation the user started, such
-as the phone's share sheet. The host jobs send neither header and pass.
-
-**Size.** FastAPI reads a whole multipart body to disk before a route sees it,
-so a check in the route comes after the bytes have landed. This counts a
-receipt post's bytes as they arrive: a `Content-Length` over the cap is
-refused at once, and a body sent without one, or past what it said, is cut off
-at the cap with a `413`.
+Own site: a write whose `Sec-Fetch-Site` (or `Origin`, if that is missing) names another site
+gets a `403`; the host jobs send neither and pass. Size: bytes are counted as they arrive,
+since FastAPI writes the body to disk first. Over the cap gets a `413`.
 """
 
 import json

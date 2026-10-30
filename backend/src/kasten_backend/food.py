@@ -1,12 +1,8 @@
 """Foods for the log: searched on Open Food Facts, or read by barcode, and trimmed.
 
-Search goes to Search-a-licious, the search service on its own host. The older
-`cgi/search.pl` refuses anonymous callers, and the v2 product API has no full-text
-search, so it cannot find a food by its name.
-
-Nothing is written. An answer is held in memory, and the same memory is what keeps
-kasten inside Open Food Facts' rate limits: a cache hit is not a call to OFF, and
-only a call counts against the window.
+Search goes to Search-a-licious: the older `cgi/search.pl` refuses anonymous callers, and the
+v2 product API has no full-text search. Answers are held in memory, and that keeps kasten
+inside Open Food Facts' rate limits, since a cache hit is not a call.
 """
 
 import math
@@ -153,8 +149,7 @@ def _serving_size_grams(value: object) -> float | None:
 def _serving(item: dict[str, Any]) -> tuple[float, ServingFrom]:
     """The grams one serving weighs, and where that number came from.
 
-    The default of 100 g makes the per-100g figures read as per-serving ones, which
-    is the only sensible reading when OFF names no serving at all.
+    The default of 100 g makes per-100g figures read as per-serving when OFF names no serving.
     """
     quantity = _number(item.get("serving_quantity"))
     if quantity is not None and round(quantity, 3) > 0:

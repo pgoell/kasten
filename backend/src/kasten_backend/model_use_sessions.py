@@ -1,10 +1,7 @@
 """The Claude Code, codex and grok session files, read into one usage per day, tool, model, project.
 
-Claude Code writes one record per block of an answer, each carrying the answer's
-usage, and a resumed session copies earlier records into its new file. So a
-message is counted once, by its id, however many records or files carry it.
-A codex file is read by `model_use_codex`, a grok file by `model_use_grok`, and
-any other file as Claude Code's.
+Claude Code repeats a message's usage across its records and resumed files, so a message
+is counted once, by its id. Codex and grok files are read by their own modules.
 """
 
 import json
@@ -123,8 +120,7 @@ def _claude_messages(lines: list[str]) -> list[Message]:
 def read_messages(source: Path, first: date) -> dict[str, Message]:
     """Every countable message under `source`, once each by id, from the files the range can use.
 
-    Of the records that carry one id, the one with the most output tokens is the
-    one kept. The first seen keeps a tie, so the order of the files decides nothing.
+    The kept record of an id is the one with the most output tokens; a tie keeps the first seen.
     """
     # Claude Code appends to a session file, so one last written before the range began
     # holds no message of the range, and reading it again is the cost this skips.
@@ -180,7 +176,7 @@ class _Sum:
 
 
 def usage_lines(messages: dict[str, Message], config: Config, first: str, last: str) -> list[Usage]:
-    """One usage per day, tool, model and project, for the days from `first` to `last`, both in.
+    """One usage per day, tool, model and project, for the days from `first` to `last`.
 
     A message whose folder names no project is passed over.
     """

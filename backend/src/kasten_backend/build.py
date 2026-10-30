@@ -3,21 +3,16 @@
 from importlib.metadata import version
 from pathlib import Path
 
-# The repo root when the backend runs from the tree, and a path that holds no
-# `.git` when it runs from the wheel: production installs the package into
-# `/app/.venv` and copies no repo beside it.
+# The repo root from the tree. Production installs into `/app/.venv` with no repo
+# beside it, so the path holds no `.git` there.
 ROOT = Path(__file__).parents[3]
 
 
 def build_id(root: Path = ROOT) -> str:
-    """Name the code this process is running, in seven characters or a version.
+    """Name the running code: seven characters of commit, or else the release.
 
-    Read out of `.git` rather than run through `git`, which the image has not
-    got, and read on every call rather than once: a dev container outlives the
-    commits made under it.
-
-    The release is the answer wherever the tree cannot be read, which covers
-    production and a ref `git gc` has packed away.
+    Read from `.git` on every call: the image has no `git`, and a dev container
+    outlives the commits made under it.
     """
     head = root / ".git" / "HEAD"
     if not head.is_file():

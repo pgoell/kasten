@@ -1,41 +1,8 @@
-"""Sorting bookings into categories: payees, rules, the hand's choice, and the to-sort list.
+"""Sorting bookings into categories: the hand, text rules, payee defaults, then payee rules.
 
-A booking's category comes from one place, in this order, the first that
-gives one winning:
-
-1. the hand: a category set by hand is never touched by a rule;
-2. a `text_contains` rule whose pattern is in the purpose, case ignored;
-3. the payee's default category;
-4. a `payee` rule whose pattern, cleaned like a payee name, starts at a word
-   of the payee's key, so `dm` names `dm drogerie` and not `admiral`, and
-   `lebensversic` names `lebensversicherung ag`.
-
-A rule only sorts a booking of its category's side: a rule for an `income`
-category only money in, an `ignore` rule both, any other rule only money out,
-so a payee rule `deloitte` for Salary leaves spending at the Deloitte canteen
-alone, and a hotel paid for work and its reimbursement land in one category.
-
-Among rules of one kind the longest pattern wins, then the lowest id. Text
-rules come first because they exist for the bookings whose payee says
-nothing, PayPal and Amazon: an "always for this payee" on a PayPal booking
-must not silence the rules that read past it. A payee's own default comes
-before a payee rule because it names that one payee, and a rule names a part
-of many.
-
-A split is sorted the same way, its own text standing in for the purpose and
-its booking's payee for its own; a text rule on its booking's purpose comes
-right after one on its own text, so a part no rule names keeps the category
-a purpose rule such as `amzn` gave the whole booking. A booking with splits takes no category
-itself; its splits do. A move between own accounts (`transfer_group`) takes
-none either, being no spending.
-
-Rules run over every booking whenever a rule, a payee's default or a category
-changes, and over the new rows of every ingest. A run also clears a category
-a rule gave that no rule gives any more. Nothing here commits.
-
-Every write that sorts takes `SORT_LOCK` before it touches a booking, so two
-runs, or a run and a sort by hand, take turns rather than wait on each
-other's rows.
+The first that gives a category wins, in that order. A rule sorts only its category's side:
+money in, money out, or both for `ignore`. Among rules of one kind the longest pattern wins.
+Every sorting write takes `SORT_LOCK` first, so runs and hand sorts take turns.
 """
 
 import re
@@ -96,11 +63,9 @@ async def lock(session: AsyncSession) -> None:
 def payee_key(name: Any) -> ColumnElement[str]:
     """The key a counterparty name is matched by, worked out in the database.
 
-    Lowercased with Postgres's `lower()` (not a full casefold: `ß` stays `ß`),
-    every run of characters that are neither letters nor digits made one
-    space, and trimmed, so `REWE Markt GmbH.` and `Rewe  markt gmbh` are one
-    payee. Under the database's `en_US.utf8` locale `[:alnum:]` takes umlauts
-    as letters.
+    Lowercased by Postgres's `lower()`, not a full casefold, with each run of non-alphanumerics
+    made one space, so `REWE Markt GmbH.` and `Rewe  markt gmbh` are one payee. Under the
+    `en_US.utf8` locale `[:alnum:]` takes umlauts as letters.
     """
     return func.btrim(func.regexp_replace(func.lower(name), "[^[:alnum:]]+", " ", "g"))
 
@@ -108,8 +73,7 @@ def payee_key(name: Any) -> ColumnElement[str]:
 def clean_pattern(kind: str, pattern: str) -> str:
     r"""A rule's pattern as stored and matched: lowercased, and a payee one cleaned like a key.
 
-    Stored this way so the unique `(kind, pattern)` refuses `REWE` beside `rewe`.
-    Python's `[^\W_]` is the letters and digits that `[:alnum:]` is in `payee_key`.
+    Stored so the unique `(kind, pattern)` refuses `REWE` beside `rewe`.
     """
     lowered = pattern.lower()
     if kind == "payee":
@@ -125,10 +89,8 @@ def _spelled(name: Any) -> ColumnElement[str]:
 def _first_rule(kind: str, matches: ColumnElement[bool], amount: Any, payee: Any = None) -> Any:
     """The category of the winning rule of one kind, as a subquery correlated to its booking.
 
-    Only rules of the booking's side take part: income for money in, the
-    rest for money out, and ignore rules for both. With `payee`, the subquery
-    joins that payee to each rule on `matches`; every other table it names is
-    the outer row's.
+    Only rules of the booking's side take part. With `payee`, the subquery joins that payee to
+    each rule on `matches`.
     """
     side = case((amount > 0, literal("in")), else_=literal("out"))
     statement = select(Rule.category_id).where(Rule.kind == kind, Rule.side.in_([side, "both"]))
@@ -148,20 +110,17 @@ def _by_text(text: Any, amount: Any) -> Any:
 def _chosen(text: Any, payee_id: Any, amount: Any, booking_text: Any = None) -> Any:
     """The category the rules give a row whose text, payee and amount are these columns.
 
-    A split passes its booking's purpose as `booking_text`: a text rule on
-    the purpose, such as `amzn`, then sorts a part its own text leaves alone,
-    as it sorted the booking before the split.
+    A split passes its booking's purpose as `booking_text`, so a text rule on the purpose still
+    sorts a part its own text leaves alone.
     """
     payee = aliased(Payee)
     by_text = _by_text(text, amount)
     if booking_text is not None:
         by_text = func.coalesce(by_text, _by_text(booking_text, amount))
-    # A space before the key and the pattern, so a pattern starts at a word of
-    # the key: Firefly's rules hold fragments such as `lebensversic`.
+    # A space before the pattern: rules hold fragments such as `lebensversic`.
     padded = func.concat(" ", payee.key)
     by_default = select(payee.category_id).where(payee.id == payee_id).scalar_subquery()
-    # A join in the rule's own subquery, not an EXISTS under it: two levels
-    # down, the EXISTS was not tied to the outer booking and matched any payee.
+    # A join, not an EXISTS: two levels down, an EXISTS was not tied to the outer booking.
     by_payee = _first_rule(
         "payee",
         and_(payee.id == payee_id, func.strpos(padded, func.concat(" ", Rule.pattern)) > 0),
@@ -174,8 +133,7 @@ def _chosen(text: Any, payee_id: Any, amount: Any, booking_text: Any = None) -> 
 async def _apply(session: AsyncSession, table: Any, rows: Any) -> int:
     """Write the rules' choice from `rows` (id, category) into `table`, where it changes.
 
-    The hand's rows are kept out here as well as in `rows`: a row sorted by hand
-    while this waited for its lock is checked again against this `WHERE` alone.
+    The `WHERE` alone also excludes a row sorted by hand while this waited for the lock.
     """
     choice = rows.subquery()
     written = await session.scalars(
@@ -235,8 +193,8 @@ async def apply_rules(session: AsyncSession, ids: Sequence[int] | None = None) -
 async def assign_payees(session: AsyncSession, ids: Sequence[int] | None = None) -> None:
     """Give each booking with a counterparty and no payee the payee its cleaned name is.
 
-    A payee is made the first time its key is seen, named as that booking
-    spells it. A counterparty that cleans to nothing gets no payee.
+    A payee is made the first time its key is seen, named as that booking spells it.
+    A counterparty that cleans to nothing gets none.
     """
     key = payee_key(Transaction.counterparty_name)
     unassigned = and_(Transaction.payee_id.is_(None), key != "")
@@ -316,8 +274,7 @@ async def set_payee_category(
 async def delete_category(session: AsyncSession, category_id: int) -> bool:
     """Delete a category, its rules with it, and run the rules over what it held.
 
-    The bookings it held, by hand or by rule, go back to the rules first, so a
-    rule may sort them elsewhere and the rest come back to the to-sort list.
+    Its bookings go back to the rules first, so a rule may sort them elsewhere.
     """
     await lock(session)
     category = await session.get(Category, category_id)
@@ -337,8 +294,7 @@ async def delete_category(session: AsyncSession, category_id: int) -> bool:
 async def reread(session: AsyncSession, transaction_id: int) -> Transaction:
     """A booking and its splits as the database holds them now.
 
-    The rules write with plain updates, which leave the rows already in the
-    session as they were, so a booking is read again before it is answered.
+    The rules' plain updates leave session rows stale, so the booking is read again.
     """
     statement = (
         select(Transaction)
@@ -390,10 +346,8 @@ async def to_sort_total(session: AsyncSession) -> int:
 async def to_sort(session: AsyncSession, *, after: int | None, limit: int) -> list[Transaction]:
     """At most `limit` bookings that hold something without a category, oldest first.
 
-    A booking counts when it has no splits and no category, or when one of its
-    splits has none; transfers never count. The caller shows a booking's
-    uncategorised splits in its place. `after` is a cursor as in
-    `finance.list_transactions`.
+    A booking counts when it has no splits and no category, or when a split has none.
+    Transfers never count. `after` is a cursor as in `finance.list_transactions`.
     """
     whole, split = _loose()
     statement = (

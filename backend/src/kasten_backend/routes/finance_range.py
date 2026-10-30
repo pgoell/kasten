@@ -1,11 +1,6 @@
 """The span routes: both scopes over a span of months, and the budget setup.
 
-Each scope's span is set against the same months a year before and the
-average; the setup sets every limit at once.
-
-A span is `from` to `month`, both `YYYY-MM` and both included; with no `from`
-it is the one month. The drilldown routes take the same two. docs/reference/
-http-api/finance-range.md has the shapes and budget-model.md the rules.
+A span is `from` to `month`, both `YYYY-MM` and both included; with no `from` it is one month.
 """
 
 import datetime as dt  # noqa: TC003  pydantic reads the annotation at runtime

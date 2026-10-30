@@ -1,13 +1,8 @@
 """Gmail, read only, over its REST API with the login the gws CLI exported.
 
-The order sync reads mail bodies; the receipt job reads PDF attachments.
-
-The credentials file is what `gws auth export --unmasked` prints: an OAuth
-client id and secret and a refresh token. Each run trades the refresh token
-for an access token and only ever reads: it lists messages by a search and
-fetches them. It never labels, moves or sends. The token holds whatever
-scopes its login granted, so the how-to makes a login of its own with
-read-only Gmail.
+The credentials file is what `gws auth export --unmasked` prints. The token
+holds whatever scopes its login granted, so the how-to makes a login of its own
+with read-only Gmail. The code only reads: it never labels, moves or sends.
 """
 
 import base64
