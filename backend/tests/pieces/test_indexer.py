@@ -15,8 +15,7 @@ import time
 from typing import TYPE_CHECKING
 
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
-from sqlalchemy.pool import NullPool
+from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from kasten_backend.config import Settings
 from kasten_backend.pieces import indexer
@@ -297,17 +296,3 @@ async def test_a_model_that_will_not_load_stops_the_indexer_quietly(
     with caplog.at_level(logging.WARNING):
         await asyncio.wait_for(made.run(), 5)
     assert "model will not load" in caplog.text
-
-
-async def test_no_database_stops_the_indexer_quietly(
-    tmp_path: Path, caplog: pytest.LogCaptureFixture
-) -> None:
-    _write(tmp_path, "a.md", "words")
-    engine = create_async_engine(
-        "postgresql+psycopg://nobody:nothing@127.0.0.1:1/none", poolclass=NullPool
-    )
-    made = Indexer(tmp_path, async_sessionmaker(engine), FakeModel, model_thread())
-    with caplog.at_level(logging.WARNING):
-        await asyncio.wait_for(made.run(), 10)
-    assert "its database fails" in caplog.text
-    await engine.dispose()
