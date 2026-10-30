@@ -9,6 +9,7 @@ import json
 from typing import TYPE_CHECKING, Any
 
 import pytest
+from fastapi import HTTPException
 from sqlalchemy import text as sql
 
 from kasten_backend import agent
@@ -158,7 +159,35 @@ async def test_like_an_unread_note_says_so(
     answer = await _http(client, bearer, like="Unread.md")
 
     assert answer["hits"] == []
-    assert answer["status"].startswith("The index has not read Unread.md yet")
+    assert answer["status"].startswith("The index holds no note at Unread.md")
+
+
+async def test_like_takes_the_spellings_read_note_takes(
+    client: AsyncClient, bearer: dict[str, str], model: Indexer
+) -> None:
+    answer = await _mcp(client, bearer, like="./Hund.md")
+
+    assert [hit["path"] for hit in answer["hits"]][:1] == ["Welpe.md"]
+
+
+async def test_no_database_is_a_tool_error_in_the_routes_words(
+    client: AsyncClient, bearer: dict[str, str], stored: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def down() -> AsyncIterator[AsyncSession]:
+        raise HTTPException(status_code=503, detail="No database answered")
+        yield  # pragma: no cover
+
+    monkeypatch.setattr(agent, "sessions", down)
+    body = {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "tools/call",
+        "params": {"name": "search_meaning", "arguments": {"query": "dog"}},
+    }
+    response = await client.post("/agent/mcp", json=body, headers={**bearer, **RPC})
+
+    assert "No database answered" in response.text
+    assert '"isError":true' in response.text.replace(" ", "")
 
 
 async def test_no_model_configured_ranks_by_words(

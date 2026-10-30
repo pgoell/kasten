@@ -311,9 +311,12 @@ async def search_meaning(
     said = []
     async with asynccontextmanager(sessions)() as session:
         if like:
+            note = resolve_note(settings.vault_path, like)
+            # The spelling `read_note` would name it by, so both tools take the same paths.
+            like = like if note is None else relative_path(settings.vault_path, note)
             found = await alike(settings, session, running, like, archive)
             if not found.read:
-                said.append(f"The index has not read {like} yet, so it knows no notes like it.")
+                said.append(f"The index holds no note at {like}, so it knows no notes like it.")
         else:
             found = await rank(settings, session, running, query, archive)
             if query.strip() and not found.meaning:

@@ -11,6 +11,7 @@ from importlib.metadata import version
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from fastapi import HTTPException
 from mcp.server import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 from mcp.server.transport_security import TransportSecuritySettings
@@ -126,7 +127,12 @@ async def search_meaning(
     (the best piece's heading path), `text` and `score`. `status` says why hits fall short:
     no model ranks by words alone, a filling index misses notes. Skips the archive unless asked.
     """
-    return (await agent.search_meaning(get_settings(), query, like, archive)).model_dump()
+    try:
+        found = await agent.search_meaning(get_settings(), query, like, archive)
+    except HTTPException as refused:
+        # The 503 of a backend with no database, in the route's words.
+        raise ToolError(str(refused.detail)) from refused
+    return found.model_dump()
 
 
 async def save_note(path: str, content: str, sha: str | None = None) -> dict[str, Any]:

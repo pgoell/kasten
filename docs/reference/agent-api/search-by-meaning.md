@@ -35,6 +35,7 @@ folder named by `KASTEN_PIECES_SKIP` is never indexed, so it never appears.
 `status` is empty when all is well. Otherwise it says in plain sentences why
 the hits may fall short: the model is still loading or not configured, so the
 hits rank by words alone; the index is still filling ("The index has read N of
-M notes so far."); or the `like` note is not read yet, so there are no hits. A
+M notes so far."); or the index holds no note at the `like` path, so there are no hits. A
 database with no pieces table answers no hits and reads as an index of 0
-notes. Nothing here answers with an error, and nothing here writes.
+notes. Only a backend with no database answers with an error, the 503 the other
+routes give. Nothing here writes.
