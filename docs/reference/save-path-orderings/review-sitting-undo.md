@@ -1,7 +1,7 @@
 ---
 type: Reference
 title: Save path orderings: the review sitting's writes and undo
-description: The orders in which the review sitting's writes and undo can meet the write queue of its own rating, jot and suspend writes, including a write the restart drops and goes again and the parked list's reads around its writes, what must hold in each, and whether getting it wrong loses typed text.
+description: Which line a grade writes to, and the orders in which the review sitting's writes and undo can meet the write queue of its own rating, jot and suspend writes, including a write the restart drops and goes again and the parked list's reads around its writes, what must hold in each, and whether getting it wrong loses typed text.
 resource: frontend/src/lib/review/use-sitting-writes.ts
 tags: [editor, saving, autosave, frontend, tests]
 status: stable
@@ -33,6 +33,19 @@ the step's write and U the undo's. The tests are in
 | U4 | S lands; another pane or the disk writes the note; Undo. | Refused, `409`: nothing is written, the card is not put back, and the foot says the note changed, not that it could not be written. | yes | `#600 A9 an undo over a note changed since the step writes nothing and says so` (#600) |
 | U5 | S lands; Undo; U fails on the network for about a minute. | Nothing is restored after the minute of tries; the foot says `The note could not be written:` and the reason. The step is gone either way, one step being all Undo holds. | no | `#600 I5 an undo the network fails restores nothing and says why` (#600) |
 | U6 | U out; rate, suspend, turn or jot, by key or button, the card on screen or one in another note. | All held until U answers: the buttons are greyed and the keys do nothing, so U's landing, which puts back the queue and the count as they stood before S, cannot ask a card twice or drop one. Jot it and Check are disabled; a question typed into an open jot line stays in it, and the next submit after U answers sends it, into the note of the card the line was opened on. A focused button stays focused, so the pane's keys work once U answers. | yes | `#600 B1 nothing rates, parks, turns or jots the next card while an undo is out`, `#600 B2 a jot sent while an undo is out stays in its line and goes once the undo lands`, `#600 B4 a jot held through an undo lands in the note it was opened on`, `#600 B5 Jot it and Check are disabled while an undo is out, their text kept`; review-pane: `#600 B6 a header button clicked before u keeps the focus, and the keys, in the pane` (#600) |
+
+## Which line a grade writes to
+
+A rating writes its schedule to the line the sitting's cards name for the card. A grade no longer parses the deck note again to find those lines (#1379): it shifts the cards it holds. The graded card takes the schedule it wrote; where the schedule went on a line of its own, the card and the other numbers of its cloze end a line lower and every card under it moves down one. The write's landing keeps the cards where the vault's answer differs from what was sent only in its `modified` stamp, and a landing, undo or read that differs in more is parsed again, on the main thread, as before. The worker of #1359 parses only the open, so a worker that fails mid-sitting changes nothing here; one that fails at the open leaves that parse to the main thread, and the grades after it shift the same. A parse that throws breaks the screen as it did before. G is a grade. The tests are in `frontend/tests/review-queue/grade-lines.test.tsx` unless they name `regraded.test.ts` beside it.
+
+| # | Ordering | Must hold | Loses typed text if wrong | Test |
+|---|---|---|---|---|
+| G1 | G on a card, then G on every later card, in one sitting. | Each schedule lands on its own card's line, the shifted cards equal to a parse of the new text for every card shape. | no | `#1379 A4 three grades in one sitting each write the card's own line, with the vault stamping every answer`; `regraded.test.ts`: `#1379 A3 grading each card of question mark shifts to the parse, on the first grade and every later one` and the other shapes |
+| G2 | G1 out; G2 on the next card before G1 lands. | G2 waits behind G1, names its answer, and lands on its own card's line. | no | `#1379 A5 a second grade before the first write lands goes to the second card's line` |
+| G3 | G lands; the vault's answer differs only in `modified`. | The cards carry over with no parse, and the next grade lands on its line. | no | `#1379 A4 three grades in one sitting each write the card's own line, with the vault stamping every answer` |
+| G4 | G lands; the answer adds lines (a first stamp of `id` and `created`). | The note is parsed again, and the next grade lands on its line. | no | `#1379 I2 a stamp that adds lines is read again, and the next grade lands on its line` |
+| G5 | The note is edited elsewhere while the sitting is open; G. | G is refused, the note is read and parsed again, as before, and the next grade lands on its line in the edited text. | no | `#1379 A6 a note edited under the open sitting is read again, and the next grade lands on its line` |
+| G6 | G lands; Undo lands; G again. | The undo puts back the cards from before G with no parse, and the next grade lands on its line. | no | `#1379 I1 an undo after a grade puts the cards back, and the next grade lands on its line` |
 
 ## A write the restart drops
 

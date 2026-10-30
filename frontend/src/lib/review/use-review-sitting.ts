@@ -5,7 +5,14 @@ import { readClock } from "@/lib/clock";
 import { readNotes } from "@/lib/read-retry";
 import { appendStub, setSuspended, writeSchedule } from "@/lib/review/card-write";
 import type { Deck, Limits } from "@/lib/review/review";
-import { cardsOf, readAside, type Seat, seatsFor } from "@/lib/review/review-queue";
+import {
+  cardsOf,
+  readAside,
+  regraded,
+  type Seat,
+  seatsFor,
+  withText,
+} from "@/lib/review/review-queue";
 import type { Card, Rating, Schedule } from "@/lib/review/srs";
 import {
   answeredToday,
@@ -42,6 +49,8 @@ interface Step {
   text: string;
   /** The note the step sent, which the undo names as its base. */
   next: string;
+  /** The note's cards before the step, which the undo puts back without a parse. */
+  cards: Card[] | undefined;
   queue: Seat[];
   done: number;
   typed: string;
@@ -206,7 +215,17 @@ export function useReviewSitting(
 
       const moved = scheduleFor(seat, held, rating, today);
       const next = deck.whole ? writeNoteSchedule(text, moved) : writeSchedule(text, held, moved);
-      setTexts((was) => new Map(was).set(seat.note, next));
+      const before = cards.get(seat.note);
+      // Shifted only from the text these cards were read off; else parsed, as before #1379.
+      const after = regraded(deck, before, held, text, next);
+      setTexts((was) =>
+        withText(
+          was ?? new Map(),
+          seat.note,
+          next,
+          was?.get(seat.note) === text ? after : undefined,
+        ),
+      );
       setRevealed(false);
       setTyped("");
       setDone((count) => count + 1);
@@ -220,7 +239,7 @@ export function useReviewSitting(
       const following = coming === undefined ? undefined : cards.get(coming.note)?.[coming.at];
       play(following === undefined ? [] : soundsShowing(following, false));
 
-      setStep({ note: seat.note, text, next, queue, done, typed });
+      setStep({ note: seat.note, text, next, cards: before, queue, done, typed });
       write(seat.note, text, next);
     },
     [cards, deck, done, play, queue, seat, texts, today, typed, undoing, write, flying.current],
@@ -254,7 +273,7 @@ export function useReviewSitting(
     const following = coming === undefined ? undefined : cards.get(coming.note)?.[coming.at];
     play(following === undefined ? [] : soundsShowing(following, false));
 
-    setStep({ note: seat.note, text, next, queue, done, typed });
+    setStep({ note: seat.note, text, next, cards: cards.get(seat.note), queue, done, typed });
     write(seat.note, text, next);
   }, [cards, deck, done, play, queue, seat, texts, typed, undoing, write, flying.current]);
 
@@ -270,7 +289,7 @@ export function useReviewSitting(
       setUndoing(false);
       if (error instanceof ChangedOnDisk) setFailed(MOVED_ON);
       if (error !== null) return;
-      setTexts((was) => (was === null ? was : new Map(was).set(step.note, step.text)));
+      setTexts((was) => (was === null ? was : withText(was, step.note, step.text, step.cards)));
       setQueue(step.queue);
       setRevealed(true);
       setTyped(step.typed);

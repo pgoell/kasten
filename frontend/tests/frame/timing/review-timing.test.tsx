@@ -142,6 +142,15 @@ async function settled(writes: number): Promise<void> {
   await new Promise((wake) => requestIdleCallback(wake));
 }
 
+/** Turns the card and grades it good, until the `step`th write has landed. */
+async function grade(screen: HTMLElement, step: number): Promise<void> {
+  await reveal(screen);
+  (screen.querySelector('button[data-rating="good"]') as HTMLButtonElement).click();
+  await expect.poll(() => screen.querySelector('button[data-rating="good"]')).toBeNull();
+  // The write lands after the buttons go, and its tail is this step's work, not the next's (#1380).
+  await settled(step);
+}
+
 /** Shows the answer the way a click on the footer does. */
 async function reveal(screen: HTMLElement): Promise<void> {
   (screen.querySelector("footer button") as HTMLButtonElement).click();
@@ -176,8 +185,9 @@ it("A4 #1359 opens a 1500-card deck with no card parse on the main thread", asyn
 }, 60_000);
 
 // Budget: 88 commits and 3 long tasks over 20 steps, each step counted until its write has
-// landed and the page is idle (#1380). Measured 80 commits (4 a step) and 1 long task at 1x;
-// at a 4x CPU slowdown 40 long tasks, two a step, of the deck's two parses (#1379).
+// landed and the page is idle (#1380). Measured 80 commits (4 a step) and 0 long tasks at 1x.
+// At a 4x CPU slowdown main had 40, two a step of the deck's two parses; now 20, one a step,
+// mostly the write's sha256 of the 1 MB note. 88 leaves a commit of room every other step.
 it("A4 #1321 steps through 20 cards at phone width within its commit and long-task budget", async () => {
   const screen = mount();
   await expect
@@ -193,11 +203,7 @@ it("A4 #1321 steps through 20 cards at phone width within its commit and long-ta
     const before = commits;
     const parsed = mainParses();
     takeLongTasks();
-    await reveal(screen);
-    (screen.querySelector('button[data-rating="good"]') as HTMLButtonElement).click();
-    await expect.poll(() => screen.querySelector('button[data-rating="good"]')).toBeNull();
-    // The write lands after the buttons go, and its tail is this step's work, not the next's (#1380).
-    await settled(step);
+    await grade(screen, step);
     const made = commits - before;
     const tasks = takeLongTasks();
     totalCommits += made;
@@ -212,4 +218,16 @@ it("A4 #1321 steps through 20 cards at phone width within its commit and long-ta
   );
   expect.soft(totalCommits).toBeLessThanOrEqual(88);
   expect.soft(totalLongTasks).toBeLessThanOrEqual(3);
+}, 120_000);
+
+// A count, not the long task's ms: main parsed the deck twice a grade, 40 parses over 20 grades
+// and 40 long tasks at a 4x CPU slowdown. A grade shifts the cards it holds instead (#1379).
+it("A4 #1379 grades 20 cards with no card parse on the main thread", async () => {
+  const screen = mount();
+  await expect
+    .poll(() => screen.querySelector('[data-testid="review-card"] .cm-line'), { timeout: 30_000 })
+    .not.toBeNull();
+  const opened = mainParses();
+  for (let step = 1; step <= 20; step++) await grade(screen, step);
+  expect(mainParses() - opened).toBe(0);
 }, 120_000);

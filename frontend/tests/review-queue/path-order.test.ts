@@ -1,6 +1,6 @@
 import { type DeckNote, decksFrom } from "@/lib/review/review";
 import { seatsFor } from "@/lib/review/review-queue";
-import { TODAY } from "./review-fixture";
+import { TODAY } from "../review-fixture";
 
 const NO_LIMITS = { note: null, defaults: { new_per_day: null, reviews_per_day: null } };
 /** Due before today, and never answered today. */
