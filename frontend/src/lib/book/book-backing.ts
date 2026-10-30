@@ -234,8 +234,8 @@ export function fitCover(doc: Document, renderer: HTMLElement): ResizeObserver |
 }
 
 /**
- * The book's page in the app's colours and type. Rules are `!important` with an id's
- * weight, so a book's own stylesheet cannot put black on the dark page (#467, #470, #471, #475).
+ * The app's colours, `!important` with an id's weight so a book's stylesheet cannot put black on the dark page (#467, #470, #471, #475).
+ * `<mark>` keeps its own colours; the image and svg rules carry a second `:not(#\#)` to outweigh the link rule.
  */
 export function pageStyles(): string {
   const style = getComputedStyle(document.documentElement);

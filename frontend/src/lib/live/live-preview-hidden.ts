@@ -85,8 +85,8 @@ export class Walk {
 }
 
 /**
- * Walks a position off hidden text, as `skipAtomicRanges` does, since vim ignores atomicRanges.
- * Only `to` is a landing spot: resting on `from` lets `x` delete a character nobody sees.
+ * Walks a position off hidden text, as `skipAtomicRanges` does (vim ignores atomicRanges), flipping direction at most once.
+ * Lands on `to`, as `from` lets `x` delete a hidden character; a folded callout lands on `from` or the line under it.
  */
 function skipHidden(start: number, bias: number, hidden: RangeSet<Decoration>, doc: Text): number {
   let pos = start;
