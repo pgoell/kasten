@@ -42,13 +42,17 @@ vi.mock("@/lib/api", async (original) => ({
     path === "decks/big.md"
       ? Promise.resolve(BIG)
       : Promise.reject(new Error(`GET /api/files/${path} failed with 404`)),
-  saveNote: (path: string, content: string) => Promise.resolve({ path, content }),
+  saveNote: (path: string, content: string) => {
+    saves += 1;
+    return Promise.resolve({ path, content });
+  },
   fetchReviewLimits: () => Promise.reject(new Error("GET /api/review/limits failed with 404")),
 }));
 
 let root: Root | undefined;
 let host: HTMLElement | undefined;
 let commits = 0;
+let saves = 0;
 let longTasks: PerformanceEntry[] = [];
 let observer: PerformanceObserver | undefined;
 let parse: ReturnType<typeof vi.spyOn>;
@@ -56,6 +60,7 @@ let parse: ReturnType<typeof vi.spyOn>;
 beforeEach(async () => {
   localStorage.clear();
   commits = 0;
+  saves = 0;
   longTasks = [];
   observer = new PerformanceObserver((list) => longTasks.push(...list.getEntries()));
   observer.observe({ type: "longtask" });
@@ -128,6 +133,15 @@ function mainParses(): number {
   ).length;
 }
 
+/** Once `writes` saves have gone out and the page has been idle since, so a grade's tail is counted. */
+async function settled(writes: number): Promise<void> {
+  await expect.poll(() => saves).toBe(writes);
+  for (let frame = 0; frame < 2; frame++) {
+    await new Promise((wake) => requestAnimationFrame(wake));
+  }
+  await new Promise((wake) => requestIdleCallback(wake));
+}
+
 /** Shows the answer the way a click on the footer does. */
 async function reveal(screen: HTMLElement): Promise<void> {
   (screen.querySelector("footer button") as HTMLButtonElement).click();
@@ -161,9 +175,9 @@ it("A4 #1359 opens a 1500-card deck with no card parse on the main thread", asyn
   expect(mainParses()).toBe(0);
 }, 60_000);
 
-// Budget: 48 commits and 3 long tasks over 20 steps. Measured 40 commits (2 a step) and
-// 0 long tasks. 48 leaves a commit of room a step; a step that renders the card twice
-// per grade would take 60 and fail.
+// Budget: 88 commits and 3 long tasks over 20 steps, each step counted until its write has
+// landed and the page is idle (#1380). Measured 80 commits (4 a step) and 1 long task at 1x;
+// at a 4x CPU slowdown 40 long tasks, two a step, of the deck's two parses (#1379).
 it("A4 #1321 steps through 20 cards at phone width within its commit and long-task budget", async () => {
   const screen = mount();
   await expect
@@ -177,22 +191,25 @@ it("A4 #1321 steps through 20 cards at phone width within its commit and long-ta
   let worstStep = 0;
   for (let step = 1; step <= 20; step++) {
     const before = commits;
+    const parsed = mainParses();
     takeLongTasks();
     await reveal(screen);
     (screen.querySelector('button[data-rating="good"]') as HTMLButtonElement).click();
     await expect.poll(() => screen.querySelector('button[data-rating="good"]')).toBeNull();
+    // The write lands after the buttons go, and its tail is this step's work, not the next's (#1380).
+    await settled(step);
     const made = commits - before;
     const tasks = takeLongTasks();
     totalCommits += made;
     totalLongTasks += tasks.count;
     worstStep = Math.max(worstStep, made);
     console.error(
-      `TIMING review step=${step} commits=${made} longtasks=${tasks.count} longtask-ms=${tasks.ms}`,
+      `TIMING review step=${step} commits=${made} parses=${mainParses() - parsed} longtasks=${tasks.count} longtask-ms=${tasks.ms}`,
     );
   }
   console.error(
     `TIMING review 20-steps commits=${totalCommits} longtasks=${totalLongTasks} worst-step-commits=${worstStep} frame-gap-max-ms=${frameGap()}`,
   );
-  expect.soft(totalCommits).toBeLessThanOrEqual(48);
+  expect.soft(totalCommits).toBeLessThanOrEqual(88);
   expect.soft(totalLongTasks).toBeLessThanOrEqual(3);
 }, 120_000);
