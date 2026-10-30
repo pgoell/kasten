@@ -11,13 +11,8 @@ import { repeats } from "@/lib/presses";
 import { notePath } from "@/lib/todo/todo-commands";
 
 /**
- * The scroll place of each table that was drawn, kept per editor and keyed by
- * the note and where the table starts.
- *
- * The widget is taken off the page whenever the cursor goes in to show its
- * source, and a new one is built when it comes out. Without this the sideways
- * scroll would go back to the start each time. Keyed by the note too, since two
- * notes with a table at the same offset would otherwise open each other's scroll.
+ * The scroll place of each drawn table, kept per editor, note and table start.
+ * A rebuilt widget would otherwise scroll back to the start each time the cursor enters the table.
  */
 const scrolled = new WeakMap<EditorView, Map<string, number>>();
 /**
@@ -37,10 +32,7 @@ function textOf(spans: Span[]): string | null {
 
 /**
  * Keeps the edge shadows and the sticky first column true to the scroller.
- *
- * Read off the scroll and the box, so a resize, a change in the table's width
- * and a scroll all land on the same numbers. The first column's width is set as
- * a property so the left shadow can sit at its right edge.
+ * Read off the scroll and the box, so resizes and scrolls land on the same numbers.
  */
 function watchTable(
   block: HTMLElement,
@@ -78,11 +70,7 @@ function watchTable(
 
 /**
  * A table, drawn as a table.
- *
- * The cells arrive cut into spans rather than as source, because cutting them
- * is a reading of the syntax tree and a widget has only the DOM. The classes
- * are the ones the inline walk hands out, so a bold cell and a bold word in a
- * paragraph come out the same weight.
+ * Cells arrive as spans, not source, since cutting them is a reading of the syntax tree.
  */
 class TableGrid extends WidgetType {
   private readonly rows: Span[][][];
@@ -115,15 +103,8 @@ class TableGrid extends WidgetType {
   }
 
   /**
-   * A click in the table puts the cursor in it, which is what shows the source.
-   *
-   * The default is to swallow the event, and swallowing it here would leave the
-   * mouse no way in. The keys have `w`, a search and a line jump, all of which
-   * move by document position; `j` and `k` move by what is on the screen and
-   * step over the whole block, which is the fast way past a long table.
-   *
-   * A wide table's block scrolls sideways with no scrollbar to press on, the
-   * stylesheet hiding every one, so no press here is the browser's to keep.
+   * A click in the table puts the cursor in it, which shows the source.
+   * Swallowing the press would leave the mouse no way in.
    */
   override ignoreEvent(): boolean {
     return false;
@@ -273,10 +254,7 @@ class TableGrid extends WidgetType {
 
 /**
  * Where the table stops, which is not always where the parser says it does.
- *
- * GFM ends a table at a blank line, so a paragraph written straight under one
- * is parsed as a row of a single cell. A row is a line carrying a `|`, the same
- * reading `tableAt` walks a table by, and the first line without one ends it.
+ * GFM ends a table at a blank line, but a paragraph under it parses as a row. A row is a line with a `|`.
  */
 function tableEndsAt(state: EditorState, table: SyntaxNode): number {
   const first = state.doc.lineAt(table.from).number;
@@ -305,9 +283,8 @@ function tableGrid(state: EditorState, table: SyntaxNode, end: number): TableGri
 }
 
 /**
- * The caption under a table: a line starting `Table: ` straight under its last
- * row, with no blank line between. The prefix is hidden where the line is drawn,
- * and shown as written while the cursor is on the line.
+ * The caption under a table: a line starting `Table: ` straight under its last row.
+ * The prefix is hidden where drawn and shown as written while the cursor is on the line.
  */
 const CAPTION = "Table: ";
 
@@ -321,9 +298,8 @@ function drawCaption(walk: Walk, last: number): void {
 }
 
 /**
- * Drawn as a table, and shown as its source while the cursor is in it.
- * The only construct here that flips a whole block at once: one widget
- * stands in for every line of it, so there is no half of a table to show.
+ * Drawn as a table, and shown as source while the cursor is in it.
+ * One widget stands in for every line, so a table is never half shown.
  */
 export function drawTable(walk: Walk, table: SyntaxNode): void {
   const { state, decorations } = walk;

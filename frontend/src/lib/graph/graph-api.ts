@@ -15,11 +15,8 @@ export interface GraphAsk {
 }
 
 /**
- * The notes as a graph, narrowed by a filter or asked a pattern.
- *
- * The query goes over as it was typed and the backend reads it, so there is
- * one parser for the pane, the route and the agent. A query it cannot read
- * throws the backend's sentence, which the pane shows under the filter.
+ * The notes as a graph. The query goes over as typed: the backend is the one parser,
+ * so a query it cannot read throws its own sentence, which the pane shows under the filter.
  */
 export async function fetchGraph({
   query,

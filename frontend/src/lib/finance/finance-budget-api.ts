@@ -1,11 +1,4 @@
-/**
- * The calls the finance pane's overview, budget and transactions make: the month's budget,
- * free to spend, where the month's money went, the trend, the bookings, a limit, the accounts and the bank pull.
- *
- * Apart from `finance-api.ts`, which holds the sorting calls the to-sort view makes. The
- * answers are the ones `routes/finance_budget.py`, `routes/finance.py` and
- * `routes/finance_sync.py` give.
- */
+/** The finance pane's overview, budget and transaction calls. The sorting calls live in `finance-api.ts`. */
 
 import { client, reason } from "@/lib/api-client";
 import type { components } from "@/lib/api-types";

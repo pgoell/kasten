@@ -1,12 +1,6 @@
 /**
- * The reads only the review blocks make: the notes written in a range, GitHub's
- * contributions, and the model use. Typed from the generated schema, and kept apart from
- * `api.ts` because that file is at its size limit.
- *
- * Plain `fetch`, not the generated client, on purpose: `openapi-fetch` takes the global
- * `fetch` when it is made, so a test that stubs `fetch` after import never sees its calls
- * and the frame runs would reach the dev backend. A plain call looks the global up on each
- * request, which is the seam the frame tests stub, as they stub it for `fetchWritten`.
+ * The reads only the review blocks make, typed from the generated schema. Kept out of `api.ts`,
+ * which is at its size limit.
  */
 
 import type { components } from "@/lib/api-types";
@@ -18,9 +12,8 @@ type WrittenNote = components["schemas"]["WrittenNote"];
 type Github = components["schemas"]["Contributions"];
 
 /**
- * One day's use of one model in one project, from the collector's monthly notes. `cost` is null
- * where no message of the line had a price, and `unpriced` counts the tokens left out of `cost`.
- * Declared here, not generated, because the route is new and its schema has not been generated yet.
+ * One day's use of one model in one project. `cost` is null where no message had a price.
+ * `unpriced` counts the tokens left out of `cost`. Declared here since the route's schema is not generated yet.
  */
 export interface ModelUseLine {
   day: string;

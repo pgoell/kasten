@@ -1,11 +1,6 @@
 /**
- * The drink and food lines of a daily note's `## Log`: what a tap writes, what
- * the card's food search logs, and what the lines already there add up to.
- *
- * The format is `docs/reference/log-format.md`, and the backend's parser in
- * `log.py` is the one `GET /api/log` answers from. This reads the same lines
- * off the open buffer, so a tap shows in the totals at once rather than after
- * the save and the index; `log-cases.json` holds both to the same rows.
+ * The drink and food lines of a daily note's `## Log`: what a tap writes, and what the lines already there add up to.
+ * The open buffer is read, so a tap shows in the totals at once. `log-cases.json` holds it to the backend parser in `log.py`.
  */
 
 import { masked } from "@/lib/tag-rule";
@@ -66,9 +61,7 @@ const ETHANOL = 0.789;
 
 /**
  * A fence opens or closes a code block, and a heading ends the `## Log` above it.
- * The rest of the line is read so a backtick run opens only when no backtick
- * follows it: `"```x```"` is inline code, and the note-section reader treats it so
- * too, or a log line after it would be hidden here and written there.
+ * A backtick run opens only when no backtick follows it, as the note-section reader reads it, or the two would disagree.
  */
 const FENCE = /^ {0,3}(`{3,}|~{3,})(.*)/;
 const HEADING = /^#{1,2} /;
@@ -142,9 +135,8 @@ export interface FoodFields {
 export type Food = FoodFields & { kind: "food" };
 
 /**
- * The food a line holds, read as `_food` in `log.py` reads it, or null for a line
- * that holds none. A marker in a code span or a link is words, so the search for
- * the first field runs on the masked line.
+ * The food a line holds, read as `_food` in `log.py` reads it, or null for a line that holds none.
+ * A marker in a code span or link is words, so the search for the first field runs on the masked line.
  */
 export function parseFood(line: string): Food | null {
   const head = FOOD_HEAD.exec(line);
@@ -280,9 +272,8 @@ export function drinkTotals(text: string): DrinkTotals {
 const FIELD_MARK = /[🔥🥩🍞🧈]️?/gu;
 
 /**
- * Words with nothing a food line would read as syntax left in: no field marker,
- * backtick, wikilink bracket or line break, single spaces, and no colon after a
- * leading meal word, which would name a meal the words do not.
+ * Words with nothing a food line would read as syntax left in: no field marker, backtick, wikilink bracket or line break.
+ * Single spaces too, and no colon after a leading meal word, which would name a meal the words do not.
  */
 function cleanWords(words: string): string {
   return words
@@ -295,9 +286,8 @@ function cleanWords(words: string): string {
 }
 
 /**
- * A field's value rounded as the line writes it, or undefined where no parser reads
- * it back: the format takes from 0 up to nine digits, so a minus sign, 1e9 or more,
- * and NaN or an infinity (which fail both tests) are left out.
+ * A field's value rounded as the line writes it, or undefined where no parser reads it back.
+ * The format takes 0 to nine digits, so a minus sign, 1e9 or more, NaN and infinity are left out.
  */
 const writable = (
   value: number | undefined,
@@ -309,9 +299,8 @@ const writable = (
 };
 
 /**
- * The food line the card's search logs, which `parseFood` reads back to the same
- * fields. Kcal is written whole and the grams to a tenth. A field the values leave
- * out, or that no parser reads, is left out of the line.
+ * The food line the card's search logs, which `parseFood` reads back to the same fields.
+ * Kcal is written whole and the grams to a tenth. A field no parser reads is left out.
  */
 export function foodLine(food: FoodFields): string {
   const whole = writable(food.kcal, Math.round);

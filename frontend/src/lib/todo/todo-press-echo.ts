@@ -1,14 +1,8 @@
 import { digestOf } from "@/lib/vault-events";
 
 /**
- * The vault's echo of a todo press, which the pane does not need to hear twice.
- *
- * A press writes one or more notes and then asks for the todo list once, after
- * the last write. `/api/events` then reports each of those writes too, and
- * every report would ask for the list again: a second and third fetch of a list
- * the press already read. So an event is the echo of a press only when its
- * digest is the digest of a text the press wrote to that path. A text typed
- * into the same note by anybody else carries another digest and still asks.
+ * The vault's echo of a todo press, which the pane need not hear twice. An event is an echo
+ * only when its digest matches a text this press wrote; anybody else's edit still asks.
  */
 
 /** How long after a press the echo of its writes may still arrive. */
@@ -72,9 +66,8 @@ export function pressWrote(path: string, content: string): void {
 }
 
 /**
- * Whether a write event for `path` with `digest` is the echo of a press: the
- * digest is one of the texts a press wrote to that path, and the echo window is
- * open, which it is while a press runs or for `ECHO_MS` after.
+ * Whether a write event for `path` with `digest` echoes a press: the digest is one of the
+ * texts a press wrote there, and the echo window is open (a press runs, or `ECHO_MS` after).
  */
 export async function pressEcho(path: string, digest: string | null): Promise<boolean> {
   prune();

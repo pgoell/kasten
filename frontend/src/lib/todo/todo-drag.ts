@@ -1,9 +1,6 @@
 /**
- * What a card dropped on the board asks the vault to do (#397).
- *
- * Pure, so the rules read and test apart from the pointer that carries the
- * card. A drop answers with a state or a project and nothing else: the board
- * has no stored order, so no position is written.
+ * What a card dropped on the board asks the vault to do (#397). The board has no stored
+ * order, so a drop writes a state or a project, never a position.
  */
 
 import type { TodoState } from "@/lib/todo/todo";
@@ -22,10 +19,8 @@ export type Drop =
   | { kind: "refused"; why: string };
 
 /**
- * The write a card carried from `from` to `to` makes.
- *
- * `pinned` is a card a `#p/x` tag files: the backend reads the tag first, so a
- * refile elsewhere would draw the card straight back to the lane it left.
+ * The write a card carried from `from` to `to` makes. `pinned` is a card a `#p/x` tag
+ * files: the backend reads the tag first, so a refile would draw it back to where it left.
  */
 export function dropOf(from: Spot, to: Spot, byProject: boolean, pinned: boolean): Drop {
   const column = from.column !== to.column;

@@ -34,16 +34,8 @@ export type NoteOpening = ReturnType<typeof useNoteOpening>;
 type FilePlace = NonNullable<SearchHit["place"]>;
 
 /**
- * Make the note at `path`, with `body` as its text, and cache what was written.
- *
- * The one place a note is made for a link or a pdf's note: the text is cached for
- * the pane that opens it, and the file list is read again. Resolves to the path
- * the vault made, or undefined when the vault refused it: a hidden name, or a
- * note standing where the path wanted a folder.
- *
- * `reuse` answers the path when the vault says the note is there already (a 409),
- * which is what a caller that wants the note open gets when the file list was
- * stale. Off, that answer is a refusal, as it is for a link.
+ * Make the note at `path` with `body` as its text, and cache what was written. The one place a link's or pdf's note is made.
+ * Resolves to undefined when the vault refuses the name. `reuse` answers the path when the note is already there (a 409).
  */
 export function makeNote(
   queryClient: QueryClient,
@@ -96,26 +88,8 @@ export function useNoteOpening({
   const [seek, setSeek] = useState<{ note: string; quote: string[] }>();
 
   /**
-   * Open a note in the focused pane, once the vault holds what was typed here.
-   *
-   * Every way in goes through this: the tree, the finder, search and a
-   * `[[link]]`. Opening another note moves the autosave's path, and its cleanup
-   * writes what is waiting to the note it was typed into, so the same write
-   * `<leader>q` refuses is one click away from happening without being asked.
-   * The refusal cannot live in that cleanup: by then the path has already
-   * changed, and refusing there would trade the other writer's text for the
-   * reader's own.
-   *
-   * The focus is raised with the note, the way every key that moves between
-   * panes raises it. Without that, a note opened from the file tree arrives on
-   * screen with the focus still on the tree row: the editor takes the focus on
-   * mount only when nothing else holds it, and the tree holds it. The note is
-   * in front of you and every key you press goes to the panel beside it. A
-   * click into a row lands here too and raises it just the same, which is what
-   * you want from a click on a note: you asked to read it, not to go on
-   * walking the tree.
-   *
-   * Resolves to whether the note opened: a refused save leaves the pane as it was.
+   * Open a note in the focused pane, once the vault holds what was typed here. A refused save leaves the pane as it was.
+   * The focus is raised with the note, so the keys follow it rather than staying on the tree row.
    */
   const openInPane = useCallback(
     async (path: string, line?: number): Promise<boolean> => {
@@ -129,19 +103,12 @@ export function useNoteOpening({
   );
 
   /**
-   * How an embed in any pane reads its note and opens it.
-   *
-   * Through the query cache, on the key the panes read their notes by, so the
-   * vault event handler in `useVaultEvents` that refetches a written note and the autosave
-   * that stores what it wrote keep every embed of it current too. The line
-   * passes straight through: both sides count from one.
+   * How an embed in any pane reads its note and opens it, through the query cache on the key the panes read by.
+   * So the vault event and the autosave keep every embed of it current too.
    */
   /**
-   * Show a pdf at a page in a pane beside the note, the view every followed
-   * pdf lands in (#353).
-   *
-   * Through `moveTo` and with no save, the way `openPassage` opens a book: the
-   * note stays open in its own pane, so nothing about it has to be written.
+   * Show a pdf at a page in a pane beside the note, the view every followed pdf lands in (#353).
+   * Through `moveTo` with no save, as `openPassage` opens a book, so nothing about the note has to be written.
    */
   const openPdfInPane = useCallback(
     (path: string, page?: number) => moveTo((previous) => openPdfBeside(previous, path, page)),
@@ -165,12 +132,8 @@ export function useNoteOpening({
   );
 
   /**
-   * Show an image in the focused pane, from a row of the tree.
-   *
-   * `openInPane`'s shape, save the line: the note in the pane is saved before
-   * it goes, because an image is not a note and this is still the pane that
-   * note was in, and the focus is raised so the keys follow the picture rather
-   * than staying on the tree row that named it.
+   * Show an image in the focused pane from a row of the tree. The note in the pane is saved first, since an image is not a note.
+   * The focus is raised so the keys follow the picture.
    */
   const openImageInPane = useCallback(
     async (path: string) => {
@@ -183,11 +146,8 @@ export function useNoteOpening({
   );
 
   /**
-   * Show a pdf at its first page in the focused pane, from a row of the tree.
-   *
-   * `openImageInPane`'s shape and not `openPdfInPane`'s: a row opens what it
-   * names over the pane, as an image row does, so the note in it is saved
-   * before it goes. A followed link is what opens one beside.
+   * Show a pdf at its first page in the focused pane from a row of the tree. Like an image row, it saves the note before it goes.
+   * A followed link is what opens one beside.
    */
   const openPdfFromTree = useCallback(
     async (path: string) => {
@@ -200,14 +160,8 @@ export function useNoteOpening({
   );
 
   /**
-   * Open a pdf, epub or html file from the finder or a search hit.
-   *
-   * Each kind opens the way the app already opens it: a pdf at its page over
-   * the focused pane, an html page at its heading, and an epub through its note
-   * in the book pane over the focused pane. An epub with no note has no reader
-   * to go through, so it opens in a tab of its own, as a followed link does.
-   * `text` is the line a search hit found, which the reader seeks once the
-   * book is open; without a note there is no reader to seek.
+   * Open a pdf, epub or html file from the finder or a search hit, the way the app already opens each kind.
+   * An epub with no note opens in a tab of its own, since there is no reader to go through. `text` is the line a search hit found.
    */
   const openFile = useCallback(
     async (path: string, place?: FilePlace | null, text?: string): Promise<void> => {
@@ -242,21 +196,8 @@ export function useNoteOpening({
   );
 
   /**
-   * Open the note a `[[link]]` names, making it if the vault has none.
-   *
-   * The listing is what turns a name into a path, so the resolving happens
-   * here rather than in the editor, which holds one note and knows nothing of
-   * the others. A link to a note that is not there is not a mistake: writing
-   * the link before the note is how a vault grows, and following one is the
-   * moment the note begins.
-   *
-   * `body` is what a note this makes starts life with, and it is empty for
-   * every link followed by hand: a note the reader is about to write is one
-   * they write themselves. Only the periodic keys pass one.
-   *
-   * `[[note#heading]]` opens the note at the heading, read through the query
-   * cache the panes read by; a heading the note lacks opens it at the top.
-   * `[[#heading]]` names no note, and the editor jumps within its own.
+   * Open the note a `[[link]]` names, making it if the vault has none. Writing a link before its note is how a vault grows.
+   * `body` is empty for links followed by hand. `[[note#heading]]` opens at the heading, and `[[#heading]]` stays in the editor.
    */
   const follow = useCallback(
     (target: string, file?: FileTarget, body = "") => {
@@ -350,12 +291,8 @@ export function useNoteOpening({
   );
 
   /**
-   * Open the book a highlight came from, at the passage it quotes.
-   *
-   * The order matters: `moveTo` refuses while the focused pane stands
-   * conflicted, and a seek set before it would arm a jump in a reader that is
-   * already open for a key that was refused. Either both happen or neither
-   * does.
+   * Open the book a highlight came from, at the passage it quotes. `moveTo` runs first, since it refuses while the pane is conflicted,
+   * and a seek set before it would arm a jump for a key that was refused.
    */
   const openPassage = useCallback(
     (note: string, quote: string[]) => {
@@ -376,12 +313,8 @@ export function useNoteOpening({
   }, [seek]);
 
   /**
-   * Open the note covering today at one grain, making it if the vault has none.
-   *
-   * Through `follow`, because that is already the one place a note is made and
-   * opened in the same breath, and a periodic note differs from a followed link
-   * only in carrying a body. The date is read at the press, so a tab left open
-   * overnight opens the new day's note rather than yesterday's.
+   * Open the note covering today at one grain, making it if the vault has none. Through `follow`, since a periodic note differs from a followed link only in its body.
+   * The date is read at the press, so a tab left open overnight opens the new day's note.
    */
   const openPeriodic = useCallback(
     (period: Period) => {

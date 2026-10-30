@@ -4,12 +4,8 @@ import { highlightBlocks } from "@/lib/highlight";
 const PICTURE = /^!\[\]\([^)]*\)$/;
 
 /**
- * `note` with the highlight block whose anchor is `^${id}` taken out, or null
- * when no block carries that id or more than one does. The heading stays, and
- * so does every other block.
- *
- * The blank line `addHighlight` put in front of the quote goes with the block,
- * or the take would leave a gap under the heading that it never had.
+ * `note` with the highlight block whose anchor is `^${id}` taken out, or null when no block or more
+ * than one carries that id. The blank line `addHighlight` put before the quote goes too.
  */
 export function withoutHighlight(note: string, id: string): string | null {
   const blocks = highlightBlocks(note).filter((block) => block.id === id);

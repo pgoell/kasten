@@ -20,23 +20,14 @@ interface Held {
 }
 
 /**
- * Every embed on the screen, by the element it drew.
- *
- * `destroy` is handed the DOM and not the widget that built it, and one widget
- * can be drawn twice, so the box is the only key that names one mounting.
+ * Every embed on the screen, keyed by its box.
+ * One widget can be drawn twice, so `destroy` gets the DOM and the box names the mounting.
  */
 const held = new WeakMap<HTMLElement, Held>();
 
 /**
  * A read-only view of `text`, configured as the editor it sits in.
- *
- * The same parse and the same rendering the note being edited gets, so an
- * embedded note reads as it would opened. The listings and the source come
- * along so its links are judged against the vault and its own embeds draw,
- * one level deeper.
- *
- * `rendering` is handed in rather than imported: the rendering lives in
- * live-preview.ts, which imports this module.
+ * `rendering` is passed in, not imported, because live-preview.ts imports this module.
  */
 function nestedView(
   state: EditorState,
@@ -70,19 +61,7 @@ function nestedView(
 
 /**
  * `![[note]]` and `![[note#heading]]`, the note drawn where it is named.
- *
- * The note is rendered by a view of its own rather than as text in a box, so
- * every construct in it draws the way it would opened, embeds included, until
- * `EMBED_DEPTH` says stop.
- *
- * It follows the note rather than reading it once: a save from another pane
- * lands in the nested view by a replace, and `eq` ignores the text, so the
- * outer editor never remounts the box under it.
- *
- * The listeners are on the box because a widget swallows its events by
- * default, so the editor's own handlers never see a click in here. Following
- * takes ctrl or cmd and a click, or a tap, the way a link does: a plain click
- * on a quoted note is someone reading it.
+ * `eq` ignores the text, so a save elsewhere updates the view in place. Listeners sit on the box, since a widget swallows its events.
  */
 class Embed extends WidgetType {
   private readonly source: EmbedSource;
@@ -189,13 +168,8 @@ class Embed extends WidgetType {
 const pdfs = new WeakMap<HTMLElement, () => void>();
 
 /**
- * `![[plan.pdf]]`, the pdf drawn where it is named, or `Not found` for a path
- * of null.
- *
- * Followed the way `Embed` is, ctrl or cmd and a click or a tap, with the same
- * listeners for the same reason: a plain click in here is someone reading.
- * `eq` compares what the source names, so a keystroke elsewhere never reopens
- * the pdf. `page` is the one `#page=3` names, undefined for the first.
+ * `![[plan.pdf]]`, the pdf drawn where it is named, or `Not found` for a null path.
+ * `eq` compares the source, so a keystroke elsewhere never reopens the pdf.
  */
 class PdfEmbed extends WidgetType {
   private readonly renderer: PdfRenderer;
@@ -276,9 +250,7 @@ class PdfEmbed extends WidgetType {
 
 /**
  * An embed past `EMBED_DEPTH`, drawn as the name it would have shown.
- *
- * Without its own `cm-embed` class, so the chain of boxes counts what was
- * actually drawn and this reads as where it stopped.
+ * Has no `cm-embed` class, so the count of boxes shows where it stopped.
  */
 class EmbedStub extends WidgetType {
   private readonly label: string;
@@ -301,12 +273,8 @@ class EmbedStub extends WidgetType {
 }
 
 /**
- * Drawn as the note or the picture it names, by the image's line rule
- * and hidden as the image is, for the same reason. Every way out is
- * `false`: the link inside would otherwise hide its brackets and leave
- * `!note` on the screen, which is neither the source nor the drawing.
- *
- * The caller returns false, so the walk does not go into the embed.
+ * Drawn as the note or picture it names, hidden as the image is.
+ * Every way out is `false`: the link inside would hide its brackets and leave `!note` on screen.
  */
 export function drawEmbed(
   walk: Walk,

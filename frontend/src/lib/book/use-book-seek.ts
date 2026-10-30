@@ -5,13 +5,8 @@ import { type FoliateView, pdfLayer } from "@/lib/book/foliate-view";
 import { PDFJS_BASE } from "@/lib/book/pdf-view";
 
 /**
- * The little of pdf.js the seek uses, which is a page's words and nothing else.
- *
- * Read off `globalThis`, where `pdf.js:3-4` puts it: foliate imports its own
- * vendored build for that side effect and keeps the document it opens to
- * itself, `makePDF` closing over it (`pdf.js:115-179`). So this is not a second
- * copy of the library, only a second reading of the same file, and it exists
- * because there is no other way to a page's text without drawing the page.
+ * The little of pdf.js the seek uses: a page's words, reachable without drawing the page. Read off
+ * `globalThis`, where foliate's vendored build leaves it, so this is a second reading, not a second library.
  */
 interface Pdfjs {
   getDocument(options: {
@@ -36,13 +31,8 @@ interface Pdfjs {
 type OpenPdf = Awaited<ReturnType<Pdfjs["getDocument"]>["promise"]>;
 
 /**
- * Open `bytes` with pdf.js, hand the document to `read`, and free it.
- *
- * Bytes pdf.js will not open answer `otherwise` rather than throwing. The caller
- * picks a pdf arm by the book carrying no document to walk, and a section of an
- * epub foliate could not build carries none either (`view.js:533`), so the wrong
- * arm is reachable and it must end in the same answer as an honest miss. The
- * document is destroyed on every path out, its worker with it.
+ * Open `bytes` with pdf.js, hand the document to `read`, and free it. Bytes it will not open answer
+ * `otherwise`, since a section foliate could not build is document-less too, so the wrong arm must end as a miss.
  */
 export async function readPdf<T>(
   bytes: ArrayBuffer,
@@ -50,15 +40,11 @@ export async function readPdf<T>(
   otherwise: T,
 ): Promise<T> {
   const pdfjs = (globalThis as { pdfjsLib?: Pdfjs }).pdfjsLib;
-  // Nothing has opened a pdf in this tab, so nothing set the global. Reachable
-  // only if foliate stops loading that module, which would have broken the
-  // reader long before it reached this.
+  // Only reachable if foliate stops loading that module, which would break the reader first.
   if (pdfjs === undefined) return otherwise;
 
-  // Opened the way foliate opens its own (`pdf.js:120-127`), the two url
-  // options included: they are what makes this reading of the file the same
-  // reading as the drawn one. `isEvalSupported` is off because the policy in
-  // `csp.ts` carries no `'unsafe-eval'` and never will.
+  // The same options foliate passes, so this reading of the file matches the drawn one.
+  // `isEvalSupported` is off: the CSP in `csp.ts` has no `'unsafe-eval'`.
   const task = pdfjs.getDocument({
     data: bytes,
     cMapUrl: `${PDFJS_BASE}cmaps/`,
@@ -67,14 +53,11 @@ export async function readPdf<T>(
   });
   const opened = await task.promise.then(
     (pdf) => pdf,
-    // A two-arm `then` and not a catch, the way the note read in
-    // `use-book-view.ts` takes its failure: what is thrown here is pdf.js's own
-    // `InvalidPDFException` for a file that is not one.
+    // Two-arm `then`, not a catch: the error is pdf.js's own, for a file that is not a pdf.
     () => null,
   );
-  // The task and not the document, there being no document. pdf.js spawns the
-  // worker before it parses a byte, so a refused file that was not freed here
-  // leaves one running for the life of the tab.
+  // Free the task, not the document, which does not exist: pdf.js spawns a worker
+  // before it parses, so a refused file would leave one running for the life of the tab.
   if (opened === null) {
     await task.destroy();
     return otherwise;
@@ -88,17 +71,8 @@ export async function readPdf<T>(
 }
 
 /**
- * Which page of `bytes` holds `quote`, counting from zero, or -1.
- *
- * `getTextContent` is the cheap half of what rendering a page costs: it parses
- * the content stream and hands back the runs, and draws nothing. The runs are
- * joined with nothing between them, which is not a shortcut but the rule: the
- * text layer puts each run in a span of its own and no whitespace between two
- * of them, so a page's own words read the same way whether they are being
- * matched here or in the drawn document.
- *
- * `keep` is asked before every page, so a second press or a closed pane ends
- * the walk rather than finishing a scan nobody is waiting for.
+ * Which page of `bytes` holds `quote`, counting from zero, or -1. Reads the text without drawing a page.
+ * The runs join with nothing between them, as the text layer does. `keep` ends the walk early.
  */
 function pdfPageHolding(bytes: ArrayBuffer, quote: string[], keep: () => boolean): Promise<number> {
   return readPdf(
@@ -117,11 +91,8 @@ function pdfPageHolding(bytes: ArrayBuffer, quote: string[], keep: () => boolean
 }
 
 /**
- * Walks the book for a passage the reader asked for, and takes the reader to it.
- *
- * Answers `resumeSeek`, which the view calls once the book is ready: a passage
- * parked while it opened goes on top of the bookmark, and the answer says
- * whether one was parked.
+ * Walks the book for a passage the reader asked for, and takes the reader to it. Answers `resumeSeek`
+ * once the book is ready, saying whether a passage was parked, since a parked turn waits behind it.
  */
 export function useBookSeek(o: {
   seek?: { quote: string[] };
@@ -133,12 +104,8 @@ export function useBookSeek(o: {
   const { seek, beside, onNotice, viewRef, ready } = o;
   /** The passage being walked for, which a later press overwrites. */
   const wanted = useRef<string[] | null>(null);
-  // Off a ref for the reason the callbacks are: `goToQuote` is a `useCallback`
-  // with only stable refs as dependencies, so that the effect naming it rebuilds no book, and a
-  // seek into a pdf needs the bytes.
-  //
-  // Read through refs, written in a layout effect, which runs in the commit's
-  // own task.
+  // Read through refs: `goToQuote` then has only stable dependencies, so the effect
+  // naming it rebuilds no book. The layout effect keeps them current before a key lands.
   const besideRef = useRef<BookBeside | undefined>(undefined);
   const onNoticeRef = useRef(onNotice);
   useLayoutEffect(() => {
@@ -147,47 +114,25 @@ export function useBookSeek(o: {
   });
 
   /**
-   * Take the reader to the first section holding `quote`.
-   *
-   * Measured on a real book: 76ms to walk all 26 sections and find nothing,
-   * 66ms to a hit two thirds of the way in. No progress, no spinner, nothing to
-   * cancel. Nothing catches either: `goTo` swallows its own failures, which the
-   * contents overlay already relies on.
+   * Take the reader to the first section holding `quote`. A walk costs about 70ms
+   * on a real book, so there is no progress, spinner or cancel.
    */
   const goToQuote = useCallback(
     async (quote: string[]) => {
       const view = viewRef.current;
       wanted.current = quote;
-      // A seek arriving before the book is ready, which is every `gf` that opens
-      // the reader, waits here. `draw()` reads this ref once its own `init` work
-      // has landed and calls again, so the passage overrides where the bookmark
-      // put you, which is what was asked for.
+      // A seek before the book is ready waits here. `draw()` reads `wanted` once `init`
+      // has landed, and the passage then overrides where the bookmark put the reader.
       if (view === null || !ready.current) return;
 
       /** Whether this walk is still the one being waited on. See the epub arm. */
       const mine = () => viewRef.current === view && wanted.current === quote;
 
       const sections = view.book?.sections ?? [];
-      // A pdf's sections carry a `load` that renders a page and no
-      // `createDocument` at all (`pdf.js:150-160`), so the walk below would skip
-      // every one of them and answer that a passage plainly in the file is not.
-      // pdf.js parses a page's text without drawing it, which is the arm this
-      // takes. It costs a second reading of the file, whole, where the epub arm
-      // costs a section at a time, and it is spent on a keypress rather than on
-      // anything the reader is watching.
-      //
-      // The page on screen decides it, which is the same question `chapterOf` in `book-pages.ts`
-      // and `onSelectionChange` ask and the same answer. The spine's head looks
-      // like the cheaper test and is a trap: a section foliate could not build
-      // carries no `createDocument` either (`view.js:533`), so an epub beginning
-      // with one would take this arm and lose `gf` for the whole book. There is
-      // always a page by now, `ready` being set after `init` has navigated.
-      //
-      // ponytail: a press landing in the millisecond between `replaceChildren`
-      // and the new page parsing (`fixed-layout.js:167`) sees documents with no
-      // text layer yet, takes the epub arm over a pdf and answers that the
-      // passage is not in the book. One more press finds it. This is the same
-      // non-ordering the walk below already names and refuses to buy.
+      // A pdf section carries no `createDocument`, so the epub walk would miss every
+      // passage. The page on screen decides the arm, not the spine: an epub section
+      // foliate could not build lacks one too.
+      // ponytail: a press during `replaceChildren` sees no text layer and may answer a miss; one more press finds it.
       const onScreen = view.renderer?.getContents?.() ?? [];
       if (onScreen.some((entry) => pdfLayer(entry.doc) !== null)) {
         const bytes = await besideRef.current?.blob.arrayBuffer();
@@ -195,10 +140,8 @@ export function useBookSeek(o: {
         if (!mine()) return;
         if (page !== -1) {
           wanted.current = null;
-          // The page index, which `resolveNavigation` takes as it stands
-          // (`view.js:448`). No cfi: a fixed-layout renderer goes to a page and
-          // reads no anchor, so building one out of a range this walk never had
-          // would be a string nothing looks at.
+          // The page index, which `resolveNavigation` takes as it stands. No cfi: a
+          // fixed-layout renderer goes to a page and reads no anchor.
           void view.goTo(page);
           return;
         }
@@ -206,9 +149,7 @@ export function useBookSeek(o: {
         for (const [index, section] of sections.entries()) {
           if (section.createDocument === undefined) continue;
           const doc = await section.createDocument();
-          // A newer press has taken the walk over, or the pane went away while the
-          // document was being built. What this does not buy is an order on two
-          // `goTo` calls already in flight, which the spec names and refuses.
+          // A newer press or a closed pane ends the walk; in-flight `goTo` calls are unordered.
           if (!mine()) return;
           const [range] = findWritten(doc, [quote]);
           if (range) {
@@ -219,11 +160,9 @@ export function useBookSeek(o: {
         }
       }
 
-      // Cleared on a hit and on a miss both, so nothing stays armed for a later
-      // rebuild of the view to pick up.
+      // Cleared on hit or miss, so nothing stays armed for a rebuilt view.
       wanted.current = null;
-      // A press gets an answer, which is where this and the draw pass differ: a
-      // quote nobody asked about is skipped in silence.
+      // A press gets an answer, unlike the draw pass, which skips a quote silently.
       onNoticeRef.current("That passage is not in the book");
     },
     [viewRef, ready],
@@ -234,10 +173,8 @@ export function useBookSeek(o: {
   }, [seek, goToQuote]);
 
   /**
-   * Walk for the passage parked while the book opened, once it is ready.
-   *
-   * Answers whether one was parked, which is what decides whether a parked turn
-   * waits behind it.
+   * Walk for the passage parked while the book opened, once it is ready. Answers whether one was parked,
+   * which decides whether a parked turn waits behind it.
    */
   const resumeSeek = useCallback(() => {
     const parked = wanted.current;

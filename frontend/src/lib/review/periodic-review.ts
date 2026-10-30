@@ -1,11 +1,6 @@
 /**
- * The year review on a yearly note and the week review on a weekly one, drawn as a block
- * inside the note under its title. Nothing is written into the file: the block is a
- * decoration, and the text the editor holds is the text on disk.
- *
- * A block widget and not a React column above the editor, so the review scrolls with the
- * note and sits where the reader's own text starts. The React tree is mounted in the
- * widget's element, which is why the query client and the opener come in through a facet.
+ * The year review on a yearly note and the week review on a weekly one, drawn as a block under
+ * the title and never written to the file. A block widget, not a column above the editor, so it scrolls with the note.
  */
 
 import { type EditorState, type Extension, Facet, StateField, type Text } from "@codemirror/state";
@@ -34,9 +29,8 @@ export const reviewSource = Facet.define<ReviewSource, ReviewSource | null>({
 });
 
 /**
- * The block's place: at the end of the title's line or of the link row under it, the way
- * the weather card sits. A note with no title gets it at the start of its body, after the
- * frontmatter, so it still shows.
+ * The block's place: at the end of the title line or the link row under it.
+ * A note with no title gets it at the start of its body, after the frontmatter, so it still shows.
  */
 function anchorOf(doc: Text): { pos: number; side: -1 | 1 } {
   const title = cardLine(doc);
@@ -110,9 +104,8 @@ function build(state: EditorState): DecorationSet {
 }
 
 /**
- * The block as an editor extension. A field and not a view plugin, because a block widget
- * changes the height of the document, which CodeMirror takes only from state. Registered
- * outside the preview compartment, so the block shows in Edit as well as in Read.
+ * The block as an editor field, not a view plugin: a block widget changes the document's height, which only state may take.
+ * Registered outside the preview compartment, so the block shows in Edit as well as Read.
  */
 export const periodicReview: Extension = StateField.define<DecorationSet>({
   create: build,

@@ -13,11 +13,8 @@ type SaveHandler = (doc: string) => void;
 type ReloadHandler = (force: boolean) => Promise<string | null>;
 
 /**
- * Carries the save callback on the editor state.
- *
- * `Vim.defineEx` registers `:w` once for the whole module and cannot close over
- * one view's props, so the handler has to be reachable from the view it was
- * typed into. A facet is how CodeMirror hangs a value off a state.
+ * Carries the save callback. `Vim.defineEx` registers `:w` once for the module, so the
+ * handler is reached from the view the key was typed into.
  */
 export const saveHandler = Facet.define<SaveHandler, SaveHandler | undefined>({
   combine: (handlers) => handlers[0],
@@ -33,25 +30,16 @@ export function save(view: EditorView): boolean {
 Vim.defineEx("write", "w", (cm: { cm6: EditorView }) => save(cm.cm6));
 
 /**
- * Carries the reload callback, for the reason `saveHandler` carries the other.
- *
- * Whoever holds the unsaved text is who decides whether a `:e` may discard it,
- * and that is the same somebody the vault's text has to be read by, so the
- * whole answer comes back from one call.
+ * Carries the reload callback. The one holding unsaved text decides whether `:e` may
+ * discard it, so the answer comes back from one call.
  */
 export const reloadHandler = Facet.define<ReloadHandler, ReloadHandler | undefined>({
   combine: (handlers) => handlers[0],
 });
 
 /**
- * Read the note off the vault again, vim's `:e`, and `:e!` to discard the
- * buffer.
- *
- * The bang is not part of the command's name. The parser takes the word for
- * that and leaves everything after it as the command's argument, so `:e!`
- * arrives here as `edit` with an argString of "!" and `:e` with none. Reading
- * it is what keeps the two apart, and apart they must be: plain `:e` declines a
- * buffer holding unsaved text, and only the bang throws it away.
+ * Reads the note off the vault again, vim's `:e`. The bang arrives in the argument, not the name,
+ * and is what lets `:e!` discard unsaved text that plain `:e` declines to.
  */
 function edit(view: EditorView, params: { argString?: string }): boolean {
   // Trimmed, because the argument holds everything typed after the word and
@@ -90,12 +78,8 @@ Vim.defineEx("edit", "e", (cm: { cm6: EditorView }, params: { argString?: string
 );
 
 /**
- * A yank lands on the system clipboard as well as in vim's register, the way
- * `clipboard=unnamedplus` has it, so `y` in a note and ctrl+v somewhere else
- * move the same text.
- *
- * Wrapped rather than registered: vim offers no hook on a yank, and every one
- * of them, from `yy` to a visual `y`, goes through this method.
+ * A yank also lands on the system clipboard, as `clipboard=unnamedplus` has it.
+ * Wrapped, since vim offers no hook on a yank.
  */
 const registers = Vim.getRegisterController();
 const pushText = registers.pushText.bind(registers);
@@ -168,11 +152,8 @@ Vim.defineEx("copy", "co", (cm, params) => {
 });
 
 /**
- * The ex prompt's commands and `gf`, for the palette to run by name.
- *
- * With vim off this is the only way to any of them but the write. The copy
- * takes the selection where vim takes a range: without visual mode a selection
- * is the one way left to say which part.
+ * The ex prompt's commands and `gf`, run by name for the palette. With vim off this is the only
+ * way to them but the write, and a selection says which part where vim would take a range.
  */
 export const byName = viewCommands.of({
   write: save,

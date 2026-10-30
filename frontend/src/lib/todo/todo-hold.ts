@@ -15,13 +15,8 @@ export interface HeldGroup {
 }
 
 /**
- * What a row is across the writes that change its line: its note, its words,
- * and which of the note's lines with those words it is, counted in line order.
- *
- * A press stamps an id and dates on its line and can move the lines below it,
- * so the line is no identity. The words survive a press. Counted over every
- * line the vault answered with, in line order, so the answer's own order, which
- * the vault does not promise, cannot change which twin is which.
+ * A row's identity across writes: its note, its words, and which twin it is, counted in
+ * line order. A press moves lines, so the line number alone is no identity.
  */
 export function identities(hits: TodoHit[]): Map<string, string> {
   const inOrder = [...hits].sort((one, other) =>
@@ -70,13 +65,8 @@ function idOf(hit: TodoHit, ids: Map<string, string>): string {
 }
 
 /**
- * The groups to draw while an order is held.
- *
- * Each held row stays where it was, under the row now carrying its identity in
- * the open list. A row that is no longer open is drawn struck, from the line the
- * vault holds now, so it can be pressed again. A row the vault no longer holds
- * goes. A row the hold has not seen goes at the end of its group, or of a new
- * group at the end.
+ * The groups to draw while an order is held. A held row stays under the row now carrying
+ * its identity; rows the vault no longer holds go, and unseen rows go last.
  */
 export function holdOrder(
   held: HeldGroup[],

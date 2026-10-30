@@ -3,12 +3,8 @@ import type { SearchHit } from "@/lib/api";
 import type { TodoState } from "@/lib/todo/todo";
 
 /**
- * The lines of every listed todo in the hit's note with its very words, the
- * hit's own among them, in order.
- *
- * From the listing the row was drawn from, not a fresh one: a write that finds
- * two identical lines picks the one at the row's rank among them, and only the
- * listing the reader saw says which rank that was.
+ * The lines of every listed todo with the hit's very words, in order, taken from the listing the row was drawn from.
+ * A write that finds two identical lines picks the one at the row's rank among them, so only that listing says which.
  */
 function twinsOf(listed: SearchHit[], hit: SearchHit): number[] {
   return listed

@@ -1,14 +1,6 @@
 /**
- * The day's weather, drawn under a daily note's title and its row of links.
- *
- * One strip per town: sky icons every three hours, the temperature as a line,
- * the chance of rain as bars on a band of its own, night shaded from sunset to
- * sunrise. Two measures, two bands, because one chart with two scales reads as
- * whichever scale the eye lands on first.
- *
- * Nothing is written into the note. The forecast is fetched when the note opens
- * and the note's text is the same with or without it, so a daily note older
- * than Open-Meteo's reach simply has no card.
+ * The day's weather under a daily note's title: a strip per town with sky icons, the temperature line, and rain as bars on their own band.
+ * Two measures get two bands, since one chart with two scales reads as whichever scale the eye meets first. Nothing is written into the note.
  */
 
 import type { EditorState, Extension, Text } from "@codemirror/state";
@@ -31,9 +23,8 @@ const RAIN_BASE = 116;
 const RAIN_HEIGHT = 30;
 
 /**
- * One request per day for the life of the tab. Every daily note a pane opens,
- * and every rebuild of the widget, asks for the same answer; the backend keeps
- * its own half hour on top.
+ * One request per day for the life of the tab: every daily note and rebuild asks for the same answer.
+ * The backend keeps its own half hour on top.
  */
 const asked = new Map<string, Promise<Forecast[]>>();
 
@@ -285,9 +276,8 @@ export function drawTown(forecast: Forecast, now: number | null): HTMLElement {
 }
 
 /**
- * One town as a single line, the place, the sky at noon and the range, with the
- * strip under it in a fold that starts closed. The card takes one line, and the
- * day's hours are a tap away.
+ * One town as a single line: the place, the sky at noon and the range, with the day's strip in a fold that starts closed.
+ * The card takes one line, and the day's hours are a tap away.
  */
 export function townRow(forecast: Forecast, now: number | null): HTMLElement {
   const fold = document.createElement("details");
@@ -324,13 +314,8 @@ export function townRow(forecast: Forecast, now: number | null): HTMLElement {
 const arrived = StateEffect.define<{ date: string; forecasts: Forecast[] }>();
 
 /**
- * The card for one day: empty while the forecast is on its way, drawn once it
- * is in state.
- *
- * The forecast travels through an effect rather than being drawn into the
- * element the fetch started from, because CodeMirror measures a block widget
- * when it mounts and not after. A card that grew later left the line numbers
- * beside it where the empty card had put them.
+ * The card for one day: empty while the forecast is on its way, drawn once it is in state.
+ * It travels through an effect, since CodeMirror measures a block widget when it mounts, and a card that grew later left the line numbers misplaced.
  */
 class WeatherCard extends WidgetType {
   private readonly date: string;
@@ -394,10 +379,8 @@ function build(state: EditorState, forecasts: Forecast[] | null): Card {
 }
 
 /**
- * The card as an editor extension. A field and not a view plugin, because a
- * block widget changes the height of the document and CodeMirror takes those
- * only from state. One instance, so a preview toggled back on finds the same
- * field rather than a second one beside it.
+ * The card as an editor extension. A field, not a view plugin, since a block widget changes the document height and CodeMirror takes that only from state.
+ * One instance, so a preview toggled back on finds the same field rather than a second beside it.
  */
 export const weatherCard: Extension = StateField.define<Card>({
   create: (state) => build(state, null),

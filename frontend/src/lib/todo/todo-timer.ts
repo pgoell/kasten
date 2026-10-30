@@ -1,8 +1,6 @@
 /**
  * One press of `t`: the session it starts or stops, and the notes that carry it.
- *
- * Pure, as `todo-write.ts` is. The log lines themselves are read and written by
- * `todo-time.ts`; this module decides which of them a press touches.
+ * The log lines are read and written by `todo-time.ts`.
  */
 
 import { appendUnder } from "@/lib/note-section";
@@ -42,9 +40,8 @@ export interface TimerInput {
    */
   notes: Record<string, string>;
   /**
-   * Every session line naming this todo, as `searchNotes(id)` answered with
-   * them, running and closed alike. Empty for a todo carrying no id, which
-   * nothing can name and so has no sessions.
+   * Every session line naming this todo, running and closed alike. Empty for a todo with no id,
+   * since nothing can name it.
    */
   sessions: SessionHit[];
   today: string;
@@ -66,12 +63,8 @@ export function sessionOf(todo: Todo, notePath: string, dailyPath: string, start
 }
 
 /**
- * Close every open session naming `id`, at `end`. Null where none moved.
- *
- * The end clock goes into the line in place, over the running pad, rather than
- * the line being rebuilt from its reading: a rebuild loses the indent, a block
- * id and anything typed after the id, and moves a link out of the words. The
- * pad is the clock's width plus the space after it, so the words stay put.
+ * Closes every open session naming `id`, at `end`, in place over the running pad. Null where none moved.
+ * A rebuilt line would lose its indent and block id.
  */
 export function closeSessions(text: string, id: string, end: string): string | null {
   const lines = text.split("\n");

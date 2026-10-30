@@ -39,10 +39,8 @@ import { vaultPaths } from "@/lib/wikilink";
 const HEADING = /^ATXHeading([1-6])$/;
 
 /**
- * What the editor is showing, and which parts of the document it is not.
- *
- * The two travel together because the selection filter has to know where the
- * hidden ranges are, and a filter can only read state.
+ * What the editor shows, and which parts of the document it hides.
+ * The selection filter needs the hidden ranges, and a filter can only read state.
  */
 interface Live {
   decorations: DecorationSet;
@@ -246,12 +244,8 @@ function parsedTo(state: EditorState): number {
 }
 
 /**
- * Where an edit's parse ran out of its 20ms (#1005), the tree stops short and
- * `fresh`, built from it, draws nothing past that point: an embed there would
- * lose its box and remount. The old drawing holds there, moved through the
- * edit, until the parse lands and `parsed` builds again. A range on a line the
- * edit touched, or a cursor is on, is left out, so it shows its source rather
- * than marks that no longer fit it.
+ * Where an edit's parse ran out of its 20ms (#1005), the tree stops short.
+ * The old drawing holds there until the parse lands, so an embed does not lose its box and remount.
  */
 function keepPastParse(value: Live, tr: Transaction, fresh: Live): Live {
   const { doc, selection } = tr.state;
@@ -316,10 +310,7 @@ const live = StateField.define<Live>({
 
 /**
  * Keeps the cursor out of the hidden marks.
- *
- * Reads the ranges from the state before the transaction, mapped through its
- * changes. Reading `tr.state` instead would compute the new state from inside
- * the filter that helps produce it.
+ * Reads the state before the transaction, since `tr.state` is computed inside the filter that makes it.
  */
 const nudgeSelection = EditorState.transactionFilter.of((tr) => {
   if (!tr.selection) return tr;
@@ -337,15 +328,8 @@ export function livePreview(): Extension {
 }
 
 /**
- * The rendering on its own, for a view with no vim and no cursor in it.
- *
- * What the preview panes mount. The bridge is left out because it asks
- * `getCM` for a vim instance the view does not have, and the selection filter
- * because there is no cursor to keep out of the hidden marks. `vimModeField`
- * stays: `live` reads it to decide which line shows its source, and its
- * default of normal mode is the one that reveals nothing, so a cursorless view
- * renders every line. `folds` too, which `live` reads, so a callout in a
- * preview opens and shuts by click as it does in the editor.
+ * The rendering on its own, for a view with no vim and no cursor.
+ * Keeps `vimModeField` and `folds`, which `live` reads; the default reveals nothing.
  */
 export function renderedMarkdown(): Extension {
   // For the reason `livePreview` watches them: a preview may be the only view.

@@ -1,10 +1,6 @@
 /**
- * `![[plan.pdf]]`, a pdf drawn in a note.
- *
- * Drawn with pdf.js onto canvases rather than handed to an `<iframe>`, because
- * a phone browser draws no pdf in a frame: Android Chrome shows a button that
- * downloads it. The widget that holds the box is in `live-preview-embeds.ts`; this is
- * what fills it.
+ * `![[plan.pdf]]`, a pdf drawn in a note with pdf.js onto canvases. An iframe would not draw a pdf
+ * on a phone, where Android Chrome shows a download button. The widget is in `live-preview-embeds.ts`.
  */
 
 import { Facet } from "@codemirror/state";
@@ -119,18 +115,8 @@ export interface PdfView {
 }
 
 /**
- * Fill `box` with the pdf at `url`, and return a view of it, which frees it.
- *
- * Every page gets a slot the shape of the first page at once, so the box
- * scrolls its whole length before anything is drawn, and a page is drawn when
- * its slot scrolls into view and freed when it scrolls out: a hundred-page pdf
- * in a note costs the pages somebody is looking at. The canvas is as wide as the box when the page is drawn,
- * times the pixel ratio, and its style holds it to the box, so a phone gets a
- * page it can read across without scrolling sideways.
- *
- * `measured` is called whenever the box changes height under a line the editor
- * has already measured. `page` is scrolled to the top of the box, and a page
- * the pdf does not have leaves the first there.
+ * Fill `box` with the pdf at `url`, and return a view of it, which frees it. Every page gets a slot
+ * the shape of the first, so the box scrolls its full length, and a page is drawn in view and freed out of it.
  */
 export function showPdf(
   box: HTMLElement,

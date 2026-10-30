@@ -15,12 +15,7 @@ import { resolveIn } from "@/lib/wikilink";
 
 /**
  * The picture an `![](path)` names, drawn in place of the text naming it.
- *
- * The one widget here that loads something. A picture arrives with no size and
- * gets one when its bytes land, by which time CodeMirror has measured the line
- * as the height of an empty element, so the load asks for that measurement
- * again. Without it the note below the image sits under it until something else
- * moves the cursor.
+ * It loads late, so a measure is asked for again, or the note below sits under the image.
  */
 export class Picture extends WidgetType {
   private readonly picture: Pictured;
@@ -98,10 +93,7 @@ export function pictureElement(view: EditorView, picture: Pictured): HTMLImageEl
 
 /**
  * The picture `![[name|alias]]` names, or null where the vault holds none.
- *
- * Read off the image listing by the rule a link finds its note by. The alias is
- * read as Obsidian reads it: `200` is a width, `200x100` a width and a height,
- * and anything else the alt text.
+ * The alias is read as Obsidian reads it: `200` is a width, `200x100` a size.
  */
 export function embeddedPicture(
   state: EditorState,
@@ -127,15 +119,7 @@ export type Drawn =
 
 /**
  * The address of an `![alt](address)` with a space in it, and where it ends.
- *
- * CommonMark ends a bare address at a space, so the parser reads
- * `![shot](99 Misc/shot.png)` as a reference image `![shot]` and the rest as
- * text. Obsidian draws the picture, and a note it wrote says what it meant: an
- * `Image` ending in `]` with a `(` straight after it has the address that runs
- * to the first `)` on its line, spaces kept and no title read. Each space is
- * written `%20`, which is what kasten's own writers would have put there, the
- * rest being taken as already encoded, as `imageSource` takes any path. Null
- * for any other image. Copy as reads the node as CommonMark does.
+ * CommonMark stops at the space, so this reads to the first `)` as Obsidian does.
  */
 export function spacedAddress(doc: Text, node: SyntaxNode): { address: string; to: number } | null {
   if (doc.sliceString(node.to - 1, node.to + 1) !== "](") return null;
@@ -148,12 +132,7 @@ export function spacedAddress(doc: Text, node: SyntaxNode): { address: string; t
 
 /**
  * Reads an `Image` node into what it is drawn as.
- *
- * An address `imageSource` cannot load renders as its source instead, since a
- * broken picture would hide what the text says was meant. So does one with no
- * address, `![a]()` or a `![a][ref]` no definition names, which `imageSource`
- * would hand the assets route as the empty path. The parens of a spaced
- * address win over a definition of the alt text, as they do in Obsidian.
+ * Anything `imageSource` cannot load shows its source, since a broken picture would hide what was meant.
  */
 export function drawnImage(state: EditorState, node: SyntaxNode): Drawn | null {
   const address = spacedAddress(state.doc, node)?.address ?? linkAddress(node, state.doc);
@@ -180,10 +159,7 @@ export function drawnImage(state: EditorState, node: SyntaxNode): Drawn | null {
 
 /**
  * The player an `![](word.mp3)` is drawn as, which an Anki import writes.
- *
- * `preload="none"` because a deck note is a thousand lines of these, and
- * loading every one on opening the note is a thousand requests nobody asked
- * for. Nothing to measure: the controls have their size before anything loads.
+ * No preload: a deck note has a thousand of these, and loading each on open is a thousand requests.
  */
 class Sound extends WidgetType {
   private readonly source: string;
@@ -208,29 +184,8 @@ class Sound extends WidgetType {
 }
 
 /**
- * The player an `![](youtube link)` is drawn as.
- *
- * The pane is still the way to watch something properly, `<leader>gv` keeping
- * the player in place while the note scrolls under your typing and `<leader>v`
- * starting and stopping it from the note. This is the other half: a clip
- * quoted in the middle of a note reads as the clip rather than as an address,
- * and it plays where it sits.
- *
- * The frame is not built here. CodeMirror drops a widget's DOM when its line
- * scrolls out of the rendered range, and a frame built in it would be destroyed
- * and built again, loading from the start each time. This leaves a sized
- * placeholder, and `live-preview-video.ts` keeps one frame per video in a layer
- * over it, so the player goes on through a scroll.
- *
- * The frame's `enablejsapi=1` comes from `playerUrl`, as the pane's does. The
- * player is a subscriber of its own, so the note's `watching:` moves for it as
- * it moves for the pane's (#953).
- *
- * ponytail: the cursor on the line hands the source back, the way it does for
- * a picture, so clicking into the line hides the video. It keeps playing, out
- * of sight. The upgrade is to keep the widget and reveal the brackets around
- * it, which is a second rendering of the construct rather than the one every
- * other one here uses.
+ * The player an `![](youtube link)` is drawn as, where it is quoted.
+ * Its frame lives in live-preview-video.ts, since a widget built here reloads when scrolled away and back.
  */
 class Player extends WidgetType {
   private readonly id: string;
@@ -243,13 +198,8 @@ class Player extends WidgetType {
   }
 
   /**
-   * The id alone, and deliberately not the URL.
-   *
-   * The pane writes where you got to into the note, so the note changes while
-   * you watch and the `start=` this was built with changes with it. Comparing
-   * the URL would call that a different widget and rebuild the placeholder under
-   * a video that is playing. Where it opens is read once, when its frame opens,
-   * and the player owns where it is after that.
+   * The id alone, not the URL, since `start=` changes while the video plays.
+   * Comparing the URL would rebuild the placeholder under a playing video.
    */
   override eq(other: Player): boolean {
     return other.id === this.id;
@@ -270,13 +220,7 @@ class Player extends WidgetType {
 
 /**
  * Reads an `Image` node into what is drawn for it, or its source.
- *
- * Drawn rather than hidden, which is what makes this the one construct
- * whose rendering is not the source with its marks taken off. The whole
- * of `![alt](path)` goes and the picture stands where it stood, so the
- * range has to be hidden as well as replaced: the cursor cannot rest
- * inside a widget, and `x` on the first character of one would delete a
- * bracket nobody can see.
+ * Hidden as well as replaced: the cursor cannot rest in a widget, so `x` would delete an unseen bracket.
  */
 export function drawImage(walk: Walk, node: SyntaxNode, revealed: boolean): void {
   const { state, decorations, hidden } = walk;

@@ -9,15 +9,8 @@ const ARMED_MS = 4000;
  */
 export function useArmed() {
   /**
-   * The row whose state button has been tapped once, by its key and its text.
-   *
-   * The text as well, because the key is a path and a line: a write from
-   * elsewhere can put another todo on that line while the question stands, and
-   * the second tap would then cycle a todo nobody asked about.
-   *
-   * A finger slips where a key does not, and a cycle writes to the vault with
-   * no way back, so the first tap asks and the second is the one that writes.
-   * One row at a time: arming another takes the question off this one.
+   * The row whose state button was tapped once, by its key and its text. The text catches a write that moved
+   * another todo onto that line. A cycle writes with no way back, so the first tap asks and the second writes.
    */
   const [armed, setArmed] = useState<string | null>(null);
 

@@ -1,10 +1,6 @@
 /**
- * A book read word by word: an epub out of the section documents foliate
- * builds, a pdf read as a book out of its bytes, and the place moved between a
- * word and a cfi, which is what the book's `reading:` holds.
- *
- * The book pane hands over its view and gets an `RsvpSource` back; nothing
- * outside this module knows a cfi is how a word and a book place meet.
+ * A book read word by word, moving between a word and a cfi, which is what the book's `reading:` holds.
+ * The pane hands over its view and gets an `RsvpSource`; nothing outside knows a cfi joins a word and a place.
  */
 
 import type { RefObject } from "react";
@@ -43,9 +39,8 @@ async function epubWords(view: FoliateView, keep: () => boolean): Promise<Word[]
 }
 
 /**
- * A pdf read as a book: its words out of the bytes, pdf.js parsing each page's
- * text without drawing it, as the seek in `use-book-seek.ts` does. foliate keeps
- * its own document to itself, so this is a second reading of the same file.
+ * A pdf read as a book: its words out of the bytes, parsed without drawing, as the seek in
+ * `use-book-seek.ts` does. foliate keeps its own document private, so this is a second reading.
  */
 function bookPdfWords(bytes: ArrayBuffer, keep: () => boolean): Promise<Word[]> {
   return readPdf(
@@ -61,11 +56,8 @@ function bookPdfWords(bytes: ArrayBuffer, keep: () => boolean): Promise<Word[]> 
 }
 
 /**
- * The word a cfi points at: the book's `reading:` or a place on screen.
- *
- * Resolved in a document built for the purpose, the one the words were read out
- * of, since a cfi is a path through the section's markup and finds the same
- * node in either. A pdf's sections build no document, so its cfi names a page.
+ * The word a cfi points at, resolved in a document built for the purpose: a cfi is a path through the markup.
+ * A pdf's sections build no document, so its cfi names a page.
  */
 async function wordAtCfi(view: FoliateView, cfi: string, words: Word[]): Promise<number> {
   const resolved = (await view.resolveCFI?.(cfi)) as Resolved | undefined;
@@ -108,9 +100,8 @@ async function selectedWord(view: FoliateView, words: Word[]): Promise<number | 
 }
 
 /**
- * The book in a pane as a text to read. Its place is kept under the file's
- * path, the book being what is read, and moves to and from `reading:` by `r`
- * and `R`.
+ * The book in a pane as a text to read. Its place is kept under the file's path, and moves
+ * to and from `reading:` by `r` and `R`.
  */
 export function bookSource(o: {
   viewRef: RefObject<FoliateView | null>;

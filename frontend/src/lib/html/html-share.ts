@@ -1,10 +1,6 @@
 /**
- * A newspaper story saved to share later: the todo the page pane writes into
- * today's `## Dump` when the reader presses a story's Share later button.
- *
- * The page is not trusted, so the headline goes through the alias escape and the
- * source must be an http or https address. Pure: the write goes through the dump
- * path, and this only says what to write.
+ * A newspaper story saved to share later, as the todo the page pane writes into today's `## Dump`.
+ * The page is not trusted, so the headline is escaped and the source must be http or https.
  */
 
 import { aliasOf, fileOf, pageLink } from "@/lib/html-take";
@@ -45,10 +41,7 @@ export function storyOf(data: Record<string, unknown>): Story | null {
 
 /**
  * The address as a markdown link can hold it, or "" when it is not one to keep.
- *
- * Only http and https: a `javascript:` or `data:` address in the vault would be
- * a link the reader clicks later. `URL` already encodes a space and a quote, but
- * leaves a bracket, which would end the link early, so those are encoded by hand.
+ * Only http and https: a `javascript:` or `data:` link would be clicked later. `URL` leaves a bracket, which would end the link early, so it is encoded here.
  */
 export function sourceOf(raw: string): string {
   let url: URL;
@@ -67,11 +60,8 @@ export function sourceOf(raw: string): string {
 }
 
 /**
- * `- [ ] share [<headline>](<source>) ([[<page>#<id>|in the paper]]) #share ➕ <date>`,
- * or with no source, `- [ ] share [[<page>#<id>|<headline>]] #share ➕ <date>`.
- *
- * The headline sits inside a link either way, so a field marker in it stays
- * words and gives the todo no date. `from` is the note the line is written into.
+ * The todo line for a story, with the headline inside the link so a date marker in it stays words.
+ * `from` is the note the line is written into.
  */
 export function shareLine(path: string, story: Story, from: string, date: string): string {
   const headline = aliasOf(story.heading) || aliasOf(fileOf(path));

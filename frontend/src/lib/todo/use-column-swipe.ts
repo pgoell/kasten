@@ -1,11 +1,6 @@
 /**
- * A phone board's column that a finger swipes left or right to the next or the
- * previous state. Modelled on the flashcard's swipe in `review-swipe.tsx`: touch
- * only, an axis decided after SLOP, and the column moved by `transform` from the
- * spring's frames, written straight to the DOM.
- *
- * The column is the only thing that swipes. The tabs above and the page around
- * it keep their own touches, so a swipe never fights a scroll or a screen gesture.
+ * A phone board's column that a finger swipes to the next or previous state, modelled on the flashcard swipe in `review-swipe.tsx`.
+ * Only the column moves, so the tabs and the page keep their own touches.
  */
 
 import {

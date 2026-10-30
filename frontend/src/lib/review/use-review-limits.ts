@@ -13,25 +13,8 @@ function messageOf(error: unknown): string {
 }
 
 /**
- * The daily limits, for `decksFrom`, or undefined until both reads are in.
- *
- * Under `cards`, so the invalidation every rating already sends refetches it
- * and an edit to `decks.md` reaches the overview the way an edit to a deck does.
- * A sitting does not follow it there: it keeps the limits it started with, and
- * an edit to `decks.md` reaches the next sitting.
- *
- * A read the backend drops is retried, not read as "no limit": a limit read as
- * none while the backend restarts would let a deck count past `new_per_day` and
- * stay that way until the next edit. Any other failure falls back, since a
- * vault with no `decks.md` is the usual case, and a limit is a convenience: a
- * sitting with none beats no sitting. A read that runs out of tries is `failed`.
- *
- * `current` holds back a stale cached answer until the refetch on mount lands.
- * A sitting keeps the first answer it sees, and an edit to `decks.md` since the
- * overview read it invalidates nothing, so a stale one would outlive the edit.
- *
- * `retry` reads them again. `failed` is null while that read runs, so a retry
- * that fails with the same message still shows as a new failure to the caller.
+ * The daily limits for `decksFrom`, or undefined until both reads are in. A read the backend drops is retried, since a limit read as none would let a deck run past `new_per_day`.
+ * Any other failure falls back, as a sitting with no limit beats no sitting. A read that runs out of tries is `failed`.
  */
 export function useReviewLimits(current = false): {
   limits: Limits | undefined;

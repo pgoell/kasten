@@ -1,9 +1,6 @@
 /**
- * The calls the card's food search makes: Open Food Facts through the backend, and
- * the log's days for the foods a person logged before.
- *
- * Kept apart from `api.ts`, which is past the size a reader can take in one go. The
- * backend's answers are the ones `food.py` and `log.py` give.
+ * The calls the card's food search makes: Open Food Facts through the backend, and the foods logged before.
+ * Kept apart from `api.ts`, which is past the size a reader can take in one go.
  */
 
 import { client, reason } from "@/lib/api-client";
@@ -17,9 +14,7 @@ export type LogDay = components["schemas"]["Day"];
 
 /**
  * The foods Open Food Facts has whose name matches `q`, or the one a barcode names.
- *
- * A refusal is the backend's sentence, such as a search over its rate limit, and
- * the food panel shows it as it is.
+ * A refusal is the backend's own sentence, such as a rate limit, and is shown as it is.
  */
 export async function searchFood(q: string): Promise<Food[]> {
   const { data, error, response } = await client.GET("/api/food/search", {

@@ -36,11 +36,8 @@ function busyOf(
 }
 
 /**
- * Every write the log pane makes into a day's note: add, edit, delete and the
- * undo of the last delete.
- *
- * The guards are the todo writes': asked at the press, inside the queued write and
- * inside the update's change, since the write can wait behind a save.
+ * Every write the log pane makes into a day's note. The guards run at the press, inside the queued write,
+ * and inside the update's change, since a write can wait behind a save.
  */
 export function useLogActions({
   data,
@@ -58,9 +55,7 @@ export function useLogActions({
 
   /**
    * One change to a note, or the note made from `body` when the listing lacks it.
-   *
-   * A note made meanwhile (`NoteExists`) is changed instead, as the drink write
-   * does. Answers whether the change landed; a refusal sets its why as the notice.
+   * A note made meanwhile (`NoteExists`) is changed instead, as the drink write does. Answers whether it landed.
    */
   const logWrite = useCallback(
     async (

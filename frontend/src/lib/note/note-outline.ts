@@ -27,11 +27,8 @@ const FENCE = /^ {0,3}(`{3,}|~{3,})/;
 const READING_LINE = 24;
 
 /**
- * The lines from `first` on that are not inside a fenced block, numbered as the
- * editor numbers them.
- *
- * A `#` line inside a fence is code, and a `[[` or `#tag` inside one is no
- * link or tag: every reader of the body skips the same lines.
+ * The lines from `first` on that are not inside a fenced block, numbered as the editor numbers them.
+ * A `#` or `[[` inside a fence is code, not a heading or link, and every reader of the body skips the same lines.
  */
 export function proseLines(doc: Text, first: number): { line: number; text: string }[] {
   const lines: { line: number; text: string }[] = [];
@@ -80,9 +77,7 @@ function currentOf(view: EditorView, headings: OutlineHeading[]): number {
 
 /**
  * The index of the last heading at or above the cursor, or -1 above the first.
- *
- * The cursor is what the reader is writing in, so the section it is in is the
- * one marked when the scroll has not moved it yet.
+ * The cursor's section is marked, not the scroll's, since the cursor is what the reader writes in.
  */
 function cursorCurrentOf(view: EditorView, headings: OutlineHeading[]): number {
   const head = view.state.selection.main.head;
@@ -94,9 +89,8 @@ function cursorCurrentOf(view: EditorView, headings: OutlineHeading[]): number {
 }
 
 /**
- * Reports the outline on every change of its headings or of the heading being
- * read. A class and not a closure so the scroll listener and the update share
- * the last report and the scroller's listener can be removed in `destroy`.
+ * Reports the outline on each change of its headings or of the heading being read.
+ * A class, not a closure, so the scroll listener and the update share the last report and `destroy` can remove the listener.
  */
 class OutlineReporter {
   private readonly view: EditorView;

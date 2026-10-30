@@ -3,11 +3,8 @@ import { namedVideo, nonEmpty, PLAYER } from "@/lib/video/video";
 import { applyVideoSettings, learnVideoSettings } from "@/lib/video/video-settings";
 
 /**
- * What the player reports while it is playing or about to be.
- *
- * YouTube's own numbering: 1 is playing and 3 is buffering, which is a video on
- * its way to playing and has to read as playing or the next press starts it
- * again instead of stopping it.
+ * What the player reports while playing or about to be. YouTube's 1 is playing and 3 is buffering,
+ * a video on its way to playing, so it must count as playing or the next press starts it again.
  */
 const RUNNING = new Set([1, 3]);
 
@@ -69,13 +66,8 @@ function command(frame: HTMLIFrameElement | null, func: string, args: unknown[] 
 }
 
 /**
- * The player in a video pane: where it is, whether it runs, what it is called,
- * and the commands the pane sends it.
- *
- * A cross-origin frame answers no question asked of it directly, so the
- * arrangement is the other way round: `postMessage` a subscription once the
- * frame is up and it streams its state back. Without this the toggle would have
- * to guess, and a video paused by a click would then need two presses.
+ * The player in a video pane: position, running state, name, and the commands sent to it. A cross-origin
+ * frame answers no questions, so it streams its state after one `postMessage` subscription, or the toggle would guess.
  */
 export function useVideoPlayer({
   id,
@@ -86,11 +78,8 @@ export function useVideoPlayer({
   onOtherVideo,
 }: VideoPlayerOptions): VideoPlayer {
   /**
-   * Whether the player is running, as the player last reported it, for the key.
-   *
-   * The state is what the screen shows; this ref is what the key reads, at the
-   * moment it is pressed rather than a render behind. It is set in the same
-   * place as the state, so the two cannot disagree.
+   * Whether the player is running, for the key. The key reads this ref at press time, not a render behind
+   * the state, and it is set beside the state so the two cannot disagree.
    */
   const runningNow = useRef(false);
   const [running, setRunning] = useState(false);
@@ -101,9 +90,8 @@ export function useVideoPlayer({
   /** The video the state above is about, to tell when it has changed. */
   const about = useRef<string | undefined>(undefined);
   /**
-   * Set when the player reports it has ended, which writes the start back into
-   * the note. Until it runs again nothing is written for this video, or closing
-   * the pane would put its duration back over that start.
+   * Set when the player reports it has ended, which writes the start back into the note.
+   * Until it runs again nothing is written for this video, or closing the pane would restore its duration over that start.
    */
   const ended = useRef(false);
   /** The video the player last named, and whether it is another one than `id`. */
@@ -222,12 +210,8 @@ export function useVideoPlayer({
   }, [frame]);
 
   /**
-   * It does not play or pause: the player keeps its state. The `true` lets the
-   * player seek ahead of what it has buffered. A video never played yet may
-   * start on a seek, which is YouTube's own rule and not one this hook sets.
-   *
-   * The second is set here as well as reported, so the marks move at once and
-   * two presses of `j` add up before the player has answered the first.
+   * Does not play or pause: the player keeps its state. The `true` lets the seek go past what is buffered.
+   * The seeked time is set here too, so two presses of `j` add up before the player answers.
    */
   const seek = useCallback(
     (seconds: number) => {

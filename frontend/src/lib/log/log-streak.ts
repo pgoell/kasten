@@ -1,7 +1,6 @@
 /**
- * The streak the log pane and the overview count: days in a row within the kcal goal, and
- * the food day that every kcal count reads, shared by the pane, the overview and the week
- * review. Kept out of the pane's components so the overview can read it without drawing the pane.
+ * The streak the log pane and the overview count: days in a row within the kcal goal, shared by the pane, the overview and the week review.
+ * Kept out of the pane's components so the overview can read it without drawing the pane.
  */
 
 import type { LogDay } from "@/lib/log/food-api";
@@ -18,11 +17,8 @@ export function hasFood(day: LogDay): boolean {
 }
 
 /**
- * The logged days in a row, counted back from the day shown: within the kcal goal when
- * there is one. A day with no log, or over the goal, ends the run. A day with no food line
- * counts as a day with no log, so drinks alone do not pass for a day within the goal. Today,
- * while it has no food line yet, is skipped instead, so a day still being written does not
- * end it.
+ * The logged days in a row, counted back from the day shown, within the kcal goal when there is one.
+ * A day with no food line ends the run, so drinks alone do not pass. Today is skipped until it has one.
  */
 export function streakOf(
   dates: string[],

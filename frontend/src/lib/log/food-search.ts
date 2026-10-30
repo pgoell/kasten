@@ -1,10 +1,6 @@
 /**
- * The food search on the log card: a query on Open Food Facts or a barcode, your
- * own foods, the foods the last 30 days logged, a quick add of kcal, and the
- * serving a pick is logged with. `foodPanel` builds the panel the food sheet shows.
- *
- * The pure parts live in `food-math.ts`, and the two forms in `food-serving.ts`
- * and `food-quick-add.ts`, so each file stays small enough to read whole.
+ * The food search on the log card: Open Food Facts or a barcode, your own foods, recent foods, and a quick kcal add.
+ * The pure parts live in `food-math.ts`, and the forms in `food-serving.ts` and `food-quick-add.ts`.
  */
 
 import { shiftDay } from "@/lib/clock";
@@ -76,9 +72,8 @@ function pickButton(
 }
 
 /**
- * The search panel. It is built each time the card opens it, so its answers are
- * dropped when its element is no longer in the page: a search or read that comes
- * back after the panel closed, or after a later search, draws nothing.
+ * The search panel, built each time the card opens it.
+ * Answers are dropped once the element leaves the page, so a late search or read draws nothing.
  */
 export function foodPanel(day: string | null, hooks: PanelHooks): FoodPanel {
   const root = make("div", "cm-log-food");

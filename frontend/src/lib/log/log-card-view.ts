@@ -1,10 +1,6 @@
 /**
- * The DOM the Log card draws: the kcal figure and the macro rings above its
- * buttons, a quick button per kind, the entries by meal, and the raw-lines fold.
- *
- * Each builder takes data and returns an element, and the card in `log-card.ts`
- * says what a press does. Colour is never the only sign: a passed max goal says
- * "over" in words, and a met floor says so with a tick.
+ * The DOM the Log card draws. Each builder takes data and returns an element; `log-card.ts` says what a press does.
+ * Colour is never the only sign: a passed max says "over", and a met floor shows a tick.
  */
 
 import { type Meal, type MealGroup, overMax, share } from "@/lib/log/log-day";
@@ -57,10 +53,8 @@ export function tailOf(kind: LogKind, totals: DrinkTotals): string {
 }
 
 /**
- * Focuses `element` and shows it the least way. The browser's own scroll on a focus
- * differs by browser (Firefox jumped the note on a tap, #814), so the focus does not
- * scroll, and `nearest` moves the note only when the element is out of view, and only
- * as far as it takes to show it, the same in every browser.
+ * Focuses `element` without the browser's own scroll, which differs by browser (Firefox jumped the note, #814).
+ * `nearest` moves the note only as far as it takes to show the element, the same in every browser.
  */
 export function focusInPlace(element: HTMLElement): void {
   element.focus({ preventScroll: true });
@@ -184,8 +178,7 @@ function macroRing(name: string, value: number, goal: Goal | undefined): HTMLEle
 
 /**
  * One quick button: the tap's words, the kind's total with its goal, and a meter where there is a goal.
- * A kind that keeps its last value has no tap, so its button names the kind and shows the value, or
- * `words` on a day with none, which the card takes from the 30 days before it.
+ * A last kind has no tap: its button shows the value, or `words` on a day with none, read from the 30 days before.
  */
 export function quickButton(
   kind: LogKind,
@@ -258,9 +251,8 @@ function entryRow(food: Food): HTMLElement {
 }
 
 /**
- * One meal's block: its heading with the kcal, each food line with its words and
- * P, C, F, and when the meal is empty and yesterday had lines for it, the offer to
- * copy them. A meal with nothing to show, and no offer, draws nothing.
+ * One meal's block: its heading with the kcal, each food line, and an offer to copy yesterday's lines when the meal is empty.
+ * A meal with nothing to show and no offer draws nothing.
  */
 export function mealBlock(
   group: MealGroup,

@@ -9,10 +9,7 @@ import { splitTarget, vaultPaths, wikiLinkLands } from "@/lib/wikilink";
 
 /**
  * Inline constructs, by the node that wraps them.
- *
- * Keyed by the wrapper rather than the delimiter because the delimiter does not
- * identify the construct: `EmphasisMark` is both `**` and `*`, and only the
- * parent says which.
+ * The delimiter alone does not say which: `EmphasisMark` is both `**` and `*`.
  */
 export interface Inline {
   mark: string;
@@ -32,19 +29,13 @@ export const INLINE: Record<string, Inline> = {
 
 /**
  * One ruby as an Anki import writes it, `<ruby>漢字<rt>かんじ</rt></ruby>`.
- *
- * That shape and no other, base and reading plain text: it is what
- * `kasten_backend.anki` writes for furigana, and a ruby typed by hand in some
- * other shape stays as its source rather than drawn half right.
+ * Only that shape is drawn; a hand-typed ruby stays as source rather than half right.
  */
 const RUBY = /^<ruby>([^<]+)<rt>([^<]+)<\/rt><\/ruby>/;
 
 /**
  * The reading over its base, the way Anki shows furigana.
- *
- * A widget rather than marks on the text, the editor drawing no HTML: the
- * tags would otherwise stand on the screen around the word. Drawn and hidden
- * by the image's rules, so the cursor's line shows the source to edit.
+ * A widget, not marks, so the tags do not show on screen around the word.
  */
 class Ruby extends WidgetType {
   private readonly base: string;
@@ -71,11 +62,8 @@ class Ruby extends WidgetType {
 }
 
 /**
- * The mark that takes a link's colour off a `[text]` or `![alt][ref]` no
- * definition names, or null for one with a `(url)` or a definition.
- *
- * Such a one is text, as Obsidian shows it, but the highlighter colours every
- * Link and Image node as a link.
+ * The mark that takes a link colour off a `[text]` or `![alt][ref]` no definition names.
+ * The highlighter colours every Link node as a link, so this undoes that for plain text.
  */
 export function plainBrackets(doc: Text, node: SyntaxNode): Range<Decoration> | null {
   if (node.getChildren("LinkMark").length > 2 || linkAddress(node, doc) !== null) return null;
@@ -91,9 +79,8 @@ export function plainBrackets(doc: Text, node: SyntaxNode): Range<Decoration> | 
 }
 
 /**
- * The parser reads each of the four tags as a node of its own, so the ruby is
- * read off the text from its opening one. `drawn` keeps the walk from hiding an
- * escape inside what the widget already stands for.
+ * The parser reads each of the four tags as its own node, so the ruby is read from its opening one.
+ * `drawn` stops the walk hiding an escape inside the widget.
  */
 export function drawRuby(walk: Walk, from: number, line: Line, revealed: boolean): void {
   const { state, decorations, hidden } = walk;
@@ -109,19 +96,8 @@ export function drawRuby(walk: Walk, from: number, line: Line, revealed: boolean
 }
 
 /**
- * `- [/] task` parses its box as a link, brackets and all. The bullet hides that
- * box and draws a symbol in its place, so a link rendering of the same three
- * characters is only a way for the two to disagree: on a revealed line the box
- * would come back without them. Two characters past the indent is the `- ` in
- * front of every todo.
- *
- * The parser reads any `[text]` with no `(url)` as a link, `[!note]` on a quote
- * line among them. One whose label a definition in the note names is a
- * reference link and draws as the inline link below (#439). Any other is text
- * and keeps its brackets, as Obsidian shows it. Told apart by the `(` mark
- * rather than the URL: `[a]()` is a link to nowhere. The highlighter still
- * colours a Link node as a link, so the mark takes that look back off, the
- * cursor on it or not (#441).
+ * A task's box parses as a link, which the bullet's symbol must match on a revealed line.
+ * Told apart by the `(` mark rather than the URL: `[a]()` is a link to nowhere (#441).
  */
 export function drawLink(walk: Walk, node: SyntaxNode, line: Line, revealed: boolean): void {
   const { state, decorations } = walk;
@@ -152,15 +128,8 @@ export function drawLink(walk: Walk, node: SyntaxNode, line: Line, revealed: boo
 }
 
 /**
- * The name in front of a relation, hung off the wikilink rather than a
- * second pass over the document: every relation has one by its own
- * grammar, the walk already enters it, and no line is read twice. The
- * `indexOf` is what makes this the relation's own target rather than a
- * second wikilink further along the line, and it is sound because a line
- * carrying a `[[` before the separator is not a relation at all.
- *
- * Nothing is hidden and nothing stands in for the prefix, so the class
- * goes on the cursor's line too, the way `cm-tag` does.
+ * The name in front of a relation, hung off the wikilink.
+ * Nothing is hidden, so the class goes on the cursor's line too, as `cm-tag` does.
  */
 export function markRelation(walk: Walk, from: number, line: Line): void {
   const relation = readRelation(line.text);

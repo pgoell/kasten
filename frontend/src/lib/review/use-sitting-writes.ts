@@ -5,26 +5,8 @@ import { noteBase } from "@/lib/note-base";
 import { BACKOFF, retryable } from "@/lib/read-retry";
 
 /**
- * Writes for a screen that reads its notes once and then saves the same note
- * many times: the review sitting and the parked list.
- *
- * Each write names as its base the text its change was made against, `prev`,
- * or what the vault answered where `prev` is a text this screen sent and saw
- * land. Sending `prev` itself would fail on a note the write stamped an `id`
- * or a `created` into. Writes to one note go out one after another, so that
- * answer is in before the write after it leaves.
- *
- * Nothing is dropped. A write that fails while the backend restarts goes again
- * for about a minute, with the same text over the same base. That is safe: the
- * base is stale once an earlier try has landed, but the disk already holds the
- * text being resent, so the vault answers with the note as it stands and writes
- * nothing. A base the note moved past for any other reason is a 409. A write that
- * still fails names text that never landed, the vault refuses it, and it fails
- * out loud like the one before it. A failure also reads the note again, so the
- * screen holds the vault's text and the next change is made against that.
- *
- * Each write answers, once settled, what it failed with or null where it
- * landed, so the sitting's undo puts the card back only for a write that took.
+ * Writes for a screen that reads its notes once and saves them many times. Each names as its base `prev`, or the vault's answer to an earlier write,
+ * since `prev` alone fails once the vault stamps an `id` or `created` into the note. Each write settles to its failure, or null where it landed.
  */
 export function useSittingWrites(
   setTexts: Dispatch<SetStateAction<Map<string, string> | null>>,

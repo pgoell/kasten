@@ -5,12 +5,7 @@ import { loadKatex } from "@/lib/math";
 
 /**
  * A formula, `$x$` inline or `$$x$$` as a block, drawn by KaTeX.
- *
- * The source stands in the box until KaTeX lands, and a formula KaTeX cannot
- * read stays its source in the warning colour, the parse error on hover,
- * rather than a blank. KaTeX draws the rest in whatever colour it sits in.
- * The box changes size when the drawing lands, so it asks for a measure the
- * way a picture does.
+ * A formula KaTeX cannot read stays as its source, in the warning colour.
  */
 class Formula extends WidgetType {
   private readonly source: string;
@@ -60,9 +55,8 @@ class Formula extends WidgetType {
 }
 
 /**
- * A `$$` block, by the table's rule and for the table's reasons: one
- * widget stands for its lines, `j` and `k` step over it, and the cursor
- * in it in any mode shows the source. A read-only view draws it.
+ * A `$$` block, by the table's rule: one widget stands for its lines.
+ * The cursor in it shows the source, and a read-only view draws it.
  */
 export function drawBlockMath(walk: Walk, node: SyntaxNode): false | undefined {
   const { state, decorations } = walk;

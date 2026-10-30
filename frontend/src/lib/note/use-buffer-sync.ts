@@ -33,16 +33,8 @@ export function useBufferSync({
   const { status, change, isConflicted, isWriting, revert } = autosave;
   const queryClient = useQueryClient();
 
-  // What an unfocused pane's editor asks before it takes the vault's text.
-  // It refuses only in a pane showing the text held for its note, conflicted
-  // or not: that pane is where the reader left it, or a restore opened it on
-  // that text, and a reload would put the vault's text there in its place, so
-  // coming back would find nothing to restore and read "Saved" over text the
-  // vault never took.
-  // A pane on that note that never showed the held text takes the write, or
-  // it would sit on an old text that one keystroke writes back over the new.
-  // One callback per pane, kept, so the editor's memo is not broken by a new
-  // arrow each render.
+  // Refuses only in a pane showing the note's held text, which a reload would replace with the vault's text.
+  // Any other pane on the note takes the write, or one keystroke would write its old text back over the new.
   const standby = useRef(new Map<string, (text: string) => boolean>());
   const standbyReload = (id: string) => {
     let call = standby.current.get(id);
@@ -58,15 +50,10 @@ export function useBufferSync({
     }
     return call;
   };
-  // Text the vault refused, kept by note. Read here so a note held or let go
-  // re-renders the bar, and the focused editor opens on its held text.
+  // Text the vault refused, by note: read here so the bar redraws when one is held or let go.
   const held = useHeld();
-  // A note left standing conflicted has the text from before the other write
-  // in the cache: the reload of it was declined while the reader's text was on
-  // screen. Kept, a reopen would draw that first and take it for the vault's,
-  // so the diff would be against text nobody holds and a vault that came to
-  // hold the kept text would still read as a conflict. Dropped only where no
-  // pane reads it, the one reading it being a pane the reader can still see.
+  // A conflicted note's cache holds pre-conflict text, which a reopen would take for the vault's.
+  // Dropped unless a visible pane reads it.
   useEffect(() => {
     const cache = queryClient.getQueryCache();
     for (const each of held) {
@@ -74,13 +61,8 @@ export function useBufferSync({
       if (query && query.getObserversCount() === 0) cache.remove(query);
     }
   }, [held, queryClient]);
-  // A pane left showing held text refused every reload while it was held
-  // (`standbyReload`), conflicted or not: a restore opens every pane on a
-  // held note on that text. Once it is settled or thrown away elsewhere, the
-  // vault's text may already be in the cache, so no reload comes, and the
-  // pane would keep text the reader threw away for one keystroke to write over
-  // the vault. Put straight into the view: an unfocused pane reports no
-  // typing, and off the undo stack so `u` there cannot bring it back.
+  // A pane left on held text refused reloads while it was held. Once settled elsewhere, no reload comes,
+  // so the vault's text goes into the view here, off the undo stack so `u` cannot bring the old text back.
   const heldBefore = useRef(new Set<string>());
   useEffect(() => {
     const now = new Set(held.map((each) => each.path));
@@ -100,23 +82,14 @@ export function useBufferSync({
     }
     heldBefore.current = now;
   }, [held, queryClient, paneId, layoutNow]);
-  // The vault's side of a conflict, read for the bar's diff alone. Not the
-  // cache: a conflict the stream raised declined the reload, so the cache
-  // holds the text from before the other write. Read apart from the note's
-  // query so the editor is not handed it. A failed read leaves the diff out,
-  // and the buttons under it still settle the conflict.
+  // The vault's side of a conflict, for the diff only: the cache holds text from before the other write.
+  // A failed read leaves the diff out, and the buttons still settle the conflict.
   const [vaultSide, setVaultSide] = useState<{ path: string; text: string }>();
-  // Raised on each keystroke while the note stands conflicted, for the bar's
-  // diff alone: typing then changes no reading, so nothing else would draw the
-  // bar again, and a reader merging by hand would be shown the text they began
-  // from. Only then, so a keystroke anywhere else does not redraw the route.
+  // Raised per keystroke while conflicted, so the bar's diff redraws: nothing else would redraw it on typing.
+  // Only then, so typing elsewhere does not redraw the route.
   const [, setMerged] = useState(0);
-  // Raised by the stream for each write to the focused note it declined to
-  // reload, and for each while the note stands conflicted, which is reloaded
-  // in case the vault came to hold the buffer's text (#269). A second outside
-  // write keeps the status at "conflict", and without this the diff would
-  // stay on the first: a merge made from it, then `:w`, would put the
-  // reader's text over a write they were never shown.
+  // Raised for each write the stream declined to reload, and each while conflicted (#269). Without it the diff
+  // stays on the first outside write, and a merge made from it would overwrite a write the reader never saw.
   const [declined, setDeclined] = useState(0);
   const decline = useCallback(() => setDeclined((previous) => previous + 1), []);
   // biome-ignore lint/correctness/useExhaustiveDependencies: `declined` is the trigger, and is not read.
@@ -143,8 +116,7 @@ export function useBufferSync({
     },
     [change, isConflicted],
   );
-  // The read made when the conflict was raised, and only for the note it
-  // was read for: one left behind for another is not this one's side.
+  // The read made at the conflict, for this note only: one left for another note is not this note's side.
   const conflict = () => {
     const mine = docIn(paneId);
     return vaultSide !== undefined && vaultSide.path === path && mine !== undefined
@@ -153,49 +125,30 @@ export function useBufferSync({
   };
 
   /**
-   * Read the open note off the vault again and answer with its text, `:e`.
-   *
-   * The other way out of a conflict, `:w` being the one that keeps the buffer.
-   * Null back is the refusal `:e` gets on a buffer holding unsaved text.
-   *
-   * The vault and not the cache: a note that changed under unsaved text is a
-   * note this route deliberately did not read again, so what is cached is the
-   * text from before that write, which is neither of the two versions in play.
-   * `fetchQuery` fills the cache on the way through, so reopening the note
-   * reads back what the buffer is about to hold.
-   *
-   * The discard waits on the read rather than leading it. The other order drops
-   * the reader's only copy on the strength of a request that may never land.
+   * Read the open note off the vault for `:e`, answering with its text or null when refused. The vault, not the cache,
+   * which holds text from before the write that changed the note. The discard waits on the read.
    */
   const reload = useCallback(
     async (force: boolean): Promise<string | null> => {
       if (path === undefined) return null;
-      // Before the read and not after: the read fills the cache, and a clean
-      // buffer takes what the cache holds, so a refusal after it would still
-      // put the vault's older text on screen under a save on its way (#291).
+      // Before the read: the read fills the cache, which a clean buffer takes even on refusal (#291).
       if (!force && isWriting(path)) return refuse();
 
       const text = await queryClient.fetchQuery({
         queryKey: ["note", path],
         queryFn: () => fetchNote(path),
-        // A note counts as fresh for ten seconds here, and `:e` asked for what
-        // the vault holds rather than for whatever that window still has.
+        // Fresh for ten seconds by default, but `:e` wants what the vault holds now.
         staleTime: 0,
       });
-      // A no here is `:e` on a buffer holding edits, and the bar is flashed
-      // rather than left saying nothing about a command that did nothing.
+      // A refusal here is `:e` on edits: the bar flashes rather than staying silent.
       return revert(force) ? text : refuse();
     },
     [path, queryClient, revert, refuse, isWriting],
   );
 
   /**
-   * `:e!` for the status bar's button, which has no view to run it in.
-   *
-   * Through the focused pane's editor and not `reload` alone: `reload` answers
-   * with the vault's text and the editor is who puts it on screen. The cache
-   * cannot carry it there, holding that same text already whenever the conflict
-   * was raised by a reload the editor refused.
+   * `:e!` for the status bar's button, which has no view. Goes through the focused editor, since only the editor
+   * puts text on screen: after a refused reload the cache already holds the vault's text.
    */
   const takeVault = useCallback(() => {
     const editor = paneEditor(paneId);

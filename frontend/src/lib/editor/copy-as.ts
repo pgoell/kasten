@@ -1,13 +1,6 @@
 /**
- * A note's markdown rewritten for the chat it is about to be pasted into.
- *
- * Slack's message box reads its own markup out of plain text when the message
- * is sent: one asterisk for bold, underscores for italics, and no headings,
- * list syntax or links with a label. Teams reads none of it, but keeps the
- * formatting of pasted HTML. So Slack gets text and Teams gets HTML.
- *
- * Both walk the note's own parse, wikilinks and highlights included, so
- * nothing the editor draws as structure reaches the chat as punctuation.
+ * Rewrites a note's markdown for the chat it is pasted into. Slack reads plain-text markup,
+ * so it gets text; Teams keeps pasted HTML, so it gets HTML. Both walk the parse, so no drawn structure leaks out as punctuation.
  */
 
 import type { SyntaxNode } from "@lezer/common";
@@ -249,9 +242,8 @@ function block(node: SyntaxNode, source: string, format: Format): string {
 }
 
 /**
- * A quote that opens with `[!type]`, its header as a bold line and the rest
- * as the quote's body, or null when the quote is no callout. Neither chat
- * draws a callout, and `[!warning]-` pasted as it stands reads as noise.
+ * A quote opening `[!type]` as a bold header and body, or null. Neither chat draws callouts,
+ * and `[!warning]-` pasted as it stands reads as noise.
  */
 function callout(node: SyntaxNode, source: string, format: Format): string | null {
   const mark = node.firstChild;

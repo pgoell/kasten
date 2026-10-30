@@ -1,8 +1,6 @@
 /**
- * The speed and captions a browser keeps for every player, note and pane alike.
- *
- * Kept per browser and not per note: a speed is a habit of the person watching,
- * and a note that held it would carry one reader's habit to every other.
+ * The speed and captions a browser keeps for every player. Kept per browser, not per note: a speed is a habit
+ * of the person watching, and a note would carry it to every other reader.
  */
 
 /** The browser key, versioned. Shape: {"rate": 1.5, "captions": true}, both optional. */
@@ -36,13 +34,8 @@ export function keepVideoSettings(change: VideoSettings): void {
 }
 
 /**
- * Learn from one parsed player message: onPlaybackRateChange (number > 0) keeps
- * `rate`; apiInfoDelivery with a `captions` key keeps `captions`. Anything else:
- * nothing.
- *
- * The rate is learnt only from the change event. The first info delivery reports
- * 1 before the kept rate is applied, and reading that would overwrite the rate
- * the person chose.
+ * Learn from one player message: a rate change sets `rate`, a `captions` info delivery sets `captions`.
+ * Rate comes only from the change event, since the first info delivery reports 1 before the kept rate applies.
  */
 export function learnVideoSettings(message: unknown): void {
   if (typeof message !== "object" || message === null) return;

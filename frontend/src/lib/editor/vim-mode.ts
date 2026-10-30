@@ -26,32 +26,24 @@ export const vimModeField = StateField.define<VimMode>({
 });
 
 /**
- * Whether the view runs vim at all, which the editor says no to by hand.
- *
- * Absent means yes, so every view written before the setting existed reads the
- * field above as it always did.
+ * Whether the view runs vim at all. Absent means yes, so views written before the setting
+ * existed read the field above as they always did.
  */
 export const vimKeys = Facet.define<boolean, boolean>({
   combine: (values) => values[0] ?? true,
 });
 
 /**
- * The mode live preview goes by. An editor without vim is always being typed
- * into, which is what insert mode is, so the line under the cursor shows its
- * source the way it does there.
+ * The mode live preview goes by. Without vim the editor is always typing, which is insert mode,
+ * so the line under the cursor shows its source as it does there.
  */
 export function editingMode(state: EditorState): VimMode {
   return state.facet(vimKeys) ? state.field(vimModeField) : "insert";
 }
 
 /**
- * Mirrors vim's mode into the editor state.
- *
- * Vim keeps its mode on `cm.state.vim.mode`, a mutable property of an object
- * hanging off the view. State-level code cannot see it, and both the decoration
- * field and the selection filter need to. The only supported way to observe a
- * change is the `vim-mode-change` event, so this plugin turns each one into an
- * effect.
+ * Mirrors vim's mode into the editor state. Vim keeps it on a mutable property of its view object,
+ * which state-level code cannot see, so each `vim-mode-change` event becomes an effect.
  */
 const bridge = ViewPlugin.fromClass(
   class {
