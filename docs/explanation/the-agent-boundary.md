@@ -1,7 +1,7 @@
 ---
 type: Explanation
 title: The agent boundary
-description: Why a token reaches ten capabilities and the finance reads under /agent/ rather than the thirty-five routes the browser uses, what it cannot do, and what a leaked one now exposes.
+description: Why a token reaches eleven capabilities and the finance reads under /agent/ rather than the thirty-five routes the browser uses, what it cannot do, and what a leaked one now exposes.
 tags: [agent, tokens, security, api]
 status: stable
 ---
@@ -45,15 +45,15 @@ It did not survive review, and the reasons are worth keeping written down:
 
 An allowlist has none of those properties, because the dangerous routes are
 never reachable rather than reachable-and-blocked. That is the whole argument
-for a separate prefix: the audit is a list of ten things, not a list of
+for a separate prefix: the audit is a list of eleven things, not a list of
 twenty-four things with exceptions.
 
 ## What a token grants
 
-Ten capabilities on the vault, listed in
+Eleven capabilities on the vault, listed in
 [the Agent API](/reference/agent-api.md): list, read, search, graph, save,
-append, dump, file, and the two skill reads. Beside them, the finance reads,
-argued for [below](#why-the-finance-reads-are-acceptable).
+append, dump, file, the two skill reads, and search by meaning. Beside them,
+the finance reads, argued for [below](#why-the-finance-reads-are-acceptable).
 
 There is no delete, no move, no rename and no folder operation. The shell
 container keeps the knife, and that makes the honest claim about this feature
@@ -64,7 +64,7 @@ There is no Anki import, no trash and no terminal. Each is a specific hazard,
 named above on purpose. The asset upload and the page fetch were on that list
 too, until the eighth capability below took a narrow piece of each.
 
-Every token grants all ten. There are no scopes, no read-only tokens and no
+Every token grants all eleven. There are no scopes, no read-only tokens and no
 expiry, which is a cut made for effort rather than a considered design. What a
 token does have is a name and a revoke button, and that is the thing a single
 environment variable cannot buy at any price: losing a laptop costs one revoke
@@ -226,11 +226,11 @@ What that server issues is an ordinary row in the same `tokens.json`, named for
 the product's host. The gate calls the same `verify`, `/tokens` revokes it with
 the same button, and a second Connect from the same product revokes the old row
 before minting the new one. So this is a second way to obtain a token and not a
-second thing a token reaches. The ten capabilities are still ten, there is one
+second thing a token reaches. The eleven capabilities are still eleven: one
 gate, one store and one verification path, and nothing in the gate can tell an
 OAuth grant from a string typed into a terminal. The protocol asks for two
 things the store does not keep: the metadata names one scope, `kasten:notes`,
-which covers all ten capabilities and narrows nothing, and the token response
+which covers all eleven capabilities and narrows nothing, and the token response
 states ten years as the lifetime of a token that ends when it is revoked.
 
 Claude Code and codex still carry the header, and none of this touches them.

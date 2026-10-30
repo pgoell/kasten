@@ -197,3 +197,7 @@ def test_the_instructions_name_the_html_way_in() -> None:
 
     assert "save_file" in text
     assert "HTML" in text
+
+
+def test_the_instructions_name_the_search_by_meaning() -> None:
+    assert "search_meaning ranks notes by meaning, or finds notes like one" in instructions()

@@ -1,4 +1,4 @@
-kasten serves one personal markdown vault: ten capabilities and no shell.
+kasten serves one personal markdown vault: eleven capabilities and no shell.
 There is no grep, no regex, no glob and no directory tree.
 
 The vault is an Open Knowledge Format bundle whose notes link to each other with
@@ -7,9 +7,10 @@ The vault is an Open Knowledge Format bundle whose notes link to each other with
 rule by which a [[wikilink]] resolves, which you cannot guess, and what the
 block at the top of a note carries.
 
-list_notes returns note paths, for the whole vault or for one folder.
-search_notes is a fixed-string case-insensitive scan of every line, not a regex,
-and skips the archive folder unless asked.
+list_notes returns note paths, for the vault or one folder.
+search_notes is a fixed-string case-insensitive scan of every line, not a regex.
+search_meaning ranks notes by meaning, or finds notes like one. Both skip the
+archive folder unless asked.
 query_graph reads the links between notes: a filter such as type:Concept, or
 a pattern such as ?p supports [[X]], which answers in rows.
 
@@ -26,7 +27,7 @@ save_file downloads a PDF, epub or image from a URL, or writes an HTML
 page from its text. File a paper beside its note: "x/Paper.md", "x/Paper.pdf".
 
 dump adds a paragraph to "## Dump" in the user's daily note. A thought to
-jot with no note named goes there, not into the inbox. Pass the local date.
+jot with no note named goes there, not the inbox. Pass the local date.
 
 list_skills and read_skill read the Claude Code skills in "{{skills}}"
 and nothing else; nothing writes them.

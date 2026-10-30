@@ -67,10 +67,10 @@ The same document answers at
 path-inserted spelling off the `401` header and ChatGPT probes the bare one, and
 a `404` on whichever a client tries ends the flow there.
 
-`kasten:notes` is the one scope. It names the ten capabilities and the finance
+`kasten:notes` is the one scope. It names the eleven capabilities and the finance
 reads, and there is nothing to narrow. `read_guide` is one more tool under it
 and not one more capability: it answers with a string compiled into the image
-and reads no note, so the audit this prefix exists for is still a list of ten
+and reads no note, so the audit this prefix exists for is still a list of eleven
 things.
 
 ### GET /.well-known/oauth-authorization-server
@@ -104,7 +104,7 @@ skips registration. kasten never fetches that document and never reads a
 
 ### GET and POST /api/oauth/authorize
 
-The `GET` renders one button, naming the host it would give the ten capabilities
+The `GET` renders one button, naming the host it would give the eleven capabilities
 and every finance figure and transaction to. The `POST` behind that button mints
 a code and answers `302` to the address it was given, carrying `code`, `state`
 and `iss`. A `GET` whose `redirect_uri` is not one of the addresses below,

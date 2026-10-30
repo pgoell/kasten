@@ -90,6 +90,17 @@ async def search_notes(
     return await agent.search_notes(settings, q, archive)
 
 
+@router.get("/search/meaning")
+async def search_meaning(
+    settings: Annotated[Settings, Depends(get_settings)],
+    q: str = "",
+    like: str | None = None,
+    archive: bool = False,
+) -> agent.Meaning:
+    """The notes best matching `q` by words and meaning, or with `like`, the notes like that one."""
+    return await agent.search_meaning(settings, q, like, archive)
+
+
 @router.get("/skills")
 async def list_skills(settings: Annotated[Settings, Depends(get_settings)]) -> list[skills.Skill]:
     """List the Claude Code skills in the skills folder, with their files."""
@@ -127,7 +138,7 @@ async def graph(
 async def schema(request: Request) -> dict[str, Any]:
     """This prefix, described as OpenAPI, for a caller with no MCP client.
 
-    An agent over MCP discovers the ten capabilities from `tools/list`. One
+    An agent over MCP discovers the eleven capabilities from `tools/list`. One
     holding a token and a curl has nothing to read, because `/openapi.json` at
     the root is behind oauth2-proxy and describes the browser's API rather than
     this one.

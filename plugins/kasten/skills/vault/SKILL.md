@@ -1,13 +1,13 @@
 ---
 name: vault
-description: Read, search and write notes in the user's kasten vault over its REST API with curl and a bearer token. Use when the user mentions kasten, their vault, notebook or notes, or asks to file, find, read or append something there, to dump a thought for later, or to put a PDF, epub or image, or an HTML page, from this machine into the vault. Skip it when the kasten MCP tools (list_notes, read_note, search_notes, query_graph, save_note, append_note, dump, save_file) are connected, except to upload a local file, which no MCP tool can carry.
+description: Read, search and write notes in the user's kasten vault over its REST API with curl and a bearer token. Use when the user mentions kasten, their vault, notebook or notes, or asks to file, find, read or append something there, to dump a thought for later, or to put a PDF, epub or image, or an HTML page, from this machine into the vault. Skip it when the kasten MCP tools (list_notes, read_note, search_notes, search_meaning, query_graph, save_note, append_note, dump, save_file) are connected, except to upload a local file, which no MCP tool can carry.
 ---
 
 # kasten vault
 
 kasten serves one personal markdown vault. This skill reaches it with curl and
 a bearer token, for a machine where the kasten MCP server cannot be used. The
-routes are the same ten capabilities the MCP tools offer, the finance reads,
+routes are the same eleven capabilities the MCP tools offer, the finance reads,
 and one more way in for a file: its bytes, straight off this machine's disk.
 
 ## Auth
@@ -124,6 +124,21 @@ null}`, where `kind` is `pdf`, `epub` or `html`, `label` is what to cite (the
 page, the chapter or the heading), `page` is the pdf page and `anchor` the html
 heading's id. Its `line` counts lines of the extracted text. A file is not a
 note: `GET /agent/notes/<path>` answers 404 for it, so cite its path and label.
+
+### Search by meaning
+
+```sh
+curl -sS --fail-with-body -G -H "Authorization: Bearer $KASTEN_TOKEN" \
+  --data-urlencode 'q=why stories loop' "$KASTEN_AGENT/search/meaning"
+```
+
+The twenty notes best matching `q` by its words and its meaning, best first:
+`{"hits": [{"path": "…", "heading": "A > B", "text": "…", "score": 0.03}],
+"status": ""}`. `heading` is the best piece's heading path, `text` its start.
+`-d like=<path>` answers the ten notes nearest that note instead. `status` is a
+sentence when the hits may fall short: the model loading or off ranks by words
+alone, and a filling index misses notes. Notes only, past the archive unless
+`archive=true`.
 
 ### Query the graph
 

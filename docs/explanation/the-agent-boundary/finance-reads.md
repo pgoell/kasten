@@ -61,6 +61,6 @@ token there exposes no more than the vault.
 
 ## Related
 
-* [The agent boundary](/explanation/the-agent-boundary.md): the ten capabilities on the vault, and the gate in front of them all
+* [The agent boundary](/explanation/the-agent-boundary.md): the eleven capabilities on the vault, and the gate in front of them all
 * [Agent routes](/reference/agent-api/routes.md#the-finance-reads): the finance routes and the tools beside them
 * [Finance in Postgres](/explanation/finance-in-postgres.md): why money lives outside the vault

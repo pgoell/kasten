@@ -66,6 +66,13 @@ async def ranked_search(
     A blank query answers no notes and embeds nothing. `archive` takes the
     archive folder in, as the line search does.
     """
+    return await rank(settings, session, running, q, archive)
+
+
+async def rank(
+    settings: Settings, session: AsyncSession, running: Indexer | None, q: str, archive: bool
+) -> RankedAnswer:
+    """What `GET /api/ranked` answers, for the agent's search by meaning too."""
     notes = await asyncio.to_thread(_vault_notes, settings, running)
     query = q.strip()
     vector = None if not query or running is None else await running.embed_query(query)
@@ -105,6 +112,13 @@ async def similar(
     Needs no model, so it answers while bge-m3 loads. `archive` takes the
     archive folder in, as the mentions do.
     """
+    return await alike(settings, session, running, path, archive)
+
+
+async def alike(
+    settings: Settings, session: AsyncSession, running: Indexer | None, path: str, archive: bool
+) -> SimilarAnswer:
+    """What `GET /api/similar` answers, for the agent's notes like one too."""
     notes = await asyncio.to_thread(_vault_notes, settings, running)
     try:
         indexed = await session.scalar(select(func.count()).select_from(PieceNote)) or 0

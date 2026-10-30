@@ -117,6 +117,18 @@ async def search_notes(query: str, archive: bool = False) -> list[dict[str, Any]
     return [hit.model_dump(exclude_unset=True) for hit in hits]
 
 
+async def search_meaning(
+    query: str = "", like: str | None = None, archive: bool = False
+) -> dict[str, Any]:
+    """The notes best matching `query` by words and meaning, best first, at most twenty.
+
+    With `like` a note's path, the ten nearest it instead. A hit is `path`, `heading`
+    (the best piece's heading path), `text` and `score`. `status` says why hits fall short:
+    no model ranks by words alone, a filling index misses notes. Skips the archive unless asked.
+    """
+    return (await agent.search_meaning(get_settings(), query, like, archive)).model_dump()
+
+
 async def save_note(path: str, content: str, sha: str | None = None) -> dict[str, Any]:
     """Write one note whole. `sha` is the digest of the note you read, or null to create it."""
     return await _written(agent.save_note(get_settings(), path, content, sha))
@@ -220,6 +232,7 @@ TOOLS = (
     list_notes,
     read_note,
     search_notes,
+    search_meaning,
     query_graph,
     save_note,
     append_note,
@@ -230,7 +243,7 @@ TOOLS = (
     read_skill,
     *agent_mcp_finance.TOOLS,
 )
-"""The ten capabilities, the guide and the finance reads, in the order the reference lists them.
+"""The eleven capabilities, the guide and the finance reads, in the order the reference lists them.
 
 `read_guide` is an extra tool, not a capability: it reads a string baked into the image,
 never the vault. See docs/explanation/the-agent-boundary.md and its finance-reads page.
@@ -242,6 +255,7 @@ READING = (
             "list_notes",
             "read_note",
             "search_notes",
+            "search_meaning",
             "query_graph",
             "read_guide",
             "list_skills",

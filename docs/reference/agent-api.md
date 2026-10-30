@@ -13,7 +13,7 @@ Everything under `/agent/` is reached with a bearer token and nothing else,
 except the token endpoint of [the OAuth flow](/reference/agent-api/oauth.md), which by
 definition meets a caller that has none. Nothing in front of the prefix asks for
 a session, so the token check in the backend is the entire trust boundary. Why
-the prefix exists at all, and why it carries ten capabilities and the finance
+the prefix exists at all, and why it carries eleven capabilities and the finance
 reads rather than the thirty-five in [the HTTP API](/reference/http-api.md), is
 in [The agent boundary](/explanation/the-agent-boundary.md).
 
@@ -23,6 +23,7 @@ Mint a token at `/tokens` in the notebook. Connecting a client to it is
 The routes and the sign-in flow have pages of their own:
 
 * [Agent routes](/reference/agent-api/routes.md): every route under `/agent/`, the finance reads and the skill reads among them, what it answers, and the digest a write must present
+* [Search by meaning for agents](/reference/agent-api/search-by-meaning.md): the ranked search behind `search_meaning` and `GET /agent/search/meaning`, and the notes like one note
 * [Agent OAuth flow](/reference/agent-api/oauth.md): the routes claude.ai and chatgpt.com sign in through, and the redirects they may use
 
 ## The bearer rule
