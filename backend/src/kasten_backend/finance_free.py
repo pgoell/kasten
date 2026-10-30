@@ -1,6 +1,7 @@
 """Free to spend: what one scope may still spend this month, and the parts it is made of.
 
 Bills a plan's reserve paid count in no spending part. A month that is over counts what happened.
+docs/reference/budget-model.md#free-to-spend gives the formula.
 """
 
 from dataclasses import dataclass, field, replace

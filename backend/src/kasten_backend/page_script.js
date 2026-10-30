@@ -283,7 +283,7 @@
   // An answer before the meta is parsed is dropped; the pane posts again on load.
   const THEMES = ["light", "dark"];
   const PALETTES = ["poel", "russet", "peach", "pansy"];
-  // Matches the backend's opt-in test.
+  // Matches the opt-in test in `html_page.py`; change both together.
   const optedIn = () =>
     [...document.querySelectorAll("meta")].some(
       (meta) =>
