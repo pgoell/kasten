@@ -73,24 +73,11 @@ export function ReviewPane({ commands, onClose, onOpen, focusSignal }: ReviewPan
 
     // The leader still works inside the pane, so the other panes stay reachable.
     if (pending) {
-      const sequence = pending + key;
-      const wanted = sequence.slice(1);
-      const run = leaderAction(wanted, commands);
-      // A leader key can be more than one letter, so a prefix waits for the rest.
-      setPending(!run && leaderPrefix(wanted) ? sequence : "");
-
-      if (run) {
-        event.preventDefault();
-        run();
-      }
+      leaderKey(event);
       return;
     }
 
-    if (event.ctrlKey || event.altKey || event.metaKey) return;
-
-    // A field has the keyboard, so the pane stands down. The leader still runs.
-    const target = event.target as HTMLElement;
-    if (target.tagName === "INPUT" || target.tagName === "TEXTAREA") return;
+    if (standsDown(event)) return;
 
     // A held key repeats, and a repeat must not answer the card again.
     if (event.repeat && (key === " " || key === "Enter" || KEYED[key] !== undefined)) {
@@ -98,124 +85,130 @@ export function ReviewPane({ commands, onClose, onOpen, focusSignal }: ReviewPan
       return;
     }
 
+    if (screenKey(key) || sittingKey(key)) event.preventDefault();
+  }
+
+  function leaderKey(event: React.KeyboardEvent) {
+    const sequence = pending + event.key;
+    const wanted = sequence.slice(1);
+    const run = leaderAction(wanted, commands);
+    // A leader key can be more than one letter, so a prefix waits for the rest.
+    setPending(!run && leaderPrefix(wanted) ? sequence : "");
+
+    if (run) {
+      event.preventDefault();
+      run();
+    }
+  }
+
+  /** The keys of the screen showing, true where one ran. */
+  function screenKey(key: string): boolean {
     // `za` folds, the way vim does. Any other key after a `z` runs as itself.
-    if (zee.current) {
-      zee.current = false;
-      if (screen.at === "decks" && key === "a") {
-        fold(panel.current);
-        event.preventDefault();
-        return;
-      }
+    const folding = zee.current;
+    zee.current = false;
+    if (screen.at === "decks") return deckKey(key, folding);
+    if (screen.at === "parked" && parkedKey(key)) return true;
+    // `←Decks` is the way out of one deck into another and off the parked list. `q` closes the pane.
+    if (key !== "h") return false;
+    setScreen({ at: "decks" });
+    return true;
+  }
+
+  function deckKey(key: string, folding: boolean): boolean {
+    if (folding && key === "a") {
+      fold(panel.current);
+      return true;
     }
-    if (screen.at === "decks" && key === "z") {
+    if (key === "z") {
       zee.current = true;
-      event.preventDefault();
-      return;
+      return true;
     }
-
     // On the overview `j` and `k` move the focus, since the browser moves it on Tab only.
-    if (screen.at === "decks" && (key === "j" || key === "k" || key === "l")) {
-      walk(panel.current, deckStops(panel.current), key);
-      event.preventDefault();
-      return;
+    // Enter on a focused row presses it. Left to the Enter below, the browser's click is cancelled.
+    const pressed = key === "Enter" && focusedRow()?.dataset.deck !== undefined;
+    if (key === "j" || key === "k" || key === "l" || pressed) {
+      walk(panel.current, deckStops(panel.current), pressed ? "l" : key);
+      return true;
     }
+    if (key !== "p") return false;
+    setScreen({ at: "parked" });
+    return true;
+  }
 
+  function parkedKey(key: string): boolean {
+    const row = focusedRow();
     // `data-parked`, not `data-deck`, so neither screen's keys reach the other's rows.
-    if (screen.at === "parked" && (key === "j" || key === "k")) {
+    if (key === "j" || key === "k") {
       walk(
         panel.current,
         [...(panel.current?.querySelectorAll<HTMLButtonElement>("button[data-parked]") ?? [])],
         key,
       );
-      event.preventDefault();
-      return;
+      return true;
     }
-
-    // Presses the focused row's own controls, so `u` reaches the put-back button.
-    if (screen.at === "parked" && (key === "u" || key === "o")) {
-      const row = document.activeElement as HTMLButtonElement | null;
-      if (row?.dataset.parked !== undefined) {
-        if (key === "o") row.click();
-        else {
-          row.closest("li")?.querySelector<HTMLButtonElement>("button[data-unpark]")?.click();
-          // The row goes with the card, so the keys after this one would reach nothing.
-          panel.current?.focus();
-        }
-      }
-      event.preventDefault();
-      return;
-    }
-
-    if (screen.at === "decks" && key === "p") {
-      setScreen({ at: "parked" });
-      event.preventDefault();
-      return;
-    }
-
-    // `←Decks` is the way out of one deck into another and off the parked list. `q` closes the pane.
-    if (screen.at !== "decks" && key === "h") {
-      setScreen({ at: "decks" });
-      event.preventDefault();
-      return;
-    }
-
     // Enter on a focused row presses it. Left to the Enter below, the browser's click is cancelled.
-    const focused = document.activeElement as HTMLButtonElement | null;
-    if (key === "Enter" && screen.at === "decks" && focused?.dataset.deck !== undefined) {
-      walk(panel.current, deckStops(panel.current), "l");
-      event.preventDefault();
-      return;
+    if (key === "Enter") {
+      if (row?.dataset.parked === undefined) return false;
+      row.click();
+      return true;
     }
-    if (key === "Enter" && screen.at === "parked" && focused?.dataset.parked !== undefined) {
-      focused.click();
-      event.preventDefault();
-      return;
-    }
+    if (key !== "u" && key !== "o") return false;
+    // Presses the focused row's own controls, so `u` reaches the put-back button.
+    if (row?.dataset.parked !== undefined) pressParked(panel.current, row, key);
+    return true;
+  }
 
+  /** The keys of a sitting, and the leader, true where one ran. */
+  function sittingKey(key: string): boolean {
     // The leader works on every screen, so the other panes stay one Space away mid-sitting.
     if (key === " ") {
-      if (beginLeader(paneOpener(commands))) {
-        event.preventDefault();
-        return;
-      }
-      setPending(key);
-      event.preventDefault();
-      return;
+      if (!beginLeader(paneOpener(commands))) setPending(key);
+      return true;
     }
 
     const rating = KEYED[key];
-    if (rating !== undefined) controls.current?.rate(rating);
-    // Once the answer is revealed, the same key grades Good, the default button.
-    // A focused button or link takes its own Enter, so the pane grades nothing then.
-    else if (key === "Enter") {
-      const focused = document.activeElement;
-      const onControl =
-        (focused instanceof HTMLButtonElement || focused instanceof HTMLAnchorElement) &&
-        panel.current?.contains(focused) === true;
-      // Try again is the one button drawn with no card up, so its Enter presses it.
-      if (
-        focused instanceof HTMLElement &&
-        focused.dataset.reread !== undefined &&
-        !controls.current?.showing &&
-        panel.current?.contains(focused) === true
-      ) {
-        return;
-      }
-      if (controls.current?.revealed) {
-        if (!onControl) controls.current.rate("good");
-      } else if (!controls.current?.shown) controls.current?.reveal();
+    if (rating !== undefined) {
+      controls.current?.rate(rating);
+      return true;
     }
+    return key === "Enter" ? enterKey() : controlKey(key);
+  }
+
+  function controlKey(key: string): boolean {
     // Parking is allowed before the reveal too, since a card is often recognised from its question.
-    else if (key === "s") controls.current?.suspend();
+    if (key === "s") controls.current?.suspend();
     else if (key === "n") controls.current?.capture();
     // The side showing, so the front before the reveal and the back after it.
     else if (key === "r") controls.current?.replay();
     // The parked screen's `u` returned above, so this one is the sitting's.
     else if (key === "u") controls.current?.undo();
     else if (key === "q") onClose();
-    else return;
+    else return false;
+    return true;
+  }
 
-    event.preventDefault();
+  /**
+   * Once the answer is revealed, Enter grades Good, the default button.
+   * A focused button or link takes its own Enter, so the pane grades nothing then.
+   */
+  function enterKey(): boolean {
+    const focused = document.activeElement;
+    const inPane = panel.current?.contains(focused) === true;
+    const onControl =
+      (focused instanceof HTMLButtonElement || focused instanceof HTMLAnchorElement) && inPane;
+    // Try again is the one button drawn with no card up, so its Enter presses it.
+    if (
+      focused instanceof HTMLElement &&
+      focused.dataset.reread !== undefined &&
+      !controls.current?.showing &&
+      inPane
+    ) {
+      return false;
+    }
+    if (controls.current?.revealed) {
+      if (!onControl) controls.current.rate("good");
+    } else if (!controls.current?.shown) controls.current?.reveal();
+    return true;
   }
 
   return (
@@ -245,6 +238,28 @@ export function ReviewPane({ commands, onClose, onOpen, focusSignal }: ReviewPan
       )}
     </section>
   );
+}
+
+/** A modifier is held or a field has the keyboard, so the pane stands down. The leader still runs. */
+function standsDown(event: React.KeyboardEvent): boolean {
+  if (event.ctrlKey || event.altKey || event.metaKey) return true;
+  const target = event.target as HTMLElement;
+  return target.tagName === "INPUT" || target.tagName === "TEXTAREA";
+}
+
+/** `o` opens the parked card's note, `u` puts it back. */
+function pressParked(panel: HTMLElement | null, row: HTMLButtonElement, key: string): void {
+  if (key === "o") {
+    row.click();
+    return;
+  }
+  row.closest("li")?.querySelector<HTMLButtonElement>("button[data-unpark]")?.click();
+  // The row goes with the card, so the keys after this one would reach nothing.
+  panel?.focus();
+}
+
+function focusedRow(): HTMLButtonElement | null {
+  return document.activeElement as HTMLButtonElement | null;
 }
 
 /**

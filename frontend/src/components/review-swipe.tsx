@@ -181,26 +181,30 @@ export function SwipeCard({
       void spring.to(0, SPRINGS.sheetClose);
       return;
     }
-    if (!held.decided) {
-      // A press on a control is the control's: its own sideways drag, a seek bar say, is not a swipe.
-      if (held.onControl) {
-        held.dead = true;
-        return;
-      }
-      // axis() calls a vertical win "scroll", so the arguments are swapped to make its "drag" the sideways one.
-      const verdict = axis(dy, dx);
-      if (verdict === "pending") return;
-      // Vertical is the page's. The rest of this gesture is left to scrolling.
-      if (verdict === "scroll" || !latest.current.swipe) {
-        held.dead = true;
-        return;
-      }
-      held.decided = true;
-      root.current?.setPointerCapture(event.pointerId);
-      width.current = widthOf();
-    }
+    if (!held.decided && !decide(held, dx, dy, event.pointerId)) return;
     held.samples.push({ t: performance.now(), y: event.clientX });
     spring.set(held.start + dx);
+  }
+
+  /** Whether the gesture `held` is a swipe from here on. A gesture found not to be one is dead. */
+  function decide(held: Gesture, dx: number, dy: number, pointer: number): boolean {
+    // A press on a control is the control's: its own sideways drag, a seek bar say, is not a swipe.
+    if (held.onControl) {
+      held.dead = true;
+      return false;
+    }
+    // axis() calls a vertical win "scroll", so the arguments are swapped to make its "drag" the sideways one.
+    const verdict = axis(dy, dx);
+    if (verdict === "pending") return false;
+    // Vertical is the page's. The rest of this gesture is left to scrolling.
+    if (verdict === "scroll" || !latest.current.swipe) {
+      held.dead = true;
+      return false;
+    }
+    held.decided = true;
+    root.current?.setPointerCapture(pointer);
+    width.current = widthOf();
+    return true;
   }
 
   function onPointerUp(event: ReactPointerEvent<HTMLDivElement>) {

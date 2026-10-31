@@ -3,7 +3,7 @@ import { act, fireEvent, render, screen, waitFor, within } from "@testing-librar
 import { ReviewPane } from "@/components/review-pane";
 import * as api from "@/lib/api";
 import { shownCard } from "./review-card";
-import { renderPane, seededClient, serveNotes } from "./review-pane-fixture";
+import { HITS, renderPane, seededClient, serveNotes } from "./review-pane-fixture";
 import { stubCommands } from "./stub-commands";
 
 const TWO = "#flashcards/beta\n\nc::d\n\ne::f\n";
@@ -229,4 +229,51 @@ it("a click on Start leaves the keys in the pane, so Enter shows the answer", as
   expect(document.activeElement).toBe(pane);
   fireEvent.keyDown(document.activeElement ?? document.body, { key: "Enter" });
   expect(screen.getByTestId("review-back")).toBeInTheDocument();
+});
+
+/** The pane on the overview, with `onClose` handed in so a test can see it called. */
+function renderClosable(onClose = vi.fn()) {
+  vi.spyOn(api, "fetchCards").mockResolvedValue(HITS);
+  serveNotes(HITS);
+  render(
+    <QueryClientProvider client={seededClient(HITS)}>
+      <ReviewPane commands={stubCommands()} onClose={onClose} onOpen={vi.fn()} />
+    </QueryClientProvider>,
+  );
+  screen.getByRole("button", { name: /^alpha/ });
+  return screen.getByLabelText("review");
+}
+
+it("q closes the pane", () => {
+  const onClose = vi.fn();
+  const pane = renderClosable(onClose);
+
+  fireEvent.keyDown(pane, { key: "q" });
+
+  expect(onClose).toHaveBeenCalledOnce();
+});
+
+it("a key with Ctrl held leaves the deck rows alone", () => {
+  const pane = renderClosable();
+
+  fireEvent.keyDown(pane, { key: "j", ctrlKey: true });
+
+  expect(document.activeElement).not.toHaveAttribute("data-deck");
+});
+
+it("a grade key typed into the capture line grades nothing", async () => {
+  const pane = renderClosable();
+  const saved = vi
+    .spyOn(api, "saveNote")
+    .mockImplementation(async (path, content) => ({ path, content }));
+  fireEvent.keyDown(pane, { key: "j" });
+  fireEvent.keyDown(pane, { key: "l" });
+  await shownCard();
+  fireEvent.keyDown(pane, { key: "Enter" });
+  fireEvent.keyDown(pane, { key: "n" });
+
+  fireEvent.keyDown(screen.getByLabelText("a new question"), { key: "3" });
+  await act(async () => {});
+
+  expect(saved).not.toHaveBeenCalled();
 });
