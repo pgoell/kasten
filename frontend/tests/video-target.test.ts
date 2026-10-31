@@ -1,6 +1,6 @@
 import { nextSeek, pressTarget, seekTarget, videoTarget } from "@/components/workspace-panes";
-import { openTodosInFocused, openVideoBeside } from "@/lib/pane-contents";
-import { emptyLayout, focusPane, type Layout, type Pane, tabPanes } from "@/lib/panes";
+import { openBeside } from "@/lib/pane-contents";
+import { emptyLayout, fillFocused, focusPane, type Layout, type Pane, tabPanes } from "@/lib/panes";
 
 const NOTE = "lit/talk.md";
 const OTHER = "lit/other.md";
@@ -11,10 +11,15 @@ function idOf(layout: Layout, match: (pane: Pane) => boolean): string | undefine
 }
 
 it("#791 A10 Space v with the focus in a todo pane plays the video pane on screen", () => {
-  const beside = openVideoBeside(emptyLayout(NOTE), NOTE);
+  const beside = openBeside(
+    emptyLayout(NOTE),
+    (pane) => pane.video === NOTE,
+    { video: NOTE },
+    "col",
+  );
   const video = idOf(beside, (pane) => pane.video !== undefined);
   const note = idOf(beside, (pane) => pane.path === NOTE);
-  const layout = openTodosInFocused(focusPane(beside, note ?? ""));
+  const layout = fillFocused(focusPane(beside, note ?? ""), { todos: true });
 
   expect(videoTarget(layout)).toBe(video);
 });
@@ -22,9 +27,19 @@ it("#791 A10 Space v with the focus in a todo pane plays the video pane on scree
 it("#791 A10 Space v with the focus on a note plays the video of that note", () => {
   // Another note's video sits in the tab before this note's, so the first video
   // pane of the tab is not the one the key means.
-  const beside = openVideoBeside(emptyLayout(NOTE), NOTE);
+  const beside = openBeside(
+    emptyLayout(NOTE),
+    (pane) => pane.video === NOTE,
+    { video: NOTE },
+    "col",
+  );
   const note = idOf(beside, (pane) => pane.path === NOTE);
-  const both = openVideoBeside(focusPane(beside, note ?? ""), OTHER);
+  const both = openBeside(
+    focusPane(beside, note ?? ""),
+    (pane) => pane.video === OTHER,
+    { video: OTHER },
+    "col",
+  );
   const video = idOf(both, (pane) => pane.video === NOTE);
 
   expect(videoTarget(focusPane(both, note ?? ""))).toBe(video);
@@ -35,7 +50,12 @@ it("#791 A10 Space v with no video pane on screen has nothing to play", () => {
 });
 
 it("#791 A11 I6 a time asks for a seek when a video pane of the tab plays its note", () => {
-  expect(seekTarget(openVideoBeside(emptyLayout(NOTE), NOTE), NOTE)).toBe(true);
+  expect(
+    seekTarget(
+      openBeside(emptyLayout(NOTE), (pane) => pane.video === NOTE, { video: NOTE }, "col"),
+      NOTE,
+    ),
+  ).toBe(true);
 });
 
 it("#791 I6 a time with no video pane for its note asks for nothing", () => {
@@ -50,10 +70,17 @@ it("#791 B a time's seek carries the video its take names", () => {
 
 /** Two video panes: OTHER's first, NOTE's after it, the focus on OTHER's. */
 function twoVideos() {
-  const beside = openVideoBeside(emptyLayout(NOTE), NOTE);
-  const both = openVideoBeside(
+  const beside = openBeside(
+    emptyLayout(NOTE),
+    (pane) => pane.video === NOTE,
+    { video: NOTE },
+    "col",
+  );
+  const both = openBeside(
     focusPane(beside, idOf(beside, (p) => p.path === NOTE) ?? ""),
-    OTHER,
+    (pane) => pane.video === OTHER,
+    { video: OTHER },
+    "col",
   );
   return {
     first: idOf(both, (p) => p.video === OTHER),

@@ -17,32 +17,18 @@ import { askOnCard, openFoodSearch } from "@/lib/log/log-card";
 import { drinkTarget, logDrinkInVault, logDrinkInView } from "@/lib/log/log-write";
 import { paneView, useFoodWait } from "@/lib/log/use-food-wait";
 import { noteName } from "@/lib/note-path";
-import {
-  clearFocused,
-  openBookBeside,
-  openBookInFocused,
-  openChatInFocused,
-  openExamInFocused,
-  openFinanceInFocused,
-  openGraphBeside,
-  openGraphInFocused,
-  openHistoryBeside,
-  openLogInFocused,
-  openOverviewInFocused,
-  openPersonBeside,
-  openReviewInFocused,
-  openTodosInFocused,
-  openVideoBeside,
-} from "@/lib/pane-contents";
+import { openBeside, openBookInFocused } from "@/lib/pane-contents";
 import { paneEditor } from "@/lib/pane-doc";
 import { heldKind, type KindField, PANE_KINDS } from "@/lib/pane-kinds";
 import {
   addTab,
+  fillFocused,
   goToTab,
   type Layout,
   nextPane,
   type Pane as PaneOf,
   removeFocused,
+  type Split,
   splitFocused,
   stepTab,
   toggleZoom,
@@ -53,6 +39,20 @@ import { askRsvp } from "@/lib/rsvp/use-rsvp";
 import { splitTarget, wikiLinkPath, wikiLinkTargets } from "@/lib/wikilink";
 
 export type PaneCommands = ReturnType<typeof usePaneCommands>;
+
+/**
+ * The save rule, in one place. `replace` unmounts the editor, which holds the only copy of an
+ * unsaved edit, so it saves first and a refused save keeps the note; `beside` unmounts nothing.
+ */
+export function paneOpeners(saveFirst: () => Promise<boolean>, moveTo: PaneMoves["moveTo"]) {
+  return {
+    replace: async (content: Omit<PaneOf, "id">) => {
+      if (await saveFirst()) moveTo((previous) => fillFocused(previous, content));
+    },
+    beside: (holds: (pane: PaneOf) => boolean, content: Omit<PaneOf, "id">, dir: Split["dir"]) =>
+      moveTo((previous) => openBeside(previous, holds, content, dir)),
+  };
+}
 
 /** Commands that rearrange the window: pane contents, splits, moves, tabs and playback. */
 export function usePaneCommands({
@@ -137,6 +137,7 @@ export function usePaneCommands({
     moveTo((previous) => openBookInFocused(previous, note));
   }, [queryClient, saveFirst, moveTo, setNotice]);
 
+  const { replace, beside } = useMemo(() => paneOpeners(saveFirst, moveTo), [saveFirst, moveTo]);
   const food = useFoodWait(pane.id, pane.path);
   const kind = heldKind(pane);
 
@@ -193,8 +194,6 @@ export function usePaneCommands({
     >
   >(
     () => ({
-      // Leave a note only once the vault has its text: emptying the pane unmounts the
-      // editor, which holds the only copy of an unsaved edit. A refused save keeps it open.
       closeNote: async () => {
         if (kind === undefined) {
           moveTo(removeFocused);
@@ -203,37 +202,20 @@ export function usePaneCommands({
         // Cleared like a note, since removing the last pane of the last tab does nothing.
         // Closing the socket only detaches a client; the herdr session keeps running.
         if (PANE_KINDS[kind].clears) {
-          moveTo(clearFocused);
+          moveTo((previous) => fillFocused(previous, {}));
           return;
         }
-        if (await saveFirst()) moveTo(clearFocused);
+        await replace({});
       },
-      // Saved first: replacing the pane unmounts its editor, and unsaved text goes with it.
-      openTodos: async () => {
-        if (await saveFirst()) moveTo(openTodosInFocused);
-      },
-      openLog: async () => {
-        if (await saveFirst()) moveTo(openLogInFocused);
-      },
-      openOverview: async () => {
-        if (await saveFirst()) moveTo(openOverviewInFocused);
-      },
-      openFinance: async () => {
-        if (await saveFirst()) moveTo(openFinanceInFocused);
-      },
-      // Saved first: unsaved text would be written to a pane the autosave no longer follows.
-      openReview: async () => {
-        if (await saveFirst()) moveTo(openReviewInFocused);
-      },
-      // Saved first, as `openTodos`. Closing the pane later ends nothing; the runner owns it.
-      openChat: async () => {
-        if (await saveFirst()) moveTo(openChatInFocused);
-      },
-      // Saved first: the graph replaces what the pane holds.
-      openGraph: async () => {
-        if (await saveFirst()) moveTo(openGraphInFocused);
-      },
-      // Nothing unmounts, so no saveFirst. A phone has no room beside the note: a sheet there.
+      openTodos: () => replace({ todos: true }),
+      openLog: () => replace({ log: true }),
+      openOverview: () => replace({ overview: true }),
+      openFinance: () => replace({ finance: true }),
+      openReview: () => replace({ review: true }),
+      // Closing the pane later ends nothing; the runner owns the chat.
+      openChat: () => replace({ chat: true }),
+      openGraph: () => replace({ graph: {} }),
+      // A phone has no room beside the note: a sheet there.
       openLocalGraph: () => {
         if (pane.path === undefined) return;
         const note = pane.path;
@@ -245,7 +227,7 @@ export function usePaneCommands({
           sideGraph(pane.id);
           return;
         }
-        moveTo((previous) => openGraphBeside(previous, note));
+        beside((each) => each.graph?.around === note, { graph: { around: note } }, "row");
       },
       // Each takes no argument, as a leader binding needs. The shared logic is in periodic.ts.
       openDaily: () => openPeriodic("daily"),
@@ -320,12 +302,11 @@ export function usePaneCommands({
       openMonthly: () => openPeriodic("monthly"),
       openQuarterly: () => openPeriodic("quarterly"),
       openYearly: () => openPeriodic("yearly"),
-      // No saveFirst: this splits rather than replaces, so nothing unsaved unmounts.
       // moveTo refuses the key while the note is conflicted.
       openBook: () => {
         if (pane.path === undefined) return;
         const note = pane.path;
-        moveTo((previous) => openBookBeside(previous, note));
+        beside((each) => each.book === note, { book: note }, "row");
       },
       openReadingBook: () => void openReadingBook(),
       // Reads the cache, so a `type: Person` not yet autosaved is not seen yet.
@@ -333,32 +314,32 @@ export function usePaneCommands({
         if (pane.path === undefined) return;
         const note = pane.path;
         if (!isPerson(queryClient.getQueryData<string>(["note", note]) ?? "")) return;
-        moveTo((previous) => openPersonBeside(previous, note));
+        // `row`: a card is short lines and reads beside a note.
+        beside((each) => each.person === note, { person: note }, "row");
       },
-      // No saveFirst, as it splits. Leaving the note flushes what was typed, and the
-      // restore refuses while that write is out.
+      // Leaving the note flushes what was typed, and the restore refuses while that write is out.
+      // On a narrow window the history takes the screen, as the route draws the focused pane alone.
       openHistory: () => {
         if (pane.path === undefined) return;
         const note = pane.path;
-        moveTo((previous) => openHistoryBeside(previous, note));
+        beside((each) => each.history === note, { history: note }, "row");
       },
-      // No saveFirst, as it splits. A link typed but not yet autosaved is not found yet.
+      // A link typed but not yet autosaved is not found yet.
       openVideo: () => {
         if (pane.path === undefined) return;
         const note = pane.path;
-        moveTo((previous) => openVideoBeside(previous, note));
+        // `col` rather than the book's `row`: a 16:9 player wants the width.
+        beside((each) => each.video === note, { video: note }, "col");
       },
       // No guard: with no player on screen the number reaches no pane, so the key does nothing.
       toggleVideo: () => setPlaySignal((count) => count + 1),
       // The pane reads its own text, so these only ask it (`use-rsvp.ts`). No moveTo or saveFirst.
       openRsvp: () => readRsvp(false),
       rsvpFromHere: () => readRsvp(true),
-      // Saved first: this replaces the focused pane, and unsaved text would go to a
-      // pane the autosave no longer follows.
+      // Over the note, not beside it: beside, the answers would sit by the questions.
       openExam: async () => {
         if (pane.path === undefined) return;
-        const note = pane.path;
-        if (await saveFirst()) moveTo((previous) => openExamInFocused(previous, note));
+        await replace({ exam: pane.path });
       },
       createTab: () => moveTo(addTab),
       // The bare nextPane and goToTab below are the imports, not these keys: an object
@@ -383,6 +364,8 @@ export function usePaneCommands({
     }),
     [
       moveTo,
+      replace,
+      beside,
       focusToward,
       shiftToward,
       saveFirst,

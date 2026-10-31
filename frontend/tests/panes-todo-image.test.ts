@@ -1,10 +1,9 @@
-import { clearFocused, openImageInFocused, openTodosInFocused } from "@/lib/pane-contents";
-import { emptyLayout, focusedPane, tabPanes } from "@/lib/panes";
+import { emptyLayout, fillFocused, focusedPane, tabPanes } from "@/lib/panes";
 
 describe("the todo list in a pane", () => {
   it("takes the note out of the pane it replaces, keeping its id", () => {
     const before = emptyLayout("a.md", 12);
-    const layout = openTodosInFocused(before);
+    const layout = fillFocused(before, { todos: true });
 
     expect(focusedPane(layout).todos).toBe(true);
     expect(focusedPane(layout).path).toBeUndefined();
@@ -16,7 +15,7 @@ describe("the todo list in a pane", () => {
   it("is taken out of the pane by a clear, leaving the pane on screen", () => {
     // What `<leader>q` reaches. Emptying rather than removing, so a window
     // holding only the todo list has a way back to an editor.
-    const layout = clearFocused(openTodosInFocused(emptyLayout()));
+    const layout = fillFocused(fillFocused(emptyLayout(), { todos: true }), {});
 
     expect(focusedPane(layout).todos).toBeUndefined();
     expect(tabPanes(layout)).toHaveLength(1);
@@ -26,7 +25,7 @@ describe("the todo list in a pane", () => {
 describe("an image in a pane", () => {
   it("takes the note out of the pane it replaces, keeping its id", () => {
     const before = emptyLayout("a.md", 12);
-    const layout = openImageInFocused(before, "99 Misc/shot.png");
+    const layout = fillFocused(before, { image: "99 Misc/shot.png" });
 
     expect(focusedPane(layout).image).toBe("99 Misc/shot.png");
     expect(focusedPane(layout).path).toBeUndefined();
@@ -37,7 +36,7 @@ describe("an image in a pane", () => {
   it("is taken out of the pane by a clear, leaving the pane on screen", () => {
     // What `<leader>q` reaches, the way it reaches the todo list above: a window
     // holding one image has to have a way back to an editor.
-    const layout = clearFocused(openImageInFocused(emptyLayout(), "99 Misc/shot.png"));
+    const layout = fillFocused(fillFocused(emptyLayout(), { image: "99 Misc/shot.png" }), {});
 
     expect(focusedPane(layout).image).toBeUndefined();
     expect(tabPanes(layout)).toHaveLength(1);

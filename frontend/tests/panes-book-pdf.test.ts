@@ -1,10 +1,15 @@
-import { openBookBeside, openPdfBeside, openPdfInFocused } from "@/lib/pane-contents";
+import { openBeside, openPdfBeside, openPdfInFocused } from "@/lib/pane-contents";
 import { emptyLayout, focusedPane, nextPane, tabPanes } from "@/lib/panes";
 import { notes } from "./panes-fixture";
 
 describe("a book in a pane beside its note", () => {
   it("splits the focused pane and puts the book in the new one", () => {
-    const layout = openBookBeside(emptyLayout("lit/DDIA.md"), "lit/DDIA.md");
+    const layout = openBeside(
+      emptyLayout("lit/DDIA.md"),
+      (pane) => pane.book === "lit/DDIA.md",
+      { book: "lit/DDIA.md" },
+      "row",
+    );
 
     // The note stays where it was. A key called "read this book beside this
     // note" must not eat the note.
@@ -13,16 +18,31 @@ describe("a book in a pane beside its note", () => {
   });
 
   it("leaves the focus on the reader", () => {
-    const layout = openBookBeside(emptyLayout("lit/DDIA.md"), "lit/DDIA.md");
+    const layout = openBeside(
+      emptyLayout("lit/DDIA.md"),
+      (pane) => pane.book === "lit/DDIA.md",
+      { book: "lit/DDIA.md" },
+      "row",
+    );
 
     expect(focusedPane(layout).book).toBe("lit/DDIA.md");
   });
 
   it("goes to the pane already reading that book rather than making a second", () => {
-    const once = openBookBeside(emptyLayout("lit/DDIA.md"), "lit/DDIA.md");
+    const once = openBeside(
+      emptyLayout("lit/DDIA.md"),
+      (pane) => pane.book === "lit/DDIA.md",
+      { book: "lit/DDIA.md" },
+      "row",
+    );
     const reader = focusedPane(once).id;
 
-    const twice = openBookBeside(nextPane(once), "lit/DDIA.md");
+    const twice = openBeside(
+      nextPane(once),
+      (pane) => pane.book === "lit/DDIA.md",
+      { book: "lit/DDIA.md" },
+      "row",
+    );
 
     expect(tabPanes(twice)).toHaveLength(2);
     expect(focusedPane(twice).id).toBe(reader);

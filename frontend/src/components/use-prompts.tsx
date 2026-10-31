@@ -15,8 +15,8 @@ import type { TreeCommands } from "@/lib/key-bindings";
 import type { MoveMode } from "@/lib/move";
 // Renamed because the route that calls this already has a `flush`, the bookmark's.
 import { flush as flushOutbox, keep } from "@/lib/outbox";
-import { mapPanes, openInFocused, openTerminalInFocused } from "@/lib/pane-contents";
-import type { Layout } from "@/lib/panes";
+import { mapPanes, openInFocused } from "@/lib/pane-contents";
+import { fillFocused, type Layout } from "@/lib/panes";
 import { parseTodo } from "@/lib/todo/todo";
 import { addTodoInVault } from "@/lib/todo/todo-api";
 import { addSubtaskInVault } from "@/lib/todo/todo-line-edits";
@@ -259,7 +259,7 @@ export function usePrompts({
             // the same as every other key that moves the focus. The refusal
             // sits on the path that replaces the pane rather than on the key
             // that opens the prompt, which replaces nothing.
-            moveTo((previous) => openTerminalInFocused(previous, session));
+            moveTo((previous) => fillFocused(previous, { term: session }));
           }}
           onClose={() => setTerminalPrompt(false)}
         />

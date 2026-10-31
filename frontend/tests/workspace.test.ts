@@ -1,13 +1,9 @@
-import {
-  openChatInFocused,
-  openHtmlInFocused,
-  openPdfBeside,
-  openTerminalInFocused,
-} from "@/lib/pane-contents";
+import { openPdfBeside } from "@/lib/pane-contents";
 import { PANE_KINDS, paneKind, panePath, paneTitle } from "@/lib/pane-kinds";
 import {
   addTab,
   emptyLayout,
+  fillFocused,
   type Layout,
   type Pane,
   panesOf,
@@ -53,9 +49,9 @@ function shapeOf(layout: Layout): unknown {
 function sample(): Layout {
   let layout = emptyLayout("index.md");
   layout = splitFocused(layout, "row");
-  layout = openTerminalInFocused(layout, "main");
+  layout = fillFocused(layout, { term: "main" });
   layout = splitFocused(layout, "col");
-  layout = openChatInFocused(layout);
+  layout = fillFocused(layout, { chat: true });
   layout = toggleZoom(layout);
   layout = addTab(layout);
   return openPdfBeside(layout, "plan.pdf", 3);
@@ -144,7 +140,11 @@ describe("workspace", () => {
   it.each([false, true])(
     "#1400 an html pane opened at a heading comes back without the heading (coarse %s)",
     (coarse) => {
-      saveWorkspace(coarse, openHtmlInFocused(emptyLayout(), "x/p.html", "intro"), true);
+      saveWorkspace(
+        coarse,
+        fillFocused(emptyLayout(), { html: "x/p.html", anchor: "intro" }),
+        true,
+      );
 
       expect(localStorage.getItem(coarse ? COARSE : FINE)).not.toContain('"anchor"');
       const pane = panesOf(loadWorkspace(coarse)?.layout.tabs[0]?.root ?? { id: "none" })[0];

@@ -2,15 +2,11 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderHook } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { expect, it, vi } from "vitest";
-import {
-  openGraphBeside,
-  openGraphInFocused,
-  openHistoryBeside,
-  openPersonBeside,
-} from "@/lib/pane-contents";
+import { openBeside } from "@/lib/pane-contents";
 import {
   activeTab,
   emptyLayout,
+  fillFocused,
   focusedPane,
   focusPane,
   isEmptyTab,
@@ -73,7 +69,7 @@ function expectEmptiedBeside(start: Layout, layout: Layout, kind: "graph" | "his
 }
 
 it("A1 q on a lone graph pane empties it and shows Today", async () => {
-  const start = openGraphInFocused(emptyLayout());
+  const start = fillFocused(emptyLayout(), { graph: {} });
   expect(focusedPane(start).graph).toBeDefined();
 
   const { layout, saveFirst } = await closeFocused(start);
@@ -83,7 +79,12 @@ it("A1 q on a lone graph pane empties it and shows Today", async () => {
 });
 
 it("A2 q on a graph beside a note empties that pane and keeps the note", async () => {
-  const start = openGraphBeside(emptyLayout(NOTE), NOTE);
+  const start = openBeside(
+    emptyLayout(NOTE),
+    (pane) => pane.graph?.around === NOTE,
+    { graph: { around: NOTE } },
+    "row",
+  );
   expect(focusedPane(start).graph?.around).toBe(NOTE);
 
   const { layout, saveFirst } = await closeFocused(start);
@@ -93,7 +94,9 @@ it("A2 q on a graph beside a note empties that pane and keeps the note", async (
 });
 
 it("A3 q on a lone history pane empties it and shows Today", async () => {
-  const start = withoutNote(openHistoryBeside(emptyLayout(NOTE), NOTE));
+  const start = withoutNote(
+    openBeside(emptyLayout(NOTE), (pane) => pane.history === NOTE, { history: NOTE }, "row"),
+  );
   expect(focusedPane(start).history).toBe(NOTE);
 
   const { layout, saveFirst } = await closeFocused(start);
@@ -103,7 +106,12 @@ it("A3 q on a lone history pane empties it and shows Today", async () => {
 });
 
 it("A4 q on a history beside a note empties that pane and keeps the note", async () => {
-  const start = openHistoryBeside(emptyLayout(NOTE), NOTE);
+  const start = openBeside(
+    emptyLayout(NOTE),
+    (pane) => pane.history === NOTE,
+    { history: NOTE },
+    "row",
+  );
   expect(focusedPane(start).history).toBe(NOTE);
 
   const { layout, saveFirst } = await closeFocused(start);
@@ -113,7 +121,9 @@ it("A4 q on a history beside a note empties that pane and keeps the note", async
 });
 
 it("A5 q on a lone person pane empties it and shows Today", async () => {
-  const start = withoutNote(openPersonBeside(emptyLayout(NOTE), PERSON));
+  const start = withoutNote(
+    openBeside(emptyLayout(NOTE), (pane) => pane.person === PERSON, { person: PERSON }, "row"),
+  );
   expect(focusedPane(start).person).toBe(PERSON);
 
   const { layout, saveFirst } = await closeFocused(start);
@@ -123,7 +133,12 @@ it("A5 q on a lone person pane empties it and shows Today", async () => {
 });
 
 it("A6 q on a person beside a note empties that pane and keeps the note", async () => {
-  const start = openPersonBeside(emptyLayout(NOTE), PERSON);
+  const start = openBeside(
+    emptyLayout(NOTE),
+    (pane) => pane.person === PERSON,
+    { person: PERSON },
+    "row",
+  );
   expect(focusedPane(start).person).toBe(PERSON);
 
   const { layout, saveFirst } = await closeFocused(start);

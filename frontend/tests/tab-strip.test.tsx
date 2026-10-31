@@ -1,19 +1,8 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import type { ComponentProps } from "react";
 import { isUnsaved, resetStripEntrance, TabStrip } from "@/components/tab-strip";
-import {
-  openBookBeside,
-  openExamInFocused,
-  openGraphBeside,
-  openGraphInFocused,
-  openHtmlInFocused,
-  openImageInFocused,
-  openInFocused,
-  openPdfBeside,
-  openPersonBeside,
-  openReviewInFocused,
-} from "@/lib/pane-contents";
-import { addTab, emptyLayout, goToTab, type Layout } from "@/lib/panes";
+import { openBeside, openInFocused, openPdfBeside } from "@/lib/pane-contents";
+import { addTab, emptyLayout, fillFocused, goToTab, type Layout } from "@/lib/panes";
 import { foldTabs } from "@/lib/tab-fold";
 
 type Props = Partial<ComponentProps<typeof TabStrip>>;
@@ -88,38 +77,57 @@ describe("TabStrip", () => {
   });
 
   it("names a tab sitting an exam by the exam's note", () => {
-    draw(openExamInFocused(addTab(emptyLayout()), "borges.md"));
+    draw(fillFocused(addTab(emptyLayout()), { exam: "borges.md" }));
 
     expect(screen.getAllByRole("tab")[1]).toHaveTextContent("borges");
   });
 
   it("names a tab showing a person card by the person", () => {
-    draw(openPersonBeside(addTab(emptyLayout()), "ada.md"));
+    draw(
+      openBeside(
+        addTab(emptyLayout()),
+        (pane) => pane.person === "ada.md",
+        { person: "ada.md" },
+        "row",
+      ),
+    );
 
     expect(screen.getAllByRole("tab")[1]).toHaveTextContent("ada");
   });
 
   it("names a tab drawing the whole vault graph view", () => {
-    draw(openGraphInFocused(addTab(emptyLayout())));
+    draw(fillFocused(addTab(emptyLayout()), { graph: {} }));
 
     expect(screen.getAllByRole("tab")[1]).toHaveTextContent("graph view");
   });
 
   it("names a tab holding the review review", () => {
-    draw(openReviewInFocused(addTab(emptyLayout())));
+    draw(fillFocused(addTab(emptyLayout()), { review: true }));
 
     expect(screen.getAllByRole("tab")[1]).toHaveTextContent("review");
   });
 
   it("names a tab drawing the graph around a note by that note", () => {
-    draw(openGraphBeside(addTab(emptyLayout()), "ideas/borges.md"));
+    draw(
+      openBeside(
+        addTab(emptyLayout()),
+        (pane) => pane.graph?.around === "ideas/borges.md",
+        { graph: { around: "ideas/borges.md" } },
+        "row",
+      ),
+    );
 
     expect(screen.getAllByRole("tab")[1]).toHaveTextContent("graph of borges");
   });
 
   it("names a person or exam tab without the folder or the suffix", () => {
-    const person = openPersonBeside(addTab(emptyLayout()), "people/Ada Lovelace.md");
-    const exam = openExamInFocused(addTab(person), "notes/Borges.md");
+    const person = openBeside(
+      addTab(emptyLayout()),
+      (pane) => pane.person === "people/Ada Lovelace.md",
+      { person: "people/Ada Lovelace.md" },
+      "row",
+    );
+    const exam = fillFocused(addTab(person), { exam: "notes/Borges.md" });
 
     draw(exam);
 
@@ -167,7 +175,14 @@ describe("TabStrip", () => {
   it("names a tab whose focused pane holds a book after the note", () => {
     // Without this, `tabLabel` reads `term`, `todos` then `path` and calls a
     // reader `New tab`, and every other test in this branch still passes.
-    const layout = addTab(openBookBeside(emptyLayout("lit/DDIA.md"), "lit/DDIA.md"));
+    const layout = addTab(
+      openBeside(
+        emptyLayout("lit/DDIA.md"),
+        (pane) => pane.book === "lit/DDIA.md",
+        { book: "lit/DDIA.md" },
+        "row",
+      ),
+    );
 
     draw(layout);
 
@@ -185,7 +200,7 @@ describe("TabStrip", () => {
   });
 
   it("A2 names a tab whose focused pane holds an image after the image, not New tab", () => {
-    const layout = addTab(openImageInFocused(emptyLayout(), "media/diagram.png"));
+    const layout = addTab(fillFocused(emptyLayout(), { image: "media/diagram.png" }));
 
     draw(layout);
 
@@ -193,7 +208,7 @@ describe("TabStrip", () => {
   });
 
   it("I7 names a tab whose focused pane holds an HTML page after the page, not New tab", () => {
-    const layout = addTab(openHtmlInFocused(emptyLayout(), "research/report.html"));
+    const layout = addTab(fillFocused(emptyLayout(), { html: "research/report.html" }));
 
     draw(layout);
 
@@ -234,9 +249,14 @@ describe("TabStrip", () => {
 
   it("A3 shows the kind icon of the pane each tab has focused", () => {
     let layout = openPdfBeside(emptyLayout(), "x/my plan.pdf");
-    layout = openReviewInFocused(addTab(layout));
-    layout = openGraphInFocused(addTab(layout));
-    layout = openBookBeside(addTab(layout), "lit/DDIA.md");
+    layout = fillFocused(addTab(layout), { review: true });
+    layout = fillFocused(addTab(layout), { graph: {} });
+    layout = openBeside(
+      addTab(layout),
+      (pane) => pane.book === "lit/DDIA.md",
+      { book: "lit/DDIA.md" },
+      "row",
+    );
     layout = openInFocused(addTab(layout), "a.md");
 
     draw(layout);
