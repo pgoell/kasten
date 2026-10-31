@@ -137,18 +137,33 @@ export async function treatmentFor(
   // into a page-sized svg, and the bars round the picture are page (#474).
   if (svg && !small) return "plain";
 
-  let pixels: Uint8ClampedArray;
+  const pixels = pixelsOf(img, view, readPixels);
+  // Another origin's image keeps the white #469 gave every image, unless it
+  // sits in a line of text, which never had white.
+  if (pixels === null) return small ? "plain" : "white";
+  return verdict(pixels, small);
+}
+
+/**
+ * The image's pixels, or null for another origin's image, which cannot be read. The canvas lives
+ * in the chapter's iframe, so what it throws is that window's DOMException and not this one's.
+ */
+function pixelsOf(
+  img: HTMLImageElement,
+  view: Window,
+  readPixels: ReadPixels,
+): Uint8ClampedArray | null {
   try {
-    pixels = readPixels(img);
+    return readPixels(img);
   } catch (error) {
-    // Another origin's image cannot be read, so it keeps the white #469 gave
-    // every image, unless it sits in a line of text, which never had white.
-    // The canvas lives in the chapter's iframe, so what it throws is that
-    // window's DOMException and not an instance of this one's.
     const Thrown = (view as Window & typeof globalThis).DOMException;
-    if (error instanceof Thrown && error.name === "SecurityError") return small ? "plain" : "white";
+    if (error instanceof Thrown && error.name === "SecurityError") return null;
     throw error;
   }
+}
+
+/** What the pixels of a readable image call for. */
+function verdict(pixels: Uint8ClampedArray, small: boolean): Treatment {
   const { seeThrough, visible, dark } = survey(pixels);
   // A spacer, however far it is stretched, shows nothing to back or invert (#482).
   if (visible === 0) return "plain";
