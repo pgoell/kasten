@@ -14,7 +14,7 @@ from pathlib import Path
 REPO = Path(__file__).parents[2]
 RULE = "noExcessiveCognitiveComplexity"
 # Lower this when a pull request takes files off the list. Never raise it.
-MAX_FILES = 90
+MAX_FILES = 89
 
 
 def test_the_complexity_baseline_never_grows() -> None:
