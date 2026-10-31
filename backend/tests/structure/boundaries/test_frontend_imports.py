@@ -89,10 +89,10 @@ def test_the_known_violations_are_exactly_todays() -> None:
     assert canonical(committed) == canonical(today)
 
 
-def test_the_known_violations_count_is_27() -> None:
+def test_the_known_violations_count_is_26() -> None:
     committed = json.loads(KNOWN.read_text(encoding="utf-8"))
-    assert len(committed) == 27
-    assert rule_names(committed) == {"no-circular": 14, "lib-not-up": 8, "no-dynamic-import": 5}
+    assert len(committed) == 26
+    assert rule_names(committed) == {"no-circular": 14, "lib-not-up": 7, "no-dynamic-import": 5}
 
 
 def test_the_rules_scan_src_sw_and_scripts() -> None:
