@@ -16,7 +16,7 @@ import {
 } from "@/lib/api";
 import { noteBase } from "@/lib/note-base";
 import { periodicNote } from "@/lib/periodic";
-import { isOpen, newId, parseTodo, type TodoState } from "@/lib/todo/todo";
+import { isOpen, newId, parseTodo, type Todo, type TodoState } from "@/lib/todo/todo";
 import { agentPress } from "@/lib/todo/todo-agent";
 import { applyBlocked, type Closed, closedAmong } from "@/lib/todo/todo-blocked";
 import type { TodoCycle } from "@/lib/todo/todo-commands";
@@ -158,62 +158,85 @@ async function cycleAside(
     if (other !== null) throw new Error(other);
   }
 
-  if (logs) {
-    const id = now?.state === "done" ? now.id : was?.id;
-    const logged: Record<string, string> = {};
-    if (id !== undefined) {
-      for (const found of await searchNotes(id)) {
-        if (found.path !== path) logged[found.path] ??= await fetchNote(found.path);
-      }
-    }
-
-    const daily = periodicNote("daily", new Date());
-    // One note's write, worked out with `text` standing for that note. Today's
-    // note goes into `logged` too, so a retry reading the line an earlier press
-    // wrote there neither logs it twice nor misses it on a reopen. Visiting
-    // another note, `daily.body` only fills a write that `find` throws away.
-    const change = (notePath: string) => (text: string) =>
-      doneLogWrites({
-        was,
-        now,
-        path,
-        dailyPath: daily.path,
-        dailyText: notePath === daily.path ? text : daily.body,
-        logged: { ...logged, [notePath]: text },
-        today,
-      }).find((write) => write.path === notePath)?.text ?? null;
-
-    const visits = new Set([daily.path, ...Object.keys(logged)]);
-    visits.delete(path);
-    for (const notePath of visits) {
-      // `paths` can be a listing behind a press that just made today's note,
-      // so a note it leaves out may still be on disk.
-      const unlisted = notePath === daily.path && !paths.includes(notePath);
-      if (unlisted) {
-        const text = change(notePath)(daily.body);
-        if (text !== null) {
-          try {
-            await createNote(notePath, text);
-            continue;
-          } catch (error) {
-            // A press just before this one made today's note: write into it.
-            if (!(error instanceof NoteExists)) throw error;
-          }
-        }
-      }
-      try {
-        await updateNote(notePath, change(notePath));
-      } catch (error) {
-        // A reopen on a day with no note yet has no line to drop.
-        if (!(unlisted && error instanceof NoteMissing)) throw error;
-      }
-    }
-  }
+  if (logs) await writeDoneLogs(path, was, now, today, paths);
 
   // Only a press that closed or reopened a todo something can name moves what
   // waits on it. The dependents in this very note travelled with the press.
   if (flips && now?.id !== undefined) {
     await writeBackBlocked(now.id, !isOpen(now), path);
+  }
+}
+
+/** The text of every note but `path` whose lines name `id`, by path. */
+async function loggedNotes(id: string | undefined, path: string): Promise<Record<string, string>> {
+  const logged: Record<string, string> = {};
+  if (id === undefined) return logged;
+  for (const found of await searchNotes(id)) {
+    if (found.path !== path) logged[found.path] ??= await fetchNote(found.path);
+  }
+  return logged;
+}
+
+/** The done log's writes for one press into or out of done, one note at a time. */
+async function writeDoneLogs(
+  path: string,
+  was: Todo | null,
+  now: Todo | null,
+  today: string,
+  paths: string[],
+): Promise<void> {
+  const logged = await loggedNotes(now?.state === "done" ? now.id : was?.id, path);
+
+  const daily = periodicNote("daily", new Date());
+  // One note's write, worked out with `text` standing for that note. Today's
+  // note goes into `logged` too, so a retry reading the line an earlier press
+  // wrote there neither logs it twice nor misses it on a reopen. Visiting
+  // another note, `daily.body` only fills a write that `find` throws away.
+  const change = (notePath: string) => (text: string) =>
+    doneLogWrites({
+      was,
+      now,
+      path,
+      dailyPath: daily.path,
+      dailyText: notePath === daily.path ? text : daily.body,
+      logged: { ...logged, [notePath]: text },
+      today,
+    }).find((write) => write.path === notePath)?.text ?? null;
+
+  const visits = new Set([daily.path, ...Object.keys(logged)]);
+  visits.delete(path);
+  for (const notePath of visits) {
+    // `paths` can be a listing behind a press that just made today's note,
+    // so a note it leaves out may still be on disk.
+    const unlisted = notePath === daily.path && !paths.includes(notePath);
+    await writeLog(notePath, change(notePath), unlisted, daily.body);
+  }
+}
+
+/** One note's log write: made from `body` where the listing lacks the note. */
+async function writeLog(
+  notePath: string,
+  change: (text: string) => string | null,
+  unlisted: boolean,
+  body: string,
+): Promise<void> {
+  if (unlisted) {
+    const text = change(body);
+    if (text !== null) {
+      try {
+        await createNote(notePath, text);
+        return;
+      } catch (error) {
+        // A press just before this one made today's note: write into it.
+        if (!(error instanceof NoteExists)) throw error;
+      }
+    }
+  }
+  try {
+    await updateNote(notePath, change);
+  } catch (error) {
+    // A reopen on a day with no note yet has no line to drop.
+    if (!(unlisted && error instanceof NoteMissing)) throw error;
   }
 }
 

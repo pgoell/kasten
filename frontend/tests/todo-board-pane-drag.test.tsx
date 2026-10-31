@@ -251,6 +251,17 @@ describe("dragging a card (#397)", () => {
     expect(pane.onRefile).not.toHaveBeenCalled();
   });
 
+  it("#968 h and l while a card is carried leave the cursor's column alone", async () => {
+    const pane = await boardPane();
+
+    lift(pane.card("send the invoice"));
+    expect(lifted()).toBe(1);
+    pane.press("l");
+    expect(lifted()).toBe(1);
+    pane.press("Escape");
+    expect(pane.cursor()).toContain("send the invoice");
+  });
+
   it("#397 I2 a drop outside any cell writes nothing", async () => {
     const pane = await boardPane();
 

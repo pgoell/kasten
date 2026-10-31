@@ -58,6 +58,9 @@ interface TodoBoardProps {
   onNotice: (text: string) => void;
 }
 
+/** The keys that act on the focused card. */
+const CARD_KEYS = new Set(["Enter", "x", "p", "m", ...Object.keys(SET)]);
+
 /**
  * The todo pane's `c` view: cards in columns by state and lanes by kind or project.
  * No keys of its own: the pane passes each one on after the leader has had its chance.
@@ -237,62 +240,70 @@ export function TodoBoard({
       // A carried card is held over one cell, and moving the shown column would
       // leave that cell's drop to write into a column nobody is looking at.
       if ((key === "h" || key === "l") && carrying()) return true;
-      if (picker !== null) {
-        const choice = choices[picker.at];
-        if (key === "j") setPicker({ ...picker, at: Math.min(picker.at + 1, choices.length - 1) });
-        else if (key === "k") setPicker({ ...picker, at: Math.max(picker.at - 1, 0) });
-        else if (key === "Enter" && choice !== undefined) pick(picker.hit, choice);
-        else if (key === "Escape") closePicker();
-        // Nothing moves under an open picker, but the leader still opens.
-        else return key !== " ";
-        return true;
-      }
-
-      switch (key) {
-        case "h":
-          setCol(Math.max(col - 1, 0));
-          setRow(cursor);
-          break;
-        case "l":
-          setCol(Math.min(col + 1, COLUMNS.length - 1));
-          setRow(cursor);
-          break;
-        case "j":
-          setRow(Math.min(cursor + 1, Math.max(column.length - 1, 0)));
-          break;
-        case "k":
-          setRow(Math.max(cursor - 1, 0));
-          break;
-        case "g":
-          switchLanes();
-          break;
-        case "Enter":
-          if (at !== undefined) onOpen(at.hit.path, at.hit.line);
-          break;
-        case "x":
-          if (at !== undefined) onCycle(at.hit);
-          break;
-        case "O":
-        case "P":
-        case "V":
-        case "X":
-        case "B":
-        case "W":
-        case "R":
-          if (at !== undefined) onCycle(at.hit, SET[key]);
-          break;
-        case "p":
-          if (at !== undefined) project(at.hit);
-          break;
-        case "m":
-          if (at !== undefined) onRefile(at.hit);
-          break;
-        default:
-          return false;
-      }
-      return true;
+      if (picker !== null) return pickerKey(picker, key);
+      return boardKey(key);
     },
   }));
+
+  /** A key while the project picker is open. */
+  function pickerKey(open: { hit: SearchHit; at: number }, key: string): boolean {
+    const choice = choices[open.at];
+    if (key === "j") setPicker({ ...open, at: Math.min(open.at + 1, choices.length - 1) });
+    else if (key === "k") setPicker({ ...open, at: Math.max(open.at - 1, 0) });
+    else if (key === "Enter" && choice !== undefined) pick(open.hit, choice);
+    else if (key === "Escape") closePicker();
+    // Nothing moves under an open picker, but the leader still opens.
+    else return key !== " ";
+    return true;
+  }
+
+  /** A key on the board: a move of the cursor, or one on the focused card. */
+  function boardKey(key: string): boolean {
+    switch (key) {
+      case "h":
+        setCol(Math.max(col - 1, 0));
+        setRow(cursor);
+        break;
+      case "l":
+        setCol(Math.min(col + 1, COLUMNS.length - 1));
+        setRow(cursor);
+        break;
+      case "j":
+        setRow(Math.min(cursor + 1, Math.max(column.length - 1, 0)));
+        break;
+      case "k":
+        setRow(Math.max(cursor - 1, 0));
+        break;
+      case "g":
+        switchLanes();
+        break;
+      default:
+        // A card key with no card under the cursor is still the board's.
+        if (!CARD_KEYS.has(key)) return false;
+        if (at !== undefined) cardPress(at.hit, key);
+    }
+    return true;
+  }
+
+  /** One of `CARD_KEYS` on the focused card. */
+  function cardPress(hit: Card["hit"], key: string): void {
+    switch (key) {
+      case "Enter":
+        onOpen(hit.path, hit.line);
+        break;
+      case "x":
+        onCycle(hit);
+        break;
+      case "p":
+        project(hit);
+        break;
+      case "m":
+        onRefile(hit);
+        break;
+      default:
+        onCycle(hit, SET[key]);
+    }
+  }
 
   function drawCard(card: Card, lane: string) {
     const key = cardKey(card.hit);
@@ -322,6 +333,38 @@ export function TodoBoard({
   }
 
   const heading = HEADING;
+
+  /** A column's heading with its count; the rejected one folds to a chevron. */
+  function columnHeading(name: Column, index: number) {
+    const count = columns[index]?.length ?? 0;
+    const label = `${COLUMN_HEADING[name]} ${count}`;
+    return (
+      <div
+        key={name}
+        data-testid="todo-column"
+        className={`${heading} px-3 ${index === col ? "text-k-ink" : ""}`}
+      >
+        {name === "rejected" ? (
+          // Folded, the track is 3rem, too narrow for the word, so it reads as a
+          // chevron and the count. The name stays on the label and the title.
+          <button
+            type="button"
+            aria-expanded={rejectedDrawn}
+            aria-label={label}
+            title={label}
+            onClick={toggleRejected}
+            className="text-left"
+          >
+            {rejectedDrawn ? label : `› ${count}`}
+          </button>
+        ) : (
+          <>
+            {COLUMN_HEADING[name]} {count}
+          </>
+        )}
+      </div>
+    );
+  }
 
   /** The mark a drop zone carries while the pointer brings a card over it. */
   const marked = (name: string) => (overZone === name ? "" : undefined);
@@ -438,34 +481,7 @@ export function TodoBoard({
         <div
           className={`grid min-w-[63rem] gap-x-1 ${rejectedDrawn ? "grid-cols-7" : "grid-cols-[repeat(6,minmax(0,1fr))_3rem]"}`}
         >
-          {COLUMNS.map((name: Column, index) => (
-            <div
-              key={name}
-              data-testid="todo-column"
-              className={`${heading} px-3 ${index === col ? "text-k-ink" : ""}`}
-            >
-              {name === "rejected" ? (
-                // Folded, the track is 3rem, too narrow for the word, so it reads as a
-                // chevron and the count. The name stays on the label and the title.
-                <button
-                  type="button"
-                  aria-expanded={rejectedDrawn}
-                  aria-label={`${COLUMN_HEADING[name]} ${columns[index]?.length ?? 0}`}
-                  title={`${COLUMN_HEADING[name]} ${columns[index]?.length ?? 0}`}
-                  onClick={toggleRejected}
-                  className="text-left"
-                >
-                  {rejectedDrawn
-                    ? `${COLUMN_HEADING[name]} ${columns[index]?.length ?? 0}`
-                    : `› ${columns[index]?.length ?? 0}`}
-                </button>
-              ) : (
-                <>
-                  {COLUMN_HEADING[name]} {columns[index]?.length ?? 0}
-                </>
-              )}
-            </div>
-          ))}
+          {COLUMNS.map(columnHeading)}
           {lanes.map((lane) => {
             // A folded lane is its heading alone: no cell, so no drop.
             const shut = folded.has(lane.id);
