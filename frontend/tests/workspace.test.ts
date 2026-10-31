@@ -1,4 +1,9 @@
-import { openChatInFocused, openPdfBeside, openTerminalInFocused } from "@/lib/pane-contents";
+import {
+  openChatInFocused,
+  openHtmlInFocused,
+  openPdfBeside,
+  openTerminalInFocused,
+} from "@/lib/pane-contents";
 import { PANE_KINDS, paneKind, panePath, paneTitle } from "@/lib/pane-kinds";
 import {
   addTab,
@@ -135,6 +140,17 @@ describe("workspace", () => {
     expect(raw).not.toContain('"jump"');
     expect(raw).not.toContain('"opened"');
   });
+
+  it.each([false, true])(
+    "#1400 an html pane opened at a heading comes back without the heading (coarse %s)",
+    (coarse) => {
+      saveWorkspace(coarse, openHtmlInFocused(emptyLayout(), "x/p.html", "intro"), true);
+
+      expect(localStorage.getItem(coarse ? COARSE : FINE)).not.toContain('"anchor"');
+      const pane = panesOf(loadWorkspace(coarse)?.layout.tabs[0]?.root ?? { id: "none" })[0];
+      expect({ ...pane, id: undefined }).toEqual({ id: undefined, html: "x/p.html" });
+    },
+  );
 
   it.each([
     ["not JSON", "{not json"],
@@ -331,6 +347,30 @@ describe("workspace", () => {
   };
   const WHERE = ["line", "jump", "anchor"];
   const kinds = () => Object.keys(EVERY).filter((key) => !WHERE.includes(key));
+
+  // Goes through saveWorkspace, so a field saved but not checked on load fails here.
+  it.each([false, true])(
+    "#1400 a pane holding every Pane field comes back through save and load (coarse %s)",
+    (coarse) => {
+      const layout: Layout = {
+        tabs: [
+          { id: "t", root: { id: "p", ...EVERY, pdf: { ...EVERY.pdf, opened: 3 } }, focus: "p" },
+        ],
+        active: 0,
+      };
+      saveWorkspace(coarse, layout, true);
+
+      const pane = panesOf(loadWorkspace(coarse)?.layout.tabs[0]?.root ?? { id: "none" })[0];
+      const kept = Object.fromEntries(
+        Object.entries(EVERY).filter(([key]) => !WHERE.includes(key)),
+      );
+      expect({ ...pane, id: undefined }).toEqual({
+        id: undefined,
+        ...kept,
+        pdf: { ...EVERY.pdf, opened: 1 },
+      });
+    },
+  );
 
   it("#978 every Pane field but where-in-it has a row in the pane kinds table", () => {
     expect(Object.keys(PANE_KINDS).sort()).toEqual(kinds().sort());

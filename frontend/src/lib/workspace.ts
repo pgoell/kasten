@@ -27,12 +27,12 @@ function touch<T>(work: () => T, otherwise: T): T {
 }
 
 /**
- * The pane as it is worth keeping. `line` and `jump` belong to one open, so a reload drops
- * them. The pdf's `opened` is dropped on save and set to 1 on load.
+ * The pane as it is worth keeping. `line`, `jump` and `anchor` belong to one open, so a reload
+ * drops them (#1400). The pdf's `opened` is dropped on save and set to 1 on load.
  */
 function keptNode(node: PaneNode): PaneNode {
   if ("dir" in node) return { ...node, children: node.children.map(keptNode) };
-  const { line: _line, jump: _jump, ...rest } = node;
+  const { line: _line, jump: _jump, anchor: _anchor, ...rest } = node;
   return rest;
 }
 
