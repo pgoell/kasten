@@ -1,7 +1,7 @@
 import { sameAnswer } from "@/lib/review/card-text";
 import { setSuspended, writeSchedule } from "@/lib/review/card-write";
 import { parseCards } from "@/lib/review/srs";
-import { only } from "./srs-fixture";
+import { only } from "./fixture";
 
 describe("parseCards on an imported question holding `::`", () => {
   // The text `as_note` writes in `backend/tests/test_anki.py`: on one line the

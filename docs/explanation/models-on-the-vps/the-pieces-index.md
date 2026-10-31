@@ -26,6 +26,16 @@ fusion sums `1 / (60 + rank)` over the lists a piece is in, and a note takes its
 best piece. A word both stemmers match counts twice; that is the price of
 guessing no language.
 
+The vector list takes only pieces nearer than cosine distance 0.5, so a query
+the vault does not answer lists no notes instead of twenty faint ones (#1341).
+On a copy of the live index (6,562 pieces, 2026-10-31) the real hits of 16
+queries lay at 0.29 to 0.50 and the nearest piece of 12 queries about nothing
+in the vault at 0.51 to 0.66, so the floor cuts through a thin band. A lone
+German compound pays for it: `Flitterwochen` sits 0.54 from the honeymoon notes
+and finds none, while `Japan Flitterwochen` finds them by its words. A BM25 hit
+stays whatever its distance. `GET /api/similar`, behind the margin's list of
+notes like the open one, takes no floor: it ranks the ten nearest, however far.
+
 The query is embedded on a thread of its own over the indexer's loaded model,
 never on the event loop. It once shared the indexer's thread and waited 12.7 s
 behind the first fill's batches; onnxruntime runs one session from two threads,
@@ -89,10 +99,29 @@ of every piece.
 
 ## When it stops
 
-A note that fails, on a model error or a row the database refuses, is logged and
-skipped until the next sweep. A model that will not load, or a database that fails,
-stops the indexer with one warning, and the backend keeps serving. The next start
-sweeps again and catches up.
+A note that fails on a model error or a row the database refuses is logged and
+skipped until the next sweep. A model that will not load, or any other database
+error such as a missing table, stops the indexer with one warning, and the backend
+keeps serving. Any other error that ends it logs an error line with its
+traceback, and a shutdown logs nothing. The next start sweeps again and catches up.
+
+A lost database connection, a full connection pool or too many connections (which
+shows for a moment after a Postgres restart) does not stop it. The indexer waits,
+retrying after 1 second and doubling up to 60, then sweeps. So a Postgres restart
+needs no backend restart: saves made in the outage reach the index. Saves the
+watcher reports in the meantime wait in memory, and a backend shutdown ends the
+wait at once.
+
+A vault watcher that fails, at an inotify limit or with the vault folder gone, does
+not stop it either. The indexer logs one line, starts the watcher again after the
+same wait, and sweeps after each start, so a save no watcher saw still reaches the
+index, at most a minute late while the fault lasts. A sweep that finds no vault
+folder drops nothing, so a remount re-embeds nothing. A watcher fault of any other
+kind ends the indexer with its error line.
+
+A log line about a database error names the driver's first line only: the
+statement, its values and Postgres's failing row would put a note's text and
+vectors in the log.
 
 ## Where the model runs
 

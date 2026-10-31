@@ -1,8 +1,10 @@
+import { unstamped } from "@/lib/held-text";
 import { noteBody } from "@/lib/note-frontmatter";
 import { noteName } from "@/lib/note-path";
+import { clozeComment, SR } from "@/lib/review/card-line";
 import { inDeck } from "@/lib/review/deck-tag";
 import { type Deck, decksFrom, type Limits } from "@/lib/review/review";
-import { type Card, parseCards } from "@/lib/review/srs";
+import { type Card, parseCards, readSchedule } from "@/lib/review/srs";
 import { learning, readNoteSchedule, readNoteSuspended } from "@/lib/review/srs-schedule";
 
 /** One card in the sitting: which note holds it, and which of that note's cards. */
@@ -82,7 +84,119 @@ export function cardsOf(deck: Deck, texts: Map<string, string>): Map<string, Car
  */
 const read = new WeakMap<Map<string, string>, { deck: Deck; cards: Map<string, Card[]> }>();
 
-function cardsRead(deck: Deck, texts: Map<string, string>): Map<string, Card[]> {
+/**
+ * `was` with `note` set to `text`, whose cards are `cards` rather than a parse of it (#1379).
+ * Where `was` holds no read, or `cards` is undefined, `cardsOf` parses the new map as before.
+ */
+export function withText(
+  was: Map<string, string>,
+  note: string,
+  text: string,
+  cards?: Card[],
+): Map<string, string> {
+  const now = new Map(was).set(note, text);
+  const held = read.get(was);
+  if (held !== undefined && cards !== undefined) {
+    read.set(now, { deck: held.deck, cards: new Map(held.cards).set(note, cards) });
+  }
+  return now;
+}
+
+/**
+ * The note's cards once `card` is graded from `text` to `next`, shifted rather than parsed (#1379).
+ * A schedule is set in its line or put on a new line under the card, so the cards below move by 0 or 1.
+ */
+export function regraded(
+  deck: Deck,
+  cards: Card[] | undefined,
+  card: Card,
+  text: string,
+  next: string,
+): Card[] | undefined {
+  // A whole note's schedule sits in its frontmatter, and reading it is no parse.
+  if (deck.whole || cards === undefined) return undefined;
+  const lines = next.split("\n");
+  const moved = lines.length - lineCount(text);
+  if (moved !== 0 && moved !== 1) return undefined;
+  const to = card.to + moved;
+  const held = readSchedule(lines[to] ?? "", card.cloze === null ? SR : clozeComment(card.cloze));
+  return cards.map((each) =>
+    each === card
+      ? { ...each, to, held }
+      : // A cloze's other numbers share its span, and its new line.
+        each.from === card.from
+        ? { ...each, to }
+        : each.from > card.to
+          ? { ...each, from: each.from + moved, to: each.to + moved }
+          : each,
+  );
+}
+
+/**
+ * `was` with `note` set to the vault's answer for it. The cards carry over where the
+ * answer differs only in its `modified` stamp, which every write sets, so no line moves.
+ */
+export function answered(
+  was: Map<string, string>,
+  note: string,
+  text: string,
+): Map<string, string> {
+  const sent = was.get(note);
+  if (sent === text) return was;
+  const same =
+    sent !== undefined &&
+    lineCount(sent) === lineCount(text) &&
+    unstamped(sent) === unstamped(text);
+  return withText(was, note, text, same ? read.get(was)?.cards.get(note) : undefined);
+}
+
+function lineCount(text: string): number {
+  let count = 1;
+  for (let at = text.indexOf("\n"); at !== -1; at = text.indexOf("\n", at + 1)) count++;
+  return count;
+}
+
+/**
+ * Parses the deck in a worker and holds its cards for `cardsOf`, so a 1 MB deck's open is no long task on a phone (#1359).
+ * Where the worker cannot start or fails it holds nothing, and `cardsOf` parses on the main thread as before.
+ */
+export function readAside(
+  deck: Deck,
+  texts: Map<string, string>,
+  signal: AbortSignal,
+): Promise<void> {
+  // A whole note is never parsed for cards.
+  if (deck.whole || signal.aborted || typeof Worker === "undefined") return Promise.resolve();
+  let worker: Worker;
+  try {
+    worker = new Worker(new URL("./deck-parse/worker.ts", import.meta.url), { type: "module" });
+  } catch (error) {
+    // A page whose policy refuses workers throws a SecurityError here.
+    if (error instanceof DOMException) return Promise.resolve();
+    throw error;
+  }
+  return new Promise((done) => {
+    const end = () => {
+      worker.terminate();
+      done();
+    };
+    signal.addEventListener("abort", end);
+    worker.onmessage = ({ data }: MessageEvent<[string, Card[]][]>) => {
+      read.set(texts, { deck, cards: new Map(data) });
+      end();
+    };
+    worker.onerror = end;
+    worker.onmessageerror = end;
+    try {
+      worker.postMessage({ deck, texts: [...texts] });
+    } catch (error) {
+      if (!(error instanceof DOMException)) throw error;
+      end();
+    }
+  });
+}
+
+export function cardsRead(deck: Deck, texts: Map<string, string>): Map<string, Card[]> {
   return new Map(
     [...texts].map(([note, text]) => {
       if (deck.whole) {

@@ -9,6 +9,7 @@
  * carry a schedule, the rest are new.
  */
 
+import { Parser } from "@lezer/common";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Profiler } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -19,11 +20,14 @@ import "@/styles/app.css";
 
 const CARDS = 1500;
 const FILLER = "Synthetic filler for a timing fixture, not an answer anyone wrote. ".repeat(9);
-const BIG = `#flashcards/big\n\n${Array.from({ length: CARDS }, (_, index) => {
-  const n = index + 1;
-  const schedule = n % 3 === 0 ? "" : " <!--SR:!2026-08-20,4,270-->";
-  return `Question ${n}::Answer ${n}. ${FILLER}${schedule}`;
-}).join("\n\n")}\n`;
+const BIG = `---\nmodified: 2026-10-30T00:00:00\n---\n#flashcards/big\n\n${Array.from(
+  { length: CARDS },
+  (_, index) => {
+    const n = index + 1;
+    const schedule = n % 3 === 0 ? "" : " <!--SR:!2026-08-20,4,270-->";
+    return `Question ${n}::Answer ${n}. ${FILLER}${schedule}`;
+  },
+).join("\n\n")}\n`;
 
 const DECK: Deck = {
   name: "big",
@@ -41,22 +45,33 @@ vi.mock("@/lib/api", async (original) => ({
     path === "decks/big.md"
       ? Promise.resolve(BIG)
       : Promise.reject(new Error(`GET /api/files/${path} failed with 404`)),
-  saveNote: (path: string, content: string) => Promise.resolve({ path, content }),
+  // The vault restamps `modified` on every save, so its answer never equals what was sent.
+  saveNote: (path: string, content: string) => {
+    saves += 1;
+    const stamped = content.replace(/^modified: .*$/m, `modified: 2026-10-30T00:00:${saves}`);
+    return Promise.resolve({ path, content: stamped });
+  },
   fetchReviewLimits: () => Promise.reject(new Error("GET /api/review/limits failed with 404")),
 }));
 
 let root: Root | undefined;
 let host: HTMLElement | undefined;
 let commits = 0;
+let saves = 0;
 let longTasks: PerformanceEntry[] = [];
 let observer: PerformanceObserver | undefined;
+let parse: ReturnType<typeof vi.spyOn>;
+let encode: ReturnType<typeof vi.spyOn>;
 
 beforeEach(async () => {
   localStorage.clear();
   commits = 0;
+  saves = 0;
   longTasks = [];
   observer = new PerformanceObserver((list) => longTasks.push(...list.getEntries()));
   observer.observe({ type: "longtask" });
+  parse = vi.spyOn(Parser.prototype, "parse");
+  encode = vi.spyOn(TextEncoder.prototype, "encode");
   vi.spyOn(Element.prototype, "setPointerCapture").mockImplementation(() => {});
   await page.viewport(390, 844);
   await commands.emulateMedia({ touch: true });
@@ -118,6 +133,41 @@ function mount(): HTMLElement {
   return div;
 }
 
+/** The lezer parses of the 1 MB deck on this thread; the card's editor parses only its own text. */
+function mainParses(): number {
+  return parse.mock.calls.filter(
+    ([input]: unknown[]) => typeof input === "string" && input.length > 100_000,
+  ).length;
+}
+
+/**
+ * The deck note's sha256 on this thread, counted by the UTF-8 encode it hashes. A spy, not a
+ * module mock: vitest would rewrite the worker's import of a mocked module too, and break it.
+ */
+function mainHashes(): number {
+  return encode.mock.calls.filter(
+    ([input]: unknown[]) => typeof input === "string" && input.length > 100_000,
+  ).length;
+}
+
+/** Once `writes` saves have gone out and the page has been idle since, so a grade's tail is counted. */
+async function settled(writes: number): Promise<void> {
+  await expect.poll(() => saves).toBe(writes);
+  for (let frame = 0; frame < 2; frame++) {
+    await new Promise((wake) => requestAnimationFrame(wake));
+  }
+  await new Promise((wake) => requestIdleCallback(wake));
+}
+
+/** Turns the card and grades it good, until the `step`th write has landed. */
+async function grade(screen: HTMLElement, step: number): Promise<void> {
+  await reveal(screen);
+  (screen.querySelector('button[data-rating="good"]') as HTMLButtonElement).click();
+  await expect.poll(() => screen.querySelector('button[data-rating="good"]')).toBeNull();
+  // The write lands after the buttons go, and its tail is this step's work, not the next's (#1380).
+  await settled(step);
+}
+
 /** Shows the answer the way a click on the footer does. */
 async function reveal(screen: HTMLElement): Promise<void> {
   (screen.querySelector("footer button") as HTMLButtonElement).click();
@@ -141,9 +191,20 @@ it("A4 #1321 opens a 1500-card deck at phone width within its commit and long-ta
   expect.soft(tasks.count).toBeLessThanOrEqual(3);
 }, 60_000);
 
-// Budget: 48 commits and 3 long tasks over 20 steps. Measured 40 commits (2 a step) and
-// 0 long tasks. 48 leaves a commit of room a step; a step that renders the card twice
-// per grade would take 60 and fail.
+// A count, not the long task's ms: main parsed the deck here once, 51 ms at 1x and 141 ms at a
+// 4x CPU slowdown, one long task each. The worker takes the parse off this thread (#1359).
+it("A4 #1359 opens a 1500-card deck with no card parse on the main thread", async () => {
+  const screen = mount();
+  await expect
+    .poll(() => screen.querySelector('[data-testid="review-card"] .cm-line'), { timeout: 30_000 })
+    .not.toBeNull();
+  expect(mainParses()).toBe(0);
+}, 60_000);
+
+// Budget: 88 commits and 3 long tasks over 20 steps, each step counted until its write has
+// landed and the page is idle (#1380). Measured 60 commits (3 a step) and 0 long tasks at 1x.
+// At a 4x CPU slowdown there were 40, then 20 once a grade stopped parsing (#1379), one a step
+// of the write's sha256 of the 1 MB note; now 1, the hash worker's start (#1384).
 it("A4 #1321 steps through 20 cards at phone width within its commit and long-task budget", async () => {
   const screen = mount();
   await expect
@@ -157,22 +218,44 @@ it("A4 #1321 steps through 20 cards at phone width within its commit and long-ta
   let worstStep = 0;
   for (let step = 1; step <= 20; step++) {
     const before = commits;
+    const parsed = mainParses();
     takeLongTasks();
-    await reveal(screen);
-    (screen.querySelector('button[data-rating="good"]') as HTMLButtonElement).click();
-    await expect.poll(() => screen.querySelector('button[data-rating="good"]')).toBeNull();
+    await grade(screen, step);
     const made = commits - before;
     const tasks = takeLongTasks();
     totalCommits += made;
     totalLongTasks += tasks.count;
     worstStep = Math.max(worstStep, made);
     console.error(
-      `TIMING review step=${step} commits=${made} longtasks=${tasks.count} longtask-ms=${tasks.ms}`,
+      `TIMING review step=${step} commits=${made} parses=${mainParses() - parsed} longtasks=${tasks.count} longtask-ms=${tasks.ms}`,
     );
   }
   console.error(
     `TIMING review 20-steps commits=${totalCommits} longtasks=${totalLongTasks} worst-step-commits=${worstStep} frame-gap-max-ms=${frameGap()}`,
   );
-  expect.soft(totalCommits).toBeLessThanOrEqual(48);
+  expect.soft(totalCommits).toBeLessThanOrEqual(88);
   expect.soft(totalLongTasks).toBeLessThanOrEqual(3);
+}, 120_000);
+
+// A count, not the long task's ms: main parsed the deck twice a grade, 40 parses over 20 grades
+// and 40 long tasks at a 4x CPU slowdown. A grade shifts the cards it holds instead (#1379).
+it("A4 #1379 grades 20 cards with no card parse on the main thread", async () => {
+  const screen = mount();
+  await expect
+    .poll(() => screen.querySelector('[data-testid="review-card"] .cm-line'), { timeout: 30_000 })
+    .not.toBeNull();
+  const opened = mainParses();
+  for (let step = 1; step <= 20; step++) await grade(screen, step);
+  expect(mainParses() - opened).toBe(0);
+}, 120_000);
+
+// A count, not the long task's ms: each grade's write hashed the 1 MB note here, one long task of
+// 65 to 107 ms a grade at a 4x CPU slowdown. A worker hashes the base instead (#1384).
+it("A1 #1384 grades 20 cards with no hash of the deck note on the main thread", async () => {
+  const screen = mount();
+  await expect
+    .poll(() => screen.querySelector('[data-testid="review-card"] .cm-line'), { timeout: 30_000 })
+    .not.toBeNull();
+  for (let step = 1; step <= 20; step++) await grade(screen, step);
+  expect(mainHashes()).toBe(0);
 }, 120_000);

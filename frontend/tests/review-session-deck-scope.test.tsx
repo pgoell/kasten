@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { ReviewSession } from "@/components/review-session";
 import * as api from "@/lib/api";
 import { type Deck, decksFrom } from "@/lib/review/review";
@@ -231,8 +231,8 @@ describe("ReviewSession on a parent deck", () => {
 
 const TWO_NEW = "#flashcards/aws\n\nWhat is a VPC?::A private cloud\n\nWhat is S3?::Storage\n";
 
-function renderSitting() {
-  vi.spyOn(api, "fetchNote").mockResolvedValue(TWO_NEW);
+function renderSitting(note = TWO_NEW) {
+  vi.spyOn(api, "fetchNote").mockResolvedValue(note);
   vi.spyOn(api, "saveNote").mockImplementation(async (path, content) => ({ path, content }));
   vi.spyOn(api, "fetchReviewLimits").mockResolvedValue({
     new_per_day: null,
@@ -259,16 +259,21 @@ describe("ReviewSession parsing its deck (#1354)", () => {
     expect(parses.count).toBe(1);
   });
 
-  it("#1354 a rating parses the note's new text, and the next card is read off it", async () => {
-    renderSitting();
+  it("#1379 a rating shifts the cards it holds rather than parse the note, and the next card is read off them", async () => {
+    renderSitting(`---\nmodified: 2026-10-30T00:00:00\n---\n${TWO_NEW}`);
+    // The vault restamps `modified`, so its answer is not the text sent.
+    vi.mocked(api.saveNote).mockImplementation(async (path, content) => ({
+      path,
+      content: content.replace(/^modified: .*$/m, "modified: 2026-10-30T00:00:01"),
+    }));
     await shownCard();
     fireEvent.click(screen.getByRole("button", { name: "Show the answer" }));
     fireEvent.click(screen.getByRole("button", { name: "Good" }));
     await waitFor(() => expect(screen.getByTestId("review-card")).toHaveTextContent("What is S3?"));
-    // The open, the text the rating made, and the text the write answered with,
-    // which lands as a new map. Main parsed the open three times, so five.
+    // The open only. Main parsed the rating's text and the write's answer too, so three.
     await waitFor(() => expect(api.saveNote).toHaveBeenCalledTimes(1));
-    await waitFor(() => expect(parses.count).toBe(3));
+    await act(async () => {});
+    expect(parses.count).toBe(1);
   });
 
   it("#1354 the deck's row off its own cards is the row off the note's text", () => {

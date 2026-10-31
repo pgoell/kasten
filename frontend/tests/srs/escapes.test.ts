@@ -1,6 +1,6 @@
 import { sameAnswer } from "@/lib/review/card-text";
 import { parseCards } from "@/lib/review/srs";
-import { only } from "./srs-fixture";
+import { only } from "./fixture";
 
 describe("a literal &#58; the import wrote escaped (#340)", () => {
   const ID = " <!--anki:1:0:abcdef12-->";

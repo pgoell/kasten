@@ -12,6 +12,9 @@ from typing import TYPE_CHECKING, Literal
 
 from watchfiles import Change, awatch
 
+# watchfiles exports its internal error from no public module.
+from watchfiles._rust_notify import WatchfilesRustInternalError
+
 from kasten_backend.vault import HTML_SUFFIX, SUFFIX
 
 if TYPE_CHECKING:
@@ -165,6 +168,10 @@ def _watched_root(root: Path) -> Path | None:
     """
     base = root.resolve()
     return base if base.is_dir() else None
+
+
+WATCH_ERRORS = (OSError, WatchfilesRustInternalError)
+"""What `watch_vault` raises when the watcher fails: an inotify limit, a folder taken away."""
 
 
 async def watch_vault(root: Path) -> AsyncIterator[list[VaultEvent]]:

@@ -7,7 +7,7 @@ import {
   writeNoteSchedule,
   writeNoteSuspended,
 } from "@/lib/review/srs-schedule";
-import { NOTE, only } from "./srs-fixture";
+import { NOTE, only } from "./srs/fixture";
 
 describe("nextSchedule", () => {
   const TODAY = "2026-08-13";
