@@ -114,7 +114,6 @@
         "src/lib/log/log-kinds.ts",
         "src/lib/log/log-lines.ts",
         "src/lib/math.ts",
-        "src/lib/book/pdf-images.ts",
         "src/lib/book/pdf-take.ts",
         "src/lib/note/save-queue.ts",
         "src/lib/editor/table-lineup.ts",

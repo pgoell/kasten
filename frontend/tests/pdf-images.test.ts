@@ -138,4 +138,35 @@ describe("the pictures a page paints", () => {
       [50, 0, 1, 1],
     ]);
   });
+
+  it("leaves the matrix alone for a form or a group that carries none", () => {
+    const boxes = imageBoxes(
+      ops,
+      [
+        ops.transform,
+        ops.paintFormXObjectBegin,
+        ops.paintImageXObject,
+        ops.paintFormXObjectEnd,
+        ops.beginGroup,
+        ops.paintImageXObject,
+        ops.endGroup,
+      ],
+      [[1, 0, 0, 1, 5, 5], [null, null], [1], [], [{ matrix: null }], [2], []],
+      IDENTITY,
+    );
+    expect(boxes).toEqual([
+      [5, 5, 1, 1],
+      [5, 5, 1, 1],
+    ]);
+  });
+
+  it("gives no box to a picture squeezed to less than a whole pixel", () => {
+    const boxes = imageBoxes(
+      ops,
+      [ops.transform, ops.paintImageXObject],
+      [[0.5, 0, 0, 50, 10.2, 20], [1]],
+      IDENTITY,
+    );
+    expect(boxes).toEqual([]);
+  });
 });
