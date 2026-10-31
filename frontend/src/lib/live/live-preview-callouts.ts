@@ -1,7 +1,7 @@
 import { Facet, type Line, MapMode, StateEffect, StateField } from "@codemirror/state";
 import { Decoration, EditorView, WidgetType } from "@codemirror/view";
 import type { SyntaxNode } from "@lezer/common";
-import { parseCallout } from "@/lib/callout";
+import { type Callout, parseCallout } from "@/lib/callout";
 import { FOLDED, HIDDEN, isNodeRevealed, type Walk } from "@/lib/live/live-preview-hidden";
 
 /** Flips the fold of the callout whose `>` sits at this position. */
@@ -151,6 +151,27 @@ interface Box {
   head: { from: number; to: number } | null;
 }
 
+/** The line class of a line under a quote or callout, or null for one a folded body hides. */
+function calloutLine(number: number, boxes: Box[]): Decoration | null {
+  const outer = boxes[0];
+  const inner = boxes[boxes.length - 1];
+  if (outer === undefined || inner === undefined)
+    return Decoration.line({ class: "cm-blockquote" });
+  if (boxes.some((c) => number > c.shown)) return null;
+  const edge = `${number === outer.first ? " cm-callout-open" : ""}${number === outer.shown ? " cm-callout-close" : ""}${number === inner.first ? " cm-callout-head" : ""}`;
+  // A box in a box: the outer one's bar at the edge and the inner one's
+  // drawn one step in, the line wearing the inner one's colour.
+  const nested = boxes.length > 1;
+  return Decoration.line({
+    class: `cm-callout cm-callout-${inner.kind}${edge}${nested ? " cm-callout-nested" : ""}`,
+    ...(nested && {
+      attributes: {
+        style: `--callout-outer: var(--callout-${outer.kind}); --callout-indent: ${boxes.length - 1}em`,
+      },
+    }),
+  });
+}
+
 /**
  * The callout state of one walk: what the walk has found and what it has to
  * settle once the whole note has gone by.
@@ -183,7 +204,7 @@ export class Callouts {
    * Read at the quote, so the first line decides for every line under it.
    */
   enter(walk: Walk, node: SyntaxNode): void {
-    const { state, decorations, hidden } = walk;
+    const { state } = walk;
     const mark = node.firstChild;
     if (mark?.name !== "QuoteMark") return;
     const line = state.doc.lineAt(node.from);
@@ -213,7 +234,19 @@ export class Callouts {
       this.sourceTo = Math.max(this.sourceTo, last.to);
       return;
     }
+    this.drawBox(walk, node, callout, box, line, last);
+  }
 
+  /** The head widget, the title and, shut, the folded body of a callout drawn as a box. */
+  private drawBox(
+    walk: Walk,
+    node: SyntaxNode,
+    callout: Callout,
+    box: Box,
+    line: Line,
+    last: Line,
+  ): void {
+    const { state, decorations, hidden } = walk;
     const folding = callout.fold !== "";
     const shownAt = state.facet(opensFor).some((at) => at >= node.from && at <= last.to);
     const shut = callout.fold === "-" && !shownAt;
@@ -285,29 +318,8 @@ export class Callouts {
       for (let number = box.first; number <= box.last; number++) lines.add(number);
     }
     for (const number of lines) {
-      const at = state.doc.line(number).from;
-      const boxes = around(number);
-      const outer = boxes[0];
-      const inner = boxes[boxes.length - 1];
-      if (outer === undefined || inner === undefined) {
-        decorations.push(Decoration.line({ class: "cm-blockquote" }).range(at));
-        continue;
-      }
-      if (boxes.some((c) => number > c.shown)) continue;
-      const edge = `${number === outer.first ? " cm-callout-open" : ""}${number === outer.shown ? " cm-callout-close" : ""}${number === inner.first ? " cm-callout-head" : ""}`;
-      // A box in a box: the outer one's bar at the edge and the inner one's
-      // drawn one step in, the line wearing the inner one's colour.
-      const nested = boxes.length > 1;
-      decorations.push(
-        Decoration.line({
-          class: `cm-callout cm-callout-${inner.kind}${edge}${nested ? " cm-callout-nested" : ""}`,
-          ...(nested && {
-            attributes: {
-              style: `--callout-outer: var(--callout-${outer.kind}); --callout-indent: ${boxes.length - 1}em`,
-            },
-          }),
-        }).range(at),
-      );
+      const line = calloutLine(number, around(number));
+      if (line !== null) decorations.push(line.range(state.doc.line(number).from));
     }
   }
 }

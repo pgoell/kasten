@@ -142,3 +142,10 @@ describe("times in a note are seek buttons (#791 A11)", () => {
     expect(reads.mock.calls.length).toBeLessThanOrEqual(2);
   });
 });
+
+it("#968 draws no button for a bracketed time that opens a reference definition", () => {
+  const doc = "intro\n\n[00:31]: the first words\n\n[the talk](https://youtu.be/iDulhoQ2pro)\n";
+  const view = mount(doc, lit(false, vi.fn()));
+
+  expect(view.dom.querySelectorAll(".cm-time")).toHaveLength(0);
+});

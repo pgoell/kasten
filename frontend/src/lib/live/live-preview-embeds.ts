@@ -272,6 +272,12 @@ class EmbedStub extends WidgetType {
   }
 }
 
+/** The vault path of an embedded pdf, or null for one the vault does not hold. */
+function pdfPath(name: string, paths: string[]): string | null {
+  const found = resolveIn(name, paths);
+  return found !== null && paths.includes(found) ? found : null;
+}
+
 /**
  * Drawn as the note or picture it names, hidden as the image is.
  * Every way out is `false`: the link inside would hide its brackets and leave `!note` on screen.
@@ -303,8 +309,7 @@ export function drawEmbed(
   // of the depth cap, a pdf drawing nothing that could embed it back.
   if (name.toLowerCase().endsWith(".pdf")) {
     if (source === null) return;
-    const found = resolveIn(name, paths);
-    const path = found !== null && paths.includes(found) ? found : null;
+    const path = pdfPath(name, paths);
     const renderer = state.facet(pdfRenderer);
     const widget = new PdfEmbed(renderer, source, path, name, pdfPage(heading));
     decorations.push(Decoration.replace({ widget }).range(node.from, node.to));

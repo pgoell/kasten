@@ -26,28 +26,53 @@ export interface Span {
   target?: string;
 }
 
+/** A picture's spans in a cell, or null for anything an image node draws that is no picture. */
+function pictureSpans(state: EditorState, node: SyntaxNode): Span[] | null {
+  const drawn = drawnImage(state, node);
+  if (drawn?.kind !== "picture") return null;
+  const to = spacedAddress(state.doc, node)?.to ?? node.to;
+  const text = state.doc.sliceString(node.from, to);
+  return [{ text, class: null, image: { source: drawn.source, alt: drawn.alt } }];
+}
+
+function embedSpans(state: EditorState, node: SyntaxNode, whole: string): Span[] | null {
+  const link = node.getChild("WikiLink");
+  if (link === null) return null;
+  const { name, alias } = splitTarget(state.doc.sliceString(link.from + 2, link.to - 2));
+  const image = embeddedPicture(state, name, alias);
+  return image === null ? null : [{ text: whole, class: null, image }];
+}
+
+function firstMarks(node: SyntaxNode, name: string): SyntaxNode[] {
+  const marks: SyntaxNode[] = [];
+  for (let child = node.firstChild; child && marks.length < 2; child = child.nextSibling) {
+    if (child.name === name) marks.push(child);
+  }
+  return marks;
+}
+
+function wikiLinkSpans(state: EditorState, text: string, className: string): Span[] {
+  const paths = state.facet(vaultPaths);
+  const dead = paths !== null && !wikiLinkLands(text, paths);
+  const alias = splitTarget(text).alias;
+  // The bar's backslash is the table's, so the target is the one the same
+  // link hands on off a table.
+  const target = text.replace("\\|", "|").trim();
+  return [
+    { text: alias ?? text, class: dead ? `${className} cm-wikilink-dead` : className, target },
+  ];
+}
+
 /** What a construct inside a cell shows and the classes it wears, or null. */
 function markedText(state: EditorState, node: SyntaxNode): Span[] | null {
   const whole = state.doc.sliceString(node.from, node.to);
   if (node.name === "Tag") return [{ text: whole, class: "cm-tag" }];
   // Only a picture: a player or a sound control has no business in a cell, so
   // those stay their source, as an address that cannot load does.
-  if (node.name === "Image") {
-    const drawn = drawnImage(state, node);
-    if (drawn?.kind !== "picture") return null;
-    const to = spacedAddress(state.doc, node)?.to ?? node.to;
-    const text = state.doc.sliceString(node.from, to);
-    return [{ text, class: null, image: { source: drawn.source, alt: drawn.alt } }];
-  }
+  if (node.name === "Image") return pictureSpans(state, node);
   // Only a picture again: a note or a pdf drawn in a cell would be a page
   // inside a table, so those stay their source, as a missing picture does.
-  if (node.name === "Embed") {
-    const link = node.getChild("WikiLink");
-    if (link === null) return null;
-    const { name, alias } = splitTarget(state.doc.sliceString(link.from + 2, link.to - 2));
-    const image = embeddedPicture(state, name, alias);
-    return image === null ? null : [{ text: whole, class: null, image }];
-  }
+  if (node.name === "Embed") return embedSpans(state, node, whole);
   // The character alone, as off a table: a cell is drawn from its spans, so
   // the backslash a table needs before a bar would otherwise show.
   if (node.name === "Escape") return [{ text: whole.slice(1), class: null }];
@@ -65,26 +90,12 @@ function markedText(state: EditorState, node: SyntaxNode): Span[] | null {
 
   // The first two marks, which is all an inline construct has and, on a link,
   // the `[` and `]` around the text rather than the `(url)` that does not show.
-  const marks: SyntaxNode[] = [];
-  const name = inline ? inline.mark : "LinkMark";
-  for (let child = node.firstChild; child && marks.length < 2; child = child.nextSibling) {
-    if (child.name === name) marks.push(child);
-  }
-  const [open, close] = marks;
+  const [open, close] = firstMarks(node, inline ? inline.mark : "LinkMark");
   if (!open || !close || open.to >= close.from) return null;
 
   const className = inline ? inline.class : "cm-link";
   if (node.name === "WikiLink") {
-    const text = state.doc.sliceString(open.to, close.from);
-    const paths = state.facet(vaultPaths);
-    const dead = paths !== null && !wikiLinkLands(text, paths);
-    const alias = splitTarget(text).alias;
-    // The bar's backslash is the table's, so the target is the one the same
-    // link hands on off a table.
-    const target = text.replace("\\|", "|").trim();
-    return [
-      { text: alias ?? text, class: dead ? `${className} cm-wikilink-dead` : className, target },
-    ];
+    return wikiLinkSpans(state, state.doc.sliceString(open.to, close.from), className);
   }
 
   // GFM takes a `\|` in a cell as a bar before it reads the code span, so its

@@ -83,20 +83,27 @@ class TimeButton extends WidgetType {
   }
 }
 
+function bracketedTime(
+  state: EditorState,
+  node: SyntaxNode,
+  text: string,
+  linked: () => string[],
+): TimeButton | null {
+  // `[mm:ss](` and `[mm:ss]:` are not the bare time, whatever follows them.
+  const next = state.doc.sliceString(node.to, node.to + 1);
+  if (next === "(" || next === ":") return null;
+  const seconds = parseTime(text);
+  if (seconds === null || linked().length === 0) return null;
+  return new TimeButton(text.slice(1, -1), seconds);
+}
+
 /**
  * The button a node stands for, or null when it is no time.
  * A take's video must be one the note links, or the link stays an ordinary link.
  */
 function timeOf(state: EditorState, node: SyntaxNode, linked: () => string[]): TimeButton | null {
   const text = state.doc.sliceString(node.from, node.to);
-  if (BRACKETED.test(text)) {
-    // `[mm:ss](` and `[mm:ss]:` are not the bare time, whatever follows them.
-    const next = state.doc.sliceString(node.to, node.to + 1);
-    if (next === "(" || next === ":") return null;
-    const seconds = parseTime(text);
-    if (seconds === null || linked().length === 0) return null;
-    return new TimeButton(text.slice(1, -1), seconds);
-  }
+  if (BRACKETED.test(text)) return bracketedTime(state, node, text, linked);
 
   const [open, close] = node.getChildren("LinkMark");
   if (!open || !close) return null;

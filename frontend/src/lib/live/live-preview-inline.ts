@@ -143,8 +143,40 @@ export function markRelation(walk: Walk, from: number, line: Line): void {
   }
 }
 
-export function drawInline(walk: Walk, node: SyntaxNode, inline: Inline, revealed: boolean): void {
+/** Classes what the marks enclose; true when an alias drew it and hid the marks already. */
+function drawContent(
+  walk: Walk,
+  node: SyntaxNode,
+  inline: Inline,
+  open: { from: number; to: number },
+  close: { from: number; to: number },
+  revealed: boolean,
+): boolean {
   const { state, decorations } = walk;
+  // The one construct whose rendering depends on something outside the
+  // document: a wikilink to a note the vault does not hold is drawn as
+  // the invitation it is rather than as a link that works.
+  const target = state.doc.sliceString(open.to, close.from);
+  const paths = node.name === "WikiLink" ? state.facet(vaultPaths) : null;
+  const dead = paths !== null && !wikiLinkLands(target, paths);
+  const className = dead ? `${inline.class} cm-wikilink-dead` : inline.class;
+
+  // `[[note|alias]]` reads as the alias, the name and the bar going with
+  // the brackets. The class stays on text in the document, so a click on
+  // the alias still finds the link around it.
+  const alias = node.name === "WikiLink" ? splitTarget(target).alias : null;
+  if (alias !== null && !revealed) {
+    const shown = open.to + target.indexOf("|") + 1;
+    decorations.push(Decoration.mark({ class: className }).range(shown, close.from));
+    walk.hide(open.from, shown);
+    walk.hide(close.from, close.to);
+    return true;
+  }
+  decorations.push(Decoration.mark({ class: className }).range(open.to, close.from));
+  return false;
+}
+
+export function drawInline(walk: Walk, node: SyntaxNode, inline: Inline, revealed: boolean): void {
   let open: { from: number; to: number } | null = null;
   let close: { from: number; to: number } | null = null;
   for (let child = node.firstChild; child; child = child.nextSibling) {
@@ -155,28 +187,7 @@ export function drawInline(walk: Walk, node: SyntaxNode, inline: Inline, reveale
   // An unclosed delimiter parses as a single mark. Nothing to render.
   if (!open || !close || open.from === close.from) return;
 
-  if (open.to < close.from) {
-    // The one construct whose rendering depends on something outside the
-    // document: a wikilink to a note the vault does not hold is drawn as
-    // the invitation it is rather than as a link that works.
-    const target = state.doc.sliceString(open.to, close.from);
-    const paths = node.name === "WikiLink" ? state.facet(vaultPaths) : null;
-    const dead = paths !== null && !wikiLinkLands(target, paths);
-    const className = dead ? `${inline.class} cm-wikilink-dead` : inline.class;
-
-    // `[[note|alias]]` reads as the alias, the name and the bar going with
-    // the brackets. The class stays on text in the document, so a click on
-    // the alias still finds the link around it.
-    const alias = node.name === "WikiLink" ? splitTarget(target).alias : null;
-    if (alias !== null && !revealed) {
-      const shown = open.to + target.indexOf("|") + 1;
-      decorations.push(Decoration.mark({ class: className }).range(shown, close.from));
-      walk.hide(open.from, shown);
-      walk.hide(close.from, close.to);
-      return;
-    }
-    decorations.push(Decoration.mark({ class: className }).range(open.to, close.from));
-  }
+  if (open.to < close.from && drawContent(walk, node, inline, open, close, revealed)) return;
   if (revealed) return;
   walk.hide(open.from, open.to);
   walk.hide(close.from, close.to);

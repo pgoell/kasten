@@ -1,7 +1,9 @@
+import { EditorSelection, RangeSet, Text } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { fireEvent, render, waitFor } from "@testing-library/react";
 import { Editor } from "@/components/editor";
 import { NotePreview } from "@/components/note-preview";
+import { HIDDEN, nudgeOutOfHidden } from "@/lib/live/live-preview-hidden";
 import { parseCards } from "@/lib/review/srs";
 import { content, liveHooks, mount, plain, renderEditor } from "./live-preview-fixture";
 
@@ -188,5 +190,31 @@ describe("live preview", () => {
     expect(view.dom.querySelector("ruby.cm-ruby")).toBeNull();
     view.dispatch({ selection: { anchor: view.state.doc.length } });
     expect(view.dom.querySelector("ruby.cm-ruby rt")?.textContent).toBe("かんじ");
+  });
+});
+
+describe("#968 the cursor steps out of hidden marks", () => {
+  const doc = Text.of(["ab**cd**"]);
+
+  it("lands before a mark it walks left into mid-line", () => {
+    const hidden = RangeSet.of([HIDDEN.range(2, 4)]);
+    const moved = nudgeOutOfHidden(
+      EditorSelection.single(3),
+      EditorSelection.single(4),
+      hidden,
+      doc,
+    );
+    expect(moved?.main.head).toBe(1);
+  });
+
+  it("goes on forward out of a mark at the line's start into the next", () => {
+    const hidden = RangeSet.of([HIDDEN.range(0, 2), HIDDEN.range(2, 4)]);
+    const moved = nudgeOutOfHidden(
+      EditorSelection.single(1),
+      EditorSelection.single(5),
+      hidden,
+      doc,
+    );
+    expect(moved?.main.head).toBe(4);
   });
 });

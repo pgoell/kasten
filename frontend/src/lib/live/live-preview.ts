@@ -2,11 +2,13 @@ import { syntaxTree, syntaxTreeAvailable } from "@codemirror/language";
 import {
   EditorState,
   type Extension,
+  type Line,
   RangeSet,
   StateField,
   type Transaction,
 } from "@codemirror/state";
 import { Decoration, type DecorationSet, EditorView } from "@codemirror/view";
+import type { SyntaxNode, SyntaxNodeRef } from "@lezer/common";
 import { setVimMode, vimKeys, vimModeField, vimModeState } from "@/lib/editor/vim-mode";
 import { embedSource } from "@/lib/embed";
 import { imagePaths } from "@/lib/image";
@@ -25,6 +27,7 @@ import {
   drawLink,
   drawRuby,
   INLINE,
+  type Inline,
   markRelation,
 } from "@/lib/live/live-preview-inline";
 import { Lists } from "@/lib/live/live-preview-lists";
@@ -47,6 +50,17 @@ interface Live {
   hidden: RangeSet<Decoration>;
 }
 
+/** The nodes drawn by their line that no flag of their own picks out. */
+const LINE_NODES = new Set([
+  "Escape",
+  "Embed",
+  "Link",
+  "QuoteMark",
+  "HorizontalRule",
+  "Image",
+  "InlineMath",
+]);
+
 function build(state: EditorState): Live {
   const walk = new Walk(state);
   const callouts = new Callouts();
@@ -60,162 +74,7 @@ function build(state: EditorState): Live {
       // screen to decorate.
       if (node.to <= walk.drawn) return false;
       if (callouts.covers(node.from, node.to)) return false;
-
-      const heading = HEADING.exec(node.name);
-      const inline = INLINE[node.name];
-      const isLink = node.name === "Link";
-      const isQuote = node.name === "QuoteMark";
-      const isBlockquote = node.name === "Blockquote";
-      const isBullet = node.name === "ListMark" && node.node.parent?.parent?.name === "BulletList";
-      const isFence = node.name === "FencedCode";
-      const isRule = node.name === "HorizontalRule";
-      const isImage = node.name === "Image";
-      const isTable = node.name === "Table";
-      const isTag = node.name === "Tag";
-      const isEmbed = node.name === "Embed";
-      const isEscape = node.name === "Escape";
-      const isInlineMath = node.name === "InlineMath";
-      const isBlockMath = node.name === "BlockMath";
-      const isHtml = node.name === "HTMLBlock" || node.name === "Paragraph";
-      const isRuby =
-        node.name === "HTMLTag" && state.doc.sliceString(node.from, node.to) === "<ruby>";
-      if (
-        !isRuby &&
-        !isEscape &&
-        !isEmbed &&
-        !heading &&
-        !inline &&
-        !isLink &&
-        !isQuote &&
-        !isBlockquote &&
-        !isBullet &&
-        !isFence &&
-        !isRule &&
-        !isImage &&
-        !isTable &&
-        !isTag &&
-        !isInlineMath &&
-        !isBlockMath &&
-        !isHtml
-      ) {
-        return;
-      }
-
-      if (isBlockquote) {
-        callouts.enter(walk, node.node);
-        return;
-      }
-
-      // Coloured and left where it is, like the overdue red below: the hash is
-      // part of the tag rather than a mark standing in front of one, so there
-      // is nothing here for a revealed line to bring back.
-      if (isTag) {
-        walk.decorations.push(Decoration.mark({ class: "cm-tag" }).range(node.from, node.to));
-        return;
-      }
-
-      if (isFence) return drawFence(walk, node.node);
-
-      // A paragraph that is not an svg has nothing of its own to decorate, so it
-      // is left to its children as it was before this check.
-      if (isHtml) return drawSvg(walk, node.node);
-
-      if (isTable) {
-        drawTable(walk, node.node);
-        return;
-      }
-
-      if (isBlockMath) return drawBlockMath(walk, node.node);
-
-      const line = state.doc.lineAt(node.from);
-      const revealed = isLineRevealed(state, line) || node.from < walk.tableEnd;
-
-      // `\*` is the asterisk, and the backslash is a mark like any other. An
-      // Anki card side opening with a fence is written with a backslash before
-      // its backticks so it opens none, and should read as the backticks. By
-      // the line rule, so the cursor's line and a table's source keep it.
-      if (isEscape) {
-        if (!revealed) walk.hide(node.from, node.from + 1);
-        return;
-      }
-
-      if (isEmbed) {
-        drawEmbed(walk, node.node, revealed, renderedMarkdown);
-        return false;
-      }
-
-      // The line is drawn, so the dashes asking for it go. Like the bullet and
-      // unlike the blockquote's bar, the drawing stands in for characters, so
-      // it leaves when they come back. `---` under a paragraph is a setext
-      // heading rather than a rule, and the parser has already told them apart.
-      if (isRule) {
-        if (revealed) return;
-        walk.decorations.push(Decoration.line({ class: "cm-rule" }).range(line.from));
-        walk.hide(line.from, line.to);
-        return;
-      }
-
-      if (heading) {
-        // The size stays put while the marks come and go, so revealing a line
-        // does not make it jump.
-        walk.decorations.push(
-          Decoration.line({ class: `cm-heading-${heading[1]}` }).range(line.from),
-        );
-        if (revealed) return;
-
-        const mark = node.node.firstChild;
-        if (mark?.name !== "HeaderMark") return;
-        walk.hideLeader(mark.from, mark.to, line);
-        return;
-      }
-
-      // Left for after the walk, when the callouts around the line are known.
-      if (isQuote) {
-        callouts.quote(node.from, node.to, line, revealed);
-        return;
-      }
-
-      // The dot is drawn in CSS, so it has to go the moment the `-` it stands
-      // in for comes back, or the line carries two bullets. An ordered list is
-      // left alone throughout: its number is content, not decoration.
-      if (isBullet) {
-        lists.bullet(walk, node.node, line, revealed);
-        return;
-      }
-
-      if (isImage) {
-        drawImage(walk, node.node, revealed);
-        return;
-      }
-
-      if (isRuby) {
-        drawRuby(walk, node.from, line, revealed);
-        return;
-      }
-
-      // A link and the inline constructs below it are read off the node: the
-      // cursor has to be in the one whose marks come back. Everything above is
-      // a line construct, whose mark sits at the head of the line and whose two
-      // rules therefore say the same thing.
-      const inlineRevealed = isNodeRevealed(state, node.from, node.to) || node.from < walk.tableEnd;
-
-      if (isInlineMath) {
-        drawInlineMath(walk, node.from, node.to, inlineRevealed);
-        return false;
-      }
-
-      if (isLink) {
-        // Ahead of the link, which would otherwise colour and hide the time
-        // and leave a take's address a link to open.
-        if (drawTime(walk, node.node, revealed, linked)) return;
-        drawLink(walk, node.node, line, inlineRevealed);
-        return;
-      }
-
-      if (node.name === "WikiLink") markRelation(walk, node.from, line);
-
-      if (!inline) return;
-      drawInline(walk, node.node, inline, inlineRevealed);
+      return enterBlock(walk, callouts, lists, linked, node);
     },
   });
 
@@ -226,6 +85,163 @@ function build(state: EditorState): Live {
     decorations: Decoration.set(walk.decorations, true),
     hidden: Decoration.set(walk.hidden, true),
   };
+}
+
+/** One node of the walk. `false` keeps the walk out of its children. */
+function enterBlock(
+  walk: Walk,
+  callouts: Callouts,
+  lists: Lists,
+  linked: () => string[],
+  node: SyntaxNodeRef,
+): false | undefined {
+  switch (node.name) {
+    case "Blockquote":
+      callouts.enter(walk, node.node);
+      return;
+    // Coloured and left where it is, like the overdue red below: the hash is
+    // part of the tag rather than a mark standing in front of one, so there
+    // is nothing here for a revealed line to bring back.
+    case "Tag":
+      walk.decorations.push(Decoration.mark({ class: "cm-tag" }).range(node.from, node.to));
+      return;
+    case "FencedCode":
+      return drawFence(walk, node.node);
+    // A paragraph that is not an svg has nothing of its own to decorate, so it
+    // is left to its children as it was before this check.
+    case "HTMLBlock":
+    case "Paragraph":
+      return drawSvg(walk, node.node);
+    case "Table":
+      drawTable(walk, node.node);
+      return;
+    case "BlockMath":
+      return drawBlockMath(walk, node.node);
+  }
+  return enterLine(walk, callouts, lists, linked, node);
+}
+
+function enterLine(
+  walk: Walk,
+  callouts: Callouts,
+  lists: Lists,
+  linked: () => string[],
+  node: SyntaxNodeRef,
+): false | undefined {
+  const { state } = walk;
+  const heading = HEADING.exec(node.name);
+  const inline = INLINE[node.name];
+  const isBullet = node.name === "ListMark" && node.node.parent?.parent?.name === "BulletList";
+  const isRuby = node.name === "HTMLTag" && state.doc.sliceString(node.from, node.to) === "<ruby>";
+  if (!heading && !inline && !isBullet && !isRuby && !LINE_NODES.has(node.name)) return;
+
+  const line = state.doc.lineAt(node.from);
+  const revealed = isLineRevealed(state, line) || node.from < walk.tableEnd;
+
+  switch (node.name) {
+    // `\*` is the asterisk, and the backslash is a mark like any other. An
+    // Anki card side opening with a fence is written with a backslash before
+    // its backticks so it opens none, and should read as the backticks. By
+    // the line rule, so the cursor's line and a table's source keep it.
+    case "Escape":
+      if (!revealed) walk.hide(node.from, node.from + 1);
+      return;
+    case "Embed":
+      drawEmbed(walk, node.node, revealed, renderedMarkdown);
+      return false;
+    case "HorizontalRule":
+      drawRule(walk, line, revealed);
+      return;
+    // Left for after the walk, when the callouts around the line are known.
+    case "QuoteMark":
+      callouts.quote(node.from, node.to, line, revealed);
+      return;
+    case "Image":
+      drawImage(walk, node.node, revealed);
+      return;
+  }
+
+  if (heading) {
+    drawHeading(walk, node.node, heading, line, revealed);
+    return;
+  }
+  // The dot is drawn in CSS, so it has to go the moment the `-` it stands
+  // in for comes back, or the line carries two bullets. An ordered list is
+  // left alone throughout: its number is content, not decoration.
+  if (isBullet) {
+    lists.bullet(walk, node.node, line, revealed);
+    return;
+  }
+  if (isRuby) {
+    drawRuby(walk, node.from, line, revealed);
+    return;
+  }
+  return enterInline(walk, linked, node, inline, line, revealed);
+}
+
+/**
+ * The line is drawn, so the dashes asking for it go. Like the bullet and
+ * unlike the blockquote's bar, the drawing stands in for characters, so
+ * it leaves when they come back. `---` under a paragraph is a setext
+ * heading rather than a rule, and the parser has already told them apart.
+ */
+function drawRule(walk: Walk, line: Line, revealed: boolean): void {
+  if (revealed) return;
+  walk.decorations.push(Decoration.line({ class: "cm-rule" }).range(line.from));
+  walk.hide(line.from, line.to);
+}
+
+function drawHeading(
+  walk: Walk,
+  node: SyntaxNode,
+  heading: RegExpExecArray,
+  line: Line,
+  revealed: boolean,
+): void {
+  // The size stays put while the marks come and go, so revealing a line
+  // does not make it jump.
+  walk.decorations.push(Decoration.line({ class: `cm-heading-${heading[1]}` }).range(line.from));
+  if (revealed) return;
+
+  const mark = node.firstChild;
+  if (mark?.name !== "HeaderMark") return;
+  walk.hideLeader(mark.from, mark.to, line);
+}
+
+/**
+ * A link and the inline constructs below it are read off the node: the
+ * cursor has to be in the one whose marks come back. Everything above is
+ * a line construct, whose mark sits at the head of the line and whose two
+ * rules therefore say the same thing.
+ */
+function enterInline(
+  walk: Walk,
+  linked: () => string[],
+  node: SyntaxNodeRef,
+  inline: Inline | undefined,
+  line: Line,
+  revealed: boolean,
+): false | undefined {
+  const inlineRevealed =
+    isNodeRevealed(walk.state, node.from, node.to) || node.from < walk.tableEnd;
+
+  if (node.name === "InlineMath") {
+    drawInlineMath(walk, node.from, node.to, inlineRevealed);
+    return false;
+  }
+
+  if (node.name === "Link") {
+    // Ahead of the link, which would otherwise colour and hide the time
+    // and leave a take's address a link to open.
+    if (drawTime(walk, node.node, revealed, linked)) return;
+    drawLink(walk, node.node, line, inlineRevealed);
+    return;
+  }
+
+  if (node.name === "WikiLink") markRelation(walk, node.from, line);
+
+  if (!inline) return;
+  drawInline(walk, node.node, inline, inlineRevealed);
 }
 
 /**

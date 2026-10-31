@@ -1,4 +1,4 @@
-import { StateEffect } from "@codemirror/state";
+import { type Line, StateEffect } from "@codemirror/state";
 import { Decoration, type EditorView, ViewPlugin, WidgetType } from "@codemirror/view";
 import type { SyntaxNode } from "@lezer/common";
 import { isBlockRevealed, isNodeRevealed, type Walk } from "@/lib/live/live-preview-hidden";
@@ -118,11 +118,8 @@ function fillDiagram(block: HTMLElement, drawing: Drawing, source: string): void
   code.textContent = source;
 }
 
-/**
- * A fenced code block: its lines get the surface, and its fences go unless the
- * cursor is in it. The code is left alone, whichever parser highlighted it.
- */
-export function drawFence(walk: Walk, node: SyntaxNode): false | undefined {
+/** A diagram drawn over its whole block, true when it was. */
+function drawDiagram(walk: Walk, node: SyntaxNode): boolean {
   const { state, decorations } = walk;
   // A diagram goes by the table's rule, and for its reasons: see there.
   const info = node.getChild("CodeInfo");
@@ -131,17 +128,24 @@ export function drawFence(walk: Walk, node: SyntaxNode): false | undefined {
     info !== null &&
     code !== null &&
     state.doc.sliceString(info.from, info.to).toLowerCase() === "mermaid";
-  if (isMermaid) {
-    const inside = isBlockRevealed(state, node.from, node.to);
-    const whole =
-      node.from === state.doc.lineAt(node.from).from && node.to === state.doc.lineAt(node.to).to;
-    if (!inside && whole) {
-      const widget = new MermaidBlock(state.doc.sliceString(code.from, code.to), currentTheme());
-      decorations.push(Decoration.replace({ widget, block: true }).range(node.from, node.to));
-      walk.drawn = node.to;
-      return false;
-    }
-  }
+  if (!isMermaid) return false;
+  const inside = isBlockRevealed(state, node.from, node.to);
+  const whole =
+    node.from === state.doc.lineAt(node.from).from && node.to === state.doc.lineAt(node.to).to;
+  if (inside || !whole) return false;
+  const widget = new MermaidBlock(state.doc.sliceString(code.from, code.to), currentTheme());
+  decorations.push(Decoration.replace({ widget, block: true }).range(node.from, node.to));
+  walk.drawn = node.to;
+  return true;
+}
+
+/**
+ * A fenced code block: its lines get the surface, and its fences go unless the
+ * cursor is in it. The code is left alone, whichever parser highlighted it.
+ */
+export function drawFence(walk: Walk, node: SyntaxNode): false | undefined {
+  const { state, decorations } = walk;
+  if (drawDiagram(walk, node)) return false;
   const first = state.doc.lineAt(node.from).number;
   const last = state.doc.lineAt(node.to).number;
   // The cursor anywhere in the block hands the fences back.
@@ -164,14 +168,17 @@ export function drawFence(walk: Walk, node: SyntaxNode): false | undefined {
     const line = state.doc.line(number);
     const edge = `${number === first ? " cm-code-open" : ""}${number === closes ? " cm-code-close" : ""}`;
     decorations.push(Decoration.line({ class: `cm-code-block${edge}` }).range(line.from));
-    // Hidden with the line break beside it, so neither fence leaves a blank row.
-    if (!marks.has(number)) continue;
-    // Muted, as the surface already says where the block starts.
-    if (!fenced) {
-      decorations.push(Decoration.mark({ class: "cm-code-fence" }).range(line.from, line.to));
-      continue;
-    }
-    if (number === first) walk.hide(line.from, line.to + 1);
-    else walk.hide(line.from - 1, line.to);
+    if (marks.has(number)) drawFenceMark(walk, line, number === first, fenced);
   }
+}
+
+function drawFenceMark(walk: Walk, line: Line, opening: boolean, fenced: boolean): void {
+  // Muted, as the surface already says where the block starts.
+  if (!fenced) {
+    walk.decorations.push(Decoration.mark({ class: "cm-code-fence" }).range(line.from, line.to));
+    return;
+  }
+  // Hidden with the line break beside it, so neither fence leaves a blank row.
+  if (opening) walk.hide(line.from, line.to + 1);
+  else walk.hide(line.from - 1, line.to);
 }
