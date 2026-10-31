@@ -1,6 +1,6 @@
-import { nextSeek, pressTarget, seekTarget, videoTarget } from "@/components/workspace-panes";
 import { openBeside } from "@/lib/pane-contents";
 import { emptyLayout, fillFocused, focusPane, type Layout, type Pane, tabPanes } from "@/lib/panes";
+import { nextSeek, pressTarget, seekTarget, videoTarget } from "@/lib/video/use-video-player";
 
 const NOTE = "lit/talk.md";
 const OTHER = "lit/other.md";
