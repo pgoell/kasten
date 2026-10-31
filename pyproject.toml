@@ -154,5 +154,4 @@ ancestors = ["kasten_backend", "kasten_jobs"]
 ignore_imports = [
     "kasten_backend.model_use_sessions -> kasten_backend.model_use_codex",  # today's breach, to fix later; #718
     "kasten_backend.model_use_sessions -> kasten_backend.model_use_grok",  # today's breach, to fix later; #718
-    "kasten_backend.routes.finance_receipts -> kasten_backend.agent_finance",  # today's breach, to fix later; #718
 ]

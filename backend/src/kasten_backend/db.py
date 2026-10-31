@@ -4,6 +4,7 @@ Finance is kept outside the vault, see docs/explanation/finance-in-postgres.md.
 """
 
 import logging
+from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from typing import TYPE_CHECKING
 
 from fastapi import HTTPException
@@ -19,7 +20,7 @@ from sqlalchemy.orm import DeclarativeBase
 from kasten_backend.config import get_settings
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator
+    from collections.abc import AsyncIterator, Callable
 
 
 logger = logging.getLogger(__name__)
@@ -62,3 +63,13 @@ async def get_session() -> AsyncIterator[AsyncSession]:
                 "places are kept. See docs/reference/configuration.md.",
             ) from error
         yield session
+
+
+sessions: Callable[[], AsyncIterator[AsyncSession]] = get_session
+"""`session()`'s source: the routes' own dependency, so with no database a tool refuses in
+the routes' words. The one name a test patches to point every caller at its rows."""
+
+
+def session() -> AbstractAsyncContextManager[AsyncSession]:
+    """One session for one call outside a request's dependencies, closed when the call ends."""
+    return asynccontextmanager(sessions)()

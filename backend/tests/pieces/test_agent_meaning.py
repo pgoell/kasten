@@ -12,7 +12,7 @@ import pytest
 from fastapi import HTTPException
 from sqlalchemy import text as sql
 
-from kasten_backend import agent
+from kasten_backend import db
 from kasten_backend.config import get_settings
 from kasten_backend.pieces import indexer
 from kasten_backend.pieces.embed import DIMENSIONS, model_thread
@@ -78,7 +78,7 @@ async def stored(
         async with sessions() as session:
             yield session
 
-    monkeypatch.setattr(agent, "sessions", own)
+    monkeypatch.setattr(db, "sessions", own)
 
 
 @pytest.fixture
@@ -177,7 +177,7 @@ async def test_no_database_is_a_tool_error_in_the_routes_words(
         raise HTTPException(status_code=503, detail="No database answered")
         yield  # pragma: no cover
 
-    monkeypatch.setattr(agent, "sessions", down)
+    monkeypatch.setattr(db, "sessions", down)
     body = {
         "jsonrpc": "2.0",
         "id": 1,
@@ -237,7 +237,7 @@ async def test_no_pieces_table_answers_without_a_500(
             await session.execute(sql("SET search_path TO pg_temp"))
             yield session
 
-    monkeypatch.setattr(agent, "sessions", untabled)
+    monkeypatch.setattr(db, "sessions", untabled)
     monkeypatch.setattr(indexer, "running", None)
 
     for answer in [

@@ -13,7 +13,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Respon
 from fastapi.responses import FileResponse, RedirectResponse
 from pydantic import BaseModel, ConfigDict, Field
 
-from kasten_backend import agent_finance, finance, finance_tax
+from kasten_backend import db, finance, finance_tax
 from kasten_backend import finance_receipts as receipts
 from kasten_backend.config import Settings, get_settings
 from kasten_backend.finance_tax_models import (
@@ -185,9 +185,8 @@ async def share(
     kept = refused = 0
     if files:
         try:
-            # The MCP tools' way to a session, which the tests point at theirs;
-            # a dependency would open one for a share of text alone too.
-            async with agent_finance.session() as session:
+            # A dependency would open a session for a share of text alone too.
+            async with db.session() as session:
                 for file in files[: receipts.MAX_SHARED]:
                     try:
                         await _keep(session, settings, file, "capture")

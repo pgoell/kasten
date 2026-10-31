@@ -10,7 +10,6 @@ import json
 import logging
 import os
 import tempfile
-from contextlib import asynccontextmanager
 from datetime import date  # noqa: TC003  pydantic reads the annotation at runtime
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -39,10 +38,6 @@ from kasten_backend.vault import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator, Callable
-
-    from sqlalchemy.ext.asyncio import AsyncSession
-
     from kasten_backend.config import Settings
     from kasten_backend.graph import Graph
 
@@ -296,10 +291,6 @@ class Meaning(BaseModel):
     """Empty when the model and the whole index stood behind the hits, else what fell short."""
 
 
-sessions: Callable[[], AsyncIterator[AsyncSession]] = db.get_session
-"""The search by meaning's session source, a module global so a test can point it at its rows."""
-
-
 async def search_meaning(
     settings: Settings, query: str = "", like: str | None = None, archive: bool = False
 ) -> Meaning:
@@ -309,7 +300,7 @@ async def search_meaning(
     """
     running = indexer.running
     said = []
-    async with asynccontextmanager(sessions)() as session:
+    async with db.session() as session:
         if like:
             note = resolve_note(settings.vault_path, like)
             # The spelling `read_note` would name it by, so both tools take the same paths.
