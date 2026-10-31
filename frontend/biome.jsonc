@@ -104,7 +104,6 @@
         "src/components/use-dump-take.tsx",
         "src/components/video-pane.tsx",
         "src/components/which-key.tsx",
-        "src/components/workspace-panes.tsx",
         "src/lib/book/book-backing.ts",
         "src/lib/book/book-fonts.ts",
         "src/lib/editor/copy-as.ts",
