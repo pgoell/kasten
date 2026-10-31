@@ -1,4 +1,5 @@
 import { type RefObject, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { focusedPane, type Layout, tabPanes } from "@/lib/panes";
 import { namedVideo, nonEmpty, PLAYER } from "@/lib/video/video";
 import {
   applyVideoSettings,
@@ -308,5 +309,104 @@ export function useVideoPlayer({
     muted,
     volumeBy,
     toggleMute,
+  };
+}
+
+/** Whether a pane of the active tab plays `note`'s video, so a time in that note can seek it. */
+export function seekTarget(layout: Layout, note: string): boolean {
+  return tabPanes(layout).some((each) => each.video === note);
+}
+
+/** The seek a time asked for, counted so the same time asked twice seeks twice. */
+interface SeekAsk {
+  note: string;
+  seconds: number;
+  id?: string;
+  signal: number;
+}
+
+/** The next ask after `previous`, one count on. */
+export function nextSeek(previous: SeekAsk, note: string, seconds: number, id?: string): SeekAsk {
+  return { note, seconds, id, signal: previous.signal + 1 };
+}
+
+/**
+ * The video pane a `Space v` press plays in, fixed at the press.
+ *
+ * Read on every render, a pane that became the target after the press would play
+ * on the old count, so the target is taken when the count moves and kept.
+ */
+export function pressTarget(
+  previous: { signal: number; target: string | undefined },
+  playSignal: number,
+  layout: Layout,
+): { signal: number; target: string | undefined } {
+  if (playSignal === previous.signal) return previous;
+  return { signal: playSignal, target: videoTarget(layout) };
+}
+
+/**
+ * The video pane `Space v` plays in: the focused one, else the one playing the
+ * focused note's video, else the first of the tab. Undefined when the tab holds
+ * no video pane, so the key has nothing to play.
+ */
+export function videoTarget(layout: Layout): string | undefined {
+  const focused = focusedPane(layout);
+  if (focused.video !== undefined) return focused.id;
+  const videos = tabPanes(layout).filter((each) => each.video !== undefined);
+  return (videos.find((each) => each.video === focused.path) ?? videos[0])?.id;
+}
+
+/** Counter, not a flag: each `<leader>v` bumps it, so every press reaches the player. */
+export function usePlayAsk(): { playSignal: number; play: () => void } {
+  const [playSignal, setPlaySignal] = useState(0);
+  const play = useCallback(() => setPlaySignal((count) => count + 1), []);
+  return { playSignal, play };
+}
+
+export interface VideoAsks {
+  /** The play count pane `id` answers: the press's own for the pane fixed at it, else 0. */
+  playFor: (id: string) => number;
+  /** The seek for the pane playing `note`'s video, undefined for every other pane. */
+  seekFor: (note: string) => VideoPlayerOptions["seekSignal"];
+  /** Ask the pane playing `note`'s video to seek, or say in the bar that none is open. */
+  seek: (note: string, seconds: number, id?: string) => void;
+}
+
+/** The play and seek asks over the active tab, held once above every pane. */
+export function useVideoAsks(
+  layout: Layout,
+  playSignal: number,
+  onNotice: (notice: string) => void,
+): VideoAsks {
+  // The target of the press, held from the press on: see `pressTarget`.
+  const pressed = useRef<{ signal: number; target: string | undefined }>({
+    signal: 0,
+    target: undefined,
+  });
+  pressed.current = pressTarget(pressed.current, playSignal, layout);
+  // The layout is read through a ref so the callback the notes hold stays put.
+  const [seekAsk, setSeekAsk] = useState<SeekAsk>({ note: "", seconds: 0, signal: 0 });
+  const layoutNow = useRef(layout);
+  layoutNow.current = layout;
+  const seek = useCallback(
+    (note: string, seconds: number, id?: string) => {
+      if (!seekTarget(layoutNow.current, note)) {
+        onNotice("No player is open for this note: Space g v opens it");
+        return;
+      }
+      setSeekAsk((previous) => nextSeek(previous, note, seconds, id));
+    },
+    [onNotice],
+  );
+  const target = pressed.current.target;
+  return {
+    // A press with no video pane on screen raises a number nothing reads.
+    playFor: (id) => (id === target ? playSignal : 0),
+    seekFor: (note) =>
+      seekAsk.note === note
+        ? { seconds: seekAsk.seconds, signal: seekAsk.signal, id: seekAsk.id }
+        : undefined,
+    seek,
   };
 }

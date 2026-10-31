@@ -1,4 +1,4 @@
-import { isWholePane } from "@/components/whole-pane";
+import { isWholePane } from "@/components/pane-body";
 
 import { emptyLayout, fillFocused, focusedPane, isEmptyTab } from "@/lib/panes";
 import { loadWorkspace, saveWorkspace } from "@/lib/workspace";

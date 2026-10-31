@@ -1,13 +1,6 @@
 import { EditorView } from "@codemirror/view";
 import { useQueryClient } from "@tanstack/react-query";
-import {
-  type Dispatch,
-  type RefObject,
-  type SetStateAction,
-  useCallback,
-  useMemo,
-  useState,
-} from "react";
+import { type Dispatch, type RefObject, type SetStateAction, useCallback, useMemo } from "react";
 import type { PaneMoves } from "@/components/use-pane-moves";
 import { fetchAssets, fetchFiles, fetchNote, NoteMissing } from "@/lib/api";
 import { heldText } from "@/lib/held-text";
@@ -36,6 +29,7 @@ import {
 import { type Period, periodicNote } from "@/lib/periodic";
 import { isPerson } from "@/lib/person";
 import { askRsvp } from "@/lib/rsvp/use-rsvp";
+import { usePlayAsk } from "@/lib/video/use-video-player";
 import { splitTarget, wikiLinkPath, wikiLinkTargets } from "@/lib/wikilink";
 
 export type PaneCommands = ReturnType<typeof usePaneCommands>;
@@ -84,8 +78,7 @@ export function usePaneCommands({
 }) {
   const { moveTo, focusToward, shiftToward } = moves;
   const queryClient = useQueryClient();
-  /** Counter, not a flag: each `<leader>v` bumps it, so every press reaches the player. */
-  const [playSignal, setPlaySignal] = useState(0);
+  const { playSignal, play } = usePlayAsk();
 
   /**
    * Opens the book `READING_NOTE` links. The note is read fresh on each press: it is
@@ -332,7 +325,7 @@ export function usePaneCommands({
         beside((each) => each.video === note, { video: note }, "col");
       },
       // No guard: with no player on screen the number reaches no pane, so the key does nothing.
-      toggleVideo: () => setPlaySignal((count) => count + 1),
+      toggleVideo: play,
       // The pane reads its own text, so these only ask it (`use-rsvp.ts`). No moveTo or saveFirst.
       openRsvp: () => readRsvp(false),
       rsvpFromHere: () => readRsvp(true),
@@ -383,6 +376,7 @@ export function usePaneCommands({
       sheetGraph,
       sideGraph,
       readRsvp,
+      play,
     ],
   );
 
