@@ -391,4 +391,12 @@ describe("workspace", () => {
       ["chat", "chat", "page", undefined],
     ]);
   });
+
+  it("#978 a saved pane with a field Object carries, such as constructor, loads nothing", () => {
+    const tabs = [{ id: "t", root: { id: "p", constructor: "x" }, focus: "p" }];
+    localStorage.setItem(FINE, JSON.stringify({ layout: { tabs, active: 0 }, treeOpen: true }));
+
+    expect(loadWorkspace(false)).toBeNull();
+    expect(localStorage.getItem(FINE)).toBeNull();
+  });
 });

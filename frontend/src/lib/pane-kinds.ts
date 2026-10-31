@@ -201,7 +201,8 @@ export function isSavedPane(value: Record<string, unknown>): boolean {
     isString(value.id) &&
     Object.entries(value).every(
       ([key, field]) =>
-        key === "id" || (key in PANE_KINDS && PANE_KINDS[key as KindField].saved(field)),
+        key === "id" ||
+        (Object.hasOwn(PANE_KINDS, key) && PANE_KINDS[key as KindField].saved(field)),
     )
   );
 }
