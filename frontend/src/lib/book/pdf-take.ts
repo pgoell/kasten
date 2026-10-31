@@ -41,17 +41,22 @@ export function offsetsIn(layer: Element, range: Range): { start: number; end: n
   for (let node = walker.nextNode(); node !== null; node = walker.nextNode()) {
     const text = node as Text;
     const length = text.data.length;
-    if (range.intersectsNode(text)) {
-      const from = text === range.startContainer ? range.startOffset : 0;
-      const to = text === range.endContainer ? range.endOffset : length;
-      if (to > from) {
-        if (start === -1) start = total + from;
-        end = total + to;
-      }
+    const covered = coveredIn(text, range);
+    if (covered !== null) {
+      if (start === -1) start = total + covered.from;
+      end = total + covered.to;
     }
     total += length;
   }
   return start === -1 ? null : { start, end };
+}
+
+/** The offsets of `text` that `range` covers, or null where it covers none of it. */
+function coveredIn(text: Text, range: Range): { from: number; to: number } | null {
+  if (!range.intersectsNode(text)) return null;
+  const from = text === range.startContainer ? range.startOffset : 0;
+  const to = text === range.endContainer ? range.endOffset : text.data.length;
+  return to > from ? { from, to } : null;
 }
 
 /**

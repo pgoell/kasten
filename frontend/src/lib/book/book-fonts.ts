@@ -30,23 +30,33 @@ export function fontFaces(families: readonly string[]): string {
   const css: string[] = [];
 
   for (const sheet of Array.from(document.styleSheets)) {
-    let rules: CSSRuleList;
-    try {
-      rules = sheet.cssRules;
-    } catch (error) {
-      // A stylesheet from another origin has no rules this page may read, and
-      // throws a `SecurityError` for them. Its faces are not ours to copy.
-      if (error instanceof DOMException && error.name === "SecurityError") continue;
-      throw error;
-    }
+    const rules = readableRules(sheet);
+    if (rules === null) continue;
     const base = sheet.href ?? document.baseURI;
     for (const rule of Array.from(rules)) {
-      if (!rule.cssText.startsWith("@font-face")) continue;
-      const family = (rule as CSSFontFaceRule).style.getPropertyValue("font-family");
-      if (!wanted.has(familyOf(family))) continue;
-      css.push(absoluteUrls(rule.cssText, base));
+      if (wantedFace(rule, wanted)) css.push(absoluteUrls(rule.cssText, base));
     }
   }
 
   return css.join("\n");
+}
+
+/**
+ * The rules of `sheet`, or null for a stylesheet from another origin, which has no rules this page
+ * may read and throws a `SecurityError` for them. Its faces are not ours to copy.
+ */
+function readableRules(sheet: CSSStyleSheet): CSSRuleList | null {
+  try {
+    return sheet.cssRules;
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "SecurityError") return null;
+    throw error;
+  }
+}
+
+/** Whether `rule` is an `@font-face` of one of the `wanted` families. */
+function wantedFace(rule: CSSRule, wanted: Set<string>): boolean {
+  if (!rule.cssText.startsWith("@font-face")) return false;
+  const family = (rule as CSSFontFaceRule).style.getPropertyValue("font-family");
+  return wanted.has(familyOf(family));
 }
