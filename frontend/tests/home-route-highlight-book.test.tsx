@@ -291,7 +291,7 @@ describe("opening a highlight's book with gf", () => {
   });
 
   it("moves to the reader already open rather than making a second", async () => {
-    // pin: `openBookBeside` focuses the pane already reading that note.
+    // pin: `openBeside` focuses the pane already reading that note.
     const app = await opened();
     app.leader("g", "r");
     await settle();

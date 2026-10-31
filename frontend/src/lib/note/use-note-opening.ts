@@ -15,15 +15,13 @@ import { bookNoteOf, fileKind } from "@/lib/file-kind";
 import { encodePath } from "@/lib/note-path";
 import { noteSectionOf } from "@/lib/note-section";
 import {
-  openBookBeside,
+  openBeside,
   openBookInFocused,
-  openHtmlInFocused,
-  openImageInFocused,
   openInFocused,
   openPdfBeside,
   openPdfInFocused,
 } from "@/lib/pane-contents";
-import { type Layout, tabPanes } from "@/lib/panes";
+import { fillFocused, type Layout, tabPanes } from "@/lib/panes";
 import { type Period, periodicNote } from "@/lib/periodic";
 import type { Listings } from "@/lib/use-listings";
 import { namesAFile, pdfPage, splitTarget, wikiLinkPath } from "@/lib/wikilink";
@@ -125,7 +123,7 @@ export function useNoteOpening({
     async (path: string, anchor?: string) => {
       if (!(await saveFirst())) return;
 
-      setLayout((previous) => openHtmlInFocused(previous, path, anchor));
+      setLayout((previous) => fillFocused(previous, { html: path, anchor }));
       setFocusSignal((previous) => previous + 1);
     },
     [saveFirst, setLayout, setFocusSignal],
@@ -139,7 +137,7 @@ export function useNoteOpening({
     async (path: string) => {
       if (!(await saveFirst())) return;
 
-      setLayout((previous) => openImageInFocused(previous, path));
+      setLayout((previous) => fillFocused(previous, { image: path }));
       setFocusSignal((previous) => previous + 1);
     },
     [saveFirst, setLayout, setFocusSignal],
@@ -298,7 +296,13 @@ export function useNoteOpening({
     (note: string, quote: string[]) => {
       // The press clears it, which is the rule PR 4 settled and PR 5 followed.
       setNotice(undefined);
-      if (moveTo((previous) => openBookBeside(previous, note))) setSeek({ note, quote });
+      if (
+        moveTo((previous) =>
+          openBeside(previous, (pane) => pane.book === note, { book: note }, "row"),
+        )
+      ) {
+        setSeek({ note, quote });
+      }
     },
     [moveTo, setNotice],
   );

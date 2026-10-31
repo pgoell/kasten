@@ -30,7 +30,7 @@ import type { LogActions } from "@/lib/log/use-log-actions";
 import type { SaveStatus, useAutosave } from "@/lib/note/use-autosave";
 import type { BufferSync } from "@/lib/note/use-buffer-sync";
 import { makeNote, type NoteOpening } from "@/lib/note/use-note-opening";
-import { openGraphBeside, openNoteBeside } from "@/lib/pane-contents";
+import { openBeside } from "@/lib/pane-contents";
 import {
   activeTab,
   closeTab,
@@ -206,7 +206,7 @@ export function WorkspacePanes({
       }
       note = made;
     }
-    moveTo((previous) => openNoteBeside(previous, note));
+    moveTo((previous) => openBeside(previous, (pane) => pane.path === note, { path: note }, "row"));
   }
   return (
     /* min-w-0 lets the panes shrink instead of pushing the tree off-screen.
@@ -432,7 +432,15 @@ export function WorkspacePanes({
                 onNotice={onNotice}
                 graphSignal={graphAsk.pane === shown.id ? graphAsk.signal : 0}
                 onGraphPane={() => {
-                  if (note !== undefined) moveTo((previous) => openGraphBeside(previous, note));
+                  if (note !== undefined)
+                    moveTo((previous) =>
+                      openBeside(
+                        previous,
+                        (pane) => pane.graph?.around === note,
+                        { graph: { around: note } },
+                        "row",
+                      ),
+                    );
                 }}
                 onGraphSheet={graphSheet}
                 onSeek={seekVideo}

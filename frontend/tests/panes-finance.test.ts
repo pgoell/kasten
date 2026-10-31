@@ -1,6 +1,6 @@
 import { isWholePane } from "@/components/whole-pane";
-import { openFinanceInFocused } from "@/lib/pane-contents";
-import { emptyLayout, focusedPane, isEmptyTab } from "@/lib/panes";
+
+import { emptyLayout, fillFocused, focusedPane, isEmptyTab } from "@/lib/panes";
 import { loadWorkspace, saveWorkspace } from "@/lib/workspace";
 
 const FINE = "kasten.workspace.1";
@@ -12,7 +12,7 @@ afterEach(() => {
 describe("the finance pane in a pane", () => {
   it("#1035 opens in the focused pane, fills it, and is kept in the saved layout", () => {
     const before = emptyLayout("a.md", 12);
-    const layout = openFinanceInFocused(before);
+    const layout = fillFocused(before, { finance: true });
     const pane = focusedPane(layout);
 
     expect(pane.finance).toBe(true);

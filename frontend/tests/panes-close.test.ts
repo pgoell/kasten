@@ -1,7 +1,8 @@
-import { clearFocused, openInFocused } from "@/lib/pane-contents";
+import { openInFocused } from "@/lib/pane-contents";
 import {
   addTab,
   emptyLayout,
+  fillFocused,
   focusedPane,
   focusPane,
   isSplit,
@@ -13,14 +14,14 @@ import { at, notes, open } from "./panes-fixture";
 
 describe("closing", () => {
   it("empties a pane holding a note, leaving the pane behind", () => {
-    const layout = clearFocused(emptyLayout("a.md"));
+    const layout = fillFocused(emptyLayout("a.md"), {});
 
     expect(tabPanes(layout)).toHaveLength(1);
     expect(open(layout)).toBeNull();
   });
 
   it("drops a stale line with the note", () => {
-    expect(focusedPane(clearFocused(emptyLayout("a.md", 40))).line).toBeUndefined();
+    expect(focusedPane(fillFocused(emptyLayout("a.md", 40), {})).line).toBeUndefined();
   });
 
   it("removes an empty pane, leaving its neighbour", () => {

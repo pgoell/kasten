@@ -1,5 +1,5 @@
-import { clearFocused, mapPanes, openTerminalInFocused } from "@/lib/pane-contents";
-import { emptyLayout, focusedPane, splitFocused, tabPanes } from "@/lib/panes";
+import { mapPanes } from "@/lib/pane-contents";
+import { emptyLayout, fillFocused, focusedPane, splitFocused, tabPanes } from "@/lib/panes";
 import { notes } from "./panes-fixture";
 
 describe("a terminal in a pane", () => {
@@ -7,7 +7,7 @@ describe("a terminal in a pane", () => {
     const layout = emptyLayout();
     const before = focusedPane(layout).id;
 
-    const opened = openTerminalInFocused(layout, "kasten");
+    const opened = fillFocused(layout, { term: "kasten" });
 
     expect(focusedPane(opened).term).toBe("kasten");
     // The tab names its focused pane by id, so a new one would lose track of it.
@@ -17,7 +17,7 @@ describe("a terminal in a pane", () => {
   it("takes the note out of the pane it replaces", () => {
     // The pane is written whole the way `openInFocused` writes it, so a line
     // left over from a search hit cannot survive into a terminal either.
-    const layout = openTerminalInFocused(emptyLayout("a.md", 12), "kasten");
+    const layout = fillFocused(emptyLayout("a.md", 12), { term: "kasten" });
 
     expect(focusedPane(layout).path).toBeUndefined();
     expect(focusedPane(layout).line).toBeUndefined();
@@ -28,7 +28,7 @@ describe("a terminal in a pane", () => {
     // pane holds no note, so the route used to send it straight to the removal
     // instead, which does nothing at all on the last pane of the last tab: a
     // window holding one terminal had no way back to an editor.
-    const layout = clearFocused(openTerminalInFocused(emptyLayout(), "kasten"));
+    const layout = fillFocused(fillFocused(emptyLayout(), { term: "kasten" }), {});
 
     expect(focusedPane(layout).term).toBeUndefined();
     expect(focusedPane(layout).path).toBeUndefined();
@@ -39,7 +39,7 @@ describe("a terminal in a pane", () => {
     // `mapPanes` follows a move by keying on `path`, and a terminal pane has
     // none. That is the whole reason `term` sits beside `path` rather than
     // replacing it with a union.
-    const split = openTerminalInFocused(splitFocused(emptyLayout("a.md"), "row"), "kasten");
+    const split = fillFocused(splitFocused(emptyLayout("a.md"), "row"), { term: "kasten" });
 
     const layout = mapPanes(split, (pane) =>
       pane.path === "a.md" ? { ...pane, path: "moved/a.md" } : pane,

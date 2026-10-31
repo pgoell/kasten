@@ -1,5 +1,4 @@
-import { openLogInFocused } from "@/lib/pane-contents";
-import { emptyLayout, focusedPane, tabPanes } from "@/lib/panes";
+import { emptyLayout, fillFocused, focusedPane, tabPanes } from "@/lib/panes";
 import { loadWorkspace, saveWorkspace } from "@/lib/workspace";
 
 const FINE = "kasten.workspace.1";
@@ -11,7 +10,7 @@ afterEach(() => {
 describe("the log in a pane", () => {
   it("#624 the log pane opens in the focused pane and is kept in the saved layout", () => {
     const before = emptyLayout("a.md", 12);
-    const layout = openLogInFocused(before);
+    const layout = fillFocused(before, { log: true });
 
     expect(focusedPane(layout).log).toBe(true);
     expect(focusedPane(layout).path).toBeUndefined();
