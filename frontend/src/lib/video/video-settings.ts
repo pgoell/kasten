@@ -1,14 +1,24 @@
 /**
- * The speed and captions a browser keeps for every player. Kept per browser, not per note: a speed is a habit
+ * The speed, captions and volume a browser keeps for every player. Kept per browser, not per note: a speed is a habit
  * of the person watching, and a note would carry it to every other reader.
  */
 
-/** The browser key, versioned. Shape: {"rate": 1.5, "captions": true}, both optional. */
+/** The browser key, versioned. Shape: {"rate": 1.5, "captions": true, "volume": 60, "muted": false}, all optional. */
 export const VIDEO_SETTINGS = "kasten.video.1";
 
 export interface VideoSettings {
   rate?: number;
   captions?: boolean;
+  /** The player's 0 to 100, set only by the pane's keys (#1395). */
+  volume?: number;
+  muted?: boolean;
+}
+
+/** A level the player takes: a number within 0 to 100, or undefined for anything else kept. */
+export function keptVolume(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value)
+    ? Math.min(100, Math.max(0, value))
+    : undefined;
 }
 
 /** What this browser keeps; {} when nothing is kept, the value is not JSON, or storage throws. */
@@ -54,9 +64,12 @@ export function learnVideoSettings(message: unknown): void {
 
 /**
  * For a player that just sent onReady: calls send("setPlaybackRate", [rate]) when
- * a rate other than 1 is kept.
+ * a rate other than 1 is kept, then the kept volume and mute.
  */
 export function applyVideoSettings(send: (func: string, args: unknown[]) => void): void {
-  const { rate } = readVideoSettings();
+  const { rate, volume, muted } = readVideoSettings();
   if (rate !== undefined && rate !== 1) send("setPlaybackRate", [rate]);
+  const level = keptVolume(volume);
+  if (level !== undefined) send("setVolume", [level]);
+  if (muted === true) send("mute", []);
 }
