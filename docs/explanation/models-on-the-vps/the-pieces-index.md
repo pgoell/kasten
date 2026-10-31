@@ -47,8 +47,31 @@ writes both inline, quoted by SQLAlchemy.
 
 On a copy of the live index (6,321 pieces of 585 notes, 2026-10-29), a query
 took about 300 ms with the model idle: 80 to 140 ms to embed, 140 to 230 ms of
-SQL, most of that the vector scan, which has no HNSW index. Words alone took 6
-to 56 ms.
+SQL, most of that the vector scan. Words alone took 6 to 56 ms.
+
+Migration `0014` added an HNSW index on the vectors (#1340). On a copy of 6,562
+pieces (2026-10-31), over 24 German and English queries, the vector query fell
+from 94.5 ms to 2.7 ms at the median and from 103 to 3.1 ms at p95, and every
+piece the exact scan found within the floor came back (659 of 659). Three things
+make the planner take the index, and each one alone sends it back to scanning
+every row:
+
+* The query takes the nearest 50 in a subquery and applies the 0.5 floor
+  outside it. With the floor in the same `WHERE`, the planner guesses a third of
+  the table passes and scans it.
+* The `LIMIT` is a constant. psycopg prepares a statement it runs often, and a
+  generic plan with `LIMIT $1` scans the table too.
+* `hnsw.ef_search` is 200 for the query's transaction. At pgvector's default of
+  40, below the 50 the query asks for, the planner never takes the index; forced
+  onto it, the index returned 13 to 40 rows, the archive filter cutting the rest.
+  `hnsw.iterative_scan = strict_order` keeps walking past archived pieces until
+  50 remain.
+
+The index takes 51 MB and builds in 1.3 s on that copy, within the default 64 MB
+of `maintenance_work_mem`. Rewriting a note's pieces costs about 1 ms more a
+piece with it in place, far below the time bge-m3 takes to embed one.
+`GET /api/similar` pairs every piece of a note with every other piece, which no
+index serves, so it answers as before.
 
 ## What is in it
 
@@ -60,6 +83,8 @@ pg_textsearch extensions:
 
 Two BM25 indexes sit on `pieces.text`, one with the German text configuration and
 one with the English, since a note may mix the two.
+An HNSW index with `vector_cosine_ops`, from migration `0014`, sits on
+`pieces.embedding`.
 
 A note is cut at its headings first. A section longer than about 512 bge-m3 tokens
 is cut again into windows that overlap by 64 tokens, so a sentence on an edge is
