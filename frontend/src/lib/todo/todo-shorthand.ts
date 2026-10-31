@@ -193,6 +193,38 @@ export function readEvery(value: string): string | undefined {
   return rule === null ? undefined : formatRecurrence(rule);
 }
 
+/** What one word of the shorthand sets, or `word` where it stays in the words. */
+function readTerm(
+  word: string,
+  today: string,
+):
+  | { kind: "priority"; priority: TodoPriority }
+  | { kind: "date"; field: "due" | "scheduled" | "start"; date: string }
+  | { kind: "estimate"; value: string }
+  | { kind: "recurrence"; rule: string }
+  | { kind: "word" } {
+  const found = PRIORITY_TERMS[word];
+  if (found !== undefined) return { kind: "priority", priority: found };
+
+  // Everything below is `term:value`. A word holding no colon names no term,
+  // and one whose value does not parse is a word like any other.
+  const colon = word.indexOf(":");
+  const term = word.slice(0, colon).toLowerCase();
+  const value = word.slice(colon + 1);
+
+  const field = colon === -1 ? undefined : DATE_TERMS[term];
+  const date = field === undefined ? undefined : readDate(value.toLowerCase(), today);
+  if (field !== undefined && date !== undefined) return { kind: "date", field, date };
+
+  // The one path by which kasten rather than your keyboard puts a `⏲` on a
+  // line.
+  if (term === "est" && parseDuration(value) !== null) return { kind: "estimate", value };
+
+  const rule = term === "every" ? readEvery(value.toLowerCase()) : undefined;
+  if (rule !== undefined) return { kind: "recurrence", rule };
+  return { kind: "word" };
+}
+
 /**
  * The same terms as instructions: `due:08-14` sets a date rather than picking one. State
  * terms stay in the words, a new todo being open already, and so does a `due:` that is no date.
@@ -206,44 +238,12 @@ export function expandShorthand(input: string, today: string): Todo {
 
   for (const word of input.split(/\s+/)) {
     if (word === "") continue;
-
-    const found = PRIORITY_TERMS[word];
-    if (found !== undefined) {
-      priority = found;
-      continue;
-    }
-
-    // Everything below is `term:value`. A word holding no colon names no term,
-    // and one whose value does not parse is a word like any other.
-    const colon = word.indexOf(":");
-    const term = word.slice(0, colon).toLowerCase();
-    const value = word.slice(colon + 1);
-
-    const field = colon === -1 ? undefined : DATE_TERMS[term];
-    if (field !== undefined) {
-      const date = readDate(value.toLowerCase(), today);
-      if (date !== undefined) {
-        dates[field] = date;
-        continue;
-      }
-    }
-
-    // The one path by which kasten rather than your keyboard puts a `⏲` on a
-    // line.
-    if (term === "est" && parseDuration(value) !== null) {
-      estimate = value;
-      continue;
-    }
-
-    if (term === "every") {
-      const rule = readEvery(value.toLowerCase());
-      if (rule !== undefined) {
-        recurrence = rule;
-        continue;
-      }
-    }
-
-    words.push(word);
+    const read = readTerm(word, today);
+    if (read.kind === "priority") priority = read.priority;
+    else if (read.kind === "date") dates[read.field] = read.date;
+    else if (read.kind === "estimate") estimate = read.value;
+    else if (read.kind === "recurrence") recurrence = read.rule;
+    else words.push(word);
   }
 
   const text = words.join(" ");

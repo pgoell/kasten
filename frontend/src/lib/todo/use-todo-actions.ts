@@ -23,6 +23,74 @@ function nothingMoved(error: unknown): string {
   return `Nothing moved: ${error instanceof Error ? error.message : "the vault refused the write"}`;
 }
 
+/** Why `note` cannot be written now: held text, open in the editor, or still saving. */
+function busyNote(
+  note: string,
+  focused: { path: string | undefined; isWriting: (note: string) => boolean },
+): string | null {
+  if (heldText(note) !== undefined) return `${note} holds text not yet saved`;
+  if (focused.path === note) return `${note} is open to type in`;
+  if (focused.isWriting(note)) return `${note} is still being saved`;
+  return null;
+}
+
+/** The `@` press on the note's `text`, or why nothing moved. `keptLine` is the line an earlier press of this listing wrote. */
+function agentPress(
+  text: string,
+  busy: string | null,
+  keptLine: string | undefined,
+  press: () => { text: string; line: string } | { why: string },
+): { text: string; line: string } | { why: string } {
+  if (busy !== null) return { why: `Nothing moved: ${busy}` };
+  // The kept line names this todo only while no other line says the
+  // same: a write since may have shifted a twin onto its number.
+  if (keptLine !== undefined && text.split("\n").filter((each) => each === keptLine).length !== 1) {
+    return { why: "Nothing moved: that line has changed since it was listed" };
+  }
+  const pressed = press();
+  return "why" in pressed ? { why: `Nothing moved: ${pressed.why}` } : pressed;
+}
+
+/** Keep the line a press wrote for `row`. Lines kept from an older listing go: no row drawn now carries them. */
+function keepAgentLine(
+  lines: Map<string, { listing: number; line: string }>,
+  row: string,
+  kept: { listing: number; line: string },
+): void {
+  for (const [key, each] of lines) {
+    if (each.listing !== kept.listing) lines.delete(key);
+  }
+  lines.set(row, kept);
+}
+
+/** Where `m` moves a todo from and to, or the notice for why it cannot. */
+function moveRoute(
+  hit: TodoHit,
+  lane: string | undefined,
+): string | { project: string; source: string; target: string } {
+  const project = lane ?? hit.project;
+  if (project === null) return "That todo has no project: give it one with p or a #p/x tag";
+  const source = hit.path;
+  const target = projectNote(project);
+  if (source === target) return "That todo is in its project's note already";
+  return { project, source, target };
+}
+
+/**
+ * The block as the note holds it now, checked against what the row read:
+ * a row the vault has moved past would move whatever sits there instead.
+ */
+async function blockToMove(hit: TodoHit, project: string) {
+  const read = await fetchNote(hit.path).then(
+    (text) => text,
+    () => null,
+  );
+  // By its text where a write since has shifted it, a press of `m` on
+  // another todo of this note among them: the list has not redrawn yet.
+  const at = read === null ? null : lineOf(read, hit.line, hit.text);
+  return read === null || at === null ? null : refileOf(read, at, project);
+}
+
 /**
  * Every write a todo row or the editor makes into the vault: cycle, timer,
  * agent, edit, block and refile.
@@ -119,13 +187,7 @@ export function useTodoActions({
       // kept from a press on an older listing says nothing about a row of this.
       const listing = queryClient.getQueryState(["todos", archive])?.dataUpdatedAt ?? 0;
       const row = `${note}\n${hit.line}\n${hit.text}`;
-      const busy = (): string | null => {
-        if (heldText(note) !== undefined) return `${note} holds text not yet saved`;
-        const focused = focusedNote.current;
-        if (focused.path === note) return `${note} is open to type in`;
-        if (focused.isWriting(note)) return `${note} is still being saved`;
-        return null;
-      };
+      const busy = () => busyNote(note, focusedNote.current);
       const before = busy();
       if (before !== null) {
         setNotice(`Nothing moved: ${before}`);
@@ -150,20 +212,11 @@ export function useTodoActions({
         const pressing = mine ? { ...hit, text: kept.line } : hit;
         let line = "";
         const written = await updateNote(note, (text) => {
-          const again = busy();
-          if (again !== null) {
-            why = `Nothing moved: ${again}`;
-            return null;
-          }
-          // The kept line names this todo only while no other line says the
-          // same: a write since may have shifted a twin onto its number.
-          if (mine && text.split("\n").filter((each) => each === kept.line).length !== 1) {
-            why = "Nothing moved: that line has changed since it was listed";
-            return null;
-          }
-          const pressed = agentTodoIn(text, pressing, today, mine ? undefined : twins);
+          const pressed = agentPress(text, busy(), mine ? kept.line : undefined, () =>
+            agentTodoIn(text, pressing, today, mine ? undefined : twins),
+          );
           if ("why" in pressed) {
-            why = `Nothing moved: ${pressed.why}`;
+            why = pressed.why;
             return null;
           }
           line = pressed.line;
@@ -178,11 +231,7 @@ export function useTodoActions({
         );
         if (written === null) return false;
         queryClient.setQueryData(["note", note], written.content);
-        // Lines kept from an older listing go: no row drawn now carries them.
-        for (const [key, each] of agentLines.current) {
-          if (each.listing !== listing) agentLines.current.delete(key);
-        }
-        agentLines.current.set(row, { listing, line });
+        keepAgentLine(agentLines.current, row, { listing, line });
         return true;
       });
       if (!tagged) {
@@ -236,41 +285,21 @@ export function useTodoActions({
   const moveTodo = useCallback(
     async (hit: TodoHit, lane?: string) => {
       setNotice(undefined);
-      const project = lane ?? hit.project;
-      if (project === null) {
-        setNotice("That todo has no project: give it one with p or a #p/x tag");
+      const route = moveRoute(hit, lane);
+      if (typeof route === "string") {
+        setNotice(route);
         return;
       }
-      const source = hit.path;
-      const target = projectNote(project);
-      if (source === target) {
-        setNotice("That todo is in its project's note already");
-        return;
-      }
+      const { project, source, target } = route;
 
-      const busy = (note: string): string | null => {
-        if (heldText(note) !== undefined) return `${note} holds text not yet saved`;
-        const focused = focusedNote.current;
-        if (focused.path === note) return `${note} is open to type in`;
-        if (focused.isWriting(note)) return `${note} is still being saved`;
-        return null;
-      };
+      const busy = (note: string) => busyNote(note, focusedNote.current);
       const before = busy(target) ?? busy(source);
       if (before !== null) {
         setNotice(`Nothing moved: ${before}`);
         return;
       }
 
-      // The block as the note holds it now, checked against what the row read:
-      // a row the vault has moved past would move whatever sits there instead.
-      const read = await fetchNote(source).then(
-        (text) => text,
-        () => null,
-      );
-      // By its text where a write since has shifted it, a press of `m` on
-      // another todo of this note among them: the list has not redrawn yet.
-      const at = read === null ? null : lineOf(read, hit.line, hit.text);
-      const moved = read === null || at === null ? null : refileOf(read, at, project);
+      const moved = await blockToMove(hit, project);
       if (moved === null) {
         setNotice("Nothing moved: that line has changed since it was listed");
         return;
