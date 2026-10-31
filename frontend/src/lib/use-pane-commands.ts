@@ -1,17 +1,9 @@
-import { EditorView } from "@codemirror/view";
 import { useQueryClient } from "@tanstack/react-query";
 import { type Dispatch, type RefObject, type SetStateAction, useCallback, useMemo } from "react";
 import type { PaneMoves } from "@/components/use-pane-moves";
-import { fetchAssets, fetchFiles, fetchNote, NoteMissing } from "@/lib/api";
-import { heldText } from "@/lib/held-text";
 import type { TreeCommands } from "@/lib/key-bindings";
-import { READING_NOTE } from "@/lib/layout";
-import { askOnCard, openFoodSearch } from "@/lib/log/log-card";
-import { drinkTarget, logDrinkInVault, logDrinkInView } from "@/lib/log/log-write";
-import { paneView, useFoodWait } from "@/lib/log/use-food-wait";
-import { noteName } from "@/lib/note-path";
-import { openBeside, openBookInFocused } from "@/lib/pane-contents";
-import { paneEditor } from "@/lib/pane-doc";
+import { useLogCommands } from "@/lib/log/use-log-commands";
+import { openBeside } from "@/lib/pane-contents";
 import { heldKind, type KindField, PANE_KINDS } from "@/lib/pane-kinds";
 import {
   addTab,
@@ -26,11 +18,10 @@ import {
   stepTab,
   toggleZoom,
 } from "@/lib/panes";
-import { type Period, periodicNote } from "@/lib/periodic";
+import type { Period } from "@/lib/periodic";
 import { isPerson } from "@/lib/person";
 import { askRsvp } from "@/lib/rsvp/use-rsvp";
 import { usePlayAsk } from "@/lib/video/use-video-player";
-import { splitTarget, wikiLinkPath, wikiLinkTargets } from "@/lib/wikilink";
 
 export type PaneCommands = ReturnType<typeof usePaneCommands>;
 
@@ -80,58 +71,8 @@ export function usePaneCommands({
   const queryClient = useQueryClient();
   const { playSignal, play } = usePlayAsk();
 
-  /**
-   * Opens the book `READING_NOTE` links. The note is read fresh on each press: it is
-   * hand-edited, and a 404 is the answer that says it is missing.
-   */
-  const openReadingBook = useCallback(async () => {
-    setNotice(undefined);
-
-    // Saved first: the pane may hold the config note, whose new link would read as the old.
-    if (!(await saveFirst())) return;
-
-    // Read through the query cache, so a press right after load waits for the listings.
-    let text: string;
-    let paths: string[];
-    let books: string[];
-    try {
-      [text, paths, books] = await Promise.all([
-        fetchNote(READING_NOTE),
-        queryClient.ensureQueryData({ queryKey: ["files"], queryFn: fetchFiles }),
-        queryClient.ensureQueryData({ queryKey: ["assets"], queryFn: fetchAssets }),
-      ]);
-    } catch (error: unknown) {
-      if (error instanceof NoteMissing) setNotice(`${READING_NOTE} is not there`);
-      else setNotice(error instanceof Error ? error.message : `${READING_NOTE} could not be read`);
-      return;
-    }
-
-    const target = wikiLinkTargets(text)[0];
-    if (target === undefined || splitTarget(target).name === "") {
-      setNotice(`${READING_NOTE} links no book note`);
-      return;
-    }
-
-    // wikiLinkPath falls back to the inbox, so the listing is what says no note.
-    const note = wikiLinkPath(target, paths);
-    if (!note.endsWith(".md") || !paths.includes(note)) {
-      setNotice(`[[${target}]] in ${noteName(READING_NOTE)}.md names no note`);
-      return;
-    }
-
-    // Pairs as the backend does, both suffixes; withBooks in the book finder follows it.
-    const stem = note.slice(0, -".md".length);
-    if (!books.some((path) => path === `${stem}.epub` || path === `${stem}.pdf`)) {
-      setNotice(`Nothing to read beside ${note}`);
-      return;
-    }
-
-    // The reader finds the `reading:` place in the note itself.
-    moveTo((previous) => openBookInFocused(previous, note));
-  }, [queryClient, saveFirst, moveTo, setNotice]);
-
   const { replace, beside } = useMemo(() => paneOpeners(saveFirst, moveTo), [saveFirst, moveTo]);
-  const food = useFoodWait(pane.id, pane.path);
+  const log = useLogCommands({ pane, saveFirst, openPeriodic, setNotice, paths, focusedNote });
   const kind = heldKind(pane);
 
   const readRsvp = useCallback(
@@ -158,7 +99,6 @@ export function usePaneCommands({
       | "openQuarterly"
       | "openYearly"
       | "openBook"
-      | "openReadingBook"
       | "openPerson"
       | "openHistory"
       | "openVideo"
@@ -224,73 +164,7 @@ export function usePaneCommands({
       },
       // Each takes no argument, as a leader binding needs. The shared logic is in periodic.ts.
       openDaily: () => openPeriodic("daily"),
-      // The notice names the line without its list dash, or why the vault refused.
-      logDrink: (line) => {
-        setNotice(undefined);
-        const today = periodicNote("daily", new Date()).path;
-        const target = drinkTarget({
-          today,
-          focusedPath: pane.path,
-          held: heldText(today) !== undefined,
-          writing: focusedNote.current.isWriting(today),
-        });
-        // Found by pane, not focus: focus on the body, toolbar or a card finds no view,
-        // and the vault write would land under the open note.
-        if (target === "buffer") {
-          const editor = paneEditor(pane.id);
-          const view = editor ? EditorView.findFromDOM(editor) : null;
-          if (view === null || !logDrinkInView(view, line)) {
-            setNotice(`Nothing logged: ${today} is not open to type in`);
-          }
-          return;
-        }
-        if (typeof target === "object") {
-          setNotice(`Nothing logged: ${target.why}`);
-          return;
-        }
-        // Asked again when the queue reaches the write, since a save may have run first.
-        const stillOk = () => {
-          const now = drinkTarget({
-            today,
-            focusedPath: focusedNote.current.path,
-            held: heldText(today) !== undefined,
-            writing: focusedNote.current.isWriting(today),
-          });
-          if (now === "vault") return null;
-          return { why: typeof now === "object" ? now.why : `${today} is open to type in` };
-        };
-        void logDrinkInVault(line, paths ?? [], stillOk).then(
-          () => setNotice(`Logged ${line.slice(2)} into today's note`),
-          (error: unknown) =>
-            setNotice(error instanceof Error ? error.message : "The drink was not logged"),
-        );
-      },
-      // Searched in place when today's note is open. Otherwise openPeriodic makes it, and
-      // useFoodWait holds the search until it is on screen.
-      logFood: async () => {
-        const today = periodicNote("daily", new Date()).path;
-        if (pane.path === today) {
-          const view = paneView(pane.id);
-          if (view !== null) openFoodSearch(view);
-          return;
-        }
-        // Saved first: a refused save leaves nothing waiting.
-        if (!(await saveFirst())) return;
-        food.arm(today, (view) => openFoodSearch(view));
-        // A failed create or open leaves nothing waiting, so a later `<leader>gd` is not searched.
-        if (!(await openPeriodic("daily"))) food.cancel();
-      },
-      logWeight: async (mark) => {
-        const today = periodicNote("daily", new Date()).path;
-        if (pane.path === today) {
-          const view = paneView(pane.id);
-          if (view !== null) askOnCard(view, mark);
-          return;
-        }
-        if (!(await saveFirst())) return;
-        food.arm(today, (view) => askOnCard(view, mark));
-        if (!(await openPeriodic("daily"))) food.cancel();
-      },
+      ...log,
       openWeekly: () => openPeriodic("weekly"),
       openMonthly: () => openPeriodic("monthly"),
       openQuarterly: () => openPeriodic("quarterly"),
@@ -301,7 +175,6 @@ export function usePaneCommands({
         const note = pane.path;
         beside((each) => each.book === note, { book: note }, "row");
       },
-      openReadingBook: () => void openReadingBook(),
       // Reads the cache, so a `type: Person` not yet autosaved is not seen yet.
       openPerson: () => {
         if (pane.path === undefined) return;
@@ -361,18 +234,13 @@ export function usePaneCommands({
       beside,
       focusToward,
       shiftToward,
-      saveFirst,
       openPeriodic,
-      openReadingBook,
-      paths,
-      focusedNote,
+      log,
       setLayout,
       pane.id,
       pane.path,
       kind,
       queryClient,
-      setNotice,
-      food,
       sheetGraph,
       sideGraph,
       readRsvp,

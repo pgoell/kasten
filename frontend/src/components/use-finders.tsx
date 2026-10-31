@@ -1,7 +1,8 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { type Dispatch, type SetStateAction, useMemo, useState } from "react";
 import { MeaningFinder } from "@/components/finder/meaning-finder";
 import { NoteFinder } from "@/components/finder/note-finder";
+import { useReadingBook } from "@/components/finder/use-reading-book";
 import { NoteSearch } from "@/components/note-search";
 import type { PaneMoves } from "@/components/use-pane-moves";
 import { visible } from "@/lib/archive";
@@ -18,7 +19,7 @@ export type Finders = ReturnType<typeof useFinders>;
 /** What a list prop gets while its query loads, for the reason the route's copy gives. */
 const LOADING: string[] = [];
 
-/** The vault lookups (notes, links, books, search, todos) and the panels that open hits. */
+/** The vault lookups (notes, links, books, search, todos), the panels that open hits, and the reading book. */
 export function useFinders({
   listings,
   panePath,
@@ -30,6 +31,7 @@ export function useFinders({
   week,
   onWeek,
   toggleArchive,
+  setNotice,
 }: {
   listings: Pick<Listings, "data" | "shown" | "assets" | "html" | "archive">;
   panePath: string | undefined;
@@ -42,10 +44,12 @@ export function useFinders({
   week: string | undefined;
   onWeek: (week: string | undefined) => void;
   toggleArchive: () => void;
+  setNotice: Dispatch<SetStateAction<string | undefined>>;
 }) {
   const { data, shown, assets, html, archive } = listings;
   const { moveTo, refocusPane } = moves;
   const queryClient = useQueryClient();
+  const openReadingBook = useReadingBook({ saveFirst, moveTo, setNotice });
   // The pdfs, epubs and pages beside the notes. Images share the listing and drop out.
   const files = useMemo(
     () =>
@@ -84,6 +88,7 @@ export function useFinders({
       | "searchNotes"
       | "findTodos"
       | "findBook"
+      | "openReadingBook"
       | "findMeaning"
       | "showBacklinks"
       | "showLinksOut"
@@ -95,6 +100,7 @@ export function useFinders({
       searchNotes: () => setSearchOpen(true),
       findTodos: () => setTodosOpen(true),
       findBook: () => setBookFinderOpen(true),
+      openReadingBook: () => void openReadingBook(),
       findMeaning: () => setMeaningOpen(true),
       // Needs an open note: an empty pane has nothing to ask about.
       showBacklinks: () => setBacklinksOf(panePath),
@@ -107,7 +113,7 @@ export function useFinders({
         setLinksOut(outgoingLinks(text, data ?? []));
       },
     }),
-    [panePath, saveFirst, queryClient, data],
+    [panePath, saveFirst, queryClient, data, openReadingBook],
   );
 
   const element = (
