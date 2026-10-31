@@ -185,6 +185,13 @@ describe("BookPane", () => {
     await waitFor(() => expect(panel()).toHaveTextContent(NOTE));
   });
 
+  it("says nothing when the listing holds the note", async () => {
+    draw({ paths: ["something/else.md", NOTE] });
+
+    await waitFor(() => expect(lastView().started).toBe(true));
+    expect(panel()).toBeNull();
+  });
+
   it("says nothing while the listing has not arrived", async () => {
     // Not knowing yet is not the same as gone. This passes before the
     // behaviour exists, so it guards against a later regression rather than

@@ -70,7 +70,6 @@
     // backend/tests/test_complexity_baseline.py.
     {
       "includes": [
-        "src/components/book-pane.tsx",
         "src/components/chat-pane.tsx",
         "src/components/command-palette.tsx",
         "src/components/content-search.tsx",
