@@ -59,7 +59,7 @@ interface TodoBoardProps {
 }
 
 /** The keys that act on the focused card. */
-const CARD_KEYS = new Set(["Enter", "x", "O", "P", "V", "X", "B", "W", "R", "p", "m"]);
+const CARD_KEYS = new Set(["Enter", "x", "p", "m", ...Object.keys(SET)]);
 
 /**
  * The todo pane's `c` view: cards in columns by state and lanes by kind or project.
@@ -294,21 +294,14 @@ export function TodoBoard({
       case "x":
         onCycle(hit);
         break;
-      case "O":
-      case "P":
-      case "V":
-      case "X":
-      case "B":
-      case "W":
-      case "R":
-        onCycle(hit, SET[key]);
-        break;
       case "p":
         project(hit);
         break;
       case "m":
         onRefile(hit);
         break;
+      default:
+        onCycle(hit, SET[key]);
     }
   }
 
