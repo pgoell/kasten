@@ -162,7 +162,7 @@ import` is how a test loads a module fresh.
 
 Each failure names the rule and the fix. Fix the import. The breaches that were
 there when the checks came in are accepted, so only new ones fail: 19
-`ignore_imports` lines in `pyproject.toml`, 27 entries in
+`ignore_imports` lines in `pyproject.toml`, 26 entries in
 `frontend/.dependency-cruiser-known-violations.json` (with the four heavy
 bundles `.claude/CLAUDE.md` allows) and two `# noqa: TID251`. When you fix one,
 drop its line, or refresh the frontend list:

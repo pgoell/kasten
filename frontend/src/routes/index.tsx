@@ -27,6 +27,7 @@ import { useNoteOpening } from "@/lib/note/use-note-opening";
 import { paletteEntries } from "@/lib/palette";
 import { openOnTop } from "@/lib/pane-contents";
 import { docIn } from "@/lib/pane-doc";
+import { panePath } from "@/lib/pane-kinds";
 import { activeTab, emptyLayout, focusedPane, type Layout, panesOf, tabPanes } from "@/lib/panes";
 import { parseWeek } from "@/lib/search-weeks";
 import { useTodoActions } from "@/lib/todo/use-todo-actions";
@@ -366,12 +367,8 @@ function Home() {
           images={shownImages}
           html={shownHtml}
           pdfs={shownPdfs}
-          // What the focused pane holds, whichever of the fields carries it. A
-          // reader and an exam name the note they were opened from, so the tree
-          // marks that note and `<leader>E` reaches it from either.
-          openPath={
-            pane.path ?? pane.book ?? pane.exam ?? pane.image ?? pane.html ?? pane.pdf?.path
-          }
+          // A pane opened from a note names it, so the tree marks it and `<leader>E` reaches it.
+          openPath={panePath(pane)}
           onOpenFile={(path) => void openInPane(path)}
           onOpenImage={(path) => void openImageInPane(path)}
           onOpenHtml={(path) => void openHtmlInPane(path)}

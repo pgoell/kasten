@@ -77,17 +77,6 @@
     }
   },
   {
-    "type": "dependency",
-    "from": "src/lib/whole-pane-openers.ts",
-    "to": "src/components/use-pane-moves.ts",
-    "unresolvedTo": "@/components/use-pane-moves",
-    "dependencyTypes": ["undetermined", "import", "type-only"],
-    "rule": {
-      "severity": "error",
-      "name": "lib-not-up"
-    }
-  },
-  {
     "type": "cycle",
     "from": "src/components/board-card.tsx",
     "to": "src/components/todo-board.tsx",

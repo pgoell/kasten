@@ -5,75 +5,9 @@
  */
 
 import type { Direction } from "@/lib/pane-direction";
+import { heldKind, type Pane } from "@/lib/pane-kinds";
 
-/** One pane, and whichever note is open in it. */
-export interface Pane {
-  id: string;
-  /** The note it holds, absent while the pane is empty. */
-  path?: string;
-  /** Line the editor opens on, which only a search hit names. */
-  line?: number;
-  /**
-   * How many times the pane was opened at `line`. A repeat open still sends the cursor back,
-   * since the cursor may have moved off the line.
-   */
-  jump?: number;
-  /**
-   * The herdr session it holds, absent unless this is a terminal pane. Not a union, since that
-   * would rewrite every `pane.path` read for an invariant the route already keeps.
-   */
-  term?: string;
-  /** Set on the todo list pane, absent otherwise. A field of its own, not a union, as `term` is. */
-  todos?: boolean;
-  /** Set on the log pane, absent otherwise. A boolean: the log opens on today and moves by day. */
-  log?: boolean;
-  /** The overview's pane. */
-  overview?: boolean;
-  /** The finance pane's. */
-  finance?: boolean;
-  /**
-   * The literature note whose book this pane reads, absent otherwise. The note's path, since the
-   * reader swaps its suffix to find the epub.
-   */
-  book?: string;
-  /** The note whose practice exam this pane sits, absent otherwise. The note's path. */
-  exam?: string;
-  /** Set on the review pane, absent otherwise. A boolean: the pane picks its own deck. */
-  review?: boolean;
-  /**
-   * The image this pane shows, absent otherwise. Its own path, not a note's: any number of notes
-   * reference an image and none owns it.
-   */
-  image?: string;
-  /**
-   * The pdf this pane shows and the page it opened at, absent otherwise. Its own path, since any
-   * number of notes name a pdf. `opened` counts opens, as `jump` does, so a repeat still moves it.
-   */
-  pdf?: { path: string; page?: number; opened: number };
-  /** The HTML page this pane shows, absent otherwise. Its own path: no note owns a page. */
-  html?: string;
-  /** The heading a followed link named, where the page opens. Absent otherwise. */
-  anchor?: string;
-  /**
-   * The note whose video this pane plays, absent otherwise. The note's path, not the address, so a
-   * folder move that rewrites `path` carries the player with it.
-   */
-  video?: string;
-  /**
-   * The person note this pane shows the card for, absent otherwise. The note's path, so a move
-   * carries the card with it.
-   */
-  person?: string;
-  /** The note whose jj history this pane lists, absent otherwise. Its path, so moves carry it. */
-  history?: string;
-  /**
-   * Set on the graph pane, absent otherwise. `around` names the note a local graph is drawn around,
-   * and is absent for the whole vault. An object, so no empty string stands in for nothing.
-   */
-  graph?: { around?: string };
-  /** Set on the chat pane, absent otherwise. A boolean: every chat pane views one session. */
-  chat?: boolean;
-}
+export type { Pane };
 
 /** A row or a column of panes, or of further splits. */
 export interface Split {
@@ -347,34 +281,13 @@ export function goToTab(layout: Layout, index: number): Layout {
   return index < layout.tabs.length ? { ...layout, active: index } : layout;
 }
 
-/** Each kind a pane can hold. A pane with none of them is empty and shows Today. */
-const HOLDS = [
-  "path",
-  "term",
-  "todos",
-  "log",
-  "overview",
-  "finance",
-  "book",
-  "exam",
-  "review",
-  "image",
-  "pdf",
-  "html",
-  "video",
-  "person",
-  "history",
-  "graph",
-  "chat",
-] as const;
-
 /**
  * Whether a tab is one pane holding nothing, the tab Today goes to. `NotePane` draws Today by the
  * same rule, so the button and the screen agree.
  */
 export function isEmptyTab(tab: Tab): boolean {
   const root = tab.root;
-  return !isSplit(root) && HOLDS.every((key) => root[key] === undefined || root[key] === false);
+  return !isSplit(root) && heldKind(root) === undefined;
 }
 
 /**

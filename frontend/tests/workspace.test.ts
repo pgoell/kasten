@@ -1,5 +1,14 @@
 import { openChatInFocused, openPdfBeside, openTerminalInFocused } from "@/lib/pane-contents";
-import { addTab, emptyLayout, type Layout, panesOf, splitFocused, toggleZoom } from "@/lib/panes";
+import { PANE_KINDS, paneKind, panePath, paneTitle } from "@/lib/pane-kinds";
+import {
+  addTab,
+  emptyLayout,
+  type Layout,
+  type Pane,
+  panesOf,
+  splitFocused,
+  toggleZoom,
+} from "@/lib/panes";
 import { loadWorkspace, saveWorkspace } from "@/lib/workspace";
 
 const FINE = "kasten.workspace.1";
@@ -295,5 +304,99 @@ describe("workspace", () => {
 
     const all = idsOf(after);
     expect(new Set(all).size).toBe(all.length);
+  });
+
+  /** One saved value of every `Pane` field. `Required`, so a new field fails the typecheck here. */
+  const EVERY: Required<Omit<Pane, "id">> = {
+    path: "a.md",
+    line: 3,
+    jump: 1,
+    anchor: "intro",
+    term: "main",
+    todos: true,
+    log: true,
+    overview: true,
+    finance: true,
+    book: "lit/b.md",
+    exam: "e.md",
+    review: true,
+    image: "x/pic.png",
+    pdf: { path: "x/plan.pdf", page: 2, opened: 1 },
+    html: "x/page.html",
+    video: "v.md",
+    person: "People/Ada.md",
+    history: "h.md",
+    graph: { around: "g.md" },
+    chat: true,
+  };
+  const WHERE = ["line", "jump", "anchor"];
+  const kinds = () => Object.keys(EVERY).filter((key) => !WHERE.includes(key));
+
+  it("#978 every Pane field but where-in-it has a row in the pane kinds table", () => {
+    expect(Object.keys(PANE_KINDS).sort()).toEqual(kinds().sort());
+  });
+
+  it.each([false, true])(
+    "#978 a saved pane of each kind loads through the table (coarse %s)",
+    (coarse) => {
+      const tabs = kinds().map((kind, at) => {
+        const value =
+          kind === "pdf" ? { path: "x/plan.pdf", page: 2 } : EVERY[kind as keyof typeof EVERY];
+        return { id: `t${at}`, root: { id: `p${at}`, [kind]: value }, focus: `p${at}` };
+      });
+      localStorage.setItem(
+        coarse ? COARSE : FINE,
+        JSON.stringify({ layout: { tabs, active: 0 }, treeOpen: true }),
+      );
+
+      const back = loadWorkspace(coarse)?.layout;
+
+      expect(
+        back?.tabs.map((tab) => Object.keys(tab.root).filter((key) => key !== "id")[0]),
+      ).toEqual(kinds());
+      expect(back?.tabs.map((tab) => panesOf(tab.root)[0]?.pdf).find(Boolean)).toEqual({
+        path: "x/plan.pdf",
+        page: 2,
+        opened: 1,
+      });
+    },
+  );
+
+  it("#978 the table names, draws and places each kind as the hand-written lists did", () => {
+    const pane = (kind: string): Pane => ({ id: "p", [kind]: EVERY[kind as keyof typeof EVERY] });
+    expect(
+      kinds().map((kind) => [
+        kind,
+        paneTitle(pane(kind)),
+        paneKind(pane(kind)),
+        panePath(pane(kind)),
+      ]),
+    ).toEqual([
+      ["path", "a", "page", "a.md"],
+      ["term", "main", "page", undefined],
+      ["todos", "todos", "page", undefined],
+      ["log", "log", "page", undefined],
+      ["overview", "overview", "page", undefined],
+      ["finance", "finance", "page", undefined],
+      ["book", "b", "book", "lit/b.md"],
+      ["exam", "e", "review", "e.md"],
+      ["review", "review", "review", undefined],
+      ["image", "pic", "page", "x/pic.png"],
+      ["pdf", "plan", "pdf", "x/plan.pdf"],
+      ["html", "page", "page", "x/page.html"],
+      ["video", "v", "video", "v.md"],
+      ["person", "Ada", "page", "People/Ada.md"],
+      ["history", "history of h", "page", "h.md"],
+      ["graph", "graph of g", "graph", "g.md"],
+      ["chat", "chat", "page", undefined],
+    ]);
+  });
+
+  it("#978 a saved pane with a field Object carries, such as constructor, loads nothing", () => {
+    const tabs = [{ id: "t", root: { id: "p", constructor: "x" }, focus: "p" }];
+    localStorage.setItem(FINE, JSON.stringify({ layout: { tabs, active: 0 }, treeOpen: true }));
+
+    expect(loadWorkspace(false)).toBeNull();
+    expect(localStorage.getItem(FINE)).toBeNull();
   });
 });
