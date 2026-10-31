@@ -160,6 +160,21 @@ describe("the video pane's own full screen", () => {
     expect.soft(funcsOf(sent)).toEqual(["playVideo"]);
   });
 
+  it("#1395 A5 full screen, ArrowUp, ArrowDown and m pressed in the box set the volume and mute", () => {
+    localStorage.setItem("kasten.video.1", JSON.stringify({ volume: 50 }));
+    const { pane, sent } = renderPane();
+
+    fireEvent.keyDown(pane, { key: "f" });
+    expect.soft(document.activeElement).toBe(fullElement);
+    for (const key of ["ArrowUp", "ArrowDown", "ArrowDown", "m"]) {
+      fireEvent.keyDown(document.activeElement as Element, { key });
+    }
+
+    expect.soft(funcsOf(sent)).toEqual(["setVolume", "setVolume", "setVolume", "mute"]);
+    expect.soft(fullElement).not.toBeNull();
+    localStorage.removeItem("kasten.video.1");
+  });
+
   it("#914 A5 Esc leaving full screen takes the exit button away and gives the focus back to the pane", () => {
     const { pane } = renderPane();
 
