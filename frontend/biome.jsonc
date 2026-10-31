@@ -123,7 +123,6 @@
         "src/lib/editor/table-lineup.ts",
         "src/lib/book/use-book-highlights.ts",
         "src/lib/book/use-book-turns.ts",
-        "src/lib/book/use-book-view.ts",
         "src/lib/note/use-buffer-sync.ts",
         "src/lib/note/use-buffer-write.ts",
         "src/lib/use-file-transfer.tsx",

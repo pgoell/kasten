@@ -128,14 +128,9 @@ export function useBookView(o: {
       const { reason, index, range } = (
         event as CustomEvent<{ reason?: string; index: number; range: Range | null }>
       ).detail;
-      // Read off the view, not the event: the event's fraction is per section. The whole-book number
-      // is set by a listener the view registers first (view.js:329-337, progress.js:74-98).
-      const fraction = view.lastLocation?.fraction;
-      // The typeof narrows: Number.isFinite does not, so the multiply below would not compile.
-      setProgress(typeof fraction === "number" && Number.isFinite(fraction) ? fraction : null);
+      setProgress(progressOf(view));
       // Set before the returns below: a chapter change is a move, whatever the reason.
-      const item = view.lastLocation?.tocItem;
-      setChapter(item ? { id: item.id, label: (item.label ?? "").trim() } : null);
+      setChapter(chapterOf(view));
 
       follow();
 
@@ -158,65 +153,53 @@ export function useBookView(o: {
     // Built here: a hoisted function body does not see the guard's narrowing of beside.
     const file = new File([beside.blob], beside.path);
 
+    /** Whether the pane closed in the meantime, closing the view if so; a bare return would leave the book open. */
+    function closedWhile() {
+      if (cancelled) closeView(view);
+      return cancelled;
+    }
+
     async function draw() {
       try {
-        await view.open(file);
-        // Not a bare return: cleanup ran during open, so this close frees the book.
-        if (cancelled) {
-          closeView(view);
-          return;
-        }
-        // A failed read still opens the book, at the front: no error over a readable book.
-        const text = await fetchNote(note).then(
-          (held) => held,
-          () => "",
-        );
-        // On the renderer: the view's relocate drops `reason`, and a resize re-render would
-        // then look like a page turn (view.js:329-337, paginator.js:430).
-        renderer = view.renderer;
-        renderer?.addEventListener("relocate", onRelocate);
-        // A flowing book scrolls a few lines at a time; a pdf or fixed-layout epub keeps its page.
-        if (!view.isFixedLayout) {
-          const measure = getComputedStyle(document.documentElement)
-            .getPropertyValue("--k-measure")
-            .trim();
-          view.renderer?.setAttribute("flow", "scrolled");
-          view.renderer?.setAttribute("max-inline-size", measure);
-        }
-        setRows(tocRows(view.book?.toc));
-        // Load-bearing `?.`: fixed-layout.js has no setStyles, so a plain call throws on a valid epub.
-        view.renderer?.setStyles?.(pageStyles());
-        // Not optional: open() mounts the renderer but navigates nowhere, so init must run.
-        try {
-          await view.init({ lastLocation: readField(text, "reading") });
-        } catch (error_) {
-          // A stale bookmark throws after its chapter loads, leaving the reader at that chapter's top.
-          // Anything that is not an Error came from somewhere this cannot report on, so rethrow it.
-          if (!isError(error_)) throw error_;
-        }
-        // Checked again, or the fallback below builds a view over a closed one.
-        if (cancelled) {
-          closeView(view);
-          return;
-        }
-        // Nothing rendered: a cfi naming a missing spine item gives { index: -1 }, which init leaves blank.
-        // Any section that loads fills lastLocation (paginator.js:272-280), so only this shape gets here.
-        if (!view.lastLocation) await view.init({});
-        if (cancelled) {
-          closeView(view);
-          return;
-        }
-        // Last, after the cancelled check: a passage parked while opening lands on top of the bookmark.
-        // data-ready is the point a test waits for.
-        ready.current = true;
-        element?.setAttribute("data-ready", "");
-        const parked = resumeSeek();
-        release(view, parked);
+        await openBook();
       } catch (error_) {
         // Every failed open arrives as an Error; anything else came from somewhere this cannot report on.
         if (!isError(error_)) throw error_;
         if (!cancelled) setBroken(true);
       }
+    }
+
+    async function openBook() {
+      await view.open(file);
+      // Cleanup ran during open, so this close frees the book.
+      if (closedWhile()) return;
+      // A failed read still opens the book, at the front: no error over a readable book.
+      const text = await fetchNote(note).then(
+        (held) => held,
+        () => "",
+      );
+      // On the renderer: the view's relocate drops `reason`, and a resize re-render would
+      // then look like a page turn (view.js:329-337, paginator.js:430).
+      renderer = view.renderer;
+      renderer?.addEventListener("relocate", onRelocate);
+      if (!view.isFixedLayout) scrollFlowing(view);
+      setRows(tocRows(view.book?.toc));
+      // Load-bearing `?.`: fixed-layout.js has no setStyles, so a plain call throws on a valid epub.
+      view.renderer?.setStyles?.(pageStyles());
+      // Not optional: open() mounts the renderer but navigates nowhere, so init must run.
+      await initAt(view, readField(text, "reading"));
+      // Checked again, or the fallback below builds a view over a closed one.
+      if (closedWhile()) return;
+      // Nothing rendered: a cfi naming a missing spine item gives { index: -1 }, which init leaves blank.
+      // Any section that loads fills lastLocation (paginator.js:272-280), so only this shape gets here.
+      if (!view.lastLocation) await view.init({});
+      if (closedWhile()) return;
+      // Last, after the cancelled check: a passage parked while opening lands on top of the bookmark.
+      // data-ready is the point a test waits for.
+      ready.current = true;
+      element?.setAttribute("data-ready", "");
+      const parked = resumeSeek();
+      release(view, parked);
     }
     // The colors are read when set, so each theme switch sets them again.
     const retheme = onThemeChange(() => view.renderer?.setStyles?.(pageStyles()));
@@ -257,4 +240,38 @@ export function useBookView(o: {
   ]);
 
   return { broken, progress, chapter, rows };
+}
+
+/**
+ * How far through the whole book the view is, or null with no honest number. Read off the view, not
+ * the event: the event's fraction is per section. The whole-book number is set by a listener the
+ * view registers first (view.js:329-337, progress.js:74-98).
+ */
+function progressOf(view: FoliateView): number | null {
+  const fraction = view.lastLocation?.fraction;
+  // The typeof narrows: Number.isFinite does not, so the multiply below would not compile.
+  return typeof fraction === "number" && Number.isFinite(fraction) ? fraction : null;
+}
+
+/** The contents entry the view is inside, or null where the book names none. */
+function chapterOf(view: FoliateView): { id: number | undefined; label: string } | null {
+  const item = view.lastLocation?.tocItem;
+  return item ? { id: item.id, label: (item.label ?? "").trim() } : null;
+}
+
+/** A flowing book scrolls a few lines at a time; a pdf or fixed-layout epub keeps its page. */
+function scrollFlowing(view: FoliateView): void {
+  const measure = getComputedStyle(document.documentElement).getPropertyValue("--k-measure").trim();
+  view.renderer?.setAttribute("flow", "scrolled");
+  view.renderer?.setAttribute("max-inline-size", measure);
+}
+
+async function initAt(view: FoliateView, lastLocation: string | undefined): Promise<void> {
+  try {
+    await view.init({ lastLocation });
+  } catch (error_) {
+    // A stale bookmark throws after its chapter loads, leaving the reader at that chapter's top.
+    // Anything that is not an Error came from somewhere this cannot report on, so rethrow it.
+    if (!isError(error_)) throw error_;
+  }
 }
