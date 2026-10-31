@@ -25,7 +25,7 @@ from sqlalchemy.ext.asyncio import (
 from sqlalchemy.pool import NullPool
 
 from backend.tests.anki_link_web import PUBLIC
-from kasten_backend import agent_finance, db, files
+from kasten_backend import db, files
 from kasten_backend.config import Settings, get_settings
 from kasten_backend.db import get_session
 from kasten_backend.main import app
@@ -118,11 +118,11 @@ async def finance_session() -> AsyncIterator[AsyncSession]:
         yield session
 
     # The MCP tools get no dependency, so the override above does not reach them.
-    agent_finance.sessions = same
+    db.sessions = same
 
     yield session
 
-    agent_finance.sessions = get_session
+    db.sessions = get_session
     app.dependency_overrides.pop(get_session)
     await session.close()
     await outer.rollback()
@@ -260,7 +260,7 @@ async def activity(
 
     Both the activity recorder and the token listing read `db.session_factory`,
     and the finance routes and tools get their session from `get_session` and
-    `agent_finance.sessions`, so all three are pointed at the scratch database.
+    `db.sessions`, so all three are pointed at the scratch database.
     """
     engine = create_async_engine(scratch_database, poolclass=NullPool)
     async with engine.begin() as connection:
@@ -274,13 +274,13 @@ async def activity(
         async with factory() as session:
             yield session
 
-    previous = agent_finance.sessions
-    agent_finance.sessions = sessions
+    previous = db.sessions
+    db.sessions = sessions
     app.dependency_overrides[get_session] = sessions
 
     yield engine
 
-    agent_finance.sessions = previous
+    db.sessions = previous
     app.dependency_overrides.pop(get_session)
     await engine.dispose()
 

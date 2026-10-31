@@ -9,16 +9,20 @@ to the pane's own route for the same month, so a rule the budget gets right
 from typing import TYPE_CHECKING, Any
 
 import pytest
+from fastapi import HTTPException
 from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from backend.tests.finance_rows import API, SAVING
 from backend.tests.test_finance_budget import household, own
 from backend.tests.test_mcp import ENDPOINT, RPC, call, payload
-from kasten_backend import agent_finance, agent_mcp_finance, db
+from kasten_backend import agent, agent_finance, agent_mcp_finance, db
 
 if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
+
     from httpx import AsyncClient
+    from sqlalchemy.ext.asyncio import AsyncSession
 
 AGENT = "/agent/finance"
 OCTOBER = {"month": "2026-10", "today": "2026-10-10"}
@@ -260,7 +264,7 @@ async def test_with_no_database_the_route_and_the_tool_say_so(
     # A self-host with no Postgres: nothing listens, and the connect is refused at once.
     nowhere = create_async_engine("postgresql+psycopg://x:x@127.0.0.1:1/x")
     monkeypatch.setattr(db, "session_factory", async_sessionmaker(nowhere))
-    monkeypatch.setattr(agent_finance, "sessions", db.get_session)
+    monkeypatch.setattr(db, "sessions", db.get_session)
 
     route = await client.get(f"{AGENT}/budget/free", params=OCTOBER, headers=bearer)
     said = await tool(client, bearer, "free_to_spend", **OCTOBER)
@@ -308,3 +312,25 @@ async def test_a_database_failure_reaches_the_agent_without_its_sql(
 
     assert said.endswith(agent_mcp_finance.UNREADABLE)
     assert "SELECT" not in said
+
+
+async def test_one_patch_of_the_session_source_reaches_search_meaning_and_a_finance_tool(
+    client: AsyncClient, bearer: dict[str, str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def own() -> AsyncIterator[AsyncSession]:
+        raise HTTPException(status_code=503, detail="The test's own session source")
+        yield  # pragma: no cover
+
+    monkeypatch.setattr(db, "sessions", own)
+
+    meaning = await tool(client, bearer, "search_meaning", query="dog")
+    free = await tool(client, bearer, "free_to_spend", **OCTOBER)
+
+    assert "The test's own session source" in meaning
+    assert free.endswith("The test's own session source")
+
+
+def test_the_agent_modules_keep_no_session_source_of_their_own() -> None:
+    assert not hasattr(agent, "sessions")
+    assert not hasattr(agent_finance, "sessions")
+    assert not hasattr(agent_finance, "session")

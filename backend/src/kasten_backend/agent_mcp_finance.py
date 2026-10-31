@@ -13,7 +13,7 @@ from fastapi import HTTPException
 from mcp.server.mcpserver.exceptions import ToolError
 from sqlalchemy.exc import SQLAlchemyError
 
-from kasten_backend import agent_finance
+from kasten_backend import agent_finance, db
 from kasten_backend.routes import (
     finance_budget,
     finance_drill,
@@ -42,7 +42,7 @@ async def _read(read: Callable[[AsyncSession], Awaitable[BaseModel]]) -> dict[st
     backend with no database is one, so a tool says what a route says.
     """
     try:
-        async with agent_finance.session() as session:
+        async with db.session() as session:
             found = await read(session)
     except HTTPException as refused:
         raise ToolError(str(refused.detail)) from refused

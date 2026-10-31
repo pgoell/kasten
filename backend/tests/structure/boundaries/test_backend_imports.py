@@ -127,9 +127,9 @@ def test_a_stale_ignore_fails(tmp_path: Path) -> None:
     )
 
 
-def test_the_accepted_breaches_stay_at_19() -> None:
+def test_the_accepted_breaches_stay_at_18() -> None:
     # Sorted, so the check does not depend on the order the contracts are written in.
-    assert sorted(len(c.get("ignore_imports", [])) for c in contracts()) == [0, 0, 3, 16]
+    assert sorted(len(c.get("ignore_imports", [])) for c in contracts()) == [0, 0, 2, 16]
     for c in contracts():
         assert "unmatched_ignore_imports_alerting" not in c
         assert "allow_indirect_imports" not in c

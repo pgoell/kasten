@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from backend.tests.finance_rows import API, GIRO, account, booking, post
 from backend.tests.finance_tax_rows import JPEG, PDF, PNG, RECEIPTS, ids, kept, totals, upload, year
-from kasten_backend import agent_finance, db
+from kasten_backend import db
 from kasten_backend.config import get_settings
 from kasten_backend.finance_receipts import MAX_BYTES
 
@@ -224,7 +224,7 @@ async def test_with_no_database_a_share_still_opens_capture_with_its_text(
 ) -> None:
     nowhere = create_async_engine("postgresql+psycopg://x:x@127.0.0.1:1/x")
     monkeypatch.setattr(db, "session_factory", async_sessionmaker(nowhere))
-    monkeypatch.setattr(agent_finance, "sessions", db.get_session)
+    monkeypatch.setattr(db, "sessions", db.get_session)
 
     text = await client.post(f"{RECEIPTS}/share", data={"text": "a thought"})
     files = await client.post(

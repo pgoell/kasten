@@ -7,14 +7,13 @@ list returns up to 5,000 raw bank records and has no scope.
 
 import datetime as dt  # noqa: TC003  pydantic reads the annotation at runtime
 import uuid  # noqa: TC003  pydantic reads the annotation at runtime
-from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from decimal import Decimal  # noqa: TC003  pydantic reads the annotation at runtime
 from typing import TYPE_CHECKING
 
 from fastapi import HTTPException
 from pydantic import BaseModel, ConfigDict
 
-from kasten_backend import db, finance
+from kasten_backend import finance
 from kasten_backend.finance_ledger import Account, Scope, scope_of
 from kasten_backend.finance_models import Transaction
 from kasten_backend.routes.finance import (
@@ -35,8 +34,6 @@ from kasten_backend.routes.finance_sorting import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator, Callable
-
     from sqlalchemy.ext.asyncio import AsyncSession
 
 PAGE = 100
@@ -44,18 +41,6 @@ PAGE = 100
 
 MAX_PAGE = 500
 """The most bookings one page holds."""
-
-sessions: Callable[[], AsyncIterator[AsyncSession]] = db.get_session
-"""The MCP tools' session source: the routes' own dependency, so a backend with no
-database refuses a tool in the routes' words.
-
-A module global so the tests can point it at the session their rows are in.
-"""
-
-
-def session() -> AbstractAsyncContextManager[AsyncSession]:
-    """One session for one tool call, closed when the call ends, whatever it raised."""
-    return asynccontextmanager(sessions)()
 
 
 class BookingOut(BaseModel):
