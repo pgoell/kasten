@@ -60,7 +60,7 @@ The table splits by theme. Rows keep their numbers on every page, so "As 82" poi
 
 * [Writes and their answers](/reference/save-path-orderings/writes-and-answers.md): rows 1 to 28.
 * [Hiding the page and the keepalive](/reference/save-path-orderings/hiding-and-keepalive.md): rows 29 to 49.
-* [Leaving a note and switching panes](/reference/save-path-orderings/leaving-and-switching-panes.md): rows 50 to 65.
+* [Leaving a note and switching panes](/reference/save-path-orderings/leaving-and-switching-panes.md): rows 50 to 65, and T1 to T3.
 * [Rename, delete and :e](/reference/save-path-orderings/rename-delete-and-colon-e.md): rows 66 to 81.
 * [Reopened buffers and held text](/reference/save-path-orderings/reopened-buffers-and-held-text.md): rows 82 to 91.
 * [Live conflicts and leaving the route](/reference/save-path-orderings/conflicts-and-leaving-the-route.md): rows 92 to 106.

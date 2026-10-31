@@ -16,10 +16,11 @@ import type { MoveMode } from "@/lib/move";
 // Renamed because the route that calls this already has a `flush`, the bookmark's.
 import { flush as flushOutbox, keep } from "@/lib/outbox";
 import { mapPanes, openInFocused } from "@/lib/pane-contents";
-import { fillFocused, type Layout } from "@/lib/panes";
+import type { Layout } from "@/lib/panes";
 import { parseTodo } from "@/lib/todo/todo";
 import { addTodoInVault } from "@/lib/todo/todo-api";
 import { addSubtaskInVault } from "@/lib/todo/todo-line-edits";
+import { paneOpeners } from "@/lib/use-pane-commands";
 
 export type Prompts = ReturnType<typeof usePrompts>;
 
@@ -54,6 +55,7 @@ export function usePrompts({
 }) {
   const { moveTo, refocusPane } = moves;
   const queryClient = useQueryClient();
+  const { replace } = useMemo(() => paneOpeners(saveFirst, moveTo), [saveFirst, moveTo]);
   // One state for both: a create on the vault root starts at "" and still reads as open.
   const [prompt, setPrompt] = useState<{ mode: PromptMode; startPath: string } | null>(null);
   const [moving, setMoving] = useState<{
@@ -252,14 +254,10 @@ export function usePrompts({
       {terminalPrompt && (
         <TerminalPrompt
           sessions={terminals ?? LOADING}
-          onOpen={(session) => {
+          onOpen={async (session) => {
             setTerminalPrompt(false);
-            // Through `moveTo` rather than `setLayout`, so opening a terminal
-            // is refused while the note in the focused pane stands conflicted,
-            // the same as every other key that moves the focus. The refusal
-            // sits on the path that replaces the pane rather than on the key
-            // that opens the prompt, which replaces nothing.
-            moveTo((previous) => fillFocused(previous, { term: session }));
+            // The prompt hands no focus back once a row is taken, so a refused save takes it home.
+            if (!(await replace({ term: session }))) refocusPane();
           }}
           onClose={() => setTerminalPrompt(false)}
         />

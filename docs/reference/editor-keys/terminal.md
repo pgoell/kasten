@@ -16,6 +16,10 @@ herdr session is called; letters, numbers, `-` and `_`, up to 64 characters. A
 name nothing answers to starts a fresh session, and a name that is already
 running attaches to it.
 
+Picking a session writes the note in the pane first, as every key that
+replaces a pane does. If the vault refuses that write, or the note stands
+changed on disk, the note stays with its text and the bar says why.
+
 The multiplexer is [herdr](https://herdr.dev) rather than tmux, starting from
 `shell/herdr.toml`, a config migrated from tmux. So the prefix is `Ctrl+Space`,
 and `Ctrl+H`, `Ctrl+J`, `Ctrl+K` and `Ctrl+L` reach the shell as backspace,
