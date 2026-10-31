@@ -106,45 +106,70 @@ function parseFoodLine(text: string): FoodGoals | null {
   return goals;
 }
 
+/** Whether a tap kind's tap is broken: no amount, water in no volume, or a counted drink in a unit. */
+function brokenTap(builtin: DrinkKind | undefined, unit: string, tapText: string): boolean {
+  if (amount(tapText) <= 0) return true;
+  if (builtin === "water") return !/^(ml|l)$/i.test(unit);
+  // Coffee and alcohol are counted, so a tap is a whole number with no unit.
+  return (
+    (builtin === "coffee" || builtin === "alcohol") && (unit !== "" || !/^[0-9]+$/.test(tapText))
+  );
+}
+
+function goalOf(sense: string, value: number, builtin: DrinkKind | undefined, unit: string): Goal {
+  // The day's water is counted in millilitres, so a goal in litres is scaled to match.
+  const scale = builtin === "water" && unit.toLowerCase() === "l" ? 1000 : 1;
+  return {
+    type: sense.toLowerCase() === "min" ? "floor" : "ceiling",
+    value: clean(value * scale),
+  };
+}
+
 /** A kind line as its kind, or null where the line is broken. The caller checks the mark is free. */
 function parseKindConfig(text: string): LogKind | null {
   const found = KIND_LINE.exec(text)?.groups;
   if (found === undefined) return null;
-  const mark = found.mark ?? "";
-  const label = (found.name ?? "").trim();
+  const { mark = "", name = "", tap: tapText = "", goal = "" } = found;
+  const label = name.trim();
   const unit = found.unit ?? found.lastUnit ?? "";
   const builtin = BUILTINS.get(mark);
   const last = found.last !== undefined;
+  if (label === "" || FIELD_MARKS.has(mark)) return null;
   // A built-in kind keeps its tap, so `last` is broken on one.
-  if (label === "" || FIELD_MARKS.has(mark) || (last && builtin !== undefined)) return null;
-  const tapText = found.tap ?? "";
-  const tap = amount(tapText);
-  if (!last) {
-    if (tap <= 0) return null;
-    if (builtin === "water" && !/^(ml|l)$/i.test(unit)) return null;
-    // Coffee and alcohol are counted, so a tap is a whole number with no unit.
-    if (
-      (builtin === "coffee" || builtin === "alcohol") &&
-      (unit !== "" || !/^[0-9]+$/.test(tapText))
-    ) {
-      return null;
-    }
-  }
-  const goalValue = amount(found.goal ?? "");
+  if (last ? builtin !== undefined : brokenTap(builtin, unit, tapText)) return null;
+  const goalValue = amount(goal);
   if (found.sense !== undefined && goalValue <= 0) return null;
-  // The day's water is counted in millilitres, so a goal in litres is scaled to match.
-  const scale = builtin === "water" && unit.toLowerCase() === "l" ? 1000 : 1;
   const kind: LogKind = { mark, name: label, unit };
   if (last) kind.last = true;
-  else kind.tap = tap;
-  if (found.sense !== undefined) {
-    kind.goal = {
-      type: found.sense.toLowerCase() === "min" ? "floor" : "ceiling",
-      value: clean(goalValue * scale),
-    };
-  }
+  else kind.tap = amount(tapText);
+  if (found.sense !== undefined) kind.goal = goalOf(found.sense, goalValue, builtin, unit);
   if (builtin !== undefined) kind.builtin = builtin;
   return kind;
+}
+
+interface ConfigRead {
+  kinds: LogKind[];
+  broken: BrokenLine[];
+  marks: Set<string>;
+  food: FoodGoals | null;
+}
+
+function readConfigLine(read: ConfigRead, text: string, line: number): void {
+  // Only the first food line that reads counts, so a second one is broken.
+  if (text.startsWith("- 🍽")) {
+    const goals = parseFoodLine(text);
+    if (goals === null || read.food !== null) read.broken.push({ line, text });
+    else read.food = goals;
+    return;
+  }
+  const kind = parseKindConfig(text);
+  // The first line keeps a mark, so a later line with the same mark is broken.
+  if (kind === null || read.marks.has(kind.mark)) {
+    read.broken.push({ line, text });
+    return;
+  }
+  read.marks.add(kind.mark);
+  read.kinds.push(kind);
 }
 
 /**
@@ -156,30 +181,11 @@ export function parseConfig(note: string | null): LogConfig {
   const lines = note.split("\n");
   // The frontmatter runs from a first `---` to the next one, as in logLines, and holds no config.
   const close = lines[0] === "---" ? lines.indexOf("---", 1) : -1;
-  const kinds: LogKind[] = [];
-  const broken: BrokenLine[] = [];
-  const marks = new Set<string>();
-  let food: FoodGoals | null = null;
+  const read: ConfigRead = { kinds: [], broken: [], marks: new Set(), food: null };
   for (const [index, text] of lines.entries()) {
-    if (index <= close || !text.startsWith("- ")) continue;
-    const line = index + 1;
-    // Only the first food line that reads counts, so a second one is broken.
-    if (text.startsWith("- 🍽")) {
-      const goals = parseFoodLine(text);
-      if (goals === null || food !== null) broken.push({ line, text });
-      else food = goals;
-      continue;
-    }
-    const kind = parseKindConfig(text);
-    // The first line keeps a mark, so a later line with the same mark is broken.
-    if (kind === null || marks.has(kind.mark)) {
-      broken.push({ line, text });
-      continue;
-    }
-    marks.add(kind.mark);
-    kinds.push(kind);
+    if (index > close && text.startsWith("- ")) readConfigLine(read, text, index + 1);
   }
-  return { kinds, food: food ?? {}, broken };
+  return { kinds: read.kinds, food: read.food ?? {}, broken: read.broken };
 }
 
 /** The line one tap writes for `kind` with nothing typed, or null on a last kind, which has no tap. */

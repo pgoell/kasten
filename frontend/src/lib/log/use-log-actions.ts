@@ -1,4 +1,4 @@
-import { useQueryClient } from "@tanstack/react-query";
+import { type QueryClient, useQueryClient } from "@tanstack/react-query";
 import { type Dispatch, type RefObject, type SetStateAction, useCallback, useState } from "react";
 import { createNote, NoteExists, updateNote } from "@/lib/api";
 import { heldText } from "@/lib/held-text";
@@ -33,6 +33,31 @@ function busyOf(
   if (focused.path === path) return `${path} is open to type in`;
   if (focused.isWriting(path)) return `${path} is still being saved`;
   return null;
+}
+
+/** Makes the note from `body` where `listed` lacks it, else changes it; the landed text goes in its query. */
+async function landWrite(
+  queryClient: QueryClient,
+  path: string,
+  guarded: (text: string) => string | null,
+  body: string | undefined,
+  listed: string[] | undefined,
+): Promise<boolean> {
+  if (body !== undefined && !(listed ?? []).includes(path)) {
+    const made = guarded(body);
+    if (made === null) return false;
+    try {
+      const note = await createNote(path, made);
+      queryClient.setQueryData(["note", path], note.content);
+      return true;
+    } catch (error) {
+      if (!(error instanceof NoteExists)) throw error;
+    }
+  }
+  const written = await updateNote(path, guarded);
+  if (written === null) return false;
+  queryClient.setQueryData(["note", path], written.content);
+  return true;
 }
 
 /**
@@ -86,23 +111,7 @@ export function useLogActions({
       };
 
       try {
-        const landed = await write(path, async () => {
-          if (body !== undefined && !(data ?? []).includes(path)) {
-            const made = guarded(body);
-            if (made === null) return false;
-            try {
-              const note = await createNote(path, made);
-              queryClient.setQueryData(["note", path], note.content);
-              return true;
-            } catch (error) {
-              if (!(error instanceof NoteExists)) throw error;
-            }
-          }
-          const written = await updateNote(path, guarded);
-          if (written === null) return false;
-          queryClient.setQueryData(["note", path], written.content);
-          return true;
-        });
+        const landed = await write(path, () => landWrite(queryClient, path, guarded, body, data));
         if (!landed) {
           setNotice(`Nothing logged: ${why}`);
           return false;

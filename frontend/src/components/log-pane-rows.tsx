@@ -14,6 +14,31 @@ import { goalPhrase, grouped } from "@/lib/log/log-words";
 /** The meals a food line names, in the order the pane groups them. `""` is no meal. */
 export const MEALS = ["breakfast", "lunch", "dinner", "snack", ""] as const;
 
+/** A word with its first letter capitalised, as the pane writes its names and meal heads. */
+export function capital(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+function byLine(a: Line, b: Line): number {
+  return a.line - b.line;
+}
+
+/** A day's rows as the pane draws them: drinks and kinds first, then food by meal, empty groups left out. */
+export function mealGroups(entries: Line[]): { title: string | null; lines: Line[] }[] {
+  return [
+    {
+      title: null,
+      lines: entries.filter((line) => line.kind !== "food").sort(byLine),
+    },
+    ...MEALS.map((meal) => ({
+      title: meal === "" ? "No meal" : capital(meal),
+      lines: entries
+        .filter((line) => line.kind === "food" && (line.meal ?? "") === meal)
+        .sort(byLine),
+    })),
+  ].filter((group) => group.lines.length > 0);
+}
+
 /** The row being edited, what its form holds, and why the last save was refused. */
 export interface Editing {
   line: number;

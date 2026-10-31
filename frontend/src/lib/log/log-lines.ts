@@ -106,7 +106,10 @@ function parse(line: string): Drink | null {
     return count > 0 ? { kind: "coffee", count } : null;
   }
   const alcohol = ALCOHOL.exec(line);
-  if (alcohol === null) return null;
+  return alcohol === null ? null : alcoholOf(alcohol);
+}
+
+function alcoholOf(alcohol: RegExpExecArray): Drink | null {
   const count = Number(alcohol[1]);
   const ml =
     alcohol[2] === undefined
@@ -146,20 +149,23 @@ export function parseFood(line: string): Food | null {
   const field = at === -1 ? line.length : begin + at;
   const words = line.slice(begin, field).replace(/^[ \t]+|[ \t]+$/g, "");
 
-  const values: Partial<Record<FoodField, number>> = {};
-  if (at !== -1) {
-    // Only fields may follow the first one, and each field may come once.
-    const tail = line.slice(field);
-    if (!FIELD_RUN.test(tail)) return null;
-    for (const [, mark, number, unit] of tail.matchAll(FIELD_EACH)) {
-      const { name, unit: expected } = FOOD_FIELDS[mark as FoodMark];
-      if (name in values || (unit !== undefined && unit.toLowerCase() !== expected)) return null;
-      values[name] = amount(number ?? "");
-    }
-  }
+  const values = at === -1 ? {} : fieldValues(line.slice(field));
+  if (values === null) return null;
   if (words === "" && Object.keys(values).length === 0) return null;
   const meal = head[1]?.toLowerCase();
   return { kind: "food", ...(meal === undefined ? {} : { meal }), words, ...values };
+}
+
+function fieldValues(tail: string): Partial<Record<FoodField, number>> | null {
+  // Only fields may follow the first one, and each field may come once.
+  if (!FIELD_RUN.test(tail)) return null;
+  const values: Partial<Record<FoodField, number>> = {};
+  for (const [, mark, number, unit] of tail.matchAll(FIELD_EACH)) {
+    const { name, unit: expected } = FOOD_FIELDS[mark as FoodMark];
+    if (name in values || (unit !== undefined && unit.toLowerCase() !== expected)) return null;
+    values[name] = amount(number ?? "");
+  }
+  return values;
 }
 
 /** The drink a log line holds, or null for a line that holds none, food included. */
@@ -183,40 +189,41 @@ export function amountLine(kind: DrinkKind, typed: string): string | { why: stri
   return parseDrink(line)?.kind === kind ? line : { why: `not a ${kind} amount: ${typed}` };
 }
 
+// A fence closes on its own character, at least as long as the one that opened it.
+const closesFence = (fence: string, run: string | undefined, line: string): boolean =>
+  run !== undefined && run[0] === fence[0] && run.length >= fence.length && line.trim() === run;
+
 /** The lines under each `## Log` of `text`, without fenced code or the frontmatter. */
 export function logLines(text: string): string[] {
   const lines = text.split("\n");
   // The frontmatter runs from a first `---` to the next one, and holds no section.
   const close = lines[0] === "---" ? lines.indexOf("---", 1) : -1;
-  const found: string[] = [];
-  let fence: string | null = null;
-  let inLog = false;
-  for (const line of lines.slice(close === -1 ? 0 : close + 1)) {
-    const match = FENCE.exec(line);
-    const run = match?.[1];
-    if (fence !== null) {
-      // A fence closes on its own character, at least as long as the one that opened it.
-      if (
-        run !== undefined &&
-        run[0] === fence[0] &&
-        run.length >= fence.length &&
-        line.trim() === run
-      ) {
-        fence = null;
-      }
-      continue;
-    }
-    if (run !== undefined && (run[0] === "~" || !match?.[2]?.includes("`"))) {
-      fence = run;
-      continue;
-    }
-    if (HEADING.test(line)) {
-      inLog = line.trimEnd() === LOG_HEADING;
-      continue;
-    }
-    if (inLog) found.push(line);
+  const scan: LogScan = { fence: null, inLog: false };
+  return lines.slice(close === -1 ? 0 : close + 1).filter((line) => scanLine(scan, line));
+}
+
+interface LogScan {
+  fence: string | null;
+  inLog: boolean;
+}
+
+/** Moves the scan past `line`: true when the line is one under `## Log`. */
+function scanLine(scan: LogScan, line: string): boolean {
+  const match = FENCE.exec(line);
+  const run = match?.[1];
+  if (scan.fence !== null) {
+    if (closesFence(scan.fence, run, line)) scan.fence = null;
+    return false;
   }
-  return found;
+  if (run !== undefined && (run[0] === "~" || !match?.[2]?.includes("`"))) {
+    scan.fence = run;
+    return false;
+  }
+  if (HEADING.test(line)) {
+    scan.inLog = line.trimEnd() === LOG_HEADING;
+    return false;
+  }
+  return scan.inLog;
 }
 
 /** What a day's log adds up to. Every kind is present, zero where nothing was logged. */
@@ -232,40 +239,42 @@ export interface DrinkTotals {
  * taken whole and rounded to a tenth once, as `GET /api/log` does.
  */
 export function drinkTotals(text: string): DrinkTotals {
-  let water = 0;
-  let coffee = 0;
-  let drinks = 0;
-  let alcoholMl = 0;
-  let grams = 0;
-  let kcal = 0;
-  let protein = 0;
-  let carbs = 0;
-  let fat = 0;
+  const sum = { water: 0, coffee: 0, drinks: 0, alcoholMl: 0, grams: 0 };
+  const food = { kcal: 0, protein: 0, carbs: 0, fat: 0 };
   for (const line of logLines(text)) {
-    const food = parseFood(line);
-    if (food !== null) {
-      kcal += food.kcal ?? 0;
-      protein += food.protein ?? 0;
-      carbs += food.carbs ?? 0;
-      fat += food.fat ?? 0;
-      continue;
-    }
-    const drink = parse(line);
-    if (drink === null) continue;
-    if (drink.kind === "water") water += drink.ml;
-    else if (drink.kind === "coffee") coffee += drink.count;
-    else {
-      drinks += drink.count;
-      alcoholMl += drink.ml ?? 0;
-      grams += drink.grams ?? 0;
-    }
+    const eaten = parseFood(line);
+    if (eaten !== null) addFood(food, eaten);
+    else addDrink(sum, parse(line));
   }
+  const { water, coffee, drinks, alcoholMl, grams } = sum;
+  const { kcal, protein, carbs, fat } = food;
   return {
     water: { ml: tenth(water) },
     coffee: { count: coffee },
     alcohol: { count: drinks, ml: tenth(alcoholMl), grams: tenth(grams) },
     food: { kcal: tenth(kcal), protein: tenth(protein), carbs: tenth(carbs), fat: tenth(fat) },
   };
+}
+
+function addFood(sum: DrinkTotals["food"], food: Food): void {
+  sum.kcal += food.kcal ?? 0;
+  sum.protein += food.protein ?? 0;
+  sum.carbs += food.carbs ?? 0;
+  sum.fat += food.fat ?? 0;
+}
+
+function addDrink(
+  sum: { water: number; coffee: number; drinks: number; alcoholMl: number; grams: number },
+  drink: Drink | null,
+): void {
+  if (drink === null) return;
+  if (drink.kind === "water") sum.water += drink.ml;
+  else if (drink.kind === "coffee") sum.coffee += drink.count;
+  else {
+    sum.drinks += drink.count;
+    sum.alcoholMl += drink.ml ?? 0;
+    sum.grams += drink.grams ?? 0;
+  }
 }
 
 /** The words cleaned so a line written with them parses back to them, as `foodLine` needs. */

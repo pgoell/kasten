@@ -363,3 +363,24 @@ it("#624 a refused food log keeps the food search open", async () => {
   expect(actions.addLine).toHaveBeenCalled();
   expect(screen.getByLabelText("Food")).toBeInTheDocument();
 });
+
+it("#968 keys pressed while a row is an edit or inside the food sheet are not pane keys", async () => {
+  const { actions } = renderPane();
+  await screen.findByText("500 ml");
+
+  press("e");
+  expect(editForm()).not.toBeNull();
+  press("d");
+  expect(actions.deleteLine).not.toHaveBeenCalled();
+  fireEvent.keyDown(within(editForm() as HTMLElement).getByLabelText("Amount"), {
+    key: "Escape",
+  });
+  expect(editForm()).toBeNull();
+
+  press("f");
+  const sheet = await screen.findByRole("dialog", { name: "Food search" });
+  fireEvent.keyDown(sheet, { key: "d" });
+  fireEvent.keyDown(sheet, { key: "j" });
+  expect(actions.deleteLine).not.toHaveBeenCalled();
+  expect(selectedRow()).toHaveTextContent("💧 500 ml");
+});
