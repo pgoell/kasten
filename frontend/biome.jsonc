@@ -87,7 +87,6 @@
         "src/components/note-preview.tsx",
         "src/components/note-prompt.tsx",
         "src/components/note-search.tsx",
-        "src/components/pdf-take.tsx",
         "src/components/pdf-thumbs.tsx",
         "src/components/person-pane.tsx",
         "src/components/search-histogram.tsx",
