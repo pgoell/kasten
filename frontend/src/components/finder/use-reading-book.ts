@@ -39,7 +39,7 @@ export function useReadingBook({
         queryClient.ensureQueryData({ queryKey: ["assets"], queryFn: fetchAssets }),
       ]);
     } catch (error: unknown) {
-      setNotice(unreadable(error));
+      setNotice(noticeFor(error));
       return;
     }
 
@@ -55,7 +55,7 @@ export function useReadingBook({
 }
 
 /** What the reading note could not be read for, as the notice says it. */
-function unreadable(error: unknown): string {
+function noticeFor(error: unknown): string {
   if (error instanceof NoteMissing) return `${READING_NOTE} is not there`;
   return error instanceof Error ? error.message : `${READING_NOTE} could not be read`;
 }

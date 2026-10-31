@@ -188,11 +188,6 @@ export function showPdf(
       .page(number)
       .then(async (pdfPage) => {
         if (!wanted()) return;
-        // The slot's own width, not the box's: the box's padding is no part of
-        // the page, and a scale taken from the padded box lays the text layer
-        // wider than its slot, so it overhangs the box and the box scrolls
-        // sideways at 100 %. The box's width is the fallback for a slot not yet
-        // laid out (jsdom), with the zoom applied since the slot would carry it.
         // The text layer is laid out at the same scale without the pixel ratio,
         // which the canvas alone takes.
         const cssScale = slotWidth(slot, box, pdfPage.width, zoom) / pdfPage.width;
