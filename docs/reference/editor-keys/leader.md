@@ -112,10 +112,10 @@ The file pickers that `<leader>cm` and `<leader>cb` open wait until you let go o
 | `<leader>j` | Move to the pane below |
 | `<leader>k` | Move to the pane above |
 | `<leader>l` | Move to the pane on the right |
-| `<leader>H` | Swap this pane with the one on the left |
-| `<leader>J` | Swap this pane with the one below |
-| `<leader>K` | Swap this pane with the one above |
-| `<leader>L` | Swap this pane with the one on the right |
+| `<leader>H` | Swap this pane with the one on the left, or move it to the left edge |
+| `<leader>J` | Swap this pane with the one below, or move it to the bottom edge |
+| `<leader>K` | Swap this pane with the one above, or move it to the top edge |
+| `<leader>L` | Swap this pane with the one on the right, or move it to the right edge |
 | `<leader>o` | Move to the next pane |
 | `<leader>z` | Draw this pane on its own, or put the tab back |
 | `<leader>q` | Close the note, then the pane, then the tab |

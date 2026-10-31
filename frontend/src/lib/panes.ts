@@ -4,6 +4,8 @@
  * layout; nothing in this file knows React, the vault or the URL.
  */
 
+import type { Direction } from "@/lib/pane-direction";
+
 /** One pane, and whichever note is open in it. */
 export interface Pane {
   id: string;
@@ -269,8 +271,7 @@ export function focusPane(layout: Layout, id: string): Layout {
 
 /**
  * Trades places with another pane of this tab, the arrangement otherwise standing still. The focus
- * stays on the same pane, now elsewhere. React keys panes by id, so a swap within one split keeps
- * its editors, while a swap across splits rebuilds them.
+ * stays on the same pane, now elsewhere.
  */
 export function swapPanes(layout: Layout, id: string): Layout {
   const tab = activeTab(layout);
@@ -287,6 +288,33 @@ export function swapPanes(layout: Layout, id: string): Layout {
   };
 
   return withTab(layout, { ...tab, root: swap(tab.root) });
+}
+
+/** Whether the focused pane can go to this edge: not a lone pane, a zoomed one, or one already filling it. */
+export function canMoveToEdge(layout: Layout, side: Direction): boolean {
+  const { root, zoom, focus } = activeTab(layout);
+  if (!isSplit(root) || zoom) return false;
+  const first = side === "left" || side === "up";
+  const fills = root.children[first ? 0 : root.children.length - 1]?.id === focus;
+  return !(fills && root.dir === (side === "left" || side === "right" ? "row" : "col"));
+}
+
+/**
+ * Takes the focused pane out and sets it along one edge of the window, at that edge's full length,
+ * as vim's `<C-w>L` does. Stands still where `canMoveToEdge` says no.
+ */
+export function movePaneToEdge(layout: Layout, side: Direction): Layout {
+  const tab = activeTab(layout);
+  const here = focusedPane(layout);
+  const rest = without(tab.root, here.id);
+  if (rest === null || !canMoveToEdge(layout, side)) return layout;
+
+  const dir = side === "left" || side === "right" ? "row" : "col";
+  const children = side === "left" || side === "up" ? [here, rest] : [rest, here];
+  return withTab(layout, {
+    ...tab,
+    root: normalize({ id: nextId("split"), dir, children }),
+  });
 }
 
 /**

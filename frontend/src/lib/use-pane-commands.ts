@@ -84,7 +84,7 @@ export function usePaneCommands({
   >;
   setLayout: Dispatch<SetStateAction<Layout>>;
   saveFirst: () => Promise<boolean>;
-  moves: Pick<PaneMoves, "moveTo" | "focusToward" | "swapToward">;
+  moves: Pick<PaneMoves, "moveTo" | "focusToward" | "shiftToward">;
   openPeriodic: (period: Period) => boolean | Promise<boolean> | undefined;
   setNotice: Dispatch<SetStateAction<string | undefined>>;
   /** The vault's note paths, as the listing holds them; undefined until it loads. */
@@ -96,7 +96,7 @@ export function usePaneCommands({
   /** On a desktop the local graph opens over its pane, or beside it when the margin shows. */
   sideGraph?: (pane: string) => void;
 }) {
-  const { moveTo, focusToward, swapToward } = moves;
+  const { moveTo, focusToward, shiftToward } = moves;
   const queryClient = useQueryClient();
   /** Counter, not a flag: each `<leader>v` bumps it, so every press reaches the player. */
   const [playSignal, setPlaySignal] = useState(0);
@@ -380,10 +380,10 @@ export function usePaneCommands({
       paneDown: () => focusToward("down"),
       paneUp: () => focusToward("up"),
       paneRight: () => focusToward("right"),
-      movePaneLeft: () => swapToward("left"),
-      movePaneDown: () => swapToward("down"),
-      movePaneUp: () => swapToward("up"),
-      movePaneRight: () => swapToward("right"),
+      movePaneLeft: () => shiftToward("left"),
+      movePaneDown: () => shiftToward("down"),
+      movePaneUp: () => shiftToward("up"),
+      movePaneRight: () => shiftToward("right"),
       // Not through moveTo: nothing is written or moved, so a conflicted note has nothing to
       // refuse. Hiding a pane cannot blur the one you type in.
       zoomPane: () => setLayout(toggleZoom),
@@ -394,7 +394,7 @@ export function usePaneCommands({
     [
       moveTo,
       focusToward,
-      swapToward,
+      shiftToward,
       saveFirst,
       openPeriodic,
       openReadingBook,

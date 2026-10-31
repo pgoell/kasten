@@ -67,10 +67,26 @@ export const LEADER: readonly LeaderBinding[] = [
   { key: "j", label: "Move to the pane below", command: "paneDown" },
   { key: "k", label: "Move to the pane above", command: "paneUp" },
   { key: "l", label: "Move to the pane on the right", command: "paneRight" },
-  { key: "H", label: "Swap this pane with the one on the left", command: "movePaneLeft" },
-  { key: "J", label: "Swap this pane with the one below", command: "movePaneDown" },
-  { key: "K", label: "Swap this pane with the one above", command: "movePaneUp" },
-  { key: "L", label: "Swap this pane with the one on the right", command: "movePaneRight" },
+  {
+    key: "H",
+    label: "Swap this pane with the one on the left, or move it to the left edge",
+    command: "movePaneLeft",
+  },
+  {
+    key: "J",
+    label: "Swap this pane with the one below, or move it to the bottom edge",
+    command: "movePaneDown",
+  },
+  {
+    key: "K",
+    label: "Swap this pane with the one above, or move it to the top edge",
+    command: "movePaneUp",
+  },
+  {
+    key: "L",
+    label: "Swap this pane with the one on the right, or move it to the right edge",
+    command: "movePaneRight",
+  },
   // Wraps, unlike the four directions, which stop at the edge.
   { key: "o", label: "Move to the next pane", command: "nextPane" },
   { key: "p", label: "Toggle live preview", command: "togglePreview" },

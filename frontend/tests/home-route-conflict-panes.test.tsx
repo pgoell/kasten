@@ -463,8 +463,9 @@ describe("the route", () => {
       await baseOf("the index note"),
     );
     // And the panes did trade places: the focus is where it was, on the note,
-    // which is now the second pane on screen.
-    expect(app.focusedPane()).toBe(1);
+    // which now sits on the right, though the page holds the panes in their old order.
+    expect(app.focusedPane()).toBe(0);
+    expect((boxes[0] as HTMLElement).style.left).not.toBe("0");
   });
 
   it("starts the tab once :w has settled the conflict", async () => {

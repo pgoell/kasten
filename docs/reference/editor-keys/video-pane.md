@@ -20,7 +20,9 @@ quoted rather than beside the note, see
 Under and not beside, which is where this parts company with the reader. A book
 is a column of text and reads next to a column of notes; a player is a 16:9 box,
 and the width it wants is the width the note wants too, so the two share the
-height instead.
+height instead. Where you want them side by side, `<leader>L` from the player
+moves it to the right edge, and it plays on through the move: see
+[Panes and tabs](/reference/editor-keys/panes-and-tabs.md).
 
 The links are read out of the note, and the first YouTube address in it is the
 one that plays. Every shape the share button writes is understood, `youtu.be/ID`,
@@ -286,7 +288,8 @@ are left out.
 
 On the right is the transcript, the `## Transcript` paragraphs. On a narrow pane
 the two stack, the player and its column above the transcript. The width of the
-pane decides, not the width of the window.
+pane decides, not the width of the window, so `<leader>L` from a video view under
+a note gives the note one side and the stacked view the other.
 
 The transcript marks the paragraph the video is in and scrolls it to a third of
 the way down its list. Only the transcript moves, never the page. `Follows the
