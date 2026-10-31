@@ -180,40 +180,11 @@ export function PdfPane({
     if (!pending && take.onKeyDown(event)) return;
 
     if (pending) {
-      const sequence = pending + key;
-      const wanted = sequence.slice(1);
-      const run = leaderAction(wanted, commands);
-      setPending(!run && leaderPrefix(wanted) ? sequence : "");
-      if (run) {
-        event.preventDefault();
-        run();
-      }
+      continueLeader(event, pending, commands, setPending);
       return;
     }
 
-    if (event.ctrlKey || event.altKey || event.metaKey) return;
-
-    // `=` is the `+` key without shift, so the key that zooms in on a US layout
-    // and the one a reader presses to zoom in either way are both taken.
-    if (key === "+" || key === "=") {
-      event.preventDefault();
-      if (higher !== undefined) zoomTo(higher);
-      return;
-    }
-    if (key === "-") {
-      event.preventDefault();
-      if (lower !== undefined) zoomTo(lower);
-      return;
-    }
-
-    if (key === " ") {
-      if (beginLeader(paneOpener(commands))) {
-        event.preventDefault();
-        return;
-      }
-      setPending(key);
-      event.preventDefault();
-    }
+    plainKey(event, { lower, higher, zoomTo, commands, setPending });
   }
 
   return (
@@ -300,4 +271,59 @@ export function PdfPane({
       )}
     </section>
   );
+}
+
+/** Add `event`'s key to the leader sequence `pending`, running its action once the sequence names one. */
+function continueLeader(
+  event: React.KeyboardEvent,
+  pending: string,
+  commands: EditorCommands,
+  setPending: (next: string) => void,
+): void {
+  const sequence = pending + event.key;
+  const wanted = sequence.slice(1);
+  const run = leaderAction(wanted, commands);
+  setPending(!run && leaderPrefix(wanted) ? sequence : "");
+  if (run) {
+    event.preventDefault();
+    run();
+  }
+}
+
+/** The zoom keys and the leader, which answer only a key pressed with no ctrl, alt or meta. */
+function plainKey(
+  event: React.KeyboardEvent,
+  o: {
+    lower: number | undefined;
+    higher: number | undefined;
+    zoomTo: (next: number) => void;
+    commands: EditorCommands;
+    setPending: (next: string) => void;
+  },
+): void {
+  if (event.ctrlKey || event.altKey || event.metaKey) return;
+  const { key } = event;
+
+  const step = zoomStep(key, o.lower, o.higher);
+  if (step !== null) {
+    event.preventDefault();
+    if (step !== undefined) o.zoomTo(step);
+    return;
+  }
+
+  if (key === " ") {
+    if (!beginLeader(paneOpener(o.commands))) o.setPending(key);
+    event.preventDefault();
+  }
+}
+
+/**
+ * The zoom a zoom key moves to, undefined at the end it is already at, or null for any other key.
+ * `=` is the `+` key without shift, so the key that zooms in on a US layout
+ * and the one a reader presses to zoom in either way are both taken.
+ */
+function zoomStep(key: string, lower: number | undefined, higher: number | undefined) {
+  if (key === "+" || key === "=") return higher;
+  if (key === "-") return lower;
+  return null;
 }

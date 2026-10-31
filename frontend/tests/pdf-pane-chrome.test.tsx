@@ -147,6 +147,35 @@ describe("the pdf pane's header and zoom", () => {
     expect(zoomed()).toBe("125%");
   });
 
+  it("the + key at 300% and the - key at 50% leave the zoom where it is", () => {
+    const { container } = renderPane();
+    const section = container.querySelector("[data-pdf-pane]") as HTMLElement;
+
+    for (let step = 0; step < 5; step += 1) fireEvent.keyDown(section, { key: "+" });
+    expect(zoomed()).toBe("300%");
+    expect(pdf.view.setZoom).toHaveBeenCalledTimes(4);
+    for (let step = 0; step < 7; step += 1) fireEvent.keyDown(section, { key: "-" });
+    expect(zoomed()).toBe("50%");
+    expect(pdf.view.setZoom).toHaveBeenCalledTimes(10);
+  });
+
+  it("a leader sequence typed by hand runs its command, and a key it does not know ends it", () => {
+    const commands = stubCommands();
+    const { container } = render(
+      <PdfPane path="docs/plan.pdf" opened={1} commands={commands} onNoteBeside={vi.fn()} />,
+    );
+    const section = container.querySelector("[data-pdf-pane]") as HTMLElement;
+
+    for (const key of [" ", "c", "c"]) fireEvent.keyDown(section, { key });
+    expect(commands.openChat).toHaveBeenCalledTimes(1);
+
+    fireEvent.keyDown(section, { key: " " });
+    fireEvent.keyDown(section, { key: "+" });
+    expect(zoomed()).toBe("100%");
+    fireEvent.keyDown(section, { key: "+" });
+    expect(zoomed()).toBe("125%");
+  });
+
   it("the take hears a key before the pane's own keys do", () => {
     const { container } = renderPane();
     const section = container.querySelector("[data-pdf-pane]") as HTMLElement;
