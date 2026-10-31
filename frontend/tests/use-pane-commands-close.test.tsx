@@ -131,3 +131,12 @@ it("A6 q on a person beside a note empties that pane and keeps the note", async 
   expect(saveFirst).not.toHaveBeenCalled();
   expectEmptiedBeside(start, layout, "person");
 });
+
+it("#978 q on a note saves it first, then empties the pane", async () => {
+  const start = emptyLayout(NOTE);
+
+  const { layout, saveFirst } = await closeFocused(start);
+
+  expect(saveFirst).toHaveBeenCalledTimes(1);
+  expectEmptiedInPlace(start, layout);
+});
