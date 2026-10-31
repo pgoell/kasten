@@ -94,22 +94,23 @@ export function VideoPane({
   // you are three videos past, and landing on the last one beats landing on
   // nothing. `index` is only ever moved by `n` and `p`.
   const id = videos[Math.min(index, videos.length - 1)];
-  const { at, running, second, detail, report, seek, togglePlayer } = useVideoPlayer({
-    id,
-    frame,
-    onWatched,
-    playSignal,
-    seekSignal,
-    // A time for another of the note's videos switches to it, at that second. A
-    // video the note does not link is none of this pane's business.
-    onOtherVideo: (other, seconds) => {
-      const at = videos.indexOf(other);
-      if (at === -1) return;
-      report();
-      askedStart.current = { id: other, seconds };
-      setIndex(at);
-    },
-  });
+  const { at, running, second, detail, report, seek, togglePlayer, muted, volumeBy, toggleMute } =
+    useVideoPlayer({
+      id,
+      frame,
+      onWatched,
+      playSignal,
+      seekSignal,
+      // A time for another of the note's videos switches to it, at that second. A
+      // video the note does not link is none of this pane's business.
+      onOtherVideo: (other, seconds) => {
+        const at = videos.indexOf(other);
+        if (at === -1) return;
+        report();
+        askedStart.current = { id: other, seconds };
+        setIndex(at);
+      },
+    });
 
   /**
    * The frame's URL, held rather than recomputed: the position is written back into the note, so a
@@ -209,6 +210,17 @@ export function VideoPane({
       seek(second.current + (key === "l" ? 10 : -10));
       return;
     }
+    // Up and down by 5, as on YouTube, and `m` to mute; nothing in the pane or the leader takes these.
+    if ((key === "ArrowUp" || key === "ArrowDown") && source !== null) {
+      event.preventDefault();
+      volumeBy(key === "ArrowUp" ? 5 : -5);
+      return;
+    }
+    if (key === "m" && source !== null) {
+      event.preventDefault();
+      toggleMute();
+      return;
+    }
     if (key === "f" && source !== null && canFull) {
       event.preventDefault();
       toggleFull();
@@ -281,6 +293,19 @@ export function VideoPane({
             >
               Video view
             </button>
+            {source !== null && (
+              // The touch way to the sound: the shield covers YouTube's slider, and a phone has no `m`.
+              <button
+                type="button"
+                onClick={() => {
+                  toggleMute();
+                  panel.current?.focus();
+                }}
+                className="shrink-0 cursor-pointer whitespace-nowrap font-sans text-k-12 text-k-link hover:text-k-accent pointer-coarse:min-h-11"
+              >
+                {muted ? "Unmute" : "Mute"}
+              </button>
+            )}
             {canFull && (
               // The focus goes back to the pane at once, so a refused request
               // does not leave the leader's space pressing this button; a

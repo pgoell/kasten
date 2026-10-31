@@ -80,14 +80,17 @@ such as a suggestion picked on YouTube's end screen, writes nothing while it
 plays that one, in the pane or in the note, and closing the pane then writes
 nothing either. Back on the linked video, it writes again.
 
-### Speed and captions
+### Speed, captions and volume
 
-Every player, in the pane or in a note, takes the speed and captions you last
-used in this browser. They are kept in `localStorage` under `kasten.video.1`,
-`{"rate": 1.5, "captions": true}`, and not in the vault, so each browser keeps
-its own. A speed is set on the player once it reports ready; captions on open
-the player with `cc_load_policy=1`. Captions are read off what the player
-reports when its caption track changes.
+Every player, in the pane or in a note, takes the speed, captions and volume you
+last used in this browser. They are kept in `localStorage` under `kasten.video.1`,
+`{"rate": 1.5, "captions": true, "volume": 60, "muted": false}`, and not in the
+vault, so each browser keeps its own. A value kept before the volume was added
+reads as before, with the player's own volume. A speed, a volume and a mute are
+set on the player once it reports ready; captions open the player with
+`cc_load_policy=1`. Captions are read off what the player reports when its
+caption track changes. The volume is kept only from the pane's keys and its
+`Mute` button, never from what a player reports.
 
 Flow style, on one line, because the client writes frontmatter a line at a time.
 It is ordinary YAML and the backend reads it as the same mapping.
@@ -192,7 +195,12 @@ request each say so in the status bar, and leave the note as it was.
 The header reads, left to right: `VIDEO`, the video's address in mono, then the
 count, `2/5`, when the note links more than one video. A click or a tap on the
 count goes to the next one and wraps, as `n` does. The count is not there for a
-note with one video. Then `Video view`, `Full screen` and `Open on YouTube`.
+note with one video. Then `Video view`, `Mute`, `Full screen` and `Open on YouTube`.
+
+`Mute` mutes the player, and reads `Unmute` while it is muted; a tap brings back
+the volume from before. It is the touch way to the sound, since the shield
+covers YouTube's own slider. A phone sets the level with its own volume keys, and
+some phone browsers ignore a level the page sets, iOS Safari among them.
 
 `Open on YouTube` opens the watch address at the second the player is at, in a
 new tab.
@@ -245,8 +253,9 @@ of its own instead: see [Full screen](#full-screen).
 
 `Full screen` in the header, or `f` over the pane, makes the player box full
 screen: the frame with the shield over it. So a click or a tap on the player
-still plays or pauses, and `k`, `j`, `l`, `n` and `p` still work, since the
-focus moves into the box.
+still plays or pauses, and `k`, `j`, `l`, `n`, `p`, the arrow keys and `m`
+still work, since the focus moves into the box. Full screen draws no `Mute`
+button: the player keeps only the way out over it.
 
 Esc leaves full screen, as it does anywhere in a browser. So do `f` again and
 the `Exit full screen` button in the top corner of the player, which is there
@@ -325,8 +334,16 @@ way `n` and `p` are, because the pane has nothing else to type into:
 * `n` and `p` play the note's next and previous video, and wrap at either end.
 * `f` puts the player in full screen, and takes it out again. See
   [Full screen](#full-screen).
+* `ArrowUp` and `ArrowDown` turn the volume up and down by 5, within the
+  player's 0 to 100, as on YouTube. Pressed while muted, they unmute.
+* `m` mutes, and unmutes at the volume from before. See
+  [Speed, captions and volume](#speed-captions-and-volume).
 
-`k`, `j`, `l` and `f` do nothing until a video is in the frame. The key help lists
+With two panes, the keys move only the focused pane's player, from the volume
+this browser last kept. `n`, `p` and a suggested video the player moves on to
+keep the volume.
+
+`k`, `j`, `l`, `f`, the arrow keys and `m` do nothing until a video is in the frame. The key help lists
 these under `Over a video`.
 
 ## Time buttons in a note

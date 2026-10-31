@@ -64,13 +64,13 @@ async function spyOnFrame() {
 }
 
 describe("the video pane chrome", () => {
-  it("#791 A1 the header reads VIDEO, the URL, Video view and Open on YouTube in that order", async () => {
+  it("#791 A1 the header reads VIDEO, the URL, Video view, Mute (#1395) and Open on YouTube in that order", async () => {
     const { pane } = renderPane();
 
     await screen.findByTitle("video");
     const header = pane.querySelector("header") as HTMLElement;
     expect(header.textContent).toBe(
-      "VIDEOyoutube.com/watch?v=dQw4w9WgXcQVideo viewOpen on YouTube",
+      "VIDEOyoutube.com/watch?v=dQw4w9WgXcQVideo viewMuteOpen on YouTube",
     );
     expect(screen.getByTitle("https://www.youtube.com/watch?v=dQw4w9WgXcQ")).toBeInTheDocument();
     expect(pane).toHaveClass("font-sans");

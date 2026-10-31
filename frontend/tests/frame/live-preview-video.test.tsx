@@ -178,6 +178,23 @@ it("#953 A3 a speed the note's player reports is kept and sent to the next playe
   expect(argsOf(sent, "setPlaybackRate")).toEqual([1.5]);
 });
 
+it.each([
+  ["on", true],
+  ["off", false],
+] as const)(
+  "#1395 A3 the note's player opens at the kept volume and mute, vim %s",
+  async (_name, vimOn) => {
+    localStorage.setItem(KEY, JSON.stringify({ volume: 30, muted: true }));
+    const at = mount(NOTE, { vimOn });
+    const frame = await frameIn(at);
+    const sent = await spied(frame);
+    send(frame.contentWindow, { event: "onReady" });
+
+    await expect.poll(() => argsOf(sent, "setVolume")).toEqual([30]);
+    expect(commandsOf(sent)).toContain("mute");
+  },
+);
+
 it("#953 A5 the note's player writes where it paused, and reopening starts there at the kept speed", async () => {
   const at = mount(NOTE);
   const frame = await frameIn(at);

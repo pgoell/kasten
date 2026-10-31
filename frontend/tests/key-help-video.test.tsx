@@ -28,4 +28,17 @@ describe("KeyHelp over a video", () => {
       "Full screen, and out again",
     );
   });
+
+  it("#1395 A6 lists ArrowUp, ArrowDown and m under Over a video", () => {
+    render(<KeyHelp onClose={() => {}} />);
+
+    const rows = [
+      ["ArrowUp", "Volume up"],
+      ["ArrowDown", "Volume down"],
+      ["m", "Mute, and back at the same volume"],
+    ] as const;
+    for (const [key, label] of rows) {
+      expect(group("Over a video").getByText(key).nextElementSibling).toHaveTextContent(label);
+    }
+  });
 });

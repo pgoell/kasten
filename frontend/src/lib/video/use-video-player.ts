@@ -1,6 +1,12 @@
 import { type RefObject, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { namedVideo, nonEmpty, PLAYER } from "@/lib/video/video";
-import { applyVideoSettings, learnVideoSettings } from "@/lib/video/video-settings";
+import {
+  applyVideoSettings,
+  keepVideoSettings,
+  keptVolume,
+  learnVideoSettings,
+  readVideoSettings,
+} from "@/lib/video/video-settings";
 
 /**
  * What the player reports while playing or about to be. YouTube's 1 is playing and 3 is buffering,
@@ -13,6 +19,8 @@ interface Delivery {
   info?: {
     playerState?: unknown;
     currentTime?: unknown;
+    volume?: unknown;
+    muted?: unknown;
     videoData?: { video_id?: unknown; title?: unknown; author?: unknown } | null;
   };
 }
@@ -58,6 +66,12 @@ export interface VideoPlayer {
   togglePlayer: () => void;
   /** Seek to `seconds`, the one way the pane moves the video. */
   seek: (seconds: number) => void;
+  /** Whether the player is muted, as state, for the Mute button. */
+  muted: boolean;
+  /** Turn the volume up or down by `by`, within 0 to 100; unmutes, as YouTube does. */
+  volumeBy: (by: number) => void;
+  /** Mute, or unmute at the volume from before. */
+  toggleMute: () => void;
 }
 
 /** A command the player answers to, posted to the frame. Nothing is sent before the frame is up. */
@@ -97,6 +111,11 @@ export function useVideoPlayer({
   /** The video the player last named, and whether it is another one than `id`. */
   const named = useRef<string | undefined>(undefined);
   const elsewhere = useRef(false);
+  /** The player's volume as it last said or was told, for a browser that keeps none. */
+  const level = useRef(100);
+  // Read at mount: a kept mute is put back on ready, and the button says so from the start.
+  const mutedNow = useRef(readVideoSettings().muted === true);
+  const [muted, setMuted] = useState(mutedNow.current);
 
   // The new frame has played none of it yet, and reporting the old video's
   // second against the new video's id is the one way this could write a
@@ -156,6 +175,11 @@ export function useVideoPlayer({
       }
 
       const info = (message as Delivery).info;
+      level.current = keptVolume(info?.volume) ?? level.current;
+      if (typeof info?.muted === "boolean") {
+        mutedNow.current = info.muted;
+        setMuted(info.muted);
+      }
       // Read first: a delivery that names another video carries that video's
       // time and state, and none of it is this video's to keep.
       const which = namedVideo(named.current, info?.videoData, id);
@@ -223,6 +247,38 @@ export function useVideoPlayer({
     [frame],
   );
 
+  // The browser's kept level comes first, so a second pane starts from the last one set in either.
+  const volumeBy = useCallback(
+    (by: number) => {
+      const to = Math.min(
+        100,
+        Math.max(0, (keptVolume(readVideoSettings().volume) ?? level.current) + by),
+      );
+      command(frame.current, "setVolume", [to]);
+      if (mutedNow.current) command(frame.current, "unMute");
+      level.current = to;
+      mutedNow.current = false;
+      setMuted(false);
+      keepVideoSettings({ volume: to, muted: false });
+    },
+    [frame],
+  );
+
+  const toggleMute = useCallback(() => {
+    const mute = !mutedNow.current;
+    if (mute) {
+      command(frame.current, "mute");
+    } else {
+      command(frame.current, "unMute");
+      command(frame.current, "setVolume", [
+        keptVolume(readVideoSettings().volume) ?? level.current,
+      ]);
+    }
+    mutedNow.current = mute;
+    setMuted(mute);
+    keepVideoSettings({ muted: mute });
+  }, [frame]);
+
   const seekTo = seekSignal?.seconds;
   const seekCount = seekSignal?.signal;
   const seekId = seekSignal?.id;
@@ -249,5 +305,8 @@ export function useVideoPlayer({
     report,
     togglePlayer,
     seek,
+    muted,
+    volumeBy,
+    toggleMute,
   };
 }
