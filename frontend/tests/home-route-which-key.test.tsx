@@ -1,7 +1,17 @@
-import { fireEvent, screen, within } from "@testing-library/react";
+import { EditorView } from "@codemirror/view";
+import { act, fireEvent, screen, within } from "@testing-library/react";
 import { noteBase } from "@/lib/note-base";
 import { defineFoliateFake } from "./foliate-fake";
-import { editing, pageHooks, renderApp, settle, theRoute } from "./home-route-fixture";
+import {
+  baseOf,
+  editing,
+  pageHooks,
+  renderApp,
+  settle,
+  somebodyElseWrote,
+  theRoute,
+} from "./home-route-fixture";
+import { COARSE, NARROW, stubMatchMedia } from "./match-media";
 
 defineFoliateFake();
 
@@ -106,6 +116,10 @@ const outbox = vi.hoisted(() => ({
   subscribe: vi.fn(() => () => {}),
 }));
 vi.mock("@/lib/outbox", () => outbox);
+// xterm needs a canvas jsdom lacks; which session the pane holds is all these tests read.
+vi.mock("@/components/terminal-pane", () => ({
+  TerminalPane: ({ session }: { session: string }) => <div data-terminal={session} />,
+}));
 
 pageHooks();
 
@@ -176,5 +190,124 @@ describe("the which-key panel on the route", () => {
     } finally {
       localStorage.removeItem("kasten.vim");
     }
+  });
+});
+
+describe("#1403 the terminal prompt saves the note before it replaces the pane", () => {
+  theRoute();
+
+  const terminal = () => document.querySelector("[data-terminal]")?.getAttribute("data-terminal");
+  const note = () => document.querySelector(".cm-content")?.textContent;
+
+  /** A note with a typed edit, the way each kind of reader makes one. */
+  async function dirty(vim: boolean) {
+    if (vim) return editing();
+    localStorage.setItem("kasten.vim", "off");
+    // By the URL: a phone starts with the tree shut.
+    const app = await renderApp("/?note=index.md");
+    await settle();
+    const view = EditorView.findFromDOM(document.querySelector(".cm-content") as HTMLElement);
+    act(() => view?.dispatch({ changes: { from: 0, to: 1 } }));
+    expect(app.text()).toBe("he index note");
+    return app;
+  }
+
+  /** Open the prompt as the reader can, and pick the `work` session by its row. */
+  async function pick(app: Awaited<ReturnType<typeof renderApp>>, vim: boolean) {
+    fetchTerminals.mockResolvedValue(["work"]);
+    if (vim) app.leader("c", "s");
+    else {
+      // No leader with vim off: the palette, by its chord on a desktop.
+      app.press("P", { keyCode: 80, ctrlKey: true, shiftKey: true });
+      await settle();
+      fireEvent.click(screen.getByRole("option", { name: /^Open a terminal/ }));
+    }
+    await settle();
+    fireEvent.click(screen.getByRole("option", { name: "work" }));
+    await settle();
+  }
+
+  afterEach(() => localStorage.removeItem("kasten.vim"));
+
+  describe.each([true, false])("with vim %s", (vim) => {
+    it("A1 a refused save keeps the note, its text and the focus, and the bar says so", async () => {
+      const app = await dirty(vim);
+      saveNote.mockRejectedValueOnce(new Error("PUT failed with 500"));
+
+      await pick(app, vim);
+
+      expect.soft(terminal()).toBeUndefined();
+      expect.soft(note()).toBe("he index note");
+      expect.soft(app.status()).toBe("Could not save");
+      expect(document.querySelector(".cm-content")?.contains(document.activeElement)).toBe(true);
+    });
+
+    it("A2 a save that lands writes the note, then the pane becomes the terminal", async () => {
+      const app = await dirty(vim);
+
+      await pick(app, vim);
+
+      expect
+        .soft(saveNote)
+        .toHaveBeenCalledWith("index.md", "he index note", false, await baseOf("the index note"));
+      expect(terminal()).toBe("work");
+    });
+  });
+
+  it("A1 I2 on a phone a refused save keeps the note when a session row is tapped", async () => {
+    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+    const app = await dirty(false);
+    saveNote.mockRejectedValueOnce(new Error("PUT failed with 500"));
+
+    fetchTerminals.mockResolvedValue(["work"]);
+    fireEvent.click(screen.getByRole("button", { name: "Run a command by name" }));
+    fireEvent.click(screen.getByRole("option", { name: /^Open a terminal/ }));
+    await settle();
+    fireEvent.click(screen.getByRole("option", { name: "work" }));
+    await settle();
+
+    expect.soft(terminal()).toBeUndefined();
+    expect.soft(note()).toBe("he index note");
+    expect(app.status()).toBe("Could not save");
+  });
+
+  it("A2 I2 on a phone a tapped session row opens the terminal in the one pane", async () => {
+    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+    const app = await dirty(false);
+
+    fetchTerminals.mockResolvedValue(["work"]);
+    fireEvent.click(screen.getByRole("button", { name: "Run a command by name" }));
+    fireEvent.click(screen.getByRole("option", { name: /^Open a terminal/ }));
+    await settle();
+    fireEvent.click(screen.getByRole("option", { name: "work" }));
+    await settle();
+
+    expect.soft(terminal()).toBe("work");
+    expect(app.panes()).toBe(1);
+  });
+
+  it("I3 on a conflicted note picking a session writes nothing and keeps the note", async () => {
+    const app = await editing();
+    somebodyElseWrote();
+
+    await pick(app, true);
+
+    expect.soft(saveNote).not.toHaveBeenCalled();
+    expect.soft(terminal()).toBeUndefined();
+    expect(note()).toBe("he index note");
+  });
+
+  it("I5 a pane holding no note opens the terminal", async () => {
+    const app = await renderApp();
+    await settle();
+
+    fetchTerminals.mockResolvedValue(["work"]);
+    // The pane opens on Today, so the prompt is reached from the tree.
+    for (const key of [" ", "c", "s"]) fireEvent.keyDown(app.tree(), { key });
+    await settle();
+    fireEvent.click(screen.getByRole("option", { name: "work" }));
+    await settle();
+
+    expect(terminal()).toBe("work");
   });
 });

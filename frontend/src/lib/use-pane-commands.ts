@@ -43,12 +43,12 @@ export type PaneCommands = ReturnType<typeof usePaneCommands>;
 /**
  * The save rule, in one place. `replace` unmounts the editor, which holds the only copy of an
  * unsaved edit, so it saves first and a refused save keeps the note; `beside` unmounts nothing.
+ * `replace` answers whether the pane changed.
  */
 export function paneOpeners(saveFirst: () => Promise<boolean>, moveTo: PaneMoves["moveTo"]) {
   return {
-    replace: async (content: Omit<PaneOf, "id">) => {
-      if (await saveFirst()) moveTo((previous) => fillFocused(previous, content));
-    },
+    replace: async (content: Omit<PaneOf, "id">) =>
+      (await saveFirst()) && moveTo((previous) => fillFocused(previous, content)),
     beside: (holds: (pane: PaneOf) => boolean, content: Omit<PaneOf, "id">, dir: Split["dir"]) =>
       moveTo((previous) => openBeside(previous, holds, content, dir)),
   };
