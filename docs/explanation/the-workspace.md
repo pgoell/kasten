@@ -59,9 +59,10 @@ Not kept:
 
 * The text of any note. The vault holds that. Text you typed and kasten has
   not yet written has its own key, `kasten.held.2`, and its own rules.
-* The line a search or a link opened a note at. That belonged to the open that
-  asked for it, and a reload is not that open again. The cursor comes back
-  from the note's own position instead.
+* The line a search or a link opened a note at, and the heading a link opened
+  an html page at. That belonged to the open that asked for it, and a reload is
+  not that open again. The cursor comes back from the note's own position
+  instead, and the page opens at its top.
 * How many times this page opened a pdf. A reload starts the count again.
 
 Panes have no handle to drag, so a split always draws its panes in equal
