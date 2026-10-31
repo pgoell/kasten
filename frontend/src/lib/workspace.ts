@@ -3,6 +3,7 @@
  * storage, never the vault: a phone and a desktop want different layouts of the same notes.
  */
 
+import { isSavedPane } from "@/lib/pane-kinds";
 import { type Layout, type PaneNode, reidLayout } from "@/lib/panes";
 
 const FINE_KEY = "kasten.workspace.1";
@@ -50,51 +51,12 @@ type Check = (value: unknown) => boolean;
 const isObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 const isString: Check = (value) => typeof value === "string";
-const isTrue: Check = (value) => value === true;
-
-/** Every field a saved pane may carry, and what each must be. */
-const PANE: Record<string, Check> = {
-  id: isString,
-  path: isString,
-  term: isString,
-  todos: isTrue,
-  log: isTrue,
-  overview: isTrue,
-  finance: isTrue,
-  book: isString,
-  exam: isString,
-  review: isTrue,
-  image: isString,
-  pdf: (value) =>
-    isObject(value) &&
-    only(value, { path: isString, page: (page) => Number.isInteger(page) && Number(page) > 0 }, [
-      "path",
-    ]),
-  html: isString,
-  video: isString,
-  person: isString,
-  history: isString,
-  graph: (value) => isObject(value) && only(value, { around: isString }),
-  chat: isTrue,
-};
-
-/** Whether `value` holds the fields `fields` requires or allows, and nothing else. */
-function only(
-  value: Record<string, unknown>,
-  fields: Record<string, Check>,
-  required: string[] = [],
-) {
-  return (
-    required.every((key) => key in value) &&
-    Object.entries(value).every(([key, field]) => fields[key]?.(field) === true)
-  );
-}
 
 /** Whether a node is a tree ending in panes, every pane id added to `seen` once. */
 function isNode(value: unknown, seen: Set<string>): boolean {
   if (!isObject(value)) return false;
   if (!("dir" in value)) {
-    if (!only(value, PANE, ["id"]) || seen.has(value.id as string)) return false;
+    if (!isSavedPane(value) || seen.has(value.id as string)) return false;
     seen.add(value.id as string);
     return true;
   }

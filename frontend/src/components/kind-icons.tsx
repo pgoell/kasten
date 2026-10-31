@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
-import type { Pane } from "@/lib/panes";
+import type { PaneKind } from "@/lib/pane-kinds";
 
-export type PaneKind = "page" | "pdf" | "book" | "review" | "graph" | "video";
+export { paneKind, panePath } from "@/lib/pane-kinds";
 
 const LABELS: Record<PaneKind, string> = {
   page: "Note",
@@ -12,34 +12,8 @@ const LABELS: Record<PaneKind, string> = {
   video: "Video",
 };
 
-/** What a pane shows, by the field that says so. Anything else is a page: a note, an image or an empty pane. */
-export function paneKind(pane: Pane): PaneKind {
-  if (pane.pdf !== undefined) return "pdf";
-  if (pane.book !== undefined) return "book";
-  if (pane.review === true || pane.exam !== undefined) return "review";
-  if (pane.graph !== undefined) return "graph";
-  if (pane.video !== undefined) return "video";
-  return "page";
-}
-
 export function kindLabel(kind: PaneKind): string {
   return LABELS[kind];
-}
-
-/** The vault path of what the pane shows, in the order a pane can hold it. A pane holds one of these at most. */
-export function panePath(pane: Pane): string | undefined {
-  return (
-    pane.path ??
-    pane.pdf?.path ??
-    pane.book ??
-    pane.video ??
-    pane.image ??
-    pane.html ??
-    pane.exam ??
-    pane.person ??
-    pane.history ??
-    pane.graph?.around
-  );
 }
 
 const STROKE = {

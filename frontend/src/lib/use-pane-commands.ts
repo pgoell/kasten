@@ -21,14 +21,21 @@ import {
   clearFocused,
   openBookBeside,
   openBookInFocused,
+  openChatInFocused,
   openExamInFocused,
+  openFinanceInFocused,
   openGraphBeside,
   openGraphInFocused,
   openHistoryBeside,
+  openLogInFocused,
+  openOverviewInFocused,
   openPersonBeside,
+  openReviewInFocused,
+  openTodosInFocused,
   openVideoBeside,
 } from "@/lib/pane-contents";
 import { paneEditor } from "@/lib/pane-doc";
+import { heldKind, type KindField, PANE_KINDS } from "@/lib/pane-kinds";
 import {
   addTab,
   goToTab,
@@ -43,7 +50,6 @@ import {
 import { type Period, periodicNote } from "@/lib/periodic";
 import { isPerson } from "@/lib/person";
 import { askRsvp } from "@/lib/rsvp/use-rsvp";
-import { wholePaneOpeners } from "@/lib/whole-pane-openers";
 import { splitTarget, wikiLinkPath, wikiLinkTargets } from "@/lib/wikilink";
 
 export type PaneCommands = ReturnType<typeof usePaneCommands>;
@@ -61,27 +67,7 @@ export function usePaneCommands({
   sheetGraph,
   sideGraph,
 }: {
-  pane: Pick<
-    PaneOf,
-    | "id"
-    | "path"
-    | "term"
-    | "chat"
-    | "todos"
-    | "log"
-    | "overview"
-    | "finance"
-    | "book"
-    | "exam"
-    | "review"
-    | "image"
-    | "pdf"
-    | "html"
-    | "video"
-    | "person"
-    | "history"
-    | "graph"
-  >;
+  pane: Pick<PaneOf, "id" | KindField>;
   setLayout: Dispatch<SetStateAction<Layout>>;
   saveFirst: () => Promise<boolean>;
   moves: Pick<PaneMoves, "moveTo" | "focusToward" | "shiftToward">;
@@ -152,6 +138,7 @@ export function usePaneCommands({
   }, [queryClient, saveFirst, moveTo, setNotice]);
 
   const food = useFoodWait(pane.id, pane.path);
+  const kind = heldKind(pane);
 
   const readRsvp = useCallback(
     (here: boolean) => askRsvp(pane, here, setNotice),
@@ -209,36 +196,39 @@ export function usePaneCommands({
       // Leave a note only once the vault has its text: emptying the pane unmounts the
       // editor, which holds the only copy of an unsaved edit. A refused save keeps it open.
       closeNote: async () => {
-        // Cleared like a note, since removing the last pane of the last tab does nothing.
-        // Closing the socket only detaches a client; the herdr session keeps running.
-        if (
-          pane.term !== undefined ||
-          pane.chat === true ||
-          pane.todos === true ||
-          pane.log === true ||
-          pane.overview === true ||
-          pane.finance === true ||
-          pane.book !== undefined ||
-          pane.exam !== undefined ||
-          pane.review === true ||
-          pane.image !== undefined ||
-          pane.pdf !== undefined ||
-          pane.html !== undefined ||
-          pane.video !== undefined ||
-          pane.person !== undefined ||
-          pane.history !== undefined ||
-          pane.graph !== undefined
-        ) {
-          moveTo(clearFocused);
+        if (kind === undefined) {
+          moveTo(removeFocused);
           return;
         }
-        if (pane.path === undefined) {
-          moveTo(removeFocused);
+        // Cleared like a note, since removing the last pane of the last tab does nothing.
+        // Closing the socket only detaches a client; the herdr session keeps running.
+        if (PANE_KINDS[kind].clears) {
+          moveTo(clearFocused);
           return;
         }
         if (await saveFirst()) moveTo(clearFocused);
       },
-      ...wholePaneOpeners(saveFirst, moveTo),
+      // Saved first: replacing the pane unmounts its editor, and unsaved text goes with it.
+      openTodos: async () => {
+        if (await saveFirst()) moveTo(openTodosInFocused);
+      },
+      openLog: async () => {
+        if (await saveFirst()) moveTo(openLogInFocused);
+      },
+      openOverview: async () => {
+        if (await saveFirst()) moveTo(openOverviewInFocused);
+      },
+      openFinance: async () => {
+        if (await saveFirst()) moveTo(openFinanceInFocused);
+      },
+      // Saved first: unsaved text would be written to a pane the autosave no longer follows.
+      openReview: async () => {
+        if (await saveFirst()) moveTo(openReviewInFocused);
+      },
+      // Saved first, as `openTodos`. Closing the pane later ends nothing; the runner owns it.
+      openChat: async () => {
+        if (await saveFirst()) moveTo(openChatInFocused);
+      },
       // Saved first: the graph replaces what the pane holds.
       openGraph: async () => {
         if (await saveFirst()) moveTo(openGraphInFocused);
@@ -403,22 +393,7 @@ export function usePaneCommands({
       setLayout,
       pane.id,
       pane.path,
-      pane.term,
-      pane.chat,
-      pane.todos,
-      pane.log,
-      pane.overview,
-      pane.finance,
-      pane.book,
-      pane.exam,
-      pane.review,
-      pane.image,
-      pane.pdf,
-      pane.html,
-      pane.video,
-      pane.person,
-      pane.history,
-      pane.graph,
+      kind,
       queryClient,
       setNotice,
       food,

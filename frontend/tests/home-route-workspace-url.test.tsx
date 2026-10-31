@@ -105,6 +105,10 @@ vi.mock("@/lib/move-api", () => ({ renameNote, moveFolder }));
 vi.mock("@/lib/trash-api", () => ({ deleteNote, fetchTrash, restoreEntry, deleteImage }));
 vi.mock("@/lib/history-api", () => ({ fetchHistory, fetchHistoryText }));
 vi.mock("foliate-js/view.js", () => ({}));
+// The graph pane draws on a canvas jsdom lacks.
+vi.mock("@/lib/graph/graph-canvas", () => ({
+  drawGraph: () => ({ update() {}, resize() {}, fit() {}, cluster() {}, destroy() {} }),
+}));
 const pdfPaneRenderer = vi.hoisted(() => ({ current: null as PdfRenderer | null }));
 vi.mock("@/lib/book/pdf-view", async (importOriginal) => {
   const real = await importOriginal<typeof import("@/lib/book/pdf-view")>();
@@ -225,6 +229,25 @@ describe("the workspace across a reload", () => {
   }
 
   const selectedTab = () => screen.getByRole("tab", { selected: true }).textContent;
+
+  it.each([
+    ["video", { video: "other.md" }],
+    ["person", { person: "other.md" }],
+    ["history", { history: "other.md" }],
+    ["graph", { graph: { around: "other.md" } }],
+  ])(
+    "workspace: #978 a restored %s pane marks the note it was opened from in the tree",
+    async (_, held) => {
+      seed([{ id: "t", root: { id: "a", ...held }, focus: "a" }]);
+
+      await reload();
+
+      const row = (path: string) =>
+        document.querySelector(`[aria-label='Vault'] [title='${path}']`);
+      expect(row("other.md")).toHaveAttribute("aria-current", "page");
+      expect(row("index.md")).not.toHaveAttribute("aria-current");
+    },
+  );
 
   it("workspace: I3 a URL naming a note another tab holds goes to that tab", async () => {
     seed([
