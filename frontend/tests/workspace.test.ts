@@ -348,12 +348,14 @@ describe("workspace", () => {
   const WHERE = ["line", "jump", "anchor"];
   const kinds = () => Object.keys(EVERY).filter((key) => !WHERE.includes(key));
 
-  // The #978 load test seeds storage by hand, so a field saved but not checked slipped by (#1400).
+  // Goes through saveWorkspace, so a field saved but not checked on load fails here.
   it.each([false, true])(
     "#1400 a pane holding every Pane field comes back through save and load (coarse %s)",
     (coarse) => {
       const layout: Layout = {
-        tabs: [{ id: "t", root: { id: "p", ...EVERY }, focus: "p" }],
+        tabs: [
+          { id: "t", root: { id: "p", ...EVERY, pdf: { ...EVERY.pdf, opened: 3 } }, focus: "p" },
+        ],
         active: 0,
       };
       saveWorkspace(coarse, layout, true);
