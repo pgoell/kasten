@@ -96,7 +96,6 @@
         "src/components/status-bar.tsx",
         "src/components/tab-strip.tsx",
         "src/components/terminal-prompt.tsx",
-        "src/components/todo-list.tsx",
         "src/components/todo-row.tsx",
         "src/components/tree-rows.tsx",
         "src/components/use-dump-take.tsx",
