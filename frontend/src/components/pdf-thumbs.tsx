@@ -31,6 +31,13 @@ function free(canvas: HTMLCanvasElement) {
   canvas.height = 0;
 }
 
+/** Empties a thumbnail's slot, its canvas's bitmap given back first. */
+function empty(slot: HTMLElement) {
+  const canvas = slot.querySelector("canvas");
+  if (canvas !== null) free(canvas);
+  slot.replaceChildren();
+}
+
 /**
  * Draws page `number` onto a fresh canvas and shows it in `slot` once drawn. pdf.js
  * refuses a second render onto a busy canvas, and the slot keeps the old one until the new is ready.
@@ -101,9 +108,7 @@ export function PdfThumbs({ file, current, onGoTo, ref }: PdfThumbsProps) {
           } else {
             shown.current.delete(number);
             drawing.current.delete(number);
-            const canvas = slot.querySelector("canvas");
-            if (canvas !== null) free(canvas);
-            slot.replaceChildren();
+            empty(slot);
           }
         }
       },
@@ -114,9 +119,7 @@ export function PdfThumbs({ file, current, onGoTo, ref }: PdfThumbsProps) {
       observer.disconnect();
       for (const number of shown.current) {
         const slot = slotOf(root, number);
-        const canvas = slot?.querySelector("canvas");
-        if (canvas) free(canvas);
-        slot?.replaceChildren();
+        if (slot !== null) empty(slot);
       }
       shown.current.clear();
       drawing.current.clear();

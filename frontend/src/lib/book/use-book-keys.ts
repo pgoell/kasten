@@ -37,29 +37,19 @@ export function useBookKeys(o: {
       // this `q` closes the reader and `l` turns a page behind the panel.
       if (contentsOpen.current) return;
 
-      const chord =
-        event.ctrlKey === TERMINAL_CHORD.ctrlKey &&
-        event.shiftKey === TERMINAL_CHORD.shiftKey &&
-        event.altKey === TERMINAL_CHORD.altKey &&
-        event.metaKey === TERMINAL_CHORD.metaKey;
-
-      if (chord) {
-        // From `TERMINAL`, so retuning a chord retunes both panes.
-        const binding = TERMINAL.find((row) => row.key === event.key);
-        if (binding === undefined) return;
-        event.preventDefault();
-        commandsRef.current[binding.command]();
+      if (isTerminalChord(event)) {
+        runChord(event, commandsRef.current);
         return;
       }
 
       // `?` is shift and `/`, so it is read before the modifier check.
-      if (event.key === "?" && !event.ctrlKey && !event.altKey && !event.metaKey) {
+      if (isHelpKey(event)) {
         event.preventDefault();
         commandsRef.current.showHelp();
         return;
       }
 
-      if (event.ctrlKey || event.shiftKey || event.altKey || event.metaKey) return;
+      if (anyModifier(event)) return;
 
       // Leader on every page (#776). Space turns no page here, so it opens the panel.
       // The wrapper and not the focused element: the foliate host takes no focus.
@@ -69,23 +59,16 @@ export function useBookKeys(o: {
         }
         return;
       }
-      if (event.key === "l" || event.key === "h") turn(event.key === "l" ? "next" : "prev");
-      else if (event.key === "j" || event.key === "k") scroll(event.key === "j" ? "down" : "up");
-      // Clear the selection in every document and hand the keys back to Kasten.
-      // The book's frame holds the focus, which the app's keys do not reach.
-      else if (event.key === "Escape") {
-        for (const { doc } of viewRef.current?.renderer?.getContents?.() ?? [])
-          doc.getSelection()?.removeAllRanges();
-        wrapper.current?.focus();
-      } else if (event.key === "q") commandsRef.current.closeNote();
-      // vim's key for writing out a file, said bare like `q`.
-      else if (event.key === "w") commandsRef.current.exportNote();
-      // Nothing selected is nothing to take.
-      else if (event.key === "y") void take();
-      else if (event.key === "t") openContents();
-      else return;
-
-      event.preventDefault();
+      const keys = {
+        viewRef,
+        wrapper,
+        commands: commandsRef.current,
+        turn,
+        scroll,
+        take,
+        openContents,
+      };
+      if (bareKey(event.key, keys)) event.preventDefault();
       // `take` and `openContents` are the only non-refs here. Each is a no-dependency
       // `useCallback`, so this handler's identity stays fixed for the life of the pane.
     },
@@ -100,4 +83,79 @@ export function useBookKeys(o: {
   }, [onKeyDown, wrapper]);
 
   return onKeyDown;
+}
+
+/** Whether `event` holds exactly the modifiers of the terminal chord. */
+function isTerminalChord(event: KeyboardEvent): boolean {
+  return (
+    event.ctrlKey === TERMINAL_CHORD.ctrlKey &&
+    event.shiftKey === TERMINAL_CHORD.shiftKey &&
+    event.altKey === TERMINAL_CHORD.altKey &&
+    event.metaKey === TERMINAL_CHORD.metaKey
+  );
+}
+
+/** Whether `event` is `?` with no modifier but the shift that types it. */
+function isHelpKey(event: KeyboardEvent): boolean {
+  return event.key === "?" && !event.ctrlKey && !event.altKey && !event.metaKey;
+}
+
+function anyModifier(event: KeyboardEvent): boolean {
+  return event.ctrlKey || event.shiftKey || event.altKey || event.metaKey;
+}
+
+/** Run the terminal chord's command for `event`, from `TERMINAL`, so retuning a chord retunes both panes. */
+function runChord(event: KeyboardEvent, commands: EditorCommands): void {
+  const binding = TERMINAL.find((row) => row.key === event.key);
+  if (binding === undefined) return;
+  event.preventDefault();
+  commands[binding.command]();
+}
+
+type BareKeys = {
+  viewRef: RefObject<FoliateView | null>;
+  wrapper: RefObject<HTMLDivElement | null>;
+  commands: EditorCommands;
+  turn: BookTurns["turn"];
+  scroll: BookTurns["scroll"];
+  take: BookTake["take"];
+  openContents: () => void;
+};
+
+/** Run the command of a key pressed with no modifier, answering whether there was one. */
+function bareKey(key: string, o: BareKeys): boolean {
+  const { viewRef, wrapper, commands, turn, scroll, take, openContents } = o;
+  switch (key) {
+    case "l":
+    case "h":
+      turn(key === "l" ? "next" : "prev");
+      return true;
+    case "j":
+    case "k":
+      scroll(key === "j" ? "down" : "up");
+      return true;
+    // Clear the selection in every document and hand the keys back to Kasten.
+    // The book's frame holds the focus, which the app's keys do not reach.
+    case "Escape":
+      for (const { doc } of viewRef.current?.renderer?.getContents?.() ?? [])
+        doc.getSelection()?.removeAllRanges();
+      wrapper.current?.focus();
+      return true;
+    case "q":
+      commands.closeNote();
+      return true;
+    // vim's key for writing out a file, said bare like `q`.
+    case "w":
+      commands.exportNote();
+      return true;
+    // Nothing selected is nothing to take.
+    case "y":
+      void take();
+      return true;
+    case "t":
+      openContents();
+      return true;
+    default:
+      return false;
+  }
 }

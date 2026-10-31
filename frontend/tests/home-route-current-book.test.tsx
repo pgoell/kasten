@@ -297,6 +297,38 @@ describe("reading the current book", () => {
     expect.soft(app.reader()).toBeNull();
   });
 
+  it("says what went wrong when reading-now.md cannot be read", async () => {
+    fetchNote.mockImplementation(async (path: string) => {
+      if (path === READING) throw new Error("the server answered 500");
+      return NOTES[path];
+    });
+    const app = await opened();
+
+    await press(app);
+
+    expect.soft(app.notice()).toBe("the server answered 500");
+    expect.soft(app.reader()).toBeNull();
+  });
+
+  it("says reading-now.md links no book note when its link names only a heading", async () => {
+    reading = "[[#Chapter three]]";
+    const app = await opened();
+
+    await press(app);
+
+    expect.soft(app.notice()).toBe(`${READING} links no book note`);
+  });
+
+  it("names the link when it names a file that is not a note", async () => {
+    fetchFiles.mockResolvedValue([...Object.keys(NOTES), READING, "Plan.pdf"]);
+    reading = "[[Plan.pdf]]";
+    const app = await opened();
+
+    await press(app);
+
+    expect.soft(app.notice()).toBe("[[Plan.pdf]] in reading-now.md names no note");
+  });
+
   it("A6 says nothing is beside the note before the pane is swapped", async () => {
     reading = "[[Bare]]";
     const app = await opened();

@@ -4,7 +4,7 @@ import { ContentsColumn, NoteColumn } from "@/components/book-columns";
 import { BookContents, type TocRow, tocRows } from "@/components/book-contents";
 import { Rsvp } from "@/components/rsvp";
 import { useBookNoteTake } from "@/components/use-book-note-take";
-import { fetchBook } from "@/lib/api";
+import { type BookBeside, fetchBook } from "@/lib/api";
 import type { FoliateView } from "@/lib/book/foliate-view";
 import { bookSource } from "@/lib/book/rsvp-book";
 import { useBookHighlights } from "@/lib/book/use-book-highlights";
@@ -95,6 +95,15 @@ interface BookPaneProps {
   onNotice: (message: string) => void;
   /** Raised for this pane by `Space r r` and `Space r h`. */
   rsvp?: RsvpAsk;
+}
+
+/**
+ * Whether the note has left the vault or the book beside it is empty. The listing having not
+ * arrived is not the same as the note being gone, so an undefined `paths` says nothing.
+ */
+function unreadable(note: string, paths: string[] | undefined, beside: BookBeside | undefined) {
+  const orphaned = paths !== undefined && !paths.includes(note);
+  return orphaned || (beside !== undefined && beside.blob.size === 0);
 }
 
 /**
@@ -314,11 +323,7 @@ export function BookPane({
   // which a folder move has since changed.
   useEffect(() => () => onLeavingRef.current(), []);
 
-  // The listing having not arrived is not the same as the note being gone, so
-  // an undefined `paths` says nothing.
-  const orphaned = paths !== undefined && !paths.includes(note);
-  const failed =
-    broken || error !== null || orphaned || (beside !== undefined && beside.blob.size === 0);
+  const failed = broken || error !== null || unreadable(note, paths, beside);
 
   const percent = progress === null ? null : Math.round(progress * 100);
 

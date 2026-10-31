@@ -145,6 +145,23 @@ it("offsets and ranges round trip over a layer of several spans", () => {
   expect(back === null ? null : offsetsIn(layer, back)).toEqual({ start: 6, end: 14 });
 });
 
+it("a range that only touches a span at its edge takes no offsets from it", () => {
+  const { layer, texts } = layerOfThree();
+  const first = texts[0] as Text;
+  const second = texts[1] as Text;
+
+  // Starts at the very end of the first span, so it covers none of that span's text.
+  const edge = document.createRange();
+  edge.setStart(first, first.data.length);
+  edge.setEnd(second, 4);
+  expect(offsetsIn(layer, edge)).toEqual({ start: 6, end: 10 });
+
+  // A collapsed range covers no text at all.
+  const caret = document.createRange();
+  caret.setStart(first, 3);
+  expect(offsetsIn(layer, caret)).toBeNull();
+});
+
 it("a range that does not meet the layer has no offsets in it", () => {
   const { layer } = layerOfThree();
   const outside = document.createElement("p");

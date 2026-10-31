@@ -158,6 +158,25 @@ describe("the pdf pane's thumbnails", () => {
     expect(first.querySelector("canvas")).toBeNull();
   });
 
+  it("a thumbnail drawn when the pane goes gives its canvas back", async () => {
+    const fake = fakeFile();
+    const { unmount } = render(<PdfThumbs file={fake.file} current={1} onGoTo={() => {}} />);
+    const first = screen.getByRole("button", { name: "Page 1" });
+    act(() => FakeObserver.reveal(first));
+    await flush();
+    act(() => {
+      for (const finish of fake.finishers) finish();
+    });
+    await flush();
+    const canvas = first.querySelector("canvas");
+    expect(canvas?.width).toBeGreaterThan(0);
+
+    unmount();
+
+    expect(canvas?.width).toBe(0);
+    expect(first.querySelector("canvas")).toBeNull();
+  });
+
   it("a redraw while a draw is in flight draws a new canvas, and the thumbnail ends drawn", async () => {
     const fake = fakeFile();
     const handle = createRef<ThumbsHandle>();

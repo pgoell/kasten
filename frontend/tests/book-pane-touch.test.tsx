@@ -119,6 +119,17 @@ describe("a book under a finger", () => {
     expect(lastView().lefts + lastView().rights).toBe(0);
   });
 
+  it("turns nothing for a tap something in the page already answered", async () => {
+    await opened();
+    const button = lastView().section.createElement("button");
+    lastView().section.body.append(button);
+    button.addEventListener("click", (event) => event.preventDefault());
+
+    tap(350, button);
+
+    expect(lastView().lefts + lastView().rights).toBe(0);
+  });
+
   it("leaves a tap on a link to the link", async () => {
     await opened();
     const doc = lastView().section;

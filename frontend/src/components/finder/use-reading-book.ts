@@ -39,32 +39,49 @@ export function useReadingBook({
         queryClient.ensureQueryData({ queryKey: ["assets"], queryFn: fetchAssets }),
       ]);
     } catch (error: unknown) {
-      if (error instanceof NoteMissing) setNotice(`${READING_NOTE} is not there`);
-      else setNotice(error instanceof Error ? error.message : `${READING_NOTE} could not be read`);
+      setNotice(noticeFor(error));
       return;
     }
 
-    const target = wikiLinkTargets(text)[0];
-    if (target === undefined || splitTarget(target).name === "") {
-      setNotice(`${READING_NOTE} links no book note`);
-      return;
-    }
-
-    // wikiLinkPath falls back to the inbox, so the listing is what says no note.
-    const note = wikiLinkPath(target, paths);
-    if (!note.endsWith(".md") || !paths.includes(note)) {
-      setNotice(`[[${target}]] in ${noteName(READING_NOTE)}.md names no note`);
-      return;
-    }
-
-    // Pairs as the backend does, both suffixes; withBooks in note-finder.tsx follows it.
-    const stem = note.slice(0, -".md".length);
-    if (!books.some((path) => path === `${stem}.epub` || path === `${stem}.pdf`)) {
-      setNotice(`Nothing to read beside ${note}`);
+    const found = bookNoteIn(text, paths, books);
+    if ("fault" in found) {
+      setNotice(found.fault);
       return;
     }
 
     // The reader finds the `reading:` place in the note itself.
-    moveTo((previous) => openBookInFocused(previous, note));
+    moveTo((previous) => openBookInFocused(previous, found.note));
   }, [queryClient, saveFirst, moveTo, setNotice]);
+}
+
+/** What the reading note could not be read for, as the notice says it. */
+function noticeFor(error: unknown): string {
+  if (error instanceof NoteMissing) return `${READING_NOTE} is not there`;
+  return error instanceof Error ? error.message : `${READING_NOTE} could not be read`;
+}
+
+/** The book note the reading note links first, or what is wrong with that link. */
+function bookNoteIn(
+  text: string,
+  paths: string[],
+  books: string[],
+): { note: string } | { fault: string } {
+  const target = wikiLinkTargets(text)[0];
+  if (target === undefined || splitTarget(target).name === "") {
+    return { fault: `${READING_NOTE} links no book note` };
+  }
+
+  // wikiLinkPath falls back to the inbox, so the listing is what says no note.
+  const note = wikiLinkPath(target, paths);
+  if (!note.endsWith(".md") || !paths.includes(note)) {
+    return { fault: `[[${target}]] in ${noteName(READING_NOTE)}.md names no note` };
+  }
+
+  // Pairs as the backend does, both suffixes; withBooks in note-finder.tsx follows it.
+  const stem = note.slice(0, -".md".length);
+  if (!books.some((path) => path === `${stem}.epub` || path === `${stem}.pdf`)) {
+    return { fault: `Nothing to read beside ${note}` };
+  }
+
+  return { note };
 }

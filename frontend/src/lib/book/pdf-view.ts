@@ -188,15 +188,9 @@ export function showPdf(
       .page(number)
       .then(async (pdfPage) => {
         if (!wanted()) return;
-        // The slot's own width, not the box's: the box's padding is no part of
-        // the page, and a scale taken from the padded box lays the text layer
-        // wider than its slot, so it overhangs the box and the box scrolls
-        // sideways at 100 %. The box's width is the fallback for a slot not yet
-        // laid out (jsdom), with the zoom applied since the slot would carry it.
         // The text layer is laid out at the same scale without the pixel ratio,
         // which the canvas alone takes.
-        const width = slot.clientWidth || (box.clientWidth || pdfPage.width) * zoom;
-        const cssScale = width / pdfPage.width;
+        const cssScale = slotWidth(slot, box, pdfPage.width, zoom) / pdfPage.width;
         slot.style.aspectRatio = `${pdfPage.width} / ${pdfPage.height}`;
         await pdfPage.draw(canvas, cssScale * window.devicePixelRatio, options?.colors?.());
         if (!wanted()) {
@@ -205,16 +199,8 @@ export function showPdf(
         }
         // The text layer goes in with the canvas and is filled after, so the
         // page shows at once and its words follow.
-        const layer = options?.textLayer && pdfPage.text ? document.createElement("div") : null;
-        if (layer !== null) {
-          layer.className = "textLayer";
-          // The layer is laid over the page, so the slot is its frame.
-          slot.style.position = "relative";
-        }
-        // Every canvas the slot holds is the one this replaces, a redraw's old
-        // one included, so each is shrunk here and not left to the collector.
-        for (const old of slot.querySelectorAll("canvas")) shrink(old);
-        slot.replaceChildren(...(layer === null ? [canvas] : [canvas, layer]));
+        const layer = textLayerFor(slot, Boolean(options?.textLayer && pdfPage.text));
+        swapIn(slot, canvas, layer);
         if (layer === null || pdfPage.text === undefined) return;
         await pdfPage.text(layer, cssScale);
         if (wanted()) options?.onText?.(number, layer);
@@ -244,6 +230,17 @@ export function showPdf(
     box.scrollTop = slot.offsetTop - head.offsetTop + share * slot.offsetHeight;
   };
 
+  // Draws a page as it comes within a screen of the box, and frees it as it leaves.
+  const seen = (pdf: PdfFile, entry: IntersectionObserverEntry) => {
+    const number = numbers.get(entry.target);
+    if (number === undefined) return;
+    if (!entry.isIntersecting) free(entry.target);
+    // Not while fingers pinch: every move is another zoom, and pdf.js
+    // would draw each one. The pages are drawn once the fingers are off.
+    else if (!canvases.has(entry.target) && pinching === null)
+      paint(pdf, entry.target as HTMLElement, number);
+  };
+
   opening.file
     .then((pdf) => pdf.page(1).then((first) => ({ pdf, first })))
     .then(({ pdf, first }) => {
@@ -253,26 +250,13 @@ export function showPdf(
       box.textContent = "";
       observer = new IntersectionObserver(
         (entries) => {
-          for (const entry of entries) {
-            const number = numbers.get(entry.target);
-            if (number === undefined) continue;
-            if (!entry.isIntersecting) free(entry.target);
-            // Not while fingers pinch: every move is another zoom, and pdf.js
-            // would draw each one. The pages are drawn once the fingers are off.
-            else if (!canvases.has(entry.target) && pinching === null)
-              paint(pdf, entry.target as HTMLElement, number);
-          }
+          for (const entry of entries) seen(pdf, entry);
         },
         // A screen ahead, so the next page is drawn before it is scrolled to.
         { root: box, rootMargin: "100% 0px" },
       );
       for (let number = 1; number <= pdf.pages; number += 1) {
-        const slot = document.createElement("div");
-        slot.className = "cm-pdf-page";
-        slot.dataset.pdfPage = String(number);
-        slot.style.aspectRatio = `${first.width} / ${first.height}`;
-        // Left alone at 1, so the embed in a note is laid out as it was.
-        if (zoom !== 1) slot.style.width = `${zoom * 100}%`;
+        const slot = slotFor(number, first, zoom);
         box.append(slot);
         numbers.set(slot, number);
         observer.observe(slot);
@@ -282,7 +266,7 @@ export function showPdf(
       // or a window resized, would show another page, and one hidden and shown
       // again shows the first. A page and not a share of the whole box, which
       // drifts by the gaps between pages, and those do not grow with the width.
-      top = page !== undefined && page <= pdf.pages ? page - 1 : 0;
+      top = firstShown(page, pdf.pages);
       share = 0;
       place();
       options?.onPage?.(top + 1);
@@ -294,8 +278,7 @@ export function showPdf(
         // not a place anyone chose, and the one before it is kept.
         if (box.scrollTop >= box.scrollHeight - box.clientHeight) return;
         const y = box.scrollTop + (pages[0] as HTMLElement).offsetTop;
-        let at = 0;
-        while (at + 1 < pages.length && (pages[at + 1] as HTMLElement).offsetTop <= y) at += 1;
+        const at = pageAt(pages, y);
         const slot = pages[at] as HTMLElement;
         // A hidden box has no layout to read, and keeps the place it had.
         if (slot.offsetHeight === 0) return;
@@ -435,4 +418,60 @@ export function showPdf(
     opening.destroy();
   };
   return Object.assign(dispose, { redraw: repaint, setZoom, goTo });
+}
+
+/**
+ * The width a page is drawn at. The slot's own width, not the box's: the box's padding is no part of
+ * the page, and a scale taken from the padded box lays the text layer wider than its slot, so it
+ * overhangs the box and the box scrolls sideways at 100 %. The box's width is the fallback for a slot
+ * not yet laid out (jsdom), with the zoom applied since the slot would carry it.
+ */
+function slotWidth(slot: HTMLElement, box: HTMLElement, pageWidth: number, zoom: number): number {
+  return slot.clientWidth || (box.clientWidth || pageWidth) * zoom;
+}
+
+/** A page's text layer, laid over its slot, or null for none. */
+function textLayerFor(slot: HTMLElement, wanted: boolean): HTMLDivElement | null {
+  if (!wanted) return null;
+  const layer = document.createElement("div");
+  layer.className = "textLayer";
+  // The layer is laid over the page, so the slot is its frame.
+  slot.style.position = "relative";
+  return layer;
+}
+
+/**
+ * Show `canvas`, and `layer` over it, in `slot`. Every canvas the slot holds is the one this
+ * replaces, a redraw's old one included, so each is shrunk here and not left to the collector.
+ */
+function swapIn(slot: HTMLElement, canvas: HTMLCanvasElement, layer: HTMLDivElement | null): void {
+  for (const old of slot.querySelectorAll("canvas")) shrink(old);
+  slot.replaceChildren(...(layer === null ? [canvas] : [canvas, layer]));
+}
+
+/** Page `number`'s empty slot, shaped like the first page. */
+function slotFor(
+  number: number,
+  first: { width: number; height: number },
+  zoom: number,
+): HTMLDivElement {
+  const slot = document.createElement("div");
+  slot.className = "cm-pdf-page";
+  slot.dataset.pdfPage = String(number);
+  slot.style.aspectRatio = `${first.width} / ${first.height}`;
+  // Left alone at 1, so the embed in a note is laid out as it was.
+  if (zoom !== 1) slot.style.width = `${zoom * 100}%`;
+  return slot;
+}
+
+/** The index of the page to open at: `page`'s, or the first. */
+function firstShown(page: number | undefined, pages: number): number {
+  return page !== undefined && page <= pages ? page - 1 : 0;
+}
+
+/** The index of the last page whose top is at or above `y`. */
+function pageAt(pages: HTMLElement[], y: number): number {
+  let at = 0;
+  while (at + 1 < pages.length && (pages[at + 1] as HTMLElement).offsetTop <= y) at += 1;
+  return at;
 }

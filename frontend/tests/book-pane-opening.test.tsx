@@ -185,6 +185,13 @@ describe("BookPane", () => {
     await waitFor(() => expect(panel()).toHaveTextContent(NOTE));
   });
 
+  it("says nothing when the listing holds the note", async () => {
+    draw({ paths: ["something/else.md", NOTE] });
+
+    await waitFor(() => expect(lastView().started).toBe(true));
+    expect(panel()).toBeNull();
+  });
+
   it("says nothing while the listing has not arrived", async () => {
     // Not knowing yet is not the same as gone. This passes before the
     // behaviour exists, so it guards against a later regression rather than
@@ -310,5 +317,68 @@ describe("BookPane", () => {
     // Nothing to free: `open` never finished, so no section loaded and the
     // element the cleanup removed took the renderer with it.
     expect(lastView().closes).toBe(0);
+  });
+
+  it("frees the book whose open finished after the pane went", async () => {
+    const open = deferred();
+    FakeView.openWith = () => open.promise;
+    const { unmount } = draw();
+    await waitFor(() => expect(FakeView.made).toHaveLength(1));
+    // The book only exists once `open` resolves, so its `destroy` is hung as it is assigned.
+    const destroy = vi.fn();
+    let book: object | undefined;
+    Object.defineProperty(lastView(), "book", {
+      configurable: true,
+      get: () => book,
+      set: (made: object) => {
+        book = { ...made, destroy };
+      },
+    });
+
+    unmount();
+    await act(async () => {
+      open.resolve();
+      await open.promise;
+    });
+
+    expect(destroy).toHaveBeenCalledTimes(1);
+  });
+
+  it("frees the book again when the pane went while the saved place loaded", async () => {
+    const init = deferred();
+    FakeView.initWith = () => init.promise;
+    const { unmount } = draw();
+    await waitFor(() => expect(lastView().inits).toHaveLength(1));
+    const destroy = vi.fn();
+    (lastView().book as { destroy?: () => void }).destroy = destroy;
+
+    unmount();
+    await act(async () => {
+      init.resolve();
+      await init.promise;
+    });
+
+    // Once by the pane's cleanup, once by the open that finished after it.
+    expect(destroy).toHaveBeenCalledTimes(2);
+  });
+
+  it("frees the book again when the pane went while the front of the book loaded", async () => {
+    FakeView.navigatesNowhere = true;
+    const second = deferred();
+    let inits = 0;
+    FakeView.initWith = () => (inits++ === 0 ? Promise.resolve() : second.promise);
+    const { unmount } = draw();
+    await waitFor(() => expect(lastView().inits).toHaveLength(2));
+    const destroy = vi.fn();
+    (lastView().book as { destroy?: () => void }).destroy = destroy;
+
+    unmount();
+    await act(async () => {
+      second.resolve();
+      await second.promise;
+    });
+
+    expect(destroy).toHaveBeenCalledTimes(2);
+    expect(panel()).toBeNull();
   });
 });

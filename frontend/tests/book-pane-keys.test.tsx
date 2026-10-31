@@ -251,4 +251,20 @@ describe("the keys inside a book", () => {
 
     expect(pane.onFocus).toHaveBeenCalled();
   });
+
+  it("shows the help on ?", async () => {
+    const pane = await opened();
+
+    press(lastView().section, "?", { shiftKey: true });
+
+    expect(pane.commands.showHelp).toHaveBeenCalledTimes(1);
+  });
+
+  it("leaves ? with alt held to the browser", async () => {
+    const pane = await opened();
+
+    press(lastView().section, "?", { shiftKey: true, altKey: true });
+
+    expect(pane.commands.showHelp).not.toHaveBeenCalled();
+  });
 });

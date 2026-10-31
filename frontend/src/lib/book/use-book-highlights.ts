@@ -98,20 +98,6 @@ export function useBookHighlights(
    */
   const redraw = useCallback(
     (blocks: HighlightBlock[]) => {
-      /** The overlay a pdf page carries, hung on first use and after a re-render. */
-      function pdfOverlay(doc: Document): FoliateOverlayer | undefined {
-        const layer = pdfLayer(doc);
-        if (layer === null) return undefined;
-
-        // A re-render removes the old overlay, so a detached element means hang another.
-        const held = overlays.current.get(doc);
-        if (held?.element.isConnected) return held;
-
-        const made = hangOverlay(layer);
-        overlays.current.set(doc, made);
-        return made;
-      }
-
       const shown = viewRef.current?.renderer?.getContents?.() ?? [];
 
       // Removing an id from an overlay that never held it does nothing, so a fresh section needs no bookkeeping.
@@ -122,24 +108,7 @@ export function useBookHighlights(
       // The mark token, not the accent, which is the link colour.
       const colour = getComputedStyle(document.documentElement).getPropertyValue("--k-mark").trim();
 
-      for (const entry of shown) {
-        const overlayer = entry.overlayer ?? pdfOverlay(entry.doc);
-        if (overlayer === undefined) continue;
-        // Only a hung overlay is this pane's to aim; foliate aims its own.
-        if (overlayer !== entry.overlayer) aimOverlay(overlayer, entry.doc);
-
-        const found = findWritten(
-          entry.doc,
-          blocks.map((block) => block.raw),
-        );
-        for (const [at, range] of found.entries()) {
-          const block = blocks[at];
-          // A quote the book no longer holds is skipped silently, unlike `gf`, which answers.
-          if (range === null || block === undefined) continue;
-          overlayer.add(block.id, range, Overlayer.highlight, { color: colour });
-          drawn.current.push({ overlayer, id: block.id });
-        }
-      }
+      for (const entry of shown) drawOn(entry, blocks, colour, overlays.current, drawn.current);
     },
     [viewRef],
   );
@@ -176,4 +145,52 @@ export function useBookHighlights(
   );
 
   return { repaint, watchPage, blocks };
+}
+
+type Shown = { doc: Document; overlayer?: FoliateOverlayer };
+
+/**
+ * Draw `blocks` on one document on screen, adding each to `drawn`. An entry with neither an overlayer
+ * nor a text layer draws nothing.
+ */
+function drawOn(
+  entry: Shown,
+  blocks: HighlightBlock[],
+  colour: string,
+  overlays: WeakMap<Document, FoliateOverlayer>,
+  drawn: { overlayer: FoliateOverlayer; id: string }[],
+): void {
+  const overlayer = entry.overlayer ?? pdfOverlay(entry.doc, overlays);
+  if (overlayer === undefined) return;
+  // Only a hung overlay is this pane's to aim; foliate aims its own.
+  if (overlayer !== entry.overlayer) aimOverlay(overlayer, entry.doc);
+
+  const found = findWritten(
+    entry.doc,
+    blocks.map((block) => block.raw),
+  );
+  for (const [at, range] of found.entries()) {
+    const block = blocks[at];
+    // A quote the book no longer holds is skipped silently, unlike `gf`, which answers.
+    if (range === null || block === undefined) continue;
+    overlayer.add(block.id, range, Overlayer.highlight, { color: colour });
+    drawn.push({ overlayer, id: block.id });
+  }
+}
+
+/** The overlay a pdf page carries, hung on first use and after a re-render. */
+function pdfOverlay(
+  doc: Document,
+  overlays: WeakMap<Document, FoliateOverlayer>,
+): FoliateOverlayer | undefined {
+  const layer = pdfLayer(doc);
+  if (layer === null) return undefined;
+
+  // A re-render removes the old overlay, so a detached element means hang another.
+  const held = overlays.get(doc);
+  if (held?.element.isConnected) return held;
+
+  const made = hangOverlay(layer);
+  overlays.set(doc, made);
+  return made;
 }

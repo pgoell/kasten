@@ -128,36 +128,19 @@ export function useBookSeek(o: {
       /** Whether this walk is still the one being waited on. See the epub arm. */
       const mine = () => viewRef.current === view && wanted.current === quote;
 
-      const sections = view.book?.sections ?? [];
       // A pdf section carries no `createDocument`, so the epub walk would miss every
       // passage. The page on screen decides the arm, not the spine: an epub section
       // foliate could not build lacks one too.
       // ponytail: a press during `replaceChildren` sees no text layer and may answer a miss; one more press finds it.
       const onScreen = view.renderer?.getContents?.() ?? [];
-      if (onScreen.some((entry) => pdfLayer(entry.doc) !== null)) {
-        const bytes = await besideRef.current?.blob.arrayBuffer();
-        const page = bytes === undefined ? -1 : await pdfPageHolding(bytes, quote, mine);
-        if (!mine()) return;
-        if (page !== -1) {
-          wanted.current = null;
-          // The page index, which `resolveNavigation` takes as it stands. No cfi: a
-          // fixed-layout renderer goes to a page and reads no anchor.
-          void view.goTo(page);
-          return;
-        }
-      } else {
-        for (const [index, section] of sections.entries()) {
-          if (section.createDocument === undefined) continue;
-          const doc = await section.createDocument();
-          // A newer press or a closed pane ends the walk; in-flight `goTo` calls are unordered.
-          if (!mine()) return;
-          const [range] = findWritten(doc, [quote]);
-          if (range) {
-            wanted.current = null;
-            void view.goTo(view.getCFI(index, range));
-            return;
-          }
-        }
+      const walk = onScreen.some((entry) => pdfLayer(entry.doc) !== null)
+        ? await walkPdf(besideRef.current?.blob, quote, mine)
+        : await walkSections(view, quote, mine);
+      if (walk === "stale") return;
+      if (walk !== "missing") {
+        wanted.current = null;
+        void view.goTo(walk.to);
+        return;
       }
 
       // Cleared on hit or miss, so nothing stays armed for a rebuilt view.
@@ -183,4 +166,40 @@ export function useBookSeek(o: {
   }, [goToQuote]);
 
   return resumeSeek;
+}
+
+/** Where a walk for a passage ended: the place holding it, no place, or a newer walk or a closed pane. */
+type Walk = { to: string | number } | "missing" | "stale";
+
+/**
+ * The page of the pdf holding `quote`, as the page index `resolveNavigation` takes as it stands.
+ * No cfi: a fixed-layout renderer goes to a page and reads no anchor.
+ */
+async function walkPdf(
+  blob: Blob | undefined,
+  quote: string[],
+  mine: () => boolean,
+): Promise<Walk> {
+  const bytes = await blob?.arrayBuffer();
+  const page = bytes === undefined ? -1 : await pdfPageHolding(bytes, quote, mine);
+  if (!mine()) return "stale";
+  return page === -1 ? "missing" : { to: page };
+}
+
+/** The cfi of the first epub section holding `quote`. */
+async function walkSections(
+  view: FoliateView,
+  quote: string[],
+  mine: () => boolean,
+): Promise<Walk> {
+  const sections = view.book?.sections ?? [];
+  for (const [index, section] of sections.entries()) {
+    if (section.createDocument === undefined) continue;
+    const doc = await section.createDocument();
+    // A newer press or a closed pane ends the walk; in-flight `goTo` calls are unordered.
+    if (!mine()) return "stale";
+    const [range] = findWritten(doc, [quote]);
+    if (range) return { to: view.getCFI(index, range) };
+  }
+  return "missing";
 }

@@ -223,6 +223,16 @@ describe("taking a passage out of a pdf", () => {
     expect(screen.queryByRole("button", { name: "Take the passage" })).toBeNull();
   });
 
+  it("a selection of blank space in a page shows no take button", () => {
+    render(<Pdf />);
+    const blank = document.createElement("span");
+    blank.textContent = "  \n ";
+    pageTwo().parentElement?.append(blank);
+    select(blank);
+
+    expect(screen.queryByRole("button", { name: "Take the passage" })).toBeNull();
+  });
+
   it("a taken passage is marked in the shared highlight, and its Undo takes the mark off", async () => {
     const registry = new Map<string, unknown>();
     vi.stubGlobal("CSS", { highlights: registry });

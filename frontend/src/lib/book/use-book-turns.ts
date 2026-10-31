@@ -97,14 +97,7 @@ export function useBookTurns(o: {
       // the link.
       if (holding() || (event.target as Element).closest("a[href]")) return;
 
-      const frame = (event.currentTarget as Document).defaultView?.frameElement;
-      const pane = wrapper.current;
-      if (!(frame instanceof HTMLElement) || pane === null) return;
-
-      const outer = frame.getBoundingClientRect();
-      const box = pane.getBoundingClientRect();
-      const x = outer.left + (event.clientX * outer.width) / frame.offsetWidth - box.left;
-      const side = x < box.width * EDGE ? "goLeft" : x > box.width * (1 - EDGE) ? "goRight" : null;
+      const side = tapSide(event, wrapper.current);
       if (side === null) return;
       if (ready.current) void viewRef.current?.[side]();
       else parkedTurn.current = { kind: "turn", side };
@@ -128,4 +121,15 @@ export function useBookTurns(o: {
   }, []);
 
   return { turn, scroll, tap, release, forget };
+}
+
+/** The edge of `pane` a tap falls near, or null for the middle or a tap from outside a frame. */
+function tapSide(event: MouseEvent, pane: HTMLElement | null): "goLeft" | "goRight" | null {
+  const frame = (event.currentTarget as Document).defaultView?.frameElement;
+  if (!(frame instanceof HTMLElement) || pane === null) return null;
+
+  const outer = frame.getBoundingClientRect();
+  const box = pane.getBoundingClientRect();
+  const x = outer.left + (event.clientX * outer.width) / frame.offsetWidth - box.left;
+  return x < box.width * EDGE ? "goLeft" : x > box.width * (1 - EDGE) ? "goRight" : null;
 }

@@ -47,27 +47,6 @@ export function imageBoxes(
   const boxes: Box[] = [];
   const saved: Matrix[] = [];
   let ctm = base;
-  const boxAt = (matrix: Matrix) => {
-    const xs = [
-      matrix[4],
-      matrix[0] + matrix[4],
-      matrix[2] + matrix[4],
-      matrix[0] + matrix[2] + matrix[4],
-    ];
-    const ys = [
-      matrix[5],
-      matrix[1] + matrix[5],
-      matrix[3] + matrix[5],
-      matrix[1] + matrix[3] + matrix[5],
-    ];
-    // Rounded inward, so the box holds only pixels wholly inside the picture: a
-    // pixel the picture part covers is copied from the plain draw, and that is white.
-    const left = Math.ceil(Math.min(...xs));
-    const top = Math.ceil(Math.min(...ys));
-    const right = Math.floor(Math.max(...xs));
-    const bottom = Math.floor(Math.max(...ys));
-    if (right > left && bottom > top) boxes.push([left, top, right - left, bottom - top]);
-  };
   for (let i = 0; i < fnArray.length; i += 1) {
     const args = argsArray[i] ?? [];
     switch (fnArray[i]) {
@@ -83,7 +62,7 @@ export function imageBoxes(
       // A form is saved, then moved by its own matrix, and restored at its end.
       case ops.paintFormXObjectBegin:
         saved.push(ctm);
-        if (args[0]) ctm = multiply(ctm, args[0] as Matrix);
+        ctm = movedBy(ctm, args[0] as Matrix | undefined);
         break;
       case ops.paintFormXObjectEnd:
         ctm = saved.pop() ?? ctm;
@@ -92,8 +71,7 @@ export function imageBoxes(
       // `beginGroup` argument is that group (`pdf.mjs:12074`).
       case ops.beginGroup: {
         saved.push(ctm);
-        const matrix = (args[0] as { matrix?: Matrix | null } | undefined)?.matrix;
-        if (matrix) ctm = multiply(ctm, matrix);
+        ctm = movedBy(ctm, (args[0] as { matrix?: Matrix | null } | undefined)?.matrix);
         break;
       }
       case ops.endGroup:
@@ -114,30 +92,16 @@ export function imageBoxes(
         break;
       case ops.paintImageXObject:
       case ops.paintInlineImageXObject:
-        boxAt(ctm);
+        pushBox(boxes, ctm);
         break;
-      // A tiled image: `[objId, scaleX, scaleY, positions]`, one tile per pair of positions.
-      case ops.paintImageXObjectRepeat: {
-        const [, scaleX, scaleY, positions] = args as [unknown, number, number, number[]];
-        for (let j = 0; j < positions.length; j += 2) {
-          boxAt(
-            multiply(ctm, [
-              scaleX,
-              0,
-              0,
-              scaleY,
-              positions[j] as number,
-              positions[j + 1] as number,
-            ]),
-          );
-        }
+      case ops.paintImageXObjectRepeat:
+        pushTiles(boxes, ctm, args);
         break;
-      }
       // A group of inline images: `[imgData, map]`, one entry per image, each drawn
       // under its own transform, as a tile is.
       case ops.paintInlineImageXObjectGroup: {
         const [, map] = args as [unknown, { transform: Matrix }[]];
-        for (const entry of map) boxAt(multiply(ctm, entry.transform));
+        for (const entry of map) pushBox(boxes, multiply(ctm, entry.transform));
         break;
       }
     }
@@ -170,4 +134,43 @@ export async function restoreImages(
   // Shrunk, which hands the bitmap back at once, as `pdf-view.ts` does its own.
   plain.width = 0;
   plain.height = 0;
+}
+
+/** Add the box `matrix` carries the unit square to, unless it holds no whole pixel. */
+function pushBox(boxes: Box[], matrix: Matrix): void {
+  const xs = [
+    matrix[4],
+    matrix[0] + matrix[4],
+    matrix[2] + matrix[4],
+    matrix[0] + matrix[2] + matrix[4],
+  ];
+  const ys = [
+    matrix[5],
+    matrix[1] + matrix[5],
+    matrix[3] + matrix[5],
+    matrix[1] + matrix[3] + matrix[5],
+  ];
+  // Rounded inward, so the box holds only pixels wholly inside the picture: a
+  // pixel the picture part covers is copied from the plain draw, and that is white.
+  const left = Math.ceil(Math.min(...xs));
+  const top = Math.ceil(Math.min(...ys));
+  const right = Math.floor(Math.max(...xs));
+  const bottom = Math.floor(Math.max(...ys));
+  if (right > left && bottom > top) boxes.push([left, top, right - left, bottom - top]);
+}
+
+/** A tiled image: `[objId, scaleX, scaleY, positions]`, one tile per pair of positions. */
+function pushTiles(boxes: Box[], ctm: Matrix, args: unknown[]): void {
+  const [, scaleX, scaleY, positions] = args as [unknown, number, number, number[]];
+  for (let j = 0; j < positions.length; j += 2) {
+    pushBox(
+      boxes,
+      multiply(ctm, [scaleX, 0, 0, scaleY, positions[j] as number, positions[j + 1] as number]),
+    );
+  }
+}
+
+/** `ctm` moved by `matrix`, or as it is where there is none. */
+function movedBy(ctm: Matrix, matrix: Matrix | null | undefined): Matrix {
+  return matrix ? multiply(ctm, matrix) : ctm;
 }

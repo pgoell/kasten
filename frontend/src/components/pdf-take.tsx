@@ -46,6 +46,18 @@ function within(box: Element | null, range: Range | null): range is Range {
   return box.contains(range.startContainer) && box.contains(range.endContainer);
 }
 
+/** The passage selected in the pages of `frame`, or null for none a take could keep. */
+function selectedIn(frame: Element | null): { text: string; page: number; range: Range } | null {
+  const selection = document.getSelection();
+  const range = selection !== null && selection.rangeCount > 0 ? selection.getRangeAt(0) : null;
+  const text = selection === null ? "" : oneLine(selection.toString());
+  // A selection counts only where its range lies in the pages, so one in the
+  // rest of the document cannot put a button on the reader's pane.
+  const page = within(frame, range) ? pageOf(range.startContainer) : null;
+  if (range === null || page === null || text.trim() === "") return null;
+  return { text, page, range };
+}
+
 /** The text layer drawn for `page`, or null where the page has none drawn at the moment. */
 function layerOf(box: Element, page: number): Element | null {
   return box.querySelector(`[data-pdf-page="${page}"] .textLayer`);
@@ -191,14 +203,9 @@ export function usePdfTake(o: {
 
   useEffect(() => {
     function onSelectionChange() {
-      const selection = document.getSelection();
-      const range = selection !== null && selection.rangeCount > 0 ? selection.getRangeAt(0) : null;
-      const text = selection === null ? "" : oneLine(selection.toString());
       const frame = box.current;
-      // A selection counts only where its range lies in the pages, so one in the
-      // rest of the document cannot put a button on the reader's pane.
-      const page = within(frame, range) ? pageOf(range.startContainer) : null;
-      if (range === null || page === null || text.trim() === "") {
+      const chosen = selectedIn(frame);
+      if (chosen === null) {
         // The press on the button collapses the selection, which is not a choice
         // the reader made, so the passage is kept through it.
         if (pressing.current) lost.current = true;
@@ -208,6 +215,7 @@ export function usePdfTake(o: {
 
       // A new selection is a new press's own business, not the last one's collapse.
       lost.current = false;
+      const { text, page, range } = chosen;
       const pane = wrapper.current;
       const at =
         pane === null || frame === null ? null : anchorFor(range, frame, pane, coarseRef.current);
