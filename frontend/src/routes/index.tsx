@@ -268,6 +268,7 @@ function Home() {
     onWeek: (next) =>
       navigate({ search: (previous) => ({ ...previous, week: next }), replace: true }),
     toggleArchive: listings.commands.toggleArchive,
+    setNotice,
   });
 
   // The URL names the note in the focused pane, so a reload comes back to what

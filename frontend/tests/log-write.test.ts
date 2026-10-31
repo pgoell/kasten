@@ -1,6 +1,12 @@
+import { EditorView } from "@codemirror/view";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { renderHook } from "@testing-library/react";
+import { createElement, type ReactNode } from "react";
 import { drinkTarget, logDrinkInVault } from "@/lib/log/log-write";
+import { useLogCommands } from "@/lib/log/use-log-commands";
 import { noteBase } from "@/lib/note-base";
 import { periodicNote } from "@/lib/periodic";
+import { notePath } from "@/lib/todo/todo-commands";
 
 // The vault sits behind the api client, not behind the api module's own
 // functions: `updateNote` calls `fetchNote` and `saveNote` from inside that
@@ -201,4 +207,56 @@ it("#770 a tea tap through the vault waits its turn and a refusal writes nothing
   await expect(refused).rejects.toThrow(`Nothing logged: ${daily} holds text not yet saved`);
 
   expect(vault.notes[daily]).toBe("## TODOs\n\n## Log\n- 💧 250 ml\n- 🍵 1 cup\n");
+});
+
+/** The log commands over pane `pane-1` holding `path`, reached through their own module. */
+function logCommands(path: string | undefined, saveFirst = async () => true) {
+  const openPeriodic = vi.fn(async () => true);
+  const setNotice = vi.fn();
+  const client = new QueryClient();
+  const wrapper = ({ children }: { children: ReactNode }) =>
+    createElement(QueryClientProvider, { client }, children);
+  const { result } = renderHook(
+    () =>
+      useLogCommands({
+        pane: { id: "pane-1", path },
+        saveFirst,
+        openPeriodic,
+        setNotice,
+        paths: [daily],
+        focusedNote: { current: { path, isWriting: () => false } },
+      }),
+    { wrapper },
+  );
+  return { commands: result.current, openPeriodic, setNotice };
+}
+
+describe("#981 the log commands in their own module", () => {
+  it("logs a drink into the editor of today's pane", () => {
+    const pane = document.body.appendChild(document.createElement("div"));
+    pane.dataset.pane = "pane-1";
+    const view = new EditorView({
+      doc: "## Log\n",
+      extensions: notePath.of(daily),
+      parent: pane,
+    });
+
+    const { commands, setNotice } = logCommands(daily);
+    commands.logDrink("- 💧 250 ml");
+
+    expect(view.state.doc.toString()).toBe("## Log\n- 💧 250 ml\n");
+    expect(setNotice).toHaveBeenLastCalledWith(undefined);
+    view.destroy();
+    pane.remove();
+  });
+
+  it("logs food after the save, and a refused save opens nothing", async () => {
+    const refused = logCommands("notes/other.md", async () => false);
+    await refused.commands.logFood();
+    expect(refused.openPeriodic).not.toHaveBeenCalled();
+
+    const saved = logCommands("notes/other.md");
+    await saved.commands.logFood();
+    expect(saved.openPeriodic).toHaveBeenCalledWith("daily");
+  });
 });

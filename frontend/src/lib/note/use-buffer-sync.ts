@@ -1,12 +1,11 @@
 import { Transaction } from "@codemirror/state";
-import { EditorView } from "@codemirror/view";
 import { useQueryClient } from "@tanstack/react-query";
 import { type RefObject, useCallback, useEffect, useRef, useState } from "react";
 import { fetchNote } from "@/lib/api";
 import { heldText, sameText, useHeld } from "@/lib/held-text";
 import type { useAutosave } from "@/lib/note/use-autosave";
 import { viewCommands } from "@/lib/palette";
-import { docIn, paneEditor } from "@/lib/pane-doc";
+import { docIn, paneView } from "@/lib/pane-doc";
 import { type Layout, tabPanes } from "@/lib/panes";
 
 type Autosave = ReturnType<typeof useAutosave>;
@@ -71,8 +70,7 @@ export function useBufferSync({
       if (now.has(each) || vault === undefined) continue;
       for (const shown of tabPanes(layoutNow.current)) {
         if (shown.id === paneId || shown.path !== each) continue;
-        const editor = paneEditor(shown.id);
-        const view = editor && EditorView.findFromDOM(editor);
+        const view = paneView(shown.id);
         if (!view || view.state.doc.toString() === vault) continue;
         view.dispatch({
           changes: { from: 0, to: view.state.doc.length, insert: vault },
@@ -151,8 +149,7 @@ export function useBufferSync({
    * puts text on screen: after a refused reload the cache already holds the vault's text.
    */
   const takeVault = useCallback(() => {
-    const editor = paneEditor(paneId);
-    const view = editor && EditorView.findFromDOM(editor);
+    const view = paneView(paneId);
     if (view) view.state.facet(viewCommands)?.reload(view, true);
   }, [paneId]);
 
