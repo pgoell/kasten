@@ -1,7 +1,14 @@
 import { type Dispatch, type SetStateAction, useCallback, useState } from "react";
 import { paneRects } from "@/components/pane-layout";
 import { type Direction, paneToward } from "@/lib/pane-direction";
-import { focusPane, type Layout, movePaneToEdge, swapPanes } from "@/lib/panes";
+import {
+  canMoveToEdge,
+  focusedPane,
+  focusPane,
+  type Layout,
+  movePaneToEdge,
+  swapPanes,
+} from "@/lib/panes";
 import { useViewport } from "@/lib/use-viewport";
 
 export type PaneMoves = ReturnType<typeof usePaneMoves>;
@@ -15,14 +22,15 @@ export function usePaneMoves({
   setFocusSignal,
   isConflicted,
   saveFirst,
-  paneId,
+  layout,
 }: {
   setLayout: Dispatch<SetStateAction<Layout>>;
   setFocusSignal: Dispatch<SetStateAction<number>>;
   isConflicted: () => boolean;
   saveFirst: () => Promise<boolean>;
-  paneId: string;
+  layout: Layout;
 }) {
+  const paneId = focusedPane(layout).id;
   // A narrow window stacks every split, so an edge move there would change nothing you can see.
   const { narrow } = useViewport();
   // Raised each time a key was refused, which flashes the status bar's reading.
@@ -84,7 +92,7 @@ export function usePaneMoves({
   const shiftToward = useCallback(
     async (dir: Direction) => {
       const target = paneToward(paneRects(), paneId, dir);
-      if (target === null && narrow) return;
+      if (target === null && (narrow || !canMoveToEdge(layout, dir))) return;
       if (!(await saveFirst())) {
         refuse();
         return;
@@ -93,7 +101,7 @@ export function usePaneMoves({
         target === null ? movePaneToEdge(previous, dir) : swapPanes(previous, target),
       );
     },
-    [moveTo, refuse, saveFirst, paneId, narrow],
+    [moveTo, refuse, saveFirst, paneId, narrow, layout],
   );
 
   return { refused, refuse, refocusPane, moveTo, focusToward, shiftToward };

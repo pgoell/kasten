@@ -151,7 +151,7 @@ function Home() {
     setFocusSignal,
     isConflicted,
     saveFirst,
-    paneId: pane.id,
+    layout,
   });
   const buffer = useBufferSync({
     autosave: { status, change, isConflicted, isWriting, revert },

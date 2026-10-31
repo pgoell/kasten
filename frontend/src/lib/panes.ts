@@ -290,24 +290,27 @@ export function swapPanes(layout: Layout, id: string): Layout {
   return withTab(layout, { ...tab, root: swap(tab.root) });
 }
 
+/** Whether the focused pane can go to this edge: not a lone pane, a zoomed one, or one already filling it. */
+export function canMoveToEdge(layout: Layout, side: Direction): boolean {
+  const { root, zoom, focus } = activeTab(layout);
+  if (!isSplit(root) || zoom) return false;
+  const first = side === "left" || side === "up";
+  const fills = root.children[first ? 0 : root.children.length - 1]?.id === focus;
+  return !(fills && root.dir === (side === "left" || side === "right" ? "row" : "col"));
+}
+
 /**
  * Takes the focused pane out and sets it along one edge of the window, at that edge's full length,
- * as vim's `<C-w>L` does. Stands still on a lone pane, a zoomed one, or one already filling the edge.
+ * as vim's `<C-w>L` does. Stands still where `canMoveToEdge` says no.
  */
 export function movePaneToEdge(layout: Layout, side: Direction): Layout {
   const tab = activeTab(layout);
   const here = focusedPane(layout);
   const rest = without(tab.root, here.id);
-  if (rest === null || tab.zoom) return layout;
+  if (rest === null || !canMoveToEdge(layout, side)) return layout;
 
   const dir = side === "left" || side === "right" ? "row" : "col";
-  const first = side === "left" || side === "up";
-  if (isSplit(tab.root) && tab.root.dir === dir) {
-    const edge = tab.root.children[first ? 0 : tab.root.children.length - 1];
-    if (edge?.id === here.id) return layout;
-  }
-
-  const children = first ? [here, rest] : [rest, here];
+  const children = side === "left" || side === "up" ? [here, rest] : [rest, here];
   return withTab(layout, {
     ...tab,
     root: normalize({ id: nextId("split"), dir, children }),
