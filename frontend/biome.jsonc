@@ -125,7 +125,6 @@
         "src/lib/book/pdf-view.ts",
         "src/lib/note/save-queue.ts",
         "src/lib/editor/table-lineup.ts",
-        "src/lib/todo/todo-api.ts",
         "src/lib/todo/todo-fields.ts",
         "src/lib/todo/todo-hold.ts",
         "src/lib/todo/todo-shorthand.ts",
