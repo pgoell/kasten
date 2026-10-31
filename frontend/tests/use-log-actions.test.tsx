@@ -225,3 +225,15 @@ it("#624 a log write puts the written text in the note's query and asks the log 
   expect(client.getQueryData(["note", path])).toBe("## Log\n- ☕ 1\n- 🍺 1\n");
   expect(invalidate).toHaveBeenCalledWith({ queryKey: ["log"] });
 });
+
+it("#968 a vault that throws on the write logs nothing and says why", async () => {
+  vault.notes[path] = "## Log\n- ☕ 1\n";
+  vault.beforePut = () => {
+    throw new Error("the vault is down");
+  };
+  const { result, setNotice } = mount({ data: [path], write: queue() });
+
+  expect(await result.current.addLine(DAY, "- 🍺 1")).toBe(false);
+  expect(setNotice).toHaveBeenLastCalledWith("Nothing logged: the vault is down");
+  expect(vault.notes[path]).toBe("## Log\n- ☕ 1\n");
+});
