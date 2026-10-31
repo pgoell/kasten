@@ -36,4 +36,6 @@ async def sessions() -> AsyncIterator[async_sessionmaker[AsyncSession]]:
 
 async def _empty(factory: async_sessionmaker[AsyncSession]) -> None:
     async with factory() as session, session.begin():
-        await session.execute(text("DELETE FROM piece_notes"))
+        # A DELETE would leave its rows in the HNSW graph until a vacuum, and the
+        # nearest-index test would then miss pieces through it (#1405).
+        await session.execute(text("TRUNCATE piece_notes, pieces"))
