@@ -127,8 +127,7 @@ async def similar_notes(
 
     A note scores `1 - cosine distance` of its nearest pair. A note with no pieces has none.
     """
-    # Materialized, each vector is read out of TOAST once rather than once a pair:
-    # 40 s down to under 2 s for a note of 171 pieces on a copy of the live index.
+    # Materialized, each vector is read out of TOAST once rather than once a pair.
     normal = func.l2_normalize(Piece.embedding, type_=Vector(DIMENSIONS)).label("vector")
     mine = select(normal).where(Piece.path == path).cte("mine").prefix_with("MATERIALIZED")
     others = (

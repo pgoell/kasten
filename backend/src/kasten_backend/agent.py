@@ -10,6 +10,7 @@ import json
 import logging
 import os
 import tempfile
+from contextlib import asynccontextmanager
 from datetime import date  # noqa: TC003  pydantic reads the annotation at runtime
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -17,12 +18,15 @@ from uuid import UUID  # noqa: TC003  pydantic reads the annotation at runtime
 
 from pydantic import BaseModel
 
+from kasten_backend import db
 from kasten_backend.change import vault_change, vault_write
 from kasten_backend.file_search import FilePlace, search_files
 from kasten_backend.folders import create_note
 from kasten_backend.frontmatter import reserved, stamp
 from kasten_backend.graph_query import query_graph
 from kasten_backend.periodic import append_dump, daily_note, daily_path
+from kasten_backend.pieces import indexer
+from kasten_backend.pieces.route import RankedHit, alike, rank
 from kasten_backend.search import search_vault
 from kasten_backend.vault import (
     landing,
@@ -35,6 +39,10 @@ from kasten_backend.vault import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import AsyncIterator, Callable
+
+    from sqlalchemy.ext.asyncio import AsyncSession
+
     from kasten_backend.config import Settings
     from kasten_backend.graph import Graph
 
@@ -278,6 +286,52 @@ async def graph(
     """
     skip = None if archive else settings.archive_path
     return await query_graph(settings.vault_path, query, around, depth, skip)
+
+
+class Meaning(BaseModel):
+    """What a search by meaning found, best first."""
+
+    hits: list[RankedHit]
+    status: str
+    """Empty when the model and the whole index stood behind the hits, else what fell short."""
+
+
+sessions: Callable[[], AsyncIterator[AsyncSession]] = db.get_session
+"""The search by meaning's session source, a module global so a test can point it at its rows."""
+
+
+async def search_meaning(
+    settings: Settings, query: str = "", like: str | None = None, archive: bool = False
+) -> Meaning:
+    """The notes best matching `query` by words and meaning, or with `like`, the notes like it.
+
+    The finder's ranked search and the margin's notes like this one, so all three answer alike.
+    """
+    running = indexer.running
+    said = []
+    async with asynccontextmanager(sessions)() as session:
+        if like:
+            note = resolve_note(settings.vault_path, like)
+            # The spelling `read_note` would name it by, so both tools take the same paths.
+            like = like if note is None else relative_path(settings.vault_path, note)
+            found = await alike(settings, session, running, like, archive)
+            if not found.read:
+                said.append(f"The index holds no note at {like}, so it knows no notes like it.")
+        else:
+            found = await rank(settings, session, running, query, archive)
+            if query.strip() and not found.meaning:
+                said.append(_words_only(running))
+    if found.indexed < found.notes:
+        said.append(f"The index has read {found.indexed} of {found.notes} notes so far.")
+    return Meaning(hits=found.hits, status=" ".join(said))
+
+
+def _words_only(running: indexer.Indexer | None) -> str:
+    if running is None:
+        return "No embedding model is configured, so these rank by words alone."
+    if not running.ready:
+        return "The model is still loading, so these rank by words alone."
+    return "The model could not embed the query, so these rank by words alone."
 
 
 def _agree(previous: bytes | None, sha: str | None, *, optional: bool) -> None:

@@ -8,20 +8,19 @@ status: draft
 
 # Semantic search models
 
-[#954](https://github.com/pgoell/kasten/issues/954) wants search by meaning
+[#954](https://github.com/pgoell/kasten/issues/954) asked for search by meaning
 in the finder and for agents, and a "notes like this one" list beside the
-backlinks. Both need an embedding model: it turns a note into a vector, and
-notes whose vectors lie close mean similar things. The issue asked for a short
-comparison before pgoell picked a model. This page is that comparison and
-pgoell's answer: local bge-m3, and a hybrid search with BM25. Nothing here
-is built.
+backlinks. All three are built now. Each needs a model that turns a note into
+a vector; notes whose vectors lie close mean similar things. This page is the
+comparison the issue asked for before pgoell picked one, and the answer: local
+bge-m3, and a hybrid search with BM25.
 
 Figures come in three kinds. **Cited** ones link their source. **Estimated**
 ones say so and show the sum. **Measured** ones come from bge-m3 run on the
 VPS, in [bge-m3 and pgvector on the VPS](/explanation/models-on-the-vps/bge-m3-and-pgvector-on-the-vps.md).
 The other models were not run.
 
-## What kasten does today
+## What kasten had before the build
 
 There is no search index. `search.py` runs ripgrep over the vault on every
 query and touches no table: a fixed-string, case-insensitive match capped at

@@ -31,7 +31,7 @@ no others. That is deliberate rather than tidy. A token holder cannot reach
 anything under `/api/`, and handing one the map of those thirty-five routes
 would give it away for nothing.
 
-An agent over MCP needs none of this: `tools/list` describes the same ten capabilities and the finance reads with the same argument shapes, less the raw
+An agent over MCP needs none of this: `tools/list` describes the same eleven capabilities and the finance reads with the same argument shapes, less the raw
 upload, which no tool call can carry.
 
 ## GET /agent/notes
@@ -87,6 +87,12 @@ The archive folder and its files are walked past unless `archive=true`. Which
 folder that is comes from `KASTEN_ARCHIVE_PATH` rather than a hardcoded `98 Archive`, so a
 vault that files things differently is searched correctly. A blank `q` answers
 with nothing rather than with everything.
+
+## GET /agent/search/meaning
+
+Ranks the notes by meaning and words, as the finder does, and answers the notes
+like one note. The route and its answers are on
+[Search by meaning for agents](/reference/agent-api/search-by-meaning.md).
 
 ## GET /agent/graph
 

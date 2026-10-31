@@ -113,12 +113,14 @@ claude mcp add --transport http kasten https://notes.example.com/agent/mcp \
 ```
 
 Check it with `/mcp` inside Claude Code. The tools are `list_notes`,
-`read_note`, `search_notes`, `query_graph`, `save_note`, `append_note`, `dump`
-and `save_file`. `read_guide` hands back how the vault is filed, and
-`list_skills` and `read_skill` read the Claude Code skills in the vault, which
-no tool writes. `search_notes` also finds lines in the vault's pdf, epub and
-html files, and answers each with the place it sits. Claude Code reads a
-server's instructions at the handshake, so it holds that text already and those
+`read_note`, `search_notes`, `search_meaning`, `query_graph`, `save_note`,
+`append_note`, `dump` and `save_file`. `read_guide` hands back how the vault is
+filed, and `list_skills` and `read_skill` read the Claude Code skills in the
+vault, which no tool writes. `search_notes` also finds lines in the vault's pdf,
+epub and html files, and answers each with the place it sits. `search_meaning`
+ranks the notes by meaning and words together, and with `like` finds the notes
+like one note. Claude Code reads a server's instructions at the handshake, so
+it holds that text already and those
 instructions tell it to skip the call.
 
 `save_file` takes a public URL, because a tool call cannot carry a file, or the
@@ -178,7 +180,7 @@ a sign-in button fails there; give it a token instead.
 
 ## curl
 
-The REST routes are the same ten capabilities and need no MCP client at all.
+The REST routes are the same eleven capabilities and need no MCP client at all.
 Every shape is in [the Agent API](/reference/agent-api.md). Write a space in
 a path as `%20`.
 
@@ -188,6 +190,7 @@ export KASTEN_AGENT=https://notes.example.com/agent
 
 curl -s -H "Authorization: Bearer $KASTEN_TOKEN" "$KASTEN_AGENT/notes"
 curl -s -H "Authorization: Bearer $KASTEN_TOKEN" "$KASTEN_AGENT/search?q=forking"
+curl -s -H "Authorization: Bearer $KASTEN_TOKEN" "$KASTEN_AGENT/search/meaning?q=forking"
 curl -s -G -H "Authorization: Bearer $KASTEN_TOKEN" \
   --data-urlencode 'q=?paper supports [[GraphRAG]]' "$KASTEN_AGENT/graph"
 curl -s -H "Authorization: Bearer $KASTEN_TOKEN" "$KASTEN_AGENT/notes/reading/borges.md"
@@ -225,7 +228,7 @@ says why those two differ.
 ## Claude Code where MCP is off
 
 Some machines run Claude Code with MCP servers turned off by policy. The
-`kasten` plugin in this repository gives it the same ten capabilities as a
+`kasten` plugin in this repository gives it the same eleven capabilities as a
 skill that drives the curl routes above, so no MCP client is involved.
 
 Add this repository as a marketplace and install the plugin, inside Claude Code:

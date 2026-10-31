@@ -45,7 +45,7 @@ The Messages API alone would be a chat with no hands. Both skills run shell
 commands, read images, delete files and ask questions. All of that is Claude
 Code's own tool set, and building it again would be building Claude Code.
 
-The agent API under `/agent/` has ten capabilities and no delete, on purpose:
+The agent API under `/agent/` has eleven capabilities and no delete, on purpose:
 [The agent boundary](/explanation/the-agent-boundary.md). It is the door for an
 agent kasten does not trust with the whole vault. This one is trusted with it
 already, by the fact of the terminal pane. Agents outside can read the skills

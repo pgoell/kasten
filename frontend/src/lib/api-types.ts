@@ -68,6 +68,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/agent/search/meaning": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Search Meaning
+         * @description The notes best matching `q` by words and meaning, or with `like`, the notes like that one.
+         */
+        get: operations["search_meaning_agent_search_meaning_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/agent/skills": {
         parameters: {
             query?: never;
@@ -139,7 +159,7 @@ export interface paths {
          * Schema
          * @description This prefix, described as OpenAPI, for a caller with no MCP client.
          *
-         *     An agent over MCP discovers the ten capabilities from `tools/list`. One
+         *     An agent over MCP discovers the eleven capabilities from `tools/list`. One
          *     holding a token and a curl has nothing to read, because `/openapi.json` at
          *     the root is behind oauth2-proxy and describes the browser's API rather than
          *     this one.
@@ -4815,6 +4835,16 @@ export interface components {
             people: string[];
         };
         /**
+         * Meaning
+         * @description What a search by meaning found, best first.
+         */
+        Meaning: {
+            /** Hits */
+            hits: components["schemas"]["RankedHit"][];
+            /** Status */
+            status: string;
+        };
+        /**
          * Mention
          * @description One place another note names this one in plain text, without linking to it.
          */
@@ -6431,6 +6461,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Hit"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    search_meaning_agent_search_meaning_get: {
+        parameters: {
+            query?: {
+                q?: string;
+                like?: string | null;
+                archive?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Meaning"];
                 };
             };
             /** @description Validation Error */
