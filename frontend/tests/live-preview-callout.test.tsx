@@ -505,3 +505,11 @@ describe("the search pane", () => {
     expect(content(container)).not.toContain("[!");
   });
 });
+
+it("#968 a folded callout closes its box on the title line, the body hidden", () => {
+  const { container } = editor(FOLDED, false);
+
+  const lines = boxLines(container);
+  expect(lines).toHaveLength(1);
+  expect(lines[0]?.classList.contains("cm-callout-close")).toBe(true);
+});

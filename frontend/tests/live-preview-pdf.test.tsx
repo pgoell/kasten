@@ -238,3 +238,12 @@ describe("a pdf embed", () => {
     expect(view.state.selection.main.head).toBe("![[plan.pdf]]".length);
   });
 });
+
+it("#968 reads Not found for a pdf path the vault does not hold, and opens nothing", () => {
+  const vault = fakeVault({});
+  const pdfs = fakePdfs({});
+  const view = mount(`${ABOVE}![[docs/x.pdf]]`, withPdfs(vault.source, pdfs));
+
+  expect(view.dom.querySelector(".cm-embed-missing")?.textContent).toBe("Not found: docs/x.pdf");
+  expect(pdfs.opened).toEqual([]);
+});

@@ -68,6 +68,41 @@ function watchTable(
   watching.set(block, { observer, place, key });
 }
 
+function alignCell(cell: HTMLElement, explicit: Align, numeric: boolean): void {
+  const align = explicit !== "none" ? explicit : numeric ? "right" : "none";
+  if (align !== "none") cell.style.textAlign = align;
+  if (numeric) cell.classList.add("cm-table-numeric");
+}
+
+function markBodyCell(cell: HTMLElement, spans: Span[]): void {
+  // An empty cell draws its dash from the stylesheet, so the dash is in
+  // no text and a copy of the cell gets nothing.
+  const text = textOf(spans);
+  if (text === "") cell.classList.add("cm-table-empty");
+  // A dash the writer typed reads as the muted dash of an empty cell.
+  if (text !== null && isDashes(text)) cell.classList.add("cm-table-blank");
+  // A cell that is one code span, or one token that reads as a code name.
+  const wholeCode = spans.length === 1 && spans[0]?.class === INLINE.InlineCode?.class;
+  if (wholeCode || (text !== null && isCodeToken(text))) {
+    cell.classList.add("cm-table-code");
+  }
+}
+
+function spanElement(view: EditorView, span: Span): Node {
+  if (span.image) {
+    const image = pictureElement(view, span.image);
+    if (span.address !== undefined) image.dataset.address = span.address;
+    return image;
+  }
+  if (span.class === null) return document.createTextNode(span.text);
+  const marked = document.createElement("span");
+  marked.className = span.class;
+  marked.textContent = span.text;
+  if (span.address !== undefined) marked.dataset.address = span.address;
+  if (span.target !== undefined) marked.dataset.target = span.target;
+  return marked;
+}
+
 /**
  * A table, drawn as a table.
  * Cells arrive as spans, not source, since cutting them is a reading of the syntax tree.
@@ -209,40 +244,9 @@ class TableGrid extends WidgetType {
       const row = (index === 0 ? head : body).insertRow();
       cells.forEach((spans, column) => {
         const cell = row.appendChild(document.createElement(index === 0 ? "th" : "td"));
-        const explicit = this.aligns[column] ?? "none";
-        const align = explicit !== "none" ? explicit : numeric[column] ? "right" : "none";
-        if (align !== "none") cell.style.textAlign = align;
-        if (numeric[column]) cell.classList.add("cm-table-numeric");
-        if (index > 0) {
-          // An empty cell draws its dash from the stylesheet, so the dash is in
-          // no text and a copy of the cell gets nothing.
-          const text = textOf(spans);
-          if (text === "") cell.classList.add("cm-table-empty");
-          // A dash the writer typed reads as the muted dash of an empty cell.
-          if (text !== null && isDashes(text)) cell.classList.add("cm-table-blank");
-          // A cell that is one code span, or one token that reads as a code name.
-          const wholeCode = spans.length === 1 && spans[0]?.class === INLINE.InlineCode?.class;
-          if (wholeCode || (text !== null && isCodeToken(text))) {
-            cell.classList.add("cm-table-code");
-          }
-        }
-        for (const span of spans) {
-          if (span.image) {
-            const image = cell.appendChild(pictureElement(view, span.image));
-            if (span.address !== undefined) image.dataset.address = span.address;
-            continue;
-          }
-          if (span.class === null) {
-            cell.append(span.text);
-            continue;
-          }
-          const marked = document.createElement("span");
-          marked.className = span.class;
-          marked.textContent = span.text;
-          if (span.address !== undefined) marked.dataset.address = span.address;
-          if (span.target !== undefined) marked.dataset.target = span.target;
-          cell.append(marked);
-        }
+        alignCell(cell, this.aligns[column] ?? "none", numeric[column] === true);
+        if (index > 0) markBodyCell(cell, spans);
+        for (const span of spans) cell.append(spanElement(view, span));
       });
     });
     const place = scrolled.get(view) ?? new Map<string, number>();

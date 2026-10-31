@@ -88,6 +88,31 @@ export class Walk {
  * Walks a position off hidden text, as `skipAtomicRanges` does (vim ignores atomicRanges), flipping direction at most once.
  * Lands on `to`, as `from` lets `x` delete a hidden character; a folded callout lands on `from` or the line under it.
  */
+/** Where the cursor goes out of a folded body it is in, or null when it is not in it. */
+function outOfFold(
+  pos: number,
+  from: number,
+  to: number,
+  direction: number,
+  doc: Text,
+): number | null {
+  if (pos <= from || pos > to) return null;
+  return direction < 0 || to === doc.length ? from : to + 1;
+}
+
+/** Where the cursor goes out of a hidden mark it is in, or null when it is not in it. */
+function outOfMark(
+  pos: number,
+  from: number,
+  to: number,
+  direction: number,
+  doc: Text,
+): number | null {
+  if (pos < from || pos >= to) return null;
+  const lineStart = doc.lineAt(from).from;
+  return direction < 0 && from > lineStart ? from - 1 : to;
+}
+
 function skipHidden(start: number, bias: number, hidden: RangeSet<Decoration>, doc: Text): number {
   let pos = start;
   let direction = bias;
@@ -95,20 +120,14 @@ function skipHidden(start: number, bias: number, hidden: RangeSet<Decoration>, d
   for (;;) {
     let moved = false;
     hidden.between(pos - 1, pos + 1, (from, to, value) => {
-      if (value === FOLDED) {
-        if (pos <= from || pos > to) return;
-        pos = direction < 0 || to === doc.length ? from : to + 1;
-        moved = true;
-        return;
-      }
-      if (pos < from || pos >= to) return;
-      const lineStart = doc.lineAt(from).from;
-      if (direction < 0 && from > lineStart) {
-        pos = from - 1;
-      } else {
-        pos = to;
-        direction = 1;
-      }
+      const next =
+        value === FOLDED
+          ? outOfFold(pos, from, to, direction, doc)
+          : outOfMark(pos, from, to, direction, doc);
+      if (next === null) return;
+      // Out past a mark's end the cursor goes on forward.
+      if (value !== FOLDED && next === to) direction = 1;
+      pos = next;
       moved = true;
     });
     if (!moved) return pos;

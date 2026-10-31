@@ -180,3 +180,12 @@ describe("live preview", () => {
     expect(content(container)).not.toContain("Table: ");
   });
 });
+
+it("#968 a cell's wikilink carries its target with the table's backslash gone", () => {
+  const lines = ["before", "", "| a |", "| -- |", "| [[note\\|shown]] |"];
+  const { container } = renderEditor(<Editor initialDoc={lines.join("\n")} />);
+
+  const link = container.querySelector<HTMLElement>(".cm-table-grid [data-target]");
+  expect(link?.dataset.target).toBe("note|shown");
+  expect(link?.textContent).toBe("shown");
+});
