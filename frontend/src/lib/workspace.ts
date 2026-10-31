@@ -3,7 +3,7 @@
  * storage, never the vault: a phone and a desktop want different layouts of the same notes.
  */
 
-import { isSavedPane } from "@/lib/pane-kinds";
+import { isObject, isSavedPane, isString } from "@/lib/pane-kinds";
 import { type Layout, type PaneNode, reidLayout } from "@/lib/panes";
 
 const FINE_KEY = "kasten.workspace.1";
@@ -45,12 +45,6 @@ export function saveWorkspace(coarse: boolean, layout: Layout, treeOpen: boolean
   const text = JSON.stringify(saved, (key, value) => (key === "opened" ? undefined : value));
   touch(() => localStorage.setItem(keyFor(coarse), text), undefined);
 }
-
-type Check = (value: unknown) => boolean;
-
-const isObject = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
-const isString: Check = (value) => typeof value === "string";
 
 /** Whether a node is a tree ending in panes, every pane id added to `seen` once. */
 function isNode(value: unknown, seen: Set<string>): boolean {

@@ -367,8 +367,7 @@ function Home() {
           images={shownImages}
           html={shownHtml}
           pdfs={shownPdfs}
-          // A reader, an exam, a player, a card and a history name the note they
-          // were opened from, so the tree marks it and `<leader>E` reaches it.
+          // A pane opened from a note names it, so the tree marks it and `<leader>E` reaches it.
           openPath={panePath(pane)}
           onOpenFile={(path) => void openInPane(path)}
           onOpenImage={(path) => void openImageInPane(path)}

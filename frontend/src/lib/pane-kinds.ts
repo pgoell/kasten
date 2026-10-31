@@ -80,7 +80,7 @@ export type PaneKind = "page" | "pdf" | "book" | "review" | "graph" | "video";
 /** The fields that say what a pane holds. `line`, `jump` and `anchor` only say where in it. */
 export type KindField = Exclude<keyof Pane, "id" | "line" | "jump" | "anchor">;
 
-type Check = (value: unknown) => boolean;
+export type Check = (value: unknown) => boolean;
 
 interface Row<K extends KindField> {
   /** Whether a value read back from browser storage is one this field may hold. */
@@ -93,9 +93,9 @@ interface Row<K extends KindField> {
   clears: boolean;
 }
 
-const isObject = (value: unknown): value is Record<string, unknown> =>
+export const isObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
-const isString: Check = (value) => typeof value === "string";
+export const isString: Check = (value) => typeof value === "string";
 const isTrue: Check = (value) => value === true;
 const within = (value: Record<string, unknown>, keys: string[]) =>
   Object.keys(value).every((key) => keys.includes(key));
