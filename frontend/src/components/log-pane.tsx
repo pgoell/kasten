@@ -6,7 +6,7 @@ import {
   type SheetOwner,
   showFoodSheet,
 } from "@/components/food-sheet";
-import { type Editing, EntryList, MEALS, Reading } from "@/components/log-pane-rows";
+import { capital, type Editing, EntryList, mealGroups, Reading } from "@/components/log-pane-rows";
 import { type Day, foodTotal, type Line, LogTrends, totalOf } from "@/components/log-trends";
 import { hintOf, WeightRows, weightButton } from "@/components/log-weight";
 import { fetchNote, NoteMissing } from "@/lib/api";
@@ -22,6 +22,7 @@ import {
   type FoodField,
   type FoodGoals,
   kindLine,
+  type LogConfig,
   type LogKind,
   parseConfig,
 } from "@/lib/log/log-kinds";
@@ -46,11 +47,6 @@ const FOOD: { field: FoodField; unit: string }[] = [
   { field: "fat", unit: "g" },
 ];
 
-/** A word with its first letter capitalised, as the pane writes its names and meal heads. */
-function capital(text: string): string {
-  return text.charAt(0).toUpperCase() + text.slice(1);
-}
-
 export interface LogPaneProps {
   /** Reached by a leader sequence typed here, so every leader key still works. */
   commands: EditorCommands;
@@ -64,8 +60,18 @@ export interface LogPaneProps {
   onNotice: (text: string | undefined) => void;
 }
 
-function messageOf(error: unknown): string {
-  return error instanceof Error ? error.message : "The log did not load";
+function LoadError({ error }: { error: Error | null }) {
+  if (!error) return null;
+  return <p role="alert">{error instanceof Error ? error.message : "The log did not load"}</p>;
+}
+
+/** The config log.md gives. A note gone missing draws the defaults; any other failure keeps the last. */
+function configOf({ error, data }: { error: Error | null; data?: LogConfig }): LogConfig {
+  return error instanceof NoteMissing ? DEFAULT_CONFIG : (data ?? DEFAULT_CONFIG);
+}
+
+function withRow(row: Line | undefined, act: (line: Line) => void): void {
+  if (row !== undefined) act(row);
 }
 
 /** A row's text without its marker, which is what the amount field holds. */
@@ -73,8 +79,14 @@ function amountOf(text: string): string {
   return text.replace(/^- \S+ ?/, "");
 }
 
-function byLine(a: Line, b: Line): number {
-  return a.line - b.line;
+/** Whether a key is the own of what it was typed into, and not the pane's. */
+function notPaneKey({ target, key }: KeyboardEvent, editing: boolean): boolean {
+  // Typing is the field's own: `j` in an amount is a letter, and so is any key in the food search.
+  if (target instanceof HTMLInputElement || target instanceof HTMLSelectElement) return true;
+  // Enter or Space on a focused button is that button's own press, not the cursor row's.
+  if (target instanceof HTMLButtonElement && (key === "Enter" || key === " ")) return true;
+  // The food search's sheet is a dialog, and the keys typed in it are its own.
+  return editing || (target instanceof Element && target.closest('[role="dialog"]') !== null);
 }
 
 /**
@@ -128,8 +140,7 @@ export function LogPane({ commands, onOpen, focusSignal, today, actions, onNotic
     queryFn: () => fetchNote(LOG_NOTE),
     select: parseConfig,
   });
-  const config =
-    logConfig.error instanceof NoteMissing ? DEFAULT_CONFIG : (logConfig.data ?? DEFAULT_CONFIG);
+  const config = configOf(logConfig);
 
   const { data: days, error: dayError } = useQuery({
     queryKey: ["log", day, day],
@@ -140,21 +151,11 @@ export function LogPane({ commands, onOpen, focusSignal, today, actions, onNotic
     queryKey: ["log", from, day],
     queryFn: () => fetchLog(from, day),
   });
+  const trendDays = trend ?? [];
 
   const entryDay: Day | undefined = days?.find((found) => found.date === day);
   const entries = entryDay?.entries ?? [];
-  const groups: { title: string | null; lines: Line[] }[] = [
-    {
-      title: null,
-      lines: entries.filter((line) => line.kind !== "food").sort(byLine),
-    },
-    ...MEALS.map((meal) => ({
-      title: meal === "" ? "No meal" : capital(meal),
-      lines: entries
-        .filter((line) => line.kind === "food" && (line.meal ?? "") === meal)
-        .sort(byLine),
-    })),
-  ].filter((group) => group.lines.length > 0);
+  const groups = mealGroups(entries);
   // The cursor walks the rows as drawn.
   const rows = groups.flatMap((group) => group.lines);
   const at = Math.max(0, Math.min(cursor, rows.length - 1));
@@ -269,6 +270,10 @@ export function LogPane({ commands, onOpen, focusSignal, today, actions, onNotic
     });
   }
 
+  function openAt(line: Line) {
+    if (entryDay !== undefined) onOpen(entryDay.path, line.line);
+  }
+
   function remove(line: Line) {
     void actions.deleteLine(day, { line: line.line, text: line.text }).then((ok) => {
       if (ok) setEditing(null);
@@ -297,17 +302,9 @@ export function LogPane({ commands, onOpen, focusSignal, today, actions, onNotic
   }
 
   function onKeyDown(event: KeyboardEvent) {
-    const { target, key } = event;
-    // Typing is the field's own: `j` in an amount is a letter, and so is any key in the food search.
-    if (target instanceof HTMLInputElement || target instanceof HTMLSelectElement) return;
-    // Enter or Space on a focused button is that button's own press, not the cursor row's.
-    if (target instanceof HTMLButtonElement && (key === "Enter" || key === " ")) return;
-    if (editing !== null) return;
-    // The food search's sheet is a dialog, and the keys typed in it are its own.
-    if (target instanceof Element && target.closest('[role="dialog"]') !== null) return;
-    if (leader.feed(event)) return;
+    if (notPaneKey(event, editing !== null) || leader.feed(event)) return;
 
-    switch (key) {
+    switch (event.key) {
       case " ":
         leader.start(event);
         break;
@@ -328,16 +325,16 @@ export function LogPane({ commands, onOpen, focusSignal, today, actions, onNotic
         break;
       case "e":
       case "Enter":
-        if (row !== undefined) openEdit(row);
+        withRow(row, openEdit);
         break;
       case "d":
-        if (row !== undefined) remove(row);
+        withRow(row, remove);
         break;
       case "u":
         if (actions.canUndo) void actions.undoDelete();
         break;
       case "o":
-        if (row !== undefined && entryDay !== undefined) onOpen(entryDay.path, row.line);
+        withRow(row, openAt);
         break;
       case "a":
         amountField.current?.focus();
@@ -379,7 +376,7 @@ export function LogPane({ commands, onOpen, focusSignal, today, actions, onNotic
     const unit = kind.builtin === "water" ? "ml" : kind.unit;
     const tail = `${unit === "" ? "" : ` ${unit}`}${grams}`;
     if (kind.last !== true) return { kind, total: totalOf(kind, entryDay), tail, words: undefined };
-    return { kind, tail, ...weightButton(kind, weightDates, trend ?? [], entryDay, tail) };
+    return { kind, tail, ...weightButton(kind, weightDates, trendDays, entryDay, tail) };
   });
 
   // The card's builders draw the buttons, mounted here by hand. It runs on every render, so the
@@ -472,7 +469,7 @@ export function LogPane({ commands, onOpen, focusSignal, today, actions, onNotic
             <h2 className={narrow && day === today ? "sr-only" : undefined}>
               {day === today ? "Today" : day}
             </h2>
-            {dayError ? <p role="alert">{messageOf(dayError)}</p> : null}
+            <LoadError error={dayError} />
             <ul className="log-pane-readings">
               {totals.map(({ kind, total, tail }) =>
                 kind.last === true || total === null ? null : (
@@ -496,7 +493,7 @@ export function LogPane({ commands, onOpen, focusSignal, today, actions, onNotic
                   goal={config.food[field]}
                 />
               ))}
-              <WeightRows kinds={weightKinds} dates={weightDates} days={trend ?? []} />
+              <WeightRows kinds={weightKinds} dates={weightDates} days={trendDays} />
             </ul>
 
             <section aria-label="Add" className="log-pane-add cm-log-row">
@@ -566,8 +563,8 @@ export function LogPane({ commands, onOpen, focusSignal, today, actions, onNotic
                 </button>
               ))}
             </fieldset>
-            {trendError ? <p role="alert">{messageOf(trendError)}</p> : null}
-            <LogTrends days={trend ?? []} config={config} from={from} range={range} today={today} />
+            <LoadError error={trendError} />
+            <LogTrends days={trendDays} config={config} from={from} range={range} today={today} />
           </section>
         </div>
       </div>

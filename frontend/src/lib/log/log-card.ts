@@ -380,6 +380,26 @@ function build(state: EditorState, held: Held): Card {
  * The card as an editor extension, a field like the weather card: a block widget changes the document's height,
  * which CodeMirror takes only from state.
  */
+/** Takes one effect into `held`: true when it was one of the card's. */
+function takeEffect(held: Held, effect: StateEffect<unknown>, day: string | null): boolean {
+  if (effect.is(tapped)) held.lastTap = effect.value;
+  else if (effect.is(foodOpen)) held.food = effect.value;
+  else if (effect.is(asking)) held.ask = effect.value;
+  else if (effect.is(configArrived)) {
+    held.config = effect.value;
+    // A config with no last kind of the asked mark has no question to keep.
+    const kept = effect.value.kinds.some((kind) => kind.mark === held.ask && kind.last === true);
+    if (!kept) held.ask = null;
+  }
+  // An answer for a day the note no longer comes after is dropped, and the one held stays.
+  else if (effect.is(yesterdayArrived) && day !== null && effect.value.day === shiftDay(day, -1))
+    held.yesterday = effect.value;
+  else if (effect.is(latestArrived) && day !== null && effect.value.day === day)
+    held.latest = effect.value;
+  else return false;
+  return true;
+}
+
 const cardField = StateField.define<Card>({
   create: (state) =>
     build(state, {
@@ -396,39 +416,8 @@ const cardField = StateField.define<Card>({
       held.lastTap = { from: tr.changes.mapPos(held.lastTap.from), text: held.lastTap.text };
     }
     let changed = tr.docChanged;
-    for (const effect of tr.effects) {
-      if (effect.is(tapped)) {
-        held.lastTap = effect.value;
-        changed = true;
-      }
-      if (effect.is(foodOpen)) {
-        held.food = effect.value;
-        changed = true;
-      }
-      if (effect.is(asking)) {
-        held.ask = effect.value;
-        changed = true;
-      }
-      if (effect.is(configArrived)) {
-        held.config = effect.value;
-        // A config with no last kind of the asked mark has no question to keep.
-        const kept = effect.value.kinds.some(
-          (kind) => kind.mark === held.ask && kind.last === true,
-        );
-        if (!kept) held.ask = null;
-        changed = true;
-      }
-      // An answer for a day the note no longer comes after is dropped, and the one held stays.
-      const day = noteDay(tr.state);
-      if (effect.is(yesterdayArrived) && day !== null && effect.value.day === shiftDay(day, -1)) {
-        held.yesterday = effect.value;
-        changed = true;
-      }
-      if (effect.is(latestArrived) && day !== null && effect.value.day === day) {
-        held.latest = effect.value;
-        changed = true;
-      }
-    }
+    for (const effect of tr.effects)
+      changed = takeEffect(held, effect, noteDay(tr.state)) || changed;
     return changed ? build(tr.state, held) : value;
   },
   provide: (field) => EditorView.decorations.from(field, (value) => value.decorations),
