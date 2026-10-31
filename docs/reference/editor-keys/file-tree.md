@@ -24,16 +24,17 @@ That unfolding happens once, when the page loads. Every note you open after
 that, through the finder, a `[[link]]`, a backlink or a periodic key, leaves the
 tree where it was: folded the way you left it, cursor on the row you left it on.
 `<leader>E` is the way to catch it up. It unfolds the way down to whatever the
-focused pane holds, note or image, puts the tree's cursor on that row and moves
+focused pane holds, note, image, pdf or HTML page, puts the tree's cursor on that row and moves
 the focus there, which is `<leader>e` plus the jump. It unfolds on top of what
 you already had open rather than in place of it, so nothing you opened by hand
 folds away. A pane holding no note, and a note the archive is hiding, leave the
 cursor where it is: there is no row to go to, and moving it nowhere is worse
 than not moving it.
 
-A reader and a practice exam count as the note they were opened from, so
-`<leader>E` reaches that note from either, and the tree marks its row while you
-are reading. It is the pane where knowing where you are is worth most: a book
+A reader, a practice exam, a video player, a person card, a note's history and
+a local graph count as the note they were opened from, so `<leader>E` reaches
+that note from any of them, and the tree marks its row while the pane is
+focused. The whole-vault graph has no note, so it leaves the cursor where it is. It is the pane where knowing where you are is worth most: a book
 fills the screen and says nothing about which note in the vault opened it.
 
 | Key | Does |
