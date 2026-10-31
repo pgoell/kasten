@@ -376,10 +376,6 @@ function build(state: EditorState, held: Held): Card {
   };
 }
 
-/**
- * The card as an editor extension, a field like the weather card: a block widget changes the document's height,
- * which CodeMirror takes only from state.
- */
 /** Takes one effect into `held`: true when it was one of the card's. */
 function takeEffect(held: Held, effect: StateEffect<unknown>, day: string | null): boolean {
   if (effect.is(tapped)) held.lastTap = effect.value;
@@ -400,6 +396,10 @@ function takeEffect(held: Held, effect: StateEffect<unknown>, day: string | null
   return true;
 }
 
+/**
+ * The card as an editor extension, a field like the weather card: a block widget changes the document's height,
+ * which CodeMirror takes only from state.
+ */
 const cardField = StateField.define<Card>({
   create: (state) =>
     build(state, {
