@@ -75,8 +75,10 @@ What this means for kasten:
 * **Keeping up is cheap.** Saving a median note (≈1,050 tokens, three pieces)
   re-embeds in 2 to 3 s. A busy week's 0.38M changed tokens is about ten
   minutes of work, less with re-embeds driven by a hash of each piece.
-* **No vector index is needed** at this size: the exact scan takes 11 ms.
-  HNSW pays off past tens of thousands of pieces.
+* **No vector index is needed** at this size, the benchmark said: the exact
+  scan took 11 ms. On the live index the exact scan took 94 ms at 6,562
+  pieces, and an HNSW index took it to 2.7 ms, so migration `0014` adds one
+  ([The pieces index](/explanation/models-on-the-vps/the-pieces-index.md)).
 
 The two benchmark scripts and their raw output are in a comment on #1260.
 
