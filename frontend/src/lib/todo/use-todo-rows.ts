@@ -169,6 +169,70 @@ export interface RowFacts {
   progress: Map<string, string>;
 }
 
+/** The forest each note's todos make, with the hit, parent and inherited todo of each line. */
+function forestOf(parsed: Read[]) {
+  const notes = new Map<string, Placed[]>();
+  const hits = new Map<string, TodoHit>();
+  for (const { hit, todo } of parsed) {
+    if (todo === null) continue;
+    const lines = notes.get(hit.path) ?? [];
+    lines.push({ line: hit.line, todo });
+    notes.set(hit.path, lines);
+    hits.set(rowKey(hit), hit);
+  }
+
+  // By line, because the tree is read off the order the note holds them in
+  // and rg answers a note's hits in whatever order it found them.
+  const trees = new Map(
+    [...notes].map(([path, lines]): [string, Node[]] => [
+      path,
+      inherited(treeOf([...lines].sort((one, other) => one.line - other.line))),
+    ]),
+  );
+  return { trees, hits, ...placesOf(trees) };
+}
+
+/**
+ * What each todo hangs off, so a row can be drawn under it or, where that
+ * one is not on screen, name it, and each todo with what it took off its
+ * parent, which is what every row below is drawn and grouped from.
+ */
+function placesOf(trees: Map<string, Node[]>) {
+  const parents = new Map<string, Placed>();
+  const todos = new Map<string, Todo>();
+  for (const [path, roots] of trees) {
+    for (const node of roots.flatMap((root) => [root, ...descendants(root)])) {
+      todos.set(`${path}:${node.line}`, node.todo);
+      for (const child of node.children) parents.set(`${path}:${child.line}`, node);
+    }
+  }
+  return { parents, todos };
+}
+
+/** One row per open top level todo, naming the one thing that could be started on it. */
+function nextActions(forest: ReturnType<typeof forestOf>, today: string): Row[] {
+  const found: Row[] = [];
+  for (const [path, roots] of forest.trees) {
+    for (const root of roots) {
+      const row = nextRow(root, forest.hits, path, today);
+      if (row !== null) found.push(row);
+    }
+  }
+  return found;
+}
+
+function nextRow(root: Node, hits: Map<string, TodoHit>, path: string, today: string): Row | null {
+  if (!isOpen(root.todo)) return null;
+  const action = nextActionOf(root, today);
+  const hit = action === null ? undefined : hits.get(`${path}:${action.line}`);
+  if (action === null || hit === undefined) return null;
+  return {
+    hit,
+    todo: action.todo,
+    under: action.line === root.line ? undefined : root.todo.text,
+  };
+}
+
 /**
  * Every open todo the vault holds, grouped by due date. A third thing a pane can hold, beside a note and a terminal.
  * It asks the vault once and narrows the answer, as the todo overlay does: the filter line never chose the rows, and the two share a query key.
@@ -216,41 +280,7 @@ export function useTodoRows(o: {
   // the count on a row and the `n` list are questions about this one tree, and
   // it is read off every todo the vault answered with rather than off the rows
   // on screen: a closed part is exactly what the list above leaves out.
-  const forest = useMemo(() => {
-    const notes = new Map<string, Placed[]>();
-    const hits = new Map<string, TodoHit>();
-    for (const { hit, todo } of parsed) {
-      if (todo === null) continue;
-      const lines = notes.get(hit.path) ?? [];
-      lines.push({ line: hit.line, todo });
-      notes.set(hit.path, lines);
-      hits.set(rowKey(hit), hit);
-    }
-
-    // By line, because the tree is read off the order the note holds them in
-    // and rg answers a note's hits in whatever order it found them.
-    const trees = new Map(
-      [...notes].map(([path, lines]): [string, Node[]] => [
-        path,
-        inherited(treeOf([...lines].sort((one, other) => one.line - other.line))),
-      ]),
-    );
-    // What each todo hangs off, so a row can be drawn under it or, where that
-    // one is not on screen, name it, and each todo with what it took off its
-    // parent, which is what every row below is drawn and grouped from.
-    const parents = new Map<string, Placed>();
-    const todos = new Map<string, Todo>();
-    for (const [path, roots] of trees) {
-      for (const root of roots) {
-        for (const node of [root, ...descendants(root)]) {
-          todos.set(`${path}:${node.line}`, node.todo);
-          for (const child of node.children) parents.set(`${path}:${child.line}`, node);
-        }
-      }
-    }
-
-    return { trees, hits, parents, todos };
-  }, [parsed]);
+  const forest = useMemo(() => forestOf(parsed), [parsed]);
 
   /** Whether a row is the kind the chips name. All passes every row. */
   const ofKind = useMemo(
@@ -326,23 +356,7 @@ export function useTodoRows(o: {
   // What `n` shows: one row per open top level todo, naming the one thing that
   // could be started on it. A todo with no parts is its own next action, so a
   // flat list reads here exactly as it does out of this mode.
-  const next = useMemo(() => {
-    const found: Row[] = [];
-    for (const [path, roots] of forest.trees) {
-      for (const root of roots) {
-        if (!isOpen(root.todo)) continue;
-        const action = nextActionOf(root, today);
-        const hit = action === null ? undefined : forest.hits.get(`${path}:${action.line}`);
-        if (action === null || hit === undefined) continue;
-        found.push({
-          hit,
-          todo: action.todo,
-          under: action.line === root.line ? undefined : root.todo.text,
-        });
-      }
-    }
-    return found;
-  }, [forest, today]);
+  const next = useMemo(() => nextActions(forest, today), [forest, today]);
 
   // What `d` shows. Grouped on the day it was finished rather than on the day
   // it was due: a finished todo has no due date worth grouping on.

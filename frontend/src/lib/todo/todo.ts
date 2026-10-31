@@ -114,6 +114,11 @@ function tail(todo: Todo): string {
 
 /** The words, then every field after them, in the order `tail` writes them. */
 function joinParts(todo: Todo): string {
+  return [...leadParts(todo), ...trailParts(todo)].join(" ");
+}
+
+/** The words, then the fields up to the recurrence. */
+function leadParts(todo: Todo): string[] {
   const parts: string[] = [];
 
   if (todo.text !== "") parts.push(todo.text);
@@ -131,6 +136,12 @@ function joinParts(todo: Todo): string {
   if (todo.start !== undefined) parts.push(`🛫 ${todo.start}`);
   if (todo.priority !== undefined) parts.push(PRIORITY_SYMBOL[todo.priority]);
   if (todo.recurrence !== undefined) parts.push(`🔁 ${todo.recurrence}`);
+  return parts;
+}
+
+/** The fields after the recurrence, blockers last. */
+function trailParts(todo: Todo): string[] {
+  const parts: string[] = [];
   if (todo.onCompletion !== undefined) parts.push(`🏁 ${todo.onCompletion}`);
   if (todo.created !== undefined) parts.push(`➕ ${todo.created}`);
   if (todo.done !== undefined) parts.push(`✅ ${todo.done}`);
@@ -139,8 +150,7 @@ function joinParts(todo: Todo): string {
   if (todo.worked !== undefined) parts.push(`⏱ ${todo.worked}`);
   if (todo.id !== undefined) parts.push(`🆔 ${todo.id}`);
   for (const blocker of todo.blockedBy) parts.push(`⛔ ${blocker}`);
-
-  return parts.join(" ");
+  return parts;
 }
 
 // A one-word field that may stand bare in the words, so the words after it could

@@ -82,33 +82,49 @@ export function holdOrder(
   for (const hit of hits) answered.set(idOf(hit, ids), hit);
 
   const used = new Set<string>();
-  const drawn: HeldGroup[] = [];
-  for (const group of held) {
-    const rows: HeldRow[] = [];
-    for (const each of group.rows) {
-      const now = open.get(each.id);
-      const kept =
-        now === undefined ? struck(each, answered.get(each.id)) : { id: each.id, row: now };
-      if (kept === null) continue;
-      rows.push(kept);
-      used.add(each.id);
-    }
-    drawn.push({ heading: group.heading, rows });
-  }
-
+  const drawn = held.map((group) => ({
+    heading: group.heading,
+    rows: keptRows(group.rows, open, answered, used),
+  }));
   for (const group of groups) {
-    for (const row of group.rows) {
-      const id = idOf(row.hit, ids);
-      if (used.has(id)) continue;
-      let target = drawn.find((each) => each.heading === group.heading);
-      if (target === undefined) {
-        target = { heading: group.heading, rows: [] };
-        drawn.push(target);
-      }
-      target.rows.push({ id, row });
-    }
+    for (const row of group.rows) placeUnseen(drawn, group.heading, idOf(row.hit, ids), row, used);
   }
   return drawn.filter((group) => group.rows.length > 0);
+}
+
+/** A held group's rows as the vault now holds them, each id marked used. */
+function keptRows(
+  rows: HeldRow[],
+  open: Map<string, Row>,
+  answered: Map<string, TodoHit>,
+  used: Set<string>,
+): HeldRow[] {
+  const kept: HeldRow[] = [];
+  for (const each of rows) {
+    const now = open.get(each.id);
+    const row = now === undefined ? struck(each, answered.get(each.id)) : { id: each.id, row: now };
+    if (row === null) continue;
+    kept.push(row);
+    used.add(each.id);
+  }
+  return kept;
+}
+
+/** An open row no held group draws, put last under its heading. */
+function placeUnseen(
+  drawn: HeldGroup[],
+  heading: string,
+  id: string,
+  row: Row,
+  used: Set<string>,
+): void {
+  if (used.has(id)) return;
+  let target = drawn.find((each) => each.heading === heading);
+  if (target === undefined) {
+    target = { heading, rows: [] };
+    drawn.push(target);
+  }
+  target.rows.push({ id, row });
 }
 
 /** A held row that is no longer open, drawn as the line the vault now holds, struck. */

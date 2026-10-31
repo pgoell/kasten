@@ -170,6 +170,35 @@ function narrow(from: number, options: Suggestion[], typed: string): Suggestions
   return kept.length === 0 ? null : { from, options: kept };
 }
 
+/** The dates or durations for a marker whose value is being typed, or nothing. */
+function valueAnswer(before: string, today: string): Suggestions | null {
+  const value = VALUE.exec(before);
+  const glyph = value?.[1] ?? "";
+  const marker = glyph + (value?.[2] ?? "");
+  const typed = value?.[3] ?? "";
+  if (value === null || written(glyph === "⏲", typed)) return null;
+  // From the end of the marker rather than from the word, so the spaces
+  // between the two are this answer's to write and there is exactly one.
+  // The selector is the marker's, so the answer goes after it.
+  // Nothing answering to a part-written value is not nothing to offer: the
+  // fields are still there, and a caller drawing them always would otherwise
+  // draw an empty row for the length of a date being typed out by hand.
+  return narrow(value.index + marker.length, values(glyph === "⏲", today, " "), typed);
+}
+
+/** The rules for a `🔁` still being typed, or nothing. */
+function ruleAnswer(before: string, todo: Todo, today: string): Suggestions | null {
+  const rule = RULE.exec(before);
+  const begun = rule?.[2]?.trim() ?? "";
+  if (rule === null || parseRecurrence(begun) !== null) return null;
+  const options = rules(todo, today, begun, (text) => text);
+  if (options.length === 0) return null;
+  return {
+    from: rule.index + "🔁".length + (rule[1] ?? "").length,
+    options: options.map((option) => ({ ...option, text: ` ${option.text}` })),
+  };
+}
+
 /**
  * What can go at the end of a todo line, or nothing. `prompted` asks for the fields even
  * without a colon, as the pane and `ctrl-space` do; otherwise typing a todo stays typing a todo.
@@ -182,32 +211,8 @@ export function lineSuggestions(
   const todo = parseTodo(before);
   if (todo === null) return null;
 
-  const value = VALUE.exec(before);
-  const glyph = value?.[1] ?? "";
-  const marker = glyph + (value?.[2] ?? "");
-  const typed = value?.[3] ?? "";
-  if (value !== null && !written(glyph === "⏲", typed)) {
-    // From the end of the marker rather than from the word, so the spaces
-    // between the two are this answer's to write and there is exactly one.
-    // The selector is the marker's, so the answer goes after it.
-    const days = narrow(value.index + marker.length, values(glyph === "⏲", today, " "), typed);
-    // Nothing answering to a part-written value is not nothing to offer: the
-    // fields are still there, and a caller drawing them always would otherwise
-    // draw an empty row for the length of a date being typed out by hand.
-    if (days !== null) return days;
-  }
-
-  const rule = RULE.exec(before);
-  const begun = rule?.[2]?.trim() ?? "";
-  if (rule !== null && parseRecurrence(begun) === null) {
-    const options = rules(todo, today, begun, (text) => text);
-    if (options.length > 0) {
-      return {
-        from: rule.index + "🔁".length + (rule[1] ?? "").length,
-        options: options.map((option) => ({ ...option, text: ` ${option.text}` })),
-      };
-    }
-  }
+  const answer = valueAnswer(before, today) ?? ruleAnswer(before, todo, today);
+  if (answer !== null) return answer;
 
   const open = OPEN.exec(before);
   if (open === null && !prompted) return null;
