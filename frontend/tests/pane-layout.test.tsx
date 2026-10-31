@@ -8,8 +8,10 @@ import {
   focusPane,
   goToTab,
   type Layout,
+  movePaneToEdge,
   removeFocused,
   splitFocused,
+  swapPanes,
   tabPanes,
   toggleZoom,
 } from "@/lib/panes";
@@ -297,5 +299,27 @@ describe("PaneLayout", () => {
     expect(container.querySelectorAll(".hidden")).toHaveLength(2);
     await waitFor(() => expect(container.querySelectorAll(".hidden")).toHaveLength(0));
     expect(container.querySelectorAll("[data-pane]")).toHaveLength(1);
+  });
+});
+
+describe("the panes' place in the page", () => {
+  // A frame reloads when its node moves in the DOM, which would restart a video.
+  it("moves no node through a swap or a move to the edge", async () => {
+    const first = openInFocused(splitFocused(emptyLayout("a.md"), "col"), "b.md");
+    const [top] = tabPanes(first);
+    const view = render(tree(first));
+    const moved = vi.fn();
+    const watcher = new MutationObserver(moved);
+    const list = view.container.querySelector("[data-pane]")?.parentElement as HTMLElement;
+    watcher.observe(list, { childList: true });
+
+    const beside = movePaneToEdge(first, "right");
+    view.rerender(tree(beside));
+    view.rerender(tree(swapPanes(beside, top?.id ?? "")));
+
+    await Promise.resolve();
+    expect(watcher.takeRecords()).toEqual([]);
+    expect(moved).not.toHaveBeenCalled();
+    watcher.disconnect();
   });
 });

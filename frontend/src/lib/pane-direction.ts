@@ -50,11 +50,14 @@ export function paneToward(rects: PaneRect[], from: string, dir: Direction): str
 
   const nearest = rects
     .filter((rect) => rect.id !== from && gap(rect) >= -EDGE_SLACK && meets(rect))
-    // Nearest first, then best-aligned. A tie keeps layout order, so upper or left wins.
+    // Nearest first, then best-aligned. On a tie the upper or left one wins, by box since the
+    // DOM keeps the order panes opened in.
     .sort(
       (a, b) =>
         gap(a) - gap(b) ||
-        Math.abs(middle(a) - middle(origin)) - Math.abs(middle(b) - middle(origin)),
+        Math.abs(middle(a) - middle(origin)) - Math.abs(middle(b) - middle(origin)) ||
+        a.top - b.top ||
+        a.left - b.left,
     );
 
   return nearest[0]?.id ?? null;

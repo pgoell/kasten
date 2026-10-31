@@ -21,7 +21,7 @@ function openLocalGraphWith(options: { sideGraph?: (pane: string) => void }) {
         pane: { id: "pane-1", path: NOTE },
         setLayout: vi.fn(),
         saveFirst: async () => true,
-        moves: { moveTo, focusToward: vi.fn(), swapToward: vi.fn() },
+        moves: { moveTo, focusToward: vi.fn(), shiftToward: vi.fn() },
         openPeriodic: vi.fn(),
         setNotice: vi.fn(),
         paths: [],

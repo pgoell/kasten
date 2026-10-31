@@ -1,7 +1,8 @@
 import { type Dispatch, type SetStateAction, useCallback, useState } from "react";
 import { paneRects } from "@/components/pane-layout";
 import { type Direction, paneToward } from "@/lib/pane-direction";
-import { focusPane, type Layout, swapPanes } from "@/lib/panes";
+import { focusPane, type Layout, movePaneToEdge, swapPanes } from "@/lib/panes";
+import { useViewport } from "@/lib/use-viewport";
 
 export type PaneMoves = ReturnType<typeof usePaneMoves>;
 
@@ -22,6 +23,8 @@ export function usePaneMoves({
   saveFirst: () => Promise<boolean>;
   paneId: string;
 }) {
+  // A narrow window stacks every split, so an edge move there would change nothing you can see.
+  const { narrow } = useViewport();
   // Raised each time a key was refused, which flashes the status bar's reading.
   // A counter for the reason the two above are counters: pressing a refused key
   // twice is two refusals and both have to read as one. How long the flash
@@ -75,22 +78,23 @@ export function usePaneMoves({
   );
 
   /**
-   * Trade places with the pane one way, standing still at the edge. Goes through `moveTo`, and writes
-   * the note first: a swap rebuilds the editor from the vault's copy and would drop a line typed in
-   * the last second.
+   * Trade places with the pane one way, or with none there go to that edge of the window. Goes through
+   * `moveTo`, and writes the note first, so a line typed in the last second is safe in the vault.
    */
-  const swapToward = useCallback(
+  const shiftToward = useCallback(
     async (dir: Direction) => {
       const target = paneToward(paneRects(), paneId, dir);
-      if (target === null) return;
+      if (target === null && narrow) return;
       if (!(await saveFirst())) {
         refuse();
         return;
       }
-      moveTo((previous) => swapPanes(previous, target));
+      moveTo((previous) =>
+        target === null ? movePaneToEdge(previous, dir) : swapPanes(previous, target),
+      );
     },
-    [moveTo, refuse, saveFirst, paneId],
+    [moveTo, refuse, saveFirst, paneId, narrow],
   );
 
-  return { refused, refuse, refocusPane, moveTo, focusToward, swapToward };
+  return { refused, refuse, refocusPane, moveTo, focusToward, shiftToward };
 }

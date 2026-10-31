@@ -4,6 +4,8 @@
  * layout; nothing in this file knows React, the vault or the URL.
  */
 
+import type { Direction } from "@/lib/pane-direction";
+
 /** One pane, and whichever note is open in it. */
 export interface Pane {
   id: string;
@@ -269,8 +271,7 @@ export function focusPane(layout: Layout, id: string): Layout {
 
 /**
  * Trades places with another pane of this tab, the arrangement otherwise standing still. The focus
- * stays on the same pane, now elsewhere. React keys panes by id, so a swap within one split keeps
- * its editors, while a swap across splits rebuilds them.
+ * stays on the same pane, now elsewhere.
  */
 export function swapPanes(layout: Layout, id: string): Layout {
   const tab = activeTab(layout);
@@ -287,6 +288,30 @@ export function swapPanes(layout: Layout, id: string): Layout {
   };
 
   return withTab(layout, { ...tab, root: swap(tab.root) });
+}
+
+/**
+ * Takes the focused pane out and sets it along one edge of the window, at that edge's full length,
+ * as vim's `<C-w>L` does. Stands still on a lone pane, a zoomed one, or one already filling the edge.
+ */
+export function movePaneToEdge(layout: Layout, side: Direction): Layout {
+  const tab = activeTab(layout);
+  const here = focusedPane(layout);
+  const rest = without(tab.root, here.id);
+  if (rest === null || tab.zoom) return layout;
+
+  const dir = side === "left" || side === "right" ? "row" : "col";
+  const first = side === "left" || side === "up";
+  if (isSplit(tab.root) && tab.root.dir === dir) {
+    const edge = tab.root.children[first ? 0 : tab.root.children.length - 1];
+    if (edge?.id === here.id) return layout;
+  }
+
+  const children = first ? [here, rest] : [rest, here];
+  return withTab(layout, {
+    ...tab,
+    root: normalize({ id: nextId("split"), dir, children }),
+  });
 }
 
 /**
