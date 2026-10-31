@@ -75,6 +75,10 @@ describe("moving into a column from a pane spanning it", () => {
     expect(paneToward(UNEVEN, "A", "right")).toBe("B");
   });
 
+  it("lands on the upper pane of a tie whatever order the page holds them in", () => {
+    expect(paneToward([...UNEVEN].reverse(), "A", "right")).toBe("B");
+  });
+
   it("comes back to the pane spanning both", () => {
     expect(paneToward(UNEVEN, "B", "left")).toBe("A");
     expect(paneToward(UNEVEN, "C", "left")).toBe("A");

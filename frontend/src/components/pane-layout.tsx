@@ -52,7 +52,8 @@ const REDUCED = "(prefers-reduced-motion: reduce)";
 
 /**
  * One tab's panes, flat in one container and keyed by id. The tree is never drawn,
- * so a split or a move keeps each pane's node and state (#935).
+ * so a split or a move keeps each pane's node and state (#935). The list keeps the order the
+ * panes first drew in, since moving a node in the DOM reloads any frame inside it (#1394).
  */
 export function PaneLayout({
   node,
@@ -88,8 +89,15 @@ export function PaneLayout({
 
   // One list for both, so a pane that goes and comes back keeps its key and its
   // node: React matches children across renders only within the same list.
+  const seen = [...(before ?? [])];
+  const rank = (id: string) => {
+    const at = seen.indexOf(id);
+    return at === -1 ? seen.length : at;
+  };
   const leaves = [
-    ...placed.map((each) => ({ ...each, leaving: false })),
+    ...placed
+      .map((each) => ({ ...each, leaving: false }))
+      .sort((a, b) => rank(a.pane.id) - rank(b.pane.id)),
     ...departed.map((each) => ({ ...each, leaving: true })),
   ];
 

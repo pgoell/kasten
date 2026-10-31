@@ -146,12 +146,12 @@ function Home() {
     allowReload,
     reconcile,
   } = useAutosave(pane.path, focusedDoc, pane.id);
-  const { refused, refuse, refocusPane, moveTo, focusToward, swapToward } = usePaneMoves({
+  const { refused, refuse, refocusPane, moveTo, focusToward, shiftToward } = usePaneMoves({
     setLayout,
     setFocusSignal,
     isConflicted,
     saveFirst,
-    paneId: pane.id,
+    layout,
   });
   const buffer = useBufferSync({
     autosave: { status, change, isConflicted, isWriting, revert },
@@ -245,7 +245,7 @@ function Home() {
     pane,
     setLayout,
     saveFirst,
-    moves: { moveTo, focusToward, swapToward },
+    moves: { moveTo, focusToward, shiftToward },
     openPeriodic,
     setNotice,
     paths: data,

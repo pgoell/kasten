@@ -46,18 +46,26 @@ one in that direction instead of moving to it. Vim spells the pair the same
 way, `<C-w>h` going to a window and `<C-w>H` moving one, and so does hyprland.
 The two panes trade places and each keeps what it holds, so the focus does not
 move: after the swap you are in the same pane, further left. The divisions
-themselves do not change, only which pane sits in which of them, and at the
-edge of the window nothing happens.
+themselves do not change, only which pane sits in which of them.
 
-Every pane keeps what it holds through a split, a close or a swap, however the
+With no pane that way, the same keys change the shape instead: the pane moves
+to that edge of the window and takes its full height or width, as vim's
+`<C-w>L` does. A note over a video becomes the note on the left and the video on
+the right with `<leader>L` from the video, and `<leader>J` puts it back. Three
+panes stacked, `<leader>L` from the middle one, leave the other two stacked on
+the left and that one at full height on the right. A pane already filling that
+edge stands still, and so does the only pane of a tab. So do a zoomed pane and
+any pane in a window narrower than 768px, which stacks every split anyway.
+
+Every pane keeps what it holds through a split, a close, a swap or a move, however the
 panes divide: its cursor, its undo history and the text not yet written. A
 split inside a split the other way, or a close that folds a split back into its
 row, is no different from a split of the tab's only pane (#932, #935).
 
-A swap moves each pane to the other's place, and each keeps what it holds, the
-focus following the pane. A book, a video and an HTML page are the exception,
-being frames of their own that the browser reloads when they move: the reader
-comes back to the page it recorded and the player to the second the note names.
+A swap or a move changes where each pane is drawn and leaves its place in the
+page alone, the focus following the pane. So a book, a video and an HTML page,
+which are frames the browser would reload if they moved in the page, carry on: a
+video keeps playing through it, at the same second.
 
 `<leader>z` draws the focused pane over the whole window, and a second press
 puts the tab back. It is tmux's own zoom key and hyprland's fullscreen. Nothing

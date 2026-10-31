@@ -45,7 +45,7 @@ async function closeFocused(start: Layout) {
         pane: focusedPane(start),
         setLayout: vi.fn(),
         saveFirst,
-        moves: { moveTo, focusToward: vi.fn(), swapToward: vi.fn() },
+        moves: { moveTo, focusToward: vi.fn(), shiftToward: vi.fn() },
         openPeriodic: vi.fn(),
         setNotice: vi.fn(),
         paths: [],
