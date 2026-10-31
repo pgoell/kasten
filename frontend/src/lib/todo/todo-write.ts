@@ -272,6 +272,62 @@ function copyLine(typed: string, todo: Todo): string {
   return `${indent}${formatTodo({ ...todo, indent: 0, text: withoutBlockId(todo.text) })}`;
 }
 
+/** Sets every open descendant of the pressed line to done, in `moved`. */
+function closeParts(
+  lines: string[],
+  line: number,
+  today: string,
+  moved: Map<number, string>,
+): void {
+  const node = nodeAt(lines, line);
+  for (const part of node === null ? [] : descendants(node)) {
+    // No id on a part: nothing names it, the log writes one line for the
+    // press, and that line names the parent.
+    if (!isOpen(part.todo)) continue;
+    // A part that was waiting on somebody is finished with the rest, and
+    // its `👤` goes as it does when a key sets the state.
+    const freed =
+      part.todo.state === "waiting"
+        ? { ...part.todo, waitingSince: undefined, waitingOn: undefined }
+        : part.todo;
+    moved.set(
+      part.line,
+      patchLine(lines[part.line - 1] ?? "", { ...freed, state: "done", done: today }),
+    );
+  }
+}
+
+/** Adds the lines waiting on `now` that its press moves, beside those `moved` holds. */
+function moveBlocked(lines: string[], now: Todo, closed: Closed, moved: Map<number, string>): void {
+  const after = [...lines];
+  for (const [at, insert] of moved) after[at - 1] = insert;
+  // The press is newer than whatever the caller can see, so this one id is
+  // answered off the line the press just wrote.
+  const resolve: Closed = (blocker) => (blocker === now.id ? !isOpen(now) : closed(blocker));
+
+  for (const [at, insert] of blockedLines(after, resolve)) {
+    // The press and the cascade keep the lines they claimed. Two rules must
+    // never hand CodeMirror one line twice.
+    if (!moved.has(at)) moved.set(at, insert);
+  }
+}
+
+/**
+ * The recurrence copy's parts: each comes along open, in the order and at the
+ * indent it has now, so a routine keeps its steps. The ticked parts stay under
+ * the ticked line as the history of this round.
+ */
+function nextParts(lines: string[], line: number, shift: number, resolve: Closed): string[] {
+  const node = nodeAt(lines, line);
+  const parts = (node === null ? [] : descendants(node)).map((part) =>
+    copyLine(lines[part.line - 1] ?? "", nextPart(part.todo, shift)),
+  );
+  // A part whose `⛔` still waits on an open todo comes back blocked, not
+  // open. The press has closed the parent, so its own id reads closed.
+  for (const [at, insert] of blockedLines(parts, resolve)) parts[at - 1] = insert;
+  return parts;
+}
+
 /**
  * Every line of this note one press rewrites, keyed by line number. One map, so no two rules can claim a line and hand CodeMirror overlapping changes.
  * A value may hold a newline, for a recurrence copy above its line.
@@ -294,42 +350,14 @@ export function cycleLines({
   // Finishing the whole thing finishes the parts, so entering done takes every
   // open descendant with it. Leaving done cascades nothing, and ticking the
   // last part leaves the parent alone: that inference is the one often wrong.
-  if (was?.state !== "done" && now?.state === "done") {
-    const node = nodeAt(lines, line);
-    for (const part of node === null ? [] : descendants(node)) {
-      // No id on a part: nothing names it, the log writes one line for the
-      // press, and that line names the parent.
-      if (isOpen(part.todo)) {
-        // A part that was waiting on somebody is finished with the rest, and
-        // its `👤` goes as it does when a key sets the state.
-        const freed =
-          part.todo.state === "waiting"
-            ? { ...part.todo, waitingSince: undefined, waitingOn: undefined }
-            : part.todo;
-        moved.set(
-          part.line,
-          patchLine(lines[part.line - 1] ?? "", { ...freed, state: "done", done: today }),
-        );
-      }
-    }
-  }
+  if (was?.state !== "done" && now?.state === "done") closeParts(lines, line, today, moved);
 
   // From the blocker's side and only from there: closing or reopening a todo
   // that carries an id is what moves the lines waiting on it. A press that
   // leaves the line no longer a todo moves nothing, nothing being able to
   // resolve it any more. Nor does one whose id is `shared`.
   if (!shared && was !== null && now?.id !== undefined && isOpen(was) !== isOpen(now)) {
-    const after = [...lines];
-    for (const [at, insert] of moved) after[at - 1] = insert;
-    // The press is newer than whatever the caller can see, so this one id is
-    // answered off the line the press just wrote.
-    const resolve: Closed = (blocker) => (blocker === now.id ? !isOpen(now) : closed(blocker));
-
-    for (const [at, insert] of blockedLines(after, resolve)) {
-      // The press and the cascade keep the lines they claimed. Two rules must
-      // never hand CodeMirror one line twice.
-      if (!moved.has(at)) moved.set(at, insert);
-    }
+    moveBlocked(lines, now, closed, moved);
   }
 
   // Last, and folded into the pressed line's own entry rather than added beside
@@ -339,18 +367,15 @@ export function cycleLines({
   if (was !== null && was.state !== "done" && now?.state === "done") {
     const shift = nextShift(was, today);
     if (shift !== null) {
-      // Each part comes along open, in the order and at the indent it has
-      // now, so a routine keeps its steps. The ticked parts stay under the
-      // ticked line as the history of this round.
-      const node = nodeAt(lines, line);
-      const parts = (node === null ? [] : descendants(node)).map((part) =>
-        copyLine(lines[part.line - 1] ?? "", nextPart(part.todo, shift)),
-      );
-      // A part whose `⛔` still waits on an open todo comes back blocked, not
-      // open. The press has closed the parent, so its own id reads closed.
       const resolve: Closed = (blocker) => (blocker === now.id ? !isOpen(now) : closed(blocker));
-      for (const [at, insert] of blockedLines(parts, resolve)) parts[at - 1] = insert;
-      moved.set(line, [copyLine(before, nextCopy(was, shift)), ...parts, cycled].join("\n"));
+      moved.set(
+        line,
+        [
+          copyLine(before, nextCopy(was, shift)),
+          ...nextParts(lines, line, shift, resolve),
+          cycled,
+        ].join("\n"),
+      );
     }
   }
 

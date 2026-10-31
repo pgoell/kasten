@@ -371,38 +371,47 @@ function withStamp(rest: string, stamp: string, rank: number, want: Fields): str
 }
 
 /**
+ * `rest` with one stamp set to what `fields` carries: taken off, written over or
+ * written in. Null where no place reads back as `fields`.
+ */
+function patchStamp(rest: string, stamp: (typeof STAMPS)[number], fields: Fields): string | null {
+  const { pattern, keys, write } = stamp;
+  const { fields: had, places } = readTagged(rest);
+  const was = write(had);
+  const now = write(fields);
+  if (was === now) return rest;
+
+  const found = places.get(pattern) ?? null;
+  if (now === undefined) {
+    if (found === null) return rest;
+    // The stamp and one space beside it, so the words close up as they were.
+    let { from, to } = found;
+    if (/[ \t]/.test(rest[from - 1] ?? "")) from -= 1;
+    else if (/[ \t]/.test(rest[to] ?? "")) to += 1;
+    return rest.slice(0, from) + rest.slice(to);
+  }
+  if (was !== undefined && found !== null) {
+    // A changed value is written over the old one, so a name typed after a
+    // `👤` stays where it was, and so does a variation selector typed after
+    // the marker: the line is the user's spelling, not ours.
+    const typed = /^.️/u.test(rest.slice(found.from, found.to));
+    const over = typed ? now.replace(/^./u, "$&️") : now;
+    return rest.slice(0, found.from) + over + rest.slice(found.to);
+  }
+  const step = { ...had, ...Object.fromEntries(keys.map((key) => [key, fields[key]])) };
+  return withStamp(rest, now, ORDER.indexOf(pattern), step);
+}
+
+/**
  * `typed` with the stamps and blockers `fields` carries written in, or null
  * where no place reads back as `fields`. The caller then rebuilds the line.
  */
 export function patchFields(typed: string, fields: Fields): string | null {
   let rest = typed;
-  for (const { pattern, keys, write } of STAMPS) {
-    const { fields: had, places } = readTagged(rest);
-    const was = write(had);
-    const now = write(fields);
-    if (was === now) continue;
-
-    const found = places.get(pattern) ?? null;
-    if (now === undefined) {
-      if (found === null) continue;
-      // The stamp and one space beside it, so the words close up as they were.
-      let { from, to } = found;
-      if (/[ \t]/.test(rest[from - 1] ?? "")) from -= 1;
-      else if (/[ \t]/.test(rest[to] ?? "")) to += 1;
-      rest = rest.slice(0, from) + rest.slice(to);
-    } else if (was !== undefined && found !== null) {
-      // A changed value is written over the old one, so a name typed after a
-      // `👤` stays where it was, and so does a variation selector typed after
-      // the marker: the line is the user's spelling, not ours.
-      const typed = /^.️/u.test(rest.slice(found.from, found.to));
-      const over = typed ? now.replace(/^./u, "$&️") : now;
-      rest = rest.slice(0, found.from) + over + rest.slice(found.to);
-    } else {
-      const step = { ...had, ...Object.fromEntries(keys.map((key) => [key, fields[key]])) };
-      const written = withStamp(rest, now, ORDER.indexOf(pattern), step);
-      if (written === null) break;
-      rest = written;
-    }
+  for (const stamp of STAMPS) {
+    const written = patchStamp(rest, stamp, fields);
+    if (written === null) break;
+    rest = written;
   }
 
   // Added one at a time, each after the last, which is the order the line
