@@ -24,6 +24,9 @@ K = 60
 DEPTH = 50
 """How many pieces each list hands to the fusion."""
 
+SEARCH = 200
+"""pgvector's `hnsw.ef_search` for the nearest pieces: under `DEPTH` the planner skips the index."""
+
 FARTHEST = 0.5
 """Cosine distance from which a piece is no vector hit (#1341); measured in the-pieces-index.md."""
 
@@ -81,14 +84,35 @@ async def _bm25(
 async def _nearest(
     session: AsyncSession, vector: list[float], archive: str | None
 ) -> list[tuple[str, int]]:
-    distance = Piece.embedding.cosine_distance(vector)
-    rows = await session.execute(
-        select(Piece.path, Piece.n)
-        .where(_outside(archive), distance < FARTHEST)
-        .order_by(distance)
-        .limit(DEPTH)
+    # Strict order walks on past archived pieces until `DEPTH` remain.
+    # Both settings end with the transaction (#1340).
+    await session.execute(
+        select(
+            func.set_config("hnsw.ef_search", str(SEARCH), True),
+            func.set_config("hnsw.iterative_scan", "strict_order", True),
+        )
     )
+    rows = await session.execute(nearest_select(vector, archive))
     return list(rows.tuples())
+
+
+def nearest_select(vector: list[float], archive: str | None) -> Select[tuple[str, int]]:
+    """The `DEPTH` pieces nearest `vector` through the HNSW index, those within `FARTHEST`."""
+    distance = Piece.embedding.cosine_distance(vector).label("distance")
+    # The floor goes outside, and LIMIT is a constant: either way the planner
+    # would scan every row instead of the index (#1340).
+    nearest = (
+        select(Piece.path, Piece.n, distance)
+        .where(_outside(archive))
+        .order_by(distance)
+        .limit(literal(DEPTH, literal_execute=True))
+        .subquery()
+    )
+    return (
+        select(nearest.c.path, nearest.c.n)
+        .where(nearest.c.distance < FARTHEST)
+        .order_by(nearest.c.distance)
+    )
 
 
 def _chunk(text: str) -> str:

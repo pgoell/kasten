@@ -1,4 +1,4 @@
-"""Migration 0013 makes the pieces tables, their cascade and their BM25 indexes.
+"""Migrations 0013 and 0014 make the pieces tables, their cascade, their BM25 and HNSW indexes.
 
 Runs against the migrated database at `KASTEN_DATABASE_URL`, each test in a
 transaction rolled back after it, so nothing a test writes remains. A box with
@@ -12,6 +12,7 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
+from backend.tests.conftest import alembic
 from kasten_backend.config import get_settings
 from kasten_backend.pieces.models import Piece, PieceNote
 
@@ -64,13 +65,14 @@ def add_note(connection: Connection, path: str, texts: list[str]) -> None:
         session.commit()
 
 
-def test_pieces_table_has_vector_and_bm25_indexes(connection: Connection) -> None:
+def test_pieces_table_has_vector_bm25_and_hnsw_indexes(connection: Connection) -> None:
     rows = connection.execute(
         text("SELECT indexname, indexdef FROM pg_indexes WHERE tablename = 'pieces'")
     ).all()
     indexes = {row.indexname: row.indexdef for row in rows}
     assert "USING bm25" in indexes["pieces_text_german"]
     assert "USING bm25" in indexes["pieces_text_english"]
+    assert "USING hnsw (embedding vector_cosine_ops)" in indexes["pieces_embedding"]
 
     embedding = connection.scalar(
         text(
@@ -121,3 +123,29 @@ def test_bm25_finds_a_german_stem(connection: Connection) -> None:
     ).one()
     assert english.path == "en.md"
     assert english.score < 0
+
+
+def pieces_indexes(url: str) -> set[str]:
+    """The names of the indexes on `pieces` in the database at `url`."""
+    engine = create_engine(url)
+    try:
+        with engine.connect() as connection:
+            rows = connection.execute(
+                text("SELECT indexname FROM pg_indexes WHERE tablename = 'pieces'")
+            )
+            return {row[0] for row in rows}
+    finally:
+        engine.dispose()
+
+
+def test_migration_0014_goes_up_down_and_up(scratch_database: str) -> None:
+    at_head = pieces_indexes(scratch_database)
+    assert "pieces_embedding" in at_head
+
+    try:
+        alembic(scratch_database, "downgrade", "0013")
+        assert pieces_indexes(scratch_database) == at_head - {"pieces_embedding"}
+    finally:
+        alembic(scratch_database, "upgrade", "head")
+
+    assert pieces_indexes(scratch_database) == at_head
