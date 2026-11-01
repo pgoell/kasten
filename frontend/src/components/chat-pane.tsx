@@ -10,10 +10,9 @@ import {
   toolLine,
 } from "@/lib/chat";
 import type { EditorCommands } from "@/lib/key-bindings";
-import { heldModifier, leaderAction, leaderPrefix } from "@/lib/leader-keys";
 import { LABEL } from "@/lib/overlay-styles";
+import { useLeader } from "@/lib/use-leader";
 import { useViewport } from "@/lib/use-viewport";
-import { beginLeader, paneOpener } from "@/lib/which-key";
 
 /** The two skills this pane exists to start, each one press away. */
 const SKILLS = ["/close-day", "/process-meeting"];
@@ -43,8 +42,7 @@ export function ChatPane({ commands, focusSignal }: ChatPaneProps) {
   const [reached, setReached] = useState<boolean | null>(null);
   /** The last thing said to the runner that it did not take, if it took none since. */
   const [refused, setRefused] = useState<string | null>(null);
-  /** The keys of an unfinished leader sequence, starting with the space. */
-  const [pending, setPending] = useState("");
+  const leader = useLeader(commands);
   /** Whether the transcript is at its foot, which is when it follows new text. */
   const following = useRef(true);
   const { coarse } = useViewport();
@@ -113,46 +111,27 @@ export function ChatPane({ commands, focusSignal }: ChatPaneProps) {
   }
 
   function onKeyDown(event: React.KeyboardEvent) {
-    const { key } = event;
-    const inside = (event.target as Element).closest("textarea, input, button, summary");
-
-    // One way back to the pane from anything in it, the message box included.
-    if (key === "Escape" && inside !== null) {
-      event.preventDefault();
-      panel.current?.focus();
-      return;
-    }
     // Typing is typing, and a button's keys are the button's: a space in the
     // box is a space, and Enter on a tool call opens it.
-    if (inside !== null) return;
-
-    if (heldModifier(key)) return;
-
-    if (pending) {
-      const sequence = pending + key;
-      const wanted = sequence.slice(1);
-      const run = leaderAction(wanted, commands);
-      setPending(!run && leaderPrefix(wanted) ? sequence : "");
-
-      if (run) {
+    if ((event.target as Element).closest("textarea, input, button, summary") !== null) {
+      // One way back to the pane from anything in it, the message box included.
+      if (event.key === "Escape") {
         event.preventDefault();
-        run();
+        panel.current?.focus();
       }
       return;
     }
 
+    if (leader.feed(event)) return;
     if (event.ctrlKey || event.altKey || event.metaKey) return;
 
-    if (key === " ") {
-      if (beginLeader(paneOpener(commands))) {
-        event.preventDefault();
-        return;
-      }
-      setPending(key);
+    if (event.key === " ") {
+      leader.start(event);
       event.preventDefault();
+      return;
     }
     // Vim's way into a place to type, and the one a hand already knows here.
-    if (key === "i" || key === "Enter") {
+    if (event.key === "i" || event.key === "Enter") {
       event.preventDefault();
       box.current?.focus();
     }

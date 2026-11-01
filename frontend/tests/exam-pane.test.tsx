@@ -449,6 +449,48 @@ describe("ExamPane", () => {
     expect(commands.closeNote).toHaveBeenCalledTimes(1);
   });
 
+  it("names the keys in the footer, the count typed and the questions it could not ask", async () => {
+    fetchNote.mockResolvedValue(`${EXAM}\n### Q3\n\nMatch each.\n\n- one → ______\n`);
+    open();
+    await screen.findByText(/Which cast does Terraform refuse/);
+    const footer = () => pane().querySelector("footer")?.textContent;
+    expect(footer()).toBe(
+      "0 answered · AB pick · h l move · r reveal · t timer · g finish · q close · 1 not askable",
+    );
+    press("b");
+    press("9");
+    press("0");
+    expect(footer()).toBe(
+      "1 answered · AB pick · h l move · r reveal · 90m timer on t · g finish · q close · 1 not askable",
+    );
+    press("g");
+    await screen.findByTestId("exam-score");
+    expect(footer()).toBe("Enter open the result · q close");
+  });
+
+  it("closes on q and names only q when the note holds no exam", async () => {
+    fetchNote.mockResolvedValue("# Just a note\n\nSome prose.\n");
+    const { commands } = open();
+    await screen.findByRole("alert");
+    expect(pane().querySelector("footer")?.textContent).toBe("q close");
+    press("l");
+    press("q");
+    expect(commands.closeNote).toHaveBeenCalledTimes(1);
+  });
+
+  it("leaves a key held with ctrl, alt or meta to the browser", async () => {
+    const { commands } = open();
+    await screen.findByText(/Which cast does Terraform refuse/);
+    for (const held of ["ctrlKey", "altKey", "metaKey"]) {
+      fireEvent.keyDown(pane(), { key: "b", [held]: true });
+      fireEvent.keyDown(pane(), { key: "q", [held]: true });
+    }
+    expect(screen.getByRole("button", { name: /list to set/ }).getAttribute("aria-pressed")).toBe(
+      "false",
+    );
+    expect(commands.closeNote).not.toHaveBeenCalled();
+  });
+
   it("says so, rather than showing an empty exam, when the note holds none", async () => {
     fetchNote.mockResolvedValue("# Just a note\n\nSome prose.\n");
     open();

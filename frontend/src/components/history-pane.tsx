@@ -5,9 +5,8 @@ import { lineDiff } from "@/lib/diff";
 import { unstamped } from "@/lib/held-text";
 import { fetchHistory, fetchHistoryText, type HistoryChange } from "@/lib/history-api";
 import type { EditorCommands } from "@/lib/key-bindings";
-import { heldModifier, leaderAction, leaderPrefix } from "@/lib/leader-keys";
 import { noteName } from "@/lib/note-path";
-import { beginLeader, paneOpener } from "@/lib/which-key";
+import { useLeader } from "@/lib/use-leader";
 
 interface HistoryPaneProps {
   /** Vault path of the note whose changes this lists. */
@@ -32,14 +31,26 @@ function when(time: string): string {
   return new Date(time).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
 }
 
+/** Why there are no rows to list, or null where there are. */
+function emptyLine(failed: boolean, versioned: boolean | undefined, none: boolean) {
+  if (failed) return "The history could not be read";
+  if (versioned === false) return "This vault keeps no history";
+  return none ? "This note has no history yet" : null;
+}
+
+/** What the footer says about the picked change before any restore. */
+function diffLine(failed: boolean, same: boolean) {
+  if (failed) return "This change could not be read";
+  return same ? "This change is the note as it is now" : null;
+}
+
 /**
  * The text is read under the editor's key, so a save, restore included, redraws
  * the diff with no wiring of its own.
  */
 export function HistoryPane({ note, commands, focusSignal, onRestore }: HistoryPaneProps) {
   const panel = useRef<HTMLElement>(null);
-  /** The keys of an unfinished leader sequence, starting with the space. */
-  const [pending, setPending] = useState("");
+  const leader = useLeader(commands);
   // Both by commit and not by row: a write lands a new change on top, and a
   // row index would then point at another change than the one on screen.
   // Undefined is the newest, which is where the pane opens.
@@ -100,26 +111,11 @@ export function HistoryPane({ note, commands, focusSignal, onRestore }: HistoryP
   }
 
   function onKeyDown(event: React.KeyboardEvent) {
-    const { key } = event;
-
-    if (heldModifier(key)) return;
-
-    if (pending) {
-      const sequence = pending + key;
-      const wanted = sequence.slice(1);
-      const run = leaderAction(wanted, commands);
-      setPending(!run && leaderPrefix(wanted) ? sequence : "");
-
-      if (run) {
-        event.preventDefault();
-        run();
-      }
-      return;
-    }
+    if (leader.feed(event)) return;
 
     // Ahead of the modifier check below: ctrl+enter is the backlinks panel's
     // key for its one write too (#424), so the two read the same.
-    if (key === "Enter" && event.ctrlKey) {
+    if (event.key === "Enter" && event.ctrlKey) {
       event.preventDefault();
       void restore();
       return;
@@ -127,50 +123,29 @@ export function HistoryPane({ note, commands, focusSignal, onRestore }: HistoryP
 
     if (event.ctrlKey || event.altKey || event.metaKey) return;
 
-    switch (key) {
-      case " ":
-        if (beginLeader(paneOpener(commands))) {
-          event.preventDefault();
-          return;
-        }
-        setPending(key);
-        break;
-      case "j":
-      case "ArrowDown":
-        move(1);
-        break;
-      case "k":
-      case "ArrowUp":
-        move(-1);
-        break;
-      case "Enter":
-        pick(cursor);
-        break;
-      case "q":
-      case "Escape":
-        commands.closeNote();
-        break;
-      default:
-        return;
-    }
+    const act = actions[event.key];
+    if (act === undefined) return;
+    act(event);
     event.preventDefault();
   }
 
-  const empty = history.isError
-    ? "The history could not be read"
-    : history.data?.versioned === false
-      ? "This vault keeps no history"
-      : history.data !== undefined && changes.length === 0
-        ? "This note has no history yet"
-        : null;
+  const actions: Record<string, ((event: React.KeyboardEvent) => void) | undefined> = {
+    " ": (event) => leader.start(event),
+    j: () => move(1),
+    ArrowDown: () => move(1),
+    k: () => move(-1),
+    ArrowUp: () => move(-1),
+    Enter: () => pick(cursor),
+    q: () => commands.closeNote(),
+    Escape: () => commands.closeNote(),
+  };
 
-  const line =
-    said ??
-    (version.isError
-      ? "This change could not be read"
-      : same
-        ? "This change is the note as it is now"
-        : null);
+  const empty = emptyLine(
+    history.isError,
+    history.data?.versioned,
+    history.data !== undefined && changes.length === 0,
+  );
+  const line = said ?? diffLine(version.isError, same);
 
   return (
     <section

@@ -4,7 +4,6 @@ import { ExamQuestion, ExamScore } from "@/components/exam-sheet";
 import { createNote, fetchNote } from "@/lib/api";
 import { readClock } from "@/lib/clock";
 import type { EditorCommands } from "@/lib/key-bindings";
-import { heldModifier, leaderAction, leaderPrefix } from "@/lib/leader-keys";
 import { LABEL, STATUS } from "@/lib/overlay-styles";
 import {
   type Answers,
@@ -16,10 +15,40 @@ import {
   resultPath,
 } from "@/lib/review/exam";
 import { LENGTHS, useExamTimer } from "@/lib/review/use-exam-timer";
-import { beginLeader, paneOpener } from "@/lib/which-key";
+import { useLeader } from "@/lib/use-leader";
 
 /** One button of the touch row: a thumb high, and as wide as its share of the row. */
 const TAP = "min-h-11 min-w-0 flex-1 uppercase";
+
+/** The keys the footer names for where the sitting stands. */
+function footerLine(
+  exam: Exam | null,
+  scored: boolean,
+  done: number,
+  question: Exam["questions"][number] | undefined,
+  count: string,
+): string {
+  if (scored) return "Enter open the result · q close";
+  if (exam === null) return "q close";
+  const timer = count === "" ? "t timer" : `${count}m timer on t`;
+  const skipped = exam.skipped > 0 ? ` · ${exam.skipped} not askable` : "";
+  return `${done} answered · ${LETTERS.slice(0, question?.options.length ?? 4)} pick · h l move · r reveal · ${timer} · g finish · q close${skipped}`;
+}
+
+/** A tap that cannot be taken back, so it asks once before it runs. */
+function AskTwice({ name, armed, onTap }: { name: string; armed: boolean; onTap: () => void }) {
+  return (
+    <button
+      type="button"
+      tabIndex={-1}
+      aria-pressed={armed}
+      onClick={onTap}
+      className={`${TAP} ${armed ? "text-k-accent" : ""}`}
+    >
+      {armed ? `${name}?` : name}
+    </button>
+  );
+}
 
 interface ExamPaneProps {
   /** The note holding the exam. The pane reads it and never writes to it. */
@@ -49,14 +78,13 @@ export function ExamPane({ note, commands, onOpen, focusSignal }: ExamPaneProps)
   /** Where the sitting was written, set once it has been graded. */
   const [wrote, setWrote] = useState<string | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
-  /** The keys of an unfinished leader sequence, starting with the space. */
-  const [pending, setPending] = useState("");
   /** The digits typed before `t`, the way vim counts a motion. */
   const [count, setCount] = useState("");
   const panel = useRef<HTMLElement>(null);
   /** Set as the result note goes out, so a second `g` does not write a second one. */
   const writing = useRef(false);
   const queryClient = useQueryClient();
+  const leader = useLeader(commands);
 
   const { data: text, isPending } = useQuery({
     queryKey: ["note", note],
@@ -150,34 +178,11 @@ export function ExamPane({ note, commands, onOpen, focusSignal }: ExamPaneProps)
 
   function onKeyDown(event: React.KeyboardEvent) {
     const { key } = event;
-
-    // A modifier holds itself down before the key it is held for arrives, and
-    // a pending sequence that read it as a key would drop the sequence there.
-    if (heldModifier(key)) return;
-
-    if (pending) {
-      const sequence = pending + key;
-      const wanted = sequence.slice(1);
-      const run = leaderAction(wanted, commands);
-      // A leader key can be more than one letter, so a sequence that still
-      // prefixes one waits for the rest instead of being dropped.
-      setPending(!run && leaderPrefix(wanted) ? sequence : "");
-
-      if (run) {
-        event.preventDefault();
-        run();
-      }
-      return;
-    }
-
+    if (leader.feed(event)) return;
     if (event.ctrlKey || event.altKey || event.metaKey) return;
 
     if (key === " ") {
-      if (beginLeader(paneOpener(commands))) {
-        event.preventDefault();
-        return;
-      }
-      setPending(key);
+      leader.start(event);
       event.preventDefault();
       return;
     }
@@ -193,31 +198,39 @@ export function ExamPane({ note, commands, onOpen, focusSignal }: ExamPaneProps)
     // not set the length of a timer started ten questions later.
     setCount("");
 
+    if (sittingKey(key)) event.preventDefault();
+  }
+
+  /** Runs what a key past the leader and the count does, and says whether it did anything. */
+  function sittingKey(key: string): boolean {
     // Once the sitting is graded the only questions left are where to go, so
     // the answering keys are out of the way and Enter opens what was written.
-    if (graded !== null) {
-      if (key === "Enter" && wrote !== null) onOpen(wrote);
-      else if (key === "q") commands.closeNote();
-      else return;
-      event.preventDefault();
-      return;
-    }
+    if (graded !== null) return scoredKey(key);
 
     if (exam === null) {
       if (key === "q") commands.closeNote();
-      return;
+      return false;
     }
 
+    return pickByLetter(key) || moveKey(key, exam);
+  }
+
+  function scoredKey(key: string): boolean {
+    if (key === "Enter" && wrote !== null) onOpen(wrote);
+    else if (key === "q") commands.closeNote();
+    else return false;
+    return true;
+  }
+
+  function pickByLetter(key: string): boolean {
     const letter = key.toUpperCase();
-    if (letter.length === 1 && LETTERS.includes(letter) && question !== undefined) {
-      const known = question.options.some((option) => option.letter === letter);
-      if (known) {
-        pick(letter);
-        event.preventDefault();
-        return;
-      }
-    }
+    if (letter.length !== 1 || !LETTERS.includes(letter) || question === undefined) return false;
+    if (!question.options.some((option) => option.letter === letter)) return false;
+    pick(letter);
+    return true;
+  }
 
+  function moveKey(key: string, open: Exam): boolean {
     switch (key) {
       case "l":
       case "n":
@@ -240,15 +253,15 @@ export function ExamPane({ note, commands, onOpen, focusSignal }: ExamPaneProps)
         timer();
         break;
       case "g":
-        void finish(exam);
+        void finish(open);
         break;
       case "q":
         commands.closeNote();
         break;
       default:
-        return;
+        return false;
     }
-    event.preventDefault();
+    return true;
   }
 
   // A freshly split pane is created focused and its first render is the only
@@ -379,15 +392,11 @@ export function ExamPane({ note, commands, onOpen, focusSignal }: ExamPaneProps)
             {/* The two that cannot be taken back sit behind a line, apart from
                 the four a thumb reaches for on every question. */}
             <span aria-hidden="true" className="mx-1 my-2 border-k-rule border-l" />
-            <button
-              type="button"
-              tabIndex={-1}
-              aria-pressed={armed === "finish"}
-              onClick={() => (armed === "finish" ? void finish(exam) : setArmed("finish"))}
-              className={`${TAP} ${armed === "finish" ? "text-k-accent" : ""}`}
-            >
-              {armed === "finish" ? "finish?" : "finish"}
-            </button>
+            <AskTwice
+              name="finish"
+              armed={armed === "finish"}
+              onTap={() => (armed === "finish" ? void finish(exam) : setArmed("finish"))}
+            />
           </>
         )}
         {graded !== null && wrote !== null && (
@@ -395,32 +404,20 @@ export function ExamPane({ note, commands, onOpen, focusSignal }: ExamPaneProps)
             open result
           </button>
         )}
-        <button
-          type="button"
-          tabIndex={-1}
-          aria-pressed={armed === "close"}
+        <AskTwice
+          name="close"
+          armed={armed === "close"}
           // Only a sitting in progress is something to lose, so the score
           // screen and a note with no exam close on the first tap.
-          onClick={() =>
+          onTap={() =>
             exam === null || graded !== null || armed === "close"
               ? commands.closeNote()
               : setArmed("close")
           }
-          className={`${TAP} ${armed === "close" ? "text-k-accent" : ""}`}
-        >
-          {armed === "close" ? "close?" : "close"}
-        </button>
+        />
       </nav>
 
-      <footer className={STATUS}>
-        {graded !== null
-          ? "Enter open the result · q close"
-          : exam === null
-            ? "q close"
-            : `${done} answered · ${LETTERS.slice(0, question?.options.length ?? 4)} pick · h l move · r reveal · ${
-                count === "" ? "t timer" : `${count}m timer on t`
-              } · g finish · q close${exam.skipped > 0 ? ` · ${exam.skipped} not askable` : ""}`}
-      </footer>
+      <footer className={STATUS}>{footerLine(exam, graded !== null, done, question, count)}</footer>
     </section>
   );
 }

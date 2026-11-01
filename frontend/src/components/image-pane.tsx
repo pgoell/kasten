@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { EditorCommands } from "@/lib/key-bindings";
-import { heldModifier, leaderAction, leaderPrefix } from "@/lib/leader-keys";
 import { encodePath } from "@/lib/note-path";
-import { beginLeader, paneOpener } from "@/lib/which-key";
+import { useLeader } from "@/lib/use-leader";
 
 interface ImagePaneProps {
   /** Vault-relative path of the image to show. */
@@ -99,8 +98,7 @@ export function gesture(
  */
 export function ImagePane({ path, commands, focusSignal, onDelete }: ImagePaneProps) {
   const panel = useRef<HTMLElement>(null);
-  /** The keys of an unfinished leader sequence, starting with the space. */
-  const [pending, setPending] = useState("");
+  const leader = useLeader(commands);
   /** The path that failed to load. A flag would carry over to the next image, since the pane is not remounted. */
   const [failed, setFailed] = useState<string>();
   /** The image whose delete button was tapped once, so another image starts unasked. */
@@ -129,40 +127,15 @@ export function ImagePane({ path, commands, focusSignal, onDelete }: ImagePanePr
     if (focusSignal) panel.current?.focus();
   }, [focusSignal]);
 
-  // The leader block the exam pane, the todo pane and the file tree each carry
-  // their own copy of. `d` is the one bare key, said the way the tree says it,
+  // `d` is the one bare key, said the way the tree says it,
   // and nothing else is bound: there is nothing in an image to move around, so
   // `q` is spelled `<leader>q` like every other pane's close.
   function onKeyDown(event: React.KeyboardEvent) {
-    const { key } = event;
-
-    // A modifier holds itself down before the key it is held for arrives, and
-    // a pending sequence that read it as a key would drop the sequence there.
-    if (heldModifier(key)) return;
-
-    if (pending) {
-      const sequence = pending + key;
-      const wanted = sequence.slice(1);
-      const run = leaderAction(wanted, commands);
-      // A leader key can be more than one letter, so a sequence that still
-      // prefixes one waits for the rest instead of being dropped.
-      setPending(!run && leaderPrefix(wanted) ? sequence : "");
-
-      if (run) {
-        event.preventDefault();
-        run();
-      }
-      return;
-    }
-
+    if (leader.feed(event)) return;
     if (event.ctrlKey || event.altKey || event.metaKey) return;
 
-    if (key === " ") {
-      if (beginLeader(paneOpener(commands))) {
-        event.preventDefault();
-        return;
-      }
-      setPending(key);
+    if (event.key === " ") {
+      leader.start(event);
       event.preventDefault();
       return;
     }
@@ -170,7 +143,7 @@ export function ImagePane({ path, commands, focusSignal, onDelete }: ImagePanePr
     // The tree's own delete key, on the image in front of you. Nothing asks
     // first, for the reason nothing asks in the tree: the picture waits in the
     // trash and `<leader>du` puts it back, so a mistyped key costs a keypress.
-    if (key === "d") {
+    if (event.key === "d") {
       onDelete();
       event.preventDefault();
     }

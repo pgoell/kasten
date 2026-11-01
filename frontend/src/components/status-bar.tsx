@@ -63,7 +63,6 @@ function heldLabel(prefix: string, notes: readonly HeldNote[]) {
     : `${prefix}: ${paths.size} notes`;
 }
 
-/** The note's name as the finder shows it, without the folders or `.md`. */
 /** The buttons the save detail offers for `status`, each with a handler the route passed. */
 function saveActions(
   status: SaveStatus,
@@ -76,6 +75,7 @@ function saveActions(
   });
 }
 
+/** The note's name as the finder shows it, without the folders or `.md`. */
 function noteName(path: string) {
   return (path.split("/").pop() ?? path).replace(/\.md$/, "");
 }

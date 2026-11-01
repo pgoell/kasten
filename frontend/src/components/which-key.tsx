@@ -85,10 +85,6 @@ function insidePanel(target: EventTarget | null): boolean {
   return target instanceof Element && target.closest(PANEL) !== null;
 }
 
-/**
- * Hands the focus back to what held it when Space was pressed. Synchronous and
- * without a scroll, so the panel's leave never moves the page.
- */
 /** Enter on a focused row is that row's click, so the button gets it. */
 function rowPress({ key, target }: KeyboardEvent): boolean {
   return key === "Enter" && target instanceof HTMLButtonElement && insidePanel(target);
@@ -99,6 +95,10 @@ function closesPanel({ key, ctrlKey, altKey, metaKey }: KeyboardEvent): boolean 
   return key === "Escape" || key === " " || ctrlKey || altKey || metaKey;
 }
 
+/**
+ * Hands the focus back to what held it when Space was pressed. Synchronous and
+ * without a scroll, so the panel's leave never moves the page.
+ */
 function focusBack(opener: LeaderOpener) {
   const from = opener.from;
   if (from instanceof HTMLElement && from.isConnected) from.focus({ preventScroll: true });

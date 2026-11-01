@@ -480,6 +480,29 @@ describe("the which-key panel", () => {
     off();
   });
 
+  it("with no panel up, the person and history panes run a leader sequence themselves", () => {
+    history.fetchHistory.mockResolvedValue({ changes: [] });
+    doubles.fetchNote.mockResolvedValue("# Note\n");
+    const commands = stubCommands();
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const { container } = render(
+      <QueryClientProvider client={client}>
+        <PersonPane person="people/ada.md" commands={commands} onOpen={vi.fn()} />
+        <HistoryPane note="notes/a.md" commands={commands} focusSignal={0} onRestore={vi.fn()} />
+      </QueryClientProvider>,
+    );
+
+    for (const name of ["[data-person-pane]", "[data-history-pane]"]) {
+      const pane = container.querySelector(name) as HTMLElement;
+      // False is a key the pane took, so the space scrolls nothing.
+      expect(fireEvent.keyDown(pane, { key: " " })).toBe(false);
+      fireEvent.keyDown(pane, { key: "t" });
+      fireEvent.keyDown(pane, { key: "l" });
+    }
+
+    expect(commands.nextTab).toHaveBeenCalledTimes(2);
+  });
+
   it("Space in vim's / prompt types a space and opens no panel", () => {
     const spy = vi.fn();
     const off = hostLeader(spy);
