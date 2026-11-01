@@ -104,27 +104,30 @@ function sync(): Map<string, Held[]> {
   } else {
     store = new Map();
     for (const [path, entries] of Object.entries(stored)) {
-      const kept = [...(before.get(path) ?? [])];
-      store.set(
-        path,
-        entries.map((entry) => {
-          const at = kept.findIndex((each) => same(each, entry));
-          return at === -1 ? entry : (kept.splice(at, 1)[0] ?? entry);
-        }),
-      );
+      store.set(path, reuse(entries, before.get(path) ?? []));
     }
     // Storage refused the last write, so keep text held only here until one goes through, even if
     // another tab dropped it. That error is the cheaper one.
-    if (unwritten) {
-      for (const [path, entries] of before) {
-        const at = store.get(path) ?? [];
-        const missing = entries.filter((entry) => !at.includes(entry));
-        if (missing.length > 0) store.set(path, [...at, ...missing]);
-      }
-    }
+    if (unwritten) keepUnwritten(store, before);
   }
   snapshot = list(store);
   return store;
+}
+
+function reuse(entries: Held[], before: Held[]): Held[] {
+  const kept = [...before];
+  return entries.map((entry) => {
+    const at = kept.findIndex((each) => same(each, entry));
+    return at === -1 ? entry : (kept.splice(at, 1)[0] ?? entry);
+  });
+}
+
+function keepUnwritten(held: Map<string, Held[]>, before: Map<string, Held[]>): void {
+  for (const [path, entries] of before) {
+    const at = held.get(path) ?? [];
+    const missing = entries.filter((entry) => !at.includes(entry));
+    if (missing.length > 0) held.set(path, [...at, ...missing]);
+  }
 }
 
 function load(): Map<string, Held[]> {
