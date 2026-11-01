@@ -28,7 +28,7 @@ yourself.
 
 A push to main skips Lint, Backend, Test and Perf too when the pull request it merged
 already passed them on the same tree. Each pull request run that passes all
-three uploads an artifact named `ci-tested-tree-<tree hash>`, and the push run's
+four uploads an artifact named `ci-tested-tree-<tree hash>`, and the push run's
 `Main gate` job, `scripts/ci_main_gate.py`, looks for it. It skips only for a
 single-commit push of a merged pull request whose newest CI run passed Lint,
 Backend, Test and Perf and recorded this tree; anything else, an API error included,
