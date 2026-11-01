@@ -3,6 +3,7 @@ import { noteBase } from "@/lib/note-base";
 import { periodicNote } from "@/lib/periodic";
 import { cycleTodoAside } from "@/lib/todo/todo-api";
 import { todoApiHooks } from "./todo-api-fixture";
+import { updateWithTries } from "./update-note/stand-in";
 
 // Standing in for the module rather than for `fetch`, the way the pane's tests
 // do: what this half owns is which notes it reads and what it sends back.
@@ -45,20 +46,6 @@ beforeEach(() => {
 afterEach(() => {
   vi.useRealTimers();
 });
-
-/** `updateNote` with its three tries, read and change and save, a refusal past the third thrown. */
-async function updateWithTries(path: string, change: (text: string) => string | null) {
-  for (let tries = 1; ; tries++) {
-    const text: string = await fetchNote(path);
-    const next = change(text);
-    if (next === null) return null;
-    try {
-      return await saveNote(path, next, false, noteBase(text));
-    } catch (error) {
-      if (!(error instanceof ChangedOnDisk) || tries === 3) throw error;
-    }
-  }
-}
 
 describe("#538 two presses in flight on the ## Done log", () => {
   const daily = periodicNote("daily", NOW).path;
@@ -117,7 +104,7 @@ describe("#538 two presses in flight on the ## Done log", () => {
     searchNotes.mockImplementation(async (id: string) => hits(id));
     // The real three tries, since the refusal and the read after it are what
     // is under test here.
-    updateNote.mockImplementation(updateWithTries);
+    updateNote.mockImplementation(updateWithTries(fetchNote, saveNote));
   });
 
   it("#538 A1 two <leader>x into done in flight on one note both log, a then b", async () => {

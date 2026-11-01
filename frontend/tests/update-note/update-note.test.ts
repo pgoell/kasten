@@ -1,5 +1,6 @@
-import { ChangedOnDisk, updateNote } from "@/lib/api";
+import { ChangedOnDisk, fetchNote, saveNote, updateNote } from "@/lib/api";
 import { noteBase } from "@/lib/note-base";
+import { updateWithTries } from "./stand-in";
 
 // Stubbed before `api.ts` loads, because `openapi-fetch` takes `fetch` and
 // `Request` off the global once, when the client is made. Node's `Request`
@@ -25,7 +26,7 @@ function vault(reads: string[], puts: number[]) {
       return Response.json({ path: "a.md", content: reads.shift() });
     }
     const status = puts.shift() ?? 200;
-    if (status === 409) return Response.json({ detail: "Changed on disk" }, { status });
+    if (status !== 200) return Response.json({ detail: "Changed on disk" }, { status });
     const { content } = (await request.clone().json()) as { content: string };
     return Response.json({ path: "a.md", content });
   });
@@ -43,11 +44,14 @@ beforeEach(() => {
   fetching.mockReset();
 });
 
-describe("updateNote", () => {
+// The stand-in the route tests mock `updateNote` with answers every case here as the real one does.
+function sharedCases(
+  update: (path: string, change: (text: string) => string | null) => Promise<unknown>,
+) {
   it("names the text it read as the base", async () => {
     vault(["one"], [200]);
 
-    await expect(updateNote("a.md", (text) => `${text}!`)).resolves.toMatchObject({
+    await expect(update("a.md", (text) => `${text}!`)).resolves.toMatchObject({
       content: "one!",
     });
 
@@ -58,7 +62,7 @@ describe("updateNote", () => {
     vault(["one", "two"], [409, 200]);
     const change = vi.fn((text: string) => `${text}!`);
 
-    await updateNote("a.md", change);
+    await update("a.md", change);
 
     expect(change.mock.calls).toEqual([["one"], ["two"]]);
     expect(await sent()).toEqual([
@@ -70,9 +74,7 @@ describe("updateNote", () => {
   it("writes nothing where the change answers null, on the first read or a later one", async () => {
     vault(["one", "moved"], [409]);
 
-    await expect(
-      updateNote("a.md", (text) => (text === "one" ? "one!" : null)),
-    ).resolves.toBeNull();
+    await expect(update("a.md", (text) => (text === "one" ? "one!" : null))).resolves.toBeNull();
 
     expect(await sent()).toHaveLength(1);
   });
@@ -80,8 +82,26 @@ describe("updateNote", () => {
   it("gives up after three refusals, with no fourth write", async () => {
     vault(["one", "two", "three", "four"], [409, 409, 409, 200]);
 
-    await expect(updateNote("a.md", (text) => `${text}!`)).rejects.toBeInstanceOf(ChangedOnDisk);
+    await expect(update("a.md", (text) => `${text}!`)).rejects.toBeInstanceOf(ChangedOnDisk);
 
     expect(await sent()).toHaveLength(3);
   });
+
+  it("throws anything but a refusal on the first try, with no second read", async () => {
+    vault(["one", "two"], [500]);
+
+    await expect(update("a.md", (text) => `${text}!`)).rejects.toThrow("failed with 500");
+
+    expect(
+      fetching.mock.calls.filter(([request]) => (request as Request).method === "GET"),
+    ).toHaveLength(1);
+  });
+}
+
+describe("updateNote", () => {
+  sharedCases(updateNote);
+});
+
+describe("the tests' stand-in for updateNote", () => {
+  sharedCases(updateWithTries(fetchNote, saveNote));
 });
