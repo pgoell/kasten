@@ -50,7 +50,7 @@ function failedHeld(write: Write, failure: unknown, named: string | undefined) {
  * Whether the failed text is on screen nowhere, the editor having taken other text since, putting `saved` on the bar if so.
  * In `pending`, `:w` would send it unseen; taken, a save would drop it as carried (#290).
  */
-function shownElsewhere(buffer: Buffer, write: Write, reloaded: () => boolean): boolean {
+function markShownElsewhere(buffer: Buffer, write: Write, reloaded: () => boolean): boolean {
   const { pending, shownRef, setStatus } = buffer;
   const doc = shownRef.current?.();
   const elsewhere =
@@ -188,7 +188,7 @@ function failed(
   // Held as well as kept: on unmount this hook and its `pending` are gone.
   holdText(now, held, carried);
   // Failed after the editor took other text into a clean buffer: the text is on screen nowhere, so only hold it.
-  if (shownElsewhere(buffer, write, reloaded)) return false;
+  if (markShownElsewhere(buffer, write, reloaded)) return false;
   // The buffer holds this text, so it is the entry the bar leaves out.
   take(held);
   conflicted.current ||= refused;

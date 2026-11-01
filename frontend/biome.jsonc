@@ -72,7 +72,6 @@
       "includes": [
         "src/components/note-pane.tsx",
         "src/lib/note/save-queue.ts",
-        "src/lib/note/vault-reads.ts",
         "shell/chat/runner.mjs",
         "shell/chat/runner.test.mjs",
         "shell/chat/stub.mjs"
