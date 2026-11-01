@@ -6,11 +6,19 @@ import { usePageReload } from "@/components/use-page-reload";
 import { readClock } from "@/lib/clock";
 import { type Story, shareLine, storyOf } from "@/lib/html/html-share";
 import { postLook } from "@/lib/html/page-look";
+import { pageData, pageText } from "@/lib/html/page-messages";
 import { fileOf, type PagePassage, pageLink } from "@/lib/html-take";
 import type { EditorCommands } from "@/lib/key-bindings";
 import { heldModifier, leaderAction, leaderPrefix } from "@/lib/leader-keys";
 import { encodePath } from "@/lib/note-path";
-import { type Anchor, low, placeFor, samePassage, selectionOf } from "@/lib/page-selection";
+import {
+  type Anchor,
+  low,
+  placeFor,
+  type Rect,
+  samePassage,
+  selectionOf,
+} from "@/lib/page-selection";
 import { findQuote } from "@/lib/rsvp/rsvp";
 import { textWords } from "@/lib/rsvp/rsvp-sources";
 import { type RsvpAsk, useRsvpAsk } from "@/lib/rsvp/use-rsvp";
@@ -27,6 +35,18 @@ interface Held {
 }
 
 const LABEL = "shrink-0 text-[11px] tracking-wide text-k-muted uppercase";
+
+/** Where the take button goes for a selection's `rect`, or null where it has no place. */
+function placeOf(
+  rect: Rect | null,
+  frame: Element | null,
+  wrapper: HTMLDivElement | null,
+  coarse: boolean,
+) {
+  return rect === null || frame === null || wrapper === null
+    ? null
+    : placeFor(frame, wrapper, rect, coarse);
+}
 
 interface HtmlPaneProps {
   /** Vault-relative path of the page to show. */
@@ -179,34 +199,6 @@ export function HtmlPane({
   const textWait = useRef<((text: string) => void) | null>(null);
 
   /**
-   * The page's `innerText`, asked of its script: the frame has no
-   * `allow-same-origin`, so the page is the only thing that can read it. A page
-   * that never answers, one whose script a page error stopped, is given up on.
-   */
-  function pageText(): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const page = frame.current?.contentWindow;
-      if (page === null || page === undefined) {
-        reject(new Error("The page is not open"));
-        return;
-      }
-      const waiter = (text: string) => {
-        clearTimeout(timer);
-        textWait.current = null;
-        resolve(text);
-      };
-      // Cleared only while it is still this read's: a reader closed and opened
-      // again has put a waiter of its own there since.
-      const timer = setTimeout(() => {
-        if (textWait.current === waiter) textWait.current = null;
-        reject(new Error("The page did not hand over its text"));
-      }, 5000);
-      textWait.current = waiter;
-      page.postMessage({ kasten: "text" }, "*");
-    });
-  }
-
-  /**
    * Space, from a key of this pane or from the page. The panel takes it. Where
    * none is mounted the pane keeps the sequence itself, and takes the focus so
    * the next key comes to `onKeyDown`.
@@ -282,84 +274,77 @@ export function HtmlPane({
     takeRef.current = take;
   });
 
-  // The page's script posts its keys here. Only a message from this pane's own
-  // frame counts: a nested frame in the page, a window it opened and another
-  // pane's frame all reach the window's listener too.
+  // The page's script posts its keys here, through `pageData`.
   useEffect(() => {
     function onMessage(event: MessageEvent) {
-      if (event.source === null || event.source !== frame.current?.contentWindow) return;
-      if (typeof event.data !== "object" || event.data === null) return;
-      const data = event.data as Record<string, unknown>;
-      const { kasten, key } = data;
-
-      // The page cannot read the theme itself, its origin being opaque, so it
-      // asks as it loads. Answered whatever has the focus.
-      if (kasten === "hello") {
-        postLook(frame.current);
-        return;
-      }
-
-      // The answer to `pageText`, whatever has the focus: the reader asked for it.
-      if (kasten === "text") {
-        if (typeof data.text === "string") textWait.current?.(data.text);
-        return;
-      }
-
-      if (kasten === "selection") {
-        const selection = selectionOf(data);
-        if (selection === null) return;
-        // The page has nothing selected. Kept through a press on the button,
-        // which is the press's own collapse and not a choice the reader made.
-        if (selection.text === "") {
-          if (pressing.current) lost.current = true;
-          else hold(null);
+      const data = pageData(event, frame.current);
+      if (data === null) return;
+      // A key, a selection or a share counts only while the frame holds the
+      // focus, so a page in the background cannot act on the pane.
+      const focused = document.activeElement === frame.current;
+      switch (data.kasten) {
+        // The page cannot read the theme itself, its origin being opaque, so it
+        // asks as it loads. Answered whatever has the focus.
+        case "hello":
+          postLook(frame.current);
           return;
-        }
-        // A selection counts only while the page holds the focus, so a page in
-        // the background cannot put a button on the pane.
-        if (document.activeElement !== frame.current) return;
-        // A new selection is a new press's business, not the last one's collapse.
-        lost.current = false;
-        const { text, heading, anchor, rect } = selection;
-        if (!samePassage(heldRef.current?.passage, selection)) spendActivation();
-        const at =
-          rect === null || frame.current === null || wrapper.current === null
-            ? null
-            : placeFor(frame.current, wrapper.current, rect, coarseRef.current);
-        hold({ passage: { text, heading, anchor }, at });
-        return;
+        // The answer to `pageText`, whatever has the focus: the reader asked for it.
+        case "text":
+          if (typeof data.text === "string") textWait.current?.(data.text);
+          return;
+        case "selection":
+          return onSelection(data);
+        // A press on a story's Share later button. The page can post this itself,
+        // so it counts only while the reader has just pressed something, and the
+        // toast's Undo takes a forged one back.
+        case "share":
+          return onShare(data, focused);
+        case "key":
+          if (focused) onPageKey(data.key);
       }
+    }
 
-      // A press on a story's Share later button. The page can post this itself,
-      // so it counts only while the frame holds the focus and the reader has
-      // just pressed something, and the toast's Undo takes a forged one back.
-      if (kasten === "share") {
-        const story = storyOf(data);
-        if (story === null || document.activeElement !== frame.current) return;
-        if (navigator.userActivation?.isActive === false) return;
-        void shareRef.current(story);
-        return;
-      }
+    function onSelection(data: Record<string, unknown>) {
+      const selection = selectionOf(data);
+      if (selection === null) return;
+      // The page has nothing selected. Kept through a press on the button,
+      // which is the press's own collapse and not a choice the reader made.
+      if (selection.text === "") return unselect();
+      if (document.activeElement !== frame.current) return;
+      // A new selection is a new press's business, not the last one's collapse.
+      lost.current = false;
+      const { text, heading, anchor, rect } = selection;
+      if (!samePassage(heldRef.current?.passage, selection)) spendActivation();
+      const at = placeOf(rect, frame.current, wrapper.current, coarseRef.current);
+      hold({ passage: { text, heading, anchor }, at });
+    }
 
-      // A key counts only while the frame holds the focus, so a page in the
-      // background cannot open the panel or take the focus.
-      if (kasten !== "key" || document.activeElement !== frame.current) return;
+    function unselect() {
+      if (pressing.current) lost.current = true;
+      else hold(null);
+    }
+
+    function onShare(data: Record<string, unknown>, focused: boolean) {
+      const story = storyOf(data);
+      if (story === null || !focused) return;
+      if (navigator.userActivation?.isActive === false) return;
+      void shareRef.current(story);
+    }
+
+    function onPageKey(key: unknown) {
       // A page's `y` takes once per press (`spendActivation`).
-      if (key === "y") {
-        if (
-          heldRef.current !== null &&
-          !relayedTaken.current &&
-          navigator.userActivation?.isActive !== false
-        ) {
-          relayedTaken.current = !spendActivation();
-          void takeRef.current();
-        }
-        return;
-      }
+      if (key === "y") return relayTake();
       if (key === " ") startLeader();
       else if (key === "?") commandsRef.current.showHelp();
       // Escape gives the keys back to Kasten, the way a click outside the frame does.
       else if (key === "Escape") panel.current?.focus();
+    }
+
+    function relayTake() {
+      const active = navigator.userActivation?.isActive !== false;
+      if (heldRef.current === null || relayedTaken.current || !active) return;
+      relayedTaken.current = !spendActivation();
+      void takeRef.current();
     }
 
     window.addEventListener("message", onMessage);
@@ -379,25 +364,23 @@ export function HtmlPane({
     return () => window.removeEventListener("blur", onBlur);
   }, []);
 
-  // The leader block the image pane carries, with nothing bound beside it.
+  // Its own leader read, not `useLeader`: the page's Space starts a sequence
+  // too, through `startLeader`. Nothing is bound beside it but `y`.
+  function feedLeader(event: React.KeyboardEvent) {
+    const sequence = pending + event.key;
+    const wanted = sequence.slice(1);
+    const run = leaderAction(wanted, commands);
+    setPending(!run && leaderPrefix(wanted) ? sequence : "");
+    if (!run) return;
+    event.preventDefault();
+    run();
+  }
+
   function onKeyDown(event: React.KeyboardEvent) {
     const { key } = event;
 
     if (heldModifier(key)) return;
-
-    if (pending) {
-      const sequence = pending + key;
-      const wanted = sequence.slice(1);
-      const run = leaderAction(wanted, commands);
-      setPending(!run && leaderPrefix(wanted) ? sequence : "");
-
-      if (run) {
-        event.preventDefault();
-        run();
-      }
-      return;
-    }
-
+    if (pending) return feedLeader(event);
     if (event.ctrlKey || event.altKey || event.metaKey) return;
 
     if (key === " ") {
@@ -484,7 +467,7 @@ export function HtmlPane({
           key={reading.open.signal}
           source={{
             path,
-            words: async () => textWords(await pageText()),
+            words: async () => textWords(await pageText(frame.current, textWait)),
             // The passage held for a take is the page's selection, so "from
             // here" starts at it, and resumes where nothing is selected.
             here: (words) => {

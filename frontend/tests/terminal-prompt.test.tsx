@@ -123,3 +123,42 @@ describe("TerminalPrompt", () => {
     expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
   });
 });
+
+describe("#968 TerminalPrompt's highlight", () => {
+  const picked = () =>
+    screen
+      .queryAllByRole("option")
+      .filter((row) => row.getAttribute("aria-selected") === "true")
+      .map((row) => row.textContent);
+
+  it("moves on the arrows and ctrl+n/p, stops at either end, and Tab takes it", () => {
+    const { dialog, field } = renderPrompt();
+    fireEvent.change(field, { target: { value: "s" } });
+    const rows = screen.getAllByRole("option").map((row) => row.textContent);
+    expect(rows.length).toBeGreaterThan(2);
+
+    expect(fireEvent.keyDown(dialog, { key: "ArrowDown" })).toBe(false);
+    expect(picked()).toEqual([rows[1]]);
+    for (let i = 0; i < rows.length; i++) fireEvent.keyDown(dialog, { key: "n", ctrlKey: true });
+    expect(picked()).toEqual([rows.at(-1)]);
+    for (let i = 0; i < rows.length; i++) fireEvent.keyDown(dialog, { key: "ArrowUp" });
+    expect(picked()).toEqual([rows[0]]);
+    fireEvent.keyDown(dialog, { key: "ArrowDown" });
+    fireEvent.keyDown(dialog, { key: "p", ctrlKey: true });
+    expect(picked()).toEqual([rows[0]]);
+
+    fireEvent.keyDown(dialog, { key: "ArrowDown" });
+    fireEvent.keyDown(dialog, { key: "Tab" });
+    expect(field).toHaveValue(rows[1]);
+  });
+
+  it("leaves an arrow to the input when no session matches", () => {
+    const { onOpen, dialog, field } = renderPrompt();
+    fireEvent.change(field, { target: { value: "zzz" } });
+
+    expect(screen.queryAllByRole("option")).toHaveLength(0);
+    expect(fireEvent.keyDown(dialog, { key: "ArrowDown" })).toBe(true);
+    expect(fireEvent.keyDown(dialog, { key: "n", ctrlKey: true })).toBe(true);
+    expect(onOpen).not.toHaveBeenCalled();
+  });
+});

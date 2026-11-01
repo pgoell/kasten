@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
+import { NotePreview } from "@/components/note-preview";
 import { SearchPreview } from "@/components/search-preview";
 import type { SearchHit } from "@/lib/api";
 
@@ -33,4 +34,30 @@ it("shows the place and the line of a file hit, and does not read the file as a 
   expect(screen.getByTestId("preview").textContent).toContain("the budget is due in March");
   expect(screen.getByTestId("preview").textContent).not.toContain("endobj");
   expect(fetchNote).not.toHaveBeenCalled();
+});
+
+describe("#968 the note preview under a hit", () => {
+  it("counts the gutter from the window's first line, and marks no line outside it", () => {
+    const { container } = render(
+      <NotePreview text={"one\ntwo\nthree"} firstLine={10} markLine={20} />,
+    );
+
+    const numbers = [...container.querySelectorAll(".cm-lineNumbers .cm-gutterElement")].map(
+      (n) => n.textContent,
+    );
+    expect(numbers).toContain("12");
+    expect(numbers).not.toContain("3");
+    expect(container.querySelector(".cm-searchHit")).toBeNull();
+  });
+
+  it("draws a cloze gap as a pill only when asked, and no gutter without a first line", () => {
+    const text = "the \\[answer\\] here";
+    const plain = render(<NotePreview text={text} />);
+    expect(plain.container.querySelector("[data-gap]")).toBeNull();
+    expect(plain.container.querySelector(".cm-lineNumbers")).toBeNull();
+    plain.unmount();
+
+    const { container } = render(<NotePreview text={text} gaps />);
+    expect(container.querySelector("[data-gap]")).toHaveTextContent("answer");
+  });
 });

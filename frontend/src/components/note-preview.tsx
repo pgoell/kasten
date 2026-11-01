@@ -1,4 +1,4 @@
-import { EditorState, Text } from "@codemirror/state";
+import { EditorState, type Extension, type Line, Text } from "@codemirror/state";
 import {
   Decoration,
   type DecorationSet,
@@ -49,6 +49,43 @@ const GAPS = ViewPlugin.fromClass(
   { decorations: (plugin) => plugin.decorations },
 );
 
+/** The line `mark` names, counted from `offset`, or undefined when it falls outside the text. */
+function hitLine(doc: Text, mark: number | undefined, offset: number): Line | undefined {
+  if (mark === undefined) return undefined;
+  const at = mark - offset;
+  return at >= 1 && at <= doc.lines ? doc.line(at) : undefined;
+}
+
+function previewExtensions(
+  hit: Line | undefined,
+  marked: boolean | undefined,
+  from: number | undefined,
+  offset: number,
+): Extension[] {
+  return [
+    EditorView.editable.of(false),
+    // Read at state level, unlike `editable`, which is what lets the
+    // rendering tell a pane with no cursor from the editor: a table
+    // opens its source for a cursor inside it, and offset zero here is
+    // where the selection sits rather than where anybody put it.
+    EditorState.readOnly.of(true),
+    // The editor's own parse, wikilinks and frontmatter included: the
+    // pane shows the note as opening it will, and no vault listing
+    // reaches here, so every link renders as one that lands.
+    noteLanguage(),
+    renderedMarkdown(),
+    kastenTheme,
+    EditorView.lineWrapping,
+    // A static set rather than a state field: the document never
+    // changes here, so neither can the mark on it.
+    EditorView.decorations.of(hit ? Decoration.set([HIT.range(hit.from)]) : Decoration.none),
+    // A hit in a folded callout's body would mark a line nobody can see.
+    ...(hit ? [opensFor.of(hit.from)] : []),
+    ...(marked ? [GAPS] : []),
+    ...(from === undefined ? [] : [lineNumbers({ formatNumber: (n) => `${n + offset}` })]),
+  ];
+}
+
 /**
  * A note as the editor renders it, in CodeMirror so it cannot drift from the editor.
  * Uneditable, not read-only: a pane that takes focus would swallow the dialog's keys.
@@ -71,36 +108,14 @@ export function NotePreview({ text, firstLine, markLine, gaps }: NotePreviewProp
     const offset = from === undefined ? 0 : from - 1;
 
     // Built here rather than left to `EditorState` because the decoration
-    // below needs a position, and a position needs the document first.
+    // needs a position, and a position needs the document first.
     const doc = Text.of(source.split("\n"));
-    const at = mark === undefined ? undefined : mark - offset;
-    const hit = at !== undefined && at >= 1 && at <= doc.lines ? doc.line(at) : undefined;
+    const hit = hitLine(doc, mark, offset);
 
     const view = new EditorView({
       state: EditorState.create({
         doc,
-        extensions: [
-          EditorView.editable.of(false),
-          // Read at state level, unlike `editable`, which is what lets the
-          // rendering tell a pane with no cursor from the editor: a table
-          // opens its source for a cursor inside it, and offset zero here is
-          // where the selection sits rather than where anybody put it.
-          EditorState.readOnly.of(true),
-          // The editor's own parse, wikilinks and frontmatter included: the
-          // pane shows the note as opening it will, and no vault listing
-          // reaches here, so every link renders as one that lands.
-          noteLanguage(),
-          renderedMarkdown(),
-          kastenTheme,
-          EditorView.lineWrapping,
-          // A static set rather than a state field: the document never
-          // changes here, so neither can the mark on it.
-          EditorView.decorations.of(hit ? Decoration.set([HIT.range(hit.from)]) : Decoration.none),
-          // A hit in a folded callout's body would mark a line nobody can see.
-          ...(hit ? [opensFor.of(hit.from)] : []),
-          ...(marked ? [GAPS] : []),
-          ...(from === undefined ? [] : [lineNumbers({ formatNumber: (n) => `${n + offset}` })]),
-        ],
+        extensions: previewExtensions(hit, marked, from, offset),
       }),
       parent,
     });

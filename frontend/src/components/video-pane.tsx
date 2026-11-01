@@ -45,9 +45,10 @@ interface VideoPaneProps {
   onFocus?: () => void;
 }
 
-/** A frontmatter value read as a name: the link brackets and quotes it may carry come off. */
-function plain(value: string | undefined): string | undefined {
-  return value?.replace(/\[\[|\]\]|["']/g, "").trim() || undefined;
+/** The note's `speaker` read as a name, the link brackets and quotes it may carry off, else `author`. */
+function speakerOf(text: string | undefined, author: string | undefined): string | undefined {
+  const value = text === undefined ? undefined : readField(text, "speaker");
+  return value?.replace(/\[\[|\]\]|["']/g, "").trim() || author;
 }
 
 /**
@@ -119,13 +120,17 @@ export function VideoPane({
   const opened = useRef<{ id: string; url: string }>(null);
   /** A second asked for by a switch to this video, which its next open takes in place of the remembered one. */
   const askedStart = useRef<{ id: string; seconds: number }>(null);
-  if (id !== undefined && text !== undefined && opened.current?.id !== id) {
-    const asked = askedStart.current;
-    const start = asked?.id === id ? asked.seconds : watchedAt(text, id);
-    askedStart.current = null;
-    opened.current = { id, url: playerUrl(id, start) };
+  function frameSource(): string | null {
+    if (id === undefined) return null;
+    if (text !== undefined && opened.current?.id !== id) {
+      const asked = askedStart.current;
+      const start = asked?.id === id ? asked.seconds : watchedAt(text, id);
+      askedStart.current = null;
+      opened.current = { id, url: playerUrl(id, start) };
+    }
+    return opened.current?.url ?? null;
   }
-  const source = id === undefined ? null : (opened.current?.url ?? null);
+  const source = frameSource();
 
   // On the way out as well as on every stop: closing the pane is the other way
   // a session ends, and the position would otherwise be the one from the last
@@ -152,89 +157,142 @@ export function VideoPane({
     setIndex((was) => (was + by) % Math.max(videos.length, 1));
   }
 
-  // The leader block the image pane, the exam pane and the todo pane each carry
-  // their own copy of. Nothing else is bound: there is nothing here to operate,
-  // the player owning every key that reaches it.
+  // Its own leader read, not `useLeader`: full screen skips the panel and ends
+  // before a sequence runs. Nothing else is bound: there is nothing here to
+  // operate, the player owning every key that reaches it.
+  function feedLeader(event: React.KeyboardEvent) {
+    const sequence = pending + event.key;
+    const wanted = sequence.slice(1);
+    const run = leaderAction(wanted, commands);
+    // A leader key can be more than one letter, so a sequence that still
+    // prefixes one waits for the rest instead of being dropped.
+    setPending(!run && leaderPrefix(wanted) ? sequence : "");
+    if (!run) return;
+    event.preventDefault();
+    // Typed blind in full screen, a sequence would open its picker or move
+    // the focus to a pane the browser is not drawing, and the next keys
+    // would land there unseen. So full screen ends first.
+    if (full) toggleFull();
+    run();
+  }
+
+  function startLeader(event: React.KeyboardEvent) {
+    event.preventDefault();
+    // Full screen, the which-key panel would open outside the box, where the
+    // browser does not draw it, so the pane keeps the sequence itself and it
+    // runs typed blind.
+    if (!full && beginLeader(paneOpener(commands))) return;
+    setPending(" ");
+  }
+
+  // The note's other videos on `n` and `p`, a lecture at a time: bare letters
+  // because there is nothing else in this pane to type, and the same pair the
+  // todo pane steps its list with. The video's own keys are bare for the same reason.
+  // `j` and `l` seek from the second the pane holds, not from the player,
+  // which would answer a little late. Up and down by 5, as on YouTube, and `m`
+  // to mute; nothing in the pane or the leader takes these.
+  function bareKeys(): Map<string, () => void> {
+    const keys = new Map([
+      ["n", () => step(1)],
+      ["p", () => step(videos.length - 1)],
+    ]);
+    if (source === null) return keys;
+    keys.set("k", togglePlayer).set("m", toggleMute);
+    keys.set("j", () => seek(second.current - 10)).set("l", () => seek(second.current + 10));
+    keys.set("ArrowUp", () => volumeBy(5)).set("ArrowDown", () => volumeBy(-5));
+    if (canFull) keys.set("f", toggleFull);
+    return keys;
+  }
+
   function onKeyDown(event: React.KeyboardEvent) {
     const { key } = event;
 
     // A modifier holds itself down before the key it is held for arrives, and
     // a pending sequence that read it as a key would drop the sequence there.
     if (heldModifier(key)) return;
-
-    if (pending) {
-      const sequence = pending + key;
-      const wanted = sequence.slice(1);
-      const run = leaderAction(wanted, commands);
-      // A leader key can be more than one letter, so a sequence that still
-      // prefixes one waits for the rest instead of being dropped.
-      setPending(!run && leaderPrefix(wanted) ? sequence : "");
-
-      if (run) {
-        event.preventDefault();
-        // Typed blind in full screen, a sequence would open its picker or move
-        // the focus to a pane the browser is not drawing, and the next keys
-        // would land there unseen. So full screen ends first.
-        if (full) toggleFull();
-        run();
-      }
-      return;
-    }
-
+    if (pending) return feedLeader(event);
     if (event.ctrlKey || event.altKey || event.metaKey) return;
+    if (key === " ") return startLeader(event);
 
-    if (key === " ") {
-      // Full screen, the which-key panel would open outside the box, where the
-      // browser does not draw it, so the pane keeps the sequence itself and it
-      // runs typed blind.
-      if (!full && beginLeader(paneOpener(commands))) {
-        event.preventDefault();
-        return;
-      }
-      setPending(key);
+    const run = bareKeys().get(key);
+    if (run) {
       event.preventDefault();
+      run();
       return;
     }
-
-    // The video's own keys, bare letters for the same reason `n` and `p` are.
-    // `j` and `l` seek from the second the pane holds, not from the player,
-    // which would answer a little late. `y` is only the view's, and a Take
-    // answering no (no selection) leaves the key to the browser.
-    if (key === "k" && source !== null) {
-      event.preventDefault();
-      togglePlayer();
-      return;
-    }
-    if ((key === "j" || key === "l") && source !== null) {
-      event.preventDefault();
-      seek(second.current + (key === "l" ? 10 : -10));
-      return;
-    }
-    // Up and down by 5, as on YouTube, and `m` to mute; nothing in the pane or the leader takes these.
-    if ((key === "ArrowUp" || key === "ArrowDown") && source !== null) {
-      event.preventDefault();
-      volumeBy(key === "ArrowUp" ? 5 : -5);
-      return;
-    }
-    if (key === "m" && source !== null) {
-      event.preventDefault();
-      toggleMute();
-      return;
-    }
-    if (key === "f" && source !== null && canFull) {
-      event.preventDefault();
-      toggleFull();
-      return;
-    }
+    // `y` is only the view's, and a Take answering no (no selection) leaves the key to the browser.
     if (key === "y" && view && transcript.current?.take()) event.preventDefault();
+  }
 
-    // The note's other videos, a lecture at a time. Bare letters because there
-    // is nothing else in this pane to type, and the same pair the todo pane
-    // steps its list with.
-    if (key === "n" || key === "p") {
-      event.preventDefault();
-      step(key === "n" ? 1 : videos.length - 1);
-    }
+  /** The player box, or the line saying why there is none. */
+  function player() {
+    return source === null ? (
+      <p role="status" className="px-1 py-2 text-k-13 text-k-muted">
+        {isPending ? "Reading the note" : "No video linked in this note"}
+      </p>
+    ) : (
+      // Capped to the pane's height as well as its width: the body is a size
+      // container, so 70% of its height is the most a player may take, and
+      // the rest is left for the title, the chapters and the line under them.
+      // Full screen, the browser's own rules make the box fill the screen
+      // whatever its classes say, and the frame fills the box.
+      <div
+        ref={box}
+        data-video-box
+        tabIndex={-1}
+        className="relative mx-auto aspect-video w-[min(100%,calc(70cqh*16/9))] shrink-0 outline-none"
+      >
+        <iframe
+          ref={frame}
+          // Keyed on the URL so a note that changes which video it links gets
+          // a new frame rather than a stale player told to load another one.
+          key={source}
+          src={source}
+          title="video"
+          // The subscription the effect above listens for. It goes on load
+          // rather than on mount: a frame that has not finished loading has a
+          // `contentWindow` that drops what it is sent.
+          onLoad={() =>
+            frame.current?.contentWindow?.postMessage(
+              JSON.stringify({ event: "listening", channel: "widget" }),
+              PLAYER,
+            )
+          }
+          // Fullscreen is the one thing worth handing over: a talk followed
+          // properly is watched full width and paused back to the notes.
+          // Autoplay is handed over for the shield: a tap on it is a script
+          // call into a cross-origin frame, which the frame honours only when
+          // it is delegated autoplay. The URL carries no `autoplay=1`, so
+          // nothing starts on its own. Nothing else is granted: no camera, no
+          // clipboard.
+          allow="autoplay; fullscreen; picture-in-picture"
+          allowFullScreen
+          className="absolute inset-0 h-full w-full border-0"
+        />
+        <VideoShield
+          running={running}
+          onPress={() => {
+            togglePlayer();
+            refocus();
+            onFocus?.();
+          }}
+        />
+        {full && (
+          // The header is outside the box and off screen now, and a phone
+          // has no Esc, so the way out sits on the player itself. After the
+          // shield so it lies over it, and out of the focus as the shield is.
+          <button
+            type="button"
+            tabIndex={-1}
+            onPointerDown={(event) => event.preventDefault()}
+            onClick={toggleFull}
+            className="absolute top-2 right-2 cursor-pointer rounded-[var(--k-radius-4)] bg-k-ink/70 px-2 py-1 font-sans text-k-12 text-k-paper pointer-coarse:min-h-11"
+          >
+            Exit full screen
+          </button>
+        )}
+      </div>
+    );
   }
 
   return (
@@ -353,81 +411,12 @@ export function VideoPane({
               : "flex flex-col gap-3 p-2"
           }
         >
-          {source === null ? (
-            <p role="status" className="px-1 py-2 text-k-13 text-k-muted">
-              {isPending ? "Reading the note" : "No video linked in this note"}
-            </p>
-          ) : (
-            // Capped to the pane's height as well as its width: the body is a size
-            // container, so 70% of its height is the most a player may take, and
-            // the rest is left for the title, the chapters and the line under them.
-            // Full screen, the browser's own rules make the box fill the screen
-            // whatever its classes say, and the frame fills the box.
-            <div
-              ref={box}
-              data-video-box
-              tabIndex={-1}
-              className="relative mx-auto aspect-video w-[min(100%,calc(70cqh*16/9))] shrink-0 outline-none"
-            >
-              <iframe
-                ref={frame}
-                // Keyed on the URL so a note that changes which video it links gets
-                // a new frame rather than a stale player told to load another one.
-                key={source}
-                src={source}
-                title="video"
-                // The subscription the effect above listens for. It goes on load
-                // rather than on mount: a frame that has not finished loading has a
-                // `contentWindow` that drops what it is sent.
-                onLoad={() =>
-                  frame.current?.contentWindow?.postMessage(
-                    JSON.stringify({ event: "listening", channel: "widget" }),
-                    PLAYER,
-                  )
-                }
-                // Fullscreen is the one thing worth handing over: a talk followed
-                // properly is watched full width and paused back to the notes.
-                // Autoplay is handed over for the shield: a tap on it is a script
-                // call into a cross-origin frame, which the frame honours only when
-                // it is delegated autoplay. The URL carries no `autoplay=1`, so
-                // nothing starts on its own. Nothing else is granted: no camera, no
-                // clipboard.
-                allow="autoplay; fullscreen; picture-in-picture"
-                allowFullScreen
-                className="absolute inset-0 h-full w-full border-0"
-              />
-              <VideoShield
-                running={running}
-                onPress={() => {
-                  togglePlayer();
-                  refocus();
-                  onFocus?.();
-                }}
-              />
-              {full && (
-                // The header is outside the box and off screen now, and a phone
-                // has no Esc, so the way out sits on the player itself. After the
-                // shield so it lies over it, and out of the focus as the shield is.
-                <button
-                  type="button"
-                  tabIndex={-1}
-                  onPointerDown={(event) => event.preventDefault()}
-                  onClick={toggleFull}
-                  className="absolute top-2 right-2 cursor-pointer rounded-[var(--k-radius-4)] bg-k-ink/70 px-2 py-1 font-sans text-k-12 text-k-paper pointer-coarse:min-h-11"
-                >
-                  Exit full screen
-                </button>
-              )}
-            </div>
-          )}
+          {player()}
           {source !== null && id !== undefined && (
             <>
               <VideoDetails
                 title={detail?.title ?? noteName(note)}
-                speaker={
-                  plain(text === undefined ? undefined : readField(text, "speaker")) ??
-                  detail?.author
-                }
+                speaker={speakerOf(text, detail?.author)}
                 chapters={chapters}
                 at={at}
                 onSeek={seekAndFocus}
