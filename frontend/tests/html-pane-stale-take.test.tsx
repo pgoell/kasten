@@ -279,4 +279,25 @@ describe("a take the device did not keep", () => {
     await screen.findByText("Taken into today's dump");
     expect(dumpsSent(sent).map((dump) => dump.text.includes(PASSAGE.text))).toEqual([true]);
   });
+
+  it("two takes it did not keep put back the later one, and the button takes that", async () => {
+    const release = refusing();
+    const sent = answering();
+    const { frame } = renderPane();
+
+    frame.focus();
+    fromPage(frame.contentWindow, selection());
+    yFromPage(frame);
+    fromPage(frame.contentWindow, selection({ text: "A later passage." }));
+    fireEvent.click(takeButton() as HTMLElement);
+    release();
+    await screen.findByText("No room on this device");
+    await settled(() => false);
+
+    gate.hold = null;
+    gate.refuse = null;
+    fireEvent.click(takeButton() as HTMLElement);
+    await screen.findByText("Taken into today's dump");
+    expect(dumpsSent(sent).map((dump) => dump.text.includes("A later passage."))).toEqual([true]);
+  });
 });
