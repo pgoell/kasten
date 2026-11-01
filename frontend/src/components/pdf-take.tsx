@@ -155,7 +155,10 @@ export function usePdfTake(o: {
   // take the one before.
   const [held, setHeld] = useState<Held | null>(null);
   const heldRef = useRef<Held | null>(null);
+  /** Counts held passages and takes, so a refused take knows whether the reader chose since (#899). */
+  const picks = useRef(0);
   const hold = useCallback((next: Held | null) => {
+    if (next !== null) picks.current += 1;
     heldRef.current = next;
     setHeld(next);
   }, []);
@@ -241,6 +244,8 @@ export function usePdfTake(o: {
     const taken = heldRef.current;
     if (taken === null) return;
     heldRef.current = null;
+    picks.current += 1;
+    const pick = picks.current;
 
     const frame = box.current;
     const parts = frame === null ? [] : partsOf(frame, taken.range);
@@ -261,7 +266,8 @@ export function usePdfTake(o: {
         }
       },
     });
-    if (!kept) hold(taken);
+    // Back on hold for another try, unless the reader selected or took since (#899).
+    if (!kept && picks.current === pick) hold(taken);
   }
 
   function onKeyDown(event: ReactKeyboardEvent): boolean {

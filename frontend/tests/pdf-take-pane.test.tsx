@@ -20,14 +20,20 @@ vi.mock("@/lib/api", () => {
   return { fetchNote, saveNote, updateNote, searchNotes, ChangedOnDisk };
 });
 
-/** Holds each take's keep until the test lets it go, so two takes can be in flight at once. */
-const { gate } = vi.hoisted(() => ({ gate: { hold: null as Promise<void> | null } }));
+/**
+ * Holds each take's keep until the test lets it go, so two takes can be in flight at
+ * once, and makes it fail where the test says so.
+ */
+const { gate } = vi.hoisted(() => ({
+  gate: { hold: null as Promise<void> | null, refuse: null as Error | null },
+}));
 vi.mock("@/lib/outbox", async (importOriginal) => {
   const real = await importOriginal<typeof import("@/lib/outbox")>();
   return {
     ...real,
     keep: async (text: string, date: string) => {
       if (gate.hold !== null) await gate.hold;
+      if (gate.refuse !== null) throw gate.refuse;
       return real.keep(text, date);
     },
   };
@@ -146,12 +152,29 @@ function answeringLate() {
   return { sent, land };
 }
 
+/** One macrotask, where jsdom's queued selection events and IndexedDB's answers land. */
+function nextTask() {
+  return act(() => new Promise<void>((resolve) => setImmediate(resolve)));
+}
+
 /** Lets the outbox send what it holds, and the take that sent it, run to its end. */
 async function drained() {
   for (let turn = 0; turn < 200 && (await waiting()).length > 0; turn++) {
-    await act(() => new Promise<void>((resolve) => setImmediate(resolve)));
+    await nextTask();
   }
-  await act(() => new Promise<void>((resolve) => setImmediate(resolve)));
+  await nextTask();
+}
+
+/** Holds the keep and makes it fail, until the test lets it go. */
+function refusing() {
+  let release = () => {};
+  gate.hold = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  gate.refuse = new Error("No room on this device");
+  return () => {
+    release();
+  };
 }
 
 /** Drop the outbox's database, which only goes once the outbox has let go of it. */
@@ -176,6 +199,7 @@ beforeEach(async () => {
   searchNotes.mockResolvedValue([]);
   updateNote.mockResolvedValue(null);
   gate.hold = null;
+  gate.refuse = null;
   savedRects = Object.getOwnPropertyDescriptor(Range.prototype, "getClientRects");
   Object.defineProperty(Range.prototype, "getClientRects", {
     configurable: true,
@@ -472,5 +496,61 @@ describe("taking a passage out of a pdf", () => {
       button: screen.queryByRole("button", { name: "Take the passage" }) !== null,
       selected: document.getSelection()?.toString(),
     }).toEqual({ button: true, selected: "Three." });
+  });
+
+  it("a take the device did not keep leaves a selection made after y held, and y takes that one (#899)", async () => {
+    const sent = answering();
+    const release = refusing();
+    render(<Pdf />);
+    select(pageTwo());
+    fireEvent.keyDown(pageTwo(), { key: "y" });
+    select(screen.getByText("Three."));
+    await nextTask();
+
+    release();
+    await screen.findByText("No room on this device");
+    gate.hold = null;
+    gate.refuse = null;
+    fireEvent.keyDown(pageTwo(), { key: "y" });
+    await waitFor(() => expect(dumpsSent(sent)).toHaveLength(1));
+    expect(dumpsSent(sent).map((dump) => dump.text.includes("Three."))).toEqual([true]);
+  });
+
+  it("a take the device did not keep, with nothing selected since, goes back for the next y", async () => {
+    const sent = answering();
+    const release = refusing();
+    render(<Pdf />);
+    select(pageTwo());
+    await nextTask();
+    fireEvent.keyDown(pageTwo(), { key: "y" });
+
+    release();
+    await screen.findByText("No room on this device");
+    gate.hold = null;
+    gate.refuse = null;
+    fireEvent.keyDown(pageTwo(), { key: "y" });
+    await waitFor(() => expect(dumpsSent(sent)).toHaveLength(1));
+    expect(dumpsSent(sent).map((dump) => dump.text.includes(WORDS))).toEqual([true]);
+  });
+
+  it("two takes the device did not keep put back the later one, and y takes that (#899)", async () => {
+    const sent = answering();
+    const release = refusing();
+    render(<Pdf />);
+    select(pageTwo());
+    await nextTask();
+    fireEvent.keyDown(pageTwo(), { key: "y" });
+    select(screen.getByText("Three."));
+    await nextTask();
+    fireEvent.keyDown(pageTwo(), { key: "y" });
+
+    release();
+    await screen.findByText("No room on this device");
+    await nextTask();
+    gate.hold = null;
+    gate.refuse = null;
+    fireEvent.keyDown(pageTwo(), { key: "y" });
+    await waitFor(() => expect(dumpsSent(sent)).toHaveLength(1));
+    expect(dumpsSent(sent).map((dump) => dump.text.includes("Three."))).toEqual([true]);
   });
 });
