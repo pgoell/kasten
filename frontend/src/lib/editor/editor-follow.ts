@@ -144,33 +144,38 @@ export function followOnClick(): Extension {
   return EditorView.domEventHandlers({
     mousedown(event, view) {
       if (!event.ctrlKey && !event.metaKey) return false;
-      const target = linkUnder(event, view);
-      if (target !== null) {
-        // Returning true makes CodeMirror cancel the mousedown, and with it the
-        // focus the browser would have moved here. The pane a link opens off is
-        // the focused one, so a click in another pane takes the focus first, the
-        // way Obsidian splits off the pane you clicked (#361). The focus event
-        // runs inside this call, so the layout hears of it before the open.
-        if (!repeats(event, NOTE)) {
-          view.focus();
-          followLink(view, target);
-        }
-        return true;
-      }
-      const file = fileUnder(event, view);
-      if (file !== null) {
-        if (!repeats(event, NOTE)) {
-          view.focus();
-          followFile(view, file);
-        }
-        return true;
-      }
-      const link = urlUnder(event, view);
-      if (link === null) return false;
-      if (!repeats(event, link.address)) window.open(link.address, "_blank", "noopener");
-      return true;
+      return clickFollow(event, view);
     },
   });
+}
+
+/** Follows the link a ctrl+click lands on, and whether there was one. */
+function clickFollow(event: MouseEvent, view: EditorView): boolean {
+  const target = linkUnder(event, view);
+  if (target !== null) {
+    // Returning true makes CodeMirror cancel the mousedown, and with it the
+    // focus the browser would have moved here. The pane a link opens off is
+    // the focused one, so a click in another pane takes the focus first, the
+    // way Obsidian splits off the pane you clicked (#361). The focus event
+    // runs inside this call, so the layout hears of it before the open.
+    if (!repeats(event, NOTE)) {
+      view.focus();
+      followLink(view, target);
+    }
+    return true;
+  }
+  const file = fileUnder(event, view);
+  if (file !== null) {
+    if (!repeats(event, NOTE)) {
+      view.focus();
+      followFile(view, file);
+    }
+    return true;
+  }
+  const link = urlUnder(event, view);
+  if (link === null) return false;
+  if (!repeats(event, link.address)) window.open(link.address, "_blank", "noopener");
+  return true;
 }
 
 /** The `[[link]]` around `pos`, looking one way only. */
@@ -224,6 +229,49 @@ function wikiLinkRangeUnder(event: Event, view: EditorView): SyntaxNode | null {
   return wikiLinkNode(view.state, view.posAtDOM(element), 1);
 }
 
+/** What a touch-down lands on: each link a click after it follows, else null. */
+interface Landing {
+  note: string | null;
+  url: string | null;
+  file: FileLink | null;
+}
+
+function landing(event: PointerEvent, view: EditorView): Landing {
+  if (event.pointerType !== "touch") return { note: null, url: null, file: null };
+  const head = view.state.selection.main.head;
+  const link = urlUnder(event, view);
+  // A file link is one the tap opens in kasten, so it is not the address a
+  // tap would window.open, and it reads the same way the link does.
+  const file = fileUnder(event, view);
+  return {
+    note: noteLanding(event, view, head),
+    url: link !== null && outside(head, link) ? link.address : null,
+    file: file !== null && outside(head, file) ? file : null,
+  };
+}
+
+function outside(head: number, link: { from: number; to: number }): boolean {
+  return head < link.from || head > link.to;
+}
+
+/** The wikilink a tap lands on, unless the cursor is in it, which makes the tap an edit. */
+function noteLanding(event: PointerEvent, view: EditorView, head: number): string | null {
+  const target = linkUnder(event, view);
+  if (target === null) return null;
+  // The cursor is never in a link a drawn table shows, the table showing
+  // its source while it is, so one of the same name elsewhere is not it.
+  const drawn = event.target instanceof Element && event.target.closest(".cm-table-block") !== null;
+  // The link the cursor is in by its place, not its name: another link to
+  // the same note is not the one being edited (#568). Both ends count, as
+  // in `wikiLinkAt`, which is where `$` lands on a line ending in a link.
+  // Between `[[a]][[b]]` the cursor touches both, and it is in the one
+  // `wikiLinkAt` would read, forwards first.
+  const range = drawn ? null : wikiLinkRangeUnder(event, view);
+  const here = wikiLinkNode(view.state, head, 1) ?? wikiLinkNode(view.state, head, -1);
+  const editing = range !== null && here !== null && here.from === range.from;
+  return editing ? null : target;
+}
+
 /**
  * A tap follows a link. It is read on touch-down, because a drag from a link is a scroll, and acted on
  * at the click. A link the cursor is already in is edited, not followed.
@@ -235,28 +283,7 @@ export function followOnTap(): Extension {
   watchPresses();
   return EditorView.domEventHandlers({
     pointerdown(event, view) {
-      const touch = event.pointerType === "touch";
-      const head = view.state.selection.main.head;
-      const target = touch ? linkUnder(event, view) : null;
-      // The cursor is never in a link a drawn table shows, the table showing
-      // its source while it is, so one of the same name elsewhere is not it.
-      const drawn =
-        event.target instanceof Element && event.target.closest(".cm-table-block") !== null;
-      // The link the cursor is in by its place, not its name: another link to
-      // the same note is not the one being edited (#568). Both ends count, as
-      // in `wikiLinkAt`, which is where `$` lands on a line ending in a link.
-      // Between `[[a]][[b]]` the cursor touches both, and it is in the one
-      // `wikiLinkAt` would read, forwards first.
-      const range = target === null || drawn ? null : wikiLinkRangeUnder(event, view);
-      const here = wikiLinkNode(view.state, head, 1) ?? wikiLinkNode(view.state, head, -1);
-      const editing = range !== null && here !== null && here.from === range.from;
-      landed = editing ? null : target;
-      const link = touch ? urlUnder(event, view) : null;
-      landedUrl = link !== null && (head < link.from || head > link.to) ? link.address : null;
-      // A file link is one the tap opens in kasten, so it is not the address a
-      // tap would window.open, and it reads the same way the link does.
-      const file = touch ? fileUnder(event, view) : null;
-      landedFile = file !== null && (head < file.from || head > file.to) ? file : null;
+      ({ note: landed, url: landedUrl, file: landedFile } = landing(event, view));
       return false;
     },
     // The browser takes the finger for a scroll. No click follows one, but
