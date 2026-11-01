@@ -82,7 +82,10 @@ February, writes no copy.
 
 The copy is open and carries no `✅`, no `❌`, no `🆔` and no `⏱`: those name
 the instance that was finished, which the done log links to. The `➕` stays,
-that being the recurrence's own birthday.
+that being the recurrence's own birthday. A todo ticked done while waiting
+comes back without its dated `👤`, the wait having ended with the round (#1305).
+A `👤` name with no date says who the todo is for and stays, as does a dated
+`👤` typed onto a line that was not waiting.
 
 The copy brings the todo's parts along (#802), so a routine keeps its steps.
 Every todo indented under the ticked one comes back under the copy at the indent

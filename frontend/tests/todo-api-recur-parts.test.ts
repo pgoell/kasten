@@ -50,3 +50,23 @@ describe("#802 the pane's tick", () => {
     expect((text as string).split("\n")[3]).toBe("  - [x] part ⏳ 2026-08-09 ✅ 2026-08-10");
   });
 });
+
+describe("#1305 the pane's tick on a waiting recurring todo", () => {
+  async function tick(line: string): Promise<string> {
+    fetchNote.mockImplementation(async (path: string) => (path === "a.md" ? `${line}\n` : ""));
+    await cycleTodoInVault({ path: "a.md", line: 1, text: line }, "2026-08-10", ["a.md"], "done");
+    return ((saveNote.mock.calls[0]?.[1] as string) ?? "").split("\n")[0] ?? "";
+  }
+
+  it("#1305 A2 writes the copy with no dated 👤", async () => {
+    expect(await tick("- [w] a 📅 2026-08-10 🔁 every week 👤 2026-08-03 [[Ada]]")).toBe(
+      "- [ ] a 📅 2026-08-17 🔁 every week",
+    );
+  });
+
+  it("#1305 I1 keeps an undated 👤 name on the copy and drops the wait beside it", async () => {
+    expect(await tick("- [w] a 📅 2026-08-10 🔁 every week 👤 [[Ada]] 👤 2026-08-03")).toBe(
+      "- [ ] a 👤 [[Ada]] 📅 2026-08-17 🔁 every week",
+    );
+  });
+});

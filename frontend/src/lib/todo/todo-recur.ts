@@ -302,6 +302,9 @@ export function nextCopy(todo: Todo, shift: number): Todo {
     cancelled: undefined,
     id: undefined,
     worked: undefined,
+    // A wait ends with the round it held up (#1305). A dated `👤` typed onto a
+    // line that never waited is somebody's words, and stays, as in `setStateOn`.
+    ...(todo.state === "waiting" && { waitingSince: undefined, waitingOn: undefined }),
   };
 }
 
