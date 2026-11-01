@@ -89,6 +89,16 @@ function insidePanel(target: EventTarget | null): boolean {
  * Hands the focus back to what held it when Space was pressed. Synchronous and
  * without a scroll, so the panel's leave never moves the page.
  */
+/** Enter on a focused row is that row's click, so the button gets it. */
+function rowPress({ key, target }: KeyboardEvent): boolean {
+  return key === "Enter" && target instanceof HTMLButtonElement && insidePanel(target);
+}
+
+/** Escape, Space again, or a key held with ctrl, alt or meta: the panel goes and nothing runs. */
+function closesPanel({ key, ctrlKey, altKey, metaKey }: KeyboardEvent): boolean {
+  return key === "Escape" || key === " " || ctrlKey || altKey || metaKey;
+}
+
 function focusBack(opener: LeaderOpener) {
   const from = opener.from;
   if (from instanceof HTMLElement && from.isConnected) from.focus({ preventScroll: true });
@@ -305,6 +315,37 @@ export function WhichKey({ phone }: { phone: boolean }) {
   // Capture on the document, so the panel sees each key before anything behind
   // it. Stopping it here is what keeps vim's `y` from yanking under the panel.
   useEffect(() => {
+    const close = (opener: LeaderOpener) => {
+      focusBack(opener);
+      leave();
+    };
+    const typeKey = (current: Live, opener: LeaderOpener, next: string) => {
+      const run = opener.resolve(next);
+      if (run) fire(opener, run);
+      else if (opener.prefix(next)) {
+        live.current = { ...current, typed: next };
+        setTyped(next);
+      } else close(opener);
+    };
+    const trapInBox = (event: KeyboardEvent) => {
+      // On a phone the sheet is the box, found from the focused element.
+      const box =
+        panel.current ??
+        (event.target instanceof Element
+          ? event.target.closest<HTMLElement>('[role="dialog"]')
+          : null);
+      if (box) trapTab(event, box);
+    };
+    const actOn = (event: KeyboardEvent, current: Live, opener: LeaderOpener) => {
+      if (event.key === "Tab") {
+        trapInBox(event);
+        return;
+      }
+
+      event.preventDefault();
+      if (closesPanel(event)) close(opener);
+      else typeKey(current, opener, current.typed + event.key);
+    };
     const onKey = (event: KeyboardEvent) => {
       const current = live.current;
       const opener = current.opener;
@@ -314,41 +355,11 @@ export function WhichKey({ phone }: { phone: boolean }) {
       // Shift and the rest are presses on their way to the key they are held
       // for: `Space E` is Shift then E, so the panel keeps waiting.
       if (heldModifier(key)) return;
-      // Enter on a focused row is that row's click, so the button gets it.
-      if (key === "Enter" && event.target instanceof HTMLButtonElement && insidePanel(event.target))
-        return;
+      if (rowPress(event)) return;
       // A key the panel acts on counts as the reader's; a lone modifier does not.
       gestured.current = true;
       event.stopPropagation();
-
-      if (key === "Tab") {
-        // On a phone the sheet is the box, found from the focused element.
-        const box =
-          panel.current ??
-          (event.target instanceof Element
-            ? event.target.closest<HTMLElement>('[role="dialog"]')
-            : null);
-        if (box) trapTab(event, box);
-        return;
-      }
-
-      event.preventDefault();
-      if (key === "Escape" || key === " " || event.ctrlKey || event.altKey || event.metaKey) {
-        focusBack(opener);
-        leave();
-        return;
-      }
-
-      const next = current.typed + key;
-      const run = opener.resolve(next);
-      if (run) fire(opener, run);
-      else if (opener.prefix(next)) {
-        live.current = { ...current, typed: next };
-        setTyped(next);
-      } else {
-        focusBack(opener);
-        leave();
-      }
+      actOn(event, current, opener);
     };
     document.addEventListener("keydown", onKey, true);
     return () => document.removeEventListener("keydown", onKey, true);
