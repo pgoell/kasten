@@ -380,3 +380,62 @@ describe("drawGraph radial", () => {
     expect(after).toContain(paintNode(node)[0]);
   });
 });
+
+/** Every call and every setting a note's paint made on the canvas, in order, rounded to 3 places. */
+function opsOf(node: DrawnNode, scale: number): string[] {
+  const ops: string[] = [];
+  const round = (value: unknown) => (typeof value === "number" ? Number(value.toFixed(3)) : value);
+  const ctx = new Proxy({} as Record<string, unknown>, {
+    get:
+      (_, name: string) =>
+      (...args: unknown[]) =>
+        ops.push(`${name}(${args.map(round).join(",")})`),
+    set: (_, name: string, value: unknown) => {
+      ops.push(`${name}=${round(value)}`);
+      return true;
+    },
+  });
+  const paint = graphs.at(-1)?.seen.nodeCanvasObject?.[0] as (
+    node: DrawnNode,
+    ctx: unknown,
+    scale: number,
+  ) => void;
+  paint(node, ctx, scale);
+  return ops;
+}
+
+describe("drawGraph paint", () => {
+  it("I2 a note's paint makes the same calls for a written, an unwritten, a centre and a hovered note, with and without tags", () => {
+    const seen: Record<string, string[]> = {};
+    for (const mode of [null, "tags"] as const) {
+      const canvas = drawGraph(document.createElement("div"), handlers);
+      canvas.cluster(mode);
+      canvas.update(
+        [
+          graphNote("a.md", ["Rust", "rust", "ai", "ml"]),
+          { ...graphNote("b.md"), missing: true },
+          graphNote("c.md"),
+          graphNote("d.md"),
+        ],
+        [link("a.md", "b.md"), link("a.md", "c.md")],
+        "a.md",
+      );
+      const hover = graphs.at(-1)?.seen.onNodeHover?.[0] as (node: DrawnNode | null) => void;
+      hover(drawnOf("c.md"));
+      for (const path of ["a.md", "b.md", "c.md", "d.md"]) {
+        for (const scale of [0.5, 1.5, 4]) {
+          seen[`${mode} ${path} ${scale}`] = opsOf(drawnOf(path), scale);
+        }
+      }
+    }
+    // A pin, not a spec: any change to a paint call, its order or its numbers moves the hash.
+    const text = JSON.stringify(seen);
+    let hash = 2166136261;
+    for (let i = 0; i < text.length; i++)
+      hash = Math.imul(hash ^ text.charCodeAt(i), 16777619) >>> 0;
+    expect({ calls: Object.values(seen).flat().length, hash }).toEqual({
+      calls: 336,
+      hash: 2978770070,
+    });
+  });
+});

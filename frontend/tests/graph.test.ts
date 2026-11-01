@@ -176,4 +176,65 @@ describe("radialLayout", () => {
     expect(spots[3]?.[0]).toBeCloseTo(-1);
     expect(spots[3]?.[1]).toBeCloseTo(0);
   });
+
+  it("I2 radialLayout places rings past the second, fanned siblings and the notes no edge reaches, the same every time", () => {
+    const paths = ["a", "b", "c", "d", "e", "f", "g", "h", "x", "y"].map((name) => `${name}.md`);
+    const edges = [
+      edge("a.md", "b.md"),
+      edge("c.md", "a.md"),
+      edge("b.md", "d.md"),
+      edge("b.md", "e.md"),
+      edge("c.md", "f.md"),
+      edge("e.md", "f.md"),
+      edge("f.md", "g.md"),
+      edge("d.md", "h.md"),
+      edge("h.md", "h.md"),
+      edge("h.md", "gone.md"),
+    ];
+    const spots = (center: string, drawn = edges) =>
+      [
+        ...radialLayout(
+          paths.map((path) => note(path)),
+          drawn,
+          center,
+        ),
+      ].map(([path, { x, y, ring }]) => `${path} ${ring} ${x.toFixed(3)} ${y.toFixed(3)}`);
+
+    expect(spots("a.md")).toEqual([
+      "a.md 0 0.000 0.000",
+      "b.md 1 0.000 -1.000",
+      "c.md 1 0.000 1.000",
+      "d.md 2 -1.414 -1.414",
+      "e.md 2 1.414 -1.414",
+      "f.md 2 0.000 2.000",
+      "h.md 3 -2.121 -2.121",
+      "g.md 3 0.000 3.000",
+      "x.md 3 0.000 -3.000",
+      "y.md 3 0.000 3.000",
+    ]);
+    expect(spots("a.md", [edge("a.md", "b.md")])).toEqual([
+      "a.md 0 0.000 0.000",
+      "b.md 1 0.000 -1.000",
+      "c.md 1 0.643 -0.766",
+      "d.md 1 0.985 -0.174",
+      "e.md 1 0.866 0.500",
+      "f.md 1 0.342 0.940",
+      "g.md 1 -0.342 0.940",
+      "h.md 1 -0.866 0.500",
+      "x.md 1 -0.985 -0.174",
+      "y.md 1 -0.643 -0.766",
+    ]);
+    expect(spots("nowhere.md")).toEqual([
+      "a.md 1 0.000 -1.000",
+      "b.md 1 0.588 -0.809",
+      "c.md 1 0.951 -0.309",
+      "d.md 1 0.951 0.309",
+      "e.md 1 0.588 0.809",
+      "f.md 1 0.000 1.000",
+      "g.md 1 -0.588 0.809",
+      "h.md 1 -0.951 0.309",
+      "x.md 1 -0.951 -0.309",
+      "y.md 1 -0.588 -0.809",
+    ]);
+  });
 });

@@ -241,4 +241,65 @@ describe("GraphPane", () => {
     media.set(COARSE, false);
     expect(screen.queryByRole("button", { name: "fit" })).toBeNull();
   });
+
+  it("I3 each pane key does its one thing, and only the keys it owns are taken from the browser", async () => {
+    const ask = vi.spyOn(api, "fetchGraph").mockResolvedValue(WHOLE);
+    const commands = stubCommands();
+    renderPane({ commands, around: "rag.md" });
+    await waitFor(() => expect(ask).toHaveBeenCalledWith(expect.objectContaining({ depth: 1 })));
+    const region = screen.getByRole("region", { name: "graph" });
+    const input = screen.getByRole("textbox", { name: "graph query" });
+    canvas.fit.mockClear();
+    const press = (key: string, more: object = {}) => !fireEvent.keyDown(region, { key, ...more });
+
+    const taken = {
+      ctrlF: press("f", { ctrlKey: true }),
+      altF: press("f", { altKey: true }),
+      metaF: press("f", { metaKey: true }),
+      shift: press("Shift"),
+      m: press("m"),
+      x: press("x"),
+      qInInput: !fireEvent.keyDown(input, { key: "q" }),
+      fits: canvas.fit.mock.calls.length,
+      closes: commands.closeNote.mock.calls.length,
+    };
+    expect(taken).toEqual({
+      ctrlF: false,
+      altF: false,
+      metaF: false,
+      shift: false,
+      m: false,
+      x: false,
+      qInInput: false,
+      fits: 0,
+      closes: 0,
+    });
+
+    expect(press("-")).toBe(true);
+    await waitFor(() =>
+      expect(ask).toHaveBeenLastCalledWith(expect.objectContaining({ depth: 0 })),
+    );
+    expect(press("-")).toBe(true);
+    expect(press("=")).toBe(true);
+    await waitFor(() =>
+      expect(ask).toHaveBeenLastCalledWith(expect.objectContaining({ depth: 1 })),
+    );
+    expect(press("f")).toBe(true);
+    expect(canvas.fit).toHaveBeenCalledOnce();
+    expect(press("/")).toBe(true);
+    expect(document.activeElement).toBe(input);
+    expect(press("q")).toBe(true);
+    expect(commands.closeNote).toHaveBeenCalledOnce();
+  });
+
+  it("I3 on the whole vault + and - are taken and ask for no depth, and m is taken", async () => {
+    const ask = vi.spyOn(api, "fetchGraph").mockResolvedValue(WHOLE);
+    renderPane();
+    await waitFor(() => expect(ask).toHaveBeenCalled());
+    const region = screen.getByRole("region", { name: "graph" });
+    const press = (key: string) => !fireEvent.keyDown(region, { key });
+
+    expect([press("+"), press("="), press("-"), press("m")]).toEqual([true, true, true, true]);
+    expect(ask.mock.calls.every(([options]) => options.depth === undefined)).toBe(true);
+  });
 });
