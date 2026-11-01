@@ -152,12 +152,17 @@ function answeringLate() {
   return { sent, land };
 }
 
+/** One macrotask, where jsdom's queued selection events and IndexedDB's answers land. */
+function nextTask() {
+  return act(() => new Promise<void>((resolve) => setImmediate(resolve)));
+}
+
 /** Lets the outbox send what it holds, and the take that sent it, run to its end. */
 async function drained() {
   for (let turn = 0; turn < 200 && (await waiting()).length > 0; turn++) {
-    await act(() => new Promise<void>((resolve) => setImmediate(resolve)));
+    await nextTask();
   }
-  await act(() => new Promise<void>((resolve) => setImmediate(resolve)));
+  await nextTask();
 }
 
 /** Holds the keep and makes it fail, until the test lets it go. */
@@ -500,8 +505,7 @@ describe("taking a passage out of a pdf", () => {
     select(pageTwo());
     fireEvent.keyDown(pageTwo(), { key: "y" });
     select(screen.getByText("Three."));
-    // The selection's own change events are queued tasks, so they land before the keep fails.
-    await act(() => new Promise<void>((resolve) => setImmediate(resolve)));
+    await nextTask();
 
     release();
     await screen.findByText("No room on this device");
@@ -517,8 +521,7 @@ describe("taking a passage out of a pdf", () => {
     const release = refusing();
     render(<Pdf />);
     select(pageTwo());
-    // The selection's own change events are queued tasks, so they land before `y`.
-    await act(() => new Promise<void>((resolve) => setImmediate(resolve)));
+    await nextTask();
     fireEvent.keyDown(pageTwo(), { key: "y" });
 
     release();
@@ -528,5 +531,26 @@ describe("taking a passage out of a pdf", () => {
     fireEvent.keyDown(pageTwo(), { key: "y" });
     await waitFor(() => expect(dumpsSent(sent)).toHaveLength(1));
     expect(dumpsSent(sent).map((dump) => dump.text.includes(WORDS))).toEqual([true]);
+  });
+
+  it("two takes the device did not keep put back the later one, and y takes that (#899)", async () => {
+    const sent = answering();
+    const release = refusing();
+    render(<Pdf />);
+    select(pageTwo());
+    await nextTask();
+    fireEvent.keyDown(pageTwo(), { key: "y" });
+    select(screen.getByText("Three."));
+    await nextTask();
+    fireEvent.keyDown(pageTwo(), { key: "y" });
+
+    release();
+    await screen.findByText("No room on this device");
+    await nextTask();
+    gate.hold = null;
+    gate.refuse = null;
+    fireEvent.keyDown(pageTwo(), { key: "y" });
+    await waitFor(() => expect(dumpsSent(sent)).toHaveLength(1));
+    expect(dumpsSent(sent).map((dump) => dump.text.includes("Three."))).toEqual([true]);
   });
 });
