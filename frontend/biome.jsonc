@@ -70,7 +70,6 @@
     // backend/tests/test_complexity_baseline.py.
     {
       "includes": [
-        "src/components/note-pane.tsx",
         "src/lib/note/save-queue.ts",
         "shell/chat/runner.mjs",
         "shell/chat/runner.test.mjs",
