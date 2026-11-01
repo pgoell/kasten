@@ -1,7 +1,7 @@
 import type { QueryClient } from "@tanstack/react-query";
 import { type Dispatch, type RefObject, type SetStateAction, useCallback, useEffect } from "react";
 import { type Held, heldTexts, holdText, sameText } from "@/lib/held-text";
-import { heldOf, sentUnder, unseenOf } from "@/lib/note/in-air";
+import { heldOf, type InAir, sentUnder, unseenOf } from "@/lib/note/in-air";
 import { saveQueue } from "@/lib/note/save-queue";
 import type { SaveStatus } from "@/lib/note/use-autosave";
 
@@ -48,6 +48,21 @@ export function forgetAloft(): void {
 /** Whether `entry` was left aloft by the route as it unmounted, its write still in the air. */
 export function wasLeftAloft(entry: Held): boolean {
   return leftAloft.has(entry);
+}
+
+/** The write in the air, unless a reload or a restore has passed it. */
+function freshAir(air: InAir | undefined, loaded: number): InAir | undefined {
+  return air?.loaded === loaded && !air.restoring ? air : undefined;
+}
+
+function unlike(before: string | undefined, content: string): string | undefined {
+  return before !== undefined && before !== content ? before : undefined;
+}
+
+function holdOffScreen(note: string, offScreen: InAir, reason: string, conflicted: boolean): void {
+  const { entry } = heldOf(offScreen, reason, conflicted);
+  holdText(note, entry);
+  saveQueue.markHeld(entry, { seq: saveQueue.sends, visit: offScreen.visit });
 }
 
 export function useHeldBuffer(buffer: Buffer) {
@@ -104,21 +119,20 @@ export function useHeldBuffer(buffer: Buffer) {
       // A `:e!` since put the vault's text under the buffer, and queued the
       // write that answers for it.
       const sent = reverts.current;
+      const moved = () =>
+        saveQueue.visit !== at || saveQueue.reloadsOf(note) !== loaded || reverts.current !== sent;
+      const retake = () => {
+        const failed = heldTexts(note).find((entry) => entry.content === held.content);
+        if (failed !== undefined) takeFailed(note, failed);
+      };
       void Promise.all([queue.link, queue.ok]).then(([text, ok]) => {
-        if (
-          saveQueue.visit !== at ||
-          saveQueue.reloadsOf(note) !== loaded ||
-          reverts.current !== sent
-        ) {
-          return;
-        }
+        if (moved()) return;
         if (text !== undefined) onDisk.current = text;
         if (ok) {
           if (taken.current === held) take(null);
           return;
         }
-        const failed = heldTexts(note).find((entry) => entry.content === held.content);
-        if (failed !== undefined) takeFailed(note, failed);
+        retake();
       });
     },
     [take, takeFailed, reverts, onDisk, taken],
@@ -133,13 +147,11 @@ export function useHeldBuffer(buffer: Buffer) {
       const loaded = saveQueue.reloadsOf(note);
       const follows = saveQueue.follows(note);
       const air = saveQueue.air(note);
-      const fresh = air?.loaded === loaded && !air.restoring ? air : undefined;
+      const fresh = freshAir(air, loaded);
       // Held under the base it was typed on, so a dying page keeps text the screen never showed (#314, #317).
       const offScreen = follows ? unseenOf(fresh) : fresh;
       if (offScreen !== undefined) {
-        const { entry } = heldOf(offScreen, reason, conflicted.current);
-        holdText(note, entry);
-        saveQueue.markHeld(entry, { seq: saveQueue.sends, visit: offScreen.visit });
+        holdOffScreen(note, offScreen, reason, conflicted.current);
         if (!follows && pending.current === null) return undefined;
       }
       const content = pending.current ?? fresh?.content;
@@ -153,7 +165,7 @@ export function useHeldBuffer(buffer: Buffer) {
         reason,
         conflicted: conflicted.current,
         base: lastBase(note),
-        after: before !== undefined && before !== content ? before : undefined,
+        after: unlike(before, content),
       };
       holdText(note, entry, taken.current);
       // After every write already in the air, which a failing one reads.

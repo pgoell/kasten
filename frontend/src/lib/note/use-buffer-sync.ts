@@ -12,6 +12,19 @@ type Autosave = ReturnType<typeof useAutosave>;
 
 export type BufferSync = ReturnType<typeof useBufferSync>;
 
+/** Puts `vault` into every pane but `paneId` that shows `note` with other text, off the undo stack. */
+function showVault(layout: Layout, paneId: string, note: string, vault: string): void {
+  for (const shown of tabPanes(layout)) {
+    if (shown.id === paneId || shown.path !== note) continue;
+    const view = paneView(shown.id);
+    if (!view || view.state.doc.toString() === vault) continue;
+    view.dispatch({
+      changes: { from: 0, to: view.state.doc.length, insert: vault },
+      annotations: Transaction.addToHistory.of(false),
+    });
+  }
+}
+
 /**
  * How the focused editor's buffer meets the vault: the text the vault refused
  * to take, the reloads an unfocused pane is allowed, and the conflict's diff.
@@ -68,15 +81,7 @@ export function useBufferSync({
     for (const each of heldBefore.current) {
       const vault = queryClient.getQueryData<string>(["note", each]);
       if (now.has(each) || vault === undefined) continue;
-      for (const shown of tabPanes(layoutNow.current)) {
-        if (shown.id === paneId || shown.path !== each) continue;
-        const view = paneView(shown.id);
-        if (!view || view.state.doc.toString() === vault) continue;
-        view.dispatch({
-          changes: { from: 0, to: view.state.doc.length, insert: vault },
-          annotations: Transaction.addToHistory.of(false),
-        });
-      }
+      showVault(layoutNow.current, paneId, each, vault);
     }
     heldBefore.current = now;
   }, [held, queryClient, paneId, layoutNow]);

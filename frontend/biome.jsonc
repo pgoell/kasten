@@ -71,12 +71,7 @@
     {
       "includes": [
         "src/components/note-pane.tsx",
-        "src/lib/note/held-buffer.ts",
-        "src/lib/held-text.ts",
         "src/lib/note/save-queue.ts",
-        "src/lib/note/use-buffer-sync.ts",
-        "src/lib/note/use-buffer-write.ts",
-        "src/lib/use-guarded-writes.ts",
         "src/lib/note/use-note-opening.ts",
         "src/lib/note/vault-reads.ts",
         "src/lib/note/write-answer.ts",

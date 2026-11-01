@@ -1,8 +1,13 @@
+import type { QueryClient } from "@tanstack/react-query";
 import { useCallback } from "react";
 import { dropText, type Held } from "@/lib/held-text";
 import type { Buffer } from "@/lib/note/held-buffer";
 import { saveQueue } from "@/lib/note/save-queue";
 import { answer } from "@/lib/note/write-answer";
+
+function cachedText(queryClient: QueryClient, path: string | undefined): string | null {
+  return path === undefined ? null : (queryClient.getQueryData<string>(["note", path]) ?? null);
+}
 
 /** The buffer's writes to the note open: a write, a save and a save that refuses a conflict, and a revert. */
 export function useBufferWrite(
@@ -109,8 +114,7 @@ export function useBufferWrite(
       reverts.current += 1;
       if (path !== undefined) saveQueue.drop(path);
       // Read now: a later route refetch can move the cache under a buffer that declined it.
-      onDisk.current =
-        path === undefined ? null : (queryClient.getQueryData<string>(["note", path]) ?? null);
+      onDisk.current = cachedText(queryClient, path);
       // The reader chose the vault's text, so the entry on screen is no longer held.
       // A write in the air carries the thrown-away text too, which a hide must not resend.
       if (path !== undefined && taken.current) dropText(path, taken.current);
