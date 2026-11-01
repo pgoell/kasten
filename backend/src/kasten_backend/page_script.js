@@ -8,6 +8,8 @@
   // Likewise a page's own `const Node` or `function getSelection` would shadow these.
   const ELEMENT = Node.ELEMENT_NODE;
   const FOLLOWING = Node.DOCUMENT_POSITION_FOLLOWING;
+  const START_TO_START = Range.START_TO_START;
+  const END_TO_END = Range.END_TO_END;
   const getSelection = window.getSelection.bind(window);
   const requestFrame = window.requestAnimationFrame.bind(window);
   const scrollTo = window.scrollTo.bind(window);
@@ -120,7 +122,12 @@
       return;
     }
     const range = selection.getRangeAt(0);
-    held = range.cloneRange();
+    // A scroll posts the same passage again; it keeps its range, so a take of it still clears it.
+    const same =
+      held !== null &&
+      held.compareBoundaryPoints(START_TO_START, range) === 0 &&
+      held.compareBoundaryPoints(END_TO_END, range) === 0;
+    if (!same) held = range.cloneRange();
     count += 1;
     posted.set(count, held);
     posted.delete(count - KEPT);

@@ -33,7 +33,7 @@ interface Held {
   passage: PagePassage;
   at: Anchor | null;
   /** The page's number for the selection, which a take hands back to mark it (#897). */
-  seq: unknown;
+  seq: number | undefined;
 }
 
 const LABEL = "shrink-0 text-[11px] tracking-wide text-k-muted uppercase";
@@ -319,7 +319,8 @@ export function HtmlPane({
       const { text, heading, anchor, rect } = selection;
       if (!samePassage(heldRef.current?.passage, selection)) spendActivation();
       const at = placeOf(rect, frame.current, wrapper.current, coarseRef.current);
-      hold({ passage: { text, heading, anchor }, at, seq: data.seq });
+      const seq = typeof data.seq === "number" ? data.seq : undefined;
+      hold({ passage: { text, heading, anchor }, at, seq });
     }
 
     function unselect() {

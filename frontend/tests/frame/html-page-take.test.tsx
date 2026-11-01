@@ -270,6 +270,19 @@ it("a take after a scroll posted the selection again marks it and clears it (#89
   expect(after?.selection).toBe("");
 });
 
+it("a take of a passage a scroll posted again since still clears it (#897)", async () => {
+  await mount(marksPage());
+  const seq = await selectPosted(["a", 6, "a", 11]);
+  sendToPage({ scrollBy: 100 });
+  await expect.poll(() => (lastSelection()?.seq ?? 0) > seq).toBe(true);
+
+  sendToPage({ kasten: "take", id: 1, seq });
+
+  const after = await marks();
+  expect(after?.texts).toEqual(["bravo"]);
+  expect(after?.selection).toBe("");
+});
+
 it("a selection that starts at the document itself still posts", async () => {
   await mount(NEWSPAPER);
   selectMouse(["document", 0, "b", 5]);
