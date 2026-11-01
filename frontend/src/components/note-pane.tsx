@@ -1,4 +1,4 @@
-import { useQueryClient } from "@tanstack/react-query";
+import { type QueryClient, useQueryClient } from "@tanstack/react-query";
 import {
   type Dispatch,
   type SetStateAction,
@@ -35,6 +35,16 @@ type Autosave = ReturnType<typeof useAutosave>;
 
 /** What an unfocused pane's editor reports its typing to, which is nowhere. */
 const IGNORE = () => {};
+
+/** The text held for `path`, if the list names it. */
+function heldFor(
+  held: BufferSync["held"],
+  path: string,
+  queryClient: QueryClient,
+): string | undefined {
+  if (!held.some((each) => each.path === path)) return undefined;
+  return heldText(path, queryClient.getQueryData<string>(["note", path]))?.content;
+}
 
 /** The note in a pane, or the empty editor a pane holds before any note is opened in it. */
 export function NotePane({
@@ -139,6 +149,7 @@ export function NotePane({
     (reading: OutlineState) => setReported({ path: shownPath ?? "", outline: reading }),
     [shownPath],
   );
+  const paneSignal = focused ? focusSignal : 0;
 
   return shown.path === undefined ? (
     // An empty pane is an editor on an empty document, which is
@@ -173,7 +184,7 @@ export function NotePane({
           paths={linkable}
           images={images}
           tags={tags}
-          focusSignal={focused ? focusSignal : 0}
+          focusSignal={paneSignal}
           focused={focused}
           onFollow={follow}
           embeds={embeds}
@@ -204,7 +215,7 @@ export function NotePane({
             relations={relations}
             startLine={shown.line}
             jump={shown.jump}
-            focusSignal={focused ? focusSignal : 0}
+            focusSignal={paneSignal}
             focused={focused}
             // Only the focused pane reports its typing. Nothing else can
             // be typed into, and an unfocused pane that somehow did
@@ -230,12 +241,7 @@ export function NotePane({
             // `held` is read for the re-render, `heldText` for the
             // content, which the list does not carry. Against the
             // cached text, the entry the autosave would take.
-            held={
-              held.some((each) => each.path === shown.path)
-                ? heldText(shown.path, queryClient.getQueryData<string>(["note", shown.path]))
-                    ?.content
-                : undefined
-            }
+            held={heldFor(held, shown.path, queryClient)}
             mark={mark?.note === shown.path ? mark : undefined}
             onSave={onSave}
             onFollow={follow}
