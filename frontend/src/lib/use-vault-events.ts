@@ -27,7 +27,7 @@ function dailySet(paths: string[] | undefined): string | undefined {
     .join("\n");
 }
 
-/** A note written: the focused pane is asked first, since a refusal means unsaved edits a reload would wipe. */
+/** A note written: its query, the todos and the graph. */
 function refreshWritten(
   queryClient: QueryClient,
   event: VaultEvent,
