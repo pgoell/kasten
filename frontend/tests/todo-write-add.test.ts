@@ -91,6 +91,14 @@ describe("insertSubtask", () => {
     );
   });
 
+  it("#1306 I4 puts it after the real parts, not after a todo past a heading", () => {
+    const note = ["- [ ] go to japan", "  - [ ] pack", "## Other", "  - [ ] far away"].join("\n");
+
+    expect(insertSubtask(note, 1, todo(PART))).toBe(
+      ["- [ ] go to japan", "  - [ ] pack", `  ${PART}`, "## Other", "  - [ ] far away"].join("\n"),
+    );
+  });
+
   it("answers nothing where the line is not a todo", () => {
     expect(insertSubtask(["# Kasten", "some prose"].join("\n"), 2, todo(PART))).toBeNull();
   });

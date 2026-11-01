@@ -198,3 +198,48 @@ describe("cycleLines", () => {
     expect(cycle(note, 3)).toEqual(new Map([[3, `  - [x] c ✅ ${TODAY} 🆔 kt-3f9a2c`]]));
   });
 });
+
+// #1306: the parts end where Obsidian ends them, so a tick reaches no todo past them.
+describe("#1306 the cascade stops where the parts end", () => {
+  it("#1306 A1 leaves a todo past a heading open", () => {
+    const note = ["- [ ] r", "", "## Other", "  - [ ] far away"];
+
+    expect(set(note, 1, "done")).toEqual(new Map([[1, `- [x] r ✅ ${TODAY} 🆔 kt-3f9a2c`]]));
+  });
+
+  it("#1306 A3 leaves a todo under a plain bullet at the parent's indent open", () => {
+    const note = ["- [/] r", "- plain", "  - [ ] child of plain"];
+
+    expect([...cycle(note, 1).keys()]).toEqual([1]);
+  });
+
+  it("#1306 A3 leaves a todo deeper than a plain bullet nested under the parent open", () => {
+    const note = ["- [/] r", "  - plain", "    - [ ] under plain"];
+
+    expect([...cycle(note, 1).keys()]).toEqual([1]);
+  });
+
+  it("#1306 A4 leaves an indented todo inside a code fence alone", () => {
+    const note = ["- [/] r", "```markdown", "  - [ ] fenced", "```"];
+
+    expect([...cycle(note, 1).keys()]).toEqual([1]);
+  });
+
+  it("#1306 A5 still ticks a part directly under its parent, beside a heading further down", () => {
+    const note = ["- [/] r", "  - [ ] part", "## Other", "  - [ ] far away"];
+
+    expect([...cycle(note, 1).keys()]).toEqual([1, 2]);
+  });
+
+  it("#1306 I1 I2 still ticks a part past a blank line, prose and a deeper plain bullet", () => {
+    const note = ["- [/] r", "", "  a note on it", "  - a plain bullet", "  - [ ] part"];
+
+    expect([...cycle(note, 1).keys()]).toEqual([1, 5]);
+  });
+
+  it("#1306 I3 still ticks a part after a closed fence", () => {
+    const note = ["- [/] r", "```", "  - [ ] fenced", "```", "  - [ ] part"];
+
+    expect([...cycle(note, 1).keys()]).toEqual([1, 5]);
+  });
+});

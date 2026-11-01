@@ -3,8 +3,7 @@
  * `todo-api.ts` is the impure half. Ticking done moves two notes, the todo's and the daily log, and un-ticking can move any.
  */
 
-import { noteBody } from "@/lib/note-frontmatter";
-import { appendUnder, type Edit, fencedLines } from "@/lib/note-section";
+import { appendUnder, bodyFences, type Edit } from "@/lib/note-section";
 import {
   cycleLine,
   formatTodo,
@@ -18,7 +17,7 @@ import {
 import { blockedLines, type Closed } from "@/lib/todo/todo-blocked";
 import { withoutBlockId } from "@/lib/todo/todo-fields";
 import { nextCopy, nextPart, nextShift } from "@/lib/todo/todo-recur";
-import { descendants, type Node, type Placed, treeOf } from "@/lib/todo/todo-view";
+import { descendants, type Node, noteTree } from "@/lib/todo/todo-view";
 
 /** One note as a write: where it goes and the whole of its new text. */
 export interface Write {
@@ -88,8 +87,7 @@ function namesInLog(line: string, id: string): boolean {
  * as `appendUnder` finds them, so a fence the frontmatter seems to open hides nothing.
  */
 function loggedLines(lines: string[], id: string): Set<number> {
-  const above = lines.length - noteBody(lines.join("\n")).split("\n").length;
-  const coded = new Set([...fencedLines(lines.slice(above)).coded].map((at) => at + above));
+  const { coded } = bodyFences(lines);
   return new Set(
     lines.flatMap((line, index) => (!coded.has(index) && namesInLog(line, id) ? [index] : [])),
   );
@@ -139,7 +137,7 @@ export function insertSubtask(text: string, line: number, todo: Todo): string | 
   if (parent === null) return null;
 
   // The tree rather than the lines below it: a part can be several lines down
-  // with prose between, which `treeOf` reads through and a scan would stop at.
+  // with prose between, which `noteTree` reads through and a scan would stop at.
   const node = nodeAt(lines, line);
   const under = node === null ? [] : descendants(node);
   const at = under.reduce((last, part) => Math.max(last, part.line), line);
@@ -250,13 +248,7 @@ export function pressedLine(
  * one, and null for a todo nothing hangs off, which needs no tree walked.
  */
 function nodeAt(lines: string[], line: number): Node | null {
-  const placed: Placed[] = [];
-  for (const [index, text] of lines.entries()) {
-    const todo = parseTodo(text);
-    if (todo !== null) placed.push({ line: index + 1, todo });
-  }
-
-  for (const root of treeOf(placed)) {
+  for (const root of noteTree(lines)) {
     const found = [root, ...descendants(root)].find((node) => node.line === line);
     if (found !== undefined) return found;
   }
