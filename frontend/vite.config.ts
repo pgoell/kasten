@@ -118,6 +118,47 @@ const PDFJS_FILES = [
   "standard_fonts",
 ];
 
+/** Name, size and mtime of each staged pdf.js file, so a foliate bump shows. */
+function pdfjsStamp(): string {
+  return PDFJS_FILES.flatMap((name) => {
+    const top = path.join(PDFJS, name);
+    const below = statSync(top).isDirectory()
+      ? readdirSync(top, { recursive: true, encoding: "utf8" }).map((one) => path.join(name, one))
+      : [];
+    return [name, ...below].map((one) => {
+      const { size, mtimeMs } = statSync(path.join(PDFJS, one));
+      return `${one} ${size} ${mtimeMs}`;
+    });
+  })
+    .sort()
+    .join("\n");
+}
+
+/** Rename the staged copy to `old`, if there is one. */
+function moveAside(staged: string, old: string): void {
+  try {
+    renameSync(staged, old);
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    // EXDEV is overlayfs refusing to rename a folder from a lower layer,
+    // which a Docker build meets when the context carried a staged copy.
+    // Nothing races inside one build, so emptying it in place is safe there.
+    if (code === "EXDEV") rmSync(staged, { recursive: true, force: true });
+    else if (code !== "ENOENT") throw error;
+  }
+}
+
+/** Rename `fresh` in; a start that loses the race drops its copy. */
+function moveIn(fresh: string, staged: string): void {
+  try {
+    renameSync(fresh, staged);
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code !== "ENOTEMPTY" && code !== "EEXIST") throw error;
+    rmSync(fresh, { recursive: true, force: true });
+  }
+}
+
 /**
  * Serve foliate the pdf.js files it reads at runtime.
  *
@@ -158,20 +199,7 @@ function foliatePdfjs(): Plugin {
       // ENOTEMPTY and ENOENT. Now a copy is made beside it and renamed in, and
       // a start that loses the rename finds the same files already there.
       const staged = path.join(config.publicDir, "pdfjs");
-      const stamp = PDFJS_FILES.flatMap((name) => {
-        const top = path.join(PDFJS, name);
-        const below = statSync(top).isDirectory()
-          ? readdirSync(top, { recursive: true, encoding: "utf8" }).map((one) =>
-              path.join(name, one),
-            )
-          : [];
-        return [name, ...below].map((one) => {
-          const { size, mtimeMs } = statSync(path.join(PDFJS, one));
-          return `${one} ${size} ${mtimeMs}`;
-        });
-      })
-        .sort()
-        .join("\n");
+      const stamp = pdfjsStamp();
       const stampFile = path.join(staged, ".stamp");
       if (existsSync(stampFile) && readFileSync(stampFile, "utf8") === stamp) return;
 
@@ -188,24 +216,9 @@ function foliatePdfjs(): Plugin {
       // Moved aside before it is deleted, so no delete ever walks the path
       // another start may be renaming its copy into.
       const old = `${fresh}-old`;
-      try {
-        renameSync(staged, old);
-      } catch (error) {
-        const code = (error as NodeJS.ErrnoException).code;
-        // EXDEV is overlayfs refusing to rename a folder from a lower layer,
-        // which a Docker build meets when the context carried a staged copy.
-        // Nothing races inside one build, so emptying it in place is safe there.
-        if (code === "EXDEV") rmSync(staged, { recursive: true, force: true });
-        else if (code !== "ENOENT") throw error;
-      }
+      moveAside(staged, old);
       rmSync(old, { recursive: true, force: true });
-      try {
-        renameSync(fresh, staged);
-      } catch (error) {
-        const code = (error as NodeJS.ErrnoException).code;
-        if (code !== "ENOTEMPTY" && code !== "EEXIST") throw error;
-        rmSync(fresh, { recursive: true, force: true });
-      }
+      moveIn(fresh, staged);
     },
     transform(code, id) {
       // The query goes first. Development stamps a `?v=` cache token on a
