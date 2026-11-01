@@ -90,6 +90,73 @@ function previewText(status: "pending" | "error"): string {
 }
 
 /**
+ * Tab walks the list, since nothing completes: 1 down, -1 up, 0 for a key that is not a move.
+ * Ctrl+J and Ctrl+K are vim's j and k; bare keys are letters of a name.
+ */
+function step(event: React.KeyboardEvent): number {
+  const tab = event.key === "Tab";
+  const ctrl = (key: string) => event.ctrlKey && event.key === key;
+  if (event.key === "ArrowDown" || (tab && !event.shiftKey) || ctrl("n") || ctrl("j")) return 1;
+  if (event.key === "ArrowUp" || (tab && event.shiftKey) || ctrl("p") || ctrl("k")) return -1;
+  return 0;
+}
+
+/** The dialog's name for a screen reader, and the word over the input. */
+function namesOf(book: boolean, outgoing: boolean): { dialog: string; input: string } {
+  if (book) return { dialog: "Find book", input: "find book" };
+  if (outgoing) return { dialog: "Outgoing links", input: "links out" };
+  return { dialog: "Find note", input: "find note" };
+}
+
+/** One ranked path: a book with its folder dimmed, a file with its kind, a note as its path. */
+function FinderRow({
+  id,
+  path,
+  book,
+  selected,
+  onOpen,
+}: {
+  id: string;
+  path: string;
+  book: boolean;
+  selected: boolean;
+  onOpen: () => void;
+}) {
+  const rowKind = fileKind(path);
+  return (
+    <button
+      id={id}
+      type="button"
+      role="option"
+      aria-selected={selected}
+      // Out of the tab order: focus stays in the input; a click still opens it.
+      tabIndex={-1}
+      onClick={onOpen}
+      className={`${ROW} ${TAP} ${book || rowKind !== undefined ? "flex gap-3" : "truncate"} ${
+        selected ? "bg-k-surface text-k-accent" : "text-k-ink"
+      }`}
+    >
+      {book ? (
+        // The folder, dimmed. It gives way first: an even split clipped short names
+        // on a phone.
+        <>
+          <span className="max-w-full shrink-0 truncate">{noteName(path)}</span>
+          <span className="ml-auto min-w-0 truncate text-k-muted">{folderOf(path)}</span>
+        </>
+      ) : rowKind === undefined ? (
+        path
+      ) : (
+        // The kind, dimmed like a book's folder: it only says what Enter opens.
+        <>
+          <span className="min-w-0 truncate">{path}</span>
+          <span className="ml-auto shrink-0 text-k-muted">{rowKind.toUpperCase()}</span>
+        </>
+      )}
+    </button>
+  );
+}
+
+/**
  * Type a few letters of a name; Enter opens the highlighted row. The list is the answer and the
  * input only filters it, unlike the note prompt. `outgoing` shortens it; `books` drops the preview.
  */
@@ -180,19 +247,15 @@ export function NoteFinder({
     onOpen(path);
   }
 
-  function onKeyDown(event: React.KeyboardEvent) {
-    // Tab walks the list, since nothing completes; Enter opens the highlight whatever the input
-    // says. Ctrl+J and Ctrl+K are vim's j and k; bare keys are letters of a name.
-    const tab = event.key === "Tab";
-    const ctrl = (key: string) => event.ctrlKey && event.key === key;
-    const down = event.key === "ArrowDown" || (tab && !event.shiftKey) || ctrl("n") || ctrl("j");
-    const up = event.key === "ArrowUp" || (tab && event.shiftKey) || ctrl("p") || ctrl("k");
+  const named = namesOf(book, outgoing);
 
-    if (down || up) {
+  function onKeyDown(event: React.KeyboardEvent) {
+    const move = step(event);
+    if (move !== 0) {
       // Prevent before the empty check: arrows would move the caret, and Tab would leave for good.
       event.preventDefault();
       if (notes.length === 0) return;
-      setActive(down ? Math.min(cursor + 1, notes.length - 1) : Math.max(cursor - 1, 0));
+      setActive(Math.min(Math.max(cursor + move, 0), notes.length - 1));
       return;
     }
 
@@ -216,7 +279,7 @@ export function NoteFinder({
     <div
       role="dialog"
       aria-modal="true"
-      aria-label={book ? "Find book" : outgoing ? "Outgoing links" : "Find note"}
+      aria-label={named.dialog}
       tabIndex={-1}
       onKeyDown={onKeyDown}
       {...closeOnBackdrop(onClose)}
@@ -226,7 +289,7 @@ export function NoteFinder({
       <div className={`${PANEL} ${book ? PANEL_NARROW : PANEL_WIDE}`}>
         <div className={HEADER_ROW}>
           <label htmlFor={`${listId}-query`} className={LABEL}>
-            {book ? "find book" : outgoing ? "links out" : "find note"}
+            {named.input}
           </label>
           <input
             id={`${listId}-query`}
@@ -257,45 +320,16 @@ export function NoteFinder({
               aria-label={book ? "Books" : "Notes"}
               className={book ? "w-full overflow-auto py-1" : LIST}
             >
-              {notes.map((path, index) => {
-                const rowKind = fileKind(path);
-                return (
-                  <button
-                    key={path}
-                    id={`${listId}-${index}`}
-                    type="button"
-                    role="option"
-                    aria-selected={index === cursor}
-                    // Out of the tab order: focus stays in the input; a click still opens it.
-                    tabIndex={-1}
-                    onClick={() => accept(path)}
-                    className={`${ROW} ${TAP} ${book || rowKind !== undefined ? "flex gap-3" : "truncate"} ${
-                      index === cursor ? "bg-k-surface text-k-accent" : "text-k-ink"
-                    }`}
-                  >
-                    {book ? (
-                      // The folder, dimmed. It gives way first: an even split clipped short names
-                      // on a phone.
-                      <>
-                        <span className="max-w-full shrink-0 truncate">{noteName(path)}</span>
-                        <span className="ml-auto min-w-0 truncate text-k-muted">
-                          {folderOf(path)}
-                        </span>
-                      </>
-                    ) : rowKind === undefined ? (
-                      path
-                    ) : (
-                      // The kind, dimmed like a book's folder: it only says what Enter opens.
-                      <>
-                        <span className="min-w-0 truncate">{path}</span>
-                        <span className="ml-auto shrink-0 text-k-muted">
-                          {rowKind.toUpperCase()}
-                        </span>
-                      </>
-                    )}
-                  </button>
-                );
-              })}
+              {notes.map((path, index) => (
+                <FinderRow
+                  key={path}
+                  id={`${listId}-${index}`}
+                  path={path}
+                  book={book}
+                  selected={index === cursor}
+                  onOpen={() => accept(path)}
+                />
+              ))}
             </div>
           )}
 

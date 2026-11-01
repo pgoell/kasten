@@ -12,7 +12,7 @@ import {
 } from "react";
 import { SearchFilters } from "@/components/search-filters";
 import { SearchHistogram } from "@/components/search-histogram";
-import type { SearchHit } from "@/lib/api";
+import type { Mention, SearchHit } from "@/lib/api";
 import { noteName } from "@/lib/note-path";
 import { BACKDROP, closeOnBackdrop, TAP } from "@/lib/overlay-styles";
 import { type Filters, facets, filterHits, termRuns } from "@/lib/search-facets";
@@ -59,6 +59,38 @@ function chosenNames(filters: Filters): string[] {
   if (filters.folder !== null) names.push(filters.folder === "" ? "/" : filters.folder);
   if (filters.tag !== null) names.push(filters.tag);
   return names;
+}
+
+/**
+ * Enter on a focused bar, filter or All weeks button is that button's to press.
+ * Left unprevented, the browser clicks it; a result row is the one button Enter should open.
+ */
+function buttonsOwn(event: KeyboardEvent): boolean {
+  return (
+    event.key === "Enter" &&
+    event.target instanceof HTMLButtonElement &&
+    event.target.getAttribute("role") !== "option"
+  );
+}
+
+/**
+ * Tab walks the list rather than completing anything, as it does in the lists
+ * beside this one: 1 down, -1 up, 0 for a key that is not a move.
+ */
+function step(event: KeyboardEvent): number {
+  const tab = event.key === "Tab";
+  if (event.key === "ArrowDown" || (tab && !event.shiftKey) || (event.ctrlKey && event.key === "n"))
+    return 1;
+  if (event.key === "ArrowUp" || (tab && event.shiftKey) || (event.ctrlKey && event.key === "p"))
+    return -1;
+  return 0;
+}
+
+/** What the line under the list says. A scan still running is not "no notes match". */
+function searchHint(pending: boolean, typed: string, matched: number): string {
+  if (pending) return "reading the vault";
+  if (typed === "") return "type to search every note";
+  return matched === 0 ? "no notes match" : "";
 }
 
 function plural(count: number, word: string): string {
@@ -114,6 +146,71 @@ function LineRow({
         ))}
       </span>
     </button>
+  );
+}
+
+/** One note's lines, under its name and path. Rows are numbered by their place in `ordered`. */
+function NoteGroup({
+  note,
+  rows,
+  at,
+  found,
+  ordered,
+  listId,
+  term,
+  cursor,
+  entering,
+  onAccept,
+}: {
+  note: string;
+  rows: number[];
+  at: number;
+  found: (SearchHit | Mention)[];
+  ordered: number[];
+  listId: string;
+  term: string;
+  cursor: number;
+  entering: boolean;
+  onAccept: (index: number) => void;
+}) {
+  // A file's hits all carry the same kind, so the first one names the group's.
+  const first = found[rows[0] ?? -1];
+  const kind = first !== undefined && !isMention(first) ? first.place?.kind : undefined;
+  return (
+    // biome-ignore lint/a11y/useSemanticElements: a <fieldset> groups form controls, and these are the options of a listbox.
+    <div
+      role="group"
+      aria-label={note}
+      className={`px-4 pb-2 md:px-6 ${entering ? "k-enter" : ""}`}
+      style={{ "--i": at } as CSSProperties}
+    >
+      <div className="pt-3">
+        <div className="font-serif text-k-19 text-k-ink">
+          {noteName(note)}
+          {kind !== undefined && (
+            <span className="ml-2 font-sans text-k-12 text-k-muted">{kind.toUpperCase()}</span>
+          )}
+        </div>
+        <div className="font-mono text-k-12 text-k-muted">{note}</div>
+      </div>
+      {rows.map((index) => {
+        const hit = found[index];
+        if (hit === undefined) return null;
+        const row = ordered.indexOf(index);
+        return (
+          <LineRow
+            key={`${hit.path}:${hit.line}`}
+            id={`${listId}-${row}`}
+            line={hit.line}
+            place={isMention(hit) ? undefined : hit.place}
+            text={hit.text}
+            term={term}
+            selected={row === cursor}
+            onOpen={() => onAccept(index)}
+          />
+        );
+      })}
+    </div>
   );
 }
 
@@ -237,30 +334,14 @@ export function ContentSearch({
   }
 
   function onKeyDown(event: KeyboardEvent) {
-    // Enter on a focused bar, filter or All weeks button is that button's to
-    // press. Left unprevented, the browser clicks it; a result row is the one
-    // button Enter should open.
-    if (
-      event.key === "Enter" &&
-      event.target instanceof HTMLButtonElement &&
-      event.target.getAttribute("role") !== "option"
-    ) {
-      return;
-    }
-    // Tab walks the list rather than completing anything, as it does in the
-    // lists beside this one, and Enter opens the row under the highlight.
-    const tab = event.key === "Tab";
-    const down =
-      event.key === "ArrowDown" || (tab && !event.shiftKey) || (event.ctrlKey && event.key === "n");
-    const up =
-      event.key === "ArrowUp" || (tab && event.shiftKey) || (event.ctrlKey && event.key === "p");
-
-    if (down || up) {
+    if (buttonsOwn(event)) return;
+    const move = step(event);
+    if (move !== 0) {
       // Prevented before the empty list is checked: an empty list is where Tab
       // would otherwise leave the panel and not come back.
       event.preventDefault();
       if (ordered.length === 0) return;
-      setActive(down ? Math.min(cursor + 1, ordered.length - 1) : Math.max(cursor - 1, 0));
+      setActive(Math.min(Math.max(cursor + move, 0), ordered.length - 1));
       return;
     }
 
@@ -280,13 +361,7 @@ export function ContentSearch({
   }
 
   const summary = `${plural(chosen.length, "line")} in ${plural(new Set(chosen.map((hit) => hit.path)).size, "note")}`;
-  const hint = pending
-    ? "reading the vault"
-    : typed === ""
-      ? "type to search every note"
-      : answer.length === 0
-        ? "no notes match"
-        : "";
+  const hint = searchHint(pending, typed, answer.length);
   const cap = capped ? "Counts are of the first 2,000 lines." : "";
 
   const column = (
@@ -397,52 +472,21 @@ export function ContentSearch({
               {ordered.length > 0 && (
                 // A div rather than a list, as in the lists beside this one.
                 <div id={listId} role="listbox" aria-label="Matching lines">
-                  {groups.map((group, at) => {
-                    const note = group.name ?? "";
-                    // A file's hits all carry the same kind, so the first one names the group's.
-                    const first = found[group.rows[0] ?? -1];
-                    const kind =
-                      first !== undefined && !isMention(first) ? first.place?.kind : undefined;
-                    return (
-                      // biome-ignore lint/a11y/useSemanticElements: a <fieldset> groups form controls, and these are the options of a listbox.
-                      <div
-                        key={note}
-                        role="group"
-                        aria-label={note}
-                        className={`px-4 pb-2 md:px-6 ${entering(note) ? "k-enter" : ""}`}
-                        style={{ "--i": at } as CSSProperties}
-                      >
-                        <div className="pt-3">
-                          <div className="font-serif text-k-19 text-k-ink">
-                            {noteName(note)}
-                            {kind !== undefined && (
-                              <span className="ml-2 font-sans text-k-12 text-k-muted">
-                                {kind.toUpperCase()}
-                              </span>
-                            )}
-                          </div>
-                          <div className="font-mono text-k-12 text-k-muted">{note}</div>
-                        </div>
-                        {group.rows.map((index) => {
-                          const hit = found[index];
-                          if (hit === undefined) return null;
-                          const row = ordered.indexOf(index);
-                          return (
-                            <LineRow
-                              key={`${hit.path}:${hit.line}`}
-                              id={`${listId}-${row}`}
-                              line={hit.line}
-                              place={isMention(hit) ? undefined : hit.place}
-                              text={hit.text}
-                              term={typed}
-                              selected={row === cursor}
-                              onOpen={() => accept(index)}
-                            />
-                          );
-                        })}
-                      </div>
-                    );
-                  })}
+                  {groups.map((group, at) => (
+                    <NoteGroup
+                      key={group.name ?? ""}
+                      note={group.name ?? ""}
+                      rows={group.rows}
+                      at={at}
+                      found={found}
+                      ordered={ordered}
+                      listId={listId}
+                      term={typed}
+                      cursor={cursor}
+                      entering={entering(group.name ?? "")}
+                      onAccept={accept}
+                    />
+                  ))}
                 </div>
               )}
             </div>

@@ -275,3 +275,14 @@ it("shows no rows, empty bars and no counts once the query is cleared", async ()
     "Include the archive",
   );
 });
+
+it("dims every other bar to 60% muted while a week is chosen, the chosen one in the accent", () => {
+  const search = renderContent({ week: "2026-W38" });
+
+  expect(search.fill(38).className.split(" ")).toContain("bg-k-accent");
+  const other = search.fill(40).className.split(" ");
+  expect(other).toContain("bg-k-muted/60");
+  expect(other).toContain("group-hover:bg-k-ink-soft");
+  // The current week gives up the accent while another is chosen.
+  expect(search.fill(43).className.split(" ")).toContain("bg-k-muted/60");
+});

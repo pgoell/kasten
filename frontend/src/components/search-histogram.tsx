@@ -14,6 +14,12 @@ interface SearchHistogramProps {
 /** Tapping does not take the focus from the input: the keys have to keep working after it. */
 const keepFocus = (event: MouseEvent) => event.preventDefault();
 
+function barFill(marked: boolean, week: WeekKey | undefined): string {
+  if (marked) return "bg-k-accent";
+  if (week === undefined) return "bg-k-muted group-hover:bg-k-ink-soft";
+  return "bg-k-muted/60 group-hover:bg-k-ink-soft";
+}
+
 /** One bar per week, scaled from the busiest, with the week's count on hover. */
 export function SearchHistogram({ weeks, counts, week, onPick }: SearchHistogramProps) {
   // The bar under the pointer, which is the only place a count is drawn. Kept as
@@ -34,11 +40,7 @@ export function SearchHistogram({ weeks, counts, week, onPick }: SearchHistogram
         // clears the 3:1 the bars need on paper, and darkens to ink-soft under a mouse.
         // While a week is chosen the rest sit at 60% muted, so the chosen one reads.
         const marked = chosen || (week === undefined && key === current);
-        const fill = marked
-          ? "bg-k-accent"
-          : week === undefined
-            ? "bg-k-muted group-hover:bg-k-ink-soft"
-            : "bg-k-muted/60 group-hover:bg-k-ink-soft";
+        const fill = barFill(marked, week);
         const label = `Week ${weekNumber(key)}, ${count} ${count === 1 ? "line" : "lines"}`;
         return (
           <button

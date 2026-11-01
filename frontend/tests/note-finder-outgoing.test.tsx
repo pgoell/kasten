@@ -38,6 +38,12 @@ describe("the outgoing links panel", () => {
     };
   }
 
+  it("names the dialog for the links it holds", () => {
+    renderLinksOut(["index.md"]);
+
+    expect(screen.getByRole("dialog", { name: "Outgoing links" })).toBeTruthy();
+  });
+
   it("lists the notes it was handed rather than the vault", () => {
     const panel = renderLinksOut(["index.md", "projects/kasten.md"]);
 

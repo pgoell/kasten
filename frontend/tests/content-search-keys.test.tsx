@@ -141,3 +141,34 @@ it("draws no rule under the page when the status line says nothing", async () =>
   expect(search.hint()).toBe("");
   expect(screen.getByRole("status").className).not.toContain("border-t");
 });
+
+it("walks the lines with Tab, Shift+Tab, Ctrl+N, Ctrl+P and the arrows, and closes on Escape", async () => {
+  const search = renderContent();
+  search.type("postgres");
+  await waitFor(() => expect(search.rows()).toHaveLength(2));
+  const selected = () =>
+    [0, 1].findIndex((at) => search.row(at).getAttribute("aria-selected") === "true");
+
+  search.press("Tab");
+  expect(selected()).toBe(1);
+  search.press("ArrowDown");
+  expect(selected()).toBe(1);
+  search.press("Tab", { shiftKey: true });
+  expect(selected()).toBe(0);
+  search.press("ArrowUp");
+  expect(selected()).toBe(0);
+  search.press("n", { ctrlKey: true });
+  expect(selected()).toBe(1);
+  search.press("p", { ctrlKey: true });
+  expect(selected()).toBe(0);
+  // A bare letter is typing, and the input keeps it.
+  expect(search.press("n")).toBe(true);
+  search.press("Escape");
+  expect(search.onClose).toHaveBeenCalledTimes(1);
+});
+
+it("keeps Tab in the page while no line matches", () => {
+  const search = renderContent();
+
+  expect(search.press("Tab")).toBe(false);
+});

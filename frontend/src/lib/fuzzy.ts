@@ -67,6 +67,56 @@ function grow(size: number) {
   scratchB = new Float64Array(size);
 }
 
+/** Whether `query` reads as a subsequence of `lower` at all: the cheap rejection, no row. */
+function readsInto(lower: string, query: string): boolean {
+  let at = 0;
+  for (let i = 0; i < query.length; i += 1) {
+    at = lower.indexOf(query.charAt(i), at);
+    if (at === -1) return false;
+    at += 1;
+  }
+  return true;
+}
+
+/** What landing a query character on `lower[j]` scores, given the best run before it. */
+function landing(lower: string, nameAt: number, j: number, carry: number, left: number): number {
+  const opens = j === 0 || lower.charCodeAt(j - 1) === SLASH ? 3 : 0;
+  const named = j >= nameAt ? 2 : 0;
+  return 1 + opens + named + (left > carry ? left : carry);
+}
+
+/** `next[j]`: best score of the query so far ending on `lower[j]`, NONE if it cannot end there. */
+function fillRow(
+  row: Float64Array,
+  next: Float64Array,
+  { lower, nameAt }: Candidate,
+  char: number,
+  first: boolean,
+) {
+  const length = lower.length;
+  next.fill(NONE, 0, length);
+  let left = first ? 0 : NONE;
+  let behind = NONE;
+
+  for (let j = 0; j < length; j += 1) {
+    if (lower.charCodeAt(j) === char)
+      next[j] = landing(lower, nameAt, j, first ? NONE : behind + 2, left);
+    // `?? NONE` only satisfies the index type; a cell is never undefined.
+    const cell = row[j] ?? NONE;
+    if (!first && cell > left) left = cell;
+    behind = cell;
+  }
+}
+
+function rowBest(row: Float64Array, length: number): number {
+  let best = NONE;
+  for (let j = 0; j < length; j += 1) {
+    const cell = row[j] ?? NONE;
+    if (cell > best) best = cell;
+  }
+  return best;
+}
+
 /**
  * How well `query` reads as a subsequence of `candidate`, or `NONE` when it does not.
  * Scored where it lands best, not first, so `arch` finds `kasten/architecture.md`.
@@ -74,16 +124,10 @@ function grow(size: number) {
  */
 function score(candidate: Candidate, query: string): number {
   work.candidates += 1;
-  const { lower, nameAt } = candidate;
-  const length = lower.length;
+  const length = candidate.lower.length;
 
   // Cheap rejection first: most candidates fail here without allocating a row.
-  let at = 0;
-  for (let i = 0; i < query.length; i += 1) {
-    at = lower.indexOf(query.charAt(i), at);
-    if (at === -1) return NONE;
-    at += 1;
-  }
+  if (!readsInto(candidate.lower, query)) return NONE;
   work.cells += query.length * length;
 
   grow(length);
@@ -91,40 +135,14 @@ function score(candidate: Candidate, query: string): number {
   let next = scratchB;
   // Seed row for the empty query, which scores nothing, so the first character starts no run.
   row.fill(0, 0, length);
-  let first = true;
 
   for (let i = 0; i < query.length; i += 1) {
-    const char = query.charCodeAt(i);
-    // `next[j]`: best score of the query so far ending on `lower[j]`, NONE if it cannot end there.
-    next.fill(NONE, 0, length);
-    let left = first ? 0 : NONE;
-    let behind = NONE;
-
-    for (let j = 0; j < length; j += 1) {
-      if (lower.charCodeAt(j) === char) {
-        const opens = j === 0 || lower.charCodeAt(j - 1) === SLASH ? 3 : 0;
-        const named = j >= nameAt ? 2 : 0;
-        const carry = first ? NONE : behind + 2;
-        next[j] = 1 + opens + named + (left > carry ? left : carry);
-      }
-      // `?? NONE` only satisfies the index type; a cell is never undefined.
-      const cell = row[j] ?? NONE;
-      if (!first && cell > left) left = cell;
-      behind = cell;
-    }
-
+    fillRow(row, next, candidate, query.charCodeAt(i), i === 0);
     const filled = next;
     next = row;
     row = filled;
-    first = false;
   }
-
-  let best = NONE;
-  for (let j = 0; j < length; j += 1) {
-    const cell = row[j] ?? NONE;
-    if (cell > best) best = cell;
-  }
-  return best;
+  return rowBest(row, length);
 }
 
 interface Scored {

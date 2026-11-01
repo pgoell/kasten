@@ -129,3 +129,13 @@ it("keeps the highlighted row in view when the highlight moves past the end and 
   expect(scrollIntoView.mock.contexts.at(-1)).toBe(search.row(0));
   scrollIntoView.mockRestore();
 });
+
+it("asks for a query before one is typed, and says it reads while the scan runs", async () => {
+  const search = renderContent();
+  await waitFor(() => expect(search.hint()).toBe("type to search every note"));
+
+  searchNotes.mockReturnValue(new Promise(() => {}));
+  search.type("postgres");
+
+  await waitFor(() => expect(search.hint()).toBe("reading the vault"));
+});
