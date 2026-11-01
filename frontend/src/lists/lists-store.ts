@@ -165,6 +165,17 @@ const tickKey = (list: string, text: string) => `${list}\n${text}`;
 
 const newId = () => `${Date.now().toString(36)}${Math.random().toString(36).slice(2)}`;
 
+/** A stale sha is read again and sent again, up to the last try. */
+function retries(error: unknown, attempt: number): boolean {
+  const stale = error instanceof HttpError && error.status === 409;
+  return stale && attempt !== TRIES;
+}
+
+/** Sent before, and the list has one more of it: the answer was lost and the add is in. */
+function alreadyIn(op: Op, list: ListData): boolean {
+  return op.kind === "add" && op.before !== undefined && openCount(list, op.text) > op.before;
+}
+
 /**
  * One drain at a time. Across tabs the browser's lock does it, so two tabs never
  * replay the same op. Where there is no lock, a chain does it within this realm.
@@ -299,29 +310,29 @@ export function createListsStore(): ListsStore {
     update(who);
   }
 
+  /** An add counted, and kept, before its first send, so a lost answer can be told from a lost write. */
+  function counted(op: Op, list: ListData): Op {
+    if (op.kind !== "add" || op.before !== undefined) return op;
+    const kept: Op = { ...op, before: openCount(list, op.text) };
+    patchQueued(kept);
+    return kept;
+  }
+
   /** One write: read the list, send, and on a stale sha read again and send again. */
   async function write(first: Op): Promise<void> {
     let op = first;
     for (let attempt = 1; ; attempt += 1) {
       const list = await getList(op.list);
-      if (op.kind === "add" && op.before === undefined) {
-        // Counted, and kept, before the first send, so a lost answer can be told from a lost write.
-        op = { ...op, before: openCount(list, op.text) };
-        patchQueued(op);
-      }
-      // Sent before, and the list has one more of it: the answer was lost and the add is in.
+      op = counted(op, list);
       // Checked on every try, so a read that failed once does not leave the add to be posted again.
-      if (op.kind === "add" && op.before !== undefined && openCount(list, op.text) > op.before) {
-        return;
-      }
+      if (alreadyIn(op, list)) return;
       const request = requestFor(op, list);
       if (!request) return;
       try {
         put(await send<ListData>("POST", request.path, request.body));
         return;
       } catch (error) {
-        const stale = error instanceof HttpError && error.status === 409;
-        if (!stale || attempt === TRIES) throw error;
+        if (!retries(error, attempt)) throw error;
       }
     }
   }
@@ -337,6 +348,22 @@ export function createListsStore(): ListsStore {
     );
   }
 
+  /** After a write failed: true once the op is off the queue and the drain may go on. */
+  async function dropFailed(op: Op, error: unknown): Promise<boolean> {
+    if (error instanceof SignInError) update({ signIn: true });
+    if (!transient(error)) {
+      // The server refused it for good. Say so, and let the rest go up.
+      fail(
+        error instanceof HttpError && error.detail ? error.detail : `Nicht gespeichert: ${op.list}`,
+      );
+      dequeue(op.id);
+      return true;
+    }
+    if (!(await landed(op.id))) return false;
+    dequeue(op.id);
+    return true;
+  }
+
   /** Sends the queue oldest first, from storage, and stops at the first write the network, server or session has not taken. */
   async function drainQueue(): Promise<void> {
     let op: Op | undefined = readQueue()[0];
@@ -345,20 +372,7 @@ export function createListsStore(): ListsStore {
         await write(op);
         dequeue(op.id);
       } catch (error) {
-        if (error instanceof SignInError) update({ signIn: true });
-        if (!transient(error)) {
-          // The server refused it for good. Say so, and let the rest go up.
-          fail(
-            error instanceof HttpError && error.detail
-              ? error.detail
-              : `Nicht gespeichert: ${op.list}`,
-          );
-          dequeue(op.id);
-        } else if (await landed(op.id)) {
-          dequeue(op.id);
-        } else {
-          return;
-        }
+        if (!(await dropFailed(op, error))) return;
       }
       op = readQueue()[0];
     }

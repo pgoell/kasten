@@ -67,11 +67,15 @@ function degrees(value: number): string {
   return `${value.toFixed(1).replace(/\.0$/, "")}°`;
 }
 
+/** Snow, snow grains and snow showers; 80 to 82 between them are rain showers. */
+function snows(code: number): boolean {
+  return code >= 71 && code <= 86 && !(code >= 80 && code <= 82);
+}
+
 /** What the WMO code says about the sky, as an icon name and a word. */
 export function sky(code: number, day: boolean): { icon: string; word: string } {
   if (code >= 95) return { icon: "storm", word: "thunderstorm" };
-  if (code >= 71 && code <= 86 && !(code >= 80 && code <= 82))
-    return { icon: "snow", word: "snow" };
+  if (snows(code)) return { icon: "snow", word: "snow" };
   if (code >= 51) return { icon: "rain", word: code >= 63 && code !== 80 ? "rain" : "light rain" };
   if (code === 45 || code === 48) return { icon: "cloud", word: "fog" };
   if (code === 3) return { icon: "cloud", word: "overcast" };
