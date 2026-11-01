@@ -84,7 +84,6 @@
         "tests/frame/html-take-api.ts",
         "tests/home-route-mentions.test.tsx",
         "tests/home-route-twin-ids.test.tsx",
-        "tests/lists-fixture.ts",
         "tests/todo-api-done-log.test.ts",
         "vite.config.ts",
         "shell/chat/runner.mjs",
