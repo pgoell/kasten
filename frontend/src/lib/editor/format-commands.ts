@@ -1,5 +1,5 @@
 import { syntaxTree } from "@codemirror/language";
-import type { ChangeSpec, EditorState, SelectionRange } from "@codemirror/state";
+import type { ChangeSpec, EditorState, Line, SelectionRange, Text } from "@codemirror/state";
 import type { EditorView } from "@codemirror/view";
 import type { SyntaxNode } from "@lezer/common";
 import { alignTable, tableAt } from "@/lib/editor/table";
@@ -71,73 +71,90 @@ const HEADING = /^#{1,6}\s/;
 /** A bullet written with the markers this rewrites, and the space after it. */
 const BULLET = /^(\s*)[*+](\s)/;
 
+/** Where the line-by-line tidy stands, and the changes it has gathered. */
+interface Tidy {
+  inFront: boolean;
+  inFence: boolean;
+  blanks: number;
+  seen: number;
+  changes: ChangeSpec[];
+}
+
 /**
  * Tidies the note line by line, one change per line, so CodeMirror maps the cursor through them.
  * Frontmatter and fences are stepped over; tables are left to table.ts. Returns whether anything moved.
  */
 export function formatDocument(view: EditorView): boolean {
   const { doc } = view.state;
-  const changes: ChangeSpec[] = [];
-  let inFront = doc.line(1).text === "---";
-  let inFence = false;
-  let blanks = 0;
-  let seen = 0;
+  const tidy: Tidy = {
+    inFront: doc.line(1).text === "---",
+    inFence: false,
+    blanks: 0,
+    seen: 0,
+    changes: [],
+  };
+  for (let n = 1; n <= doc.lines; n++) n = tidyLine(doc, n, tidy);
 
-  for (let n = 1; n <= doc.lines; n++) {
-    const line = doc.line(n);
-    seen++;
+  if (tidy.changes.length === 0) return false;
+  view.dispatch({ changes: tidy.changes });
+  return true;
+}
 
-    if (inFront) {
-      if (n > 1 && line.text === "---") inFront = false;
-      continue;
-    }
-    if (FENCE.test(line.text)) {
-      inFence = !inFence;
-      blanks = 0;
-      continue;
-    }
-    if (inFence) {
-      blanks = 0;
-      continue;
-    }
+/** Tidies line `n` and returns the last line it covered, a table's last when it took one. */
+function tidyLine(doc: Text, n: number, tidy: Tidy): number {
+  const line = doc.line(n);
+  tidy.seen++;
 
-    // Before the line rules, and taking the whole block rather than one line:
-    // a column is as wide as the widest cell in it, which no single line knows.
-    // `first === n` because the loop jumps to `last`, so it only ever meets a
-    // table at its top. Saying so keeps a change from overlapping one already
-    // pushed, which CodeMirror throws on.
-    const table = tableAt(doc, n);
-    if (table?.first === n) {
-      const to = doc.line(table.last).to;
-      const drawn = alignTable(doc, table);
-      if (drawn !== doc.sliceString(line.from, to)) {
-        changes.push({ from: line.from, to, insert: drawn });
-      }
-      n = table.last;
-      blanks = 0;
-      continue;
-    }
-
-    const text = line.text.replace(/\s+$/, "").replace(BULLET, "$1-$2");
-
-    if (text === "") {
-      blanks++;
-      // The second blank in a row goes, and it takes the newline in front of it
-      // rather than the one behind, so two dropped in a row cannot overlap. The
-      // first line of a note is never the second blank, so `from - 1` is safe.
-      if (blanks > 1) changes.push({ from: line.from - 1, to: line.to });
-      else if (text !== line.text) changes.push({ from: line.from, to: line.to });
-      continue;
-    }
-
-    const gap = HEADING.test(text) && blanks === 0 && seen > 1 ? "\n" : "";
-    if (gap || text !== line.text) {
-      changes.push({ from: line.from, to: line.to, insert: gap + text });
-    }
-    blanks = 0;
+  if (tidy.inFront) {
+    if (n > 1 && line.text === "---") tidy.inFront = false;
+    return n;
+  }
+  if (FENCE.test(line.text)) {
+    tidy.inFence = !tidy.inFence;
+    tidy.blanks = 0;
+    return n;
+  }
+  if (tidy.inFence) {
+    tidy.blanks = 0;
+    return n;
   }
 
-  if (changes.length === 0) return false;
-  view.dispatch({ changes });
-  return true;
+  // Before the line rules, and taking the whole block rather than one line:
+  // a column is as wide as the widest cell in it, which no single line knows.
+  // `first === n` because the loop jumps to `last`, so it only ever meets a
+  // table at its top. Saying so keeps a change from overlapping one already
+  // pushed, which CodeMirror throws on.
+  const table = tableAt(doc, n);
+  if (table?.first === n) {
+    const to = doc.line(table.last).to;
+    const drawn = alignTable(doc, table);
+    if (drawn !== doc.sliceString(line.from, to)) {
+      tidy.changes.push({ from: line.from, to, insert: drawn });
+    }
+    tidy.blanks = 0;
+    return table.last;
+  }
+
+  tidyText(line, tidy);
+  return n;
+}
+
+function tidyText(line: Line, tidy: Tidy): void {
+  const text = line.text.replace(/\s+$/, "").replace(BULLET, "$1-$2");
+
+  if (text === "") {
+    tidy.blanks++;
+    // The second blank in a row goes, and it takes the newline in front of it
+    // rather than the one behind, so two dropped in a row cannot overlap. The
+    // first line of a note is never the second blank, so `from - 1` is safe.
+    if (tidy.blanks > 1) tidy.changes.push({ from: line.from - 1, to: line.to });
+    else if (text !== line.text) tidy.changes.push({ from: line.from, to: line.to });
+    return;
+  }
+
+  const gap = HEADING.test(text) && tidy.blanks === 0 && tidy.seen > 1 ? "\n" : "";
+  if (gap || text !== line.text) {
+    tidy.changes.push({ from: line.from, to: line.to, insert: gap + text });
+  }
+  tidy.blanks = 0;
 }
