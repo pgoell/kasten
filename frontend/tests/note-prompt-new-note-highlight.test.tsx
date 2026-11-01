@@ -59,6 +59,14 @@ describe("the new note prompt", () => {
     expect(prompt.press("ArrowUp")).toBe(false);
   });
 
+  it("#968 leaves the arrows to the input when no folder row is shown", () => {
+    const prompt = renderPrompt("", []);
+
+    expect(prompt.rows()).toEqual([]);
+    expect(prompt.press("ArrowDown")).toBe(true);
+    expect(prompt.press("p", { ctrlKey: true })).toBe(true);
+  });
+
   it("keeps the highlight in the list when a fresh listing shortens it", () => {
     // Typing cannot strand the highlight, because it puts it back on the first
     // row. A listing arriving from the tree can.

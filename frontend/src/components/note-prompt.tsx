@@ -235,19 +235,22 @@ export function NotePrompt({ mode, paths, startPath, openNote, onOpen, onClose }
     field.current?.focus();
   }
 
-  function onKeyDown(event: React.KeyboardEvent) {
+  /** Move the highlight on an arrow or ctrl+n/p. Answers whether the key was one. */
+  function moveKey(event: React.KeyboardEvent): boolean {
     const down = event.key === "ArrowDown" || (event.ctrlKey && event.key === "n");
     const up = event.key === "ArrowUp" || (event.ctrlKey && event.key === "p");
+    if (!down && !up) return false;
+    if (folders.length === 0) return true;
+    // Without this the arrows move the caret to one end of the input.
+    event.preventDefault();
+    // Moving the highlight starts naming another path, so the failure clears.
+    setFailed(false);
+    setActive(down ? Math.min(cursor + 1, folders.length - 1) : Math.max(cursor - 1, 0));
+    return true;
+  }
 
-    if (down || up) {
-      if (folders.length === 0) return;
-      // Without this the arrows move the caret to one end of the input.
-      event.preventDefault();
-      // Moving the highlight starts naming another path, so the failure clears.
-      setFailed(false);
-      setActive(down ? Math.min(cursor + 1, folders.length - 1) : Math.max(cursor - 1, 0));
-      return;
-    }
+  function onKeyDown(event: React.KeyboardEvent) {
+    if (moveKey(event)) return;
 
     switch (event.key) {
       case "Tab": {

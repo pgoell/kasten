@@ -72,9 +72,6 @@
       "includes": [
         "src/components/html-pane.tsx",
         "src/components/note-pane.tsx",
-        "src/components/note-preview.tsx",
-        "src/components/note-prompt.tsx",
-        "src/components/terminal-prompt.tsx",
         "src/components/use-dump-take.tsx",
         "src/components/video-pane.tsx",
         "src/lib/editor/copy-as.ts",
