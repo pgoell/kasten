@@ -134,6 +134,26 @@ describe("live preview", () => {
     expect(counts[1]?.textContent).toBe("1/2");
   });
 
+  // #1445: the count is what ticks with the parent, so it ends where #1306's writes end the parts.
+  it.each([
+    ["a heading", ["- [ ] r", "", "## Other", "  - [ ] far away"]],
+    ["a plain list item", ["- [ ] r", "- plain", "  - [ ] far away"]],
+    ["a fence", ["- [ ] r", "  ```", "  - [ ] far away", "  ```"]],
+  ])("#1445 counts no todo past %s as a part", (_, lines) => {
+    const { container } = renderEditor(<Editor initialDoc={lines.join("\n")} />);
+
+    expect(container.querySelectorAll(".cm-todo-progress")).toHaveLength(0);
+  });
+
+  it("#1445 still counts a part right under its parent, past a heading above both", () => {
+    const lines = ["## Week", "- [ ] r", "  - [x] near", "- plain", "## Other", "- [ ] s"];
+    const { container } = renderEditor(<Editor initialDoc={lines.join("\n")} />);
+
+    const counts = container.querySelectorAll(".cm-todo-progress");
+    expect(counts).toHaveLength(1);
+    expect(counts[0]?.textContent).toBe("1/1");
+  });
+
   it("counts nothing on a list of todos that nest under nothing", () => {
     const lines = ["- [ ] one", "- [x] two", "- [ ] three"];
     const { container } = renderEditor(<Editor initialDoc={lines.join("\n")} />);
