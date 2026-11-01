@@ -3,8 +3,7 @@
  * `todo-api.ts` is the impure half. Ticking done moves two notes, the todo's and the daily log, and un-ticking can move any.
  */
 
-import { noteBody } from "@/lib/note-frontmatter";
-import { appendUnder, type Edit, fencedLines } from "@/lib/note-section";
+import { appendUnder, bodyFences, type Edit } from "@/lib/note-section";
 import {
   cycleLine,
   formatTodo,
@@ -88,8 +87,7 @@ function namesInLog(line: string, id: string): boolean {
  * as `appendUnder` finds them, so a fence the frontmatter seems to open hides nothing.
  */
 function loggedLines(lines: string[], id: string): Set<number> {
-  const above = lines.length - noteBody(lines.join("\n")).split("\n").length;
-  const coded = new Set([...fencedLines(lines.slice(above)).coded].map((at) => at + above));
+  const { coded } = bodyFences(lines);
   return new Set(
     lines.flatMap((line, index) => (!coded.has(index) && namesInLog(line, id) ? [index] : [])),
   );

@@ -142,6 +142,16 @@ function inListItem(lines: string[], floor: number, opener: number): boolean {
 }
 
 /**
+ * How many lines the frontmatter takes, and the fenced lines of the body counted from the top of the note.
+ * Fences are found in the body alone, so a fence the frontmatter seems to open hides nothing.
+ */
+export function bodyFences(lines: string[]): { above: number; coded: Set<number> } {
+  const above = lines.length - noteBody(lines.join("\n")).split("\n").length;
+  const coded = new Set([...fencedLines(lines.slice(above)).coded].map((at) => at + above));
+  return { above, coded };
+}
+
+/**
  * The edit that puts `line` under `heading`. Offsets, not text, because one CodeMirror change over
  * the range keeps the undo history and the cursor whole. `appendUnder` is this applied.
  */

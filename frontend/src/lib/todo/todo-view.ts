@@ -4,8 +4,7 @@
  */
 
 import { shiftDay } from "@/lib/clock";
-import { noteBody } from "@/lib/note-frontmatter";
-import { fencedLines } from "@/lib/note-section";
+import { bodyFences } from "@/lib/note-section";
 import { isOpen, parseTodo, type Todo } from "@/lib/todo/todo";
 // The type alone, so this module loads nothing from todo-blocked.
 import type { Closed } from "@/lib/todo/todo-blocked";
@@ -104,16 +103,15 @@ const ITEM = /^([ \t]*)(?:[-*+]|\d+[.)])(?:[ \t]|$)/;
 
 /**
  * The forest of a whole note, with its parts ended as Obsidian ends them: by a heading or a list item that is no todo.
- * A fenced line is no todo. Fences are found in the body alone, as `appendUnder` finds them.
+ * A fenced line is no todo, found as `bodyFences` finds it.
  */
 export function noteTree(lines: string[]): Node[] {
-  const above = lines.length - noteBody(lines.join("\n")).split("\n").length;
-  const coded = fencedLines(lines.slice(above)).coded;
+  const { above, coded } = bodyFences(lines);
   const placed: Placed[] = [];
   const stops: Stop[] = [];
 
   for (const [index, text] of lines.entries()) {
-    if (index < above || coded.has(index - above)) continue;
+    if (index < above || coded.has(index)) continue;
     const todo = parseTodo(text);
     const item = ITEM.exec(text);
     if (todo !== null) placed.push({ line: index + 1, todo });
