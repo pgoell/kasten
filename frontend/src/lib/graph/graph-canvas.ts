@@ -256,6 +256,8 @@ export function drawGraph(
     node: DrawnNode,
     ctx: CanvasRenderingContext2D,
     scale: number,
+    x: number,
+    y: number,
     radius: number,
   ) => {
     if (node.missing) {
@@ -273,7 +275,7 @@ export function drawGraph(
     const further = [...new Set(node.tags.map((tag) => tag.toLowerCase()))].slice(1);
     further.forEach((tag, i) => {
       ctx.beginPath();
-      ctx.arc(node.x ?? 0, node.y ?? 0, radius + (2 + i * 2.5) / scale, 0, 2 * Math.PI);
+      ctx.arc(x, y, radius + (2 + i * 2.5) / scale, 0, 2 * Math.PI);
       ctx.lineWidth = 1.25 / scale;
       ctx.strokeStyle = colour(tagVariable(tag));
       ctx.stroke();
@@ -320,7 +322,7 @@ export function drawGraph(
 
       ctx.beginPath();
       ctx.arc(x, y, radius, 0, 2 * Math.PI);
-      paintDot(node, ctx, scale, radius);
+      paintDot(node, ctx, scale, x, y, radius);
       if (node.path === center || node.path === hovered) paintAccent(ctx, scale, x, y, radius);
 
       // Names fade in with the zoom, the way Obsidian's do, and always show

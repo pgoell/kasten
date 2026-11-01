@@ -187,12 +187,7 @@ function stepsFrom(center: string, adjacent: Map<string, string[]>): Map<string,
   return distance;
 }
 
-/**
- * Sorts each ring in place and answers each note's parent: its first neighbour on
- * the ring in. A ring is ordered by its parents' slots, then by path, so the
- * children of one parent sit together. The ring in is already ordered, so its
- * slots are set first.
- */
+/** Sorts each ring by its parents' slots, then path, and answers each note's parent: its first neighbour on the ring in. */
 function orderRings(
   rings: string[][],
   adjacent: Map<string, string[]>,
