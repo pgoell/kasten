@@ -249,6 +249,18 @@ describe("nextOccurrence", () => {
     );
   });
 
+  it("#1305 A3 drops the dated wait from the copy of a waiting todo", () => {
+    expect(copy("- [w] a 📅 2026-08-10 🔁 every week 👤 2026-08-03 [[Ada]]")).toBe(
+      "- [ ] a 📅 2026-08-17 🔁 every week",
+    );
+  });
+
+  it("#1305 I4 keeps a dated 👤 typed onto a line that was never waiting", () => {
+    expect(copy("- [ ] a 📅 2026-08-10 🔁 every week 👤 2026-08-03 [[Ada]]")).toBe(
+      "- [ ] a 👤 2026-08-03 [[Ada]] 📅 2026-08-17 🔁 every week",
+    );
+  });
+
   it("writes no copy for a rule that never lands again", () => {
     expect(copy("- [/] a 🔁 every 12 months on the 30th 📅 2026-02-10")).toBeNull();
   });

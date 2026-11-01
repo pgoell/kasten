@@ -1,6 +1,7 @@
 import { history, undo } from "@codemirror/commands";
 import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
+import { LEADER_EDITS } from "@/lib/editor/buffer-keys";
 import type { TodoState } from "@/lib/todo/todo";
 import type { Closed } from "@/lib/todo/todo-blocked";
 import { cycleTodoAtCursor } from "@/lib/todo/todo-commands";
@@ -237,6 +238,32 @@ describe("#802 the editor's key", () => {
         "  - [ ] part",
         `- [x] routine 📅 2026-10-16 🔁 every day ✅ 2026-10-16 🆔 ${id}`,
         "  - [x] part ✅ 2026-10-16 🆔 kt-000001",
+        "",
+      ].join("\n"),
+    );
+
+    expect(undo(view)).toBe(true);
+    expect(view.state.doc.toString()).toBe(doc);
+  });
+
+  it("#1305 A1 I2 I5 <leader>sx on a waiting recurring todo writes the copy with no dated 👤", () => {
+    const doc =
+      "- [w] a 📅 2026-10-16 🔁 every week 👤 2026-10-09 [[Ada]]\n  - [w] part 👤 2026-10-09 Bo\n";
+    const view = new EditorView({
+      state: EditorState.create({ doc, selection: { anchor: 0 }, extensions: [history()] }),
+    });
+
+    // The entry the vim leader, the palette and the phone's toolbar all run.
+    LEADER_EDITS.find((edit) => edit.key === "sx")?.run(view);
+
+    const text = view.state.doc.toString();
+    const id = /- \[x\] a .*🆔 (kt-[0-9a-f]{6})/.exec(text)?.[1];
+    expect(text).toBe(
+      [
+        "- [ ] a 📅 2026-10-23 🔁 every week",
+        "  - [ ] part",
+        `- [x] a 📅 2026-10-16 🔁 every week ✅ 2026-10-16 🆔 ${id}`,
+        "  - [x] part ✅ 2026-10-16",
         "",
       ].join("\n"),
     );
