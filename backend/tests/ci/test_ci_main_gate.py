@@ -82,7 +82,11 @@ def happy() -> dict[str, Any]:
         ],
         ARTIFACTS: {"artifacts": [artifact(100)]},
         RUNS: {"workflow_runs": [run(100, 5)]},
-        JOBS: {"jobs": [job(name, "success") for name in ("Changes", "Lint", "Test", "Perf")]},
+        JOBS: {
+            "jobs": [
+                job(name, "success") for name in ("Changes", "Lint", "Backend", "Test", "Perf")
+            ]
+        },
     }
 
 
@@ -143,7 +147,7 @@ def test_single_commit_of_a_green_pull_request_skips(tmp_path: Path) -> None:
     assert result.returncode == 0
     assert result.output["skip"] == "true"
     assert result.output["run_url"] == f"https://github.com/{REPO}/actions/runs/100"
-    assert result.summary.startswith("Skipped Lint, Test and Perf")
+    assert result.summary.startswith("Skipped Lint, Backend, Test and Perf")
     assert "tree t1" in result.summary
     assert "PR #7" in result.summary
     assert f"https://github.com/{REPO}/actions/runs/100" in result.summary
