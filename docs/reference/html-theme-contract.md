@@ -42,10 +42,10 @@ The pane loads the page at `/api/html/<path>?theme=<light|dark>&palette=<poel|ru
 
 Selecting and taking use four more messages:
 
-- The page script posts `{kasten: 'selection', text, heading, anchor, rect}` when the selection changes: after a mouse up, after Shift with an arrow, Home or End, while a touch selection moves, and on a scroll. `heading` is the nearest `h1` to `h6` above the selection's start, in the same article, section or card. `anchor` is the story id the page prints as `a.sid` in that article, or else the nearest `id`. `rect` is the selection's box in the frame's own pixels. A cleared selection posts `text: ''` and `rect: null`.
+- The page script posts `{kasten: 'selection', seq, text, heading, anchor, rect}` when the selection changes: after a mouse up, after Shift with an arrow, Home or End, while a touch selection moves, and on a scroll. `heading` is the nearest `h1` to `h6` above the selection's start, in the same article, section or card. `anchor` is the story id the page prints as `a.sid` in that article, or else the nearest `id`. `rect` is the selection's box in the frame's own pixels. `seq` numbers each selection posted. A cleared selection posts `text: ''` and `rect: null`, with no `seq`.
 - The page script posts `{kasten: 'key', key: 'y'}` only while text is selected. With no selection, `y` is the page's own letter.
-- The pane posts `{kasten: 'take'}` once the passage is safe in today's dump. The page script marks the selection with `kasten-taken`.
-- The pane posts `{kasten: 'untake'}` when Undo takes the dump line out of the daily note. The page script removes the last mark.
+- The pane posts `{kasten: 'take', id, seq}` once the passage is safe in today's dump, with the `seq` of the selection it took. The page script marks that selection with `kasten-taken`, even when the reader has selected another passage since, and clears the page's selection only when it is still the one taken. A `seq` the page did not post marks nothing.
+- The pane posts `{kasten: 'untake', id}` when Undo takes the dump line out of the daily note. The page script removes the mark of that take.
 
 The pane acts on a selection only while the frame holds the focus, and on a `y` only while a passage is held. The page script answers `take` and `untake` on every page, opted in or not.
 

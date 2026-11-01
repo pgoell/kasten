@@ -68,8 +68,13 @@
   const CONTAINER = "article, section, [class~='card']";
   const HEADINGS = "h1, h2, h3, h4, h5, h6";
   const MOVES = ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End"];
-  // The last non-empty selection posted, kept as a range so a take can mark it.
+  // The last non-empty selection posted. Each one posted is kept by its number,
+  // so a take marks the passage it was made of, not a later one (#897).
   let held = null;
+  const posted = new Map();
+  let count = 0;
+  // A scroll posts once a frame, so only the newest are kept.
+  const KEPT = 100;
 
   // `node` holds `start` or comes before it in document order.
   const above = (node, start) =>
@@ -116,7 +121,10 @@
     }
     const range = selection.getRangeAt(0);
     held = range.cloneRange();
-    up.postMessage({ kasten: "selection", ...describe(range, text) }, "*");
+    count += 1;
+    posted.set(count, held);
+    posted.delete(count - KEPT);
+    up.postMessage({ kasten: "selection", seq: count, ...describe(range, text) }, "*");
   };
 
   // Many events in one frame post once, after it.
@@ -201,8 +209,11 @@
   const MARK_STYLE = `::highlight(${MARK}) { background-color: var(--k-mark, rgba(249,157,27,.22)); text-decoration: underline; text-decoration-thickness: 1px; text-decoration-color: var(--k-accent, currentColor); }`;
   let highlight = null;
   const taken = new Map();
-  const take = (id) => {
-    if (typeof id !== "number" || held === null || registry === null || taken.has(id)) return;
+  const take = (id, seq) => {
+    const passage = posted.get(seq);
+    if (typeof id !== "number" || passage === undefined || registry === null || taken.has(id)) {
+      return;
+    }
     if (highlight === null) {
       highlight = new window.Highlight();
       registry.set(MARK, highlight);
@@ -211,11 +222,11 @@
       document.adoptedStyleSheets = [...document.adoptedStyleSheets, sheet];
     }
     // A copy, so the same passage taken twice is two marks.
-    const mark = held.cloneRange();
+    const mark = passage.cloneRange();
     highlight.add(mark);
     taken.set(id, mark);
-    // The selection would paint over the new mark.
-    getSelection().removeAllRanges();
+    // The selection would paint over the new mark; one made since is the reader's next.
+    if (passage === held) getSelection().removeAllRanges();
   };
   const untake = (id) => {
     const mark = taken.get(id);
@@ -293,7 +304,7 @@
     );
   // A Map, so a `kasten` of "constructor" finds nothing.
   const EVERY_PAGE = new Map([
-    ["take", (data) => take(data.id)],
+    ["take", (data) => take(data.id, data.seq)],
     ["untake", (data) => untake(data.id)],
     ["shared", (data) => markShared(data.anchor, true)],
     ["unshared", (data) => markShared(data.anchor, false)],

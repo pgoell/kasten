@@ -79,7 +79,7 @@ scroll. `text` is cut to 10000 characters. `heading` is the nearest `h1` to
 else the nearest `id`, cut to 200. A selection that goes posts `text` as `''`.
 With text selected, `y` posts `{kasten: 'key', key: 'y'}`. With none, `y` is
 not sent and stays the page's letter. Kasten sends the page `{kasten: 'take'}`
-after a take, which marks the selection with the highlight `kasten-taken`, and
+after a take, which marks the passage taken with the highlight `kasten-taken`, and
 `{kasten: 'untake'}` after an undo, which removes that mark. The messages are in
 [the theme contract](/reference/html-theme-contract.md#messages).
 
