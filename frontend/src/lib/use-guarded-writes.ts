@@ -22,9 +22,9 @@ import { setWatched } from "@/lib/video/video";
 
 export type GuardedWrites = ReturnType<typeof useGuardedWrites>;
 
-type FocusedNote = { path: string | undefined; isWriting: (note: string) => boolean };
+type FocusedWriting = { path: string | undefined; isWriting: (note: string) => boolean };
 
-function restoreRefusal(note: string, focused: FocusedNote): string | undefined {
+function restoreRefusal(note: string, focused: FocusedWriting): string | undefined {
   if (heldText(note) !== undefined) return "That note holds text not yet saved";
   if (focused.path === note) return "That note is open to type in";
   // The editor's flush on focus-out is one of these.
@@ -41,7 +41,7 @@ export function useGuardedWrites({
   panePath,
   setNotice,
 }: {
-  focusedNote: RefObject<FocusedNote>;
+  focusedNote: RefObject<FocusedWriting>;
   panePath: string | undefined;
   setNotice: Dispatch<SetStateAction<string | undefined>>;
 }) {

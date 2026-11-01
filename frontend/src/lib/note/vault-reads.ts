@@ -85,7 +85,7 @@ function holdTaken(
   buffer.setReason(held.reason);
 }
 
-/** The cached text of the note opened, and its write in the air. */
+// Both undefined while no note is open.
 function openingReads(path: string | undefined, queryClient: Buffer["queryClient"]) {
   if (path === undefined) return { cached: undefined, air: undefined };
   return { cached: queryClient.getQueryData<string>(["note", path]), air: saveQueue.air(path) };
