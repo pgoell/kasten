@@ -127,6 +127,16 @@ describe("cycleTodoWrites", () => {
     ]);
   });
 
+  it("#1306 I6 the pane's press ticks the part and leaves a todo past a heading open", () => {
+    const text = ["- [/] r", "  - [ ] part", "## Other", "  - [ ] far away", ""].join("\n");
+
+    expect(cycleTodoWrites(press({ text, line: 1 }))[0]?.text.split("\n").slice(1, 4)).toEqual([
+      `  - [x] part ✅ ${TODAY}`,
+      "## Other",
+      "  - [ ] far away",
+    ]);
+  });
+
   it("keeps a tab indent, a block id and the field order, as the board's press does", () => {
     const text = [
       "- [ ] parent",

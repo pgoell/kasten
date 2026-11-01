@@ -4,7 +4,9 @@
  */
 
 import { shiftDay } from "@/lib/clock";
-import { isOpen, type Todo } from "@/lib/todo/todo";
+import { noteBody } from "@/lib/note-frontmatter";
+import { fencedLines } from "@/lib/note-section";
+import { isOpen, parseTodo, type Todo } from "@/lib/todo/todo";
 // The type alone, so this module loads nothing from todo-blocked.
 import type { Closed } from "@/lib/todo/todo-blocked";
 import { plainLinks } from "@/lib/wikilink";
@@ -52,26 +54,74 @@ export interface Node extends Placed {
   children: Node[];
 }
 
+/** A line that is no todo but ends the parts above it, at its indent. */
+export interface Stop {
+  line: number;
+  indent: number;
+}
+
+/** A step down the path: a todo, or a stop that holds what sits under it away from the todos above. */
+interface Step {
+  indent: number;
+  node: Node | null;
+}
+
+/** Pops back to `indent`, steps in, and answers the todo that now holds the step, if any. */
+function stepIn(path: Step[], indent: number, node: Node | null): Node | null {
+  while (path.length > 0 && (path[path.length - 1]?.indent ?? 0) >= indent) path.pop();
+  const parent = path[path.length - 1]?.node ?? null;
+  path.push({ indent, node });
+  return parent;
+}
+
 /**
  * The forest one note's todos make, read off the indents: a todo is the child of the nearest todo above it with a smaller indent.
- * Prose between todos ends nothing, so the editor reads the same tree as the pane.
+ * Prose between todos ends nothing. `stops`, in line order, are the lines that do end the parts (#1306); the pane has none to pass.
  */
-export function treeOf(placed: Placed[]): Node[] {
+export function treeOf(placed: Placed[], stops: readonly Stop[] = []): Node[] {
   const roots: Node[] = [];
-  // The todos still open above this one, shallowest first, which is the path
-  // down from the root. Popping back to a smaller indent is the whole rule.
-  const path: Node[] = [];
+  // The todos and stops still open above this one, shallowest first. Popping
+  // back to a smaller indent is the whole rule.
+  const path: Step[] = [];
+  let next = 0;
 
   for (const entry of placed) {
-    const node: Node = { ...entry, children: [] };
-    while (path.length > 0 && (path[path.length - 1]?.todo.indent ?? 0) >= entry.todo.indent) {
-      path.pop();
+    for (; next < stops.length && (stops[next]?.line ?? 0) < entry.line; next++) {
+      stepIn(path, stops[next]?.indent ?? 0, null);
     }
-    (path[path.length - 1]?.children ?? roots).push(node);
-    path.push(node);
+    const node: Node = { ...entry, children: [] };
+    (stepIn(path, entry.todo.indent, node)?.children ?? roots).push(node);
   }
 
   return roots;
+}
+
+/** A heading sits shallower than any line, so it ends every part above it. */
+const HEADING_LINE = /^ {0,3}#{1,6}(?:[ \t]|$)/;
+
+/** A list item of any kind, cut to its indent. Read after `parseTodo`, so a match is one that is no todo. */
+const ITEM = /^([ \t]*)(?:[-*+]|\d+[.)])(?:[ \t]|$)/;
+
+/**
+ * The forest of a whole note, with its parts ended as Obsidian ends them: by a heading or a list item that is no todo.
+ * A fenced line is no todo. Fences are found in the body alone, as `appendUnder` finds them.
+ */
+export function noteTree(lines: string[]): Node[] {
+  const above = lines.length - noteBody(lines.join("\n")).split("\n").length;
+  const coded = fencedLines(lines.slice(above)).coded;
+  const placed: Placed[] = [];
+  const stops: Stop[] = [];
+
+  for (const [index, text] of lines.entries()) {
+    if (index < above || coded.has(index - above)) continue;
+    const todo = parseTodo(text);
+    const item = ITEM.exec(text);
+    if (todo !== null) placed.push({ line: index + 1, todo });
+    else if (HEADING_LINE.test(text)) stops.push({ line: index + 1, indent: -1 });
+    else if (item !== null) stops.push({ line: index + 1, indent: (item[1] ?? "").length });
+  }
+
+  return treeOf(placed, stops);
 }
 
 /**

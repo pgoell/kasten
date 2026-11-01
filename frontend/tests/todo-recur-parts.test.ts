@@ -214,6 +214,44 @@ describe("#802 the next copy of a recurring todo with parts", () => {
   });
 });
 
+// #1306: a todo past the parts is no part, so the next copy writes none of it.
+describe("#1306 the next copy carries the parts only", () => {
+  const RULE = "- [ ] r 📅 2026-08-10 🔁 every day";
+  const NEXT = "- [ ] r 📅 2026-08-11 🔁 every day";
+  const DONE = `- [x] r 📅 2026-08-10 🔁 every day ✅ ${TODAY} 🆔 kt-3f9a2c`;
+
+  it("#1306 A2 writes no copy of a todo past a heading", () => {
+    const note = [RULE, "", "## Other", "  - [ ] far away"];
+
+    expect(written(note, 1)).toEqual([NEXT, DONE, "", "## Other", "  - [ ] far away"]);
+  });
+
+  it("#1306 A3 writes no copy of a todo under a plain bullet", () => {
+    const note = [RULE, "- plain", "  - [ ] child of plain"];
+
+    expect(written(note, 1)).toEqual([NEXT, DONE, "- plain", "  - [ ] child of plain"]);
+  });
+
+  it("#1306 A4 writes no copy of an indented todo inside a code fence", () => {
+    const note = [RULE, "```markdown", "  - [ ] fenced", "```"];
+
+    expect(written(note, 1)).toEqual([NEXT, DONE, "```markdown", "  - [ ] fenced", "```"]);
+  });
+
+  it("#1306 A5 still copies a part directly under its parent, beside a heading further down", () => {
+    const note = [RULE, "  - [ ] part", "## Other", "  - [ ] far away"];
+
+    expect(written(note, 1)).toEqual([
+      NEXT,
+      "  - [ ] part",
+      DONE,
+      `  - [x] part ✅ ${TODAY}`,
+      "## Other",
+      "  - [ ] far away",
+    ]);
+  });
+});
+
 describe("#802 the editor's key", () => {
   beforeEach(() => {
     vi.useFakeTimers();
@@ -241,6 +279,22 @@ describe("#802 the editor's key", () => {
         "",
       ].join("\n"),
     );
+
+    expect(undo(view)).toBe(true);
+    expect(view.state.doc.toString()).toBe(doc);
+  });
+
+  it("#1306 I5 the editor key copies the part and not a todo past a heading, one undo back", () => {
+    const doc = "- [ ] routine 📅 2026-10-16 🔁 every day\n  - [ ] part\n## Other\n  - [ ] far\n";
+    const view = new EditorView({
+      state: EditorState.create({ doc, selection: { anchor: 0 }, extensions: [history()] }),
+    });
+
+    cycleTodoAtCursor(view, "done");
+
+    const lines = view.state.doc.toString().split("\n");
+    expect(lines.slice(0, 2)).toEqual(["- [ ] routine 📅 2026-10-17 🔁 every day", "  - [ ] part"]);
+    expect(lines.slice(3)).toEqual(["  - [x] part ✅ 2026-10-16", "## Other", "  - [ ] far", ""]);
 
     expect(undo(view)).toBe(true);
     expect(view.state.doc.toString()).toBe(doc);
