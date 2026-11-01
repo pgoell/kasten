@@ -74,7 +74,6 @@
         "src/lib/note/save-queue.ts",
         "src/lib/note/use-note-opening.ts",
         "src/lib/note/vault-reads.ts",
-        "src/lib/note/write-answer.ts",
         "shell/chat/runner.mjs",
         "shell/chat/runner.test.mjs",
         "shell/chat/stub.mjs"
