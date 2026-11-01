@@ -25,6 +25,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
   Reflect.deleteProperty(navigator, "onLine");
+  Reflect.deleteProperty(navigator, "locks");
 });
 
 describe("the lists store", () => {
@@ -274,5 +275,68 @@ describe("the lists store", () => {
     expect(timeoutSignal).toHaveBeenCalledWith(15000);
     expect(store.snapshot().errors).toEqual([]);
     store.close();
+  });
+
+  it("a write the server refuses for good is shown and dropped, and the next one still goes up", async () => {
+    const share = fakeShare({ Einkauf: [{ text: "Milch", done: false }], Todo: [] });
+    vi.stubGlobal("fetch", share.fetch);
+    const store = createListsStore();
+    await vi.waitFor(() => expect(store.snapshot().lists.Einkauf).toBeDefined());
+    setOnline(false);
+    window.dispatchEvent(new Event("offline"));
+
+    store.assign("Einkauf", "Milch", "Nobody", null);
+    store.add("Einkauf", "Brot");
+    setOnline(true);
+    window.dispatchEvent(new Event("online"));
+
+    await vi.waitFor(() => expect(store.snapshot().queue).toEqual([]));
+    expect({
+      errors: store.snapshot().errors,
+      posts: share.posts.map((post) => post.path),
+      items: share.items("Einkauf").map((item) => item.text),
+    }).toEqual({
+      errors: ["Unbekannte Person"],
+      posts: ["/share/lists/Einkauf/assign", "/share/lists/Einkauf/items"],
+      items: ["Milch", "Brot"],
+    });
+    store.close();
+  });
+
+  it("two tabs behind the browser's drain lock send each queued write once, in order", async () => {
+    const share = fakeShare({ Einkauf: [], Todo: [] });
+    vi.stubGlobal("fetch", share.fetch);
+    // The browser's lock, one holder at a time across every tab.
+    const names: string[] = [];
+    let tail: Promise<unknown> = Promise.resolve();
+    Object.defineProperty(navigator, "locks", {
+      configurable: true,
+      value: {
+        request: (name: string, run: () => Promise<void>) => {
+          names.push(name);
+          const next = tail.then(run);
+          tail = next.catch(() => undefined);
+          return next;
+        },
+      },
+    });
+    setOnline(false);
+    const tabA = createListsStore();
+    const tabB = createListsStore();
+
+    tabA.add("Einkauf", "Milch");
+    tabB.add("Einkauf", "Brot");
+    setOnline(true);
+    window.dispatchEvent(new Event("online"));
+
+    await vi.waitFor(() => expect(share.items("Einkauf")).toHaveLength(2));
+    await vi.waitFor(() => expect(tabA.snapshot().queue).toEqual([]));
+    expect({
+      items: share.items("Einkauf").map((item) => item.text),
+      posts: share.posts.length,
+      locks: new Set(names).size,
+    }).toEqual({ items: ["Milch", "Brot"], posts: 2, locks: 1 });
+    tabA.close();
+    tabB.close();
   });
 });

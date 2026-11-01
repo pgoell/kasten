@@ -257,11 +257,10 @@ function callout(node: SyntaxNode, source: string, format: Format): string | nul
   // it: a paragraph that starts lower down, under a bare `>`, opens nothing.
   if (source.slice(mark.to, first.from).trim() !== "") return null;
   const newline = source.indexOf("\n", first.from);
-  const header = parseCallout(
-    source.slice(first.from, newline === -1 || newline > first.to ? first.to : newline),
-  );
+  const firstLineEnd = newline === -1 || newline > first.to ? first.to : newline;
+  const header = parseCallout(source.slice(first.from, firstLineEnd));
   if (!header) return null;
-  const lineEnd = titleEnd(first, newline);
+  const lineEnd = titleEnd(first, firstLineEnd);
 
   const title = header.titled
     ? inline(first, source, format, first.from + header.length, lineEnd, plain)
@@ -277,8 +276,8 @@ function callout(node: SyntaxNode, source: string, format: Format): string | nul
  * Where a callout's title ends in its first paragraph. An emphasis opened in the title and closed on a
  * later line belongs to the title, or the body would print it a second time.
  */
-function titleEnd(first: SyntaxNode, newline: number): number {
-  let lineEnd = newline === -1 || newline > first.to ? first.to : newline;
+function titleEnd(first: SyntaxNode, firstLineEnd: number): number {
+  let lineEnd = firstLineEnd;
   for (let child = first.firstChild; child; child = child.nextSibling) {
     if (child.from < lineEnd && child.to > lineEnd) lineEnd = child.to;
   }

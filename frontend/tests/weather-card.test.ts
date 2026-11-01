@@ -37,6 +37,43 @@ describe("sky", () => {
     expect(sky(73, true).icon).toBe("snow");
     expect(sky(95, true).icon).toBe("storm");
   });
+
+  it("reads every WMO code from 0 to 99 by day and by night", () => {
+    // Runs of codes that read alike; `sun` and `part` turn to `moon` and `part-night` at night.
+    const runs: [number, number, string, string][] = [
+      [0, 0, "sun", "clear"],
+      [1, 1, "sun", "mostly clear"],
+      [2, 2, "part", "partly cloudy"],
+      [3, 3, "cloud", "overcast"],
+      [4, 44, "sun", "clear"],
+      [45, 45, "cloud", "fog"],
+      [46, 47, "sun", "clear"],
+      [48, 48, "cloud", "fog"],
+      [49, 50, "sun", "clear"],
+      [51, 62, "rain", "light rain"],
+      [63, 70, "rain", "rain"],
+      [71, 79, "snow", "snow"],
+      [80, 80, "rain", "light rain"],
+      [81, 82, "rain", "rain"],
+      [83, 86, "snow", "snow"],
+      [87, 94, "rain", "rain"],
+      [95, 99, "storm", "thunderstorm"],
+    ];
+    const night: Record<string, string> = { sun: "moon", part: "part-night" };
+    const expected = runs.flatMap(([from, to, icon, word]) =>
+      Array.from({ length: to - from + 1 }, (_, at) => [
+        from + at,
+        { icon, word },
+        { icon: night[icon] ?? icon, word },
+      ]),
+    );
+    const read = Array.from({ length: 100 }, (_, code) => [
+      code,
+      sky(code, true),
+      sky(code, false),
+    ]);
+    expect(read).toEqual(expected);
+  });
 });
 
 describe("drawTown", () => {

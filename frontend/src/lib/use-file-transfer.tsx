@@ -46,6 +46,31 @@ function downloadAsset(path: string): void {
   download(path.slice(path.lastIndexOf("/") + 1), `/api/assets/${encodePath(path)}`);
 }
 
+/** Sends a book up: null once it is there, else what to tell the user. */
+async function upload(path: string, file: File): Promise<string | null> {
+  try {
+    await uploadAsset(path, file);
+    return null;
+  } catch (error: unknown) {
+    // Typed unknown: a fetch that never gets a response has no status to name.
+    return error instanceof Error ? error.message : "The upload failed";
+  }
+}
+
+/** Creates one picked markdown file in the inbox, never over a note: the note made, or why not. */
+async function importNote(
+  file: File,
+): Promise<{ path: string; content: string } | { refused: string }> {
+  const path = importedNote(file.name);
+  if (path === null) return { refused: "The vault will not take that name" };
+  try {
+    return await createNote(path, await file.text());
+  } catch (error: unknown) {
+    // Typed unknown, as in the upload.
+    return { refused: error instanceof Error ? error.message : "The import failed" };
+  }
+}
+
 /** Every file moved in or out of the vault from the keys: the pickers and the download. */
 export function useFileTransfer({
   data,
@@ -86,11 +111,9 @@ export function useFileTransfer({
         return;
       }
 
-      try {
-        await uploadAsset(filed.book, file);
-      } catch (error: unknown) {
-        // Typed unknown: a fetch that never gets a response has no status to name.
-        setNotice(error instanceof Error ? error.message : "The upload failed");
+      const refused = await upload(filed.book, file);
+      if (refused !== null) {
+        setNotice(refused);
         return;
       }
 
@@ -120,20 +143,14 @@ export function useFileTransfer({
       let refused: string | undefined;
 
       for (const file of [...(event.target.files ?? [])]) {
-        const path = importedNote(file.name);
-        if (path === null) {
-          refused ??= "The vault will not take that name";
+        const made = await importNote(file);
+        if ("refused" in made) {
+          // Only the first refusal is shown; the batch goes on.
+          refused ??= made.refused;
           continue;
         }
-
-        try {
-          const made = await createNote(path, await file.text());
-          queryClient.setQueryData(["note", made.path], made.content);
-          first ??= made.path;
-        } catch (error: unknown) {
-          // Typed unknown, as in the upload. Only the first refusal is shown; the batch goes on.
-          refused ??= error instanceof Error ? error.message : "The import failed";
-        }
+        queryClient.setQueryData(["note", made.path], made.content);
+        first ??= made.path;
       }
 
       if (refused !== undefined) setNotice(refused);

@@ -4,7 +4,7 @@ import { readClock } from "@/lib/clock";
 import { quoteBlock } from "@/lib/html-take";
 // Renamed for the reason `use-prompts.tsx` renames it: the take is a dump, and
 // the page has no other `flush` to confuse it with.
-import { flush as flushOutbox, keep } from "@/lib/outbox";
+import { type Dump, type Failure, flush as flushOutbox, keep } from "@/lib/outbox";
 import { REFUSED, undoFor } from "@/lib/page-undo";
 import { periodicNote } from "@/lib/periodic";
 
@@ -14,6 +14,13 @@ export interface Taking extends ToastTaking {
   onKept?: (id: number) => void;
   /** The toast's line once the take has landed. "Taken into today's dump" when left out. */
   landed?: string;
+}
+
+/** The toast's words for a take the outbox still holds. */
+function stillWaiting(mine: Dump, failure: Failure | null, count: number): string {
+  if (mine.refused !== undefined) return mine.refused;
+  if (failure?.kind === "sign-in") return "Taken, waiting to send: sign in again";
+  return `Taken, waiting to send (${count} waiting)`;
 }
 
 /**
@@ -78,18 +85,14 @@ export function useDumpTake(o: {
     const { waiting, failure } = await flushOutbox();
     if (moved()) return true;
     const mine = waiting.find((each) => each.id === dump.id);
-    if (mine === undefined) {
-      // The daily note is read over the network, so the pane may move on while it is.
-      const undo = await undoFor(daily, quote, id);
-      if (moved()) return true;
-      toast.show(taking.landed ?? "Taken into today's dump", taking, undo);
-    } else if (mine.refused !== undefined) {
-      toast.show(mine.refused, taking);
-    } else if (failure?.kind === "sign-in") {
-      toast.show("Taken, waiting to send: sign in again", taking);
-    } else {
-      toast.show(`Taken, waiting to send (${waiting.length} waiting)`, taking);
+    if (mine !== undefined) {
+      toast.show(stillWaiting(mine, failure, waiting.length), taking);
+      return true;
     }
+    // The daily note is read over the network, so the pane may move on while it is.
+    const undo = await undoFor(daily, quote, id);
+    if (moved()) return true;
+    toast.show(taking.landed ?? "Taken into today's dump", taking, undo);
     return true;
   }
 
