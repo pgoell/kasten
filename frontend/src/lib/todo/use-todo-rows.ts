@@ -21,7 +21,9 @@ import {
   type Placed,
   progressOf,
   SECTIONS,
+  type Stop,
   sectionOf,
+  stopOf,
   treeOf,
   waiting,
 } from "@/lib/todo/todo-view";
@@ -169,24 +171,29 @@ export interface RowFacts {
   progress: Map<string, string>;
 }
 
-/** The forest each note's todos make, with the hit, parent and inherited todo of each line. */
+/**
+ * The forest each note's todos make, with the hit, parent and inherited todo of each line.
+ * A line that is no todo ends parts where the writes end them (#1445), so the vault sends those too.
+ */
 function forestOf(parsed: Read[]) {
-  const notes = new Map<string, Placed[]>();
+  const notes = new Map<string, { placed: Placed[]; stops: Stop[] }>();
   const hits = new Map<string, TodoHit>();
   for (const { hit, todo } of parsed) {
-    if (todo === null) continue;
-    const lines = notes.get(hit.path) ?? [];
-    lines.push({ line: hit.line, todo });
-    notes.set(hit.path, lines);
-    hits.set(rowKey(hit), hit);
+    const stop = todo === null ? stopOf(hit.text) : null;
+    if (todo === null && stop === null) continue;
+    const note = notes.get(hit.path) ?? { placed: [], stops: [] };
+    if (todo === null) note.stops.push({ line: hit.line, indent: stop ?? 0 });
+    else note.placed.push({ line: hit.line, todo });
+    if (todo !== null) hits.set(rowKey(hit), hit);
+    notes.set(hit.path, note);
   }
 
-  // By line, because the tree is read off the order the note holds them in
-  // and rg answers a note's hits in whatever order it found them.
+  // By line, because rg answers a note's hits in whatever order it found them.
+  const byLine = (one: { line: number }, other: { line: number }) => one.line - other.line;
   const trees = new Map(
-    [...notes].map(([path, lines]): [string, Node[]] => [
+    [...notes].map(([path, { placed, stops }]): [string, Node[]] => [
       path,
-      inherited(treeOf([...lines].sort((one, other) => one.line - other.line))),
+      inherited(treeOf(placed.sort(byLine), stops.sort(byLine))),
     ]),
   );
   return { trees, hits, ...placesOf(trees) };

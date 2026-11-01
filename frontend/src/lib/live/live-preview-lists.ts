@@ -5,7 +5,7 @@ import { readClock } from "@/lib/clock";
 import type { Walk } from "@/lib/live/live-preview-hidden";
 import { masked, parseTodo } from "@/lib/todo/todo";
 import { DUE } from "@/lib/todo/todo-fields";
-import { descendants, type Placed, progressOf, treeOf } from "@/lib/todo/todo-view";
+import { descendants, noteTree, type Placed, progressOf, treeOf } from "@/lib/todo/todo-view";
 
 /** How far one level of list nesting shifts a rendered item, in `em`. */
 const BULLET_INDENT = 1.6;
@@ -113,7 +113,10 @@ export class Lists {
    */
   finish(walk: Walk): void {
     const { state, decorations } = walk;
-    for (const root of treeOf(this.placed)) {
+    // Only an indented todo can be a part (#1445), so a flat note skips the second read.
+    const nested = this.placed.some((entry) => entry.todo.indent > 0);
+    const roots = nested ? noteTree(state.doc.toString().split("\n")) : treeOf(this.placed);
+    for (const root of roots) {
       for (const node of [root, ...descendants(root)]) {
         const progress = progressOf(node);
         if (progress === null) continue;

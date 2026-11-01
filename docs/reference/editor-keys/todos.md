@@ -75,7 +75,8 @@ worker runs it. On a todo in any other state that carries the tag it changes
 nothing, and the notice says
 `Nothing moved: that todo is already with the agent`. On a todo carrying
 `#client`, or under a todo that does, it writes nothing, and the notice says
-`Nothing moved: the agent skips client work`. It edits the buffer, so `u` undoes
+`Nothing moved: the agent skips client work`, and a todo inside a code fence,
+which no worker reads, with `Nothing moved: that line is code`. It edits the buffer, so `u` undoes
 it. vim's own `@`, which replays a macro, has no leader in front of it and works
 as before. With vim off, and on a phone, the palette's
 "Send this todo to the agent, or take it back" does the same.

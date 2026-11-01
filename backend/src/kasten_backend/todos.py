@@ -13,14 +13,12 @@ from typing import TYPE_CHECKING
 from kasten_backend.code_spans import WIKILINK, code_spans
 from kasten_backend.frontmatter import body_start
 from kasten_backend.links import link_path
-from kasten_backend.search import scan_vault
+from kasten_backend.search import Hit, scan_vault
 from kasten_backend.todo_fields import SPANS, blank, mask
 from kasten_backend.todo_fields import words as _words
 
 if TYPE_CHECKING:
     from pathlib import Path
-
-    from kasten_backend.search import Hit
 
 MOST_TODOS = 100_000
 """How many matching lines come back at most.
@@ -44,18 +42,86 @@ Closed sessions are left out so a response refetched on each vault write stays s
 stop reads them through `GET /api/search` on the todo's id instead.
 """
 
-TODO_PATTERN = f"{TODO_LINE}|{SESSION_LINE}"
+FENCE_LINE = r"^ {0,3}(```|~~~)"
+"""A line that may open or close a fence, asked for so a note holding one is read whole."""
+
+TODO_PATTERN = f"{TODO_LINE}|{SESSION_LINE}|{FENCE_LINE}"
+
+FENCE = re.compile(r" {0,3}(`{3,}|~{3,})(.*)")
+HEADING = re.compile(r" {0,3}#{1,6}(?:[ \t]|$)")
+ITEM = re.compile(r"([ \t]*)(?:[-*+]|\d+[.)])(?:[ \t]|$)")
+
+
+def fenced_lines(lines: list[str]) -> set[int]:
+    """The indexes of the lines in a fence, its own lines too, as the editor's `fencedLines`."""
+    coded: set[int] = set()
+    opened: str | None = None
+    for index, line in enumerate(lines):
+        found = FENCE.match(line)
+        fence, info = (found[1], found[2]) if found else (None, "")
+        if opened is None and fence and (fence[0] == "~" or "`" not in info):
+            opened = fence
+        elif opened is not None:
+            closes = fence and fence[0] == opened[0] and len(fence) >= len(opened)
+            if closes and line.strip() == fence:
+                opened = None
+        else:
+            continue
+        coded.add(index)
+    return coded
+
+
+def stop_of(text: str) -> int | None:
+    """The indent at which a line that is no todo ends the parts above it, -1 for a heading.
+
+    The editor's `stopOf`; `backend/tests/fixtures/todo_parts.json` holds the two together.
+    """
+    if HEADING.match(text):
+        return -1
+    item = ITEM.match(text)
+    return None if item is None else len(item[1])
+
+
+def _whole(root: Path, note: str, hits: list[Hit]) -> list[Hit]:
+    """A note's hits, fenced lines out and, under an indented todo, the lines ending parts in.
+
+    Only lines between the first todo and the last indented one can end a part, so only those go.
+    """
+    marks = [hit for hit in hits if FENCE.match(hit.text)]
+    hits = [hit for hit in hits if hit not in marks]
+    nested = [hit.line for hit in hits if hit.text[:1] in " \t" and LINE.fullmatch(hit.text)]
+    if not hits or (not marks and not nested):
+        return hits
+    try:
+        text = (root / note).read_text(encoding="utf-8", errors="replace")
+    except FileNotFoundError:
+        return hits
+    lines = [line.removesuffix("\r") for line in text.split("\n")]
+    above = text[: body_start(text)].count("\n")
+    coded = {at + above for at in fenced_lines(lines[above:])}
+    kept = [hit for hit in hits if hit.line - 1 not in coded]
+    seen = {hit.line for hit in kept}
+    first = min(seen, default=0)
+    ends = [
+        Hit(note, at + 1, lines[at])
+        for at in range(first, max(nested, default=0))
+        if at + 1 not in seen and at not in coded and stop_of(lines[at]) is not None
+    ]
+    return sorted(kept + ends, key=lambda hit: hit.line)
 
 
 async def find_todos(root: Path, skip: str | None = None) -> list[Hit]:
-    """Every todo line and every time session line the vault holds, up to `MOST_TODOS`.
+    """Every todo and running session line outside a fence, up to `MOST_TODOS`, and what ends parts.
 
-    `skip` names a folder to walk past: the archive, by default. A finished project's open
-    checkboxes are true of the note and false of the week, so they are left out.
+    `skip` names a folder to walk past: the archive, whose open checkboxes are past work.
     """
     # `-e` so the pattern, which opens with a caret and holds a dash, is a
     # pattern and not a flag.
-    return await scan_vault(root, ("-e", TODO_PATTERN), MOST_TODOS, skip)
+    found = await scan_vault(root, ("-e", TODO_PATTERN), MOST_TODOS, skip)
+    by_note: dict[str, list[Hit]] = {}
+    for hit in found:
+        by_note.setdefault(hit.path, []).append(hit)
+    return [hit for note, hits in by_note.items() for hit in _whole(root, note, hits)]
 
 
 PROJECT_ROOTS = ("02 Projects", "03 Areas")
@@ -261,8 +327,8 @@ def projects_of(hits: list[Hit], paths: list[str]) -> list[str | None]:
     """The project of each hit, in the order of `hits`, against the notes in `paths`.
 
     For a todo, the first of: a `#p/x` tag on it or on its parent, the note's project
-    folder, the first link into a project, the parent's project. A parent is the nearest
-    todo above with a smaller indent, prose between them or not. A session line has none.
+    folder, the first link into a project, the parent's project, the parent read as `stepIn`
+    reads it (#1445). A line that is no todo has none.
     """
     folders = project_folders(paths)
 
@@ -279,12 +345,16 @@ def projects_of(hits: list[Hit], paths: list[str]) -> list[str | None]:
         # rg answers in any order, and a parent has to come before its parts.
         for hit in sorted(lines, key=lambda one: one.line):
             todo = LINE.fullmatch(hit.text)
-            if todo is None:
-                continue
             # A tab counts one, as the editor's `parseTodo` counts it.
-            indent = len(todo[1])
+            indent = len(todo[1]) if todo else stop_of(hit.text)
+            if indent is None:
+                continue
             while above and above[-1][0] >= indent:
                 above.pop()
+            if todo is None:
+                # A heading or a plain item ends the parts, holding what sits under it apart.
+                above.append((indent, None, None))
+                continue
             parent_tag, parent = (above[-1][1], above[-1][2]) if above else (None, None)
 
             # Tags and links off the words, as the board read `todo.tags` and

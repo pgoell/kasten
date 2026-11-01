@@ -75,7 +75,7 @@ function stepIn(path: Step[], indent: number, node: Node | null): Node | null {
 
 /**
  * The forest one note's todos make, read off the indents: a todo is the child of the nearest todo above it with a smaller indent.
- * Prose between todos ends nothing. `stops`, in line order, are the lines that do end the parts (#1306); the pane has none to pass.
+ * Prose between todos ends nothing. `stops`, in line order, are the lines that do end the parts (#1306).
  */
 export function treeOf(placed: Placed[], stops: readonly Stop[] = []): Node[] {
   const roots: Node[] = [];
@@ -102,6 +102,16 @@ const HEADING_LINE = /^ {0,3}#{1,6}(?:[ \t]|$)/;
 const ITEM = /^([ \t]*)(?:[-*+]|\d+[.)])(?:[ \t]|$)/;
 
 /**
+ * The indent at which a line that is no todo ends the parts above it, -1 for a heading, or null for prose.
+ * The pane reads the lines `GET /api/todos` sends with it, so both trees end where the writes do.
+ */
+export function stopOf(text: string): number | null {
+  if (HEADING_LINE.test(text)) return -1;
+  const item = ITEM.exec(text);
+  return item === null ? null : (item[1] ?? "").length;
+}
+
+/**
  * The forest of a whole note, with its parts ended as Obsidian ends them: by a heading or a list item that is no todo.
  * A fenced line is no todo, found as `bodyFences` finds it.
  */
@@ -113,10 +123,9 @@ export function noteTree(lines: string[]): Node[] {
   for (const [index, text] of lines.entries()) {
     if (index < above || coded.has(index)) continue;
     const todo = parseTodo(text);
-    const item = ITEM.exec(text);
+    const stop = todo === null ? stopOf(text) : null;
     if (todo !== null) placed.push({ line: index + 1, todo });
-    else if (HEADING_LINE.test(text)) stops.push({ line: index + 1, indent: -1 });
-    else if (item !== null) stops.push({ line: index + 1, indent: (item[1] ?? "").length });
+    else if (stop !== null) stops.push({ line: index + 1, indent: stop });
   }
 
   return treeOf(placed, stops);

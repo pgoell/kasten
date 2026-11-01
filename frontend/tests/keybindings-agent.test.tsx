@@ -71,6 +71,23 @@ describe("#523 the agent key", () => {
     expect(onNotice).toHaveBeenCalledWith("Nothing moved: the agent skips client work");
   });
 
+  // #1445: a todo past a heading or a plain item is no part, so the client tag above it does not reach it.
+  it.each([
+    ["a heading", "- [ ] big #client\n## Other\n  - [ ] call"],
+    ["a plain list item", "- [ ] big #client\n- plain\n  - [ ] call"],
+  ])("#1445 <leader>@ adds #agent to a todo past %s under a #client todo", (_, initialDoc) => {
+    const { doc } = pressAgent(initialDoc);
+
+    expect(doc).toBe(`${initialDoc} #agent`);
+  });
+
+  it("#1445 <leader>@ refuses a fenced todo line, which no worker reads", () => {
+    const { docs, onNotice } = pressAgent("- [ ] big\n  ```\n  - [ ] call");
+
+    expect.soft(docs).toEqual([]);
+    expect(onNotice).toHaveBeenCalledWith("Nothing moved: that line is code");
+  });
+
   it("#523 A5 <leader>@ adds #agent under #client prose, only a todo passing client down", () => {
     const { doc } = pressAgent("big #client\n  - [ ] call");
 

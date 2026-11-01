@@ -3,8 +3,9 @@
  * `todo-write.ts` is: it returns the line, or the foot's sentence when nothing is written.
  */
 
+import { bodyFences } from "@/lib/note-section";
 import { parseTodo, todoTagsOn, wordsEnd } from "@/lib/todo/todo";
-import { descendants, inherited, isClient, type Placed, treeOf } from "@/lib/todo/todo-view";
+import { descendants, inherited, isClient, noteTree } from "@/lib/todo/todo-view";
 import { pressedLine } from "@/lib/todo/todo-write";
 
 /** The tag the agent worker picks a todo up by. */
@@ -12,15 +13,10 @@ export const AGENT = "#agent";
 
 /**
  * Whether the todo on `line` is client work, by its own tag or a todo above it.
- * Read as the pane reads `inherited`, so both places `@` is pressed agree.
+ * Read off the tree the writes tick (#1445), so a todo past a heading takes nothing from above it.
  */
 function clientAt(lines: string[], line: number): boolean {
-  const placed: Placed[] = [];
-  for (const [index, text] of lines.entries()) {
-    const todo = parseTodo(text);
-    if (todo !== null) placed.push({ line: index + 1, todo });
-  }
-  const node = inherited(treeOf(placed))
+  const node = inherited(noteTree(lines))
     .flatMap((root) => [root, ...descendants(root)])
     .find((found) => found.line === line);
   return node !== undefined && isClient(node.todo);
@@ -48,6 +44,9 @@ export function agentPress(
 ): { line: string } | { why: string } {
   const before = lines[at - 1] ?? "";
   if (before.trim() === "") return { why: "there is no todo on that line" };
+
+  // The worker reads `GET /api/todos`, which sends no fenced line, so a tag there would only sit.
+  if (bodyFences(lines).coded.has(at - 1)) return { why: "that line is code" };
 
   const plain = parseTodo(before) === null;
   const line = plain ? (pressedLine(before, today, id, "open") ?? before) : before;

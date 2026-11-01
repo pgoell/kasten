@@ -1,13 +1,17 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { parseTodo, type Todo } from "@/lib/todo/todo";
 import { closedAmong } from "@/lib/todo/todo-blocked";
 import {
   DEFAULT_VIEWS,
   dependentsOf,
+  descendants,
   inherited,
   isClient,
   type Node,
   namedTodos,
   nextActionOf,
+  noteTree,
   type Placed,
   parseViews,
   progressOf,
@@ -461,5 +465,28 @@ describe("#617 a hash in a span or an address is no tag", () => {
 
     expect.soft(isClient(todo("- [ ] run `grep #client log`"))).toBe(false);
     expect(parent?.children[0]?.todo.tags).toEqual([]);
+  });
+});
+
+/** #1445: the cases `backend/tests/test_todo_project.py` runs too, so the editor and the project agree. */
+const PARTS: { name: string; note: string; todos: number[]; parts: number[] }[] = JSON.parse(
+  readFileSync(
+    path.resolve(import.meta.dirname, "../../backend/tests/fixtures/todo_parts.json"),
+    "utf8",
+  ),
+);
+
+describe("#1445 a todo's parts end where the writes end them", () => {
+  it.each(PARTS.map((one) => [one.name, one] as const))("%s", (_, one) => {
+    const nodes = inherited(noteTree(one.note.split("\n"))).flatMap((root) => [
+      root,
+      ...descendants(root),
+    ]);
+    const first = one.todos[0];
+
+    expect(nodes.map((node) => node.line).sort((a, b) => a - b)).toEqual(one.todos);
+    expect(
+      nodes.filter((node) => node.line !== first && isClient(node.todo)).map((node) => node.line),
+    ).toEqual(one.parts);
   });
 });
