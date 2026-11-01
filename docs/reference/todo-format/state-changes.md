@@ -143,10 +143,32 @@ A todo indented under another is a part of it:
     - [ ] pick a plan
 ```
 
-The indent is the whole rule. A todo belongs to the nearest todo above it
-carrying a smaller indent, and nothing ends a block: prose between two todos
-leaves the nesting alone, which is what markdown itself does and what lets the
-pane, which never sees that prose, read the same tree the editor reads.
+A todo belongs to the nearest todo above it carrying a smaller indent. Prose
+between two todos, indented or not, and a blank line leave the nesting alone,
+which is what markdown itself does.
+
+Three things end the parts, as in Obsidian, for the writes that act on them:
+ticking a parent, the next copy of a recurring one, and
+[`s`](/reference/editor-keys/todo-pane.md#the-todo-pane), which adds a part.
+
+- A heading ends every part above it.
+- A list item that is no todo, such as `- plain` or `1. step`, ends the parts at
+  its indent and deeper. A todo indented under it belongs to that item, not to a
+  todo above it. A plain item indented past the parent ends nothing.
+- A line inside a code fence is no todo. The fence's own lines end nothing.
+
+```markdown
+- [ ] r 📅 2026-08-10 🔁 every day
+  - [ ] a part
+- plain
+  - [ ] no part of r
+## Other
+  - [ ] no part of r either
+```
+
+The pane, the `1/3` count and the project of a todo still read the indent alone,
+since the pane never sees the lines between todos
+([#1445](https://github.com/pgoell/kasten/issues/1445)).
 
 A part takes what the todo above it carries and does not spell for itself: the
 due date, the scheduled date, the start date, the priority and
