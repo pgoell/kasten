@@ -71,9 +71,7 @@
     {
       "includes": [
         "src/components/chat-pane.tsx",
-        "src/components/command-palette.tsx",
         "src/components/exam-pane.tsx",
-        "src/components/file-explorer.tsx",
         "src/components/history-pane.tsx",
         "src/components/html-pane.tsx",
         "src/components/image-pane.tsx",
@@ -85,7 +83,6 @@
         "src/components/status-bar.tsx",
         "src/components/tab-strip.tsx",
         "src/components/terminal-prompt.tsx",
-        "src/components/tree-rows.tsx",
         "src/components/use-dump-take.tsx",
         "src/components/video-pane.tsx",
         "src/components/which-key.tsx",

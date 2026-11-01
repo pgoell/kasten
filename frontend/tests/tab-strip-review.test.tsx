@@ -171,4 +171,21 @@ describe("the review fixes", () => {
     // A cap of zero, which the browser reads as a number; a negative one is refused.
     expect(Number.parseFloat(active?.style.maxWidth ?? "")).toBe(0);
   });
+
+  it("R20 the arrows in N more wrap at the ends, and from the button start at the first row or the last", () => {
+    laidOut([50, 50, 50, 50, 50], 220);
+    render(strip(goToTab(tabsOf("a.md", "b.md", "c.md", "d.md", "e.md"), 0)));
+    const button = screen.getByRole("button", { name: "3 more" });
+
+    fireEvent.click(button);
+    fireEvent.keyDown(document.activeElement as HTMLElement, { key: "ArrowUp" });
+    expect(document.activeElement).toHaveTextContent("e");
+    fireEvent.keyDown(document.activeElement as HTMLElement, { key: "ArrowDown" });
+    expect(document.activeElement).toHaveTextContent("c");
+
+    fireEvent.keyDown(button, { key: "ArrowUp" });
+    expect(document.activeElement).toHaveTextContent("e");
+    fireEvent.keyDown(button, { key: "ArrowDown" });
+    expect(document.activeElement).toHaveTextContent("c");
+  });
 });

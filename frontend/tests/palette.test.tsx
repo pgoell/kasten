@@ -167,6 +167,32 @@ describe("the palette", () => {
     expect(row).toHaveClass("pointer-coarse:min-h-11");
   });
 
+  it("moves the highlight on the arrows, Tab and ctrl n and p, stopping at the ends, and Escape closes", () => {
+    const onClose = vi.fn();
+    render(<CommandPalette entries={paletteEntries(stubCommands(), null)} onClose={onClose} />);
+    const input = screen.getByRole("combobox");
+    const at = () => screen.getAllByRole("option").findIndex((row) => row.ariaSelected === "true");
+    const last = screen.getAllByRole("option").length - 1;
+
+    fireEvent.keyDown(input, { key: "ArrowUp" });
+    expect(at()).toBe(0);
+    fireEvent.keyDown(input, { key: "ArrowDown" });
+    fireEvent.keyDown(input, { key: "Tab" });
+    fireEvent.keyDown(input, { key: "n", ctrlKey: true });
+    expect(at()).toBe(3);
+    fireEvent.keyDown(input, { key: "Tab", shiftKey: true });
+    fireEvent.keyDown(input, { key: "p", ctrlKey: true });
+    expect(at()).toBe(1);
+    for (let press = 0; press <= last; press++) fireEvent.keyDown(input, { key: "ArrowDown" });
+    expect(at()).toBe(last);
+    fireEvent.keyDown(input, { key: "n" });
+    expect(at()).toBe(last);
+    expect(onClose).not.toHaveBeenCalled();
+
+    fireEvent.keyDown(input, { key: "Escape" });
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
   it("offers Read the current book and runs it from a tapped row", () => {
     const commands = stubCommands();
     render(<CommandPalette entries={paletteEntries(commands, null)} onClose={() => {}} />);
