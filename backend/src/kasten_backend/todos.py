@@ -90,7 +90,7 @@ def _whole(root: Path, note: str, hits: list[Hit]) -> list[Hit]:
     marks = [hit for hit in hits if FENCE.match(hit.text)]
     hits = [hit for hit in hits if hit not in marks]
     nested = [hit.line for hit in hits if hit.text[:1] in " \t" and LINE.fullmatch(hit.text)]
-    if not marks and not nested:
+    if not hits or (not marks and not nested):
         return hits
     try:
         text = (root / note).read_text(encoding="utf-8", errors="replace")
@@ -323,13 +323,6 @@ def project_folders(paths: list[str]) -> dict[str, str]:
     return folders
 
 
-def _step_in(above: list[tuple[int, str | None, str | None]], step: tuple[int, None, None]) -> None:
-    """Pops back to the step's indent and pushes it, as the editor's `stepIn` does."""
-    while above and above[-1][0] >= step[0]:
-        above.pop()
-    above.append(step)
-
-
 def projects_of(hits: list[Hit], paths: list[str]) -> list[str | None]:
     """The project of each hit, in the order of `hits`, against the notes in `paths`.
 
@@ -352,16 +345,16 @@ def projects_of(hits: list[Hit], paths: list[str]) -> list[str | None]:
         # rg answers in any order, and a parent has to come before its parts.
         for hit in sorted(lines, key=lambda one: one.line):
             todo = LINE.fullmatch(hit.text)
-            if todo is None:
-                # A heading or a plain item ends the parts, holding what sits under it apart.
-                stop = stop_of(hit.text)
-                if stop is not None:
-                    _step_in(above, (stop, None, None))
-                continue
             # A tab counts one, as the editor's `parseTodo` counts it.
-            indent = len(todo[1])
+            indent = len(todo[1]) if todo else stop_of(hit.text)
+            if indent is None:
+                continue
             while above and above[-1][0] >= indent:
                 above.pop()
+            if todo is None:
+                # A heading or a plain item ends the parts, holding what sits under it apart.
+                above.append((indent, None, None))
+                continue
             parent_tag, parent = (above[-1][1], above[-1][2]) if above else (None, None)
 
             # Tags and links off the words, as the board read `todo.tags` and

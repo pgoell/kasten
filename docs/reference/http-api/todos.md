@@ -131,9 +131,9 @@ indented todo, is then read whole (#1445):
   reads them to draw what ticks together. A client that wants todos alone keeps
   the lines its own todo parser reads, as it does for session lines.
 
-The fence lines themselves never come back. On the live vault, 33 of the 136
-notes holding a todo are read whole, and the answer takes about 93 ms where it
-took 74.
+The fence lines themselves never come back, and a note whose only hits are
+fence lines is not read. On the live vault, 33 of the 136 notes holding a todo
+are read whole, which adds 15 to 20 ms to the answer.
 
 A vault directory that does not exist reads as an empty one, so a fresh
 checkout still serves.
