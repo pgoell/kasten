@@ -56,6 +56,12 @@ interface HomeSearch {
   week?: string;
 }
 
+// Narrow only: the bar says which pane of the stack has the focus.
+function stackLabel(narrow: boolean, panes: { id: string }[], focused: string) {
+  if (!narrow || panes.length <= 1) return undefined;
+  return `${panes.findIndex((each) => each.id === focused) + 1}/${panes.length}`;
+}
+
 function Home() {
   const listings = useListings();
   const {
@@ -181,6 +187,8 @@ function Home() {
   const keyboard = useKeyboardInset(frame, coarse);
   const drawer = useTreeDrawer({ narrow, saved, savedAs, layout, focusSignal });
   const { treeOpen, setTreeOpen, treeFocus, treeReveal } = drawer;
+  // The drawer covers the window on a narrow screen, so what lies under it is out of reach.
+  const inert = narrow && treeOpen;
   // Above the remount another note causes, so preview off stays off.
   const [preview, setPreview] = useState(true);
   const [helpOpen, setHelpOpen] = useKeyHelp();
@@ -355,7 +363,7 @@ function Home() {
   // `clip`, not `hidden`: `hidden` makes a scroll box, and the sticky tabs would scroll away.
   return (
     <main ref={frame} className="safe-frame flex h-dvh flex-col overflow-x-clip bg-k-bg">
-      <TopBar commands={commands} count={data?.length ?? 0} inert={narrow && treeOpen} />
+      <TopBar commands={commands} count={data?.length ?? 0} inert={inert} />
       {/* min-h-0 lets the editor scroll instead of pushing the bar off-screen. */}
       <div className="flex min-h-0 flex-1">
         <FileExplorer
@@ -385,7 +393,7 @@ function Home() {
           layout={layout}
           narrow={narrow}
           keyboard={keyboard}
-          inert={narrow && treeOpen}
+          inert={inert}
           moveTo={moveTo}
           setLayout={setLayout}
           commands={commands}
@@ -420,19 +428,14 @@ function Home() {
         notice={notice}
         version={version}
         zoom={tab.zoom}
-        // Narrow only: the bar says which pane of the stack has the focus.
-        pane={
-          narrow && panes.length > 1
-            ? `${panes.findIndex((each) => each.id === pane.id) + 1}/${panes.length}`
-            : undefined
-        }
-        inert={narrow && treeOpen}
+        pane={stackLabel(narrow, panes, pane.id)}
+        inert={inert}
         foot={!phone}
         onWrite={() => void save()}
         onTakeVault={buffer.takeVault}
         conflict={buffer.conflict}
       />
-      {phone && <Toolbar commands={commands} split={panes.length > 1} inert={narrow && treeOpen} />}
+      {phone && <Toolbar commands={commands} split={panes.length > 1} inert={inert} />}
       {helpOpen && <KeyHelp onClose={() => setHelpOpen(false)} />}
       <WhichKey phone={phone} />
       <Sheet open={graphSheet.open} onClose={closeGraphSheet} label="Local graph">
