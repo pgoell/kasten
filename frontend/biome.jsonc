@@ -81,7 +81,6 @@
         "src/lib/note/vault-reads.ts",
         "src/lib/note/write-answer.ts",
         "src/routes/index.tsx",
-        "tests/frame/html-take-api.ts",
         "vite.config.ts",
         "shell/chat/runner.mjs",
         "shell/chat/runner.test.mjs",

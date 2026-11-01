@@ -70,17 +70,23 @@ const stub = async (input: RequestInfo | URL, init?: RequestInit): Promise<Respo
     api.note = body.content;
     return json({ path: api.daily, content: api.note });
   }
-  // Any other note the put reads first, then writes; a path not yet written reads empty.
-  const other = url.pathname.startsWith("/api/files/");
-  const path = decodeURIComponent(url.pathname.slice("/api/files/".length));
-  if (other && method === "GET") return json({ path, content: api.notes[path] ?? "" });
-  if (other && method === "PUT" && request) {
-    const body = JSON.parse(await request.text()) as { content: string };
-    api.notes[path] = body.content;
-    return json({ path, content: body.content });
-  }
-  return real(input, init);
+  return (await otherNote(url, method, request)) ?? real(input, init);
 };
+
+/** Any other note the put reads first, then writes; a path not yet written reads empty. */
+async function otherNote(
+  url: URL,
+  method: string,
+  request: Request | undefined,
+): Promise<Response | undefined> {
+  const path = decodeURIComponent(url.pathname.slice("/api/files/".length));
+  if (!url.pathname.startsWith("/api/files/")) return undefined;
+  if (method === "GET") return json({ path, content: api.notes[path] ?? "" });
+  if (method !== "PUT" || !request) return undefined;
+  const body = JSON.parse(await request.text()) as { content: string };
+  api.notes[path] = body.content;
+  return json({ path, content: body.content });
+}
 
 globalThis.fetch = stub as typeof fetch;
 
