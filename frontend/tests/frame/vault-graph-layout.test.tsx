@@ -9,7 +9,7 @@ import type { DrawnNode } from "@/lib/graph/graph";
 import type { Graph } from "@/lib/graph/graph-api";
 import { drawGraph, type GraphCanvasHandlers } from "@/lib/graph/graph-canvas";
 import { placeOf, spotsOf } from "@/lib/graph/graph-clusters";
-import { boxOf, DEV_ANSWER, registerVaultFixture, SYNTHETIC } from "./vault-graph-fixture";
+import { boxOf, DEV_ANSWER, LARGE, registerVaultFixture, SYNTHETIC } from "./vault-graph-fixture";
 
 registerVaultFixture();
 
@@ -58,6 +58,21 @@ const distance = (node: DrawnNode, x: number, y: number) =>
   Math.hypot((node.x ?? 0) - x, (node.y ?? 0) - y);
 
 describe("vault graph layout on a canvas", () => {
+  it("I4 the seeded vaults are the same notes, tags and links on every run", () => {
+    // A pin, not a spec: any change to what the fixture draws moves the hash.
+    const fingerprint = (answer: Graph) => {
+      const text = JSON.stringify(answer);
+      let hash = 2166136261;
+      for (let i = 0; i < text.length; i++)
+        hash = Math.imul(hash ^ text.charCodeAt(i), 16777619) >>> 0;
+      return { nodes: answer.nodes.length, edges: answer.edges.length, hash };
+    };
+    expect([fingerprint(SYNTHETIC), fingerprint(LARGE)]).toEqual([
+      { nodes: 126, edges: 300, hash: 3559210698 },
+      { nodes: 2000, edges: 3000, hash: 3318577795 },
+    ]);
+  });
+
   it("A7 the same vault lays out the same on two fresh canvases", async () => {
     // Two settles of CAP each fit inside the 60 s timeout.
     const first = await settle(DEV_ANSWER, "folders");

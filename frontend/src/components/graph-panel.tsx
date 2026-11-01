@@ -1,4 +1,5 @@
 import { tagVariable } from "@/lib/graph/graph";
+import type { Graph } from "@/lib/graph/graph-api";
 import type { GraphMode } from "@/lib/graph/graph-mode";
 import type { TagCount } from "@/lib/graph/graph-tags";
 import { LABEL } from "@/lib/overlay-styles";
@@ -152,4 +153,22 @@ export function GraphPanel({
       </div>
     </aside>
   );
+}
+
+/**
+ * The vault graph's card for a note, read from the drawing, so a note the drawing has lost leaves the card.
+ * Its tags are the answer's, hidden ones included, so the card shows what it has.
+ */
+export function cardOf(
+  vault: boolean,
+  path: string | null,
+  data: Graph | undefined,
+  drawn: Pick<Graph, "nodes" | "edges"> | undefined,
+): PanelCard | null {
+  if (!vault || !drawn?.nodes.some((node) => node.path === path)) return null;
+  const node = data?.nodes.find((each) => each.path === path);
+  if (!node) return null;
+  const { name, missing, tags } = node;
+  const links = drawn.edges.filter((edge) => edge.source === path || edge.target === path).length;
+  return { path: node.path, name, missing, tags, links };
 }

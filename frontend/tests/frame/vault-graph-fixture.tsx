@@ -56,6 +56,23 @@ interface Plan {
   seed: number;
 }
 
+/** 0 to 3 tags, the first leaning on the folder `f`. */
+function tagsOf(f: number, below: (n: number) => number): string[] {
+  const tags: string[] = [];
+  const count = [0, 1, 1, 2, 2, 2, 3][below(7)] ?? 0;
+  for (let t = 0; t < count; t++) {
+    const tag = t === 0 ? TAGS[(f * 2 + below(3)) % TAGS.length] : TAGS[below(TAGS.length)];
+    if (tag !== undefined && !tags.includes(tag)) tags.push(tag);
+  }
+  return tags;
+}
+
+/** Where a link's target is drawn from: 5% unwritten notes, most its own folder, the rest anywhere. */
+function poolOf(roll: number, unwritten: string[], folder: string[], written: string[]): string[] {
+  if (unwritten.length > 0 && roll < 0.05) return unwritten;
+  return roll < 0.85 ? folder : written;
+}
+
 /**
  * A vault from a plan. Notes are spread over the folders, with 0 to 3 tags each,
  * and the first tag leans on the folder so a folder's notes share a tag area. Most
@@ -71,12 +88,7 @@ function generate({ folders, notes, links, ghosts, seed }: Plan): Graph {
   for (let i = 0; i < notes; i++) {
     const f = i % folders.length;
     const path = `${folders[f] ?? ""}/Note ${i}.md`;
-    const tags: string[] = [];
-    const count = [0, 1, 1, 2, 2, 2, 3][below(7)] ?? 0;
-    for (let t = 0; t < count; t++) {
-      const tag = t === 0 ? TAGS[(f * 2 + below(3)) % TAGS.length] : TAGS[below(TAGS.length)];
-      if (tag !== undefined && !tags.includes(tag)) tags.push(tag);
-    }
+    const tags = tagsOf(f, below);
     nodes.push({ path, name: `Note ${i}`, type: "Concept", tags, missing: false });
     members[f]?.push(path);
     folderOf.set(path, f);
@@ -92,11 +104,8 @@ function generate({ folders, notes, links, ghosts, seed }: Plan): Graph {
   while (edges.length < links) {
     const source = written[below(written.length)] ?? "";
     const f = folderOf.get(source) ?? 0;
-    const roll = rnd();
-    let target: string | undefined;
-    if (unwritten.length > 0 && roll < 0.05) target = unwritten[below(unwritten.length)];
-    else if (roll < 0.85) target = members[f]?.[below(members[f]?.length ?? 1)];
-    else target = written[below(written.length)];
+    const pool = poolOf(rnd(), unwritten, members[f] ?? [], written);
+    const target = pool[below(pool.length || 1)];
     const key = `${source}>${target}`;
     if (target === undefined || target === source || seen.has(key)) continue;
     seen.add(key);
