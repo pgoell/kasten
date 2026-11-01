@@ -32,7 +32,7 @@ One `rg` pass, carrying the same flags search carries, so this and
 indexed and Postgres is not consulted, for the reason search does not consult
 it: the files are the source of truth.
 
-It matches two shapes and nothing else:
+It matches two shapes, and sends the lines below that end a todo's parts:
 
 * a checkbox list item at any indent, in any of
   [the seven states](/reference/todo-format/state-changes.md#the-seven-states): `- [ ]`,
@@ -86,10 +86,12 @@ link inside a field's value, such as `👤 2026-10-01 [[Vendor]]` or
 
 A part is a todo indented under another: its parent is the nearest todo above
 it in the same note with a smaller indent, a tab counting as one, with prose in
-between ending nothing. A session line is no todo, has `project: null` and is
-nobody's parent, and so is a line the editor does not read as a todo, such as
-one holding a lone `\r`, U+2028 or U+2029. Done, rejected and archived todos
-follow the same rule.
+between ending nothing. A heading, or a list item that is no todo, ends the parts
+above it at its indent, as the
+[writes end them](/reference/todo-format/state-changes.md#subtasks). A
+session line is no todo, has `project: null` and is nobody's parent, and so is
+a line the editor does not read as a todo, such as one holding a lone `\r`,
+U+2028 or U+2029. Done, rejected and archived todos follow the same rule.
 
 How a tag names a folder:
 
@@ -114,10 +116,24 @@ one is a backstop against a single generated file with a million list items in
 it, and nothing else: reaching it truncates the answer silently, which is why it
 sits where nothing written by hand reaches it.
 
-`rg` matches a line rather than a parse tree, so a `- [ ]` inside a fenced code
-block in a note about markdown comes back as a hit. The client cannot tell from
-the line alone either, and it costs a wrong row in the todo pane. Dropping it
-would mean reading every note that matched.
+### Fences and the lines that end parts
+
+`rg` matches a line rather than a parse tree, so the pass also asks for every
+line opening with three backticks or tildes. A note with such a line, or with an
+indented todo, is then read whole (#1445):
+
+* A line inside a fenced code block is dropped, a `- [ ]` in a note about
+  markdown among them. Fences are found in the body alone, as the editor finds
+  them, so a fence the frontmatter seems to open hides nothing.
+* In a note with an indented todo, every heading and every list item that is no
+  todo, between the first todo and the last indented one, comes back as a line
+  of its own with `project: null`. Those are what can end a part, and the pane
+  reads them to draw what ticks together. A client that wants todos alone keeps
+  the lines its own todo parser reads, as it does for session lines.
+
+The fence lines themselves never come back. On the live vault, 33 of the 136
+notes holding a todo are read whole, and the answer takes about 93 ms where it
+took 74.
 
 A vault directory that does not exist reads as an empty one, so a fresh
 checkout still serves.

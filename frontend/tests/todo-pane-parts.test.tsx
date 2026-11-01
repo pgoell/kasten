@@ -1,4 +1,5 @@
 import { PRIORITY_SYMBOL } from "@/lib/todo/todo";
+import { CLIENT } from "@/lib/todo/todo-view";
 import { paneHooks, renderPane } from "./todo-pane-fixture";
 
 // The doubles, the same in every todo-pane file: see todo-pane-fixture.tsx.
@@ -92,6 +93,44 @@ describe("the todo pane", () => {
     expect(pane.texts()[1]).toContain("08-10");
     expect(pane.texts()[1]).toContain(PRIORITY_SYMBOL.high);
     expect(pane.texts()[2]).toContain("buy milk");
+  });
+
+  // #1445: the lines the vault now sends beside the todos. A fenced todo never arrives: the backend drops it.
+  it.each([
+    ["a heading", "## Other"],
+    ["a plain list item", "- plain"],
+  ])(
+    "#1445 draws a todo past %s at the edge, taking nothing off the todo above",
+    async (_, stop) => {
+      const pane = renderPane([
+        { path: "a.md", line: 1, text: `- [ ] r 📅 2026-08-10 ⏫ ${CLIENT}` },
+        { path: "a.md", line: 3, text: stop },
+        { path: "a.md", line: 4, text: "  - [ ] far away" },
+      ]);
+
+      await pane.loaded();
+      expect(pane.rows()).toHaveLength(2);
+      expect(pane.headings()).toEqual(["Today 1", "No date 1"]);
+      expect(pane.texts()[0]).not.toContain("0/1");
+      expect(pane.texts()[1]).not.toContain(PRIORITY_SYMBOL.high);
+      expect(pane.texts()[1]).not.toContain("◆");
+      expect(pane.texts()[1]).not.toContain("r 📅");
+    },
+  );
+
+  it("#1445 still draws, counts, dates and marks a part right under its parent", async () => {
+    const pane = renderPane([
+      { path: "a.md", line: 1, text: "## Week" },
+      { path: "a.md", line: 2, text: `- [ ] r 📅 2026-08-10 ⏫ ${CLIENT}` },
+      { path: "a.md", line: 3, text: "  - [ ] near" },
+    ]);
+
+    await pane.loaded();
+    expect(pane.rows()).toHaveLength(2);
+    expect(pane.headings()).toEqual(["Today 2"]);
+    expect(pane.texts()[0]).toContain("0/1");
+    expect(pane.texts()[1]).toContain(PRIORITY_SYMBOL.high);
+    expect(pane.texts()[1]).toContain("◆");
   });
 
   it("holds a part back behind the start date the todo above it carries", async () => {

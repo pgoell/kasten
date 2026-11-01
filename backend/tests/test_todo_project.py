@@ -5,11 +5,13 @@ one for one, which is what proves a todo with no tag lands in the lane it did
 when the rule lived in the frontend.
 """
 
+import json
+from pathlib import Path
 from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from pathlib import Path
+import pytest
 
+if TYPE_CHECKING:
     from httpx import AsyncClient
 
 PATHS = [
@@ -375,3 +377,26 @@ async def test_b4_space_is_read_as_the_editor_reads_it(client: AsyncClient, vaul
     write(vault, DAILY, f"{line}\n")
 
     assert (await projects(client))[line] == "02 Projects/FDE"
+
+
+PARTS = json.loads((Path(__file__).parent / "fixtures/todo_parts.json").read_text(encoding="utf-8"))
+"""#1445: what ends a todo's parts, the cases `frontend/tests/todo-view.test.ts` runs too."""
+
+
+@pytest.mark.parametrize("case", PARTS, ids=[case["name"] for case in PARTS])
+async def test_1445_a_part_takes_the_project_only_where_the_writes_end_parts(
+    client: AsyncClient, vault: Path, case: dict
+) -> None:
+    projects_vault(vault)
+    write(vault, "case.md", case["note"])
+
+    response = await client.get("/api/todos")
+    todos = {
+        hit["line"]: hit["project"]
+        for hit in response.json()
+        if hit["path"] == "case.md" and hit["text"].lstrip().startswith("- [")
+    }
+
+    assert sorted(todos) == case["todos"]
+    parts = [line for line, project in todos.items() if line != case["todos"][0] and project]
+    assert parts == case["parts"]

@@ -64,8 +64,10 @@ curl -s "$KASTEN_API/api/files/{{periodic|url}}/00%20Daily/2026-08-10.md"
 `{"path", "line", "text", "project"}`. It parses no state or field: you read the
 format below yourself. `project` is the project the todo belongs to, by
 [the rule under Projects](#projects), as a folder path such as
-`"02 Projects/FDE"`, or `null`. It also returns time log lines, which are not
-todos and carry `null`.
+`"02 Projects/FDE"`, or `null`. It also returns time log lines, and in a note
+with an indented todo the headings and plain list items that end a todo's parts,
+none of them todos and each carrying `null`: keep the lines that open with `- [`.
+A todo inside a code fence is no todo and does not come back.
 
 Writing a note back:
 

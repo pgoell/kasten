@@ -149,7 +149,10 @@ which is what markdown itself does.
 
 Three things end the parts, as in Obsidian, for the writes that act on them:
 ticking a parent, the next copy of a recurring one, and
-[`s`](/reference/editor-keys/todo-pane.md#the-todo-pane), which adds a part.
+[`s`](/reference/editor-keys/todo-pane.md#the-todo-pane), which adds a part. The
+readers end them in the same places (#1445): what the todo pane draws under a
+parent, the `1/2` count in the pane and the editor, the dates and client mark a
+part takes, the `@` press's client check and the project `GET /api/todos` gives.
 
 - A heading ends every part above it.
 - A list item that is no todo, such as `- plain` or `1. step`, ends the parts at

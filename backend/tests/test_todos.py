@@ -193,3 +193,25 @@ async def test_answers_with_nothing_for_a_vault_that_is_not_there(
 
     assert response.status_code == 200
     assert response.json() == []
+
+
+async def test_1445_sends_what_ends_a_part_and_no_fenced_line(
+    client: AsyncClient, vault: Path
+) -> None:
+    write(
+        vault,
+        "a.md",
+        "# top\n- [ ] r\n- plain\n## Other\n  - [ ] far\n```\n- [ ] code\n```\n1. after\n",
+    )
+    write(vault, "flat.md", "- [ ] one\n- plain\n## Other\n- [ ] two\n")
+
+    response = await client.get("/api/todos")
+
+    assert sorted((hit["path"], hit["line"], hit["text"]) for hit in response.json()) == [
+        ("a.md", 2, "- [ ] r"),
+        ("a.md", 3, "- plain"),
+        ("a.md", 4, "## Other"),
+        ("a.md", 5, "  - [ ] far"),
+        ("flat.md", 1, "- [ ] one"),
+        ("flat.md", 4, "- [ ] two"),
+    ]

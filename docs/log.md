@@ -61,3 +61,4 @@ This log keeps one page for each day, under `log/<year>/`. Each month below list
 * [2026-10-30](/log/2026/10-30.md)
 * [2026-10-31](/log/2026/10-31.md)
 * [2026-11-01](/log/2026/11-01.md)
+* [2026-11-02](/log/2026/11-02.md)

@@ -1,0 +1,56 @@
+[
+  {
+    "name": "a part right under its parent",
+    "note": "- [ ] r #client #p/fde\n  - [ ] near",
+    "todos": [1, 2],
+    "parts": [2]
+  },
+  {
+    "name": "prose between ends nothing",
+    "note": "- [ ] r #client #p/fde\nsome words\n  - [ ] near",
+    "todos": [1, 3],
+    "parts": [3]
+  },
+  {
+    "name": "a heading ends the parts",
+    "note": "- [ ] r #client #p/fde\n\n## Other\n  - [ ] far away",
+    "todos": [1, 4],
+    "parts": []
+  },
+  {
+    "name": "a plain list item ends the parts",
+    "note": "- [ ] r #client #p/fde\n- plain\n  - [ ] far away",
+    "todos": [1, 3],
+    "parts": []
+  },
+  {
+    "name": "a deeper plain item holds what sits under it",
+    "note": "- [ ] r #client #p/fde\n  - plain\n    - [ ] far away\n  - [ ] near",
+    "todos": [1, 3, 4],
+    "parts": [4]
+  },
+  {
+    "name": "an ordered item ends the parts",
+    "note": "- [ ] r #client #p/fde\n1. step\n  - [ ] far away",
+    "todos": [1, 3],
+    "parts": []
+  },
+  {
+    "name": "a fenced todo is none, and a fenced heading ends nothing",
+    "note": "- [ ] r #client #p/fde\n  ```\n  ## not a heading\n  - [ ] code\n  ```\n  - [ ] near",
+    "todos": [1, 6],
+    "parts": [6]
+  },
+  {
+    "name": "a fence the frontmatter seems to open hides nothing",
+    "note": "---\ntitle: x\n```\n---\n- [ ] r #client #p/fde\n  - [ ] near",
+    "todos": [5, 6],
+    "parts": [6]
+  },
+  {
+    "name": "a running session line ends the parts",
+    "note": "- [ ] r #client #p/fde\n- 09:12- r\n  - [ ] far away",
+    "todos": [1, 3],
+    "parts": []
+  }
+]
