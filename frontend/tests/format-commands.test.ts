@@ -188,4 +188,52 @@ describe("formatDocument", () => {
 
     expect(formatDocument(view)).toBe(false);
   });
+
+  it("empties a line of only spaces and drops the second of two such lines", () => {
+    const view = open("a\n  \n\t\nb\n", 8);
+
+    expect(formatDocument(view)).toBe(true);
+    expect(view.state.doc.toString()).toBe("a\n\nb\n");
+    expect(view.state.selection.main.head).toBe(4);
+  });
+
+  it("puts a blank line between the frontmatter and a heading under it", () => {
+    const view = open("---\nid: 1\n---\n# Title\n", 0);
+
+    formatDocument(view);
+
+    expect(view.state.doc.toString()).toBe("---\nid: 1\n---\n\n# Title\n");
+  });
+
+  it("puts a blank line between a fence and a heading under it", () => {
+    const view = open("```\ncode\n```\n## Next\n", 0);
+
+    formatDocument(view);
+
+    expect(view.state.doc.toString()).toBe("```\ncode\n```\n\n## Next\n");
+  });
+
+  it("collapses the blanks after a tidy table and tidies the line under them", () => {
+    const view = open("| a   | b   |\n| --- | --- |\n\n\n\n* tail  \n", 33);
+
+    expect(formatDocument(view)).toBe(true);
+    expect(view.state.doc.toString()).toBe("| a   | b   |\n| --- | --- |\n\n- tail\n");
+    expect(view.state.selection.main.head).toBe(29);
+  });
+
+  it("lines up a table and a heading straight under it in one pass", () => {
+    const view = open("text\n| a | bb |\n| - | - |\n## H\n", 0);
+
+    formatDocument(view);
+
+    expect(view.state.doc.toString()).toBe("text\n| a   | bb  |\n| --- | --- |\n\n## H\n");
+  });
+
+  it("collapses two runs of blanks either side of a fence", () => {
+    const view = open("a\n\n\n```\n\n\n```\n\n\nb", 0);
+
+    formatDocument(view);
+
+    expect(view.state.doc.toString()).toBe("a\n\n```\n\n\n```\n\nb");
+  });
 });

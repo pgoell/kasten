@@ -32,4 +32,30 @@ describe("lineDiff", () => {
     expect(diff.filter(({ op }) => op === "-").map(({ text }) => text)).toEqual(vault);
     expect(diff.filter(({ op }) => op === "+").map(({ text }) => text)).toEqual(mine);
   });
+
+  it("keeps an inserted and a dropped line in place among kept ones", () => {
+    const vault = "a\nb\nc\nd\ne";
+    const mine = "a\nx\nb\nd\ne\ny\nz";
+
+    expect(lineDiff(vault, mine)).toEqual([
+      { op: " ", text: "a" },
+      { op: "+", text: "x" },
+      { op: " ", text: "b" },
+      { op: "-", text: "c" },
+      { op: " ", text: "d" },
+      { op: " ", text: "e" },
+      { op: "+", text: "y" },
+      { op: "+", text: "z" },
+    ]);
+  });
+
+  it("gives the vault's extra lines at the end after what mine changed", () => {
+    expect(lineDiff("a\nb\nq\nr", "a\nB")).toEqual([
+      { op: " ", text: "a" },
+      { op: "-", text: "b" },
+      { op: "-", text: "q" },
+      { op: "-", text: "r" },
+      { op: "+", text: "B" },
+    ]);
+  });
 });

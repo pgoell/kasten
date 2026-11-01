@@ -25,4 +25,19 @@ describe("fileLinkAt", () => {
   it("reads a malformed percent escape as no file link", () => {
     expect(fileLinkOf("[x](%E0%A4%A)")).toBeNull();
   });
+
+  it("reads a file link with no heading as a null heading", () => {
+    expect(fileLinkOf("[n](Docs/a%20b.pdf)")).toEqual({
+      path: "Docs/a b.pdf",
+      heading: null,
+      from: 0,
+      to: 19,
+    });
+  });
+
+  it("reads a web address, an empty address and a scheme as no file link", () => {
+    expect(fileLinkOf("[w](https://example.com/a.pdf)")).toBeNull();
+    expect(fileLinkOf("[e](<>)")).toBeNull();
+    expect(fileLinkOf("[m](mailto:a@b.c)")).toBeNull();
+  });
 });

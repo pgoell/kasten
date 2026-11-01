@@ -104,25 +104,31 @@ export interface FileLink {
  */
 export function fileLinkAt(node: SyntaxNode | null, doc: Source): FileLink | null {
   for (let up = node; up !== null; up = up.parent) {
-    if (up.name !== "Link") continue;
-    const address = linkAddress(up, doc) ?? "";
-    if (address === "" || /^[a-z][a-z0-9+.-]*:/i.test(address)) return null;
-    // The fragment is not encoded, so `#page=3` and `#s1` come through as written.
-    const hash = address.indexOf("#");
-    const encoded = hash === -1 ? address : address.slice(0, hash);
-    const heading = hash === -1 ? "" : address.slice(hash + 1);
-    let path: string;
-    try {
-      path = decodeURIComponent(encoded);
-    } catch (error) {
-      // A stray `%` is a link that names nothing, not a note to fail on.
-      if (error instanceof URIError) return null;
-      throw error;
-    }
-    if (!namesAFile(path)) return null;
-    return { path, heading: heading === "" ? null : heading, from: up.from, to: up.to };
+    if (up.name === "Link") return fileLinkOf(up, doc);
   }
   return null;
+}
+
+function fileLinkOf(link: SyntaxNode, doc: Source): FileLink | null {
+  const address = linkAddress(link, doc) ?? "";
+  if (address === "" || /^[a-z][a-z0-9+.-]*:/i.test(address)) return null;
+  // The fragment is not encoded, so `#page=3` and `#s1` come through as written.
+  const hash = address.indexOf("#");
+  const encoded = hash === -1 ? address : address.slice(0, hash);
+  const heading = hash === -1 ? "" : address.slice(hash + 1);
+  const path = decoded(encoded);
+  if (path === null || !namesAFile(path)) return null;
+  return { path, heading: heading === "" ? null : heading, from: link.from, to: link.to };
+}
+
+function decoded(encoded: string): string | null {
+  try {
+    return decodeURIComponent(encoded);
+  } catch (error) {
+    // A stray `%` is a link that names nothing, not a note to fail on.
+    if (error instanceof URIError) return null;
+    throw error;
+  }
 }
 
 /**

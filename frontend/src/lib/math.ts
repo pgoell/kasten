@@ -1,5 +1,6 @@
 import type {
   BlockContext,
+  InlineContext,
   LeafBlock,
   LeafBlockParser,
   Line,
@@ -99,31 +100,37 @@ export const MathSyntax: MarkdownConfig = {
         // Both of a `$$` go by as text, or the second would open a formula.
         if (cx.char(pos + 1) === DOLLAR) return pos + 2;
         if (/\s|^$/.test(cx.slice(pos + 1, pos + 2))) return -1;
-
-        for (let at = pos + 1; at < cx.end; at++) {
-          const code = cx.char(at);
-          if (code === 10) return -1;
-          if (code === BACKSLASH) {
-            at++;
-            continue;
-          }
-          if (code !== DOLLAR || at === pos + 1) continue;
-          if (/\s/.test(cx.slice(at - 1, at)) || isDigit(cx.char(at + 1))) continue;
-          // A formula spanning a link would break it: `$5 per [[Item]], x$` loses its wikilink.
-          if (/\]\(|\[\[|\]\]/.test(cx.slice(pos + 1, at))) return -1;
-          return cx.addElement(
-            cx.elt("InlineMath", pos, at + 1, [
-              cx.elt("InlineMathMark", pos, pos + 1),
-              cx.elt("InlineMathMark", at, at + 1),
-            ]),
-          );
-        }
-        return -1;
+        const at = closingDollar(cx, pos);
+        if (at === -1) return -1;
+        return cx.addElement(
+          cx.elt("InlineMath", pos, at + 1, [
+            cx.elt("InlineMathMark", pos, pos + 1),
+            cx.elt("InlineMathMark", at, at + 1),
+          ]),
+        );
       },
       before: "Emphasis",
     },
   ],
 };
+
+/** Where the `$` opening at `pos` closes on its line, or -1 where nothing closes it. */
+function closingDollar(cx: InlineContext, pos: number): number {
+  for (let at = pos + 1; at < cx.end; at++) {
+    const code = cx.char(at);
+    if (code === 10) return -1;
+    if (code === BACKSLASH) {
+      at++;
+      continue;
+    }
+    if (code !== DOLLAR || at === pos + 1) continue;
+    if (/\s/.test(cx.slice(at - 1, at)) || isDigit(cx.char(at + 1))) continue;
+    // A formula spanning a link would break it: `$5 per [[Item]], x$` loses its wikilink.
+    if (/\]\(|\[\[|\]\]/.test(cx.slice(pos + 1, at))) return -1;
+    return at;
+  }
+  return -1;
+}
 
 /**
  * KaTeX and its stylesheet, fetched the first time a note holds math. Dynamic because KaTeX is

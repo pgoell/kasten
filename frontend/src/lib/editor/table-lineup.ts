@@ -67,13 +67,7 @@ function touchedBy(
 
     const from = before.line(run.first).from;
     const to = before.line(run.last).to;
-    const hit =
-      fromA === toA
-        ? (from < fromA && fromA < to) ||
-          (fromA === from && !inserted.endsWith("\n")) ||
-          (fromA === to && !inserted.startsWith("\n"))
-        : fromA < to && toA > from;
-    if (!hit) continue;
+    if (!hits(fromA, toA, inserted, from, to)) continue;
 
     // Deleted whole, the table is gone and there is nothing to mark: its position
     // would otherwise map onto the table after it. A deletion over only part of it
@@ -83,6 +77,16 @@ function touchedBy(
     if (at !== null) found.push({ id: ++seq, at, before: textOf(before, run) });
   }
   return found;
+}
+
+/** Whether a change over `fromA`..`toA` that puts in `inserted` touches the table at `from`..`to`. */
+function hits(fromA: number, toA: number, inserted: string, from: number, to: number): boolean {
+  if (fromA !== toA) return fromA < to && toA > from;
+  return (
+    (from < fromA && fromA < to) ||
+    (fromA === from && !inserted.endsWith("\n")) ||
+    (fromA === to && !inserted.startsWith("\n"))
+  );
 }
 
 /**
@@ -219,35 +223,14 @@ const lineUpOnLeave = EditorState.transactionFilter.of((tr) => {
   // the new state from inside the filter that is making it.
   const was = tr.startState.doc.lineAt(tr.startState.selection.main.head).number;
   const now = tr.newDoc.lineAt(tr.newSelection.main.head).number;
-  const doc = tr.newDoc;
   const changes: ChangeSpec[] = [];
   const effects: StateEffect<{ id: number; at: number }>[] = [];
 
   const lost = lostIn(tr, marks);
   for (const mark of marks) {
     if (lost.has(mark.id)) continue;
-    const at = tr.changes.mapPos(mark.at, -1, MapMode.TrackDel);
-    if (at === null) continue;
-    // No table on the mark's line any more, so the table is gone and so is the mark.
-    const opened = tableAt(tr.startState.doc, tr.startState.doc.lineAt(mark.at).number);
-    if (opened === null) {
-      effects.push(forget.of({ id: mark.id, at }));
-      continue;
-    }
-    // The tree refuses the table for now, as it does one that is mid-edit. The mark
-    // and its text wait for a leave the tree accepts.
-    const table = readable(tr.startState, mark.at);
-    if (table === null) continue;
-    if (was < table.run.first || was > table.run.last) continue;
-
-    const next = tableAt(doc, doc.lineAt(at).number);
-    if (next !== null && next.first === doc.lineAt(at).number) {
-      const kept = cut(next, doc, tr.changes.mapPos(table.end, -1));
-      if (now >= kept.first && now <= kept.last) continue;
-      // Changed and changed back: the table is as it was, so there is nothing to line up.
-      if (textOf(doc, next) !== mark.before) changes.push(...lineUpChanges(doc, kept));
-    }
-    effects.push(forget.of({ id: mark.id, at }));
+    const effect = leave(tr, mark, was, now, changes);
+    if (effect !== null) effects.push(effect);
   }
 
   if (effects.length === 0) return tr;
@@ -261,6 +244,39 @@ const lineUpOnLeave = EditorState.transactionFilter.of((tr) => {
     },
   ];
 });
+
+/**
+ * What the leave does to one mark: the effect that forgets it, or null to keep it waiting.
+ * A table the cursor left with an edit in it pushes its line-up onto `changes`.
+ */
+function leave(
+  tr: Transaction,
+  mark: Mark,
+  was: number,
+  now: number,
+  changes: ChangeSpec[],
+): StateEffect<{ id: number; at: number }> | null {
+  const doc = tr.newDoc;
+  const at = tr.changes.mapPos(mark.at, -1, MapMode.TrackDel);
+  if (at === null) return null;
+  // No table on the mark's line any more, so the table is gone and so is the mark.
+  const opened = tableAt(tr.startState.doc, tr.startState.doc.lineAt(mark.at).number);
+  if (opened === null) return forget.of({ id: mark.id, at });
+  // The tree refuses the table for now, as it does one that is mid-edit. The mark
+  // and its text wait for a leave the tree accepts.
+  const table = readable(tr.startState, mark.at);
+  if (table === null) return null;
+  if (was < table.run.first || was > table.run.last) return null;
+
+  const next = tableAt(doc, doc.lineAt(at).number);
+  if (next !== null && next.first === doc.lineAt(at).number) {
+    const kept = cut(next, doc, tr.changes.mapPos(table.end, -1));
+    if (now >= kept.first && now <= kept.last) return null;
+    // Changed and changed back: the table is as it was, so there is nothing to line up.
+    if (textOf(doc, next) !== mark.before) changes.push(...lineUpChanges(doc, kept));
+  }
+  return forget.of({ id: mark.id, at });
+}
 
 /**
  * Lines up every edited table for `save`, so the text written is the table as the reader sees it.
