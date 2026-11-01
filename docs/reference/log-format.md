@@ -248,7 +248,10 @@ A tap in the moment before the note answers writes the default kinds' line.
 The card, the palette's `Log <name>` entries and the log pane follow an edit to
 `log.md` without a reload, and go back to the three default kinds when it is
 deleted. An edit made while the page's event stream was down reaches them when
-the stream opens again.
+the stream opens again. A read of `log.md` that a later write overtook is not
+drawn, even when the later read fails: the card and the palette then keep what
+they had, the default kinds where nothing had arrived yet, until the next write,
+draw of the card or stream open.
 
 ## The foods note
 

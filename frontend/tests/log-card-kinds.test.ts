@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fetchNote, NoteMissing } from "@/lib/api";
 import { vimKeys, vimModeField, vimModeState } from "@/lib/editor/vim-mode";
 import { logCard, reloadLogConfig } from "@/lib/log/log-card";
+import { logConfig } from "@/lib/log/log-config";
 import { notePath } from "@/lib/todo/todo-commands";
 
 vi.mock("@/lib/api", async (importOriginal) => ({
@@ -74,6 +75,22 @@ async function arrived(view: EditorView, label: string): Promise<void> {
     expect(view.dom.querySelector(`.cm-log button[aria-label='${label}']`)).not.toBeNull(),
   );
 }
+
+/** A read of log.md that the test answers when it chooses, so no timer decides the order. */
+function held() {
+  let answer: (text: string) => void = () => undefined;
+  let fail: (error: Error) => void = () => undefined;
+  const promise = new Promise<string>((yes, no) => {
+    answer = yes;
+    fail = no;
+  });
+  return { promise, answer, fail };
+}
+
+const settle = async () => {
+  for (let step = 0; step < 5; step++) await Promise.resolve();
+};
+const tea = (view: EditorView) => view.dom.querySelector(".cm-log button[aria-label='Log tea']");
 
 describe("the log card's kinds", () => {
   it("#623 with no config note the card shows the three default kinds as before", async () => {
@@ -392,5 +409,33 @@ describe("the log card's kinds", () => {
 
     expect(view.dom.querySelector(".cm-log button[aria-label='Log tea']")).not.toBeNull();
     warn.mockRestore();
+  });
+
+  it("#829 a reload of log.md that fails while the card's first read is out does not draw that read's older answer", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const [first, reload] = [held(), held()];
+    vi.mocked(fetchNote).mockReturnValueOnce(first.promise).mockReturnValueOnce(reload.promise);
+    const view = mount(NOTE);
+    // log.md is written while the first read is out, and the stream's reload of it fails.
+    reloadLogConfig();
+    reload.fail(new Error("GET log.md failed with 500"));
+    first.answer(`${DEFAULTS}\n- 🍵 tea: 1 cup`);
+    await settle();
+    expect.soft(tea(view)).toBeNull();
+    expect.soft(logConfig()).toBeNull();
+    expect(warn).toHaveBeenCalledWith("GET log.md failed with 500");
+    warn.mockRestore();
+  });
+
+  it("#829 an older read of log.md that lands after the newest is dropped, and the newest is drawn", async () => {
+    const [first, reload] = [held(), held()];
+    vi.mocked(fetchNote).mockReturnValueOnce(first.promise).mockReturnValueOnce(reload.promise);
+    const view = mount(NOTE);
+    reloadLogConfig();
+    reload.answer(`${DEFAULTS}\n- 🍵 tea: 1 cup`);
+    await settle();
+    first.answer(DEFAULTS);
+    await settle();
+    expect(tea(view)).not.toBeNull();
   });
 });
