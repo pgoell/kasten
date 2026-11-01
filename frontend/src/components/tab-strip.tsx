@@ -61,6 +61,126 @@ export function resetStripEntrance(): void {
   drawn = false;
 }
 
+/** The row an arrow lands on in N more: round at the ends, from outside the rows at an end. */
+function nextRow(at: number, down: boolean, count: number): number {
+  if (at === -1) return down ? 0 : count - 1;
+  return (at + (down ? 1 : -1) + count) % count;
+}
+
+/** The tab an arrow, Home or End moves to among the tabs on screen, or null for another key. */
+function tabTo(key: string, shown: number[], at: number): number | undefined | null {
+  if (key === "ArrowRight") return shown[(at + 1) % shown.length];
+  if (key === "ArrowLeft") return shown[(at - 1 + shown.length) % shown.length];
+  if (key === "Home") return shown[0];
+  if (key === "End") return shown.at(-1);
+  return null;
+}
+
+function slotClass(selected: boolean, dirty: boolean) {
+  return `relative size-4 shrink-0 self-center ${
+    selected
+      ? "pointer-coarse:h-auto pointer-coarse:w-11 pointer-coarse:self-stretch"
+      : dirty
+        ? "pointer-coarse:w-2"
+        : "pointer-coarse:h-auto pointer-coarse:w-0"
+  }`;
+}
+
+function closeClass(selected: boolean, dirty: boolean) {
+  return `flex size-4 items-center justify-center text-k-muted hover:text-k-ink ${
+    selected ? "pointer-coarse:size-full pointer-coarse:visible" : "pointer-coarse:hidden"
+  } ${selected && !dirty ? "" : "invisible group-hover:visible"}`;
+}
+
+interface StripTabProps {
+  tab: Tab;
+  index: number;
+  selected: boolean;
+  folded: boolean;
+  cap: number | undefined;
+  dirty: boolean;
+  onSelect: (index: number) => void;
+  onClose: (index: number) => void;
+}
+
+function StripTab({ tab, index, selected, folded, cap, dirty, onSelect, onClose }: StripTabProps) {
+  const focused = focusedOf(tab);
+  const title = tabLabel(tab);
+  return (
+    <div
+      data-tab={index}
+      inert={folded}
+      aria-hidden={folded || undefined}
+      // Not allowed to shrink: a flex item that does would squeeze every
+      // tab to the room, so nothing would ever be measured wider than it fits.
+      // The cap is on the whole tab, close x included. Its wash is on the tab,
+      // so the x is washed with it.
+      className={`group flex shrink-0 items-stretch max-w-[200px] pr-2 ${
+        selected ? "" : "hover:bg-k-accent-wash"
+      } ${folded ? "invisible pointer-events-none absolute" : ""}`}
+      style={selected && cap !== undefined ? { maxWidth: Math.min(TAB_MAX_WIDTH, cap) } : undefined}
+    >
+      <button
+        type="button"
+        role="tab"
+        aria-selected={selected}
+        tabIndex={selected ? 0 : -1}
+        aria-keyshortcuts={keyFor(index)}
+        title={keyFor(index)}
+        onClick={() => onSelect(index)}
+        className={`flex min-w-0 items-center gap-1.5 px-3 whitespace-nowrap ${
+          selected ? "text-k-ink" : "text-k-muted"
+        }`}
+      >
+        {focused !== undefined && <KindIcon kind={paneKind(focused)} />}
+        <span className="min-w-0 truncate">{title}</span>
+        {dirty && (
+          <>
+            {" "}
+            <span className="sr-only">(unsaved)</span>
+          </>
+        )}
+      </button>
+      {/* The close x is a sibling of the tab, not a button inside it, so a
+          click on it closes this tab and selects nothing first. The dot
+          sits in the same room, so an unsaved mark moves nothing. */}
+      {/* Under a finger the active tab's slot is 44 px wide and the strip's
+          height, and its x fills it, so the target is the size of a finger. The
+          other tabs take no room for an x they cannot show, only the dot's own
+          width when unsaved. */}
+      <span className={slotClass(selected, dirty)}>
+        {dirty && (
+          <span
+            aria-hidden="true"
+            className={`absolute top-1/2 left-1/2 size-2 -translate-1/2 rounded-full bg-k-muted group-hover:hidden ${
+              selected ? "pointer-coarse:hidden" : ""
+            }`}
+          />
+        )}
+        <button
+          type="button"
+          tabIndex={-1}
+          aria-label={`Close ${title}`}
+          onClick={() => onClose(index)}
+          className={closeClass(selected, dirty)}
+        >
+          <svg
+            viewBox="0 0 12 12"
+            aria-hidden="true"
+            className="size-3"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+          >
+            <path d="M3 3l6 6M9 3l-6 6" />
+          </svg>
+        </button>
+      </span>
+    </div>
+  );
+}
+
 /**
  * The strip of open tabs, under the top bar. Today is the home button, outside the numbered
  * tabs. Tabs that do not fit fold behind "N more"; the active tab is always drawn.
@@ -164,10 +284,7 @@ export function TabStrip({
     if (rows.length === 0) return;
     event.preventDefault();
     const at = event.target instanceof HTMLElement ? rows.indexOf(event.target) : -1;
-    const down = event.key === "ArrowDown";
-    const next =
-      at === -1 ? (down ? 0 : rows.length - 1) : (at + (down ? 1 : -1) + rows.length) % rows.length;
-    rows[next]?.focus();
+    rows[nextRow(at, event.key === "ArrowDown", rows.length)]?.focus();
   };
 
   // The tablist is one tab stop: the active tab holds it, and the arrows walk
@@ -182,13 +299,8 @@ export function TabStrip({
       return;
     }
     const shown = layout.tabs.map((_, at) => at).filter((at) => !hidden.includes(at));
-    const at = shown.indexOf(index);
-    let to: number | undefined;
-    if (event.key === "ArrowRight") to = shown[(at + 1) % shown.length];
-    else if (event.key === "ArrowLeft") to = shown[(at - 1 + shown.length) % shown.length];
-    else if (event.key === "Home") to = shown[0];
-    else if (event.key === "End") to = shown.at(-1);
-    else return;
+    const to = tabTo(event.key, shown, shown.indexOf(index));
+    if (to === null) return;
     event.preventDefault();
     if (to === undefined) return;
     list.current?.querySelector<HTMLElement>(`[data-tab="${to}"] [role="tab"]`)?.focus();
@@ -225,103 +337,20 @@ export function TabStrip({
             : "overflow-hidden"
         }`}
       >
-        {layout.tabs.map((tab, index) => {
-          const selected = index === active;
-          const folded = hidden.includes(index);
-          const focused = focusedOf(tab);
-          const title = tabLabel(tab);
-          const dirty = unsaved(tab);
-          return (
-            <div
-              key={tab.id}
-              data-tab={index}
-              inert={folded}
-              aria-hidden={folded || undefined}
-              // Not allowed to shrink: a flex item that does would squeeze every
-              // tab to the room, so nothing would ever be measured wider than it fits.
-              // The cap is on the whole tab, close x included. Its wash is on the tab,
-              // so the x is washed with it.
-              className={`group flex shrink-0 items-stretch max-w-[200px] pr-2 ${
-                selected ? "" : "hover:bg-k-accent-wash"
-              } ${folded ? "invisible pointer-events-none absolute" : ""}`}
-              style={
-                hidden.length > 0 && selected && cap !== undefined
-                  ? { maxWidth: Math.min(TAB_MAX_WIDTH, cap) }
-                  : undefined
-              }
-            >
-              <button
-                type="button"
-                role="tab"
-                aria-selected={selected}
-                tabIndex={selected ? 0 : -1}
-                aria-keyshortcuts={keyFor(index)}
-                title={keyFor(index)}
-                onClick={() => onSelect(index)}
-                className={`flex min-w-0 items-center gap-1.5 px-3 whitespace-nowrap ${
-                  selected ? "text-k-ink" : "text-k-muted"
-                }`}
-              >
-                {focused !== undefined && <KindIcon kind={paneKind(focused)} />}
-                <span className="min-w-0 truncate">{title}</span>
-                {dirty && (
-                  <>
-                    {" "}
-                    <span className="sr-only">(unsaved)</span>
-                  </>
-                )}
-              </button>
-              {/* The close x is a sibling of the tab, not a button inside it, so a
-                  click on it closes this tab and selects nothing first. The dot
-                  sits in the same room, so an unsaved mark moves nothing. */}
-              {/* Under a finger the active tab's slot is 44 px wide and the strip's
-                  height, and its x fills it, so the target is the size of a finger. The
-                  other tabs take no room for an x they cannot show, only the dot's own
-                  width when unsaved. */}
-              <span
-                className={`relative size-4 shrink-0 self-center ${
-                  selected
-                    ? "pointer-coarse:h-auto pointer-coarse:w-11 pointer-coarse:self-stretch"
-                    : dirty
-                      ? "pointer-coarse:w-2"
-                      : "pointer-coarse:h-auto pointer-coarse:w-0"
-                }`}
-              >
-                {dirty && (
-                  <span
-                    aria-hidden="true"
-                    className={`absolute top-1/2 left-1/2 size-2 -translate-1/2 rounded-full bg-k-muted group-hover:hidden ${
-                      selected ? "pointer-coarse:hidden" : ""
-                    }`}
-                  />
-                )}
-                <button
-                  type="button"
-                  tabIndex={-1}
-                  aria-label={`Close ${title}`}
-                  onClick={() => onClose(index)}
-                  className={`flex size-4 items-center justify-center text-k-muted hover:text-k-ink ${
-                    selected
-                      ? "pointer-coarse:size-full pointer-coarse:visible"
-                      : "pointer-coarse:hidden"
-                  } ${selected && !dirty ? "" : "invisible group-hover:visible"}`}
-                >
-                  <svg
-                    viewBox="0 0 12 12"
-                    aria-hidden="true"
-                    className="size-3"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                  >
-                    <path d="M3 3l6 6M9 3l-6 6" />
-                  </svg>
-                </button>
-              </span>
-            </div>
-          );
-        })}
+        {layout.tabs.map((tab, index) => (
+          <StripTab
+            key={tab.id}
+            tab={tab}
+            index={index}
+            selected={index === active}
+            folded={hidden.includes(index)}
+            // A cap only binds once something is folded behind the button.
+            cap={hidden.length > 0 ? cap : undefined}
+            dirty={unsaved(tab)}
+            onSelect={onSelect}
+            onClose={onClose}
+          />
+        ))}
         {/* The bar is inside the tablist, which is positioned, so its offsets
             are the tab's own. */}
         <span

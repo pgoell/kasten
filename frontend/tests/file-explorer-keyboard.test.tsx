@@ -59,6 +59,22 @@ describe("the tree keyboard", () => {
     expect(cursor()).toHaveTextContent("daily");
   });
 
+  it("steps into an open folder on l and on enter rather than folding it", () => {
+    renderTree();
+
+    press("l");
+    expect(cursor()).toHaveTextContent("2026-08-04");
+
+    press("G");
+    press("k");
+    press("k");
+    press("k");
+    press("k");
+    press("Enter");
+    expect(cursor()).toHaveTextContent("kasten");
+    expect(screen.getByText("api-design")).toBeInTheDocument();
+  });
+
   it("opens the note under the cursor on enter", () => {
     const onOpenFile = vi.fn();
     renderTree({ onOpenFile });

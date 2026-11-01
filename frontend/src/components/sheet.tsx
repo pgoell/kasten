@@ -79,6 +79,54 @@ function sideAt(el: HTMLElement, shown: boolean): boolean {
   return Math.abs(edge - box.right) < 0.5;
 }
 
+function panelClass(side: boolean, full: boolean) {
+  return side ? SIDE_PANEL : `${BOTTOM_PANEL} ${full ? WHOLE : CAPPED}`;
+}
+
+function liftedStyle(full: boolean) {
+  return {
+    bottom: "var(--keyboard, 0px)",
+    maxHeight: full ? undefined : "calc(88dvh - var(--keyboard, 0px))",
+  };
+}
+
+/** The grabber, header, scrolling body, footer and skirt inside the panel. */
+function SheetContent({
+  side,
+  header,
+  footer,
+  children,
+}: Pick<SheetProps, "header" | "footer" | "children"> & { side: boolean }) {
+  return (
+    <>
+      {!side && (
+        <div data-sheet-drag className="flex h-11 shrink-0 items-center justify-center">
+          <span className="h-[5px] w-9 rounded-full bg-k-rule-strong opacity-25" />
+        </div>
+      )}
+      {header !== undefined && (
+        <div
+          data-sheet-drag={side ? undefined : true}
+          className={side ? "shrink-0 px-4 pt-3 pb-2" : "shrink-0 px-4 pb-2"}
+        >
+          {header}
+        </div>
+      )}
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">{children}</div>
+      {footer !== undefined && <div className="shrink-0">{footer}</div>}
+      {/* Paper below the foot. A spring that overshoots the rest point lifts the foot
+        clear of the screen's edge, and the note must not show through that gap. */}
+      {!side && (
+        <div
+          data-sheet-skirt
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 top-full h-[50dvh] bg-k-paper"
+        />
+      )}
+    </>
+  );
+}
+
 export function Sheet({
   open,
   onClose,
@@ -234,36 +282,42 @@ export function Sheet({
     closing.current = false;
     height.current = el.offsetHeight;
     el.focus({ preventScroll: true });
-    if (reducedMotion()) {
-      paint(0);
-      if (resting.current) {
-        // Set without a transition, so the fade starts from nothing rather than from full.
-        el.style.opacity = "0";
-        if (scrim.current) scrim.current.style.opacity = "0";
-        void el.offsetHeight;
-      }
-      resting.current = false;
-      void fadeTo(1);
-      return;
+    if (reducedMotion()) fadeIn(el);
+    else if (side) slideIn(el);
+    else springUp();
+  }, [open]);
+
+  function fadeIn(el: HTMLDivElement) {
+    paint(0);
+    if (resting.current) {
+      // Set without a transition, so the fade starts from nothing rather than from full.
+      el.style.opacity = "0";
+      if (scrim.current) scrim.current.style.opacity = "0";
+      void el.offsetHeight;
     }
-    if (side) {
-      // Set from the edge without a transition, so the slide starts there and not from wherever it was.
-      if (resting.current) {
-        el.style.transition = "none";
-        el.style.transform = "translateX(100%)";
-        if (scrim.current) scrim.current.style.opacity = "0";
-        void el.offsetHeight;
-      }
-      resting.current = false;
-      void slideTo(true);
-      return;
+    resting.current = false;
+    void fadeTo(1);
+  }
+
+  function slideIn(el: HTMLDivElement) {
+    // Set from the edge without a transition, so the slide starts there and not from wherever it was.
+    if (resting.current) {
+      el.style.transition = "none";
+      el.style.transform = "translateX(100%)";
+      if (scrim.current) scrim.current.style.opacity = "0";
+      void el.offsetHeight;
     }
-    // Mounted at its own height and springing up from there. A sheet that
-    // turns round mid-leave keeps where it is, so it does not jump.
+    resting.current = false;
+    void slideTo(true);
+  }
+
+  // Mounted at its own height and springing up from there. A sheet that
+  // turns round mid-leave keeps where it is, so it does not jump.
+  function springUp() {
     if (resting.current) spring.set(height.current);
     resting.current = false;
     void spring.to(0, SPRINGS.sheetOpen);
-  }, [open]);
+  }
 
   useEffect(() => {
     closeFromOutside.current = () => {
@@ -343,10 +397,7 @@ export function Sheet({
     if (held.axis !== "drag") {
       // A tap that landed on a sheet still coming to rest is a tap on the sheet, so
       // the sheet goes on to where it was heading.
-      if (held.interrupted) {
-        if (open && !dismissing.current) void spring.to(0, SPRINGS.sheetOpen);
-        else dismiss(SPRINGS.sheetClose);
-      }
+      if (held.interrupted) resumeHeading();
       return;
     }
 
@@ -356,7 +407,15 @@ export function Sheet({
       void spring.to(0, SPRINGS.sheetClose);
       return;
     }
-    const v = speed(held.samples, performance.now());
+    release(speed(held.samples, performance.now()));
+  }
+
+  function resumeHeading() {
+    if (open && !dismissing.current) void spring.to(0, SPRINGS.sheetOpen);
+    else dismiss(SPRINGS.sheetClose);
+  }
+
+  function release(v: number) {
     if (closes(spring.value, v, height.current)) {
       dismiss(afterRelease(SPRINGS.sheetClose, v), v);
     } else {
@@ -417,40 +476,12 @@ export function Sheet({
         }}
         // The keyboard's height is a custom property the page sets, read here so the foot clears it.
         // Lifted, the sheet's cap shrinks by the same keyboard, so its top stays on the screen.
-        style={
-          !side && lift
-            ? {
-                bottom: "var(--keyboard, 0px)",
-                maxHeight: full ? undefined : "calc(88dvh - var(--keyboard, 0px))",
-              }
-            : undefined
-        }
-        className={side ? SIDE_PANEL : `${BOTTOM_PANEL} ${full ? WHOLE : CAPPED}`}
+        style={!side && lift ? liftedStyle(full) : undefined}
+        className={panelClass(side, full)}
       >
-        {!side && (
-          <div data-sheet-drag className="flex h-11 shrink-0 items-center justify-center">
-            <span className="h-[5px] w-9 rounded-full bg-k-rule-strong opacity-25" />
-          </div>
-        )}
-        {header !== undefined && (
-          <div
-            data-sheet-drag={side ? undefined : true}
-            className={side ? "shrink-0 px-4 pt-3 pb-2" : "shrink-0 px-4 pb-2"}
-          >
-            {header}
-          </div>
-        )}
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">{children}</div>
-        {footer !== undefined && <div className="shrink-0">{footer}</div>}
-        {/* Paper below the foot. A spring that overshoots the rest point lifts the foot
-            clear of the screen's edge, and the note must not show through that gap. */}
-        {!side && (
-          <div
-            data-sheet-skirt
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-x-0 top-full h-[50dvh] bg-k-paper"
-          />
-        )}
+        <SheetContent side={side} header={header} footer={footer}>
+          {children}
+        </SheetContent>
       </div>
     </>
   ) : null;

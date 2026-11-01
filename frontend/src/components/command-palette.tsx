@@ -19,6 +19,17 @@ interface CommandPaletteProps {
   onClose: () => void;
 }
 
+/** 1 for a key that moves the highlight down, -1 for up, 0 for any other. */
+function stepOf(event: React.KeyboardEvent): number {
+  const tab = event.key === "Tab";
+  const down =
+    event.key === "ArrowDown" || (tab && !event.shiftKey) || (event.ctrlKey && event.key === "n");
+  if (down) return 1;
+  const up =
+    event.key === "ArrowUp" || (tab && event.shiftKey) || (event.ctrlKey && event.key === "p");
+  return up ? -1 : 0;
+}
+
 /** The finder's shape over commands: the input only narrows the list, and each row prints its key. */
 export function CommandPalette({ entries, onClose }: CommandPaletteProps) {
   const [query, setQuery] = useState("");
@@ -50,16 +61,11 @@ export function CommandPalette({ entries, onClose }: CommandPaletteProps) {
   }
 
   function onKeyDown(event: React.KeyboardEvent) {
-    const tab = event.key === "Tab";
-    const down =
-      event.key === "ArrowDown" || (tab && !event.shiftKey) || (event.ctrlKey && event.key === "n");
-    const up =
-      event.key === "ArrowUp" || (tab && event.shiftKey) || (event.ctrlKey && event.key === "p");
-
-    if (down || up) {
+    const step = stepOf(event);
+    if (step !== 0) {
       event.preventDefault();
       if (shown.length === 0) return;
-      setActive(down ? Math.min(cursor + 1, shown.length - 1) : Math.max(cursor - 1, 0));
+      setActive(Math.min(Math.max(cursor + step, 0), shown.length - 1));
       return;
     }
     if (event.key === "Enter") {

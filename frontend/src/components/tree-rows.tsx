@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { type FileNode, rowKey, type TreeNode } from "@/lib/file-tree";
+import { type FileNode, type FolderNode, rowKey, type TreeNode } from "@/lib/file-tree";
 import type { TreeCommands } from "@/lib/key-bindings";
 import { dropTarget, type MoveMode } from "@/lib/move";
 
@@ -71,101 +71,92 @@ function parentOf(path: string): string {
 /** How a row draws the folder it would drop into. */
 export const DROP = "bg-k-accent/20 outline-1 -outline-offset-1 outline-k-accent";
 
-export function NodeList({
-  nodes,
-  depth,
-  expanded,
-  openPath,
-  cursorKey,
-  onToggleFolder,
-  onOpen,
-  drag,
-}: NodeListProps) {
+export function NodeList(props: NodeListProps) {
   return (
     <ul>
-      {nodes.map((node) => {
+      {props.nodes.map((node) => {
         const key = rowKey(node);
         // One tab stop for the whole panel: tab reaches the cursor, and the
         // vim keys move it from there.
-        const tabIndex = key === cursorKey ? 0 : -1;
+        const tabIndex = key === props.cursorKey ? 0 : -1;
 
-        if (node.kind === "file") {
-          const current = node.path === openPath;
-
-          return (
-            <li key={key}>
-              <button
-                type="button"
-                data-row={key}
-                tabIndex={tabIndex}
-                onClick={() => onOpen(node)}
-                // Notes only. An image, a page or a pdf has no route that moves
-                // it on its own; the folder it sits in carries it.
-                draggable={node.shows === undefined}
-                onDragStart={(event) => drag.start(event, node)}
-                onDragOver={(event) => drag.over(event, parentOf(node.path))}
-                onDrop={(event) => drag.drop(event, parentOf(node.path))}
-                onDragEnd={drag.end}
-                aria-current={current ? "page" : undefined}
-                style={indent(depth)}
-                title={node.path}
-                // An image or a page is muted against the notes, the way a
-                // wikilink to a note nobody has written is: what the tree is for
-                // is the notes, and this row is the vault admitting it holds
-                // something else.
-                className={`${ROW} cursor-pointer ${
-                  current
-                    ? "bg-k-surface text-k-accent"
-                    : `${node.shows !== undefined ? "text-k-muted" : "text-k-ink"} hover:bg-k-surface`
-                } ${tabIndex === 0 ? CURSOR : ""}`}
-              >
-                {/* Holds the chevron's column so note names line up with folder names. */}
-                <span className="size-3 shrink-0" />
-                <span className="truncate">{node.name}</span>
-              </button>
-            </li>
-          );
-        }
-
-        const open = expanded.has(node.path);
-
-        return (
-          <li key={key}>
-            <button
-              type="button"
-              data-row={key}
-              tabIndex={tabIndex}
-              onClick={() => onToggleFolder(node.path)}
-              aria-expanded={open}
-              draggable
-              onDragStart={(event) => drag.start(event, node)}
-              onDragOver={(event) => drag.over(event, node.path)}
-              onDrop={(event) => drag.drop(event, node.path)}
-              onDragEnd={drag.end}
-              style={indent(depth)}
-              className={`${ROW} cursor-pointer text-k-muted hover:bg-k-surface hover:text-k-ink ${
-                tabIndex === 0 ? CURSOR : ""
-              } ${drag.target === node.path ? DROP : ""}`}
-            >
-              <Chevron open={open} />
-              <span className="truncate">{node.name}</span>
-            </button>
-            {open && (
-              <NodeList
-                nodes={node.children}
-                depth={depth + 1}
-                expanded={expanded}
-                openPath={openPath}
-                cursorKey={cursorKey}
-                onToggleFolder={onToggleFolder}
-                onOpen={onOpen}
-                drag={drag}
-              />
-            )}
-          </li>
+        return node.kind === "file" ? (
+          <FileRow key={key} {...props} node={node} row={key} tabIndex={tabIndex} />
+        ) : (
+          <FolderRow key={key} {...props} node={node} row={key} tabIndex={tabIndex} />
         );
       })}
     </ul>
+  );
+}
+
+type RowProps<Node> = Omit<NodeListProps, "nodes"> & { node: Node; row: string; tabIndex: number };
+
+function FileRow({ node, row, tabIndex, depth, openPath, onOpen, drag }: RowProps<FileNode>) {
+  const current = node.path === openPath;
+
+  return (
+    <li>
+      <button
+        type="button"
+        data-row={row}
+        tabIndex={tabIndex}
+        onClick={() => onOpen(node)}
+        // Notes only. An image, a page or a pdf has no route that moves
+        // it on its own; the folder it sits in carries it.
+        draggable={node.shows === undefined}
+        onDragStart={(event) => drag.start(event, node)}
+        onDragOver={(event) => drag.over(event, parentOf(node.path))}
+        onDrop={(event) => drag.drop(event, parentOf(node.path))}
+        onDragEnd={drag.end}
+        aria-current={current ? "page" : undefined}
+        style={indent(depth)}
+        title={node.path}
+        // An image or a page is muted against the notes, the way a
+        // wikilink to a note nobody has written is: what the tree is for
+        // is the notes, and this row is the vault admitting it holds
+        // something else.
+        className={`${ROW} cursor-pointer ${
+          current
+            ? "bg-k-surface text-k-accent"
+            : `${node.shows !== undefined ? "text-k-muted" : "text-k-ink"} hover:bg-k-surface`
+        } ${tabIndex === 0 ? CURSOR : ""}`}
+      >
+        {/* Holds the chevron's column so note names line up with folder names. */}
+        <span className="size-3 shrink-0" />
+        <span className="truncate">{node.name}</span>
+      </button>
+    </li>
+  );
+}
+
+function FolderRow({ node, row, tabIndex, ...list }: RowProps<FolderNode>) {
+  const { depth, expanded, onToggleFolder, drag } = list;
+  const open = expanded.has(node.path);
+
+  return (
+    <li>
+      <button
+        type="button"
+        data-row={row}
+        tabIndex={tabIndex}
+        onClick={() => onToggleFolder(node.path)}
+        aria-expanded={open}
+        draggable
+        onDragStart={(event) => drag.start(event, node)}
+        onDragOver={(event) => drag.over(event, node.path)}
+        onDrop={(event) => drag.drop(event, node.path)}
+        onDragEnd={drag.end}
+        style={indent(depth)}
+        className={`${ROW} cursor-pointer text-k-muted hover:bg-k-surface hover:text-k-ink ${
+          tabIndex === 0 ? CURSOR : ""
+        } ${drag.target === node.path ? DROP : ""}`}
+      >
+        <Chevron open={open} />
+        <span className="truncate">{node.name}</span>
+      </button>
+      {open && <NodeList {...list} nodes={node.children} depth={depth + 1} />}
+    </li>
   );
 }
 

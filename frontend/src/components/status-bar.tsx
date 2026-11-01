@@ -64,6 +64,18 @@ function heldLabel(prefix: string, notes: readonly HeldNote[]) {
 }
 
 /** The note's name as the finder shows it, without the folders or `.md`. */
+/** The buttons the save detail offers for `status`, each with a handler the route passed. */
+function saveActions(
+  status: SaveStatus,
+  run: Record<"write" | "takeVault", (() => void) | undefined>,
+) {
+  return (["write", "takeVault"] as const).flatMap((action) => {
+    const label = SAVE_ACTIONS[status]?.[action];
+    const call = run[action];
+    return label && call ? [{ action, label, call }] : [];
+  });
+}
+
 function noteName(path: string) {
   return (path.split("/").pop() ?? path).replace(/\.md$/, "");
 }
@@ -142,6 +154,103 @@ interface StatusBarProps {
   onTakeVault?: () => void;
 }
 
+function footerClass(noticed: boolean, foot: boolean | undefined) {
+  return `relative grid h-6 shrink-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center bg-k-paper px-3 pointer-coarse:h-11 ${
+    // With the clock gone the notice takes what the save sign leaves,
+    // rather than the half of the bar an even split would give it.
+    noticed ? "max-md:grid-cols-[minmax(0,1fr)_auto_auto]" : ""
+  } ${
+    // `box-content` so the inset is added under the bar's height rather
+    // than taken out of it.
+    foot ? "safe-foot box-content" : ""
+  }`;
+}
+
+type ReadingsProps = Pick<StatusBarProps, "version" | "notice" | "archive" | "zoom" | "pane"> & {
+  onNotice: () => void;
+};
+
+/** The left of the bar: the version, the notice and the readings of the view. */
+function Readings({ version, notice, archive, zoom, pane, onNotice }: ReadingsProps) {
+  return (
+    <div className="flex min-w-0 items-center gap-2 overflow-hidden whitespace-nowrap">
+      {version !== undefined && <Version backend={version} />}
+      {notice !== undefined && (
+        <button
+          type="button"
+          tabIndex={-1}
+          data-testid="notice"
+          // The whole sentence, for when the bar had room for half of it:
+          // on hover under a mouse, and opened out above the bar on a tap.
+          title={notice}
+          onClick={onNotice}
+          className="min-w-0 truncate text-[11px] text-k-danger pointer-coarse:h-11"
+        >
+          {notice}
+        </button>
+      )}
+      {archive === true && (
+        <span data-testid="archive-shown" className="text-[11px] text-k-muted">
+          archive
+        </span>
+      )}
+      {zoom === true && (
+        // Gone below `md`, where every tab is drawn as one pane, zoomed or
+        // not, and the count beside it is what says so.
+        <span data-testid="zoom-shown" className="text-[11px] text-k-muted max-md:hidden">
+          zoom
+        </span>
+      )}
+      {pane !== undefined && (
+        <span data-testid="pane-shown" className="text-[11px] text-k-muted tabular-nums">
+          pane {pane}
+        </span>
+      )}
+    </div>
+  );
+}
+
+interface HeldSignsProps {
+  failed: readonly HeldNote[];
+  conflicts: readonly HeldNote[];
+  heldDetail: string;
+  conflictDetail: string;
+  open: (which: Opened) => void;
+}
+
+function HeldSigns({ failed, conflicts, heldDetail, conflictDetail, open }: HeldSignsProps) {
+  return (
+    <>
+      {failed.length > 0 && (
+        <button
+          type="button"
+          tabIndex={-1}
+          data-testid="held"
+          // Every note and what the vault said, on hover under a mouse and
+          // opened out above the bar on a tap, the way a notice is.
+          title={heldDetail}
+          onClick={() => open("held")}
+          className="min-w-0 truncate text-[11px] text-k-danger pointer-coarse:h-11"
+        >
+          {heldLabel("Not saved", failed)}
+        </button>
+      )}
+      {conflicts.length > 0 && (
+        <button
+          type="button"
+          tabIndex={-1}
+          data-testid="held-conflict"
+          title={conflictDetail}
+          onClick={() => open("conflicts")}
+          className="min-w-0 truncate text-[11px] text-k-danger pointer-coarse:h-11"
+        >
+          {heldLabel("Changed on disk", conflicts)}
+        </button>
+      )}
+    </>
+  );
+}
+
 /**
  * The strip along the foot of the window.
  *
@@ -203,27 +312,19 @@ export function StatusBar({
   const saveOpens = saveLines.length > 1;
   const heldDetail = [...lines(failed), HELD_FIX].join("\n");
   const conflictDetail = [...lines(conflicts), CONFLICT_FIX].join("\n");
-  const detail =
-    opened === "notice"
-      ? notice
-      : opened === "save" && saveOpens
-        ? saveLines.join("\n")
-        : opened === "held" && failed.length > 0
-          ? heldDetail
-          : opened === "conflicts" && conflicts.length > 0
-            ? conflictDetail
-            : undefined;
+  const details: Record<Opened, string | undefined> = {
+    notice,
+    save: saveOpens ? saveLines.join("\n") : undefined,
+    held: failed.length > 0 ? heldDetail : undefined,
+    conflicts: conflicts.length > 0 ? conflictDetail : undefined,
+  };
+  const detail = opened === null ? undefined : details[opened];
   const open = (which: Opened) => setOpened(opened === which ? null : which);
   const texts = opened === "save" && status === "conflict" ? conflict?.() : undefined;
   const diff = texts && lineDiff(texts.vault, texts.mine);
-  const run = { write: onWrite, takeVault: onTakeVault };
   const actions =
     opened === "save" && status
-      ? (["write", "takeVault"] as const).flatMap((action) => {
-          const label = SAVE_ACTIONS[status]?.[action];
-          const call = run[action];
-          return label && call ? [{ action, label, call }] : [];
-        })
+      ? saveActions(status, { write: onWrite, takeVault: onTakeVault })
       : [];
 
   const save = status && (
@@ -244,18 +345,7 @@ export function StatusBar({
     //
     // `minmax(0, 1fr)` and not `1fr`, whose floor is the content: a long notice
     // would push the bar wider than a phone instead of being cut short.
-    <footer
-      inert={inert}
-      className={`relative grid h-6 shrink-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center bg-k-paper px-3 pointer-coarse:h-11 ${
-        // With the clock gone the notice takes what the save sign leaves,
-        // rather than the half of the bar an even split would give it.
-        notice !== undefined ? "max-md:grid-cols-[minmax(0,1fr)_auto_auto]" : ""
-      } ${
-        // `box-content` so the inset is added under the bar's height rather
-        // than taken out of it.
-        foot ? "safe-foot box-content" : ""
-      }`}
-    >
+    <footer inert={inert} className={footerClass(notice !== undefined, foot)}>
       {detail !== undefined && (
         <StatusDetail
           detail={detail}
@@ -264,70 +354,25 @@ export function StatusBar({
           onClose={() => setOpened(null)}
         />
       )}
-      <div className="flex min-w-0 items-center gap-2 overflow-hidden whitespace-nowrap">
-        {version !== undefined && <Version backend={version} />}
-        {notice !== undefined && (
-          <button
-            type="button"
-            tabIndex={-1}
-            data-testid="notice"
-            // The whole sentence, for when the bar had room for half of it:
-            // on hover under a mouse, and opened out above the bar on a tap.
-            title={notice}
-            onClick={() => open("notice")}
-            className="min-w-0 truncate text-[11px] text-k-danger pointer-coarse:h-11"
-          >
-            {notice}
-          </button>
-        )}
-        {archive === true && (
-          <span data-testid="archive-shown" className="text-[11px] text-k-muted">
-            archive
-          </span>
-        )}
-        {zoom === true && (
-          // Gone below `md`, where every tab is drawn as one pane, zoomed or
-          // not, and the count beside it is what says so.
-          <span data-testid="zoom-shown" className="text-[11px] text-k-muted max-md:hidden">
-            zoom
-          </span>
-        )}
-        {pane !== undefined && (
-          <span data-testid="pane-shown" className="text-[11px] text-k-muted tabular-nums">
-            pane {pane}
-          </span>
-        )}
-      </div>
+      <Readings
+        version={version}
+        notice={notice}
+        archive={archive}
+        zoom={zoom}
+        pane={pane}
+        onNotice={() => open("notice")}
+      />
       {/* The held list crowds the clock out on a phone as a notice does: it
           is the one reading there that loses text if nobody acts on it. */}
       <Clock crowded={notice !== undefined || held.length > 0} />
       <div className="flex min-w-0 items-center justify-end gap-2 justify-self-end whitespace-nowrap">
-        {failed.length > 0 && (
-          <button
-            type="button"
-            tabIndex={-1}
-            data-testid="held"
-            // Every note and what the vault said, on hover under a mouse and
-            // opened out above the bar on a tap, the way a notice is.
-            title={heldDetail}
-            onClick={() => open("held")}
-            className="min-w-0 truncate text-[11px] text-k-danger pointer-coarse:h-11"
-          >
-            {heldLabel("Not saved", failed)}
-          </button>
-        )}
-        {conflicts.length > 0 && (
-          <button
-            type="button"
-            tabIndex={-1}
-            data-testid="held-conflict"
-            title={conflictDetail}
-            onClick={() => open("conflicts")}
-            className="min-w-0 truncate text-[11px] text-k-danger pointer-coarse:h-11"
-          >
-            {heldLabel("Changed on disk", conflicts)}
-          </button>
-        )}
+        <HeldSigns
+          failed={failed}
+          conflicts={conflicts}
+          heldDetail={heldDetail}
+          conflictDetail={conflictDetail}
+          open={open}
+        />
         {saveOpens ? (
           <button
             type="button"

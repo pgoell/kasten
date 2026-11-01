@@ -295,42 +295,41 @@ export function FileExplorer({
 
   /** A pending sequence resolves first. Unknown keys are left for the browser's own shortcuts. */
   function onKeyDown(event: React.KeyboardEvent) {
-    const { key } = event;
-
     // A modifier holds itself down before the key it is held for arrives, and
     // a pending sequence that read it as a key would drop the sequence there.
-    if (heldModifier(key)) return;
+    if (heldModifier(event.key)) return;
 
-    if (pending) {
-      const sequence = pending + key;
-      const typed = sequence.slice(1);
-      const leader = sequence.startsWith(" ");
-      // Only the tree knows what the cursor sits on, and these two are the
-      // commands that ask for it, so the sequence is resolved against a set
-      // where they already reach the row rather than the pane.
-      const run = leader
-        ? leaderAction(typed, { ...commands, createNote: newNote, renameNote })
-        : null;
-      // A leader key can be more than one letter, so a sequence that still
-      // prefixes one waits for the rest instead of being dropped. The exact
-      // match is taken first, the way vim takes it.
-      const partial = !run && leader && leaderPrefix(typed);
-      setPending(partial ? sequence : "");
+    if (pending) onPendingKey(event, pending + event.key);
+    else if (treeKey(event)) event.preventDefault();
+  }
 
-      if (run) {
-        event.preventDefault();
-        run();
-      } else if (sequence === "gg") {
-        event.preventDefault();
-        setActive(0);
-      }
-      return;
+  function onPendingKey(event: React.KeyboardEvent, sequence: string) {
+    const typed = sequence.slice(1);
+    const leader = sequence.startsWith(" ");
+    // Only the tree knows what the cursor sits on, and these two are the
+    // commands that ask for it, so the sequence is resolved against a set
+    // where they already reach the row rather than the pane.
+    const run = leader
+      ? leaderAction(typed, { ...commands, createNote: newNote, renameNote })
+      : null;
+    // A leader key can be more than one letter, so a sequence that still
+    // prefixes one waits for the rest instead of being dropped. The exact
+    // match is taken first, the way vim takes it.
+    const partial = !run && leader && leaderPrefix(typed);
+    setPending(partial ? sequence : "");
+
+    if (run) {
+      event.preventDefault();
+      run();
+    } else if (sequence === "gg") {
+      event.preventDefault();
+      setActive(0);
     }
+  }
 
-    const row = rows[cursor];
-    const folder = row?.node.kind === "folder" ? row.node : null;
-    const unfolded = folder !== null && expanded.has(folder.path);
-
+  /** Acts on a key with no sequence pending, and says whether the tree took it. */
+  function treeKey(event: React.KeyboardEvent): boolean {
+    const { key } = event;
     switch (key) {
       case "j":
         setActive(Math.min(cursor + 1, rows.length - 1));
@@ -347,11 +346,8 @@ export function FileExplorer({
       case " ":
         // The tree's own create and rename, so the panel's `cf` seeds a note
         // with the cursor's folder the way the tree's leader does.
-        if (beginLeader(paneOpener({ ...commands, createNote: newNote, renameNote }))) {
-          event.preventDefault();
-          return;
-        }
-        setPending(key);
+        if (!beginLeader(paneOpener({ ...commands, createNote: newNote, renameNote })))
+          setPending(key);
         break;
       case "c":
         newNote();
@@ -389,22 +385,29 @@ export function FileExplorer({
         else document.querySelector<HTMLElement>(".cm-content")?.focus();
         break;
       case "h":
-        if (unfolded) toggleFolder(folder.path);
-        else if (row && row.parent >= 0) setActive(row.parent);
+        foldOrClimb();
         break;
       case "l":
       case "Enter":
-        if (folder && !unfolded) toggleFolder(folder.path);
-        else if (folder) setActive(Math.min(cursor + 1, rows.length - 1));
-        else if (row) {
-          const file = row.node.kind === "file" ? row.node : null;
-          if (file) openRow(file);
-        }
+        unfoldOrOpen();
         break;
       default:
-        return;
+        return false;
     }
-    event.preventDefault();
+    return true;
+  }
+
+  function foldOrClimb() {
+    const row = rows[cursor];
+    if (row?.node.kind === "folder" && expanded.has(row.node.path)) toggleFolder(row.node.path);
+    else if (row && row.parent >= 0) setActive(row.parent);
+  }
+
+  function unfoldOrOpen() {
+    const node = rows[cursor]?.node;
+    if (node?.kind === "file") openRow(node);
+    else if (node && !expanded.has(node.path)) toggleFolder(node.path);
+    else if (node) setActive(Math.min(cursor + 1, rows.length - 1));
   }
 
   function toggleFolder(path: string) {

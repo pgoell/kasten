@@ -150,6 +150,20 @@ describe("WhichKey", () => {
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   });
 
+  it("a key held with ctrl, alt or meta closes, runs nothing and gives the focus back", async () => {
+    for (const held of ["ctrlKey", "altKey", "metaKey"]) {
+      const { note, commands, unmount } = mount();
+
+      // `3` alone goes to the third tab, so only the held key keeps it from running.
+      fireEvent.keyDown(screen.getByRole("dialog"), { key: "3", [held]: true });
+
+      expect(commands.goToTab).not.toHaveBeenCalled();
+      expect(note).toHaveFocus();
+      await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+      unmount();
+    }
+  });
+
   it("while open y reaches nothing behind the panel", () => {
     const { note, commands } = mount();
     const onNote = vi.fn();
