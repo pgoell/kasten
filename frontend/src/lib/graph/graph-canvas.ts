@@ -251,6 +251,56 @@ export function drawGraph(
     ctx.fill();
   };
 
+  /** The dot's body: hollow for a note nobody wrote, filled, with a ring per tag past the first. */
+  const paintDot = (
+    node: DrawnNode,
+    ctx: CanvasRenderingContext2D,
+    scale: number,
+    radius: number,
+  ) => {
+    if (node.missing) {
+      // Hollow: a link has promised the note and nobody has written it.
+      ctx.lineWidth = 1 / scale;
+      ctx.strokeStyle = colour("--k-muted");
+      ctx.stroke();
+      return;
+    }
+    ctx.fillStyle = colour(tagged() ? tagColourOf(node) : colourOf(node));
+    ctx.fill();
+    if (mode === null) return;
+    // Tags are counted by their lowercased key, so a tag written again in another
+    // case is the first tag, not a further one, and gets no ring of its own.
+    const further = [...new Set(node.tags.map((tag) => tag.toLowerCase()))].slice(1);
+    further.forEach((tag, i) => {
+      ctx.beginPath();
+      ctx.arc(node.x ?? 0, node.y ?? 0, radius + (2 + i * 2.5) / scale, 0, 2 * Math.PI);
+      ctx.lineWidth = 1.25 / scale;
+      ctx.strokeStyle = colour(tagVariable(tag));
+      ctx.stroke();
+    });
+  };
+
+  /** The accent ring of the centre and the hovered note. */
+  const paintAccent = (
+    ctx: CanvasRenderingContext2D,
+    scale: number,
+    x: number,
+    y: number,
+    radius: number,
+  ) => {
+    if (radial) {
+      // A ring with a gap from the dot: on its edge it reads as a dark rim
+      // on the light sheet, and the dot's own colour is what should show.
+      ctx.beginPath();
+      ctx.arc(x, y, radius + RING_GAP, 0, 2 * Math.PI);
+      ctx.lineWidth = RING_WIDTH;
+    } else {
+      ctx.lineWidth = 2 / scale;
+    }
+    ctx.strokeStyle = colour("--k-accent");
+    ctx.stroke();
+  };
+
   const graph = new ForceGraph<DrawnNode, DrawnLink>(element)
     .backgroundColor(background())
     .nodeId("path")
@@ -270,41 +320,8 @@ export function drawGraph(
 
       ctx.beginPath();
       ctx.arc(x, y, radius, 0, 2 * Math.PI);
-      if (node.missing) {
-        // Hollow: a link has promised the note and nobody has written it.
-        ctx.lineWidth = 1 / scale;
-        ctx.strokeStyle = colour("--k-muted");
-        ctx.stroke();
-      } else {
-        ctx.fillStyle = colour(tagged() ? tagColourOf(node) : colourOf(node));
-        ctx.fill();
-        // Each tag past the first is a thin ring outside the dot, each further out.
-        if (mode !== null) {
-          // Tags are counted by their lowercased key, so a tag written again in another
-          // case is the first tag, not a further one, and gets no ring of its own.
-          const further = [...new Set(node.tags.map((tag) => tag.toLowerCase()))].slice(1);
-          further.forEach((tag, i) => {
-            ctx.beginPath();
-            ctx.arc(x, y, radius + (2 + i * 2.5) / scale, 0, 2 * Math.PI);
-            ctx.lineWidth = 1.25 / scale;
-            ctx.strokeStyle = colour(tagVariable(tag));
-            ctx.stroke();
-          });
-        }
-      }
-      if (node.path === center || node.path === hovered) {
-        if (radial) {
-          // A ring with a gap from the dot: on its edge it reads as a dark rim
-          // on the light sheet, and the dot's own colour is what should show.
-          ctx.beginPath();
-          ctx.arc(x, y, radius + RING_GAP, 0, 2 * Math.PI);
-          ctx.lineWidth = RING_WIDTH;
-        } else {
-          ctx.lineWidth = 2 / scale;
-        }
-        ctx.strokeStyle = colour("--k-accent");
-        ctx.stroke();
-      }
+      paintDot(node, ctx, scale, radius);
+      if (node.path === center || node.path === hovered) paintAccent(ctx, scale, x, y, radius);
 
       // Names fade in with the zoom, the way Obsidian's do, and always show
       // on the lit neighbourhood and on the centre of a local graph.

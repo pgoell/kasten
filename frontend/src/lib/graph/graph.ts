@@ -155,16 +155,8 @@ function byPath(a: string, b: string): number {
   return a < b ? -1 : a > b ? 1 : 0;
 }
 
-/**
- * Each note's place in a radial drawing, in unit radii, with the centre at the origin.
- * A note sits beside the first note it links to inward. One no edge reaches goes on the outermost ring.
- */
-export function radialLayout(
-  nodes: GraphNode[],
-  edges: GraphEdge[],
-  center: string,
-): Map<string, RadialPoint> {
-  const known = new Set(nodes.map((node) => node.path));
+/** Each note's neighbours, either way round, leaving out loops and notes not drawn. */
+function adjacency(known: Set<string>, edges: GraphEdge[]): Map<string, string[]> {
   const adjacent = new Map<string, string[]>();
   for (const path of known) adjacent.set(path, []);
   for (const edge of edges) {
@@ -172,34 +164,40 @@ export function radialLayout(
     adjacent.get(edge.source)?.push(edge.target);
     adjacent.get(edge.target)?.push(edge.source);
   }
+  return adjacent;
+}
 
+/** Each note's steps from the centre, in the order a breadth-first walk reaches them. */
+function stepsFrom(center: string, adjacent: Map<string, string[]>): Map<string, number> {
   const distance = new Map<string, number>();
-  if (known.has(center)) {
-    distance.set(center, 0);
-    let frontier = [center];
-    for (let step = 1; frontier.length > 0; step++) {
-      const next: string[] = [];
-      for (const path of frontier) {
-        for (const other of adjacent.get(path) ?? []) {
-          if (distance.has(other)) continue;
-          distance.set(other, step);
-          next.push(other);
-        }
+  if (!adjacent.has(center)) return distance;
+  distance.set(center, 0);
+  let frontier = [center];
+  for (let step = 1; frontier.length > 0; step++) {
+    const next: string[] = [];
+    for (const path of frontier) {
+      for (const other of adjacent.get(path) ?? []) {
+        if (distance.has(other)) continue;
+        distance.set(other, step);
+        next.push(other);
       }
-      frontier = next;
     }
+    frontier = next;
   }
+  return distance;
+}
 
-  const rings: string[][] = [];
-  for (const [path, step] of distance) {
-    const ring = rings[step] ?? [];
-    ring.push(path);
-    rings[step] = ring;
-  }
-
-  // A note's parent is its first neighbour on the ring in. Each ring is ordered
-  // by its parents' slots, then by path, so the children of one parent sit
-  // together. The ring in is already ordered, so its slots are set first.
+/**
+ * Sorts each ring in place and answers each note's parent: its first neighbour on
+ * the ring in. A ring is ordered by its parents' slots, then by path, so the
+ * children of one parent sit together. The ring in is already ordered, so its
+ * slots are set first.
+ */
+function orderRings(
+  rings: string[][],
+  adjacent: Map<string, string[]>,
+  distance: Map<string, number>,
+): Map<string, string> {
   const slot = new Map<string, number>();
   const parentOf = new Map<string, string>();
   rings.forEach((ring, step) => {
@@ -216,6 +214,28 @@ export function radialLayout(
     }
     for (const [i, path] of ring.entries()) slot.set(path, i);
   });
+  return parentOf;
+}
+
+/**
+ * Each note's place in a radial drawing, in unit radii, with the centre at the origin.
+ * A note sits beside the first note it links to inward. One no edge reaches goes on the outermost ring.
+ */
+export function radialLayout(
+  nodes: GraphNode[],
+  edges: GraphEdge[],
+  center: string,
+): Map<string, RadialPoint> {
+  const adjacent = adjacency(new Set(nodes.map((node) => node.path)), edges);
+  const distance = stepsFrom(center, adjacent);
+
+  const rings: string[][] = [];
+  for (const [path, step] of distance) {
+    const ring = rings[step] ?? [];
+    ring.push(path);
+    rings[step] = ring;
+  }
+  const parentOf = orderRings(rings, adjacent, distance);
 
   const unreached = nodes
     .map((node) => node.path)
@@ -230,20 +250,21 @@ export function radialLayout(
     angleOf.set(path, angle);
     layout.set(path, { x: step * Math.cos(angle), y: step * Math.sin(angle), ring: step });
   };
+  const evenly = (paths: string[], step: number) => {
+    for (const [i, path] of paths.entries())
+      put(path, step, top + (2 * Math.PI * i) / paths.length);
+  };
 
   for (const path of rings[0] ?? []) layout.set(path, { x: 0, y: 0, ring: 0 });
 
   // Ring one takes the circle evenly. Notes no edge reaches share it when it is
   // the outermost ring, and otherwise go evenly round the outermost ring below.
-  const ringOne = [...(rings[1] ?? []), ...(outer === 1 ? unreached : [])];
-  for (const [i, path] of ringOne.entries()) {
-    put(path, 1, top + (2 * Math.PI * i) / ringOne.length);
-  }
+  evenly([...(rings[1] ?? []), ...(outer === 1 ? unreached : [])], 1);
 
   // A note further out sits on its parent's angle, and the children of one parent
   // fan out either side of it. Each step is the smaller of an even share of the
   // ring and an even share of the parent's sector, so they stay in that sector.
-  for (let step = 2; step < rings.length; step++) {
+  const fan = (step: number) => {
     const ring = rings[step] ?? [];
     const parentCount = (rings[step - 1] ?? []).length;
     const siblings = new Map<string, string[]>();
@@ -256,17 +277,14 @@ export function radialLayout(
         (2 * Math.PI) / ring.length,
         (2 * Math.PI) / parentCount / children.length,
       );
+      const centre = angleOf.get(parent) ?? top;
       for (const [j, path] of children.entries()) {
-        const centre = angleOf.get(parent) ?? top;
         put(path, step, centre + (j - (children.length - 1) / 2) * spacing);
       }
     }
-  }
+  };
+  for (let step = 2; step < rings.length; step++) fan(step);
 
-  if (outer > 1) {
-    for (const [i, path] of unreached.entries()) {
-      put(path, outer, top + (2 * Math.PI * i) / unreached.length);
-    }
-  }
+  if (outer > 1) evenly(unreached, outer);
   return layout;
 }
