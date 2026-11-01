@@ -108,6 +108,40 @@ describe("backlinks", () => {
     expect(panel.onOpen).toHaveBeenCalledWith("index.md", 3);
   });
 
+  it("walks the rows with the arrows, Ctrl+N and Ctrl+P, and closes on Escape", async () => {
+    searchNotes.mockResolvedValue([
+      { path: "index.md", line: 3, text: "see [[borges]]" },
+      { path: "archive/notes.md", line: 7, text: "and [[borges]]" },
+    ]);
+    const panel = renderBacklinks();
+    await waitFor(() => expect(panel.rows()).toHaveLength(2));
+
+    panel.press("ArrowDown");
+    expect(panel.selected()).toBe(1);
+    panel.press("ArrowDown");
+    expect(panel.selected()).toBe(1);
+    panel.press("p", { ctrlKey: true });
+    expect(panel.selected()).toBe(0);
+    panel.press("n", { ctrlKey: true });
+    expect(panel.selected()).toBe(1);
+    panel.press("ArrowUp");
+    expect(panel.selected()).toBe(0);
+    panel.press("ArrowUp");
+    expect(panel.selected()).toBe(0);
+    // A bare letter is typing, and the input keeps it.
+    expect(panel.press("n")).toBe(true);
+    panel.press("Escape");
+    expect(panel.onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps Tab in the panel while the list is empty", async () => {
+    searchNotes.mockResolvedValue([]);
+    const panel = renderBacklinks();
+    await waitFor(() => expect(panel.hint()).toBe("nothing links here"));
+
+    expect(panel.press("Tab")).toBe(false);
+  });
+
   it("says so when nothing links here", async () => {
     searchNotes.mockResolvedValue([]);
     const panel = renderBacklinks();

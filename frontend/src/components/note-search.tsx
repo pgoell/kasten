@@ -74,6 +74,19 @@ function hint(pending: boolean, matches: number, mode: SearchMode): string {
 }
 
 /**
+ * Tab walks the list rather than completing anything, the way it does in a terminal
+ * fuzzy finder: 1 down, -1 up, 0 for a key that is not a move.
+ */
+function step(event: React.KeyboardEvent): number {
+  const tab = event.key === "Tab";
+  if (event.key === "ArrowDown" || (tab && !event.shiftKey) || (event.ctrlKey && event.key === "n"))
+    return 1;
+  if (event.key === "ArrowUp" || (tab && event.shiftKey) || (event.ctrlKey && event.key === "p"))
+    return -1;
+  return 0;
+}
+
+/**
  * Type a few words, and Enter opens the note on the line they are on. The backend
  * finds the lines holding the query literally, and this side only ranks them, so
  * typing narrows while the scan runs. A fuzzy match over prose would read into
@@ -179,23 +192,15 @@ function LineSearch({
   }
 
   function onKeyDown(event: React.KeyboardEvent) {
-    // Tab walks the list rather than completing anything, the way it does in a
-    // terminal fuzzy finder. There is nothing here to complete: Enter opens the
-    // row under the highlight whatever the input says.
-    const tab = event.key === "Tab";
-    const down =
-      event.key === "ArrowDown" || (tab && !event.shiftKey) || (event.ctrlKey && event.key === "n");
-    const up =
-      event.key === "ArrowUp" || (tab && event.shiftKey) || (event.ctrlKey && event.key === "p");
-
-    if (down || up) {
+    const move = step(event);
+    if (move !== 0) {
       // Without this the arrows take the caret to one end of the input, which
       // is where the browser sends them when nothing else does, and Tab takes
       // the focus out of the panel. Prevented before the empty list is checked,
       // because an empty list is where Tab would leave and not come back.
       event.preventDefault();
       if (ordered.length === 0) return;
-      setActive(down ? Math.min(cursor + 1, ordered.length - 1) : Math.max(cursor - 1, 0));
+      setActive(Math.min(Math.max(cursor + move, 0), ordered.length - 1));
       return;
     }
 

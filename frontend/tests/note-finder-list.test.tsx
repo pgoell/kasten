@@ -17,6 +17,12 @@ describe("the note finder", () => {
     fetchNote.mockReset();
   });
 
+  it("names the dialog for a note", () => {
+    renderFinder();
+
+    expect(screen.getByRole("dialog", { name: "Find note" })).toBeTruthy();
+  });
+
   it("opens the row that is tapped", () => {
     const finder = renderFinder();
 

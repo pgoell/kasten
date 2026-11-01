@@ -77,6 +77,12 @@ describe("the book finder", () => {
     };
   }
 
+  it("says find book over the input", () => {
+    renderBooks();
+
+    expect(screen.getByLabelText("find book")).toBe(screen.getByRole("combobox"));
+  });
+
   it("lists every note with an epub beside it, and leaves a pdf's note out", () => {
     const finder = renderBooks();
 
