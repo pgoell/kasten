@@ -16,18 +16,22 @@ mise run test         # backend pytest and frontend vitest
 mise run fe:typecheck # builds the frontend, then tsc --noEmit
 ```
 
-CI runs the same three in two jobs, Lint and Test. Both must pass before a pull
-request can merge into main, and so must the `Review` and `Security` checks
-below. A pull request or push to main that changes no file,
-such as a placeholder on an empty commit, skips them both, and a skipped job
-counts as passed.
+CI runs the same three in three jobs: Lint, Backend for pytest and Test for the
+frontend and chat runner tests. All must pass before a pull request can merge
+into main, and so must the `Review` and `Security` checks below. A pull request
+or push to main that changes no file, such as a placeholder on an empty commit,
+skips them, and a skipped job counts as passed.
 
-A push to main skips Lint, Test and Perf too when the pull request it merged
+`mise run test:py` runs pytest on four workers with `pytest-xdist`, each with a
+database of its own. To debug one test in order, call `uv run pytest <path>`
+yourself.
+
+A push to main skips Lint, Backend, Test and Perf too when the pull request it merged
 already passed them on the same tree. Each pull request run that passes all
 three uploads an artifact named `ci-tested-tree-<tree hash>`, and the push run's
 `Main gate` job, `scripts/ci_main_gate.py`, looks for it. It skips only for a
 single-commit push of a merged pull request whose newest CI run passed Lint,
-Test and Perf and recorded this tree; anything else, an API error included,
+Backend, Test and Perf and recorded this tree; anything else, an API error included,
 runs them in full. Its summary names the run it relied on or why it did not
 skip.
 
@@ -269,7 +273,7 @@ hundred megabytes that nothing reads any more. Delete it whenever you notice.
 ## Answer the review on a pull request
 
 Every pull request from this repo gets two Claude reviews in CI, `Review` and
-`Security`, once Lint and Test pass; a pull request that fails either gets no
+`Security`, once Lint, Backend and Test pass; a pull request that fails any gets no
 round. Only Important findings become threads on the lines they name, and main
 takes no merge while a thread is open. Design, Pre-existing and Nit findings
 from `Review` are lines in its summary comment, and nothing waits on them.

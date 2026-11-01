@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Decide whether the push to main can skip Lint, Test and Perf.
+"""Decide whether the push to main can skip Lint, Backend, Test and Perf.
 
 A squash merge lands the same tree that the pull request's last CI run tested,
 so the push run would repeat that work. This gate skips only when every check
@@ -22,7 +22,7 @@ if TYPE_CHECKING:
     from collections.abc import Mapping
 
 CI_PATH = ".github/workflows/ci.yml"
-CHECKS = ("Lint", "Test", "Perf")
+CHECKS = ("Lint", "Backend", "Test", "Perf")
 NOT_A_PUSH = "not a single-commit push to main"
 
 
@@ -105,7 +105,7 @@ def verify(env: Mapping[str, str]) -> tuple[str, str]:
         if not any(job["name"] == check and job["conclusion"] == "success" for job in jobs):
             raise GateStopError(f"{check} did not pass in {run['html_url']}")
     line = (
-        f"Skipped Lint, Test and Perf: tree {tree} of {sha} was tested by "
+        f"Skipped Lint, Backend, Test and Perf: tree {tree} of {sha} was tested by "
         f"PR #{pull['number']} run {run['html_url']}"
     )
     return line, run["html_url"]

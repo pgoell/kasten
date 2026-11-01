@@ -59,7 +59,7 @@ the other two services run stock images and rebuild nothing.
 | Task | What it does |
 |---|---|
 | `test` | Backend, frontend and chat runner tests |
-| `test:py` | Backend and host job (`jobs/`) tests |
+| `test:py` | Backend and host job (`jobs/`) tests, on four workers |
 | `fe:test` | Frontend tests only, the `unit` and `perf` projects |
 | `shell:test` | The chat runner's tests, on node's own test runner against a scripted session |
 | `chat:stub` | Run the chat runner on `127.0.0.1:7682` with a scripted session, no SDK and no login. `fe:dev` proxies `/chat` to it |

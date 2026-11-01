@@ -239,6 +239,33 @@ def migrated_database(url: URL, name: str) -> Iterator[str]:
         maintenance.dispose()
 
 
+def pytest_configure(config: pytest.Config) -> None:
+    """Give each xdist worker a database of its own: tests in one see rows and locks of another.
+
+    `db` built its engine when this file imported it, hence the second engine here.
+    """
+    worker = os.environ.get("PYTEST_XDIST_WORKER")
+    if worker is None:
+        return
+    database = migrated_database(
+        make_url(Settings().database_url), f"kasten_{worker}_{os.getpid()}"
+    )
+    try:
+        url = database.__enter__()
+    except pytest.skip.Exception:
+        return
+
+    def drop() -> None:
+        database.__exit__(None, None, None)
+
+    config.add_cleanup(drop)
+    os.environ["KASTEN_DATABASE_URL"] = url
+    get_settings.cache_clear()
+    db.engine = db.make_engine(url)
+    # In place, as the indexer imported this factory by name.
+    db.session_factory.configure(bind=db.engine)
+
+
 @pytest.fixture(scope="session")
 def scratch_database() -> Iterator[str]:
     """A database of this run's own, migrated to head, for the tests that write rows.
