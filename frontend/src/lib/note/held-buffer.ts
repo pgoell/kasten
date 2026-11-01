@@ -55,7 +55,6 @@ function freshAir(air: InAir | undefined, loaded: number): InAir | undefined {
   return air?.loaded === loaded && !air.restoring ? air : undefined;
 }
 
-/** `before`, unless it is `content` itself. */
 function unlike(before: string | undefined, content: string): string | undefined {
   return before !== undefined && before !== content ? before : undefined;
 }
