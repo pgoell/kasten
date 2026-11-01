@@ -15,15 +15,8 @@ export interface DiffLine {
 export function lineDiff(vault: string, mine: string): DiffLine[] {
   const a = unstamped(vault).split("\n");
   const b = unstamped(mine).split("\n");
-  let head = 0;
-  while (head < a.length && head < b.length && a[head] === b[head]) head++;
-  let tail = 0;
-  while (
-    tail < a.length - head &&
-    tail < b.length - head &&
-    a[a.length - 1 - tail] === b[b.length - 1 - tail]
-  )
-    tail++;
+  const head = sameHead(a, b);
+  const tail = sameTail(a, b, head);
   const x = a.slice(head, a.length - tail);
   const y = b.slice(head, b.length - tail);
   const same = (text: string): DiffLine => ({ op: " ", text });
@@ -39,6 +32,28 @@ export function lineDiff(vault: string, mine: string): DiffLine[] {
       ...y.map((text) => ({ op: "+" as const, text })),
     ]);
   }
+  return ends(middleDiff(x, y));
+}
+
+function sameHead(a: string[], b: string[]): number {
+  let head = 0;
+  while (head < a.length && head < b.length && a[head] === b[head]) head++;
+  return head;
+}
+
+function sameTail(a: string[], b: string[], head: number): number {
+  let tail = 0;
+  while (
+    tail < a.length - head &&
+    tail < b.length - head &&
+    a[a.length - 1 - tail] === b[b.length - 1 - tail]
+  )
+    tail++;
+  return tail;
+}
+
+/** The longest common run from each `x[i]`, `y[j]` onwards. */
+function lcsTable(x: string[], y: string[]): (i: number, j: number) => number {
   const width = y.length + 1;
   const table = new Array<number>((x.length + 1) * width).fill(0);
   const lcs = (i: number, j: number) => table[i * width + j] ?? 0;
@@ -46,6 +61,11 @@ export function lineDiff(vault: string, mine: string): DiffLine[] {
     for (let j = y.length - 1; j >= 0; j--)
       table[i * width + j] =
         x[i] === y[j] ? lcs(i + 1, j + 1) + 1 : Math.max(lcs(i + 1, j), lcs(i, j + 1));
+  return lcs;
+}
+
+function middleDiff(x: string[], y: string[]): DiffLine[] {
+  const lcs = lcsTable(x, y);
   const middle: DiffLine[] = [];
   let i = 0;
   let j = 0;
@@ -66,5 +86,5 @@ export function lineDiff(vault: string, mine: string): DiffLine[] {
       j++;
     }
   }
-  return ends(middle);
+  return middle;
 }
