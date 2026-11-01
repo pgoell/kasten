@@ -46,6 +46,38 @@ function opaqueRedirect(): Response {
 const serverText = (text: string) =>
   (text.split("✅")[0] ?? "").split(/\s+/).filter(Boolean).join(" ");
 
+/** The server's own check: only a name from `people` is written, or none. */
+function unknownAssignee(action: string, body: Record<string, unknown>): boolean {
+  return (
+    action === "assign" && body.assignee !== null && !WHO.people.includes(String(body.assignee))
+  );
+}
+
+/** The note's lines after `action` with `body`; a tick or an assign naming no line changes nothing. */
+function written(items: Seed[], action: string, body: Record<string, unknown>): Seed[] {
+  if (action === "items") return [...items, { text: serverText(String(body.text)), done: false }];
+  if (action === "clear") return items.filter((item) => !item.done);
+  const at = Number(body.line);
+  const item = items[at];
+  if (!item) return [...items];
+  const next = [...items];
+  if (action === "tick") next[at] = { ...item, done: Boolean(body.done) };
+  if (action === "assign") {
+    next[at] = {
+      ...item,
+      assignee: body.assignee === null ? null : `[[${String(body.assignee)}]]`,
+    };
+  }
+  return next;
+}
+
+/** A request that never answers, until the caller's signal gives up on it. */
+function never(signal: AbortSignal | null | undefined): Promise<Response> {
+  return new Promise<Response>((_, reject) => {
+    signal?.addEventListener("abort", () => reject(signal.reason));
+  });
+}
+
 export function fakeShare(seed: Record<string, Seed[]>) {
   const notes = new Map<string, Note>(
     Object.entries(seed).map(([name, items]) => [
@@ -90,16 +122,15 @@ export function fakeShare(seed: Record<string, Seed[]>) {
     const name = decodeURIComponent(match[1] ?? "");
     const action = match[2];
     if (!action) return reply(view(name));
+    return write(url, name, action, init);
+  });
 
+  async function write(url: string, name: string, action: string, init?: RequestInit) {
     const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
     posts.push({ path: url, body });
     if (hang) {
-      // A request that never answers, until the caller's signal gives up on it.
       hang = false;
-      const signal = init?.signal;
-      return new Promise<Response>((_, reject) => {
-        signal?.addEventListener("abort", () => reject(signal.reason));
-      });
+      return never(init?.signal);
     }
     // Another writer gets in between this write's read and its check.
     if (hooks > 0) {
@@ -110,28 +141,9 @@ export function fakeShare(seed: Record<string, Seed[]>) {
     const note = notes.get(name);
     const current = note ? String(note.rev) : null;
     if (body.sha !== current) return reply({ detail: "Stale", current }, 409);
-    // The server's own check: only a name from `people` is written, or none.
-    if (
-      action === "assign" &&
-      body.assignee !== null &&
-      !WHO.people.includes(String(body.assignee))
-    ) {
-      return reply({ detail: "Unbekannte Person" }, 422);
-    }
+    if (unknownAssignee(action, body)) return reply({ detail: "Unbekannte Person" }, 422);
 
-    const items = [...(note?.items ?? [])];
-    if (action === "items") items.push({ text: serverText(String(body.text)), done: false });
-    if (action === "tick") {
-      const at = Number(body.line);
-      if (items[at]) items[at] = { ...items[at], done: Boolean(body.done) };
-    }
-    if (action === "assign") {
-      const at = Number(body.line);
-      const link = body.assignee === null ? null : `[[${String(body.assignee)}]]`;
-      if (items[at]) items[at] = { ...items[at], assignee: link };
-    }
-    const kept = action === "clear" ? items.filter((item) => !item.done) : items;
-    notes.set(name, { rev: (note?.rev ?? 0) + 1, items: kept });
+    notes.set(name, { rev: (note?.rev ?? 0) + 1, items: written(note?.items ?? [], action, body) });
     const answer = reply(view(name));
     if (lose) {
       // The write landed and the answer never came back.
@@ -140,7 +152,7 @@ export function fakeShare(seed: Record<string, Seed[]>) {
       throw new TypeError("Failed to fetch");
     }
     return answer;
-  });
+  }
 
   return {
     fetch,

@@ -175,6 +175,20 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
+/** `updateNote` with its three tries, read and change and save, a refusal past the third thrown. */
+async function updateWithTries(path: string, change: (text: string) => string | null) {
+  for (let tries = 1; ; tries++) {
+    const text: string = await fetchNote(path);
+    const next = change(text);
+    if (next === null) return null;
+    try {
+      return await saveNote(path, next, false, noteBase(text));
+    } catch (error) {
+      if (!(error instanceof ChangedOnDisk) || tries === 3) throw error;
+    }
+  }
+}
+
 describe("the route", () => {
   theRoute();
 
@@ -370,20 +384,7 @@ describe("the route", () => {
         fetchFiles.mockImplementation(async () => [...Object.keys(notes), daily]);
         fetchNote.mockImplementation(async (path: string) => outside.get(path) ?? notes[path]);
         searchNotes.mockResolvedValue([]);
-        updateNote.mockImplementation(
-          async (path: string, change: (text: string) => string | null) => {
-            for (let tries = 1; ; tries++) {
-              const text: string = await fetchNote(path);
-              const next = change(text);
-              if (next === null) return null;
-              try {
-                return await saveNote(path, next, false, noteBase(text));
-              } catch (error) {
-                if (!(error instanceof ChangedOnDisk) || tries === 3) throw error;
-              }
-            }
-          },
-        );
+        updateNote.mockImplementation(updateWithTries);
         const app = await renderApp(entry);
         await settle();
         return app;
