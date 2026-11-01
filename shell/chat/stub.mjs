@@ -97,17 +97,21 @@ function query({ prompt, options }) {
   let interrupted = false;
   let made = 0;
 
+  async function* play() {
+    // Checked between steps, which is as fine as a script needs to stop.
+    for (const step of steps(made, options)) {
+      if (interrupted) return;
+      const said = step();
+      if (Symbol.asyncIterator in said) yield* said;
+      else await said;
+    }
+  }
+
   async function* run() {
     for await (const _turn of prompt) {
       interrupted = false;
       made += 1;
-      // Checked between steps, which is as fine as a script needs to stop.
-      for (const step of steps(made, options)) {
-        if (interrupted) break;
-        const said = step();
-        if (Symbol.asyncIterator in said) yield* said;
-        else await said;
-      }
+      yield* play();
       yield interrupted
         ? { type: "result", subtype: "error_during_execution", is_error: true, result: "Stopped." }
         : { type: "result", subtype: "success", is_error: false, result: "" };

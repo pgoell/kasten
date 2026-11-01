@@ -133,43 +133,64 @@ export function createChat({ query, claudePath, cwd }) {
       });
     }
 
+    function readStream({ event }) {
+      if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
+        say({ type: "delta", text: event.delta.text }, { live: true });
+      }
+    }
+
+    function readAssistant(message) {
+      for (const block of message.message.content) {
+        if (block.type === "text") say({ type: "text", text: block.text });
+        // A question is drawn as a form, from `canUseTool`, not as a tool call.
+        if (block.type === "tool_use" && block.name !== "AskUserQuestion") {
+          shown.add(block.id);
+          say({ type: "tool", id: block.id, name: block.name, input: block.input });
+        }
+      }
+    }
+
+    function readUser(message) {
+      if (!Array.isArray(message.message.content)) return;
+      for (const block of message.message.content) {
+        if (block.type === "tool_result" && shown.has(block.tool_use_id)) {
+          say({
+            type: "tool_result",
+            id: block.tool_use_id,
+            text: resultText(block.content),
+            error: block.is_error === true,
+          });
+        }
+      }
+    }
+
+    function readResult(message) {
+      // One per turn. The session stays open for the next message.
+      say(
+        message.is_error
+          ? { type: "done", error: message.result || message.subtype }
+          : { type: "done" },
+      );
+    }
+
     function read(message) {
       // A subagent's own messages. The pane shows the Agent call and its
       // result, which is the part the user asked for.
       if (message.parent_tool_use_id) return;
 
-      if (message.type === "stream_event") {
-        const { event } = message;
-        if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
-          say({ type: "delta", text: event.delta.text }, { live: true });
-        }
-      } else if (message.type === "assistant") {
-        for (const block of message.message.content) {
-          if (block.type === "text") say({ type: "text", text: block.text });
-          // A question is drawn as a form, from `canUseTool`, not as a tool call.
-          if (block.type === "tool_use" && block.name !== "AskUserQuestion") {
-            shown.add(block.id);
-            say({ type: "tool", id: block.id, name: block.name, input: block.input });
-          }
-        }
-      } else if (message.type === "user" && Array.isArray(message.message.content)) {
-        for (const block of message.message.content) {
-          if (block.type === "tool_result" && shown.has(block.tool_use_id)) {
-            say({
-              type: "tool_result",
-              id: block.tool_use_id,
-              text: resultText(block.content),
-              error: block.is_error === true,
-            });
-          }
-        }
-      } else if (message.type === "result") {
-        // One per turn. The session stays open for the next message.
-        say(
-          message.is_error
-            ? { type: "done", error: message.result || message.subtype }
-            : { type: "done" },
-        );
+      switch (message.type) {
+        case "stream_event":
+          readStream(message);
+          break;
+        case "assistant":
+          readAssistant(message);
+          break;
+        case "user":
+          readUser(message);
+          break;
+        case "result":
+          readResult(message);
+          break;
       }
     }
 

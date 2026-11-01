@@ -66,6 +66,14 @@ afterEach(() => {
   server = undefined;
 });
 
+function fold(seen, frame) {
+  const event = JSON.parse(frame.slice("data: ".length));
+  // The log rides in the `reset`. Unfolded here, so a test reads a run
+  // as one list whether it connected before the run or after it.
+  if (event.type === "reset") seen.splice(0, seen.length, { type: "reset" }, ...event.log);
+  else seen.push(event);
+}
+
 async function serve(script) {
   const fake = fakeQuery(script);
   const chat = createChat({ query: fake.query, claudePath: "/bin/claude", cwd: "/vault" });
@@ -95,13 +103,7 @@ async function serve(script) {
       buffer += decoder.decode(value, { stream: true });
       const frames = buffer.split("\n\n");
       buffer = frames.pop();
-      for (const frame of frames) {
-        const event = JSON.parse(frame.slice("data: ".length));
-        // The log rides in the `reset`. Unfolded here, so a test reads a run
-        // as one list whether it connected before the run or after it.
-        if (event.type === "reset") seen.splice(0, seen.length, { type: "reset" }, ...event.log);
-        else seen.push(event);
-      }
+      for (const frame of frames) fold(seen, frame);
     }
     await reader.cancel();
     return seen;
@@ -185,6 +187,17 @@ test("a second turn goes to the same session", async () => {
     seen.filter((event) => event.type === "text").map((event) => event.text),
     ["re: one", "re: two"],
   );
+});
+
+test("a user message whose content is plain text adds nothing to the log", async () => {
+  const chat = await serve(async function* () {
+    yield { type: "user", parent_tool_use_id: null, message: { content: "echoed" } };
+    yield result;
+  });
+  await chat.post("/chat/send", { text: "hi" });
+  const seen = await chat.events(chat.ended);
+
+  assert.deepEqual(seen, [{ type: "reset" }, { type: "user", text: "hi" }, { type: "done" }]);
 });
 
 test("a question waits for its answer and hands it to the tool", async () => {
