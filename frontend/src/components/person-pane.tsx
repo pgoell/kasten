@@ -1,9 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { PersonCard } from "@/components/person-card";
 import type { EditorCommands } from "@/lib/key-bindings";
-import { heldModifier, leaderAction, leaderPrefix } from "@/lib/leader-keys";
 import { noteName } from "@/lib/note-path";
-import { beginLeader, paneOpener } from "@/lib/which-key";
+import { useLeader } from "@/lib/use-leader";
 
 interface PersonPaneProps {
   /** Vault path of the person note this pane is about. */
@@ -35,8 +34,7 @@ export function PersonPane({
   onOpen,
 }: PersonPaneProps) {
   const panel = useRef<HTMLElement>(null);
-  /** The keys of an unfinished leader sequence, starting with the space. */
-  const [pending, setPending] = useState("");
+  const leader = useLeader(commands);
 
   // A freshly focused pane is handed a raised signal and takes the cursor, the
   // way the image pane and the todo pane do. It has to: the pane holds no
@@ -46,35 +44,14 @@ export function PersonPane({
     if (focusSignal) panel.current?.focus();
   }, [focusSignal]);
 
-  // The leader block every pane that holds no editor carries its own copy of.
-  // Nothing is bound bare: a card is a thing to read, and every key that does
-  // something to it is somewhere else.
+  // Only the leader is bound: a card is a thing to read, and every key that
+  // does something to it is somewhere else.
   function onKeyDown(event: React.KeyboardEvent) {
-    const { key } = event;
-
-    if (heldModifier(key)) return;
-
-    if (pending) {
-      const sequence = pending + key;
-      const wanted = sequence.slice(1);
-      const run = leaderAction(wanted, commands);
-      setPending(!run && leaderPrefix(wanted) ? sequence : "");
-
-      if (run) {
-        event.preventDefault();
-        run();
-      }
-      return;
-    }
-
+    if (leader.feed(event)) return;
     if (event.ctrlKey || event.altKey || event.metaKey) return;
 
-    if (key === " ") {
-      if (beginLeader(paneOpener(commands))) {
-        event.preventDefault();
-        return;
-      }
-      setPending(key);
+    if (event.key === " ") {
+      leader.start(event);
       event.preventDefault();
     }
   }

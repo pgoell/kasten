@@ -70,22 +70,16 @@
     // backend/tests/test_complexity_baseline.py.
     {
       "includes": [
-        "src/components/chat-pane.tsx",
-        "src/components/exam-pane.tsx",
-        "src/components/history-pane.tsx",
         "src/components/html-pane.tsx",
-        "src/components/image-pane.tsx",
         "src/components/note-pane.tsx",
         "src/components/note-preview.tsx",
         "src/components/note-prompt.tsx",
-        "src/components/person-pane.tsx",
         "src/components/terminal-prompt.tsx",
         "src/components/use-dump-take.tsx",
         "src/components/video-pane.tsx",
         "src/lib/editor/copy-as.ts",
         "src/lib/diff.ts",
         "src/lib/editor/editor-follow.ts",
-        "src/lib/review/exam.ts",
         "src/lib/editor/format-commands.ts",
         "src/lib/note/held-buffer.ts",
         "src/lib/held-text.ts",

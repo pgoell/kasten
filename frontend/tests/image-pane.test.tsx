@@ -297,6 +297,16 @@ describe("the image pane", () => {
     expect(onDelete).toHaveBeenCalledTimes(1);
   });
 
+  it("leaves d held with ctrl, alt or meta to the browser", () => {
+    const { onDelete, pane } = open();
+
+    for (const held of ["ctrlKey", "altKey", "metaKey"]) {
+      fireEvent.keyDown(pane, { key: "d", [held]: true });
+    }
+
+    expect(onDelete).not.toHaveBeenCalled();
+  });
+
   it("leaves d to the leader when a sequence is open", () => {
     // `<leader>df` deletes the note in the focused pane, and this pane holds no
     // note: what matters is that the sequence swallows the `d` rather than the

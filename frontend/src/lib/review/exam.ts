@@ -289,6 +289,58 @@ function matching(block: string[], id: string, section: string, keyed?: Keyed): 
   }));
 }
 
+interface Scanned {
+  options: Option[];
+  firstOption: number;
+  inlineAt: number;
+}
+
+/** A question's options, the line they start on, and the inline answer's line after them. */
+function scanOptions(block: string[]): Scanned {
+  const options: Option[] = [];
+  let firstOption = block.length;
+  let inlineAt = -1;
+
+  block.forEach((line, index) => {
+    const found = OPTION.exec(line);
+    if (found !== null) {
+      if (options.length === 0) firstOption = index;
+      options.push({
+        letter: (found[1] ?? found[2] ?? "").toUpperCase(),
+        text: (found[3] ?? "").trim(),
+      });
+      return;
+    }
+    // Only after the options: a stem is free to contain the word "answer",
+    // and taking the first match anywhere in the block would read a question
+    // about answers as its own answer.
+    if (inlineAt === -1 && options.length > 0 && INLINE.test(line)) inlineAt = index;
+  });
+
+  return { options, firstOption, inlineAt };
+}
+
+function optionQuestion(
+  block: string[],
+  { options, firstOption, inlineAt }: Scanned,
+  open: { id: string; pick: number },
+  section: string,
+  keyed?: Keyed,
+): Question {
+  const inline = inlineAt === -1 ? null : INLINE.exec(block[inlineAt] ?? "");
+  return {
+    id: open.id,
+    section,
+    stem: tidy(block.slice(0, firstOption)),
+    options,
+    pick: open.pick,
+    // Inline wins. It sits with the question, so it is the one a reader
+    // edits, and a key at the back that disagrees is the stale copy.
+    correct: inline !== null ? lettersOf(inline[1] ?? "") : (keyed?.correct ?? []),
+    rationale: inline !== null ? tidy(block.slice(inlineAt + 1)) : (keyed?.rationale ?? ""),
+  };
+}
+
 /**
  * The exam a note holds, or nothing where it holds none.
  * A heading with no options under it is no question, which keeps `## Question Formats` out.
@@ -308,44 +360,13 @@ export function parseExam(text: string): Exam | null {
     if (open === null) return;
 
     const block = body.slice(open.from, until);
-    const options: Option[] = [];
-    let firstOption = block.length;
-    let inlineAt = -1;
-
-    block.forEach((line, index) => {
-      const found = OPTION.exec(line);
-      if (found !== null) {
-        if (options.length === 0) firstOption = index;
-        options.push({
-          letter: (found[1] ?? found[2] ?? "").toUpperCase(),
-          text: (found[3] ?? "").trim(),
-        });
-        return;
-      }
-      // Only after the options: a stem is free to contain the word "answer",
-      // and taking the first match anywhere in the block would read a question
-      // about answers as its own answer.
-      if (inlineAt === -1 && options.length > 0 && INLINE.test(line)) inlineAt = index;
-    });
-
-    if (options.length === 0) {
+    const scanned = scanOptions(block);
+    if (scanned.options.length > 0) {
+      questions.push(optionQuestion(block, scanned, open, section, key.get(open.id)));
+    } else {
       const rows = matching(block, open.id, section, key.get(open.id));
       if (rows.length === 0) skipped += 1;
       else questions.push(...rows);
-    } else {
-      const inline = inlineAt === -1 ? null : INLINE.exec(block[inlineAt] ?? "");
-      const keyed = key.get(open.id);
-      questions.push({
-        id: open.id,
-        section,
-        stem: tidy(block.slice(0, firstOption)),
-        options,
-        pick: open.pick,
-        // Inline wins. It sits with the question, so it is the one a reader
-        // edits, and a key at the back that disagrees is the stale copy.
-        correct: inline !== null ? lettersOf(inline[1] ?? "") : (keyed?.correct ?? []),
-        rationale: inline !== null ? tidy(block.slice(inlineAt + 1)) : (keyed?.rationale ?? ""),
-      });
     }
     open = null;
   };

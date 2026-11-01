@@ -286,6 +286,17 @@ describe("ChatPane", () => {
     expect(commands.closeNote).toHaveBeenCalledTimes(1);
   });
 
+  it("leaves i and Enter held with ctrl, alt or meta to the browser", () => {
+    mount();
+    say({ type: "reset", log: [] });
+    const pane = screen.getByRole("region", { name: "chat" });
+    for (const held of ["ctrlKey", "altKey", "metaKey"]) {
+      fireEvent.keyDown(pane, { key: "i", [held]: true });
+      fireEvent.keyDown(pane, { key: "Enter", [held]: true });
+    }
+    expect(pane).toHaveFocus();
+  });
+
   it("goes to the box on i, and back to the pane on Escape", () => {
     mount();
     say({ type: "reset", log: [] });
