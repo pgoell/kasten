@@ -170,7 +170,7 @@ export function PdfPane({
     view.current?.setZoom(next / 100);
   }
 
-  // The image pane's leader block, there being nothing else to press in a pdf.
+  // Its own leader read, not `useLeader`: the take's keys come first outside a sequence.
   function onKeyDown(event: React.KeyboardEvent) {
     const { key } = event;
     if (heldModifier(key)) return;

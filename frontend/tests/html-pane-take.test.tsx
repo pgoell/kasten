@@ -451,6 +451,21 @@ describe("saving a story to share later", () => {
     expect(dumpsSent(sent)).toEqual([]);
   });
 
+  it("#968 is not saved without a press the browser still counts", async () => {
+    vi.stubGlobal(
+      "navigator",
+      Object.assign(Object.create(navigator), { userActivation: { isActive: false } }),
+    );
+    const sent = answering();
+    const { frame } = renderPane();
+
+    frame.focus();
+    fromPage(frame.contentWindow, STORY);
+    await settled(() => false);
+
+    expect(dumpsSent(sent)).toEqual([]);
+  });
+
   it("Undo takes the todo out and gives the page its button back", async () => {
     answering();
     const note = () => `## Dump\n\n${LINE()}\n`;
