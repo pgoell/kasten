@@ -227,4 +227,71 @@ describe("the dump take a pane shares", () => {
 
     expect({ toast: screen.queryByRole("status") !== null }).toEqual({ toast: false });
   });
+
+  it.each([
+    [
+      "the vault's words when it refused the take",
+      422,
+      { detail: "Nothing to take" },
+      "Nothing to take",
+    ],
+    [
+      "to sign in again when the proxy turned it away",
+      401,
+      {},
+      "Taken, waiting to send: sign in again",
+    ],
+    ["how many wait when the server is down", 503, {}, "Taken, waiting to send (1 waiting)"],
+  ])("the toast says %s", async (_name, status, body, words) => {
+    vi.stubGlobal("fetch", async () => new Response(JSON.stringify(body), { status }));
+    const onMarked = vi.fn();
+    render(<Taker onMarked={onMarked} onUnmarked={() => {}} />);
+
+    act(() => void takeIt());
+
+    await screen.findByText(words);
+    expect(onMarked.mock.calls).toEqual([[1]]);
+  });
+
+  it("a take the device could not keep shows why, marks nothing and sends nothing", async () => {
+    const sent = answering();
+    vi.spyOn(crypto, "randomUUID").mockImplementation(() => {
+      throw new Error("The quota has been exceeded");
+    });
+    const onMarked = vi.fn();
+    render(<Taker onMarked={onMarked} onUnmarked={() => {}} />);
+
+    let answer: Promise<boolean> | undefined;
+    act(() => {
+      answer = takeIt();
+    });
+
+    await screen.findByText("The quota has been exceeded");
+    expect({
+      answer: await answer,
+      marked: onMarked.mock.calls.length,
+      sent: dumpsSent(sent),
+    }).toEqual({
+      answer: false,
+      marked: 0,
+      sent: [],
+    });
+  });
+
+  it("a line of its own goes into the dump as it is, tells onKept its id and marks nothing", async () => {
+    const sent = answering();
+    const onMarked = vi.fn();
+    const onKept = vi.fn();
+    render(<Taker onMarked={onMarked} onUnmarked={() => {}} />);
+
+    act(() => void dump?.take({ ...TAKING, line: () => "- [ ] call the bank", onKept }));
+    await settled(() => onKept.mock.calls.length > 0 && dumpsSent(sent).length > 0);
+
+    await screen.findByRole("status");
+    expect({
+      sent: dumpsSent(sent).map((dump) => dump.text),
+      kept: onKept.mock.calls,
+      marked: onMarked.mock.calls.length,
+    }).toEqual({ sent: ["- [ ] call the bank"], kept: [[1]], marked: 0 });
+  });
 });
