@@ -80,6 +80,29 @@ function command(frame: HTMLIFrameElement | null, func: string, args: unknown[] 
   frame?.contentWindow?.postMessage(JSON.stringify({ event: "command", func, args }), PLAYER);
 }
 
+/** Whether `event` is a string from the player in `frame`. */
+function fromPlayer(
+  event: MessageEvent,
+  frame: HTMLIFrameElement | null,
+): event is MessageEvent<string> {
+  if (event.origin !== PLAYER || typeof event.data !== "string") return false;
+  // A message from another frame on the page is not this player's. A null
+  // source is let through, since the tests' synthetic MessageEvents carry none.
+  return event.source === null || event.source === frame?.contentWindow;
+}
+
+/** A player message read as JSON, or undefined where it is none. */
+function parsed(data: string): unknown {
+  try {
+    return JSON.parse(data);
+  } catch (_malformed: unknown) {
+    // Named and typed rather than a bare `catch`, which this repo does not
+    // take: the error handled here is a string from the player's origin
+    // that is not JSON, and ignoring the message is the whole handling.
+    return undefined;
+  }
+}
+
 /**
  * The player in a video pane: position, running state, name, and the commands sent to it. A cross-origin
  * frame answers no questions, so it streams its state after one `postMessage` subscription, or the toggle would guess.
@@ -155,20 +178,10 @@ export function useVideoPlayer({
 
   useEffect(() => {
     function heard(event: MessageEvent) {
-      if (event.origin !== PLAYER || typeof event.data !== "string") return;
-      // A message from another frame on the page is not this player's. A null
-      // source is let through, since the tests' synthetic MessageEvents carry none.
-      if (event.source !== null && event.source !== frame.current?.contentWindow) return;
+      if (!fromPlayer(event, frame.current)) return;
 
-      let message: unknown;
-      try {
-        message = JSON.parse(event.data);
-      } catch (_malformed: unknown) {
-        // Named and typed rather than a bare `catch`, which this repo does not
-        // take: the error handled here is a string from the player's origin
-        // that is not JSON, and ignoring the message is the whole handling.
-        return;
-      }
+      const message = parsed(event.data);
+      if (message === undefined) return;
 
       learnVideoSettings(message);
       if ((message as { event?: unknown }).event === "onReady") {
@@ -176,16 +189,24 @@ export function useVideoPlayer({
       }
 
       const info = (message as Delivery).info;
-      level.current = keptVolume(info?.volume) ?? level.current;
-      if (typeof info?.muted === "boolean") {
-        mutedNow.current = info.muted;
-        setMuted(info.muted);
-      }
+      hearSound(info);
       // Read first: a delivery that names another video carries that video's
       // time and state, and none of it is this video's to keep.
       const which = namedVideo(named.current, info?.videoData, id);
       named.current = which.named;
       elsewhere.current = which.elsewhere;
+      hearPlace(info);
+      if (typeof info?.playerState === "number") hearState(info.playerState);
+    }
+
+    function hearSound(info: Delivery["info"]) {
+      level.current = keptVolume(info?.volume) ?? level.current;
+      if (typeof info?.muted !== "boolean") return;
+      mutedNow.current = info.muted;
+      setMuted(info.muted);
+    }
+
+    function hearPlace(info: Delivery["info"]) {
       // Every delivery carries the time and only some carry the state, so the
       // two are read apart. The time is what a stop is reported with, so it has
       // to be the one from before the stop rather than a zero the player sends
@@ -201,15 +222,16 @@ export function useVideoPlayer({
         const next = { title: nonEmpty(data.title), author: nonEmpty(data.author) };
         setDetails((was) => ({ ...was, [id]: next }));
       }
-      if (typeof info?.playerState !== "number") return;
+    }
 
+    function hearState(state: number) {
       const was = runningNow.current;
-      runningNow.current = RUNNING.has(info.playerState);
+      runningNow.current = RUNNING.has(state);
       setRunning(runningNow.current);
       if (runningNow.current) ended.current = false;
       // An ended video starts from the beginning next time, so its entry goes
       // rather than its end. Written once: the player may say `ended` again.
-      if (info.playerState === 0 && id !== undefined && !ended.current && !elsewhere.current) {
+      if (state === 0 && id !== undefined && !ended.current && !elsewhere.current) {
         ended.current = true;
         onWatchedRef.current(id, 0);
       }

@@ -90,7 +90,6 @@
         "src/lib/use-guarded-writes.ts",
         "src/lib/note/use-note-opening.ts",
         "src/lib/use-vault-events.ts",
-        "src/lib/video/use-video-player.ts",
         "src/lib/note/vault-reads.ts",
         "src/lib/note/weather-card.ts",
         "src/lib/note/write-answer.ts",

@@ -406,6 +406,25 @@ describe("the video pane", () => {
     expect(onWatched).not.toHaveBeenCalled();
   });
 
+  it("#968 the linked video played to its end writes its start once, and a new play reports again", async () => {
+    const { onWatched, unmount } = open();
+
+    await screen.findByTitle("video");
+    reports(1, 50);
+    reports(0, 300);
+    reports(0, 300);
+    expect(onWatched.mock.calls).toEqual([["dQw4w9WgXcQ", 0]]);
+
+    reports(1, 10);
+    reports(2, 12);
+    unmount();
+    expect(onWatched.mock.calls).toEqual([
+      ["dQw4w9WgXcQ", 0],
+      ["dQw4w9WgXcQ", 12],
+      ["dQw4w9WgXcQ", 12],
+    ]);
+  });
+
   it("#1188 I4 the player back on the linked video reports its own pause again", async () => {
     const { onWatched } = open();
 
