@@ -11,7 +11,6 @@ import { hashed } from "./digests";
 import { defineFoliateFake } from "./foliate-fake";
 import { act, outside, pageHooks, renderApp, settle, theRoute, VAULT } from "./home-route-fixture";
 import { COARSE, NARROW, stubMatchMedia } from "./match-media";
-import { updateWithTries } from "./update-note/stand-in";
 
 defineFoliateFake();
 
@@ -358,9 +357,9 @@ describe("the route", () => {
 
       /**
        * The app over a note holding two todos one press from done, and a
-       * today's note whose writes are refused over a stale base. `updateNote`
-       * runs its real three tries, the refusal and the read after it being
-       * what is under test.
+       * today's note the fake save checks each base against. `updateNote`
+       * tries once, so a second press that read before the first wrote fails
+       * the test; the retry is `todo-api-done-log`'s to prove (#1427).
        */
       async function twoTodos(entry?: string) {
         outside.set(daily, "## Done\n");
@@ -371,7 +370,6 @@ describe("the route", () => {
         fetchFiles.mockImplementation(async () => [...Object.keys(notes), daily]);
         fetchNote.mockImplementation(async (path: string) => outside.get(path) ?? notes[path]);
         searchNotes.mockResolvedValue([]);
-        updateNote.mockImplementation(updateWithTries(fetchNote, saveNote));
         const app = await renderApp(entry);
         await settle();
         return app;
