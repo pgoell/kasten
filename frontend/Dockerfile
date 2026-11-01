@@ -5,7 +5,7 @@
 # Build context: repo root. Bun builder, then nginx:alpine serving the static
 # bundle on port 3000.
 
-FROM oven/bun:1.3.8-alpine AS builder
+FROM oven/bun:1.4.4-alpine AS builder
 WORKDIR /app/frontend
 
 # Install from the manifests alone so the dependency layer survives source edits.

@@ -7,7 +7,7 @@ python = "3.14"
 # frontend is bun's.
 node   = "24"
 uv     = "latest"
-bun    = "1.3.8"
+bun    = "1.4.4"
 "ubi:evilmartians/lefthook" = "1.11.14"
 # The backend shells out to jj to record vault writes. Pinned rather than
 # "latest" because the same version has to be in the backend image: host and
