@@ -22,6 +22,16 @@ import { setWatched } from "@/lib/video/video";
 
 export type GuardedWrites = ReturnType<typeof useGuardedWrites>;
 
+type FocusedWriting = { path: string | undefined; isWriting: (note: string) => boolean };
+
+function restoreRefusal(note: string, focused: FocusedWriting): string | undefined {
+  if (heldText(note) !== undefined) return "That note holds text not yet saved";
+  if (focused.path === note) return "That note is open to type in";
+  // The editor's flush on focus-out is one of these.
+  if (focused.isWriting(note)) return "That note is still being saved";
+  return undefined;
+}
+
 /**
  * Writes into a note nobody is typing in: reader and video positions, highlights, links, restores.
  * They share one queue, so none races another into the same file.
@@ -31,7 +41,7 @@ export function useGuardedWrites({
   panePath,
   setNotice,
 }: {
-  focusedNote: RefObject<{ path: string | undefined; isWriting: (note: string) => boolean }>;
+  focusedNote: RefObject<FocusedWriting>;
   panePath: string | undefined;
   setNotice: Dispatch<SetStateAction<string | undefined>>;
 }) {
@@ -210,11 +220,8 @@ export function useGuardedWrites({
     (note: string, text: string, against: string, from: string): Promise<string | null> =>
       write(note, async () => {
         // Asked inside the queue, so after any write of the note queued ahead.
-        if (heldText(note) !== undefined) return "That note holds text not yet saved";
-        const focused = focusedNote.current;
-        if (focused.path === note) return "That note is open to type in";
-        // The editor's flush on focus-out is one of these.
-        if (focused.isWriting(note)) return "That note is still being saved";
+        const refused = restoreRefusal(note, focusedNote.current);
+        if (refused !== undefined) return refused;
 
         let written: Awaited<ReturnType<typeof saveNote>>;
         try {

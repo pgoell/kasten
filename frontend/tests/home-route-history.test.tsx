@@ -360,6 +360,18 @@ describe("the route", () => {
       expect(screen.getByTestId("history-diff")).toHaveTextContent("somebody else's index");
     });
 
+    it("#425 a restore the vault fails writes once and says so", async () => {
+      const app = await renderApp();
+      await settle();
+      await history(app);
+      saveNote.mockImplementationOnce(() => Promise.reject(new Error("500")));
+
+      await restore();
+
+      expect(saveNote).toHaveBeenCalledTimes(1);
+      expect(said()).toBe("The change was not restored");
+    });
+
     it("#425 A4 restores on ctrl enter with vim off", async () => {
       localStorage.setItem("kasten.vim", "off");
       try {

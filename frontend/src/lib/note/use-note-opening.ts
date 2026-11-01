@@ -28,6 +28,61 @@ import { namesAFile, pdfPage, splitTarget, wikiLinkPath } from "@/lib/wikilink";
 
 export type NoteOpening = ReturnType<typeof useNoteOpening>;
 
+/** The passage `gf` asked for, and which reader is to take it. */
+type Seek = { note: string; quote: string[] };
+
+/**
+ * Move to the book's reader, the seek armed only once the move is taken: a refused move leaves no reader to
+ * seek in, and a seek left standing would jump the next one opened.
+ */
+function openBookAt(
+  moveTo: (update: (previous: Layout) => Layout) => boolean,
+  setSeek: Dispatch<SetStateAction<Seek | undefined>>,
+  note: string,
+  text: string | undefined,
+): void {
+  if (moveTo((previous) => openBookInFocused(previous, note)) && text !== undefined) {
+    setSeek({ note, quote: [text] });
+  }
+}
+
+/**
+ * Open the note at `path` at `heading` once its text reads. A note opened while this one was read is where the
+ * reader went next, and the jump arriving late must not pull them back.
+ */
+function openAtHeading(
+  {
+    queryClient,
+    layoutNow,
+    focusedNote,
+    openInPane,
+  }: {
+    queryClient: QueryClient;
+    layoutNow: RefObject<Layout>;
+    focusedNote: RefObject<{ path: string | undefined }>;
+    openInPane: (path: string, line?: number) => Promise<boolean>;
+  },
+  path: string,
+  heading: string,
+): void {
+  // Where the read starts from is the pane the focus is in now, not
+  // `focusedNote`: a ctrl+click in another pane moves the focus there in
+  // this same call, and the ref hears of it only once React has drawn
+  // the move. Read from the ref, the click's own move would look like
+  // the reader going elsewhere and drop the open (#361).
+  const at = document.activeElement?.closest<HTMLElement>("[data-pane]")?.dataset.pane;
+  const here = tabPanes(layoutNow.current).find((each) => each.id === at);
+  const from = here === undefined ? focusedNote.current.path : here.path;
+  const open = (line?: number) => {
+    if (focusedNote.current.path === from) void openInPane(path, line);
+  };
+  void queryClient.fetchQuery({ queryKey: ["note", path], queryFn: () => fetchNote(path) }).then(
+    (text) => open(noteSectionOf(text, heading)?.line),
+    // A note that will not read is still worth opening, at the top.
+    () => open(),
+  );
+}
+
 /** Where a search hit found its line in a file, which is what the opener goes to. */
 type FilePlace = NonNullable<SearchHit["place"]>;
 
@@ -82,8 +137,7 @@ export function useNoteOpening({
 }) {
   const { data, html, assets, linkable } = listings;
   const queryClient = useQueryClient();
-  /** The passage `gf` asked for, and which reader is to take it. */
-  const [seek, setSeek] = useState<{ note: string; quote: string[] }>();
+  const [seek, setSeek] = useState<Seek>();
 
   /**
    * Open a note in the focused pane, once the vault holds what was typed here. A refused save leaves the pane as it was.
@@ -184,11 +238,7 @@ export function useNoteOpening({
       }
       if (!(await saveFirst())) return;
 
-      // Armed only once the move is taken: a refused move leaves no reader to
-      // seek in, and a seek left standing would jump the next one opened.
-      if (moveTo((previous) => openBookInFocused(previous, note)) && text !== undefined) {
-        setSeek({ note, quote: [text] });
-      }
+      openBookAt(moveTo, setSeek, note, text);
     },
     [data, saveFirst, setLayout, setFocusSignal, moveTo, openHtmlInPane],
   );
@@ -230,27 +280,7 @@ export function useNoteOpening({
         return;
       }
       if (paths.includes(path) && heading !== null) {
-        // A note opened while this one was read is where the reader went
-        // next, and the jump arriving late must not pull them back.
-        //
-        // Where the read starts from is the pane the focus is in now, not
-        // `focusedNote`: a ctrl+click in another pane moves the focus there in
-        // this same call, and the ref hears of it only once React has drawn
-        // the move. Read from the ref, the click's own move would look like
-        // the reader going elsewhere and drop the open (#361).
-        const at = document.activeElement?.closest<HTMLElement>("[data-pane]")?.dataset.pane;
-        const here = tabPanes(layoutNow.current).find((each) => each.id === at);
-        const from = here === undefined ? focusedNote.current.path : here.path;
-        const open = (line?: number) => {
-          if (focusedNote.current.path === from) void openInPane(path, line);
-        };
-        void queryClient
-          .fetchQuery({ queryKey: ["note", path], queryFn: () => fetchNote(path) })
-          .then(
-            (text) => open(noteSectionOf(text, heading)?.line),
-            // A note that will not read is still worth opening, at the top.
-            () => open(),
-          );
+        openAtHeading({ queryClient, layoutNow, focusedNote, openInPane }, path, heading);
         return;
       }
       if (paths.includes(path)) {
