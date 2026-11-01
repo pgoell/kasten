@@ -162,6 +162,20 @@ vi.mock("@/components/file-explorer", async (importOriginal) => {
 
 pageHooks();
 
+/** `updateNote` with its three tries, read and change and save, a refusal past the third thrown. */
+async function updateWithTries(path: string, change: (text: string) => string | null) {
+  for (let tries = 1; ; tries++) {
+    const text: string = await fetchNote(path);
+    const next = change(text);
+    if (next === null) return null;
+    try {
+      return await saveNote(path, next, false, noteBase(text));
+    } catch (error) {
+      if (!(error instanceof ChangedOnDisk) || tries === 3) throw error;
+    }
+  }
+}
+
 describe("the route", () => {
   theRoute();
 
@@ -381,20 +395,7 @@ describe("the route", () => {
       fetchNote.mockImplementation(async (path: string) =>
         path === "other.md" ? outside.get(path) : VAULT[path],
       );
-      updateNote.mockImplementation(
-        async (path: string, change: (text: string) => string | null) => {
-          for (let tries = 1; ; tries++) {
-            const text: string = await fetchNote(path);
-            const next = change(text);
-            if (next === null) return null;
-            try {
-              return await saveNote(path, next, false, noteBase(text));
-            } catch (error) {
-              if (!(error instanceof ChangedOnDisk) || tries === 3) throw error;
-            }
-          }
-        },
-      );
+      updateNote.mockImplementation(updateWithTries);
     }
 
     it("#424 links on the read after a refusal when the line still says the same", async () => {
