@@ -1,4 +1,3 @@
-import { act } from "@testing-library/react";
 import { heldText, heldTexts, landedAs } from "@/lib/held-text";
 import { noteBase } from "@/lib/note-base";
 import {
@@ -223,8 +222,7 @@ describe("useAutosave", () => {
         again.seed("index.md", "outside");
         expect(again.allowReload("outside")).toBe(true);
         show("outside");
-        await act(async () => vault.request(0)?.answer());
-        await settled();
+        await vault.answer(0);
 
         expect(again.status()).toBe("saved");
         expect(heldTexts("index.md")).toEqual([]);

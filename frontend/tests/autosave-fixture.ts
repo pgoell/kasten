@@ -276,6 +276,14 @@ export function server(start: string) {
         });
       }),
   );
+  const arrive = async (at: number) => {
+    await settled();
+    requests[at]?.arrive();
+  };
+  const answer = async (at: number) => {
+    await act(async () => requests[at]?.answer());
+    await settled();
+  };
   return {
     disk: () => disk,
     /** Somebody else's write. */
@@ -284,16 +292,13 @@ export function server(start: string) {
     },
     request: (at: number) => requests[at],
     /** The write reaches the server, and the page hears nothing back. */
-    arrive: async (at: number) => {
-      await settled();
-      requests[at]?.arrive();
-    },
+    arrive,
+    /** The answer of a write that already reached the server reaches the page. */
+    answer,
     /** The write reaches the server and its answer reaches the page. */
     land: async (at: number) => {
-      await settled();
-      requests[at]?.arrive();
-      await act(async () => requests[at]?.answer());
-      await settled();
+      await arrive(at);
+      await answer(at);
     },
     /** The write fails on the way with no word from the vault. */
     fail: async (at: number) => {
