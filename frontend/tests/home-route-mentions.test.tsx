@@ -1,7 +1,7 @@
 import { EditorView } from "@codemirror/view";
 import { fireEvent, screen } from "@testing-library/react";
 import { useMemo } from "react";
-import { ChangedOnDisk, type TodoHit } from "@/lib/api";
+import type { TodoHit } from "@/lib/api";
 import type { PdfRenderer } from "@/lib/book/pdf-view";
 import { holdText } from "@/lib/held-text";
 import { noteBase } from "@/lib/note-base";
@@ -10,6 +10,7 @@ import { hashed } from "./digests";
 import { defineFoliateFake } from "./foliate-fake";
 import { act, outside, pageHooks, renderApp, settle, theRoute, VAULT } from "./home-route-fixture";
 import { COARSE, NARROW, stubMatchMedia } from "./match-media";
+import { updateWithTries } from "./update-note/stand-in";
 
 defineFoliateFake();
 
@@ -161,20 +162,6 @@ vi.mock("@/components/file-explorer", async (importOriginal) => {
 });
 
 pageHooks();
-
-/** `updateNote` with its three tries, read and change and save, a refusal past the third thrown. */
-async function updateWithTries(path: string, change: (text: string) => string | null) {
-  for (let tries = 1; ; tries++) {
-    const text: string = await fetchNote(path);
-    const next = change(text);
-    if (next === null) return null;
-    try {
-      return await saveNote(path, next, false, noteBase(text));
-    } catch (error) {
-      if (!(error instanceof ChangedOnDisk) || tries === 3) throw error;
-    }
-  }
-}
 
 describe("the route", () => {
   theRoute();
@@ -395,7 +382,7 @@ describe("the route", () => {
       fetchNote.mockImplementation(async (path: string) =>
         path === "other.md" ? outside.get(path) : VAULT[path],
       );
-      updateNote.mockImplementation(updateWithTries);
+      updateNote.mockImplementation(updateWithTries(fetchNote, saveNote));
     }
 
     it("#424 links on the read after a refusal when the line still says the same", async () => {
