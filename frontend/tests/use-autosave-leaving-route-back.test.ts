@@ -228,6 +228,25 @@ describe("useAutosave", () => {
         expect(heldTexts("index.md").map((entry) => entry.content)).toEqual(["T1 T2"]);
       });
 
+      it("names another note's own base when the leave flush lands after that note was opened", async () => {
+        const vault = server("start");
+        const { note, type } = withEditor("start");
+
+        type("T1");
+        note.unmount();
+        const { again, type: retype, show } = cameBack(note);
+        again.seed("b.md", "b");
+        show("b");
+        again.open("b.md");
+        again.allowReload("b");
+        await vault.land(0);
+        retype("b2");
+        await idle();
+
+        // The follow of the visit to index.md answers after it ended, and leaves b.md's base alone.
+        expect(vault.request(1)).toMatchObject({ content: "b2", base: noteBase("b") });
+      });
+
       it("keeps another note's queue apart after the route came back", async () => {
         const vault = server("start");
         const { note, type } = withEditor("start");
