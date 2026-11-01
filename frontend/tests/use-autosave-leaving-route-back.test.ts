@@ -209,6 +209,28 @@ describe("useAutosave", () => {
         expect(again.status()).toBe("saved");
       });
 
+      it("keeps a reload's base when the leave flush answers after the route came back and took the reload (#1433)", async () => {
+        const vault = server("start");
+        const { note, type } = withEditor("start");
+
+        type("T1");
+        note.unmount();
+        const { again, type: retype, show } = cameBack(note);
+        // The flush lands, somebody writes over it, and their change reaches the page before the flush's answer.
+        await vault.arrive(0);
+        vault.write("outside");
+        again.seed("index.md", "outside");
+        expect(again.allowReload("outside")).toBe(true);
+        show("outside");
+        await vault.answer(0);
+
+        expect(again.status()).toBe("saved");
+        expect(heldTexts("index.md")).toEqual([]);
+        retype("outside x");
+        await idle();
+        expect(vault.request(1)).toMatchObject({ content: "outside x", base: noteBase("outside") });
+      });
+
       it("holds both texts when the leave flush is refused after the route came back and text was typed", async () => {
         const vault = server("start");
         const { note, type } = withEditor("start");
