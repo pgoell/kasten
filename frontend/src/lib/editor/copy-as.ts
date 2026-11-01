@@ -133,30 +133,8 @@ function span(node: SyntaxNode, source: string, format: Format): string {
       return prose(splitTarget(target).alias ?? target, format);
     }
     case "Link":
-    case "Image": {
-      // `[label](url)`: the label runs from after the first bracket to the
-      // closing one, the second LinkMark, so a reference's `[label]` after it
-      // stays out.
-      const close = node.getChildren("LinkMark")[1];
-      const start = node.from + (node.name === "Image" ? 2 : 1);
-      const label = inline(node, source, format, start, close ? close.from : node.to);
-      // `<>` is an empty address (#443).
-      const address = linkAddress(node, sourceOf(source)) ?? "";
-      // A script would run in the chat's page on a click, so it goes out as
-      // the text alone (#549).
-      if (isScript(address)) return label;
-      if (address) return link(label, address, format);
-      // The parser reads any `[text]` or `![alt]` with no `(url)` as a link
-      // or an image. One no definition resolves (#439) goes out as the editor
-      // shows it, brackets and any `[ref]` after them included (#442).
-      // `[a]()`, with its `(` mark, is a link to nowhere and goes out as its
-      // label.
-      if (close && node.getChildren("LinkMark").length < 3) {
-        const open = node.name === "Image" ? "![" : "[";
-        return `${open}${label}${prose(source.slice(close.from, node.to), format)}`;
-      }
-      return label;
-    }
+    case "Image":
+      return linkSpan(node, source, format);
     case "Autolink": {
       const url = node.getChild("URL");
       return link("", url ? source.slice(url.from, url.to) : text, format);
@@ -174,6 +152,31 @@ function span(node: SyntaxNode, source: string, format: Format): string {
     default:
       return node.firstChild ? inline(node, source, format) : prose(text, format);
   }
+}
+
+function linkSpan(node: SyntaxNode, source: string, format: Format): string {
+  // `[label](url)`: the label runs from after the first bracket to the
+  // closing one, the second LinkMark, so a reference's `[label]` after it
+  // stays out.
+  const close = node.getChildren("LinkMark")[1];
+  const start = node.from + (node.name === "Image" ? 2 : 1);
+  const label = inline(node, source, format, start, close ? close.from : node.to);
+  // `<>` is an empty address (#443).
+  const address = linkAddress(node, sourceOf(source)) ?? "";
+  // A script would run in the chat's page on a click, so it goes out as
+  // the text alone (#549).
+  if (isScript(address)) return label;
+  if (address) return link(label, address, format);
+  // The parser reads any `[text]` or `![alt]` with no `(url)` as a link
+  // or an image. One no definition resolves (#439) goes out as the editor
+  // shows it, brackets and any `[ref]` after them included (#442).
+  // `[a]()`, with its `(` mark, is a link to nowhere and goes out as its
+  // label.
+  if (close && node.getChildren("LinkMark").length < 3) {
+    const open = node.name === "Image" ? "![" : "[";
+    return `${open}${label}${prose(source.slice(close.from, node.to), format)}`;
+  }
+  return label;
 }
 
 /** The blocks under `node`, each rendered and set apart from the next. */
@@ -254,20 +257,36 @@ function callout(node: SyntaxNode, source: string, format: Format): string | nul
   // it: a paragraph that starts lower down, under a bare `>`, opens nothing.
   if (source.slice(mark.to, first.from).trim() !== "") return null;
   const newline = source.indexOf("\n", first.from);
-  let lineEnd = newline === -1 || newline > first.to ? first.to : newline;
-  const header = parseCallout(source.slice(first.from, lineEnd));
+  const header = parseCallout(
+    source.slice(first.from, newline === -1 || newline > first.to ? first.to : newline),
+  );
   if (!header) return null;
-  // An emphasis opened in the title and closed on a later line belongs to the
-  // title, or the body would print it a second time.
-  for (let child = first.firstChild; child; child = child.nextSibling) {
-    if (child.from < lineEnd && child.to > lineEnd) lineEnd = child.to;
-  }
+  const lineEnd = titleEnd(first, newline);
 
   const title = header.titled
     ? inline(first, source, format, first.from + header.length, lineEnd, plain)
         .trim()
         .replace(/\n/g, " ")
     : prose(header.title, format);
+  const body = calloutBody(first, lineEnd, source, format).filter((part) => part !== "");
+  if (format === "html") return `<p><strong>${title}</strong></p>${body.join("")}`;
+  return [`*${title}*`, body.join("\n\n")].filter((part) => part !== "").join("\n");
+}
+
+/**
+ * Where a callout's title ends in its first paragraph. An emphasis opened in the title and closed on a
+ * later line belongs to the title, or the body would print it a second time.
+ */
+function titleEnd(first: SyntaxNode, newline: number): number {
+  let lineEnd = newline === -1 || newline > first.to ? first.to : newline;
+  for (let child = first.firstChild; child; child = child.nextSibling) {
+    if (child.from < lineEnd && child.to > lineEnd) lineEnd = child.to;
+  }
+  return lineEnd;
+}
+
+/** The blocks under a callout's title, the rest of its first paragraph first. */
+function calloutBody(first: SyntaxNode, lineEnd: number, source: string, format: Format): string[] {
   const parts: string[] = [];
   // The paragraph runs on past the header when the body follows on the next line.
   if (lineEnd < first.to) {
@@ -278,9 +297,7 @@ function callout(node: SyntaxNode, source: string, format: Format): string | nul
     if (MARKS.has(child.name) || UNSEEN.has(child.name)) continue;
     parts.push(block(child, source, format));
   }
-  const body = parts.filter((part) => part !== "");
-  if (format === "html") return `<p><strong>${title}</strong></p>${body.join("")}`;
-  return [`*${title}*`, body.join("\n\n")].filter((part) => part !== "").join("\n");
+  return parts;
 }
 
 /**
@@ -299,17 +316,7 @@ function list(node: SyntaxNode, source: string, format: Format): string {
   const items = node.getChildren("ListItem").map((item) => {
     const parts: string[] = [];
     for (let child = item.firstChild; child; child = child.nextSibling) {
-      if (child.name === "ListMark") continue;
-      if (child.name === "Task") {
-        const marker = child.getChild("TaskMarker");
-        const done = marker !== null && /x/i.test(source.slice(marker.from, marker.to));
-        parts.push(`${done ? "☑" : "☐"} ${inline(child, source, format).trim()}`);
-      } else if (child.name === "Paragraph") {
-        // A list item's paragraph as bare text, so a tight list stays tight.
-        parts.push(inline(child, source, format));
-      } else {
-        parts.push(block(child, source, format));
-      }
+      if (child.name !== "ListMark") parts.push(itemPart(child, source, format));
     }
 
     if (format === "html") return `<li>${parts.join("")}</li>`;
@@ -323,6 +330,17 @@ function list(node: SyntaxNode, source: string, format: Format): string {
   if (format !== "html") return items.join("\n");
   const tag = ordered ? "ol" : "ul";
   return `<${tag}>${items.join("")}</${tag}>`;
+}
+
+function itemPart(child: SyntaxNode, source: string, format: Format): string {
+  if (child.name === "Task") {
+    const marker = child.getChild("TaskMarker");
+    const done = marker !== null && /x/i.test(source.slice(marker.from, marker.to));
+    return `${done ? "☑" : "☐"} ${inline(child, source, format).trim()}`;
+  }
+  // A list item's paragraph as bare text, so a tight list stays tight.
+  if (child.name === "Paragraph") return inline(child, source, format);
+  return block(child, source, format);
 }
 
 function table(node: SyntaxNode, source: string, format: Format): string {
