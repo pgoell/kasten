@@ -95,6 +95,7 @@ says what does reach it.
 | `shell/chat/main.mjs` | Starts it with the real SDK on `0.0.0.0:7682` |
 | `shell/chat/stub.mjs` | Starts it with a scripted session, for work on the pane. Not in the image |
 | `shell/chat/runner.test.mjs` | Its tests, `mise run shell:test` |
+| `shell/chat/stub.test.mjs` | The stub's stop test, `mise run shell:test` |
 | `/opt/kasten-chat/` in the image | `runner.mjs` and `main.mjs` |
 | `~/.kasten-chat/` in the home volume | The same two files, copied on every start, beside the SDK the entrypoint installs |
 
