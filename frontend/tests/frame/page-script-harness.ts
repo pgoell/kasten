@@ -15,6 +15,8 @@ export const PAGE = "fixture.html";
  */
 export interface Message {
   kasten?: string;
+  /** The page's number for a selection it posted, which a take hands back. */
+  seq?: number;
   key?: string;
   fixture?: string;
   y?: number;
@@ -135,7 +137,7 @@ export function marksPage(head = "", extra = ""): string {
 }
 
 /** A frame that takes the passage when the page tells it to go, as a window other than kasten would. */
-export const NESTED = `<iframe srcdoc="<script>addEventListener('message', () => parent.postMessage({kasten: 'take', id: 1}, '*'));</script>"></iframe>`;
+export const NESTED = `<iframe srcdoc="<script>addEventListener('message', () => parent.postMessage({kasten: 'take', id: 1, seq: 1}, '*'));</script>"></iframe>`;
 
 let frame: HTMLIFrameElement | undefined;
 export const messages: Message[] = [];
@@ -210,6 +212,18 @@ export function lastSelection(): Message | undefined {
 /** Selects a range of the page as a mouse would, and ends it with a mouseup. */
 export function selectMouse(range: [string, number, string, number]) {
   sendToPage({ range, mouseup: true });
+}
+
+/**
+ * Selects a range as a mouse would, waits for the page to post it, and answers its
+ * number, which a take hands back as kasten does.
+ */
+export async function selectPosted(range: [string, number, string, number]): Promise<number> {
+  const before = messages.length;
+  selectMouse(range);
+  const fresh = () => messages.slice(before).find((m) => m.kasten === "selection" && m.text);
+  await expect.poll(fresh).not.toBeUndefined();
+  return fresh()?.seq ?? -1;
 }
 
 /** The page's marks and markup, asked for and waited on. */

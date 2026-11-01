@@ -32,6 +32,8 @@ import { beginLeader, paneOpener } from "@/lib/which-key";
 interface Held {
   passage: PagePassage;
   at: Anchor | null;
+  /** The page's number for the selection, which a take hands back to mark it (#897). */
+  seq: number | undefined;
 }
 
 const LABEL = "shrink-0 text-[11px] tracking-wide text-k-muted uppercase";
@@ -128,15 +130,14 @@ export function HtmlPane({
 
   /**
    * The take into today's dump, the toast about it and the Undo. The page is
-   * told of the take through `onMarked` and of its Undo through `onUnmarked`.
+   * told of the take through the take's `onKept` and of its Undo through `onUnmarked`.
    */
   const dump = useDumpTake({
     archive,
-    onMarked: (id) => {
+    onMarked: () => {
       // A selection made after `y` is the reader's next one, so only a hold that is still
       // the take's own is cleared (the page's selection message lands while the keep runs).
       if (heldRef.current === null) hold(null);
-      frame.current?.contentWindow?.postMessage({ kasten: "take", id }, "*");
     },
     onUnmarked: (id) => {
       const anchor = shared.current.get(id);
@@ -229,6 +230,8 @@ export function HtmlPane({
       linkIn: (note) => pageLink(path, passage, note),
       source: passage.heading === "" ? fileOf(path) : `${passage.heading}, ${fileOf(path)}`,
       top: low(taken.at),
+      onKept: (id) =>
+        frame.current?.contentWindow?.postMessage({ kasten: "take", id, seq: taken.seq }, "*"),
     });
     if (!kept) hold(taken);
   }
@@ -316,7 +319,8 @@ export function HtmlPane({
       const { text, heading, anchor, rect } = selection;
       if (!samePassage(heldRef.current?.passage, selection)) spendActivation();
       const at = placeOf(rect, frame.current, wrapper.current, coarseRef.current);
-      hold({ passage: { text, heading, anchor }, at });
+      const seq = typeof data.seq === "number" ? data.seq : undefined;
+      hold({ passage: { text, heading, anchor }, at, seq });
     }
 
     function unselect() {

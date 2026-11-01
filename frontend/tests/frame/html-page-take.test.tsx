@@ -26,6 +26,7 @@ import {
   reported,
   SELECTING,
   selectMouse,
+  selectPosted,
   sendToPage,
 } from "./page-script-harness";
 
@@ -158,8 +159,8 @@ it("a take marks the passage with the kasten-taken highlight and leaves the mark
   await mount(marksPage('<meta name="kasten-theme" content="tokens">'));
   const before = await marks();
 
-  selectMouse(["a", 6, "a", 11]);
-  sendToPage({ kasten: "take", id: 1 });
+  const seq = await selectPosted(["a", 6, "a", 11]);
+  sendToPage({ kasten: "take", id: 1, seq });
 
   const after = await marks();
   expect(before?.texts).toEqual([]);
@@ -170,10 +171,8 @@ it("a take marks the passage with the kasten-taken highlight and leaves the mark
 
 it("two takes stay marked, and untake removes only the last", async () => {
   await mount(marksPage());
-  selectMouse(["a", 6, "a", 11]);
-  sendToPage({ kasten: "take", id: 1 });
-  selectMouse(["b", 6, "b", 10]);
-  sendToPage({ kasten: "take", id: 2 });
+  sendToPage({ kasten: "take", id: 1, seq: await selectPosted(["a", 6, "a", 11]) });
+  sendToPage({ kasten: "take", id: 2, seq: await selectPosted(["b", 6, "b", 10]) });
   expect((await marks())?.texts).toEqual(["bravo", "echo"]);
 
   sendToPage({ kasten: "untake", id: 2 });
@@ -183,42 +182,41 @@ it("two takes stay marked, and untake removes only the last", async () => {
 
 it("a take on a plain page marks it too", async () => {
   await mount(marksPage());
-  selectMouse(["a", 6, "a", 11]);
+  const seq = await selectPosted(["a", 6, "a", 11]);
 
-  sendToPage({ kasten: "take", id: 1 });
+  sendToPage({ kasten: "take", id: 1, seq });
 
   expect((await marks())?.texts).toEqual(["bravo"]);
 });
 
 it("a take message from another window is ignored", async () => {
   await mount(marksPage("", NESTED));
-  selectMouse(["a", 6, "a", 11]);
+  const seq = await selectPosted(["a", 6, "a", 11]);
 
   sendToPage("nest");
   await expect.poll(() => messages.some((m) => m.fixture === "heard")).toBe(true);
   expect((await marks())?.texts).toEqual([]);
 
-  sendToPage({ kasten: "take", id: 2 });
+  sendToPage({ kasten: "take", id: 2, seq });
   expect((await marks())?.texts).toEqual(["bravo"]);
 });
 
 it("a take with nothing selected before marks nothing", async () => {
   await mount(marksPage());
-  sendToPage({ kasten: "take", id: 1 });
+  sendToPage({ kasten: "take", id: 1, seq: 1 });
   expect((await marks())?.texts).toEqual([]);
 
-  selectMouse(["a", 6, "a", 11]);
-  sendToPage({ kasten: "take", id: 1 });
+  sendToPage({ kasten: "take", id: 1, seq: await selectPosted(["a", 6, "a", 11]) });
 
   expect((await marks())?.texts).toEqual(["bravo"]);
 });
 
 it("a take clears the page's selection so the mark shows", async () => {
   await mount(marksPage());
-  selectMouse(["a", 6, "a", 11]);
+  const seq = await selectPosted(["a", 6, "a", 11]);
   expect((await marks())?.selection).toBe("bravo");
 
-  sendToPage({ kasten: "take", id: 1 });
+  sendToPage({ kasten: "take", id: 1, seq });
 
   const after = await marks();
   expect(after?.texts).toEqual(["bravo"]);
@@ -227,14 +225,62 @@ it("a take clears the page's selection so the mark shows", async () => {
 
 it("untake removes the mark of its own take, not the last", async () => {
   await mount(marksPage());
-  selectMouse(["a", 6, "a", 11]);
-  sendToPage({ kasten: "take", id: 1 });
-  selectMouse(["b", 6, "b", 10]);
-  sendToPage({ kasten: "take", id: 2 });
+  sendToPage({ kasten: "take", id: 1, seq: await selectPosted(["a", 6, "a", 11]) });
+  sendToPage({ kasten: "take", id: 2, seq: await selectPosted(["b", 6, "b", 10]) });
 
   sendToPage({ kasten: "untake", id: 1 });
 
   expect((await marks())?.texts).toEqual(["echo"]);
+});
+
+it("a take marks the passage of its number, and keeps a selection made since (#897)", async () => {
+  await mount(marksPage());
+  const first = await selectPosted(["a", 6, "a", 11]);
+  await selectPosted(["b", 6, "b", 10]);
+
+  sendToPage({ kasten: "take", id: 1, seq: first });
+
+  const after = await marks();
+  expect(after?.texts).toEqual(["bravo"]);
+  expect(after?.selection).toBe("echo");
+});
+
+it("a take whose number the page did not post marks nothing (#897)", async () => {
+  await mount(marksPage());
+  const seq = await selectPosted(["a", 6, "a", 11]);
+
+  sendToPage({ kasten: "take", id: 1, seq: seq + 1 });
+  sendToPage({ kasten: "take", id: 2 });
+
+  const after = await marks();
+  expect(after?.texts).toEqual([]);
+  expect(after?.selection).toBe("bravo");
+});
+
+it("a take after a scroll posted the selection again marks it and clears it (#897)", async () => {
+  await mount(marksPage());
+  const seq = await selectPosted(["a", 6, "a", 11]);
+  sendToPage({ scrollBy: 100 });
+  await expect.poll(() => (lastSelection()?.seq ?? 0) > seq).toBe(true);
+
+  sendToPage({ kasten: "take", id: 1, seq: lastSelection()?.seq });
+
+  const after = await marks();
+  expect(after?.texts).toEqual(["bravo"]);
+  expect(after?.selection).toBe("");
+});
+
+it("a take of a passage a scroll posted again since still clears it (#897)", async () => {
+  await mount(marksPage());
+  const seq = await selectPosted(["a", 6, "a", 11]);
+  sendToPage({ scrollBy: 100 });
+  await expect.poll(() => (lastSelection()?.seq ?? 0) > seq).toBe(true);
+
+  sendToPage({ kasten: "take", id: 1, seq });
+
+  const after = await marks();
+  expect(after?.texts).toEqual(["bravo"]);
+  expect(after?.selection).toBe("");
 });
 
 it("a selection that starts at the document itself still posts", async () => {
