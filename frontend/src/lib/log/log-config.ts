@@ -26,9 +26,9 @@ export function logConfig(): LogConfig | null {
 }
 
 /**
- * Reads log.md as a new read, numbered after every read before it. An answer
- * lands only when no newer one has, so a slow older read cannot overwrite a newer
- * one. A failed read keeps the config it has. Never rejects, so nothing is unhandled.
+ * Reads log.md as a new read, numbered after every read before it. Only the newest
+ * read's answer lands: an older one predates a write, even when the newer read
+ * fails (#829). A failed read keeps the config it has. Never rejects, so nothing is unhandled.
  */
 function read(): void {
   const number = ++latest;
@@ -41,7 +41,7 @@ function read(): void {
     .then(
       (arrived) => {
         out.delete(number);
-        if (number <= drawn) return;
+        if (number <= drawn || number < latest) return;
         drawn = number;
         config = arrived;
         for (const listener of listeners) listener();
