@@ -10,6 +10,7 @@ import {
   dropped,
   dumpsSent,
   fromPage,
+  PASSAGE,
   PATH,
   renderPane,
   selection,
@@ -213,5 +214,69 @@ describe("a take out of an html page that moved on before it landed", () => {
     await screen.findByText("Put into n");
     const change = updateNote.mock.calls[0]?.[1] as (text: string) => string;
     expect(change("# n\n")).toContain("[H](../x/a%5D%5Db.html#s1)");
+  });
+});
+
+describe("a take the device did not keep", () => {
+  /** Holds the keep and makes it fail, until the test lets it go. */
+  function refusing() {
+    let release = () => {};
+    gate.hold = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    gate.refuse = new Error("No room on this device");
+    return () => {
+      release();
+    };
+  }
+
+  it("leaves a selection made after y held, and the button takes that one (#899)", async () => {
+    const release = refusing();
+    const sent = answering();
+    const { frame } = renderPane();
+    // jsdom lays nothing out, so the frame and its wrapper are given a box for the button to sit in.
+    const box = { x: 0, y: 0, left: 0, top: 0, width: 600, height: 400, right: 600, bottom: 400 };
+    const measured = { ...box, toJSON: () => ({}) } as DOMRect;
+    vi.spyOn(frame, "getBoundingClientRect").mockReturnValue(measured);
+    vi.spyOn(frame.parentElement as HTMLElement, "getBoundingClientRect").mockReturnValue(measured);
+
+    frame.focus();
+    fromPage(frame.contentWindow, selection());
+    const first = takeButton()?.style.top;
+    yFromPage(frame);
+    const later = { left: 100, top: 300, right: 160, bottom: 320 };
+    fromPage(frame.contentWindow, selection({ text: "A later passage.", rect: later }));
+    const second = takeButton()?.style.top;
+    release();
+    await screen.findByText("No room on this device");
+    expect({ moved: first !== second, top: takeButton()?.style.top }).toEqual({
+      moved: true,
+      top: second,
+    });
+
+    gate.hold = null;
+    gate.refuse = null;
+    fireEvent.click(takeButton() as HTMLElement);
+    await screen.findByText("Taken into today's dump");
+    expect(dumpsSent(sent).map((dump) => dump.text.includes("A later passage."))).toEqual([true]);
+  });
+
+  it("with no selection made after y, puts the passage back for the next take", async () => {
+    const release = refusing();
+    const sent = answering();
+    const { frame } = renderPane();
+
+    frame.focus();
+    fromPage(frame.contentWindow, selection());
+    yFromPage(frame);
+    release();
+    await screen.findByText("No room on this device");
+    expect(takeButton()).not.toBeNull();
+
+    gate.hold = null;
+    gate.refuse = null;
+    fireEvent.click(takeButton() as HTMLElement);
+    await screen.findByText("Taken into today's dump");
+    expect(dumpsSent(sent).map((dump) => dump.text.includes(PASSAGE.text))).toEqual([true]);
   });
 });

@@ -213,7 +213,8 @@ export function HtmlPane({
   /**
    * Put the held passage into today's dump, through the dump path the take
    * shares with the PDF pane. Taken off the ref at once, so a second `y` finds
-   * nothing to take. A passage the dump did not keep goes back on hold.
+   * nothing to take. A passage the dump did not keep goes back on hold, unless
+   * the reader selected another since `y` (#899).
    */
   async function take() {
     // Taken off the ref at once, and the press over with it, so a second `y`
@@ -233,7 +234,7 @@ export function HtmlPane({
       onKept: (id) =>
         frame.current?.contentWindow?.postMessage({ kasten: "take", id, seq: taken.seq }, "*"),
     });
-    if (!kept) hold(taken);
+    if (!kept && heldRef.current === null) hold(taken);
   }
   /**
    * Save a story to share later: a `#share` todo in today's dump, linked to the

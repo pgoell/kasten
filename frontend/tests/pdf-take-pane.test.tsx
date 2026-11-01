@@ -20,14 +20,20 @@ vi.mock("@/lib/api", () => {
   return { fetchNote, saveNote, updateNote, searchNotes, ChangedOnDisk };
 });
 
-/** Holds each take's keep until the test lets it go, so two takes can be in flight at once. */
-const { gate } = vi.hoisted(() => ({ gate: { hold: null as Promise<void> | null } }));
+/**
+ * Holds each take's keep until the test lets it go, so two takes can be in flight at
+ * once, and makes it fail where the test says so.
+ */
+const { gate } = vi.hoisted(() => ({
+  gate: { hold: null as Promise<void> | null, refuse: null as Error | null },
+}));
 vi.mock("@/lib/outbox", async (importOriginal) => {
   const real = await importOriginal<typeof import("@/lib/outbox")>();
   return {
     ...real,
     keep: async (text: string, date: string) => {
       if (gate.hold !== null) await gate.hold;
+      if (gate.refuse !== null) throw gate.refuse;
       return real.keep(text, date);
     },
   };
@@ -154,6 +160,18 @@ async function drained() {
   await act(() => new Promise<void>((resolve) => setImmediate(resolve)));
 }
 
+/** Holds the keep and makes it fail, until the test lets it go. */
+function refusing() {
+  let release = () => {};
+  gate.hold = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  gate.refuse = new Error("No room on this device");
+  return () => {
+    release();
+  };
+}
+
 /** Drop the outbox's database, which only goes once the outbox has let go of it. */
 function dropped(): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -176,6 +194,7 @@ beforeEach(async () => {
   searchNotes.mockResolvedValue([]);
   updateNote.mockResolvedValue(null);
   gate.hold = null;
+  gate.refuse = null;
   savedRects = Object.getOwnPropertyDescriptor(Range.prototype, "getClientRects");
   Object.defineProperty(Range.prototype, "getClientRects", {
     configurable: true,
@@ -472,5 +491,42 @@ describe("taking a passage out of a pdf", () => {
       button: screen.queryByRole("button", { name: "Take the passage" }) !== null,
       selected: document.getSelection()?.toString(),
     }).toEqual({ button: true, selected: "Three." });
+  });
+
+  it("a take the device did not keep leaves a selection made after y held, and y takes that one (#899)", async () => {
+    const sent = answering();
+    const release = refusing();
+    render(<Pdf />);
+    select(pageTwo());
+    fireEvent.keyDown(pageTwo(), { key: "y" });
+    select(screen.getByText("Three."));
+    // The selection's own change events are queued tasks, so they land before the keep fails.
+    await act(() => new Promise<void>((resolve) => setImmediate(resolve)));
+
+    release();
+    await screen.findByText("No room on this device");
+    gate.hold = null;
+    gate.refuse = null;
+    fireEvent.keyDown(pageTwo(), { key: "y" });
+    await waitFor(() => expect(dumpsSent(sent)).toHaveLength(1));
+    expect(dumpsSent(sent).map((dump) => dump.text.includes("Three."))).toEqual([true]);
+  });
+
+  it("a take the device did not keep, with nothing selected since, goes back for the next y", async () => {
+    const sent = answering();
+    const release = refusing();
+    render(<Pdf />);
+    select(pageTwo());
+    // The selection's own change events are queued tasks, so they land before `y`.
+    await act(() => new Promise<void>((resolve) => setImmediate(resolve)));
+    fireEvent.keyDown(pageTwo(), { key: "y" });
+
+    release();
+    await screen.findByText("No room on this device");
+    gate.hold = null;
+    gate.refuse = null;
+    fireEvent.keyDown(pageTwo(), { key: "y" });
+    await waitFor(() => expect(dumpsSent(sent)).toHaveLength(1));
+    expect(dumpsSent(sent).map((dump) => dump.text.includes(WORDS))).toEqual([true]);
   });
 });

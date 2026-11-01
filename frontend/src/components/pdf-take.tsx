@@ -261,7 +261,8 @@ export function usePdfTake(o: {
         }
       },
     });
-    if (!kept) hold(taken);
+    // Back on hold for another try, unless the reader selected something since `y` (#899).
+    if (!kept && heldRef.current === null) hold(taken);
   }
 
   function onKeyDown(event: ReactKeyboardEvent): boolean {
