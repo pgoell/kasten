@@ -48,17 +48,18 @@ export function proseLines(doc: Text, first: number): { line: number; text: stri
 }
 
 /**
- * An ordered marker before a comment, which opens an HTML block only in a list: under a
- * paragraph a number past 1 starts none, and only the parser holds the line above (#1453).
+ * A comment a line cannot place: after an ordered marker, which opens a block only in a list
+ * (#1453), four or more in under an item, bullet or not, or left open past its line (#1452).
  */
-const ORDERED_COMMENT = /^[ \t>]*[0-9]{1,9}[.)][ \t]+<!--/m;
+const UNSURE_COMMENT =
+  /^[ \t>]*[0-9]{1,9}[.)][ \t]+<!--|^[ \t>]*(?: {4}|\t)(?:[ \t>]|[-*+][ \t])*<!--|<!--(?![^\n]*-->)/m;
 
 /** The editor's parser, for the notes whose tags only it can read. */
 const notes = noteLanguage().language.parser;
 
 /** `text` with its comments blanked where a line cannot tell one, as the editor parses it. */
 export function tagText(text: string): string {
-  if (!ORDERED_COMMENT.test(text)) return text;
+  if (!UNSURE_COMMENT.test(text)) return text;
   let blanked = "";
   let at = 0;
   notes.parse(text).iterate({

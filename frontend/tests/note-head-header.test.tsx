@@ -306,3 +306,56 @@ it("#1453 the header reads a tag after a comment on an ordered line past 1 as th
     alone: tagsIn("2. <!-- x --> #hidden"),
   }).toEqual({ paragraph: ["#real"], list: [], item: ["#real"], alone: [] });
 });
+
+describe("#1452 the header skips the tags inside a comment the editor parses as a block", () => {
+  const tagsIn = (body: string, vim = false) => {
+    if (vim) localStorage.setItem("kasten.vim", "on");
+    const { container, unmount } = render(
+      <Editor initialDoc={`${body}\n`} path={PATH} commands={stubCommands()} />,
+    );
+    const meta = part(container, "meta");
+    unmount();
+    return ["#p", "#q"].filter((tag) => meta.includes(tag));
+  };
+
+  it("#1452 a tag in a comment of several lines or one indented under an item is not in the header", () => {
+    expect({
+      block: tagsIn("<!--\n#p\n-->\n#q"),
+      closing: tagsIn("<!--\nx\n--> #p\n\n#q"),
+      indented: tagsIn("- a\n    <!-- x --> #p\n- #q"),
+      loose: tagsIn("- a\n\n    <!-- x --> #p"),
+      nested: tagsIn("- a\n    - <!-- x --> #p\n- #q"),
+      tab: tagsIn("- a\n\t* <!-- x --> #p\n- #q"),
+      vim: tagsIn("<!--\n#p\n-->\n#q", true),
+    }).toEqual({
+      block: ["#q"],
+      closing: ["#q"],
+      indented: ["#q"],
+      loose: [],
+      nested: ["#q"],
+      tab: ["#q"],
+      vim: ["#q"],
+    });
+  });
+
+  it("#1452 the shapes of #1454 and #1455 read as before", () => {
+    expect({
+      item: tagsIn("- <!-- x --> #p"),
+      quote: tagsIn("> <!-- x --> #p"),
+      ordered: tagsIn("1. <!-- x --> #p"),
+      box: tagsIn("- [ ] <!-- x --> #p"),
+      paragraph: tagsIn("text\n2. <!-- x --> #p"),
+    }).toEqual({ item: [], quote: [], ordered: [], box: ["#p"], paragraph: ["#p"] });
+  });
+
+  it("#1452 opening and closing a comment above a tag hides and shows it on the next edit", () => {
+    const { container } = render(
+      <Editor initialDoc={"top\n\n#p\n"} path={PATH} commands={stubCommands()} />,
+    );
+    const view = viewIn(container);
+    act(() => view.dispatch({ changes: { from: 0, insert: "<!--\n" } }));
+    const opened = part(container, "meta").includes("#p");
+    act(() => view.dispatch({ changes: { from: view.state.doc.line(2).to, insert: "\n-->" } }));
+    expect([opened, part(container, "meta").includes("#p")]).toEqual([false, true]);
+  });
+});
