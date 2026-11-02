@@ -1,5 +1,6 @@
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { Fragment, useState } from "react";
+import { TryAgain } from "@/components/review-answer";
 import { ReviewImport } from "@/components/review-import";
 import { fetchCards, fetchNote } from "@/lib/api";
 import { readClock } from "@/lib/clock";
@@ -112,7 +113,7 @@ export function ReviewDecks({ onPick, onParked, archive = false }: ReviewDecksPr
   });
 
   // The same limits the sitting reads, so a row counts what its sitting asks.
-  const { limits, failed: limitsFailed } = useReviewLimits();
+  const { limits, failed: limitsFailed, retry: retryLimits } = useReviewLimits();
   // A limit that could not be read at all: no rows, since a row would count past it.
   const unread = limits === undefined && limitsFailed !== null;
 
@@ -189,6 +190,7 @@ export function ReviewDecks({ onPick, onParked, archive = false }: ReviewDecksPr
               The daily limits could not be read: {limitsFailed}
             </p>
           )}
+          {!isPending && unread && <TryAgain onClick={retryLimits} />}
           {!isPending && !unread && <p className="mt-1 text-k-15 text-k-muted">{summary}</p>}
           {!isPending && first !== undefined && (
             <button

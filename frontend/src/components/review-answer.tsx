@@ -35,6 +35,25 @@ export const BUTTON =
   "min-h-11 rounded border border-k-rule px-4 py-2 text-k-13 text-k-ink " +
   "hover:border-k-accent hover:text-k-accent active:bg-k-paper disabled:opacity-50 aria-disabled:opacity-50";
 
+/** Reads again what failed for good: the deck in a sitting, or the daily limits anywhere they are shown. */
+export function TryAgain({ onClick }: { onClick: () => void }) {
+  return (
+    // The reread unmounts this button, and a focus on it would fall to the
+    // body and take the pane's keys with it, so the focus goes to the pane first.
+    <button
+      type="button"
+      data-reread
+      onClick={(event) => {
+        event.currentTarget.closest<HTMLElement>("[tabindex]")?.focus();
+        onClick();
+      }}
+      className={`mt-3 ${BUTTON}`}
+    >
+      Try again
+    </button>
+  );
+}
+
 /**
  * The footer under a card: the reveal, the typed answer, or the four ratings.
  * The quiet links show on both sides, since a whole note is always on its answer side and must stay parkable.

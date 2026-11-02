@@ -18,7 +18,7 @@ function messageOf(error: unknown): string {
  */
 export function useReviewLimits(current = false): {
   limits: Limits | undefined;
-  /** The message of the failed read, when there is no answer to show. */
+  /** The message of the failed read, when there is no answer to show, or a current one failed for good. */
   failed: string | null;
   retry: () => void;
 } {
@@ -45,9 +45,11 @@ export function useReviewLimits(current = false): {
     },
     ...readRetry,
   });
+  // A current read that failed for good hands over no cached answer: it may be the one the failed read was to replace (#1171).
+  const unread = current && isError;
   return {
-    limits: current && isStale && !isFetchedAfterMount ? undefined : data,
-    failed: isError && !isFetching && data === undefined ? messageOf(error) : null,
+    limits: unread || (current && isStale && !isFetchedAfterMount) ? undefined : data,
+    failed: isError && !isFetching && (data === undefined || unread) ? messageOf(error) : null,
     retry: () => void refetch(),
   };
 }
