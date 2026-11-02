@@ -326,6 +326,8 @@ describe("#1452 the header skips the tags inside a comment the editor parses as 
       loose: tagsIn("- a\n\n    <!-- x --> #p"),
       nested: tagsIn("- a\n    - <!-- x --> #p\n- #q"),
       tab: tagsIn("- a\n\t* <!-- x --> #p\n- #q"),
+      mixed: tagsIn("- a\n    - 1. <!-- x --> #p\n- #q"),
+      flipped: tagsIn("- a\n    1. - <!-- x --> #p\n- #q"),
       vim: tagsIn("<!--\n#p\n-->\n#q", true),
     }).toEqual({
       block: ["#q"],
@@ -334,6 +336,8 @@ describe("#1452 the header skips the tags inside a comment the editor parses as 
       loose: [],
       nested: ["#q"],
       tab: ["#q"],
+      mixed: ["#q"],
+      flipped: ["#q"],
       vim: ["#q"],
     });
   });
