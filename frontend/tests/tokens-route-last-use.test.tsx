@@ -91,6 +91,26 @@ it("a token used in the last 30 days is not marked", async () => {
   expect(screen.queryByText("unused 30 days")).not.toBeInTheDocument();
 });
 
+it("the head counts the tokens unused for 30 days", async () => {
+  const now = Date.now();
+  serve([
+    { name: "old", created: since(now, 60 * DAY), last_used: since(now, 31 * DAY) },
+    { name: "recent", created: since(now, 60 * DAY), last_used: since(now, 3 * MINUTE) },
+  ]);
+  await renderPage();
+
+  expect(await screen.findByText("1 unused for 30 days")).toBeInTheDocument();
+});
+
+it("the head leaves the count out when every token is in use", async () => {
+  const now = Date.now();
+  serve([{ name: "recent", created: since(now, 60 * DAY), last_used: since(now, 3 * MINUTE) }]);
+  await renderPage();
+
+  await screen.findByText("used 3 min ago");
+  expect(screen.queryByText(/unused for/)).not.toBeInTheDocument();
+});
+
 it("the actions button opens that token's recent actions, newest first", async () => {
   const now = Date.now();
   serve([{ name: "laptop", created: since(now, 2 * DAY), last_used: since(now, 3 * MINUTE) }], {

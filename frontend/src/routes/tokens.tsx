@@ -15,6 +15,14 @@ export const Route = createFileRoute("/tokens")({
   component: Tokens,
 });
 
+const DAY = 24 * 60 * 60 * 1000;
+
+/** The list's columns from `md` up, shared by its header and its rows so they line up. */
+const COLUMNS = "md:grid-cols-[minmax(0,1fr)_96px_136px_88px_148px]";
+
+const ROW_BUTTON =
+  "min-h-11 rounded border px-3 text-k-13 transition-colors duration-(--k-hover) hover:border-k-ink pointer-fine:min-h-8 aria-expanded:bg-k-surface";
+
 /**
  * The agent tokens, on a page of its own: no pane and no leader key, since a screen visited a few
  * times a year needs no binding. A secret is shown once, in local state, because only digests are kept.
@@ -27,9 +35,11 @@ function Tokens() {
   const [copied, setCopied] = useState(false);
   const queryClient = useQueryClient();
 
-  const { data: tokens } = useQuery({ queryKey: ["tokens"], queryFn: fetchTokens });
+  const list = useQuery({ queryKey: ["tokens"], queryFn: fetchTokens });
+  const tokens = list.data;
   // One instant for every row, so two tokens used at the same moment read the same.
   const now = new Date();
+  const idle = tokens?.filter((token) => unused(token, now)).length ?? 0;
 
   const mint = useMutation({
     mutationFn: (wanted: string) => createToken(wanted),
@@ -68,55 +78,73 @@ function Tokens() {
   }
 
   return (
-    <main className="min-h-dvh bg-k-bg font-mono text-k-ink">
-      <div className="mx-auto flex max-w-3xl flex-col gap-6 p-6">
-        <header className="flex items-baseline gap-3">
-          <h1 className="text-[15px]">agent tokens</h1>
-          <span className="text-[11px] text-k-muted uppercase tracking-wider">
-            {tokens?.length ?? 0} in the vault
-          </span>
+    <main className="min-h-dvh bg-k-bg font-sans text-k-ink">
+      {/* 1120 = 768 list + 32 gap + 320 rail, all on one left and one right edge. */}
+      <div className="mx-auto flex max-w-[1168px] flex-col gap-6 px-4 py-6 md:px-6 md:py-9">
+        <header className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between md:gap-8">
+          <div className="flex min-w-0 flex-col gap-1">
+            <h1 className="font-serif text-k-27">agent tokens</h1>
+            <p className="text-k-13 text-k-muted">
+              {tokens === undefined ? (
+                "Loading"
+              ) : (
+                <>
+                  <span className="tabular-nums">{tokens.length}</span> in the vault
+                  {idle > 0 && (
+                    <>
+                      ,{" "}
+                      <span className="text-k-warn">
+                        {idle} unused for {UNUSED_DAYS} days
+                      </span>
+                    </>
+                  )}
+                </>
+              )}
+            </p>
+          </div>
+
+          <form
+            className="flex items-end gap-2 md:w-[320px] md:shrink-0"
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (name.trim() !== "") mint.mutate(name.trim());
+            }}
+          >
+            <label className="flex min-w-0 flex-1 flex-col gap-1" htmlFor="token-name">
+              <span className="font-medium text-k-12 text-k-muted">Name</span>
+              <input
+                id="token-name"
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                placeholder="laptop"
+                className="min-h-11 w-full min-w-0 rounded border border-k-rule bg-k-surface px-3 font-mono text-k-13 outline-none placeholder:text-k-muted focus:border-k-ink pointer-coarse:text-base pointer-fine:min-h-9"
+              />
+            </label>
+            <button
+              type="submit"
+              className="min-h-11 shrink-0 rounded bg-k-ink px-4 font-medium text-k-13 text-k-bg hover:opacity-85 pointer-fine:min-h-9"
+            >
+              Mint
+            </button>
+          </form>
         </header>
 
-        <p className="text-[13px] text-k-muted">
-          A token reaches <span className="text-k-ink">/agent/</span> and nothing else: list, read,
-          search, query the graph, save, append and dump. It cannot delete, move or rename anything.
-          The secret is shown once, here, and is never recoverable afterwards. Every request a token
-          makes is recorded with its path and status, kept 90 days.
-        </p>
-
-        <form
-          className="flex gap-2"
-          onSubmit={(event) => {
-            event.preventDefault();
-            if (name.trim() !== "") mint.mutate(name.trim());
-          }}
-        >
-          <label className="flex min-w-0 flex-1 items-center gap-3" htmlFor="token-name">
-            <span className="text-[12px] text-k-muted">Name</span>
-            <input
-              id="token-name"
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              placeholder="laptop"
-              className="min-h-11 min-w-0 flex-1 rounded border border-k-rule bg-transparent px-3 text-[13px] outline-none focus:border-k-accent pointer-coarse:text-base"
-            />
-          </label>
-          <button
-            type="submit"
-            className="min-h-11 rounded border border-k-rule px-4 text-[12px] text-k-muted hover:border-k-accent hover:text-k-accent"
-          >
-            Mint
-          </button>
-        </form>
+        {failed !== null && (
+          <p role="alert" className="text-k-13 text-k-danger">
+            {failed}
+          </p>
+        )}
 
         {minted !== null && (
-          <section className="flex flex-col gap-3 rounded border border-k-accent p-4">
+          <section className="flex flex-col gap-3 rounded-[var(--k-radius-8)] border border-k-accent bg-k-paper p-4 md:p-5">
             <div className="flex items-baseline gap-3">
-              <span className="text-[13px]">{minted.name}</span>
-              <span className="text-[11px] text-k-muted uppercase tracking-wider">shown once</span>
+              <span className="font-mono font-medium text-k-15">{minted.name}</span>
+              <span className="text-k-13 text-k-warn">shown once</span>
             </div>
-            <div className="flex items-center gap-2">
-              <code className="min-w-0 flex-1 break-all text-[13px]">{minted.secret}</code>
+            <div className="flex items-stretch rounded border border-k-rule">
+              <code className="flex min-w-0 flex-1 items-center break-all bg-k-inset px-3 py-2 font-mono text-k-13">
+                {minted.secret}
+              </code>
               <button
                 type="button"
                 onClick={() => {
@@ -124,39 +152,123 @@ function Tokens() {
                     setCopied(true);
                   });
                 }}
-                className="min-h-11 shrink-0 rounded border border-k-rule px-3 text-[12px] text-k-muted hover:border-k-accent hover:text-k-accent"
+                className="min-h-11 shrink-0 border-k-rule border-l px-4 font-medium text-k-13 hover:bg-k-surface pointer-fine:min-h-9"
               >
                 {copied ? "Copied" : "Copy"}
               </button>
             </div>
-            <code className="break-all text-[12px] text-k-muted">{connectLine(minted.secret)}</code>
+            <code className="break-all font-mono text-k-12 text-k-muted">
+              {connectLine(minted.secret)}
+            </code>
           </section>
         )}
 
-        <ul className="flex flex-col gap-2">
-          {tokens?.map((token) => (
-            <TokenRow
-              key={token.name}
-              token={token}
-              now={now}
-              onRevoke={(named) => drop.mutate(named)}
-            />
-          ))}
-        </ul>
+        <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_320px]">
+          <div className="min-w-0 rounded-[var(--k-radius-8)] border border-k-rule bg-k-paper px-4">
+            <div
+              aria-hidden="true"
+              className={`hidden h-10 items-center gap-x-3 text-k-12 text-k-muted md:grid ${COLUMNS}`}
+            >
+              <span>Token</span>
+              <span>Created</span>
+              <span>Last use</span>
+              <span className="flex justify-between">
+                <span>{UNUSED_DAYS}+ d</span>
+                <span>now</span>
+              </span>
+            </div>
 
-        {tokens?.length === 0 && (
-          <p className="text-[13px] text-k-muted">
-            No tokens yet. Nothing outside this box can reach the vault until there is one.
-          </p>
-        )}
+            {list.isError && (
+              <p className="flex items-center gap-3 py-4 text-k-13 text-k-muted">
+                Could not load the tokens.
+                <button
+                  type="button"
+                  onClick={() => void list.refetch()}
+                  className="min-h-11 font-medium text-k-ink underline pointer-fine:min-h-8"
+                >
+                  Retry
+                </button>
+              </p>
+            )}
 
-        {failed !== null && (
-          <p role="alert" className="text-k-muted">
-            {failed}
-          </p>
-        )}
+            {list.isPending && (
+              <div aria-hidden="true" className="flex flex-col">
+                {[0, 1, 2].map((row) => (
+                  <div key={row} className="flex h-14 items-center border-k-rule border-t">
+                    <span className="h-3 w-1/3 rounded-sm bg-k-surface" />
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <ul className="flex flex-col">
+              {tokens?.map((token) => (
+                <TokenRow
+                  key={token.name}
+                  token={token}
+                  now={now}
+                  onRevoke={(named) => drop.mutate(named)}
+                />
+              ))}
+            </ul>
+
+            {tokens?.length === 0 && (
+              <p className="py-4 text-k-13 text-k-muted">
+                No tokens yet. Nothing outside this box can reach the vault until there is one.
+              </p>
+            )}
+          </div>
+
+          <aside className="flex flex-col gap-3 text-k-13">
+            <h2 className="font-serif text-k-19">What a token can do</h2>
+            <dl className="flex flex-col gap-3">
+              <div>
+                <dt className="text-k-12 text-k-muted">Reaches</dt>
+                <dd>
+                  <code className="font-mono text-k-13">/agent/</code> and nothing else
+                </dd>
+              </div>
+              <div>
+                <dt className="text-k-12 text-k-muted">Can</dt>
+                <dd>List, read, search, query the graph, save, append and dump</dd>
+              </div>
+              <div>
+                <dt className="text-k-12 text-k-muted">Cannot</dt>
+                <dd>Delete, move or rename anything</dd>
+              </div>
+              <div>
+                <dt className="text-k-12 text-k-muted">Secret</dt>
+                <dd>Shown once, here, and never recoverable afterwards</dd>
+              </div>
+              <div>
+                <dt className="text-k-12 text-k-muted">Record</dt>
+                <dd>Every request a token makes, with its path and status, kept 90 days</dd>
+              </div>
+            </dl>
+          </aside>
+        </div>
       </div>
     </main>
+  );
+}
+
+/**
+ * How long a token has been silent, on one scale for every row: now at the right end, `UNUSED_DAYS`
+ * or more at the left. A never-used token is a hollow mark at its creation date, the date
+ * `unused` judges it by. The words beside it say the same, so screen readers skip it.
+ */
+function Silence({ token, now, idle }: { token: TokenUse; now: Date; idle: boolean }) {
+  const since = new Date(token.last_used ?? token.created).getTime();
+  const share = Math.min(Math.max(now.getTime() - since, 0) / (UNUSED_DAYS * DAY), 1);
+  return (
+    <span aria-hidden="true" className="relative mx-1 hidden h-px bg-k-rule md:block">
+      <span
+        style={{ left: `${(1 - share) * 100}%` }}
+        className={`absolute top-1/2 size-2 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 ${
+          idle ? "border-k-warn" : "border-k-accent"
+        } ${token.last_used == null ? "bg-k-paper" : idle ? "bg-k-warn" : "bg-k-accent"}`}
+      />
+    </span>
   );
 }
 
@@ -184,68 +296,81 @@ function TokenRow({
   });
 
   const last = lastUse(token.last_used ?? null, now);
+  const idle = unused(token, now);
 
   return (
-    <li className="flex flex-wrap items-center gap-x-3 gap-y-2">
-      <span className="min-w-0 max-w-full truncate text-[13px]">{token.name}</span>
-      <span className="text-[12px] text-k-muted">
-        {new Date(token.created).toISOString().slice(0, 10)}
-      </span>
-      <span className="text-[12px] text-k-muted">
-        {last === "never" ? "never used" : `used ${last}`}
-      </span>
-      {unused(token, now) && (
-        <span className="text-[11px] text-k-accent uppercase tracking-wider">
-          unused {UNUSED_DAYS} days
-        </span>
-      )}
-      <button
-        type="button"
-        aria-expanded={open}
-        aria-controls={panelId}
-        onClick={() => setOpen(!open)}
-        className="min-h-11 rounded border border-k-rule px-3 text-[12px] text-k-muted hover:border-k-accent hover:text-k-accent"
+    <li className="border-k-rule border-t first:border-t-0 md:first:border-t">
+      <div
+        className={`grid min-h-14 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 py-3 md:py-2 ${COLUMNS}`}
       >
-        Actions
-      </button>
-      <button
-        type="button"
-        aria-label={`Revoke ${token.name}`}
-        onClick={() => {
-          // A native confirm rather than a dialog of our own. The one
-          // destructive button on a page visited twice a year is not
-          // worth a component, and this one cannot be dismissed by
-          // clicking past it.
-          if (window.confirm(`Revoke ${token.name}? Any agent using it stops working.`))
-            onRevoke(token.name);
-        }}
-        className="min-h-11 rounded border border-k-rule px-3 text-[12px] text-k-muted hover:border-k-accent hover:text-k-accent"
-      >
-        Revoke
-      </button>
+        <div className="flex min-w-0 flex-col gap-0.5 md:contents">
+          <span className="min-w-0 truncate font-medium font-mono text-k-13">{token.name}</span>
+          <span className="text-k-13 text-k-muted tabular-nums">
+            <span className="md:sr-only">created </span>
+            {new Date(token.created).toISOString().slice(0, 10)}
+          </span>
+          <span className="flex flex-col text-k-13">
+            <span>{last === "never" ? "never used" : `used ${last}`}</span>
+            {idle && <span className="text-k-12 text-k-warn">unused {UNUSED_DAYS} days</span>}
+          </span>
+          <Silence token={token} now={now} idle={idle} />
+        </div>
+        <div className="flex justify-end gap-1">
+          <button
+            type="button"
+            aria-expanded={open}
+            aria-controls={panelId}
+            onClick={() => setOpen(!open)}
+            className={`${ROW_BUTTON} border-transparent`}
+          >
+            Actions
+          </button>
+          <button
+            type="button"
+            aria-label={`Revoke ${token.name}`}
+            onClick={() => {
+              // A native confirm rather than a dialog of our own. The one
+              // destructive button on a page visited twice a year is not
+              // worth a component, and this one cannot be dismissed by
+              // clicking past it.
+              if (window.confirm(`Revoke ${token.name}? Any agent using it stops working.`))
+                onRevoke(token.name);
+            }}
+            className={`${ROW_BUTTON} ${idle ? "border-k-danger text-k-danger" : "border-transparent"}`}
+          >
+            Revoke
+          </button>
+        </div>
+      </div>
       {/* Kept in the DOM while closed so the button's aria-controls always has a target. */}
-      <div id={panelId} hidden={!open} className="w-full">
+      <div id={panelId} hidden={!open} className="mb-3 rounded bg-k-inset px-3 py-2">
+        {actions.isPending && open && <p className="text-k-13 text-k-muted">Reading the log</p>}
+        {actions.isError && <p className="text-k-13 text-k-muted">Could not load these actions.</p>}
         {actions.data?.length === 0 && (
-          <p className="text-[12px] text-k-muted">No actions in the last 90 days.</p>
+          <p className="text-k-13 text-k-muted">No actions in the last 90 days.</p>
         )}
-        <ul className="flex flex-col gap-1 border-k-rule border-l pl-3 text-[12px]">
+        <ul className="flex flex-col gap-1 text-k-13">
           {actions.data?.map((action) => (
             <li
               key={`${action.at}-${action.method}-${action.path}`}
-              className="flex flex-wrap gap-x-3 gap-y-1"
+              className="grid gap-x-3 md:grid-cols-[88px_minmax(0,1fr)]"
             >
-              <span className="text-k-muted">{lastUse(action.at, now)}</span>
-              <span className="min-w-0 break-all">
-                {action.tool ?? `${action.method} ${action.path}`}
-              </span>
-              {action.note !== null && (
-                <span className="min-w-0 break-all text-k-muted">{action.note}</span>
-              )}
-              {action.outcome !== "ok" && (
-                <span className="text-k-accent">
-                  {action.status} {action.outcome}
+              <span className="text-k-muted tabular-nums">{lastUse(action.at, now)}</span>
+              <span className="flex min-w-0 flex-wrap gap-x-3">
+                <span className="min-w-0 break-all font-mono text-k-12">
+                  {action.tool ?? `${action.method} ${action.path}`}
                 </span>
-              )}
+                {action.note !== null && (
+                  <span className="min-w-0 break-all font-mono text-k-12 text-k-muted">
+                    {action.note}
+                  </span>
+                )}
+                {action.outcome !== "ok" && (
+                  <span className="text-k-danger">
+                    {action.status} {action.outcome}
+                  </span>
+                )}
+              </span>
             </li>
           ))}
         </ul>
