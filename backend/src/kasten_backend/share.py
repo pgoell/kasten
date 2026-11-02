@@ -28,21 +28,6 @@ Only the margin counts, so an indented task under another item is not a list ite
 ID_MARK = "🆔"
 """The Tasks id a ticked item gets, so the done line keeps one name across edits."""
 
-FIELD_MARKS = re.compile(todo_fields.STOP + "|🔁|👤")
-"""Where an item's words end: the Tasks fields kasten reads, and the two it adds.
-
-`🔁` and `👤` are kasten's own, not Tasks plugin fields, so `todo_fields.STOP` leaves them out.
-"""
-
-BLOCK_ID = re.compile(r"\s*\^[A-Za-z0-9_-]+$")
-"""A trailing `^block-id`, which kasten uses to link into a line and is no word."""
-
-TRAILING_BLOCK_ID = re.compile(r"[ \t]+\^[A-Za-z0-9_-]+$")
-"""The block id a tick keeps last, so a link into the line still lands.
-
-It needs a blank before the `^`, so `x^2` is no id.
-"""
-
 PARTS = re.compile(r"^[ \t]+- \[.\] ")
 """An indented task: a part of the task above it, which kasten ticks along with it."""
 
@@ -145,7 +130,7 @@ def names(settings: Settings) -> list[str]:
 
 
 def items(text: str) -> list[Item]:
-    """Every task line of `text`, in order, with its words cut before any Tasks field."""
+    """Every task line of `text`, in order, with its words as the editor reads them."""
     found = []
     for number, line in enumerate(text.split("\n")):
         match = ITEM.match(line)
@@ -165,13 +150,13 @@ def items(text: str) -> list[Item]:
 
 def key(rest: str) -> str:
     """What names an item across the history: its `🆔` when it reads one, else its words."""
-    found = todo_fields.ID.search(todo_fields.mask(rest))
-    return words(rest) if found is None else rest[found.start() : found.end()]
+    found = todo_fields.place(rest, todo_fields.ID)
+    return words(rest) if found is None else rest[found[0] : found[1]]
 
 
 def words(rest: str) -> str:
-    """The words of an item: what is left before the first field marker, without its id."""
-    return BLOCK_ID.sub("", FIELD_MARKS.split(rest, maxsplit=1)[0]).strip()
+    """The words of an item with every field out, and no trailing block id."""
+    return todo_fields.BLOCK_ID.sub("", todo_fields.words(rest).strip())
 
 
 def _shape(name: str, raw: bytes | None) -> Checklist:
@@ -206,7 +191,8 @@ def _kasten_owns(lines: list[str], line: int, rest: str) -> bool:
     """
     following = lines[line + 1] if line + 1 < len(lines) else ""
 
-    return "🔁" in rest or PARTS.match(following) is not None
+    recurs = todo_fields.place(rest, todo_fields.RECURRENCE) is not None
+    return recurs or PARTS.match(following) is not None
 
 
 def _done(line: str) -> bool:
@@ -218,13 +204,10 @@ def _done(line: str) -> bool:
 def _undone(rest: str) -> str:
     """The words without the done field the line reads, its date and all.
 
-    Only the first `✅ <date>` on the masked text goes, so a bare `✅` among the words stays.
+    Only the `✅ <date>` the reader takes goes, so a bare `✅` among the words stays.
     """
-    found = todo_fields.DONE.search(todo_fields.mask(rest))
-    if found is None:
-        return rest.rstrip()
-
-    return (rest[: found.start()].rstrip() + rest[found.end() :]).rstrip()
+    found = todo_fields.place(rest, todo_fields.DONE)
+    return rest.rstrip() if found is None else _without(rest, *found).rstrip()
 
 
 def _ticked(rest: str, today: date) -> str:
@@ -234,15 +217,18 @@ def _ticked(rest: str, today: date) -> str:
     A new id is made otherwise. A trailing block id stays last.
     """
     rest = _undone(rest)
-    block = TRAILING_BLOCK_ID.search(rest)
+    block = todo_fields.BLOCK_ID.search(rest)
     tail = "" if block is None else block[0]
-    rest = rest[: len(rest) - len(tail)]
-    done = f"✅ {today.isoformat()}"
-    found = todo_fields.ID.search(todo_fields.mask(rest))
-    if found is not None:
-        return f"{rest[: found.start()].rstrip()} {done} {rest[found.start() :]}{tail}"
-
-    return f"{rest} {done} {ID_MARK} kt-{secrets.token_hex(3)}{tail}"
+    words = rest if block is None else rest[: block.start()]
+    found = todo_fields.place(words, todo_fields.ID)
+    if found is None:
+        head, mark = words, f"{ID_MARK} kt-{secrets.token_hex(3)}"
+    else:
+        head, mark = words[: found[0]].rstrip(), words[found[0] :]
+    # A block id that is the whole item has no blank of its own to keep it apart.
+    tail = tail if tail[:1] in ("", " ", "\t") else f" {tail}"
+    lead = f"{head} " if head else ""
+    return f"{lead}✅ {today.isoformat()} {mark}{tail}"
 
 
 NEW_FIELD_AT = re.compile(
@@ -293,8 +279,8 @@ def _with_new_assignee(rest: str, assignee: str) -> str:
     if marker is not None:
         return f"{rest[: marker.start()]}{field} {rest[marker.start() :]}"
 
-    block = TRAILING_BLOCK_ID.search(rest)
-    if block is not None:
+    block = todo_fields.BLOCK_ID.search(rest)
+    if block is not None and block.start() > 0:
         return f"{rest[: block.start()]} {field}{rest[block.start() :]}"
 
     end = len(rest.rstrip(" \t"))

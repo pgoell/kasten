@@ -36,22 +36,19 @@ DONE = "## Done"
 LOGGED = "- ✅"
 """A log line, which is deliberately not a checkbox, for the reason `doneLine` gives."""
 
-BLOCK_ID = re.compile(r"(?:^|[ \t]+)\^[A-Za-z0-9_-]+$")
-"""A trailing block id, which `withoutBlockId` takes off the words. `[\\w-]` there is ASCII."""
-
 
 def done_line(rest: str, note_path: str, daily_path: str, today: str) -> str:
     """The log line for a ticked item: its words, a link to its note, and its id.
 
     `rest` is the line after `- [x] `. Fields go and tags stay, as in the pane.
     """
-    parts = [LOGGED, today, BLOCK_ID.sub("", todo_fields.words(rest).strip())]
+    parts = [LOGGED, today, todo_fields.BLOCK_ID.sub("", todo_fields.words(rest).strip())]
     # A note pointing at itself records nothing.
     if note_path != daily_path:
         parts.append(f"[[{note_path.removesuffix('.md')}]]")
-    found = todo_fields.ID.search(todo_fields.mask(rest))
+    found = todo_fields.id_of(rest)
     if found is not None:
-        parts.append(found[1])
+        parts.append(found)
     return " ".join(parts)
 
 
@@ -102,8 +99,7 @@ def drop_done(text: str, id_: str) -> str | None:
 
 def _id(rest: str) -> str | None:
     """The `🆔` an item's words carry, or None."""
-    found = todo_fields.ID.search(todo_fields.mask(rest))
-    return None if found is None else found[1]
+    return todo_fields.id_of(rest)
 
 
 async def _rewrite(

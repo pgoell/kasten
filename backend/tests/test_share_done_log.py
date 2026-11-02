@@ -340,3 +340,67 @@ async def test_1301_untick_refuses_an_id_two_todos_carry_and_writes_nothing(
     assert response.json()["detail"] == f"🆔 kt-000001 is on another todo too: {where}"
     assert (folder / "Einkauf.md").read_text(encoding="utf-8") == text
     assert note.read_text(encoding="utf-8") == log
+
+
+async def test_1059_tick_reads_no_id_glued_to_an_estimate(
+    client: AsyncClient, folder: Path, pinned_day: date
+) -> None:
+    put(folder, "- [ ] a ⏲ 5m🆔 kt-1\n")
+
+    response = await tick(client, folder, "a ")
+
+    written = (folder / "Einkauf.md").read_text(encoding="utf-8")
+    today = pinned_day.isoformat()
+    found = re.search(rf"^- \[x\] a ⏲ 5m🆔 kt-1 ✅ {today} 🆔 (kt-[0-9a-f]{{6}})$", written, re.M)
+    assert response.status_code == 200
+    assert found is not None
+    assert logged(folder.parent, pinned_day) == [f"- ✅ {today} a kt-1 [[{LIST}]] {found[1]}"]
+    await tick(client, folder, "a ", done=False)
+    assert logged(folder.parent, pinned_day) == []
+
+
+@pytest.mark.parametrize(
+    ("rest", "undone"),
+    [
+        ("Brot ✅ 2026-01-015 🆔 kt-1", "Brot 5 🆔 kt-1"),
+        ("Brot ✅ 2026-01-01 🆔 kt-1", "Brot 🆔 kt-1"),
+        ("Brot ✅ 2026-01-01", "Brot"),
+        ("✅ 2026-01-01x", "x"),
+    ],
+)
+async def test_1066_untick_joins_no_words_where_the_done_date_was(
+    client: AsyncClient, folder: Path, rest: str, undone: str
+) -> None:
+    put(folder, f"- [x] {rest}\n")
+
+    response = await tick(client, folder, rest[:4], done=False)
+
+    assert response.status_code == 200
+    assert (folder / "Einkauf.md").read_text(encoding="utf-8").endswith(f"\n- [ ] {undone}\n")
+
+
+NBSP = "\N{NO-BREAK SPACE}"
+
+
+@pytest.mark.parametrize(
+    ("rest", "words", "block"),
+    [
+        ("^abc", "", " ^abc"),
+        ("Brot ^abc", "Brot ", " ^abc"),
+        (f"Brot{NBSP}^abc", f"Brot{NBSP}^abc ", ""),
+        ("x^2", "x^2 ", ""),
+    ],
+)
+@pytest.mark.usefixtures("pinned_day")
+async def test_1067_tick_keeps_last_the_block_id_the_read_takes(
+    client: AsyncClient, folder: Path, rest: str, words: str, block: str
+) -> None:
+    put(folder, f"- [ ] {rest}\n")
+    shown = (await client.get("/share/lists/Einkauf")).json()["items"][0]["text"]
+
+    await tick(client, folder, rest[:1])
+
+    written = (folder / "Einkauf.md").read_text(encoding="utf-8")
+    line = rf"- \[x\] {re.escape(words)}✅ \S+ 🆔 kt-[0-9a-f]{{6}}"
+    assert re.search(rf"^{line}{re.escape(block)}$", written, re.MULTILINE)
+    assert shown == words.strip()
