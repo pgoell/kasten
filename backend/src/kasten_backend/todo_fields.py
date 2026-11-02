@@ -25,18 +25,20 @@ U+001F, which the editor's does not, and leaves out U+FEFF, which it holds."""
 _ONE_WORD = r"[ \t]+(?!(?:" + STOP + r"|🔁))" + _WORD
 _DATE = r"[ \t]+([0-9]{4}-[0-9]{2}-[0-9]{2})"
 DONE = re.compile("✅" + _VS + _DATE)
-"""The done field `✅ <date>`, which `share.py` reads too."""
 _BLOCK_ID = r"\^[A-Za-z0-9_-]+[ \t]*(?:\n|$)"
 # A `🔁` value runs to the next field, tag, `👤`, block id or cut, as the editor's does.
 _RECURRENCE_END = r"(?=[ \t]*(?:" + STOP + r"|👤|#)|[ \t]+" + _BLOCK_ID + r"|[ \t]*\n|[ \t]*$)"
 ID = re.compile("🆔" + _VS + _ONE_WORD)
-"""The id field `🆔 kt-…`: a `🆔` whose next word is no marker, which `share.py` reads too."""
+"""The id field `🆔 kt-…`: a `🆔` whose next word is no marker."""
+RECURRENCE = re.compile("🔁" + _VS + r"[ \t]+(.+?)" + _RECURRENCE_END)
+BLOCK_ID = re.compile(r"(?:^|[ \t]+)\^[A-Za-z0-9_-]+$")
+"""A trailing block id, as the editor's `withoutBlockId` takes it. `[\\w-]` there is ASCII."""
 FIELDS = (
     re.compile("(?:📅|📆|🗓)" + _VS + _DATE),
     re.compile("⏳" + _VS + _DATE),
     re.compile("🛫" + _VS + _DATE),
     re.compile("(🔺|⏫|🔼|🔽|⏬)" + _VS),
-    re.compile("🔁" + _VS + r"[ \t]+(.+?)" + _RECURRENCE_END),
+    RECURRENCE,
     re.compile("🏁" + _VS + r"[ \t]+(keep|delete)(?=[ \t\n]|$)"),
     re.compile(_CREATED + _VS + _DATE),
     DONE,
@@ -86,8 +88,8 @@ def mask(text: str) -> str:
     return blank(text, SPANS)
 
 
-def _scan(rest: str) -> tuple[str, str | None, tuple[int, int] | None]:
-    """A todo's words and assignee: the words with every field out, as `readFields` leaves them.
+def _scan(rest: str) -> tuple[str, str | None, dict[re.Pattern[str], tuple[int, int]]]:
+    """A todo's words, assignee and the place of each field, as `readTagged` reads them.
 
     Fields are found on a copy with every span blanked, so a marker in a link is no marker.
     Each cut leaves `_CUT` behind, so a value read after it stops there. Only the first
@@ -99,19 +101,19 @@ def _scan(rest: str) -> tuple[str, str | None, tuple[int, int] | None]:
     # assignee takes is then the reader's own cut, not a match on the whole line.
     origin = list(range(len(rest)))
     who = None
-    span = None
+    places = {}
     for pattern in (*FIELDS, BLOCKED_BY, WAITING, ASSIGNEE):
         while (found := pattern.search(masked)) is not None and any(found.groups()):
             if pattern is ASSIGNEE:
                 who = text[found.start(1) : found.end(1)]
-                span = (origin[found.start()], origin[found.end() - 1] + 1)
+            places.setdefault(pattern, (origin[found.start()], origin[found.end() - 1] + 1))
             text = text[: found.start()] + _CUT + text[found.end() :]
             masked = masked[: found.start()] + _CUT + masked[found.end() :]
             origin = [*origin[: found.start()], -1, *origin[found.end() :]]
             if pattern is not BLOCKED_BY:
                 break
     # As the editor squeezes the words, so `[[FDE  Kickoff]]` names `FDE Kickoff`.
-    return re.sub(r"[ \t]+", " ", text.replace(_CUT, "")), who, span
+    return re.sub(r"[ \t]+", " ", text.replace(_CUT, "")), who, places
 
 
 def words(rest: str) -> str:
@@ -130,4 +132,16 @@ def assignee_span(rest: str) -> tuple[int, int] | None:
     The span ends where the cut ends the value, so a field glued to it (`👤 [[Alicia]]📅 …`)
     is not part of it.
     """
-    return _scan(rest)[2]
+    return place(rest, ASSIGNEE)
+
+
+def place(rest: str, field: re.Pattern[str]) -> tuple[int, int] | None:
+    """Where the reader takes `field` in `rest`, the first one for `BLOCKED_BY`, or None."""
+    return _scan(rest)[2].get(field)
+
+
+def id_of(rest: str) -> str | None:
+    """The id the reader takes off a todo's words, without its `🆔`, or None."""
+    found = place(rest, ID)
+    match = None if found is None else ID.match(rest, *found)
+    return None if match is None else match[1]

@@ -1,4 +1,7 @@
+import cases from "@/lib/person-field-cases.json";
+import type { ListData } from "@/lists/lists-store";
 import { createListsStore } from "@/lists/lists-store";
+import { openCount } from "@/lists/lists-view";
 import { fakeShare, setOnline } from "./lists-fixture";
 
 class FakeEventSource {
@@ -338,5 +341,23 @@ describe("the lists store", () => {
     }).toEqual({ items: ["Milch", "Brot"], posts: 2, locks: 1 });
     tabA.close();
     tabB.close();
+  });
+});
+
+describe("openCount", () => {
+  const unblocked = (text: string) => text.replace(/(?:^|[ \t]+)\^[\w-]+$/, "");
+  const listOf = (text: string): ListData => ({
+    name: "Einkauf",
+    sha: null,
+    items: [{ line: 0, text, done: false, assignee: null, ticked_by: null, ticked_at: null }],
+  });
+
+  it("#1055: counts an item with a bare id mark, or one inside a link, by the editor's words", () => {
+    expect(openCount(listOf("a 🆔 more"), "a 🆔 ⛔ kt-1 more")).toBe(1);
+    expect(openCount(listOf("see [[🆔 kt-1]]"), "see [[🆔 kt-1]]")).toBe(1);
+  });
+
+  it.each(cases)("#1055: counts $id as the server reads it", ({ rest, text }) => {
+    expect(openCount(listOf(unblocked(text)), rest)).toBe(1);
   });
 });

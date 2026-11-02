@@ -32,8 +32,10 @@ Each list route answers the same shape:
 
 * `sha` is the note's current sha, or `null` when the note is not there.
 * `line` is the item's 0-based line index in the note.
-* `text` is the item with no markdown: no `- [ ]`, and cut before the first
-  Tasks field marker, such as `✅`, `🆔` or `📅`.
+* `text` is the item with no markdown: no `- [ ]`, every field the editor
+  reads taken out, such as `✅ <date>`, `🆔 kt-…` or `📅 <date>`, and no
+  trailing `^block-id`. Words after a field stay, and so does a marker with no
+  value or one inside a link or code span: `a 🆔 ⛔ kt-1 more` reads `a 🆔 more`.
 * `assignee` is who the item is for: the name written after an undated `👤`,
   such as `[[Pascal]]`, or `null` when there is none. A `👤` with a date is the
   wait and gives no assignee.
@@ -105,16 +107,21 @@ Takes `{"line": 4, "done": true, "sha": "3f9c1a0"}` and answers the `List`.
 
 Ticking to done writes `- [x] <text> ✅ <today>`, and a `🆔 kt-<6 hex>` after it
 unless the line reads an id already. The `✅` goes before the id it reads. A
-`🆔` with no word after it, or one inside a link or code span, reads no id, as in
-the editor, so the line gets one. A `^block-id` at the end of the line stays
-last, so `- [ ] Brot ^abc` becomes `- [x] Brot ✅ <today> 🆔 kt-… ^abc`.
-Unticking writes `- [ ] <text>` and strips the `✅` date. Both take only the
-done field the line reads, a `✅` with a date outside a link or code span: a
-bare `✅` among the words, or one inside a code span, stays as it is.
+`🆔` with no word after it, one inside a link or code span, or one glued to
+another field's value (`⏲ 5m🆔 kt-1`), reads no id, as in the editor, so the
+line gets one. A `^block-id` that ends the line after a space or a tab, or is
+the whole item, stays last, so `- [ ] Brot ^abc` becomes
+`- [x] Brot ✅ <today> 🆔 kt-… ^abc`. That is the rule the read uses to drop it.
+Unticking writes `- [ ] <text>` and strips the `✅` date, keeping the blank
+before it where text is glued to the date: `Brot ✅ 2026-01-015` becomes
+`Brot 5`. Both take only the done field the line reads, a `✅` with a date
+outside a link or code span: a bare `✅` among the words, or one inside a code
+span, stays as it is.
 
 A tick whose line is already in the asked state, or is not an item, answers
 `200` and changes nothing. A stale sha answers `409`. A tick to done on a line
-carrying `🔁`, or on a line with indented parts under it, answers `422`
+that reads a recurrence, a `🔁` with a value outside a link or code span, or
+on a line with indented parts under it, answers `422`
 `{"detail": "Tick this one in kasten"}` and writes nothing: kasten's own cycle
 writes the next occurrence and ticks the parts.
 

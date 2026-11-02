@@ -2,12 +2,13 @@
 
 import hashlib
 import json
+import re
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pytest
 
-from kasten_backend import share
+from kasten_backend import share, todo_fields
 from kasten_backend.config import get_settings
 
 if TYPE_CHECKING:
@@ -246,8 +247,32 @@ async def test_810_a10_assign_writes_every_row_of_the_case_table(
         for box in (" ", "x")
     }
     assert reads == {
-        (case["id"], box): (share.BLOCK_ID.sub("", case["text"]), case["assignee"])
+        (case["id"], box): (todo_fields.BLOCK_ID.sub("", case["text"]), case["assignee"])
         for case in CASES
         if "from" in case
         for box in (" ", "x")
     }
+
+
+async def test_1055_read_keeps_a_bare_id_mark_and_one_inside_a_link(
+    client: AsyncClient, folder: Path
+) -> None:
+    put(folder, BLOCK + "- [ ] a 🆔 ⛔ kt-1 more\n- [ ] see [[🆔 kt-1]]\n")
+
+    response = await client.get("/share/lists/Einkauf")
+
+    assert [item["text"] for item in response.json()["items"]] == ["a 🆔 more", "see [[🆔 kt-1]]"]
+
+
+async def test_1055_read_gives_every_case_the_editors_words(
+    client: AsyncClient, folder: Path
+) -> None:
+    put(folder, BLOCK + "".join(f"- [ ] {case['rest']}\n" for case in CASES))
+
+    response = await client.get("/share/lists/Einkauf")
+
+    # The editor's `withoutBlockId`, as the list shows no block id.
+    unblocked = re.compile(r"(?:^|[ \t]+)\^[A-Za-z0-9_-]+$")
+    assert {
+        case["id"]: item["text"] for case, item in zip(CASES, response.json()["items"], strict=True)
+    } == {case["id"]: unblocked.sub("", case["text"]) for case in CASES}

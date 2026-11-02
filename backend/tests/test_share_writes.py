@@ -94,7 +94,7 @@ async def test_read_returns_the_items_without_markdown_or_fields(
             },
             {
                 "line": 14,
-                "text": "Butter",
+                "text": "Butter #einkauf",
                 "done": False,
                 "assignee": None,
                 "ticked_by": None,
@@ -546,3 +546,19 @@ async def test_1056_untick_keeps_a_dateless_done_sign(client: AsyncClient, folde
     assert body_of((folder / "Einkauf.md").read_text(encoding="utf-8")) == (
         "\n- [ ] Brot ✅ 🆔 kt-000001\n"
     )
+
+
+@pytest.mark.parametrize("rest", ["a 🔁", "see `🔁`", "a 🔁 📅 2026-01-01"])
+async def test_1057_tick_takes_an_item_whose_recurrence_mark_reads_no_value(
+    client: AsyncClient, folder: Path, pinned_day: date, rest: str
+) -> None:
+    sha = put(folder, BLOCK + f"- [ ] {rest}\n")
+
+    response = await client.post(
+        "/share/lists/Einkauf/tick", json={"line": 6, "done": True, "sha": sha}
+    )
+
+    written = (folder / "Einkauf.md").read_text(encoding="utf-8")
+    assert response.status_code == 200
+    line = rf"- \[x\] {re.escape(rest)} ✅ {pinned_day.isoformat()} 🆔 kt-[0-9a-f]{{6}}"
+    assert re.search(rf"^{line}$", written, re.MULTILINE)
