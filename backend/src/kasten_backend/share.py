@@ -260,7 +260,7 @@ def _assigned(rest: str, assignee: str | None) -> str:
 
 
 def _without(rest: str, start: int, end: int) -> str:
-    """The words with the assignee's span taken out, and the blank before it when a blank follows.
+    """The words with `rest[start:end]` taken out, and the blank before it when a blank follows.
 
     A field glued to the span keeps the blank before it, so the field does not run into the words.
     """

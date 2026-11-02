@@ -97,11 +97,6 @@ def drop_done(text: str, id_: str) -> str | None:
     return None if len(kept) == len(lines) else "\n".join(kept)
 
 
-def _id(rest: str) -> str | None:
-    """The `🆔` an item's words carry, or None."""
-    return todo_fields.id_of(rest)
-
-
 async def _rewrite(
     settings: Settings, path: str, change: Callable[[str], str | None], fresh: str | None = None
 ) -> None:
@@ -149,7 +144,7 @@ async def log(settings: Settings, note_path: str, rest: str, today: date) -> Non
     The pane skips an id a `- ✅` line names anywhere, so ticking twice leaves one line.
     Today's note is checked again under the write's lock.
     """
-    id_ = _id(rest)
+    id_ = todo_fields.id_of(rest)
     if id_ is None:
         return
     daily = periodic.daily_path(today, settings.periodic_path)
@@ -169,7 +164,7 @@ async def log(settings: Settings, note_path: str, rest: str, today: date) -> Non
 def _carries(line: str, id_: str) -> bool:
     """Whether `line` is a todo whose `🆔` is `id_`, as `parseTodo(line)?.id` reads it."""
     found = todos.LINE.fullmatch(line.removesuffix("\r"))
-    return found is not None and _id(found[2] or "") == id_
+    return found is not None and todo_fields.id_of(found[2] or "") == id_
 
 
 async def other_todo_with_id(
@@ -180,7 +175,7 @@ async def other_todo_with_id(
     An untick drops log lines by id, and a pasted copy carries the same id, so the share untick
     refuses as the pane does. `lines` is the list as the untick read it.
     """
-    id_ = _id(rest)
+    id_ = todo_fields.id_of(rest)
     if id_ is None:
         return None
     others = [
@@ -202,7 +197,7 @@ async def other_todo_with_id(
 
 async def unlog(settings: Settings, note_path: str, rest: str) -> None:
     """Drop every `- ✅` line naming the item's id, wherever it is, as the pane's untick does."""
-    id_ = _id(rest)
+    id_ = todo_fields.id_of(rest)
     if id_ is None:
         return
     for path in await _holding(settings, id_, note_path):
