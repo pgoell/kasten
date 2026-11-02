@@ -29,7 +29,7 @@ finder that leaves a name inside a tag alone.
 4. The character in front of the hash is not a letter, a number, `_` or `/`. So
    `note#2x`, `https://a.io/p#x` and `²#x` carry no tag.
 5. A hash inside a code span, a fenced code block, an indented code block, an
-   HTML comment, a wikilink or a markdown link (its text or its address) is no
+   HTML comment or block, a wikilink or a markdown link (its text or its address) is no
    tag. A fence opened with tildes is a fence too, and one nobody closed runs to
    the end of the note. An indented block is code as CommonMark reads it, four
    spaces or a tab after a blank line, or after a quote or list marker, so
@@ -51,6 +51,22 @@ finder that leaves a name inside a tag alone.
    one line reads such a line as an item, so the readers holding a note hand
    it to a parser: `GET /api/tags` reads a note holding an ordered marker
    before `<!--` whole, and the note header parses it (#1453).
+7. Every other HTML block hides its tags the same way, as CommonMark reads
+   it and as the editor draws it (#656). A line, list item or quote that
+   opens with `<pre`, `<script` or `<style` starts one that runs to the line
+   holding the closing tag. One that opens with a block tag, opening or
+   closing, such as `<div>`, `<details>`, `<p>`, `<table>` or `</div>`, starts
+   one that runs to the next blank line. Both break a paragraph, so `text`,
+   then `<div> #a`, carries no tag. A line holding one other tag and nothing
+   else, `<span>`, starts a block to the next blank line too, but only after
+   a blank line, never under a paragraph. So `<div> #a`, `- <div> #a`,
+   `> <details> #a` and `<span>`, then `#a`, carry no tag. `<span> #a`,
+   `<img src=x> #a`, `text <div> #a` and the todo `- [ ] <div> #a` carry `#a`:
+   none opens a block. A reader of one line hides a line that opens a block,
+   and the readers holding a note hand a note with a line opening on `<` to a
+   parser for the lines under it. The block names are the editor's, where
+   `<search>` and `<textarea>` open no block and `<source>` does; the
+   backend's parser reads those three the other way (#1472).
 
 `# Heading`, a hash and a space, opens a heading and is no tag.
 
