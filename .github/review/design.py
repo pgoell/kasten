@@ -15,6 +15,9 @@ import os
 import re
 import subprocess
 import sys
+import time
+import urllib.error
+import urllib.parse
 import urllib.request
 from collections import Counter
 from datetime import UTC, datetime, timedelta
@@ -27,6 +30,7 @@ SOURCE = (".py", ".ts", ".tsx", ".js", ".mjs", ".sh")
 GENERATED = ("routeTree.gen.ts", "api-types.ts")
 CROWDED = 20
 PAGE = 100
+TRIES = 3
 WEEK = timedelta(days=7)
 REVIEW_GAP = timedelta(days=28)
 BUGS_TO_RETURN = 3
@@ -55,40 +59,60 @@ def when(stamp: str) -> datetime:
     return datetime.fromisoformat(stamp.replace("Z", "+00:00"))
 
 
+def read(request: urllib.request.Request) -> dict | list:
+    """Fetch one page, waiting out the rate limit: search allows 10 calls a minute unsigned."""
+    attempt = 0
+    while True:
+        try:
+            with urllib.request.urlopen(request) as reply:  # noqa: S310 (a fixed https URL)
+                return json.load(reply)
+        except urllib.error.HTTPError as err:
+            attempt += 1
+            if err.headers.get("X-RateLimit-Remaining") != "0" or attempt == TRIES:
+                raise
+            time.sleep(max(1, int(err.headers["X-RateLimit-Reset"]) - time.time() + 1))
+
+
 def get(path: str) -> list[dict]:
-    """Read every page of a REST list under the repo."""
+    """Read every page of a REST list, or of a search's items."""
     rows: list[dict] = []
     headers = {"Accept": "application/vnd.github+json"}
     if os.environ.get("GITHUB_TOKEN"):
         headers["Authorization"] = f"Bearer {os.environ['GITHUB_TOKEN']}"
     sep = "&" if "?" in path else "?"
-    for page in range(1, 50):
-        url = f"https://api.github.com/repos/{REPO}/{path}{sep}per_page={PAGE}&page={page}"
-        with urllib.request.urlopen(urllib.request.Request(url, headers=headers)) as reply:
-            batch = json.load(reply)
+    for page in range(1, 11):
+        url = f"https://api.github.com/{path}{sep}per_page={PAGE}&page={page}"
+        batch = read(urllib.request.Request(url, headers=headers))
+        batch = batch["items"] if isinstance(batch, dict) else batch
         rows += batch
         if len(batch) < PAGE:
             break
     return rows
 
 
+def search(query: str) -> list[dict]:
+    """Search this repo's issues and pull requests."""
+    return get(f"search/issues?q={urllib.parse.quote(f'repo:{REPO} {query}')}")
+
+
 def fetch(now: datetime) -> dict:
     """Collect the issues and merged pull requests the commands read."""
-    since = (now - REVIEW_GAP).strftime("%Y-%m-%dT%H:%M:%SZ")
-    labels = [lab["name"] for lab in get("labels") if lab["name"].startswith("review:")]
-    paths = [f"issues?state=all&since={since}", "issues?state=all&labels=refactor"]
-    paths += [f"issues?state=all&labels={label}" for label in labels]
+    labels = [lab["name"] for lab in get(f"repos/{REPO}/labels")]
+    queries = [f"label:bug,regression created:>={now - REVIEW_GAP:%Y-%m-%d}", "label:refactor"]
+    queries += [f'label:"{label}"' for label in labels if label.startswith("review:")]
     issues = {}
-    for path in paths:
-        for row in get(path):
-            if "pull_request" not in row:
-                labels_of = [lab["name"] for lab in row["labels"]]
-                issues[row["number"]] = {**row, "labels": labels_of, "body": row["body"] or ""}
-    pulls = get("pulls?state=closed&sort=updated&direction=desc")[:100]
+    for query in queries:
+        for row in search(f"is:issue {query}"):
+            labels_of = [lab["name"] for lab in row["labels"]]
+            issues[row["number"]] = {**row, "labels": labels_of, "body": row["body"] or ""}
+    pulls = search(f"is:pr is:merged merged:>={now - WEEK:%Y-%m-%d}")
     merged = [
-        {"number": p["number"], "body": p["body"] or "", "merged_at": p["merged_at"]}
+        {
+            "number": p["number"],
+            "body": p["body"] or "",
+            "merged_at": p["pull_request"]["merged_at"],
+        }
         for p in pulls
-        if p["merged_at"]
     ]
     return {"issues": list(issues.values()), "pulls": merged}
 
