@@ -54,8 +54,11 @@ export function proseLines(doc: Text, first: number): { line: number; text: stri
 const UNSURE_COMMENT =
   /^[ \t>]*[0-9]{1,9}[.)][ \t]+<!--|^[ \t>]*(?: {4}|\t)(?:[ \t>]|(?:[-*+]|[0-9]{1,9}[.)])[ \t])*<!--|<!--(?![^\n]*-->)/m;
 
-/** A hash on a line indented as far as code is, which only the parse places (#1456), as `todos.INDENTED`. */
-const INDENTED = /^(?: {4}|\t).*#/m;
+/**
+ * A hash on a line indented as far as code is, after markers or not, which only the parse
+ * places (#1456, #1459), as `todos.INDENTED`.
+ */
+const INDENTED = /^(?:[ \t>]|(?:[-*+]|[0-9]{1,9}[.)])[ \t])*(?: {4}|\t).*#/m;
 
 /** The editor's parser, for the notes whose tags only it can read. */
 const notes = noteLanguage().language.parser;

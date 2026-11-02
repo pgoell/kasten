@@ -100,7 +100,7 @@ Under a paragraph a number past 1 starts no list, so the line goes on with the p
 A superset: a `1.` or a list going on costs one whole-note read, not a wrong tag.
 """
 
-MARKS = rf"{BLOCK}|{FENCE}|{OPEN_COMMENT}|{ORDERED_COMMENT}|^(?: {{4}}|\t)[^\n]*#"
+MARKS = rf"{BLOCK}|{FENCE}|{OPEN_COMMENT}|{ORDERED_COMMENT}|{todos.INDENTED.pattern}"
 """What says a note's lines cannot be read one at a time.
 
 Only the whole note says where a block, fence or comment starts and ends. The match is
