@@ -2,6 +2,10 @@ import hashlib
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
+import pytest
+
+from kasten_backend.frontmatter import unstamped
+
 if TYPE_CHECKING:
     from pathlib import Path
 
@@ -410,3 +414,55 @@ async def test_leaves_a_crlf_note_untouched_when_a_stale_base_repeats_its_text(
     assert response.status_code == 200
     assert response.json()["content"] == LF_NOTE
     assert (vault / "borges.md").read_bytes() == CRLF_NOTE
+
+
+SPACED = [("---", "--- "), ("---", "---\t"), ("--- ", "---")]
+"""#1468: an opener and a closer as a writer may leave them, trailing blanks and all."""
+
+
+@pytest.mark.parametrize(("opener", "closer"), SPACED)
+async def test_1468_the_next_save_names_the_text_sent_over_a_fence_with_trailing_blanks(
+    client: AsyncClient, vault: Path, opener: str, closer: str
+) -> None:
+    # `landedAs` and the next base both read the fences as sent, so the disk keeps them.
+    (vault / "borges.md").write_text(LF_NOTE)
+    sent = f"{opener}\n{BLOCK}{closer}\n# borges\n\nMine.\n"
+
+    first = await client.put("/api/files/borges.md", json={"content": sent})
+    second = await client.put(
+        "/api/files/borges.md",
+        json={"content": sent.replace("Mine.", "Mine, and more."), "base": _base(unstamped(sent))},
+    )
+
+    assert unstamped(first.json()["content"]) == sent
+    assert second.status_code == 200
+
+
+async def test_1468_a_base_without_the_stamped_lines_matches_over_a_spaced_closer(
+    client: AsyncClient, vault: Path
+) -> None:
+    (vault / "borges.md").write_text(LF_NOTE)
+    sent = "---\ntype: Paper\n--- \n# borges\n\nMine.\n"
+
+    await client.put("/api/files/borges.md", json={"content": sent})
+    response = await client.put(
+        "/api/files/borges.md",
+        json={"content": sent.replace("Mine.", "Mine, and more."), "base": _base(sent)},
+    )
+
+    assert response.status_code == 200
+
+
+async def test_1468_a_stale_base_over_a_spaced_closer_the_disk_holds_writes_nothing(
+    client: AsyncClient, vault: Path
+) -> None:
+    on_disk = LF_NOTE.replace("\n---\n#", "\n--- \n#")
+    (vault / "borges.md").write_text(on_disk)
+
+    response = await client.put(
+        "/api/files/borges.md",
+        json={"content": unstamped(on_disk), "base": _base("# borges\n\nOlder.\n")},
+    )
+
+    assert response.status_code == 200
+    assert (vault / "borges.md").read_text() == on_disk

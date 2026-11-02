@@ -238,3 +238,10 @@ def test_654_a_save_puts_the_block_above_a_note_closed_only_by_a_spaced_fence() 
         "fields": {"id", "created", "type", "modified"},
         "body": content,
     }
+
+
+@pytest.mark.parametrize("closer", ["--- ", "---\t", "---\r"])
+def test_1468_a_save_keeps_a_closer_with_trailing_blanks(closer: str) -> None:
+    note = f"---\nid: a\ncreated: x\ntype: Note\nmodified: y\n{closer}\nbody"
+
+    assert unstamped(stamp(note, note)) == unstamped(note)
