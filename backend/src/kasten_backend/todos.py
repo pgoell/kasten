@@ -10,7 +10,7 @@ import sys
 import unicodedata
 from typing import TYPE_CHECKING
 
-from kasten_backend.code_spans import FENCES, WIKILINK, code_spans
+from kasten_backend.code_spans import WIKILINK, code_spans
 from kasten_backend.frontmatter import body_start
 from kasten_backend.links import link_path
 from kasten_backend.search import Hit, scan_vault
@@ -160,12 +160,13 @@ Narrower than `TODO_LINE`: the editor's `.` matches no carriage return, U+2028 o
 so a line holding one is no todo here either. rg matches it all the same.
 """
 
-COMMENT_OPENING = r"^(?: {0,3}(?:>[ \t]?|(?:[-*+]|[0-9]{1,9}[.)])[ \t]))* {0,3}<!--[^\n]*"
+COMMENT_OPENING = r"^ {0,3}(?:(?:>|(?:[-*+]|[0-9]{1,9}[.)])[ \t]) {0,4})*<!--[^\n]*"
 LINE_SPANS = re.compile(f"{COMMENT_OPENING}|{SPANS.pattern}")
 """`SPANS` and, first, a comment opening the line or a list item or quote on it.
 
 That `<!--` starts an HTML block, which takes the whole line, so no tag after it counts.
 Not in `SPANS`: a todo's `<!--` after its box is a plain comment. `tag-rule.ts` agrees.
+Each pass opens on a marker, so a line of `> ` cannot backtrack exponentially.
 """
 
 
@@ -187,23 +188,6 @@ def line_tags(text: str) -> list[tuple[int, int]]:
 
 COMMENT = re.compile(r"<!--.*?-->", re.DOTALL)
 """An HTML comment, over as many lines as it runs."""
-
-
-def _comment_blocks(text: str) -> list[tuple[int, int]]:
-    """Where `text` holds an HTML block a `<!--` opens, as CommonMark ends it.
-
-    In a list item or a quote too, so one never closed ends with its item, not the note.
-    """
-    starts = [0]
-    for line in text.split("\n"):
-        starts.append(starts[-1] + len(line) + 1)
-    return [
-        (starts[token.map[0]], min(starts[token.map[1]], len(text)))
-        for token in FENCES.parse(text.replace("\r", " "))
-        if token.type == "html_block"
-        and token.map is not None
-        and token.content.lstrip().startswith("<!--")
-    ]
 
 
 INDENTED = re.compile(r"^(?: {4}|\t).*#", re.MULTILINE)
@@ -234,10 +218,7 @@ def tags_in(text: str) -> list[tuple[int, int]]:
     if "```" in text or "~~~" in text or "<!--" in text or INDENTED.search(text, body):
         # The block as spaces, which the parser reads as blank lines, so an
         # indented line under it opens code as it does under a blank line.
-        front = _blanked(text, hidden, " ")
-        hidden += code_spans(front, indented=True)
-        if "<!--" in text:
-            hidden += _comment_blocks(front)
+        hidden += code_spans(_blanked(text, hidden, " "), indented=True, comments="<!--" in text)
         # Looked for with the code blanked: a `<!--` in code opens no comment,
         # and paired with a real `-->` below it would hide the tags between.
         hidden += [found.span() for found in COMMENT.finditer(_blanked(text, hidden, " "))]

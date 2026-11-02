@@ -29,10 +29,11 @@ export const SPANS = /\[\[[^[\]\n]+\]\]|\[[^\]\n]*\]\([^)\n]*\)|`[^`\n]*`|<!--[^
 /**
  * `SPANS`, plus a comment opening the line or a list item or quote on it: CommonMark makes
  * that an HTML block, so no tag follows it. Not after a box, which opens a plain paragraph.
- * `todos.COMMENT_OPENING` is the same pattern.
+ * `todos.COMMENT_OPENING` is the same pattern; each pass opens on a marker, or a line of `> `
+ * would backtrack exponentially.
  */
 const LINE_SPANS = new RegExp(
-  String.raw`^(?: {0,3}(?:>[ \t]?|(?:[-*+]|[0-9]{1,9}[.)])[ \t]))* {0,3}<!--[^\n]*|${SPANS.source}`,
+  String.raw`^ {0,3}(?:(?:>|(?:[-*+]|[0-9]{1,9}[.)])[ \t]) {0,4})*<!--[^\n]*|${SPANS.source}`,
   "g",
 );
 

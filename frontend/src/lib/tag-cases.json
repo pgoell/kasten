@@ -89,5 +89,10 @@
     "text": "- a\n  <!-- x\n  #hidden\n  -->\n#real",
     "tags": ["#real"]
   },
-  { "id": "comment-in-list-item-never-closes", "text": "- <!-- x\n\n#real", "tags": ["#real"] }
+  { "id": "comment-in-list-item-never-closes", "text": "- <!-- x\n\n#real", "tags": ["#real"] },
+  {
+    "id": "deep-quote-no-comment",
+    "text": "> > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > #a",
+    "tags": ["#a"]
+  }
 ]
