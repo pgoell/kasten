@@ -102,6 +102,17 @@ it("the head counts the tokens unused for 30 days", async () => {
   expect(await screen.findByText("1 unused for 30 days")).toBeInTheDocument();
 });
 
+it("the head stops saying Loading when the list fails", async () => {
+  vi.spyOn(client, "GET").mockResolvedValue({
+    data: undefined,
+    response: new Response(null, { status: 500 }),
+  } as never);
+  await renderPage();
+
+  await screen.findByText("Could not load the tokens.");
+  expect(screen.queryByText("Loading")).not.toBeInTheDocument();
+});
+
 it("the head leaves the count out when every token is in use", async () => {
   const now = Date.now();
   serve([{ name: "recent", created: since(now, 60 * DAY), last_used: since(now, 3 * MINUTE) }]);

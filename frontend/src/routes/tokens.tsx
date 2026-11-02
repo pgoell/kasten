@@ -86,7 +86,7 @@ function Tokens() {
             <h1 className="font-serif text-k-27">agent tokens</h1>
             <p className="text-k-13 text-k-muted">
               {tokens === undefined ? (
-                "Loading"
+                list.isPending && "Loading"
               ) : (
                 <>
                   <span className="tabular-nums">{tokens.length}</span> in the vault
