@@ -1,6 +1,6 @@
 import { type Dispatch, type SetStateAction, useCallback, useState } from "react";
 import { paneRects } from "@/components/pane-layout";
-import { type Direction, paneToward } from "@/lib/pane-direction";
+import { type Direction, paneToward } from "@/lib/panes/pane-direction";
 import {
   canMoveToEdge,
   focusedPane,
@@ -8,7 +8,7 @@ import {
   type Layout,
   movePaneToEdge,
   swapPanes,
-} from "@/lib/panes";
+} from "@/lib/panes/panes";
 import { useViewport } from "@/lib/use-viewport";
 
 export type PaneMoves = ReturnType<typeof usePaneMoves>;

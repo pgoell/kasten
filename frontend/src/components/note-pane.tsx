@@ -22,7 +22,7 @@ import type { useAutosave } from "@/lib/note/use-autosave";
 import type { BufferSync } from "@/lib/note/use-buffer-sync";
 import type { NoteOpening } from "@/lib/note/use-note-opening";
 import { paneView } from "@/lib/pane-doc";
-import type { Pane } from "@/lib/panes";
+import type { Pane } from "@/lib/panes/panes";
 import { indexAt } from "@/lib/rsvp/rsvp";
 import { markdownWords } from "@/lib/rsvp/rsvp-sources";
 import { type RsvpAsk, useRsvpAsk } from "@/lib/rsvp/use-rsvp";

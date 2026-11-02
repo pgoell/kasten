@@ -9,8 +9,8 @@
 
 import { cdp } from "vitest/browser";
 import { noteName } from "@/lib/note-path";
-import { openInFocused } from "@/lib/pane-contents";
-import { addTab, emptyLayout, goToTab, type Layout } from "@/lib/panes";
+import { openInFocused } from "@/lib/panes/pane-contents";
+import { addTab, emptyLayout, goToTab, type Layout } from "@/lib/panes/panes";
 import {
   DESKTOP,
   leader,

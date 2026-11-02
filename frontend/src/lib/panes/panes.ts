@@ -4,8 +4,8 @@
  * layout; nothing in this file knows React, the vault or the URL.
  */
 
-import type { Direction } from "@/lib/pane-direction";
-import { heldKind, type Pane } from "@/lib/pane-kinds";
+import type { Direction } from "@/lib/panes/pane-direction";
+import { heldKind, type Pane } from "@/lib/panes/pane-kinds";
 
 export type { Pane };
 

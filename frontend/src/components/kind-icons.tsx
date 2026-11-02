@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
-import type { PaneKind } from "@/lib/pane-kinds";
+import type { PaneKind } from "@/lib/panes/pane-kinds";
 
-export { paneKind, panePath } from "@/lib/pane-kinds";
+export { paneKind, panePath } from "@/lib/panes/pane-kinds";
 
 const LABELS: Record<PaneKind, string> = {
   page: "Note",

@@ -3,8 +3,8 @@ import { type Dispatch, type RefObject, type SetStateAction, useCallback, useMem
 import type { PaneMoves } from "@/components/use-pane-moves";
 import type { TreeCommands } from "@/lib/key-bindings";
 import { useLogCommands } from "@/lib/log/use-log-commands";
-import { openBeside } from "@/lib/pane-contents";
-import { heldKind, type KindField, PANE_KINDS } from "@/lib/pane-kinds";
+import { openBeside } from "@/lib/panes/pane-contents";
+import { heldKind, type KindField, PANE_KINDS } from "@/lib/panes/pane-kinds";
 import {
   addTab,
   fillFocused,
@@ -17,7 +17,7 @@ import {
   splitFocused,
   stepTab,
   toggleZoom,
-} from "@/lib/panes";
+} from "@/lib/panes/panes";
 import type { Period } from "@/lib/periodic";
 import { isPerson } from "@/lib/person";
 import { askRsvp } from "@/lib/rsvp/use-rsvp";

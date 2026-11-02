@@ -2,7 +2,7 @@
 type: Explanation
 title: The workspace
 description: Why each browser and phone reopens the panes, splits and tabs it had open, why the layout lives in the browser and not the vault, why a phone and a laptop keep apart by pointer rather than by width, what is kept and what is not, and what a reload does with a gone note, a link and a broken save.
-resource: frontend/src/lib/workspace.ts
+resource: frontend/src/lib/panes/workspace.ts
 tags: [workspace, panes, phone, storage]
 status: stable
 ---

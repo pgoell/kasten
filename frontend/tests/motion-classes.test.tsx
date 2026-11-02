@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { TabStrip } from "@/components/tab-strip";
-import { addTab, emptyLayout } from "@/lib/panes";
+import { addTab, emptyLayout } from "@/lib/panes/panes";
 import { renderSession } from "./review-session-fixture";
 
 describe("the tab strip and the review question carry their motion classes (#798)", () => {

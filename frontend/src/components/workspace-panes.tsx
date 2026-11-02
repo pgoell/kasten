@@ -7,7 +7,7 @@ import type { PaneMoves } from "@/components/use-pane-moves";
 import type { TreeCommands } from "@/lib/key-bindings";
 import type { SaveStatus } from "@/lib/note/use-autosave";
 import { makeNote } from "@/lib/note/use-note-opening";
-import { openBeside } from "@/lib/pane-contents";
+import { openBeside } from "@/lib/panes/pane-contents";
 import {
   activeTab,
   closeTab,
@@ -16,7 +16,7 @@ import {
   homeTab,
   type Layout,
   tabPanes,
-} from "@/lib/panes";
+} from "@/lib/panes/panes";
 import { useRsvpAsked } from "@/lib/rsvp/use-rsvp";
 import { useVideoAsks } from "@/lib/video/use-video-player";
 

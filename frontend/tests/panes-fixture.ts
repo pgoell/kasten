@@ -1,4 +1,4 @@
-import { focusedPane, type Layout, tabPanes } from "@/lib/panes";
+import { focusedPane, type Layout, tabPanes } from "@/lib/panes/panes";
 
 /**
  * Read an index the compiler will not trust.

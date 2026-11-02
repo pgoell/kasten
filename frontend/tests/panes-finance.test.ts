@@ -1,7 +1,7 @@
 import { isWholePane } from "@/components/pane-body";
 
-import { emptyLayout, fillFocused, focusedPane, isEmptyTab } from "@/lib/panes";
-import { loadWorkspace, saveWorkspace } from "@/lib/workspace";
+import { emptyLayout, fillFocused, focusedPane, isEmptyTab } from "@/lib/panes/panes";
+import { loadWorkspace, saveWorkspace } from "@/lib/panes/workspace";
 
 const FINE = "kasten.workspace.1";
 

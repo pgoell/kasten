@@ -13,7 +13,7 @@ import type { TreeCommands } from "@/lib/key-bindings";
 import { askOnCard, openFoodSearch } from "@/lib/log/log-card";
 import { drinkTarget, logDrinkInVault, logDrinkInView } from "@/lib/log/log-write";
 import { paneView } from "@/lib/pane-doc";
-import type { Pane } from "@/lib/panes";
+import type { Pane } from "@/lib/panes/panes";
 import { type Period, periodicNote } from "@/lib/periodic";
 
 /**

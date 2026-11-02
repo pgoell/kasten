@@ -9,7 +9,7 @@ import {
   splitFocused,
   tabPanes,
   toggleZoom,
-} from "@/lib/panes";
+} from "@/lib/panes/panes";
 import { at } from "./panes-fixture";
 
 describe("zooming a pane", () => {

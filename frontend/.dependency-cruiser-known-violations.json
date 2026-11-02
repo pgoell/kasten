@@ -67,7 +67,7 @@
   },
   {
     "type": "dependency",
-    "from": "src/lib/use-pane-commands.ts",
+    "from": "src/lib/panes/use-pane-commands.ts",
     "to": "src/components/use-pane-moves.ts",
     "unresolvedTo": "@/components/use-pane-moves",
     "dependencyTypes": ["undetermined", "import", "type-only"],

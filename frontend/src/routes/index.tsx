@@ -25,10 +25,19 @@ import { useAutosave } from "@/lib/note/use-autosave";
 import { useBufferSync } from "@/lib/note/use-buffer-sync";
 import { useNoteOpening } from "@/lib/note/use-note-opening";
 import { paletteEntries } from "@/lib/palette";
-import { openOnTop } from "@/lib/pane-contents";
 import { docIn } from "@/lib/pane-doc";
-import { panePath } from "@/lib/pane-kinds";
-import { activeTab, emptyLayout, focusedPane, type Layout, panesOf, tabPanes } from "@/lib/panes";
+import { openOnTop } from "@/lib/panes/pane-contents";
+import { panePath } from "@/lib/panes/pane-kinds";
+import {
+  activeTab,
+  emptyLayout,
+  focusedPane,
+  type Layout,
+  panesOf,
+  tabPanes,
+} from "@/lib/panes/panes";
+import { usePaneCommands } from "@/lib/panes/use-pane-commands";
+import { loadWorkspace } from "@/lib/panes/workspace";
 import { parseWeek } from "@/lib/search-weeks";
 import { useTodoActions } from "@/lib/todo/use-todo-actions";
 import { useFileTransfer } from "@/lib/use-file-transfer";
@@ -36,12 +45,10 @@ import { useGuardedWrites } from "@/lib/use-guarded-writes";
 import { useKeyHelp } from "@/lib/use-key-help-key";
 import { useKeyboardInset } from "@/lib/use-keyboard-inset";
 import { useListings } from "@/lib/use-listings";
-import { usePaneCommands } from "@/lib/use-pane-commands";
 import { useTrash } from "@/lib/use-trash";
 import { useTreeDrawer } from "@/lib/use-tree-drawer";
 import { useVaultEvents } from "@/lib/use-vault-events";
 import { useViewport } from "@/lib/use-viewport";
-import { loadWorkspace } from "@/lib/workspace";
 
 interface HomeSearch {
   /** Vault-relative path of the note in the focused pane, absent while it holds none. */
@@ -83,8 +90,8 @@ function Home() {
   const navigate = useNavigate({ from: Route.fullPath });
   const queryClient = useQueryClient();
 
-  // Read up here rather than beside the drawer below, because which device
-  // this is decides which saved workspace the layout starts from.
+  // Read up here, not beside the drawer below: which device this is decides
+  // which saved workspace the layout starts from.
   const { narrow, coarse } = useViewport();
   // What this device had open when it last drew, read once (#495). Its own
   // state so the layout and the tree start from the one read: a second read
@@ -137,7 +144,7 @@ function Home() {
   // the bar diffs against the vault's while the note stands conflicted.
   const focusedDoc = () => docIn(pane.id);
   // The layout as of this render, for callbacks kept across renders to read
-  // a pane's note at the moment they are asked rather than when made.
+  // a pane's note when asked, not when made.
   const layoutNow = useRef(layout);
   layoutNow.current = layout;
   const {

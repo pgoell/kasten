@@ -20,8 +20,8 @@ import {
   openInFocused,
   openPdfBeside,
   openPdfInFocused,
-} from "@/lib/pane-contents";
-import { fillFocused, type Layout, tabPanes } from "@/lib/panes";
+} from "@/lib/panes/pane-contents";
+import { fillFocused, type Layout, tabPanes } from "@/lib/panes/panes";
 import { type Period, periodicNote } from "@/lib/periodic";
 import type { Listings } from "@/lib/use-listings";
 import { namesAFile, pdfPage, splitTarget, wikiLinkPath } from "@/lib/wikilink";

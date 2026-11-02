@@ -1,5 +1,12 @@
-import { openBeside } from "@/lib/pane-contents";
-import { activeTab, emptyLayout, focusedPane, isSplit, nextPane, tabPanes } from "@/lib/panes";
+import { openBeside } from "@/lib/panes/pane-contents";
+import {
+  activeTab,
+  emptyLayout,
+  focusedPane,
+  isSplit,
+  nextPane,
+  tabPanes,
+} from "@/lib/panes/panes";
 
 describe("a video in a pane beside its note", () => {
   it("stacks the player under the note rather than beside it", () => {

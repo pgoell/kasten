@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
-import type { Pane } from "@/lib/panes";
+import type { Pane } from "@/lib/panes/panes";
 
 /** A press of `<leader>rr` or `<leader>rh`, counted, so a second press asks again. */
 export interface RsvpAsk {

@@ -1,4 +1,4 @@
-import { openInFocused } from "@/lib/pane-contents";
+import { openInFocused } from "@/lib/panes/pane-contents";
 import {
   addTab,
   emptyLayout,
@@ -11,7 +11,7 @@ import {
   swapPanes,
   tabPanes,
   toggleZoom,
-} from "@/lib/panes";
+} from "@/lib/panes/panes";
 import { at, notes, open } from "./panes-fixture";
 
 describe("swapping two panes", () => {

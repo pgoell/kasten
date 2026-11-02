@@ -1,8 +1,8 @@
 import { act, render, screen } from "@testing-library/react";
 import type { ComponentProps } from "react";
 import { TabStrip } from "@/components/tab-strip";
-import { openInFocused } from "@/lib/pane-contents";
-import { addTab, emptyLayout, goToTab, type Layout } from "@/lib/panes";
+import { openInFocused } from "@/lib/panes/pane-contents";
+import { addTab, emptyLayout, goToTab, type Layout } from "@/lib/panes/panes";
 
 type Props = Partial<ComponentProps<typeof TabStrip>>;
 

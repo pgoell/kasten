@@ -2,9 +2,9 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, renderHook } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { expect, it, vi } from "vitest";
-import { openBeside } from "@/lib/pane-contents";
-import { emptyLayout, type Layout, tabPanes } from "@/lib/panes";
-import { usePaneCommands } from "@/lib/use-pane-commands";
+import { openBeside } from "@/lib/panes/pane-contents";
+import { emptyLayout, type Layout, tabPanes } from "@/lib/panes/panes";
+import { usePaneCommands } from "@/lib/panes/use-pane-commands";
 import { useVideoAsks } from "@/lib/video/use-video-player";
 
 const NOTE = "lit/talk.md";

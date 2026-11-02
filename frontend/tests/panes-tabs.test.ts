@@ -1,4 +1,4 @@
-import { addTab, emptyLayout, goToTab, splitFocused, stepTab, tabPanes } from "@/lib/panes";
+import { addTab, emptyLayout, goToTab, splitFocused, stepTab, tabPanes } from "@/lib/panes/panes";
 import { open } from "./panes-fixture";
 
 describe("tabs", () => {
