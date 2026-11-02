@@ -4,6 +4,7 @@
  */
 
 import { amountLine, type DrinkKind, type DrinkTotals, logLines, tenth } from "@/lib/log/log-lines";
+import { closing } from "@/lib/note-frontmatter";
 
 export interface Goal {
   type: "floor" | "ceiling";
@@ -179,8 +180,8 @@ function readConfigLine(read: ConfigRead, text: string, line: number): void {
 export function parseConfig(note: string | null): LogConfig {
   if (note === null) return DEFAULT_CONFIG;
   const lines = note.split("\n");
-  // The frontmatter runs from a first `---` to the next one, as in logLines, and holds no config.
-  const close = lines[0] === "---" ? lines.indexOf("---", 1) : -1;
+  // The frontmatter holds no config.
+  const close = closing(lines);
   const read: ConfigRead = { kinds: [], broken: [], marks: new Set(), food: null };
   for (const [index, text] of lines.entries()) {
     if (index > close && text.startsWith("- ")) readConfigLine(read, text, index + 1);

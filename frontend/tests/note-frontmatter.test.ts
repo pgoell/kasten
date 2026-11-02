@@ -10,6 +10,10 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { belowFrontmatter } from "@/lib/frontmatter-language";
+import { landedAs, unstamped } from "@/lib/held-text";
+import { parseConfig } from "@/lib/log/log-kinds";
+import { logLines } from "@/lib/log/log-lines";
+import { parseMyFoods } from "@/lib/log/my-foods";
 import { noteBody, readField, setField } from "@/lib/note-frontmatter";
 
 const CFI = "epubcfi(/6/14!/4/2/2/1:0)";
@@ -161,5 +165,66 @@ describe("#654 a block closes only on a fence at column 0, as frontmatter.py clo
       read: undefined,
       set: note("---", `reading: ${CFI}`, "---", text),
     });
+  });
+});
+
+/** `note` with each line that starts no dash swapped for `mark(index)`, its `\r` kept. */
+function marked(text: string, mark: (index: number) => string): string {
+  return text
+    .split("\n")
+    .map((line, index) =>
+      line.trimStart().startsWith("-") ? line : mark(index) + (line.endsWith("\r") ? "\r" : ""),
+    )
+    .join("\n");
+}
+
+/** The indexes of the lines below the block, by the case's own answer. */
+function below(one: { note: string; body: string }): number[] {
+  const lines = one.note.split("\n");
+  const start = lines.length - one.body.split("\n").length;
+  return lines.flatMap((line, index) =>
+    index >= start && !line.trimStart().startsWith("-") ? [index] : [],
+  );
+}
+
+/** The numbers after `L` in the lines of `text` that carry one. */
+function numbered(lines: string[]): number[] {
+  return lines.flatMap((line) => /L(\d+)/.exec(line)?.slice(1).map(Number) ?? []);
+}
+
+describe("#1449 every reader reads below the closer frontmatter.py finds", () => {
+  it.each(CLOSERS.map((one) => [one.name, one] as const))("%s", (_, one) => {
+    const listed = marked(one.note, (index) => `- L${index}`);
+    const stamped = marked(one.note, (index) => `modified: L${index}`);
+    const start = one.note.split("\n").length - one.body.split("\n").length;
+    const vault = marked(one.note, (index) =>
+      index < start ? `modified: M${index}` : `modified: L${index}`,
+    ).replace(/^(.*?\n)/, start > 0 ? "$1id: q\n" : "$1");
+
+    expect({
+      logLines: numbered(logLines(marked(one.note, (index) => `## Log\n- L${index}`))),
+      parseConfig: parseConfig(listed).broken.map((line) => line.line - 1),
+      parseMyFoods: parseMyFoods(listed).broken.map((line) => line.line - 1),
+      unstamped: numbered(
+        unstamped(stamped)
+          .split("\n")
+          .filter((line) => line.startsWith("modified")),
+      ),
+      landedAs: landedAs(stamped, vault),
+    }).toEqual({
+      logLines: below(one),
+      parseConfig: below(one),
+      parseMyFoods: below(one),
+      unstamped: below(one),
+      landedAs: true,
+    });
+  });
+
+  it("keeps the bytes of a plain block, a modified-only block and an empty one", () => {
+    expect([
+      unstamped("---\nid: a\nmodified: x\n---\nb"),
+      unstamped("---\nmodified: x\n---\nb"),
+      unstamped("---\n---\nb"),
+    ]).toEqual(["---\nid: a\n---\nb", "---\n\n---\nb", "---\n---\nb"]);
   });
 });

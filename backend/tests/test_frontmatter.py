@@ -6,7 +6,8 @@ from uuid import UUID
 import pytest
 
 from kasten_backend import model_use_notes
-from kasten_backend.frontmatter import _split, body_start, stamp, with_type
+from kasten_backend.frontmatter import _split, body_start, stamp, unstamped, with_type
+from kasten_backend.log_config import parse_config
 
 NOW = datetime(2026, 8, 6, 12, 0, tzinfo=UTC)
 LATER = datetime(2026, 8, 6, 13, 30, tzinfo=UTC)
@@ -195,6 +196,37 @@ def test_654_a_block_closes_only_on_a_fence_at_column_0(case: dict) -> None:
         "body_start": note[body_start(note) :],
         "model_use": "\n".join(model_use_notes._split(note)[1]),
     } == dict.fromkeys(("split", "body_start", "model_use"), case["body"])
+
+
+def _marked(note: str, mark: str) -> str:
+    """`note` with each line that starts no dash swapped for `mark` and its index, `\r` kept."""
+    lines = note.split("\n")
+    return "\n".join(
+        line if line.lstrip().startswith("-") else f"{mark}{i}" + "\r" * line.endswith("\r")
+        for i, line in enumerate(lines)
+    )
+
+
+@pytest.mark.parametrize("case", CLOSERS, ids=[case["name"] for case in CLOSERS])
+def test_1449_every_reader_reads_below_the_closer_frontmatter_py_finds(case: dict) -> None:
+    lines = case["note"].split("\n")
+    start = len(lines) - len(case["body"].split("\n"))
+    below = {i for i, line in enumerate(lines[start:], start) if not line.lstrip().startswith("-")}
+    kept = unstamped(_marked(case["note"], "modified: L")).split("\n")
+    broken = parse_config(_marked(case["note"], "- L")).broken
+
+    assert {
+        "log_config": {number - 1 for number, _ in broken},
+        "unstamped": {int(line.strip()[11:]) for line in kept if line.startswith("modified: L")},
+    } == dict.fromkeys(("log_config", "unstamped"), below)
+
+
+def test_1449_unstamped_keeps_the_bytes_of_a_plain_a_modified_only_and_an_empty_block() -> None:
+    assert [
+        unstamped("---\nid: a\nmodified: x\n---\nb"),
+        unstamped("---\nmodified: x\n---\nb"),
+        unstamped("---\n---\nb"),
+    ] == ["---\nid: a\n---\nb", "---\n\n---\nb", "---\n---\nb"]
 
 
 def test_654_a_save_puts_the_block_above_a_note_closed_only_by_a_spaced_fence() -> None:

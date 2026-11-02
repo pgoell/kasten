@@ -60,14 +60,14 @@ def _split(content: str) -> tuple[list[str], list[str]]:
     is a horizontal rule, and read as an open block it would swallow the note under it.
     """
     lines = content.split("\n")
-    end = _closing(lines)
+    end = closing(lines)
     if end is None:
         return [], lines
 
     return lines[1:end], lines[end + 1 :]
 
 
-def _closing(lines: list[str]) -> int | None:
+def closing(lines: list[str]) -> int | None:
     """Which line closes the block, or None when there is no block.
 
     A fence opens or closes one only at column 0, with spaces or tabs after it. ` ---` is a rule
@@ -93,7 +93,7 @@ def body_start(content: str) -> int:
     Not from `_split`, which gives no lines both for a note with no block and for an empty one.
     """
     lines = content.split("\n")
-    end = _closing(lines)
+    end = closing(lines)
     if end is None:
         return 0
 
@@ -212,13 +212,15 @@ def unstamped(content: str) -> str:
     `modified` line, so leaving it out lets it still name the note. A copy lives in
     frontend/src/lib/held-text.ts, byte for byte, and must cut the fence as this does.
     """
-    if not content.startswith("---\n"):
+    lines = content.split("\n")
+    end = closing(lines)
+    if end is None:
         return content
-    end = content.find("\n---", 4)
-    if end == -1:
+    block = [line for line in lines[1:end] if not line.startswith("modified:")]
+    # With no line dropped the text stands, so an empty block gains no blank line.
+    if len(block) == end - 1:
         return content
-    block = [line for line in content[4:end].split("\n") if not line.startswith("modified:")]
-    return "---\n" + "\n".join(block) + content[end:]
+    return lines[0] + "\n" + "\n".join(block) + content[len("\n".join(lines[:end])) :]
 
 
 _OPENING = ("id", "created", "type")

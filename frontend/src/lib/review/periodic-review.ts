@@ -9,6 +9,7 @@ import type { QueryClient } from "@tanstack/react-query";
 import type { Root } from "react-dom/client";
 import { mountReview } from "@/components/review-block";
 import { cardLine } from "@/lib/note/weather-card";
+import { closing } from "@/lib/note-frontmatter";
 import { weeklyWeek, yearlyYear } from "@/lib/periodic";
 import { notePath } from "@/lib/todo/todo-commands";
 
@@ -35,11 +36,8 @@ export const reviewSource = Facet.define<ReviewSource, ReviewSource | null>({
 function anchorOf(doc: Text): { pos: number; side: -1 | 1 } {
   const title = cardLine(doc);
   if (title !== null) return { pos: doc.line(title).to, side: 1 };
-  if (doc.line(1).text === "---") {
-    for (let at = 2; at <= doc.lines; at++) {
-      if (doc.line(at).text === "---") return { pos: doc.line(at).to, side: 1 };
-    }
-  }
+  const close = closing(doc.toJSON());
+  if (close !== -1) return { pos: doc.line(close + 1).to, side: 1 };
   return { pos: 0, side: -1 };
 }
 

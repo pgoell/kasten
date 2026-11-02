@@ -1,7 +1,11 @@
+import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
+import { QueryClient } from "@tanstack/react-query";
 import { cleanup } from "@testing-library/react";
 import { NoteMissing } from "@/lib/api";
 import { applyLayout } from "@/lib/layout";
+import { periodicReview, reviewSource } from "@/lib/review/periodic-review";
+import { notePath } from "@/lib/todo/todo-commands";
 import { hashed } from "./digests";
 import { defineFoliateFake } from "./foliate-fake";
 import { FakeEventSource, pageHooks, renderApp, settle, stream, VAULT } from "./home-route-fixture";
@@ -352,3 +356,27 @@ async function typedBelowTheReview(vim: "on" | "off") {
   expect(docText()).toBe(`${YEAR_TEXT}read ${vim}\nedit ${vim}\n`);
   expect(docText()).not.toContain("Year in review");
 }
+
+describe("#1449 the review sits under the closer frontmatter.py finds, on a note with no title", () => {
+  it.each([
+    ["spaces and tabs after the closer", "---\na: b\n--- \t\nbody", 3],
+    ["a carriage return after the closer", "---\r\na: b\r\n---\r\nbody", 3],
+    ["a space before the closer", "---\na: b\n ---\nbody", 0],
+    ["four dashes, then the closer", "---\na: b\n----\nc: d\n---\nbody", 5],
+  ])("%s", (_, doc, closer) => {
+    const state = EditorState.create({
+      doc,
+      extensions: [
+        periodicReview,
+        notePath.of(WEEK_NOTE),
+        reviewSource.of({ client: new QueryClient(), open: () => undefined }),
+      ],
+    });
+    const from: number[] = [];
+    for (const set of state.facet(EditorView.decorations)) {
+      if (typeof set !== "function") set.between(0, state.doc.length, (at) => void from.push(at));
+    }
+
+    expect(from).toEqual([closer === 0 ? 0 : state.doc.line(closer).to]);
+  });
+});

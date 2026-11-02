@@ -3,6 +3,7 @@
  * The open buffer is read, so a tap shows in the totals at once. `log-cases.json` holds it to the backend parser in `log.py`.
  */
 
+import { closing } from "@/lib/note-frontmatter";
 import { masked } from "@/lib/tag-rule";
 
 export type DrinkKind = "water" | "coffee" | "alcohol";
@@ -196,8 +197,8 @@ const closesFence = (fence: string, run: string | undefined, line: string): bool
 /** The lines under each `## Log` of `text`, without fenced code or the frontmatter. */
 export function logLines(text: string): string[] {
   const lines = text.split("\n");
-  // The frontmatter runs from a first `---` to the next one, and holds no section.
-  const close = lines[0] === "---" ? lines.indexOf("---", 1) : -1;
+  // The frontmatter holds no section.
+  const close = closing(lines);
   const scan: LogScan = { fence: null, inLog: false };
   return lines.slice(close === -1 ? 0 : close + 1).filter((line) => scanLine(scan, line));
 }
