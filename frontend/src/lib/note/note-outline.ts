@@ -49,10 +49,10 @@ export function proseLines(doc: Text, first: number): { line: number; text: stri
 
 /**
  * A comment a line cannot place: after an ordered marker, which opens a block only in a list
- * (#1453), indented four or more under an item, or left open past its line (#1452).
+ * (#1453), four or more in under an item, bullet or not, or left open past its line (#1452).
  */
 const UNSURE_COMMENT =
-  /^[ \t>]*[0-9]{1,9}[.)][ \t]+<!--|^[ \t>]*(?: {4}|\t)[ \t>]*<!--|<!--(?![^\n]*-->)/m;
+  /^[ \t>]*[0-9]{1,9}[.)][ \t]+<!--|^[ \t>]*(?: {4}|\t)(?:[ \t>]|[-*+][ \t])*<!--|<!--(?![^\n]*-->)/m;
 
 /** The editor's parser, for the notes whose tags only it can read. */
 const notes = noteLanguage().language.parser;

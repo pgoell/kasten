@@ -324,8 +324,18 @@ describe("#1452 the header skips the tags inside a comment the editor parses as 
       closing: tagsIn("<!--\nx\n--> #p\n\n#q"),
       indented: tagsIn("- a\n    <!-- x --> #p\n- #q"),
       loose: tagsIn("- a\n\n    <!-- x --> #p"),
+      nested: tagsIn("- a\n    - <!-- x --> #p\n- #q"),
+      tab: tagsIn("- a\n\t* <!-- x --> #p\n- #q"),
       vim: tagsIn("<!--\n#p\n-->\n#q", true),
-    }).toEqual({ block: ["#q"], closing: ["#q"], indented: ["#q"], loose: [], vim: ["#q"] });
+    }).toEqual({
+      block: ["#q"],
+      closing: ["#q"],
+      indented: ["#q"],
+      loose: [],
+      nested: ["#q"],
+      tab: ["#q"],
+      vim: ["#q"],
+    });
   });
 
   it("#1452 the shapes of #1454 and #1455 read as before", () => {
