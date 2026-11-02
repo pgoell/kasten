@@ -35,8 +35,8 @@ const DashLine = NodeType.define({
 const FrontmatterContent = NodeType.define({ id: 3, name: "FrontmatterContent" });
 const Body = NodeType.define({ id: 4, name: "Body" });
 
-/** Line 1 of a note that opens a block: three dashes, then nothing but blanks. */
-const OPEN = /^---[ \t]*\r?$/;
+/** A line that opens or closes a block: three dashes at column 0, then nothing but blanks (#654). */
+const FENCE = /^---[ \t]*\r?$/;
 
 /** How much of the note one read takes while looking for a line's end. */
 const CHUNK = 256;
@@ -58,10 +58,10 @@ function lineEnd(input: Input, from: number): number {
 function block(input: Input, reach: number): { open: number; from: number; to: number } | null {
   const length = input.length;
   const end = lineEnd(input, 0);
-  if (end === length || !OPEN.test(input.read(0, end))) return null;
+  if (end === length || !FENCE.test(input.read(0, end))) return null;
   for (let from = end + 1; from < reach; ) {
     const to = lineEnd(input, from);
-    if (input.read(from, to).trim() === "---") {
+    if (FENCE.test(input.read(from, to))) {
       return { open: end + 1, from, to: Math.min(to + 1, length) };
     }
     from = to + 1;

@@ -3,6 +3,8 @@
  * Nothing marks a note as an exam: one with no question headings reads as no exam at all.
  */
 
+import { noteBody } from "@/lib/note-frontmatter";
+
 /** One option of one question: the letter you press, and what it says. */
 export interface Option {
   letter: string;
@@ -162,15 +164,6 @@ function letterOf(answer: string | undefined, options: Option[]): string[] {
   if (answer === undefined) return [];
   const found = options.find((option) => norm(option.text) === norm(answer));
   return found === undefined ? [] : [found.letter];
-}
-
-/** The lines of `text` with the leading `---` block taken off. */
-function withoutFrontmatter(text: string): string[] {
-  const lines = text.split("\n");
-  if (lines[0]?.trim() !== "---") return lines;
-
-  const close = lines.findIndex((line, index) => index > 0 && line.trim() === "---");
-  return close === -1 ? lines : lines.slice(close + 1);
 }
 
 /** Trim the blank lines off both ends of a block, leaving the ones inside it. */
@@ -346,7 +339,7 @@ function optionQuestion(
  * A heading with no options under it is no question, which keeps `## Question Formats` out.
  */
 export function parseExam(text: string): Exam | null {
-  const lines = withoutFrontmatter(text);
+  const lines = noteBody(text).split("\n");
   const keyAt = lines.findIndex((line) => KEY_HEADING.test(line));
   const body = keyAt === -1 ? lines : lines.slice(0, keyAt);
   const key = readKey(keyAt === -1 ? [] : lines.slice(keyAt + 1));

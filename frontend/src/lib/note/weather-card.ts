@@ -8,6 +8,7 @@ import { StateEffect, StateField } from "@codemirror/state";
 import { Decoration, type DecorationSet, EditorView, WidgetType } from "@codemirror/view";
 import { type Forecast, fetchWeather } from "@/lib/api";
 import { readClock } from "@/lib/clock";
+import { belowFrontmatter } from "@/lib/frontmatter-language";
 import { dailyDate } from "@/lib/periodic";
 import { notePath } from "@/lib/todo/todo-commands";
 
@@ -44,12 +45,8 @@ function forecastFor(date: string): Promise<Forecast[]> {
  * when there is no such row. Nothing in a note with no `# ` title.
  */
 export function cardLine(doc: Text): number | null {
-  let at = 1;
-  if (doc.line(1).text === "---") {
-    while (at < doc.lines && doc.line(at + 1).text !== "---") at++;
-    at += 2;
-  }
-  for (; at <= doc.lines; at++) {
+  const below = belowFrontmatter(doc.toString());
+  for (let at = below === 0 ? 1 : doc.lineAt(below).number; at <= doc.lines; at++) {
     if (!doc.line(at).text.startsWith("# ")) continue;
     const next = at + 1 <= doc.lines && doc.line(at + 1).text === "" ? at + 2 : at + 1;
     return next <= doc.lines && doc.line(next).text.startsWith("[[") ? next : at;
