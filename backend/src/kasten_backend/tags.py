@@ -64,7 +64,7 @@ hash inside one matches alone.
 _LINE_PASS = rf"{todos.BLOCK_OPENING}|({_SPAN_OR_TAG})"
 """`_SPAN_OR_TAG`, and first an HTML block opening the line, which takes the line.
 
-rg's `^` matches only a line's start, and `--replace '${1}'` prints the comment as
+rg's `^` matches only a line's start, and `--replace '${1}'` prints the block as
 nothing, so no hash on that line is a tag. Any other match goes to `todos.word_tags`.
 """
 

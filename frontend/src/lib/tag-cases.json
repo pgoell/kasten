@@ -163,5 +163,10 @@
     "id": "html-div-in-list-item-spans-lines",
     "text": "- a\n  <div>\n  #hidden\n\n#real",
     "tags": ["#real"]
+  },
+  {
+    "id": "html-processing-instruction-spans-lines",
+    "text": "<?x\n#hidden\n?>\n#real",
+    "tags": ["#real"]
   }
 ]

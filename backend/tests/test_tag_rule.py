@@ -7,6 +7,7 @@ them all, each case its own vault so the answer says which case it came from.
 """
 
 import json
+import re
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -237,3 +238,22 @@ async def test_1238_a3_search_answers_the_tags_of_the_table_cold_and_warm(
             answers[case["id"]].append(hits[0]["tags"] if hits else None)
 
     assert answers == {case["id"]: [sorted(set(case["tags"]))] * 2 for case in CASES}
+
+
+def test_656_the_block_patterns_match_tag_rule_ts() -> None:
+    # Written out on both sides; a name no table row uses would drift apart unseen.
+    source = (Path(__file__).parents[2] / "frontend/src/lib/tag-rule.ts").read_text(
+        encoding="utf-8"
+    )
+    opener = re.search(r"const HTML_OPENER = String\.raw`([^`]*)`", source)
+    line = re.search(
+        r"const HTML_LINE = /(.*)/m;",
+        (Path(__file__).parents[2] / "frontend/src/lib/note/note-outline.ts").read_text(
+            encoding="utf-8"
+        ),
+    )
+
+    assert (opener and opener[1].replace("\\/", "/"), line and line[1].replace("z[]", "z\\[]")) == (
+        todos.HTML_OPENER.removeprefix("(?i:").removesuffix(")"),
+        todos.HTML_LINE,
+    )

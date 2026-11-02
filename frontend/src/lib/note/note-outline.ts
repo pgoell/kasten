@@ -74,7 +74,16 @@ export function tagText(text: string): string {
   notes.parse(text).iterate({
     enter(node) {
       if (node.name === "FencedCode") return false;
-      if (!["Comment", "CommentBlock", "HTMLBlock", "CodeBlock"].includes(node.name)) return;
+      if (
+        ![
+          "Comment",
+          "CommentBlock",
+          "ProcessingInstructionBlock",
+          "HTMLBlock",
+          "CodeBlock",
+        ].includes(node.name)
+      )
+        return;
       blanked += text.slice(at, node.from) + text.slice(node.from, node.to).replace(/[^\n]/g, " ");
       at = node.to;
       return false;

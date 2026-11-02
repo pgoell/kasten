@@ -234,7 +234,7 @@ def tags_in(text: str) -> list[tuple[int, int]]:
     """
     body = body_start(text)
     hidden = [(0, body)] if body else []
-    # Most notes hold no fence, comment or indented hash, so the parse is skipped:
+    # Most notes hold no fence, HTML block or indented hash, so the parse is skipped:
     # it is most of the time a vault's tags take.
     html = "<!--" in text or HTML_LINES.search(text, body) is not None
     if "```" in text or "~~~" in text or html or INDENTED.search(text, body):
