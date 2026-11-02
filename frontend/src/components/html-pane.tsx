@@ -440,8 +440,12 @@ export function HtmlPane({
         </a>
       </header>
 
-      {/* The wrapper the take button is placed in, so its place is the frame's own. */}
-      <div ref={wrapper} className="relative flex min-h-0 flex-1 flex-col">
+      {/* The wrapper the take button is placed in, so its place is the frame's own.
+          `isolate` keeps the button's z-index under the pane's overlays; the toast reads the size (#891). */}
+      <div
+        ref={wrapper}
+        className="relative [container-type:size] isolate flex min-h-0 flex-1 flex-col"
+      >
         <iframe
           key={`frame-${reload.loads}`}
           ref={frame}

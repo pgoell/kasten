@@ -5,10 +5,11 @@ import type { PressHandlers } from "@/lib/take-button";
 /**
  * The button's look, the book's `TAKE` in `book-pane.tsx` with the coarse
  * pointer's height from the footer's button. The placement is added per take.
- * Shared by the HTML and the PDF panes, so the two read the same.
+ * Shared by the HTML and the PDF panes, so the two read the same. Over the take
+ * toast's `z-10`, so a new selection's button is never under the last toast (#890).
  */
 const TAKE =
-  "absolute flex h-6 -translate-x-1/2 items-center gap-2 rounded border border-k-muted bg-k-bg px-2 font-mono text-k-ink text-xs pointer-coarse:min-h-11";
+  "absolute z-20 flex h-6 -translate-x-1/2 items-center gap-2 rounded border border-k-muted bg-k-bg px-2 font-mono text-k-ink text-xs pointer-coarse:min-h-11";
 
 interface TakeButtonProps {
   /** Where the button goes, from the selection. */

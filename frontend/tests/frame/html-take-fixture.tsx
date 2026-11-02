@@ -192,5 +192,11 @@ export function inside(inner: Element, outer: Element): boolean {
   return a.left >= b.left && a.right <= b.right && a.top >= b.top && a.bottom <= b.bottom;
 }
 
+/** Whether a press at the middle of `el` lands on it, and not on something drawn over it. */
+export function onTop(el: Element): boolean {
+  const box = el.getBoundingClientRect();
+  return el.contains(document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2));
+}
+
 /** What the take has written, read back from the stub: the dumps sent and the daily note's writes. */
 export { api };

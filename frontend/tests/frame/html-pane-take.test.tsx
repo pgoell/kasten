@@ -22,6 +22,7 @@ import {
   inFrame,
   inside,
   type Mounted,
+  onTop,
   ready,
   render,
   select,
@@ -29,7 +30,7 @@ import {
   takeButton,
   tearDown,
 } from "./html-take-fixture";
-import { NEWS, PLAIN } from "./html-take-pages";
+import { ENDS, NEWS, PLAIN } from "./html-take-pages";
 
 const NEWS_PATH = "take-news.html";
 const PLAIN_PATH = "take-plain.html";
@@ -372,6 +373,65 @@ it.each([["on"], ["off"]])(
 
     await userEvent.keyboard("{Enter}");
     await expect.poll(() => api.notes[RECENT[7] as string] ?? "").toContain("## Highlights");
+  },
+);
+
+it("with a mouse, a new selection under the foot toast keeps its Take button in reach (#890)", async () => {
+  await page.viewport(1440, 900);
+  await browser.servePage(NEWS_PATH, ENDS);
+  render(mounted, [NEWS_PATH]);
+  const frame = frameOf(mounted, 0);
+  await ready(frame);
+  await select(frame, ["p0", 0, "p0", 5]);
+  await expect.poll(() => takeButton(mounted) !== null).toBe(true);
+  await userEvent.keyboard("y");
+  await expect.poll(() => mounted.host.querySelector("[role='status']") !== null).toBe(true);
+
+  const toast = mounted.host.querySelector("[role='status']") as HTMLElement;
+  const [, passage, source] = toast.querySelectorAll("p");
+  await select(frame, ["p1", 0, "p1", 5]);
+  await expect.poll(() => takeButton(mounted) !== null).toBe(true);
+  const button = takeButton(mounted) as HTMLElement;
+  const at = button.getBoundingClientRect();
+  const box = toast.getBoundingClientRect();
+  expect({
+    under: at.top < box.bottom && at.bottom > box.top,
+    onTop: onTop(button),
+    whole:
+      toast.scrollHeight <= toast.clientHeight && passage?.offsetHeight && source?.offsetHeight,
+  }).toEqual({ under: true, onTop: true, whole: expect.any(Number) });
+  await userEvent.click(button);
+  await expect.poll(() => api.dumps.length).toBe(2);
+  expect(api.dumps[1]).toContain("> Delta");
+});
+
+// A split at 1440 under about 240 px (this mount has no top bar or tab strip), and a phone with its keyboard up.
+it.each([
+  [1440, 140, false],
+  [390, 260, true],
+])(
+  "at %ix%i the toast and its buttons stay inside a frame area under 150 px (#891)",
+  async (width, height, touch) => {
+    await page.viewport(width, height);
+    await browser.emulateMedia({ touch });
+    await browser.servePage(LEFT_PATH, NEWS);
+    await browser.servePage(RIGHT_PATH, NEWS);
+    render(mounted, touch ? [LEFT_PATH] : [LEFT_PATH, RIGHT_PATH], touch);
+    const frame = frameOf(mounted, 0);
+    await ready(frame);
+    await select(frame, ["p1", 0, "p1", 5]);
+    await expect.poll(() => takeButton(mounted) !== null).toBe(true);
+    await userEvent.keyboard("y");
+    await expect.poll(() => buttonNamed("Undo") !== undefined).toBe(true);
+
+    const area = frame.parentElement as HTMLElement;
+    const toast = area.querySelector("[role='status']") as HTMLElement;
+    const buttons = [buttonNamed("Put it in a note"), buttonNamed("Undo")] as HTMLElement[];
+    expect({
+      short: area.clientHeight < 150,
+      toast: inside(toast, area),
+      buttons: buttons.map((b) => inside(b, toast) && onTop(b)),
+    }).toEqual({ short: true, toast: true, buttons: [true, true] });
   },
 );
 

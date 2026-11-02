@@ -248,7 +248,10 @@ export function PdfPane({
         ) : null}
         {/* The wrapper the take's button is placed in: the pages only, so the
             button and the toast sit over the page area and not the thumbnails. */}
-        <div ref={wrapper} className="relative flex min-h-0 min-w-0 flex-1 flex-col">
+        <div
+          ref={wrapper}
+          className="relative [container-type:size] isolate flex min-h-0 min-w-0 flex-1 flex-col"
+        >
           <div
             key={`${path}#${page}#${opened}`}
             ref={box}
