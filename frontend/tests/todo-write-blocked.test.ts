@@ -192,6 +192,14 @@ describe("#537 a ⛔ naming a 🆔 two todos carry", () => {
     expect(blockedLines([line], closedAmong(twins.map(todo)))).toEqual(new Map());
   });
 
+  it("#544 I1 blockedLines opens a dependent on a twinned 🆔 whose twins are both closed", () => {
+    const closed = closedAmong(["- [x] a 🆔 kt-aaaaaa", "- [-] a 🆔 kt-aaaaaa"].map(todo));
+
+    expect(blockedLines(["- [b] c ⛔ kt-aaaaaa"], closed)).toEqual(
+      new Map([[1, "- [ ] c ⛔ kt-aaaaaa"]]),
+    );
+  });
+
   it("#537 I4 a dependent with one twinned blocker and one closed blocker stays as it is", () => {
     const closed = closedAmong(
       ["- [ ] a 🆔 kt-aaaaaa", "- [x] a 🆔 kt-aaaaaa", "- [x] b 🆔 kt-bbbbbb"].map(todo),

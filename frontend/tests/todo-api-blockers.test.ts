@@ -218,6 +218,32 @@ describe("#537 a ⛔ naming a 🆔 two todos carry", () => {
     expect(notes["deps.md"]).toBe("- [b] c ⛔ kt-dddddd ⛔ kt-aaaaaa");
   });
 
+  it("#544 I2 the write back opens a dependent in another note on a twinned 🆔 whose twins are closed", async () => {
+    const notes: Record<string, string> = {
+      "d.md": "- [/] d 🆔 kt-dddddd",
+      "deps.md": "- [b] c ⛔ kt-dddddd ⛔ kt-aaaaaa",
+      [daily]: "## Done\n",
+    };
+    serve(notes);
+    fetchTodos.mockResolvedValue(
+      [
+        ["d.md", "- [/] d 🆔 kt-dddddd"],
+        ["a.md", "- [x] a 🆔 kt-aaaaaa"],
+        ["b.md", "- [-] a 🆔 kt-aaaaaa"],
+        ["deps.md", "- [b] c ⛔ kt-dddddd ⛔ kt-aaaaaa"],
+      ].map(([path, text]) => ({ path, line: 1, text, project: null, shared: false })),
+    );
+
+    await cycleTodoInVault(
+      { path: "d.md", line: 1, text: "- [/] d 🆔 kt-dddddd" },
+      "2026-08-10",
+      ["d.md", "deps.md", daily],
+      "done",
+    );
+
+    expect(notes["deps.md"]).toBe("- [ ] c ⛔ kt-dddddd ⛔ kt-aaaaaa");
+  });
+
   it("#537 A6 blocking on a todo whose 🆔 stands on another todo writes nothing and names the other", async () => {
     const docs = { path: "docs.md", line: 2, text: "- [ ] write the docs" };
     const blocker = { path: "release.md", line: 1, text: "- [ ] a 🆔 kt-aaaaaa" };

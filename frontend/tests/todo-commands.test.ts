@@ -142,4 +142,14 @@ describe("#537 a ⛔ naming a 🆔 two todos carry", () => {
       "- [x] a 🆔 kt-aaaaaa\n- [b] c ⛔ kt-aaaaaa ⛔ kt-dddddd\n- [x] d ✅ 2026-10-16 🆔 kt-dddddd",
     );
   });
+
+  it("#544 I3 <leader>x opens a dependent on a twinned 🆔 whose twins in the buffer are closed", () => {
+    const doc =
+      "- [x] a 🆔 kt-aaaaaa\n- [-] a 🆔 kt-aaaaaa\n- [b] c ⛔ kt-aaaaaa ⛔ kt-dddddd\n- [/] d 🆔 kt-dddddd";
+    const view = open(doc, doc.lastIndexOf("- [/] d"));
+
+    cycleTodoAtCursor(view);
+
+    expect(view.state.doc.line(3).text).toBe("- [ ] c ⛔ kt-aaaaaa ⛔ kt-dddddd");
+  });
 });
