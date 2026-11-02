@@ -67,7 +67,7 @@ def xhtml(body: str, title: str = "") -> str:
     )
 
 
-def epub(chapters: list[str]) -> bytes:
+def epub(chapters: list[str | bytes]) -> bytes:
     """An epub whose spine is the given XHTML chapters, in order, the way a reader opens one."""
     manifest = "".join(
         f'<item id="c{index}" href="text/c{index}.xhtml" media-type="application/xhtml+xml"/>'
