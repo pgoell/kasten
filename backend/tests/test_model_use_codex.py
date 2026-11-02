@@ -299,5 +299,6 @@ def test_1174_a2_a_codex_count_past_a_float_reads_as_broken(world: tuple[Path, P
 
 def test_1174_a4_one_bound_for_every_source() -> None:
     # Claude Code, codex and grok all read their counts through count_of.
-    counts = {"at": COUNT_BOUND, "past": COUNT_BOUND + 1}
-    assert (count_of(counts, "at"), count_of(counts, "past")) == (COUNT_BOUND, 0)
+    counts = {"at": COUNT_BOUND, "past": COUNT_BOUND + 1, "zero": 0, "below": -1}
+    read = tuple(count_of(counts, key) for key in counts)
+    assert read == (COUNT_BOUND, 0, 0, 0)

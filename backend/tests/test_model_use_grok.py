@@ -257,3 +257,12 @@ def test_1174_a3_a_grok_count_past_a_float_reads_as_broken(world: tuple[Path, Pa
 
     # GROK_LINE's cost less its 193 out at 6 a million.
     assert usage_lines(vault) == [GROK_LINE.replace("out 193", "out 0").replace("0.0436", "0.0424")]
+
+
+def test_1174_a3_a_negative_count_past_a_float_reads_as_broken(world: tuple[Path, Path]) -> None:
+    source, vault = world
+    grok_session(source, grok_turn(models={"grok-4.7": grok_counts(out=-(10**400))}))
+
+    run(source, vault, CONFIG, DAY, DAY, NOW)
+
+    assert usage_lines(vault) == [GROK_LINE.replace("out 193", "out 0").replace("0.0436", "0.0424")]

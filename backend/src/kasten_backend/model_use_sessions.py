@@ -45,11 +45,11 @@ COUNT_BOUND = 2**53
 
 
 def count_of(usage: dict, key: str) -> int:
-    """The count under `key`, or 0 when it is missing, not a whole number or above COUNT_BOUND."""
+    """The count under `key`, or 0 when missing, not a whole number or outside 0..COUNT_BOUND."""
     value = usage.get(key)
     if isinstance(value, bool) or not isinstance(value, int):
         return 0
-    return value if value <= COUNT_BOUND else 0
+    return value if 0 <= value <= COUNT_BOUND else 0
 
 
 def _message(record: object) -> Message | None:
