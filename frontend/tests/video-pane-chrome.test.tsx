@@ -99,6 +99,27 @@ describe("the video pane chrome", () => {
     expect(screen.getByText("Grace Hopper")).toBeInTheDocument();
   });
 
+  it("#1191 A1 a delivery naming another video leaves the linked video's title and author", async () => {
+    renderPane();
+
+    await screen.findByTitle("video");
+    const linked = { video_id: "dQw4w9WgXcQ", title: "Talk title", author: "Grace Hopper" };
+    act(() => delivers({ videoData: linked }));
+    act(() => delivers({ videoData: { video_id: "iDulhoQ2pro", title: "Cats", author: "Pets" } }));
+    expect(screen.getByRole("heading", { name: "Talk title" })).toBeInTheDocument();
+    expect(screen.queryByText("Pets")).toBeNull();
+  });
+
+  it("#1191 I1 back on the linked video, its own delivery sets the header again", async () => {
+    renderPane();
+
+    await screen.findByTitle("video");
+    act(() => delivers({ videoData: { video_id: "iDulhoQ2pro", title: "Cats", author: "Pets" } }));
+    act(() => delivers({ videoData: { video_id: "dQw4w9WgXcQ", title: "Talk", author: "Ada" } }));
+    expect(screen.getByRole("heading", { name: "Talk" })).toBeInTheDocument();
+    expect(screen.getByText("Ada")).toBeInTheDocument();
+  });
+
   it("#791 A2 the note's speaker wins over the player's author, with its link brackets taken off", async () => {
     fetchNote.mockResolvedValue(
       `---\nspeaker: "[[Ada Lovelace]]"\n---\n\n[the talk](https://youtu.be/dQw4w9WgXcQ)\n`,

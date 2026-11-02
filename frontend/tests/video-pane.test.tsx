@@ -456,6 +456,35 @@ describe("the video pane", () => {
     expect(onWatched.mock.calls).toEqual([["iDulhoQ2pro", 25]]);
   });
 
+  it("#1193 A3 back on the linked video after a suggestion, closing before a tick writes no old end", async () => {
+    const { onWatched, unmount } = open();
+
+    await screen.findByTitle("video");
+    delivers({ videoData: { video_id: "dQw4w9WgXcQ" }, playerState: 1, currentTime: 200 });
+    reports(0, 212);
+    delivers({ videoData: { video_id: "iDulhoQ2pro" }, playerState: 1, currentTime: 3 });
+    delivers({ videoData: { video_id: "dQw4w9WgXcQ" } });
+    unmount();
+
+    expect(onWatched.mock.calls).toEqual([["dQw4w9WgXcQ", 0]]);
+  });
+
+  it("#1193 I4 back on the linked video after its end and a suggestion, a new play of it reports again", async () => {
+    const { onWatched } = open();
+
+    await screen.findByTitle("video");
+    delivers({ videoData: { video_id: "dQw4w9WgXcQ" }, playerState: 1, currentTime: 200 });
+    reports(0, 212);
+    delivers({ videoData: { video_id: "iDulhoQ2pro" }, playerState: 1, currentTime: 3 });
+    delivers({ videoData: { video_id: "dQw4w9WgXcQ" }, playerState: 1, currentTime: 15 });
+    reports(2, 20);
+
+    expect(onWatched.mock.calls).toEqual([
+      ["dQw4w9WgXcQ", 0],
+      ["dQw4w9WgXcQ", 20],
+    ]);
+  });
+
   it("#1188 I6 an empty video_id counts as no name", async () => {
     const { onWatched } = open();
 
