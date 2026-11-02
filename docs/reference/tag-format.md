@@ -34,12 +34,16 @@ finder that leaves a name inside a tag alone.
    the end of the note. An indented block is code as CommonMark reads it, four
    spaces or a tab after a blank line; a line indented under a list item goes
    on with the item and keeps its tags. A comment may run over several lines.
-6. A line that opens with `<!--`, three spaces in front at most and outside
-   code, starts an HTML block, as CommonMark reads it. The block ends with the
-   first line holding `-->`, that whole line included, or else with the note,
-   and no hash in it is a tag. So `<!-- x --> #a` carries no tag, while
-   `text <!-- x --> #a` carries `#a`: a `<!--` after other text is a comment
-   and no more. A `<!--` in code opens nothing.
+6. A `<!--` that opens a line, a list item or a quote, three spaces in front
+   at most and outside code, starts an HTML block, as CommonMark reads it. The
+   block ends with the first line holding `-->`, that whole line included, or
+   else with its item, quote or the note, and no hash in it is a tag. So
+   `<!-- x --> #a`, `- <!-- x --> #a` and `> <!-- x --> #a` carry no tag, nor
+   does `    <!-- x --> #a` indented under a list item `- b`. `text <!-- x --> #a`
+   and the todo `- [ ] <!-- x --> #a` carry `#a`: a `<!--` after other text or
+   a box is a comment and no more. A `<!--` in code opens nothing. A reader of
+   one line cannot see the list item above, so it reads that indented line's
+   tags (#1452).
 
 `# Heading`, a hash and a space, opens a heading and is no tag.
 
