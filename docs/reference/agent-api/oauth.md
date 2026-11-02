@@ -124,9 +124,12 @@ basic auth in front of kasten resends its credentials to any site that posts
 here. It answers `403` and redirects nowhere when:
 
 * `Sec-Fetch-Site` is present and is anything but `same-origin`
-* `Sec-Fetch-Site` is absent, `Origin` is present, and its host matches neither
-  the request's `Host` nor [`KASTEN_AGENT_HOST`](/reference/configuration.md#kasten_agent_host),
-  or is not a URL that parses, such as `http://[`
+* `Sec-Fetch-Site` is absent, `Origin` is present, and it is not exactly
+  `https://<Host>`, `<request scheme>://<Host>` or `https://` followed by
+  [`KASTEN_AGENT_HOST`](/reference/configuration.md#kasten_agent_host).
+  So a path, a query, another scheme, no scheme and `null` are all refused.
+  https counts beside the request's own scheme because uvicorn sees http
+  behind Caddy while the browser sent https.
 
 `Sec-Fetch-Site` wins when both are sent, so a dev proxy that rewrites `Host`
 does not break the real consent page. A request with neither header came from

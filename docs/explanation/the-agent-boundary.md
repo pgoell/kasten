@@ -290,7 +290,7 @@ That last step is oauth2-proxy's, not kasten's, and kasten has no login of its
 own to fall back on. Put basic auth in front instead and the browser resends
 the credentials with any POST to this host, from whatever site sends it. So the
 POST checks its own origin as well: a `Sec-Fetch-Site` other than `same-origin`
-is refused, and so is an `Origin` naming another host when that header is
+is refused, and so is any `Origin` but kasten's own when that header is
 missing. Behind oauth2-proxy the check never fires, because the only POST that
 gets that far already came from the form. It is there for a proxy that does
 less.

@@ -311,7 +311,7 @@ the world sees `https`, and every comparison fails.
 The backend logs a warning at startup while this is empty, and starts anyway.
 It also bounds the `Origin` check on the
 [consent `POST`](/reference/agent-api/oauth.md#get-and-post-apioauthauthorize):
-`https://{value}` is accepted there as well as the request's own host.
+`https://{value}` is accepted there as well as the request's own origin.
 
 ## The shared lists
 

@@ -393,7 +393,7 @@ async def test_the_agent_host_is_accepted_as_the_origin(
         {"sec-fetch-site": "cross-site", "origin": "http://test"},
         {"origin": "https://attacker.example"},
         {"origin": "null"},
-        # Only the netloc was once compared, so these passed (#1232).
+        # Malformed origins whose host alone matches (#1232).
         pytest.param({"origin": "//test"}, id="no-scheme"),
         pytest.param({"origin": "ftp://test"}, id="ftp"),
         pytest.param({"origin": "file://test"}, id="file"),
@@ -418,7 +418,7 @@ async def test_a_cross_site_consent_is_refused_without_redirecting(
 async def test_a_null_origin_beside_an_empty_host_is_refused(
     client: AsyncClient, agent_vault: Path
 ) -> None:
-    # Both netlocs are empty, which the netloc check took for a match (#1232).
+    # An empty Host must match no Origin (#1232).
     response = await client.post(
         "/api/oauth/authorize",
         data=consent(),
