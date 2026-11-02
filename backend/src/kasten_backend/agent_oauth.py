@@ -105,9 +105,9 @@ def _permitted(redirect_uri: str) -> bool:
 def _same_origin(request: Request) -> bool:
     """Whether the consent POST came from kasten's own page and not another site's.
 
-    `Sec-Fetch-Site` settles it when present, since no page can set it. Without it, an
-    `Origin` must match the `Host` it reached, or `KASTEN_AGENT_HOST`. A request with
-    neither came from no browser. Behind basic auth nothing else stops a cross-site POST.
+    `Sec-Fetch-Site` settles it when present, since no page can set it. Without it, the
+    whole `Origin` must be its `Host` or `KASTEN_AGENT_HOST`, scheme included. A request
+    with neither came from no browser. Behind basic auth nothing else stops a cross-site POST.
     """
     site = request.headers.get("sec-fetch-site")
     if site is not None:
@@ -117,15 +117,14 @@ def _same_origin(request: Request) -> bool:
     if sent is None:
         return True
 
-    try:
-        host = urlsplit(sent).netloc
-    except ValueError:
-        # `http://[` and its kind, which no browser sends: a refusal, not a 500
-        # (#1230).
-        return False
+    # Behind Caddy uvicorn sees http while the browser sent https, so both count.
+    accepted = set()
+    if host := request.headers.get("host"):
+        accepted = {f"https://{host}", f"{request.url.scheme}://{host}"}
+    if named := get_settings().agent_host:
+        accepted.add(f"https://{named}")
 
-    named = get_settings().agent_host
-    return host == request.headers.get("host") or (bool(named) and sent == f"https://{named}")
+    return sent in accepted
 
 
 def _resource(request: Request) -> dict[str, Any]:
