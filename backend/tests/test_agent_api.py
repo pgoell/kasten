@@ -57,6 +57,19 @@ async def test_read_refuses_a_path_out_of_the_vault(
     assert response.status_code == 404
 
 
+async def test_read_answers_an_unreadable_note_as_absent(
+    client: AsyncClient, agent_vault: Path, bearer: dict[str, str]
+) -> None:
+    locked = agent_vault / "locked.md"
+    locked.write_text("# locked\n")
+    locked.chmod(0)
+
+    response = await client.get("/agent/notes/locked.md", headers=bearer)
+
+    assert response.status_code == 404
+    assert response.json() == {"detail": "No such note"}
+
+
 async def test_list_returns_every_note_sorted(
     client: AsyncClient, agent_vault: Path, bearer: dict[str, str]
 ) -> None:

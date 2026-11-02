@@ -1,5 +1,7 @@
 from typing import TYPE_CHECKING
 
+from kasten_backend.vault import resolve_folder, resolve_path
+
 if TYPE_CHECKING:
     from pathlib import Path
 
@@ -205,6 +207,14 @@ async def test_refuses_a_null_byte_rather_than_raising(client: AsyncClient, vaul
     # The rule below guards against stalling an event loop, and a test reading
     # one throwaway directory has no loop worth protecting.
     assert list(vault.iterdir()) == []  # noqa: ASYNC240
+
+
+def test_the_resolver_refuses_a_path_that_does_not_encode_as_utf8(vault: Path) -> None:
+    # Over HTTP and MCP a lone surrogate never arrives (#1309), but a caller
+    # inside the backend can hand one over, and refusing beats raising.
+    for path in ("\ud800.md", "\udc80.md", "a/\ud800/b.md"):
+        assert resolve_path(vault, path) is None
+        assert resolve_folder(vault, path) is None
 
 
 async def test_gives_the_new_note_its_frontmatter(client: AsyncClient, vault: Path) -> None:
