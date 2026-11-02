@@ -27,10 +27,14 @@ export const GLUED = /[\p{L}\p{N}_/]$/u;
 export const SPANS = /\[\[[^[\]\n]+\]\]|\[[^\]\n]*\]\([^)\n]*\)|`[^`\n]*`|<!--[^\n]*?-->/g;
 
 /**
- * `SPANS`, plus a comment opening the line: CommonMark makes that an HTML block, so no tag
- * follows it. Not in `SPANS`, since a todo's words after its box are a plain comment.
+ * `SPANS`, plus a comment opening the line or a list item or quote on it: CommonMark makes
+ * that an HTML block, so no tag follows it. Not after a box, which opens a plain paragraph.
+ * `todos.COMMENT_OPENING` is the same pattern.
  */
-const LINE_SPANS = new RegExp(String.raw`^ {0,3}<!--[^\n]*|${SPANS.source}`, "g");
+const LINE_SPANS = new RegExp(
+  String.raw`^(?: {0,3}(?:>[ \t]?|(?:[-*+]|[0-9]{1,9}[.)])[ \t]))* {0,3}<!--[^\n]*|${SPANS.source}`,
+  "g",
+);
 
 /** `text` with every one of `spans` blanked to the same length. */
 function blanked(text: string, spans: RegExp): string {
