@@ -30,9 +30,13 @@ function contentColumn(marker: RegExpExecArray): number {
   return lead.length + bullet.length + extra;
 }
 
+/** How far a line is indented. */
+const indent = (line: string) => line.length - line.trimStart().length;
+
 /**
  * The indices of fenced code lines, fences included, and the run of a fence nobody closes. A
- * `# comment` in a shell block is code, not a heading. A fence closes on a run at least as long.
+ * `# comment` in a shell block is code, not a heading. A fence closes on a run at least as long,
+ * and a fence in a list item ends with the item, at a line indented less than its content.
  */
 export function fencedLines(lines: string[]): {
   coded: Set<number>;
@@ -42,13 +46,19 @@ export function fencedLines(lines: string[]): {
   const coded = new Set<number>();
   let open: string | null = null;
   let openFrom: number | null = null;
+  let column = 0;
   lines.forEach((line, index) => {
+    if (open !== null && line.trim() !== "" && indent(line) < column) {
+      open = null;
+      openFrom = null;
+    }
     const match = FENCE.exec(line);
     const fence = match?.[1];
     const opens = fence !== undefined && (fence[0] === "~" || !match?.[2]?.includes("`"));
     if (open === null && fence !== undefined && opens) {
       open = fence;
       openFrom = index;
+      column = itemColumn(lines, 0, index);
       coded.add(index);
     } else if (open !== null) {
       const closes =
@@ -118,27 +128,26 @@ function sectionEnd(lines: string[], at: number, isFenced: (index: number) => bo
 }
 
 /**
- * Whether the fence on line `opener` sits in a list item. A closer at column 0 would fall out of
- * the item, so such a fence is left as it is. Lines above `floor` (the frontmatter) are not read.
+ * The content column of the list item the fence on line `opener` sits in, or 0 outside one. A
+ * closer at column 0 would fall out of the item. Lines above `floor` (the frontmatter) are not read.
  */
-function inListItem(lines: string[], floor: number, opener: number): boolean {
-  const indent = (line: string) => line.length - line.trimStart().length;
+function itemColumn(lines: string[], floor: number, opener: number): number {
   const n = indent(lines[opener] ?? "");
-  if (n === 0) return false;
+  if (n === 0) return 0;
   const at = (index: number) => lines[index] ?? "";
   let index = opener - 1;
   while (index >= floor && (at(index).trim() === "" || indent(at(index)) >= n)) index -= 1;
-  if (index < floor || HEADING_LINE.test(at(index))) return false;
+  if (index < floor || HEADING_LINE.test(at(index))) return 0;
   const first = LIST_MARKER.exec(at(index));
-  if (first !== null) return contentColumn(first) <= n;
+  if (first !== null) return contentColumn(first) <= n ? contentColumn(first) : 0;
   // A lazy continuation line: the item's marker may sit further up, with no blank line between.
   for (index -= 1; index >= floor; index -= 1) {
     const held = at(index);
-    if (held.trim() === "" || HEADING_LINE.test(held)) return false;
+    if (held.trim() === "" || HEADING_LINE.test(held)) return 0;
     const marker = LIST_MARKER.exec(held);
-    if (marker !== null && contentColumn(marker) <= n) return true;
+    if (marker !== null && contentColumn(marker) <= n) return contentColumn(marker);
   }
-  return false;
+  return 0;
 }
 
 /**
@@ -170,7 +179,7 @@ export function appendUnderEdit(text: string, heading: string, line: string): Ed
     openFrom !== null &&
     openRun !== null &&
     (at === -1 || sectionEnd(lines, at, isFenced) === lines.length) &&
-    !inListItem(lines, above, above + openFrom)
+    itemColumn(lines, above, above + openFrom) === 0
   ) {
     const closed = text.endsWith("\n") ? `${text}${openRun}\n` : `${text}\n${openRun}`;
     const edit = appendUnderEdit(closed, heading, line);
