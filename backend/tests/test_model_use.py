@@ -24,6 +24,7 @@ from backend.tests.model_use_records import (
 from kasten_backend.model_use import BUNDLED, main, run
 from kasten_backend.model_use_config import read_config
 from kasten_backend.model_use_lines import format_line, parse_line
+from kasten_backend.model_use_sessions import COUNT_BOUND
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -466,3 +467,43 @@ def test_808_r9_a_file_older_than_the_range_is_not_read(world: tuple[Path, Path]
     report = run(source, vault, CONFIG, DAY, DAY, NOW)
 
     assert (report, (vault / NOTE).exists()) == ([], False)
+
+
+def test_1174_a1_a_count_past_a_float_reads_as_broken_and_the_note_is_written(
+    world: tuple[Path, Path],
+) -> None:
+    source, vault = world
+    session(source, "a.jsonl", record("m1", usage(input=1_000_000, output=10**400)))
+
+    run(source, vault, CONFIG, DAY, DAY, NOW)
+
+    assert usage_lines(vault) == [
+        "- 2026-10-25 claude-opus-5-5 kasten: in 1000000, out 0, cache write 0, "
+        "cache read 0, cost 4.0000 usd"
+    ]
+
+
+def test_1174_i1_a_count_at_the_bound_counts_in_full(world: tuple[Path, Path]) -> None:
+    source, vault = world
+    session(source, "a.jsonl", record("m1", usage(output=COUNT_BOUND)))
+
+    run(source, vault, CONFIG, DAY, DAY, NOW)
+
+    assert usage_lines(vault) == [
+        "- 2026-10-25 claude-opus-5-5 kasten: in 0, out 9007199254740992, cache write 0, "
+        "cache read 0, cost 180143985094.8199 usd"
+    ]
+
+
+def test_1174_i3_a_cache_write_past_a_float_reads_as_broken(world: tuple[Path, Path]) -> None:
+    source, vault = world
+    split = {"ephemeral_5m_input_tokens": 10**400, "ephemeral_1h_input_tokens": 10**400}
+    broken = usage(input=1_000_000, write=10**400, cache_creation=split)
+    session(source, "a.jsonl", record("m1", broken))
+
+    run(source, vault, CONFIG, DAY, DAY, NOW)
+
+    assert usage_lines(vault) == [
+        "- 2026-10-25 claude-opus-5-5 kasten: in 1000000, out 0, cache write 0, "
+        "cache read 0, cost 4.0000 usd"
+    ]

@@ -14,6 +14,7 @@ import pytest
 
 from backend.tests.model_use_records import CONFIG, NOTE, record, session, usage
 from kasten_backend.model_use import run
+from kasten_backend.model_use_sessions import COUNT_BOUND, count_of
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -282,3 +283,22 @@ def test_1099_i5_a_codex_model_with_no_row_says_cost_unknown(world: tuple[Path, 
         "- 2026-10-25 codex/gpt-9-unknown proj: in 9822, out 213, cache write 0, "
         "cache read 12032, cost unknown"
     ]
+
+
+def test_1174_a2_a_codex_count_past_a_float_reads_as_broken(world: tuple[Path, Path]) -> None:
+    source, vault = world
+    session(source, "rollout-a.jsonl", meta(), turn(), call(out=10**400))
+
+    run(source, vault, CONFIG, DAY, DAY, NOW)
+
+    # CODEX_LINE's cost less its 213 out at 50 a million.
+    assert usage_lines(vault) == [
+        CODEX_LINE.replace("out 213", "out 0").replace("0.1209", "0.1103")
+    ]
+
+
+def test_1174_a4_one_bound_for_every_source() -> None:
+    # Claude Code, codex and grok all read their counts through count_of.
+    counts = {"at": COUNT_BOUND, "past": COUNT_BOUND + 1, "zero": 0, "below": -1}
+    read = tuple(count_of(counts, key) for key in counts)
+    assert read == (COUNT_BOUND, 0, 0, 0)

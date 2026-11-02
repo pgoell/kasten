@@ -247,3 +247,22 @@ def test_1129_i6_a_turn_of_several_calls_is_held_to_the_long_context_row_per_cal
         "- 2026-10-25 grok/grok-4.7 proj: in 300000, out 1000, cache write 0, "
         "cache read 0, cost 0.6060 usd"
     ]
+
+
+def test_1174_a3_a_grok_count_past_a_float_reads_as_broken(world: tuple[Path, Path]) -> None:
+    source, vault = world
+    grok_session(source, grok_turn(models={"grok-4.7": grok_counts(out=10**400)}))
+
+    run(source, vault, CONFIG, DAY, DAY, NOW)
+
+    # GROK_LINE's cost less its 193 out at 6 a million.
+    assert usage_lines(vault) == [GROK_LINE.replace("out 193", "out 0").replace("0.0436", "0.0424")]
+
+
+def test_1174_a3_a_negative_count_past_a_float_reads_as_broken(world: tuple[Path, Path]) -> None:
+    source, vault = world
+    grok_session(source, grok_turn(models={"grok-4.7": grok_counts(out=-(10**400))}))
+
+    run(source, vault, CONFIG, DAY, DAY, NOW)
+
+    assert usage_lines(vault) == [GROK_LINE.replace("out 193", "out 0").replace("0.0436", "0.0424")]

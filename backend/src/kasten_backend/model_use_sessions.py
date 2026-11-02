@@ -40,10 +40,16 @@ class Message:
     """The model calls the counts sum: a grok turn sums its calls, any other message is one."""
 
 
+COUNT_BOUND = 2**53
+"""The largest count read: a float holds every whole number up to it, so the cost stays exact."""
+
+
 def count_of(usage: dict, key: str) -> int:
-    """The count under `key`, or 0 when it is missing or not a whole number."""
+    """The count under `key`, or 0 when missing, not a whole number or outside 0..COUNT_BOUND."""
     value = usage.get(key)
-    return value if isinstance(value, int) and not isinstance(value, bool) else 0
+    if isinstance(value, bool) or not isinstance(value, int):
+        return 0
+    return value if 0 <= value <= COUNT_BOUND else 0
 
 
 def _message(record: object) -> Message | None:
