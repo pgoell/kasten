@@ -137,3 +137,16 @@ async def test_654_a_spaced_closer_leaves_the_whole_note_text(
     response = await client.get("/api/tags")
 
     assert response.json() == ["#a", "#real"]
+
+
+async def test_655_a_comment_opening_an_item_or_quote_hides_its_tags(
+    client: AsyncClient, vault: Path
+) -> None:
+    write(vault, "item.md", "- <!-- x --> #p\n- [ ] <!-- x --> #box\n")
+    write(vault, "quote.md", "> <!-- x --> #q\n")
+    write(vault, "under.md", "- a\n    <!-- x --> #h\n")
+
+    response = await client.get("/api/tags")
+
+    assert response.status_code == 200
+    assert response.json() == ["#box"]

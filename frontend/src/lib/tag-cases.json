@@ -76,5 +76,18 @@
     "id": "comment-opener-in-fence-deck",
     "text": "```\n<!--\n```\n#flashcards/y\n\n<!-- note -->",
     "tags": ["#flashcards/y"]
-  }
+  },
+  { "id": "comment-opens-list-item", "text": "- <!-- x --> #hidden", "tags": [] },
+  { "id": "comment-opens-quote", "text": "> <!-- x --> #hidden", "tags": [] },
+  { "id": "comment-opens-ordered-item", "text": "1. <!-- x --> #hidden", "tags": [] },
+  { "id": "comment-opens-nested-item", "text": "> - <!-- x --> #hidden", "tags": [] },
+  { "id": "comment-after-box", "text": "- [ ] <!-- x --> #real", "tags": ["#real"] },
+  { "id": "comment-under-list-item", "text": "- a\n    <!-- x --> #hidden", "tags": [] },
+  { "id": "comment-continues-paragraph", "text": "a\n    <!-- x --> #real", "tags": ["#real"] },
+  {
+    "id": "comment-in-list-item-spans-lines",
+    "text": "- a\n  <!-- x\n  #hidden\n  -->\n#real",
+    "tags": ["#real"]
+  },
+  { "id": "comment-in-list-item-never-closes", "text": "- <!-- x\n\n#real", "tags": ["#real"] }
 ]
