@@ -3,6 +3,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import { ContentsColumn, NoteColumn } from "@/components/book-columns";
 import { BookContents, type TocRow, tocRows } from "@/components/book-contents";
 import { Rsvp } from "@/components/rsvp";
+import { TAKE_HOST } from "@/components/take-button-view";
 import { useBookNoteTake } from "@/components/use-book-note-take";
 import { type BookBeside, fetchBook } from "@/lib/api";
 import type { FoliateView } from "@/lib/book/foliate-view";
@@ -364,8 +365,9 @@ export function BookPane({
             bottom of the pane. */}
         {/* The toast is placed over this column and not the pane, so it sits over
             the text above the footer and never over the contents or the note. `isolate`
-            keeps its `z-10` in here, under the pane's later Take button (#1482). */}
-        <div className="relative isolate flex min-h-0 min-w-0 flex-1 flex-col">
+            keeps its `z-10` in here, under the pane's later Take button (#1482), and the
+            size container is what the toast's short frame rule reads (#1486). */}
+        <div className={`${TAKE_HOST} min-w-0`}>
           <div ref={host} className="min-h-0 min-w-0 flex-1" />
           {noteTake.toast}
         </div>

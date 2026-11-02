@@ -25,7 +25,15 @@ import {
   toastIn,
   until,
 } from "./book-take-fixture";
-import { api, buttonNamed, type Mounted, onTop, setUp, tearDown } from "./html-take-fixture";
+import {
+  api,
+  buttonNamed,
+  inside,
+  type Mounted,
+  onTop,
+  setUp,
+  tearDown,
+} from "./html-take-fixture";
 
 const { fetchBook } = vi.hoisted(() => ({ fetchBook: vi.fn() }));
 // `fetchBook` is the one call the book reads from the vault that a plain fetch cannot answer.
@@ -210,4 +218,74 @@ describe("the take out of a book pane", () => {
     await until(() => (api.notes[NOTE]?.match(/\^hl-/g) ?? []).length === 2, 5_000);
     expect(api.notes[NOTE]?.match(/\^hl-/g)).toHaveLength(2);
   }, 40_000);
+
+  /** Selects the first paragraph and takes it, with `y` or, on a phone, the footer Take. */
+  async function takeAt(width: number, height: number, touch: boolean): Promise<HTMLElement> {
+    await page.viewport(width, height);
+    await browser.emulateMedia({ touch });
+    api.notes[NOTE] = PLAIN;
+    mountBooks(mounted, [NOTE]);
+    const doc = await sectionOf(NOTE);
+    if (!touch) await focusPara(mounted, NOTE, doc);
+    selectPara(doc);
+    await vi.waitFor(() => expect(takeIn(mounted, NOTE)).not.toBeNull());
+    if (touch) await userEvent.click(takeIn(mounted, NOTE) as HTMLElement);
+    else await userEvent.keyboard("y");
+    await until(() => toastIn(mounted, NOTE).includes("Undo"), 5_000);
+    return paneOf(mounted, NOTE).querySelector('[role="status"]') as HTMLElement;
+  }
+
+  // A short split at 1440, a short phone pane, and a normal height that keeps the whole toast.
+  it.each([
+    [1440, 230, false, "on"],
+    [1440, 230, false, "off"],
+    [390, 230, true, "off"],
+    [1440, 900, false, "off"],
+  ])(
+    "at %ix%i (touch %s, vim %s) the toast keeps to its title and buttons only in a text column under 200 px (#1486)",
+    async (width, height, touch, mode) => {
+      localStorage.setItem("kasten.vim", mode as string);
+      const toast = await takeAt(width as number, height as number, touch as boolean);
+      const column = toast.parentElement as HTMLElement;
+      const host = column.firstElementChild as HTMLElement;
+      const pane = paneOf(mounted, NOTE);
+      const [title, passage, source] = [...toast.querySelectorAll("p")];
+      const buttons = [buttonNamed("Put it in a note"), buttonNamed("Undo")] as HTMLElement[];
+      const short = (height as number) < 400;
+      const box = column.getBoundingClientRect();
+      const row = column.parentElement as HTMLElement;
+      const widths = [...row.children].reduce((sum, c) => sum + c.getBoundingClientRect().width, 0);
+      expect({
+        short: column.clientHeight < 200,
+        // A size container must not shrink the column: it still runs from the header to the footer, and fills the row beside the side columns.
+        fills: [
+          box.top === pane.querySelector("header")?.getBoundingClientRect().bottom,
+          box.bottom === pane.querySelector("footer")?.getBoundingClientRect().top,
+          Math.abs(widths - row.getBoundingClientRect().width) < 1,
+        ],
+        host:
+          JSON.stringify(host.getBoundingClientRect()) ===
+          JSON.stringify(column.getBoundingClientRect()),
+        title: (title?.offsetHeight ?? 0) > 0,
+        passage: (passage?.offsetHeight ?? 0) > 0,
+        source: (source?.offsetHeight ?? 0) > 0,
+        whole: toast.scrollHeight <= toast.clientHeight && inside(toast, column),
+        buttons: buttons.map((b) => inside(b, toast) && onTop(b)),
+      }).toEqual({
+        short,
+        fills: [true, true, true],
+        host: true,
+        title: true,
+        passage: !short,
+        source: !short,
+        whole: true,
+        buttons: [true, true],
+      });
+
+      await userEvent.click(buttonNamed("Undo") as HTMLElement);
+      await until(() => !(api.notes[NOTE] ?? "").includes(PARA), 5_000);
+      expect(api.notes[NOTE]).not.toContain(PARA);
+    },
+    40_000,
+  );
 });

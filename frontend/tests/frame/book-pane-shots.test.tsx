@@ -217,3 +217,19 @@ for (const theme of ["light", "dark"] as const) {
     shotTest(name, () => picture(name, size, theme, "poel", "# Plain\n", reachAgain, plainUrl));
   }
 }
+
+/** A passage taken with `y`, so the toast shows: under 200 px of text column it keeps its title and buttons (#1486). */
+async function takenPlain(doc: Document, mounted: Mounted): Promise<void> {
+  await focusPara(mounted, NOTE, doc);
+  selectPara(doc);
+  await vi.waitFor(() => expect(takeIn(mounted, NOTE)).not.toBeNull());
+  await userEvent.keyboard("y");
+  await vi.waitFor(() => expect(toastIn(mounted, NOTE)).toContain("Undo"));
+}
+for (const theme of ["light", "dark"] as const) {
+  for (const height of [230, 900]) {
+    const name = `book-take-toast-1440x${height}-${theme}`;
+    const size = { width: 1440, height, touch: false };
+    shotTest(name, () => picture(name, size, theme, "poel", "# Plain\n", takenPlain, plainUrl));
+  }
+}
