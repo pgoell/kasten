@@ -150,3 +150,16 @@ async def test_655_a_comment_opening_an_item_or_quote_hides_its_tags(
 
     assert response.status_code == 200
     assert response.json() == ["#box"]
+
+
+async def test_1459_walks_past_code_opening_after_a_quote_or_list_marker(
+    client: AsyncClient, vault: Path
+) -> None:
+    write(vault, "quote.md", "> a\n>\n>     #quoted\n")
+    write(vault, "item.md", "-     #itemcode\n")
+    write(vault, "kept.md", "- a\n      #continued\n")
+
+    response = await client.get("/api/tags")
+
+    assert response.status_code == 200
+    assert response.json() == ["#continued"]
