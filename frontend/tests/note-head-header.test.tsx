@@ -363,3 +363,53 @@ describe("#1452 the header skips the tags inside a comment the editor parses as 
     expect([opened, part(container, "meta").includes("#p")]).toEqual([false, true]);
   });
 });
+
+describe("#1456 the header skips the tags inside an indented code block, as the editor does", () => {
+  const tagsIn = (body: string, vim = false) => {
+    if (vim) localStorage.setItem("kasten.vim", "on");
+    const { container, unmount } = render(
+      <Editor initialDoc={`${body}\n`} path={PATH} commands={stubCommands()} />,
+    );
+    const meta = part(container, "meta");
+    unmount();
+    return ["#h", "#k"].filter((tag) => meta.includes(tag));
+  };
+
+  it("#1456 a tag in indented code is not in the header, a continuation's tag is", () => {
+    expect({
+      code: tagsIn("text\n\n    #h"),
+      frontmatter: tagsIn(`${DOC}text\n\n    #h\n\n#k`),
+      tab: tagsIn("text\n\n\t#h"),
+      later: tagsIn("#k\n\n    code\n    #h\n\nafter #k"),
+      lazy: tagsIn("text\n    #h"),
+      item: tagsIn("- a\n    #h"),
+      loose: tagsIn("- a\n\n    #h"),
+      nested: tagsIn("- a\n\n      #h\n- #k"),
+      comment: tagsIn("text\n\n    <!-- x --> #h"),
+      vim: tagsIn("text\n\n    #h\n\n#k", true),
+    }).toEqual({
+      code: [],
+      frontmatter: ["#k"],
+      tab: [],
+      later: ["#k"],
+      lazy: ["#h"],
+      item: ["#h"],
+      loose: ["#h"],
+      nested: ["#k"],
+      comment: [],
+      vim: ["#k"],
+    });
+  });
+
+  it("#1456 indenting a line into code hides its tag on that edit, and outdenting shows it", () => {
+    const { container } = render(
+      <Editor initialDoc={"text\n\n#h\n"} path={PATH} commands={stubCommands()} />,
+    );
+    const view = viewIn(container);
+    const at = view.state.doc.line(3).from;
+    act(() => view.dispatch({ changes: { from: at, insert: "    " } }));
+    const indented = part(container, "meta").includes("#h");
+    act(() => view.dispatch({ changes: { from: at, to: at + 4 } }));
+    expect([indented, part(container, "meta").includes("#h")]).toEqual([false, true]);
+  });
+});
