@@ -1,5 +1,5 @@
-import { mapPanes, openInFocused } from "@/lib/pane-contents";
-import { addTab, emptyLayout, goToTab, splitFocused } from "@/lib/panes";
+import { mapPanes, openInFocused } from "@/lib/panes/pane-contents";
+import { addTab, emptyLayout, goToTab, splitFocused } from "@/lib/panes/panes";
 import { notes } from "./panes-fixture";
 
 describe("following a note that moved", () => {

@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderHook } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { expect, it, vi } from "vitest";
-import { openBeside } from "@/lib/pane-contents";
+import { openBeside } from "@/lib/panes/pane-contents";
 import {
   activeTab,
   emptyLayout,
@@ -13,8 +13,8 @@ import {
   type Layout,
   removeFocused,
   tabPanes,
-} from "@/lib/panes";
-import { usePaneCommands } from "@/lib/use-pane-commands";
+} from "@/lib/panes/panes";
+import { usePaneCommands } from "@/lib/panes/use-pane-commands";
 
 const NOTE = "ideas/rag.md";
 const PERSON = "people/ada.md";

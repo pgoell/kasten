@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { expect, it, vi } from "vitest";
 import { useReadingBook } from "@/components/finder/use-reading-book";
 import { READING_NOTE } from "@/lib/layout";
-import { emptyLayout, focusedPane } from "@/lib/panes";
+import { emptyLayout, focusedPane } from "@/lib/panes/panes";
 
 const api = vi.hoisted(() => ({ fetchNote: vi.fn() }));
 vi.mock("@/lib/api", async (importOriginal) => ({

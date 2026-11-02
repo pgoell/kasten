@@ -1,5 +1,5 @@
-import { mapPanes } from "@/lib/pane-contents";
-import { emptyLayout, fillFocused, focusedPane, splitFocused, tabPanes } from "@/lib/panes";
+import { mapPanes } from "@/lib/panes/pane-contents";
+import { emptyLayout, fillFocused, focusedPane, splitFocused, tabPanes } from "@/lib/panes/panes";
 import { notes } from "./panes-fixture";
 
 describe("a terminal in a pane", () => {

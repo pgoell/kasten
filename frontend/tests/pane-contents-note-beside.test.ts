@@ -1,5 +1,5 @@
-import { openBeside, openPdfInFocused } from "@/lib/pane-contents";
-import { emptyLayout, focusedPane, nextPane, tabPanes } from "@/lib/panes";
+import { openBeside, openPdfInFocused } from "@/lib/panes/pane-contents";
+import { emptyLayout, focusedPane, nextPane, tabPanes } from "@/lib/panes/panes";
 
 describe("a pdf's note beside the pdf", () => {
   it("splits the pdf's pane to the right and puts the note in the new one", () => {

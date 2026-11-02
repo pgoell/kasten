@@ -1,5 +1,5 @@
-import { openBeside, openPdfBeside, openPdfInFocused } from "@/lib/pane-contents";
-import { emptyLayout, focusedPane, nextPane, tabPanes } from "@/lib/panes";
+import { openBeside, openPdfBeside, openPdfInFocused } from "@/lib/panes/pane-contents";
+import { emptyLayout, focusedPane, nextPane, tabPanes } from "@/lib/panes/panes";
 import { notes } from "./panes-fixture";
 
 describe("a book in a pane beside its note", () => {

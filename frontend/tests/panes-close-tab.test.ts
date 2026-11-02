@@ -1,4 +1,4 @@
-import { openInFocused } from "@/lib/pane-contents";
+import { openInFocused } from "@/lib/panes/pane-contents";
 import {
   addTab,
   closeTab,
@@ -8,7 +8,7 @@ import {
   isEmptyTab,
   type Layout,
   type Tab,
-} from "@/lib/panes";
+} from "@/lib/panes/panes";
 
 /** Tabs named by these notes: the first is the window's own, each other one a new tab holding its note. */
 function tabsOf(...paths: string[]): Layout {

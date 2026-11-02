@@ -13,7 +13,7 @@ import {
   type Layout,
   splitFocused,
   tabPanes,
-} from "@/lib/panes";
+} from "@/lib/panes/panes";
 import { DEFAULT_VIEWS, VIEWS_NOTE } from "@/lib/todo/todo-view";
 import { stubMatchMedia } from "./match-media";
 import { HITS, seededClient, serveNotes } from "./review-pane-fixture";

@@ -3,8 +3,8 @@
  * storage, never the vault: a phone and a desktop want different layouts of the same notes.
  */
 
-import { isObject, isSavedPane, isString } from "@/lib/pane-kinds";
-import { type Layout, type PaneNode, reidLayout } from "@/lib/panes";
+import { isObject, isSavedPane, isString } from "@/lib/panes/pane-kinds";
+import { type Layout, type PaneNode, reidLayout } from "@/lib/panes/panes";
 
 const FINE_KEY = "kasten.workspace.1";
 const COARSE_KEY = "kasten.workspace.coarse.1";

@@ -1,5 +1,5 @@
 import { type RefObject, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { focusedPane, type Layout, tabPanes } from "@/lib/panes";
+import { focusedPane, type Layout, tabPanes } from "@/lib/panes/panes";
 import { namedVideo, nonEmpty, PLAYER } from "@/lib/video/video";
 import {
   applyVideoSettings,

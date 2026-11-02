@@ -6,7 +6,7 @@ import { heldText, sameText, useHeld } from "@/lib/held-text";
 import type { useAutosave } from "@/lib/note/use-autosave";
 import { viewCommands } from "@/lib/palette";
 import { docIn, paneView } from "@/lib/pane-doc";
-import { type Layout, tabPanes } from "@/lib/panes";
+import { type Layout, tabPanes } from "@/lib/panes/panes";
 
 type Autosave = ReturnType<typeof useAutosave>;
 

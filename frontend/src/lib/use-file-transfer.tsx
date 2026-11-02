@@ -11,7 +11,7 @@ import { type BookBeside, createNote, UPLOAD_LIMIT_BYTES, uploadAsset } from "@/
 import type { TreeCommands } from "@/lib/key-bindings";
 import { whenKeysUp } from "@/lib/last-input";
 import { bookNote, encodePath, importedNote, noteName } from "@/lib/note-path";
-import type { Pane } from "@/lib/panes";
+import type { Pane } from "@/lib/panes/panes";
 
 export type FileTransfer = ReturnType<typeof useFileTransfer>;
 

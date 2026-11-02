@@ -1,8 +1,8 @@
 import { act, renderHook } from "@testing-library/react";
 import { expect, it, vi } from "vitest";
 import { usePaneMoves } from "@/components/use-pane-moves";
-import { openInFocused } from "@/lib/pane-contents";
-import { emptyLayout, splitFocused } from "@/lib/panes";
+import { openInFocused } from "@/lib/panes/pane-contents";
+import { emptyLayout, splitFocused } from "@/lib/panes/panes";
 
 // jsdom measures nothing, so no pane sits any way and each key asks about the edge.
 function moves(layout = openInFocused(splitFocused(emptyLayout("a.md"), "row"), "b.md")) {

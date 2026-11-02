@@ -14,8 +14,8 @@ import { cdp } from "vitest/browser";
 import { resetStripEntrance } from "@/components/tab-strip";
 import { resetHeld } from "@/lib/held-text";
 import { noteName } from "@/lib/note-path";
-import { openInFocused } from "@/lib/pane-contents";
-import { addTab, emptyLayout, goToTab, type Layout, splitFocused } from "@/lib/panes";
+import { openInFocused } from "@/lib/panes/pane-contents";
+import { addTab, emptyLayout, goToTab, type Layout, splitFocused } from "@/lib/panes/panes";
 import {
   DESKTOP,
   leader,

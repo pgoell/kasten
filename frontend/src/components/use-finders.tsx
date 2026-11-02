@@ -9,7 +9,7 @@ import { visible } from "@/lib/archive";
 import { fileKind } from "@/lib/file-kind";
 import type { TreeCommands } from "@/lib/key-bindings";
 import type { NoteOpening } from "@/lib/note/use-note-opening";
-import { openBookInFocused } from "@/lib/pane-contents";
+import { openBookInFocused } from "@/lib/panes/pane-contents";
 import type { GuardedWrites } from "@/lib/use-guarded-writes";
 import type { Listings } from "@/lib/use-listings";
 import { outgoingLinks } from "@/lib/wikilink";

@@ -38,7 +38,7 @@ For each file, its size in tokens, how many files import it, how many imports
 it has, and how often it changed and broke:
 
 ```sh
-for f in frontend/src/lib/panes.ts frontend/src/components/workspace-panes.tsx; do
+for f in frontend/src/lib/panes/panes.ts frontend/src/components/workspace-panes.tsx; do
   stem=${f#frontend/src/}; stem=${stem%.*}
   echo "$f tokens=$(( $(wc -c < "$f") / 4 ))" \
     "imported-by=$(grep -rlE "from \"@/$stem\"" frontend/src | wc -l)" \
@@ -70,7 +70,7 @@ Read every file on the list in full. For each one, answer:
    commit that last did it shows this:
 
    ```sh
-   git log --format='%h %s' -S'history?: string' -- frontend/src/lib/panes.ts
+   git log --follow --format='%h %s' -S'history?: string' -- frontend/src/lib/panes/panes.ts
    git show --stat <hash> -- frontend/src
    ```
 

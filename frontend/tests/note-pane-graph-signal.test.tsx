@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import type { ComponentProps } from "react";
 import { NotePane } from "@/components/note-pane";
-import type { Pane } from "@/lib/panes";
+import type { Pane } from "@/lib/panes/panes";
 import { stubCommands } from "./stub-commands";
 
 const { fetchNote, fetchMentions } = vi.hoisted(() => ({

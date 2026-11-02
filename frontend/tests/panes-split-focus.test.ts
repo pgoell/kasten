@@ -1,4 +1,4 @@
-import { openInFocused } from "@/lib/pane-contents";
+import { openInFocused } from "@/lib/panes/pane-contents";
 import {
   emptyLayout,
   focusedPane,
@@ -8,7 +8,7 @@ import {
   panesOf,
   splitFocused,
   tabPanes,
-} from "@/lib/panes";
+} from "@/lib/panes/panes";
 import { at, notes, open } from "./panes-fixture";
 
 describe("a fresh layout", () => {

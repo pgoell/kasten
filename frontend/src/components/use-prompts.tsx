@@ -15,12 +15,12 @@ import type { TreeCommands } from "@/lib/key-bindings";
 import type { MoveMode } from "@/lib/move";
 // Renamed because the route that calls this already has a `flush`, the bookmark's.
 import { flush as flushOutbox, keep } from "@/lib/outbox";
-import { mapPanes, openInFocused } from "@/lib/pane-contents";
-import type { Layout } from "@/lib/panes";
+import { mapPanes, openInFocused } from "@/lib/panes/pane-contents";
+import type { Layout } from "@/lib/panes/panes";
+import { paneOpeners } from "@/lib/panes/use-pane-commands";
 import { parseTodo } from "@/lib/todo/todo";
 import { addTodoInVault } from "@/lib/todo/todo-api";
 import { addSubtaskInVault } from "@/lib/todo/todo-line-edits";
-import { paneOpeners } from "@/lib/use-pane-commands";
 
 export type Prompts = ReturnType<typeof usePrompts>;
 

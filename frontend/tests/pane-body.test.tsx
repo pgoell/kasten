@@ -19,7 +19,7 @@ import { TerminalPane } from "@/components/terminal-pane";
 import { TodoPane } from "@/components/todo-pane";
 import { VideoPane } from "@/components/video-pane";
 import type { TreeCommands } from "@/lib/key-bindings";
-import { type KindField, PANE_KINDS, type Pane } from "@/lib/pane-kinds";
+import { type KindField, PANE_KINDS, type Pane } from "@/lib/panes/pane-kinds";
 import { stubCommands } from "./stub-commands";
 
 /** What each kind draws, and which of the shared context it takes beyond `commands` and the focus. */

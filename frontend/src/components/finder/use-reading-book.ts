@@ -4,7 +4,7 @@ import type { PaneMoves } from "@/components/use-pane-moves";
 import { fetchAssets, fetchFiles, fetchNote, NoteMissing } from "@/lib/api";
 import { READING_NOTE } from "@/lib/layout";
 import { noteName } from "@/lib/note-path";
-import { openBookInFocused } from "@/lib/pane-contents";
+import { openBookInFocused } from "@/lib/panes/pane-contents";
 import { splitTarget, wikiLinkPath, wikiLinkTargets } from "@/lib/wikilink";
 
 /**
