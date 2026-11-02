@@ -323,7 +323,11 @@ export function useVideoPlayer({
     // The player moved on to a suggestion: a time for this video brings it back
     // at that second, as a time for another linked video opens that one (#1192).
     if (elsewhere.current && id !== undefined) {
-      command(frame.current, "loadVideoById", [id, Math.max(0, seekTo)]);
+      // Kept here as `seek` keeps it, so a stop before the first tick reports the asked second.
+      const to = Math.max(0, seekTo);
+      command(frame.current, "loadVideoById", [id, to]);
+      second.current = to;
+      setAt(to);
       return;
     }
     seek(seekTo);

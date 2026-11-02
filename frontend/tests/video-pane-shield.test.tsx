@@ -48,9 +48,10 @@ function renderPane(props: Props = {}, cached = false, text = TEXT) {
       />
     </QueryClientProvider>
   );
-  const { container, rerender } = render(view(props));
+  const { container, rerender, unmount } = render(view(props));
   return {
     onWatched,
+    unmount,
     pane: container.querySelector("[data-video-pane]") as HTMLElement,
     rerenderWith: (next: Props) => rerender(view({ ...props, ...next })),
   };
@@ -296,6 +297,26 @@ describe("the video pane shield and keys", () => {
     );
     act(() => reports(2, 95));
     expect(onWatched.mock.calls).toEqual([["dQw4w9WgXcQ", 95]]);
+  });
+
+  it("#1192 I3 an ended linked video loaded back by a seek, closed while it buffers, writes the asked second", async () => {
+    const { onWatched, rerenderWith, unmount } = renderPane({
+      seekSignal: { seconds: 90, signal: 0 },
+    });
+    await spyOnFrame();
+
+    act(() =>
+      delivers({ videoData: { video_id: "dQw4w9WgXcQ" }, playerState: 1, currentTime: 200 }),
+    );
+    act(() => reports(0, 212));
+    act(() => delivers({ videoData: { video_id: "iDulhoQ2pro" }, playerState: 1, currentTime: 3 }));
+    rerenderWith({ seekSignal: { seconds: 90, signal: 1, id: "dQw4w9WgXcQ" } });
+    act(() => delivers({ videoData: { video_id: "dQw4w9WgXcQ" }, playerState: 3, currentTime: 0 }));
+    unmount();
+    expect(onWatched.mock.calls).toEqual([
+      ["dQw4w9WgXcQ", 0],
+      ["dQw4w9WgXcQ", 90],
+    ]);
   });
 
   it("#791 R8 a seek for another of the note's videos switches to it and opens it at that second", async () => {
