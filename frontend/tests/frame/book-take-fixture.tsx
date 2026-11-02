@@ -189,3 +189,30 @@ export function marksIn(mounted: Mounted, note: string): SVGGElement[] {
 
 /** A plain note the vault holds before a take, with no highlights yet. */
 export const PLAIN = "# Plain\n";
+
+/**
+ * Selects a few words whose line lies under `box` on screen, so the Take button drawn above them
+ * (24 px, its foot on their top) lands over it (#1482). Answers whether such words were found.
+ */
+export function selectUnder(doc: Document, box: DOMRect): boolean {
+  const frame = doc.defaultView?.frameElement as Element;
+  const outer = frame.getBoundingClientRect();
+  const range = doc.createRange();
+  for (const p of doc.querySelectorAll("p")) {
+    const node = p.firstChild as Text;
+    for (let i = 0; i + 4 < node.length; i += 8) {
+      range.setStart(node, i);
+      range.setEnd(node, i + 4);
+      const rect = range.getClientRects()[0];
+      const top = outer.top + (rect?.top ?? -1e6);
+      const left = outer.left + (rect?.left ?? -1e6);
+      if (top > box.top + 4 && top < box.bottom && left > box.left && left < box.right - 60) {
+        const selection = doc.defaultView?.getSelection() as Selection;
+        selection.removeAllRanges();
+        selection.addRange(range);
+        return true;
+      }
+    }
+  }
+  return false;
+}

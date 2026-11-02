@@ -363,8 +363,9 @@ export function BookPane({
             in, and a flex child that will not shrink draws its page off the
             bottom of the pane. */}
         {/* The toast is placed over this column and not the pane, so it sits over
-            the text above the footer and never over the contents or the note. */}
-        <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
+            the text above the footer and never over the contents or the note. `isolate`
+            keeps its `z-10` in here, under the pane's later Take button (#1482). */}
+        <div className="relative isolate flex min-h-0 min-w-0 flex-1 flex-col">
           <div ref={host} className="min-h-0 min-w-0 flex-1" />
           {noteTake.toast}
         </div>

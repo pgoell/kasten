@@ -15,13 +15,17 @@ import "@fontsource-variable/newsreader/opsz.css";
 import { page as browserPage, commands, userEvent } from "vitest/browser";
 import type { Palette, Theme } from "@/lib/theme";
 import coverUrl from "../fixtures/cover.epub?url";
+import plainUrl from "../fixtures/plain.epub?url";
 import { chooseTheme, clickInside, located, sections } from "./book-pane-fixture";
 import {
   columnsSettled,
+  focusPara,
   marksIn,
   mountBooks,
   paneOf,
   sectionOf,
+  selectPara,
+  selectUnder,
   takeIn,
   toastIn,
   until,
@@ -83,12 +87,13 @@ async function picture(
   palette: Palette,
   note: string,
   act: (doc: Document, mounted: Mounted) => Promise<void>,
+  book = coverUrl,
 ): Promise<void> {
   sections.length = 0;
   located.length = 0;
   fetchBook.mockResolvedValue({
     path: NOTE.replace(/\.md$/, ".epub"),
-    blob: await (await fetch(coverUrl)).blob(),
+    blob: await (await fetch(book)).blob(),
   });
   const mounted = await setUp();
   try {
@@ -190,4 +195,25 @@ for (const palette of ["russet", "peach", "pansy"] as const) {
   shotTest(`book-1440-${palette}`, () =>
     picture(`book-1440-${palette}`, DESKTOP, "light", palette, TWO, desktopWith),
   );
+}
+
+/** A take high on the page, then words under its toast, so the new Take shows over it (#1482). */
+async function reachAgain(doc: Document, mounted: Mounted): Promise<void> {
+  const pane = paneOf(mounted, NOTE);
+  const coarse = pane.getBoundingClientRect().width < 500;
+  if (!coarse) await focusPara(mounted, NOTE, doc);
+  selectPara(doc);
+  await vi.waitFor(() => expect(takeIn(mounted, NOTE)).not.toBeNull());
+  if (coarse) await userEvent.click(takeIn(mounted, NOTE) as HTMLElement);
+  else await userEvent.keyboard("y");
+  await vi.waitFor(() => expect(toastIn(mounted, NOTE)).toContain("Undo"));
+  const toast = pane.querySelector('[role="status"]') as HTMLElement;
+  expect(selectUnder(doc, toast.getBoundingClientRect())).toBe(true);
+  await vi.waitFor(() => expect(takeIn(mounted, NOTE)).not.toBeNull());
+}
+for (const theme of ["light", "dark"] as const) {
+  for (const size of [DESKTOP, { width: 390, height: 844, touch: true }]) {
+    const name = `book-take-reach-${size.width}-${theme}`;
+    shotTest(name, () => picture(name, size, theme, "poel", "# Plain\n", reachAgain, plainUrl));
+  }
 }
