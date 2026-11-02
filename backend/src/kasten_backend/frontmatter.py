@@ -80,8 +80,10 @@ def _closing(lines: list[str]) -> int | None:
 
 
 def _fence(line: str) -> bool:
-    """Whether `line` opens or closes a block. Cases shared with the client in
-    backend/tests/fixtures/frontmatter_closers.json."""
+    """Whether `line` opens or closes a block.
+
+    The client reads the same cases, in backend/tests/fixtures/frontmatter_closers.json.
+    """
     return line.rstrip(" \t\r") == FENCE
 
 
