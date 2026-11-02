@@ -89,6 +89,30 @@
       "note": "# T\n\n## Done\n- ✅ a\n\n### Sub\nx\n\n## Next\n",
       "line": "- ✅ 2026-10-28 x",
       "written": "# T\n\n## Done\n- ✅ a\n- ✅ 2026-10-28 x\n\n### Sub\nx\n\n## Next\n"
+    },
+    {
+      "name": "a heading after an open fence in a list item is live",
+      "note": "# Day\n\n- a\n  ```\n  b\n\n## Done\n- x\n",
+      "line": "- y",
+      "written": "# Day\n\n- a\n  ```\n  b\n\n## Done\n- x\n- y\n"
+    },
+    {
+      "name": "a fence open in a list item gets no closer, the line lands at column 0",
+      "note": "## Done\n- a\n  ```\n  code\n",
+      "line": "- y",
+      "written": "## Done\n- a\n  ```\n  code\n- y\n"
+    },
+    {
+      "name": "a closer indented four spaces closes nothing",
+      "note": "## Done\n```\nx\n    ```\n",
+      "line": "- y",
+      "written": "## Done\n```\nx\n    ```\n```\n- y\n"
+    },
+    {
+      "name": "a backtick line closes no tilde fence",
+      "note": "## Done\n~~~\n```\n",
+      "line": "- y",
+      "written": "## Done\n~~~\n```\n~~~\n- y\n"
     }
   ],
   "drops": [
@@ -193,6 +217,28 @@
       "note": "---\nnote: |\n  ```\n---\n## Done\n- ✅ 2026-10-01 Milch kt-abc123\n",
       "id": "kt-abc123",
       "kept": "---\nnote: |\n  ```\n---\n## Done\n"
+    }
+  ],
+  "reads": [
+    {
+      "name": "a line at column 0 ends a fence open in a list item",
+      "note": "## Log\n- a\n  ```\n  code\n- 💧 250 ml\n",
+      "entries": ["- a", "- 💧 250 ml"]
+    },
+    {
+      "name": "a fence in a quote ends with the quote",
+      "note": "## Log\n> ```\n- 💧 250 ml\n",
+      "entries": ["- 💧 250 ml"]
+    },
+    {
+      "name": "a closer indented four spaces closes nothing",
+      "note": "## Log\n```\n    ```\n- 💧 250 ml\n",
+      "entries": []
+    },
+    {
+      "name": "a backtick line closes no tilde fence",
+      "note": "## Log\n~~~\n```\n- 💧 250 ml\n~~~\n- ☕ 1\n",
+      "entries": ["- ☕ 1"]
     }
   ]
 }

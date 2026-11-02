@@ -411,6 +411,37 @@ async def test_an_unreadable_receipts_file_reads_as_none(
     assert paragraphs(vault, "call Jonas") == 1
 
 
+LOG = "\n\n## Log\n- 💧 250 ml"
+
+# The #754 shapes: (note, capture, note as written). A closer is the opener's own character,
+# three spaces in at most with nothing after; a quote or list item ends a fence.
+FENCE_SHAPES = [
+    ("a\n> ```\n> code", "new", "a\n> ```\n> code\n\nnew"),
+    (f"a{LOG}", "- ```", f"a\n\n- ```{LOG}"),
+    (f"a{LOG}", "~~~\n```", f"a\n\n~~~\n```\n~~~{LOG}"),
+    (f"a{LOG}", "```\n~~~", f"a\n\n```\n~~~\n```{LOG}"),
+    (f"a{LOG}", "```\nx\n    ```", f"a\n\n```\nx\n    ```\n```{LOG}"),
+    (f"a{LOG}", "```\nx\n``` x", f"a\n\n```\nx\n``` x\n```{LOG}"),
+    ("a\n```\nx\n    ```", "new", "a\n```\nx\n    ```\n```\n\nnew"),
+    ("a\n~~~\n```", "new", "a\n~~~\n```\n~~~\n\nnew"),
+]
+
+
+@pytest.mark.parametrize(("note", "capture", "written"), FENCE_SHAPES)
+async def test_754_a_capture_closes_only_what_commonmark_leaves_open(
+    client: AsyncClient, vault: Path, note: str, capture: str, written: str
+) -> None:
+    (vault / DAY).parent.mkdir(parents=True)
+    (vault / DAY).write_text(f"## Dump\n{note}\n")
+
+    await client.post("/api/dump", json={"text": capture, "date": "2026-09-29"})
+
+    text = body((vault / DAY).read_text())
+    assert text == f"## Dump\n{written}\n"
+    # What follows the capture, or the capture after the note's fence, is no code.
+    assert not inside(text.rindex(written.rsplit("\n", 1)[1]), code_spans(text))
+
+
 async def test_a_failed_receipt_write_still_answers_with_the_note(
     client: AsyncClient, vault: Path, receipts: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
