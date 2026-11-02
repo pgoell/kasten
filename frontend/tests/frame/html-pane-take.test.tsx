@@ -421,7 +421,10 @@ it.each([
     await browser.servePage(RIGHT_PATH, NEWS);
     render(mounted, touch ? [LEFT_PATH] : [LEFT_PATH, RIGHT_PATH], touch);
     const frame = frameOf(mounted, 0);
+    // The pane's onLoad drops the toast, and the page says hello before its load event.
+    const loaded = new Promise((done) => frame.addEventListener("load", done, { once: true }));
     await ready(frame);
+    await loaded;
     await select(frame, ["p1", 0, "p1", 5]);
     await expect.poll(() => takeButton(mounted) !== null).toBe(true);
     await userEvent.keyboard("y");
