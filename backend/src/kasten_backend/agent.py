@@ -227,7 +227,10 @@ async def read_note(settings: Settings, path: str) -> NoteRead | None:
     if note is None:
         return None
 
-    return _read(settings.vault_path, note)
+    try:
+        return _read(settings.vault_path, note)
+    except OSError:
+        return None
 
 
 async def list_notes(settings: Settings, folder: str = "") -> list[str]:

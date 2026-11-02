@@ -149,8 +149,9 @@ def _resolve_inside(root: Path, relative: str) -> Path | None:
     goes through here, and the listing's refusals apply too, so the tree agrees with it.
     """
     # Checked before anything touches the filesystem, because an embedded null
-    # makes every call raise rather than return.
-    if "\0" in relative:
+    # makes every call raise rather than return. So does a surrogate, the one
+    # thing UTF-8 cannot encode, which a direct caller can pass (#1309).
+    if "\0" in relative or any("\ud800" <= char <= "\udfff" for char in relative):
         return None
 
     base = root.resolve()

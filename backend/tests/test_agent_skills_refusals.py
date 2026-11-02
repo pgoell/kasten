@@ -328,8 +328,8 @@ async def test_a_hidden_link_to_a_skill_file_lists_by_the_file_it_reads(
 async def test_a_lone_surrogate_never_reaches_read_skill(
     client: AsyncClient, agent_vault: Path, bearer: dict[str, str]
 ) -> None:
-    # `_resolve_inside` raises on one rather than refusing (#1309), so this pins
-    # that the SDK's parser turns it away first and no tool runs.
+    # `_resolve_inside` refuses one too (#1309), but this pins that the SDK's
+    # parser turns it away first and no tool runs.
     build_layout(agent_vault)
     # `json.dumps` escapes the surrogate as `\\ud800`, which is how a client sends one.
     body = json.dumps(call("read_skill", {"path": "close-day/\ud800.md"}))

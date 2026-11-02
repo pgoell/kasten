@@ -457,3 +457,26 @@ async def test_the_guide_says_where_a_thought_goes(
     response = await client.post(ENDPOINT, json=call("read_guide", {}), headers={**bearer, **RPC})
 
     assert "dump" in payload(response.text)["result"]["content"][0]["text"]
+
+
+async def test_an_unreadable_note_answers_as_an_absent_one(
+    client: AsyncClient, agent_vault: Path, bearer: dict[str, str]
+) -> None:
+    locked = agent_vault / "locked.md"
+    locked.write_text("# locked\n")
+    locked.chmod(0)
+
+    answers = [
+        payload(
+            (
+                await client.post(
+                    ENDPOINT, json=call("read_note", {"path": path}), headers={**bearer, **RPC}
+                )
+            ).text
+        )["result"]
+        for path in ("locked.md", "missing.md")
+    ]
+
+    assert answers[0] == answers[1]
+    assert answers[0]["isError"] is True
+    assert answers[0]["content"][0]["text"].endswith(": No such note")
