@@ -93,10 +93,9 @@ def _open_fence(text: str, lines: list[str], *, frontmatter: bool = True) -> str
     if marker is None:
         return None
     fence = marker[1]
-    closed = any(
-        (stripped := line.strip()) == fence[0] * len(stripped) and len(stripped) >= len(fence)
-        for line in lines[opener + 1 :]
-    )
+    # A CommonMark closer: three spaces at most before it, nothing but spaces after it.
+    closer = re.compile(rf" {{0,3}}{re.escape(fence[0])}{{{len(fence)},}}")
+    closed = any(closer.fullmatch(line.rstrip()) for line in lines[opener + 1 :])
     return None if closed else fence
 
 

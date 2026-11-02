@@ -207,6 +207,44 @@ describe("the log card", () => {
     ]);
   });
 
+  // #754: a fence in a list item ends with the item, and a closer is never indented four spaces.
+  const LISTED = "# 2026-10-20 Tuesday\n\n## Log\n- a\n  ```\n  code\n";
+  const INDENTED = "# 2026-10-20 Tuesday\n\n## Log\n```\nx\n    ```\n";
+
+  it.each([
+    ["on", [vim(), vimModeState()]],
+    ["off", [vimKeys.of(false)]],
+  ])(
+    "#754 with vim %s, a tap after a fence open in a list item counts in the totals",
+    (_, keys) => {
+      const view = mount(LISTED, DAILY, keys);
+      press(view, "Log water");
+      expect([text(view), totals(view)]).toEqual([
+        `${LISTED}- 💧 250 ml\n`,
+        expect.stringContaining("💧 250 ml"),
+      ]);
+    },
+  );
+
+  it.each([
+    ["on", [vim(), vimModeState()]],
+    ["off", [vimKeys.of(false)]],
+  ])(
+    "#754 with vim %s, a closer indented four spaces gets the real closer, one undo back",
+    (_, keys) => {
+      const view = mount(INDENTED, DAILY, keys);
+      press(view, "Log water");
+      const after = [text(view), totals(view)];
+      if (keys.length === 1) undo(view);
+      else fireEvent.keyDown(view.contentDOM, { key: "u" });
+      expect([...after, text(view)]).toEqual([
+        `${INDENTED}\`\`\`\n- 💧 250 ml\n`,
+        expect.stringContaining("💧 250 ml"),
+        INDENTED,
+      ]);
+    },
+  );
+
   it("with vim off, a tap into a ## Log ending in an unclosed fence closes it and undo takes both back", () => {
     const view = mount(FENCED, DAILY, [vimKeys.of(false)]);
     press(view, "Log water");

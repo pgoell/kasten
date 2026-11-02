@@ -4,6 +4,7 @@
  */
 
 import { closing } from "@/lib/note-frontmatter";
+import { fencedLines } from "@/lib/note-section";
 import { masked } from "@/lib/tag-rule";
 
 export type DrinkKind = "water" | "coffee" | "alcohol";
@@ -60,11 +61,7 @@ const FIELD_RUN = new RegExp(`^${FIELD}(?:[ \\t]+${FIELD})*[ \\t]*$`, "iu");
 /** Grams of ethanol per millilitre, the density the format names. */
 const ETHANOL = 0.789;
 
-/**
- * A fence opens or closes a code block, and a heading ends the `## Log` above it.
- * A backtick run opens only when no backtick follows it, as the note-section reader reads it, or the two would disagree.
- */
-const FENCE = /^ {0,3}(`{3,}|~{3,})(.*)/;
+/** A heading, which ends the `## Log` above it. `fencedLines` finds the code it may sit in. */
 const HEADING = /^#{1,2} /;
 
 /** A written number as a float, a comma read as the point. */
@@ -190,41 +187,20 @@ export function amountLine(kind: DrinkKind, typed: string): string | { why: stri
   return parseDrink(line)?.kind === kind ? line : { why: `not a ${kind} amount: ${typed}` };
 }
 
-// A fence closes on its own character, at least as long as the one that opened it.
-const closesFence = (fence: string, run: string | undefined, line: string): boolean =>
-  run !== undefined && run[0] === fence[0] && run.length >= fence.length && line.trim() === run;
-
 /** The lines under each `## Log` of `text`, without fenced code or the frontmatter. */
 export function logLines(text: string): string[] {
   const lines = text.split("\n");
   // The frontmatter holds no section.
   const close = closing(lines);
-  const scan: LogScan = { fence: null, inLog: false };
-  return lines.slice(close === -1 ? 0 : close + 1).filter((line) => scanLine(scan, line));
-}
-
-interface LogScan {
-  fence: string | null;
-  inLog: boolean;
-}
-
-/** Moves the scan past `line`: true when the line is one under `## Log`. */
-function scanLine(scan: LogScan, line: string): boolean {
-  const match = FENCE.exec(line);
-  const run = match?.[1];
-  if (scan.fence !== null) {
-    if (closesFence(scan.fence, run, line)) scan.fence = null;
+  const body = lines.slice(close === -1 ? 0 : close + 1);
+  const { coded } = fencedLines(body);
+  let inLog = false;
+  return body.filter((line, index) => {
+    if (coded.has(index)) return false;
+    if (!HEADING.test(line)) return inLog;
+    inLog = line.trimEnd() === LOG_HEADING;
     return false;
-  }
-  if (run !== undefined && (run[0] === "~" || !match?.[2]?.includes("`"))) {
-    scan.fence = run;
-    return false;
-  }
-  if (HEADING.test(line)) {
-    scan.inLog = line.trimEnd() === LOG_HEADING;
-    return false;
-  }
-  return scan.inLog;
+  });
 }
 
 /** What a day's log adds up to. Every kind is present, zero where nothing was logged. */

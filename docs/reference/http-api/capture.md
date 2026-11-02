@@ -378,7 +378,7 @@ included. A closing line may follow it, as the paragraph on fences below says.
 
 A capture never lands inside a fence and never leaves one open. When the text
 opens a fence it does not close, a closing line with the opener's marker goes
-after the text. A line of inline triple-backtick code, or a fence inside a list item, gets none, since a bare line at column 0 would open a new fence. Nothing already in the note is removed or moved, and blank lines
+after the text. A line of inline triple-backtick code, or a fence in a list item or quote, gets none, since a bare line at column 0 would open a new fence. Nothing already in the note is removed or moved, and blank lines
 inside a fence stay in it.
 
 The note is stamped on the way through the way a save is, so a note that was

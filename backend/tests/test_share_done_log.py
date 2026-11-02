@@ -12,6 +12,7 @@ import pytest
 from backend.tests.conftest import descriptions
 from kasten_backend import done_log
 from kasten_backend.config import get_settings
+from kasten_backend.log import _log_lines
 from kasten_backend.periodic import daily_note
 
 if TYPE_CHECKING:
@@ -90,6 +91,13 @@ def test_726_done_line_matches_the_todo_pane_cases(case: dict[str, str]) -> None
 )
 def test_726_done_log_places_the_line_where_the_todo_pane_does(case: dict[str, str]) -> None:
     assert done_log.append_under(case["note"], "## Done", case["line"]) == case["written"]
+
+
+@pytest.mark.parametrize("case", CASES["reads"], ids=[case["name"] for case in CASES["reads"]])
+def test_754_the_log_reads_the_lines_the_card_reads(case: dict[str, str]) -> None:
+    lines = _log_lines(case["note"]) or []
+
+    assert [line for _, line in lines if line.startswith("- ")] == case["entries"]
 
 
 async def test_726_share_tick_writes_one_done_log_line_in_todays_daily_note(

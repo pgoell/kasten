@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 import cases from "@/lib/log/log-cases.json";
-import { amountLine, drinkTotals, foodLine, parseDrink, parseFood } from "@/lib/log/log-lines";
+import {
+  amountLine,
+  drinkTotals,
+  foodLine,
+  logLines,
+  parseDrink,
+  parseFood,
+} from "@/lib/log/log-lines";
+import fixture from "./fixtures/done-lines.json";
 
 interface Row {
   id: string;
@@ -142,6 +150,12 @@ describe("drinkTotals", () => {
       "- 🍽 f 🍞 0.25 g",
     );
     expect(drinkTotals(text).food).toEqual({ kcal: 152.5, protein: 0.1, carbs: 0.2, fat: 0 });
+  });
+});
+
+describe("logLines, against the reads log.py shares (#754)", () => {
+  it.each(fixture.reads)("$name", ({ note, entries }) => {
+    expect(logLines(note).filter((line) => line.startsWith("- "))).toEqual(entries);
   });
 });
 
