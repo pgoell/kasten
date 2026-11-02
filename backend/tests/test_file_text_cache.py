@@ -112,6 +112,15 @@ async def test_a_page_with_no_or_an_unknown_charset_reads_as_windows_1252(
     assert await _texts(client, "Käse") == ["Käse eins", "Käse zwei"]
 
 
+async def test_a_declared_iso_8859_15_page_is_read_in_its_own_charset(
+    client: AsyncClient, vault: Path
+) -> None:
+    page = _page("une œuvre", '<meta charset="iso-8859-15">')
+    (vault / "fr.html").write_bytes(page.encode("iso8859-15"))
+
+    assert await _texts(client, "œuvre") == ["une œuvre"]
+
+
 async def test_a_windows_1252_epub_chapter_is_found(client: AsyncClient, vault: Path) -> None:
     chapter = (
         '<?xml version="1.0" encoding="windows-1252"?>'

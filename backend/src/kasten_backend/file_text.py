@@ -204,7 +204,8 @@ def _decode(raw: bytes) -> str:
         # Bytes that are not utf-8 are not what a utf label says; latin-1 and ascii
         # are windows-1252 to a browser. A name that is no text codec raises LookupError.
         with contextlib.suppress(LookupError):
-            if not codecs.lookup(label).name.startswith(("utf", "iso8859-1", "ascii")):
+            name = codecs.lookup(label).name
+            if not name.startswith("utf") and name not in ("iso8859-1", "ascii"):
                 return raw.decode(label, errors="replace")
     return raw.decode("cp1252", errors="replace")
 
