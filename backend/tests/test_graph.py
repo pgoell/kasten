@@ -100,6 +100,16 @@ async def test_a_type_in_the_body_is_prose(client: AsyncClient, vault: Path) -> 
     assert answer["nodes"][0]["type"] is None
 
 
+async def test_654_a_block_that_never_closes_gives_no_type(
+    client: AsyncClient, vault: Path
+) -> None:
+    write(vault, "a.md", "---\ntype: Concept\n ---\nbody\n")
+
+    answer = await graph(client)
+
+    assert answer["nodes"][0]["type"] is None
+
+
 async def test_leaves_the_archive_out(client: AsyncClient, vault: Path) -> None:
     write(vault, "a.md", "[[old]]\n")
     write(vault, "98 Archive/old.md", "")

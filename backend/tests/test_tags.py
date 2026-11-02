@@ -126,3 +126,14 @@ async def test_finding_b_tag_on_a_line_over_64_kib(client: AsyncClient, vault: P
 
     assert response.status_code == 200
     assert response.json() == ["#x"]
+
+
+async def test_654_a_spaced_closer_leaves_the_whole_note_text(
+    client: AsyncClient, vault: Path
+) -> None:
+    # Obsidian closes a block only on `---` at column 0, so `ref: x #a` is a line of text.
+    write(vault, "one.md", "---\nref: x #a\n ---\n#real\n")
+
+    response = await client.get("/api/tags")
+
+    assert response.json() == ["#a", "#real"]

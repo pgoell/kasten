@@ -1,0 +1,32 @@
+[
+  {
+    "name": "a space before the closer closes nothing",
+    "note": "---\nref: x #a\n ---\n#real",
+    "body": "---\nref: x #a\n ---\n#real"
+  },
+  {
+    "name": "a tab before the closer closes nothing",
+    "note": "---\nref: x #a\n\t---\n#real",
+    "body": "---\nref: x #a\n\t---\n#real"
+  },
+  {
+    "name": "a later closer at column 0 takes the spaced one into the block",
+    "note": "---\nref: x #a\n ---\n#real\n---\nafter",
+    "body": "after"
+  },
+  {
+    "name": "spaces and tabs after the closer still close",
+    "note": "---\na: b\n--- \t\nbody",
+    "body": "body"
+  },
+  {
+    "name": "a carriage return after the closer still closes",
+    "note": "---\r\na: b\r\n---\r\nbody",
+    "body": "body"
+  },
+  {
+    "name": "a plain block",
+    "note": "---\na: b\n---\nbody",
+    "body": "body"
+  }
+]
