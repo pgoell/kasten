@@ -7,10 +7,12 @@ the entry of a removed file is dropped. The vault never gets a new file.
 
 import asyncio
 import bisect
+import codecs
 import contextlib
 import json
 import os
 import posixpath
+import re
 import tempfile
 import xml.etree.ElementTree as ET
 import zipfile
@@ -48,6 +50,9 @@ _BLOCKS = frozenset(
     }
 )  # fmt: skip
 """Elements that end a line. A line is the text between two of them, as a search hit shows it."""
+
+_CHARSET = re.compile(rb"""(?:charset|encoding)\s*=\s*["']?([\w.:-]+)""", re.IGNORECASE)
+"""A charset named by `<meta charset>`, the `http-equiv` form or an xml declaration."""
 
 _HEADINGS = frozenset({"h1", "h2", "h3", "h4", "h5", "h6"})
 _HIDDEN = frozenset({"script", "style", "noscript", "template"})
@@ -181,9 +186,33 @@ class _Parser(HTMLParser):
                 self.lines.append(_Line(text, self.heading, self.anchor))
 
 
+def _decode(raw: bytes) -> str:
+    """utf-8 when the bytes read as that, else the declared charset, else windows-1252 (#1239).
+
+    Not replacement alone: an `ä` turned into U+FFFD leaves its word unfindable.
+    """
+    try:
+        return raw.decode("utf-8")
+    except UnicodeDecodeError:
+        pass
+    for bom in (codecs.BOM_UTF16_LE, codecs.BOM_UTF16_BE):
+        if raw.startswith(bom):
+            return raw.decode("utf-16", errors="replace")
+    match = _CHARSET.search(raw[:1024])
+    if match is not None:
+        label = match[1].decode("ascii")
+        # Bytes that are not utf-8 are not what a utf label says; latin-1 and ascii
+        # are windows-1252 to a browser. A name that is no text codec raises LookupError.
+        with contextlib.suppress(LookupError):
+            if not codecs.lookup(label).name.startswith(("utf", "iso8859-1", "ascii")):
+                return raw.decode(label, errors="replace")
+    return raw.decode("cp1252", errors="replace")
+
+
 def _html_document(source: str) -> _Document:
     parser = _Parser()
-    parser.feed(source)
+    # A browser drops a NUL from the page; kept, it makes rg skip the cache's txt.
+    parser.feed(source.replace("\x00", ""))
     parser.close()
     return parser.document()
 
@@ -224,7 +253,7 @@ def _epub_text(path: Path) -> Extracted:
         for position, ref in enumerate(opf.iter(f"{_OPF_NS}itemref"), 1):
             href = manifest[ref.get("idref", "")]
             name = posixpath.normpath(posixpath.join(base, unquote(href)))
-            document = _html_document(book.read(name).decode("utf-8"))
+            document = _html_document(_decode(book.read(name)))
             chapter = document.first_heading or document.title or f"chapter {position}"
             rows.extend((line.text, chapter) for line in document.lines)
 
@@ -240,7 +269,7 @@ def _epub_text(path: Path) -> Extracted:
 
 
 def _html_text(path: Path) -> Extracted:
-    document = _html_document(path.read_bytes().decode("utf-8"))
+    document = _html_document(_decode(path.read_bytes()))
     out = _Lines()
     for line in document.lines:
         place = Place(line.heading or document.title or "top", None, line.anchor)
