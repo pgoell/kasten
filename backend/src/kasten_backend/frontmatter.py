@@ -87,6 +87,16 @@ def _fence(line: str) -> bool:
     return line.rstrip(" \t\r") == FENCE
 
 
+def _fences(content: str) -> tuple[str, str]:
+    """The block's opening and closing lines as written, or plain fences when there is none.
+
+    Trailing blanks kept: the client names its next base from the text it sent (#1468).
+    """
+    lines = content.split("\n")
+    end = closing(lines)
+    return (FENCE, FENCE) if end is None else (lines[0], lines[end])
+
+
 def body_start(content: str) -> int:
     """Where the note's own text begins: the offset after the block's closing fence, or 0.
 
@@ -202,7 +212,8 @@ def stamp(content: str, previous: str = "", *, now: datetime | None = None) -> s
     if _line("modified", block) is None:
         dated.append(f"modified: {when}")
 
-    return "\n".join([FENCE, *opening, *dated, FENCE, *body])
+    opener, closer = _fences(content)
+    return "\n".join([opener, *opening, *dated, closer, *body])
 
 
 def unstamped(content: str) -> str:
@@ -236,6 +247,7 @@ def bases(content: str) -> list[str]:
     """
     found = [unstamped(content)]
     block, body = _split(content)
+    opener, closer = _fences(content)
     left = list(_OPENING)
     for count, line in enumerate(block[: len(_OPENING)], 1):
         key = _key(line)
@@ -243,7 +255,7 @@ def bases(content: str) -> list[str]:
             break
         del left[: left.index(key) + 1]
         rest = block[count:]
-        found.append(unstamped("\n".join([FENCE, *rest, FENCE, *body])))
+        found.append(unstamped("\n".join([opener, *rest, closer, *body])))
         if count == len(_OPENING) and [_key(field) for field in rest] == ["modified"]:
             found.append("\n".join(body))
     return found
