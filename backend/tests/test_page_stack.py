@@ -68,6 +68,8 @@ async def test_793_i7_a_page_that_does_not_opt_in_gets_no_stacking_rule(
         (b"<!-- c -->", b""),
         (b"<script>if (a<b) x()</script>", b""),
         (b'<p title="a>b">', b""),
+        ("<p\u00a0class='a'\u3000id=\x0bb>".encode(), b""),
+        ("<p\u00a0class='a".encode(), b">"),
         (b"<p class", b">"),
         (b'<p class="a', b'">'),
         (b"<p class='a", b"'>"),

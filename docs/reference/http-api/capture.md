@@ -53,7 +53,7 @@ The page goes out with a policy of its own in `Content-Security-Policy`:
 For a page without the meta, two scripts go into the page and nothing else
 changes. An opted-in page also gets the `<html>` element and the styles below.
 A UTF-16 page gets the two scripts at its end and no theme; cut mid code unit,
-it gets a zero byte first. A page cut off inside a tag, a comment or a raw text
+it gets a zero byte first. A page cut off inside a tag, a doctype, a comment or a raw text
 element such as `<script>` first gets what closes it (`">`, `-->`,
 `</script>`), so the scripts run.
 

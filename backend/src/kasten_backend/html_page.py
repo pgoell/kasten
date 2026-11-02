@@ -265,11 +265,12 @@ _RAW_TEXT = (
 """Elements whose text runs to their own end tag, so a `<` inside one opens nothing."""
 
 _OPEN = re.compile(r"<(!--|[!?]|/[A-Za-z]|/|[A-Za-z])")
-_TAG_NAME = re.compile(r"[^\s/>]*")
-_NAME = re.compile(r"=?[^\s/>=]*")
-_UNQUOTED = re.compile(r"[^\s>]*")
+_TAG_NAME = re.compile(r"[^\t\n\f\r />]*")
+_NAME = re.compile(r"=?[^\t\n\f\r />=]*")
+_UNQUOTED = re.compile(r"[^\t\n\f\r >]*")
 _COMMENT_END = re.compile(r"--!?>")
 _SPACE = " \t\n\f\r"
+"""HTML's whitespace, which the classes above spell out: `\\s` would take in a no-break space."""
 
 
 def _past(pattern: re.Pattern[str], page: str, at: int) -> int:
@@ -326,7 +327,7 @@ def _element_end(page: str, found: re.Match[str]) -> int | str:
         return end
     if isinstance(end, str):
         return end + f"</{name}>"
-    closing = re.compile(rf"</{name}(?=[\s/>]|\Z)", re.IGNORECASE).search(page, end)
+    closing = re.compile(rf"</{name}(?=[\t\n\f\r />]|\Z)", re.IGNORECASE).search(page, end)
     return f"</{name}>" if closing is None else _tag_end(page, closing.end())
 
 
