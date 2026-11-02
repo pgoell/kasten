@@ -425,14 +425,19 @@ it.each([
     const loaded = new Promise((done) => frame.addEventListener("load", done, { once: true }));
     await ready(frame);
     await loaded;
-    await select(frame, ["p1", 0, "p1", 5]);
+    // A phone has no y: the reader selects by touch and taps Take.
+    if (touch) await userEvent.click(frame);
+    if (touch) await ask(frame, { probe: "touchSelect", range: ["p1", 0, "p1", 5] }, "selected");
+    else await select(frame, ["p1", 0, "p1", 5]);
     await expect.poll(() => takeButton(mounted) !== null).toBe(true);
-    await userEvent.keyboard("y");
-    await expect.poll(() => buttonNamed("Undo") !== undefined).toBe(true);
+    if (touch) await userEvent.click(takeButton(mounted) as HTMLElement);
+    else await userEvent.keyboard("y");
+    const named = () => [buttonNamed("Put it in a note"), buttonNamed("Undo")];
+    await expect.poll(() => named().every(Boolean)).toBe(true);
 
     const area = frame.parentElement as HTMLElement;
     const toast = area.querySelector("[role='status']") as HTMLElement;
-    const buttons = [buttonNamed("Put it in a note"), buttonNamed("Undo")] as HTMLElement[];
+    const buttons = named() as HTMLElement[];
     expect({
       short: area.clientHeight < 150,
       toast: inside(toast, area),
