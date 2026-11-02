@@ -207,8 +207,8 @@ def line_tags(text: str) -> list[tuple[int, int]]:
 
 HTML_LINES = re.compile(HTML_LINE, re.MULTILINE)
 
-COMMENT = re.compile(r"<!--.*?-->", re.DOTALL)
-"""An HTML comment, over as many lines as it runs."""
+COMMENT = re.compile(r"<!--[^>].*?-->", re.DOTALL)
+"""An HTML comment, over as many lines as it runs; `<!-->` opens none, as in the editor (#657)."""
 
 
 INDENTED = re.compile(r"^(?:[ \t>]|(?:[-*+]|[0-9]{1,9}[.)])[ \t])*(?: {4}|\t).*#", re.MULTILINE)

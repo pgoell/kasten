@@ -11,7 +11,7 @@ import re
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from kasten_backend import mentions, tags, todos
+from kasten_backend import mentions, tags, todo_fields, todos
 from kasten_backend.config import get_settings
 from kasten_backend.graph import read_graph
 from kasten_backend.graph_query import query_graph
@@ -257,3 +257,16 @@ def test_656_the_block_patterns_match_tag_rule_ts() -> None:
         todos.HTML_OPENER.removeprefix("(?i:").removesuffix(")"),
         todos.HTML_LINE,
     )
+
+
+def test_657_the_comment_patterns_match_tag_rule_ts() -> None:
+    source = (Path(__file__).parents[2] / "frontend/src/lib/tag-rule.ts").read_text(
+        encoding="utf-8"
+    )
+    spans = re.search(r"export const SPANS = /(.*)/g;", source)
+    comment = spans and spans[1].rsplit("|", 1)[1]
+
+    assert (
+        spans and spans[1].replace("[^[", "[^\\["),
+        comment and comment.replace("[^\\n]", ".").replace("\\n]", "]"),
+    ) == (todo_fields.SPANS.pattern, todos.COMMENT.pattern)

@@ -418,7 +418,7 @@ describe("#1456 the header skips the tags inside an indented code block, as the 
 describe("#1459 the header skips a tag in code that opens after a quote or list marker", () => {
   // The rows `test_tag_rule.py` runs through `GET /api/tags`, so both read the same strings.
   // The `html-` rows are #656's HTML blocks, which the header skips the same way.
-  const rows = cases.filter((one) => /^(?:container-code|html)-/.test(one.id));
+  const rows = cases.filter((one) => /^(?:container-code|html|empty-comment)-/.test(one.id));
   const shown = (body: string, vim: boolean) => {
     if (vim) localStorage.setItem("kasten.vim", "on");
     const { container, unmount } = render(
