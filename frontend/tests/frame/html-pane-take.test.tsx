@@ -421,7 +421,7 @@ it.each([
     await browser.servePage(RIGHT_PATH, NEWS);
     render(mounted, touch ? [LEFT_PATH] : [LEFT_PATH, RIGHT_PATH], touch);
     const frame = frameOf(mounted, 0);
-    // The pane's onLoad drops the toast, and the page says hello before its load event.
+    // onLoad drops the toast, and the page says hello before load.
     const loaded = new Promise((done) => frame.addEventListener("load", done, { once: true }));
     await ready(frame);
     await loaded;
@@ -441,8 +441,9 @@ it.each([
     expect({
       short: area.clientHeight < 150,
       toast: inside(toast, area),
+      title: toast.querySelector("p")?.offsetHeight !== 0,
       buttons: buttons.map((b) => inside(b, toast) && onTop(b)),
-    }).toEqual({ short: true, toast: true, buttons: [true, true] });
+    }).toEqual({ short: true, toast: true, title: true, buttons: [true, true] });
   },
 );
 
