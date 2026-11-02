@@ -44,6 +44,12 @@ finder that leaves a name inside a tag alone.
    a box is a comment and no more. A `<!--` in code opens nothing. A reader of
    one line cannot see the list item above, so it reads that indented line's
    tags (#1452).
+   An ordered item numbered past 1 starts no list under a paragraph, so
+   `text`, then `2. <!-- x --> #a`, goes on with the paragraph and carries
+   `#a`; under `1. b` the same line is an item and carries none. A reader of
+   one line reads such a line as an item, so the readers holding a note hand
+   it to a parser: `GET /api/tags` reads a note holding an ordered marker
+   before `<!--` whole, and the note header parses it (#1453).
 
 `# Heading`, a hash and a space, opens a heading and is no tag.
 

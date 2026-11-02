@@ -15,7 +15,7 @@ import {
 } from "@codemirror/view";
 import { followHandler } from "@/lib/editor/editor-follow";
 import { belowFrontmatter } from "@/lib/frontmatter-language";
-import { type Outline, outlinePlugin, proseLines } from "@/lib/note/note-outline";
+import { type Outline, outlinePlugin, proseLines, tagText } from "@/lib/note/note-outline";
 import { noteBody, readField } from "@/lib/note-frontmatter";
 import { noteName } from "@/lib/note-path";
 import { type Relation, readRelation } from "@/lib/relation";
@@ -147,9 +147,10 @@ function headOf(doc: Text, path: string, frontEnd: number): Head {
   const lines = proseLines(doc, frontEnd === 0 ? 1 : doc.lineAt(frontEnd).number + 1);
   const fields = frontEnd === 0 ? null : fieldsOf(text.slice(0, frontEnd).split("\n"));
   const tagged = fields?.find(([name]) => name === "tags")?.[1] ?? "";
+  const tagLines = tagText(text).split("\n");
   const tags = [
     ...listOf(tagged),
-    ...lines.flatMap(({ text: line }) => tagsOf(line).map(({ tag }) => tag.slice(1))),
+    ...lines.flatMap(({ line }) => tagsOf(tagLines[line - 1] ?? "").map(({ tag }) => tag.slice(1))),
   ];
   const stamp = readField(text, "modified");
   return {

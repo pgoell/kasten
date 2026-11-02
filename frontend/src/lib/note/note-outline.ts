@@ -1,5 +1,6 @@
 import type { Extension, Text } from "@codemirror/state";
 import { EditorView, ViewPlugin, type ViewUpdate } from "@codemirror/view";
+import { noteLanguage } from "@/lib/note-language";
 
 /** One heading of the note: its level, its words, where it starts and the line it is on. */
 export interface OutlineHeading {
@@ -44,6 +45,32 @@ export function proseLines(doc: Text, first: number): { line: number; text: stri
     }
   }
   return lines;
+}
+
+/**
+ * An ordered marker before a comment, which opens an HTML block only in a list: under a
+ * paragraph a number past 1 starts none, and only the parser holds the line above (#1453).
+ */
+const ORDERED_COMMENT = /^[ \t>]*[0-9]{1,9}[.)][ \t]+<!--/m;
+
+/** The editor's parser, for the notes whose tags only it can read. */
+const notes = noteLanguage().language.parser;
+
+/** `text` with its comments blanked where a line cannot tell one, as the editor parses it. */
+export function tagText(text: string): string {
+  if (!ORDERED_COMMENT.test(text)) return text;
+  let blanked = "";
+  let at = 0;
+  notes.parse(text).iterate({
+    enter(node) {
+      if (node.name === "FencedCode" || node.name === "CodeBlock") return false;
+      if (node.name !== "Comment" && node.name !== "CommentBlock") return;
+      blanked += text.slice(at, node.from) + text.slice(node.from, node.to).replace(/[^\n]/g, " ");
+      at = node.to;
+      return false;
+    },
+  });
+  return blanked + text.slice(at);
 }
 
 /** The headings of the lines `proseLines` keeps. */

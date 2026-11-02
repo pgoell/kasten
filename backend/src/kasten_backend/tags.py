@@ -93,7 +93,14 @@ OPEN_COMMENT = r"<!--(?:[^-\n]|-[^-\n]|--+[^->\n])*-*$"
 One closed on its line the line pass masks; one opening a line takes the whole line.
 """
 
-MARKS = rf"{BLOCK}|{FENCE}|{OPEN_COMMENT}|^(?: {{4}}|\t)[^\n]*#"
+ORDERED_COMMENT = r"^[ \t>]*[0-9]{1,9}[.)][ \t]+<!--"
+"""An ordered marker before a comment, which opens an HTML block only in a list (#1453).
+
+Under a paragraph a number past 1 starts no list, so the line goes on with the paragraph.
+A superset: a `1.` or a list going on costs one whole-note read, not a wrong tag.
+"""
+
+MARKS = rf"{BLOCK}|{FENCE}|{OPEN_COMMENT}|{ORDERED_COMMENT}|^(?: {{4}}|\t)[^\n]*#"
 """What says a note's lines cannot be read one at a time.
 
 Only the whole note says where a block, fence or comment starts and ends. The match is

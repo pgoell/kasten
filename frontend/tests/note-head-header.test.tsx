@@ -288,3 +288,21 @@ it("with vim on, a line selection from the top keeps the frontmatter shown", () 
 
   expect(text(container, ".cm-content")).toContain("type: Concept");
 });
+
+it("#1453 the header reads a tag after a comment on an ordered line past 1 as the editor does", () => {
+  const tagsIn = (body: string) => {
+    const { container, unmount } = render(
+      <Editor initialDoc={`${body}\n`} path={PATH} commands={stubCommands()} />,
+    );
+    const meta = part(container, "meta");
+    unmount();
+    return ["#real", "#hidden"].filter((tag) => meta.includes(tag));
+  };
+
+  expect({
+    paragraph: tagsIn("text\n2. <!-- x --> #real"),
+    list: tagsIn("1. a\n2. <!-- x --> #hidden"),
+    item: tagsIn("- a\n  2. <!-- x --> #real"),
+    alone: tagsIn("2. <!-- x --> #hidden"),
+  }).toEqual({ paragraph: ["#real"], list: [], item: ["#real"], alone: [] });
+});
