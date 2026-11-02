@@ -54,18 +54,21 @@ export function proseLines(doc: Text, first: number): { line: number; text: stri
 const UNSURE_COMMENT =
   /^[ \t>]*[0-9]{1,9}[.)][ \t]+<!--|^[ \t>]*(?: {4}|\t)(?:[ \t>]|(?:[-*+]|[0-9]{1,9}[.)])[ \t])*<!--|<!--(?![^\n]*-->)/m;
 
+/** A hash on a line indented as far as code is, which only the parse places (#1456), as `todos.INDENTED`. */
+const INDENTED = /^(?: {4}|\t).*#/m;
+
 /** The editor's parser, for the notes whose tags only it can read. */
 const notes = noteLanguage().language.parser;
 
-/** `text` with its comments blanked where a line cannot tell one, as the editor parses it. */
+/** `text` with its comments and indented code blanked where a line cannot tell them, as the editor parses it. */
 export function tagText(text: string): string {
-  if (!UNSURE_COMMENT.test(text)) return text;
+  if (!UNSURE_COMMENT.test(text) && !INDENTED.test(text)) return text;
   let blanked = "";
   let at = 0;
   notes.parse(text).iterate({
     enter(node) {
-      if (node.name === "FencedCode" || node.name === "CodeBlock") return false;
-      if (node.name !== "Comment" && node.name !== "CommentBlock") return;
+      if (node.name === "FencedCode") return false;
+      if (!["Comment", "CommentBlock", "CodeBlock"].includes(node.name)) return;
       blanked += text.slice(at, node.from) + text.slice(node.from, node.to).replace(/[^\n]/g, " ");
       at = node.to;
       return false;
