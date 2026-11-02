@@ -71,6 +71,11 @@ PostToolUse hook in `.claude/settings.json`. On a failure the hook prints the
 message to the agent, so the agent splits the file or folder before the commit
 reaches git.
 
+The hook always runs this checkout's copy of the checks, also for a file in
+another repo. An agent may edit a clone nobody has read, and that clone's own
+`scripts/structure/` could hold any code (#1464). A repo with no copy of the
+hook at that path, such as the jj repo in `vault/`, passes in silence.
+
 ## Why split along a deep module
 
 The advice the checks print says to split a file along a deep module. It does
