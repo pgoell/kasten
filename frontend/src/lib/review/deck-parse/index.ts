@@ -45,6 +45,8 @@ export interface CommentsAndCode {
   code: boolean[];
   /** Per line of the note, whether it lies in a fence nobody closed. */
   unclosed: boolean[];
+  /** Per line of the note, whether its text lies whole inside a comment, as no card may (#665). */
+  commented: boolean[];
 }
 
 /**
@@ -55,6 +57,7 @@ export function commentsAndCode(text: string): CommentsAndCode {
   let uncommented = "";
   let at = 0;
   const spans: [number, number, boolean][] = [];
+  const comments: [number, number][] = [];
   notes.parse(text).iterate({
     enter(node) {
       if (node.name === "FencedCode" || node.name === "CodeBlock") {
@@ -66,6 +69,7 @@ export function commentsAndCode(text: string): CommentsAndCode {
         return false;
       }
       if (node.name !== "CommentBlock" && node.name !== "Comment") return;
+      comments.push([node.from, node.to]);
       uncommented +=
         text.slice(at, node.from) + text.slice(node.from, node.to).replace(/[^\n]/g, " ");
       at = node.to;
@@ -79,8 +83,10 @@ export function commentsAndCode(text: string): CommentsAndCode {
   // `to`, as a block may end before its last newline or after it.
   const code: boolean[] = [];
   const unclosed: boolean[] = [];
+  const commented: boolean[] = [];
   let start = 0;
   let next = 0;
+  let comment = 0;
   for (const line of text.split("\n")) {
     const end = start + line.length;
     while ((spans[next]?.[1] ?? Infinity) <= start) next++;
@@ -88,7 +94,12 @@ export function commentsAndCode(text: string): CommentsAndCode {
     const inside = from <= end && start < to;
     code.push(inside);
     unclosed.push(inside && open);
+    // From the first character, as a comment block may open after up to three spaces.
+    const first = start + line.length - line.trimStart().length;
+    while ((comments[comment]?.[1] ?? Infinity) < end) comment++;
+    const [opens, closes] = comments[comment] ?? [Infinity, Infinity];
+    commented.push(opens <= first && end <= closes);
     start = end + 1;
   }
-  return { uncommented, code, unclosed };
+  return { uncommented, code, unclosed, commented };
 }

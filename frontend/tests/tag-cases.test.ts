@@ -30,14 +30,14 @@ function drawn(text: string): string[] {
   return tags;
 }
 
-/** Whether `at` in `text` sits inside a code block, as the editor parses it. */
-function inCode(text: string, at: number): boolean {
+/** Whether `at` in `text` sits inside a code block or comment block, as the editor parses it. */
+function hidden(text: string, at: number): boolean {
   let found = false;
   notes.parse(text).iterate({
     from: at,
     to: at,
     enter(node) {
-      if (node.name === "FencedCode" || node.name === "CodeBlock") found = true;
+      if (["FencedCode", "CodeBlock", "CommentBlock"].includes(node.name)) found = true;
     },
   });
   return found;
@@ -82,11 +82,11 @@ describe("#640 every frontend reader runs the tag table", () => {
     // A card under each case, so the case's tags are the note's decks. The
     // blank line keeps the card out of the case's own last paragraph. A case
     // that leaves the note in a code block, a fence nobody closed, takes the
-    // card into it, and a card in code is none (#664).
+    // card into it, and a card in code is none (#664). So does a comment nobody closed (#665).
     const noted = (one: Case) => `${one.text}\n\na::b\n`;
     expect(table(cases, (one) => parseCards(noted(one), NOTE)[0]?.decks)).toEqual(
       table(cases, (one) =>
-        inCode(noted(one), one.text.length + 2)
+        hidden(noted(one), one.text.length + 2)
           ? undefined
           : [...new Set(decksOf(one.tags).map((deck) => deckName(deck, NOTE)))],
       ),

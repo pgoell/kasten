@@ -160,7 +160,9 @@ interface Walk {
  */
 export function parseCards(text: string, note = ""): Card[] {
   const lines = text.split("\n");
-  const { uncommented, code, unclosed } = commentsAndCode(text);
+  const { uncommented, code: fenced, unclosed, commented } = commentsAndCode(text);
+  // A comment holds no card, and ends the one above as the editor's block does (#665).
+  const code = fenced.map((inside, at) => inside || (commented[at] ?? false));
   const walk: Walk = {
     lines,
     code,
@@ -170,7 +172,7 @@ export function parseCards(text: string, note = ""): Card[] {
     claimed: new Set<number>(),
     // The plugin reads a fence whole, so a blank line, heading or tag in code ends no card (#675).
     // Not in an unclosed fence: there the card above would read a hidden schedule (#680).
-    ends: (at) => (!code[at] || unclosed[at]) && breaks(lines[at]),
+    ends: (at) => commented[at] || ((!fenced[at] || unclosed[at]) && breaks(lines[at])),
     // A schedule ends a card in code too, so neither walk crosses it.
     schedules: (at) => SR.test(lines[at] ?? "") || CLOZE_SR.test(lines[at] ?? ""),
     inline: (at) => !code[at] && oneLine(lines[at] ?? "") !== null,
