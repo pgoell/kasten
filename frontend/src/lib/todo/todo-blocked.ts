@@ -7,19 +7,21 @@ import { isOpen, parseTodo, patchLine, type Todo } from "@/lib/todo/todo";
 
 /**
  * Whether a blocker is closed. Nothing, where the caller cannot see it, reads as open,
- * so a dependent is never opened on a guess. `"twinned"` has no answer either.
+ * so a dependent is never opened on a guess. `"twinned"`, two carry it and one may be open, neither.
  */
 export type Closed = (id: string) => boolean | "twinned" | undefined;
 
 /**
- * An id none of the todos carries answers nothing. An id two carry answers
- * `"twinned"`, not whichever was listed last.
+ * An id none of the todos carries answers nothing. An id two carry answers `true` when
+ * both are closed, since either way the blocker is, and `"twinned"` while one is open (#544).
  */
 export function closedAmong(todos: Todo[]): Closed {
   const states = new Map<string, boolean | "twinned">();
   for (const todo of todos) {
     if (todo.id === undefined) continue;
-    states.set(todo.id, states.has(todo.id) ? "twinned" : !isOpen(todo));
+    const was = states.get(todo.id);
+    const closed = !isOpen(todo);
+    states.set(todo.id, was === undefined ? closed : was === true && closed ? true : "twinned");
   }
   return (id) => states.get(id);
 }

@@ -43,6 +43,13 @@ export const TWINS = [
   { path: "a.md", line: 3, text: "- [b] write the docs ⛔ kt-aaaaaa" },
 ];
 
+/** #544: the issue's note, one id on two todos that are both closed. */
+export const CLOSED_TWINS = [
+  { path: "a.md", line: 1, text: "- [x] a 🆔 kt-aaaaaa" },
+  { path: "a.md", line: 2, text: "- [-] a 🆔 kt-aaaaaa" },
+  { path: "a.md", line: 3, text: "- [b] c ⛔ kt-aaaaaa" },
+];
+
 /**
  * Every command, recording which one was reached.
  *

@@ -273,8 +273,8 @@ export function namedTodos(todos: Todo[]): Map<string, Todo> {
 }
 
 /**
- * The words of every open blocker a todo still waits for. A blocker no note holds, or that two todos carry, is named by its id.
- * Two todos carrying one id could be either, so neither's words or state may stand for it.
+ * The words of every open blocker a todo still waits for. A blocker no note holds, or two todos with one open, is named by its id.
+ * Two todos carrying one id could be either, so neither's words may stand for it.
  */
 export function waitsFor(todo: Todo, named: Map<string, Todo>, closed: Closed): string[] {
   const held: string[] = [];
@@ -288,7 +288,7 @@ export function waitsFor(todo: Todo, named: Map<string, Todo>, closed: Closed): 
 
 /**
  * The open todos waiting for each open todo, keyed by the blocker's id.
- * An id two todos carry counts as open, since which twin was meant cannot be told.
+ * An id two todos carry counts while one twin is open, since which was meant cannot be told.
  */
 export function dependentsOf(todos: Todo[], closed: Closed): Map<string, Todo[]> {
   const named = namedTodos(todos);

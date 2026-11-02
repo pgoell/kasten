@@ -457,6 +457,15 @@ describe("dependentsOf", () => {
 
     expect(dependentsOf(todos, closedAmong(todos)).get("kt-aaaaaa")).toEqual([docs]);
   });
+
+  it("#544 A3 counts no waiter on an id whose twins are both closed", () => {
+    const todos = ["- [x] a 🆔 kt-aaaaaa", "- [-] a 🆔 kt-aaaaaa", "- [b] c ⛔ kt-aaaaaa"].map(
+      (line) => todo(line),
+    );
+
+    expect(waitsFor(todos[2] as Todo, namedTodos(todos), closedAmong(todos))).toEqual([]);
+    expect(dependentsOf(todos, closedAmong(todos)).size).toBe(0);
+  });
 });
 
 describe("#617 a hash in a span or an address is no tag", () => {

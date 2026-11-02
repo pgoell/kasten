@@ -1,7 +1,7 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { DEFAULT_VIEWS, VIEWS_NOTE } from "@/lib/todo/todo-view";
 import { COARSE, NARROW, stubMatchMedia } from "./match-media";
-import { paneHooks, pressFocused, renderPane, TWINS } from "./todo-pane-fixture";
+import { CLOSED_TWINS, paneHooks, pressFocused, renderPane, TWINS } from "./todo-pane-fixture";
 
 // The doubles, the same in every todo-pane file: see todo-pane-fixture.tsx.
 const { fetchTodos, fetchNote, fetchFiles, createNote } = vi.hoisted(() => ({
@@ -31,6 +31,14 @@ describe("the todo pane by touch", () => {
     await waitFor(() => expect(row("write the docs")).toBeDefined());
 
     expect(row("write the docs")?.textContent).toContain("⛔ kt-aaaaaa");
+  });
+
+  it("#544 A2 holds no row on an id whose twins are both closed, at phone width", async () => {
+    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+    renderPane(CLOSED_TWINS);
+    await waitFor(() => expect(row("c")).toBeDefined());
+
+    expect(row("c")?.textContent).not.toContain("⛔");
   });
 
   it("draws no button a mouse does not need", async () => {

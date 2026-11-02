@@ -1,5 +1,5 @@
 import { screen } from "@testing-library/react";
-import { paneHooks, renderPane, TODOS, TWINS } from "./todo-pane-fixture";
+import { CLOSED_TWINS, paneHooks, renderPane, TODOS, TWINS } from "./todo-pane-fixture";
 
 // The doubles, the same in every todo-pane file: see todo-pane-fixture.tsx.
 const { fetchTodos, fetchNote, fetchFiles, createNote } = vi.hoisted(() => ({
@@ -143,5 +143,14 @@ describe("the todo pane, picking what blocks a todo", () => {
     // #541 I3: the title names the id, not the done twin's words.
     expect(screen.getByTitle(/^waits for:\s+kt-aaaaaa$/)).toBeDefined();
     expect(screen.queryByTitle(/cut the branch/)).toBeNull();
+  });
+
+  it("#544 A1 holds no row on an id whose twins are both closed", async () => {
+    const pane = renderPane(CLOSED_TWINS);
+    await pane.loaded();
+    expect(pane.rows()).toHaveLength(1);
+
+    expect(pane.texts()[0]).not.toContain("⛔");
+    expect(screen.queryByTitle(/waits for/)).toBeNull();
   });
 });
