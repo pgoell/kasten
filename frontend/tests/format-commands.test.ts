@@ -189,6 +189,14 @@ describe("formatDocument", () => {
     expect(formatDocument(view)).toBe(false);
   });
 
+  it("#654 tidies a note whose `---` no column-0 fence closes, as it holds no block", () => {
+    const view = open("---\nid: 1\n ---\ntext  \n", 0);
+
+    formatDocument(view);
+
+    expect(view.state.doc.toString()).toBe("---\nid: 1\n ---\ntext\n");
+  });
+
   it("empties a line of only spaces and drops the second of two such lines", () => {
     const view = open("a\n  \n\t\nb\n", 8);
 

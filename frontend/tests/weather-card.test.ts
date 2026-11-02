@@ -22,6 +22,10 @@ describe("cardLine", () => {
   it("draws nothing in a note with no title", () => {
     expect(cardLine(doc("just text\n## Sub"))).toBeNull();
   });
+
+  it("#654 reads a `---` with no closer at column 0 as a rule, not a block to the end", () => {
+    expect(cardLine(doc("---\nid: x\n ---\n# Day\n[[a]]"))).toBe(5);
+  });
 });
 
 describe("sky", () => {
