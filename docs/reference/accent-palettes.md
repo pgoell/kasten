@@ -81,6 +81,8 @@ The issue's values are kept where a bar misses, and the tests name each miss:
 | Muted on highlight | 4.74 | 3.98 (under 4.5) | 4.57 | 3.70 (under 4.5) | 4.72 | 3.56 (under 4.5) | 4.94 | 3.34 (under 4.5) |
 | Lowest status on paper | 5.06 | 8.37 | 5.04 | 8.01 | 5.01 | 8.01 | 5.01 | 8.00 |
 | Lowest tag on bg | 4.09 (under 4.5) | 8.23 | 4.50 | 8.00 | 4.50 | 8.00 | 4.50 | 8.01 |
+| Untagged dot on bg | 3.20 | 5.11 | 3.20 | 5.11 | 3.20 | 5.11 | 3.20 | 5.11 |
+| Untagged dot on paper | 3.34 | 4.83 | 3.34 | 4.83 | 3.34 | 4.83 | 3.34 | 4.83 |
 | Highest chroma of status and tags | 0.120 | 0.126 | 0.119 | 0.100 | 0.120 | 0.099 | 0.120 | 0.100 |
 | Warn hue gap to accent | 160.7 | 160.9 | 63.4 | 63.6 | 60.3 | 62.3 | 65.9 | 65.8 |
 | Danger hue gap to accent | 157.3 | 157.0 | 22.2 | 22.1 | 21.5 | 21.1 | 29.8 | 31.0 |

@@ -169,6 +169,6 @@ The values are those of the default palette, `poel`. [Accent palettes](/referenc
 | `--k-danger` | `#9a5143` | `#f19f8f` | Broken, removed |
 | `--k-shadow` | `0 1px 2px rgba(0,0,0,.05),0 12px 32px rgba(0,0,0,.09)` | `0 1px 2px rgba(0,0,0,.3),0 16px 40px rgba(0,0,0,.45)` | Floating things only |
 
-Graph tag colours are tokens too, ten slots plus `--tg-none`. Light: `#b05459 #5b8230 #307baf #9c5a8d #7f7800 #0f848a #8a639a #a66218 #338756 #7567b1`, none `#9b9b99`. Dark: `#ea9799 #9bbe7b #76b9ec #da99c9 #bab567 #56c4ca #c99fda #dfa26d #7cc495 #b1a6ec`, none `#878783`. Which tag gets which slot comes from config.
+Graph tag colours are tokens too, ten slots plus `--tg-none`. Light: `#b05459 #5b8230 #307baf #9c5a8d #7f7800 #0f848a #8a639a #a66218 #338756 #7567b1`, none `#8a8a87`. Dark: `#ea9799 #9bbe7b #76b9ec #da99c9 #bab567 #56c4ca #c99fda #dfa26d #7cc495 #b1a6ec`, none `#878783`. Which tag gets which slot comes from config.
 
 Type: `--k-serif` Newsreader, `--k-sans` Instrument Sans, `--k-mono` JetBrains Mono, with Georgia, system-ui and ui-monospace behind them. Sizes 12, 13, 15, 19 (reading), 23, 27, 36, 46, 64 px. Leading 1.1 headings, 1.5 UI, 1.6 reading. Space steps 4 to 64 px, radius 4, 6, 8 px, measure 680 px.

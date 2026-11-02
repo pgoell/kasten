@@ -51,7 +51,7 @@ test("the token file holds every light token of #777", () => {
     "--tg-8": "#a66218",
     "--tg-9": "#338756",
     "--tg-10": "#7567b1",
-    "--tg-none": "#9b9b99",
+    "--tg-none": "#8a8a87",
   };
   expect(Object.fromEntries(Object.keys(expected).map((name) => [name, light[name]]))).toEqual(
     expected,

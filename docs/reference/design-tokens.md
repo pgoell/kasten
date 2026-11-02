@@ -89,7 +89,7 @@ or the tag's slot (Tags) at that alpha. No palette changes it.
 | `--tg-8` | `#a66218` | `#dfa26d` |
 | `--tg-9` | `#338756` | `#7cc495` |
 | `--tg-10` | `#7567b1` | `#b1a6ec` |
-| `--tg-none` | `#9b9b99` | `#878783` |
+| `--tg-none` | `#8a8a87` | `#878783` |
 
 [Panes and tabs](/reference/editor-keys/panes-and-tabs.md) lists which type
 takes which slot.
@@ -111,6 +111,8 @@ is checked by `frontend/tests/palette-generator.test.ts`, and
 | accent on its wash | 4.61 | 6.31 |
 | status colours on paper, lowest | 5.06 | 8.37 |
 | tag colours on bg, lowest | 4.09 | 8.23 |
+| untagged dot (`--tg-none`) on bg | 3.2 | 5.11 |
+| untagged dot (`--tg-none`) on paper | 3.34 | 4.83 |
 | ink on highlight | 14.02 | 9.25 |
 | link on highlight | 4.53 | 5.39 |
 | muted on highlight | 4.74 | 4.01 |
