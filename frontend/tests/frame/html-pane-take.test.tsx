@@ -22,6 +22,7 @@ import {
   inFrame,
   inside,
   type Mounted,
+  onTop,
   ready,
   render,
   select,
@@ -29,7 +30,7 @@ import {
   takeButton,
   tearDown,
 } from "./html-take-fixture";
-import { NEWS, PLAIN } from "./html-take-pages";
+import { ENDS, NEWS, PLAIN } from "./html-take-pages";
 
 const NEWS_PATH = "take-news.html";
 const PLAIN_PATH = "take-plain.html";
@@ -293,6 +294,7 @@ it("the put it in a note list stays inside a short split pane at 1440", async ()
     scrolls: list.scrollHeight > list.clientHeight,
     oneLine: rows.every((row) => row.getBoundingClientRect().height <= 40),
     titles: rows.map((row) => row.title),
+    passage: (toast.querySelectorAll("p")[1] as HTMLElement).offsetHeight > 0,
   }).toEqual({
     toast: true,
     put: true,
@@ -300,6 +302,7 @@ it("the put it in a note list stays inside a short split pane at 1440", async ()
     scrolls: true,
     oneLine: true,
     titles: RECENT.map(noteName),
+    passage: true,
   });
 });
 
@@ -372,6 +375,74 @@ it.each([["on"], ["off"]])(
 
     await userEvent.keyboard("{Enter}");
     await expect.poll(() => api.notes[RECENT[7] as string] ?? "").toContain("## Highlights");
+  },
+);
+
+it("with a mouse, a new selection under the foot toast keeps its Take button in reach (#890)", async () => {
+  await page.viewport(1440, 900);
+  await browser.servePage(NEWS_PATH, ENDS);
+  render(mounted, [NEWS_PATH]);
+  const frame = frameOf(mounted, 0);
+  await ready(frame);
+  await select(frame, ["p0", 0, "p0", 5]);
+  await expect.poll(() => takeButton(mounted) !== null).toBe(true);
+  await userEvent.keyboard("y");
+  await expect.poll(() => mounted.host.querySelector("[role='status']") !== null).toBe(true);
+
+  const toast = mounted.host.querySelector("[role='status']") as HTMLElement;
+  const [, passage, source] = [...toast.querySelectorAll("p")].map((p) => p.offsetHeight);
+  await select(frame, ["p1", 0, "p1", 5]);
+  await expect.poll(() => takeButton(mounted) !== null).toBe(true);
+  const button = takeButton(mounted) as HTMLElement;
+  const at = button.getBoundingClientRect();
+  const box = toast.getBoundingClientRect();
+  expect({
+    under: at.top < box.bottom && at.bottom > box.top,
+    onTop: onTop(button),
+    undo: buttonNamed("Undo") !== undefined,
+    whole: [toast.scrollHeight <= toast.clientHeight, passage, source].every(Boolean),
+  }).toEqual({ under: true, onTop: true, undo: true, whole: true });
+  await userEvent.click(button);
+  await expect.poll(() => api.dumps.length).toBe(2);
+  expect(api.dumps[1]).toContain("> Delta");
+});
+
+// A split at 1440 under about 240 px (this mount has no top bar or tab strip), and a phone with its keyboard up.
+it.each([
+  [1440, 140, false],
+  [390, 260, true],
+])(
+  "at %ix%i the toast and its buttons stay inside a frame area under 150 px (#891)",
+  async (width, height, touch) => {
+    await page.viewport(width, height);
+    await browser.emulateMedia({ touch });
+    await browser.servePage(LEFT_PATH, NEWS);
+    await browser.servePage(RIGHT_PATH, NEWS);
+    render(mounted, touch ? [LEFT_PATH] : [LEFT_PATH, RIGHT_PATH], touch);
+    const frame = frameOf(mounted, 0);
+    // onLoad drops the toast, and the page says hello before load.
+    const loaded = new Promise((done) => frame.addEventListener("load", done, { once: true }));
+    await ready(frame);
+    await loaded;
+    // A phone has no y: the reader selects by touch and taps Take.
+    if (touch) await userEvent.click(frame);
+    if (touch) await ask(frame, { probe: "touchSelect", range: ["p1", 0, "p1", 5] }, "selected");
+    else await select(frame, ["p1", 0, "p1", 5]);
+    await expect.poll(() => takeButton(mounted) !== null).toBe(true);
+    if (touch) await userEvent.click(takeButton(mounted) as HTMLElement);
+    else await userEvent.keyboard("y");
+    const named = () => [buttonNamed("Put it in a note"), buttonNamed("Undo")];
+    await expect.poll(() => named().every(Boolean)).toBe(true);
+
+    const area = frame.parentElement as HTMLElement;
+    const toast = area.querySelector("[role='status']") as HTMLElement;
+    const buttons = named() as HTMLElement[];
+    expect({
+      short: area.clientHeight < 150,
+      toast: inside(toast, area),
+      title: toast.querySelector("p")?.offsetHeight !== 0,
+      buttons: buttons.map((b) => inside(b, toast) && onTop(b)),
+    }).toEqual({ short: true, toast: true, title: true, buttons: [true, true] });
   },
 );
 

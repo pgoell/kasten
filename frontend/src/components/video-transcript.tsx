@@ -8,7 +8,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { TakeButton } from "@/components/take-button-view";
+import { TAKE_HOST, TakeButton } from "@/components/take-button-view";
 import { useBookNoteTake } from "@/components/use-book-note-take";
 import type { Passage } from "@/lib/highlight";
 import { type Anchor, low, placeFor } from "@/lib/page-selection";
@@ -225,7 +225,7 @@ export function VideoTranscript({
   }, [current, follow]);
 
   return (
-    <div ref={wrapper} className="relative flex min-h-0 flex-1 flex-col">
+    <div ref={wrapper} className={TAKE_HOST}>
       <div className="flex items-center gap-3 px-3 py-2">
         <span className="text-k-12 uppercase text-k-muted">TRANSCRIPT</span>
         <button

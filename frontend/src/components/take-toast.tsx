@@ -62,21 +62,24 @@ export function TakeToast({
   }, [leaving, onDone]);
 
   // The frame less its two margins, so a short pane keeps the toast inside it and
-  // the list scrolls instead of growing past the top (#887).
+  // the list scrolls instead of growing past the top (#887). Under 200 px of frame
+  // it keeps the title, which says how the take went, and the buttons, and scrolls past that (#891).
   return (
     <div
       role="status"
       onPointerEnter={() => setHovered(true)}
       onPointerLeave={() => setHovered(false)}
-      className={`absolute inset-x-3 ${top ? "top-3" : "bottom-3"} z-10 sm:max-w-md max-h-[calc(100%-1.5rem)] flex flex-col gap-1 rounded-[var(--k-radius-6)] border border-k-rule bg-k-paper p-3 shadow-[var(--k-shadow)] transition-opacity duration-(--k-hover) ease-(--k-ease-out) motion-reduce:transition-none ${leaving ? "opacity-0" : "opacity-100"}`}
+      className={`absolute inset-x-3 ${top ? "top-3" : "bottom-3"} z-10 sm:max-w-md max-h-[calc(100%-1.5rem)] overflow-y-auto flex flex-col gap-1 rounded-[var(--k-radius-6)] border border-k-rule bg-k-paper p-3 shadow-[var(--k-shadow)] transition-opacity duration-(--k-hover) ease-(--k-ease-out) motion-reduce:transition-none ${leaving ? "opacity-0" : "opacity-100"}`}
     >
       <p className="shrink-0 font-sans text-k-13 text-k-muted">{title}</p>
-      <p className="line-clamp-2 shrink-0 font-serif text-k-15 text-k-ink">
+      <p className="line-clamp-2 shrink-0 [@container(max-height:200px)]:hidden font-serif text-k-15 text-k-ink">
         {passage.slice(0, WORDS)}
       </p>
-      <p className="shrink-0 truncate font-sans text-k-13 text-k-muted">{source}</p>
+      <p className="shrink-0 truncate [@container(max-height:200px)]:hidden font-sans text-k-13 text-k-muted">
+        {source}
+      </p>
 
-      <div className="mt-1 flex shrink-0 gap-4 font-sans text-k-13">
+      <div className="mt-1 flex shrink-0 gap-4 font-sans text-k-13 [@container(max-height:200px)]:mt-0">
         {onPut !== undefined && (
           <button
             type="button"

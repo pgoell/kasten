@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Rsvp } from "@/components/rsvp";
-import { TakeButton } from "@/components/take-button-view";
+import { TAKE_HOST, TakeButton } from "@/components/take-button-view";
 import { useDumpTake } from "@/components/use-dump-take";
 import { usePageReload } from "@/components/use-page-reload";
 import { readClock } from "@/lib/clock";
@@ -441,7 +441,7 @@ export function HtmlPane({
       </header>
 
       {/* The wrapper the take button is placed in, so its place is the frame's own. */}
-      <div ref={wrapper} className="relative flex min-h-0 flex-1 flex-col">
+      <div ref={wrapper} className={TAKE_HOST}>
         <iframe
           key={`frame-${reload.loads}`}
           ref={frame}

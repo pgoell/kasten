@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { usePdfTake } from "@/components/pdf-take";
 import { PdfThumbs, THUMBS_FROM, type ThumbsHandle } from "@/components/pdf-thumbs";
 import { Rsvp } from "@/components/rsvp";
+import { TAKE_HOST } from "@/components/take-button-view";
 import {
   type PdfFile,
   type PdfView,
@@ -248,7 +249,7 @@ export function PdfPane({
         ) : null}
         {/* The wrapper the take's button is placed in: the pages only, so the
             button and the toast sit over the page area and not the thumbnails. */}
-        <div ref={wrapper} className="relative flex min-h-0 min-w-0 flex-1 flex-col">
+        <div ref={wrapper} className={`${TAKE_HOST} min-w-0`}>
           <div
             key={`${path}#${page}#${opened}`}
             ref={box}

@@ -20,6 +20,7 @@ import {
   inFrame,
   inside,
   type Mounted,
+  onTop,
   panelOf,
   ready,
   render,
@@ -29,7 +30,7 @@ import {
   takeButton,
   tearDown,
 } from "./html-take-fixture";
-import { FORGER, HOSTILE, page as htmlPage, NEWS, POPUP } from "./html-take-pages";
+import { ENDS, FORGER, HOSTILE, page as htmlPage, NEWS, POPUP } from "./html-take-pages";
 
 const PATH = "take-hostile.html";
 const FIRST = `[[${PATH}#2026-10-07-evals-01|First story]]`;
@@ -232,6 +233,36 @@ it("at 390 with touch, the toast goes to the top clear of a low passage", async 
   await userEvent.click(buttonNamed("Undo") as HTMLButtonElement);
   await expect.poll(() => api.puts.length).toBe(1);
   await expect.poll(async () => (await ask(frame, { probe: "marks" }, "marks")).texts).toEqual([]);
+});
+
+it("at 390 with touch, a new selection under the top toast keeps its Take button in reach (#890)", async () => {
+  await page.viewport(390, 844);
+  await browser.emulateMedia({ touch: true });
+  await browser.servePage(PATH, ENDS);
+  render(mounted, [PATH], true);
+  const frame = frameOf(mounted, 0);
+  await ready(frame);
+  await userEvent.click(frame);
+  await ask(frame, { probe: "touchSelect", range: ["p1", 0, "p1", 5] }, "selected");
+  await expect.poll(() => takeButton(mounted) !== null).toBe(true);
+  await userEvent.click(takeButton(mounted) as HTMLElement);
+  await expect.poll(() => buttonNamed("Undo") !== undefined).toBe(true);
+
+  await ask(frame, { probe: "touchSelect", range: ["p0", 0, "p0", 5] }, "selected");
+  await expect.poll(() => takeButton(mounted) !== null).toBe(true);
+  const button = takeButton(mounted) as HTMLElement;
+  const toast = (
+    mounted.host.querySelector("[role='status']") as HTMLElement
+  ).getBoundingClientRect();
+  const at = button.getBoundingClientRect();
+  expect({
+    under: at.top < toast.bottom && at.bottom > toast.top,
+    top: at.top - frame.getBoundingClientRect().top < 150,
+    onTop: onTop(button),
+  }).toEqual({ under: true, top: true, onTop: true });
+  await userEvent.click(button);
+  await expect.poll(() => api.dumps.length).toBe(2);
+  expect(api.dumps[1]).toContain("> Alpha");
 });
 
 it("at 390 with touch, a high passage keeps the toast at the foot", async () => {

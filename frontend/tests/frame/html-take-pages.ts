@@ -147,3 +147,9 @@ addEventListener("message", (event) => {
 });
 </script>`,
 );
+
+/** Words at the frame's top and words about 80 px above its foot, at any frame height (#890). */
+export const ENDS = page(
+  "Ends",
+  `<main style="font:16px/1.6 Georgia,serif;padding:0 32px"><p id="p0">Alpha bravo charlie.</p><div style="height:calc(100vh - 140px)"></div><p id="p1">Delta echo foxtrot.</p><div style="height:1600px"></div></main>`,
+);

@@ -27,7 +27,7 @@ import {
   takeButton,
   tearDown,
 } from "./html-take-fixture";
-import { page as htmlPage } from "./html-take-pages";
+import { ENDS, page as htmlPage } from "./html-take-pages";
 import { shot } from "./shots";
 
 const SHOTS = import.meta.env.VITE_KASTEN_SHOTS === "1";
@@ -183,5 +183,53 @@ for (const theme of ["light", "dark"] as const) {
         palette,
       ),
     );
+  }
+}
+
+/**
+ * A take, then a second selection where the toast lies (#890), or a take in a
+ * frame area under 150 px (#891): what the reader sees before they press again.
+ */
+async function shootReach(name: string, size: Size, theme: Theme, short: boolean) {
+  const mounted: Mounted = await setUp();
+  try {
+    await browserPage.viewport(size.width, size.height);
+    await commands.emulateMedia({ touch: size.touch, reducedMotion: "no-preference" });
+    localStorage.setItem(THEME_KEY, theme);
+    applyTheme();
+    await commands.servePage(LOW_PATH, short ? NEWS : ENDS);
+    await commands.servePage(NEWS_PATH, NEWS);
+    render(mounted, short && !size.touch ? [LOW_PATH, NEWS_PATH] : [LOW_PATH], size.touch);
+    const frame = frameOf(mounted, 0);
+    await ready(frame);
+    // On a phone the take is low and the toast goes up; with a mouse it is high and stays at the foot.
+    const [first, second] = short ? ["p2", ""] : size.touch ? ["p1", "p0"] : ["p0", "p1"];
+    await select(frame, [first, 0, first, 5]);
+    await expect.poll(() => takeButton(mounted) !== null).toBe(true);
+    await userEvent.keyboard("y");
+    await expect.poll(() => buttonNamed("Undo") !== undefined).toBe(true);
+    if (!short) {
+      await select(frame, [second, 0, second, 5]);
+      await expect.poll(() => takeButton(mounted) !== null).toBe(true);
+    }
+    await document.fonts.ready;
+    await nextFrame();
+    expect(await shot(mounted.host, name)).toBe(size.width);
+  } finally {
+    await tearDown(mounted);
+  }
+}
+
+for (const theme of ["light", "dark"] as const) {
+  for (const size of [DESKTOP, { width: 390, height: 844, touch: true }]) {
+    const name = `html-take-reach-${size.width}-${theme}`;
+    shotTest(name, () => shootReach(name, size, theme, false));
+  }
+  for (const size of [
+    { width: 1440, height: 164, touch: false },
+    { width: 390, height: 260, touch: true },
+  ]) {
+    const name = `html-take-short-${size.width}x${size.height}-${theme}`;
+    shotTest(name, () => shootReach(name, size, theme, true));
   }
 }
