@@ -60,13 +60,28 @@ async function routePage({ context }: BrowserCommandContext, pagePath: string, f
   );
 }
 
-/** Serves `html` as the page at `pagePath`, written to a file first, as the backend reads one. */
-export const servePage: BrowserCommand<[string, string]> = async (command, pagePath, html) => {
+/**
+ * Serves `html` as the page at `pagePath`, written to a file first, as the backend reads one.
+ * A UTF-16 `encoding` writes it with its byte order mark first.
+ */
+export const servePage: BrowserCommand<[string, string, Utf16?]> = async (
+  command,
+  pagePath,
+  html,
+  encoding,
+) => {
   const file = path.join(PAGES, pagePath);
   mkdirSync(path.dirname(file), { recursive: true });
-  writeFileSync(file, html);
+  writeFileSync(file, encoding ? utf16(html, encoding) : html);
   await routePage(command, pagePath, file);
 };
+
+type Utf16 = "utf-16le" | "utf-16be";
+
+function utf16(html: string, encoding: Utf16): Buffer {
+  const bytes = Buffer.from(`\ufeff${html}`, "utf16le");
+  return encoding === "utf-16be" ? bytes.swap16() : bytes;
+}
 
 /** Serves a page that already exists on disk, such as a plugin's, at `pagePath`. */
 export const serveFile: BrowserCommand<[string, string]> = async (command, pagePath, file) => {

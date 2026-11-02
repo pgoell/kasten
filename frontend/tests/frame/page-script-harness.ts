@@ -156,10 +156,15 @@ export async function cleanup() {
 
 /**
  * Serve `html` as the page, and draw it in a frame sandboxed the way the pane sandboxes one.
- * `query` is the request's query, which the backend reads for the theme and palette.
+ * `query` is the request's query, which the backend reads for the theme and palette, and
+ * `encoding` a UTF-16 byte order to write the page in.
  */
-export async function mount(html: string, query = ""): Promise<HTMLIFrameElement> {
-  await commands.servePage(PAGE, html);
+export async function mount(
+  html: string,
+  query = "",
+  encoding?: "utf-16le" | "utf-16be",
+): Promise<HTMLIFrameElement> {
+  await commands.servePage(PAGE, html, encoding);
   const element = document.createElement("iframe");
   element.setAttribute("sandbox", "allow-scripts allow-popups allow-popups-to-escape-sandbox");
   element.style.cssText = "position:fixed;top:0;left:0;width:800px;height:400px;border:0";

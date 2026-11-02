@@ -263,16 +263,16 @@ async def test_puts_the_script_after_a_doctype_that_follows_an_xml_declaration(
     assert response.content == prolog + BLOCK + page[len(prolog) :] + LINKS_OUT
 
 
-async def test_serves_a_doctype_cut_off_before_its_end_as_it_was(
+async def test_serves_a_doctype_cut_off_before_its_end_closed_before_the_link_script(
     client: AsyncClient, vault: Path
 ) -> None:
-    # A page read while it is still being written can end inside its doctype.
+    # A page read while it is still being written can end inside its doctype (#886).
     (vault / "report.html").write_bytes(b"<!DOCTYPE html")
 
     response = await client.get("/api/html/report.html")
 
     assert response.status_code == 200
-    assert response.content == BLOCK + b"<!DOCTYPE html" + LINKS_OUT
+    assert response.content == BLOCK + b"<!DOCTYPE html>" + LINKS_OUT
 
 
 @pytest.mark.parametrize(

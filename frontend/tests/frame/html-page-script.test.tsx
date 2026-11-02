@@ -374,3 +374,37 @@ it("a link to another vault page inside the frame keeps the theme query", async 
   expect(arrived?.search).toBe("?theme=dark&palette=pansy");
   expect(arrived?.theme).toBe("dark");
 });
+
+/** Where a page read mid-write can end (#886); each leaves open what would swallow the scripts. */
+const CUTS = [
+  "<p class",
+  '<p class="a',
+  "<p class='a",
+  "<!-- note",
+  "<script>let note = 1",
+  '<script src="a',
+  "<style>p { color: red",
+  "<textarea>draft",
+  "<script>let note = 1</scri",
+  "</p",
+  "</",
+  "<!-",
+  "<",
+];
+
+it.each(
+  ["utf-8", "utf-16le", "utf-16be"].flatMap((encoding) => CUTS.map((cut) => [encoding, cut])),
+)("a %s page cut off at %s still runs the page and link scripts", async (encoding, cut) => {
+  await commands.servePage(OTHER, atStart(ARRIVED));
+  const utf16 = encoding === "utf-8" ? undefined : (encoding as "utf-16le" | "utf-16be");
+  const element = await mount(atStart(LINKING) + cut, "?theme=dark&palette=pansy", utf16);
+  await userEvent.click(element);
+  await userEvent.keyboard(" ");
+  await expect.poll(keysSent).toEqual([" "]);
+
+  sendToPage("click");
+
+  await expect
+    .poll(() => messages.find((m) => m.fixture === "arrived")?.search)
+    .toBe("?theme=dark&palette=pansy");
+});
