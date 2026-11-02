@@ -1,6 +1,8 @@
 # Directory Update Log
 
-This log keeps one page for each day, under `log/<year>/`. Each month below lists its days, with the newest at the bottom.
+This log stopped on 2026-11-02 and takes no new entries, because every pull request added a line to the same page and GitHub read that as a conflict. For later changes, read `git log` and the pull requests.
+
+It keeps one page for each day, under `log/<year>/`. Each month below lists its days, with the newest at the bottom.
 
 ## 2026-08
 

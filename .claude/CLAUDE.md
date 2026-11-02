@@ -60,10 +60,9 @@ When you add or change a page:
   states what is there, an explanation gives the why. Mixing two of those into
   one page is the failure this structure exists to prevent.
 - Link between pages with bundle-relative markdown links, `/reference/http-api.md`.
-- Update the `index.md` of the directory you touched, and add an entry to the
-  day's page `docs/log/<year>/<MM-DD>.md`, making the page and its link in
-  `docs/log.md` if it is not there yet; a day page over 5,000 tokens splits by
-  subject.
+- Update the `index.md` of the directory you touched. Pull requests are the
+  record of what changed: `docs/log/` stopped on 2026-11-02 and takes no new
+  entries.
 - Never add AI attribution, so no `generated:` or `verified:` frontmatter.
 
 Deployment is documentation like everything else: the runbook is
