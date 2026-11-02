@@ -236,3 +236,58 @@ describe("#680 a fence nobody closed crosses no blank line", () => {
     );
   });
 });
+
+describe("#665 an html comment holds no card", () => {
+  /** The fronts of the cards the note holds, in the order written. */
+  const fronts = (text: string) => parseCards(text).map((card) => card.front);
+
+  it("#665 a :: line inside a comment over several lines is no card", () => {
+    expect(parseCards("#flashcards/x\n\n<!--\nq::a\n-->\n")).toEqual([]);
+  });
+
+  it("#665 a ? card inside a comment over several lines is no card", () => {
+    expect(fronts("#flashcards/x\n\n<!--\nq\n?\na\n-->\n\nr::b\n")).toEqual(["r"]);
+  });
+
+  it("#665 a cloze line inside a comment is no card", () => {
+    expect(fronts("#flashcards/x\n\n<!--\nThe {{c1::WAL}} is a log.\n-->\n")).toEqual([]);
+  });
+
+  it("#665 the cards above and below a comment are still asked, each with its own schedule", () => {
+    const text = [
+      "#flashcards/x",
+      "",
+      "q",
+      "?",
+      "a",
+      "<!--",
+      "hidden::no",
+      "-->",
+      "r::b <!--SR:!2026-08-20,4,270-->",
+    ].join("\n");
+
+    expect(parseCards(text).map(({ from, to, front, back, held }) => ({ from, to, front, back, held }))).toEqual([
+      { from: 2, to: 4, front: "q", back: "a", held: null },
+      { from: 8, to: 8, front: "r", back: "b", held: { due: "2026-08-20", interval: 4, ease: 270 } },
+    ]);
+  });
+
+  it.each([
+    ["on one line", "<!-- q::a -->"],
+    ["opened after three spaces", "   <!-- q::a -->"],
+  ])("#665 a comment %s holds no card", (_, comment) => {
+    expect(fronts(`#flashcards/x\n\n${comment}\n\nr::b\n`)).toEqual(["r"]);
+  });
+
+  it("#665 a schedule on its own line still holds its card's schedule", () => {
+    expect(only("#flashcards/x\n\nq\n?\na\n<!--SR:!2026-08-20,4,270-->\n").held).toEqual({
+      due: "2026-08-20",
+      interval: 4,
+      ease: 270,
+    });
+  });
+
+  it("#665 a comment nobody closes hides every card under it", () => {
+    expect(fronts("#flashcards/x\n\nr::b\n\n<!--\nq::a\n\ns::c\n")).toEqual(["r"]);
+  });
+});

@@ -1,6 +1,7 @@
 import { noteName } from "@/lib/note-path";
 import { inDeck } from "@/lib/review/deck-tag";
 import { type Deck, type DeckNote, decksFrom, parkedNotes } from "@/lib/review/review";
+import { cardsRead } from "@/lib/review/review-queue";
 import { parseCards } from "@/lib/review/srs";
 import { readNoteSchedule, readNoteSuspended } from "@/lib/review/srs-schedule";
 import { hits, one, TODAY } from "./review-fixture";
@@ -97,5 +98,19 @@ describe("decksFrom on an imported deck carrying anki ids", () => {
     expect(deck).toMatchObject({ due: 1, fresh: 2, parked: 1 });
     expect(sitting(deck as Deck, notes)).toEqual({ due: 1, fresh: 2, parked: 1 });
     expect(parkedNotes(hits("aws.md", MARKED.split("\n")))).toEqual(["aws.md"]);
+  });
+});
+
+describe("#665 a card inside an html comment", () => {
+  it("#665 the overview counts it in no deck and the sitting asks it not", () => {
+    const notes = one("x.md", "#flashcards/x\n\nr::b\n\n<!--\nq::a\n-->\n");
+    const [deck] = decksFrom(notes, TODAY);
+
+    expect(deck).toMatchObject({ name: "x", fresh: 1 });
+    expect(
+      [...cardsRead(deck as Deck, new Map([["x.md", notes[0]?.text ?? ""]])).values()]
+        .flat()
+        .map((card) => card.front),
+    ).toEqual(["r"]);
   });
 });
