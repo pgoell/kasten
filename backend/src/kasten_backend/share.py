@@ -159,9 +159,14 @@ def words(rest: str) -> str:
     return todo_fields.BLOCK_ID.sub("", todo_fields.words(rest).strip())
 
 
+def _one_line(text: str) -> str:
+    """The text an add writes: its words joined by single spaces, on one line."""
+    return " ".join(text.split())
+
+
 def kept(text: str) -> str:
     """The words an add of `text` shows as on the list, which the app counts a landed add by."""
-    return words(" ".join(text.split()))
+    return words(_one_line(text))
 
 
 def _shape(name: str, raw: bytes | None) -> Checklist:
@@ -320,7 +325,7 @@ async def add(settings: Settings, name: str, text: str, sha: str | None) -> Chec
     if note is None:
         return None
 
-    words = " ".join(text.split())
+    words = _one_line(text)
     if words == "":
         raise agent.EmptyCaptureError(agent.NOTHING)
 

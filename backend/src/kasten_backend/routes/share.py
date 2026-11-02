@@ -135,7 +135,7 @@ class Read(share.Checklist):
     """A list read, with what an add of the `text` it names would show as."""
 
     kept: str | None = Field(default=None, exclude_if=lambda kept: kept is None)
-    """`share.kept(text)`, left out when the read named no text: a plain read answers as before."""
+    """`share.kept(text)`; left out when the read names no text."""
 
 
 @router.get("/lists/{name:path}")
