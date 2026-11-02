@@ -142,7 +142,7 @@ pick, with no token:
 python3 .github/review/design.py pick
 ```
 
-The agent reads the files with git and nothing else, and reads every
+The agent reads the code with read tools and git only, no `gh`, and reads every
 `review:*` issue, open and closed, so it does not suggest a finding again. A
 workflow step files what it wrote as one issue labelled `refactor`,
 `not-for-loop` and `review:design`: at most 5 findings as a checklist, with the

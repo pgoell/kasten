@@ -283,3 +283,13 @@ def test_prompt_asks_for_the_design_lens_and_evidence() -> None:
     ):
         assert needle in text
     assert "{AREA}" in text and "at most 5" in text and "unticked" in text
+
+
+def test_prompt_fills_the_area_its_files_and_the_big_files(tmp_path: Path) -> None:
+    area = tmp_path / "area.json"
+    picked = {"area": TODO, "reason": "3 commits", "files": [f"{TODO}/a.ts"], "big_files": ["x.ts"]}
+    area.write_text(json.dumps(picked))
+    out = run(tmp_path, "prompt", "--area-json", str(area)).stdout
+    assert f"`{TODO}`" in out and "3 commits" in out
+    assert f"- `{TODO}/a.ts`" in out and "- `x.ts`" in out
+    assert not any(p in out for p in ("{AREA}", "{REASON}", "{FILES}", "{BIG}"))

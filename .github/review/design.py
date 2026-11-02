@@ -2,6 +2,7 @@
 
     python3 .github/review/design.py pick [--json area.json]
     python3 .github/review/design.py context > .review/past.md
+    python3 .github/review/design.py prompt --area-json area.json
     python3 .github/review/design.py file --findings .review/findings.md --area-json area.json
 
 Each reads issues and pull requests from --data, or fetches them from GitHub
@@ -332,10 +333,18 @@ def write_issue(findings: Path, picked: dict, data: dict) -> str:
     return INTRO.format(area=picked["area"], reason=picked["reason"]) + body + "\n"
 
 
+def prompt(picked: dict) -> str:
+    """Fill the agent's prompt with the picked area, its files and the big files."""
+    listed = {k: "\n".join(f"- `{f}`" for f in picked[k]) for k in ("files", "big_files")}
+    text = (Path(__file__).parent / "design.md").read_text()
+    text = text.replace("{AREA}", picked["area"]).replace("{REASON}", picked["reason"])
+    return text.replace("{FILES}", listed["files"]).replace("{BIG}", listed["big_files"])
+
+
 def main() -> None:
     """Run the command the arguments name."""
     parser = argparse.ArgumentParser()
-    parser.add_argument("command", choices=["pick", "context", "file", "fetch"])
+    parser.add_argument("command", choices=["pick", "context", "file", "prompt", "fetch"])
     parser.add_argument("--data", type=Path)
     parser.add_argument("--now", default=datetime.now(UTC).isoformat())
     parser.add_argument("--repo", type=Path, default=Path())
@@ -344,6 +353,9 @@ def main() -> None:
     parser.add_argument("--area-json", type=Path)
     args = parser.parse_args()
     now = when(args.now)
+    if args.command == "prompt":
+        sys.stdout.write(prompt(json.loads(args.area_json.read_text())))
+        return
     data = json.loads(args.data.read_text()) if args.data else fetch(now)
     if args.command == "fetch":
         print(json.dumps(data))

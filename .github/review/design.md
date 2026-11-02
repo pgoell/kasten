@@ -18,7 +18,9 @@ Read first, in this order:
 2. `docs/how-to/review-an-area-for-deep-modules.md`, and follow its steps 2 to
    4 on this area: measure each file, read each file in full, answer its three
    questions. Use `git log`, `git show` and `git grep` for the measurements;
-   you have no `gh`, and you need none.
+   you have no `gh`, and you need none. Skip the how-to's `gh issue list`
+   and leave out a bug you find on the way: this review files design
+   findings only.
 3. The Design section of `REVIEW.md`: each finding names what would show it
    (the caller to fold into, every copy of a list, the module the code belongs
    in, the commit that cut a file at a line count).
