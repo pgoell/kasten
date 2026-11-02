@@ -294,6 +294,7 @@ it("the put it in a note list stays inside a short split pane at 1440", async ()
     scrolls: list.scrollHeight > list.clientHeight,
     oneLine: rows.every((row) => row.getBoundingClientRect().height <= 40),
     titles: rows.map((row) => row.title),
+    passage: (toast.querySelectorAll("p")[1] as HTMLElement).offsetHeight > 0,
   }).toEqual({
     toast: true,
     put: true,
@@ -301,6 +302,7 @@ it("the put it in a note list stays inside a short split pane at 1440", async ()
     scrolls: true,
     oneLine: true,
     titles: RECENT.map(noteName),
+    passage: true,
   });
 });
 
@@ -397,9 +399,10 @@ it("with a mouse, a new selection under the foot toast keeps its Take button in 
   expect({
     under: at.top < box.bottom && at.bottom > box.top,
     onTop: onTop(button),
+    undo: buttonNamed("Undo") !== undefined,
     whole:
       toast.scrollHeight <= toast.clientHeight && passage?.offsetHeight && source?.offsetHeight,
-  }).toEqual({ under: true, onTop: true, whole: expect.any(Number) });
+  }).toEqual({ under: true, onTop: true, undo: true, whole: expect.any(Number) });
   await userEvent.click(button);
   await expect.poll(() => api.dumps.length).toBe(2);
   expect(api.dumps[1]).toContain("> Delta");
