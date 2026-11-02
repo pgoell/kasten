@@ -266,9 +266,17 @@ describe("#665 an html comment holds no card", () => {
       "r::b <!--SR:!2026-08-20,4,270-->",
     ].join("\n");
 
-    expect(parseCards(text).map(({ from, to, front, back, held }) => ({ from, to, front, back, held }))).toEqual([
+    expect(
+      parseCards(text).map(({ from, to, front, back, held }) => ({ from, to, front, back, held })),
+    ).toEqual([
       { from: 2, to: 4, front: "q", back: "a", held: null },
-      { from: 8, to: 8, front: "r", back: "b", held: { due: "2026-08-20", interval: 4, ease: 270 } },
+      {
+        from: 8,
+        to: 8,
+        front: "r",
+        back: "b",
+        held: { due: "2026-08-20", interval: 4, ease: 270 },
+      },
     ]);
   });
 
